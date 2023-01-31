@@ -276,7 +276,7 @@ PUBLIC STRING FUNCTION GetStatusText(INTEGER status)
   {
     // 000: Not checked yet
     CASE   0 { RETURN GetTid("consilio:report.linkcheck.status.notcheckedyet"); }
-    // 0xx: Connection Error (Consilio-defined codes, see executelinkcheck.whscr)
+    // 0xx: Internal Error
     CASE   1 { RETURN GetTid("consilio:report.linkcheck.status.socketerror"); }
     CASE   2 { RETURN GetTid("consilio:report.linkcheck.status.servernotfound"); }
     CASE   3 { RETURN GetTid("consilio:report.linkcheck.status.couldnotconnect"); }
@@ -289,6 +289,7 @@ PUBLIC STRING FUNCTION GetStatusText(INTEGER status)
     CASE  10 { RETURN GetTid("consilio:report.linkcheck.status.toomanyredirections"); }
     CASE  11 { RETURN GetTid("consilio:report.linkcheck.status.internallinknonexisting"); }
     CASE  12 { RETURN GetTid("consilio:report.linkcheck.status.internallinknotpublished"); }
+    CASE  13 { RETURN GetTid("consilio:report.linkcheck.status.invalidurl"); }
     // 1xx: Informational
     CASE 100 { RETURN GetTid("consilio:report.linkcheck.status.continue"); }
     CASE 101 { RETURN GetTid("consilio:report.linkcheck.status.switchingprotocols"); }
@@ -308,6 +309,7 @@ PUBLIC STRING FUNCTION GetStatusText(INTEGER status)
     CASE 304 { RETURN GetTid("consilio:report.linkcheck.status.notmodified"); }
     CASE 305 { RETURN GetTid("consilio:report.linkcheck.status.useproxy"); }
     CASE 307 { RETURN GetTid("consilio:report.linkcheck.status.temporaryredirect"); }
+    CASE 308 { RETURN GetTid("consilio:report.linkcheck.status.permanentredirect"); }
     // 4xx: Client Error
     CASE 400 { RETURN GetTid("consilio:report.linkcheck.status.badrequest"); }
     CASE 401 { RETURN GetTid("consilio:report.linkcheck.status.unauthorized"); }
@@ -327,7 +329,8 @@ PUBLIC STRING FUNCTION GetStatusText(INTEGER status)
     CASE 415 { RETURN GetTid("consilio:report.linkcheck.status.unsupportedmediatype"); }
     CASE 416 { RETURN GetTid("consilio:report.linkcheck.status.requestrangenotsatisfiable"); }
     CASE 417 { RETURN GetTid("consilio:report.linkcheck.status.expectationfailed"); }
-    CASE 499 { RETURN GetTid("consilio:report.linkcheck.status.invalidurl"); }
+    CASE 429 { RETURN GetTid("consilio:report.linkcheck.status.toomanyrequests"); }
+    CASE 499 { RETURN GetTid("consilio:report.linkcheck.status.invalidurl"); } //FIXME: Legacy, changed to internal code 13
     // 5xx: Server Error
     CASE 500 { RETURN GetTid("consilio:report.linkcheck.status.internalservererror"); }
     CASE 501 { RETURN GetTid("consilio:report.linkcheck.status.notimplemented"); }
@@ -335,6 +338,11 @@ PUBLIC STRING FUNCTION GetStatusText(INTEGER status)
     CASE 503 { RETURN GetTid("consilio:report.linkcheck.status.serviceunavailable"); }
     CASE 504 { RETURN GetTid("consilio:report.linkcheck.status.gatewaytimeout"); }
     CASE 505 { RETURN GetTid("consilio:report.linkcheck.status.httpversionnotsupported"); }
+    // 52x: Cloudflare Proxy Error
+    CASE 521 { RETURN GetTid("consilio:report.linkcheck.status.cloudflare-webserverdown"); }
+    CASE 522 { RETURN GetTid("consilio:report.linkcheck.status.cloudflare-connectiontimedout"); }
+    // 999: Request denied (returned by some servers)
+    CASE 999 { RETURN GetTid("consilio:report.linkcheck.status.requestdenied"); }
   }
   RETURN GetTid("consilio:report.linkcheck.status.unknown");
 }

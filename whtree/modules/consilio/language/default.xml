@@ -283,6 +283,8 @@
         <text tid="badgateway">Bad gateway</text>
         <text tid="badrequest">Bad request</text>
         <text tid="circularredirection">Circular redirection</text>
+        <text tid="cloudflare-connectiontimedout">Connection timeout (Cloudflare)</text>
+        <text tid="cloudflare-webserverdown">Webserver down (Cloudflare)</text>
         <text tid="conflict">Conflict</text>
         <text tid="connectiontimedout">Connection timed out</text>
         <text tid="continue">Continue</text>
@@ -315,9 +317,11 @@
         <text tid="ok">OK</text>
         <text tid="partialcontent">Partial content</text>
         <text tid="paymentrequired">Payment required</text>
+        <text tid="permanentredirect">Permanent redirect</text>
         <text tid="preconditionfailed">Precondition failed</text>
         <text tid="proxyauthenticationrequired">Proxy authentication required</text>
         <text tid="requestcouldnotbesent">Request could not be sent</text>
+        <text tid="requestdenied">Request denied</text>
         <text tid="requestentitytoolarge">Request entity too large</text>
         <text tid="requestrangenotsatisfiable">Request range not satisfiable</text>
         <text tid="requesttimeout">Request timeout</text>
@@ -330,6 +334,7 @@
         <text tid="switchingprotocols">Switching protocols</text>
         <text tid="temporaryredirect">Temporary redirect</text>
         <text tid="toomanyredirections">Too many redirections</text>
+        <text tid="toomanyrequests">Too many requests</text>
         <text tid="unauthorized">Unauthorized</text>
         <text tid="unknown">Unknown error</text>
         <text tid="unsupportedmediatype">Unsupported media type</text>
