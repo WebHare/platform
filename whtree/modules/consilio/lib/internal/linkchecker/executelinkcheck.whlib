@@ -13,16 +13,19 @@
           For each link the HTTP status code is recorded. For links without
           status code (e.g. no connection could be made) we will use the
           response class "0xx: Connection error":
-            001  Socket error               Error creating TCP socket
-            002  Server not found           The server name could not be resolved
-            003  Could not connect          No connection to the server could be made
-            004  Connection timed out       Making a connection to the server timed out
-            005  No HTTP connection         Could not open HTTP connection
-            006  No secure connection       Connection could not be secured (SSL connection)
-            007  Request could not be sent  The HTTP request could not be sent to the server
-            008  No HTTP response           No valid HTTP response received from the server
-            009  Circular redirection       Got a circular redirection
-            010  Too many redirections      Redirection chain is too long
+            001  Socket error                 Error creating TCP socket
+            002  Server not found             The server name could not be resolved
+            003  Could not connect            No connection to the server could be made
+            004  Connection timed out         Making a connection to the server timed out
+            005  No HTTP connection           Could not open HTTP connection
+            006  No secure connection         Connection could not be secured (SSL connection)
+            007  Request could not be sent    The HTTP request could not be sent to the server
+            008  No HTTP response             No valid HTTP response received from the server
+            009  Circular redirection         Got a circular redirection
+            010  Too many redirections        Redirection chain is too long
+            011  Internal link doesn't exist  The file this internal link points to doesn't exist (anymore)
+            012  Internal link not published  The file this internal link points to isn't published
+            013  Invalid URL                  The url is not a valid plain HTTP url
 */
 
 LOADLIB "wh::datetime.whlib";
@@ -127,7 +130,7 @@ PUBLIC RECORD FUNCTION ExecuteConsilioLinkCheck(RECORD options)
     {
       IF (options.debug)
         PRINT("Skipping invalid URL " || url || "\n");
-      response := [ code := 499
+      response := [ code := 013
                   ];
     }
     ELSE
@@ -142,6 +145,7 @@ PUBLIC RECORD FUNCTION ExecuteConsilioLinkCheck(RECORD options)
           OR response.code = 302 // Found
           OR response.code = 303 // See Other
           OR response.code = 307 // Temporary Redirect
+          OR response.code = 308 // Permanent Redirect
         )
       {
         // We got a redirection
