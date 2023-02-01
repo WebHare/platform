@@ -239,10 +239,14 @@ export class WHFSApplyTester {
     if (!isResourceMatch(apply.siteprofileids, this.objinfo.siteprofileids))
       return false;
 
-    for (const appl of apply.tos)
-      if (await this.toIsMatch(appl, this.objinfo.site, this.objinfo.parent))
-        return true;
-
+    try {
+      for (const appl of apply.tos)
+        if (await this.toIsMatch(appl, this.objinfo.site, this.objinfo.parent))
+          return true;
+    } catch (e) {
+      (e as Error).message += ` (evaluating ${apply.siteprofile}#${apply.line})`;
+      throw e;
+    }
     return false;
   }
 
