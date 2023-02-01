@@ -538,10 +538,6 @@ create_container()
     die "Container start failed"
   fi
 
-  if ! RunDocker exec "$CONTAINERID" chown -R root:root /opt/whdata/installedmodules/; then
-    die "chown modules failed"
-  fi
-
   if ! RunDocker exec "$CONTAINERID" wh fixmodules --onlyinstalledmodules ; then
     testfail "wh fixmodules failed"
   fi
