@@ -26,11 +26,11 @@ function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: WebRespo
   test.eq(markdowndoc.whfspath, whfspathnode["#text"], "Expect our whfspath to be in the source");
 
   const contentdiv = doc.html.body.div.find((_: any) => _["@_id"] === "content");
-  // console.log(contentdiv);
 
   test.eq("Markdown file", contentdiv.h2[0]["#text"]); //it has an id= so this one currently becomes an object
   test.eq("heading2", contentdiv.h2[0]["@_class"]); //it has an id= so this one currently becomes an object
-  test.eq("This is a marked down file", contentdiv.p[0]["#text"]);
+  test.eq("This is amarked down file", contentdiv.p[0]["#text"]);
+  test.eq(["commonmark"], contentdiv.p[0].code);
   test.eq("normal", contentdiv.p[0]["@_class"]);
   //FIXME also ensure proper classes on table and tr/td!
   test.eq(["baz", "bim"], contentdiv.table[0].tbody.tr[0].td);
