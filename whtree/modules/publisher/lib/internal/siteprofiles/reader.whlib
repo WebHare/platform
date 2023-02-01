@@ -1451,13 +1451,15 @@ STATIC OBJECTTYPE ApplyRuleTester
                         , objectname  := ""
                         , issystemredirect := FALSE
                         , capturesubpaths := RecordExists(typerec) AND typerec.capturesubpaths
+                        , renderfunction := ""
                         ];
       }
-      IF (apply.bodyrenderer.rendermacro != "" OR apply.bodyrenderer.preparemacro != "" OR apply.bodyrenderer.objectname != "")
+      IF (apply.bodyrenderer.rendermacro != "" OR apply.bodyrenderer.preparemacro != "" OR apply.bodyrenderer.objectname != "" OR apply.bodyrenderer.renderfunction != "")
       {
         bodyrenderer.rendermacro := apply.bodyrenderer.rendermacro;
         bodyrenderer.preparemacro := apply.bodyrenderer.preparemacro;
         bodyrenderer.objectname := apply.bodyrenderer.objectname;
+        bodyrenderer.renderfunction := apply.bodyrenderer.renderfunction;
       }
     }
     RETURN bodyrenderer;

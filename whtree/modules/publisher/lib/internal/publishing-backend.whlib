@@ -161,6 +161,13 @@ STATIC OBJECTTYPE PublicationRun
     RECORD webdesign := applytester->GetWebDesignObjinfo();
     retval.webdesign := webdesign;
 
+    IF(RecordExists(webdesign.renderinfo) AND webdesign.renderinfo.renderfunction != "")
+    {
+      retval.has_webdesign := TRUE;
+      retval.templatescript := "mod::publisher/scripts/internal/publishjsrenderer.whscr";
+      RETURN retval;
+    }
+
     RECORD usetempl := applytester->GetUsePublishTemplate(); //usetempl.script can never be empty
     IF(ObjectExists(this->contentfiletype)
       AND (this->contentfiletype->isdynamicexecution
