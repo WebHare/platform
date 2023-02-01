@@ -1,4 +1,5 @@
 import { SiteRequest, WebRequest, WebResponse } from "@webhare/router";
+import { coreWebHareRouter } from "@webhare/router/src/corerouter";
 import * as whfs from "@webhare/whfs";
 
 export async function captureJSDesign(obj: number) {
@@ -13,4 +14,11 @@ export async function captureJSDesign(obj: number) {
   await outputpage.finish();
 
   return { parts: response.body.split(placeholder) };
+}
+
+export async function captureJSPage(obj: number) {
+  const targetdoc = await whfs.openFile(obj);
+  const response = new WebResponse;
+  await coreWebHareRouter(new WebRequest("GET", targetdoc.link), response);
+  return { body: response.body };
 }
