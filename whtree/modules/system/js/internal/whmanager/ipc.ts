@@ -299,7 +299,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     const msgid = this.send(message);
     const defer = createDeferred<CalcResponseType<SendType, ReceiveType, T>>();
     this.requests.set(msgid, defer);
-    const error = new Error();
+    const error = new Error(); //FIXME avoid generating a stack trace for every request!  this should be eg behind a debug flag
     const lock = this.refs.getLock("request");
     try {
       return await defer.promise;
