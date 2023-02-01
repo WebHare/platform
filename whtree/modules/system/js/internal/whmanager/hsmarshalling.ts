@@ -195,9 +195,13 @@ export function readMarshalPacket(buffer: Buffer | ArrayBuffer): IPCMarshallable
   if (totalblobsize) {
     buf.readpos = 20 + columnsize + datasize;
     const blobcount = buf.readU32();
+    const blobsizes: number[] = [];
+    //First we get the sizes of the blobs, THEN the actual blobs
     for (let idx = 0; idx < blobcount; ++idx) {
-      const blobsize = buf.readBigU64();
-      blobs.push(buf.readRaw(Number(blobsize)));
+      blobsizes.push(Number(buf.readBigU64()));
+    }
+    for (let idx = 0; idx < blobcount; ++idx) {
+      blobs.push(buf.readRaw(blobsizes[idx]));
     }
     if (buf.readpos != 20 + columnsize + datasize + Number(totalblobsize))
       throw new Error(`Error in marshalling packet: incorrect blob section size`);
