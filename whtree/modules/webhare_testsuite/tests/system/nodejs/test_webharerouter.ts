@@ -4,7 +4,7 @@ import { WebRequest, WebResponse, WebHareRouter, SiteRequest } from "@webhare/ro
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
 import { BaseTestPageConfig } from "@mod-webhare_testsuite/webdesigns/basetestjs/webdesign/webdesign";
 import { XMLParser } from "fast-xml-parser";
-import { captureJSDesign } from "@mod-publisher/js/internal/capturejsdesign";
+import { captureJSDesign, captureJSPage } from "@mod-publisher/js/internal/capturejsdesign";
 
 function parseHTMLDoc(html: string) {
   const parsingOptions = {
@@ -26,11 +26,11 @@ function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: WebRespo
   test.eq(markdowndoc.whfspath, whfspathnode["#text"], "Expect our whfspath to be in the source");
 
   const contentdiv = doc.html.body.div.find((_: any) => _["@_id"] === "content");
-  // console.log(contentdiv);
 
   test.eq("Markdown file", contentdiv.h2[0]["#text"]); //it has an id= so this one currently becomes an object
   test.eq("heading2", contentdiv.h2[0]["@_class"]); //it has an id= so this one currently becomes an object
-  test.eq("This is a marked down file", contentdiv.p[0]["#text"]);
+  test.eq("This is amarked down file", contentdiv.p[0]["#text"]);
+  test.eq(["commonmark"], contentdiv.p[0].code);
   test.eq("normal", contentdiv.p[0]["@_class"]);
   //FIXME also ensure proper classes on table and tr/td!
   test.eq(["baz", "bim"], contentdiv.table[0].tbody.tr[0].td);
@@ -74,6 +74,14 @@ async function testCaptureJSDesign() {
   test.eqMatch(/^ *<\/div>.*\/body.*\/html/, resultpage.parts[1].replaceAll("\n", " "));
 }
 
+async function testCaptureJSRendered() {
+  //Test capturing a JS Page rendered in a WHLIB design
+  const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
+  const resultpage = await captureJSPage(markdowndoc.id);
+  // console.log(resultpage.body);
+  test.eqMatch(/<html.*<body.*<div id="content">.*<code>commonmark<\/code>.*<\/div>.*\/body.*\/html/, resultpage.body.replaceAll("\n", " "));
+}
+
 //TODO should this be a router API?  but will there ever be another router to run than coreWebHareRouter? is this more about caching ?
 async function runARouter(router: WebHareRouter, request: WebRequest) {
   const response = new WebResponse;
@@ -99,6 +107,7 @@ async function testRouter_JSWebDesign() {
 test.run([
   testSiteResponse,
   testCaptureJSDesign,
+  testCaptureJSRendered,
   testRouter_HSWebDesign,
   testRouter_JSWebDesign
 ]);

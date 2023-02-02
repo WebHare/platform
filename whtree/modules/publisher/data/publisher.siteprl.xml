@@ -473,7 +473,7 @@
       <composeddocument name="data" />
     </members>
     <setobjecteditor name="publisher:editmarkdown" separateapp="true" supportsversioning="true" />
-    <bodyrenderer objectname="mod::publisher/lib/internal/renderers/markdown.whlib#RenderMarkdown" />
+    <bodyrenderer renderfunction="mod::publisher/js/internal/markdown.ts#renderMarkdown" />
   </filetype>
 
   <filetype namespace="http://www.webhare.net/xmlns/publisher/msworddownload"

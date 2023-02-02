@@ -138,6 +138,11 @@ MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderwidgetpr
 
   __pageinfo := [ pagefolder := GetDirectoryFromPath(Tokenize(webdesigninfo.renderinfo.objectname,'#')[0]) ];
 
+  IF(webdesigninfo.renderinfo.renderfunction != "")
+    THROW NEW Exception("Don't know how to render a JS object"); //TODO it's not clear if *we* should or if the preview should have been routed to JS earlier
+  ELSE IF(webdesigninfo.renderinfo.objectname = "")
+    THROW NEW Exception("Don't know how to render a type without a rendering object");
+
   OBJECT pageobject := MakeObject(webdesigninfo.renderinfo.objectname, contentobject);
   OBJECT webdesign := InstantiateWebDesign(applytester, webdesigninfo, 200, contentobject, pageobject, renderwidgetpreview);
 
