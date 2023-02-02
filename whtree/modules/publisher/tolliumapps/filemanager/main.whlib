@@ -2276,7 +2276,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   {
     OBJECT obj := OpenWHFSObject(^filelist->selection.id);
     IF(GetDtapStage() = "development") // Add feedback token to activate authormode data
-      openhandler->SendURL(`${obj->url}?wh-feedback-token=${EncodeURL(EncodeBase64(EncodeJSON(GetFeedbackWebToken(this->contexts->user))))}`);
+      openhandler->SendURL(`${obj->url}?wh-feedback-token=${EncodeURL(GetFeedbackWebToken(this->contexts->user))}`);
     ELSE
       openhandler->SendURL(obj->url);
   }
@@ -2361,4 +2361,3 @@ PUBLIC MACRO RunDirectEdit(OBJECT controller, RECORD data)
     RunExceptionReportDialog(controller, err);
   }
 }
-

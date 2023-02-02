@@ -153,9 +153,8 @@ function checkAuthorMode() {
   // Is author mode activated through the Publisher?
   if (location.search.includes("wh-feedback-token=")) {
     const url = new URL(location.href);
-    const tokentext = url.searchParams.get("wh-feedback-token");
-    if (tokentext) {
-      const token = JSON.parse(tokentext);
+    const token = url.searchParams.get("wh-feedback-token");
+    if (token) {
       if (token && token.match(/^[^.]*\.[^.]*\.[^.]*$/)) { // Check if the string has the general JWT header.payload.signature format
         storage.setLocal("wh-feedback:accesstoken", token);
         url.searchParams.delete("wh-feedback-token");
