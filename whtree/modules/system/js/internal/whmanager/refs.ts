@@ -1,3 +1,4 @@
+import { Socket } from "net";
 import EventSource from "../eventsource";
 
 const reftrackersymbol = Symbol("refTracker");
@@ -36,6 +37,7 @@ export class RefTracker extends EventSource<RefTrackerEvents>{
   private hasref: boolean;
   private objhasref: boolean;
   private obj: Referencable;
+  private refobj: Referencable;
 
   constructor(obj: Referencable, { initialref }: { initialref?: boolean } = {}) {
     super();
@@ -46,6 +48,19 @@ export class RefTracker extends EventSource<RefTrackerEvents>{
     if (initialref) {
       this.initialref = new RefLock(this, "initial reference");
       this.locks.add(this.initialref);
+    }
+    this.refobj = obj;
+
+    if ("allowHalfOpen" in obj) {
+      /* object is a Socket. re-referencing a socket sometimes doesn't work in node 19 */
+      const timer = setInterval(() => false, 86400000); // use an interval for references instead, one with few callbacks
+      (obj as Socket).on("close", () => clearInterval(timer)); // close when the socket closes
+      (obj as Socket).on("error", () => clearInterval(timer)); // or has an error
+      this.refobj = timer;
+      if (initialref)
+        this.obj.unref();
+      else
+        this.refobj.unref();
     }
   }
 
@@ -78,9 +93,9 @@ export class RefTracker extends EventSource<RefTrackerEvents>{
     if (this.objhasref !== newhasref) {
       this.objhasref = newhasref;
       if (newhasref)
-        this.obj.ref();
+        this.refobj.ref();
       else
-        this.obj.unref();
+        this.refobj.unref();
     }
   }
 
