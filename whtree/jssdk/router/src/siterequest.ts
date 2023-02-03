@@ -27,16 +27,14 @@ export class SiteRequest implements WebRequest {
 
   async createComposer<T extends object = object>(response: WebResponse): Promise<SiteResponse<T>> { //async because we may delay loading the actual webdesign code until this point
     const publicationsettings = await (await getApplyTesterForObject(this.targetobject)).getWebDesignInfo();
-    const webdesignfunctionname = publicationsettings.objectname; //FIXME its not really an objectname. set up a separate property ?
-
-    if (webdesignfunctionname.split('#')[0].endsWith(".whlib"))
+    if (!publicationsettings.siteresponsefactory)
       return wrapHSWebdesign<T>(this, response);
 
-    const webdesignfunction = await resourcetools.loadJSFunction(webdesignfunctionname) as WebDesignFunction<T>;
+    const factory = await resourcetools.loadJSFunction(publicationsettings.siteresponsefactory) as WebDesignFunction<T>;
     const settings: SiteResponseSettings = { //TODO is it useful to transfer these from siteprl to webdesign? why can't the user's WebDesignFunction manage these?
       assetpack: publicationsettings.assetpack,
       witty: publicationsettings.witty
     };
-    return await webdesignfunction(this, response, settings);
+    return await factory(this, response, settings);
   }
 }

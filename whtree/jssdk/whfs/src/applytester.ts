@@ -270,6 +270,7 @@ export class WHFSApplyTester {
     //Inspired on GetWebDesignObjinfo()
     const webdesign = {
       objectname: "mod::publisher/lib/webdesign.whlib#WebDesignBase",
+      siteresponsefactory: "",
       witty: "mod::publisher/lib/defaultwebdesign.witty",
       assetpack: "",
       designfolder: "",
@@ -290,6 +291,7 @@ export class WHFSApplyTester {
 
     for (const apply of await this.getMatchingRules('webdesign')) {
       webdesign.objectname = apply.webdesign.objectname ?? webdesign.objectname;
+      webdesign.siteresponsefactory = apply.webdesign.siteresponsefactory ?? webdesign.siteresponsefactory;
       webdesign.witty = apply.webdesign.witty ?? webdesign.witty;
       webdesign.designfolder = apply.webdesign.designfolder ?? webdesign.designfolder;
       webdesign.maxcontentwidth = apply.webdesign.maxcontentwidth ?? webdesign.maxcontentwidth;

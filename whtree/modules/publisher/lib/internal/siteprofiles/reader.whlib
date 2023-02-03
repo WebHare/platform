@@ -280,6 +280,7 @@ PUBLIC RECORD FUNCTION GetDefaultWebDesignInfo()
 {
   RECORD webdesign := [ objectname      := "mod::publisher/lib/webdesign.whlib#WebDesignBase"
                       , witty           := "mod::publisher/lib/defaultwebdesign.witty"
+                      , siteresponsefactory := ""
                       , assetpack       := ""
                       , designfolder    := ""
                       , maxcontentwidth := ""
@@ -545,7 +546,7 @@ PUBLIC OBJECT FUNCTION InstantiateWebDesign(OBJECT applytester, RECORD webdesign
     IF(webdesigninfo.designfolder = "")
       THROW NEW Exception(`The webdesign for this page didn't set a designfolder`);
 
-    IF(GetExtensionFromPath(Tokenize(webdesigninfo.objectname,'#')[0]) IN whconstant_javascript_extensions)
+    IF(webdesigninfo.siteresponsefactory != "")
       webdesigninfo.objectname := "mod::publisher/lib/internal/webdesign/wrappedjsdesign.whlib#WrappedJSDesign";
 
     OBJECT designobj := MakeObject(webdesigninfo.objectname);
@@ -1399,6 +1400,9 @@ STATIC OBJECTTYPE ApplyRuleTester
       webdesign.asyncbundle          := apply.webdesign.has_asyncbundle          ? apply.webdesign.asyncbundle          : webdesign.asyncbundle;
       webdesign.contentnavstops      := apply.webdesign.has_contentnavstops      ? apply.webdesign.contentnavstops      : webdesign.contentnavstops;
       webdesign.lazyloadcss          := apply.webdesign.has_lazyloadcss          ? apply.webdesign.lazyloadcss          : webdesign.lazyloadcss;
+
+      IF(CellExists(apply.webdesign,'siteresponsefactory')) //introduced in 5.2
+        webdesign.siteresponsefactory := apply.webdesign.siteresponsefactory ?? webdesign.siteresponsefactory;
     }
 
     IF (RecordExists(webdesign))
