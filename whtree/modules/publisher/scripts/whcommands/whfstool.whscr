@@ -1,4 +1,7 @@
 <?wh
+// short: Apply bulk WHFS changes
+// syntax: <actions...> <path...>
+
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::consilio/lib/whfscatalog.whlib";
@@ -8,6 +11,7 @@ LOADLIB "mod::publisher/lib/internal/dbschema.whlib";
 
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "recursive", type := "switch" ]
                                                      , [ name := "pin", type := "switch" ]
@@ -22,8 +26,14 @@ RECORD args := ParseArguments(GetConsoleArguments(), [ [ name := "recursive", ty
                                                      , [ name := "paths", type := "paramlist" ]
                                                      ]);
 IF (NOT RecordExists(args) OR Length(args.paths) = 0)
-{
-  Print("Usage: wh publisher:whfstool path [path ...]\n");
+{?>Usage: wh publisher:whfstool [--dryrun] [--debug] [--recursive] [--<actions>] <path...>
+  --dryrun     Do not commit changes to the database
+  --recursive  Apply to subdirectories too
+  path         The whfs path(s) to process
+
+
+<?wh
+  Print("       \n");
   Print("       path         The whfs path(s) to process\n");
   SetConsoleExitCode(1);
   RETURN;
@@ -65,7 +75,9 @@ RECORD ARRAY FUNCTION GetInterestingStuff(INTEGER ARRAY objids, BOOLEAN matchpar
 {
   RETURN SELECT id, name, whfspath, isfolder, ispinned, parent
            FROM system.fs_objects
-          WHERE (matchparent ? (parent IN objids) : (id IN objids));
+          WHERE (matchparent ? (parent IN objids AND id NOT IN [whconstant_whfsid_private]) //don't recurse into webhare-private, you need to explicitly request that
+                             : (id IN objids))
+       ORDER BY ToUppercase(whfspath);
 }
 
 RECORD ARRAY FUNCTION ExecuteAction(RECORD ARRAY objects, BOOLEAN recursive)
@@ -184,7 +196,7 @@ RECORD ARRAY FUNCTION ExecuteAction(RECORD ARRAY objects, BOOLEAN recursive)
   RETURN reindexobjs CONCAT ExecuteAction(GetInterestingStuff(folderids, TRUE), recursive);
 }
 
-RECORD ARRAY toprocess := GetInterestingStuff(startobjids, FALSE);
+RECORD ARRAY toprocess := GetInterestingStuff(startobjids, 0 IN startobjids); //recursive if root is one of the targets
 RECORD ARRAY to_reindex := ExecuteAction(toprocess, args.recursive);
 IF (args.reindex AND NOT args.dryrun)
 {
