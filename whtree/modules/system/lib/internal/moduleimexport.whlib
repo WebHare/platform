@@ -423,6 +423,8 @@ RECORD FUNCTION __ActivateInstalledModule(STRING modulename, STRING installpath)
   //__FlushCaches();
 
   FixModuleSymlinks([modulename], FALSE); //put nodejs folder in place
+  OBJECT create_gen_promise := CallAsync("mod::system/js/internal/generation/gen_whdb.ts#updateAllModuleTableDefs", VARIANT[]);
+
   GetPrimary()->BeginWork();
   EnsureModulePrivateFolders();
   GetPrimary()->CommitWork();
@@ -435,6 +437,9 @@ RECORD FUNCTION __ActivateInstalledModule(STRING modulename, STRING installpath)
 
   OBJECT validator := GetModuleXMLValidator(modulename);
   INSERT CELL runoncescripts := ParseModuleDefRunonce(validator) INTO moduleinfo;
+
+  // Make sure the generated database files are ready before running scripts
+  WaitForPromise(create_gen_promise);
 
   ClearAllSchemaCaches();
   RECORD sch := GetModuleDatabaseSchema(modulename);

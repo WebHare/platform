@@ -17,6 +17,7 @@ LOADLIB "mod::system/lib/validation.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/modules/disk.whlib";
+LOADLIB "mod::system/lib/internal/tasks/callasync.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/modules/publicconfig.whlib";
 LOADLIB "mod::system/lib/internal/modules/migrations.whlib";
@@ -232,10 +233,11 @@ PUBLIC MACRO RunRestartReset(BOOLEAN debug, BOOLEAN issoftreset)
   GetPrimary()->CommitWork();
   EnsureModuleStorageFolders(FALSE);
 
-  IF (debug) //set up symlinks before starting modules so thta any JS code can find its configuration
-    Print("Fixing module symlinks and server configuration JS\n");
+  IF (debug) //set up symlinks before starting modules so that any JS code can find its configuration
+    Print("Fixing module symlinks, generated database files and server configuration JS\n");
   FixModuleSymlinks(GetInstalledModuleNames(), TRUE);
   UpdatePublicConfig();
+  WaitForPromise(CallAsync("mod::system/js/internal/generation/gen_whdb.ts#updateAllModuleTableDefs", VARIANT[]));
 
   //then the rest
   STRING ARRAY modules := SELECT AS STRING ARRAY module FROM ToRecordArray(GetInstalledModuleNames(),'module') WHERE module NOT IN whconstant_builtinmodules;
