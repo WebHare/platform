@@ -1,9 +1,9 @@
 import { CSPApplyTo, CSPApplyRule, getCachedSiteProfiles, CSPApplyToTo } from "./siteprofiles";
 import { openFolder, WHFSObject, WHFSFolder, WHFSFile } from "./whfs";
 import { HSVM, openHSVM } from "@webhare/services/src/hsvm";
-import { sql } from "@webhare/whdb";
-import { FsObjectRow, SiteRow } from "./dbschema";
-import { isLike, isNotLike } from "@webhare/hscompat";
+import { db, Selectable } from "@webhare/whdb";
+import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
+import { isLike, isNotLike } from "@webhare/hscompat/strings";
 
 export interface WebDesignInfo {
   objectname: string;
@@ -40,7 +40,7 @@ function matchPathRegex(pattern: string, path: string): boolean {
 }
 
 interface BaseInfo extends SiteApplicabilityInfo {
-  site: SiteRow | null;
+  site: Selectable<WebHareDB, "system.sites"> | null;
   obj: WHFSObject;
   parent: WHFSFolder | null;
   isfile: boolean;
@@ -60,9 +60,9 @@ export async function getBaseInfoForApplyCheck(obj: WHFSObject): Promise<BaseInf
   // RETURN DEFAULT RECORD;
 
   const siteapply = await getSiteApplicabilityInfo(obj.parentsite);
-  let site = null;
+  let site: Selectable<WebHareDB, "system.sites"> | null = null;
   if (obj.parentsite) {
-    site = (await sql`select * from system.sites where id = ${obj.parentsite}`)[0] as SiteRow; //TODO why doesn't getSiteApplicabilityInfo give us what we need here
+    site = await db<WebHareDB>().selectFrom("system.sites").selectAll().where("id", "=", obj.parentsite).executeTakeFirst() ?? null; //TODO why doesn't getSiteApplicabilityInfo give us what we need here
   }
   //TODO don't actually open the objects if we can avoid it.
   return {
@@ -90,7 +90,7 @@ export class WHFSApplyTester {
 */
 
   //TODO shouldn't take access to dbrecord, just need to add some more fields to the base types
-  private async toIsMatch(element: CSPApplyTo, site: SiteRow | null, folder: WHFSFolder | null): Promise<boolean> {
+  private async toIsMatch(element: CSPApplyTo, site: Selectable<WebHareDB, "system.sites"> | null, folder: WHFSFolder | null): Promise<boolean> {
     switch (element.type) {
       case "and":
         for (const crit of element.criteria)
@@ -152,7 +152,7 @@ export class WHFSApplyTester {
         if (element.match_folder && this.objinfo.isfile)
           return false;
         //TODO decide whether the API should still expose numeric types.... or have siteprofiles simply make them irrelevant (do we still support numbers *anywhere*? )
-        const numerictype = (this.objinfo.obj as unknown as { dbrecord: FsObjectRow }).dbrecord.type;
+        const numerictype = (this.objinfo.obj as unknown as { dbrecord: Selectable<WebHareDB, "system.fs_objects"> }).dbrecord.type;
         if (element.foldertype && !this.matchType(numerictype, element.foldertype, true))
           return false;
         if (element.filetype && !this.matchType(numerictype, element.filetype, false))
@@ -182,14 +182,14 @@ export class WHFSApplyTester {
     return true;
   }
 
-  testPathConstraint(rec: CSPApplyToTo, site: SiteRow | null, parentitem: WHFSFolder | null): boolean {
+  testPathConstraint(rec: CSPApplyToTo, site: Selectable<WebHareDB, "system.sites"> | null, parentitem: WHFSFolder | null): boolean {
     if (rec.pathmask && isNotLike(this.objinfo.obj.fullpath.toUpperCase(), rec.pathmask.toUpperCase()))
       return false;
     if (rec.parentmask && (!parentitem || isNotLike(parentitem.fullpath.toUpperCase(), rec.parentmask.toUpperCase())))
       return false;
 
     //TODO decide whether the API should still expose numeric types.... or have siteprofiles simply make them irrelevant (do we still support numbers *anywhere*? )
-    const numerictype = (parentitem as unknown as { dbrecord: FsObjectRow }).dbrecord.type;
+    const numerictype = (parentitem as unknown as { dbrecord: Selectable<WebHareDB, "system.fs_objects"> }).dbrecord.type;
     if (rec.parenttype && (!parentitem || !this.matchType(numerictype, rec.parenttype, true)))
       return false;
     if (rec.withintype) //FIXME: && (!parentitem || ! this.matchWithinType(parentitem.type, rec.withintype,true)))
@@ -226,8 +226,9 @@ export class WHFSApplyTester {
     return false; //FIXME implement but shouldn't this be in the site applicability cache and thus already available?
   }
 
-  matchType(foldertype: number, matchwith: string, isfolder: boolean) {
-    if (foldertype < 1000 && matchwith == String(foldertype)) //only match by ID for well-knowns
+  matchType(foldertype: number | null, matchwith: string, isfolder: boolean) {
+    foldertype = foldertype ?? 0; // emulate HareScript behaviour for typeless files/folders
+    if (foldertype && foldertype < 1000 && matchwith == String(foldertype)) //only match by ID for well-knowns
       return true;
 
     const types = getCachedSiteProfiles().contenttypes;
