@@ -33,7 +33,7 @@ MACRO TSConfigTest()
         CONTINUE;
       IF (abspath LIKE `${GetWebhareConfiguration().installationroot}node_modules/*`)
         CONTINUE;
-      IF (rec.name = "@MOD-WEBHARETESTSUITE" OR rec.name LIKE "@MOD-WEBHARETESTSUITE/*")
+      IF (rec.name = "@MOD-WEBHARE_TESTSUITE" OR rec.name LIKE "@MOD-WEBHARE_TESTSUITE/*")
         CONTINUE;
 
       STRING relpath := ResolveToRelativePath(GetWebhareConfiguration().installationroot, abspath);
