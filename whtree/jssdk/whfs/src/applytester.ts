@@ -3,7 +3,7 @@ import { openFolder, WHFSObject, WHFSFolder, WHFSFile } from "./whfs";
 import { HSVM, openHSVM } from "@webhare/services/src/hsvm";
 import { sql } from "@webhare/whdb";
 import { FsObjectRow, SiteRow } from "./dbschema";
-import { isLike, isNotLike } from "@webhare/hscompat/strings";
+import { isLike, isNotLike } from "@webhare/hscompat";
 
 export interface WebDesignInfo {
   objectname: string;

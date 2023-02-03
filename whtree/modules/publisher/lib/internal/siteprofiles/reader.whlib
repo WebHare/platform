@@ -1454,6 +1454,7 @@ STATIC OBJECTTYPE ApplyRuleTester
                         , renderfunction := ""
                         ];
       }
+      apply.bodyrenderer := EnforceStructure([ renderfunction := "" ], apply.bodyrenderer); //Add fields that may still be missing during upgrades
       IF (apply.bodyrenderer.rendermacro != "" OR apply.bodyrenderer.preparemacro != "" OR apply.bodyrenderer.objectname != "" OR apply.bodyrenderer.renderfunction != "")
       {
         bodyrenderer.rendermacro := apply.bodyrenderer.rendermacro;

@@ -127,7 +127,7 @@ ASYNC MACRO TestMarshalling()
   AWAIT TestHSONEnDeCode('hson:va[1,2,3]', VARIANT ARRAY([ 1,2,3 ]));
   AWAIT TestHSONEnDeCode('hson:fa[f 13,f 11111111111111]', [ 13f, 11111111111111f ]);
   // Javascript encodes as 1e+308
-  AWAIT TestHSONEnDeCode('hson:fa[f 1e308,f 1e-308,f -1e308,f -1e-308,f 0.0001]', [ 1e308, 1e-308, -1e308, -1e-308, 0.0001 ], 'hson:fa[f 1e+308,f 1e-308,f -1e+308,f -1e-308,f 0.0001]');
+  AWAIT TestHSONEnDeCode('hson:fa[f 1e308,f 1e-308,f -1e308,f -1e-308,f 0.0001]', [ 1e308, 1e-308, -1e308, -1e-308, 0.0001 ]);
 
   // Large blob, len not dividable by 3
   STRING teststr := "1234567";
