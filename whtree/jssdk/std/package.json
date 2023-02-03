@@ -2,7 +2,7 @@
   "name": "@webhare/std",
   "version": "1.0.0",
   "description": "",
-  "main": "",
+  "main": "std.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },

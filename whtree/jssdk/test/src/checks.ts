@@ -2,7 +2,7 @@ import * as testsupport from "./testsupport";
 import * as diff from 'diff';
 import Ajv, { SchemaObject, ValidateFunction } from "ajv";
 export { LoadTSTypeOptions } from "./testsupport";
-
+export { sleep } from "@webhare/std";
 
 /** An Annotation must either be a simple string or a callback returning one */
 export type Annotation = string | (() => string);
@@ -296,13 +296,6 @@ function eqPropsRecurse<T>(expect: T, actual: T, path: string, ignore: string[],
         throw Error(`Mismatched value at ${path}`);
       }
   }
-}
-
-export async function sleep(condition: number): Promise<void> {
-  if (condition < 0)
-    throw new Error(`Wait duration must be positive, got '${condition}'`);
-  await new Promise(resolve => setTimeout(resolve, condition));
-  return;
 }
 
 export function eqMatch(regexp: RegExp, actual: string, annotation?: Annotation) {
