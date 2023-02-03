@@ -1,37 +1,8 @@
 import * as services from "@webhare/services";
+import { BackendServiceDescriptor, gatherBackendServices } from "@webhare/services/src/moduledefparser";
 import runBackendService from "@mod-system/js/internal/webhareservice";
-import { XMLParser } from "fast-xml-parser";
-import { readFileSync } from "fs";
 import * as resourcetools from '@mod-system/js/internal/resourcetools';
 import * as hmr from "@mod-system/js/internal/hmr";
-
-interface BackendServiceDescriptor {
-  fullname: string;
-  handler: string;
-  main: string;
-}
-
-function gatherBackendServices() {
-  const backendservices: BackendServiceDescriptor[] = [];
-  const parser = new XMLParser({
-    ignoreAttributes: false,
-    attributeNamePrefix: "@",
-    isArray: (name, jpath, isLeafNode, isAttribute) => ["backendservice"].includes(name)
-  });
-
-  for (const module of Object.keys(services.getConfig().module)) {
-    const moduledefresource = `mod::${module}/moduledefinition.xml`;
-    const parsedmodule = parser.parse(readFileSync(services.toFSPath(moduledefresource)));
-    for (const service of parsedmodule.module.services?.backendservice ?? [])
-      backendservices.push({
-        fullname: `${module}:${service["@name"]}`,
-        handler: services.resolveResource(moduledefresource, service["@handler"]),
-        main: services.resolveResource(moduledefresource, service["@main"])
-      });
-  }
-
-  return backendservices;
-}
 
 async function buildServiceClient(service: BackendServiceDescriptor, args: unknown[], mainobject: unknown) {
   const client = await (await resourcetools.loadJSFunction(service.handler))({ mainobject }, ...args);
