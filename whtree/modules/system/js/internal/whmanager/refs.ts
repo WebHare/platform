@@ -108,3 +108,9 @@ export function dumpRefs(obj: Referencable) {
       console.log(`Ref: ${ref.title}\n${ref.trace}`);
   }
 }
+
+export function checkIsRefCounted<T extends object>(t: T): T & NodeJS.RefCounted {
+  if (!("ref" in t) || !("unref" in t))
+    throw new Error(`Oject does not have ref() or unref() functions`);
+  return t as T & NodeJS.RefCounted;
+}
