@@ -331,6 +331,15 @@ export class WHFSApplyTester {
 
     return webdesign;
   }
+
+  async getObjRenderInfo() {
+    const baseinfo = { renderer: "" };
+    for (const apply of await this.getMatchingRules('bodyrenderer'))
+      if (apply.bodyrenderer?.renderer)
+        baseinfo.renderer = apply.bodyrenderer?.renderer;
+
+    return baseinfo;
+  }
 }
 
 export async function getApplyTesterForObject(obj: WHFSObject) {

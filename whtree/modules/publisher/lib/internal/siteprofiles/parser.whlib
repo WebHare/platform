@@ -950,7 +950,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                                     , rendermacro := node->GetAttribute("rendermacro")
                                     , preparemacro := node->GetAttribute("preparemacro")
                                     , objectname  := this->ParseFunctionRef(node, "library", "objectname", "4.30.0")
-                                    , renderfunction := MakeAbsoluteResourcePath(this->filename, node->GetAttribute("renderfunction"))
+                                    , renderer := MakeAbsoluteResourcePath(this->filename, node->GetAttribute("renderer"))
                                     ];
               CONTINUE;
             }

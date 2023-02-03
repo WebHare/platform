@@ -2,6 +2,7 @@ import { callHareScript } from "@webhare/services";
 import * as whfs from "@webhare/whfs";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
 import { WebHareWHFSRouter, WebRequest, WebResponse, SiteRequest } from "./router";
+import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 
 export async function lookupPublishedTarget(url: string) {
   //we'll use the HS version for now. rebuilding lookup is complex and we should really port the tests too before we attempt it...
@@ -14,10 +15,13 @@ export async function lookupPublishedTarget(url: string) {
     return null;
 
   //TODO also gather webdesign info
+  const applytester = await getApplyTesterForObject(fileinfo);
+  const renderinfo = await applytester.getObjRenderInfo();
+
   return {
     lookupresult,
     fileinfo,
-    renderfunction: fileinfo.type.renderfunction
+    renderer: renderinfo.renderer
   };
 }
 
@@ -30,11 +34,11 @@ export async function coreWebHareRouter(request: WebRequest, response: WebRespon
     throw new Error("404 Unable to resolve the target. How do we route to a 404?"); //TODO perhaps there should be WebserverError exceptions similar to AbortWithHTTPError - and toplevel routers catch these ?
 
   //Invoke the render function. TODO seperate VM/ShadowRealm etc
-  if (!target.renderfunction)
+  if (!target.renderer)
     throw new Error("500 Unspecified render function");
 
-  const renderfunction: WebHareWHFSRouter = await resourcetools.loadJSFunction(target.renderfunction) as WebHareWHFSRouter;
+  const renderer: WebHareWHFSRouter = await resourcetools.loadJSFunction(target.renderer) as WebHareWHFSRouter;
   const whfsreq = new SiteRequest(request, target.fileinfo);
 
-  await renderfunction(whfsreq, response);
+  await renderer(whfsreq, response);
 }

@@ -1455,16 +1455,16 @@ STATIC OBJECTTYPE ApplyRuleTester
                         , objectname  := ""
                         , issystemredirect := FALSE
                         , capturesubpaths := RecordExists(typerec) AND typerec.capturesubpaths
-                        , renderfunction := ""
+                        , renderer := ""
                         ];
       }
-      apply.bodyrenderer := EnforceStructure([ renderfunction := "" ], apply.bodyrenderer); //Add fields that may still be missing during upgrades
-      IF (apply.bodyrenderer.rendermacro != "" OR apply.bodyrenderer.preparemacro != "" OR apply.bodyrenderer.objectname != "" OR apply.bodyrenderer.renderfunction != "")
+      apply.bodyrenderer := EnforceStructure([ renderer := "" ], apply.bodyrenderer); //Add fields that may still be missing during upgrades
+      IF (apply.bodyrenderer.rendermacro != "" OR apply.bodyrenderer.preparemacro != "" OR apply.bodyrenderer.objectname != "" OR apply.bodyrenderer.renderer != "")
       {
         bodyrenderer.rendermacro := apply.bodyrenderer.rendermacro;
         bodyrenderer.preparemacro := apply.bodyrenderer.preparemacro;
         bodyrenderer.objectname := apply.bodyrenderer.objectname;
-        bodyrenderer.renderfunction := apply.bodyrenderer.renderfunction;
+        bodyrenderer.renderer := apply.bodyrenderer.renderer;
       }
     }
     RETURN bodyrenderer;
