@@ -31,10 +31,7 @@ IF (NOT RecordExists(args) OR Length(args.paths) = 0)
   --recursive  Apply to subdirectories too
   path         The whfs path(s) to process
 
-
 <?wh
-  Print("       \n");
-  Print("       path         The whfs path(s) to process\n");
   SetConsoleExitCode(1);
   RETURN;
 }
