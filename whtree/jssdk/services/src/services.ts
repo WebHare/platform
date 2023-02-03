@@ -3,7 +3,7 @@ export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activa
 import { toFSPath } from "./resources";
 export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource } from "./resources";
 import * as fs from "node:fs";
-export { openBackendService, BackendServiceContext } from "./backendservice";
+export { openBackendService, BackendServiceController } from "./backendservice";
 import { getBridgeService, InvokeOptions, WebHareBackendConfiguration } from "./bridgeservice";
 export { WebHareBackendConfiguration } from "./bridgeservice";
 import * as witty from '@webhare/witty';

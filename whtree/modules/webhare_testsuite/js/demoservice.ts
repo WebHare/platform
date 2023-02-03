@@ -1,17 +1,22 @@
-import { ConvertBackendServiceInterfaceToClientInterface, BackendServiceContext } from "@webhare/services";
+import { ConvertBackendServiceInterfaceToClientInterface, BackendServiceController } from "@webhare/services";
 
-interface MainObjectInterface {
-  dummy: number;
+class Controller implements BackendServiceController {
+  dummy = -1;
+
+  async createClient(testdata: string) {
+    await Promise.resolve(); //wait a tick
+    return new ClusterTestLink(this, testdata);
+  }
 }
 
 class ClusterTestLink {
   dummy = 42;
-  mainobject: MainObjectInterface;
+  mainobject: Controller | null;
   // null-likes completely broke interface description earlier, so test them specifically
   aNull = null;
   anUndefined = undefined;
 
-  constructor(maininstance: MainObjectInterface, testdata: string) {
+  constructor(maininstance: Controller | null, testdata: string) {
     if (testdata == "abort")
       throw new Error("abort");
 
@@ -48,9 +53,12 @@ class ClusterTestLink {
   }
 
   getShared() {
-    return this.mainobject.dummy;
+    return this.mainobject?.dummy ?? -1;
   }
   setShared(val: number) {
+    if (!this.mainobject)
+      throw new Error("This is not the controlleddemoservice");
+
     this.mainobject.dummy = val;
     return null; //FIXME marshalling cannot deal with service APIs returning undefined
   }
@@ -63,12 +71,12 @@ class ClusterTestLink {
 
 export type DemoServiceInterface = ConvertBackendServiceInterfaceToClientInterface<ClusterTestLink>;
 
-export async function createDemoMain(): Promise<MainObjectInterface> {
+export async function createDemoMain() {
   await Promise.resolve(); //wait a tick
-  return { dummy: 42 };
+  return new Controller;
 }
 
-export async function openDemoService(context: BackendServiceContext, testdata: string) {
+export async function openDemoService(testdata: string) {
   await Promise.resolve(); //wait a tick
-  return new ClusterTestLink(context.mainobject as MainObjectInterface, testdata);
+  return new ClusterTestLink(null, testdata);
 }

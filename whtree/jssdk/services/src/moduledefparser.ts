@@ -4,8 +4,8 @@ import { getConfig, resolveResource, toFSPath } from "./services";
 
 export interface BackendServiceDescriptor {
   fullname: string;
-  handler: string;
-  main: string;
+  clientfactory: string;
+  controllerfactory: string;
 }
 
 export function gatherBackendServices() {
@@ -22,8 +22,8 @@ export function gatherBackendServices() {
     for (const service of parsedmodule.module.services?.backendservice ?? [])
       backendservices.push({
         fullname: `${module}:${service["@name"]}`,
-        handler: resolveResource(moduledefresource, service["@handler"]),
-        main: resolveResource(moduledefresource, service["@main"])
+        clientfactory: resolveResource(moduledefresource, service["@clientfactory"]),
+        controllerfactory: resolveResource(moduledefresource, service["@controllerfactory"])
       });
   }
 

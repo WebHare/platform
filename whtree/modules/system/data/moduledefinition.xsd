@@ -2481,8 +2481,16 @@
       <xs:element name="backendservice">
         <xs:complexType>
           <xs:attribute name="name" type="Name" use="required" />
-          <xs:attribute name="handler" type="xs:string" use="required" />
-          <xs:attribute name="main" type="xs:string" />
+          <xs:attribute name="controllerfactory" type="xs:string">
+            <xs:annotation>
+              <xs:documentation>Async JS function to create the service controller</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
+          <xs:attribute name="clientfactory" type="xs:string">
+            <xs:annotation>
+              <xs:documentation>Async JS function to create the client/connection objects if the service has no controller</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
         </xs:complexType>
       </xs:element>
 

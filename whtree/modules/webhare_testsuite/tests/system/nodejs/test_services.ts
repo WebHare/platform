@@ -91,8 +91,8 @@ async function testServices() {
 }
 
 async function testServiceState() {
-  const instance1 = await services.openBackendService("webhare_testsuite:demoservice", ["instance1"], { linger: true });
-  const instance2 = await services.openBackendService("webhare_testsuite:demoservice", ["instance2"], { linger: true });
+  const instance1 = await services.openBackendService("webhare_testsuite:controlleddemoservice", ["instance1"], { linger: true });
+  const instance2 = await services.openBackendService("webhare_testsuite:controlleddemoservice", ["instance2"], { linger: true });
 
   const randomkey = "KEY" + Math.random();
   await instance1.setShared(randomkey);
@@ -227,6 +227,8 @@ async function runBackendServiceTest_JS() {
   let promise = serverinstance.getAsyncLUE();
   test.eq(42, await serverinstance.getLUE());
   test.eq(42, await promise);
+
+  test.eq(-1, await serverinstance.getShared(), "Verify ths instance does not see a shared controller");
 
   await test.throws(/Crash/, serverinstance.crash());
 

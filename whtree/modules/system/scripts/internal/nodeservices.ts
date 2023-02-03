@@ -4,18 +4,18 @@ import runBackendService from "@mod-system/js/internal/webhareservice";
 import * as resourcetools from '@mod-system/js/internal/resourcetools';
 import * as hmr from "@mod-system/js/internal/hmr";
 
-async function buildServiceClient(service: BackendServiceDescriptor, args: unknown[], mainobject: unknown) {
-  const client = await (await resourcetools.loadJSFunction(service.handler))({ mainobject }, ...args);
+async function createServiceClient(service: BackendServiceDescriptor, args: unknown[]) {
+  const client = await (await resourcetools.loadJSFunction(service.clientfactory))(...args);
   return client;
 }
 
 async function launchService(service: BackendServiceDescriptor) {
   try {
-    let mainobject: unknown | null = null;
-    if (service.main)
-      mainobject = await (await resourcetools.loadJSFunction(service.main))();
-    if (service.handler)
-      runBackendService(service.fullname, (...args) => buildServiceClient(service, args, mainobject));
+    if (service.controllerfactory) {
+      const servicecontroller = await (await resourcetools.loadJSFunction(service.controllerfactory))() as services.BackendServiceController;
+      runBackendService(service.fullname, (...args) => servicecontroller.createClient(...args));
+    } else if (service.clientfactory)
+      runBackendService(service.fullname, (...args) => createServiceClient(service, args));
   } catch (e) {
     console.error("Error starting service " + service.fullname, e);
   }
