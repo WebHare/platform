@@ -616,7 +616,7 @@ function encodeHSONInternal(value: IPCMarshallableData, needtype?: VariableType)
           throw new Error(`Unknown object to encode as float`);
         retval = "f " + (value as Money).value;
       } else
-        retval = "f " + (value as number).toString();
+        retval = "f " + (value as number).toString().replace('+', ''); //format 1e+308 as 1e308
     } break;
     case VariableType.String: retval = JSON.stringify(value); break;
     case VariableType.Blob: {

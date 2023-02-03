@@ -5,8 +5,9 @@
 */
 
 import * as test from "@webhare/test";
-import { Money, isLike, isNotLike, recordLowerBound, recordUpperBound } from "@webhare/hscompat";
+import { Money, isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts } from "@webhare/hscompat";
 import { compare } from "@webhare/hscompat/algorithms";
+import { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 
 function testStrings() {
   //based on test_operators.whscr LikeTest
@@ -184,9 +185,134 @@ async function testRecordUpperBound() {
   test.eq(4, recordUpperBound(list, { a: 3 } as any, ["a"]));
 }
 
+function testHSONEnDeCode(encoded: string, toencode: IPCMarshallableData) {
+  const encval = encodeHSON(toencode);
+  test.eq(encoded, encval);
+  const decoded = decodeHSON(encval);
+  test.eq(toencode, decoded);
+}
+
+function testHSON() {
+  testHSONEnDeCode('hson:-2147483648', -2147483648);
+
+  testHSONEnDeCode('hson:5', 5);
+
+  testHSONEnDeCode('hson:-5', -5);
+
+  testHSONEnDeCode('hson:2147483647', 2147483647);
+
+  testHSONEnDeCode('hson:i64 -9223372036854775808', BigInt("-9223372036854775808"));
+
+  testHSONEnDeCode('hson:i64 -5', BigInt(-5));
+
+  testHSONEnDeCode('hson:i64 5', BigInt(5));
+
+  testHSONEnDeCode('hson:i64 9223372036854775807', BigInt("9223372036854775807"));
+
+  testHSONEnDeCode('hson:"Ab\\"cd\'efgh"', "Ab\"cd'efgh");
+
+  //TODO should this be possible? as \x80 is not valid UTF8  .. testHSONEnDeCode('hson:"Ab\\x80a\\x80\\u00A0"', "Ab\x80a\x80\u00A0");
+
+  testHSONEnDeCode('hson:d"20100101"', new Date(Date.UTC(2010, 0, 1)));
+
+  testHSONEnDeCode('hson:d"20100101T151617"', new Date(Date.UTC(2010, 0, 1, 15, 16, 17)));
+
+  testHSONEnDeCode('hson:d"20100101T151617.123"', new Date(Date.UTC(2010, 0, 1, 15, 16, 17, 123)));
+  testHSONEnDeCode('hson:d"20230203T132922"', makeDateFromParts(738554, (13 * 3600 + 29 * 60 + 22) * 1000));
+
+  testHSONEnDeCode('hson:d"201100415"', makeDateFromParts(7344766, 0));
+
+  testHSONEnDeCode('hson:b"' + btoa("Ik ben een blob") + '"', Buffer.from("Ik ben een blob"));
+
+  testHSONEnDeCode('hson:m -92233720368547.75808', new Money("-92233720368547.75808"));
+
+  testHSONEnDeCode('hson:m -5', new Money("-5"));
+
+  testHSONEnDeCode('hson:m -5.42', new Money("-5.42"));
+
+  testHSONEnDeCode('hson:m 5', new Money("5"));
+
+  testHSONEnDeCode('hson:m 5.42', new Money("5.42"));
+
+  testHSONEnDeCode('hson:m 92233720368547.75807', new Money("92233720368547.75807"));
+
+  // TODO is there a need to be able to EncodeAsFloat ? testHSONEnDeCode('hson:f -5', -5);
+
+  // TODO is there a need to be able to EncodeAsFloat ? testHSONEnDeCode('hson:f -5.5', -5.5);
+
+  // TODO is there a need to be able to EncodeAsFloat ? testHSONEnDeCode('hson:f 5', 5);
+
+  // TODO is there a need to be able to EncodeAsFloat ? testHSONEnDeCode('hson:f 5.5', 5.5);
+
+  testHSONEnDeCode('hson:*', null);
+
+  testHSONEnDeCode('hson:{}', {});
+
+  testHSONEnDeCode('hson:va[]', []);
+  /* TODO can/do we want to suport these ?
+  testHSONEnDeCode('hson:ia[]', DEFAULT INTEGER ARRAY);
+
+  testHSONEnDeCode('hson:i64a[]', DEFAULT INTEGER64 ARRAY);
+
+  testHSONEnDeCode('hson:ma[]', DEFAULT MONEY ARRAY);
+
+  testHSONEnDeCode('hson:fa[]', DEFAULT FLOAT ARRAY);
+
+  testHSONEnDeCode('hson:xa[]', DEFAULT BLOB ARRAY);
+
+  testHSONEnDeCode('hson:ra[]', DEFAULT RECORD ARRAY);
+
+  testHSONEnDeCode('hson:da[]', DEFAULT DATETIME ARRAY);
+
+  testHSONEnDeCode('hson:ba[]', DEFAULT BOOLEAN ARRAY);
+
+  testHSONEnDeCode('hson:sa[]', DEFAULT STRING ARRAY);
+*/
+  testHSONEnDeCode('hson:ia[1,2,3]', [1, 2, 3]);
+
+  testHSONEnDeCode('hson:b""', Buffer.from(''));
+
+  testHSONEnDeCode('hson:d""', new Date(-864000 * 1000 * 10000000));
+
+  testHSONEnDeCode('hson:d"T12345"', makeDateFromParts(0, 12345));
+
+  testHSONEnDeCode('hson:d"MAX"', new Date(+864000 * 1000 * 10000000));
+
+  testHSONEnDeCode('hson:d"00010101T000000.001"', makeDateFromParts(1, 1));
+
+  //FIXME do we *need* to be able to roundtrip MAX-1 to HS ?testHSONEnDeCode('hson:d"58796110711T235959.998"', new Date(864000 * 1000 * 10000000 - 1));
+
+  testHSONEnDeCode('hson:b"MQ=="', Buffer.from("1"));
+
+  testHSONEnDeCode('hson:{"a":0,"b":1,"c":2}', { c: 2, b: 1, a: 0 }); // test ordering
+
+  //TODO should we be able to encode as float ? testHSONEnDeCode('hson:fa[f 0,f 1]', [ 0, 1 ]);
+  testHSONEnDeCode('hson:ia[0,1]', [0, 1]);
+
+  //TODO should we be able to encode as float ? testHSONEnDeCode('hson:va[f 0,f 1,""]', [ 0, 1, "" ]);
+  testHSONEnDeCode('hson:va[0,1,""]', [0, 1, ""]);
+
+  //TODO should we be able to explicitly encode as variant array ? testHSONEnDeCode('hson:va[1,2,3]', [ 1,2,3 ]);
+  testHSONEnDeCode('hson:ia[1,2,3]', [1, 2, 3]);
+  testHSONEnDeCode('hson:fa[f 13,f 11111111111111]', [13, 11111111111111]);
+  console.error(0);
+  testHSONEnDeCode('hson:fa[f 1e308,f 1e-308,f -1e308,f -1e-308,f 0.0001]', [1e308, 1e-308, -1e308, -1e-308, 0.0001]);
+
+  // Large blob, len not dividable by 3
+  let teststr = "1234567";
+  for (let i = 0; i < 8; ++i)
+    teststr = teststr + teststr + teststr + teststr + teststr;
+
+  //FIXME extremely slow!   testHSONEnDeCode('hson:b"' + btoa(teststr) + '"', Buffer.from(teststr));
+
+  //Explicit invalid syntax
+  test.throws(/At.*: Expected HSON type before '\[' token/, () => decodeHSON("hson:[]"));
+}
+
 test.run([
   testStrings,
   testCompare,
   testRecordLowerBound,
-  testRecordUpperBound
+  testRecordUpperBound,
+  testHSON
 ]);
