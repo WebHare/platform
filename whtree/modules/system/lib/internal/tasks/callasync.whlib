@@ -192,6 +192,19 @@ ASYNC MACRO ProcessRemoteInvokeResult(OBJECT promise, OBJECT link, INTEGER64 msg
 
 MACRO HandleMessage(OBJECT link, RECORD msg, INTEGER64 msgid, INTEGER64 replyto)
 {
+  IF (CellExists(msg, "__EXCEPTION"))
+  {
+    RECORD pos := RecordLowerBound(pendingcalls, [ id := replyto ], [ "ID" ]);
+    IF (pos.found)
+    {
+      RECORD call := pendingcalls[pos.position];
+      DELETE FROM pendingcalls AT pos.position;
+
+      call.defer.reject(DecodeReceivedException(msg.__exception));
+    }
+    RETURN;
+  }
+
   SWITCH (msg.cmd)
   {
     CASE "response"
