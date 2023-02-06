@@ -1,5 +1,6 @@
 ﻿<?wh
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
@@ -10,6 +11,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/logging/logfiles.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 ///Which startup scripts do we still need to run?
 INTEGER default_tasks_timeout;
@@ -191,12 +193,20 @@ MACRO LaunchTask(RECORD task)
 
   Debug("Starting task " || task.tag);
 
-  STRING runscriptname := GetInstallationRoot()
-                           || "bin/runscript";
-
+  STRING runscriptname;
   STRING ARRAY cmdlineargs;
-  IF(task.workerthreads > 1)
-    cmdlineargs := cmdlineargs CONCAT ["--workerthreads", ToString(task.workerthreads) ];
+  IF (GetExtensionFromPath(task.script) IN whconstant_javascript_extensions)
+  {
+    runscriptname := GetInstallationRoot() || "bin/wh";
+    cmdlineargs := [ "run" ];
+  }
+  ELSE
+  {
+    runscriptname := GetInstallationRoot() || "bin/runscript";
+    IF (task.workerthreads > 1)
+      cmdlineargs := cmdlineargs CONCAT ["--workerthreads", ToString(task.workerthreads) ];
+  }
+
   INSERT task.script INTO cmdlineargs AT END;
 
   //HACK for quick parameter parsing (use because older task had different formats)
@@ -792,4 +802,3 @@ FOREVERY(RECORD proc FROM processes)
   TerminateProcess(proc.procid);
 }
 RETURN;
-
