@@ -2,9 +2,9 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 
-import FIFO from "@mod-system/js/internal/util/fifo";
-import WaitableTimer from "@mod-system/js/internal/util/waitabletimer";
-import ManualCondition from "@mod-system/js/internal/util/manualcondition";
+import { FIFO } from "@mod-system/js/internal/util/fifo";
+import { WaitableTimer } from "@mod-system/js/internal/util/waitabletimer";
+import { ManualCondition } from "@mod-system/js/internal/util/manualcondition";
 
 // Websocket alive check control
 let pinginterval = 60;
@@ -21,7 +21,7 @@ class SocketHandler {
     /// Map with all the registered frontends
     this._frontends = new Map;
     /// List of frontend events (add, close, message, links)
-    this._frontendfifo = new FIFO;
+    this._frontendfifo = new FIFO<unknown>;
     /// Websocket connection to the server
     this._serverconn = null;
     /// Event fifo for the socket connection to the server
@@ -46,7 +46,7 @@ class SocketHandler {
   */
   _connectToServer() {
     // New event fifo, don't want messages from an old socket
-    this._serverconneventfifo = new FIFO;
+    this._serverconneventfifo = new FIFO<Event>;
     this._pongtimeout.reset();
 
     // Connect to the remote host, push all events into the fifo

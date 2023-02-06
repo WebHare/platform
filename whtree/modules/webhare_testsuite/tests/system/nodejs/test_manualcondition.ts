@@ -1,5 +1,5 @@
 ///@ts-ignore -- FIXME port manualcondition.es to TypeScript
-import ManualCondition from "@mod-system/js/internal/util/manualcondition";
+import { ManualCondition } from "@mod-system/js/internal/util/manualcondition";
 import * as test from "@webhare/test";
 
 async function testInitialState() {

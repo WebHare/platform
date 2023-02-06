@@ -1,13 +1,11 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-
 import { WaitableConditionBase } from "./waitableconditionbase";
 
 /** This class implements a timer that can be waited on (and be reset)
 */
-class WaitableTimer extends WaitableConditionBase {
-  constructor(timeout) {
+export class WaitableTimer extends WaitableConditionBase {
+  _cb: NodeJS.Timer | null;
+
+  constructor(timeout?: number) {
     super();
     /// Callback for the timer
     this._cb = null;
@@ -15,7 +13,7 @@ class WaitableTimer extends WaitableConditionBase {
     this.reset(timeout);
   }
 
-  reset(timeout) {
+  reset(timeout?: number) {
     this._setSignalled(false);
     if (this._cb) {
       clearTimeout(this._cb);
@@ -31,5 +29,3 @@ class WaitableTimer extends WaitableConditionBase {
     this._setSignalled(true);
   }
 }
-
-module.exports = WaitableTimer;
