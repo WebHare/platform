@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { DOMParser } from '@xmldom/xmldom';
-import { calculateWebhareModuleMap } from "@mod-system/js/internal/configuration";
+import { calculateWebhareModuleMap, WebHareModuleMap } from "@mod-system/js/internal/configuration";
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { encodeValue } from "dompack/types/text";
 
@@ -76,7 +76,7 @@ function formatDocumentation(node: Element, indent: string): string {
 }
 
 
-function generateKyselyDefs(modulelist: Map<string, string>, modulename: string, modules: string[]): string {
+function generateKyselyDefs(modulelist: WebHareModuleMap, modulename: string, modules: string[]): string {
   const interfacename = modulename === "webhare" ? "WebHareDB" : `${generateTableTypeName(modulename)}DB`;
   let genfile = `import type { ColumnType } from "kysely";
 
@@ -99,11 +99,11 @@ type IsGenerated<T> = ColumnType<T, T | undefined, never>;
 `;
 
   const tablemap = new Map<string, string>;
-  for (const mod of modulelist) {
+  for (const mod of Object.entries(modulelist)) {
     if (!modules.includes(mod[0]))
       continue;
 
-    const moduleroot = mod[1];
+    const moduleroot = mod[1].root;
 
     const buffer = fs.readFileSync(moduleroot + "moduledefinition.xml");
     if (!buffer)
@@ -213,8 +213,8 @@ type IsGenerated<T> = ColumnType<T, T | undefined, never>;
   return genfile;
 }
 
-function updateModuleTableDefs(modulelist: Map<string, string>, name: string) {
-  const dir = modulelist.get("system")! + "js/internal/generated/whdb/";
+function updateModuleTableDefs(modulelist: WebHareModuleMap, name: string) {
+  const dir = modulelist.system.root + "js/internal/generated/whdb/";
   fs.mkdirSync(dir, { recursive: true });
 
   const modules = name === "webhare" ? whconstant_builtinmodules : [name];
@@ -246,7 +246,7 @@ function updateModuleTableDefs(modulelist: Map<string, string>, name: string) {
 
 export function updateAllModuleTableDefs() {
   const modulelist = calculateWebhareModuleMap();
-  const dir = modulelist.get("system")! + "js/internal/generated/whdb/";
+  const dir = modulelist.system.root + "js/internal/generated/whdb/";
   let files: string[] = [];
   try {
     files = fs.readdirSync(dir).filter(f => f.endsWith(".d.ts")).map(f => f.substring(0, f.length - 5));
@@ -254,7 +254,7 @@ export function updateAllModuleTableDefs() {
   }
 
   const todo = ["webhare"];
-  for (const f of [...modulelist.keys(), ...files]) {
+  for (const f of [ ...Object.keys(modulelist), ...files]) {
     if (!todo.includes(f) && !whconstant_builtinmodules.includes(f))
       todo.push(f);
   }
