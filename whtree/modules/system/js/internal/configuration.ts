@@ -1,4 +1,5 @@
 import fs from "node:fs";
+import type { WebHareModuleConfiguration } from "@webhare/services/src/bridgeservice";
 
 export function getRescueOrigin() {
   const rescueip = process.env["WEBHARE_RESCUEPORT_BINDIP"] || "127.0.0.1";
@@ -15,13 +16,15 @@ type ModuleData = {
   creationdate: Date;
 };
 
+type WebHareModuleMap = { [name: string]: WebHareModuleConfiguration };
+
 /** Class that calculates WebHare configuration from environment variables / module disk paths  */
 class WebhareConfig {
   baseport: number;
   basedatadir: string;
   installationroot: string;
   moduledirs = new Array<string>;
-  modulemap = new Map<string, string>;
+  modulemap: WebHareModuleMap = {};
 
   constructor() {
     this.baseport = Number(process.env.WEBHARE_BASEPORT || "0");
@@ -53,7 +56,7 @@ class WebhareConfig {
     for (const moduledir of this.moduledirs)
       this.scanModuleFolder(modulemap, moduledir, true, false);
     this.scanModuleFolder(modulemap, this.installationroot + "modules/", true, true);
-    this.modulemap = new Map(Array.from(modulemap).map(([name, { path }]: [string, { path: string }]) => [name, path]));
+    this.modulemap = Object.freeze(Object.fromEntries(Array.from(modulemap).map(([name, { path }]: [string, { path: string }]) => [name, { root: path }])));
   }
 
   private scanModuleFolder(modulemap: Map<string, ModuleData>, folder: string, rootfolder: boolean, always_overwrites: boolean) {
@@ -68,49 +71,49 @@ class WebhareConfig {
     for (const entry of entries) {
       if ((!entry.isDirectory() && !entry.isSymbolicLink()) || entry.name === "deleted")
         continue;
-      try {
-        let creationdate = new Date(Date.parse("1970-01-01T00:00:00Z"));
-        const modpath = folder + entry.name + "/";
-        if (!fs.statSync(modpath + "moduledefinition.xml", { throwIfNoEntry: false })) {
-          if (rootfolder)
-            this.scanModuleFolder(modulemap, modpath, false, always_overwrites);
-          else {
-            // console.log(`skipping folder ${modpath}, it has no moduledefinition`);
-          }
+
+      const modpath = folder + entry.name + "/";
+      let creationdate = new Date(Date.parse("1970-01-01T00:00:00Z"));
+      if (!fs.statSync(modpath + "moduledefinition.xml", { throwIfNoEntry: false })) {
+        if (rootfolder)
+          this.scanModuleFolder(modulemap, modpath, false, always_overwrites);
+        else {
+          // console.log(`skipping folder ${modpath}, it has no moduledefinition`);
+        }
+        continue;
+      }
+      let name = entry.name;
+      const dotpos = name.indexOf('.');
+      if (dotpos !== -1) {
+        const dateparts = name.match(/\.(20\d\d)(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)(\.\d\d\d)?Z$/);
+        if (!dateparts) {
           continue;
         }
-        let name = entry.name;
-        const dotpos = name.indexOf('.');
-        if (dotpos !== -1) {
-          const dateparts = name.match(/\.(20\d\d)(\d\d)(\d\d)T(\d\d)(\d\d)(\d\d)(\.\d\d\d)?Z$/);
-          if (!dateparts) {
-            //also allow millseconds now..
-            console.log(name);
-            continue;
-          }
-          const isofulldate = `${dateparts[1]}-${dateparts[2]}-${dateparts[3]}T${dateparts[4]}:${dateparts[5]}:${dateparts[6]}${dateparts[7]}`;
-          creationdate = new Date(Date.parse(isofulldate));
-          name = name.substring(0, dotpos);
+        const isofulldate = `${dateparts[1]}-${dateparts[2]}-${dateparts[3]}T${dateparts[4]}:${dateparts[5]}:${dateparts[6]}${dateparts[7]}`;
+        const isofulldate_msecs = Date.parse(isofulldate);
+        if (!isofulldate_msecs) {
+          // Invalid ISO date, ignore module
+          continue;
         }
-
-        const mdata = { creationdate, path: modpath };
-
-        const current = modulemap.get(name);
-        if (current) {
-          if (!always_overwrites && current.creationdate >= creationdate) {
-            //console.log(`Older module version found at ${modpath}`);
-            continue;
-          }
-          //console.log(`New module version found at ${modpath}`);
-        }
-        modulemap.set(name, mdata);
-      } catch (e) {
-        console.log(`error: ${e}`);
+        creationdate = new Date(isofulldate_msecs);
+        name = name.substring(0, dotpos);
       }
+
+      const mdata = { creationdate, path: modpath };
+
+      const current = modulemap.get(name);
+      if (current) {
+        if (!always_overwrites && current.creationdate >= creationdate) {
+          //console.log(`Older module version found at ${modpath}`);
+          continue;
+        }
+        //console.log(`New module version found at ${modpath}`);
+      }
+      modulemap.set(name, mdata);
     }
   }
 }
 
-export function calculateWebhareModuleMap(): Map<string, string> {
+export function calculateWebhareModuleMap(): WebHareModuleMap {
   return (new WebhareConfig).modulemap;
 }
