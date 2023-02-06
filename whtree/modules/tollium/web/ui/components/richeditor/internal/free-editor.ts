@@ -4,8 +4,10 @@
 import EditorBase from './editorbase';
 
 export default class FreeEditor extends EditorBase {
-  constructor(element, rte, options, undonode) {
-    super(element, rte, options, undonode);
+  constructor(element, options) {
+    options = { ...options, allowundo: false }; //free editor doesnt really support undo
+    super(element, options);
+    this._constructorTail();
   }
 
   execCommand(command, p1, p2) {

@@ -1,8 +1,7 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-import * as dompack from 'dompack';
-import { RTE } from "./editor";
+//@ts-ignore migrating
+import StructuredEditor from './internal/structurededitor';
+//@ts-ignore migrating
+import FreeEditor from './internal/free-editor';
 import { RTESettings } from "./internal/types";
 import "./styling";
 import './richeditor.scss';
@@ -13,5 +12,8 @@ export { preloadCSS } from "./internal/styleloader";
 export { getTargetInfo } from "./internal/support";
 
 export function createRTE(parentnode: HTMLElement, options: RTESettings) {
-  return new RTE(parentnode, options);
+  if (!options.structure)
+    return new FreeEditor(parentnode, options);
+  else
+    return new StructuredEditor(parentnode, options);
 }

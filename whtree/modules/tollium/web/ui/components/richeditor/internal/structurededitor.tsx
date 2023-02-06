@@ -71,15 +71,16 @@ function fixIntralineSpaves(items) {
 }
 
 export default class StructuredEditor extends EditorBase {
-  constructor(element, rte, options, undonode) {
+  constructor(element, options) {
     options =
     {
       structure: null,
       editembeddedobjects: true,
-      ...options
+      ...options,
+      allowundo: true
     };
 
-    super(element, rte, options, undonode);
+    super(element, options);
 
     this.properties_selector += ", div.wh-rtd-embeddedobject, span.wh-rtd-embeddedobject, .wh-rtd__tablecell, table.wh-rtd__table caption";
     this.textstyletags = ['a-href', 'ins', 'del', 'i', 'b', 'u', 'strike', 'span', 'sub', 'sup'];
@@ -92,6 +93,7 @@ export default class StructuredEditor extends EditorBase {
     //structure should be parsed/maintained at the RTE level if we're going to provide Pagelevel editing
     this.structure = new ParsedStructure(this.options.structure);
     this.reprocessAfterExternalSet();
+    this._constructorTail();
   }
 
   _onStyleSwitch(event, style) {

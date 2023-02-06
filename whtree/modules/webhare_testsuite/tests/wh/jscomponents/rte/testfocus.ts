@@ -68,7 +68,6 @@ test.registerTests(
         test.assert(Boolean(win.rte.getBody().closest('.wh-rtd--disabled')));
         test.assert(!win.rte.getBody().closest('.wh-rtd--readonly'));
         test.throws(rtetest.testEqSelHTMLEx.bind(null, win, std_contents));
-        test.eq(null, win.rte.getEditor());
         test.assert(!test.canClick(test.qS('span.wh-rtd-button[data-button=b]')));
       }
     },
@@ -98,7 +97,6 @@ test.registerTests(
         test.assert(!win.rte.getBody().closest('.wh-rtd--disabled'));
         test.assert(Boolean(win.rte.getBody().closest('.wh-rtd--readonly')));
         test.throws(rtetest.testEqSelHTMLEx.bind(null, win, std_contents));
-        test.eq(null, win.rte.getEditor());
       }
     },
 

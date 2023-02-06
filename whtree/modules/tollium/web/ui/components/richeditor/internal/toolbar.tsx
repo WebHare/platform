@@ -282,7 +282,7 @@ class BlockStyleButton extends StyleButtonBase {
 
 class ShowFormattingButton extends SimpleToggleButton {
   updateState() {
-    const editor = this.toolbar.rte.getEditor();
+    const editor = this.toolbar.rte;
     this.active = editor && editor.getShowFormatting();
     this.updateButtonRendering();
   }
@@ -438,7 +438,7 @@ export default class RTEToolbar {
     this.el = element;
 
     this.buildButtonBar();
-    this.rte.getContainer().addEventListener("wh:richeditor-statechange", evt => this.onStateChange());
+    this.rte.getBody().addEventListener("wh:richeditor-statechange", evt => this.onStateChange());
   }
 
   createButtonObject(buttonname) {

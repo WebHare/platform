@@ -14,7 +14,6 @@ import * as styleloader from './styleloader';
 
 import * as formservice from '@mod-publisher/js/forms/internal/form.rpc.json';
 import * as preload from 'dompack/extra/preload';
-import { qSA } from 'dompack';
 import * as browser from "dompack/extra/browser";
 import * as KeyboardHandler from "dompack/extra/keyboard"; //FIXME should become import KeyboardHandler as soon as our dompack has KeyboardHandler.getEventKeyNames
 import SelectionInterface from './selection';
@@ -22,6 +21,7 @@ import * as tablesupport from "./tableeditor";
 import rangy from "@mod-system/js/frameworks/rangy/rangy13";
 import * as richdebug from "./richdebug";
 import * as domlevel from "./domlevel";
+import * as support from "./support";
 import * as compatupload from '@mod-system/js/compat/upload';
 import * as texttype from 'dompack/types/text';
 import * as icons from '@mod-tollium/js/icons';
@@ -289,9 +289,176 @@ const defaultimgplaceholder = "data:image/png;base64,R0lGODlhHwAfAPUAAP///0h5ke7
 // RTE single area editor
 //
 
+export function getDefaultToolbarLayout() {
+  return [
+    [
+      "p-class", ["ul", "ol", "li-decrease-level", "li-increase-level"], ["p-align-left", "p-align-right", "p-align-center", "p-align-justify"], ["action-spellcheck", "action-search", "action-showformatting", "action-properties"],
+      ["b", "i", "u", "strike"], ["sub", "sup"], ["a-href"], ["img", "object-video", "object-insert", "table", "action-symbol"], ["action-clearformatting"]
+    ]
+  ];
+}
+
 export default class EditorBase {
-  constructor(element, rte, options, undonode) {
-    this.bodydiv = element;
+  constructor(container, options) {
+    options =
+    {
+      allowtags: null,
+      log: false,
+      contentareawidth: null,
+      imgloadplaceholder: null, //image loader GIF image to use (defaults to embedded spinning loader)
+      eventnode: null,
+      ...options
+    };
+
+    this.container = container;
+    this.toolbar = null;
+
+    this.addcss = [];
+
+    /// Whether document is dirty. Initial set to true to avoid firing events during init
+    this.dirty = true;
+    this.original_value = "<neverset>";
+    //URLs of images we have already seen and stored on the server
+    this.knownimages = [];
+
+    this.options = {
+      structure: null,
+      allowtags: null,
+      hidebuttons: [],
+      content: '',
+      enabled: true,
+      readonly: false,
+      log: false,
+      //, actionhandler: null
+      cssinstance: null,
+      csslinks: null,
+      csscode: '',
+      preloadedcss: null,
+      breakupnodes: [],
+      htmlclass: '',
+      bodyclass: '',
+
+      contentarea: true, //display a content area if possible
+      editembeddedobjects: true,
+      allowundo: Boolean(options?.structure),
+      margins: 'compact',
+      propertiesaction: false, //add properties button to toolbar/menus (only set if you're going to intercept action-properties)
+      toolbarlayout: null,
+      ...options
+    };
+
+    if (this.container.classList.contains("wh-rtd__editor"))
+      throw new Error("Duplicate RTD initialization");
+
+    if (dompack.debugflags.rte)
+      console.log("[rte] initializing rtd", this.container, this.options);
+
+    //ADDME globally manage css loaded by instances
+    if (this.options.csslinks)
+      this.options.csslinks.forEach(href => this.addcss.push({ type: "link", src: href }));
+
+    if (this.options.preloadedcss)
+      this.addcss.push(...this.options.preloadedcss.addcss);
+
+    if (this.options.csscode)
+      this.addcss.push({ type: "style", src: this.options.csscode });
+
+    this.toolbarnode = dompack.create("div");
+    //the 'style scope' node is the point from which we apply the rewritten css. it needs to be the immediate parent of the wh-rtd__html node
+    this.stylescopenode = dompack.create("div", { className: "wh-rtd__stylescope " + (this.options.cssinstance || '') });
+
+    //Create two divs inside the container, which will play the role of HTML and BODY
+    this.bodydiv = dompack.create("div", {
+      className: "wh-rtd wh-rtd-editor wh-rtd__body wh-rtd-editor-bodynode wh-rtd-theme-default " + this.options.bodyclass,
+      on: { "dompack:takefocus": evt => this._takeSafeFocus(evt) },
+      childNodes: [...this.container.childNodes]
+    });
+    this.htmldiv = dompack.create("div", {
+      className: "wh-rtd-editor wh-rtd__html wh-rtd-editor-htmlnode " + this.options.htmlclass,
+      childNodes: [this.bodydiv]
+    });
+    if (this.options.structure)
+      this.container.classList.add("wh-rtd--structured");
+
+    if (browser.getName() === "safari" && browser.getVersion() < 13)
+      this.bodydiv.classList.add("wh-rtd__body--safariscrollfix");
+
+    dompack.empty(this.container);
+    this.container.classList.add("wh-rtd__editor");
+    this.container.appendChild(this.toolbarnode);
+
+    this.stylescopenode.appendChild(this.htmldiv);
+    this.container.appendChild(this.stylescopenode);
+
+    //Fixes a Firefox repositioning issue, tested by richdoc.teststructured-scroll - as of 2022-11-29 we still need this workaround
+    this.scrollmonitor = new scrollmonitor.Monitor(this.container);
+    scrollmonitor.saveScrollPosition(this.container);
+
+    this.htmldiv.addEventListener("mousedown", evt => this._gotPageClick(evt));
+    this.htmldiv.addEventListener("click", evt => this._gotClick(evt));
+    this.htmldiv.addEventListener("contextmenu", evt => this._gotContextMenu(evt));
+
+    const toolbaropts = {
+      hidebuttons: this.options.hidebuttons,
+      allowtags: this.options.allowtags,
+      layout: this.options.toolbarlayout || getDefaultToolbarLayout()
+    };
+
+    if (this.options.structure) {
+      toolbaropts.hidebuttons.push('action-clearformatting');
+    } else {
+      toolbaropts.hidebuttons.push('p-class', 'action-showformatting', 'object-insert', 'object-video', 'table');
+      toolbaropts.compact = true;
+    }
+    if (!this.options.propertiesaction)
+      toolbaropts.hidebuttons.push('action-properties');
+
+    this.toolbaropts = toolbaropts; //preserve until constructorTail. we can probably get rid of this property by further cleaning up construction
+
+    this.toolbarnode.classList.add("wh-rtd-toolbar");
+
+    if (this.options.readonly)
+      this.toolbarnode.style.display = "none";
+
+    this._updateEnablingAttributes();
+
+    let margins = 'none';
+    if (this.options.structure && this.options.structure.contentareawidth) {
+      if (this.options.contentarea) {
+        this.bodydiv.parentNode.classList.add('wh-rtd-withcontentarea');
+        this.bodydiv.classList.add('wh-rtd__body--contentarea');
+      }
+      this.bodydiv.style.width = this.options.structure.contentareawidth; //NOTE: already contains 'px'
+      margins = this.options.margins;
+    }
+
+    this.htmldiv.classList.add("wh-rtd--margins-" + margins);
+    if (margins != 'none') //include -active if -any- margin is present. should replace wh-rtd-withcontentarea and wh-rtd__body--contentarea eventually
+      this.htmldiv.classList.add("wh-rtd--margins-active");
+
+    const editoropts = {
+      log: this.options.log,
+      breakupnodes: this.options.breakupnodes,
+      editembeddedobjects: this.options.editembeddedobjects,
+      allowundo: this.options.structure && this.options.allowundo
+    };
+
+    if (this.options.structure) {
+      /*
+      NOTE: contenteditable makes the node focusable, however the wh-rtd__undoholder is a hidden node we don't want to be focused.
+      We prevent it from appearing in (and messing up) tabnavigation we also add tabindex="-1" in addition to the contenteditable="true".
+      */
+
+      if (this.options.allowundo) {
+        this.undonode = <div contenteditable="true" class="wh-rtd__undoholder" tabindex="-1" />;
+        this.container.appendChild(this.undonode);
+      }
+
+      editoropts.structure = this.options.structure; //FIXME limit structure to what is needed here
+    } else {
+      editoropts.allowtags = this.options.allowtags;
+    }
+
     this.selectionitf = new SelectionInterface(this.bodydiv);
 
     this.selectingrange = false; // Currently busy selecting range. Needed for synchronous event selectionchange
@@ -305,7 +472,6 @@ export default class EditorBase {
     // Undo stuff
     this.undostack = [];
     this.undopos = 0;
-    this.undonode = undonode;
     this.undoselectitf = null;
 
     // input event stuff
@@ -324,16 +490,6 @@ export default class EditorBase {
       options.allowundo = true;
 
     rangy.init();
-    this.options =
-    {
-      allowtags: null,
-      log: false,
-      contentareawidth: null,
-      allowundo: false,
-      imgloadplaceholder: null, //image loader GIF image to use (defaults to embedded spinning loader)
-      eventnode: null,
-      ...options
-    };
 
     //elements that respond to action-properties
     this.properties_selector = "img, a[href]";
@@ -353,15 +509,295 @@ export default class EditorBase {
     // (rob: my guess is that happens when the old focused element disappears, but not sure)
     this._registerFrameEventListeners();
 
-    if (!this.options.eventnode)
-      throw Error("No eventnode");
-    this.rte = rte;
     this.lastselectionstate = new TextFormattingState();
 
     this.language = options && options.language || 'en';
     this.SetBreakupNodes(options && options.breakupnodes);
     this.setupUndoNode();
     //    this.stateHasChanged();
+  }
+
+  _constructorTail() {
+    if (this.options.enabled)
+      this.editareaconnect();
+    this.onstatechange = this._gotStateChange.bind(this);
+
+    this.toolbar = new RTEToolbar(this, this.toolbarnode, this.toolbaropts);
+    this._fireStateChange();
+
+    styleloader.register(this);
+    if (this.options.preloadedcss)
+      styleloader.unregister(this.options.preloadedcss);
+    this.clearDirty();
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  _takeSafeFocus(evt) {
+    //TODO? An alternative approach might be to have the ScrollMonitor watch focus events ?
+    //take focus but save scroll position  (ADDME for non-body nodes too!)
+    evt.preventDefault();
+
+    const scrollleft = evt.target.parentNode.scrollLeft;
+    const scrolltop = evt.target.parentNode.scrollTop;
+
+    evt.target.focus(); //on chrome, focus resets scroll position. https://bugs.chromium.org/p/chromium/issues/detail?id=75072
+
+    evt.target.parentNode.scrollLeft = scrollleft;
+    evt.target.parentNode.scrollTop = scrolltop;
+  }
+
+  _gotContextMenu(event) {
+    // with ctrl-shift, don't react on the event, fallback to browser menu
+    if (event.ctrlKey && event.shiftKey)
+      return;
+
+    event.stopPropagation();
+    event.preventDefault();
+
+    // Contextmenu event changes selection, but the select event will fire later, so force update when getting the state.
+    this._gotSelectionChange(null); //Fixes Chrome's weird cross-td-boundary selection right click
+
+    const selectionstate = this.getSelectionState(true);
+    if (!selectionstate)
+      return;
+
+    const actiontarget = selectionstate.propstarget ? support.getTargetInfo({ __node: selectionstate.propstarget }) : null;
+
+    const menuitems = [];
+    for (const menuitem of
+      [
+        { action: "table-addrow-before", title: getTid("tollium:components.rte.table_addrow_before") },
+        { action: "table-addrow-after", title: getTid("tollium:components.rte.table_addrow_after") },
+        null,
+        { action: "table-addcolumn-before", title: getTid("tollium:components.rte.table_addcolumn_before") },
+        { action: "table-addcolumn-after", title: getTid("tollium:components.rte.table_addcolumn_after") },
+        null,
+        { action: "table-deleterow", title: getTid("tollium:components.rte.table_deleterow") },
+        { action: "table-deletecolumn", title: getTid("tollium:components.rte.table_deletecolumn") },
+        null,
+        { action: "table-addpara-before", title: getTid("tollium:components.rte.table_addpara_before") },
+        { action: "table-addpara-after", title: getTid("tollium:components.rte.table_addpara_after") },
+        null,
+        { action: "table-mergeright", title: getTid("tollium:components.rte.table_mergeright") },
+        { action: "table-mergedown", title: getTid("tollium:components.rte.table_mergedown") },
+        { action: "table-splitcols", title: getTid("tollium:components.rte.table_splitcols") },
+        { action: "table-splitrows", title: getTid("tollium:components.rte.table_splitrows") },
+        null,
+        ...(this.options.propertiesaction ? [{ action: "action-properties", title: getTid("tollium:components.rte.properties") }] : [])
+      ]) {
+      if (!menuitem || selectionstate.actionstate[menuitem.action].available)
+        menuitems.push(menuitem);
+    }
+
+    if (!dompack.dispatchCustomEvent(this.bodydiv, "wh:richeditor-contextmenu", {
+      bubbles: true,
+      cancelable: true,
+      detail: { actiontarget, menuitems }
+    })) {
+      return;
+    }
+
+    const contextmenu = <ul onClick={evt => this._activateRTDMenuItem(evt, actiontarget)}>
+      {menuitems.map(item => item ? <li data-action={item.action}>{item.title}</li> : <li class="divider" />)}
+    </ul>;
+
+    menu.openAt(contextmenu, event, { eventnode: this.node });
+  }
+
+  _activateRTDMenuItem(evt, actiontarget) {
+    dompack.stop(evt);
+    const item = evt.target.closest('li');
+    this.executeAction(item.dataset.action, actiontarget);
+  }
+
+  //get the current dirty flag
+  isDirty() {
+    return this.dirty;
+  }
+
+  //clear dirty state
+  clearDirty() {
+    this.original_value = this.getValue();
+    this.dirty = false;
+  }
+
+  _checkDirty() {
+    if (this.dirty)
+      return;
+
+    this.dirty = this.original_value != this.getValue();
+    if (this.dirty) {
+      if (dompack.debugflags.rte)
+        console.log("[rte] Document got dirty, firing event");
+
+      dompack.dispatchCustomEvent(this.container, "wh:richeditor-dirty", { bubbles: true, cancelable: false });
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Callbacks
+  //
+  _gotClick(event) {
+    dompack.stop(event); //no click should ever escape an RTE area
+
+    const linkel = event.target.closest('a[href]');
+    if (linkel
+      && linkel.href.match(/^https?:/)
+      && (!this.isEditable() || KeyboardHandler.hasNativeEventMultiSelectKey(event))) {
+      window.open(linkel.href, '_blank');
+    }
+  }
+
+  _gotPageClick(event) {
+    if (!this.isEditable())
+      return;
+
+    // clicked on the html-div?
+    if (this.htmldiv === event.target) {
+      // focus body node instead
+      this.bodydiv.focus();
+      event.preventDefault();
+    }
+
+    const lastelt = this.bodydiv.lastElementChild;
+    if (!lastelt || event.clientY > lastelt.getBoundingClientRect().bottom)
+      this.requireBottomParagraph();
+  }
+
+  _updateEnablingAttributes() {
+    const rtdstatenode = this.stylescopenode || this.htmldiv;
+    rtdstatenode.classList.toggle('wh-rtd--enabled', this.isEditable());
+    rtdstatenode.classList.toggle('wh-rtd--disabled', !this.options.enabled);
+    rtdstatenode.classList.toggle('wh-rtd--readonly', this.options.readonly);
+  }
+
+  _gotStateChange(event) {
+    this._fireStateChange();
+    this._checkDirty();
+  }
+
+  _fireStateChange() {
+    dompack.dispatchCustomEvent(this.bodydiv, 'wh:richeditor-statechange', { bubbles: true, cancelable: false });
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Action and content API
+  //
+
+  updateTarget(actiontarget, settings) {
+    const undolock = this.getUndoLock();
+
+    const node = actiontarget.__node;
+    if (node.matches('a'))
+      this._updateHyperlink(actiontarget.__node, settings);
+    else if (node.matches('td,th'))
+      this._updateCell(actiontarget.__node, settings);
+    else if (node.matches('table'))
+      this._updateTable(actiontarget.__node, settings);
+    else if (node.matches('.wh-rtd-embeddedobject')) {
+      if (node.classList.contains("wh-rtd-embeddedobject")) {
+        //we'll simply reinsert
+        if (settings) {
+          if (settings.type == 'replace') {
+            this.updateEmbeddedObject(node, settings.data);
+          } else if (settings.type == 'remove') {
+            this.removeEmbeddedObject(node);
+          }
+        }
+      }
+    } else if (node.matches('img')) {
+      if (settings.width)
+        node.setAttribute("width", settings.width);
+      else
+        node.removeAttribute("width");
+      if (settings.height)
+        node.setAttribute("height", settings.height);
+      else
+        node.removeAttribute("height");
+
+      node.align = '';
+      node.alt = settings.alttext;
+      node.className = "wh-rtd__img" + (settings.align == 'left' ? " wh-rtd__img--floatleft" : settings.align == "right" ? " wh-rtd__img--floatright" : "");
+
+      let link = node.closest('A');
+      if (link && !settings.link) //remove the hyperlink
+      {
+        link.replaceWith(node);
+        this.selectNodeOuter(node);
+      } else if (settings.link) //add or update a hyperlink
+      {
+        if (!link) {
+          //replace the image with the link
+          link = document.createElement('a');
+          node.replaceWith(link);
+          link.appendChild(node);
+          this.selectNodeOuter(link);
+        }
+
+        link.href = settings.link.link;
+        link.target = settings.link.target || '';
+      }
+    } else {
+      console.error(node, settings);
+      throw new Error("Did not understand action target");
+    }
+    undolock.close();
+  }
+
+  _updateHyperlink(node, settings) {
+    const undolock = this.getUndoLock();
+
+    if (settings.destroy) //get rid of the hyperlink
+    {
+      this.selectNodeOuter(node);
+      this.removeHyperlink();
+    } else {
+      if ('link' in settings)
+        node.setAttribute("href", settings.link);
+      if ('target' in settings)
+        if (settings.target)
+          node.target = settings.target;
+        else
+          node.removeAttribute('target');
+    }
+
+    this._checkDirty();
+    undolock.close();
+  }
+
+  _updateTable(table, settings) {
+    if (settings.removetable) {
+      this.removeTable(table);
+      return;
+    }
+
+    const editor = tablesupport.getEditorForNode(table);
+    if (editor) {
+      editor.setFirstDataCell(settings.datacell.row, settings.datacell.col);
+      editor.setStyleTag(settings.tablestyletag);
+      editor.setCaption(settings.tablecaption);
+    }
+  }
+
+  _updateCell(node, settings) {
+    //apply cell update before table updates... the table might destroy our node! (eg if it gets replaced by a TH)
+    this.setCellStyle(node, settings.cellstyletag);
+    this._updateTable(node.closest('table'), settings);
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  getBody() {
+    return this.bodydiv;
   }
 
   qS(selector) {
@@ -372,8 +808,128 @@ export default class EditorBase {
     return Array.from(this.getBody().querySelectorAll(selector));
   }
 
+  getButtonNode(actionname) {
+    return this.toolbarnode.querySelector('span.wh-rtd-button[data-button=' + actionname + ']');
+  }
+
   isEditable() {
-    return this.rte._isActive();
+    return this.options.enabled && !this.options.readonly;
+  }
+
+  getEditor() {
+    return this;
+  }
+
+  getValue() {
+    const returntree = this.getBody().cloneNode(true);
+
+    //clean embedded objects
+    domlevel.queryEmbeddedObjects(returntree).forEach(node => {
+      node.contentEditable = "inherit";
+      dompack.empty(node);
+    });
+
+    //clean table editors
+    tablesupport.cleanupTree(returntree);
+
+    dompack.qSA(returntree, "*[tabindex], *[todd-savedtabindex]").forEach(item => {
+      item.removeAttribute("tabindex");
+      item.removeAttribute("todd-savedtabindex");
+    });
+
+    return returntree.innerHTML;
+  }
+
+  setValue(val) {
+    this.dirty = true;
+
+    this.bodydiv.innerHTML = val;
+    this.resetUndoStack();
+    this.knownimages = this.qSA('img').map(node => node.src);
+
+    this.reprocessAfterExternalSet();
+
+    this.original_value = this.getValue();
+    this.dirty = false;
+
+    this._checkDirty();
+  }
+
+  focus() {
+    this.bodydiv.focus();
+  }
+
+  setEnabled(enabled) {
+    if (enabled == this.options.enabled)
+      return;
+
+    this.options.enabled = enabled;
+
+    if (this.bodydiv)
+      this._updateEnablingAttributes();
+
+    if (this.options.readonly) // Readonly still active, no change
+      return;
+
+    if (enabled) {
+      this.editareaconnect();
+      this._fireStateChange();
+    } else {
+      this.editareadisconnect();
+      this._fireStateChange();
+    }
+  }
+
+  setReadonly(readonly) {
+    if (readonly === this.options.readonly)
+      return;
+
+    this.options.readonly = readonly;
+
+    this.toolbarnode.style.display = readonly ? "none" : "block";
+    this._updateEnablingAttributes();
+
+    if (!this.options.enabled) // Readonly still active, no change in editability
+      return;
+
+    if (!readonly) {
+      this._fireStateChange();
+      this.editareaconnect();
+    } else {
+      this.editareadisconnect();
+      this._fireStateChange();
+    }
+  }
+
+  setHTMLClass(htmlclass) {
+    support.replaceClasses(this.htmldiv, this.options.htmlclass, htmlclass);
+    this.options.htmlclass = htmlclass;
+  }
+
+  setBodyClass(bodyclass) {
+    support.replaceClasses(this.bodydiv, this.options.bodyclass, bodyclass);
+    this.options.bodyclass = bodyclass;
+  }
+
+  getPlainText(method, options = []) {
+    switch (method) {
+      case "converthtmltoplaintext":
+        {
+          const suppress_urls = options.includes("suppress_urls");
+          const unix_newlines = options.includes("unix_newlines");
+          return convertHtmlToPlainText(this.bodydiv, { suppress_urls, unix_newlines });
+        }
+      case "textcontent":
+        {
+          return this.bodydiv.textContent;
+        }
+    }
+    throw new Error("Unsupported method for plaintext conversion: " + method);
+  }
+
+  // used by tests only, remove when possible
+  get editnode() {
+    return this.bodydiv;
   }
 
   setupUndoNode() {
@@ -417,6 +973,9 @@ export default class EditorBase {
   }
 
   destroy() {
+    this.toolbarnode.remove();
+    styleloader.unregister(this);
+
     if (this.fontslistener)
       document.fonts.removeEventListener("loadingdone", this.fontslistener);
 
@@ -509,10 +1068,6 @@ export default class EditorBase {
   //
   // Public API
   //
-
-  getBody() {
-    return this.bodydiv;
-  }
 
   setContentsHTML(htmlcode, options) {
     //note: WE don't use 'raw', but the structurededitor does! raw bypasses its cleanup
@@ -1293,6 +1848,7 @@ export default class EditorBase {
       avoidwhitespace: true
     });
     this.stateHasChanged();
+    this._checkDirty();
   }
 
   removeHyperlink() {
@@ -1469,7 +2025,7 @@ export default class EditorBase {
     this.qSA("script,style,head").forEach(node => node.remove());
 
     let imgs = this.qSA('img');
-    imgs = imgs.filter(img => !this.rte.knownimages.includes(img.src) && !this._isStillImageDownloadNode(img) && img.isContentEditable);
+    imgs = imgs.filter(img => !this.knownimages.includes(img.src) && !this._isStillImageDownloadNode(img) && img.isContentEditable);
     if (!imgs.length) //nothing to do
       return;
 
@@ -1499,7 +2055,7 @@ export default class EditorBase {
       img.src = properurl;
       img.removeAttribute("width");
       img.removeAttribute("height");
-      this.rte.knownimages.push(img.src);
+      this.knownimages.push(img.src);
     }
   }
   /* Surround selection directly if there is a selection, otherwise delay surrounding the selection until there was something
@@ -2399,7 +2955,7 @@ export default class EditorBase {
       const res = await uploader.upload();
       const properurl = await formservice.getUploadedFileFinalURL(res[0].url);
       imgnode.src = properurl;
-      this.rte.knownimages.push(imgnode.src);
+      this.knownimages.push(imgnode.src);
       imgnode.classList.add("wh-rtd__img");
 
       //drop width/height form external images
@@ -2417,7 +2973,7 @@ export default class EditorBase {
       action: 'action-properties',
       actiontarget: { __node: node },
       subaction: subaction,
-      rte: this.rte
+      rte: this
     };
 
     if (!dompack.dispatchCustomEvent(node, "wh:richeditor-action",
@@ -2441,14 +2997,14 @@ export default class EditorBase {
     if (!this._isActionAllowed(action.action))
       return;
 
-    let actionnode = this.options.eventnode; //FIXME legacy! should just fire to the closest event possible for all actions (so actiontarget needs to include this info?)
+    let actionnode = this.container; //FIXME legacy! should just fire to the closest event possible for all actions (so actiontarget needs to include this info?)
     if (actiontarget) {
       action.actiontargetinfo = actiontarget;
     } else if (action) {
       if (!action.action)
         throw new Error("Expected an 'action' value");
 
-      action.rte = this.rte; //this is the RTE object
+      action.rte = this; //this is the RTE object
 
       if (action.action == 'a-href') {
         const selstate = this.getSelectionState();
