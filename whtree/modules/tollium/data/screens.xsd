@@ -2040,7 +2040,7 @@ To change a <xs:attribute /> for adding descriptions
       <xs:element ref="panel" />
       <xs:element ref="richarea" />
       <xs:element ref="richdocument" />
-      <xs:element name="rte" type="RTE"/>
+      <!-- <xs:element name="rte" type="RTE"/> -->
       <xs:element name="split" type="Split"/>
       <xs:element ref="statuspanel" />
       <xs:element name="table" type="Table" />
@@ -6122,7 +6122,7 @@ To change a <xs:attribute /> for adding descriptions
   <xs:element name="record" type="Record" />
   <xs:element name="richarea" type="RichArea"/>
   <xs:element name="richdocument" type="RichDocument"/>
-  <xs:element name="rte" type="RTE"/>
+  <!-- <xs:element name="rte" type="RTE"/> -->
   <xs:element name="select" type="Select"/>
   <xs:element name="slider" type="Slider" />
   <xs:element name="spacer" type="Spacer"/>
