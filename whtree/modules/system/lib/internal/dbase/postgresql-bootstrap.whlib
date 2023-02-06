@@ -144,43 +144,6 @@ BEGIN
   RETURN _result;
 END;$$`
         ]
-      , [ name :=   "webhare_proc_foldercontainssite"
-        , code :=   `
-CREATE OR REPLACE FUNCTION webhare_proc_foldercontainssite(_id int4) RETURNS boolean
-    LANGUAGE plpgsql AS $$
-DECLARE
-  _highestparent int4;
-  _outputweb int4;
-  _outputfolder varchar;
-BEGIN
-  _highestparent = webhare_proc_fs_objects_highestparent(_id);
-  IF _highestparent = 0 THEN
-    RETURN false;
-  END IF;
-
-  SELECT outputweb, outputfolder
-    INTO _outputweb, _outputfolder
-    FROM system.sites
-   WHERE id = _highestparent;
-
-  IF _outputweb IS NULL THEN
-    RETURN false;
-  END IF;
-
-  /* strip the final slash, append the folder fullpath */
-  _outputfolder := regexp_replace(_outputfolder, '/*$', '');
-  _outputfolder := _outputfolder || webhare_proc_fs_objects_fullpath(_id, true);
-
-  SELECT id
-    INTO _id
-    FROM system.sites
-   WHERE outputweb = _outputweb
-     AND id != _highestparent
-     AND substring(outputfolder for char_length(_outputfolder)) = _outputfolder;
-
-  RETURN _id IS NOT NULL;
-END;$$`
-        ]
       , [ name :=   "webhare_proc_folderurl"
         , code :=   `
 CREATE OR REPLACE FUNCTION webhare_proc_folderurl(_id int4) RETURNS varchar
@@ -325,6 +288,43 @@ BEGIN
     _maxdepth := _maxdepth - 1;
   END LOOP;
   RETURN '';
+END;$$`
+        ]
+      , [ name :=   "webhare_proc_foldercontainssite"
+        , code :=   `
+CREATE OR REPLACE FUNCTION webhare_proc_foldercontainssite(_id int4) RETURNS boolean
+    LANGUAGE plpgsql AS $$
+DECLARE
+  _highestparent int4;
+  _outputweb int4;
+  _outputfolder varchar;
+BEGIN
+  _highestparent = webhare_proc_fs_objects_highestparent(_id);
+  IF _highestparent = 0 THEN
+    RETURN false;
+  END IF;
+
+  SELECT outputweb, outputfolder
+    INTO _outputweb, _outputfolder
+    FROM system.sites
+   WHERE id = _highestparent;
+
+  IF _outputweb IS NULL THEN
+    RETURN false;
+  END IF;
+
+  /* strip the final slash, append the folder fullpath */
+  _outputfolder := regexp_replace(_outputfolder, '/*$', '');
+  _outputfolder := _outputfolder || webhare_proc_fs_objects_fullpath(_id, true);
+
+  SELECT id
+    INTO _id
+    FROM system.sites
+   WHERE outputweb = _outputweb
+     AND id != _highestparent
+     AND substring(outputfolder for char_length(_outputfolder)) = _outputfolder;
+
+  RETURN _id IS NOT NULL;
 END;$$`
         ]
       , [ name :=   "webhare_proc_fs_objects_indexurl"
