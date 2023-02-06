@@ -1,10 +1,10 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-const fs = require('fs');
-const process = require('process');
-const services = require('@webhare/services');
-const StackTrace = require('stack-trace');
+import * as fs from "fs";
+import * as process from 'process';
+import * as services from "@webhare/services";
+import * as StackTrace from 'stack-trace';
 
 let getopt = require('node-getopt/lib/getopt.js').create([
   ['', 'debug', 'debug output.'],

@@ -5,8 +5,8 @@
   This is the RPC loader, which is used by the assetpackmanager to generate JSONRPC binding files based on *.rpc.json
   JSONRPC specification files. See services.md for further documentation
 */
-const fs = require('fs');
-const services = require('@webhare/services');
+import * as fs from "fs";
+import * as services from "@webhare/services";
 
 async function generateRPCWrappers(resourcePath, rpcdata) {
   let rpcfile = JSON.parse(rpcdata);
@@ -82,4 +82,3 @@ module.exports.getESBuildPlugin = (captureplugin) => ({
     });
   },
 });
-

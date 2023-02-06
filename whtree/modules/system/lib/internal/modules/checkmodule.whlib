@@ -44,7 +44,7 @@ OBJECTTYPE CheckerObject
 
   MACRO OnSkippedFile(STRING resourcename, STRING why)
   {
-    IF(this->options.printissues)
+    IF(this->options.printissues AND NOT this->options.hidehints)
       Print(`Info: Skipping ${resourcename} because: ${why}\n`);
   }
 

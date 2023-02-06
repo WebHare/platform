@@ -1,40 +1,39 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-"use strict";
-
 /** This class implements the base class for a waitable condition
 */
-class WaitableConditionBase {
+export class WaitableConditionBase {
+  _signalled;
+  _wait: { promise: Promise<WaitableConditionBase>; resolve: (arg: WaitableConditionBase) => void } | null;
+  name;
+
   constructor() {
     /// Whether this condition is currently signalled
     this._signalled = false;
     /** Promise and resolve function for waiting for signalled status change
-        @cell promise Promise
-        @cell resolve Resolve function for the promise
+        \@cell promise Promise
+        \@cell resolve Resolve function for the promise
     */
     this._wait = null;
     /// Name for debugging purposes
     this.name = "";
   }
 
-  _waitSignalledInternal(negate) {
+  _waitSignalledInternal(negate: boolean) {
     // Is the signalled state already what the user wants?
     if (this._signalled !== negate)
       return Promise.resolve(this);
 
     // Create a promise to wait for if there isn't one yet for the next signalled status change
     if (!this._wait) {
-      this._wait = { promise: null, resolve: null };
-      this._wait.promise = new Promise(resolve => this._wait.resolve = resolve);
+      let resolve: null | ((arg: WaitableConditionBase) => void) = null;
+      const promise = new Promise<WaitableConditionBase>(r => resolve = r);
+      this._wait = { promise, resolve: resolve! };
     }
 
     return this._wait.promise;
   }
 
   /// Updates the current signalled status (internal function, for use by derived objects
-  _setSignalled(signalled) {
-    signalled = !!signalled;
+  _setSignalled(signalled: boolean) {
     if (this._signalled === signalled)
       return;
 
@@ -55,5 +54,3 @@ class WaitableConditionBase {
     return this._waitSignalledInternal(true);
   }
 }
-
-module.exports = WaitableConditionBase;

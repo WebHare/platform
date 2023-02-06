@@ -6,13 +6,13 @@
 
 "use strict";
 
-const fs = require('fs');
-const sass = require("sass");
-const util = require("util");
-const path = require("path");
-const csstree = require("css-tree");
+import * as fs from "fs";
+import * as sass from "sass";
+import * as util from "util";
+import * as path from "path";
+import * as csstree from "css-tree";
 const sassRender = util.promisify(sass.render);
-const compileutils = require('./compileutils');
+import * as compileutils from './compileutils';
 
 function addUnderscoreToFilename(url) {
   let parts = url.split('/');
@@ -97,7 +97,7 @@ async function replaceUrls(css, newCssFileName, sourceDir, rootDir) {
         /* Special case for import, since it supports raw strings as url.
         Plain css imports (eg @import "~dompack/browserfix/reset.css")
         goes through US not the import callback!
-  
+
         see https://sass-lang.com/documentation/at-rules/import#plain-css-imports for why this is */
         if (node.type === "Atrule"
           && node.name === "import"
