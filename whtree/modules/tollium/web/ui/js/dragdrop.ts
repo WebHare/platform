@@ -6,7 +6,7 @@
 */
 
 import * as browser from 'dompack/extra/browser';
-import KeyboardHandler from "dompack/extra/keyboard";
+import { getDragModeOverride } from "dompack/extra/keyboard";
 
 // Our custom data url
 var webharedataurl = "webhare://data/";
@@ -41,7 +41,7 @@ function getDefaultDropEffect(event, effectAllowed) {
     }
 
   // get the keyboard override, apply it when effectAllowed allows it (so safari will be handled correctly)
-  const keyboardoverride = KeyboardHandler.getDragModeOverride(event);
+  const keyboardoverride = getDragModeOverride(event);
   if (keyboardoverride && isDropEffectAllowed(keyboardoverride, effectAllowed))
     dropeffect = keyboardoverride;
 
