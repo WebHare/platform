@@ -49,6 +49,9 @@ IF (RecordExists(GetDiskFileProperties(MergePath(dataroot, "webhare-config/tscon
 
 //5.2 - *really* remove legacy indexmanager data files, 5.0.2 attempted to delete it as a file
 DeleteDiskDirectoryRecursive(MergePath(dataroot, "index"));
+//Didn't bump cleanup task's tag for this one, this cleanup only affects users who jump from 4.35 to 5.02 immediately
+FOREVERY(RECORD failedindex FROM ReadDiskDirectory(dataroot,"oldindex-????????-*"))
+  DeleteDiskDirectoryRecursive(failedindex.path);
 
 //5.2 - no longer supported (since earlier WebHares already)
 DeleteDiskFile(MergePath(dataroot, "currentserverconfig.xml"));
