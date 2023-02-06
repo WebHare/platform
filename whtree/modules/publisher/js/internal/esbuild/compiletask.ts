@@ -1,16 +1,16 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-const esbuild = require('esbuild');
-const fs = require('fs');
-const whSassPlugin = require("./plugin-sass");
-const whSourceMapPathsPlugin = require("./plugin-sourcemappaths");
-const path = require('path');
-const services = require("@webhare/services");
+import * as esbuild from 'esbuild';
+import * as fs from "fs";
+import whSassPlugin from "./plugin-sass";
+import whSourceMapPathsPlugin from "./plugin-sourcemappaths";
+import * as path from 'path';
+import * as services from "@webhare/services";
 
-const compileutils = require('./compileutils');
-const { promisify } = require('util');
-const zlib = require('zlib');
+import * as compileutils from './compileutils';
+import { promisify } from 'util';
+import * as zlib from 'zlib';
 const compressGz = promisify(zlib.gzip);
 
 /* TODO likewise addd Brotli, but WH can't serve it yet anyway

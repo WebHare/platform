@@ -1,10 +1,10 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-const fs = require('fs');
-const path = require('path');
-const Module = require('module');
-const services = require("@webhare/services");
+import * as fs from 'fs';
+import * as path from 'path';
+import * as Module from 'module';
+import * as services from "@webhare/services";
 
 function resolveWebHareAssetPath(startingpoint, inpath) {
   if (inpath.startsWith("dompack/")) {

@@ -3,7 +3,7 @@
 
 "use strict";
 
-const WaitableConditionBase = require("./waitableconditionbase");
+import { WaitableConditionBase } from "./waitableconditionbase";
 
 /** This class implements waitable condition with manual signalledness control
 */

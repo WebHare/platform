@@ -2,7 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 
-const WaitableConditionBase = require("./waitableconditionbase");
+import { WaitableConditionBase } from "./waitableconditionbase";
 
 
 /// This class implements a FIFO with a wait function that is resolved when an element is present

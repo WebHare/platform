@@ -6,8 +6,8 @@
 
 "use strict";
 
-const path = require('path');
-const services = require("@webhare/services");
+import * as path from 'path';
+import * as services from "@webhare/services";
 
 module.exports = (outdir) =>
 ({
