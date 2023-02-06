@@ -1,12 +1,11 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as fs from 'fs';
 import * as path from 'path';
-import * as Module from 'module';
+//import * as Module from 'module'; //FIXME this breaks resetResolveCache
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const Module = require('module');
 import * as services from "@webhare/services";
 
-function resolveWebHareAssetPath(startingpoint, inpath) {
+function resolveWebHareAssetPath(startingpoint: string, inpath: string) {
   if (inpath.startsWith("dompack/")) {
     return services.toFSPath("mod::system/js/" + inpath);
   }
@@ -23,15 +22,14 @@ function resolveWebHareAssetPath(startingpoint, inpath) {
     */
     if (inpath.startsWith('@mod-')) {
       // The directory should exist, so we can realpath that part
-      let inpathdir = path.join(services.getConfig().dataroot, "node_modules/", path.dirname(inpath));
+      const inpathdir = path.join(services.getConfig().dataroot, "node_modules/", path.dirname(inpath));
       inpath = path.join(fs.realpathSync(inpathdir), path.basename(inpath));
       paths = [];
     }
 
     // FIXME: this won't find files ending with .es, because the node process itself isn't configured with that extension
     return require.resolve(inpath, { paths });
-  }
-  catch (e) {
+  } catch (e) {
     // console.log("resolve failed");
     return null;
   }
