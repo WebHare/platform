@@ -10,7 +10,7 @@ To define a backend service, expose a (possible async) callback to return the ob
 
 ```xml
   <services>
-    <backendservice name="myservice" handler="js/theservice.ts#getAMyServiceInstance" />
+    <backendservice name="myservice" clientfactory="js/theservice.ts#getAMyServiceInstance" />
   </services>
 ```
 

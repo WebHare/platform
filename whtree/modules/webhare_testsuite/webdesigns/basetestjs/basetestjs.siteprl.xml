@@ -10,7 +10,7 @@
     <webdesign designfolder="."
                maxcontentwidth="960px"
                witty="frontend/frontend.witty"
-               objectname="webdesign/webdesign.ts#BaseTestJSDesign"
+               siteresponsefactory="webdesign/webdesign.ts#BaseTestJSDesign"
                assetpack="basetestjs"
                wittyencoding="HTML-NI"
                async="true" />

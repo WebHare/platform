@@ -1,10 +1,8 @@
 import { ServiceCallMessage, ServiceCallResult, WebHareServiceDescription, WebHareServiceIPCLinkType } from "@mod-system/js/internal/types";
 import bridge, { IPCMarshallableData } from "@mod-system/js/internal/whmanager/bridge";
 
-/** Context received by backenservice constructors */
-export interface BackendServiceContext {
-  /** Main object, constructed by the main= handler on the <backendservice> (if any) */
-  mainobject: unknown;
+export interface BackendServiceController {
+  createClient(...args: unknown[]): Promise<unknown>;
 }
 
 /** Interface for the client object we present to the connecting user

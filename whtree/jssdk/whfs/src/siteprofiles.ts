@@ -2,13 +2,6 @@
 import * as services from '@webhare/services';
 import * as fs from 'node:fs';
 
-//For JS we're cleaning up some properties that are not available yet in siteprofiles (and may still change). So record any overrides here:
-const overrides: { [key: string]: unknown } = {
-  "http://www.webhare.net/xmlns/publisher/markdownfile": {
-    renderfunction: "mod::publisher/js/internal/markdown.ts#renderMarkdown"
-  }
-};
-
 //Here we add properties that we think are useful to support longterm on the `whfsobject.type` property. At some point CSP should perhaps directly store this format
 export interface PublicContentTypeInfo {
   namespace: string;
@@ -16,8 +9,6 @@ export interface PublicContentTypeInfo {
 export interface PublicFileTypeInfo extends PublicContentTypeInfo {
   /// When rendered, render inside a webdesign (aka 'needstemplate')
   inwebdesign: boolean;
-  /// Default render handler. Path to a pagehandler(request,response). Overridable by apply rules
-  renderfunction: string;
 }
 
 interface CSPContentType {
@@ -137,13 +128,22 @@ interface CSPWebtoolsformrule {
   type: string;
 }
 
+interface CSPBodyRendererRule {
+  library: string;
+  rendermacro: string;
+  preparemacro: string;
+  objectname: string;
+  /// Default render handler. Path to a pagehandler(request,response). Overridable by apply rules
+  renderer: string;
+}
+
 export interface CSPApplyRule {
   tos: CSPApplyTo[];
 
   applyindex: number;
   applynodetype: string;
   baseproperties?: any;
-  bodyrenderer?: any;
+  bodyrenderer?: CSPBodyRendererRule;
   col: number;
   contentlisting?: any;
   customnodes: any[];
@@ -226,11 +226,7 @@ export function describeFileType(type: number | string, options: { mockifmissing
   const retval = {
     namespace: matchtype.namespace,
     inwebdesign: Boolean(matchtype.filetype?.needstemplate),
-    renderfunction: '' //canot be set yet (although dynamicexecution and bodyrenderer come very close to doing the same)
   };
-
-  if (overrides[retval.namespace])
-    Object.assign(retval, overrides[retval.namespace]);
 
   return retval;
 }
