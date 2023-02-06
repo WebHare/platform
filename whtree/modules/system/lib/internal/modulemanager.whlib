@@ -755,7 +755,7 @@ PUBLIC RECORD ARRAY FUNCTION GetDataRootNodeModules(STRING ARRAY modules, BOOLEA
         , type :=     "softlink"
         , target :=   `${installationroot}jssdk`
         ]
-        // Webhare whtree node_module packages that are available for client modules
+        // WebHare whtree node_module packages that are available for client modules
       , [ name :=     "typescript"
         , type :=     "softlink"
         , target :=   MergePath(installationroot, "node_modules/typescript")
