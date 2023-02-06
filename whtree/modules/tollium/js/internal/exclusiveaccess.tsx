@@ -167,7 +167,7 @@ export async function getExclusiveAccess(identifier, userinfo, { onAlreadyLocked
   let busylock = dompack.flagUIBusy({ ismodal: true });
 
   const socket = new WebSocket(`${location.origin.replace(/^http/, "ws")}/.tollium/exclusiveaccess/exclusiveaccess.whsock`);
-  let fifo = new FIFO< { type: string, allow?: boolean } >;
+  let fifo = new FIFO<{ type: string, allow?: boolean }>;
   socket.addEventListener("open", e => fifo.push({ type: "open" }));
   socket.addEventListener("error", e => fifo.push({ type: "error" }));
   socket.addEventListener("close", e => fifo.push({ type: "close" }));
