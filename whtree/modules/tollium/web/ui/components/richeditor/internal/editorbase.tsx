@@ -15,7 +15,7 @@ import * as styleloader from './styleloader';
 import * as formservice from '@mod-publisher/js/forms/internal/form.rpc.json';
 import * as preload from 'dompack/extra/preload';
 import * as browser from "dompack/extra/browser";
-import * as KeyboardHandler from "dompack/extra/keyboard"; //FIXME should become import KeyboardHandler as soon as our dompack has KeyboardHandler.getEventKeyNames
+import * as KeyboardHandler from "dompack/extra/keyboard";
 import SelectionInterface from './selection';
 import * as tablesupport from "./tableeditor";
 import rangy from "@mod-system/js/frameworks/rangy/rangy13";

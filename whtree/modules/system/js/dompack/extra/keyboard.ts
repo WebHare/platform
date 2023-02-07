@@ -263,53 +263,49 @@ export default class KeyboardHandler {
       }
     }
   }
-
-  static getEventKeyNames(event: KeyboardEvent) {
-    const keydata = normalizeKeyboardEventData(event);
-    return getKeyNames(keydata);
-  }
-
-  /**
-   * Is the native 'copy' modifier for this platform pressed?
-   *
-   * @param event - Event to check
-   */
-  static hasNativeEventCopyKey(event: KeyboardEvent) {
-    return event && (IS_MAC_PLATFORM ? event.altKey : event.ctrlKey);
-  }
-
-  /**
-   * Is the native 'multiselect' modifier for this platform pressed?
-   *
-   * @param event - Event to check
-   */
-  static hasNativeEventMultiSelectKey(event: KeyboardEvent) {
-    return event && (IS_MAC_PLATFORM ? event.metaKey : event.ctrlKey);
-  }
-
-  static getDragModeOverride(event: KeyboardEvent) {
-    const modifiers =
-      (event.altKey ? "Alt+" : "") +
-      (event.ctrlKey ? "Control+" : "") +
-      (event.metaKey ? "Meta+" : "") +
-      (event.shiftKey ? "Shift+" : "") +
-      (IS_MAC_PLATFORM ? "Mac" : "Other");
-
-    let override = "";
-    switch (modifiers) {
-      case "Shift+Other":
-      case "Meta+Other": override = "move"; break;
-      case "Control+Other":
-      case "Alt+Mac": override = "copy"; break;
-      case "Control+Shift+Other":
-      case "Alt+Other":
-      case "Control+Mac": override = "link"; break;
-    }
-
-    return override;
-  }
 }
 
 export function getEventKeyNames(event: KeyboardEvent) {
-  return KeyboardHandler.getEventKeyNames(event);
+  const keydata = normalizeKeyboardEventData(event);
+  return getKeyNames(keydata);
+}
+
+/**
+ * Is the native 'copy' modifier for this platform pressed?
+ *
+ * @param event - Event to check
+ */
+export function hasNativeEventCopyKey(event: KeyboardEvent) {
+  return event && (IS_MAC_PLATFORM ? event.altKey : event.ctrlKey);
+}
+
+/**
+ * Is the native 'multiselect' modifier for this platform pressed?
+ *
+ * @param event - Event to check
+ */
+export function hasNativeEventMultiSelectKey(event: KeyboardEvent) {
+  return event && (IS_MAC_PLATFORM ? event.metaKey : event.ctrlKey);
+}
+
+export function getDragModeOverride(event: KeyboardEvent) {
+  const modifiers =
+    (event.altKey ? "Alt+" : "") +
+    (event.ctrlKey ? "Control+" : "") +
+    (event.metaKey ? "Meta+" : "") +
+    (event.shiftKey ? "Shift+" : "") +
+    (IS_MAC_PLATFORM ? "Mac" : "Other");
+
+  let override = "";
+  switch (modifiers) {
+    case "Shift+Other":
+    case "Meta+Other": override = "move"; break;
+    case "Control+Other":
+    case "Alt+Mac": override = "copy"; break;
+    case "Control+Shift+Other":
+    case "Alt+Other":
+    case "Control+Mac": override = "link"; break;
+  }
+
+  return override;
 }
