@@ -114,14 +114,14 @@ class WebhareConfig {
   }
 }
 
-export type WebhareConfiguration = {
+export type WebHareConfiguration = {
   readonly baseport: number;
   readonly basedatadir: string;
   readonly installationroot: string;
   readonly module: WebHareModuleMap;
 };
 
-export function calculateWebhareConfiguration(): WebhareConfiguration {
+export function calculateWebHareConfiguration(): WebHareConfiguration {
   const config = new WebhareConfig;
   return {
     baseport: config.baseport,
@@ -131,6 +131,6 @@ export function calculateWebhareConfiguration(): WebhareConfiguration {
   };
 }
 
-export function calculateWebhareModuleMap(): WebHareModuleMap {
+export function calculateWebHareModuleMap(): WebHareModuleMap {
   return (new WebhareConfig).module;
 }

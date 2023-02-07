@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { DOMParser } from '@xmldom/xmldom';
-import { calculateWebhareConfiguration, WebhareConfiguration } from "@mod-system/js/internal/configuration";
+import { calculateWebHareConfiguration, WebHareConfiguration } from "@mod-system/js/internal/configuration";
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { encodeValue } from "dompack/types/text";
 
@@ -76,7 +76,7 @@ function formatDocumentation(node: Element, indent: string): string {
 }
 
 
-function generateKyselyDefs(config: WebhareConfiguration, modulename: string, modules: string[]): string {
+function generateKyselyDefs(config: WebHareConfiguration, modulename: string, modules: string[]): string {
   const interfacename = modulename === "webhare" ? "WebHareDB" : `${generateTableTypeName(modulename)}DB`;
   let genfile = `import type { ColumnType } from "kysely";
 
@@ -237,7 +237,7 @@ function updateFile(filename: string, defs: string) {
   console.log(`written ${filename}`);
 }
 
-function updateDir(config: WebhareConfiguration, dir: string, wantfiles: Record<string, string[]>, removeother: boolean) {
+function updateDir(config: WebHareConfiguration, dir: string, wantfiles: Record<string, string[]>, removeother: boolean) {
   fs.mkdirSync(dir, { recursive: true });
   let existingfiles: string[] = [];
   if (removeother) {
@@ -263,7 +263,7 @@ function updateDir(config: WebhareConfiguration, dir: string, wantfiles: Record<
 }
 
 export function updateAllModuleTableDefs() {
-  const config = calculateWebhareConfiguration();
+  const config = calculateWebHareConfiguration();
   const storagedir = config.basedatadir + "storage/system/generated/whdb/";
   const localdir = config.installationroot + "modules/system/js/internal/generated/whdb/";
 
@@ -273,9 +273,9 @@ export function updateAllModuleTableDefs() {
 }
 
 export function updateSingleModuleTableDefs(name: string) {
-  const config = calculateWebhareConfiguration();
+  const config = calculateWebHareConfiguration();
   if (whconstant_builtinmodules.includes(name)) {
-    const localdir = config.basedatadir + "storage/system/generated/whdb/";
+    const localdir = config.installationroot + "modules/system/js/internal/generated/whdb/";
     updateDir(config, localdir, { webhare: whconstant_builtinmodules }, true);
   } else {
     const storagedir = config.basedatadir + "storage/system/generated/whdb/";
