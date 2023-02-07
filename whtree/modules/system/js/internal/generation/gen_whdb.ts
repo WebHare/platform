@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { DOMParser } from '@xmldom/xmldom';
-import { calculateWebhareModuleMap, WebHareModuleMap } from "@mod-system/js/internal/configuration";
+import { calculateWebHareConfiguration, WebHareConfiguration } from "@mod-system/js/internal/configuration";
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { encodeValue } from "dompack/types/text";
 
@@ -76,7 +76,7 @@ function formatDocumentation(node: Element, indent: string): string {
 }
 
 
-function generateKyselyDefs(modulelist: WebHareModuleMap, modulename: string, modules: string[]): string {
+function generateKyselyDefs(config: WebHareConfiguration, modulename: string, modules: string[]): string {
   const interfacename = modulename === "webhare" ? "WebHareDB" : `${generateTableTypeName(modulename)}DB`;
   let genfile = `import type { ColumnType } from "kysely";
 
@@ -99,7 +99,7 @@ type IsGenerated<T> = ColumnType<T, T | undefined, never>;
 `;
 
   const tablemap = new Map<string, string>;
-  for (const mod of Object.entries(modulelist)) {
+  for (const mod of Object.entries(config.module)) {
     if (!modules.includes(mod[0]))
       continue;
 
@@ -213,14 +213,7 @@ type IsGenerated<T> = ColumnType<T, T | undefined, never>;
   return genfile;
 }
 
-function updateModuleTableDefs(modulelist: WebHareModuleMap, name: string) {
-  const dir = modulelist.system.root + "js/internal/generated/whdb/";
-  fs.mkdirSync(dir, { recursive: true });
-
-  const modules = name === "webhare" ? whconstant_builtinmodules : [name];
-  const defs = generateKyselyDefs(modulelist, name, modules);
-
-  const filename = `${dir}${name}.d.ts`;
+function updateFile(filename: string, defs: string) {
   try {
     const current = fs.readFileSync(filename).toString();
     if (defs && current === defs) {
@@ -244,29 +237,48 @@ function updateModuleTableDefs(modulelist: WebHareModuleMap, name: string) {
   console.log(`written ${filename}`);
 }
 
+function updateDir(config: WebHareConfiguration, dir: string, wantfiles: Record<string, string[]>, removeother: boolean) {
+  fs.mkdirSync(dir, { recursive: true });
+  let existingfiles: string[] = [];
+  if (removeother) {
+    try {
+      existingfiles = fs.readdirSync(dir).filter(f => f.endsWith(".d.ts")).map(f => f.substring(0, f.length - 5));
+    } catch (e) {
+    }
+  }
+
+  for (const file of Object.keys(wantfiles)) {
+    const defs = generateKyselyDefs(config, file, wantfiles[file]);
+    const filename = `${dir}${file}.d.ts`;
+    updateFile(filename, defs);
+  }
+  if (removeother) {
+    for (const file of existingfiles) {
+      if (!Object.keys(wantfiles).includes(file)) {
+        const filename = `${dir}${file}.d.ts`;
+        updateFile(filename, "");
+      }
+    }
+  }
+}
+
 export function updateAllModuleTableDefs() {
-  const modulelist = calculateWebhareModuleMap();
-  const dir = modulelist.system.root + "js/internal/generated/whdb/";
-  let files: string[] = [];
-  try {
-    files = fs.readdirSync(dir).filter(f => f.endsWith(".d.ts")).map(f => f.substring(0, f.length - 5));
-  } catch (e) {
-  }
+  const config = calculateWebHareConfiguration();
+  const storagedir = config.basedatadir + "storage/system/generated/whdb/";
+  const localdir = config.installationroot + "modules/system/js/internal/generated/whdb/";
 
-  const todo = ["webhare"];
-  for (const f of [...Object.keys(modulelist), ...files]) {
-    if (!todo.includes(f) && !whconstant_builtinmodules.includes(f))
-      todo.push(f);
-  }
-
-  for (const module of todo)
-    updateModuleTableDefs(modulelist, module);
+  const noncoremodules = Object.keys(config.module).filter(m => !whconstant_builtinmodules.includes(m));
+  updateDir(config, storagedir, Object.fromEntries(noncoremodules.map(m => [m, [m]])), true);
+  updateDir(config, localdir, { webhare: whconstant_builtinmodules }, true);
 }
 
 export function updateSingleModuleTableDefs(name: string) {
-  const modulelist = calculateWebhareModuleMap();
-  if (whconstant_builtinmodules.includes(name))
-    name = "webhare";
-
-  updateModuleTableDefs(modulelist, name);
+  const config = calculateWebHareConfiguration();
+  if (whconstant_builtinmodules.includes(name)) {
+    const localdir = config.installationroot + "modules/system/js/internal/generated/whdb/";
+    updateDir(config, localdir, { webhare: whconstant_builtinmodules }, true);
+  } else {
+    const storagedir = config.basedatadir + "storage/system/generated/whdb/";
+    updateDir(config, storagedir, { [name]: [name] }, true);
+  }
 }

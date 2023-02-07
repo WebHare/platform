@@ -264,60 +264,60 @@ type AllowedKeys<Q> = Q extends Kysely<infer DB> ? keyof DB : Q extends object ?
 
 /** Converts a table of a Kysely database definition to the type of the data returned by SELECT queries.
     @typeParam Q - Either
-    - Database definition (eg `WebhareDB`)
-    - Type of the Kysely instance (eq `typeof db<WebhareDB>`)
-    - Table definition to convert (eq `WebhareDB["WRD_Entities"]`)
+    - Database definition (eg `WebHareDB`)
+    - Type of the Kysely instance (eq `typeof db<WebHareDB>`)
+    - Table definition to convert (eq `WebHareDB["WRD_Entities"]`)
     @typeParam S - Table to select from a database definition or Kysely instance
     @example
 ```
 // The following three types all describe the data returned from SELECT * FROM wrd.entities:
-type WRDEntitiesSelect = Selectable<WebhareDB, "wrd.entities">;
-const mydb = db<WebhareDB>();
+type WRDEntitiesSelect = Selectable<WebHareDB, "wrd.entities">;
+const mydb = db<WebHareDB>();
 type WRDEntitiesSelect2 = Selectable<typeof mydb, "wrd.entities">;
-type WRDEntitiesSelect3 = Selectable<WebhareDB["wrd.entities"]>;
+type WRDEntitiesSelect3 = Selectable<WebHareDB["wrd.entities"]>;
 
-const rows: WRDEntitiesUpdate[] = await  db<WebhareDB>().selectFrom("wrd.entities").selectAll().execute();
+const rows: WRDEntitiesUpdate[] = await db<WebHareDB>().selectFrom("wrd.entities").selectAll().execute();
 ```
 */
 export type Selectable<Q, S extends AllowedKeys<Q> = AllowedKeys<Q> & NoTable> = S extends NoTable ? KSelectable<Q> : Q extends Kysely<infer DB> ? S extends keyof DB ? KSelectable<DB[S]> : never : S extends keyof Q ? KSelectable<Q[S]> : never;
 
 /** Converts a Kysely database definition (or type of the Kysely client returned by db()) to the type of the data that can be updated in that table
     @typeParam Q - Either
-    - Database definition (eg `WebhareDB`)
-    - Type of the Kysely instance (eq `typeof db<WebhareDB>`)
-    - Table definition to convert (eq `WebhareDB["WRD_Entities"]`)
+    - Database definition (eg `WebHareDB`)
+    - Type of the Kysely instance (eq `typeof db<WebHareDB>`)
+    - Table definition to convert (eq `WebHareDB["WRD_Entities"]`)
     @typeParam S - Table to select from a database definition or Kysely instance
     @example
 ```
 // The following three types all describe the data that can be updated in the wrd.entities table:
-type WRDEntitiesUpdate = Updateable<WebhareDB, "wrd.entities">;
-const mydb = db<WebhareDB>();
+type WRDEntitiesUpdate = Updateable<WebHareDB, "wrd.entities">;
+const mydb = db<WebHareDB>();
 type WRDEntitiesUpdate2 = Updateable<typeof mydb, "wrd.entities">;
-type WRDEntitiesUpdate3 = Updateable<WebhareDB["wrd.entities"]>;
+type WRDEntitiesUpdate3 = Updateable<WebHareDB["wrd.entities"]>;
 
 const updates: WRDEntitiesUpdate = { ... };
 const id: number = ...;
-await db<WebhareDB>().updateTable("wrd.entities").where("id", "=", id).set(updates).execute();
+await db<WebHareDB>().updateTable("wrd.entities").where("id", "=", id).set(updates).execute();
 ```
 */
 export type Updateable<Q, S extends AllowedKeys<Q> = AllowedKeys<Q> & NoTable> = S extends NoTable ? KUpdateable<Q> : Q extends Kysely<infer DB> ? S extends keyof DB ? KUpdateable<DB[S]> : never : S extends keyof Q ? KUpdateable<Q[S]> : never;
 
 /** Converts a Kysely database definition (or type of the Kysely client returned by db()) to the type of the data that can be inserted into that table
     @typeParam Q - Either
-    - Database definition (eg `WebhareDB`)
-    - Type of the Kysely instance (eq `typeof db<WebhareDB>`)
-    - Table definition to convert (eq `WebhareDB["WRD_Entities"]`)
+    - Database definition (eg `WebHareDB`)
+    - Type of the Kysely instance (eq `typeof db<WebHareDB>`)
+    - Table definition to convert (eq `WebHareDB["WRD_Entities"]`)
     @typeParam S - Table to select from a database definition or Kysely instance
     @example
 ```
 // The following three types all describe the data that can be inserted into the wrd.entities table:
-type WRDEntitiesInserts = Insertable<WebhareDB, "wrd.entities">;
-const mydb = db<WebhareDB>();
+type WRDEntitiesInserts = Insertable<WebHareDB, "wrd.entities">;
+const mydb = db<WebHareDB>();
 type WRDEntitiesInserts2 = Insertable<typeof mydb, "wrd.entities">;
-type WRDEntitiesInserts3 = Insertable<WebhareDB["wrd.entities"]>;
+type WRDEntitiesInserts3 = Insertable<WebHareDB["wrd.entities"]>;
 
 const values: WRDEntitiesInserts = { ... };
-db<WebhareDB>().insertInto("wrd.entities").values(values).execute();
+db<WebHareDB>().insertInto("wrd.entities").values(values).execute();
 ```
 */
 export type Insertable<Q, S extends AllowedKeys<Q> = AllowedKeys<Q> & NoTable> = S extends NoTable ? KInsertable<Q> : Q extends Kysely<infer DB> ? S extends keyof DB ? KInsertable<DB[S]> : never : S extends keyof Q ? KInsertable<Q[S]> : never;

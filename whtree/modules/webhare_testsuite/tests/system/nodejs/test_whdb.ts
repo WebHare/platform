@@ -1,6 +1,6 @@
 import * as test from "@webhare/test";
 import { db, beginWork, commitWork, rollbackWork } from "@webhare/whdb";
-import type { WebhareTestsuiteDB } from "@mod-system/js/internal/generated/whdb/webhare_testsuite";
+import type { WebhareTestsuiteDB } from "wh:internal/generated/whdb/webhare_testsuite";
 
 async function testQueries() {
   await beginWork();
