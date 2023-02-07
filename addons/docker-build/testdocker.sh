@@ -19,7 +19,8 @@ else
 fi
 
 version=""
-ORIGINALARGS=("$@")
+ORIGINALOPTIONS=()
+ORIGINALPARAMS=()
 BASEDIR=$(get_absolute_path $(dirname $0)/../..)
 ALLOWSTARTUPERRORS=""
 DOCKERARGS=
@@ -27,7 +28,6 @@ TERSE=--terse
 EXPLICITWEBHAREIMAGE=
 ENTERSHELL=
 RUNTESTARGS=
-EXPLICITPORT=
 COVERAGE=
 ADDMODULES=
 ISMODULETEST=
@@ -41,7 +41,14 @@ FIXEDCONTAINERNAME=
 TESTINGMODULENAME=""
 
 while true; do
- if [ "$1" == "--cpuset-cpus" ]; then
+  # Add option to the proper array for command line reconstruction
+  if [[ $1 =~ ^- ]]; then
+    ORIGINALOPTIONS+=("$1")
+  else
+    ORIGINALPARAMS+=("$1")
+  fi
+
+  if [ "$1" == "--cpuset-cpus" ]; then
     DOCKERARGS="$DOCKERARGS $1=$2"
     shift
     shift
@@ -53,6 +60,7 @@ while true; do
     FIXEDCONTAINERNAME="$2"
     DOCKERARGS="$DOCKERARGS --name=${FIXEDCONTAINERNAME}"
     shift
+    ORIGINALOPTIONS+=("$1")
     shift
   elif [ "$1" == "--coverage" ]; then
     shift
@@ -77,14 +85,17 @@ while true; do
   elif [[ "$1" =~ ^--tag= ]] || [ "$1" == "--loop" ] || [ "$1" == "-d" ] || [ "$1" == "--breakonerror" ]; then
     RUNTESTARGS="$RUNTESTARGS $1"
     shift
+  elif [ "$1" == "--privileged" ]; then
+    DOCKERARGS="$DOCKERARGS --privileged"
+    shift
   elif [ "$1" == "--env" ]; then # docker env
     shift
     DOCKERARGS="$DOCKERARGS --env $1"
+    ORIGINALOPTIONS+=("$1")
     shift
   elif [ "$1" == "--port" ]; then
     shift
     DOCKERARGS="$DOCKERARGS -p $1:8000"
-    EXPLICITPORT=1
     shift
   elif [ "$1" == "--generatexmltests" ]; then
     GENERATEXMLTESTS=1
@@ -92,19 +103,23 @@ while true; do
   elif [ "$1" == "--skips" ]; then
     shift
     SKIPS="$SKIPS $1"
+    ORIGINALOPTIONS+=("$1")
     shift
   elif [ "$1" == "--addmodule" -o "$1" == "-a" ]; then
     shift
     ADDMODULES="$ADDMODULES $1"
+    ORIGINALOPTIONS+=("$1")
     shift
   elif [ "$1" == "--webhareimage" -o "$1" == "-w" ]; then
     shift
     WEBHAREIMAGE="$1"
     EXPLICITWEBHAREIMAGE=1
+    ORIGINALOPTIONS+=("$1")
     shift
   elif [ "$1" == "--output" -o "$1" == "-o" ]; then
     shift
     ARTIFACTS=$(get_absolute_path "$1")
+    ORIGINALOPTIONS+=("$1")
     shift
   elif [ "$1" == "-m" ]; then
     ISMODULETEST=1
@@ -115,6 +130,7 @@ while true; do
   elif [ "$1" == "--testscript" ] ; then
     shift
     TESTSCRIPT=$1
+    ORIGINALOPTIONS+=("$1")
     shift
   elif [ "$1" == "--localdeps" ] ; then
     LOCALDEPS=1
@@ -230,6 +246,35 @@ else
   SUDO=
 fi
 
+# Reproduce a valid command line.
+echo
+echo -n "** To run this test locally: "
+while IFS='=' read -r -d '' n v; do
+  if [[ "$n" =~ ^(TESTFW_|WEBHARE_DEBUG|DOCKERARGS) ]]; then
+    # printf "'%s'='%s' " "$n" "$v" - more safe but 'ugly' :-)
+    printf "%s=%s " "$n" "$v"
+  fi
+done < <(env -0)
+echo -n "wh testdocker "
+# Add --sh if it wasn't there yet
+[ -n "$ENTERSHELL" ] || echo -n "--sh "
+# Add original options, followed by a space...
+echo -n "${ORIGINALOPTIONS[@]}" ""
+[ -z "$EXPLICITWEBHAREIMAGE" ] && echo -n "--webhareimage $WEBHAREIMAGE "
+echo -n "${ORIGINALPARAMS[@]}" ""
+echo "${IMPLICITARGS[@]}"
+echo
+
+# List our configuration
+echo "Test environment variables:"
+# not listing CI_, lots of noise and usually not really relevant anymore at this point. Just look at the BUILD setup if you want these
+set | egrep '^(TESTFW_|WEBHARE_DEBUG|DOCKERARGS=)' | sort
+set | grep ^TESTSECRET_|sed -e '/=.*/s//=xxxxx/' | sort
+echo ""
+
+##### *Now* we get to work (we've dumped as much config information as useful)
+
+# Pull the image
 if [ "$NOPULL" != "1" ]; then
   # If an alternate registry is set, prefer to use that one. Try to avoid dockerhub, it seems slower and is rate limited
   if [[ $WEBHAREIMAGE =~ docker.io/webhare/platform:.* ]] && [ -n "$WH_CI_ALTERNATEREGISTRY" ] ; then
@@ -258,29 +303,6 @@ if [ "$NOPULL" != "1" ]; then
     fi
   fi
 fi
-
-# Reproduce a valid command line.
-echo
-echo -n "** To run this test locally: "
-while IFS='=' read -r -d '' n v; do
-  if [[ "$n" =~ ^(TESTFW_|WEBHARE_DEBUG|DOCKERARGS) ]]; then
-    # printf "'%s'='%s' " "$n" "$v" - more safe but 'ugly' :-)
-    printf "%s=%s " "$n" "$v"
-  fi
-done < <(env -0)
-echo -n "wh testdocker "
-#  Add --sh if it wasn't there yet
-[ -n "$ENTERSHELL" ] || echo -n "--sh "
-echo -n "${ORIGINALARGS[@]}" ""
-[ -z "$EXPLICITWEBHAREIMAGE" ] && echo -n "--webhareimage $WEBHAREIMAGE "
-echo "${IMPLICITARGS[@]}"
-echo
-
-# List our configuration
-echo "Test environment variables:"
-# not listing CI_, lots of noise and usually not really relevant anymore at this point. Just look at the BUILD setup if you want these
-set | egrep '^(TESTFW_|WEBHARE_DEBUG|DOCKERARGS=)' | sort
-set | grep ^TESTSECRET_|sed -e '/=.*/s//=xxxxx/' | sort
 
 # Cleanup
 TEMPBUILDROOT=
