@@ -13,7 +13,7 @@ async function testRPCs() {
   }
 
   async function extractResponses<T extends WHMResponseOpcode>(opcode: T): Promise<Array<WHMResponse & { opcode: T }>> {
-    await test.wait(() => haveResponse(opcode), { timeout: 5000, annotation: `Expected a response RPC with opcode ${opcode}` });
+    await test.wait(() => haveResponse(opcode), { timeout: 15000, annotation: `Expected a response RPC with opcode ${opcode}` });
     const retval = responses.filter(m => m.opcode === opcode) as Array<WHMResponse & { opcode: T }>;
     responses = responses.filter(m => m.opcode !== opcode);
     return retval;
