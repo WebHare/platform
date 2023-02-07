@@ -1,7 +1,20 @@
-import { sql } from "@webhare/whdb";
 import { describeFileType, PublicFileTypeInfo } from "./siteprofiles";
-import { FsObjectRow, SiteRow } from "./dbschema";
-import { pick } from "@mod-system/js/internal/util/algorithms";
+import { db, sql, Selectable } from "@webhare/whdb";
+import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
+
+/// Adds the custom generated columns
+interface FsObjectRow extends Selectable<WebHareDB, "system.fs_objects"> {
+  link: string;
+  fullpath: string;
+  whfspath: string;
+  parentsite: number | null;
+}
+
+/// Adds the custom generated columns
+interface SiteRow extends Selectable<WebHareDB, "system.sites"> {
+  webroot: string;
+}
+
 
 export class WHFSObject {
   protected readonly dbrecord: FsObjectRow;
@@ -19,6 +32,18 @@ export class WHFSObject {
   get fullpath() { return this.dbrecord.fullpath; }
   get whfspath() { return this.dbrecord.whfspath; }
   get parentsite() { return this.dbrecord.parentsite; }
+}
+
+function isNotExcluded<T extends string, K extends string>(t: T, excludes: K[]): t is Exclude<T, K> {
+  return !excludes.includes(t as unknown as K);
+}
+
+function excludeKeys<T extends string, K extends string>(t: T[], k: K[]): Array<Exclude<T, K>> {
+  const result = new Array<Exclude<T, K>>;
+  for (const a of t)
+    if (isNotExcluded(a, k))
+      result.push(a);
+  return result;
 }
 
 export class WHFSFile extends WHFSObject {
@@ -43,16 +68,19 @@ export class WHFSFolder extends WHFSObject {
       if (!selectkeys.includes(k))
         selectkeys.push(k);
 
-    const dbrecords = (await sql`
-  SELECT *
-       , webhare_proc_fs_objects_indexurl(id,name,isfolder,parent,published,type,externallink,filelink,indexdoc) AS link
-       , webhare_proc_fs_objects_fullpath(id,isfolder) AS fullpath
-       , webhare_proc_fs_objects_whfspath(id,isfolder) AS whfspath
-       , webhare_proc_fs_objects_highestparent(id, NULL) AS parentsite
-    FROM system.fs_objects WHERE parent = ${this.id}
-ORDER BY name`) as FsObjectRow[];
+    const retval = await db<WebHareDB>()
+      .selectFrom("system.fs_objects")
+      .where("parent", "=", this.id)
+      .orderBy("name")
+      .select(excludeKeys(selectkeys, ["link", "fullpath", "whfspath", "parentsite"]))
+      .$if(keys.includes("link" as K), qb => qb.select(sql<string>`webhare_proc_fs_objects_indexurl(id,name,isfolder,parent,published,type,externallink,filelink,indexdoc)`.as("link")))
+      .$if(keys.includes("fullpath" as K), qb => qb.select(sql<string>`webhare_proc_fs_objects_fullpath(id,isfolder)`.as("fullpath")))
+      .$if(keys.includes("whfspath" as K), qb => qb.select(sql<string>`webhare_proc_fs_objects_whfspath(id,isfolder)`.as("whfspath")))
+      .$if(keys.includes("parentsite" as K), qb => qb.select(sql<number>`webhare_proc_fs_objects_highestparent(id, NULL)`.as("parentsite")))
+      .execute();
 
-    return pick(dbrecords, selectkeys);
+    // Need an explicit cast because $if can't be made type-safe
+    return retval as Array<Pick<FsObjectRow, K | "id" | "name" | "isfolder">>;
   }
 }
 
@@ -83,11 +111,18 @@ async function resolveWHFSObjectByPath(startingpoint: number, fullpath: string) 
     let trynew = 0;
 
     if (i == 0 && now == 0 && tok.startsWith("site::")) {
-      trynew = (await sql`select id from system.sites where upper(name) = upper(${tok.substring(6)})`)[0]?.id ?? 0;
+      trynew = (await db<WebHareDB>()
+        .selectFrom("system.sites")
+        .select("id")
+        .where(sql`upper(name)`, "=", sql`upper(${tok.substring(6)})`)
+        .executeTakeFirst())?.id ?? 0;
+      //      (await sql`select id from system.sites where upper(name) = upper(${tok.substring(6)})`)[0]?.id ?? 0;
+
       if (!trynew)
         return { id: -1, leftover: fullpath, route };
 
       limitparent = trynew;
+      // eslint-disable-next-line require-atomic-updates
       now = trynew;
       route.push(now);
       continue;
@@ -98,7 +133,11 @@ async function resolveWHFSObjectByPath(startingpoint: number, fullpath: string) 
 
     if (tok === '..') {
       if (now !== limitparent) {
-        trynew = (await sql`select parent from system.fs_objects where id=${now}`)[0]?.parent ?? 0;
+        trynew = (await db<WebHareDB>()
+          .selectFrom("system.fs_objects")
+          .select("parent")
+          .where("id", "=", now)
+          .executeTakeFirst())?.parent ?? 0;
         route.push(trynew);
 
       } else {
@@ -106,13 +145,24 @@ async function resolveWHFSObjectByPath(startingpoint: number, fullpath: string) 
       }
     } else {
       //as parent = 0 is stored as 'null', we need a different comparison there
-      trynew = (await sql`select id from system.fs_objects
-                                    where (case when ${now} = 0 then (parent is null) else (parent=${now}) end)
-                                          and upper(name) = upper(${tok})`)[0]?.id ?? 0;
+      trynew = (await db<WebHareDB>()
+        .selectFrom("system.fs_objects")
+        .select("id")
+        .$if(now === 0, qb => qb.where("parent", "is", null))
+        // eslint-disable-next-line @typescript-eslint/no-loop-func
+        .$if(now !== 0, qb => qb.where("parent", "=", now))
+        .where(sql`upper(name)`, "=", sql`upper(${tok})`)
+        .executeTakeFirst())?.id ?? 0;
+      /*
+            (await sql`select id from system.fs_objects
+                                          where (case when ${now} = 0 then (parent is null) else (parent=${now}) end)
+                                                and upper(name) = upper(${tok})`)[0]?.id ?? 0;
+      */
       if (!trynew)
         return { id: now, leftover: pathtoks.slice(i).join('/'), route };
       route.push(trynew);
     }
+    // eslint-disable-next-line require-atomic-updates
     now = trynew;
   }
 
@@ -138,25 +188,29 @@ async function openWHFSObject(startingpoint: number, path: string | number, find
   else
     location = path;
 
-  let dbrecord;
-  if (location > 0) //FIXME support opening the root object too - but *not* by doing a openWHFSObject(0), that'd be too dangerous
-    dbrecord = (await sql`select *
-                               , webhare_proc_fs_objects_indexurl(id,name,isfolder,parent,published,type,externallink,filelink,indexdoc) as link
-                               , webhare_proc_fs_objects_fullpath(id,isfolder) as fullpath
-                               , webhare_proc_fs_objects_whfspath(id,isfolder) as whfspath
-                               , webhare_proc_fs_objects_highestparent(id, 0) as parentsite
-                            from system.fs_objects where id=${location}`) as FsObjectRow[];
+  let dbrecord: FsObjectRow | undefined;
+  if (location > 0) {//FIXME support opening the root object too - but *not* by doing a openWHFSObject(0), that'd be too dangerous
+    dbrecord = await db<WebHareDB>()
+      .selectFrom("system.fs_objects")
+      .selectAll()
+      .select(sql<string>`webhare_proc_fs_objects_indexurl(id,name,isfolder,parent,published,type,externallink,filelink,indexdoc)`.as("link"))
+      .select(sql<string>`webhare_proc_fs_objects_fullpath(id,isfolder)`.as("fullpath"))
+      .select(sql<string>`webhare_proc_fs_objects_whfspath(id,isfolder)`.as("whfspath"))
+      .select(sql<number | null>`webhare_proc_fs_objects_highestparent(id, NULL)`.as("parentsite"))
+      .where("id", "=", location)
+      .executeTakeFirst();
+  }
 
-  if (!dbrecord?.[0]) {
+  if (!dbrecord) {
     if (!allowmissing)
       throw new Error(`No such ${findfile ? "file" : "folder"} ${formatPathOrId(path)} ${failcontext}`);
     return null;
   }
 
-  if (dbrecord[0].isfolder !== !findfile)
+  if (dbrecord.isfolder !== !findfile)
     throw new Error(`Type mismatch, expected ${findfile ? "file, got folder" : "folder, got file"} for ${formatPathOrId(path)} ${failcontext}`);
 
-  return findfile ? new WHFSFile(dbrecord[0]) : new WHFSFolder(dbrecord[0]);
+  return findfile ? new WHFSFile(dbrecord) : new WHFSFolder(dbrecord);
 }
 
 
@@ -188,27 +242,40 @@ export async function openSite(site: number | string, options: { allowMissing: t
 export async function openSite(site: number | string, options?: { allowMissing: boolean }): Promise<Site>;
 
 export async function openSite(site: number | string, options?: { allowMissing: boolean }) {
-  let match;
-
   //TODO we may need a view for this ? or learn our sql about .append too or similar
-  if (typeof site == "number")
-    match = await sql`select *, webhare_proc_sites_webroot(outputweb, outputfolder) as webroot from system.sites where id=${site}` as SiteRow[];
-  else
-    match = await sql`select *, webhare_proc_sites_webroot(outputweb, outputfolder) as webroot from system.sites where upper(name)=upper(${site})` as SiteRow[];
+  const match = await db<WebHareDB>()
+    .selectFrom("system.sites")
+    .selectAll()
+    .select(sql<string>`webhare_proc_sites_webroot(outputweb, outputfolder)`.as("webroot"))
+    .$call(qb => {
+      if (typeof site === "number")
+        return qb.where("id", "=", site);
+      else
+        return qb.where(sql`upper(name)`, "=", sql`upper(${site})`);
+    })
+    .executeTakeFirst();
 
-  if (!match.length)
+  if (!match)
     if (options?.allowMissing)
       return null;
     else
       throw new Error(`No such site ${formatPathOrId(site)}`);
 
-  return new Site(match[0]);
+  return new Site(match);
 }
 
 /** List all WebHare sites */
-export async function listSites() {
-  //TODO should we decide which fields you get, or should you explicitly request which additional columns you want in the list ? - https://gitlab.webhare.com/addons/webharedev_jsbridges/-/issues/35
-  return await sql`select id, name, webhare_proc_sites_webroot(outputweb, outputfolder) as webroot from system.sites` as SiteRow[];
+export async function listSites<K extends keyof SiteRow>(keys: K[] = []): Promise<Array<Pick<SiteRow, K | "id" | "name">>> {
+  const selectkeys: Array<K | "id" | "name"> = ["id", "name"];
+  for (const k of keys)
+    if (!selectkeys.includes(k))
+      selectkeys.push(k);
+
+  return await db<WebHareDB>()
+    .selectFrom("system.sites")
+    .select(excludeKeys(selectkeys, ["webroot"]))
+    .$if(keys.includes("webroot" as K), qb => qb.select(sql<string>`webhare_proc_sites_webroot(outputweb, outputfolder)`.as("webroot")))
+    .execute() as Array<Pick<SiteRow, K | "id" | "name">>;
 }
 
 export async function openFile(path: number | string, options: { allowMissing: true }): Promise<WHFSFile | null>;

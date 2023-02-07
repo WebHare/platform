@@ -196,14 +196,14 @@ export function getCachedSiteProfiles() {
   return csp;
 }
 
-export function describeFileType(type: number | string, options: { mockifmissing: true }): PublicFileTypeInfo;
-export function describeFileType(type: number | string, options: { mockifmissing: boolean }): PublicFileTypeInfo | null;
+export function describeFileType(type: number | string | null, options: { mockifmissing: true }): PublicFileTypeInfo;
+export function describeFileType(type: number | string | null, options: { mockifmissing: boolean }): PublicFileTypeInfo | null;
 
 //We want to avoid being async, instead we should make sure we're part of services being ready()
-export function describeFileType(type: number | string, options: { mockifmissing: boolean }): PublicFileTypeInfo | null {
+export function describeFileType(type: number | string | null, options: { mockifmissing: boolean }): PublicFileTypeInfo | null {
   //This is a port of HS DescribeContentTypeById - but we also set up a publicinfo to define a limited/cleaned set of data for the JS WHFSObject.type API
   const types = getCachedSiteProfiles().contenttypes;
-  let matchtype = types.find(_ => _.filetype && typeof type == "number" ? _.id === type : _.namespace === type);
+  let matchtype = type ? types.find(_ => _.filetype && typeof type == "number" ? _.id === type : _.namespace === type) : undefined;
 
   if (!matchtype) {
     if (!options.mockifmissing)
@@ -213,7 +213,7 @@ export function describeFileType(type: number | string, options: { mockifmissing
     if (!fallbacktype)
       throw new Error(`Internal error: missing builting content types`);
 
-    const namespace = typeof type == "number" ? "#" + type : type;
+    const namespace = !type ? "NULL" : typeof type !== "string" ? "#" + type : type;
     matchtype = {
       ...fallbacktype,
       namespace: namespace,

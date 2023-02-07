@@ -16,7 +16,7 @@ type ModuleData = {
   creationdate: Date;
 };
 
-type WebHareModuleMap = { [name: string]: WebHareModuleConfiguration };
+export type WebHareModuleMap = { [name: string]: WebHareModuleConfiguration };
 
 /** Class that calculates WebHare configuration from environment variables / module disk paths  */
 class WebhareConfig {

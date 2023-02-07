@@ -1,14 +1,23 @@
 import * as test from "@webhare/test";
-import { sql, beginWork } from "@webhare/whdb";
+import { db, beginWork, commitWork, rollbackWork } from "@webhare/whdb";
+import type { WebhareTestsuiteDB } from "@mod-system/js/internal/generated/whdb/webhare_testsuite";
 
 async function testQueries() {
-  const work = await beginWork();
-  await work.sql`DELETE FROM webhare_testsuite.exporttest`;
-  await work.sql`INSERT INTO webhare_testsuite.exporttest(id,text) VALUES(${5},${"This is a text"})`;
-  await work.commit();
-  test.eq([{ id: 5, text: 'This is a text' }], await sql`SELECT * FROM webhare_testsuite.exporttest`);
+  await beginWork();
+  await db<WebhareTestsuiteDB>().deleteFrom("webhare_testsuite.exporttest").execute();
+  await db<WebhareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: 5, text: "This is a text" }).execute();
+  await commitWork();
+  test.eq([{ id: 5, text: 'This is a text' }], await db<WebhareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").selectAll().execute());
 
-  test.throws(/not reusable/, () => work._beginTransaction(), "verify that we can't restart work, even if we know about _beginTransaction");
+  await beginWork();
+  await test.throws(/already been opened/, () => beginWork());
+  await rollbackWork();
+  await test.throws(/already been closed/, () => commitWork());
+  await test.throws(/already been closed/, () => rollbackWork());
+  await beginWork();
+  await commitWork();
+  await test.throws(/already been closed/, () => commitWork());
+  await test.throws(/already been closed/, () => rollbackWork());
 }
 
 test.run([testQueries]);

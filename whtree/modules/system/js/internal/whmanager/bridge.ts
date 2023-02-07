@@ -22,8 +22,10 @@ export { dumpActiveIPCMessagePorts } from "./transport";
 const logmessages = envbackend.getWHDebugFlags().ipc;
 const logpackets = envbackend.getWHDebugFlags().ipcpackets;
 
-/// Number of milliseconds before connection to whmanager times out
-const whmanager_connection_timeout = 1500;
+/** Number of milliseconds before connection to whmanager times out. At startup, just the connect alone can
+    take multiple seconds, so using a very high number here.
+*/
+const whmanager_connection_timeout = 15000;
 
 export type BridgeEventData = hsmarshalling.SimpleMarshallableRecord;
 export type BridgeMessageData = hsmarshalling.IPCMarshallableRecord;
