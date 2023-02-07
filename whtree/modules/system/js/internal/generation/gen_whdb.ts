@@ -254,7 +254,7 @@ export function updateAllModuleTableDefs() {
   }
 
   const todo = ["webhare"];
-  for (const f of [ ...Object.keys(modulelist), ...files]) {
+  for (const f of [...Object.keys(modulelist), ...files]) {
     if (!todo.includes(f) && !whconstant_builtinmodules.includes(f))
       todo.push(f);
   }
