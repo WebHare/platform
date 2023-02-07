@@ -755,6 +755,15 @@ PUBLIC RECORD ARRAY FUNCTION GetDataRootNodeModules(STRING ARRAY modules, BOOLEA
         , type :=     "softlink"
         , target :=   `${installationroot}jssdk`
         ]
+        // wh:internal/generated points to generated files for non-core modules (database types, etc.)
+      , [ name :=     "wh:internal"
+        , type :=     "directory"
+        , items :=    [ [ name :=     "generated"
+                        , type :=     "softlink"
+                        , target :=   MergePath(whdataroot, "storage/system/generated")
+                        ]
+                      ]
+        ]
         // WebHare whtree node_module packages that are available for client modules
       , [ name :=     "typescript"
         , type :=     "softlink"

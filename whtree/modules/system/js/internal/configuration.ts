@@ -16,7 +16,7 @@ type ModuleData = {
   creationdate: Date;
 };
 
-export type WebHareModuleMap = { [name: string]: WebHareModuleConfiguration };
+export type WebHareModuleMap = { [name: string]: Readonly<WebHareModuleConfiguration> };
 
 /** Class that calculates WebHare configuration from environment variables / module disk paths  */
 class WebhareConfig {
@@ -24,7 +24,7 @@ class WebhareConfig {
   basedatadir: string;
   installationroot: string;
   moduledirs = new Array<string>;
-  modulemap: WebHareModuleMap = {};
+  module: WebHareModuleMap = {};
 
   constructor() {
     this.baseport = Number(process.env.WEBHARE_BASEPORT || "0");
@@ -56,7 +56,7 @@ class WebhareConfig {
     for (const moduledir of this.moduledirs)
       this.scanModuleFolder(modulemap, moduledir, true, false);
     this.scanModuleFolder(modulemap, this.installationroot + "modules/", true, true);
-    this.modulemap = Object.freeze(Object.fromEntries(Array.from(modulemap).map(([name, { path }]: [string, { path: string }]) => [name, { root: path }])));
+    this.module = Object.freeze(Object.fromEntries(Array.from(modulemap).map(([name, { path }]: [string, { path: string }]) => [name, { root: path }])));
   }
 
   private scanModuleFolder(modulemap: Map<string, ModuleData>, folder: string, rootfolder: boolean, always_overwrites: boolean) {
@@ -114,6 +114,23 @@ class WebhareConfig {
   }
 }
 
+export type WebhareConfiguration = {
+  readonly baseport: number;
+  readonly basedatadir: string;
+  readonly installationroot: string;
+  readonly module: WebHareModuleMap;
+};
+
+export function calculateWebhareConfiguration(): WebhareConfiguration {
+  const config = new WebhareConfig;
+  return {
+    baseport: config.baseport,
+    basedatadir: config.basedatadir,
+    installationroot: config.installationroot,
+    module: config.module,
+  };
+}
+
 export function calculateWebhareModuleMap(): WebHareModuleMap {
-  return (new WebhareConfig).modulemap;
+  return (new WebhareConfig).module;
 }
