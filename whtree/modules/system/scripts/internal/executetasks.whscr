@@ -193,20 +193,19 @@ MACRO LaunchTask(RECORD task)
 
   Debug("Starting task " || task.tag);
 
-  STRING runscriptname;
+  BOOLEAN isjavascript := GetExtensionFromPath(task.script) IN whconstant_javascript_extensions;
+  STRING runscriptname := isjavascript
+      ? GetInstallationRoot() || "bin/wh"
+      : GetInstallationRoot() || "bin/runscript";
+
   STRING ARRAY cmdlineargs;
-  IF (GetExtensionFromPath(task.script) IN whconstant_javascript_extensions)
-  {
-    runscriptname := GetInstallationRoot() || "bin/wh";
+  IF (isjavascript)
     cmdlineargs := [ "run" ];
-  }
   ELSE
   {
-    runscriptname := GetInstallationRoot() || "bin/runscript";
-    IF (task.workerthreads > 1)
+    IF(task.workerthreads > 1)
       cmdlineargs := cmdlineargs CONCAT ["--workerthreads", ToString(task.workerthreads) ];
   }
-
   INSERT task.script INTO cmdlineargs AT END;
 
   //HACK for quick parameter parsing (use because older task had different formats)

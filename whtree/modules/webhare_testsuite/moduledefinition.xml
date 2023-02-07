@@ -21,7 +21,7 @@
     <runonce script="scripts/whcommands/reset.whscr" tag="setuptestsite" when="poststart" ifenvironset="WEBHARE_CI" />
     <runonce script="tests/publisher/pwa/setuppwasite.whscr" tag="setuppwasite" when="poststart" ifenvironset="WEBHARE_CI" />
 
-    <task script="scripts/tasks/singleshottest.whscr" tag="singleshottest" description="Test singleshot tasks">
+    <task script="scripts/tasks/singleshottest.ts" tag="singleshottest" description="Test singleshot tasks">
       <arg>ARG1 SHOT</arg>
       <arg>arg2</arg>
     </task>
