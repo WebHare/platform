@@ -15,6 +15,8 @@ function elements<T extends Element>(collection: HTMLCollectionOf<T>): T[] {
 function generateTableTypeName(str: string) {
   if (str.startsWith("wrd"))
     str = "WRD" + str.substring(3);
+  else if (str.startsWith("webhare"))
+    str = "WebHare" + str.substring(7);
   return str.split("_").map(e => e[0].toUpperCase() + e.substring(1)).join("");
 }
 
@@ -234,7 +236,7 @@ function updateFile(filename: string, defs: string) {
   fs.rmSync(`${filename}.tmp`, { force: true });
   fs.writeFileSync(`${filename}.tmp`, defs);
   fs.renameSync(`${filename}.tmp`, filename);
-  console.log(`written ${filename}`);
+  // console.log(`written ${filename}`);
 }
 
 function updateDir(config: WebHareConfiguration, dir: string, wantfiles: Record<string, string[]>, removeother: boolean) {
