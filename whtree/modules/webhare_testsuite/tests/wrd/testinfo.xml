@@ -30,4 +30,5 @@
   <test name="saml" path="saml/" />
   <test name="dialogs" path="dialogs/" />
   <test name="auth" path="auth/" />
+  <test name="nodejs" path="nodejs/" />
 </group>
