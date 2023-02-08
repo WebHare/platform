@@ -29,12 +29,13 @@ const whmanager_connection_timeout = 15000;
 
 export type BridgeEventData = hsmarshalling.SimpleMarshallableRecord;
 export type BridgeMessageData = hsmarshalling.IPCMarshallableRecord;
+export type BridgeEvent = {
+  name: string;
+  data: BridgeEventData;
+};
 
 type BridgeEvents = {
-  event: {
-    name: string;
-    data: BridgeEventData;
-  };
+  event: BridgeEvent;
   systemconfig: Record<string, unknown>;
 };
 
@@ -702,6 +703,10 @@ class MainBridge extends EventSource<BridgeEvents> {
               eventdata: message.data
             });
           }
+          /* The bridge doesn't reflect events back to us, so we need to do this ourselves. This also allowed HareScript to
+             synchronously process local events (eg ensuring list eventmasks updated the list immediately) */
+          for (const bridge of this.localbridges)
+            bridge.port.postMessage({ type: ToLocalBridgeMessageType.Event, name: message.name, data: message.data });
         } finally {
           ref.release();
         }
