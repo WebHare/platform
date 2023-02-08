@@ -5,11 +5,6 @@
     "jsx": "react",
     "jsxFactory": "dompack.jsxcreate",
     "jsxFragmentFactory": "dompack.jsxfragment",
-    "lib": [
-      "es2018",
-      "dom",
-      "dom.iterable"
-    ],
     "paths": {
       "dompack": [
         "modules/system/js/dompack"
@@ -39,8 +34,6 @@
         "modules/wrd/*"
       ]
     },
-    "target": "es2018",
-    "esModuleInterop": true
   },
   "ts-node": {
     "compilerOptions": {

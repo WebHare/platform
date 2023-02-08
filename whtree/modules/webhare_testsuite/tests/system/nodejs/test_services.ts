@@ -102,6 +102,38 @@ async function testServiceState() {
   instance2.close();
 }
 
+async function testEvents() {
+  const allevents: services.BackendEvent[] = [];
+
+  async function onEvents(events: services.BackendEvent[], subscription: services.BackendEventSubscription) {
+    allevents.push(...events);
+  }
+
+  test.throws(/Mask must be in the format module:eventname/, () => services.subscribe("testevent", onEvents));
+  test.throws(/Mask must be exact or end in '\.\*'/, () => services.subscribe("webhare_testsuite:testevent.*.mask", onEvents));
+  test.throws(/Mask must be exact or end in '\.\*'/, () => services.subscribe(["webhare_testsuite:testevent", "webhare_testsuite:testevent.*.mask"], onEvents));
+
+  const subscription = await services.subscribe("webhare_testsuite:testevent", onEvents);
+  services.broadcast("webhare_testsuite:otherevent", { event: -1 });
+  services.broadcast("webhare_testsuite:testevent", { event: 2 });
+  await test.wait(() => allevents.length > 0);
+  test.eq([{ name: "webhare_testsuite:testevent", data: { event: 2 } }], allevents);
+
+  //======= Test remote events
+  await services.callHareScript("wh::ipc.whlib#BroadcastEvent", ["webhare_testsuite:testevent", { event: 3 }]);
+  await test.wait(() => allevents.length > 1);
+  test.eq([{ name: "webhare_testsuite:testevent", data: { event: 2 } }, { name: "webhare_testsuite:testevent", data: { event: 3 } }], allevents);
+
+  //======= Test wildcards and empty events
+  allevents.splice(0, 2); //clear the array
+  await subscription.setMasks(["webhare_testsuite:testevent1", "webhare_testsuite:testevent2.*"]);
+  services.broadcast("webhare_testsuite:testevent2.x");
+  await test.wait(() => allevents.length > 0);
+  await services.callHareScript("wh::ipc.whlib#BroadcastEvent", ["webhare_testsuite:testevent2.y"]);
+  await test.wait(() => allevents.length > 1);
+  test.eq([{ name: "webhare_testsuite:testevent2.x", data: null }, { name: "webhare_testsuite:testevent2.y", data: null }], allevents);
+}
+
 async function runOpenPrimary(hsvm: HSVM) {
   const database = hsvm.loadlib("mod::system/lib/database.whlib");
   const primary = await database.openPrimary();
@@ -340,6 +372,7 @@ async function main() {
       testResolve,
       testServices,
       testServiceState,
+      testEvents,
       testHSVM,
       testHSVMFptrs,
       testResources,
