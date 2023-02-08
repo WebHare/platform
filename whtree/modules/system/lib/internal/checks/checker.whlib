@@ -361,7 +361,9 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
   IF (GetDTAPStage() = "development")
     messages := messages CONCAT RunDevelopmentChecks();
 
-  RECORD ARRAY snoozes :=
+  RECORD ARRAY snoozes;
+  TRY
+  {
       SELECT *
         FROM GetPrimaryWebhareUserAPI()->wrdschema->GetType("WHUSER_SYSTEMMESSAGE_SNOOZES")->RunQuery(
               [ outputcolumns :=
@@ -374,7 +376,14 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
               , filters := [ [ field := "UNTIL", matchtype := ">=", value := GetCurrentDatetime() ]]
               ])
     ORDER BY messagetaghash;
-
+  }
+  CATCH(OBJECT e) //Usually triggered by 'Unable to retrieve the WebHare backend wrdauthplugin.'
+  {
+    LogHarescriptException(e);
+    INSERT [ msg := `:Failed to apply snoozes: ${e->what}`
+           ]
+           INTO messages AT END;
+  }
   messages := EnforceStructure([[ checktypes := STRING[] ]], messages);
 
   messages :=

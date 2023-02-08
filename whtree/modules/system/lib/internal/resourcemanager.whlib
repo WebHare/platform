@@ -162,8 +162,16 @@ PUBLIC STRING ARRAY FUNCTION GetModuleDependencyIssues()
 {
   STRING ARRAY errors;
   RECORD ARRAY allmods := GetWebhareModules();
+  RECORD myapplicability := GetMyApplicabilityInfo();
   FOREVERY(RECORD mod FROM allmods)
   {
+    IF(RecordExists(mod.packagingapplicability))
+    {
+      STRING applicabilityerror := GetApplicabilityError(myapplicability, mod.packagingapplicability);
+      IF(applicabilityerror != "")
+        INSERT `Module ${mod.name} is incompatible with this WebHare version: ${applicabilityerror}` INTO errors AT END;
+    }
+
     IF(mod.circulairdependency)
     {
       INSERT "Module " || mod.name || " is involved in a circular dependency (requires " || Detokenize(mod.dependencies,",") INTO errors AT END;
