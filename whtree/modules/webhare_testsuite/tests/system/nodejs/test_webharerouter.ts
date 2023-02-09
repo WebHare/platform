@@ -1,5 +1,6 @@
 import * as test from "@webhare/test";
 import * as whfs from "@webhare/whfs";
+import * as services from "@webhare/services";
 import { WebRequest, WebResponse, WebHareRouter, SiteRequest } from "@webhare/router";
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
 import { BaseTestPageConfig } from "@mod-webhare_testsuite/webdesigns/basetestjs/webdesign/webdesign";
@@ -105,6 +106,7 @@ async function testRouter_JSWebDesign() {
 }
 
 test.run([
+  services.ready,
   testSiteResponse,
   testCaptureJSDesign,
   testCaptureJSRendered,
