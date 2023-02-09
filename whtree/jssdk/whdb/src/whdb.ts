@@ -246,7 +246,7 @@ class WHDBConnectionImpl implements WHDBConnection, PostgresPool, PostgresPoolCl
     await this.openwork!.rollback();
   }
 
-  onFinishWork<T extends FinishHandler>(handler: FinishHandler | (() => FinishHandler), options?: { uniqueTag?: string | symbol }): T {
+  onFinishWork<T extends FinishHandler>(handler: T | (() => T), options?: { uniqueTag?: string | symbol }): T {
     this.checkState(true); //asserts this.openwork
     return this.openwork!.onFinish(handler, options);
   }

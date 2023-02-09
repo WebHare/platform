@@ -44,12 +44,13 @@ async function testFinishHandlers() {
   //Test that tag reuse properly ignores the second provided commithandler, test that callbacks are invoked to register handlers
   await beginWork();
   test.eq(push_result_callback, onFinishWork(push_result_callback, { uniqueTag: klaversymbol }));
-  test.eq(push_result_callback, onFinishWork({ onCommit: () => { throw new Error("should not be invoked!"); } }, { uniqueTag: klaversymbol }));
+  test.eq<any>(push_result_callback, onFinishWork({ onCommit: () => { throw new Error("should not be invoked!"); } }, { uniqueTag: klaversymbol }));
   //Register it twice, should dedupe
   broadcastOnCommit("webhare_testsuite:worktest.1");
   broadcastOnCommit("webhare_testsuite:worktest.1");
   broadcastOnCommit("webhare_testsuite:worktest.2");
-  onFinishWork(() => ({ onCommit: () => handlerresult.push('first') }));
+  onFinishWork(() => ({ onCommit: () => handlerresult.push('first') })); // returns number
+  onFinishWork(() => ({ onCommit: () => { /* empty */ } })); // test if returning void is accepted
 
   await commitWork();
   test.eq(["beforecommit", "first", "commit"], handlerresult);
