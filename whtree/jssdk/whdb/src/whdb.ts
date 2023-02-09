@@ -14,7 +14,8 @@ import {
 } from 'kysely';
 import { Client, Connection } from 'pg';
 import { RefTracker, checkIsRefCounted } from '@mod-system/js/internal/whmanager/refs';
-//import { setTimeout } from 'timers';
+import { BackendEventData, broadcast } from '@webhare/services/src/backendevents';
+import { BackendEvent } from '../../services/src/services';
 
 // Export kysely helper stuff for use in external modules
 export {
@@ -24,6 +25,16 @@ export {
   GeneratedAlways,
 } from "kysely";
 
+// A finish handler is invoked when a transaction is committed or rolled back.
+interface FinishHandler {
+  /// Callback that is invoked before we attempt to commit
+  onBeforeCommit?: () => unknown | Promise<unknown>;
+  /// Callback that is invoked on a succesful commit
+  onCommit?: () => unknown | Promise<unknown>;
+  /// Callback that is invoked on a rollback
+  onRollback?: () => unknown | Promise<unknown>;
+}
+
 // Needed to access the postgesql client connection for ref/unref
 interface ClientWithConnection extends Client {
   connection: Connection;
@@ -32,10 +43,18 @@ interface ClientWithConnection extends Client {
 class Work {
   conn;
   open;
+  private finishhandlers = new Map<string | symbol, FinishHandler>;
+  private commituniqueevents = new Set<string>;
+  private commitdataevents: BackendEvent[] = [];
 
   constructor(conn: WHDBConnectionImpl) {
     this.conn = conn;
     this.open = true;
+  }
+
+  async _invokeFinishHandlers(handler: "onBeforeCommit" | "onCommit" | "onRollback") {
+    //invoke all finishedhandlers in 'parallel' and wait for them to finish
+    await Promise.all(Array.from(this.finishhandlers.values()).map(h => h[handler]?.()));
   }
 
   async commit() {
@@ -44,11 +63,26 @@ class Work {
     if (!this.conn.pgclient)
       throw new Error(`Connection was already closed`);
 
+    try {
+      await this._invokeFinishHandlers("onBeforeCommit");
+    } catch (e) {
+      try {
+        await this.rollback();
+      } catch (ignore) {
+        //TODO a rollback finish handler might throw but we can't deal with that. Ignore that for now
+      }
+      throw e;
+    }
+
     this.open = false;
     const lock = this.conn.reftracker.getLock("query lock: COMMIT");
     try {
       await sql`COMMIT`.execute(this.conn._db);
+      this.commituniqueevents.forEach(event => broadcast(event));
+      this.commitdataevents.forEach(event => broadcast(event.name, event.data));
+      await this._invokeFinishHandlers("onCommit");
     } finally {
+      //TODO if (pre)commit fails we should
       lock.release();
       this.conn.openwork = undefined;
     }
@@ -64,24 +98,35 @@ class Work {
     const lock = this.conn.reftracker.getLock("query lock: ROLLBACK");
     try {
       await sql`ROLLBACK`.execute(this.conn._db);
+      await this._invokeFinishHandlers("onRollback");
     } finally {
       lock.release();
       this.conn.openwork = undefined;
     }
   }
-}
 
-/** A database connection
-    @typeParam T - Kysely database definition interface
-*/
+  onFinish<T extends FinishHandler>(handler: T | (() => T), options?: { uniqueTag?: string | symbol }): T {
+    if (!this.open)
+      throw new Error(`Work is already closed`);
 
-interface WHDBConnection {
-  /** kysely query builder */
-  db<T>(): Kysely<T>;
-  beginWork(): Promise<void>;
-  commitWork(): Promise<void>;
-  rollbackWork(): Promise<void>;
-  isWorkOpen(): boolean;
+    const tag = options?.uniqueTag ?? Symbol();
+    let registeredhandler = this.finishhandlers.get(tag);
+    if (!registeredhandler) {
+      registeredhandler = typeof handler === "function" ? handler() : handler;
+      this.finishhandlers.set(tag, registeredhandler);
+    }
+    return registeredhandler as T;
+  }
+
+  broadcastOnCommit(event: string, data?: BackendEventData): void {
+    if (!this.open)
+      throw new Error(`Work is already closed`);
+
+    if (data)
+      this.commitdataevents.push({ name: event, data });
+    else
+      this.commituniqueevents.add(event);
+  }
 }
 
 /* Every WHDBConnection uses one pgclient, and runs all the queries over that transaction, so
@@ -158,6 +203,7 @@ class WHDBConnectionImpl implements WHDBConnection, PostgresPool, PostgresPoolCl
     //
   }
 
+  /** kysely query builder */
   db<T>(): Kysely<T> {
     /* Convert the type, the types don't influence the underlying implementation anyway */
     return this._db as Kysely<T>;
@@ -167,11 +213,15 @@ class WHDBConnectionImpl implements WHDBConnection, PostgresPool, PostgresPoolCl
     return Boolean(this.openwork);
   }
 
-  async beginWork(): Promise<void> {
+  private checkState(expectwork: boolean | undefined) {
     if (!this.pgclient)
       throw new Error(`Connection was already closed`);
-    if (this.openwork)
-      throw new Error(`Work has already been opened`);
+    if (expectwork !== undefined && Boolean(this.openwork) !== expectwork)
+      throw new Error(expectwork ? `Work has already been closed` : `Work has already been opened`);
+  }
+
+  async beginWork(): Promise<void> {
+    this.checkState(false);
 
     const lock = this.reftracker.getLock("work lock");
     this.openwork = new Work(this);
@@ -187,21 +237,23 @@ class WHDBConnectionImpl implements WHDBConnection, PostgresPool, PostgresPoolCl
   }
 
   async commitWork(): Promise<void> {
-    if (!this.pgclient)
-      throw new Error(`Connection was already closed`);
-    if (!this.openwork)
-      throw new Error(`Work has already been closed`);
-
-    await this.openwork.commit();
+    this.checkState(true); //asserts this.openwork
+    await this.openwork!.commit();
   }
 
   async rollbackWork(): Promise<void> {
-    if (!this.pgclient)
-      throw new Error(`Connection was already closed`);
-    if (!this.openwork)
-      throw new Error(`Work has already been closed`);
+    this.checkState(true); //asserts this.openwork
+    await this.openwork!.rollback();
+  }
 
-    await this.openwork.rollback();
+  onFinishWork<T extends FinishHandler>(handler: T | (() => T), options?: { uniqueTag?: string | symbol }): T {
+    this.checkState(true); //asserts this.openwork
+    return this.openwork!.onFinish(handler, options);
+  }
+
+  broadcastOnCommit(event: string, data?: BackendEventData) {
+    this.checkState(true); //asserts this.openwork
+    return this.openwork!.broadcastOnCommit(event, data);
   }
 
   close() {
@@ -209,6 +261,12 @@ class WHDBConnectionImpl implements WHDBConnection, PostgresPool, PostgresPoolCl
     this.pgclient = undefined;
   }
 }
+
+/** A database connection
+    @typeParam T - Kysely database definition interface
+*/
+
+type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "onFinishWork" | "broadcastOnCommit">;
 
 const conn: WHDBConnection = new WHDBConnectionImpl();
 
@@ -248,6 +306,21 @@ export async function commitWork() {
 */
 export async function rollbackWork() {
   await conn.rollbackWork();
+}
+
+/** Register a finish hander for the current work with the specified tag
+ * @typeParam T - Type of the handler to register.
+ * @param handler - Handler to register. If a function is passed, it is called to get the handler. Ignored if a handler is already present
+ * @param options - uniqueTag: Unique tag to register the handler with. If a handler is already registered with this tag, it is replaced.
+ * @returns The newly registerd handler. If uniqueTag is set, the originally registered handler is returned
+*/
+export function onFinishWork<T extends FinishHandler>(handler: T | (() => T), options?: { uniqueTag?: string | symbol }): T {
+  return conn.onFinishWork(handler, options);
+}
+
+/** Broadcast event on a succesful commit */
+export function broadcastOnCommit(event: string, data?: BackendEventData) {
+  conn.broadcastOnCommit(event, data);
 }
 
 /** Get a new, indepedent database connection.

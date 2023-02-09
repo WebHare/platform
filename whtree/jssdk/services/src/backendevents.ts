@@ -3,6 +3,7 @@ import { wildcardsToRegExp } from "@webhare/std/strings";
 import { isValidBackendEventName } from "./naming";
 
 export type BackendEvent = BridgeEvent;
+export type BackendEventData = BridgeEventData;
 type BackendEventMasks = string | string[];
 type BackendEventCallback = (events: BackendEvent[], subscription: BackendEventSubscription) => void;
 
@@ -57,6 +58,6 @@ export async function subscribe(masks: BackendEventMasks, callback: BackendEvent
   return subscr;
 }
 
-export function broadcast(event: string, data?: BridgeEventData) {
+export function broadcast(event: string, data?: BackendEventData) {
   whbridge.sendEvent(event, data ?? null);
 }

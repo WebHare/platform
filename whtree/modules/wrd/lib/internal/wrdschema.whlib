@@ -399,6 +399,15 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
   //
   // Schema metadata
   //
+  PUBLIC RECORD FUNCTION __ExplainMyselfToJavascript()
+  {
+    RETURN CELL[ this->tag
+               , types := (SELECT tag := ToLowercase(tag)
+                             FROM this->ListTypes())
+              , this->id
+               ];
+  }
+
   PUBLIC MACRO __SignalMetadataChanged()
   {
     GetWRDCommitHandler()->MetadataChanged(this->schemarec.id);
