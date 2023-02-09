@@ -59,7 +59,7 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then #Only do this when building docker images, 
     FAIL=1
   fi
 
-  if [ `ls /opt/wh/whtree/currentinstall/compilecache/*.clib | wc -l` -lt 1000 ]; then
+  if [ "$(ls /opt/wh/whtree/currentinstall/compilecache/harescript/*.clib | wc -l)" -lt 1000 ]; then
     echo Too few entries in the compilecache, precompile may have failed
     FAIL=1
   fi

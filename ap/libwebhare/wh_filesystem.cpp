@@ -476,7 +476,7 @@ std::string WHFileSystem::GetLibraryCompiledName(Blex::ContextKeeper &, std::str
         const char *clib_ext = ".clib";
         filename.insert(filename.end(), clib_ext, clib_ext + 5);
 
-        return Blex::MergePath(compilecache, filename);
+        return Blex::MergePath(compilecache, "harescript/" + filename);
 }
 
 
