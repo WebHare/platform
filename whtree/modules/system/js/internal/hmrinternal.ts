@@ -1,3 +1,7 @@
+import * as fs from "node:fs";
+import Module from "node:module";
+import type { WebHareConfiguration } from "@mod-system/js/internal/configuration";
+
 type LibraryData = {
   fixed: boolean;
   directloads: string[];
@@ -5,6 +9,41 @@ type LibraryData = {
 
 const libdata: Record<string, LibraryData | undefined> = {};
 
+function extractRealPathCache(): Map<string, string> {
+  /* The commonJS loader has its own cache for realpath translation, which we
+     can't directly access. It is passed to realpathSync in options with
+     a private symbol (realpathCacheKey) from node::internal/fs/utils.
+     In this function, we'll temporarily override fs.realpathSync and execute
+     a require so we'll trigger a call to realpathSync with the cache. We'll
+     enumerate the symbols in the options and assume the first is the cache
+     we're looking for
+  */
+
+  let cache: Map<string, string> | undefined;
+
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const mod_fs = require("fs");
+  const saved_realpathSync = mod_fs.realpathSync;
+  delete mod_fs.realpathSync;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  mod_fs.realpathSync = function(path: any, options: any) {
+    if (options) {
+      const symbols = Object.getOwnPropertySymbols(options);
+      if (symbols.length === 1)
+        cache = options[symbols[0]];
+    }
+    return saved_realpathSync(path, options);
+  };
+  // requiring this library triggers a call to realpathSync with the cache
+  require("./hmrinternal_requiretarget.ts");
+  // restore realpathSync and check if we got the cache
+  mod_fs.realpathSync = saved_realpathSync;
+  if (!cache)
+    throw new Error(`Could not extract the commonJS loader realpathCache`);
+  return cache;
+}
+
+const realpathCache: Map<string, string> = extractRealPathCache();
 
 /** Register as a module that does dynamic reloads. Dynamic imports done after
     calling this function won't cause the loader itself to reload.
@@ -67,6 +106,58 @@ export function handleModuleInvalidation(path: string) {
 
   for (const key of toinvalidate)
     delete require.cache[key];
+}
+
+function toRealPaths(paths: string[]) {
+  return paths.map(path => {
+    try {
+      return fs.realpathSync(path);
+    } catch (e) {
+      return "";
+    }
+  }).filter(_ => _);
+}
+
+function startsWithAny(path: string, paths: string[]) {
+  return paths.some(p => path.startsWith(p) && (path.length === p.length || path[p.length] === "/"));
+}
+
+export function handleSoftReset(newconfig: WebHareConfiguration) {
+  /* every module has its own relativeResolveCache that keeps the link from provided (relative) path to
+     cache key, that will only be cleared when the require.cache key cannot be found. There is no way to
+     directly clear the relativeResolveCache, so we need to purge the require.cache from all files from
+     old module versions.
+  */
+
+  // get all paths from which modules can be loaded
+  const modulescandirs = toRealPaths(newconfig.modulescandirs);
+
+  // and the real paths of all currently valid objects
+  const moduledirs = toRealPaths(Object.values(newconfig.module).map(m => m.root));
+
+  // A path is now invalid if it is within the module scan paths, but not within an active module
+  const isInvalidPath = (path: string) => startsWithAny(path, modulescandirs) && !startsWithAny(path, moduledirs);
+
+  // Delete all modules from require.cache with paths that are now invalid
+  const cache_todelete = Object.keys(require.cache).filter(isInvalidPath);
+  for (const key of cache_todelete) {
+    delete require.cache[key];
+  }
+
+  /* Remove all path cache entries that contain an outdated module path somewhere
+     Format of an entry: { "lookuppath\x00list-of-lookup-paths.join("\x00"): "resolvedpath"}
+  */
+  type InternalModule = typeof Module & { _pathCache: Record<string, string> };
+  const pathcache_todelete = Object.entries((Module as InternalModule)._pathCache).filter(([key, path]) => key.split("\x00").some(isInvalidPath) || isInvalidPath(path));
+  for (const [key] of pathcache_todelete) {
+    delete (Module as InternalModule)._pathCache[key];
+  }
+
+  // Remove all entries from the realpathCache that result in an invalid path
+  const realpathcache_todelete = [...realpathCache.entries()].filter(([, path]) => isInvalidPath(path));
+  for (const [key] of realpathcache_todelete) {
+    realpathCache.delete(key);
+  }
 }
 
 export function activate() {

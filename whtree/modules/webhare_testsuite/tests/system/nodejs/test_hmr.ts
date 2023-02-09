@@ -2,9 +2,12 @@ import { map } from "./hmrlibs/keeper";
 import * as test from "@webhare/test";
 import * as fs from "fs";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
+import { calculateWebHareConfiguration } from "@mod-system/js/internal/configuration";
 import { activate } from "@mod-system/js/internal/hmrinternal";
+import { openHSVM, HSVM, HSVMObject } from "@mod-webhare_testsuite/../../jssdk/services/src/hsvm";
+import * as resourcetools from "@mod-system/js/internal/resourcetools";
 
-async function testHMR() {
+async function testFileEdits() {
 
   // make sure the bridge is ready to receive events
   await bridge.ready;
@@ -69,8 +72,63 @@ async function testHMR() {
     "dep2.ts": 6,
     "static.ts": 7
   }, map);
-
-
 }
 
-test.run([testHMR]);
+async function createModule(hsvm: HSVM, name: string, files: Record<string, string>) {
+  const archive = await hsvm.loadlib("mod::system/whlibs/filetypes/archiving.whlib").CreateNewArchive("application/zip") as HSVMObject;
+  for (const [path, data] of Object.entries(files)) {
+    await archive.AddFile(name + "/" + path, Buffer.from(data), new Date);
+  }
+  const modulearchive = await archive.MakeBlob();
+  const res = await hsvm.loadlib("mod::system/lib/internal/moduleimexport.whlib").ImportModule(modulearchive);
+  console.log(`installed ${name} to ${(res as { path: string }).path}`);
+}
+
+async function testModuleReplacement() {
+  let serverconfig = calculateWebHareConfiguration();
+
+  const hsvm = await openHSVM();
+  await hsvm.loadlib("mod::system/lib/database.whlib").OpenPrimary();
+
+  if (!serverconfig.module["webhare_testsuite_hmrtest"]) {
+    console.log(`delete module webhare_testsuite_hmrtest`);
+    if (!await hsvm.loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule("webhare_testsuite_hmrtest"))
+      throw new Error(`Could not delete module "webhare_testsuite_hmrtest"`);
+    serverconfig = calculateWebHareConfiguration();
+  }
+
+  console.log(`create module webhare_testsuite_hmrtest`);
+  await createModule(hsvm, "webhare_testsuite_hmrtest", {
+    "moduledefinition.xml": `<?xml version="1.0"?>
+<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+  <meta>
+    <version>0.0.1</version>
+  </meta>
+</module>`,
+    "js/file.ts": `export function func() { return 1; }; console.log("load file 1");`
+  });
+
+  serverconfig = calculateWebHareConfiguration();
+  test.eq(1, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest/js/file.ts#func"))());
+  const orgpath = serverconfig.module["webhare_testsuite_hmrtest"].root;
+
+  console.log(`create 2nd version of module webhare_testsuite_hmrtest`);
+  await createModule(hsvm, "webhare_testsuite_hmrtest", {
+    "moduledefinition.xml": `<?xml version="1.0"?>
+<module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
+  <meta>
+    <version>0.0.1</version>
+  </meta>
+</module>`,
+    "js/file.ts": `export function func() { return 2; }; console.log("load file 2");`
+  });
+
+  serverconfig = calculateWebHareConfiguration();
+  test.assert(orgpath !== serverconfig.module["webhare_testsuite_hmrtest"].root, `new path ${serverconfig.module["webhare_testsuite_hmrtest"].root} should differ from old path ${orgpath}`);
+  test.eq(2, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest/js/file.ts#func"))());
+}
+
+test.run([
+  testFileEdits,
+  testModuleReplacement
+]);
