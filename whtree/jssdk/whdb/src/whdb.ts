@@ -105,7 +105,7 @@ class Work {
     }
   }
 
-  onFinish<T extends FinishHandler>(handler: FinishHandler | (() => FinishHandler), options?: { uniqueTag?: string | symbol }): T {
+  onFinish<T extends FinishHandler>(handler: T | (() => T), options?: { uniqueTag?: string | symbol }): T {
     if (!this.open)
       throw new Error(`Work is already closed`);
 
@@ -309,11 +309,12 @@ export async function rollbackWork() {
 }
 
 /** Register a finish hander for the current work with the specified tag
+ * @typeParam T - Type of the handler to register.
  * @param handler - Handler to register. If a function is passed, it is called to get the handler. Ignored if a handler is already present
  * @param options - uniqueTag: Unique tag to register the handler with. If a handler is already registered with this tag, it is replaced.
  * @returns The newly registerd handler. If uniqueTag is set, the originally registered handler is returned
 */
-export function onFinishWork<T extends FinishHandler>(handler: FinishHandler | (() => FinishHandler), options?: { uniqueTag?: string | symbol }): T {
+export function onFinishWork<T extends FinishHandler>(handler: T | (() => T), options?: { uniqueTag?: string | symbol }): T {
   return conn.onFinishWork(handler, options);
 }
 
