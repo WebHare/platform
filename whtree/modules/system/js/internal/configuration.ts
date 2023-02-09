@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import type { WebHareModuleConfiguration } from "@webhare/services/src/bridgeservice";
+import { pick } from "@mod-system/js/internal/util/algorithms";
 
 export function getRescueOrigin() {
   const rescueip = process.env["WEBHARE_RESCUEPORT_BINDIP"] || "127.0.0.1";
@@ -19,11 +20,11 @@ type ModuleData = {
 export type WebHareModuleMap = { [name: string]: Readonly<WebHareModuleConfiguration> };
 
 /** Class that calculates WebHare configuration from environment variables / module disk paths  */
-class WebhareConfig {
+class WebHareConfig {
   baseport: number;
   basedatadir: string;
   installationroot: string;
-  moduledirs = new Array<string>;
+  modulescandirs = new Array<string>;
   module: WebHareModuleMap = {};
 
   constructor() {
@@ -40,12 +41,12 @@ class WebhareConfig {
     if (!this.installationroot)
       throw new Error("Cannot determine the WebHare installation root");
 
-    this.moduledirs.push(this.basedatadir + "installedmodules/");
+    this.modulescandirs.push(this.basedatadir + "installedmodules/");
 
     const env_modulepaths = process.env.WEBHARE_MODULEPATHS ?? "";
     if (env_modulepaths) {
       for (const path of env_modulepaths.split(":").filter(p => p))
-        this.moduledirs.push(appendSlashWhenMissing(path));
+        this.modulescandirs.push(appendSlashWhenMissing(path));
     }
 
     this.reloadPluginConfig();
@@ -53,7 +54,7 @@ class WebhareConfig {
 
   reloadPluginConfig() {
     const modulemap = new Map<string, ModuleData>;
-    for (const moduledir of this.moduledirs)
+    for (const moduledir of this.modulescandirs)
       this.scanModuleFolder(modulemap, moduledir, true, false);
     this.scanModuleFolder(modulemap, this.installationroot + "modules/", true, true);
     this.module = Object.freeze(Object.fromEntries(Array.from(modulemap).map(([name, { path }]: [string, { path: string }]) => [name, { root: path }])));
@@ -114,23 +115,14 @@ class WebhareConfig {
   }
 }
 
-export type WebHareConfiguration = {
-  readonly baseport: number;
-  readonly basedatadir: string;
-  readonly installationroot: string;
-  readonly module: WebHareModuleMap;
-};
+const expose_keys = ["baseport", "basedatadir", "installationroot", "modulescandirs", "module"] as const;
+export type WebHareConfiguration = Readonly<Pick<WebHareConfig, typeof expose_keys[number]>>;
 
 export function calculateWebHareConfiguration(): WebHareConfiguration {
-  const config = new WebhareConfig;
-  return {
-    baseport: config.baseport,
-    basedatadir: config.basedatadir,
-    installationroot: config.installationroot,
-    module: config.module,
-  };
+  const config = new WebHareConfig;
+  return pick(config, expose_keys);
 }
 
 export function calculateWebHareModuleMap(): WebHareModuleMap {
-  return (new WebhareConfig).module;
+  return (new WebHareConfig).module;
 }
