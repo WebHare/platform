@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { getConfig } from "./services";
+import { getConfig } from "./config";
 
 export function toFSPath(resource: string, options: { allowUnmatched: true }): string | null;
 export function toFSPath(diskpath: string, options?: { allowUnmatched: boolean }): string;
