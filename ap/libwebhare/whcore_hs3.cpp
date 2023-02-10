@@ -898,6 +898,7 @@ void ConfigureRemoteLogs(HSVM *vm, HSVM_VariableId id_set)
         HSVM_ColumnId c_with_mseconds = HSVM_GetColumnId(vm, "WITH_MSECONDS");
         HSVM_ColumnId c_errors = HSVM_GetColumnId(vm, "ERRORS");
         HSVM_ColumnId c_msg = HSVM_GetColumnId(vm, "MSG");
+        HSVM_ColumnId c_timestamps = HSVM_GetColumnId(vm, "TIMESTAMPS");
 
         unsigned len = HSVM_ArrayLength(vm, HSVM_Arg(0));
         for (unsigned i = 0; i < len; ++i)
@@ -912,6 +913,7 @@ void ConfigureRemoteLogs(HSVM *vm, HSVM_VariableId id_set)
                   c.autoflush = GetCell(vm, rec, c_autoflush, false);
                   c.rotates = GetCell(vm, rec, c_rotates, 0);
                   c.with_mseconds = GetCell(vm, rec, c_with_mseconds, false);
+                  c.timestamps = GetCell(vm, rec, c_timestamps, false);
 
                   config.push_back(c);
         }

@@ -19,8 +19,9 @@ PUBLIC RECORD FUNCTION GetLogFiles()
            , logname :=               filename
            , logextension :=          ".log"
            , autoflush :=             false
-           , rotates :=               rotates
-           , with_mseconds :=         with_mseconds
+           , timestamps
+           , rotates
+           , with_mseconds
         FROM logfiles;
 
   // Filter out duplicated names & filenames

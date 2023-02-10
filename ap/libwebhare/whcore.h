@@ -55,6 +55,7 @@ class LogConfig
         bool autoflush;
         unsigned rotates;
         bool with_mseconds;
+        bool timestamps;
 };
 
 class BLEXLIB_PUBLIC ManagerConnection
