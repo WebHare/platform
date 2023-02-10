@@ -42,10 +42,10 @@ ASYNC MACRO StartIPCNodeProcess()
     STRING portname := `${GenerateUFS128BitId()}-${processinfo.pid}-${processinfo.processcode}`;
     port := CreateGlobalIPCPort(portname);
 
-    proc := CreateProcess(
-        GetWebhareConfiguration().installationroot || "node_modules/.bin/ts-node",
-        [ `--swc`, `${GetWebhareConfiguration().installationroot}/modules/system/scripts/internal/callrunnerts.ts`, portname ],
-        [ take_output := FALSE, take_errors := FALSE ]);
+    proc := CreateProcess(`${GetWebHareConfiguration().installationroot}/modules/system/scripts/whcommands/node.sh`,
+        [ `${GetWebHareConfiguration().installationroot}/modules/system/scripts/internal/callrunnerts.ts`
+        , portname
+        ], [ take_output := FALSE, take_errors := FALSE ]);
     IF(NOT IsRequest()) //TODO how can we tell beforehand whether we're allowed to share streams? at least webserver won't allow us
     {
       proc->share_stdout := TRUE;
