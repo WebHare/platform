@@ -543,7 +543,7 @@ int UTF8Main(std::vector<std::string> const &args)
         WHCore::Connection conn(options, "whcompile", mgrconntype); // whmanager connection when listening
 
         // Ensure the compilecache exists...
-        Blex::CreateDirRecursive(conn.GetCompileCache(),false);
+        Blex::CreateDirRecursive(Blex::MergePath(conn.GetCompileCache(), "harescript"),false);
 
         WHFileSystem filesystem(conn, CompilationPriority::ClassHighest, false); //If we ever decide to compile something ourself, we better hurry? :-)
         filesystem.Register(creg);

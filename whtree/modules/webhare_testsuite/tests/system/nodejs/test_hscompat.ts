@@ -295,7 +295,6 @@ function testHSON() {
   //TODO should we be able to explicitly encode as variant array ? testHSONEnDeCode('hson:va[1,2,3]', [ 1,2,3 ]);
   testHSONEnDeCode('hson:ia[1,2,3]', [1, 2, 3]);
   testHSONEnDeCode('hson:fa[f 13,f 11111111111111]', [13, 11111111111111]);
-  console.error(0);
   testHSONEnDeCode('hson:fa[f 1e308,f 1e-308,f -1e308,f -1e-308,f 0.0001]', [1e308, 1e-308, -1e308, -1e-308, 0.0001]);
 
   // Large blob, len not dividable by 3

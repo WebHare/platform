@@ -467,9 +467,9 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
        img-src https: is required for eg the video browser to load thumbnails from youtube
        connect-src 'self' to allow websockets to connect to us
        style-src unsafe-inline is required for the RTD which sets element styles through innerHTML
-       style-src * so RTDs can load fonts.google.com and similar sites
+       style-src and font-src * so RTDs can load fonts.google.com and similar sites
     */
-    AddHTTPHeader("Content-Security-Policy", `default-src 'self'; img-src 'self' data: blob: https:; style-src * 'unsafe-inline' ; connect-src 'self'; frame-src *`, FALSE);
+    AddHTTPHeader("Content-Security-Policy", `default-src 'self'; img-src 'self' data: blob: https:; style-src * 'unsafe-inline' ; connect-src 'self'; frame-src *; font-src *`, FALSE);
 
     AddHTTPHeader("X-Robots-Tag", "noindex, nofollow", FALSE);
   }

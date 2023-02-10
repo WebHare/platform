@@ -4,7 +4,9 @@ import { toFSPath } from "./resources";
 export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource } from "./resources";
 import * as fs from "node:fs";
 export { openBackendService, BackendServiceController } from "./backendservice";
-import { getBridgeService, InvokeOptions, WebHareBackendConfiguration } from "./bridgeservice";
+import { getBridgeService, InvokeOptions } from "./bridgeservice";
+export { getConfig } from "./config";
+import { setConfig } from "./config";
 export { WebHareBackendConfiguration } from "./bridgeservice";
 import * as witty from '@webhare/witty';
 export { broadcast, subscribe, BackendEvent, BackendEventSubscription } from "./backendevents";
@@ -13,11 +15,10 @@ export { ConvertBackendServiceInterfaceToClientInterface } from "@mod-system/js/
 
 let configresolve: (() => void) | null = null;
 const configpromise = new Promise(resolve => configresolve = resolve as (() => void));
-let config: WebHareBackendConfiguration | null = null;
 
 WHBridge.onConfigurationUpdate(async () => {
   const newconfig = await (await getBridgeService()).getConfig();
-  config = Object.freeze(newconfig);
+  setConfig(Object.freeze(newconfig));
   configresolve!(); //configresolve is always set above
 });
 
@@ -39,13 +40,6 @@ export async function ready(): Promise<void> {
 export async function callHareScript(func: string, args: unknown[], options?: InvokeOptions) {
   //TODO or should we be exposing callAsync here and always go through that abstraction (and remove AsyncCallFunctionFromJob from bridge.whsock Invoke?)
   return (await getBridgeService()).invokeAnyFunction(func, args, options || {});
-}
-
-export function getConfig(): Readonly<WebHareBackendConfiguration> {
-  if (!config)
-    throw new Error("WebHare services are not yet available. You may need to await services.ready()");
-
-  return config;
 }
 
 export function loadWittyResource(resource: string, options?: witty.WittyOptions): Promise<witty.WittyTemplate> {
