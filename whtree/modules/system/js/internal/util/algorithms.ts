@@ -22,7 +22,7 @@ export function mapObject<T extends object, N>(obj: T, mapping: <K extends keyof
     @param keys - Names of the properties to pick
     @returns Resulting object
 */
-export function pick<T extends object, K extends string & keyof T>(obj: T, keys: K[]): Pick<T, K>;
+export function pick<T extends object, K extends string & keyof T>(obj: T, keys: readonly K[]): Pick<T, K>;
 
 /** Returns an array with a selection of properties
     @typeParam T - Type of the supplied array
@@ -31,9 +31,9 @@ export function pick<T extends object, K extends string & keyof T>(obj: T, keys:
     @param keys - Names of the properties to pick
     @returns Resulting array
 */
-export function pick<T extends object, K extends string & keyof T>(arr: T[], keys: K[]): Array<Pick<T, K>>;
+export function pick<T extends object, K extends string & keyof T>(arr: T[], keys: readonly K[]): Array<Pick<T, K>>;
 
-export function pick<T extends object, K extends string & keyof T>(value: T | T[], keys: K[]): Pick<T, K> | Array<Pick<T, K>> {
+export function pick<T extends object, K extends string & keyof T>(value: T | T[], keys: readonly K[]): Pick<T, K> | Array<Pick<T, K>> {
   if (Array.isArray(value))
     return value.map((elt: T) => pick(elt, keys));
   const ret = {} as Pick<T, K>;
