@@ -141,7 +141,7 @@ export function handleSoftReset(newconfig: WebHareConfiguration) {
   // Delete all modules from require.cache with paths that are now invalid
   const cache_todelete = Object.keys(require.cache).filter(isInvalidPath);
   for (const key of cache_todelete) {
-    delete require.cache[key];
+    handleModuleInvalidation(key);
   }
 
   /* Remove all path cache entries that contain an outdated module path somewhere
