@@ -1681,12 +1681,28 @@ FUNCTION PTR myptr := GetObjectMethodPtr(o, "CALLME");
 */
 PUBLIC FUNCTION PTR FUNCTION GetObjectMethodPtr(OBJECT obj, STRING membername) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT, SPECIAL);
 
-
+/* Tollium is a heavy user of ConstructObj - and frequently invokes the same constructor (for components but also for repeated fragment) which is suprisingly slow.
+   The HS engine probably forgets to skip uptodate checks so we'll do a simple cache here to avoid that overhead */
+RECORD ARRAY seen_object_constructors;
 MACRO ConstructObj(OBJECT obj, STRING libname, STRING objname, VARIANT ARRAY arguments) __ATTRIBUTES__(SKIPTRACE)
 {
   INTEGER ARRAY argtypes := SELECT AS INTEGER ARRAY TypeID(value) FROM ToRecordArray(arguments, "VALUE");
-  FUNCTION PTR fptr := GetObjectConstructor(libname, objname, argtypes);
+  STRING fptrtag := libname || "#" || objname || "#";
+  FOREVERY(INTEGER arg FROM argtypes)
+    fptrtag := fptrtag || "#" || arg;
 
+  RECORD fptrpos := RecordLowerBound(seen_object_constructors, [ tag := fptrtag ], [ "TAG" ]);
+  FUNCTION PTR fptr;
+
+  IF(fptrpos.found)
+  {
+    fptr := seen_object_constructors[fptrpos.position].fptr;
+  }
+  ELSE
+  {
+    fptr :=  GetObjectConstructor(libname, objname, argtypes);
+    INSERT CELL[ fptr, tag := fptrtag] INTO seen_object_constructors AT fptrpos.position;
+  }
   CallMacroPtrVA(fptr, VARIANT ARRAY([ obj ]) CONCAT arguments);
 }
 
