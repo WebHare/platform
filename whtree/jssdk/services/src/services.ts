@@ -10,7 +10,7 @@ import { setConfig } from "./config";
 export { WebHareBackendConfiguration } from "./bridgeservice";
 import * as witty from '@webhare/witty';
 export { broadcast, subscribe, BackendEvent, BackendEventSubscription } from "./backendevents";
-
+export { log, flushLog } from "./logging";
 export { ConvertBackendServiceInterfaceToClientInterface } from "@mod-system/js/internal/webhareservice";
 
 let configresolve: (() => void) | null = null;
