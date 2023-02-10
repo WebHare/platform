@@ -20,7 +20,9 @@ async function testFileEdits() {
   const path_dyn1 = require.resolve("./hmrlibs/dyn1.ts");
   const path_static = require.resolve("./hmrlibs/static.ts");
 
-  const { dynimport } = await import(path_root);
+  // eslint-disable-next-line @typescript-eslint/no-var-requires -- TODO - our require plugin doesn't support await import yet
+  const { dynimport } = require(path_root);
+
   await dynimport(path_dyn1);
 
   test.eq({

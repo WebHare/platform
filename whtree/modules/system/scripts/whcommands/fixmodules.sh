@@ -47,7 +47,6 @@ while [[ $1 =~ -.* ]]; do
 done
 
 loadshellconfig
-setup_node
 
 FAILED=0
 # --silent also kills error logging, so just try to prevent as much as possible

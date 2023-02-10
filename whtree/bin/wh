@@ -358,8 +358,6 @@ origin=$(git -C "$WEBHARE_DIR" config --get remote.origin.url)
 HERE
     mv $WEBHARE_DIR/modules/system/whres/buildinfo.tmp $WEBHARE_DIR/modules/system/whres/buildinfo
   fi
-
-  setup_node
 }
 
 INSTR="${1:-help}"
@@ -381,7 +379,6 @@ case $INSTR in
   "exec")
     setup_for_console
     getwhparameters
-    setup_node
 
     PROCESS="$1"
     shift
@@ -402,7 +399,6 @@ case $INSTR in
     setup_for_console
     getwhparameters
     setup_buildsystem
-    setup_node
 
     DBGARGS=();
     if [ "$1" == "--dbg" ]; then
@@ -435,7 +431,6 @@ case $INSTR in
 
     check_webhare_not_running
     setup_for_console
-    setup_node
 
     getwhparameters
     setup_webhare_envsettings
@@ -464,6 +459,13 @@ case $INSTR in
 
       echo "Coverage data will be stored in ${WEBHARE_DATAROOT}ephemeral/profiles/default"
       echo
+    fi
+
+    if [ -z "$WEBHARE_IN_DOCKER" ]; then #In Dockers it's the buildscripts (shrinkwrap) responsibility to set these up
+      if ! "$WEBHARE_DIR/modules/system/scripts/whcommands/rebuild-platform-helpers.sh" ; then
+        echo "Failed to rebuild platform helpers, aborting"
+        exit 1
+      fi
     fi
 
     # envvar WEBHARE_DEBUG should be treated as an 'initial' value so we move it
@@ -521,58 +523,47 @@ case $INSTR in
     ;;
 
   "run")
+    WHNODEOPTS=()
+
+    if [ "$1" == "--whdebug" ]; then
+      shift
+      export WEBHARE_DEBUG="$1"
+      shift
+    elif [[ $1 =~ ^--whdebug=(.*) ]]; then
+      export WEBHARE_DEBUG="${BASH_REMATCH[1]}"
+      shift
+    elif [ "$1" == "--profile" ]; then
+      export WEBHARE_DEBUG=apr
+      shift
+    elif [ "$1" == "--coverage" ]; then
+      export WEBHARE_DEBUG=cov
+      shift
+    elif [ "$1" == "--debugbrk" ]; then
+      export WEBHARE_DEBUG=brk
+      shift
+    elif [ "$1" == "--debug" ]; then
+      export NODE_OPTIONS="$NODE_OPTIONS --debug"
+      shift
+    elif [ "$1" == "--inspect" ]; then
+      export NODE_OPTIONS="$NODE_OPTIONS --inspect"
+      shift
+    elif [ "$1" == "--validate" ]; then
+      WHNODEOPTS+=("--validate")
+      shift
+    fi
+
     getscripttorun SCRIPT "$@"
     if [ -z "$SCRIPT" ]; then
       die "Specify the script to run"
     fi
+    shift
 
-    setup_node
+    # This should match the whconstant_javascript_extensions:
     if [ "${SCRIPT: -3}" == ".es" -o "${SCRIPT: -3}" == ".js" -o "${SCRIPT: -3}" == ".ts" -o "${SCRIPT: -4}" == ".tsx" ]; then
-
-      SKIPVALIDATE=--swc
-
-      while (true); do
-        if [ "$1" == "--debug" ]; then
-          export NODE_OPTIONS="$NODE_OPTIONS --debug"
-          shift
-        elif [ "$1" == "--inspect" ]; then
-          export NODE_OPTIONS="$NODE_OPTIONS --inspect"
-          shift
-        elif [ "$1" == "--whdebug" ]; then
-          shift
-          shift
-        elif [ "$1" == "--validate" ]; then
-          SKIPVALIDATE=
-          shift
-        else
-          break
-        fi
-      done
-
       resolveresourcepath RESOLVEDPATH "$SCRIPT"
-      shift
-      CMDLINE=("$WEBHARE_DIR/node_modules/.bin/ts-node" $SKIPVALIDATE "$RESOLVEDPATH" "$@")
-      exec "${CMDLINE[@]}"
-      die Failed to invoke ts-node for $1
+      exec "$WEBHARE_DIR/modules/system/scripts/whcommands/node.sh" "${WHNODEOPTS[@]}" "$RESOLVEDPATH" "$@"
     else
-      if [ "$1" == "--whdebug" ]; then
-        shift
-        export WEBHARE_DEBUG="$1"
-        shift
-      elif [[ $1 =~ ^--whdebug=(.*) ]]; then
-        export WEBHARE_DEBUG="${BASH_REMATCH[1]}"
-        shift
-      elif [ "$1" == "--profile" ]; then
-        export WEBHARE_DEBUG=apr
-        shift
-      elif [ "$1" == "--coverage" ]; then
-        export WEBHARE_DEBUG=cov
-        shift
-      elif [ "$1" == "--debugbrk" ]; then
-        export WEBHARE_DEBUG=brk
-        shift
-      fi
-      exec_runscript --workerthreads 4 "$@"
+      exec_runscript --workerthreads 4 "$SCRIPT" "$@"
     fi
     ;;
 
@@ -660,7 +651,6 @@ HERE
     ;;
 
   "runtest")
-    setup_node
     runscript --workerthreads 10 --onlyshippedfonts mod::system/scripts/internal/tests/runtest.whscr "$@"
     EXITCODE=$?
     if [ "$EXITCODE" != "0" ]; then
@@ -816,20 +806,19 @@ HERE
 
     getmoduledir MODULEDIR $TARGETMODULE
 
-    if [ -f "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.sh" ]; then
-      exec /bin/bash "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.sh" "${OPTIONS[@]}"
+    if [ -f "${MODULEDIR}scripts/whcommands/$SUBCOMMAND.sh" ]; then
+      exec /bin/bash "${MODULEDIR}scripts/whcommands/$SUBCOMMAND.sh" "${OPTIONS[@]}"
     fi
-    if [ -f "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.whscr" ]; then
+    if [ -f "${MODULEDIR}scripts/whcommands/$SUBCOMMAND.whscr" ]; then
       exec_runscript --workerthreads 4 "mod::$TARGETMODULE/scripts/whcommands/$SUBCOMMAND.whscr" "${OPTIONS[@]}"
     fi
-    if [ -f "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.ts" ] ; then
-      setup_node
-      exec "$WEBHARE_DIR/node_modules/.bin/ts-node" --swc "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.ts" "${OPTIONS[@]}"
-    fi
-    if [ -f "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.js" ]; then
-      setup_node
-      exec "$WEBHARE_DIR/node_modules/.bin/ts-node" --swc "$MODULEDIR/scripts/whcommands/$SUBCOMMAND.js" "${OPTIONS[@]}"
-    fi
+
+    # This should match the whconstant_javascript_extensions:
+    for EXT in es js ts tsx ; do
+      if [ -f "${MODULEDIR}scripts/whcommands/$SUBCOMMAND.$EXT" ] ; then
+        exec "$WEBHARE_DIR/modules/system/scripts/whcommands/node.sh" "${MODULEDIR}scripts/whcommands/$SUBCOMMAND.$EXT"
+      fi
+    done
 
     die "Command '$INSTR' not understood - use 'wh help' for a list of instructions"
     ;;

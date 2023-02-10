@@ -192,14 +192,6 @@ calc_dir_relpath()
   WEBHARE_DIR_RELATIVE="${result}${target#$base/}"
 }
 
-setup_node()
-{
-  getwhparameters
-  export NODE_PATH=$WEBHARE_DATAROOT/node_modules
-  export NODE_REPL_HISTORY=$WEBHARE_DATAROOT/.node-repl-history
-  export TS_NODE_PROJECT="$WEBHARE_DATAROOT/tsconfig.json"
-}
-
 getlog()
 {
   local XLOGFILE
@@ -221,7 +213,6 @@ getlog()
 exec_runscript()
 {
   getwhparameters
-  setup_node
   exec $WEBHARE_DIR/bin/runscript "$@"
   exit 255
 }

@@ -49,7 +49,8 @@ export async function JSONAPICall(servicedef: WebServiceDefinition, req: WebRequ
   await services.ready();
 
   try {
-    const theapi = await import(services.toFSPath(servicedef.service.split('#')[0]));
+    // eslint-disable-next-line @typescript-eslint/no-var-requires -- TODO - our require plugin doesn't support await import yet
+    const theapi = require(services.toFSPath(servicedef.service.split('#')[0]));
     const objectname = servicedef.service.split('#')[1];
     if (!theapi[objectname])
       throw new Error(`Cannot find '${objectname}' in '${theapi}'`);

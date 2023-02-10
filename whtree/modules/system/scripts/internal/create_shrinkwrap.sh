@@ -21,6 +21,11 @@ if [ ! -f "$WHTREE/bin/runscript" ]; then
   exit 1
 fi
 
+if ! "$WHTREE/modules/system/scripts/whcommands/rebuild-platform-helpers.sh" ; then
+  echo "Failed to rebuild platform helpers, aborting"
+  exit 1
+fi
+
 function stop_webhare()
 {
   local PID

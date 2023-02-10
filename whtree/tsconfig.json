@@ -34,12 +34,7 @@
         "modules/wrd/*"
       ]
     },
-  },
-  "ts-node": {
-    "compilerOptions": {
-      "target": "es2022"
-    },
-    "moduleResolution": "node"
+    "target": "es2022"
   },
   "exclude": [
     "modules/webhare_testsuite"
