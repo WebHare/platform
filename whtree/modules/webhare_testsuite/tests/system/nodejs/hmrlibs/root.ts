@@ -2,7 +2,8 @@ import { registerAsDynamicLoadingLibrary } from "@mod-system/js/internal/hmr";
 import { register } from "./keeper";
 
 export async function dynimport(lib: string) {
-  return await import(lib);
+  // eslint-disable-next-line @typescript-eslint/no-var-requires -- TODO - our require plugin doesn't support await import yet
+  return require(lib);
 }
 
 register(module);
