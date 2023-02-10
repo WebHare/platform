@@ -364,6 +364,7 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
   RECORD ARRAY snoozes;
   TRY
   {
+    snoozes :=
       SELECT *
         FROM GetPrimaryWebhareUserAPI()->wrdschema->GetType("WHUSER_SYSTEMMESSAGE_SNOOZES")->RunQuery(
               [ outputcolumns :=
