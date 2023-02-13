@@ -11,6 +11,7 @@ import "./testsuite.css";
 import minimatch from "minimatch";
 import * as testservice from "./testservice.rpc.json";
 import StackTrace from "stacktrace-js";
+import { DeferredPromise } from '@mod-system/js/types';
 
 let sourceCache = {};
 let testframetabname = 'testframe' + Math.random();
@@ -525,7 +526,16 @@ class TestFramework {
     return result;
   }
 
-  handleWindowOnError(deferred, errormsg, url, linenumber, col, e) {
+  bindDeferredWithError(deferred: DeferredPromise<never>, errormsg: string) {
+    try {
+      throw new Error(errormsg);
+    }
+    catch (e) {
+      return () => deferred.reject(e as Error);
+    }
+  }
+
+  handleWindowOnError(deferred: DeferredPromise<never>, errormsg: string, url, linenumber, col, e) {
     // Test if we should ignore this callback
     if (shouldIgnoreOnErrorCallback(errormsg))
       return;
