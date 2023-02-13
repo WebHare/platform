@@ -195,6 +195,7 @@ export function createRPC(message: defs.WHMRequest): Buffer {
         iobuf.writeBoolean(log.autoflush);
         iobuf.writeU32(log.rotates);
         iobuf.writeBoolean(log.with_mseconds);
+        iobuf.writeBoolean(log.timestamps);
       }
     } break;
     case defs.WHMRequestOpcode.Log: {

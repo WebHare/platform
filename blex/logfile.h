@@ -41,8 +41,9 @@ class BLEXLIB_PUBLIC Logfile
             @param logextension Extension to use on logfiles
             @param autoflush True to automatically flush after each log entry
             @param rotates Maximum number of rotates to keep
+            @param timestamps Stamp all log entries with a timestamp. Not useful for eg JSON logs
             @return True if the logfile was succesfully opened */
-        bool OpenLogfile(const std::string &logroot, const std::string &logfile, const std::string &logextension, bool autoflush, unsigned rotates, bool with_mseconds);
+        bool OpenLogfile(const std::string &logroot, const std::string &logfile, const std::string &logextension, bool autoflush, unsigned rotates, bool with_mseconds, bool timestamps);
 
         /** Close a log file */
         void CloseLogfile();
@@ -94,6 +95,8 @@ class BLEXLIB_PUBLIC Logfile
                 unsigned lastday;
                 /** Auto-flush setting */
                 bool autoflush;
+                /** Timestamp lines */
+                bool timestamps;
                 /** Include milliseconds setting */
                 bool with_mseconds;
                 /** Auto-rotate setting */

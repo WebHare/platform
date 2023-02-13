@@ -2,6 +2,7 @@
 
 import * as test from "@webhare/test";
 import * as services from "@webhare/services";
+import { formatLogObject } from "@webhare/services/src/logging";
 import { HSVM, HSVMObject, openHSVM } from "@webhare/services/src/hsvm";
 
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
@@ -361,6 +362,11 @@ async function runBackendServiceTest_HS() {
   //TestEq([ value := 42 ], testdata); */
 }
 
+function testLogs() {
+  test.eqMatch(/"val":"123456678901234567890123456678901234567890"/, formatLogObject({ val: BigInt("123456678901234567890123456678901234567890") }));
+  test.eqMatch(/1234567890… \(40000 chars\)/, formatLogObject({ val: "1234567890".repeat(4000) }));
+}
+
 //NOTE: we take an a-typical test run approach to help ensure noone booted services before us
 async function main() {
   await test.throws(/not yet available/, () => services.getConfig());
@@ -380,6 +386,7 @@ async function main() {
       testServiceTimeout,
       runBackendServiceTest_JS,
       runBackendServiceTest_HS,
+      testLogs
     ], { wrdauth: false });
 }
 

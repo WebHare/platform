@@ -87,7 +87,7 @@ Logfile::~Logfile()
 {
 }
 
-bool Logfile::OpenLogfile(const std::string &logroot, const std::string &logfile, const std::string &logextension, bool autoflush, unsigned rotates, bool with_mseconds)
+bool Logfile::OpenLogfile(const std::string &logroot, const std::string &logfile, const std::string &logextension, bool autoflush, unsigned rotates, bool with_mseconds, bool timestamps)
 {
         {
                 Log::WriteRef loglock(log);
@@ -101,6 +101,7 @@ bool Logfile::OpenLogfile(const std::string &logroot, const std::string &logfile
                 loglock->logextension=logextension;
                 loglock->autoflush=autoflush;
                 loglock->with_mseconds=with_mseconds;
+                loglock->timestamps=timestamps;
 
                 std::string filepath;
                 loglock->GenerateFileName(now, 0, &filepath);
@@ -175,11 +176,6 @@ void Logfile::StampedLog (const char *textstart, const char *textlimit)
         if (!loglock->logfile.get())
             return;
 
-        curtime[0]='[';
-        char *stamp_end = InsertLogDate(now, loglock->with_mseconds, curtime+1); //fills bytes 1 to 26/30
-        *stamp_end++ = ']';
-        *stamp_end++ = ' ';
-
         //Must rotate?
         if (now.GetDays () != loglock->lastday)
         {
@@ -187,8 +183,17 @@ void Logfile::StampedLog (const char *textstart, const char *textlimit)
                     return;
         }
 
-        //Do the actual write
-        loglock->logfile->Write(curtime,stamp_end - curtime);
+        if (loglock->timestamps)
+        {
+                curtime[0]='[';
+                char *stamp_end = InsertLogDate(now, loglock->with_mseconds, curtime+1); //fills bytes 1 to 26/30
+                *stamp_end++ = ']';
+                *stamp_end++ = ' ';
+
+                loglock->logfile->Write(curtime,stamp_end - curtime);
+        }
+
+        //Write the rest
         loglock->logfile->Write(textstart,textlimit-textstart);
         loglock->logfile->Write(linefeed,sizeof linefeed);
         if (loglock->autoflush) //probably an important logfile

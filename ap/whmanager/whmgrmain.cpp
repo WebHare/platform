@@ -774,6 +774,7 @@ Database::RPCResponse::Type Connection::RemoteConfigureLogs(Database::IOBuffer *
                 config.autoflush = iobuf->Read< bool >();
                 config.rotates = iobuf->Read< uint32_t >();
                 config.with_mseconds = iobuf->Read< bool >();
+                config.timestamps = iobuf->Read< bool >();
         }
 
         iobuf->ResetForSending();
@@ -1127,7 +1128,7 @@ void WHManager::SetNewLogConfiguration(std::vector< WHCore::LogConfig > const &n
                         LogFileData &data = lock->logs[it->tag];
                         data.config = *it;
                         data.logfile.reset(new Blex::Logfile);
-                        result = data.logfile->OpenLogfile(it->logroot, it->logname, it->logextension, it->autoflush, it->rotates, it->with_mseconds);
+                        result = data.logfile->OpenLogfile(it->logroot, it->logname, it->logextension, it->autoflush, it->rotates, it->with_mseconds, it->timestamps);
                         if (result)
                             opened.insert(keyname);
                 }
@@ -1230,8 +1231,9 @@ int WHManager::Execute (std::vector<std::string> const &args)
                 log.logname = logfiles[i];
                 log.logextension = ".log";
                 log.autoflush = false;
+                log.timestamps = true;
                 log.with_mseconds = true;
-                log.rotates = 9999; //unconfigured, allow up to about 30 years of logs. TODO support an infinite rotation mode
+                log.rotates = 9999; //unconfigured, allow up to about 30 years of logs.
                 logs.push_back(log);
         }
 

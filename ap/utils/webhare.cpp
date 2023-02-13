@@ -629,7 +629,7 @@ int UTF8Main(std::vector<std::string> const &args)
         if (!whconn->GetLogRoot().empty())
         {
                 Blex::CreateDirRecursive(whconn->GetLogRoot(),true);
-                logfile.OpenLogfile(whconn->GetLogRoot(),"servicemanager",".log",false,30, false);
+                logfile.OpenLogfile(whconn->GetLogRoot(),"servicemanager",".log",false,30, false, true);
         }
 
         if (optparser.Param("mode") == "console")

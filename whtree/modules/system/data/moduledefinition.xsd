@@ -2629,6 +2629,11 @@
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>
+          <xs:attribute name="timestamps" type="xs:boolean" use="optional" default="true">
+            <xs:annotation>
+              <xs:documentation>Enable timestamps in log files. Defaults to true, set to false for eg JSON lines</xs:documentation>
+            </xs:annotation>
+          </xs:attribute>
           <xs:attribute name="gid" type="SimpleGid" use="optional" />
         </xs:complexType>
       </xs:element>
