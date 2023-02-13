@@ -56,6 +56,16 @@ GetTid("webhare_testsuite_temp:just.a.test.ignore");
   </fragment>
 </siteprofile>`));
 
+  StoreDiskFile(`${temproot}/metatest_fails-ts-validate.ts`, StringToBlob(`import * as test from "@webhare/test";
+
+async function testFail() {
+  const x: string = 42;
+  test.assert(true);
+}
+
+test.run([testFail]);
+`));
+
   RECORD ARRAY issues := CheckModule("webhare_testsuite_temp", [ printissues := testfw->debug
                                                                , debug := testfw->debug
                                                                ]);
@@ -66,6 +76,7 @@ GetTid("webhare_testsuite_temp:just.a.test.ignore");
   TestEq(1, Length(SELECT FROM issues WHERE resourcename="mod::webhare_testsuite_temp/testcompileerror.whscr" AND category = "error" AND message LIKE "*Invalid LOADLIB*" AND line = 2));
   TestEq(1, Length(SELECT FROM issues WHERE resourcename="mod::webhare_testsuite_temp/testwarning.whlib" AND category = "warning" AND message LIKE "*CreateDiskFileFromBlob*deprecated*" AND line = 3));
   TestEq(1, Length(SELECT FROM issues WHERE resourcename="mod::webhare_testsuite_temp/test.siteprl" AND category = "error" AND message LIKE "*odd:locationedit*" AND line = 5));
+  TestEq(1, Length(SELECT FROM issues WHERE resourcename="mod::webhare_testsuite_temp/metatest_fails-ts-validate.ts" AND category = "error" AND message LIKE "*is not assignable to type*" AND line = 4));
 }
 
 RunTestFramework([ PTR TestCheckModule

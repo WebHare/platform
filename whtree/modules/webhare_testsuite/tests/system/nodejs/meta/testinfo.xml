@@ -1,4 +1,3 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" skipautotests="1">
   <test script="metatest_shouldfail.ts" />
-  <test script="metatest_fails-ts-validate.ts" />
 </group>

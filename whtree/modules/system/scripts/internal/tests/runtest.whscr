@@ -171,7 +171,7 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
         ELSE IF(GetExtensionFromPath(script) IN whconstant_javascript_extensions)
         {
           runner := GetInstallationRoot() || "bin/wh";
-          arguments := [ "run", "--validate", GetWebHareResourceDiskPath(script), ...testinfo.arguments ];
+          arguments := [ "run", GetWebHareResourceDiskPath(script), ...testinfo.arguments ];
         }
         ELSE
         {
