@@ -1397,4 +1397,3 @@ class TestSuite {
 }
 
 new TestSuite;
-
