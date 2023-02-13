@@ -9,7 +9,6 @@
       <exclude mask="tests/publisher/siteprofile/data/test*.siteprl.xml" why="these testfiles contain errors on purpose" />
       <exclude mask="tests/system/modules/data/brokenscreen.xml" why="these testfiles contain errors on purpose" />
       <exclude mask="tests/tollium/nodejs/test_gettid.es" why="these testfiles contain errors on purpose" />
-      <exclude mask="tests/system/nodejs/meta/metatest_fails-ts-validate.ts" why="these testfiles contain errors on purpose" />
 
       <!-- <exclude mask="tests/*/data/*" why="don't validate test data, its often broke" /> -->
       <exclude mask="*testdata_loadlib_circ_?.whlib" why="These libraries are supposed to fail to compile" />
