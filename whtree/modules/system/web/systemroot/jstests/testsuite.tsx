@@ -8,7 +8,6 @@ import * as browser from 'dompack/extra/browser';
 import * as domfocus from "dompack/browserfix/focus";
 import { reportException, shouldIgnoreOnErrorCallback, waitForReports } from "@mod-system/js/wh/errorreporting";
 import "./testsuite.css";
-import minimatch from "minimatch";
 import * as testservice from "./testservice.rpc.json";
 import StackTrace from "stacktrace-js";
 import { DeferredPromise } from '@mod-system/js/types';
@@ -1318,9 +1317,6 @@ class TestSuite {
         let filtered = [];
 
         list.forEach(item => {
-          if (!masks.some(mask => minimatch(item.name, mask)) || skips.some(mask => minimatch(item.name, mask)))
-            return;
-
           let li = dompack.create("li", { dataset: { testname: item.name } });
           let url = new URL(location.href);
           url.searchParams.set("skip", "");
