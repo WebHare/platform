@@ -38,7 +38,7 @@ function findBestStackLocation(stacktrace) {
     !filename.endsWith("/testframework-rte.ts") &&
     !filename.endsWith("/checks.ts") &&
     !filename.includes("/dompack/testframework/") &&
-    !filename.endsWith("/testsuite.ts"));
+    !filename.endsWith("/testsuite.tsx"));
 
   return filtered[0] || null;
 }
