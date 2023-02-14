@@ -109,7 +109,11 @@ IF(Length(matchcatalogs) = 0)
 FOREVERY(RECORD catalogrec FROM matchcatalogs)
 {
   OBJECT catalog := OpenConsilioCatalogById(catalogrec.id);
-  RECORD ARRAY matchcsources := SELECT * FROM catalog->ListContentSources() WHERE ToUppercase(tag) LIKE ToUppercase(contentsourcemask) OR "#" || id = contentsourcemask;
+  RECORD ARRAY matchcsources := SELECT *
+                                  FROM catalog->ListContentSources()
+                                 WHERE ToUppercase(tag) LIKE ToUppercase(contentsourcemask)
+                                       OR ToUppercase(title) LIKE ToUppercase(contentsourcemask)
+                                       OR "#" || id = contentsourcemask;
 
   IF(Length(matchcsources) = 0)
   {
