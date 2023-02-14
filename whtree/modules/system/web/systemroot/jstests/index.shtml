@@ -162,8 +162,8 @@ IF (testlisturl = "")
   }
 
   testlisturl := UpdateURLVariables("/.system/jstests/!/testlist/",
-      [ masks :=      Detokenize(masks, ",")
-      , skips :=      Detokenize(skips, ",")
+      [ mask :=       Detokenize(masks, ",")
+      , skip :=       Detokenize(skips, ",")
       , tags :=       GetWebVariable("tags")
       , site :=       GetWebVariable("site")
       ]);

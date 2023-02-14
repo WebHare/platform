@@ -8,9 +8,9 @@ import * as browser from 'dompack/extra/browser';
 import * as domfocus from "dompack/browserfix/focus";
 import { reportException, shouldIgnoreOnErrorCallback, waitForReports } from "@mod-system/js/wh/errorreporting";
 import "./testsuite.css";
-import minimatch from "minimatch";
 import * as testservice from "./testservice.rpc.json";
 import StackTrace from "stacktrace-js";
+import { DeferredPromise } from '@mod-system/js/types';
 
 let sourceCache = {};
 let testframetabname = 'testframe' + Math.random();
@@ -19,7 +19,7 @@ if (window.Error && window.Error.stackTraceLimit)
   Error.stackTraceLimit = 50;
 
 function getTestRoots() {
-  var iframe = document.querySelector("#testframeholder iframe");
+  var iframe = document.querySelector<HTMLIFrameElement>("#testframeholder iframe");
   if (!iframe)
     throw new Error("No <iframe> in testframeholder");
   var cw = iframe.contentWindow;
@@ -37,45 +37,47 @@ function findBestStackLocation(stacktrace) {
     !filename.endsWith("/testframework-rte.ts") &&
     !filename.endsWith("/checks.ts") &&
     !filename.includes("/dompack/testframework/") &&
-    !filename.endsWith("/testsuite.ts"));
+    !filename.endsWith("/testsuite.tsx"));
 
   return filtered[0] || null;
 }
 
 class TestFramework {
+  currentscript = '';
+  tests = [];
+
+  testframes = [];
+  currenttestframe = "main";
+
+  autoadvancetest = true;
+  reportid = '';
+  sessionid = '';
+
+  wait4setuptests = null;
+  loadtimeout = 90000;
+  waittimeout = 60000;
+
+  framecallwrapper = null;
+  lastlognodes = [];
+  delayafter = 0;
+  pendingwaits = [];
+
+  nextstepscheduled = false;
+
+  lastbusycount = 0;
+
+  stop = false;
+  stoppromise = null;
+
+  pagetitle: string;
+
+  scheduledlogs = [];
+  scheduledlogscb = null;
+
+  waitstack = [];
+
   constructor() {
-    this.currentscript = '';
-    this.tests = [];
-
-    this.testframes = [];
-    this.currenttestframe = "main";
-
-    this.autoadvancetest = true;
-    this.reportid = '';
-    this.sessionid = '';
-
-    this.wait4setuptests = null;
-    this.loadtimeout = 90000;
-    this.waittimeout = 60000;
-
-    this.framecallwrapper = null;
-    this.lastlognodes = [];
-    this.delayafter = 0;
-    this.pendingwaits = [];
-
-    this.nextstepscheduled = false;
-
-    this.lastbusycount = 0;
-
-    this.stop = false;
-    this.stoppromise = null;
-
     this.pagetitle = document.title;
-
-    this.scheduledlogs = [];
-    this.scheduledlogscb = null;
-
-    this.waitstack = [];
 
     if (window.__testframework)
       return console.error("Multiple testframeworks registered. Only one instance of a TestFramework may be created");
@@ -198,7 +200,7 @@ class TestFramework {
     deferred.promise.then(() => this.removeFromWaitStack(err), () => this.removeFromWaitStack(err));
   }
 
-  async sendDevtoolsRequest(request) {
+  async sendDevtoolsRequest(request: unknown) {
     return await testservice.syncDevToolsRequest(this.reportid, request);
   }
 
@@ -523,7 +525,16 @@ class TestFramework {
     return result;
   }
 
-  handleWindowOnError(deferred, errormsg, url, linenumber, col, e) {
+  bindDeferredWithError(deferred: DeferredPromise<never>, errormsg: string) {
+    try {
+      throw new Error(errormsg);
+    }
+    catch (e) {
+      return () => deferred.reject(e as Error);
+    }
+  }
+
+  handleWindowOnError(deferred: DeferredPromise<never>, errormsg: string, url, linenumber, col, e) {
     // Test if we should ignore this callback
     if (shouldIgnoreOnErrorCallback(errormsg))
       return;
@@ -1306,9 +1317,6 @@ class TestSuite {
         let filtered = [];
 
         list.forEach(item => {
-          if (!masks.some(mask => minimatch(item.name, mask)) || skips.some(mask => minimatch(item.name, mask)))
-            return;
-
           let li = dompack.create("li", { dataset: { testname: item.name } });
           let url = new URL(location.href);
           url.searchParams.set("skip", "");
@@ -1397,4 +1405,3 @@ class TestSuite {
 }
 
 new TestSuite;
-
