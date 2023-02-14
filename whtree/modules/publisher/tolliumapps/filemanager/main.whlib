@@ -2275,10 +2275,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   MACRO OnViewBrowserList(OBJECT openhandler)
   {
     OBJECT obj := OpenWHFSObject(^filelist->selection.id);
-    IF(GetDtapStage() = "development") // Add feedback token to activate authormode data
-      openhandler->SendURL(`${obj->url}?wh-feedback-token=${EncodeURL(GetFeedbackWebToken(this->contexts->user))}`);
-    ELSE
-      openhandler->SendURL(obj->url);
+    openhandler->SendURL(`${obj->url}?wh-feedback-token=${EncodeURL(GetFeedbackWebToken(this->contexts->user))}`);
   }
 
   MACRO OnViewBrowserLive(OBJECT openhandler)
