@@ -79,6 +79,7 @@ export class HSVM {
     }
 
     this.finalizer.register(unmarshallable, id);
+    this.unmarshallables.set(id, new WeakRef(unmarshallable));
     return unmarshallable;
   }
 }

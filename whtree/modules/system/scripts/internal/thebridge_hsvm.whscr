@@ -30,6 +30,8 @@ VARIANT FUNCTION MapToBridgeRecursive(VARIANT input)
       RETURN [ __unmarshallable_type := GetTypeName(TYPEID(input)), id := handleid ];
 
     next_untransferred_id := next_untransferred_id + 1;
+    IF(debug)
+      Print(`[bridge_hsvm:${GetCurrentGroupId()}] MapToBridgeRecursive: #${next_untransferred_id}\n`);
     INSERT [ id := next_untransferred_id, val := input ] INTO untransferred_table AT END;
     RETURN [ __unmarshallable_type := GetTypeName(TYPEID(input)), id := next_untransferred_id ];
   }
@@ -51,7 +53,11 @@ VARIANT FUNCTION MapFromBridgeRecursive(VARIANT input)
   {
     RECORD match := SELECT * FROM untransferred_table WHERE id = input.id;
     IF(NOT RecordExists(match))
+    {
+      IF(debug)
+        Print(`[bridge_hsvm:${GetCurrentGroupId()}] MapFromBridgeRecursive: No such unmarshallable #${input.id}\n`);
       THROW NEW Exception(`No such unmarshallable #${input.id}`);
+    }
     RETURN match.val;
   }
   RETURN input;
@@ -100,13 +106,13 @@ OBJECTTYPE Controller
   PUBLIC ASYNC FUNCTION CreatePrintCallback(STRING text)
   {
     IF(debug)
-      Print(`[bridge_hsvm] CreatePrintCallback(...)\n`);
+      Print(`[bridge_hsvm:${GetCurrentGroupId()}] CreatePrintCallback(...)\n`);
     RETURN MapToBridge(PTR Print(text));
   }
   PUBLIC ASYNC FUNCTION Invoke(STRING lib, STRING name, VARIANT ARRAY args)
   {
     IF(debug)
-      Print(`[bridge_hsvm] Invoke('${lib}', '${name}', ${Length(args)} arguments)\n`);
+      Print(`[bridge_hsvm:${GetCurrentGroupId()}] Invoke('${lib}', '${name}', ${Length(args)} arguments)\n`);
 
     args := SELECT AS VARIANT ARRAY MapFromBridge(arg) FROM ToRecordArray(args,"arg");
     RETURN InvokeFPTR(MakeFunctionPtr(lib,name), args);
@@ -114,7 +120,7 @@ OBJECTTYPE Controller
   PUBLIC ASYNC FUNCTION ObjInvoke(VARIANT obj, STRING name, VARIANT ARRAY args)
   {
     IF(debug)
-      Print(`[bridge_hsvm] ObjInvoke(obj, '${name}', ${Length(args)} arguments)\n`);
+      Print(`[bridge_hsvm:${GetCurrentGroupId()}] ObjInvoke(obj, '${name}', ${Length(args)} arguments)\n`);
 
     obj := MapFromBridge(obj);
     args := SELECT AS VARIANT ARRAY MapFromBridge(arg) FROM ToRecordArray(args,"arg");
@@ -128,14 +134,14 @@ OBJECTTYPE Controller
   PUBLIC INTEGER FUNCTION GetNumObjects()
   {
     IF(debug)
-      Print(`[bridge_hsvm] GetNumObjects()\n`);
+      Print(`[bridge_hsvm:${GetCurrentGroupId()}] GetNumObjects()\n`);
 
     RETURN Length(untransferred_table);
   }
   PUBLIC MACRO ObjCleanup(INTEGER objid)
   {
     IF(debug)
-      Print(`[bridge_hsvm] ObjCleanup(${objid})\n`);
+      Print(`[bridge_hsvm:${GetCurrentGroupId()}] ObjCleanup(${objid})\n`);
 
     DELETE FROM untransferred_table WHERE id = objid;
   }
@@ -144,7 +150,7 @@ OBJECTTYPE Controller
   PUBLIC MACRO OnClose()
   {
     IF(debug)
-      Print(`[bridge_hsvm] OnClose()\n`);
+      Print(`[bridge_hsvm:${GetCurrentGroupId()}] OnClose()\n`);
 
     TerminateScript();
   }

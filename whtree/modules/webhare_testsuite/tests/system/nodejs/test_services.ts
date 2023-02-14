@@ -140,6 +140,9 @@ async function runOpenPrimary(hsvm: HSVM) {
   const primary = await database.openPrimary();
   test.eq(1, await hsvm.__getNumRemoteUnmarshallables());
   test.assert(primary);
+
+  const gotprimary = await database.getPrimary();
+  test.assert(primary === gotprimary);
 }
 
 
