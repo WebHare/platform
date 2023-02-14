@@ -6,7 +6,7 @@ import { qS, qSA } from 'dompack';
 import * as dombusy from 'dompack/src/busy';
 import * as browser from 'dompack/extra/browser';
 import * as domfocus from "dompack/browserfix/focus";
-import { reportException, shouldIgnoreOnErrorCallback, waitForReports } from "@mod-system/js/wh/errorreporting";
+import { reportException, waitForReports } from "@mod-system/js/wh/errorreporting";
 import "./testsuite.css";
 import * as testservice from "./testservice.rpc.json";
 import StackTrace from "stacktrace-js";
@@ -418,52 +418,31 @@ class TestFramework {
     if (step.ignore)
       return result;
 
-    // Promise that is rejected with onerror triggers
-    var deferred_onerror = dompack.createDeferred();
-
-    // window.onerror handler (installed when window is loaded)
-    var onerrorhandler = function(errormsg, url, linenumber, col, e) {
-      this.handleWindowOnError(deferred_onerror, errormsg, url, linenumber, col, e);
-    }.bind(this);
-    this.steponerrorhandler = onerrorhandler;
-
     if (this.scriptframewin.Error && this.scriptframewin.Error.stackTraceLimit)
       this.scriptframewin.Error.stackTraceLimit = 50;
-
-    if (!(dompack.debugflags.ner))
-      this.scriptframewin.onerror = onerrorhandler;
 
     // Signals to detect if a page load happens (all properties are promises)
     this.getFrameRecord().currentsignals = { pageload: null };
 
     // Loadpage? Execute it first
     if (step.loadpage)
-      result = result.then(this.doLoadPage.bind(this, step, onerrorhandler));
+      result = result.then(this.doLoadPage.bind(this, step));
 
-    // Initialize the signals and onerror - AFTER loading the page.
+    // Initialize the signals - AFTER loading the page.
     result = result.then(function() {
       // Modify signals, don't re-assign! We want to modify the object bound to executeWait.
-      this.getFrameRecord().currentsignals.pageload = this.waitForPageFrameLoad(this.getFrameRecord(), { timeout: -1, onerrorhandler: onerrorhandler }); // no timeout
+      this.getFrameRecord().currentsignals.pageload = this.waitForPageFrameLoad(this.getFrameRecord(), { timeout: -1 }); // no timeout
 
-      // Install an onerror handlers if not present yet
+      // Install errorlimits
       for (let f of this.testframes) {
         try {
-          if (f.win && !f.in_setonerror) {
-            if (f.win.Error && f.win.Error.stackTraceLimit)
-              f.win.Error.stackTraceLimit = 50;
-            if (!(dompack.debugflags.ner))
-              f.win.onerror = onerrorhandler;
-            f.win_setonerror = true;
-          }
+          f.win.Error.stackTraceLimit = 50;
         }
         catch (e) {
           console.warn(`Could not set onerror handler in frame ${JSON.stringify(f.name)} due to the following exception: `, e);
         }
       }
     }.bind(this));
-
-    if (!(dompack.debugflags.ner))
-      this.scriptframewin.onerror = onerrorhandler;
 
     // Test or wait? Execute it after the loadpage
     if (step.test || step.wait)
@@ -488,9 +467,6 @@ class TestFramework {
         }
     });
 
-    // Mix in errors from onerror handlers
-    result = Promise.race([deferred_onerror.promise, result]);
-
     // If marked as xfail, give an error when no exception, and swallow exceptions (but note them & update state)
     if (step.xfail) {
       result = result.then(
@@ -503,18 +479,11 @@ class TestFramework {
         }.bind(this));
     }
 
-    // Remove the onerror handler
     result = result.finally(function() {
       //        for (const f of this.testframes)
       //          f.currentsignals = null;
       test.runsteps = test.runsteps || [];
       test.runsteps.push({ stepname: step.name || '', stepnr: idx });
-
-      for (let f of this.testframes)
-        if (f.win && f.win_setonerror) {
-          f.win.onerror = null;
-          f.win_setonerror = false;
-        }
     }.bind(this));
 
     // Handle success / exceptions of the test
@@ -523,36 +492,6 @@ class TestFramework {
       this.handleTestStepException.bind(this, test, step));
 
     return result;
-  }
-
-  bindDeferredWithError(deferred: DeferredPromise<never>, errormsg: string) {
-    try {
-      throw new Error(errormsg);
-    }
-    catch (e) {
-      return () => deferred.reject(e as Error);
-    }
-  }
-
-  handleWindowOnError(deferred: DeferredPromise<never>, errormsg: string, url, linenumber, col, e) {
-    // Test if we should ignore this callback
-    if (shouldIgnoreOnErrorCallback(errormsg))
-      return;
-
-    if (e && e.stack && (/http:/.exec(e.stack) || /https:/.exec(e.stack))) // Looks like and exception and do we have URL info in the stack member?
-    {
-      deferred.reject(e);
-      return;
-    }
-
-    var msg = "Uncaught exception: " + errormsg;
-    if (url) {
-      if (browser.getName() == "chrome")
-        msg += "\nat unknown (" + url + ":" + (linenumber || 1) + ":" || (col || 1) + ")";
-      else
-        msg += "\nunknown@" + url + ":" + (linenumber || 1) + ":" || (col || 1) + ")";
-    }
-    this.bindDeferredWithError(deferred, msg)();
   }
 
   /// Handles a succesfully completed step
@@ -647,7 +586,7 @@ class TestFramework {
   }
 
   /// Execute a load page command
-  doLoadPage(step, onerrorhandler) {
+  doLoadPage(step) {
     var loadpage;
     if (typeof step.loadpage == 'string')
       loadpage = step.loadpage;
@@ -672,7 +611,7 @@ class TestFramework {
     document.getElementById('currentwait').textContent = "Wait: pageload";
     document.getElementById('currentwait').style.display = "inline-block";
 
-    return this.waitForPageFrameLoad(framerec, { onerrorhandler: onerrorhandler }).finally(function() {
+    return this.waitForPageFrameLoad(framerec).finally(function() {
       document.getElementById('currentwait').style.display = "none";
     });
   }
@@ -726,12 +665,6 @@ class TestFramework {
       return;
 
     this._recordAssetpacks(framerec.win);
-
-    if (options && options.onerrorhandler && !framerec.win.onerror) {
-      if (!(dompack.debugflags.ner))
-        framerec.win.onerror = options.onerrorhandler;
-      framerec.win_setonerror = true;
-    }
 
     var focusable = domfocus.getFocusableComponents(framerec.doc.documentElement);
     for (var i = 0; i < focusable.length; ++i) {
@@ -789,7 +722,7 @@ class TestFramework {
           this.currenttestframe = name;
           this.rebuildFrameTabs();
           await this.doLoadPage({ loadpage: "about:blank" }, null);
-          currentsignals.pageload = this.waitForPageFrameLoad(this.getFrameRecord(), { timeout: -1, onerrorhandler: this.steponerrorhandler }); // no timeout
+          currentsignals.pageload = this.waitForPageFrameLoad(this.getFrameRecord(), { timeout: -1 }); // no timeout
         } break;
       case "update":
         {
@@ -1032,7 +965,7 @@ class TestFramework {
             return result;
           }
           finally {
-            signals.pageload = this.waitForPageFrameLoad(framerec, { timeout: -1, onerrorhandler: this.steponerrorhandler }); // no timeout
+            signals.pageload = this.waitForPageFrameLoad(framerec, { timeout: -1 }); // no timeout
             this.executeWaitFinish();
           }
         }
