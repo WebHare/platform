@@ -1,4 +1,3 @@
-import WHBridge from "@mod-system/js/internal/bridge";
 export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR } from "@mod-system/js/internal/hmr";
 import { toFSPath } from "./resources";
 export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource } from "./resources";
@@ -13,19 +12,13 @@ export { broadcast, subscribe, BackendEvent, BackendEventSubscription } from "./
 export { log, flushLog } from "./logging";
 export { ConvertBackendServiceInterfaceToClientInterface } from "@mod-system/js/internal/webhareservice";
 
-let configresolve: (() => void) | null = null;
-const configpromise = new Promise(resolve => configresolve = resolve as (() => void));
-
-WHBridge.onConfigurationUpdate(async () => {
+const configpromise = (async () => {
   const newconfig = await (await getBridgeService()).getConfig();
   setConfig(Object.freeze(newconfig));
-  configresolve!(); //configresolve is always set above
-});
+})();
 
 /** Promise that resolves as soon as the WebHare configuration is available */
 export async function ready(): Promise<void> {
-  //needs to be a function so we can mark a waiter so nodejs doesn't abort during `await services.ready()`
-  await WHBridge.ready;
   //we also need the configuration promise to be ready..
   await configpromise;
 }

@@ -51,6 +51,7 @@ export async function getJSONSchemaFromTSType(typeref: string, options: LoadTSTy
     // Read and parse the configuration file
     const { config } = ts.readConfigFile(path.join(tsconfigdir, "tsconfig.json"), ts.sys.readFile);
     const { options: tsOptions, errors } = ts.parseJsonConfigFileContent(config, ts.sys, tsconfigdir);
+    tsOptions.configFilePath = tsconfigdir + "/tsconfig.json"; //needed to make @types/... lookups independent of cwd
 
     // Parse file with the definition
     program = ts.createProgram({ options: tsOptions, rootNames: [file], configFileParsingDiagnostics: errors });
