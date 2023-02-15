@@ -922,3 +922,10 @@ PUBLIC STATIC OBJECTTYPE VisibleConditionsTestForm EXTEND FormBase
           FROM ^third->options AS third;
   }
 >;
+
+PUBLIC MACRO RenderMultipagetestFirstpage(OBJECT page)
+{
+  Print(`<div id="multipage-firstpage-wrapper">`);
+  page->RenderFields();
+  Print(`</div>`);
+}

@@ -90,6 +90,9 @@ STATIC OBJECTTYPE FormPage
 
   OBJECT form;
   RECORD page;
+
+  //Name of callback to render page fields. Note that we take a freestanding function otherwise webtool forms cannot take advantage of this, as we deprecated extending WebtoolFormBase
+  STRING fieldsrenderer;
   PUBLIC BOOLEAN visible;
   PUBLIC PROPERTY role(this->page.role,-);
   RECORD pvt_visiblecondition;
@@ -114,6 +117,7 @@ STATIC OBJECTTYPE FormPage
     this->visible := TRUE;
     this->title := GetTid(page.title);
     this->pvt_visiblecondition := page.visiblecondition;
+    this->fieldsrenderer := page.fieldsrenderer;
   }
 
   // ---------------------------------------------------------------------------
@@ -183,13 +187,21 @@ STATIC OBJECTTYPE FormPage
     }
     Print('>');
 
+    IF(this->fieldsrenderer != "")
+      MakeFunctionPtr(this->fieldsrenderer)(this);
+    ELSE
+      this->RenderFields();
+
+    Print(`</div>`);
+  }
+
+  PUBLIC MACRO RenderFields()
+  {
     FOREVERY (RECORD field FROM this->page.fields)
     {
       RECORD fld := SELECT * FROM this->form->__formfields WHERE ToUppercase(name) = ToUppercase(field.name);
       fld.obj->RenderField();
     }
-
-    Print(`</div>`);
   }
 
   PUBLIC RECORD FUNCTION GetRenderTree()

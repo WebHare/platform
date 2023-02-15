@@ -285,6 +285,7 @@ PUBLIC RECORD FUNCTION ParseFormDef(OBJECT formnode, STRING formname, STRING res
         , guid := page->GetAttribute("guid")
         , role := page->GetAttribute("role")
         , title := ParseXMLTidPtr(resourcename, gid, page, "pagetitle")
+        , fieldsrenderer := page->HasAttribute("fieldsrenderer") ? MakeAbsoluteResourcePath(resourcename, page->GetAttribute("fieldsrenderer")) : ""
         , redirect := page->GetAttribute("redirect")
         , fields := parseres.fields
         , visiblecondition := DEFAULT RECORD
