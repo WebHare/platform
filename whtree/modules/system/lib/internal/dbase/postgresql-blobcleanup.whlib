@@ -234,7 +234,7 @@ PUBLIC STATIC OBJECTTYPE PostgreSQLBlobAnalyzer
         IF (IsValueSet(referenced_missing_blob_files))
         {
           PrintTo(2, `Could not locate all referenced blobs!\n`);
-          ABORT(CELL[ all_missing_blob_files, referenced_missing_blob_files ]);
+          DumpValue(CELL[ all_missing_blob_files, referenced_missing_blob_files ]);
         }
         ELSE
         {
