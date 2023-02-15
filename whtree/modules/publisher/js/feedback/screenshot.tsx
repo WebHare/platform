@@ -4,6 +4,20 @@ import { DOMFilterCallback, ScreenshotData } from "./index";
 
 const SCREENSHOTVERSION = 2;
 
+function getStyleSheets(): string[] {
+  const sheets: string[] = [];
+
+  for (const sheet of document.styleSheets) {
+    try {
+      sheets.push(Array.from(sheet.cssRules).map(rule => rule.cssText).join(""));
+    } catch (e) {
+      //TODO record the external link for inaccessible stylesheets?
+      console.log("Ignoring stylesheet (CORS?)", e);
+    }
+  }
+  return sheets;
+}
+
 /**
  Take a DOM snapshot
  *
@@ -20,7 +34,7 @@ export default function takeScreenshot(domFilterCallback?: DOMFilterCallback,
   bodyNode.append(bodyFragment);
 
   const htmlAttrs: Properties = Array.from(document.documentElement.attributes).map(attr => { return { name: attr.name, value: attr.value }; });
-  const styleSheets = Array.from(document.styleSheets).map(sheet => Array.from(sheet.cssRules).map(rule => rule.cssText).join(""));
+  const styleSheets = getStyleSheets();
   const bodyAttrs: Properties = Array.from(document.body.attributes).map(attr => { return { name: attr.name, value: attr.value }; });
 
   // Save the document's and body's scroll positions
