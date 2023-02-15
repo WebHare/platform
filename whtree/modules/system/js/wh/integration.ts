@@ -44,9 +44,7 @@ export type SubmitInstruction =
 //NOTE: generateForm was apparently intended to support key-value pairs in 'values'... but the code never worked due to incorrect Object.kyes usage
 function generateForm(action: string, values: FormValueList, method?: "POST") {
   const form = dompack.create("form", { action: action, method: method || "POST", charset: "utf-8" });
-  values.forEach(function(item) {
-    form.appendChild(dompack.create("input", { type: "hidden", name: item.name, value: item.value }));
-  });
+  form.append(...values.map(item => dompack.create("input", { type: "hidden", name: item.name, value: item.value })));
   return form;
 }
 
