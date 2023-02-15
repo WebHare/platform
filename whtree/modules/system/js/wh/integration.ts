@@ -187,7 +187,10 @@ function getIntegrationConfig(): Config {
   };
 }
 
-if (typeof window !== "undefined" && !document.documentElement.classList.contains("wh-noauthormode")) //we're top level
+if (typeof window !== "undefined" //in a browser
+  && document.documentElement.classList.contains("wh-optin-authormode") //for now, you need to explicitly opt-in. this will go away at some point
+  && !document.documentElement.classList.contains("wh-noauthormode")) { //explicit opt-out
   setTimeout(checkAuthorMode, 0); //async startup.. also allows it to throw exceptions without breaking anything
+}
 
 export const config = getIntegrationConfig();
