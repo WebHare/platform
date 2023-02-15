@@ -161,8 +161,11 @@ function checkAuthorMode() {
     }
   }
 
-  if (storage.getLocal<string>("wh-feedback:accesstoken")?.match(/^[^.]*\.[^.]*\.[^.]*$/))
+  if (document.documentElement.classList.contains("wh-optin-authormode") //for now, you need to explicitly opt-in. this will go away at some point
+    && !document.documentElement.classList.contains("wh-noauthormode") //explicit opt-out
+    && storage.getLocal<string>("wh-feedback:accesstoken")?.match(/^[^.]*\.[^.]*\.[^.]*$/)) {
     activeAuthorMode();
+  }
 }
 
 function getIntegrationConfig(): Config {
@@ -185,10 +188,7 @@ function getIntegrationConfig(): Config {
   };
 }
 
-if (typeof window !== "undefined" //in a browser
-  && document.documentElement.classList.contains("wh-optin-authormode") //for now, you need to explicitly opt-in. this will go away at some point
-  && !document.documentElement.classList.contains("wh-noauthormode")) { //explicit opt-out
+if (typeof window !== "undefined") //in a browser
   setTimeout(checkAuthorMode, 0); //async startup.. also allows it to throw exceptions without breaking anything
-}
 
 export const config = getIntegrationConfig();
