@@ -134,6 +134,9 @@ The following witty fields are available when setting up the form template.
 - `[formclasses]`: A string array with additional formclasses to use
 - `[<field>.render]`: Renders the specified field
 
+You can override the rendering of the fields of a single page by setting a `fieldsrenderer`= attribute on the page. This is
+a callback that will receive the Page object and can invoke `page->RenderFields()` to render the original fields.
+
 ## Form storage
 
 WebHare has a builtin form storage that is used for Publisher (webtool) forms. To use this storage in your custom form, you

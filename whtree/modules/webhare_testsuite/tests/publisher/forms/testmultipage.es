@@ -12,6 +12,7 @@ test.registerTests(
       test.eq(firstpage, test.qS('form.wh-form').propWhFormhandler.getCurrentPage());
 
       test.eq('', test.qS('#currentpage').textContent, "We don't get events for the very first page, only on change");
+      test.assert(test.qS('input[name="email"]') === test.qS('#multipage-firstpage-wrapper input[name="email"]'), "Verify RenderMultipageTestFirstPage got to wrap the fields");
       test.assert(test.canClick(test.qS('input[name="email"]')), "'email' field available on page 1");
       test.assert(!test.canClick(test.qS('input[name="text"]')), "'text' field not available on page 1");
       test.assert(!test.canClick(test.qS('.wh-form__button--previous')), "'previous' button not available on page 1");

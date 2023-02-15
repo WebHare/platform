@@ -44,6 +44,11 @@
     <xs:attribute name="pins" type="sc:FormComponentPins" />
     <xs:attribute name="guid" type="xs:string" />
     <xs:attribute name="comment" type="xs:string" />
+    <xs:attribute name="fieldsrenderer" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>Callback to render the page fields.</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
     <xs:attribute name="role">
       <xs:simpleType>
         <xs:restriction base="xs:string">

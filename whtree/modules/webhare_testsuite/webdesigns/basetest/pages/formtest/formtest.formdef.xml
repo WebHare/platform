@@ -130,7 +130,7 @@
   </form>
 
   <form name="multipagetest" gid=".multipagetest" objectname="formtest.whlib#MultipageTestForm" prevlabel="&lt;--" nextlabeltid=".nextlabeltid" jshandler="multipageform">
-    <page pagetitle="firstpage">
+    <page pagetitle="firstpage" fieldsrenderer="formtest.whlib#RenderMultipageTestFirstPage">
       <richtext name="text1">
         <body xmlns="http://www.w3.org/1999/xhtml">
           <h2>Page 1</h2>
