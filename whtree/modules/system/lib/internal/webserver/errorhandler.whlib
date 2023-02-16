@@ -135,7 +135,7 @@ PUBLIC MACRO GenerateHTTPErrorPage(INTEGER errorcode, RECORD harescriptinfo)
     RETURN;
   }
 
-  RECORD urlinfo := LookupPublisherURL(url);
+  RECORD urlinfo := LookupPublisherURL(url, [ ifpublished := TRUE ]); //Do not use urlinfo.file if it's not published to avoid leaking data about it
 
   IF(errorcode = 404 AND GetRequestMethod()="GET")
   {
@@ -155,9 +155,7 @@ PUBLIC MACRO GenerateHTTPErrorPage(INTEGER errorcode, RECORD harescriptinfo)
 
   /* We used to look at the siteroot thinking 'your supportserrors etc better be consistent'
      but now we think "that's actually completely your problem!" if you make seemingly
-     inconsistent settings
-
-     FIXME: Do not use urlinfo.file if it's not published to avoid leaking data about it */
+     inconsistent settings  */
   OBJECT applytester := GetApplyTesterForObject(urlinfo.file ?? urlinfo.folder);
   IF(NOT ObjectExists(applytester))
     THROW NEW Exception("Unable to locate the base information for #" || urlinfo.site);
