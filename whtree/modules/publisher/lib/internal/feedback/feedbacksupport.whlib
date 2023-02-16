@@ -160,12 +160,12 @@ PUBLIC RECORD FUNCTION StoreFeedback(RECORD data)
       [ entity->guid
         //TODO: For now we'll just return all available topics, these may be restricted by webdesign and/or reporting rights
       , topics :=
-          (SELECT *
-                , DELETE wrd_ordering
-             FROM wrdschema->^topic->RunQuery([ outputcolumns := CELL[ rowkey := "wrd_tag", title := "wrd_title", "wrd_ordering" ] ])
+          (SELECT tag := wrd_tag ?? wrd_guid
+                , title
+             FROM wrdschema->^topic->RunQuery([ outputcolumns := CELL[ "wrd_tag", "wrd_guid", title := "wrd_title", "wrd_ordering","wrd_id" ] ])
             ORDER BY wrd_ordering
                    , ToUppercase(title)
-                   , rowkey)
+                   , wrd_id)
       ];
 }
 

@@ -5,6 +5,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
+LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
 
 LOADLIB "mod::wrd/lib/auth.whlib";
@@ -35,7 +36,17 @@ PUBLIC RECORD FUNCTION RPC_StoreFeedback(STRING pathname, RECORD data)
       , useragent := ""
       , extradata := DEFAULT RECORD
       , token := ""
+      , url := ""
       ], data);
+
+  //Do not allow improper cells to be set through RPC
+  data := PickCells(data, ["VERSION","SCREENSHOT","SIZE","ELEMENT","BROWSER","DEVICE","USERAGENT","extradata","TOKEN","url"]);
+
+  INTEGER targetfile := LookupPublisherURL(data.url).file;
+  IF(targetfile != 0)
+    INSERT CELL whfsobject := targetfile
+              , targetcreationdate := (SELECT AS DATETIME creationdate FROM system.fs_objects WHERE id = targetfile)
+           INTO data;
 
   RECORD userdata := VerifyFeedbackWebToken(data.token);
   DELETE CELL token FROM data;

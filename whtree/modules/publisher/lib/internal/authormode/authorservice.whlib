@@ -7,10 +7,10 @@ LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
 
 PUBLIC RECORD FUNCTION RPC_SubmitFeedback(STRING guid, RECORD form)
 {
-  //TODO rate limit
+  //TODO rate limit - or should already be in storefeedback
   OpenPrimary(); //TODO basic validation before we bother the DB?
   GetPrimary()->BeginWork();
-  STRING feedbackid := StoreFeedbackExtraData(guid, CELL[ type := 0, form.remarks ]);
+  STRING feedbackid := StoreFeedbackExtraData(guid, CELL[ type := 0, form.topic, form.remarks ]);
   GetPrimary()->CommitWork();
 
   RETURN [ responsetext := `Dank voor je melding. Deze is vastgelegd als ${feedbackid}`
