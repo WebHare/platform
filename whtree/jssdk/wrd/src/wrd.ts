@@ -2,7 +2,7 @@ import { HSVMObject } from '@webhare/services/src/hsvm';
 import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
 
 export interface WRDEntitySettings {
-  [key: string]: number | boolean | string | Date | WRDEntitySettings | null;
+  [key: string]: number | number[] | boolean | string | string[] | Date | WRDEntitySettings | WRDEntitySettings[] | null;
 }
 
 export interface WRDFilter {
