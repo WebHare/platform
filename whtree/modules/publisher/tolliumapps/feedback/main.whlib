@@ -233,7 +233,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     rows :=
         SELECT TEMPORARY reportinfo := EnforceStructure([ realname := "", login := "", emailaddress := "" ], userdata)
              , *
-             , reportedby     := reportinfo.realname ?? reportinfo.login ?? this->GetTid(".anonymous")
+             , reportedby     := reportinfo.realname ?? reportinfo.login ?? GetTid("publisher:tolliumapps.feedback.common.anonymous")
              , reportedbylink := reportinfo.emailaddress != "" ? "mailto:" || reportinfo.emailaddress : ""
                // For now, always allow escalating/closing
              , canescalate := status != "escalated"
@@ -347,7 +347,7 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
 
     logentries := SELECT when := this->tolliumuser->FormatDatetime(wrd_creationdate, "minutes", TRUE, FALSE)
                        , text
-                       , entryby := userinfo.realname ?? userinfo.login ?? this->GetTid(".anonymous")
+                       , entryby := userinfo.realname ?? userinfo.login ?? GetTid("publisher:tolliumapps.feedback.common.anonymous")
                        , statuschange
                     FROM logentries
                 ORDER BY wrd_creationdate;
