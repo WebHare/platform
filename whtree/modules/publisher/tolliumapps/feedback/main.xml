@@ -17,15 +17,9 @@
       <action name="delete" onexecute="dodelete" shortcut="del" tid="~delete">
         <enableon source="feedback" min="1" />
       </action>
-      <action name="properties" onexecute="doproperties" shortcut="ctrl+i" tid="~properties">
-        <enableon source="feedback" min="1" />
-      </action>
       <action name="togglefilter" onexecute="dotogglefilter" title="" />
       <action name="setfeedbackmulti" onexecute="dosetfeedbackmulti" title="" />
       <action name="setfeedbacksingle" onexecute="dosetfeedbacksingle" title="" />
-      <action name="addcomment">
-        <enableon source="feedback" min="1" max="1" onexecute="doaddcomment" />
-      </action>
       <action name="export" onexecute="doexport" tid="~export" />
       <action name="managetopics" frameflags="issysop" onexecute="domanagetopics" />
       <action name="settings" frameflags="issysop" onexecute="dosettings" tid="~settings" />
@@ -40,7 +34,6 @@
           <item action="reopen" />
           <divider />
           <item action="delete" />
-          <item action="properties" />
         </item>
         <item action="export" />
         <item action="managetopics" disablemode="hidden" />
@@ -54,7 +47,6 @@
         <item action="reopen" />
         <divider />
         <item action="delete" />
-        <item action="properties" />
       </menu>
     </menus>
 
@@ -67,7 +59,6 @@
       <button action="close" icon="tollium:objects/envelope+tollium:overlays/strike" />
       <divider />
       <button action="delete" icon="tollium:actions/delete" />
-      <button action="properties" icon="tollium:actions/properties" />
     </toolbar>
 
     <body spacers="none">
@@ -118,7 +109,6 @@
                 flags="canescalate canclose canreopen"
                 ongetchildren="getfeedbackrows"
                 onselect="onfeedbackselect"
-                openaction="properties"
                 selectcontextmenu="selectcontext"
                 selectmode="single"
                 sortascending="false"
@@ -163,66 +153,72 @@
             </rowlayout>
           </list>
         </part>
-        <part width="2pr">
-          <tabs height="1pr">
-            <tab spacers="none" tid=".screenshot">
-              <panel width="1pr" height="1pr" backgroundcolor="#ffffff">
-                <panel name="urlpanel" borders="bottom" spacers="left right" visible="false">
-                  <line layout="tabs-space">
-                    <url name="url" width="1pr" title="" />
-                  </line>
-                </panel>
-                <iframe name="screenshot" width="1pr" height="1pr" />
-              </panel>
-            </tab>
-            <tab height="1pr" tid=".comments">
-              <panel height="1pr" borders="all">
-                <iframe name="issuelog" height="1pr" />
-              </panel>
-              <textarea name="comment"
-                        height="4gr"
-                        defaultbutton="addcommentbutton"
-                        enabled="false"
-                        errorlabeltid=".comment"
-                        maxlength="2000"
-                        maxlengthmeasure="bytes"
-                        required="true"
-                        showcounter="true"
-                        title="" />  <!-- will be enabled once issue is selected -->
-              <line layout="right">
-                <button name="addcommentbutton" action="addcomment" tid=".addcomment" />
-              </line>
-            </tab>
-          </tabs>
+        <part width="2pr" name="feedbackdetails">
         </part>
       </split>
     </body>
   </screen>
 
-  <screen name="feedback" width="100x" height="40x" footerbuttons="close" gid=".feedback">
+  <screen name="feedback" width="120x" height="30gr" footerbuttons="close" gid=".feedback" allowresize="true" savestate="size">
+    <actions>
+      <action name="addcomment" onexecute="doaddcomment" />
+    </actions>
+
     <compositions>
       <record name="data" />
       <record composition="data" cellname="userdata" name="userdata" />
     </compositions>
 
-    <body>
-      <datetime composition="data"
-                cellname="wrd_creationdate"
-                type="datetime"
-                precision="minutes"
-                readonly="true"
-                storeutc="true" />
-      <text composition="data" cellname="browser" selectable="true" wordwrap="true" />
-      <text composition="data" cellname="device" selectable="true" wordwrap="true" />
-      <text composition="data" cellname="useragent" selectable="true" wordwrap="true" />
-      <text composition="userdata" cellname="login" selectable="true" />
-      <heading name="extradata" visible="false" />
-      <spacer name="extradatainsertpoint" visible="false" />
-      <heading tid=".appversions" />
-      <list name="appversions" height="1pr">
-        <column name="name" type="text" width="1pr" />
-        <column name="version" type="text" width="1pr" />
-      </list>
+    <body spacers="none">
+      <tabs height="1pr">
+        <tab spacers="none" tid=".screenshot">
+          <panel width="1pr" height="1pr" backgroundcolor="#ffffff">
+            <panel name="urlpanel" borders="bottom" spacers="left right" visible="false">
+              <line layout="tabs-space">
+                <url name="url" width="1pr" title="" />
+              </line>
+            </panel>
+            <iframe name="screenshot" width="1pr" height="1pr" />
+          </panel>
+        </tab>
+        <tab height="1pr" name="comments">
+          <panel height="1pr" borders="all">
+            <iframe name="issuelog" height="1pr" />
+          </panel>
+          <textarea name="comment"
+                    height="4gr"
+                    defaultbutton="addcommentbutton"
+                    enabled="false"
+                    errorlabeltid=".comment"
+                    maxlength="2000"
+                    maxlengthmeasure="bytes"
+                    required="true"
+                    showcounter="true"
+                    title="" />  <!-- will be enabled once issue is selected -->
+          <line layout="right">
+            <button name="addcommentbutton" action="addcomment" tid=".addcomment" />
+          </line>
+        </tab>
+        <tab tid=".metadata">
+          <datetime composition="data"
+                    cellname="wrd_creationdate"
+                    type="datetime"
+                    precision="minutes"
+                    readonly="true"
+                    storeutc="true" />
+          <text composition="data" cellname="browser" selectable="true" wordwrap="true" />
+          <text composition="data" cellname="device" selectable="true" wordwrap="true" />
+          <text composition="data" cellname="useragent" selectable="true" wordwrap="true" />
+          <text composition="userdata" cellname="login" selectable="true" />
+          <heading name="extradata" visible="false" />
+          <spacer name="extradatainsertpoint" visible="false" />
+          <heading tid=".appversions" />
+          <list name="appversions" height="1pr">
+            <column name="name" type="text" width="1pr" />
+            <column name="version" type="text" width="1pr" />
+          </list>
+        </tab>
+      </tabs>
     </body>
   </screen>
 

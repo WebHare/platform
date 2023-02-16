@@ -57,6 +57,5 @@ test.registerTests([
     const feedbackrows = await test.waitForToddComponent('feedback');
     test.click(test.qSA(feedbackrows, 'div.listrow')[0]);
     await test.wait('ui'); //list apparently needs this time to process the selection update
-    test.clickToddToolbarButton("Properties");
   }
 ]);

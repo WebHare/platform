@@ -121,7 +121,8 @@ MACRO LookupTest()
   TestEq(root->id, lookupresult.folder);
   TestEq(0, lookupresult.file);
 
-  OBJECT testfile := testfolder->CreateFile([name:='test.html']);
+  OBJECT testfile := testfolder->CreateFile([name:='test.html', publish := TRUE]);
+  OBJECT testfile_unpublished := testfolder->CreateFile([name:='test_unpublished.html', publish := FALSE]);
   lookupresult := LookupPublisherURL(testfile->url);
   TestEq(root->parentsite, lookupresult.site);
   TestEq(testfolder->id, lookupresult.folder);
@@ -151,13 +152,17 @@ MACRO LookupTest()
   TestEq(testfolder->id, lookupresult.folder);
   TestEq(0, lookupresult.file);
 
-  OBJECT testfile3 := testfolder->CreateFile([name:='index.html']); // auto indexdoc
+  OBJECT testfile3 := testfolder->CreateFile([name:='index.html', publish := FALSE]); // auto indexdoc
   testfolder->Refresh();
   TestEQ(testfolder->indexdoc, testfile3->id);
 
   lookupresult := LookupPublisherURL(root->url || "testfolder");
   TestEq(testfolder->id, lookupresult.folder);
   TestEq(testfile3->id, lookupresult.file);
+
+  lookupresult := LookupPublisherURL(root->url || "testfolder", [ ifpublished := TRUE ]);
+  TestEq(testfolder->id, lookupresult.folder);
+  TestEq(0, lookupresult.file, "index.html isn't published!");
 
   lookupresult := LookupPublisherURL(root->url || "testfolder/");
   TestEq(testfolder->id, lookupresult.folder);
@@ -167,6 +172,18 @@ MACRO LookupTest()
   lookupresult := LookupPublisherURL(root->url || "testfolder/test.html#jo");
   TestEq(testfolder->id, lookupresult.folder);
   TestEq(testfile->id, lookupresult.file);
+
+  lookupresult := LookupPublisherURL(root->url || "testfolder/test.html#jo", [ ifpublished := TRUE ]);
+  TestEq(testfolder->id, lookupresult.folder);
+  TestEq(testfile->id, lookupresult.file);
+
+  lookupresult := LookupPublisherURL(root->url || "testfolder/test_unpublished.html#jo");
+  TestEq(testfolder->id, lookupresult.folder);
+  TestEq(testfile_unpublished->id, lookupresult.file);
+
+  lookupresult := LookupPublisherURL(root->url || "testfolder/test_unpublished.html#jo", [ ifpublished := TRUE ]);
+  TestEq(testfolder->id, lookupresult.folder);
+  TestEq(0, lookupresult.file);
 
   // parameters ignored?
   lookupresult := LookupPublisherURL(root->url || "testfolder/test.html?param");

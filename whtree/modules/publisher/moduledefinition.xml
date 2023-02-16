@@ -1145,6 +1145,7 @@
     <target name="findopen_precheck" /> <!-- Hooks find and open ('open in publisher') -->
     <target name="documenteditor" /> <!-- Siteprofile hooks into the document editor -->
     <target name="whfsindex_priority" /> <!-- Hooks for publisher:whfs index priority -->
+    <target name="feedbackupdate" /> <!-- Hooks into feedback system -->
   </hooking>
 
   <documentation>

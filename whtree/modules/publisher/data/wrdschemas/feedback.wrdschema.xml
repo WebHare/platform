@@ -57,6 +57,8 @@
       <free tag="DEVICE" title="Browser device" />
       <free tag="USERAGENT" title="Browser user agent" />
       <free tag="URL" title="The URL the screenshot was taken of" />
+      <integer tag="WHFSOBJECT" title="Affected WHFS object" />
+      <datetime tag="TARGETCREATIONDATE" title="Creationdate of the target (so we can more easily track deletions)" />
       <free tag="REMARKS" title="User comment" />
       <enum tag="STATUS"
             allowedvalues="creating new assigned escalated closed resolved"
