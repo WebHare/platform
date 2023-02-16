@@ -443,8 +443,9 @@ PUBLIC RECORD FUNCTION ExecuteWRDTestpayment(OBJECT paymentapi, INTEGER paymenti
   RETURN status;
 }
 
-PUBLIC MACRO RunStandardPaymentMethodTests()
+PUBLIC MACRO RunStandardPaymentMethodTests(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions([ ignorestatuscheckresult := FALSE ], options);
   OBJECT paymentapi := GetWRDTestPaymentAPI();
   RECORD ARRAY methods := paymentapi->ListAllPaymentOptions();
   TestEq(TRUE, Length(methods)>0, "There must be some payment methods configured");
@@ -453,7 +454,9 @@ PUBLIC MACRO RunStandardPaymentMethodTests()
   {
     OBJECT psp := paymentapi->__InstantiatePSP(method.paymentprovider);
     RECORD status := psp->GetPSPStatus();
-    TestEq(TRUE, status.success OR status.unknown, "Status check failed: " || EncodeJSON(status));
+    TestEqStructure([ success := FALSE, unknown := FALSE, message := "" ], status);
+    IF(NOT options.ignorestatuscheckresult)
+      TestEq(TRUE, status.success OR status.unknown, "Status check failed: " || EncodeJSON(status));
   }
 
   //Test against crash when setting up payment but not configuring it (ie test MakePaymentMethod)

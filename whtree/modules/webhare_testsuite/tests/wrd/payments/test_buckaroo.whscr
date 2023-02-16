@@ -131,6 +131,6 @@ IF(offlineonly)
 
 RunTestframework([ PTR CreateWRDTestSchema
                  , PTR SetupBuckaroo
-                 , PTR RunStandardPaymentMethodTests
+                 , PTR RunStandardPaymentMethodTests([ ignorestatuscheckresult := offlineonly ])
                  , PTR TestPaymentBuckaroo
                  ]);

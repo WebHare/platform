@@ -35,28 +35,35 @@ ASYNC MACRO SetupPayNL()
   OBJECT paymentapi := GetWRDTestPaymentAPI();
   AWAIT ExpectScreenChange(+1, PTR paymentapi->RunManagePaymentProvidersDialog(GetTestController()));
 
-  AWAIT ExpectScreenChange(+1, PTR topscreen->addprovider->TolliumClick);
+  RECORD addcall := AWAIT ExpectScreenChange(+1, PTR topscreen->addprovider->TolliumClick);
   TT("methods")->value := "wrd:pay_nl";
   AWAIT ExpectScreenChange(0, PTR topscreen->TolliumExecuteSubmit);
-  TT("paymentextension->apiuser")->value := GetTestSecret("PAY_NL_APIUSER") ?? "AT-0000-0000";
-  TT("paymentextension->apitoken")->value := GetTestSecret("PAY_NL_APITOKEN") ?? "dummytoken";
-  TT("paymentextension->saleslocation")->value := GetTestSecret("PAY_NL_SALESLOCATION") ?? "SL-0000-0000";
+  TT("paymentextension->apiuser")->value := offlineonly ? "AT-0000-0000" : GetTestSecret("PAY_NL_APIUSER");
+  TT("paymentextension->apitoken")->value := offlineonly ? "dummytoken" : GetTestSecret("PAY_NL_APITOKEN");
+  TT("paymentextension->saleslocation")->value := offlineonly ? "SL-0000-0000" : GetTestSecret("PAY_NL_SALESLOCATION");
   TT("paymentextension->testmode")->value := TRUE;
 
-  AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
-  Dumpvalue(TT("{select}:Methods")->options); //Always dump methods so we can see which ones *did* exist if ideal is missing
-  TT("{select}:Methods")->selection := SELECT * FROM TT("{select}:Methods")->options WHERE ToUppercase(title) IN ["IDEAL"];
-  AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
-  TestEq(["IDEAL"], SELECT AS STRING ARRAY ToUppercase(title) FROM TT("{select}:Methods")->selection);
+  IF(NOT offlineonly)
+  {
+    AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
+    Dumpvalue(TT("{select}:Methods")->options); //Always dump methods so we can see which ones *did* exist if ideal is missing
+    TT("{select}:Methods")->selection := SELECT * FROM TT("{select}:Methods")->options WHERE ToUppercase(title) IN ["IDEAL"];
+    AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
+    TestEq(["IDEAL"], SELECT AS STRING ARRAY ToUppercase(title) FROM TT("{select}:Methods")->selection);
+  }
+  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+
+  IF(NOT offlineonly)
+  {
+    AWAIT ExpectScreenChange(+1, PTR TTClick("editprovider")); //test persisting between dialogs
+    TestEq(["IDEAL"], SELECT AS STRING ARRAY ToUppercase(title) FROM TT("{select}:Methods")->selection);
+    TestEQ(TRUE, TT("paymentextension->testmode")->value);
+  }
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
 
-  AWAIT ExpectScreenChange(+1, PTR TTClick("editprovider")); //test persisting between dialogs
-  TestEq(["IDEAL"], SELECT AS STRING ARRAY ToUppercase(title) FROM TT("{select}:Methods")->selection);
-  TestEQ(TRUE, TT("paymentextension->testmode")->value);
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
-
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
+  IF(NOT offlineonly)
+    RunStandardPaymentMethodTests([ ignorestatuscheckresult := offlineonly ]);
 }
 
 ASYNC MACRO TestPaymentPayNL()
@@ -135,6 +142,5 @@ ASYNC MACRO TestPaymentPayNL()
 RunTestframework([ PTR TestAPIS
                  , PTR CreateWRDTestSchema
                  , PTR SetupPayNL
-                 , PTR RunStandardPaymentMethodTests
                  , PTR TestPaymentPayNL
                  ]);

@@ -86,7 +86,7 @@ ASYNC MACRO TestPaymentsAfterpay(STRING fortype)
       [ wrd_gender := 1
       , wrd_firstname := "Test"
       , wrd_lastname := "Acceptatie 123"
-      , wrd_contact_email := "afterpaytest@example.net"
+      , wrd_contact_email := fortype = "BE" ? "afterpaytest-be@example.net" : "afterpaytest@example.net"
       , wrd_dateofbirth := MakeDate(1990,1,1)
       , wrd_contact_phone := fortype = "BE"  ? "0032472067761" : "+31513744112"
       //, wrd_contact_phone2 := fortype = "BE" ? "+32
@@ -94,6 +94,9 @@ ASYNC MACRO TestPaymentsAfterpay(STRING fortype)
       ]);
   OBJECT entity := paymentapi->paymenttype->CreateEntity(CELL[]);
   testfw->CommitWork();
+
+  IF(offlineonly)
+    RETURN;
 
   RECORD properrequest := BuildRequest(paymentapi, testperson, fortype, fortype="BE" ? 131.69 : 131.67);
 
