@@ -18,6 +18,10 @@ function focusFirstAction() {
   (document.querySelector("wh-authorbar a") as HTMLElement)?.focus();
 }
 
+function hideAuthorMode() {
+  document.documentElement.classList.remove("wh-authormode--active");
+}
+
 function setupAuthorMode() {
   console.log("[authormode] activating");
 
@@ -27,15 +31,18 @@ function setupAuthorMode() {
       <div class="wh-authorbar__actions">
         <ul class="wh-authorbar__actiongroup">
           <li class="wh-authorbar__action">
-            <a href={`${location.origin}/.publisher/common/find/?url=${encodeURIComponent(location.href)}`} rel="noopener noreferrer" target="_blank">{getTid("publisher:site.authormode.openinwebhare")}</a>
-          </li>
-        </ul>
-        <ul class="wh-authorbar__actiongroup">
-          <li class="wh-authorbar__action">
             <a href="#" onClick={(event: MouseEvent) => reportIssue(event, true)}>{getTid("publisher:site.authormode.feedback-specific")}</a>
           </li>
           <li class="wh-authorbar__action">
             <a href="#" onClick={(event: MouseEvent) => reportIssue(event, false)}>{getTid("publisher:site.authormode.feedback-general")}</a>
+          </li>
+        </ul>
+        <ul class="wh-authorbar__actiongroup">
+          <li class="wh-authorbar__action">
+            <a href={`${location.origin}/.publisher/common/find/?url=${encodeURIComponent(location.href)}`} rel="noopener noreferrer" target="_blank">{getTid("publisher:site.authormode.openinwebhare")}</a>
+          </li>
+          <li class="wh-authorbar__action">
+            <a href="#" onClick={(event: MouseEvent) => hideAuthorMode()}>{getTid("publisher:site.authormode.hideauthormode")}</a>
           </li>
         </ul>
       </div>
@@ -44,6 +51,8 @@ function setupAuthorMode() {
   //no positioning selected?
   if (!document.documentElement.matches('.wh-authorbar--left,.wh-authorbar--right'))
     document.documentElement.classList.add('wh-authorbar--right');
+
+  document.documentElement.classList.add("wh-authormode--active");
 }
 
 dialogapi.setupDialogs(options => dialog.createDialog('wh-authormode__dialog', options), { messageboxclassbase: "wh-authormode__message__" });

@@ -59,6 +59,9 @@ STATIC OBJECTTYPE EditDocumentAPI
   // The content types that are edited by this editor (only these types are read/written through GetInstanceData/SetInstanceData)
   PUBLIC STRING ARRAY editcontenttypes;
 
+  /// Can this file be published? Some library/reusable content may disable this. This is not foolproof but prevents obvious mistakes
+  PUBLIC BOOLEAN canpublish;
+
   /// Callback to mark us as readonly
   PUBLIC MACRO PTR onsetenabled;
 
@@ -106,6 +109,7 @@ STATIC OBJECTTYPE EditDocumentAPI
   MACRO NEW(OBJECT editscreen)
   {
     this->editscreen := editscreen;
+    this->canpublish := TRUE;
     this->onconfirmsaveandpublish := PTR this->editscreen->DefaultConfirmAndSavePublishHandler;
   }
 
@@ -577,7 +581,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     {
       this->contexts->editdocumentapi->onsetenabled(NOT this->readonly);
       this->frame->flags.canedit := NOT this->readonly;
-      this->frame->flags.canpublish := NOT this->readonly;
+      this->frame->flags.canpublish := NOT this->readonly AND this->contexts->editdocumentapi->canpublish;
 
       IF (savemode IN [ "versioned-editdraft", "versioned-editlive" ])
       {

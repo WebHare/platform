@@ -66,6 +66,7 @@ wh-authorbar
   }
 
   html.wh-feedback--dompointer &
+  , html:not(.wh-authormode--active) &
   {
     display: none;
   }
