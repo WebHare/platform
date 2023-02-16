@@ -10,6 +10,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
@@ -202,7 +203,10 @@ PUBLIC STRING FUNCTION StoreFeedbackExtraData(STRING guid, RECORD settings)
           , extradata := CELL[...feedback.extradata, ...settings.extradata ]
           , status := "new"
           ]);
-  RETURN wrdschema->^feedback->GetEntityField(feedbackid, "feedbackid");
+
+  RECORD finaldata := wrdschema->^feedback->GetEntityFields(feedbackid, ["feedbackid", "whfsobject"]);
+  RunModuleHookTarget("publisher:feedbackupdate", CELL[ feedbackid, finaldata.whfsobject ]);
+  RETURN finaldata.feedbackid;
 }
 
 STRING FUNCTION GetFeedbackSecret(STRING kid_unused)
