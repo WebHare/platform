@@ -16,6 +16,7 @@ LOADLIB "mod::wrd/lib/screenbase.whlib";
 
 
 CONSTANT FLOAT maxscreenshotsize := 640;
+OBJECT issuewitty := LoadWittyLibrary(Resolve("issues.witty"), "HTML-NI");
 
 PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 < //----------------------------------------------------------------------------
@@ -23,13 +24,10 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   // Initialization
   //
   BOOLEAN doneinit;
-  OBJECT ARRAY logentries;
-  OBJECT issuewitty;
 
   MACRO NEW()
   {
     this->contexts->wrdschema := OpenWRDSchema("publisher:feedback");
-    this->issuewitty := LoadWittyLibrary(Resolve("issues.witty"), "HTML-NI");
   }
 
   MACRO Init(RECORD data)
@@ -48,7 +46,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     ^feedback->debugactions := [[ type := "wrd:entity", cellname := "rowkey" ]];
     ^loglistener->masks := this->contexts->wrdschema->^log->GetEventMasks();
 
-    ^screenshot->src := this->contexts->controller->baseurl || ".publisher/backend/preview/nopreview.html";
+    ^feedbackdetails->contents := this->LoadScreen(Resolve("main.xml#feedback"), [ embedded := TRUE ]);
 
     this->frame->flags.issysop := this->contexts->user->HasRight("system:sysop");
 
@@ -60,14 +58,6 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   //
   // Action handlers
   //
-
-  MACRO DoProperties()
-  {
-    IF (^feedback->selection.version NOT IN [ 1,2 ])
-      this->RunSimpleScreen("warning", this->GetTid(".messages.unsupportedversion"));
-    ELSE
-      this->RunScreen("#feedback", ^feedback->selection);
-  }
 
   MACRO DoEscalate()
   {
@@ -141,21 +131,6 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   MACRO DoSetFeedbackSingle()
   {
     this->SetRowLayout("singlerow");
-  }
-
-  MACRO DoAddComment()
-  {
-    OBJECT work := this->BeginWork( [ validate := OBJECT[ ^comment ]]);
-    this->contexts->wrdschema->^log->CreateEntity(
-      [ wrd_leftentity := ^feedback->value
-      , text := ^comment->value
-      , webhareuser := this->contexts->user->GetUserDataForLogging()
-      ]);
-
-    IF(NOT work->Finish())
-      RETURN;
-
-    ^comment->value := "";
   }
 
   MACRO DoExport()
@@ -271,32 +246,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO OnFeedbackSelect()
   {
-    IF (^feedback->value != 0)
-    {
-      RECORD feedbacksize := this->contexts->wrdschema->^feedback->GetEntityField(^feedback->value, "size");
-      // Load the stored screenshot into the container iframe
-      ^screenshot->value := GetScreenshotWitty()->RunComponentToString("container", CELL
-          [ screenshot := [ width := INTEGER(Ceil(feedbacksize.width))
-                          , height := INTEGER(Ceil(feedbacksize.height))
-                          , scaled := TRUE// For now, we'll always scale, we can make it an option later: ^scaled->value
-                          ]
-          , url := GetFeedbackScreenshotURL(^feedback->value)
-          ]);
-      ^url->value := ^feedback->selection.url;
-      ^urlpanel->visible := ^feedback->selection.version = 2; // version 2 adds the url of the visited page
-    }
-    ELSE
-    {
-      ^screenshot->src := this->contexts->controller->baseurl || ".publisher/backend/preview/nopreview.html";
-      ^urlpanel->visible := FALSE;
-    }
-    FOREVERY(OBJECT logentry FROM this->logentries)
-      logentry->DeleteComponent();
-    this->logentries := OBJECT[];
-
-    ^comment->enabled := ^feedback->value != 0;
-
-    this->RefreshLog();
+    ^feedbackdetails->contents->LoadFeedbackItem(^feedback->value);
   }
 
   MACRO OnScaleIframe()
@@ -319,7 +269,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO OnLogEvent(RECORD ARRAY events)
   {
-    this->RefreshLog();
+    ^feedbackdetails->contents->RefreshLog(); //TODO should be inside feedbackdetails screen ?
   }
 
 
@@ -328,17 +278,60 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   // Helper functions
   //
 
+  MACRO SetRowLayout(STRING layout)
+  {
+    IF (layout NOT IN [ "singlerow", "multirow" ] OR ^feedback->rowlayout = layout)
+      RETURN;
+    ^feedback->rowlayout := layout;
+    this->contexts->user->SetRegistryKey("publisher.feedback.feedbackrowlayout", layout);
+    ^feedbackmulti->pressed := layout = "multirow";
+    ^feedbacksingle->pressed := layout = "singlerow";
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
+< //----------------------------------------------------------------------------
+  //
+  // Variables
+  //
+
+  RECORD data;
+  INTEGER currentissue;
+  OBJECT ARRAY logentries;
+
+  //----------------------------------------------------------------------------
+  //
+  // Initialization
+  //
+  MACRO NEW()
+  {
+    this->contexts->wrdschema := OpenWRDSchema("publisher:feedback");
+  }
+
+  MACRO Init(RECORD data)
+  {
+    this->data := ValidateOptions( CELL[ embedded := FALSE, rowkey := 0 ], data);
+    ^comments->visible := this->data.embedded;
+    this->LoadFeedbackItem(this->data.rowkey);
+  }
+
+  //----------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
   MACRO RefreshLog()
   {
-    IF(^feedback->value = 0)
+    IF(this->currentissue = 0)
     {
       ^issuelog->blobvalue := DEFAULT BLOB;
       RETURN;
     }
 
+    RECORD curissue := this->contexts->wrdschema->^feedback->GetEntityFields(this->currentissue, [ "wrd_creationdate", "remarks", "userdata" ]);
     RECORD ARRAY logentries := this->contexts->wrdschema->^log->RunQuery(
         [ outputcolumns := CELL[ "wrd_id", "wrd_creationdate", "text", "webhareuser", "statuschange" ]
-        , filters := [ [ field := "wrd_leftentity", value := ^feedback->value ]
+        , filters := [ [ field := "wrd_leftentity", value := this->currentissue ]
                      ]
         ]);
 
@@ -346,7 +339,6 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
                        , userinfo := EnforceStructure([ realname := "", login := "" ], webhareuser)
                     FROM logentries;
 
-    RECORD curissue := ^feedback->selection;
     INSERT CELL[ curissue.wrd_creationdate
                , text := curissue.remarks
                , userinfo := EnforceStructure([ realname := "", login := "", emailaddress := "" ], curissue.userdata)
@@ -373,39 +365,42 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
       logentries[#entry] := CELL[ ...entry, oldstatus, newstatus, DELETE statuschange ];
     }
 
-    ^issuelog->blobvalue := this->issuewitty->RunComponentToBlob("entries", [ log := logentries ]);
+    ^issuelog->blobvalue := issuewitty->RunComponentToBlob("entries", [ log := logentries ]);
   }
 
-  MACRO SetRowLayout(STRING layout)
+  PUBLIC MACRO LoadFeedbackItem(INTEGER id)
   {
-    IF (layout NOT IN [ "singlerow", "multirow" ] OR ^feedback->rowlayout = layout)
+    this->currentissue := id;
+
+    IF(id = 0)
+    {
+      ^screenshot->src := this->contexts->controller->baseurl || ".publisher/backend/preview/nopreview.html";
+      ^urlpanel->visible := FALSE;
+      ^comment->enabled := FALSE;
       RETURN;
-    ^feedback->rowlayout := layout;
-    this->contexts->user->SetRegistryKey("publisher.feedback.feedbackrowlayout", layout);
-    ^feedbackmulti->pressed := layout = "multirow";
-    ^feedbacksingle->pressed := layout = "singlerow";
-  }
->;
+    }
 
-PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
-< //----------------------------------------------------------------------------
-  //
-  // Variables
-  //
+    RECORD feedback := this->contexts->wrdschema->^feedback->GetEntityFields(id, [ "size", "url", "version", "extradata", "feedbackid", "appversions" , ...^data->GetComposedCellnames() ]);
 
-  RECORD data;
+    // Load the stored screenshot into the container iframe
+    ^screenshot->value := GetScreenshotWitty()->RunComponentToString("container", CELL
+        [ screenshot := [ width := INTEGER(Ceil(feedback.size.width))
+                        , height := INTEGER(Ceil(feedback.size.height))
+                        , scaled := TRUE// For now, we'll always scale, we can make it an option later: ^scaled->value
+                        ]
+        , url := GetFeedbackScreenshotURL(id)
+        ]);
+    ^url->value := feedback.url;
+    ^urlpanel->visible := feedback.version = 2; // version 2 adds the url of the visited page
 
+    FOREVERY(OBJECT logentry FROM this->logentries)
+      logentry->DeleteComponent();
+    this->logentries := OBJECT[];
 
-  //----------------------------------------------------------------------------
-  //
-  // Initialization
-  //
+    ^comment->enabled := TRUE;
 
-  MACRO Init(RECORD data)
-  {
-    this->data := data;
-    RECORD feedback := this->contexts->wrdschema->^feedback->GetEntityFields(this->data.rowkey,
-        [ "extradata", "size", "feedbackid", "appversions" ] CONCAT ^data->GetComposedCellnames());
+    this->RefreshLog();
+
     ^data->value := feedback;
     this->frame->title := this->frame->title || " - " || feedback.feedbackid;
 
@@ -436,6 +431,21 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
     }
 
     ^appversions->rows := feedback.appversions;
+  }
+
+  MACRO DoAddComment()
+  {
+    OBJECT work := this->BeginWork( [ validate := OBJECT[ ^comment ]]);
+    this->contexts->wrdschema->^log->CreateEntity(
+      [ wrd_leftentity := ^feedback->value
+      , text := ^comment->value
+      , webhareuser := this->contexts->user->GetUserDataForLogging()
+      ]);
+
+    IF(NOT work->Finish())
+      RETURN;
+
+    ^comment->value := "";
   }
 >;
 

@@ -1781,25 +1781,27 @@
         <text tid="message">Bericht</text>
       </textgroup>
       <textgroup gid="feedback">   <!-- tolliumapps.feedback.feedback -->
+        <text tid="addcomment">Voeg toe</text>
         <text tid="appversions">Applicatieversies</text>
         <text tid="browser">Browser</text>
+        <text tid="comment">Opmerking</text>
+        <text tid="comments">Opmerkingen</text>
         <text tid="device">Apparaat</text>
         <text tid="extradata">Aanvullende gegevens</text>
         <text tid="feedback">Feedback</text>
         <text tid="login">Gebruikersnaam</text>
+        <text tid="metadata">Metadata</text>
         <text tid="name">Naam</text>
+        <text tid="screenshot">Schermafbeelding</text>
         <text tid="useragent">User-Agent</text>
         <text tid="version">Versie</text>
         <text tid="wrd_creationdate">Wanneer</text>
       </textgroup>
       <textgroup gid="main">   <!-- tolliumapps.feedback.main -->
-        <text tid="addcomment">Voeg toe</text>
         <text tid="allstatuses">Alle feedback</text>
         <text tid="alltopics">Alle onderwerpen</text>
         <text tid="anonymous">Anonieme gebruiker</text>
         <text tid="close">Afsluiten</text>
-        <text tid="comment">Opmerking</text>
-        <text tid="comments">Opmerkingen</text>
         <text tid="escalate">Escaleren</text>
         <text tid="feedback">Feedback</text>
         <text tid="feedbackadded">Feedback ingediend</text>
@@ -1815,7 +1817,6 @@
         <text tid="remarks">Opmerkingen</text>
         <text tid="reopen">Heropenen</text>
         <text tid="reportedby">Gemeld door</text>
-        <text tid="screenshot">Schermafbeelding</text>
         <text tid="status">Status</text>
         <text tid="status-closed">Afgesloten</text>
         <text tid="status-escalated">Geëscaleerd</text>

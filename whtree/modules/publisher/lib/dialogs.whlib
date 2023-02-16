@@ -665,3 +665,8 @@ PUBLIC BOOLEAN FUNCTION RunSingleFormResultDialog(OBJECT parentscreen, OBJECT fo
           ]);
   RETURN TRUE;
 }
+
+PUBLIC MACRO RunFeedbackDetailsDialog(OBJECT contexts, INTEGER feedbackid)
+{
+  contexts->screen->RunScreen("mod::publisher/tolliumapps/feedback/main.xml#feedback", CELL[ rowkey := feedbackid ]);
+}
