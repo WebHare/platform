@@ -989,6 +989,7 @@ PUBLIC OBJECT FUNCTION GetIndexManagerBulkKeeper()
 // @cell objects.documentfields
 // @cell objects.suggestfields (only used by legacy consilio, opensearch uses the mapping's suggested property)
 // @cell objects.suggestprefixes (only used by legacy consilio)
+// @cell objects._id The OpenSearch document id (if not supplied, generate a hashed id based on indexid, objectid and suffix)
 // @cell(object #IndexManagerBulkKeeper) options.bulk Bulk update keeper, use collect updates to perform in a bulk operation
 PUBLIC STRING FUNCTION AddIndexManagerObjects(OBJECT catalog,
                                               RECORD contentsource,
@@ -1023,7 +1024,7 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(OBJECT catalog,
       FOREVERY (RECORD obj FROM objects)
       {
         // action_and_meta_data
-        INSERT [ "index" := [ _id := GetElasticsearchDocumentId(indexid, obj.objectid, options.suffix) ]] INTO bulkrequests AT END;
+        INSERT [ "index" := [ _id := CellExists(obj, "_id") AND obj._id != "" ? obj._id : GetElasticsearchDocumentId(indexid, obj.objectid, options.suffix) ]] INTO bulkrequests AT END;
         // optional_source
         INSERT FixupElasticsearchDocumentFields(obj.documentfields) INTO bulkrequests AT END;
 
@@ -1074,7 +1075,7 @@ PUBLIC STRING FUNCTION AddIndexManagerObjects(OBJECT catalog,
         }
 
         // action_and_meta_data
-        INSERT [ "index" := [ _id := GetElasticsearchDocumentId(indexid, obj.objectid) ] ] INTO bulkrequests AT END;
+        INSERT [ "index" := [ _id := CellExists(obj, "_id") AND obj._id != "" ? obj._id : GetElasticsearchDocumentId(indexid, obj.objectid) ] ] INTO bulkrequests AT END;
         // optional_source
         INSERT FixupElasticsearchDocumentFields(document) INTO bulkrequests AT END;
 
@@ -1165,6 +1166,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObject(INTEGER indexid, INTEGER content
     @cell(boolean) options.refresh Set to TRUE to wait until visible for search, Elasticsearch only
     @cell(string) options.suffix Sub-index suffix, for unmanaged indices, Elasticsearch only
     @cell(object #IndexManagerBulkKeeper) options.bulk Bulk update keeper, use collect updates to perform in a bulk operation
+    @cell(boolean) options.raw_ids The supplied objectids are OpenSearch document ids (`_id`)
     @return If the deletion was successful for all affected indexmanagers
 */
 PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER contentsourceid, STRING ARRAY objectids, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -1173,6 +1175,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
       [ refresh := FALSE // Set to TRUE to wait until visible for search, Elasticsearch only
       , suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
       , bulk := DEFAULT OBJECT
+      , raw_ids := FALSE
       ];
   options := ValidateOptions(defaultoptions, options);
 
@@ -1192,7 +1195,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
         THROW NEW Exception(`DeleteIndexManagerObjects with indexid = 0 OR contentsourceid != 0 not supported for unmanaged indices`);
 
       RECORD ARRAY bulkrequests :=
-          SELECT "delete" := [ _id := GetElasticsearchDocumentId(indexid, objectid, options.suffix) ]
+          SELECT "delete" := [ _id := options.raw_ids ? objectid : GetElasticsearchDocumentId(indexid, objectid, options.suffix) ]
             FROM ToRecordArray(objectids, "objectid");
 
       (temporarybulk ?? options.bulk)->AddOpenSearchRequests(indexmanager.id, indexmanager.indexname, bulkrequests, CELL[ options.suffix ]);
@@ -1202,7 +1205,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
     IF (indexid != 0)
     {
       RECORD ARRAY bulkrequests :=
-          SELECT "delete" := [ _id := GetElasticsearchDocumentId(indexid, objectid, "") ]
+          SELECT "delete" := [ _id := options.raw_ids ? objectid : GetElasticsearchDocumentId(indexid, objectid, "") ]
             FROM ToRecordArray(objectids, "objectid");
 
       (temporarybulk ?? options.bulk)->AddOpenSearchRequests(indexmanager.id, indexmanager.indexname, bulkrequests);

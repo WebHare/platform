@@ -987,6 +987,7 @@ STATIC OBJECTTYPE ConsilioCatalog
 
   /** @short Add objects to this catalog
       @param objects The objects to add
+      @cell(string) objects._id Optional OpenSearch document id, unique within the index
       @cell(string) objects.objectid Unique objectid. Reusing this will replace the document in the index+suffix combo
       @cell(record) objects.documentfields Document fields
       @cell(string) options.suffix Use this parameter to create a subindex with this suffix
@@ -1013,7 +1014,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     IF(options.suffix != "" AND options.suffix NOT IN this->ensuredsuffixes)
       this->EnsureSuffixCreated(options.suffix);
 
-    objects := SELECT objectid, documentfields FROM objects;
+    objects := SELECT _id := CellExists(objects, "_id") ? _id : "", objectid, documentfields FROM objects;
     FOREVERY (RECORD chunk FROM SELECT docs := GroupedValues(objects) FROM objects GROUP BY #objects / options.chunksize)
     {
       AddIndexManagerObjects(this, DEFAULT RECORD, "", chunk.docs, CELL[ options.suffix, refresh := options.synchronous, options.debug ]);
@@ -1025,6 +1026,7 @@ STATIC OBJECTTYPE ConsilioCatalog
       @cell(string) options.suffix Use this parameter to create a subindex with this suffix
       @cell(boolean) options.foreground Delete in the foreground, wait for index to be refreshed
       @cell(boolean) options.refresh Refresh after deleting (if not set refreshes only if deleting in the foreground)
+      @cell(boolean) options.raw_ids The supplied objectids are OpenSearch document ids (`_id`)
   */
   PUBLIC MACRO DeleteObjects(STRING ARRAY objectids, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
@@ -1034,6 +1036,7 @@ STATIC OBJECTTYPE ConsilioCatalog
                                 , synchronous := FALSE //legacy, remove as soon as all callers are updated
                                 , foreground := FALSE
                                 , refresh := FALSE
+                                , raw_ids := FALSE
                                 ], options, [ optional := ["refresh"] ]);
 
     //TODO support background running? we're always running in the foreground now..
@@ -1042,7 +1045,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     FOR (INTEGER curchunk := 0; curchunk < Length(objectids); curchunk := curchunk + options.chunksize)
     {
       STRING ARRAY chunk := ArraySlice(objectids, curchunk, options.chunksize);
-      DeleteIndexManagerObjects(this->id, 0, chunk, CELL[ options.suffix, refresh ]);
+      DeleteIndexManagerObjects(this->id, 0, chunk, CELL[ options.suffix, refresh, options.raw_ids ]);
     }
   }
 
