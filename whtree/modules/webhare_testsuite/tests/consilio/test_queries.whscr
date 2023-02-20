@@ -169,6 +169,19 @@ MACRO RunTheAggregationQueries()
          ],
          ExecTestAggregation(CQAggregate("groupid", "terms", [ orderdesc := TRUE, size := 1 ]),
          [ mapping := [ groupid := "" ] ]));
+  // Terms aggregation with terms subaggregation
+  TestEq([ totalcount := 4, aggregation :=
+              [ [ groupid := "QC1", shortkeywords := [ [ shortkeywords := "eins", numdocs := 1 ] ] ]
+              , [ groupid := "QC2", shortkeywords := [ [ shortkeywords := "zwei", numdocs := 1 ], [ shortkeywords := "zweite", numdocs := 1 ] ] ]
+              , [ groupid := "QC3", shortkeywords := [ [ shortkeywords := "drei", numdocs := 1 ] ] ]
+              ]
+          ],
+          ExecTestAggregation(CQAggregate("groupid", "terms",
+              [ aggregations :=
+                  [ CQAggregate("shortkeyword", "terms", [ name := "shortkeywords", countfield := "numdocs" ])
+                  ]
+              ]),
+          [ mapping := [ groupid := "", shortkeywords := [ [ shortkeywords := "", numdocs := 0 ] ] ] ]));
 
   // Count aggregation (should just be the totalcount)
   TestThrowsLike("Name option is required for aggregation type 'count'", PTR CQAggregate("groupid", "count"));
