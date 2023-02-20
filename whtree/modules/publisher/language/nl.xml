@@ -1803,7 +1803,7 @@
       <textgroup gid="main">   <!-- tolliumapps.feedback.main -->
         <text tid="allstatuses">Alle feedback</text>
         <text tid="alltopics">Alle onderwerpen</text>
-        <text tid="close">Afsluiten</text>
+        <text tid="close">Feedback sluiten</text>
         <text tid="escalate">Escaleren</text>
         <text tid="feedback">Feedback</text>
         <text tid="feedbackadded">Feedback ingediend</text>
