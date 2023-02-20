@@ -498,7 +498,8 @@ MACRO TestESBulkInsertion()
 
   // Add more objects
   catalog->AddObjects(
-      [ [ objectid := "test2"
+      [ [ _id := "test2"
+        , objectid := "test2"
         , documentfields := [ nosuchfieldyet_extra := "Test2"
                             , no := [ such := [ field := [ yet := [ 2, 42, 55 ] ] ] ]
                             ]
@@ -592,13 +593,28 @@ MACRO TestESBulkInsertion()
         ]
       ], res.results);
 
+  // Do a raw search to check if there is a document with _id 'test2'
+  RECORD result := SendRawJSONToElasticsearch(testindex_suffixed.indexmanager, "GET", `/${testindex_suffixed.indexname}*/_search`,
+      [ query := [ match_all := CELL[] ], _source := FALSE ]);
+  TestEq(3, Length(result.result.hits.hits));
+  TestEq(TRUE, RecordExists(SELECT FROM result.result.hits.hits WHERE _id = "test2"));
+  TestEq(FALSE, RecordExists(SELECT FROM result.result.hits.hits WHERE _id = "test3"));
+
   // Delete the object
   catalog->DeleteObjects([ "test1", "test2", "test3" ], [ suffix := "sub1", foreground := TRUE ]);
   res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQMatch("no.such.field.yet", "=", 42),
       [ mapping := [ no := [ [ such := [ field := [ [ yet := INTEGER[] ] ] ] ] ] ]
       , summaryfield := ""
       ]);
-  TestEq(0, res.totalcount);
+  TestEq(1, res.totalcount); // test2 isn't deleted as it doesn't have a generated _id
+
+  catalog->DeleteObjects([ "test2" ], [ suffix := "sub1", foreground := TRUE, raw_ids := TRUE ]);
+  res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQMatch("no.such.field.yet", "=", 42),
+      [ mapping := [ no := [ [ such := [ field := [ [ yet := INTEGER[] ] ] ] ] ] ]
+      , summaryfield := ""
+      ]);
+  TestEq(0, res.totalcount); // test2 isn't deleted as it doesn't have a generated _id
+
 
   //Test store-only fields
   testfw->BeginWork();
