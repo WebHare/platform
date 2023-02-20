@@ -55,8 +55,8 @@
     </compositions>
 
     <toolbar>
-      <button action="escalate" icon="tollium:objects/envelope+tollium:overlays/forward" />
-      <button action="close" icon="tollium:objects/envelope+tollium:overlays/strike" />
+      <button action="escalate" icon="tollium:actions/escalate" />
+      <button action="close" icon="tollium:status/positive" />
       <divider />
       <button action="delete" icon="tollium:actions/delete" />
     </toolbar>
@@ -161,7 +161,7 @@
 
   <screen name="feedback" width="120x" height="30gr" footerbuttons="close" gid=".feedback" allowresize="true" savestate="size">
     <actions>
-      <action name="addcomment" onexecute="doaddcomment" />
+      <action name="addcomment" onexecute="doaddcomment"  />
     </actions>
 
     <compositions>
