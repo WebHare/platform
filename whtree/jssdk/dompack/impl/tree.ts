@@ -1,0 +1,55 @@
+export function qS<E extends Element = Element>(startnode: ParentNode, selector: string): E | null;
+export function qS<E extends Element = Element>(selector: string): E | null;
+
+/** Match the first element using a CSS selector
+ * @param node_or_selector - The starting node or selector
+ * @param selector - The selector to match if the starting node was specified
+ * @returns The first matching element or null
+ */
+export function qS<E extends Element>(node_or_selector: ParentNode | string, selector?: string): E | null {
+  if (typeof node_or_selector == 'string')
+    return document.querySelector<E>(node_or_selector);
+  else if (selector)
+    return node_or_selector.querySelector<E>(selector);
+  return null;
+}
+
+
+export function qR<E extends Element = Element>(startnode: ParentNode, selector: string): E;
+export function qR<E extends Element = Element>(selector: string): E;
+
+/** Match a specific element using a CSS selector, requiring it to exist and be unique
+ * @param node_or_selector - The starting node or selector
+ * @param selector - The selector to match if the starting node was specified
+ * @returns The requested element. Throw it the selector doesn't match exactly one element
+ */
+export function qR<E extends Element>(node_or_selector: ParentNode | string, selector?: string): E {
+  const matches = qSA<E>(node_or_selector as ParentNode, selector as string);
+  if (matches.length === 1)
+    return matches[0];
+
+  if (typeof node_or_selector !== 'string') {
+    console.error(`${matches.length} elements match selector \`${selector}\` with startingpoint`, node_or_selector, matches);
+    throw new Error(`${matches.length} elements match selector \`${selector}\` given startingpoint '${node_or_selector.nodeName}'`);
+  } else {
+    console.error(`${matches.length} elements match selector \`${node_or_selector}\` in the document`, matches);
+    throw new Error(`${matches.length} elements match selector \`${node_or_selector}\` in the document`);
+  }
+}
+
+export function qSA<E extends Element = Element>(startnode: ParentNode, selector: string): E[];
+export function qSA<E extends Element = Element>(selector: string): E[];
+
+/** Find multiple elements using a CSS selector
+ * @param node_or_selector - The starting node or selector
+ * @param selector - The selector to match if the starting node was specified
+ * @returns The requested elements.
+ */
+export function qSA<E extends Element>(node_or_selector: ParentNode | string, selector?: string): E[] {
+  if (typeof node_or_selector == 'string')
+    return Array.from(document.querySelectorAll(node_or_selector));
+  else if (selector)
+    return Array.from(node_or_selector.querySelectorAll(selector));
+
+  return [];
+}
