@@ -109,8 +109,8 @@ async function testCompileerrors() {
     test.assert(result.info.errors[0].message);
 
 
-    const acceptablenames = [services.getConfig().module.webhare_testsuite.root + "tests/publisher/assetpacks/dependencies/deeper/import-fail.es" // <-- esbuild
-    ];
+    const acceptablenames = [services.getConfig().module.webhare_testsuite.root + "tests/publisher/assetpacks/dependencies/deeper/import-fail.es"]; // <-- esbuild
+
     console.log("Acceptable locations:", acceptablenames);
     console.log("Reported location:", result.info.errors[0].resource);
     test.assert(acceptablenames.includes(result.info.errors[0].resource));

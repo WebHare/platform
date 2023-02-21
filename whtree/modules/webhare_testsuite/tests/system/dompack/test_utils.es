@@ -3,8 +3,9 @@ import * as test from "@mod-system/js/wh/testframework";
 import * as dompack from "dompack";
 import * as create from "dompack/src/create";
 import { isValidEmailAddress } from 'dompack/types/email';
+import * as webhare_dompack from "@webhare/dompack";
 
-var eventcount = 0;
+let eventcount = 0;
 
 function anyEventHandler(evt)
 {
@@ -13,7 +14,13 @@ function anyEventHandler(evt)
 }
 
 test.registerTests(
-[ "Internal utility functions"
+  [ "Verify dompack identity"
+  , async function() {
+    //make sure 'both' dompack paths point to the same APIs
+    test.assert(dompack.register === webhare_dompack.register);
+  }
+
+, "Internal utility functions"
 , async function()
   {
     test.eq("a", create.toDashed("A"));
