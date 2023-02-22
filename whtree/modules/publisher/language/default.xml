@@ -1786,7 +1786,6 @@
       </textgroup>
       <textgroup gid="feedback">   <!-- tolliumapps.feedback.feedback -->
         <text tid="addcomment">Add comment</text>
-        <text tid="appversions">Application versions</text>
         <text tid="browser">Browser</text>
         <text tid="comment">Comment</text>
         <text tid="comments">Feedback</text>

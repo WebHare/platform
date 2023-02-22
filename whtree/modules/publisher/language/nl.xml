@@ -1785,7 +1785,6 @@
       </textgroup>
       <textgroup gid="feedback">   <!-- tolliumapps.feedback.feedback -->
         <text tid="addcomment">Voeg toe</text>
-        <text tid="appversions">Applicatieversies</text>
         <text tid="browser">Browser</text>
         <text tid="comment">Opmerking</text>
         <text tid="comments">Feedback</text>

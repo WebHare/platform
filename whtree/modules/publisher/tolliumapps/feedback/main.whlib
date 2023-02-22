@@ -396,7 +396,7 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
       RETURN;
     }
 
-    RECORD feedback := this->contexts->wrdschema->^feedback->GetEntityFields(id, [ "size", "url", "version", "extradata", "feedbackid", "appversions" , ...^data->GetComposedCellnames() ]);
+    RECORD feedback := this->contexts->wrdschema->^feedback->GetEntityFields(id, [ "size", "url", "version", "extradata", "feedbackid", ...^data->GetComposedCellnames() ]);
     this->screenshot := GetScreenshotWitty()->RunComponentToString("container", CELL
         [ screenshot := [ width := INTEGER(Ceil(feedback.size.width))
                         , height := INTEGER(Ceil(feedback.size.height))
@@ -442,8 +442,6 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
         }
       }
     }
-
-    ^appversions->rows := feedback.appversions;
   }
 
   MACRO DoAddComment()

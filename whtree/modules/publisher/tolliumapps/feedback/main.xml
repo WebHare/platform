@@ -213,11 +213,6 @@
           <text composition="userdata" cellname="login" selectable="true" />
           <heading name="extradata" visible="false" />
           <spacer name="extradatainsertpoint" visible="false" />
-          <heading tid=".appversions" />
-          <list name="appversions" height="1pr">
-            <column name="name" type="text" width="1pr" />
-            <column name="version" type="text" width="1pr" />
-          </list>
         </tab>
       </tabs>
     </body>

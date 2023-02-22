@@ -72,13 +72,7 @@
       -->
       <record tag="USERDATA" title="User data" />
       <record tag="EXTRADATA" title="Extra data supplied by the user" />
-      <array tag="APPVERSIONS" title="WebHare and installed module versions">
-        <free tag="name"
-              description="The described item, currently 'webhare' or an installed module"
-              required="true"
-              title="Module/item name" />
-        <free tag="version" description="The (hopefully) semantic version" title="Item version" />
-      </array>
+      <obsolete tag="APPVERSIONS" />
 
       <!-- No longer used -->
       <domain tag="TYPE" domain="FEEDBACKTYPE" />
