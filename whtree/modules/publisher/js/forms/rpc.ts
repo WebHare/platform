@@ -3,7 +3,6 @@
 
 import * as dompack from 'dompack';
 import * as focus from 'dompack/browserfix/focus';
-import * as browser from 'dompack/extra/browser';
 import * as merge from './internal/merge';
 import FormBase from './formbase';
 import RPCClient from '@mod-system/js/wh/rpc';
@@ -11,11 +10,6 @@ import * as whintegration from '@mod-system/js/wh/integration';
 import * as emailvalidation from './internal/emailvalidation';
 import { runMessageBox } from 'dompack/api/dialog';
 import * as pxl from '@mod-consilio/js/pxl';
-
-function supportsScrollIntoViewBehavior() //http://caniuse.com/#feat=scrollintoview
-{
-  return ["firefox", "chrome"].includes(browser.getName());
-}
 
 function getServiceSubmitInfo(formtarget) {
   return {
@@ -339,7 +333,7 @@ export default class RPCFormBase extends FormBase {
   onSubmitSuccess(result) {
     let formpos = this.node.getBoundingClientRect();
     if (formpos.top < 0)
-      this.node.scrollIntoView(supportsScrollIntoViewBehavior() ? { block: 'start', behavior: 'smooth' } : true);
+      this.node.scrollIntoView({ block: 'start', behavior: 'smooth' });
 
     if (result && result.resultsguid)
       this.node.dataset.whFormResultguid = result.resultsguid;
