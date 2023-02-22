@@ -9,6 +9,7 @@ LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/versioning/helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
@@ -215,7 +216,7 @@ PUBLIC MACRO DeleteFSObjects(OBJECT ARRAY fileobjs)
   }
 
   INTEGER ARRAY versioning_drafts := SELECT AS INTEGER ARRAY draft_object FROM system.fs_versionevents WHERE live_object IN recursive;
-  INTEGER ARRAY drafts := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent IN [ 14, 15 ] AND filelink IN recursive;
+  INTEGER ARRAY drafts := SELECT AS INTEGER ARRAY id FROM system.fs_objects WHERE parent IN [ whconstant_whfsid_drafts, whconstant_whfsid_autosaves ] AND filelink IN recursive;
 
   recursive := recursive CONCAT versioning_drafts CONCAT drafts;
 

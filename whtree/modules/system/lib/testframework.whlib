@@ -1405,7 +1405,7 @@ STATIC OBJECTTYPE TestFramework
     INTEGER ARRAY all_drafts :=
         SELECT AS INTEGER ARRAY id
           FROM system.fs_objects
-         WHERE parent IN [ 14, 15 ]
+         WHERE parent IN [ whconstant_whfsid_drafts, whconstant_whfsid_autosaves ]
            AND filelink IN object_ids;
 
     IF(Length(object_ids) > 0
