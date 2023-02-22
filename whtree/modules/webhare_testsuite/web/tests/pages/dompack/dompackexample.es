@@ -1,29 +1,26 @@
 import './dompackexample.scss';
 
-import * as dompack from "dompack";
+import * as dompack from "@webhare/dompack";
 import Pulldown from "dompack/components/pulldown/index";
 import AutoSuggest from "dompack/components/autosuggest/index";
 import StaticSuggestionList from "dompack/components/autosuggest/staticlist";
 import * as dialog from 'dompack/components/dialog/index';
 import * as dialogapi from 'dompack/api/dialog';
-import * as storage from 'dompack/extra/storage';
-import * as cookie from "dompack/extra/cookie";
 
-window.storageSetLocal = storage.setLocal;
-window.storageGetLocal = storage.getLocal;
-window.storageSetSession = storage.setSession;
-window.storageGetSession = storage.getSession;
-window.storageIsIsolated = storage.isIsolated;
-window.cookieRead = cookie.read;
-window.cookieWrite = cookie.write;
-window.cookieRemove = cookie.remove;
-window.cookieList = cookie.list;
+window.storageSetLocal = dompack.setLocal;
+window.storageGetLocal = dompack.getLocal;
+window.storageSetSession = dompack.setSession;
+window.storageGetSession = dompack.getSession;
+window.storageIsIsolated = dompack.isStorageIsolated;
+window.cookieRead = dompack.getCookie;
+window.cookieWrite = dompack.setCookie;
+window.cookieRemove = dompack.deleteCookie;
+window.cookieList = dompack.listCookies;
 
 function fillRidiculous()
 {
-  dompack.empty(dompack.qS('#ridiculous'));
-  dompack.qS('#ridiculous').appendChild(dompack.create("option", { selected: true, disabled: true, textContent:'Many' }));
-  for(var i = 1; i < 360; ++i)
+  dompack.qR('#ridiculous').replaceChildren(dompack.create("option", { selected: true, disabled: true, textContent:'Many' }));
+  for(let i = 1; i < 360; ++i)
   {
     let node = dompack.create("option", { value: i, textContent: "item " + i});
     dompack.qS('#ridiculous').appendChild(node);
@@ -84,7 +81,7 @@ function onDirectSuggest(inword)
   return "123456789_.".split("").map(char => inword + char);
 }
 
-var regcountmaps = { item: [], current: [] };
+let regcountmaps = { item: [], current: [] };
 
 function updateRegCount(type, node)
 {
