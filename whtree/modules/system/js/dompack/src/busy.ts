@@ -1,7 +1,6 @@
 import * as domdebug from './debug';
-import * as dompromise from './promise';
 import * as domevents from './events';
-import { DeferredPromise } from "../../types";
+import { createDeferred, DeferredPromise } from "@webhare/std";
 
 let locallocks: Lock[] = [];
 let ischild = false;
@@ -82,7 +81,7 @@ class LockManager {
   }
   waitUIFree() {
     if (!this.deferreduipromise)
-      this.deferreduipromise = dompromise.createDeferred();
+      this.deferreduipromise = createDeferred();
     this.prepWatcher();
     return this.deferreduipromise.promise;
   }

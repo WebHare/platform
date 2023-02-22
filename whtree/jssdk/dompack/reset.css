@@ -1,0 +1,20 @@
+/* Note: we avoid resetting eg. ul,ol,li as that takes a lot more 'repair' work (ie the bullets would overlap with text without further chnages) */
+html, body, p, h1, h2, h3, h4, h5, h6, form
+{
+  padding: 0;
+  margin: 0;
+}
+img { border: none; }
+datalist, template { display: none; }
+
+*, *::before, *::after
+{
+  box-sizing: border-box;
+}
+
+body
+{
+  -moz-text-size-adjust: none; /* Firefox for Android */
+  -webkit-text-size-adjust: none; /* iOS Safari */
+  text-size-adjust: none;
+}

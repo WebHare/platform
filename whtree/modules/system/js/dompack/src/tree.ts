@@ -7,6 +7,8 @@
 */
 const IS_NON_DIMENSIONAL = /acit|ex(?:s|g|n|p|$)|rph|ows|mnc|ntw|ine[ch]|zoo|^ord/i;
 
+export { qS, qSA } from '@webhare/dompack';
+
 export type Rect =
   {
     top: number;
@@ -208,6 +210,7 @@ export function getJSONAttribute<T>(node: Element, attributename: string): T | n
      Get the base URI of the current document. IE11 doesn't implement document.baseURI
  *
     @param doc - Document to query. Defaults to window.document
+    @deprecated Use document.baseURI
  */
 export function getBaseURI(doc: Document | undefined) {
   if (!doc)
@@ -220,33 +223,6 @@ export function getBaseURI(doc: Document | undefined) {
     return base.href;
   return doc.URL;
 }
-
-//Set up overloads for both call approaches (with and without starting element)
-export function qS<E extends Element = Element>(startnode: ParentNode, selector: string): E | null;
-export function qS<E extends Element = Element>(selector: string): E | null;
-
-//queryselector quick wrapper
-export function qS<E extends Element>(node_or_selector: ParentNode | string, selector?: string): E | null {
-  if (typeof node_or_selector == 'string')
-    return document.querySelector<E>(node_or_selector);
-  else if (selector)
-    return node_or_selector.querySelector<E>(selector);
-  return null;
-}
-
-//Set up overloads for both call approaches (with and without starting element)
-export function qSA<E extends Element = Element>(startnode: ParentNode, selector: string): E[];
-export function qSA<E extends Element = Element>(selector: string): E[];
-
-//queryselectorall quick wrapper
-export function qSA<E extends Element>(node_or_selector: ParentNode | string, selector?: string): E[] {
-  if (typeof node_or_selector == 'string')
-    return Array.from(document.querySelectorAll(node_or_selector));
-  else if (selector)
-    return Array.from(node_or_selector.querySelectorAll(selector));
-  return [];
-}
-
 
 /**
      Sets multiple styles on a node, automatically adding 'px' to numbers when appropriate

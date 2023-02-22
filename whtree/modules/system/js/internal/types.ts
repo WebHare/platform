@@ -12,13 +12,6 @@ export type KeyValueObject<T> = {
 /// An array of name/value pairs
 export type Properties = Array<{ name: string; value: string }>;
 
-/// A deferred promise with typed result value
-export type DeferredPromise<T> = {
-  promise: Promise<T>;
-  resolve: (value: T | PromiseLike<T>) => void;
-  reject: (reason: Error) => void;
-};
-
 export interface ServiceInitMessage {
   /** arguments */
   __new: IPCMarshallableData[];

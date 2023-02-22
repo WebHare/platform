@@ -1,5 +1,5 @@
 import bridge, { IPCMessagePacket, IPCMarshallableData } from "@mod-system/js/internal/whmanager/bridge";
-import { createDeferred } from "./tools";
+import { createDeferred } from "@webhare/std";
 import { ServiceInitMessage, ServiceCallMessage, WebHareServiceDescription, WebHareServiceIPCLinkType } from './types';
 
 interface WebHareServiceOptions {

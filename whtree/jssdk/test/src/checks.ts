@@ -123,7 +123,13 @@ function toTestableString(val: unknown): string {
   }
 }
 
-export function eq<T>(expected: T, actual: T, annotation?: Annotation) {
+/** Verify deep equality of two values (to compare object identity, you need to use {@link assert} with ===)
+ * @typeparam T - The type of the values (both values are expected to be of the same type)
+ * @param expected - The expected value
+ * @param actual - The actual value
+ * @throws If the values are not equal
+ */
+export function eq<T>(expected: T, actual: T, annotation?: Annotation): void {
   if (arguments.length < 2)
     throw new Error("Missing argument to test.eq");
 

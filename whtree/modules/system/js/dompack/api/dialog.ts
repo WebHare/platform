@@ -5,7 +5,7 @@
 import * as dompack from 'dompack';
 import * as domfocus from 'dompack/browserfix/focus';
 import KeyboardHandler from "dompack/extra/keyboard";
-import { DeferredPromise } from '@mod-system/js/types';
+import { DeferredPromise } from '@webhare/std';
 
 export type DialogOptions =
   {
