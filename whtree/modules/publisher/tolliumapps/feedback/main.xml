@@ -171,16 +171,6 @@
 
     <body spacers="none">
       <tabs height="1pr">
-        <tab spacers="none" tid=".screenshot">
-          <panel width="1pr" height="1pr" backgroundcolor="#ffffff">
-            <panel name="urlpanel" borders="bottom" spacers="left right" visible="false">
-              <line layout="tabs-space">
-                <url name="url" width="1pr" title="" />
-              </line>
-            </panel>
-            <iframe name="screenshot" width="1pr" height="1pr" />
-          </panel>
-        </tab>
         <tab height="1pr" name="comments">
           <panel height="1pr" borders="all">
             <iframe name="issuelog" height="1pr" />
@@ -198,6 +188,16 @@
           <line layout="right">
             <button name="addcommentbutton" action="addcomment" tid=".addcomment" />
           </line>
+        </tab>
+        <tab spacers="none" tid=".screenshot">
+          <panel width="1pr" height="1pr" backgroundcolor="#ffffff">
+            <panel name="urlpanel" borders="bottom" spacers="left right" visible="false">
+              <line layout="tabs-space">
+                <url name="url" width="1pr" title="" />
+              </line>
+            </panel>
+            <iframe name="screenshot" width="1pr" height="1pr" />
+          </panel>
         </tab>
         <tab tid=".metadata">
           <url name="shareurl" width="1pr"/>

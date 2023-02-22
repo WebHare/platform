@@ -308,7 +308,7 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
 
   RECORD data;
   INTEGER currentissue;
-  OBJECT ARRAY logentries;
+  STRING screenshot;
 
   //----------------------------------------------------------------------------
   //
@@ -377,7 +377,10 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
       logentries[#entry] := CELL[ ...entry, oldstatus, newstatus, DELETE statuschange ];
     }
 
-    ^issuelog->blobvalue := issuewitty->RunComponentToBlob("entries", [ log := logentries ]);
+    ^issuelog->blobvalue := issuewitty->RunComponentToBlob("entries",
+        [ log := logentries
+        , screenshot := EncodeBase64(this->screenshot)
+        ]);
     ^shareurl->value := GetPrimaryWebHareInterfaceURL() || "?app=publisher:feedback(" || EncodeURL(curissue.feedbackid) || ")";
   }
 
@@ -394,21 +397,18 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
     }
 
     RECORD feedback := this->contexts->wrdschema->^feedback->GetEntityFields(id, [ "size", "url", "version", "extradata", "feedbackid", "appversions" , ...^data->GetComposedCellnames() ]);
-
-    // Load the stored screenshot into the container iframe
-    ^screenshot->value := GetScreenshotWitty()->RunComponentToString("container", CELL
+    this->screenshot := GetScreenshotWitty()->RunComponentToString("container", CELL
         [ screenshot := [ width := INTEGER(Ceil(feedback.size.width))
                         , height := INTEGER(Ceil(feedback.size.height))
                         , scaled := TRUE// For now, we'll always scale, we can make it an option later: ^scaled->value
                         ]
         , url := GetFeedbackScreenshotURL(id)
         ]);
+
+    // Load the stored screenshot into the container iframe
+    ^screenshot->value := this->screenshot;
     ^url->value := feedback.url;
     ^urlpanel->visible := feedback.version = 2; // version 2 adds the url of the visited page
-
-    FOREVERY(OBJECT logentry FROM this->logentries)
-      logentry->DeleteComponent();
-    this->logentries := OBJECT[];
 
     ^comment->enabled := TRUE;
 
