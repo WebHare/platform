@@ -200,6 +200,7 @@
           </line>
         </tab>
         <tab tid=".metadata">
+          <url name="shareurl" width="1pr"/>
           <datetime composition="data"
                     cellname="wrd_creationdate"
                     type="datetime"

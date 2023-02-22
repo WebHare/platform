@@ -1797,6 +1797,7 @@
         <text tid="metadata">Metadata</text>
         <text tid="name">Name</text>
         <text tid="screenshot">Screenshot</text>
+        <text tid="shareurl">Share URL</text>
         <text tid="useragent">User-Agent</text>
         <text tid="version">Version</text>
         <text tid="wrd_creationdate">When</text>

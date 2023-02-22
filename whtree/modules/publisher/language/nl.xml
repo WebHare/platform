@@ -1796,6 +1796,7 @@
         <text tid="metadata">Metadata</text>
         <text tid="name">Naam</text>
         <text tid="screenshot">Schermafbeelding</text>
+        <text tid="shareurl">Deel URL</text>
         <text tid="useragent">User-Agent</text>
         <text tid="version">Versie</text>
         <text tid="wrd_creationdate">Wanneer</text>

@@ -54,6 +54,12 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
     IF(CellExists(data.target, 'feedback'))
       ^feedback->SetValueIfValid(data.target.feedback);
+    ELSE IF(Length(data.params) > 0)
+    {
+      INTEGER fbid := this->contexts->wrdschema->^feedback->Search("feedbackid", data.params[0]);
+      IF(fbid != 0)
+        ^feedback->SetValueIfValid(fbid);
+    }
   }
 
 
@@ -330,10 +336,11 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
     IF(this->currentissue = 0)
     {
       ^issuelog->blobvalue := DEFAULT BLOB;
+      ^shareurl->value := "";
       RETURN;
     }
 
-    RECORD curissue := this->contexts->wrdschema->^feedback->GetEntityFields(this->currentissue, [ "wrd_creationdate", "remarks", "userdata" ]);
+    RECORD curissue := this->contexts->wrdschema->^feedback->GetEntityFields(this->currentissue, [ "wrd_creationdate", "remarks", "userdata", "feedbackid" ]);
     RECORD ARRAY logentries := this->contexts->wrdschema->^log->RunQuery(
         [ outputcolumns := CELL[ "wrd_id", "wrd_creationdate", "text", "webhareuser", "statuschange" ]
         , filters := [ [ field := "wrd_leftentity", value := this->currentissue ]
@@ -371,6 +378,7 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
     }
 
     ^issuelog->blobvalue := issuewitty->RunComponentToBlob("entries", [ log := logentries ]);
+    ^shareurl->value := GetPrimaryWebHareInterfaceURL() || "?app=publisher:feedback(" || EncodeURL(curissue.feedbackid) || ")";
   }
 
   PUBLIC MACRO LoadFeedbackItem(INTEGER id)
