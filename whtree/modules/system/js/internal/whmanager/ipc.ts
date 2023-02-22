@@ -1,5 +1,5 @@
 import EventSource from "../eventsource";
-import { createDeferred, DeferredPromise } from "../tools";
+import { createDeferred, DeferredPromise } from "@webhare/std";
 import { readMarshalPacket, writeMarshalPacket, IPCMarshallableRecord } from './hsmarshalling';
 import * as stacktrace_parser from "stacktrace-parser";
 import { TypedMessagePort, createTypedMessageChannel } from './transport';

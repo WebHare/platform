@@ -1,5 +1,5 @@
-import * as dompack from "dompack";
-import { DeferredPromise } from "@mod-system/js/types";
+import * as dompack from "@webhare/dompack";
+import { createDeferred, DeferredPromise } from "@webhare/std";
 import { PointOptions, PointResult, HighlightCallback } from "./index";
 
 let deferred: DeferredPromise<PointResult | null> | null, highlighter: HTMLElement, highlightCallback: HighlightCallback | null;
@@ -10,7 +10,7 @@ export default function pointAtDOM(event?: MouseEvent, options?: PointOptions): 
 
   highlightCallback = options?.highlightCallback || null;
 
-  deferred = dompack.createDeferred();
+  deferred = createDeferred();
   if (!highlighter)
     highlighter = <div class="wh-feedback__dompointer"></div>;
 

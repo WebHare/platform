@@ -1,7 +1,7 @@
 /* This is our public api. Any direct inclusions from src/.... not mentioned here are not a stable API
 */
 
-export { createDeferred } from './src/promise';
+export { createDeferred } from '@webhare/std';
 export { flagUIBusy } from './src/busy';
 export {
   dispatchCustomEvent, dispatchDomEvent, fireModifiedEvents, changeValue, normalizeKeyboardEventData,

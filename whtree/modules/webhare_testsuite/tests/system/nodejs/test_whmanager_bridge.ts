@@ -1,6 +1,6 @@
 import * as test from "@webhare/test";
 
-import { createDeferred } from "@mod-system/js/internal/tools";
+import { createDeferred } from "@webhare/std";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 
 class FIFO<T> {
