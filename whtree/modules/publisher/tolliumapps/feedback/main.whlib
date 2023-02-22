@@ -51,6 +51,9 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->frame->flags.issysop := this->contexts->user->HasRight("system:sysop");
 
     this->doneinit := TRUE;
+
+    IF(CellExists(data.target, 'feedback'))
+      ^feedback->SetValueIfValid(data.target.feedback);
   }
 
 
@@ -246,7 +249,9 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO OnFeedbackSelect()
   {
-    ^feedbackdetails->contents->LoadFeedbackItem(^feedback->value);
+    INTEGER fbid := ^feedback->value;
+    this->contexts->controller->applicationtarget := fbid != 0 ? [ feedback := fbid ] : DEFAULT RECORD;
+    ^feedbackdetails->contents->LoadFeedbackItem(fbid);
   }
 
   MACRO OnScaleIframe()
