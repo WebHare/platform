@@ -442,7 +442,7 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
   {
     OBJECT work := this->BeginWork( [ validate := OBJECT[ ^comment ]]);
     this->contexts->wrdschema->^log->CreateEntity(
-      [ wrd_leftentity := ^feedback->value
+      [ wrd_leftentity := this->currentissue
       , text := ^comment->value
       , webhareuser := this->contexts->user->GetUserDataForLogging()
       ]);
