@@ -16,6 +16,7 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
 PUBLIC OBJECT ipcparentlink;
+PUBLIC BOOLEAN nostdoutintercept;
 
 RECORD ARRAY pendingcalls;
 
@@ -46,7 +47,7 @@ ASYNC MACRO StartIPCNodeProcess()
         [ `${GetWebHareConfiguration().installationroot}/modules/system/scripts/internal/callrunnerts.ts`
         , portname
         ], [ take_output := FALSE, take_errors := FALSE ]);
-    IF(NOT IsRequest()) //TODO how can we tell beforehand whether we're allowed to share streams? at least webserver won't allow us
+    IF(NOT IsRequest() AND NOT nostdoutintercept) //TODO how can we tell beforehand whether we're allowed to share streams? at least webserver won't allow us
     {
       proc->share_stdout := TRUE;
       proc->share_stderr := TRUE;
