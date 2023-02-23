@@ -1,7 +1,12 @@
 ﻿<?wh
+
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::datetime.whlib";
+
+LOADLIB "mod::system/lib/internal/tasks/callasync.whlib";
+
 LOADLIB "mod::tollium/lib/gettid.whlib";
+
 
 // Open channel to parent
 OBJECT iochan := GetIPCLinkToParent();
@@ -18,6 +23,8 @@ SetTidLanguage(launchinfo.tidlanguage);
 OBJECT task := MakeObject(launchinfo.lib, launchinfo.objname);
 IF(NOT ObjectExists(task))
   ABORT("Cannot find task object");
+
+nostdoutintercept := TRUE;
 
 iochan->SendReply([ type := "ack" ], rec.msgid);
 
