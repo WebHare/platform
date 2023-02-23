@@ -51,6 +51,15 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->frame->flags.issysop := this->contexts->user->HasRight("system:sysop");
 
     this->doneinit := TRUE;
+
+    IF(CellExists(data.target, 'feedback'))
+      ^feedback->SetValueIfValid(data.target.feedback);
+    ELSE IF(Length(data.params) > 0)
+    {
+      INTEGER fbid := this->contexts->wrdschema->^feedback->Search("feedbackid", data.params[0]);
+      IF(fbid != 0)
+        ^feedback->SetValueIfValid(fbid);
+    }
   }
 
 
@@ -246,7 +255,9 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO OnFeedbackSelect()
   {
-    ^feedbackdetails->contents->LoadFeedbackItem(^feedback->value);
+    INTEGER fbid := ^feedback->value;
+    this->contexts->controller->applicationtarget := fbid != 0 ? [ feedback := fbid ] : DEFAULT RECORD;
+    ^feedbackdetails->contents->LoadFeedbackItem(fbid);
   }
 
   MACRO OnScaleIframe()
@@ -297,7 +308,7 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
 
   RECORD data;
   INTEGER currentissue;
-  OBJECT ARRAY logentries;
+  STRING screenshot;
 
   //----------------------------------------------------------------------------
   //
@@ -325,10 +336,11 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
     IF(this->currentissue = 0)
     {
       ^issuelog->blobvalue := DEFAULT BLOB;
+      ^shareurl->value := "";
       RETURN;
     }
 
-    RECORD curissue := this->contexts->wrdschema->^feedback->GetEntityFields(this->currentissue, [ "wrd_creationdate", "remarks", "userdata" ]);
+    RECORD curissue := this->contexts->wrdschema->^feedback->GetEntityFields(this->currentissue, [ "wrd_creationdate", "remarks", "userdata", "feedbackid" ]);
     RECORD ARRAY logentries := this->contexts->wrdschema->^log->RunQuery(
         [ outputcolumns := CELL[ "wrd_id", "wrd_creationdate", "text", "webhareuser", "statuschange" ]
         , filters := [ [ field := "wrd_leftentity", value := this->currentissue ]
@@ -365,7 +377,11 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
       logentries[#entry] := CELL[ ...entry, oldstatus, newstatus, DELETE statuschange ];
     }
 
-    ^issuelog->blobvalue := issuewitty->RunComponentToBlob("entries", [ log := logentries ]);
+    ^issuelog->blobvalue := issuewitty->RunComponentToBlob("entries",
+        [ log := logentries
+        , screenshot := EncodeBase64(this->screenshot)
+        ]);
+    ^shareurl->value := GetPrimaryWebHareInterfaceURL() || "?app=publisher:feedback(" || EncodeURL(curissue.feedbackid) || ")";
   }
 
   PUBLIC MACRO LoadFeedbackItem(INTEGER id)
@@ -380,22 +396,19 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
       RETURN;
     }
 
-    RECORD feedback := this->contexts->wrdschema->^feedback->GetEntityFields(id, [ "size", "url", "version", "extradata", "feedbackid", "appversions" , ...^data->GetComposedCellnames() ]);
-
-    // Load the stored screenshot into the container iframe
-    ^screenshot->value := GetScreenshotWitty()->RunComponentToString("container", CELL
+    RECORD feedback := this->contexts->wrdschema->^feedback->GetEntityFields(id, [ "size", "url", "version", "extradata", "feedbackid", ...^data->GetComposedCellnames() ]);
+    this->screenshot := GetScreenshotWitty()->RunComponentToString("container", CELL
         [ screenshot := [ width := INTEGER(Ceil(feedback.size.width))
                         , height := INTEGER(Ceil(feedback.size.height))
                         , scaled := TRUE// For now, we'll always scale, we can make it an option later: ^scaled->value
                         ]
         , url := GetFeedbackScreenshotURL(id)
         ]);
+
+    // Load the stored screenshot into the container iframe
+    ^screenshot->value := this->screenshot;
     ^url->value := feedback.url;
     ^urlpanel->visible := feedback.version = 2; // version 2 adds the url of the visited page
-
-    FOREVERY(OBJECT logentry FROM this->logentries)
-      logentry->DeleteComponent();
-    this->logentries := OBJECT[];
 
     ^comment->enabled := TRUE;
 
@@ -429,15 +442,13 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
         }
       }
     }
-
-    ^appversions->rows := feedback.appversions;
   }
 
   MACRO DoAddComment()
   {
     OBJECT work := this->BeginWork( [ validate := OBJECT[ ^comment ]]);
     this->contexts->wrdschema->^log->CreateEntity(
-      [ wrd_leftentity := ^feedback->value
+      [ wrd_leftentity := this->currentissue
       , text := ^comment->value
       , webhareuser := this->contexts->user->GetUserDataForLogging()
       ]);

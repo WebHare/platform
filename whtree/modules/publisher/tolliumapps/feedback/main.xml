@@ -171,16 +171,6 @@
 
     <body spacers="none">
       <tabs height="1pr">
-        <tab spacers="none" tid=".screenshot">
-          <panel width="1pr" height="1pr" backgroundcolor="#ffffff">
-            <panel name="urlpanel" borders="bottom" spacers="left right" visible="false">
-              <line layout="tabs-space">
-                <url name="url" width="1pr" title="" />
-              </line>
-            </panel>
-            <iframe name="screenshot" width="1pr" height="1pr" />
-          </panel>
-        </tab>
         <tab height="1pr" name="comments">
           <panel height="1pr" borders="all">
             <iframe name="issuelog" height="1pr" />
@@ -199,7 +189,18 @@
             <button name="addcommentbutton" action="addcomment" tid=".addcomment" />
           </line>
         </tab>
+        <tab spacers="none" tid=".screenshot">
+          <panel width="1pr" height="1pr" backgroundcolor="#ffffff">
+            <panel name="urlpanel" borders="bottom" spacers="left right" visible="false">
+              <line layout="tabs-space">
+                <url name="url" width="1pr" title="" />
+              </line>
+            </panel>
+            <iframe name="screenshot" width="1pr" height="1pr" />
+          </panel>
+        </tab>
         <tab tid=".metadata">
+          <url name="shareurl" width="1pr"/>
           <datetime composition="data"
                     cellname="wrd_creationdate"
                     type="datetime"
@@ -212,11 +213,6 @@
           <text composition="userdata" cellname="login" selectable="true" />
           <heading name="extradata" visible="false" />
           <spacer name="extradatainsertpoint" visible="false" />
-          <heading tid=".appversions" />
-          <list name="appversions" height="1pr">
-            <column name="name" type="text" width="1pr" />
-            <column name="version" type="text" width="1pr" />
-          </list>
         </tab>
       </tabs>
     </body>

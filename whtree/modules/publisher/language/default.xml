@@ -1786,10 +1786,9 @@
       </textgroup>
       <textgroup gid="feedback">   <!-- tolliumapps.feedback.feedback -->
         <text tid="addcomment">Add comment</text>
-        <text tid="appversions">Application versions</text>
         <text tid="browser">Browser</text>
         <text tid="comment">Comment</text>
-        <text tid="comments">Comments</text>
+        <text tid="comments">Feedback</text>
         <text tid="device">Device</text>
         <text tid="extradata">Additional data</text>
         <text tid="feedback">Feedback</text>
@@ -1797,6 +1796,7 @@
         <text tid="metadata">Metadata</text>
         <text tid="name">Name</text>
         <text tid="screenshot">Screenshot</text>
+        <text tid="shareurl">Share URL</text>
         <text tid="useragent">User-Agent</text>
         <text tid="version">Version</text>
         <text tid="wrd_creationdate">When</text>
