@@ -2,7 +2,6 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from 'dompack';
-import * as browser from 'dompack/extra/browser';
 import '@mod-system/js/wh/integration'; //make debugflags work
 
 
@@ -840,4 +839,3 @@ export function getFileAsDataURL(file) {
 export function setDefaultUploadChunkSize(newchunksize) {
   default_upload_chunk_size = newchunksize;
 }
-

@@ -1,5 +1,5 @@
 import * as test from "@mod-system/js/wh/testframework";
-import * as cookie from "dompack/extra/cookie";
+import * as dompack from "@webhare/dompack";
 
 test.registerTests(
 [ "Test isolated storage"
@@ -7,7 +7,7 @@ test.registerTests(
   {
     window.localStorage.removeItem("testFwKey");
     window.sessionStorage.removeItem("testFwKey");
-    cookie.remove("testFwCookie");
+    dompack.deleteCookie("testFwCookie");
 
     await test.load('/.webhare_testsuite/tests/pages/dompack/?testpage=empty'); //we need 'a' page, doesn't matter which
     test.assert(!test.getWin().storageIsIsolated());

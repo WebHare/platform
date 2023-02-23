@@ -155,6 +155,7 @@ function checkDomain(domain: string) {
   return true;
 }
 
+/** @deprecated Full RFC2822 validation is probably not what you want. It's better to just use input[type=email] in the frontend */
 export function isValidEmailAddress(emailaddress: string) {
   const name_addr_check = emailaddress.split('<');
 

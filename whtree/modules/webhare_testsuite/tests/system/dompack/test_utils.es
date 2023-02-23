@@ -2,7 +2,6 @@ import * as test from "@mod-system/js/wh/testframework";
 
 import * as dompack from "dompack";
 import * as create from "dompack/src/create";
-import { isValidEmailAddress } from 'dompack/types/email';
 import * as webhare_dompack from "@webhare/dompack";
 
 let eventcount = 0;
@@ -77,15 +76,4 @@ test.registerTests(
     test.eq("1", "123".at(-3));
     test.eq(undefined, "123".at(-4));
   }
-
-  , "isValidEmailAddress"
-  , async function()
-    {
-      let testdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#GetWHInternalTestData');
-      for (let i of testdata.internet.testemail)
-      {
-        console.log(i.email);
-        test.eq(i.valid, isValidEmailAddress(i.email));
-      }
-    }
 ]);

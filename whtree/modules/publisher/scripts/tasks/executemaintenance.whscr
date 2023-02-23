@@ -109,13 +109,19 @@ MACRO RemoveObsoleteBundledAssets()
   trans->CommitWork();
 }
 
-MACRO RemoveObsoleteAutosaves()
+MACRO RemoveObsoleteDrafts()
 {
   trans->BeginWork();
-  //We'll take the trashcan expiry limit for autosave too
+
+  //We'll take the trashcan expiry limit for autosave ('private draft') too
   INTEGER max_recycle_days := ReadRegistryKey("publisher.trashcan.trashcanexpire");
   DATETIME cutoff := AddDaysToDate(-max_recycle_days, GetCurrentDatetime());
-  DELETE FROM system.fs_objects WHERE parent=14 AND modificationdate<cutoff;
+
+  DELETE FROM system.fs_objects WHERE parent = whconstant_whfsid_autosaves AND modificationdate<cutoff;
+
+  //We can also safely delete any public/private draft whose associated file is already gone (and out of the recyclebin) - they're unreachable for normal users anyway
+  DELETE FROM system.fs_objects WHERE parent IN [ whconstant_whfsid_drafts, whconstant_whfsid_autosaves ] AND filelink = 0;
+
   trans->CommitWork();
 }
 
@@ -137,7 +143,7 @@ CheckScheduledTasks();
 CheckPublicDrafts();
 RemoveObsoleteBundledAssets();
 RemoveObsoleteCacheFolders();
-RemoveObsoleteAutosaves();
+RemoveObsoleteDrafts();
 CleanupObsoleteFavorites("publisher:app", PTR GetRemovableTargets);
 
 trans->BeginWork();
