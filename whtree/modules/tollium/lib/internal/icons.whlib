@@ -193,11 +193,11 @@ RECORD FUNCTION GetIconType(STRING findicon, INTEGER width, INTEGER height, STRI
 
 PUBLIC RECORD FUNCTION GetModuleIcon(STRING iconname, INTEGER width, INTEGER height, STRING color, BOOLEAN allowsvg DEFAULTSTO TRUE)
 {
-  // The special "tollium:countryflags/" namespace is mapped to the flag data from https://www.npmjs.com/package/flag-icon-css
+  // The special "tollium:countryflags/" namespace is mapped to the flag data from https://www.npmjs.com/package/flag-icons
   IF (iconname LIKE "wrd:countryflags/*" OR iconname LIKE "tollium:countryflags/*")
   {
     STRING countrycode := Substring(iconname, SearchSubstring(iconname, "/") + 1);
-    STRING diskpath := MergePath(__SYSTEM_WHCOREPARAMETERS().installationroot, "node_modules/flag-icon-css/flags/1x1/" || countrycode || ".svg");
+    STRING diskpath := MergePath(__SYSTEM_WHCOREPARAMETERS().installationroot, "node_modules/flag-icons/flags/1x1/" || countrycode || ".svg");
     TRY
     {
       RETURN [ type := "image/svg+xml"

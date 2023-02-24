@@ -1,4 +1,4 @@
-Images in this namespace are automatically mapped to the flag data from https://www.npmjs.com/package/flag-icon-css. Specify
+Images in this namespace are automatically mapped to the flag data from https://www.npmjs.com/package/flag-icons. Specify
 the two-letter country code as the image name.
 
 Examples:

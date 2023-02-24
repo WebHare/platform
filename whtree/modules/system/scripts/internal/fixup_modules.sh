@@ -32,7 +32,7 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then #Only do this when building docker images, 
   fi
 
   echo "Compress country flags"
-  gzip --keep /opt/wh/whtree/node_modules/flag-icon-css/flags/*/*.svg
+  gzip --keep /opt/wh/whtree/node_modules/flag-icons/flags/*/*.svg
 
   #Compile the rest parallel to fixmodules
   echo "Compiling the other core modules (background)"
