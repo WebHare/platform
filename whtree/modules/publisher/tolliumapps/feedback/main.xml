@@ -14,7 +14,7 @@
       <action name="reopen" onexecute="doreopen">
         <enableon source="feedback" min="1" checkflags="canreopen" />
       </action>
-      <action name="delete" onexecute="dodelete" shortcut="del" tid="~delete">
+      <action name="delete" frameflags="issysop" onexecute="dodelete" shortcut="del" tid="~delete">
         <enableon source="feedback" min="1" />
       </action>
       <action name="togglefilter" onexecute="dotogglefilter" title="" />
