@@ -1,39 +1,39 @@
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
 
-  <object tag="TOPIC" title="Topic">
+  <object tag="topic" title="Topic">
     <attributes>
-      <free tag="WRD_TITLE" title="Title" />
-      <free tag="WRD_TAG" title="Tag" required="true" />
-      <integer tag="WRD_ORDERING" title="Ordering" />
-      <domain tag="DEFAULT_PRIORITY" domain="PRIORITY" title="Default priority" />
-      <domain tag="DEFAULT_ROLE" domain="ROLE" title="Default role" />
-      <domainmultiple tag="ALLOWED_PRIORITIES" domain="PRIORITY" title="Allowed priorities" />
+      <free tag="wrd_title" title="Title" />
+      <free tag="wrd_tag" required="true" title="Tag" />
+      <integer tag="wrd_ordering" title="Ordering" />
+      <domain tag="default_priority" domain="priority" title="Default priority" />
+      <domain tag="default_role" domain="role" title="Default role" />
+      <domainmultiple tag="allowed_priorities" domain="priority" title="Allowed priorities" />
     </attributes>
   </object>
 
-  <object tag="PRIORITY" title="Priority">
+  <object tag="priority" title="Priority">
     <attributes>
-      <free tag="WRD_TITLE" title="Title" />
-      <integer tag="WRD_ORDERING" title="Ordering" />
+      <free tag="wrd_title" title="Title" />
+      <integer tag="wrd_ordering" title="Ordering" />
     </attributes>
   </object>
 
-  <object tag="ROLE" title="Role">
+  <object tag="role" title="Role">
     <attributes>
-      <free tag="WRD_TITLE" title="Title" required="true" />
-      <integer tag="WRD_ORDERING" title="Ordering" />
+      <free tag="wrd_title" required="true" title="Title" />
+      <integer tag="wrd_ordering" title="Ordering" />
     </attributes>
   </object>
 
-  <attachment tag="FEEDBACK" linkfrom="SCOPE" title="Feedback">
+  <attachment tag="feedback" linkfrom="scope" title="Feedback">
     <attributes>
       <!-- Currently 2 -->
-      <integer tag="VERSION" title="Version" />
+      <integer tag="version" title="Version" />
 
       <!-- Feedback tracking id, eg FB1234 -->
-      <free tag="FEEDBACKID" required="true" title="Feedback id" unique="true" />
-      <domain tag="TOPIC" domain="TOPIC" title="Feedback topic" />
-      <domain tag="ROLE" domain="ROLE" title="Next action role" />
+      <free tag="feedbackid" required="true" title="Feedback id" unique="true" />
+      <domain tag="topic" domain="topic" title="Feedback topic" />
+      <domain tag="role" domain="role" title="Next action role" />
 
       <!--
         RECORD ARRAY htmlattrs
@@ -45,14 +45,14 @@
           STRING value
         STRING bodycontents (the 'innerHTML' of the <body> node)
       -->
-      <record tag="SCREENSHOT" title="Screenshot HTML data" />
+      <record tag="screenshot" title="Screenshot HTML data" />
 
       <!--
         Browser viewport size
         INTEGER width
         INTEGER height
       -->
-      <record tag="SIZE" title="Browser window size" />
+      <record tag="size" title="Browser window size" />
 
       <!--
         The selected element bounding box
@@ -61,15 +61,15 @@
         INTEGER width
         INTEGER height
       -->
-      <record tag="ELEMENT" title="Clicked element's size and position" />
-      <free tag="BROWSER" title="Browser triplet" />
-      <free tag="DEVICE" title="Browser device" />
-      <free tag="USERAGENT" title="Browser user agent" />
-      <free tag="URL" title="The URL the screenshot was taken of" />
-      <integer tag="WHFSOBJECT" title="Affected WHFS object" />
-      <datetime tag="TARGETCREATIONDATE" title="Creationdate of the target (so we can more easily track deletions)" />
-      <free tag="REMARKS" title="User comment" />
-      <enum tag="STATUS"
+      <record tag="element" title="Clicked element's size and position" />
+      <free tag="browser" title="Browser triplet" />
+      <free tag="device" title="Browser device" />
+      <free tag="useragent" title="Browser user agent" />
+      <free tag="url" title="The URL the screenshot was taken of" />
+      <integer tag="whfsobject" title="Affected WHFS object" />
+      <datetime tag="targetcreationdate" title="Creationdate of the target (so we can more easily track deletions)" />
+      <free tag="remarks" title="User comment" />
+      <enum tag="status"
             allowedvalues="creating new assigned escalated closed resolved"
             gid="tolliumapps.feedback.types"
             required="true"
@@ -79,31 +79,31 @@
         When a feedback token is used, the payload of the token
         When a logged in user is recognized, the result of GetUserDataForLogging
       -->
-      <record tag="USERDATA" title="User data" />
-      <record tag="EXTRADATA" title="Extra data supplied by the user" />
-      <obsolete tag="APPVERSIONS" />
+      <record tag="userdata" title="User data" />
+      <record tag="extradata" title="Extra data supplied by the user" />
+      <obsolete tag="appversions" />
 
       <!-- No longer used -->
-      <domain tag="TYPE" domain="FEEDBACKTYPE" />
+      <domain tag="type" domain="feedbacktype" />
     </attributes>
   </attachment>
 
-  <attachment tag="LOG" linkfrom="FEEDBACK">
+  <attachment tag="log" linkfrom="feedback">
     <attributes>
-      <enum tag="STATUSCHANGE" allowedvalues="new assigned escalated closed resolved" gid="tolliumapps.feedback.types" />
-      <free tag="TEXT" />
-      <record tag="WEBHAREUSER" required="true" />
+      <enum tag="statuschange" allowedvalues="new assigned escalated closed resolved" gid="tolliumapps.feedback.types" />
+      <free tag="text" />
+      <record tag="webhareuser" required="true" />
     </attributes>
   </attachment>
 
   <!-- No longer used -->
-  <object tag="SCOPE" title="Scope" />
+  <object tag="scope" title="Scope" />
 
-  <attachment tag="FEEDBACKTYPE" linkfrom="SCOPE">
+  <attachment tag="feedbacktype" linkfrom="scope">
     <attributes>
-      <integer tag="WRD_ORDERING" />
-      <free tag="ROWKEY" />
-      <free tag="WRD_TITLE" />
+      <integer tag="wrd_ordering" />
+      <free tag="rowkey" />
+      <free tag="wrd_title" />
     </attributes>
   </attachment>
 
