@@ -6,6 +6,7 @@
       <free tag="WRD_TAG" title="Tag" required="true" />
       <integer tag="WRD_ORDERING" title="Ordering" />
       <domain tag="DEFAULT_PRIORITY" domain="PRIORITY" title="Default priority" />
+      <domain tag="DEFAULT_ROLE" domain="ROLE" title="Default role" />
       <domainmultiple tag="ALLOWED_PRIORITIES" domain="PRIORITY" title="Allowed priorities" />
     </attributes>
   </object>
@@ -13,6 +14,13 @@
   <object tag="PRIORITY" title="Priority">
     <attributes>
       <free tag="WRD_TITLE" title="Title" />
+      <integer tag="WRD_ORDERING" title="Ordering" />
+    </attributes>
+  </object>
+
+  <object tag="ROLE" title="Role">
+    <attributes>
+      <free tag="WRD_TITLE" title="Title" required="true" />
       <integer tag="WRD_ORDERING" title="Ordering" />
     </attributes>
   </object>
@@ -25,6 +33,7 @@
       <!-- Feedback tracking id, eg FB1234 -->
       <free tag="FEEDBACKID" required="true" title="Feedback id" unique="true" />
       <domain tag="TOPIC" domain="TOPIC" title="Feedback topic" />
+      <domain tag="ROLE" domain="ROLE" title="Next action role" />
 
       <!--
         RECORD ARRAY htmlattrs

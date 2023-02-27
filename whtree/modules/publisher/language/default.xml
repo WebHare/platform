@@ -1387,11 +1387,11 @@
   <textgroup gid="rights" limitlanguages="en nl">   <!-- rights -->
     <text tid="advanced">Advanced settings</text>
     <text tid="advanced-descr">Allow user to modify settings on 'advanced' tabs in Publisher and Form editor</text>
-    <text tid="feedbackscopes">Feedback scopes</text>
+    <text tid="feedbackroles">Feedback roles</text>
     <text tid="managefeedback">Manage feedback</text>
     <text tid="managefeedback-descr">Allows access to the Feedback application to view and handle feedback submitted through the feedback option</text>
-    <text tid="managefeedbackscope">Manage feedback for a scope</text>
-    <text tid="managefeedbackscope-descr">Allows access to the Feedback application to view and handle feedback for a specific scope submitted through the feedback option</text>
+    <text tid="managefeedbackrole">Manage feedback on behalf of a role</text>
+    <text tid="managefeedbackrole-descr">Allows access to the Feedback application to view and handle feedback for a specific role submitted through the feedback option</text>
     <text tid="manageshorturls">Manage short URLs</text>
     <text tid="pinning">Protection</text>
     <text tid="pinning-descr">Allows the user to enable and disable protection on files and folders</text>
@@ -1802,6 +1802,7 @@
         <text tid="wrd_creationdate">When</text>
       </textgroup>
       <textgroup gid="main">   <!-- tolliumapps.feedback.main -->
+        <text tid="allroles">All roles</text>
         <text tid="allstatuses">All feedback</text>
         <text tid="alltopics">All topics</text>
         <text tid="close">Close</text>
@@ -1812,9 +1813,11 @@
         <text tid="feedbackmultihint">Multi-row layout</text>
         <text tid="feedbacksinglehint">Single row layout</text>
         <text tid="filter">Filters</text>
+        <text tid="filterrole">Show role</text>
         <text tid="filtertopic">Show topic</text>
         <text tid="issuelog">Issue log</text>
         <text tid="main">Feedback</text>
+        <text tid="manageroles">Manage roles</text>
         <text tid="managetopics">Manage topics</text>
         <text tid="nofeedback">There is no feedback to show</text>
         <text tid="remarks">Remarks</text>
@@ -1833,6 +1836,11 @@
           <text tid="confirmdeletefeedback">Are you sure you want to delete this feedback?</text>
           <text tid="confirmreopenfeedback">Are you sure you want to reopen this feedback?</text>
         </textgroup>
+      </textgroup>
+      <textgroup gid="manageroles">   <!-- tolliumapps.feedback.manageroles -->
+        <text tid="editrole">Role</text>
+        <text tid="manageroles">Manage roles</text>
+        <text tid="role">Role</text>
       </textgroup>
       <textgroup gid="managetopics">   <!-- tolliumapps.feedback.managetopics -->
         <text tid="allowed_priorities">Allowed priorities</text>

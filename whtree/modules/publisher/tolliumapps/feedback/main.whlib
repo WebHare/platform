@@ -39,6 +39,13 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
          ORDER BY wrd_ordering
                 , ToUppercase(title)
                 , rowkey;
+    ^role->options := ^role->options CONCAT
+        SELECT *
+             , DELETE wrd_ordering
+          FROM this->contexts->wrdschema->^role->RunQuery([ outputcolumns := CELL[ rowkey := "wrd_id", title := "wrd_title", "wrd_ordering" ] ])
+         ORDER BY wrd_ordering
+                , ToUppercase(title)
+                , rowkey;
     ^status->SetValueIfValid(this->contexts->user->GetRegistryKey("publisher.feedback.laststatus", ""));
     this->SetRowlayout(this->contexts->user->GetRegistryKey("publisher.feedback.feedbackrowlayout", "multirow"));
 
@@ -203,6 +210,11 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->RunScreen("#managetopics");
   }
 
+  MACRO DoManageRoles()
+  {
+    this->RunScreen("#manageroles");
+  }
+
   MACRO DoSettings()
   {
     this->RunScreen("#settings");
@@ -230,6 +242,8 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
       INSERT [ field := "status", matchtype := "!=", value := "creating" ] INTO filters AT END;
     IF (^topic->value != "")
       INSERT CELL[ field := "topic", ^topic->value ] INTO filters AT END;
+    IF (^role->value != 0)
+      INSERT CELL[ field := "role", ^role->value ] INTO filters AT END;
 
     RECORD ARRAY rows := this->contexts->wrdschema->^feedback->RunQuery(CELL
         [ outputcolumns := CELL
@@ -274,6 +288,11 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   }
 
   MACRO OnSelectTopic()
+  {
+    ^feedback->Invalidate();
+  }
+
+  MACRO OnSelectRole()
   {
     ^feedback->Invalidate();
   }

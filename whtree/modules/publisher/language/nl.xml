@@ -1387,11 +1387,11 @@
   <textgroup gid="rights">   <!-- rights -->
     <text tid="advanced">Geavanceerde settings</text>
     <text tid="advanced-descr">Sta gebruikers toe instellingen op de 'geavanceerd' tabs in de Publisher en Formuliereditor te wijzigen</text>
-    <text tid="feedbackscopes">Feedback-scopes</text>
+    <text tid="feedbackroles">Feedback-rollen</text>
     <text tid="managefeedback">Feedback beheren</text>
     <text tid="managefeedback-descr">Geeft toegang tot de Feedback-applicatie om feedback te bekijken en af te handelen, die verstuurd is via de feedback-optie</text>
-    <text tid="managefeedbackscope">Feedback voor een scope beheren</text>
-    <text tid="managefeedbackscope-descr">Geeft toegang tot de Feedback-applicatie om feedback voor een specifieke scope te bekijken en af te handelen, die verstuurd is via de feedback-optie</text>
+    <text tid="managefeedbackrole">Feedback namens een rol beheren</text>
+    <text tid="managefeedbackrole-descr">Geeft toegang tot de Feedback-applicatie om feedback voor een specifieke rol te bekijken en af te handelen, die verstuurd is via de feedback-optie</text>
     <text tid="manageshorturls">Beheer verkorte URLs</text>
     <text tid="pinning">Bescherming</text>
     <text tid="pinning-descr">Maakt het mogelijk om bescherming aan en uit te zetten op bestanden en mappen</text>
@@ -1801,6 +1801,7 @@
         <text tid="wrd_creationdate">Wanneer</text>
       </textgroup>
       <textgroup gid="main">   <!-- tolliumapps.feedback.main -->
+        <text tid="allroles">Alle rollen</text>
         <text tid="allstatuses">Alle feedback</text>
         <text tid="alltopics">Alle onderwerpen</text>
         <text tid="close">Feedback sluiten</text>
@@ -1811,9 +1812,11 @@
         <text tid="feedbackmultihint">Dubbele-rij indeling</text>
         <text tid="feedbacksinglehint">Enkele-rijd indeling</text>
         <text tid="filter">Filters</text>
+        <text tid="filterrole">Toon rol</text>
         <text tid="filtertopic">Toon onderwerp</text>
         <text tid="issuelog">Issue log</text>
         <text tid="main">Feedback</text>
+        <text tid="manageroles">Rollen beheren</text>
         <text tid="managetopics">Onderwerpen beheren</text>
         <text tid="nofeedback">Er is geen feedback om te tonen</text>
         <text tid="remarks">Opmerkingen</text>
@@ -1832,6 +1835,11 @@
           <text tid="confirmdeletefeedback">Weet u zeker dat u deze feedback wilt verwijderen?</text>
           <text tid="confirmreopenfeedback">Weet u zeker dat u deze feedback wilt heropenen?</text>
         </textgroup>
+      </textgroup>
+      <textgroup gid="manageroles">   <!-- tolliumapps.feedback.manageroles -->
+        <text tid="editrole">Rol</text>
+        <text tid="manageroles">Rollen beheren</text>
+        <text tid="role">Rol</text>
       </textgroup>
       <textgroup gid="managetopics">   <!-- tolliumapps.feedback.managetopics -->
         <text tid="allowed_priorities">Toegestande prioriteiten</text>

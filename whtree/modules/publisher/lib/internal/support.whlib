@@ -196,7 +196,7 @@ PUBLIC OBJECTTYPE WorkListsDescriber EXTEND ObjectTypeDescriber
   }
 >;
 
-PUBLIC OBJECTTYPE FeedbackScopesDescriber EXTEND ObjectTypeDescriber
+PUBLIC OBJECTTYPE FeedbackRolesDescriber EXTEND ObjectTypeDescriber
 <
   OBJECT wrdschema;
 
@@ -210,12 +210,12 @@ PUBLIC OBJECTTYPE FeedbackScopesDescriber EXTEND ObjectTypeDescriber
     IF(NOT ObjectExists(this->wrdschema))
       RETURN DEFAULT RECORD;
 
-    RECORD scope := this->wrdschema->^scope->GetEntityFields(objectid, [ "wrd_tag" ]);
-    IF (NOT RecordExists(scope))
+    RECORD role := this->wrdschema->^role->GetEntityFields(objectid, [ "wrd_title" ]);
+    IF (NOT RecordExists(role))
       RETURN DEFAULT RECORD;
 
     RETURN [ id :=    objectid
-           , name :=  ToLowercase(scope.wrd_tag)
+           , name :=  role.wrd_title
            , icon :=  "tollium:actions/checklist"
            ];
   }
@@ -225,8 +225,8 @@ PUBLIC OBJECTTYPE FeedbackScopesDescriber EXTEND ObjectTypeDescriber
     IF(NOT ObjectExists(this->wrdschema))
       RETURN INTEGER[];
 
-    RETURN this->wrdschema->^scope->FindIds(
-        [ filters := [ [ field := "wrd_tag", matchtype := "!=", value := "" ] ]
+    RETURN this->wrdschema->^role->FindIds(
+        [ filters := [ [ field := "wrd_title", matchtype := "!=", value := "" ] ]
         ]);
   }
 >;
