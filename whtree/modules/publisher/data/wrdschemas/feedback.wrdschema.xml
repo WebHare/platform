@@ -5,6 +5,7 @@
       <free tag="wrd_title" title="Title" />
       <free tag="wrd_tag" required="true" title="Tag" />
       <integer tag="wrd_ordering" title="Ordering" />
+      <!-- FIXME These should become required but we should probably configure existing installations properly fist -->
       <domain tag="default_priority" domain="priority" title="Default priority" />
       <domain tag="default_role" domain="role" title="Default role" />
       <domainmultiple tag="allowed_priorities" domain="priority" title="Allowed priorities" />
@@ -32,8 +33,11 @@
 
       <!-- Feedback tracking id, eg FB1234 -->
       <free tag="feedbackid" required="true" title="Feedback id" unique="true" />
+
+      <!-- FIXME These should become required but we should probably configure existing installations properly fist -->
       <domain tag="topic" domain="topic" title="Feedback topic" />
       <domain tag="role" domain="role" title="Next action role" />
+      <domain tag="priority" domain="priority" title="Current priority" />
 
       <!--
         RECORD ARRAY htmlattrs

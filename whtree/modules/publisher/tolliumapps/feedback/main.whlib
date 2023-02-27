@@ -416,6 +416,7 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
     }
 
     RECORD feedback := this->contexts->wrdschema->^feedback->GetEntityFields(id, [ "size", "url", "version", "extradata", "feedbackid", ...^data->GetComposedCellnames() ]);
+    feedback.size := EnforceStructure([ width := 0f, height := 0f], feedback.size);
     this->screenshot := GetScreenshotWitty()->RunComponentToString("container", CELL
         [ screenshot := [ width := INTEGER(Ceil(feedback.size.width))
                         , height := INTEGER(Ceil(feedback.size.height))

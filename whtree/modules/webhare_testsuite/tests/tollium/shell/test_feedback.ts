@@ -5,7 +5,7 @@ let setupdata: any, feedbackid: string;
 test.registerTests([
   async function() {
     setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup'
-      , { createsysop: true });
+      , { createsysop: true, prepfeedback: true });
     await test.load(test.getWrdLogoutUrl(setupdata.testportalurl));
     await test.wait('ui');
 

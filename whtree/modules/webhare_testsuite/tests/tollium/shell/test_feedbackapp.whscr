@@ -1,0 +1,57 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/internal/embeddeddocs.whlib";
+
+LOADLIB "mod::publisher/lib/testfw/sites.whlib";
+LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
+
+RECORD testsetup;
+
+MACRO PrepFeedbackAppTests()
+{
+  //There's no way to create feedback *in* the feedback app directly, and there might never be because we want our feedback to have url+screenshot
+  testfw->BeginWork();
+  testsetup := SetupTestFeedbackTopics();
+
+  OBJECT feedbackschema := OpenWRDSchema("publisher:feedback");
+  RECORD feedback1 := StoreFeedback([ browser := testfw_mockbrowser ]);
+  //dumpvalue(feedback1,'tree');
+
+  STRING feedback1id := StoreFeedbackExtraData(feedback1.guid, CELL[ topic := "TESTFW_TOPIC1" ]);
+  //dumpvalue(feedback1id,'tree');
+
+  INTEGER feedback1wrdid := feedbackschema->^feedback->Search("FEEDBACKID", feedback1id);
+  TestEq(testsetup.testtopic->id, feedbackschema->^feedback->GetEntityField(feedback1wrdid, "topic"));
+  TestEq(testsetup.testrole1->id, feedbackschema->^feedback->GetEntityField(feedback1wrdid, "role"));
+  TestEq(testsetup.testprio1->id, feedbackschema->^feedback->GetEntityField(feedback1wrdid, "priority"));
+
+  testfw->GetUserObject("sysop")->UpdateGrant("grant", "publisher:managefeedbackrole", testsetup.testrole2->id, testfw->GetUserObject("marge"));
+
+  testfw->CommitWork();
+}
+
+ASYNC MACRO TestFeedbackApp()
+{
+  testfw->SetTestUser("marge");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:feedback"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEScape);
+}
+
+RunTestFramework( [ PTR PrepFeedbackAppTests
+                  , PTR TestFeedbackApp
+                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                    ,[ login := "marge" ]
+                                    ]
+                     ]);

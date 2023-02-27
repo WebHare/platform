@@ -179,15 +179,18 @@ PUBLIC STRING FUNCTION StoreFeedbackExtraData(STRING guid, RECORD settings)
     THROW NEW Exception(`No feedback with guid '${guid}'`);
 
   INTEGER topicid := wrdschema->^topic->Search("wrd_tag", ToUppercase(settings.topic));
-  IF (settings.topic != "" AND topicid = 0)
+  IF (topicid = 0) //Don't permit topic-less feedback, we can't route it any further
     THROW NEW Exception(`No such topic '${settings.topic}'`);
 
+  RECORD topicsettings := wrdschema->^topic->GetEntityFields(topicid, ["default_role" ,"default_priority"]);
   RECORD feedback := wrdschema->^feedback->GetEntityFields(feedbackid, [ "extradata","status","wrd_leftentity" ]);
   IF(feedback.status != "creating")
     THROW NEW Exception(`Feedback with guid '${guid}' has already been completed`);
 
   wrdschema->^feedback->UpdateEntity(feedbackid,
       CELL[ topic := topicid
+          , role := topicsettings.default_role
+          , priority := topicsettings.default_priority
           , settings.remarks
           , extradata := CELL[...feedback.extradata, ...settings.extradata ]
           , status := "new"

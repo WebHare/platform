@@ -1844,6 +1844,7 @@
       <textgroup gid="managetopics">   <!-- tolliumapps.feedback.managetopics -->
         <text tid="allowed_priorities">Toegestande prioriteiten</text>
         <text tid="default_priority">Standaard prioriteit</text>
+        <text tid="default_role">Standaard rol</text>
         <text tid="editpriority">Prioriteit</text>
         <text tid="edittopic">Onderwerp</text>
         <text tid="managetopics">Feedback-onderwerpen beheren</text>

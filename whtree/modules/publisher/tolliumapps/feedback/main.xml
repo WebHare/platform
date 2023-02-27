@@ -275,6 +275,10 @@
       <select composition="entity" cellname="default_priority" type="pulldown" required="true" rowkeytype="integer">
         <option rowkey="0" invalidselection="true" title="" />
       </select>
+      <select composition="entity" cellname="default_role" type="pulldown" required="true" rowkeytype="integer">
+        <option rowkey="0" invalidselection="true" title="" />
+        <wrd:runquery orderingtag="wrd_ordering" wrdtype="role" />
+      </select>
     </body>
   </screen>
 
