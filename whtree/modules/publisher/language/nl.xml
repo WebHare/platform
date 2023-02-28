@@ -1832,6 +1832,7 @@
         <text tid="statuschange">Status gewijzigd van <param p="1"/> naar <param p="2"/></text>
         <text tid="topic">Onderwerp</text>
         <text tid="type">Type</text>
+        <text tid="wrd_creationdate">Aangemaakt</text>
         <text tid="wrd_modificationdate">Wanneer</text>
         <textgroup gid="messages">   <!-- tolliumapps.feedback.main.messages -->
           <text tid="confirmclosefeedback">Weet u zeker dat u deze feedback wilt afsluiten?</text>

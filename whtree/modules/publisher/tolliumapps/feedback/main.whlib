@@ -227,7 +227,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     RunColumnFileExportDialog(this,
       CELL[ rows
           , columns := [[ type := "text",     name := "feedbackid",           title := this->GetTid(".feedbackid") ]
-                       ,[ type := "datetime", name := "wrd_modificationdate", title := this->GetTid(".wrd_modificationdate"), storeutc := TRUE ]
+                       ,[ type := "datetime", name := "wrd_creationdate",     title := this->GetTid(".wrd_creationdate"), storeutc := TRUE ]
                        ,[ type := "text",     name := "reportedby",           title := this->GetTid(".reportedby") ]
                        ,[ type := "text",     name := "reportedbyemail",      title := GetTid("~email") ]
                        ,[ type := "text",     name := "type",                 title := this->GetTid(".type") ]

@@ -1833,6 +1833,7 @@
         <text tid="statuschange">Status changed from <param p="1"/> to <param p="2"/></text>
         <text tid="topic">Topic</text>
         <text tid="type">Type</text>
+        <text tid="wrd_creationdate">Created</text>
         <text tid="wrd_modificationdate">When</text>
         <textgroup gid="messages">   <!-- tolliumapps.feedback.main.messages -->
           <text tid="confirmclosefeedback">Are you sure you want to close this feedback?</text>
