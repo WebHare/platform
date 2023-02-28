@@ -821,12 +821,12 @@ export default class EditorBase {
     return this.bodydiv;
   }
 
-  qS(selector) {
+  qS<T extends HTMLElement>(selector: string): T | null {
     return this.getBody().querySelector(selector);
   }
 
-  qSA(selector) {
-    return Array.from(this.getBody().querySelectorAll(selector));
+  qSA<T extends HTMLElement>(selector: string): T[] {
+    return Array.from(this.getBody().querySelectorAll<T>(selector));
   }
 
   getButtonNode(actionname) {
@@ -866,7 +866,9 @@ export default class EditorBase {
 
     this.bodydiv.innerHTML = val;
     this.resetUndoStack();
-    this.knownimages = this.qSA('img').map(node => node.src);
+    this.knownimages = this.qSA('img')
+      .filter(node => !node.closest(".wh-rtd-embeddedobject"))
+      .map(node => node.src);
 
     this.reprocessAfterExternalSet();
 
@@ -2047,16 +2049,22 @@ export default class EditorBase {
   }
 
   async gotPaste(event) {
+    const preexistingstylenodes = this.qSA("style");
+
     // Wait for the paste to happen, then
-    setTimeout(() => this.handlePasteDone(), 1);
+    setTimeout(() => this.handlePasteDone(preexistingstylenodes), 1);
   }
 
-  async handlePasteDone() {
-    //Check for and remove hostile nodes
-    this.qSA("script,style,head").forEach(node => node.remove());
+  async handlePasteDone(preexistingstylenodes: HTMLElement[]) {
+    //Check for and remove hostile nodes (but allow inside embbedded objects)
+    this.qSA("script,style,head")
+      .filter(node => !preexistingstylenodes.includes(node))
+      .forEach(node => node.remove());
 
-    let imgs = this.qSA('img');
-    imgs = imgs.filter(img => !this.knownimages.includes(img.src) && !this._isStillImageDownloadNode(img) && img.isContentEditable);
+    let imgs = this.qSA<HTMLImageElement>('img');
+    imgs = imgs
+      .filter(img => !this.knownimages.includes(img.src) && !this._isStillImageDownloadNode(img) && img.isContentEditable)
+      .filter(node => !node.closest(".wh-rtd-embeddedobject"));
     if (!imgs.length) //nothing to do
       return;
 
