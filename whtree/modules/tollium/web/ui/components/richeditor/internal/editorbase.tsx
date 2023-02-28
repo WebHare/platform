@@ -1586,16 +1586,19 @@ export default class EditorBase {
 
     // Make sure we can insert at the start, and insert a temporary node to make sure splitdom
     // returns the current block in part[0]
-    range.splitStartBoundary(preservelocators, undoitem);
+    range.splitStartBoundary(preservelocators);
     const insertpos = range.start.clone();
 
     const tnode = document.createElement("img"); // Img elements are more stable than text nodes - not combined
-    range.start = range.start.insertNode(tnode, [range.end, ...preservelocators], undoitem);
+    range.start = range.start.insertNode(tnode, [range.end, ...preservelocators]);
 
     // Determine which blocks we start&end in
     const startblock = this.getBlockAtNode(range.start.getNearestNode());
     const endblock = this.getBlockAtNode(range.end.getNearestNode());
     let blockend = null;
+
+    // If range end is just before an inner node, we won't append that block
+    const endbeforeinnernode = (endblock.node as Node) === range.end.getNearestNode();
 
     // Determine the root we are splitting in
     const root = range.getAncestorElement();
@@ -1610,8 +1613,8 @@ export default class EditorBase {
     //console.log('removeRangeAndStitch start:', richdebug.getStructuredOuterHTML(root, { root:root, range:range, blockend: blockend }));
 
     //console.log('enter presplit:  ', richdebug.getStructuredOuterHTML(root, { range_start: range.start, range_end: range.end, blockend: blockend }));
-    const parts = domlevel.splitDom(root, [{ locator: range.start, toward: 'start' }, { locator: range.end, toward: 'end' }, { locator: blockend, toward: 'end' }], preservelocators, undoitem);
     //console.log('enter postsplit: ', richdebug.getStructuredOuterHTML(root, parts));
+    const parts = domlevel.splitDom(root, [{ locator: range.start, toward: 'start' }, { locator: range.end, toward: 'end' }, { locator: blockend, toward: 'end' }], preservelocators);
 
     // Ranges:
     //    0: content before range (keep, except our temporary element)
@@ -1623,13 +1626,13 @@ export default class EditorBase {
     preservelocators.push(insertpos);
 
     // Remove the contents of range 1, keep the other part locators valid
-    domlevel.removeSimpleRange(parts[1], preservelocators, undoitem);
+    domlevel.removeSimpleRange(parts[1], preservelocators);
 
     let insertlocator = domlevel.Locator.newPointingTo(tnode);
-    insertlocator.removeNode(preservelocators, undoitem);
+    insertlocator.removeNode(preservelocators);
 
     // Content to append?
-    if (!parts[2].start.equals(parts[2].end)) {
+    if (!endbeforeinnernode && !parts[2].start.equals(parts[2].end)) {
       const locator = parts[2].start.clone();
       locator.descendToLeafNode(this.getBody());
 
@@ -1640,13 +1643,13 @@ export default class EditorBase {
       range = Range.fromNodeInner(restblock.contentnode);
       range.intersect(parts[2]);
 
-      const res = domlevel.moveSimpleRangeTo(range, insertlocator, parts, undoitem);
+      const res = domlevel.moveSimpleRangeTo(range, insertlocator, parts);
 
       // Calculate range to remove
       range = new Range(res.afterlocator, parts[2].end);
       range.start.ascend(root, true, true);
 
-      domlevel.removeSimpleRange(range, preservelocators, undoitem);
+      domlevel.removeSimpleRange(range, preservelocators);
     } else {
       //console.log('no preinsert');
       this.requireVisibleContentInBlockAfterLocator(insertlocator, preservelocators, undoitem);
