@@ -47,11 +47,11 @@
       <impliedby right="system:supervisor"/>
     </right>
 
-    <objecttype name="feedbackscopes"
-                describer="lib/internal/support.whlib#feedbackscopesdescriber"
+    <objecttype name="feedbackroles"
+                describer="lib/internal/support.whlib#feedbackrolesdescriber"
                 rightsgroup="system:default"
                 table="wrd.entities"
-                tid="rights.feedbackscopes" />
+                tid="rights.feedbackroles" />
 
     <right name="managefeedback"
            rightsgroup="system:default"
@@ -59,10 +59,10 @@
            descriptiontid="rights.managefeedback-descr">
       <impliedby right="system:supervisor"/>
     </right>
-    <right name="managefeedbackscope"
-           objecttype="feedbackscopes"
-           tid="rights.managefeedbackscope"
-           descriptiontid="rights.managefeedbackscope-descr">
+    <right name="managefeedbackrole"
+           objecttype="feedbackroles"
+           tid="rights.managefeedbackrole"
+           descriptiontid="rights.managefeedbackrole-descr">
       <impliedby right="managefeedback"/>
     </right>
 
@@ -120,8 +120,9 @@
                  screen="tolliumapps/feedback/main.xml#main"
                  tid="tolliumapps.feedback.apptitle"
                  icon="tollium:actions/checklist">
-      <accesscheck>
-        <requireright right="managefeedbackscope"/>
+      <accesscheck combine="or">
+        <requireright right="managefeedback"/>  <!-- Add this right explicitly, so supervisors can access the app if there are no roles defined (yet) -->
+        <requireright right="managefeedbackrole"/>
       </accesscheck>
     </application>
 

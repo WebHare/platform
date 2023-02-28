@@ -24,6 +24,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   // Initialization
   //
   BOOLEAN doneinit;
+  RECORD ARRAY forwardactions;
 
   MACRO NEW()
   {
@@ -32,13 +33,6 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO Init(RECORD data)
   {
-    ^topic->options := ^topic->options CONCAT
-        SELECT *
-             , DELETE wrd_ordering
-          FROM this->contexts->wrdschema->^topic->RunQuery([ outputcolumns := CELL[ rowkey := "wrd_tag", title := "wrd_title", "wrd_ordering" ] ])
-         ORDER BY wrd_ordering
-                , ToUppercase(title)
-                , rowkey;
     ^status->SetValueIfValid(this->contexts->user->GetRegistryKey("publisher.feedback.laststatus", ""));
     this->SetRowlayout(this->contexts->user->GetRegistryKey("publisher.feedback.feedbackrowlayout", "multirow"));
 
@@ -49,7 +43,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     ^feedbackdetails->contents := this->LoadScreen(Resolve("main.xml#feedback"), [ embedded := TRUE ]);
 
     this->frame->flags.issysop := this->contexts->user->HasRight("system:sysop");
-
+    this->ReloadInterface();
     this->doneinit := TRUE;
 
     IF(CellExists(data.target, 'feedback'))
@@ -62,6 +56,52 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     }
   }
 
+  MACRO ReloadInterface()
+  {
+    RECORD ARRAY roles :=
+           SELECT *
+             FROM this->contexts->wrdschema->^role->RunQuery([ outputcolumns := CELL[ rowkey := "wrd_id", title := "wrd_title", "wrd_ordering" ] ])
+         ORDER BY wrd_ordering
+                , ToUppercase(title)
+                , rowkey;
+    ^topic->options := ^topic->options CONCAT
+        SELECT *
+             , DELETE wrd_ordering
+          FROM this->contexts->wrdschema->^topic->RunQuery([ outputcolumns := CELL[ rowkey := "wrd_tag", title := "wrd_title", "wrd_ordering" ] ])
+         ORDER BY wrd_ordering
+                , ToUppercase(title)
+                , rowkey;
+    ^role->options := RECORD[ ^role->options[0], ...roles ];
+
+    FOREVERY(RECORD fwd FROM this->forwardactions)
+    {
+      fwd.action->DeleteComponent();
+      fwd.menuitem->DeleteComponent();
+    }
+    this->forwardactions := RECORD[];
+
+    FOREVERY(RECORD role FROM roles)
+    {
+      RECORD fwd := CELL[ action := this->CreateTolliumComponent("action")
+                        , menuitem := this->CreateTolliumComponent("menuitem")
+                        ];
+
+      fwd.action->onexecute := PTR this->DoForwardTo(role.rowkey);
+      fwd.menuitem->title := role.title;
+      fwd.menuitem->action := fwd.action;
+      INSERT fwd INTO this->forwardactions AT END;
+    }
+
+    ^forwardtomenu->items := SELECT menuitem, isdivider := FALSE FROM this->forwardactions;
+    ^forwardtoitem->items := SELECT menuitem, isdivider := FALSE FROM this->forwardactions;
+  }
+
+  MACRO DoForwardTo(INTEGER targetrole)
+  {
+    OBJECT work := this->BeginUnvalidatedWork();
+    UpdateFeedbackItem(this->contexts->wrdschema, ^feedback->value, [ role := targetrole ], this->contexts->user->GetUserDataForLogging());
+    work->Finish();
+  }
 
   //----------------------------------------------------------------------------
   //
@@ -187,7 +227,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     RunColumnFileExportDialog(this,
       CELL[ rows
           , columns := [[ type := "text",     name := "feedbackid",           title := this->GetTid(".feedbackid") ]
-                       ,[ type := "datetime", name := "wrd_modificationdate", title := this->GetTid(".wrd_modificationdate"), storeutc := TRUE ]
+                       ,[ type := "datetime", name := "wrd_creationdate",     title := this->GetTid(".wrd_creationdate"), storeutc := TRUE ]
                        ,[ type := "text",     name := "reportedby",           title := this->GetTid(".reportedby") ]
                        ,[ type := "text",     name := "reportedbyemail",      title := GetTid("~email") ]
                        ,[ type := "text",     name := "type",                 title := this->GetTid(".type") ]
@@ -201,6 +241,13 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   MACRO DoManageTopics()
   {
     this->RunScreen("#managetopics");
+    this->ReloadInterface();
+  }
+
+  MACRO DoManageRoles()
+  {
+    this->RunScreen("#manageroles");
+    this->ReloadInterface();
   }
 
   MACRO DoSettings()
@@ -230,15 +277,20 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
       INSERT [ field := "status", matchtype := "!=", value := "creating" ] INTO filters AT END;
     IF (^topic->value != "")
       INSERT CELL[ field := "topic", ^topic->value ] INTO filters AT END;
+    IF (^role->value != 0)
+      INSERT CELL[ field := "role", ^role->value ] INTO filters AT END;
 
     RECORD ARRAY rows := this->contexts->wrdschema->^feedback->RunQuery(CELL
         [ outputcolumns := CELL
             [ rowkey := "wrd_id", "version", "wrd_creationdate", "wrd_modificationdate", "browser", "device", "userdata"
-            , "feedbackid", "remarks", "status", "topic", "url"
+            , "feedbackid", "remarks", "status", "topic", "url", "role"
             ]
         , filters
         ]);
+
     rows := this->contexts->wrdschema->^topic->Enrich(rows, "topic", [ topic := "wrd_title" ], [ rightouterjoin := TRUE ]);
+    rows := this->contexts->wrdschema->^role->Enrich(rows, "role", [ role := "wrd_title" ], [ rightouterjoin := TRUE ]);
+
     rows :=
         SELECT TEMPORARY reportinfo := EnforceStructure([ realname := "", login := "", emailaddress := "" ], userdata)
              , *
@@ -274,6 +326,11 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   }
 
   MACRO OnSelectTopic()
+  {
+    ^feedback->Invalidate();
+  }
+
+  MACRO OnSelectRole()
   {
     ^feedback->Invalidate();
   }
@@ -342,7 +399,7 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
 
     RECORD curissue := this->contexts->wrdschema->^feedback->GetEntityFields(this->currentissue, [ "wrd_creationdate", "remarks", "userdata", "feedbackid" ]);
     RECORD ARRAY logentries := this->contexts->wrdschema->^log->RunQuery(
-        [ outputcolumns := CELL[ "wrd_id", "wrd_creationdate", "text", "webhareuser", "statuschange" ]
+        [ outputcolumns := CELL[ "wrd_id", "wrd_creationdate", "text", "webhareuser", "statuschange", "newrole" ]
         , filters := [ [ field := "wrd_leftentity", value := this->currentissue ]
                      ]
         ]);
@@ -351,30 +408,40 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
                        , userinfo := EnforceStructure([ realname := "", login := "" ], webhareuser)
                     FROM logentries;
 
-    INSERT CELL[ curissue.wrd_creationdate
-               , text := curissue.remarks
-               , userinfo := EnforceStructure([ realname := "", login := "", emailaddress := "" ], curissue.userdata)
-               , statuschange := "new" // Assume the status of the feedback was 'new' at the time of the first comment
-               ] INTO logentries AT END;
+    IF(NOT RecordExists(SELECT FROM logentries WHERE statuschange = "new")) //not pre-inserted as we started doing 28feb2023?
+      INSERT CELL[ curissue.wrd_creationdate
+                 , text := curissue.remarks
+                 , userinfo := EnforceStructure([ realname := "", login := "", emailaddress := "" ], curissue.userdata)
+                 , statuschange := "new" // Assume the status of the feedback was 'new' at the time of the first comment
+                 , newrole := 0
+                 ] INTO logentries AT END;
 
     logentries := SELECT when := this->tolliumuser->FormatDatetime(wrd_creationdate, "minutes", TRUE, FALSE)
                        , text
                        , entryby := userinfo.realname ?? userinfo.login ?? GetTid("publisher:tolliumapps.feedback.common.anonymous")
                        , statuschange
+                       , newrole
                     FROM logentries
                 ORDER BY wrd_creationdate;
 
     STRING status;
+    INTEGER currole;
     FOREVERY (RECORD entry FROM logentries)
     {
-      STRING oldstatus, newstatus;
+      STRING oldstatus, newstatus, oldrole, newrole;
       IF (entry.statuschange != "")
       {
         oldstatus := status;
         newstatus := GetTid("publisher:tolliumapps.feedback.types." || entry.statuschange);
         status := newstatus;
       }
-      logentries[#entry] := CELL[ ...entry, oldstatus, newstatus, DELETE statuschange ];
+      IF (entry.newrole != 0)
+      {
+        oldrole := this->contexts->wrdschema->^feedback->GetDomValTitle("ROLE", currole);
+        newrole := this->contexts->wrdschema->^feedback->GetDomValTitle("ROLE", entry.newrole);
+        currole := entry.newrole;
+      }
+      logentries[#entry] := CELL[ ...entry, oldstatus, newstatus, oldrole, newrole, DELETE statuschange ];
     }
 
     ^issuelog->blobvalue := issuewitty->RunComponentToBlob("entries",
@@ -397,6 +464,7 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
     }
 
     RECORD feedback := this->contexts->wrdschema->^feedback->GetEntityFields(id, [ "size", "url", "version", "extradata", "feedbackid", ...^data->GetComposedCellnames() ]);
+    feedback.size := EnforceStructure([ width := 0f, height := 0f], feedback.size);
     this->screenshot := GetScreenshotWitty()->RunComponentToString("container", CELL
         [ screenshot := [ width := INTEGER(Ceil(feedback.size.width))
                         , height := INTEGER(Ceil(feedback.size.height))
@@ -447,12 +515,7 @@ PUBLIC STATIC OBJECTTYPE Feedback EXTEND TolliumScreenBase
   MACRO DoAddComment()
   {
     OBJECT work := this->BeginWork( [ validate := OBJECT[ ^comment ]]);
-    this->contexts->wrdschema->^log->CreateEntity(
-      [ wrd_leftentity := this->currentissue
-      , text := ^comment->value
-      , webhareuser := this->contexts->user->GetUserDataForLogging()
-      ]);
-
+    UpdateFeedbackItem(this->contexts->wrdschema, this->currentissue, [ remarks := ^comment->value ], this->contexts->user->GetUserDataForLogging());
     IF(NOT work->Finish())
       RETURN;
 

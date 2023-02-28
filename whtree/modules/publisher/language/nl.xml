@@ -1387,11 +1387,11 @@
   <textgroup gid="rights">   <!-- rights -->
     <text tid="advanced">Geavanceerde settings</text>
     <text tid="advanced-descr">Sta gebruikers toe instellingen op de 'geavanceerd' tabs in de Publisher en Formuliereditor te wijzigen</text>
-    <text tid="feedbackscopes">Feedback-scopes</text>
+    <text tid="feedbackroles">Feedback-rollen</text>
     <text tid="managefeedback">Feedback beheren</text>
     <text tid="managefeedback-descr">Geeft toegang tot de Feedback-applicatie om feedback te bekijken en af te handelen, die verstuurd is via de feedback-optie</text>
-    <text tid="managefeedbackscope">Feedback voor een scope beheren</text>
-    <text tid="managefeedbackscope-descr">Geeft toegang tot de Feedback-applicatie om feedback voor een specifieke scope te bekijken en af te handelen, die verstuurd is via de feedback-optie</text>
+    <text tid="managefeedbackrole">Feedback namens een rol beheren</text>
+    <text tid="managefeedbackrole-descr">Geeft toegang tot de Feedback-applicatie om feedback voor een specifieke rol te bekijken en af te handelen, die verstuurd is via de feedback-optie</text>
     <text tid="manageshorturls">Beheer verkorte URLs</text>
     <text tid="pinning">Bescherming</text>
     <text tid="pinning-descr">Maakt het mogelijk om bescherming aan en uit te zetten op bestanden en mappen</text>
@@ -1801,6 +1801,7 @@
         <text tid="wrd_creationdate">Wanneer</text>
       </textgroup>
       <textgroup gid="main">   <!-- tolliumapps.feedback.main -->
+        <text tid="allroles">Alle rollen</text>
         <text tid="allstatuses">Alle feedback</text>
         <text tid="alltopics">Alle onderwerpen</text>
         <text tid="close">Feedback sluiten</text>
@@ -1811,14 +1812,19 @@
         <text tid="feedbackmultihint">Dubbele-rij indeling</text>
         <text tid="feedbacksinglehint">Enkele-rijd indeling</text>
         <text tid="filter">Filters</text>
+        <text tid="filterrole">Toon rol</text>
         <text tid="filtertopic">Toon onderwerp</text>
+        <text tid="forwardto">Doorsturen</text>
         <text tid="issuelog">Issue log</text>
         <text tid="main">Feedback</text>
+        <text tid="manageroles">Rollen beheren</text>
         <text tid="managetopics">Onderwerpen beheren</text>
         <text tid="nofeedback">Er is geen feedback om te tonen</text>
         <text tid="remarks">Opmerkingen</text>
         <text tid="reopen">Heropenen</text>
         <text tid="reportedby">Gemeld door</text>
+        <text tid="role">Actie nodig door</text>
+        <text tid="rolechange">Actie nodig door: <param p="1"/> =&gt; <param p="2"/></text>
         <text tid="status">Status</text>
         <text tid="status-closed">Afgesloten</text>
         <text tid="status-escalated">Geëscaleerd</text>
@@ -1826,6 +1832,7 @@
         <text tid="statuschange">Status gewijzigd van <param p="1"/> naar <param p="2"/></text>
         <text tid="topic">Onderwerp</text>
         <text tid="type">Type</text>
+        <text tid="wrd_creationdate">Aangemaakt</text>
         <text tid="wrd_modificationdate">Wanneer</text>
         <textgroup gid="messages">   <!-- tolliumapps.feedback.main.messages -->
           <text tid="confirmclosefeedback">Weet u zeker dat u deze feedback wilt afsluiten?</text>
@@ -1833,9 +1840,15 @@
           <text tid="confirmreopenfeedback">Weet u zeker dat u deze feedback wilt heropenen?</text>
         </textgroup>
       </textgroup>
+      <textgroup gid="manageroles">   <!-- tolliumapps.feedback.manageroles -->
+        <text tid="editrole">Rol</text>
+        <text tid="manageroles">Rollen beheren</text>
+        <text tid="role">Rol</text>
+      </textgroup>
       <textgroup gid="managetopics">   <!-- tolliumapps.feedback.managetopics -->
         <text tid="allowed_priorities">Toegestande prioriteiten</text>
         <text tid="default_priority">Standaard prioriteit</text>
+        <text tid="default_role">Standaard rol</text>
         <text tid="editpriority">Prioriteit</text>
         <text tid="edittopic">Onderwerp</text>
         <text tid="managetopics">Feedback-onderwerpen beheren</text>

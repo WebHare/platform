@@ -179,19 +179,31 @@ PUBLIC STRING FUNCTION StoreFeedbackExtraData(STRING guid, RECORD settings)
     THROW NEW Exception(`No feedback with guid '${guid}'`);
 
   INTEGER topicid := wrdschema->^topic->Search("wrd_tag", ToUppercase(settings.topic));
-  IF (settings.topic != "" AND topicid = 0)
+  IF (topicid = 0) //Don't permit topic-less feedback, we can't route it any further
     THROW NEW Exception(`No such topic '${settings.topic}'`);
 
-  RECORD feedback := wrdschema->^feedback->GetEntityFields(feedbackid, [ "extradata","status","wrd_leftentity" ]);
+  RECORD topicsettings := wrdschema->^topic->GetEntityFields(topicid, ["default_role" ,"default_priority"]);
+  RECORD feedback := wrdschema->^feedback->GetEntityFields(feedbackid, [ "extradata","status","wrd_leftentity", "userdata" ]);
   IF(feedback.status != "creating")
     THROW NEW Exception(`Feedback with guid '${guid}' has already been completed`);
 
   wrdschema->^feedback->UpdateEntity(feedbackid,
       CELL[ topic := topicid
+          , role := topicsettings.default_role
+          , priority := topicsettings.default_priority
           , settings.remarks
           , extradata := CELL[...feedback.extradata, ...settings.extradata ]
           , status := "new"
           ]);
+
+  wrdschema->^log->CreateEntity(CELL[ wrd_leftentity := feedbackid
+                                    , newrole := topicsettings.default_role
+                                    , newtopic := topicid
+                                    , newpriority := topicsettings.default_priority
+                                    , text := settings.remarks
+                                    , statuschange := "new"
+                                    , webhareuser := feedback.userdata
+                                    ]);
 
   RECORD finaldata := wrdschema->^feedback->GetEntityFields(feedbackid, ["feedbackid", "whfsobject"]);
   RunModuleHookTarget("publisher:feedbackupdate", CELL[ feedbackid, finaldata.whfsobject ]);
@@ -253,3 +265,30 @@ PUBLIC RECORD FUNCTION VerifyFeedbackWebToken(STRING token)
   }
   RETURN DEFAULT RECORD;
 }
+
+PUBLIC MACRO UpdateFeedbackItem(OBJECT wrdschema, INTEGER feedbackid, RECORD newentry, RECORD webhareuser)
+{
+  newentry := ValidateOptions(CELL[ role := 0
+                                  , remarks := ""
+                                  ], newentry, [ optional := [ "role" ], title := "newentry" ]);
+
+  RECORD logentry := [ wrd_leftentity := feedbackid
+                     , webhareuser := webhareuser
+                     , text := newentry.remarks
+                     ];
+  RECORD itemupdates;
+
+  IF(CellExists(newentry,'role') AND newentry.role != wrdschema->^feedback->GetEntityField(feedbackid, "role"))
+  {
+    INSERT CELL newrole := newentry.role INTO logentry;
+    INSERT CELL role := newentry.role INTO itemupdates;
+  }
+
+  IF(newentry.remarks = "" AND NOT RecordExists(itemupdates))
+    RETURN;
+
+  wrdschema->^log->CreateEntity(logentry);
+  IF(RecordExists(itemupdates))
+    wrdschema->^feedback->UpdateEntity(feedbackid, itemupdates);
+}
+

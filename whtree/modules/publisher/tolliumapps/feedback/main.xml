@@ -14,7 +14,7 @@
       <action name="reopen" onexecute="doreopen">
         <enableon source="feedback" min="1" checkflags="canreopen" />
       </action>
-      <action name="delete" onexecute="dodelete" shortcut="del" tid="~delete">
+      <action name="delete" frameflags="issysop" onexecute="dodelete" shortcut="del" tid="~delete">
         <enableon source="feedback" min="1" />
       </action>
       <action name="togglefilter" onexecute="dotogglefilter" title="" />
@@ -22,6 +22,7 @@
       <action name="setfeedbacksingle" onexecute="dosetfeedbacksingle" title="" />
       <action name="export" onexecute="doexport" tid="~export" />
       <action name="managetopics" frameflags="issysop" onexecute="domanagetopics" />
+      <action name="manageroles" frameflags="issysop" onexecute="domanageroles" />
       <action name="settings" frameflags="issysop" onexecute="dosettings" tid="~settings" />
       <action name="exit" onexecute="doexit" shortcut="ctrl+q" tid="~exit" />
     </actions>
@@ -33,10 +34,13 @@
           <item action="close" />
           <item action="reopen" />
           <divider />
+          <item tid=".forwardto" name="forwardtoitem"/>
+          <divider />
           <item action="delete" />
         </item>
         <item action="export" />
         <item action="managetopics" disablemode="hidden" />
+        <item action="manageroles" disablemode="hidden" />
         <item action="settings" disablemode="hidden" />
         <divider />
         <item action="exit" />
@@ -45,9 +49,8 @@
         <item action="escalate" />
         <item action="close" />
         <item action="reopen" />
-        <divider />
-        <item action="delete" />
       </menu>
+      <menu name="forwardtomenu" />
     </menus>
 
     <compositions>
@@ -57,8 +60,8 @@
     <toolbar>
       <button action="escalate" icon="tollium:actions/escalate" />
       <button action="close" icon="tollium:status/positive" />
-      <divider />
-      <button action="delete" icon="tollium:actions/delete" />
+      <divider/>
+      <button menu="forwardtomenu" icon="tollium:actions/forward" tid=".forwardto"/>
     </toolbar>
 
     <body spacers="none">
@@ -72,24 +75,20 @@
                 <option rowkey="escalated" />
                 <option rowkey="closed" />
               </select>
+              <select name="role" type="pulldown" onchange="onselectrole" rowkeytype="integer" title="">
+                <option rowkey="0" tid=".allroles" />
+              </select>
               <spacer width="1pr" />
               <buttongroup borders="left right" layout="horizontal">
-                <button name="listfilterbtn"
-                        type="icon"
-                        action="togglefilter"
-                        hinttid=".filter"
-                        icon="tollium:actions/filter"
-                        title="" />
+                <button name="listfilterbtn" action="togglefilter" hinttid=".filter" icon="tollium:actions/filter" title="" />
               </buttongroup>
               <buttongroup borders="left" layout="horizontal">
                 <button name="feedbackmulti"
-                        type="icon"
                         action="setfeedbackmulti"
                         hinttid=".feedbackmultihint"
                         icon="tollium:buttonbar/showmultirow"
                         title="" />
                 <button name="feedbacksingle"
-                        type="icon"
                         action="setfeedbacksingle"
                         hinttid=".feedbacksinglehint"
                         icon="tollium:buttonbar/showsinglerow"
@@ -115,53 +114,63 @@
                 sortcolumn="wrd_modificationdate">
             <column name="feedbackid" type="text" width="12x" />
             <column name="status" type="text" width="10x" optiongid="tolliumapps.feedback.types" />
-            <column name="wrd_modificationdate" type="datetime" width="15x" precision="minutes" storeutc="true" />
+            <column name="wrd_creationdate" type="datetime" width="15x" precision="minutes" storeutc="true" />
             <column name="reportedby" type="text" linkname="reportedbylink" />
             <column name="topic" type="text" />
             <column name="remarks" type="text" width="3pr" />
+            <column name="role" type="text" width="20x" />
             <rowlayout name="singlerow">
               <col coldef="feedbackid" />
               <col coldef="status" />
-              <col coldef="wrd_modificationdate" />
+              <col coldef="wrd_creationdate" />
               <col coldef="reportedby" />
               <col coldef="topic" />
+              <col coldef="role" />
               <col coldef="remarks" />
               <row>
                 <cell coldef="feedbackid" />
                 <cell coldef="status" />
-                <cell coldef="wrd_modificationdate" />
+                <cell coldef="wrd_creationdate" />
                 <cell coldef="reportedby" />
                 <cell coldef="topic" />
+                <cell coldef="role" />
                 <cell coldef="remarks" />
               </row>
             </rowlayout>
             <rowlayout name="multirow">
               <col coldef="feedbackid" />
               <col coldef="status" />
-              <col coldef="wrd_modificationdate" />
+              <col coldef="wrd_creationdate" />
               <col coldef="reportedby" />
+              <col coldef="role" />
               <row>
                 <cell coldef="feedbackid" />
                 <cell coldef="status" />
-                <cell coldef="wrd_modificationdate" />
+                <cell coldef="wrd_creationdate" />
                 <cell coldef="reportedby" />
+                <cell coldef="role" />
               </row>
               <row>
                 <cell coldef="topic" />
-                <cell coldef="remarks" colspan="3" />
+                <cell coldef="remarks" colspan="4" />
               </row>
             </rowlayout>
           </list>
         </part>
-        <part width="2pr" name="feedbackdetails">
-        </part>
+        <part name="feedbackdetails" width="2pr" />
       </split>
     </body>
   </screen>
 
-  <screen name="feedback" width="120x" height="30gr" footerbuttons="close" gid=".feedback" allowresize="true" savestate="size">
+  <screen name="feedback"
+          width="120x"
+          height="30gr"
+          allowresize="true"
+          footerbuttons="close"
+          gid=".feedback"
+          savestate="size">
     <actions>
-      <action name="addcomment" onexecute="doaddcomment"  />
+      <action name="addcomment" onexecute="doaddcomment" />
     </actions>
 
     <compositions>
@@ -171,7 +180,7 @@
 
     <body spacers="none">
       <tabs height="1pr">
-        <tab height="1pr" name="comments">
+        <tab name="comments" height="1pr">
           <panel height="1pr" borders="all">
             <iframe name="issuelog" height="1pr" />
           </panel>
@@ -200,7 +209,7 @@
           </panel>
         </tab>
         <tab tid=".metadata">
-          <url name="shareurl" width="1pr"/>
+          <url name="shareurl" width="1pr" />
           <datetime composition="data"
                     cellname="wrd_creationdate"
                     type="datetime"
@@ -272,6 +281,10 @@
       <select composition="entity" cellname="default_priority" type="pulldown" required="true" rowkeytype="integer">
         <option rowkey="0" invalidselection="true" title="" />
       </select>
+      <select composition="entity" cellname="default_role" type="pulldown" required="true" rowkeytype="integer">
+        <option rowkey="0" invalidselection="true" title="" />
+        <wrd:runquery orderingtag="wrd_ordering" wrdtype="role" />
+      </select>
     </body>
   </screen>
 
@@ -282,6 +295,28 @@
 
     <body>
       <textedit composition="entity" cellname="wrd_title" required="true" />
+    </body>
+  </screen>
+
+  <screen name="manageroles" footerbuttons="close" gid=".manageroles" implementation="none">
+    <body>
+      <wrd:entitiesedit width="40x"
+                        deletemode="delete-denyreferred"
+                        entityeditscreen="#editrole"
+                        orderable="true"
+                        wrdtype="role">
+        <column name="wrd_title" type="text" tid=".role" />
+      </wrd:entitiesedit>
+    </body>
+  </screen>
+
+  <screen name="editrole" footerbuttons="ok cancel" gid=".manageroles" implementation="wrd:entityedit">
+    <compositions>
+      <wrd:entity name="entity" />
+    </compositions>
+
+    <body>
+      <textedit composition="entity" cellname="wrd_title" required="true" tid=".role" />
     </body>
   </screen>
 
