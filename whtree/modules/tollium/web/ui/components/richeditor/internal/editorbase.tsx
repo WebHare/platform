@@ -26,6 +26,7 @@ import * as compatupload from '@mod-system/js/compat/upload';
 import * as texttype from 'dompack/types/text';
 import * as icons from '@mod-tollium/js/icons';
 import Range from './dom/range';
+import type ParsedStructure from "./parsedstructure";
 
 let editableFix;
 
@@ -36,8 +37,8 @@ let editableFix;
 //
 
 // Get a plain text interpretation of the current rte contents
-function GetOuterPlain(node) {
-  if (node.nodeType == 1 || node.nodeType == 11) {
+function GetOuterPlain(node: Node): string {
+  if (domlevel.testType(node, [domlevel.NodeType.element, domlevel.NodeType.documentFragment] as const)) {
     // Don't return contents of certain elements
     if (('|script|style|').indexOf('|' + node.nodeName.toLowerCase() + '|') >= 0)
       return '';
@@ -50,7 +51,7 @@ function GetOuterPlain(node) {
 
     // Leave some element tags
     if (('|blockquote|table|tbody|tr|th|td|').indexOf('|' + node.nodeName.toLowerCase() + '|') >= 0)
-      nodes.push('<' + node.nodeName.toLowerCase() + GetNodeXML_Attributes(node) + '>');
+      nodes.push('<' + node.nodeName.toLowerCase() + GetNodeXML_Attributes(node as Element) + '>');
 
     // Get subnode texts
     for (let subnode = node.firstChild; subnode; subnode = subnode.nextSibling)
@@ -66,16 +67,17 @@ function GetOuterPlain(node) {
 
     return nodes.join('');
   }
-  if (node.nodeType == 3) {
+  if (node.nodeType == 3 || node.nodeType == 4) {
     if (!node.nodeValue)
       return '';
     let value = texttype.encodeValue(node.nodeValue);
 
     // Replace newlines with <br> nodes within pre elements
-    for (node = node.parentNode; node; node = node.parentNode)
+    let nodeitr = node.parentNode;
+    for (; nodeitr; nodeitr = nodeitr.parentNode)
       if (('|pre|').indexOf('|' + node.nodeName.toLowerCase() + '|') >= 0)
         break;
-    if (node)
+    if (nodeitr)
       value = value.split('\r\n').join('\n')   // Replace \r\n with \n
         .split('\r').join('\n')     // Replace \r with \n
         .split('\n').join('<br/>'); // Replace \n with <br/>
@@ -86,7 +88,7 @@ function GetOuterPlain(node) {
 }
 
 
-function GetNodeXML(node, inner) {
+function GetNodeXML(node: Node, inner?: boolean): string {
   if (!node)
     return '';
 
@@ -95,26 +97,27 @@ function GetNodeXML(node, inner) {
     case 9: // document
       if (!inner)
         s.push('<html><body>');
-      s.push(GetNodeXML(node.body, true));
+      s.push(GetNodeXML((node as Document).body, true));
       if (!inner)
         s.push('</body></html>');
       break;
     case 1: // element
-      if (!node.childNodes.length) {
+      const elt = node as Element;
+      if (!elt.childNodes.length) {
         // Don't export the bogus Mozilla line break node
-        if (node.nodeName.toLowerCase() == 'br'
-          && (node.getAttribute('_moz_editor_bogus_node') == 'TRUE'
-            || node.getAttribute('type') == '_moz'))
+        if (elt.nodeName.toLowerCase() == 'br'
+          && (elt.getAttribute('_moz_editor_bogus_node') == 'TRUE'
+            || elt.getAttribute('type') == '_moz'))
           break;
         if (!inner)
-          s.push('<' + node.nodeName.toLowerCase() + GetNodeXML_Attributes(node) + '/>');
+          s.push('<' + elt.nodeName.toLowerCase() + GetNodeXML_Attributes(elt) + '/>');
       } else {
         if (!inner)
-          s.push('<' + node.nodeName.toLowerCase() + GetNodeXML_Attributes(node) + '>');
-        for (let child = node.firstChild; child; child = child.nextSibling)
+          s.push('<' + elt.nodeName.toLowerCase() + GetNodeXML_Attributes(elt) + '>');
+        for (let child = elt.firstChild; child; child = child.nextSibling)
           s.push(GetNodeXML(child, false));
         if (!inner)
-          s.push('</' + node.nodeName.toLowerCase() + '>');
+          s.push('</' + elt.nodeName.toLowerCase() + '>');
       }
       break;
     case 3: // text
@@ -125,14 +128,14 @@ function GetNodeXML(node, inner) {
   return s.join('');
 }
 
-function GetNodeXML_Attributes(node) {
+function GetNodeXML_Attributes(node: Element) {
   const s = [];
   for (let i = 0; i < node.attributes.length; ++i)
-    s.push(' ' + node.attributes[i].nodeName.toLowerCase() + '="' + texttype.encodeValue(node.attributes[i].nodeValue) + '"');
+    s.push(' ' + node.attributes[i].nodeName.toLowerCase() + '="' + texttype.encodeValue(node.attributes[i].nodeValue || "") + '"');
   return s.join('');
 }
 
-function undoMutationEvents(ancestor, records, recordrecords) {
+function undoMutationEvents(ancestor: Element, records: MutationRecord[], recordrecords: boolean) {
   const redoRecords = [];
   let redoObserver;
 
@@ -157,14 +160,14 @@ function undoMutationEvents(ancestor, records, recordrecords) {
         {
           if (rec.oldValue === null)
             if (rec.attributeNamespace)
-              rec.target.removeAttributeNS(rec.attributeNamespace, rec.attributeName);
+              (rec.target as Element).removeAttributeNS(rec.attributeNamespace, rec.attributeName as string);
             else
-              rec.target.removeAttribute(rec.attributeName);
+              (rec.target as Element).removeAttribute(rec.attributeName as string);
           else
             if (rec.attributeNamespace)
-              rec.target.setAttributeNS(rec.attributeNamespace, rec.attributeName, rec.oldValue);
+              (rec.target as Element).setAttributeNS(rec.attributeNamespace, rec.attributeName as string, rec.oldValue);
             else
-              rec.target.setAttribute(rec.attributeName, rec.oldValue);
+              (rec.target as Element).setAttribute(rec.attributeName as string, rec.oldValue);
         } break;
       case "characterData":
         {
@@ -173,13 +176,13 @@ function undoMutationEvents(ancestor, records, recordrecords) {
       case "childList":
         {
           for (const node of rec.addedNodes)
-            node.remove();
+            (node as Element).remove();
           if (rec.removedNodes.length) {
             const nodes = Array.from(rec.removedNodes);
             if (rec.nextSibling)
-              rec.nextSibling.before(...nodes);
+              (rec.nextSibling as ChildNode).before(...nodes);
             else
-              rec.target.append(...nodes);
+              (rec.target as ParentNode).append(...nodes);
           }
         }
     }
@@ -202,14 +205,23 @@ function undoMutationEvents(ancestor, records, recordrecords) {
     re-developed later, because it has clear time/space savings inb the browser session.
 */
 class EditorUndoItem {
-  constructor(editor, selection) {
+  editor: EditorBase;
+  preselection: Range;
+  postselection: Range | null;
+  undoRecords: MutationRecord[];
+  redoRecords: MutationRecord[] | null;
+  locks: UndoLock[];
+  undoChangeObserver: MutationObserver | null;
+  finished: undefined | true;
+  onfinish: undefined | ((undoitem: EditorUndoItem) => void);
+
+  constructor(editor: EditorBase, selection: Range) {
     this.editor = editor;
     this.preselection = selection.clone();
     this.postselection = null;
     this.undoRecords = [];
     this.redoRecords = null;
     this.locks = [];
-    this.undoChangeObserver = null;
 
     // Watch all changes happening within this undoitem
     this.undoChangeObserver = new MutationObserver((records) => this.undoRecords.push(...records));
@@ -224,12 +236,12 @@ class EditorUndoItem {
       });
   }
 
-  finish(selection) {
+  finish(selection?: Range) {
     if (!selection)
       selection = this.editor.getSelectionRange();
 
-    this.undoRecords.push(...this.undoChangeObserver.takeRecords());
-    this.undoChangeObserver.disconnect();
+    this.undoRecords.push(...(this.undoChangeObserver?.takeRecords() ?? []));
+    this.undoChangeObserver?.disconnect();
     this.undoChangeObserver = null;
 
     this.postselection = selection.clone();
@@ -245,13 +257,19 @@ class EditorUndoItem {
   }
 
   redo() {
+    if (!this.redoRecords)
+      throw new Error(`Redo records not available`);
     undoMutationEvents(this.editor.getBody(), this.redoRecords, false);
     this.editor.selectRange(this.postselection);
   }
 }
 
 class UndoLock {
-  constructor(undoitem) {
+  undoitem: null;
+  _undoitem: EditorUndoItem | null;
+  stack: Error | undefined;
+
+  constructor(undoitem: EditorUndoItem | null) {
     // FIXME: public dom-level undoitem for now - remove when domlevel undoitem is removed
     this.undoitem = null;
 
@@ -299,6 +317,9 @@ export function getDefaultToolbarLayout() {
 }
 
 export default class EditorBase {
+  structure: ParsedStructure | undefined;
+  blockroots: string[];
+
   constructor(container, options) {
     options =
     {
@@ -796,7 +817,7 @@ export default class EditorBase {
   // Public API
   //
 
-  getBody() {
+  getBody(): Element {
     return this.bodydiv;
   }
 
@@ -1110,7 +1131,7 @@ export default class EditorBase {
 
       @returns Copy of the current selection
   */
-  getSelectionRange(options) {
+  getSelectionRange(options?: { skipnormalize?: boolean }): Range {
     const skipnormalize = options && options.skipnormalize;
 
     const bodynode = this.getBody();
@@ -1167,7 +1188,7 @@ export default class EditorBase {
   /** Changes the current selection to the passed range
       @param range - Range to select
   */
-  selectRange(range, options) {
+  selectRange(range, options?: { skipnormalize?: boolean }) {
     if (!domlevel.isNodeSplittable(range.start.element))
       throw new Error("Trying to put start of selection within an unsplittable element (" + range.start.element.nodeName + ')');
     if (!domlevel.isNodeSplittable(range.end.element))
@@ -1488,64 +1509,71 @@ export default class EditorBase {
       \@cell return.blockparent Parent of the block node
       \@cell return.blockroot Root ancestor of the blocks (body, td, th or content body)
   */
-  getBlockAtNode(node) {
+  getBlockAtNode(node: Node): {
+    node: ParentNode,
+    contentnode: ParentNode,
+    blockroot: ParentNode,
+    blockparent: ParentNode,
+    islist: boolean,
+    isintable: boolean,
+    blockstyle: object | null
+  } {
     // Look out - can also be used within document fragments!
-    let root = this.getBody();
+    let root: ParentNode = this.getBody();
 
-    const res =
-    {
-      node: null,
-      contentnode: null,
-      blockroot: null,
-      blockparent: null,
-      islist: false,
-      isintable: false
-    };
+    let res_node: ParentNode | null = null;
+    let res_contentnode: ParentNode | null = null;
+    let res_blockroot: ParentNode | null = null;
+    let res_blockparent: ParentNode | null = null;
+    let res_islist = false;
+    let res_isintable = false;
+    let res_blockstyle: object | null = null;
 
-    let curnode = node;
+    let curnode: Node | null = node;
     for (; curnode && curnode != root; curnode = curnode.parentNode)
-      if (curnode.nodeType == 1) {
+      if (domlevel.testType(curnode, domlevel.NodeType.element)) {
         if (['tr', 'td'].includes(curnode.nodeName.toLowerCase()))
-          res.isintable = true;
+          res_isintable = true;
 
         if (curnode.nodeName.toLowerCase() == 'li')
-          res.contentnode = curnode;
+          res_contentnode = curnode;
         else if (domlevel.isNodeBlockElement(curnode)) {
           const islist = ['ol', 'ul'].includes(curnode.nodeName.toLowerCase());
           if (this.structure && this.structure.getBlockStyleByTag) //FIXME why do we care?
-            res.blockstyle = curnode.className ? this.structure.getBlockStyleByTag(curnode.className) : null;
-          res.node = curnode;
-          res.contentnode = (islist && res.contentnode) || curnode;
-          res.blockparent = curnode.parentNode;
-          res.islist = islist;
+            res_blockstyle = curnode.className ? this.structure.getBlockStyleByTag(curnode.className) : null;
+          res_node = curnode;
+          res_contentnode = (islist && res_contentnode) || curnode;
+          res_blockparent = curnode.parentNode;
+          res_islist = islist;
           break;
-        } else if (this.blockroots.includes(curnode.nodeName.toLowerCase())) // FIXME: better name for listunbreakablenodes
-        {
-          res.node = curnode;
-          res.contentnode = curnode;
-          res.blockroot = curnode;
-          res.blockparent = curnode.parentNode;
+        } else if (this.blockroots.includes(curnode.nodeName.toLowerCase())) { // FIXME: better name for listunbreakablenodes
+          res_node = curnode;
+          res_contentnode = curnode;
+          res_blockroot = curnode;
+          res_blockparent = curnode.parentNode;
           break;
         }
-      } else if (curnode.nodeType == 11)
+      } else if (domlevel.testType(curnode, domlevel.NodeType.documentFragment))
         root = curnode;
 
     for (; curnode && curnode != root; curnode = curnode.parentNode) {
-      if (curnode.nodeType == 11)
+      if (domlevel.testType(curnode, domlevel.NodeType.documentFragment))
         root = curnode;
-      else if (curnode.nodeType == 1 && this.blockroots.includes(curnode.nodeName.toLowerCase())) // FIXME: better name for listunbreakablenodes
-      {
-        res.blockroot = curnode;
+      else if (domlevel.testType(curnode, domlevel.NodeType.element) && this.blockroots.includes(curnode.nodeName.toLowerCase())) { // FIXME: better name for listunbreakablenodes
+        res_blockroot = curnode;
         break;
       }
     }
 
-    res.node = res.node || root;
-    res.contentnode = res.contentnode || root;
-    res.blockroot = res.blockroot || root;
-    res.blockparent = res.blockparent || root;
-
-
+    const res = {
+      node: res_node || root,
+      contentnode: res_contentnode || root,
+      blockroot: res_blockroot || root,
+      blockparent: res_blockparent || root,
+      islist: res_islist,
+      isintable: res_isintable,
+      blockstyle: res_blockstyle
+    }
     //    console.log('getBlockAtNode res: ', res);
 
     return res;
@@ -1575,7 +1603,7 @@ export default class EditorBase {
       \@cell options.normalize Normalize the range before executing
       @returns Locator at place of removed range
   */
-  _removeRangeAndStitch(range, preservelocators, undoitem, { normalize = true } = {}) {
+  _removeRangeAndStitch(range: Range, preservelocators: domlevel.PreservedLocatorList, undoitem: unknown, { normalize = true } = {}) {
     preservelocators = (preservelocators || []).slice();
 
     // No need to do work on empty selections
@@ -1664,9 +1692,9 @@ export default class EditorBase {
     return insertlocator;
   }
 
-  appendNodeContentsAfterRemove(insertlocator, contentnode, preservelocator, undoitem) {
-    const nodes = domlevel.removeNodeContents(contentnode, undoitem);
-    domlevel.insertNodesAtLocator(nodes, insertlocator, [], undoitem);
+  appendNodeContentsAfterRemove(insertlocator: domlevel.Locator, contentnode: ParentNode) {
+    const nodes = domlevel.removeNodeContents(contentnode);
+    domlevel.insertNodesAtLocator(nodes, insertlocator, []);
     return insertlocator;
   }
 

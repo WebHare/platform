@@ -1,7 +1,7 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import { Locator, findParent, splitDataNode } from '../domlevel';
+import { Locator, findParent, splitDataNode, PreservedLocatorList, testType, NodeType } from '../domlevel';
 import * as richdebug from "../richdebug";
 import * as browser from "dompack/extra/browser";
 
@@ -18,16 +18,19 @@ const rangelog = 0;
 //rangelog = 1+2+4+8+16+32+64;
 
 export default class Range {
-  constructor(start, end) {
+  start: Locator;
+  end: Locator;
+
+  constructor(start: Locator, end: Locator) {
     this.start = start.clone();
     this.end = end.clone();
   }
 
-  clone(rhs) {
+  clone() {
     return new Range(this.start.clone(), this.end.clone());
   }
 
-  assign(rhs) {
+  assign(rhs: Range) {
     this.start.assign(rhs.start);
     this.end.assign(rhs.end);
     return this;
@@ -37,7 +40,7 @@ export default class Range {
     return this.start.isInDOM() && this.end.isInDOM();
   }
 
-  check(maxancestor) {
+  check(maxancestor: ParentNode) {
     this.start.check(maxancestor);
     this.end.check(maxancestor);
     if (this.start.compare(this.end) > 0) throw new Error("Start lies after end");
@@ -52,7 +55,7 @@ export default class Range {
     return Locator.findCommonAncestorElement(this.start, this.end);
   }
 
-  getAncestorClosest(selector, scope) {
+  getAncestorClosest(selector: string, scope: Node) {
     if (!scope)
       throw new Error("Scope is required");
 
@@ -64,7 +67,7 @@ export default class Range {
     return this.start.equals(this.end);
   }
 
-  equals(rhs) {
+  equals(rhs: Range) {
     return this.start.equals(rhs.start) && this.end.equals(rhs.end);
   }
 
@@ -73,7 +76,7 @@ export default class Range {
       Otherwise, the start is placed next to the next visible character/element/block
       boundary, and the end is placed next to the previous visible character/element/block boundary.
   */
-  normalize(maxancestor, fromnative) {
+  normalize(maxancestor: ParentNode, fromnative?: boolean) {
     if (!maxancestor.contains(this.getAncestorElement()))
       throw new Error("Maxancestor is not an ancestor of range");
 
@@ -125,7 +128,7 @@ export default class Range {
     return this;
   }
 
-  moveEndToPastLastVisible(maxancestor) {
+  moveEndToPastLastVisible(maxancestor: ParentNode) {
     if (!maxancestor)
       throw new Error("Missing maxancestor");
 
@@ -151,7 +154,7 @@ export default class Range {
     this.end.descendToLeafNode(maxancestor);
   }
 
-  splitStartBoundary(preservelocators) {
+  splitStartBoundary(preservelocators: PreservedLocatorList) {
     if (!this.start.parentIsElementOrFragmentNode()) {
       // Try to move start to its parent (and try to move end too, in case start == end at end of text node)
       if (this.start.element == this.end.element)
@@ -176,7 +179,7 @@ export default class Range {
       @param preservelocators - Locators to preserver
       @returns Locator pointing to new node
   */
-  insertBefore(node, preservelocators) {
+  insertBefore(node: ParentNode, preservelocators: PreservedLocatorList) {
     if (!this.start.parentIsElementOrFragmentNode())
       this.splitStartBoundary(preservelocators);
 
@@ -188,7 +191,7 @@ export default class Range {
     return retval;
   }
 
-  descendToLeafNodes(maxancestor) {
+  descendToLeafNodes(maxancestor: ParentNode) {
     if (!maxancestor)
       throw new Error("Missing ancestor!");
 
@@ -208,15 +211,15 @@ export default class Range {
     return this;
   }
 
-  containsLocator(rhs) {
+  containsLocator(rhs: Locator) {
     return this.start.compare(rhs) <= 0 && this.end.compare(rhs) >= 0;
   }
 
-  containsRange(rhs) {
+  containsRange(rhs: Range) {
     return this.containsLocator(rhs.start) && this.containsEnd(rhs.start);
   }
 
-  intersect(rhs) {
+  intersect(rhs: Range) {
     if (this.start.compare(rhs.start) < 0)
       this.start.assign(rhs.start);
     else if (this.start.compare(rhs.end) > 0)
@@ -228,10 +231,9 @@ export default class Range {
     return this;
   }
 
-  limitToNode(node) {
+  limitToNode(node: Node) {
     const noderange = Range.fromNodeInner(node);
-    if (!this.isInDOM()) // safety
-    {
+    if (!this.isInDOM()) { // safety
       this.start.assign(noderange.start);
       this.end.assign(noderange.start);
       return this;
@@ -241,10 +243,10 @@ export default class Range {
 
   /** Returns a range of all the childnodes of node that are (partially) included in this range
   */
-  getLocalRangeInNode(node) {
+  getLocalRangeInNode(node: Node) {
     const copy = this.clone();
     const noderange = Range.fromNodeInner(node);
-    copy.insersect(noderange);
+    copy.intersect(noderange);
 
     copy.start.ascend(node, false, true);
     copy.end.ascend(node, false, true);
@@ -256,7 +258,7 @@ export default class Range {
     return [this.start, this.end];
   }
 
-  querySelectorAll(selector) {
+  querySelectorAll(selector: string): Node[] {
     // console.log('Range gebtn', richdebug.getStructuredOuterHTML(this.getAncestorElement(), this));
 
     const copy = this.clone();
@@ -270,15 +272,14 @@ export default class Range {
 
     //    console.log(' ascended', richdebug.getStructuredOuterHTML(this.getAncestorElement() || this.getAncestor(), copy));
 
-    let result = [];
+    let result: Node[] = [];
     for (let itr = copy.start.clone(); itr.offset < copy.end.offset; ++itr.offset) {
-      const child = itr.getPointedNode();
-      if (child.nodeType == 1) {
+      const child = itr.getPointedNode()!;
+      if (testType(child, NodeType.element)) {
         if (child.matches(selector))
           result.push(child);
 
-        if (itr.offset == copy.start.offset || itr.offset == copy.end.offset - 1) // May be partial!
-        {
+        if (itr.offset == copy.start.offset || itr.offset == copy.end.offset - 1) { // May be partial!
           const subrange = this.clone().intersect(Range.fromNodeInner(child));
           result = result.concat(subrange.querySelectorAll(selector));
         } else {
@@ -303,7 +304,7 @@ export default class Range {
     return result;
   }
 
-  isLegal(maxancestor) {
+  isLegal(maxancestor: ParentNode) {
     if (!this.start.isLegal(maxancestor) || !this.end.isLegal(maxancestor))
       return false;
 
@@ -311,7 +312,7 @@ export default class Range {
     return this.start.getParentContentEditable(maxancestor) === this.end.getParentContentEditable(maxancestor);
   }
 
-  legalize(maxancestor) {
+  legalize(maxancestor: ParentNode) {
     this.start.legalize(maxancestor, false);
     this.end.legalize(maxancestor, true);
 
@@ -330,25 +331,25 @@ export default class Range {
     return new Range(new Locator(range.startContainer, range.startOffset), new Locator(range.endContainer, range.endOffset));
   }
 
-  static forNode(node) {
+  static forNode(node: Node) {
     console.warn('Range.forNode is deprecated, use fromNodeInner!'); console.trace();
     return new Range(new Locator(node), new Locator(node, "end"));
   }
 
-  static withinNode(node) {
+  static withinNode(node: Node) {
     console.warn('Range.withinNode is deprecated, use fromNodeInner!'); console.trace();
     return new Range(new Locator(node), new Locator(node, "end"));
   }
 
-  static fromNodeInner(node) {
+  static fromNodeInner(node: Node) {
     return new Range(new Locator(node), new Locator(node, "end"));
   }
 
-  static fromNodeOuter(node) {
+  static fromNodeOuter(node: Node) {
     return new Range(Locator.newPointingTo(node), Locator.newPointingAfter(node));
   }
 
-  static fromLocator(loc) {
+  static fromLocator(loc: Locator) {
     return new Range(loc, loc);
   }
 

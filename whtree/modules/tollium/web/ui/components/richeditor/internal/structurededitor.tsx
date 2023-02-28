@@ -71,6 +71,8 @@ function fixIntralineSpaves(items) {
 }
 
 export default class StructuredEditor extends EditorBase {
+  structure: ParsedStructure;
+
   constructor(element, options) {
     options =
     {

@@ -5,47 +5,45 @@ import * as domlevel from "./domlevel";
 import * as texttype from 'dompack/types/text';
 import Range from './dom/range';
 
-function getIndentedLineBreak(indent, incr) {
+function getIndentedLineBreak(indent: number, incr?: number) {
   if (!indent) return '';
   indent += incr || 0;
   let result = '\n'; while (--indent) result += ' ';
   return result;
 }
 
-function getStructuredOuterHTML(node, namedlocators, options) {
-  if (typeof options === "number")
-    options = { indent: options };
+function getStructuredOuterHTML(node: Node, namedlocators: object, options?: number | boolean | { indent?: boolean; title?: string; colorize?: boolean }): string | string[] {
+  if (typeof options === "number" || typeof options === "boolean")
+    options = { indent: Boolean(options) };
   else
     options = options || {};
 
-  const locators = {};
-  const indent = options.indent ? 1 : 0;
+  const locators: Record<string, domlevel.Locator> = {};
+  const indent = options?.indent ? 1 : 0;
 
   // Detect all locators & elements in namedlocators in the first 2 levels (array/record), move to single level object
-  for (const n of Object.keys(namedlocators)) {
-    const elt = namedlocators[n];
+  for (const [n, elt] of Object.entries(namedlocators)) {
     if (elt && typeof elt == "object") {
-      if (elt.element)
-        locators[n] = elt;
-      else if (elt.nodeType) {
+      if ("element" in elt)
+        locators[n] = elt as domlevel.Locator;
+      else if ("nodeType" in elt) {
         locators[n + '#elt'] = new domlevel.Locator(elt);
         locators[n + '#elt'].moveToParent();
       } else {
-        for (const m of Object.keys(elt)) {
-          if (elt[m] && typeof elt[m] == "object") {
-            if (elt[m].element)
-              locators[n + '.' + m] = elt[m];
-            else if (elt[m].nodeType) {
-              locators[n + '.' + m + '#elt'] = new domlevel.Locator(elt[m]);
+        for (const [m, subelt] of Object.entries(elt)) {
+          if (subelt && typeof subelt == "object") {
+            if ("element" in subelt)
+              locators[n + '.' + m] = subelt as domlevel.Locator;
+            else if ("nodeType" in subelt) {
+              locators[n + '.' + m + '#elt'] = new domlevel.Locator(subelt);
               locators[n + '.' + m + '#elt'].moveToParent();
             } else {
-              const subelt = elt[m];
-              for (const k of Object.keys(subelt)) {
-                if (subelt[k] && typeof subelt[k] == "object") {
-                  if (subelt[k].element)
-                    locators[n + '.' + m + '.' + k] = subelt[k];
-                  else if (subelt[k].nodeType) {
-                    locators[n + '.' + m + '.' + k + '#elt'] = new domlevel.Locator(subelt[k]);
+              for (const [k, subsubelt] of Object.entries(subelt)) {
+                if (subsubelt && typeof subsubelt == "object") {
+                  if ("element" in subsubelt)
+                    locators[n + '.' + m + '.' + k] = subsubelt as domlevel.Locator;
+                  else if ("nodeType" in subsubelt) {
+                    locators[n + '.' + m + '.' + k + '#elt'] = new domlevel.Locator(subsubelt as Node);
                     locators[n + '.' + m + '.' + k + '#elt'].moveToParent();
                   }
                 }
@@ -66,11 +64,13 @@ function getStructuredOuterHTML(node, namedlocators, options) {
       if (!max || max.compare(elt) < 0)
         max = elt;
     }
+    if (!min || !max)
+      throw new Error(`No locators provided`);
     const range = new Range(min, max);
     node = range.getAncestorElement();
   }
 
-  let retval = '';
+  let retval: string | string[] = '';
   if (node.parentNode) {
     const parent = node.parentNode;
     for (const n in locators)

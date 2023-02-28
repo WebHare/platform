@@ -7,6 +7,36 @@ import * as dompack from "dompack";
 
 import Range from './dom/range';
 
+export type PreservedLocatorList = Array<Locator | Range>;
+
+type GetNodeType<NodeType extends 1 | 2 | 3 | 4 | 7 | 8 | 9 | 10 | 11> =
+  NodeType extends 1 ? HTMLElement :
+  NodeType extends 2 ? Attr :
+  NodeType extends 3 ? Text :
+  NodeType extends 4 ? CDATASection :
+  NodeType extends 7 ? ProcessingInstruction :
+  NodeType extends 8 ? Comment :
+  NodeType extends 9 ? Document :
+  NodeType extends 10 ? DocumentType :
+  NodeType extends 11 ? DocumentFragment :
+  never;
+
+export enum NodeType {
+  element = 1,
+  attribute = 2,
+  text = 3,
+  cDATASection = 4,
+  processingInstruction = 7,
+  comment = 8,
+  document = 9,
+  documentType = 10,
+  documentFragment = 11,
+}
+
+export function testType<T extends NodeType>(node: Node, nodetype: T | readonly T[]): node is GetNodeType<T> {
+  return Array.isArray(nodetype) ? nodetype.includes(node.nodeType) : node.nodeType === nodetype;
+}
+
 rangy.config.alertOnFail = false; //prevent Rangy frmo complaining about missing document.body - that actually happens when location.href early redirects and we don't want that alert..
 
 function getAttributes(node, attrlist) {
@@ -139,7 +169,7 @@ function isTransparentNode(node) {
 }
 
 /// Returns whether a node is a block element
-function isNodeBlockElement(node) {
+function isNodeBlockElement(node: Element) {
   const uname = node.nodeName.toUpperCase();
 
   const isBlockElement =
@@ -428,7 +458,7 @@ function getVisualEquivalenceRange(maxancestor, locator) {
     @param preservetoward - 'start' or 'end' (default: 'end') Direction to move preserved locators at the splitpoint
     @returns Locator pointing to new element
 */
-function splitDataNode(locator, preservelocators, preservetoward) {
+function splitDataNode(locator: Locator, preservelocators, preservetoward?: "start" | "end") {
   if (preservetoward && !['start', 'end'].includes(preservetoward))
     throw new Error("Illegal preservetoward value '" + preservetoward + "'");
 
@@ -1539,7 +1569,10 @@ function rewriteWhitespace(maxancestor, locator, preservelocators) {
 //
 
 class Locator {
-  constructor(element, offset) {
+  element: Element;
+  offset: number;
+
+  constructor(element, offset?: "end" | number) {
     if (!element)
       throw new Error("No valid element in locator initialize");
 
@@ -1644,7 +1677,7 @@ class Locator {
     return this.element.nodeType == 1 || this.element.nodeType == 11;
   }
 
-  moveToParent(towardend, forced) {
+  moveToParent(towardend?: boolean, forced?: boolean) {
     // If node is empty, determine direction by towardend
     // If at start or at end, go to start resp. end
     // If not forced, return false
@@ -1673,7 +1706,7 @@ class Locator {
 
   /** Ascends a locator toward the ancestor while the offset == 0/element size
   */
-  ascend(ancestor, towardend, forced) {
+  ascend(ancestor: Node, towardend?: boolean, forced?: boolean) {
     if (!ancestor)
       throw new Error("Invalid ancestor in Locator.ascend");
     //    console.log('AscendLocator ancestor', ancestor,' towardend: ', towardend, ', html: ', richdebug.getStructuredOuterHTML(ancestor, { toascend: this }));
@@ -1691,7 +1724,7 @@ class Locator {
 
   /** Descends into leaf nodes (but keeps it out of unsplittable nodes)
   */
-  descendToLeafNode(maxancestor, allowunsplittables) {
+  descendToLeafNode(maxancestor: Node, allowunsplittables?: boolean) {
     if (typeof maxancestor != "object")
       throw new Error("Missing ancestor!");
 
