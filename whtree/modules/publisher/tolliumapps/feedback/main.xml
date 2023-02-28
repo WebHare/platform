@@ -34,6 +34,8 @@
           <item action="close" />
           <item action="reopen" />
           <divider />
+          <item tid=".forwardto" name="forwardtoitem"/>
+          <divider />
           <item action="delete" />
         </item>
         <item action="export" />
@@ -47,9 +49,8 @@
         <item action="escalate" />
         <item action="close" />
         <item action="reopen" />
-        <divider />
-        <item action="delete" />
       </menu>
+      <menu name="forwardtomenu" />
     </menus>
 
     <compositions>
@@ -59,8 +60,8 @@
     <toolbar>
       <button action="escalate" icon="tollium:actions/escalate" />
       <button action="close" icon="tollium:status/positive" />
-      <divider />
-      <button action="delete" icon="tollium:actions/delete" />
+      <divider/>
+      <button menu="forwardtomenu" icon="tollium:actions/forward" tid=".forwardto"/>
     </toolbar>
 
     <body spacers="none">
@@ -73,6 +74,9 @@
                 <option rowkey="new" />
                 <option rowkey="escalated" />
                 <option rowkey="closed" />
+              </select>
+              <select name="role" type="pulldown" onchange="onselectrole" rowkeytype="integer" title="">
+                <option rowkey="0" tid=".allroles" />
               </select>
               <spacer width="1pr" />
               <buttongroup borders="left right" layout="horizontal">
@@ -96,9 +100,6 @@
             <select name="topic" type="pulldown" onchange="onselecttopic" tid=".filtertopic">
               <option rowkey="" tid=".alltopics" />
             </select>
-            <select name="role" type="pulldown" onchange="onselectrole" rowkeytype="integer" tid=".filterrole">
-              <option rowkey="0" tid=".allroles" />
-            </select>
           </panel>
           <list name="feedback"
                 height="1pr"
@@ -117,12 +118,14 @@
             <column name="reportedby" type="text" linkname="reportedbylink" />
             <column name="topic" type="text" />
             <column name="remarks" type="text" width="3pr" />
+            <column name="role" type="text" width="20x" />
             <rowlayout name="singlerow">
               <col coldef="feedbackid" />
               <col coldef="status" />
               <col coldef="wrd_modificationdate" />
               <col coldef="reportedby" />
               <col coldef="topic" />
+              <col coldef="role" />
               <col coldef="remarks" />
               <row>
                 <cell coldef="feedbackid" />
@@ -130,6 +133,7 @@
                 <cell coldef="wrd_modificationdate" />
                 <cell coldef="reportedby" />
                 <cell coldef="topic" />
+                <cell coldef="role" />
                 <cell coldef="remarks" />
               </row>
             </rowlayout>
@@ -138,15 +142,17 @@
               <col coldef="status" />
               <col coldef="wrd_modificationdate" />
               <col coldef="reportedby" />
+              <col coldef="role" />
               <row>
                 <cell coldef="feedbackid" />
                 <cell coldef="status" />
                 <cell coldef="wrd_modificationdate" />
                 <cell coldef="reportedby" />
+                <cell coldef="role" />
               </row>
               <row>
                 <cell coldef="topic" />
-                <cell coldef="remarks" colspan="3" />
+                <cell coldef="remarks" colspan="4" />
               </row>
             </rowlayout>
           </list>

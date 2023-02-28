@@ -25,10 +25,10 @@ MACRO PrepFeedbackAppTests()
   testsetup := SetupTestFeedbackTopics();
 
   OBJECT feedbackschema := OpenWRDSchema("publisher:feedback");
-  RECORD feedback1 := StoreFeedback([ browser := testfw_mockbrowser ]);
+  RECORD feedback1 := StoreFeedback([ browser := testfw_mockbrowser, userdata := testfw->GetUserObject("sysop")->GetUserDataForLogging() ]);
   //dumpvalue(feedback1,'tree');
 
-  STRING feedback1id := StoreFeedbackExtraData(feedback1.guid, CELL[ topic := "TESTFW_TOPIC1" ]);
+  STRING feedback1id := StoreFeedbackExtraData(feedback1.guid, CELL[ topic := "TESTFW_TOPIC1", remarks := testfw_mockremark ]);
   //dumpvalue(feedback1id,'tree');
 
   INTEGER feedback1wrdid := feedbackschema->^feedback->Search("FEEDBACKID", feedback1id);
@@ -45,6 +45,18 @@ ASYNC MACRO TestFeedbackApp()
 {
   testfw->SetTestUser("marge");
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:feedback"));
+
+  RECORD mytestissue := SELECT * FROM TT("feedback")->rows WHERE remarks = testfw_mockremark;
+  TestEq(testsetup.testrole1->GetField("WRD_TITLE"), mytestissue.role);
+
+  TT("feedback")->selection := mytestissue;
+
+  RECORD totestrole2 := SELECT * FROM TT("forwardtomenu")->items WHERE menuitem->title = "Test Role 2";
+  TestAssert(RecordExists(totestrole2), "No forwardto: testrole2");
+  totestrole2.menuitem->action->TolliumClick();
+
+  mytestissue := SELECT * FROM TT("feedback")->rows WHERE remarks = testfw_mockremark;
+  TestEq(testsetup.testrole2->GetField("WRD_TITLE"), mytestissue.role);
 
   AWAIT ExpectScreenChange(-1, PTR TTEScape);
 }

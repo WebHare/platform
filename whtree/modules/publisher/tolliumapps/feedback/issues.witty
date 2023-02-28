@@ -77,6 +77,11 @@
         flex: none;
         font-style: italic;
       }
+      div.header span.role
+      {
+        flex: none;
+        font-style: italic;
+      }
       #screenshotholder
       {
         width: calc(50% - 15px);
@@ -109,6 +114,9 @@
             [elseif newstatus]
               [! Feedback created (status change from '' to 'new') !]
               <span class="status">[gettid tolliumapps.feedback.main.feedbackadded]</span>
+            [/if]
+            [if newrole]
+              <span class="role">[gettid tolliumapps.feedback.main.rolechange oldrole newrole]</span>
             [/if]
           </div>
 

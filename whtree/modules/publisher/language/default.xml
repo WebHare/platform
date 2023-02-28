@@ -1815,6 +1815,7 @@
         <text tid="filter">Filters</text>
         <text tid="filterrole">Show role</text>
         <text tid="filtertopic">Show topic</text>
+        <text tid="forwardto">Forward</text>
         <text tid="issuelog">Issue log</text>
         <text tid="main">Feedback</text>
         <text tid="manageroles">Manage roles</text>
@@ -1823,6 +1824,8 @@
         <text tid="remarks">Remarks</text>
         <text tid="reopen">Reopen</text>
         <text tid="reportedby">Reported by</text>
+        <text tid="role">Action neeeded by</text>
+        <text tid="rolechange">Action needed by: <param p="1"/> =&gt; <param p="2"/></text>
         <text tid="status">Status</text>
         <text tid="status-closed">Closed</text>
         <text tid="status-escalated">Escalated</text>

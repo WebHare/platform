@@ -94,8 +94,12 @@
 
   <attachment tag="log" linkfrom="feedback">
     <attributes>
+      <domain tag="newrole" domain="role" />
+      <domain tag="newpriority" domain="priority" />
+      <domain tag="newtopic" domain="topic" />
       <enum tag="statuschange" allowedvalues="new assigned escalated closed resolved" gid="tolliumapps.feedback.types" />
       <free tag="text" />
+      <!-- TODO at some point we can't require this anymore? eg if we do automatic closing/system messages -->
       <record tag="webhareuser" required="true" />
     </attributes>
   </attachment>

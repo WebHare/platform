@@ -1814,6 +1814,7 @@
         <text tid="filter">Filters</text>
         <text tid="filterrole">Toon rol</text>
         <text tid="filtertopic">Toon onderwerp</text>
+        <text tid="forwardto">Doorsturen</text>
         <text tid="issuelog">Issue log</text>
         <text tid="main">Feedback</text>
         <text tid="manageroles">Rollen beheren</text>
@@ -1822,6 +1823,8 @@
         <text tid="remarks">Opmerkingen</text>
         <text tid="reopen">Heropenen</text>
         <text tid="reportedby">Gemeld door</text>
+        <text tid="role">Actie nodig door</text>
+        <text tid="rolechange">Actie nodig door: <param p="1"/> =&gt; <param p="2"/></text>
         <text tid="status">Status</text>
         <text tid="status-closed">Afgesloten</text>
         <text tid="status-escalated">Geëscaleerd</text>
