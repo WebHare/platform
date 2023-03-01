@@ -71,6 +71,8 @@ function fixIntralineSpaves(items) {
 }
 
 export default class StructuredEditor extends EditorBase {
+  structure: ParsedStructure;
+
   constructor(element, options) {
     options =
     {
@@ -859,6 +861,8 @@ export default class StructuredEditor extends EditorBase {
     if (dompack.debugflags.rte)
       console.log('[rte] parseContentAt, cleaned', pastecontent.innerHTML);
 
+    const preexistingstylenodes = this.qSA("style");
+
     //console.log('pasting', pastecontent, pastecontent.innerHTML);
     const locator = this.insertContainerContents(insertlocator, pastecontent, { externalcontent: true, breakafter: res.breakafter });
 
@@ -866,7 +870,7 @@ export default class StructuredEditor extends EditorBase {
     this.setCursorAtLocator(locator);
     this.stateHasChanged();
 
-    this.handlePasteDone();
+    this.handlePasteDone(preexistingstylenodes);
     await this._validateEmbeddedObjects();
 
     if (undolock)

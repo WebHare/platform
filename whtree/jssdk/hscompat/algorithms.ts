@@ -1,8 +1,6 @@
-// @ts-ignore -- developing types
-
 import { Money, isDate, determineType, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 
-type ComparableType = number | null | bigint | string | Date | Money | boolean;
+export type ComparableType = number | null | bigint | string | Date | Money | boolean;
 
 // needed for interface definitions, don't want to sprinkle the file with eslint-disables or disable globally
 
@@ -26,7 +24,7 @@ export function recordLowerBound<
   T extends (string extends K ? Any : { [P in K]: ComparableType }),
   S extends (string extends K ? Any : Pick<T, K & keyof T>),
   K extends (UnknownNonNullish extends T ? keyof S : string extends keyof T ? keyof S : keyof T)
->(searchin: T[], searchrecord: S | T, keys: K[]) {
+>(searchin: T[], searchrecord: S | T, keys: K[]): { found: boolean; position: number } {
   return binaryRecordSearchImpl(searchin, searchrecord, keys, false);
 }
 
@@ -34,7 +32,7 @@ export function recordUpperBound<
   T extends (string extends K ? Any : { [P in K]: ComparableType }),
   S extends (string extends K ? Any : Pick<T, K & keyof T>),
   K extends (UnknownNonNullish extends T ? keyof S : string extends keyof T ? keyof S : keyof T)
->(searchin: T[], searchrecord: S | T, keys: K[]) {
+>(searchin: T[], searchrecord: S | T, keys: K[]): number {
   return binaryRecordSearchImpl(searchin, searchrecord, keys, true).position;
 }
 
@@ -71,7 +69,7 @@ function binaryRecordSearchImpl<
   return { found, position: first };
 }
 
-export function compare(left: ComparableType, right: ComparableType) {
+export function compare(left: ComparableType, right: ComparableType): -1 | 0 | 1 {
   switch (typeof left) {
     case "boolean": {
       if (typeof right === "boolean")

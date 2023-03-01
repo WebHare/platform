@@ -187,6 +187,18 @@ test.registerTests(
         rtetest.setStructuredContent(win, `<p class="normal">"a"</p><ul class="unordered"><li><br data-wh-rte="bogus"></li></ul><p class="mystyle">"(*0*)(*1*)ab"</p>`);
         await rtetest.runWithUndo(rte, () => test.pressKey("Backspace"));
         rtetest.testEqSelHTMLEx(win, `<p class="normal">"a"</p><p class="mystyle">"(*0*)(*1*)ab"</p>`);
+
+        // Backspace after last character before nested list should not merge the current line with the nested list
+        test.subtest("Backspace after last character before nested list");
+        rtetest.setStructuredContent(win, `<ul class="unordered"><li>"ab(*0*)(*1*)"<ol class="ordered"><li>"c"</li><li>"d"</li></ol></li></ul>`);
+        await rtetest.runWithUndo(rte, () => test.pressKey("Backspace"));
+        rtetest.testEqSelHTMLEx(win, `<ul class="unordered"><li>"a(*0*)(*1*)"<ol class="ordered"><li>"c"</li><li>"d"</li></ol></li></ul>`);
+
+        // Delete before the last character before nested list should not merge the current line with the nested list
+        test.subtest("Delete before last character before nested list");
+        rtetest.setStructuredContent(win, `<ul class="unordered"><li>"a(*0*)(*1*)b"<ol class="ordered"><li>"c"</li><li>"d"</li></ol></li></ul>`);
+        await rtetest.runWithUndo(rte, () => test.pressKey("Delete"));
+        rtetest.testEqSelHTMLEx(win, `<ul class="unordered"><li>"a(*0*)(*1*)"<ol class="ordered"><li>"c"</li><li>"d"</li></ol></li></ul>`);
       }
     }
   ]);
