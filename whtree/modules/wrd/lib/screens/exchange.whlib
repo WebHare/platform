@@ -850,13 +850,13 @@ PUBLIC OBJECTTYPE MapDomain EXTEND TolliumScreenBase
     RECORD ARRAY mapping := data.mapping;
 
     this->isrequired := data.isrequired;
-    IF(attrinfo.attributetype = 16) //convert bool to int
+    IF(attrinfo.attributetype = wrd_attributetype_boolean) //convert bool to int
     {
       this->isboolmap := TRUE;
       mapping := SELECT mapsto := mapsto ? "1" : "0", value FROM mapping;
     }
 
-    IF(attrinfo.attributetype = 1) //Generate a simple list
+    IF(attrinfo.attributetype = wrd_attributetype_domain) //Generate a simple list
     {
       //ADDME: Don't offer empty if the field is required
 
@@ -869,11 +869,21 @@ PUBLIC OBJECTTYPE MapDomain EXTEND TolliumScreenBase
       }
       //RECORD ARRAY domaininfo := GetMyDomain(impcol.tag, impcol.domain);
     }
-    ELSE IF(attrinfo.attributetype = 3) //this must be the country field
+    ELSE IF(attrinfo.attributetype = wrd_attributetype_address) //this must be the country field
     {
       this->isstringmap := TRUE;
       RECORD ARRAY countries := data.intype->wrdschema->GetCountryListing();
       domain := SELECT rowkey := code, title := country FROM countries;
+    }
+    ELSE IF(attrinfo.attributetype = wrd_attributetype_enum)
+    {
+      //TODO optionally allow 'free' imports of enums if any of the allowedvalues are a wildcard?
+      this->isstringmap := TRUE;
+      domain := SELECT rowkey := enum, title := enum FROM ToRecordArray(attrinfo.allowedvalues,'enum');
+      IF(NOT this->isrequired)
+      {
+        INSERT [rowkey := "" , title := GetTid("wrd:exchange.mapdomain.novalue")] INTO domain AT 0;
+      }
     }
     ELSE
     {

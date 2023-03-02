@@ -8,21 +8,32 @@ LOADLIB "wh::money.whlib";
 LOADLIB "wh::ooxml/spreadsheet.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
-INTEGER ARRAY supportedattrtypes := [ 1/*domain single*/
-                                    , 2/*free*/
-                                    , 3/*address*/
-                                    , 4/*email*/
-                                    , 5//telephome
-                                    , 6//date
-                                    , 7//password
-                                    ,12//datetime
-                                    ,14//money
-                                    ,15/*integer*/
-                                    ,16/*boolean*/
-                                    ,18/*integer64*/
-                                    ,21/*url*/
-                                    ];
+LOADLIB "mod::wrd/lib/internal/support.whlib";
 
+CONSTANT INTEGER ARRAY supportedattrtypes_mapped :=
+  [ wrd_attributetype_domain
+  , wrd_attributetype_boolean
+  , wrd_attributetype_enum
+  ];
+
+CONSTANT INTEGER ARRAY supportedattrtypes_direct := // originally: [2,4,5,6,7,12,14,15,18,21]
+  [ wrd_attributetype_free
+  , wrd_attributetype_email
+  , wrd_attributetype_telephone
+  , wrd_attributetype_date
+  , wrd_attributetype_password //TODO sure ??
+  , wrd_attributetype_datetime
+  , wrd_attributetype_money
+  , wrd_attributetype_integer
+  , wrd_attributetype_integer64
+  , wrd_attributetype_url
+  ];
+
+
+CONSTANT INTEGER ARRAY supportedattrtypes := [ ...supportedattrtypes_mapped
+                                             , ...supportedattrtypes_direct
+                                             , wrd_attributetype_address
+                                             ];
 PUBLIC STRING FUNCTION GenerateColumnName(INTEGER i)
 {
   STRING outtext;
@@ -333,7 +344,7 @@ PUBLIC OBJECTTYPE WRDImporter
   PUBLIC RECORD ARRAY FUNCTION GetImportableWRDAttributes()
   {
     RETURN SELECT *
-                , requiresimportmap := attributetype IN [1,16]
+                , requiresimportmap := attributetype IN supportedattrtypes_mapped
              FROM this->wrdtype->ListAttributes(0)
             WHERE tag="WRD_GUID"
                   OR (NOT isreadonly AND attributetype IN supportedattrtypes);
@@ -359,7 +370,7 @@ PUBLIC OBJECTTYPE WRDImporter
 
     IF(subfield="")
     {
-      IF(attrinfo.tag != "WRD_GUID" AND attrinfo.attributetype NOT IN [2,4,5,6,7,12,14,15,18,21])
+      IF(attrinfo.tag != "WRD_GUID" AND attrinfo.attributetype NOT IN supportedattrtypes_direct)
         THROW NEW Exception("Direct import not supported for attribute '" || wrdtag || "'");
     }
     ELSE
@@ -377,7 +388,7 @@ PUBLIC OBJECTTYPE WRDImporter
     RECORD attrinfo := this->BaseMap(updcolnum, wrdtag);
     IF(subfield="")
     {
-      IF(attrinfo.attributetype NOT IN [1,16])
+      IF(attrinfo.attributetype NOT IN supportedattrtypes_mapped)
         THROW NEW Exception("Domain import not supported for attribute '" || wrdtag || "'");
     }
     ELSE
@@ -395,7 +406,10 @@ PUBLIC OBJECTTYPE WRDImporter
     {
       INTEGER ARRAY mapstotypes := SELECT AS INTEGER ARRAY DISTINCT TypeID(mapsto) FROM mapping;
 
-      INTEGER reqtype := attrinfo.attributetype = 16 ? TypeID(BOOLEAN) : attrinfo.attributetype=3 ? TypeID(STRING) : TypeID(INTEGER);
+      INTEGER reqtype := attrinfo.attributetype = wrd_attributetype_boolean ? TypeID(BOOLEAN)
+                         : attrinfo.attributetype = wrd_attributetype_address ? TypeID(STRING)
+                         : attrinfo.attributetype = wrd_attributetype_enum ? TypeID(STRING)
+                         : TypeID(INTEGER);
       IF(Length(mapstotypes) != 1 OR mapstotypes[0] != reqtype)
         THROW NEW Exception("Invalid mapping 'mapsto' type");
     }
@@ -490,19 +504,20 @@ PUBLIC OBJECTTYPE WRDImporter
   {
     SWITCH(datatype)
     {
-      CASE 0,2,3,4,5,7,21
+      //this case was: 0,2,3,4,5,7,21
+      CASE 0, wrd_attributetype_free, wrd_attributetype_address, wrd_attributetype_email, wrd_attributetype_telephone, wrd_attributetype_password, wrd_attributetype_url, wrd_attributetype_enum
       {
         RETURN data;
       }
-      CASE 6,12
+      CASE wrd_attributetype_date, wrd_attributetype_datetime
       {
         RETURN MakeDateFromText(data);
       }
-      CASE 14//money
+      CASE wrd_attributetype_money
       {
         RETURN ToMoney(data,0);
       }
-      CASE 1,15,18
+      CASE wrd_attributetype_domain, wrd_attributetype_integer, wrd_attributetype_integer64
       {
         INTEGER firstdot := SearchSubstring(data,'.');
         INTEGER firstcomma := SearchSubstring(data,',');
@@ -514,7 +529,7 @@ PUBLIC OBJECTTYPE WRDImporter
         }
         RETURN ToInteger(data,0);
       }
-      CASE 16
+      CASE wrd_attributetype_boolean
       {
         RETURN ToUppercase(data) NOT IN ["1","TRUE"];
       }
