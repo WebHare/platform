@@ -134,6 +134,10 @@ PUBLIC STATIC OBJECTTYPE CreateSendAPI
     IF(res.status != 200)
       this->ThrowLastRequest();
 
+    res := res.response;
+    IF(CellExists(res,'result')) // since march they started wrapping responses in a 'result' object ??
+      res := res.result;
+
     res := EnforceStructure(
         [ emailaddress := ""
         , name := ""
@@ -142,7 +146,7 @@ PUBLIC STATIC OBJECTTYPE CreateSendAPI
         , customfields := [[ "key" := "", value := "" ]]
         , readsemailwith := ""
         , consenttotrack := ""
-        ], res.response);
+        ], res);
 
     res := CELL[ res.emailaddress
                , res.name
