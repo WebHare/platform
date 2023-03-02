@@ -877,7 +877,7 @@ PUBLIC OBJECTTYPE MapDomain EXTEND TolliumScreenBase
     }
     ELSE IF(attrinfo.attributetype = wrd_attributetype_enum)
     {
-      //TODO optionally allow 'free' imports of enums if any of the allowedvalues are a wilcard?
+      //TODO optionally allow 'free' imports of enums if any of the allowedvalues are a wildcard?
       this->isstringmap := TRUE;
       domain := SELECT rowkey := enum, title := enum FROM ToRecordArray(attrinfo.allowedvalues,'enum');
       IF(NOT this->isrequired)
