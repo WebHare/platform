@@ -3,7 +3,7 @@
 
 import * as dompack from "dompack";
 import * as domdebug from "dompack/src/debug";
-import * as browser from "dompack/extra/browser";
+import { browser } from "@webhare/dompack";
 import * as cookie from "dompack/extra/cookie";
 import * as whintegration from "@mod-system/js/wh/integration";
 
@@ -91,8 +91,8 @@ export function makePxlUrl(baseurl, eventname, data, options) {
     url += `&bl=${encodeURIComponent(document.location.href)}`;
   if (document.referrer)
     url += `&br=${encodeURIComponent(document.referrer)}`;
-  url += `&bt=${encodeURIComponent(browser.getTriplet())}`;
-  let device = browser.getDevice();
+  url += `&bt=${encodeURIComponent(browser.triplet)}`;
+  let device = browser.device;
   if (device)
     url += `&bd=${encodeURIComponent(device)}`;
   if (!options.nobrowserenvironment) {
