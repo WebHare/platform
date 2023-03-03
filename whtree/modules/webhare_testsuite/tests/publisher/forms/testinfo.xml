@@ -29,7 +29,7 @@
   <jstest file="testprops.es" />
   <jstest file="testemailfield.es" />
   <jstest file="testdatetimefield.ts" />
-  <jstest file="testimgedit.es" />
+  <jstest file="testimgedit.ts" />
   <jstest file="testuploadfield.es" />
   <jstest file="testaddressfield-online.es" tags="forms address" />
   <test script="testaddressfield.whscr" tags="forms address" />
