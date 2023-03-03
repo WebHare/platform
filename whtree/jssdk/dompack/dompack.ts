@@ -9,3 +9,4 @@ export { focus, register, registerMissed } from '../../modules/system/js/dompack
 export { getLocal, setLocal, getSession, setSession, isIsolated as isStorageIsolated } from '../../modules/system/js/dompack/extra/storage';
 export { list as listCookies, read as getCookie, write as setCookie, remove as deleteCookie } from '../../modules/system/js/dompack/extra/cookie';
 export { loadImage, loadScript, loadCSS, loadAssetPack } from "./impl/preload";
+export { browser } from './impl/browser';
