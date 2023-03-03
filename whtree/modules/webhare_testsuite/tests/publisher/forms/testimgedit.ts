@@ -16,20 +16,20 @@ test.registerTests(
           filename: 'portrait_8.jpg'
         }
       ]);
-      test.assert(!test.qS('[data-wh-form-group-for=img]').classList.contains("wh-form--uploading"));
-      test.qS('#rtdtest-img').click();
+      test.assert(!test.qR('[data-wh-form-group-for=img]').classList.contains("wh-form--uploading"));
+      test.click('#rtdtest-img');
 
       //click handler processing is async, so give it a chance to run
-      await test.wait(() => test.qS('[data-wh-form-group-for=img]').classList.contains("wh-form--uploading"));
+      await test.wait(() => test.qR('[data-wh-form-group-for=img]').classList.contains("wh-form--uploading"));
       await test.wait('ui');
     },
     {
       test: async function () {
-        test.assert(!test.qS('[data-wh-form-group-for=img]').classList.contains("wh-form--uploading"));
+        test.assert(!test.qR('[data-wh-form-group-for=img]').classList.contains("wh-form--uploading"));
         const img = test.qS('#rtdtest-img .wh-form__imgeditimg');
         test.assert(img, 'no image present');
         test.assert(test.qS('#rtdtest-img .wh-form__imgeditdelete'), 'no delete button');
-        test.assert(test.qS('#rtdtest-img').classList.contains('wh-form__imgedit--hasimage'));
+        test.assert(test.qR('#rtdtest-img').classList.contains('wh-form__imgedit--hasimage'));
         const imgurl = readBackgroundUrl(img);
         test.assert(imgurl, 'no image url');
         const imginfo = await preload.promiseImage(imgurl);
@@ -40,7 +40,7 @@ test.registerTests(
     },
     {
       test: function () {
-        const serverreponse = JSON.parse(test.qS('#rtdformresponse').textContent);
+        const serverreponse = JSON.parse(test.qR('#rtdformresponse').textContent || '');
         test.eq('.jpg', serverreponse.img.extension);
         test.eq(600, serverreponse.img.width);
         test.eq(90, serverreponse.img.rotation);
@@ -55,7 +55,7 @@ test.registerTests(
         //wait for image to load
         const img = test.qS('#rtdtest-img .wh-form__imgeditimg');
         test.assert(img, 'no image present #2');
-        test.assert(test.qS('#rtdtest-img').classList.contains('wh-form__imgedit--hasimage'));
+        test.assert(test.qR('#rtdtest-img').classList.contains('wh-form__imgedit--hasimage'));
         const imgurl = readBackgroundUrl(img);
         test.assert(imgurl, 'no image url');
         const imginfo = await preload.promiseImage(imgurl);
@@ -77,21 +77,21 @@ test.registerTests(
         test.assert(test.qS('#rtdtest-img .wh-form__imgeditdelete'), 'no delete button');
 
         test.click(test.qS('#rtdtest-enablefields'));
-        test.assert(!test.qS('#rtdtest-enablefields').checked, "enablefields should have been unchecked now");
+        test.assert(!test.qR('#rtdtest-enablefields').checked, "enablefields should have been unchecked now");
 
-        test.qS('#rtdtest-img .wh-form__imgeditdelete').click();
+        test.click('#rtdtest-img .wh-form__imgeditdelete');
 
         img = test.qS('#rtdtest-img .wh-form__imgeditimg');
         test.assert(img, 'image should still be present');
 
         test.click(test.qS('#rtdtest-enablefields'));
-        test.assert(test.qS('#rtdtest-enablefields').checked, "enablefields should have been re-enabled now");
-        test.qS('#rtdtest-img .wh-form__imgeditdelete').click();
+        test.assert(test.qR('#rtdtest-enablefields').checked, "enablefields should have been re-enabled now");
+        test.click('#rtdtest-img .wh-form__imgeditdelete');
 
         img = test.qS('#rtdtest-img .wh-form__imgeditimg');
         test.assert(!img, 'image still present');
         test.assert(!test.qS('#rtdtest-img .wh-form__imgeditdelete'), 'delete button still present');
-        test.assert(!test.qS('#rtdtest-img').classList.contains('wh-form__imgedit--hasimage'));
+        test.assert(!test.qR('#rtdtest-img').classList.contains('wh-form__imgedit--hasimage'));
       }
     },
     {
@@ -100,12 +100,13 @@ test.registerTests(
     {
       name: 'Test error handling',
       test: async function () {
-        test.qS('#rtdtest-img').focus();
+        test.focus('#rtdtest-img');
         test.click('.wh-form__imgeditdelete'); //kill image
         test.click('#submitbutton'); //image should be removed. submit
         await test.wait('ui');
 
-        const imggroup = test.qS('#rtdtest-img').closest('.wh-form__fieldgroup');
+        const imggroup = test.qR('#rtdtest-img').closest('.wh-form__fieldgroup');
+        test.assert(imggroup);
         test.assert(imggroup.classList.contains('wh-form__fieldgroup--error'), 'field should be in error');
 
         //upload an image
@@ -115,7 +116,7 @@ test.registerTests(
             filename: 'portrait_8.jpg'
           }
         ]);
-        test.qS('#rtdtest-img').click();
+        test.click('#rtdtest-img');
         await test.wait('ui');
 
         test.assert(!imggroup.classList.contains('wh-form__fieldgroup--error'), 'field should be out of error');
