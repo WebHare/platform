@@ -9,7 +9,7 @@ import $todd from "@mod-tollium/web/ui/js/support";
 import * as dombusy from 'dompack/src/busy';
 import { getTid } from "@mod-tollium/js/gettid";
 import * as focusZones from '../components/focuszones';
-import * as preload from 'dompack/extra/preload';
+import { loadScript } from '@webhare/dompack';
 import utilerror from '@mod-system/js/wh/errorreporting';
 import * as whintegration from '@mod-system/js/wh/integration';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
@@ -555,7 +555,7 @@ export class FrontendEmbeddedApplication extends ApplicationBase {
     if (!jsappconstructors[this.baseobject]) {
       let scr = loadedscripts[manifest.baseobject];
       if (!scr) {
-        scr = preload.promiseScript(manifest.src + "?__cd=" + Date.now());
+        scr = loadScript(manifest.src + "?__cd=" + Date.now());
         loadedscripts[manifest.baseobject] = scr;
       }
       scr.then(result => this.onAppLoadComplete({ success: true }));

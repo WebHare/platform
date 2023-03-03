@@ -4,7 +4,7 @@
 /* import ImgEditField from '@mod-publisher/js/forms/fields/imgedit';
 */
 import * as dompack from 'dompack';
-import * as preload from 'dompack/extra/preload';
+import { loadImage } from '@webhare/dompack';
 import { getTid } from "@mod-tollium/js/gettid";
 import FileEditBase from './fileeditbase';
 import './imgedit.css';
@@ -139,8 +139,8 @@ export default class ImgEditField extends FileEditBase {
     if (!result.type || result.type.indexOf("image/") != 0)
       return;//Not an image
 
-    let imgpreload = await preload.promiseImage(result.url);
-    if (!imgpreload.width || !imgpreload.height)
+    let imgpreload = await loadImage(result.url);
+    if (!imgpreload.naturalWidth || !imgpreload.naturalHeight)
       return;
 
     this.uploadurl = result.url;
@@ -152,7 +152,7 @@ export default class ImgEditField extends FileEditBase {
     dompack.empty(holder);
     let imgnode = document.createElement("div");
     imgnode.classList.add('wh-form__imgeditimg');
-    imgnode.style.backgroundImage = `url('${imgpreload.node.src}')`;
+    imgnode.style.backgroundImage = `url('${imgpreload.src}')`;
     holder.appendChild(imgnode);
     this.setupComponent();
     //FIXME this is just a webserver temporary session, need to get URLs with longer persistence

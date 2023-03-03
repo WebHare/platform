@@ -1,5 +1,4 @@
 import * as dompack from 'dompack';
-import * as preload from 'dompack/extra/preload';
 
 type CSSRef =
   {
@@ -19,6 +18,12 @@ export interface CSSRefRequester {
   addcss: CSSRef[];
 }
 
+function promiseNewLinkNode(element: HTMLLinkElement) {
+  return new Promise<void>((resolve, reject) => {
+    element.onload = () => resolve();
+    element.onerror = reject;
+  });
+}
 
 function findCSSRule(addcss: CSSRef) {
   for (let i = 0; i < addedcss.length; ++i)
@@ -49,7 +54,7 @@ export function register(rte: CSSRefRequester) {
           rel: "stylesheet",
           dataset: { whRtdTempstyle: "" }
         }) as HTMLLinkElement;
-        promise = preload.promiseNewLinkNode(node);
+        promise = promiseNewLinkNode(node);
         promise.catch(() => null); // ignore rejections that aren't handled
         document.body.appendChild(node);
       } else {

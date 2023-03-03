@@ -5,7 +5,7 @@ import ModalGalleryBase from '@mod-publisher/js/gallery/modalgallery';
 
 import "./defaultmodal.scss";
 import * as dompack from 'dompack';
-import * as preload from 'dompack/extra/preload';
+import { loadImage } from "@webhare/dompack";
 
 /*
   photos: [{ image:   required [object with WrapCachedImage data lowres image ]
@@ -93,18 +93,18 @@ export class DefaultModalGallery extends ModalGalleryBase {
   }
 
   async preloadImage(wrappernode, imginfo, transition) {
-    let preloadedimage = await preload.promiseImage(imginfo.src);
+    const preloadedimage = await loadImage(imginfo.src);
     if (preloadedimage && wrappernode) {
-      preloadedimage.node.width = imginfo.width;
-      preloadedimage.node.height = imginfo.height;
+      preloadedimage.width = imginfo.width;
+      preloadedimage.height = imginfo.height;
 
       wrappernode.classList.remove("wh-gallery-modal__image--loading");
       if (transition)
-        preloadedimage.node.style.opacity = 0;
-      wrappernode.appendChild(preloadedimage.node);
+        preloadedimage.style.opacity = "0";
+      wrappernode.appendChild(preloadedimage);
       wrappernode.clientWidth;// force css update
       if (transition)
-        preloadedimage.node.style.opacity = 1;
+        preloadedimage.style.opacity = "1";
 
       let resizenode = wrappernode.querySelector(".wh-gallery-modal__imagesizer");
       if (resizenode)

@@ -6,7 +6,7 @@
 
 import * as whintegration from '@mod-system/js/wh/integration';
 import { debugflags } from 'dompack';
-import { promiseScript } from 'dompack/extra/preload';
+import { loadScript } from '@webhare/dompack';
 import { onConsentChange } from "./consenthandler";
 
 let ga4settings = whintegration.config["ga4"];
@@ -19,7 +19,7 @@ function load() //no codepath should load() without ga4settings being set
 
   window.gtag('js', new Date); //firing this too early causes issues with the GTM initialization, it causes it not to fire pageview triggers. they probably shouldn't mix until we figure this out (send only once for both GTM/GA?)
   window.gtag('config', ga4settings.a, { anonymize_ip: !ga4settings.ip });
-  promiseScript("https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(ga4settings.a));
+  loadScript("https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(ga4settings.a));
   loaded = true;
 }
 
@@ -65,4 +65,3 @@ export function initOnConsent(options) {
     }
   });
 }
-
