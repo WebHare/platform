@@ -1,6 +1,5 @@
 import * as test from "@mod-tollium/js/testframework";
-import * as preload from 'dompack/extra/preload';
-
+import { loadImage } from "@webhare/dompack";
 
 function iframeAddEventOnce(node, eventname, callback)
 {
@@ -107,8 +106,8 @@ test.registerTests(
 
         // Test html content
         test.eq('htmlcontent2', iframe.contentWindow.document.getElementById('source').dataset.source);
-        let imgpreload = await preload.promiseImage(iframe.contentWindow.document.getElementById('image').src);
-        test.eq(428, imgpreload.width);
+        let imgpreload = await loadImage(iframe.contentWindow.document.getElementById('image').src);
+        test.eq(428, imgpreload.naturalWidth);
 
         // Do a JS call outside of loading stage
         test.click(test.getMenu(['I03']));
@@ -138,8 +137,8 @@ test.registerTests(
       await test.wait( () => test.qS("iframe").contentWindow.document.getElementById('source')
                              && test.qS("iframe").contentWindow.document.getElementById('source').dataset.source == 'blobcontent4');
 
-      let imgpreload = await preload.promiseImage(test.qS("iframe").contentWindow.document.getElementById('image').src);
-      test.eq(428, imgpreload.width);
+      let imgpreload = await loadImage(test.qS("iframe").contentWindow.document.getElementById('image').src);
+      test.eq(428, imgpreload.naturalWidth);
 
       //next tes: grab links
       test.click(test.getMenu(['I05']));

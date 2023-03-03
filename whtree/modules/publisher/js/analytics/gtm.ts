@@ -4,7 +4,7 @@
 /* import '@mod-publisher/js/analytics/gtm';
    enables ?wh-debug=anl support for GTM calls and implements non-script integration methods */
 import * as dompack from 'dompack';
-import { promiseScript } from 'dompack/extra/preload';
+import { loadScript } from '@webhare/dompack';
 import * as whintegration from '@mod-system/js/wh/integration';
 import { onConsentChange } from "./consenthandler";
 
@@ -70,7 +70,7 @@ export async function init() {
     //ADDME taking whintegration.config.designcdnroot would be nice, but it's current format is pretty unusable
     let src = "/.se/gtm." + gtmsettings.a.substr(4).toLowerCase() + ".js";
     try {
-      await promiseScript(src);
+      await loadScript(src);
       return; //done!
     }
     catch (e) {
@@ -80,7 +80,7 @@ export async function init() {
   }
 
   let gtmsrc = "https://www.googletagmanager.com/gtm.js?id=" + gtmsettings.a;
-  promiseScript(gtmsrc);
+  loadScript(gtmsrc);
 }
 
 export function initOnConsent() {

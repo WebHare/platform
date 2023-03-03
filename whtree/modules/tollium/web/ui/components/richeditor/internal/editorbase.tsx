@@ -13,7 +13,7 @@ import { convertHtmlToPlainText } from "@mod-system/js/internal/converthtmltopla
 import * as styleloader from './styleloader';
 
 import * as formservice from '@mod-publisher/js/forms/internal/form.rpc.json';
-import * as preload from 'dompack/extra/preload';
+import { loadImage } from '@webhare/dompack';
 import * as browser from "dompack/extra/browser";
 import * as KeyboardHandler from "dompack/extra/keyboard";
 import SelectionInterface from './selection';
@@ -3001,7 +3001,7 @@ export default class EditorBase {
       imgnode.removeAttribute("width");
       imgnode.removeAttribute("height");
 
-      await preload.promiseImage(imgnode.src); //don't return until the upload is done!
+      await loadImage(imgnode.src); //don't return until the upload is done!
     } finally {
       busylock.release();
     }

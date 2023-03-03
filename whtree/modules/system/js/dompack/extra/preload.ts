@@ -1,5 +1,3 @@
-/* import * as preload from 'dompack/extra/preload' */
-
 type PromiseImageResult =
   {
     node: HTMLImageElement;
