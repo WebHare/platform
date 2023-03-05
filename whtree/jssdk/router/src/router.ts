@@ -3,7 +3,7 @@ import { WebResponse } from './response';
 import { SiteRequest } from './siterequest';
 
 export { WebRequest } from './request';
-export { WebResponse } from './response';
+export { WebResponse, createJSONResponse } from './response';
 export { SiteRequest, WebDesignFunction } from './siterequest';
 export { SiteResponse, SiteResponseSettings } from "./sitereponse";
 
