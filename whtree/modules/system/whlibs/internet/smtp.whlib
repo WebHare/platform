@@ -284,6 +284,7 @@ PUBLIC STATIC OBJECTTYPE SMTPConnection
   MACRO NEW()
   {
     this->socket := CreateSocket("TCP");
+    this->debug := IsDebugTagEnabled("smtp");
   }
 
   /** Closes the connection
@@ -419,6 +420,9 @@ PUBLIC STATIC OBJECTTYPE SMTPConnection
   {
     IF(NOT ObjectExists(this->socket))
       THROW NEW Exception("SMTP connection was already closed");
+
+    IF(this->debug)
+      Print(`[smtp] send: '${EncodeJava(cmd)}'\n`);
     PrintTo(this->socket->handle, cmd || '\r\n');
     RETURN CELL[ ...this->GetResponse()
                , inreplyto := cmd
@@ -508,9 +512,22 @@ PUBLIC STATIC OBJECTTYPE SMTPConnection
       INSERT INTO mimeheaders(field,value) VALUES("Message-Id", CreateNewMessageId("")) AT END;
     }
 
-    SendMIMEMessageTo(mimeheaders, toppart, PTR SendSMTPLine(this->socket->handle,#1), [ rawheaders := options.rawheaders ]);
+    DATETIME start := GetCurrentDatetime();
+    INTEGER sendbuffer := CreateStream();
+    SendMIMEMessageTo(mimeheaders, toppart, PTR SendSMTPLine(sendbuffer, #1), [ rawheaders := options.rawheaders ]);
+
     // End with a line with a single period '.'
-    PrintTo(this->socket->handle, ".\r\n");
+    PrintTo(sendbuffer, ".\r\n");
+    BLOB buffer := MakeBlobFromStream(sendbuffer);
+
+    INTEGER totaltime_generate := GetDatetimeDifference(start,GetCurrentDatetime()).msecs;
+
+    start := GetCurrentDatetime();
+    SendBlobTo(this->socket->handle, buffer);
+    INTEGER totaltime_send := GetDatetimeDifference(start,GetCurrentDatetime()).msecs;
+
+    IF(this->debug)
+      Print(`[smtp] body sent: ${Length(buffer)} bytes, generate ${totaltime_generate}ms, send ${totaltime_send}ms\n`);
 
     response := this->GetResponse();
     retval.message := response.message;
