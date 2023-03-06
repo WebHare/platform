@@ -2662,7 +2662,7 @@
           </xs:attribute>
           <xs:attribute name="autocreate" type="xs:boolean" default="true">
             <xs:annotation>
-              <xs:documentation>Automatically create this schema. Defauls to true</xs:documentation>
+              <xs:documentation>Automatically create this schema. Defaults to true</xs:documentation>
             </xs:annotation>
           </xs:attribute>
           <xs:attribute name="definitionfile">
