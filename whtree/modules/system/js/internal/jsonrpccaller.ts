@@ -1,4 +1,5 @@
 import * as services from "@webhare/services";
+import { WebRequestInfo, WebResponseInfo } from "./types";
 
 /*
 Status codes
@@ -15,18 +16,6 @@ Code                Message                Meaning
 
 interface WebServiceDefinition {
   service: string;
-}
-
-interface WebRequestInfo {
-  url: string;
-  headers: Array<{ name: string; value: string }>;
-  body: string;
-}
-
-interface WebResponseInfo {
-  statusCode: number;
-  headers: Array<{ name: string; value: string }>;
-  body: string;
 }
 
 class JSONRPCError extends Error {

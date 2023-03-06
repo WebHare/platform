@@ -1,5 +1,5 @@
 import { coreWebHareRouter } from '@webhare/router/src/corerouter';
-import { WebRequest, WebResponse } from '@webhare/router/src/router';
+import { WebRequest } from '@webhare/router/src/router';
 import * as http from 'node:http';
 import * as https from 'node:https';
 import { Configuration, Port, initialconfig } from "./webconfig";
@@ -25,9 +25,8 @@ class WebServer {
 
       //Translate nodejs request to our Router stuff
       const webreq = new WebRequest(req.method, finalurl);
-      const response = new WebResponse;
       //TODO timeouts, separate VMs, whatever a Robust webserver Truly Requires
-      await coreWebHareRouter(webreq, response);
+      const response = await coreWebHareRouter(webreq);
       //TODO freeze the WebResponse, log errors if any modification still occurs after we're supposedly done
       res.write(response.body);
       res.end();

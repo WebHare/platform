@@ -7,5 +7,5 @@ export { WebResponse } from './response';
 export { SiteRequest, WebDesignFunction } from './siterequest';
 export { SiteResponse, SiteResponseSettings } from "./sitereponse";
 
-export type WebHareWHFSRouter = (request: SiteRequest, response: WebResponse) => Promise<void>;
-export type WebHareRouter = (request: WebRequest, response: WebResponse) => Promise<void>;
+export type WebHareWHFSRouter = (request: SiteRequest) => Promise<WebResponse>;
+export type WebHareRouter = (request: WebRequest) => Promise<WebResponse>;

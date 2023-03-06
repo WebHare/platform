@@ -1,7 +1,7 @@
 import * as test from "@webhare/test";
 import * as whfs from "@webhare/whfs";
 import * as services from "@webhare/services";
-import { WebRequest, WebResponse, WebHareRouter, SiteRequest } from "@webhare/router";
+import { WebRequest, WebResponse, SiteRequest } from "@webhare/router";
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
 import { BaseTestPageConfig } from "@mod-webhare_testsuite/webdesigns/basetestjs/webdesign/webdesign";
 import { XMLParser } from "fast-xml-parser";
@@ -44,18 +44,16 @@ async function testSiteResponse() {
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
   const sitereq = new SiteRequest(new WebRequest("GET", markdowndoc.link), markdowndoc);
 
-  const response = new WebResponse;
-
   //It should be okay to initialize the composer without knowing its tpye
-  const outputpage = await sitereq.createComposer(response);
+  const outputpage = await sitereq.createComposer();
   test.assert(outputpage.pageconfig);
 
   //And if we know the type, we can access the pageconfig!
-  const typedoutputpage = await sitereq.createComposer<BaseTestPageConfig>(response);
+  const typedoutputpage = await sitereq.createComposer<BaseTestPageConfig>();
   test.eq("/webhare-tests/webhare_testsuite.testsitejs/TestPages/markdownpage", typedoutputpage.pageconfig.whfspath);
 
   typedoutputpage.appendHTML(`<p>This is a body!</p>`);
-  await typedoutputpage.finish();
+  const response = await typedoutputpage.finish();
 
   //Verify markdown contents
   const doc = parseHTMLDoc(response.body);
@@ -83,24 +81,17 @@ async function testCaptureJSRendered() {
   test.eqMatch(/<html.*<body.*<div id="content">.*<code>commonmark<\/code>.*<\/div>.*\/body.*\/html/, resultpage.body.replaceAll("\n", " "));
 }
 
-//TODO should this be a router API?  but will there ever be another router to run than coreWebHareRouter? is this more about caching ?
-async function runARouter(router: WebHareRouter, request: WebRequest) {
-  const response = new WebResponse;
-  await router(request, response);
-  return response;
-}
-
 //Unlike testSiteResponse the testRouter_... tests actually attempt to render the markdown document *and* go through the path lookup motions
 async function testRouter_HSWebDesign() {
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage");
-  const result = await runARouter(coreWebHareRouter, new WebRequest("GET", markdowndoc.link));
+  const result = await coreWebHareRouter(new WebRequest("GET", markdowndoc.link));
 
   verifyMarkdownResponse(markdowndoc, result);
 }
 
 async function testRouter_JSWebDesign() {
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
-  const result = await runARouter(coreWebHareRouter, new WebRequest("GET", markdowndoc.link));
+  const result = await coreWebHareRouter(new WebRequest("GET", markdowndoc.link));
 
   verifyMarkdownResponse(markdowndoc, result);
 }

@@ -73,3 +73,15 @@ export interface BridgeClientLink {
   /** Enable inspector and get its connection settings for a specific proces */
   enableInspector(): Promise<InspectorSettings | null>;
 }
+
+export interface WebRequestInfo {
+  url: string;
+  headers: Array<{ name: string; value: string }>;
+  body: string;
+}
+
+export interface WebResponseInfo {
+  statusCode: number;
+  headers: Array<{ name: string; value: string }>;
+  body: string;
+}
