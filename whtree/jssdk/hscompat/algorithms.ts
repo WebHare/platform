@@ -36,6 +36,16 @@ export function recordUpperBound<
   return binaryRecordSearchImpl(searchin, searchrecord, keys, true).position;
 }
 
+export function recordRange<
+  T extends (string extends K ? Any : { [P in K]: ComparableType }),
+  S extends (string extends K ? Any : Pick<T, K & keyof T>),
+  K extends (UnknownNonNullish extends T ? keyof S : string extends keyof T ? keyof S : keyof T)
+>(searchin: T[], searchrecord: S | T, keys: K[]): T[] {
+  const start = recordLowerBound(searchin, searchrecord, keys);
+  const limit = recordUpperBound(searchin, searchrecord, keys);
+  return searchin.slice(start.position, limit);
+}
+
 function binaryRecordSearchImpl<
   T extends (string extends K ? Any : { [P in K]: ComparableType }),
   S extends (string extends K ? Any : Pick<T, K & keyof T>),
