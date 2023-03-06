@@ -470,8 +470,11 @@ type WRDDBEnumConditions = {
   condition: "mentionsany"; value: string[];
 };
 
-class WRDDBEnumValue<Options extends { allowedvalues: string }, Required extends boolean> extends WRDAttributeValueBase<string, string, string, WRDDBEnumConditions> {
-  getDefaultValue(): Options["allowedvalues"] | (Required extends false ? "" : never) { return ""; }
+// FIXME: add wildcard support
+type GetEnumAllowedValues<Options extends { allowedvalues: string }, Required extends boolean> = (Options extends { allowedvalues: infer V } ? V : never) | (Required extends true ? never : "");
+
+class WRDDBEnumValue<Options extends { allowedvalues: string }, Required extends boolean> extends WRDAttributeValueBase<GetEnumAllowedValues<Options, Required>, GetEnumAllowedValues<Options, Required> | "", GetEnumAllowedValues<Options, Required>, WRDDBEnumConditions> {
+  getDefaultValue(): GetEnumAllowedValues<Options, Required> | "" { return ""; }
   checkFilter({ condition, value }: WRDDBEnumConditions) {
     if (condition === "mentions" && !value)
       throw new Error(`Value may not be empty for condition type ${JSON.stringify(condition)}`);
@@ -511,11 +514,11 @@ class WRDDBEnumValue<Options extends { allowedvalues: string }, Required extends
     };
   }
 
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): string {
-    return entity_settings[settings_start].rawdata;
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): GetEnumAllowedValues<Options, Required> {
+    return entity_settings[settings_start].rawdata as GetEnumAllowedValues<Options, Required>;
   }
 
-  validateInput(value: string) {
+  validateInput(value: GetEnumAllowedValues<Options, Required>) {
     if (this.attr.required && !value.length)
       throw new Error(`Provided default value for attribute ${this.attr.tag}`);
   }
@@ -563,13 +566,16 @@ export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default
   }
 }
 
+// FIXME: add wildcard support
+type GetEnumArrayAllowedValues<Options extends { allowedvalues: string }> = Options extends { allowedvalues: infer V } ? V : never;
+
 /// The following accessors are not implemented yet, but have some typings
 class WRDDBDateValue extends WRDAttributeUnImplementedValueBase<Date, Date, Date> { }
 class WRDDBDateTimeValue extends WRDAttributeUnImplementedValueBase<Date, Date, Date> { }
 class WRDDBMoneyValue extends WRDAttributeUnImplementedValueBase<Money, Money, Money> { }
 class WRDDBInteger64Value extends WRDAttributeUnImplementedValueBase<bigint, bigint, bigint> { }
 class WRDDBBaseGenderValue extends WRDAttributeUnImplementedValueBase<WRDGender, WRDGender, WRDGender> { }
-class WRDDBEnumArrayValue<Options extends { allowedvalues: string }, Required extends boolean> extends WRDAttributeUnImplementedValueBase<string[], string[], string[]> { _x?: Options; _y?: Required; }
+class WRDDBEnumArrayValue<Options extends { allowedvalues: string }, Required extends boolean> extends WRDAttributeUnImplementedValueBase<Array<GetEnumArrayAllowedValues<Options>>, Array<GetEnumArrayAllowedValues<Options>>, Array<GetEnumArrayAllowedValues<Options>>> { _x?: Options; _y?: Required; }
 
 /// The following accessors are not implemented yet
 class WRDDBAddressValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
