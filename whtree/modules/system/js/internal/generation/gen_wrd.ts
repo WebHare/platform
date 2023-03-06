@@ -173,7 +173,7 @@ async function generateWRDDefs(config: WebHareConfiguration, modulename: string,
           fulldef += `};\n\n`;
           const schemaprop = (modules.length > 1 ? `${mod[0]}_` : ``) + tag + "_schema";
 
-          fulldef += `export const ${generatePropertyName(schemaprop)} = new WRDSchema(${JSON.stringify(`${mod[0]}:${tag}`)});\n`;
+          fulldef += `export const ${generatePropertyName(schemaprop)} = new WRDSchema<${modprefix}${generateTypeName(tag)}Schema>(${JSON.stringify(`${mod[0]}:${tag}`)});\n`;
 
           fullfile += def + fulldef;
         } catch (e) {
