@@ -170,6 +170,9 @@ export type AllowedFilterConditions = "=" | ">=" | ">" | "!=" | "<" | "<=" | "me
 /** Extracts the select result type for an attribute type */
 type GetResultType<T extends SimpleWRDAttributeType | WRDAttrBase> = ReturnType<AccessorType<ToWRDAttr<T>>["getValue"]>;
 
+/** Extracts the default value type for an attribute type */
+type GetDefaultType<T extends SimpleWRDAttributeType | WRDAttrBase> = ReturnType<AccessorType<ToWRDAttr<T>>["getDefaultValue"]>;
+
 /** Gives back the allowed condition+value combinations for an attribute type */
 export type GetCVPairs<T extends SimpleWRDAttributeType | WRDAttrBase> = Parameters<AccessorType<ToWRDAttr<T>>["checkFilter"]>[0];
 
@@ -187,6 +190,9 @@ export type OutputMap<T extends TypeDefinition> = AttrRef<T> | { [K: string]: Ou
 /** Type for argumemnts to select, but all arrays converted to records */
 export type RecordOutputMap<T extends TypeDefinition> = AttrRef<T> | { [K: string]: RecordOutputMap<T> };
 
+/** Type for arguments to enrich */
+export type EnrichOutputMap<T extends TypeDefinition> = { [K: string]: OutputMap<T> } | Readonly<Array<AttrRef<T>>>;
+
 /** Converts an output array to a record */
 type ConvertOutputArray<T extends TypeDefinition, M extends Readonly<Array<AttrRef<T>>>> = { [K in M[number]]: K; };
 
@@ -200,12 +206,25 @@ export type RecordizeOutputMap<T extends TypeDefinition, O extends OutputMap<T>>
       ? { [K in keyof O]: RecordizeOutputMap<T, O[K]> }
       : never));
 
+// Get the attribute def (WRDAttributeType or WRDAttr of a AttrRef)
+export type AttrOfAttrRef<T extends TypeDefinition, R extends AttrRef<T>> = T[R];
+
 /** Convert an attribute reference to the selection result type */
-export type MapAttrRef<T extends TypeDefinition, R extends AttrRef<T>> = GetResultType<T[R]>;
+export type MapAttrRef<T extends TypeDefinition, R extends AttrRef<T>> = GetResultType<AttrOfAttrRef<T, R>>;
+
+/** Convert an attribute reference to the selection result type */
+export type MapAttrRefForSingleItem<T extends TypeDefinition, R extends AttrRef<T>> = GetDefaultType<AttrOfAttrRef<T, R>>;
 
 /** Calculate the selection result of an record output map */
 export type MapRecordOutputMap<T extends TypeDefinition, O extends RecordOutputMap<T>> = O extends AttrRef<T>
   ? MapAttrRef<T, O>
+  : (O extends { [K: string]: RecordOutputMap<T> }
+    ? { -readonly [K in keyof O]: MapRecordOutputMap<T, O[K]> }
+    : never);
+
+/** Calculate the selection result of an record output map */
+export type MapRecordOutputMapForSingleItem<T extends TypeDefinition, O extends RecordOutputMap<T>> = O extends AttrRef<T>
+  ? MapAttrRefForSingleItem<T, O>
   : (O extends { [K: string]: RecordOutputMap<T> }
     ? { -readonly [K in keyof O]: MapRecordOutputMap<T, O[K]> }
     : never);

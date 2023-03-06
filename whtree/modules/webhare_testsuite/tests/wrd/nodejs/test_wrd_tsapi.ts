@@ -99,17 +99,29 @@ async function testNewAPI() {
   await whdb.beginWork();
   const unit_id = await schema.insert("whuser_unit", { wrd_title: "Root unit", wrd_tag: "TAG" });
 
-  await schema.insert("wrd_person", { wrd_firstname: "first", wrd_lastname: "lastname", whuser_unit: unit_id });
+  test.eq(unit_id, await schema.search("whuser_unit", "wrd_id", unit_id));
+  test.eq(null, await schema.search("whuser_unit", "wrd_id", -1));
+
+  const firstperson = await schema.insert("wrd_person", { wrd_firstname: "first", wrd_lastname: "lastname", whuser_unit: unit_id });
   await schema.insert("wrd_person", { wrd_firstname: "first2", wrd_lastname: "lastname2", whuser_unit: unit_id });
 
   await whdb.commitWork();
 
-  test.eq([{ wrd_firstname: "first", lastname: "lastname" }], await schema
+  const selectres = await schema
     .selectFrom("wrd_person")
     .select(["wrd_firstname"])
-    .select({ lastname: "wrd_lastname" })
+    .select({ lastname: "wrd_lastname", id: "wrd_id" })
     .where("wrd_firstname", "=", "first")
-    .execute());
+    .execute();
+
+  test.eq([{ wrd_firstname: "first", lastname: "lastname", id: firstperson }], selectres);
+
+  test.eq([{ wrd_firstname: "first", lastname: "lastname", id: firstperson }], await schema.enrich(
+    "wrd_person",
+    selectres.map(e => ({ id: e.id })),
+    "id",
+    { wrd_firstname: "wrd_firstname", lastname: "wrd_lastname" }));
+
 }
 
 test.run([

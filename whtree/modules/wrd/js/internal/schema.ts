@@ -1,5 +1,5 @@
 import { HSVMObject } from "@webhare/services/src/hsvm";
-import { AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, TypeDefinition, recordizeOutputMap, isAttrRef, isAttrRecordMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, GetCVPairs, MapRecordOutputMap } from "./types";
+import { AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, TypeDefinition, recordizeOutputMap, isAttrRef, isAttrRecordMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap } from "./types";
 import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
 
 type CombineRecords<T extends TypeDefinition, B extends { [K: string]: RecordOutputMap<T> }, U extends { [K: string]: RecordOutputMap<T> }> = {
@@ -83,6 +83,14 @@ export class WRDSchema<S extends SchemaTypeDefinition> {
     return this.#getType(type).updateEntity(wrd_id, value);
   }
 
+  search<T extends keyof S & string, F extends AttrRef<S[T]>>(type: T, field: F, value: (GetCVPairs<S[T][F]> & { condition: "=" })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }>): Promise<number | null> {
+    return this.#getType(type).search(field, value, options);
+  }
+
+  enrich<T extends keyof S & string, F extends keyof D, M extends EnrichOutputMap<S[T]>, D extends { [K in F]: number }>(type: T, data: D[], field: F, mapping: M): Promise<Array<D & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>> {
+    return this.#getType(type).enrich(data, field, mapping);
+  }
+
   extendWith<T extends SchemaTypeDefinition>(): WRDSchema<CombineSchemas<S, T>> {
     return this as unknown as WRDSchema<CombineSchemas<S, T>>;
   }
@@ -123,6 +131,15 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   async updateEntity(wrd_id: number, value: Updatable<S[T]>): Promise<void> {
     await extendWorkToCoHSVM();
     await (await this._getType()).updateEntity(wrd_id, value);
+  }
+
+  async search<F extends AttrRef<S[T]>>(field: F, value: (GetCVPairs<S[T][F]> & { condition: "=" })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }>): Promise<number | null> {
+    const res = await (await this._getType()).search(field, value, options || {}) as number;
+    return res || null;
+  }
+
+  async enrich<F extends keyof D, M extends EnrichOutputMap<S[T]>, D extends { [K in F]: number }>(data: D[], field: F, mapping: M): Promise<Array<D & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>> {
+    return (await this._getType()).enrich(data, field, mapping) as Promise<Array<D & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>>;
   }
 
   async runQuery(query: object): Promise<unknown[]> {
