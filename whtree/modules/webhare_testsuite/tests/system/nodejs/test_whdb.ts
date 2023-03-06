@@ -2,7 +2,7 @@ import { BackendEvent, BackendEventSubscription, subscribe } from "@webhare/serv
 import * as test from "@webhare/test";
 import { sleep } from "@webhare/std";
 import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen } from "@webhare/whdb";
-import type { WebHareTestsuiteDB } from "wh:internal/generated/whdb/webhare_testsuite";
+import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
 
 async function testQueries() {
   await beginWork();
