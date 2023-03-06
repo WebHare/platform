@@ -13,16 +13,14 @@ export interface SiteResponseSettings {
 /** SiteResponse implements HTML pages rendered using site configuration from WHFS and site profiles */
 export class SiteResponse<T extends object> {
   siterequest: SiteRequest;
-  webresponse: WebResponse;
   settings: SiteResponseSettings;
   protected contents = "";
 
   /** The pageconfig. Not protected because we assume that if you know it's type T, its on you if you access it */
   pageconfig: T;
 
-  constructor(pageconfig: T, siterequest: SiteRequest, webresponse: WebResponse, settings: SiteResponseSettings) {
+  constructor(pageconfig: T, siterequest: SiteRequest, settings: SiteResponseSettings) {
     this.siterequest = siterequest;
-    this.webresponse = webresponse;
     this.pageconfig = pageconfig;
     this.settings = settings;
   }
@@ -40,7 +38,7 @@ export class SiteResponse<T extends object> {
     this.contents += text;
   }
 
-  async finish(): Promise<void> {
+  async finish(): Promise<WebResponse> {
     const mywittytext = (await util.promisify(readFile)(services.toFSPath(this.settings.witty))).toString();
     const mywitty = new WittyTemplate(mywittytext); //TODO check/handle errors? or Will It Throw?
     let body = await mywitty.run({
@@ -51,7 +49,9 @@ export class SiteResponse<T extends object> {
     if (body === null)
       throw new Error("Witty returned 'null' (it failed?)"); //FIXME shouldn't witty just throw? I presume callbacks inside witty will be able to throw anyway
 
+    const webresponse = new WebResponse;
     body = `<html><head></head><body>` + body + `</body></html>`;
-    this.webresponse.setBody(body);
+    webresponse.setBody(body);
+    return webresponse;
   }
 }

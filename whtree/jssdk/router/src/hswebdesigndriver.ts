@@ -7,8 +7,8 @@ class HSWebdesignDriver<T extends object> extends SiteResponse<T> {
   hsvm: HSVM;
   webdesign: HSVMObject;
 
-  constructor(hsvm: HSVM, webdesign: HSVMObject, pageconfig: T, siterequest: SiteRequest, webresponse: WebResponse, settings: SiteResponseSettings) {
-    super(pageconfig, siterequest, webresponse, settings);
+  constructor(hsvm: HSVM, webdesign: HSVMObject, pageconfig: T, siterequest: SiteRequest, settings: SiteResponseSettings) {
+    super(pageconfig, siterequest, settings);
     this.hsvm = hsvm;
     this.webdesign = webdesign;
   }
@@ -26,16 +26,18 @@ class HSWebdesignDriver<T extends object> extends SiteResponse<T> {
     const page = await fileswhlib.makeBlobFromStream(stream) as Buffer;
 
     const pagebody = page.toString().replaceAll(placeholder, this.contents);
-    this.webresponse.setBody(pagebody);
+    const webresponse = new WebResponse;
+    webresponse.setBody(pagebody);
+    return webresponse;
   }
 }
 
-export async function wrapHSWebdesign<T extends object>(request: SiteRequest, webresponse: WebResponse): Promise<SiteResponse<T>> {
+export async function wrapHSWebdesign<T extends object>(request: SiteRequest): Promise<SiteResponse<T>> {
   const hsvm = await openHSVM({ openPrimary: true });
 
   const siteprofileslib = hsvm.loadlib("mod::publisher/lib/siteprofiles.whlib");
   const webdesign = await siteprofileslib.GetWebDesign(request.targetobject.id) as HSVMObject;
   const pageconfig = await webdesign.get("pageconfig");
 
-  return new HSWebdesignDriver<T>(hsvm, webdesign, pageconfig as T, request, webresponse, { witty: "", assetpack: "" });
+  return new HSWebdesignDriver<T>(hsvm, webdesign, pageconfig as T, request, { witty: "", assetpack: "" });
 }
