@@ -2,8 +2,8 @@ import { WebRequest } from './request';
 import { WebResponse } from './response';
 import { SiteRequest } from './siterequest';
 
-export { WebRequest } from './request';
-export { WebResponse, createJSONResponse } from './response';
+export { WebRequest, HTTPMethod } from './request';
+export { WebResponse, createJSONResponse, HTTPErrorCode, HTTPStatusCode, HTTPSuccessCode } from './response';
 export { SiteRequest, WebDesignFunction } from './siterequest';
 export { SiteResponse, SiteResponseSettings } from "./sitereponse";
 

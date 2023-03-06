@@ -1,6 +1,6 @@
 type Headers = { [key: string]: string };
 
-export enum HttpErrorCode {
+export enum HTTPErrorCode {
   BadRequest = 400,
   Unauthorized = 401,
   Forbidden = 403,
@@ -34,7 +34,7 @@ export enum HttpErrorCode {
   GatewayTimeout = 504
 }
 
-export enum HttpSuccessCode {
+export enum HTTPSuccessCode {
   Ok = 200,
   Created = 201,
   Accepted = 202,
@@ -49,14 +49,19 @@ export enum HttpSuccessCode {
   PermanentRedirect = 308
 }
 
-export type HttpStatusCode = HttpErrorCode | HttpSuccessCode;
+export type HTTPStatusCode = HTTPErrorCode | HTTPSuccessCode;
 
 export class WebResponse {
+  private _status: HTTPStatusCode = HTTPSuccessCode.Ok;
   private _body = '';
   private _headers: Headers;
 
   constructor() {
     this._headers = { "content-type": "text/html; charset=utf-8" }; //TODO caller should set this based on expected extension eg to text/plain
+  }
+
+  get status() {
+    return this._status;
   }
 
   get body() {
@@ -79,17 +84,19 @@ export class WebResponse {
     else
       delete this._headers[header];
   }
+
+  setStatus(status: HTTPStatusCode) {
+    this._status = status;
+  }
 }
 
 /** Create a webresponse returning a JSON body
  * @param jsonbody - The JSON body to return
  * @param options - Optional statuscode
  */
-export function createJSONResponse(jsonbody: unknown, options?: { statusCode?: HttpStatusCode }): WebResponse {
+export function createJSONResponse(jsonbody: unknown, options?: { status?: HTTPStatusCode }): WebResponse {
   const resp = new WebResponse;
-  if (options?.statusCode)
-    resp.setHeader("status", options.statusCode.toString());
-
+  resp.setStatus(options?.status || HTTPSuccessCode.Ok);
   resp.setHeader("content-type", "application/json");
   resp.setBody(JSON.stringify(jsonbody));
   return resp;

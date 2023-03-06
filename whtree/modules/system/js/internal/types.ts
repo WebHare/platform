@@ -76,12 +76,12 @@ export interface BridgeClientLink {
 
 export interface WebRequestInfo {
   url: string;
-  headers: Array<{ name: string; value: string }>;
+  headers: Record<string, string>;
   body: string;
 }
 
 export interface WebResponseInfo {
-  statusCode: number;
-  headers: Array<{ name: string; value: string }>;
+  status: number;
+  headers: Record<string, string>;
   body: string;
 }

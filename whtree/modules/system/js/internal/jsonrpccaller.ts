@@ -1,3 +1,4 @@
+import { HTTPErrorCode, createJSONResponse, WebResponse } from "@webhare/router";
 import * as services from "@webhare/services";
 import { WebRequestInfo, WebResponseInfo } from "./types";
 
@@ -18,13 +19,24 @@ interface WebServiceDefinition {
   service: string;
 }
 
-class JSONRPCError extends Error {
-  statusCode: number;
-  errorCode: number;
+/** An identifier established by the Client that MUST contain a String, Number, or NULL value if included. If it is not included it is assumed to be a notification. The value SHOULD normally not be Null and Numbers SHOULD NOT contain fractional parts  */
+type RequestID = number | string | null;
 
-  constructor(statusCode: number, errorCode: number, message: string) {
-    super();
-    this.statusCode = statusCode;
+/** Create a webresponse returning a JSON body
+ * @param jsonbody - The JSON body to return
+ * @param options - Optional statuscode
+ */
+export function createJSONRPCError(requestid: RequestID, status: HTTPErrorCode, errorCode: number, message: string) {
+  return createJSONResponse({ id: requestid, error: { code: errorCode, message }, result: null }, { status });
+}
+
+export class JSONRPCError {
+  status: HTTPErrorCode;
+  errorCode: number;
+  message: string;
+
+  constructor(status: HTTPErrorCode, errorCode: number, message: string) {
+    this.status = status;
     this.errorCode = errorCode;
     this.message = message;
   }
@@ -32,8 +44,8 @@ class JSONRPCError extends Error {
   static readonly MethodNotFound = -32601;
 }
 
-export async function JSONAPICall(servicedef: WebServiceDefinition, req: WebRequestInfo): Promise<WebResponseInfo> {
-  let id: number | null = null;
+async function runJSONAPICall(servicedef: WebServiceDefinition, req: WebRequestInfo): Promise<WebResponse> {
+  let id: RequestID = null;
   //FIXME reload (only) when code updates
   await services.ready();
 
@@ -49,25 +61,19 @@ export async function JSONAPICall(servicedef: WebServiceDefinition, req: WebRequ
     id = jsonrpcreq.id;
 
     if (!instance[jsonrpcreq.method])
-      throw new JSONRPCError(404, JSONRPCError.MethodNotFound, `Method '${jsonrpcreq.method}' not found`);
+      throw new JSONRPCError(HTTPErrorCode.NotFound, JSONRPCError.MethodNotFound, `Method '${jsonrpcreq.method}' not found`);
 
     const result = await instance[jsonrpcreq.method](...jsonrpcreq.params);
-    return {
-      statusCode: 200,
-      headers: [{ name: 'Content-Type', value: 'application/json' }],
-      body: JSON.stringify({ id: jsonrpcreq.id, result, error: null })
-    };
+    return createJSONResponse({ id, error: null, result });
   } catch (e) {
-    const error =
-    {
-      code: e instanceof JSONRPCError ? e.errorCode : -32000,
-      message: e instanceof Error ? e.message : String(e)
-    };
-
-    return {
-      statusCode: e instanceof JSONRPCError ? e.statusCode : 500,
-      headers: [{ name: 'Content-Type', value: 'application/json' }],
-      body: JSON.stringify({ id, error, result: null })
-    };
+    if (e instanceof JSONRPCError)
+      return createJSONRPCError(id, e.status, e.errorCode, e.message);
+    else //FIXME provide error info and stacktrace if `etr` debugflag is set and verified
+      return createJSONRPCError(id, HTTPErrorCode.InternalServerError, -32000, "Internal error"); //Do not leak Error object information
   }
+}
+
+export async function JSONAPICall(servicedef: WebServiceDefinition, req: WebRequestInfo): Promise<WebResponseInfo> {
+  const result = await runJSONAPICall(servicedef, req);
+  return { status: result.status, headers: result.headers, body: result.body };
 }

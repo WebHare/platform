@@ -2,9 +2,8 @@ import * as fs from "node:fs";
 import YAML from "yaml";
 import { toFSPath } from "@webhare/services";
 import { RestAPI } from "./restapi";
-import { createJSONResponse, WebRequest, WebResponse } from "@webhare/router";
+import { createJSONResponse, WebRequest, WebResponse, HTTPMethod, HTTPErrorCode } from "@webhare/router";
 import { WebRequestInfo, WebResponseInfo } from "../types";
-import { HttpErrorCode } from "@webhare/router/src/response";
 
 // A REST service supporting an OpenAPI definition
 export class RestService {
@@ -29,10 +28,9 @@ export class RestService {
 
   async APICall(req: WebRequestInfo, relurl: string): Promise<WebResponseInfo> {
     //WebRequestInfo is an internal type used by openapiservice.shtml until we can be directly connected to the WebHareRouter
-    const webreq = new WebRequest("GET", req.url);
+    const webreq = new WebRequest(HTTPMethod.GET, req.url, new Headers(req.headers), req.body);
     const response = await this.#runRestRouter(webreq, relurl);
-    const headers = Object.entries(response.headers).map(([name, value]) => ({ name, value }));
-    return { statusCode: 200, headers, body: response.body };
+    return { status: response.status, headers: response.headers, body: response.body };
   }
 
   async #runRestRouter(req: WebRequest, relurl: string): Promise<WebResponse> {
@@ -47,7 +45,7 @@ export class RestService {
       return this.restapi.renderOpenAPIJSON(apibaseurl, { filterxwebhare: true });
     }
 
-    return createJSONResponse({ error: "Internal server error" }, { statusCode: HttpErrorCode.InternalServerError });
+    return createJSONResponse({ error: "Internal server error" }, { status: HTTPErrorCode.InternalServerError });
   }
 }
 
