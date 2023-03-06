@@ -144,6 +144,8 @@ export function eq<T>(expected: T, actual: T, annotation?: Annotation): void {
 
   onLog("testEq fails: expected", expected_str);
   onLog("testEq fails: actual  ", actual_str);
+  if (typeof actual === "object" && actual && "then" in actual)
+    onLog("actual looks like a promise, did you await it?");
 
   if (typeof expected == "string" && typeof actual == "string") {
     onLog("E: " + encodeURIComponent(expected));
