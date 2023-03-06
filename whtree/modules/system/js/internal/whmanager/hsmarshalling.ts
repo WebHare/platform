@@ -402,6 +402,8 @@ export function determineType(value: unknown): VariableType {
     for (let i = 1; i < value.length; ++i) {
       elttype = unifyEltTypes(elttype, determineType(value[i]));
     }
+    if (elttype & VariableType.Array)
+      return VariableType.VariantArray;
     return elttype | VariableType.Array;
   }
   switch (typeof value) {

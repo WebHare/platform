@@ -147,6 +147,7 @@ ASYNC MACRO TestMarshalling()
     , ma1 :=      MONEY[ 1.00001m, 2 ]
     , ma2 :=      MONEY[ 2, 1 ]
     , i64a1 :=    INTEGER64[1, 3]
+    , via :=      VARIANT[INTEGER[1,2]]
     ];
 
   encoded := EncodeBase16(BlobToString(CreatePacketMarshalData(totest)));

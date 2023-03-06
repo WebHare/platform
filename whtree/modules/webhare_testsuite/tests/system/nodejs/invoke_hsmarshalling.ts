@@ -37,7 +37,8 @@ export function arrayEncodeTest() {
     fa2: [2, new Money("1.0625"), 2.5],
     ma1: [new Money("1.00001"), 2],
     ma2: [2, new Money("1")],
-    i64a1: [1, BigInt(3)]
+    i64a1: [1, BigInt(3)],
+    via: [[1, 2]]
   };
   return { marshal: writeMarshalData(toEncode).toString("hex"), hson: encodeHSON(toEncode) };
 }
