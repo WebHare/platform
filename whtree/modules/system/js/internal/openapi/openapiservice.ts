@@ -43,7 +43,8 @@ export class RestService {
 
     // Shortcut to returning the OpenAPI definition
     if (relurl === "openapi.json") {
-      return this.restapi.renderOpenAPIJSON({ filterxwebhare: true });
+      const apibaseurl = new URL(".", req.url).toString();
+      return this.restapi.renderOpenAPIJSON(apibaseurl, { filterxwebhare: true });
     }
 
     return createJSONResponse({ error: "Internal server error" }, { statusCode: HttpErrorCode.InternalServerError });
