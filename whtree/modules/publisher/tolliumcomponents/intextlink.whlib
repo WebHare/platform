@@ -1,6 +1,7 @@
 <?wh
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/inputvalidation.whlib";
@@ -127,7 +128,7 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
     INTEGER objid := ^internal->value;
     IF(objid!=0)
     {
-      BOOLEAN valid_append := Left(^append->value, 1) IN [ "#", "?", "!" ];
+      BOOLEAN valid_append := Left(^append->value, 1) IN whconstant_internallink_startcharacters;
       RETURN MakeIntExtInternalLink(objid, valid_append ? ^append->value : "");
     }
     RETURN DEFAULT RECORD;
@@ -254,17 +255,17 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
         {
           this->internal->value := matchid;
           STRING baseurl := SELECT AS STRING indexurl FROM system.fs_objects WHERE id = matchid;
-          IF (baseurl = "" OR Left(this->external->value, Length(baseurl)) != baseurl OR Substring(this->external->value, Length(baseurl), 1) NOT IN ['#','?','!'])
+          IF (baseurl = "" OR Left(this->external->value, Length(baseurl)) != baseurl OR Substring(this->external->value, Length(baseurl), 1) NOT IN whconstant_internallink_startcharacters)
             baseurl := SELECT AS STRING objecturl FROM system.fs_objects WHERE id = matchid;
 
-          IF (baseurl != "" AND Left(this->external->value, Length(baseurl)) = baseurl AND Substring(this->external->value, Length(baseurl), 1) IN ['#','?','!'])
+          IF (baseurl != "" AND Left(this->external->value, Length(baseurl)) = baseurl AND Substring(this->external->value, Length(baseurl), 1) IN whconstant_internallink_startcharacters)
             this->append->value := Substring(this->external->value, Length(baseurl));
 
           this->external->value := "";
         }
       }
     }
-    ELSE IF (^linktype->value = 1 AND this->current_linktype = 2)
+    ELSE IF (^linktype->value = 1 AND this->current_linktype = 2) //From internal to external
     {
       RECORD intextlink := this->GetCurrentInternalLinkValue();
       IF(RecordExists(intextlink))
@@ -272,10 +273,7 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
         // Not using GetIntextlinkTarget, because that returns '' when for a folder without index document
         // (because it uses indexurl instead of url)
         STRING exturl := SELECT AS STRING objecturl FROM system.fs_objects WHERE id = intextlink.internallink AND isactive;
-        IF (exturl != "")
-          exturl := exturl || intextlink.append;
-
-        this->external->value := exturl;
+        this->external->value := __MergeIntlinkAppend(exturl, intextlink.append);
       }
 
       this->internal->value := 0;
@@ -307,7 +305,7 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
     ELSE IF(^linktype->value = 2)
     {
       this->internal->ValidateValue(work);
-      IF (Left(this->append->value, 1) NOT IN [ "", "#", "?", "!" ])
+      IF (Left(this->append->value, 1) NOT IN STRING[ "", ...whconstant_internallink_startcharacters ])
       {
         work->AddErrorFor(this, GetTid("publisher:components.errors.invalidappend", fieldtitle));
       }

@@ -826,6 +826,17 @@ PUBLIC BLOB FUNCTION GetRichDocumentAsHtmlFragment(RECORD indata)
   RETURN StringToBlob(input);
 }
 
+PUBLIC STRING FUNCTION __MergeIntlinkAppend(STRING baseurl, STRING append)
+{
+  IF(baseurl = "")
+    RETURN "";
+  IF(append = "" OR Left(append,1) NOT IN whconstant_internallink_startcharacters)
+    RETURN baseurl;
+  IF(baseurl LIKE "*/" AND append LIKE "/*") //prevent dupe slash
+    RETURN baseurl || Substring(append,1);
+  RETURN baseurl || append;
+}
+
 /** @short Get the destination of an internal/external link field
     @param intextlink The intext link
     @return The link or an empty string if the link was not set or referred to a nonexisting internal file */
@@ -838,21 +849,18 @@ PUBLIC STRING FUNCTION GetIntextlinkTarget(RECORD intextlink)
   IF(intextlink.internallink=0)
     RETURN "";
 
-  STRING url := SELECT AS STRING indexurl FROM system.fs_objects WHERE id = intextlink.internallink;
-  IF (url != "")
-    RETURN url || intextlink.append;
-  RETURN "";
+  RETURN __MergeIntlinkAppend(SELECT AS STRING indexurl FROM system.fs_objects WHERE id = intextlink.internallink, intextlink.append);
 }
 
 /** @short Create an intextlink record for an internal link
     @param fsref Filesystem object we're referring to
-    @param append What to append to the URL (emtpy, ?..., #... or !...)
+    @param append What to append to the URL (emtpy, ?..., #... or /...)
     @return An intextlink record */
 PUBLIC RECORD FUNCTION MakeIntExtInternalLink(INTEGER fsref, STRING append)
 {
   //enforcing this leaves the option open to support getsubpageurl in the future
-  IF(Left(append,1) NOT IN ["","?","#","!"])
-    THROW NEW Exception("The append must start with either '?', '#' or '!'");
+  IF(Left(append,1) NOT IN STRING[ "", ...whconstant_internallink_startcharacters])
+    THROW NEW Exception("The append must start with either '?', '#' or '/'");
   RETURN [ internallink := fsref, externallink := "", append := append ];
 }
 
