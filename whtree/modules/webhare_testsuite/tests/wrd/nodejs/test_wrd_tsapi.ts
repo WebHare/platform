@@ -122,6 +122,10 @@ async function testNewAPI() {
     "id",
     { wrd_firstname: "wrd_firstname", lastname: "wrd_lastname" }));
 
+  await whdb.beginWork();
+  await schema.delete("wrd_person", firstperson);
+  await whdb.commitWork();
+  test.eq(null, await schema.search("wrd_person", "wrd_firstname", "first"));
 }
 
 test.run([

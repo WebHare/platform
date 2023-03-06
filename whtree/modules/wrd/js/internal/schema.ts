@@ -91,6 +91,10 @@ export class WRDSchema<S extends SchemaTypeDefinition> {
     return this.#getType(type).enrich(data, field, mapping);
   }
 
+  delete<T extends keyof S & string>(type: T, ids: number | number[]): Promise<void> {
+    return this.#getType(type).delete(ids);
+  }
+
   extendWith<T extends SchemaTypeDefinition>(): WRDSchema<CombineSchemas<S, T>> {
     return this as unknown as WRDSchema<CombineSchemas<S, T>>;
   }
@@ -140,6 +144,14 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
 
   async enrich<F extends keyof D, M extends EnrichOutputMap<S[T]>, D extends { [K in F]: number }>(data: D[], field: F, mapping: M): Promise<Array<D & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>> {
     return (await this._getType()).enrich(data, field, mapping) as Promise<Array<D & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>>;
+  }
+
+  async delete(ids: number | number[]): Promise<void> {
+    ids = Array.isArray(ids) ? ids : [ids];
+    if (ids.length) {
+      await extendWorkToCoHSVM();
+      await (await this._getType()).deleteEntities(ids);
+    }
   }
 
   async runQuery(query: object): Promise<unknown[]> {
