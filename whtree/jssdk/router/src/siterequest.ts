@@ -13,15 +13,12 @@ import { wrapHSWebdesign } from "./hswebdesigndriver";
 
 export type WebDesignFunction<T extends object> = (request: SiteRequest, webresponse: WebResponse, settings: SiteResponseSettings) => Promise<SiteResponse<T>>;
 
-export class SiteRequest implements WebRequest {
-  readonly request: WebRequest;
+export class SiteRequest {
+  readonly webrequest: WebRequest;
   readonly targetobject: WHFSFile;
 
-  get method() { return this.request.method; }
-  get url() { return this.request.url; }
-
-  constructor(request: WebRequest, targetobject: WHFSFile) {
-    this.request = request;
+  constructor(webrequest: WebRequest, targetobject: WHFSFile) {
+    this.webrequest = webrequest;
     this.targetobject = targetobject;
   }
 
