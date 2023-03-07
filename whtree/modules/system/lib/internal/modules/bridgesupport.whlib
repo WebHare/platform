@@ -13,10 +13,18 @@ PUBLIC VARIANT FUNCTION InvokeInsideJob(STRING func, VARIANT ARRAY args, RECORD 
   RETURN CallAnyPtrVA(MakeFunctionPtr(func), args);
 }
 
+PUBLIC RECORD FUNCTION FoldHeaders(RECORD ARRAY webheaders)
+{
+  RETURN RepackRecord(SELECT name := ANY(field)
+                           , value := Detokenize(GroupedValues(value), ", ")
+                        FROM webheaders
+                    GROUP BY ToUppercase(field));
+}
+
 PUBLIC RECORD FUNCTION EncodeWebRequestForJS() //returns a WebRequestInfo
 {
   RETURN CELL[ url := GetRequestURL()
-             , headers := RepackRecord(SELECT name := field, value FROM GetAllWebHeaders())
+             , headers := FoldHeaders(GetAllWebHeaders())
              , method := ToLowercase(GetRequestMethod())
              , body := BlobToString(GetRequestBody()) //TODO non-utf8 safe bodies won't survive this
              ];

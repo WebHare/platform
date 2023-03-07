@@ -5,7 +5,18 @@ LOADLIB "wh::promise.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/services.whlib";
+LOADLIB "mod::system/lib/internal/modules/bridgesupport.whlib";
 
+MACRO TestBridgeAPIs()
+{
+  TestEq([ "content-type" := `application/json`
+         , "set-cookie" := `set-cookie: SOCS=CAAaBgiA_ZmgBg; expires=Fri, 05-Apr-2024 12:21:25 GMT; path=/; domain=.google.com; Secure; SameSite=lax, set-cookie: AEC=ARSKqsKJHIFOVNdkTIncO1jf3HbpSwCzFoBiwO-6dw5apB0xHzDExI-5M_8; expires=Sun, 03-Sep-2023 12:21:25 GMT; path=/; domain=.google.com; Secure; HttpOnly; SameSite=lax/json`
+         ], FoldHeaders(
+    [[ field := `Content-Type`, value := `application/json` ]
+    ,[ field := `Set-Cookie`, value := `set-cookie: SOCS=CAAaBgiA_ZmgBg; expires=Fri, 05-Apr-2024 12:21:25 GMT; path=/; domain=.google.com; Secure; SameSite=lax` ]
+    ,[ field := `set-cookie`, value := `set-cookie: AEC=ARSKqsKJHIFOVNdkTIncO1jf3HbpSwCzFoBiwO-6dw5apB0xHzDExI-5M_8; expires=Sun, 03-Sep-2023 12:21:25 GMT; path=/; domain=.google.com; Secure; HttpOnly; SameSite=lax/json` ]
+    ]));
+}
 
 ASYNC MACRO WebHareServiceTest()
 {
@@ -56,8 +67,8 @@ ASYNC MACRO SyncWebHareServiceTest()
   //TestEq([ value := 42 ], testdata);
   */
 }
-
-RunTestFramework([ PTR WebHareServiceTest
+RunTestFramework([ PTR TestBridgeAPIs
+                 , PTR WebHareServiceTest
                  , PTR SyncWebHareServiceTest
                  ],
                  [ usedatabase := FALSE
