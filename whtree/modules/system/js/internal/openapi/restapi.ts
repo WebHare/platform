@@ -13,6 +13,8 @@ interface Operation {
   handler: string | null;
   // All parameters for the operation (path(route) and operation level)
   params: OpenAPIV3.ParameterObject[];
+  // Body parameter
+  requestBody: OpenAPIV3.RequestBodyObject | null;
 }
 
 interface Route {
@@ -114,7 +116,8 @@ export class RestAPI {
 
             route.methods[method] = {
               params,
-              handler
+              handler,
+              requestBody: operation.requestBody as OpenAPIV3.RequestBodyObject | null
             };
           }
         }
@@ -169,11 +172,43 @@ export class RestAPI {
         else
           params[param.name] = paramvalue;
       }
+
+    let body = null;
+    const bodyschema = endpoint.requestBody?.content["application/json"]?.schema;
+    if (bodyschema) {
+      //We have something useful to proces
+      const ctype = req.headers.get("content-type");
+      if (ctype != "application/json") //TODO what about endpoints supporting multiple types?
+        return createJSONResponse({ error: `Invalid content-type '${ctype}', expected application/json` }, { status: HTTPErrorCode.BadRequest });
+
+      try {
+        body = JSON.parse(req.body);
+      } catch (e) { //parse error. There's no harm in 'leaking' a JSON parse error details
+        return createJSONResponse({ error: `Failed to parse the body: ${(e as Error)?.message}` }, { status: HTTPErrorCode.BadRequest });
+      }
+
+      // Validate the incoming request body (TODO cache validators, prevent parallel compilation when a lot of requests come in before we finished compilation)
+      const validator = this.ajv.compile(bodyschema);
+      if (!validator(body)) {
+        /* The error looks like this:
+        >   {
+              instancePath: '',
+              schemaPath: '#/required',
+              keyword: 'required',
+              params: { missingProperty: 'email' },
+              message: "must have required property 'email'"
+            }
+            so we might be able to use it to generate a more useful error message ?
+        */
+        return createJSONResponse({ error: validator.errors?.[0]?.message || `Invalid request body` }, { status: HTTPErrorCode.BadRequest });
+      }
+    }
+
     if (!endpoint.handler)
       return createJSONResponse({ error: `Method ${req.method.toUpperCase()} for route '${relurl}' not yet implemented` }, { status: HTTPErrorCode.NotImplemented });
 
     // Create the request object
-    const restreq = new RestRequest(req, relurl, params);
+    const restreq = new RestRequest(req, relurl, params, body);
 
     // FIXME should we cache the resolved handler or will that break auto reloading?
     const resthandler = (await loadJSFunction(endpoint.handler)) as RestHandler;

@@ -29,6 +29,27 @@ paths:
           schema:
             type: string
       x-webhare-function: users.ts#getUsers
+    post:
+      description: Add a new user
+      requestBody:
+        description: The new user
+        required: true
+        content:
+          application/json:
+            schema:
+              "$ref": "#/components/schemas/user_in"
+              required:
+                - firstName
+                - email
+      responses:
+        "201":
+          description: The created user
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/user_out"
+      x-webhare-function: users.ts#createUser
+
   "/users/{userid}":
     parameters:
     - "$ref": "#/components/parameters/userid"
@@ -45,6 +66,15 @@ paths:
 
 components:
   schemas:
+    # User properties for creating and updating users ('required' is added by createUser)
+    user_in:
+      type: object
+      additionalProperties: false
+      properties:
+        firstName:
+          type: string
+        email:
+          type: string
     # User properties as returned to the user, 'user_in' with an 'id' field
     user_out:
       type: object
@@ -53,7 +83,7 @@ components:
         id:
           type: number
           readOnly: true
-        firstname:
+        firstName:
           type: string
         email:
           type: string

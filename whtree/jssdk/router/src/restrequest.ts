@@ -10,11 +10,14 @@ export class RestRequest {
   readonly path: string;
   ///Rest parameters received
   readonly params: RestParams;
+  ///The parsed body of the request (if this operation accepts an application/json body)
+  readonly body: unknown;
 
-  constructor(webrequest: WebRequest, path: string, params: RestParams) {
+  constructor(webrequest: WebRequest, path: string, params: RestParams, body: unknown) {
     this.webrequest = webrequest;
     this.path = path;
     this.params = params;
+    this.body = body;
   }
 }
 

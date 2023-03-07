@@ -5,6 +5,9 @@ import { HTTPMethod, HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
 
 let userapiroot = '';
 
+const pietje = { email: "pietje@beta.webhare.net", firstName: "pietje" };
+const jsonheader = { "Content-Type": "application/json" };
+
 async function testService() {
   await services.ready();
 
@@ -19,6 +22,7 @@ async function testService() {
     { id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" },
     { id: 55, firstName: "Bravo", email: "bravo@beta.webhare.net" }
   ], JSON.parse(res.body));
+  test.eq("application/json", res.headers["content-type"]);
 
   res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/users/1", body: "", headers: {} }, "users/1");
   test.eq(HTTPSuccessCode.Ok, res.status);
@@ -31,6 +35,22 @@ async function testService() {
   test.eq(HTTPSuccessCode.Ok, res.status);
   test.eq([{ id: 55, firstName: "Bravo", email: "bravo@beta.webhare.net" }],
     JSON.parse(res.body));
+
+  res = await instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/users", body: "hi!", headers: {} }, "users");
+  test.eq(HTTPErrorCode.BadRequest, res.status);
+
+  res = await instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/users", body: "hi!", headers: {} }, "users");
+  test.eq(HTTPErrorCode.BadRequest, res.status);
+
+  res = await instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/users", body: JSON.stringify(pietje), headers: {} }, "users");
+  test.eq(HTTPErrorCode.BadRequest, res.status, "should fail: no contenttype set");
+
+  res = await instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/users", body: JSON.stringify(pietje), headers: jsonheader }, "users");
+  test.eq(HTTPSuccessCode.Created, res.status);
+  test.eq({ "email": "pietje@beta.webhare.net", "firstName": "pietje", "id": 77 }, JSON.parse(res.body));
+
+  res = await instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/users", body: JSON.stringify({ firstName: "Klaasje" }), headers: jsonheader }, "users");
+  test.eq(HTTPErrorCode.BadRequest, res.status);
 }
 
 async function verifyPublicParts() {
