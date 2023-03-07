@@ -527,6 +527,9 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
         const entries = Object.entries(value as object);
         writer.writeS32(entries.length);
         for (const [key, subvalue] of entries) {
+          if (subvalue === undefined)
+            throw new Error(`Attempting to marshal 'undefined' for property ${key}`);
+
           let columnid = columns.get(key.toUpperCase());
           if (columnid === undefined) {
             columnid = columns.size;
