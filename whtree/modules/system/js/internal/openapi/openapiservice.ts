@@ -45,7 +45,14 @@ export class RestService {
       return this.restapi.renderOpenAPIJSON(apibaseurl, { filterxwebhare: true });
     }
 
-    return createJSONResponse({ error: "Internal server error" }, { status: HTTPErrorCode.InternalServerError });
+    // Handle the request
+    try {
+      return await this.restapi.handleRequest(req, "/" + relurl);
+    } catch (e) {
+      //TODO reveal more info when debugflag etr is set and verified. Also ensure notice logging!
+      console.error(e);
+      return createJSONResponse({ error: "Internal error" }, { status: HTTPErrorCode.InternalServerError });
+    }
   }
 }
 

@@ -19,3 +19,28 @@ paths:
       responses:
         "200":
           description: The list of users
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/user_list"
+      x-webhare-function: users.ts#getUsers
+
+components:
+  schemas:
+    # User properties as returned to the user, 'user_in' with an 'id' field
+    user_out:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: number
+          readOnly: true
+        firstname:
+          type: string
+        email:
+          type: string
+    # A list of 'user_out' objects
+    user_list:
+      type: array
+      items:
+        "$ref": "#/components/schemas/user_out"
