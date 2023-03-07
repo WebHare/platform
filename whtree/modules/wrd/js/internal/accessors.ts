@@ -17,7 +17,7 @@ type AddToQueryResponse<O> = {
 };
 
 /** Base for an attribute accessor
- * @typeParam In - Type fo allowed values form insert and update
+ * @typeParam In - Type for allowed values for insert and update
  * @typeParam Out - Type returned by queries
  * @typeParam Default - Output type plus default type (output may not include the default value for eg required domains, where `null` is the default)
  */
@@ -41,7 +41,7 @@ export abstract class WRDAttributeValueBase<In, Default, Out extends Default, C 
   /** Checks if a value matches a filter
    * @param value - Value to check
    * @param cv - Condition and value
-   * @returns TRUE if the value matches
+   * @returns true if the value matches
    */
   abstract matchesValue(value: Default, cv: C): boolean;
 
@@ -49,13 +49,13 @@ export abstract class WRDAttributeValueBase<In, Default, Out extends Default, C 
    * @typeParam O - Output map for the database query
    * @param query - Database query
    * @param cv - Condition and value to compare with
-   * @returns Whether after-filtering is necessaey and updated query
+   * @returns Whether after-filtering is necessary and updated query
    */
   abstract addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: C): AddToQueryResponse<O>;
 
-  /** Returns TRUE all the values in a filter match the default value
+  /** Returns true all the values in a filter match the default value
    * @param cv - Condition+value to check
-   * @returns TRUE if all values match the default value
+   * @returns true if all values match the default value
    */
   containsOnlyDefaultValues<CE extends C>(cv: CE): boolean {
     const defaultvalue = this.getDefaultValue();

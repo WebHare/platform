@@ -110,11 +110,11 @@ export type WRDAttr<T extends WRDAttributeType, O extends (WRDAttrBase & { __att
   __attrtype: T;
   /// Options for this attribute
   __options: T extends SimpleWRDAttributeType ? never : O;
-  /// WHether the attribute is required
+  /// Whether the attribute is required
   __required: false;
-  /// WHether the attribute is insertable
+  /// Whether the attribute is insertable
   __insertable: true;
-  /// WHether the attribute is insertable
+  /// Whether the attribute is updatable
   __updatable: true;
 };
 
@@ -164,7 +164,7 @@ export type TypeDefinition = Record<string, SimpleWRDAttributeType | WRDAttrBase
 /** Base type for the type definition of a WRD schema */
 export type SchemaTypeDefinition = Record<string, TypeDefinition>;
 
-/** All alllowed filter conditions */
+/** All allowed filter conditions */
 export type AllowedFilterConditions = "=" | ">=" | ">" | "!=" | "<" | "<=" | "mentions" | "mentionsany" | "in" | "like" | "contains" | "intersects";
 
 /** Extracts the select result type for an attribute type */
@@ -215,14 +215,14 @@ export type MapAttrRef<T extends TypeDefinition, R extends AttrRef<T>> = GetResu
 /** Convert an attribute reference to the selection result type */
 export type MapAttrRefForSingleItem<T extends TypeDefinition, R extends AttrRef<T>> = GetDefaultType<AttrOfAttrRef<T, R>>;
 
-/** Calculate the selection result of an record output map */
+/** Calculate the selection result of a record output map */
 export type MapRecordOutputMap<T extends TypeDefinition, O extends RecordOutputMap<T>> = O extends AttrRef<T>
   ? MapAttrRef<T, O>
   : (O extends { [K: string]: RecordOutputMap<T> }
     ? { -readonly [K in keyof O]: MapRecordOutputMap<T, O[K]> }
     : never);
 
-/** Calculate the selection result of an record output map */
+/** Calculate the selection result of a record output map */
 export type MapRecordOutputMapForSingleItem<T extends TypeDefinition, O extends RecordOutputMap<T>> = O extends AttrRef<T>
   ? MapAttrRefForSingleItem<T, O>
   : (O extends { [K: string]: RecordOutputMap<T> }
@@ -321,7 +321,7 @@ export type Insertable<T extends TypeDefinition> = {
     [K in keyof T as InsertableAndRequired<ToWRDAttr<T[K]>> extends true ? K : never]: GetInputType<T[K]>
   };
 
-/** Returns the type for date for updating a WRD entity */
+/** Returns the type for updating a WRD entity */
 export type Updatable<T extends TypeDefinition> = {
   // Exclude all non-updatable keys by remapping the key value to 'never'
   [K in keyof T as ToWRDAttr<T[K]>["__updatable"] extends true ? K : never]?: GetInputType<T[K]>

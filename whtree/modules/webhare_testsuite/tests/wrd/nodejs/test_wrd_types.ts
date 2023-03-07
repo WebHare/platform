@@ -6,7 +6,7 @@ type EqualsInternal<X, Y> =
   (<T>() => T extends X ? 1 : 2) extends
   (<T>() => T extends Y ? 1 : 2) ? true : false;
 
-// This form will give some feedback at the test site instead of 'false' doest not extends 'true'
+// This form will give some feedback at the test site instead of 'false' does not extend 'true'
 type Equals<X extends Y, Y> = EqualsInternal<X, Y>;
 //type REquals<X, Y extends X> = EqualsInternal<X, Y>;
 
@@ -162,8 +162,6 @@ function testTypes() {
     wrd_titles_suffix?: string;
     wrd_titles?: string;
   }>, Required<Insertable<System_Usermgmt_WRDPerson>>>>();
-
-  //*/
 }
 
 test.run([testTypes], { wrdauth: false });
