@@ -46,7 +46,7 @@ test.registerTests(
         //icon
         test.assert(!row1cells[2].querySelector('img, canvas') != null);
         test.assert( row2cells[2].querySelector('img, canvas') != null);
-        test.assert( row2cells[2].querySelector('img, canvas').getAttribute("data-toddimg").indexOf('computer')!=-1);
+        test.assert( row2cells[2].querySelector('img, canvas').getAttribute("data-toddimg").indexOf('mail_opened')!=-1);
         test.eq("No.",  row2cells[2].querySelector('img, canvas').getAttribute("title"));
 
         // ADDME: find a way to test whether the hint on a icon column works?
@@ -54,7 +54,7 @@ test.registerTests(
         //icon+email
         test.assert(!row1cells[4].querySelector('img, canvas') != null);
         test.assert( row2cells[4].querySelector('img, canvas') != null);
-        test.assert( row2cells[4].querySelector('img, canvas').getAttribute("data-toddimg").indexOf('computer')!=-1);
+        test.assert( row2cells[4].querySelector('img, canvas').getAttribute("data-toddimg").indexOf('mail_opened')!=-1);
 
         test.assert(                  row1cells[4].querySelector('a') != null);
         test.eq("mailto:info@example.net", row1cells[4].querySelector('a').href);
@@ -63,7 +63,7 @@ test.registerTests(
         // ADDME: test icon+url
         test.assert(!row1cells[5].querySelector('img, canvas') != null);
         test.assert( row2cells[5].querySelector('img, canvas') != null);
-        test.assert( row2cells[5].querySelector('img, canvas').getAttribute("data-toddimg").indexOf('computer')!=-1);
+        test.assert( row2cells[5].querySelector('img, canvas').getAttribute("data-toddimg").indexOf('mail_opened')!=-1);
 
         test.assert(                  row1cells[5].querySelector('a') != null);
         test.eq("http://www.webhare.nl/", row1cells[5].querySelector('a').href);

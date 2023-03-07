@@ -88,7 +88,7 @@
           <split type="horizontal">
             <part width="1pr" name="leftpart">
               <list name="list1"
-                    icons="tollium:networking/computer tollium:networking/nethood tollium:media/soundon tollium:overlays/protected" rowiconhintname="rowiconhint"
+                    icons="tollium:mailclient/mail_opened tollium:mailclient/mail_closed tollium:media/soundon tollium:overlays/protected" rowiconhintname="rowiconhint"
                     rowiconname="rowicon"
                     oniconclick="oniconclick"
                     selectmode="single"
@@ -215,13 +215,6 @@
           </panel>
         </part>
       </split>
-    </body>
-  </screen>
-
-  <screen name="listeditor" title="List editor" allowresize="true">
-    <body>
-      <text value="listeditor below" />
-      <listedit name="listeditor" />
     </body>
   </screen>
 

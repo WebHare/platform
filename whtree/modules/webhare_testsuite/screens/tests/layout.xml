@@ -455,7 +455,7 @@
           </cell>
           <cell>
             <inlineblock name="inlineblock_image" title="inlimg">
-              <image width="16px" height="16px" value="tollium:messages/warning"/>
+              <image width="16px" height="16px" value="tollium:messageboxes/warning"/>
             </inlineblock>
             <textedit name="line2_2e" title="Line 2.2E" />
           </cell>
@@ -530,7 +530,7 @@
          <col width="1pr"/>
          <row height="2gr">
            <cell backgroundcolor="#DDFFDD" rowspan="2">
-             <image height="2gr" width="2pr" value="tollium:messages/warning"/>
+             <image height="2gr" width="2pr" value="tollium:messageboxes/warning"/>
            </cell>
            <cell backgroundcolor="#DDDDFF">
              <text value="Boven"/>
@@ -836,17 +836,17 @@
             <part width="300px" name="topleftpanel">
               <line layout="tabs-space">
                 <buttongroup layout="horizontal">
-                  <button name="showpart" icon="tollium:indy.buttonbar/showpart" type="icon" />
+                  <button name="showpart" icon="tollium:actions/levelup" type="icon" />
                   <button name="folderup" icon="tollium:actions/levelup" type="icon" />
-                  <button name="folderpath2" icon="tollium:indy.buttonbar/folderpath" type="icon" />
+                  <button name="folderpath2" icon="tollium:actions/levelup" type="icon" />
                 </buttongroup>
                 <spacer />
                 <buttongroup layout="horizontal">
-                  <button name="enablesortingbutton" icon="tollium:indy.buttonbar/setordering" type="icon" />
+                  <button name="enablesortingbutton" icon="tollium:actions/levelup" type="icon" />
                   <button name="moveupbutton" icon="tollium:actions/up" type="icon" />
-                  <button name="movedownbutton" icon="tollium:indy.buttonbar/arrowdown" type="icon" />
-                  <button name="filelistmulti" icon="tollium:indy.buttonbar/showmultirow" type="icon" />
-                  <button name="filelistsingle" icon="tollium:indy.buttonbar/showsinglerow" type="icon" />
+                  <button name="movedownbutton" icon="tollium:actions/levelup" type="icon" />
+                  <button name="filelistmulti" icon="tollium:actions/levelup" type="icon" />
+                  <button name="filelistsingle" icon="tollium:actions/levelup" type="icon" />
                 </buttongroup>
               </line>
             </part>
