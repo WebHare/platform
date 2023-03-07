@@ -72,7 +72,7 @@ export class WRDSchema<S extends SchemaTypeDefinition> {
   // eslint-disable-next-line @typescript-eslint/ban-types
   selectFrom<T extends keyof S & string>(type: T): WRDSingleQueryBuilder<S, T, null> {
     const wrdtype = this.#getType(type);
-    return new WRDSingleQueryBuilder(wrdtype, null, []);
+    return new WRDSingleQueryBuilder(wrdtype, null, [], null);
   }
 
   insert<T extends keyof S & string>(type: T, value: Insertable<S[T]>) {
@@ -158,43 +158,71 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     return (await (await this._getType()).runQuery(query)) as unknown[];
   }
 }
-
+type HistoryModeData = { historymode: "now" | "all" | "__getfields" } | { historymode: "at"; when: Date } | { historymode: "range"; when_start: Date; when_limit: Date } | null;
 type GetOptionsIfExists<T> = T extends { options: unknown } ? T["options"] : undefined;
 type HSWRDQuery = {
   outputcolumn?: string;
   outputcolumns?: object;
   filters?: object[];
+  historymode?: "now" | "all" | "__getfields" | "at" | "range";
+  when?: Date;
+  when_start?: Date;
+  when_limit?: Date;
 };
 
 export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> {
   #type: WRDType<S, T>;
   #selects: O;
   #wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>;
+  #historymode: HistoryModeData;
 
-  constructor(type: WRDType<S, T>, selects: O, wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>) {
+  constructor(type: WRDType<S, T>, selects: O, wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>, historymode: HistoryModeData) {
     this.#type = type;
     this.#selects = selects;
     this.#wheres = wheres;
+    this.#historymode = historymode;
   }
 
   select<M extends OutputMap<S[T]>>(mapping: M): WRDSingleQueryBuilder<S, T, CombineOutputMap<S[T], O, RecordizeOutputMap<S[T], M>>> {
     const recordmapping = recordizeOutputMap<S[T], typeof mapping>(mapping);
-    return new WRDSingleQueryBuilder(this.#type, combineOutputMap(this.#selects, recordmapping), this.#wheres);
+    return new WRDSingleQueryBuilder(this.#type, combineOutputMap(this.#selects, recordmapping), this.#wheres, this.#historymode);
   }
 
   where<F extends keyof S[T] & string, Condition extends GetCVPairs<S[T][F]>["condition"]>(field: F, condition: Condition, value: (GetCVPairs<S[T][F]> & { condition: Condition })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: Condition }>): WRDSingleQueryBuilder<S, T, O> {
-    return new WRDSingleQueryBuilder(this.#type, this.#selects, [...this.#wheres, { field, condition, value }]);
+    return new WRDSingleQueryBuilder(this.#type, this.#selects, [...this.#wheres, { field, condition, value }], this.#historymode);
+  }
+
+  historyMode(mode: "now" | "all" | "__getfields"): WRDSingleQueryBuilder<S, T, O>;
+  historyMode(mode: "at", when: Date): WRDSingleQueryBuilder<S, T, O>;
+  historyMode(mode: "range", start: Date, limit: Date): WRDSingleQueryBuilder<S, T, O>;
+
+  historyMode(mode: "now" | "all" | "__getfields" | "at" | "range", start?: Date, limit?: Date): WRDSingleQueryBuilder<S, T, O> {
+    switch (mode) {
+      case "now":
+      case "__getfields":
+      case "all": {
+        return new WRDSingleQueryBuilder(this.#type, this.#selects, this.#wheres, { historymode: mode });
+      }
+      case "at": {
+        return new WRDSingleQueryBuilder(this.#type, this.#selects, this.#wheres, { historymode: mode, when: start! });
+      }
+      case "range": {
+        return new WRDSingleQueryBuilder(this.#type, this.#selects, this.#wheres, { historymode: mode, when_start: start!, when_limit: limit! });
+      }
+    }
   }
 
   async execute(): Promise<O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never> {
     if (!this.#selects)
       throw new Error(`A select is required`);
     const type = await this.#type._getType();
-    const query: HSWRDQuery = {};
+    let query: HSWRDQuery = {};
     if (typeof this.#selects === "string")
       query.outputcolumn = this.#selects;
     else
       query.outputcolumns = this.#selects;
+    if (this.#historymode)
+      query = { ...query, ...this.#historymode };
     if (this.#wheres.length)
       query.filters = this.#wheres.map(({ field, condition, value }) => ({ field, matchtype: condition.toUpperCase(), value }));
     const retval = await type.runQuery(query);

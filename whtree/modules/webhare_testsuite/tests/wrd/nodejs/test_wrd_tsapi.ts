@@ -103,7 +103,7 @@ async function testNewAPI() {
   test.eq(null, await schema.search("whuser_unit", "wrd_id", -1));
 
   const firstperson = await schema.insert("wrd_person", { wrd_firstname: "first", wrd_lastname: "lastname", whuser_unit: unit_id });
-  await schema.insert("wrd_person", { wrd_firstname: "first2", wrd_lastname: "lastname2", whuser_unit: unit_id });
+  const secondperson = await schema.insert("wrd_person", { wrd_firstname: "second", wrd_lastname: "lastname2", whuser_unit: unit_id });
 
   await whdb.commitWork();
 
@@ -125,7 +125,23 @@ async function testNewAPI() {
   await whdb.beginWork();
   await schema.delete("wrd_person", firstperson);
   await whdb.commitWork();
+
   test.eq(null, await schema.search("wrd_person", "wrd_firstname", "first"));
+
+  const now = new Date();
+  await whdb.beginWork();
+  await schema.update("wrd_person", secondperson, { wrd_limitdate: now });
+  await whdb.commitWork();
+
+  // wait 1 millisecond
+  await new Promise(r => setTimeout(r, 1));
+  test.eq([], await schema.selectFrom("wrd_person").select("wrd_id").where("wrd_firstname", "=", "second").execute());
+  test.eq([secondperson], await schema.selectFrom("wrd_person").select("wrd_id").where("wrd_firstname", "=", "second").historyMode("all").execute());
+  test.eq([secondperson], await schema.selectFrom("wrd_person").select("wrd_id").where("wrd_firstname", "=", "second").historyMode("__getfields").execute());
+  test.eq([secondperson], await schema.selectFrom("wrd_person").select("wrd_id").where("wrd_firstname", "=", "second").historyMode("at", new Date(now.valueOf() - 1)).execute());
+  test.eq([], await schema.selectFrom("wrd_person").select("wrd_id").where("wrd_firstname", "=", "second").historyMode("at", now).execute());
+  test.eq([], await schema.selectFrom("wrd_person").select("wrd_id").where("wrd_firstname", "=", "second").historyMode("range", now, new Date(now.valueOf() + 1)).execute());
+  test.eq([secondperson], await schema.selectFrom("wrd_person").select("wrd_id").where("wrd_firstname", "=", "second").historyMode("range", new Date(now.valueOf() - 1), now).execute());
 }
 
 test.run([
