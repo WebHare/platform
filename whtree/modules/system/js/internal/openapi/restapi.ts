@@ -1,10 +1,9 @@
 import SwaggerParser from "@apidevtools/swagger-parser";
-import { createJSONResponse, HTTPErrorCode, WebRequest, RestParams, RestRequest, WebResponse, HTTPMethod } from "@webhare/router";
+import { createJSONResponse, HTTPErrorCode, WebRequest, RestParams, RestRequest, WebResponse, HTTPMethod, RestAuthorizationFunction, RestImplementationFunction } from "@webhare/router";
 import Ajv from "ajv";
 import { OpenAPIV3 } from "openapi-types";
 import { resolveResource } from "@webhare/services";
 import { loadJSFunction } from "../resourcetools";
-import { RestHandler } from "@webhare/router/src/restrequest";
 
 const SupportedMethods: HTTPMethod[] = [HTTPMethod.GET, HTTPMethod.PUT, HTTPMethod.POST, HTTPMethod.DELETE, HTTPMethod.OPTIONS, HTTPMethod.HEAD, HTTPMethod.PATCH];
 
@@ -15,6 +14,8 @@ interface Operation {
   params: OpenAPIV3.ParameterObject[];
   // Body parameter
   requestBody: OpenAPIV3.RequestBodyObject | null;
+  // Authorization callback
+  authorization: string | null;
 }
 
 interface Route {
@@ -26,8 +27,17 @@ interface Route {
   methods: Partial<Record<HTTPMethod, Operation>>;
 }
 
-interface WebHareOperations {
+interface WHOperationAddition {
   "x-webhare-implementation"?: string;
+  "x-webhare-authorization"?: string;
+}
+
+interface WHOpenAPIPathItem extends OpenAPIV3.PathItemObject<WHOperationAddition> {
+  "x-webhare-authorization"?: string;
+}
+
+interface WHOpenAPIDocument extends OpenAPIV3.Document<WHOperationAddition> {
+  "x-webhare-authorization"?: string;
 }
 
 function filterXWebHare(def: unknown): unknown {
@@ -65,7 +75,7 @@ function matchesPath(path: string[], routePath: string[], req: WebRequest): Reco
 // An OpenAPI handler
 export class RestAPI {
   _ajv: Ajv | null = null;
-  def: OpenAPIV3.Document<WebHareOperations> | null = null;
+  def: WHOpenAPIDocument | null = null;
 
   // Get the JSON schema validator singleton
   protected get ajv() {
@@ -87,7 +97,8 @@ export class RestAPI {
        "This method calls dereference internally, so the returned Swagger object is fully dereferenced."
        we shouldn't be seeing any more OpenAPIV3.ReferenceObject objects anymore. TypeScript does'nt know this
        so we need a few cast below to build the routes ...*/
-    this.def = parsed as OpenAPIV3.Document<WebHareOperations>;
+    this.def = parsed as WHOpenAPIDocument;
+    const toplevel_authorization = this.def["x-webhare-authorization"] ? resolveResource(specresourcepath, this.def["x-webhare-authorization"]) : null;
 
     // FIXME we can still do some more preprocessing? (eg body validation compiling and resolving x-webhare-implementation)
     // Read the API paths
@@ -95,8 +106,9 @@ export class RestAPI {
       // path is a string, e.g. "/users/{userid}/tokens"
       for (const path of Object.keys(this.def.paths)) {
         // comp is an object with keys for each supported method
-        const comp = this.def.paths[path]!;
+        const comp = this.def.paths[path]! as WHOpenAPIPathItem;
         const routepath = path.split('/');
+        const path_authorization = comp["x-webhare-authorization"] ? resolveResource(specresourcepath, comp["x-webhare-authorization"]) : toplevel_authorization;
 
         const route: Route = {
           path: routepath,
@@ -108,6 +120,7 @@ export class RestAPI {
           const operation = comp[method];
           if (operation) {
             const handler = operation["x-webhare-implementation"] ? resolveResource(specresourcepath, operation["x-webhare-implementation"]) : null;
+            const operation_authorization = operation["x-webhare-authorization"] ? resolveResource(specresourcepath, operation["x-webhare-authorization"]) : path_authorization;
             const params = [];
             if (comp.parameters)
               params.push(...comp.parameters as OpenAPIV3.ParameterObject[]);
@@ -117,7 +130,8 @@ export class RestAPI {
             route.methods[method] = {
               params,
               handler,
-              requestBody: operation.requestBody as OpenAPIV3.RequestBodyObject | null
+              requestBody: operation.requestBody as OpenAPIV3.RequestBodyObject | null,
+              authorization: operation_authorization
             };
           }
         }
@@ -148,7 +162,8 @@ export class RestAPI {
     const endpoint = match.route.methods[req.method];
     if (!endpoint)
       return createJSONResponse({ error: `Method ${req.method.toUpperCase()} not allowed for route '${relurl}'` }, { status: HTTPErrorCode.MethodNotAllowed });
-
+    if (!endpoint.authorization) //TODO with 'etr' return more about 'why'
+      return createJSONResponse({ error: `Not authorized` }, { status: HTTPErrorCode.Forbidden });
 
     // Build parameters (eg. from the path or from the query)
     const params: RestParams = {};
@@ -164,7 +179,7 @@ export class RestAPI {
         }
 
         if (paramvalue === null)
-          continue; //Unsupported parameter location
+          continue; //Unspecified parameter (TODO do we need to support default values?)
 
         // We'll only convert 'number' parameters, other parameters will be supplied as strings
         if ((param.schema as OpenAPIV3.SchemaObject)?.type === "number")
@@ -204,14 +219,21 @@ export class RestAPI {
       }
     }
 
-    if (!endpoint.handler)
-      return createJSONResponse({ error: `Method ${req.method.toUpperCase()} for route '${relurl}' not yet implemented` }, { status: HTTPErrorCode.NotImplemented });
-
     // Create the request object
     const restreq = new RestRequest(req, relurl, params, body);
 
+    // Run the authorizer first
+    const authorizer = (await loadJSFunction(endpoint.authorization)) as RestAuthorizationFunction;
+    const authresult = await authorizer(restreq);
+    if (!authresult.authorized)
+      return authresult.response || createJSONResponse(null, { status: HTTPErrorCode.Unauthorized });
+
+    restreq.authorization = authresult.authorization;
+    if (!endpoint.handler)
+      return createJSONResponse({ error: `Method ${req.method.toUpperCase()} for route '${relurl}' not yet implemented` }, { status: HTTPErrorCode.NotImplemented });
+
     // FIXME should we cache the resolved handler or will that break auto reloading?
-    const resthandler = (await loadJSFunction(endpoint.handler)) as RestHandler;
+    const resthandler = (await loadJSFunction(endpoint.handler)) as RestImplementationFunction;
 
     // FIXME vm/shadowrealms? and timeouts
     // Handle it!

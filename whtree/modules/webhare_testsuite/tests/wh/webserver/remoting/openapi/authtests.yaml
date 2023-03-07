@@ -1,0 +1,26 @@
+---
+openapi: 3.0.2
+info:
+  title: Test openapi service without auth function
+  version: 0.0.1-alpha
+
+paths:
+  "/dummy":
+    get:
+      responses:
+        "200":
+          description: A dummy
+      x-webhare-authorization: authtests.ts#needSecret
+      x-webhare-implementation: authtests.ts#getDummy
+    post:
+      description: Add a new dummy
+      responses:
+        "201":
+          description: The created dummy
+    x-webhare-authorization: authtests.ts#denyAll
+
+  "/other":
+    get:
+      responses:
+        "200":
+          description: Another route

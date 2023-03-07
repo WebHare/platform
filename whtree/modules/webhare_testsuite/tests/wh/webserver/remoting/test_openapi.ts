@@ -53,6 +53,27 @@ async function testService() {
   test.eq(HTTPErrorCode.BadRequest, res.status);
 }
 
+async function testAuthorization() {
+  await services.ready();
+
+  //whitebox try the service directly for more useful traces etc
+  const instance = await getServiceInstance("mod::webhare_testsuite/tests/wh/webserver/remoting/openapi/authtests.yaml");
+  let res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/other", body: "", headers: {} }, "other");
+  test.eq(HTTPErrorCode.Forbidden, res.status); //Blocked because the route lacks an authorizer
+
+  res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/dummy", body: "", headers: {} }, "dummy");
+  test.eq(HTTPErrorCode.Unauthorized, res.status); //No key!
+  test.eq({ error: "Dude where's my key?" }, JSON.parse(res.body));
+
+  res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/dummy", body: "", headers: { "x-key": "secret" } }, "dummy");
+  test.eq(HTTPSuccessCode.Ok, res.status);
+  test.eq('"secret"', res.body);
+
+  res = await instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/dummy", body: "", headers: { "x-key": "secret" } }, "dummy");
+  test.eq(HTTPErrorCode.Unauthorized, res.status, "Should not be getting NotImplemented - access checks go first!");
+  test.eq("null", res.body);
+}
+
 async function verifyPublicParts() {
   userapiroot = services.getConfig().backendurl + ".webhare_testsuite/openapi/testservice/";
 
@@ -86,5 +107,6 @@ async function verifyPublicParts() {
 
 test.run([
   testService,
+  testAuthorization,
   verifyPublicParts
 ]);
