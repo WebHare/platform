@@ -39,7 +39,7 @@ export class RestService {
 
     relurl = relurl.split('?')[0]; //ignore query string
 
-    // Shortcut to returning the OpenAPI definition
+    // Shortcut to returning the OpenAPI definition (TODO optionally allow hiding or requiring auth)
     if (relurl === "openapi.json") {
       const apibaseurl = new URL(".", req.url).toString();
       return this.restapi.renderOpenAPIJSON(apibaseurl, { filterxwebhare: true });

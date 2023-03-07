@@ -1,17 +1,7 @@
 import SwaggerParser from "@apidevtools/swagger-parser";
-import { createJSONResponse } from "@webhare/router";
+import { createJSONResponse, HTTPErrorCode, WebResponse } from "@webhare/router";
 import Ajv from "ajv";
 import { OpenAPIV3 } from "openapi-types";
-
-export class RestError {
-  code: number;
-  message: string;
-
-  constructor(code: number, message: string) {
-    this.code = code;
-    this.message = message;
-  }
-}
 
 function filterXWebHare(def: unknown): unknown {
   if (!def || typeof def !== "object")
@@ -47,19 +37,19 @@ export class RestAPI {
     this.def = parsed as OpenAPIV3.Document;
   }
 
-  renderOpenAPIJSON(baseurl: string, options: { filterxwebhare: boolean }) {
+  renderOpenAPIJSON(baseurl: string, options: { filterxwebhare: boolean }): WebResponse {
     let def = { ...this.def };
     if (options.filterxwebhare)
       def = filterXWebHare(def) as typeof def;
 
     if (!this.def)
-      throw new RestError(500, "Service not initialized");
+      return createJSONResponse({ error: `Service not configured` }, { status: HTTPErrorCode.InternalServerError });
 
     if (def.servers)
       for (const server of def.servers)
         if (server.url)
           server.url = new URL(server.url, baseurl).toString();
 
-    return createJSONResponse(def) ?? null;
+    return createJSONResponse(def);
   }
 }
