@@ -8,10 +8,10 @@ import { RestHandler } from "@webhare/router/src/restrequest";
 
 const SupportedMethods: HTTPMethod[] = [HTTPMethod.GET, HTTPMethod.PUT, HTTPMethod.POST, HTTPMethod.DELETE, HTTPMethod.OPTIONS, HTTPMethod.HEAD, HTTPMethod.PATCH];
 
-interface Handler {
+interface Operation {
   // The function to call
   handler: string | null;
-  // All parameters for the handler
+  // All parameters for the operation (path(route) and operation level)
   params: OpenAPIV3.ParameterObject[];
 }
 
@@ -21,10 +21,10 @@ interface Route {
   // The path-parameters to gather on this route
   params: OpenAPIV3.ParameterObject[];
   // Supported methods
-  methods: Partial<Record<HTTPMethod, Handler>>;
+  methods: Partial<Record<HTTPMethod, Operation>>;
 }
 
-interface WebHareOperationObject extends OpenAPIV3.OperationObject {
+interface WebHareOperations {
   "x-webhare-function"?: string;
 }
 
@@ -63,7 +63,7 @@ function matchesPath(path: string[], routePath: string[], req: WebRequest): Reco
 // An OpenAPI handler
 export class RestAPI {
   _ajv: Ajv | null = null;
-  def: OpenAPIV3.Document | null = null;
+  def: OpenAPIV3.Document<WebHareOperations> | null = null;
 
   // Get the JSON schema validator singleton
   protected get ajv() {
@@ -80,7 +80,12 @@ export class RestAPI {
     const parsed = await SwaggerParser.validate(def);
     if (!(parsed as OpenAPIV3.Document).openapi?.startsWith("3.0"))
       throw new Error(`Unsupported OpenAPI version ${parsed.info.version}`);
-    this.def = parsed as OpenAPIV3.Document;
+
+    /* Per https://apitools.dev/swagger-parser/docs/swagger-parser.html#validateapi-options-callbac
+       "This method calls dereference internally, so the returned Swagger object is fully dereferenced."
+       we shouldn't be seeing any more OpenAPIV3.ReferenceObject objects anymore. TypeScript does'nt know this
+       so we need a few cast below to build the routes ...*/
+    this.def = parsed as OpenAPIV3.Document<WebHareOperations>;
 
     // FIXME we can still do some more preprocessing? (eg body validation compiling and resolving x-webhare-function)
     // Read the API paths
@@ -98,14 +103,14 @@ export class RestAPI {
         };
 
         for (const method of SupportedMethods) {
-          if (comp[method]) {
-            const compmethod = comp[method] as WebHareOperationObject;
-            const handler = compmethod["x-webhare-function"] ? resolveResource(specresourcepath, compmethod["x-webhare-function"]) : null;
+          const operation = comp[method];
+          if (operation) {
+            const handler = operation["x-webhare-function"] ? resolveResource(specresourcepath, operation["x-webhare-function"]) : null;
             const params = [];
             if (comp.parameters)
               params.push(...comp.parameters as OpenAPIV3.ParameterObject[]);
-            if (compmethod.parameters)
-              params.push(...compmethod.parameters as OpenAPIV3.ParameterObject[]);
+            if (operation.parameters)
+              params.push(...operation.parameters as OpenAPIV3.ParameterObject[]);
 
             route.methods[method] = {
               params,
