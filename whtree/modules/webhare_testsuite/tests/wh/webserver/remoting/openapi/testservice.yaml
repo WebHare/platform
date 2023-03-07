@@ -28,7 +28,7 @@ paths:
           name: searchFor
           schema:
             type: string
-      x-webhare-function: users.ts#getUsers
+      x-webhare-implementation: users.ts#getUsers
     post:
       description: Add a new user
       requestBody:
@@ -48,7 +48,7 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/user_out"
-      x-webhare-function: users.ts#createUser
+      x-webhare-implementation: users.ts#createUser
 
   "/users/{userid}":
     parameters:
@@ -62,7 +62,7 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/user_out"
-      x-webhare-function: users.ts#getUser
+      x-webhare-implementation: users.ts#getUser
 
 components:
   schemas:

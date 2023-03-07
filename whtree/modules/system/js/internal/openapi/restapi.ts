@@ -27,7 +27,7 @@ interface Route {
 }
 
 interface WebHareOperations {
-  "x-webhare-function"?: string;
+  "x-webhare-implementation"?: string;
 }
 
 function filterXWebHare(def: unknown): unknown {
@@ -89,7 +89,7 @@ export class RestAPI {
        so we need a few cast below to build the routes ...*/
     this.def = parsed as OpenAPIV3.Document<WebHareOperations>;
 
-    // FIXME we can still do some more preprocessing? (eg body validation compiling and resolving x-webhare-function)
+    // FIXME we can still do some more preprocessing? (eg body validation compiling and resolving x-webhare-implementation)
     // Read the API paths
     if (this.def!.paths) {
       // path is a string, e.g. "/users/{userid}/tokens"
@@ -107,7 +107,7 @@ export class RestAPI {
         for (const method of SupportedMethods) {
           const operation = comp[method];
           if (operation) {
-            const handler = operation["x-webhare-function"] ? resolveResource(specresourcepath, operation["x-webhare-function"]) : null;
+            const handler = operation["x-webhare-implementation"] ? resolveResource(specresourcepath, operation["x-webhare-implementation"]) : null;
             const params = [];
             if (comp.parameters)
               params.push(...comp.parameters as OpenAPIV3.ParameterObject[]);
