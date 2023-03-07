@@ -26,6 +26,11 @@ async function testService() {
 
   res = await instance.APICall({ method: HTTPMethod.DELETE, url: "http://localhost/users", body: "", headers: {} }, "users");
   test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
+
+  res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/users?searchFor=Br", body: "", headers: {} }, "users");
+  test.eq(HTTPSuccessCode.Ok, res.status);
+  test.eq([{ id: 55, firstName: "Bravo", email: "bravo@beta.webhare.net" }],
+    JSON.parse(res.body));
 }
 
 async function verifyPublicParts() {
@@ -53,6 +58,10 @@ async function verifyPublicParts() {
 
   test.eq({ id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" },
     await user1call.json());
+
+  const filteredcall = await fetch(userapiroot + "users?searchFor=Br");
+  test.eq([{ id: 55, firstName: "Bravo", email: "bravo@beta.webhare.net" }],
+    await filteredcall.json());
 }
 
 test.run([

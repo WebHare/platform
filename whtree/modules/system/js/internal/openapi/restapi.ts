@@ -11,12 +11,14 @@ const SupportedMethods: HTTPMethod[] = [HTTPMethod.GET, HTTPMethod.PUT, HTTPMeth
 interface Handler {
   // The function to call
   handler: string | null;
+  // All parameters for the handler
+  params: OpenAPIV3.ParameterObject[];
 }
 
 interface Route {
   // The path parts, e.g. ["users", "{userid}", "tokens"]
   path: string[];
-  // The parameters for the function
+  // The path-parameters to gather on this route
   params: OpenAPIV3.ParameterObject[];
   // Supported methods
   methods: Partial<Record<HTTPMethod, Handler>>;
@@ -99,8 +101,15 @@ export class RestAPI {
           if (comp[method]) {
             const compmethod = comp[method] as WebHareOperationObject;
             const handler = compmethod["x-webhare-function"] ? resolveResource(specresourcepath, compmethod["x-webhare-function"]) : null;
+            const params = [];
+            if (comp.parameters)
+              params.push(...comp.parameters as OpenAPIV3.ParameterObject[]);
+            if (compmethod.parameters)
+              params.push(...compmethod.parameters as OpenAPIV3.ParameterObject[]);
+
             route.methods[method] = {
-              handler: handler
+              params,
+              handler
             };
           }
         }
@@ -135,11 +144,15 @@ export class RestAPI {
 
     // Build parameters (eg. from the path or from the query)
     const params: RestParams = {};
-    if (match.route.params)
-      for (const param of match.route.params) {
+    if (endpoint.params)
+      for (const param of endpoint.params) {
         let paramvalue: null | string = null;
         if (param.in === "path") { //we already extracted path parameters during matching:
           paramvalue = match.params[param.name];
+        } else if (param.in === "query") {
+          paramvalue = req.url.searchParams.get(param.name);
+        } else {
+          throw new Error(`Unsupported parameter location '${param.in}'`);
         }
 
         if (paramvalue === null)

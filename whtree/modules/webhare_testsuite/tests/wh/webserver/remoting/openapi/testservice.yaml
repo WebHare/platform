@@ -23,6 +23,11 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/user_list"
+      parameters:
+        - in: query
+          name: searchFor
+          schema:
+            type: string
       x-webhare-function: users.ts#getUsers
   "/users/{userid}":
     parameters:

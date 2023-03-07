@@ -8,7 +8,11 @@ const persons = [
 
 export async function getUsers(req: RestRequest): Promise<WebResponse> {
   test.eq('/users', req.path);
-  return createJSONResponse(persons);
+  let foundpersons = [...persons];
+  if (req.params.searchFor)
+    foundpersons = foundpersons.filter(person => person.firstName.includes(req.params.searchFor as string));
+
+  return createJSONResponse(foundpersons);
 }
 
 export async function getUser(req: RestRequest): Promise<WebResponse> {
