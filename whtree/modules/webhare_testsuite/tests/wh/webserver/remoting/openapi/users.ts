@@ -1,4 +1,4 @@
-import { createJSONResponse, RestRequest, WebResponse } from "@webhare/router";
+import { createJSONResponse, HTTPSuccessCode, RestRequest, WebResponse } from "@webhare/router";
 import * as test from "@webhare/test";
 
 const persons = [
@@ -6,7 +6,20 @@ const persons = [
   { id: 55, firstName: "Bravo", email: "bravo@beta.webhare.net" }
 ];
 
-export async function getUsers(req: RestRequest): Promise<WebResponse> {
+interface MyAuthorization {
+  username: string;
+  canwrite: boolean;
+}
+
+interface MyRestRequest extends RestRequest {
+  authorization: MyAuthorization;
+}
+
+export async function allowAll(req: RestRequest) {
+  return { authorized: true };
+}
+
+export async function getUsers(req: MyRestRequest): Promise<WebResponse> {
   test.eq('/users', req.path);
   let foundpersons = [...persons];
   if (req.params.searchFor)
@@ -15,8 +28,18 @@ export async function getUsers(req: RestRequest): Promise<WebResponse> {
   return createJSONResponse(foundpersons);
 }
 
-export async function getUser(req: RestRequest): Promise<WebResponse> {
+export async function getUser(req: MyRestRequest): Promise<WebResponse> {
   test.eq(`/users/${req.params.userid}`, req.path);
   test.eq("number", typeof req.params.userid);
   return createJSONResponse(persons.find(_ => _.id == req.params.userid));
+}
+
+export async function createUser(req: MyRestRequest): Promise<WebResponse> {
+  test.eq('/users', req.path);
+
+  const addperson = req.body as typeof persons[0];
+  test.assert("email" in addperson);
+  test.assert("firstName" in addperson);
+
+  return createJSONResponse({ ...addperson, id: 77 }, { status: HTTPSuccessCode.Created });
 }
