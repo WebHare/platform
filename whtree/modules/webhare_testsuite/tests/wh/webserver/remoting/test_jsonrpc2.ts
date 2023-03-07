@@ -2,6 +2,7 @@ import * as test from '@webhare/test';
 import * as services from '@webhare/services';
 import { JSONAPICall } from '@mod-system/js/internal/jsonrpccaller';
 import noAuthJSService from '@mod-webhare_testsuite/js/jsonrpc/client';
+import { HTTPMethod } from '@webhare/router';
 
 async function testRPCCaller() {
   await services.ready();
@@ -9,7 +10,8 @@ async function testRPCCaller() {
   const request = {
     url: "",
     headers: {},
-    body: JSON.stringify({ id: 5, method: "validateEmail", params: ["nl", "pietje@webhare.net"] })
+    body: JSON.stringify({ id: 5, method: "validateEmail", params: ["nl", "pietje@webhare.net"] }),
+    method: HTTPMethod.POST
   };
 
   let callres = await JSONAPICall(servicedef, request);
