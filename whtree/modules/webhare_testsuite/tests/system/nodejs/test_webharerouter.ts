@@ -42,7 +42,7 @@ function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: WebRespo
 async function testSiteResponse() {
   //Create a SiteRequest so we have context for a SiteResponse
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
-  const sitereq = new SiteRequest(new WebRequest("GET", markdowndoc.link), markdowndoc);
+  const sitereq = new SiteRequest(new WebRequest(markdowndoc.link), markdowndoc);
 
   //It should be okay to initialize the composer without knowing its tpye
   const outputpage = await sitereq.createComposer();
@@ -84,14 +84,14 @@ async function testCaptureJSRendered() {
 //Unlike testSiteResponse the testRouter_... tests actually attempt to render the markdown document *and* go through the path lookup motions
 async function testRouter_HSWebDesign() {
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage");
-  const result = await coreWebHareRouter(new WebRequest("GET", markdowndoc.link));
+  const result = await coreWebHareRouter(new WebRequest(markdowndoc.link));
 
   verifyMarkdownResponse(markdowndoc, result);
 }
 
 async function testRouter_JSWebDesign() {
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
-  const result = await coreWebHareRouter(new WebRequest("GET", markdowndoc.link));
+  const result = await coreWebHareRouter(new WebRequest(markdowndoc.link));
 
   verifyMarkdownResponse(markdowndoc, result);
 }

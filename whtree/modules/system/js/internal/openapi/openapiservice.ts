@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import YAML from "yaml";
 import { toFSPath } from "@webhare/services";
 import { RestAPI } from "./restapi";
-import { createJSONResponse, WebRequest, WebResponse, HTTPMethod, HTTPErrorCode } from "@webhare/router";
+import { createJSONResponse, WebRequest, WebResponse, HTTPErrorCode } from "@webhare/router";
 import { WebRequestInfo, WebResponseInfo } from "../types";
 
 // A REST service supporting an OpenAPI definition
@@ -28,7 +28,7 @@ export class RestService {
 
   async APICall(req: WebRequestInfo, relurl: string): Promise<WebResponseInfo> {
     //WebRequestInfo is an internal type used by openapiservice.shtml until we can be directly connected to the WebHareRouter
-    const webreq = new WebRequest(HTTPMethod.GET, req.url, new Headers(req.headers), req.body);
+    const webreq = new WebRequest(req.url, { method: req.method, headers: req.headers, body: req.body });
     const response = await this.#runRestRouter(webreq, relurl);
     return { status: response.status, headers: response.headers, body: response.body };
   }

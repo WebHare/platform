@@ -17,7 +17,7 @@ PUBLIC RECORD FUNCTION EncodeWebRequestForJS() //returns a WebRequestInfo
 {
   RETURN CELL[ url := GetRequestURL()
              , headers := RepackRecord(SELECT name := field, value FROM GetAllWebHeaders())
-             , method := GetRequestMethod()
+             , method := ToLowercase(GetRequestMethod())
              , body := BlobToString(GetRequestBody()) //TODO non-utf8 safe bodies won't survive this
              ];
 }

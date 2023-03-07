@@ -29,7 +29,7 @@ export async function lookupPublishedTarget(url: string) {
         dragging in a lot of dependencies here in the end, and may @webhare/router should only be for apps that implement routes, not execute them */
 
 export async function coreWebHareRouter(request: WebRequest): Promise<WebResponse> {
-  const target = await lookupPublishedTarget(request.url); //"Kijkt in database. Haalt file info en publisher info op"
+  const target = await lookupPublishedTarget(request.url.toString()); //"Kijkt in database. Haalt file info en publisher info op"
   if (!target) //FIXME avoid new Error - it forces a stacktrace to be generated
     throw new Error("404 Unable to resolve the target. How do we route to a 404?"); //TODO perhaps there should be WebserverError exceptions similar to AbortWithHTTPError - and toplevel routers catch these ?
 
