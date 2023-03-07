@@ -5,8 +5,12 @@
     @param mapping - Mapping function
     @returns Mapped object
 */
-export function mapObject<T extends object, N>(obj: T, mapping: <K extends keyof T>(value: T[K], key: K) => N) {
-  const retval = {} as { [K in keyof T]: N };
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export function mapObject<T extends object, N extends (v: T[keyof T], k?: keyof T) => any>(obj: T, mapping: N): { [K in keyof T]: ReturnType<N> } {
+  /* Typescript doesn't support higher-order type arguments at the moment, this is the best we can do for now. If N is
+     made generic (like <S>(a:s) => dependent type) you will probably get 'unknown' as type determined for S.
+  */
+  const retval = {} as { [K in keyof T]: ReturnType<N> };
   for (const i in obj) {
     if (Object.prototype.hasOwnProperty.call(obj, i)) {
       retval[i] = mapping(obj[i], i);

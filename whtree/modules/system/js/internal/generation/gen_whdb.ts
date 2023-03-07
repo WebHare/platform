@@ -3,6 +3,7 @@ import { DOMParser } from '@xmldom/xmldom';
 import { calculateWebHareConfiguration, WebHareConfiguration } from "@mod-system/js/internal/configuration";
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { encodeValue } from "dompack/types/text";
+import { updateDir } from "./shared";
 
 
 function elements<T extends Element>(collection: HTMLCollectionOf<T>): T[] {
@@ -80,7 +81,8 @@ function formatDocumentation(node: Element, indent: string): string {
 
 function generateKyselyDefs(config: WebHareConfiguration, modulename: string, modules: string[]): string {
   const interfacename = modulename === "webhare" ? "WebHareDB" : `${generateTableTypeName(modulename)}DB`;
-  let genfile = `import type { ColumnType } from "kysely";
+  const kyselyimportlib = modulename === "webhare" ? "kysely" : "wh:internal/whtree/node_modules/kysely";
+  let genfile = `import type { ColumnType } from ${JSON.stringify(kyselyimportlib)};
 
 /* Contains the Kysely database definitions for ${modulename == "webhare" ? `the WebHare core modules` : `module ${modulename}`}
    Example usage:
@@ -215,72 +217,28 @@ type IsGenerated<T> = ColumnType<T, T | undefined, never>;
   return genfile;
 }
 
-function updateFile(filename: string, defs: string) {
-  try {
-    const current = fs.readFileSync(filename).toString();
-    if (defs && current === defs) {
-      return;
-    }
-    if (!defs) {
-      // remove the file if none should exist
-      fs.rmSync(`${filename}`, { force: true });
-      console.log(`removed ${filename}`);
-      return;
-    }
-  } catch (e) {
-    // file does not exist
-    if (!defs)
-      return;
-  }
-
-  fs.rmSync(`${filename}.tmp`, { force: true });
-  fs.writeFileSync(`${filename}.tmp`, defs);
-  fs.renameSync(`${filename}.tmp`, filename);
-  // console.log(`written ${filename}`);
-}
-
-function updateDir(config: WebHareConfiguration, dir: string, wantfiles: Record<string, string[]>, removeother: boolean) {
-  fs.mkdirSync(dir, { recursive: true });
-  let existingfiles: string[] = [];
-  if (removeother) {
-    try {
-      existingfiles = fs.readdirSync(dir).filter(f => f.endsWith(".d.ts")).map(f => f.substring(0, f.length - 5));
-    } catch (e) {
-    }
-  }
-
-  for (const file of Object.keys(wantfiles)) {
-    const defs = generateKyselyDefs(config, file, wantfiles[file]);
-    const filename = `${dir}${file}.d.ts`;
-    updateFile(filename, defs);
-  }
-  if (removeother) {
-    for (const file of existingfiles) {
-      if (!Object.keys(wantfiles).includes(file)) {
-        const filename = `${dir}${file}.d.ts`;
-        updateFile(filename, "");
-      }
-    }
-  }
-}
-
 export function updateAllModuleTableDefs() {
   const config = calculateWebHareConfiguration();
   const storagedir = config.basedatadir + "storage/system/generated/whdb/";
   const localdir = config.installationroot + "modules/system/js/internal/generated/whdb/";
 
+  const generateFile = (file: string, wantfiles: string[]) => generateKyselyDefs(config, file, wantfiles);
+
   const noncoremodules = Object.keys(config.module).filter(m => !whconstant_builtinmodules.includes(m));
-  updateDir(config, storagedir, Object.fromEntries(noncoremodules.map(m => [m, [m]])), true);
-  updateDir(config, localdir, { webhare: whconstant_builtinmodules }, true);
+  updateDir(storagedir, Object.fromEntries(noncoremodules.map(m => [m, [m]])), true, generateFile);
+  updateDir(localdir, { webhare: whconstant_builtinmodules }, true, generateFile);
 }
 
 export function updateSingleModuleTableDefs(name: string) {
   const config = calculateWebHareConfiguration();
+
+  const generateFile = (file: string, wantfiles: string[]) => generateKyselyDefs(config, file, wantfiles);
+
   if (whconstant_builtinmodules.includes(name)) {
     const localdir = config.installationroot + "modules/system/js/internal/generated/whdb/";
-    updateDir(config, localdir, { webhare: whconstant_builtinmodules }, true);
+    updateDir(localdir, { webhare: whconstant_builtinmodules }, true, generateFile);
   } else {
     const storagedir = config.basedatadir + "storage/system/generated/whdb/";
-    updateDir(config, storagedir, { [name]: [name] }, true);
+    updateDir(storagedir, { [name]: [name] }, true, generateFile);
   }
 }

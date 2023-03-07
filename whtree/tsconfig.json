@@ -32,6 +32,9 @@
       ],
       "@mod-wrd/*": [
         "modules/wrd/*"
+      ],
+      "wh:internal/whtree/*": [
+        "*"
       ]
     },
     "target": "es2022"

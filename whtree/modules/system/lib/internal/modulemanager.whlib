@@ -755,12 +755,24 @@ PUBLIC RECORD ARRAY FUNCTION GetDataRootNodeModules(STRING ARRAY modules, BOOLEA
         , type :=     "softlink"
         , target :=   `${installationroot}jssdk`
         ]
-        // wh:internal/generated points to generated files for non-core modules (database types, etc.)
+        // wh:wrd, wh:db point to generated files for non-core modules (database types, etc.)
+      , [ name :=     "wh:db"
+        , type :=     "softlink"
+        , target :=   MergePath(whdataroot, "storage/system/generated/whdb")
+        ]
+      , [ name :=     "wh:wrd"
+        , type :=     "softlink"
+        , target :=   MergePath(whdataroot, "storage/system/generated/wrd")
+        ]
       , [ name :=     "wh:internal"
         , type :=     "directory"
-        , items :=    [ [ name :=     "generated"
+        , items :=    [ [ name :=     "kysely"
                         , type :=     "softlink"
-                        , target :=   MergePath(whdataroot, "storage/system/generated")
+                        , target :=   installationroot || "node_modules/kysely"
+                        ]
+                      , [ name :=     "whtree"
+                        , type :=     "softlink"
+                        , target :=   installationroot
                         ]
                       ]
         ]
