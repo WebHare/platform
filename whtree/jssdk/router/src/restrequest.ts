@@ -1,7 +1,7 @@
 import { WebRequest } from "./request";
 import { WebResponse } from "./response";
 
-export type RestParams = Record<string, string>;
+export type RestParams = Record<string, string | number>;
 
 export class RestRequest {
   ///The original WebRequest we received

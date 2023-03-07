@@ -40,12 +40,12 @@ function filterXWebHare(def: unknown): unknown {
 }
 
 //  Match a request path with a route path, part by part, storing {parameters} in the request
-function matchesPath(path: string[], routePath: string[], req: WebRequest): RestParams | null {
+function matchesPath(path: string[], routePath: string[], req: WebRequest): Record<string, string> | null {
   const rpl = routePath.length;
   if (path.length != rpl)
     return null;
 
-  const params: RestParams = {};
+  const params: Record<string, string> = {};
   for (let i = 0, pl = path.length; i < pl; ++i) {
     if (i >= rpl)
       return null;
@@ -132,11 +132,30 @@ export class RestAPI {
     if (!endpoint)
       return createJSONResponse({ error: `Method ${req.method.toUpperCase()} not allowed for route '${relurl}'` }, { status: HTTPErrorCode.MethodNotAllowed });
 
+
+    // Build parameters (eg. from the path or from the query)
+    const params: RestParams = {};
+    if (match.route.params)
+      for (const param of match.route.params) {
+        let paramvalue: null | string = null;
+        if (param.in === "path") { //we already extracted path parameters during matching:
+          paramvalue = match.params[param.name];
+        }
+
+        if (paramvalue === null)
+          continue; //Unsupported parameter location
+
+        // We'll only convert 'number' parameters, other parameters will be supplied as strings
+        if ((param.schema as OpenAPIV3.SchemaObject)?.type === "number")
+          params[param.name] = parseInt(paramvalue) ?? 0;
+        else
+          params[param.name] = paramvalue;
+      }
     if (!endpoint.handler)
       return createJSONResponse({ error: `Method ${req.method.toUpperCase()} for route '${relurl}' not yet implemented` }, { status: HTTPErrorCode.NotImplemented });
 
     // Create the request object
-    const restreq = new RestRequest(req, relurl, match.params);
+    const restreq = new RestRequest(req, relurl, params);
 
     // FIXME should we cache the resolved handler or will that break auto reloading?
     const resthandler = (await loadJSFunction(endpoint.handler)) as RestHandler;

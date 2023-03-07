@@ -20,6 +20,10 @@ async function testService() {
     { id: 55, firstName: "Bravo", email: "bravo@beta.webhare.net" }
   ], JSON.parse(res.body));
 
+  res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/users/1", body: "", headers: {} }, "users/1");
+  test.eq(HTTPSuccessCode.Ok, res.status);
+  test.eq({ id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" }, JSON.parse(res.body));
+
   res = await instance.APICall({ method: HTTPMethod.DELETE, url: "http://localhost/users", body: "", headers: {} }, "users");
   test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
 }
@@ -27,10 +31,11 @@ async function testService() {
 async function verifyPublicParts() {
   userapiroot = services.getConfig().backendurl + ".webhare_testsuite/openapi/testservice/";
 
+  //Verify we get the openapi.json (not available through direct APICalls)
   const useropenapi = await (await fetch(userapiroot + "openapi.json")).json();
   test.eq("3.0.2", useropenapi.openapi);
   test.assert(!JSON.stringify(useropenapi).includes("x-webhare"));
-  test.eq(userapiroot, useropenapi.servers[0].url);
+  test.eq(userapiroot, useropenapi.servers[0].url, "Verify full URL (it was '.' in hte source file)");
 
   const unkownapi = await fetch(userapiroot + "unknownapi");
   test.eq(HTTPErrorCode.NotFound, unkownapi.status);
@@ -38,11 +43,16 @@ async function verifyPublicParts() {
   const userlistcall = await fetch(userapiroot + "users");
   test.eq(HTTPSuccessCode.Ok, userlistcall.status);
 
-  const userlist = await userlistcall.json();
   test.eq([
     { id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" },
     { id: 55, firstName: "Bravo", email: "bravo@beta.webhare.net" }
-  ], userlist);
+  ], await userlistcall.json());
+
+  const user1call = await fetch(userapiroot + "users/1");
+  test.eq(HTTPSuccessCode.Ok, user1call.status);
+
+  test.eq({ id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" },
+    await user1call.json());
 }
 
 test.run([

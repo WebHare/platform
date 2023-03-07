@@ -10,3 +10,9 @@ export async function getUsers(req: RestRequest): Promise<WebResponse> {
   test.eq('/users', req.path);
   return createJSONResponse(persons);
 }
+
+export async function getUser(req: RestRequest): Promise<WebResponse> {
+  test.eq(`/users/${req.params.userid}`, req.path);
+  test.eq("number", typeof req.params.userid);
+  return createJSONResponse(persons.find(_ => _.id == req.params.userid));
+}

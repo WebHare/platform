@@ -24,6 +24,19 @@ paths:
               schema:
                 "$ref": "#/components/schemas/user_list"
       x-webhare-function: users.ts#getUsers
+  "/users/{userid}":
+    parameters:
+    - "$ref": "#/components/parameters/userid"
+    get:
+      description: Get a single user
+      responses:
+        "200":
+          description: The user
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/user_out"
+      x-webhare-function: users.ts#getUser
 
 components:
   schemas:
@@ -44,3 +57,11 @@ components:
       type: array
       items:
         "$ref": "#/components/schemas/user_out"
+  parameters:
+    userid:
+      description: User id
+      in: path
+      name: userid
+      required: true
+      schema:
+        "$ref": "#/components/schemas/user_out/properties/id"
