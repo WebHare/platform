@@ -8,7 +8,12 @@ export async function needSecret(req: RestRequest): Promise<RestAuthorizationRes
   if (!req.webrequest.headers.get("x-key"))
     return {
       authorized: false,
-      response: createJSONResponse({ error: "Dude where's my key?" }, { status: HTTPErrorCode.Unauthorized })
+      response: createJSONResponse({
+        error: "Dude where's my key?"
+      }, {
+        status: HTTPErrorCode.Unauthorized,
+        headers: { "WWW-Authenticate": "X-Key" }
+      })
     };
 
   return { authorized: true, authorization: { key: req.webrequest.headers.get("x-key") } };
