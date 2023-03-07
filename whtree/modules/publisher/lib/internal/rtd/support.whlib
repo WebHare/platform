@@ -1,7 +1,7 @@
 <?wh
 
 LOADLIB "wh::xml/xsd.whlib";
-
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 PUBLIC BOOLEAN FUNCTION IsEmbeddedObject(OBJECT node)
 {
@@ -54,7 +54,7 @@ PUBLIC BOOLEAN FUNCTION IsRTDEmptyOrWhitespace(OBJECT node)
 PUBLIC RECORD FUNCTION SplitIntLink(STRING intlink)
 {
   INTEGER splitpos := Length(intlink);
-  FOREVERY(STRING app FROM [ '?', '!', '#'])
+  FOREVERY(STRING app FROM whconstant_internallink_startcharacters)
   {
     INTEGER pos := SearchSubstring(intlink, app);
     IF(pos >= 0 AND pos < splitpos)

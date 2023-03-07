@@ -18,6 +18,7 @@ LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
 RECORD FUNCTION GetInstanceMember(RECORD setting, RECORD ARRAY cursettings, OBJECT remapper, BOOLEAN orphansvisible)
@@ -387,7 +388,7 @@ STATIC OBJECTTYPE WHFSType
               intlink := curset[0].fs_object;
 
             STRING append := curset[0].setting;
-            IF (Left(append, 1) NOT IN [ "", "#", "?", "!" ])
+            IF (Left(append, 1) NOT IN STRING[ "", ...whconstant_internallink_startcharacters ])
               append := "";
 
             newval := [ externallink := "", internallink := intlink, append := append ];

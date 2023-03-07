@@ -133,6 +133,21 @@ MACRO TestURL()
   TestEQ(baseurl || "test3/", testfile2->url); // .rtd is an hidden extension
   TestEQ(baseurl || "test3/", CalculateFSObjectFullPathAndURL(testfile2->id).url);
   TestEQ(baseurl || "test3/", CalculateFSObjectFullPathAndURL(testfile2->id, [ followlinks := FALSE ]).url);
+
+  testfile2->RecycleSelf();
+  testfile2 := testroot->CreateFile([ name := "test4.whlink", type := 19, filelink := testfile->id, externallink := "#subheading" ]);
+  TestEQ(baseurl || "test/#subheading", testfile2->url);
+  /* TODO should CalculateFSObjectFullPathAndURL even understand internal link appends ?
+  TestEQ(baseurl || "test/#subheading", CalculateFSObjectFullPathAndURL(testfile2->id).url);
+  */
+
+  testfile2->RecycleSelf();
+  testfile2 := testroot->CreateFile([ name := "test4.whlink", type := 19, filelink := testfile->id, externallink := "/subpath" ]);
+  TestEQ(baseurl || "test/subpath", testfile2->url);
+  /* TODO should CalculateFSObjectFullPathAndURL even understand internal link appends ?
+  TestEQ(baseurl || "test/subpath", CalculateFSObjectFullPathAndURL(testfile2->id).url);
+  */
+
   testfile->UpdateMetadata([ type := 5 ]); // unknown type, not published (kill stripextension flag) too
   testfile2->RecycleSelf();
   testfile2 := testroot->CreateFile([ name := "test3.rtd", type := 20, filelink := testfile->id ]);

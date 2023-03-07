@@ -134,6 +134,9 @@ PUBLIC CONSTANT INTEGER whconstant_publisherschedule_setindexdoc := 5;
 /// publisher.schedule replace event
 PUBLIC CONSTANT INTEGER whconstant_publisherschedule_replace := 6;
 
+/// valid starting characters for the append an internal link. Note: '!' is legacy and not needed when proper url subpath capture is used so we don't mention it anymore
+PUBLIC CONSTANT STRING ARRAY whconstant_internallink_startcharacters := [ "#", "?", "!", "/" ];
+
 //Scriptable types which are reflected to disk so the compiler can see them
 PUBLIC CONSTANT INTEGER ARRAY whconstant_whfstypes_scriptsondisk :=
   [  7 //semidynamic

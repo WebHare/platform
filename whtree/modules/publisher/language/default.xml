@@ -149,7 +149,7 @@
       </textgroup>
     </textgroup>
     <textgroup gid="errors">   <!-- components.errors -->
-      <text tid="invalidappend">The append to the internal link of field '<param p="1"/>' must start with a '#', '?' or '!'.</text>
+      <text tid="invalidappend">The append to the internal link of field '<param p="1"/>' must start with a '#', '?' or '/'.</text>
       <text tid="renamepinned">This object is not allowed to be renamed.</text>
     </textgroup>
     <textgroup gid="filelist">   <!-- components.filelist -->

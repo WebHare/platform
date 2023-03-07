@@ -149,7 +149,7 @@
       </textgroup>
     </textgroup>
     <textgroup gid="errors">   <!-- components.errors -->
-      <text tid="invalidappend">De toevoeging van de interne link van veld '<param p="1"/>' moet beginnen met '#', '?' of '!'".</text>
+      <text tid="invalidappend">De toevoeging van de interne link van veld '<param p="1"/>' moet beginnen met '#', '?' of '/'".</text>
       <text tid="renamepinned">Dit object mag niet hernoemd worden.</text>
     </textgroup>
     <textgroup gid="filelist">   <!-- components.filelist -->

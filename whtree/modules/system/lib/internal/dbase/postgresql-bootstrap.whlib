@@ -434,6 +434,11 @@ BEGIN
        when changing type, so garbage still lingers there */
     IF _externallink ~ '^[#?!]' THEN
       RETURN _folderurl || _externallink;
+    /* And '/' is allowed, but prevent duplicate slashes being caused by the merge */
+    ELSIF _externallink ~ '^/' AND _folderurl ~ '/$' THEN
+      RETURN _folderurl || SUBSTRING(_externallink,2,999);
+    ELSIF _externallink ~ '^/' THEN /* save to merge */
+      RETURN _folderurl || _externallink;
     ELSE
       RETURN _folderurl;
     END IF;
