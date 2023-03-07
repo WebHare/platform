@@ -286,6 +286,7 @@ export type CombineRecordOutputMaps<T extends TypeDefinition, B extends RecordOu
     : U)
   : U;
 
+/** Combines two record output records maps */
 export function combineRecordOutputMaps<T extends TypeDefinition, B extends RecordOutputMap<T> | null, U extends RecordOutputMap<T>>(b: B, u: U): CombineRecordOutputMaps<T, B, U> {
   if (b && !isAttrRef(b) && !isAttrRef(u)) {
     if (typeof b === "object" && typeof u === "object") {

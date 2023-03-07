@@ -1,43 +1,7 @@
 import { HSVMObject } from "@webhare/services/src/hsvm";
-import { AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, TypeDefinition, recordizeOutputMap, isAttrRef, isAttrRecordMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap } from "./types";
+import { AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps } from "./types";
 import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
 
-type CombineRecords<T extends TypeDefinition, B extends { [K: string]: RecordOutputMap<T> }, U extends { [K: string]: RecordOutputMap<T> }> = {
-  [K in (keyof B | keyof U) & string]:
-  K extends keyof U
-  ? (K extends keyof B
-    ? CombineOutputMap<T, B[K], U[K]>
-    : U[K])
-  : B[K]
-};
-
-export type CombineOutputMap<T extends TypeDefinition, B extends RecordOutputMap<T> | null, U extends RecordOutputMap<T>> =
-  B extends { [K: string]: RecordOutputMap<T> }
-  ? (U extends { [K: string]: RecordOutputMap<T> }
-    ? CombineRecords<T, B, U>
-    : U)
-  : U;
-
-export function combineOutputMap<T extends TypeDefinition, B extends RecordOutputMap<T> | null, U extends RecordOutputMap<T>>(b: B, u: U): CombineOutputMap<T, B, U> {
-  if (b && !isAttrRef(b) && !isAttrRef(u)) {
-    if (typeof b === "object" && typeof u === "object") {
-      const res = { ...b } as CombineOutputMap<T, B, U> & object;
-      for (const entry of Object.entries(u)) {
-        const prop_base = res[entry[0]];
-        const prop_update = entry[1];
-
-        if (!prop_base)
-          res[entry[0]] = prop_update;
-        else if (isAttrRecordMap(prop_base) && isAttrRecordMap(prop_update))
-          res[entry[0]] = combineOutputMap(prop_base, prop_update);
-        else
-          throw new Error(`Cannot combine selects, trying to combine a record with a field or vv`);
-      }
-      return res;
-    }
-  }
-  return u as CombineOutputMap<T, B, U>;
-}
 
 export class WRDSchema<S extends SchemaTypeDefinition> {
   #id: number | string;
@@ -183,9 +147,9 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
     this.#historymode = historymode;
   }
 
-  select<M extends OutputMap<S[T]>>(mapping: M): WRDSingleQueryBuilder<S, T, CombineOutputMap<S[T], O, RecordizeOutputMap<S[T], M>>> {
+  select<M extends OutputMap<S[T]>>(mapping: M): WRDSingleQueryBuilder<S, T, CombineRecordOutputMaps<S[T], O, RecordizeOutputMap<S[T], M>>> {
     const recordmapping = recordizeOutputMap<S[T], typeof mapping>(mapping);
-    return new WRDSingleQueryBuilder(this.#type, combineOutputMap(this.#selects, recordmapping), this.#wheres, this.#historymode);
+    return new WRDSingleQueryBuilder(this.#type, combineRecordOutputMaps(this.#selects, recordmapping), this.#wheres, this.#historymode);
   }
 
   where<F extends keyof S[T] & string, Condition extends GetCVPairs<S[T][F]>["condition"]>(field: F, condition: Condition, value: (GetCVPairs<S[T][F]> & { condition: Condition })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: Condition }>): WRDSingleQueryBuilder<S, T, O> {
