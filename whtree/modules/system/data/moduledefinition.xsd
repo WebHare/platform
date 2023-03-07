@@ -1392,6 +1392,7 @@
         <xs:choice minOccurs="0" maxOccurs="unbounded" >
           <xs:element name="webrule" type="WebRule" />
           <xs:element name="restapi" type="RestApi" />
+          <xs:element name="openapi" type="OpenAPI" />
         </xs:choice>
       </xs:sequence>
       <xs:attribute name="name" type="xs:string" />
