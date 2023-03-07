@@ -13,24 +13,33 @@ PUBLIC VARIANT FUNCTION InvokeInsideJob(STRING func, VARIANT ARRAY args, RECORD 
   RETURN CallAnyPtrVA(MakeFunctionPtr(func), args);
 }
 
+PUBLIC RECORD FUNCTION FoldHeaders(RECORD ARRAY webheaders)
+{
+  RETURN RepackRecord(SELECT name := ANY(field)
+                           , value := Detokenize(GroupedValues(value), ", ")
+                        FROM webheaders
+                    GROUP BY ToUppercase(field));
+}
+
 PUBLIC RECORD FUNCTION EncodeWebRequestForJS() //returns a WebRequestInfo
 {
   RETURN CELL[ url := GetRequestURL()
-             , headers := GetAllWebHeaders()
+             , headers := FoldHeaders(GetAllWebHeaders())
+             , method := ToLowercase(GetRequestMethod())
              , body := BlobToString(GetRequestBody()) //TODO non-utf8 safe bodies won't survive this
              ];
 }
 
 PUBLIC MACRO ExecuteWebResponse(RECORD webresponse) //expects a WebResponseInfo
 {
-  AddHTTPHeader("Status", ToString(webresponse.statuscode), FALSE);
+  AddHTTPHeader("Status", ToString(webresponse.status), FALSE);
 
   STRING ARRAY added;
-  FOREVERY(RECORD header FROM webresponse.headers)
+  FOREVERY(RECORD header FROM UnpackRecord(webresponse.headers))
   {
     BOOLEAN add := ToUppercase(header.name) IN added;
     INSERT ToUppercase(header.name) INTO added AT END;
-    AddHTTPHeader(header.name, header.value, add);
+    AddHTTPHeader(ToLowercase(header.name), header.value, add);
   }
   SendWebFile(StringToBlob(webresponse.body));
 }

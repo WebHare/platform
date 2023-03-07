@@ -72,7 +72,9 @@ PUBLIC OBJECT ARRAY FUNCTION GetWebRuleNodes(OBJECT parent)
 
   RETURN parent->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "webrule")->GetCurrentElements()
          CONCAT
-         parent->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "restapi")->GetCurrentElements();
+         parent->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "restapi")->GetCurrentElements()
+         CONCAT
+         parent->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "openapi")->GetCurrentElements();
 }
 
 /** Parses the contents of the 'priority' attribute of a webrule/webruleset
@@ -127,7 +129,20 @@ RECORD FUNCTION ParseRestApi(RECORD retval, OBJECT rulenode, STRING baseresource
     ];
   retval.rule.allowallmethods := TRUE;
   retval.rule.apispec := MakeAbsoluteResourcePath(baseresource, rulenode->GetAttribute("apispec"));
-  //rule.
+  RETURN retval;
+}
+
+RECORD FUNCTION ParseOpenApi(RECORD retval, OBJECT rulenode, STRING baseresource)
+{
+  retval.rule.matchtype := 1; //initial
+  retval.rule.datastorage :=
+    [ [ isfolder :=     FALSE
+      , resource :=     "mod::system/scripts/internal/openapi.shtml"
+      , method :=       "direct"
+      ]
+    ];
+  retval.rule.allowallmethods := TRUE;
+  retval.rule.apispec := MakeAbsoluteResourcePath(baseresource, rulenode->GetAttribute("spec"));
   RETURN retval;
 }
 
@@ -155,6 +170,11 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
   {
     retval.rule := rule;
     RETURN ParseRestApi(retval, rulenode, baseresource);
+  }
+  IF(rulenode->localname = "openapi")
+  {
+    retval.rule := rule;
+    RETURN ParseOpenAPI(retval, rulenode, baseresource);
   }
 
   rule.matchmethods := rulenode->HasAttribute("method") ? ParseXSList(ToUppercase(rulenode->GetAttribute("method"))) : DEFAULT STRING ARRAY; //ADDME validate methods. xsd?

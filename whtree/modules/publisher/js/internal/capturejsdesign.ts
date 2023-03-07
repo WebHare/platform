@@ -5,7 +5,8 @@ import * as whfs from "@webhare/whfs";
 export async function captureJSDesign(obj: number) {
   //Create a SiteRequest so we have context for a SiteResponse
   const targetdoc = await whfs.openFile(obj);
-  const sitereq = new SiteRequest(new WebRequest("GET", targetdoc.link), targetdoc);
+  const req = new WebRequest(targetdoc.link || "https://www.example.net/");
+  const sitereq = new SiteRequest(req, targetdoc);
 
   const outputpage = await sitereq.createComposer();
   const placeholder = "__CAPTUREJSDESIGN__" + Math.random();
@@ -17,6 +18,7 @@ export async function captureJSDesign(obj: number) {
 
 export async function captureJSPage(obj: number) {
   const targetdoc = await whfs.openFile(obj);
-  const response = await coreWebHareRouter(new WebRequest("GET", targetdoc.link));
+  const req = new WebRequest(targetdoc.link || "https://www.example.net/");
+  const response = await coreWebHareRouter(req);
   return { body: response.body };
 }

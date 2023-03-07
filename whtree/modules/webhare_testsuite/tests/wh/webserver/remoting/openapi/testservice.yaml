@@ -1,0 +1,72 @@
+---
+openapi: 3.0.2
+info:
+  title: Test openapi service
+  description: The test openapi service
+  version: 1.0.0
+  contact:
+    name: WebHare BV
+    url: https://www.webhare.nl
+
+servers:
+- url: "."
+  description: Test service 1.0.0
+
+paths:
+  "/users":
+    get:
+      description: Get a list of all users
+      responses:
+        "200":
+          description: The list of users
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/user_list"
+      parameters:
+        - in: query
+          name: searchFor
+          schema:
+            type: string
+      x-webhare-function: users.ts#getUsers
+  "/users/{userid}":
+    parameters:
+    - "$ref": "#/components/parameters/userid"
+    get:
+      description: Get a single user
+      responses:
+        "200":
+          description: The user
+          content:
+            application/json:
+              schema:
+                "$ref": "#/components/schemas/user_out"
+      x-webhare-function: users.ts#getUser
+
+components:
+  schemas:
+    # User properties as returned to the user, 'user_in' with an 'id' field
+    user_out:
+      type: object
+      additionalProperties: false
+      properties:
+        id:
+          type: number
+          readOnly: true
+        firstname:
+          type: string
+        email:
+          type: string
+    # A list of 'user_out' objects
+    user_list:
+      type: array
+      items:
+        "$ref": "#/components/schemas/user_out"
+  parameters:
+    userid:
+      description: User id
+      in: path
+      name: userid
+      required: true
+      schema:
+        "$ref": "#/components/schemas/user_out/properties/id"

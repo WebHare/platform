@@ -2115,6 +2115,8 @@ The full base URL on which this site will be published, calculated by combining 
   </publisher>
 
   <services>
+    <backendservice name="openapiservice" clientfactory="js/internal/openapi/openapiservice.ts#getServiceInstance" />
+
     <webservice name="auth" transports="whremoting" library="lib/internal/webharepeers/authservice.whlib" primarytrans="none" prefix="RPC_">
       <accesscheck>
       </accesscheck>

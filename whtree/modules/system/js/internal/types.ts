@@ -1,3 +1,4 @@
+import { HTTPMethod } from "@webhare/router";
 import { IPCMarshallableData, VariableType } from "./whmanager/hsmarshalling";
 import { IPCLinkType } from "./whmanager/ipc";
 
@@ -74,14 +75,17 @@ export interface BridgeClientLink {
   enableInspector(): Promise<InspectorSettings | null>;
 }
 
+///Internal data structure used to marshall requests between languages. Proper routers would use WebRequest
 export interface WebRequestInfo {
+  method: HTTPMethod;
   url: string;
-  headers: Array<{ name: string; value: string }>;
+  headers: Record<string, string>;
   body: string;
 }
 
+///Internal data structure used to marshall respones between languages. Proper routers would use WebResponse
 export interface WebResponseInfo {
-  statusCode: number;
-  headers: Array<{ name: string; value: string }>;
+  status: number;
+  headers: Record<string, string>;
   body: string;
 }

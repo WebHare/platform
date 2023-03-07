@@ -18,7 +18,7 @@ RECORD FUNCTION GetCacheableImages(INTEGER forfolder)
                               , id
                               , title
                               , description
-                              , link //TODO if it turns out hte image is REALLY big, we should probably still create an image cache link
+                              , link //TODO if it turns out the image is REALLY big, we should probably still create an image cache link
                               , thumbnail := WrapCachedImage(__wrapped, gallery_gridthumb)
                               , thumbnail_2x := WrapCachedImage(__wrapped, gallery_gridthumb_2x)
                               , dominantcolor := __wrapped.dominantcolor

@@ -1305,6 +1305,11 @@
     <xs:attribute name="apispec" type="xs:string" use="required" />
   </xs:complexType>
 
+  <xs:complexType name="OpenAPI">
+    <xs:attribute name="path" type="xs:string" use="required" />
+    <xs:attribute name="spec" type="xs:string" use="required" />
+  </xs:complexType>
+
   <xs:complexType name="InternalServiceBase">
     <xs:attribute name="gid" type="SimpleGid" use="optional" />
     <xs:attribute name="tag" type="xs:string" use="required" />
@@ -1359,6 +1364,7 @@
         <xs:element ref="webruleset" />
         <xs:element name="webrule" type="TopLevelWebRule" />
         <xs:element name="restapi" type="RestApi" />
+        <xs:element name="openapi" type="OpenAPI" />
       </xs:choice>
       <xs:element name="usermgrextension" type="UserMgrExtension" minOccurs="0" maxOccurs="unbounded"/>
       <xs:element name="usereditpolicy" type="UserEditPolicy" minOccurs="0" maxOccurs="unbounded" />
