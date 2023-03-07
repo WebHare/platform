@@ -40,7 +40,7 @@ async function verifyPublicParts() {
   const useropenapi = await (await fetch(userapiroot + "openapi.json")).json();
   test.eq("3.0.2", useropenapi.openapi);
   test.assert(!JSON.stringify(useropenapi).includes("x-webhare"));
-  test.eq(userapiroot, useropenapi.servers[0].url, "Verify full URL (it was '.' in hte source file)");
+  test.eq(userapiroot, useropenapi.servers[0].url, "Verify full URL (it was '.' in the source file)");
 
   const unkownapi = await fetch(userapiroot + "unknownapi");
   test.eq(HTTPErrorCode.NotFound, unkownapi.status);
