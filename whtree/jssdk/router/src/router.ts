@@ -4,7 +4,7 @@ import { SiteRequest } from './siterequest';
 
 export { WebRequest, HTTPMethod } from './request';
 export {
-  WebResponse, createJSONResponse, HTTPErrorCode, HTTPStatusCode, HTTPSuccessCode
+  WebResponse, createWebResponse, createJSONResponse, HTTPErrorCode, HTTPStatusCode, HTTPSuccessCode
 } from './response';
 export { SiteRequest, WebDesignFunction } from './siterequest';
 export {

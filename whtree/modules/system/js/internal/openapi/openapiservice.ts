@@ -1,8 +1,8 @@
 import * as fs from "node:fs";
 import YAML from "yaml";
-import { toFSPath } from "@webhare/services";
+import { loadWittyResource, toFSPath } from "@webhare/services";
 import { RestAPI } from "./restapi";
-import { createJSONResponse, WebRequest, WebResponse, HTTPErrorCode } from "@webhare/router";
+import { createJSONResponse, WebRequest, WebResponse, HTTPErrorCode, createWebResponse } from "@webhare/router";
 import { WebRequestInfo, WebResponseInfo } from "../types";
 
 // A REST service supporting an OpenAPI definition
@@ -25,12 +25,38 @@ export class RestService {
     }
   }
 
-
   async APICall(req: WebRequestInfo, relurl: string): Promise<WebResponseInfo> {
     //WebRequestInfo is an internal type used by openapiservice.shtml until we can be directly connected to the WebHareRouter
     const webreq = new WebRequest(req.url, { method: req.method, headers: req.headers, body: req.body });
     const response = await this.#runRestRouter(webreq, relurl);
     return { status: response.status, headers: response.headers, body: response.body };
+  }
+
+  async #handleMetaPage(req: WebRequest, relurl: string): Promise<WebResponse> {
+    //TODO it would be safer for the router to provide us with the absolutebaseurl of the current spec (and we can figure out relurl ourselves too then)
+    let apibaseurl = req.url.toString();
+    apibaseurl = apibaseurl.substring(0, apibaseurl.length - relurl.length);
+    const relurl_spec = "openapi/openapi.json";
+    const relurl_swaggerui = "openapi/swagger-ui";
+    const apidata = {
+      apibaseurl: apibaseurl,
+      speclink: apibaseurl + relurl_spec,
+      swaggeruilink: apibaseurl + relurl_swaggerui
+    };
+
+    //TODO get rid of unsafe-inline, but where to store our own JS/CSS to initalize openapi?
+    const metapageheaders = { "content-security-policy": "default-src 'none'; connect-src 'self'; script-src 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' https://cdnjs.cloudflare.com; img-src data: 'self' https://cdnjs.cloudflare.com;" };
+
+    if (relurl == "" || relurl == relurl_swaggerui) { //webpage
+      const witty = await loadWittyResource("mod::system/js/internal/openapi/openapi.witty");
+      const comp = relurl == relurl_swaggerui ? "swaggerui" : "root";
+      return createWebResponse(await witty.runComponent(comp, apidata), { headers: metapageheaders });
+    }
+
+    if (relurl == relurl_spec)
+      return this.restapi!.renderOpenAPIJSON(apibaseurl, { filterxwebhare: true });
+
+    return createWebResponse("Not found", { status: HTTPErrorCode.NotFound }); //TODO or should we fallback to a global 404 handler... although that probably isn't useful inside a namespace intended for robots
   }
 
   async #runRestRouter(req: WebRequest, relurl: string): Promise<WebResponse> {
@@ -39,11 +65,10 @@ export class RestService {
 
     relurl = relurl.split('?')[0]; //ignore query string
 
-    // Shortcut to returning the OpenAPI definition (TODO optionally allow hiding or requiring auth)
-    if (relurl === "openapi.json") {
-      const apibaseurl = new URL(".", req.url).toString();
-      return this.restapi.renderOpenAPIJSON(apibaseurl, { filterxwebhare: true });
-    }
+    /* Builtin metapages. We use `openapi/` as we heope that is less likely to be used by an openapi server's routes
+       than eg `meta/` */
+    if (!relurl || relurl.startsWith("openapi/"))
+      return this.#handleMetaPage(req, relurl);
 
     // Handle the request
     try {

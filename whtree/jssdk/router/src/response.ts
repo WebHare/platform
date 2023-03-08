@@ -90,19 +90,32 @@ export class WebResponse {
   }
 }
 
-/** Create a webresponse returning a JSON body
- * @param jsonbody - The JSON body to return
- * @param options - Optional statuscode
+/** Create a webresponse
+ *
+ * If a body is set but no content-type header is explicitly added, the content-type will be set to text/html; charset=utf-8
+ *
+ * @param body - The body to return.
+ * @param options - Optional statuscode and headers
  */
-export function createJSONResponse(jsonbody: unknown, options?: { status?: HTTPStatusCode; headers?: Record<string, string> }): WebResponse {
+export function createWebResponse(body: string, options?: { status?: HTTPStatusCode; headers?: Record<string, string> }): WebResponse {
   const resp = new WebResponse;
   resp.setStatus(options?.status || HTTPSuccessCode.Ok);
-  resp.setHeader("content-type", "application/json");
+  if (body)
+    resp.setHeader("content-type", "text/html; charset=utf-8");
 
   if (options?.headers)
     for (const [key, value] of Object.entries(options.headers))
       resp.setHeader(key, value);
 
-  resp.setBody(JSON.stringify(jsonbody));
+  resp.setBody(body);
   return resp;
+}
+
+/** Create a webresponse returning a JSON body
+ * @param jsonbody - The JSON body to return
+ * @param options - Optional statuscode and headers
+ */
+export function createJSONResponse(jsonbody: unknown, options?: { status?: HTTPStatusCode; headers?: Record<string, string> }): WebResponse {
+  const headers = { "content-type": "application/json", ...options?.headers };
+  return createWebResponse(JSON.stringify(jsonbody), { status: options?.status, headers });
 }
