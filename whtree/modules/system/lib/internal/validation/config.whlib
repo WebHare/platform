@@ -69,7 +69,8 @@ PUBLIC RECORD FUNCTION GetModuleValidationConfig(STRING modname)
     {
       IF(NOT IsNodeApplicableToThisWebHare(excl))
         CONTINUE;
-      INSERT TrimWhitespace(excl->GetAttribute("mask")) INTO retval.eslintmasks AT END;
+
+      retval.eslintmasks := retval.eslintmasks CONCAT ParseXSList(excl->GetAttribute("mask")) CONCAT ParseXSList(excl->GetAttribute("masks"));
     }
 
     FOREVERY(OBJECT excl FROM validation->GetElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "format")->GetCurrentElements())
