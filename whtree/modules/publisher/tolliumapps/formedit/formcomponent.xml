@@ -5,7 +5,7 @@
 
   <screen name="selectcomponent"
           width="75x"
-          height="25x"
+          height="30x"
           allowresize="true"
           footerbuttons="ok cancel"
           gid=".selectcomponent"
