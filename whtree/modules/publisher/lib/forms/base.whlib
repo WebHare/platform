@@ -175,6 +175,11 @@ STATIC OBJECTTYPE FormPage
 
       IF (this->page.role = "thankyou")
       {
+        // Mark element as providing a status update.
+        // This also implictly gives the aria-live of the element a default value of "polite",
+        // making screenreaders read out the content when it becomes visible.
+        Print(` role="status"`);
+
         STRING redirect := this->page.redirect;
         IF (redirect != "")
           Print(` data-wh-form-pageredirect="${EncodeValue(redirect)}"`);
