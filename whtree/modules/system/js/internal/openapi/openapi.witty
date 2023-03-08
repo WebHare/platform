@@ -1,0 +1,53 @@
+[component root]<!DOCTYPE html> [! TODO improve these texts !]
+<html>
+  <head>
+    <title>
+      WebHare OpenAPI endpoint
+    </title>
+  </head>
+  <body>
+    This is the root of an OpenAPI endpoint.
+    <ul>
+      <li><a href="[swaggeruilink]">Swagger UI for this API</a></li> [! Assuming you know what a swagger UI is !]
+      <li><a href="[speclink]">OpenAPI specification for this API</a></li>
+    </ul>
+  </body>
+</html>
+[/component]
+
+[component swaggerui]<!DOCTYPE html>
+<html data-speclink="[speclink]">
+  <head>
+    <title>
+      SwaggerUI
+    </title>
+    [! To get new links, use https://cdnjs.com/libraries/swagger-ui !]
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.17.1/swagger-ui.min.css" integrity="sha512-Kz2atQ7Smbizub0WvqDX8WAG5Z1YCNtQOsNLez4b5+Es+p+2PA5NX20ClSGz1an2JE+REYa+qmt/E0dBbwzWEw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.17.1/swagger-ui-bundle.js" integrity="sha512-V8RVIFGpGRQuiuKbUdr++Npou6bLsHGb7nHCVI1nO+L7xv6TXXZB05rcOA6JV1uLFtf9BIweU40w06Qbfuo4pg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.17.1/swagger-ui-standalone-preset.js" integrity="sha512-V5Zdt9ZPs6AWG/eQJp9a27pWGO8iBITXxdCD6/VNbO+XdHD8QnhsifVaUKeAkoYumdQZOFy45hPPLZ5aRolGxQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    [embed swaggerui_initscript]
+  </body>
+</html>
+[/component]
+
+[rawcomponent swaggerui_initscript]
+  <script>
+    const ui = SwaggerUIBundle({
+        url: document.documentElement.dataset.speclink,
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        presets: [
+          SwaggerUIBundle.presets.apis,
+          SwaggerUIStandalonePreset
+        ],
+        plugins: [
+          SwaggerUIBundle.plugins.DownloadUrl
+        ],
+        layout: "StandaloneLayout"
+      });
+  </script>
+[/rawcomponent]
