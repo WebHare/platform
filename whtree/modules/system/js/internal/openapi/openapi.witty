@@ -47,7 +47,8 @@
         plugins: [
           SwaggerUIBundle.plugins.DownloadUrl
         ],
-        layout: "StandaloneLayout"
+        layout: "StandaloneLayout",
+        validatorUrl: null //prevent footer badge which can't access internal APIs anyway
       });
   </script>
 [/rawcomponent]
