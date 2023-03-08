@@ -329,7 +329,10 @@ PUBLIC STATIC OBJECTTYPE UpdateAccessRule EXTEND TolliumScreenBase
     }
 
     IF (work->HasFailed())
-      RETURN work->Finish();
+    {
+      work->Finish();
+      RETURN 0;
+    }
 
     INTEGER accessid := this->accessid;
     IF (accessid = 0)
