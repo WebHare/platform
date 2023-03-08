@@ -3,7 +3,7 @@ import * as services from "@webhare/services";
 import { getServiceInstance } from "@mod-system/js/internal/openapi/openapiservice";
 import { HTTPMethod, HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
 
-let userapiroot = '';
+let userapiroot = '', authtestsroot = '';
 
 const pietje = { email: "pietje@beta.webhare.net", firstName: "pietje" };
 const jsonheader = { "Content-Type": "application/json" };
@@ -76,6 +76,7 @@ async function testAuthorization() {
 
 async function verifyPublicParts() {
   userapiroot = services.getConfig().backendurl + ".webhare_testsuite/openapi/testservice/";
+  authtestsroot = services.getConfig().backendurl + ".webhare_testsuite/openapi/authtests/";
 
   //Verify we get the openapi.json (not available through direct APICalls)
   const useropenapi = await (await fetch(userapiroot + "openapi.json")).json();
@@ -103,6 +104,11 @@ async function verifyPublicParts() {
   const filteredcall = await fetch(userapiroot + "users?searchFor=Br");
   test.eq([{ id: 55, firstName: "Bravo", email: "bravo@beta.webhare.net" }],
     await filteredcall.json());
+
+  const deniedcall = await fetch(authtestsroot + "dummy");
+  test.eq(HTTPErrorCode.Unauthorized, deniedcall.status);
+  test.eq("X-Key", deniedcall.headers.get("www-authenticate"));
+  test.eq({ error: "Dude where's my key?" }, await deniedcall.json());
 }
 
 test.run([

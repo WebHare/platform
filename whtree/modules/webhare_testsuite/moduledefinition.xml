@@ -201,6 +201,7 @@
     </webruleset>
     <restapi apispec="tests/wh/webserver/remoting/restapi/restapi.xml" path="root:/.webhare_testsuite/restapi/" />
     <openapi spec="tests/wh/webserver/remoting/openapi/testservice.yaml" path="root:/.webhare_testsuite/openapi/testservice/" />
+    <openapi spec="tests/wh/webserver/remoting/openapi/authtests.yaml" path="root:/.webhare_testsuite/openapi/authtests/" />
     <webrule path="root:/.webhare_testsuite/datastorage/" match="initial">
       <tryfolder path="storage::webhare_testsuite/tmp/folderdirect/" />
       <tryfolder path="storage::webhare_testsuite/tmp/foldersha/" resolver="sha256b16" />

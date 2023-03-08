@@ -94,10 +94,15 @@ export class WebResponse {
  * @param jsonbody - The JSON body to return
  * @param options - Optional statuscode
  */
-export function createJSONResponse(jsonbody: unknown, options?: { status?: HTTPStatusCode }): WebResponse {
+export function createJSONResponse(jsonbody: unknown, options?: { status?: HTTPStatusCode; headers?: Record<string, string> }): WebResponse {
   const resp = new WebResponse;
   resp.setStatus(options?.status || HTTPSuccessCode.Ok);
   resp.setHeader("content-type", "application/json");
+
+  if (options?.headers)
+    for (const [key, value] of Object.entries(options.headers))
+      resp.setHeader(key, value);
+
   resp.setBody(JSON.stringify(jsonbody));
   return resp;
 }
