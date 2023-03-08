@@ -4,7 +4,7 @@
  *  @param name - Name to split
  *  @returns [module, name] or null if not a valid module scoped name
 */
-function splitModuleScopedName(name: string) {
+export function splitModuleScopedName(name: string) {
   const match = name.match(/^([a-z][a-z0-9_]+):(.+)$/);
   if (!match || match[1].startsWith("wh_") || match[1].startsWith("system_"))
     return null;
