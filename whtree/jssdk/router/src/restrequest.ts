@@ -1,28 +1,46 @@
 import { WebRequest } from "./request";
-import { WebResponse } from "./response";
+import { createJSONResponse, HTTPStatusCode, HTTPSuccessCode, WebResponse } from "./response";
 
-export type RestParams = Record<string, string | number>;
+export type DefaultRestParams = Record<string, string | number>;
 
-export class RestRequest {
+export type DefaultRestResponses = { status: HTTPStatusCode; response: unknown };
+
+export class RestRequest<
+  Authorization = unknown,
+  Params extends object = DefaultRestParams,
+  Body = unknown,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed for signature
+  Responses extends { status: HTTPStatusCode; response: any } = DefaultRestResponses,
+> {
   ///The original WebRequest we received
   readonly webrequest: WebRequest;
   ///The relative request path, starting with '/'
   readonly path: string;
   ///Rest parameters received
-  readonly params: RestParams;
+  readonly params: Params;
   ///The parsed body of the request (if this operation accepts an application/json body)
-  readonly body: unknown;
+  readonly body: Body;
 
   ///Authorization result
-  authorization: unknown;
+  authorization: Authorization;
 
-  constructor(webrequest: WebRequest, path: string, params: RestParams, body: unknown) {
+  constructor(webrequest: WebRequest, path: string, params: Params, body: Body) {
     this.webrequest = webrequest;
     this.path = path;
     this.params = params;
     this.body = body;
+    this.authorization = null as Authorization;
+  }
+
+  createJSONResponse<C extends Responses["status"] & HTTPStatusCode>(status: C, jsonbody: (Responses & { status: C })["response"], options?: { headers?: Record<string, string> }) {
+    return createJSONResponse(jsonbody, { status, ...options });
   }
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed for type inference
+type ResponsesOfRequest<Request extends RestRequest> = Request extends RestRequest<any, any, any, infer Responses> ? Responses : never;
+
+export type RestResponseType<Request extends RestRequest, C extends ResponsesOfRequest<Request>["status"] = ResponsesOfRequest<Request>["status"] & HTTPSuccessCode> = (ResponsesOfRequest<Request> & { status: C })["response"];
 
 /** Returned upon a succesful authorization. May be extended to store authorization details */
 export interface RestSuccessfulAuthorization<T = unknown> {
