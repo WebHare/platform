@@ -12,7 +12,7 @@ async function testService() {
   await services.ready();
 
   //whitebox try the service directly for more useful traces etc
-  const instance = await getServiceInstance("mod::webhare_testsuite/tests/wh/webserver/remoting/openapi/testservice.yaml");
+  const instance = await getServiceInstance("webhare_testsuite:testservice");
   let res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/unknownapi", body: "", headers: {} }, "unknownapi");
   test.eq(HTTPErrorCode.NotFound, res.status);
 
@@ -57,7 +57,7 @@ async function testAuthorization() {
   await services.ready();
 
   //whitebox try the service directly for more useful traces etc
-  const instance = await getServiceInstance("mod::webhare_testsuite/tests/wh/webserver/remoting/openapi/authtests.yaml");
+  const instance = await getServiceInstance("webhare_testsuite:authtests");
   let res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/other", body: "", headers: {} }, "other");
   test.eq(HTTPErrorCode.Forbidden, res.status); //Blocked because the route lacks an authorizer
 

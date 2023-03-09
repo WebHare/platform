@@ -103,6 +103,9 @@
     <backendservice name="demoservice" clientfactory="js/demoservice.ts#openDemoService" />
     <backendservice name="controlleddemoservice" controllerfactory="js/demoservice.ts#createDemoMain" />
 
+    <openapiservice name="testservice" spec="tests/wh/webserver/remoting/openapi/testservice.yaml" />
+    <openapiservice name="authtests" spec="tests/wh/webserver/remoting/openapi/authtests.yaml" />
+
     <webservice name="test"
                 library="lib/webservicetest.whlib"
                 prefix="RPC_"
@@ -202,8 +205,8 @@
       </webrule>
     </webruleset>
     <restapi apispec="tests/wh/webserver/remoting/restapi/restapi.xml" path="root:/.webhare_testsuite/restapi/" />
-    <openapi spec="tests/wh/webserver/remoting/openapi/testservice.yaml" path="root:/.webhare_testsuite/openapi/testservice/" />
-    <openapi spec="tests/wh/webserver/remoting/openapi/authtests.yaml" path="root:/.webhare_testsuite/openapi/authtests/" />
+    <openapi service="testservice" path="root:/.webhare_testsuite/openapi/testservice/" />
+    <openapi service="webhare_testsuite:authtests" path="root:/.webhare_testsuite/openapi/authtests/" />
     <webrule path="root:/.webhare_testsuite/datastorage/" match="initial">
       <tryfolder path="storage::webhare_testsuite/tmp/folderdirect/" />
       <tryfolder path="storage::webhare_testsuite/tmp/foldersha/" resolver="sha256b16" />

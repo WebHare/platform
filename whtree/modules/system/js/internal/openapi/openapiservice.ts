@@ -4,6 +4,7 @@ import { loadWittyResource, toFSPath } from "@webhare/services";
 import { RestAPI } from "./restapi";
 import { createJSONResponse, WebRequest, WebResponse, HTTPErrorCode, createWebResponse } from "@webhare/router";
 import { WebRequestInfo, WebResponseInfo } from "../types";
+import { getOpenAPIService } from "@webhare/services/src/moduledefparser";
 
 // A REST service supporting an OpenAPI definition
 export class RestService {
@@ -13,12 +14,16 @@ export class RestService {
    * @param apispec - The openapi yaml spec resource
    * */
   async init(apispec: string) {
+    const serviceinfo = getOpenAPIService(apispec);
+    if (!serviceinfo)
+      throw new Error(`Invalid OpenAPI service name: ${apispec}`);
+
     // Read and parse the OpenAPI Yaml definition
-    const def = YAML.parse(await fs.promises.readFile(toFSPath(apispec), "utf8"));
+    const def = YAML.parse(await fs.promises.readFile(toFSPath(serviceinfo.spec), "utf8"));
     // Create and initialize the API handler
     this.restapi = new RestAPI();
     try {
-      await this.restapi.init(def, apispec);
+      await this.restapi.init(def, serviceinfo.spec);
     } catch (e) {
       //FIXME deal with the error, don't swallow!
       console.error(e);

@@ -1308,7 +1308,7 @@
 
   <xs:complexType name="OpenAPI">
     <xs:attribute name="path" type="xs:string" use="required" />
-    <xs:attribute name="spec" type="xs:string" use="required" />
+    <xs:attribute name="service" type="sc:OptionallyQualifiedName" />
   </xs:complexType>
 
   <xs:complexType name="InternalServiceBase">
@@ -2502,6 +2502,20 @@
         </xs:complexType>
       </xs:element>
 
+      <xs:element name="openapiservice">
+        <xs:complexType>
+          <xs:attribute name="name" type="Name" use="required">
+            <xs:annotation>
+              <xs:documentation>Name for this service</xs:documentation>
+            </xs:annotation>
+         </xs:attribute>
+          <xs:attribute name="spec" type="xs:string" use="required">
+            <xs:annotation>
+              <xs:documentation>Path to the OpenAPI V3 specification</xs:documentation>
+            </xs:annotation>
+         </xs:attribute>
+        </xs:complexType>
+      </xs:element>
       <xs:element name="webservice">
         <xs:complexType>
           <xs:sequence>

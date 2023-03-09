@@ -142,7 +142,7 @@ RECORD FUNCTION ParseOpenApi(RECORD retval, OBJECT rulenode, STRING baseresource
       ]
     ];
   retval.rule.allowallmethods := TRUE;
-  retval.rule.apispec := MakeAbsoluteResourcePath(baseresource, rulenode->GetAttribute("spec"));
+  retval.rule.apispec := ParseXMLModuleNamed(GetModuleNameFromResourcePath(baseresource), rulenode, "service");
   RETURN retval;
 }
 
