@@ -58,7 +58,7 @@ PUBLIC STATIC OBJECTTYPE ChromeConnector
     IF (options.url != "")
       url := `${url}?${options.url}`;
 
-    IF (NOT AWAIT this->browser->AsyncGotoWebPage(url))
+    IF (NOT AWAIT this->browser->AsyncSendRawRequest("PUT", url, RECORD[], DEFAULT BLOB))
       THROW NEW Exception("Could not create browser session: " || this->browser->GetHTTPStatusText() || " from " || url);
 
     RETURN DecodeJSONBLob(this->browser->content);
