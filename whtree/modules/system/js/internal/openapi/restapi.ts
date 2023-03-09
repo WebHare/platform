@@ -1,5 +1,5 @@
 import SwaggerParser from "@apidevtools/swagger-parser";
-import { createJSONResponse, HTTPErrorCode, WebRequest, RestParams, RestRequest, WebResponse, HTTPMethod, RestAuthorizationFunction, RestImplementationFunction } from "@webhare/router";
+import { createJSONResponse, HTTPErrorCode, WebRequest, DefaultRestParams, RestRequest, WebResponse, HTTPMethod, RestAuthorizationFunction, RestImplementationFunction } from "@webhare/router";
 import Ajv from "ajv";
 import { OpenAPIV3 } from "openapi-types";
 import { resolveResource } from "@webhare/services";
@@ -166,7 +166,7 @@ export class RestAPI {
       return createJSONResponse({ error: `Not authorized` }, { status: HTTPErrorCode.Forbidden });
 
     // Build parameters (eg. from the path or from the query)
-    const params: RestParams = {};
+    const params: DefaultRestParams = {};
     if (endpoint.params)
       for (const param of endpoint.params) {
         let paramvalue: null | string = null;

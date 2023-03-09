@@ -8,7 +8,7 @@ export {
 } from './response';
 export { SiteRequest, WebDesignFunction } from './siterequest';
 export {
-  RestRequest, RestParams, RestSuccessfulAuthorization, RestFailedAuthorization, RestAuthorizationResult, RestImplementationFunction, RestAuthorizationFunction
+  RestRequest, DefaultRestParams, RestSuccessfulAuthorization, RestFailedAuthorization, RestAuthorizationResult, RestImplementationFunction, RestAuthorizationFunction
 } from './restrequest';
 export { SiteResponse, SiteResponseSettings } from "./sitereponse";
 
