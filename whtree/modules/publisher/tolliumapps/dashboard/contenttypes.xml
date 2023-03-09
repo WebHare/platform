@@ -56,7 +56,8 @@
     </body>
   </screen>
 
-  <screen name="ctypemembers" allowresize="true" width="105x" height="25x">
+  <screen name="ctypemembers"
+          width="100x" height="40x" allowresize="true">
     <actions>
       <action name="deletetype" tid="~delete">
         <enableon source="members" checkflags="candelete" min="1" requirefocus="true" onexecute="dodelete" />
@@ -85,7 +86,7 @@
                 width="1pr" height="1pr">
             <column name="rowkey" type="integer" width="8x" tid="~id" />
             <column name="name" type="text" tree="true" />
-            <column name="typename" type="text" />
+            <column name="typename" width="18x" type="text" />
             <column name="orphansince" type="datetime" storeutc="true" align="right" width="17x"/>
           </list>
         </cell>
