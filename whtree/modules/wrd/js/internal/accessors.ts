@@ -264,6 +264,8 @@ class WRDDBBooleanValue extends WRDAttributeValueBase<boolean, boolean, boolean,
 
 type WRDDBIntegerConditions = {
   condition: "<" | "<=" | "=" | "!=" | ">=" | ">"; value: number;
+} | {
+  condition: "in"; value: number[];
 };
 
 class WRDDBIntegerValue extends WRDAttributeValueBase<number, number, number, WRDDBIntegerConditions> {
@@ -272,6 +274,8 @@ class WRDDBIntegerValue extends WRDAttributeValueBase<number, number, number, WR
     // type-check is enough (for now)
   }
   matchesValue(value: number, cv: WRDDBIntegerConditions): boolean {
+    if (cv.condition === "in")
+      return cv.value.includes(value);
     return cmp(value, cv.condition, cv.value);
   }
 
