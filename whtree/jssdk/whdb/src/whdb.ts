@@ -213,11 +213,16 @@ class WHDBConnectionImpl implements WHDBConnection, PostgresPool, PostgresPoolCl
     return Boolean(this.openwork);
   }
 
-  private checkState(expectwork: boolean | undefined) {
+  private checkState(expectwork: true): Work; //guaranteed to return a work object or throw
+  private checkState(expectwork: false): null; //guaranteed to return null or throw
+  private checkState(expectwork: undefined): Work | null;
+
+  private checkState(expectwork: boolean | undefined): Work | null {
     if (!this.pgclient)
       throw new Error(`Connection was already closed`);
     if (expectwork !== undefined && Boolean(this.openwork) !== expectwork)
       throw new Error(expectwork ? `Work has already been closed` : `Work has already been opened`);
+    return this.openwork || null;
   }
 
   async beginWork(): Promise<void> {
@@ -237,23 +242,19 @@ class WHDBConnectionImpl implements WHDBConnection, PostgresPool, PostgresPoolCl
   }
 
   async commitWork(): Promise<void> {
-    this.checkState(true); //asserts this.openwork
-    await this.openwork!.commit();
+    return this.checkState(true).commit();
   }
 
   async rollbackWork(): Promise<void> {
-    this.checkState(true); //asserts this.openwork
-    await this.openwork!.rollback();
+    return this.checkState(true).rollback();
   }
 
   onFinishWork<T extends FinishHandler>(handler: T | (() => T), options?: { uniqueTag?: string | symbol }): T {
-    this.checkState(true); //asserts this.openwork
-    return this.openwork!.onFinish(handler, options);
+    return this.checkState(true).onFinish(handler, options);
   }
 
   broadcastOnCommit(event: string, data?: BackendEventData) {
-    this.checkState(true); //asserts this.openwork
-    return this.openwork!.broadcastOnCommit(event, data);
+    this.checkState(true).broadcastOnCommit(event, data);
   }
 
   close() {
