@@ -1,5 +1,6 @@
 import bridge, { IPCLinkType } from "@mod-system/js/internal/whmanager/bridge";
 import * as resourcetools from '@mod-system/js/internal/resourcetools';
+import { activateHMR } from "@webhare/services/src/services";
 
 interface InvokeTask {
   cmd: "invoke";
@@ -49,3 +50,4 @@ if (process.argv.length <= 2)
   throw new Error(`Missing port name argument`);
 
 connectIPC(process.argv[2]);
+activateHMR();
