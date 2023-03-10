@@ -1,5 +1,7 @@
 //We implement the backend version of getWHDebugFlags so bridge can access us without going through a recursive dep
 
+import { getEnvironmentDebugFlags } from "./envstartup";
+
 /// An object with string keys and typed values
 interface WellKnownFlags {
   /** Log RPcs */
@@ -24,8 +26,10 @@ const settingschangedcallbacks = new Array<() => void>;
 
 function getWHDebugFlags(): DebugFlags {
   const flags: DebugFlags = {};
-  if (process.env.WEBHARE_DEBUG) {
-    for (const flag of process.env.WEBHARE_DEBUG.split(',') ?? [])
+  const envflags = getEnvironmentDebugFlags();
+
+  if (envflags) {
+    for (const flag of envflags ?? [])
       flags[flag] = true;
   } else if (debugsettings) {
     for (const flag of debugsettings.tags)
