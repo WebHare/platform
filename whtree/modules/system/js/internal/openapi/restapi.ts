@@ -90,7 +90,7 @@ export class RestAPI {
   async init(def: string, specresourcepath: string) {
     // Parse the OpenAPI definition
     const parsed = await SwaggerParser.validate(def);
-    if (!(parsed as OpenAPIV3.Document).openapi?.startsWith("3.0"))
+    if (!(parsed as OpenAPIV3.Document).openapi?.startsWith("3."))
       throw new Error(`Unsupported OpenAPI version ${parsed.info.version}`);
 
     /* Per https://apitools.dev/swagger-parser/docs/swagger-parser.html#validateapi-options-callbac
