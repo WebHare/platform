@@ -11,9 +11,9 @@ class InternetRequester extends EventEmitter {
       options = {};
     //Host url of event server
     this.options = {
-      url: options.url || ''
-      , log: Boolean(options.log || dompack.debugflags.rpc)
-      , withcredentials: 'withCredentials' in options && options.withcredentials
+      url: options.url || '',
+      log: Boolean(options.log || dompack.debugflags.rpc),
+      withcredentials: 'withCredentials' in options && options.withcredentials
     };
 
     // XMLHttpRequest
@@ -51,7 +51,7 @@ class InternetRequester extends EventEmitter {
   startXMLHTTPRequest(method, url, body, options) {
     this.ensureConnection();
 
-    var async = !options || !options.synchronous;
+    const async = !options || !options.synchronous;
 
     // Because aborting the connection may result in a readystatechange event (yes, we're looking at you, Titanium's
     // TiNetworkHTTPClient...), we have to reset the have_response flag _after_ aborting the connection, so the response for
@@ -91,29 +91,28 @@ class InternetRequester extends EventEmitter {
 
     this.have_response = true;
 
-    var datestr = this.conn.getResponseHeader("date");
+    const datestr = this.conn.getResponseHeader("date");
     if (datestr != "") {
-      var parseddate = Date.parse(datestr);
+      const parseddate = Date.parse(datestr);
       this.__date_server = parseddate;
       this.__date_client = new Date();
       this.__date_diff = this.__date_server - this.__date_client;
     }
 
-    var evt = {
-      target: this
-      , success: this.conn.status == 200
-      , internalerror: this.conn.status == 500
-      , message: this.conn.status
+    const evt = {
+      target: this,
+      success: this.conn.status == 200,
+      internalerror: this.conn.status == 500,
+      message: this.conn.status,
 
-      , responsetext: this.conn.responseText
-      , responsejson: null
+      responsetext: this.conn.responseText,
+      responsejson: null
     };
 
     //FIXME only decode JSON data if the mimetype specified it was JSON, and then log any errors
     try {
       evt.responsejson = JSON.parse(evt.responsetext);
-    }
-    catch (e) {
+    } catch (e) {
     }
 
     this.laststateevent = evt;

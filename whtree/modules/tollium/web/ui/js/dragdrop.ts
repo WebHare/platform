@@ -9,7 +9,7 @@ import * as browser from 'dompack/extra/browser';
 import { getDragModeOverride } from "dompack/extra/keyboard";
 
 // Our custom data url
-var webharedataurl = "webhare://data/";
+const webharedataurl = "webhare://data/";
 
 // The custom data type we're using to store our drag and drop data
 const webharedatatypebase = "x-webhare/data/";
@@ -34,7 +34,7 @@ function getDefaultDropEffect(event, effectAllowed) {
      Getting default drop effect will handle that case
   */
   // Get default drop effect for allowed effects
-  for (let effect of ["move", "copy", "link"])
+  for (const effect of ["move", "copy", "link"])
     if (isDropEffectAllowed(effect, effectAllowed)) {
       dropeffect = effect;
       break;
@@ -61,8 +61,7 @@ export function fixupDNDEvent(event) {
     try {
       // IE 11 throws when accessing effectAllowed while dragging content from another document
       effectAllowed = event.dataTransfer.effectAllowed;
-    }
-    catch (e) { }
+    } catch (e) { }
 
     event.dataTransfer.dropEffect = getDefaultDropEffect(event, effectAllowed);
   }
@@ -93,7 +92,7 @@ function getWebHareData(event) {
 
   // Determine the type to retrieve
   let gettype = webharedatatype;
-  for (let type of Array.from(transfer.types))
+  for (const type of Array.from(transfer.types))
     if (type.startsWith(webharedatatypebase))
       gettype = type;
 
@@ -102,8 +101,7 @@ function getWebHareData(event) {
   try {
     // Prefer our custom data type
     data = transfer.getData(gettype);
-  }
-  catch (e) {
+  } catch (e) {
     // Using our custom data type failed, use the fallback data type
     data = transfer.getData(fallbackdatatype);
   }
@@ -122,7 +120,7 @@ function getWebHareData(event) {
 // Store the WebHare data in our custom data url
 function setWebHareData(event, data) {
   // Get the event's dataTransfer object
-  var transfer = event.dataTransfer;
+  const transfer = event.dataTransfer;
   if (!transfer)
     return;
 
@@ -135,8 +133,7 @@ function setWebHareData(event, data) {
   try {
     // Prefer our custom data type
     transfer.setData(webharedatatype, data);
-  }
-  catch (e) {
+  } catch (e) {
     // Using our custom data type failed, use the fallback data type
     transfer.setData(fallbackdatatype, data);
   }
@@ -146,7 +143,7 @@ function setWebHareData(event, data) {
 function parseEffectList(effects) {
   effects = Array.from(effects || 'all');
   let mask = 0;
-  for (let effect of effects) {
+  for (const effect of effects) {
     const pos = effectstrs.indexOf(effect);
     if (pos >= 0)
       mask = mask | pos;
@@ -159,11 +156,11 @@ let currentdrag = null;
 function initWebhareDragEvent(event, data) {
   currentdrag =
   {
-    effectAllowed: parseEffectList(data.effectAllowed)
-    , externaldata: data.externaldata || null
-    , localdata: data.localdata || null
-    , file: data.file || null
-    , typehash: ""
+    effectAllowed: parseEffectList(data.effectAllowed),
+    externaldata: data.externaldata || null,
+    localdata: data.localdata || null,
+    file: data.file || null,
+    typehash: ""
   };
 
   event.dataTransfer.effectAllowed = currentdrag.effectallowed;
@@ -175,8 +172,7 @@ function initWebhareDragEvent(event, data) {
 
       event.dataTransfer.setData('DownloadURL', url);
       event.dataTransfer.setData('URL', currentdrag.file.url);
-    }
-    catch (e) {
+    } catch (e) {
       //IE9 fails on dataTransfer.setData
     }
   }
@@ -279,30 +275,30 @@ export function tryStartDrag(comp, items, event) {
   if (!items.length)
     return false;
 
-  var infos = [];
-  for (var i = 0; i < items.length; ++i)
+  const infos = [];
+  for (let i = 0; i < items.length; ++i)
     if (!items[i].info)
       return false;
     else
       infos.push({ type: items[i].info.type, data: items[i].info.data, id: items[i].id });
 
-  var download = null;
+  let download = null;
   if (items.length == 1 && items[0].info.candownload) {
     //ADDME: rowkey?
-    var url = comp.getFileTransferURL('download', { type: 'dragout', rowkey: items[0].id }, { filename: items[0].info.data.filename }).url;
+    const url = comp.getFileTransferURL('download', { type: 'dragout', rowkey: items[0].id }, { filename: items[0].info.data.filename }).url;
     download =
     {
-      filename: items[0].info.data.filename
-      , mimetype: items[0].info.data.mimetype
-      , url: url
+      filename: items[0].info.data.filename,
+      mimetype: items[0].info.data.mimetype,
+      url: url
     };
   }
 
   initWebhareDragEvent(event,
     {
-      effectsAllowed: "all"
-      , localdata: { source: comp, items: infos }
-      , file: download
+      effectsAllowed: "all",
+      localdata: { source: comp, items: infos },
+      file: download
     });
 
   return true;

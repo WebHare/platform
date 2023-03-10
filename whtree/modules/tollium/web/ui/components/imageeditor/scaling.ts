@@ -1,10 +1,10 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-var Toolbar = require('../toolbar/toolbars');
-var getTid = require("@mod-tollium/js/gettid").getTid;
+const Toolbar = require('../toolbar/toolbars');
+const getTid = require("@mod-tollium/js/gettid").getTid;
 require("./imageeditor.lang.json");
-var toddImages = require("@mod-tollium/js/icons");
+const toddImages = require("@mod-tollium/js/icons");
 import { SurfaceTool } from './surfacetool';
 import * as dompack from 'dompack';
 
@@ -18,40 +18,40 @@ class PhotoRotate extends SurfaceTool {
     this.canvasscale = 1;
 
     this.options = {
-      setStatus: null
-      , ...options
+      setStatus: null,
+      ...options
     };
 
     this.scalepanel = new Toolbar.Panel(
       {
-        onClose: this.stop.bind(this)
-        , onApply: this.apply.bind(this)
+        onClose: this.stop.bind(this),
+        onApply: this.apply.bind(this)
       });
     this.scalepanel._imgedittool = "rotate";
     this.scalepanel.addButton(new Toolbar.Button(this.scalepanel,
       {
-        label: getTid("tollium:components.imgedit.editor.rotateleft")
-        , icon: toddImages.createImage("tollium:actions/rotateleft", 24, 24, "b")
-        , onExecute: this.rotate.bind(this, -90)
+        label: getTid("tollium:components.imgedit.editor.rotateleft"),
+        icon: toddImages.createImage("tollium:actions/rotateleft", 24, 24, "b"),
+        onExecute: this.rotate.bind(this, -90)
       }));
     this.scalepanel.addButton(new Toolbar.Button(this.scalepanel,
       {
-        label: getTid("tollium:components.imgedit.editor.rotateright")
-        , icon: toddImages.createImage("tollium:actions/rotateright", 24, 24, "b")
-        , onExecute: this.rotate.bind(this, 90)
+        label: getTid("tollium:components.imgedit.editor.rotateright"),
+        icon: toddImages.createImage("tollium:actions/rotateright", 24, 24, "b"),
+        onExecute: this.rotate.bind(this, 90)
       }));
     this.scalepanel.addButton(new Toolbar.Separator(this.scalepanel));
     this.scalepanel.addButton(new Toolbar.Button(this.scalepanel,
       {
-        label: getTid("tollium:components.imgedit.editor.fliphorizontal")
-        , icon: toddImages.createImage("tollium:actions/fliphorizontal", 24, 24, "b")
-        , onExecute: this.fliphorizontal.bind(this)
+        label: getTid("tollium:components.imgedit.editor.fliphorizontal"),
+        icon: toddImages.createImage("tollium:actions/fliphorizontal", 24, 24, "b"),
+        onExecute: this.fliphorizontal.bind(this)
       }));
     this.scalepanel.addButton(new Toolbar.Button(this.scalepanel,
       {
-        label: getTid("tollium:components.imgedit.editor.flipvertical")
-        , icon: toddImages.createImage("tollium:actions/flipvertical", 24, 24, "b")
-        , onExecute: this.flipvertical.bind(this)
+        label: getTid("tollium:components.imgedit.editor.flipvertical"),
+        icon: toddImages.createImage("tollium:actions/flipvertical", 24, 24, "b"),
+        onExecute: this.flipvertical.bind(this)
       }));
   }
 
@@ -68,13 +68,13 @@ class PhotoRotate extends SurfaceTool {
     this.scale = { x: 1, y: 1 };
 
     //what scale to use to fit image on canvas in current position
-    var canvasscalex = this.surface.canvas.width / this.surface.viewport.x;
-    var canvasscaley = this.surface.canvas.height / this.surface.viewport.y;
+    const canvasscalex = this.surface.canvas.width / this.surface.viewport.x;
+    const canvasscaley = this.surface.canvas.height / this.surface.viewport.y;
     this.canvasscale = canvasscalex > canvasscaley ? canvasscalex : canvasscaley;
 
     //what scale if rotated 90deg.:
-    var canvasscalexr = this.surface.canvas.width / this.surface.viewport.y;
-    var canvasscaleyr = this.surface.canvas.height / this.surface.viewport.x;
+    const canvasscalexr = this.surface.canvas.width / this.surface.viewport.y;
+    const canvasscaleyr = this.surface.canvas.height / this.surface.viewport.x;
     this.canvasscale = canvasscalexr > this.canvasscale ? canvasscalexr : this.canvasscale;
     this.canvasscale = canvasscaleyr > this.canvasscale ? canvasscaleyr : this.canvasscale;
     if (this.canvasscale < 1)
@@ -84,16 +84,16 @@ class PhotoRotate extends SurfaceTool {
     this.active = true;
 
     //resize canvas so it fits if rotated
-    var cssw = Math.round(this.surface.canvas.width / this.canvasscale);
-    var cssh = Math.round(this.surface.canvas.height / this.canvasscale);
+    const cssw = Math.round(this.surface.canvas.width / this.canvasscale);
+    const cssh = Math.round(this.surface.canvas.height / this.canvasscale);
     this.surface.canvasdata.csssize = { 'x': cssw, 'y': cssh };
     this.surface.canvasdata.scale = { 'x': (this.surface.canvas.width / cssw), 'y': (this.surface.canvas.height / cssh) };
 
     dompack.setStyles(this.surface.canvas, {
-      'width': this.surface.canvasdata.csssize.x + 'px'
-      , 'height': this.surface.canvasdata.csssize.y + 'px'
-      , 'margin-left': Math.ceil(this.surface.canvasdata.csssize.x * -0.5) + 'px'
-      , 'margin-top': Math.ceil(this.surface.canvasdata.csssize.y * -0.5) + 'px'
+      'width': this.surface.canvasdata.csssize.x + 'px',
+      'height': this.surface.canvasdata.csssize.y + 'px',
+      'margin-left': Math.ceil(this.surface.canvasdata.csssize.x * -0.5) + 'px',
+      'margin-top': Math.ceil(this.surface.canvasdata.csssize.y * -0.5) + 'px'
     });
     this.surface.updateMaskCanvas();
 
@@ -108,8 +108,8 @@ class PhotoRotate extends SurfaceTool {
     this.rotate(0);
 
     //what scale to use to fit image on canvas in current position
-    var canvasscalex = this.surface.canvas.width / this.surface.viewport.x;
-    var canvasscaley = this.surface.canvas.height / this.surface.viewport.y;
+    const canvasscalex = this.surface.canvas.width / this.surface.viewport.x;
+    const canvasscaley = this.surface.canvas.height / this.surface.viewport.y;
     this.canvasscale = canvasscalex > canvasscaley ? canvasscalex : canvasscaley;
     if (this.canvasscale < 1)
       this.canvasscale = 1;//don't scale up
@@ -117,16 +117,16 @@ class PhotoRotate extends SurfaceTool {
     this.active = false;
     //resize canvas so it fits if rotated
 
-    var cssw = Math.round(this.surface.canvas.width / this.canvasscale);
-    var cssh = Math.round(this.surface.canvas.height / this.canvasscale);
+    const cssw = Math.round(this.surface.canvas.width / this.canvasscale);
+    const cssh = Math.round(this.surface.canvas.height / this.canvasscale);
     this.surface.canvasdata.csssize = { 'x': cssw, 'y': cssh };
     this.surface.canvasdata.scale = { 'x': (this.surface.canvas.width / cssw), 'y': (this.surface.canvas.height / cssh) };
 
     dompack.setStyles(this.surface.canvas, {
-      'width': this.surface.canvasdata.csssize.x + 'px'
-      , 'height': this.surface.canvasdata.csssize.y + 'px'
-      , 'margin-left': Math.ceil(this.surface.canvasdata.csssize.x * -0.5) + 'px'
-      , 'margin-top': Math.ceil(this.surface.canvasdata.csssize.y * -0.5) + 'px'
+      'width': this.surface.canvasdata.csssize.x + 'px',
+      'height': this.surface.canvasdata.csssize.y + 'px',
+      'margin-left': Math.ceil(this.surface.canvasdata.csssize.x * -0.5) + 'px',
+      'margin-top': Math.ceil(this.surface.canvasdata.csssize.y * -0.5) + 'px'
     });
     this.surface.updateMaskCanvas();
     this.refreshSurface();
@@ -139,7 +139,7 @@ class PhotoRotate extends SurfaceTool {
     if (this.angle == 0 && this.scale.x == 1 && this.scale.y == 1)
       return;//no changes
 
-    var newprops = { angle: this.angle, scale: this.scale };
+    const newprops = { angle: this.angle, scale: this.scale };
     this.applyCanvas(newprops);
 
     this.surface.pushUndo({ action: "rotate", comp: this, props: newprops, meta: false });
@@ -151,40 +151,38 @@ class PhotoRotate extends SurfaceTool {
   }
 
   applyCanvas(props) {
-    var neww = this.surface.canvas.width;
-    var newh = this.surface.canvas.height;
+    let neww = this.surface.canvas.width;
+    let newh = this.surface.canvas.height;
     if (Math.round(Math.cos(props.angle * Math.PI / 180) * 100) == 0) {//rotated 90 or 270 deg.
       neww = this.surface.canvas.height;
       newh = this.surface.canvas.width;
 
       //switch scalefactors
-      var scalex = this.surface.imgdata.scale.x;
+      const scalex = this.surface.imgdata.scale.x;
       this.surface.imgdata.scale.x = this.surface.imgdata.scale.y;
       this.surface.imgdata.scale.y = scalex;
 
-      var rx = this.surface.canvasdata.realsize.x;
+      const rx = this.surface.canvasdata.realsize.x;
       this.surface.canvasdata.realsize.x = this.surface.canvasdata.realsize.y;
       this.surface.canvasdata.realsize.y = rx;
-    }
-    else if (Math.round(Math.sin(props.angle * Math.PI / 180) * 100) == 0) {//rotated 0 or 360 deg.
+    } else if (Math.round(Math.sin(props.angle * Math.PI / 180) * 100) == 0) {//rotated 0 or 360 deg.
       //no change in dimensions
-    }
-    else {//arbitrary angle
+    } else {//arbitrary angle
       //FIXME?
     }
 
-    var copy;
+    let copy;
     if (neww != this.surface.canvas.width) {//resize canvas to fit image
       //Copy image
 
-      var idata = this.surface.ctx.getImageData(0, 0, this.surface.canvas.width, this.surface.canvas.height);
+      let idata = this.surface.ctx.getImageData(0, 0, this.surface.canvas.width, this.surface.canvas.height);
       this.surface.ctx.clearRect(0, 0, this.surface.canvas.width, this.surface.canvas.height);
 
-      var prevw = this.surface.canvas.width;
-      var prevh = this.surface.canvas.height;
+      const prevw = this.surface.canvas.width;
+      const prevh = this.surface.canvas.height;
 
       //set needed canvas size to fit rotation
-      var max = newh > neww ? newh : neww;
+      const max = newh > neww ? newh : neww;
       this.surface.canvas.width = max;
       this.surface.canvas.height = max;
       this.surface.ctx.putImageData(idata, Math.floor(0.5 * (max - prevw)), Math.floor(0.5 * (max - prevh)), 0, 0, prevw, prevh);
@@ -211,8 +209,7 @@ class PhotoRotate extends SurfaceTool {
       this.surface.canvas.width = neww;
       this.surface.canvas.height = newh;
       this.surface.ctx.putImageData(idata, 0, 0);
-    }
-    else {
+    } else {
       copy = this.surface.cloneCanvas({ clearoriginal: true });
 
       this.surface.ctx.save();
@@ -227,8 +224,8 @@ class PhotoRotate extends SurfaceTool {
 
     if (!this.active) {//used if direct call from history
       //what scale to use to fit image on canvas in current position
-      var canvasscalex = this.surface.canvas.width / this.surface.viewport.x;
-      var canvasscaley = this.surface.canvas.height / this.surface.viewport.y;
+      const canvasscalex = this.surface.canvas.width / this.surface.viewport.x;
+      const canvasscaley = this.surface.canvas.height / this.surface.viewport.y;
       this.canvasscale = canvasscalex > canvasscaley ? canvasscalex : canvasscaley;
       if (this.canvasscale < 1)
         this.canvasscale = 1;//don't scale up
@@ -236,17 +233,17 @@ class PhotoRotate extends SurfaceTool {
     this.surface.canvasscale = 1 / this.canvasscale;
 
     //correct css position/dimensions
-    var cssw = Math.round(this.surface.canvas.width / this.canvasscale);
-    var cssh = Math.round(this.surface.canvas.height / this.canvasscale);
+    const cssw = Math.round(this.surface.canvas.width / this.canvasscale);
+    const cssh = Math.round(this.surface.canvas.height / this.canvasscale);
 
     this.surface.canvasdata.csssize = { 'x': cssw, 'y': cssh };
     this.surface.canvasdata.scale = { 'x': (this.surface.canvas.width / cssw), 'y': (this.surface.canvas.height / cssh) };
 
     dompack.setStyles(this.surface.canvas, {
-      'width': this.surface.canvasdata.csssize.x + 'px'
-      , 'height': this.surface.canvasdata.csssize.y + 'px'
-      , 'margin-left': Math.ceil(this.surface.canvasdata.csssize.x * -0.5) + 'px'
-      , 'margin-top': Math.ceil(this.surface.canvasdata.csssize.y * -0.5) + 'px'
+      'width': this.surface.canvasdata.csssize.x + 'px',
+      'height': this.surface.canvasdata.csssize.y + 'px',
+      'margin-left': Math.ceil(this.surface.canvasdata.csssize.x * -0.5) + 'px',
+      'margin-top': Math.ceil(this.surface.canvasdata.csssize.y * -0.5) + 'px'
     });
     this.surface.updateMaskCanvas();
     this.surface.showScale();
@@ -275,19 +272,18 @@ class PhotoRotate extends SurfaceTool {
   setStatus() {
     if (!this.active)
       return;
-    var neww = this.surface.canvas.width;
-    var newh = this.surface.canvas.height;
+    let neww = this.surface.canvas.width;
+    let newh = this.surface.canvas.height;
     if (Math.round(Math.cos(this.angle * Math.PI / 180) * 100) === 0) {//rotated 90 or 270 deg.
       neww = this.surface.canvas.height;
       newh = this.surface.canvas.width;
       this.surface.updateMaskCanvas({
-        left: Math.floor((this.surface.maskcanvas.width - this.surface.canvasdata.csssize.y) / 2)
-        , top: Math.floor((this.surface.maskcanvas.height - this.surface.canvasdata.csssize.x) / 2)
-        , width: this.surface.canvasdata.csssize.y
-        , height: this.surface.canvasdata.csssize.x
+        left: Math.floor((this.surface.maskcanvas.width - this.surface.canvasdata.csssize.y) / 2),
+        top: Math.floor((this.surface.maskcanvas.height - this.surface.canvasdata.csssize.x) / 2),
+        width: this.surface.canvasdata.csssize.y,
+        height: this.surface.canvasdata.csssize.x
       });
-    }
-    else
+    } else
       this.surface.updateMaskCanvas();
     //ADDME: scaling?
     this.options.setStatus(neww, newh);
@@ -295,13 +291,13 @@ class PhotoRotate extends SurfaceTool {
 }
 
 function addImageRotateButton(toolbar, surface, options) {
-  var rotator = new PhotoRotate(surface, options);
+  const rotator = new PhotoRotate(surface, options);
 
-  var button = new Toolbar.Button(toolbar,
+  const button = new Toolbar.Button(toolbar,
     {
-      label: getTid("tollium:components.imgedit.editor.rotate")
-      , icon: toddImages.createImage("tollium:actions/rotate", 24, 24, "b")
-      , onExecute: rotator.startScaling.bind(rotator, toolbar)
+      label: getTid("tollium:components.imgedit.editor.rotate"),
+      icon: toddImages.createImage("tollium:actions/rotate", 24, 24, "b"),
+      onExecute: rotator.startScaling.bind(rotator, toolbar)
     });
   toolbar.addButton(button);
 

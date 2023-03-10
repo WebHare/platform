@@ -23,7 +23,7 @@ export default class CaptchaField {
       throw new Error("No apikey received in captcha error message");
 
     //ADDME start a modality layer? coordinate with form? make sure this executes only once!
-    let result = await getCaptchaResponse(evt.detail.metadata.apikey, { busycomponent: this.node });
+    const result = await getCaptchaResponse(evt.detail.metadata.apikey, { busycomponent: this.node });
     if (result) {
       this.response = result;
       //FIXME: We should make sure the same button (submitter) is pressed again, and we should also submit the original

@@ -9,6 +9,6 @@ MACRO RunBody(OBJECT testcontext)
   LoadWittyLibrary(Resolve("dompacktestpage.witty"),"HTML")->RunComponent(GetWebVariable("testpage"), DEFAULT RECORD);
 }
 
-InvokeTestPage(PTR RunBody, [ jsfile := "dompackexample.es"
+InvokeTestPage(PTR RunBody, [ jsfile := "dompackexample"
                             , isolatestorage := GetWebVariable("isolatestorage") != ""
                             ]);

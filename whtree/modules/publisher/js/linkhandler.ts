@@ -7,7 +7,7 @@
 let linkopenoptions = null;
 
 function onLinkClick(event) {
-  let link = event.target.closest('a');
+  const link = event.target.closest('a');
   if (!link || link.download)
     return;
 
@@ -17,14 +17,14 @@ function onLinkClick(event) {
   if (link.target) //never overwrite an explicit target
     return;
 
-  var destdomain = (new URL(link.href)).host.toLowerCase();
+  const destdomain = (new URL(link.href)).host.toLowerCase();
   if (!linkopenoptions.internalhosts.includes(destdomain)) {
     link.target = "_blank";
     return;
   }
 
   if (linkopenoptions.extensions) {
-    var ext = link.href.split('?')[0].split('#')[0].split('.').at(-1);
+    const ext = link.href.split('?')[0].split('#')[0].split('.').at(-1);
     if (ext && linkopenoptions.extensions.find(match => match.toUpperCase() == ext.toUpperCase())) {
       link.target = "_blank";
       return;
@@ -41,7 +41,7 @@ export function openLinksInNewWindow(options) {
   linkopenoptions = { ...options };
 
   if (!linkopenoptions.internalhosts) {
-    var ourdomain = (new URL(location.href)).host.toLowerCase();
+    const ourdomain = (new URL(location.href)).host.toLowerCase();
     if (ourdomain.substr(0, 4) == 'www.')
       linkopenoptions.internalhosts = [ourdomain, ourdomain.substr(4)];
     else

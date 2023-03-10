@@ -30,5 +30,5 @@ MACRO RunBody(OBJECT testcontext)
 
 ProcessWHDebugVariablesUnchecked();
 OpenPrimary();
-InvokeTestPage(PTR RunBody, [ jsfile := "testpage-captcha.es"
+InvokeTestPage(PTR RunBody, [ jsfile := "testpage-captcha"
                              ]);

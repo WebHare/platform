@@ -49,8 +49,8 @@ export default class JSONRPCTransport extends TransportBase {
     this.scheduled = false;
     this.running = true;
 
-    var req = { links: [], frontendids: [], unloading: this.unloading };
-    for (var i = 0; i < this.endpoints.length; ++i) {
+    const req = { links: [], frontendids: [], unloading: this.unloading };
+    for (let i = 0; i < this.endpoints.length; ++i) {
       req.links.push(this.endpoints[i].constructWireMessage(true));
       if (!req.frontendids.includes(this.endpoints[i].options.frontendid))
         req.frontendids.push(this.endpoints[i].options.frontendid);
@@ -66,13 +66,12 @@ export default class JSONRPCTransport extends TransportBase {
       // use keepalive when unloading, so the request isn't aborted upon unload
       result = await service.invoke(
         {
-          timeout: this.unloading ? 5000 : 300000
-          , keepalive: this.unloading
-          , signal: abortcontroller.signal
+          timeout: this.unloading ? 5000 : 300000,
+          keepalive: this.unloading,
+          signal: abortcontroller.signal
         }, "RunToddComm",
         req);
-    }
-    catch (e) {
+    } catch (e) {
       if (!abortcontroller.signal.aborted)
         this.gotFailure(e);
       return;
@@ -92,8 +91,8 @@ export default class JSONRPCTransport extends TransportBase {
     this.request = null;
     this.setSignalled();
 
-    for (var i = 0; i < data.links.length; ++i) {
-      var msg = data.links[i];
+    for (let i = 0; i < data.links.length; ++i) {
+      const msg = data.links[i];
       this.processWireMessage(msg);
     }
   }

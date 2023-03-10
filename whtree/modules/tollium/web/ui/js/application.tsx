@@ -30,7 +30,7 @@ const busydonedelay = 50;     //time before we start the 'done' fadeout
  *                                                                                                                          *
  ****************************************************************************************************************************/
 
-var jsappconstructors = {};
+const jsappconstructors = {};
 
 /** Busy lock (while taken, the tollium app is busy
 */
@@ -113,9 +113,9 @@ export class ApplicationBase {
       this.container = dompack.qS('#desktop');
 
     this.options = {
-      onappbar: true
-      , fixedonappbar: false
-      , ...options
+      onappbar: true,
+      fixedonappbar: false,
+      ...options
     };
 
     this.appname = appname;
@@ -165,7 +165,7 @@ export class ApplicationBase {
   }
 
   async resetApp() {
-    let shutdownlock = this.getBusyLock();
+    const shutdownlock = this.getBusyLock();
 
     Object.keys(this.screenmap).forEach(screenname => this.screenmap[screenname].terminateScreen());
 
@@ -202,7 +202,7 @@ export class ApplicationBase {
   }
 
   removeBusyLock(lock) {
-    let pos = this.busylocks.indexOf(lock);
+    const pos = this.busylocks.indexOf(lock);
     this.busylocks.splice(pos, 1);
 
     $todd.DebugTypedLog("messages", "Busy lock released, now " + this.busylocks.length + " locks active");
@@ -216,8 +216,7 @@ export class ApplicationBase {
       // Indicator hasn't been shown yet, nothing to do
       clearTimeout(this.appbusytimeout);
       this.appbusytimeout = null;
-    }
-    else {
+    } else {
       // Indicator is being shown at the moment. Show done indicator
       this.appnodes.root.classList.add('appcanvas--isbusydone');
 
@@ -256,7 +255,7 @@ export class ApplicationBase {
 
   /// Load the requested component types, invoke 'callback' when they are loaded
   requireComponentTypes(requiredtypes, callback) {
-    var unloaded_components = this.shell.checkComponentsLoaded(requiredtypes, callback);
+    const unloaded_components = this.shell.checkComponentsLoaded(requiredtypes, callback);
     if (unloaded_components.length)
       return;
     callback();
@@ -284,7 +283,7 @@ export class ApplicationBase {
       is busy until all busy locks are closed
   */
   getBusyLock() {
-    let lock = new ApplicationBusyLock(this);
+    const lock = new ApplicationBusyLock(this);
     this.busylocks.push(lock);
 
     if (this.busylocks.length > 1) //app already busy
@@ -294,7 +293,7 @@ export class ApplicationBase {
     this.appnodes.root.classList.add('appcanvas--isbusy'); //initially this just applies a modality layer
 
     // FIXME: calculate from real animation periods
-    var animation_period_lcm = 6000;
+    const animation_period_lcm = 6000;
 
     // Emulate that the animation is running continuously
     this.appnodes.loader.animationDelay = -(Date.now() % animation_period_lcm) + "ms";
@@ -347,7 +346,7 @@ export class ApplicationBase {
   }
   createScreen(messages) {
     //create a new screen
-    var name = 'localwin' + (++this.screencounter);
+    const name = 'localwin' + (++this.screencounter);
     return this.createNewScreenObject(name, 'frame', $todd.componentsToMessages(messages));
   }
 
@@ -359,7 +358,7 @@ export class ApplicationBase {
     return this == $todd.applicationstack.at(-1);
   }
   activateApp() {
-    let curapp = $todd.applicationstack.at(-1);
+    const curapp = $todd.applicationstack.at(-1);
 
     if (curapp != this) {
       if (curapp) {
@@ -379,8 +378,8 @@ export class ApplicationBase {
 
       dompack.dispatchCustomEvent(this.appnodes.root, "tollium:activateapp",
         {
-          bubbles: true
-          , cancelable: false
+          bubbles: true,
+          cancelable: false
         });
 
       //activate
@@ -414,16 +413,16 @@ export class ApplicationBase {
     return app;
   }
   createNewScreenObject(windowname, framename, messages) {
-    var screen = new Frame(this, {
-      window: windowname
-      , target: framename
-      , specials: []
+    const screen = new Frame(this, {
+      window: windowname,
+      target: framename,
+      specials: []
     }, null);
     this.screenmap[windowname] = screen;
     if (messages)
       screen.processMessages(messages);
 
-    var showapp = this.getToplevelApp();
+    const showapp = this.getToplevelApp();
     showapp.appnodes.screens.appendChild(screen.getNode());
     screen.showScreen(showapp);
 
@@ -438,7 +437,7 @@ export class ApplicationBase {
   setAppTitle(newtitle) {
     this.title = newtitle;
     if ($todd.getActiveApplication() == this) {
-      let prefix = this.shell.getCurrentSettings().browsertitleprefix;
+      const prefix = this.shell.getCurrentSettings().browsertitleprefix;
       document.title = (prefix ? prefix + ' ' : '') + this.title;
     }
   }
@@ -526,8 +525,8 @@ export class ApplicationBase {
     utilerror.reportException(e);
     runSimpleScreen(this,
       {
-        text: getTid("tollium:shell.errors.errortitle")
-        , buttons: [{ name: 'close', title: getTid("~close") }]
+        text: getTid("tollium:shell.errors.errortitle"),
+        buttons: [{ name: 'close', title: getTid("~close") }]
       });
   }
 
@@ -536,7 +535,7 @@ export class ApplicationBase {
     if (target === undefined)
       target = this.apptarget;
 
-    let newapp = this.shell.sendApplicationMessage(this.appname, target, message, false, true, { onappbar: false });
+    const newapp = this.shell.sendApplicationMessage(this.appname, target, message, false, true, { onappbar: false });
     this.shell.applicationbar.replaceAppWith(this, newapp);
     this.terminateApplication();
   }
@@ -544,7 +543,7 @@ export class ApplicationBase {
 
 
 //An embedded application 'lives' in the tollium javascript. We better trust it...
-var loadedscripts = {};
+const loadedscripts = {};
 export class FrontendEmbeddedApplication extends ApplicationBase {
   constructor(shell, appname, apptarget, parentapp, options) {
     super(shell, appname, apptarget, parentapp, options);
@@ -559,8 +558,7 @@ export class FrontendEmbeddedApplication extends ApplicationBase {
         loadedscripts[manifest.baseobject] = scr;
       }
       scr.then(result => this.onAppLoadComplete({ success: true }));
-    }
-    else {
+    } else {
       this.onAppLoadComplete({ success: true });
     }
   }
@@ -682,11 +680,12 @@ export class BackendApplication extends ApplicationBase {
   }
 
   generateAppMenu() {
-    return [{
-      title: getTid('tollium:shell.restartapp')
-      , cmd: { type: "currentapp:restart" }
-    }
-      , ...super.generateAppMenu()
+    return [
+      {
+        title: getTid('tollium:shell.restartapp'),
+        cmd: { type: "currentapp:restart" }
+      },
+      ...super.generateAppMenu()
     ];
   }
 
@@ -696,8 +695,8 @@ export class BackendApplication extends ApplicationBase {
 
   queueEvent(actionname, param, synchronous, originalcallback) //for legacy queueEvent calls, too many sitll remaining
   {
-    let busylock = synchronous ? this.getBusyLock() : dompack.flagUIBusy();
-    let finalcallback = () => { busylock.release(); if (originalcallback) originalcallback(); };
+    const busylock = synchronous ? this.getBusyLock() : dompack.flagUIBusy();
+    const finalcallback = () => { busylock.release(); if (originalcallback) originalcallback(); };
     this.queueEventNoLock(actionname, param, synchronous, finalcallback);
   }
 
@@ -707,10 +706,10 @@ export class BackendApplication extends ApplicationBase {
 
     this.queuedEvents.push(
       {
-        actionname: actionname
-        , param: param
-        , synchronous: synchronous
-        , callback: callback
+        actionname: actionname,
+        param: param,
+        synchronous: synchronous,
+        callback: callback
       });
 
     this._sendQueuedEvents();
@@ -726,15 +725,15 @@ export class BackendApplication extends ApplicationBase {
     if (!this.appcomm) // Not shut down already?
       return;
 
-    var sentforms = false;
+    let sentforms = false;
     while (this.queuedEvents.length) {
-      var event = this.queuedEvents.shift();
+      const event = this.queuedEvents.shift();
 
       var response = {
-        action: event.actionname
-        , param: event.param || ''
-        , forms: []
-        , requirereply: true
+        action: event.actionname,
+        param: event.param || '',
+        forms: [],
+        requirereply: true
       };
 
       // Send forms only once per run of events
@@ -753,7 +752,7 @@ export class BackendApplication extends ApplicationBase {
         console.groupEnd();
       }
 
-      var seqnr = this.appcomm.queueMessage(response);
+      const seqnr = this.appcomm.queueMessage(response);
       this.eventcallbacks.push({ seqnr: seqnr, callback: event.callback });
 
       // Issue max 1 synchronous event at a time
@@ -766,9 +765,9 @@ export class BackendApplication extends ApplicationBase {
     // Execute callbacks for the events, and remove them from the callbacks array
     replies.forEach(reply => {
       $todd.DebugTypedLog("messages", 'got reply for ', reply.seqnr);
-      let pos = this.eventcallbacks.findIndex(callback => callback.seqnr == reply.seqnr);
+      const pos = this.eventcallbacks.findIndex(callback => callback.seqnr == reply.seqnr);
       if (pos >= 0) {
-        let rec = this.eventcallbacks.splice(pos, 1)[0];
+        const rec = this.eventcallbacks.splice(pos, 1)[0];
         if (rec.callback)
           rec.callback(reply.replydata);
       }
@@ -791,7 +790,7 @@ export class BackendApplication extends ApplicationBase {
   }
 
   getRequiredComponentTypes(msg) {
-    var types = [];
+    const types = [];
     msg.screens.forEach(screen =>
       screen.messages.forEach(screenmsg => {
         if (screenmsg.instr == 'component' && !types.includes(screenmsg.type))
@@ -820,9 +819,9 @@ export class BackendApplication extends ApplicationBase {
   }
 
   async transformMessages(msg) {
-    let promises = [];
-    for (let screen of msg.screens)
-      for (let screenmsg of screen.messages)
+    const promises = [];
+    for (const screen of msg.screens)
+      for (const screenmsg of screen.messages)
         if (screenmsg.instr == 'component') {
           const componenttype = this.shell.getComponentType(screenmsg.type);
           const promise = componenttype.asyncTransformMessage(screenmsg);
@@ -836,19 +835,19 @@ export class BackendApplication extends ApplicationBase {
   }
 
   handleResponse(response) {
-    var grabactivation = 0;
+    let grabactivation = 0;
 
     // Id of formstate to send (0 is don't send), and whether to send synchronously
-    var sendformstate = 0;
-    var sendformstatesync = false;
+    let sendformstate = 0;
+    let sendformstatesync = false;
 
-    var isappinit = false;
+    let isappinit = false;
 
     //ADDME Instead of a list of instructions, the server should simply transfer one JSON object, ready to reprocess
-    var pendingreplies = [];
+    const pendingreplies = [];
 
     response.instructions.forEach(function(instr) {
-      var instrname = instr.instr;
+      const instrname = instr.instr;
 
       if (instrname == "shellinstruction")
         this.shell.executeInstruction(instr);
@@ -856,38 +855,31 @@ export class BackendApplication extends ApplicationBase {
         pendingreplies.push(instr);
       else if (instrname == "appdebuginfo") {
         instr.msg.trim().split('\n').forEach(line => console.log("APP:" + line));
-      }
-      else if (instrname == "init") {
+      } else if (instrname == "init") {
         isappinit = true;
         this.applyAppInit(instr);
-      }
-      else if (instrname == "appupdate") {
+      } else if (instrname == "appupdate") {
         this.applyAppUpdate(instr);
-      }
-      else if (instrname == "grabactivation") {
+      } else if (instrname == "grabactivation") {
         grabactivation = 1;
-      }
-      else if (instrname == "redirect") {
+      } else if (instrname == "redirect") {
         if (whintegration.config.tollium.frontendmode)
           window.parent.location.href = instr.url;
         else
           console.warn("Ignoring redirection instruction, they are only accepted in frontend mode");
-      }
-      else if (instrname == "sendformstate") {
+      } else if (instrname == "sendformstate") {
         if (sendformstate < instr.id)
           sendformstate = instr.id;
         sendformstatesync = sendformstatesync || instr.sync;
-      }
-      else if (instrname == "appcall") {
+      } else if (instrname == "appcall") {
         this._executeAppCall(instr);
-      }
-      else {
+      } else {
         console.error("Unknown instruction '" + instrname + "' received");
       }
     }.bind(this));
 
     response.screens.forEach(screen => {
-      var scr = this.getScreenByName(screen.name);
+      const scr = this.getScreenByName(screen.name);
       if (scr)
         scr.processMessages(screen.messages);
       else
@@ -916,12 +908,11 @@ export class BackendApplication extends ApplicationBase {
         console.error("No such app call type '" + instr.type + "'");
         throw new Error("No such app call type '" + instr.type + "'");
       }
-      let result = await this["_onMsg" + instr.type].apply(this, instr.params);
+      const result = await this["_onMsg" + instr.type].apply(this, instr.params);
       this.queueEvent("$controllermessage", { type: "clientcallreply", id: instr.id, resolve: true, result: result === undefined ? null : result });
-    }
-    catch (error) {
+    } catch (error) {
       console.log("Exception on appcall", error);
-      this.queueEvent("$controllermessage", { type: "clientcallreply", id: instr.id, resolve: false, result: error.stack || error + "" });
+      this.queueEvent("$controllermessage", { type: "clientcallreply", id: instr.id, resolve: false, result: error.stack || String(error) });
     }
   }
 
@@ -996,8 +987,8 @@ export class BackendApplication extends ApplicationBase {
         this.appmenu = node.appmenu;
         this.isdebugged = false;
         this.updateApplicationProperties({
-          title: node.title
-          , appicon: node.icon
+          title: node.title,
+          appicon: node.icon
         });
         return;
 
@@ -1018,36 +1009,37 @@ export class BackendApplication extends ApplicationBase {
     console.error('Unexpected application update type: ' + node.type);
   }
   async launchApp() {
-    let initlock = this.getBusyLock();
+    const initlock = this.getBusyLock();
     //FIXME whitelist options instead of deleting them
-    let options = {
-      ...this.options
-      , onappbar: undefined
-      , fixedonappbar: undefined
-      , container: undefined
-      , inbackground: undefined
-      , browser: browser.getTriplet()
-      , protocolversion: ToddProtocolVersion
+    const options = {
+      ...this.options,
+      onappbar: undefined,
+      fixedonappbar: undefined,
+      container: undefined,
+      inbackground: undefined,
+      browser: browser.getTriplet(),
+      protocolversion: ToddProtocolVersion
     };
 
     try {
-      let data = await this.shell.tolliumservice.startApp(this.appname, options);
+      const data = await this.shell.tolliumservice.startApp(this.appname, options);
       this.gotApplication(data);
       initlock.release();
       return;
-    }
-    catch (err) {
+    } catch (err) {
       console.warn("Unable to start the application due to an exception", err);
       initlock.release();
       await runSimpleScreen(this,
         {
           text: whintegration.config.dtapstage == 'development'
             ? getTid("tollium:shell.errors.appstartfailed-development")
-            : getTid("tollium:shell.errors.appstartfailed")
-          , buttons: [{
-            name: 'close'
-            , title: getTid("~close")
-          }]
+            : getTid("tollium:shell.errors.appstartfailed"),
+          buttons: [
+            {
+              name: 'close',
+              title: getTid("~close")
+            }
+          ]
         });
       this.terminateApplication();
     }
@@ -1066,13 +1058,13 @@ export class BackendApplication extends ApplicationBase {
 
     this.shell.registerApplicationFrontendLink({ ...data, commhost: location.origin });
 
-    var appstartmsg = data.appdata;
+    const appstartmsg = data.appdata;
     if (appstartmsg.type == 'appstart') {
       //this.startoptions = options;
 
       this.start(data.frontendid);
 
-      for (var i = 0; i < appstartmsg.data.messages.length; ++i) {
+      for (let i = 0; i < appstartmsg.data.messages.length; ++i) {
         this.lastinitmessage = appstartmsg.data.messages[i].seqnr;
         this.handleMessage(appstartmsg.data.messages[i].data);
       }

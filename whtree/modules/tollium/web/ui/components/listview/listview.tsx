@@ -10,7 +10,7 @@ import Keyboard, { hasNativeEventMultiSelectKey } from 'dompack/extra/keyboard';
 import * as domfocus from "dompack/browserfix/focus";
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 require('./listview.css');
-var ListColumn = require('./listcolumns');
+const ListColumn = require('./listcolumns');
 
 
 let globallistcount = 0;
@@ -76,7 +76,7 @@ ADDME: wrapping option?
 */
 
 function translatePageCoordinatesToElement(event, element) {
-  var rect = element.getBoundingClientRect();
+  const rect = element.getBoundingClientRect();
   return { x: event.clientX - rect.left, y: event.clientY - rect.top };
 }
 
@@ -85,11 +85,11 @@ let scrollbarwidth = null;
 export function getScrollbarWidth() {
   if (scrollbarwidth === null) //not calculated yet
   {
-    var inner = document.createElement('p');
+    const inner = document.createElement('p');
     inner.style.width = "100%";
     inner.style.height = "200px";
 
-    var outer = document.createElement('div');
+    const outer = document.createElement('div');
     outer.style.position = "absolute";
     outer.style.top = "0px";
     outer.style.left = "0px";
@@ -101,9 +101,9 @@ export function getScrollbarWidth() {
 
     document.body.appendChild(outer);
 
-    var w1 = inner.offsetWidth;
+    const w1 = inner.offsetWidth;
     outer.style.overflow = 'scroll';
-    var w2 = inner.offsetWidth;
+    let w2 = inner.offsetWidth;
     if (w1 == w2)
       w2 = outer.clientWidth;
 
@@ -212,67 +212,67 @@ export default class ListView {
     this.node.setAttribute("tabindex", "0");
 
     this.options = {
-      width: 400
-      , height: 600
-      , headerheight: 50
-      , lineheight: 30
-      , linepadding: 0
+      width: 400,
+      height: 600,
+      headerheight: 50,
+      lineheight: 30,
+      linepadding: 0,
 
-      , firstcolumn_leftpadding: 8 // extra empty space added to the cell (through CSS), this means the column will also need extra minimum space
-      , lastcolumn_rightpadding: 8
+      firstcolumn_leftpadding: 8, // extra empty space added to the cell (through CSS), this means the column will also need extra minimum space
+      lastcolumn_rightpadding: 8,
 
-      , keepcursorinviewrows: 2 // how many rows to keep visibile above/below the cursor row while navigating // FIXME: find a better name
+      keepcursorinviewrows: 2, // how many rows to keep visibile above/below the cursor row while navigating // FIXME: find a better name
 
-      , selectmode: 'none'
-      , columnselectmode: 'none'
-      , searchtimeout: 2000 //after this number of ms find-as-you-type is cancelled, set to 0 to disable find-as-you-type
-      , searchkeys: "[0-9a-z-., ]" //which event keys activate find-as-you-type
-      , hideheader: false
-      , max_dblclick_delay: 500
+      selectmode: 'none',
+      columnselectmode: 'none',
+      searchtimeout: 2000, //after this number of ms find-as-you-type is cancelled, set to 0 to disable find-as-you-type
+      searchkeys: "[0-9a-z-., ]", //which event keys activate find-as-you-type
+      hideheader: false,
+      max_dblclick_delay: 500,
 
-      , debug: false
+      debug: false,
 
-      , delay_layout: false // set to true if you want to be able to interact with the class, but not have it layout yet
-      , ...options
+      delay_layout: false, // set to true if you want to be able to interact with the class, but not have it layout yet
+      ...options
     };
     this._configureTopNode();
 
     new Keyboard(this.node,
       {
-        "ArrowUp": this.onKeyboardUp.bind(this)
-        , "ArrowDown": this.onKeyboardDown.bind(this)
-        , "Shift+ArrowUp": this.onKeyboardUp.bind(this)
-        , "Shift+ArrowDown": this.onKeyboardDown.bind(this)
+        "ArrowUp": this.onKeyboardUp.bind(this),
+        "ArrowDown": this.onKeyboardDown.bind(this),
+        "Shift+ArrowUp": this.onKeyboardUp.bind(this),
+        "Shift+ArrowDown": this.onKeyboardDown.bind(this),
 
-        , "PageUp": this.onKeyboardPageUp.bind(this)
-        , "PageDown": this.onKeyboardPageDown.bind(this)
+        "PageUp": this.onKeyboardPageUp.bind(this),
+        "PageDown": this.onKeyboardPageDown.bind(this),
 
-        , "Shift+PageUp": this.onKeyboardPageUp.bind(this)
-        , "Shift+PageDown": this.onKeyboardPageDown.bind(this)
+        "Shift+PageUp": this.onKeyboardPageUp.bind(this),
+        "Shift+PageDown": this.onKeyboardPageDown.bind(this),
 
         // start/end (single select)
-        , "Home": this.onKeyboardHome.bind(this)
-        , "End": this.onKeyboardEnd.bind(this)
-        , "Alt+ArrowUp": this.onKeyboardHome.bind(this)
-        , "Alt+ArrowDown": this.onKeyboardEnd.bind(this)
+        "Home": this.onKeyboardHome.bind(this),
+        "End": this.onKeyboardEnd.bind(this),
+        "Alt+ArrowUp": this.onKeyboardHome.bind(this),
+        "Alt+ArrowDown": this.onKeyboardEnd.bind(this),
 
         // start/end (expand selection)
-        , "Shift+Home": this.onKeyboardHome.bind(this)
-        , "Shift+End": this.onKeyboardEnd.bind(this)
-        , "Alt+Shift+ArrowUp": this.onKeyboardHome.bind(this)
-        , "Alt+Shift+ArrowDown": this.onKeyboardEnd.bind(this)
+        "Shift+Home": this.onKeyboardHome.bind(this),
+        "Shift+End": this.onKeyboardEnd.bind(this),
+        "Alt+Shift+ArrowUp": this.onKeyboardHome.bind(this),
+        "Alt+Shift+ArrowDown": this.onKeyboardEnd.bind(this),
 
-        , "Accel+A": this.onKeyboardSelectAll.bind(this)
+        "Accel+A": this.onKeyboardSelectAll.bind(this),
 
-        , "ArrowLeft": event => this.onKeyboardHorizontal(event, -1)
-        , "ArrowRight": event => this.onKeyboardHorizontal(event, +1)
+        "ArrowLeft": event => this.onKeyboardHorizontal(event, -1),
+        "ArrowRight": event => this.onKeyboardHorizontal(event, +1),
 
-        , "Enter": this.onKeyboardEnter.bind(this)
+        "Enter": this.onKeyboardEnter.bind(this)
       });
 
     new FindAsYouType(this.node, {
-      searchtimeout: this.options.searchtimeout
-      , onsearch: text => this._onFindAsYouTypeSearch(text)
+      searchtimeout: this.options.searchtimeout,
+      onsearch: text => this._onFindAsYouTypeSearch(text)
     });
 
     this.setDataSource(datasource);
@@ -304,7 +304,7 @@ export default class ListView {
 
   updateOptions(newopts) {
     //console.log("updateOptions");
-    var need_reset = false;
+    let need_reset = false;
 
     if (newopts.selectmode && newopts.selectmode != this.options.selectmode) {
       this.options.selectmode = newopts.selectmode;
@@ -386,47 +386,48 @@ export default class ListView {
     this.node.appendChild(
       this.listcontent = dompack.create("div", {
         childNodes:
-          [this.listheader = dompack.create("div", { className: "listheader", style: { display: this.options.hideheader ? "none" : "" } })
-            , this.listbodyholder = dompack.create("div", {
-              className: "listbodyholder"
-              , on: {
-                dragenter: evt => this.onDragOver(evt, "enter")
-                , dragover: evt => this.onDragOver(evt, "over")
-                , dragleave: evt => this.onDragLeave(evt)
-                , dragend: evt => this.onDragEnd(evt)
-                , drop: evt => this.onDrop(evt)
-              }
-              , childNodes:
-                [this.listbody = dompack.create("div", {
-                  className: "listbody"
-                  , on: {
-                    dragstart: evt => this.onDragStart(evt)
-                    , contextmenu: evt => this.onContextMenuRow(evt)
-                  }
-                })
-                  , this.listinsertline = dompack.create("div", {
-                    className: "insertpoint"
-                    , style: { display: "none" }
-                    , childNodes:
-                      [this.listinsertpoint = dompack.create("div")
-                      ]
-                  })
-                  , this.listemptytextholder = dompack.create("div", {
-                    className: "emptytextholder"
-                    , childNodes:
-                      [this.listemptytext = dompack.create("span", {
-                        className: "emptytext"
-                        , textContent: this.options.emptytext || ''
-                      })
+          [
+            this.listheader = dompack.create("div", { className: "listheader", style: { display: this.options.hideheader ? "none" : "" } }),
+            this.listbodyholder = dompack.create("div", {
+              className: "listbodyholder",
+              on: {
+                dragenter: evt => this.onDragOver(evt, "enter"),
+                dragover: evt => this.onDragOver(evt, "over"),
+                dragleave: evt => this.onDragLeave(evt),
+                dragend: evt => this.onDragEnd(evt),
+                drop: evt => this.onDrop(evt)
+              },
+              childNodes:
+                [
+                  this.listbody = dompack.create("div", {
+                    className: "listbody",
+                    on: {
+                      dragstart: evt => this.onDragStart(evt),
+                      contextmenu: evt => this.onContextMenuRow(evt)
+                    }
+                  }),
+                  this.listinsertline = dompack.create("div", {
+                    className: "insertpoint",
+                    style: { display: "none" },
+                    childNodes:
+                      [this.listinsertpoint = dompack.create("div")]
+                  }),
+                  this.listemptytextholder = dompack.create("div", {
+                    className: "emptytextholder",
+                    childNodes:
+                      [
+                        this.listemptytext = dompack.create("span", {
+                          className: "emptytext",
+                          textContent: this.options.emptytext || ''
+                        })
                       ]
                   })
                 ]
-            })
-            , this.listfooterholder = dompack.create("div", {
-              className: "listfooterholder"
-              , childNodes:
-                [this.listfooter = dompack.create("div")
-                ]
+            }),
+            this.listfooterholder = dompack.create("div", {
+              className: "listfooterholder",
+              childNodes:
+                [this.listfooter = dompack.create("div")]
             })
           ]
       }));
@@ -459,40 +460,37 @@ export default class ListView {
       return;
     }
 
-    var rowtop = rownum * this.rowheight;
-    let toscroll = this.listbodyholder;
+    const rowtop = rownum * this.rowheight;
+    const toscroll = this.listbodyholder;
     let scrolltop = toscroll.scrollTop;
 
     if (rowtop < scrolltop - this.bodyholderheight // would have to scroll more than a full page (height of the list) ??
       || center) // (this.cursorrow == -1 )) // the first selection
     {
       // calculate the scrolltop for getting the specified row in the middle
-      let rowmiddle = rowtop + this.rowheight / 2;
+      const rowmiddle = rowtop + this.rowheight / 2;
       scrolltop = Math.floor(rowmiddle - this.bodyholderheight / 2);
-    }
-    else if (!keep_comfort_distance) {
+    } else if (!keep_comfort_distance) {
       //console.log("Keep row in view (without comfort zone)");
       scrolltop = Math.min(rowtop, scrolltop);
       scrolltop = Math.max(rowtop + this.rowheight - this.bodyholderheight, scrolltop);
-    }
-    else {
-      var comfort_pixels = this.options.keepcursorinviewrows * this.rowheight;
-      var comfort_top = rowtop - comfort_pixels;
-      var comfort_bottom = rowtop + this.rowheight + comfort_pixels;
+    } else {
+      const comfort_pixels = this.options.keepcursorinviewrows * this.rowheight;
+      const comfort_top = rowtop - comfort_pixels;
+      const comfort_bottom = rowtop + this.rowheight + comfort_pixels;
 
       if (comfort_pixels * 2 > this.bodyholderheight) {
         // our list is too small to keep rows around it, so just try to center our row
-        let rowmiddle = rowtop + this.rowheight / 2;
+        const rowmiddle = rowtop + this.rowheight / 2;
         scrolltop = Math.floor(rowmiddle - this.bodyholderheight / 2);
-      }
-      else {
+      } else {
         scrolltop = Math.min(comfort_top, scrolltop);
         scrolltop = Math.max(comfort_bottom - this.bodyholderheight, scrolltop);
       }
     }
 
     //boundscheck
-    var scrollmax = this.numrows * this.rowheight - this.bodyholderheight;
+    const scrollmax = this.numrows * this.rowheight - this.bodyholderheight;
     scrolltop = Math.max(0, Math.min(scrollmax, scrolltop));
     if (this.listbodyholder.scrollTop != scrolltop) //we need to scroll
     {
@@ -504,7 +502,7 @@ export default class ListView {
     if (columns.length != this.cols.length)
       throw new Error("updateColumnsWidths did not receive the number of columns expected");
 
-    for (var i = 0; i < columns.length; ++i)
+    for (let i = 0; i < columns.length; ++i)
       this.cols[i].width = columns[i].width;
 
     this._refreshColCalculation(this.cols);
@@ -527,24 +525,24 @@ export default class ListView {
     this.applyDimensions();
   }
   getFirstVisibleRow() {
-    var scrolltop = this.listbodyholder.scrollTop;
+    const scrolltop = this.listbodyholder.scrollTop;
     return Math.floor(scrolltop / this.rowheight);
   }
   setSort(colidx, ascending) {
     if (this.sortcolumn !== null) {
-      let hdrnode = this.datacolumns[this.sortcolumn].headernode;
+      const hdrnode = this.datacolumns[this.sortcolumn].headernode;
       hdrnode.classList.remove('sortascending');
       hdrnode.classList.remove('sortdescending');
     }
     this.sortcolumn = colidx;
-    this.sortascending = !!ascending;
+    this.sortascending = Boolean(ascending);
 
     if (this.sortcolumn !== null) {
-      let hdrnode = this.datacolumns[this.sortcolumn].headernode;
+      const hdrnode = this.datacolumns[this.sortcolumn].headernode;
       if (hdrnode) {
         dompack.toggleClasses(hdrnode, {
-          sortascending: this.sortascending
-          , sortdescending: !this.sortascending
+          sortascending: this.sortascending,
+          sortdescending: !this.sortascending
         });
       }
     }
@@ -559,10 +557,10 @@ export default class ListView {
     this.listemptytextholder.style.display = this.numrows ? "none" : "table";
   }
   extractRowNode(rownum) {
-    var existingrow = this.visiblerows[rownum];
+    const existingrow = this.visiblerows[rownum];
     if (!existingrow)
       return;
-    var saved = existingrow.node;
+    const saved = existingrow.node;
     existingrow.node = null;
     this.updateRow(rownum, existingrow.cells, existingrow.options);
     return saved;
@@ -577,9 +575,9 @@ export default class ListView {
       return;
     }
 
-    var dummyrowsholder = dompack.create("div", { className: "dummyrowsholder" }); //createDocumentFragment();
-    for (var rownum = this.numrows; rownum < this.numvisiblerows - 1; rownum++) {
-      let dummy = this._createRowNode(rownum);
+    const dummyrowsholder = dompack.create("div", { className: "dummyrowsholder" }); //createDocumentFragment();
+    for (let rownum = this.numrows; rownum < this.numvisiblerows - 1; rownum++) {
+      const dummy = this._createRowNode(rownum);
       dummy.className = this._createRowClassName(null, rownum);
       dummyrowsholder.appendChild(dummy);
     }
@@ -595,8 +593,8 @@ export default class ListView {
   _createRowNode(rownum) {
     return dompack.create("div", {
       style: {
-        height: this.rowheight + 'px'
-        , top: rownum * this.rowheight + 'px'
+        height: this.rowheight + 'px',
+        top: rownum * this.rowheight + 'px'
       }
     });
   }
@@ -611,9 +609,9 @@ export default class ListView {
   }
 
   updateRow(rownum, row, options) {
-    var existingrow = this.visiblerows[rownum];
+    const existingrow = this.visiblerows[rownum];
 
-    var rowel;
+    let rowel;
     if (existingrow && existingrow.node)
       rowel = existingrow.node;
     else
@@ -641,11 +639,11 @@ export default class ListView {
     rowel.dataset.row = rownum;
 
     this.visiblerows[rownum] = {
-      cells: row
-      , node: rowel
-      , rownum: rownum
-      , options: options
-      , dragrow: false
+      cells: row,
+      node: rowel,
+      rownum: rownum,
+      options: options,
+      dragrow: false
     };
 
     this._renderRowContents(rowel, this.datacolumns, this.visiblerows[rownum]);
@@ -655,16 +653,15 @@ export default class ListView {
   }
 
   updateFooterRows(rowdata) {
-    var old_footerrows_count = this.footerrows.length;
+    const old_footerrows_count = this.footerrows.length;
 
     rowdata.forEach((data, rownum) => {
-      var existingrow = this.footerrows.length > rownum ? this.footerrows[rownum] : null;
+      const existingrow = this.footerrows.length > rownum ? this.footerrows[rownum] : null;
 
-      var rowel;
+      let rowel;
       if (existingrow && existingrow.node) {
         rowel = existingrow.node;
-      }
-      else {
+      } else {
         rowel = this._createRowNode(rownum, true);
         rowel.className = "listrow";
       }
@@ -675,12 +672,12 @@ export default class ListView {
       if (data.options && data.options.styles)
         dompack.setStyles(rowel, data.options.styles);
 
-      var rec = {
-        cells: data.row
-        , node: rowel
-        , rownum: rownum
-        , options: data.options
-        , dragrow: false
+      const rec = {
+        cells: data.row,
+        node: rowel,
+        rownum: rownum,
+        options: data.options,
+        dragrow: false
       };
 
       if (this.footerrows.length == rownum)
@@ -695,7 +692,7 @@ export default class ListView {
 
     // Remove extra footerrows
     while (this.footerrows.length > rowdata.length) {
-      var recs = this.footerrows.splice(rowdata.length, 1);
+      const recs = this.footerrows.splice(rowdata.length, 1);
       recs[0].node.remove();
     }
 
@@ -740,14 +737,14 @@ export default class ListView {
   }
 
   _renderRowContents(rowel, datacolumns, rowdata) {
-    let isrowselected = rowdata.cells[this.selectedidx];
-    var curcell = 0;
-    for (var i = 0; i < datacolumns.length; ++i) {
-      var col = datacolumns[i];
+    const isrowselected = rowdata.cells[this.selectedidx];
+    let curcell = 0;
+    for (let i = 0; i < datacolumns.length; ++i) {
+      const col = datacolumns[i];
       if (col.x == -1)
         continue;
 
-      var cell = rowel.childNodes[curcell];
+      let cell = rowel.childNodes[curcell];
       if (!cell) {
         cell = dompack.create("span", { class: "list__row__cell" });
         cell.propCell = i;
@@ -763,7 +760,7 @@ export default class ListView {
       ++curcell;
 
       if (col.handler) {
-        var data = rowdata.cells[col.src.dataidx];
+        let data = rowdata.cells[col.src.dataidx];
         if (this.expandedidx >= 0 && rowdata.cells[this.expandedidx] === false && col.src.collapsedidx >= 0 && rowdata.cells[col.src.collapsedidx] !== null)
           data = rowdata.cells[col.src.collapsedidx];
 
@@ -800,7 +797,7 @@ export default class ListView {
   /// Finish the current update selection group (delayed to catch dblclick after click into one group)
   _finishSelectionUpdateGroup(immediate) {
     if (immediate) {
-      var cancelled_cb = false;
+      let cancelled_cb = false;
       if (this.updategroupfinish_cb) {
         clearTimeout(this.updategroupfinish_cb);
         this.updategroupfinish_cb = null;
@@ -813,8 +810,7 @@ export default class ListView {
       // Remove ui busy after the finish callback
       if (cancelled_cb)
         this.finishselectlock.release();
-    }
-    else if (!this.updategroupfinish_cb) {
+    } else if (!this.updategroupfinish_cb) {
       // Delay finishing by 1 ms to catch dblclick
       this.finishselectlock = dompack.flagUIBusy();
       this.updategroupfinish_cb = setTimeout(() => this._delayedFinishSelectionUpdateGroup(), 1);
@@ -831,9 +827,9 @@ export default class ListView {
   _runOpenAction(row) {
     if (!dompack.dispatchCustomEvent(this.node, "open", //FIXME namespace event name
       {
-        bubbles: false
-        , cancelable: true
-        , detail:
+        bubbles: false,
+        cancelable: true,
+        detail:
           {}
       }))
       return;
@@ -848,7 +844,7 @@ export default class ListView {
   // Callbacks
   //
   _onBodyScroll() {
-    var newfirstvisiblerow = this.getFirstVisibleRow();
+    const newfirstvisiblerow = this.getFirstVisibleRow();
     if (this.firstvisiblerow == newfirstvisiblerow) //this will also absorb duplicate scroll invocations caused by setScrollPosition shortcircuiting scroll
       return;
 
@@ -885,18 +881,17 @@ export default class ListView {
       return;
     }
 
-    let expanding = distance > 0; //going right
-    var row = this.visiblerows[this.cursorrow];
+    const expanding = distance > 0; //going right
+    const row = this.visiblerows[this.cursorrow];
     if (row.cells[this.expandedidx] === !expanding) { //expand mode being changed
       this.datasource.setCell(row.propRow, row.cells, this.expandedidx, expanding);
-    }
-    else //already in the proper expand mode...
+    } else //already in the proper expand mode...
     {
       // Get the current depth
-      var depth = row.cells[this.depthidx];
+      const depth = row.cells[this.depthidx];
       if (depth && !expanding) //go up, but not down!
       {
-        let parentrownr = this.datasource.getRowParent(this.cursorrow, row);
+        const parentrownr = this.datasource.getRowParent(this.cursorrow, row);
         if (parentrownr !== null) {
           // Select the found item and click to close
           this.setCursorRow(parentrownr);
@@ -952,8 +947,8 @@ export default class ListView {
 
     // If there is a current item, open it
     if (this.cursorrow >= 0) {
-      var row = this.visiblerows[this.cursorrow];
-      var status = row.cells[this.selectedidx];
+      const row = this.visiblerows[this.cursorrow];
+      const status = row.cells[this.selectedidx];
       if (status !== true)
         return; //row wasn't selected for whatever reason, so ignore the doubleclick
       this._runOpenAction(row);
@@ -961,7 +956,7 @@ export default class ListView {
   }
 
   onClickList(event, dblclick) {
-    var lastnode, listrow, listcell, anyfocussable, selectnode;
+    let lastnode, listrow, listcell, anyfocussable, selectnode;
     for (selectnode = event.target; selectnode && selectnode != this.node; selectnode = selectnode.parentNode) {
       // Ignore clicks on the footer
       if (selectnode.classList.contains("listfooterholder"))
@@ -971,7 +966,7 @@ export default class ListView {
          otherwise we interfere too much with the selection process (but you really
            shouldn't build lists with checkboxes AND selectionmode) */
       if (selectnode.listViewClickNeighbour && this.options.selectmode == 'none') {
-        var toclick = null;
+        let toclick = null;
         if (selectnode.previousSibling)
           toclick = selectnode.previousSibling.querySelector('input');
         if (toclick)
@@ -992,7 +987,7 @@ export default class ListView {
     if (listrow && listrow.closest(".dummyrowsholder"))
       listrow = null;
 
-    var srcrow;
+    let srcrow;
     if (listrow)
       srcrow = this.visiblerows[listrow.propRow];
 
@@ -1000,7 +995,7 @@ export default class ListView {
     if (srcrow && srcrow.options && "selectable" in srcrow.options && !srcrow.options.selectable)
       return;
 
-    var celledit = false;
+    let celledit = false;
     let columnschanged = false;
     let cellnum;
     if (listcell) // a cell is clicked
@@ -1010,12 +1005,12 @@ export default class ListView {
 
       if (!dompack.dispatchCustomEvent(this.node, "wh:listview-cellclick", //used by list.es to intercept icon clicks
         {
-          bubbles: true
-          , cancelable: true
-          , detail: {
-            cellidx: cellnum //FIXME ensure this is a proper number in the caller's context? (rows? swapped columns?)
-            , row: srcrow.cells
-            , clicknode: event.target
+          bubbles: true,
+          cancelable: true,
+          detail: {
+            cellidx: cellnum, //FIXME ensure this is a proper number in the caller's context? (rows? swapped columns?)
+            row: srcrow.cells,
+            clicknode: event.target
           }
         })) {
         event.preventDefault();
@@ -1023,11 +1018,11 @@ export default class ListView {
         return;
       }
 
-      var column = this.datacolumns[cellnum]; // defined visual columns
+      const column = this.datacolumns[cellnum]; // defined visual columns
       if (column.src && column.src.edittype == "textedit") {
         // If this an editable column, start editing if the current is already selected or not selectable at all
-        let canselectrow = srcrow.options && srcrow.options.selectable;
-        let isselected = canselectrow && this.datasource.isSelected(listrow.propRow) && (!this._columnselect || cellnum == this.cursorcol);
+        const canselectrow = srcrow.options && srcrow.options.selectable;
+        const isselected = canselectrow && this.datasource.isSelected(listrow.propRow) && (!this._columnselect || cellnum == this.cursorcol);
         if (!canselectrow || isselected)
           celledit = true;
       }
@@ -1046,7 +1041,7 @@ export default class ListView {
     }
 
     // Delay selection only for left clicks  (FIXME/ADDME: and only in case there's an openaction?)
-    var immediate_select = dblclick || event.which !== 1;
+    const immediate_select = dblclick || event.which !== 1;
 
     if (listcell && this._columnselect && !this._selectedcellnumbers.includes(cellnum)) {
       this._selectedcellnumbers = [cellnum];
@@ -1063,8 +1058,7 @@ export default class ListView {
       if (celledit)
         this._editCell(listrow.propRow, cellnum, true);
       this._runOpenAction(srcrow);
-    }
-    else if (celledit) {
+    } else if (celledit) {
       if (dblclick)
         this._editCell(listrow.propRow, cellnum, true);
       else
@@ -1076,13 +1070,13 @@ export default class ListView {
   }
 
   _editCell(rownum, cellnum, cancel) {
-    var col = this.datacolumns[cellnum];
+    const col = this.datacolumns[cellnum];
     if (col.handler) {
-      var rowdata = this.visiblerows[rownum];
-      var data = rowdata.cells[col.src.dataidx];
+      const rowdata = this.visiblerows[rownum];
+      let data = rowdata.cells[col.src.dataidx];
       if (this.expandedidx >= 0 && rowdata.cells[this.expandedidx] === false && col.src.collapsedidx >= 0 && rowdata.cells[col.src.collapsedidx] !== null)
         data = rowdata.cells[col.src.collapsedidx];
-      var cell = rowdata.node.childNodes[cellnum];
+      const cell = rowdata.node.childNodes[cellnum];
 
       if (cancel)
         col.handler.cancelEdit(this, col.src, rowdata, cell, data, cellnum);
@@ -1100,8 +1094,7 @@ export default class ListView {
       this.node.appendChild(this.dragnode);
 
       event.dataTransfer.setDragImage(this.dragnode, 0, 0);
-    }
-    else {
+    } else {
       this.dragnode = this.extractRowNode(target.propRow);
       dompack.empty(this.dragnode);
     }
@@ -1109,23 +1102,23 @@ export default class ListView {
     // Build the drag node
     Object.assign(this.dragnode.style,
       {
-        "zIndex": -10
-        , "position": "absolute"
-        , "top": 0
-        , "left": 0
-        , "width": this.cols[this.cols.length - 1].dragright + "px"
-        , "height": this.dragrowheight * rows.length + "px"
+        "zIndex": -10,
+        "position": "absolute",
+        "top": 0,
+        "left": 0,
+        "width": this.cols[this.cols.length - 1].dragright + "px",
+        "height": this.dragrowheight * rows.length + "px"
       });
     this.dragnode.className = 'dragbodyholder';
 
     rows.forEach(function(data, rownum) {
-      let rowel = dompack.create("div", {
-        className: "listrow drag"
-        , style: {
-          height: this.dragrowheight + "px"
-          , top: rownum * this.dragrowheight + "px"
-          , left: 0
-          , position: "absolute"
+      const rowel = dompack.create("div", {
+        className: "listrow drag",
+        style: {
+          height: this.dragrowheight + "px",
+          top: rownum * this.dragrowheight + "px",
+          left: 0,
+          position: "absolute"
         }
       });
       this.dragnode.append(rowel);
@@ -1133,18 +1126,18 @@ export default class ListView {
       if (data.options && data.options.styles) {
         // Don't honor background-color for selected rows
         Object.assign(rowel.style, {
-          ...data.options.styles
-          , backgroundColor: ""
+          ...data.options.styles,
+          backgroundColor: ""
         });
       }
 
-      var rowdata =
+      const rowdata =
       {
-        cells: data.row
-        , node: rowel
-        , rownum: rownum
-        , options: data.options
-        , dragrow: true
+        cells: data.row,
+        node: rowel,
+        rownum: rownum,
+        options: data.options,
+        dragrow: true
       };
 
       this._renderRowContents(rowel, this.dragdatacolumns, rowdata);
@@ -1160,7 +1153,7 @@ export default class ListView {
   */
   _setRowDropTarget(rownr, clearinsertpoint) {
     Object.keys(this.visiblerows).forEach(key => {
-      let item = this.visiblerows[key];
+      const item = this.visiblerows[key];
       if (item.node)
         dompack.toggleClasses(item.node, { "droptarget--hover": rownr == key });
     });
@@ -1172,15 +1165,15 @@ export default class ListView {
 
   _determineDragType(event, target) {
     // rownum before where positioned drop would drop
-    var rel = translatePageCoordinatesToElement(event, this.listbody); //this.listbodyholder);
-    var position_rownum = Math.min(Math.floor(rel.y / this.rowheight + 0.5), this.numrows);
+    const rel = translatePageCoordinatesToElement(event, this.listbody); //this.listbodyholder);
+    const position_rownum = Math.min(Math.floor(rel.y / this.rowheight + 0.5), this.numrows);
 
-    var diff = position_rownum * this.rowheight - rel.y;
+    const diff = position_rownum * this.rowheight - rel.y;
     if (diff >= -8 && diff < 8) {
       // Calculate desired depth from mouse cursor
-      var depth = Math.floor((rel.x - 48) / 16);
+      const depth = Math.floor((rel.x - 48) / 16);
 
-      let res = this.datasource.checkPositionedDrop(event, position_rownum, depth);
+      const res = this.datasource.checkPositionedDrop(event, position_rownum, depth);
       if (res) {
         this.listinsertpoint.style.left = (res.depth * 16 + 16) + "px";
 
@@ -1192,10 +1185,10 @@ export default class ListView {
       }
     }
 
-    var target_rownum = Math.min(Math.floor(rel.y / this.rowheight), this.numrows);
+    const target_rownum = Math.min(Math.floor(rel.y / this.rowheight), this.numrows);
 
-    var cells = this.visiblerows[target_rownum] ? this.visiblerows[target_rownum].cells : null;
-    let res = this.datasource.checkTargetDrop(event, target_rownum, cells, 'target');
+    const cells = this.visiblerows[target_rownum] ? this.visiblerows[target_rownum].cells : null;
+    const res = this.datasource.checkTargetDrop(event, target_rownum, cells, 'target');
 
     this._setRowDropTarget(res ? (cells ? target_rownum : -2) : -1, true, res);
 
@@ -1207,11 +1200,11 @@ export default class ListView {
 
   onDragStart(event) {
     dragdrop.fixupDNDEvent(event);
-    let target = event.target.closest('div.listrow');
-    var cells = target.classList.contains('listrow') ? this.visiblerows[target.propRow].cells : null;
+    const target = event.target.closest('div.listrow');
+    const cells = target.classList.contains('listrow') ? this.visiblerows[target.propRow].cells : null;
 
     event.dataTransfer.effectAllowed = "all";
-    var res = this.datasource.tryStartDrag(event, target.propRow, cells);
+    const res = this.datasource.tryStartDrag(event, target.propRow, cells);
     if (!res) {
       // Not allowed to drag this
       event.preventDefault();
@@ -1225,7 +1218,7 @@ export default class ListView {
   onDragOver(event, type) {
     dragdrop.fixupDNDEvent(event);
 
-    let target = event.target.closest('.listrow') || this.listbodyholder;
+    const target = event.target.closest('.listrow') || this.listbodyholder;
     if (this._determineDragType(event, target)) {
       event.preventDefault();
       event.stopPropagation();
@@ -1240,8 +1233,8 @@ export default class ListView {
     event.preventDefault();
     event.stopPropagation();
 
-    let target = event.target.closest('.listrow') || this.listbodyholder;
-    var res = this._determineDragType(event, target);
+    const target = event.target.closest('.listrow') || this.listbodyholder;
+    const res = this._determineDragType(event, target);
     this._setRowDropTarget(-1, true);
 
     if (res)
@@ -1266,27 +1259,27 @@ export default class ListView {
   //
 
   onMouseOver(event) {
-    let cellnode = event.target.closest(".list__header__cell,.list__row__cell");
+    const cellnode = event.target.closest(".list__header__cell,.list__row__cell");
     if (!cellnode)
       return;
 
-    let leavenode = event.relatedTarget ? event.relatedTarget.closest(".list__header__cell,.list__row__cell") : null;
+    const leavenode = event.relatedTarget ? event.relatedTarget.closest(".list__header__cell,.list__row__cell") : null;
     if (leavenode == cellnode) //we haven't actually left
       return;
 
-    let rownode = cellnode.closest('.listrow');
+    const rownode = cellnode.closest('.listrow');
     if (rownode) {
       // NOTE: this code would be a lot simpler if we stored a reference to the columnref and row in our cell node
-      var column_nr = this._findDataColumnFromCellNode(rownode, cellnode);
-      var row_nr = rownode.propRow;
-      var column = this.datacolumns[column_nr].src; // defined visual columns
-      var hintidx = column.hintidx;
+      const column_nr = this._findDataColumnFromCellNode(rownode, cellnode);
+      const row_nr = rownode.propRow;
+      const column = this.datacolumns[column_nr].src; // defined visual columns
+      const hintidx = column.hintidx;
 
       if (this.options.debug)
         console.log("Hovering over row: ", row_nr, ", col", column_nr, ". hintidx", hintidx);
 
       if (hintidx > 0) {
-        var hint;
+        let hint;
         if (event.target.closest(".listfooterholder"))
           hint = this.footerrows[row_nr].cells[hintidx];
         else
@@ -1312,7 +1305,7 @@ export default class ListView {
 
   _applySplitMove(event) {
     // Enforce the move bounds, so we won't resize a column below its minwidth
-    var move = Math.max(-this.draginfo.room_left, Math.min(this.draginfo.lastpos.x, this.draginfo.room_right));
+    const move = Math.max(-this.draginfo.room_left, Math.min(this.draginfo.lastpos.x, this.draginfo.room_right));
 
     // Copy the original sizes
     this.draginfo.orgsizes.forEach((item, idx) => {
@@ -1331,15 +1324,15 @@ export default class ListView {
     this.applyHeaderColumnWidths();
     this.applyColumnWidths();
 
-    var widths = this.cols.map(item => item.width);
+    const widths = this.cols.map(item => item.width);
     dompack.dispatchCustomEvent(this.node, "wh:listview-columnresize", { bubbles: true, cancelable: false, detail: { target: this, widths: widths } });
   }
 
   onSplitMoveStart(event) {
     event.stopPropagation();
     // Get the info of the column right to the moved split
-    var splitinfo = event.detail.listener.propWhUiListviewSplit;
-    var rightcol = this.cols[splitinfo.rightcolumn];
+    const splitinfo = event.detail.listener.propWhUiListviewSplit;
+    const rightcol = this.cols[splitinfo.rightcolumn];
 
     // If the left split of column 0 is coupled to this column, this split isn't movable at all.
     if (rightcol.coupled_cols.indexOf(0) != -1) {
@@ -1349,26 +1342,26 @@ export default class ListView {
 
     // Save the original widths and minwidths, plus some info we need in _applySplitMove
     this.draginfo = {
-      lastpos: { x: event.detail.movedX, y: event.detail.movedY }
-      , orgsizes: this.cols.map(function(item) {
+      lastpos: { x: event.detail.movedX, y: event.detail.movedY },
+      orgsizes: this.cols.map(function(item) {
         return {
-          width: item.width
-          , minwidth: item.minwidth
-          , room: item.width - item.minwidth
+          width: item.width,
+          minwidth: item.minwidth,
+          room: item.width - item.minwidth
         };
-      })
-      , splitinfo: splitinfo
-      , coupled_cols: rightcol.coupled_cols
-      , room_left: 0
-      , room_right: 0
+      }),
+      splitinfo: splitinfo,
+      coupled_cols: rightcol.coupled_cols,
+      room_left: 0,
+      room_right: 0
     };
 
 
-    var left_resize = []; // columns to the left of the moving splitters
-    var right_resize = []; // columns to the right of the moving splitters
+    const left_resize = []; // columns to the left of the moving splitters
+    const right_resize = []; // columns to the right of the moving splitters
 
-    for (var i = 0; i < rightcol.coupled_cols.length; ++i) {
-      var colnr = rightcol.coupled_cols[i];
+    for (let i = 0; i < rightcol.coupled_cols.length; ++i) {
+      const colnr = rightcol.coupled_cols[i];
       if (rightcol.coupled_cols.indexOf(colnr - 1) == -1)
         left_resize.push(colnr - 1);
       if (rightcol.coupled_cols.indexOf(colnr + 1) == -1)
@@ -1415,7 +1408,7 @@ export default class ListView {
 
     this._startSelectionUpdateGroup();
 
-    var firstselectablerow = this.datasource.getSelectableRowAfter(-1);
+    const firstselectablerow = this.datasource.getSelectableRowAfter(-1);
 
     if (expandselection && this.options.selectmode == 'multiple') {
       // make the current range stretch up to the first row
@@ -1425,8 +1418,7 @@ export default class ListView {
 
       this.range_end_idx = 0;
       this.datasource.setSelectionForRange(this.range_start_idx, this.range_end_idx, true);
-    }
-    else // new selection will be only the first row
+    } else // new selection will be only the first row
     {
       this.range_start_idx = firstselectablerow;
       this.range_end_idx = firstselectablerow;
@@ -1439,7 +1431,7 @@ export default class ListView {
   }
 
   moveCursorToBottom(expandselection) {
-    var lastselectablerow = this.datasource.getSelectableRowBefore(this.numrows);
+    const lastselectablerow = this.datasource.getSelectableRowBefore(this.numrows);
 
     this.setCursorRow(lastselectablerow);
 
@@ -1453,8 +1445,7 @@ export default class ListView {
 
       this.range_end_idx = lastselectablerow;
       this.datasource.setSelectionForRange(this.range_start_idx, this.range_end_idx, true);
-    }
-    else // new selection will be only the last row
+    } else // new selection will be only the last row
     {
       this.range_start_idx = lastselectablerow;
       this.range_end_idx = lastselectablerow;
@@ -1477,7 +1468,7 @@ export default class ListView {
     if (!distance)
       distance = 1;
 
-    var new_cursorrow;
+    let new_cursorrow;
     if (expandselection)
       new_cursorrow = this.range_end_idx; // manipulate the current range (make smaller or larger) at the current cursor position
     else
@@ -1500,7 +1491,7 @@ export default class ListView {
     if (!distance)
       distance = 1;
 
-    var new_cursorrow;
+    let new_cursorrow;
     if (expandselection)
       new_cursorrow = this.range_end_idx;
     else
@@ -1563,16 +1554,14 @@ export default class ListView {
       if (!options.toggle) {
         this.datasource.clearSelection(); //simple clicks clear selection
         this.datasource.setSelectionForRange(rownum, rownum, true);
-      }
-      else {
-        var srcrow = this.visiblerows[rownum];
-        var status = srcrow.cells[this.selectedidx];
+      } else {
+        const srcrow = this.visiblerows[rownum];
+        const status = srcrow.cells[this.selectedidx];
         if (this.options.selectmode == "multiple") {
           this.datasource.setSelectionForRange(rownum, rownum, !status || options.forceselected);
           if (options.columnschanged) //then we need to send an update to the rest of the selection to make sure they select the proper cell
             this.refreshSelectedRows();
-        }
-        else {
+        } else {
           // in single select mode ctrl+click either disables the selected row
           // or selects a new one
           this.datasource.clearSelection(); //simple clicks clear selection
@@ -1583,19 +1572,18 @@ export default class ListView {
       }
 
       return true;
-    }
-    finally {
+    } finally {
       this._finishSelectionUpdateGroup(options.immediate_select);
     }
   }
 
   getRowForNode(node) {
-    let row = event.target.closest('div.listrow');
+    const row = event.target.closest('div.listrow');
     return row ? this.visiblerows[row.propRow] : null;
   }
 
   onContextMenuRow(event) {
-    let row = event.target.closest('div.listrow');
+    const row = event.target.closest('div.listrow');
 
     if (!row)
       return;
@@ -1606,9 +1594,9 @@ export default class ListView {
     // right mouse click
     // on selected row -> contextmenu for all currently selected rows
     // on a row that isn't selected -> act as normal selection (can be used with shift) + context menu
-    var rownum = row.propRow;
-    var srcrow = this.visiblerows[rownum];
-    var status = srcrow.cells[this.selectedidx];
+    const rownum = row.propRow;
+    let srcrow = this.visiblerows[rownum];
+    let status = srcrow.cells[this.selectedidx];
 
     if (status !== true) // not yet selected? select it now
     {
@@ -1636,46 +1624,46 @@ export default class ListView {
     this.numrows = 0;
     this.cursorrow = -1;
 
-    var structure = this.datasource.getDataStructure();
+    const structure = this.datasource.getDataStructure();
     this.selectedidx = structure.selectedidx;
     this.expandedidx = structure.expandedidx;
     this.depthidx = structure.depthidx;
     this.searchidx = structure.searchidx;
     this.highlightidx = structure.highlightidx;
 
-    var dscolumns = structure.datacolumns;
+    const dscolumns = structure.datacolumns;
     for (let i = 0; i < dscolumns.length; ++i) {
-      var handler = dscolumns[i].render || null;
+      const handler = dscolumns[i].render || null;
       if (handler && !handler.render)
         throw new Error("Column '" + col.title + "' has invalid 'handler' type");
 
       this.datacolumns.push(
         {
-          title: dscolumns[i].title
-          , src: dscolumns[i]
-          , handler: handler
-          , x: -1
-          , y: 0
-          , w: 1
-          , h: 1
-          , headernode: null
-          , minwidth: ListColumn.minwidth
-          , resizable: true
+          title: dscolumns[i].title,
+          src: dscolumns[i],
+          handler: handler,
+          x: -1,
+          y: 0,
+          w: 1,
+          h: 1,
+          headernode: null,
+          minwidth: ListColumn.minwidth,
+          resizable: true
         });
 
       this.dragdatacolumns.push(
         {
-          title: dscolumns[i].title
-          , src: dscolumns[i]
-          , handler: handler
-          , x: -1
-          , y: 0
-          , w: 1
-          , h: 1
-          , headernode: null
-          , minwidth: ListColumn.minwidth
-          , resizable: true
-          , dragcolumn: true
+          title: dscolumns[i].title,
+          src: dscolumns[i],
+          handler: handler,
+          x: -1,
+          y: 0,
+          w: 1,
+          h: 1,
+          headernode: null,
+          minwidth: ListColumn.minwidth,
+          resizable: true,
+          dragcolumn: true
         });
     }
 
@@ -1687,7 +1675,7 @@ export default class ListView {
         continue;
 
       var col = this.datacolumns[this.cols[i].header];
-      var headernode = dompack.create("span", { "class": "list__header__cell" });
+      const headernode = dompack.create("span", { "class": "list__header__cell" });
 
       if (col) {
         col.headernode = headernode;
@@ -1709,12 +1697,12 @@ export default class ListView {
       if (i != this.cols.length - 1 && this.cols[i].combinewithnext)
         continue;
 
-      var splitnode = dompack.create('div', {
-        className: 'splitter'
-        , on: {
-          "dompack:movestart": evt => this.onSplitMoveStart(evt)
-          , "dompack:move": evt => this.onSplitMove(evt)
-          , "dompack:moveend": evt => this.onSplitEnd(evt)
+      const splitnode = dompack.create('div', {
+        className: 'splitter',
+        on: {
+          "dompack:movestart": evt => this.onSplitMoveStart(evt),
+          "dompack:move": evt => this.onSplitMove(evt),
+          "dompack:moveend": evt => this.onSplitEnd(evt)
         }
       });
 
@@ -1723,8 +1711,8 @@ export default class ListView {
       this.listheader.appendChild(splitnode);
     }
     dompack.toggleClasses(this.node, {
-      flatview: !this.istreeview
-      , treeview: this.istreeview
+      flatview: !this.istreeview,
+      treeview: this.istreeview
     });
 
     this.applyHeaderColumnWidths();
@@ -1732,8 +1720,8 @@ export default class ListView {
   }
 
   _refreshColCalculation() {
-    var pos = 0, dragpos = 0;
-    for (var i = 0; i < this.cols.length; ++i) {
+    let pos = 0, dragpos = 0;
+    for (let i = 0; i < this.cols.length; ++i) {
       this.cols[i].left = pos;
       this.cols[i].dragleft = dragpos;
 
@@ -1752,20 +1740,20 @@ export default class ListView {
     this.linepadding = this.options.linepadding;
 
     this.istreeview = false;
-    for (var i = 0; i < cols.length; ++i) {
+    for (let i = 0; i < cols.length; ++i) {
       //console.log("col", i, "of", cols.length-1);
-      var newcol = {
-        width: cols[i].width || 50
-        , header: "header" in cols[i] ? cols[i].header : i
-        , left: 0
-        , right: 0
-        , dragleft: 0
-        , dragright: 0
-        , coupled_cols: []
-        , minwidth: Math.max(cols[i].minwidth || 0, ListColumn.minwidth)
-        , resizable: true
-        , indraglayout: cols[i].indraglayout
-        , combinewithnext: cols[i].combinewithnext
+      const newcol = {
+        width: cols[i].width || 50,
+        header: "header" in cols[i] ? cols[i].header : i,
+        left: 0,
+        right: 0,
+        dragleft: 0,
+        dragright: 0,
+        coupled_cols: [],
+        minwidth: Math.max(cols[i].minwidth || 0, ListColumn.minwidth),
+        resizable: true,
+        indraglayout: cols[i].indraglayout,
+        combinewithnext: cols[i].combinewithnext
       };
 
       // MARK WIP
@@ -1802,7 +1790,7 @@ export default class ListView {
         datacolumns[i].x = i;
 
         if (datacolumns[i].handler) {
-          let sizeinfo = datacolumns[i].handler.getSizeInfo(this, datacolumns[i].src, false);
+          const sizeinfo = datacolumns[i].handler.getSizeInfo(this, datacolumns[i].src, false);
 
           datacolumns[i].minwidth = Math.max(datacolumns[i].minwidth, sizeinfo.minwidth);
           datacolumns[i].resizable = sizeinfo.resizable;
@@ -1816,35 +1804,33 @@ export default class ListView {
       }
 
       return 1;
-    }
-    else if (this.cols.length == 0) {
+    } else if (this.cols.length == 0) {
       return 1;
-    }
-    else {
+    } else {
       //console.log("Amount of columns: " + this.cols.length);
 
-      var filldepth = [];
+      const filldepth = [];
       for (let i = 0; i < this.cols.length; ++i)
         filldepth.push(0);
 
       // Dragmode only uses a subset of the columns. Make a mapping from 'virtual' columns to real columns fot that
-      var colmapping = [];
+      const colmapping = [];
       for (let i = 0; i < this.cols.length; ++i) {
         if (!dragmode || this.cols[i].indraglayout)
           colmapping.push(i);
       }
       colmapping.push(this.cols.length);
 
-      for (var linenum = 0; linenum < layout.length; ++linenum) {
-        var layoutline = layout[linenum];
-        for (var j = 0; j < layoutline.cells.length; j++) {
-          var cellnum = layoutline.cells[j].cellnum;
-          var cell = (cellnum >= 0 && cellnum < datacolumns.length) ? datacolumns[cellnum] : null;
+      for (let linenum = 0; linenum < layout.length; ++linenum) {
+        const layoutline = layout[linenum];
+        for (let j = 0; j < layoutline.cells.length; j++) {
+          const cellnum = layoutline.cells[j].cellnum;
+          const cell = (cellnum >= 0 && cellnum < datacolumns.length) ? datacolumns[cellnum] : null;
 
-          var rowspan = layoutline.cells[j].rowspan || 1;
-          var colspan = layoutline.cells[j].colspan || 1;
+          const rowspan = layoutline.cells[j].rowspan || 1;
+          const colspan = layoutline.cells[j].colspan || 1;
 
-          var startcol = 0;
+          let startcol = 0;
           while (filldepth[startcol] > linenum && startcol < filldepth.length)
             ++startcol;
 
@@ -1859,7 +1845,7 @@ export default class ListView {
             continue;
           }
 
-          for (var k = 0; k < colspan; ++k)
+          for (let k = 0; k < colspan; ++k)
             filldepth[startcol + k] = linenum + rowspan;
 
           if (cell) {
@@ -1874,7 +1860,7 @@ export default class ListView {
             cell.src.rowspan = rowspan;
 
             if (cell.handler) {
-              let sizeinfo = cell.handler.getSizeInfo(this, cell.src, false);
+              const sizeinfo = cell.handler.getSizeInfo(this, cell.src, false);
               cell.minwidth = Math.max(cell.minwidth, sizeinfo.minwidth);
               cell.resizable = sizeinfo.resizable;
             }
@@ -1908,8 +1894,8 @@ export default class ListView {
 
     this._calculateCoupledColumns();
     dompack.toggleClasses(this.node, {
-      singleline: this.linesperrow == 1
-      , multiline: this.linesperrow > 1
+      singleline: this.linesperrow == 1,
+      multiline: this.linesperrow > 1
     });
     this.rowheight = this.lineheight * this.linesperrow + this.linepadding * 2;
 
@@ -1920,16 +1906,16 @@ export default class ListView {
   /** Marks the left splits of two columns as coupled (they must move together)
   */
   _coupleColumns(left, right) {
-    var left_cc = this.cols[left].coupled_cols;
-    var right_cc = this.cols[right].coupled_cols;
+    const left_cc = this.cols[left].coupled_cols;
+    const right_cc = this.cols[right].coupled_cols;
 
     // Already array-coupled? (could test for left in right_cc, but this is faster)
     if (left_cc == right_cc)
       return;
 
     // Replace arrays of all users of right_cc column group with left_cc column group array
-    for (var i = 0; i < right_cc.length; ++i) {
-      var nr = right_cc[i];
+    for (let i = 0; i < right_cc.length; ++i) {
+      const nr = right_cc[i];
       left_cc.push(nr);
       this.cols[nr].coupled_cols = left_cc;
     }
@@ -1942,7 +1928,7 @@ export default class ListView {
     // Make sure coupled columns use the same coupled_cols arrays
     this.datacolumns.forEach(function(cell) {
       if (!cell.resizable) {
-        var rightnr = cell.x + cell.w;
+        let rightnr = cell.x + cell.w;
         if (rightnr >= this.cols.length) // Right-split? Change to 0, to indicate 'don't move'.
           rightnr = 0;
 
@@ -1955,40 +1941,40 @@ export default class ListView {
   */
   _calculateRowLayoutColMinWidths() {
     // Gather the datacolumns per start position, for easy access
-    let celllists = this.cols.map(function() { return []; });
+    const celllists = this.cols.map(function() { return []; });
     this.datacolumns.forEach(function(cell) {
       if (cell.x != -1)
         celllists[cell.x].push(cell);
     });
 
     // Per column, keep the minwidth it still needs to get, and the column where it needs to get it all
-    var rows = [];
-    for (var i = 0; i < this.linesperrow; ++i)
+    const rows = [];
+    for (let i = 0; i < this.linesperrow; ++i)
       rows.push({ minwidth: 0, until: -1 });
 
     // Process one column at a time
     this.cols.forEach(function(col, colidx) {
       // Administrate the cells that start at this column (minwidth they need to have, and nr of their last column)
       celllists[colidx].forEach((function(cell) {
-        for (var rownr = cell.y; rownr < cell.y + cell.h; ++rownr) {
+        for (let rownr = cell.y; rownr < cell.y + cell.h; ++rownr) {
           rows[rownr].minwidth = cell.minwidth;
           rows[rownr].lastcolumn = cell.x + cell.w - 1;
         }
-      }).bind(this));
+      }));
 
       // Calculate the minwidth, by getting max of left minwidth for all columns that end at this column
-      var minwidth = ListColumn.minwidth;
+      let minwidth = ListColumn.minwidth;
       rows.forEach(function(row) { if (row.lastcolumn == colidx && row.minwidth > minwidth) minwidth = row.minwidth; });
       col.minwidth = minwidth;
 
       // Adjust minwidth for the cols that end at a later column
       rows.forEach(function(row) { row.minwidth -= minwidth; });
-    }.bind(this));
+    });
   }
 
   onHeaderClick(colidx, event) {
-    var hdr = this.cols[colidx].header;
-    var col = this.datacolumns[hdr];
+    const hdr = this.cols[colidx].header;
+    const col = this.datacolumns[hdr];
     if (!col || !col.src.sortable)
       return;
 
@@ -2001,18 +1987,18 @@ export default class ListView {
     Object.keys(this.footerrows).forEach(key => this._applyRowColumnWidths(this.datacolumns, false, this.footerrows[key]));
   }
   applyHeaderColumnWidths() {
-    var total = 0;
-    var splitterpositions = [];
-    var childnr = 0;
-    var colwidth = 0;
+    let total = 0;
+    const splitterpositions = [];
+    let childnr = 0;
+    let colwidth = 0;
 
-    for (var i = 0; i < this.cols.length; ++i) {
+    for (let i = 0; i < this.cols.length; ++i) {
       colwidth += this.cols[i].width;
 
       if (i != this.cols.length - 1 && this.cols[i].combinewithnext)
         continue;
 
-      var headernode = this.listheader.childNodes[childnr];
+      const headernode = this.listheader.childNodes[childnr];
 
       // MARK WIP
       if (i == 0) {
@@ -2036,13 +2022,12 @@ export default class ListView {
     }
 
     // make the last columnheader also take up the space above the space reserved for the vertical scrollbar
-    var scrollx_space = getScrollbarWidth();
+    const scrollx_space = getScrollbarWidth();
     if (scrollx_space > 0) {
       this.headerfiller.style.display = "";
       this.headerfiller.style.width = scrollx_space + 'px';
       this.headerfiller.style.borderLeftWidth = 0; //ADDME css
-    }
-    else {
+    } else {
       this.headerfiller.style.display = "none";
     }
 
@@ -2051,26 +2036,26 @@ export default class ListView {
     });
   }
   _applyRowColumnWidths(datacolumns, dragmode, visiblerow) {
-    var outpos = 0;
+    let outpos = 0;
 
-    for (var i = 0; i < datacolumns.length; ++i) {
-      var col = datacolumns[i];
+    for (let i = 0; i < datacolumns.length; ++i) {
+      const col = datacolumns[i];
       if (col.x == -1)
         continue;
 
-      var cell = visiblerow.node.childNodes[outpos];
+      const cell = visiblerow.node.childNodes[outpos];
       ++outpos;
 
-      var sizes =
+      const sizes =
       {
-        dragmode: dragmode
-        , width: dragmode
+        dragmode: dragmode,
+        width: dragmode
           ? this.cols[col.x + col.w - 1].dragright - this.cols[col.x].dragleft
-          : this.cols[col.x + col.w - 1].right - this.cols[col.x].left
-        , left: dragmode ? this.cols[col.x].dragleft : this.cols[col.x].left
+          : this.cols[col.x + col.w - 1].right - this.cols[col.x].left,
+        left: dragmode ? this.cols[col.x].dragleft : this.cols[col.x].left,
 
-        , padleft: 4 // FIXME
-        , padright: 4 // FIXME
+        padleft: 4, // FIXME
+        padright: 4 // FIXME
         //          , height: col.h * this.lineheight
         //          , top: col.y * this.lineheight
       };
@@ -2121,7 +2106,7 @@ export default class ListView {
     //request any rows which should be visible but aren't yet.
     Object.keys(this.visiblerows).forEach(key => {
       if (key < this.firstvisiblerow || key > this.firstvisiblerow + this.numvisiblerows) {
-        let value = this.visiblerows[key];
+        const value = this.visiblerows[key];
         if (value.node)
           value.node.remove();
         delete this.visiblerows[key];
@@ -2131,8 +2116,8 @@ export default class ListView {
     //currently, simply requests all rows
     dompack.empty(this.listbody);
 
-    for (var i = 0; i < this.numvisiblerows; ++i) {
-      var inputrow = this.firstvisiblerow + i;
+    for (let i = 0; i < this.numvisiblerows; ++i) {
+      const inputrow = this.firstvisiblerow + i;
       if (inputrow >= this.numrows)
         break;
       if (inputrow < 0)
@@ -2149,8 +2134,7 @@ export default class ListView {
     //console.log(this.numrows,this.rowheight,this.numrows * this.rowheight,this.bodyholderheight)
     if (this.numrows * this.rowheight >= this.bodyholderheight) {
       this.listbodyholder.style.overflowY = "scroll";
-    }
-    else {
+    } else {
       /* our dummy rows may cause a small overflow,
          so we have to emulate the effect of no-overflow
          (scrollbars disappearing and the element scrolling back to it's top)
@@ -2172,8 +2156,7 @@ export default class ListView {
       const scrolltop = this.listbodyholder.scrollTop;
       firstrow = Math.ceil(scrolltop / this.rowheight);
       limitrow = Math.floor((scrolltop + this.bodyholderheight) / this.rowheight);
-    }
-    else {
+    } else {
       firstrow = this.firstvisiblerow;
       limitrow = this.firstvisiblerow + this.numvisiblerows;
     }
@@ -2192,7 +2175,7 @@ export default class ListView {
     // Determine if a part of the selection is currently visible. If so, keep it that way
     const oldvisiblesel = this._findFirstSelectedRowInVisibleRows();
 
-    var headerheight = this.options.hideheader ? 0 : this.options.headerheight;
+    const headerheight = this.options.hideheader ? 0 : this.options.headerheight;
     //With footer rows, we also need to subtract an extra pixel for the line separating the footer from the rest
     this.bodyholderheight = this.options.height - headerheight - (this.footerrows.length ? this.footerrows.length * this.rowheight + 1 : 0);
     this.numvisiblerows = Math.ceil(this.bodyholderheight / this.rowheight) + 1;
@@ -2222,9 +2205,9 @@ export default class ListView {
     if (!text) //reset
       return;
 
-    var searchregex = new RegExp("^" + text.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "i");
+    const searchregex = new RegExp("^" + text.replace(/[\-\[\]\/\{\}\(\)\*\+\?\.\\\^\$\|]/g, "\\$&"), "i");
 
-    var newidx = this.datasource.selectFirstMatchFromCurrent(searchregex, this.searchidx);
+    const newidx = this.datasource.selectFirstMatchFromCurrent(searchregex, this.searchidx);
     if (newidx >= 0) {
       this.setCursorRow(newidx);
       this.range_start_idx = newidx;

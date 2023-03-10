@@ -10,5 +10,5 @@ MACRO RunBody(OBJECT testcontext)
   LoadWittyLibrary(testcontext->basefolder || "upload.witty","HTML")->Run(data);
 }
 
-InvokeTestPage(PTR RunBody, [ jsfile := "upload.es"
+InvokeTestPage(PTR RunBody, [ jsfile := "upload"
                              ]);

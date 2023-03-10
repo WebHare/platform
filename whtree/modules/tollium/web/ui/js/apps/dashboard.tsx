@@ -51,8 +51,8 @@ class DashboardApp {
 
 
     new KeyboardHandler(this.dashboardappsnode, {
-      ArrowUp: evt => this._navigateApps(evt, -1)
-      , ArrowDown: evt => this._navigateApps(evt, +1)
+      ArrowUp: evt => this._navigateApps(evt, -1),
+      ArrowDown: evt => this._navigateApps(evt, +1)
     });
     this.findasyoutype = new FindAsYouType(this.dashboardappsnode, { onsearch: text => this._onFindAsYouTypeSearch(text) });
 
@@ -73,11 +73,11 @@ class DashboardApp {
     window.addEventListener("tollium:settingschange", () => this.updateShellSettings());
 
     this.app.updateApplicationProperties({
-      title: getTid("tollium:shell.dashboard.apptitle")
-      , appicon: 'tollium:objects/webhare'
-      , appiconwidth: 28
-      , appiconheight: 28
-      , tabmodifier: 'dashboard'
+      title: getTid("tollium:shell.dashboard.apptitle"),
+      appicon: 'tollium:objects/webhare',
+      appiconwidth: 28,
+      appiconheight: 28,
+      tabmodifier: 'dashboard'
     });
     this.updateShellSettings();
 
@@ -100,20 +100,20 @@ class DashboardApp {
 
     rememberMenuHeights();
 
-    let searchvals = text.toLowerCase().replace(/ +/g, " ").trim().split(" ");
+    const searchvals = text.toLowerCase().replace(/ +/g, " ").trim().split(" ");
     if (!searchvals[0])
       searchvals.shift();
 
-    let apps = dompack.qSA(".dashboard__app").map(node =>
+    const apps = dompack.qSA(".dashboard__app").map(node =>
     ({
-      node: node
-      , groupnode: node.parentNode.parentNode
-      , title: node.propApp.title
-      , sectiontitle: node.propSection.title
+      node: node,
+      groupnode: node.parentNode.parentNode,
+      title: node.propApp.title,
+      sectiontitle: node.propSection.title
     }));
 
-    let groupnodes = new Map(apps.map(a => [a.groupnode, false]));
-    var anyactive = false;
+    const groupnodes = new Map(apps.map(a => [a.groupnode, false]));
+    let anyactive = false;
     apps.forEach(app => {
       const matches = searchvals.filter(val => (app.sectiontitle + " " + app.title).toLowerCase().includes(val));
       const active = matches.length === searchvals.length;
@@ -126,16 +126,15 @@ class DashboardApp {
 
     if (anyactive) {
       this.dashboardappsnode.classList.remove("dashboard__apps--nomatches");
-    }
-    else {
+    } else {
       this.dashboardappsnode.classList.add("dashboard__apps--nomatches");
       this.dashboardnoappstextnode.textContent = getTid("tollium:shell.dashboard.noapps", text);
     }
 
-    for (let [node, active] of groupnodes)
+    for (const [node, active] of groupnodes)
       setMenuLiVisible(node, active);
 
-    let current = this._getCurrentlyFocusedItem();
+    const current = this._getCurrentlyFocusedItem();
     if (current && current.classList.contains('dashboard__menuitem--hidden'))
       this._navigateApps(null, +1); //a hidden element has focus. select the next one
   }
@@ -149,11 +148,11 @@ class DashboardApp {
     if (evt)
       dompack.stop(evt);
 
-    let current = this._getCurrentlyFocusedItem();
+    const current = this._getCurrentlyFocusedItem();
     if (!current)
       return;
 
-    let allappnodes = dompack.qSA(this.dashboardappsnode, '.dashboard__app');
+    const allappnodes = dompack.qSA(this.dashboardappsnode, '.dashboard__app');
     let curpos = allappnodes.findIndex(node => node == current);
     if (curpos < 0)
       return;
@@ -168,17 +167,18 @@ class DashboardApp {
   }
 
   createDashboardFooter() {
-    return [<div id="dashboard-user" on={{ "click": () => this.shell.editPersonalSettings() }} />
-      , <div id="dashboard-logout" on={{ "click": () => this.runLogout() }}>
-      <span>{getTid("tollium:shell.dashboard.logout")}</span>
-      {toddImages.createImage('tollium:actions/logout', 16, 16, 'w', { className: "dashboard__logoutimg" })}
-    </div>
+    return [
+      <div id="dashboard-user" on={{ "click": () => this.shell.editPersonalSettings() }} />,
+      <div id="dashboard-logout" on={{ "click": () => this.runLogout() }}>
+        <span>{getTid("tollium:shell.dashboard.logout")}</span>
+        {toddImages.createImage('tollium:actions/logout', 16, 16, 'w', { className: "dashboard__logoutimg" })}
+      </div>
     ];
   }
 
   _createAppMenu(items) {
     // Single menu item with an app
-    let AppMenuItem = ({ section, app }) =>
+    const AppMenuItem = ({ section, app }) =>
       <li class="dashboard__app" propApp={app} propSection={section}
         on={{ click: e => this._onMenuClick(e, app.instr) }} >
         <a href={app.link} class={{ "dashboard__applink": true, "dashboard__app--hasicon": app.icon }}>
@@ -189,7 +189,7 @@ class DashboardApp {
       </li>;
 
     // Menu section
-    let AppMenuSection = (item) =>
+    const AppMenuSection = (item) =>
       <li class="dashboard__menuitem">
         <div class="dashboard__menusection">
           <span class="dashboard__menusectiontitle">{item.title}</span>
@@ -215,11 +215,11 @@ class DashboardApp {
     menu.forEach(group => group.apps.forEach(app => {
       if (!app.shortcut)
         return;
-      let keyname = getShortcutEvent(app.shortcut);
+      const keyname = getShortcutEvent(app.shortcut);
       if (!keyname)
         return;
 
-      this.appskeyboard.addKey(keyname, evt => { this.shell.executeInstruction(app.instr) });
+      this.appskeyboard.addKey(keyname, evt => { this.shell.executeInstruction(app.instr); });
       this.appshortcuts.push(keyname);
     }));
   }
@@ -228,14 +228,14 @@ class DashboardApp {
     if (!dompack.qS('#dashboard-user')) //  app has been terminated?
       return;
 
-    var settings = this.shell.getCurrentSettings();
-    let newmenu = this._createAppMenu(settings.apps);
+    const settings = this.shell.getCurrentSettings();
+    const newmenu = this._createAppMenu(settings.apps);
     this._updateShortcuts(settings.apps);
 
     this.dashboardappsnode.firstChild.replaceWith(newmenu);
 
     dompack.empty(dompack.qS('#dashboard-user'));
-    let usericon = this.shell.getCurrentSettings().issysop ? 'tollium:users/manager' : 'tollium:users/user';
+    const usericon = this.shell.getCurrentSettings().issysop ? 'tollium:users/manager' : 'tollium:users/user';
     dompack.qS('#dashboard-user').append(
       toddImages.createImage(usericon, 16, 16, 'w', { className: "dashboard__userimg" })
       , <span id="dashboard-user-name">{settings.userdisplayname}</span>);
@@ -246,8 +246,7 @@ class DashboardApp {
     if (settings.displayimage == "") {
       document.getElementById('t-apptabs').style.backgroundImage = "none";
       document.getElementById('dashboard-display-name').textContent = settings.displayname;
-    }
-    else {
+    } else {
       document.getElementById('dashboard-display-name').textContent = "";
       document.getElementById('t-apptabs').style.backgroundImage = `url("${settings.displayimage}")`;
     }
@@ -275,12 +274,13 @@ class DashboardApp {
     this.shell.executeInstruction(instr);
   }
   async runLogout() {
-    let response = await
+    const response = await
       runSimpleScreen(this.app, {
-        title: getTid("tollium:shell.logout.title")
-        , text: getTid("tollium:shell.logout.surelogout")
-        , buttons: [{ name: 'yes', title: getTid("~yes") }
-          , { name: 'no', title: getTid("~no") }
+        title: getTid("tollium:shell.logout.title"),
+        text: getTid("tollium:shell.logout.surelogout"),
+        buttons: [
+          { name: 'yes', title: getTid("~yes") },
+          { name: 'no', title: getTid("~no") }
         ]
       });
     if (response == 'yes')

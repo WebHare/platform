@@ -30,5 +30,5 @@
   <test name="precalc" path="precalc/" />
   <test name="debugger" path="debugger/" />
   <test name="tasks" path="tasks/" />
-  <jstest file="testexclusiveaccess.es" />
+  <jstest file="testexclusiveaccess.ts" />
 </group>

@@ -22,48 +22,49 @@ export async function runSimpleScreen(app, options) //TODO move API closer to to
   if (app)
     busylock = app.getBusyLock(); //as we may be loading components, lock just to be sasfe
 
-  let defer = dompack.createDeferred();
+  const defer = dompack.createDeferred();
   try {
     await app.promiseComponentTypes(['panel', 'button', 'action', 'text']);
 
-    var dialog =
+    const dialog =
     {
       frame: {
-        bodynode: 'root'
-        , specials: []
-        , allowresize: false
-        , title: options.title || getTid("tollium:shell.messagebox.defaulttitle")
-        , defaultbutton: options.defaultbutton ? 'button_' + options.defaultbutton : ''
-      }
+        bodynode: 'root',
+        specials: [],
+        allowresize: false,
+        title: options.title || getTid("tollium:shell.messagebox.defaulttitle"),
+        defaultbutton: options.defaultbutton ? 'button_' + options.defaultbutton : ''
+      },
 
-      , root: {
-        type: 'panel', lines: [{ layout: "block", items: [{ item: "body" }], height: '1pr' }
-          , { layout: "block", items: [{ item: "footer" }] }
-        ]
-        , height: '1pr'
-      }
-      , body: {
-        type: 'panel', lines: [{ title: '', layout: 'left', items: [{ item: 'text' }] }]
-        , height: '1pr'
-        , spacers: { top: true, bottom: true, left: true, right: true }
-        , width: '1pr'
-      }
-      , footer: {
-        type: 'panel'
-        , lines: [{ items: [], layout: 'right' }]
-        , spacers: { top: true, bottom: true, left: true, right: true }
-        , isfooter: true
-        , width: '1pr'
-      }
-      , text: { type: 'text', value: options.text }
+      root: {
+        type: 'panel', lines: [
+          { layout: "block", items: [{ item: "body" }], height: '1pr' },
+          { layout: "block", items: [{ item: "footer" }] }
+        ],
+        height: '1pr'
+      },
+      body: {
+        type: 'panel', lines: [{ title: '', layout: 'left', items: [{ item: 'text' }] }],
+        height: '1pr',
+        spacers: { top: true, bottom: true, left: true, right: true },
+        width: '1pr'
+      },
+      footer: {
+        type: 'panel',
+        lines: [{ items: [], layout: 'right' }],
+        spacers: { top: true, bottom: true, left: true, right: true },
+        isfooter: true,
+        width: '1pr'
+      },
+      text: { type: 'text', value: options.text }
     };
 
     if (options.icon) {
       dialog.body.lines[0].items.unshift({ item: 'icon' });
       dialog.icon = {
-        type: 'image'
-        , settings: { imgname: "tollium:messageboxes/" + options.icon, width: 32, height: 32, color: "b" }
-        , width: "32px", height: "32px"
+        type: 'image',
+        settings: { imgname: "tollium:messageboxes/" + options.icon, width: 32, height: 32, color: "b" },
+        width: "32px", height: "32px"
       };
     }
 
@@ -74,7 +75,7 @@ export async function runSimpleScreen(app, options) //TODO move API closer to to
       dialog.footer.lines[0].items.push({ item: 'button_' + button.name });
     });
 
-    var newscreen = app.createNewScreenObject('dialog', 'frame', $todd.componentsToMessages(dialog));
+    const newscreen = app.createNewScreenObject('dialog', 'frame', $todd.componentsToMessages(dialog));
     options.buttons.forEach(button => {
       newscreen.setMessageHandler("action_" + button.name, "execute", function(data, callback) {
         //ADDME if (! onclick or something like that i think) ?
@@ -88,8 +89,7 @@ export async function runSimpleScreen(app, options) //TODO move API closer to to
     });
 
     return defer.promise;
-  }
-  finally {
+  } finally {
     if (busylock)
       busylock.release();
   }

@@ -14,11 +14,11 @@ export default class DocPanel {
   load(url, edittoken) {
     this.edittoken = edittoken;
 
-    let docpanel = this.app.appnodes.docpanel;
+    const docpanel = this.app.appnodes.docpanel;
     dompack.empty(docpanel);
     docpanel.append(<div class={{
-      "docpanel": true
-      , "docpanel--canedit": edittoken != ""
+      "docpanel": true,
+      "docpanel--canedit": edittoken != ""
     }}>
       <div class="docpanel__buttonarea">
         <div class="docpanel__edit" title={getTid("~edit")} onClick={() => this.edit()}></div>

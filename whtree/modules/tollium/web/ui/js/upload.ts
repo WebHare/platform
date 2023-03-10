@@ -11,9 +11,9 @@ require("../common.lang.json");
 function getUploadTolliumData(component) {
   return JSON.stringify(
     {
-      l: component.owner.hostapp.whsid
-      , w: component.owner.screenname
-      , n: component.name
+      l: component.owner.hostapp.whsid,
+      w: component.owner.screenname,
+      n: component.name
     });
 }
 
@@ -29,9 +29,9 @@ export async function uploadFiles(component, uploadedcallback, options) {
   //Note: this works because selectAndUploadFile will always yield at some point, allowing us to receive the value of group, and allowing onLoadstart to use it
   options = { ...options };
 
-  let files = await compatupload.selectFiles({
-    mimetype: options.mimetypes
-    , multiple: options.multiple
+  const files = await compatupload.selectFiles({
+    mimetype: options.mimetypes,
+    multiple: options.multiple
   });
 
   uploadBlobs(component, files, uploadedcallback);
@@ -47,20 +47,19 @@ export async function uploadFiles(component, uploadedcallback, options) {
 export async function receiveFiles(component, options) {
   options = options || {};
   return compatupload.selectFiles({
-    mimetype: options.mimetypes
-    , multiple: options.multiple
+    mimetype: options.mimetypes,
+    multiple: options.multiple
   });
 }
 
 export async function uploadBlobs(component, blobs, uploadedcallback, options) {
-  let uploader = new compatupload.UploadSession(blobs, { params: { tolliumdata: getUploadTolliumData(component) } });
-  let uploadcontroller = new UploadDialogController(component.owner, uploader);
-  let result = await uploader.upload();
+  const uploader = new compatupload.UploadSession(blobs, { params: { tolliumdata: getUploadTolliumData(component) } });
+  const uploadcontroller = new UploadDialogController(component.owner, uploader);
+  const result = await uploader.upload();
 
   try {
     uploadedcallback(result, () => uploadcontroller.close());
-  }
-  catch (e) {
+  } catch (e) {
     console.error("upload exception", e);
     uploadedcallback([], () => uploadcontroller.close());
   }
@@ -71,13 +70,12 @@ async function gatherUploadFiles(items) {
 
   for (let i = 0; i < items.length; ++i) {
     if (items[i].isDirectory) {
-      let contents = await new Promise((resolve, reject) => {
-        let reader = items[i].createReader();
+      const contents = await new Promise((resolve, reject) => {
+        const reader = items[i].createReader();
         reader.readEntries(resolve);
       });
       files = files.concat(await gatherUploadFiles(contents));
-    }
-    else {
+    } else {
       files.push(await new Promise((resolve, reject) => {
         items[i].file(blob => {
           blob.fullpath = items[i].fullPath;
@@ -102,30 +100,30 @@ async function gatherUploadFiles(items) {
     @cell dialogclosecallback Callback to close the progress dialog after drop has finished)
 */
 export async function uploadFilesForDrop(component, dragdata, callback) {
-  var draginfo = dragdata.getData();
-  var files = dragdata.getFiles();
+  const draginfo = dragdata.getData();
+  let files = dragdata.getFiles();
 
-  var islocal = !dragdata.hasExternalSource() && draginfo && draginfo.source.owner == component.owner;
-  var gotfiles = files && files.length;
+  const islocal = !dragdata.hasExternalSource() && draginfo && draginfo.source.owner == component.owner;
+  const gotfiles = files && files.length;
 
-  var msg =
+  const msg =
   {
-    source: islocal ? 'local' : gotfiles ? 'files' : 'external'
-    , sourcecomp: islocal ? draginfo.source.name : ''
-    , items: draginfo ? draginfo.items : []
-    , dropeffect: dragdata.getDropEffect()
+    source: islocal ? 'local' : gotfiles ? 'files' : 'external',
+    sourcecomp: islocal ? draginfo.source.name : '',
+    items: draginfo ? draginfo.items : [],
+    dropeffect: dragdata.getDropEffect()
   };
 
   if (!gotfiles) {
     // No files? Just a busy lock is good enough
-    var busylock = component.owner.displayapp.getBusyLock();
+    const busylock = component.owner.displayapp.getBusyLock();
     callback(msg, busylock.release.bind(busylock));
     return;
   }
 
   // If this is a drop through an <acceptfile type="edit" > accept rule, open the image editor before uploading
   if (files.length == 1 && dragdata.acceptrule && dragdata.acceptrule.imageaction == "edit") {
-    var file = files[0];
+    const file = files[0];
     if (!ImgeditDialogController.checkTypeAllowed(component.owner, file.type))
       return;
 
@@ -149,7 +147,7 @@ export async function uploadFilesForDrop(component, dragdata, callback) {
           }
 
           // There is only 1 file uploaded
-          var filename = ensureExtension(files[0].name, files[0].fileinfo.extension);
+          const filename = ensureExtension(files[0].name, files[0].fileinfo.extension);
 
           msg.items.push({ type: 'file', token: files[0].filetoken, name: filename, extradata: null, fullpath: file.fullpath });
 
@@ -158,14 +156,12 @@ export async function uploadFilesForDrop(component, dragdata, callback) {
             done.editcallback();
           });
         });
-    }
-    else {
+    } else {
       // Nothing to upload, we're done
       done.editcallback();
     }
-  }
-  else {
-    let items = dragdata.getItems();
+  } else {
+    const items = dragdata.getItems();
     if (items.length && items[0].webkitGetAsEntry) {
       //we'll build a new filelist
       files = await gatherUploadFiles(items.map(item => item.webkitGetAsEntry()));
@@ -195,7 +191,7 @@ export function ensureExtension(filename, extension) {
     extension = "." + extension;
 
   // Check for the right extension (png vs jpg, depending on lossless)
-  var extdot = filename.lastIndexOf(".");
+  const extdot = filename.lastIndexOf(".");
   if (extdot < 0)
     filename += extension;
   else if (filename.substr(extdot) != extension)

@@ -1,12 +1,12 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
-  <jstest name="setup-websocket" file="testsetup.es" tags="wrdauth">
+  <jstest name="setup-websocket" file="testsetup.ts" tags="wrdauth">
     <arg value="websocket" />
   </jstest>
-  <jstest name="setup-jsonrpc" file="testsetup.es" tags="wrdauth">
+  <jstest name="setup-jsonrpc" file="testsetup.ts" tags="wrdauth">
     <arg value="jsonrpc" />
   </jstest>
-  <jstest file="test_secondfactorlogin.es" tags="wrdauth" />
-  <jstest file="test_loginpasswordchecks.es" tags="wrdauth" />
+  <jstest file="test_secondfactorlogin.ts" tags="wrdauth" />
+  <jstest file="test_loginpasswordchecks.ts" tags="wrdauth" />
   <test script="test_userpreferences.whscr" />
   <test script="test_webservers_app.whscr" />
 </group>

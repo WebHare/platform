@@ -68,9 +68,9 @@ class EventServerConnection extends InternetRequester {
   /// Set groups
   setGroups(groups) {
     // Gather last ids from all surviving groups
-    var newLastIds = {};
-    for (var i = 0, e = groups.length; i < e; ++i) {
-      var groupid = groups[i];
+    const newLastIds = {};
+    for (let i = 0, e = groups.length; i < e; ++i) {
+      const groupid = groups[i];
       newLastIds[groupid] = this.lastIds[groupid];
     }
 
@@ -132,11 +132,11 @@ class EventServerConnection extends InternetRequester {
 
     // Store all data in the options
     options = {
-      maxretries: 2
-      , ...options
-      , msg: msg
-      , group: group
-      , token: token
+      maxretries: 2,
+      ...options,
+      msg: msg,
+      group: group,
+      token: token
     };
     ++options.maxretries;
 
@@ -161,22 +161,20 @@ class EventServerConnection extends InternetRequester {
         if (this.options.log)
           console.log('EventServer: override timeout not needed anymore');
         this.waitlengthoverride = 0;
-      }
-      else if (this.options.log)
+      } else if (this.options.log)
         console.log('EventServer: override timeout to ', this.waitlengthoverride);
-    }
-    else if (this.options.log)
+    } else if (this.options.log)
       console.log('EventServer: no override timeout');
 
-    var timeout = this.waitlengthoverride || this.options.waitlength;
+    const timeout = this.waitlengthoverride || this.options.waitlength;
 
-    var url = this.options.url;
-    var groups = '';
-    for (var i = 0, e = this.groups.length; i != e; ++i) {
+    let url = this.options.url;
+    let groups = '';
+    for (let i = 0, e = this.groups.length; i != e; ++i) {
       if (i != 0)
         groups += ',';
 
-      var groupid = this.groups[i];
+      const groupid = this.groups[i];
       groups += groupid + '/' + (this.lastIds[groupid] || 0);
     }
     url = this.addURLparam(url, 'groups', groups);
@@ -204,7 +202,7 @@ class EventServerConnection extends InternetRequester {
       return;
     }
 
-    var broadcast = null;
+    let broadcast = null;
     if (this.broadcasts.length)
       broadcast = this.broadcasts.shift();
 
@@ -227,7 +225,7 @@ class EventServerConnection extends InternetRequester {
     }
 
 
-    var url = '';
+    let url = '';
 
     if (broadcast) {
       url = this.options.url;
@@ -242,8 +240,7 @@ class EventServerConnection extends InternetRequester {
       if (this.lasterrormessage)
         url = this.addURLparam(url, 'lasterror', this.lasterrormessage);
       this.have_response = false;
-    }
-    else {
+    } else {
       // No need to schedule
       if (this.groups.length == 0)
         return;
@@ -264,8 +261,7 @@ class EventServerConnection extends InternetRequester {
       if (this.timeout)
         clearTimeout(this.timeout);
       this.timeout = setTimeout(() => this.restartRequest(broadcast), (this.options.waitlength + 10) * 1000);
-    }
-    catch (e) {
+    } catch (e) {
       if (this.options.log)
         console.log('exception', e.message);
       return;
@@ -283,7 +279,7 @@ class EventServerConnection extends InternetRequester {
     this.have_response = true;
 
     if (event.success) {
-      var decoded = event.responsejson;
+      const decoded = event.responsejson;
 
       // Update last response date (not when broadcasting, though)
       if (!this.currentbroadcast)
@@ -293,8 +289,7 @@ class EventServerConnection extends InternetRequester {
         this.handleReceivedResponse(decoded);
       else
         this.handleRequestError(this.currentbroadcast, { message: 'decodeerror' });
-    }
-    else
+    } else
       this.handleRequestError(this.currentbroadcast, event);
   }
 
@@ -311,23 +306,21 @@ class EventServerConnection extends InternetRequester {
         clearTimeout(this.timeout);
 
       if (decoded.msgs.length) {
-        for (var i = 0, e = this.groups.length; i < e; ++i)
+        for (let i = 0, e = this.groups.length; i < e; ++i)
           this.lastIds[this.groups[i]] = decoded.lid;
 
-        var time = decoded.time;
+        let time = decoded.time;
         if (time < 1000000000000) // Still in seconds format?
           time *= 1000;
 
         if (this.options.log)
           console.log('EventServer: got messages: ', decoded.msgs);
         setTimeout(() => this.emit('data', { target: this, msgs: decoded.msgs, time: new Date(time) }));
-      }
-      else {
+      } else {
         // Got a timeout response, double the wait length override
         this.waitlengthoverride *= 2;
       }
-    }
-    else
+    } else
       console.error('EventServer: Got empty response from eventserver');
 
     if (this.options.log)
@@ -347,7 +340,7 @@ class EventServerConnection extends InternetRequester {
 
     // Retry after 7 seconds. But if the previous request had been running for more than 30 secs, restart immediately
     // (workaround for Galaxyx Tab 7 disconnecting after 33 secs)
-    var timeout = 7000;
+    let timeout = 7000;
     if ((new Date() - this.lastrequest) >= 30 * 1000)
       timeout = 1;
 

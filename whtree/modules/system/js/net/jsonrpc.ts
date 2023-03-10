@@ -7,7 +7,7 @@ const InternetRequester = require('./requester');
 import * as whintegration from '@mod-system/js/wh/integration';
 import * as dompack from 'dompack';
 
-var rpcscriptid = Math.floor(Math.random() * 1000);
+const rpcscriptid = Math.floor(Math.random() * 1000);
 
 class JSONRPC extends InternetRequester {
   /** @short RPC status codes (defined as getter-only properties as long as we don't have static const properties) */
@@ -51,8 +51,8 @@ class JSONRPC extends InternetRequester {
   }
 
   promiseRequest(method, params, options) {
-    let deferred = dompack.createDeferred();
-    let req = this.request(method, params, deferred.resolve, (errorcode, errormsg, rpcid) => { deferred.reject(new Error(errormsg)); }, options);
+    const deferred = dompack.createDeferred();
+    const req = this.request(method, params, deferred.resolve, (errorcode, errormsg, rpcid) => { deferred.reject(new Error(errormsg)); }, options);
     deferred.promise.__jsonrpcinfo = { deferred, req };
     return deferred.promise;
   }
@@ -98,9 +98,9 @@ class JSONRPC extends InternetRequester {
     if (!params || typeof params != "object" || params.length === undefined)
       throw new Error("The parameters passed to request must be an Array");
 
-    var id = ++this.lastid;
+    const id = ++this.lastid;
 
-    var url;
+    let url;
     if (options && options.url)
       url = options.url + (options.appendfunctionname ? (options.url.match(/\/$/) ? '' : '/') + method : '');
     else if (this.options.url)
@@ -108,15 +108,15 @@ class JSONRPC extends InternetRequester {
     else
       url = location.href; //we do not support appendfunctionname for self-posts
 
-    var timeout = Math.max((options && typeof options.timeout == "number") ? options.timeout : 0, 0);
-    var waittimeout = (options && typeof options.waittimeout == "number") ? options.waittimeout : this.options.waittimeout;
-    var synchronous = options && options.synchronous || false;
-    var errortrace = options && options.errortrace || null;
+    const timeout = Math.max((options && typeof options.timeout == "number") ? options.timeout : 0, 0);
+    const waittimeout = (options && typeof options.waittimeout == "number") ? options.waittimeout : this.options.waittimeout;
+    const synchronous = options && options.synchronous || false;
+    const errortrace = options && options.errortrace || null;
 
     if (this.options.log)
       console.log("JSONRPC request", method, params, options, 'timeout:', timeout, 'waitTimeout:', waittimeout);
 
-    var request = new Request(this, id, method, params, url, timeout, waittimeout, onsuccess, onfailure, synchronous, errortrace);
+    const request = new Request(this, id, method, params, url, timeout, waittimeout, onsuccess, onfailure, synchronous, errortrace);
     if (this.options.log || !whintegration.config || !whintegration.config.islive)
       request.stack = new Error().stack;
 
@@ -148,14 +148,13 @@ class JSONRPC extends InternetRequester {
       this.stopCurrentRequest();
       this.activerequest = null;
 
-      var request = this.requestqueue.shift();
+      const request = this.requestqueue.shift();
       if (request.timeout && typeof request.timeout != "boolean")
         clearTimeout(request.timeout);
 
       this.processNextRequest();
-    }
-    else {
-      for (var i = 0; i < this.requestqueue.length; ++i)
+    } else {
+      for (let i = 0; i < this.requestqueue.length; ++i)
         if (this.requestqueue[i].id == id) {
           this.requestqueue.splice(i, 1);
           break;
@@ -171,7 +170,7 @@ class JSONRPC extends InternetRequester {
       return;
     }
 
-    var request = null;
+    let request = null;
     while (!request) {
       request = this.requestqueue[0];
       if (!request) {
@@ -197,8 +196,8 @@ class JSONRPC extends InternetRequester {
       request.url,
       JSON.stringify(request.request),
       {
-        headers: { "Content-Type": "application/json; charset=utf-8" }
-        , synchronous: request.synchronous
+        headers: { "Content-Type": "application/json; charset=utf-8" },
+        synchronous: request.synchronous
       });
     this.handleWaitTimeouts();
   }
@@ -206,7 +205,7 @@ class JSONRPC extends InternetRequester {
   onResponse(event) {
     this.activerequest = null;
 
-    var request = this.requestqueue[0];
+    const request = this.requestqueue[0];
     if (!request)
       return;
 
@@ -220,8 +219,8 @@ class JSONRPC extends InternetRequester {
       clearTimeout(request.timeout);
     }
 
-    var status = -1;
-    var result = null;
+    let status = -1;
+    let result = null;
 
     if (!event.success) {
       status = JSONRPC.HTTP_ERROR;
@@ -231,18 +230,18 @@ class JSONRPC extends InternetRequester {
         let json = null;
         try {
           json = event.responsejson;
-          var trace;
+          let trace;
           if (json && json.error && json.error.data) {
             trace = json.error.data.trace || json.error.data.errors || json.error.data.list || [];
 
             console.group();
-            var line = "RPC #" + rpcscriptid + ":" + request.id + " failed: " + json.error.message;
+            const line = "RPC #" + rpcscriptid + ":" + request.id + " failed: " + json.error.message;
             console.warn(line);
             if (request.errortrace)
               request.errortrace.push(line);
             trace.forEach(rec => {
               if (rec.filename || rec.line) {
-                var line = rec.filename + '#' + rec.line + '#' + rec.col + (rec.func ? ' (' + rec.func + ')' : '');
+                const line = rec.filename + '#' + rec.line + '#' + rec.col + (rec.func ? ' (' + rec.func + ')' : '');
                 console.warn(line);
                 if (request.errortrace)
                   request.errortrace.push(line);
@@ -252,33 +251,27 @@ class JSONRPC extends InternetRequester {
           }
           status = JSONRPC.SERVER_ERROR;
           result = json.error && `${json.error.message} from ${request.url}` || "Unknown error";
-        }
-        catch (e) {
+        } catch (e) {
         }
       }
-    }
-    else {
-      let json = event.responsejson;
+    } else {
+      const json = event.responsejson;
 
       if (!json) {
         status = JSONRPC.JSON_ERROR;
         result = "Invalid JSON response";
-      }
-      else if (json.id === null || json.id != request.id) {
+      } else if (json.id === null || json.id != request.id) {
         status = JSONRPC.PROTOCOL_ERROR;
         result = "Protocol error: invalid id";
-      }
-      else if (json.error !== null) {
+      } else if (json.error !== null) {
         status = JSONRPC.RPC_ERROR;
         result = json.error;
         if (this.options.log)
           console.log('RPC error:', result.message ? result.message : '*no message*');
-      }
-      else if ("result" in json) {
+      } else if ("result" in json) {
         status = 0;
         result = json.result;
-      }
-      else {
+      } else {
         status = JSONRPC.PROTOCOL_ERROR;
         result = "Could not interpret response";
       }
@@ -324,19 +317,19 @@ class JSONRPC extends InternetRequester {
     if (!this.waitCallback)
       return;
 
-    var waiting = false;
-    var nextTimeout = -1;
+    let waiting = false;
+    let nextTimeout = -1;
 
-    var now = (new Date).getTime();
-    for (var i = 0; i < this.requestqueue.length; ++i) {
-      var req = this.requestqueue[i];
+    const now = (new Date).getTime();
+    for (let i = 0; i < this.requestqueue.length; ++i) {
+      const req = this.requestqueue[i];
       if (req.waitTimeout >= 0) {
-        var waitLength = now - req.scheduled;
+        const waitLength = now - req.scheduled;
 
         if (waitLength >= req.waitTimeout)
           waiting = true;
         else {
-          var toGo = req.waitTimeout - waitLength;
+          const toGo = req.waitTimeout - waitLength;
           if (nextTimeout < 0 || nextTimeout > toGo)
             nextTimeout = toGo;
         }
@@ -376,9 +369,9 @@ class Request //extends PreloadableAsset
     this.parent = parent;
     this.id = id;
     this.request = {
-      id: id
-      , method: method
-      , params: params || []
+      id: id,
+      method: method,
+      params: params || []
     };
     this.url = url;
     this.onsuccess = onsuccess;
@@ -408,8 +401,7 @@ class Request //extends PreloadableAsset
       if (this.onsuccess && !this.cancelled)
         this.onsuccess(result);
       //this.donePreload(true);
-    }
-    else {
+    } else {
       if (!this.cancelled) {
         if (this.stack) {
           console.log("Stack at calling point:");

@@ -32,18 +32,17 @@ export default class DirtyListener extends ComponentBase {
   */
 
   setComponents(components) {
-    let keepcomponents = [];
-    for (let key of this.checkcomponents.keys()) {
+    const keepcomponents = [];
+    for (const key of this.checkcomponents.keys()) {
       if (!(components.includes(key))) {
         var comp = this.owner.getComponent(key);
         if (comp)
           comp.applyDirtyListener(null);
         this.checkcomponents.delete(key);
-      }
-      else
+      } else
         keepcomponents.push(key);
     }
-    for (let key of components) {
+    for (const key of components) {
       if (!(keepcomponents.includes(key))) {
         var comp = this.owner.getComponent(key);
         if (comp)
@@ -54,8 +53,8 @@ export default class DirtyListener extends ComponentBase {
   }
 
   refreshComponents() {
-    for (let key of this.checkcomponents.keys()) {
-      var comp = this.owner.getComponent(key);
+    for (const key of this.checkcomponents.keys()) {
+      const comp = this.owner.getComponent(key);
       if (comp && comp.dirtylistener !== this)
         comp.applyDirtyListener(this);
     }
@@ -85,7 +84,7 @@ export default class DirtyListener extends ComponentBase {
         this.setComponents(data.checkcomponents);
         return;
       case "dirtycomponents":
-        for (let key of this.checkcomponents.keys())
+        for (const key of this.checkcomponents.keys())
           this.checkcomponents.set(key, data.dirtycomponents.includes(key));
         return;
     }

@@ -1,23 +1,23 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-var Toolbar = require('../toolbar/toolbars');
+const Toolbar = require('../toolbar/toolbars');
 require('./imageeditor.css');
-var ImageSurface = require('./surface');
-var Crop = require('./crop');
-var Scaling = require('./scaling');
-var Refpoint = require('./refpoint');
-var Filters = require('./filters');
-var getTid = require("@mod-tollium/js/gettid").getTid;
+const ImageSurface = require('./surface');
+const Crop = require('./crop');
+const Scaling = require('./scaling');
+const Refpoint = require('./refpoint');
+const Filters = require('./filters');
+const getTid = require("@mod-tollium/js/gettid").getTid;
 import "./imageeditor.lang.json";
 import "../../common.lang.json";
-var toddImages = require("@mod-tollium/js/icons");
+const toddImages = require("@mod-tollium/js/icons");
 import * as dompack from 'dompack';
 
 // Impose some limits on image sizes
 //ADDME: Should these be different for other platforms, e.g. mobile?
-var MAX_IMAGE_LENGTH = 32767; // Max length of one size
-var MAX_IMAGE_AREA = 15000000; // Max number of pixels
+const MAX_IMAGE_LENGTH = 32767; // Max length of one size
+const MAX_IMAGE_AREA = 15000000; // Max number of pixels
 
 /*
 Supported debug flags:
@@ -43,28 +43,28 @@ class ImageEditor {
     this.previewing = false;
     this.dirty = false;
     this.options = {
-      width: 640
-      , height: 320 //ADDME default toolbar height!
-      , toolbarheight: 72
-      , imgsize: null
-      , resourcebase: ""
-      , getBusyLock: null
-      , setStatus: null
-      , createScreen: null
-      , setModalLayerOpacity: null
-      , editorBackground: ""
-      , ...options
-      , maxLength: MAX_IMAGE_LENGTH
-      , maxArea: MAX_IMAGE_AREA
+      width: 640,
+      height: 320, //ADDME default toolbar height!
+      toolbarheight: 72,
+      imgsize: null,
+      resourcebase: "",
+      getBusyLock: null,
+      setStatus: null,
+      createScreen: null,
+      setModalLayerOpacity: null,
+      editorBackground: "",
+      ...options,
+      maxLength: MAX_IMAGE_LENGTH,
+      maxArea: MAX_IMAGE_AREA
     };
 
     this.el = el;
 
     this.toolbar = new Toolbar({
-      applyicon: toddImages.createImage("tollium:actions/apply", 24, 24, "b")
-      , applylabel: getTid("~apply")
-      , closeicon: toddImages.createImage("tollium:actions/cancel", 24, 24, "b")
-      , closelabel: getTid("~cancel")
+      applyicon: toddImages.createImage("tollium:actions/apply", 24, 24, "b"),
+      applylabel: getTid("~apply"),
+      closeicon: toddImages.createImage("tollium:actions/cancel", 24, 24, "b"),
+      closelabel: getTid("~cancel")
     });
     this.surface = new ImageSurface(this.el, this.toolbar, options);
     this.el.addEventListener("tollium-imageeditor:ready", evt => this.onLoad(evt));
@@ -83,18 +83,18 @@ class ImageEditor {
     if (this.options.resetImage) {
       this.toolbar.addButton(new Toolbar.Button(this.toolbar,
         {
-          label: getTid("~reset")
-          , icon: toddImages.createImage("tollium:actions/reset", 24, 24, "b")
-          , onExecute: this.resetImage.bind(this)
+          label: getTid("~reset"),
+          icon: toddImages.createImage("tollium:actions/reset", 24, 24, "b"),
+          onExecute: this.resetImage.bind(this)
         }));
     }
     this.toolbar.addButton(new Toolbar.Separator(this.toolbar));
 
     this.cropper = Crop.addImageCropButton(this.toolbar, this.surface,
       {
-        fixedsize: this.cropsize
-        , ratiosize: this.cropratio
-        , setStatus: this.setStatus.bind(this)
+        fixedsize: this.cropsize,
+        ratiosize: this.cropratio,
+        setStatus: this.setStatus.bind(this)
       });
     this.rotator = Scaling.addImageRotateButton(this.toolbar, this.surface,
       {
@@ -102,12 +102,12 @@ class ImageEditor {
       });
     this.filters = Filters.addFiltersButton(this.toolbar, this.surface,
       {
-        resourcebase: this.options.resourcebase
-        , setStatus: this.setStatus.bind(this)
-        , setProgress: options.setProgress
-        , createScreen: this.options.createScreen
-        , getAllowedFilters: this.getAllowedFilters.bind(this)
-        , setModalLayerOpacity: this.options.setModalLayerOpacity
+        resourcebase: this.options.resourcebase,
+        setStatus: this.setStatus.bind(this),
+        setProgress: options.setProgress,
+        createScreen: this.options.createScreen,
+        getAllowedFilters: this.getAllowedFilters.bind(this),
+        setModalLayerOpacity: this.options.setModalLayerOpacity
       });
     this.pointer = Refpoint.addRefPointButton(this.toolbar, this.surface,
       {
@@ -141,31 +141,31 @@ class ImageEditor {
       return;
     }
 
-    var canvas = this.surface.canvas;
-    var mimetype = this.mimetype;
+    let canvas = this.surface.canvas;
+    let mimetype = this.mimetype;
 
-    var settings = {
+    const settings = {
       refpoint: this.surface.refpoint ? {
-        x: Math.round(this.surface.refpoint.x)
-        , y: Math.round(this.surface.refpoint.y)
+        x: Math.round(this.surface.refpoint.x),
+        y: Math.round(this.surface.refpoint.y)
       } : null
     };
     if (this.options.imgsize) {
       // If the image didn't actually change, we can return the original blob directly
       if (!this.surface.isModified() && !ImageEditor.resizeMethodApplied(this.options.imgsize, canvas.width, canvas.height, mimetype)) {
         // Call callback after a delay; maybe the caller doesn't expect the callback to be called directly
-        var blob = this.orgblob;
+        const blob = this.orgblob;
         setTimeout(function() {
           callback(blob, settings);
         }, 1);
         return;
       }
-      var res = resizeCanvasWithMethod(canvas, this.options.imgsize, this.surface.refpoint || this.isRefpointAllowed(), true);
+      const res = resizeCanvasWithMethod(canvas, this.options.imgsize, this.surface.refpoint || this.isRefpointAllowed(), true);
       if (res) {
         if (res.rect && res.rect.refpoint)
           settings.refpoint = {
-            x: Math.round(res.rect.refpoint.x)
-            , y: Math.round(res.rect.refpoint.y)
+            x: Math.round(res.rect.refpoint.x),
+            y: Math.round(res.rect.refpoint.y)
           };
         canvas = res.canvas;
       }
@@ -186,8 +186,8 @@ class ImageEditor {
     if (this.options.imgsize) {
       if (this.options.imgsize.setwidth > 0 && this.options.imgsize.setheight > 0) {
         this.cropratio = {
-          width: this.options.imgsize.setwidth
-          , height: this.options.imgsize.setheight
+          width: this.options.imgsize.setwidth,
+          height: this.options.imgsize.setheight
         };
         if (this.cropper)
           this.cropper.comp.options.ratiosize = this.cropratio;
@@ -196,8 +196,7 @@ class ImageEditor {
       this.fixorientation = this.options.imgsize.fixorientation;
       this.allowedactions = this.options.imgsize.allowedactions;
       this.allowedfilters = this.options.imgsize.allowedfilters;
-    }
-    else {
+    } else {
       this.allowedactions = [];
       this.allowedfilters = [];
     }
@@ -212,16 +211,15 @@ class ImageEditor {
     if (event && event.norefresh)
       return;
 
-    var canvas = this.surface.canvas;
+    const canvas = this.surface.canvas;
     if (this.previewing && this.options.imgsize) {
-      var resized = resizeCanvasWithMethod(canvas, this.options.imgsize, this.surface.refpoint || this.isRefpointAllowed());
+      const resized = resizeCanvasWithMethod(canvas, this.options.imgsize, this.surface.refpoint || this.isRefpointAllowed());
       if (resized) {
         this.surface.setPreviewCanvas(resized.canvas, resized.rect);
         this.setStatus(resized.rect ? resized.rect.width : resized.canvas.width,
           resized.rect ? resized.rect.height : resized.canvas.height,
           canvas.width, canvas.height);
-      }
-      else {
+      } else {
         this.surface.setPreviewCanvas(null);
         this.setStatus(canvas.width, canvas.height);
       }
@@ -229,17 +227,17 @@ class ImageEditor {
     }
   }
   setStatus(width, height, orgwidth, orgheight) {
-    var status = (this.filename ? this.filename + ": " : "")
+    const status = (this.filename ? this.filename + ": " : "")
       + width + "\u00d7" + height
       + (orgwidth && orgheight ? " (" + orgwidth + "\u00d7" + orgheight + ")" : "");
-    var minwarning = (orgwidth > 0 && orgwidth < width) || (orgheight > 0 && orgheight < height);
-    var maxwarning = (orgwidth > 0 || orgheight > 0)
+    const minwarning = (orgwidth > 0 && orgwidth < width) || (orgheight > 0 && orgheight < height);
+    const maxwarning = (orgwidth > 0 || orgheight > 0)
       && this.surface.imagelimited
       && !this.surface.undostack.some(function(item) { return item.action == "crop"; });
     this.options.setStatus(status, minwarning ? "min" : maxwarning ? "max" : null);
   }
   updateActionButtons() {
-    var allallowed = this.allowedactions.indexOf("all") >= 0;
+    const allallowed = this.allowedactions.indexOf("all") >= 0;
     this.cropper.button.node.style.display = allallowed || this.allowedactions.indexOf("crop") >= 0 ? "" : "none";
     this.rotator.button.node.style.display = allallowed || this.allowedactions.indexOf("rotate") >= 0 ? "" : "none";
     this.filters.button.node.style.display = allallowed || this.allowedactions.indexOf("filters") >= 0 ? "" : "none";
@@ -249,7 +247,7 @@ class ImageEditor {
     // Setting the reference point only makes sense if the image is not resized (it may be resized in the image cache using
     // the reference point) or if the resize method is fill (which actually crops the image). It is not enabled when 'all'
     // actions are allowed; it has to be enabled explicitly.
-    var method_refpoint = !this.options.imgsize || this.options.imgsize.method == "none" || this.options.imgsize.method == "fill";
+    const method_refpoint = !this.options.imgsize || this.options.imgsize.method == "none" || this.options.imgsize.method == "fill";
     return method_refpoint && this.allowedactions.indexOf("refpoint") >= 0;
   }
   getAllowedFilters() {
@@ -275,18 +273,17 @@ function resizeCanvasWithMethod(canvas, imgsize, refpoint, forupload) {
       return;
   }
 
-  var canvaswidth = imgsize.setwidth;
-  var canvasheight = imgsize.setheight;
+  let canvaswidth = imgsize.setwidth;
+  let canvasheight = imgsize.setheight;
   if (canvaswidth || canvasheight) {
-    var imagewidth = canvas.width;
-    var imageheight = canvas.height;
-    var imagetop = 0;
-    var imageleft = 0;
+    let imagewidth = canvas.width;
+    let imageheight = canvas.height;
+    let imagetop = 0;
+    let imageleft = 0;
     if (!canvaswidth) {
       // If only height is restricted, scale width proportionally
       canvaswidth = Math.round(canvasheight * imagewidth / imageheight);
-    }
-    else if (!canvasheight) {
+    } else if (!canvasheight) {
       // If only width is restricted, scale height proportionally
       canvasheight = Math.round(canvaswidth * imageheight / imagewidth);
     }
@@ -295,15 +292,13 @@ function resizeCanvasWithMethod(canvas, imgsize, refpoint, forupload) {
       // Just stretch to canvas
       imagewidth = canvaswidth;
       imageheight = canvasheight;
-    }
-    else if (resizemethod.indexOf("fit") === 0 && imagewidth <= canvaswidth && imageheight <= canvasheight) {
+    } else if (resizemethod.indexOf("fit") === 0 && imagewidth <= canvaswidth && imageheight <= canvasheight) {
       // Don't resize
       if (resizemethod == "fit") {
         canvaswidth = imagewidth;
         canvasheight = imageheight;
       }
-    }
-    else if (canvaswidth / canvasheight > imagewidth / imageheight) {
+    } else if (canvaswidth / canvasheight > imagewidth / imageheight) {
       // canvas is more wide than image
       if (resizemethod.indexOf("scale") === 0
         || (resizemethod.indexOf("fit") === 0 && imageheight > canvasheight)) {
@@ -313,14 +308,12 @@ function resizeCanvasWithMethod(canvas, imgsize, refpoint, forupload) {
         // If not scaling to canvas, only keep image width
         if (resizemethod.indexOf("canvas") < 0)
           canvaswidth = imagewidth;
-      }
-      else if (resizemethod == "fill") {
+      } else if (resizemethod == "fill") {
         // Scale height proportionally, keep width
         imageheight = Math.round(canvaswidth * imageheight / imagewidth);
         imagewidth = canvaswidth;
       }
-    }
-    else {
+    } else {
       // canvas is more tall than image
       if (resizemethod.indexOf("scale") === 0
         || (resizemethod.indexOf("fit") === 0 && imagewidth > canvaswidth)) {
@@ -330,8 +323,7 @@ function resizeCanvasWithMethod(canvas, imgsize, refpoint, forupload) {
         // If not scaling to canvas, only keep image height
         if (resizemethod.indexOf("canvas") < 0)
           canvasheight = imageheight;
-      }
-      else if (resizemethod == "fill") {
+      } else if (resizemethod == "fill") {
         // Scale width proportionally, keep height
         imagewidth = Math.round(canvasheight * imagewidth / imageheight);
         imageheight = canvasheight;
@@ -342,37 +334,36 @@ function resizeCanvasWithMethod(canvas, imgsize, refpoint, forupload) {
     imagetop = Math.round((canvasheight - imageheight) / 2);
     imageleft = Math.round((canvaswidth - imagewidth) / 2);
 
-    var rect = null;
+    let rect = null;
     if (resizemethod == "fill") {
       // When filling, either top or left is 0, the other is <0
       rect = {
-        left: Math.abs(imageleft)
-        , top: Math.abs(imagetop)
-        , offsetx: 0
-        , offsety: 0
-        , width: canvaswidth
-        , height: canvasheight
-        , refpoint: null // Refpoint relative to resized image
+        left: Math.abs(imageleft),
+        top: Math.abs(imagetop),
+        offsetx: 0,
+        offsety: 0,
+        width: canvaswidth,
+        height: canvasheight,
+        refpoint: null // Refpoint relative to resized image
       };
       if (refpoint && refpoint !== true) {
         if (!rect.left) {
-          var curtop = rect.top;
-          var scalex = imagewidth / canvas.width;
+          const curtop = rect.top;
+          const scalex = imagewidth / canvas.width;
           rect.top = (refpoint.y * scalex / imageheight) * (imageheight - canvasheight);
           rect.offsety = rect.top - curtop;
           rect.refpoint = {
-            x: refpoint.x * scalex
-            , y: refpoint.y * scalex - rect.top
+            x: refpoint.x * scalex,
+            y: refpoint.y * scalex - rect.top
           };
-        }
-        else if (!rect.top) {
-          var curleft = rect.left;
-          var scaley = imageheight / canvas.height;
+        } else if (!rect.top) {
+          const curleft = rect.left;
+          const scaley = imageheight / canvas.height;
           rect.left = (refpoint.x * scaley / imagewidth) * (imagewidth - canvaswidth);
           rect.offsetx = rect.left - curleft;
           rect.refpoint = {
-            x: refpoint.x * scaley - rect.left
-            , y: refpoint.y * scaley
+            x: refpoint.x * scaley - rect.left,
+            y: refpoint.y * scaley
           };
         }
       }
@@ -382,16 +373,15 @@ function resizeCanvasWithMethod(canvas, imgsize, refpoint, forupload) {
         canvasheight = imageheight;
         imagetop = 0;
         imageleft = 0;
-      }
-      else {
+      } else {
         imagetop -= rect.offsety;
         imageleft -= rect.offsetx;
       }
     }
 
     // Create the resized canvas
-    var resized = <canvas width={canvaswidth} height={canvasheight} />
-    var ctx = resized.getContext("2d");
+    const resized = <canvas width={canvaswidth} height={canvasheight} />;
+    const ctx = resized.getContext("2d");
     // Set background color, if specified
     if (imgsize.bgcolor !== "" && imgsize.bgcolor != "transparent") {
       ctx.fillStyle = imgsize.bgcolor;

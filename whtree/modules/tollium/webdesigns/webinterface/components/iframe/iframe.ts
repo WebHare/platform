@@ -17,10 +17,10 @@ export default class ObjIFrame extends ComponentBase {
     this.node = dompack.create("t-iframe", { dataset: { name: this.name } });
     this.iframe = dompack.create("iframe"
       , {
-        marginWidth: 0
-        , marginHeight: 0
-        , frameBorder: 0
-        , on:
+        marginWidth: 0,
+        marginHeight: 0,
+        frameBorder: 0,
+        on:
         {
           load: this.gotIFrameLoad.bind(this)
         }
@@ -46,14 +46,14 @@ export default class ObjIFrame extends ComponentBase {
   //
 
   setAdditionalComponents(componentnames) {
-    for (var i = 0; i < componentnames.length; ++i) {
-      let comp = this.owner.addComponent(this, componentnames[i]);
+    for (let i = 0; i < componentnames.length; ++i) {
+      const comp = this.owner.addComponent(this, componentnames[i]);
       this.addcomps.push(comp);
     }
   }
 
   calcFrameSourceUri(data) {
-    var uri = data.mainuri ? data.mainuri + (data.fragment ? '#' + data.fragment : '') : '';
+    let uri = data.mainuri ? data.mainuri + (data.fragment ? '#' + data.fragment : '') : '';
     if (!uri)
       uri = 'about:blank';
     return uri;
@@ -71,31 +71,28 @@ export default class ObjIFrame extends ComponentBase {
     if (resenddata) {
       this.iframe.contentWindow.postMessage(
         {
-          type: 'data'
-          , data: this.data
+          type: 'data',
+          data: this.data
         }, '*');
     }
 
     while (this.queuedmessages.length) {
-      var msg = this.queuedmessages.shift();
+      const msg = this.queuedmessages.shift();
 
       if (msg.type == "print")
         this.iframe.contentWindow.setTimeout("window.print()", 10);
       else if (msg.type == "postmessage") {
         //TODO ratelimit or block this origin until the server confirmed it actually wants to talk with this origin
         this.iframe.contentWindow.postMessage(msg.data.message, msg.data.targetorigin);
-      }
-      else if (msg.type == "calljs") {
-        var cmd = 'window[' + JSON.stringify(msg.funcname) + '].apply(window, ' + JSON.stringify(msg.args) + ')';
+      } else if (msg.type == "calljs") {
+        const cmd = 'window[' + JSON.stringify(msg.funcname) + '].apply(window, ' + JSON.stringify(msg.args) + ')';
         try {
           this.iframe.contentWindow.eval(cmd);
-        }
-        catch (e) {
+        } catch (e) {
           console.error("calljs failure", e);
           //and ignore. don't break the UI
         }
-      }
-      else
+      } else
         this.iframe.contentWindow.postMessage(msg, '*');
     }
   }
@@ -114,8 +111,8 @@ export default class ObjIFrame extends ComponentBase {
 
   relayout() {
     dompack.setStyles(this.node, {
-      "width": this.width.set
-      , "height": this.height.set
+      "width": this.width.set,
+      "height": this.height.set
     });
 
     if (this.viewport) {
@@ -127,28 +124,25 @@ export default class ObjIFrame extends ComponentBase {
         this.iframe.style.transform = "";
         this.iframe.style.left = (Math.round((this.width.set - this.viewport.width) / 2)) + "px";
         this.iframe.style.top = (Math.round((this.height.set - this.viewport.height) / 2)) + "px";
-      }
-      else {
+      } else {
         // Make the this.iframe fit in the viewport by zooming it
-        let fracx = this.width.set / this.viewport.width;
-        let fracy = this.height.set / this.viewport.height;
-        let zoomfactor = Math.min(fracx, fracy);
+        const fracx = this.width.set / this.viewport.width;
+        const fracy = this.height.set / this.viewport.height;
+        const zoomfactor = Math.min(fracx, fracy);
         this.iframe.style.transform = "scale(" + zoomfactor + ")";
 
         // Center the this.iframe horizontally or vertically
         if (fracx < fracy) {
-          let newy = Math.min(Math.round(fracx * this.viewport.height), this.height.set);
+          const newy = Math.min(Math.round(fracx * this.viewport.height), this.height.set);
           this.iframe.style.left = "0px";
           this.iframe.style.top = (Math.round((this.height.set - newy) / 2)) + "px";
-        }
-        else {
-          let newx = Math.min(Math.round(fracy * this.viewport.width), this.width.set);
+        } else {
+          const newx = Math.min(Math.round(fracy * this.viewport.width), this.width.set);
           this.iframe.style.left = (Math.round((this.width.set - newx) / 2)) + "px";
           this.iframe.style.top = "0px";
         }
       }
-    }
-    else {
+    } else {
       this.iframe.style.width = "100%";
       this.iframe.style.height = "100%";
       this.iframe.style.transform = "";
@@ -212,14 +206,12 @@ export default class ObjIFrame extends ComponentBase {
     try {
       if (obj.addEventListener) {
         obj.addEventListener(type, fn, false);
-      }
-      else {
+      } else {
         //replace 'fn' with a wrapper that will invoke it with an event
         fn = function() { return fn.apply(this, [window.event]); };
         obj.attachEvent('on' + type, fn);
       }
-    }
-    catch (e) {
+    } catch (e) {
 
     }
   }
@@ -229,18 +221,17 @@ export default class ObjIFrame extends ComponentBase {
     this.postQueuedMessages(true);
 
     try {
-      var doc = this.iframe.contentWindow.document;
+      const doc = this.iframe.contentWindow.document;
       this.addIframeEvent(doc, "click", this.clickLink.bind(this));
 
       //flag that we've configured the iframe, some tests need this
       this.iframe.contentWindow.whIframeAttached = true;
-    }
-    catch (e) {
+    } catch (e) {
       //its okay if it fails... we probably weren't intended to control the dialog (FIXME we should just ensure ALL iframes load todd-iframe.js or just wrap all iframes inside a local parent with which we can postmessage)
     }
   }
   clickLink(e) {
-    var anchor = e.target;
+    let anchor = e.target;
     while (anchor && anchor.nodeName && !['A'].includes(anchor.nodeName.toUpperCase()))
       anchor = anchor.parentNode;
     if (!anchor)
@@ -258,7 +249,7 @@ export default class ObjIFrame extends ComponentBase {
   }
 
   handleWindowMessage(event) {
-    var data = event.data;
+    const data = event.data;
     switch (data.type) {
       case 'callback':
         this.queueMessage('callback', { parameters: data.data }, false);
@@ -268,8 +259,7 @@ export default class ObjIFrame extends ComponentBase {
         if (typeof data.data == "object") {
           this.data = data.data;
           this.queueMessage('data', { data: data.data }, false);
-        }
-        else
+        } else
           console.error('IFrame "' + this.name + '" sent non-object value:', data.data);
         break;
 
@@ -317,7 +307,7 @@ window.addEventListener('message', function(evt) {
   if (typeof evt.data != "object")
     return; // Tollium expects a data RECORD
 
-  let matchingiframe = dompack.qSA('iframe').find(iframe => iframe.contentWindow == event.source);
+  const matchingiframe = dompack.qSA('iframe').find(iframe => iframe.contentWindow == event.source);
   if (!matchingiframe || !matchingiframe.parentNode || !matchingiframe.parentNode.propTodd)
     return;
 

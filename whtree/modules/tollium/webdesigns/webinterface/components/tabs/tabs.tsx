@@ -5,7 +5,7 @@ import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import ObjText from '../text/text';
 
-var menuapi = require('@mod-tollium/web/ui/components/basecontrols/menu');
+const menuapi = require('@mod-tollium/web/ui/components/basecontrols/menu');
 import * as domscroll from 'dompack/browserfix/scroll';
 
 /****************************************************************************************************************************
@@ -34,26 +34,26 @@ export default class ObjTabs extends ComponentBase {
     this.tabtype = data.tabtype;
     this.pages = [];
     data.pages.forEach((page, idx) => {
-      var pagecomp = this.owner.addComponent(this, page);
+      const pagecomp = this.owner.addComponent(this, page);
 
-      var titlecomp;
+      let titlecomp;
       if (this.tabtype != "server") {
         //FIXME make part of template ? is it worth creating a component for this ?
         titlecomp = new ObjText(this, {
-          value: pagecomp.getTitle()
-          , labelfor: this.name
-          , transparenttoclicks: true
-          , target: this.name + "#tablabel$" + idx
-          , destroywithparent: true
+          value: pagecomp.getTitle(),
+          labelfor: this.name,
+          transparenttoclicks: true,
+          target: this.name + "#tablabel$" + idx,
+          destroywithparent: true
         });
       }
 
-      var item = {
-        name: page
-        , comp: pagecomp
-        , titlecomp: titlecomp
-        , dynamicvisible: true
-        , num: idx
+      const item = {
+        name: page,
+        comp: pagecomp,
+        titlecomp: titlecomp,
+        dynamicvisible: true,
+        num: idx
       };
       this.pages.push(item);
       pagecomp.parenttabsitem = item;
@@ -62,8 +62,8 @@ export default class ObjTabs extends ComponentBase {
     this.buildNode();
     if (this.tabtype == "regular")
       this.navscroll = {
-        timer: null
-        , left: 0
+        timer: null,
+        left: 0
       };
 
     this.pendingselect = this.pages.find(page => page.name == data.selected);
@@ -76,13 +76,13 @@ export default class ObjTabs extends ComponentBase {
   }
 
   getComponentState() {
-    var state = super.getComponentState();
+    const state = super.getComponentState();
     state.push(this.navscroll ? { navleft: this.navscroll.left } : {});
     return state;
   }
 
   setComponentState(state) {
-    var mystate = state.pop();
+    const mystate = state.pop();
     if (this.tabtype == "regular" && mystate.navleft)
       this.nodes.nav.style.left = mystate.navleft + 'px';
     super.setComponentState(state);
@@ -90,11 +90,11 @@ export default class ObjTabs extends ComponentBase {
 
   checkVisibleTabs() {
     //console.error("Tab control " + this.name + " check visible. selectedtab=" + this.getSubmitValue());
-    var anychange = false;
+    let anychange = false;
     this.visibletabs = 0;
 
     for (let i = 0; i < this.pages.length; ++i) {
-      var newshow = this.owner.getMatchedEnableOnRule(this.pages[i].comp.visibleons) != -1;
+      const newshow = this.owner.getMatchedEnableOnRule(this.pages[i].comp.visibleons) != -1;
       if (newshow)
         ++this.visibletabs;
       //console.log("Tab control " + this.name + " child #" + i + " (" + this.pages[i].comp.name + ") (" + this.pages[i].comp.visibleons.length + " checks) visibility = " + (newshow?'true':'false'));
@@ -106,8 +106,7 @@ export default class ObjTabs extends ComponentBase {
           this.pages[i].labelnode.style.display = this.pages[i].savetabdisplay;
           if (this.pages[i].menunode)
             this.pages[i].menunode.style.display = "";
-        }
-        else if (!newshow && this.pages[i].dynamicvisible) //Make the tab invisible?
+        } else if (!newshow && this.pages[i].dynamicvisible) //Make the tab invisible?
         {
           this.pages[i].savetabdisplay = this.pages[i].labelnode.style.display;
           //ADDME?          this.pages[i].comp.OnHide();
@@ -126,7 +125,7 @@ export default class ObjTabs extends ComponentBase {
     this.node.style.visibility = this.visibletabs > 0 ? '' : 'hidden';
 
     if (anychange) {
-      var s = this.getSelectedTab();
+      const s = this.getSelectedTab();
       if (!s || !s.dynamicvisible) {
         //Reenable the first visible tab
         let i = 0;
@@ -176,8 +175,8 @@ export default class ObjTabs extends ComponentBase {
     if (!comp.parenttabsitem)
       return console.error('Child ' + comp.name + ' not inside the tabs is trying to replace itself');
 
-    var item = comp.parenttabsitem;
-    var newcomp = this.owner.addComponent(this, comp.name);
+    const item = comp.parenttabsitem;
+    const newcomp = this.owner.addComponent(this, comp.name);
 
     // If already rendered, live replace
     item.comp.getNode().replaceWith(newcomp.getNode());
@@ -198,7 +197,7 @@ export default class ObjTabs extends ComponentBase {
   */
 
   getSubmitValue() {
-    var s = this.getSelectedTab();
+    const s = this.getSelectedTab();
     return s ? s.name : null;
   }
 
@@ -216,7 +215,7 @@ export default class ObjTabs extends ComponentBase {
     }
 
     // Check if we have a current visible tab sheet
-    var prevselected = this.selected && this.selected.contentnode ? this.selected : null;
+    const prevselected = this.selected && this.selected.contentnode ? this.selected : null;
 
     // Select the new tab sheet
     this.selected = this.getTabWithName(value);
@@ -234,7 +233,7 @@ export default class ObjTabs extends ComponentBase {
            directly gets 0 height. All sheets below the last relevant sheet are absolute positioned if height transition
            is enabled, so they stay in place (the absolute position is removed when the transition ends). */
         this.selected.contentnode.style.display = "";
-        var heightnode, newheight;
+        let heightnode, newheight;
         //var absolute = false; // not used atm
         this.pages.forEach((page, i) => {
           if (prevselected && page.name == prevselected.name) {
@@ -243,20 +242,17 @@ export default class ObjTabs extends ComponentBase {
               // We haven't seen the new sheet, this sheet will shrink
               heightnode = page.contentnode;
               newheight = 0;
-            }
-            else {
+            } else {
               // All following sheets will be absolute positioned
               //absolute = true;
             }
-          }
-          else if (page.name == this.selected.name) {
+          } else if (page.name == this.selected.name) {
             // This is the new selected sheet
             if (!heightnode) {
               // We haven't seen the current sheet, this sheet will grow
               heightnode = page.contentnode;
               newheight = this.contentheight;
-            }
-            else {
+            } else {
               // All following sheets will be absolute positioned
               //absolute = true;
               // Apply contentheight directly, the sheet will be revealed when the old sheet shrinks
@@ -269,8 +265,7 @@ export default class ObjTabs extends ComponentBase {
         }
         // Apply new height to height node
         heightnode.style.height = newheight + 'px';
-      }
-      else {
+      } else {
         // Make the new tab visible (its opacity will still be 0 if transitions are enabled)
         this.selected.contentnode.classList.remove("invisible");
         if (prevselected)
@@ -289,8 +284,7 @@ export default class ObjTabs extends ComponentBase {
         prevselected.comp.setVisible(false);
         //FIXME focus ?this.owner.checkfocusComponent();
       }
-    }
-    else if (prevselected) {
+    } else if (prevselected) {
       // New sheet could not be selected, reset to current sheet
       this.selected = prevselected;
     }
@@ -329,7 +323,7 @@ export default class ObjTabs extends ComponentBase {
           }
         </nav>
         {this.nodes.pagesmenu = <ul class="wh-menu wh-menulist pagesmenu" />}
-      </t-tabs>
+      </t-tabs>;
 
       this.node = this.nodes.root;
       this.nodes.nav.addEventListener('keydown', this.onTabKeyDown.bind(this), true);
@@ -338,21 +332,21 @@ export default class ObjTabs extends ComponentBase {
 
       this.pages.forEach(page => {
         page.labelnode = dompack.create("div", {
-          dataset: { tab: page.name } //TODO remove this? but tests are probably relying on it
-          , onClick: evt => this.selectTab(evt, page.name)
-          , childNodes: [page.titlecomp.getNode()]
+          dataset: { tab: page.name }, //TODO remove this? but tests are probably relying on it
+          onClick: evt => this.selectTab(evt, page.name),
+          childNodes: [page.titlecomp.getNode()]
         });
         this.nodes.nav.appendChild(page.labelnode);
 
         page.menunode = dompack.create("li", {
-          textContent: page.comp.getTitle() || '\u00a0' //fallback to NBSP to reserve height
-          , dataset: { tab: page.name } //TODO remove this? but tests are probably relying on it
-          , onClick: evt => this.selectTab(evt, page.name)
+          textContent: page.comp.getTitle() || '\u00a0', //fallback to NBSP to reserve height
+          dataset: { tab: page.name }, //TODO remove this? but tests are probably relying on it
+          onClick: evt => this.selectTab(evt, page.name)
         });
         this.nodes.pagesmenu.appendChild(page.menunode);
         page.contentnode = dompack.create("div", {
-          className: "tabsheet"
-          , childNodes: [page.comp.getNode()]
+          className: "tabsheet",
+          childNodes: [page.comp.getNode()]
         });
         this.nodes.root.appendChild(page.contentnode);
 
@@ -373,19 +367,19 @@ export default class ObjTabs extends ComponentBase {
         this.pages.forEach(page => {
           if (page.titlecomp) {
             page.labelnode = dompack.create("div", {
-              dataset: { tab: page.name }
-              , onClick: evt => this.selectTab(evt, page.name)
-              , childNodes: [page.titlecomp.getNode()]
-              , className: "tablabel"
+              dataset: { tab: page.name },
+              onClick: evt => this.selectTab(evt, page.name),
+              childNodes: [page.titlecomp.getNode()],
+              className: "tablabel"
             });
             this.node.appendChild(page.labelnode);
           }
 
           // Initially hidden: set height to 0 and display to none
           page.contentnode = dompack.create("div", {
-            className: "tabsheet"
-            , style: { height: 0 }
-            , childNodes: [page.comp.getNode()]
+            className: "tabsheet",
+            style: { height: 0 },
+            childNodes: [page.comp.getNode()]
           });
           this.node.appendChild(page.contentnode);
         });
@@ -396,8 +390,8 @@ export default class ObjTabs extends ComponentBase {
 
         this.pages.forEach(page => {
           page.contentnode = dompack.create("div", {
-            className: "tabsheet invisible"
-            , childNodes: [page.comp.getNode()]
+            className: "tabsheet invisible",
+            childNodes: [page.comp.getNode()]
           });
           this.node.appendChild(page.contentnode);
 
@@ -415,7 +409,7 @@ export default class ObjTabs extends ComponentBase {
     if (this.tabkeydown)
       return;
 
-    let info = dompack.normalizeKeyboardEventData(ev);
+    const info = dompack.normalizeKeyboardEventData(ev);
 
     this.tabkeydown = true;
     if (this.tabtype == "stacked") {
@@ -423,8 +417,7 @@ export default class ObjTabs extends ComponentBase {
         this.previousTab();
       else if (info.key === 'ArrowDown')
         this.nextTab();
-    }
-    else {
+    } else {
       if (info.key === 'ArrowLeft')
         this.previousTab();
       else if (info.key === 'ArrowRight')
@@ -432,12 +425,12 @@ export default class ObjTabs extends ComponentBase {
     }
   }
   previousTab() {
-    var i = this.pages.indexOf(this.getSelectedTab());
+    const i = this.pages.indexOf(this.getSelectedTab());
     if (i > 0)
       this.selectTab(null, this.pages[i - 1].name);
   }
   nextTab() {
-    var i = this.pages.indexOf(this.getSelectedTab());
+    const i = this.pages.indexOf(this.getSelectedTab());
     if (i > -1 && i < this.pages.length - 1)
       this.selectTab(null, this.pages[i + 1].name);
   }
@@ -447,12 +440,12 @@ export default class ObjTabs extends ComponentBase {
   */
 
   getVisibleChildren() {
-    var comps = [];
+    const comps = [];
     this.pages.forEach(function(page) {
       comps.push(page.titlecomp);
       comps.push(page.comp);
     });
-    return comps.filter(node => !!node);
+    return comps.filter(node => Boolean(node));
   }
   calculateDimWidth() {
     this.width.min = 0;
@@ -463,7 +456,7 @@ export default class ObjTabs extends ComponentBase {
   }
 
   applySetWidth() {
-    var setwidth = Math.max(this.width.min, this.width.set);
+    const setwidth = Math.max(this.width.min, this.width.set);
     this.debugLog("dimensions", "min=" + this.width.min + ", calc=" + this.width.calc + ", set width=" + this.width.set);
 
     this.pages.forEach(page => {
@@ -476,9 +469,9 @@ export default class ObjTabs extends ComponentBase {
   calculateDimHeight() {
     this.debugLog("dimensions", "Recalculating height");
 
-    var contentminheight = 0;
-    var contentheight = 0;
-    var titleheight = 0;
+    let contentminheight = 0;
+    let contentheight = 0;
+    let titleheight = 0;
     this.pages.forEach(page => {
       if (page.titlecomp)
         titleheight = Math.max(titleheight, page.titlecomp.height.calc);
@@ -509,7 +502,7 @@ export default class ObjTabs extends ComponentBase {
   }
 
   applySetHeight() {
-    var setheight = Math.max(this.height.min, this.height.set) - this.height.tab;
+    const setheight = Math.max(this.height.min, this.height.set) - this.height.tab;
     this.debugLog("dimensions", "min=" + this.height.min + ", calc=" + this.height.calc + ", set height=" + this.height.set + ", tab height=" + this.height.tab + ", setheight=" + setheight);
 
     this.pages.forEach(page => {
@@ -526,8 +519,8 @@ export default class ObjTabs extends ComponentBase {
     this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
 
     dompack.setStyles(this.node, {
-      width: Math.max(this.width.min, this.width.set)
-      , height: Math.max(this.height.min, this.height.set)
+      width: Math.max(this.width.min, this.width.set),
+      height: Math.max(this.height.min, this.height.set)
     });
 
     if (this.nodes.nav) {
@@ -535,7 +528,7 @@ export default class ObjTabs extends ComponentBase {
       this.navscroll.left = this.nodes.nav.scrollLeft;
     }
 
-    var tabswidth = 0;
+    let tabswidth = 0;
     this.pages.forEach(page => {
       if (page.titlecomp)
         page.titlecomp.relayout();
@@ -548,7 +541,7 @@ export default class ObjTabs extends ComponentBase {
     });
 
     if (this.tabtype == "regular") {
-      var showtabnav = tabswidth >= this.width.set;
+      const showtabnav = tabswidth >= this.width.set;
       this.nodes["nav-tabs"].style.display = showtabnav ? "block" : "none";
 
       this.nodes["nav-left"].classList.toggle("show", showtabnav && this.navscroll.left > 0);
@@ -556,13 +549,13 @@ export default class ObjTabs extends ComponentBase {
     }
 
     if (this.pendingselect) {
-      var toselect = this.pendingselect;
+      const toselect = this.pendingselect;
       this.pendingselect = null;
       this.setSelected(toselect.name);
     }
 
     if (this.tabtype == "stacked") {
-      var s = this.getSelectedTab();
+      const s = this.getSelectedTab();
       if (s && s.contentnode)
         s.contentnode.style.height = this.contentheight + 'px';
     }
@@ -615,14 +608,14 @@ export default class ObjTabs extends ComponentBase {
   */
 
   getTabWithName(name) {
-    var selected = this.pages.filter(function(page) { return page.name == name; });
+    const selected = this.pages.filter(function(page) { return page.name == name; });
     return selected.length ? selected[0] : null;
   }
 
   scrollNav(amount) {
     this.navscroll.timer = clearTimeout(this.navscroll.timer);
 
-    var newleft = Math.max(Math.min(this.navscroll.left + Math.round(amount), this.nodes.nav.scrollWidth - this.nodes.nav.clientWidth), 0);
+    const newleft = Math.max(Math.min(this.navscroll.left + Math.round(amount), this.nodes.nav.scrollWidth - this.nodes.nav.clientWidth), 0);
     if (newleft == this.navscroll.left)
       return;
     this.navscroll.left = newleft;
@@ -638,7 +631,7 @@ export default class ObjTabs extends ComponentBase {
   }
 
   scrollNavTo(scrollto) {
-    var newleft = Math.max(Math.min(scrollto, this.nodes.nav.scrollWidth - this.nodes.nav.clientWidth), 0);
+    const newleft = Math.max(Math.min(scrollto, this.nodes.nav.scrollWidth - this.nodes.nav.clientWidth), 0);
     if (newleft == this.navscroll.left)
       return;
     this.navscroll.left = newleft;
@@ -658,9 +651,9 @@ export default class ObjTabs extends ComponentBase {
     domscroll.scrollToElement(
       this.selected.labelnode,
       {
-        limitnode: this.nodes.nav
-        , allownodes: [this.nodes.nav]
-        , context: "0 50px"
+        limitnode: this.nodes.nav,
+        allownodes: [this.nodes.nav],
+        context: "0 50px"
       });
 
     this.navscroll.left = this.nodes.nav.scrollLeft;

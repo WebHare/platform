@@ -1,5 +1,5 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <test script="test_langjson.ts" />
   <test script="gettid.whscr" />
-  <jstest file="test_gettid.es" />
+  <jstest file="test_gettid.ts" />
 </group>

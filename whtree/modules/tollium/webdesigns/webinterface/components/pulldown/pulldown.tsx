@@ -18,11 +18,11 @@ export default class ObjPulldown extends HTMLComponentBase {
     this.options = data.options;
     this.options.forEach(opt => {
       //ADDME: Should the menu code handle this?
-      for (var i = 0; i < opt.indent; ++i)
+      for (let i = 0; i < opt.indent; ++i)
         opt.title = "\xA0\xA0" + opt.title;
 
       if (opt.enablecomponents)
-        for (var comp of opt.enablecomponents)
+        for (const comp of opt.enablecomponents)
           if (!this.enablecomponents.includes(comp))
             this.enablecomponents.push(comp);
     });
@@ -38,9 +38,9 @@ export default class ObjPulldown extends HTMLComponentBase {
    */
 
   buildHTMLNode() {
-    let node = <select onChange={ev => this.gotControlChange(ev)} />;
+    const node = <select onChange={ev => this.gotControlChange(ev)} />;
     let insertdivider = false;
-    for (let opt of this.options) {
+    for (const opt of this.options) {
       if (opt.isdivider) {
         insertdivider = true;
         continue;
@@ -74,7 +74,7 @@ export default class ObjPulldown extends HTMLComponentBase {
   relayout() {
     this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
 
-    var collapsed = this.width.set == this.myminheight;
+    const collapsed = this.width.set == this.myminheight;
 
     this.node.style.width = this.width.set + 'px';
     this.node.classList.toggle("collapsed", collapsed);
@@ -96,7 +96,7 @@ export default class ObjPulldown extends HTMLComponentBase {
 
   enabledOn(checkflags, min, max, selectionmatch) {
     //    console.log(this.obj.getSelectedIndex());
-    var flags = this.options[this.node.selectedIndex].flags;
+    const flags = this.options[this.node.selectedIndex].flags;
     return $todd.checkEnabledFlags([flags], checkflags, min, max, selectionmatch);
   }
 }

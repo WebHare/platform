@@ -13,8 +13,8 @@ import * as pxl from '@mod-consilio/js/pxl';
 
 function getServiceSubmitInfo(formtarget) {
   return {
-    url: location.href.split('/').slice(3).join('/')
-    , target: formtarget || ''
+    url: location.href.split('/').slice(3).join('/'),
+    target: formtarget || ''
   };
 }
 
@@ -27,34 +27,32 @@ function unpackObject(formvalue) {
  */
 export async function submitForm(target, formvalue, options) {
   let eventtype = 'publisher:formsubmitted';
-  let fields = {
+  const fields = {
     ds_formmeta_jssource: 'submitForm'
   };
-  let submitstart = Date.now();
+  const submitstart = Date.now();
 
   try {
-    let submitparameters = {
-      ...getServiceSubmitInfo(target)
-      , vals: unpackObject(formvalue)
-      , extrasubmit: options?.extrasubmit || null
+    const submitparameters = {
+      ...getServiceSubmitInfo(target),
+      vals: unpackObject(formvalue),
+      extrasubmit: options?.extrasubmit || null
     };
 
-    let formservice = new RPCClient("publisher:forms");
-    let retval = await formservice.invoke("callFormService", "submit", submitparameters);
+    const formservice = new RPCClient("publisher:forms");
+    const retval = await formservice.invoke("callFormService", "submit", submitparameters);
     if (!retval.success) {
-      let failedfields = retval.errors.map(error => error.name || "*").sort().join(" ");
+      const failedfields = retval.errors.map(error => error.name || "*").sort().join(" ");
       fields.ds_formmeta_errorfields = failedfields;
       fields.ds_formmeta_errorsource = 'server';
     }
     return retval;
-  }
-  catch (e) {
+  } catch (e) {
     eventtype = 'publisher:formexception';
     fields.ds_formmeta_exception = String(e);
     fields.ds_formmeta_errorsource = 'server';
     throw e;
-  }
-  finally {
+  } finally {
     fields.dn_formmeta_waittime = Date.now() - submitstart;
     pxl.sendPxlEvent(eventtype, fields);
   }
@@ -64,19 +62,18 @@ export default class RPCFormBase extends FormBase {
   constructor(formnode) {
     super(formnode);
     this.__formhandler = {
-      errors: []
-      , warnings: []
-      , formid: formnode.dataset.whFormId //needed for 'old' __formwidget: stuff
-      , url: location.href.split('/').slice(3).join('/')
-      , target: formnode.dataset.whFormTarget
+      errors: [],
+      warnings: [],
+      formid: formnode.dataset.whFormId, //needed for 'old' __formwidget: stuff
+      url: location.href.split('/').slice(3).join('/'),
+      target: formnode.dataset.whFormTarget
     };
     this.pendingrpcs = [];
 
     if (!this.__formhandler.target) {
       if (this.__formhandler.formid) {
         console.error("This page needs to be republished!");
-      }
-      else {
+      } else {
         if (!whintegration.config.islive)
           console.error("Missing data-wh-form-target on form, did your witty apply '[form.formattributes]' to the <form> tag ?", formnode);
         throw new Error("Form does not appear to be a WebHare form");
@@ -93,34 +90,33 @@ export default class RPCFormBase extends FormBase {
 
   //Invoke a function on the form on the server
   async _invokeRPC(background, ...invokeargs) {
-    let waiter = dompack.createDeferred();
+    const waiter = dompack.createDeferred();
 
     if (!background)
       this.onRPC(waiter.promise);
 
-    let lock = dompack.flagUIBusy({ ismodal: !background, component: this.node });
+    const lock = dompack.flagUIBusy({ ismodal: !background, component: this.node });
     try {
       let options;
       if (typeof invokeargs[0] == 'object') //receiving optiions first
         options = invokeargs.shift();
 
-      let formvalue = await this.getFormValue();
-      let methodname = invokeargs.shift();
-      let rpc = this.formservice.invoke(options || {}
+      const formvalue = await this.getFormValue();
+      const methodname = invokeargs.shift();
+      const rpc = this.formservice.invoke(options || {}
         , "callFormService"
         , "invoke"
         , {
-          ...getServiceSubmitInfo(this.__formhandler.target)
-          , vals: unpackObject(formvalue)
-          , methodname: methodname
-          , args: invokeargs
+          ...getServiceSubmitInfo(this.__formhandler.target),
+          vals: unpackObject(formvalue),
+          methodname: methodname,
+          args: invokeargs
         });
       this.pendingrpcs.push(rpc);
-      let result = await rpc;
+      const result = await rpc;
       this._processMessages(result.messages);
       return result.result;
-    }
-    finally {
+    } finally {
       lock.release();
       waiter.resolve();
     }
@@ -128,7 +124,7 @@ export default class RPCFormBase extends FormBase {
 
   /* Override this to implement support for incoming field messages */
   processFieldMessage(field, prop, value) {
-    let fieldnode = this.node.querySelector(`*[name="${CSS.escape(field)}"], *[data-wh-form-name="${CSS.escape(field)}"]`);
+    const fieldnode = this.node.querySelector(`*[name="${CSS.escape(field)}"], *[data-wh-form-name="${CSS.escape(field)}"]`);
     if (!fieldnode) {
       console.warn("Message for non-existent field: " + field + ", prop: " + prop + ", value: " + value.toString());
       return;
@@ -171,7 +167,7 @@ export default class RPCFormBase extends FormBase {
   }
 
   _processMessages(messages) {
-    for (let msg of messages) {
+    for (const msg of messages) {
       this.processFieldMessage(msg.field, msg.prop, msg.data);
     }
   }
@@ -180,8 +176,7 @@ export default class RPCFormBase extends FormBase {
     while (this.pendingrpcs.length) {
       try {
         await this.pendingrpcs.pop();
-      }
-      catch (ignore) {
+      } catch (ignore) {
         //*we* can't handle those...
       }
     }
@@ -192,13 +187,13 @@ export default class RPCFormBase extends FormBase {
     if (this.__formhandler.submitting) //throwing is the safest solution... having the caller register a second resolve is too dangerous
       throw new Error("The form is already being submitted");
 
-    let waiter = dompack.createDeferred();
+    const waiter = dompack.createDeferred();
     let insubmitrpc = false;
     this.onRPC(waiter.promise);
 
-    let eventdetail = {
-      form: this.node
-      , rpchandler: this
+    const eventdetail = {
+      form: this.node,
+      rpchandler: this
     };
     await this._flushPendingRPCs();
     try {
@@ -208,15 +203,15 @@ export default class RPCFormBase extends FormBase {
       let extrasubmit = this.getFormExtraSubmitData();
       eventdetail.extrasubmitdata = extrasubmit;
 
-      let formvalue = await this.getFormValue();
+      const formvalue = await this.getFormValue();
       eventdetail.submitted = formvalue;
 
       if (extrasubmit && extrasubmit.then) //got a promise? expand it
         extrasubmit = await extrasubmit;
 
       extrasubmit = {
-        ...extradata
-        , ...extrasubmit
+        ...extradata,
+        ...extrasubmit
       };
 
       /* make sure no getFormValue RPCs are still pending, assuming they went through us, eg if an address validation is
@@ -225,17 +220,17 @@ export default class RPCFormBase extends FormBase {
       */
       await this._flushPendingRPCs();
       dompack.dispatchCustomEvent(this.node, "wh:form-preparesubmit", { bubbles: true, cancelable: false, detail: { extrasubmit: extrasubmit } });
-      let submitparameters = {
-        ...getServiceSubmitInfo(this.__formhandler.target)
-        , fields: formvalue
-        , extrasubmit: extrasubmit
+      const submitparameters = {
+        ...getServiceSubmitInfo(this.__formhandler.target),
+        fields: formvalue,
+        extrasubmit: extrasubmit
       };
 
       if (dompack.debugflags.fhv)
         console.log('[fhv] start submission', submitparameters);
 
       insubmitrpc = true; //so we can easily determine exception source
-      let result = await this.formservice.invoke("callFormService", "submit", submitparameters);
+      const result = await this.formservice.invoke("callFormService", "submit", submitparameters);
       insubmitrpc = false;
 
       if (dompack.debugflags.fhv)
@@ -248,14 +243,14 @@ export default class RPCFormBase extends FormBase {
       eventdetail.errors = result.errors;
 
       let didfirstfocus = false;
-      let globalerrors = [];
-      for (let error of result.errors) {
+      const globalerrors = [];
+      for (const error of result.errors) {
         if (!error.name) {
           globalerrors.push(error);
           continue;
         }
 
-        let failednode = this.node.querySelector('[name="' + error.name + '"], [data-wh-form-name="' + error.name + '"]');
+        const failednode = this.node.querySelector('[name="' + error.name + '"], [data-wh-form-name="' + error.name + '"]');
         if (!failednode) {
           console.error("[fhv] Unable to find node '" + error.name + "' which caused error:" + error.message);
           continue;
@@ -276,13 +271,12 @@ export default class RPCFormBase extends FormBase {
           this._navigateToThankYou(result.result && result.result.richvalues);
           this.onSubmitSuccess(result.result);
         }
-      }
-      else {
-        let failedfields = result.errors.map(error => error.name || "*").sort().join(" ");
+      } else {
+        const failedfields = result.errors.map(error => error.name || "*").sort().join(" ");
         this.sendFormEvent('publisher:formfailed', {
-          ds_formmeta_errorfields: failedfields
-          , ds_formmeta_errorsource: 'server'
-          , dn_formmeta_waittime: Date.now() - this._submitstart
+          ds_formmeta_errorfields: failedfields,
+          ds_formmeta_errorsource: 'server',
+          dn_formmeta_waittime: Date.now() - this._submitstart
         });
 
         if (globalerrors.length) {
@@ -294,20 +288,18 @@ export default class RPCFormBase extends FormBase {
           this.onSubmitFailed(result.errors, result.result);
       }
       return result;
-    }
-    catch (e) {
+    } catch (e) {
       this.sendFormEvent('publisher:formexception', {
-        ds_formmeta_exception: String(e)
-        , ds_formmeta_errorsource: insubmitrpc ? 'server' : 'client'
-        , dn_formmeta_waittime: Date.now() - this._submitstart
+        ds_formmeta_exception: String(e),
+        ds_formmeta_errorsource: insubmitrpc ? 'server' : 'client',
+        dn_formmeta_waittime: Date.now() - this._submitstart
       });
 
       if (dompack.dispatchCustomEvent(this.node, "wh:form-exception", { bubbles: true, cancelable: true, detail: eventdetail }))
         this.onSubmitException(e);
 
       throw e;
-    }
-    finally {
+    } finally {
       waiter.resolve();
       this.__formhandler.submitting = false;
     }
@@ -315,10 +307,9 @@ export default class RPCFormBase extends FormBase {
 
   displayGlobalErrors(globalerrors) {
     try {
-      let errors = globalerrors.map(error => dompack.create("p", { textContent: error.message }));
+      const errors = globalerrors.map(error => dompack.create("p", { textContent: error.message }));
       runMessageBox(errors, [{ title: "OK" }]); //TODO: language?
-    }
-    catch (e) {
+    } catch (e) {
       console.error("runMessageBox failed", e);
       alert(globalerrors.map(error => error.message).join("\n"));
     }
@@ -331,7 +322,7 @@ export default class RPCFormBase extends FormBase {
 
   //override this to deal with succesful submissions
   onSubmitSuccess(result) {
-    let formpos = this.node.getBoundingClientRect();
+    const formpos = this.node.getBoundingClientRect();
     if (formpos.top < 0)
       this.node.scrollIntoView({ block: 'start', behavior: 'smooth' });
 
@@ -358,9 +349,8 @@ export default class RPCFormBase extends FormBase {
         if (field.propWhValidationSuggestion) {
           field.propWhValidationSuggestion = null;
         }
-      }
-      else {
-        let validation = emailvalidation.validateField(this, field);
+      } else {
+        const validation = emailvalidation.validateField(this, field);
         this.pendingrpcs.push(validation);
         if (!(await validation))
           return false;

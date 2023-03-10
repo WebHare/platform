@@ -21,24 +21,24 @@ import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 /** Calculates sizes for table rows/columns
 */
 function calculateTableSizes(table, rowcount, colcount, getcelldata, getcoldata, forheights) {
-  var logname = forheights ? "Heights" : "Widths";
+  const logname = forheights ? "Heights" : "Widths";
 
   // Can also be used for heights when correct translation (switch row/col, colspan/rowspan and width/height in getcelldata)
-  var rows = [];
-  var cols = [];
+  const rows = [];
+  const cols = [];
 
   // Init data about last column
-  var lastcol =
+  let lastcol =
   {
-    min: 0
-    , calc: 0
-    , calcpr: 0
+    min: 0,
+    calc: 0,
+    calcpr: 0
   };
 
   table.debugLog('dimensions', 'calculateTable' + logname + ' start ', rowcount, colcount);
 
-  var outertype = forheights ? 'row' : 'column';
-  var innertype = forheights ? 'column' : 'row';
+  const outertype = forheights ? 'row' : 'column';
+  const innertype = forheights ? 'column' : 'row';
 
   // Process all columns
   for (var col = 0; col < colcount; ++col) {
@@ -53,50 +53,49 @@ function calculateTableSizes(table, rowcount, colcount, getcelldata, getcoldata,
         continue;
       }
 
-      var cell = getcelldata(row, col);
+      const cell = getcelldata(row, col);
       table.debugLog('dimensions', 'Cell data for ', row, col);
       table.debugLog('dimensions', cell);
       if (cell) {
-        let data =
+        const data =
         {
-          min: lastcol.min + cell.min
-          , calc: lastcol.calc + cell.calc
-          , calcpr: lastcol.calcpr + cell.calcpr
-          , until: col + (cell.colspan || 1)
-          , rowspan: (cell.rowspan || 1)
+          min: lastcol.min + cell.min,
+          calc: lastcol.calc + cell.calc,
+          calcpr: lastcol.calcpr + cell.calcpr,
+          until: col + (cell.colspan || 1),
+          rowspan: (cell.rowspan || 1)
         };
 
         for (let i = 0; i < cell.rowspan; ++i)
           rows[row + i] = data;
 
         row += cell.rowspan || 1;
-      }
-      else
+      } else
         ++row;
     }
 
     table.debugLog('dimensions', 'All ' + innertype + 's processed');
 
-    var coldata = getcoldata(col);
+    const coldata = getcoldata(col);
 
     table.debugLog('dimensions', 'XML data for ' + outertype, col, ':', coldata);
 
-    var prevlastcol = lastcol;
+    const prevlastcol = lastcol;
 
     // Prepare new column data
     lastcol =
     {
-      min: lastcol.min + coldata.min
-      , calc: lastcol.calc + coldata.calc
-      , calcpr: lastcol.calcpr + coldata.calcpr
-      , until: col + 1
+      min: lastcol.min + coldata.min,
+      calc: lastcol.calc + coldata.calc,
+      calcpr: lastcol.calcpr + coldata.calcpr,
+      until: col + 1
     };
 
     table.debugLog('dimensions', 'Aggregating sizes');
 
     // Aggregate the sizes for the cells ending at this column
-    for (var row = 0; row < rowcount;) {
-      let data = rows[row];
+    for (let row = 0; row < rowcount;) {
+      const data = rows[row];
       if (data) {
         if (data.until == col + 1) {
           lastcol.min = Math.max(lastcol.min, data.min);
@@ -107,8 +106,7 @@ function calculateTableSizes(table, rowcount, colcount, getcelldata, getcoldata,
             rows[row + i] = lastcol;
         }
         row += data.rowspan || 1;
-      }
-      else
+      } else
         ++row;
     }
 
@@ -119,8 +117,8 @@ function calculateTableSizes(table, rowcount, colcount, getcelldata, getcoldata,
 
     cols.push(
       {
-        min: lastcol.min - prevlastcol.min
-        , calc: lastcol.calc - prevlastcol.calc
+        min: lastcol.min - prevlastcol.min,
+        calc: lastcol.calc - prevlastcol.calc
       });
   }
 
@@ -128,8 +126,8 @@ function calculateTableSizes(table, rowcount, colcount, getcelldata, getcoldata,
 
   return (
     {
-      parts: cols
-      , total: lastcol
+      parts: cols,
+      total: lastcol
     });
 }
 
@@ -152,11 +150,11 @@ function calculateTableWidths(table, rowcount, colcount, getcelldata, getcoldata
     @param getrowdata function(row). Must return 'min', 'calc', 'calcpr' for the height of a row.
 */
 function calculateTableHeights(table, rowcount, colcount, getcelldata, getrowdata) {
-  var wrapper = function(row, col) {
-    var data = getcelldata(col, row);
+  const wrapper = function(row, col) {
+    const data = getcelldata(col, row);
     if (data) {
       // Swap rowspan and colspan
-      var tmp = data.rowspan;
+      const tmp = data.rowspan;
       data.rowspan = data.colspan;
       data.colspan = tmp;
     }
@@ -220,7 +218,7 @@ export default class ObjTable extends ComponentBase {
     });
 
     this.rowgroups = [];
-    var startrow = 0;
+    let startrow = 0;
     data.rowgroups.forEach((rowgroup, groupnum) => {
       rowgroup.groupnum = groupnum;
       rowgroup.startrow = startrow;
@@ -251,7 +249,7 @@ export default class ObjTable extends ComponentBase {
 
   getVisibleChildren() //objTable
   {
-    return this.rowgroups.concat(this.cols).concat(this.overlays).filter(node => !!node);
+    return this.rowgroups.concat(this.cols).concat(this.overlays).filter(node => Boolean(node));
   }
 
   readdComponent(comp) {
@@ -259,13 +257,13 @@ export default class ObjTable extends ComponentBase {
     if (!comp.parenttablecell)
       return console.error('Child ' + comp.name + ' not inside the table is trying to replace itself');
 
-    var cell = comp.parenttablecell;
-    var newcomp = this.owner.addComponent(this, comp.name);
+    const cell = comp.parenttablecell;
+    const newcomp = this.owner.addComponent(this, comp.name);
 
     // If already rendered, live replace
     if (cell.node) {
       // Might be a plain component
-      let curnode = cell.comp.getNode();
+      const curnode = cell.comp.getNode();
       curnode.replaceWith(newcomp.getNode());
     }
 
@@ -285,20 +283,20 @@ export default class ObjTable extends ComponentBase {
   buildNode() //objTable
   {
     this.node = dompack.create("div", {
-      className: "todd-table"
-      , dataset: { name: this.name }
-      , on: {
-        "dragstart": evt => this.onDragStart(evt)
-        , "dragenter": evt => this.onDragEnter(evt)
-        , "dragleave": evt => this.onDragLeave(evt)
-        , "dragend": evt => this.onDragEnd(evt)
-        , "dragover": evt => this.onDragOver(evt)
-        , "drop": evt => this.onDrop(evt)
-        , "dompack:movestart": evt => this.onMoveStart(evt)
-        , "dompack:move": evt => this.onMove(evt)
-        , "dompack:moveend": evt => this.onMoveEnd(evt)
-        , "mousedown": evt => this.onMouseDown(evt)
-        , "contextmenu": evt => this.onContextMenu(evt)
+      className: "todd-table",
+      dataset: { name: this.name },
+      on: {
+        "dragstart": evt => this.onDragStart(evt),
+        "dragenter": evt => this.onDragEnter(evt),
+        "dragleave": evt => this.onDragLeave(evt),
+        "dragend": evt => this.onDragEnd(evt),
+        "dragover": evt => this.onDragOver(evt),
+        "drop": evt => this.onDrop(evt),
+        "dompack:movestart": evt => this.onMoveStart(evt),
+        "dompack:move": evt => this.onMove(evt),
+        "dompack:moveend": evt => this.onMoveEnd(evt),
+        "mousedown": evt => this.onMouseDown(evt),
+        "contextmenu": evt => this.onContextMenu(evt)
       }
     });
     this.node.propTodd = this;
@@ -317,45 +315,44 @@ export default class ObjTable extends ComponentBase {
   //
 
   getCellForSizeCalc(type, row, col) {
-    var cell = this.findCell(row, col);
+    let cell = this.findCell(row, col);
     if (cell) {
       // type == 'width' ? cell.calculateWidth() : cell.calculateHeight();
       cell =
       {
-        min: cell[type].min
-        , calc: cell[type].calc
-        , calcpr: cell[type].xml_set_parsed && cell[type].xml_set_parsed.type == 1 ? cell[type].xml_set_parsed.size : 0
-        , rowspan: cell.rowspan
-        , colspan: cell.colspan
+        min: cell[type].min,
+        calc: cell[type].calc,
+        calcpr: cell[type].xml_set_parsed && cell[type].xml_set_parsed.type == 1 ? cell[type].xml_set_parsed.size : 0,
+        rowspan: cell.rowspan,
+        colspan: cell.colspan
       };
-    }
-    else
+    } else
       this.debugLog('dimensions', 'No cell', row, col);
     return cell;
   }
 
   getColForSizeCalc(colnr) {
-    var col = this.cols[colnr];
+    const col = this.cols[colnr];
     //col.calculateWidth();
 
     return (
       {
-        min: col.width.min
-        , calc: col.width.calc
-        , calcpr: col.width.xml_set_parsed && col.width.xml_set_parsed.type == 1 ? col.width.xml_set_parsed.size : 0
+        min: col.width.min,
+        calc: col.width.calc,
+        calcpr: col.width.xml_set_parsed && col.width.xml_set_parsed.type == 1 ? col.width.xml_set_parsed.size : 0
       });
   }
 
   getRowForSizeCalc(rownr) {
-    for (var i = 0; i < this.rowgroups.length; ++i) {
-      var rowgroup = this.rowgroups[i];
+    for (let i = 0; i < this.rowgroups.length; ++i) {
+      const rowgroup = this.rowgroups[i];
       if (rownr < rowgroup.rows.length) {
-        var row = rowgroup.rows[rownr];
+        const row = rowgroup.rows[rownr];
         return (
           {
-            min: row.height.min
-            , calc: row.height.calc
-            , calcpr: row.height.xml_set_parsed && row.height.xml_set_parsed.type == 1 ? row.height.xml_set_parsed.size : 0
+            min: row.height.min,
+            calc: row.height.calc,
+            calcpr: row.height.xml_set_parsed && row.height.xml_set_parsed.type == 1 ? row.height.xml_set_parsed.size : 0
           });
       }
 
@@ -366,12 +363,12 @@ export default class ObjTable extends ComponentBase {
 
   calculateDimWidth() //toddObjTable calculateDimWidth
   {
-    var rowcount = 0;
+    let rowcount = 0;
     this.rowgroups.forEach(function(rowgroup) { rowcount += rowgroup.rows.length; });
-    var colcount = this.cols.length;
+    const colcount = this.cols.length;
     this.debugLog('dimensions', rowcount, colcount);
 
-    var res = calculateTableWidths(this, rowcount, colcount, this.getCellForSizeCalc.bind(this, 'width'), this.getColForSizeCalc.bind(this));
+    const res = calculateTableWidths(this, rowcount, colcount, this.getCellForSizeCalc.bind(this, 'width'), this.getColForSizeCalc.bind(this));
     this.debugLog('dimensions', res);
 
     this.cols.forEach(function(item, idx) {
@@ -386,10 +383,10 @@ export default class ObjTable extends ComponentBase {
 
   applySetWidth() //toddObjTable
   {
-    var setwidth = Math.max(this.width.min, this.width.set);
+    const setwidth = Math.max(this.width.min, this.width.set);
     this.debugLog("dimensions", "min=" + this.width.min + ", calc=" + this.width.calc + ", set width=" + this.width.set);
 
-    var widths = [];
+    const widths = [];
     this.cols.forEach(col => {
       widths.push(col.width);
     });
@@ -401,21 +398,21 @@ export default class ObjTable extends ComponentBase {
   }
 
   calculateDimHeight() {
-    var rowcount = 0;
+    let rowcount = 0;
     this.rowgroups.forEach(function(rowgroup) { rowcount += rowgroup.rows.length; });
-    var colcount = this.cols.length;
+    const colcount = this.cols.length;
     this.debugLog('dimensions', 'Table cell dimensions: ', colcount + 'x' + rowcount);
 
-    var res = calculateTableHeights(this, rowcount, colcount, this.getCellForSizeCalc.bind(this, 'height'), this.getRowForSizeCalc.bind(this));
+    const res = calculateTableHeights(this, rowcount, colcount, this.getCellForSizeCalc.bind(this, 'height'), this.getRowForSizeCalc.bind(this));
     this.debugLog('dimensions', 'Calculated height', res);
 
-    var rownr = 0;
-    for (var i = 0; i < this.rowgroups.length; ++i) {
-      var rowgroup = this.rowgroups[i];
-      var min = 0;
-      var calc = 0;
-      for (var j = 0; j < rowgroup.rows.length; ++j, ++rownr) {
-        var part = res.parts[rownr];
+    let rownr = 0;
+    for (let i = 0; i < this.rowgroups.length; ++i) {
+      const rowgroup = this.rowgroups[i];
+      let min = 0;
+      let calc = 0;
+      for (let j = 0; j < rowgroup.rows.length; ++j, ++rownr) {
+        const part = res.parts[rownr];
         min += part.min;
         calc += part.calc;
 
@@ -432,10 +429,10 @@ export default class ObjTable extends ComponentBase {
     this.setSizeToSumOf('height', this.rowgroups);
   }
   applySetHeight() {
-    var setheight = Math.max(this.height.min, this.height.set);
+    const setheight = Math.max(this.height.min, this.height.set);
     this.debugLog("dimensions", "min=" + this.height.min + ", calc=" + this.height.calc + ", set height=" + this.height.set);
 
-    var remaining = this.distributeSizeProps('height', setheight, this.rowgroups);
+    const remaining = this.distributeSizeProps('height', setheight, this.rowgroups);
     this.height.set = setheight - remaining;
 
     this.rowgroups.forEach(comp => comp.applySetHeight());
@@ -445,8 +442,8 @@ export default class ObjTable extends ComponentBase {
   relayout() //objTable
   {
     this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
-    var setwidth = Math.max(this.width.min, this.width.set);
-    var setheight = Math.max(this.height.min, this.height.set);
+    const setwidth = Math.max(this.width.min, this.width.set);
+    const setheight = Math.max(this.height.min, this.height.set);
     dompack.setStyles(this.node, { width: setwidth, height: setheight });
 
     this.cols.forEach(comp => comp.relayout());
@@ -468,7 +465,7 @@ export default class ObjTable extends ComponentBase {
 
   findCell(row, col) {
     //this.debugLog('dimensions', this.rowgroups);
-    for (var i = 0; i < this.rowgroups.length; ++i) {
+    for (let i = 0; i < this.rowgroups.length; ++i) {
       //this.debugLog('dimensions', this.rowgroups.rows,i);
       if (row < this.rowgroups[i].rows.length)
         return this.rowgroups[i].rows[row].cells[col] || null;
@@ -479,13 +476,13 @@ export default class ObjTable extends ComponentBase {
 
   locateCell(row, col) {
     //this.debugLog('dimensions', this.rowgroups);
-    for (var i = 0; i < this.rowgroups.length; ++i) {
+    for (let i = 0; i < this.rowgroups.length; ++i) {
       //this.debugLog('dimensions', this.rowgroups.rows,i);
       if (row < this.rowgroups[i].rows.length) {
         return {
-          rowgroup: this.rowgroups[i]
-          , rowinsidegroup: row
-          , cell: this.rowgroups[i].rows[row].cells[col]
+          rowgroup: this.rowgroups[i],
+          rowinsidegroup: row,
+          cell: this.rowgroups[i].rows[row].cells[col]
         };
       }
       row -= this.rowgroups[i].rows.length;
@@ -499,14 +496,14 @@ export default class ObjTable extends ComponentBase {
     if (!tablecellnode || tablecellnode.parentNode.parentNode.parentNode.parentNode != this.node)
       return null;
 
-    var data = tablecellnode.dataset.toddCellpos.split(':');
+    const data = tablecellnode.dataset.toddCellpos.split(':');
     //this.debugLog('dimensions', data);
     return this.findCell(parseInt(data[0]), parseInt(data[1]));
   }
 
   getCellAtPos(x, y) {
     // Check which rowgroup is hit
-    var rowgroup = this.rowgroupheights.lowerBound(y);
+    let rowgroup = this.rowgroupheights.lowerBound(y);
     if (rowgroup < this.rowgroups.length) {
       y -= (rowgroup > 0 ? this.rowgroupheights[rowgroup - 1] : 0);
       rowgroup = this.rowgroups[rowgroup];
@@ -569,7 +566,7 @@ export default class ObjTable extends ComponentBase {
           case 'cell':
             {
               //this.debugLog('dimensions', item);
-              var cell = this.findCell(item.row, item.col);
+              const cell = this.findCell(item.row, item.col);
               if (!cell)
                 console.error("Cell " + item.row + ":" + item.col + " not found");
               else {
@@ -580,7 +577,7 @@ export default class ObjTable extends ComponentBase {
           case 'overlay':
             {
               //this.debugLog('dimensions', item);
-              var overlay = this.findOverlay(item.id);
+              const overlay = this.findOverlay(item.id);
               if (!overlay)
                 console.error("Overlay '" + item.id + "' not found");
               else {
@@ -593,7 +590,7 @@ export default class ObjTable extends ComponentBase {
   }
 
   updateSelection(newselection) {
-    var modified = false;
+    let modified = false;
 
     // Remove currently selected items not in the new selection
     this.selection.forEach(item => {
@@ -622,7 +619,7 @@ export default class ObjTable extends ComponentBase {
   }
 
   getSubmitValue() {
-    var sel = [];
+    const sel = [];
     this.selection.forEach(item => {
       if (item.componenttype == "table.cell")
         sel.push("cell:" + item.rownum + ":" + item.colnum);
@@ -640,19 +637,18 @@ export default class ObjTable extends ComponentBase {
   selectCell(cell, expandselection, toggle) {
     //ADDME: expandselection
     // What should the new selection be?
-    var newselection = [];
+    let newselection = [];
     if (this.selectmode == "single") {
       // If only one cell can be selected, the selection is the cell
       newselection = [cell];
-    }
-    else if (this.selectmode == "multiple") {
+    } else if (this.selectmode == "multiple") {
       // If ctrl wasn't pressed, or the selection consisted of overlays, the selection is the cell
       if (!toggle || (this.selection.length && !(this.selection[0] instanceof ObjCell)))
         newselection = [cell];
       else {
         // If ctrl was pressed, toggle the cell selection
-        newselection = this.selection.slice()
-        let idx = newselection.indexOf(cell);
+        newselection = this.selection.slice();
+        const idx = newselection.indexOf(cell);
         if (idx === -1)
           newselection.push(cell);
         else if (toggle != "add")
@@ -670,19 +666,18 @@ export default class ObjTable extends ComponentBase {
   */
   selectOverlay(overlay, toggle) {
     // What should the new selection be?
-    var newselection = [];
+    let newselection = [];
     if (this.selectmode == "single") {
       // If only one overlay can be selected, the selection is the overlay
       newselection = [overlay];
-    }
-    else if (this.selectmode == "multiple") {
+    } else if (this.selectmode == "multiple") {
       // If ctrl wasn't pressed, or the selection consisted of cells, the selection is the overlay
       if (!toggle || (this.selection.length && !(this.selection[0] instanceof ObjOverlay)))
         newselection = [overlay];
       else {
         // If ctrl was pressed, toggle the overlay selection
         newselection = this.selection.slice();
-        let idx = newselection.indexOf(overlay);
+        const idx = newselection.indexOf(overlay);
         if (idx === -1)
           newselection.push(overlay);
         else if (toggle != "add")
@@ -698,7 +693,7 @@ export default class ObjTable extends ComponentBase {
       $todd.DebugTypedLog("actionenabler", "- Checking action enabled for " + this.name + ".'" + checkflags.join(',') + "' [" + min + ", " + (max > 0 ? max + "]" : "->") + " (" + selectionmatch + ") by selection");
 
       // Read flags for the action source selection
-      var flags = [];
+      const flags = [];
       this.selection.forEach(cell => {
         if (!flags.includes(cell.flags))
           flags.push(cell.flags);
@@ -729,7 +724,7 @@ export default class ObjTable extends ComponentBase {
 
     if (target.nodeName.toLowerCase() !== "td") // overlay?
     {
-      let overlay = target.propTodd;
+      const overlay = target.propTodd;
       if (overlay && overlay.parentcomp === this)
         return overlay;
 
@@ -759,21 +754,20 @@ export default class ObjTable extends ComponentBase {
     if (this.selectmode == 'none')
       return;
 
-    let target = this.getTargetedElement(evt);
+    const target = this.getTargetedElement(evt);
     if (!target)
       return;
 
     this.node.focus();
 
     // When double-clicking, only add
-    let togglemode = evt.detail === 1 ? "toggle" : "add";
+    const togglemode = evt.detail === 1 ? "toggle" : "add";
 
     // ignore clicks on unselectable cells
     if (target instanceof ObjCell) {
       if (target.selectable)
         this.selectCell(target, evt.shiftKey, hasNativeEventMultiSelectKey(evt) ? togglemode : "");
-    }
-    else {
+    } else {
       this.selectOverlay(target, hasNativeEventMultiSelectKey(evt) ? togglemode : "");
     }
 
@@ -786,7 +780,7 @@ export default class ObjTable extends ComponentBase {
     if (this.selectmode == 'none')
       return;
 
-    let target = this.getTargetedElement(evt, { requireselectable: true });
+    const target = this.getTargetedElement(evt, { requireselectable: true });
     if (!target)
       return;
 
@@ -807,11 +801,11 @@ export default class ObjTable extends ComponentBase {
   }
 
   onContextMenu(evt) {
-    let target = this.getTargetedElement(evt);
+    const target = this.getTargetedElement(evt);
     if (!target)
       return;
 
-    let menu = target instanceof ObjCell
+    const menu = target instanceof ObjCell
       ? this.owner.getComponent(this.cellcontextmenu)
       : this.owner.getComponent(this.overlaycontextmenu);
     if (!menu)
@@ -824,31 +818,31 @@ export default class ObjTable extends ComponentBase {
   onMoveStart(event) {
     event.stopPropagation();
 
-    var dragtarget = event.detail.listener;
+    const dragtarget = event.detail.listener;
 
-    var overlay = dragtarget.parentNode.propTodd;
-    var dir = dragtarget.getAttribute("todd-resize");
-    var rowgroup = overlay.rowgroupcomp;
-    var dragparentcoords = dragtarget.parentNode.getBoundingClientRect();
-    var rowgroupnodecoords = rowgroup.node.getBoundingClientRect();
-    var outline = (dompack.create("div", {
-      className: "todd-table__outline"
-      , style: {
-        "bottom": rowgroup.height.set - parseInt(coords.bottom)
-        , "left": parseInt(dragparentcoords.left - rowgroupnodecoords.left)
-        , "right": rowgroup.width.set - parseInt(coords.right)
-        , "top": parseInt(dragparentcoords.top - rowgroupnodecoords.top)
+    const overlay = dragtarget.parentNode.propTodd;
+    const dir = dragtarget.getAttribute("todd-resize");
+    const rowgroup = overlay.rowgroupcomp;
+    const dragparentcoords = dragtarget.parentNode.getBoundingClientRect();
+    const rowgroupnodecoords = rowgroup.node.getBoundingClientRect();
+    const outline = (dompack.create("div", {
+      className: "todd-table__outline",
+      style: {
+        "bottom": rowgroup.height.set - parseInt(coords.bottom),
+        "left": parseInt(dragparentcoords.left - rowgroupnodecoords.left),
+        "right": rowgroup.width.set - parseInt(coords.right),
+        "top": parseInt(dragparentcoords.top - rowgroupnodecoords.top)
       }
     }));
     rowgroup.node.appendChild(outline);
     this.draginfo = {
-      type: "resize_overlay"
-      , overlay: overlay
-      , dir: dir
-      , lastpos: event.moved
-      , lastcell: null // last hovered cell
-      , curcell: null // currently hovered cell, may be null
-      , outline: outline
+      type: "resize_overlay",
+      overlay: overlay,
+      dir: dir,
+      lastpos: event.moved,
+      lastcell: null, // last hovered cell
+      curcell: null, // currently hovered cell, may be null
+      outline: outline
     };
 
     this.overlays.forEach(overlay => {
@@ -860,26 +854,23 @@ export default class ObjTable extends ComponentBase {
   onMove(event) {
     event.stopPropagation();
 
-    var hovercell = this.getCellFromNode(event.detail.currentTarget.closest("td"));
+    const hovercell = this.getCellFromNode(event.detail.currentTarget.closest("td"));
     if (hovercell != this.draginfo.curcell) {
       this.draginfo.curcell = hovercell;
 
-      var validcell = false;
+      let validcell = false;
       if (hovercell && hovercell.rowcomp.rowgroupcomp == this.draginfo.overlay.rowgroupcomp) {
-        var hoverpos = hovercell.getBoundingClientRect();
+        const hoverpos = hovercell.getBoundingClientRect();
         if (this.draginfo.dir.indexOf("n") >= 0 && hovercell.grouprow <= this.draginfo.overlay.endrow) {
           this.draginfo.outline.style.top = hoverpos.top + 'px';
           validcell = true;
-        }
-        else if (this.draginfo.dir.indexOf("e") >= 0 && hovercell.colnum >= this.draginfo.overlay.startcol) {
+        } else if (this.draginfo.dir.indexOf("e") >= 0 && hovercell.colnum >= this.draginfo.overlay.startcol) {
           this.draginfo.outline.style.right = (this.draginfo.overlay.rowgroupcomp.width.set - hoverpos.right) + 'px';
           validcell = true;
-        }
-        else if (this.draginfo.dir.indexOf("s") >= 0 && hovercell.grouprow >= this.draginfo.overlay.startrow) {
+        } else if (this.draginfo.dir.indexOf("s") >= 0 && hovercell.grouprow >= this.draginfo.overlay.startrow) {
           this.draginfo.outline.style.bottom = (this.draginfo.overlay.rowgroupcomp.height.set - hoverpos.bottom) + 'px';
           validcell = true;
-        }
-        else if (this.draginfo.dir.indexOf("w") >= 0 && hovercell.colnum <= this.draginfo.overlay.endcol) {
+        } else if (this.draginfo.dir.indexOf("w") >= 0 && hovercell.colnum <= this.draginfo.overlay.endcol) {
           this.draginfo.outline.style.left = hoverpos.left + 'px';
           validcell = true;
         }
@@ -898,11 +889,11 @@ export default class ObjTable extends ComponentBase {
         || (this.draginfo.dir.indexOf("e") >= 0 && this.draginfo.lastcell.colnum >= this.draginfo.overlay.startcol)
         || (this.draginfo.dir.indexOf("s") >= 0 && this.draginfo.lastcell.grouprow >= this.draginfo.overlay.startrow)
         || (this.draginfo.dir.indexOf("w") >= 0 && this.draginfo.lastcell.colnum <= this.draginfo.overlay.endcol))) {
-      var msg =
+      const msg =
       {
-        overlay: this.draginfo.overlay.id
-        , target: this.draginfo.lastcell.rownum + ":" + this.draginfo.lastcell.colnum
-        , direction: this.draginfo.dir
+        overlay: this.draginfo.overlay.id,
+        target: this.draginfo.lastcell.rownum + ":" + this.draginfo.lastcell.colnum,
+        direction: this.draginfo.dir
       };
       this.queueMessage("resizeoverlay", msg, true);
     }
@@ -930,8 +921,7 @@ export default class ObjTable extends ComponentBase {
       if (!this.dragResetHandler)
         this.dragResetHandler = evt => this.setDraggingMode(false);
       this.node.addEventListener("mousemove", this.dragResetHandler);
-    }
-    else if (this.dragResetHandler)
+    } else if (this.dragResetHandler)
       this.node.removeEventListener("mousemove", this.dragResetHandler);
   }
 
@@ -942,16 +932,16 @@ export default class ObjTable extends ComponentBase {
       return;
     }
 
-    let dragtarget = event.target.closest("[draggable]");
+    const dragtarget = event.target.closest("[draggable]");
     //this.debugLog('dimensions', event.target, dragtarget);
     if (!dragtarget) {
       event.stop();
       return;
     }
 
-    let overlay = dragtarget.propTodd;
+    const overlay = dragtarget.propTodd;
     if (overlay) {
-      let dragdata = [{ id: overlay.id, info: overlay.draginfo }];
+      const dragdata = [{ id: overlay.id, info: overlay.draginfo }];
       dragdrop.tryStartDrag(this, dragdata, event);
     }
   }
@@ -961,7 +951,7 @@ export default class ObjTable extends ComponentBase {
 
     const cell = this.getCellFromNode(event.target.closest("td"));
 
-    var res = this.owner.checkDropTarget(event, this.droptypes, cell && cell.flags, null, "ontarget");
+    const res = this.owner.checkDropTarget(event, this.droptypes, cell && cell.flags, null, "ontarget");
     if (res) {
       event.preventDefault();
       event.stopPropagation();
@@ -990,7 +980,7 @@ export default class ObjTable extends ComponentBase {
     const cell = this.getCellFromNode(event.target.closest("td"));
 
     //    this.debugLog('dimensions', 'TABLE dragover', event);
-    var res = this.owner.checkDropTarget(event, this.droptypes, cell && cell.flags, null, "ontarget");
+    const res = this.owner.checkDropTarget(event, this.droptypes, cell && cell.flags, null, "ontarget");
     if (res) {
       dragdrop.fixupDNDEvent(event);
       event.preventDefault();
@@ -1002,10 +992,10 @@ export default class ObjTable extends ComponentBase {
   onDrop(event) {
     this.setDraggingMode(false);
 
-    var cell = this.getCellFromNode(event.target.closest("td"));
+    const cell = this.getCellFromNode(event.target.closest("td"));
     cell.node.classList.remove("droptarget--hover");
 
-    var dragdata = this.owner.checkDropTarget(event, this.droptypes, cell && cell.flags, null, "ontarget");
+    const dragdata = this.owner.checkDropTarget(event, this.droptypes, cell && cell.flags, null, "ontarget");
     if (!dragdata) {
       //this.debugLog('dimensions', 'Drop target check failed');
       return false;
@@ -1078,12 +1068,11 @@ class ObjColumn extends ComponentBase {
   {
     this.parentcomp.rowgroups.forEach((rowgroup, rgidx) => {
       rowgroup.rows.forEach((row, idx) => {
-        var cell = row.cells[this.colnum];
+        const cell = row.cells[this.colnum];
         if (cell && cell.colspan == 1) {
           this.width.calc = Math.max(this.width.calc, cell.width.calc);
           this.width.min = Math.max(this.width.min, cell.width.min);
-        }
-        else {
+        } else {
           console.warn("skipping width calculation of overlapped cell", rgidx, idx, this.colnum, this.parentcomp.node); //FIXME
         }
       });
@@ -1107,7 +1096,7 @@ class ObjColumn extends ComponentBase {
   }
 
   updateNodeSizeData() {
-    var sizedata = this.getNodeSizeData();
+    const sizedata = this.getNodeSizeData();
     this.parentcomp.rowgroups.forEach(rowgroup => {
       rowgroup.colnodes[this.colnum].setAttribute('todd-sizes', sizedata);
     });
@@ -1167,11 +1156,11 @@ class ObjRowGroup extends ComponentBase {
   buildNode() //objRowGroup
   {
     this.colnodes = this.parentcomp.cols.map(col => dompack.create("col"));
-    let rows = this.rows.map(row => row.node);
-    let tablenode = dompack.create('table', { childNodes: this.colnodes.concat(rows) });
+    const rows = this.rows.map(row => row.node);
+    const tablenode = dompack.create('table', { childNodes: this.colnodes.concat(rows) });
     this.node = dompack.create('div', {
-      className: "todd-table__rowgroup" + (this.scrollable ? " todd-table__rowgroup--scrollable" : "")
-      , childNodes: [tablenode]
+      className: "todd-table__rowgroup" + (this.scrollable ? " todd-table__rowgroup--scrollable" : ""),
+      childNodes: [tablenode]
     }
     );
   }
@@ -1202,7 +1191,7 @@ class ObjRowGroup extends ComponentBase {
 
   applySetHeight() //objRowGroup applySetHeight
   {
-    var innerheight = this.scrollable ? Math.max(this.height.set, this.height.calc) : this.height.set;
+    const innerheight = this.scrollable ? Math.max(this.height.set, this.height.calc) : this.height.set;
     this.distributeSizeProps('height', innerheight, this.rows, false);
   }
 
@@ -1222,10 +1211,10 @@ class ObjRowGroup extends ComponentBase {
   }
 
   getCellAtPos(x, y) {
-    var row = this.rowheights.lowerBound(y);
+    const row = this.rowheights.lowerBound(y);
     if (row < this.rows.length) {
-      var col = this.rows[row].getColAtPos(x);
-      var cell = this.rows[row].cells[col];
+      const col = this.rows[row].getColAtPos(x);
+      let cell = this.rows[row].cells[col];
       if (!cell) {
         // This is an overlapped cell, check if it's overlapped by a cell left from this cell
         for (let i = col; i >= 0; --i) {
@@ -1297,7 +1286,7 @@ class ObjRow extends ComponentBase {
     this.rownum = data.rownum;
     this.rightborder = data.rightborder;
 
-    var lastcell = null;
+    let lastcell = null;
     data.cells.forEach(cell => {
       if (!cell.overlapped)
         lastcell = cell;
@@ -1306,10 +1295,9 @@ class ObjRow extends ComponentBase {
     this.cells = [];
     data.cells.forEach(cell => {
       if (!cell.overlapped) {
-        var cellobj = new ObjCell(this, cell, cell == lastcell);
+        const cellobj = new ObjCell(this, cell, cell == lastcell);
         this.cells.push(cellobj);
-      }
-      else
+      } else
         this.cells.push(null);
     });
 
@@ -1326,7 +1314,7 @@ class ObjRow extends ComponentBase {
   //
   getVisibleChildren() //objRow
   {
-    return this.cells.filter(node => !!node);
+    return this.cells.filter(node => Boolean(node));
   }
   calculateDimWidth() //toddObjRow calculateDimWidth
   {
@@ -1340,13 +1328,13 @@ class ObjRow extends ComponentBase {
 
   applySetHeight() //objRow applySetHeight
   {
-    this.cells.filter(node => !!node).forEach(comp => comp.setHeight(this.height.set));
+    this.cells.filter(node => Boolean(node)).forEach(comp => comp.setHeight(this.height.set));
   }
 
   relayout() //objRow
   {
     this.node.style.height = this.height.set + 'px';
-    this.cells.filter(node => !!node).forEach(comp => comp.relayout());
+    this.cells.filter(node => Boolean(node)).forEach(comp => comp.relayout());
   }
 
   // ---------------------------------------------------------------------------
@@ -1356,7 +1344,7 @@ class ObjRow extends ComponentBase {
 
   getColAtPos(x) {
     // Check which col is hit
-    var cell = this.cellwidths.lowerBound(x);
+    const cell = this.cellwidths.lowerBound(x);
     if (cell < this.cellwidths.length)
       return cell;
   }
@@ -1486,8 +1474,8 @@ class ObjCell extends ComponentBase {
   //
 
   buildNode() {
-    var borderwidths = this.getBorderWidths();
-    let style =
+    const borderwidths = this.getBorderWidths();
+    const style =
     {
       borderWidth: borderwidths.map(size => `${size}px`).join(' ')
     };
@@ -1502,7 +1490,7 @@ class ObjCell extends ComponentBase {
     this.node = <td colspan={this.colspan}
       rowspan={this.rowspan}
       data-todd-cellpos={this.rownum + ':' + this.colnum}
-      draggable={!!this.draginfo}
+      draggable={Boolean(this.draginfo)}
       class={{ "todd-table__cell--disabled": !this.selectable && !this.enabled }}
       style={style}
       propTodd={this}
@@ -1533,18 +1521,17 @@ class ObjCell extends ComponentBase {
   //
   getVisibleChildren()  //objCell
   {
-    return [this.comp].filter(node => !!node);
+    return [this.comp].filter(node => Boolean(node));
   }
 
   calculateDimWidth() {
-    var borderwidth = (this.leftborder ? 1 : 0) + (this._hasRightBorder() ? 1 : 0);
+    const borderwidth = (this.leftborder ? 1 : 0) + (this._hasRightBorder() ? 1 : 0);
 
     $todd.DebugTypedLog("dimensions", this.parentcomp.name + ": Cell " + this.rownum + ":" + this.colnum);
     if (this.comp) {
       this.width.min = this.comp.width.min + borderwidth;
       this.width.calc = this.comp.width.calc + borderwidth;
-    }
-    else {
+    } else {
       this.width.min = borderwidth;
       this.width.calc = borderwidth;
     }
@@ -1555,23 +1542,22 @@ class ObjCell extends ComponentBase {
     if (!this.comp)
       return;
 
-    var borderwidth = (this.leftborder ? 1 : 0) + (this._hasRightBorder() ? 1 : 0);
+    const borderwidth = (this.leftborder ? 1 : 0) + (this._hasRightBorder() ? 1 : 0);
 
     // Size is sum of spanned column widths
-    var setwidth = 0;
-    for (var i = this.colnum; i < this.colnum + this.colspan; ++i)
+    let setwidth = 0;
+    for (let i = this.colnum; i < this.colnum + this.colspan; ++i)
       setwidth += this.parentcomp.cols[i].width.set;
 
     this.comp.setWidth(setwidth - borderwidth);
   }
   calculateDimHeight() {
-    var borderheight = (this.topborder ? 1 : 0) + (this._hasBottomBorder() ? 1 : 0);
+    const borderheight = (this.topborder ? 1 : 0) + (this._hasBottomBorder() ? 1 : 0);
 
     if (this.comp) {
       this.height.calc = this.comp.height.calc + borderheight;
       this.height.min = this.comp.height.min + borderheight;
-    }
-    else {
+    } else {
       this.height.calc = borderheight;
       this.height.min = borderheight;
     }
@@ -1582,13 +1568,12 @@ class ObjCell extends ComponentBase {
     if (!this.comp)
       return;
 
-    var borderheight = (this.topborder ? 1 : 0) + (this._hasBottomBorder() ? 1 : 0);
+    const borderheight = (this.topborder ? 1 : 0) + (this._hasBottomBorder() ? 1 : 0);
 
     if (this.verticalalign == 'none') //force the panel to cover the entire cell, no matter what its width/height are
     {
       this.comp.setHeight(this.height.set - borderheight);
-    }
-    else {
+    } else {
       //use distribute to basically properly apply 1pr settings to the contained cell
       this.distributeSizes(this.height.set - borderheight, [this.comp.height], true);
     }
@@ -1604,35 +1589,36 @@ class ObjCell extends ComponentBase {
   }
 
   getPosition() {
-    var x = 0, y = 0;
+    let x = 0, y = 0;
     for (var cellidx = 0; cellidx < this.colnum; ++cellidx)
       x += this.parentcomp.cols[cellidx].width.set;
     for (cellidx = 0; cellidx < this.grouprow; ++cellidx)
       y += this.rowcomp.rowgroupcomp.rows[cellidx].height.set;
 
     return {
-      x: x
-      , y: y
+      x: x,
+      y: y
     };
   }
 
   getCoordinates() {
-    var pos = this.getPosition();
+    const pos = this.getPosition();
     return {
-      top: pos.y
-      , left: pos.x
-      , width: this.width.set
-      , height: this.height.set
-      , right: pos.x + this.width.set
-      , bottom: pos.y + this.height.set
+      top: pos.y,
+      left: pos.x,
+      width: this.width.set,
+      height: this.height.set,
+      right: pos.x + this.width.set,
+      bottom: pos.y + this.height.set
     };
   }
 
   getBorderWidths() {
-    return [this.topborder ? 1 : 0
-      , this._hasRightBorder() ? 1 : 0
-      , this._hasBottomBorder() ? 1 : 0
-      , this.leftborder ? 1 : 0
+    return [
+      this.topborder ? 1 : 0,
+      this._hasRightBorder() ? 1 : 0,
+      this._hasBottomBorder() ? 1 : 0,
+      this.leftborder ? 1 : 0
     ];
   }
 
@@ -1745,11 +1731,11 @@ class ObjOverlay extends ComponentBase {
 
   buildNode() {
     this.node = dompack.create("div", {
-      className: "todd-table__overlay"
-      , dataset: { overlayid: this.id }
-      , on: { "tollium:magicmenu": e => this._onMagicMenu(e) }
+      className: "todd-table__overlay",
+      dataset: { overlayid: this.id },
+      on: { "tollium:magicmenu": e => this._onMagicMenu(e) }
     });
-    this.node.setAttribute("draggable", !!this.draginfo);
+    this.node.setAttribute("draggable", Boolean(this.draginfo));
     this.node.propTodd = this;
 
     if (this.backgroundcolor)
@@ -1758,8 +1744,8 @@ class ObjOverlay extends ComponentBase {
     if (this.resizable) {
       if (this.parentcomp.overlayrestriction == 0 || this.parentcomp.overlayrestriction == 1) {
         // Overlays may be resized vertically
-        let resize_n = <div class="todd-table__overlayresize" todd-resize="n" />;
-        let resize_v = <div class="todd-table__overlayresize" todd-resize="s" />;
+        const resize_n = <div class="todd-table__overlayresize" todd-resize="n" />;
+        const resize_v = <div class="todd-table__overlayresize" todd-resize="s" />;
 
         this.node.appendChild(resize_n);
         this.node.appendChild(resize_v);
@@ -1768,8 +1754,8 @@ class ObjOverlay extends ComponentBase {
       }
       if (this.parentcomp.overlayrestriction == 0 || this.parentcomp.overlayrestriction == 2) {
         // Overlays may be resized horizontally
-        let resize_e = <div class="todd-table__overlayresize" todd-resize="e" />;
-        let resize_w = <div class="todd-table__overlayresize" todd-resize="w" />;
+        const resize_e = <div class="todd-table__overlayresize" todd-resize="e" />;
+        const resize_w = <div class="todd-table__overlayresize" todd-resize="w" />;
         this.node.appendChild(resize_e);
         this.node.appendChild(resize_w);
         movable.enable(resize_e);
@@ -1777,7 +1763,7 @@ class ObjOverlay extends ComponentBase {
       }
     }
 
-    var comp = this.comp.getNode();
+    const comp = this.comp.getNode();
     if (comp)
       this.node.appendChild(comp);
   }
@@ -1789,7 +1775,7 @@ class ObjOverlay extends ComponentBase {
 
   getVisibleChildren()  //objOverlay
   {
-    return [this.comp].filter(node => !!node);
+    return [this.comp].filter(node => Boolean(node));
   }
 
   calculateDimWidth() //objOverlay
@@ -1801,18 +1787,18 @@ class ObjOverlay extends ComponentBase {
     //nothing to do. we follow and don't influence row heights
   }
   setWidthFromCols() {
-    var startcell = this.rowgroupcomp.findCell(this.startrow, this.startcol);
-    var endcell = this.rowgroupcomp.findCell(this.endrow, this.endcol);
+    const startcell = this.rowgroupcomp.findCell(this.startrow, this.startcol);
+    const endcell = this.rowgroupcomp.findCell(this.endrow, this.endcol);
 
     this.width.set = 0;
-    for (var cellidx = this.startcol; cellidx <= this.endcol; ++cellidx)
+    for (let cellidx = this.startcol; cellidx <= this.endcol; ++cellidx)
       this.width.set += this.parentcomp.cols[cellidx].width.set;
     this.width.set -= startcell.getBorderWidths()[3] + endcell.getBorderWidths()[1];
   }
   setHeightFromRows() {
     this.height.set = 0;
 
-    for (var rowidx = this.startrow; rowidx <= this.endrow; ++rowidx) {
+    for (let rowidx = this.startrow; rowidx <= this.endrow; ++rowidx) {
       this.height.set += this.rowgroupcomp.rows[rowidx].height.set; //ADDME plus borders?
     }
   }
@@ -1830,17 +1816,15 @@ class ObjOverlay extends ComponentBase {
            available, divided by the number of events plus 2 (which is the total
            number of thirds of an event visible). */
         this.usewidth = Math.floor(overlay_overlap * this.usewidth / (this.sharednum + (overlay_overlap - 1)));
-      }
-      else {
-        var overhead = 0;//Math.floor(this.width.overhead / 2);
+      } else {
+        const overhead = 0;//Math.floor(this.width.overhead / 2);
         //        this.width.calc = this.width.calc + overhead; // due to border overlap
 
         if (this.sharedpos == 0) {
           this.usewidth = Math.round(this.usewidth / this.sharednum) - overhead;
-        }
-        else {
-          var left = Math.round(this.usewidth / this.sharednum * this.sharedpos);
-          var nextleft = Math.round(this.usewidth / this.sharednum * (this.sharedpos + 1));
+        } else {
+          const left = Math.round(this.usewidth / this.sharednum * this.sharedpos);
+          const nextleft = Math.round(this.usewidth / this.sharednum * (this.sharedpos + 1));
           this.usewidth = nextleft - left - overhead; // only a single border width, we want to overlap borders
         }
       }
@@ -1857,33 +1841,31 @@ class ObjOverlay extends ComponentBase {
 
   relayout() // ObjOverlay
   {
-    var startcell = this.rowgroupcomp.findCell(this.startrow, this.startcol);
-    var endcell = this.rowgroupcomp.findCell(this.endrow, this.endcol);
+    const startcell = this.rowgroupcomp.findCell(this.startrow, this.startcol);
+    const endcell = this.rowgroupcomp.findCell(this.endrow, this.endcol);
     if (startcell && endcell) {
       //      console.error(startcell.node.offsetLeft, this.leftborder);
 
-      var left = startcell.node.offsetLeft + startcell.getBorderWidths()[3];
-      var top = startcell.node.offsetTop + startcell.getBorderWidths()[0];
+      let left = startcell.node.offsetLeft + startcell.getBorderWidths()[3];
+      let top = startcell.node.offsetTop + startcell.getBorderWidths()[0];
 
       if (this.parentcomp.overlayorientation == "horizontal") {
         if (this.parentcomp.overlayoverlap) {
           // The left position of an event is pos (0 for the first event, 1 for the
           // second and so on) times one third of an event width
           left += Math.floor(this.sharedpos * this.width.set / (this.sharednum + overlay_overlap - 1));
-        }
-        else {
+        } else {
           left += Math.round(this.width.set / this.sharednum * this.sharedpos);
         }
-      }
-      else {
+      } else {
         top += this.height.set * this.sharedpos;
       }
 
       dompack.setStyles(this.node, {
-        "width": this.usewidth
-        , "height": this.height.set - startcell.getBorderWidths()[0]
-        , "top": top
-        , "left": left
+        "width": this.usewidth,
+        "height": this.height.set - startcell.getBorderWidths()[0],
+        "top": top,
+        "left": left
       });
     }
 

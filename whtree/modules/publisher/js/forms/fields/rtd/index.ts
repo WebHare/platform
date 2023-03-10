@@ -17,9 +17,9 @@ export default class RTDField {
     this.node.whRTDField = this;
     this.options = { ...options };
 
-    let specifiedopts = JSON.parse(node.dataset.whRtdoptions || '{}');
-    let structure = specifiedopts.structure || null;
-    let hidebuttons = this.options.hidebuttons ? this.options.hidebuttons : [];
+    const specifiedopts = JSON.parse(node.dataset.whRtdoptions || '{}');
+    const structure = specifiedopts.structure || null;
+    const hidebuttons = this.options.hidebuttons ? this.options.hidebuttons : [];
 
     if (!this.options.onInsertVideo)
       hidebuttons.push('object-video');
@@ -28,16 +28,16 @@ export default class RTDField {
     hidebuttons.push('object-insert');
     hidebuttons.push('action-showformatting');
 
-    let rtdoptions =
+    const rtdoptions =
     {
-      enabled: true
-      , readonly: false
-      , backgroundcolor: 'transparent'
-      , structure: structure
-      , allowtags: null//data.allowtags.length ? data.allowtags : null
-      , hidebuttons: hidebuttons
-      , editembeddedobjects: false
-      , ...this.options.rtdoptions
+      enabled: true,
+      readonly: false,
+      backgroundcolor: 'transparent',
+      structure: structure,
+      allowtags: null,//data.allowtags.length ? data.allowtags : null
+      hidebuttons: hidebuttons,
+      editembeddedobjects: false,
+      ...this.options.rtdoptions
     };
     //FIXME
     //, onStatechange: this._onRTEStateChange.bind(this)
@@ -61,8 +61,8 @@ export default class RTDField {
       richeditor = await import('@mod-tollium/web/ui/components/richeditor');
 
     this.rte = new richeditor.createRTE(node, {
-      ...rtdoptions
-      , enabled: this._getEnabled() //initial enabled state
+      ...rtdoptions,
+      enabled: this._getEnabled() //initial enabled state
     });
 
     node.rte = this.rte; //we need this for testframework-rte to support our RTD. (TODO reevaluate at some point if we can clean this up)
@@ -87,8 +87,8 @@ export default class RTDField {
   }
 
   async insertVideoByURL(url) {
-    let formhandler = this.node.closest('form').propWhFormhandler;
-    let result = await formhandler.invokeRPC(this.node.dataset.whFormName + '.insertVideoByUrl', url);
+    const formhandler = this.node.closest('form').propWhFormhandler;
+    const result = await formhandler.invokeRPC(this.node.dataset.whFormName + '.insertVideoByUrl', url);
     if (!result.success)
       return { success: false, message: "Video URL not understood" };
 

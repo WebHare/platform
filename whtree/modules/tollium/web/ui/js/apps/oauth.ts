@@ -2,8 +2,8 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import $todd from "@mod-tollium/web/ui/js/support";
-var getTid = require("@mod-tollium/js/gettid").getTid;
-var utilerror = require('@mod-system/js/wh/errorreporting');
+const getTid = require("@mod-tollium/js/gettid").getTid;
+const utilerror = require('@mod-system/js/wh/errorreporting');
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 import { registerJSApp } from "../application";
 import "../../common.lang.json";
@@ -26,23 +26,22 @@ class OauthApp {
   async _showError(text) {
     await runSimpleScreen(this.app,
       {
-        title: getTid("tollium:shell.oauth.errortitle")
-        , text: text
-        , buttons: [{ name: "close", title: getTid("~close") }
-        ]
+        title: getTid("tollium:shell.oauth.errortitle"),
+        text: text,
+        buttons: [{ name: "close", title: getTid("~close") }]
       });
     this.app.terminateApplication();
   }
 
   _setupScreen() {
-    var url = new URL(location.href);
+    const url = new URL(location.href);
 
     this.oauth_clientid = url.searchParams.get("oauth_clientid");
     this.oauth_redirect = url.searchParams.get("oauth_redirect");
-    var scopes = url.searchParams.get("oauth_scopes").split(",").filter(function(scope) { return scope; });
+    const scopes = url.searchParams.get("oauth_scopes").split(",").filter(function(scope) { return scope; });
     this.oauth_scopes = scopes;
 
-    var error = "";
+    let error = "";
 
     if (this.oauth_clientid == "")
       error = getTid("tollium:shell.oauth.messages.missing_client");
@@ -56,87 +55,94 @@ class OauthApp {
     if (error)
       return this._showError(error);
 
-    var screencomponents =
+    const screencomponents =
     {
       frame: {
-        bodynode: 'root'
-        , specials: ["submitaction", "cancelaction"]
-        , allowresize: false
-        , title: getTid("tollium:shell.oauth.oauthtitle")
-        , defaultbutton: 'loginbutton'
-      }
+        bodynode: 'root',
+        specials: ["submitaction", "cancelaction"],
+        allowresize: false,
+        title: getTid("tollium:shell.oauth.oauthtitle"),
+        defaultbutton: 'loginbutton'
+      },
 
-      , root: {
-        type: 'panel'
-        , lines: [{ layout: "block", items: [{ item: "body" }], height: '1pr' }
-          , { layout: "block", items: [{ item: "footer" }], height: '1pr' }
-        ]
-        , height: '1pr'
-      }
-      , body: {
-        type: 'panel'
-        , spacers: { bottom: true, top: true, left: true, right: true }
-        , lines: [{
-          title: ""
-          , items: [{
-            item: "explanation_text"
-          }
-          ]
-          , layout: "left"
-        }
-          , {
-          title: getTid("tollium:shell.oauth.clientid")
-          , items: [{
-            item: "clientid"
-          }
-          ]
-        }
+      root: {
+        type: 'panel',
+        lines: [
+          { layout: "block", items: [{ item: "body" }], height: '1pr' },
+          { layout: "block", items: [{ item: "footer" }], height: '1pr' }
+        ],
+        height: '1pr'
+      },
+      body: {
+        type: 'panel',
+        spacers: { bottom: true, top: true, left: true, right: true },
+        lines: [
+          {
+            title: "",
+            items: [
+              {
+                item: "explanation_text"
+              }
+            ],
+            layout: "left"
+          },
+          {
+            title: getTid("tollium:shell.oauth.clientid"),
+            items: [
+              {
+                item: "clientid"
+              }
+            ]
+          },
           /*
         , { title: getTid("tollium:shell.oauth.scopes")
           , items: [ { item: "scopes"
                      }
                    ]
           }*/
-          , {
-          title: ""
-          , items: [{
-            item: "question_text"
+          {
+            title: "",
+            items: [
+              {
+                item: "question_text"
+              }
+            ],
+            layout: "left"
           }
-          ]
-          , layout: "left"
-        }
-        ]
-        , width: '1pr'
-      }
-      , footer: {
-        type: 'panel'
-        , spacers: { bottom: true, top: true, left: true, right: true }
-        , lines: [{
-          layout: "right"
-          , items: [{ item: "submitbutton" }
-            , { item: "cancelbutton" }
-          ]
-        }
-        ]
-        , isfooter: true
-        , width: '1pr'
-      }
+        ],
+        width: '1pr'
+      },
+      footer: {
+        type: 'panel',
+        spacers: { bottom: true, top: true, left: true, right: true },
+        lines: [
+          {
+            layout: "right",
+            items: [
+              { item: "submitbutton" },
+              { item: "cancelbutton" }
+            ]
+          }
+        ],
+        isfooter: true,
+        width: '1pr'
+      },
 
-      , explanation_text: { type: "text", title: "", value: getTid("tollium:shell.oauth.explanation") }
+      explanation_text: { type: "text", title: "", value: getTid("tollium:shell.oauth.explanation") },
 
-      , question_text: { type: "text", title: "", value: getTid("tollium:shell.oauth.question"), wordwrap: true, width: "1pr", minwidth: "70x" }
+      question_text: { type: "text", title: "", value: getTid("tollium:shell.oauth.question"), wordwrap: true, width: "1pr", minwidth: "70x" },
 
-      , clientid: { type: "text", title: "", value: this.oauth_clientid }
+      clientid: { type: "text", title: "", value: this.oauth_clientid },
 
       // , scopes:       { type: "text", title: "", value: this.oauth_scopes.join(", ") }
 
-      , submitbutton: { type: "button", title: getTid("~yes"), action: "submitaction" }
+      submitbutton: { type: "button", title: getTid("~yes"), action: "submitaction" },
 
-      , cancelbutton: { type: "button", title: getTid("~no"), action: "cancelaction" }
+      cancelbutton: { type: "button", title: getTid("~no"), action: "cancelaction" },
 
-      , submitaction: { type: "action", hashandler: true, onexecute: this._createAccessToken.bind(this) }
+      submitaction: { type: "action", hashandler: true, onexecute: this._createAccessToken.bind(this) },
 
-      , cancelaction: { type: "action", hashandler: true, onexecute: this._sendCancel.bind(this) }
+      cancelaction: { type: "action", hashandler: true, onexecute: this._sendCancel.bind(this) }
     };
 
     this.topscreen = this.app.createNewScreenObject('loginapp', 'frame', $todd.componentsToMessages(screencomponents));
@@ -144,23 +150,22 @@ class OauthApp {
 
   async _createAccessToken(component, rule, callback) {
     try {
-      var options =
+      const options =
       {
-        type: "getoauthtoken"
-        , scopes: this.oauth_scopes
+        type: "getoauthtoken",
+        scopes: this.oauth_scopes
       };
 
       const result = await $shell.tolliumservice.executeAction(options);
 
-      var url = new URL(this.oauth_redirect);
+      const url = new URL(this.oauth_redirect);
       url.searchParams.set("responsetype", "token");
       url.searchParams.set("token", result.token);
       url.searchParams.set("scopes", result.scopes.join(","));
       url.searchParams.set("serverversion", result.serverversion);
       url.searchParams.set("expires", result.expires);
       location.href = url.toString();
-    }
-    catch (e) {
+    } catch (e) {
       if (e instanceof Error)
         utilerror.reportException(e);
 
@@ -170,7 +175,7 @@ class OauthApp {
   }
 
   _sendCancel(component, rule, callback) {
-    var url = new URL(this.oauth_redirect);
+    const url = new URL(this.oauth_redirect);
     url.searchParams.set("responsetype", "cancel");
     location.href = url.toString();
     callback();

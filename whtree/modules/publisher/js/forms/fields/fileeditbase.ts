@@ -12,7 +12,7 @@ function isAcceptableType(filetype, masks) {
   if (masks.includes(filetype))
     return true;
 
-  let basetype = filetype.split('/')[0];
+  const basetype = filetype.split('/')[0];
   if (['image', 'video', 'audio'].includes(basetype) && masks.includes(basetype + '/*'))
     return true;
 
@@ -22,7 +22,7 @@ function isAcceptableType(filetype, masks) {
 
 export default class FileEditBase {
   constructor(node, options?) {
-    let formnode = node.closest('form');
+    const formnode = node.closest('form');
     if (formnode && !formnode.dataset.whFormId & !formnode.dataset.whFormTarget) //doesn't look like a RPC form
       return; //then don't replace it!
 
@@ -71,12 +71,12 @@ export default class FileEditBase {
       this.finishGetValue();
   }
   finishGetValue() {
-    let valuelink = this.getFieldValueLink();
-    let value = valuelink
+    const valuelink = this.getFieldValueLink();
+    const value = valuelink
       ? { link: valuelink, filename: this.node.dataset.whFilename, mimetype: this.node.dataset.whFiletype }
       : null;
 
-    let toresolve = this.deferredvalues;
+    const toresolve = this.deferredvalues;
     this.deferredvalues = [];
     toresolve.forEach(deferred => deferred.resolve(value));
   }
@@ -88,8 +88,8 @@ export default class FileEditBase {
       return;
 
     evt.preventDefault();
-    let lock = dompack.flagUIBusy();
-    let files = await upload.selectFiles();
+    const lock = dompack.flagUIBusy();
+    const files = await upload.selectFiles();
     this.uploadFile(files, lock);
   }
   _isAcceptableType(mimetype) {
@@ -102,18 +102,18 @@ export default class FileEditBase {
       return;
     }
 
-    let uploadingcontrol = this.node.closest(".wh-form__fieldgroup");
+    const uploadingcontrol = this.node.closest(".wh-form__fieldgroup");
     if (uploadingcontrol)
       uploadingcontrol.classList.add("wh-form--uploading");
 
     this.busy = true;
     try {
-      let uploader = new upload.UploadSession(files);//ADDME - should identify us as permitted to upload eg , { params: { edittoken: ...} });
-      let res = await uploader.upload();
+      const uploader = new upload.UploadSession(files);//ADDME - should identify us as permitted to upload eg , { params: { edittoken: ...} });
+      const res = await uploader.upload();
 
       if (!this._isAcceptableType(res[0].type)) {
         //TODO tell server it can destroy the file immediately (should have told uploadsession at the start?
-        let msg = this.node.dataset.whAccepterror || getTid("publisher:site.forms.commonerrors.badfiletype");
+        const msg = this.node.dataset.whAccepterror || getTid("publisher:site.forms.commonerrors.badfiletype");
         FormBase.setFieldError(this.node, msg, { reportimmediately: true });
         return;
       }
@@ -128,8 +128,7 @@ export default class FileEditBase {
       //FIXME this is just a webserver temporary session, need to get URLs with longer persistence
       dompack.dispatchCustomEvent(this.node, 'change', { bubbles: true, cancelable: false });
       this._check();
-    }
-    finally {
+    } finally {
       this.busy = false;
       this.finishGetValue();
       lock.release();

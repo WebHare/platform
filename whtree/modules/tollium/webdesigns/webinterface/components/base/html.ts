@@ -21,8 +21,8 @@ export default class HTMLCompBase extends ComponentBase {
   }
 
   setRequired(value) {
-    if (!!value != !!this.node.required) {
-      this.node.required = !!value;
+    if (Boolean(value) != Boolean(this.node.required)) {
+      this.node.required = Boolean(value);
       //ADDME? this.node.classList.toggle("required", this.required);
       // this.node.fireEvent("wh-refresh");
     }
@@ -53,9 +53,9 @@ export default class HTMLCompBase extends ComponentBase {
   }
 
   onSelect() {
-    let newvalue = this.getValue();
+    const newvalue = this.getValue();
     if (newvalue !== this.lastvalue) {
-      let shouldsetdirty = this.lastvalue !== null;
+      const shouldsetdirty = this.lastvalue !== null;
       this.lastvalue = newvalue;
       if (shouldsetdirty)
         this.setDirty();

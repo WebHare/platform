@@ -8,13 +8,13 @@
   <test script="webfeatures.whscr"/>
   <test script="test_forms.whscr"/>
   <test script="test_abtest.whscr"/>
-  <jstest file="test-abtest-frontend.es"/>
+  <jstest file="test-abtest-frontend.ts"/>
   <test script="test_widgets.whscr"/>
   <test script="test_widget_preview.whscr"/>
   <test script="test-nodesign.whscr"/>
-  <jstest file="test-common-widgets-online.es"/>
+  <jstest file="test-common-widgets-online.ts"/>
   <test script="test_outputanalyzer.whscr"/>
-  <jstest file="testwebdesign.es" />
+  <jstest file="testwebdesign.ts" />
   <test script="test_structureddata.whscr"/>
-  <jstest file="test_gallery.es" />
+  <jstest file="test_gallery.ts" />
 </group>

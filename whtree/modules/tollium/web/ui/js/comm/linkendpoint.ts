@@ -41,10 +41,10 @@ export default class LinkEndpoint { // -----------------------------------------
     // options
     this.options =
     {
-      linkid: ''
-      , commhost: ''
-      , frontendid: ''
-      , ...options
+      linkid: '',
+      commhost: '',
+      frontendid: '',
+      ...options
     };
 
     //console.log('** new endpoint', this.options.linkid, this.options.frontendid, this.options.commhost);
@@ -93,20 +93,20 @@ export default class LinkEndpoint { // -----------------------------------------
   }
 
   constructWireMessage(sendall) {
-    var startmsgpos = 0;
+    let startmsgpos = 0;
     if (!sendall)
       for (; startmsgpos < this.queuedmessages.length; ++startmsgpos)
         if (this.queuedmessages[startmsgpos].seqnr > this.lastsentseqnr)
           break;
 
     this.lastsentseqnr = this.msgcounter;
-    var wiremsg =
+    const wiremsg =
     {
-      linkid: this.options.linkid
-      , messages: this.queuedmessages.slice(startmsgpos)
-      , ack: this.lastreceivedseqnr
-      , frontendid: this.options.frontendid
-      , needack: this.queuedmessages.length != 0
+      linkid: this.options.linkid,
+      messages: this.queuedmessages.slice(startmsgpos),
+      ack: this.lastreceivedseqnr,
+      frontendid: this.options.frontendid,
+      needack: this.queuedmessages.length != 0
     };
 
     this.seennewmessage = false;

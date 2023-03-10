@@ -8,10 +8,10 @@ import "../internal/rtd.lang.json";
 import * as consenthandler from '@mod-publisher/js/analytics/consenthandler';
 
 
-let youtubedomain = 'www.youtube.com';
+const youtubedomain = 'www.youtube.com';
 
 function createMyFrame() {
-  let ifrm = document.createElement("iframe");
+  const ifrm = document.createElement("iframe");
   ifrm.style.width = "100%";
   ifrm.style.height = "100%";
   ifrm.setAttribute("frameborder", 0);
@@ -20,12 +20,12 @@ function createMyFrame() {
 }
 
 function initYouTube(node, video, playback) {
-  let ifrm = createMyFrame();
+  const ifrm = createMyFrame();
 
   // List of embed parameters YouTube supports:
   // https://developers.google.com/youtube/player_parameters
 
-  var args = [];
+  const args = [];
 
   if (playback.autoplay)
     args.push("autoplay=1");
@@ -54,7 +54,7 @@ function initYouTube(node, video, playback) {
 
   args.push("rel=0", "enablejsapi=1", "origin=" + location.origin); // disable 'related video's'
 
-  var youtube_url = `//${youtubedomain}/embed/${video.id}`;
+  let youtube_url = `//${youtubedomain}/embed/${video.id}`;
   if (args.length > 0)
     youtube_url += "?" + args.join("&");
 
@@ -64,8 +64,8 @@ function initYouTube(node, video, playback) {
 }
 
 function initVimeo(node, video, playback) {
-  let ifrm = createMyFrame();
-  var args = [];
+  const ifrm = createMyFrame();
+  const args = [];
 
   // List of embed parameters Vimeo supports:
   // https://vimeo.zendesk.com/hc/en-us/articles/360001494447-Player-parameters-overview
@@ -98,15 +98,15 @@ function initVimeo(node, video, playback) {
       args.push("player_id=" + playback.player_id);
   }
 
-  var vimeo_url = "//player.vimeo.com/video/" + video.id;
+  let vimeo_url = "//player.vimeo.com/video/" + video.id;
   if (args.length > 0)
     vimeo_url += "?" + args.join("&");
 
   if (video.starttime) {
     // #t=3m28s
-    var t = video.starttime;
-    var minutes = Math.floor(t / 60);
-    var seconds = t % 60;
+    const t = video.starttime;
+    const minutes = Math.floor(t / 60);
+    const seconds = t % 60;
     vimeo_url += "#t=" + minutes + "m" + seconds + "s";
   }
 
@@ -127,23 +127,23 @@ function launchVideo(node, video, opts) {
 }
 
 function initializeVideoElementV1(node) {
-  let video = JSON.parse(node.dataset.video);
-  let opts = node.dataset.videoOptions ? JSON.parse(node.dataset.videoOptions) : {};
+  const video = JSON.parse(node.dataset.video);
+  const opts = node.dataset.videoOptions ? JSON.parse(node.dataset.videoOptions) : {};
   node.innerHTML = '';
   launchVideo(node, video, opts);
 }
 
 function initializeVideoElementV2(node) {
-  let video = JSON.parse(node.dataset.whVideo);
+  const video = JSON.parse(node.dataset.whVideo);
 
-  let videonodes = dompack.qSA(node, ".wh-video--activate");
+  const videonodes = dompack.qSA(node, ".wh-video--activate");
 
-  for (let videonode of videonodes) {
+  for (const videonode of videonodes) {
     videonode.addEventListener("click", function() {
       activateVideo(videonode, video);
     });
 
-    let playbutton = videonode.querySelector(".wh-video__playbutton");
+    const playbutton = videonode.querySelector(".wh-video__playbutton");
     playbutton.setAttribute("tabindex", "0");
     playbutton.setAttribute("role", "button");
     playbutton.setAttribute("aria-label", getTid("publisher:site.rtd.embedvideo.playbutton-aria"));

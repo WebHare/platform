@@ -22,8 +22,7 @@ function login(options) {
         , (result) => { result.accepted = false; resolve(result); }
         , options
       );
-    }
-    catch (e) {
+    } catch (e) {
       reject(e);
     }
   });
@@ -31,6 +30,6 @@ function login(options) {
 
 
 module.exports = {
-  initializeSDK: initializeSDK
-  , launchLoginDialog: login
+  initializeSDK: initializeSDK,
+  launchLoginDialog: login
 };

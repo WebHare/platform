@@ -18,11 +18,11 @@ export default class SelectList {
       dompack.empty(this._items);
     else
       this._items = dompack.create('div', {
-        className: this._class + '__items'
-        , on: {
-          mouseup: evt => this._clickItem(evt) //on 'up' we consider the selection good
-          , mousedown: evt => this._preventFocusLoss(evt)
-          , click: evt => this._clickItem(evt) //catches synthetic clicks (.click on element)
+        className: this._class + '__items',
+        on: {
+          mouseup: evt => this._clickItem(evt), //on 'up' we consider the selection good
+          mousedown: evt => this._preventFocusLoss(evt),
+          click: evt => this._clickItem(evt) //catches synthetic clicks (.click on element)
         }
       });
     this._generateItemNodes(options);
@@ -32,10 +32,10 @@ export default class SelectList {
   {
     evt.preventDefault();
 
-    if (evt.target == this._items && !!window.MSInputMethodContext && !!document.documentMode) //quick & dirty IE11 check
+    if (evt.target == this._items && Boolean(window.MSInputMethodContext) && Boolean(document.documentMode)) //quick & dirty IE11 check
     {
       //IE11 has an issue that clicking the scrollbar resets the focus even after cancelling, so fix that by simply blocking blur for a while
-      var blurblocker = evt => dompack.stop(evt);
+      const blurblocker = evt => dompack.stop(evt);
       window.addEventListener("blur", blurblocker, true);
       setTimeout(() => window.removeEventListener("blur", blurblocker, true), 1);
     }
@@ -44,7 +44,7 @@ export default class SelectList {
   _clickItem(evt) {
     dompack.stop(evt);
 
-    let selectitem = evt.target.closest('.' + this._class + '__item');
+    const selectitem = evt.target.closest('.' + this._class + '__item');
     if (selectitem && this._doSelectItem(selectitem))
       this.closeSelectList();
   }
@@ -58,12 +58,12 @@ export default class SelectList {
       return;
 
     //fix the width, as we're removing our contents so they won't keep us at the proper width
-    let pulldowncoords = this._anchornode.getBoundingClientRect();
-    let itemscoords = this._items.getBoundingClientRect();
+    const pulldowncoords = this._anchornode.getBoundingClientRect();
+    const itemscoords = this._items.getBoundingClientRect();
 
     this._openbottom = true;
-    let bottomroom = window.innerHeight - pulldowncoords.bottom;
-    let toproom = pulldowncoords.top;
+    const bottomroom = window.innerHeight - pulldowncoords.bottom;
+    const toproom = pulldowncoords.top;
 
     if (itemscoords.bottom > window.innerHeight) //the pulldown won't fit below us
     {
@@ -81,8 +81,7 @@ export default class SelectList {
 
     if (this._openbottom) {
       this._items.style.maxHeight = bottomroom + 'px';
-    }
-    else {
+    } else {
       this._items.style.maxHeight = toproom + 'px';
     }
 
@@ -96,7 +95,7 @@ export default class SelectList {
     //we need to join the body, because even with fixed ignoring overflows, we can still be clipped by z-index
     document.body.appendChild(this._items);
     //make sure te selectionis in sight!
-    let selection = this._items.querySelector(`.${this._class}__item--selected`);
+    const selection = this._items.querySelector(`.${this._class}__item--selected`);
     if (selection)
       this.scrollOptionIntoView(selection);
 
@@ -109,7 +108,7 @@ export default class SelectList {
     if (!this._isOpen())
       return;
     //we need to copy it, getBCR is a weird object
-    let bcr = this._anchornode.getBoundingClientRect();
+    const bcr = this._anchornode.getBoundingClientRect();
     if (this._lastpulldowncoords.top != bcr.top
       || this._lastpulldowncoords.left != bcr.left
       || this._lastpulldowncoords.bottom != bcr.bottom) { //we moved
@@ -118,8 +117,7 @@ export default class SelectList {
         //this._items.style.top = Math.ceil(pulldowncoords.bottom) + 'px';
         this._items.style.top = Math.floor(bcr.bottom) + 'px';
         this._items.style.bottom = '';
-      }
-      else {
+      } else {
         this._items.style.top = '';
         this._items.style.bottom = Math.floor(window.innerHeight - bcr.top) + 'px';
       }

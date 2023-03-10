@@ -14,28 +14,26 @@ class ForumCommentsForm extends FormBase {
     this.commentstool = commentstool;
   }
   async submit(extradata) {
-    let result = await this.getFormValue();
+    const result = await this.getFormValue();
 
-    let lock = dompack.flagUIBusy();
+    const lock = dompack.flagUIBusy();
     try {
       result.captcharesponse = (extradata ? extradata.captcharesponse : '') || '';
 
-      let response = await forumrpc.postComment(this.commentstool.node.dataset.whForum, location.href, result);
+      const response = await forumrpc.postComment(this.commentstool.node.dataset.whForum, location.href, result);
 
       //ADDME optimize ? we might just as well add the new post ourselves if we had the creationdate
       if (response.success) {
         this.commentstool._initComments();
         this.reset();
-      }
-      else if (response.error == "CAPTCHA") {
+      } else if (response.error == "CAPTCHA") {
         setTimeout(async () => {
-          let captcharesponse = await getCaptchaResponse(response.apikey, { busycomponent: this.node });
+          const captcharesponse = await getCaptchaResponse(response.apikey, { busycomponent: this.node });
           if (captcharesponse) //retry with the response
             return this.submit({ captcharesponse });
         });
       }
-    }
-    finally {
+    } finally {
       lock.release();
     }
   }
@@ -45,9 +43,9 @@ export default class ForumCommentsWebtool {
   constructor(node, options) {
     this.node = node;
     this.options = {
-      generateitems: items => this.generateItems(items)
-      , generateitem: item => this.generateItem(item)
-      , ...options
+      generateitems: items => this.generateItems(items),
+      generateitem: item => this.generateItem(item),
+      ...options
     };
 
     this._initForm();
@@ -60,7 +58,7 @@ export default class ForumCommentsWebtool {
   }
   generateItem(item) {
     let messagenode;
-    let node = <div class="wh-forumcomments__post">
+    const node = <div class="wh-forumcomments__post">
       {messagenode = <div class="wh-forumcomments__message"></div>}
       <div class="wh-forumcomments__signature">
         <div class="wh-forumcomments__name">{item.name}</div>
@@ -75,25 +73,25 @@ export default class ForumCommentsWebtool {
   }
 
   _initForm() {
-    let formnode = dompack.qS(this.node, 'form');
+    const formnode = dompack.qS(this.node, 'form');
     if (formnode)
       new ForumCommentsForm(this, formnode);
   }
 
   async _initComments() {
-    let lock = dompack.flagUIBusy();
+    const lock = dompack.flagUIBusy();
 
     try {
-      let state = await forumrpc.getCommentsState(this.node.dataset.whForum, location.href);
+      const state = await forumrpc.getCommentsState(this.node.dataset.whForum, location.href);
 
       this.node.classList.add(state.closed ? "wh-forumcomments--closed" : "wh-forumcomments--open");
       this.node.classList.remove("wh-forumcomments--notloaded");
 
-      let postsholder = dompack.qS(this.node, '.wh-forumcomments__posts');
+      const postsholder = dompack.qS(this.node, '.wh-forumcomments__posts');
       if (postsholder) {
         dompack.empty(postsholder);
 
-        let items = this.options.generateitems(state.entries);
+        const items = this.options.generateitems(state.entries);
         if (Array.isArray(items))
           dompack.append(postsholder, ...items);
         else
@@ -101,8 +99,7 @@ export default class ForumCommentsWebtool {
       }
 
       dompack.dispatchCustomEvent(this.node, 'wh:forum-commentsloaded', { bubbles: true, cancelable: false });
-    }
-    finally {
+    } finally {
       lock.release();
     }
   }

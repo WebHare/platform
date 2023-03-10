@@ -4,7 +4,7 @@
 import * as dompack from 'dompack';
 import { ObjAutoSuggestableBase } from '../textedit/textedit';
 
-var TagEdit = require('@mod-tollium/web/ui/components/tagedit/tagedit');
+const TagEdit = require('@mod-tollium/web/ui/components/tagedit/tagedit');
 import $todd from "@mod-tollium/web/ui/js/support";
 
 export default class ObjTagEdit extends ObjAutoSuggestableBase {
@@ -41,12 +41,12 @@ export default class ObjTagEdit extends ObjAutoSuggestableBase {
   getSubmitValue() {
     return this.control
       ? {
-        tags: this.control.getStringValue()
-        , hasunprocessedinput: this.control.haveUnprocessedInput()
+        tags: this.control.getStringValue(),
+        hasunprocessedinput: this.control.haveUnprocessedInput()
       }
       : {
-        tags: this.value
-        , hasunprocessedinput: false
+        tags: this.value,
+        hasunprocessedinput: false
       };
   }
 
@@ -84,12 +84,12 @@ export default class ObjTagEdit extends ObjAutoSuggestableBase {
 
   buildNode() {
     this.control = new TagEdit(null, {
-      tagSeparator: this.separator
-      , allowMultiple: this.allowmultiple
-      , caseSensitive: this.casesensitive
-      , placeholder: this.placeholder
-      , multiline: true
-      , validatetags: this.validatetags ? this._validateTags.bind(this) : null
+      tagSeparator: this.separator,
+      allowMultiple: this.allowmultiple,
+      caseSensitive: this.casesensitive,
+      placeholder: this.placeholder,
+      multiline: true,
+      validatetags: this.validatetags ? this._validateTags.bind(this) : null
     });
 
     this._autosuggester = this.setupAutosuggest(this.control.inputnode);
@@ -123,9 +123,9 @@ export default class ObjTagEdit extends ObjAutoSuggestableBase {
   relayout() {
     this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
     dompack.setStyles(this.node, {
-      width: this.width.set// - this.width.overhead
+      width: this.width.set,// - this.width.overhead
       //   , height: 23
-      , "margin-top": this.getVerticalPosition()
+      "margin-top": this.getVerticalPosition()
     });
     this.control._resizeInput();
   }
@@ -139,13 +139,13 @@ export default class ObjTagEdit extends ObjAutoSuggestableBase {
     ++this.validatequerycounter;
     this.queueMessage('validatetags', { tags: tags, msgid: this.validatequerycounter }, true);
 
-    var defer = dompack.createDeferred();
+    const defer = dompack.createDeferred();
     this.validatequeries.push({ msgid: this.validatequerycounter, defer: defer });
     return defer.promise;
   }
 
   onMsgValidateTagsReply(data) {
-    for (var i = 0; i < this.validatequeries.length; ++i) {
+    for (let i = 0; i < this.validatequeries.length; ++i) {
       if (this.validatequeries[i].msgid == data.replyto) {
         this.validatequeries[i].defer.resolve(data.tags);
         this.validatequeries.splice(i, 1);

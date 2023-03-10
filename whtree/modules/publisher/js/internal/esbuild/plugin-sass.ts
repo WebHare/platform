@@ -15,7 +15,7 @@ const sassRender = util.promisify(sass.render);
 import * as compileutils from './compileutils';
 
 function addUnderscoreToFilename(url) {
-  let parts = url.split('/');
+  const parts = url.split('/');
   parts[parts.length - 1] = '_' + parts[parts.length - 1];
   return parts.join('/');
 }
@@ -107,13 +107,12 @@ async function replaceUrls(css, newCssFileName, sourceDir, rootDir) {
             const urlNode = node.prelude.children.first();
             if (urlNode != null && urlNode.type === "String") {
               const normalizedUrl = normalizeQuotes(urlNode.value);
-              let rewritten = rewriteSassURL(newCssFileName, normalizedUrl);
+              const rewritten = rewriteSassURL(newCssFileName, normalizedUrl);
               if (rewritten) {
                 if (process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
                   console.log(`[plugin-sass] replaceUrls: @import rewrote ${normalizedUrl} to ${rewritten}`);
                 urlNode.value = `"${fixCssUrl(rewritten)}"`;
-              }
-              else {
+              } else {
                 if (process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
                   console.log(`[plugin-sass] replaceUrls: @import did not rewrite ${normalizedUrl}`);
               }
@@ -124,7 +123,7 @@ async function replaceUrls(css, newCssFileName, sourceDir, rootDir) {
         if (node.type === "Url") {
           const value = node.value;
           const normalizedUrl = value.type === "String" ? normalizeQuotes(value.value) : value.value;
-          let rewritten = rewriteSassURL(newCssFileName, normalizedUrl);
+          const rewritten = rewriteSassURL(newCssFileName, normalizedUrl);
           if (rewritten) {
             if (process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
               console.log(`[plugin-sass] replaceUrls: url() rewrote ${normalizedUrl} to ${rewritten}`);
@@ -135,8 +134,7 @@ async function replaceUrls(css, newCssFileName, sourceDir, rootDir) {
               type: "String",
               value: `"${fixCssUrl(rewritten)}"`
             };
-          }
-          else {
+          } else {
             if (process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
               console.log(`[plugin-sass] replaceUrls: url() did not rewrite ${normalizedUrl}`);
           }
@@ -158,7 +156,7 @@ function isLocalFileUrl(url) {
   return true;
 }
 function normalizeQuotes(stringValue) {
-  var _a;
+  let _a;
   const match = stringValue.match(/^['"](.*)["']$/s);
   return match != null ? (_a = match[1]) !== null && _a !== void 0 ? _a : "" : stringValue;
 }
@@ -179,9 +177,9 @@ module.exports = (captureplugin, options = {}) => ({
       const sourceDir = path.dirname(sourceFullPath);
 
       // Compile SASS to CSS
-      let result = await sassRender({
-        importer: function(url, prev, done) { sassImporter(sourceFullPath, url, prev, done); }
-        , file: sourceFullPath
+      const result = await sassRender({
+        importer: function(url, prev, done) { sassImporter(sourceFullPath, url, prev, done); },
+        file: sourceFullPath
       });
 
       let css = result.css.toString();
@@ -190,9 +188,9 @@ module.exports = (captureplugin, options = {}) => ({
       result.stats.includedFiles.forEach(dep => captureplugin.loadcache.add(dep));
 
       return {
-        contents: css
-        , loader: "css"
-        , watchFiles: result.stats.includedFiles
+        contents: css,
+        loader: "css",
+        watchFiles: result.stats.includedFiles
       };
     });
   },

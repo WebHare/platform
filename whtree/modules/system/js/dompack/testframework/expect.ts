@@ -3,7 +3,7 @@
 
 import { log } from './index';
 
-var typeOf = function(item) {
+const typeOf = function(item) {
   if (item == null) return 'null';
 
   if (item.nodeName) {
@@ -35,8 +35,8 @@ export function testDeepEq(expected, actual, path) //exported for webhare's test
   if (expected === null && actual !== null)
     throw new Error("Expected null, got " + (path != "" ? " at " + path : ""));
 
-  var t_expected = typeof expected;
-  var t_actual = typeof actual;
+  let t_expected = typeof expected;
+  let t_actual = typeof actual;
   if (t_expected != t_actual)
     throw new Error("Expected type: " + t_expected + " actual type: " + t_actual + (path != "" ? " at " + path : ""));
 
@@ -64,13 +64,12 @@ export function testDeepEq(expected, actual, path) //exported for webhare's test
     if (expected.length != actual.length)
       throw new Error("Expected: " + expected.length + " elements, actual: " + actual.length + " elements" + (path != "" ? " at " + path : ""));
 
-    for (var i = 0; i < expected.length; ++i)
+    for (let i = 0; i < expected.length; ++i)
       testDeepEq(expected[i], actual[i], path + "[" + i + "]");
-  }
-  else {
+  } else {
     //not the same object. same contents?
-    var expectedkeys = Object.keys(expected);
-    var actualkeys = Object.keys(actual);
+    const expectedkeys = Object.keys(expected);
+    const actualkeys = Object.keys(actual);
 
     expectedkeys.forEach(key => {
       if (!actualkeys.includes(key))
@@ -88,8 +87,7 @@ function isequal(a, b) {
   try {
     testDeepEq(a, b, '');
     return true;
-  }
-  catch (e) {
+  } catch (e) {
     return false;
   }
 }
@@ -133,19 +131,18 @@ export function testEq(expected, actual, explanation) {
 }
 
 export function testTrue(actual, explanation) {
-  testEq(true, !!actual, explanation);
+  testEq(true, Boolean(actual), explanation);
 }
 
 export function testFalse(actual, explanation) {
-  testEq(false, !!actual, explanation);
+  testEq(false, Boolean(actual), explanation);
 }
 
 
 async function testThrowsAsync(promise, explanation) {
   try {
     await promise;
-  }
-  catch (e) {
+  } catch (e) {
     return;
   }
 
@@ -158,7 +155,7 @@ async function testThrowsAsync(promise, explanation) {
 
 export function testThrows(func, explanation) {
   try {
-    let res = func();
+    const res = func();
     if (res && res.then) // thenable?
       return testThrowsAsync(res, explanation);
 
@@ -167,7 +164,6 @@ export function testThrows(func, explanation) {
 
     console.log("testThrows fails: expected function to throw");
     log("testThrows fails: expected function to throw");
-  }
-  catch (e) {
+  } catch (e) {
   }
 }

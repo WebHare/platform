@@ -12,11 +12,11 @@ export function reportValidity(node) {
     node.reportValidity();
     return true;
   }
-  let form = node.closest('form');
+  const form = node.closest('form');
   if (!form)
     return false;
 
-  let submitbutton = form.querySelector("button[type=submit], input[type=submit]");
+  const submitbutton = form.querySelector("button[type=submit], input[type=submit]");
   if (!submitbutton)
     return false;
 
@@ -26,7 +26,7 @@ export function reportValidity(node) {
 
 
 function setupServerErrorClear(field) {
-  let group = field.closest('.wh-form__fieldgroup') || field;
+  const group = field.closest('.wh-form__fieldgroup') || field;
   field.propWhCleanupFunction = () => {
     group.removeEventListener("change", field.propWhCleanupFunction, true);
     group.removeEventListener("input", field.propWhCleanupFunction, true);
@@ -55,8 +55,7 @@ export function setFieldError(field: HTMLElement, error: string, options?) {
   {
     setupServerErrorClear(field);
     field.propWhErrorServerSide = true;
-  }
-  else {
+  } else {
     field.propWhErrorServerSide = false;
   }
 
@@ -66,13 +65,13 @@ export function setFieldError(field: HTMLElement, error: string, options?) {
 
   if (!dompack.dispatchCustomEvent(field, 'wh:form-setfielderror', //this is where parsley hooks in and cancels to handle the rendering of faults itself
     {
-      bubbles: true
-      , cancelable: true
-      , detail: {
-        error: error
-        , reportimmediately: options.reportimmediately
-        , serverside: options.serverside
-        , metadata: options.metadata
+      bubbles: true,
+      cancelable: true,
+      detail: {
+        error: error,
+        reportimmediately: options.reportimmediately,
+        serverside: options.serverside,
+        metadata: options.metadata
       }
     })) {
     return;
@@ -90,7 +89,7 @@ export function setFieldError(field: HTMLElement, error: string, options?) {
 }
 
 export function setupValidator(node, checker) {
-  var check = async () => {
+  const check = async () => {
     let error = checker(node);
 
     // If error is a thenable (Promise or something like it) await it. Stay synchronous if not.

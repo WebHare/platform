@@ -2,11 +2,11 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from 'dompack';
-var toddImages = require("@mod-tollium/js/icons");
-var getTid = require("@mod-tollium/js/gettid").getTid;
+const toddImages = require("@mod-tollium/js/icons");
+const getTid = require("@mod-tollium/js/gettid").getTid;
 
 function getLocalHHMM() {
-  let date = new Date();
+  const date = new Date();
   return ('0' + date.getHours()).slice(-2) + ':' + ('0' + date.getMinutes()).slice(-2);
 }
 
@@ -21,7 +21,7 @@ class TowlNotifications {
     this._firstbrowsernotification = true;
 
     /// Whether native notifications are supported on this browser
-    this._native_notifications = !!window.Notification;
+    this._native_notifications = Boolean(window.Notification);
     this._native_request_visible = false;
     this._preferred_location = "";
     this._enable_notifications = true;
@@ -66,8 +66,7 @@ class TowlNotifications {
         data.appmsg.apptarget,
         data.appmsg.messagedata,
         data.appmsg.reuse_instance);
-    }
-    else if (data.onclick)
+    } else if (data.onclick)
       data.onclick();
 
     this.hideNotification(data.id);
@@ -82,8 +81,8 @@ class TowlNotifications {
       return;
 
     // Lookup the notification in the list of currently visible notifications
-    var data;
-    for (var i = 0; i < this._notifications.length; ++i)
+    let data;
+    for (let i = 0; i < this._notifications.length; ++i)
       if (this._notifications[i].id == notification.id)
         data = this._notifications[i];
 
@@ -91,10 +90,10 @@ class TowlNotifications {
     if (!data) {
       data =
       {
-        id: notification.id
-        , div: null
-        , native: null
-        , hidetimeout: null
+        id: notification.id,
+        div: null,
+        native: null,
+        hidetimeout: null
       };
 
       this._notifications.push(data);
@@ -102,10 +101,10 @@ class TowlNotifications {
 
     // Update info
     Object.assign(data, {
-      timeout: notification.timeout
-      , appmsg: notification.applicationmessage
-      , onclick: notification.onclick
-      , persistent: typeof (notification.persistent) == "undefined" ? false : notification.persistent
+      timeout: notification.timeout,
+      appmsg: notification.applicationmessage,
+      onclick: notification.onclick,
+      persistent: typeof (notification.persistent) == "undefined" ? false : notification.persistent
     });
 
     // Reset the hidetimeout if present
@@ -123,12 +122,12 @@ class TowlNotifications {
         this._hideDiv(data);
 
       // Convert HTML to plain text
-      var description = dompack.create("div", { innerHTML: notification.description }).textContent;
+      const description = dompack.create("div", { innerHTML: notification.description }).textContent;
 
-      var options = {
-        body: description
-        , tag: notification.id
-        , onerror: this._showNotificationInternal.bind(this, [notification, false])
+      const options = {
+        body: description,
+        tag: notification.id,
+        onerror: this._showNotificationInternal.bind(this, [notification, false])
       };
 
       // The following two lines were commented out because this mechanism for setting an onclick handler does not work in Webkit browsers, see the comments a few lines down for more info.
@@ -144,8 +143,7 @@ class TowlNotifications {
 
       // This seems like a double call, but it is necessary for Webkit browsers! See the comment above. Maybe in the future it can be implemented in a more elegant way, but for now, leave it as it is!
       data.native.onclick = evt => this._handleClick(data);
-    }
-    else {
+    } else {
       this._firstbrowsernotification = false;
 
       // Reset the native notification if present
@@ -156,10 +154,10 @@ class TowlNotifications {
 
       if (!data.div) {
         // Create and show the div
-        let newelement = dompack.create("t-towlnotification"
+        const newelement = dompack.create("t-towlnotification"
           , {
-            className: "hidden"
-            , on: { click: evt => this._handleClick(data) }
+            className: "hidden",
+            on: { click: evt => this._handleClick(data) }
           });
         data.div = newelement;
 
@@ -169,16 +167,16 @@ class TowlNotifications {
 
       // Clear out old content, add the new content
       dompack.empty(data.div);
-      var closediv = dompack.create("div", {
-        className: "close"
-        , textContent: "x"
-        , on: { click: evt => this._handleClose(data, evt) }
+      const closediv = dompack.create("div", {
+        className: "close",
+        textContent: "x",
+        on: { click: evt => this._handleClose(data, evt) }
       });
       data.div.appendChild(closediv);
 
-      data.div.classList.toggle("hasicon", !!notification.icon); // Need an explicit boolean value
+      data.div.classList.toggle("hasicon", Boolean(notification.icon)); // Need an explicit boolean value
       if (notification.icon) {
-        var icondiv = dompack.create("div", { className: "icon" });
+        const icondiv = dompack.create("div", { className: "icon" });
         data.div.appendChild(icondiv);
         if (typeof notification.icon == 'string')
           icondiv.appendChild(toddImages.createImage(notification.icon, 24, 24, 'b'));
@@ -187,19 +185,19 @@ class TowlNotifications {
       }
 
       data.div.appendChild(dompack.create("div", {
-        className: "datetime"
-        , textContent: getLocalHHMM()
+        className: "datetime",
+        textContent: getLocalHHMM()
       }));
 
       if (notification.title)
         data.div.appendChild(dompack.create("div", {
-          className: "title"
-          , innerHTML: notification.title
+          className: "title",
+          innerHTML: notification.title
         }));
       if (notification.description)
         data.div.appendChild(dompack.create("div", {
-          className: "description"
-          , innerHTML: notification.description
+          className: "description",
+          innerHTML: notification.description
         }));
     }
 
@@ -209,7 +207,7 @@ class TowlNotifications {
   }
 
   _hideDiv(data) {
-    var mydiv = data.div;
+    const mydiv = data.div;
     data.div.classList.add("hidden");
     data.div = null;
     setTimeout(function() { mydiv.remove(); }, 250);
@@ -219,12 +217,12 @@ class TowlNotifications {
     this._native_request_visible = true;
     this._showNotificationInternal(
       {
-        id: "towl:request_native_permissions"
-        , title: getTid("tollium:shell.towl.gonativetitle")
-        , description: getTid("tollium:shell.towl.gonativedescription")
-        , timeout: 0
-        , icon: "tollium:messageboxes/information"
-        , onclick: this.checkNativeNotificationPermission.bind(this)
+        id: "towl:request_native_permissions",
+        title: getTid("tollium:shell.towl.gonativetitle"),
+        description: getTid("tollium:shell.towl.gonativedescription"),
+        timeout: 0,
+        icon: "tollium:messageboxes/information",
+        onclick: this.checkNativeNotificationPermission.bind(this)
       });
   }
 
@@ -251,8 +249,7 @@ class TowlNotifications {
     if (type != "desktop") {
       // Request for native not needed anymore
       this.hideNotification("towl:request_native_permissions");
-    }
-    else if (this._preferred_location != "desktop" && !this._firstbrowsernotification && !this._native_request_visible) {
+    } else if (this._preferred_location != "desktop" && !this._firstbrowsernotification && !this._native_request_visible) {
       if (this._native_notifications && Notification.permission === "default") {
         // When the location switched to 'desktop', show the request dialog
         this._showPermissionRequestNotification();
@@ -290,7 +287,7 @@ class TowlNotifications {
 
     // Show a 'click here to get desktop notifications' notification when native notifications are available but not
     // yet granted or denied
-    var request_native_permissions = false;
+    let request_native_permissions = false;
     if (this._preferred_location == "desktop"
       && this._firstbrowsernotification
       && this._native_notifications
@@ -311,9 +308,9 @@ class TowlNotifications {
     if (notificationid == "towl:request_native_permissions")
       this._native_request_visible = false;
 
-    for (var i = 0; i < this._notifications.length; ++i)
+    for (let i = 0; i < this._notifications.length; ++i)
       if (this._notifications[i].id == notificationid) {
-        var data = this._notifications[i];
+        const data = this._notifications[i];
         if (data.div)
           this._hideDiv(data);
         if (data.native)

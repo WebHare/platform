@@ -4,7 +4,7 @@
 import * as dompack from "dompack";
 import { getTid } from "@mod-tollium/js/gettid";
 
-let lookupcache = {};
+const lookupcache = {};
 
 export default class AddressField {
   constructor(node, options) {
@@ -20,21 +20,21 @@ export default class AddressField {
     this.currentcountry = this.countryNode.value;
     this.fieldName = this.countryNode.name.substr(0, this.countryNode.name.lastIndexOf("."));
     this.orderingData = this.countryNode.dataset.orderingdata && JSON.parse(this.countryNode.dataset.orderingdata);
-    let prefixLength = this.fieldName.length + 1; // fieldName + "."
+    const prefixLength = this.fieldName.length + 1; // fieldName + "."
     this.allFields = new Map();
     let fieldpos = 0;
     this.allFields.set(this.countryNode.name.substr(prefixLength),
       {
-        node: this.countryNode
-        , fieldgroup: this.countryNode.closest(".wh-form__fieldgroup")
-        , pos: ++fieldpos
+        node: this.countryNode,
+        fieldgroup: this.countryNode.closest(".wh-form__fieldgroup"),
+        pos: ++fieldpos
       });
-    for (let field of dompack.qSA(this.node.closest("form"), `[name^='${this.fieldName}.']`)) {
+    for (const field of dompack.qSA(this.node.closest("form"), `[name^='${this.fieldName}.']`)) {
       this.allFields.set(field.name.substr(prefixLength),
         {
-          node: field
-          , fieldgroup: field.closest(".wh-form__fieldgroup")
-          , pos: ++fieldpos
+          node: field,
+          fieldgroup: field.closest(".wh-form__fieldgroup"),
+          pos: ++fieldpos
         });
       field.addEventListener("change", event => this._gotFieldChange(event));
     }
@@ -99,8 +99,8 @@ export default class AddressField {
     }
 
     //street + city should skip client side validation for NL, we will be looking it up server side (FIXME we should consider overwriting our validation to delay validation until address lookups are complete)
-    for (let fieldname of ['street', 'city']) {
-      let field = this.allFields.get(fieldname);
+    for (const fieldname of ['street', 'city']) {
+      const field = this.allFields.get(fieldname);
       if (field)
         if (country.toUpperCase() == 'NL')
           field.node.setAttribute("data-wh-form-skipnativevalidation", "");
@@ -136,7 +136,7 @@ export default class AddressField {
        this on base of the country actually changing, not an external checkbox controlling visibility of the whole country field
        and a stray update event
        */
-    let curstate = this._getCurState();
+    const curstate = this._getCurState();
     if (!curstate.anyset) //fields are empty..
     {
       this._clearErrors();
@@ -154,12 +154,10 @@ export default class AddressField {
         lookupcache[curstate.lookupkey] = this.form.invokeBackgroundRPC(this.fieldName + ".ValidateValue", curstate.value);
 
       result = await lookupcache[curstate.lookupkey];
-    }
-    catch (e) {
+    } catch (e) {
       console.error(`Error while validating value: ${e}`);
       return;
-    }
-    finally {
+    } finally {
       if (--this.numvaliditycalls == 0) //we're the last call
         curstate.visiblefields.forEach(el => el.classList.remove("wh-form__fieldgroup--addresslookup"));
     }

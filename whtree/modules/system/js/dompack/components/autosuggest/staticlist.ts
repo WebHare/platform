@@ -9,11 +9,11 @@ export default class StaticSuggestionList {
     this._list = normalizeSelectValues(list);
   }
   async lookup(word) {
-    let outlist = [];
+    const outlist = [];
     if (!this._casesensitive)
       word = word.toLowerCase();
 
-    for (let entry of this._list) {
+    for (const entry of this._list) {
       if (this._casesensitive ? entry.value.startsWith(word) : entry.value.toLowerCase().startsWith(word))
         outlist.push(entry);
     }

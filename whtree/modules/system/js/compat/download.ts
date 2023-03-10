@@ -28,7 +28,7 @@ class DownloadManager {
   }
 
   _cookieCheck() {
-    var data = cookie.read(this.cookiename);
+    const data = cookie.read(this.cookiename);
     if (!data)
       return;
 
@@ -59,8 +59,8 @@ class DownloadManager {
 
       this.dlframe = dompack.create("iframe",
         {
-          style: { "display": "none" }
-          , src: dlurl
+          style: { "display": "none" },
+          src: dlurl
         });
 
       this.dlframe.__whDownloadManagerFailureCallback = (data) => this._onDownloadFailure(data);

@@ -9,7 +9,7 @@ import { debugflags } from 'dompack';
 import { loadScript } from '@webhare/dompack';
 import { onConsentChange } from "./consenthandler";
 
-let ga4settings = whintegration.config["ga4"];
+const ga4settings = whintegration.config["ga4"];
 let loaded = false;
 
 function load() //no codepath should load() without ga4settings being set
@@ -37,8 +37,8 @@ if (!window.gtag) {
 
 export function initOnConsent(options) {
   options = {
-    requiredconsent: "*"
-    , ...options
+    requiredconsent: "*",
+    ...options
   };
 
   if (!(ga4settings && ga4settings.a && ga4settings.m)) {
@@ -53,13 +53,11 @@ export function initOnConsent(options) {
           console.log(`[anl] Got any consent, starting GA4`);
         load();
       }
-    }
-    else if (consentsettings.consent.includes(options.requiredconsent)) {
+    } else if (consentsettings.consent.includes(options.requiredconsent)) {
       if (debugflags.anl)
         console.log(`[anl] Got consent '${options.requiredconsent}', starting GA4`);
       load();
-    }
-    else {
+    } else {
       if (debugflags.anl)
         console.log("[anl] No consent yet to start GA4");
     }

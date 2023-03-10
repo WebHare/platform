@@ -6,7 +6,7 @@ import * as process from 'process';
 import * as services from "@webhare/services";
 import * as StackTrace from 'stack-trace';
 
-let getopt = require('node-getopt/lib/getopt.js').create([
+const getopt = require('node-getopt/lib/getopt.js').create([
   ['', 'debug', 'debug output.'],
   ['', 'worker=ARG', 'set worker number'],
   ['', 'cluster=ARG', 'worker cluster'],
@@ -15,8 +15,8 @@ let getopt = require('node-getopt/lib/getopt.js').create([
   .bindHelp()     // bind option 'help' to default action
   .parseSystem(); // parse command line
 
-let workerid = parseInt(getopt.options.worker);
-let debug = !!getopt.options.debug;
+const workerid = parseInt(getopt.options.worker);
+const debug = Boolean(getopt.options.debug);
 
 class TaskContext {
   constructor(persistentcache) {
@@ -52,7 +52,7 @@ async function main() {
   if (debug)
     console.log("JS worker #" + workerid + " starting");
 
-  let managedqueuemgr = await services.openBackendService("system:managedqueuemgr", [workerid]);
+  const managedqueuemgr = await services.openBackendService("system:managedqueuemgr", [workerid]);
   if (debug)
     console.log("JS worker got queuemgr connection");
   await mainloop(managedqueuemgr);
@@ -66,8 +66,7 @@ function checkIfModified(since) {
     // Try-catch around getting the status, it throws on missing files (eg. module deleted)
     try {
       status = fs.statSync(path);
-    }
-    catch (e) { }
+    } catch (e) { }
 
     if (!status || status.mtime.getTime() >= since && !isoutofdate) {
       if (debug)
@@ -82,11 +81,11 @@ function checkIfModified(since) {
 
 async function mainloop(managedqueuemgr) {
   let lasttaskresult = null;
-  let persistentcache = {};
-  let loopstart = Date.now();
+  const persistentcache = {};
+  const loopstart = Date.now();
 
   while (true) {
-    let taskinfo = await managedqueuemgr.GETTASK(lasttaskresult);
+    const taskinfo = await managedqueuemgr.GETTASK(lasttaskresult);
     if (!taskinfo) {
       console.log("Connection lost, exiting");
       return;
@@ -104,7 +103,7 @@ async function mainloop(managedqueuemgr) {
 
       // Persistent cache configured for this task?
       let cache;
-      let persistentcachekey = taskinfo.options && taskinfo.options.persistentcachekey;
+      const persistentcachekey = taskinfo.options && taskinfo.options.persistentcachekey;
       if (persistentcachekey) {
         cache = persistentcache[persistentcachekey];
         if (!cache)
@@ -115,31 +114,30 @@ async function mainloop(managedqueuemgr) {
       if (typeof taskrunner == "object" && taskrunner.default) //es6 syntax?
         taskrunner = taskrunner.default;
 
-      let context = new TaskContext(cache);
+      const context = new TaskContext(cache);
       await taskrunner(context, taskinfo.data);
       if (!context.resolution)
         throw new Error("Task did not specify a resolution");
 
       lasttaskresult = {
-        type: "taskdone"
-        , result: context.resolution.result
+        type: "taskdone",
+        result: context.resolution.result
       };
-    }
-    catch (e) {
+    } catch (e) {
       console.log("runephemeraltask got exception", e);
-      let trace = StackTrace.parse(e).map(elt =>
+      const trace = StackTrace.parse(e).map(elt =>
       ({
-        func: elt.getFunctionName() || ""
-        , line: elt.getLineNumber() || 1
-        , col: elt.getColumnNumber() || 1
-        , filename: elt.getFileName() || ""
+        func: elt.getFunctionName() || "",
+        line: elt.getLineNumber() || 1,
+        col: elt.getColumnNumber() || 1,
+        filename: elt.getFileName() || ""
       }));
 
       await managedqueuemgr.ANNOUNCETASKFAIL({
-        type: "taskfailed"
-        , error: e.toString()
-        , trace: trace
-        , isfatal: false
+        type: "taskfailed",
+        error: e.toString(),
+        trace: trace,
+        isfatal: false
       });
       //not trusting state after an exception, so restart
       process.exit(0);

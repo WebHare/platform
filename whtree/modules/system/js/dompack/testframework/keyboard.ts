@@ -18,51 +18,51 @@ export function getKeyboardEventProps(data) {
 
   if (data.key.length === 1) // one printable character. Don't even bother with producing right key and char codes
   {
-    let keycharcode = data.key.charCodeAt(0);
+    const keycharcode = data.key.charCodeAt(0);
     if (keycharcode < 32 || keycharcode == 127)
       throw new Error(`No control characters, please use UI-Events name (used key ${encodeURIComponent(data.key)})`);
-    let ukeycharcode = data.key.toUpperCase().charCodeAt(0);
+    const ukeycharcode = data.key.toUpperCase().charCodeAt(0);
 
     presscode = keycharcode;
 
     // Mapping for key=>keyCode an US-EN keyboard. Other keyboards may have other mappings
     // ADDME: for /*+-. see if shift is enabled, use numpad code if so?
-    let key_to_keycode_mapping =
+    const key_to_keycode_mapping =
     {
-      " ": 32
-      , "!": 49
-      , "@": 50
-      , "#": 51
-      , "$": 52
-      , "%": 53
-      , "^": 54
-      , "&": 55
-      , "*": 56
-      , "(": 57
-      , ")": 58
-      , ";": 186
-      , ":": 186
-      , "+": 187
-      , "=": 187
-      , ",": 188
-      , "<": 188
-      , "-": 189
-      , "_": 189
-      , ".": 190
-      , ">": 190
-      , "/": 191
-      , "?": 191
-      , "~": 192
-      , "`": 192
-      , "§": 192 // mac keyboard
-      , "[": 219
-      , "{": 219
-      , "\\": 220
-      , "|": 220
-      , "]": 221
-      , "}": 221
-      , "'": 222
-      , "\"": 222 // etc
+      " ": 32,
+      "!": 49,
+      "@": 50,
+      "#": 51,
+      "$": 52,
+      "%": 53,
+      "^": 54,
+      "&": 55,
+      "*": 56,
+      "(": 57,
+      ")": 58,
+      ";": 186,
+      ":": 186,
+      "+": 187,
+      "=": 187,
+      ",": 188,
+      "<": 188,
+      "-": 189,
+      "_": 189,
+      ".": 190,
+      ">": 190,
+      "/": 191,
+      "?": 191,
+      "~": 192,
+      "`": 192,
+      "§": 192, // mac keyboard
+      "[": 219,
+      "{": 219,
+      "\\": 220,
+      "|": 220,
+      "]": 221,
+      "}": 221,
+      "'": 222,
+      "\"": 222 // etc
     };
 
     if ((ukeycharcode >= 48 && ukeycharcode <= 59) || // digits
@@ -74,47 +74,46 @@ export function getKeyboardEventProps(data) {
       keycode = key_to_keycode_mapping[data.key];
 
     ischar = true;
-  }
-  else {
-    let key_to_keycode_mapping =
+  } else {
+    const key_to_keycode_mapping =
     {
-      "Backspace": 8
-      , "Tab": 9
-      , "Enter": 13
-      , "Shift": 16
-      , "Control": 17
-      , "Alt": 18
-      , "Pause": 19
-      , "CapsLock": 20
-      , "Escape": 27
-      , "PageUp": 33
-      , "PageDown": 34
-      , "End": 35
-      , "Home": 36
-      , "ArrowLeft": 37
-      , "ArrowUp": 38
-      , "ArrowRight": 39
-      , "ArrowDown": 40
-      , "Print": 42 // 44 on windows
-      , "Insert": 45
-      , "Delete": 46
-      , "Meta": 91
-      , "ContextMenu": 93
-      , "F1": 112
-      , "F2": 113
-      , "F3": 114
-      , "F4": 115
-      , "F5": 116
-      , "F6": 117
-      , "F7": 118
-      , "F8": 119
-      , "F9": 120
-      , "F10": 121
-      , "F11": 122
-      , "F12": 123
-      , "NumLock": 144
-      , "ScrollLock": 145
-      , "Dead": 222
+      "Backspace": 8,
+      "Tab": 9,
+      "Enter": 13,
+      "Shift": 16,
+      "Control": 17,
+      "Alt": 18,
+      "Pause": 19,
+      "CapsLock": 20,
+      "Escape": 27,
+      "PageUp": 33,
+      "PageDown": 34,
+      "End": 35,
+      "Home": 36,
+      "ArrowLeft": 37,
+      "ArrowUp": 38,
+      "ArrowRight": 39,
+      "ArrowDown": 40,
+      "Print": 42, // 44 on windows
+      "Insert": 45,
+      "Delete": 46,
+      "Meta": 91,
+      "ContextMenu": 93,
+      "F1": 112,
+      "F2": 113,
+      "F3": 114,
+      "F4": 115,
+      "F5": 116,
+      "F6": 117,
+      "F7": 118,
+      "F8": 119,
+      "F9": 120,
+      "F10": 121,
+      "F11": 122,
+      "F12": 123,
+      "NumLock": 144,
+      "ScrollLock": 145,
+      "Dead": 222
     };
 
     keycode = key_to_keycode_mapping[data.key];
@@ -129,49 +128,48 @@ export function getKeyboardEventProps(data) {
   if (!data.code) {
     // Rough key=>code mapping for an US-EN keyboard. Other keyboards may have other mappings
     if (data.key.length === 1) {
-      let ukeycharcode = data.key.toUpperCase().charCodeAt(0);
+      const ukeycharcode = data.key.toUpperCase().charCodeAt(0);
       if (ukeycharcode >= 48 && ukeycharcode <= 57) // digits
         data.code = "Digit" + data.key;
       else if (ukeycharcode >= 65 && ukeycharcode <= 90) // uppercase letters
         data.code = "Key" + data.key.toUpperCase();
       else {
         // Code values, see https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/code#Code_values for existing values
-        let key_to_code_mapping =
+        const key_to_code_mapping =
         {
-          ",": "Comma"
-          , ".": "Period"
-          , "/": "Slash"
-          , " ": "Space"
+          ",": "Comma",
+          ".": "Period",
+          "/": "Slash",
+          " ": "Space"
           // ... and more, add them when necessary
         };
         data.code = key_to_code_mapping[data.key] || "Unidentified";
       }
 
-    }
-    else {
-      let key_to_code_mapping =
+    } else {
+      const key_to_code_mapping =
       {
-        "F1": "F1"
-        , "F2": "F2"
-        , "F3": "F3"
-        , "F4": "F4"
-        , "F5": "F5"
-        , "F6": "F6"
-        , "F7": "F7"
-        , "F8": "F8"
-        , "F9": "F9"
-        , "F10": "F10"
-        , "F11": "F11"
-        , "F12": "F12"
-        , "Insert": "Insert"
-        , "Delete": "Delete"
-        , "Enter": "Enter"
-        , "Backspace": "Backspace"
-        , "Escape": "Escape"
-        , "ArrowLeft": "ArrowLeft"
-        , "ArrowRight": "ArrowRight"
-        , "ArrowUp": "ArrowUp"
-        , "ArrowDown": "ArrowDown"
+        "F1": "F1",
+        "F2": "F2",
+        "F3": "F3",
+        "F4": "F4",
+        "F5": "F5",
+        "F6": "F6",
+        "F7": "F7",
+        "F8": "F8",
+        "F9": "F9",
+        "F10": "F10",
+        "F11": "F11",
+        "F12": "F12",
+        "Insert": "Insert",
+        "Delete": "Delete",
+        "Enter": "Enter",
+        "Backspace": "Backspace",
+        "Escape": "Escape",
+        "ArrowLeft": "ArrowLeft",
+        "ArrowRight": "ArrowRight",
+        "ArrowUp": "ArrowUp",
+        "ArrowDown": "ArrowDown"
       };
 
       data.code = key_to_code_mapping[data.key] || "Unidentified";
@@ -185,20 +183,20 @@ export function getKeyboardEventProps(data) {
       location = 2;
   }
 
-  let props =
+  const props =
   {
-    key: data.key
-    , code: data.code
-    , keycode: keycode
-    , presscode: presscode
-    , ischar: ischar
-    , haspress: ischar
-    , ctrlKey: data.ctrlKey || false
-    , altKey: data.altKey || false
-    , location: data.location || location || 0
-    , shiftKey: data.shiftKey || false
-    , metaKey: data.metaKey || false
-    , repeat: data.repeat || false
+    key: data.key,
+    code: data.code,
+    keycode: keycode,
+    presscode: presscode,
+    ischar: ischar,
+    haspress: ischar,
+    ctrlKey: data.ctrlKey || false,
+    altKey: data.altKey || false,
+    location: data.location || location || 0,
+    shiftKey: data.shiftKey || false,
+    metaKey: data.metaKey || false,
+    repeat: data.repeat || false
   };
 
   //  console.log(`Props from key '${encodeURIComponent(data.key)}' and code ${data.code}:`, props);
@@ -211,32 +209,32 @@ export function generateKeyboardEvent(target, eventname, data) {
     throw new Error("Empty key passed to generateKeyboardEvent");
 
   //var result = true;
-  var doc = target.ownerDocument;
+  const doc = target.ownerDocument;
 
-  let props = getKeyboardEventProps(data);
+  const props = getKeyboardEventProps(data);
 
   let evt;
   if (browserName() === "chrome") {
-    let ischar = props.ischar || ["Enter", "Delete"].includes(props.key);
-    let vals =
+    const ischar = props.ischar || ["Enter", "Delete"].includes(props.key);
+    const vals =
     {
-      charCode: eventname === "keypress" && ischar ? props.presscode : 0
-      , keyCode: eventname === "keypress" ? props.presscode : props.keycode
-      , which: eventname === "keypress" ? props.presscode : props.keycode
+      charCode: eventname === "keypress" && ischar ? props.presscode : 0,
+      keyCode: eventname === "keypress" ? props.presscode : props.keycode,
+      which: eventname === "keypress" ? props.presscode : props.keycode
     };
 
     evt = new KeyboardEvent(eventname, {
-      view: doc.defaultView
-      , key: props.key
-      , code: props.code
-      , ctrlKey: props.ctrlKey
-      , altKey: props.altKey
-      , location: props.location
-      , shiftKey: props.shiftKey
-      , metaKey: props.metaKey
-      , repeat: props.repeat
-      , bubbles: true
-      , cancelable: true
+      view: doc.defaultView,
+      key: props.key,
+      code: props.code,
+      ctrlKey: props.ctrlKey,
+      altKey: props.altKey,
+      location: props.location,
+      shiftKey: props.shiftKey,
+      metaKey: props.metaKey,
+      repeat: props.repeat,
+      bubbles: true,
+      cancelable: true
 
     });
     Object.defineProperty(evt, 'charCode', { get: function() { return vals.charCode; } });
@@ -245,10 +243,9 @@ export function generateKeyboardEvent(target, eventname, data) {
 
     if (debugflags.testfw)
       console.log('[testfw] Constructed chrome keyboardevent', evt);
-  }
-  else if (browserName() === "firefox") {
+  } else if (browserName() === "firefox") {
     // edge has some diffent mappings for .key. ("-":"Subtract" and "/":"Divide" are only used for numeric pad)
-    let keymapping =
+    const keymapping =
     {
       "Meta": "OS"
     };
@@ -257,64 +254,62 @@ export function generateKeyboardEvent(target, eventname, data) {
 
     // firefox zeroes the keycode for printable characters in keypress events
     evt = new KeyboardEvent(eventname, {
-      view: doc.defaultView
-      , key: props.key
-      , code: props.code
-      , charCode: eventname === "keypress" && props.ischar ? props.presscode : 0
-      , keyCode: eventname === "keypress" ? (props.ischar ? 0 : props.presscode) : props.keycode
-      , which: eventname === "keypress" ? (props.ischar ? props.presscode : 0) : props.keycode
-      , ctrlKey: props.ctrlKey
-      , altKey: props.altKey
-      , location: props.location
-      , shiftKey: props.shiftKey
-      , metaKey: props.metaKey
-      , repeat: props.repeat
-      , bubbles: true
-      , cancelable: true
+      view: doc.defaultView,
+      key: props.key,
+      code: props.code,
+      charCode: eventname === "keypress" && props.ischar ? props.presscode : 0,
+      keyCode: eventname === "keypress" ? (props.ischar ? 0 : props.presscode) : props.keycode,
+      which: eventname === "keypress" ? (props.ischar ? props.presscode : 0) : props.keycode,
+      ctrlKey: props.ctrlKey,
+      altKey: props.altKey,
+      location: props.location,
+      shiftKey: props.shiftKey,
+      metaKey: props.metaKey,
+      repeat: props.repeat,
+      bubbles: true,
+      cancelable: true
     });
     if (debugflags.testfw)
       console.log('[testfw] Constructed firefox keyboardevent', evt);
-  }
-  else if (browserName() === "edge" || browserName() == "ie") {
+  } else if (browserName() === "edge" || browserName() == "ie") {
     // edge has some diffent mappings for .key. ("-":"Subtract" and "/":"Divide" are only used for numeric pad)
-    let keymapping =
+    const keymapping =
     {
-      "ArrowUp": "Up", "ArrowDown": "Down", "ArrowLeft": "Left", "ArrowRight": "Right", "Escape": "Esc", "Delete": "Del"
-      , "*": "Multiply", ".": "Decimal", "Meta": "Win", "ScrollLock": "Scroll", "Print": "PrintScreen", "ContextMenu": "Apps"
+      "ArrowUp": "Up", "ArrowDown": "Down", "ArrowLeft": "Left", "ArrowRight": "Right", "Escape": "Esc", "Delete": "Del",
+      "*": "Multiply", ".": "Decimal", "Meta": "Win", "ScrollLock": "Scroll", "Print": "PrintScreen", "ContextMenu": "Apps"
     };
     props.key = keymapping[props.key] || props.key;
 
     // 'Tab' also has 'char' set. Enter has char set to String.fromCodePoint(10)
     // ADDME: ctrl-key has wrong char code (eg. ctrl-v is \u0016)
-    let withchar = (props.ischar || [8, 9, 13, 27].includes(props.presscode)) && !props.ctrlKey && !props.altKey;
-    let vals =
+    const withchar = (props.ischar || [8, 9, 13, 27].includes(props.presscode)) && !props.ctrlKey && !props.altKey;
+    const vals =
     {
-      char: withchar ? props.presscode === 13 ? "\n" : String.fromCodePoint(props.presscode) : ""
-      , charCode: eventname === "keypress" && withchar ? props.presscode : 0
-      , keyCode: eventname === "keypress" ? props.presscode : props.keycode
-      , which: eventname === "keypress" ? props.presscode : props.keycode
+      char: withchar ? props.presscode === 13 ? "\n" : String.fromCodePoint(props.presscode) : "",
+      charCode: eventname === "keypress" && withchar ? props.presscode : 0,
+      keyCode: eventname === "keypress" ? props.presscode : props.keycode,
+      which: eventname === "keypress" ? props.presscode : props.keycode
     };
 
     // firefox zeroes the keycode for printable characters in keypress events
     if (browserName() === "edge") {
       evt = new KeyboardEvent(eventname, {
-        view: doc.defaultView
-        , key: props.key
-        , code: props.code
-        , ctrlKey: props.ctrlKey
-        , altKey: props.altKey
-        , location: props.location
-        , shiftKey: props.shiftKey
-        , metaKey: props.metaKey
-        , repeat: props.repeat
-        , bubbles: true
-        , cancelable: true
+        view: doc.defaultView,
+        key: props.key,
+        code: props.code,
+        ctrlKey: props.ctrlKey,
+        altKey: props.altKey,
+        location: props.location,
+        shiftKey: props.shiftKey,
+        metaKey: props.metaKey,
+        repeat: props.repeat,
+        bubbles: true,
+        cancelable: true
       });
       Object.defineProperty(evt, 'locale', { get: function() { return "en-US"; } });
-    }
-    else {
+    } else {
       evt = doc.createEvent("KeyboardEvent");
-      let modifiers = [];
+      const modifiers = [];
       if (props.ctrlKey) modifiers.push("Control");
       if (props.altKey) modifiers.push("Alt");
       if (props.shiftKey) modifiers.push("Shift");
@@ -326,37 +321,36 @@ export function generateKeyboardEvent(target, eventname, data) {
     Object.defineProperty(evt, 'charCode', { get: function() { return vals.charCode; } });
     Object.defineProperty(evt, 'keyCode', { get: function() { return vals.keyCode; } });
     Object.defineProperty(evt, 'which', { get: function() { return vals.which; } });
-  }
-  else if (browserName() === "safari") {
-    let keymapping = { "ArrowUp": "Up", "ArrowDown": "Down", "ArrowLeft": "Left", "ArrowRight": "Right" };
+  } else if (browserName() === "safari") {
+    const keymapping = { "ArrowUp": "Up", "ArrowDown": "Down", "ArrowLeft": "Left", "ArrowRight": "Right" };
     props.key = keymapping[props.key] || props.key;
 
-    let hasucode = props.ischar || ["Escape", "Tab", "Backspace", "Delete"].includes(props.key);
-    let hascharcode = props.ischar || ["Escape", "Enter", "Backspace"].includes(props.key);
-    let keyidentifier = hasucode
+    const hasucode = props.ischar || ["Escape", "Tab", "Backspace", "Delete"].includes(props.key);
+    const hascharcode = props.ischar || ["Escape", "Enter", "Backspace"].includes(props.key);
+    const keyidentifier = hasucode
       ? "U+" + ("000" + String.fromCodePoint(props.presscode).toUpperCase().charCodeAt(0).toString(16)).substr(-4).toUpperCase()
       : props.key;
-    let vals =
+    const vals =
     {
-      keyIdentifier: eventname === "keypress" ? "" : keyidentifier
-      , charCode: eventname === "keypress" && hascharcode ? props.presscode : 0
-      , keyCode: eventname === "keypress" ? props.presscode : props.keycode
-      , which: eventname === "keypress" ? props.presscode : props.keycode
+      keyIdentifier: eventname === "keypress" ? "" : keyidentifier,
+      charCode: eventname === "keypress" && hascharcode ? props.presscode : 0,
+      keyCode: eventname === "keypress" ? props.presscode : props.keycode,
+      which: eventname === "keypress" ? props.presscode : props.keycode
     };
 
     evt = new KeyboardEvent(eventname, {
-      view: doc.defaultView
-      , key: props.key
-      , code: props.code
-      , keyIdentifier: vals.keyIdentifier
-      , ctrlKey: props.ctrlKey
-      , altKey: props.altKey
-      , location: props.location
-      , shiftKey: props.shiftKey
-      , metaKey: props.metaKey
-      , repeat: props.repeat
-      , bubbles: true
-      , cancelable: true
+      view: doc.defaultView,
+      key: props.key,
+      code: props.code,
+      keyIdentifier: vals.keyIdentifier,
+      ctrlKey: props.ctrlKey,
+      altKey: props.altKey,
+      location: props.location,
+      shiftKey: props.shiftKey,
+      metaKey: props.metaKey,
+      repeat: props.repeat,
+      bubbles: true,
+      cancelable: true
     });
 
     Object.defineProperty(evt, 'charCode', { get: function() { return vals.charCode; } });
@@ -377,7 +371,7 @@ function _fireKeyboardEvent(target, eventname, props) {
   if (debugflags.testfw)
     console.log(`[testfw] Send ${eventname} with key '${encodeURIComponent(props.key)}' and code ${props.code} to `, target);
 
-  let evt = generateKeyboardEvent(target, eventname, props);
+  const evt = generateKeyboardEvent(target, eventname, props);
   if (debugflags.testfw)
     console.log('[testfw] Dispatching event ', evt);
 
@@ -386,7 +380,7 @@ function _fireKeyboardEvent(target, eventname, props) {
 
 export function normalizeKeys(key, props) {
   let keys = Array.isArray(key) ? key : [key];
-  let shift = props && props.shiftKey;
+  const shift = props && props.shiftKey;
   //match single-char keys (real keys) to upper or lowercase depending on shift state
   keys = keys.map(key => key.length > 1 ? key : shift ? key.toUpperCase() : key.toLowerCase());
   return keys;
@@ -394,17 +388,17 @@ export function normalizeKeys(key, props) {
 
 export async function pressKey(keylist, props) {
   //key must be one of the names documented at https://w3c.github.io/uievents/#events-keyboardevents
-  let keys = normalizeKeys(keylist, props);
+  const keys = normalizeKeys(keylist, props);
 
-  for (let key of keys) {
+  for (const key of keys) {
     //ensure asynchronous invocation for each keypress
     await new Promise(resolve => setTimeout(resolve, 1));
 
     props = { ...props, key: key };
-    let eventprops = getKeyboardEventProps(props);
+    const eventprops = getKeyboardEventProps(props);
 
     //Figure out which element has focus
-    var focused = domfocus.getCurrentlyFocusedElement();
+    const focused = domfocus.getCurrentlyFocusedElement();
     if (debugflags.testfw)
       console.log('[testfw] SendKeyPress "' + key + '" to focused element:', focused);
 
@@ -415,8 +409,7 @@ export async function pressKey(keylist, props) {
     if (retval) {
       if (eventprops.key == 'Tab') {
         doTabKey(eventprops.shiftKey ? -1 : +1);
-      }
-      else if (focused.nodeName == 'TEXTAREA' || (focused.nodeName == 'INPUT' && !['radio', 'textarea'].includes(focused.type))) {
+      } else if (focused.nodeName == 'TEXTAREA' || (focused.nodeName == 'INPUT' && !['radio', 'textarea'].includes(focused.type))) {
         if (eventprops.key == 'Backspace') {
           if (focused.selectionStart == focused.selectionEnd) //delete the character before the cursor
             focused.value = focused.value.substr(0, focused.selectionStart - 1) + focused.value.substr(focused.selectionEnd);
@@ -424,13 +417,12 @@ export async function pressKey(keylist, props) {
             focused.value = focused.value.substr(0, focused.selectionStart) + focused.value.substr(focused.selectionEnd);
 
           fireHTMLEvent(focused, 'input');
-        }
-        else if (eventprops.key == 'ArrowUp' || eventprops.key == 'ArrowDown') {
+        } else if (eventprops.key == 'ArrowUp' || eventprops.key == 'ArrowDown') {
           if (focused.nodeName == 'INPUT' && focused.type == 'number') {
             let value = parseInt(focused.value);
             if (!isNaN(value)) {
-              let step = parseInt(focused.getAttribute("step")) || 1;
-              value = value + (eventprops.key == 'ArrowUp' ? +step : -step);
+              const step = parseInt(focused.getAttribute("step")) || 1;
+              value = value + (eventprops.key == 'ArrowUp' ? Number(step) : -step);
 
               if (eventprops.key == 'ArrowUp' && focused.hasAttribute("max") && value > parseInt(focused.getAttribute("max")))
                 value = parseInt(focused.getAttribute("max"));
@@ -441,8 +433,7 @@ export async function pressKey(keylist, props) {
               fireHTMLEvent(focused, 'input');
             }
           }
-        }
-        else if (eventprops.haspress) {
+        } else if (eventprops.haspress) {
           if (!(props.ctrlKey || props.metaKey || props.altKey)) //these don't trigger text input
           {
             // Insert single character into the input field
@@ -454,8 +445,7 @@ export async function pressKey(keylist, props) {
             fireHTMLEvent(focused, 'input');
           }
         }
-      }
-      else {
+      } else {
         // FIXME: handle selection, delete, cursor and such
       }
     }
@@ -469,19 +459,19 @@ export function simulateTabKey(direction) {
 }
 
 function doTabKey(direction) {
-  var curfocus = domfocus.getCurrentlyFocusedElement();
+  const curfocus = domfocus.getCurrentlyFocusedElement();
   if (!curfocus)
     throw new Error("Unable to determine currently focused element");
 
   // only non-negative tabIndex, sort on tabIndex (but index 0 must be last)
   // must be a stable sort, so if equal we need to take the index into account too.
-  let allfocus = domfocus.getAllFocusableComponents()
+  const allfocus = domfocus.getAllFocusableComponents()
     .filter(node => node.tabIndex >= 0)
     .map((node, index) => ({ node, index }))
     .sort((a, b) => (a.node.tabIndex || 32768) - (b.node.tabIndex || 32768) || (a.index - b.index))
     .map(pair => pair.node);
 
-  var curpos = allfocus.indexOf(curfocus);
+  let curpos = allfocus.indexOf(curfocus);
   if (curpos == -1 && curfocus != curfocus.ownerDocument.body) {
     console.log("currentfocus", curfocus);
     console.log("all", allfocus.length, allfocus);
@@ -493,17 +483,16 @@ function doTabKey(direction) {
     curpos += allfocus.length;
   curpos %= allfocus.length;
 
-  let tofocus = allfocus[curpos];
+  const tofocus = allfocus[curpos];
   try {
     tofocus.focus();
     if (tofocus.select)
       tofocus.select();
-  }
-  catch (e) {
+  } catch (e) {
     console.log("simulateTabKey: Focus failed: ", allfocus[curpos], e);
   }
 
-  var nowfocused = domfocus.getCurrentlyFocusedElement();
+  const nowfocused = domfocus.getCurrentlyFocusedElement();
   if (allfocus[curpos] != nowfocused) //if an element is actally unfocusable, the browser just tends to ignore us (except IE, which loves to throw)
   {
     console.log("Tried to focus", allfocus[curpos]);

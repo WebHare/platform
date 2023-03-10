@@ -19,7 +19,7 @@ function formatDate(dateformat, dateparts) {
   if (!dateparts)
     return '';
 
-  for (let c of dateformat.split("")) {
+  for (const c of dateformat.split("")) {
     switch (c.toUpperCase()) {
       case "Y":
         output += dateparts.year;
@@ -39,7 +39,7 @@ function formatDate(dateformat, dateparts) {
 }
 
 function formatISODate(dateparts) {
-  return formatDate("Y-M-D", dateparts)
+  return formatDate("Y-M-D", dateparts);
 }
 
 //FIXME dupe from webharefields.es - do we need low level date libs ?
@@ -48,7 +48,7 @@ function isValidDate(year, month, day) {
     return false;
   if ([4, 6, 9, 11].includes(month) && day > 30) //handle april, june, sep, nov
     return false;
-  let isleapyear = (year % 400) == 0 || ((year % 100) != 0 && (year % 4) == 0);
+  const isleapyear = (year % 400) == 0 || ((year % 100) != 0 && (year % 4) == 0);
   if (month == 2 && day > (isleapyear ? 29 : 28))
     return false;
   return true;
@@ -58,23 +58,23 @@ function parseDate(format, newdate, nofail) {
   if (!newdate) //empty
     return null;
 
-  let setdate = newdate.split('/').join('-').split('.').join('-');
-  let parts = setdate.split('-');
+  const setdate = newdate.split('/').join('-').split('.').join('-');
+  const parts = setdate.split('-');
 
   if (parts.length == 3)//parseable
   {
     format = format.toLowerCase();
-    let dayoffset = format.indexOf('d');
-    let monthoffset = format.indexOf('m');
-    let yearoffset = format.indexOf('y');
+    const dayoffset = format.indexOf('d');
+    const monthoffset = format.indexOf('m');
+    const yearoffset = format.indexOf('y');
 
-    let daypos = 0 + (dayoffset > monthoffset ? 1 : 0) + (dayoffset > yearoffset ? 1 : 0);
-    let monthpos = 0 + (monthoffset > dayoffset ? 1 : 0) + (monthoffset > yearoffset ? 1 : 0);
-    let yearpos = 0 + (yearoffset > dayoffset ? 1 : 0) + (yearoffset > monthoffset ? 1 : 0);
+    const daypos = 0 + (dayoffset > monthoffset ? 1 : 0) + (dayoffset > yearoffset ? 1 : 0);
+    const monthpos = 0 + (monthoffset > dayoffset ? 1 : 0) + (monthoffset > yearoffset ? 1 : 0);
+    const yearpos = 0 + (yearoffset > dayoffset ? 1 : 0) + (yearoffset > monthoffset ? 1 : 0);
 
-    let day = parseInt(parts[daypos], 0);
-    let month = parseInt(parts[monthpos], 0);
-    let year = parseInt(parts[yearpos], 0);
+    const day = parseInt(parts[daypos], 0);
+    const month = parseInt(parts[monthpos], 0);
+    const year = parseInt(parts[yearpos], 0);
 
     // The browser will always add 1900 for years 0-99, so handle years < 100
     // if (year >= 0 && year < 100 && this.options.cutoffyear > 0)
@@ -94,7 +94,7 @@ function parseDate(format, newdate, nofail) {
 }
 
 function getLocalToday() {
-  let today = new Date;
+  const today = new Date;
   return { year: today.getFullYear(), month: 1 + today.getMonth(), day: today.getDate() };
 }
 
@@ -117,13 +117,13 @@ function formatJSUTCISODate(dateobj) {
 }
 
 function ensureLabelID(inputnode) {
-  let id = inputnode.id;
+  const id = inputnode.id;
   if (id == "") {
     // FIXME: lookup whether we are nested in a label
     return "";
   }
 
-  let labelnode = document.querySelector(`[for="${CSS.escape(id)}"]`);
+  const labelnode = document.querySelector(`[for="${CSS.escape(id)}"]`);
   if (!labelnode) {
     console.log("Failed to find label for", id);
     return "";
@@ -155,17 +155,16 @@ nice to have:
 // new 'value' property
 //
 function mySelectGetValue() {
-  let origgetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(this), 'value').get;
+  const origgetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(this), 'value').get;
   //console.error("mySelectGetValue", origgetter, origgetter.apply(this));
   return origgetter.apply(this);
 }
 function mySelectSetValue(newvalue) {
-  let origsetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(this), 'value').set;
+  const origsetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(this), 'value').set;
   if (origsetter) //this works on chrome, firefox and IE
   {
     origsetter.apply(this, [newvalue]);
-  }
-  else {
+  } else {
     //safari doesnt let us call the original setter. but we _can_ remove the value property and it will be restored
     delete this.value;
     this.value = newvalue;
@@ -201,8 +200,8 @@ class MultiInputSubstition {
   }
 
   _refreshAttributes() {
-    let isdisabled = this._replacednode.disabled;
-    let isrequired = this._replacednode.required;
+    const isdisabled = this._replacednode.disabled;
+    const isrequired = this._replacednode.required;
 
     dompack.toggleClass(this.inputgroup, this._class + '--disabled', isdisabled);
     dompack.toggleClass(this.inputgroup, this._class + '--required', isrequired);
@@ -228,7 +227,7 @@ export class SplitDateField extends MultiInputSubstition {
 
     if (inpnode.dataset.dateformat) // y-m-d, d-m-y, ...
     {
-      let ordering = __strToIntegerArray(inpnode.dataset.dateformat);
+      const ordering = __strToIntegerArray(inpnode.dataset.dateformat);
       for (let i = 0; i < ordering.length; ++i) {
         if (ordering[i].indexOf("y") > -1)
           year_pos = i;
@@ -240,16 +239,16 @@ export class SplitDateField extends MultiInputSubstition {
     }
 
     this.placeholder = {
-      year: "yyyy"
-      , month: "mm"
-      , day: "dd"
+      year: "yyyy",
+      month: "mm",
+      day: "dd"
     };
 
     if (whintegration.config.locale.indexOf("nl") > -1)
       this.placeholder = {
-        year: "jjjj"
-        , month: "mm"
-        , day: "dd"
+        year: "jjjj",
+        month: "mm",
+        day: "dd"
       };
 
     this.day = null;
@@ -258,7 +257,7 @@ export class SplitDateField extends MultiInputSubstition {
 
     if (this._replacednode.value != "")//Should be iso date
     {
-      let parts = __strToIntegerArray(this._replacednode.value);
+      const parts = __strToIntegerArray(this._replacednode.value);
       if (parts.length > 2) {
         this.day = parts[2];
         this.month = parts[1];
@@ -266,20 +265,20 @@ export class SplitDateField extends MultiInputSubstition {
       }
     }
 
-    let isdisabled = this._replacednode.disabled;
-    let isreadonly = this._replacednode.readonly;
+    const isdisabled = this._replacednode.disabled;
+    const isreadonly = this._replacednode.readonly;
 
     let year_min = 1900; let year_max = 2999;
 
     if (this._replacednode.min != "") //Should be iso date
     {
-      let parts = __strToIntegerArray(this._replacednode.min);
+      const parts = __strToIntegerArray(this._replacednode.min);
       if (parts.length)
         year_min = parts[0];
     }
 
     if (this._replacednode.max != "") {
-      let parts = __strToIntegerArray(this._replacednode.max);
+      const parts = __strToIntegerArray(this._replacednode.max);
       if (parts.length && parts[0] >= year_min)
         year_max = parts[0];
     }
@@ -289,7 +288,7 @@ export class SplitDateField extends MultiInputSubstition {
 
 
     // Refer to the label (Because we have role="group" we need a label)
-    let labelid = ensureLabelID(inpnode);
+    const labelid = ensureLabelID(inpnode);
     if (labelid != "")
       this.inputgroup.setAttribute("aria-labelledby", labelid);
 
@@ -327,7 +326,7 @@ export class SplitDateField extends MultiInputSubstition {
     this._replacednode.addEventListener("focus", ev => {
       // NOTE: It's important we have set tabindex="-1" on the input, otherwise when we tab backwards from
       //       the first input in our group we are returned back to the day input. (so we can never escape backwards)
-      let nextnode = this.inputgroup.querySelector("input");
+      const nextnode = this.inputgroup.querySelector("input");
       if (nextnode)
         nextnode.focus();
     });
@@ -353,7 +352,7 @@ export class SplitDateField extends MultiInputSubstition {
     //   this.yearnode.readonly = !ev.detail.enabled;
     // });
 
-    for (let node of this.inputgroup.querySelectorAll("input")) {
+    for (const node of this.inputgroup.querySelectorAll("input")) {
       node.addEventListener("blur", () => { this.inputgroup.classList.remove("focus"); });
       node.addEventListener("focus", () => {
         this.previous.value = node.value;
@@ -376,7 +375,7 @@ export class SplitDateField extends MultiInputSubstition {
 
     if (this._replacednode.value != "")//Should be iso date
     {
-      let parts = __strToIntegerArray(this._replacednode.value);
+      const parts = __strToIntegerArray(this._replacednode.value);
       if (parts.length > 2) {
         this.day = parts[2];
         this.month = parts[1];
@@ -390,9 +389,9 @@ export class SplitDateField extends MultiInputSubstition {
   }
 
   onChange(ev, node) {
-    let prev_day = this.day;
-    let prev_month = this.month;
-    let prev_year = this.year;
+    const prev_day = this.day;
+    const prev_month = this.month;
+    const prev_year = this.year;
 
     if (node == this.daynode)
       __validateNumberField(this, "day", node);
@@ -408,7 +407,7 @@ export class SplitDateField extends MultiInputSubstition {
       setvalue = "";
 
     //FIXME who needs these classes ?
-    let hasvalue = this.day != null && this.month != null && this.year != null;
+    const hasvalue = this.day != null && this.month != null && this.year != null;
     dompack.toggleClass(this.inputgroup, "hasvalue", hasvalue);
     dompack.toggleClass(this.inputgroup, "partlyfilled", !hasvalue && (this.day != null || this.month != null || this.year != null));
 
@@ -423,15 +422,15 @@ export class SplitDateField extends MultiInputSubstition {
     ev.preventDefault();
     ev.stopPropagation();
 
-    let prevval = this.previous.value;
+    const prevval = this.previous.value;
     this.previous.value = node.value;
 
     if (ev.keyCode == 8 && node.value == "" && prevval == "")//backspace
     {
       //Try to set focus on previous input
-      let prevnode = node.parentNode.previousSibling;
+      const prevnode = node.parentNode.previousSibling;
       if (prevnode) {
-        let previnp = prevnode.querySelector("input");
+        const previnp = prevnode.querySelector("input");
         if (previnp)
           previnp.focus();
       }
@@ -440,9 +439,9 @@ export class SplitDateField extends MultiInputSubstition {
     }
 
     //First some basic validation
-    let value = node.value.replace(/[^0-9]+/g, '');
+    const value = node.value.replace(/[^0-9]+/g, '');
 
-    if (value == "" || value != node.value || 1 * value < 1 * node.min || 1 * value > 1 * node.max)
+    if (value == "" || value != node.value || Number(value) < Number(node.min) || Number(value) > Number(node.max))
       return;
 
     //Is field value minimal length
@@ -453,11 +452,11 @@ export class SplitDateField extends MultiInputSubstition {
       return;//Only go to next input if value changed
 
     //Try to set focus on next input
-    let nextnode = node.parentNode.nextSibling;
+    const nextnode = node.parentNode.nextSibling;
     if (!nextnode)
       return;
 
-    let nextinp = nextnode.querySelector("input");
+    const nextinp = nextnode.querySelector("input");
     if (nextinp)
       nextinp.focus();
   }
@@ -474,16 +473,16 @@ export class SplitTimeField extends MultiInputSubstition {
     this.previous = { value: '' };
 
     this.placeholder = {
-      hours: "hh"
-      , minutes: "mm"
-      , seconds: "ss"
+      hours: "hh",
+      minutes: "mm",
+      seconds: "ss"
     };
 
     if (whintegration.config.locale.indexOf("nl") > -1)
       this.placeholder = {
-        hours: "uu"
-        , minutes: "mm"
-        , seconds: "ss"
+        hours: "uu",
+        minutes: "mm",
+        seconds: "ss"
       };
 
     this.hours = null;
@@ -492,7 +491,7 @@ export class SplitTimeField extends MultiInputSubstition {
 
     if (this._replacednode.value != "")//Should be iso date
     {
-      let parts = __strToIntegerArray(this._replacednode.value);
+      const parts = __strToIntegerArray(this._replacednode.value);
       if (parts.length > 1) {
         this.hour = parts[0];
         this.minute = parts[1];
@@ -502,8 +501,8 @@ export class SplitTimeField extends MultiInputSubstition {
       }
     }
 
-    let isdisabled = this._replacednode.disabled;
-    let isreadonly = this._replacednode.readonly;
+    const isdisabled = this._replacednode.disabled;
+    const isreadonly = this._replacednode.readonly;
 
     this.hournode = <input disabled={isdisabled} readonly={isreadonly} pattern="[0-9]*" inputmode="numeric" autocomplete="off" maxlength="2" value={this.hours == null ? "" : this.hours} min="0" max="23" type="number"
       placeholder={this.placeholder.hours}
@@ -524,7 +523,7 @@ export class SplitTimeField extends MultiInputSubstition {
     </div>;
 
     // Refer to the label (Because we have role="group" we need a label)
-    let labelid = ensureLabelID(inpnode);
+    const labelid = ensureLabelID(inpnode);
     //console.log("labelid for time field", labelid);
     if (labelid != "")
       this.inputgroup.setAttribute("aria-labelledby", labelid);
@@ -551,7 +550,7 @@ export class SplitTimeField extends MultiInputSubstition {
     this._replacednode.addEventListener("focus", ev => {
       // NOTE: It's important we have set tabindex="-1" on the input, otherwise when we tab backwards from
       //       the first input in our group we are returned back to the day input. (so we can never escape backwards)
-      let nextnode = this.inputgroup.querySelector("input");
+      const nextnode = this.inputgroup.querySelector("input");
       if (nextnode)
         nextnode.focus();
     });
@@ -578,7 +577,7 @@ export class SplitTimeField extends MultiInputSubstition {
         this.secondnode.readonly = !ev.detail.enabled;
     });
 
-    for (let node of this.inputgroup.querySelectorAll("input")) {
+    for (const node of this.inputgroup.querySelectorAll("input")) {
       node.addEventListener("blur", () => { this.inputgroup.classList.remove("focus"); });
       node.addEventListener("focus", () => {
         this.previous.value = node.value;
@@ -595,9 +594,9 @@ export class SplitTimeField extends MultiInputSubstition {
   }
 
   onChange(ev, node) {
-    let prev_hours = this.hours;
-    let prev_minutes = this.minutes;
-    let prev_seconds = this.seconds;
+    const prev_hours = this.hours;
+    const prev_minutes = this.minutes;
+    const prev_seconds = this.seconds;
 
     if (node == this.hournode)
       __validateNumberField(this, "hours", node);
@@ -605,8 +604,7 @@ export class SplitTimeField extends MultiInputSubstition {
       __validateNumberField(this, "minutes", node);
       if (node.value.length == 1)
         node.value = "0" + node.value;
-    }
-    else if (node == this.secondnode) {
+    } else if (node == this.secondnode) {
       __validateNumberField(this, "seconds", node);
       if (node.value.length == 1)
         node.value = "0" + node.value;
@@ -632,15 +630,15 @@ export class SplitTimeField extends MultiInputSubstition {
     ev.preventDefault();
     ev.stopPropagation();
 
-    let prevval = this.previous.value;
+    const prevval = this.previous.value;
     this.previous.value = node.value;
 
     if (ev.keyCode == 8 && node.value == "" && prevval == "")//backspace
     {
       //Try to set focus on previous input
-      let prevnode = node.parentNode.previousSibling;
+      const prevnode = node.parentNode.previousSibling;
       if (prevnode) {
-        let previnp = prevnode.querySelector("input");
+        const previnp = prevnode.querySelector("input");
         if (previnp)
           previnp.focus();
       }
@@ -649,8 +647,8 @@ export class SplitTimeField extends MultiInputSubstition {
     }
 
     //First some basic validation
-    let value = node.value.replace(/[^0-9]+/g, '');
-    if (value == "" || value != node.value || 1 * value < 1 * node.min || 1 * value > 1 * node.max)
+    const value = node.value.replace(/[^0-9]+/g, '');
+    if (value == "" || value != node.value || Number(value) < Number(node.min) || Number(value) > Number(node.max))
       return;
 
     //Is field value minimal length
@@ -661,11 +659,11 @@ export class SplitTimeField extends MultiInputSubstition {
       return;//Only go to next input if value changed
 
     //Try to set focus on next input
-    let nextnode = node.parentNode.nextSibling;
+    const nextnode = node.parentNode.nextSibling;
     if (!nextnode)
       return;
 
-    let nextinp = nextnode.querySelector("input");
+    const nextinp = nextnode.querySelector("input");
     if (nextinp)
       nextinp.focus();
   }
@@ -673,21 +671,21 @@ export class SplitTimeField extends MultiInputSubstition {
 
 
 function __strToIntegerArray(str) {
-  let ilist = new Array();
-  let parts = str.split(/[^0-9]+/);
+  const ilist = [];
+  const parts = str.split(/[^0-9]+/);
   for (let i = 0; i < parts.length; ++i)
-    ilist.push(1 * parts[i]);
+    ilist.push(Number(parts[i]));
 
   return ilist;
 }
 
 
 function __validateNumberField(self, fieldname, node) {
-  let value = node.value.replace(/[^0-9]+/g, '');
+  const value = node.value.replace(/[^0-9]+/g, '');
   node.value = value;
 
   if (value != "")
-    self[fieldname] = 1 * value;
+    self[fieldname] = Number(value);
   else
     self[fieldname] = null;
 }

@@ -13,7 +13,7 @@ import './upload.css';
 function getLabelText(node) {
   let label;
   if (node.id != "") {
-    let labelnode = document.querySelector(`label[for="${node.id}"]`);
+    const labelnode = document.querySelector(`label[for="${node.id}"]`);
     if (labelnode)
       label = labelnode.textContent;
 
@@ -30,7 +30,7 @@ export default class UploadField extends FileEditBase {
     if (!this.node)
       return; //init cancelled
 
-    let label = getLabelText(this.node);
+    const label = getLabelText(this.node);
 
     this.node.addEventListener("click", e => this.selectFile(e)); //we still need to intercept clicks, even if we're hiding it
     this.node.addEventListener('dompack:takefocus', evt => this._takeFocus(evt));
@@ -90,8 +90,8 @@ export default class UploadField extends FileEditBase {
     dompack.dispatchCustomEvent(this.node, 'change', { bubbles: true, cancelable: false });
   }
   refresh() {
-    let filename = this.node.dataset.whFilename || '';
-    let hasfile = !!this.node.dataset.whFileurl;
+    const filename = this.node.dataset.whFilename || '';
+    const hasfile = Boolean(this.node.dataset.whFileurl);
 
     this._filenamefield.value = filename;
     dompack.toggleClass(this.replacement, "wh-form__uploadfield--hasfile", hasfile);

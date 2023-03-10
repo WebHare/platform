@@ -46,15 +46,15 @@ class TagEdit {
 
     // Initialize
     this.options = {
-      tagSeparator: ","     // Tag separator within the input value
-      , allowMultiple: false  // Allow tags to appear multiple times
-      , caseSensitive: false  // If multiple tag check if case sensitive
-      , allowReorder: true    // Allow tags to be reordered using drag-n-drop
-      , enabled: true         // If the input is currently enabled
-      , placeholder: ""       // Placeholder text (overrides the original input's placeholder attribute)
-      , multiline: true       //
-      , validatetags: null    // Function to filter for valid tags
-      , ...options
+      tagSeparator: ",",     // Tag separator within the input value
+      allowMultiple: false,  // Allow tags to appear multiple times
+      caseSensitive: false,  // If multiple tag check if case sensitive
+      allowReorder: true,    // Allow tags to be reordered using drag-n-drop
+      enabled: true,         // If the input is currently enabled
+      placeholder: "",       // Placeholder text (overrides the original input's placeholder attribute)
+      multiline: true,       //
+      validatetags: null,    // Function to filter for valid tags
+      ...options
     };
 
     this.el = el;
@@ -89,7 +89,7 @@ class TagEdit {
   */
   hasTag(text) {
     // getTag will return the first matching tag
-    return !!this._getTag(text);
+    return Boolean(this._getTag(text));
   }
 
   /** @short Delete a tag
@@ -97,14 +97,14 @@ class TagEdit {
   */
   deleteTag(text) {
     // getTag will return the first matching tag
-    var tag = this._getTag(text);
+    let tag = this._getTag(text);
     while (tag) {
       // Remove the tag from the array
       this.tags = this.tags.filter(function(check) {
         return check != tag;
       });
       // Get a reference to the next node to focus
-      var selNode = tag.node.nextSibling;
+      const selNode = tag.node.nextSibling;
       tag.node.remove();
       // If the next node is the input node, focus it, otherwise select the tag node
       if (!selNode || selNode === this.inputnode)
@@ -133,7 +133,7 @@ class TagEdit {
   }
 
   setStringValue(value) {
-    var wasempty = this.tags.length == 0;
+    const wasempty = this.tags.length == 0;
     this.tags = [];
     this._updateTagNodes();
     this._addTagsFromValue(value, false);
@@ -165,17 +165,17 @@ class TagEdit {
     this.node = <span class={"wh-tagedit" + (this.el && this.el.className ? " " + this.el.className : "")}
       style="display: inline-block; overflow: hidden"
       onMousedown={evt => this._onNodeMouseDown(evt)}
-      onClick={evt => this._onNodeClick(evt)} />
+      onClick={evt => this._onNodeClick(evt)} />;
 
     new KeyboardHandler(this.node, {
-      Backspace: () => this._deleteSelectedTag()
-      , Delete: () => this._deleteSelectedTag()
-      , ArrowLeft: () => this._selectTag(-1)
-      , ArrowUp: () => this._selectTag(-1)
-      , ArrowRight: () => this._selectTag(+1)
-      , ArrowDown: () => this._selectTag(+1)
-      , Tab: () => this._focusInputNode()
-      , Escape: () => this._deselectTag()
+      Backspace: () => this._deleteSelectedTag(),
+      Delete: () => this._deleteSelectedTag(),
+      ArrowLeft: () => this._selectTag(-1),
+      ArrowUp: () => this._selectTag(-1),
+      ArrowRight: () => this._selectTag(+1),
+      ArrowDown: () => this._selectTag(+1),
+      Tab: () => this._focusInputNode(),
+      Escape: () => this._deselectTag()
     });
 
 
@@ -195,23 +195,23 @@ class TagEdit {
       onKeypress={evt => this._onInputKeyPress(evt)} />;
 
     new KeyboardHandler(this.inputnode, {
-      "Backspace": () => this._goLeftToTag()
-      , "ArrowLeft": () => this._goLeftToTag()
-      , "Enter": () => this._enterTag()
-      , "ArrowDown": () => this._goDownToMenu()
+      "Backspace": () => this._goLeftToTag(),
+      "ArrowLeft": () => this._goLeftToTag(),
+      "Enter": () => this._enterTag(),
+      "ArrowDown": () => this._goDownToMenu()
     }, { captureunsafekeys: true });
 
     dompack.setStyles(this.inputnode, {
-      "-webkit-appearance": "none"
-      , "border": "none"
-      , "box-sizing": "border-box"
-      , "cursor": "text"
-      , "display": "inline-block"
-      , "max-width": "100%"
+      "-webkit-appearance": "none",
+      "border": "none",
+      "box-sizing": "border-box",
+      "cursor": "text",
+      "display": "inline-block",
+      "max-width": "100%",
       //                                   , "outline": "none"
-      , "overflow": "hidden"
-      , "vertical-align": "top"
-      , "white-space": "nowrap"
+      "overflow": "hidden",
+      "vertical-align": "top",
+      "white-space": "nowrap"
     });
     this.node.append(this.inputnode);
 
@@ -270,7 +270,7 @@ class TagEdit {
     if (!this.selectedTag)
       return;
 
-    let selNode = this.selectedTag.node[dir < 0 ? "previousSibling" : "nextSibling"];
+    const selNode = this.selectedTag.node[dir < 0 ? "previousSibling" : "nextSibling"];
     if (selNode === this.inputnode)
       dompack.focus(this.inputnode);
     else if (selNode)
@@ -294,7 +294,7 @@ class TagEdit {
     evt.detail.autosuggester.closeSelectList();
 
     // Validate and add the tag
-    var res = this._validateAndAddTag(evt.detail.value, true);
+    const res = this._validateAndAddTag(evt.detail.value, true);
 
     // After that clear the current input
     res.then(this._setInputText.bind(this, ""));
@@ -312,13 +312,13 @@ class TagEdit {
     // Remove current tag nodes
     dompack.qSA(this.node, ".wh-tagedit-tag").forEach(node => node.remove());
 
-    var prevtag = null;
+    let prevtag = null;
     this.tags.forEach((tag, idx) => {
       // If tag is a simple string, create a node for it
       if (typeof tag === "string") {
         this.tags[idx] = {
-          tag: tag
-          , node: this._createTagNode(tag)
+          tag: tag,
+          node: this._createTagNode(tag)
         };
         tag = this.tags[idx];
       }
@@ -338,7 +338,7 @@ class TagEdit {
     // Create a node for the tag
     return <span class="wh-tagedit-tag"
       style="box-sizing: border-box; display: inline-block; vertical-align: top; white-space: nowrap"
-      onMousedown={evt => this._onTagMouseDown(evt)} >{text}</span>
+      onMousedown={evt => this._onTagMouseDown(evt)} >{text}</span>;
   }
 
   // ---------------------------------------------------------------------------
@@ -377,15 +377,15 @@ class TagEdit {
     if (this.options.allowMultiple)
       return tags;
 
-    var newtags = [];
-    var unewtags = [];
+    const newtags = [];
+    const unewtags = [];
 
     tags.forEach(tag => {
       tag = tag.trim();
       if (!tag || this.hasTag(tag))
         return;
 
-      var testtag = this.options.caseSensitive ? tag.toUpperCase() : tag;
+      const testtag = this.options.caseSensitive ? tag.toUpperCase() : tag;
       if (unewtags.includes(testtag))
         return;
 
@@ -414,7 +414,7 @@ class TagEdit {
     tags = this._filterCopiesAndClean(tags);
 
     // Construct a promise with the vanilla list
-    var retval = Promise.resolve(tags);
+    const retval = Promise.resolve(tags);
 
     // No tags: thay are all valid!
     if (!tags.length)
@@ -447,7 +447,7 @@ class TagEdit {
     if (values.length == 0)
       return Promise.resolve(false);
 
-    var res = this._validateTags(values, from_autocomplete);
+    let res = this._validateTags(values, from_autocomplete);
 
     // When we have the valid tags, add them, return whether we have added a tag
     res.then(function(validtags) {
@@ -474,9 +474,9 @@ class TagEdit {
   /** Process all the text from the user input, convert to tags and fire the 'change' event
   */
   _processInputText() {
-    var text = this._getInputText();
+    const text = this._getInputText();
     if (text) {
-      let requestlock = dompack.flagUIBusy();
+      const requestlock = dompack.flagUIBusy();
       this._addTagsFromValue(text).then(this._clearInputText.bind(this)).then(this._fireChangeEvent.bind(this)).finally(() => requestlock.release());
     }
     this._resizeInput();
@@ -501,11 +501,10 @@ class TagEdit {
       if (this.options.placeholder) {
         this.sizenode.textContent = this.options.placeholder;
         // We might not yet be present or visible in the DOM
-        let sizenodewith = this.sizenode.getBoundingClientRect().width
+        const sizenodewith = this.sizenode.getBoundingClientRect().width;
         if (sizenodewith)
           this.minwidth = Math.max(sizenodewith, 30);
-      }
-      else
+      } else
         this.minwidth = 30;
     }
     this.sizenode.textContent = this.inputnode.value;
@@ -536,7 +535,7 @@ class TagEdit {
   */
   _setSelectedTag(tagNode) {
     // Find the tag with the request node
-    var tag = this.tags.filter(function(check) {
+    const tag = this.tags.filter(function(check) {
       return typeof check === "object" && check.node === tagNode;
     })[0];
     if (this.selectedTag === tag)
@@ -591,7 +590,7 @@ class TagEdit {
 
   _goLeftToTag() {
     // If nothing is selected and the cursor is at the leftmost position of the input, select the last tag and blur the input
-    var haveSelection = false;
+    let haveSelection = false;
     haveSelection = this.inputnode.selectionStart + this.inputnode.selectionEnd === 0;
 
     if (this.tags.length && haveSelection) {

@@ -43,11 +43,11 @@ function doValidation(field, iffailedbefore) {
     return;
   }
 
-  let form = field.closest('form');
+  const form = field.closest('form');
   if (!form || !form.propWhFormhandler)
     return;
 
-  let formhandler = form.propWhFormhandler;
+  const formhandler = form.propWhFormhandler;
   formhandler.validate([field], { focusfailed: false, iffailedbefore: iffailedbefore });
 }
 
@@ -67,7 +67,7 @@ function releasePendingValidations(event) {
   delayvalidation = false;
 
   if (validationpendingfor) {
-    let tovalidate = validationpendingfor;
+    const tovalidate = validationpendingfor;
     if (dompack.debugflags.fhv)
       console.log("[fhv] releasePendingValidations: ", tovalidate);
     validationpendingfor = null;
@@ -121,7 +121,7 @@ export default class FormBase {
     this._applyPrefills();
 
     //Update page navigation
-    let pagestate = this._getPageState();
+    const pagestate = this._getPageState();
     this._updatePageVisibility(pagestate.pages, 0);
     this._updatePageNavigation();
   }
@@ -130,19 +130,19 @@ export default class FormBase {
     if (!this._formhandling || !this._formhandling.pxl)
       return;
 
-    let now = Date.now();
-    let isfirst = !this._formsessionid;
+    const now = Date.now();
+    const isfirst = !this._formsessionid;
     if (isfirst) {
       this._formsessionid = pxl.generateId();
       this._firstinteraction = now;
     }
 
-    let pagestate = this._getPageState();
+    const pagestate = this._getPageState();
     vars = {
-      ds_formmeta_id: this.node.dataset.whFormId || ''
-      , ds_formmeta_session: this._formsessionid
-      , ds_formmeta_pagetitle: this._getPageTitle(pagestate.curpage)
-      , ...vars
+      ds_formmeta_id: this.node.dataset.whFormId || '',
+      ds_formmeta_session: this._formsessionid,
+      ds_formmeta_pagetitle: this._getPageTitle(pagestate.curpage),
+      ...vars
     };
 
     /* if isfirst and eventtype !== null, the user might eg. try to submit or nextpage *immediately* without ever having
@@ -155,20 +155,20 @@ export default class FormBase {
       return; //we were only invoked for the implicit formstarted event
 
     pxl.sendPxlEvent(eventtype, {
-      ...vars
-      , dn_formmeta_time: now - this._firstinteraction
-      , dn_formmeta_pagenum: pagestate.curpage + 1
+      ...vars,
+      dn_formmeta_time: now - this._firstinteraction,
+      dn_formmeta_pagenum: pagestate.curpage + 1
     }, { node: this.node });
   }
 
   _rewriteEnableOn() //ADDME move this to webhare server
   {
     // This is the initialization, check the enable components for all elements within the form
-    for (let control of dompack.qSA(this.node, "*[data-wh-form-enable]"))
-      for (let element of control.dataset.whFormEnable.split(" ")) {
-        let target = this.node.elements[element];
+    for (const control of dompack.qSA(this.node, "*[data-wh-form-enable]"))
+      for (const element of control.dataset.whFormEnable.split(" ")) {
+        const target = this.node.elements[element];
         if (target) {
-          let name = (control.nodeName == "OPTION" ? control.closest("select") : control).name;
+          const name = (control.nodeName == "OPTION" ? control.closest("select") : control).name;
           if (!name) //duplicated node?
             continue;
 
@@ -182,27 +182,25 @@ export default class FormBase {
 
   _applyPrefills() {
     //Apply prefills. Set in field order, so controls-enabling-controls things will generally work
-    let searchparams = new URL(location.href).searchParams;
-    for (let field of this._queryAllFields()) {
-      let allvalues = searchparams.getAll(field.name);
+    const searchparams = new URL(location.href).searchParams;
+    for (const field of this._queryAllFields()) {
+      const allvalues = searchparams.getAll(field.name);
       if (!allvalues.length)
         continue;
 
       if (field.multi && field.nodes[0].type == 'checkbox') {
-        for (let node of field.nodes) {
-          let shouldbechecked = allvalues.includes(node.value);
+        for (const node of field.nodes) {
+          const shouldbechecked = allvalues.includes(node.value);
           if (shouldbechecked != field.checked)
             this.setFieldValue(node, shouldbechecked);
         }
-      }
-      else if (field.multi && field.nodes[0].type == 'radio') {
-        let tocheck = field.nodes.filter(_ => _.value == allvalues[allvalues.length - 1])[0];
+      } else if (field.multi && field.nodes[0].type == 'radio') {
+        const tocheck = field.nodes.filter(_ => _.value == allvalues[allvalues.length - 1])[0];
         if (tocheck && !tocheck.checked)
           this.setFieldValue(tocheck, true);
         if (!tocheck)
           field.nodes.filter(_ => _.checked).forEach(_ => this.setFieldValue(_, false));
-      }
-      else {
+      } else {
         if (!this._isNowSettable(field.node))
           continue;
         this.setFieldValue(field.node, allvalues[allvalues.length - 1]); //last value wins
@@ -229,13 +227,13 @@ export default class FormBase {
   }
 
   _updateFieldGroupMessageState(field, type, getError) {
-    let mygroup = field.closest(".wh-form__fieldgroup");
+    const mygroup = field.closest(".wh-form__fieldgroup");
     if (!mygroup)
       return null;
 
     //look for failing class, eg .wh-form__field--error - might actually apply to this group itself!
-    let failedfield = mygroup.classList.contains("wh-form__field--" + type) ? mygroup : mygroup.querySelector(".wh-form__field--" + type);
-    dompack.toggleClass(mygroup, "wh-form__fieldgroup--" + type, !!failedfield); //eg. wh-form__fieldgroup--error
+    const failedfield = mygroup.classList.contains("wh-form__field--" + type) ? mygroup : mygroup.querySelector(".wh-form__field--" + type);
+    dompack.toggleClass(mygroup, "wh-form__fieldgroup--" + type, Boolean(failedfield)); //eg. wh-form__fieldgroup--error
 
     let error = (failedfield ? getError(failedfield) : null) || null;
     if (error) //mark the field has having failed at one point. we will now switch to faster updating error state
@@ -249,7 +247,7 @@ export default class FormBase {
       if (!failedfield)
         return; //nothing to do
 
-      let suggestionholder = field.closest('.wh-form__fields') || mygroup.querySelector('.wh-form__fields') || mygroup;
+      const suggestionholder = field.closest('.wh-form__fields') || mygroup.querySelector('.wh-form__fields') || mygroup;
       messagenode = dompack.create("div", { className: "wh-form__" + type });
       dompack.append(suggestionholder, messagenode);
     }
@@ -282,11 +280,11 @@ export default class FormBase {
   }
 
   _reportFieldValidity(node) {
-    let iserror = (node.propWhSetFieldError || node.propWhValidationError || node.propWhFormNativeError);
-    dompack.toggleClass(node, "wh-form__field--error", !!iserror);
+    const iserror = (node.propWhSetFieldError || node.propWhValidationError || node.propWhFormNativeError);
+    dompack.toggleClass(node, "wh-form__field--error", Boolean(iserror));
 
-    let issuggestion = !iserror && node.propWhValidationSuggestion;
-    dompack.toggleClass(node, "wh-form__field--suggestion", !!issuggestion);
+    const issuggestion = !iserror && node.propWhValidationSuggestion;
+    dompack.toggleClass(node, "wh-form__field--suggestion", Boolean(issuggestion));
 
     this._updateFieldGroupErrorState(node);
     this._updateFieldGroupSuggestionState(node);
@@ -303,7 +301,7 @@ export default class FormBase {
       return;
 
     //A form element's default button is the first submit button in tree order whose form owner is that form element.
-    let submitter = this._submitter || this.node.querySelector(submitselector);
+    const submitter = this._submitter || this.node.querySelector(submitselector);
     this._submitter = null;
 
     if (dompack.debugflags.fhv)
@@ -323,8 +321,7 @@ export default class FormBase {
         return; //we expect parsley to invoke _doSubmit through wh:form-dosubmit
 
       await this._doSubmit(evt, extradata);
-    }
-    finally {
+    } finally {
       tempbutton?.remove();
     }
   }
@@ -350,7 +347,7 @@ export default class FormBase {
     if (evt)
       evt.preventDefault();
 
-    let lock = dompack.flagUIBusy({ ismodal: true, component: this.node });
+    const lock = dompack.flagUIBusy({ ismodal: true, component: this.node });
     this._submitstart = Date.now();
     if (this._formhandling && this._formhandling.warnslow)
       this._submittimeout = setTimeout(() => this._submitHasTimedOut(), this._formhandling.warnslow);
@@ -360,23 +357,21 @@ export default class FormBase {
     try {
       this.resetServerSideErrors();
 
-      let validationresult = await this.validate();
+      const validationresult = await this.validate();
       if (validationresult.valid) {
-        let result = await this.submit(extradata);
+        const result = await this.submit(extradata);
         if (result.result && result.result.submittype && result.result.submittype != this._getVariableValueForConditions("formsubmittype")) {
           this.node.setAttribute("data-wh-form-var-formsubmittype", result.result.submittype);
           this._updateConditions(false);
         }
-      }
-      else {
+      } else {
         this.sendFormEvent('publisher:formfailed', {
-          ds_formmeta_errorfields: getErrorFields(validationresult)
-          , ds_formmeta_errorsource: 'client'
-          , dn_formmeta_waittime: Date.now() - this._submitstart
+          ds_formmeta_errorfields: getErrorFields(validationresult),
+          ds_formmeta_errorsource: 'client',
+          dn_formmeta_waittime: Date.now() - this._submitstart
         });
       }
-    }
-    finally {
+    } finally {
       lock.release();
       this.node.classList.remove('wh-form--submitting');
       if (this._submittimeout) {
@@ -389,8 +384,8 @@ export default class FormBase {
   _submitHasTimedOut() //TODO extend this to (background) RPCs too, and make waitfor more specific. also check whether we're stuck on client or server side
   {
     this.sendFormEvent('publisher:formslow', {
-      dn_formmeta_waittime: Date.now() - this._submitstart
-      , ds_formmeta_waitfor: "submit"
+      dn_formmeta_waittime: Date.now() - this._submitstart,
+      ds_formmeta_waitfor: "submit"
     });
     this._submittimeout = 0;
   }
@@ -401,19 +396,19 @@ export default class FormBase {
   }
 
   _onTakeFocus(evt) {
-    let containingpage = evt.target.closest('.wh-form__page');
+    const containingpage = evt.target.closest('.wh-form__page');
     if (containingpage && containingpage.classList.contains('wh-form__page--hidden')) {
       //make sure the page containing the errored component is visible
-      let pagenum = dompack.qSA(this.node, '.wh-form__page').findIndex(page => page == containingpage);
+      const pagenum = dompack.qSA(this.node, '.wh-form__page').findIndex(page => page == containingpage);
       if (pagenum >= 0)
         this.gotoPage(pagenum);
     }
   }
 
   _checkClick(evt) {
-    let actionnode = evt.target.closest("*[data-wh-form-action]");
+    const actionnode = evt.target.closest("*[data-wh-form-action]");
     if (!actionnode) {
-      let submitter = evt.target.closest(submitselector);
+      const submitter = evt.target.closest(submitselector);
       if (submitter) {
         this._submitter = submitter; //store as submitter in case a submit event actually occurs
         setTimeout(() => this._submitter = null); //but clear it as soon as event processing ends
@@ -426,8 +421,8 @@ export default class FormBase {
   }
 
   _getPageState() {
-    let pages = dompack.qSA(this.node, '.wh-form__page');
-    let curpage = pages.findIndex(page => !page.classList.contains('wh-form__page--hidden'));
+    const pages = dompack.qSA(this.node, '.wh-form__page');
+    const curpage = pages.findIndex(page => !page.classList.contains('wh-form__page--hidden'));
     return { pages, curpage };
   }
 
@@ -440,14 +435,14 @@ export default class FormBase {
 
   ///Get the currently opened page (page node)
   getCurrentPage() {
-    let state = this._getPageState();
+    const state = this._getPageState();
     return state.curpage >= 0 ? state.pages[state.curpage] : null;
   }
 
   /** Position the specified element's group or the form itself into view, using `.wh-anchor` nodes to correct for fixed headers
       @param scrollto Element to position into view. If not set, the form it scrolled into view */
   scrollIntoView(scrollto) {
-    let origscrollto = scrollto;
+    const origscrollto = scrollto;
     scrollto = (scrollto ? scrollto.closest('.wh-form__fieldgroup') : null) || this.node;
     scrollto = scrollto.querySelector('.wh-anchor') || scrollto;
     if (origscrollto && scrollto != origscrollto && dompack.debugflags.fhv)
@@ -467,17 +462,17 @@ export default class FormBase {
   /** Goto a specific page
       @param pageidx 0-based index of page to jump to */
   async gotoPage(pageidx) {
-    let state = this._getPageState();
+    const state = this._getPageState();
     if (state.curpage == pageidx)
       return;
     if (pageidx < 0 || pageidx >= state.pages.length)
       throw new Error(`Cannot navigate to nonexisting page #${pageidx}`);
 
-    let goingforward = pageidx > state.curpage;
+    const goingforward = pageidx > state.curpage;
     this.sendFormEvent(goingforward ? 'publisher:formnextpage' : 'publisher:formpreviouspage'
       , {
-        dn_formmeta_targetpagenum: pageidx + 1
-        , ds_formmeta_targetpagetitle: this._getPageTitle(pageidx)
+        dn_formmeta_targetpagenum: pageidx + 1,
+        ds_formmeta_targetpagetitle: this._getPageTitle(pageidx)
       });
 
     this._updatePageVisibility(state.pages, pageidx);
@@ -505,7 +500,7 @@ export default class FormBase {
   }
 
   _getPageTitle(pagenum) {
-    let pagenode = this._getPageState().pages[pagenum];
+    const pagenode = this._getPageState().pages[pagenum];
     if (!pagenode)
       return "";
     return pagenode.dataset.whFormPagetitle || ("#" + (pagenum + 1));
@@ -516,7 +511,7 @@ export default class FormBase {
       case 'previous':
         {
           if (this.node.classList.contains('wh-form--allowprevious')) {
-            let pagestate = this._getPageState();
+            const pagestate = this._getPageState();
             if (pagestate.curpage > 0)
               this.gotoPage(this._getDestinationPage(pagestate, -1));
             else if (this.node.dataset.whFormBacklink)
@@ -526,18 +521,17 @@ export default class FormBase {
         }
       case 'next':
         {
-          let pagestate = this._getPageState();
+          const pagestate = this._getPageState();
           if (this.node.classList.contains('wh-form--allownext')) {
             this.resetServerSideErrors();
 
-            let validationstatus = await this.validate(pagestate.pages[pagestate.curpage]);
+            const validationstatus = await this.validate(pagestate.pages[pagestate.curpage]);
             if (validationstatus.valid) {
               this.gotoPage(this._getDestinationPage(pagestate, +1));
-            }
-            else {
+            } else {
               this.sendFormEvent('publisher:formfailed', {
-                ds_formmeta_errorfields: getErrorFields(validationstatus)
-                , ds_formmeta_errorsource: 'nextpage'
+                ds_formmeta_errorfields: getErrorFields(validationstatus),
+                ds_formmeta_errorsource: 'nextpage'
               });
             }
           }
@@ -561,11 +555,11 @@ export default class FormBase {
 
   async _updateConditions(isinit) {
     // Check pages visibility
-    let hiddenPages = [];
-    let mergeNodes = [];
+    const hiddenPages = [];
+    const mergeNodes = [];
     let anychanges = false;
 
-    for (let formpage of dompack.qSA(this.node, ".wh-form__page")) {
+    for (const formpage of dompack.qSA(this.node, ".wh-form__page")) {
       let visible = true;
       if (formpage.dataset.whFormVisibleIf) {
         visible = this._matchesCondition(formpage.dataset.whFormVisibleIf);
@@ -582,16 +576,16 @@ export default class FormBase {
     if (anychanges)
       this._updatePageNavigation();
 
-    let tovalidate = [];
-    let hiddengroups = [], enabledgroups = [], requiredgroups = [];
-    for (let formgroup of dompack.qSA(this.node, ".wh-form__fieldgroup")) {
-      let visible = !hiddenPages.includes(formgroup.closest(".wh-form__page"))
+    const tovalidate = [];
+    const hiddengroups = [], enabledgroups = [], requiredgroups = [];
+    for (const formgroup of dompack.qSA(this.node, ".wh-form__fieldgroup")) {
+      const visible = !hiddenPages.includes(formgroup.closest(".wh-form__page"))
         && this._matchesCondition(formgroup.dataset.whFormVisibleIf);
 
       if (!visible)
         hiddengroups.push(formgroup);
 
-      let enabled = visible
+      const enabled = visible
         && this._matchesCondition(formgroup.dataset.whFormEnabledIf);
 
       if (enabled)
@@ -601,7 +595,7 @@ export default class FormBase {
       if (formgroup.propWhFormInitialRequired === undefined)
         formgroup.propWhFormInitialRequired = formgroup.classList.contains("wh-form__fieldgroup--required");
 
-      let required = enabled
+      const required = enabled
         && (formgroup.dataset.whFormRequiredIf ? this._matchesCondition(formgroup.dataset.whFormRequiredIf) : formgroup.propWhFormInitialRequired);
 
       if (required)
@@ -622,11 +616,11 @@ export default class FormBase {
       }
     }
 
-    for (let formline of dompack.qSA(this.node, ".wh-form__fieldline")) {
-      let formgroup = formline.closest(".wh-form__fieldgroup");
-      let visible = !hiddengroups.includes(formgroup) && this._matchesCondition(formline.dataset.whFormVisibleIf);
-      let enabled = visible && enabledgroups.includes(formgroup) && this._matchesCondition(formline.dataset.whFormEnabledIf);
-      let required = enabled && requiredgroups.includes(formgroup);
+    for (const formline of dompack.qSA(this.node, ".wh-form__fieldline")) {
+      const formgroup = formline.closest(".wh-form__fieldgroup");
+      const visible = !hiddengroups.includes(formgroup) && this._matchesCondition(formline.dataset.whFormVisibleIf);
+      const enabled = visible && enabledgroups.includes(formgroup) && this._matchesCondition(formline.dataset.whFormEnabledIf);
+      const required = enabled && requiredgroups.includes(formgroup);
 
       if (visible !== formline.propWhFormlineCurrentVisible) // These are initially undefined, so this code will always run first time
       {
@@ -635,21 +629,21 @@ export default class FormBase {
       }
 
       // Look for nodes that are explicit enable state (enablee/require) listeners, or that need to do so because they're real input controls
-      let inputtargets = dompack.qSA(formline, "[data-wh-form-state-listener='true'],input,select,textarea");
+      const inputtargets = dompack.qSA(formline, "[data-wh-form-state-listener='true'],input,select,textarea");
 
-      for (let node of inputtargets) {
+      for (const node of inputtargets) {
         //Record initial states
         if (node.propWhFormSavedEnabled === undefined)
           node.propWhFormSavedEnabled = !node.disabled && !("whFormDisabled" in node.dataset);
 
         if (node.propWhFormSavedRequired === undefined)
-          node.propWhFormSavedRequired = !!node.required;
+          node.propWhFormSavedRequired = Boolean(node.required);
 
         // The field is enabled if all of these are matched:
         // - we're setting it to enabled now
         // - it hasn't been disabled explicitly (set initially on the node)
         // - it hasn't been disabled through enablecomponents
-        let node_enabled = enabled && node.propWhFormSavedEnabled && this._matchesCondition(node.dataset.whFormEnabledIf);
+        const node_enabled = enabled && node.propWhFormSavedEnabled && this._matchesCondition(node.dataset.whFormEnabledIf);
 
         if (node_enabled !== node.propWhNodeCurrentEnabled) {
           node.propWhNodeCurrentEnabled = node_enabled;
@@ -669,7 +663,7 @@ export default class FormBase {
             tovalidate.push(node); // to clear errors for this disabled field
         }
 
-        let node_required = (node.propWhFormSavedRequired || required) && node_enabled && visible;
+        const node_required = (node.propWhFormSavedRequired || required) && node_enabled && visible;
         if (node.propWhNodeCurrentRequired !== node_required) {
           node.propWhNodeCurrentRequired = node_required;
 
@@ -680,8 +674,7 @@ export default class FormBase {
             {
               if (node.type != 'checkbox') //don't set required on checkboxes, that doesn't do what you want
                 node.required = node_required;
-            }
-            else if (node_required)
+            } else if (node_required)
               node.setAttribute("data-wh-form-required", "");
             else
               node.removeAttribute("data-wh-form-required");
@@ -693,8 +686,8 @@ export default class FormBase {
       }
     }
 
-    for (let option of dompack.qSA(this.node, ".wh-form__fieldgroup select option")) {
-      let visible = this._matchesCondition(option.dataset.whFormVisibleIf);
+    for (const option of dompack.qSA(this.node, ".wh-form__fieldgroup select option")) {
+      const visible = this._matchesCondition(option.dataset.whFormVisibleIf);
 
       //Record initial states
       if (option.propWhFormSavedEnabled === undefined)
@@ -702,8 +695,8 @@ export default class FormBase {
       if (option.propWhFormSavedHidden === undefined)
         option.propWhFormSavedHidden = option.hidden;
 
-      let option_enabled = visible && option.propWhFormSavedEnabled;
-      let option_hidden = !visible || option.propWhFormSavedHidden;
+      const option_enabled = visible && option.propWhFormSavedEnabled;
+      const option_hidden = !visible || option.propWhFormSavedHidden;
 
       if (option_enabled !== option.propWhNodeCurrentEnabled || option_hidden != option.propWhNodeCurrentHidden) {
         option.propWhNodeCurrentEnabled = option_enabled;
@@ -712,13 +705,12 @@ export default class FormBase {
         option.hidden = option_hidden;
 
         // If this option was the selected option, but is now disabled (but not the placeholder), reset the select's value
-        let selectnode = option.closest("select");
+        const selectnode = option.closest("select");
         if (option.selected && (!option_enabled || option_hidden) && option.dataset.whPlaceholder === undefined) {
           if (selectnode.options[0].dataset.whPlaceholder !== undefined) //we have a placeholder...
           {
             selectnode.selectedIndex = 0;
-          }
-          else {
+          } else {
             selectnode.selectedIndex = -1;
             if (!selectnode.__didPlaceholderWarning) {
               selectnode.__didPlaceholderWarning = true;
@@ -742,17 +734,16 @@ export default class FormBase {
     // Rename the data-wh-merge attribute to data-wh-dont-merge on hidden pages and within hidden formgroups to prevent
     // merging invisible nodes
     // FIXME 'merge' has a filter option now - convert to that!
-    let formvalue = await this.getFormValue();
-    for (let node of nodes) {
+    const formvalue = await this.getFormValue();
+    for (const node of nodes) {
       if (node.propWhFormCurrentVisible) {
-        for (let mergeNode of dompack.qSA(node, '*[data-wh-dont-merge]')) {
+        for (const mergeNode of dompack.qSA(node, '*[data-wh-dont-merge]')) {
           mergeNode.dataset.merge = mergeNode.dataset.whDontMerge;
           mergeNode.removeAttribute("data-wh-dont-merge");
         }
         merge.run(node, { form: formvalue });
-      }
-      else {
-        for (let mergeNode of dompack.qSA(node, '*[data-merge]')) {
+      } else {
+        for (const mergeNode of dompack.qSA(node, '*[data-merge]')) {
           mergeNode.dataset.whDontMerge = mergeNode.dataset.merge;
           mergeNode.removeAttribute("data-merge");
         }
@@ -764,7 +755,7 @@ export default class FormBase {
     if (!conditiontext)
       return true;
 
-    let condition = JSON.parse(conditiontext).c;
+    const condition = JSON.parse(conditiontext).c;
     return this._matchesConditionRecursive(condition);
   }
 
@@ -772,7 +763,7 @@ export default class FormBase {
     if (this.node.hasAttribute("data-wh-form-var-" + fieldname))
       return this.node.getAttribute("data-wh-form-var-" + fieldname);
 
-    let matchfield = this.elements[fieldname];
+    const matchfield = this.elements[fieldname];
     if (!matchfield) {
       console.error(`No match for conditional required field '${fieldname}'`);
       return null;
@@ -781,7 +772,7 @@ export default class FormBase {
     if (isNodeCollection(matchfield)) {
       let currentvalue = null;
 
-      for (let field of matchfield)
+      for (const field of matchfield)
         if (((options && options.checkdisabled) || this._isNowSettable(field)) && field.checked) {
           if (field.type != "checkbox")
             return field.value;
@@ -791,8 +782,7 @@ export default class FormBase {
           currentvalue.push(field.value);
         }
       return currentvalue;
-    }
-    else {
+    } else {
       //Can we set this field?
       if ((!options || !options.checkdisabled) && !this._isNowSettable(matchfield))
         return null;
@@ -811,7 +801,7 @@ export default class FormBase {
     if (this.node.hasAttribute("data-wh-form-var-" + conditionfield))
       return this.node.getAttribute("data-wh-form-var-" + conditionfield);
 
-    let fields = conditionfield.split("$");
+    const fields = conditionfield.split("$");
 
     if (fields.length > 1) {
       // If the condition field has a subfield, check if it's available through a form var
@@ -826,7 +816,7 @@ export default class FormBase {
       return currentvalue;
 
     // Look for an extrafield match
-    let matchfield = this.elements[fields[0]];
+    const matchfield = this.elements[fields[0]];
     if (!matchfield) {
       console.error(`No match for conditional required field '${conditionfield}'`);
       return null;
@@ -834,26 +824,24 @@ export default class FormBase {
 
     if (matchfield.nodeName == "SELECT") {
       if (Array.isArray(currentvalue)) {
-        let selectedvalue = currentvalue;
+        const selectedvalue = currentvalue;
         currentvalue = [];
-        for (let val of selectedvalue) {
-          let selected = dompack.qS(matchfield, `option[value="${val}"]`);
+        for (const val of selectedvalue) {
+          const selected = dompack.qS(matchfield, `option[value="${val}"]`);
           if (!selected.dataset.__extrafields)
             return null;
-          let extrafields = JSON.parse(selected.dataset.__extrafields);
+          const extrafields = JSON.parse(selected.dataset.__extrafields);
           currentvalue.push(extrafields[fields[1]]);
         }
-      }
-      else {
-        let selected = dompack.qS(matchfield, `option[value="${currentvalue}"]`);
+      } else {
+        const selected = dompack.qS(matchfield, `option[value="${currentvalue}"]`);
         if (!selected.dataset.__extrafields)
           return null;
-        let extrafields = JSON.parse(selected.dataset.__extrafields);
+        const extrafields = JSON.parse(selected.dataset.__extrafields);
         currentvalue = extrafields[fields[1]];
       }
       return currentvalue;
-    }
-    else {
+    } else {
       console.error("Subfield matching not supported for non-select fields");
       return null;
     }
@@ -862,29 +850,27 @@ export default class FormBase {
 
   _matchesConditionRecursive(condition) {
     if (condition.matchtype == "AND") {
-      for (let subcondition of condition.conditions)
+      for (const subcondition of condition.conditions)
         if (!this._matchesConditionRecursive(subcondition))
           return false;
       return true;
-    }
-    else if (condition.matchtype == "OR") {
-      for (let subcondition of condition.conditions)
+    } else if (condition.matchtype == "OR") {
+      for (const subcondition of condition.conditions)
         if (this._matchesConditionRecursive(subcondition))
           return true;
       return false;
-    }
-    else if (condition.matchtype == "NOT") {
+    } else if (condition.matchtype == "NOT") {
       return !this._matchesConditionRecursive(condition.condition);
     }
 
     let currentvalue = this._getVariableValueForConditions(condition.field, condition.options);
 
     if (condition.matchtype == "HASVALUE")
-      return !!currentvalue == !!condition.value;
+      return Boolean(currentvalue) == Boolean(condition.value);
 
     if (["IN", "HAS", "IS"].includes(condition.matchtype)) {
-      let matchcase = !condition.options || condition.options.matchcase !== false; // Defaults to true
-      let compareagainst = Array.isArray(condition.value) ? condition.value : condition.value ? [condition.value] : [];
+      const matchcase = !condition.options || condition.options.matchcase !== false; // Defaults to true
+      const compareagainst = Array.isArray(condition.value) ? condition.value : condition.value ? [condition.value] : [];
 
       if (!Array.isArray(currentvalue))
         currentvalue = currentvalue ? [currentvalue] : [];
@@ -915,7 +901,7 @@ export default class FormBase {
       if (!currentvalue)
         return false;
 
-      let now = new Date, birthdate = new Date(currentvalue);
+      const now = new Date, birthdate = new Date(currentvalue);
       let age = now.getFullYear() - birthdate.getFullYear();
       //birthdate not hit yet this year? then you lose a year
       if (now.getMonth() < birthdate.getMonth()
@@ -930,23 +916,23 @@ export default class FormBase {
   }
 
   _updatePageNavigation() {
-    let pagestate = this._getPageState();
-    let nextpage = this._getDestinationPage(pagestate, +1);
-    let morepages = nextpage != -1;
-    let curpagerole = pagestate.pages[pagestate.curpage] ? pagestate.pages[pagestate.curpage].dataset.whFormPagerole : '';
-    let nextpagerole = morepages ? pagestate.pages[nextpage].dataset.whFormPagerole : "";
+    const pagestate = this._getPageState();
+    const nextpage = this._getDestinationPage(pagestate, +1);
+    const morepages = nextpage != -1;
+    const curpagerole = pagestate.pages[pagestate.curpage] ? pagestate.pages[pagestate.curpage].dataset.whFormPagerole : '';
+    const nextpagerole = morepages ? pagestate.pages[nextpage].dataset.whFormPagerole : "";
 
     dompack.toggleClasses(this.node, {
-      "wh-form--allowprevious": (pagestate.curpage > 0 && curpagerole != 'thankyou') || (pagestate.curpage <= 0 && this.node.dataset.whFormBacklink)
-      , "wh-form--allownext": morepages && nextpagerole != 'thankyou'
-      , "wh-form--allowsubmit": curpagerole != 'thankyou' && (!morepages || nextpagerole == 'thankyou')
+      "wh-form--allowprevious": (pagestate.curpage > 0 && curpagerole != 'thankyou') || (pagestate.curpage <= 0 && this.node.dataset.whFormBacklink),
+      "wh-form--allownext": morepages && nextpagerole != 'thankyou',
+      "wh-form--allowsubmit": curpagerole != 'thankyou' && (!morepages || nextpagerole == 'thankyou')
     });
   }
 
   _navigateToThankYou(richvalues) {
-    let state = this._getPageState();
+    const state = this._getPageState();
     if (state.curpage >= 0) {
-      let nextpage = this._getDestinationPage(state, +1);
+      const nextpage = this._getDestinationPage(state, +1);
       if (nextpage != -1 && state.pages[nextpage] && state.pages[nextpage].dataset.whFormPagerole == 'thankyou') {
         if (state.pages[nextpage].dataset.whFormPageredirect)
           executeSubmitInstruction({ type: "redirect", url: state.pages[nextpage].dataset.whFormPageredirect });
@@ -960,8 +946,8 @@ export default class FormBase {
 
   updateRichValues(page, richvalues) {
     if (richvalues) {
-      for (let { field, value } of richvalues) {
-        let node = page.querySelector(`.wh-form__fieldgroup--richtext[data-wh-form-group-for="${CSS.escape(field)}"] .wh-form__richtext`);
+      for (const { field, value } of richvalues) {
+        const node = page.querySelector(`.wh-form__fieldgroup--richtext[data-wh-form-group-for="${CSS.escape(field)}"] .wh-form__richtext`);
         if (node) {
           node.innerHTML = value;
           dompack.registerMissed(node);
@@ -976,7 +962,7 @@ export default class FormBase {
   async getFieldValue(field) {
     if (field.hasAttribute('data-wh-form-name') || field.whUseFormGetValue) {
       //create a deferred promise for the field to fulfill
-      let deferred = dompack.createDeferred();
+      const deferred = dompack.createDeferred();
       //if cancelled, we'll assume the promise is taken over
       if (!dompack.dispatchCustomEvent(field, 'wh:form-getvalue', { bubbles: true, cancelable: true, detail: { deferred } }))
         return deferred.promise;
@@ -986,10 +972,10 @@ export default class FormBase {
       if (field.files.length == 0)
         return null;
 
-      let dataurl = await compatupload.getFileAsDataURL(field.files[0]);
+      const dataurl = await compatupload.getFileAsDataURL(field.files[0]);
       return {
-        filename: field.files[0].name.split('\\').join('/').split('/').pop() //ensure we get the last part
-        , link: dataurl
+        filename: field.files[0].name.split('\\').join('/').split('/').pop(), //ensure we get the last part
+        link: dataurl
       };
       // return Promise.all(Array.from(field.files).map(async function(fileobject)
       //          {
@@ -1016,7 +1002,7 @@ export default class FormBase {
       // Event is not cancelled, set node value directly
     }
     if (dompack.matches(fieldnode, 'input[type=radio], input[type=checkbox]')) {
-      dompack.changeValue(fieldnode, !!value);
+      dompack.changeValue(fieldnode, Boolean(value));
       return;
     }
     dompack.changeValue(fieldnode, value);
@@ -1031,10 +1017,10 @@ export default class FormBase {
   }
 
   _queryAllFields(options) {
-    let foundfields = [];
-    let skiparraymembers = options && options.skiparraymembers;
+    const foundfields = [];
+    const skiparraymembers = options && options.skiparraymembers;
 
-    for (let field of this._getFieldsToValidate(options?.startnode)) {
+    for (const field of this._getFieldsToValidate(options?.startnode)) {
       if (options && field == options.skipfield) //arrayfield.es needs it
         continue;
       if (!this._isPartOfForm(field))
@@ -1044,7 +1030,7 @@ export default class FormBase {
       if (skiparraymembers && field.closest(".wh-form__arrayrow"))
         continue;
 
-      let name = field.dataset.whFormName || field.name;
+      const name = field.dataset.whFormName || field.name;
       if (!name)
         continue;
 
@@ -1056,8 +1042,7 @@ export default class FormBase {
           foundfields.push(addto);
         }
         addto.nodes.push(field);
-      }
-      else {
+      } else {
         if (addto) {
           console.error(`[fhv] Encountered duplicate field '${name}'`, field);
           continue;
@@ -1081,17 +1066,17 @@ export default class FormBase {
     if (!field.multi)
       return this.getFieldValue(field.node);
 
-    let fields = field.nodes.filter(node => node.checked);
+    const fields = field.nodes.filter(node => node.checked);
     return this.getMultifieldValue(field.name, fields);
   }
 
   /** Return a promise resolving to the submittable form value */
   getFormValue(options) {
     return new Promise((resolve, reject) => {
-      let outdata = {};
-      let fieldpromises = [];
+      const outdata = {};
+      const fieldpromises = [];
 
-      for (let field of this._queryAllFields({ onlysettable: true, skiparraymembers: true }))
+      for (const field of this._queryAllFields({ onlysettable: true, skiparraymembers: true }))
         this._processFieldValue(outdata, fieldpromises, field.name, this._getQueryiedFieldValue(field));
 
       Promise.all(fieldpromises).then(() => resolve(outdata)).catch(e => reject(e));
@@ -1104,7 +1089,7 @@ export default class FormBase {
       return false;
 
     // If the node's field group is disabled or hidden, it's not settable
-    let formgroup = node.closest(".wh-form__fieldgroup");
+    const formgroup = node.closest(".wh-form__fieldgroup");
     if (formgroup) {
       if (formgroup.classList.contains("wh-form__fieldgroup--disabled"))
         return false;
@@ -1113,7 +1098,7 @@ export default class FormBase {
     }
 
     // If the node's form page is hidden dynamically, it's not settable
-    let formpage = node.closest(".wh-form__page");
+    const formpage = node.closest(".wh-form__page");
     if (formpage) {
       if (formpage.propWhFormCurrentVisible === false)
         return false;
@@ -1134,8 +1119,7 @@ export default class FormBase {
           resolve();
         }).catch(e => reject(e));
       }));
-    }
-    else {
+    } else {
       outdata[fieldname] = receivedvalue;
     }
   }
@@ -1149,9 +1133,9 @@ export default class FormBase {
       nodes = [nodes];
 
     return Array.from(nodes).map(node => ({
-      inputnode: node
-      , fieldline: node.closest('.wh-form__fieldline')
-      , value: node.value
+      inputnode: node,
+      fieldline: node.closest('.wh-form__fieldline'),
+      value: node.value
     }));
   }
 
@@ -1166,7 +1150,7 @@ export default class FormBase {
   /** get the selected option associated with a radio/checkbox group. returns an object that's either null or the first selected option
       */
   getSelectedOption(name) {
-    let opts = this.getSelectedOptions(name);
+    const opts = this.getSelectedOptions(name);
     return opts.length ? opts[0] : null;
   }
 
@@ -1188,7 +1172,7 @@ export default class FormBase {
   }
   /** get the value of the first currently selected radio/checkbox group */
   getValue(name) {
-    let vals = this.getValues(name);
+    const vals = this.getValues(name);
     return vals.length ? vals[0] : null;
   }
 
@@ -1221,7 +1205,7 @@ export default class FormBase {
       if (["email", "url", "number"].includes(field.type))
         return getTid("publisher:site.forms.commonerrors." + field.type);
 
-    for (let key of ["badInput", "customError", "patternMismatch", "rangeOverflow", "rangeUnderflow", "stepMismatch", "typeMismatch", "valueMissing"])
+    for (const key of ["badInput", "customError", "patternMismatch", "rangeOverflow", "rangeUnderflow", "stepMismatch", "typeMismatch", "valueMissing"])
       if (validity[key])
         return key;
 
@@ -1238,7 +1222,7 @@ export default class FormBase {
     //browser checks go first, any additional checks are always additive (just disable browserchecks you don't want to apply)
     field.propWhFormNativeError = false;
     if (!alreadyfailed && field.checkValidity && !field.hasAttribute("data-wh-form-skipnativevalidation")) {
-      let validitystatus = field.checkValidity();
+      const validitystatus = field.checkValidity();
       if (this._dovalidation)  //we're handling validation UI ourselves
       {
         //we need a separate prop for our errors, as we shouldn't clear explicit errors
@@ -1271,7 +1255,7 @@ export default class FormBase {
     }
 
     //Overlapping validations are dangerous, because we can't evaluate 'hasEverFailed' too early... if an earlier validation is still running it may still decide to mark fields as failed.
-    let defer = dompack.createDeferred();
+    const defer = dompack.createDeferred();
     this.validationqueue.push({ defer, limitset, options });
     if (this.validationqueue.length == 1)
       this._executeNextValidation(); //we're first on the queue so process it
@@ -1281,12 +1265,11 @@ export default class FormBase {
 
   async _executeNextValidation() {
     while (this.validationqueue.length) {
-      let item = this.validationqueue[0];
+      const item = this.validationqueue[0];
       try {
-        let result = await this._executeQueuedValidation(item.limitset, item.options);
+        const result = await this._executeQueuedValidation(item.limitset, item.options);
         item.defer.resolve(result);
-      }
-      catch (error) {
+      } catch (error) {
         item.defer.reject(error);
       }
       this.validationqueue.shift(); //remove the top item
@@ -1294,16 +1277,16 @@ export default class FormBase {
   }
 
   async _executeQueuedValidation(limitset, options) {
-    let original = limitset;
+    const original = limitset;
     if (!limitset)  //validate entire form if unspecified what to validate
       limitset = this._getFieldsToValidate();
 
     let tovalidate = new Set;
-    for (let node of Array.isArray(limitset) ? limitset : [limitset]) {
+    for (const node of Array.isArray(limitset) ? limitset : [limitset]) {
       /* If you're explicitly validating a radio/checkbox, we need to validate its group (but not recurse down) as that's where radiogroup.es and checkboxgroup.es attach their validations
          If you're targeting a group, we'll end up validating both the radio/checkbox (directly attached here) and any eg. embedded textedits  */
       if (node.matches(`input[type=radio],input[type=checkbox]`)) {
-        let group = node.closest(".wh-form__fieldgroup");
+        const group = node.closest(".wh-form__fieldgroup");
         if (group)
           tovalidate.add(group);
         continue;
@@ -1327,24 +1310,24 @@ export default class FormBase {
     if (dompack.debugflags.fhv)
       console.log("[fhv] Validation of %o expanded to %d elements: %o", original, tovalidate.length, [...tovalidate]);
 
-    let lock = dompack.flagUIBusy();
+    const lock = dompack.flagUIBusy();
     try {
       if (!tovalidate.length)
         return { valid: true, failed: [], firstfailed: null };
 
       let result;
-      let validationresults = await Promise.all(tovalidate.map(fld => this._validateSingleFieldOurselves(fld)));
+      const validationresults = await Promise.all(tovalidate.map(fld => this._validateSingleFieldOurselves(fld)));
       //remove the elements from validate for which the promise failed
-      let failed = tovalidate.filter((fld, idx) => !validationresults[idx]);
+      const failed = tovalidate.filter((fld, idx) => !validationresults[idx]);
       result = {
-        valid: failed.length == 0
-        , failed: failed
+        valid: failed.length == 0,
+        failed: failed
       };
 
       result.firstfailed = result.failed.length ? result.failed[0] : null;
       if (result.firstfailed && (!options || options.focusfailed)) {
         //FIXME shouldn't getFocusableComponents also return startnode if focusable?
-        let tofocus = domfocus.canFocusTo(result.firstfailed) ? result.firstfailed : domfocus.getFocusableComponents(result.firstfailed)[0];
+        const tofocus = domfocus.canFocusTo(result.firstfailed) ? result.firstfailed : domfocus.getFocusableComponents(result.firstfailed)[0];
         if (tofocus)
           dompack.focus(tofocus, { preventScroll: true });
 
@@ -1358,8 +1341,7 @@ export default class FormBase {
         console.log(`[fhv] Validation of ${tovalidate.length} fields done, ${result.failed.length} failed`, result);
 
       return result;
-    }
-    finally {
+    } finally {
       lock.release();
     }
   }

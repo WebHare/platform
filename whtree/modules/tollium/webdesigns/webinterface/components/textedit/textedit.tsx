@@ -25,10 +25,10 @@ export class ObjAutoSuggestableBase extends ComponentBase {
   async lookup(word) {
     if (this._autosuggest.type == 'static') {
       //startswith matches go in the top half, other matches in the bottom half
-      let toplist = [], bottomlist = [];
+      const toplist = [], bottomlist = [];
       word = word.toLowerCase();
 
-      for (let entry of this._autosuggest.vals)
+      for (const entry of this._autosuggest.vals)
         if (entry.toLowerCase().startsWith(word))
           toplist.push(entry);
         else if (entry.toLowerCase().includes(word))
@@ -37,7 +37,7 @@ export class ObjAutoSuggestableBase extends ComponentBase {
       return toplist.concat(bottomlist);
     }
 
-    let lookupdefer = dompack.createDeferred();
+    const lookupdefer = dompack.createDeferred();
     this.asyncMessage('lookup', { word }, { modal: false });
     this._resolveresult = lookupdefer.resolve;
     return lookupdefer.promise;
@@ -92,7 +92,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
     this.buttons = [];
     if (data.buttons)
       data.buttons.forEach(button => {
-        var comp = this.owner.addComponent(this, button);
+        const comp = this.owner.addComponent(this, button);
         this.buttons.push(comp);
       });
 
@@ -117,7 +117,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
     if (comp.parentcomp != this)
       return console.error('Child ' + comp.name + ' not inside the textedit is trying to replace itself');
 
-    var newcomp = this.owner.addComponent(this, comp.name);
+    const newcomp = this.owner.addComponent(this, comp.name);
     this.buttons.splice(this.buttons.indexOf(comp), 1, newcomp);
     comp.getNode().replaceWith(newcomp.getNode());
   }
@@ -138,7 +138,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
     this.setDirty();
 
     // Get the current value, compare with last reported value
-    var currentvalue = this.getValue();
+    const currentvalue = this.getValue();
     if (this.lastreportedvalue != currentvalue && this.isEventUnmasked('change')) {
       // Only update lastreportedvalue when we're actually reporting.
       this.lastreportedvalue = currentvalue;
@@ -153,7 +153,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
 
   getSubmitValue() {
     // Get value to report. Also update lastreportedvalue, the backend now knows our value
-    var value = this.getValue();
+    const value = this.getValue();
     this.lastreportedvalue = value;
     return value;
   }
@@ -209,11 +209,11 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
       this.node.appendChild(<span class="t-textedit__prefix">{this.prefix}</span>);
 
     this.inputnode = dompack.create("input", {
-      value: this.getValue()
-      , type: this.type
-      , placeholder: this.placeholder.split("\n").join(", ")
-      , autocapitalize: "off"
-      , autocomplete: this.autocomplete.length ? this.autocomplete : "off"
+      value: this.getValue(),
+      type: this.type,
+      placeholder: this.placeholder.split("\n").join(", "),
+      autocapitalize: "off",
+      autocomplete: this.autocomplete.length ? this.autocomplete : "off"
     });
 
     // LastPass support, needs name="login/user/uname..." to detect as login field
@@ -232,8 +232,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
       this.inputnode.maxLength = this.maxlength;
       if (this.minlength > 0 && this.lengthmeasure == "characters" && this.minlength < this.maxlength)
         this.inputnode.minLength = this.minlength;
-    }
-    else if (this.minlength > 0 && this.lengthmeasure == "characters")
+    } else if (this.minlength > 0 && this.lengthmeasure == "characters")
       this.inputnode.minLength = this.minlength;
 
     if (this.showcounter) {
@@ -241,7 +240,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
       this.counter = new InputTextLengthCounter(this.node, { 'lengthmeasure': this.lengthmeasure, style, required: this.required });
     }
 
-    for (let button of this.buttons)
+    for (const button of this.buttons)
       this.node.appendChild(button.getNode());
 
     if (this.suffix)
@@ -285,8 +284,8 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
     this.width.min += this.prefixsuffixsize + othercontent;
 
     const leftrightmargins = 10;
-    let maxcalcwidth = $todd.desktop.x_width * 30 + this.prefixsuffixsize;
-    let calcwidth = this.maxlength > 0
+    const maxcalcwidth = $todd.desktop.x_width * 30 + this.prefixsuffixsize;
+    const calcwidth = this.maxlength > 0
       ? $todd.desktop.x_width * (this.maxlength + 1) + this.prefixsuffixsize + othercontent + leftrightmargins
       : maxcalcwidth;
 
@@ -319,7 +318,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
     let padding = intra_button_padding;
 
     for (let idx = this.buttons.length - 1; idx >= 0; --idx) {
-      let button = this.buttons[idx];
+      const button = this.buttons[idx];
       this.buttons[idx].node.style.right = padding + "px";
       padding += intra_button_padding + button.width.set;
       button.relayout();
@@ -353,7 +352,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
   }
 
   _gotBlur() {
-    let newvalue = this._fixupValue(this.inputnode.value);
+    const newvalue = this._fixupValue(this.inputnode.value);
     if (newvalue !== null)
       this.inputnode.value = newvalue;
   }

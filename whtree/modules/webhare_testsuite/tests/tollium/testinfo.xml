@@ -9,7 +9,7 @@
   <test script="helpers.whscr" />
   <test script="exclusivity.whscr" />
 
-  <jstest file="test_distributesizes.es" />
+  <jstest file="test_distributesizes.ts" />
 
   <test path="components/" />
   <test path="layout/" />

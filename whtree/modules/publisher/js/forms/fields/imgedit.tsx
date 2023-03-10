@@ -13,7 +13,7 @@ import './imgedit.css';
 export function readBackgroundUrl(imgnode) {
   if (!imgnode)
     return "";
-  let prop = getComputedStyle(imgnode).backgroundImage;
+  const prop = getComputedStyle(imgnode).backgroundImage;
   if (prop && prop.match(/url\(.*\)/)) {
     let url = prop.substr(4, prop.length - 5);
     if (url[0] == url[url.length - 1] && (url[0] == "'" || url[0] == '"'))
@@ -43,7 +43,7 @@ export default class ImgEditField extends FileEditBase {
     if (evt.keyCode != 13 && evt.keyCode != 32)
       return;
 
-    let deletebutton = evt.target.closest(".wh-form__imgeditdelete");
+    const deletebutton = evt.target.closest(".wh-form__imgeditdelete");
     if (deletebutton) {
       dompack.stop(evt);
       this.doDelete(evt);
@@ -66,7 +66,7 @@ export default class ImgEditField extends FileEditBase {
       this.node.setAttribute("data-wh-form-disabled", "");
   }
   getFieldValueLink() {
-    let imgnode = this.node.querySelector('.wh-form__imgeditimg');
+    const imgnode = this.node.querySelector('.wh-form__imgeditimg');
     return readBackgroundUrl(imgnode);
   }
   setupComponent() {
@@ -102,7 +102,7 @@ export default class ImgEditField extends FileEditBase {
         tabindex="0"
         role="button"
       >
-      </div>
+      </div>;
 
     this.node.appendChild(this.deletebutton);
     dompack.registerMissed(this.node); //allow anyone to pick up the delete button
@@ -110,8 +110,8 @@ export default class ImgEditField extends FileEditBase {
   doDrop(evt) {
     evt.preventDefault();
 
-    let lock = dompack.flagUIBusy();
-    let files = evt.dataTransfer.files;
+    const lock = dompack.flagUIBusy();
+    const files = evt.dataTransfer.files;
     this.uploadFile(files, lock);
   }
   doDelete(evt) {
@@ -119,7 +119,7 @@ export default class ImgEditField extends FileEditBase {
     if (!this._getEnabled())
       return;
 
-    let imgnode = this.node.querySelector('.wh-form__imgeditimg');
+    const imgnode = this.node.querySelector('.wh-form__imgeditimg');
     let changed = false;
     if (imgnode) {
       imgnode.remove();
@@ -139,18 +139,18 @@ export default class ImgEditField extends FileEditBase {
     if (!result.type || result.type.indexOf("image/") != 0)
       return;//Not an image
 
-    let imgpreload = await loadImage(result.url);
+    const imgpreload = await loadImage(result.url);
     if (!imgpreload.naturalWidth || !imgpreload.naturalHeight)
       return;
 
     this.uploadurl = result.url;
 
-    let holder = this.node.querySelector('.wh-form__imgeditholder');
+    const holder = this.node.querySelector('.wh-form__imgeditholder');
     if (!holder)
       throw new Error("Cannot process image, missing wh-form__imgeditholder holder");
 
     dompack.empty(holder);
-    let imgnode = document.createElement("div");
+    const imgnode = document.createElement("div");
     imgnode.classList.add('wh-form__imgeditimg');
     imgnode.style.backgroundImage = `url('${imgpreload.src}')`;
     holder.appendChild(imgnode);

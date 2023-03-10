@@ -15,14 +15,14 @@ export default class ObjForward extends ActionForwardBase {
     return this.owner.getComponent(this.action);
   }
   isEnabled() {
-    let forwardto = this._getForwardTo();
+    const forwardto = this._getForwardTo();
     return forwardto && forwardto.isEnabled();
   }
   onActionUpdated() {
     this.owner.broadcastActionUpdated(this);
   }
   onExecute(options) {
-    let forwardto = this._getForwardTo();
+    const forwardto = this._getForwardTo();
     return forwardto ? forwardto.onExecute(options) : false;
   }
 }

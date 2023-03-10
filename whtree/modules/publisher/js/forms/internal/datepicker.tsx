@@ -8,11 +8,11 @@ import * as datehelpers from "./datehelpers";
 //import { getTid } from "@mod-tollium/js/gettid";
 
 // FIXME work with backend
-var langcodes =
+const langcodes =
 {
-  "nl": "am;pm;januari;februari;maart;april;mei;juni;juli;augustus;september;oktober;november;december;maandag;dinsdag;woensdag;donderdag;vrijdag;zaterdag;zondag;jan;feb;mrt;apr;mei;jun;jul;aug;sep;okt;nov;dec;ma;di;wo;do;vr;za;zo"
-  , "de": "am;pm;Januar;Februar;März;April;Mai;Juni;Juli;August;September;Oktober;November;Dezember;Montag;Dienstag;Mittwoch;Donnerstag;Freitag;Samstag;Sonntag;Jan.;Febr.;März;Apr.;Mai;Juni;Juli;Aug.;Sept.;Okt.;Nov.;Dez.;Mo;Di;Mi;Do;Fr;Sa;So"
-  , "en": "am;pm;January;February;March;April;May;June;July;August;September;October;November;December;Monday;Tuesday;Wednesday;Thursday;Friday;Saturday;Sunday;Jan;Feb;Mar;Apr;May;Jun;Jul;Aug;Sep;Oct;Nov;Dec;Mon;Tue;Wed;Thu;Fri;Sat;Sun"
+  "nl": "am;pm;januari;februari;maart;april;mei;juni;juli;augustus;september;oktober;november;december;maandag;dinsdag;woensdag;donderdag;vrijdag;zaterdag;zondag;jan;feb;mrt;apr;mei;jun;jul;aug;sep;okt;nov;dec;ma;di;wo;do;vr;za;zo",
+  "de": "am;pm;Januar;Februar;März;April;Mai;Juni;Juli;August;September;Oktober;November;Dezember;Montag;Dienstag;Mittwoch;Donnerstag;Freitag;Samstag;Sonntag;Jan.;Febr.;März;Apr.;Mai;Juni;Juli;Aug.;Sept.;Okt.;Nov.;Dez.;Mo;Di;Mi;Do;Fr;Sa;So",
+  "en": "am;pm;January;February;March;April;May;June;July;August;September;October;November;December;Monday;Tuesday;Wednesday;Thursday;Friday;Saturday;Sunday;Jan;Feb;Mar;Apr;May;Jun;Jul;Aug;Sep;Oct;Nov;Dec;Mon;Tue;Wed;Thu;Fri;Sat;Sun"
 };
 
 //Load any needed localizations yourself: frameworks.mootools.more.locale.nl-nl.date, frameworks.mootools.more.locale.es-es.date, frameworks.mootools.more.locale.de-de.date, frameworks.mootools.more.locale.fr-fr.date
@@ -98,17 +98,17 @@ class CalendarTable extends ComponentOverlay {
   constructor() {
     super();
     this.options = {
-      weeknumbers: false
-      , header_weeknr: '' //weeknr.
-      , min: null //minimal date
-      , max: null //maximal date (out of range gets disabled class
+      weeknumbers: false,
+      header_weeknr: '', //weeknr.
+      min: null, //minimal date
+      max: null //maximal date (out of range gets disabled class
     };
     this.cdate = null;
     this.showdate = null;
   }
 
   _onDayClick(evt) {
-    let clickedday = evt.target.closest(`.${this.options.baseclass}__day--selectable`);
+    const clickedday = evt.target.closest(`.${this.options.baseclass}__day--selectable`);
     // console.error(clickedday, clickedday.dataset.whDatepickerDate);
     if (!clickedday)
       return;
@@ -122,15 +122,15 @@ class CalendarTable extends ComponentOverlay {
   getTable(showdate, options) {
     this.options = { ...this.options, options };
 
-    var caltable = dompack.create('table', {
-      className: this.options.baseclass + '__days'
-      , on: { click: evt => this._onDayClick(evt) }
+    const caltable = dompack.create('table', {
+      className: this.options.baseclass + '__days',
+      on: { click: evt => this._onDayClick(evt) }
     });
-    var calbody = dompack.create('tbody');
+    const calbody = dompack.create('tbody');
     caltable.appendChild(calbody);
 
     //Build week rows
-    let rownode = <tr class={this.options.baseclass + '__weekdays'}></tr>;
+    const rownode = <tr class={this.options.baseclass + '__weekdays'}></tr>;
     if (this.options.weeknumbers)
       rownode.appendChild(<td></td>); //placeholder for upperleft corner
 
@@ -139,50 +139,50 @@ class CalendarTable extends ComponentOverlay {
     }
     calbody.appendChild(rownode);
 
-    let mindate = this.options.min ? {
-      day: this.options.min.getUTCDay()
-      , month: this.options.min.getUTCMonth()
-      , year: this.options.min.getUTCFullYear()
+    const mindate = this.options.min ? {
+      day: this.options.min.getUTCDay(),
+      month: this.options.min.getUTCMonth(),
+      year: this.options.min.getUTCFullYear()
     } : null;
 
-    let maxdate = this.options.max ? {
-      day: this.options.max.getUTCDay()
-      , month: this.options.max.getUTCMonth()
-      , year: this.options.max.getUTCFullYear()
+    const maxdate = this.options.max ? {
+      day: this.options.max.getUTCDay(),
+      month: this.options.max.getUTCMonth(),
+      year: this.options.max.getUTCFullYear()
     } : null;
 
     //What is the weekday for the first day of the selected month ?
-    let startofmonth = datehelpers.makeJSUTCDate({ ...showdate, day: 1 });
-    let showmonth = startofmonth.getUTCMonth();
-    let showyear = startofmonth.getUTCFullYear();
+    const startofmonth = datehelpers.makeJSUTCDate({ ...showdate, day: 1 });
+    const showmonth = startofmonth.getUTCMonth();
+    const showyear = startofmonth.getUTCFullYear();
 
     //    console.log(startofmonth);
-    let startofmonth_weekday = startofmonth.getUTCDay(); //0-6 where 0=Sunday
+    const startofmonth_weekday = startofmonth.getUTCDay(); //0-6 where 0=Sunday
 
     //Work backwards to a monday (start of the week)
-    let backwardsdays = startofmonth_weekday == 0 ? 6 : startofmonth_weekday - 1;
+    const backwardsdays = startofmonth_weekday == 0 ? 6 : startofmonth_weekday - 1;
     let currentgriddate = startofmonth.getTime() - (backwardsdays * 86400 * 1000);
 
     //Build the grid!
     for (let week = 0; week < 6; ++week) {
-      let rownode = dompack.create('tr', { className: this.options.baseclass + '__week' });
+      const rownode = dompack.create('tr', { className: this.options.baseclass + '__week' });
 
       for (let day = 0; day < 7; ++day) {
-        let date = new Date(currentgriddate);
+        const date = new Date(currentgriddate);
         if (this.options.weeknumbers && day == 0)
           rownode.appendChild(<th class={this.options.baseclass + '__weeknr'} scope="row"><span>{datehelpers.getWeekNumber(date)}</span></th>);
 
-        let dateY = date.getUTCFullYear();
-        let dateM = date.getUTCMonth();
-        let dateD = date.getUTCDate();
+        const dateY = date.getUTCFullYear();
+        const dateM = date.getUTCMonth();
+        const dateD = date.getUTCDate();
 
-        let celldate = { year: dateY, month: dateM + 1, day: dateD };
+        const celldate = { year: dateY, month: dateM + 1, day: dateD };
 
-        let dayclass = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'][day];
-        let daynode = dompack.create('td', {
-          className: `${this.options.baseclass}__day ${this.options.baseclass}__day--${dayclass}`
-          , childNodes: [dompack.create("span", { textContent: date.getUTCDate() })]
-          , dataset: { whDatepickerDate: datehelpers.formatJSUTCISODate(date) }
+        const dayclass = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'][day];
+        const daynode = dompack.create('td', {
+          className: `${this.options.baseclass}__day ${this.options.baseclass}__day--${dayclass}`,
+          childNodes: [dompack.create("span", { textContent: date.getUTCDate() })],
+          dataset: { whDatepickerDate: datehelpers.formatJSUTCISODate(date) }
         });
 
         if (dateM != showmonth || dateY != showyear)
@@ -191,8 +191,7 @@ class CalendarTable extends ComponentOverlay {
         if ((mindate && dateY < mindate.year && dateM < mindate.month && dateD < mindate.day)
           || (maxdate && dateY > maxdate.year && dateM > maxdate.month && dateD > maxdate.day)) {
           daynode.classList.add(this.options.baseclass + '__day--disabled');
-        }
-        else {
+        } else {
           daynode.setAttribute("tabindex", "0");
           daynode.classList.add(this.options.baseclass + '__day--selectable');
         }
@@ -217,11 +216,11 @@ class Calendar2 extends CalendarTable {
   constructor(options) {
     super();
     this.options = {
-      weeknumbers: false
-      , date: null   // initial value
-      , min: null
-      , max: null
-      , ...options
+      weeknumbers: false,
+      date: null,   // initial value
+      min: null,
+      max: null,
+      ...options
     };
     this.node = null;
     this.tablenode = null;
@@ -234,9 +233,9 @@ class Calendar2 extends CalendarTable {
 
   _onYearMonthChange(evt) {
     this.options.date = {
-      year: this.yearspinner.value
-      , month: this.monthselectnode.value
-      , day: this._currentdate ? this._currentdate.day : 1
+      year: this.yearspinner.value,
+      month: this.monthselectnode.value,
+      day: this._currentdate ? this._currentdate.day : 1
     };
 
     this._currentdate.month = parseInt(this.monthselectnode.value);
@@ -249,8 +248,8 @@ class Calendar2 extends CalendarTable {
     this.mindate = datehelpers.parseISODate(this._datenode.min, { nofail: true });
     this.maxdate = datehelpers.parseISODate(this._datenode.max, { nofail: true });
     this.date = datehelpers.parseISODate(this._datenode.value, { nofail: true });
-    let suggestion = datehelpers.parseISODate(this._datenode.dataset.suggestion, { nofail: true });
-    let max = datehelpers.parseISODate(this._datenode.max);
+    const suggestion = datehelpers.parseISODate(this._datenode.dataset.suggestion, { nofail: true });
+    const max = datehelpers.parseISODate(this._datenode.max);
     this.today = datehelpers.getLocalToday();
 
     this.yearspinner.min = this.mindate ? this.mindate.year : 1901;
@@ -275,7 +274,7 @@ class Calendar2 extends CalendarTable {
     this.readDateNode();
 
     //build calendar interface:
-    let headernode = <div class={this.options.baseclass + "__header"}>
+    const headernode = <div class={this.options.baseclass + "__header"}>
       <div class={this.options.baseclass + "__previous"} onClick={evt => this.changeMonth(evt, -1)} />
       {this.monthselectnode}
       {this.yearspinner}
@@ -283,7 +282,7 @@ class Calendar2 extends CalendarTable {
     </div>;
 
     //month pulldown
-    var selectedmonth = this._currentdate.month;
+    const selectedmonth = this._currentdate.month;
     for (let m = 0; m < 12; ++m)
       this.monthselectnode.appendChild(<option value={m + 1} selected={m == selectedmonth - 1}>{this._languagetexts[m + 2]}</option>);
 
@@ -305,7 +304,7 @@ class Calendar2 extends CalendarTable {
     this.yearspinner.value = showdate.year;
     this.monthselectnode.value = showdate.month;
 
-    var newtable = this.getTable(showdate);
+    const newtable = this.getTable(showdate);
 
     if (this.tablenode)
       this.tablenode.replaceWith(newtable);
@@ -329,7 +328,7 @@ class Calendar2 extends CalendarTable {
   }
 
   onKeyEnter(ev) {
-    let daynode = ev.target.closest("." + this.options.baseclass + '__day--selectable');
+    const daynode = ev.target.closest("." + this.options.baseclass + '__day--selectable');
     if (!daynode)
       return;
 
@@ -364,8 +363,8 @@ class DatePicker extends Calendar2 {
     this._owner = owner;
     this._datenode = owner._replacednode;
     this.options = {
-      ...this.options
-      , language: null
+      ...this.options,
+      language: null
     };
     //TODO limit by supportedlanguages and use gettid("~locale.datetimestrings")
     if (!this.options.language)
@@ -401,14 +400,13 @@ class DatePicker extends Calendar2 {
     //ADDME can we borrow positioning code from the dompack pulldown?
     //for now, attach to bottom
     document.body.appendChild(this._calendarnode);
-    let calendarnodesize = this._calendarnode.getBoundingClientRect();
-    let anchornode = this._anchornode.getBoundingClientRect();
+    const calendarnodesize = this._calendarnode.getBoundingClientRect();
+    const anchornode = this._anchornode.getBoundingClientRect();
 
     //fits left aligned?
     if (anchornode.left + calendarnodesize.width > window.innerWidth) { //doesn't fit left aligned, we must right align
       this._calendarnode.style.right = '0px';
-    }
-    else //left align
+    } else //left align
     {
       this._calendarnode.style.left = Math.ceil(anchornode.left) + 'px';
     }
@@ -419,8 +417,7 @@ class DatePicker extends Calendar2 {
       if ((window.innerHeight - y) - calendarnodesize.height < 0) //Prevent calendar hiding behind top of window
         y = window.innerHeight - calendarnodesize.height;
       this._calendarnode.style.bottom = y + 'px';
-    }
-    else //left align
+    } else //left align
     {
       this._calendarnode.style.top = Math.ceil(anchornode.bottom) + 'px';
     }

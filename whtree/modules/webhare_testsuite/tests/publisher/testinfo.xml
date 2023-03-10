@@ -4,7 +4,7 @@
   <test name="blit"       path="blit/" />
   <test name="components" path="components/" />
   <test name="filemanager" path="filemanager/" />
-  <test name="contentlibraries" path="contentlibraries/" />
+  <test name="contentlibrar.ts" path="contentlibraries/" />
 
   <test script="actions.whscr"/>
   <test script="main.whscr" />

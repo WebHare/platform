@@ -12,12 +12,12 @@ export default class TransportBase {
 
     this.options =
     {
-      commurl: ''
-      , onrequestneeded: null
-      , onresponse: null
-      , ononline: null
-      , onoffline: null
-      , ...options
+      commurl: '',
+      onrequestneeded: null,
+      onresponse: null,
+      ononline: null,
+      onoffline: null,
+      ...options
     };
 
     this.serializer = Promise.resolve();
@@ -50,9 +50,9 @@ export default class TransportBase {
   }
 
   processWireMessage(msg) {
-    for (var j = 0; j < this.endpoints.length; ++j)
+    for (let j = 0; j < this.endpoints.length; ++j)
       if (this.endpoints[j].options.linkid == msg.linkid) {
-        var endpoint = this.endpoints[j];
+        const endpoint = this.endpoints[j];
 
         // FIXME trycatch!
         endpoint.processWireMessage(msg);

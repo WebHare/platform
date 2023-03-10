@@ -42,7 +42,7 @@ export default class ObjText extends ComponentBase {
     this.setLabelFor(data.labelfor);
 
     this.setStyles(data);
-    this.isheading = !!data.isheading;
+    this.isheading = Boolean(data.isheading);
     this.action = data.action;
 
     this.ismouseselectable = data.selectable;
@@ -55,11 +55,11 @@ export default class ObjText extends ComponentBase {
   setStyles(settings) {
     if (!this.styles) {
       this.styles = {
-        bold: false
-        , italic: false
-        , underline: false
-        , wordwrap: false
-        , ellipsis: false
+        bold: false,
+        italic: false,
+        underline: false,
+        wordwrap: false,
+        ellipsis: false
       };
     }
 
@@ -85,7 +85,7 @@ export default class ObjText extends ComponentBase {
 
   setValue(value, ishtml) {
     this.value = value;
-    this.sethtml = !!ishtml;
+    this.sethtml = Boolean(ishtml);
     this.buildNode();
     if (!this.styles.ellipsis)
       this.width.dirty = true;
@@ -97,7 +97,7 @@ export default class ObjText extends ComponentBase {
   */
 
   buildNode() {
-    var txtnode = <t-text class="t-text__linetext" data-name={this.name} propTodd={this} />;
+    const txtnode = <t-text class="t-text__linetext" data-name={this.name} propTodd={this} />;
 
     if (this.isheading)
       txtnode.classList.add("heading");
@@ -125,8 +125,7 @@ export default class ObjText extends ComponentBase {
       txtnode.classList.add("label");
       if (this.labelfor)
         txtnode.dataset.labelfor = this.labelfor;
-    }
-    else {
+    } else {
       if (this.styles.wordwrap)
         txtnode.classList.add("wrapped");
       if (this.styles.ellipsis)
@@ -146,8 +145,7 @@ export default class ObjText extends ComponentBase {
     if (this.node && this.node.parentNode) {
       this.node.parentNode.replaceChild(txtnode, this.node);
       this.node = txtnode;
-    }
-    else
+    } else
       this.node = txtnode;
     return txtnode;
   }
@@ -194,9 +192,9 @@ export default class ObjText extends ComponentBase {
   }
 
   onClick(event) {
-    var anchor = event.target.closest('a');
+    const anchor = event.target.closest('a');
     if (anchor) {
-      var rec = this.linkactions.find(action => action.url == anchor.href);
+      const rec = this.linkactions.find(action => action.url == anchor.href);
       if (rec)
         this.owner.executeAction(rec.action);
       else if (this.isEventUnmasked("clicklink"))
@@ -216,7 +214,7 @@ export default class ObjText extends ComponentBase {
     if (this.action)
       this.owner.executeAction(this.action);
 
-    var comp = this.owner.getComponent(this.labelfor);
+    const comp = this.owner.getComponent(this.labelfor);
     if (comp) {
       //ADDME might as well send a signal through JS to the tollium component instead of trying to click, because checkbox is now doing hacks to forward the click event
       comp.node.focus();

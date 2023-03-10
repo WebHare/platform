@@ -58,7 +58,7 @@ class ScreenProxy {
       @param levels - Full path to the menu item (parts of the menu names)
   */
   getMenu(levels, { autoclickhamburger = true } = {}) {
-    var curitem = this.win.node.querySelector('.wh-menubar');
+    let curitem = this.win.node.querySelector('.wh-menubar');
     if (!curitem && autoclickhamburger) {
       // test clicking the hamburger menu
       const hamburger_img = this.win.node.querySelector(`t-toolbar .t-toolbar-buttongroup__right t-button.ismenubutton img[data-toddimg="tollium:actions/menu|24|24|w,b"]`);
@@ -89,7 +89,7 @@ class ScreenProxy {
     return curitem;
   }
   getText(compname) {
-    var el = this.getToddElement(compname);
+    const el = this.getToddElement(compname);
     if (!el)
       throw new Error("No such component '" + compname + "'");
 
@@ -97,7 +97,7 @@ class ScreenProxy {
     return el.textContent;
   }
   getValue(compname) {
-    var el = this.getToddElement(compname);
+    const el = this.getToddElement(compname);
     if (!el)
       throw new Error("No such component '" + compname + "'");
 
@@ -111,19 +111,19 @@ class ScreenProxy {
     throw new Error("component not yet supported by getInputValue (classes: " + el.className + ")");
   }
   getListRow(listname, pattern) { //simply reget it for every test, as list may rerender at unspecifide times
-    var list = this.getToddElement(listname);
+    const list = this.getToddElement(listname);
     if (!list)
       throw new Error("No such list '" + listname + "'");
 
-    var rows = list.querySelectorAll('.listrow');
-    for (var i = 0; i < rows.length; ++i) {
-      var row = rows[i];
-      for (var j = 0; j < row.childNodes.length; ++j) {
-        var cell = row.childNodes[j];
+    const rows = list.querySelectorAll('.listrow');
+    for (let i = 0; i < rows.length; ++i) {
+      const row = rows[i];
+      for (let j = 0; j < row.childNodes.length; ++j) {
+        const cell = row.childNodes[j];
         if (isStringOrRegexpMatch(cell.textContent, pattern)) //direct text check
           return rows[i];
 
-        var textintree = cell.querySelectorAll('span')[1];
+        const textintree = cell.querySelectorAll('span')[1];
         if (textintree && isStringOrRegexpMatch(textintree.textContent, pattern)) //check inside the node next to a tree expand span
           return rows[i];
       }
@@ -151,7 +151,7 @@ class ScreenProxy {
     return this.win.node.getElements(selector);
   }
   getToddElement(toddname) {
-    let candidates = this.qSA('*[data-name]');
+    const candidates = this.qSA('*[data-name]');
 
     let regex = new RegExp("^" + escapeRegExp(toddname).replace('\\*', '.*') + "$");
     let match = candidates.filter(node => node.dataset.name.match(regex));
@@ -161,7 +161,7 @@ class ScreenProxy {
     }
     if (!match.length) {
       //look for pulldowns, they have an odd name
-      let pulldown = this.qS(`select[data-name*=':${toddname}$']`);
+      const pulldown = this.qS(`select[data-name*=':${toddname}$']`);
       if (pulldown)
         return pulldown;
     }
@@ -173,7 +173,7 @@ class ScreenProxy {
     return this.win ? this.win.node : null;
   }
   clickCloser() {
-    var closer = this.win.node.querySelector('.closewindow');
+    const closer = this.win.node.querySelector('.closewindow');
     if (!closer)
       throw new Error("Screen '" + this.win.screenname + "' has no close window");
 
@@ -203,7 +203,7 @@ function compByName(toddname) {
   return getCurrentScreen().getToddElement(toddname);
 }
 export function compByTitle(title) {
-  let elts = getCurrentScreen().qSA('t-text.label,t-button').filter(label => (label.textContent === (title + ":") || label.textContent === title));
+  const elts = getCurrentScreen().qSA('t-text.label,t-button').filter(label => (label.textContent === (title + ":") || label.textContent === title));
   if (elts.length == 0)
     throw new Error(`No component with title '${title}'`);
   if (elts.length > 1)
@@ -213,18 +213,18 @@ export function compByTitle(title) {
   return compByName(elts[0].dataset.labelfor || elts[0].for);
 }
 function getTestScreen(testscreen) {
-  var baseurl = test.getTestSiteRoot() + 'testsuiteportal/?app=webhare_testsuite:runscreen(' + testscreen + ')&' + getTolliumDebugVariables();
+  const baseurl = test.getTestSiteRoot() + 'testsuiteportal/?app=webhare_testsuite:runscreen(' + testscreen + ')&' + getTolliumDebugVariables();
   return baseurl;
 }
 function getCompTestPage(componentname, params, whdebug) {
-  var baseurl = test.getTestSiteRoot() + 'testsuiteportal/?app=webhare_testsuite:anycomponent(' + encodeURIComponent(componentname) + ',' + encodeURIComponent(JSON.stringify(params || null)).replace(/,/g, '%2C') + ')&' + getTolliumDebugVariables();
+  const baseurl = test.getTestSiteRoot() + 'testsuiteportal/?app=webhare_testsuite:anycomponent(' + encodeURIComponent(componentname) + ',' + encodeURIComponent(JSON.stringify(params || null)).replace(/,/g, '%2C') + ')&' + getTolliumDebugVariables();
   return baseurl;
 }
 function getTolliumButton(toddbuttontitle) {
   return test.qSA("t-button").filter(button => button.textContent.includes(toddbuttontitle))[0];
 }
 function clickTolliumButton(toddbuttontitle) {
-  let button = getTolliumButton(toddbuttontitle);
+  const button = getTolliumButton(toddbuttontitle);
   if (!button)
     throw new Error(`No button titled '${toddbuttontitle}'`);
   test.click(button);
@@ -246,7 +246,7 @@ function getTolliumLabel(toddlabel) {
   return test.qSA('t-text').filter(text => text.textContent.includes(toddlabel))[0];
 }
 function clickTolliumLabel(toddlabel) {
-  var label = getTolliumLabel(toddlabel);
+  const label = getTolliumLabel(toddlabel);
   if (!label)
     throw new Error("No label titled '" + toddlabel + "'");
   test.click(label);
@@ -259,14 +259,14 @@ function testClickTolliumLabel(toddlabel, options, _deprecated_waits) {
   return {
     name: options.name || "Click label: " + toddlabel,
     test: function(doc, win) {
-      clickTolliumLabel(toddlabel)
+      clickTolliumLabel(toddlabel);
     },
     waits: (options.waits || ["ui"])
   };
 }
 
 function testClickTolliumToolbarButton(toddlabel, submenulabel, options = {}) {
-  let name = options.name || "Click toolbar button: " + toddlabel + (submenulabel ? ", submenu: " + submenulabel : "");
+  const name = options.name || "Click toolbar button: " + toddlabel + (submenulabel ? ", submenu: " + submenulabel : "");
 
   return {
     name: name,
@@ -278,13 +278,13 @@ function testClickTolliumToolbarButton(toddlabel, submenulabel, options = {}) {
 }
 
 async function selectListRow(listname, textinrow, options = {}) {
-  let el = await waitForResult(() => {
-    var selector = 'div.wh-ui-listview';
+  const el = await waitForResult(() => {
+    let selector = 'div.wh-ui-listview';
     if (listname)
       selector += '[data-name$=":' + listname + '"]';
     selector += ' div.listrow';
 
-    var rows = getCurrentScreen().qSA(selector);
+    const rows = getCurrentScreen().qSA(selector);
     return rows.filter(node => node.textContent.includes(textinrow))[0];
   });
 
@@ -294,14 +294,14 @@ async function selectListRow(listname, textinrow, options = {}) {
   console.log(el);
 
 
-  var button = options && options.rightclick ? 2 : 0;
+  const button = options && options.rightclick ? 2 : 0;
   if (options && options.doubleclick)
     test.sendMouseGesture([{ el: el, down: button }, { up: button }, { el: el, down: button }, { up: button }]);
   else
     test.sendMouseGesture([{ el: el, down: button }, { up: button }]);
 
   if (options && options.waits) {
-    for (let waitstep of options.waits)
+    for (const waitstep of options.waits)
       await test.wait(waitstep);
   } else {
     await test.wait('ui-nocheck'); //there may be UI interaction..
@@ -320,9 +320,9 @@ function getTolliumHost() {
 }
 
 function getTolliumDebugVariables() {
-  var addurl = '';
+  let addurl = '';
   try {
-    var parenturi = new URL(window.parent.location.href);
+    const parenturi = new URL(window.parent.location.href);
     if (parenturi.searchParams.get('debug'))
       addurl += '&debug=' + parenturi.searchParams.get('debug');
     if (parenturi.searchParams.get('wh-debug'))
@@ -337,11 +337,11 @@ function getTolliumDebugVariables() {
 }
 
 function setTodd(name, value) {
-  let toddel = getCurrentScreen().getToddElement(name);
+  const toddel = getCurrentScreen().getToddElement(name);
   if (!toddel)
     throw new Error(`Can't find toddElement '${toddel}'`);
 
-  var textedit = toddel.matches('input') ? toddel : toddel.querySelector('input,textarea');
+  const textedit = toddel.matches('input') ? toddel : toddel.querySelector('input,textarea');
   if (textedit) {
     test.fill(textedit, value);
     return;
@@ -356,7 +356,7 @@ function setTodd(name, value) {
 }
 
 function clickToddButton(buttonlabel) {
-  let elt = getCurrentScreen().qSA('t-button').filter(button => button.textContent.includes(buttonlabel))[0];
+  const elt = getCurrentScreen().qSA('t-button').filter(button => button.textContent.includes(buttonlabel))[0];
   if (!elt)
     throw new Error("Cannot find button with text '" + buttonlabel + "'");
   test.click(elt);
@@ -376,11 +376,11 @@ function clickToddToolbarButton(buttonlabel, submenulabel?) {
 }
 
 function waitForResult(fn) {
-  let timeout = Date.now() + 15000;
-  let defer = dompack.createDeferred();
+  const timeout = Date.now() + 15000;
+  const defer = dompack.createDeferred();
 
-  let waiter = () => {
-    let result = fn();
+  const waiter = () => {
+    const result = fn();
     if (result) {
       defer.resolve(result);
       return;
@@ -427,7 +427,7 @@ function getSelectListVisibleItems() {
 export async function waitForToddComponent(name) {
   await test.wait(() => {
     try {
-      let comp = compByName(name);
+      const comp = compByName(name);
       if (comp)
         return true;
     } catch (ignore) {
@@ -466,10 +466,10 @@ export { clickTolliumLabel };
 export async function expectWindowOpen(code) {
   test.getWin()._testfw_oldopen = test.getWin().open;
   try {
-    let promise = new Promise((resolve, reject) => {
+    const promise = new Promise((resolve, reject) => {
       test.getWin().open = (url, target) => {
         console.log("window.open request", { url, target });
-        resolve({ url, target })
+        resolve({ url, target });
       };
       setTimeout(() => reject(new Error("Timeout waiting for window.open")), 30000);
     });

@@ -7,6 +7,7 @@ interface LintingCommand {
   cwd: string;
   configfile: string;
   fix: boolean;
+  allowinlineconfig: boolean;
 }
 
 export async function handleLintingCommand(indata: LintingCommand) {
@@ -16,7 +17,8 @@ export async function handleLintingCommand(indata: LintingCommand) {
     cwd: indata.cwd,
     overrideConfigFile: indata.configfile,
     useEslintrc: false,
-    fix: indata.fix
+    fix: indata.fix,
+    allowInlineConfig: indata.allowinlineconfig
   };
 
   const eslint = new ESLint(options);

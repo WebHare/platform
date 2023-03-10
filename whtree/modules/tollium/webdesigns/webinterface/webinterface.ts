@@ -17,8 +17,7 @@ import "@mod-publisher/js/internal/polyfills/modern";
 
 if (document.documentElement.classList.contains('wh-shell')) {
   startTolliumShell(); //TODO perhaps
-}
-else if (window.parent && document.documentElement.classList.contains("wh-tollium--manual")) {
+} else if (window.parent && document.documentElement.classList.contains("wh-tollium--manual")) {
   document.documentElement.addEventListener("click", event => {
     // Open external links in new window
     if (event.target.nodeName == "A" && !event.target.href.startsWith(whintegration.config.siteroot))

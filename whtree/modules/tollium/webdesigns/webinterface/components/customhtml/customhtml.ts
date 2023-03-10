@@ -18,16 +18,16 @@ export default class ObjCustomHTML extends ComponentBase {
     this.selectionflags = [];
 
     this.node = dompack.create("t-custom", {
-      dataset: { name: this.name }
-      , "style": {
-        "position": "relative"
-        , "overflow": "hidden"
+      dataset: { name: this.name },
+      "style": {
+        "position": "relative",
+        "overflow": "hidden"
       }
     });
     this.contentdiv = dompack.create("div", {
       "style": {
-        "width": "100%"
-        , "height": "100%"
+        "width": "100%",
+        "height": "100%"
       }
     });
     this.node.appendChild(this.contentdiv);
@@ -65,8 +65,8 @@ export default class ObjCustomHTML extends ComponentBase {
 
   relayout() {
     dompack.setStyles(this.node, {
-      "width": this.width.set
-      , "height": this.height.set
+      "width": this.width.set,
+      "height": this.height.set
     });
     if (this.width.set != this.prevwidth || this.height.set != this.prevheight) {
       this.prevwidth = this.width.set;

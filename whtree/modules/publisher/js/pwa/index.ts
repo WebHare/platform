@@ -11,7 +11,7 @@ const appbase = location.href.split('?')[0];
 let didinit;
 
 //set up a promise we'll use to signal succesful offline mode
-let offlinedeferred = dompack.createDeferred();
+const offlinedeferred = dompack.createDeferred();
 let swregistration;
 
 function getAppName() {
@@ -26,7 +26,7 @@ settings.setAppName(getAppName());
 
 function sendSWRequestTo(sw, type, data) {
   return new Promise((resolve, reject) => {
-    var msg_chan = new MessageChannel();
+    const msg_chan = new MessageChannel();
     msg_chan.port1.onmessage = event => {
       if (event.data && event.data.__throw)
         reject(new Error(event.data.__throw));
@@ -48,8 +48,8 @@ async function sendSWRequest(type, data) {
 
 export async function checkForUpdate() {
   return await sendSWRequest("checkversion", {
-    pwauid: document.documentElement.dataset.whPwaUid
-    , pwafileid: document.documentElement.dataset.whPwaFileid
+    pwauid: document.documentElement.dataset.whPwaUid,
+    pwafileid: document.documentElement.dataset.whPwaFileid
   });
 }
 export async function downloadUpdate() {
@@ -81,8 +81,8 @@ export async function onReady(initfunction, options) {
 
 
   options = {
-    reportusage: false
-    , ...options
+    reportusage: false,
+    ...options
   };
 
   if (options.reportusage) {
@@ -128,8 +128,7 @@ export async function onReady(initfunction, options) {
     }
 
     navigator.serviceWorker.ready.then(() => offlinedeferred.resolve());
-  }
-  catch (e) {
+  } catch (e) {
     console.log("PWA Registration failed", e);
     offlinedeferred.reject(e);
   }
@@ -140,14 +139,14 @@ async function precheckExistingWorkers() {
   if (!navigator.serviceWorker)
     return;
 
-  let registrations = await (navigator.serviceWorker.getRegistrations());
-  for (let sw of registrations)
+  const registrations = await (navigator.serviceWorker.getRegistrations());
+  for (const sw of registrations)
     if (sw.active && sw.scope === appbase)
       sendSWRequestTo(sw.active, 'loading',
         {
-          pwasettings: whintegration.config.obj.pwasettings
-          , pwauid: document.documentElement.dataset.whPwaUid
-          , pwafileid: document.documentElement.dataset.whPwaFileid
+          pwasettings: whintegration.config.obj.pwasettings,
+          pwauid: document.documentElement.dataset.whPwaUid,
+          pwafileid: document.documentElement.dataset.whPwaFileid
         });
 }
 

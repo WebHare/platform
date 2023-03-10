@@ -32,23 +32,22 @@ let seqnr = 0;
 */
 export function setPxlOptions(options) {
   globalOptions = {
-    donottrack: "0"
-    , recordurl: "/.px/"
-    , altsamplerate: 0
-    , altrecordurl: "/.px/alt/"
-    , sessionexpiration: max_sessionid_age
-    , nobrowserenvironment: false
-    , debug: !!domdebug.debugflags.pxl
-    , ...(!options ? null : globalOptions) // Keep existing options if not resetting to default
-    , ...options // And apply the new ones
+    donottrack: "0",
+    recordurl: "/.px/",
+    altsamplerate: 0,
+    altrecordurl: "/.px/alt/",
+    sessionexpiration: max_sessionid_age,
+    nobrowserenvironment: false,
+    debug: Boolean(domdebug.debugflags.pxl),
+    ...(!options ? null : globalOptions), // Keep existing options if not resetting to default
+    ...options // And apply the new ones
   };
 
   if (globalOptions.altrecordurl && globalOptions.altsamplerate) {
     isaltsample = Math.random() < globalOptions.altsamplerate;
     if (globalOptions.debug)
       console.log(`[pxl] using altrecordurl for ${100 * globalOptions.altsamplerate}% of pageloads, this session is sent to the ${isaltsample ? "alternative" : "normal"} url`);
-  }
-  else
+  } else
     isaltsample = false;
 }
 
@@ -73,12 +72,12 @@ export function makePxlUrl(baseurl, eventname, data, options) {
     pagesession = generateId();
 
   //not using URL object, simplifies support of relative URLs
-  let var_sep = baseurl.includes("?") ? "&" : "?";
+  const var_sep = baseurl.includes("?") ? "&" : "?";
   let url = `${baseurl}${var_sep}pe=${encodeURIComponent(eventname)}&pp=${encodeURIComponent(pagesession)}&pc=${++seqnr}`;
 
   // See: https://developer.mozilla.org/en-US/docs/Web/API/navigator/doNotTrack
   // The 'doNotTrack' option overrides the browser setting if not "unspecified"
-  let donottrack = options.donottrack == "1" || (options.donottrack == "unspecified" && (window.navigator.doNotTrack == "1" || window.navigator.doNotTrack == "yes" || window.navigator.msDoNotTrack == "1"));
+  const donottrack = options.donottrack == "1" || (options.donottrack == "unspecified" && (window.navigator.doNotTrack == "1" || window.navigator.doNotTrack == "yes" || window.navigator.msDoNotTrack == "1"));
   if (!donottrack)
     url += `&pi=${encodeURIComponent(getPxlId())}&ps=${encodeURIComponent(getPxlSessionId())}`;
   else if (globalOptions.debug)
@@ -92,7 +91,7 @@ export function makePxlUrl(baseurl, eventname, data, options) {
   if (document.referrer)
     url += `&br=${encodeURIComponent(document.referrer)}`;
   url += `&bt=${encodeURIComponent(browser.triplet)}`;
-  let device = browser.device;
+  const device = browser.device;
   if (device)
     url += `&bd=${encodeURIComponent(device)}`;
   if (!options.nobrowserenvironment) {
@@ -104,13 +103,13 @@ export function makePxlUrl(baseurl, eventname, data, options) {
   }
 
   if (data) {
-    for (let name of Object.keys(data)) {
-      let test = datakey_regex.exec(name);
+    for (const name of Object.keys(data)) {
+      const test = datakey_regex.exec(name);
       if (!test)
         return pxlFailed(`Invalid data field name '${name}', should be ds_XXX, dn_XXX or db_XXX with X consisting of characters in the range 0-9, a-z or an underscore`);
 
       let value = data[name];
-      let type = typeof data[name];
+      const type = typeof data[name];
 
       if (test[1]) // String
       {
@@ -120,8 +119,7 @@ export function makePxlUrl(baseurl, eventname, data, options) {
           return pxlFailed(`Invalid value type '${type}', expected 'string' for field '${name}'`);
 
         url += `&${name}=${encodeURIComponent(value)}`;
-      }
-      else if (test[2]) // Number
+      } else if (test[2]) // Number
       {
         if (!value)
           value = 0;
@@ -129,8 +127,7 @@ export function makePxlUrl(baseurl, eventname, data, options) {
           return pxlFailed(`Invalid value type '${type}', expected 'number' for field '${name}'`);
 
         url += `&${name}=${value}`;
-      }
-      else if (test[3]) // Boolean
+      } else if (test[3]) // Boolean
       {
         if (!value)
           value = false;
@@ -149,15 +146,14 @@ export function getPxlId(options) {
 
   //Chrome's cookie block setting throws when acessing window.localStorage, so check for it in a safer way
   let havelocalstorage = true;
-  try { window.localStorage.getItem("_wh.pi"); }
-  catch (ignore) { havelocalstorage = false; }
+  try { window.localStorage.getItem("_wh.pi"); } catch (ignore) { havelocalstorage = false; }
 
   // Use localStorage if available, otherwise just use a cookie
   if (havelocalstorage) {
     let expiration = new Date();
     let id = localStorage.getItem("_wh.pi");
     if (id) {
-      let timestamp = new Date(localStorage.getItem("_wh.ti"));
+      const timestamp = new Date(localStorage.getItem("_wh.ti"));
       if (timestamp > expiration) {
         if (options.debug)
           console.log(`[pxl] Using id ${id} from localStorage`);
@@ -173,16 +169,14 @@ export function getPxlId(options) {
     if (options.debug)
       console.log(`[pxl] Storing id ${id} in localStorage with expiration date ${expiration}`);
     return id;
-  }
-  else {
+  } else {
     let id = cookie.read("_wh.pi");
     if (!id) {
       id = generateId();
       cookie.write("_wh.pi", id, { duration: options.sessionexpiration });
       if (options.debug)
         console.log(`[pxl] Storing user id ${id} in cookie`);
-    }
-    else if (options.debug)
+    } else if (options.debug)
       console.log(`[pxl] Using user id ${id} from cookie`);
     return id;
   }
@@ -197,8 +191,7 @@ function getPxlSessionId(options) {
     cookie.write("_wh.ps", id);
     if (options.debug)
       console.log(`[pxl] Storing session id ${id} in cookie`);
-  }
-  else if (options.debug)
+  } else if (options.debug)
     console.log(`[pxl] Using session id ${id} from cookie`);
   return id;
 }
@@ -227,7 +220,7 @@ function pingPxlEvent(evt) {
   const baseurl = isaltsample ? options.altrecordurl : options.recordurl;
 
   // Add the pxl event to the url
-  let url = makePxlUrl(baseurl, event, data, options);
+  const url = makePxlUrl(baseurl, event, data, options);
   if (!url)
     return;
 
@@ -242,22 +235,20 @@ function pingPxlEvent(evt) {
       if (options.debug)
         console.log(`[pxl] Beacon-pinging pxl '${url}' (sendBeacon)`);
       navigator.sendBeacon(url);
-    }
-    else {
+    } else {
       if (options.debug)
         console.log(`[pxl] Beacon-pinging pxl '${url}' (sync XHR)`);
 
-      let xhr = new XMLHttpRequest();
+      const xhr = new XMLHttpRequest();
       xhr.open("HEAD", url, false);
       xhr.send();
 
       if (options.debug)
         console.log(`[pxl] Beacon-pinging pxl '${url}' - sync XHR done!`);
     }
-  }
-  else {
+  } else {
     // Load the pxl file using fetch TODO DOES IE11 support no-cors? Or just switch to <img> loading
-    let promise = fetch(url, { mode: "no-cors", method: "HEAD", credentials: "same-origin", cache: "no-store", keepalive: true });
+    const promise = fetch(url, { mode: "no-cors", method: "HEAD", credentials: "same-origin", cache: "no-store", keepalive: true });
     if (options.debug) {
       console.log(`[pxl] Pinging pxl '${url}'`);
       promise.then(() => {
@@ -265,8 +256,7 @@ function pingPxlEvent(evt) {
       }).catch(error => {
         console.error(`[pxl] Error while pinging pxl`, error);
       });
-    }
-    else {
+    } else {
       promise.catch(function() { }); //we don't really care about failed fetches, but don't turn them into unhandled rejections
     }
   }

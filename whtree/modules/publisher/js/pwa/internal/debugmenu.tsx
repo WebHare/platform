@@ -45,7 +45,7 @@ function testMenuTap(event) {
   activatetouches.push(Date.now());
   activatetouches = activatetouches.slice(-expectnumtouches);
 
-  let totaltime = (activatetouches.at(-1) - activatetouches[0]);
+  const totaltime = (activatetouches.at(-1) - activatetouches[0]);
   if ((activatetouches.at(-1) - activatetouches[0]) < expecttaptime) // fast enough
   {
     if (activatetouches.length > 1)
@@ -57,7 +57,7 @@ function testMenuTap(event) {
 }
 
 dompack.register("[data-app-activatedebugmenu]", node => {
-  let settings = node.dataset.appActivatedebugmenu.split(':');
+  const settings = node.dataset.appActivatedebugmenu.split(':');
   expectnumtouches = parseInt(settings[0]);
   expecttaptime = parseInt(settings[1]);
   if (!expecttaptime || !expectnumtouches)

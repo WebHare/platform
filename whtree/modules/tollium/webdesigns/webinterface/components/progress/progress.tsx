@@ -57,8 +57,7 @@ export default class ObjProgress extends ComponentBase {
   onMsgSetValMax(data) {
     if (data.max <= 0) {
       this.node.removeAttribute("value");
-    }
-    else {
+    } else {
       this.node.setAttribute("value", data.value);
       this.node.setAttribute("max", data.max);
     }

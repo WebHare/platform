@@ -7,10 +7,10 @@ import { WaitableTimer } from "@mod-system/js/internal/util/waitabletimer";
 import { ManualCondition } from "@mod-system/js/internal/util/manualcondition";
 
 // Websocket alive check control
-let pinginterval = 60;
-let pongresponsetime = 45;
+const pinginterval = 60;
+const pongresponsetime = 45;
 
-let debuglog = false;
+const debuglog = false;
 
 /** This class implements a FIFO with a wait function that is resolved when an element is present
 */
@@ -87,7 +87,7 @@ class SocketHandler {
       @return Whether the connection is still viable. If false, close the connection.
    */
   _handleServerConnectionEvent() {
-    let e = this._serverconneventfifo.shift();
+    const e = this._serverconneventfifo.shift();
     switch (e.type) {
       case "message":
         {
@@ -106,7 +106,7 @@ class SocketHandler {
   // Called when a message arives
   _handleServerMessage(message) {
     //console.log("got websocket message", message.data);
-    var rawmsg = JSON.parse(message.data);
+    const rawmsg = JSON.parse(message.data);
 
     if (debuglog)
       console.log("got websocket rawmessage for " + this._commurl, rawmsg);
@@ -114,7 +114,7 @@ class SocketHandler {
     switch (rawmsg.type) {
       case "msg":
         {
-          for (var i = 0; i < rawmsg.msg.data.length; ++i) {
+          for (let i = 0; i < rawmsg.msg.data.length; ++i) {
             var msg = rawmsg.msg.data[i];
 
             if (debuglog)
@@ -169,7 +169,7 @@ class SocketHandler {
 
       // Wait for initial 'open' event from the server connection
       await this._serverconneventfifo.waitSignalled();
-      let e = this._serverconneventfifo.shift();
+      const e = this._serverconneventfifo.shift();
 
       if (e.type !== "open") {
         if (debuglog)
@@ -190,14 +190,15 @@ class SocketHandler {
       this._sendListenLinks();
 
       // Send pings every now and then
-      let ping = setInterval(() => this._sendPingToServer, pinginterval * 1000);
+      const ping = setInterval(() => this._sendPingToServer, pinginterval * 1000);
 
       while (true) {
         // Wait for eventfifo and pong timeout, and for all frontends to have gone away.
-        let waitres = await Promise.race(
-          [this._serverconneventfifo.waitSignalled()
-            , this._pongtimeout.waitSignalled()
-            , this._gotfrontends.waitNotSignalled()
+        const waitres = await Promise.race(
+          [
+            this._serverconneventfifo.waitSignalled(),
+            this._pongtimeout.waitSignalled(),
+            this._gotfrontends.waitNotSignalled()
           ]);
 
         if (waitres === this._gotfrontends) {
@@ -205,14 +206,12 @@ class SocketHandler {
           if (debuglog)
             console.log("No endpoints active anymore, disconnecting websocket");
           break;
-        }
-        else if (waitres === this._pongtimeout) {
+        } else if (waitres === this._pongtimeout) {
           // Pong timeout
           if (debuglog)
             console.log("Timeout waiting for server response");
           break;
-        }
-        else if (waitres === this._serverconneventfifo) {
+        } else if (waitres === this._serverconneventfifo) {
           if (!this._handleServerConnectionEvent())
             break;
         }
@@ -245,7 +244,7 @@ class SocketHandler {
   }
 
   setFrontendListenLinks(frontend, links, frontendids) {
-    let obj = this._frontends.get(frontend);
+    const obj = this._frontends.get(frontend);
     obj.links = links;
     obj.frontendids = frontendids;
     this._sendListenLinks();

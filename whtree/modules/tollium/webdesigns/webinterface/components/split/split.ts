@@ -46,7 +46,7 @@ export default class ObjSplit extends ComponentBase {
     if (comp.parentcomp != this)
       return console.error('Child ' + comp.name + ' not inside the split is trying to replace itself');
 
-    var newcomp = this.owner.addComponent(this, comp.name);
+    const newcomp = this.owner.addComponent(this, comp.name);
     this.parts.splice(this.parts.indexOf(comp), 1, newcomp);
 
     comp.getNode().replaceWith(newcomp.getNode());
@@ -59,20 +59,20 @@ export default class ObjSplit extends ComponentBase {
   // Build the DOM node(s) for this component
   buildNode() {
     this.node = dompack.create("t-split", {
-      dataset: { name: this.name }
-      , className: (this.horizontal ? "split--horizontal" : "split--vertical")
+      dataset: { name: this.name },
+      className: (this.horizontal ? "split--horizontal" : "split--vertical")
     });
     this.node.propTodd = this;
 
     this.splitters = [];
     this.parts.forEach((part, idx) => {
       if (idx > 0) {
-        let splitter = dompack.create('t-split__splitter', {
-          className: this.splitter ? " split--" + this.splitter : ''
-          , on: {
-            "dompack:movestart": evt => this.onMoveStart(evt, idx - 1)
-            , "dompack:move": evt => this.onMove(evt, idx - 1)
-            , "dompack:moveend": evt => this.onMoveEnd(evt, idx - 1)
+        const splitter = dompack.create('t-split__splitter', {
+          className: this.splitter ? " split--" + this.splitter : '',
+          on: {
+            "dompack:movestart": evt => this.onMoveStart(evt, idx - 1),
+            "dompack:move": evt => this.onMove(evt, idx - 1),
+            "dompack:moveend": evt => this.onMoveEnd(evt, idx - 1)
           }
         });
         movable.enable(splitter);
@@ -93,8 +93,7 @@ export default class ObjSplit extends ComponentBase {
       this.width.splitters = this.splitters.length ? this.splitters[0].getBoundingClientRect().width * this.splitters.length : 0;
       this.width.min += this.width.splitters;
       this.width.calc += this.width.splitters;
-    }
-    else {
+    } else {
       this.setSizeToMaxOf('width', this.parts);
     }
   }
@@ -109,8 +108,7 @@ export default class ObjSplit extends ComponentBase {
   calculateDimHeight() {
     if (this.horizontal) {
       this.setSizeToMaxOf('height', this.parts);
-    }
-    else {
+    } else {
       this.setSizeToSumOf('height', this.parts);
       this.height.splitters = this.splitters.length ? this.splitters[0].getBoundingClientRect().height * this.splitters.length : 0;
       this.height.min += this.height.splitters;
@@ -127,8 +125,8 @@ export default class ObjSplit extends ComponentBase {
 
   relayout() {
     this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
-    var setwidth = Math.max(this.width.min, this.width.set);
-    var setheight = Math.max(this.height.min, this.height.set);
+    const setwidth = Math.max(this.width.min, this.width.set);
+    const setheight = Math.max(this.height.min, this.height.set);
     dompack.setStyles(this.node, { width: setwidth, height: setheight });
 
     if (this.horizontal)
@@ -144,7 +142,7 @@ export default class ObjSplit extends ComponentBase {
       items = items.filter((item, idx) => {
         // This part is affected if it's the part before the splitter or after the splitter (splitter 0 is located between part
         // 0 and part 1)
-        var affected = idx == this.movesplitter || idx == this.movesplitter + 1;
+        const affected = idx == this.movesplitter || idx == this.movesplitter + 1;
         // If this part is not affected, it keeps its size
         if (!affected)
           available -= item[property].set;
@@ -165,53 +163,53 @@ export default class ObjSplit extends ComponentBase {
   onMoveStart(event, splitter) {
     event.stopPropagation();
 
-    var dragtarget = event.detail.listener;
-    var splittersize = 1;
+    const dragtarget = event.detail.listener;
+    const splittersize = 1;
 
-    var prevcomp = dragtarget.previousSibling.propTodd;
-    var nextcomp = dragtarget.nextSibling.propTodd;
+    const prevcomp = dragtarget.previousSibling.propTodd;
+    const nextcomp = dragtarget.nextSibling.propTodd;
 
-    let thisnoderect = this.node.getBoundingClientRect();
-    let dragtargetcoords = dragtarget.getBoundingClientRect();
+    const thisnoderect = this.node.getBoundingClientRect();
+    const dragtargetcoords = dragtarget.getBoundingClientRect();
 
-    var pos = {
-      height: this.horizontal ? dragtargetcoords.height : splittersize
-      , left: (dragtargetcoords.left - thisnoderect.left) + (this.horizontal ? Math.floor((dragtargetcoords.width - splittersize) / 2) : 0)
-      , top: (dragtargetcoords.top - thisnoderect.top) + (this.horizontal ? 0 : Math.floor((dragtargetcoords.height - splittersize) / 2))
-      , width: this.horizontal ? splittersize : dragtargetcoords.width
+    const pos = {
+      height: this.horizontal ? dragtargetcoords.height : splittersize,
+      left: (dragtargetcoords.left - thisnoderect.left) + (this.horizontal ? Math.floor((dragtargetcoords.width - splittersize) / 2) : 0),
+      top: (dragtargetcoords.top - thisnoderect.top) + (this.horizontal ? 0 : Math.floor((dragtargetcoords.height - splittersize) / 2)),
+      width: this.horizontal ? splittersize : dragtargetcoords.width
     };
 
-    let dragprevrect = dragtarget.previousSibling.getBoundingClientRect();
-    let dragnextrect = dragtarget.nextSibling.getBoundingClientRect();
+    const dragprevrect = dragtarget.previousSibling.getBoundingClientRect();
+    const dragnextrect = dragtarget.nextSibling.getBoundingClientRect();
 
     // leaving it for reference, delete if no further issues
     //    var min = this.horizontal ? dragtarget.previousSibling.getPosition(this.node).x + prevcomp.width.min
     //                              : dragtarget.previousSibling.getPosition(this.node).y + prevcomp.height.min;
     //    var max = this.horizontal ? dragtarget.nextSibling.getPosition(this.node).x + dragtarget.nextSibling.getSize(this.node).x - splittersize - nextcomp.width.min
     //                              : dragtarget.nextSibling.getPosition(this.node).y + dragtarget.nextSibling.getSize(this.node).y - splittersize - nextcomp.height.min;
-    var min = this.horizontal ? dragprevrect.left - thisnoderect.left + prevcomp.width.min
-      : dragprevrect.top - thisnoderect.top + prevcomp.height.min
-    var max = this.horizontal ? dragnextrect.left - thisnoderect.left + dragnextrect.width - splittersize - nextcomp.width.min
+    const min = this.horizontal ? dragprevrect.left - thisnoderect.left + prevcomp.width.min
+      : dragprevrect.top - thisnoderect.top + prevcomp.height.min;
+    const max = this.horizontal ? dragnextrect.left - thisnoderect.left + dragnextrect.width - splittersize - nextcomp.width.min
       : dragnextrect.top - thisnoderect.top + dragnextrect.height - splittersize - nextcomp.height.min;
 
-    var mover = dompack.create("t-split__movingsplitter"
+    const mover = dompack.create("t-split__movingsplitter"
       , {
         style: {
-          height: pos.height
-          , left: pos.left
-          , top: pos.top
-          , width: pos.width
+          height: pos.height,
+          left: pos.left,
+          top: pos.top,
+          width: pos.width
         }
       });
     this.node.appendChild(mover);
 
     this.draginfo = {
-      initial: pos
-      , minpos: min
-      , maxpos: max
-      , prevcomp: prevcomp
-      , nextcomp: nextcomp
-      , mover: mover
+      initial: pos,
+      minpos: min,
+      maxpos: max,
+      prevcomp: prevcomp,
+      nextcomp: nextcomp,
+      mover: mover
     };
     event.stopPropagation();
   }
@@ -228,13 +226,12 @@ export default class ObjSplit extends ComponentBase {
   onMoveEnd(event, splitter) {
     event.stopPropagation();
 
-    var diff = this.horizontal ? event.detail.movedX : event.detail.movedY;
+    const diff = this.horizontal ? event.detail.movedX : event.detail.movedY;
     if (diff) {
       if (this.horizontal) {
         this.draginfo.prevcomp.setNewWidth(this.draginfo.prevcomp.width.set + diff);
         this.draginfo.nextcomp.setNewWidth(this.draginfo.nextcomp.width.set - diff);
-      }
-      else {
+      } else {
         this.draginfo.prevcomp.setNewHeight(this.draginfo.prevcomp.height.set + diff);
         this.draginfo.nextcomp.setNewHeight(this.draginfo.nextcomp.height.set - diff);
       }

@@ -27,8 +27,8 @@
   <test script="test_upgrades.whscr"/>
   <test script="test_remoteaccess.whscr"/>
 
-  <jstest file="test_pxl.es" />
-  <jstest file="test_backendapi.es" />
+  <jstest file="test_pxl.ts" />
+  <jstest file="test_backendapi.ts" />
 
   <test name="sitecontent" path="sitecontent/" />
   <test name="whfscatalog" path="whfscatalog/" />

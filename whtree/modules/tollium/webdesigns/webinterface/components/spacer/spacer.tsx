@@ -40,7 +40,7 @@ export default class ObjSpacer extends ComponentBase {
   */
 
   calculateDimWidth() {
-    var width = $todd.ReadSetWidth(this.width);
+    const width = $todd.ReadSetWidth(this.width);
     this.width.calc = width;
     this.width.min = 0;
   }
@@ -57,10 +57,10 @@ export default class ObjSpacer extends ComponentBase {
   relayout() {
     this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
     dompack.setStyles(this.node, {
-      width: this.width.set
-      , height: this.height.set
+      width: this.width.set,
+      height: this.height.set
     });
   }
 
-};
+}
 

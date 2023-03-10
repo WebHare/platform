@@ -16,34 +16,32 @@ function onCheckResponse(success, response) {
   checkcall = null;
   if (!success) {
     console.error("FIXME: Report server unreachable");
-  }
-  else {
+  } else {
     if (!response.privileged)
       return; //we don't have access
 
     if (response.firstmessage) {
-      var message =
+      const message =
       {
-        appurl: "system:dashboard"
-        , apptarget: null
-        , reuse_instance: true
+        appurl: "system:dashboard",
+        apptarget: null,
+        reuse_instance: true
       };
 
-      var messagetext = getTid("tollium:shell.checks.errors", response.numleft, response.firstmessage);
+      const messagetext = getTid("tollium:shell.checks.errors", response.numleft, response.firstmessage);
 
-      var notification =
+      const notification =
       {
-        id: "system:checks"
-        , icon: "tollium:messageboxes/warning"
-        , title: domencoding.encodeValue(getTid("tollium:shell.checks.unresolvedissues"))
-        , description: domencoding.encodeValue(messagetext)
-        , timeout: 0
-        , applicationmessage: message
-        , persistent: true
+        id: "system:checks",
+        icon: "tollium:messageboxes/warning",
+        title: domencoding.encodeValue(getTid("tollium:shell.checks.unresolvedissues")),
+        description: domencoding.encodeValue(messagetext),
+        timeout: 0,
+        applicationmessage: message,
+        persistent: true
       };
       $todd.towl.showNotification(notification);
-    }
-    else {
+    } else {
       $todd.towl.hideNotification("system:checks");
     }
   }
@@ -64,8 +62,7 @@ export function setupWHCheck(setcheckinterval) {
     checkinterval = setcheckinterval;
     onCheckInterval();
     intervaltimer = setInterval(onCheckInterval, checkinterval);
-  }
-  else if (intervaltimer && setcheckinterval <= 0) {
+  } else if (intervaltimer && setcheckinterval <= 0) {
     clearInterval(intervaltimer);
     intervaltimer = 0;
   }

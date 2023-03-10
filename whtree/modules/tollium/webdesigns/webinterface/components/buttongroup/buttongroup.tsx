@@ -28,7 +28,7 @@ export default class ObjButtonGroup extends ComponentBase {
     this.borders = data.borders;
     this.buttons = [];
     data.buttons.forEach(button => {
-      var comp = this.owner.addComponent(this, button);
+      const comp = this.owner.addComponent(this, button);
       if (!comp.getNode())
         return; //ignore this component for further consideration
 
@@ -52,7 +52,7 @@ export default class ObjButtonGroup extends ComponentBase {
     if (comp.parentcomp != this)
       return console.error('Child ' + comp.name + ' not inside the buttongroup is trying to replace itself');
 
-    var newcomp = this.owner.addComponent(this, comp.name);
+    const newcomp = this.owner.addComponent(this, comp.name);
     this.buttons.splice(this.buttons.indexOf(comp), 1, newcomp);
     comp.getNode().replaceWith(newcomp.getNode());
   }
@@ -65,8 +65,9 @@ export default class ObjButtonGroup extends ComponentBase {
   buildNode() {
     this.node = <t-buttongroup name={this.name} class={this.layout} propTodd={this}>
       {this.buttons.map((button, idx) =>
-        [idx > 0 ? <div class="separator"><div></div></div> : null
-          , button.getNode()
+        [
+          idx > 0 ? <div class="separator"><div></div></div> : null,
+          button.getNode()
         ])}
     </t-buttongroup>;
 
@@ -89,41 +90,39 @@ export default class ObjButtonGroup extends ComponentBase {
   }
 
   calculateDimWidth() {
-    let borderwidth = toddtools.getBorderWidth(this.borders);
+    const borderwidth = toddtools.getBorderWidth(this.borders);
 
     if (this.layout == "horizontal") {
-      let divideroverhead = Math.max(0, this.buttons.length - 1) * 1;
+      const divideroverhead = Number(Math.max(0, this.buttons.length - 1));
       this.width.overhead = divideroverhead + borderwidth;
       this.setSizeToSumOf('width', this.buttons, this.width.overhead);
-    }
-    else {
+    } else {
       this.width.overhead = borderwidth;
       this.setSizeToMaxOf('width', this.buttons, this.width.overhead);
     }
   }
   calculateDimHeight() {
-    let borderheight = toddtools.getBorderHeight(this.borders);
+    const borderheight = toddtools.getBorderHeight(this.borders);
 
     if (this.layout == "horizontal") {
       this.height.overhead = borderheight;
       this.setSizeToMaxOf('height', this.buttons, this.height.overhead);
-    }
-    else {
-      let divideroverhead = Math.max(0, this.buttons.length - 1) * 1;
+    } else {
+      const divideroverhead = Number(Math.max(0, this.buttons.length - 1));
       this.height.overhead = divideroverhead + borderheight;
       this.setSizeToSumOf('height', this.buttons, this.height.overhead);
     }
   }
 
   applySetWidth() {
-    var setwidth = this.width.set - this.width.overhead;
+    const setwidth = this.width.set - this.width.overhead;
     if (this.layout == "horizontal")
       this.distributeSizeProps('width', setwidth, this.buttons, true);
     else
       this.buttons.forEach(button => button.setWidth(setwidth));
   }
   applySetHeight() {
-    var setheight = this.height.set - this.height.overhead;
+    const setheight = this.height.set - this.height.overhead;
     if (this.layout == "horizontal")
       this.buttons.forEach(button => button.setHeight(setheight));
     else
@@ -132,8 +131,8 @@ export default class ObjButtonGroup extends ComponentBase {
 
   relayout() {
     dompack.setStyles(this.node, {
-      "width": this.width.set
-      , "height": this.height.set + (this.tabsspacecheat ? $todd.gridlineTotalMargin : 0)
+      "width": this.width.set,
+      "height": this.height.set + (this.tabsspacecheat ? $todd.gridlineTotalMargin : 0)
     });
     this.buttons.forEach(button => button.relayout());
   }

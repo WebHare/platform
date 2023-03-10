@@ -12,9 +12,9 @@ function getUTF8Length(str) {
 function limitUTF8Length(str, len) {
   let retval = "";
   while (str) {
-    let middle = (str.length + 1) / 2;
-    let teststr = str.substr(0, middle);
-    let testlen = getUTF8Length(teststr);
+    const middle = (str.length + 1) / 2;
+    const teststr = str.substr(0, middle);
+    const testlen = getUTF8Length(teststr);
     if (testlen > len)
       str = str.substr(0, middle - 1);
     else {

@@ -98,10 +98,10 @@ export default class ObjRadiobutton extends ComponentBase { // -----------------
   //
 
   getSkinSettings() {
-    var dims = this.node.getBoundingClientRect();
+    const dims = this.node.getBoundingClientRect();
     return {
-      width: parseInt(dims.width)
-      , height: parseInt(dims.height)
+      width: parseInt(dims.width),
+      height: parseInt(dims.height)
     };
   }
 
@@ -127,7 +127,7 @@ export default class ObjRadiobutton extends ComponentBase { // -----------------
 
   gotClick(ev) {
     if (this.enabled && !this.readonly) {
-      for (let node of document.querySelectorAll("input[type='radio'][name='" + this.radiogroup + "']"))
+      for (const node of document.querySelectorAll("input[type='radio'][name='" + this.radiogroup + "']"))
         node.checked = node == this.radiobuttonnode;
       this.gotSet();
       this.radiobuttonnode.focus();
@@ -135,11 +135,11 @@ export default class ObjRadiobutton extends ComponentBase { // -----------------
   }
 
   gotSet() {
-    let oldvalue = this.value;
+    const oldvalue = this.value;
     this.gotControlChange();
     if (this.value && !oldvalue) {
       // when set, there probably is another radio that has been unset, visit them all to synchronize them
-      for (let node of document.querySelectorAll("input[type='radio'][name='" + this.radiogroup + "']"))
+      for (const node of document.querySelectorAll("input[type='radio'][name='" + this.radiogroup + "']"))
         if (node != this.node)
           node.propToddObj.gotControlChange();
     }
@@ -152,7 +152,7 @@ export default class ObjRadiobutton extends ComponentBase { // -----------------
 
     // This function is called everytime the radiobutton is checked, or when another radiobutton in this group is checked (so
     // we'll have to see if this is the radiobutton that got unchecked)
-    var newvalue = this.radiobuttonnode.checked;
+    const newvalue = this.radiobuttonnode.checked;
     if (newvalue != this.value) {
       this.value = newvalue;
       this.setDirty();

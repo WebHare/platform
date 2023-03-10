@@ -32,24 +32,24 @@ export default class PollWebtool {
     this._disableInteraction(); //make sure the poll is blocked until we've retrieved the current results
 
     //if (localStorage["webtools:"+this._getToolId()] == "voted")
-    let alreadyvoted = localStorage["wh-webtools-votetime:" + this._getToolId()];
+    const alreadyvoted = localStorage["wh-webtools-votetime:" + this._getToolId()];
     if (alreadyvoted)
       this.node.classList.add("wh-poll--voted");
   }
 
   // make poll input's and submit button inactive
   _disableInteraction() {
-    let inputnodes = this.node.querySelectorAll("input,.wh-poll__votebutton");
+    const inputnodes = this.node.querySelectorAll("input,.wh-poll__votebutton");
     //let submitnodes = toolnode.querySelectorAll("form button,form input");
-    for (let node of inputnodes)
+    for (const node of inputnodes)
       node.disabled = true;
   }
 
   // make poll input's and submit button active again
   _enableInteraction() {
-    let inputnodes = this.node.querySelectorAll("input,.wh-poll__votebutton");
+    const inputnodes = this.node.querySelectorAll("input,.wh-poll__votebutton");
     //let submitnodes = toolnode.querySelectorAll("form button,form input");
-    for (let node of inputnodes)
+    for (const node of inputnodes)
       node.disabled = false;
   }
 
@@ -74,7 +74,7 @@ export default class PollWebtool {
       return;
     }
     */
-    let polldata = dompack.getJSONAttribute(this.node, "data-poll");
+    const polldata = dompack.getJSONAttribute(this.node, "data-poll");
     if (!polldata) {
       console.error("Missing the data-poll attribute on the .wh-poll element");
       return;
@@ -93,9 +93,9 @@ export default class PollWebtool {
     if (document.activeElement)
       document.activeElement.blur();
 
-    let pollvalue = [];
-    let options = this.node.querySelector("form").vote;
-    for (let optionnode of Array.from(options)) // We need to cast to an Array because in IE a NodeList doesn't support iteration this way
+    const pollvalue = [];
+    const options = this.node.querySelector("form").vote;
+    for (const optionnode of Array.from(options)) // We need to cast to an Array because in IE a NodeList doesn't support iteration this way
     {
       if (optionnode.checked)
         pollvalue.push(optionnode.value);
@@ -107,18 +107,18 @@ export default class PollWebtool {
   }
 
   async castVote(toolid, optionguids) {
-    let query = `[data-toolid="${CSS.escape(toolid)}"]`;
-    let toolnode = document.querySelector(query);
+    const query = `[data-toolid="${CSS.escape(toolid)}"]`;
+    const toolnode = document.querySelector(query);
 
     this._disableInteraction();
 
     //console.info(query, "results in", toolnode);;
 
     toolnode.classList.add("wh-poll--submitting");
-    let lock = dompack.flagUIBusy();
+    const lock = dompack.flagUIBusy();
 
     try {
-      let result = await pollrpc.castVote(toolid, optionguids);
+      const result = await pollrpc.castVote(toolid, optionguids);
       toolnode.classList.remove("wh-poll--submitting");
 
       if (result.success) {
@@ -133,36 +133,33 @@ export default class PollWebtool {
         toolnode.classList.add("wh-poll--voted", "wh-poll--justvoted");
         this._applyPollResults(toolid, result.pollresults, null); //null indicates this is not the initial poll/fetch
       }
-    }
-    catch (e) {
+    } catch (e) {
       console.log("Exception", e);
       toolnode.classList.remove("wh-poll--submitting");
 
       this._enableInteraction();
-    }
-    finally {
+    } finally {
       lock.release();
     }
   }
 
   // if unixtimestamps is set, this is the initial poll load getting results
   _applyPollResults(toolid, poll, unixtimestampnow) {
-    let pollnode = document.querySelector(`[data-toolid="${CSS.escape(toolid)}"]`);
+    const pollnode = document.querySelector(`[data-toolid="${CSS.escape(toolid)}"]`);
     if (!pollnode)
       return;
 
     if (unixtimestampnow) {
       let canvote = true; // can vote unless we find a vote cookie which is too recent
 
-      let voteinfo = localStorage["wh-webtools-votetime:" + this._getToolId()];
+      const voteinfo = localStorage["wh-webtools-votetime:" + this._getToolId()];
       if (voteinfo) {
-        let votedtimestamp = parseInt(voteinfo);
+        const votedtimestamp = parseInt(voteinfo);
 
         if (isNaN(votedtimestamp)) {
           localStorage.removeItem("wh-webtools-votetime:" + this._getToolId());
-        }
-        else if (votedtimestamp != "") {
-          let polldata = dompack.getJSONAttribute(this.node, "data-poll");
+        } else if (votedtimestamp != "") {
+          const polldata = dompack.getJSONAttribute(this.node, "data-poll");
 
           console.log("Poll was voted on " + ((unixtimestampnow - votedtimestamp) / 1000).toFixed(0) + " seconds ago. Polls allows voting again after " + polldata.allowvotingagainafter + " seconds.");
 
@@ -178,21 +175,21 @@ export default class PollWebtool {
       this._enableInteraction();
     }
 
-    for (let polloption of poll.options) {
-      let polloptionnode = pollnode.querySelector(`[data-polloption="${CSS.escape(polloption.guid)}"]`);
+    for (const polloption of poll.options) {
+      const polloptionnode = pollnode.querySelector(`[data-polloption="${CSS.escape(polloption.guid)}"]`);
       // FIXME: what to do about this? this might indicate the option was deleted after it was added in a statically published page.
       if (!polloptionnode) {
         console.warn("Cannot find option", polloption.guid, "in", pollnode);
         return;
       }
 
-      let votecountnode = polloptionnode.querySelector(".wh-poll__option__votes");
+      const votecountnode = polloptionnode.querySelector(".wh-poll__option__votes");
       votecountnode.setAttribute("data-votes", polloption.votes);
       votecountnode.setAttribute("data-percentage", polloption.votepercentage);
       //console.info("option now", votecountnode.getAttribute("votes"), votecountnode.getAttribute("percentage"));
     }
 
-    let totalvotesnode = pollnode.querySelector(".wh-poll__votecount__amount");
+    const totalvotesnode = pollnode.querySelector(".wh-poll__votecount__amount");
     if (totalvotesnode)
       totalvotesnode.innerText = poll.amountofvoters;
   }
@@ -204,7 +201,7 @@ export default class PollWebtool {
 
 function scheduleFetchResults(poll) {
   if (!pollstofetch.length) {
-    let lock = dompack.flagUIBusy();
+    const lock = dompack.flagUIBusy();
     setTimeout(() => fetchResults(lock), 0);
   }
 
@@ -214,16 +211,15 @@ function scheduleFetchResults(poll) {
 async function fetchResults(lock) {
   //clear the list
   try {
-    let tofetch = pollstofetch;
+    const tofetch = pollstofetch;
     pollstofetch = [];
 
-    let toolids = tofetch.map(poll => poll._getToolId());
-    let result = await pollrpc.getResultsForPolls(toolids);
+    const toolids = tofetch.map(poll => poll._getToolId());
+    const result = await pollrpc.getResultsForPolls(toolids);
 
-    let unixtimestampnow = Date.now();
+    const unixtimestampnow = Date.now();
     tofetch.forEach((poll, idx) => poll._applyPollResults(toolids[idx], result[idx], unixtimestampnow));
-  }
-  finally {
+  } finally {
     lock.release();
   }
 }

@@ -1,11 +1,11 @@
-<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="testhelpers.es">
-  <jstest file="test_utils.es" />
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="testhelpers.ts">
+  <jstest file="test_utils.tsx" />
   <jstest file="test_browser.ts" />
-  <jstest file="test_pulldown.es" />
-  <jstest file="test_selectlists_register.es" />
-  <jstest file="test_autosuggest.es" />
-  <jstest file="test_merge.es" />
-  <jstest file="test_datatransfer.es" />
-  <jstest file="test_dialogapi.es" />
-  <jstest file="test_storage.es" />
+  <jstest file="test_pulldown.ts" />
+  <jstest file="test_selectlists_register.ts" />
+  <jstest file="test_autosuggest.ts" />
+  <jstest file="test_merge.ts" />
+  <jstest file="test_datatransfer.ts" />
+  <jstest file="test_dialogapi.ts" />
+  <jstest file="test_storage.ts" />
 </group>

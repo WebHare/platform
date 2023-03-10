@@ -99,10 +99,10 @@ export default class ObjTextArea extends ComponentBase {
       this.node.title = this.hint;
 
     this.inputnode = dompack.create("textarea", {
-      value: this.getValue()
-      , autocapitalize: "off"
-      , autocomplete: "off"
-      , placeholder: this.placeholder.split("\n").join(", ")
+      value: this.getValue(),
+      autocapitalize: "off",
+      autocomplete: "off",
+      placeholder: this.placeholder.split("\n").join(", ")
     });
     if (this.minlength > 0 && this.lengthmeasure == "characters")
       this.inputnode.minLength = this.minlength;

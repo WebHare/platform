@@ -23,15 +23,15 @@ class EmbedVideoForm extends RPCFormBase {
 }
 
 export async function insertVideo(rtd) {
-  let formloadlock = dompack.flagUIBusy({ component: rtd });
-  let formhandler = rtd.closest('form').propWhFormhandler;
+  const formloadlock = dompack.flagUIBusy({ component: rtd });
+  const formhandler = rtd.closest('form').propWhFormhandler;
   if (!formhandler) {
     console.error("Cannot find formhandler for node", rtd);
     throw new Error("Cannot find formhandler for RTD node");
   }
-  let formdata = await formservice.requestBuiltinForm(formhandler.getServiceSubmitInfo(), 'rtd', 'embedvideo');
+  const formdata = await formservice.requestBuiltinForm(formhandler.getServiceSubmitInfo(), 'rtd', 'embedvideo');
 
-  let dialog = dialogapi.createDialog();
+  const dialog = dialogapi.createDialog();
   dialog.contentnode.innerHTML = formdata.html;
 
   new EmbedVideoForm(dialog.contentnode.querySelector('form'), dialog, rtd);
