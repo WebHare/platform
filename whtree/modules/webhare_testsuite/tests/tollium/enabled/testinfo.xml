@@ -1,5 +1,5 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="*.whlib">
   <test script="test_recursive_enablerequire.whscr" />
-  <jstest file="testenablecomponents.es" />
-  <jstest file="testenableon.es" />
+  <jstest file="testenablecomponents.ts" />
+  <jstest file="testenableon.ts" />
 </group>

@@ -8,7 +8,7 @@
   <test script="mutexes.whscr" />
   <test script="websockets.whscr" />
   <test script="test-webserver-minimalconfig.whscr" />
-  <jstest name="websockets" file="websockets.es" />
-  <jstest file="accessrules.es" />
+  <jstest name="websockets" file="websockets.ts" />
+  <jstest file="accessrules.ts" />
   <test name="remoting" path="remoting/" />
 </group>

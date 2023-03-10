@@ -1,11 +1,11 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" tags="list">
   <test script="testlistcomponent.whscr" />
-  <jstest file="testbase.es" />
-  <jstest file="testjump.es" />
-  <jstest file="testresize.es" />
-  <jstest file="testcolumntypes.es" />
-  <jstest file="testmultirow.es" />
-  <jstest file="testfindasyoutype.es" />
-  <jstest file="testcelledit.es" />
-  <jstest file="testcolumnselection.es" />
+  <jstest file="testbase.ts" />
+  <jstest file="testjump.ts" />
+  <jstest file="testresize.ts" />
+  <jstest file="testcolumntypes.ts" />
+  <jstest file="testmultirow.ts" />
+  <jstest file="testfindasyoutype.ts" />
+  <jstest file="testcelledit.ts" />
+  <jstest file="testcolumnselection.ts" />
 </group>

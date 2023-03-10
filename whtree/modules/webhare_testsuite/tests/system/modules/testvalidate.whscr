@@ -708,16 +708,16 @@ GetTid("missing.module"); GetTid("system:has.module");`);
   }
 
   //Test JS
-  res := ValidateSingleFile("mod::webhare_testsuite/webdesigns/basetest/js/basetest.es");
+  res := ValidateSingleFile("mod::webhare_testsuite/webdesigns/basetest/js/basetest.ts");
   //dumpvalue(res.tids);
-  TestEqMembers([[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", tid := "webhare_testsuite:webdesigns.basetest.consolelog" ]
-                ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", tid := "webhare_testsuite:test.unicode_2028" ]
-                ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", tid := "webhare_testsuite:test.richtext" ]
-                ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", tid := "webhare_testsuite:test.richtext_params" ]
-                ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", tid := "webhare_testsuite:test.maxextras" ]
-                ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", tid := "webhare_testsuite:test.maxextras" ]
+  TestEqMembers([[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.ts", tid := "webhare_testsuite:webdesigns.basetest.consolelog" ]
+                ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.ts", tid := "webhare_testsuite:test.unicode_2028" ]
+                ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.ts", tid := "webhare_testsuite:test.richtext" ]
+                ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.ts", tid := "webhare_testsuite:test.richtext_params" ]
+                ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.ts", tid := "webhare_testsuite:test.maxextras" ]
+                ,[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.ts", tid := "webhare_testsuite:test.maxextras" ]
                 ], res.tids, "*");
-  TestEqMembers([[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.es", icon := "tollium:status/not_available" ]
+  TestEqMembers([[ resourcename := "mod::webhare_testsuite/webdesigns/basetest/js/basetest.ts", icon := "tollium:status/not_available" ]
                 ], res.icons, "*");
 
 

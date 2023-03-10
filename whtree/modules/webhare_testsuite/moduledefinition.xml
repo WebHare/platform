@@ -8,7 +8,7 @@
                why="gettid.whscr tries to test invalid GetTid, don't blame the file for that" />
       <exclude mask="tests/publisher/siteprofile/data/test*.siteprl.xml" why="these testfiles contain errors on purpose" />
       <exclude mask="tests/system/modules/data/brokenscreen.xml" why="these testfiles contain errors on purpose" />
-      <exclude mask="tests/tollium/language/test_gettid.es" why="these testfiles contain errors on purpose" />
+      <exclude mask="tests/tollium/language/test_gettid.ts" why="these testfiles contain errors on purpose" />
       <exclude mask="tolliumapps/demo/*" why="the demos appear broken but not sure yet if we need to keep or remove them" />
       <exclude mask="screens/tests/addons.xml" why="these testfiles contain errors on purpose" />
 
@@ -300,7 +300,7 @@
                title="WH testsuite: pwatest"
                hidden="true"
                siteprofile="webdesigns/pwatest/pwatest.siteprl.xml">
-      <assetpack compatibility="es2016" entrypoint="webdesigns/pwatest/pwatest.es" supportedlanguages="en" />  <!-- FIXME aftercompiletask="webharedev_pwa:rebuildpages" ?? -->
+      <assetpack compatibility="es2016" entrypoint="webdesigns/pwatest/pwatest" supportedlanguages="en" />  <!-- FIXME aftercompiletask="webharedev_pwa:rebuildpages" ?? -->
     </webdesign>
     <webdesign name="alttest"
                title="WH testsuite: selftest 'attest'"

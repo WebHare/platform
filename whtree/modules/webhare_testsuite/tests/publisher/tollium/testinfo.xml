@@ -15,5 +15,5 @@
   <test script="test_browseforobject.whscr" />
   <test script="test-managedtagedit.whscr" />
   <test script="test-libraryobjects.whscr" />
-  <jstest file="testapp-editrtd.es" tags="rte" />
+  <jstest file="testapp-editrtd.ts" tags="rte" />
 </group>

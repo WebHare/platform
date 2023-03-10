@@ -10,39 +10,39 @@
   <test script="testformcustomformdeffile.whscr"/>
   <test script="testformfile-mailoptions.whscr"/>
   <test script="testformfile-formeditapp.whscr"/>
-  <jstest name="testcore-plaincomponents" file="testcore.es">
+  <jstest name="testcore-plaincomponents" file="testcore.ts">
     <arg value="plaincomponents"/>
   </jstest>
-  <jstest name="testcore-replacedcomponents" file="testcore.es">
+  <jstest name="testcore-replacedcomponents" file="testcore.ts">
     <arg value="replacedcomponents"/>
   </jstest>
-  <jstest file="testvalidation.es" />
-  <jstest file="testvalidation-delay.es" />
-  <jstest name="testconditionalfields-plaincomponents" file="testconditionalfields.es">
+  <jstest file="testvalidation.ts" />
+  <jstest file="testvalidation-delay.ts" />
+  <jstest name="testconditionalfields-plaincomponents" file="testconditionalfields.ts">
     <arg value="plaincomponents"/>
   </jstest>
-  <jstest name="testconditionalfields-replacedcomponents" file="testconditionalfields.es">
+  <jstest name="testconditionalfields-replacedcomponents" file="testconditionalfields.ts">
     <arg value="replacedcomponents"/>
   </jstest>
-  <jstest file="testmultipage.es" />
-  <jstest file="testdynamic.es" />
-  <jstest file="testprops.es" />
-  <jstest file="testemailfield.es" />
+  <jstest file="testmultipage.ts" />
+  <jstest file="testdynamic.ts" />
+  <jstest file="testprops.ts" />
+  <jstest file="testemailfield.ts" />
   <jstest file="testdatetimefield.ts" />
   <jstest file="testimgedit.ts" />
-  <jstest file="testuploadfield.es" />
-  <jstest file="testaddressfield-online.es" tags="forms address" />
+  <jstest file="testuploadfield.ts" />
+  <jstest file="testaddressfield-online.ts" tags="forms address" />
   <test script="testaddressfield.whscr" tags="forms address" />
-  <jstest file="testrte.es" tags="forms rte" />
-  <jstest file="testformfile-online.es" />
-  <jstest file="testformfile-custom-online.es" />
-  <jstest file="testformfile-conditions.es" />
-  <jstest file="testformfile-captcha.es" />
-  <jstest file="testredirect.es" />
-  <jstest file="testarrays.es" />
+  <jstest file="testrte.ts" tags="forms rte" />
+  <jstest file="testformfile-online.ts" />
+  <jstest file="testformfile-custom-online.ts" />
+  <jstest file="testformfile-conditions.ts" />
+  <jstest file="testformfile-captcha.ts" />
+  <jstest file="testredirect.ts" />
+  <jstest file="testarrays.ts" />
   <test script="testmailconfirmation.whscr"/>
-  <jstest file="testmailconfirmation-online.es" />
+  <jstest file="testmailconfirmation-online.ts" />
   <test script="testformfile-editconditions.whscr"/>
-  <jstest file="testvisibleconditions.es" />
-  <jstest file="testformfile-webtoolformhook-rpc.es" />
+  <jstest file="testvisibleconditions.ts" />
+  <jstest file="testformfile-webtoolformhook-rpc.ts" />
 </group>

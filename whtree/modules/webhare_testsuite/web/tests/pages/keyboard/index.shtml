@@ -7,5 +7,5 @@ MACRO RunBody(OBJECT testcontext)
   LoadWittyLibrary(testcontext->basefolder || "page.witty","HTML")->Run(DEFAULT RECORD);
 }
 
-InvokeTestPage(PTR RunBody, [ jsfile := "page.es"
+InvokeTestPage(PTR RunBody, [ jsfile := "page"
                             ]);

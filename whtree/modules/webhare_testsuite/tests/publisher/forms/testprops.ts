@@ -1,0 +1,23 @@
+/* eslint-disable */
+/// @ts-nocheck -- Bulk rename to enable TypeScript validation
+
+/* test props like disabled */
+
+import * as test from '@mod-system/js/wh/testframework';
+
+//FIXME: Test that parlsey backend plus plain POST (not RPC!) works
+
+test.registerTests(
+  [ async function()
+    {
+      await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?dynamic=1&disable=1');
+    }
+
+  , { name: 'Study page fields'
+    , test: function()
+      {
+        test.assert(test.qS("#dynamictest-myradio-15").disabled);
+      }
+    }
+  ]);
