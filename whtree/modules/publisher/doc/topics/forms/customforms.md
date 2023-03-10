@@ -40,7 +40,7 @@ Create a bit of HTML/Witty to render it:
       [form.field1.render]
       [form.field2.render]
     </div>
-    <div class="wh-form__page" data-wh-form-pagerole="thankyou">
+    <div class="wh-form__page" data-wh-form-pagerole="thankyou" role="status">
       Thank you for filling in this form
     </div>
     [form.formrendernav]
