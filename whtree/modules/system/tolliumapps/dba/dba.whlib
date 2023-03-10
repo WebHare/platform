@@ -3,8 +3,6 @@
    https://webhare.moe.sf.webhare.nl/?app=system:config/dba
 */
 
-LOADLIB "wh::files.whlib";
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internal/tabledefs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
@@ -16,7 +14,6 @@ LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/modulemanager.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
-LOADLIB "mod::system/lib/imexport.whlib";
 
 STRING FUNCTION GetDatabaseWHLIB(OBJECT trans, STRING schemaname)
 {

@@ -15,7 +15,6 @@ LOADLIB "wh::util/localization.whlib";
 
 LOADLIB "mod::publisher/lib/analytics.whlib";
 LOADLIB "mod::publisher/lib/webtools/formhandlers/storeresults.whlib";
-LOADLIB "mod::publisher/lib/webtools/internal/formcomponents.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/opener.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/parser.whlib";
 LOADLIB "mod::publisher/lib/internal/forms/rendering.whlib";

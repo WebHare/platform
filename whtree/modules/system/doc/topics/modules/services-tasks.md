@@ -1,40 +1,8 @@
 # Services and tasks
 
-## Services
-Backend services are a simple way to implement an internal service and an easy
-way to call JavaScript from HareScript code and vice versa. A backend service
-exposes the methods of an object over WebHare's RPC. Backend services cannot be
-reached from outside WebHare.
-
-To define a backend service, expose a (possible async) callback to return the object:
-
-```xml
-  <services>
-    <backendservice name="myservice" clientfactory="js/theservice.ts#getAMyServiceInstance" />
-  </services>
-```
-
-And to connect to the service:
-
-```javascript
-import * as services from "@webhare/services";
-
-const service = await services.openBackendService("mymodule:myservice", args);
-```
-
-The methods inside the object are exported as wrappers which will invoke that call
-on the actual object. All method calls are treated as `async` (even if not explicitly
-declared so).
-
-You can pass a `{linger: true}` option to openBackendService to have it keep its connection
-open until the service is explicitly closed.
-
-The constructor, `close` and any method whose name starts with an underscore are not exported.
-
-### HareScript backend services
+## HareScript backend services
 HareScript can connect to backend services using %OpenWebHareService and define them by
 setting up an explicit process running %RunWebHareService
-
 
 ## Managed tasks
 Managed tasks are single shot tasks managed on a central queue. A managed task

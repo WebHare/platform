@@ -19,6 +19,7 @@
   <group name="checkmodules">
     <test name="checktestlists" script="mod::system/scripts/whcommands/checkmodule.whscr">
       <arg value="--nowarnings" />
+      <arg value="--nochecktypescript" />
       <arg value="--filemask" />
       <arg value="testinfo.xml" />
       <arg value="webhare_testsuite" />

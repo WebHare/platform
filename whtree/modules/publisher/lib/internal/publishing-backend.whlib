@@ -1,7 +1,5 @@
 ﻿<?wh
-LOADLIB "mod::publisher/lib/internal/outputmedia/localfs.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
-LOADLIB "mod::publisher/lib/internal/urlhistory.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
