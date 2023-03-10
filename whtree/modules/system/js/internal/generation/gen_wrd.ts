@@ -95,7 +95,7 @@ async function generateWRDDefs(config: WebHareConfiguration, modulename: string,
         try {
           const schemadef = await hsvm.loadlib("mod::wrd/lib/internal/metadata/schemaparser.whlib").OpenWRDSchemaDefFile(resolved_definitionfile) as SchemaDef;
 
-          let fulldef = `export type ${modprefix}${generateTypeName(tag)}Schema = {\n`;
+          let fulldef = `export type ${modprefix}${generateTypeName(tag)}SchemaType = {\n`;
 
           for (const type of schemadef.types) {
             const typename = `${modprefix}${generateTypeName(tag)}_${generateTypeName(type.tag)}`;
@@ -142,6 +142,8 @@ async function generateWRDDefs(config: WebHareConfiguration, modulename: string,
             }
             if (parentpath.includes("WRD_PERSON") || parentpath.includes("WRD_RELATION") || parentpath.includes("WRD_ORGANIZATION"))
               attrdefs.wrd_title = { generated: true, required: false, defstr: `IsGenerated<WRDAttributeType.Base_GeneratedString>` };
+            if (parentpath.includes("WRD_PERSON") || parentpath.includes("WRD_RELATION") || parentpath.includes("WRD_ORGANIZATION"))
+              attrdefs.wrd_orgname = { generated: false, required: false, defstr: `WRDAttributeType.Free` };
 
             let normalattrdefs = ``;
             for (const attr of type.allattrs) {
@@ -173,7 +175,7 @@ async function generateWRDDefs(config: WebHareConfiguration, modulename: string,
           fulldef += `};\n\n`;
           const schemaprop = (modules.length > 1 ? `${mod[0]}_` : ``) + tag + "_schema";
 
-          fulldef += `export const ${generatePropertyName(schemaprop)} = new WRDSchema<${modprefix}${generateTypeName(tag)}Schema>(${JSON.stringify(`${mod[0]}:${tag}`)});\n`;
+          fulldef += `export const ${generatePropertyName(schemaprop)} = new WRDSchema<${modprefix}${generateTypeName(tag)}SchemaType>(${JSON.stringify(`${mod[0]}:${tag}`)});\n`;
 
           fullfile += def + fulldef;
         } catch (e) {
