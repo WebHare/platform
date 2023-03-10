@@ -55,6 +55,7 @@ ASYNC FUNCTION RunESLint(BLOB libdata, STRING resourcename, RECORD options DEFAU
 {
   options := ValidateOptions(
       [ fix := FALSE
+      , allowinlineconfig := TRUE
       ], options);
 
   STRING path := resourcename LIKE "*::*" ? GetWebHareResourceDiskPath(resourcename) : resourcename;
@@ -66,6 +67,7 @@ ASYNC FUNCTION RunESLint(BLOB libdata, STRING resourcename, RECORD options DEFAU
       , cwd :=            GetWebhareConfiguration().installationroot
       , configfile :=     eslintrcpath
       , options.fix
+      , options.allowinlineconfig
       ];
 
   RECORD result := AWAIT CallAsync("mod::system/js/internal/eslint.ts#handleLintingCommand", [ cmd ]);
@@ -390,7 +392,7 @@ RECORD FUNCTION DecodeResult(BLOB result)
 
 ASYNC FUNCTION FormatSingleFile(RECORD file)
 {
-  RECORD rec := AWAIT RunESLint(file.data, file.path, [ fix := TRUE ]);
+  RECORD rec := AWAIT RunESLint(file.data, file.path, [ fix := TRUE, allowinlineconfig := FALSE ]);
 
   STRING dir := GetDirectoryFromPath(file.path);
 
@@ -407,7 +409,7 @@ ASYNC FUNCTION FormatSingleFile(RECORD file)
   IF (rec.output != cmd.data AND rec.error = "")
   {
     // Re-run eslint to clean up formatting result (which sometimes leaves trailing spaces)
-    RECORD eslintres := AWAIT RunESLint(StringToBlob(DecodeBase64(rec.output)), file.path, [ fix := TRUE ]);
+    RECORD eslintres := AWAIT RunESLint(StringToBlob(DecodeBase64(rec.output)), file.path, [ fix := TRUE, allowinlineconfig := FALSE ]);
     output := eslintres.output;
   }
   ELSE
