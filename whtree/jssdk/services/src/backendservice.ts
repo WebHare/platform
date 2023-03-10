@@ -12,7 +12,7 @@ interface DefaultWebHareServiceClient {
   [key: string]: (...args: unknown[]) => Promise<unknown>;
 }
 
-type ServiceBase = {
+export type ServiceBase = {
   close(): void;
 };
 
