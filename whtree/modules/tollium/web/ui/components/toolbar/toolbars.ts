@@ -9,19 +9,19 @@ class ToolbarButton {
     this.toolbar = toolbar;
     this.options =
     {
-      label: null
-      , classnames: null
-      , hint: null
-      , icon: null
-      , enabled: true
-      , pressed: false
-      , ...options
+      label: null,
+      classnames: null,
+      hint: null,
+      icon: null,
+      enabled: true,
+      pressed: false,
+      ...options
     };
 
     this.node = dompack.create("div", {
-      className: ["wh-toolbar-button"].concat(this.options.classnames || []).join(" ")
-      , on: { "click": this.executeAction.bind(this) }
-      , title: this.options.hint || ""
+      className: ["wh-toolbar-button"].concat(this.options.classnames || []).join(" "),
+      on: { "click": this.executeAction.bind(this) },
+      title: this.options.hint || ""
     });
     if (this.options.icon) {
       this.options.icon.classList.add("wh-toolbar-button-img");
@@ -48,7 +48,7 @@ class ToolbarButton {
   }
 
   setEnabled(enabled) {
-    enabled = !!enabled;
+    enabled = Boolean(enabled);
     if (enabled != this.options.enabled) {
       this.options.enabled = enabled;
       dompack.toggleClasses(this.node, { disabled: !this.options.enabled });
@@ -56,7 +56,7 @@ class ToolbarButton {
   }
 
   setPressed(pressed) {
-    pressed = !!pressed;
+    pressed = Boolean(pressed);
     if (pressed != this.options.pressed) {
       this.options.pressed = pressed;
       dompack.toggleClasses(this.node, { pressed: this.options.pressed });
@@ -102,12 +102,12 @@ class Toolbar {
     this.modalpanel = null;
     this.options =
     {
-      applyicon: null
-      , applylabel: "Apply"
-      , closeicon: null
-      , closelabel: "Revert"
-      , classnames: null
-      , ...options
+      applyicon: null,
+      applylabel: "Apply",
+      closeicon: null,
+      closelabel: "Revert",
+      classnames: null,
+      ...options
     };
 
     this.buttonbar = dompack.create("div", {
@@ -120,12 +120,12 @@ class Toolbar {
     this.modalholder = dompack.create("div", { className: "wh-toolbar-modalholder" });
     this.buttonbar.appendChild(this.modalholder);
 
-    var modalbuttons = dompack.create("div", { className: "wh-toolbar-modalbuttons" });
+    const modalbuttons = dompack.create("div", { className: "wh-toolbar-modalbuttons" });
     this.modalholder.append(modalbuttons);
 
-    var button = dompack.create("div", {
-      className: "wh-toolbar-button wh-toolbar-button-applymodal"
-      , on: { "click": this.onModalApply.bind(this) }
+    let button = dompack.create("div", {
+      className: "wh-toolbar-button wh-toolbar-button-applymodal",
+      on: { "click": this.onModalApply.bind(this) }
     });
     modalbuttons.append(button);
     if (this.options.applyicon) {
@@ -136,8 +136,8 @@ class Toolbar {
       button.appendChild(dompack.create("span", { textContent: this.options.applylabel }));
 
     button = dompack.create("div", {
-      className: "wh-toolbar-button wh-toolbar-button-revertmodal"
-      , on: { "click": this.onModalCancel.bind(this) }
+      className: "wh-toolbar-button wh-toolbar-button-revertmodal",
+      on: { "click": this.onModalCancel.bind(this) }
     });
     modalbuttons.append(button);
     if (this.options.closeicon) {
@@ -155,8 +155,8 @@ class Toolbar {
   setSize(width, height) {
     Object.assign(this.buttonbar.style,
       {
-        width: width + "px"
-        , height: height + "px"
+        width: width + "px",
+        height: height + "px"
       });
   }
 
@@ -180,13 +180,13 @@ class Toolbar {
       this.toElement(),
       "modal-opened",
       {
-        bubbles: false
-        , cancelable: false
-        , detail:
+        bubbles: false,
+        cancelable: false,
+        detail:
         {
-          apply: this.onModalApply.bind(this)
-          , cancel: this.onModalCancel.bind(this)
-          , panel: subpanel
+          apply: this.onModalApply.bind(this),
+          cancel: this.onModalCancel.bind(this),
+          panel: subpanel
         }
       });
   }

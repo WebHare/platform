@@ -28,9 +28,9 @@ export default class TransportManager { // -------------------------------------
 
     this.options =
     {
-      ononline: null
-      , onoffline: null
-      , ...options
+      ononline: null,
+      onoffline: null,
+      ...options
     };
   }
 
@@ -40,38 +40,37 @@ export default class TransportManager { // -------------------------------------
   //
 
   suggestTransportType() {
-    let urltransporttype = new URL(location.href).searchParams.get("transport");
+    const urltransporttype = new URL(location.href).searchParams.get("transport");
     return urltransporttype && urltransporttype == "jsonrpc" ? "jsonrpc" : "websocket";
   }
 
   /** Registers an endpoint
   */
   register(endpoint) {
-    var commhost = endpoint.options.commhost;
+    const commhost = endpoint.options.commhost;
 
-    var transport = null;
-    for (var i = 0; i < this.transports.length; ++i)
+    let transport = null;
+    for (let i = 0; i < this.transports.length; ++i)
       if (this.transports[i].options.commhost == commhost)
         transport = this.transports[i];
 
 
     if (!transport) {
-      let transporttype = this.suggestTransportType();
+      const transporttype = this.suggestTransportType();
       if (transporttype == "websocket") {
         transport = new WebSocketTransport(
           {
-            commhost: commhost
-            , ononline: () => this._gotOnline()
-            , onoffline: () => this._gotOffline()
+            commhost: commhost,
+            ononline: () => this._gotOnline(),
+            onoffline: () => this._gotOffline()
           });
-      }
-      else {
+      } else {
         console.warn('Using fallback (JSONRPC) transport');
         transport = new JSONRPCTransport(
           {
-            commhost: commhost
-            , ononline: () => this._gotOnline()
-            , onoffline: () => this._gotOffline()
+            commhost: commhost,
+            ononline: () => this._gotOnline(),
+            onoffline: () => this._gotOffline()
           });
       }
       this.transports.push(transport);
@@ -88,7 +87,7 @@ export default class TransportManager { // -------------------------------------
     console.log('unregistering endpoint frontendid:', endpoint.options.frontendid || "-", "linkid:", endpoint.options.linkid || "-", this.endpoints.length, endpoint.transport.endpoints.length);
     this.endpoints = this.endpoints.filter(e => e != endpoint);
     if (endpoint.transport) {
-      var transport = endpoint.transport;
+      const transport = endpoint.transport;
       if (!transport.removeEndPoint(endpoint)) {
         transport.destroy();
         this.transports = this.transports.filter(e => e != transport);

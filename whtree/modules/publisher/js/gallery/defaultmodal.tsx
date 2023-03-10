@@ -47,7 +47,7 @@ export class DefaultModalGallery extends ModalGalleryBase {
   }
 
   showImage(idx, options) {
-    let state = this.getSelectionState();
+    const state = this.getSelectionState();
     this.countnode.textContent = (state.current + 1) + " / " + state.total;
 
     if (this.completioncallback) {
@@ -60,7 +60,7 @@ export class DefaultModalGallery extends ModalGalleryBase {
 
     this.nextimage = this.createImage(idx, options.last !== null);
 
-    let viewport = this.getWindowSize();
+    const viewport = this.getWindowSize();
     this.nextimage.style.transform = "translate3d(" + (idx > options.last ? viewport.x : -viewport.x) + "px,0,0)";
     this.slidescontainer.appendChild(this.nextimage);
     this.setImageSize({ type: "newimage" });
@@ -86,8 +86,8 @@ export class DefaultModalGallery extends ModalGalleryBase {
 
   getWindowSize() {
     this.viewport = {
-      x: window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth
-      , y: window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight
+      x: window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth,
+      y: window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight
     };
     return this.viewport;
   }
@@ -106,20 +106,20 @@ export class DefaultModalGallery extends ModalGalleryBase {
       if (transition)
         preloadedimage.style.opacity = "1";
 
-      let resizenode = wrappernode.querySelector(".wh-gallery-modal__imagesizer");
+      const resizenode = wrappernode.querySelector(".wh-gallery-modal__imagesizer");
       if (resizenode)
         dompack.empty(resizenode);//remove loading indicator
     }
   }
 
   createImage(idx, transition) {
-    let imginfo = this.gallery.getSlide(idx);
-    let imagenode =
+    const imginfo = this.gallery.getSlide(idx);
+    const imagenode =
       <div class="wh-gallery-modal__image wh-gallery-modal__image--loading"
         style={{
-          maxWidth: imginfo.width + "px"
-          , maxHeight: imginfo.height + "px"
-          , backgroundColor: imginfo.dominantcolor
+          maxWidth: imginfo.width + "px",
+          maxHeight: imginfo.height + "px",
+          backgroundColor: imginfo.dominantcolor
         }}>
         <div class="wh-gallery-modal__imagesizer" style={{ paddingTop: ((1 / imginfo.aspect) * 100) + "%" }}>
           <span class="far fa-circle-notch fa-spin" />
@@ -153,12 +153,12 @@ export class DefaultModalGallery extends ModalGalleryBase {
     if (!this.viewport || (ev && ev.type == "resize"))
       this.getWindowSize();
 
-    let spacing = { x: 100, y: 140 };
+    const spacing = { x: 100, y: 140 };
 
-    for (let node of this.overlay.querySelectorAll(".wh-gallery-modal__image")) {
+    for (const node of this.overlay.querySelectorAll(".wh-gallery-modal__image")) {
       let w = node.style.maxWidth.replace(/[^0-9]/g, "");
       let h = node.style.maxHeight.replace(/[^0-9]/g, "");
-      let aspect = h / w;
+      const aspect = h / w;
       if (w > this.viewport.x - spacing.x) {
         w = this.viewport.x - spacing.x;
         h = ~~(w * aspect);

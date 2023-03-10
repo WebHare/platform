@@ -10,7 +10,7 @@ import Keyboard from 'dompack/extra/keyboard';
 
 import JSONRPC from '@mod-system/js/net/jsonrpc';
 
-var defaultauth = null;
+let defaultauth = null;
 
 function getBackVar(backurl) {
   backurl = backurl.split('/').slice(3).join('/'); //strip origin, make relative to current server
@@ -37,8 +37,8 @@ class WRDAuthenticationProvider {
     this.logouturl = "";
     this.loginservice = new JSONRPC({ url: '/wh_services/wrd/auth' });
 
-    var jsstate = domcookie.read(this.cookiename + '_j');
-    var currentstate = domcookie.read(this.cookiename + '_c');
+    const jsstate = domcookie.read(this.cookiename + '_j');
+    const currentstate = domcookie.read(this.cookiename + '_c');
 
     if (dompack.debugflags.aut) {
       console.log("[aut] " + this.cookiename + "_j=" + jsstate);
@@ -50,8 +50,7 @@ class WRDAuthenticationProvider {
     if (!currentstate || currentstate.substr(0, jsstate.length) != jsstate) {
       location.replace('/.wrd/auth/restoresession.shtml' + getBackVar(location.href));
       return;
-    }
-    else {
+    } else {
       if (dompack.debugflags.aut)
         console.log("[aut] looks like we're still logged in");
 
@@ -59,8 +58,7 @@ class WRDAuthenticationProvider {
       if (currentstate.length > 1)
         try {
           this.userinfo = JSON.parse(currentstate.substr(jsstate.length));
-        }
-        catch (e) {
+        } catch (e) {
         }
     }
   }
@@ -73,14 +71,14 @@ class WRDAuthenticationProvider {
   logout() {
     let backurl = location.href;
     if (this.logouturl) {
-      let logouturl = new URL(this.logouturl, backurl).toString();
+      const logouturl = new URL(this.logouturl, backurl).toString();
       if (getURLOrigin(backurl) != getURLOrigin(logouturl))
         throw new Error("A logout URL is not allowed to change the origin"); //we won't be an open redirect. and getBackVar will clear the origin anyway
 
       backurl = logouturl;
     }
 
-    let redirectto = '/.wrd/auth/logout.shtml' + getBackVar(backurl);
+    const redirectto = '/.wrd/auth/logout.shtml' + getBackVar(backurl);
     location.replace(redirectto);
   }
 
@@ -99,34 +97,35 @@ class WRDAuthenticationProvider {
   _handleLoginForm(form, event) {
     dompack.stop(event);
 
-    var loginfield = form.querySelector('*[name="login"]');
-    var passwordfield = form.querySelector('*[name="password"]');
-    var persistentfield = form.querySelector('*[name="persistent"]');
+    const loginfield = form.querySelector('*[name="login"]');
+    const passwordfield = form.querySelector('*[name="password"]');
+    const persistentfield = form.querySelector('*[name="persistent"]');
 
     if (!loginfield)
       throw new Error("No field named 'login' found");
     if (!passwordfield)
       throw new Error("No field named 'password' found");
 
-    var persistentlogin = persistentfield && persistentfield.checked;
+    const persistentlogin = persistentfield && persistentfield.checked;
     this._tryLogin(form, loginfield.value, passwordfield.value, { persistent: persistentlogin });
   }
   login(login, password, options) {
     options = { ...options };
     return new Promise((resolve, reject) => {
-      var url = new URL(location.href);
+      const url = new URL(location.href);
 
-      var opts =
+      const opts =
       {
         logincontrol: url.searchParams.get("wrdauth_logincontrol") || ""
       };
 
       return this.loginservice.request('Login'
-        , [location.href
-          , login
-          , password
-          , Boolean(options.persistent)
-          , opts
+        , [
+          location.href,
+          login,
+          password,
+          Boolean(options.persistent),
+          opts
         ]
         , function(response) { //success handler
           resolve(response);
@@ -140,19 +139,20 @@ class WRDAuthenticationProvider {
 
   loginSecondFactor(loginproof, type, data, options) {
     return new Promise((resolve, reject) => {
-      var url = new URL(location.href);
+      const url = new URL(location.href);
 
-      var opts =
+      const opts =
       {
         logincontrol: url.searchParams.get("wrdauth_logincontrol") || ""
       };
 
       return this.loginservice.request('LoginSecondFactor'
-        , [location.href
-          , loginproof
-          , type
-          , { ...data }
-          , opts
+        , [
+          location.href,
+          loginproof,
+          type,
+          { ...data },
+          opts
         ]
         , function(response) { //success handler
           resolve(response);
@@ -188,7 +188,7 @@ class WRDAuthenticationProvider {
   //ADDME do we have direct callers or can we _tryLogin this?
   //FIXME be more wh-form like, at least BEM the 'submitting' class
   _tryLogin(form, login, password, options) {
-    let loginlock = dompack.flagUIBusy();
+    const loginlock = dompack.flagUIBusy();
     if (form)
       form.classList.add("submitting");
 
@@ -199,13 +199,13 @@ class WRDAuthenticationProvider {
     if (form)
       form.classList.remove("submitting");
 
-    let completion = () => this._completeLoginSuccess(loginlock, response, form);
+    const completion = () => this._completeLoginSuccess(loginlock, response, form);
     dompack.dispatchCustomEvent(form || document.documentElement, 'wh:wrdauth-onlogin',
       {
-        bubbles: true
-        , cancelable: true
-        , detail: { callback: completion, userinfo: response.userinfo }
-        , defaulthandler: completion
+        bubbles: true,
+        cancelable: true,
+        detail: { callback: completion, userinfo: response.userinfo },
+        defaulthandler: completion
       });
   }
   _completeLoginSuccess(loginlock, response, form) {
@@ -231,13 +231,13 @@ class WRDAuthenticationProvider {
     this._failLogin(/* FIXME? Locale.get('wh-common.authentication.loginerror') || */'An error has occurred.', { code: code }, form);
   }
   _failLogin(message, response, form) {
-    let evtdetail = {
-      message: message
-      , code: response.code
-      , data: response.data
+    const evtdetail = {
+      message: message,
+      code: response.code,
+      data: response.data
     };
 
-    let cancelled = !dompack.dispatchCustomEvent(form || document.documentElement, "wh:wrdauth-loginfailed", { bubbles: true, cancelable: true, detail: evtdetail });
+    const cancelled = !dompack.dispatchCustomEvent(form || document.documentElement, "wh:wrdauth-loginfailed", { bubbles: true, cancelable: true, detail: evtdetail });
     if (!cancelled) {
       /*
       if($wh.Popup && $wh.Popup.Dialog)
@@ -258,7 +258,7 @@ class WRDAuthenticationProvider {
 
   startLogin(type, sp_tag, options) {
     options = options || {};
-    var defer = dompack.createDeferred();
+    const defer = dompack.createDeferred();
 
     this.loginservice.request('StartLogin'
       , [type, sp_tag, location.href, options]
@@ -285,8 +285,7 @@ WRDAuthenticationProvider.getDefaultAuth = function() {
 
 if (window.$wh && window.$wh.WRDAuthenticationProvider) {
   console.log("Both designfiles wrd.auth and @mod-wrd/js/auth are loaded. @mod-wrd/js/auth will not activate");
-}
-else if (whintegration.config["wrd:auth"]) {
+} else if (whintegration.config["wrd:auth"]) {
   defaultauth = new WRDAuthenticationProvider(whintegration.config["wrd:auth"]);
   defaultauth.setupPage();
 
@@ -305,12 +304,12 @@ else if (whintegration.config["wrd:auth"]) {
 
   if (defaultauth.userinfo) {
     dompack.register("*[data-wrdauth-text]", node => {
-      var elname = node.dataset.wrdauthText;
+      const elname = node.dataset.wrdauthText;
       if (elname in defaultauth.userinfo)
         node.textContent = defaultauth.userinfo[elname];
     });
     dompack.register("*[data-wrdauth-value]", node => {
-      var elname = node.dataset.wrdauthValue;
+      const elname = node.dataset.wrdauthValue;
       if (elname in defaultauth.userinfo)
         node.value = defaultauth.userinfo[elname];
     });

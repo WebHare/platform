@@ -60,7 +60,7 @@ export default class ObjDateTime extends ComponentBase {
 
   _reportChangesCallback(event) {
     // Get the current value, compare with last reported value
-    var currentvalue = this.getValue();
+    const currentvalue = this.getValue();
     if (this.lastreportedvalue != currentvalue)// && this.isEventUnmasked('change'))
     {
       this.setDirty();
@@ -72,25 +72,25 @@ export default class ObjDateTime extends ComponentBase {
   }
 
   _parseTolliumValue(value) {
-    let tpos = value.indexOf('T');
+    const tpos = value.indexOf('T');
     return (
       {
-        year: parseInt(value.substr(0, tpos - 4), 10)
-        , month: parseInt(value.substr(tpos - 4, 2), 10)
-        , day: parseInt(value.substr(tpos - 2, 2), 10)
-        , hour: parseInt(value.substr(tpos + 1, 2), 10)
-        , min: parseInt(value.substr(tpos + 3, 2), 10)
-        , sec: parseInt(value.substr(tpos + 5, 2), 10)
-        , msec: parseInt(value.substr(tpos + 8, 3), 10)
+        year: parseInt(value.substr(0, tpos - 4), 10),
+        month: parseInt(value.substr(tpos - 4, 2), 10),
+        day: parseInt(value.substr(tpos - 2, 2), 10),
+        hour: parseInt(value.substr(tpos + 1, 2), 10),
+        min: parseInt(value.substr(tpos + 3, 2), 10),
+        sec: parseInt(value.substr(tpos + 5, 2), 10),
+        msec: parseInt(value.substr(tpos + 8, 3), 10)
       });
   }
 
   /** Store the value in the node, no callbacks
   */
   _setValueInternal(value) {
-    var dateval = '', timeval = '';
+    let dateval = '', timeval = '';
     if (value) {
-      let parsed = this._parseTolliumValue(value);
+      const parsed = this._parseTolliumValue(value);
       if (this.datefield) {
         //Just plain db format
         dateval = (parsed.year < 1000 ? ("000" + parsed.year).slice(-4) : parsed.year) + "-" + ("0" + parsed.month).slice(-2) + "-" + ("0" + parsed.day).slice(-2);
@@ -119,28 +119,27 @@ export default class ObjDateTime extends ComponentBase {
   }
 
   getValue() {
-    var retval;
-    var defaultdate = true;
+    let retval;
+    let defaultdate = true;
     if (this.datefield) //FIXME support dateformat, validate
     {
-      var datevalue = this.datefield.value;
+      const datevalue = this.datefield.value;
       retval = '0000-00-00';
-      let parts = datevalue.replace(/\//g, '-').split('-');
+      const parts = datevalue.replace(/\//g, '-').split('-');
       if (parts.length == 3) {
         retval = this._padLeft(parts[0], 4) + '-' + this._padLeft(parts[1], 2) + '-' + this._padLeft(parts[2], 2);//Just plain db format
         defaultdate = false;
       }
-    }
-    else {
+    } else {
       retval = '0001-01-01'; //ensure valid datetime if just sending time
     }
     retval += 'T';
     if (this.timefield) {
       // FIXME: parse correctly!!!!
-      var timevalue = this.timefield.value;
+      const timevalue = this.timefield.value;
       if (!timevalue && defaultdate)
         return "";
-      let parts = timevalue.replace(/\./g, ':').split(':');
+      const parts = timevalue.replace(/\./g, ':').split(':');
       if (parts.length >= 2)
         retval += this._padLeft(parts[0], 2) + ':' + this._padLeft(parts[1], 2);
       else
@@ -155,8 +154,7 @@ export default class ObjDateTime extends ComponentBase {
         retval += '.' + (parts[3] + '000').substr(0, 3);
       else
         retval += '.000';
-    }
-    else {
+    } else {
       if (defaultdate)
         return "";
       retval += '00:00:00.000';
@@ -166,7 +164,7 @@ export default class ObjDateTime extends ComponentBase {
   }
   /// Set the value. Report back changes when the value has changed
   setValue(value) {
-    var oldval = this.getValue();
+    const oldval = this.getValue();
     this._setValueInternal(value);
 
     if (oldval !== this.getValue())
@@ -216,7 +214,7 @@ export default class ObjDateTime extends ComponentBase {
     if (this.fieldtype == 'date' || this.fieldtype == 'datetime') {
       let suggestion_isodate = "";
       if (this.suggestion) {
-        let parsed = this._parseTolliumValue(this.suggestion);
+        const parsed = this._parseTolliumValue(this.suggestion);
         suggestion_isodate = (parsed.year < 1000 ? ("000" + parsed.year).slice(-4) : parsed.year) + "-" + ("0" + parsed.month).slice(-2) + "-" + ("0" + parsed.day).slice(-2);
       }
 
@@ -226,7 +224,7 @@ export default class ObjDateTime extends ComponentBase {
           data-format={this.dateformat}
           data-suggestion={suggestion_isodate}
         />;
-      this.datefield.addEventListener("wh:datepicker-built", evt => this.onDatepickerBuilt(evt))
+      this.datefield.addEventListener("wh:datepicker-built", evt => this.onDatepickerBuilt(evt));
       this.node.appendChild(this.datefield);
       this.datefield.required = data.required;
       this.datefield.disabled = !this.enabled;
@@ -242,8 +240,8 @@ export default class ObjDateTime extends ComponentBase {
       this.node.appendChild(<span>&nbsp;</span>);
     }
     if (this.fieldtype == 'time' || this.fieldtype == 'datetime') {
-      var placeholder = "00:00";
-      var step = "60"; // minutes
+      let placeholder = "00:00";
+      let step = "60"; // minutes
       if (this.precision == 'seconds' || this.precision == 'milliseconds') {
         placeholder += ":00";
         step = "1"; // seconds
@@ -292,7 +290,7 @@ export default class ObjDateTime extends ComponentBase {
   }
   selectToday() {
     this.datehandler.closePicker();
-    let today = datehelpers.getLocalToday();
+    const today = datehelpers.getLocalToday();
     dompack.changeValue(this.datefield, datehelpers.formatISODate(today.year, today.month, today.day));
   }
   selectNone() {

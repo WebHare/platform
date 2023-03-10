@@ -37,21 +37,22 @@ export class Counter {
   _buildNode() {
     this.node = dompack.create("div", {
       className: "wh-counter", childNodes:
-        [this._countnode = dompack.create("span", { className: "wh-counter__count" })
-          , this._separatornode = dompack.create("span", { className: "wh-counter__separator" })
-          , this._limitnode = dompack.create("span", { className: "wh-counter__limit" })
+        [
+          this._countnode = dompack.create("span", { className: "wh-counter__count" }),
+          this._separatornode = dompack.create("span", { className: "wh-counter__separator" }),
+          this._limitnode = dompack.create("span", { className: "wh-counter__limit" })
         ]
     });
   }
 
   _updateState() {
-    let classes =
+    const classes =
     {
-      "wh-counter--havelimit": this._options.limit >= 0
-      , "wh-counter--haveminvalue": this._options.minvalue >= 0
-      , "wh-counter--limitreached": this._options.limit >= 0 && this._options.count >= this._options.limit
-      , "wh-counter--underflow": (this._options.required || this._options.count) && this._options.minvalue >= 0 && this._options.count < this._options.minvalue
-      , "wh-counter--overflow": this._options.limit >= 0 && this._options.count > this._options.limit
+      "wh-counter--havelimit": this._options.limit >= 0,
+      "wh-counter--haveminvalue": this._options.minvalue >= 0,
+      "wh-counter--limitreached": this._options.limit >= 0 && this._options.count >= this._options.limit,
+      "wh-counter--underflow": (this._options.required || this._options.count) && this._options.minvalue >= 0 && this._options.count < this._options.minvalue,
+      "wh-counter--overflow": this._options.limit >= 0 && this._options.count > this._options.limit
     };
 
     if (this._options.cssclass)
@@ -68,8 +69,7 @@ export class Counter {
         : this._options.limit;
       this._separatornode.style.display = "";
       this._limitnode.style.display = "";
-    }
-    else {
+    } else {
       this._separatornode.style.display = "none";
       this._limitnode.style.display = "none";
     }
@@ -96,17 +96,16 @@ export class InputTextLengthCounter {
   // _limit
 
   constructor(node, options) {
-    this._options = Object.assign(
-      {
-        showcounter: true
-        , forcelimit: true          //concat text to given max length
-        , input: null          //input to count
-        , separator: "/"
-        , cssclass: ""            //additional css class
-        , lengthmeasure: "characters" // characters or bytes
-        , style: ""
-        , required: false
-      }, options || {});
+    this._options = {
+      showcounter: true,
+      forcelimit: true,          //concat text to given max length
+      input: null,          //input to count
+      separator: "/",
+      cssclass: "",            //additional css class
+      lengthmeasure: "characters", // characters or bytes
+      style: "",
+      required: false, ...options || {}
+    };
 
     this.node = node;
 
@@ -120,14 +119,14 @@ export class InputTextLengthCounter {
     if (this._options.showcounter) {
       this._counter = new Counter(
         {
-          count: this._getTextlength()
-          , required: this._input.required || this._options.required
-          , minvalue: this._minlength
-          , limit: this._limit
-          , separator: this._options.separator
-          , cssclass: this._options.cssclass
-          , focusnode: this._input
-          , style: this._options.style
+          count: this._getTextlength(),
+          required: this._input.required || this._options.required,
+          minvalue: this._minlength,
+          limit: this._limit,
+          separator: this._options.separator,
+          cssclass: this._options.cssclass,
+          focusnode: this._input,
+          style: this._options.style
         });
 
       this.node.appendChild(this._counter.node);
@@ -150,16 +149,16 @@ export class InputTextLengthCounter {
     this._minlength = Number(this._input.minLength);
     this._limit = Number(this._input.maxLength);
 
-    let updates =
+    const updates =
     {
-      required: this._input.required || this._options.required
-      , count: this._getTextlength()
-      , minvalue: this._minlength
-      , limit: this._limit
+      required: this._input.required || this._options.required,
+      count: this._getTextlength(),
+      minvalue: this._minlength,
+      limit: this._limit
     };
 
     if (this._limit > 0 && updates.count > this._limit && this._options.forcelimit) {
-      var inptext = this._input.value;
+      let inptext = this._input.value;
       if (this._options.lengthmeasure === "bytes")
         inptext = limitUTF8Length(inptext, this._limit);
       else

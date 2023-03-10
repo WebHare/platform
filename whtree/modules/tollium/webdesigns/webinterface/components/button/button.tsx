@@ -14,7 +14,7 @@ import './button.scss';
  *                                                                                                                          *
  ****************************************************************************************************************************/
 
-let toolbarbutton = { width: 24, height: 24 };
+const toolbarbutton = { width: 24, height: 24 };
 
 export default class ObjButton extends ActionableBase {
   constructor(parentcomp, data, replacingcomp) {
@@ -35,8 +35,8 @@ export default class ObjButton extends ActionableBase {
     this.setMenu(data.menu);
 
     new Keyboard(this.node, {
-      " ": evt => this.onClick(evt)
-      , "Enter": evt => this.onClick(evt)
+      " ": evt => this.onClick(evt),
+      "Enter": evt => this.onClick(evt)
     }, { stopmapped: true });
   }
   setMenu(newmenu) {
@@ -65,7 +65,7 @@ export default class ObjButton extends ActionableBase {
     if (comp.parentcomp != this)
       return console.error('Child ' + comp.name + ' not inside the textedit is trying to replace itself');
 
-    var newcomp = this.owner.addComponent(this, comp.name);
+    const newcomp = this.owner.addComponent(this, comp.name);
     this.buttons.splice(this.buttons.indexOf(comp), 1, newcomp);
 
     comp.getNode().replaceWith(newcomp.getNode());
@@ -80,7 +80,7 @@ export default class ObjButton extends ActionableBase {
   }
 
   isTabsSpaceButton() {
-    return !!this.node.closest('div.tabs-space');
+    return Boolean(this.node.closest('div.tabs-space'));
   }
   isToolbarButton() {
     return this.parentcomp && this.parentcomp.componenttype == 'toolbar';
@@ -89,17 +89,17 @@ export default class ObjButton extends ActionableBase {
   buildNode() {
     this.node = dompack.create("t-button", {
       on: {
-        click: evt => this.onClick(evt)
-        , mousedown: evt => this.onMouseDown(evt)
-        , mouseup: evt => this.cancelActiveState(evt)
-        , mouseleave: evt => this.cancelActiveState(evt)
-        , "wh:menu-open": evt => this.onMenuState(true, evt)
-        , "wh:menu-close": evt => this.onMenuState(false, evt)
-      }
-      , dataset: { name: this.name, toddDefaultButton: "" }
-      , title: this.hint || ''
-      , className: { ismenubutton: this.ismenubutton }
-      , tabIndex: 0
+        click: evt => this.onClick(evt),
+        mousedown: evt => this.onMouseDown(evt),
+        mouseup: evt => this.cancelActiveState(evt),
+        mouseleave: evt => this.cancelActiveState(evt),
+        "wh:menu-open": evt => this.onMenuState(true, evt),
+        "wh:menu-close": evt => this.onMenuState(false, evt)
+      },
+      dataset: { name: this.name, toddDefaultButton: "" },
+      title: this.hint || '',
+      className: { ismenubutton: this.ismenubutton },
+      tabIndex: 0
     });
     this.node.propTodd = this;
 
@@ -108,8 +108,7 @@ export default class ObjButton extends ActionableBase {
       this.node.appendChild(this.iconnode);
       this.textnode = <span>{this.title}</span>;
       this.node.appendChild(this.textnode);
-    }
-    else {
+    } else {
       if (this.icon) {
         this.node.classList.add("icon");
         this.iconsize = 16; //ADDME: Adjust according to button size?
@@ -117,8 +116,7 @@ export default class ObjButton extends ActionableBase {
         this.node.title = this.title;
 
         this.node.appendChild(this.iconnode);
-      }
-      else {
+      } else {
         this.textnode = <span>{this.title}</span>;
         this.node.appendChild(this.textnode);
       }
@@ -133,18 +131,17 @@ export default class ObjButton extends ActionableBase {
 
   calculateDimWidth() {
     if (this.isToolbarButton()) {
-      var text = this.title;
-      var arrow_space = 0;
+      const text = this.title;
+      let arrow_space = 0;
       if (this.menuname && this.title) // need extra 5 pixels + size of \u25bc char for dropdown symbol (with 70% size)
         arrow_space = 5 + $todd.CalculateTextSize("\u25bc", 0, { "font-size": "70%" }).x;
 
-      let contentwidth = Math.max(65, $todd.CalculateTextSize(text, 0, { "font-size": 11 }).x + arrow_space) + 8;/* toolbar button text is 11px plus 2*4px padding */
+      const contentwidth = Math.max(65, $todd.CalculateTextSize(text, 0, { "font-size": 11 }).x + arrow_space) + 8;/* toolbar button text is 11px plus 2*4px padding */
       this.width.min = contentwidth;
       this.width.calc = contentwidth;
       // we can handle the width from CSS, since the toolbar takes up the whole width of the screen
-    }
-    else {
-      var width = $todd.ReadSetWidth(this.width);
+    } else {
+      const width = $todd.ReadSetWidth(this.width);
 
       // FIXME: nakijken, we hebben toch buttons met icon EN title ????
 
@@ -212,12 +209,12 @@ export default class ObjButton extends ActionableBase {
       return;
 
     if (this.menuname) {
-      let menu = this.owner.getComponent(this.menuname);
+      const menu = this.owner.getComponent(this.menuname);
       if (menu) {
         this.menunode = menu.openMenuAt(this.node, {
-          direction: 'bottom'
-          , align: this.ismenubutton ? 'right' : 'left'
-          , ismenubutton: this.ismenubutton
+          direction: 'bottom',
+          align: this.ismenubutton ? 'right' : 'left',
+          ismenubutton: this.ismenubutton
         });
         this.updateActiveState();
       }

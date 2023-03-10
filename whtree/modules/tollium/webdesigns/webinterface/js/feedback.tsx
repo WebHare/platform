@@ -38,24 +38,25 @@ export async function run(event, options) {
   // Ask if the user wants to give feedback for a certain DOM element
   const which = await runSimpleScreen($todd.getActiveApplication(),
     {
-      text: getTid("tollium:shell.feedback.message")
-      , title: getTid("tollium:shell.feedback.title")
-      , buttons:
-        [{
-          name: "specific"
-          , title: getTid("tollium:shell.feedback.button-specific")
-        }
-          , {
-          name: "general"
-          , title: getTid("tollium:shell.feedback.button-general")
-        }
-          , {
-          name: "cancel"
-          , title: getTid("~cancel")
-        }
-        ]
-      , defaultbutton: "specific"
-      , icon: "question"
+      text: getTid("tollium:shell.feedback.message"),
+      title: getTid("tollium:shell.feedback.title"),
+      buttons:
+        [
+          {
+            name: "specific",
+            title: getTid("tollium:shell.feedback.button-specific")
+          },
+          {
+            name: "general",
+            title: getTid("tollium:shell.feedback.button-general")
+          },
+          {
+            name: "cancel",
+            title: getTid("~cancel")
+          }
+        ],
+      defaultbutton: "specific",
+      icon: "question"
     });
 
   if (which !== "cancel") {

@@ -2,7 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 
-let blocklevel_elements = [
+const blocklevel_elements = [
   "P", "H1", "H2", "H3", "H4", "H5", "H6", "PRE", "OL", "UL", "DL", "DIV",
   "NOSCRIPT", "BLOCKQUOTE", "FORM", "HR", "TABLE", "FIELDSET", "ADDRESS"
 ];
@@ -14,8 +14,8 @@ function convertHtmlToPlainText(doc, options = {}) {
     if (arguments.length > 2)
       options.linkresolver = arguments[2];
   }
-  options = Object.assign({ imagehandling: 0, linkresolver: null, suppress_urls: false, unix_newlines: false }, options);
-  let c = new HTMLToPlainTextConverter(doc, options);
+  options = { imagehandling: 0, linkresolver: null, suppress_urls: false, unix_newlines: false, ...options };
+  const c = new HTMLToPlainTextConverter(doc, options);
   return c.plain_text;
 }
 
@@ -34,9 +34,9 @@ class HTMLToPlainTextConverter {
 
     this.saxparse(doc,
       {
-        start_element: (name, attrs) => this.plainElementStart(name, attrs)
-        , end_element: (name) => this.plainElementEnd(name)
-        , text_node: (data) => this.plainText(data)
+        start_element: (name, attrs) => this.plainElementStart(name, attrs),
+        end_element: (name) => this.plainElementEnd(name),
+        text_node: (data) => this.plainText(data)
       });
 
     //Never start text with a space/cr
@@ -64,7 +64,7 @@ class HTMLToPlainTextConverter {
       case 1:
         {
           if (callbacks.start_element) {
-            let attrs = Array.from(node.attributes);
+            const attrs = Array.from(node.attributes);
             callbacks.start_element(node.nodeName, attrs);
           }
 
@@ -102,7 +102,7 @@ class HTMLToPlainTextConverter {
   }
 
   plainElementStart(name, attrs) {
-    let tag = name.toUpperCase();
+    const tag = name.toUpperCase();
     if (blocklevel_elements.includes(tag)) // Insert a newline for every content separating HTML node
     {
       if (!this.dont_break)
@@ -130,7 +130,7 @@ class HTMLToPlainTextConverter {
         } break;
       case "IMG":                         // Image - insert 'alt' text, if any
         {
-          let alt = this.getAttr(attrs, "ALT");
+          const alt = this.getAttr(attrs, "ALT");
           if (alt == "")
             return;
 
@@ -142,7 +142,7 @@ class HTMLToPlainTextConverter {
         } break;
       case "OL":                           // Ordered list - set start value to first number
         {
-          let start = parseInt(this.getAttr(attrs, "START"));
+          const start = parseInt(this.getAttr(attrs, "START"));
           this.ol = Number.isNaN(start) ? 1 : start; // Number LI's, starting with value of start attribute,
           // or 1 if no or illegal start was given
           if (this.ol < 0)
@@ -153,7 +153,7 @@ class HTMLToPlainTextConverter {
           if (this.ol == -1)
             this.plain_text = this.plain_text + "\r\n* ";
           else {
-            let value = parseInt(this.getAttr(attrs, "VALUE"));
+            const value = parseInt(this.getAttr(attrs, "VALUE"));
             this.ol = Number.isNaN(value) ? this.ol : value;
             this.plain_text = this.plain_text + "\r\n" + this.ol + ". ";
             this.ol = this.ol + 1;

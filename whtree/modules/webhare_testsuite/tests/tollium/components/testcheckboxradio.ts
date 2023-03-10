@@ -4,14 +4,16 @@
 import * as test from "@mod-tollium/js/testframework";
 
 test.registerTests(
-  [ { loadpage: test.getCompTestPage('checkbox', { title: "", label: "checkboxlabel" }) //standard labelled checkbox
-    , waits:['ui']
-    }
-  , { test:async function()
-      {
+  [
+    {
+      loadpage: test.getCompTestPage('checkbox', { title: "", label: "checkboxlabel" }), //standard labelled checkbox
+      waits: ['ui']
+    },
+    {
+      test: async function() {
         //make sure component fits
-        let comppanel = test.compByName("componentpanel");
-        let textlabel = comppanel.querySelector('t-text');
+        const comppanel = test.compByName("componentpanel");
+        const textlabel = comppanel.querySelector('t-text');
         test.eq('checkboxlabel', textlabel.textContent);
         test.assert(comppanel.getBoundingClientRect().right >= textlabel.getBoundingClientRect().right, 'text must fit inside panel');
         test.assert(!test.compByName("thecomponent$*").checked);
@@ -82,16 +84,17 @@ test.registerTests(
         test.assert(test.compByName("thecomponent$*").indeterminate);
         test.assert(test.compByName("indeterminate").checked);
       }
-    }
+    },
 
-  , { loadpage: test.getCompTestPage('radiobutton', { title: "", label: "radiolabel" }) //standard labelled radio
-    , waits:['ui']
-    }
-  , { test:async function()
-      {
+    {
+      loadpage: test.getCompTestPage('radiobutton', { title: "", label: "radiolabel" }), //standard labelled radio
+      waits: ['ui']
+    },
+    {
+      test: async function() {
         //make sure component fits
-        let comppanel = test.compByName("componentpanel");
-        let textlabel = comppanel.querySelector('t-text');
+        const comppanel = test.compByName("componentpanel");
+        const textlabel = comppanel.querySelector('t-text');
         test.eq('radiolabel', textlabel.textContent);
         test.assert(comppanel.getBoundingClientRect().right >= textlabel.getBoundingClientRect().right, 'text must fit inside panel');
         test.assert(!test.compByName("thecomponent$*").querySelector("input").checked);

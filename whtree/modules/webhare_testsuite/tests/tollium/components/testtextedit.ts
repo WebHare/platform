@@ -5,42 +5,40 @@ import * as test from "@mod-tollium/js/testframework";
 
 
 test.registerTests(
-  [ "Test rendering"
-  , async function()
-    {
+  [
+    "Test rendering",
+    async function() {
       await test.load(test.getCompTestPage('textedit'));
       await test.wait("ui");
 
-      let textedit = test.compByName("componentpanel").querySelector("input");
+      const textedit = test.compByName("componentpanel").querySelector("input");
       test.eq("the-placeholder", textedit.getAttribute("placeholder"));
       test.eq("organization-title", textedit.getAttribute("autocomplete"));
 
       // make sure the subbuttons are visible
-      let ttextedit = textedit.closest("t-textedit");
-      let tbutton = ttextedit.querySelector("t-button");
+      const ttextedit = textedit.closest("t-textedit");
+      const tbutton = ttextedit.querySelector("t-button");
       test.assert(tbutton);
-    }
+    },
 
-  , "Test inline autocorrection" //#522
-  , async function()
-    {
-      await test.load(test.getCompTestPage('textedit', { validationchecks: ['url-plus-relative']} ));
+    "Test inline autocorrection", //#522
+    async function() {
+      await test.load(test.getCompTestPage('textedit', { validationchecks: ['url-plus-relative'] }));
       await test.wait("ui");
 
-      let textedit = test.compByName("componentpanel").querySelector("input");
-      test.fill(textedit,"arnold@example.net");
+      const textedit = test.compByName("componentpanel").querySelector("input");
+      test.fill(textedit, "arnold@example.net");
       await test.pressKey('Tab'); //moves to tagedit
       test.eq("mailto:arnold@example.net", textedit.value);
 
-      test.fill(textedit,"mailto: arnold@example.net");
+      test.fill(textedit, "mailto: arnold@example.net");
       await test.pressKey('Tab'); //moves to tagedit
       test.eq("mailto:arnold@example.net", textedit.value);
-    }
+    },
 
-  , "Test min/max-length, counter"
-  , async function()
-    {
-      await test.load(test.getCompTestPage('textedit', { validationchecks: ['url-plus-relative']} ));
+    "Test min/max-length, counter",
+    async function() {
+      await test.load(test.getCompTestPage('textedit', { validationchecks: ['url-plus-relative'] }));
       await test.wait("ui");
 
       let textedit_comp = test.compByName("componentpanel");
@@ -57,19 +55,19 @@ test.registerTests(
       textedit = textedit_comp.querySelector("input");
       let counter = textedit_comp.querySelector(".wh-counter");
 
-      test.fill(textedit,"1");
+      test.fill(textedit, "1");
       await test.wait("ui");
       test.focus(textedit);
       test.assert(counter.classList.contains("wh-counter--haveminvalue"));
       test.assert(counter.classList.contains("wh-counter--underflow"));
 
-      test.fill(textedit,"1234");
+      test.fill(textedit, "1234");
       await test.wait("ui");
 
       test.assert(!counter.classList.contains("wh-counter--underflow"));
 
       // empty is not an error wrd minlength is set but not required
-      test.fill(textedit,"");
+      test.fill(textedit, "");
       await test.wait("ui");
       test.assert(!counter.classList.contains("wh-counter--underflow"));
 
@@ -83,7 +81,7 @@ test.registerTests(
 
       test.assert(counter.classList.contains("wh-counter--underflow"));
       test.eq("0/4+", counter.textContent);
-      test.fill(textedit,"123");
+      test.fill(textedit, "123");
       test.eq("3/4+", counter.textContent);
 
       test.fill(test.compByTitle("maxlength").querySelector("input"), "6");
@@ -97,7 +95,7 @@ test.registerTests(
 
       test.eq("3/4 - 6", counter.textContent);
 
-      test.fill(textedit,"");
+      test.fill(textedit, "");
       test.eq("0/4 - 6", counter.textContent);
       test.assert(counter.classList.contains("wh-counter--underflow"));
 
@@ -110,32 +108,31 @@ test.registerTests(
       counter = textedit_comp.querySelector(".wh-counter");
 
       test.eq("0/6", counter.textContent);
-    }
+    },
 
-  , "Required/HideRequiredIfDisabled"
-  , async function()
-    {
+    "Required/HideRequiredIfDisabled",
+    async function() {
       //we start at Enabled,Required,HideRequiredIfDisabled all true
       test.eq('rgb(252, 248, 208)', getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundColor);
-      test.eq("none",getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundImage);
+      test.eq("none", getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundImage);
 
       //required + disabled REMOVES the background color (but SETS the disabled pattern)
       test.fill(test.compByTitle("Enabled"), false);
       await test.wait("ui");
       test.eq('rgba(0, 0, 0, 0)', getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundColor);
-      test.eqMatch(/^url/,getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundImage);
+      test.eqMatch(/^url/, getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundImage);
 
       //Disabling HideRequiredIfDisabled re-enables the yellow background AND sets the disabled pattern
       test.fill(test.compByTitle("HideRequiredIfDisabled"), false);
       await test.wait("ui");
       test.eq('rgb(252, 248, 208)', getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundColor);
-      test.eqMatch(/^url/,getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundImage);
+      test.eqMatch(/^url/, getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundImage);
 
       //But not if it's not actually required
       test.fill(test.compByTitle("Required"), false);
       await test.wait("ui");
       test.eq('rgba(0, 0, 0, 0)', getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundColor);
-      test.eqMatch(/^url/,getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundImage);
+      test.eqMatch(/^url/, getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundImage);
 
       //Enable and Require the field again - should see the background color but NOT the pattern
       test.fill(test.compByTitle("Enabled"), true);
@@ -143,6 +140,6 @@ test.registerTests(
       test.fill(test.compByTitle("Required"), true);
       await test.wait("ui");
       test.eq('rgb(252, 248, 208)', getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundColor);
-      test.eq("none",getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundImage);
+      test.eq("none", getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundImage);
     }
   ]);

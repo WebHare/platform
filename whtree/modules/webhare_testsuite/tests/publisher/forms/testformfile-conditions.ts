@@ -4,42 +4,39 @@
 import * as test from '@mod-system/js/wh/testframework';
 import * as dompack from 'dompack';
 
-var setupdata;
+let setupdata;
 
 test.registerTests(
-  [ async function()
-    {
-      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { addcheckboxfield: true, addconditions: true, checkboxes:true, addtwolevelfield: true, checkboxsubs:true, custommergefields:true });
-    }
+  [
+    async function() {
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { addcheckboxfield: true, addconditions: true, checkboxes: true, addtwolevelfield: true, checkboxsubs: true, custommergefields: true });
+    },
 
-  , 'Test datetime condition'
-  , async function()
-    {
+    'Test datetime condition',
+    async function() {
       await test.load(setupdata.url);
       test.assert(!test.canClick("#webtoolform-not18"));
 
-      let today = new Date;
-      let date_tomorrow_18 = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate() + 1); //JS just wraps and generally deals with it
-      let date_tomorrow_18_iso = date_tomorrow_18.getFullYear() + '-' + ('0' + (date_tomorrow_18.getMonth()+1)).slice(-2) + '-' + ('0' + date_tomorrow_18.getDate()).slice(-2);
+      const today = new Date;
+      const date_tomorrow_18 = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate() + 1); //JS just wraps and generally deals with it
+      const date_tomorrow_18_iso = date_tomorrow_18.getFullYear() + '-' + ('0' + (date_tomorrow_18.getMonth() + 1)).slice(-2) + '-' + ('0' + date_tomorrow_18.getDate()).slice(-2);
 
       test.fill("#webtoolform-date", date_tomorrow_18_iso);
       test.focus("#webtoolform-textarea");
       test.assert(test.canClick("#webtoolform-not18"));
 
-      let date_18 = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
-      let date_18_iso = date_18.getFullYear() + '-' + ('0' + (date_18.getMonth()+1)).slice(-2) + '-' + ('0' + date_18.getDate()).slice(-2);
+      const date_18 = new Date(today.getFullYear() - 18, today.getMonth(), today.getDate());
+      const date_18_iso = date_18.getFullYear() + '-' + ('0' + (date_18.getMonth() + 1)).slice(-2) + '-' + ('0' + date_18.getDate()).slice(-2);
 
       test.fill("#webtoolform-date", date_18_iso);
       test.focus("#webtoolform-textarea");
       test.assert(!test.canClick("#webtoolform-not18"));
-    }
+    },
 
-  , { loadpage: function() { return setupdata.url; }
-    }
+    { loadpage: function() { return setupdata.url; } },
 
-  , 'Test conditional'
-  , async function()
-    {
+    'Test conditional',
+    async function() {
       test.assert(test.qS('input[name="firstname"]').closest('.wh-form__fieldgroup').classList.contains('wh-form__fieldgroup--required'), "firstname should be required");
 
       const select_with_placeholder = test.qS('select[name="toggleselectoptions_withplaceholder"]');
@@ -52,14 +49,12 @@ test.registerTests(
 
       test.click(test.qSA('[name=checkboxfield]')[0]);
       test.click(test.qSA('[type=submit]')[0]);
-    }
+    },
 
-  , { loadpage: function() { return setupdata.url; }
-    }
+    { loadpage: function() { return setupdata.url; } },
 
-  , 'Test hiding'
-  , async function()
-    {
+    'Test hiding',
+    async function() {
       test.assert(test.canClick(test.qS('input[name="firstname"]')), "firstname should be clickable");
       test.click(test.qSA('[name=hidefirstname]')[0]);
       test.assert(!test.canClick(test.qS('input[name="firstname"]')), "firstname should no longer be clickable");
@@ -109,7 +104,7 @@ test.registerTests(
       test.eq(0, select_with_placeholder.selectedIndex, "select_with_placeholder: Pulldown should be back to placeholder (selectedIndex 0)");
 
       test.assert(!test.qS('*[data-wh-form-group-for="extrafield"]').classList.contains("wh-form__fieldgroup--hidden"), "extrafield should not be hidden");
-      let extraoptions = test.qS('select[name="extraoptions.select"]');
+      const extraoptions = test.qS('select[name="extraoptions.select"]');
       dompack.changeValue(extraoptions, 2);
       test.assert(!test.qS('*[data-wh-form-group-for="extrafield"]').classList.contains("wh-form__fieldgroup--hidden"), "extrafield should still not be hidden");
       dompack.changeValue(extraoptions, 3);
@@ -117,7 +112,7 @@ test.registerTests(
       dompack.changeValue(extraoptions, 1);
       test.assert(!test.qS('*[data-wh-form-group-for="extrafield"]').classList.contains("wh-form__fieldgroup--hidden"), "extrafield should be visible again");
 
-      test.fill(select_with_placeholder,"copt1");
+      test.fill(select_with_placeholder, "copt1");
       test.click(test.qSA('[type=submit]')[0]);
 
       // The thankyou node is only filled after submission, so check for the empty richtext node
@@ -128,26 +123,24 @@ test.registerTests(
       await test.wait('ui');
 
       // The thankyou node is now filled
-      thankyou = test.qSA('h1').filter(node => node.textContent=="Thank you!");
+      thankyou = test.qSA('h1').filter(node => node.textContent == "Thank you!");
       test.eq(1, thankyou.length, "Cannot find thankyou node");
 
       // test subfield merge fields
-      let testemail_guid = test.qS('form[data-wh-form-resultguid]').dataset.whFormResultguid;
-      let formresult = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult', testemail_guid, { which:"form"});
+      const testemail_guid = test.qS('form[data-wh-form-resultguid]').dataset.whFormResultguid;
+      const formresult = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult', testemail_guid, { which: "form" });
       console.info(formresult);
 
       const emails = await test.waitForEmails("test@beta.webhare.net", { timeout: 60000 });
       console.info(emails);
-      test.eq(1,emails.length,"No emails!");
+      test.eq(1, emails.length, "No emails!");
       test.eq("Two-level field mail", emails[0].subject);
       test.eqMatch(/Subfield value: Subvalue #2/, emails[0].plaintext);
-   }
+    },
 
-  , { loadpage: function() { return setupdata.url; }
-    }
-  , 'Test disabling'
-  , async function()
-    {
+    { loadpage: function() { return setupdata.url; } },
+    'Test disabling',
+    async function() {
       test.assert(test.qS('input[name="conditionhas"]').disabled, "condition HAS should be disabled as the 'other' option isn't enabled");
       test.assert(test.qS('input[name="conditionis"]').disabled, "condition IS should be disabled as the 'other' option isn't enabled");
 
@@ -166,17 +159,15 @@ test.registerTests(
       test.click(test.qSA('[type=submit]')[0]);
 
       // The thankyou node is only filled after submission, so check for the empty richtext node
-      let thankyou = test.qSA('.wh-form__page[data-wh-form-pagerole="thankyou"] .wh-form__fieldgroup[data-wh-form-group-for="thankyou"] .wh-form__richtext');
+      const thankyou = test.qSA('.wh-form__page[data-wh-form-pagerole="thankyou"] .wh-form__fieldgroup[data-wh-form-group-for="thankyou"] .wh-form__richtext');
       test.eq(1, thankyou.length, "Cannot find thankyou node");
       test.eq("", thankyou[0].textContent, "Thankyou node should be empty");
-    }
+    },
 
-  , { loadpage: function() { return setupdata.url; }
-    }
+    { loadpage: function() { return setupdata.url; } },
 
-  , 'Test group dependencies'
-  , async function()
-    {
+    'Test group dependencies',
+    async function() {
       test.assert(!test.canClick(test.qS('input[name="phone"]')), "phone should not be visible");
       test.assert(!test.canClick(test.qS('input[name="mobile"]')), "mobile should not be visible");
       test.click(test.qS('[name=showcontact]'));
@@ -185,11 +176,10 @@ test.registerTests(
       test.click(test.qS('[name=showmobile]'));
       test.assert(test.canClick(test.qS('input[name="phone"]')), "phone should still be visible");
       test.assert(test.canClick(test.qS('input[name="mobile"]')), "mobile should now be visible");
-    }
+    },
 
-  , 'Test case sensitivity'
-  , async function()
-    {
+    'Test case sensitivity',
+    async function() {
       test.assert(test.qS('input[name="sensitivetarget"]').disabled, "sensitivetarget should be disabled");
       test.assert(test.qS('input[name="insensitivetarget"]').disabled, "insensitivetarget should be disabled");
       test.fill(test.qS('input[name="sourcetext"]'), "test");
@@ -198,11 +188,10 @@ test.registerTests(
       test.fill(test.qS('input[name="sourcetext"]'), "Test");
       test.assert(!test.qS('input[name="sensitivetarget"]').disabled, "sensitivetarget should be enabled");
       test.assert(!test.qS('input[name="insensitivetarget"]').disabled, "insensitivetarget should be enabled");
-    }
+    },
 
-  , 'Test composed required'
-  , async function()
-    {
+    'Test composed required',
+    async function() {
       test.assert(!test.qS('.wh-form__fieldgroup[data-wh-form-group-for="reversed.text"]').classList.contains('wh-form__fieldgroup--required'));
       test.click(test.qS('[name=requirereversed]'));
       test.assert(test.qS('.wh-form__fieldgroup[data-wh-form-group-for="reversed.text"]').classList.contains('wh-form__fieldgroup--required'), "reversed should be required");

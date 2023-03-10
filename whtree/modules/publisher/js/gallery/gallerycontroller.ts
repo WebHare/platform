@@ -27,8 +27,8 @@ export default class GalleryControllerBase {
     if (!this.options.onclick)
       return;
 
-    let selectedimage = evt.target.closest('figure');
-    let selectidx = this._getSlides().indexOf(selectedimage);
+    const selectedimage = evt.target.closest('figure');
+    const selectidx = this._getSlides().indexOf(selectedimage);
     if (!selectedimage || selectidx < 0)
       return;
 
@@ -44,24 +44,24 @@ export default class GalleryControllerBase {
   }
 
   getSlide(idx) {
-    let slides = this._getSlides();
+    const slides = this._getSlides();
     if (idx < 0 || idx >= slides.length)
       return null;
 
-    let photo = slides[idx];
-    let largeimage = photo.querySelector("a[href]");
-    let image = photo.querySelector("img");
-    let caption = photo.querySelector("figcaption");
-    let width = parseInt(largeimage.dataset.imageWidth);
-    let height = parseInt(largeimage.dataset.imageHeight);
+    const photo = slides[idx];
+    const largeimage = photo.querySelector("a[href]");
+    const image = photo.querySelector("img");
+    const caption = photo.querySelector("figcaption");
+    const width = parseInt(largeimage.dataset.imageWidth);
+    const height = parseInt(largeimage.dataset.imageHeight);
     return {
-      aspect: width / height
-      , width
-      , height
-      , src: largeimage.href
-      , dominantcolor: image.dataset.dominantcolor
-      , title: image.alt
-      , description: caption ? caption.textContent : ""
+      aspect: width / height,
+      width,
+      height,
+      src: largeimage.href,
+      dominantcolor: image.dataset.dominantcolor,
+      title: image.alt,
+      description: caption ? caption.textContent : ""
     };
   }
 }

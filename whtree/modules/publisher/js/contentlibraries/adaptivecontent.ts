@@ -112,7 +112,7 @@ async function handleAdaptiveContent(node) {
   //find widget to display
   let selectedwidget;
   for (const widget of slotinfo.widgets) {
-    let testresult = testWidget(widget);
+    const testresult = testWidget(widget);
     if (dompack.debugflags.bac)
       console.log(`[bac] Show widget '${widget.name}' for '${node.dataset.name}'?`, testresult);
     if (!testresult.ok)
@@ -131,9 +131,9 @@ async function handleAdaptiveContent(node) {
     console.log(`[bac] Showing widget '${selectedwidget.name}' for '${node.dataset.name}'`);
 
   //display the widget
-  let newwidget = document.createElement("div");
+  const newwidget = document.createElement("div");
   newwidget.innerHTML = selectedwidget.content;
-  let toinsert = Array.from(newwidget.children);
+  const toinsert = Array.from(newwidget.children);
   node.after(newwidget);
   toinsert.forEach(dompack.registerMissed);
 

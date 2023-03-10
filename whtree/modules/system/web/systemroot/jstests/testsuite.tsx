@@ -12,17 +12,17 @@ import * as testservice from "./testservice.rpc.json";
 import StackTrace from "stacktrace-js";
 import { DeferredPromise } from '@mod-system/js/types';
 
-let sourceCache = {};
-let testframetabname = 'testframe' + Math.random();
+const sourceCache = {};
+const testframetabname = 'testframe' + Math.random();
 
 if (window.Error && window.Error.stackTraceLimit)
   Error.stackTraceLimit = 50;
 
 function getTestRoots() {
-  var iframe = document.querySelector<HTMLIFrameElement>("#testframeholder iframe");
+  const iframe = document.querySelector<HTMLIFrameElement>("#testframeholder iframe");
   if (!iframe)
     throw new Error("No <iframe> in testframeholder");
-  var cw = iframe.contentWindow;
+  const cw = iframe.contentWindow;
   if (!cw)
     throw new Error("No contentwindow in iframe found");
 
@@ -31,7 +31,7 @@ function getTestRoots() {
 
 //Find best location to highlight, skipping internal files
 function findBestStackLocation(stacktrace) {
-  let filtered = stacktrace.filter(({ filename }) =>
+  const filtered = stacktrace.filter(({ filename }) =>
     !filename.endsWith("/ap.js") &&
     !filename.endsWith("/testframework.ts") &&
     !filename.endsWith("/testframework-rte.ts") &&
@@ -87,12 +87,12 @@ class TestFramework {
 
     this.stoppromise = dompack.createDeferred();
 
-    let params = new URL(location.href).searchParams;
+    const params = new URL(location.href).searchParams;
     if (params.get("waittimeout"))
       this.waittimeout = parseInt(params.get("waittimeout"));
 
     window.addEventListener("dompack:busymodal", evt => {
-      let roots = getTestRoots();
+      const roots = getTestRoots();
       evt.preventDefault();
       //simulate setting --busymodal on the subwindow
       if (roots.html && dompack.dispatchCustomEvent(roots.win, 'dompack:busymodal', { bubbles: true, cancelable: true, detail: evt.detail }))
@@ -112,7 +112,7 @@ class TestFramework {
     window.testfw = this;
   }
   haveDevtoolsUplink() {
-    return !!this.reportid;
+    return Boolean(this.reportid);
   }
   setStatus(text) {
     if (dompack.debugflags.testfw)
@@ -134,7 +134,7 @@ class TestFramework {
   }
   getFrameRecord(name, { allowmissing } = {}) {
     name = name ?? this.currenttestframe;
-    let rec = this.testframes.find(r => r.name == name);
+    const rec = this.testframes.find(r => r.name == name);
     if (!rec && !allowmissing)
       throw new Error(`No such testframe with name ${JSON.stringify(name)}`);
     return rec;
@@ -176,8 +176,7 @@ class TestFramework {
   constructErrorWithTrace(errormsg) {
     try {
       throw new Error(errormsg);
-    }
-    catch (e) {
+    } catch (e) {
       return e;
     }
   }
@@ -187,7 +186,7 @@ class TestFramework {
   }
 
   removeFromWaitStack(e) {
-    let i = this.waitstack.indexOf(e);
+    const i = this.waitstack.indexOf(e);
     if (i !== -1)
       this.waitstack.splice(i, 1);
   }
@@ -213,15 +212,15 @@ class TestFramework {
     if (!this.reportid)
       return;
 
-    var result = { id: this.reportid, tests: [], finished: finished };
+    const result = { id: this.reportid, tests: [], finished: finished };
     result.tests = this.tests.map(test =>
     ({
-      name: test.name
-      , finished: test.finished || false
-      , runsteps: test.runsteps || []
-      , fails: test.fails || []
-      , xfails: test.xfails || []
-      , assetpacks: test.assetpacks || []
+      name: test.name,
+      finished: test.finished || false,
+      runsteps: test.runsteps || [],
+      fails: test.fails || [],
+      xfails: test.xfails || [],
+      assetpacks: test.assetpacks || []
     }));
 
     // Wait for running errorreports to resolve locations
@@ -230,8 +229,7 @@ class TestFramework {
       console.log(`Waiting for crash reporting to finish`);
       await reportswaitpromise;
       console.log(`Crash reporting has finished, submitting report`);
-    }
-    else
+    } else
       console.log(`Submitting ${finished ? "final" : "partial"} report`);
 
     await testservice.submitReport(this.reportid, result);
@@ -255,7 +253,7 @@ class TestFramework {
     document.getElementById('skiptest').disabled = true;
 
     // Send progress every 10 seconds
-    let interval = setInterval(() => this.sendReport(false), 10000);
+    const interval = setInterval(() => this.sendReport(false), 10000);
 
     try {
       // Sequentially run all tests
@@ -263,14 +261,12 @@ class TestFramework {
         await this.runTest(idx);
 
       await this.cleanupAfterAllTests();
-    }
-    catch (e) {
+    } catch (e) {
       if (!e.testsuite_reported) {
         console.error('Running tests failed: ', e);
         reportException(e);
       }
-    }
-    finally {
+    } finally {
       // Stop periodic reporting
       clearInterval(interval);
     }
@@ -298,7 +294,7 @@ class TestFramework {
     this.currentsteps = null;
 
     // Get test, set expected args
-    var test = this.tests[this.currenttest];
+    const test = this.tests[this.currenttest];
     this.args = test.args || [];
 
     // Unmark finished, just in case
@@ -312,7 +308,7 @@ class TestFramework {
     this.setStatus(test.name + " loading");
 
     // Schedule test script load & test steps
-    var result = this.loadTestIframe()
+    let result = this.loadTestIframe()
       .then(this.waitForTestSetup.bind(this))
       .catch(this.handleTestStepException.bind(this, test, { name: 'Loading test script', _rethrow: true }))
       .then(this.runAllTestSteps.bind(this));
@@ -330,11 +326,11 @@ class TestFramework {
   /** Loads the iframe with the test source
   */
   loadTestIframe() {
-    var deferred = dompack.createDeferred();
+    const deferred = dompack.createDeferred();
 
-    var test = this.tests[this.currenttest];
+    const test = this.tests[this.currenttest];
 
-    let node_teststatus = document.querySelector(`#tests [data-testname="${test.name}"] .teststatus`);
+    const node_teststatus = document.querySelector(`#tests [data-testname="${test.name}"] .teststatus`);
     node_teststatus.textContent = "loading...";
     node_teststatus.scrollIntoView({ block: "nearest" });
 
@@ -375,7 +371,7 @@ class TestFramework {
 
   /// Runs all the test steps
   async runAllTestSteps() {
-    var test = this.tests[this.currenttest];
+    const test = this.tests[this.currenttest];
 
     if (this.stop)
       return;
@@ -400,7 +396,7 @@ class TestFramework {
     this.lastbusycount = dombusy.getUIBusyCounter();
 
     console.log("[testfw] test:" + this.getCurrentStepName() + ", busycount = " + this.lastbusycount);
-    var test = this.tests[this.currenttest];
+    const test = this.tests[this.currenttest];
 
     if (this.stop)
       return;
@@ -413,7 +409,7 @@ class TestFramework {
     this.updateTestState();
 
     // Result promise (chained with all the step parts)
-    var result = Promise.resolve();
+    let result = Promise.resolve();
 
     if (step.ignore)
       return result;
@@ -434,11 +430,10 @@ class TestFramework {
       this.getFrameRecord().currentsignals.pageload = this.waitForPageFrameLoad(this.getFrameRecord(), { timeout: -1 }); // no timeout
 
       // Install errorlimits
-      for (let f of this.testframes) {
+      for (const f of this.testframes) {
         try {
           f.win.Error.stackTraceLimit = 50;
-        }
-        catch (e) {
+        } catch (e) {
           console.warn(`Could not set onerror handler in frame ${JSON.stringify(f.name)} due to the following exception: `, e);
         }
       }
@@ -460,7 +455,7 @@ class TestFramework {
       for (const f of this.testframes)
         if (f.currentsignals.pageload) {
           var err = new Error(`Page load happened in frame ${f.name} but was not expected`);
-          var errorfunc = function() { throw err; };
+          const errorfunc = function() { throw err; };
           // FIXME: test if this really works. As far as I read the specs, if signals.pageload is already resolved/rejected
           // it should win the race, ignoring the second Promise.resolve().
           return Promise.race([f.currentsignals.pageload.then(errorfunc, errorfunc), Promise.resolve()]);
@@ -484,7 +479,7 @@ class TestFramework {
       //          f.currentsignals = null;
       test.runsteps = test.runsteps || [];
       test.runsteps.push({ stepname: step.name || '', stepnr: idx });
-    }.bind(this));
+    });
 
     // Handle success / exceptions of the test
     result = result.then(
@@ -497,7 +492,7 @@ class TestFramework {
   /// Handles a succesfully completed step
   handleTestStepSuccess(test, step) {
     // Success: remove all log nodes, not interesting
-    for (var i = 0; i < this.lastlognodes.length; ++i)
+    for (let i = 0; i < this.lastlognodes.length; ++i)
       if (this.lastlognodes[i].parentNode)
         this.lastlognodes[i].parentNode.removeChild(this.lastlognodes[i]);
     this.lastlognodes = [];
@@ -505,10 +500,10 @@ class TestFramework {
 
   /// Handles a test step that errored out
   async handleTestStepException(test, step, e) {
-    let fullname = step.name ? step.name + (step.subname ? "#" + step.subname : "") : "";
+    const fullname = step.name ? step.name + (step.subname ? "#" + step.subname : "") : "";
     // Got a test exception. Log it everywhere
-    var prefix = 'Test ' + test.name + ' step ' + (fullname ? fullname + ' (#' + this.currentstep + ')' : '#' + this.currentstep);
-    var text = prefix + ' failed';
+    const prefix = 'Test ' + test.name + ' step ' + (fullname ? fullname + ' (#' + this.currentstep + ')' : '#' + this.currentstep);
+    const text = prefix + ' failed';
 
     console.warn(text);
     console.warn(e);
@@ -516,30 +511,30 @@ class TestFramework {
     this.haveerror = true;
 
     this.log(prefix + (e ? " exception: " + e : " failed with unknown reason"));
-    let lognode = this.log("Location: computing...");
+    const lognode = this.log("Location: computing...");
 
     test.fails = (test.fails || []);
-    let failrecord = { stepname: fullname, stepnr: this.currentstep, text: text, e: '' + (e || ''), stack: (e && e.stack) || "", lognode };
+    const failrecord = { stepname: fullname, stepnr: this.currentstep, text: text, e: String(e || ''), stack: (e && e.stack) || "", lognode };
     test.fails.push(failrecord);
     this.updateTestState();
     this.lastlognodes = [];
 
     e.testsuite_reported = true;
     // force the resolve, so we can use the stack trace for location resolving
-    let res = reportException(e,
+    const res = reportException(e,
       {
         extradata:
         {
           __wh_jstestinfo:
           {
-            reportid: this.reportid
-            , testname: test.name
-            , testlisturl: this.testlisturl || ""
+            reportid: this.reportid,
+            testname: test.name,
+            testlisturl: this.testlisturl || ""
           }
-        }
-        , serviceuri: "/wh_services/system/jstests"
-        , servicefunction: 'ReportJSError'
-        , forceresolve: true
+        },
+        serviceuri: "/wh_services/system/jstests",
+        servicefunction: 'ReportJSError',
+        forceresolve: true
       });
 
     document.getElementById('skiptest').removeAttribute('disabled');
@@ -547,14 +542,14 @@ class TestFramework {
     res.then(({ stacktrace }) => {
       console.log("Got stack trace:", stacktrace);
 
-      let fullerrornode = qS('#fullerror');
+      const fullerrornode = qS('#fullerror');
       dompack.empty(fullerrornode);
       stacktrace.forEach(el => {
         dompack.append(fullerrornode, `${el.filename}:${el.line}:${el.col}`, dompack.create('br'));
       });
       document.documentElement.classList.add('testframework--havefullerror');
 
-      let bestlocation = findBestStackLocation(stacktrace);
+      const bestlocation = findBestStackLocation(stacktrace);
       if (bestlocation) {
         lognode.textContent = `Location: ${bestlocation.filename}:${bestlocation.line}:${bestlocation.col}`;
         this.updateTestState();
@@ -565,17 +560,17 @@ class TestFramework {
       let stackframes = await StackTrace.fromError(this.currentwaitstack, { sourceCache });
       stackframes = stackframes.map(frame => (
         {
-          line: frame.lineNumber
-          , func: frame.functionName
-          , filename: frame.fileName
-          , col: frame.columnNumber
+          line: frame.lineNumber,
+          func: frame.functionName,
+          filename: frame.fileName,
+          col: frame.columnNumber
         }));
 
       stackframes.forEach(el => {
         console.log(`${el.filename}:${el.line}:${el.col}`);
       });
 
-      let bestlocation = findBestStackLocation(stackframes);
+      const bestlocation = findBestStackLocation(stackframes);
       if (bestlocation)
         console.warn(`Wait location: ${bestlocation.filename}:${bestlocation.line}:${bestlocation.col}`);
     }
@@ -587,7 +582,7 @@ class TestFramework {
 
   /// Execute a load page command
   doLoadPage(step) {
-    var loadpage;
+    let loadpage;
     if (typeof step.loadpage == 'string')
       loadpage = step.loadpage;
     else if (typeof step.loadpage == 'function') {
@@ -601,7 +596,7 @@ class TestFramework {
     this.resetPageFrame();
     const framerec = this.getFrameRecord();
 
-    let name = framerec.name == "main" ? "testframe" : `testframe-${framerec.name}`;
+    const name = framerec.name == "main" ? "testframe" : `testframe-${framerec.name}`;
     framerec.iframe = dompack.create("iframe", { "id": name, "name": name });
     framerec.holder.appendChild(framerec.iframe);
     framerec.iframe.src = loadpage;
@@ -622,7 +617,7 @@ class TestFramework {
   */
   waitForPageFrameLoad(framerec, options) {
     //var iframe = this.getFrameRecord().iframe;
-    var deferred = dompack.createDeferred();
+    const deferred = dompack.createDeferred();
     if (!framerec.iframe)
       return deferred.promise;
 
@@ -648,8 +643,7 @@ class TestFramework {
       const framerec = this.getFrameRecord();
       framerec.win.document;
       return true;
-    }
-    catch (ignore) {
+    } catch (ignore) {
       return false;
     }
   }
@@ -666,19 +660,18 @@ class TestFramework {
 
     this._recordAssetpacks(framerec.win);
 
-    var focusable = domfocus.getFocusableComponents(framerec.doc.documentElement);
-    for (var i = 0; i < focusable.length; ++i) {
+    const focusable = domfocus.getFocusableComponents(framerec.doc.documentElement);
+    for (let i = 0; i < focusable.length; ++i) {
       if (focusable[i].autofocus) {
         focusable[i].focus();
         break;
       }
     }
     try {
-      var doctitle = framerec.doc.title;
+      const doctitle = framerec.doc.title;
       if (doctitle == '404 Not found')
         throw new Error("The child frame returned a 404 error, please check the url");
-    }
-    catch (e) {
+    } catch (e) {
       throw new Error("Exception accessing child frame, assuming security error" + e);
     }
 
@@ -695,7 +688,7 @@ class TestFramework {
 
   _checkClientAsyncFunc() {
     if (this.activeasyncerr) {
-      let e = this.activeasyncerr;
+      const e = this.activeasyncerr;
       this.activeasyncerr = null;
       throw e;
     }
@@ -708,13 +701,13 @@ class TestFramework {
   }
 
   async _setFrame(name, action, { width } = {}) {
-    let rec = this.getFrameRecord(name, { allowmissing: true });
+    const rec = this.getFrameRecord(name, { allowmissing: true });
     switch (action) {
       case "add":
         {
           if (rec)
             throw new Error(`A frame with the name ${JSON.stringify(name)} already exists`);
-          let holder = <div class="testframeholder" data-name={name}></div>;
+          const holder = <div class="testframeholder" data-name={name}></div>;
           holder.dataset.width = width || "";
           const currentsignals = {};
           this.testframes.push({ name, holder, currentsignals });
@@ -761,32 +754,32 @@ class TestFramework {
     if (step)
       this.setcallbacksfunc(
         {
-          executeWait: item => this._checkClientAsync(this.executeWait(step, item, this.getFrameRecord().currentsignals))
-          , subtest: name => this._setSubName(step, name)
-          , setFrame: (name, type, options) => this._checkClientAsync(this._setFrame(name, type, options))
+          executeWait: item => this._checkClientAsync(this.executeWait(step, item, this.getFrameRecord().currentsignals)),
+          subtest: name => this._setSubName(step, name),
+          setFrame: (name, type, options) => this._checkClientAsync(this._setFrame(name, type, options))
         });
     else {
       this._checkClientAsyncFunc();
       this.setcallbacksfunc(
         {
-          executeWait: () => { throw new Error("calling test.wait outside test function"); }
-          , subtest: () => { throw new Error("calling test.subtest outside test function"); }
+          executeWait: () => { throw new Error("calling test.wait outside test function"); },
+          subtest: () => { throw new Error("calling test.subtest outside test function"); }
         });
     }
   }
 
   /// Executes the step.test or test.wait functions
   executeStepTestFunction(step) {
-    var deferred = dompack.createDeferred();
+    const deferred = dompack.createDeferred();
 
-    var func = step.test || step.wait;
+    const func = step.test || step.wait;
 
     // Initialize the callback for step.wait if needed
-    var callback;
+    let callback;
     if (step.wait)
       callback = deferred.resolve;
 
-    var returnvalue;
+    let returnvalue;
 
     this.setCallbacks(step);
 
@@ -795,7 +788,7 @@ class TestFramework {
 
     //this.uiwasbusy = this.pageframewin && this.pageframewin.$wh && this.pageframewin.$wh.busycount > 0;
     if (step.wait || (returnvalue && returnvalue.then)) {
-      var text = "Wait: " + (step.wait ? "callback" : "test promise");
+      const text = "Wait: " + (step.wait ? "callback" : "test promise");
       document.getElementById('currentwait').textContent = text;
       document.getElementById('currentwait').style.display = "inline-block";
       deferred.promise = deferred.promise.finally(function() { document.getElementById('currentwait').style.display = "none"; });
@@ -810,8 +803,7 @@ class TestFramework {
 
       // Also schedule a timeout
       this.timedReject(deferred, "Timeout waiting for promise returned by step.test to resolve", step.timeout || this.waittimeout);
-    }
-    else // Timeout on the callback, please. If the callback is earlier, it wins.
+    } else // Timeout on the callback, please. If the callback is earlier, it wins.
     {
       this.timedReject(deferred, "Timeout waiting for step.wait callback", step.timeout || this.waittimeout);
     }
@@ -823,22 +815,20 @@ class TestFramework {
   repeatedFunctionTestIterate(func, deferred) {
     this.animationframerequest = 0;
     try {
-      let result = func();
+      const result = func();
       if (!result) {
         this.animationframerequest = requestAnimationFrame(() => this.repeatedFunctionTestIterate(func, deferred));
-      }
-      else {
+      } else {
         deferred.resolve(result);
       }
-    }
-    catch (e) {
+    } catch (e) {
       // func() threw. Not nice, report back.
       deferred.reject(e);
     }
   }
 
   repeatedFunctionTest(step, func) {
-    var deferred = dompack.createDeferred();
+    const deferred = dompack.createDeferred();
 
     // When the test is cancelled, resolve the wait promise immediately
     this.stoppromise.promise.then(deferred.resolve, deferred.reject);
@@ -866,7 +856,7 @@ class TestFramework {
   async executeWait(step, item, signals) {
     if (Array.isArray(item))
       throw new Error(`executeWait incorrectly invoked with array`);
-    var text = "Wait: " + (typeof item == "function" ? "function" : item);
+    const text = "Wait: " + (typeof item == "function" ? "function" : item);
     this.currentwaitstack = new Error;
     document.getElementById('currentwait').textContent = text;
     document.getElementById('currentwait').style.display = "inline-block";
@@ -884,7 +874,7 @@ class TestFramework {
       return promise.finally(this.executeWaitFinish.bind(this));
     }
 
-    var deferred = dompack.createDeferred();
+    const deferred = dompack.createDeferred();
     if (dompack.debugflags.bus)
       deferred.promise = deferred.promise.then(function(x) { console.debug("Finished wait for '" + item + "'"); return x; });
 
@@ -957,21 +947,20 @@ class TestFramework {
           this.timedReject(deferred, "Timeout when waiting for pageload", step.timeout || this.waittimeout);
 
           const framerec = this.getFrameRecord();
-          let promise = signals.pageload;
+          const promise = signals.pageload;
           signals.pageload = null;
           try {
-            let result = await Promise.race([promise, deferred.promise]);
+            const result = await Promise.race([promise, deferred.promise]);
             this.currentwaitstack = null;
             return result;
-          }
-          finally {
+          } finally {
             signals.pageload = this.waitForPageFrameLoad(framerec, { timeout: -1 }); // no timeout
             this.executeWaitFinish();
           }
         }
       case "scroll":
         {
-          let win = this.getFrameRecord().win;
+          const win = this.getFrameRecord().win;
           var scrollwaiter = function() {
             //this event will fire on scroll, and then schedule a delay() to allow other scroll handlers to run
             setTimeout(deferred.resolve, 0);
@@ -997,14 +986,14 @@ class TestFramework {
 
   /// Translate the .waitxxx values in a test step to step.waits
   translateWaits(step) {
-    let waits = step.waits || [];
+    const waits = step.waits || [];
 
-    var translations =
+    const translations =
     {
-      waitforgestures: 'pointer'
-      , waitforuploadprogress: 'uploadprogress'
-      , waitwhtransitions: 'ui'
-      , waitforanimationframe: 'animationframe'
+      waitforgestures: 'pointer',
+      waitforuploadprogress: 'uploadprogress',
+      waitwhtransitions: 'ui',
+      waitforanimationframe: 'animationframe'
     };
 
     Object.entries(translations, function([name, value]) {
@@ -1050,8 +1039,8 @@ class TestFramework {
 
   // standardize stacks to 'funcname@http-location:line:col'
   _standardizeStack(stack, oneline) {
-    let slicepoint = browser.getName() === "firefox" ? 2 : 3;
-    let items = stack.split("\n").slice(slicepoint);
+    const slicepoint = browser.getName() === "firefox" ? 2 : 3;
+    const items = stack.split("\n").slice(slicepoint);
     return items.map(line => {
       line = line.replace("   at ", "");
       line = line.replace("   at ", "");
@@ -1063,11 +1052,11 @@ class TestFramework {
   }
 
   _recordAssetpacks(wnd) {
-    var test = this.tests[this.currenttest];
-    let scripttags = wnd.document.getElementsByTagName("script");
+    const test = this.tests[this.currenttest];
+    const scripttags = wnd.document.getElementsByTagName("script");
 
-    for (let tag of Array.from(scripttags)) {
-      let match = tag.src.match(/\/.ap\/([^/]*)\/ap.js$/);
+    for (const tag of Array.from(scripttags)) {
+      const match = tag.src.match(/\/.ap\/([^/]*)\/ap.js$/);
       if (match) {
         test.assetpacks = (test.assetpacks) || [];
         test.assetpacks.push(match[1]);
@@ -1076,13 +1065,12 @@ class TestFramework {
   }
 
   guaranteeTestNames(steps) {
-    var lastname = 'unnamed test', lastcount = 0;
+    let lastname = 'unnamed test', lastcount = 0;
     for (const step of steps) {
       if (step.name) {
         lastname = step.name;
         lastcount = 1;
-      }
-      else {
+      } else {
         step.name = lastname + (lastcount ? " (" + ++lastcount + ")" : "");
       }
     }
@@ -1110,7 +1098,7 @@ class TestFramework {
   }
 
   log(text) {
-    var nodes = [document.createTextNode(text), document.createElement("br")];
+    const nodes = [document.createTextNode(text), document.createElement("br")];
     this.lastlognodes.push(nodes[0]);
     this.lastlognodes.push(nodes[1]);
 
@@ -1120,22 +1108,21 @@ class TestFramework {
   }
 
   updateTestState() {
-    var test = this.tests[this.currenttest];
+    const test = this.tests[this.currenttest];
     if (!test) {
       console.error('no test found', this.currenttest, this.tests.length);
       console.trace();
     }
-    let node_teststatus = document.querySelector(`#tests [data-testname="${test.name}"] .teststatus`);
+    const node_teststatus = document.querySelector(`#tests [data-testname="${test.name}"] .teststatus`);
     if (this.currentstep == -1) {
       node_teststatus.textContent = "test not loaded";
       Object.assign(node_teststatus.style, { 'font-weight': 'bold', 'color': '#FF0000' });
-    }
-    else {
-      var stepname = (this.currentsteps[this.currentstep] || {}).name;
-      var xfails = test.xfails ? ' (xfails: ' + test.xfails.map(function(v) { return v.stepnr + (v.stepname ? ': ' + v.stepname : ''); }).join(', ') + ')' : '';
-      var fails = test.fails ? ' (fails: ' + test.fails.map(function(v) { return v.stepnr + (v.stepname ? ': ' + v.stepname : ''); }).join(', ') + ')' : '';
+    } else {
+      const stepname = (this.currentsteps[this.currentstep] || {}).name;
+      const xfails = test.xfails ? ' (xfails: ' + test.xfails.map(function(v) { return v.stepnr + (v.stepname ? ': ' + v.stepname : ''); }).join(', ') + ')' : '';
+      const fails = test.fails ? ' (fails: ' + test.fails.map(function(v) { return v.stepnr + (v.stepname ? ': ' + v.stepname : ''); }).join(', ') + ')' : '';
 
-      var suffix = (stepname ? ': ' + stepname : '') + fails + xfails;
+      let suffix = (stepname ? ': ' + stepname : '') + fails + xfails;
       if (!suffix && this.currentstep >= this.currentsteps.length)
         suffix += ' - done';
 
@@ -1210,7 +1197,7 @@ class TestSuite {
   onDomReady() {
     this.testfw = new TestFramework;
 
-    let url = new URL(window.location.href);
+    const url = new URL(window.location.href);
     this.repeatuntilerror = url.searchParams.get('repeatuntilerror') == '1';
     this.autostart = url.searchParams.get('autostart') === '1';
 
@@ -1227,8 +1214,7 @@ class TestSuite {
         event.target.blur();
         this.testlistpromise.then(() => this.startTests());
       });
-    }
-    else {
+    } else {
       document.getElementById('toggleautostart').textContent = "Disable autostart";
       document.getElementById('starttests').disabled = true;
     }
@@ -1239,19 +1225,19 @@ class TestSuite {
   }
 
   getTestList() {
-    var url = new URL(location.href);
-    let masks = (url.searchParams.get('mask') || "*").split(",");
-    let skips = url.searchParams.get('skip') ? url.searchParams.get('skip').split(",") : [];
+    const url = new URL(location.href);
+    const masks = (url.searchParams.get('mask') || "*").split(",");
+    const skips = url.searchParams.get('skip') ? url.searchParams.get('skip').split(",") : [];
 
     let testlisturl = document.body.dataset.testslist;
     testlisturl = new URL(testlisturl, location.href);
     this.testlistpromise = fetch(testlisturl, { credentials: "same-origin" })
       .then(response => response.json()).then(list => {
-        let filtered = [];
+        const filtered = [];
 
         list.forEach(item => {
-          let li = dompack.create("li", { dataset: { testname: item.name } });
-          let url = new URL(location.href);
+          const li = dompack.create("li", { dataset: { testname: item.name } });
+          const url = new URL(location.href);
           url.searchParams.set("skip", "");
           url.searchParams.set("autotests", "");
           url.searchParams.set("reportid", "");
@@ -1287,13 +1273,13 @@ class TestSuite {
   }
 
   toggleAutoStart() {
-    var url = new URL(window.location.href);
+    const url = new URL(window.location.href);
     url.searchParams.set('autostart', this.autostart ? '0' : '1');
     location.href = url.toString();
   }
 
   toggleRepeatUntilError() {
-    var url = new URL(window.location.href);
+    const url = new URL(window.location.href);
     url.searchParams.set('repeatuntilerror', this.repeatuntilerror ? '0' : '1');
     location.href = url.toString();
   }
@@ -1306,7 +1292,7 @@ class TestSuite {
         return;
       this.started = true;
 
-      this.testfw.runTests().then(() => this.checkTestResult())
+      this.testfw.runTests().then(() => this.checkTestResult());
     }
   }
 
@@ -1328,8 +1314,7 @@ class TestSuite {
     let href = null;
     try {
       href = getTestRoots().win.location.href;
-    }
-    catch (e) {
+    } catch (e) {
       console.log("getting location failed", e);
       href = document.getElementById('testframeholder').firstChild.src;
     }

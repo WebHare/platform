@@ -5,12 +5,11 @@ import * as test from '@mod-system/js/wh/testframework';
 
 test.registerTests(
   [
-    async function()
-    {
+    async function() {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
       await test.load(`${test.getTestSiteRoot()}testpages/formtest/?multipage=1&cookiebar=1`);
 
-      let firstpage = test.qS('.wh-form__page');
+      const firstpage = test.qS('.wh-form__page');
       test.eq("Page 1", test.qS('form .wh-form__page--visible h2').textContent);
       test.eq(firstpage, test.qS('form.wh-form').propWhFormhandler.getCurrentPage());
 
@@ -99,18 +98,16 @@ test.registerTests(
 
       //should have submitted!
       test.eq("Done!", test.qS('form .wh-form__page--visible h2').textContent);
-      let ps = test.qSA('form .wh-form__page--visible p.normal').filter(node => test.canClick(node)); //only count visible paragraphs
+      const ps = test.qSA('form .wh-form__page--visible p.normal').filter(node => test.canClick(node)); //only count visible paragraphs
       test.eq(1, ps.length);
       test.eq("Thank you for filling this form, we will contact you at multipage@beta.webhare.net", ps[0].textContent);
       test.assert(!test.canClick(test.qS('.wh-form__button--previous')), "'previous' button not available on thankyou page");
       test.assert(!test.canClick(test.qS('.wh-form__button--submit')), "'submit' button not available on thankyou page");
       test.assert(!test.canClick(test.qS('.wh-form__button--next')), "'next' button not available on thankyou page");
-    }
+    },
 
-  , { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1'
-    }
-  , async function()
-    {
+    { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1' },
+    async function() {
       test.eq("Page 1", test.qS('form .wh-form__page--visible h2').textContent);
       test.assert(test.canClick(test.qS('input[name="email"]')), "'email' field available on page 1");
       test.assert(!test.canClick(test.qS('input[name="maybe"]')), "'maybe' field not available on page 1");
@@ -150,17 +147,15 @@ test.registerTests(
 
       //should have submitted!
       test.eq("Done!", test.qS('form .wh-form__page--visible h2').textContent);
-      let ps = test.qSA('form .wh-form__page--visible p.normal');
+      const ps = test.qSA('form .wh-form__page--visible p.normal');
       test.eq("Thank you for filling this form, we will contact you at multipage@beta.webhare.net", ps[0].textContent);
       test.assert(!test.canClick(test.qS('.wh-form__button--previous')), "'previous' button not available on thankyou page");
       test.assert(!test.canClick(test.qS('.wh-form__button--submit')), "'submit' button not available on thankyou page");
       test.assert(!test.canClick(test.qS('.wh-form__button--next')), "'next' button not available on thankyou page");
-    }
+    },
 
-  , { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1'
-    }
-  , async function()
-    {
+    { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1' },
+    async function() {
       test.eq("Page 1", test.qS('form .wh-form__page--visible h2').textContent);
       test.assert(test.canClick(test.qS('input[name="email"]')), "'email' field available on page 1");
       test.assert(!test.canClick(test.qS('input[name="maybe"]')), "'maybe' field not available on page 1");
@@ -249,18 +244,16 @@ test.registerTests(
 
       //should have submitted!
       test.eq("Done!", test.qS('form .wh-form__page--visible h2').textContent);
-      let ps = test.qSA('form .wh-form__page--visible p.normal').filter(node => test.canClick(node)); //only count visible paragraphs
+      const ps = test.qSA('form .wh-form__page--visible p.normal').filter(node => test.canClick(node)); //only count visible paragraphs
       test.eq("Thank you for filling this form, we will contact you at multipage@beta.webhare.net", ps[0].textContent);
       test.eq("We will definitely contact you", ps[1].textContent);
       test.assert(!test.canClick(test.qS('.wh-form__button--previous')), "'previous' button not available on thankyou page");
       test.assert(!test.canClick(test.qS('.wh-form__button--submit')), "'submit' button not available on thankyou page");
       test.assert(!test.canClick(test.qS('.wh-form__button--next')), "'next' button not available on thankyou page");
-    }
+    },
 
-  , { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1'
-    }
-  , async function()
-    {
+    { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1' },
+    async function() {
       test.eq("Page 1", test.qS('form .wh-form__page--visible h2').textContent);
 
       // Check the 'maybe' checkbox
@@ -355,56 +348,52 @@ test.registerTests(
 
       //should have submitted!
       test.eq("Done!", test.qS('form .wh-form__page--visible h2').textContent);
-      let ps = test.qSA('form .wh-form__page--visible p.normal');
+      const ps = test.qSA('form .wh-form__page--visible p.normal');
       test.eq("Thank you for filling this form, we will contact you at multipage@beta.webhare.net", ps[0].textContent);
       test.assert(!test.canClick(test.qS('.wh-form__button--previous')), "'previous' button not available on thankyou page");
       test.assert(!test.canClick(test.qS('.wh-form__button--submit')), "'submit' button not available on thankyou page");
       test.assert(!test.canClick(test.qS('.wh-form__button--next')), "'next' button not available on thankyou page");
-    }
+    },
 
-  , { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1'
-    }
-  , "Test scrolling back up on error"
-  , async function()
-    {
+    { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1' },
+    "Test scrolling back up on error",
+    async function() {
       test.click('#multipagetest-vertspace');
       test.assert(!test.canClick(test.qS('.wh-form__button--next')));
       test.getWin().scrollTo(0, test.qS('*[data-wh-form-group-for="vertspacetext"]').getBoundingClientRect().bottom);
 
-      test.assert(!test.canClick(test.qS('#multipagetest-firstname')),'firstname field should be out of sight');
+      test.assert(!test.canClick(test.qS('#multipagetest-firstname')), 'firstname field should be out of sight');
       test.assert(test.canClick(test.qS('.wh-form__button--next')));
 
       test.click(test.qS('.wh-form__button--next'));
       await test.wait('ui');
 
-      test.assert(test.canClick('#multipagetest-firstname'),'firstname field should be back in sight because it caused submission failure');
+      test.assert(test.canClick('#multipagetest-firstname'), 'firstname field should be back in sight because it caused submission failure');
 
       test.fill(test.qS('#multipagetest-firstname'), 'Homer');
       test.fill(test.qS('input[name="email"]'), 'multipage2@beta.webhare.net');
-    }
+    },
 
-  , "Test scrolling between pages"
-  , async function()
-    {
+    "Test scrolling between pages",
+    async function() {
       await test.sleep(100); //workaround but we need to give the form a chance to scroll to its desired position
       test.getWin().scrollTo(0, test.qS('*[data-wh-form-group-for="vertspacetext"]').getBoundingClientRect().bottom);
       test.click(test.qS('.wh-form__button--next'));
       await test.wait('ui');
 
-      test.assert(test.canClick('input[name="text"]'),'text field is on page #3 and should be back in sight after page navigation');
-      test.assert(test.canClick('.multipageform__prefix'),'we also want the form top to be visible');
+      test.assert(test.canClick('input[name="text"]'), 'text field is on page #3 and should be back in sight after page navigation');
+      test.assert(test.canClick('.multipageform__prefix'), 'we also want the form top to be visible');
       test.fill(test.qS('input[name="text"]'), 'Text');
 
       test.getWin().scrollTo(0, test.qS('*[data-wh-form-group-for="vertspacetext2"]').getBoundingClientRect().bottom);
       test.click(test.qS('.wh-form__button--submit'));
       await test.wait('ui');
 
-      test.assert(test.canClick(test.qS('*[data-wh-form-group-for="text3"]')),'test final page is scrolled back too');
-    }
+      test.assert(test.canClick(test.qS('*[data-wh-form-group-for="text3"]')), 'test final page is scrolled back too');
+    },
 
-  ,"Test disabled radio buttons not evaluating to a value"
-  , async function()
-    {
+    "Test disabled radio buttons not evaluating to a value",
+    async function() {
       await test.load(`${test.getTestSiteRoot()}testpages/formtest/?multipage=1&cookiebar=1`);
       test.fill('input[name="firstname"]', 'Homer');
       test.fill('input[name="email"]', 'multipage@beta.webhare.net');
@@ -432,11 +421,10 @@ test.registerTests(
       await test.wait('ui');
 
       test.eq('4', test.qS('#currentpage').textContent);
-    }
+    },
 
-  , "Test back link"
-  , async function()
-    {
+    "Test back link",
+    async function() {
       await test.load(`${test.getTestSiteRoot()}testpages/formtest/?multipage=1&backlink=${encodeURIComponent(test.getTestSiteRoot())}`);
       test.assert(test.canClick('.wh-form__button--previous'), "'previous' button should be available with a backlink");
       test.click('.wh-form__button--previous');

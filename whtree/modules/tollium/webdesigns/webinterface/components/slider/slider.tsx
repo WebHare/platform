@@ -41,10 +41,10 @@ export default class ObjSlider extends ComponentBase {
   buildNode() {
     this.node = <span />;
     this.inputnode = dompack.create("input", {
-      "type": "range"
-      , "min": this.min
-      , "max": this.max
-      , "step": this.step
+      "type": "range",
+      "min": this.min,
+      "max": this.max,
+      "step": this.step
       //                                , "orient" : (this.orientation ? this.orientation : 'horizontal') //FIXME nonstard
     });
     //node.appendChild(this.inputnode);

@@ -3,31 +3,31 @@
 
 import * as test from "@mod-tollium/js/testframework";
 
-function getTheKnob()
-{
+function getTheKnob() {
   return test.compByName("componentpanel").querySelector(".wh-slider-knob");
 }
 
-async function moveTheKnob(percentage)
-{
-  let knob = getTheKnob();
-  let sliderlength = test.compByName("componentpanel").querySelector(".wh-slider").getBoundingClientRect().width;
-  test.sendMouseGesture([ { el: knob, down: 0 }
-                        , { relx: sliderlength * percentage, delay: 300, transition: test.dragTransition }
-                        , { up: 0 }
-                        ]);
+async function moveTheKnob(percentage) {
+  const knob = getTheKnob();
+  const sliderlength = test.compByName("componentpanel").querySelector(".wh-slider").getBoundingClientRect().width;
+  test.sendMouseGesture([
+    { el: knob, down: 0 },
+    { relx: sliderlength * percentage, delay: 300, transition: test.dragTransition },
+    { up: 0 }
+  ]);
   await test.wait('pointer');
   await test.wait('ui');
 }
 
 test.registerTests(
-  [ { loadpage: test.getCompTestPage('slider')
-    , waits: [ 'ui' ]
-    }
-  , async function()
+  [
     {
+      loadpage: test.getCompTestPage('slider'),
+      waits: ['ui']
+    },
+    async function() {
       // This was fixed at 200px, should have been set through component width
-      let sliderlength = test.compByName("componentpanel").querySelector(".wh-slider-holder").getBoundingClientRect().width;
+      const sliderlength = test.compByName("componentpanel").querySelector(".wh-slider-holder").getBoundingClientRect().width;
       test.eq(500, sliderlength);
 
       let knob = getTheKnob();
@@ -36,10 +36,9 @@ test.registerTests(
 
       knob = getTheKnob();
       test.eq("50", knob.textContent);
-    }
-  , "Test enabled"
-  , async function()
-    {
+    },
+    "Test enabled",
+    async function() {
       test.click(test.compByName('enable'));
       await test.wait('ui');
 

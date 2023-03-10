@@ -8,32 +8,32 @@ import * as whintegration from '@mod-system/js/wh/integration';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 
 import * as dompack from 'dompack';
-var ExifParser = require("@mod-tollium/webdesigns/webinterface/node_modules/exif-parser");
+const ExifParser = require("@mod-tollium/webdesigns/webinterface/node_modules/exif-parser");
 
-var getTid = require("@mod-tollium/js/gettid").getTid;
+const getTid = require("@mod-tollium/js/gettid").getTid;
 
 import $todd from "@mod-tollium/web/ui/js/support";
-var ImageEditor = require("../../components/imageeditor");
+const ImageEditor = require("../../components/imageeditor");
 
 // http://www.nixtu.info/2013/06/how-to-upload-canvas-data-to-server.html
 function dataURItoBlob(dataURI) {
   // convert base64 to raw binary data held in a string
   // doesn't handle URLEncoded DataURIs - see SO answer #6850276 for code that does this
-  var byteString = atob(dataURI.split(',')[1]);
+  const byteString = atob(dataURI.split(',')[1]);
 
   // separate out the mime component
-  var mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+  const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
 
   // write the bytes of the string to an ArrayBuffer
-  var ab = new ArrayBuffer(byteString.length);
-  var dw = new DataView(ab);
-  for (var i = 0; i < byteString.length; i++) {
+  const ab = new ArrayBuffer(byteString.length);
+  const dw = new DataView(ab);
+  for (let i = 0; i < byteString.length; i++) {
     dw.setUint8(i, byteString.charCodeAt(i));
   }
 
   // write the ArrayBuffer to a blob, and you're done
   return new Blob([ab], { type: mimeString });
-};
+}
 
 
 class ImgeditDialogController {
@@ -47,19 +47,19 @@ class ImgeditDialogController {
     this.activetool = null;
     this.options =
     {
-      imgsize: null
-      , action: 'upload'
-      , resetImage: null
-      , ...options
+      imgsize: null,
+      action: 'upload',
+      resetImage: null,
+      ...options
     };
 
     this.defer = dompack.createDeferred();
     this.screen = screen;
 
-    var desktopsize = screen.displayapp.container.getBoundingClientRect();
+    const desktopsize = screen.displayapp.container.getBoundingClientRect();
     this.editorsize = {
-      x: parseInt(0.7 * desktopsize.width)
-      , y: parseInt(0.9 * desktopsize.height)
+      x: parseInt(0.7 * desktopsize.width),
+      y: parseInt(0.9 * desktopsize.height)
     };
   }
 
@@ -82,15 +82,14 @@ class ImgeditDialogController {
 
     if (src.indexOf("data:") == 0) {
       //console.log("Convert image data from data URL to blob");
-      var blob = dataURItoBlob(src);
+      const blob = dataURItoBlob(src);
       this._readImageFile(blob, settings);
-    }
-    else {
-      var request = new XMLHttpRequest();
+    } else {
+      const request = new XMLHttpRequest();
       request.onload = evt => {
         //console.log("Received image file as Blob");
-        var mimeType = request.getResponseHeader("Content-Type");
-        var blob = new Blob([request.response], { type: mimeType });
+        const mimeType = request.getResponseHeader("Content-Type");
+        const blob = new Blob([request.response], { type: mimeType });
         this._readImageFile(blob, settings);
       };
       request.open("GET", src, true);
@@ -101,29 +100,28 @@ class ImgeditDialogController {
   }
 
   _readImageFile(file, settings) {
-    var reader = new FileReader();
-    var fixorientation = this.editor ? this.editor.fixorientation : this.options.imgsize ? this.options.imgsize.fixorientation : true;
+    const reader = new FileReader();
+    const fixorientation = this.editor ? this.editor.fixorientation : this.options.imgsize ? this.options.imgsize.fixorientation : true;
 
     // Read the image as ArrayBuffer, so we can read its EXIF data
     reader.onload = () => {
-      var exifdata;
+      let exifdata;
       try {
         if (fixorientation) {
-          var parser = ExifParser.create(reader.result);
+          const parser = ExifParser.create(reader.result);
           exifdata = parser.parse();
         }
-      }
-      catch (e) { }
+      } catch (e) { }
       //console.log("Parsed EXIF data", exifdata);
 
-      var objecturl = (URL || webkitURL).createObjectURL(file);
-      var options = {
-        orientation: exifdata && exifdata.tags.Orientation
-        , mimetype: file.type
-        , refpoint: null
-        , filename: ""
-        , ...settings
-      }
+      const objecturl = (URL || webkitURL).createObjectURL(file);
+      const options = {
+        orientation: exifdata && exifdata.tags.Orientation,
+        mimetype: file.type,
+        refpoint: null,
+        filename: "",
+        ...settings
+      };
       options.orgblob = file;
       this._loadImageUrl(objecturl, options);
     };
@@ -132,7 +130,7 @@ class ImgeditDialogController {
   }
 
   _loadImageUrl(url, options) {
-    var img = new Image(); //FIXME error handler
+    const img = new Image(); //FIXME error handler
     img.addEventListener("load", (function() {
       (URL || webkitURL).revokeObjectURL(url);
 
@@ -140,14 +138,12 @@ class ImgeditDialogController {
         // The editor dialog is already opened, load the image into the editor
         //console.log("Load image into editor using object URL");
         this.editor.setImg(img, options);
-      }
-      else {
+      } else {
         // If this is an uploaded image which would not be changed by the image resize method, upload it directly
         if (this._skipEditor(img.width, img.height, options.mimetype)) {
           //console.log("Fire 'done' event to upload the blob");
           this._closeImageEditor(options.orgblob, null);
-        }
-        else {
+        } else {
           //console.log("Create image editor dialog with object URL");
           this._createDialog();
 
@@ -165,11 +161,10 @@ class ImgeditDialogController {
 
       runSimpleScreen(this.screen.displayapp,
         {
-          title: getTid("tollium:components.imgedit.editor.title")
-          , text: getTid("tollium:components.imgedit.messages.corruptimage")
-          , icon: "warning"
-          , buttons: [{ name: "close", title: getTid("~close") }
-          ]
+          title: getTid("tollium:components.imgedit.editor.title"),
+          text: getTid("tollium:components.imgedit.messages.corruptimage"),
+          icon: "warning",
+          buttons: [{ name: "close", title: getTid("~close") }]
         });
     });
     img.src = url;
@@ -188,58 +183,60 @@ class ImgeditDialogController {
     this.dialog = this.screen.displayapp.createScreen(
       {
         frame: {
-          bodynode: 'root'
-          , specials: ['okaction', 'cancelaction']
-          , title: getTid("tollium:components.imgedit.editor.title")
-          , defaultbutton: "okbutton"
+          bodynode: 'root',
+          specials: ['okaction', 'cancelaction'],
+          title: getTid("tollium:components.imgedit.editor.title"),
+          defaultbutton: "okbutton",
           //, allowresize: true
-          , allowclose: true
-          , width: this.editorsize.x + "px", height: this.editorsize.y + "px"
-        }
-        , root: {
-          type: 'panel', lines: [{ layout: "block", items: [{ item: "body" }], width: "1pr", height: "1pr" }
-            , { layout: "block", items: [{ item: "footer" }] }
+          allowclose: true,
+          width: this.editorsize.x + "px", height: this.editorsize.y + "px"
+        },
+        root: {
+          type: 'panel', lines: [
+            { layout: "block", items: [{ item: "body" }], width: "1pr", height: "1pr" },
+            { layout: "block", items: [{ item: "footer" }] }
           ]
-        }
-        , body: {
-          type: 'panel'
-          , lines: [{ layout: "block", title: "", items: [{ item: "imageeditor" }], width: "1pr", height: "1pr" }
-          ]
-          , width: "1pr", height: "1pr"
-        }
-        , footer: {
-          type: 'panel'
-          , lines: [{
-            items: [{ item: "minsizewarning" }
-              , { item: "maxsizewarning" }
-              , { item: "status" }
-              , { item: "progress" }
-              , { item: "okbutton" }
-              , { item: "cancelbutton" }
-            ]
-          }
-          ]
-          , spacers: { top: true, bottom: true, left: true, right: true }
-          , isfooter: true
-          , width: '1pr'
-        }
-        , minsizewarning: {
-          type: 'image', width: "16px", height: "16px", hint: getTid("tollium:components.imgedit.messages.minsizewarning")
-          , imgwidth: 16, imgheight: 16, settings: { imgname: "tollium:status/warning", width: 16, height: 16, color: "b" }
-          , visible: false
-        }
-        , maxsizewarning: {
-          type: 'image', width: "16px", height: "16px", hint: getTid("tollium:components.imgedit.messages.maxsizewarning")
-          , imgwidth: 16, imgheight: 16, settings: { imgname: "tollium:status/warning", width: 16, height: 16, color: "b" }
-          , visible: false
-        }
-        , status: { type: 'text', width: "1pr", ellipsis: true, value: "" }
-        , progress: { type: 'progress', width: "150px", max: 0, value: 0, visible: false }
-        , okaction: { type: 'action', hashandler: true, unmasked_events: ['execute'] } //ADDME can we lose the hashandler requirement? perhaps even unmasked_events ?
-        , okbutton: { type: 'button', title: getTid("~save"), action: 'okaction' }
-        , cancelaction: { type: 'action', hashandler: true, unmasked_events: ['execute'] } //ADDME can we lose the hashandler requirement? perhaps even unmasked_events ?
-        , cancelbutton: { type: 'button', title: getTid("~cancel"), action: 'cancelaction' }
-        , imageeditor: { type: 'customhtml', width: "1pr", height: "1pr" }
+        },
+        body: {
+          type: 'panel',
+          lines: [{ layout: "block", title: "", items: [{ item: "imageeditor" }], width: "1pr", height: "1pr" }],
+          width: "1pr", height: "1pr"
+        },
+        footer: {
+          type: 'panel',
+          lines: [
+            {
+              items: [
+                { item: "minsizewarning" },
+                { item: "maxsizewarning" },
+                { item: "status" },
+                { item: "progress" },
+                { item: "okbutton" },
+                { item: "cancelbutton" }
+              ]
+            }
+          ],
+          spacers: { top: true, bottom: true, left: true, right: true },
+          isfooter: true,
+          width: '1pr'
+        },
+        minsizewarning: {
+          type: 'image', width: "16px", height: "16px", hint: getTid("tollium:components.imgedit.messages.minsizewarning"),
+          imgwidth: 16, imgheight: 16, settings: { imgname: "tollium:status/warning", width: 16, height: 16, color: "b" },
+          visible: false
+        },
+        maxsizewarning: {
+          type: 'image', width: "16px", height: "16px", hint: getTid("tollium:components.imgedit.messages.maxsizewarning"),
+          imgwidth: 16, imgheight: 16, settings: { imgname: "tollium:status/warning", width: 16, height: 16, color: "b" },
+          visible: false
+        },
+        status: { type: 'text', width: "1pr", ellipsis: true, value: "" },
+        progress: { type: 'progress', width: "150px", max: 0, value: 0, visible: false },
+        okaction: { type: 'action', hashandler: true, unmasked_events: ['execute'] }, //ADDME can we lose the hashandler requirement? perhaps even unmasked_events ?
+        okbutton: { type: 'button', title: getTid("~save"), action: 'okaction' },
+        cancelaction: { type: 'action', hashandler: true, unmasked_events: ['execute'] }, //ADDME can we lose the hashandler requirement? perhaps even unmasked_events ?
+        cancelbutton: { type: 'button', title: getTid("~cancel"), action: 'cancelaction' },
+        imageeditor: { type: 'customhtml', width: "1pr", height: "1pr" }
       });
     this.modallayer = this.dialog.node.querySelector(".modallayer");
 
@@ -248,21 +245,21 @@ class ImgeditDialogController {
     this.dialog.setMessageHandler("frame", "close", this._onEditorCancelButton.bind(this, true));
 
     // Initialize the image editor - ADDME can't we promote the imageeditor or its wrapper to a 'real' tollium element instead of the customhtml hack?
-    var containercomp = this.dialog.getComponent("imageeditor");
-    var container = containercomp.getContainer();
+    const containercomp = this.dialog.getComponent("imageeditor");
+    const container = containercomp.getContainer();
     container.addEventListener("tollium:resized", evt => this._onEditorResized(evt.detail));
 
-    var options = {
-      width: container.offsetWidth
-      , height: container.offsetHeight
-      , imgsize: this.options.imgsize
-      , resourcebase: $todd.resourcebase
-      , getBusyLock: this.screen.displayapp.getBusyLock.bind(this.screen.displayapp)
-      , setStatus: this._setStatus.bind(this)
-      , setProgress: this._setProgress.bind(this)
-      , createScreen: this.screen.displayapp.createScreen.bind(this.screen.displayapp)
-      , setModalLayerOpacity: this._setModalLayerOpacity.bind(this)
-      , editorBackground: "#ffffff url(" + whintegration.config.obj.checkered_background + ") top left"
+    const options = {
+      width: container.offsetWidth,
+      height: container.offsetHeight,
+      imgsize: this.options.imgsize,
+      resourcebase: $todd.resourcebase,
+      getBusyLock: this.screen.displayapp.getBusyLock.bind(this.screen.displayapp),
+      setStatus: this._setStatus.bind(this),
+      setProgress: this._setProgress.bind(this),
+      createScreen: this.screen.displayapp.createScreen.bind(this.screen.displayapp),
+      setModalLayerOpacity: this._setModalLayerOpacity.bind(this),
+      editorBackground: "#ffffff url(" + whintegration.config.obj.checkered_background + ") top left"
     };
 
     if (this.options.action == "edit") {
@@ -278,7 +275,7 @@ class ImgeditDialogController {
   }
 
   _relayoutDialog() {
-    var frame = this.dialog.getComponent("frame");
+    const frame = this.dialog.getComponent("frame");
     frame.recalculateDimensions();
     frame.relayout();
   }
@@ -308,7 +305,7 @@ class ImgeditDialogController {
 
   _setProgress(value, max) {
     this.dialog.getComponent("progress").onMsgSetValMax({ value: value, max: max });
-    this.dialog.getComponent("progress").setVisible(!!max);
+    this.dialog.getComponent("progress").setVisible(Boolean(max));
     this._relayoutDialog();
   }
 
@@ -332,8 +329,7 @@ class ImgeditDialogController {
           }
         });
       });
-    }
-    else {
+    } else {
       // Upload the given blob and close the dialog
       this.defer.resolve({
         blob: sendblob, settings: null, editcallback: () => {
@@ -376,8 +372,7 @@ class ImgeditDialogController {
       // Apply the active tool
       this.activetool.apply();
       callback();
-    }
-    else {
+    } else {
       this._closeImageEditor(true, callback, null);
     }
   }
@@ -386,13 +381,14 @@ class ImgeditDialogController {
     if (this.activetool) {
       // Closing the window when a tool is active
       if (frameclose) {
-        let dialog = runSimpleScreen(this.screen.displayapp,
+        const dialog = runSimpleScreen(this.screen.displayapp,
           {
-            title: getTid("tollium:components.imgedit.editor.title")
-            , text: getTid("tollium:components.imgedit.messages.confirmdiscardtool")
-            , icon: "warning"
-            , buttons: [{ name: "yes", title: getTid("~yes") }
-              , { name: "no", title: getTid("~no") }
+            title: getTid("tollium:components.imgedit.editor.title"),
+            text: getTid("tollium:components.imgedit.messages.confirmdiscardtool"),
+            icon: "warning",
+            buttons: [
+              { name: "yes", title: getTid("~yes") },
+              { name: "no", title: getTid("~no") }
             ]
           });
         callback();
@@ -406,18 +402,18 @@ class ImgeditDialogController {
       // Cancel the active tool
       this.activetool.cancel();
       callback();
-    }
-    else {
+    } else {
       // Closing the window when the image is edited
       if (this.editor.isDirty()) {
-        let dialog = runSimpleScreen(this.screen.displayapp,
+        const dialog = runSimpleScreen(this.screen.displayapp,
           {
-            title: getTid("tollium:components.imgedit.editor.title")
-            , text: getTid("tollium:components.imgedit.messages.confirmdiscardchanges")
-            , icon: "warning"
-            , buttons: [{ name: "yes", title: getTid("~yes") }
-              , { name: "no", title: getTid("~no") }
-              , { name: "cancel", title: getTid("~cancel") }
+            title: getTid("tollium:components.imgedit.editor.title"),
+            text: getTid("tollium:components.imgedit.messages.confirmdiscardchanges"),
+            icon: "warning",
+            buttons: [
+              { name: "yes", title: getTid("~yes") },
+              { name: "no", title: getTid("~no") },
+              { name: "cancel", title: getTid("~cancel") }
             ]
           });
 
@@ -437,15 +433,14 @@ class ImgeditDialogController {
 }
 
 ImgeditDialogController.checkTypeAllowed = function(screen, type) {
-  let allowed_mimetypes = ["image/jpeg", "image/png", "image/gif"];
+  const allowed_mimetypes = ["image/jpeg", "image/png", "image/gif"];
   if (!allowed_mimetypes.includes(type)) {
     runSimpleScreen(screen.displayapp,
       {
-        title: getTid("tollium:components.imgedit.editor.title")
-        , text: getTid("tollium:components.imgedit.messages.unsupportedtype")
-        , icon: "warning"
-        , buttons: [{ name: "close", title: getTid("~close") }
-        ]
+        title: getTid("tollium:components.imgedit.editor.title"),
+        text: getTid("tollium:components.imgedit.messages.unsupportedtype"),
+        icon: "warning",
+        buttons: [{ name: "close", title: getTid("~close") }]
       });
     return false;
   }

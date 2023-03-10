@@ -3,5 +3,5 @@
 
 import * as component from '@mod-tollium/web/ui/js/componentbase';
 
-let ActionableBase = component.ActionableComponent;
+const ActionableBase = component.ActionableComponent;
 export default ActionableBase;

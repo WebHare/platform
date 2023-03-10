@@ -6,17 +6,17 @@ import ActionableBase from '@mod-tollium/webdesigns/webinterface/components/base
 import OverlayManager from "@webhare/dompack-overlays";
 import './image.scss';
 
-var toddImages = require("@mod-tollium/js/icons");
+const toddImages = require("@mod-tollium/js/icons");
 import $todd from "@mod-tollium/web/ui/js/support";
 
 // FIXME: relayout is needlessly triggered after communicating things like selection to the server
 
 function getCoverCoordinates(inwidth, inheight, outwidth, outheight, fit) {
-  var infx = !(outwidth > 0);
-  var infy = !(outheight > 0);
-  var dx = infx ? 0 : inwidth / outwidth;
-  var dy = infy ? 0 : inheight / outheight;
-  var scale;
+  const infx = !(outwidth > 0);
+  const infy = !(outheight > 0);
+  const dx = infx ? 0 : inwidth / outwidth;
+  const dy = infy ? 0 : inheight / outheight;
+  let scale;
   if (infx)
     scale = dy;
   else if (infy)
@@ -27,10 +27,10 @@ function getCoverCoordinates(inwidth, inheight, outwidth, outheight, fit) {
     scale = Math.min(dx, dy);
 
   return {
-    width: inwidth / scale
-    , height: inheight / scale
-    , top: (outheight - (inheight / scale)) / 2
-    , left: (outwidth - (inwidth / scale)) / 2
+    width: inwidth / scale,
+    height: inheight / scale,
+    top: (outheight - (inheight / scale)) / 2,
+    left: (outwidth - (inwidth / scale)) / 2
   };
 }
 
@@ -86,10 +86,10 @@ export default class ObjImage extends ActionableBase { // ----------------------
     if (!this.overlaymanager)//too soon
       return false;
 
-    var selectedoverlays = this.overlaymanager.getSelection();
+    const selectedoverlays = this.overlaymanager.getSelection();
 
-    let itemstocheck = [];
-    for (let overlay of selectedoverlays)
+    const itemstocheck = [];
+    for (const overlay of selectedoverlays)
       itemstocheck.push(overlay[this.overlaystorage].overlay.flags);
 
     return $todd.checkEnabledFlags(itemstocheck, checkflags, min, max, selectionmatch);
@@ -132,10 +132,10 @@ export default class ObjImage extends ActionableBase { // ----------------------
   // Build the DOM node(s) for this component
   buildNode() {
     this.node = dompack.create("div", {
-      className: "t-image"
-      , on: {
-        click: evt => this.onClick(evt)
-        , mousedown: evt => this._gotMouseDown(evt)
+      className: "t-image",
+      on: {
+        click: evt => this.onClick(evt),
+        mousedown: evt => this._gotMouseDown(evt)
       }
     });
     this.node.dataset.name = this.name;
@@ -179,17 +179,17 @@ export default class ObjImage extends ActionableBase { // ----------------------
       return;
     }
 
-    let imgdefer = dompack.createDeferred();
-    let interfacelock = dompack.flagUIBusy();
+    const imgdefer = dompack.createDeferred();
+    const interfacelock = dompack.flagUIBusy();
 
     this.imgnode = dompack.create('img', {
       style: {
-        opacity: 0  //hide the image while loading
-        , objectFit: this.objectfit
-      }
-      , on: {
-        load: event => imgdefer.resolve(this)
-        , error: error => imgdefer.reject(error)
+        opacity: 0,  //hide the image while loading
+        objectFit: this.objectfit
+      },
+      on: {
+        load: event => imgdefer.resolve(this),
+        error: error => imgdefer.reject(error)
       }
     });
     imgdefer.promise.then(() => this.relayout());
@@ -239,21 +239,20 @@ export default class ObjImage extends ActionableBase { // ----------------------
         {
           if (toimage) {
             return {
-              type: "rectangle"
-              , top: area.top / this.overlaytranslation.heightratio
-              , left: area.left / this.overlaytranslation.widthratio
-              , height: area.height / this.overlaytranslation.heightratio
-              , width: area.width / this.overlaytranslation.widthratio
+              type: "rectangle",
+              top: area.top / this.overlaytranslation.heightratio,
+              left: area.left / this.overlaytranslation.widthratio,
+              height: area.height / this.overlaytranslation.heightratio,
+              width: area.width / this.overlaytranslation.widthratio
             };
-          }
-          else {
+          } else {
             return (
               {
-                type: "rectangle"
-                , top: Math.round(area.top * this.overlaytranslation.heightratio)
-                , left: Math.round(area.left * this.overlaytranslation.widthratio)
-                , height: Math.round(area.height * this.overlaytranslation.heightratio)
-                , width: Math.round(area.width * this.overlaytranslation.widthratio)
+                type: "rectangle",
+                top: Math.round(area.top * this.overlaytranslation.heightratio),
+                left: Math.round(area.left * this.overlaytranslation.widthratio),
+                height: Math.round(area.height * this.overlaytranslation.heightratio),
+                width: Math.round(area.width * this.overlaytranslation.widthratio)
               });
           }
         }
@@ -278,19 +277,19 @@ export default class ObjImage extends ActionableBase { // ----------------------
   }
 
   _updateOverlayManager() {
-    let overlaybounds =
+    const overlaybounds =
     {
-      top: this.imgnode.offsetTop
-      , left: this.imgnode.offsetLeft
-      , bottom: this.imgnode.offsetTop + this.imgnode.offsetHeight
-      , right: this.imgnode.offsetLeft + this.imgnode.offsetWidth
+      top: this.imgnode.offsetTop,
+      left: this.imgnode.offsetLeft,
+      bottom: this.imgnode.offsetTop + this.imgnode.offsetHeight,
+      right: this.imgnode.offsetLeft + this.imgnode.offsetWidth
     };
 
-    let opts =
+    const opts =
     {
-      allowcreate: this.overlays_allowcreate
-      , bounds: overlaybounds
-      , autoselectdrawnoverlays: false
+      allowcreate: this.overlays_allowcreate,
+      bounds: overlaybounds,
+      autoselectdrawnoverlays: false
     };
 
     if (!this.overlaymanager)
@@ -321,8 +320,8 @@ export default class ObjImage extends ActionableBase { // ----------------------
     // calc new translation ratios
     this.overlaytranslation =
     {
-      widthratio: this.imgnode.naturalWidth / this.imgnode.offsetWidth
-      , heightratio: this.imgnode.naturalHeight / this.imgnode.offsetHeight
+      widthratio: this.imgnode.naturalWidth / this.imgnode.offsetWidth,
+      heightratio: this.imgnode.naturalHeight / this.imgnode.offsetHeight
     };
 
     // Make sure we update (either create or make sure to apply updated settings such as 'allowcreate')
@@ -332,18 +331,18 @@ export default class ObjImage extends ActionableBase { // ----------------------
     if (this.overlays.length == 0) {
       // ! we must use a shallow copy (using slice() of the array because
       //   the array will be modified during running
-      for (let o of this.overlaymanager.overlays.slice())
+      for (const o of this.overlaymanager.overlays.slice())
         this.overlaymanager.delete(o);
 
       return;
     }
 
-    let showoverlays = this.overlays;
+    const showoverlays = this.overlays;
 
-    let displayed_overlays = this.overlaymanager.overlays;
+    const displayed_overlays = this.overlaymanager.overlays;
     displayed_overlays.forEach(o => o[this.overlaystorage].used = false);
 
-    for (let overlay of showoverlays) {
+    for (const overlay of showoverlays) {
       /*
       overlay.area
       overlay.flags
@@ -351,7 +350,7 @@ export default class ObjImage extends ActionableBase { // ----------------------
       overlay.rowkey
       overlay.title
       */
-      let translatedarea = this._translateOverlayArea(overlay.area, true);
+      const translatedarea = this._translateOverlayArea(overlay.area, true);
 
       // do we have a shown overlay for this overlay?
       let overlayobj = displayed_overlays.find(o =>
@@ -361,13 +360,12 @@ export default class ObjImage extends ActionableBase { // ----------------------
 
       if (overlayobj) {
         overlayobj.update(translatedarea);
-      }
-      else {
+      } else {
         overlayobj = this._createOverlay(translatedarea);
         overlayobj[this.overlaystorage] = {};
       }
 
-      let ostorage = overlayobj[this.overlaystorage];
+      const ostorage = overlayobj[this.overlaystorage];
 
       if (overlay.title != "") {
         if (!ostorage.titlenode) {
@@ -376,8 +374,7 @@ export default class ObjImage extends ActionableBase { // ----------------------
         }
 
         ostorage.titlenode.innerText = overlay.title;
-      }
-      else if (ostorage.titlenode) {
+      } else if (ostorage.titlenode) {
         // no title, but there's a titlenode we don't need anymore, so remove it
         ostorage.titlenode.parentNode.removeChild(ostorage.titlenode);
         ostorage.titlenode = null;
@@ -390,16 +387,16 @@ export default class ObjImage extends ActionableBase { // ----------------------
 
       Object.assign(overlayobj[this.overlaystorage],
         {
-          used: true
-          , rowkey: overlay.rowkey
-          , newid: 0
-          , translatedarea: translatedarea
-          , overlay: overlay
+          used: true,
+          rowkey: overlay.rowkey,
+          newid: 0,
+          translatedarea: translatedarea,
+          overlay: overlay
         });
     }
 
     // work on a copy of displayed_overlays, it will be modified during running
-    for (let o of displayed_overlays.slice()) // NOTE: .slice() used as shallow copy
+    for (const o of displayed_overlays.slice()) // NOTE: .slice() used as shallow copy
     {
       if (!o[this.overlaystorage].used)
         this.overlaymanager.delete(o);
@@ -416,13 +413,13 @@ export default class ObjImage extends ActionableBase { // ----------------------
     area = this._translateOverlayArea(area, false);
 
     // newly created by user!
-    let newid = ++this.newoverlaycounter;
+    const newid = ++this.newoverlaycounter;
     overlay[this.overlaystorage] =
     {
-      rowkey: ""
-      , newid: newid
-      , translatedarea: null
-      , overlay: overlay
+      rowkey: "",
+      newid: newid,
+      translatedarea: null,
+      overlay: overlay
     };
 
     this.queueMessage("newoverlay", { area: area, newid: newid }, true);
@@ -438,8 +435,8 @@ export default class ObjImage extends ActionableBase { // ----------------------
   }
 
   setOverlayManagerSelectionByRowkeys(rowkeys) {
-    let selectedoverlays = [];
-    for (let overlay of this.overlaymanager.overlays) {
+    const selectedoverlays = [];
+    for (const overlay of this.overlaymanager.overlays) {
       if (rowkeys.indexOf(overlay[this.overlaystorage].rowkey) > -1)
         selectedoverlays.push(overlay);
     }
@@ -457,7 +454,7 @@ export default class ObjImage extends ActionableBase { // ----------------------
   // needed for selecting or creating a new overlay??
   _syncOverlaysSelectionToServer() // from overlaymanager to ourself
   {
-    let selectionrowkeys = this.overlaymanager.getSelection().filter(o => !o[this.overlaystorage].newid).map(o => o[this.overlaystorage].rowkey);
+    const selectionrowkeys = this.overlaymanager.getSelection().filter(o => !o[this.overlaystorage].newid).map(o => o[this.overlaystorage].rowkey);
 
     if (this.selectionrowkeys == selectionrowkeys)
       return;
@@ -478,26 +475,24 @@ export default class ObjImage extends ActionableBase { // ----------------------
       return;
     }
 
-    let result = [];
-    for (let overlayobj of this.overlaymanager.overlays) {
+    const result = [];
+    for (const overlayobj of this.overlaymanager.overlays) {
       if (!overlayobj[this.overlaystorage]) {
         // newly created by user!
         overlayobj[this.overlaystorage] =
         {
-          rowkey: ""
-          , newid: ++this.newoverlaycounter
-          , translatedarea: null
-          , overlay: null
+          rowkey: "",
+          newid: ++this.newoverlaycounter,
+          translatedarea: null,
+          overlay: null
         };
-      }
-      else if (!overlayobj[this.overlaystorage].newid) {
-        let newarea = overlayobj.getArea();
-        let overlay = overlayobj[this.overlaystorage].overlay;
+      } else if (!overlayobj[this.overlaystorage].newid) {
+        const newarea = overlayobj.getArea();
+        const overlay = overlayobj[this.overlaystorage].overlay;
         if (this._testTranslatedAreaChanged(newarea, overlayobj[this.overlaystorage].translatedarea))
           overlay.area = this._translateOverlayArea(newarea, false);
         result.push({ rowkey: overlay.rowkey, area: overlay.area });
-      }
-      else {
+      } else {
         // FIXME: handle new overlays that have been modified while tollium was processing them
       }
     }
@@ -533,22 +528,22 @@ export default class ObjImage extends ActionableBase { // ----------------------
 
   relayout() {
     this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
-    var coords = getCoverCoordinates(this.imgwidth, this.imgheight, this.width.set, this.height.set, true);
+    const coords = getCoverCoordinates(this.imgwidth, this.imgheight, this.width.set, this.height.set, true);
 
     if (this.imgnode) {
       dompack.setStyles(this.imgnode, {
-        "width": coords.width
-        , "height": coords.height
-        , "opacity": this.opacity
+        "width": coords.width,
+        "height": coords.height,
+        "opacity": this.opacity
       });
     }
 
     // FIXME: should we do this through CSS now (use a flexbox and let it hor/ver align?)
     // NOTE: use margin because top/left wouldn't stretch the container, causing the image to move out / overflow the container
     dompack.setStyles(this.imgwrapper, {
-      "margin-top": coords.top
-      , "margin-left": coords.left
-      , "position": "relative"
+      "margin-top": coords.top,
+      "margin-left": coords.left,
+      "position": "relative"
     });
 
     // Overlays may have to be repositioned.
@@ -570,7 +565,7 @@ export default class ObjImage extends ActionableBase { // ----------------------
 
   editOverlay(overlay) {
     // overlay: { rowkey: <rowkey>, top: 0, left: 0, right: 0, bottom: 0, type: "rectangle" }
-    var changed = false;
+    let changed = false;
     this.overlays.forEach(function(curoverlay) {
       if (curoverlay.rowkey == overlay.rowkey) {
         if (curoverlay.top != overlay.top) {
@@ -608,7 +603,7 @@ export default class ObjImage extends ActionableBase { // ----------------------
       if (changed)
         this.queueMessage('overlays', this.overlays, true);
     }
-  
+
   , selectOverlay: function(overlay)
     {
       // overlay: null || { rowkey: <rowkey> }
@@ -636,16 +631,16 @@ export default class ObjImage extends ActionableBase { // ----------------------
       return;
 
     //console.log( { clientWidth: event.target.clientWidth, clientHeight: event.target.clientHeight, offsetX: event.offsetX, offsetY: event.offsetY, imgwidth: this.imgwidth, imgheight: this.imgheight } );
-    var nodepos = { x: event.offsetX, y: event.offsetY };
-    var imgpos = this.nodeToImage(nodepos);
+    const nodepos = { x: event.offsetX, y: event.offsetY };
+    const imgpos = this.nodeToImage(nodepos);
 
     // 2nd argument is to check whether a message of this type is already in the queue?
     //this.queueEvent(this.owner.screenname + '.' + this.name, 'click '+ data, true/*sychronous*/);
     this.asyncMessage('click', {
-      absolutex: nodepos.x
-      , absolutey: nodepos.y
-      , nativex: imgpos.x  // click position scaled to original image size
-      , nativey: imgpos.y
+      absolutex: nodepos.x,
+      absolutey: nodepos.y,
+      nativex: imgpos.x,  // click position scaled to original image size
+      nativey: imgpos.y
     });
 
     event.preventDefault();
@@ -702,20 +697,20 @@ export default class ObjImage extends ActionableBase { // ----------------------
     - don't use imgwidth/imgheight, but the natural size (original pixelsize of the image)
     - don't use setwidth and setheight to determine the ratio (only one is forced to a different size)
     */
-    let pixelratio = window.devicePixelRatio || 1;
+    const pixelratio = window.devicePixelRatio || 1;
 
     //IE passes coordinates with decimals, even on 1:1 screens..
-    let offsetx = Math.round(pos.x * pixelratio) / pixelratio;
-    let offsety = Math.round(pos.y * pixelratio) / pixelratio;
-    var wratio = this.imgwidth / this.imgnode.clientWidth;
-    var hratio = this.imgheight / this.imgnode.clientHeight;
+    const offsetx = Math.round(pos.x * pixelratio) / pixelratio;
+    const offsety = Math.round(pos.y * pixelratio) / pixelratio;
+    const wratio = this.imgwidth / this.imgnode.clientWidth;
+    const hratio = this.imgheight / this.imgnode.clientHeight;
 
     return { x: offsetx * wratio, y: offsety * hratio };
   }
 
   imageToNode(pos) {
-    var wratio = this.imgwidth / this.imgnode.clientWidth;
-    var hratio = this.imgheight / this.imgnode.clientHeight;
+    const wratio = this.imgwidth / this.imgnode.clientWidth;
+    const hratio = this.imgheight / this.imgnode.clientHeight;
 
     return { x: pos.x / wratio, y: pos.y / hratio };
   }

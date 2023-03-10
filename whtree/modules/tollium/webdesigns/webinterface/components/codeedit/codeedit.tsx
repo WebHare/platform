@@ -92,7 +92,7 @@ export default class ObjCodeEdit extends ComponentBase {
 
   syncLineNumbers() {
     // ADDME: calculating number of lines basedon scrollheight/lineheight might be faster?
-    var needed_linenumbers = this.textarea.value.split('\n').length + 200;
+    const needed_linenumbers = this.textarea.value.split('\n').length + 200;
 
     //console.log("need: "+needed_linenumbers+" have: "+this.donelinenumbers);
 
@@ -101,7 +101,7 @@ export default class ObjCodeEdit extends ComponentBase {
 
     //console.log("creating extra numbers, need: "+needed_linenumbers+" have: "+this.donelinenumbers);
 
-    var extranumbers = '';
+    let extranumbers = '';
     while (this.donelinenumbers < needed_linenumbers)
       extranumbers += ++this.donelinenumbers + '\n';
 
@@ -110,24 +110,24 @@ export default class ObjCodeEdit extends ComponentBase {
   }
 
   syncMarkers() {
-    var linenumberdivheight = this.linenumberdiv.scrollHeight;
-    var lineheight = linenumberdivheight / this.donelinenumbers;
+    const linenumberdivheight = this.linenumberdiv.scrollHeight;
+    const lineheight = linenumberdivheight / this.donelinenumbers;
 
     dompack.empty(this.markerscrolldiv);
     this.markerscrolldiv.style.height = this.linenumberdiv.scrollHeight + 'px';
     this.markerholderdiv.scrollTop = this.linenumberdiv.scrollTop;
 
     this.markers.forEach(item => {
-      var is_gutter_marker = item.type.substr(0, 6) == "gutter";
+      const is_gutter_marker = item.type.substr(0, 6) == "gutter";
 
       this.markerscrolldiv.appendChild(
         <div className={"marker " + item.type}
           style={{
-            marginLeft: is_gutter_marker ? 0 : this.linenumberswidth + 'px'
-            , width: is_gutter_marker ? this.linenumberswidth + 'px' : "100%"
-            , top: lineheight * (item.line - 1) + "px"
-            , height: lineheight + "px"
-            , background: item.color
+            marginLeft: is_gutter_marker ? 0 : this.linenumberswidth + 'px',
+            width: is_gutter_marker ? this.linenumberswidth + 'px' : "100%",
+            top: lineheight * (item.line - 1) + "px",
+            height: lineheight + "px",
+            background: item.color
           }} />);
     });
   }
@@ -145,29 +145,27 @@ export default class ObjCodeEdit extends ComponentBase {
     }
 
     this.syncLineNumbers();
-    var selectpos = line == 0 ? 0 : this.textarea.value.split('\n').slice(0, line).join('\n').length + 1;
+    const selectpos = line == 0 ? 0 : this.textarea.value.split('\n').slice(0, line).join('\n').length + 1;
     try {
       this.setSelection(selectpos, selectpos);
-    }
-    catch (ex) {
+    } catch (ex) {
       console.error("Caught exception while setting selection. Exception: " + ex.name + " Message: " + ex.message);
     }
 
-    var lineheight = this.linenumberdiv.scrollHeight / this.donelinenumbers;
+    const lineheight = this.linenumberdiv.scrollHeight / this.donelinenumbers;
     let scrolltop = this.textarea.scrollTop;
     if (attop) {
       // Topline: honor exactly
       scrolltop = Math.max(0, line) * lineheight;
-    }
-    else {
+    } else {
       // When scrolling to first 3 or last 3 lines in view, scroll as little as possible
       // to get 3 lines of context
       // else center the view on the line
-      var minfull_scroll = Math.max(0, (line + 1) * lineheight - this.textarea.offsetHeight);
-      var maxfull_scroll = Math.max(0, line * lineheight);
+      const minfull_scroll = Math.max(0, (line + 1) * lineheight - this.textarea.offsetHeight);
+      const maxfull_scroll = Math.max(0, line * lineheight);
 
-      var min_scroll = Math.max(0, (line + 4) * lineheight - this.textarea.offsetHeight);
-      var max_scroll = Math.max(0, (line - 3) * lineheight);
+      let min_scroll = Math.max(0, (line + 4) * lineheight - this.textarea.offsetHeight);
+      let max_scroll = Math.max(0, (line - 3) * lineheight);
 
       // No 3 lines of context? Meh, always center
       if (max_scroll < min_scroll)
@@ -192,7 +190,7 @@ export default class ObjCodeEdit extends ComponentBase {
   }
 
   syncScroll(immediate) {
-    var scrollTop = this.textarea.scrollTop;
+    const scrollTop = this.textarea.scrollTop;
     //console.log("Scrollpos in scroll event: "+scrollTop);
 
     this.linenumberdiv.scrollTop = scrollTop;
@@ -219,20 +217,19 @@ export default class ObjCodeEdit extends ComponentBase {
 
   gotGutterClick(event) {
     // Get click y relative to target node
-    var y = event.clientY;
-    var element = event.target;
-    var nextoffsetparent = element;
+    let y = event.clientY;
+    let element = event.target;
+    let nextoffsetparent = element;
     while (nextoffsetparent) {
       if (element == nextoffsetparent) {
         y += element.scrollTop - element.offsetTop;
         nextoffsetparent = element.offsetParent;
-      }
-      else
+      } else
         y += element.scrollTop;
       element = element.parentNode;
     }
 
-    var lineheight = this.linenumberdiv.scrollHeight / this.donelinenumbers;
+    const lineheight = this.linenumberdiv.scrollHeight / this.donelinenumbers;
     this.queueMessage('gutterclick', { line: Math.floor(y / lineheight) + 1 }, true);
     event.preventDefault();
   }
@@ -243,11 +240,11 @@ export default class ObjCodeEdit extends ComponentBase {
   //
 
   executeActions(actions) {
-    for (var i = 0; i < actions.length; ++i) {
+    for (let i = 0; i < actions.length; ++i) {
       switch (actions[i].action) {
         case 'gotoline':
           {
-            let line = actions[i].linenum - 1;
+            const line = actions[i].linenum - 1;
             if (this.node)
               this.gotoLine(line);
             else
@@ -255,7 +252,7 @@ export default class ObjCodeEdit extends ComponentBase {
           } break;
         case 'gototopline':
           {
-            let line = actions[i].linenum - 1;
+            const line = actions[i].linenum - 1;
             this.gotoLine(line, true);
           } break;
       }
@@ -278,14 +275,14 @@ export default class ObjCodeEdit extends ComponentBase {
   relayout() {
     dompack.setStyles(this.node,
       {
-        "width": this.width.set
-        , "height": this.height.set
+        "width": this.width.set,
+        "height": this.height.set
       });
 
     dompack.setStyles(this.textarea,
       {
-        width: (this.width.set - this.linenumberswidth - 2) + 'px'
-        , height: this.height.set + 'px'
+        width: (this.width.set - this.linenumberswidth - 2) + 'px',
+        height: this.height.set + 'px'
       });
 
     if (!this.isactive) //we'll save up the first gotoline until we get into view
@@ -296,14 +293,14 @@ export default class ObjCodeEdit extends ComponentBase {
 
     dompack.setStyles(this.linenumberbg,
       {
-        width: this.linenumberswidth + 'px'
-        , height: this.height.set + 'px'
+        width: this.linenumberswidth + 'px',
+        height: this.height.set + 'px'
       });
 
     dompack.setStyles(this.linenumberdiv,
       {
-        width: this.linenumberswidth + 'px'
-        , height: this.height.set + 'px'
+        width: this.linenumberswidth + 'px',
+        height: this.height.set + 'px'
       });
 
     this.syncScroll(true);
@@ -341,17 +338,17 @@ export default class ObjCodeEdit extends ComponentBase {
   }
 
   getSubmitValue() {
-    var lineheight = this.linenumberdiv.scrollHeight / this.donelinenumbers;
+    const lineheight = this.linenumberdiv.scrollHeight / this.donelinenumbers;
 
-    var beforeselectionlines = this.textarea.value.substr(0, this.textarea.selectionStart).split('\n');
+    const beforeselectionlines = this.textarea.value.substr(0, this.textarea.selectionStart).split('\n');
 
     return {
-      enabled: this.enabled
-      , line: beforeselectionlines.length
-      , col: beforeselectionlines[beforeselectionlines.length - 1].length + 1
-      , selection: this.textarea.value.substr(this.textarea.selectionStart, this.textarea.selectionEnd - this.textarea.selectionStart)
-      , topline: lineheight ? Math.floor(this.textarea.scrollTop / lineheight + 1) : 1
-      , value: this.enabled ? this.textarea.value : ""
+      enabled: this.enabled,
+      line: beforeselectionlines.length,
+      col: beforeselectionlines[beforeselectionlines.length - 1].length + 1,
+      selection: this.textarea.value.substr(this.textarea.selectionStart, this.textarea.selectionEnd - this.textarea.selectionStart),
+      topline: lineheight ? Math.floor(this.textarea.scrollTop / lineheight + 1) : 1,
+      value: this.enabled ? this.textarea.value : ""
     };
   }
 }

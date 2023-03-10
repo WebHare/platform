@@ -5,20 +5,17 @@
 import * as dompack from 'dompack';
 window.focusZones = require('@mod-tollium/web/ui/components/focuszones');
 
-function onZoneFocus(event)
-{
-  console.log('focus event',event);
-  if(event.target == document.getElementById('focuszone2'))
+function onZoneFocus(event) {
+  console.log('focus event', event);
+  if (event.target == document.getElementById('focuszone2'))
     document.getElementById('log').append(<div>{"Focused focuszone2"}</div>);
 }
 
-function onZoneBlur(event)
-{
+function onZoneBlur(event) {
   document.getElementById('log').append(<div>{"Zone " + (event.target.id || event.target.get('tag')) + " lost focus"}</div>);
 }
 
-function pageinit()
-{
+function pageinit() {
   window.addEventListener("wh:focuszone-blur", onZoneBlur);
   dompack.qSA(".tozone1").forEach(node => node.addEventListener("click", function() { focusZones.focusZone(document.getElementById('focuszone1')); }));
   dompack.qSA(".tozone2").forEach(node => node.addEventListener("click", function() { focusZones.focusZone(document.getElementById('focuszone2')); }));

@@ -33,7 +33,7 @@ import * as whintegration from '@mod-system/js/wh/integration';
 import * as WRDAuth from '@mod-wrd/js/auth';
 import './debugging/magicmenu';
 
-var EventServerConnection = require('@mod-system/js/net/eventserver');
+const EventServerConnection = require('@mod-system/js/net/eventserver');
 import { setupWHCheck } from './shell/whcheck';
 import { setupMouseHandling } from "./shell/mousehandling";
 
@@ -48,7 +48,7 @@ require('../css/apps.scss');
 require('../skins/default/skin.scss');
 require('../skins/default/controls.scss');
 
-var toddImages = require("@mod-tollium/js/icons");
+const toddImages = require("@mod-tollium/js/icons");
 
 import TowlNotifications from './shell/towl';
 
@@ -120,12 +120,12 @@ class IndyShell extends TolliumShell {
    */
 
   startFrontendApplication(appname, parentapp, options) {
-    var application = new FrontendEmbeddedApplication(this, appname, (options && options.target) || {}, parentapp, options);
+    const application = new FrontendEmbeddedApplication(this, appname, (options && options.target) || {}, parentapp, options);
     $todd.applications.push(application);
 
     application.loadApplication({
-      src: options.src
-      , baseobject: appname
+      src: options.src,
+      baseobject: appname
     });
     if (!options.inbackground && !parentapp)
       application.activateApp();
@@ -138,16 +138,16 @@ class IndyShell extends TolliumShell {
 
     $todd.towl.hideNotification("tollium:shell.frontendclose");
 
-    let webvars = [], params = new URL(location.href).searchParams;
-    for (let key of params.keys())
+    const webvars = [], params = new URL(location.href).searchParams;
+    for (const key of params.keys())
       webvars.push({ name: key, value: params.get(key) });
 
     options = {
-      ...options
-      , frontendid: whintegration.config.obj.frontendid
-      , shortunknowntids: whintegration.config.obj.shortunknowntids
-      , params: whintegration.config.obj.appserviceparams
-      , webvars: webvars
+      ...options,
+      frontendid: whintegration.config.obj.frontendid,
+      shortunknowntids: whintegration.config.obj.shortunknowntids,
+      params: whintegration.config.obj.appserviceparams,
+      webvars: webvars
     };
 
     if (!options.isloginapp && location.hash.startsWith('#go=')) {
@@ -155,7 +155,7 @@ class IndyShell extends TolliumShell {
       history.replaceState({}, null, location.href.split('#')[0]);
     }
 
-    var application = new BackendApplication(this, appname, (options && options.target) || {}, parentapp, options);
+    const application = new BackendApplication(this, appname, (options && options.target) || {}, parentapp, options);
     $todd.applications.push(application);
 
     application.launchApp();
@@ -169,7 +169,7 @@ class IndyShell extends TolliumShell {
       this.executeInstruction(this.settings.personalsettings);
   }
   getApplicationById(id) {
-    for (var i = 0; i < $todd.applications.length; ++i)
+    for (let i = 0; i < $todd.applications.length; ++i)
       if ($todd.applications[i].whsid == id)
         return $todd.applications[i];
     return null;
@@ -177,13 +177,13 @@ class IndyShell extends TolliumShell {
 
   registerApplicationFrontendLink(data) {
     // Register the frontend id
-    var seenfrontend = this.frontendids.includes(data.frontendid);
+    const seenfrontend = this.frontendids.includes(data.frontendid);
     if (!seenfrontend)
       this.frontendids.push(data.frontendid);
 
     if (!seenfrontend) //FIXME should we register an endpoint if it wasn't an appstart? (what else could it be)? Decided to do it anyway, as the original code _did_ include the frontendid into $tdod.frontendids no matter what..
     {
-      var metacomm = new LinkEndPoint({ linkid: data.linkid, commhost: data.commhost, frontendid: data.frontendid });
+      const metacomm = new LinkEndPoint({ linkid: data.linkid, commhost: data.commhost, frontendid: data.frontendid });
       metacomm.onmessage = this._gotMetaMessage.bind(this.shell);
       metacomm.onclosed = this._gotMetaClose.bind(this, data.frontendid);
       metacomm.register(this.transportmgr);
@@ -197,7 +197,7 @@ class IndyShell extends TolliumShell {
   // If callback is not defined, loading new components is not allowed
   // Returns a list of unloaded components
   checkComponentsLoaded(compnames, callback) {
-    var unloaded_components = [];
+    const unloaded_components = [];
     compnames.forEach(item => {
       if (!todd_components[item] && !unloaded_components.includes(item))
         unloaded_components.push(item);
@@ -230,7 +230,7 @@ class IndyShell extends TolliumShell {
       function(response) //onsuccess
       {
         location.reload(true);
-      }.bind(this),
+      },
       function(err) //onfail
       {
         console.error(err);
@@ -251,11 +251,11 @@ class IndyShell extends TolliumShell {
 
     this.transportmgr = new TransportManager(
       {
-        ononline: () => this._gotOnline()
-        , onoffline: () => this._gotOffline()
+        ononline: () => this._gotOnline(),
+        onoffline: () => this._gotOffline()
       });
 
-    var appbar = document.getElementById('t-apptabs');
+    const appbar = document.getElementById('t-apptabs');
     if (appbar)
       this.applicationbar = new ApplicationBar(this, appbar);
 
@@ -274,7 +274,7 @@ class IndyShell extends TolliumShell {
     console.log("launching StartPortal and the shell");
 
     //This is the true shell. Ask the tollium shell what we need to do. Pass it any webvariables?
-    var options = {};
+    const options = {};
     options.params = whintegration.config.obj.appserviceparams;
     this.tolliumservice.startPortal([options]).then(this.gotPortal.bind(this), this.failPortal.bind(this));
   }
@@ -286,23 +286,23 @@ class IndyShell extends TolliumShell {
     setInterval(() => this.checkVersion(), 5 * 60 * 1000); //check for version updates etc every 5 minutes
 
     this.invitetype = (new URL(location.href)).searchParams.get("wrd_pwdaction");
-    let runinviteapp = ["resetpassword"].includes(this.invitetype);
+    const runinviteapp = ["resetpassword"].includes(this.invitetype);
 
     if (runinviteapp || !data.isloggedin) {
       if (runinviteapp)
         this.loginapp = this.startBackendApplication("system:" + this.invitetype, null,
           {
-            onappbar: false
+            onappbar: false,
             //, src: '/.tollium/ui/js/login.js'
             //, target: data.loginconfig
-            , isloginapp: true
+            isloginapp: true
           });
       else
         this.loginapp = this.startFrontendApplication("tollium:builtin.login", null,
           {
-            onappbar: false
-            , target: data.loginconfig
-            , isloginapp: true
+            onappbar: false,
+            target: data.loginconfig,
+            isloginapp: true
           });
 
       if (this.placeholderapp) //we can close it now
@@ -326,12 +326,12 @@ class IndyShell extends TolliumShell {
     }
 
     if (this.checkWasJustUpdated()) {
-      var notification = {
-        id: -987654321
-        , timeout: 15000 //this is just a "why did we flash". if you weren't looking, not really relevant, so go away after 15 secs
-        , icon: "tollium:messageboxes/information"
-        , title: getTid("tollium:shell.webhareupdated")
-        , description: getTid("tollium:shell.webhareupdated_description")
+      const notification = {
+        id: -987654321,
+        timeout: 15000, //this is just a "why did we flash". if you weren't looking, not really relevant, so go away after 15 secs
+        icon: "tollium:messageboxes/information",
+        title: getTid("tollium:shell.webhareupdated"),
+        description: getTid("tollium:shell.webhareupdated_description")
       };
 
       $todd.towl.showNotification(notification);
@@ -361,8 +361,7 @@ class IndyShell extends TolliumShell {
         location.href = location.href.split('?')[0];
       else
         window.close();
-    }
-    else if (!this.anyConnectedApplications()) {
+    } else if (!this.anyConnectedApplications()) {
       this.checkVersion(); //poll for new version when all apps are closed
     }
   }
@@ -375,7 +374,7 @@ class IndyShell extends TolliumShell {
     this.wrdauth.logout();
   }
   requestNewShellSettings() {
-    var options = {};
+    const options = {};
     options.params = whintegration.config.obj.appserviceparams;
     this.tolliumservice.getCurrentShellSettings(options).then(this.applyShellSettings.bind(this));
   }
@@ -402,7 +401,7 @@ class IndyShell extends TolliumShell {
     location.reload(true);
   }
   checkWasJustUpdated() {
-    let wasjustupdated = storage.getSession("WebHare-lastInitVersion-updated") == "1";
+    const wasjustupdated = storage.getSession("WebHare-lastInitVersion-updated") == "1";
     storage.setSession("WebHare-lastInitVersion-updated", null);
     return wasjustupdated;
   }
@@ -412,8 +411,7 @@ class IndyShell extends TolliumShell {
       if (!this.feedbackhandler)
         this.feedbackhandler = new TolliumFeedbackAPI;
       this.feedbackhandler.scope = scope;
-    }
-    else if (!scope && this.feedbackhandler) {
+    } else if (!scope && this.feedbackhandler) {
       this.feedbackhandler.remove();
       this.feedbackhandler = null;
     }
@@ -434,7 +432,7 @@ class IndyShell extends TolliumShell {
       document.getElementById('openinfo').textContent = settings.openinfo;
     }
 
-    var curapp = $todd.applicationstack.at(-1);
+    const curapp = $todd.applicationstack.at(-1);
     if (curapp)
       curapp.setAppTitle(curapp.title);
 
@@ -460,8 +458,7 @@ class IndyShell extends TolliumShell {
             if (message)
               $todd.applications[i].queueEvent("$appmessage", { message: message, onlynonbusy: false }, false);
             $todd.applications[i].activateApp();
-          }
-          else // onlynonbusy
+          } else // onlynonbusy
           {
             $todd.applications[i].queueEventAsync("$appmessage", { message: message || null, onlynonbusy: true }).then(reply => {
               if (reply && reply.busy)
@@ -502,7 +499,7 @@ class IndyShell extends TolliumShell {
   onBroadcastData(event) {
     //ADDME dedupe events, filter events launched before we started
     event.msgs.forEach(msg => {
-      var data = JSON.parse(msg.msg);
+      const data = JSON.parse(msg.msg);
       $todd.DebugTypedLog("communication", "Received a broadcast", data);
 
       if (new Date(data.now) < this.broadcaststart)
@@ -528,10 +525,10 @@ class IndyShell extends TolliumShell {
 
       case "tollium:towl.event":
         {
-          var notification = {
-            id: event.detail.id
-            , description: event.detail.description
-            , timeout: event.detail.timeout || 0
+          const notification = {
+            id: event.detail.id,
+            description: event.detail.description,
+            timeout: event.detail.timeout || 0
           };
           if (event.detail.icon)
             notification.icon = event.detail.icon;
@@ -552,7 +549,7 @@ class IndyShell extends TolliumShell {
   }
 
   _gotMetaMessage(data) {
-    var app = $shell.getApplicationById(data.appid);
+    const app = $shell.getApplicationById(data.appid);
     if (!app) {
       console.warn("Received error message for app " + data.appid + " but cannot find it", data.errors);
       return;
@@ -563,7 +560,7 @@ class IndyShell extends TolliumShell {
   _gotMetaClose(frontendid) {
     $todd.DebugTypedLog('communication', frontendid, 'connection closed');
 
-    var openapps = false;
+    let openapps = false;
     $todd.applications.forEach(function(app) {
       // Do we have any (non-crashed) applications open? Close them now.
       if (app.frontendid === frontendid && !app.appisclosing) {
@@ -575,14 +572,14 @@ class IndyShell extends TolliumShell {
     this.frontendids = this.frontendids.filter(id => id != frontendid); //erase
 
     if (openapps) {
-      var notification =
+      const notification =
       {
-        id: "tollium:shell.frontendclose"
-        , icon: "tollium:messageboxes/warning"
-        , title: getTid("tollium:shell.frontendclose")
-        , description: getTid("tollium:shell.frontendclose_description")
-        , timeout: 0
-        , persistent: true
+        id: "tollium:shell.frontendclose",
+        icon: "tollium:messageboxes/warning",
+        title: getTid("tollium:shell.frontendclose"),
+        description: getTid("tollium:shell.frontendclose_description"),
+        timeout: 0,
+        persistent: true
       };
 
       $todd.towl.showNotification(notification);
@@ -595,14 +592,14 @@ class IndyShell extends TolliumShell {
     //    console.warn("Went offline, showing notification");
 
     if (!this.offlinenotification) {
-      var notification =
+      const notification =
       {
-        id: "tollium:shell.offline"
-        , icon: this.offlinenotificationicon
-        , title: getTid("tollium:shell.offline")
-        , description: getTid("tollium:shell.offline_description")
-        , timeout: 0
-        , persistent: true
+        id: "tollium:shell.offline",
+        icon: this.offlinenotificationicon,
+        title: getTid("tollium:shell.offline"),
+        description: getTid("tollium:shell.offline_description"),
+        timeout: 0,
+        persistent: true
       };
 
       $todd.towl.showNotification(notification);
@@ -662,15 +659,14 @@ $todd.handleApplicationErrors = async function(app, data) {
   }
 
   console.log("Received error message for app", app, data);
-  var messages = '';
-  var trace = '\nTrace:\n';
+  let messages = '';
+  let trace = '\nTrace:\n';
 
-  for (var i = 0; i < data.errors.length; ++i) {
+  for (let i = 0; i < data.errors.length; ++i) {
     if (data.errors[i].message) {
       messages += data.errors[i].message + "\n";
       messages += "At " + data.errors[i].filename + "(" + data.errors[i].line + "," + data.errors[i].col + ")\n";
-    }
-    else {
+    } else {
       if (data.errors[i].async_origin)
         trace += data.errors[i].async_origin + "\n";
       trace += data.errors[i].filename + "(" + data.errors[i].line + "," + data.errors[i].col + ") " + data.errors[i].func + "\n";
@@ -683,45 +679,47 @@ $todd.handleApplicationErrors = async function(app, data) {
 //TODO souldn't this be *inside* the app objects instead of the shell ? these crashes dont' exist without Apps
 function reportApplicationError(app, data, messages, trace) {
   //Set up a crash handler dialog
-  var buttons = [{ item: "restartbutton" }, { item: "closebutton" }];
+  let buttons = [{ item: "restartbutton" }, { item: "closebutton" }];
   if (data.debugtimeout > 0)
     buttons = [{ "item": "debugbutton" }].concat(buttons);
 
-  var crashdialog = app.createScreen(
+  const crashdialog = app.createScreen(
     {
-      frame: { bodynode: 'root', specials: ['closeaction', 'debugaction', 'restartaction'], allowresize: true, allowclose: true, title: getTid("tollium:shell.errors.errordialogtitle") }
-      , root: {
-        type: 'panel', lines: [{ layout: "block", items: [{ item: "body" }], height: '1pr' }
-          , { layout: "block", items: [{ item: "footer" }] }
-        ]
-        , height: '1pr'
-      }
-      , body: {
-        type: 'panel', lines: [{ items: [{ item: "errortext" }], layout: 'left' }
-          , { items: [{ item: "errorlist" }], height: '1pr' }
-        ]
-        , height: '1pr'
-        , spacers: { top: true, bottom: true, left: true, right: true }
-        , width: '1pr'
-      }
-      , errortext: { type: 'text', value: getTid("tollium:shell.errors.encounterederror") }
-      , footer: {
-        type: 'panel'
-        , lines: [{ items: buttons, layout: 'right' }]
-        , spacers: { top: true, bottom: true, left: true, right: true }
-        , isfooter: true
-        , width: '1pr'
-      }
-      , closebutton: { type: 'button', title: getTid("~close"), action: 'closeaction' }
-      , closeaction: { type: 'action', hashandler: true, unmasked_events: ['execute'] } //ADDME can we lose the hashandler requirement? perhaps even unmasked_events ?
-      , debugbutton: { type: 'button', title: getTid("tollium:shell.errors.debug"), action: 'debugaction' }
-      , debugaction: { type: 'action', hashandler: true, unmasked_events: ['execute'] }
-      , restartbutton: { type: 'button', title: getTid("tollium:shell.errors.restart"), action: 'restartaction' }
-      , restartaction: { type: 'action', hashandler: true, unmasked_events: ['execute'] }
-      , errorlist: { type: 'textarea', enabled: false, value: messages + trace, minwidth: "90x", minheight: "24x", width: '1pr', height: '1pr' }
+      frame: { bodynode: 'root', specials: ['closeaction', 'debugaction', 'restartaction'], allowresize: true, allowclose: true, title: getTid("tollium:shell.errors.errordialogtitle") },
+      root: {
+        type: 'panel', lines: [
+          { layout: "block", items: [{ item: "body" }], height: '1pr' },
+          { layout: "block", items: [{ item: "footer" }] }
+        ],
+        height: '1pr'
+      },
+      body: {
+        type: 'panel', lines: [
+          { items: [{ item: "errortext" }], layout: 'left' },
+          { items: [{ item: "errorlist" }], height: '1pr' }
+        ],
+        height: '1pr',
+        spacers: { top: true, bottom: true, left: true, right: true },
+        width: '1pr'
+      },
+      errortext: { type: 'text', value: getTid("tollium:shell.errors.encounterederror") },
+      footer: {
+        type: 'panel',
+        lines: [{ items: buttons, layout: 'right' }],
+        spacers: { top: true, bottom: true, left: true, right: true },
+        isfooter: true,
+        width: '1pr'
+      },
+      closebutton: { type: 'button', title: getTid("~close"), action: 'closeaction' },
+      closeaction: { type: 'action', hashandler: true, unmasked_events: ['execute'] }, //ADDME can we lose the hashandler requirement? perhaps even unmasked_events ?
+      debugbutton: { type: 'button', title: getTid("tollium:shell.errors.debug"), action: 'debugaction' },
+      debugaction: { type: 'action', hashandler: true, unmasked_events: ['execute'] },
+      restartbutton: { type: 'button', title: getTid("tollium:shell.errors.restart"), action: 'restartaction' },
+      restartaction: { type: 'action', hashandler: true, unmasked_events: ['execute'] },
+      errorlist: { type: 'textarea', enabled: false, value: messages + trace, minwidth: "90x", minheight: "24x", width: '1pr', height: '1pr' }
     });
 
-  var result = { closed: false };
+  const result = { closed: false };
 
   //app.removeAllBusyLocks();
   crashdialog.setMessageHandler("frame", "close", closeAppAfterError.bind(null, app, result, null));
@@ -733,7 +731,7 @@ function reportApplicationError(app, data, messages, trace) {
   if (data.debugtimeout) {
     setTimeout(function() {
       if (!result.closed) {
-        let debugaction = crashdialog.getComponent("debugaction");
+        const debugaction = crashdialog.getComponent("debugaction");
         if (debugaction) {
           debugaction.xml_enabled = false;
           crashdialog.actionEnabler();
@@ -768,9 +766,9 @@ var PlaceholderApp = class {
 //The API we'll export to external applictions
 window.$tollium =
 {
-  version: 1
-  , registerJSApp: registerJSApp
-  , componentsToMessages: $todd.componentsToMessages
+  version: 1,
+  registerJSApp: registerJSApp,
+  componentsToMessages: $todd.componentsToMessages
 };
 
 module.exports = IndyShell;

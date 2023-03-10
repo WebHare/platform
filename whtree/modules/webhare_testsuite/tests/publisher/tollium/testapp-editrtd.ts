@@ -6,12 +6,13 @@ import * as test from "@mod-tollium/js/testframework";
 let setupdata;
 
 test.registerTests(
-  [ async function()
-    {
+  [
+    async function() {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup'
-                                       , { createsysop: true
-                                         , preprtd: true
-                                         });
+        , {
+          createsysop: true,
+          preprtd: true
+        });
       await test.load(test.getWrdLogoutUrl(setupdata.testportalurl + "?app=publisher(" + setupdata.rtdid + ")"));
       // Wait for login page to appear
       await test.wait('ui');
@@ -19,26 +20,23 @@ test.registerTests(
       test.setTodd('password', setupdata.sysoppassword);
       test.clickToddButton('Login');
       await test.wait("ui");
-    }
-  , async function()
-    {
+    },
+    async function() {
       test.click(test.getCurrentScreen().getListRow('filelist!mylist', 'testapp-editrtd.rtd'));
       test.click(test.getCurrentScreen().getListRow('filelist!mylist', 'testapp-editrtd.rtd'));
 
       await test.wait('ui');
-    }
-  , async function()
-    {
-      let h1 = test.getCurrentScreen().qSA('h1.heading1');
-      test.eq(1,h1.length);
+    },
+    async function() {
+      const h1 = test.getCurrentScreen().qSA('h1.heading1');
+      test.eq(1, h1.length);
       //ADDME css ready would be nice, but we'll just wait
-      await test.wait( () => getComputedStyle(h1[0]).color == 'rgb(0, 0, 255)');
+      await test.wait(() => getComputedStyle(h1[0]).color == 'rgb(0, 0, 255)');
       await test.sleep(200);
-    }
-  , "Empty line between objects disappear on save"
-  , async function()
-    {
-        // focus the edit area
+    },
+    "Empty line between objects disappear on save",
+    async function() {
+      // focus the edit area
       let body = test.getCurrentScreen().qS(".wh-rtd-editor-bodynode");
       test.click(body);
       test.getWin().getSelection().setBaseAndExtent(body, body.children.length, body, body.children.length);
@@ -66,7 +64,7 @@ test.registerTests(
       await test.wait("ui");
 
       // Exit the editor to avoid lock on re-open
-      test.click(test.getMenu([ "Exit" ]));
+      test.click(test.getMenu(["Exit"]));
       await test.wait("ui");
 
       // Close and reopen the editor
@@ -77,7 +75,7 @@ test.registerTests(
       await test.wait('ui');
 
       body = test.getCurrentScreen().qS(".wh-rtd-editor-bodynode");
-      test.eq([ "h1", "div", "p", "div" ], Array.from(body.children).map(n => n.nodeName.toLowerCase()));
+      test.eq(["h1", "div", "p", "div"], Array.from(body.children).map(n => n.nodeName.toLowerCase()));
     }
 
   ]);

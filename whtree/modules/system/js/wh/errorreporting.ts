@@ -8,16 +8,16 @@
 */
 
 import * as dompack from 'dompack';
-var JSONRPC = require('@mod-system/js/net/jsonrpc');
+const JSONRPC = require('@mod-system/js/net/jsonrpc');
 import * as browser from 'dompack/extra/browser';
-let StackTrace = require("stacktrace-js");
+const StackTrace = require("stacktrace-js");
 
-var haveerror = false;
-var mayreport = true;
-var saved_onerror = null;
+let haveerror = false;
+let mayreport = true;
+let saved_onerror = null;
 
 // Determine root object
-var root;
+let root;
 if (typeof window != "undefined")
   root = window;
 else if (typeof self != "undefined")
@@ -27,8 +27,8 @@ else if (typeof self != "undefined")
 // at construction time, so we can trace where the rejected promise came from
 if (dompack.debugflags.pro) {
   const P = Promise;
-  let MyPromise = function(executor) {
-    let p = new P(executor);
+  const MyPromise = function(executor) {
+    const p = new P(executor);
     p.error = new Error("unhandled rejected promise");
     p.__proto__ = MyPromise.prototype;
     return p;
@@ -56,8 +56,8 @@ function resetMayReport() {
   mayreport = true;
 }
 
-var reported = [];
-let sourceCache = {};
+const reported = [];
+const sourceCache = {};
 let reportPromise = null;
 
 /** Send an exception
@@ -73,16 +73,15 @@ async function reportException(errorobj, options) {
   options = options || {};
 
   //try {  console.log("reportException", errorobj, errorobj.stack) }catch(e) {}
-  var exception_text = '';
+  let exception_text = '';
   if (errorobj && typeof errorobj === "object") // Firefox may throw permission denied on stack property
   {
     try {
       exception_text = errorobj.stack;
-      let firstline = errorobj.name + ": " + errorobj.message;
+      const firstline = errorobj.name + ": " + errorobj.message;
       if (exception_text.beginsWith(firstline))
         exception_text = firstline + "\n" + exception_text;
-    }
-    catch (e) {
+    } catch (e) {
     }
   }
 
@@ -95,7 +94,7 @@ async function reportException(errorobj, options) {
     try { exception_text = errorobj.toString(); } catch (e) { }
 
   // Max 10 reports per page, and no duplicates
-  let shouldsend = reported.length <= 10 && !reported.includes(exception_text);
+  const shouldsend = reported.length <= 10 && !reported.includes(exception_text);
   if (!shouldsend && !options.forcesend && !options.forceresolve)
     return;
 
@@ -112,31 +111,30 @@ async function reportException(errorobj, options) {
         stackframes = await StackTrace.fromError(errorobj, { sourceCache });
         stackframes = stackframes.map(frame => (
           {
-            line: frame.lineNumber
-            , func: frame.functionName
-            , filename: frame.fileName.replace("/@whpath/", "")
-            , col: frame.columnNumber
+            line: frame.lineNumber,
+            func: frame.functionName,
+            filename: frame.fileName.replace("/@whpath/", ""),
+            col: frame.columnNumber
           }));
       }
-    }
-    catch (e) {
+    } catch (e) {
       console.info("Could not retrieve stack trace", e.stack || e);
     }
 
     if (!shouldsend && !options.forcesend)
       return ({ stacktrace: stackframes });
 
-    var data =
+    const data =
     {
-      v: 1
-      , browser: browser.getTriplet()
-      , location: location.href
-      , error: exception_text
-      , trace: stackframes
+      v: 1,
+      browser: browser.getTriplet(),
+      location: location.href,
+      error: exception_text,
+      trace: stackframes
     };
 
     if (options && options.extradata) {
-      for (var name in options.extradata)
+      for (const name in options.extradata)
         if (options.extradata.hasOwnProperty(name))
           data[name] = options.extradata[name];
     }
@@ -144,20 +142,18 @@ async function reportException(errorobj, options) {
     if (typeof (root.location) == 'undefined')
       return;
 
-    var serviceuri = (new URL((options && options.serviceuri) || "/wh_services/publisher/designfiles/", root.location.href)).toString();
-    var rpc = new JSONRPC({ url: serviceuri, timeout: 10000 });
+    const serviceuri = (new URL((options && options.serviceuri) || "/wh_services/publisher/designfiles/", root.location.href)).toString();
+    const rpc = new JSONRPC({ url: serviceuri, timeout: 10000 });
     rpc.request((options && options.servicefunction) || "ReportJavaScriptError", [data]);
 
     if (stackframes) {
       console.warn("Reported exception: ", exception_text);
       console.warn("Translated trace: " + stackframes.map(s => `\n at ${s.func || ""} (${s.filename}:${s.line}:${s.col})`).join(""));
-    }
-    else
+    } else
       console.warn('Reported exception: ', exception_text);
 
     return ({ stacktrace: stackframes });
-  }
-  finally {
+  } finally {
     resolve(true);
   }
 }
@@ -174,7 +170,7 @@ function handleOnError(errormsg, url, linenumber, column, errorobj) {
   try {
     mayreport = false;
 
-    var altstack = 'onerror:' + errormsg;
+    let altstack = 'onerror:' + errormsg;
     if (url)
       altstack += "\nat unknown_function (" + url + ":" + linenumber + ":" + (column || 1) + ")";
 
@@ -184,17 +180,14 @@ function handleOnError(errormsg, url, linenumber, column, errorobj) {
       root.addEventListener('click', resetMayReport, true);
 
     haveerror = true;
-  }
-  catch (e) {
+  } catch (e) {
     try //IE unspecified errors may refuse to be printed, so be prepared to swallow even this
     {
       console.error('Exception while reporting earlier exception', e);
-    }
-    catch (e) {
+    } catch (e) {
       try {
         console.error('Exception while reporting about the exception about an earlier exception');
-      }
-      catch (e) {
+      } catch (e) {
         /* we give up. console is crashing ? */
       }
     }
@@ -226,7 +219,7 @@ if (!dompack.debugflags.ner)
 
 module.exports =
 {
-  reportException: reportException
-  , shouldIgnoreOnErrorCallback: shouldIgnoreOnErrorCallback
-  , waitForReports
+  reportException: reportException,
+  shouldIgnoreOnErrorCallback: shouldIgnoreOnErrorCallback,
+  waitForReports
 };

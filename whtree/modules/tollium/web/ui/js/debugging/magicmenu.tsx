@@ -27,12 +27,12 @@ function onTopbarClick(event) {
 }
 
 async function editElement(component) {
-  let screennode = component.closest('.t-screen');
+  const screennode = component.closest('.t-screen');
 
   if (!screennode)
     return alert("Sorry, no screen found there");
 
-  let componentpath = [];
+  const componentpath = [];
   while (component) {
     componentpath.push(component.dataset.name);
     component = component.parentNode.closest('*[data-name]');
@@ -47,8 +47,8 @@ function onMagicMenu(event) {
 
   dompack.stop(event);
 
-  let component = event.target.closest('*[data-name]');
-  let submenu = dompack.create("ul");
+  const component = event.target.closest('*[data-name]');
+  const submenu = dompack.create("ul");
 
   if (component) {
     submenu.append(<li class="divider" />

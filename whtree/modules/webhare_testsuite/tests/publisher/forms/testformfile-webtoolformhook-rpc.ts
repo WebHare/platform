@@ -8,17 +8,17 @@ import * as test from '@mod-system/js/wh/testframework';
 let setupdata;
 
 test.registerTests(
-  [ async function()
-    {
+  [
+    async function() {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm',
-          { which: "custom2"
-          , jshandler: "webhare_testsuite:customform2" // adds a RPC button next to the textarea
-          });
-    }
+        {
+          which: "custom2",
+          jshandler: "webhare_testsuite:customform2" // adds a RPC button next to the textarea
+        });
+    },
 
     // Test if RPC's work in forms with webtoolformhook
-  , async function()
-    {
+    async function() {
       await test.load(setupdata.url);
       test.click("#rpc_test");
       await test.wait('ui');

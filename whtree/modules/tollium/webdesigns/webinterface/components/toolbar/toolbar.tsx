@@ -81,7 +81,7 @@ export default class ObjToolbar extends ComponentBase {
    * Component management
    */
   readdComponent(comp) {
-    var buttonpos = this.items.findIndex(node => node.comp == comp);
+    const buttonpos = this.items.findIndex(node => node.comp == comp);
     if (buttonpos == -1) {
       console.error('Toolbar ' + this.name + ' got offered a component to replace, but it wasn\'t found in the toolbar', comp);
       return;
@@ -117,8 +117,8 @@ export default class ObjToolbar extends ComponentBase {
   relayout() {
     this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
 
-    var width = this.width.set;
-    var height = this.height.set;
+    const width = this.width.set;
+    const height = this.height.set;
 
     this.node.style.width = width + 'px';
     this.node.style.height = height + 'px';

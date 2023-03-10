@@ -11,11 +11,11 @@ import RPCClient from '@mod-system/js/wh/rpc';
 let requestbarrier = null;
 
 async function getIPInfoIntoCache(options) {
-  let reqoptions = { countrylang: options.countrylang };
-  let result = await new RPCClient("publisher:rpc").invoke("getIPInfo", reqoptions);
-  let geoinfo = {
-    countrycode: result ? result.country : ""
-    , creationdate: Date.now()
+  const reqoptions = { countrylang: options.countrylang };
+  const result = await new RPCClient("publisher:rpc").invoke("getIPInfo", reqoptions);
+  const geoinfo = {
+    countrycode: result ? result.country : "",
+    creationdate: Date.now()
   };
   if (result && options.countrylang)
     geoinfo["countrylang_" + options.countrylang] = result.countryname;
@@ -33,15 +33,15 @@ async function getIPInfoIntoCache(options) {
 export async function getIPInfo(options) //TODO add more than country name and code once we need it.
 {
   options = {
-    cachedays: 7
-    , countrylang: ""
-    , ...options
+    cachedays: 7,
+    countrylang: "",
+    ...options
   };
 
   if (requestbarrier)
     await requestbarrier; //first let parallel requests complete and set _wh.geoinfo
 
-  let barrier = createDeferred();
+  const barrier = createDeferred();
   requestbarrier = barrier.promise;
 
   let geoinfo;
@@ -54,8 +54,7 @@ export async function getIPInfo(options) //TODO add more than country name and c
       curgeoinfotext = localStorage.getItem("_wh.geoinfo");
     }
     geoinfo = JSON.parse(curgeoinfotext);
-  }
-  catch (e) {
+  } catch (e) {
     console.error(e);
     barrier.resolve();
     return null; //localstorage is broken
@@ -74,7 +73,7 @@ export async function getIPInfo(options) //TODO add more than country name and c
   barrier.resolve();
 
   if (geoinfo && geoinfo.countrycode) {
-    let retval = { countrycode: geoinfo.countrycode };
+    const retval = { countrycode: geoinfo.countrycode };
     if (options.countrylang)
       retval.countryname = geoinfo["countrylang_" + options.countrylang];
 
@@ -88,6 +87,6 @@ export async function getIPInfo(options) //TODO add more than country name and c
     @param options.cachedays How long to cache the result (default 7 days)
     @return Promise resolving to 2-letter countrycode, or null if unknown */
 export async function getCountryCode(options) {
-  let data = await getIPInfo(options);
+  const data = await getIPInfo(options);
   return data ? data.countrycode : null;
 }

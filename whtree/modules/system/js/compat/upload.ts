@@ -6,11 +6,11 @@ import '@mod-system/js/wh/integration'; //make debugflags work
 
 
 /// Global queue manager object
-var queue_manager = null;
+let queue_manager = null;
 
 let default_upload_chunk_size = 10000000; // 10 MB
-var moving_average_max_history = 20000; // average current speed over max 20000 ms of history
-var moving_average_min_history = 2000; // Need min 2000ms of history
+const moving_average_max_history = 20000; // average current speed over max 20000 ms of history
+const moving_average_min_history = 2000; // Need min 2000ms of history
 
 
 export default class EventTarget {
@@ -32,7 +32,7 @@ export default class EventTarget {
     if (!('defaultPrevented' in event))
       throw new Error("Parameter passed is not an event");
 
-    let eventhandlers = this.handlers[event.type];
+    const eventhandlers = this.handlers[event.type];
     if (eventhandlers)
       eventhandlers.forEach(fn => fn.call(this, event));
     return event.defaultPrevented;
@@ -90,7 +90,7 @@ class RawUploadItem extends EventTarget {
 
   /// Returns time elapsed, in seconds
   getElapsedTime() {
-    var now = (new Date).getTime();
+    let now = (new Date).getTime();
     if (!this.pvt_start || this.pvt_start == now)
       return 0;
 
@@ -102,10 +102,10 @@ class RawUploadItem extends EventTarget {
 
   /// Time remaing in seconds (0 if unknown / very long / n/a)
   getRemainingTime() {
-    var speed = this.getCurrentSpeed();
+    const speed = this.getCurrentSpeed();
     if (!speed)
       return 0;
-    var remainingbytes = this.getUploadSize() - this.getUploaded();
+    const remainingbytes = this.getUploadSize() - this.getUploaded();
     return remainingbytes ? (remainingbytes / speed || 1) : 0;
   }
 
@@ -119,8 +119,8 @@ class RawUploadItem extends EventTarget {
     if (this.pvt_history.length <= 1)
       return null;
 
-    var last = this.pvt_history[this.pvt_history.length - 1];
-    var first = this.pvt_history[0];
+    const last = this.pvt_history[this.pvt_history.length - 1];
+    const first = this.pvt_history[0];
 
     if (last.date - first.date < (this.status == 'loaded' ? 1 : moving_average_min_history))
       return null;
@@ -148,9 +148,9 @@ class RawUploadItem extends EventTarget {
 
   getEventDetail() {
     return {
-      uploaded: this.getUploaded()
-      , size: this.getUploadSize()
-      , speed: this.getCurrentSpeed()
+      uploaded: this.getUploaded(),
+      size: this.getUploadSize(),
+      speed: this.getCurrentSpeed()
     };
   }
 
@@ -166,8 +166,8 @@ class RawUploadItem extends EventTarget {
     if (dompack.debugflags.upl)
       console.log("[upl] firing loadprogress", this);
 
-    var size = this.getUploadSize();
-    var loaded = this.getUploaded();
+    const size = this.getUploadSize();
+    const loaded = this.getUploaded();
 
     this.addProgressToHistory(loaded);
     dompack.dispatchCustomEvent(this, 'progress', { bubbles: false, cancelable: false, detail: { loaded: loaded, size: size } });
@@ -177,8 +177,8 @@ class RawUploadItem extends EventTarget {
     if (dompack.debugflags.upl)
       console.log("[upl] firing load", this);
 
-    var size = this.getUploadSize();
-    var loaded = this.getUploaded();
+    const size = this.getUploadSize();
+    const loaded = this.getUploaded();
     this.pvt_end = (new Date).getTime();
 
     this.addProgressToHistory(loaded);
@@ -186,7 +186,7 @@ class RawUploadItem extends EventTarget {
   }
 
   addProgressToHistory(loaded) {
-    var now = (new Date).getTime();
+    const now = (new Date).getTime();
     this.pvt_history.push({ date: now, loaded: loaded });
     while ((now - this.pvt_history[0].date) > moving_average_max_history) //
       this.pvt_history.splice(0, 1);
@@ -274,13 +274,13 @@ class UploaderAggregator extends RawUploadItem {
   }
 
   getUploadSize() {
-    var size = 0;
+    let size = 0;
     this.pvt_subitems.forEach(function(i) { size += i.getUploadSize(); });
     return size;
   }
 
   getUploaded() {
-    var loaded = 0;
+    let loaded = 0;
     this.pvt_subitems.forEach(function(i) { loaded += i.getUploaded(); });
     return loaded;
   }
@@ -290,8 +290,7 @@ class UploaderAggregator extends RawUploadItem {
       if (!this.pvt_aborting)
         this.pvt_aborting = true;
       this.pvt_subitems.forEach(i => { if (!i.status) i.abort(); });
-    }
-    else // Always send an abort back, even when not having items yet.
+    } else // Always send an abort back, even when not having items yet.
     {
       this.gotLoadStart(null);
       this.gotAbort(null);
@@ -300,7 +299,7 @@ class UploaderAggregator extends RawUploadItem {
   }
 
   getCompletedFiles() {
-    var result = [];
+    let result = [];
     if (this.status == 'loaded')
       this.pvt_subitems.forEach(function(i) { result = result.concat(i.getCompletedFiles()); });
     //sanitize the result, don't leak internal data
@@ -317,7 +316,7 @@ class UploaderAggregator extends RawUploadItem {
   }
 
   getFileTokens() {
-    var result = [];
+    let result = [];
     if (this.status == 'loaded')
       this.pvt_subitems.forEach(function(i) { result = result.concat(i.getFileTokens()); });
     return result;
@@ -409,22 +408,22 @@ export class Html5UploadItem extends UploaderAggregator {
   }
 
   schedule() {
-    var items = [];
+    const items = [];
 
-    var total = this.file.size;
+    const total = this.file.size;
     if (!(total >= 0))
       throw new Error("Invalid file size received"); //would cause an endless loop!
 
-    var ofs = 0;
+    let ofs = 0;
     while (true) {
       // Upload in chunks
-      var chunksize = Math.min(this.upload_chunk_size, total - ofs);
+      const chunksize = Math.min(this.upload_chunk_size, total - ofs);
 
       items.push(new Html5SingleChunk(this,
         {
-          offset: ofs
-          , size: chunksize
-          , host: this.pvt_host
+          offset: ofs,
+          size: chunksize,
+          host: this.pvt_host
         }));
 
       ofs += chunksize;
@@ -490,7 +489,7 @@ class Html5SingleChunk extends SchedulableRawUploadItem {
     if (!this.canStart())
       throw new Error("First chunk must have finished for rest of chunks to be sent");
 
-    var url = this.transferbaseurl + "?type=upload-html5&offset=" + this.options.offset
+    let url = this.transferbaseurl + "?type=upload-html5&offset=" + this.options.offset
       + "&chunksize=" + this.options.size
       + "&sessionid=" + this.getSessionId();
     if (this.options.offset != 0)
@@ -564,7 +563,7 @@ class Html5SingleChunk extends SchedulableRawUploadItem {
   gotLoad(event) {
     if (this.xmlhttp.status == 200) {
       this.pvt_loaded = this.options.size;
-      var data = JSON.parse(this.xmlhttp.responseText);
+      const data = JSON.parse(this.xmlhttp.responseText);
       if (data && data.sessionid)
         this.setSessionId(data.sessionid);
       if (!this.uploadfile.pvt_fileid)
@@ -580,8 +579,7 @@ class Html5SingleChunk extends SchedulableRawUploadItem {
       }
       this.status = 'loaded';
       this.fireLoad();
-    }
-    else
+    } else
       this.gotError(event);
   }
 
@@ -604,11 +602,11 @@ export class UploadItemGroup extends UploaderAggregator {
 
 /// Generate a group of items from a file input element
 UploadItemGroup.fromFileList = function(uploadhost, filelist, options) {
-  var items = [];
-  for (var i = 0; i < filelist.length; ++i)
+  const items = [];
+  for (let i = 0; i < filelist.length; ++i)
     items.push(new Html5UploadItem(uploadhost, filelist[i], options));
 
-  var group = new UploadItemGroup;
+  const group = new UploadItemGroup;
   group.setItems(items);
   return group;
 };
@@ -624,8 +622,7 @@ class UploadManager {
     if (item instanceof SchedulableRawUploadItem) {
       item.addEventListener("loadend", this.gotEnd.bind(this, item));
       this.pending.push(item);
-    }
-    else
+    } else
       item.schedule();
 
     this.processQueue();
@@ -644,8 +641,8 @@ class UploadManager {
       console.log("[upl] process queue, running: " + this.running.length + " pending: " + this.pending.length, this);
 
     if (this.running.length < 1 && this.pending.length) {
-      for (var i = 0; i < this.pending.length; ++i) {
-        var item = this.pending[i];
+      for (let i = 0; i < this.pending.length; ++i) {
+        const item = this.pending[i];
         if (item.canStart()) {
           this.pending.splice(i, 1);
           --i;
@@ -666,7 +663,7 @@ queue_manager = new UploadManager;
 
 
 // Last input used for selecting a file that doesn't have files set
-let lastinputnode = null;
+const lastinputnode = null;
 
 /** Open a file selection dialog and upload one or more files. Can only be called within a click handler!
     @param options
@@ -680,24 +677,24 @@ let lastinputnode = null;
 export function selectFiles(options?): Promise<FileList> //TODO return our own objects, not a FileList, so we can provide userdata in the interface
 {
   options = { ...options };
-  let uploaddefer = dompack.createDeferred();
+  const uploaddefer = dompack.createDeferred();
 
-  let inputOptions = {
-    type: "file"
-    , accept: (options.mimetypes || []).join(",")
-    , multiple: options.multiple
-    , style: { display: "none" }
+  const inputOptions = {
+    type: "file",
+    accept: (options.mimetypes || []).join(","),
+    multiple: options.multiple,
+    style: { display: "none" }
   };
 
   if (options.capture)
     inputOptions.capture = options.capture;
 
-  let input = dompack.create('input', inputOptions);
+  const input = dompack.create('input', inputOptions);
 
   //let selectlock = dompack.flagUIBusy();
 
   // Set a handler on next action to capture someone cancelling the upload without telling us (browsers dont inform us the dialog is gone)
-  var canceluploadhandler = function() {
+  const canceluploadhandler = function() {
     uploaddefer.resolve([]);
     window.removeEventListener('mousedown', canceluploadhandler, true);
     window.removeEventListener('keydown', canceluploadhandler, true);
@@ -724,8 +721,7 @@ export function selectFiles(options?): Promise<FileList> //TODO return our own o
       setTimeout(() => uploader(input), 0);
       return uploaddefer.promise;
     }
-  }
-  catch (e) {
+  } catch (e) {
     //ignore fialure to grab the fake upload
   }
 
@@ -744,7 +740,7 @@ export class UploadSession extends EventTarget {
       console.log("[upl] Create upload session", files, options);
 
     options = { ...options };
-    let host = options.host || dompack.getBaseURI();
+    const host = options.host || dompack.getBaseURI();
     this.started = false;
     this.anyerror = false;
 
@@ -752,7 +748,7 @@ export class UploadSession extends EventTarget {
              purposes, we'll pretend it was an abort */
     if (files.length) {
       this.group = new UploadItemGroup(options);
-      let items = Array.from(files).map(function(item) {
+      const items = Array.from(files).map(function(item) {
         return new Html5UploadItem(host, item, { params: options.params });
       });
 
@@ -776,7 +772,7 @@ export class UploadSession extends EventTarget {
   }
 
   upload(): Promise<FileList> {
-    let uploaddefer = dompack.createDeferred();
+    const uploaddefer = dompack.createDeferred();
     this.started = true;
     if (!this.group) //empty file list - like an abort, but never send the events
     {
@@ -789,30 +785,30 @@ export class UploadSession extends EventTarget {
         console.log("[upl] Upload session dispatching wh:upload-start", this);
       this.started = true;
       dompack.dispatchCustomEvent(this, "wh:upload-start", {
-        bubbles: false
-        , cancelable: false
+        bubbles: false,
+        cancelable: false
       });
     });
     this.group.addEventListener("progress", evt => {
       if (dompack.debugflags.upl)
         console.log("[upl] Upload session dispatching wh:upload-progress");
       dompack.dispatchCustomEvent(this, "wh:upload-progress", {
-        bubbles: false
-        , cancelable: false
+        bubbles: false,
+        cancelable: false
       });
     });
     this.group.addEventListener("error", event => this.anyerror = true);
     this.group.addEventListener("loadend", evt => {
-      let result = this.gotabort || this.anyerror ? [] : this.group.getCompletedFiles();
+      const result = this.gotabort || this.anyerror ? [] : this.group.getCompletedFiles();
       if (dompack.debugflags.upl)
         console.log("[upl] Upload session dispatching wh:upload-end", this, result);
 
       dompack.dispatchCustomEvent(this, "wh:upload-end", {
-        bubbles: false
-        , cancelable: false
-        , detail: {
-          success: this.gotabort || !this.anyerror
-          , files: result
+        bubbles: false,
+        cancelable: false,
+        detail: {
+          success: this.gotabort || !this.anyerror,
+          files: result
         }
       });
       uploaddefer.resolve(result);
@@ -825,7 +821,7 @@ export class UploadSession extends EventTarget {
 
 export function getFileAsDataURL(file) {
   return new Promise((resolve, reject) => {
-    let reader = new FileReader;
+    const reader = new FileReader;
     reader.onload = function(readdata) {
       resolve(reader.result);
     };

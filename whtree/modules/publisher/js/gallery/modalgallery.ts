@@ -24,11 +24,11 @@ export default class ModalGalleryBase {
 
     node.focus();
     new KeyboardHandler(node, {
-      "Escape": evt => this._onEscape(evt)
-      , "Tab": evt => dompack.stop(evt)
-      , "Shift+Tab": evt => dompack.stop(evt)
-      , "ArrowLeft": evt => this._onArrow(evt, -1)
-      , "ArrowRight": evt => this._onArrow(evt, +1)
+      "Escape": evt => this._onEscape(evt),
+      "Tab": evt => dompack.stop(evt),
+      "Shift+Tab": evt => dompack.stop(evt),
+      "ArrowLeft": evt => this._onArrow(evt, -1),
+      "ArrowRight": evt => this._onArrow(evt, +1)
     });
 
     swipe.enable(node);
@@ -55,7 +55,7 @@ export default class ModalGalleryBase {
 
   close() {
     if (document.hasFocus() && document.activeElement == this._currentoverlay) {
-      let slides = this.gallery._getSlides();
+      const slides = this.gallery._getSlides();
       console.log(slides[this._selectedidx]);
       if (this._selectedidx < slides.length)
         slides[this._selectedidx].querySelector('a').focus();
@@ -79,18 +79,18 @@ export default class ModalGalleryBase {
     if (this._selectedidx === idx || idx < 0 || idx >= this.gallery.getNumSlides())
       return;
 
-    let last = this._selectedidx;
+    const last = this._selectedidx;
     this._selectedidx = idx;
     this.showImage(idx, { last });
   }
 
   getSelectionState() {
-    let photos = this.gallery.getNumSlides();
-    let retval = {
-      total: photos
-      , current: this._selectedidx
-      , first: this._selectedidx == 0
-      , last: this._selectedidx == photos - 1
+    const photos = this.gallery.getNumSlides();
+    const retval = {
+      total: photos,
+      current: this._selectedidx,
+      first: this._selectedidx == 0,
+      last: this._selectedidx == photos - 1
     };
     return retval;
   }

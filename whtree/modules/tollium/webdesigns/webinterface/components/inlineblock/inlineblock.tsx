@@ -43,18 +43,18 @@ export default class ObjInlineBlock extends ComponentBase {
       data.lines.forEach((srcline, i) => {
         srcline.target = this.name + "#line$" + i;
         srcline.destroywithparent = true;
-        var line = new ObjPanelLine(this, srcline, null, {
-          removetopmargin: i == 0
-          , removebottommargin: i == data.lines.length - 1
+        const line = new ObjPanelLine(this, srcline, null, {
+          removetopmargin: i == 0,
+          removebottommargin: i == data.lines.length - 1
         });
         this.lines.push(line);
 
         if (line.title) {
-          var titlecomp = new ObjText(line, {
-            value: line.title ? line.title + ':' : ''
-            , labelfor: line.titlelabelfor
-            , target: srcline.target + "#linelabel"
-            , destroywithparent: true
+          const titlecomp = new ObjText(line, {
+            value: line.title ? line.title + ':' : '',
+            labelfor: line.titlelabelfor,
+            target: srcline.target + "#linelabel",
+            destroywithparent: true
           });
 
           if (line.layout == 'form') //we need to keep the title separated
@@ -65,16 +65,15 @@ export default class ObjInlineBlock extends ComponentBase {
 
         if (srcline.items)
           srcline.items.forEach((srcitem, idx) => {
-            var newcomp;
+            let newcomp;
             if (srcitem.title) {
               newcomp = new ObjText(line, {
-                value: srcitem.title ? srcitem.title + ':' : ''
-                , labelfor: srcitem.labelfor
-                , target: srcline.target + "#label$" + idx
-                , destroywithparent: true
+                value: srcitem.title ? srcitem.title + ':' : '',
+                labelfor: srcitem.labelfor,
+                target: srcline.target + "#label$" + idx,
+                destroywithparent: true
               });
-            }
-            else {
+            } else {
               newcomp = this.owner.addComponent(line, srcitem.item);
             }
 
@@ -97,7 +96,7 @@ export default class ObjInlineBlock extends ComponentBase {
   */
 
   getVisibleChildren() {
-    var children = [];
+    const children = [];
     this.lines.forEach(function(line) {
       if (line.titlecomp) {
         children.push(line.titlecomp);
@@ -108,7 +107,7 @@ export default class ObjInlineBlock extends ComponentBase {
   }
 
   readdComponent(comp) {
-    for (var i = 0; i < this.lines.length; ++i)
+    for (let i = 0; i < this.lines.length; ++i)
       if (this.lines[i].items.indexOf(comp) != -1) {
         this.lines[i].readdComponent(comp);
         return;
@@ -148,7 +147,7 @@ export default class ObjInlineBlock extends ComponentBase {
   getLabelAreaWidth() //figure out the longest form-layout line label, and apply it to all lines. as labelwidth isn't open to discussion, apply immediately
   {
     // Calculate the width of the label area if we have form lines.
-    var labelareawidth = 0;
+    let labelareawidth = 0;
     for (const line of this.lines) {
       if (line.titlecomp) {
         if (line.titlecomp.width.min)
@@ -161,12 +160,12 @@ export default class ObjInlineBlock extends ComponentBase {
 
   calculateDimWidth() {
     // contentwidth is the width of the widest line
-    var headerwidth = 0;
+    const headerwidth = 0;
 
     //Prepare line calculation: we first need their label widths, then lines can do their actual calculations
     this.setSizeToMaxOf('width', this.lines);
     this.overhead_x = (this.borders && this.borders.left ? $todd.settings.border_left : 0) +
-      + (this.borders && this.borders.right ? $todd.settings.border_right : 0);
+      Number(this.borders && this.borders.right ? $todd.settings.border_right : 0);
 
     this.width.min += this.overhead_x;
     this.width.calc += this.overhead_x;
@@ -179,7 +178,7 @@ export default class ObjInlineBlock extends ComponentBase {
     //the inner width/height is what we present to our contents, and may exceed set width/height if we can scroll ourselves
     this.innerwidth = this.width.set - this.overhead_x;
 
-    var setwidth = this.innerwidth;
+    const setwidth = this.innerwidth;
     this.debugLog("dimensions", "width: calc=" + this.width.calc + ", set=" + this.width.set + ", overhead=" + this.overhead_x + ", effective=" + setwidth);
 
     this.lines.forEach(comp => comp.setWidth(setwidth));
@@ -197,7 +196,7 @@ export default class ObjInlineBlock extends ComponentBase {
 
     //if the server didn't set a height, grow to multiple of grid line height (round up to next "gr" size). keep in mind that we need to subtract gridlineTotalMargin for 'gr'
     if (!this.height.serverset) {
-      let missingpixels = (this.height.calc + $todd.gridlineTotalMargin) % $todd.gridlineHeight;
+      const missingpixels = (this.height.calc + $todd.gridlineTotalMargin) % $todd.gridlineHeight;
       if (missingpixels > 0) //didn't land on a grid size
         this.height.calc += Math.min($todd.gridlineHeight - missingpixels, $todd.gridlineSnapMax);
     }
@@ -215,7 +214,7 @@ export default class ObjInlineBlock extends ComponentBase {
     this.debugLog("dimensions", "relayouting set width=" + this.width.set + ", set height=" + this.height.set);
 
     // Set outer width, including border (we have box-sizing: border-box!)
-    let elementheight = this.height.set;
+    const elementheight = this.height.set;
     dompack.setStyles(this.node, { width: this.width.set, height: elementheight });
 
     updateNodeBackground(this);

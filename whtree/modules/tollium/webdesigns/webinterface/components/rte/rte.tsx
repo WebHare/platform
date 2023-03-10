@@ -74,7 +74,7 @@ export default class ObjRTE extends ComponentBase {
     this._warnlength = data.warnlength;
     this.allowinspect = data.allowinspect;
 
-    var hidebuttons = [];
+    const hidebuttons = [];
     if (!data.allownewembeddedobjects)
       hidebuttons.push('object-insert');
     if (!data.allowvideo)
@@ -84,23 +84,23 @@ export default class ObjRTE extends ComponentBase {
 
     this.rteoptions =
     {
-      enabled: data.enabled
-      , readonly: data.readonly
-      , backgroundcolor: 'transparent'
+      enabled: data.enabled,
+      readonly: data.readonly,
+      backgroundcolor: 'transparent',
 
-      , language: 'en'//parent.app.lang      // FIXME
+      language: 'en',//parent.app.lang      // FIXME
       //, log:true
-      , allowtags: data.allowtags.length ? data.allowtags : null
-      , structure: data.structure
-      , margins: data.margins
-      , preloadedcss: data.preloadedcss
-      , cssinstance: data.cssinstance
-      , breakupnodes: this.isemaileditor ? ['blockquote'] : []
-      , hidebuttons: hidebuttons
-      , htmlclass: data.htmlclass
-      , bodyclass: data.bodyclass
-      , csscode: data.csscode
-      , propertiesaction: true
+      allowtags: data.allowtags.length ? data.allowtags : null,
+      structure: data.structure,
+      margins: data.margins,
+      preloadedcss: data.preloadedcss,
+      cssinstance: data.cssinstance,
+      breakupnodes: this.isemaileditor ? ['blockquote'] : [],
+      hidebuttons: hidebuttons,
+      htmlclass: data.htmlclass,
+      bodyclass: data.bodyclass,
+      csscode: data.csscode,
+      propertiesaction: true
     };
 
     if (!this.rteoptions.structure) {
@@ -124,7 +124,7 @@ export default class ObjRTE extends ComponentBase {
 
   static asyncTransformMessage(message) {
     if (message.cssurl) {
-      let preload = rteapi.preloadCSS([message.cssurl]);
+      const preload = rteapi.preloadCSS([message.cssurl]);
       message.preloadedcss = preload;
       return preload.loadpromise;
     }
@@ -151,13 +151,12 @@ export default class ObjRTE extends ComponentBase {
   }
 
   getSubmitValue() {
-    let suggestedreturnvalue = this.rte.getValue();
+    const suggestedreturnvalue = this.rte.getValue();
     if (suggestedreturnvalue == this.restructuredcontent) //no material change ( FIXME Let the RTD implement this)
     {
       console.log("Returning untouched value");
       return this.untouchedcontent;
-    }
-    else {
+    } else {
       console.log("Returning updated value");
       return suggestedreturnvalue;
     }
@@ -226,7 +225,7 @@ export default class ObjRTE extends ComponentBase {
   * Events
   */
   _doExecuteAction(event) {
-    var action = event.detail.action;
+    const action = event.detail.action;
 
     if (["a-href", "object-insert", "object-video"].includes(action)) {
       event.stopPropagation();
@@ -235,12 +234,12 @@ export default class ObjRTE extends ComponentBase {
     }
     if (["action-properties", "webhare-inspect"].includes(action)) {
       //FIXME RTE should always send us getTargetInfo reslt...
-      let affectednodeinfo = event.detail.actiontargetinfo || rteapi.getTargetInfo(event.detail.actiontarget);
+      const affectednodeinfo = event.detail.actiontargetinfo || rteapi.getTargetInfo(event.detail.actiontarget);
 
       if (affectednodeinfo) //new properties API may not require any rework from us at all, except from not transmitting the node itself over JSON
       {
         //preserve the actiontarget - the RTE will need it when the response comes in
-        let actionid = ++this._pendingactiontargetseq;
+        const actionid = ++this._pendingactiontargetseq;
         this._pendingactiontargets.push({ id: actionid, target: affectednodeinfo });
 
         //removing the __node makes the rest of the data JSON-safe
@@ -252,21 +251,21 @@ export default class ObjRTE extends ComponentBase {
   }
 
   doButtonClick(buttonname, params) {
-    var data = { button: buttonname };
+    const data = { button: buttonname };
     if (params)
       data.params = params;
     this.queueMessage('buttonclick', data, true);
   }
 
   _onRTEStateChange() {
-    var selstate = this.rte ? this.rte.getSelectionState() : null;
-    var actionstate = selstate ? selstate.actionstate : {};
+    const selstate = this.rte ? this.rte.getSelectionState() : null;
+    const actionstate = selstate ? selstate.actionstate : {};
 
-    var have_change = false;
+    let have_change = false;
 
-    var row = this._selectionflags[0];
+    const row = this._selectionflags[0];
     Object.keys(actionstate).forEach(key => {
-      var available = actionstate[key].available || false;
+      const available = actionstate[key].available || false;
       if (row[key] !== available) {
         have_change = true;
         row[key] = available;
@@ -288,7 +287,7 @@ export default class ObjRTE extends ComponentBase {
 
     let count = 0;
 
-    let text = this.rte.getPlainText(this._toplaintextmethod, this._toplaintextmethodoptions);
+    const text = this.rte.getPlainText(this._toplaintextmethod, this._toplaintextmethodoptions);
     if (this._countmethod === "plaintext:characters")
       count = text.length;
     else if (this._countmethod === "plaintext:bytes")
@@ -307,13 +306,13 @@ export default class ObjRTE extends ComponentBase {
   }
 
   onMsgUpdateProps2(data) {
-    let actiontargetidx = this._pendingactiontargets.findIndex(pendingtarget => pendingtarget.id == data.actionid);
+    const actiontargetidx = this._pendingactiontargets.findIndex(pendingtarget => pendingtarget.id == data.actionid);
     if (actiontargetidx == -1) {
       console.log("Received update for unknown actiontarget #" + data.actionid, data);
       return;
     }
 
-    let actiontarget = this._pendingactiontargets[actiontargetidx].target;
+    const actiontarget = this._pendingactiontargets[actiontargetidx].target;
     this._pendingactiontargets.splice(actiontargetidx, 1);
 
     if (!data.settings) //it's just a cancellation
@@ -329,8 +328,7 @@ export default class ObjRTE extends ComponentBase {
   onMsgClearDirty(data) {
     if (data.valuegeneration == this.valuegeneration && data.valuedirtycount == this.valuedirtycount) {
       this.rte.clearDirty();
-    }
-    else {
+    } else {
       console.log("Ignoring stale cleardirty request", data, this.valuegeneration, this.valuedirtycount);
     }
   }

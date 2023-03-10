@@ -8,9 +8,10 @@ import * as whintegration from "@mod-system/js/wh/integration";
 let pxlId, pxlEvent;
 
 test.registerTests(
-  [ { name: "Test pxl urls"
-    , test: (doc, win) =>
-      {
+  [
+    {
+      name: "Test pxl urls",
+      test: (doc, win) => {
         let baseurl = "https://example.org", url, vars;
 
         // Test valid event names, parameters not specified should not appear on the url
@@ -67,7 +68,7 @@ test.registerTests(
         url = pxl.makePxlUrl(baseurl, "test", null, { donottrack: "0" });
         vars = new URL(url).searchParams;
         test.assert(vars.has("pi"));
-        let id = vars.get("pi");
+        const id = vars.get("pi");
 
         pxl.setPxlOptions({ donottrack: "1" });
         url = pxl.makePxlUrl(baseurl, "test");
@@ -133,13 +134,13 @@ test.registerTests(
         test.assert(!vars.has("pxl_d"));
         test.assert(vars.has("pxl_o"));*/
       }
-    }
+    },
 
-  , { name: "Test pxl access logging"
-    , test: async (doc, win) =>
-      {
+    {
+      name: "Test pxl access logging",
+      test: async (doc, win) => {
         pxlId = pxl.getPxlId();
-        let eventId = Math.floor(Math.random() * 65536);
+        const eventId = Math.floor(Math.random() * 65536);
         pxlEvent = `testevent:${eventId}`;
 
         // Send an event with explicit id
@@ -180,13 +181,12 @@ test.registerTests(
         test.assert(url.searchParams.has("dn_fun"));
         test.eq(`${eventId}`, url.searchParams.get("dn_fun"));
       }
-    }
+    },
 
-  , "Test live mode never throwing"
-  , async function()
-    {
-      whintegration.config.dtapstage="live";
-      whintegration.config.islive=true;
+    "Test live mode never throwing",
+    async function() {
+      whintegration.config.dtapstage = "live";
+      whintegration.config.islive = true;
       test.eq(null, pxl.makePxlUrl("https://example.org"), "should not throw in development mode (which tests run in");
     }
   ]);

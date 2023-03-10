@@ -8,23 +8,18 @@ const gesture_time = 200;
 
 function getLogComponent() { return test.compByName("log").querySelector("textarea"); }
 
-function logDragEvent(e)
-{
-  let path = [];
+function logDragEvent(e) {
+  const path = [];
   let n = e.target;
   while (n && n.nodeType !== 9)
     path.push(n.nodeName.toLowerCase()), n = n.parentNode;
   console.log(e.type, e.dataTransfer.dropEffect, e.dataTransfer.effectAllowed/*, path.reverse().join(">")*/, e.target, e.relatedTarget);
 }
 
-function createfileObject(data, name, opts)
-{
-  try
-  {
+function createfileObject(data, name, opts) {
+  try {
     return new File(data, name, opts);
-  }
-  catch (e)
-  {
+  } catch (e) {
     // IE 11 workaround, it does not have a File constructor. Use a blob and add a filename
     const file = new Blob(data, opts);
     file.name = name;
@@ -32,8 +27,7 @@ function createfileObject(data, name, opts)
   }
 }
 
-function logAllDragEvents()
-{
+function logAllDragEvents() {
   test.getWin().addEventListener("drag", logDragEvent, { capture: true });
   test.getWin().addEventListener("dragend", logDragEvent, { capture: true });
   test.getWin().addEventListener("dragenter", logDragEvent, { capture: true });
@@ -46,11 +40,12 @@ function logAllDragEvents()
 }
 
 test.registerTests(
-  [ { loadpage: test.getTestScreen('tests/dragdrop.multitest')
-    , waits: [ "ui" ]
-    }
-  , async function mainTest()
+  [
     {
+      loadpage: test.getTestScreen('tests/dragdrop.multitest'),
+      waits: ["ui"]
+    },
+    async function mainTest() {
       test.compByName('log').querySelector('textarea').value = '';
 
       const clist = test.compByName("clist");
@@ -65,15 +60,16 @@ test.registerTests(
 
       test.subtest("list");
       // Move to middle of list
-      await test.sendMouseGesture([ { el: dragelt, down: 0 }
-                                  , { el: clist, delay: gesture_time }
-                                  ]);
+      await test.sendMouseGesture([
+        { el: dragelt, down: 0 },
+        { el: clist, delay: gesture_time }
+      ]);
 
       // require the droptarget--hover on the list body
       test.assert(clist.querySelector(".listbodyholder.droptarget--hover"));
 
       // drop it
-      await test.sendMouseGesture([ { el: clist, up: 0 } ]);
+      await test.sendMouseGesture([{ el: clist, up: 0 }]);
 
       // droptarget--hover should be gone
       test.assert(!clist.querySelector(".listbodyholder.droptarget--hover"));
@@ -84,15 +80,15 @@ test.registerTests(
       getLogComponent().value = "";
 
       test.subtest("table");
-      await test.sendMouseGesture([ { el: dragelt, down: 0 }
-                                  , { el: ctable, delay: gesture_time }
-                                  ]);
+      await test.sendMouseGesture([
+        { el: dragelt, down: 0 },
+        { el: ctable, delay: gesture_time }
+      ]);
 
       // require the droptarget--hover on the table cell
       test.assert(ctable.querySelector("td.droptarget--hover"));
 
-      await test.sendMouseGesture([ { el: ctable, up: 0, delay: gesture_time }
-                                  ]);
+      await test.sendMouseGesture([{ el: ctable, up: 0, delay: gesture_time }]);
 
       test.assert(!ctable.querySelector("td.droptarget--hover"));
 
@@ -102,14 +98,14 @@ test.registerTests(
       getLogComponent().value = "";
 
       test.subtest("panel");
-      await test.sendMouseGesture([ { el: dragelt, down: 0 }
-                                  , { el: cpanel, delay: gesture_time }
-                                  ]);
+      await test.sendMouseGesture([
+        { el: dragelt, down: 0 },
+        { el: cpanel, delay: gesture_time }
+      ]);
 
       test.assert(cpanel.classList.contains("droptarget--hover"));
 
-      await test.sendMouseGesture([ { el: cpanel, up: 0, delay: gesture_time }
-                                  ]);
+      await test.sendMouseGesture([{ el: cpanel, up: 0, delay: gesture_time }]);
 
       test.assert(!cpanel.classList.contains("droptarget--hover"));
 
@@ -121,34 +117,31 @@ test.registerTests(
       test.subtest("droptarget-clear");
 
       // Drag to middle of list
-      await test.sendMouseGesture([ { el: dragelt, down: 0 }
-                                  , { el: clist, delay: gesture_time }
-                                  ]);
+      await test.sendMouseGesture([
+        { el: dragelt, down: 0 },
+        { el: clist, delay: gesture_time }
+      ]);
 
       test.assert(clist.querySelector(".listbodyholder.droptarget--hover"));
 
-      await test.sendMouseGesture([ { el: ctable, delay: gesture_time }
-                                  ]);
+      await test.sendMouseGesture([{ el: ctable, delay: gesture_time }]);
 
       test.assert(!clist.querySelector(".listbodyholder.droptarget--hover"));
       test.assert(ctable.querySelector("td.droptarget--hover"));
 
-      await test.sendMouseGesture([ { el: cpanel, delay: gesture_time }
-                                  ]);
+      await test.sendMouseGesture([{ el: cpanel, delay: gesture_time }]);
 
       test.assert(!clist.querySelector(".listbodyholder.droptarget--hover"));
       test.assert(!ctable.querySelector("td.droptarget--hover"));
       test.assert(cpanel.classList.contains("droptarget--hover"));
 
-      await test.sendMouseGesture([ { el: ctable, delay: gesture_time }
-                                  ]);
+      await test.sendMouseGesture([{ el: ctable, delay: gesture_time }]);
 
       test.assert(!clist.querySelector(".listbodyholder.droptarget--hover"));
       test.assert(ctable.querySelector("td.droptarget--hover"));
       test.assert(!cpanel.classList.contains("droptarget--hover"));
 
-      await test.sendMouseGesture([ { el: clist, up: 0, delay: gesture_time }
-                                  ]);
+      await test.sendMouseGesture([{ el: clist, up: 0, delay: gesture_time }]);
 
       test.assert(!clist.querySelector(".listbodyholder.droptarget--hover"));
       test.assert(!ctable.querySelector("td.droptarget--hover"));
@@ -159,15 +152,15 @@ test.registerTests(
       test.subtest("panel-copy");
       getLogComponent().value = "";
 
-      await test.sendMouseGesture([ { el: dragelt, down: 0, ...test.keyboardCopyModifier }
-                                  , { el: cpanel, delay: gesture_time }
-                                  ]);
+      await test.sendMouseGesture([
+        { el: dragelt, down: 0, ...test.keyboardCopyModifier },
+        { el: cpanel, delay: gesture_time }
+      ]);
 
       test.assert(cpanel.classList.contains("droptarget--hover"));
       test.eq("copy", test.getCurrentDragDataStore().currentDragOperation);
 
-      await test.sendMouseGesture([ { el: cpanel, up: 0, delay: gesture_time }
-                                  ]);
+      await test.sendMouseGesture([{ el: cpanel, up: 0, delay: gesture_time }]);
 
       test.assert(!cpanel.classList.contains("droptarget--hover"));
 
@@ -178,25 +171,24 @@ test.registerTests(
       test.subtest("panel-link");
       getLogComponent().value = "";
 
-      await test.sendMouseGesture([ { el: dragelt, down: 0, ...test.keyboardLinkModifier }
-                                  , { el: cpanel, delay: gesture_time }
-                                  ]);
+      await test.sendMouseGesture([
+        { el: dragelt, down: 0, ...test.keyboardLinkModifier },
+        { el: cpanel, delay: gesture_time }
+      ]);
 
       test.assert(cpanel.classList.contains("droptarget--hover"));
       test.eq("link", test.getCurrentDragDataStore().currentDragOperation);
 
-      await test.sendMouseGesture([ { el: cpanel, up: 0, delay: gesture_time }
-                                  ]);
+      await test.sendMouseGesture([{ el: cpanel, up: 0, delay: gesture_time }]);
 
       test.assert(!cpanel.classList.contains("droptarget--hover"));
 
       await test.wait("ui");
 
       test.eq("panel link-local:type1", getLogComponent().value);
-    }
+    },
 
-  , async function fileDropTest()
-    {
+    async function fileDropTest() {
       const clist = test.compByName("clist");
       const ctable = test.compByName("ctable");
       const cpanel = test.compByName("cpanel");
@@ -204,17 +196,18 @@ test.registerTests(
       test.subtest("list");
       getLogComponent().value = "";
 
-      test.startExternalFileDrag(createfileObject([ "test1" ], "test1.txt", { type: "text/plain" }));
+      test.startExternalFileDrag(createfileObject(["test1"], "test1.txt", { type: "text/plain" }));
 
-      await test.sendMouseGesture([ { el: test.getDoc().documentElement }
-                                  , { el: clist, delay: gesture_time }
-                                  ]);
+      await test.sendMouseGesture([
+        { el: test.getDoc().documentElement },
+        { el: clist, delay: gesture_time }
+      ]);
 
       // require the droptarget--hover on the list body
       test.assert(clist.querySelector(".listbodyholder.droptarget--hover"));
 
       // drop it
-      await test.sendMouseGesture([ { el: clist, up: 0 } ]);
+      await test.sendMouseGesture([{ el: clist, up: 0 }]);
 
       // droptarget--hover should be gone
       test.assert(!clist.querySelector(".listbodyholder.droptarget--hover"));
@@ -226,17 +219,18 @@ test.registerTests(
       test.subtest("table");
       getLogComponent().value = "";
 
-      test.startExternalFileDrag(createfileObject([ "test2" ], "test2.txt", { type: "text/plain" }));
+      test.startExternalFileDrag(createfileObject(["test2"], "test2.txt", { type: "text/plain" }));
 
-      await test.sendMouseGesture([ { el: test.getDoc().documentElement }
-                                  , { el: ctable, delay: gesture_time }
-                                  ]);
+      await test.sendMouseGesture([
+        { el: test.getDoc().documentElement },
+        { el: ctable, delay: gesture_time }
+      ]);
 
       // require the droptarget--hover on the table body
       test.assert(ctable.querySelector("td.droptarget--hover"));
 
       // drop it
-      await test.sendMouseGesture([ { el: ctable, up: 0 } ]);
+      await test.sendMouseGesture([{ el: ctable, up: 0 }]);
 
       // droptarget--hover should be gone
       test.assert(!ctable.querySelector("td.droptarget--hover"));
@@ -248,17 +242,18 @@ test.registerTests(
       test.subtest("panel");
       getLogComponent().value = "";
 
-      test.startExternalFileDrag(createfileObject([ "test3" ], "test3.txt", { type: "text/plain" }));
+      test.startExternalFileDrag(createfileObject(["test3"], "test3.txt", { type: "text/plain" }));
 
-      await test.sendMouseGesture([ { el: test.getDoc().documentElement }
-                                  , { el: cpanel, delay: gesture_time }
-                                  ]);
+      await test.sendMouseGesture([
+        { el: test.getDoc().documentElement },
+        { el: cpanel, delay: gesture_time }
+      ]);
 
       // require the droptarget--hover on the panel body
       test.assert(cpanel.classList.contains("droptarget--hover"));
 
       // drop it
-      await test.sendMouseGesture([ { el: cpanel, up: 0 } ]);
+      await test.sendMouseGesture([{ el: cpanel, up: 0 }]);
 
       // droptarget--hover should be gone
       test.assert(!cpanel.classList.contains("droptarget--hover"));

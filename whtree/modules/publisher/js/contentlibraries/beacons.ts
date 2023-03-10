@@ -12,10 +12,10 @@ let beaconconsent, holdbeacons;
 export function isSet(tag, options) {
   options =
   {
-    since: null
-    , minCount: 1
-    , maxCount: 0
-    , ...options
+    since: null,
+    minCount: 1,
+    maxCount: 0,
+    ...options
   };
   if (options.since && options.since.getTime)
     options.since = options.since.getTime();
@@ -29,14 +29,14 @@ export function isSet(tag, options) {
 }
 
 export function trigger(tag, options) {
-  let instr = () => executeTrigger(tag, options);
+  const instr = () => executeTrigger(tag, options);
   if (holdbeacons)
     holdbeacons.push(instr);
   else
     instr();
 }
 export function clear(tag) {
-  let instr = () => executeClear(tag);
+  const instr = () => executeClear(tag);
   if (holdbeacons)
     holdbeacons.push(instr);
   else
@@ -52,8 +52,8 @@ function runDelayedInit() {
 function executeTrigger(tag, options) {
   options =
   {
-    when: Date.now()
-    , ...options
+    when: Date.now(),
+    ...options
   };
   if (options.when.getTime)
     options.when = options.when.getTime();
@@ -76,8 +76,8 @@ function executeClear(tag) {
   if (dompack.debugflags.bac)
     console.log("[bac] Clearing beacons", tag);
 
-  let beacons = storage.getLocal("wh:beacons") || {};
-  for (let key of Object.keys(beacons)) {
+  const beacons = storage.getLocal("wh:beacons") || {};
+  for (const key of Object.keys(beacons)) {
     if (key == tag || (tag instanceof RegExp && key.match(tag))) {
       if (dompack.debugflags.bac)
         console.log("[bac] Clear beacon", key);
@@ -93,8 +93,8 @@ function executeClear(tag) {
 export function list() {
   const beacons = storage.getLocal("wh:beacons") || {};
   return Object.keys(beacons).map(tag => ({
-    name: tag
-    , timestamps: beacons[tag].timestamps
+    name: tag,
+    timestamps: beacons[tag].timestamps
   }));
 }
 
@@ -102,7 +102,7 @@ function initVisitCount() {
   if (holdbeacons)
     return; //allow onConsentChange to invoke us
 
-  let visitor = storage.getLocal("wh:visitor");
+  const visitor = storage.getLocal("wh:visitor");
   let sessionId = storage.getSession("wh:visitor");
 
   /*
@@ -128,8 +128,7 @@ function initVisitCount() {
 
     if (dompack.debugflags.bac)
       console.log("[bac] New visitor", sessionId, visitCount);
-  }
-  else if (!sessionId) {
+  } else if (!sessionId) {
     // New session for known visitor
     visitCount = visitor.count + 1;
     sessionId = generateId();
@@ -138,8 +137,7 @@ function initVisitCount() {
 
     if (dompack.debugflags.bac)
       console.log("[bac] New session", sessionId, visitCount);
-  }
-  else {
+  } else {
     // Same session (for new visitors, visitor.sessionId == sessionId and visitor.count == 1)
     visitCount = visitor.count;
 
@@ -204,8 +202,7 @@ class TriggerBeacon {
     if (this.isVisible()) {
       trigger(this.node.dataset.beacon);
       window.removeEventListener("wh:triggerbeacon", this.triggerHandler);
-    }
-    else if (dompack.debugflags.bac)
+    } else if (dompack.debugflags.bac)
       console.log("[bac] Not triggering invisible beacon", this.node.dataset.beacon);
   }
 
@@ -234,13 +231,11 @@ export function __setup(consent) {
             console.log(`[bac] Got any consent, allow beacons`);
           runDelayedInit();
         }
-      }
-      else if (consentsettings.consent.includes(beaconconsent)) {
+      } else if (consentsettings.consent.includes(beaconconsent)) {
         if (dompack.debugflags.bac)
           console.log(`[bac] Got consent '${beaconconsent}', allow beacons`);
         runDelayedInit();
-      }
-      else {
+      } else {
         if (dompack.debugflags.bac)
           console.log("[bac] No consent yet to allow beacons");
       }

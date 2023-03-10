@@ -37,16 +37,14 @@ dompack.register('.wh-gallery', node => setupGallery(node));
 // Forms
 import { getTid, getHTMLTid } from "@mod-tollium/js/gettid";
 
-forms.setup({validate: true });
+forms.setup({ validate: true });
 dompack.register('.wh-poll', node => new PollWebtool(node));
 dompack.register('.wh-forumcomments', node => new ForumCommentsWebtool(node));
 
 // used by /staticlogin/ for the webserver.accessrules test
-document.addEventListener("wh:wrdauth-loginfailed", e =>
-{
-  let elt = document.getElementById("loginresult");
-  if(elt)
-  {
+document.addEventListener("wh:wrdauth-loginfailed", e => {
+  const elt = document.getElementById("loginresult");
+  if (elt) {
     e.preventDefault();
     elt.style.display = "inline";
     elt.className = "loginfailed";
@@ -55,23 +53,21 @@ document.addEventListener("wh:wrdauth-loginfailed", e =>
 
 dialogapi.setupDialogs(options => dialog.createDialog('mydialog', options));
 
-window.getTidTest = function()
-{
+window.getTidTest = function() {
   return { //this never used, but we want this for the tid scanner
-           consolelog: getTid("webhare_testsuite:webdesigns.basetest.consolelog")
-         , unicode2028: getTid("webhare_testsuite:test.unicode_2028")
-         , richtext: getHTMLTid("webhare_testsuite:test.richtext")
-         , richtext_params: getTid.html("webhare_testsuite:test.richtext_params")
-         , maxextras_1: getTid("webhare_testsuite:test.maxextras",1)
-         , maxextras_2: getTid("webhare_testsuite:test.maxextras",2)
-         };
+    consolelog: getTid("webhare_testsuite:webdesigns.basetest.consolelog"),
+    unicode2028: getTid("webhare_testsuite:test.unicode_2028"),
+    richtext: getHTMLTid("webhare_testsuite:test.richtext"),
+    richtext_params: getTid.html("webhare_testsuite:test.richtext_params"),
+    maxextras_1: getTid("webhare_testsuite:test.maxextras", 1),
+    maxextras_2: getTid("webhare_testsuite:test.maxextras", 2)
+  };
 };
 
-window.getIconTest = function()
-{
+window.getIconTest = function() {
   return { //this never used, but we want this for the icon scanner
-           consolelog: /*icon*/'tollium:status/not_available'
-         };
+    consolelog: /*icon*/'tollium:status/not_available'
+  };
 };
 
 import { setupGoogleRecaptcha } from "@mod-publisher/js/captcha/google-recaptcha";
@@ -85,35 +81,31 @@ import * as consenthandler from '@mod-publisher/js/analytics/consenthandler';
 
 window.revokeConsent = function() { consenthandler.setConsent([]); };
 
-async function startCookieRequest()
-{
+async function startCookieRequest() {
   //launch a banner..
-  let result = await dialogapi.runMessageBox("Cookies?", [{title:"remarketing"}, {title:"analytics"}, {title:"no"}]);
-  if(result=="remarketing")
-    consenthandler.setConsent(["remarketing","analytics"]);
-  else if(result=="analytics")
+  const result = await dialogapi.runMessageBox("Cookies?", [{ title: "remarketing" }, { title: "analytics" }, { title: "no" }]);
+  if (result == "remarketing")
+    consenthandler.setConsent(["remarketing", "analytics"]);
+  else if (result == "analytics")
     consenthandler.setConsent(["analytics"]);
   else
     consenthandler.setConsent([]);
 }
 
-let urlparams = new URL(location.href).searchParams;
-window.got_consent_analytics=false;
+const urlparams = new URL(location.href).searchParams;
+window.got_consent_analytics = false;
 window.got_consent_remarketing = false;
 
-if (urlparams.get("consent") == "1" || location.href.includes("testpages/consenttest"))
-{
-  let requiredconsent = urlparams.get("analyticsrequiredconsent");
+if (urlparams.get("consent") == "1" || location.href.includes("testpages/consenttest")) {
+  const requiredconsent = urlparams.get("analyticsrequiredconsent");
 
-  if(urlparams.get("gtmplugin_integration") != "none")
-  {
+  if (urlparams.get("gtmplugin_integration") != "none") {
     if (requiredconsent)
       console.error("requireconsent option not supported for GTM");
 
     gtm.initOnConsent();
   }
-  if(urlparams.get("ga4_integration") != "none")
-  {
+  if (urlparams.get("ga4_integration") != "none") {
     if (requiredconsent)
       ga4.initOnConsent({ requiredconsent: requiredconsent });
     else
@@ -121,17 +113,14 @@ if (urlparams.get("consent") == "1" || location.href.includes("testpages/consent
   }
 }
 
-if (urlparams.get("consent") == "1" || location.href.includes("testpages/consenttest") || urlparams.has("beaconconsent"))
-{
-  if(urlparams.has("defaultconsent"))
-  {
+if (urlparams.get("consent") == "1" || location.href.includes("testpages/consenttest") || urlparams.has("beaconconsent")) {
+  if (urlparams.has("defaultconsent")) {
     consenthandler.setup("webhare-testsuite-consent", startCookieRequest, { defaultconsent: urlparams.get("defaultconsent").split(",") });
-  }
-  else
+  } else
     consenthandler.setup("webhare-testsuite-consent", startCookieRequest);
 
-  consenthandler.onConsent('analytics', () => window.got_consent_analytics=true);
-  consenthandler.onConsent('remarketing', () => window.got_consent_remarketing=true);
+  consenthandler.onConsent('analytics', () => window.got_consent_analytics = true);
+  consenthandler.onConsent('remarketing', () => window.got_consent_remarketing = true);
   dompack.register(".wh-requireconsent__overlay", overlay => overlay.addEventListener("click", startCookieRequest));
   window.hasConsent = consenthandler.hasConsent;
 }

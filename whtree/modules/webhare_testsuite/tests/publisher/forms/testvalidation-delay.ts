@@ -5,9 +5,9 @@ import * as test from '@mod-system/js/wh/testframework';
 // import * as dompack from 'dompack';
 
 test.registerTests(
-  [ 'Test validation running too fast when a radio is focused'
-  , async function()
-    {
+  [
+    'Test validation running too fast when a radio is focused',
+    async function() {
 
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/');
 
@@ -18,17 +18,16 @@ test.registerTests(
          We fix this by delaying validation until mouseup */
       test.focus('#coretest-requiredradio-x');
 
-      test.sendMouseGesture([ { el: test.qS('#coretest-requiredradio-y'), down: 0 }]);
+      test.sendMouseGesture([{ el: test.qS('#coretest-requiredradio-y'), down: 0 }]);
       await test.sleep(25); //give any async updates a chance to interfere
       test.assert(!test.qS(`[data-wh-form-group-for="requiredradio"]`).classList.contains("wh-form__fieldgroup--error"));
-      test.sendMouseGesture([ { up: 0 } ]);
+      test.sendMouseGesture([{ up: 0 }]);
       await test.sleep(25); //give any async updates a chance to interfere
       test.assert(!test.qS(`[data-wh-form-group-for="requiredradio"]`).classList.contains("wh-form__fieldgroup--error"));
-    }
+    },
 
-  , 'Test validation executing on radio after focus loss'
-  , async function()
-    {
+    'Test validation executing on radio after focus loss',
+    async function() {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/');
 
       /* If a required radio is focused, and you select a different radio, required validation will temporarily show up

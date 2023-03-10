@@ -4,76 +4,69 @@
 import * as test from '@mod-system/js/wh/testframework';
 import * as dompack from 'dompack';
 
-async function waitForGTM()
-{
-  return test.wait( () => !!test.getWin().webharetestcontainer //GTM-TN7QQM has been configured to set this
-                  );
+async function waitForGTM() {
+  return test.wait(() => Boolean(test.getWin().webharetestcontainer) //GTM-TN7QQM has been configured to set this
+  );
 }
 
-function forceResetConsent()
-{
-  test.getDoc().cookie="webhare-testsuite-consent=;path=/";
+function forceResetConsent() {
+  test.getDoc().cookie = "webhare-testsuite-consent=;path=/";
 }
 
-function checkForGTM(opts)
-{
-  test.eq(opts.selfhosted ? 1 : 0, test.qSA("script[src*='gtm.tn7qqm.js']").length, `gtm.tn7qqm.js should ${opts.selfhosted?'':'NOT '}be loaded`);
-  test.eq(opts.remote ? 1 : 0,     test.qSA("script[src*='googletagmanager.com/gtm']").length, `googletagmanager.com/gtm should ${opts.remote?'':'NOT '}be loaded`);
-  test.eq(opts.snippet ? 1 : 0,    test.qSA("script:not([src])").filter(n=>n.textContent.includes("gtm.start")).length, `GTM snippet should ${opts.snippet?'':'NOT '}be present`);
+function checkForGTM(opts) {
+  test.eq(opts.selfhosted ? 1 : 0, test.qSA("script[src*='gtm.tn7qqm.js']").length, `gtm.tn7qqm.js should ${opts.selfhosted ? '' : 'NOT '}be loaded`);
+  test.eq(opts.remote ? 1 : 0, test.qSA("script[src*='googletagmanager.com/gtm']").length, `googletagmanager.com/gtm should ${opts.remote ? '' : 'NOT '}be loaded`);
+  test.eq(opts.snippet ? 1 : 0, test.qSA("script:not([src])").filter(n => n.textContent.includes("gtm.start")).length, `GTM snippet should ${opts.snippet ? '' : 'NOT '}be present`);
 }
 
 test.registerTests(
-  [ "Test basic integration"
-  , async function()
-    {
+  [
+    "Test basic integration",
+    async function() {
       //forcibly clear cookie first, so we can see the consent not firing
       forceResetConsent();
 
       await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?ga4_integration=none');
       await waitForGTM();
       test.eq(undefined, test.getWin().gtm_consent);
-      checkForGTM({selfhosted:1});
+      checkForGTM({ selfhosted: 1 });
 
       //Check datalayerpush
       test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val == "HiThere")[0].filename);
-    }
+    },
 
-  , "Test assetpack mode"
-  , async function()
-    {
+    "Test assetpack mode",
+    async function() {
       await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?gtmplugin_integration=assetpack&ga4_integration=none');
       await waitForGTM();
       test.eq(undefined, test.getWin().gtm_consent);
-      checkForGTM({remote:1});
+      checkForGTM({ remote: 1 });
 
       //Check datalayerpush
       test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val == "HiThere")[0].filename);
-    }
+    },
 
-  , "Test script integration"
-  , async function()
-    {
+    "Test script integration",
+    async function() {
       await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?gtmplugin_integration=script&ga4_integration=none');
       await waitForGTM();
       test.eq(undefined, test.getWin().gtm_consent);
-      checkForGTM({remote:1,snippet:1}); //snippet loads remote, so both should be here
+      checkForGTM({ remote: 1, snippet: 1 }); //snippet loads remote, so both should be here
 
       //Check datalayerpush
       test.eq("dynamicpage", Array.from(test.getWin().dataLayer).filter(node => node.val == "HiThere")[0].filename);
-    }
+    },
 
-  , "The new debugflag 'sne' should disable selfhosting"
-  , async function()
-    {
+    "The new debugflag 'sne' should disable selfhosting",
+    async function() {
       await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?wh-debug=sne&ga4_integration=none');
       await waitForGTM();
       test.eq(undefined, test.getWin().gtm_consent);
-      checkForGTM({remote:1});
-    }
+      checkForGTM({ remote: 1 });
+    },
 
-  , "Test consent API"
-  , async function()
-    {
+    "Test consent API",
+    async function() {
       //forcibly clear cookie first
       forceResetConsent();
 
@@ -95,7 +88,7 @@ test.registerTests(
       test.click('[data-messagebox-result="analytics"]');
 
       await waitForGTM();
-      checkForGTM({remote:1});
+      checkForGTM({ remote: 1 });
       test.eq("analytics", test.getWin().gtm_consent);
       test.eq("analytics", test.getDoc().documentElement.dataset.whConsent);
       test.throws(test.getWin().hasConsent);

@@ -9,12 +9,12 @@ import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
 import ListView from '@mod-tollium/web/ui/components/listview/listview';
 import { getScrollbarWidth } from '@mod-tollium/web/ui/components/listview/listview';
 import $todd from "@mod-tollium/web/ui/js/support";
-var toddImages = require("@mod-tollium/js/icons");
+const toddImages = require("@mod-tollium/js/icons");
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 import "./list.scss";
 
 function collectFlags(iterable) {
-  let flags = [];
+  const flags = [];
   for (const row of iterable)
     flags.push(row[0].flags);
   return flags;
@@ -59,12 +59,12 @@ export default class ObjList extends ComponentBase {
     this.columnselectmode = data.columnselectmode;
     this.node = dompack.create("div",
       {
-        dataset: { name: this.name }
-        , on: {
+        dataset: { name: this.name },
+        on: {
           "focus": this.onFocus.bind(this)
-        }
-        , propTodd: this
-        , className: "wh-ui-listview--" + (data.class || 'normal')
+        },
+        propTodd: this,
+        className: "wh-ui-listview--" + (data.class || 'normal')
       });
 
     this.node.propTodd = this;
@@ -101,13 +101,12 @@ export default class ObjList extends ComponentBase {
       for (let i = 0; i < data.colheaders.length; ++i)
         this.cols.push(
           {
-            width: 0
-            , header: data.colheaders[i].col
-            , indraglayout: data.colheaders[i].indraglayout
-            , combinewithnext: data.colheaders[i].combinewithnext
+            width: 0,
+            header: data.colheaders[i].col,
+            indraglayout: data.colheaders[i].indraglayout,
+            combinewithnext: data.colheaders[i].combinewithnext
           });
-    }
-    else {
+    } else {
       for (let i = 0; i < data.columns.length; ++i)
         this.cols.push({ width: 0, header: i, indraglayout: true, combinewithnext: false });
     }
@@ -130,7 +129,7 @@ export default class ObjList extends ComponentBase {
     if (this.newcontextmenu)
       this.owner.addComponent(this, data.newcontextmenu);
 
-    var small_left_padding = false;
+    let small_left_padding = false;
 
     // Use small left padding when first column is a checkbox column and no highlight is present
     if (this.rowlayout.length == 1
@@ -147,20 +146,20 @@ export default class ObjList extends ComponentBase {
     this.node.addEventListener('wh:listview-sortchange', evt => this.onSortchange(evt));
     this.node.addEventListener("wh:listview-selectcolumns", evt => this.onSelectColumnsChange(evt));
 
-    var listoptions = {
-      selectmode: this.selectmode
-      , columnselectmode: this.columnselectmode
+    const listoptions = {
+      selectmode: this.selectmode,
+      columnselectmode: this.columnselectmode,
 
-      , headerheight: 28
-      , lineheight: 20
-      , linepadding: data.class == "verticaltabs" ? 8 : 2
+      headerheight: 28,
+      lineheight: 20,
+      linepadding: data.class == "verticaltabs" ? 8 : 2,
       //, cssheights: true
 
-      , hideheader: !data.columnheaders
-      , emptytext: this.emptytext
+      hideheader: !data.columnheaders,
+      emptytext: this.emptytext,
 
-      , firstcolumn_leftpadding: small_left_padding ? this.smallleftsidepadding : this.leftsidepadding
-      , lastcolumn_rightpadding: this.rightsidepadding
+      firstcolumn_leftpadding: small_left_padding ? this.smallleftsidepadding : this.leftsidepadding,
+      lastcolumn_rightpadding: this.rightsidepadding
 
       //, autorefresh: false // let Tollium handle resiz
 
@@ -205,12 +204,12 @@ export default class ObjList extends ComponentBase {
       */
 
     return {
-      rows: this.getRowsSubmitValue(this.rows)
-      , selectedcolumns: this.list.getSelectedColumns().map(src => src.name)
+      rows: this.getRowsSubmitValue(this.rows),
+      selectedcolumns: this.list.getSelectedColumns().map(src => src.name)
     };
   }
   getRowsSubmitValue(rows) {
-    var retval = "";
+    let retval = "";
     for (var i = 0; i < rows.length; ++i) {
       if (rows[i][1])
         retval += " s" + rows[i][0].rowkey;
@@ -229,10 +228,10 @@ export default class ObjList extends ComponentBase {
   }
 
   _setSelection(rowkeys) {
-    var changed = false;
-    for (var i = 0; i < this.flatrows.length; ++i) {
-      var row = this.flatrows[i];
-      var selected = rowkeys.includes(row[0].rowkey);
+    let changed = false;
+    for (let i = 0; i < this.flatrows.length; ++i) {
+      const row = this.flatrows[i];
+      const selected = rowkeys.includes(row[0].rowkey);
       if (selected != row[1]) {
         row[1] = selected;
         changed = true;
@@ -265,7 +264,7 @@ export default class ObjList extends ComponentBase {
 
       case "rows":
         {
-          var selected = [];
+          const selected = [];
           for (let i = 0; i < this.flatrows.length; ++i)
             if (this.flatrows[i][1])
               selected.push(this.flatrows[i][0].rowkey);
@@ -309,9 +308,9 @@ export default class ObjList extends ComponentBase {
 
       case "footerrows":
         {
-          var rows = this.createTreeFromFlatRows(data.footerrows);
+          const rows = this.createTreeFromFlatRows(data.footerrows);
           this.footerrows = [];
-          var parentkey;
+          let parentkey;
           this.recurseFlattenRows(rows, 0, parentkey, this.footerrows);
 
           this.list.invalidateAllRows();
@@ -357,7 +356,7 @@ export default class ObjList extends ComponentBase {
     this.contentwidth = this.width.set - getScrollbarWidth() - this.overheadx;
     this.distributeSizes(this.contentwidth, this.columnwidths, true, this.cols.length - 1);
 
-    for (var i = 0; i < this.cols.length; ++i)
+    for (let i = 0; i < this.cols.length; ++i)
       this.cols[i].width = this.columnwidths[i].set;
   }
 
@@ -438,9 +437,9 @@ export default class ObjList extends ComponentBase {
     //    if (this.sortcolumnname != "<ordered>" && !this.sortcolumn)
     //      console.warn("List " + this.name + ": could not locate column '" + this.sortcolumnname + "'", this.datacolumns);
 
-    var rowspans = [];
+    const rowspans = [];
     this.rowlayout.forEach((row, idx) => {
-      var colnr = 0;
+      let colnr = 0;
       row.cells.forEach((cell, cidx) => {
         // Skip columns that rowspan over this column
         while ((rowspans[colnr] || 0) > idx)
@@ -452,7 +451,7 @@ export default class ObjList extends ComponentBase {
         this.datacolumns[cell.cellnum].y = idx;
 
         // Register colspans
-        for (var i = colnr; i < colnr + cell.colspan; ++i)
+        for (let i = colnr; i < colnr + cell.colspan; ++i)
           rowspans[i] = idx + cell.rowspan;
 
         colnr += cell.colspan;
@@ -460,12 +459,12 @@ export default class ObjList extends ComponentBase {
     });
 
     for (let i = 0; i < this.cols.length; ++i) {
-      var incol = this.datacolumns[this.cols[i].header];
+      const incol = this.datacolumns[this.cols[i].header];
 
-      var minwidth = incol.render.getSizeInfo(null, incol, false).minwidth;
+      let minwidth = incol.render.getSizeInfo(null, incol, false).minwidth;
       minwidth += $todd.settings.list_column_padding;
 
-      var sizeobj = $todd.ReadXMLWidths(incol);
+      const sizeobj = $todd.ReadXMLWidths(incol);
       sizeobj.min = Math.max(minwidth, $todd.CalcAbsWidth(sizeobj.xml_min)); //FIXME is 16 a proper minwidth? columntype specific minwidths?
       sizeobj.calc = Math.max(sizeobj.min, $todd.CalcAbsWidth(sizeobj.xml_set));
 
@@ -494,8 +493,8 @@ export default class ObjList extends ComponentBase {
     }
   }
   initRows(rows) {
-    for (var idx = 0; idx < rows.length; idx++) {
-      var row = rows[idx];
+    for (let idx = 0; idx < rows.length; idx++) {
+      const row = rows[idx];
       row[0].selectable = !this.selectableflags || this.selectableflags == "" || $todd.checkEnabledFlags([row[0].flags], this.selectableflags.split(" "), 1, 1, "all");
       row[0].ordering = idx;
     }
@@ -505,11 +504,11 @@ export default class ObjList extends ComponentBase {
   }
   createTreeFromFlatRows(rows) //ADDME just let the server ship us trees...
   {
-    var outrows = [];
-    var currentstack = [];
+    const outrows = [];
+    const currentstack = [];
 
-    for (var i = 0; i < rows.length; ++i) {
-      var row = rows[i];
+    for (let i = 0; i < rows.length; ++i) {
+      const row = rows[i];
 
       //Find a parent
       while (currentstack.length && currentstack.at(-1)[3] >= row[3])
@@ -517,8 +516,7 @@ export default class ObjList extends ComponentBase {
 
       if (!currentstack.length) {
         outrows.push(row);
-      }
-      else {
+      } else {
         if (!currentstack.at(-1)[0].subrows)
           currentstack.at(-1)[0].subrows = [];
         currentstack.at(-1)[0].subrows.push(row);
@@ -531,7 +529,7 @@ export default class ObjList extends ComponentBase {
   iterateRowTree(elts, func) {
     for (let i = 0, e = elts.length; i != e; ++i) {
       func(elts[i]);
-      let subrows = elts[i][0].subrows;
+      const subrows = elts[i][0].subrows;
       if (subrows)
         this.iterateRowTree(subrows, func);
     }
@@ -542,7 +540,7 @@ export default class ObjList extends ComponentBase {
     if (this.openaction) {
       evt.preventDefault();
 
-      var comp = this.owner.getComponent(this.openaction);
+      const comp = this.owner.getComponent(this.openaction);
       if (comp)
         comp.onExecute();
     }
@@ -551,8 +549,8 @@ export default class ObjList extends ComponentBase {
     this.queueMessage('magicaction', { type: type, rowkey: this.flatrows[rownum][0].rowkey }, true);
   }
   onListCellClick(event) {
-    let col = this.datacolumns[event.detail.cellidx];
-    let row = event.detail.row;
+    const col = this.datacolumns[event.detail.cellidx];
+    const row = event.detail.row;
     if (col && (col.type == "icon" || col.type == "icons") && col.iconlink && this.isEventUnmasked("iconclick") && event.detail.clicknode.closest("img, canvas")) {
       // If this is an 'icon(s)' column, handle icon click
       event.preventDefault();
@@ -563,8 +561,8 @@ export default class ObjList extends ComponentBase {
     }
   }
   onListCellEdit(event) {
-    let col = this.datacolumns[event.detail.cellidx];
-    let row = event.detail.row;
+    const col = this.datacolumns[event.detail.cellidx];
+    const row = event.detail.row;
     if (col.edittype == "textedit") {
       event.preventDefault();
       event.stopPropagation();
@@ -575,19 +573,20 @@ export default class ObjList extends ComponentBase {
   }
   onMagicMenu(event) {
     event.stopPropagation();
-    let row = this.list.getRowForNode(event.target);
+    const row = this.list.getRowForNode(event.target);
     if (!row)
       return;
 
-    let actions = [<li onClick={() => this._requestMagicAction('inspectrow', row.rownum)}>Inspect row #{row.rownum}</li>
-      , ...this.debugactions.map((action, idx) => <li onClick={() => this._requestMagicAction('debugaction:' + idx, row.rownum)}>{action.type}</li>)
+    const actions = [
+      <li onClick={() => this._requestMagicAction('inspectrow', row.rownum)}>Inspect row #{row.rownum}</li>,
+      ...this.debugactions.map((action, idx) => <li onClick={() => this._requestMagicAction('debugaction:' + idx, row.rownum)}>{action.type}</li>)
     ];
     event.detail.submenu.prepend(...actions);
   }
 
   onCheck(event) {
     if (this.isEventUnmasked("check")) {
-      for (var i = 0; i < this.checkboxcolumns.length; ++i)
+      for (let i = 0; i < this.checkboxcolumns.length; ++i)
         if (this.checkboxcolumns[i].checkboxidx == event.detail.checkboxidx) {
           this.setDirty();
           this.queueEvent(this.owner.screenname + "." + this.name, "check " + event.detail.row[0].rowkey + " " + this.checkboxcolumns[i].checkbox, true);
@@ -597,9 +596,9 @@ export default class ObjList extends ComponentBase {
     this.setDirty();
   }
   compareRows(lhs, rhs) {
-    var lhsdata, rhsdata, diff;
+    let lhsdata, rhsdata, diff;
     if (this.sortcolumn !== null) {
-      var col = this.datacolumns[this.sortcolumn];
+      const col = this.datacolumns[this.sortcolumn];
       lhsdata = lhs[col.sortidx];
       rhsdata = rhs[col.sortidx];
 
@@ -624,7 +623,7 @@ export default class ObjList extends ComponentBase {
     this.list.invalidateAllRows();
     this.list.setSort(event.detail.colidx, event.detail.ascending);
 
-    var sortcolumnname = "<ordered>";
+    let sortcolumnname = "<ordered>";
     if (this.sortcolumn !== null)
       sortcolumnname = this.datacolumns[this.sortcolumn].name;
 
@@ -637,7 +636,7 @@ export default class ObjList extends ComponentBase {
   resetSelectionRecursive(rows) {
     let changed_selection = false;
     for (let i = 0; i < rows.length; ++i) {
-      let row = rows[i];
+      const row = rows[i];
       if (row[1]) {
         row[1] = false;
         changed_selection = true;
@@ -652,8 +651,8 @@ export default class ObjList extends ComponentBase {
   {
     let changed_selection = false;
     rows = rows.sort(this.compareRows.bind(this));
-    for (var i = 0; i < rows.length; ++i) {
-      let row = rows[i];
+    for (let i = 0; i < rows.length; ++i) {
+      const row = rows[i];
       row[3] = depth; //depth
       row[0].rownum = resultrows.length;
       row[0].parentrowkey = parentrowkey;
@@ -671,8 +670,8 @@ export default class ObjList extends ComponentBase {
   flattenRows() //NOTE: taken from designfiles/ui/lists.js, may be a good candidate for the base class
   {
     this.flatrows = [];
-    var parentrowkey; // FIXME: variable not used??
-    let changed_selection = this.recurseFlattenRows(this.rows, 0, parentrowkey, this.flatrows);
+    let parentrowkey; // FIXME: variable not used??
+    const changed_selection = this.recurseFlattenRows(this.rows, 0, parentrowkey, this.flatrows);
 
     if (changed_selection)
       this._updatedSelection(true);
@@ -690,22 +689,22 @@ export default class ObjList extends ComponentBase {
   getDataStructure() {
     // searchidx is the index of the column containing the text which is searched using find-as-you-type. Maybe this could be
     // a setting in the future, but for now we'll take the data cell of the first 'text' column.
-    var searchidx = -1;
-    for (var i = 0; searchidx < 0 && i < this.datacolumns.length; ++i)
+    let searchidx = -1;
+    for (let i = 0; searchidx < 0 && i < this.datacolumns.length; ++i)
       if (this.datacolumns[i].type == "text")
         searchidx = this.datacolumns[i].dataidx;
 
-    var retval = {
-      selectedidx: 1
-      , expandedidx: 2
-      , depthidx: 3
-      , highlightidx: this.highlightidx
-      , searchidx: searchidx
-      , datacolumns: this.datacolumns
-      , cols: this.cols
-      , rowlayout: this.rowlayout
-      , dragrowlayout: this.dragrowlayout
-      , colheaders: this.colheaders
+    const retval = {
+      selectedidx: 1,
+      expandedidx: 2,
+      depthidx: 3,
+      highlightidx: this.highlightidx,
+      searchidx: searchidx,
+      datacolumns: this.datacolumns,
+      cols: this.cols,
+      rowlayout: this.rowlayout,
+      dragrowlayout: this.dragrowlayout,
+      colheaders: this.colheaders
     };
     return retval;
   }
@@ -715,7 +714,7 @@ export default class ObjList extends ComponentBase {
     if (!row)
       throw new Error("_calculateRowStyle didn't receive a row");
 
-    var style = null;
+    let style = null;
     if (row[0].stylebold) {
       if (!style)
         style = {};
@@ -744,28 +743,28 @@ export default class ObjList extends ComponentBase {
     if (!this.list.isRowVisible(rownum))
       return;
 
-    var row = this.flatrows[rownum];
-    var style = this._calculateRowStyle(row);
+    const row = this.flatrows[rownum];
+    const style = this._calculateRowStyle(row);
 
-    var options =
+    const options =
     {
-      draggable: !!row[0].draginfo
-      , styles: style
-      , selectable: row[0].selectable
-      , classes: row[0].classes
+      draggable: Boolean(row[0].draginfo),
+      styles: style,
+      selectable: row[0].selectable,
+      classes: row[0].classes
     };
 
     this.list.updateRow(rownum, row, options);
   }
   sendFooterRows() {
-    var tosend = [];
+    const tosend = [];
     this.footerrows.forEach(row => {
       tosend.push(
         {
-          row: row
-          , options: {
-            draggable: false
-            , style: this._calculateRowStyle(row)
+          row: row,
+          options: {
+            draggable: false,
+            style: this._calculateRowStyle(row)
           }
         });
     });
@@ -790,8 +789,7 @@ export default class ObjList extends ComponentBase {
 
       if (this.isEventUnmasked("select"))
         this.transferState(this.syncselect);
-    }
-    else if (cellidx == 2) //changing expanded state
+    } else if (cellidx == 2) //changing expanded state
     {
       this.flattenRows();
       this.list.invalidateAllRows();
@@ -800,25 +798,24 @@ export default class ObjList extends ComponentBase {
         this.queueEvent(this.owner.screenname + "." + this.name, "expand " + row[0].rowkey, false);
       else // make sure the new state ends up with the client quickly
         this.transferState(false);
-    }
-    else {
+    } else {
       //just a normal change..
     }
   }
 
   getRowParent(rownum) {
-    let row = this.flatrows[rownum];
-    let parentkey = row[0].parentrowkey;
+    const row = this.flatrows[rownum];
+    const parentkey = row[0].parentrowkey;
     if (typeof parentkey === "undefined")
       return null;
-    let parentrow = this.lookupRowByRowkey(parentkey);
+    const parentrow = this.lookupRowByRowkey(parentkey);
     return parentrow ? parentrow[0].rownum : null;
   }
 
   startSelectionUpdateGroup() {
     if (++this.selectionupdates == 1) {
       this.selectionoriginal = [];
-      for (var i = 0; i < this.flatrows.length; ++i)
+      for (let i = 0; i < this.flatrows.length; ++i)
         if (this.flatrows[i][1])
           this.selectionoriginal.push(this.flatrows[i][0].rowkey);
     }
@@ -826,7 +823,7 @@ export default class ObjList extends ComponentBase {
 
   finishSelectionUpdateGroup() {
     if (--this.selectionupdates == 0) {
-      let newselection = [];
+      const newselection = [];
       for (let i = 0; i < this.flatrows.length; ++i)
         if (this.flatrows[i][1])
           newselection.push(this.flatrows[i][0].rowkey);
@@ -851,8 +848,8 @@ export default class ObjList extends ComponentBase {
   }
 
   clearSelection() {
-    var changed = false;
-    for (var i = 0; i < this.flatrows.length; ++i)
+    let changed = false;
+    for (let i = 0; i < this.flatrows.length; ++i)
       if (this.flatrows[i][1]) //isselected
       {
         if (!changed && this.flatrows[i][1])
@@ -891,7 +888,7 @@ export default class ObjList extends ComponentBase {
     }
     rownum++;
 
-    var rowcount = this.flatrows.length;
+    const rowcount = this.flatrows.length;
     while (rownum < rowcount) {
       if (this.flatrows[rownum][0].selectable)
         return rownum;
@@ -904,16 +901,16 @@ export default class ObjList extends ComponentBase {
 
   setSelectionForRange(startrow, endrow, newvalue) {
     if (endrow < startrow) {
-      var temp = startrow;
+      const temp = startrow;
       startrow = endrow;
       endrow = temp;
     }
     //console.trace();
     //console.log("Setting selection for row", startrow, "to row", endrow, "to", newvalue);
 
-    var changed = false;
+    let changed = false;
 
-    for (var i = startrow; i <= endrow; ++i) {
+    for (let i = startrow; i <= endrow; ++i) {
       if (!this.flatrows[i][0].selectable)
         continue;
       //console.log(this.flatrows[i][0]);
@@ -929,7 +926,7 @@ export default class ObjList extends ComponentBase {
   }
 
   lookupRowByRowkey(rowkey) {
-    for (var i = 0; i < this.flatrows.length; ++i)
+    for (let i = 0; i < this.flatrows.length; ++i)
       if (this.flatrows[i][0].rowkey == rowkey)
         return this.flatrows[i];
     return null;
@@ -948,41 +945,41 @@ export default class ObjList extends ComponentBase {
   }
 
   tryStartDrag(event, rownum, row) {
-    var dragdata = [];
+    let dragdata = [];
 
     if (!row)
       return false;
 
-    var displayrows = [];
+    const displayrows = [];
 
     if (row[1]) {
-      for (var i = 0; i < this.flatrows.length; ++i)
+      for (let i = 0; i < this.flatrows.length; ++i)
         if (this.flatrows[i][1]) {
           dragdata.push(
             {
-              id: this.flatrows[i][0].rowkey
-              , info: this.flatrows[i][0].draginfo
+              id: this.flatrows[i][0].rowkey,
+              info: this.flatrows[i][0].draginfo
             });
 
           displayrows.push(
             {
-              row: this.flatrows[i]
-              , options: { style: this._calculateRowStyle(this.flatrows[i]) }
+              row: this.flatrows[i],
+              options: { style: this._calculateRowStyle(this.flatrows[i]) }
             });
         }
-    }
-    else {
+    } else {
       dragdata =
-        [{
-          id: row[0].rowkey
-          , info: row[0].draginfo
-        }
+        [
+          {
+            id: row[0].rowkey,
+            info: row[0].draginfo
+          }
         ];
 
       displayrows.push(
         {
-          row: row
-          , options: { style: this._calculateRowStyle(row) }
+          row: row,
+          options: { style: this._calculateRowStyle(row) }
         });
     }
 
@@ -990,8 +987,8 @@ export default class ObjList extends ComponentBase {
   }
 
   checkTargetDrop(event, rownum, row) {
-    var noloopcheck = row ? this.doNoLoopCheck.bind(this, row) : null;
-    var dragdata = this.owner.checkDropTarget(event, this.droptypes, row && row[0].flags, noloopcheck, "ontarget");
+    const noloopcheck = row ? this.doNoLoopCheck.bind(this, row) : null;
+    const dragdata = this.owner.checkDropTarget(event, this.droptypes, row && row[0].flags, noloopcheck, "ontarget");
     if (dragdata)
       return { location: "ontarget", cells: row, dragdata: dragdata };
     return null;
@@ -1015,33 +1012,32 @@ export default class ObjList extends ComponentBase {
       throw new Error("Illegal positioned drop row number");
 
     // Get depth of next and previous row
-    var nextdepth = !this.flatrows || rownum >= this.flatrows.length ? 0 : this.flatrows[rownum][3];
-    var prevdepth = rownum == 0 || !this.flatrows || this.flatrows.length == 0 ? -1 : this.flatrows[rownum - 1][3];
+    let nextdepth = !this.flatrows || rownum >= this.flatrows.length ? 0 : this.flatrows[rownum][3];
+    const prevdepth = rownum == 0 || !this.flatrows || this.flatrows.length == 0 ? -1 : this.flatrows[rownum - 1][3];
 
     // Get range of allowed drop depths
-    var mindepth = nextdepth;
-    var maxdepth = Math.max(prevdepth + 1, nextdepth);
+    const mindepth = nextdepth;
+    const maxdepth = Math.max(prevdepth + 1, nextdepth);
 
     //console.log('min-maxdepth', mindepth, maxdepth, 'prev-next', prevdepth, nextdepth);
 
-    var allowed = null;
+    let allowed = null;
     nextdepth = rownum >= this.flatrows.length ? -1 : this.flatrows[rownum][3];
-    var append_rownum = rownum - 1;
+    let append_rownum = rownum - 1;
 
     // Test range of allowed drops (from deepest to shallowest, we want the first match below or at the requested depth)
-    for (var i = maxdepth; i >= mindepth; --i) // mindepth >= 0
+    for (let i = maxdepth; i >= mindepth; --i) // mindepth >= 0
     {
-      var location = i != nextdepth ? "appendchild" : "insertbefore";
+      const location = i != nextdepth ? "appendchild" : "insertbefore";
 
       var test_rownum;
       if (location == "insertbefore") {
         // Row in 'rownum' has requested depth, so we must insert before that node
         test_rownum = rownum;
-      }
-      else {
+      } else {
         // Find the first row with a depth lower than our current test depth. We'll append to that node
         for (; append_rownum >= -1; --append_rownum) {
-          var testdepth = append_rownum < 0 ? -1 : this.flatrows[append_rownum][3];
+          const testdepth = append_rownum < 0 ? -1 : this.flatrows[append_rownum][3];
           if (testdepth < i)
             break;
         }
@@ -1051,15 +1047,15 @@ export default class ObjList extends ComponentBase {
       //console.log('test depth', i, location, test_rownum, append_rownum, rownum);
 
       // Get row data
-      var testrow = test_rownum >= 0 ? this.flatrows[test_rownum] : null;
+      const testrow = test_rownum >= 0 ? this.flatrows[test_rownum] : null;
 
       // Do drop check
-      var noloopcheck = testrow ? this.doNoLoopCheck.bind(this, testrow) : null;
-      var dragdata = this.owner.checkDropTarget(event, this.droptypes, testrow && testrow[0].flags, noloopcheck, location);
+      const noloopcheck = testrow ? this.doNoLoopCheck.bind(this, testrow) : null;
+      const dragdata = this.owner.checkDropTarget(event, this.droptypes, testrow && testrow[0].flags, noloopcheck, location);
       if (dragdata) {
         // Can drop at this position. Return it (or save it as best match higher than requested depth)
         //console.log('allowed depth', i, 'want', depth);
-        var depthres = { depth: i, location: location, cells: testrow, dragdata: dragdata };
+        const depthres = { depth: i, location: location, cells: testrow, dragdata: dragdata };
         if (i <= depth) {
           //console.log('returning match', depthres);
           return depthres;
@@ -1092,7 +1088,7 @@ export default class ObjList extends ComponentBase {
   selectFirstMatchFromCurrent(searchregex, searchidx) {
     // First first selected row
     let firstselected = 0;
-    let flatrowslen = this.flatrows.length;
+    const flatrowslen = this.flatrows.length;
     for (let i = 0; i < flatrowslen; ++i)
       if (this.flatrows[i][1]) {
         firstselected = i;
@@ -1131,7 +1127,7 @@ export default class ObjList extends ComponentBase {
 
   //check enabledon. colidx == 1 for selection, or a checkboxcolumn otherwise
   isEnabledBySelectionColumn(checkflags, min, max, selectionmatch, colidx) {
-    let flags = collectFlags(this.getSelectedRows(colidx));
+    const flags = collectFlags(this.getSelectedRows(colidx));
     $todd.DebugTypedLog("actionenabler", "flags = " + JSON.stringify(flags));
 
     if ($todd.checkEnabledFlags(flags, checkflags, min, max, selectionmatch)) {
@@ -1145,14 +1141,13 @@ export default class ObjList extends ComponentBase {
     if (this.selectmode != "none") {
       $todd.DebugTypedLog("actionenabler", "- Checking action enabled for " + this.name + ".'" + checkflags.join(",") + "' [" + min + ", " + (max > 0 ? max + "]" : "->") + " (" + selectionmatch + ") by selection");
       return this.isEnabledBySelectionColumn(checkflags, min, max, selectionmatch, 1);
-    }
-    else //FIXME reimplement adn test checkbox enabledon..
+    } else //FIXME reimplement adn test checkbox enabledon..
     {
       $todd.DebugTypedLog("actionenabler", "- Checking action enabled for " + this.name + ".'" + checkflags.join(',') + "' [" + min + ", " + (max > 0 ? max + "]" : "->") + " (" + selectionmatch + ") by checkboxes/radios");
 
       for (let i = 0; i < this.datacolumns.length; ++i)
         if (this.datacolumns[i].type != "todd_scroll" && this.datacolumns[i].checkbox) {
-          let match = this.isEnabledBySelectionColumn(checkflags, min, max, selectionmatch, this.datacolumns[i].checkboxidx)
+          const match = this.isEnabledBySelectionColumn(checkflags, min, max, selectionmatch, this.datacolumns[i].checkboxidx);
           $todd.DebugTypedLog("actionenabler", `- Matching by checkboxcolumn '${this.datacolumns[i].name}', result = `, match);
           if (match)
             return true;
@@ -1172,7 +1167,7 @@ export default class ObjList extends ComponentBase {
   }
 
   getFirstSelectedRow() {
-    for (var i = 0; i < this.flatrows.length; ++i)
+    for (let i = 0; i < this.flatrows.length; ++i)
       if (this.flatrows[i][1])
         return i;
     return -1;
@@ -1183,7 +1178,7 @@ export default class ObjList extends ComponentBase {
   }
 
   onContextmenu(event) {
-    var menu = this.owner.getComponent(this.anySelected() ? this.selectcontextmenu : this.newcontextmenu);
+    const menu = this.owner.getComponent(this.anySelected() ? this.selectcontextmenu : this.newcontextmenu);
     if (!menu)
       return;
     menu.openMenuAt(event.detail.originalevent, { eventnode: this.node, ascontextmenu: true });
@@ -1194,7 +1189,7 @@ export default class ObjList extends ComponentBase {
     this.owner.actionEnabler();
   }
   jumpToSelection() {
-    var selectedrow = this.getFirstSelectedRow();
+    const selectedrow = this.getFirstSelectedRow();
     if (selectedrow == -1)
       return;
 
@@ -1207,25 +1202,24 @@ export default class ObjList extends ComponentBase {
     this.columnwidths.forEach(function(item, idx) {
       if (event.detail.widths[idx])
         item.new_set = event.detail.widths[idx];
-    }.bind(this));
+    });
   }
 }
 
 function setIcon(list, columndef, row, cell, width, height, icon) {
-  var overlayidx = (columndef.overlayidx >= 0 ? row.cells[columndef.overlayidx] : 0) - 1;
-  var overlayicon = overlayidx >= 0 && overlayidx < list.iconnames.length ? list.iconnames[overlayidx] : null;
+  const overlayidx = (columndef.overlayidx >= 0 ? row.cells[columndef.overlayidx] : 0) - 1;
+  const overlayicon = overlayidx >= 0 && overlayidx < list.iconnames.length ? list.iconnames[overlayidx] : null;
   if (overlayicon)
     icon = icon + "+" + overlayicon;
 
-  var existingicon = cell.firstChild;
+  const existingicon = cell.firstChild;
   if (icon) {
     //We're requesting the color version, the server will fallback to the black icon if needed
     if (existingicon)
       toddImages.updateImage(existingicon, icon, width, height, "c");
     else
       cell.appendChild(toddImages.createImage(icon, width, height, "c"));
-  }
-  else if (existingicon) {
+  } else if (existingicon) {
     cell.removeChild(existingicon);
   }
 }
@@ -1236,12 +1230,12 @@ class IconColumn extends Base {
     this.toddlist = list;
   }
   render(list, columndef, row, cell, data, wrapped) {
-    var iconidx = data - 1;
-    var icon = iconidx >= 0 && iconidx < this.toddlist.iconnames.length ? this.toddlist.iconnames[iconidx] : null;
+    const iconidx = data - 1;
+    const icon = iconidx >= 0 && iconidx < this.toddlist.iconnames.length ? this.toddlist.iconnames[iconidx] : null;
     if (!icon)
       return;
 
-    var icondimensions = columndef.rowspan > 1 ? 24 : 16;
+    const icondimensions = columndef.rowspan > 1 ? 24 : 16;
 
     cell.classList.toggle("bigicon", columndef.rowspan > 1);
     cell.classList.toggle("firsticonmargin", !wrapped && columndef.x == 0);
@@ -1255,8 +1249,8 @@ class IconColumn extends Base {
   getSizeInfo(list, columndef, wrapped) {
     // Minwidth: at least one icon + 4 pixels padding on both sides
     return {
-      resizable: false
-      , minwidth: 8 + (columndef.rowspan > 1 ? 24 : 16) // icon must be visible
+      resizable: false,
+      minwidth: 8 + (columndef.rowspan > 1 ? 24 : 16) // icon must be visible
     };
   }
 }
@@ -1268,7 +1262,7 @@ class IconsColumn extends Base {
   }
 
   render(list, columndef, row, cell, data, wrapped) {
-    var icondimensions = columndef.rowspan > 1 ? 24 : 16;
+    const icondimensions = columndef.rowspan > 1 ? 24 : 16;
 
     if (columndef.align == "right")
       cell.style.textAlign = "right"; //FIXME can we externalize alignment ? (ie not solve it in the columns themselvs)
@@ -1278,8 +1272,8 @@ class IconsColumn extends Base {
 
     if (data) {
       data.split(" ").forEach(iconnr => {
-        var iconidx = parseInt(iconnr) - 1;
-        var icon = iconidx >= 0 && iconidx < this.toddlist.iconnames.length ? this.toddlist.iconnames[iconidx] : null;
+        const iconidx = parseInt(iconnr) - 1;
+        const icon = iconidx >= 0 && iconidx < this.toddlist.iconnames.length ? this.toddlist.iconnames[iconidx] : null;
         if (!icon)
           cell.appendChild(dompack.create("div", { style: "display:inline-block;width:" + icondimensions + "px;height: " + icondimensions + "px;" }));
         else
@@ -1294,8 +1288,8 @@ class IconsColumn extends Base {
   getSizeInfo(list, columndef, wrapped) {
     // Minwidth: at least one icon + 4 pixels padding on both sides
     return {
-      resizable: true
-      , minwidth: 8 + (columndef.rowspan > 1 ? 24 : 16)
+      resizable: true,
+      minwidth: 8 + (columndef.rowspan > 1 ? 24 : 16)
     };
   }
 }
@@ -1311,19 +1305,19 @@ class IconWrapper extends Base {
   }
 
   render(list, columndef, row, cell, data, wrapped) {
-    var iconholder = cell.firstChild;
+    let iconholder = cell.firstChild;
     if (!iconholder) {
       iconholder = dompack.create("span",
         {
           style: {
-            "display": multiline ? "none" : "inline-block"
-            , "width": this.iconholderwidth + "px"
+            "display": multiline ? "none" : "inline-block",
+            "width": this.iconholderwidth + "px"
           }
         });
       cell.appendChild(iconholder);
     }
 
-    var restholder = cell.childNodes[1];
+    let restholder = cell.childNodes[1];
     if (!restholder) {
       restholder = dompack.create("span",
         {
@@ -1339,8 +1333,8 @@ class IconWrapper extends Base {
 
     var multiline = this.toddlist.list.linesperrow > 1;
 
-    var iconidx = row.cells[columndef.iconidx] - 1;
-    var icon = iconidx >= 0 && iconidx < this.toddlist.iconnames.length ? this.toddlist.iconnames[iconidx] : null;
+    const iconidx = row.cells[columndef.iconidx] - 1;
+    const icon = iconidx >= 0 && iconidx < this.toddlist.iconnames.length ? this.toddlist.iconnames[iconidx] : null;
 
     setIcon(this.toddlist, columndef, row, iconholder, 16, 16, icon);
     this.base.render(list, columndef, row, restholder, data, true);
@@ -1363,7 +1357,7 @@ class IconWrapper extends Base {
   }
 
   getSizeInfo(list, columndef, wrapped) {
-    var info = this.base.getSizeInfo(list, columndef);
+    const info = this.base.getSizeInfo(list, columndef);
     info.minwidth += columndef.rowspan > 1 ? 24 : 16; // icon must be visible
     info.minwidth += 4; // space between icon and subcolumn !wrapped && columndef.x == 0 ? 4 : 0;
     return info;

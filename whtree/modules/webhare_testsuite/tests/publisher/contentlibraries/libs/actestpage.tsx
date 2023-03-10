@@ -4,21 +4,20 @@
 import * as dompack from 'dompack';
 import * as beacons from '@mod-publisher/js/contentlibraries/beacons';
 
-if(!window.dataLayer)
+if (!window.dataLayer)
   window.dataLayer = [];
 
-function updateBeacons(nd)
-{
+function updateBeacons(nd) {
   if (window.__testdcoptions && window.__testdcoptions.now)
     nd.textContent = `Override test date ${window.__testdcoptions.now.toISOString()}`;
   else
     nd.textContent = `Using current date ${new Date().toISOString()}`;
 
   const cb = dompack.qS("#currentbeacons");
-  cb.replaceChildren(...beacons.list().map( beacon =>
+  cb.replaceChildren(...beacons.list().map(beacon =>
     <div data-beacon-name={beacon.name} data-beacon-when={beacon.timestamps[0]}>
       Beacon: {beacon.name} set at {new Date(beacon.timestamps[0]).toISOString()}
-      </div>));
+    </div>));
 
   const count = beacons.getVisitCount();
   const vc = dompack.qS("#visitcount");
@@ -35,7 +34,6 @@ dompack.register("#resetallbeacons", _ => _.addEventListener("click", () => beac
 dompack.register("#resetvisitcount", _ => _.addEventListener("click", () => beacons.resetVisitCount()));
 dompack.register("#resetvisitsession", _ => _.addEventListener("click", () => beacons.resetVisitCount({ sessiononly: true })));
 
-dompack.register(".accontent-widget-trailer", trailer =>
-{
+dompack.register(".accontent-widget-trailer", trailer => {
   trailer.textContent = `Trailer! ${dompack.qSA(".accontent-widget").length} widget(s) in DOM`;
 });

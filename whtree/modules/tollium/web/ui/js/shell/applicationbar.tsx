@@ -5,8 +5,8 @@ import * as dompack from 'dompack';
 import $todd from "@mod-tollium/web/ui/js/support";
 import Keyboard from 'dompack/extra/keyboard';
 import * as domscroll from 'dompack/browserfix/scroll';
-var menu = require('@mod-tollium/web/ui/components/basecontrols/menu');
-var toddImages = require("@mod-tollium/js/icons");
+const menu = require('@mod-tollium/web/ui/components/basecontrols/menu');
+const toddImages = require("@mod-tollium/js/icons");
 import { ToddImage } from "../components/jsx";
 
 
@@ -26,8 +26,8 @@ class ApplicationTab {
     this.root =
       <div className="t-apptab t-apptab--hasicon"
         on={{
-          "contextmenu": event => this.onTabContextMenu(event)
-          , "click": event => this.onTabClick(event)
+          "contextmenu": event => this.onTabContextMenu(event),
+          "click": event => this.onTabClick(event)
         }}>
         {this.icon = <ToddImage image={app.appicon || 'tollium:tollium/tollium'}
           width={app.appiconwidth || 16}
@@ -39,8 +39,8 @@ class ApplicationTab {
       </div>;
 
     this.root[appbarsymbol] = {
-      tabmodifier: ''
-      , tab: this
+      tabmodifier: '',
+      tab: this
     };
     this.menuitem = <li onClick={evt => this._onActivateTab(evt)}>{app.title}</li>;
     this.fixed = fixed;
@@ -51,7 +51,7 @@ class ApplicationTab {
   }
 
   replaceApp(newapp) {
-    let wasactive = this.app && this.app === $todd.getActiveApplication();
+    const wasactive = this.app && this.app === $todd.getActiveApplication();
     if (this.app) {
       this.app.appnodes.root.removeEventListener("tollium:updatescreen", this._onupdatescreen);
       this.app.appnodes.root.removeEventListener("tollium:updateapp", this._onupdateapp);
@@ -81,7 +81,7 @@ class ApplicationTab {
   }
 
   onUpdateApp(event) {
-    this.root.classList.toggle('t-apptab--hasicon', !!this.app.appicon);
+    this.root.classList.toggle('t-apptab--hasicon', Boolean(this.app.appicon));
     this.root.classList.toggle('t-apptab--hasissues', this.app.hasissues);
     this.root.classList.toggle('t-apptab--isdebugrunning', this.app.isdebugged && !this.app.isdebugpaused);
     this.root.classList.toggle('t-apptab--isdebugpaused', this.app.isdebugged && this.app.isdebugpaused);
@@ -109,10 +109,10 @@ class ApplicationTab {
   onTabContextMenu(event) {
     dompack.stop(event);
 
-    var appmenu = this.app.generateAppMenu();
+    const appmenu = this.app.generateAppMenu();
     dompack.empty(this._appbar.apptabmenu);
     appmenu.forEach(menuitem => {
-      let item = menuitem.isdivider ? <li class="divider" /> : <li onClick={evt => this.onTabContextMenuClick(evt, menuitem)}>{menuitem.title}</li>;
+      const item = menuitem.isdivider ? <li class="divider" /> : <li onClick={evt => this.onTabContextMenuClick(evt, menuitem)}>{menuitem.title}</li>;
       this._appbar.apptabmenu.appendChild(item);
     });
 
@@ -158,7 +158,7 @@ export default class ApplicationBar {
     this.scroll_left_node = this.dyn_node.querySelector(".t-apptabs__leftscroll");
     this.scroll_right_node = this.dyn_node.querySelector(".t-apptabs__rightscroll");
 
-    var navtab = this.dyn_node.querySelector(".t-apptabs__navtab");
+    const navtab = this.dyn_node.querySelector(".t-apptabs__navtab");
     navtab.addEventListener("click", this._onNavMenuClick.bind(this));
 
     this.scroll_left_node.addEventListener("mouseover", evt => this._scrollMouseOver(evt, -1));
@@ -167,8 +167,8 @@ export default class ApplicationBar {
     this.scroll_right_node.addEventListener("mouseout", evt => this._scrollCancel(evt));
 
     //allow keyboard events to manipulate the bar
-    var keyprefix = "Control+Shift+";
-    var keymap = {};
+    const keyprefix = "Control+Shift+";
+    const keymap = {};
     keymap[keyprefix + "ArrowLeft"] = this._gotoApp.bind(this, 'relative', -1);
     keymap[keyprefix + "ArrowRight"] = this._gotoApp.bind(this, 'relative', +1);
 
@@ -181,10 +181,10 @@ export default class ApplicationBar {
     // Catch (shift+)backspace and cmd+left/right - it's okay to send to an input, but not to propagate it, to prevent
     // accidental browser navigation (allow stuff like ctrl+[ and cmd+])
     new Keyboard(document.body, {
-      "Backspace": () => { }
-      , "Shift+Backspace": () => { }
-      , "Accel+ArrowLeft": () => { }
-      , "Accel+ArrowRight": () => { }
+      "Backspace": () => { },
+      "Shift+Backspace": () => { },
+      "Accel+ArrowLeft": () => { },
+      "Accel+ArrowRight": () => { }
     }, { ignoreformfields: true, stopmapped: true });
 
     this._resize();
@@ -198,20 +198,20 @@ export default class ApplicationBar {
     dompack.stop(event);
     this.scrollstate =
     {
-      time: Date.now()
-      , start: this.dyn_content_node.scrollLeft
-      , isleft: dir < 0
+      time: Date.now(),
+      start: this.dyn_content_node.scrollLeft,
+      isleft: dir < 0
     };
     this._handleScrollStep();
   }
   _calcScrollDistance() {
-    var speed = 400; // pixels per second
-    var acctime = 2; // accelerate to final speed in this much seconds (normal acceleration)
-    var timediff = (Date.now() - this.scrollstate.time) / 1000;
+    const speed = 400; // pixels per second
+    const acctime = 2; // accelerate to final speed in this much seconds (normal acceleration)
+    const timediff = (Date.now() - this.scrollstate.time) / 1000;
 
-    var accphasepart = timediff > acctime ? 2 : timediff;
-    var accphase = .5 * (speed / acctime) * accphasepart * accphasepart;
-    var linearphase = speed * (timediff - accphasepart);
+    const accphasepart = timediff > acctime ? 2 : timediff;
+    const accphase = .5 * (speed / acctime) * accphasepart * accphasepart;
+    const linearphase = speed * (timediff - accphasepart);
 
     return accphase + linearphase;
   }
@@ -221,7 +221,7 @@ export default class ApplicationBar {
     if (!this.scrollstate)
       return;
 
-    var dist = this._calcScrollDistance();
+    const dist = this._calcScrollDistance();
     this.dyn_content_node.scrollLeft = this.scrollstate.start + (this.scrollstate.isleft ? -1 : 1) * dist;
     this._resize();
 
@@ -243,14 +243,13 @@ export default class ApplicationBar {
 
   _gotoApp(how, idx) {
     if (how == 'relative') {
-      var appidx = this.apps.findIndex(app => app.app == $todd.getActiveApplication());
+      const appidx = this.apps.findIndex(app => app.app == $todd.getActiveApplication());
       if (appidx < 0)
         return;
 
-      var gotoappidx = (appidx + this.apps.length + idx) % this.apps.length;
+      const gotoappidx = (appidx + this.apps.length + idx) % this.apps.length;
       this.apps[gotoappidx].app.activateApp();
-    }
-    else if (how == 'absolute') {
+    } else if (how == 'absolute') {
       if (idx < this.apps.length)
         this.apps[idx].app.activateApp();
     }
@@ -259,15 +258,14 @@ export default class ApplicationBar {
   // shortcut.app Application object
   // shortcut.icononly Only show icon (e.g. for homescreen app)
   toggleShortcut(app, show, fixed) {
-    var appidx = this.apps.findIndex(elt => elt.app == app);
+    const appidx = this.apps.findIndex(elt => elt.app == app);
     fixed = fixed || false;
 
     if (show) {
       let newtab;
       if (appidx < 0) {
         newtab = new ApplicationTab(this, app, fixed);
-      }
-      else {
+      } else {
         // Already exists
         newtab = this.apps[appidx];
 
@@ -288,8 +286,7 @@ export default class ApplicationBar {
         this.fixed_node.appendChild(newtab.root);
       else
         this.dyn_content_node.appendChild(newtab.root);
-    }
-    else {
+    } else {
       if (appidx < 0)
         return;
 
@@ -303,7 +300,7 @@ export default class ApplicationBar {
   }
 
   _recalculateCSSClasses() {
-    var allnodes = dompack.qSA(this.node, ".t-apptab");
+    const allnodes = dompack.qSA(this.node, ".t-apptab");
 
     allnodes.forEach(function(item, idx) {
       item.classList.toggle("t-apptab--first", idx == 0);
@@ -313,22 +310,22 @@ export default class ApplicationBar {
   }
 
   _resize() {
-    var total_width = this.node.parentNode.offsetWidth;
-    var fixed_width = this.fixed_node.offsetWidth;
-    var dyn_scroll_pos = this.dyn_content_node.scrollLeft;
-    var nav_width = this.nav_node.offsetWidth;
+    const total_width = this.node.parentNode.offsetWidth;
+    const fixed_width = this.fixed_node.offsetWidth;
+    const dyn_scroll_pos = this.dyn_content_node.scrollLeft;
+    const nav_width = this.nav_node.offsetWidth;
 
     // Calc the requested width from the width of the content
-    var dyn_scroll_width = 0;
+    let dyn_scroll_width = 0;
     if (this.dyn_content_node.lastChild)
       dyn_scroll_width = this.dyn_content_node.lastChild.offsetLeft + this.dyn_content_node.lastChild.offsetWidth;
 
-    var dyn_width = total_width - fixed_width;
-    var overflow = dyn_scroll_width > dyn_width;
-    var dyn_content_width = dyn_width - (overflow ? nav_width : 0);
+    const dyn_width = total_width - fixed_width;
+    const overflow = dyn_scroll_width > dyn_width;
+    const dyn_content_width = dyn_width - (overflow ? nav_width : 0);
 
-    var can_scroll_left = dyn_scroll_pos != 0;
-    var can_scroll_right = dyn_scroll_width - dyn_content_width - dyn_scroll_pos >= 1;
+    const can_scroll_left = dyn_scroll_pos != 0;
+    const can_scroll_right = dyn_scroll_width - dyn_content_width - dyn_scroll_pos >= 1;
 
     this.dyn_node.style.left = fixed_width + 'px';
     this.dyn_node.style.width = dyn_width + 'px';
@@ -347,10 +344,10 @@ export default class ApplicationBar {
 
   updateActiveApp() {
     this.node.style.display = this.anyShortcuts() ? "block" : "none";
-    for (let appnode of this.node.querySelectorAll(".t-apptab--activeapp"))
+    for (const appnode of this.node.querySelectorAll(".t-apptab--activeapp"))
       appnode.classList.remove("t-apptab--activeapp");
 
-    var appidx = this.apps.findIndex(app => app.app == $todd.getActiveApplication());
+    const appidx = this.apps.findIndex(app => app.app == $todd.getActiveApplication());
     if (appidx >= 0) {
       this.apps[appidx].root.classList.add("t-apptab--activeapp");
 
@@ -359,12 +356,11 @@ export default class ApplicationBar {
         domscroll.scrollToElement(
           this.apps[appidx].root,
           {
-            limitnode: this.node
-            , allownodes: [this.dyn_content_node]
-            , context: "0 50px"
+            limitnode: this.node,
+            allownodes: [this.dyn_content_node],
+            context: "0 50px"
           });
-      }
-      catch (e) {
+      } catch (e) {
         console.warn("scrolltoelement fail", e);
       }
       this.scrollstate = null;
@@ -377,7 +373,7 @@ export default class ApplicationBar {
     return this.apps.length > 0;
   }
   replaceAppWith(oldapp, newapp) {
-    let idx = this.apps.findIndex(_ => _.app == oldapp);
+    const idx = this.apps.findIndex(_ => _.app == oldapp);
     if (idx == -1) //old app isn't on the bar either
       return;
 

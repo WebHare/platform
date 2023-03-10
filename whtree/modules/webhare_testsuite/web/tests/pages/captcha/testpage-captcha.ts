@@ -16,20 +16,17 @@ dialogapi.setupDialogs(options => dialog.createDialog('mydialog', options));
 import * as googleRecaptcha from "@mod-publisher/js/captcha/google-recaptcha";
 googleRecaptcha.setupGoogleRecaptcha();
 
-async function triggerGoogleRecaptcha()
-{
-  let result = await googleRecaptcha.runRecaptchaDialog(this.dataset.recaptchakey);
+async function triggerGoogleRecaptcha() {
+  const result = await googleRecaptcha.runRecaptchaDialog(this.dataset.recaptchakey);
   dompack.qS('#googlerecaptcha_result').value = result;
 }
 
-async function triggerCaptcha()
-{
-  let result = await getCaptchaResponse(this.dataset.apikey);
+async function triggerCaptcha() {
+  const result = await getCaptchaResponse(this.dataset.apikey);
   dompack.qS('#webcontextcaptcha_result').value = result;
 }
 
-function init()
-{
+function init() {
   dompack.qS('#trigger_googlerecaptcha').addEventListener("click", triggerGoogleRecaptcha);
   dompack.qS('#trigger_webcontextcaptcha').addEventListener("click", triggerCaptcha);
 }

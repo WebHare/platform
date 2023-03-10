@@ -13,7 +13,7 @@ function onClick(event) {
   if (event.defaultPrevented)
     return;
 
-  let link = event.target.closest("a");
+  const link = event.target.closest("a");
   if (link && (!link.target || link.target == "_self")) //under NO circumstance a hyperlink may replace the current tollium session - move it to a new window
   {
     window.open(link, '_blank');
@@ -34,14 +34,14 @@ function captureSelection(selectbase) {
   document.documentElement.classList.add("mousehandling--selecting");
 }
 function onSelectStart(event) {
-  let target = event.target.nodeType == 3 ? event.target.parentNode : event.target;
+  const target = event.target.nodeType == 3 ? event.target.parentNode : event.target;
   if (target.matches('input,textarea') || target.closest("div.wh-rtd-editor"))
     return; //these are okay to select. MSIE needs these explicitly allowed
 
   /* allow selection on:
      - textnodes (but not labels, they're a t-text too. they are supposed to be clickable)
   */
-  let t_text = target.closest('t-text:not(.label)');
+  const t_text = target.closest('t-text:not(.label)');
   if (t_text) {
     captureSelection(t_text);
     return; //these are okay to select. MSIE needs these explicitly allowed
@@ -51,7 +51,7 @@ function onSelectStart(event) {
   event.preventDefault();
 }
 function onSelectionChange(event) {
-  let sel = window.getSelection();
+  const sel = window.getSelection();
   if (!sel || !sel.anchorNode) //no more selection
     stopSelectionCapture();
 }
@@ -64,7 +64,7 @@ function getClosestValidFocusTarget(node) {
 }
 
 function onMouseDownFallback(event) {
-  let focusable = getClosestValidFocusTarget(event.target);
+  const focusable = getClosestValidFocusTarget(event.target);
   //console.log("*** mousedown reached toplevel for target:", event.target);
   //console.log("focusable elment:", focusable);
 

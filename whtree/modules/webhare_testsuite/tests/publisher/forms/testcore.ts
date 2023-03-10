@@ -5,74 +5,74 @@ import * as test from '@mod-system/js/wh/testframework';
 import * as datetime from 'dompack/types/datetime';
 import FormBase from '@mod-publisher/js/forms/formbase';
 
-var urlappend = test.getTestArgument(0)=='replacedcomponents' ? '?dompackpulldown=1' : '';
+const urlappend = test.getTestArgument(0) == 'replacedcomponents' ? '?dompackpulldown=1' : '';
 
-function quickFillDefaultRequiredFields()
-{
+function quickFillDefaultRequiredFields() {
   //fill required fields so we can submit
   test.fill(test.qS('#coretest-agree'), true);
-  test.fill(test.qS('#coretest-email'),'pietje@example.com');
-  test.fill(test.qS('#coretest-setvalidator'),'validated');
+  test.fill(test.qS('#coretest-email'), 'pietje@example.com');
+  test.fill(test.qS('#coretest-setvalidator'), 'validated');
   test.click('#coretest-requiredradio-x');
-  test.qS(".wh-form__fields .wh-form__fieldline select[name=pulldowntest]").selectedIndex=2;
+  test.qS(".wh-form__fields .wh-form__fieldline select[name=pulldowntest]").selectedIndex = 2;
   test.fill('#coretest-address\\.country', "NL");
   test.fill("#coretest-address\\.nr_detail", "296");
   test.fill("#coretest-address\\.zip", "7521AM");
 }
 
 test.registerTests(
-  [ 'Study page fields'
-  , { test: async function()
-      {
+  [
+    'Study page fields',
+    {
+      test: async function() {
         await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
         await test.load(test.getTestSiteRoot() + 'testpages/formtest/' + urlappend);
 
         test.eq(0, test.getPxlLog(/^publisher:form.+/).length, "Should be no PXL events yet");
 
-        let form = test.qS("#coreform");
+        const form = test.qS("#coreform");
         test.assert(form.action.startsWith("javascript:"), "Action should be JavaScript");
 
-        let richtext_h2 = test.qS(".wh-form__fields .wh-form__richtext h2");
-        let richtext_p = test.qS(".wh-form__fields .wh-form__richtext p");
-        let label_namelijk = test.qS(".wh-form__fields label.wh-form__subfieldlabel[for=coretest-radiotestnamelijk]");
-        let label_option1 = test.qS(".wh-form__fields label.wh-form__optionlabel[for=coretest-radiotest-1]");
-        let label_option3 = test.qS(".wh-form__fields label.wh-form__optionlabel[for=coretest-radiotest-3]");
-        let label_option5 = test.qS(".wh-form__fields label.wh-form__optionlabel[for=coretest-radiotest-5]");
-        let field_radio1 = test.qS('#coretest-radiotest-1');
-        let field_namelijk = test.qSA("input[name=radiotestnamelijk]");
-        let field_opt5 = test.qS("input[name=opt5_textedit]");
-        let field_radioboolean_dare = test.qSA(".wh-form__fields .wh-form__fieldline input[name=radioboolean]")[1];
-        let field_pulldowntest = test.qS(".wh-form__fields .wh-form__fieldline select[name=pulldowntest]");
-        let field_pulldown2test = test.qS(".wh-form__fields .wh-form__fieldline select[name=pulldown2test]");
-        let field_shadetest = test.qS(".wh-form__fields .wh-form__fieldline input[name=shade]");
-        let field_text = test.qS(".wh-form__fields .wh-form__fieldline input[name=text]");
-        let field_number = test.qS(".wh-form__fields .wh-form__fieldline input[name=number]");
-        let field_numberemptyvalue = test.qS(".wh-form__fields .wh-form__fieldline input[name=numberemptyvalue]");
-        let field_dateofbirth = test.qS(".wh-form__fields .wh-form__fieldline input[name=dateofbirth]");
-        let field_disabledpulldown = test.qS("select[name=disabledpulldowntest]");
-        let label_requiredradio = test.qS("label.wh-form__label[for=coretest-requiredradio]");
-        let label_disabledpulldown = test.qS("label.wh-form__label[for=coretest-disabledpulldowntest]");
-        let label_zwei = test.qS('label.wh-form__optionlabel[for=coretest-checkboxes-2]');
-        let label_terms = test.qS('label.wh-form__optionlabel[for=coretest-agree]');
-        let label_twcustomselect = test.qS('label.wh-form__label[for="coretest-twolevel.customselect.select"]');
-        let field_address_country = test.qS(".wh-form__fields .wh-form__fieldline select[name='address.country']");
-        let field_address_street = test.qS(".wh-form__fields .wh-form__fieldline input[name='address.street']");
-        let field_address_nr_detail = test.qS(".wh-form__fields .wh-form__fieldline input[name='address.nr_detail']");
-        let field_address_province = test.qS(".wh-form__fields .wh-form__fieldline input[name='address.province']");
-        let field_address_zip = test.qS(".wh-form__fields .wh-form__fieldline input[name='address.zip']");
-        let field_address_city = test.qS(".wh-form__fields .wh-form__fieldline input[name='address.city']");
-        let field_condition_or_1 = test.qS("input[name='condition_or_1']");
-        let field_condition_or_2 = test.qS("input[name='condition_or_2']");
-        let field_condition_or_visible = test.qS("input[name='condition_or_visible']");
-        let field_condition_and_1 = test.qS("input[name='condition_and_1']");
-        let field_condition_and_2 = test.qS("input[name='condition_and_2']");
-        let field_condition_and_visible = test.qS("input[name='condition_and_visible']");
-        let field_condition_not = test.qS("input[name='condition_not']");
-        let field_condition_not_enabled = test.qS("input[name='condition_not_enabled']");
-        let field_condition_not_required = test.qS("input[name='condition_not_required']");
-        let field_matchattributes_type1 = test.qS("input[name='matchattributes_type1']");
-        let field_matchattributes_type2_true = test.qS("input[name='matchattributes_type2_true']");
-        let field_matchattributes_type2_false = test.qS("input[name='matchattributes_type2_false']");
+        const richtext_h2 = test.qS(".wh-form__fields .wh-form__richtext h2");
+        const richtext_p = test.qS(".wh-form__fields .wh-form__richtext p");
+        const label_namelijk = test.qS(".wh-form__fields label.wh-form__subfieldlabel[for=coretest-radiotestnamelijk]");
+        const label_option1 = test.qS(".wh-form__fields label.wh-form__optionlabel[for=coretest-radiotest-1]");
+        const label_option3 = test.qS(".wh-form__fields label.wh-form__optionlabel[for=coretest-radiotest-3]");
+        const label_option5 = test.qS(".wh-form__fields label.wh-form__optionlabel[for=coretest-radiotest-5]");
+        const field_radio1 = test.qS('#coretest-radiotest-1');
+        const field_namelijk = test.qSA("input[name=radiotestnamelijk]");
+        const field_opt5 = test.qS("input[name=opt5_textedit]");
+        const field_radioboolean_dare = test.qSA(".wh-form__fields .wh-form__fieldline input[name=radioboolean]")[1];
+        const field_pulldowntest = test.qS(".wh-form__fields .wh-form__fieldline select[name=pulldowntest]");
+        const field_pulldown2test = test.qS(".wh-form__fields .wh-form__fieldline select[name=pulldown2test]");
+        const field_shadetest = test.qS(".wh-form__fields .wh-form__fieldline input[name=shade]");
+        const field_text = test.qS(".wh-form__fields .wh-form__fieldline input[name=text]");
+        const field_number = test.qS(".wh-form__fields .wh-form__fieldline input[name=number]");
+        const field_numberemptyvalue = test.qS(".wh-form__fields .wh-form__fieldline input[name=numberemptyvalue]");
+        const field_dateofbirth = test.qS(".wh-form__fields .wh-form__fieldline input[name=dateofbirth]");
+        const field_disabledpulldown = test.qS("select[name=disabledpulldowntest]");
+        const label_requiredradio = test.qS("label.wh-form__label[for=coretest-requiredradio]");
+        const label_disabledpulldown = test.qS("label.wh-form__label[for=coretest-disabledpulldowntest]");
+        const label_zwei = test.qS('label.wh-form__optionlabel[for=coretest-checkboxes-2]');
+        const label_terms = test.qS('label.wh-form__optionlabel[for=coretest-agree]');
+        const label_twcustomselect = test.qS('label.wh-form__label[for="coretest-twolevel.customselect.select"]');
+        const field_address_country = test.qS(".wh-form__fields .wh-form__fieldline select[name='address.country']");
+        const field_address_street = test.qS(".wh-form__fields .wh-form__fieldline input[name='address.street']");
+        const field_address_nr_detail = test.qS(".wh-form__fields .wh-form__fieldline input[name='address.nr_detail']");
+        const field_address_province = test.qS(".wh-form__fields .wh-form__fieldline input[name='address.province']");
+        const field_address_zip = test.qS(".wh-form__fields .wh-form__fieldline input[name='address.zip']");
+        const field_address_city = test.qS(".wh-form__fields .wh-form__fieldline input[name='address.city']");
+        const field_condition_or_1 = test.qS("input[name='condition_or_1']");
+        const field_condition_or_2 = test.qS("input[name='condition_or_2']");
+        const field_condition_or_visible = test.qS("input[name='condition_or_visible']");
+        const field_condition_and_1 = test.qS("input[name='condition_and_1']");
+        const field_condition_and_2 = test.qS("input[name='condition_and_2']");
+        const field_condition_and_visible = test.qS("input[name='condition_and_visible']");
+        const field_condition_not = test.qS("input[name='condition_not']");
+        const field_condition_not_enabled = test.qS("input[name='condition_not_enabled']");
+        const field_condition_not_required = test.qS("input[name='condition_not_required']");
+        const field_matchattributes_type1 = test.qS("input[name='matchattributes_type1']");
+        const field_matchattributes_type2_true = test.qS("input[name='matchattributes_type2_true']");
+        const field_matchattributes_type2_false = test.qS("input[name='matchattributes_type2_false']");
 
         test.eq(null, test.qS('#coretest-nevervisible'), 'static invisible field should be');
         test.eq(null, test.qS('#coretest-invisible'), 'dynamic invisible field should be');
@@ -99,7 +99,7 @@ test.registerTests(
         test.assert(test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains("wh-form__fieldgroup--required"));
         test.assert(!test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains("wh-form__fieldgroup--error"), "Should NOT be initially validated");
         test.assert(label_requiredradio, 'need to find requiredradio');
-        let twcustomselectgroup = label_twcustomselect.closest('.wh-form__fieldgroup');
+        const twcustomselectgroup = label_twcustomselect.closest('.wh-form__fieldgroup');
         test.assert(twcustomselectgroup.classList.contains("wh-testsuite-twolevel-groupclasses"));
         test.assert(twcustomselectgroup.classList.contains("wh-testsuite-customselect-groupclasses"));
         test.eq('TW Customselect', label_twcustomselect.textContent);
@@ -145,7 +145,7 @@ test.registerTests(
 
         test.assert(test.qS('[name=shade2]').disabled, 'should be initially disabled, confused JS code broke that');
 
-        let field_pulldowntest_options = field_pulldowntest.querySelectorAll('option');
+        const field_pulldowntest_options = field_pulldowntest.querySelectorAll('option');
         test.assert(field_pulldowntest_options[0].selected);
         test.assert(field_pulldowntest_options[0].disabled);
         test.eq('', field_pulldowntest_options[0].value);
@@ -158,14 +158,14 @@ test.registerTests(
         test.assert(test.qS("[data-wh-form-group-for=checkboxes]").classList.contains("wh-form__fieldgroup--required"), "checkbox group should be marked as required, as min=1");
 
         test.eq('1900-01-01', test.qS('#coretest-dateofbirth').min);
-        test.eq(datetime.getISOLocalDate(new Date(Date.now() + 2*86400*1000)), test.qS('#coretest-dateofbirth').value);
-        test.eq(datetime.getISOLocalDate(new Date(Date.now() + 5*86400*1000)), test.qS('#coretest-dateofbirth').max);
+        test.eq(datetime.getISOLocalDate(new Date(Date.now() + 2 * 86400 * 1000)), test.qS('#coretest-dateofbirth').value);
+        test.eq(datetime.getISOLocalDate(new Date(Date.now() + 5 * 86400 * 1000)), test.qS('#coretest-dateofbirth').max);
 
         test.assert(field_dateofbirth.closest('.wh-form__fieldgroup').classList.contains('ut-dateofbirth'));
 
         //test group dataset
         test.eq('rabbit', test.qS('#coretest-email').closest('.wh-form__fieldgroup').dataset.bunny);
-        test.eq({y:false}, JSON.parse(test.qS('.radioboolean').dataset.x));
+        test.eq({ y: false }, JSON.parse(test.qS('.radioboolean').dataset.x));
 
         test.assert(field_disabledpulldown);
         test.assert(field_disabledpulldown.disabled);
@@ -190,7 +190,7 @@ test.registerTests(
         test.fill(field_address_zip, "7521AM");
         test.fill(field_address_city, "Enschede");
 
-        test.getWin().scrollTo(0,field_condition_or_1.getBoundingClientRect().top);
+        test.getWin().scrollTo(0, field_condition_or_1.getBoundingClientRect().top);
         test.assert(!test.canClick(field_condition_or_visible), "condition OR textedit initially not visible");
         field_condition_or_1.click();
         test.assert(test.canClick(field_condition_or_visible), "condition OR textedit now visible because of checkbox 1");
@@ -241,39 +241,38 @@ test.registerTests(
         test.assert(field_matchattributes_type2_true.closest(".wh-form__fieldgroup").classList.contains("wh-testsuite-matchattributes-type2-true"));
         test.assert(field_matchattributes_type2_false.closest(".wh-form__fieldgroup").classList.contains("wh-testsuite-matchattributes-type2-false"));
 
-        let formevents = test.getPxlLog(/^publisher:form.+/);
+        const formevents = test.getPxlLog(/^publisher:form.+/);
         test.eq(1, formevents.length, "Should be one PXL event now");
         test.eq("publisher:formstarted", formevents[0].event);
         test.eq("coretest", formevents[0].data.ds_formmeta_id, "by default we'll just see the form name");
       }
-    }
+    },
 
-  , "Test data-wh-group-for"
-  , async function()
-    {
-      let optselect5_group = test.qS("#coretest-opt5_select").closest('.wh-form__fieldgroup');
+    "Test data-wh-group-for",
+    async function() {
+      const optselect5_group = test.qS("#coretest-opt5_select").closest('.wh-form__fieldgroup');
       test.eq("radiotest radiotestnamelijk opt5_select opt5_textedit", optselect5_group.dataset.whFormGroupFor);
 
-      let field_address_street = test.qS(".wh-form__fields .wh-form__fieldline input[name='address.street']");
-      let field_address_streetgroup = field_address_street.closest('.wh-form__fieldgroup');
+      const field_address_street = test.qS(".wh-form__fields .wh-form__fieldline input[name='address.street']");
+      const field_address_streetgroup = field_address_street.closest('.wh-form__fieldgroup');
       test.eq("address.street", field_address_streetgroup.dataset.whFormGroupFor);
-    }
+    },
 
 
-  , { name: 'Test formapis'
-    , test: async function()
-      {
-        let formhandler = FormBase.getForNode(test.qS('#coreform'));
+    {
+      name: 'Test formapis',
+      test: async function() {
+        const formhandler = FormBase.getForNode(test.qS('#coreform'));
         test.assert(formhandler, 'no formhandler available');
 
         //test the form APIs
-        let radioopts = formhandler.getOptions('radioboolean');
+        const radioopts = formhandler.getOptions('radioboolean');
         test.eq(2, radioopts.length);
         test.assert(radioopts[0].fieldline);
         test.eq('coretest-radioboolean-true', radioopts[0].inputnode.id);
 
-        let opts = formhandler.getSelectedOptions('radioboolean');
-        test.eq(1,opts.length);
+        const opts = formhandler.getSelectedOptions('radioboolean');
+        test.eq(1, opts.length);
         test.eq('coretest-radioboolean-false', opts[0].inputnode.id);
 
         test.eq(1, formhandler.getSelectedOptions('radiotest').length);
@@ -282,7 +281,7 @@ test.registerTests(
         test.eq('3', formhandler.getValue('radiotest'));
         test.eq('false', formhandler.getValue('radioboolean'));
 
-        let radiotestfieldgroup = formhandler.getFieldGroup('radiotest');
+        const radiotestfieldgroup = formhandler.getFieldGroup('radiotest');
         test.assert(radiotestfieldgroup);
         test.assert(radiotestfieldgroup.classList.contains('wh-form__fieldgroup--radiogroup'));
         test.assert(!radiotestfieldgroup.classList.contains("wh-form__fieldgroup--horizontal"));
@@ -290,30 +289,30 @@ test.registerTests(
         test.eq(4, radiotestfieldgroup.querySelectorAll(".wh-form__optiondata--vertical").length);
         test.eq(4, radiotestfieldgroup.querySelectorAll(".wh-form__optiondata.wh-form__optiondata--vertical").length);
 
-        let emailfieldgroup = formhandler.getFieldGroup('email');
+        const emailfieldgroup = formhandler.getFieldGroup('email');
         test.assert(emailfieldgroup);
         test.assert(emailfieldgroup.classList.contains('wh-form__fieldgroup--textedit'));
 
         test.eq(null, formhandler.getFieldGroup('bestaatniet'));
 
-        let horizontalgroup = formhandler.getFieldGroup('horizontalradio');
+        const horizontalgroup = formhandler.getFieldGroup('horizontalradio');
         test.assert(horizontalgroup.classList.contains("wh-form__fieldgroup--horizontal"));
         test.eq(0, horizontalgroup.querySelectorAll(".wh-form__optiondata--vertical").length);
         test.eq(2, horizontalgroup.querySelectorAll(".wh-form__optiondata--horizontal").length);
         test.eq(2, horizontalgroup.querySelectorAll(".wh-form__optiondata.wh-form__optiondata--horizontal").length);
 
         //test retrieving the api. should not return the unnamed fields
-        let result = await formhandler.getFormValue();
+        const result = await formhandler.getFormValue();
         test.assert(!("" in result));
       }
-    }
+    },
 
-  , { name: 'Study page flexlayout' //study als in 'bestudeer de layout'
-    , test: function()
-      {
+    {
+      name: 'Study page flexlayout', //study als in 'bestudeer de layout'
+      test: function() {
         //also test stability of DOM by making selectors as explicit as posbible
-        let label_option1 = test.qS(".wh-form__fields label.wh-form__optionlabel[for=coretest-radiotest-1]");
-        let label_namelijk = test.qS(".wh-form__fields label.wh-form__subfieldlabel[for=coretest-radiotestnamelijk]");
+        const label_option1 = test.qS(".wh-form__fields label.wh-form__optionlabel[for=coretest-radiotest-1]");
+        const label_namelijk = test.qS(".wh-form__fields label.wh-form__subfieldlabel[for=coretest-radiotestnamelijk]");
 
         test.assert(label_option1, 'missing option1');
         test.assert(label_namelijk, 'missing namelijk');
@@ -321,21 +320,20 @@ test.registerTests(
         //'namelijk' should be right of option1
         test.assert(label_option1.getBoundingClientRect().right <= label_namelijk.getBoundingClientRect().left, "'namelijk' should be to the right of 'option1'");
       }
-    }
-  , async function()
-    {
-      let label_option4 = test.qS(".wh-form__fields label.wh-form__optionlabel[for=coretest-radiotest-4]");
-      let field_pulldowntest = test.qS(".wh-form__fields .wh-form__fieldline select[name=pulldowntest]");
+    },
+    async function() {
+      const label_option4 = test.qS(".wh-form__fields label.wh-form__optionlabel[for=coretest-radiotest-4]");
+      const field_pulldowntest = test.qS(".wh-form__fields .wh-form__fieldline select[name=pulldowntest]");
 
-      let formnode = test.qS('#coreform');
+      const formnode = test.qS('#coreform');
       test.assert(!(await FormBase.getForNode(formnode).validate()).valid);
 
       label_option4.click();
       test.click('#coretest-requiredradio-x');
-      test.fill(test.qS('#coretest-email'),'pietje@example.com');
+      test.fill(test.qS('#coretest-email'), 'pietje@example.com');
       test.assert(!(await FormBase.getForNode(formnode).validate()).valid);
 
-      field_pulldowntest.selectedIndex=2;
+      field_pulldowntest.selectedIndex = 2;
       test.eq('2', field_pulldowntest.value);
       test.assert(!(await FormBase.getForNode(formnode).validate()).valid);
       test.fill(test.qS('#coretest-agree'), true);
@@ -352,10 +350,10 @@ test.registerTests(
 
       test.fill(test.qS('#coretest-dateofbirth'), '1979-06-13');
       test.assert((await FormBase.getForNode(formnode).validate()).valid);
-      test.fillUpload(test.qS('#coretest-upload'), [{filename: 'test.txt', mimetype: 'application/octet-stream', data:'This is a text file'}]);
+      test.fillUpload(test.qS('#coretest-upload'), [{ filename: 'test.txt', mimetype: 'application/octet-stream', data: 'This is a text file' }]);
 
-      let field_pulldown2test = test.qS(".wh-form__fields .wh-form__fieldline select[name=pulldown2test]");
-      field_pulldown2test.selectedIndex=2;
+      const field_pulldown2test = test.qS(".wh-form__fields .wh-form__fieldline select[name=pulldown2test]");
+      field_pulldown2test.selectedIndex = 2;
       test.eq('blue', field_pulldown2test.value);
 
       // fill address
@@ -371,16 +369,16 @@ test.registerTests(
       test.click(test.qS('#submitbutton'));
 
       await test.wait('ui');
-    }
-  , { test: function()
-      {
+    },
+    {
+      test: function() {
         test.eq("pietje@example.com", test.qS("#lastsuccessfulsubmit").textContent);
 
-        let formevents = test.getPxlLog(/^publisher:form.+/);
+        const formevents = test.getPxlLog(/^publisher:form.+/);
         test.eq(2, formevents.length, "Should be two PXL events now");
         test.eq("publisher:formsubmitted", formevents[1].event);
 
-        let serverresponse = JSON.parse(test.qS('#coreformsubmitresponse').textContent);
+        const serverresponse = JSON.parse(test.qS('#coreformsubmitresponse').textContent);
 
         test.assert(!serverresponse.form["address.city"]);
         test.eq("Enschede", serverresponse.form.address.city);
@@ -401,16 +399,15 @@ test.registerTests(
         test.eq('blue', serverresponse.form.pulldown2test);
         test.eq('1979-06-13T00:00:00.000Z', serverresponse.form.dateofbirth);
       }
-    }
+    },
 
-  , "serverside error handling"
-  , async function()
-    {
+    "serverside error handling",
+    async function() {
       let passwordgroup = test.qS('#coretest-password').closest('.wh-form__fieldgroup');
       test.assert(!passwordgroup.classList.contains('wh-form__fieldgroup--error')); //this field is in error
-      test.eq(null, passwordgroup.querySelector('.wh-form__error') );
+      test.eq(null, passwordgroup.querySelector('.wh-form__error'));
 
-      test.fill(test.qS('#coretest-password'),' secret');
+      test.fill(test.qS('#coretest-password'), ' secret');
       test.qS('#coreformsubmitresponse').textContent = '';
       test.click(test.qS('#submitbutton'));
       await test.wait('ui');
@@ -419,51 +416,49 @@ test.registerTests(
       passwordgroup = test.qS('#coretest-password').closest('.wh-form__fieldgroup');
       test.assert(passwordgroup.classList.contains('wh-form__fieldgroup--error')); //this field is in error
 
-      let errors = passwordgroup.querySelector('.wh-form__error');
+      const errors = passwordgroup.querySelector('.wh-form__error');
       test.assert(errors);
       test.eq("'secret' is a bad password", errors.textContent);
 
       //trigger global error popup
-      test.fill(test.qS('#coretest-password'),'globalerror');
+      test.fill(test.qS('#coretest-password'), 'globalerror');
       test.click('#submitbutton');
       await test.wait('ui');
       test.eqMatch(/You broke the form.*Don't do that.*/, test.qS(".mydialog").textContent);
       test.click('.mydialog button');
-    }
-  , { name: 'test RPC'
-    , test: function()
-      {
+    },
+    {
+      name: 'test RPC',
+      test: function() {
         test.click('#coretest-email');
         test.click('.prefillbutton');
-      }
-    , waits:['ui']
-    }
-  , { name: 'test RPC response'
-    , test: function()
-      {
+      },
+      waits: ['ui']
+    },
+    {
+      name: 'test RPC response',
+      test: function() {
         test.eq('pietje+test@example.com', test.qS('#coretest-email').value);
         test.eq('2000-01-01', test.qS('#coretest-dateofbirth').value);
       }
-    }
-  , 'Test disabled fields'
-  , async function()
-    {
-      test.fill(test.qS('#coretest-password'),'acceptable');
+    },
+    'Test disabled fields',
+    async function() {
+      test.fill(test.qS('#coretest-password'), 'acceptable');
       test.qS('#coretest-disabledpulldowntest').disabled = false;
       test.qS('#coretest-disabledpulldowntest').value = "cant";
 
-      let formhandler = FormBase.getForNode(test.qS('#coreform'));
+      const formhandler = FormBase.getForNode(test.qS('#coreform'));
 
       //we'll also test the 'extra submit data' passed to .submit see if it work
-      await formhandler.submit({submitextradata:5542});
+      await formhandler.submit({ submitextradata: 5542 });
 
       test.eq('cant', JSON.parse(test.qS('#coreformsubmitresponse').textContent).form.disabledpulldowntest, "server update the disabled value, form handler should take care of this");
       test.eq(5542, JSON.parse(test.qS('#coreformsubmitresponse').textContent).extradata.submitextradata);
-    }
+    },
 
-  , 'Test core'
-  , async function()
-    {
+    'Test core',
+    async function() {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?require=number,numberemptyvalue');
 
       test.eq('', test.qS('input[name=number]').value);
@@ -473,22 +468,21 @@ test.registerTests(
       await test.wait('ui');
 
       test.assert(test.qS('[data-wh-form-group-for="number"]').classList.contains("wh-form__fieldgroup--error"), "number should be in error");
-      test.fill('input[name=number]','0');
-      test.fill('input[name=numberemptyvalue]','');
+      test.fill('input[name=number]', '0');
+      test.fill('input[name=numberemptyvalue]', '');
 
       test.click('#submitbutton');
       await test.wait('ui');
       test.assert(test.qS('[data-wh-form-group-for="numberemptyvalue"]').classList.contains("wh-form__fieldgroup--error"), "numberemptyvalue should be in error");
 
-      test.fill('input[name=numberemptyvalue]','0');
+      test.fill('input[name=numberemptyvalue]', '0');
       test.click('#submitbutton');
       await test.wait('ui');
       test.eq(0, JSON.parse(test.qS('#coreformsubmitresponse').textContent).form.numberemptyvalue);
-    }
+    },
 
-  , 'Test unlocking disabled fields'
-  , async function()
-    {
+    'Test unlocking disabled fields',
+    async function() {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/' + urlappend);
 
       quickFillDefaultRequiredFields();
@@ -498,13 +492,12 @@ test.registerTests(
       test.click('#submitbutton');
       await test.wait('ui');
 
-      let serverresponse = JSON.parse(test.qS('#coreformsubmitresponse').textContent);
+      const serverresponse = JSON.parse(test.qS('#coreformsubmitresponse').textContent);
       test.eq("touch", serverresponse.form.disabledpulldowntest); // disabled select value isn't sent to server
-    }
+    },
 
-  , "Test URL preload and slow submission"
-  , async function()
-    {
+    "Test URL preload and slow submission",
+    async function() {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?email=joop%40beta.webhare.net&text=Text&opt5_textedit=opt5&opt5_select=BANK2&radiotest=5&disabledpulldowntest=this&checkboxes=2&checkboxes=3&checkboxes=nonexistent&submitsleep=6000' + urlappend);
       test.eq("joop@beta.webhare.net", test.qS('[name=email]').value);
       test.eq("", test.qS('[name=text]').value);
@@ -522,11 +515,10 @@ test.registerTests(
 
       test.eq(3, test.getPxlLog(/^publisher:form.+/).length, "Should be 3 PXL events...");
       test.eq("publisher:formslow", test.getPxlLog(/^publisher:form.+/)[1].event, 'middle event should be "slow" warning');
-    }
+    },
 
-  , "Test back link"
-  , async function()
-    {
+    "Test back link",
+    async function() {
       await test.load(`${test.getTestSiteRoot()}testpages/formtest/?backlink=${encodeURIComponent(test.getTestSiteRoot())}`);
       test.qS("#globalform .wh-form__button--previous").scrollIntoView();
       test.assert(test.canClick('#globalform .wh-form__button--previous'), "'previous' button should be available with a backlink");

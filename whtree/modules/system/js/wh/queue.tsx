@@ -13,12 +13,11 @@
 */
 
 window.whq = window.whq || [];
-let eventregistry = [];
+const eventregistry = [];
 
 if (window.whq._regged) {
   console.error("Duplicate whq (WebHare queue) registration - wh/queue is loaded twice?");
-}
-else {
+} else {
   window.whq._regged = true;
   window.whq.push = function(...toadd) {
     toadd.forEach(function(evt) {

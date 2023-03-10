@@ -27,9 +27,9 @@ export async function prepare(setappname) {
 }
 
 async function extractIDBTable(database, table) {
-  let db = await pwadb.open(database);
-  let keys = await db.getAllKeys(table);
-  let rows = await Promise.all(keys.map(key => db.get(table, key)));
+  const db = await pwadb.open(database);
+  const keys = await db.getAllKeys(table);
+  const rows = await Promise.all(keys.map(key => db.get(table, key)));
   db.close();
   return rows;
 }

@@ -23,7 +23,7 @@ function makeRecaptchaLoadPromise() {
 
 export async function runRecaptchaDialog(sitekey, options) {
   options = { busycomponent: null, ...options };
-  let lock = dompack.flagUIBusy({ component: options.busycomponent, ismodal: true });
+  const lock = dompack.flagUIBusy({ component: options.busycomponent, ismodal: true });
 
   let diag = null;
   try {
@@ -31,9 +31,9 @@ export async function runRecaptchaDialog(sitekey, options) {
       makeRecaptchaLoadPromise();
     await recaptchaload.promise;
 
-    let captchanode = <div class="wh-captcha__googlerecaptchaholder"></div>;
-    let title = (settings ? settings.title : '') || getTid("publisher:site.captcha.title");
-    let explain = (settings ? settings.explain : '') || getTid("publisher:site.captcha.explain");
+    const captchanode = <div class="wh-captcha__googlerecaptchaholder"></div>;
+    const title = (settings ? settings.title : '') || getTid("publisher:site.captcha.title");
+    const explain = (settings ? settings.explain : '') || getTid("publisher:site.captcha.explain");
 
     diag = dialogapi.createDialog();
     diag.contentnode.appendChild(<div class="wh-captcha wh-captcha--googlerecaptcha">
@@ -44,18 +44,16 @@ export async function runRecaptchaDialog(sitekey, options) {
 
     if (sitekey == 'mock') {
       captchanode.appendChild(<label class="wh-captcha__mock"><input type="checkbox" on={{ click: () => diag.resolve('mock') }} />I am a human, beep-bop</label>);
-    }
-    else {
-      var recaptchaid; //retained in closure for the callback handler
+    } else {
+      let recaptchaid; //retained in closure for the callback handler
       recaptchaid = window.grecaptcha.render(captchanode, {
         sitekey, callback: evt => {
-          let response = window.grecaptcha ? window.grecaptcha.getResponse(recaptchaid) : '';
+          const response = window.grecaptcha ? window.grecaptcha.getResponse(recaptchaid) : '';
           diag.resolve(response);
         }
       });
     }
-  }
-  finally {
+  } finally {
     lock.release();
   }
   return diag.runModal();

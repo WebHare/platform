@@ -4,28 +4,26 @@
 import * as test from '@mod-system/js/wh/testframework';
 
 let setupdata;
-let rand = Math.floor(100000000*Math.random());
-let testemail = rand + '-testformfile-online+jstest@beta.webhare.net';
-let testemail2 = rand + '-testformfile2-online+jstest@beta.webhare.net';
+const rand = Math.floor(100000000 * Math.random());
+const testemail = rand + '-testformfile-online+jstest@beta.webhare.net';
+const testemail2 = rand + '-testformfile2-online+jstest@beta.webhare.net';
 let editlink;
 let testemail_guid;
 
 test.registerTests(
-  [ async function()
-    {
+  [
+    async function() {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { which: "custom2", addtscustomcomp: true, formid: "custom form 2" });
-    }
+    },
 
-  , async function()
-    {
+    async function() {
       await test.load(setupdata.url + "?error=formunavailable");
 
-      let content = test.qS('#content');
+      const content = test.qS('#content');
       test.eq("The form is currently unavailable", content.textContent.trim(), "Cannot find default form unavailable text");
-    }
+    },
 
-  , async function()
-    {
+    async function() {
       await test.load(setupdata.url);
 
       test.assert(test.canClick('[data-wh-form-group-for="greeting_new"]'), "Should see 'new' text");
@@ -49,14 +47,13 @@ test.registerTests(
       test.click(test.qSA('[type=submit]')[0]);
       await test.wait('ui');
 
-      let events = test.getPxlLog(/^publisher:formsubmitted/);
+      const events = test.getPxlLog(/^publisher:formsubmitted/);
       test.eq(1, events.length, "Should be one submission");
       test.eq("custom form 2", events[0].data.ds_formmeta_id, "by default we'll just see the 'webtoolform' name");
-    }
+    },
 
-  , 'Request results'
-  , async function()
-    {
+    'Request results',
+    async function() {
       test.assert(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should see thankyou");
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
 
@@ -64,38 +61,36 @@ test.registerTests(
       test.eqMatch(/Joe/, test.qS('[data-wh-form-group-for="thankyou"]').textContent);
 
       testemail_guid = test.qS('form[data-wh-form-resultguid]').dataset.whFormResultguid;
-      let formresult = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult', testemail_guid, { which:"custom2"});
+      const formresult = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult', testemail_guid, { which: "custom2" });
       test.eq('tollium:tilde.firstname', formresult.fields[0].title);
       test.eq(':Email', formresult.fields[1].title); //':' as its not a tid but just a plain untranslated field
       test.eq('FIRSTNAME', formresult.fields[0].name);
 
       test.eq(testemail_guid, formresult.guid);
       test.eq('Joe', formresult.response.firstname);
-      test.eq("TextAreaVulling",formresult.response.textarea);
-      test.eq(testemail, formresult.response[ formresult.fields[1].name.toLowerCase() ]);
+      test.eq("TextAreaVulling", formresult.response.textarea);
+      test.eq(testemail, formresult.response[formresult.fields[1].name.toLowerCase()]);
       test.eq(testemail, formresult.idfield);
-      test.eq(6,formresult.pagedata.electric);
-      test.eq("something",formresult.pagedata.ihavegot);
-      test.eq(1,formresult.numresults);
-      test.eq({c1:false, c2: true, subvalue: "filledsub"}, formresult.response.tscustom);
+      test.eq(6, formresult.pagedata.electric);
+      test.eq("something", formresult.pagedata.ihavegot);
+      test.eq(1, formresult.numresults);
+      test.eq({ c1: false, c2: true, subvalue: "filledsub" }, formresult.response.tscustom);
 
       editlink = formresult.editlink;
-    }
+    },
 
-  , 'Process mail'
-  , async function()
-    {
+    'Process mail',
+    async function() {
       const emails = await test.waitForEmails("mailresult+jstest@beta.webhare.net", { timeout: 60000 });
-      test.eq(1,emails.length,"No emails!");
+      test.eq(1, emails.length, "No emails!");
       test.eq("Your Form Was Filled", emails[0].subject);
-    }
+    },
 
-  , 'Test results prefill and edit'
-  , async function()
-    {
+    'Test results prefill and edit',
+    async function() {
       await test.load(editlink);
 
-      let namefield = test.qSA('input[type=text]')[0], emailfield = test.qSA('input[type=email]')[0];
+      const namefield = test.qSA('input[type=text]')[0], emailfield = test.qSA('input[type=email]')[0];
       test.assert(test.canClick('[data-wh-form-group-for="greeting_change"]'), "Should see 'change' text");
       test.assert(!test.canClick('[data-wh-form-group-for="greeting_new"]'), "Should not see 'new' text");
       test.assert(!test.canClick('[data-wh-form-group-for="greeting_cancel"]'), "Should not see 'cancel' text");
@@ -117,21 +112,20 @@ test.registerTests(
       await test.wait('ui');
 
       test.eq(testemail_guid, test.qS('form[data-wh-form-resultguid]').dataset.whFormResultguid);
-      let formresult = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult', testemail_guid, { which:"custom2"});
-      test.eq(1,formresult.numresults);
+      const formresult = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult', testemail_guid, { which: "custom2" });
+      test.eq(1, formresult.numresults);
       test.eq('Jim', formresult.response.firstname);
-      test.eq(testemail, formresult.response[ formresult.fields[1].name.toLowerCase() ]);
+      test.eq(testemail, formresult.response[formresult.fields[1].name.toLowerCase()]);
       test.eq(testemail, formresult.idfield);
-    }
+    },
 
-  , 'Test editing through id field'
-  , async function()
-    {
+    'Test editing through id field',
+    async function() {
       await test.load(setupdata.url);
 
-      let namefield = test.qSA('input[type=text]')[0], emailfield = test.qSA('input[type=email]')[0];
-      namefield.value="Timmy";
-      emailfield.value=testemail;
+      const namefield = test.qSA('input[type=text]')[0], emailfield = test.qSA('input[type=email]')[0];
+      namefield.value = "Timmy";
+      emailfield.value = testemail;
 
       test.click(test.qS('#webtoolform-tscustom-2'));
       test.click(test.qSA('[type=submit]')[0]);
@@ -139,21 +133,19 @@ test.registerTests(
 
       test.eq(testemail_guid, test.qS('form[data-wh-form-resultguid]').dataset.whFormResultguid);
 
-      let formresult = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult', testemail_guid, { which:"custom2"});
-      test.eq(1,formresult.numresults);
-    }
+      const formresult = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult', testemail_guid, { which: "custom2" });
+      test.eq(1, formresult.numresults);
+    },
 
-  , 'Process mail'
-  , async function()
-    {
+    'Process mail',
+    async function() {
       const emails = await test.waitForEmails("mailresult+jstest@beta.webhare.net", { timeout: 60000, count: 2 });
-      test.eq(2,emails.length,"No emails!");
+      test.eq(2, emails.length, "No emails!");
       test.eq("Your Form Was Filled", emails[0].subject, "Should be two mails, both for the NEW and for the EDIT action");
-    }
+    },
 
-  , 'Test cancellation'
-  , async function()
-    {
+    'Test cancellation',
+    async function() {
       await test.load(editlink + "?cancel=1");
 
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");

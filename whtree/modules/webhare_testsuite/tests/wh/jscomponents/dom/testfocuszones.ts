@@ -2,24 +2,25 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as test from "@mod-system/js/wh/testframework";
-var testurl = '/.webhare_testsuite/tests/pages/focuszones/';
+const testurl = '/.webhare_testsuite/tests/pages/focuszones/';
 
-async function asyncClick(el)
-{
-  let target = el.getBoundingClientRect();
+async function asyncClick(el) {
+  const target = el.getBoundingClientRect();
   // console.error(target, target.left, target.top, target.width, target.height);
-  await test.asyncMouseClick(target.left + target.width/2, target.top + target.height/2);
+  await test.asyncMouseClick(target.left + target.width / 2, target.top + target.height / 2);
   await test.wait("events");
 }
 
 test.registerTests(
-  [ { loadpage: testurl
-    , waits: [ 1 ] // Allow focus events to propagate
-    }
+  [
+    {
+      loadpage: testurl,
+      waits: [1] // Allow focus events to propagate
+    },
 
-  , { name: 'focus zones using mouse'
-    , test: async function(doc,win)
-      {
+    {
+      name: 'focus zones using mouse',
+      test: async function(doc, win) {
         test.assert(doc.hasFocus(), "This test requires the browser to have focus");
         test.eq("Focused focuszone2", test.qS('#log').lastElementChild.textContent, 'make sure the test has focus');
         test.assert(test.hasFocus(test.qS('#input2_2')));
@@ -57,15 +58,16 @@ test.registerTests(
         test.eq('focuszone2', win.focusZones.getCurrentFocusZone().id);
         test.assert(test.hasFocus(test.qS('#input2_3')), 'focus not returned to $wh.focused element while zone was inactive');
       }
-    }
+    },
 
-  , { loadpage: testurl //clear zone histories
-    , waits: [ 1 ] // Allow focus events to propagate
-    }
+    {
+      loadpage: testurl, //clear zone histories
+      waits: [1] // Allow focus events to propagate
+    },
 
-  , { name: 'focus zones programmatically'
-    , test: async function(doc,win)
-      {
+    {
+      name: 'focus zones programmatically',
+      test: async function(doc, win) {
         test.assert(test.hasFocus(test.qS('#input2_2')));
         test.eq('focuszone2', win.focusZones.getCurrentFocusZone().id, 'verifying initial state');
         win.focusZones.focusZone(test.qS('#focuszone1'));
@@ -79,14 +81,14 @@ test.registerTests(
       }
     }
 
-/*
-  , { name: 'initial'
-    , test: function(doc,win)
-      {
-        test.eq(test.qS('#input2_2'),$wh.getCurrentlyFocusedElement());
-        test.eq(2, $wh.getFocusableComponents(doc).length);
-      }
-    }*/
+    /*
+      , { name: 'initial'
+        , test: function(doc,win)
+          {
+            test.eq(test.qS('#input2_2'),$wh.getCurrentlyFocusedElement());
+            test.eq(2, $wh.getFocusableComponents(doc).length);
+          }
+        }*/
 
 
   ]);

@@ -42,7 +42,7 @@ function pageview(page, options) {
   if (page != "" && page.substring(0, 1) != "/")
     page = "/" + page;
 
-  let title = options && options.title ? options.title : '';
+  const title = options && options.title ? options.title : '';
 
   if (dompack.debugflags.anl)
     console.log("[anl] Pageview, page = " + page + ", title = " + title);
@@ -57,6 +57,6 @@ function pageview(page, options) {
 }
 
 module.exports = {
-  event: event
-  , pageview: pageview
+  event: event,
+  pageview: pageview
 };

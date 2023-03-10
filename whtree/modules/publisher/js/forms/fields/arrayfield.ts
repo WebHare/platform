@@ -28,7 +28,7 @@ export default class ArrayField {
     this.valueNode.addEventListener("wh:form-getvalue", event => this._onGetValue(event));
 
     // Initialize initial value rows
-    for (let rownode of this.node.querySelectorAll(".wh-form__arrayrow"))
+    for (const rownode of this.node.querySelectorAll(".wh-form__arrayrow"))
       this._fixupRowNode(rownode);
 
     this._checkValidity();
@@ -36,7 +36,7 @@ export default class ArrayField {
 
   addRow() {
     // Instatiate a new row
-    let newrow = this.template.content.cloneNode(true);
+    const newrow = this.template.content.cloneNode(true);
     newrow.firstChild.dataset.whFormRowid = (this.nextnewrowid++);
     this._fixupRowNode(newrow.firstChild);
 
@@ -64,7 +64,7 @@ export default class ArrayField {
     }
 
     // Check if a delete button was clicked
-    let delNode = event.target.closest(".wh-form__arraydelete");
+    const delNode = event.target.closest(".wh-form__arraydelete");
     if (delNode) {
       event.preventDefault();
       this._removeRowNode(delNode.closest(".wh-form__arrayrow"));
@@ -77,20 +77,20 @@ export default class ArrayField {
     event.stopPropagation();
 
     // Create a promise for each row that resolves with the combined value of all fields in the row
-    let valuePromises = [];
-    for (let row of dompack.qSA(this.node, ".wh-form__arrayrow")) {
-      let rowFields = this._queryAllFields(row);
+    const valuePromises = [];
+    for (const row of dompack.qSA(this.node, ".wh-form__arrayrow")) {
+      const rowFields = this._queryAllFields(row);
       // Create a promise for each of the row's subfields to get its value
-      let rowPromises = rowFields.map(field => this.form._getQueryiedFieldValue(field));
+      const rowPromises = rowFields.map(field => this.form._getQueryiedFieldValue(field));
       // Add an all promise for the value promises and add it to the list of row promises
       valuePromises.push(Promise.all(rowPromises).then(values => {
         // Combine the values into a value object for this row
-        let rowValue = { formrowid: row.dataset.whFormRowid };
+        const rowValue = { formrowid: row.dataset.whFormRowid };
         values.forEach((value, idx) => {
           // The values are returned in the order that the promises were added to the list of value promises, so we can use
           // the index of the value to get the original field
 
-          let firstnode = rowFields[idx].node || rowFields[idx].nodes[0];
+          const firstnode = rowFields[idx].node || rowFields[idx].nodes[0];
           rowValue[firstnode.dataset.whFormCellname] = value;
         });
         return rowValue;
@@ -102,16 +102,16 @@ export default class ArrayField {
   }
 
   _fixupRowNode(node) {
-    let rowid = node.dataset.whFormRowid;
+    const rowid = node.dataset.whFormRowid;
 
     // Rename all fields to avoid duplicate field names
     const mapping = new Map();
-    for (let field of this._queryAllFields(node))
-      for (let fieldnode of (field.nodes || [field.node])) {
+    for (const field of this._queryAllFields(node))
+      for (const fieldnode of (field.nodes || [field.node])) {
 
         // Rename fields
         fieldnode.dataset.whFormCellname = field.name.substr(this.name.length + 1);
-        let subname = this.valueNode.dataset.whFormName + "-" + field.name + "-" + rowid;
+        const subname = this.valueNode.dataset.whFormName + "-" + field.name + "-" + rowid;
         if (fieldnode.dataset.whFormName)
           fieldnode.dataset.whFormName = subname;
         else

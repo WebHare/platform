@@ -4,14 +4,14 @@
 import * as test from '@mod-tollium/js/testframework';
 
 test.registerTests(
-  [ 'create first tag'
-  , async function()
-    {
+  [
+    'create first tag',
+    async function() {
       await test.load(test.getCompTestPage('tagedit'));
       await test.wait('ui');
 
-      let holder = test.compByName("componentpanel");
-      let tagedit = holder.querySelector("input");
+      const holder = test.compByName("componentpanel");
+      const tagedit = holder.querySelector("input");
       test.assert(tagedit);
 
       let tags = holder.querySelectorAll('.wh-tagedit-tag');
@@ -19,7 +19,7 @@ test.registerTests(
       test.eq(0, tags.length);
       tagedit.focus();
 
-      await test.pressKey(['a','b','c']);
+      await test.pressKey(['a', 'b', 'c']);
       await test.pressKey('Enter');
       await test.wait('ui');
 
@@ -32,12 +32,11 @@ test.registerTests(
       await test.pressKey('f');
       await test.pressKey('Enter');
       await test.wait('ui');
-    }
+    },
 
-  , "Test keyboard nav"
-  , async function()
-    {
-      let holder = test.compByName("componentpanel");
+    "Test keyboard nav",
+    async function() {
+      const holder = test.compByName("componentpanel");
       let tags = holder.querySelectorAll('.wh-tagedit-tag');
       test.eq(2, tags.length);
       test.eq(0, holder.querySelectorAll('.wh-tagedit-tag.wh-tagedit-selected').length);
@@ -70,11 +69,10 @@ test.registerTests(
       test.eq(1, tags.length);
       test.eq('abc', tags[0].textContent);
       test.eq(0, holder.querySelectorAll('.wh-tagedit-tag.wh-tagedit-selected').length);
-    }
+    },
 
-  , "Test disabling"
-  , async function()
-    {
+    "Test disabling",
+    async function() {
       let holder = test.compByName("componentpanel");
       test.assert(test.canClick(holder.querySelector(".wh-tagedit-input")), "entry field should be there");
       await test.pressKey("X");

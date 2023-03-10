@@ -23,8 +23,8 @@ class captureLoadPlugin {
   }
   getPlugin() {
     return {
-      name: 'captureloads'
-      , setup: build => this.setup(build)
+      name: 'captureloads',
+      setup: build => this.setup(build)
     };
   }
   setup(build) {
@@ -45,9 +45,9 @@ function whResolverPlugin(bundle, build) //setup function
     if (bundle.bundleconfig.environment == 'window') //declare our existence and dev mode
       prologue = `window.whBundles||=[];window.whBundles["${bundle.outputtag}"]={dev:${bundle.isdev}};`;
 
-    let paths = JSON.parse(decodeURIComponent(args.path.split('?')[1]));
+    const paths = JSON.parse(decodeURIComponent(args.path.split('?')[1]));
     //TODO escape quotes and backslashes..
-    let imports = paths.map(_ => `import "${_}";`);
+    const imports = paths.map(_ => `import "${_}";`);
     return {
       contents: prologue + imports.join("\n")
     };
@@ -71,8 +71,8 @@ function whResolverPlugin(bundle, build) //setup function
 
 function createWhResolverPlugin(bundleconfig) {
   return {
-    name: "whresolver"
-    , setup: build => whResolverPlugin(bundleconfig, build)
+    name: "whresolver",
+    setup: build => whResolverPlugin(bundleconfig, build)
   };
 }
 
@@ -105,11 +105,11 @@ function mapESBuildError(entrypoint, error) {
 
   //for sass errors, detail contains information about the SASS file but location about the ES file that included it
   return {
-    message: error.detail?.formatted ?? error.text
-    , resource: file
-    , line: error.detail?.line ?? error.location?.line ?? 0
-    , col: error.detail?.column ?? error.location?.column ?? 0
-    , length: error.detail?.line ? 0 //detail has no length, and it seems unsafe to take the one from location the
+    message: error.detail?.formatted ?? error.text,
+    resource: file,
+    line: error.detail?.line ?? error.location?.line ?? 0,
+    col: error.detail?.column ?? error.location?.column ?? 0,
+    length: error.detail?.line ? 0 //detail has no length, and it seems unsafe to take the one from location the
       : error.location?.length ?? 0
   };
 }
@@ -118,14 +118,14 @@ export async function recompile(data) {
   await services.ready(); //TODO shouldn't callrunner.ts take care of this? we should be part of a longrunning environment?
   compileutils.resetResolveCache();
 
-  let bundle = data.bundle;
-  let langconfig = {
-    modules: data.baseconfig.installedmodules
-    , languages: bundle.bundleconfig.languages
+  const bundle = data.bundle;
+  const langconfig = {
+    modules: data.baseconfig.installedmodules,
+    languages: bundle.bundleconfig.languages
   };
 
   // https://esbuild.github.io/api/#simple-options
-  let captureplugin = new captureLoadPlugin;
+  const captureplugin = new captureLoadPlugin;
 
   /* 'inject' is *not* the proper way to pass on extra requires, seemed to work but triggers weird dependency ordering issues (dompack not getting initialized etc)
      we'll compile a fake :entrypoint.js file,
@@ -133,111 +133,111 @@ export async function recompile(data) {
      TODO: switch to @mod- paths instead of full disk paths, a bit cleaner. even though the paths we leak into the source map are trivially guessable
            so we're not really leaking anything important here. it'll be easier to do the switch once we drop support for webpack which seems to need the disk paths
   */
-  let rootfiles = [...(bundle.bundleconfig.webharepolyfills ? [services.toFSPath("mod::publisher/js/internal/polyfills/all")] : [])
-    , bundle.entrypoint
-    , ...bundle.bundleconfig.extrarequires.filter(node => Boolean(node))
+  const rootfiles = [
+    ...(bundle.bundleconfig.webharepolyfills ? [services.toFSPath("mod::publisher/js/internal/polyfills/all")] : []),
+    bundle.entrypoint,
+    ...bundle.bundleconfig.extrarequires.filter(node => Boolean(node))
   ];
 
-  let outdir = path.join(bundle.outputpath, "build");
+  const outdir = path.join(bundle.outputpath, "build");
 
   let esbuild_configuration =
   {
-    entryPoints: ["//:entrypoint.js?" + encodeURIComponent(JSON.stringify(rootfiles))]
-    , publicPath: '' //bundle.bundleconfig.assetbaseurl || `/.ap/${bundle.outputtag.split(':').join('.')}/`
+    entryPoints: ["//:entrypoint.js?" + encodeURIComponent(JSON.stringify(rootfiles))],
+    publicPath: '', //bundle.bundleconfig.assetbaseurl || `/.ap/${bundle.outputtag.split(':').join('.')}/`
     // This is a workaround for broken stacktrace resolving caused by esbuild generating ../../../../ paths but running out of path components when building relative URLs in stack-mapper in stacktrace-gps
-    , sourceRoot: "@mod-humpty/dumpty/had/a/great/fall/humpty/dumpty/fell/of/the/wall.js"
-    , bundle: true
-    , minify: !bundle.isdev
-    , sourcemap: true
-    , outdir
-    , entryNames: "ap"
-    , jsxFactory: 'dompack.jsxcreate'
-    , jsxFragment: 'dompack.jsxfragment'
-    , write: false
-    , define: { "process.env.ASSETPACK_ENVIRONMENT": `"${bundle.bundleconfig.environment}"` }
-    , plugins: [captureplugin.getPlugin()
-      , createWhResolverPlugin(bundle)
-      , require("@mod-publisher/js/internal/rpcloader").getESBuildPlugin(captureplugin)
-      , require("@mod-tollium/js/internal/lang").getESBuildPlugin(langconfig, captureplugin)
+    sourceRoot: "@mod-humpty/dumpty/had/a/great/fall/humpty/dumpty/fell/of/the/wall.js",
+    bundle: true,
+    minify: !bundle.isdev,
+    sourcemap: true,
+    outdir,
+    entryNames: "ap",
+    jsxFactory: 'dompack.jsxcreate',
+    jsxFragment: 'dompack.jsxfragment',
+    write: false,
+    define: { "process.env.ASSETPACK_ENVIRONMENT": `"${bundle.bundleconfig.environment}"` },
+    plugins: [
+      captureplugin.getPlugin(),
+      createWhResolverPlugin(bundle),
+      require("@mod-publisher/js/internal/rpcloader").getESBuildPlugin(captureplugin),
+      require("@mod-tollium/js/internal/lang").getESBuildPlugin(langconfig, captureplugin),
 
       // , sassPlugin({ importer: sassImporter
       // , exclude: /\.css$/ //webhare expects .css files to be true css and directly loadable (eg by the RTD)
       // })
 
-      , whSassPlugin(captureplugin)
-      , whSourceMapPathsPlugin(outdir)
-    ]
-    , loader: {
-      ".es": "jsx"
-      , ".woff": "file"
-      , ".woff2": "file"
-      , ".eot": "file"
-      , ".ttf": "file"
-      , ".svg": "file"
-      , ".png": "file"
-      , ".gif": "file"
-      , ".jpeg": "file"
-      , ".jpg": "file"
-    }
+      whSassPlugin(captureplugin),
+      whSourceMapPathsPlugin(outdir)
+    ],
+    loader: {
+      ".es": "jsx",
+      ".woff": "file",
+      ".woff2": "file",
+      ".eot": "file",
+      ".ttf": "file",
+      ".svg": "file",
+      ".png": "file",
+      ".gif": "file",
+      ".jpeg": "file",
+      ".jpg": "file"
+    },
     // TODO use incremental for even faster builds?  just need to drop the memory usage at some point, and probably avoid/arrange for affinity separate ephemeral tasks. but esbuild is fast enough to juist build a separate build server process...
     //,incremental:true
 
     // TODO metafile gives some more stats and an alternative way towards grabbing dependencies, but doesnt return anything on error, so we'll stick to our handler for now
     // , metafile:true
 
-    , nodePaths: [services.getConfig().dataroot + "node_modules/"
-    ]
-    , resolveExtensions: [".js", ".ts", ".tsx", ".es"] //es must be last so it can re-export .ts(x) without using extensions
-    , logLevel: data.logLevel || 'silent'
+    nodePaths: [services.getConfig().dataroot + "node_modules/"],
+    resolveExtensions: [".js", ".ts", ".tsx", ".es"], //es must be last so it can re-export .ts(x) without using extensions
+    logLevel: data.logLevel || 'silent'
   };
 
   if (bundle.bundleconfig.environment == 'window') //map 'global' to 'window' like some modules expect from webpack (see eg https://github.com/evanw/esbuild/issues/73)
     esbuild_configuration.define["global"] = "window";
 
   let buildresult;
-  let start = Date.now();
+  const start = Date.now();
   try {
     if (bundle.bundleconfig.esbuildsettings)
       esbuild_configuration = { ...esbuild_configuration, ...JSON.parse(bundle.bundleconfig.esbuildsettings) };
     buildresult = await esbuild.build(esbuild_configuration);
-  }
-  catch (e) {
+  } catch (e) {
     if (e.warnings) //FIXME does this actually happen?  who throws errors that way?
     {
       buildresult = {
-        warnings: e.warnings
-        , errors: e.errors
+        warnings: e.warnings,
+        errors: e.errors
       };
-    }
-    else {
+    } else {
       buildresult = {
-        warnings: []
-        , errors: [{
-          text: e.toString()
-        }]
+        warnings: [],
+        errors: [
+          {
+            text: e.toString()
+          }
+        ]
       };
     }
   }
 
-  let info = {
+  const info = {
     dependencies: {
-      start: start
-      , fileDependencies: Array.from(captureplugin.loadcache).filter(_ => !_.startsWith("//:")) //exclude //:entrypoint.js or we'll recompile endlessly
-      , contextDependencies: []
-      , missingDependencies: []
-    }
-    , errors: buildresult.errors.map(_ => mapESBuildError(bundle.entrypoint, _))
+      start: start,
+      fileDependencies: Array.from(captureplugin.loadcache).filter(_ => !_.startsWith("//:")), //exclude //:entrypoint.js or we'll recompile endlessly
+      contextDependencies: [],
+      missingDependencies: []
+    },
+    errors: buildresult.errors.map(_ => mapESBuildError(bundle.entrypoint, _))
   };
 
-  let haserrors = buildresult.errors.length > 0;
+  const haserrors = buildresult.errors.length > 0;
   let missingpath, missingextensions;
   let resolveerror = buildresult.errors.find(error => error.text.match(/Could not resolve/));
   if (resolveerror) {
     missingpath = resolveerror.text.match(/Could not resolve "(.*)"/)[1];
     if (missingpath)
       missingextensions = ["", ".js", ".es", "/index.js", "/index.es", "/package.json"];
-  }
-  else {
+  } else {
     resolveerror = buildresult.errors.find(error => error.text.match(/Can't find stylesheet to/));
     if (resolveerror) //attempt to extract the path
     {
@@ -258,52 +258,51 @@ export async function recompile(data) {
        won't handle broken references to node_modules from *other* modules we're depending on though. for that we really need to know the resolver paths.
        may be sufficient to resolve some CI issues */
 
-    let mod = data.baseconfig.installedmodules.find(_ => bundle.entrypoint.startsWith(_.root));
+    const mod = data.baseconfig.installedmodules.find(_ => bundle.entrypoint.startsWith(_.root));
     if (mod) {
-      let localpath = bundle.entrypoint.substr(mod.root.length);
+      const localpath = bundle.entrypoint.substr(mod.root.length);
       let currentroot = mod.root;
 
-      for (let subpath of ['', ...localpath.split('/')]) {
+      for (const subpath of ['', ...localpath.split('/')]) {
         currentroot = path.join(currentroot, subpath);
-        for (let ext of missingextensions)
+        for (const ext of missingextensions)
           info.dependencies.missingDependencies.push(path.join(currentroot, "node_modules", missingpath) + ext);
       }
     }
   }
 
   //create asset list. just iterate the output directory (FIXME iterate result.outputFiles, but not available in dev mode perhaps?)
-  let assetoverview = {
-    version: 1
-    , assets: []
+  const assetoverview = {
+    version: 1,
+    assets: []
   };
 
   //TODO should this be more async-y ? especially with compression..
   if (buildresult.outputFiles) {
-    try { fs.mkdirSync(esbuild_configuration.outdir); }
-    catch (ignore) { }
+    try { fs.mkdirSync(esbuild_configuration.outdir); } catch (ignore) { }
 
-    for (let file of buildresult.outputFiles) {
+    for (const file of buildresult.outputFiles) {
       //write to disk in lowercase because that's how WebHare wants it. but register the original names in the manifest in case it needs to be exported/packaged
-      let subpath = file.path.substr(esbuild_configuration.outdir.length + 1);
-      let diskpath = path.join(esbuild_configuration.outdir, subpath.toLowerCase());
+      const subpath = file.path.substr(esbuild_configuration.outdir.length + 1);
+      const diskpath = path.join(esbuild_configuration.outdir, subpath.toLowerCase());
       fs.writeFileSync(diskpath, file.contents);
       assetoverview.assets.push({
-        subpath: subpath
-        , compressed: false
-        , sourcemap: subpath.endsWith(".map")
+        subpath: subpath,
+        compressed: false,
+        sourcemap: subpath.endsWith(".map")
       });
 
       if (!bundle.isdev) {
         fs.writeFileSync(diskpath + '.gz', await compressGz(file.contents, { level: 9 }));
         assetoverview.assets.push({
-          subpath: subpath + '.gz'
-          , compressed: true
-          , sourcemap: subpath.endsWith(".map")
+          subpath: subpath + '.gz',
+          compressed: true,
+          sourcemap: subpath.endsWith(".map")
         });
       }
     }
 
-    let apmanifestpath = path.join(esbuild_configuration.outdir, "apmanifest.json");
+    const apmanifestpath = path.join(esbuild_configuration.outdir, "apmanifest.json");
     fs.writeFileSync(apmanifestpath, JSON.stringify(assetoverview));
   }
 
@@ -314,16 +313,16 @@ export async function recompile(data) {
   // }
 
   return {
-    "name": "compileresult"
-    , "bundle": bundle.outputtag
-    , errors: buildresult.errors.map(_ => _.text).join("\n")
-    , stats: buildresult.warnings.map(_ => _.text).join("\n")
+    "name": "compileresult",
+    "bundle": bundle.outputtag,
+    errors: buildresult.errors.map(_ => _.text).join("\n"),
+    stats: buildresult.warnings.map(_ => _.text).join("\n"),
     // , statsjson:            data.getjsonstats && compileresult.stats ? JSON.stringify(compileresult.stats.toJson()) : ""
-    , statsjson: ""
-    , haserrors: haserrors
-    , info: info
-    , compiletoken: data.compiletoken
-    , compiler: "esbuild"
+    statsjson: "",
+    haserrors: haserrors,
+    info: info,
+    compiletoken: data.compiletoken,
+    compiler: "esbuild"
     // , fullrecompile
   };
 }

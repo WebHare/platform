@@ -46,8 +46,8 @@ export {
 export { generateKeyboardEvent as generateKeyboardEvent } from 'dompack/testframework/keyboard';
 
 //basic test functions
-var testfw = window.parent ? window.parent.__testframework : null;
-whtest.setupLogging({ onLog: (...args) => { console.log(...args); testfw.log(...args); } })
+const testfw = window.parent ? window.parent.__testframework : null;
+whtest.setupLogging({ onLog: (...args) => { console.log(...args); testfw.log(...args); } });
 
 let callbacks = null;
 
@@ -63,9 +63,9 @@ function initialize_tests(steps) {
 function rewriteNodeAttributes(node) {
   // Make sure the order of the attributes is predictable, by getting them, removing them all and reinserting them
   // with a function that tries to keep it stable.
-  var attrs = domlevel.getAllAttributes(node);
-  var keys = Object.keys(attrs);
-  for (var i = 0; i < keys.length; ++i)
+  const attrs = domlevel.getAllAttributes(node);
+  const keys = Object.keys(attrs);
+  for (let i = 0; i < keys.length; ++i)
     node.removeAttribute(keys[i]);
   domlevel.setAttributes(node, attrs);
 }
@@ -118,7 +118,7 @@ function logExplanation(explanation) {
 }
 
 export function eqHTML(expected, actual, explanation) {
-  var fixer = document.createElement("div");
+  const fixer = document.createElement("div");
 
   // Normalize stuff by parsing into DOM and then extracing again
   fixer.innerHTML = expected;
@@ -138,7 +138,7 @@ export function eqHTML(expected, actual, explanation) {
 
   // Firefox has problems with attribute ordering. Rewrite all attributes to get them in the same order.
   fixer.innerHTML = expected;
-  var list = fixer.getElementsByTagName('*');
+  let list = fixer.getElementsByTagName('*');
   for (let i = 0; i < list.length; ++i)
     rewriteNodeAttributes(list[i]);
   expected = fixer.innerHTML;
@@ -152,7 +152,7 @@ export function eqHTML(expected, actual, explanation) {
 }
 
 export function eqIn(expected_in, actual, explanation) {
-  for (var i = 0; i < expected_in.length; ++i)
+  for (let i = 0; i < expected_in.length; ++i)
     if (isequal(expected_in[i], actual))
       return;
 
@@ -175,8 +175,8 @@ export function eqFloat(expected, actual, delta, explanation) {
   if (Math.abs(expected - actual) <= delta)
     return;
 
-  var expected_str = expected;
-  var actual_str = actual;
+  let expected_str = expected;
+  let actual_str = actual;
 
   try { expected_str = typeof expected == "string" ? unescape(escape(expected).split('%u').join('/u')) : JSON.stringify(expected); } catch (e) { }
   try { actual_str = typeof actual == "string" ? unescape(escape(actual).split('%u').join('/u')) : JSON.stringify(actual); } catch (e) { }
@@ -214,14 +214,14 @@ export async function throws(p1: RegExp | Promise<unknown> | (() => unknown), p2
   if (p1 instanceof RegExp)
     return await whtest.throws(p1, p2, p3);
 
-  let exc = await whtest.throws(/.*/, p1, p2);
+  const exc = await whtest.throws(/.*/, p1, p2);
   console.warn("As soon as this module supports 5.2 only, explicitly specify the throw mask. Thrown was: " + exc.toString());
   return exc;
 }
 
 export function findElementWithText(doc, tagname, text) {
-  var els = (doc || getDoc()).querySelectorAll(tagname);
-  for (var i = 0; i < els.length; ++i)
+  const els = (doc || getDoc()).querySelectorAll(tagname);
+  for (let i = 0; i < els.length; ++i)
     if (els[i].textContent == text)
       return els[i];
   return null;
@@ -234,9 +234,9 @@ export function gesturesDone() {
 
 export function dragTransition(pos) {
   // Decelerate more than accelerate
-  let transition = p => Math.pow(p, 2);
-  let easeOut = 1 - transition(1 - pos);
-  let easeInOut = (pos <= 0.5 ? transition(2 * pos) : (2 - transition(2 * (1 - pos)))) / 2;
+  const transition = p => Math.pow(p, 2);
+  const easeOut = 1 - transition(1 - pos);
+  const easeInOut = (pos <= 0.5 ? transition(2 * pos) : (2 - transition(2 * (1 - pos)))) / 2;
   return easeOut * easeInOut;
 }
 
@@ -290,7 +290,7 @@ class FakeUploadSession {
     files.forEach(file => this.blobs.push(null));
   }
   runUpload(inputnode, callback) {
-    var self = this;
+    const self = this;
     this.inputnode = inputnode;
 
     this.files.forEach(function(file, idx) {
@@ -314,13 +314,13 @@ export function prepareUploadTest(node, files, donecallback?) {
   if (window.top.wh_testapi_fakeupload)
     throw new Error("The window already has a pending upload");
 
-  var uploadclass = new FakeUploadSession(files, donecallback);
+  const uploadclass = new FakeUploadSession(files, donecallback);
   window.top.wh_testapi_fakeupload = uploadclass.runUpload.bind(uploadclass);
 }
 
 export async function prepareUpload(files) {
-  let deferred = dompack.createDeferred();
-  var uploadclass = new FakeUploadSession(files, function() { deferred.resolve(); });
+  const deferred = dompack.createDeferred();
+  const uploadclass = new FakeUploadSession(files, function() { deferred.resolve(); });
   window.top.wh_testapi_fakeupload = uploadclass.runUpload.bind(uploadclass);
   await deferred.promise;
 }
@@ -329,10 +329,10 @@ export function getOpenMenu() {
   return qSA('ul:last-of-type.wh-menulist.open')[0] || null;
 }
 export function getOpenMenuItem(containstext) {
-  let menu = getOpenMenu();
+  const menu = getOpenMenu();
   if (!menu)
     return null;
-  let item = dompack.qSA(menu, 'li').filter(_ => _.textContent.includes(containstext));
+  const item = dompack.qSA(menu, 'li').filter(_ => _.textContent.includes(containstext));
   if (item.length > 1)
     throw new Error("Multiple items contain the text '" + containstext + "'");
   return item[0] || null;
@@ -347,7 +347,7 @@ export function setFormsapiFileElement(el, filedata, filename) {
   //formsapi permits a hack to allow us to fake submissions to input type=file fields
   //unfortunately we can't change the type of an input element, so we'll have to recreate it
 
-  var newinput = el.ownerDocument.createElement('input');
+  const newinput = el.ownerDocument.createElement('input');
   newinput.name = el.name + '$filename=' + filename;
   newinput.type = 'text';
   newinput.value = filedata;
@@ -363,33 +363,33 @@ export function fill(element, newvalue) {
   dompack.changeValue(element, newvalue);
 }
 export function fillUpload(element, files) {
-  let blobs = files.map(file => {
+  const blobs = files.map(file => {
     if (!file.mimetype)
       throw new Error("Missing mimetype");
     if (!file.filename)
       throw new Error("Missing filename");
 
-    let output = new Blob([file.data], { type: file.mimetype });
+    const output = new Blob([file.data], { type: file.mimetype });
     output.name = file.filename;
     return output;
   });
   Object.defineProperty(element, 'files', { get: function() { return blobs; }, configurable: true });
 }
 export function getTestSiteRoot() {
-  var topdoc = window.parent.document.documentElement;
+  const topdoc = window.parent.document.documentElement;
   if (!topdoc.dataset.testsiteroot)
     throw new Error("No testsite specified for this test");
   return (new URL(topdoc.dataset.testsiteroot, location.href)).toString();
 }
 
 export function getListViewHeader(text) {
-  var headers = qSA('#listview .listheader > span').filter(node => node.textContent.includes(text));
+  const headers = qSA('#listview .listheader > span').filter(node => node.textContent.includes(text));
   if (headers.length > 1)
     console.error("Multiple header matches for '" + text + "'");
   return headers.length == 1 ? headers[0] : null;
 }
 export function getListViewRow(text) { //simply reget it for every test, as list may rerender at unspecifide times
-  var rows = qSA('#listview .listrow').filter(node => node.textContent.includes(text));
+  const rows = qSA('#listview .listrow').filter(node => node.textContent.includes(text));
   if (rows.length > 1)
     console.error("Multiple row matches for '" + text + "'");
   return rows.length == 1 ? rows[0] : null;
@@ -420,7 +420,7 @@ export function qS<E extends Element = TestQueriedElement>(node_or_selector: Par
   if (typeof node_or_selector !== 'string')
     return node_or_selector.querySelector(selector);
 
-  let iframe = window.parent.document.querySelector('#testframeholder iframe');
+  const iframe = window.parent.document.querySelector('#testframeholder iframe');
   return iframe.contentDocument.querySelector(node_or_selector);
 }
 
@@ -436,7 +436,7 @@ export function qSA<E extends Element = TestQueriedElement>(node_or_selector: Pa
   if (typeof node_or_selector !== 'string')
     return Array.from(node_or_selector.querySelectorAll(selector));
 
-  let iframe = window.parent.document.querySelector('#testframeholder iframe');
+  const iframe = window.parent.document.querySelector('#testframeholder iframe');
   return Array.from(iframe.contentDocument.querySelectorAll(node_or_selector));
 }
 
@@ -470,7 +470,7 @@ export async function invoke(libfunc, ...params) {
   }
 
   console.log(`test.invoke ${libfunc}`, params);
-  let result = await jstestsrpc.invoke(libfunc, params);
+  const result = await jstestsrpc.invoke(libfunc, params);
   if (typeof result == "object" && result && result.__outputtoolsdata) {
     dompack.dispatchCustomEvent(window, 'wh:outputtools-extradata', { bubbles: false, cancelable: false, detail: result.__outputtoolsdata });
     delete result.__outputtoolsdata;
@@ -483,7 +483,7 @@ export function getWrdLogoutUrl(returnurl) {
   return new URL('/.wrd/auth/logout.shtml?b=' + encodeURIComponent(returnurl.split('/').slice(3).join('/')), returnurl).toString();
 }
 export function wrdAuthLogout() {
-  let redirectto = getWrdLogoutUrl(getWin().location.href);
+  const redirectto = getWrdLogoutUrl(getWin().location.href);
   window.parent.document.querySelector('#testframeholder iframe').src = redirectto;
 }
 export async function writeLogMarker(text) {
@@ -515,7 +515,7 @@ interface RetrieveEmailOptions {
 }
 
 export async function waitForEmails(addressmask: string, options?: RetrieveEmailOptions) {
-  let emails = await invoke("mod::system/lib/testframework.whlib#ExtractAllMailFor", addressmask, options);
+  const emails = await invoke("mod::system/lib/testframework.whlib#ExtractAllMailFor", addressmask, options);
   for (const email of emails) {
     email.doc = document.createElement('div');
     email.doc.style.display = "none";
@@ -550,9 +550,9 @@ export async function load(page) {
     throw new Error(`test.load exects a string`);
   }
 
-  let topwhdebug = new URL(top.location.href).searchParams.get("wh-debug");
+  const topwhdebug = new URL(top.location.href).searchParams.get("wh-debug");
   if (topwhdebug !== null) { //something is set... should override loaded urls unless the load explicitly sets wh-debug. allows passing eg ?wh-debug=apr
-    let gotourl = new URL(page);
+    const gotourl = new URL(page);
     if (gotourl.searchParams.get("wh-debug") === null) {
       gotourl.searchParams.set("wh-debug", topwhdebug);
       page = gotourl.toString();
@@ -564,14 +564,14 @@ export async function load(page) {
 }
 
 export function pasteHTML(content) {
-  let target = domfocus.getCurrentlyFocusedElement();
-  let htmltext = typeof content == 'string' ? content : content.innerHTML;
+  const target = domfocus.getCurrentlyFocusedElement();
+  const htmltext = typeof content == 'string' ? content : content.innerHTML;
 
   /* event spec: https://w3c.github.io/clipboard-apis/#clipboard-event-interfaces
      only firefox is said to implement clipboard currently so we'll create a plain event */
-  let evt = target.ownerDocument.createEvent('Event');
+  const evt = target.ownerDocument.createEvent('Event');
 
-  let cpdata = {
+  const cpdata = {
     types: ['text/html'],
     getData: type => {
       if (type != 'text/html')
@@ -583,7 +583,7 @@ export function pasteHTML(content) {
   evt.initEvent('paste', true, true);
   Object.defineProperty(evt, 'clipboardData', { get: () => cpdata });
 
-  let dodefault = target.dispatchEvent(evt);
+  const dodefault = target.dispatchEvent(evt);
   if (dodefault) {
     console.error("FIXME: default action!");
   }
@@ -645,9 +645,9 @@ export function getWebhareVersionNumber() {
   return parseInt(window.parent.document.documentElement.dataset.webhareversionnumber);
 }
 
-export const keyboardCopyModifier = { alt: browser.getPlatform() == 'mac', ctrl: browser.getPlatform() != 'mac' }
-export const keyboardLinkModifier = { ctrl: true, shift: browser.getPlatform() != 'mac' }
-export const keyboardMultiSelectModifier = { cmd: browser.getPlatform() == 'mac', ctrl: browser.getPlatform() != 'mac' }
+export const keyboardCopyModifier = { alt: browser.getPlatform() == 'mac', ctrl: browser.getPlatform() != 'mac' };
+export const keyboardLinkModifier = { ctrl: true, shift: browser.getPlatform() != 'mac' };
+export const keyboardMultiSelectModifier = { cmd: browser.getPlatform() == 'mac', ctrl: browser.getPlatform() != 'mac' };
 
 export {
   testTrue as true             //deprecated! use test.assert(...) in 5.2+

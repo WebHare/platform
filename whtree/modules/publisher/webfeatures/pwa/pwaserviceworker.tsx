@@ -12,11 +12,11 @@ if (!appname)
 const debugassetpacks = serviceworkerurl.searchParams.get('debug') == '1';
 
 function generateBase64UniqueID() {
-  let u8array = new Uint8Array(16);
+  const u8array = new Uint8Array(16);
   crypto.getRandomValues(u8array);
   return btoa(String.fromCharCode.apply(null, u8array));
 }
-let logprefix = `[SW ${appname} ${generateBase64UniqueID()}] `;
+const logprefix = `[SW ${appname} ${generateBase64UniqueID()}] `;
 
 ////////////////////////////////
 //
@@ -55,8 +55,7 @@ async function addToSwLog(data) {
   const db = await openDatabase();
   try {
     await db.add('pwa-swlog', { date: new Date(), ...data });
-  }
-  finally {
+  } finally {
     scheduleDatabaseClose();
   }
 }
@@ -67,8 +66,7 @@ async function getSwStoreValue(key) {
   const db = await openDatabase();
   try {
     return await db.get('pwa-keyval', key);
-  }
-  finally {
+  } finally {
     scheduleDatabaseClose();
   }
 }
@@ -77,71 +75,71 @@ async function setSwStoreValue(key, value) {
   try {
     swstorecache[key] = value;
     await db.put('pwa-keyval', value, key);
-  }
-  finally {
+  } finally {
     scheduleDatabaseClose();
   }
 }
 
 function getWHConfig(pagetext) //extract and parse the wh-config tag
 {
-  let scriptpos = pagetext.indexOf('<script type="application/json" id="wh-config">');
-  let scriptend = pagetext.indexOf('</script>', scriptpos);
+  const scriptpos = pagetext.indexOf('<script type="application/json" id="wh-config">');
+  const scriptend = pagetext.indexOf('</script>', scriptpos);
   return JSON.parse(pagetext.substr(scriptpos + 47, scriptend - scriptpos - 47));
 }
 
 async function downloadApplication() {
-  let cache = await caches.open("pwacache-" + appname);
+  const cache = await caches.open("pwacache-" + appname);
 
   //FIXME we can't really assume that appname (webdesignname) == assetpackname
-  let assetpackname = appname.replace(':', '.');
+  const assetpackname = appname.replace(':', '.');
 
   //Get the easily guessed assets first
   //FIXME move user urls to the manifest ? how abotu th /sd/ urls?
-  let mainpageurl = self.registration.scope;
-  let assetbasedir = `/.ap/${assetpackname}${debugassetpacks ? '.dev' : ''}/`;
-  let manifestfetch = fetch(`${assetbasedir}apmanifest.json`);
-  let baseassets = debugassetpacks
-    ? ["/.ap/tollium.polyfills/ap.js"
-      , `${assetbasedir}ap.css`
-      , `${assetbasedir}ap.js`
-      ,
+  const mainpageurl = self.registration.scope;
+  const assetbasedir = `/.ap/${assetpackname}${debugassetpacks ? '.dev' : ''}/`;
+  const manifestfetch = fetch(`${assetbasedir}apmanifest.json`);
+  const baseassets = debugassetpacks
+    ? [
+      "/.ap/tollium.polyfills/ap.js",
+      `${assetbasedir}ap.css`,
+      `${assetbasedir}ap.js`,
     ]
-    : [`${assetbasedir}ap.css`
-      , `${assetbasedir}ap.js`
-    ]
+    : [
+      `${assetbasedir}ap.css`,
+      `${assetbasedir}ap.js`
+    ];
 
   //make sure we get refresh versions, Safari seems to need this or it'll just reuse its browser cache
-  let mainpagefetch = fetch(mainpageurl, { cache: 'reload' });
-  let baseassetfetches = baseassets.map(asset => fetch(asset, { cache: 'reload' }));
+  const mainpagefetch = fetch(mainpageurl, { cache: 'reload' });
+  const baseassetfetches = baseassets.map(asset => fetch(asset, { cache: 'reload' }));
 
   //we'll fetch it twice, as we cant reuse mainpagefetch for the cache (due to using its .text())
   //this can probably be done more efficiently, but at that point we should probably just create a Manifest or even Zip it all as a package
   //(fetch response clone might help, but not available on safari)
-  let allassets = [mainpageurl].concat(baseassets);
-  let allfetches = [fetch(mainpageurl, { cache: 'reload' })].concat(baseassetfetches);
+  const allassets = [mainpageurl].concat(baseassets);
+  const allfetches = [fetch(mainpageurl, { cache: 'reload' })].concat(baseassetfetches);
 
   //parse mainpage to extract configuration info (TODO shouldn't we get this or the pwauid from the app pages? *they* might be out of date even though *we* see a newer version!)
-  let mainpage = await mainpagefetch;
-  let mainpagetext = await mainpage.text();
-  let whconfig = getWHConfig(mainpagetext);
+  const mainpage = await mainpagefetch;
+  const mainpagetext = await mainpage.text();
+  const whconfig = getWHConfig(mainpagetext);
   if (!whconfig.obj.pwasettings)
-    throw new Error("pwasettings not found in this page's settings. Is it properly derived from PWAPageBase?")
+    throw new Error("pwasettings not found in this page's settings. Is it properly derived from PWAPageBase?");
 
-  let moreassets = whconfig.obj.pwasettings.addurls;
-  let manifest = await (await manifestfetch).json();
+  const moreassets = whconfig.obj.pwasettings.addurls;
+  const manifest = await (await manifestfetch).json();
   manifest.assets = manifest.assets.filter(el => !el.compressed && !el.sourcemap);
   manifest.assets.forEach(el => el.path = assetbasedir + el.subpath);
 
   //scrap the ones we already have
-  for (let asset of [...baseassets, ...moreassets])
+  for (const asset of [...baseassets, ...moreassets])
     manifest.assets = manifest.assets.filter(el => el.path != asset);
 
   moreassets.push(...manifest.assets.map(el => el.path));
 
   //this might lead us to get more assets..
   if (moreassets.length) {
-    let morefetches = moreassets.map(asset => fetch(asset, { cache: 'reload' }));
+    const morefetches = moreassets.map(asset => fetch(asset, { cache: 'reload' }));
 
     allassets.push(...moreassets);
     allfetches.push(...morefetches);
@@ -149,11 +147,11 @@ async function downloadApplication() {
 
   //get version info
   //FIXME race-safe way needed to ensure the packages and our cache token are in sync
-  let versionresponse = await fetch("/.publisher/common/pwa/getversion.shtml?apptoken=" + encodeURIComponent(whconfig.obj.pwasettings.apptoken));
-  let versioninfo = await versionresponse.json();
+  const versionresponse = await fetch("/.publisher/common/pwa/getversion.shtml?apptoken=" + encodeURIComponent(whconfig.obj.pwasettings.apptoken));
+  const versioninfo = await versionresponse.json();
 
   //wait for the cache downloads to settle
-  let allfetchresults = await Promise.all(allfetches);
+  const allfetchresults = await Promise.all(allfetches);
 
   //add them to the cache, though we really need a putAll to do this atomically..
   await Promise.all(allassets.map((asset, idx) => cache.put(asset, allfetchresults[idx])));
@@ -170,8 +168,7 @@ async function doInitialAppInstallation() {
   try {
     console.log(`${logprefix}First we download our most important files`);
     await downloadApplication();
-  }
-  catch (e) {
+  } catch (e) {
     console.error("EXCEPTION", e); //make sure we log this!
     throw e;
   }
@@ -193,21 +190,21 @@ self.addEventListener('install', event => {
 
 async function logToAllClients(loglevel, message) {
   console.log(`${logprefix}${message}`);
-  let clients = await self.clients.matchAll();
+  const clients = await self.clients.matchAll();
   clients.forEach(client => client.postMessage({ type: "log", loglevel, message }));
 }
 
 async function startBackgroundVersionCheck(data) {
   console.log(`${logprefix}startBackgroundVersionCheck`, data);
-  let versioninfo = await checkVersion({
-    pwauid: data?.pwauid || null
-    , pwafileid: data?.pwafileid || null
+  const versioninfo = await checkVersion({
+    pwauid: data?.pwauid || null,
+    pwafileid: data?.pwafileid || null
   });
   if (versioninfo.forcerefresh) {
     addToSwLog({ event: 'forcedrefresh' });
     await downloadApplication();
 
-    let clients = await self.clients.matchAll();
+    const clients = await self.clients.matchAll();
     clients.forEach(client => client.postMessage({ type: "forceRefresh" }));
   }
 }
@@ -234,7 +231,7 @@ async function onFetch(event) {
   if (event.request.method != 'GET')
     return;
 
-  let urlpath = event.request.url.split('/').slice(3).join('/');
+  const urlpath = event.request.url.split('/').slice(3).join('/');
   if (urlpath.startsWith('.publisher/common/outputtools/outputtools.')
     || urlpath.startsWith('.dev/debug.js')
     || urlpath.startsWith('.ap/dev.devtools/')
@@ -246,9 +243,9 @@ async function onFetch(event) {
   event.respondWith(ourFetch(event));
 }
 async function ourFetch(event) {
-  let pwasettings = await getSwStoreValue("pwasettings");
+  const pwasettings = await getSwStoreValue("pwasettings");
   if (pwasettings && pwasettings.excludeurls && pwasettings.excludeurls.length) {
-    for (let exclusionmask of pwasettings.excludeurls)
+    for (const exclusionmask of pwasettings.excludeurls)
       if (event.request.url.startsWith(exclusionmask)) {
         return fetch(event.request);
       }
@@ -257,8 +254,8 @@ async function ourFetch(event) {
   console.log(`${logprefix}Looking for`, event.request.url);
 
   //FIXME stop reopening them caches if we can
-  let cache = await caches.open("pwacache-" + appname);
-  let match = await cache.match(event.request);
+  const cache = await caches.open("pwacache-" + appname);
+  const match = await cache.match(event.request);
   if (match) {
     console.log(`${logprefix}We have ${event.request.url} + " in our cache`);
     return match;
@@ -267,7 +264,7 @@ async function ourFetch(event) {
   //FIXME should we log errors for things we HAD to download manually?
   addToSwLog({ event: 'miss', url: event.request.url });
   logToAllClients("warn", "[Service Worker] Unexpected cache miss for " + event.request.url);
-  let response = await fetch(event.request);
+  const response = await fetch(event.request);
   //Do NOT put in cache.. make the error repeatable
   return response;
 }
@@ -275,18 +272,18 @@ async function ourFetch(event) {
 self.addEventListener('fetch', onFetch);
 
 async function checkVersion(clientversioninfo) {
-  let pwasettings = await getSwStoreValue("pwasettings");
-  let checkurl = "/.publisher/common/pwa/getversion.shtml?apptoken=" + encodeURIComponent(pwasettings.apptoken);
-  let versionresponse = await fetch(checkurl); //FIXME ensure we avoid caches
-  let versioninfo = await versionresponse.json();
+  const pwasettings = await getSwStoreValue("pwasettings");
+  const checkurl = "/.publisher/common/pwa/getversion.shtml?apptoken=" + encodeURIComponent(pwasettings.apptoken);
+  const versionresponse = await fetch(checkurl); //FIXME ensure we avoid caches
+  const versioninfo = await versionresponse.json();
 
-  let currentversion = await getSwStoreValue("currentversion");
-  let forcerefresh = await getSwStoreValue("forcerefresh");
+  const currentversion = await getSwStoreValue("currentversion");
+  const forcerefresh = await getSwStoreValue("forcerefresh");
   console.log(`${logprefix}checkversion`, { currentversion, clientversioninfo });
   return {
     needsupdate: (clientversioninfo && clientversioninfo.pwauid && versioninfo.pwauid && clientversioninfo.pwauid != versioninfo.pwauid)
-      || versioninfo.updatetok != currentversion.updatetok
-    , forcerefresh: new Date(versioninfo.forcerefresh) > forcerefresh
+      || versioninfo.updatetok != currentversion.updatetok,
+    forcerefresh: new Date(versioninfo.forcerefresh) > forcerefresh
   };
 }
 
@@ -343,10 +340,10 @@ async function sendIssueReport(body) {
     }
 
     body = {
-      ...body
-      , appname: appname
-      , debugassetpacks: debugassetpacks
-      , when: new Date
+      ...body,
+      appname: appname,
+      debugassetpacks: debugassetpacks,
+      when: new Date
     };
 
     lastissuereports.push(body);
@@ -356,17 +353,15 @@ async function sendIssueReport(body) {
     await setSwStoreValue("issuereports", lastissuereports);
     await fetch('/.publisher/common/pwa/issuereport.shtml',
       {
-        method: 'post'
-        , body: JSON.stringify(body)
-        , headers: {
+        method: 'post',
+        body: JSON.stringify(body),
+        headers: {
           'Content-Type': 'application/json'
         }
       });
-  }
-  catch (e) {
+  } catch (e) {
     console.log(`${logprefix}Failed to report issue`, e);
-  }
-  finally {
+  } finally {
     sendingissuereport = false;
   }
 }
@@ -374,17 +369,17 @@ async function sendIssueReport(body) {
 self.onerror = function(error) {
   console.error("Error", error, error.trace);
   sendIssueReport({
-    type: "error"
-    , error: error.message
-    , trace: error.trace
+    type: "error",
+    error: error.message,
+    trace: error.trace
   });
 };
 
 addEventListener("unhandledrejection", function(event) {
   console.error('Unhandled rejection (promise: ', event.promise, ', reason: ', event.reason, event);
   sendIssueReport({
-    type: "unhandledrejection"
-    , error: event.reason.message
+    type: "unhandledrejection",
+    error: event.reason.message
   });
 });
 

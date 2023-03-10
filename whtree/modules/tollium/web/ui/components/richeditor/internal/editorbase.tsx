@@ -1512,13 +1512,13 @@ export default class EditorBase {
       \@cell return.blockroot Root ancestor of the blocks (body, td, th or content body)
   */
   getBlockAtNode(node: Node): {
-    node: ParentNode,
-    contentnode: ParentNode,
-    blockroot: ParentNode,
-    blockparent: ParentNode,
-    islist: boolean,
-    isintable: boolean,
-    blockstyle: object | null
+    node: ParentNode;
+    contentnode: ParentNode;
+    blockroot: ParentNode;
+    blockparent: ParentNode;
+    islist: boolean;
+    isintable: boolean;
+    blockstyle: object | null;
   } {
     // Look out - can also be used within document fragments!
     let root: ParentNode = this.getBody();
@@ -1575,7 +1575,7 @@ export default class EditorBase {
       islist: res_islist,
       isintable: res_isintable,
       blockstyle: res_blockstyle
-    }
+    };
     //    console.log('getBlockAtNode res: ', res);
 
     return res;

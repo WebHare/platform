@@ -43,8 +43,8 @@ export default class ObjCheckbox extends ComponentBase { // --------------------
 
   getValue() {
     return {
-      indeterminate: this.node.indeterminate
-      , value: this.node.checked
+      indeterminate: this.node.indeterminate,
+      value: this.node.checked
     };
   }
 
@@ -94,8 +94,8 @@ export default class ObjCheckbox extends ComponentBase { // --------------------
   getSkinSettings() {
     const dims = this.node.getBoundingClientRect();
     return {
-      width: parseInt(dims.width)
-      , height: parseInt(dims.height)
+      width: parseInt(dims.width),
+      height: parseInt(dims.height)
     };
   }
 

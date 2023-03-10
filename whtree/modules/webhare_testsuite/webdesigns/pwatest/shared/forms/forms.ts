@@ -16,7 +16,7 @@ import '@mod-publisher/js/forms/themes/neutral';
 import './forms.scss';
 
 //Enable forms and our builtin validation (starting with WebHare 4.23, validate:true will be the default)
-forms.setup({validate:true});
+forms.setup({ validate: true });
 
 //Replaces upload fields with a nicer and edit-supporting version
 dompack.register(".wh-form__upload", node => new UploadField(node));

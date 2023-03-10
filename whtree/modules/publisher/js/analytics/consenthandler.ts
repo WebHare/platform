@@ -21,18 +21,17 @@ export function setup(usecookiename, consentrequester, options) {
 
   cookiename = usecookiename;
   consentoptions = {
-    cookiedomain: null
-    , cookieduration: 365
-    , defaultconsent: []
-    , ...options
+    cookiedomain: null,
+    cookieduration: 365,
+    defaultconsent: [],
+    ...options
   };
 
   try {
     consentstatus = consentrequester ? JSON.parse(cookie.read(cookiename)) : null;
     if (dompack.debugflags.cst)
       console.log(`[cst] initial consent state:`, consentstatus);
-  }
-  catch (ignore) {
+  } catch (ignore) {
   }
 
   if (!consentstatus || typeof consentstatus != "object" || consentstatus.v !== 2 || typeof consentstatus.c != "object")
@@ -42,8 +41,7 @@ export function setup(usecookiename, consentrequester, options) {
   {
     if (consentrequester)
       dompack.onDomReady(consentrequester); //run the request function, but only on domready! it's a safe assumption it should be delayed...
-  }
-  else {
+  } else {
     storeConsent(); //renew the status
   }
   updateConsent();
@@ -54,7 +52,7 @@ export function hasConsent(consentsetting) {
   if (consentsetting === undefined) //generic consent check
     throw new Error("hasConsent required a string argument");
 
-  let details = getConsentDetail();
+  const details = getConsentDetail();
   if (!details // setup() not called yet?
     || !details.consent) // no consent has been given and no defaults are available consent will be undefined?
     return undefined;
@@ -70,11 +68,11 @@ export function setConsent(newsetting) {
     throw new Error("Expecting an array in call to setConsent");
 
   // Check if there are some consents being revoked
-  let details = getConsentDetail(); // get current list of consent tags, including implicit (default) consent
+  const details = getConsentDetail(); // get current list of consent tags, including implicit (default) consent
   let consent_revoked = false;
   if (details.consent) // if no explicit or default consent, the consent field is undefined
   {
-    for (let tag of details.consent) {
+    for (const tag of details.consent) {
       if (!newsetting.includes(tag))
         consent_revoked = true;
     }
@@ -111,8 +109,8 @@ function getConsentDetail() {
   }
 
   return {
-    consent: consentstatus.c
-    , isdefault: false
+    consent: consentstatus.c,
+    isdefault: false
   };
 }
 
@@ -122,7 +120,7 @@ export function onConsent(type, callback) {
       callback(evt.detail);
   });
 
-  let details = getConsentDetail();
+  const details = getConsentDetail();
 
   if (details && details.consent && details.consent.includes(type)) //already missed it, so invoke
   {
@@ -136,7 +134,7 @@ export function onConsent(type, callback) {
 export function onConsentChange(callback) {
   window.addEventListener("wh:consent-changed", evt => callback(evt.detail));
 
-  let details = getConsentDetail();
+  const details = getConsentDetail();
 
   if (details) //already missed it, so invoke
   {
@@ -147,14 +145,14 @@ export function onConsentChange(callback) {
 }
 
 function updateConsentOverlays() {
-  let overlays = dompack.qSA(".wh-requireconsent__overlay");
-  let consent = getConsentDetail().consent;
+  const overlays = dompack.qSA(".wh-requireconsent__overlay");
+  const consent = getConsentDetail().consent;
 
   if (dompack.debugflags.cst)
     console.log(`[cst] update ${overlays.length} consent overlay(s). consent: ${consent.length ? consent.join(', ') : "<none>"}`);
 
   overlays.forEach(overlay => {
-    let parent = overlay.closest(".wh-requireconsent");
+    const parent = overlay.closest(".wh-requireconsent");
     if (parent && parent.dataset.whConsentRequired)
       overlay.hidden = consent.includes(parent.dataset.whConsentRequired);
   });
@@ -162,7 +160,7 @@ function updateConsentOverlays() {
 
 function updateConsent() //update in DOM, GTM, etc
 {
-  let details = getConsentDetail();
+  const details = getConsentDetail();
 
   if (!details // setup() not called yet?
     || !details.consent) // no consent has been given and no defaults are available consent will be undefined?

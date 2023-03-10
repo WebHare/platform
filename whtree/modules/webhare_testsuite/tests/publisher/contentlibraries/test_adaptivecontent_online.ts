@@ -1,32 +1,30 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-  import * as test from "@mod-system/js/wh/testframework";
+import * as test from "@mod-system/js/wh/testframework";
 
 let testinfo;
 
 // Clear all beacons and reload
-async function resetAll()
-{
+async function resetAll() {
   await test.load(testinfo.url + "?wh-debug=bac");
   test.click("#resetallbeacons");
   test.click("#resetvisitcount");
   await test.wait(() => test.qSA("#currentbeacons div").length == 0);
   await test.wait(() => test.qS("#visitcount").dataset.visitCount == "0");
-  test.getDoc().cookie="webhare-testsuite-consent=;path=/";
+  test.getDoc().cookie = "webhare-testsuite-consent=;path=/";
 }
 
 test.registerTests(
-  [ "setup"
-  , async function()
-    {
+  [
+    "setup",
+    async function() {
       // Setup the test site
       testinfo = await test.invoke("mod::webhare_testsuite/tests/publisher/contentlibraries/libs/adaptivecontent.whlib#SetupDCTest");
-    }
+    },
 
-  , "run tests"
-  , async function()
-    {
+    "run tests",
+    async function() {
       // Clear all beacons and reload
       await resetAll();
       await test.load(testinfo.url + "?wh-debug=bac");
@@ -47,16 +45,16 @@ test.registerTests(
 
       // Check if both widgets were registered, order isn't guaranteed though
       const trailers =
-        [ test.qSA("#slot1holder .accontent-widget-trailer")[0].textContent.trim()
-        , test.qSA("#slot2holder .accontent-widget-trailer")[0].textContent.trim()
+        [
+          test.qSA("#slot1holder .accontent-widget-trailer")[0].textContent.trim(),
+          test.qSA("#slot2holder .accontent-widget-trailer")[0].textContent.trim()
         ];
       test.assert(trailers.includes('Trailer! 1 widget(s) in DOM'));
       test.assert(trailers.includes('Trailer! 2 widget(s) in DOM'));
-    }
+    },
 
-  , "beacons"
-  , async function()
-    {
+    "beacons",
+    async function() {
       // Set and reset the student beacon
       test.assert(test.getWin().dataLayer);
       test.click("#setstudentbeacon");
@@ -71,11 +69,10 @@ test.registerTests(
 
       test.assert(test.getWin().dataLayer);
       await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "is-employee"));
-    }
+    },
 
-  , "adaptivecontent"
-  , async function()
-    {
+    "adaptivecontent",
+    async function() {
       // Load the testpage again
       await test.load(testinfo.url + "?wh-debug=bac");
 
@@ -96,7 +93,7 @@ test.registerTests(
       test.eq("Widget 2.B", test.qSA("#slot2holder .accontent-widget--content")[0].textContent.trim());
 
       // Refresh with the reference date set to one week in the future, we should now get Widget 1.B
-      let date = new Date();
+      const date = new Date();
       date.setDate(date.getDate() + 7);
       await test.load(testinfo.url + "?now=" + date.toISOString() + "&wh-debug=bac");
       await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "a-slot" && _.whContentSelected == "widget-1b"));
@@ -120,11 +117,10 @@ test.registerTests(
       await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:show-dynamic-content' && _.whContentSlot == "headerslot" && _.whContentSelected == "widget"));
       test.eq(1, test.qSA("#headerslotholder .accontent-widget--header").length);
       test.eq("Happy New Millennium!", test.qSA("#headerslotholder .accontent-widget--header")[0].textContent.trim());
-    }
+    },
 
-  , "form page beacons"
-  , async function()
-    {
+    "form page beacons",
+    async function() {
       // The thank you page beacon hasn't been triggered yet
       test.assert(!Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "form-thank-you-page"));
 
@@ -143,22 +139,20 @@ test.registerTests(
 
       // The thank you page beacon should now have been triggered
       await test.wait(() => Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "form-thank-you-page"));
-    }
+    },
 
-  , "consent beacons/views initially allowed"
-  , async function()
-    {
+    "consent beacons/views initially allowed",
+    async function() {
       await resetAll();
       await test.load(testinfo.url + "?defaultconsent=analytics&beaconconsent=analytics&wh-debug=anl,bac");
       //visit count already on 1, even though a cookie bar will still appear... so the code is running!
       await test.wait(() => test.qS("#visitcount").dataset.visitCount == "1");
 
       //TODO test now disabling these
-    }
+    },
 
-  , "consent blocked beacons"
-  , async function()
-    {
+    "consent blocked beacons",
+    async function() {
       await resetAll();
       await test.load(testinfo.url + "?defaultconsent=&beaconconsent=analytics&wh-debug=anl,bac");
 

@@ -48,16 +48,16 @@ export default class Slider {
     this.inputnode = inputnode;
     this.node = selector;
     this.options = {
-      minvalue: 0
-      , maxvalue: 100
-      , startvalues: [50]
-      , limitdragarea: false //only keep dragging if in sliderarea (.wh-slider-holder)
-      , snap: 0     //snap interval, 0:nosnapping
-      , enablemouseclick: false //if enabled, a mouseclick on sliderarea will position directly closest dragger
-      , ticklist: [] //list of positions where to place ticks
-      , tickinterval: 0  //show ticks with given inteval (if > 0)
-      , resizelistener: false
-      , ...options
+      minvalue: 0,
+      maxvalue: 100,
+      startvalues: [50],
+      limitdragarea: false, //only keep dragging if in sliderarea (.wh-slider-holder)
+      snap: 0,     //snap interval, 0:nosnapping
+      enablemouseclick: false, //if enabled, a mouseclick on sliderarea will position directly closest dragger
+      ticklist: [], //list of positions where to place ticks
+      tickinterval: 0,  //show ticks with given inteval (if > 0)
+      resizelistener: false,
+      ...options
     };
 
     this.slidebasenode = this.node.querySelector('.wh-slider');
@@ -85,26 +85,26 @@ export default class Slider {
                 tick = dompack.create('div',{ className : 'wh-tick tick' + c, 'style' : 'top:' + (pinterval*c) + '%', 'data-value' : val } )
               else
                 tick = dompack.create('div',{ className : 'wh-tick tick' + c, 'style' : 'left:' + (pinterval*c) + '%', 'data-value' : val } );
-    
+
               this.slidebasenode.prepend(tick);
             }
           }
         }
-    
+
         for(c = 0; c < this.options.ticklist.length; c++)
         {
           var pos = (this.options.ticklist[c] - this.options.minvalue)*100 / (this.options.maxvalue - this.options.minvalue);
           let tick;
-    
+
           if(this.isvertical)
             dompack.create('div',{ 'class' : 'wh-tick ticklist ticklist' + c, 'style' : 'top:' + pos + '%', 'data-value' : this.options.ticklist[c] } ).inject(this.slidebasenode,'top');
           else
              dompack.create('div',{ 'class' : 'wh-tick ticklist ticklist' + c, 'style' : 'left:' + pos + '%', 'data-value' : this.options.ticklist[c] } ).inject(this.slidebasenode,'top');
-    
+
         }
     */
     //slider can have multiple knobs (but not yet in tollium)
-    var minvalue = null;
+    let minvalue = null;
     /*
         this.size       = this.getNodeSize(this.slidebasenode);
         this.scale      = (this.options.maxvalue - this.options.minvalue) / (this.isvertical ? this.size.y : this.size.x);
@@ -112,7 +112,7 @@ export default class Slider {
     dompack.qSA(this.slidebasenode, '.wh-slider-knob').forEach((dragnode, i) => {
       dragnode.wh_dragpos = 0;
 
-      var startvalue = 0;
+      let startvalue = 0;
       if (i < this.options.startvalues.length)
         startvalue = this.options.startvalues[i];
 
@@ -132,7 +132,7 @@ export default class Slider {
 
       dragnode.wh_value = startvalue;
       dragnode.propKnobNr = i;
-      dragnode.addEventListener("dompack:movestart", evt => { console.log("movestart", evt); evt.stopPropagation() });
+      dragnode.addEventListener("dompack:movestart", evt => { console.log("movestart", evt); evt.stopPropagation(); });
       dragnode.addEventListener("dompack:moveend", evt => evt.stopPropagation());
       dragnode.addEventListener("dompack:move", evt => this._onMoveDragger(evt));
 
@@ -147,7 +147,7 @@ export default class Slider {
         {
           this.rangebar.wh_value = minvalue;
           this.rangebar.wh_dragpos = Math.round(minvalue/this.scale);
-    
+
     /*      if(this.values.length > 1)
           {//make draggable if it's a rangebar between draggers
             var dragoptions = { events: { "dra gmove" : this.onDragMove.bind(this,this.rangebar,-1)
@@ -160,7 +160,7 @@ export default class Slider {
     * /
           this.updateRangebarPosition(this.values);
         }
-    
+
     /* FIXME
         this.keys = new Keyboard({ defaultEventType: 'keydown'
                                  , events: { 'up'   : this.up.bind(this)
@@ -218,24 +218,24 @@ export default class Slider {
     {
       //if(!this.keys.isActive()) //check if we have focus
         //return;
-  
+
       if(ev.wheel > 0)
         this.up(ev);
       else if(ev.wheel < 0)
         this.down(ev);
     }
-  
+
     down (ev)
     {
       ev.stop();
-  
+
       var referencenode = null;
       this.slidebasenode.getElements('.wh-slider-knob').each(function(dragnode)
       { //get nearest dragger
         if(!referencenode || referencenode.wh_dragpos > dragnode.wh_dragpos)
           referencenode = dragnode;
       });
-  
+
       if(this.options.snap > 0)
       {
         this.values[0]-=this.options.snap;
@@ -247,22 +247,22 @@ export default class Slider {
         this.jumpToPosition(referencenode.wh_dragpos - 1);//move one px
       }
     }
-  
+
     up (ev)
     {
       ev.stop();
-  
+
       var referencenode = null;
       this.slidebasenode.getElements('.wh-slider-knob').each(function(dragnode)
       { //get nearest dragger
         if(!referencenode || referencenode.wh_dragpos < dragnode.wh_dragpos)
           referencenode = dragnode;
       });
-  
+
       if(this.options.snap > 0)
       {
         this.values[this.values.length-1]+=this.options.snap;
-  
+
         this.setValues(this.values);
         this.fireEvent('change',referencenode);
       }
@@ -273,17 +273,17 @@ export default class Slider {
     }
   */
   jumpToPosition(mousepos) {//jump to cursor position on mousedown
-    var changed = false;
-    var values = this.values;
+    let changed = false;
+    const values = this.values;
 
     //get nearest dragger
-    var nearestnode = null;
-    var delta = -1;
-    var minnode = null;
-    var maxnode = null;
-    var dragnodes = dompack.qSA(this.slidebasenode, '.wh-slider-knob');
+    let nearestnode = null;
+    let delta = -1;
+    let minnode = null;
+    let maxnode = null;
+    const dragnodes = dompack.qSA(this.slidebasenode, '.wh-slider-knob');
     dragnodes.forEach(function(dragnode) {
-      var relpos = Math.abs(dragnode.wh_dragpos - mousepos);
+      const relpos = Math.abs(dragnode.wh_dragpos - mousepos);
       if (!nearestnode || relpos < delta) {
         nearestnode = dragnode;
         delta = relpos;
@@ -304,7 +304,7 @@ export default class Slider {
             if(firstpos > maxnode.wh_dragpos)
               firstpos-=(maxnode.wh_dragpos - minnode.wh_dragpos);
             delta = minnode.wh_dragpos - firstpos;
-    
+
             dragnodes.each(function(dragnode,i)
             {
               var val = (dragnode.wh_dragpos - delta)*this.scale + this.options.minvalue;
@@ -321,7 +321,7 @@ export default class Slider {
     {//move nearest dragnode to new position
       dragnodes.forEach((dragnode, i) => {
         if (nearestnode == dragnode) {
-          var val = mousepos * this.scale + this.options.minvalue;
+          let val = mousepos * this.scale + this.options.minvalue;
           if (this.options.snap > 0)
             val = this.calcSnapValue(val);
           changed = (val != this.values[i]);
@@ -340,13 +340,12 @@ export default class Slider {
   }
 
   calcSnapValue(value) {
-    var precision = this.options.snap > 0 ? this.log10(this.options.snap) : 0;
+    let precision = this.options.snap > 0 ? this.log10(this.options.snap) : 0;
     if (precision <= 0) {
       precision = Math.pow(10, precision || 0).toFixed(precision < 0 ? -precision : 0);
       value = Math.round(Number(value) * precision) / precision;
-    }
-    else {
-      var f = value - Math.floor(value / this.options.snap) * this.options.snap;
+    } else {
+      const f = value - Math.floor(value / this.options.snap) * this.options.snap;
       if (f > 0) {
         value = Math.floor(value / this.options.snap) * this.options.snap;
         if (f >= this.options.snap * 0.5)
@@ -359,7 +358,7 @@ export default class Slider {
   }
 
   getNodeSize(node) {
-    var d = node.getBoundingClientRect();
+    const d = node.getBoundingClientRect();
     return { x: d.width, y: d.height };
   }
 
@@ -385,10 +384,10 @@ export default class Slider {
 
   //Public:
   getValues() {
-    var values = this.values;
+    const values = this.values;
 
     if (this.options.snap > 0) {
-      for (var i = 0; i < this.values.length; i++)
+      for (let i = 0; i < this.values.length; i++)
         values[i] = this.calcSnapValue(values[i]);
     }
 
@@ -398,23 +397,22 @@ export default class Slider {
   //Public: Override intial/current dragger values
   setValues(values, nosnap, events) {
     if (typeof values == 'object') {
-      for (var c = 0; c < values.length && c < this.values.length; c++)
+      for (let c = 0; c < values.length && c < this.values.length; c++)
         this.values[c] = values[c];
-    }
-    else if (this.values.length) {
+    } else if (this.values.length) {
       this.values[0] = values;
     }
 
-    for (var i = 0; i < this.values.length; i++) {
+    for (let i = 0; i < this.values.length; i++) {
       if (this.values[i] < this.options.minvalue)
         this.values[i] = this.options.minvalue;
       else if (this.values[i] > this.options.maxvalue)
         this.values[i] = this.options.maxvalue;
     }
 
-    var rangebarvalues = this.values;
+    const rangebarvalues = this.values;
     dompack.qSA(this.slidebasenode, '.wh-slider-knob').forEach(function(dragnode, i) {
-      var snapvalue = this.values[i];
+      let snapvalue = this.values[i];
       if (this.options.snap > 0) {
         snapvalue = this.calcSnapValue(this.values[i]);
         rangebarvalues[i] = !nosnap ? snapvalue : this.values[i];
@@ -433,8 +431,8 @@ export default class Slider {
   _onMoveDragger(event) {
     event.stopPropagation();
 
-    let dragnode = event.detail.listener;
-    let pos = this.calcDragInfo2(event.detail, dragnode);
+    const dragnode = event.detail.listener;
+    const pos = this.calcDragInfo2(event.detail, dragnode);
     let changed = false;
 
     if (this.value != null)
@@ -529,9 +527,9 @@ export default class Slider {
     this.fireEvent('slidermove',dragnode);
   }*/
   _onChanged(events) {
-    var values = this.getValues();
+    const values = this.getValues();
 
-    for (var c = 0; c < this.knobs.length; c++)
+    for (let c = 0; c < this.knobs.length; c++)
       this.knobs[c].querySelector('span.value').textContent = this.knobs[c].wh_value;
 
     this.inputnode.value = values.join(',');
@@ -543,7 +541,7 @@ export default class Slider {
   }
 
   _getPosFromEvent(event) {
-    let baserect = this.slidebasenode.getBoundingClientRect();
+    const baserect = this.slidebasenode.getBoundingClientRect();
     let pixelpos;
     if (this.isvertical)
       pixelpos = Math.max(0, Math.min(baserect.height, event.clientY - baserect.top));
@@ -553,7 +551,7 @@ export default class Slider {
   }
 
   calcDragInfo2(eventdetail, dragnode) {
-    var dragvalues = { px: dragnode.wh_dragpos, value: null, snapvalue: null };
+    const dragvalues = { px: dragnode.wh_dragpos, value: null, snapvalue: null };
 
     dragvalues.px = this._getPosFromEvent(eventdetail);
 
@@ -582,18 +580,18 @@ export default class Slider {
   }
   //Internal
   updateRangebarPosition() {
-    var rangemin = this.values.length > 1 ? this.values[0] : this.options.minvalue;
-    var rangemax = this.values[0];
+    let rangemin = this.values.length > 1 ? this.values[0] : this.options.minvalue;
+    let rangemax = this.values[0];
 
-    for (var i = 1; i < this.values.length; i++) {
+    for (let i = 1; i < this.values.length; i++) {
       if (this.values[i] < rangemin)
         rangemin = this.values[i];
       else if (this.values[i] > rangemax)
         rangemax = this.values[i];
     }
 
-    var rangepos = Math.floor((rangemin - this.options.minvalue) / this.scale);
-    var rangesize = Math.floor((rangemax - rangemin) / this.scale);
+    const rangepos = Math.floor((rangemin - this.options.minvalue) / this.scale);
+    const rangesize = Math.floor((rangemax - rangemin) / this.scale);
 
     this.rangebar.wh_value = rangemin;
     this.rangebar.wh_dragpos = rangepos;
@@ -611,20 +609,19 @@ export function replaceRangeComponent(inputnode, options) {
   if (!("enablemouseclick" in options))
     options.enablemouseclick = true;
   if (!("minvalue" in options))
-    options.minvalue = 1 * inputnode.getAttribute('min');
+    options.minvalue = Number(inputnode.getAttribute('min'));
   if (!("maxvalue" in options))
-    options.maxvalue = 1 * inputnode.getAttribute('max');
-  var c, values;
+    options.maxvalue = Number(inputnode.getAttribute('max'));
+  let c, values;
   if (!("startvalues" in options)) {
     options.startvalues = [];
     if (inputnode.getAttribute('data-values')) {
       values = inputnode.getAttribute('data-values').replace(/[^0-9\.]+/g, ',').split(',');//only allow numbers separated by comma
       for (c = 0; c < values.length; c++) {
         if (values[c] != '')
-          options.startvalues.push(1 * values[c]);
+          options.startvalues.push(Number(values[c]));
       }
-    }
-    else {
+    } else {
       options.startvalues = [parseInt(inputnode.getAttribute('value')) || 1];
     }
   }
@@ -651,14 +648,14 @@ export function replaceRangeComponent(inputnode, options) {
     }
   }
 */
-  var orientation = inputnode.getAttribute('orient');
-  var isvertical = (orientation && orientation.toUpperCase() == 'VERTICAL');
+  const orientation = inputnode.getAttribute('orient');
+  const isvertical = (orientation && orientation.toUpperCase() == 'VERTICAL');
 
-  var tabindex = inputnode.tabIndex;
+  let tabindex = inputnode.tabIndex;
   if (!tabindex)
     tabindex = '0';
 
-  var inputclasses = inputnode.className;
+  let inputclasses = inputnode.className;
   if (!inputclasses)
     inputclasses = '';
 
@@ -668,17 +665,17 @@ export function replaceRangeComponent(inputnode, options) {
   if (isvertical && !inputnode.classList.contains('vertical'))
     inputclasses += ' vertical';
 
-  var replacenode = dompack.create('div', { className: 'wh-slider-holder ' + inputclasses, 'tabIndex': tabindex });
+  const replacenode = dompack.create('div', { className: 'wh-slider-holder ' + inputclasses, 'tabIndex': tabindex });
 
   replacenode.appendChild(dompack.create('div', { className: 'whslider__minvalue', 'text': options.minvalue }));
-  var slidernode = dompack.create('div', { className: 'wh-slider' });
+  const slidernode = dompack.create('div', { className: 'wh-slider' });
   replacenode.appendChild(slidernode);
   replacenode.appendChild(dompack.create('div', { className: 'whslider__maxvalue', 'text': options.maxvalue }));
 
 
-  var knobs = [];
+  const knobs = [];
   knobs.push(dompack.create('div', { className: 'wh-slider-knob' }));
-  var valuewrappernode = dompack.create('div', { className: 'value-wrapper' });
+  let valuewrappernode = dompack.create('div', { className: 'value-wrapper' });
   knobs[0].append(valuewrappernode);
   valuewrappernode.append(dompack.create('span', { className: 'value' }));
 
@@ -693,7 +690,7 @@ export function replaceRangeComponent(inputnode, options) {
   inputnode.after(replacenode);
   inputnode.style.display = "none";
 
-  var comp = new Slider(inputnode, replacenode, options);
+  const comp = new Slider(inputnode, replacenode, options);
   comp.knobs = knobs;
 
   //initial

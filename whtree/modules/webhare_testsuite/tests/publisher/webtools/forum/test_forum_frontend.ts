@@ -6,8 +6,7 @@ import * as test from "@mod-system/js/wh//testframework";
 
 let baseurl;
 
-async function runForumTests(withrecaptcha)
-{
+async function runForumTests(withrecaptcha) {
   test.eq(0, test.qSA(".wh-forumcomments__post").length);
 
   test.eq('', test.qS("#wh-forumcomments-name").value);
@@ -19,8 +18,7 @@ async function runForumTests(withrecaptcha)
   test.fill("#wh-forumcomments-message", "De eerste posting");
   test.click(".wh-forumcomments__respondbutton");
 
-  if(withrecaptcha)
-  {
+  if (withrecaptcha) {
     await test.wait('ui');
     test.click('.wh-captcha__mock input[type="checkbox"]');
   }
@@ -37,8 +35,7 @@ async function runForumTests(withrecaptcha)
   test.fill("#wh-forumcomments-message", "het\ntweede\nbericht");
   test.click(".wh-forumcomments__respondbutton");
 
-  if(withrecaptcha)
-  {
+  if (withrecaptcha) {
     await test.wait('ui');
     test.click('.wh-captcha__mock input[type="checkbox"]');
   }
@@ -46,26 +43,24 @@ async function runForumTests(withrecaptcha)
   await test.wait('ui');
   test.eq(2, test.qSA(".wh-forumcomments__post").length);
 
-  let messages = test.qSA(".wh-forumcomments__message");
+  const messages = test.qSA(".wh-forumcomments__message");
   test.eq(2, messages.length);
   test.eq(2, dompack.qSA(messages[1], "br").length, "There should be two <br>s");
 }
 
 test.registerTests(
-  [ async function()
-    {
-      let result = await test.invoke('mod::webhare_testsuite/tests/publisher/webtools/forum/forum.whlib', 'setupTestForum');
+  [
+    async function() {
+      const result = await test.invoke('mod::webhare_testsuite/tests/publisher/webtools/forum/forum.whlib', 'setupTestForum');
       baseurl = result.baseurl;
-    }
+    },
 
-  , "Run standard tests"
-  , { loadpage: function() { return baseurl + 'forumcomments'; }, waits:["ui"]
-    }
-  , () => runForumTests(false)
+    "Run standard tests",
+    { loadpage: function() { return baseurl + 'forumcomments'; }, waits: ["ui"] },
+    () => runForumTests(false),
 
-  , "Run with recaptcha"
-  , { loadpage: function() { return baseurl + 'forumcomments-recaptcha/?wh-debug=nsc'; }, waits:["ui"]
-    }
-  , () => runForumTests(true)
+    "Run with recaptcha",
+    { loadpage: function() { return baseurl + 'forumcomments-recaptcha/?wh-debug=nsc'; }, waits: ["ui"] },
+    () => runForumTests(true)
 
   ]);

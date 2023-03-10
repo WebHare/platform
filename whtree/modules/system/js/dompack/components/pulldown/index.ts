@@ -8,7 +8,7 @@ import KeyboardHandler from "../../extra/keyboard";
 let watchingreset = false;
 
 function onReset() {
-  let lock = dompack.flagUIBusy();
+  const lock = dompack.flagUIBusy();
   //reset doesn't invoke onchange, so we'll have to recheck every select after a form reset (but we'll need to wait for the default event processing to kick in after a timeout)
   setTimeout(function() {
     dompack.qSA('select').forEach(node => {
@@ -27,18 +27,17 @@ function setupMySelectedIndexProperty(select) {
 }
 function mySelectGetValue() {
   //we're not using the original getter as that appears to be broken on IE (always returns empty string)
-  let selectedoption = this.options[this.selectedIndex];
+  const selectedoption = this.options[this.selectedIndex];
   return selectedoption ? selectedoption.value : '';
 }
 function mySelectSetValue(newvalue) {
   this._flushObservations();
 
-  let origsetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(this), 'value').set;
+  const origsetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(this), 'value').set;
   if (origsetter) //this works on chrome, firefox and IE
   {
     origsetter.apply(this, [newvalue]);
-  }
-  else {
+  } else {
     //safari doesnt let us call the original setter. but we _can_ remove the value property and it will be restored
     delete this.value;
     this.value = newvalue;
@@ -47,22 +46,21 @@ function mySelectSetValue(newvalue) {
   this._dompackValueUpdated();
 }
 function mySelectGetSelectedIndex() {
-  let origgetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(this), 'selectedIndex').get;
+  const origgetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(this), 'selectedIndex').get;
   if (origgetter)
     return origgetter.apply(this, []);
 
   //safari doesnt let us call the original setter. but we _can_ remove the value property and it will be restored
   delete this.selectedIndex;
-  let retval = this.selectedIndex;
+  const retval = this.selectedIndex;
   setupMySelectedIndexProperty(this); //reset our custom property
   return retval;
 }
 function mySelectSetSelectedIndex(newvalue) {
-  let origsetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(this), 'selectedIndex').set;
+  const origsetter = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(this), 'selectedIndex').set;
   if (origsetter) {
     origsetter.apply(this, [newvalue]);
-  }
-  else {
+  } else {
     //safari doesnt let us call the original setter. but we _can_ remove the value property and it will be restored
     delete this.selectedIndex;
     this.selectedIndex = newvalue;
@@ -120,21 +118,21 @@ export default class Pulldown extends SelectList {
       className: this._class + '__arrow'
     });
     this._control = dompack.create('div', {
-      className: this._class + '__control'
-      , childNodes: [this._arrow]
+      className: this._class + '__control',
+      childNodes: [this._arrow]
     });
     this._area = dompack.create('div', {
-      className: this._class + '__area'
-      , childNodes: [this._control, this._items]
+      className: this._class + '__area',
+      childNodes: [this._control, this._items]
     });
     this._anchornode = dompack.create('div', {
-      className: this._class
-      , childNodes: [this._area]
-      , on: {
-        mousedown: evt => this._controlMouseDown(evt)
-        , blur: evt => this._onBlur(evt)
-      }
-      , tabIndex: 0
+      className: this._class,
+      childNodes: [this._area],
+      on: {
+        mousedown: evt => this._controlMouseDown(evt),
+        blur: evt => this._onBlur(evt)
+      },
+      tabIndex: 0
     });
 
     dompack.after(this._replacednode, this._anchornode);
@@ -145,11 +143,11 @@ export default class Pulldown extends SelectList {
     this._observer.observe(this._replacednode, { attributes: true, attributeFilter: ['disabled', 'class'], subtree: true, childList: true });
 
     new KeyboardHandler(this._anchornode, {
-      "ArrowUp": evt => this._onArrow(evt, -1)
-      , "ArrowDown": evt => this._onArrow(evt, +1)
-      , "Enter": evt => this._onEnter()
-      , " ": evt => this._onSpace(evt)
-      , "Escape": evt => this._onEscape()
+      "ArrowUp": evt => this._onArrow(evt, -1),
+      "ArrowDown": evt => this._onArrow(evt, +1),
+      "Enter": evt => this._onEnter(),
+      " ": evt => this._onSpace(evt),
+      "Escape": evt => this._onEscape()
     }, { "onkeypress": (event, key) => this._onKey(event, key) });
   }
 
@@ -183,7 +181,7 @@ export default class Pulldown extends SelectList {
     this._loopToItem(direction, null);
   }
   _activateCurrentItem() {
-    let selectitem = this._items.querySelector(`.${this._class}__item--selected`);
+    const selectitem = this._items.querySelector(`.${this._class}__item--selected`);
     if (selectitem && this._doSelectItem(selectitem))
       this.closeSelectList();
   }
@@ -193,8 +191,8 @@ export default class Pulldown extends SelectList {
       this._activateCurrentItem();
   }
   _onEscape() {
-    let allitems = Array.from(this._items.querySelectorAll(`.${this._class}__item`));
-    let selectidx = allitems.findIndex(node => node.classList.contains(this._class + '__item--selected'));
+    const allitems = Array.from(this._items.querySelectorAll(`.${this._class}__item`));
+    const selectidx = allitems.findIndex(node => node.classList.contains(this._class + '__item--selected'));
     if (selectidx == this._replacednode.selectedIndex) //no change
       return;
     if (selectidx >= 0)
@@ -212,7 +210,7 @@ export default class Pulldown extends SelectList {
       this._openSelectList();
   }
   _loopToItem(direction, filter) {
-    let allitems = Array.from(this._items.querySelectorAll(`.${this._class}__item`));
+    const allitems = Array.from(this._items.querySelectorAll(`.${this._class}__item`));
     let current = allitems.findIndex(node => node.classList.contains(this._class + '__item--selected'));
     if (current < 0)
       current = 0;
@@ -239,8 +237,7 @@ export default class Pulldown extends SelectList {
           allitems[current].classList.remove(this._class + '__item--selected');
           allitems[selectidx].classList.add(this._class + '__item--selected');
           this.scrollOptionIntoView(allitems[selectidx]);
-        }
-        else {
+        } else {
           this._doSelectItem(allitems[selectidx]); //this will trigger change immediately
         }
         return;
@@ -253,7 +250,7 @@ export default class Pulldown extends SelectList {
 
     key = key.toUpperCase();
     this._loopToItem(+1, node => {
-      let tc = node.textContent.trim();
+      const tc = node.textContent.trim();
       return tc[0] && tc[0].toUpperCase() == key;
     });
     dompack.stop(event);
@@ -270,7 +267,7 @@ export default class Pulldown extends SelectList {
   }
 
   _onObserve(mutations) {
-    let anyoptionchange = mutations.some(mutation => mutation.type == 'childList'
+    const anyoptionchange = mutations.some(mutation => mutation.type == 'childList'
       || (mutation.type == 'attributes'
         && (mutation.attributeName == 'class' || mutation.attributeName == 'disabled')));
 
@@ -285,31 +282,30 @@ export default class Pulldown extends SelectList {
   }
 
   _generateOptions(childnodes, inoptgroup, idx) {
-    for (let opt of childnodes) {
+    for (const opt of childnodes) {
       if (!inoptgroup && opt.nodeName == 'OPTGROUP') {
-        let node = dompack.create('div', {
-          className: this._class + '__optgroup' + ' ' + opt.className
-          , textContent: opt.getAttribute("label") || '\u00a0'
-          , dataset: {
-            ...opt.dataset
-            , dompackPulldownIndex: -1
-          }
-          , _pulldownidx: -1
+        const node = dompack.create('div', {
+          className: this._class + '__optgroup' + ' ' + opt.className,
+          textContent: opt.getAttribute("label") || '\u00a0',
+          dataset: {
+            ...opt.dataset,
+            dompackPulldownIndex: -1
+          },
+          _pulldownidx: -1
         });
         this._items.appendChild(node);
         idx = this._generateOptions(opt.childNodes, true, idx);
-      }
-      else if (opt.nodeName == 'OPTION') {
-        let node = dompack.create('div', {
+      } else if (opt.nodeName == 'OPTION') {
+        const node = dompack.create('div', {
           className: this._class + '__item' + ' '
             + (inoptgroup ? this._class + '__item--ingroup ' : '')
-            + opt.className
-          , textContent: opt.textContent || '\u00a0'
-          , dataset: {
-            ...opt.dataset
-            , dompackPulldownIndex: idx
-          }
-          , _pulldownidx: idx
+            + opt.className,
+          textContent: opt.textContent || '\u00a0',
+          dataset: {
+            ...opt.dataset,
+            dompackPulldownIndex: idx
+          },
+          _pulldownidx: idx
         });
 
         if (opt.disabled)
@@ -328,7 +324,7 @@ export default class Pulldown extends SelectList {
     //Fixup selection classes
     dompack.qSA(this._items, '.' + this._class + '__item--selected').forEach(node => node.classList.remove(this._class + '__item--selected'));
     if (this._replacednode.selectedIndex >= 0) {
-      let toselect = this._items.querySelector(`*[data-dompack-pulldown-index="${this._replacednode.selectedIndex}"]`);
+      const toselect = this._items.querySelector(`*[data-dompack-pulldown-index="${this._replacednode.selectedIndex}"]`);
       if (toselect)
         toselect.classList.add(this._class + '__item--selected');
     }
@@ -338,7 +334,7 @@ export default class Pulldown extends SelectList {
     //Disable any incorrectly enabled nodes
     Array.from(this._replacednode.options).forEach((option, idx) => {
       if (option.disabled) {
-        let todisable = this._items.querySelector(`*[data-dompack-pulldown-index="${idx}"]`);
+        const todisable = this._items.querySelector(`*[data-dompack-pulldown-index="${idx}"]`);
         if (todisable)
           todisable.classList.add(this._class + '__item--disabled');
       }
@@ -350,10 +346,10 @@ export default class Pulldown extends SelectList {
   }
 
   _updateDisplayValue() {
-    let toshow = this._replacednode.options[this._replacednode.selectedIndex];
-    let newcurrent = dompack.create('div', {
-      className: this._class + '__current'
-      , textContent: (toshow ? toshow.textContent : '') || '\u00a0'
+    const toshow = this._replacednode.options[this._replacednode.selectedIndex];
+    const newcurrent = dompack.create('div', {
+      className: this._class + '__current',
+      textContent: (toshow ? toshow.textContent : '') || '\u00a0'
     });
     if (toshow) { //copy value and attributes
       newcurrent.dataset.optionvalue = toshow.value;
@@ -381,7 +377,7 @@ export default class Pulldown extends SelectList {
     if (dompack.contains(this._items, evt.target))
       return;//do not interfere with clicks inside the items area
 
-    let isopen = this._isOpen();
+    const isopen = this._isOpen();
     if (!isopen && this._replacednode.disabled)
       return; //the original node is locked, thus so are we
 

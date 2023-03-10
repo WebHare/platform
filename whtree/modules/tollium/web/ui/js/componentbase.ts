@@ -167,7 +167,7 @@ class ToddCompBase {
     }
 
     // Destroy all children marked as 'destroywithparent'. Destroyed children will unregister themselves, so iterate over a copy.
-    var copy = this.childrencomps.slice();
+    const copy = this.childrencomps.slice();
     copy.forEach(comp => {
       if (comp.destroywithparent)
         comp.destroy();
@@ -186,10 +186,10 @@ class ToddCompBase {
   }
 
   getDestroyableNodes() {
-    var retval = [];
+    const retval = [];
     if (this.node)
       retval.push(this.node);
-    for (var i in this.nodes)
+    for (const i in this.nodes)
       if (this.nodes.hasOwnProperty(i))
         retval.push(this.nodes[i]);
 
@@ -202,8 +202,8 @@ class ToddCompBase {
   }
 
   setSizeToMaxOf(sizeproperty, nodes, addspace) {
-    var calc = 0, min = 0;
-    nodes.filter(node => !!node).forEach(node => {
+    let calc = 0, min = 0;
+    nodes.filter(node => Boolean(node)).forEach(node => {
       calc = Math.max(calc, node[sizeproperty].calc);
       min = Math.max(min, node[sizeproperty].min);
     });
@@ -213,8 +213,8 @@ class ToddCompBase {
   }
 
   setSizeToSumOf(sizeproperty, nodes, addspace) {
-    var calc = 0, min = 0;
-    nodes.filter(node => !!node).forEach(node => {
+    let calc = 0, min = 0;
+    nodes.filter(node => Boolean(node)).forEach(node => {
       calc += node[sizeproperty].calc;
       min += node[sizeproperty].min;
     });
@@ -298,7 +298,7 @@ class ToddCompBase {
     options = { modal: true, ...options };
 
     return new Promise((resolve, reject) => {
-      let callback = () => resolve();
+      const callback = () => resolve();
       this.owner.tryProcessMessage(this.name, type, data, options.modal, callback);
     });
   }
@@ -348,7 +348,7 @@ class ToddCompBase {
   }
 
   processIncomingMessage(type, data) {
-    let expectcallback = "onMsg" + type;
+    const expectcallback = "onMsg" + type;
     if (this[expectcallback])
       return this[expectcallback].apply(this, [data]);
 
@@ -365,7 +365,7 @@ class ToddCompBase {
   }
 
   focusComponent() {
-    let tofocus = domfocus.getFocusableComponents(this.node)[0];
+    const tofocus = domfocus.getFocusableComponents(this.node)[0];
     if (tofocus)
       dompack.focus(tofocus);
     else if (domfocus.canFocusTo(this.node))
@@ -463,7 +463,7 @@ class ToddCompBase {
   }
   calculateDimension(horizontal) {
     //beginWidth|Height
-    var prop = this.dim(horizontal);
+    const prop = this.dim(horizontal);
     if (!this.isDimensionDirty(horizontal)) {
       if ($todd.IsDebugTypeEnabled("dimensions"))
         console.log(this.getDebugName() + (horizontal ? ": CW:" : ": CH:") + " not dirty, skipping recalculation. min: " + prop.min + ", calc: " + prop.calc + " (current set: " + prop.set + ")");
@@ -471,7 +471,7 @@ class ToddCompBase {
       return;
     }
 
-    var children = this.getVisibleChildren();
+    const children = this.getVisibleChildren();
     if ($todd.IsDebugTypeEnabled("dimensions")) {
       console.group(this.getDebugName() + (horizontal ? ": CW:" : ": CH:") + " recalculating. " + (children.length ? "(" + children.length + " children) " : ""), this.node);
     }
@@ -494,7 +494,7 @@ class ToddCompBase {
 
     //apply minimums from XML
     if (prop.servermin) {
-      let calcmin = $todd.CalcAbsSize(prop.servermin, horizontal, this.isinline);
+      const calcmin = $todd.CalcAbsSize(prop.servermin, horizontal, this.isinline);
       if (calcmin > prop.min) {
         prop.min = calcmin;
         if ($todd.IsDebugTypeEnabled("dimensions"))
@@ -507,9 +507,8 @@ class ToddCompBase {
       if ($todd.IsDebugTypeEnabled("dimensions"))
         console.log(this.getDebugName() + (horizontal ? ": CW: " : ": CH: ") + " (user-set) setting calc of " + prop.calc + ' to ' + prop.new_set);
       prop.calc = prop.new_set;
-    }
-    else if ($todd.IsFixedSize(prop.serverset)) {
-      var newsize = $todd.CalcAbsSize(prop.serverset, horizontal, this.isinline);
+    } else if ($todd.IsFixedSize(prop.serverset)) {
+      const newsize = $todd.CalcAbsSize(prop.serverset, horizontal, this.isinline);
       if ($todd.IsDebugTypeEnabled("dimensions"))
         console.log(this.getDebugName() + (horizontal ? ": CW: " : ": CH: ") + " (screen-set) setting calc of " + prop.calc + ' to ' + newsize);
       prop.calc = newsize;
@@ -532,7 +531,7 @@ class ToddCompBase {
       this.height.dirty = true;
   }
   applyDimension(horizontal) {
-    var dim = this.dim(horizontal);
+    const dim = this.dim(horizontal);
     if ($todd.IsDebugTypeEnabled("dimensions"))
       console.group(this.getDebugName() + (horizontal ? ": AW: " : ": AH: ") + " applying " + dim.set + " (min=" + dim.min + ", calc=" + dim.calc + ")", this.node);
 
@@ -625,11 +624,12 @@ class ToddCompBase {
 
   // Get node size data
   getNodeSizeData() {
-    return ["min: " + this.width.min + "," + this.height.min
-      , "calc: " + this.width.calc + "," + this.height.calc
-      , "set: " + this.width.set + "," + this.height.set
-      , "xmlmin:" + this.width.servermin + "," + this.height.servermin
-      , "xmlset:" + this.width.serverset + "," + this.height.serverset
+    return [
+      "min: " + this.width.min + "," + this.height.min,
+      "calc: " + this.width.calc + "," + this.height.calc,
+      "set: " + this.width.set + "," + this.height.set,
+      "xmlmin:" + this.width.servermin + "," + this.height.servermin,
+      "xmlset:" + this.width.serverset + "," + this.height.serverset
     ].join(", ");
   }
 
@@ -640,14 +640,14 @@ class ToddCompBase {
 
   /* Distributes available pixels over the given size objects (component.width or component.height). Leftover pixels are
      assigned to sizeobjs[leftoverobj], or distributed evenly over the sizeobjs if leftoverobj < 0.
-  
+
      sizeobjs should be created by ReadXMLWidths/ReadXMLHeights */
   distributeSizes(available, sizeobjs, horizontal, leftoverobj) {
     return distributeSizes(available, sizeobjs, horizontal, leftoverobj);
   }
 
   distributeSizeProps(property, available, items, horizontal, leftoverobj) {
-    var sizeobjs = [];
+    const sizeobjs = [];
     items.forEach(item => sizeobjs.push(item[property]));
     return this.distributeSizes(available, sizeobjs, horizontal, leftoverobj);
   }
@@ -684,7 +684,7 @@ class ToddCompBase {
   */
 
   getFileTransferBaseURL(options) {
-    var url = $todd.resourcebase + "filetransfer.shtml";
+    let url = $todd.resourcebase + "filetransfer.shtml";
     if (options && options.filename)
       url += "/" + encodeURIComponent(options.filename);
     url += '?l=' + encodeURIComponent(this.owner.hostapp.whsid);
@@ -697,8 +697,8 @@ class ToddCompBase {
       @param data Data to send
   */
   getFileTransferURL(type, data, options) {
-    var ftid = 'FT:c' + ++urlgencounter;
-    var url = this.getFileTransferBaseURL(options);
+    const ftid = 'FT:c' + ++urlgencounter;
+    let url = this.getFileTransferBaseURL(options);
     url += '&t=' + encodeURIComponent(type);
     if (data)
       url += "&d=" + encodeURIComponent(JSON.stringify(data));
@@ -707,7 +707,7 @@ class ToddCompBase {
   }
   isMyFileTransferURL(url) {
     // Check if this is a url generated by TolliumWebController::GetComponentFileTransferURL
-    var baseurl = this.getFileTransferBaseURL();
+    const baseurl = this.getFileTransferBaseURL();
     return url.substr(0, baseurl.length) == baseurl;
   }
 
@@ -718,13 +718,12 @@ class ToddCompBase {
     return this.componenttype + " " + (this.parentcomp ? this.parentcomp.name + "->" : "") + (this.name || '<no name>');
   }
   debugLog(type) {
-    var args = Array.prototype.slice.call(arguments);
+    const args = Array.prototype.slice.call(arguments);
 
     //prefix first argument with item name, if possible
     if (args.length >= 2 && typeof args[1] == 'string') {
       args[1] = this.getDebugName() + ": " + args[1];
-    }
-    else {
+    } else {
       args.splice(1, 0, this.getDebugName() + ": " + args[1]);
     }
     $todd.DebugTypedLog.apply(null, args);
@@ -732,7 +731,7 @@ class ToddCompBase {
 }
 
 export function distributeSizes(available, sizeobjs, horizontal, leftoverobj, options) {
-  let intolerant = dompack.debugflags.col || options?.intolerant;
+  const intolerant = dompack.debugflags.col || options?.intolerant;
 
   if (!(available >= 0)) //guard against negative or non-number availables
   {
@@ -742,25 +741,24 @@ export function distributeSizes(available, sizeobjs, horizontal, leftoverobj, op
     available = 100; // just give some
   }
 
-  var logdistribute = $todd.IsDebugTypeEnabled("distribute");
+  const logdistribute = $todd.IsDebugTypeEnabled("distribute");
   if (logdistribute)
     console.log("DistributeSizes over " + available + "px, horizontal=" + horizontal + " leftoverobj=" + leftoverobj + ", sizeobjs=" + sizeobjs.length, sizeobjs);
 
-  var total_prop = 0, total_pixels = 0, added_size = 0;
-  var tempsizes = [];//Temporay store for calculated sizes
+  let total_prop = 0, total_pixels = 0, added_size = 0;
+  const tempsizes = [];//Temporay store for calculated sizes
   sizeobjs.forEach(function(sizeobj, idx) {
     tempsizes[idx] = { set: 0, min: 0, pref: 0, prop: 0 };
 
     // If a size is already set, use that, otherwise read the size set in xml
-    var is_fixedsize = false, setsize = 0;
+    let is_fixedsize = false, setsize = 0;
     if (typeof sizeobj.new_set == "number") {
       //ADDME: Take original sizes (pr?) into account?
       if (logdistribute)
         console.log("Child " + idx + " new_set was set. setsize=" + sizeobj.new_set);
       setsize = sizeobj.new_set;
       is_fixedsize = true;
-    }
-    else {
+    } else {
       if (!sizeobj.serverset || $todd.IsFixedSize(sizeobj.serverset)) {
         is_fixedsize = true;
         setsize = $todd.CalcAbsSize(sizeobj.serverset, horizontal, sizeobj.isinline);
@@ -773,15 +771,14 @@ export function distributeSizes(available, sizeobjs, horizontal, leftoverobj, op
 
     if (is_fixedsize) // absolute: (p)x
     {
-      var calc = setsize || sizeobj.calc;
+      const calc = setsize || sizeobj.calc;
       tempsizes[idx].pref = Math.max(calc, tempsizes[idx].min);
       if (logdistribute)
         console.log("Child " + idx + " calc=" + calc + " pref=" + tempsizes[idx].pref + " min=" + tempsizes[idx].min);
       total_pixels += tempsizes[idx].pref;
       if (tempsizes[idx].pref > tempsizes[idx].min)
         added_size += tempsizes[idx].pref - tempsizes[idx].min;
-    }
-    else // proportional: pr
+    } else // proportional: pr
     {
       tempsizes[idx].prop = parseInt(sizeobj.serverset, 10);
       total_prop += tempsizes[idx].prop;
@@ -795,19 +792,19 @@ export function distributeSizes(available, sizeobjs, horizontal, leftoverobj, op
        - remaining_for_prop = (available - total_absolutes)
        - size_per_prop = maximum of (remaining_for_prop / total_props, minimum size)
   */
-  var takeaway_prop = 0;
-  var propleft;
+  let takeaway_prop = 0;
+  let propleft;
   if (total_prop > 0) {
-    var spaceleft = available - total_pixels;
+    let spaceleft = available - total_pixels;
     propleft = total_prop;
-    var prop = Math.floor(spaceleft / total_prop);
+    const prop = Math.floor(spaceleft / total_prop);
 
     if (logdistribute)
       console.log("Distribute remainders: props=" + propleft + " available=" + spaceleft);
     sizeobjs.forEach(function(sizeobj, idx) {
       if (tempsizes[idx].prop) {
         // var part = Math.floor(spaceleft * tempsizes[idx].set.size / propleft);
-        var part = prop * tempsizes[idx].prop;
+        const part = prop * tempsizes[idx].prop;
         if (logdistribute)
           console.log("Child " + idx + " receiving " + tempsizes[idx].prop + "/" + propleft + " of " + spaceleft + "=" + part + " pixels, min=" + tempsizes[idx].min);
 
@@ -832,12 +829,11 @@ export function distributeSizes(available, sizeobjs, horizontal, leftoverobj, op
 
     var takenaway = 0;
     sizeobjs.forEach(function(sizeobj, idx) {
-      var takeaway = 0;
+      let takeaway = 0;
       if (propleft && tempsizes[idx].prop) {
         // Using ceil to take at least 1 pixel if there are any pixels available (otherwise we could end up in an endless loop)
         takeaway = Math.ceil((total_pixels - available) * tempsizes[idx].prop / propleft);
-      }
-      else
+      } else
         takeaway = total_pixels - available;
       takeaway = Math.min(tempsizes[idx].pref - tempsizes[idx].min, takeaway);
       if (takeaway) {
@@ -860,15 +856,14 @@ export function distributeSizes(available, sizeobjs, horizontal, leftoverobj, op
     }
   }
 
-  var remaining = available - total_pixels;
+  let remaining = available - total_pixels;
   if (remaining) {
     if (leftoverobj >= 0 && leftoverobj < sizeobjs.length) {
       if (logdistribute)
         console.log("We have " + (available - total_pixels) + " unassigned pixels, assign to child #" + leftoverobj);
       tempsizes[leftoverobj].pref += remaining;
       remaining = 0;
-    }
-    else if (leftoverobj == -2) {
+    } else if (leftoverobj == -2) {
       if (logdistribute)
         console.log("We have " + (available - total_pixels) + " unassigned pixels, try to distribute evently over proportionals");
 
@@ -917,7 +912,7 @@ class ActionableComponent extends ToddCompBase {
 
   getEnabled() {
     // Check if the action is already available
-    var action = this.action ? this.owner.getComponent(this.action) : null;
+    const action = this.action ? this.owner.getComponent(this.action) : null;
     // The button is enabled if it hasn't been disabled directly and it either has an enabled action or no action at all
     return this.enabled && (action ? action.isEnabled() : !this.action);
   }

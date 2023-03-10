@@ -7,7 +7,7 @@ export function formatDate(dateformat, year, month, day) {
 
   let output = '';
 
-  for (let c of dateformat.split("")) {
+  for (const c of dateformat.split("")) {
     switch (c.toUpperCase()) {
       case "Y":
         output += ('000' + year).slice(-4);
@@ -48,7 +48,7 @@ export function isValidDate(year, month, day) {
     return false;
   if ([4, 6, 9, 11].includes(month) && day > 30) //handle april, june, sep, nov
     return false;
-  let isleapyear = (year % 400) == 0 || ((year % 100) != 0 && (year % 4) == 0);
+  const isleapyear = (year % 400) == 0 || ((year % 100) != 0 && (year % 4) == 0);
   if (month == 2 && day > (isleapyear ? 29 : 28))
     return false;
   return true;
@@ -65,23 +65,23 @@ export function parseDate(format, newdate, options) {
     return null;
 
   //replace . and / with -
-  let setdate = newdate.replace(/[./]/g, '-');
-  let parts = setdate.split('-');
+  const setdate = newdate.replace(/[./]/g, '-');
+  const parts = setdate.split('-');
 
   if (parts.length == 3)//parseable
   {
     format = format.toLowerCase();
-    let dayoffset = format.indexOf('d');
-    let monthoffset = format.indexOf('m');
-    let yearoffset = format.indexOf('y');
+    const dayoffset = format.indexOf('d');
+    const monthoffset = format.indexOf('m');
+    const yearoffset = format.indexOf('y');
 
-    let daypos = 0 + (dayoffset > monthoffset ? 1 : 0) + (dayoffset > yearoffset ? 1 : 0);
-    let monthpos = 0 + (monthoffset > dayoffset ? 1 : 0) + (monthoffset > yearoffset ? 1 : 0);
-    let yearpos = 0 + (yearoffset > dayoffset ? 1 : 0) + (yearoffset > monthoffset ? 1 : 0);
+    const daypos = 0 + (dayoffset > monthoffset ? 1 : 0) + (dayoffset > yearoffset ? 1 : 0);
+    const monthpos = 0 + (monthoffset > dayoffset ? 1 : 0) + (monthoffset > yearoffset ? 1 : 0);
+    const yearpos = 0 + (yearoffset > dayoffset ? 1 : 0) + (yearoffset > monthoffset ? 1 : 0);
 
-    let day = parseInt(parts[daypos], 0);
-    let month = parseInt(parts[monthpos], 0);
-    let year = parseInt(parts[yearpos], 0);
+    const day = parseInt(parts[daypos], 0);
+    const month = parseInt(parts[monthpos], 0);
+    const year = parseInt(parts[yearpos], 0);
 
     // The browser will always add 1900 for years 0-99, so handle years < 100
     // if (year >= 0 && year < 100 && this.options.cutoffyear > 0)
@@ -121,17 +121,17 @@ export function parseISODate(newdate, options) {
 }
 
 export function getLocalToday() {
-  let today = new Date;
+  const today = new Date;
   return { year: today.getFullYear(), month: 1 + today.getMonth(), day: today.getDate() };
 }
 
 export function parseISOTime(intime, options) {
-  let split = intime.match(/^([0-9]+):([0-9]+)(:([0-9]+))?(\.([0-9]+))?$/);
+  const split = intime.match(/^([0-9]+):([0-9]+)(:([0-9]+))?(\.([0-9]+))?$/);
   if (split) {
-    let hour = parseInt(split[1], 10);
-    let minute = parseInt(split[2], 10);
-    let second = parseInt(split[4] || "0", 10);
-    let msec = parseInt(split[6] || "0", 10);
+    const hour = parseInt(split[1], 10);
+    const minute = parseInt(split[2], 10);
+    const second = parseInt(split[4] || "0", 10);
+    const msec = parseInt(split[6] || "0", 10);
     return { hour, minute, second, msec };
   }
   if (options && options.nofail)
@@ -146,7 +146,7 @@ export function getWeekNumber(jsdate) {
   // Thursday in current week decides the year.
   jsdate.setDate(jsdate.getDate() + 3 - (jsdate.getDay() + 6) % 7);
   // January 4 is always in week 1.
-  var week1 = new Date(jsdate.getFullYear(), 0, 4);
+  const week1 = new Date(jsdate.getFullYear(), 0, 4);
   // Adjust to Thursday in week 1 and count number of weeks from jsdate to week1.
   return 1 + Math.round(((jsdate.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
 }

@@ -9,7 +9,7 @@ import * as whintegration from '@mod-system/js/wh/integration';
 import { onConsentChange } from "./consenthandler";
 
 let seen = 0;
-let gtmsettings = whintegration.config["socialite:gtm"];
+const gtmsettings = whintegration.config["socialite:gtm"];
 let didinit;
 let eventname; //event name used for form submission
 
@@ -38,12 +38,11 @@ export function setVariables(vars) {
 
 /* Send an event to the data layer. Returns a promise that will resolve when the event is sent, or after a timeout of 200ms */
 export function sendEvent(event, vars) {
-  let defer = dompack.createDeferred();
+  const defer = dompack.createDeferred();
   try {
     window.dataLayer.push({ event: event, eventCallback: () => defer.resolve(false), ...vars });
     showDataLayerChanges();
-  }
-  catch (e) {
+  } catch (e) {
   }
   window.setTimeout(() => defer.resolve(true), 200);
   return defer.promise;
@@ -68,18 +67,17 @@ export async function init() {
   if (gtmsettings.h && !dompack.debugflags.sne) //self hosting
   {
     //ADDME taking whintegration.config.designcdnroot would be nice, but it's current format is pretty unusable
-    let src = "/.se/gtm." + gtmsettings.a.substr(4).toLowerCase() + ".js";
+    const src = "/.se/gtm." + gtmsettings.a.substr(4).toLowerCase() + ".js";
     try {
       await loadScript(src);
       return; //done!
-    }
-    catch (e) {
+    } catch (e) {
       console.warn("Cannot load local GTM version at ", src);
       //fallback to loading GTM's version
     }
   }
 
-  let gtmsrc = "https://www.googletagmanager.com/gtm.js?id=" + gtmsettings.a;
+  const gtmsrc = "https://www.googletagmanager.com/gtm.js?id=" + gtmsettings.a;
   loadScript(gtmsrc);
 }
 
@@ -88,7 +86,7 @@ export function initOnConsent() {
     console.error("<gtm/> tag must be configured with launch=manual to support initOnConsent");
 
   onConsentChange(consentsettings => {
-    let consentsetting = consentsettings.consent.length ? consentsettings.consent.join(' ') : "denied";
+    const consentsetting = consentsettings.consent.length ? consentsettings.consent.join(' ') : "denied";
     window.dataLayer.push({ "wh.consent": consentsetting, "event": "wh-consentchange" });
     init();
   });
@@ -118,24 +116,24 @@ function capturePxlEvent(evt) {
 
 //FIXME share with formbase es?
 function collectFormValues(formnode) {
-  let donefields = {};
-  let outdata = {};
+  const donefields = {};
+  const outdata = {};
 
-  let multifields = dompack.qSA(formnode, 'input[type=radio], input[type=checkbox]');
-  for (let multifield of multifields) {
+  const multifields = dompack.qSA(formnode, 'input[type=radio], input[type=checkbox]');
+  for (const multifield of multifields) {
     if (!multifield.name || donefields[multifield.name])
       continue; //we did this one
 
     donefields[multifield.name] = true;
 
     let idx = 0;
-    let values = [];
-    let labels = [];
-    let checkboxes = multifields.filter(node => node.name == multifield.name);
+    const values = [];
+    const labels = [];
+    const checkboxes = multifields.filter(node => node.name == multifield.name);
 
-    for (let node of checkboxes.filter(node => node.checked)) {
-      let keyname = 'form_' + multifield.name + (idx ? '_' + idx : '');
-      let labelsfornode = dompack.qSA(`label[for="${CSS.escape(node.id)}"]`).map(labelnode => labelnode.textContent).filter(labelnode => !!labelnode).join(' ');
+    for (const node of checkboxes.filter(node => node.checked)) {
+      const keyname = 'form_' + multifield.name + (idx ? '_' + idx : '');
+      let labelsfornode = dompack.qSA(`label[for="${CSS.escape(node.id)}"]`).map(labelnode => labelnode.textContent).filter(labelnode => Boolean(labelnode)).join(' ');
       labelsfornode = labelsfornode.trim(); //TODO normalize whitespace
       outdata[keyname] = node.value;
       outdata[keyname + '_label'] = labelsfornode;
@@ -146,22 +144,22 @@ function collectFormValues(formnode) {
     }
 
     if (values.length) {
-      let allkeyname = 'form_' + multifield.name + '_all';
+      const allkeyname = 'form_' + multifield.name + '_all';
       outdata[allkeyname] = values.join(';');
       outdata[allkeyname + '_label'] = labels.join(';');
     }
   }
 
-  for (let field of formnode.querySelectorAll('input:not([type=radio]):not([type=checkbox]),select,textarea')) {
+  for (const field of formnode.querySelectorAll('input:not([type=radio]):not([type=checkbox]),select,textarea')) {
     if (!field.name || donefields[field.name])
       continue;
 
     donefields[field.name] = true;
 
-    let val = field.value;
+    const val = field.value;
     outdata['form_' + field.name] = val;
     if (dompack.matches(field, 'select')) {
-      let opt = field.options[field.selectedIndex];
+      const opt = field.options[field.selectedIndex];
       if (opt)
         outdata['form_' + field.name + '_label'] = opt.dataset.gtmTag || opt.textContent;
     }
@@ -173,7 +171,7 @@ function onFormSubmit(evt) {
   if (!evt.detail.form.dataset.gtmSubmit)
     return;
 
-  let layerobj = { ...JSON.parse(evt.detail.form.dataset.gtmSubmit), ...collectFormValues(evt.detail.form) };
+  const layerobj = { ...JSON.parse(evt.detail.form.dataset.gtmSubmit), ...collectFormValues(evt.detail.form) };
   if (eventname)
     layerobj.event = eventname;
 

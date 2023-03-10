@@ -7,13 +7,12 @@ import FormBase from "@mod-publisher/js/forms/formbase";
 
 test.registerTests(
   [
-    async function()
-    {
+    async function() {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
       await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1");
 
       // Check the form handler
-      let formhandler = FormBase.getForNode(test.qS("form"));
+      const formhandler = FormBase.getForNode(test.qS("form"));
       test.assert(formhandler, "no formhandler available");
 
       // Check the empty value
@@ -30,7 +29,7 @@ test.registerTests(
       test.eq(0, result.contacts.length);
 
       // Verify configuration of the array
-      let arrayholder = test.qS(".wh-form__fieldgroup--array");
+      const arrayholder = test.qS(".wh-form__fieldgroup--array");
       test.eq("contacts", arrayholder.dataset.whFormGroupFor); //it should NOT claim its subnodes
 
       // Add a row
@@ -47,7 +46,7 @@ test.registerTests(
       test.fill(test.qS(".wh-form__arrayrow select"), "2");
 
       //check placeholder
-      test.eq("Your full name",test.qS(".wh-form__arrayrow input.wh-form__textinput").placeholder);
+      test.eq("Your full name", test.qS(".wh-form__arrayrow input.wh-form__textinput").placeholder);
 
       // Check the resulting result
       result = await formhandler.getFormValue();
@@ -61,20 +60,22 @@ test.registerTests(
       test.click("[data-wh-form-group-for=contacts] .wh-form__arrayadd");
       test.eq(2, test.qSA(".wh-form__arrayrow").length);
 
-      test.eq("Your full name",test.qSA(".wh-form__arrayrow input[data-wh-form-cellname=name]")[1].placeholder);
+      test.eq("Your full name", test.qSA(".wh-form__arrayrow input[data-wh-form-cellname=name]")[1].placeholder);
 
       //We expect 3 select options
-      test.eq(3,test.qSA(".wh-form__arrayrow select")[1].options.length);
+      test.eq(3, test.qSA(".wh-form__arrayrow select")[1].options.length);
 
       // Fill the array's second row's fields
-      let row = test.qSA(".wh-form__arrayrow")[1];
+      const row = test.qSA(".wh-form__arrayrow")[1];
       test.fill(test.qS(row, "input[type=text]"), "another name");
 
-      let uploadpromise = test.prepareUpload(
-          [ { url: "/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg"
-            , filename: "portrait_8.jpg"
-            }
-          ]);
+      const uploadpromise = test.prepareUpload(
+        [
+          {
+            url: "/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg",
+            filename: "portrait_8.jpg"
+          }
+        ]);
       test.qS(row, ".wh-form__uploadfield button").click();
       await uploadpromise;
 
@@ -92,11 +93,11 @@ test.registerTests(
 
 
       test.click(test.qS("button[type=submit]"));
-      await test.wait("ui")
-    }
+      await test.wait("ui");
+    },
 
-  , { test: async function()
-      {
+    {
+      test: async function() {
         // Check the submission result
         let result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
         test.assert(result.ok);
@@ -118,7 +119,7 @@ test.registerTests(
         test.eq(1, test.qSA(".wh-form__arrayrow").length);
 
         // Check the resulting result
-        let formhandler = FormBase.getForNode(test.qS("form"));
+        const formhandler = FormBase.getForNode(test.qS("form"));
         result = await formhandler.getFormValue();
         test.eq("", result.text);
         test.eq(1, result.contacts.length);
@@ -151,11 +152,11 @@ test.registerTests(
         test.assert(result.valid);
 
         test.click(test.qS("button[type=submit]"));
-      }
-    , waits: [ "ui" ]
-    }
-  , { test: async function()
-      {
+      },
+      waits: ["ui"]
+    },
+    {
+      test: async function() {
         // Check the submission result
         let result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
         test.assert(result.ok);
@@ -165,14 +166,14 @@ test.registerTests(
         test.eq("", result.contacts[0].name);
         test.assert(!result.contacts[0].photo);
       }
-    }
-  , { test: async function()
-      {
+    },
+    {
+      test: async function() {
         await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1&prefill=1");
 
         // Check the prefilled value
-        let formhandler = FormBase.getForNode(test.qS("form"));
-        let result = await formhandler.getFormValue();
+        const formhandler = FormBase.getForNode(test.qS("form"));
+        const result = await formhandler.getFormValue();
         test.eq("prefilled name", result.text);
         test.eq(1, result.contacts.length);
         test.eq("first contact", result.contacts[0].name);
@@ -185,14 +186,16 @@ test.registerTests(
 
         // Fill the array's second row's fields and the not-array name field
         test.fill(test.qS("input[name=text]"), "no longer prefilled");
-        let row = test.qSA(".wh-form__arrayrow")[1];
+        const row = test.qSA(".wh-form__arrayrow")[1];
         test.fill(test.qS(row, "input[type=text]"), "not prefilled");
 
-        let uploadpromise = test.prepareUpload(
-            [ { url: "/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg"
-              , filename: "portrait_8.jpg"
-              }
-            ]);
+        const uploadpromise = test.prepareUpload(
+          [
+            {
+              url: "/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg",
+              filename: "portrait_8.jpg"
+            }
+          ]);
         test.qS(row, ".wh-form__uploadfield button").click();
         await uploadpromise;
 
@@ -201,11 +204,11 @@ test.registerTests(
         test.eq(1, test.qSA(".wh-form__arrayrow").length);
 
         test.click(test.qS("button[type=submit]"));
-      }
-    , waits: [ "ui" ]
-    }
-  , { test: async function()
-      {
+      },
+      waits: ["ui"]
+    },
+    {
+      test: async function() {
         // Check the submission result
         let result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
         test.assert(result.ok);
@@ -215,11 +218,10 @@ test.registerTests(
         test.eq("not prefilled", result.contacts[0].name);
         test.eq("portrait_8.jpg", result.contacts[0].photo.filename);
       }
-    }
+    },
 
-  , "Test prefill #2 - keep untransmitted values"
-  , async function()
-    {
+    "Test prefill #2 - keep untransmitted values",
+    async function() {
       await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1&prefill=2");
 
       // Delete the middle row
@@ -229,20 +231,19 @@ test.registerTests(
       test.click("button[type=submit]");
       await test.wait("ui");
 
-      let result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
+      const result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
       test.assert(result.ok);
       test.eq(42, result.value.contacts[0].myobject);
       test.eq(43, result.value.contacts[1].myobject);
-    }
+    },
 
-  , "Test custom component inside arrays"
-  , async function()
-    {
+    "Test custom component inside arrays",
+    async function() {
       await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1&prefill=1");
       test.click('.wh-form__fieldgroup--array[data-wh-form-group-for="customarray"] .wh-form__arrayadd');
       test.click('.wh-form__fieldgroup--array[data-wh-form-group-for="customarray"] .wh-form__arrayadd');
 
-      let arrayholder = test.qS('.wh-form__fieldgroup--array[data-wh-form-group-for="customarray"]');
+      const arrayholder = test.qS('.wh-form__fieldgroup--array[data-wh-form-group-for="customarray"]');
       test.eq(2, arrayholder.querySelectorAll(".wh-form__arrayrow").length);
 
       //TODO not sure if we should be hardcoding names like this... works for now but I'm not sure this is something we are suppposed to rely on
@@ -264,7 +265,7 @@ test.registerTests(
       test.click("button[type=submit]");
       await test.wait("ui");
 
-      let result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
+      const result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
       test.assert(result.ok);
 
       test.eq("Name #1", result.value.customarray[0].name);
@@ -280,11 +281,10 @@ test.registerTests(
       test.eq("Sub #2", result.value.customarray[1].customcomp.subvalue);
       // test.eq("abc", result.value.customarray[1].twolevel.field1); //FIXME - support ANOTHER component sublevel in arrays...
       test.eq("TEXT 2", result.value.customarray[1].twolevel.field2);
-    }
+    },
 
-  , "Test labels within array rows"
-  , async function()
-    {
+    "Test labels within array rows",
+    async function() {
       await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1&prefill=2");
 
       // Find the first fieldgroup of the second row ('Name')
@@ -293,11 +293,10 @@ test.registerTests(
       test.click(fieldgroup.querySelector("label"));
       // The fieldgroup's input should have focus
       test.assert(test.hasFocus(fieldgroup.querySelector("input")));
-    }
+    },
 
-  , "Test adding subfields dynamically and using inter-subfield conditions"
-  , async function()
-    {
+    "Test adding subfields dynamically and using inter-subfield conditions",
+    async function() {
       await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1&custom=1");
 
       // Add two rows
@@ -306,13 +305,13 @@ test.registerTests(
 
       // There should be a disabled 'color' subfield
       const color = test.qS('[name="contacts-contacts.color-0"]');
-      test.assert(!!color);
+      test.assert(Boolean(color));
       test.assert(test.canClick(color));
       test.assert(color.disabled);
 
       // There should be an invisible 'other' subfield
       const other = test.qS('[name="contacts-contacts.other-0"]');
-      test.assert(!!other);
+      test.assert(Boolean(other));
       test.assert(!test.canClick(other));
       test.assert(other.disabled);
       test.assert(!other.required);
@@ -368,7 +367,7 @@ test.registerTests(
       test.click(test.qSA(".wh-form__arrayrow")[1].querySelector(".wh-form__arraydelete"));
 
       // Check if the custom subfield values are returned
-      let result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
+      const result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
       test.assert(result.ok);
       test.eqMatch(/^2000-01-01/, result.value.contacts[0].wrd_dateofbirth);
       test.eq(-1, result.value.contacts[0].color);

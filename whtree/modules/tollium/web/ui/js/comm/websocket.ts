@@ -20,7 +20,7 @@ export default class WebSocketTransport extends TransportBase {
   }
 
   connectWebsocket() {
-    let url = (new URL('/.tollium/ui/comm.whsock', location.href)).toString();
+    const url = (new URL('/.tollium/ui/comm.whsock', location.href)).toString();
     this.socket = new WebSocket('ws' + url.substr(4));
     this.socket.addEventListener('open', e => this.gotOpen(e));
     this.socket.addEventListener('message', e => this.gotMessage(e));
@@ -40,7 +40,7 @@ export default class WebSocketTransport extends TransportBase {
   }
 
   removeEndPoint(endpoint) {
-    var res = super.removeEndPoint(endpoint);
+    const res = super.removeEndPoint(endpoint);
     this.updateListenLinks();
 
     this.signalled = this.signalled.filter(e => e != endpoint);
@@ -64,9 +64,9 @@ export default class WebSocketTransport extends TransportBase {
   }
 
   gotMessage(message) {
-    var rawmsg = JSON.parse(message.data);
-    for (var i = 0; i < rawmsg.msg.data.length; ++i) {
-      var msg = rawmsg.msg.data[i];
+    const rawmsg = JSON.parse(message.data);
+    for (let i = 0; i < rawmsg.msg.data.length; ++i) {
+      const msg = rawmsg.msg.data[i];
       this.processGotMessageMessage(msg);
     }
 
@@ -83,7 +83,7 @@ export default class WebSocketTransport extends TransportBase {
       this.socket.close();
     this.socket = null;
 
-    let nowbackoff = this.backoff;
+    const nowbackoff = this.backoff;
     this.backoff = Math.min((this.backoff * 2) || 1, 60);
 
     if (nowbackoff >= 16) // 15 seconds without a connection
@@ -108,8 +108,8 @@ export default class WebSocketTransport extends TransportBase {
     if (!this.socket || this.socket.readyState != 1)
       return;
 
-    var links = [];
-    var frontendids = [];
+    const links = [];
+    const frontendids = [];
 
     this.endpoints.forEach(function(endpoint) {
       if (!links.includes(endpoint.options.linkid))
@@ -124,12 +124,12 @@ export default class WebSocketTransport extends TransportBase {
 
   handleSignalledEndpoints() {
     //console.log('handleSignalledEndpoints');
-    for (var i = 0; i < this.signalled.length; ++i) {
-      var endpoint = this.signalled[i];
+    for (let i = 0; i < this.signalled.length; ++i) {
+      const endpoint = this.signalled[i];
       //console.log(' handle signalled endpoint', endpoint.options.linkid);
 
-      var sentall = this.sentall.includes(endpoint);
-      var msg = endpoint.constructWireMessage(!sentall);
+      const sentall = this.sentall.includes(endpoint);
+      const msg = endpoint.constructWireMessage(!sentall);
       this.socket.send(JSON.stringify({ requests: [{ type: 'msg', msg: msg }] }));
       if (!sentall)
         this.sentall.push(endpoint);

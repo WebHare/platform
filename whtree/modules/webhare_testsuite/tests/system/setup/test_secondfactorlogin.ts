@@ -3,36 +3,34 @@
 
 import * as test from '@mod-tollium/js/testframework';
 
-let webroot = test.getTestSiteRoot();
+const webroot = test.getTestSiteRoot();
 let setupdata = null;
 let pietje_resetlink;
 let totpsecret;
 let totpdata;
 let totpbackupcodes;
 
-function getAppInStartMenuByName(name)
-{
+function getAppInStartMenuByName(name) {
   return Array.from(test.qSA('li li')).filter(node => node.textContent == name)[0];
 }
 
 
 test.registerTests(
-  [ async function()
-    {
+  [
+    async function() {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup', { createsysop: true });
-    }
+    },
 
-  , "create Pietje"
-  , async function()
-    {
+    "create Pietje",
+    async function() {
       await test.load(webroot + 'portal1/' + setupdata.overridetoken + "&notifications=0&language=en");
       await test.wait('ui');
 
       // start usermgmt
-      test.click(test.qSA('li li').filter(node=>node.textContent.includes("User Management")) [0]);
+      test.click(test.qSA('li li').filter(node => node.textContent.includes("User Management"))[0]);
       await test.wait('ui');
 
-      test.click(test.qSA('div.listrow').filter(node=>node.textContent.includes("webhare_testsuite.unit")) [0]);
+      test.click(test.qSA('div.listrow').filter(node => node.textContent.includes("webhare_testsuite.unit"))[0]);
       await test.wait('ui');
 
       // Create user pietje@allow2fa.test.webhare.net
@@ -51,11 +49,10 @@ test.registerTests(
       pietje_resetlink = test.getCurrentScreen().getValue("resetlink!previewurl");
       test.clickToddButton('Close');
       await test.wait('ui');
-    }
+    },
 
-  , "set Pietje password"
-  , async function()
-    {
+    "set Pietje password",
+    async function() {
       await test.load(pietje_resetlink);
       await test.wait('ui');
 
@@ -82,20 +79,18 @@ test.registerTests(
       // reloads to login window
       await test.wait('load');
       await test.wait('ui');
-    }
+    },
 
-  , "login Pietje"
-  , async function()
-    {
+    "login Pietje",
+    async function() {
       test.setTodd('loginname', 'pietje@allow2fa.test.webhare.net');
       test.setTodd('password', 'xecret');
       test.clickToddButton('Login');
       await test.wait('ui');
-    }
+    },
 
-  , "enable TOTP"
-  , async function enable2FA()
-    {
+    "enable TOTP",
+    async function enable2FA() {
       test.click(test.qS("#dashboard-user-name"));
       await test.wait('ui');
       test.click(test.qSA("t-button").filter(e => e.textContent == "Change")[1]);
@@ -128,7 +123,7 @@ test.registerTests(
       test.click(test.qSA("t-button").filter(e => e.textContent.startsWith("Next"))[0]);
       await test.wait('ui');
 
-      totpbackupcodes = test.getCurrentScreen().getValue("backupcodes_text").split("\n").filter(_=>_);
+      totpbackupcodes = test.getCurrentScreen().getValue("backupcodes_text").split("\n").filter(_ => _);
 
       test.clickToddButton('Finish');
       await test.wait('ui');
@@ -148,11 +143,10 @@ test.registerTests(
       test.clickToddButton('Yes');
       await test.wait('load');
       await test.wait('ui');
-    }
+    },
 
-  , "login Pietje with 2FA code"
-  , async function()
-    {
+    "login Pietje with 2FA code",
+    async function() {
       test.setTodd('loginname', 'pietje@allow2fa.test.webhare.net');
       test.setTodd('password', 'xecret');
       test.clickToddButton('Login');
@@ -160,9 +154,8 @@ test.registerTests(
 
       // STORY: test an invalid code
       // gather a lot of valid codes
-      let validcodes = [];
-      for (let i = -90; i <= 120; i += 30)
-      {
+      const validcodes = [];
+      for (let i = -90; i <= 120; i += 30) {
         totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret, offset: 0 });
         validcodes.push(totpdata.code);
       }
@@ -187,7 +180,7 @@ test.registerTests(
       await test.wait('ui');
 
       // should be logged in
-      test.assert(!!test.qS("#dashboard-logout"));
+      test.assert(Boolean(test.qS("#dashboard-logout")));
 
       // logout
       test.click(test.qS("#dashboard-logout"));
@@ -195,11 +188,10 @@ test.registerTests(
       test.clickToddButton('Yes');
       await test.wait('load');
       await test.wait('ui');
-    }
+    },
 
-    , "login Pietje with backup code"
-  , async function()
-    {
+    "login Pietje with backup code",
+    async function() {
       test.setTodd('loginname', 'pietje@allow2fa.test.webhare.net');
       test.setTodd('password', 'xecret');
       test.clickToddButton('Login');
@@ -213,7 +205,7 @@ test.registerTests(
       await test.wait('ui');
 
       // should be logged in
-      test.assert(!!test.qS("#dashboard-logout"));
+      test.assert(Boolean(test.qS("#dashboard-logout")));
 
       // logout
       test.click(test.qS("#dashboard-logout"));

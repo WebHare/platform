@@ -41,26 +41,27 @@ export default class ObjMenuItem extends ComponentBase {
     this.visible = data.visible;
 
     if (this.shortcut && browser.getPlatform() == "mac") {
-      var osx_keysymbols =
-        [{ key: "ctrl+", symbol: "\u2303" }
-          , { key: "alt+", symbol: "\u2325" }
-          , { key: "shift+", symbol: "\u21E7" }
-          , { key: "cmd+", symbol: "\u2318" }
+      const osx_keysymbols =
+        [
+          { key: "ctrl+", symbol: "\u2303" },
+          { key: "alt+", symbol: "\u2325" },
+          { key: "shift+", symbol: "\u21E7" },
+          { key: "cmd+", symbol: "\u2318" },
 
-          , { key: "esc", symbol: "\u238B" }
-          , { key: "enter", symbol: "\u2324" }
-          , { key: "left", symbol: "\u2190" }
-          , { key: "up", symbol: "\u2191" }
-          , { key: "right", symbol: "\u2192" }
-          , { key: "down", symbol: "\u2193" }
-          , { key: "tab", symbol: "\u21e5" }
-          , { key: "bksp", symbol: "\u232b" }
-          , { key: "del", symbol: "\u2326" }
-          , { key: "home", symbol: "\u2196" }
-          , { key: "end", symbol: "\u2198" }
-          , { key: "pgup", symbol: "\u21DE" }
-          , { key: "pgdn", symbol: "\u21DF" }
-          , { key: "return", symbol: "\u21B5" }
+          { key: "esc", symbol: "\u238B" },
+          { key: "enter", symbol: "\u2324" },
+          { key: "left", symbol: "\u2190" },
+          { key: "up", symbol: "\u2191" },
+          { key: "right", symbol: "\u2192" },
+          { key: "down", symbol: "\u2193" },
+          { key: "tab", symbol: "\u21e5" },
+          { key: "bksp", symbol: "\u232b" },
+          { key: "del", symbol: "\u2326" },
+          { key: "home", symbol: "\u2196" },
+          { key: "end", symbol: "\u2198" },
+          { key: "pgup", symbol: "\u21DE" },
+          { key: "pgdn", symbol: "\u21DF" },
+          { key: "return", symbol: "\u21B5" }
         ];
       osx_keysymbols.forEach(repl => {
         this.shortcut = this.shortcut.replace(repl.key, repl.symbol);
@@ -88,21 +89,21 @@ export default class ObjMenuItem extends ComponentBase {
    */
 
   createNode(ascontextmenu) {
-    let enabled = this.isEnabled();
-    let node = dompack.create('li', {
-      textContent: this.title
-      , dataset: {
+    const enabled = this.isEnabled();
+    const node = dompack.create('li', {
+      textContent: this.title,
+      dataset: {
         menuitem: this.name //TODO this should go away? frame.es used it to dispatch the click event...  but tests stil rely on it!...
-      }
-      , className: {
-        hassubmenu: this.items.length
-        , disabled: !enabled
+      },
+      className: {
+        hassubmenu: this.items.length,
+        disabled: !enabled
         //, hidden: this.disablemode == 'hidden' && !enabled
-      }
-      , style: {
+      },
+      style: {
         marginLeft: this.indent ? (this.indent * 6) + 'px' : 0
-      }
-      , on: { click: evt => this.onClick(evt) }
+      },
+      on: { click: evt => this.onClick(evt) }
     });
     if (this.shortcut)
       node.dataset.menushortcut = this.shortcut;
@@ -113,7 +114,7 @@ export default class ObjMenuItem extends ComponentBase {
 
   _onSelectItem(node, evt, ascontextmenu) {
     let submenu = node.querySelector('ul');
-    let subnodes = this.cloneItems(ascontextmenu);
+    const subnodes = this.cloneItems(ascontextmenu);
 
     if (!subnodes.length)//menu already empty
     {
@@ -124,25 +125,24 @@ export default class ObjMenuItem extends ComponentBase {
 
     if (!submenu) {
       submenu = dompack.create('ul', {
-        childNodes: subnodes
-        , className: { showshortcuts: node.closest('ul.showshortcuts') }
+        childNodes: subnodes,
+        className: { showshortcuts: node.closest('ul.showshortcuts') }
       });
       node.appendChild(submenu);
-    }
-    else {
+    } else {
       dompack.empty(submenu);
       submenu.append(...subnodes);
     }
   }
 
   cloneItems(ascontextmenu) {
-    let result = [];
+    const result = [];
     this.items.forEach(item => {
       if (item == "tollium$divider") {
         result.push(dompack.create("li", { className: "divider" }));
         return;
       }
-      let comp = this.owner.getComponent(item);
+      const comp = this.owner.getComponent(item);
       if (comp && comp.isVisible(ascontextmenu)) {
         result.push(comp.createNode(ascontextmenu));
       }
@@ -160,7 +160,7 @@ export default class ObjMenuItem extends ComponentBase {
   }
 
   openMenuAt(evt, options) {
-    let submenu = dompack.create("ul", { className: { showshortcuts: options && options.ismenubutton } });
+    const submenu = dompack.create("ul", { className: { showshortcuts: options && options.ismenubutton } });
     submenu.append(...this.cloneItems(options && options.ascontextmenu));
     menu.openAt(submenu, evt, options);
     return submenu;
@@ -180,11 +180,11 @@ export default class ObjMenuItem extends ComponentBase {
 
   readdComponent(comp) {
     //ADDME if the menu or our parent is open, we should probably refresh/reposition?
-    let oldpos = this.items.indexOf(comp);
+    const oldpos = this.items.indexOf(comp);
     if (oldpos < 0) //not in our list
       return;
 
-    var newitem = this.owner.addComponent(this, comp.name);
+    const newitem = this.owner.addComponent(this, comp.name);
     this.items[oldpos] = newitem;
     comp.getNode().replaceWith(newitem.getNode());
   }
@@ -194,7 +194,7 @@ export default class ObjMenuItem extends ComponentBase {
       return false;
     if (this.items.length)
       return true;
-    var act = this.owner.getComponent(this.action);
+    const act = this.owner.getComponent(this.action);
     return act && act.isEnabled();
   }
 
@@ -204,8 +204,8 @@ export default class ObjMenuItem extends ComponentBase {
 
     if (this.items.length) //visible if any subitem is visible
     {
-      for (var i = 0; i < this.items.length; ++i) {
-        let comp = this.owner.getComponent(this.items[i]);
+      for (let i = 0; i < this.items.length; ++i) {
+        const comp = this.owner.getComponent(this.items[i]);
         if (comp && comp.isVisible())
           return true;
       }

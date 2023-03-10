@@ -3,12 +3,11 @@
 
 import * as test from '@mod-tollium/js/testframework';
 
-var webroot = test.getTestSiteRoot();
-var setupdata = null;
-var receivedmessage;
+const webroot = test.getTestSiteRoot();
+let setupdata = null;
+let receivedmessage;
 
-async function tryProtectedURL(gotourl)
-{
+async function tryProtectedURL(gotourl) {
   //"Try direct access first"
 
   await test.load(gotourl);
@@ -29,21 +28,20 @@ async function tryProtectedURL(gotourl)
 
   test.click(test.getCurrentScreen().getListRow('filelist!mylist', 'requirewhaccount.rtd'));
 
-  await test.wait( () => receivedmessage && receivedmessage.type == "webhare_testsuite:requirewhaccount");
+  await test.wait(() => receivedmessage && receivedmessage.type == "webhare_testsuite:requirewhaccount");
 }
 
 test.registerTests(
-  [ "Test with protected subdir"
-  , async function()
-    {
-      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup', { createsysop:true, requirealternatesite: true });
+  [
+    "Test with protected subdir",
+    async function() {
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup', { createsysop: true, requirealternatesite: true });
       await tryProtectedURL(setupdata.alternatesite + "requirewhaccount");
-    }
+    },
 
-  , "Now try with a protected ROOT"
-  , async function()
-    {
-      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup', { createsysop:true, requirealternatesite: true, protectroot: true });
+    "Now try with a protected ROOT",
+    async function() {
+      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup', { createsysop: true, requirealternatesite: true, protectroot: true });
       await tryProtectedURL(setupdata.alternatesite);
     }
   ]);

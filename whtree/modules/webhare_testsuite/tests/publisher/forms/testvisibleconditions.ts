@@ -6,12 +6,12 @@ import * as test from '@mod-system/js/wh/testframework';
 /* More advanced visible conditions */
 
 test.registerTests(
-  [ async function()
-    {
+  [
+    async function() {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?visibleconditions=1');
 
-      let form = test.qS("form");
+      const form = test.qS("form");
       test.assert(form.classList.contains("wh-form"));
       test.assert(form.classList.contains("wh-styledinput"));
       test.assert(form.classList.contains("mycustomformclass"));

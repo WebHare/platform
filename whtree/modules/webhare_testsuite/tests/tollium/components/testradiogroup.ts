@@ -5,12 +5,14 @@ import * as test from '@mod-tollium/js/testframework';
 
 
 test.registerTests(
-  [ { loadpage: test.getTestScreen('tests/basecomponents.radiogrouptest')
-    , waits: [ 'ui' ]
-    }
+  [
+    {
+      loadpage: test.getTestScreen('tests/basecomponents.radiogrouptest'),
+      waits: ['ui']
+    },
 
-  , { test: async(dom, win) =>
-      {
+    {
+      test: async (dom, win) => {
         // initial state
         test.assert(!test.compByName("button1").querySelector("input").checked);
         test.assert(!test.compByName("button2").querySelector("input").checked);

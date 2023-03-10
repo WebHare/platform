@@ -3,36 +3,34 @@
 
 import * as test from '@mod-tollium/js/testframework';
 
-let webroot = test.getTestSiteRoot();
+const webroot = test.getTestSiteRoot();
 let setupdata = null;
 let pietje_resetlink;
 let totpsecret;
 let totpdata;
 let totpbackupcodes;
 
-function getAppInStartMenuByName(name)
-{
+function getAppInStartMenuByName(name) {
   return Array.from(test.qSA('.dashboard__apps li li')).filter(node => node.textContent == name)[0];
 }
 
 
 test.registerTests(
-  [ async function()
-    {
+  [
+    async function() {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup', { createsysop: true });
-    }
+    },
 
-  , "create Pietje"
-  , async function()
-    {
+    "create Pietje",
+    async function() {
       await test.load(webroot + 'portal1/' + setupdata.overridetoken + "&notifications=0&language=en");
       await test.wait('ui');
 
       // start usermgmt
-      test.click(test.qSA('li li').filter(node=>node.textContent.includes("User Management")) [0]);
+      test.click(test.qSA('li li').filter(node => node.textContent.includes("User Management"))[0]);
       await test.wait('ui');
 
-      test.click(test.qSA('div.listrow').filter(node=>node.textContent.includes("webhare_testsuite.unit")) [0]);
+      test.click(test.qSA('div.listrow').filter(node => node.textContent.includes("webhare_testsuite.unit"))[0]);
       await test.wait('ui');
 
       // Create user pietje@allow2fa.test.webhare.net
@@ -45,16 +43,18 @@ test.registerTests(
 
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GrantSomeRights', "pietje@allow2fa.test.webhare.net");
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#SetUserAuthenticationSettings', "pietje@allow2fa.test.webhare.net",
-          { version: 1
-          , passwords:  [ { validfrom: "now-P1DT1H" // default maxage is 1 day for test site
-                          , password: "SECRET" // checks say 'lowercase:1'
-                          }
-                        ]
-          });
-    }
-  , "login tests"
-  , async function()
-    {
+        {
+          version: 1,
+          passwords: [
+            {
+              validfrom: "now-P1DT1H", // default maxage is 1 day for test site
+              password: "SECRET" // checks say 'lowercase:1'
+            }
+          ]
+        });
+    },
+    "login tests",
+    async function() {
       await test.load(webroot + "portal1/?notifications=0&language=en");
       await test.wait('ui');
 
@@ -92,13 +92,16 @@ test.registerTests(
 
       // reset password to be invalid, enable 2FA
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#SetUserAuthenticationSettings', "pietje@allow2fa.test.webhare.net",
-          { version: 1
-          , passwords:  [ { validfrom: "now-P1DT1H" // default maxage is 1 day for test site
-                          , password: "SECRET" // checks say 'lowercase:1'
-                          }
-                        ]
-          , totp:       { url: "otpauth://totp/WebHare%C2%AE%20Platform:pietje%40allow2fa.test.webhare.net?secret=OQHJFTFMNSC6WLMVHUNAGVA2AE6FAAMK&issuer=WebHare%C2%AE%20Platform" }
-          });
+        {
+          version: 1,
+          passwords: [
+            {
+              validfrom: "now-P1DT1H", // default maxage is 1 day for test site
+              password: "SECRET" // checks say 'lowercase:1'
+            }
+          ],
+          totp: { url: "otpauth://totp/WebHare%C2%AE%20Platform:pietje%40allow2fa.test.webhare.net?secret=OQHJFTFMNSC6WLMVHUNAGVA2AE6FAAMK&issuer=WebHare%C2%AE%20Platform" }
+        });
 
       test.setTodd('loginname', "pietje@allow2fa.test.webhare.net");
       test.setTodd('password', "SECRET");
@@ -141,32 +144,35 @@ test.registerTests(
       test.clickToddButton('Yes');
       await test.wait('load');
       await test.wait('ui');
-    }
+    },
 
-  , "forgot password checks"
-  , async function()
-    {
+    "forgot password checks",
+    async function() {
       // set a few previous passwords
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#SetUserAuthenticationSettings', "pietje@allow2fa.test.webhare.net",
-          { version: 1
-          , passwords:  [ { validfrom: "now-P1DT9H"
-                          , password: "secret"
-                          }
-                        , { validfrom: "now-P1DT8H" // make current password older than 1 day, test if maxage doesn't trigger
-                          , password: "secret2"
-                          }
-                        ]
-          });
+        {
+          version: 1,
+          passwords: [
+            {
+              validfrom: "now-P1DT9H",
+              password: "secret"
+            },
+            {
+              validfrom: "now-P1DT8H", // make current password older than 1 day, test if maxage doesn't trigger
+              password: "secret2"
+            }
+          ]
+        });
 
       // test password
       await test.load(webroot + 'portal1/' + setupdata.overridetoken + "&notifications=0&language=en");
       await test.wait('ui');
 
       // start usermgmt
-      test.click(test.qSA('li li').filter(node=>node.textContent.includes("User Management")) [0]);
+      test.click(test.qSA('li li').filter(node => node.textContent.includes("User Management"))[0]);
       await test.wait('ui');
 
-      test.click(test.qSA('div.listrow').filter(node=>node.textContent.includes("webhare_testsuite.unit")) [0]);
+      test.click(test.qSA('div.listrow').filter(node => node.textContent.includes("webhare_testsuite.unit"))[0]);
       await test.wait('ui');
 
       await test.selectListRow('unitcontents!userandrolelist', 'pietje');
@@ -213,20 +219,22 @@ test.registerTests(
 
       // Show the login window
       test.eq("Login", test.qS(".appcanvas--visible .t-screen.active .windowheader .title").textContent);
-    }
+    },
 
-  , "force 2fa"
-  , async function()
-    {
+    "force 2fa",
+    async function() {
       await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#SetSchemaValidationChecks', "require2fa", { url: test.getWin().location.href });
 
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#SetUserAuthenticationSettings', "pietje@allow2fa.test.webhare.net",
-          { version: 1
-          , passwords:  [ { validfrom: "now-P1DT9H"
-                          , password: "secret"
-                          }
-                        ]
-          });
+        {
+          version: 1,
+          passwords: [
+            {
+              validfrom: "now-P1DT9H",
+              password: "secret"
+            }
+          ]
+        });
 
 
       // test login witn only password
@@ -282,7 +290,7 @@ test.registerTests(
       await test.wait('ui');
 
       // backend app close can't be waited on with ui wait, wait for login window to become the top window afain
-      await test.wait(f => test.qSA(".appcanvas--visible .t-screen.active .windowheader .title").filter(n => n.textContent == "Login").length ==1);
+      await test.wait(f => test.qSA(".appcanvas--visible .t-screen.active .windowheader .title").filter(n => n.textContent == "Login").length == 1);
       test.setTodd('password', "secret");
 
       // login again, now with TOTP code
@@ -296,6 +304,6 @@ test.registerTests(
       await test.wait('ui');
 
       // should be logged in
-      test.assert(!!test.qS("#dashboard-logout"));
+      test.assert(Boolean(test.qS("#dashboard-logout")));
     }
   ]);

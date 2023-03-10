@@ -10,14 +10,14 @@ export default class FindAsYouType {
     this.findasyoutyperegex = null;
 
     this.options = {
-      searchtimeout: 0
-      , onsearch: null
-      , ...options
+      searchtimeout: 0,
+      onsearch: null,
+      ...options
     };
     this.node = node;
     new KeyboardHandler(node, {
-      "Backspace": evt => this._onKeyboardBackspace(evt)
-      , "Escape": evt => this._onKeyboardEsc(evt)
+      "Backspace": evt => this._onKeyboardBackspace(evt),
+      "Escape": evt => this._onKeyboardEsc(evt)
     }, { onkeypress: (evt, key) => this._onKeyboardPress(evt, key) });
 
     this.focuscallback = evt => this._onFocus(evt);
@@ -53,12 +53,11 @@ export default class FindAsYouType {
     if (this.findingasyoutype) {
       if (this.findingasyoutype.timeout)
         clearTimeout(this.findingasyoutype.timeout);
-    }
-    else {
+    } else {
       // Activate search
       this.findingasyoutype = {
-        timeout: 0 //deactivation timeout
-        , search: "" //currently searching for this string
+        timeout: 0, //deactivation timeout
+        search: "" //currently searching for this string
       };
       window.addEventListener("focus", this.focuscallback, true);
     }
@@ -76,8 +75,7 @@ export default class FindAsYouType {
 
       // Create a regular expression matching string beginning with the (escaped) search string, ignoring case
       this.options.onsearch(this.findingasyoutype.search);
-    }
-    else
+    } else
       this.stop();
   }
 

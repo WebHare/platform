@@ -6,8 +6,8 @@ import * as test from '@mod-system/js/wh/testframework';
 // let testdata;
 
 test.registerTests(
-  [ async function()
-    {
+  [
+    async function() {
       await test.updateFrame("main", { width: 400 });
       await test.addFrame("second", { width: 400 });
       await test.load(test.getTestSiteRoot() + "TestPages/exclusiveaccesstest/#2,piet");
@@ -17,10 +17,9 @@ test.registerTests(
       await test.load(test.getTestSiteRoot() + "TestPages/exclusiveaccesstest/#3,teun");
       await test.selectFrame("main");
       await test.load(test.getTestSiteRoot() + "TestPages/exclusiveaccesstest/#1,hans");
-    }
-  , "test exclusive access"
-  , async function()
-    {
+    },
+    "test exclusive access",
+    async function() {
       // story: normal locking
       test.click("#startexclusiveaccesstest");
       await test.wait(() => test.qS("#status").textContent == "Got lock");
@@ -193,16 +192,15 @@ test.registerTests(
       await test.wait(() => test.qS("#status").textContent == "Lock not taken");
       test.click("#startexclusiveaccesstest");
       await test.wait(() => test.qS("#status").textContent == "Got lock");
-    }
-  , "mutex lock"
-  , async function()
-    {
+    },
+    "mutex lock",
+    async function() {
       await test.selectFrame("main");
       test.click("#startexclusiveaccesstest");
       await test.wait(() => test.qS("#status").textContent == "Got lock");
       test.eq("yes", test.qS("#locked").textContent);
 
-      let datatoken = test.qS("#locked").dataset.locktoken;
+      const datatoken = test.qS("#locked").dataset.locktoken;
 
       // rpc with valid token
       let res = await test.invoke("mod::webhare_testsuite/webdesigns/basetest/pages/exclusiveaccesstest/exclusiveaccesstest.whlib#TestLockToken", datatoken, false);

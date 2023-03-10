@@ -6,7 +6,7 @@ import SelectList from "../internal/selectlist";
 import KeyboardHandler from '../../extra/keyboard';
 
 export function normalizeSelectValues(values) {
-  let outvalues = [];
+  const outvalues = [];
   for (let val of values) {
     if (typeof val == "string")
       val = { value: val };
@@ -29,12 +29,12 @@ export default class AutoSuggest extends SelectList {
     this._dontresuggest = false;
 
     this.options = {
-      noresultstext: ''
-      , minlength: 3
-      , immediateresuggest: false //immediately resuggest
-      , suggestdelay: 200 //how long to wait before we initiate suggestions
-      , triminput: true
-      , ...options
+      noresultstext: '',
+      minlength: 3,
+      immediateresuggest: false, //immediately resuggest
+      suggestdelay: 200, //how long to wait before we initiate suggestions
+      triminput: true,
+      ...options
     };
 
     this._node.addEventListener("input", () => this._onInput());
@@ -103,7 +103,7 @@ export default class AutoSuggest extends SelectList {
     return input;
   }
   async _lookup(input) {
-    let historyhit = this._lookuphistory.find(entry => entry.input == input);
+    const historyhit = this._lookuphistory.find(entry => entry.input == input);
     if (historyhit)
       return historyhit.values;
 
@@ -112,8 +112,7 @@ export default class AutoSuggest extends SelectList {
     let lookupresult;
     if (typeof this._getsuggestions == "function") {
       lookupresult = await Promise.resolve(this._getsuggestions(input));
-    }
-    else {
+    } else {
       lookupresult = await Promise.resolve(this._getsuggestions.lookup(input));
     }
 
@@ -124,8 +123,7 @@ export default class AutoSuggest extends SelectList {
   async _checkInput() {
     try {
       await this._offerSuggestions();
-    }
-    finally {
+    } finally {
       this._endLock();
     }
   }
@@ -153,24 +151,24 @@ export default class AutoSuggest extends SelectList {
   }
 
   _generateItemNodes(options) {
-    let newitems = document.createDocumentFragment();
-    for (let val of normalizeSelectValues(options.values)) {
-      let node = dompack.create('div', {
+    const newitems = document.createDocumentFragment();
+    for (const val of normalizeSelectValues(options.values)) {
+      const node = dompack.create('div', {
         className: this._class + '__item' + ' '
-          + (val.className || '')
-        , dataset: val.dataset || null
+          + (val.className || ''),
+        dataset: val.dataset || null
       });
 
-      let value = dompack.create("span", {
-        className: this._class + '__itemvalue'
-        , textContent: val.value || '\u00a0'
+      const value = dompack.create("span", {
+        className: this._class + '__itemvalue',
+        textContent: val.value || '\u00a0'
       });
       node.appendChild(value);
 
       if (val.append) {
-        let value = dompack.create("span", {
-          className: this._class + '__itemappend'
-          , textContent: val.append
+        const value = dompack.create("span", {
+          className: this._class + '__itemappend',
+          textContent: val.append
         });
         node.appendChild(value);
       }
@@ -181,14 +179,14 @@ export default class AutoSuggest extends SelectList {
   }
 
   _doSelectItem(selectitem) {
-    let selectedvalue = selectitem.querySelector('.' + this._class + '__itemvalue').textContent;
+    const selectedvalue = selectitem.querySelector('.' + this._class + '__itemvalue').textContent;
     //if dompack:autosuggest-selected, we don't replace the input value
     if (!dompack.dispatchCustomEvent(this._node
       , 'dompack:autosuggest-selected'
       , {
-        bubbles: true
-        , cancelable: true
-        , detail: { autosuggester: this, value: selectedvalue }
+        bubbles: true,
+        cancelable: true,
+        detail: { autosuggester: this, value: selectedvalue }
       })) {
       return;
     }

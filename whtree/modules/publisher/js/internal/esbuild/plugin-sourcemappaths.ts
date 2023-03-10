@@ -11,11 +11,11 @@ import * as services from "@webhare/services";
 
 module.exports = (outdir) =>
 ({
-  name: "sourceMapTransformer"
-  , setup: build => {
+  name: "sourceMapTransformer",
+  setup: build => {
     const config = services.getConfig();
     build.onEnd(result => {
-      for (let file of result.outputFiles.filter(f => f.path.endsWith("/ap.js.map"))) {
+      for (const file of result.outputFiles.filter(f => f.path.endsWith("/ap.js.map"))) {
         const jsondata = JSON.parse(new TextDecoder("utf-8").decode(file.contents));
         for (let i = 0, e = jsondata.sources.length; i < e; ++i) {
           let fullpath = path.join(outdir, jsondata.sources[i]);

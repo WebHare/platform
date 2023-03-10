@@ -41,7 +41,7 @@ export default class Proxy extends ComponentBase {
     if (!this.passthrough)
       return false;
 
-    var comp = this.owner.getComponent(this.passthrough);
+    const comp = this.owner.getComponent(this.passthrough);
     if (!comp)
       return false;
 
@@ -60,18 +60,18 @@ export default class Proxy extends ComponentBase {
   // Check enableon rules
   enabledOn(checkflags, min, max, selectionmatch) {
     if (this.passthrough) {
-      var comp = this.owner.getComponent(this.passthrough);
+      const comp = this.owner.getComponent(this.passthrough);
       $todd.DebugTypedLog("actionenabler", "- proxy passthrough to " + this.passthrough + ": " + (comp ? comp.componenttype : "n/a"));
       return comp && comp.enabledOn(checkflags, min, max, selectionmatch);
     }
 
-    var flags = [];
+    let flags = [];
 
     if (this.usecheckcomponents) {
       this.checkcomponents.forEach(name => {
-        var comp = this.owner.getComponent(name);
+        const comp = this.owner.getComponent(name);
         if (comp && comp.flags) {
-          let val = comp.getValue();
+          const val = comp.getValue();
           /* We USED to check whether the value is truthy. That broke with checkbox getValue() returning an object
              Now we check for explicitly true (will work for radio) or for .value === true (will work with new checkbox)
              This should be cleaner but then we need to add a isTrueForEnableOn() or something to all components? this needs
@@ -81,8 +81,7 @@ export default class Proxy extends ComponentBase {
             flags.push(comp.flags);
         }
       });
-    }
-    else
+    } else
       flags = this.rows;
 
     $todd.DebugTypedLog("actionenabler", "flags = " + JSON.stringify(flags));

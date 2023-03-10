@@ -19,7 +19,7 @@ export function getNextAction() {
 export class RTEDriver {
   constructor(rte) {
     if (rte && typeof rte == 'string') {
-      let comp = test.compByName(rte);
+      const comp = test.compByName(rte);
       if (comp)
         rte = comp.propTodd.rte;
     }
@@ -58,14 +58,14 @@ export class RTEDriver {
 
   //execute a property action and get the result
   async executeProperties() {
-    let propsbutton = test.qS("[data-button=action-properties]");
+    const propsbutton = test.qS("[data-button=action-properties]");
     if (!propsbutton)
       throw new Error("No properties button present!");
 
     if (propsbutton.classList.contains("disabled"))
       throw new Error("Properties button is disabled!");
 
-    let result = getNextAction();
+    const result = getNextAction();
     test.click(propsbutton);
     return await result;
     //FIXME throw if properties button is not enabled
@@ -80,11 +80,11 @@ export function getTextChild(node) {
 }
 
 export function RunIteratorOnRange2(win, range) {
-  let itr = new RangeIterator2(range);
-  let list = [];
+  const itr = new RangeIterator2(range);
+  const list = [];
 
   while (!itr.atEnd()) {
-    let name = itr.node.nodeType == 3 ? '#text: ' + itr.node.nodeValue : itr.node.nodeName.toLowerCase();
+    const name = itr.node.nodeType == 3 ? '#text: ' + itr.node.nodeValue : itr.node.nodeName.toLowerCase();
     list.push(name);
     itr.nextRecursive();
   }
@@ -94,12 +94,12 @@ export function RunIteratorOnRange2(win, range) {
 
 //get the current selection for the test window, avoiding Rangy and RTE
 export function getCurrentRawSelection() {
-  let sel = test.getWin().getSelection();
+  const sel = test.getWin().getSelection();
   return {
-    anchor: { node: sel.anchorNode, offset: sel.anchorOffset }
-    , focus: { node: sel.focusNode, offset: sel.focusOffset }
-    , isCollapsed: sel.isCollapsed
-    , type: sel.type
+    anchor: { node: sel.anchorNode, offset: sel.anchorOffset },
+    focus: { node: sel.focusNode, offset: sel.focusOffset },
+    isCollapsed: sel.isCollapsed,
+    type: sel.type
   };
 
 }
@@ -122,13 +122,13 @@ export function getCompStyle(node, prop) {
 }
 
 export function testEqHTMLEx(unused, expect, node, locators) {
-  let actual = richdebug.cloneNodeWithTextQuotesAndMarkedLocators(node, locators || []).innerHTML;
+  const actual = richdebug.cloneNodeWithTextQuotesAndMarkedLocators(node, locators || []).innerHTML;
   test.eqHTML(expect, actual);
 }
 
 export function testEqSelHTMLEx(unused, expect) {
-  let rte = test.getWin().rte.getEditor();
-  let range = rte.getSelectionRange();
+  const rte = test.getWin().rte.getEditor();
+  const range = rte.getSelectionRange();
   testEqHTMLEx(undefined, expect, rte.getBody(), [range.start, range.end]);
 }
 
@@ -143,8 +143,7 @@ export function setStructuredContent(rte, structuredhtml, options) {
     rte = test.getWin().rte;
     if (!rte)
       throw new Error(`test.getWin() has no rte`);
-  }
-  else if (rte && !rte.bodydiv) //doesn't look like a RTE...
+  } else if (rte && !rte.bodydiv) //doesn't look like a RTE...
   {
     rte = rte.rte;
     if (!rte)
@@ -159,7 +158,7 @@ export function setStructuredContent(rte, structuredhtml, options) {
   else
     rte.setContentsHTML(structuredhtml);
 
-  let locators = richdebug.unstructureDom(rte.getBody());
+  const locators = richdebug.unstructureDom(rte.getBody());
   if (options.verify)
     testEqHTMLEx(undefined, structuredhtml, rte.getBody(), locators);
 
@@ -168,15 +167,14 @@ export function setStructuredContent(rte, structuredhtml, options) {
       rte.selectRange(new Range(locators[0], locators[1]));
     else
       rte.setCursorAtLocator(locators[0]);
-  }
-  else // Must set selection because of our unstructuredom manipulations
+  } else // Must set selection because of our unstructuredom manipulations
     rte.setCursorAtLocator(new domlevel.Locator(rte.getBody()));
 
   return locators;
 }
 
 export function getRawHTMLTextArea(win) {
-  let ta = test.compByName('code').querySelector('textarea');
+  const ta = test.compByName('code').querySelector('textarea');
   return ta;
 }
 
@@ -187,14 +185,14 @@ export function getRawHTMLCode(win) {
 }
 
 export function getRTE(win, toddname) {
-  let comp = test.compByName(toddname);
+  const comp = test.compByName(toddname);
   if (!comp)
     throw new Error("No such component with name '" + toddname + "'");
   return comp.propTodd.rte;
 }
 
 export function getPreActionState(rte) {
-  let snapshot = snapshots.generateSnapshot(rte.getBody(), rte.getSelectionRange());
+  const snapshot = snapshots.generateSnapshot(rte.getBody(), rte.getSelectionRange());
   return { __snapshot: snapshot, __undopos: rte.undopos };
 }
 
@@ -212,14 +210,14 @@ export async function testUndoRedo(rte, preactionstate, { stack } = {}) {
   if (rte.undopos === preactionstate.__undopos)
     throw new Error(`Expected an action that recorded an undo event\n` + stack);
 
-  let last = rte.undostack.length && rte.undostack[rte.undostack.length - 1];
+  const last = rte.undostack.length && rte.undostack[rte.undostack.length - 1];
   if (!last.finished)
     throw new Error(`Last undo item wasn't finished\n` + stack);
 
   //console.log("wait for undo stack to update");
   await test.sleep(1);
 
-  let currentsnapshot = snapshots.generateSnapshot(rte.getBody(), rte.getSelectionRange());
+  const currentsnapshot = snapshots.generateSnapshot(rte.getBody(), rte.getSelectionRange());
   // console.log(`testUndoRedo current`, "\n" + snapshots.dumpSnapShot(currentsnapshot));
 
   // console.log('undo supported: ', document.queryCommandSupported("undo"), rte.undonode);
@@ -233,14 +231,14 @@ export async function testUndoRedo(rte, preactionstate, { stack } = {}) {
 
   // console.log(`testUndoRedo after undo`, "\n" + snapshots.dumpSnapShot(currentsnapshot));
 
-  let undosnapshot = snapshots.generateSnapshot(rte.getBody(), rte.getSelectionRange());
+  const undosnapshot = snapshots.generateSnapshot(rte.getBody(), rte.getSelectionRange());
   if (!snapshots.snapshotsEqual(preactionstate.__snapshot, undosnapshot)) {
     console.log(`State after undo doesn't match pre-action state.`);
     console.log(`Expected:\n`, snapshots.dumpSnapShot(preactionstate.__snapshot));
     console.log(`Got:\n` + snapshots.dumpSnapShot(undosnapshot));
 
     let str = "diff:\n";
-    let colors = [];
+    const colors = [];
     for (const change of diff.diffChars(snapshots.dumpSnapShot(preactionstate.__snapshot), snapshots.dumpSnapShot(undosnapshot))) {
       str += `%c${change.value}`;
       colors.push(change.added ? "background-color:red; color: white" : change.removed ? "background-color:green; color: white" : "");
@@ -257,14 +255,14 @@ export async function testUndoRedo(rte, preactionstate, { stack } = {}) {
 
   //console.log(`testUndoRedo after redo`, "\n" + dumpSnapShot(currentsnapshot));
 
-  let redosnapshot = snapshots.generateSnapshot(rte.getBody(), rte.getSelectionRange());
+  const redosnapshot = snapshots.generateSnapshot(rte.getBody(), rte.getSelectionRange());
   if (!snapshots.snapshotsEqual(currentsnapshot, redosnapshot)) {
     console.log(`State after redo doesn't match original state. Expected:`);
     console.log(snapshots.dumpSnapShot(currentsnapshot), `Got:`);
     console.log(snapshots.dumpSnapShot(redosnapshot));
 
     let str = "diff: ";
-    let colors = [];
+    const colors = [];
     for (const change of diff.diffChars(snapshots.dumpSnapShot(currentsnapshot), snapshots.dumpSnapShot(redosnapshot))) {
       str += `%c${change.value}`;
       colors.push(change.added ? "background-color:red; color: white" : change.removed ? "background-color:green; color: white" : "");
@@ -286,8 +284,8 @@ export async function undoBarrier() {
 }
 
 export async function runWithUndo(rte, func, options = {}) {
-  let prestate = getPreActionState(rte);
-  let stack = getStack(`stack`);
+  const prestate = getPreActionState(rte);
+  const stack = getStack(`stack`);
 
   await func();
 
@@ -315,21 +313,21 @@ class ClipBoardEmul {
 }
 
 export async function paste(rte, props) {
-  let target = domfocus.getCurrentlyFocusedElement();
+  const target = domfocus.getCurrentlyFocusedElement();
 
   /* event spec: https://w3c.github.io/clipboard-apis/#clipboard-event-interfaces
      only firefox is said to implement clipboard currently so we'll create a plain event */
-  let evt = target.ownerDocument.createEvent('Event');
+  const evt = target.ownerDocument.createEvent('Event');
 
-  let types = Object.keys(props.typesdata);
+  const types = Object.keys(props.typesdata);
   types.contains = key => types.includes(key);
 
   props = { types, ...props };
-  let cpdata = new ClipBoardEmul(props);
+  const cpdata = new ClipBoardEmul(props);
 
   evt.initEvent('paste', true, true);
   Object.defineProperty(evt, 'clipboardData', { get: () => cpdata });
 
-  let dodefault = target.dispatchEvent(evt);
+  const dodefault = target.dispatchEvent(evt);
   return dodefault;
 }

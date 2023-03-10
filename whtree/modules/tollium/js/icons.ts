@@ -5,10 +5,10 @@ import * as dompack from "dompack";
 import * as toddrpc from "./internal/todd.rpc.json";
 
 // Canvas pixel ratio
-var canvasRatio = (function() {
-  let ctx = document.createElement("canvas").getContext("2d");
-  let devicePixelRatio = window.devicePixelRatio || 1
-    , backingStoreRatio = ctx.webkitBackingStorePixelRatio ||
+const canvasRatio = (function() {
+  const ctx = document.createElement("canvas").getContext("2d");
+  const devicePixelRatio = window.devicePixelRatio || 1,
+    backingStoreRatio = ctx.webkitBackingStorePixelRatio ||
       ctx.mozBackingStorePixelRatio ||
       ctx.msBackingStorePixelRatio ||
       ctx.oBackingStorePixelRatio ||
@@ -17,13 +17,13 @@ var canvasRatio = (function() {
 })();
 
 // The images to load
-var imagequeue = new Map();
+const imagequeue = new Map();
 
 // The images that are already loaded
-var imagecache = new Map();
+const imagecache = new Map();
 
 // Used to coalesce image loading
-var loadimgtimeout = null, loadimglock = null;
+let loadimgtimeout = null, loadimglock = null;
 
 // Load the image(s) and apply to an <img> node src
 export function updateCompositeImage(imgnode, imgnames, width, height, color) {
@@ -34,10 +34,10 @@ export function updateCompositeImage(imgnode, imgnames, width, height, color) {
   else if (color == "c")
     color = "c,b";
 
-  let data = { imgnames, width, height, color: color || "" };
+  const data = { imgnames, width, height, color: color || "" };
   imgnames = imgnames.join("+");
-  let key = `${imgnames}|${data.width}|${data.height}|${data.color}`;
-  let cached = imagecache.get(key);
+  const key = `${imgnames}|${data.width}|${data.height}|${data.color}`;
+  const cached = imagecache.get(key);
 
   // The data-toddimg attribute is used to reload the image after the cache is cleared
   if (imgnode.dataset.toddimg == key)
@@ -47,7 +47,7 @@ export function updateCompositeImage(imgnode, imgnames, width, height, color) {
   imgnode.dataset.toddimg = key;
 
   // Check if the image isn't already on the queue
-  for (let [, value] of imagecache) {
+  for (const [, value] of imagecache) {
     if (value.imgs.includes(imgnode)) {
       value.imgs.splice(value.imgs.indexOf(imgnode), 1);
       break;
@@ -88,14 +88,14 @@ async function loadImages() {
   loadimglock.release();
   loadimglock = null;
 
-  let lock = dompack.flagUIBusy();
+  const lock = dompack.flagUIBusy();
 
   // Make a list of images to load
-  let toload = [];
+  const toload = [];
   if (dompack.debugflags.ild)
     console.warn("Image queue size: " + imagequeue.size);
-  for (let [key, data] of imagequeue) {
-    let cached = imagecache.get(key);
+  for (const [key, data] of imagequeue) {
+    const cached = imagecache.get(key);
     if (dompack.debugflags.ild)
       console.log(key, cached);
     // If nobody is waiting for this image, or if it's already loaded, skip it
@@ -112,15 +112,15 @@ async function loadImages() {
     console.info("Loading " + toload.length + " images");
 
   try {
-    let result = await toddrpc.retrieveImages(toload, !!dompack.debugflags.ild);
+    const result = await toddrpc.retrieveImages(toload, Boolean(dompack.debugflags.ild));
 
     if (dompack.debugflags.ild)
       console.info("Received " + result.images.length + " images", result);
 
     // Store the loaded images
-    let loaded = await Promise.all(result.images.map(res => {
+    const loaded = await Promise.all(result.images.map(res => {
       // Get the cache entry
-      let cached = imagecache.get(res.key);
+      const cached = imagecache.get(res.key);
 
       // Process the image (invert, apply overlays)
       return processImage(res.key, res.images, cached.data);
@@ -134,7 +134,7 @@ async function loadImages() {
       if (!loadedimg)
         return;
       // Get the cache entry
-      let cached = imagecache.get(loadedimg.key);
+      const cached = imagecache.get(loadedimg.key);
 
       if (!cached.imgs.length)
         return;
@@ -148,11 +148,9 @@ async function loadImages() {
       // Store the loaded image
       applyLoadedResult(cached);
     });
-  }
-  catch (e) {
+  } catch (e) {
     console.error(e);
-  }
-  finally {
+  } finally {
     lock.release();
   }
 }
@@ -179,8 +177,8 @@ async function processImage(key, images, data) {
     // Return an empty src, so the 'broken' image is shown
     return { key };
   }
-  let baseimg = images[0];
-  let basetype = baseimg.type;
+  const baseimg = images[0];
+  const basetype = baseimg.type;
   if (dompack.debugflags.ild)
     console.log("Received image " + key + " of type " + basetype);
 
@@ -202,11 +200,11 @@ async function processImage(key, images, data) {
   }
 
   // Base image and overlays are drawn on a canvas, taking pixel ratio into account
-  let canvaswidth = data.width * canvasRatio, canvasheight = data.height * canvasRatio;
+  const canvaswidth = data.width * canvasRatio, canvasheight = data.height * canvasRatio;
 
   // imgnodes is the list of img nodes that are drawn on the composite canvas
   // imgloads is the list of promises that resolve for each loaded img node (or rejected for broken overlays)
-  let imgnodes = [], imgloads = [];
+  const imgnodes = [], imgloads = [];
   images.forEach((overlayimg, idx) => {
     // Check if the overlay image (idx > 0) was found (a default record is returned for broken imagesw)
     if (idx && !overlayimg) {
@@ -223,8 +221,8 @@ async function processImage(key, images, data) {
       imgdata = invertImage(imgdata);
     }
 
-    let imgsrc = "data:" + overlayimg.type + ";base64," + imgdata;
-    var imgnode = new Image(canvaswidth, canvasheight);
+    const imgsrc = "data:" + overlayimg.type + ";base64," + imgdata;
+    const imgnode = new Image(canvaswidth, canvasheight);
     imgnode.knockout = overlayimg.knockout;
     imgnode.translatex = overlayimg.translatex;
     imgnode.translatey = overlayimg.translatey;
@@ -260,13 +258,13 @@ async function processImage(key, images, data) {
     canvas.height = canvasheight;
     let ctx = canvas.getContext("2d");
     let layercanvas, layerctx;
-    let canvasstack = [canvas];
+    const canvasstack = [canvas];
 
     // Draw the layers
     let idx = 0;
-    for (let imgnode of imgnodes) {
+    for (const imgnode of imgnodes) {
       // If the layercanvas exists, it is the current backgrondlayer, don't knockout this layer
-      let knockout = !layercanvas;
+      const knockout = !layercanvas;
       if (knockout) {
         layercanvas = document.createElement("canvas");
         layercanvas.width = canvaswidth;
@@ -276,8 +274,7 @@ async function processImage(key, images, data) {
 
       try {
         layerctx.drawImage(imgnode, imgnode.translatex, imgnode.translatey, canvaswidth, canvasheight);
-      }
-      catch (e) {
+      } catch (e) {
         // IE 11 sometimes doesn't want to render SVG on load event, wait a millisecond sometimes fixes it
         await new Promise(resolve => setTimeout(resolve, 1));
         layerctx.drawImage(imgnode, imgnode.translatex, imgnode.translatey, canvaswidth, canvasheight);
@@ -295,7 +292,7 @@ async function processImage(key, images, data) {
         ctx.imageSmoothingEnabled = false;
 
         // For very large images (> 192 pixels), widen the knockout outline
-        let range = Math.max(Math.round(canvaswidth / canvasRatio) / 128, 1 * canvasRatio);
+        const range = Math.max(Math.round(canvaswidth / canvasRatio) / 128, Number(canvasRatio));
         for (let x = -range; x <= range; ++x)
           for (let y = -range; y <= range; ++y)
             ctx.drawImage(layercanvas, x, y);
@@ -310,8 +307,7 @@ async function processImage(key, images, data) {
         // Next layer can knockout this layer
         layercanvas = null;
         layerctx = null;
-      }
-      else {
+      } else {
         if (dompack.debugflags.ild)
           console.info("Adding stack layer for non-knockout layer " + idx);
 
@@ -339,8 +335,7 @@ async function processImage(key, images, data) {
       ctx.drawImage(layercanvas, 0, 0);
 
     return { key, result: canvas.toDataURL() };
-  }
-  catch (e) {
+  } catch (e) {
     // An overlay could not be loaded, return an empty src, so the 'broken' image is shown
     console.error(e);
     return { key };
@@ -380,9 +375,9 @@ export function resetImageCache() {
 }
 
 export function loadMissingImages({ force, node }) {
-  for (let img of (node || document).querySelectorAll("[data-toddimg]")) {
+  for (const img of (node || document).querySelectorAll("[data-toddimg]")) {
     if ((!img.src || force) && img.dataset.toddimg) {
-      let data = img.dataset.toddimg.split("|");
+      const data = img.dataset.toddimg.split("|");
       img.dataset.toddimg = data.slice(0, 4).join("|") + "|reloading";
       updateCompositeImage(img, data[0].split("+"), parseInt(data[1]), parseInt(data[2]), data[3]);
     }
@@ -394,7 +389,7 @@ export function createImage(imgname, width, height, color, eloptions) {
 }
 
 export function createCompositeImage(imgnames, width, height, color, eloptions) {
-  let imgnode = dompack.create('img', { width, height, ...eloptions });
+  const imgnode = dompack.create('img', { width, height, ...eloptions });
   updateCompositeImage(imgnode, imgnames, width, height, color);
   return imgnode;
 }

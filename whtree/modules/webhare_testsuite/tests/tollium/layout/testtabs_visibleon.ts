@@ -4,27 +4,25 @@
 import * as test from '@mod-tollium/js/testframework';
 
 
-function getTabs(startnode)
-{
+function getTabs(startnode) {
   return Array.from(startnode.querySelectorAll("div[data-tab]")).filter(node => node.closest('t-tabs') == startnode);
 }
 
 test.registerTests(
-  [ async function()
-    {
+  [
+    async function() {
       await test.load(test.getTestScreen('tests/layout.layouttest,tabs'));
       await test.wait("ui");
 
       test.assert(!test.canClick(test.compByName('tabs')));
-      var A01 = test.getMenu(['M01','A01']);
+      const A01 = test.getMenu(['M01', 'A01']);
       test.click(A01);
       await test.wait("ui");
-    }
+    },
 
-  , "Test pulldown visibleon (initial mode)"
-  , async function(doc,win)
-    {
-      var tabs = getTabs(test.compByName('tabs'));
+    "Test pulldown visibleon (initial mode)",
+    async function(doc, win) {
+      const tabs = getTabs(test.compByName('tabs'));
       test.click(tabs[0]);
 
       await test.sleep(100); //FIXME wait('ui') should have worked
@@ -35,18 +33,17 @@ test.registerTests(
       test.assert(test.isElementClickable(test.compByName('productsku')));
       test.assert(!test.isElementClickable(test.compByName('type_imagetext_title')));
 
-      var elt = test.compByName('typepulldown');
+      const elt = test.compByName('typepulldown');
       elt.propTodd.setValue('P02');
 
       await test.wait("ui");
 
       test.assert(!test.isElementClickable(test.compByName('productsku')));
       test.assert(test.isElementClickable(test.compByName('type_imagetext_title')));
-    }
+    },
 
-  , "Test radio visibleon"
-  , async function(doc,win)
-    {
+    "Test radio visibleon",
+    async function(doc, win) {
       test.fill(test.compByName("selectortype"), "radio");
       await test.wait("ui");
 
@@ -65,11 +62,10 @@ test.registerTests(
       await test.wait('ui');
       test.assert(test.isElementClickable(test.compByName('productsku')));
       test.assert(!test.isElementClickable(test.compByName('type_imagetext_title')));
-    }
+    },
 
-  , "Test checkbox visibleon"
-  , async function(doc,win)
-    {
+    "Test checkbox visibleon",
+    async function(doc, win) {
       test.fill(test.compByName("selectortype"), "checkbox");
       await test.wait("ui");
 
@@ -96,11 +92,10 @@ test.registerTests(
       await test.wait('ui');
       test.assert(test.isElementClickable(test.compByName('productsku')));
       test.assert(!test.isElementClickable(test.compByName('type_imagetext_title')));
-    }
+    },
 
-  , "Test checkboxlist visibleon"
-  , async function(doc,win)
-    {
+    "Test checkboxlist visibleon",
+    async function(doc, win) {
       test.fill(test.compByName("selectortype"), "checkboxlist");
       await test.wait("ui");
 

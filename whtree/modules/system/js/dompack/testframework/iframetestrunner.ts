@@ -5,8 +5,7 @@ import * as dompack from 'dompack';
 
 export default class IframeTestRunner {
   constructor() {
-    document.head.appendChild(dompack.create('style', {
-      textContent:
+    document.head.appendChild(dompack.create('style', {textContent:
         `* { box-sizing: border-box; margin: 0; padding: 0 };
       `}));
 
@@ -29,18 +28,18 @@ export default class IframeTestRunner {
 
   async loadTestFrame(uri, options) {
     options = {
-      loadtimeout: 30000
-      , width: 1024
-      , height: 768
-      , ...options
+      loadtimeout: 30000,
+      width: 1024,
+      height: 768,
+      ...options
     };
     dompack.empty(this.testframeholder);
 
-    let deferred = dompack.createDeferred();
+    const deferred = dompack.createDeferred();
     this.testiframe = dompack.create("iframe", {
-      width: options.width
-      , height: options.height
-      , style: { border: "none" }
+      width: options.width,
+      height: options.height,
+      style: { border: "none" }
     }); //, { "id": "testframe", "name": "testframe" });
     this.testiframe.addEventListener("load", evt => deferred.resolve(evt));
     this.testiframe.addEventListener("error", evt => deferred.reject(new Error(`Error loading ${uri}`)));
@@ -68,11 +67,10 @@ export default class IframeTestRunner {
 */
 
     try {
-      var doctitle = this.getDoc().title;
+      const doctitle = this.getDoc().title;
       if (doctitle == '404 Not found')
         throw new Error("The child frame returned a 404 error, please check the url");
-    }
-    catch (e) {
+    } catch (e) {
       if (e.code && e.code == e.SECURITY_ERR)
         this.handleSecurityError();
       throw e;
@@ -92,8 +90,8 @@ export default class IframeTestRunner {
   }
   handleSecurityError() {
     dompack.prepend(document.body, dompack.create("div", {
-      style: { position: "absolute", zIndex: 9999, top: 0, background: '#ff0000', padding: '5px' }
-      , innerHTML:
+      style: { position: "absolute", zIndex: 9999, top: 0, background: '#ff0000', padding: '5px' },
+      innerHTML:
         `Unable to access the testing iframe due to a security error<br>
                                                             Please note that file:/// URLs are NOT supported by the dompack
                                                             test framework. You need to arrange for http(s):// hosting of

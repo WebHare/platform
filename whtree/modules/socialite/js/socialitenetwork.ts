@@ -15,13 +15,13 @@ class Cookie {
 
     this.key = key;
     this.options = {
-      path: 'path' in options ? options.path : '/'
-      , domain: 'domain' in options ? options.domain : false
-      , duration: 'duration' in options ? options.duration : false
-      , secure: 'secure' in options ? options.secure : false
-      , document: 'document' in options ? options.document : document
-      , encode: 'encode' in options ? options.encode : true
-      , httpOnly: 'httpOnly' in options ? options.httpOnly : false
+      path: 'path' in options ? options.path : '/',
+      domain: 'domain' in options ? options.domain : false,
+      duration: 'duration' in options ? options.duration : false,
+      secure: 'secure' in options ? options.secure : false,
+      document: 'document' in options ? options.document : document,
+      encode: 'encode' in options ? options.encode : true,
+      httpOnly: 'httpOnly' in options ? options.httpOnly : false
     };
   }
   write(value) {
@@ -32,7 +32,7 @@ class Cookie {
     if (this.options.path)
       value += '; path=' + this.options.path;
     if (this.options.duration) {
-      var date = new Date();
+      const date = new Date();
       date.setTime(date.getTime() + this.options.duration * 24 * 60 * 60 * 1000);
       value += '; expires=' + date.toGMTString();
     }
@@ -44,11 +44,11 @@ class Cookie {
     return this;
   }
   read() {
-    var value = this.options.document.cookie.match('(?:^|;)\\s*' + escapeRegExp(this.key) + '=([^;]*)');
+    const value = this.options.document.cookie.match('(?:^|;)\\s*' + escapeRegExp(this.key) + '=([^;]*)');
     return (value) ? decodeURIComponent(value[1]) : null;
   }
   dispose() {
-    new Cookie(this.key, Object.assign({}, this.options, { duration: -1 })).write('');
+    new Cookie(this.key, ({ ...this.options, duration: -1 })).write('');
     return this;
   }
 }
@@ -82,9 +82,9 @@ class SocialiteNetwork extends EventEmitter {
     this.cbid = (new Date - 0);
     this.logincallback = this.__onLoginCallback.bind(this, onaccept, ondeny);
 
-    var cbname = '__socialitecallback' + (this.cbid);
+    const cbname = '__socialitecallback' + (this.cbid);
     window[cbname] = this.logincallback;
-    var authurl = '/tollium_todd.res/socialite/auth.shtml'
+    let authurl = '/tollium_todd.res/socialite/auth.shtml'
       + '?app=' + encodeURIComponent(this.appid)
       + '&dd=' + encodeURIComponent(document.domain)
       + '&sq=' + this.cbid;
@@ -95,12 +95,12 @@ class SocialiteNetwork extends EventEmitter {
     this.cbwaiter = window.setInterval(this.__pollCookie.bind(this), 200);
   }
   __pollCookie() {
-    var token = Cookie.read('socialite_cb_' + this.cbid);
+    const token = Cookie.read('socialite_cb_' + this.cbid);
     if (!token)
       return;
 
     if (token)
-      this.logincallback(token)
+      this.logincallback(token);
   }
   __onLoginCallback(onaccept, ondeny, securetoken) {
     if (this.cbwaiter) {
@@ -111,8 +111,7 @@ class SocialiteNetwork extends EventEmitter {
 
     try {
       this.cbwindow.close();
-    }
-    catch (e) {
+    } catch (e) {
 
     }
     if (this.gotlogincompletion)
@@ -123,12 +122,11 @@ class SocialiteNetwork extends EventEmitter {
       if (onaccept) {
         this.socialitetoken = securetoken;
         onaccept({
-          target: this
-          , socialitetoken: this.socialitetoken
+          target: this,
+          socialitetoken: this.socialitetoken
         });
       }
-    }
-    else if (ondeny) {
+    } else if (ondeny) {
       ondeny({ target: this });
     }
   }

@@ -4,11 +4,11 @@
 import * as test from "@mod-system/js/wh/testframework";
 
 test.registerTests(
-  [ "Tests dialog api"
-  , async function()
-    {
+  [
+    "Tests dialog api",
+    async function() {
       await test.load('/.webhare_testsuite/tests/pages/dompack/?testpage=dialog');
-      await test.wait( () => test.hasFocus('#inputfield2'), 'focus should be initially with #inputfield2');
+      await test.wait(() => test.hasFocus('#inputfield2'), 'focus should be initially with #inputfield2');
 
       test.click('[data-dialog-counter="0"] button.opendialognoinputs');
       test.eq(false, test.hasFocus('#inputfield2')); //should remove focus...
@@ -19,7 +19,7 @@ test.registerTests(
       test.assert(!test.canClick('[data-dialog-counter="1"] button.opendialog'));
       test.assert(test.canClick('[data-dialog-counter="2"] button.opendialog'));
 
-      await test.wait( () => test.hasFocus('#textedit2'), 'focus should be on the inner textedit');
+      await test.wait(() => test.hasFocus('#textedit2'), 'focus should be on the inner textedit');
       await test.pressKey('Tab');
       test.assert(test.hasFocus('#button_return1_2'));
       await test.pressKey('Tab');
@@ -41,7 +41,7 @@ test.registerTests(
       test.click('[data-dialog-counter="1"] button.returnyeey');
       await test.wait('tick'); //dialog completion is a promise, so give it time to resolve
 
-      await test.wait( () => test.hasFocus('#inputfield2'), 'focus should be restored to #inputfield2');
+      await test.wait(() => test.hasFocus('#inputfield2'), 'focus should be restored to #inputfield2');
 
       test.eq('Dialog 1: "yeey"', test.qS("#dialoglog > :last-child").textContent);
       test.click('[data-dialog-counter="0"] button.opendialog');

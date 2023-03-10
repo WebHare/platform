@@ -34,7 +34,7 @@ export default class ObjAction extends ActionForwardBase {
     this.enableons = data.enableons || [];
     this.mimetypes = data.mimetypes || [];
     this.multiple = !("multiple" in data) || data.multiple;
-    this.imageaction = !!data.imageaction;
+    this.imageaction = Boolean(data.imageaction);
     this.actiontype = data.actiontype;
     this.imgsize = data.imgsize;
     this._onexecute = data.onexecute;
@@ -61,7 +61,7 @@ export default class ObjAction extends ActionForwardBase {
 
   onExecute(options) {
     options = { ignorebusy: false, ...(options || {}) };
-    var hitrule = this.getHitRule();
+    const hitrule = this.getHitRule();
 
     // application already busy?
     if (this.owner.isBusy() && !options.ignorebusy)
@@ -86,15 +86,15 @@ export default class ObjAction extends ActionForwardBase {
     else if (this.isEventUnmasked('execute'))
       this.queueMessage("execute", { rule: hitrule }, true);
     else if (this._onexecute) {
-      var block = this.owner.displayapp.getBusyLock('action');
+      const block = this.owner.displayapp.getBusyLock('action');
       this._onexecute(this, { rule: hitrule }, block.release.bind(block));
     }
 
-    var customaction = this.enableons.length ? this.enableons[hitrule].customaction : this.customaction;
+    const customaction = this.enableons.length ? this.enableons[hitrule].customaction : this.customaction;
     if (customaction && $todd.customactions[customaction]) {
       $todd.customactions[customaction]({
-        action: this.name
-        , screen: this.owner
+        action: this.name,
+        screen: this.owner
       });
     }
   }
@@ -111,13 +111,13 @@ export default class ObjAction extends ActionForwardBase {
       return -1;
     }
 
-    var checked = this.frameflags.length == 0 || this.owner.enabledOn(this.frameflags, 1, 1, "all");
+    const checked = this.frameflags.length == 0 || this.owner.enabledOn(this.frameflags, 1, 1, "all");
     if (!checked) {
       this.debugLog("actionenabler", "- Action is disabled by frameflags");
       return -1;
     }
 
-    let hitrule = this.owner.getMatchedEnableOnRule(this.enableons);
+    const hitrule = this.owner.getMatchedEnableOnRule(this.enableons);
     this.debugLog("actionenabler", `- hit rule #${hitrule}`);
     return hitrule;
   }
@@ -138,7 +138,7 @@ export default class ObjAction extends ActionForwardBase {
        Synchronize the code with HareScript TolliumAction::TolliumClick
     */
 
-    var enabled = this.getHitRule() != -1;
+    const enabled = this.getHitRule() != -1;
     this.debugLog("actionenabler", "- Action is " + (enabled ? "enabled" : "disabled"));
 
     if (this.lastenabled !== enabled) {
@@ -153,10 +153,10 @@ export default class ObjAction extends ActionForwardBase {
       switch (this.actiontype) {
         case "upload":
           {
-            let busylock = dompack.flagUIBusy();
+            const busylock = dompack.flagUIBusy();
             toddupload.receiveFiles(this, {
-              mimetypes: this.mimetypes
-              , multiple: this.multiple
+              mimetypes: this.mimetypes,
+              multiple: this.multiple
             }).then(files => {
               if (files.length)
                 this.handleImageUploaded(data, files[0]);
@@ -174,9 +174,8 @@ export default class ObjAction extends ActionForwardBase {
             return;
           }
       }
-    }
-    else {
-      let busylock = dompack.flagUIBusy();
+    } else {
+      const busylock = dompack.flagUIBusy();
       toddupload.uploadFiles(this, function(files, callback) {
         busylock.release();
         if (!files.length) {
@@ -186,16 +185,16 @@ export default class ObjAction extends ActionForwardBase {
         data.items = files.map(function(i) { return { type: "file", filename: i.filename, token: i.filetoken }; });
         this.asyncMessage("upload", data).then(callback);
       }.bind(this), {
-        mimetypes: this.mimetypes
-        , multiple: this.multiple
+        mimetypes: this.mimetypes,
+        multiple: this.multiple
       });
     }
   }
 
   executeDownloadAction(data) {
-    var fturl = this.getFileTransferURL('asyncdownload');
+    const fturl = this.getFileTransferURL('asyncdownload');
 
-    var dl = new DownloadManager(fturl.url, {});
+    const dl = new DownloadManager(fturl.url, {});
     dl.startDownload().then(result => {
       if (result.started)
         this.onDownloadStarted(dl, fturl.id);
@@ -208,7 +207,7 @@ export default class ObjAction extends ActionForwardBase {
   }
 
   executeWindowOpenAction(data) {
-    var fturl = this.getFileTransferURL('asyncwindowopen');
+    const fturl = this.getFileTransferURL('asyncwindowopen');
 
     window.open(fturl.url, this.target || "_blank");
     this.queueMessage('windowopen', { rule: data.rule, ftid: fturl.id }, true);
@@ -219,7 +218,7 @@ export default class ObjAction extends ActionForwardBase {
   }
 
   executeCopyToClipboard(data) {
-    let comp = this.owner.getComponent(this.source);
+    const comp = this.owner.getComponent(this.source);
     if (comp)
       comp.doCopyToClipboard();
   }
@@ -242,13 +241,14 @@ export default class ObjAction extends ActionForwardBase {
     return new Promise(function(resolve) {
       $todd.createMessageBox(this.owner.displayapp,
         {
-          title: getTid("tollium:components.imgedit.editor.title")
-          , text: getTid("tollium:components.imgedit.messages.confirmreset")
-          , icon: "question"
-          , buttons: [{ name: "yes", title: getTid("~yes") }
-            , { name: "no", title: getTid("~no") }
-          ]
-          , onclose: function(result) {
+          title: getTid("tollium:components.imgedit.editor.title"),
+          text: getTid("tollium:components.imgedit.messages.confirmreset"),
+          icon: "question",
+          buttons: [
+            { name: "yes", title: getTid("~yes") },
+            { name: "no", title: getTid("~no") }
+          ],
+          onclose: function(result) {
             if (result == "yes")
               this.queueMessage("resend", {}, true);
             resolve(result);
@@ -261,17 +261,17 @@ export default class ObjAction extends ActionForwardBase {
     if (!file || !ImgeditDialogController.checkTypeAllowed(this.owner, file.type))
       return;
 
-    var options = {
-      mimetype: file.type
-      , imgsize: this.imgsize
-      , action: this.actiontype
-      , resetImage: file.source_fsobject ? this.handleImageReset.bind(this) : null
+    const options = {
+      mimetype: file.type,
+      imgsize: this.imgsize,
+      action: this.actiontype,
+      resetImage: file.source_fsobject ? this.handleImageReset.bind(this) : null
     };
 
-    let imageeditdialog = new ImgeditDialogController(this.owner, options);
-    let settings = {
-      refpoint: file.refpoint
-      , filename: file.name
+    const imageeditdialog = new ImgeditDialogController(this.owner, options);
+    const settings = {
+      refpoint: file.refpoint,
+      filename: file.name
     };
 
     if (file.url)
@@ -279,18 +279,18 @@ export default class ObjAction extends ActionForwardBase {
     else
       imageeditdialog.loadImageBlob(file, settings);
 
-    let done = await imageeditdialog.defer.promise;
+    const done = await imageeditdialog.defer.promise;
 
     // Note: settings is null when the image wasn't edited after upload
     if (done.blob) {
       toddupload.uploadBlobs(this, [done.blob], (files, uploadcallback) => {
         // Only called when a file is actually uploaded
-        var filename = toddupload.ensureExtension(file.name, files[0].fileinfo.extension);
+        const filename = toddupload.ensureExtension(file.name, files[0].fileinfo.extension);
 
-        var extradata = {
+        const extradata = {
           imageeditor: {
-            source_fsobject: parseInt(file.source_fsobject) || 0
-            , refpoint: done.settings && done.settings.refpoint
+            source_fsobject: parseInt(file.source_fsobject) || 0,
+            refpoint: done.settings && done.settings.refpoint
           }
         };
         data.items = [{ type: "file", name: filename, token: files[0].filetoken, extradata: extradata }];
@@ -299,8 +299,7 @@ export default class ObjAction extends ActionForwardBase {
           done.editcallback();
         });
       });
-    }
-    else {
+    } else {
       // Nothing to upload, we're done
       done.editcallback();
     }

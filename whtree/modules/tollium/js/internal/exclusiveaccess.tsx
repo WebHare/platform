@@ -99,7 +99,7 @@ class ReleaseRequestController extends EventTarget {
   respond(release) {
     // only allow one response
     if (this._fifo)
-      this._fifo.push({ type: "local-releaseRequestResponse", allow: !!release });
+      this._fifo.push({ type: "local-releaseRequestResponse", allow: Boolean(release) });
     this._fifo = null;
   }
 }
@@ -167,14 +167,14 @@ export async function getExclusiveAccess(identifier, userinfo, { onAlreadyLocked
   let busylock = dompack.flagUIBusy({ ismodal: true });
 
   const socket = new WebSocket(`${location.origin.replace(/^http/, "ws")}/.tollium/exclusiveaccess/exclusiveaccess.whsock`);
-  let fifo = new FIFO<{ type: string, allow?: boolean }>;
+  const fifo = new FIFO<{ type: string; allow?: boolean }>;
   socket.addEventListener("open", e => fifo.push({ type: "open" }));
   socket.addEventListener("error", e => fifo.push({ type: "error" }));
   socket.addEventListener("close", e => fifo.push({ type: "close" }));
   socket.addEventListener("message", e => fifo.push(JSON.parse(e.data)));
 
   await fifo.waitSignalled();
-  let item = fifo.shift();
+  const item = fifo.shift();
   if (!item) {
     busylock.release();
     onFailed();
@@ -206,7 +206,7 @@ export async function getExclusiveAccess(identifier, userinfo, { onAlreadyLocked
 
   while (true) {
     await fifo.waitSignalled();
-    let item = fifo.shift();
+    const item = fifo.shift();
 
     switch (item.type) {
       case "local-cancel":
@@ -235,8 +235,7 @@ export async function getExclusiveAccess(identifier, userinfo, { onAlreadyLocked
           if (onAlreadyLocked) {
             alreadylocked_ctrl = new AlreadyLockedController(fifo, item.info, item.isself);
             onAlreadyLocked(alreadylocked_ctrl);
-          }
-          else {
+          } else {
             socket.close();
             onFailed();
             return;
@@ -261,8 +260,7 @@ export async function getExclusiveAccess(identifier, userinfo, { onAlreadyLocked
           if (onReleaseRequest) {
             releaserequest_ctrl = new ReleaseRequestController(fifo, item.info, item.timeleft);
             onReleaseRequest(releaserequest_ctrl);
-          }
-          else {
+          } else {
             socket.send(JSON.stringify({ type: "denyReleaseRequest" }));
           }
         } break;
@@ -338,13 +336,13 @@ export async function getExclusiveAccess(identifier, userinfo, { onAlreadyLocked
 export async function getExclusiveAccessPromise(tag, userinfo, { onAlreadyLocked, onWaitingForOwner, onReleaseRequest, onLockStolen, onReleaseRequestDenied }) {
   return new Promise((resolve, reject) => getExclusiveAccess(tag, userinfo,
     {
-      onAlreadyLocked
-      , onWaitingForOwner
-      , onReleaseRequest
-      , onLockStolen
-      , onReleaseRequestDenied
-      , onLocked: (ctrl) => resolve(ctrl)
-      , onFailed: () => reject(new Error(`Failed to get the lock`))
+      onAlreadyLocked,
+      onWaitingForOwner,
+      onReleaseRequest,
+      onLockStolen,
+      onReleaseRequestDenied,
+      onLocked: (ctrl) => resolve(ctrl),
+      onFailed: () => reject(new Error(`Failed to get the lock`))
     }));
 }
 
@@ -393,16 +391,15 @@ export async function getExclusiveAccessWithDialog(identifier, userinfo,
     , onReleaseRequest
     , onLockStolen
     , onLockStolenShown
-    , buttontitles = {}
-  } = {}) {
+    , buttontitles = {} } = {}) {
   return await getExclusiveAccessPromise(identifier,
     userinfo,
     {
       onAlreadyLocked: async (ctrl) => {
-        let actrl = new AbortController;
+        const actrl = new AbortController;
         ctrl.addEventListener("close", () => actrl.abort());
 
-        let message = (onAlreadyLocked && onAlreadyLocked({ login: ctrl.info.login, realname: ctrl.info.realname, isself: ctrl.isself })) ||
+        const message = (onAlreadyLocked && onAlreadyLocked({ login: ctrl.info.login, realname: ctrl.info.realname, isself: ctrl.isself })) ||
           ctrl.isself
           ? <div>
             {getTid("tollium:exclusive.frontend.alreadyselflocked")}
@@ -411,46 +408,47 @@ export async function getExclusiveAccessWithDialog(identifier, userinfo,
             {getTid("tollium:exclusive.frontend.alreadylocked", ctrl.info.login || ctrl.info.realname, ctrl.info.realname)}
           </div>;
 
-        let res = await dialogapi.runMessageBox(message,
-          [{ title: buttontitles.yes || getTid("tollium:exclusive.frontend.buttons.yes"), result: "yes" }
-            , { title: buttontitles.no || getTid("tollium:exclusive.frontend.buttons.no"), result: "no" }
+        const res = await dialogapi.runMessageBox(message,
+          [
+            { title: buttontitles.yes || getTid("tollium:exclusive.frontend.buttons.yes"), result: "yes" },
+            { title: buttontitles.no || getTid("tollium:exclusive.frontend.buttons.no"), result: "no" }
           ], { signal: actrl.signal, allowcancel: false });
         if (res == "yes")
           ctrl.requestLock();
         else
           ctrl.cancel();
-      }
-      , onWaitingForOwner: async (ctrl) => {
-        let actrl = new AbortController;
+      },
+      onWaitingForOwner: async (ctrl) => {
+        const actrl = new AbortController;
         ctrl.addEventListener("close", () => actrl.abort());
 
-        let message = (onWaitingForOwner && onWaitingForOwner({ login: ctrl.info.login, realname: ctrl.info.realname, timeleft: ctrl.timeleft })) ||
+        const message = (onWaitingForOwner && onWaitingForOwner({ login: ctrl.info.login, realname: ctrl.info.realname, timeleft: ctrl.timeleft })) ||
           <div>
             {getTid("tollium:exclusive.frontend.waitingforowner", ctrl.info.login || ctrl.info.realname, ctrl.info.realname, getSecsToDeadline(ctrl.deadline))}
           </div>;
 
         await dialogapi.runMessageBox(message,
-          [{ title: buttontitles.cancel || getTid("tollium:exclusive.frontend.buttons.cancel"), result: "cancel" }
-          ], { signal: actrl.signal, allowcancel: false });
+          [{ title: buttontitles.cancel || getTid("tollium:exclusive.frontend.buttons.cancel"), result: "cancel" }], { signal: actrl.signal, allowcancel: false });
         if (!actrl.signal.aborted)
           ctrl.cancel();
-      }
-      , onReleaseRequest: async (ctrl) => {
-        let actrl = new AbortController;
+      },
+      onReleaseRequest: async (ctrl) => {
+        const actrl = new AbortController;
         ctrl.addEventListener("close", () => actrl.abort());
 
-        let message = (onReleaseRequest && onReleaseRequest({ login: ctrl.info.login, realname: ctrl.info.realname, timeleft: ctrl.timeleft })) ||
+        const message = (onReleaseRequest && onReleaseRequest({ login: ctrl.info.login, realname: ctrl.info.realname, timeleft: ctrl.timeleft })) ||
           <div>
             {getTid("tollium:exclusive.frontend.releaserequest", ctrl.info.login || ctrl.info.realname, ctrl.info.realname, getSecsToDeadline(ctrl.deadline))}
           </div>;
 
-        let res = await dialogapi.runMessageBox(message,
-          [{ title: buttontitles.yes || getTid("tollium:exclusive.frontend.buttons.yes"), result: "yes" }
-            , { title: buttontitles.no || getTid("tollium:exclusive.frontend.buttons.no"), result: "no" }
+        const res = await dialogapi.runMessageBox(message,
+          [
+            { title: buttontitles.yes || getTid("tollium:exclusive.frontend.buttons.yes"), result: "yes" },
+            { title: buttontitles.no || getTid("tollium:exclusive.frontend.buttons.no"), result: "no" }
           ], { signal: actrl.signal, allowcancel: false });
         ctrl.respond(res == "yes");
-      }
-      , onLockStolen: async (info) => {
+      },
+      onLockStolen: async (info) => {
         const message = (onLockStolen && onLockStolen({ login: info.login || info.realname, realname: info.realname })) ||
           <div>
             {getTid("tollium:exclusive.frontend.lockstolen", info.login, info.realname)}
@@ -461,8 +459,8 @@ export async function getExclusiveAccessWithDialog(identifier, userinfo,
 
         if (onLockStolenShown)
           onLockStolenShown();
-      }
-      , onReleaseRequestDenied: async () => {
+      },
+      onReleaseRequestDenied: async () => {
         const message = (onReleaseRequestDenied && onReleaseRequestDenied()) ||
           <div>
             {getTid("tollium:exclusive.frontend.releaserequestdenied")}

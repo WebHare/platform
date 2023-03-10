@@ -10,20 +10,19 @@ export { canClick, click, focus, sendMouseGesture } from './pointer';
 export { pressKey, simulateTabKey } from './keyboard';
 import IframeTestRunner from './iframetestrunner';
 
-let testlist = [];
+const testlist = [];
 let running = false;
 let testspa;
 let StackTraceJS;
 let scheduledruntests;
 
 function fixupTestNames() {
-  var lastname = 'unnamed test', lastcount = 0;
+  let lastname = 'unnamed test', lastcount = 0;
   testlist.forEach(step => {
     if (step.name) {
       lastname = step.name;
       lastcount = 1;
-    }
-    else {
+    } else {
       step.name = lastname + (lastcount ? " (" + ++lastcount + ")" : "");
     }
   });
@@ -32,8 +31,7 @@ function fixupTestNames() {
 function getTestHost() {
   try {
     return window.frameElement.ownerDocument.defaultView.dompackTestHost || null;
-  }
-  catch (ignore) //not an iframe or a security violation
+  } catch (ignore) //not an iframe or a security violation
   {
     return null;
   }
@@ -42,7 +40,7 @@ function getTestHost() {
 
 //run all registered tests
 async function runTests() {
-  let testhost = getTestHost();
+  const testhost = getTestHost();
   running = true;
 
   if (testhost) {
@@ -63,14 +61,13 @@ async function runTests() {
         testhost.onTestStep({ step: currenttest });
       await runTest(testlist[currenttest]);
     }
-  }
-  catch (e) {
+  } catch (e) {
     console.log("Got exception:", e);
     error = e.toString();
     if (StackTraceJS) {
       console.log("translating...");
       StackTraceJS.fromError(e).then(result => {
-        let lines = result.map(f => `at ${f.functionName} (${f.fileName}:${f.lineNumber}:${f.columnNumber})\n`);
+        const lines = result.map(f => `at ${f.functionName} (${f.fileName}:${f.lineNumber}:${f.columnNumber})\n`);
         console.log(lines.join(""));
       });
     }
@@ -78,9 +75,9 @@ async function runTests() {
 
   if (testhost)
     testhost.onTestFinish({
-      success: currenttest == testlist.length
-      , donesteps: currenttest
-      , error
+      success: currenttest == testlist.length,
+      donesteps: currenttest,
+      error
     });
   else if (currenttest == testlist.length)
     console.log(`${currenttest} tests done!`);
@@ -92,7 +89,7 @@ async function runTests() {
 async function runTest(teststep) {
   testspa.startingTest(teststep.name);
 
-  let testresult = teststep.test();
+  const testresult = teststep.test();
   if (testresult && testresult.then) //we received a promise
     await testresult;
 
@@ -100,39 +97,39 @@ async function runTest(teststep) {
   /*
     if (stop)
       return;
-  
+
     // Cleanup test state
     this.currenttest = testnr;
     this.currentstep = -1;
     this.currentsteps = null;
-  
+
     // Get test, set expected args
     var test = this.tests[this.currenttest];
     this.args = test.args || [];
-  
+
     // Unmark finished, just in case
     test.finished = false;
-  
+
     // Send off a report, just in case we crash.
     this.sendReport(false);
-  
+
     // Reset the test, signal loading state
     this.resetTest();
     this.setStatus(test.name + " loading");
-  
+
     // Schedule test script load & test steps
     var result = this.loadTestIframe()
       .then(this.waitForTestSetup.bind(this))
       .catch(this.handleTestStepException.bind(this, test, { name: 'Loading test script', _rethrow: true }))
       .then(this.runAllTestSteps.bind(this));
-  
+
     // Mark test as finished.
     result = result.finally(function() { test.finished = true; });
-  
+
     // If we're in report mode, swallow any errors from loading the iframe / test registration
     if (this.reportid)
       result = result.catch(function(e){ console.error('Swallowed exception', e); });
-  
+
     return result;
     */
 }
@@ -178,14 +175,14 @@ export function addTests(tests) {
   let nexttestname = 'unnamed test';
   let testcount = tests.length;
 
-  for (let test of tests) {
+  for (const test of tests) {
     if (typeof test == 'string') {
       nexttestname = test;
       testcount = 0;
       continue;
     }
 
-    let testname = nexttestname + (testcount ? ` #${testcount}` : '');
+    const testname = nexttestname + (testcount ? ` #${testcount}` : '');
     testlist.push({ name: testname, test: test });
     ++testcount;
   }
@@ -216,19 +213,18 @@ export async function waitUIFree() {
 
 //wait until 'func' returns true
 export function waitUntil(func) {
-  let defer = dompack.createDeferred();
+  const defer = dompack.createDeferred();
   requestAnimationFrame(() => testWaitUntil(func, defer));
   return defer.promise;
 }
 function testWaitUntil(func, defer) {
   try {
-    let res = func();
+    const res = func();
     if (res) //if truthy
       defer.resolve(res);
     else
       requestAnimationFrame(() => testWaitUntil(func, defer));
-  }
-  catch (e) {
+  } catch (e) {
     defer.reject(e);
   }
 }
@@ -250,7 +246,7 @@ export function log(text) {
 export function waitForEvent(node, eventtype, options) {
   return new Promise((resolve, reject) => {
     //we need access to the eventhandler after declaring, so it must be VAR
-    var eventhandler = event => {
+    const eventhandler = event => {
       if (options && options.filter && !options.filter(event))
         return;
 
@@ -284,8 +280,7 @@ async function executeWait(waittype) {
   if (typeof waittype == "function") {
     testspa.setCurrentWait("Wait: function");
     await executeWaitFunction(waittype);
-  }
-  else {
+  } else {
     testspa.setCurrentWait("Wait: " + waittype);
     switch (waittype) {
       case "tick":
@@ -303,7 +298,7 @@ async function executeWait(waittype) {
     @param waits Condition to wait for (list allowed)
 */
 export async function wait(...waits) {
-  for (let waitelt of waits)
+  for (const waitelt of waits)
     if (Array.isArray(waitelt))
       await wait(...waitelt);
     else
@@ -315,9 +310,9 @@ export async function wait(...waits) {
 if (window) {
   window.test =
   {
-    qS: qS
-    , qSA: qSA
-    , getWin: getWin
-    , getDoc: getDoc
+    qS: qS,
+    qSA: qSA,
+    getWin: getWin,
+    getDoc: getDoc
   };
 }
