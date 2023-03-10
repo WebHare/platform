@@ -2,7 +2,6 @@ import * as services from "@webhare/services";
 import { BackendServiceDescriptor, gatherBackendServices } from "@webhare/services/src/moduledefparser";
 import runBackendService from "@mod-system/js/internal/webhareservice";
 import * as resourcetools from '@mod-system/js/internal/resourcetools';
-import * as hmr from "@mod-system/js/internal/hmr";
 
 async function createServiceClient(service: BackendServiceDescriptor, args: unknown[]) {
   const client = await (await resourcetools.loadJSFunction(service.clientfactory))(...args);
@@ -28,5 +27,5 @@ async function main() {
     launchService(service); //we don't await this, we just launch it and let it run in the background
 }
 
-hmr.activate();
+services.activateHMR();
 services.ready().then(main);
