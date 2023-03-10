@@ -1,7 +1,6 @@
 <?wh
 /** @topic widgets/widgets
 */
-LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 

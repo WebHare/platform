@@ -17,7 +17,6 @@ LOADLIB "mod::system/lib/validation.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/modules/disk.whlib";
-LOADLIB "mod::system/lib/internal/tasks/callasync.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/modules/publicconfig.whlib";
 LOADLIB "mod::system/lib/internal/modules/migrations.whlib";

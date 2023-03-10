@@ -1,6 +1,5 @@
 <?wh
 LOADLIB "mod::publisher/lib/webdesign.whlib";
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::socialite/lib/internal/embedscripts.whlib";
 
 PUBLIC STATIC OBJECTTYPE GTMPlugin EXTEND WebDesignPluginBase

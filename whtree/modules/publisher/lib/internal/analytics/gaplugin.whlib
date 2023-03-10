@@ -2,8 +2,6 @@
 
 LOADLIB "wh::xml/xsd.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
-
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 
 PUBLIC STATIC OBJECTTYPE GoogleAnalyticsPlugin EXTEND WebDesignPluginBase

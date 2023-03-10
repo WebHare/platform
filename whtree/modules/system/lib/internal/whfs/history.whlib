@@ -1,10 +1,7 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/internal/whfs/support.whlib";
-LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 //TODO - To avoid races, create WHFS folders for a site immediately when creating the site. But having multiple shouldn't really matter..

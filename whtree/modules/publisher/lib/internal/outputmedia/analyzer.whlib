@@ -2,7 +2,6 @@
 LOADLIB "wh::datetime.whlib";
 //LOADLIB "wh::files.whlib";
 LOADLIB "wh::dbase/dynquery.whlib";
-LOADLIB "mod::publisher/lib/internal/urlhistory.whlib";
 LOADLIB "mod::publisher/lib/internal/outputmedia/localfs-actions.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::system/lib/configure.whlib";

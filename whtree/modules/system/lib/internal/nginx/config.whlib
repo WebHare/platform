@@ -7,7 +7,6 @@ LOADLIB "wh::internet/tcpip.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
-LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 
 PUBLIC RECORD ARRAY FUNCTION ListCertficates()
 {

@@ -5,7 +5,6 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
-LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 
 LOADLIB "mod::system/lib/internal/whconfig.whlib";

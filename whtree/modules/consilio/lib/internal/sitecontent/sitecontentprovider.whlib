@@ -5,7 +5,6 @@ LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::consilio/lib/pagelists.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
 
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";

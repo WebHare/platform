@@ -2,7 +2,6 @@
 
 LOADLIB "wh::promise.whlib";
 
-LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
 LOADLIB "mod::consilio/lib/database.whlib";

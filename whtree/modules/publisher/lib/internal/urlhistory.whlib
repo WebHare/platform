@@ -1,7 +1,6 @@
 <?wh
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/stringparser.whlib";
 

@@ -1,6 +1,5 @@
 ﻿<?wh
 LOADLIB "mod::publisher/lib/webdesign.whlib";
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "wh::internet/urls.whlib";
