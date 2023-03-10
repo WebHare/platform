@@ -13,6 +13,7 @@ RECORD args := ParseArguments(GetConsoleArguments(),
                               [ [ name := "debug", type := "switch" ]
                               , [ name := "silent", type := "switch" ]
                               , [ name := "nowarnings", type := "switch" ]
+                              , [ name := "nochecktypescript", type := "switch" ]
                               , [ name := "hidehints", type := "switch" ]
                               , [ name := "color", type := "switch" ]
                               , [ name := "doc", type := "switch" ]
@@ -116,9 +117,9 @@ FOREVERY(STRING modname FROM checklist)
               , args.filemask
               , args.color
               , args.nowarnings
+              , checktypescript := checktypescript AND NOT args.nochecktypescript
               , args.hidehints
               , documentation := args.doc
-              , checktypescript
               , onlypaths
               ]);
   INSERT promise INTO promises AT END;

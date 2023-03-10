@@ -474,6 +474,7 @@ PUBLIC ASYNC FUNCTION CheckModuleJavascriptFormatting(STRING module, RECORD opti
 {
   options := ValidateOptions(
       [ onlypaths := STRING[]
+      , filemask := "*"
       ], options);
 
   RECORD retval :=
@@ -493,6 +494,9 @@ PUBLIC ASYNC FUNCTION CheckModuleJavascriptFormatting(STRING module, RECORD opti
       CONTINUE;
 
     IF (IsValueSet(options.onlypaths) AND rec.path NOT IN options.onlypaths)
+      CONTINUE;
+
+    IF (ToUppercase(GetNameFromPath(rec.subpath)) NOT LIKE ToUppercase(options.filemask))
       CONTINUE;
 
     BLOB data := GetDiskResource(rec.path);
