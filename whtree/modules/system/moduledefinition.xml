@@ -2189,6 +2189,7 @@ The full base URL on which this site will be published, calculated by combining 
     <debugflag name="whfsplan" description="Print WHFS copy/move planning and mapping actions" />
     <debugflag name="oldcssengine" description="Use the old HareScript CSS selector engine" />
     <debugflag name="runner" description="Debug the node runner plugin" />
+    <debugflag name="conloc" description="Prefix console output with file and line number" />
   </development>
 
   <wrdschemas>
