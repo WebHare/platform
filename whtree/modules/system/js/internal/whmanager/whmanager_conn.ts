@@ -7,7 +7,7 @@ import * as envbackend from "@webhare/env/src/envbackend";
 
 export * from "./whmanager_rpcdefs";
 
-const logpackets = envbackend.getWHDebugFlags().ipcpackets;
+const logpackets = envbackend.flags.ipcpackets;
 
 type WHManagerConnectionEvents = {
   data: WHMResponse;

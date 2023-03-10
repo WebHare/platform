@@ -4,7 +4,7 @@ export function getDefaultRPCBase() {
   return location.origin + "/";
 }
 
-export function getWHDebugFlags() {
+function getWHDebugFlags() {
   const flags: { [key: string]: boolean } = {};
 
   const urldebugvar = new URL(location.href).searchParams.get("wh-debug");
@@ -19,4 +19,10 @@ export function getWHDebugFlags() {
         flags[flag] = true;
 
   return flags;
+}
+
+export const flags = getWHDebugFlags();
+
+export function registerDebugConfigChangedCallback(cb: () => void) {
+  // no implementation in the browser
 }

@@ -18,8 +18,8 @@ export { IPCMessagePacket, IPCLinkType } from "./ipc";
 export { SimpleMarshallableData, SimpleMarshallableRecord, IPCMarshallableData, IPCMarshallableRecord } from "./hsmarshalling";
 export { dumpActiveIPCMessagePorts } from "./transport";
 
-const logmessages = envbackend.getWHDebugFlags().ipc;
-const logpackets = envbackend.getWHDebugFlags().ipcpackets;
+const logmessages = envbackend.flags.ipc;
+const logpackets = envbackend.flags.ipcpackets;
 
 /** Number of milliseconds before connection to whmanager times out. At startup, just the connect alone can
     take multiple seconds, so using a very high number here.

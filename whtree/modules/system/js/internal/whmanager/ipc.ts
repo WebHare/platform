@@ -8,7 +8,7 @@ import { bufferToArrayBuffer } from "./transport";
 import { generateBase64UniqueID } from "../util/crypto";
 import * as envbackend from "@webhare/env/src/envbackend";
 
-const logmessages = envbackend.getWHDebugFlags().ipc;
+const logmessages = envbackend.flags.ipc;
 
 function getStructuredTrace(e: Error) {
   if (!e.stack)
