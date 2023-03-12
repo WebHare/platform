@@ -1,9 +1,8 @@
 /** This is currently more or less based on the mootools Cookie library */
 /* eslint no-useless-escape: off */
 
-import { KeyValueObject } from "../../types";
 import { isIsolated } from './storage';
-const isolatedcookies: KeyValueObject<string> = {};
+const isolatedcookies: Record<string, string> = {};
 
 export type CookieOptions =
   {
