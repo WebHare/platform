@@ -1,5 +1,7 @@
 import * as services from '@webhare/services';
-export { getWHDebugFlags } from "./envbackend";
+
+export { flags, registerDebugConfigChangedCallback } from "./envbackend";
+
 
 export function getDefaultRPCBase() {
   return services.getConfig().backendurl;

@@ -18,8 +18,8 @@ export { IPCMessagePacket, IPCLinkType } from "./ipc";
 export { SimpleMarshallableData, SimpleMarshallableRecord, IPCMarshallableData, IPCMarshallableRecord } from "./hsmarshalling";
 export { dumpActiveIPCMessagePorts } from "./transport";
 
-const logmessages = envbackend.getWHDebugFlags().ipc;
-const logpackets = envbackend.getWHDebugFlags().ipcpackets;
+const logmessages = envbackend.flags.ipc;
+const logpackets = envbackend.flags.ipcpackets;
 
 /** Number of milliseconds before connection to whmanager times out. At startup, just the connect alone can
     take multiple seconds, so using a very high number here.
@@ -1014,7 +1014,7 @@ function getCallerLocation(depth: number) {
     capturedframes = frames;
     old_func?.(error, frames);
   };
-  new Error;
+  void ((new Error).stack);
   Error.prepareStackTrace = old_func;
   const frame = capturedframes[depth];
   if (!frame)
@@ -1025,14 +1025,14 @@ function getCallerLocation(depth: number) {
     col: frame.getColumnNumber() || 1,
     func: frame.getFunctionName() || "unknown"
   });
-
 }
 
 function hookConsoleLog() {
-  const source: { func: string; location: { filename: string; line: number; col: number; func: string } | null; when: Date } = {
+  const source: { func: string; location: { filename: string; line: number; col: number; func: string } | null; when: Date; loggedlocation: boolean } = {
     func: "",
     location: null,
-    when: new Date()
+    when: new Date(),
+    loggedlocation: false
   };
   for (const [key, func] of Object.entries(old_console_funcs)) {
     if (key != "Console") {
@@ -1040,7 +1040,7 @@ function hookConsoleLog() {
       (console as any)[key] = (...args: unknown[]) => {
         source.func = key;
         source.when = new Date();
-        source.location = getCallerLocation(1);
+        source.location = getCallerLocation(2);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return (func as (...args: any[]) => any).apply(console, args);
       };
@@ -1049,6 +1049,8 @@ function hookConsoleLog() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   process.stdout.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
+    if (envbackend.flags.conloc && source.location)
+      old_std_writes.stdout.call(process.stdout, `${source.location.filename.split("/").at(-1)}:${source.location.line}: `, "utf-8");
     const retval = old_std_writes.stdout.call(process.stdout, data, encoding, cb);
     const tolog: string = typeof data == "string" ? data : Buffer.from(data).toString("utf-8");
     consoledata.push({ func: source.func, data: tolog, when: source.when, location: source.location });
@@ -1058,7 +1060,9 @@ function hookConsoleLog() {
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   process.stderr.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
-    const retval = old_std_writes.stderr.call(process.stdout, data, encoding, cb);
+    if (envbackend.flags.conloc && source.location)
+      old_std_writes.stderr.call(process.stderr, `${source.location.filename.split("/").at(-1)}:${source.location.line}: `, "utf-8");
+    const retval = old_std_writes.stderr.call(process.stderr, data, encoding, cb);
     const tolog: string = typeof data == "string" ? data : Buffer.from(data).toString("utf-8");
     consoledata.push({ func: source.func, data: tolog, when: source.when, location: source.location });
     if (consoledata.length > 100)

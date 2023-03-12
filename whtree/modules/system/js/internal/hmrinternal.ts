@@ -1,6 +1,7 @@
 import * as fs from "node:fs";
 import Module from "node:module";
 import type { WebHareConfiguration } from "@mod-system/js/internal/configuration";
+import { flags } from "@webhare/env/src/envbackend"; // don't want services module, included from @webhare/env
 
 type LibraryData = {
   fixed: boolean;
@@ -43,7 +44,7 @@ function extractRealPathCache(): Map<string, string> {
   return cache;
 }
 
-const realpathCache: Map<string, string> = extractRealPathCache();
+let realpathCache: Map<string, string> | undefined;
 
 /** Register as a module that does dynamic reloads. Dynamic imports done after
     calling this function won't cause the loader itself to reload.
@@ -75,9 +76,13 @@ let deferred: Set<string> | null = new Set<string>;
 */
 export function handleModuleInvalidation(path: string) {
   if (deferred) {
+    if (flags.hmr)
+      console.log(`[hmr] defer invalidation of ${path} (activateHMR not called yet)`);
     deferred.add(path);
     return;
   }
+  if (flags.hmr)
+    console.log(`[hmr] handle invalidation of ${path}`);
   const toinvalidate: string[] = Object.keys(require.cache).filter(key => {
     if (!key.startsWith(path))
       return false;
@@ -104,6 +109,9 @@ export function handleModuleInvalidation(path: string) {
     }
   }
 
+  if (flags.hmr && toinvalidate.length)
+    console.log(`[hmr] to remove from cache: ${toinvalidate.join(", ")}`);
+
   for (const key of toinvalidate)
     delete require.cache[key];
 }
@@ -128,6 +136,8 @@ export function handleSoftReset(newconfig: WebHareConfiguration) {
      directly clear the relativeResolveCache, so we need to purge the require.cache from all files from
      old module versions.
   */
+  if (flags.hmr)
+    console.log(`[hmr] handle softreset`);
 
   // get all paths from which modules can be loaded
   const modulescandirs = toRealPaths(newconfig.modulescandirs);
@@ -140,6 +150,8 @@ export function handleSoftReset(newconfig: WebHareConfiguration) {
 
   // Delete all modules from require.cache with paths that are now invalid
   const cache_todelete = Object.keys(require.cache).filter(isInvalidPath);
+  if (flags.hmr && cache_todelete.length)
+    console.log(`[hmr] to remove from cache: ${cache_todelete.join(", ")}`);
   for (const key of cache_todelete) {
     handleModuleInvalidation(key);
   }
@@ -149,12 +161,20 @@ export function handleSoftReset(newconfig: WebHareConfiguration) {
   */
   type InternalModule = typeof Module & { _pathCache: Record<string, string> };
   const pathcache_todelete = Object.entries((Module as InternalModule)._pathCache).filter(([key, path]) => key.split("\x00").some(isInvalidPath) || isInvalidPath(path));
+  if (flags.hmr && pathcache_todelete.length)
+    console.log(`[hmr] to remove from pathcache: ${pathcache_todelete.join(", ")}`);
   for (const [key] of pathcache_todelete) {
     delete (Module as InternalModule)._pathCache[key];
   }
 
+  // lazy initialize realpathCache
+  if (!realpathCache)
+    realpathCache = extractRealPathCache();
+
   // Remove all entries from the realpathCache that result in an invalid path
   const realpathcache_todelete = [...realpathCache.entries()].filter(([, path]) => isInvalidPath(path));
+  if (flags.hmr && realpathcache_todelete.length)
+    console.log(`[hmr] to remove from pathcache: ${realpathcache_todelete.join(", ")}`);
   for (const [key] of realpathcache_todelete) {
     realpathCache.delete(key);
   }

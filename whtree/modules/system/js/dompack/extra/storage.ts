@@ -2,10 +2,8 @@
 
    A storage API that will mock when access is being denied to the browser storage objects (eg Chrome incognito 'Block third-party cookies')
 */
-import { KeyValueObject } from "../../types";
-
-const backupsession: KeyValueObject<unknown> = {};
-const backuplocal: KeyValueObject<unknown> = {};
+const backupsession: Record<string, unknown> = {};
+const backuplocal: Record<string, unknown> = {};
 let sessionfail: boolean;
 let localfail: boolean;
 

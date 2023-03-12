@@ -5,6 +5,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
+LOADLIB "wh::promise.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
 
@@ -78,6 +79,20 @@ RECORD ARRAY actions :=
       , cb :=         0
       , delay :=      300
       ]
+    , [ name :=       "wh:db file regeneration and siteprofiles recompule"
+      , masks :=      [ "mod::*/moduledefinition.xml" ]
+      , skipmasks :=  DEFAULT STRING ARRAY
+      , execute :=    PTR HandleModuleDefinitionChange()
+      , cb :=         0
+      , delay :=      300
+      ]
+    , [ name :=       "wh:wrd file regeneration"
+      , masks :=      [ "mod::*/*wrdschema*" ]
+      , skipmasks :=  DEFAULT STRING ARRAY
+      , execute :=    PTR HandleWRDSchemaChange()
+      , cb :=         0
+      , delay :=      300
+      ]
     , [ name :=       "Check for hotfixes"
       , masks :=      [ "*" ]
       , skipmasks :=  DEFAULT STRING ARRAY
@@ -86,6 +101,24 @@ RECORD ARRAY actions :=
       , delay :=      60 * 1000
       ]
     ];
+
+ASYNC MACRO HandleModuleDefinitionChange()
+{
+  // ADDME: get resource names to see which modules need to be updated
+  AWAIT CreatePromiseAll(
+      [ AsyncRecompileSiteProfiles()
+      , CallAsync("@mod-system/js/internal/generation/gen_whdb.ts#updateAllModuleTableDefs", VARIANT[])
+      , CallAsync("@mod-system/js/internal/generation/gen_wrd.ts#updateAllModuleWRDDefs", VARIANT[])
+      ]);
+}
+
+ASYNC MACRO HandleWRDSchemaChange()
+{
+  // ADDME: get resource names to see which modules need to be updated
+  AWAIT CreatePromiseAll(
+      [ CallAsync("@mod-system/js/internal/generation/gen_wrd.ts#updateAllModuleWRDDefs", VARIANT[])
+      ]);
+}
 
 ASYNC MACRO DoSiteProfileRecompile()
 {

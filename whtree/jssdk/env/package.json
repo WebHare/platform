@@ -9,6 +9,7 @@
   "author": "WebHare bv",
   "license": "MIT",
   "browser": {
-    "src/envsupport": "./src/envsupport-browser.ts"
+    "src/envsupport": "./src/envsupport-browser.ts",
+    "src/envstartup": "./src/envstartup-browser.ts"
   }
 }
