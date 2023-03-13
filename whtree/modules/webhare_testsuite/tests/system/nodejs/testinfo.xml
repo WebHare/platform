@@ -16,8 +16,7 @@
   <test script="test_whmanager_conn.ts" />
   <test script="test_whmanager_bridge.ts" />
   <test script="test_hmr.ts" />
-  <test script="test_webharerouter.ts" />
-  <test script="test_jswebserver.ts" />
   <test script="test_witty.ts" />
   <test name="meta" path="meta/" />
+  <test name="router" path="router/" />
 </group>
