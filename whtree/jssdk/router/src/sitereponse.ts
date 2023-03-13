@@ -1,7 +1,7 @@
 import { WittyTemplate } from "@webhare/witty";
 import { readFile } from "node:fs";
 import { WebResponse } from "./response";
-import { SiteRequest } from "./siterequest";
+import type { SiteRequest } from "./siterequest";
 import util from 'node:util';
 import * as services from "@webhare/services";
 

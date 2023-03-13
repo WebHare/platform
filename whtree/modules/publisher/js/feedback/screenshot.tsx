@@ -1,6 +1,6 @@
-import { Properties } from "@mod-system/js/types";
+import type { Properties } from "@mod-system/js/types";
 import * as browser from "@mod-system/js/dompack/extra/browser";
-import { DOMFilterCallback, ScreenshotData } from "./index";
+import type { DOMFilterCallback, ScreenshotData } from "./index";
 
 const SCREENSHOTVERSION = 2;
 

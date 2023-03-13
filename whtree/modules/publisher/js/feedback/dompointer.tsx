@@ -1,6 +1,6 @@
 import * as dompack from "@webhare/dompack";
 import { createDeferred, DeferredPromise } from "@webhare/std";
-import { PointOptions, PointResult, HighlightCallback } from "./index";
+import type { PointOptions, PointResult, HighlightCallback } from "./index";
 
 let deferred: DeferredPromise<PointResult | null> | null, highlighter: HTMLElement, highlightCallback: HighlightCallback | null;
 
