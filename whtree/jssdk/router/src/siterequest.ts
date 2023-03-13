@@ -4,7 +4,7 @@
 */
 
 import { WHFSFile } from "@webhare/whfs";
-import { SiteResponse, SiteResponseSettings } from "./sitereponse";
+import type { SiteResponse, SiteResponseSettings } from "./sitereponse";
 import { WebRequest } from "./request";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";

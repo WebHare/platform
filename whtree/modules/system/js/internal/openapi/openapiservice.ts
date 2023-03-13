@@ -5,6 +5,7 @@ import { RestAPI } from "./restapi";
 import { createJSONResponse, WebRequest, WebResponse, HTTPErrorCode, createWebResponse } from "@webhare/router";
 import { WebRequestInfo, WebResponseInfo } from "../types";
 import { getOpenAPIService } from "@webhare/services/src/moduledefparser";
+import bridge from "../whmanager/bridge";
 
 // A REST service supporting an OpenAPI definition
 export class RestService {
@@ -80,6 +81,7 @@ export class RestService {
       return await this.restapi.handleRequest(req, "/" + relurl);
     } catch (e) {
       //TODO reveal more info when debugflag etr is set and verified. Also ensure notice logging!
+      bridge.logError(e as Error);
       console.error(e);
       return createJSONResponse({ error: "Internal error" }, { status: HTTPErrorCode.InternalServerError });
     }

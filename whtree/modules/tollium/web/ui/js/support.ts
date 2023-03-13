@@ -2,7 +2,7 @@
 // @ts-nocheck -- needs porting!
 
 import * as dompack from 'dompack';
-import { ApplicationBase } from './application';
+import type { ApplicationBase } from './application';
 
 require("../common.lang.json");
 

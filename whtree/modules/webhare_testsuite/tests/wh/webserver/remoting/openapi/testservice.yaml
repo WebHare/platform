@@ -1,5 +1,5 @@
 ---
-openapi: 3.0.2
+openapi: 3.1.0
 info:
   title: Test openapi service
   description: The test openapi service
@@ -65,6 +65,17 @@ paths:
               schema:
                 "$ref": "#/components/schemas/user_out"
       x-webhare-implementation: users.ts#getUser
+
+  "/externalref":
+    get:
+      description: Get data defined in schema in other document
+      responses:
+        "200":
+          description: Externally typed data
+          content:
+            application/json:
+              schema:
+                "$ref": "extref.schema.json"
 
 components:
   schemas:

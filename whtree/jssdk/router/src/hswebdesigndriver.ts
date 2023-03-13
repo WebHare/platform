@@ -1,7 +1,7 @@
 import { HSVM, HSVMObject, openHSVM } from "@webhare/services/src/hsvm";
 import { WebResponse } from "./response";
 import { SiteResponse, SiteResponseSettings } from "./sitereponse";
-import { SiteRequest } from "./siterequest";
+import type { SiteRequest } from "./siterequest";
 
 class HSWebdesignDriver<T extends object> extends SiteResponse<T> {
   hsvm: HSVM;

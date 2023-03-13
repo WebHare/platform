@@ -1,4 +1,4 @@
-import { flags } from "./envbackend";
+import { flags, registerDebugConfigChangedCallback } from "./envbackend";
 import * as envsupport from "./envsupport";
 
 export { flags } from "./envbackend";
@@ -29,7 +29,7 @@ if (globalThis["fetch"]) {
   if (flags.wrq)
     hookFetch();
 
-  envsupport.registerDebugConfigChangedCallback(() => {
+  registerDebugConfigChangedCallback(() => {
     if (flags.wrq && !hookedfetch)
       hookFetch();
   });
