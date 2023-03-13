@@ -95,10 +95,10 @@ test.registerTests(
       //FIXME date localization
       test.fill('#coretest-dateofbirth', sevendayslater);
       await test.pressKey('Tab', { shiftKey: true });
-      test.eqMatch(/De waarde mag niet groter zijn dan 2...-..-..\./, dateofbirthgroup.querySelector('.wh-form__error').textContent);
+      test.eqMatch(/De waarde mag niet groter zijn dan ..-..-2...\./, dateofbirthgroup.querySelector('.wh-form__error').textContent);
       test.fill('#coretest-dateofbirth', '1899-12-31');
       await test.wait('ui');
-      test.eq('De waarde mag niet lager zijn dan 1900-01-01.', dateofbirthgroup.querySelector('.wh-form__error').textContent);
+      test.eq('De waarde mag niet lager zijn dan 01-01-1900.', dateofbirthgroup.querySelector('.wh-form__error').textContent);
 
       test.fill("#coretest-dateofbirth", "");
       test.eq('Dit veld is verplicht.', dateofbirthgroup.querySelector('.wh-form__error').textContent);
