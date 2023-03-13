@@ -1,7 +1,7 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-export function formatDate(dateformat, year, month, day) {
+export function formatDate(dateformat: string, year: number, month: number, day: number): string {
   if (!isValidDate(year, month, day))
     return '';
 
@@ -26,7 +26,7 @@ export function formatDate(dateformat, year, month, day) {
   return output;
 }
 
-export function formatISODate(year, month, date) {
+export function formatISODate(year: number, month: number, date: number) {
   return formatDate("Y-M-D", year, month, date);
 }
 
@@ -60,7 +60,13 @@ export function isValidTime(hour, minute, second, msec) {
   return true;
 }
 
-export function parseDate(format, newdate, options) {
+export interface DateParts {
+  day: number;
+  month: number;
+  year: number;
+}
+
+export function parseDate(format: string, newdate: string, options?: { nofail: boolean }): DateParts | null {
   if (!newdate) //empty
     return null;
 
@@ -95,7 +101,7 @@ export function parseDate(format, newdate, options) {
       return { year, month, day };
   }
   if (options && options.nofail)
-    return undefined;
+    return null;
 
   throw new Error(`Invalid date value: '${newdate}'`);
 }
@@ -116,7 +122,7 @@ export function compareDate(lhs, rhs) {
               : 0;
 }
 
-export function parseISODate(newdate, options) {
+export function parseISODate(newdate: string, options?: { nofail: boolean }) {
   return parseDate('y-m-d', newdate, options);
 }
 

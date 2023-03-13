@@ -80,8 +80,11 @@ function transpile(code: string, filename: string): string {
     console.log('[runner] transpile', filename, '=>', compiledpath);
 
   code = _transform(code, filename);
-  //FIXME does writeFileSync safely write to a temp file then rename?
-  fs.writeFileSync(compiledpath, code, { encoding: "utf8" });
+
+  //Use a temporary file (open in exclusive mode for extra race safety) so we never have an empty or partially written file at the target spot
+  const tempname = compiledpath + "$tmp$" + Math.random();
+  fs.writeFileSync(tempname, code, { encoding: "utf8", flag: "wx" });
+  fs.renameSync(tempname, compiledpath);
   return code;
 }
 

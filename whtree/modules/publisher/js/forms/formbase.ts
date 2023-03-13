@@ -1186,10 +1186,14 @@ export default class FormBase {
 
     if (validity.valueMissing)
       return getTid("publisher:site.forms.commonerrors.required");
-    if (validity.rangeOverflow)
-      return getTid("publisher:site.forms.commonerrors.max", field.max);
-    if (validity.rangeUnderflow)
-      return getTid("publisher:site.forms.commonerrors.min", field.min);
+    if (validity.rangeOverflow) {
+      const max = field.type === 'date' ? webharefields.reformatDate(field.max) : field.max;
+      return getTid("publisher:site.forms.commonerrors.max", max);
+    }
+    if (validity.rangeUnderflow) {
+      const min = field.type === 'date' ? webharefields.reformatDate(field.min) : field.min;
+      return getTid("publisher:site.forms.commonerrors.min", min);
+    }
     if (validity.badInput)
       return getTid("publisher:site.forms.commonerrors.default");
     if (validity.tooShort)

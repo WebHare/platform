@@ -241,10 +241,11 @@ PUBLIC OBJECTTYPE DateField EXTEND FormFieldBase
 
     IF(this->IsSet())
     {
+      //TODO support non-EU dateformats.. and then the client should probably render it using local APIs?
       IF(this->value < this->min)
-        work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.min", FormatDatetime("%Y-%m-%d", this->min)));
+        work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.min", FormatDatetime("%d-%m-%Y", this->min)));
       IF(this->value > this->max)
-        work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.max", FormatDatetime("%Y-%m-%d", this->max)));
+        work->AddErrorFor(this, GetTid("publisher:site.forms.commonerrors.max", FormatDatetime("%d-%m-%Y", this->max)));
     }
   }
 >;

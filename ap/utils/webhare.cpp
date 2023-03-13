@@ -638,8 +638,8 @@ int UTF8Main(std::vector<std::string> const &args)
                     UpdatePidFile(pidfilepath, true);
 
                 std::cout << "Installation directory: " << whconn->GetWebHareRoot() << "\n";
-                std::cout << "Database location: " << whconn->GetDbaseAddr() << "\n\n";
-                std::cout << "Data directory: " << whconn->GetBaseDataRoot() << "\n\n";
+                std::cout << "Data directory: " << whconn->GetBaseDataRoot() << "\n";
+                std::cout << "Web interface: http://" << whconn->GetDbaseAddr() << "/\n\n";
 
                 Log(WHService::ServiceManager,"Starting in console mode");
                 WHService().Main(optparser.StringList("dontlaunch"));

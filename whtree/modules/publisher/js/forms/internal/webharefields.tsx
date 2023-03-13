@@ -10,6 +10,7 @@ import { setupValidator } from './customvalidation';
 
 import { getTid } from "@mod-tollium/js/gettid";
 import "./form.lang.json";
+import { formatDate, parseISODate } from './datehelpers';
 
 function validateCheckboxGroup(groupnode: HTMLElement) {
   const nodes = dompack.qSA<HTMLInputElement>(groupnode, "input[type='checkbox']");
@@ -49,6 +50,11 @@ function isValidDate(year, month, day) {
   return true;
 }
 
+export function reformatDate(datestr: string): string {
+  const parsed = parseISODate(datestr);
+  return parsed ? formatDate("D-M-Y", parsed.year, parsed.month, parsed.day) : "";
+}
+
 function validateDate(date) {
   if (date.getAttribute('type') != 'date') //it's no longer a date field
     return '';
@@ -62,9 +68,9 @@ function validateDate(date) {
 
   const normalizeddate = ('0000' + year).substr(-4) + '-' + ('00' + month).substr(-2) + '-' + ('00' + day).substr(-2);
   if (date.getAttribute("min") && normalizeddate < date.getAttribute("min"))
-    return getTid("publisher:site.forms.commonerrors.min", date.getAttribute("min"));
+    return getTid("publisher:site.forms.commonerrors.min", reformatDate(date.getAttribute("min"))) + "NARF";
   if (date.getAttribute("max") && normalizeddate > date.getAttribute("max"))
-    return getTid("publisher:site.forms.commonerrors.max", date.getAttribute("max"));
+    return getTid("publisher:site.forms.commonerrors.max", reformatDate(date.getAttribute("max"))) + "NARF";
 
   return '';
 }
@@ -106,7 +112,6 @@ export function setup(form) {
       //ADDME some sort of global validator would be better so we don't get confused by fields that change their type
       setupValidator(datecontrol, validateDate);
     }
-
   }
 
   for (const timecontrol of qSA(form, 'input[type=time]')) {
