@@ -1,4 +1,4 @@
-import bridge from "@mod-system/js/internal/whmanager/bridge";
+import bridge, { LogErrorOptions } from "@mod-system/js/internal/whmanager/bridge";
 
 function replaceLogParts(key: string, value: unknown) {
   if (typeof value === "bigint") //is 'value' a BigInt?
@@ -24,6 +24,13 @@ export function log(logname: string, logline: string | object): void {
     logline = formatLogObject(logline);
 
   bridge.log(logname, logline);
+}
+
+/** Log an error to the notice log
+ * @param error - Error to log
+ */
+export function logError(error: Error, options?: LogErrorOptions): void {
+  bridge.logError(error, options);
 }
 
 /** Flushes a log file. Returns when the flushing has been done, throws when the log did not exist
