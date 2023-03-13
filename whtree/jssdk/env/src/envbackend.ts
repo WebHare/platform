@@ -28,10 +28,9 @@ function getWHDebugFlags(): DebugFlags {
   const flags: DebugFlags = {};
   const envflags = getEnvironmentDebugFlags();
 
-  if (envflags) {
-    for (const flag of envflags ?? [])
-      flags[flag] = true;
-  } else if (debugsettings) {
+  for (const flag of envflags)
+    flags[flag] = true;
+  if (debugsettings) {
     for (const flag of debugsettings.tags)
       flags[flag] = true;
   }
