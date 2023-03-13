@@ -2,7 +2,7 @@ import SwaggerParser from "@apidevtools/swagger-parser";
 import { createJSONResponse, HTTPErrorCode, WebRequest, DefaultRestParams, RestRequest, WebResponse, HTTPMethod, RestAuthorizationFunction, RestImplementationFunction } from "@webhare/router";
 import Ajv from "ajv";
 import { OpenAPIV3 } from "openapi-types";
-import { resolveResource } from "@webhare/services";
+import { resolveResource, toFSPath } from "@webhare/services";
 import { loadJSFunction } from "../resourcetools";
 
 const SupportedMethods: HTTPMethod[] = [HTTPMethod.GET, HTTPMethod.PUT, HTTPMethod.POST, HTTPMethod.DELETE, HTTPMethod.OPTIONS, HTTPMethod.HEAD, HTTPMethod.PATCH];
@@ -75,6 +75,7 @@ function matchesPath(path: string[], routePath: string[], req: WebRequest): Reco
 // An OpenAPI handler
 export class RestAPI {
   _ajv: Ajv | null = null;
+  bundled: WHOpenAPIDocument | null = null;
   def: WHOpenAPIDocument | null = null;
 
   // Get the JSON schema validator singleton
@@ -87,11 +88,16 @@ export class RestAPI {
 
   private routes: Route[] = [];
 
-  async init(def: string, specresourcepath: string) {
-    // Parse the OpenAPI definition
-    const parsed = await SwaggerParser.validate(def);
+  async init(def: object, specresourcepath: string) {
+    // Bundle all external files into one document
+    const bundled = await SwaggerParser.bundle(toFSPath(specresourcepath), def as WHOpenAPIDocument, {});
+    // Parse the OpenAPI definition. Make a structured clone of bundled, because validate modifies the incoming data
+    const parsed = await SwaggerParser.validate(structuredClone(bundled));
     if (!(parsed as OpenAPIV3.Document).openapi?.startsWith("3."))
       throw new Error(`Unsupported OpenAPI version ${parsed.info.version}`);
+
+    // Save the bundled document for openapi.json output
+    this.bundled = bundled as WHOpenAPIDocument;
 
     /* Per https://apitools.dev/swagger-parser/docs/swagger-parser.html#validateapi-options-callbac
        "This method calls dereference internally, so the returned Swagger object is fully dereferenced."
@@ -241,7 +247,7 @@ export class RestAPI {
   }
 
   renderOpenAPIJSON(baseurl: string, options: { filterxwebhare: boolean }): WebResponse {
-    let def = { ...this.def };
+    let def = { ...this.bundled };
     if (options.filterxwebhare)
       def = filterXWebHare(def) as typeof def;
 

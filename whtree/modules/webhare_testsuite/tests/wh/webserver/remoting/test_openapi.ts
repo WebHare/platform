@@ -53,6 +53,22 @@ async function testService() {
   test.eq(HTTPErrorCode.BadRequest, res.status);
 }
 
+function enumRefs(obj: unknown, result: string[] = []): string[] {
+  if (Array.isArray(obj)) {
+    for (const elt of obj)
+      enumRefs(elt, result);
+  } else {
+    if (typeof obj === "object" && obj) {
+      for (const [key, value] of Object.entries(obj))
+        if (key === "$ref" && typeof value === "string")
+          result.push(value);
+        else if (typeof value === "object" && value)
+          enumRefs(value, result);
+    }
+  }
+  return result;
+}
+
 async function testAuthorization() {
   await services.ready();
 
@@ -80,9 +96,11 @@ async function verifyPublicParts() {
 
   //Verify we get the openapi.json (not available through direct APICalls)
   const useropenapi = await (await fetch(userapiroot + "openapi/openapi.json")).json();
-  test.eq("3.0.2", useropenapi.openapi);
+  test.eq("3.1.0", useropenapi.openapi);
   test.assert(!JSON.stringify(useropenapi).includes("x-webhare"));
   test.eq(userapiroot, useropenapi.servers[0].url, "Verify full URL (it was '.' in the source file)");
+  test.assert(enumRefs(useropenapi).length > 0, "$refs should still exists (only cross-file refs should be removed)");
+  test.eq([], enumRefs(useropenapi).filter(r => !r.startsWith("#")), "Only internal refs should remain");
 
   const unkownapi = await fetch(userapiroot + "unknownapi");
   test.eq(HTTPErrorCode.NotFound, unkownapi.status);
