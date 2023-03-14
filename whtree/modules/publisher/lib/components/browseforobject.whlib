@@ -8,6 +8,7 @@ LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumFragmentBase
 < // ---------------------------------------------------------------------------
@@ -248,7 +249,7 @@ PUBLIC OBJECTTYPE BrowseForObject EXTEND TolliumFragmentBase
     {
       RECORD historyinfo := SELECT currentname
                               FROM system_internal.fs_history
-                             WHERE fs_history.type = 0
+                             WHERE fs_history.type = VAR whconstant_historytype_recycled
                                    AND fs_history.fs_object = this->pvt_value->id
                           ORDER BY when DESC;
 
