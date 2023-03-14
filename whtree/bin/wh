@@ -460,7 +460,7 @@ case $INSTR in
       fi
     fi
 
-    if ! "$WEBHARE_DIR/modules/system/scripts/whcommands/update-generated-files.sh" "--onlybaseconfig"; then
+    if ! "$WEBHARE_DIR/modules/system/scripts/whcommands/update-generated-files.sh" "--onlyconfig" "--nodb"; then
       echo "Failed to update the configuration file, aborting"
       exit 1
     fi

@@ -8,7 +8,6 @@ LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/semver.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/internal/tasks/callasync.whlib";
 LOADLIB "mod::system/lib/internal/registry.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
@@ -334,7 +333,42 @@ PUBLIC MACRO UpdateSystemConfigurationRecord(RECORD updates DEFAULTSTO DEFAULT R
   cacheddtapstage := "";
 }
 
+ASYNC FUNCTION ReadWholeProcessOutput(OBJECT process)
+{
+  RECORD retval :=
+      [ output :=   ""
+      , errors :=   ""
+      , exitcode := -1
+      ];
+
+  OBJECT itr := MakeProcessAsyncIterator(process, [ autoclose := FALSE ]);
+  WHILE (TRUE)
+  {
+    RECORD rec := AWAIT itr->Next();
+    IF (rec.done)
+      BREAK;
+    SWITCH (rec.value.type)
+    {
+      CASE "output"   { retval.output := retval.output || rec.value.line || "\n"; }
+      CASE "error"    { retval.errors := retval.errors || rec.value.line || "\n"; }
+      CASE "close"    { retval.exitcode := rec.value.exitcode; }
+    }
+  }
+  RETURN retval;
+}
+
+
 PUBLIC MACRO UpdateWebHareConfigJSONFile()
 {
-  WaitForPromise(CallAsync("@mod-system/js/internal/generation/gen_config.ts#updateWebHareConfigFile", [ TRUE ]));
+  STRING installationroot := __SYSTEM_WHCOREPARAMETERS().installationroot;
+
+  OBJECT proc := CreateProcess(`${installationroot}/modules/system/scripts/whcommands/node.sh`,
+        [ `${installationroot}/modules/system/scripts/internal/updateconfigfile.ts`
+        , "--nodb"
+        ], [ take_output := FALSE, take_errors := FALSE ]);
+  proc->Start();
+  RECORD result := WaitForPromise(ReadWholeProcessOutput(proc));
+  proc->Close();
+  IF (result.exitcode != 0)
+    ABORT(result);
 }

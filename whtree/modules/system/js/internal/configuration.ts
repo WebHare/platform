@@ -1,8 +1,10 @@
 import * as fs from "node:fs";
-import type { WebHareBackendConfiguration, ConfigFile } from "./generation/gen_config";
+import { registerUpdateConfigCallback, WebHareBackendConfiguration, ConfigFile, updateWebHareConfigWithoutDB } from "./generation/gen_config";
 import { RecursiveReadOnly, freezeRecursive } from "./util/algorithms";
 
 export type { DTAPStage, WebHareBackendConfiguration, WebHareConfigFile } from "./generation/gen_config";
+
+let loggederror = false;
 
 function readConfigFile() {
   let dataroot = process.env.WEBHARE_DATAROOT;
@@ -12,8 +14,18 @@ function readConfigFile() {
     dataroot += "/";
 
   const file = `${dataroot}storage/system/generated/config/config.json`;
-  return freezeRecursive(JSON.parse(fs.readFileSync(file).toString()) as ConfigFile);
+  try {
+    return freezeRecursive(JSON.parse(fs.readFileSync(file).toString()) as ConfigFile);
+  } catch (e) {
+    if (!loggederror) {
+      console.error(`Missing configuration json when running ${require.main?.filename}`);
+      loggederror = true;
+    }
+    return freezeRecursive(updateWebHareConfigWithoutDB({}));
+  }
 }
+
+registerUpdateConfigCallback(() => updateConfig());
 
 let configfile = readConfigFile();
 const publicconfig = { ...configfile.public };

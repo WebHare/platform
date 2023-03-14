@@ -1,5 +1,5 @@
-/** this function should use as little dependencies as possible
-*/
+/** this function should use as little dependencies as possible, and no \@mod-... imports in the import tree
+ */
 
 import * as fs from "node:fs";
 import { omit, RecursivePartial, RecursiveReadOnly } from "../util/algorithms";
@@ -7,7 +7,6 @@ import { Client } from 'pg';
 import { whconstant_whfsid_webharebackend } from "../webhareconstants";
 import { updateDir } from "./shared";
 import { decodeHSON } from "../whmanager/hsmarshalling";
-import { updateConfig } from "../configuration";
 
 export enum DTAPStage {
   Development = "development",
@@ -151,7 +150,7 @@ async function rawReadRegistryKey<T>(pgclient: Client, key: string): Promise<T |
 
 type PartialConfigFile = RecursivePartial<ConfigFile>;
 
-export async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean): Promise<ConfigFile> {
+export function updateWebHareConfigWithoutDB(oldconfig: PartialConfigFile): ConfigFile {
   const nodbconfig = generateNoDBConfig();
 
   const publicdata: BackendConfiguration = {
@@ -162,11 +161,15 @@ export async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: 
     ...nodbconfig.public
   };
 
-  const finalconfig: ConfigFile = {
+  return {
     public: publicdata,
     secrets: { cache: "", cookie: "", debug: "" },
     ...omit(nodbconfig, ["public"])
   };
+}
+
+export async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean): Promise<ConfigFile> {
+  const finalconfig: ConfigFile = updateWebHareConfigWithoutDB(oldconfig);
 
   if (!withdb)
     return finalconfig;
@@ -265,6 +268,12 @@ function scanModuleFolder(modulemap: ModuleMap, folder: string, rootfolder: bool
   }
 }
 
+const updateCallbacks = new Array<() => void>;
+
+export function registerUpdateConfigCallback(cb: () => void) {
+  updateCallbacks.push(cb);
+}
+
 export async function updateWebHareConfigFile(withdb: boolean) {
   const dataroot = appendSlashWhenMissing(process.env.WEBHARE_DATAROOT ?? "");
   if (!dataroot)
@@ -279,6 +288,8 @@ export async function updateWebHareConfigFile(withdb: boolean) {
   }
 
   const newconfig = await updateWebHareConfig(oldconfig, withdb);
-  if (await updateDir(dir, { "config.json": [] }, true, () => JSON.stringify(newconfig)))
-    updateConfig();
+  if (await updateDir(dir, { "config.json": [] }, true, () => JSON.stringify(newconfig))) {
+    for (const cb of [...updateCallbacks])
+      cb();
+  }
 }

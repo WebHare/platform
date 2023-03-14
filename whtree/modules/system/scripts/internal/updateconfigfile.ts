@@ -1,3 +1,5 @@
 import { updateWebHareConfigFile } from "../../js/internal/generation/gen_config";
 
-updateWebHareConfigFile(false);
+const withdb = !process.argv.includes("--nodb");
+
+updateWebHareConfigFile(withdb);

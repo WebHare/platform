@@ -1,6 +1,6 @@
 import EventSource from "../eventsource";
 import { WHManagerConnection, WHMResponse } from "./whmanager_conn";
-import { WHMRequest, WHMRequestOpcode, WHMResponseOpcode, WHMProcessType } from "./whmanager_rpcdefs";
+import { WHMRequest, WHMRequestOpcode, WHMResponseOpcode, WHMProcessType, WHMResponse_IncomingEvent } from "./whmanager_rpcdefs";
 import * as hsmarshalling from "./hsmarshalling";
 import { registerAsNonReloadableLibrary } from "../hmrinternal";
 import { createDeferred, DeferredPromise } from "@webhare/std";
@@ -14,6 +14,7 @@ import { ProcessList, DebugIPCLinkType, DebugRequestType, DebugResponseType, Con
 import * as inspector from "node:inspector";
 import * as envbackend from "@webhare/env/src/envbackend";
 import { getCallerLocation } from "../util/stacktrace";
+import { updateConfig } from "../configuration";
 
 export { IPCMessagePacket, IPCLinkType } from "./ipc";
 export { SimpleMarshallableData, SimpleMarshallableRecord, IPCMarshallableData, IPCMarshallableRecord } from "./hsmarshalling";
@@ -532,6 +533,7 @@ class MainBridge extends EventSource<BridgeEvents> {
 
     switch (data.opcode) {
       case WHMResponseOpcode.IncomingEvent: {
+        handleGlobalEvent(data);
         for (const localbridge of this.localbridges)
           localbridge.port.postMessage({
             type: ToLocalBridgeMessageType.Event,
@@ -999,6 +1001,14 @@ class MainBridge extends EventSource<BridgeEvents> {
     port1.unref();
     port2.unref();
     return { id, port: port2 };
+  }
+}
+
+function handleGlobalEvent(data: WHMResponse_IncomingEvent) {
+  switch (data.eventname) {
+    case "system:softreset": {
+      updateConfig();
+    } break;
   }
 }
 
