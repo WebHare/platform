@@ -33,7 +33,7 @@ RECORD FUNCTION __WHS_GetErrorInfo() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT
 PUBLIC RECORD FUNCTION GetRequestErrorInfo()
 {
   RECORD errorinfo := __WHS_GetErrorInfo();
-  IF (LENGTH(errorinfo.errors) != 0 AND NOT IsWHDebugOptionSet("etr"))
+  IF (LENGTH(errorinfo.errors) != 0 AND NOT IsWHDebugOptionSet("etr") AND NOT IsDebugTagEnabled("etr"))
   {
     errorinfo.errors :=
         [ [ message :=      `Error ID: ${errorinfo.groupid}`

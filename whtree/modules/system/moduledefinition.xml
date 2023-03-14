@@ -2190,6 +2190,7 @@ The full base URL on which this site will be published, calculated by combining 
     <debugflag name="oldcssengine" description="Use the old HareScript CSS selector engine" />
     <debugflag name="runner" description="Debug the node runner plugin" />
     <debugflag name="conloc" description="Prefix console output with file and line number" />
+    <debugflag name="etr" description="Enable full error tracing for ALL webserver clients" />
   </development>
 
   <wrdschemas>

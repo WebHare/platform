@@ -224,12 +224,12 @@ RECORD FUNCTION RunRestCallInternal(STRING apispecification, STRING method, STRI
     ELSE
     {
       status := "500 Internal error";
-      IF(IsWHDebugOptionSet("etr"))
+      IF(IsDebugTagEnabled("etr") OR IsWHDebugOptionSet("etr"))
         message := e->what; //don't leak raw exceptions unless 'etr' is enabled
     }
 
     RECORD error := CELL[ message := message ?? status ];
-    IF(IsWHDebugOptionSet("etr"))
+    IF(IsDebugTagEnabled("etr") OR IsWHDebugOptionSet("etr"))
       INSERT CELL trace := e->trace INTO error;
 
     RETURN
