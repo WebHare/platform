@@ -428,3 +428,31 @@ export async function wait<T>(waitfor: (() => T | PromiseLike<T>) | PromiseLike<
     }
   }
 }
+
+// from https://github.com/Microsoft/TypeScript/issues/27024
+export type EqualsInternal<X, Y> =
+  (<T>() => T extends X ? 1 : 2) extends
+  (<T>() => T extends Y ? 1 : 2) ? true : false;
+
+/** Returns whether types X and Y are equal. If will give good feedback if Y can't be assigned to X. If false is returned, try using RevEquals if that one gives better feedback.
+ * @typeParam X - First type
+ * @typeParam Y - Second type
+ */
+export type Equals<X extends Y, Y> = EqualsInternal<X, Y>;
+
+/** Returns whether types X and Y are equal. If will give good feedback if X can't be assigned to Y
+ * @typeParam X - First type
+ * @typeParam Y - Second type
+ */
+export type RevEquals<X, Y extends X> = EqualsInternal<X, Y>;
+
+/** Returns whether a value of type Y can be assigned to type X
+ * @typeParam X - Type that is assigned to
+ * @typeParam Y - Type that is assigned
+ */
+export type Assignable<X, Y extends X> = Y extends X ? true : true;
+
+/** Checks if a type assertion holds. Use Equals or RevEquals to check for equality, Assignable for assignabilty
+ * @param X - Type assertion
+ */
+export function typeAssert<X extends true>(): X extends true ? void : void { return; }
