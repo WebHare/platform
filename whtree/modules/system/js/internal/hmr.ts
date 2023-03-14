@@ -2,7 +2,6 @@ import { handleModuleInvalidation, handleSoftReset } from "./hmrinternal";
 export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate } from "./hmrinternal";
 import * as services from "@webhare/services";
 import whbridge from "@mod-system/js/internal/whmanager/bridge";
-import { calculateWebHareConfiguration } from "@mod-system/js/internal/configuration";
 
 // non-bridge stuff is placed into hmrinternal so it can be loaded first (bridge also registers as non-reloadable)
 
@@ -24,9 +23,7 @@ async function gotEvent({ name, data }: { name: string; data: unknown }) {
     handleModuleInvalidation(resource);
   }
   if (name === "system:softreset") {
-    // FIXME: need saved configurations here!
-    const config = calculateWebHareConfiguration();
-    handleSoftReset(config);
+    handleSoftReset();
   }
 }
 

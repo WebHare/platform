@@ -11,11 +11,14 @@ are invoked
 - `wh console` gets exec-ed
   - Console/self build installations will generally invoke `wh console` directly (or indirectly through `wh (u)mic`)
 - `webhare console` gets exec-ed
+  - (source only) builds the platform-helpers library
+  - updates the stored configuration file (in whdata/storage/system/generated/config/config.json)
   - boots the whmanager, compiler and dbserver
   - waits for compiler to respond to its tcp/ip port
   - starts the webserver, clusterservice `mod::system/scripts/internal/clusterservices.whscr`, startupscript `mod::system/scripts/internal/webhareservice-startup.whscr` and application runner `mod::system/scripts/internal/apprunner.whscr`
     - webhare-servicestartup does basic database initialization, if the database is empty (determined by checking if `system.webservers.id` exists)
     - it will then initiate the RestartReset procedure
+      - after the database is ready, the configuration file will be fully updated (also updating content read from the database)
       - RestartReset waits for the index to be up-to-date. This is where a WebHare with broken indices will stall until the
         rebuild is complete
     - the application runner will wait for the system configuration to become available and then executes the `<apprunnerconfig>` from all modules to gather the standalone services (i.e. services that don't depend on WebHare to be started) to run, including the `poststart` scripts and Consilio, if it's configured

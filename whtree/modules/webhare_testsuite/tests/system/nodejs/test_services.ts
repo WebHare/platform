@@ -9,8 +9,6 @@ import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/tra
 import { DemoServiceInterface } from "@mod-webhare_testsuite/js/demoservice";
 import runBackendService from "@mod-system/js/internal/webhareservice";
 
-let serverconfig: services.WebHareBackendConfiguration | null = null;
-
 function ensureProperPath(inpath: string) {
   test.eqMatch(/^\/.+\/$/, inpath, `Path should start and end with a slash: ${inpath}`);
   test.assert(!inpath.includes("//"), `Path should not contain duplicate slashes: ${inpath}`);
@@ -65,7 +63,7 @@ async function testResolve() {
 }
 
 async function testServices() {
-  test.assert(serverconfig);
+  test.assert(services.config);
 
   //Verify potentially higher level invoke APIs work
   test.eq(45, await services.callHareScript("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib#Add", [22, 23]));
@@ -79,16 +77,16 @@ async function testServices() {
 
   //get WebHare configuration
   const whconfig = await services.callHareScript("mod::system/lib/configure.whlib#GetWebHareConfiguration", []) as any;
-  // console.log(serverconfig, whconfig);
-  test.eq(whconfig.basedataroot, serverconfig.dataroot);
+  // console.log(services.config, whconfig);
+  test.eq(whconfig.basedataroot, services.config.dataroot);
 
-  ensureProperPath(serverconfig.dataroot);
-  ensureProperPath(serverconfig.installationroot);
+  ensureProperPath(services.config.dataroot);
+  ensureProperPath(services.config.installationroot);
 
-  await test.throws(/Cannot assign to read only property/, () => { if (serverconfig) serverconfig.dataroot = "I touched it"; });
+  await test.throws(/The WebHare configuration is read-only/, () => { if (services.config) (services.config as any).dataroot = "I touched it"; });
 
-  test.eq(await services.callHareScript("mod::system/lib/configure.whlib#GetModuleInstallationRoot", ["system"]), serverconfig.module.system.root);
-  ensureProperPath(serverconfig.module.system.root);
+  test.eq(await services.callHareScript("mod::system/lib/configure.whlib#GetModuleInstallationRoot", ["system"]), services.config.module.system.root);
+  ensureProperPath(services.config.module.system.root);
 }
 
 async function testServiceState() {
@@ -191,24 +189,24 @@ async function testHSVMFptrs() {
 
 
 async function testResources() {
-  test.assert(serverconfig);
+  test.assert(services.config);
 
-  test.eq(serverconfig.module.system.root + "lib/database.whlib", services.toFSPath("mod::system/lib/database.whlib"));
-  test.eq(serverconfig.module.system.root + "scripts/whcommands/reset.whscr", services.toFSPath("mod::system/scripts/whcommands/reset.whscr"));
+  test.eq(services.config.module.system.root + "lib/database.whlib", services.toFSPath("mod::system/lib/database.whlib"));
+  test.eq(services.config.module.system.root + "scripts/whcommands/reset.whscr", services.toFSPath("mod::system/scripts/whcommands/reset.whscr"));
 
   //Verify final slashes handling
-  test.eq(serverconfig.module.system.root, services.toFSPath("mod::system"));
-  test.eq(serverconfig.module.system.root, services.toFSPath("mod::system/"));
-  test.eq(serverconfig.module.system.root + "lib", services.toFSPath("mod::system/lib"));
-  test.eq(serverconfig.module.system.root + "lib/", services.toFSPath("mod::system/lib/"));
+  test.eq(services.config.module.system.root, services.toFSPath("mod::system"));
+  test.eq(services.config.module.system.root, services.toFSPath("mod::system/"));
+  test.eq(services.config.module.system.root + "lib", services.toFSPath("mod::system/lib"));
+  test.eq(services.config.module.system.root + "lib/", services.toFSPath("mod::system/lib/"));
 
-  test.eq(serverconfig.dataroot + "storage/system/xyz", services.toFSPath("storage::system/xyz"));
-  test.eq(serverconfig.dataroot + "storage/system/xyz/", services.toFSPath("storage::system/xyz/"));
-  test.eq(serverconfig.dataroot + "storage/system/", services.toFSPath("storage::system"));
+  test.eq(services.config.dataroot + "storage/system/xyz", services.toFSPath("storage::system/xyz"));
+  test.eq(services.config.dataroot + "storage/system/xyz/", services.toFSPath("storage::system/xyz/"));
+  test.eq(services.config.dataroot + "storage/system/", services.toFSPath("storage::system"));
 
-  test.eqMatch(/^https?:.*/, serverconfig.backendurl);
+  test.eqMatch(/^https?:.*/, services.config.backendurl);
 
-  const systempath = serverconfig.module.system.root;
+  const systempath = services.config.module.system.root;
   test.eq("mod::system/lib/tests/cluster.whlib", services.toResourcePath(systempath + "lib/tests/cluster.whlib"));
   await test.throws(/Cannot match filesystem path/, () => services.toResourcePath("/etc"));
   test.eq(null, services.toResourcePath("/etc", { allowUnmatched: true }));
@@ -370,27 +368,18 @@ function testLogs() {
   test.eqMatch(/1234567890… \(40000 chars\)/, formatLogObject({ val: "1234567890".repeat(4000) }));
 }
 
-//NOTE: we take an a-typical test run approach to help ensure noone booted services before us
-async function main() {
-  await test.throws(/not yet available/, () => services.getConfig());
-  await services.ready();
-  serverconfig = services.getConfig();
-
-  test.run(
-    [
-      testResolve,
-      testServices,
-      testServiceState,
-      testEvents,
-      testHSVM,
-      testHSVMFptrs,
-      testResources,
-      testDisconnects,
-      testServiceTimeout,
-      runBackendServiceTest_JS,
-      runBackendServiceTest_HS,
-      testLogs
-    ], { wrdauth: false });
-}
-
-main();
+test.run(
+  [
+    testResolve,
+    testServices,
+    testServiceState,
+    testEvents,
+    testHSVM,
+    testHSVMFptrs,
+    testResources,
+    testDisconnects,
+    testServiceTimeout,
+    runBackendServiceTest_JS,
+    runBackendServiceTest_HS,
+    testLogs
+  ], { wrdauth: false });

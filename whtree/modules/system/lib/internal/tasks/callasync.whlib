@@ -10,9 +10,9 @@ LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internal/jobs.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
 
 PUBLIC OBJECT ipcparentlink;
@@ -39,12 +39,15 @@ ASYNC MACRO StartIPCNodeProcess()
     IF (ObjectExists(nodeprocess))
       RETURN;
 
-    RECORD processinfo := GetProcessInfo();
+    // Use internal function so we can avoid loadlibbing configure.whlib and be used from whconfig.whlib
+    RECORD webhareconfig := __SYSTEM_WHCOREPARAMETERS();
+    RECORD processinfo := __SYSTEM_GETPROCESSINFO();
+
     STRING portname := `${GenerateUFS128BitId()}-${processinfo.pid}-${processinfo.processcode}`;
     port := CreateGlobalIPCPort(portname);
 
-    proc := CreateProcess(`${GetWebHareConfiguration().installationroot}/modules/system/scripts/whcommands/node.sh`,
-        [ `${GetWebHareConfiguration().installationroot}/modules/system/scripts/internal/callrunnerts.ts`
+    proc := CreateProcess(`${webhareconfig.installationroot}/modules/system/scripts/whcommands/node.sh`,
+        [ `${webhareconfig.installationroot}/modules/system/scripts/internal/callrunnerts.ts`
         , portname
         ], [ take_output := FALSE, take_errors := FALSE ]);
     IF(NOT IsRequest() AND NOT nostdoutintercept) //TODO how can we tell beforehand whether we're allowed to share streams? at least webserver won't allow us

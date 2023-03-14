@@ -8,6 +8,7 @@ LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/semver.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/tasks/callasync.whlib";
 LOADLIB "mod::system/lib/internal/registry.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
@@ -331,4 +332,9 @@ PUBLIC MACRO UpdateSystemConfigurationRecord(RECORD updates DEFAULTSTO DEFAULT R
   // Update the config. Applies immediately to local record, async to rest of processes (and self again)
   __SYSTEM_SETSYSTEMCONFIG(newconfig);
   cacheddtapstage := "";
+}
+
+PUBLIC MACRO UpdateWebHareConfigJSONFile()
+{
+  WaitForPromise(CallAsync("@mod-system/js/internal/generation/gen_config.ts#updateWebHareConfigFile", [ TRUE ]));
 }
