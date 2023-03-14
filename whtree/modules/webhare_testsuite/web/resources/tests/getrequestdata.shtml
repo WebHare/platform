@@ -13,6 +13,9 @@ RECORD data :=
     , clientbinding :=    GetClientBinding()
     , serverurl :=        GetRequestURL()
     , headers :=          GetAllWebHeaders()
+    , body :=             GetRequestBody()
+    , method :=           GetRequestMethod()
     ];
 
-SendBlobTo(0, EncodeHSONBlob(data));
+AddHTTPHeader("Content-Type", "application/x-hson", FALSE);
+SendWebFile(EncodeHSONBlob(data));

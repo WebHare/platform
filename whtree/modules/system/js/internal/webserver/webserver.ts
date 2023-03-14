@@ -1,5 +1,6 @@
 import { coreWebHareRouter } from '@webhare/router/src/corerouter';
 import { HTTPMethod, WebRequest } from '@webhare/router';
+import * as env from "@webhare/env";
 import * as http from 'node:http';
 import * as https from 'node:https';
 import { Configuration, Port, initialconfig } from "./webconfig";
@@ -31,8 +32,25 @@ class WebServer {
       res.write(response.body);
       res.end();
     } catch (e) {
-      res.statusCode = 500;
-      res.end();
+      this.handleException(e, req, res);
+    }
+  }
+
+  handleException(e: unknown, req: http.IncomingMessage, res: http.ServerResponse) {
+    //TODO log error
+    res.statusCode = 500;
+    if (!env.flags.etr) {
+      res.setHeader("content-type", "text/html");
+      res.end("<p>Internal server error");
+      return; //and that's all you need to know without 'etr' ...
+    }
+
+    res.setHeader("content-type", "text/plain");
+    if (e instanceof Error) {
+      console.log(`Exception handling ${req.url}: `, e.message);
+      res.end(`500 Internal server error\n\n${e.message}\n${e.stack}`);
+    } else {
+      res.end(`500 Internal server error\n\nDid not receive a proper Error`);
     }
   }
 

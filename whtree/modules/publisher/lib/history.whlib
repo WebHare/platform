@@ -13,7 +13,7 @@ CONSTANT STRING ARRAY eventnames := [ "recycled"   //0 whconstant_historytype_re
                                     , "#2"         //currently unused
                                     , "reverted"   //3 whconstant_historytype_reverted
                                     , "created"    //4 whconstant_historytype_created
-                                    , "approved"   //5 whconstant_historytype_approved (legacy - may need to keep reserved if not reusable immediately)
+                                    , "approved"   //5 whconstant_historytype_approved
                                     ];
 
 /** Get the change history for this object

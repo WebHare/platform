@@ -8,7 +8,7 @@ LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 RECORD error;
 RECORD errorinfo := GetRequestErrorInfo();
 
-IF(IsWHDebugOptionSet("etr"))
+IF(IsWHDebugOptionSet("etr") OR IsDebugTagEnabled("etr"))
 {
   RECORD ARRAY allerrors := errorinfo.errors;
   IF(Length(errorinfo.errors)>1 AND allerrors[0].code=146) //Fix "When calling" appearing above the actual error
