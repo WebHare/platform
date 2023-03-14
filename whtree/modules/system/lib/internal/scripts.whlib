@@ -1,13 +1,52 @@
 ﻿<?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::os.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+PUBLIC RECORD FUNCTION LaunchScriptJS(STRING scriptname, STRING ARRAY args)
+{
+  TRY
+  {
+    OBJECT process := CreateProcess(`${GetWebHareConfiguration().installationroot}/modules/system/scripts/whcommands/node.sh`,
+          [ GetWebHareResourceDiskPath(scriptname), ...args ], [ take_output := TRUE, take_errors := TRUE, merge_output_errors := TRUE ]);
+
+    process->Start();
+    STRING output;
+    INTEGER exitcode := -1;
+    OBJECT itr := MakeProcessAsyncIterator(process, [ autoclose := FALSE ]);
+    WHILE (TRUE)
+    {
+      RECORD rec := WaitForPromise(itr->Next());
+      IF (rec.done)
+        BREAK;
+      SWITCH (rec.value.type)
+      {
+        CASE "output"   { output := output || rec.value.line || "\n"; }
+        CASE "close"    { exitcode := rec.value.exitcode; }
+      }
+    }
+    process->Close();
+    RETURN [ error := exitcode > 0, output := TrimWhitespace(output || "\n") || "\nScript returned exit code " || exitcode ];
+  }
+  CATCH(OBJECT e) //catches GetWebHareResourceDiskPath issues. other steps shouldn't throw
+  {
+    RETURN [ error := TRUE, output := e->what ];
+  }
+}
 
 PUBLIC RECORD FUNCTION LaunchScript(STRING scriptname, STRING ARRAY args)
 {
+  IF(GetExtensionFromPath(scriptname) IN whconstant_javascript_extensions)
+    RETURN LaunchScriptJS(scriptname, args);
+
   RECORD jobdata := CreateJob(scriptname);
   IF (NOT RecordExists(jobdata))
     ABORT("Don't have permission to start scripts"); // FATAL!
