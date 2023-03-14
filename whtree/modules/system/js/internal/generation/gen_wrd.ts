@@ -179,7 +179,7 @@ async function generateWRDDefs(config: WebHareConfiguration, modulename: string,
 
           fullfile += def + fulldef;
         } catch (e) {
-          console.error(e);
+          console.log((e as Error).message); //TODO log it, back to console.error, but we need to understand applicability first as we now fail for newsletter module
         }
       }
     }
