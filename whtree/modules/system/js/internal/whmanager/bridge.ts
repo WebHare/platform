@@ -13,6 +13,7 @@ import * as stacktrace_parser from "stacktrace-parser";
 import { ProcessList, DebugIPCLinkType, DebugRequestType, DebugResponseType, ConsoleLogItem } from "./debug";
 import * as inspector from "node:inspector";
 import * as envbackend from "@webhare/env/src/envbackend";
+import { getCallerLocation } from "../util/stacktrace";
 
 export { IPCMessagePacket, IPCLinkType } from "./ipc";
 export { SimpleMarshallableData, SimpleMarshallableRecord, IPCMarshallableData, IPCMarshallableRecord } from "./hsmarshalling";
@@ -46,7 +47,7 @@ type ConnectOptions = {
   global?: boolean;
 };
 
-interface LogErrorOptions {
+export interface LogErrorOptions {
   groupid?: string;
   script?: string;
   info?: string;
@@ -1007,26 +1008,6 @@ const old_std_writes = {
   stderr: process.stderr.write
 };
 
-function getCallerLocation(depth: number) {
-  const old_func = Error.prepareStackTrace;
-  let capturedframes: NodeJS.CallSite[] = [];
-  Error.prepareStackTrace = (error: Error, frames: NodeJS.CallSite[]) => {
-    capturedframes = frames;
-    old_func?.(error, frames);
-  };
-  void ((new Error).stack);
-  Error.prepareStackTrace = old_func;
-  const frame = capturedframes[depth];
-  if (!frame)
-    return null;
-  return ({
-    filename: frame.getFileName() || "unknown",
-    line: frame.getLineNumber() || 1,
-    col: frame.getColumnNumber() || 1,
-    func: frame.getFunctionName() || "unknown"
-  });
-}
-
 function hookConsoleLog() {
   const source: { func: string; location: { filename: string; line: number; col: number; func: string } | null; when: Date; loggedlocation: boolean } = {
     func: "",
@@ -1040,7 +1021,7 @@ function hookConsoleLog() {
       (console as any)[key] = (...args: unknown[]) => {
         source.func = key;
         source.when = new Date();
-        source.location = getCallerLocation(2);
+        source.location = getCallerLocation(1); // 1 is location of parent
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         return (func as (...args: any[]) => any).apply(console, args);
       };
