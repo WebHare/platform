@@ -1,5 +1,5 @@
-import * as services from '@webhare/services';
+import { config } from '@mod-system/js/internal/configuration';
 
 export function getDefaultRPCBase() {
-  return services.getConfig().backendurl;
+  return config.backendurl;
 }

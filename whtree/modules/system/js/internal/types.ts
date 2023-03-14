@@ -1,6 +1,6 @@
-import { HTTPMethod } from "@webhare/router";
-import { IPCMarshallableData, VariableType } from "./whmanager/hsmarshalling";
-import { IPCLinkType } from "./whmanager/ipc";
+import type { HTTPMethod } from "@webhare/router";
+import type { IPCMarshallableData, VariableType } from "./whmanager/hsmarshalling";
+import type { IPCLinkType } from "./whmanager/ipc";
 
 /// Primitive values (string, number or boolean)
 export type PlainValue = string | number | boolean;

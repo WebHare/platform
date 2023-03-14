@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import type { WebHareBackendConfiguration, ConfigFile } from "./generation/gen_config";
 import { RecursiveReadOnly, freezeRecursive } from "./util/algorithms";
 
-export { DTAPStage, WebHareBackendConfiguration, WebHareConfigFile } from "./generation/gen_config";
+export type { DTAPStage, WebHareBackendConfiguration, WebHareConfigFile } from "./generation/gen_config";
 
 function readConfigFile() {
   let dataroot = process.env.WEBHARE_DATAROOT;

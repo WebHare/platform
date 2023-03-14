@@ -8,6 +8,7 @@ import { _resolveToSingleElement, _getFocusableElement } from './pointer';
 export { testEq as eq, testThrows as throws, testTrue as true, testFalse as false } from './expect';
 export { canClick, click, focus, sendMouseGesture } from './pointer';
 export { pressKey, simulateTabKey } from './keyboard';
+export { log } from './log';
 import IframeTestRunner from './iframetestrunner';
 
 const testlist = [];
@@ -148,6 +149,7 @@ export function getDoc() {
   //webhare compatibility - remove if we can migrate webhare to iframetestrunner
   return top.document.querySelector('#testframeholder iframe').contentDocument;
 }
+
 export function qS(node_or_selector, selector) {
   if (typeof node_or_selector !== 'string')
     return node_or_selector.querySelector(selector);
@@ -227,19 +229,6 @@ function testWaitUntil(func, defer) {
   } catch (e) {
     defer.reject(e);
   }
-}
-
-export function log(text) {
-  /* FIXME
-    var nodes = [ document.createTextNode(text), document.createElement("br") ];
-    this.lastlognodes.push(nodes[0]);
-    this.lastlognodes.push(nodes[1]);
-
-    document.getElementById('logholder').appendChild(nodes[0]);
-    document.getElementById('logholder').appendChild(nodes[1]);
-    return nodes[0];
-  */
-  console.log("TESTFW log: " + text);
 }
 
 /** Return a promise that waits for event 'eventtype' to trigger on the node */

@@ -1,6 +1,6 @@
 import { handleModuleInvalidation, handleSoftReset } from "./hmrinternal";
 export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate } from "./hmrinternal";
-import * as services from "@webhare/services";
+import * as resources from "@webhare/services/src/resources";
 import whbridge from "@mod-system/js/internal/whmanager/bridge";
 
 // non-bridge stuff is placed into hmrinternal so it can be loaded first (bridge also registers as non-reloadable)
@@ -14,8 +14,7 @@ async function gotEvent({ name, data }: { name: string; data: unknown }) {
     if (resource.startsWith("direct::"))
       resource = resource.substring(8);
     else {
-      await services.ready();
-      resource = services.toFSPath(resource, { allowUnmatched: true });
+      resource = resources.toFSPath(resource, { allowUnmatched: true });
       if (!resource)
         return;
     }
