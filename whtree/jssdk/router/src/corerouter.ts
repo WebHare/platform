@@ -1,7 +1,7 @@
 import { callHareScript } from "@webhare/services";
 import * as whfs from "@webhare/whfs";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
-import { WebHareWHFSRouter, WebRequest, WebResponse, SiteRequest } from "./router";
+import { WebHareWHFSRouter, WebRequest, WebResponse, SiteRequest, createWebResponse } from "./router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 
 export async function lookupPublishedTarget(url: string) {
@@ -25,17 +25,41 @@ export async function lookupPublishedTarget(url: string) {
   };
 }
 
+async function routeThroughHSWebserver(request: WebRequest): Promise<WebResponse> {
+  //FIXME abortsignal / timeout
+
+  const trustedlocalport = 13679 + 5;
+  const trustedip = process.env["WEBHARE_SECUREPORT_BINDIP"] || "127.0.0.1"; //TODO we should probably name this WEBHARE_PROXYPORT_BINDIP ? not much secure about this port..
+  const headers = request.headers;
+  headers.set("X-Forwarded-For", "1.2.3.4"); //FIXME use real remote IP, should be in 'request'
+  headers.set("X-Forwarded-Proto", request.url.protocol.split(':')[0]); //without ':'
+  headers.set("Host", request.url.host);
+
+  const targeturl = `http://${trustedip}:${trustedlocalport}${request.url.pathname}${request.url.search}`;
+  const result = await fetch(targeturl, { headers, redirect: "manual" });
+  const body = await result.text();
+  const responseheaders: Record<string, string> = {};
+  for (const header of result.headers.entries())
+    responseheaders[header[0]] = header[1];
+
+  return createWebResponse(body, { status: result.status, headers: responseheaders });
+}
+
 /* TODO Unsure if this should be a public API of @webhare/router or whether it should be part of the router at all. We risk
         dragging in a lot of dependencies here in the end, and may @webhare/router should only be for apps that implement routes, not execute them */
 
 export async function coreWebHareRouter(request: WebRequest): Promise<WebResponse> {
   const target = await lookupPublishedTarget(request.url.toString()); //"Kijkt in database. Haalt file info en publisher info op"
+  /* TODO we have to disable this to be able to resolve <backend> webrules.
+          ideally we would only forward to the HS Websever if we hit a SHTML
   if (!target) //FIXME avoid new Error - it forces a stacktrace to be generated
     throw new Error("404 Unable to resolve the target. How do we route to a 404?"); //TODO perhaps there should be WebserverError exceptions similar to AbortWithHTTPError - and toplevel routers catch these ?
+  */
+
+  if (!target?.renderer) //Looks like we'll need to fallback to the WebHare webserver to handle this request
+    return await routeThroughHSWebserver(request);
 
   //Invoke the render function. TODO seperate VM/ShadowRealm etc
-  if (!target.renderer)
-    throw new Error("500 Unspecified render function");
 
   const renderer: WebHareWHFSRouter = await resourcetools.loadJSFunction(target.renderer) as WebHareWHFSRouter;
   const whfsreq = new SiteRequest(request, target.fileinfo);
