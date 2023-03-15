@@ -453,19 +453,24 @@ case $INSTR in
       echo ""
     fi
 
+    if [ -z "$WEBHARE_IN_DOCKER" ]; then #In Dockers it's the buildscripts (shrinkwrap) responsibility to set these up
+      if ! "$WEBHARE_DIR/modules/system/scripts/whcommands/rebuild-platform-helpers.sh" ; then
+        echo "Failed to rebuild platform helpers, aborting"
+        exit 1
+      fi
+    fi
+
+    if ! "$WEBHARE_DIR/modules/system/scripts/whcommands/update-generated-files.sh" "--onlyconfig" "--nodb"; then
+      echo "Failed to update the configuration file, aborting"
+      exit 1
+    fi
+
     TOSHOWFILE=
     if [ "$DEBUGTAGS" == "cov" ]; then
       runscript --workerthreads 4 "mod::system/scripts/debug/analyze_coverage.whscr" --deleteprofiles
 
       echo "Coverage data will be stored in ${WEBHARE_DATAROOT}ephemeral/profiles/default"
       echo
-    fi
-
-    if [ -z "$WEBHARE_IN_DOCKER" ]; then #In Dockers it's the buildscripts (shrinkwrap) responsibility to set these up
-      if ! "$WEBHARE_DIR/modules/system/scripts/whcommands/rebuild-platform-helpers.sh" ; then
-        echo "Failed to rebuild platform helpers, aborting"
-        exit 1
-      fi
     fi
 
     # envvar WEBHARE_DEBUG should be treated as an 'initial' value so we move it

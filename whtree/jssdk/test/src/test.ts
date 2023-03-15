@@ -14,7 +14,11 @@ export {
   setupLogging,
   wait,
   loadTSType,
-  loadJSONSchema
+  loadJSONSchema,
+  Equals,
+  RevEquals,
+  Assignable,
+  typeAssert
 } from './checks';
 let testscompleted = false;
 

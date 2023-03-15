@@ -8,6 +8,7 @@ LOADLIB "mod::tollium/lib/dragdrop.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/webserver/management.whlib";
 LOADLIB "mod::system/lib/internal/modules/defreader.whlib" EXPORT GetWebhareModules, GetWebhareModuleInfo;
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
@@ -26,6 +27,9 @@ PUBLIC MACRO SetSystemServerType(STRING newservertype)
   WriteRegistryKey("system.global.servertype", newservertype);
   GetPrimary()->CommitWork();
   UpdateSystemConfigurationRecord();
+
+  // Rebuild the webhare config file
+  UpdateWebHareConfigJSONFile();
 
   BroadcastEvent("system:config.servertype", DEFAULT RECORD);
   //ADDME access rules should listen to servertype themselves?
@@ -62,6 +66,9 @@ PUBLIC RECORD FUNCTION RefreshGlobalWebserverConfig(RECORD options DEFAULTSTO DE
 PUBLIC MACRO ReloadWebhareConfig2(STRING toreload, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions( [ isdelete := FALSE, nowait := FALSE ], options);
+
+  // Rebuild the webhare config file
+  UpdateWebHareConfigJSONFile();
 
   STRING ARRAY parts := toreload = "" ? DEFAULT STRING ARRAY : Tokenize(toreload, ' ');
   IF("AUTHDATA" IN parts OR "ALL" IN parts)

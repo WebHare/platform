@@ -2,7 +2,7 @@ import { map } from "./hmrlibs/keeper";
 import * as test from "@webhare/test";
 import * as fs from "fs";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
-import { calculateWebHareConfiguration } from "@mod-system/js/internal/configuration";
+import { config } from "@mod-system/js/internal/configuration";
 import { activate } from "@mod-system/js/internal/hmrinternal";
 import { openHSVM, HSVM, HSVMObject } from "@webhare/services/src/hsvm";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
@@ -87,23 +87,19 @@ async function createModule(hsvm: HSVM, name: string, files: Record<string, stri
 }
 
 async function testModuleReplacement() {
-  let serverconfig = calculateWebHareConfiguration();
-
   const hsvm = await openHSVM();
   await hsvm.loadlib("mod::system/lib/database.whlib").OpenPrimary();
 
-  if (serverconfig.module["webhare_testsuite_hmrtest"]) {
+  if (config.module["webhare_testsuite_hmrtest"]) {
     console.log(`delete module webhare_testsuite_hmrtest`);
     if (!await hsvm.loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule("webhare_testsuite_hmrtest"))
       throw new Error(`Could not delete module "webhare_testsuite_hmrtest"`);
-    serverconfig = calculateWebHareConfiguration();
   }
 
-  if (serverconfig.module["webhare_testsuite_hmrtest2"]) {
+  if (config.module["webhare_testsuite_hmrtest2"]) {
     console.log(`delete module webhare_testsuite_hmrtest2`);
     if (!await hsvm.loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule("webhare_testsuite_hmrtest2"))
       throw new Error(`Could not delete module "webhare_testsuite_hmrtest2"`);
-    serverconfig = calculateWebHareConfiguration();
   }
 
   console.log(`create module webhare_testsuite_hmrtest`);
@@ -128,10 +124,9 @@ async function testModuleReplacement() {
     "js/file2.ts": `import { func } from "@mod-webhare_testsuite_hmrtest/js/file"; export function func2() { return func(); }`
   });
 
-  serverconfig = calculateWebHareConfiguration();
   test.eq(1, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest/js/file.ts#func"))());
   test.eq(1, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest2/js/file2.ts#func2"))());
-  const orgpath = serverconfig.module["webhare_testsuite_hmrtest"].root;
+  const orgpath = config.module["webhare_testsuite_hmrtest"].root;
 
   console.log(`create 2nd version of module webhare_testsuite_hmrtest`);
   await createModule(hsvm, "webhare_testsuite_hmrtest", {
@@ -144,8 +139,7 @@ async function testModuleReplacement() {
     "js/file.ts": `export function func() { return 2; }; console.log("load file 2");`
   });
 
-  serverconfig = calculateWebHareConfiguration();
-  test.assert(orgpath !== serverconfig.module["webhare_testsuite_hmrtest"].root, `new path ${serverconfig.module["webhare_testsuite_hmrtest"].root} should differ from old path ${orgpath}`);
+  test.assert(orgpath !== config.module["webhare_testsuite_hmrtest"].root, `new path ${config.module["webhare_testsuite_hmrtest"].root} should differ from old path ${orgpath}`);
   test.eq(2, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest/js/file.ts#func"))());
   test.eq(2, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest2/js/file2.ts#func2"))());
 

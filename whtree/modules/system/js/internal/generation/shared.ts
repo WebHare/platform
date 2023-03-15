@@ -1,49 +1,57 @@
 import fs from "node:fs";
 
-function updateFile(filename: string, defs: string) {
+function updateFile(filename: string, defs: string): boolean {
   try {
     const current = fs.readFileSync(filename).toString();
     if (defs && current === defs) {
-      return;
+      return false;
     }
     if (!defs) {
       // remove the file if none should exist
       fs.rmSync(`${filename}`, { force: true });
-      console.log(`removed ${filename}`);
-      return;
+      return true;
     }
   } catch (e) {
     // file does not exist
     if (!defs)
-      return;
+      return false;
   }
 
   fs.rmSync(`${filename}.tmp`, { force: true });
   fs.writeFileSync(`${filename}.tmp`, defs);
   fs.renameSync(`${filename}.tmp`, filename);
+  return true;
 }
 
 export async function updateDir<O>(dir: string, wantfiles: Record<string, O>, removeother: boolean, generatecb: (file: string, data: O) => string | Promise<string>) {
+  let anyupdate = false;
   fs.mkdirSync(dir, { recursive: true });
   let existingfiles: string[] = [];
   if (removeother) {
     try {
-      existingfiles = fs.readdirSync(dir).filter(f => f.endsWith(".ts")).map(f => f.substring(0, f.length - 3));
+      existingfiles = fs.readdirSync(dir).filter(f => f.endsWith(".ts") || f.endsWith(".json")).map(f => f.substring(0, f.lastIndexOf(".")));
     } catch (e) {
     }
   }
 
   for (const file of Object.keys(wantfiles)) {
-    const defs = await generatecb(file, wantfiles[file]);
-    const filename = `${dir}${file}.ts`;
-    updateFile(filename, defs);
+    try {
+      const defs = await generatecb(file, wantfiles[file]);
+      const filename = `${dir}${file}`;
+      if (updateFile(filename, defs))
+        anyupdate = true;
+    } catch (e) {
+      console.error(`Error generating file ${file}: `, e);
+    }
   }
   if (removeother) {
     for (const file of existingfiles) {
       if (!Object.keys(wantfiles).includes(file)) {
-        const filename = `${dir}${file}.ts`;
-        updateFile(filename, "");
+        const filename = `${dir}${file}`;
+        if (updateFile(filename, ""))
+          anyupdate = true;
       }
     }
   }
+  return anyupdate;
 }

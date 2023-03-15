@@ -67,8 +67,10 @@ function _transform(
 
 function transpile(code: string, filename: string): string {
   const compiledpath = getCachePathForFile(filename);
-  //FIXME may race if the file gets deleted from the cache while we check - can we 'open' then 'stat' ?
-  const mustrecompile = !fs.existsSync(compiledpath) || fs.statSync(compiledpath).mtime < fs.statSync(filename).mtime;
+  let file_stat = fs.statSync(filename);
+  const compile_stat = fs.existsSync(compiledpath) && fs.statSync(compiledpath);
+
+  const mustrecompile = !compile_stat || compile_stat.mtime < file_stat.mtime;
   if (!mustrecompile) {
     if (debug)
       console.log('[runner] cache hit', filename, '=>', compiledpath);
@@ -76,16 +78,27 @@ function transpile(code: string, filename: string): string {
     return fs.readFileSync(compiledpath, { encoding: "utf8" });
   }
 
-  if (debug)
-    console.log('[runner] transpile', filename, '=>', compiledpath);
+  for (; ;) {
+    if (debug)
+      console.log('[runner] transpile', filename, '=>', compiledpath);
 
-  code = _transform(code, filename);
+    code = _transform(code, filename);
 
-  //Use a temporary file (open in exclusive mode for extra race safety) so we never have an empty or partially written file at the target spot
-  const tempname = compiledpath + "$tmp$" + Math.random();
-  fs.writeFileSync(tempname, code, { encoding: "utf8", flag: "wx" });
-  fs.renameSync(tempname, compiledpath);
-  return code;
+    //Use a temporary file (open in exclusive mode for extra race safety) so we never have an empty or partially written file at the target spot
+    const tempname = compiledpath + "$tmp$" + Math.random();
+    fs.writeFileSync(tempname, code, { encoding: "utf8", flag: "wx" });
+    fs.renameSync(tempname, compiledpath);
+
+    // Check if the source file didn't update during compilation. Make sure to compare the numerical values, the Date objects will never compare equal.
+    const old_file_stat = file_stat;
+    file_stat = fs.statSync(filename);
+
+    if (old_file_stat.mtime.valueOf() === file_stat.mtime.valueOf())
+      return code;
+
+    if (debug)
+      console.log('[runner] source updated during transpile', filename, old_file_stat.mtime, file_stat.mtime);
+  }
 }
 
 export function installResolveHook(setdebug: boolean) {

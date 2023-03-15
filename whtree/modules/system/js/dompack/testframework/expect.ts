@@ -1,9 +1,9 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import { log } from './index';
+import { log } from './log';
 
-const typeOf = function(item) {
+const typeOf = function(item: object | null) {
   if (item == null) return 'null';
 
   if (item.nodeName) {

@@ -4,6 +4,7 @@ import Ajv from "ajv";
 import { OpenAPIV3 } from "openapi-types";
 import { resolveResource, toFSPath } from "@webhare/services";
 import { loadJSFunction } from "../resourcetools";
+import { config } from "@mod-system/js/internal/configuration";
 
 const SupportedMethods: HTTPMethod[] = [HTTPMethod.GET, HTTPMethod.PUT, HTTPMethod.POST, HTTPMethod.DELETE, HTTPMethod.OPTIONS, HTTPMethod.HEAD, HTTPMethod.PATCH];
 
@@ -16,6 +17,8 @@ interface Operation {
   requestBody: OpenAPIV3.RequestBodyObject | null;
   // Authorization callback
   authorization: string | null;
+  // Responses
+  responses: OpenAPIV3.ResponsesObject;
 }
 
 interface Route {
@@ -26,6 +29,8 @@ interface Route {
   // Supported methods
   methods: Partial<Record<HTTPMethod, Operation>>;
 }
+
+type Match = { route: Route; params: Record<string, string> };
 
 interface WHOperationAddition {
   "x-webhare-implementation"?: string;
@@ -137,7 +142,8 @@ export class RestAPI {
               params,
               handler,
               requestBody: operation.requestBody as OpenAPIV3.RequestBodyObject | null,
-              authorization: operation_authorization
+              authorization: operation_authorization,
+              responses: operation.responses
             };
           }
         }
@@ -146,7 +152,7 @@ export class RestAPI {
     }
   }
 
-  findRoute(relurl: string, req: WebRequest) {
+  findRoute(relurl: string, req: WebRequest): Match | null {
     const path = relurl.split("/");
     for (const route of this.routes) {
       const params = matchesPath(path, route.path, req);
@@ -167,9 +173,34 @@ export class RestAPI {
 
     const endpoint = match.route.methods[req.method];
     if (!endpoint)
-      return createJSONResponse({ error: `Method ${req.method.toUpperCase()} not allowed for route '${relurl}'` }, { status: HTTPErrorCode.MethodNotAllowed });
+      return createJSONResponse({ error: `Method ${req.method.toUpperCase()} not allowed for path '${relurl}'` }, { status: HTTPErrorCode.MethodNotAllowed });
     if (!endpoint.authorization) //TODO with 'etr' return more about 'why'
       return createJSONResponse({ error: `Not authorized` }, { status: HTTPErrorCode.Forbidden });
+
+    const response = await this.handleEndpointRequest(req, relurl, match, endpoint);
+
+    if (["development", "test"].includes(config.dtapstage)) {
+      // ADDME: add flag to disable for performance testing
+
+      // Check if response is listed
+      if (!(response.status.toString() in endpoint.responses))
+        throw new Error(`Handler returned status code ${response.status} which is not mentioned for path ${JSON.stringify(`${req.method} ${relurl}`)}`);
+      const responsedef = endpoint.responses[response.status] as OpenAPIV3.ResponseObject;
+      const responseschema = responsedef?.content?.["application/json"]?.schema;
+      if (responseschema) {
+        const validator = this.ajv.compile(responseschema);
+        if (!validator(JSON.parse(response.body))) {
+          throw new Error(`Validation of the response (code ${response.status}) for ${JSON.stringify(`${req.method} ${relurl}`)} returned error: ${validator.errors?.[0]?.message || `Invalid request body`}`);
+        }
+      }
+    }
+
+    return response;
+  }
+
+  async handleEndpointRequest(req: WebRequest, relurl: string, match: Match, endpoint: Operation): Promise<WebResponse> {
+    if (!endpoint.authorization)
+      throw new Error(`Got an endpoint without authoriration settings`); // should be filtered out before this function
 
     // Build parameters (eg. from the path or from the query)
     const params: DefaultRestParams = {};
@@ -232,7 +263,7 @@ export class RestAPI {
     const authorizer = (await loadJSFunction(endpoint.authorization)) as RestAuthorizationFunction;
     const authresult = await authorizer(restreq);
     if (!authresult.authorized)
-      return authresult.response || createJSONResponse(null, { status: HTTPErrorCode.Unauthorized });
+      return authresult.response || createJSONResponse({ error: "Authorization is required for this endpoint" }, { status: HTTPErrorCode.Unauthorized });
 
     restreq.authorization = authresult.authorization;
     if (!endpoint.handler)

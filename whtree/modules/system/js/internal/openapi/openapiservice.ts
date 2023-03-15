@@ -1,11 +1,12 @@
 import * as fs from "node:fs";
 import YAML from "yaml";
+import * as env from "@webhare/env";
+import * as services from "@webhare/services";
 import { loadWittyResource, toFSPath } from "@webhare/services";
 import { RestAPI } from "./restapi";
 import { createJSONResponse, WebRequest, WebResponse, HTTPErrorCode, createWebResponse } from "@webhare/router";
 import { WebRequestInfo, WebResponseInfo } from "../types";
 import { getOpenAPIService } from "@webhare/services/src/moduledefparser";
-import bridge from "../whmanager/bridge";
 
 // A REST service supporting an OpenAPI definition
 export class RestService {
@@ -77,14 +78,24 @@ export class RestService {
       return this.#handleMetaPage(req, relurl);
 
     // Handle the request
+    let result: WebResponse;
     try {
-      return await this.restapi.handleRequest(req, "/" + relurl);
+      result = await this.restapi.handleRequest(req, "/" + relurl);
     } catch (e) {
       //TODO reveal more info when debugflag etr is set and verified. Also ensure notice logging!
-      bridge.logError(e as Error);
-      console.error(e);
-      return createJSONResponse({ error: "Internal error" }, { status: HTTPErrorCode.InternalServerError });
+      services.logError(e as Error);
+      result = createJSONResponse({ error: "Internal error" }, { status: HTTPErrorCode.InternalServerError });
     }
+
+    if (env.flags.openapi) {
+      services.log("system:debug", {
+        request: req,
+        response: { status: result.status, body: result.body, headers: result.headers },
+        trace: result.trace
+      });
+    }
+
+    return result;
   }
 }
 

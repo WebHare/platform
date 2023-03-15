@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import Module from "node:module";
-import type { WebHareConfiguration } from "@mod-system/js/internal/configuration";
+import { config, getFullConfigFile } from "./configuration";
 import { flags } from "@webhare/env/src/envbackend"; // don't want services module, included from @webhare/env
 
 type LibraryData = {
@@ -116,7 +116,7 @@ export function handleModuleInvalidation(path: string) {
     delete require.cache[key];
 }
 
-function toRealPaths(paths: string[]) {
+function toRealPaths(paths: readonly string[]) {
   return paths.map(path => {
     try {
       return fs.realpathSync(path);
@@ -130,7 +130,7 @@ function startsWithAny(path: string, paths: string[]) {
   return paths.some(p => path.startsWith(p) && (path.length === p.length || path[p.length] === "/"));
 }
 
-export function handleSoftReset(newconfig: WebHareConfiguration) {
+export function handleSoftReset() {
   /* every module has its own relativeResolveCache that keeps the link from provided (relative) path to
      cache key, that will only be cleared when the require.cache key cannot be found. There is no way to
      directly clear the relativeResolveCache, so we need to purge the require.cache from all files from
@@ -139,11 +139,13 @@ export function handleSoftReset(newconfig: WebHareConfiguration) {
   if (flags.hmr)
     console.log(`[hmr] handle softreset`);
 
+  const fullconfig = getFullConfigFile();
+
   // get all paths from which modules can be loaded
-  const modulescandirs = toRealPaths(newconfig.modulescandirs);
+  const modulescandirs = toRealPaths(fullconfig.modulescandirs);
 
   // and the real paths of all currently valid objects
-  const moduledirs = toRealPaths(Object.values(newconfig.module).map(m => m.root));
+  const moduledirs = toRealPaths(Object.values(config.module).map(m => m.root));
 
   // A path is now invalid if it is within the module scan paths, but not within an active module
   const isInvalidPath = (path: string) => startsWithAny(path, modulescandirs) && !startsWithAny(path, moduledirs);

@@ -1,4 +1,5 @@
 ﻿<group xmlns="http://www.webhare.net/xmlns/system/testinfo" tags="nodejs" ignoremasks="hmrlibs invoke_hsmarshalling.ts">
+  <test script="test_algorithms.ts" />
   <test script="test_std_api.ts" />
   <test script="test_hscompat.ts" />
   <test script="test_services.ts" />
@@ -15,6 +16,7 @@
   <test script="test_hsmarshalling.whscr" />
   <test script="test_whmanager_conn.ts" />
   <test script="test_whmanager_bridge.ts" />
+  <test script="test_stacktrace.ts" />
   <test script="test_hmr.ts" />
   <test script="test_witty.ts" />
   <test name="meta" path="meta/" />

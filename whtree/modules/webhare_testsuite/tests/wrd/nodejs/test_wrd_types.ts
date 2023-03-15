@@ -1,17 +1,6 @@
 import * as test from "@webhare/test";
 import { IsGenerated, IsNonUpdatable, IsRequired, WRDAttributeType, recordizeOutputMap, combineRecordOutputMaps, OutputMap, RecordizeOutputMap, MapRecordOutputMap, Insertable, WRDGender, TypeDefinition } from "@mod-wrd/js/internal/types";
 
-// from https://github.com/Microsoft/TypeScript/issues/27024
-type EqualsInternal<X, Y> =
-  (<T>() => T extends X ? 1 : 2) extends
-  (<T>() => T extends Y ? 1 : 2) ? true : false;
-
-// This form will give some feedback at the test site instead of 'false' does not extend 'true'
-type Equals<X extends Y, Y> = EqualsInternal<X, Y>;
-//type REquals<X, Y extends X> = EqualsInternal<X, Y>;
-
-function typeAssert<X extends true>(): X extends true ? void : void { return; }
-
 type MapOutput<T extends TypeDefinition, O extends OutputMap<T>> = MapRecordOutputMap<T, RecordizeOutputMap<T, O>>;
 
 function testTypes() {
@@ -64,7 +53,7 @@ function testTypes() {
 
   const stringselect = ["wrd_id", "wrd_title", "whuser_disabled", "whuser_comment", "whuser_unit", "invented_domain", "whuser_hiddenannouncements"] as const;
 
-  typeAssert<Equals<{
+  test.typeAssert<test.Equals<{
     wrd_id: number;
     wrd_title: string;
     whuser_disabled: boolean;
@@ -77,7 +66,7 @@ function testTypes() {
 
   const recordselect = { wrd_id: "wrd_id", rec: { wrd_title: "wrd_title" }, arr: ["whuser_disabled", "whuser_comment", "whuser_unit", "invented_domain", "whuser_hiddenannouncements"] } as const;
 
-  typeAssert<Equals<{
+  test.typeAssert<test.Equals<{
     wrd_id: number;
     rec: {
       wrd_title: string;
@@ -93,7 +82,7 @@ function testTypes() {
 
   type GenericWRDTypeDef = Record<string, WRDAttributeType.Integer>;
 
-  typeAssert<Equals<{
+  test.typeAssert<test.Equals<{
     a: "a";
     b: { c: "c" };
     d: {
@@ -101,7 +90,7 @@ function testTypes() {
     };
   }, RecordizeOutputMap<GenericWRDTypeDef, { a: "a"; b: { c: "c" }; d: ["e"] }>>>();
 
-  typeAssert<Equals<{
+  test.typeAssert<test.Equals<{
     a: number;
     b: { c: number };
     d: {
@@ -110,7 +99,7 @@ function testTypes() {
   }, MapRecordOutputMap<GenericWRDTypeDef, { a: "a"; b: { c: "c" }; d: { e: "e" } }>>>();
 
   /* This fails, don't know why
-  typeAssert<Equals<{
+  test.typeAssert<test.Equals<{
     invented_domain?: number | null;
     whuser_comment?: string;
     whuser_disabled?: boolean;
@@ -137,7 +126,7 @@ function testTypes() {
   }, Insertable<System_Usermgmt_WRDPerson>>>();
 */
   // FIXME: this only works when using Required, don't know why yet. It seems to look ok, though
-  typeAssert<Equals<Required<{
+  test.typeAssert<test.Equals<Required<{
     invented_domain?: number | null;
     whuser_comment?: string;
     whuser_disabled?: boolean;

@@ -1,5 +1,5 @@
 import { LinearBufferReader, LinearBufferWriter } from "./bufs";
-import * as finmath from '@mod-system/js/util/finmath';
+import * as finmath from '../../util/finmath';
 
 export enum VariableType {
   Uninitialized = 0x00,                 ///< Not initialised variable

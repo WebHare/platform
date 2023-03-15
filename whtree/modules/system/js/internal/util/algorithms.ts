@@ -47,3 +47,58 @@ export function pick<T extends object, K extends string & keyof T>(value: T | T[
   });
   return ret;
 }
+
+/** Returns an object with a selection of properties left out
+    @typeParam T - Type of the supplied object
+    @typeParam K - Type of the property keys to leave out
+    @param obj - Object to leave properties out of
+    @param keys - Names of the properties to remove
+    @returns Resulting object
+*/
+export function omit<T extends object, K extends string & keyof T>(obj: T, keys: readonly K[]): Omit<T, K>;
+
+/** Returns an array with a selection of properties left out
+    @typeParam T - Type of the supplied array
+    @typeParam K - Type of the property keys to leave out
+    @param obj - Array to leave properties out of
+    @param keys - Names of the properties to leave out
+    @returns Resulting array
+*/
+export function omit<T extends object, K extends string & keyof T>(arr: T[], keys: readonly K[]): Array<Omit<T, K>>;
+
+export function omit<T extends object, K extends string & keyof T>(value: T | T[], keys: readonly K[]): Omit<T, K> | Array<Omit<T, K>> {
+  if (Array.isArray(value))
+    return value.map((elt: T) => omit(elt, keys));
+  const ret = {} as Omit<T, K>;
+  for (const [key, val] of Object.entries(value)) {
+    if (!keys.includes(key as K))
+      ret[key as Exclude<keyof T, K>] = val;
+  }
+  return ret;
+}
+
+/** Recursively freezes a value
+ * @param value - Value to freeze
+ */
+export function freezeRecursive<T>(value: T): RecursiveReadOnly<T> {
+  if (Array.isArray(value)) {
+    Object.freeze(value);
+    for (const elt of value)
+      freezeRecursive(elt);
+  } else if (typeof value === "object" && value) {
+    Object.freeze(value);
+    for (const v of Object.values(value))
+      freezeRecursive(v);
+  }
+  return value as RecursiveReadOnly<T>;
+}
+
+/** Recursively converts a type to readonly
+ * @typeParam T - Type to convert
+*/
+export type RecursiveReadOnly<T> = T extends Array<infer U> ? ReadonlyArray<RecursiveReadOnly<U>> : T extends object ? { readonly [K in keyof T]: RecursiveReadOnly<T[K]> } : T;
+
+/** Recursively apply `Partial<>`  on records in a type
+ * @typeParam T - Type to convert
+*/
+export type RecursivePartial<T> = T extends Array<infer U> ? Array<RecursivePartial<U>> : T extends object ? { [K in keyof T]?: RecursivePartial<T[K]> } : T;

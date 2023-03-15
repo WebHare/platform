@@ -76,6 +76,22 @@ async function testChecks() {
   await test.wait(new Promise(resolve => resolve({ a: 1 })));
   await test.wait(new Promise(resolve => resolve(false)));
   await test.wait(() => Promise.resolve(true));
+
+  {
+    test.typeAssert<test.Assignable<number, 2>>();
+    // @ts-expect-error -- Can't assign a number to 2
+    test.typeAssert<test.Assignable<2, number>>();
+
+    test.typeAssert<test.Equals<1, 1>>();
+    test.typeAssert<test.Equals<{ a: 1; b: 2 }, { a: 1; b: 2 }>>();
+
+    // @ts-expect-error -- Can't assign a number to 2
+    test.typeAssert<test.Equals<number, 1>>();
+    // @ts-expect-error -- Can't assign a number to 2
+    test.typeAssert<test.Equals<1, number>>();
+    // @ts-expect-error -- Can't assign 2 to 1
+    test.typeAssert<test.Assignable<1, 2>>();
+  }
 }
 
 // Referenced by file#symbol reference in the loadTSType call above

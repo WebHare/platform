@@ -18,6 +18,7 @@ LOADLIB "mod::system/lib/internal/backend/backendsite.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 
@@ -307,5 +308,7 @@ IF(GetEnvironmentVariable("WEBHARE_CI") != "")
 }
 
 UpdateSystemBackendSite(); //this will also trigger a site profile (re)compilation!
+
+UpdateWebHareConfigJSONFile();
 
 trans->CommitWork();

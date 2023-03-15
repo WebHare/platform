@@ -4,23 +4,25 @@ export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource } from ".
 import * as fs from "node:fs";
 export { openBackendService, BackendServiceController } from "./backendservice";
 import { getBridgeService, InvokeOptions } from "./bridgeservice";
-export { getConfig } from "./config";
-import { setConfig } from "./config";
-export { WebHareBackendConfiguration } from "./bridgeservice";
+export { config, WebHareBackendConfiguration } from "./config";
 import * as witty from '@webhare/witty';
+import { config, WebHareBackendConfiguration } from "./config";
 export { broadcast, subscribe, BackendEvent, BackendEventSubscription } from "./backendevents";
-export { log, flushLog } from "./logging";
+export { log, flushLog, logError } from "./logging";
 export { ConvertBackendServiceInterfaceToClientInterface } from "@mod-system/js/internal/webhareservice";
 
-const configpromise = (async () => {
-  const newconfig = await (await getBridgeService()).getConfig();
-  setConfig(Object.freeze(newconfig));
-})();
-
-/** Promise that resolves as soon as the WebHare configuration is available */
+/** Promise that resolves as soon as the WebHare configuration is available
+ * @deprecated The configuration is now always available
+*/
 export async function ready(): Promise<void> {
-  //we also need the configuration promise to be ready..
-  await configpromise;
+  return;
+}
+
+/** Returns the current configuration
+ * @deprecated Just use `config`
+*/
+export function getConfig(): WebHareBackendConfiguration {
+  return config;
 }
 
 /** Asynchronously invoke a HareScript fuction

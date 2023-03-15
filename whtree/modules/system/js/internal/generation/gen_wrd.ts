@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { DOMParser } from '@xmldom/xmldom';
-import { calculateWebHareConfiguration, WebHareConfiguration } from "@mod-system/js/internal/configuration";
+import { config } from "../configuration";
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { resolveResource } from "@webhare/services";
 import { openHSVM } from "@webhare/services/src/hsvm";
@@ -57,7 +57,7 @@ type SchemaDef = {
   }>;
 };
 
-async function generateWRDDefs(config: WebHareConfiguration, modulename: string, modules: string[]): Promise<string> {
+async function generateWRDDefs(modulename: string, modules: string[]): Promise<string> {
   let fullfile = "";
   let used_isrequired = false;
   let used_wrdattr = false;
@@ -222,28 +222,26 @@ function createTypeDef(attr: SchemaDef["types"][number]["allattrs"][number], ind
   return typedef;
 }
 
+function generateFile(file: string, { defname, modules }: { defname: string; modules: string[] }) {
+  return generateWRDDefs(defname, modules);
+}
+
 export async function updateAllModuleWRDDefs() {
-  const config = calculateWebHareConfiguration();
-  const storagedir = config.basedatadir + "storage/system/generated/wrd/";
+  const storagedir = config.dataroot + "storage/system/generated/wrd/";
   const localdir = config.installationroot + "modules/system/js/internal/generated/wrd/";
 
-  const generateFile = (file: string, modules: string[]) => generateWRDDefs(config, file, modules);
 
   const noncoremodules = Object.keys(config.module).filter(m => !whconstant_builtinmodules.includes(m));
-  await updateDir(storagedir, Object.fromEntries(noncoremodules.map(m => [m, [m]])), true, generateFile);
-  await updateDir(localdir, { webhare: whconstant_builtinmodules }, true, generateFile);
+  await updateDir(storagedir, Object.fromEntries(noncoremodules.map(m => [m + ".ts", { defname: m, modules: [m] }])), true, generateFile);
+  await updateDir(localdir, { "webhare.ts": { defname: "webhare", modules: whconstant_builtinmodules } }, true, generateFile);
 }
 
 export async function updateSingleModuleWRDDefs(name: string) {
-  const config = calculateWebHareConfiguration();
-
-  const generateFile = (file: string, modules: string[]) => generateWRDDefs(config, file, modules);
-
   if (whconstant_builtinmodules.includes(name)) {
     const localdir = config.installationroot + "modules/system/js/internal/generated/wrd/";
-    await updateDir(localdir, { webhare: whconstant_builtinmodules }, true, generateFile);
+    await updateDir(localdir, { "webhare.ts": { defname: "webhare", modules: whconstant_builtinmodules } }, true, generateFile);
   } else {
-    const storagedir = config.basedatadir + "storage/system/generated/wrd/";
-    await updateDir(storagedir, { [name]: [name] }, true, generateFile);
+    const storagedir = config.dataroot + "storage/system/generated/wrd/";
+    await updateDir(storagedir, { [name + ".ts"]: { defname: name, modules: [name] } }, true, generateFile);
   }
 }

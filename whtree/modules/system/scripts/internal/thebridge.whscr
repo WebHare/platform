@@ -49,24 +49,6 @@ STATIC OBJECTTYPE BridgeConnection
     job->Close();
     DELETE FROM this->myjobs WHERE myjobs.job = VAR job;
   }
-
-  PUBLIC RECORD FUNCTION GetConfig()
-  {
-    //Greet it
-    RECORD config := GetWebhareConfiguration();
-    RECORD moduleroots;
-    FOREVERY(STRING module FROM GetInstalledModuleNames())
-      moduleroots := CellInsert(moduleroots, module, [ root := GetModuleInstallationRoot(module)]);
-
-    RECORD configpacket :=
-      [ installationroot := config.installationroot
-      , dataroot := config.varroot
-      , backendurl := GetPrimaryWebhareInterfaceURL()
-      , module := moduleroots
-      ];
-
-    RETURN configpacket;
-  }
 >;
 
 OBJECT FUNCTION Constructor()

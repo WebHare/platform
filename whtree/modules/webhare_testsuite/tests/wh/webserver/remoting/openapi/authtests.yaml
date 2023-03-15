@@ -10,6 +10,14 @@ paths:
       responses:
         "200":
           description: A dummy
+        "400":
+          "$ref": "#/components/responses/default400"
+        "401":
+          "$ref": "#/components/responses/default401"
+        "403":
+          "$ref": "#/components/responses/default403"
+        "500":
+          "$ref": "#/components/responses/default500"
       x-webhare-authorization: authtests.ts#needSecret
       x-webhare-implementation: authtests.ts#getDummy
     post:
@@ -17,6 +25,14 @@ paths:
       responses:
         "201":
           description: The created dummy
+        "400":
+          "$ref": "#/components/responses/default400"
+        "401":
+          "$ref": "#/components/responses/default401"
+        "403":
+          "$ref": "#/components/responses/default403"
+        "500":
+          "$ref": "#/components/responses/default500"
     x-webhare-authorization: authtests.ts#denyAll
 
   "/other":
@@ -24,3 +40,73 @@ paths:
       responses:
         "200":
           description: Another route
+
+
+components:
+  responses:
+   default400:
+     content:
+       application/json:
+         schema:
+           "$ref": "#/components/schemas/errordescription"
+     description: "Bad request"
+   default401:
+     content:
+       application/json:
+         schema:
+           "$ref": "#/components/schemas/errordescription"
+     description: "Authentication is required"
+   default403:
+     content:
+       application/json:
+         schema:
+           "$ref": "#/components/schemas/errordescription"
+     description: "Access to this resource has been denied"
+   default404:
+     content:
+       application/json:
+         schema:
+           "$ref": "#/components/schemas/errordescription"
+     description: "The requested resource does not exist"
+   default405:
+     content:
+       application/json:
+         schema:
+           "$ref": "#/components/schemas/errordescription"
+     description: "The requested method is not supported for this resource"
+   default409:
+     content:
+       application/json:
+         schema:
+           "$ref": "#/components/schemas/errordescription"
+     description: "A conflict happened when modifying this resource"
+   default412:
+     content:
+       application/json:
+         schema:
+           "$ref": "#/components/schemas/errordescription"
+     description: "The resource has been modified by another user"
+   default500:
+     content:
+       application/json:
+         schema:
+           "$ref": "#/components/schemas/errordescription"
+     description: "An internal error has occurred"
+   default503:
+     content:
+       application/json:
+         schema:
+           "$ref": "#/components/schemas/errordescription"
+     description: "Service not available"
+
+  schemas:
+    # Error description
+    errordescription:
+      properties:
+        code:
+          type: "string"
+        errorid:
+          type: "string"
+        message:
+          type: "string"
+      type: "object"

@@ -133,6 +133,9 @@ IF (IsDatabaseWritable())
   UpdateSystemBackendSite();
   trans->CommitWork();
 
+  // Rebuild the webhare config file
+  UpdateWebHareConfigJSONFile();
+
   trans->BeginWork();
   LogDebug("system:poststart", "Start PreflightChecks");
   PreflightChecks();
