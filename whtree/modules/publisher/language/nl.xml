@@ -196,6 +196,7 @@
       <text tid="selectvalues">Waardes selecteren</text>
       <text tid="value_hasvalue-false">is niet ingeschakeld</text>
       <text tid="value_hasvalue-true">is ingeschakeld</text>
+      <text tid="value_in">is een van</text>
     </textgroup>
     <textgroup gid="internallinks">   <!-- components.internallinks -->
       <text tid="append">toevoeging</text>
@@ -2688,18 +2689,18 @@
       <text tid="poll">Peiling</text>
     </textgroup>
     <textgroup gid="formconditions">   <!-- webtools.formconditions -->
-      <text tid="cannoteditcomplexcondition">Deze conditie is te complex om via de formulierapplicatie te wijzgen</text>
       <text tid="condition-and"><param p="1"/> EN <param p="2"/></text>
       <text tid="condition-contains">Het veld '<param p="1"/>' bevat de waarde <param p="2"/></text>
       <text tid="condition-containsall">Het veld '<param p="1"/>' bevat elk van de waardes <param p="2"/></text>
-      <text tid="condition-containsone">Het veld '<param p="1"/>' bevat één of meer van de waardes <param p="2"/></text>
+      <text tid="condition-containsone">Het veld '<param p="1"/>' bevat een van de waardes <param p="2"/></text>
+      <text tid="condition-containsoneormore">Het veld '<param p="1"/>' bevat een of meer van de waardes <param p="2"/></text>
       <text tid="condition-hasvalue">Het veld<ifparam p="1" value=""><else/> '<param p="1"/>'</ifparam> is ingevuld/ingeschakeld</text>
       <text tid="condition-isexactly">Het veld '<param p="1"/>' bevat precies de waardes <param p="2"/></text>
       <text tid="condition-isexactlyone">Het veld '<param p="1"/>' bevat precies de waarde <param p="2"/></text>
-      <text tid="condition-not">NIET <param p="1"/></text>
       <text tid="condition-notcontains">Het veld '<param p="1"/>' bevat niet de waarde <param p="2"/></text>
       <text tid="condition-notcontainsall">Het veld '<param p="1"/>' bevat niet elk van de waardes <param p="2"/></text>
-      <text tid="condition-notcontainsone">Het veld '<param p="1"/>' bevat niet één of meer van de waardes <param p="2"/></text>
+      <text tid="condition-notcontainsone">Het veld '<param p="1"/>' bevat niet een van de waardes <param p="2"/></text>
+      <text tid="condition-notcontainsoneormore">Het veld '<param p="1"/>' bevat niet een of meer van de waardes <param p="2"/></text>
       <text tid="condition-notisexactly">Het veld '<param p="1"/>' bevat niet precies de waardes <param p="2"/></text>
       <text tid="condition-notisexactlyone">Het veld '<param p="1"/>' bevat niet precies de waarde <param p="2"/></text>
       <text tid="condition-notolderthan">De datum in '<param p="1"/>' is niet minder dan <param p="2"/> jaar geleden</text>

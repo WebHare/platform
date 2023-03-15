@@ -146,6 +146,16 @@
         <image name="subconditionline" title="" value="tollium:forms/subcondition" width="16px" height="16px" />
         <select name="field" title="" type="pulldown" onchange="onfieldselect" width="1pr" />
         <inlineblock name="settings_in" title="" width="2pr" visible="false">
+          <!-- For single-value fields, only 'in' match type is supported  -->
+          <line>
+            <text title="" valuetid=".value_in" />
+            <textedit name="value_in" title="" enabled="false" width="1pr">
+              <button name="select_in" tid=".selectvalues" type="icon" icon="tollium:actions/edit" action="editvaluein" />
+            </textedit>
+          </line>
+        </inlineblock>
+        <inlineblock name="settings_match" title="" width="2pr" visible="false">
+        <!-- For multi-value fields, different match types are supported -->
           <line>
             <text title="" valuetid=".matchtype" />
             <select name="matchtype" title="" type="pulldown">
@@ -153,8 +163,8 @@
               <option rowkey="has" />
               <option rowkey="is" />
             </select>
-            <textedit name="value_in" title="" enabled="false" width="1pr">
-              <button name="selectvalues" type="icon" icon="tollium:actions/edit" action="editvaluein" />
+            <textedit name="value_match" title="" enabled="false" width="1pr">
+              <button name="select_match" tid=".selectvalues" type="icon" icon="tollium:actions/edit" action="editvaluein" />
             </textedit>
           </line>
         </inlineblock>

@@ -94,8 +94,17 @@ ASYNC MACRO TestEditConditions()
   // Cannot close: By default the first field is selected, which is a checkboxes field, and by default no options are selected
   TestEq(checkboxesfield->GetAttribute("guid"), TT("fragment1!field")->value);
   AWAIT ExpectNoScreenChange(PTR TTClick(":OK"));
+  // The 'checkboxes' field is selected, so the 'match' fields should be visible instead of the 'in' fields (which are used for single-select fields)
+  TestEq(TRUE, ObjectExists(TT("fragment1!value_match", [ allowmissing := TRUE ])));
+  TestEq(TRUE, ObjectExists(TT("fragment1!select_match", [ allowmissing := TRUE ])));
+  TestEq(FALSE, ObjectExists(TT("fragment1!value_in", [ allowmissing := TRUE ])));
+  TestEq(FALSE, ObjectExists(TT("fragment1!select_in", [ allowmissing := TRUE ])));
   TT("fragment1!field")->value := radiobuttonsfield->GetAttribute("guid");
-  AWAIT ExpectScreenChange(+1, PTR TTClick("fragment1!selectvalues"));
+  TestEq(FALSE, ObjectExists(TT("fragment1!value_match", [ allowmissing := TRUE ])));
+  TestEq(FALSE, ObjectExists(TT("fragment1!select_match", [ allowmissing := TRUE ])));
+  TestEq(TRUE, ObjectExists(TT("fragment1!value_in", [ allowmissing := TRUE ])));
+  TestEq(TRUE, ObjectExists(TT("fragment1!select_in", [ allowmissing := TRUE ])));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("fragment1!select_in"));
   TT("value")->value := [ EncodeHSON("ropt1") ]; // Field rowkeys are always HSON encoded
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
@@ -120,14 +129,18 @@ ASYNC MACRO TestEditConditions()
   // Set the new condition value
   TestEq(checkboxesfield->GetAttribute("guid"), TT("fragment2!field")->value);
   TT("fragment2!field")->value := radiobuttonsfield->GetAttribute("guid");
-  AWAIT ExpectScreenChange(+1, PTR TTClick("fragment2!selectvalues"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("fragment2!select_in"));
   TT("value")->value := [ EncodeHSON("ropt1") ];
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
   // The new condition can be deleted, in which case the OR condition is deleted and a new condition is initialized
   TTClick("fragment2!deleteconditionbutton");
   TestEq(checkboxesfield->GetAttribute("guid"), TT("fragment3!field")->value);
-  TestEq("", TT("fragment3!value_in")->value);
+  TestEq(TRUE, ObjectExists(TT("fragment3!value_match", [ allowmissing := TRUE ])));
+  TestEq(TRUE, ObjectExists(TT("fragment3!select_match", [ allowmissing := TRUE ])));
+  TestEq(FALSE, ObjectExists(TT("fragment3!value_in", [ allowmissing := TRUE ])));
+  TestEq(FALSE, ObjectExists(TT("fragment3!select_in", [ allowmissing := TRUE ])));
+  TestEq("", TT("fragment3!value_match")->value);
 
   // Change it again to an OR condition
   TT("fragment3!field")->value := ":OR";
@@ -140,7 +153,7 @@ ASYNC MACRO TestEditConditions()
   // Set the new condition value
   TestEq(checkboxesfield->GetAttribute("guid"), TT("fragment4!field")->value);
   TT("fragment4!field")->value := radiobuttonsfield->GetAttribute("guid");
-  AWAIT ExpectScreenChange(+1, PTR TTClick("fragment4!selectvalues"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("fragment4!select_in"));
   TT("value")->value := [ EncodeHSON("ropt1") ];
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
 
