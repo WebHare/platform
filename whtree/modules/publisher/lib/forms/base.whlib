@@ -1091,6 +1091,7 @@ PUBLIC STATIC OBJECTTYPE FormBase
           INSERT [ title := field.obj->title
                  , fields := RECORD[]
                  , name := field.obj->name
+                 , hidetitle := field.obj->hidetitle
                  ] INTO bygroup AT END;
           CONTINUE;
         }
@@ -1101,6 +1102,7 @@ PUBLIC STATIC OBJECTTYPE FormBase
           INSERT [ title := ""
                  , fields := RECORD[]
                  , name := ""
+                 , hidetitle := TRUE
                  ] INTO bygroup AT END;
 
         RECORD val := field.obj->GetComposableData();
@@ -1109,6 +1111,7 @@ PUBLIC STATIC OBJECTTYPE FormBase
 
         val := CELL[ fieldname := field.name
                    , fieldguid := field.guid
+                   , hidetitle := field.obj->hidetitle
                    , issubmitted := ToUppercase(field.guid ?? field.name) IN options.submittedfields
                    , link := ""
                    , ...val
