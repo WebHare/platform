@@ -552,6 +552,9 @@ case $INSTR in
     elif [ "$1" == "--inspect" ]; then
       export NODE_OPTIONS="$NODE_OPTIONS --inspect"
       shift
+    elif [ "$1" == "--inspect-brk" ]; then
+      export NODE_OPTIONS="$NODE_OPTIONS --inspect-brk"
+      shift
     fi
 
     getscripttorun SCRIPT "$@"
