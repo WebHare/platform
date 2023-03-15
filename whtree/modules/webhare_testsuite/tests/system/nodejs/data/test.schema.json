@@ -7,6 +7,10 @@
     },
     "b": {
       "type": "string"
+    },
+    "d": {
+      "type": "string",
+      "format": "date-time"
     }
   },
   "additionalProperties": false,
