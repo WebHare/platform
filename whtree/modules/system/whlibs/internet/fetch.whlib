@@ -1,0 +1,96 @@
+<?wh
+
+/** @short Fetch
+    @long Fetching resources over the internet via HTTP
+    @topic internet/webbrowser
+*/
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::filetypes/xml.whlib";
+LOADLIB "wh::internet/mime.whlib";
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+
+OBJECT fetchpool;
+
+STATIC OBJECTTYPE FetchResponse
+<
+  RECORD fetchresult;
+  PUBLIC PROPERTY status(fetchresult.status, -);
+  PUBLIC PROPERTY statustext(fetchresult.statustext, -);
+  // A boolean indicating whether the response was successful (status in the range 200 – 299) or not.
+  PUBLIC PROPERTY ok(fetchresult.ok, -);
+
+  MACRO NEW(RECORD fetchresult)
+  {
+    this->fetchresult := fetchresult;
+  }
+  PUBLIC ASYNC FUNCTION JSON()
+  {
+    RETURN DecodeJSONBlob(this->fetchresult.body);
+  }
+>;
+
+STATIC OBJECTTYPE SyncFetchResponse
+<
+  OBJECT asyncresponse;
+
+  MACRO NEW(OBJECT asyncresponse)
+  {
+    this->asyncresponse := asyncresponse;
+  }
+
+  PUBLIC PROPERTY status(asyncresponse->status, -);
+  PUBLIC PROPERTY statustext(asyncresponse->statustext, -);
+  PUBLIC PROPERTY ok(asyncresponse->ok, -);
+
+  PUBLIC VARIANT FUNCTION JSON()
+  {
+    RETURN WaitForPromise(this->asyncresponse->JSON());
+  }
+>;
+
+/** Fetch a HTTP resource
+    @param uri URI of the resource
+    @param options Fetch options
+    @return Promise resvoling to a Response
+*/
+PUBLIC ASYNC FUNCTION Fetch(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  IF(NOT ObjectExists(fetchpool))
+    fetchpool := OpenWebHareService("system:fetchpool");
+
+  options := ValidateOptions(
+      [ method :=         "GET"
+      , headers :=        DEFAULT RECORD
+      , body :=           DEFAULT BLOB
+      , redirect :=       "follow"
+      ],
+      options,
+      [ enums :=        [ redirect := [ "follow", "error", "manual" ]
+                        ]
+      , optional :=     [ "body" ]
+      ]);
+
+  IF(NOT RecordExists(options.headers))
+    options.headers := CELL[];
+
+  TRY
+  {
+    RETURN NEW FetchResponse(AWAIT (AWAIT fetchpool)->goFetch(uri, options));
+  }
+
+  CATCH(OBJECT<ServiceDisconnectException> e)
+  {
+    //just reconnect (once)
+    fetchpool := OpenWebHareService("system:fetchpool");
+    RETURN NEW FetchResponse(AWAIT (AWAIT fetchpool)->goFetch(uri, options));
+  }
+}
+
+/** Synchronous fetch implemtentation */
+PUBLIC OBJECT FUNCTION FetchSync(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  RETURN NEW SyncFetchResponse(WaitForPromise(Fetch(uri,options)));
+}

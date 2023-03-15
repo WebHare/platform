@@ -5,6 +5,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::money.whlib";
 LOADLIB "wh::float.whlib";
+LOADLIB "wh::internet/fetch.whlib";
 LOADLIB "wh::internet/http.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
@@ -19,6 +20,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/remoting/support.whlib";
 LOADLIB "mod::system/lib/internal/validation/support.whlib";
+LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 
 PUBLIC RECORD __restapiinfo;
 
@@ -1121,39 +1123,39 @@ RECORD FUNCTION PrepareRemoteRESTCall(STRING apispecification, STRING baseurl, S
     }
 
   BLOB request_body;
-  RECORD ARRAY headers;
+  RECORD headers;
   IF(jsonbody)
   {
-    headers := [[ field := "Content-Type", value := "application/json" ]];
+    headers := [ "Content-Type" := "application/json" ];
     request_body := EncodeJSONBlob(callrec);
   }
   ELSE IF(method != "GET")
   {
     RECORD requestrec := CreateHTTPUrlencodedRequest(postvars);
     request_body := requestrec.body;
-    headers := requestrec.headers;
+    headers := RepackRecord(SELECT value, name := field FROM requestrec.headers);
   }
 
   RETURN [ url := urltocall || options.appendtourl
-         , headers := headers
+         , headers := CELL[ ...headers
+                          , "Cookie" := `wh-debug=${GetSignedWHDebugOptions(["etr"])}`
+                          ]
          , body := request_body
          ];
 }
 
 PUBLIC STATIC OBJECTTYPE RestTester
 <
-  OBJECT testfw;
   STRING apispecification;
   STRING baseurl;
   RECORD options;
   BOOLEAN jsonbody;
 
-  MACRO NEW(OBJECT testfw, STRING apispecification, STRING baseurl, RECORD options)
+  MACRO NEW(STRING apispecification, STRING baseurl, RECORD options)
   {
     this->options := ValidateOptions( [ jsonbody := TRUE
                                       , debug := FALSE
                                       ], options);
-    this->testfw := testfw;
     this->apispecification := apispecification;
     this->baseurl := baseurl;
   }
@@ -1175,16 +1177,21 @@ PUBLIC STATIC OBJECTTYPE RestTester
       DumpValue(EncodeJSON(data), 'tree');
     }
 
-    IF (NOT this->testfw->browser->SendRawRequest(method, prep.url, prep.headers, prep.body))
+    RECORD fetchoptions := CELL[method, prep.headers ];
+    IF(ToUppercase(method) != "GET")
+      INSERT CELL body := prep.body INTO fetchoptions;
+
+    OBJECT response := FetchSync(prep.url, fetchoptions);
+    IF (NOT response->ok)
     {
-      INTEGER code := this->testfw->browser->GetHTTPStatusCode();
+      INTEGER code := response->status;
       IF (code = 0)
         THROW NEW Exception("Could not connect to webserver at " || this->baseurl);
 
-      OBJECT exc := NEW Exception("Failure " || this->testfw->browser->GetHTTPStatusText());
+      OBJECT exc := NEW Exception("Failure " || response->statustext);
       TRY
       {
-        RECORD traceinfo := DecodeJSONBlob(this->testfw->browser->content);
+        RECORD traceinfo := response->json();
         IF(RecordExists(traceinfo) AND CellExists(traceinfo,'error'))
         {
           exc->what := "Remote client error: " || traceinfo.error.message;
@@ -1203,7 +1210,7 @@ PUBLIC STATIC OBJECTTYPE RestTester
     }
 
     // FIXME: something with returntype="file"
-    RECORD retval := DecodeJSONBlob(this->testfw->browser->content);
+    RECORD retval := response->json();
 
     IF(options.debug)
       DumpValue(retval, 'tree');
