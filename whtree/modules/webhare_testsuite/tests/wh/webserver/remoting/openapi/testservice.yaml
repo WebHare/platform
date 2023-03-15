@@ -25,6 +25,14 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/user_list"
+        "400":
+          "$ref": "#/components/responses/default400"
+        "401":
+          "$ref": "#/components/responses/default400"
+        "403":
+          "$ref": "#/components/responses/default400"
+        "500":
+          "$ref": "#/components/responses/default500"
       parameters:
         - in: query
           name: searchFor
@@ -50,6 +58,14 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/user_out"
+        "400":
+          "$ref": "#/components/responses/default400"
+        "401":
+          "$ref": "#/components/responses/default400"
+        "403":
+          "$ref": "#/components/responses/default400"
+        "500":
+          "$ref": "#/components/responses/default500"
       x-webhare-implementation: users.ts#createUser
 
   "/users/{userid}":
@@ -64,6 +80,14 @@ paths:
             application/json:
               schema:
                 "$ref": "#/components/schemas/user_out"
+        "400":
+          "$ref": "#/components/responses/default400"
+        "401":
+          "$ref": "#/components/responses/default400"
+        "403":
+          "$ref": "#/components/responses/default400"
+        "500":
+          "$ref": "#/components/responses/default500"
       x-webhare-implementation: users.ts#getUser
 
   "/externalref":
@@ -76,8 +100,96 @@ paths:
             application/json:
               schema:
                 "$ref": "extref.schema.json"
+        "400":
+          "$ref": "#/components/responses/default400"
+        "401":
+          "$ref": "#/components/responses/default400"
+        "403":
+          "$ref": "#/components/responses/default400"
+        "500":
+          "$ref": "#/components/responses/default500"
+
+  "/validateoutput":
+    parameters:
+    - in: query
+      name: test
+      schema:
+        type: string
+    get:
+      responses:
+        "200":
+          description: Response
+          content:
+            application/json:
+              schema:
+                type: string
+        "400":
+          "$ref": "#/components/responses/default400"
+        "401":
+          "$ref": "#/components/responses/default400"
+        "403":
+          "$ref": "#/components/responses/default400"
+        "500":
+          "$ref": "#/components/responses/default500"
+      x-webhare-implementation: users.ts#validateOutput
 
 components:
+  responses:
+   default400:
+     content:
+       application/json:
+         schema:
+           "$ref": "#/components/schemas/errordescription"
+     description: "Bad request"
+   default401:
+     content:
+       application/json:
+         schema:
+           "$ref": "#/components/schemas/errordescription"
+     description: "Authentication is required"
+   default403:
+     content:
+       application/json:
+         schema:
+           "$ref": "#/components/schemas/errordescription"
+     description: "Access to this resource has been denied"
+   default404:
+     content:
+       application/json:
+         schema:
+           "$ref": "#/components/schemas/errordescription"
+     description: "The requested resource does not exist"
+   default405:
+     content:
+       application/json:
+         schema:
+           "$ref": "#/components/schemas/errordescription"
+     description: "The requested method is not supported for this resource"
+   default409:
+     content:
+       application/json:
+         schema:
+           "$ref": "#/components/schemas/errordescription"
+     description: "A conflict happened when modifying this resource"
+   default412:
+     content:
+       application/json:
+         schema:
+           "$ref": "#/components/schemas/errordescription"
+     description: "The resource has been modified by another user"
+   default500:
+     content:
+       application/json:
+         schema:
+           "$ref": "#/components/schemas/errordescription"
+     description: "An internal error has occurred"
+   default503:
+     content:
+       application/json:
+         schema:
+           "$ref": "#/components/schemas/errordescription"
+     description: "Service not available"
+
   schemas:
     # User properties for creating and updating users ('required' is added by createUser)
     user_in:
@@ -105,6 +217,17 @@ components:
       type: array
       items:
         "$ref": "#/components/schemas/user_out"
+    # Error description
+    errordescription:
+      properties:
+        code:
+          type: "string"
+        errorid:
+          type: "string"
+        message:
+          type: "string"
+      type: "object"
+
   parameters:
     userid:
       description: User id

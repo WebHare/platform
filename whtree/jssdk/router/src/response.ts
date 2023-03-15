@@ -1,3 +1,6 @@
+import * as env from "@webhare/env";
+import { getCallStackAsText } from "@mod-system/js/internal/util/stacktrace";
+
 type Headers = { [key: string]: string };
 
 export enum HTTPErrorCode {
@@ -55,9 +58,13 @@ export class WebResponse {
   private _status: HTTPStatusCode = HTTPSuccessCode.Ok;
   private _body = '';
   private _headers: Headers;
+  private _trace: string | undefined;
 
   constructor() {
     this._headers = { "content-type": "text/html; charset=utf-8" }; //TODO caller should set this based on expected extension eg to text/plain
+    if (env.flags.openapi) {
+      this._trace = getCallStackAsText(1);
+    }
   }
 
   get status() {
@@ -70,6 +77,10 @@ export class WebResponse {
 
   get headers() {
     return this._headers;
+  }
+
+  get trace() {
+    return this._trace;
   }
 
   /** Set the body */

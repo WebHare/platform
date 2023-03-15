@@ -1,4 +1,4 @@
-import { createJSONResponse, HTTPSuccessCode, RestRequest, WebResponse } from "@webhare/router";
+import { createJSONResponse, HTTPErrorCode, HTTPSuccessCode, RestRequest, WebResponse } from "@webhare/router";
 import * as test from "@webhare/test";
 
 const persons = [
@@ -42,4 +42,14 @@ export async function createUser(req: MyRestRequest): Promise<WebResponse> {
   test.assert("firstName" in addperson);
 
   return createJSONResponse({ ...addperson, id: 77 }, { status: HTTPSuccessCode.Created });
+}
+
+export async function validateOutput(req: MyRestRequest): Promise<WebResponse> {
+  switch (req.params.test) {
+    case "ok": return createJSONResponse("ok");
+    case "unknownStatusCode": return createJSONResponse({ error: `Expectation failed` }, { status: HTTPErrorCode.ExpectationFailed });
+    case "illegalData": return createJSONResponse({ structure: "wrong" });
+  }
+
+  return createJSONResponse({ error: `Illegal type` }, { status: HTTPErrorCode.BadRequest });
 }

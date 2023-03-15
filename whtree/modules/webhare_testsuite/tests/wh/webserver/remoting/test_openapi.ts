@@ -51,6 +51,15 @@ async function testService() {
 
   res = await instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/users", body: JSON.stringify({ firstName: "Klaasje" }), headers: jsonheader }, "users");
   test.eq(HTTPErrorCode.BadRequest, res.status);
+
+  res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/validateoutput?test=ok", body: "", headers: jsonheader }, "validateoutput");
+  test.eq(HTTPSuccessCode.Ok, res.status);
+
+  res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/validateoutput?test=unknownStatusCode", body: "", headers: jsonheader }, "validateoutput");
+  test.eq(HTTPErrorCode.InternalServerError, res.status);
+
+  res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/validateoutput?test=illegalData", body: "", headers: jsonheader }, "validateoutput");
+  test.eq(HTTPErrorCode.InternalServerError, res.status);
 }
 
 function enumRefs(obj: unknown, result: string[] = []): string[] {
@@ -87,7 +96,7 @@ async function testAuthorization() {
 
   res = await instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/dummy", body: "", headers: { "x-key": "secret" } }, "dummy");
   test.eq(HTTPErrorCode.Unauthorized, res.status, "Should not be getting NotImplemented - access checks go first!");
-  test.eq("null", res.body);
+  test.eq({ error: "Authorization is required for this endpoint" }, JSON.parse(res.body));
 }
 
 async function verifyPublicParts() {
