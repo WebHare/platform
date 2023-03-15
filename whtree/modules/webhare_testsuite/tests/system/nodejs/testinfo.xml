@@ -16,6 +16,7 @@
   <test script="test_hsmarshalling.whscr" />
   <test script="test_whmanager_conn.ts" />
   <test script="test_whmanager_bridge.ts" />
+  <test script="test_stacktrace.ts" />
   <test script="test_hmr.ts" />
   <test script="test_witty.ts" />
   <test name="meta" path="meta/" />
