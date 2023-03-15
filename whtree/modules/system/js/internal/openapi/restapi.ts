@@ -277,19 +277,19 @@ export class RestAPI {
     return await resthandler(restreq);
   }
 
-  renderOpenAPIJSON(baseurl: string, options: { filterxwebhare: boolean }): WebResponse {
+  renderOpenAPIJSON(baseurl: string, options: { filterxwebhare: boolean; format?: boolean }): WebResponse {
     let def = { ...this.bundled };
     if (options.filterxwebhare)
       def = filterXWebHare(def) as typeof def;
 
     if (!this.def)
-      return createJSONResponse({ error: `Service not configured` }, { status: HTTPErrorCode.InternalServerError });
+      return createJSONResponse({ error: `Service not configured` }, { status: HTTPErrorCode.InternalServerError, format: options.format });
 
     if (def.servers)
       for (const server of def.servers)
         if (server.url)
           server.url = new URL(server.url, baseurl).toString();
 
-    return createJSONResponse(def);
+    return createJSONResponse(def, { format: options.format });
   }
 }

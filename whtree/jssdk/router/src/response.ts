@@ -126,7 +126,7 @@ export function createWebResponse(body: string, options?: { status?: HTTPStatusC
  * @param jsonbody - The JSON body to return
  * @param options - Optional statuscode and headers
  */
-export function createJSONResponse<T = unknown>(jsonbody: T, options?: { status?: HTTPStatusCode; headers?: Record<string, string> }): WebResponse {
+export function createJSONResponse<T = unknown>(jsonbody: T, options?: { status?: HTTPStatusCode; headers?: Record<string, string>; format?: boolean }): WebResponse {
   const headers = { "content-type": "application/json", ...options?.headers };
-  return createWebResponse(JSON.stringify(jsonbody), { status: options?.status, headers });
+  return createWebResponse(JSON.stringify(jsonbody, null, options?.format ? 2 : undefined), { status: options?.status, headers });
 }

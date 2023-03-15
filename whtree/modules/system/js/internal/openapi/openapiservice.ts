@@ -60,8 +60,10 @@ export class RestService {
       return createWebResponse(await witty.runComponent(comp, apidata), { headers: metapageheaders });
     }
 
-    if (relurl == relurl_spec)
-      return this.restapi!.renderOpenAPIJSON(apibaseurl, { filterxwebhare: true });
+    if (relurl == relurl_spec) {
+      const format = ["1", "true"].includes(new URL(req.url).searchParams.get("format") || "");
+      return this.restapi!.renderOpenAPIJSON(apibaseurl, { filterxwebhare: true, format });
+    }
 
     return createWebResponse("Not found", { status: HTTPErrorCode.NotFound }); //TODO or should we fallback to a global 404 handler... although that probably isn't useful inside a namespace intended for robots
   }
