@@ -47,7 +47,7 @@ export interface RestSuccessfulAuthorization<T = unknown> {
   //TODO expire/cache/validity info? the handler should explain us which headers it looked at (like 'Vary'?)
   authorized: true;
   /** This authorization will be set as the request's authorization */
-  authorization?: T;
+  authorization: T;
 }
 
 /** Returned upon a failed autorization. May optionally contain a WebResponse to send to the user (if not set, a 401 Unauthorized error is returned) */

@@ -1,4 +1,4 @@
-import { createJSONResponse, HTTPErrorCode, HTTPSuccessCode, RestRequest, WebResponse } from "@webhare/router";
+import { createJSONResponse, HTTPErrorCode, HTTPSuccessCode, RestRequest, RestSuccessfulAuthorization, WebResponse } from "@webhare/router";
 import * as test from "@webhare/test";
 
 const persons = [
@@ -15,8 +15,8 @@ interface MyRestRequest extends RestRequest {
   authorization: MyAuthorization;
 }
 
-export async function allowAll(req: RestRequest) {
-  return { authorized: true };
+export async function allowAll(req: RestRequest): Promise<RestSuccessfulAuthorization> {
+  return { authorized: true, authorization: null };
 }
 
 export async function getUsers(req: MyRestRequest): Promise<WebResponse> {
