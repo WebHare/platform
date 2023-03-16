@@ -15,8 +15,7 @@ interface SiteRow extends Selectable<WebHareDB, "system.sites"> {
   webroot: string;
 }
 
-
-export class WHFSObject {
+class WHFSObject {
   protected readonly dbrecord: FsObjectRow;
 
   constructor(dbrecord: FsObjectRow) {
@@ -46,7 +45,7 @@ function excludeKeys<T extends string, K extends string>(t: T[], k: K[]): Array<
   return result;
 }
 
-export class WHFSFile extends WHFSObject {
+class WHFSFile extends WHFSObject {
   constructor(dbrecord: FsObjectRow) {
     super(dbrecord);
   }
@@ -55,7 +54,7 @@ export class WHFSFile extends WHFSObject {
   }
 }
 
-export class WHFSFolder extends WHFSObject {
+class WHFSFolder extends WHFSObject {
   constructor(dbrecord: FsObjectRow) {
     super(dbrecord);
   }
@@ -213,7 +212,6 @@ async function openWHFSObject(startingpoint: number, path: string | number, find
   return findfile ? new WHFSFile(dbrecord) : new WHFSFolder(dbrecord);
 }
 
-
 class Site {
   private readonly dbrow: SiteRow;
 
@@ -293,3 +291,5 @@ export async function openFolder(path: number | string, options: { allowMissing:
 export async function openFolder(path: number | string, options?: { allowMissing: boolean }) {
   return openWHFSObject(0, path, false, options?.allowMissing ?? false, "");
 }
+
+export type { Site, WHFSObject, WHFSFile, WHFSFolder };
