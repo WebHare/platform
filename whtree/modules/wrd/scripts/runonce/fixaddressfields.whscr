@@ -12,7 +12,7 @@ wh run mod::wrd/scripts/runonce/fixaddressfields.whscr
 
 Odd things I've already discovered
 - COUNTRY_FULL isn't always in the data received from ParseAddressRawdata
-- COUNTRY is sually uppercase but sometimes in lowercase
+- COUNTRY is usually uppercase but sometimes in lowercase
 */
 
 STRING ARRAY knownfields := ["CITY","COUNTRY","COUNTRY_FULL","NR_DETAIL","STREET","ZIP","PROVINCE","STATE","__WRDENTITY"];
