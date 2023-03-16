@@ -9,8 +9,10 @@ LOADLIB "wh::xml/dom.whlib";
 LOADLIB "mod::system/lib/printer.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/networking/adhocserver.whlib";
+LOADLIB "mod::system/lib/mailer.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+
 
 RECORD FUNCTION LookupRelativeResource(STRING basepath, STRING inpath)
 {
@@ -196,6 +198,7 @@ PUBLIC STATIC OBJECTTYPE WittyTest EXTEND TolliumScreenBase
   }
 >;
 
+
 PUBLIC STATIC OBJECTTYPE EmailTest EXTEND TolliumScreenBase
 <
   RECORD options;
@@ -209,6 +212,11 @@ PUBLIC STATIC OBJECTTYPE EmailTest EXTEND TolliumScreenBase
     ^value->value := data.email->mergerecord;
     ^wittypath->value := this->email->mailtemplatepath;
     this->ReloadEmail();
+  }
+
+  MACRO DoSendPreview()
+  {
+    this->RunScreen("#sendemailpreview", [ email := this->email ]);
   }
 
   MACRO ReloadEmail()
@@ -230,5 +238,38 @@ PUBLIC STATIC OBJECTTYPE EmailTest EXTEND TolliumScreenBase
   MACRO OnWittyUpdate(RECORD ARRAY data)
   {
     this->ReloadEmail();
+  }
+>;
+
+
+PUBLIC STATIC OBJECTTYPE SendEmailPreview EXTEND TolliumScreenBase
+<
+  OBJECT emailcomposer;
+
+  MACRO Init(RECORD data)
+  {
+    this->emailcomposer := data.email;
+  }
+
+  BOOLEAN FUNCTION Submit()
+  {
+    OBJECT work := this->BeginWork();
+    IF (work->HasFailed())
+      RETURN work->Finish();
+
+    STRING ARRAY receivers := TokenizeEmailAddresses(^email->value);
+
+    this->emailcomposer->mailto := receivers;
+    this->emailcomposer->QueueMailInWork();
+
+    BOOLEAN success := work->Finish();
+
+    IF (success)
+    {
+      this->RunSimpleScreen("info", GetTid("system:tolliumapps.commondialogs.wittytest.previewsent"));
+      RETURN TRUE;
+    }
+
+    RETURN FALSE;
   }
 >;

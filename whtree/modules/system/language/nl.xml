@@ -944,6 +944,9 @@
         <text tid="htmlsourcetab">HTML Bron</text>
         <text tid="pdf">PDF</text>
         <text tid="pdflog">Log</text>
+        <text tid="previewsent">Het voorbeeld is verzonden</text>
+        <text tid="sendemailpreview_frametitle">Stuur voorbeeld e-mail naar</text>
+        <text tid="sendpreview">Voorbeeld versturen</text>
         <text tid="wittypath">Witty pad</text>
         <text tid="wittytest">Witty test</text>
       </textgroup>
