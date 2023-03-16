@@ -247,9 +247,18 @@ PUBLIC MACRO FillInForm()
   Testeq("", witty.pages[0].title);
   Testeq("", witty.pages[0].groups[0].name);
   Testeq("", witty.pages[0].groups[0].title);
+  Testeq(TRUE, witty.pages[0].groups[0].hidetitle);
   TestEq(2, Length(witty.pages[0].groups[0].fields));
-  Testeq("Groups & stuff", witty.pages[0].groups[1].title);
+  TestEq("Groups & stuff", witty.pages[0].groups[1].title);
+  Testeq(FALSE, witty.pages[0].groups[1].hidetitle);
   Testeq("", witty.pages[0].groups[2].title);
+  Testeq(TRUE, witty.pages[0].groups[2].hidetitle);
+  Testeq("", witty.pages[0].groups[2].title);
+  dumpvalue(witty.pages[0].groups[2].fields);
+  TestEq("Textarea", witty.pages[0].groups[2].fields[1].title);
+  TestEq(FALSE, witty.pages[0].groups[2].fields[1].hidetitle);
+  TestEq("CheckboxOpt2", witty.pages[0].groups[2].fields[3].title);
+  TestEq(TRUE, witty.pages[0].groups[2].fields[3].hidetitle);
 
   TestEq(TRUE, IsAbsoluteUrl(firstuploadlink,FALSE), "Must be absolute: " || firstuploadlink);
   TestEq(TRUE, testfw->browser->GotoWebPage(firstuploadlink));
