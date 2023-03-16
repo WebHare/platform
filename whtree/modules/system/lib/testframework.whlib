@@ -1831,7 +1831,7 @@ STATIC OBJECTTYPE TestFramework
 
   PUBLIC OBJECT FUNCTION MakeRestAPITester(STRING apispecification, STRING baseurl, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    RETURN NEW RestTester(this, apispecification, baseurl, options);
+    RETURN NEW RestTester(apispecification, baseurl, options);
   }
 
   //Setup the test module

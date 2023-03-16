@@ -82,9 +82,14 @@ export class RestService {
     try {
       result = await this.restapi.handleRequest(req, "/" + relurl);
     } catch (e) {
-      //TODO reveal more info when debugflag etr is set and verified. Also ensure notice logging!
       services.logError(e as Error);
-      result = createJSONResponse({ error: "Internal error" }, { status: HTTPErrorCode.InternalServerError });
+
+      if (env.flags.etr)
+        result = createJSONResponse({ error: (e as Error).message, stack: (e as Error).stack }, { status: HTTPErrorCode.InternalServerError });
+      else if (services.config.dtapstage == "development")
+        result = createJSONResponse({ error: "Internal error - enable the 'etr' debug flag to enable full error tracing" }, { status: HTTPErrorCode.InternalServerError });
+      else
+        result = createJSONResponse({ error: "Internal error" }, { status: HTTPErrorCode.InternalServerError });
     }
 
     if (env.flags.openapi) {

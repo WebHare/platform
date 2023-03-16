@@ -2116,7 +2116,7 @@ The full base URL on which this site will be published, calculated by combining 
 
   <services>
     <backendservice name="openapiservice" clientfactory="js/internal/openapi/openapiservice.ts#getServiceInstance" />
-    <backendservice name="fetchpool" clientfactory="js/internal/fetchpool/fetchpool.ts#openFetchPool" />
+    <backendservice name="fetchpool" clientfactory="js/internal/fetchpool/fetchpool.ts#getFetcher" />
 
     <webservice name="auth" transports="whremoting" library="lib/internal/webharepeers/authservice.whlib" primarytrans="none" prefix="RPC_">
       <accesscheck>
