@@ -18,6 +18,11 @@ A dash can be used to insert a divider:
   <address name="myaddress" tid=".address" countrylist="NL BE DE - AT BG CY CZ DK EE ES FI FR GB GR HR HU IE IT LU LV MT PL PT RO SE SI SK" />
 ```
 
+The WORLD keyword can be used to list all remaining countries alphabetically:
+```xml
+  <address name="myaddress" tid=".address" countrylist="NL BE DE - WORLD" />
+```
+
 ## Override subfield titles
 
 The titles of the subfields can be overridden in the form's XML or dynamically:

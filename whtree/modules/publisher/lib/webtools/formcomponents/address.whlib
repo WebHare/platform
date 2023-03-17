@@ -88,19 +88,27 @@ OBJECT FUNCTION ReadCountries(STRING language)
 
 STRING ARRAY FUNCTION CheckCountryList(STRING ARRAY countries, OBJECT allcountries, STRING langcode)
 {
-  IF("WORLD" IN countries) //FIXME just support regions properly and have WORLD iterate 'm all
+  STRING ARRAY countrylist;
+  FOREVERY(STRING incountry FROM countries)
   {
-    RETURN
-        SELECT AS STRING ARRAY fromval
-          FROM allcountries->GetAllMappings()
-         WHERE fromval != "-"
-         ORDER BY NormalizeText(toval, langcode);
+    STRING ARRAY toadd;
+    IF(incountry = "WORLD")
+    {
+      toadd := SELECT AS STRING ARRAY fromval
+                 FROM allcountries->GetAllMappings()
+                WHERE fromval != "-"
+                      AND fromval NOT IN countries //not explicitly mentioned
+              ORDER BY NormalizeText(toval, langcode);
+    }
+    ELSE IF(allcountries->Has(ToUppercase(incountry)))
+    {
+      toadd := [ ToUppercase(incountry) ];
+    }
+
+    countrylist := countrylist CONCAT toadd;
   }
 
-  RETURN
-      SELECT AS STRING ARRAY ToUppercase(code)
-        FROM ToRecordArray(countries, "code")
-       WHERE allcountries->Has(ToUppercase(code));
+  RETURN countrylist;
 }
 
 PUBLIC STATIC OBJECTTYPE Address EXTEND FormComponentExtensionBase

@@ -193,6 +193,8 @@ test.registerTests(
     },
 
     async function CheckAddressFieldReordering() {
+      const countryoptions = [...test.qR("#addressform-address2\\.country").options].map(el => el.value);
+      test.eq(["", "NL", "BE", "DE", "", "AF", "AX", "AL"], countryoptions.slice(0, 8));
       test.fill("#addressform-address2\\.country", "NL");
       test.eq(["country", "zip", "nr_detail", "street", "city"], test.qSA(`.wh-form__fieldgroup:not(.wh-form__fieldgroup--hidden) [name^="address2."]`).map(node => node.name.replace("address2.", "")));
       test.fill("#addressform-address2\\.country", "BE");
