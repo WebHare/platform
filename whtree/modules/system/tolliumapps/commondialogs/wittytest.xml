@@ -33,16 +33,29 @@
     </footer>
   </screen>
 
+
   <screen name="emailtest" allowresize="true" savestate="size" width="130x" height="24x">
+    <actions>
+      <action name="refresh"     onexecute="reloademail" tid="~refresh" />
+      <action name="sendpreview" onexecute="dosendpreview" ellipsis="true" />
+    </actions>
     <compositions>
       <eventlistener name="wittylistener" onevents="onwittyupdate" />
     </compositions>
+    <toolbar>
+      <button action="refresh"     icon="tollium:actions/reload" />
+      <button action="sendpreview" icon="tollium:mailclient/previewmail" />
+    </toolbar>
     <body spacers="none">
       <tabs height="1pr" savestate="selectedtab">
         <tab name="data">
           <hsvalue name="value" height="1pr" />
         </tab>
         <tab name="htmlsourcetab" spacers="none">
+          <panel spacers="all">
+            <textedit name="wittypath" width="1pr" enabled="false" />
+          </panel>
+
           <panel height="1gr"  backgroundcolor="#FEFFDE" spacers="left right">
             <text valuetid=".htmlapproximation" />
           </panel>
@@ -56,13 +69,21 @@
     <footer>
       <grid>
         <cell width="1pr">
-          <textedit name="wittypath" width="1pr" enabled="false" />
         </cell>
         <cell>
           <defaultformbuttons buttons="close" />
         </cell>
       </grid>
     </footer>
+  </screen>
+
+
+  <screen name="sendemailpreview" width="70x"
+          tid=".sendemailpreview_frametitle"
+          footerbuttons="ok cancel">
+    <body>
+      <textedit name="email" width="1pr" required="true" tid="~email" validationchecks="emails" />
+    </body>
   </screen>
 
 </screens>

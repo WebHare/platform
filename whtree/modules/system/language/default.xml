@@ -1130,6 +1130,9 @@
         <text tid="htmlsourcetab">HTML Source</text>
         <text tid="pdf">PDF</text>
         <text tid="pdflog">Log</text>
+        <text tid="previewsent">The preview has been sent</text>
+        <text tid="sendemailpreview_frametitle">Send e-mail preview to</text>
+        <text tid="sendpreview">Send preview</text>
         <text tid="wittypath">Witty path</text>
         <text tid="wittytest">Witty test</text>
       </textgroup>
