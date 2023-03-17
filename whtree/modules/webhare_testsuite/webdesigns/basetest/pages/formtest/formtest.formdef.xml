@@ -260,7 +260,7 @@
         </address>
         <textedit name="neighbourhood" />
         <richtext name="address2heading"><body xmlns="http://www.w3.org/1999/xhtml"><h2>Adddress 2</h2><p>countrylist=NL BE DE, options=nl-zip-suggest</p></body></richtext>
-        <address name="address2" countrylist="NL BE DE" options="nl-zip-suggest">
+        <address name="address2" countrylist="NL BE DE - WORLD" options="nl-zip-suggest">
           <fieldtitle tag="country" title="Address2" />
           <fieldtitle tag="nr_detail" title="Number and Addition2" />
         </address>
