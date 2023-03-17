@@ -97,7 +97,7 @@ STRING ARRAY FUNCTION CheckCountryList(STRING ARRAY countries, OBJECT allcountri
       toadd := SELECT AS STRING ARRAY fromval
                  FROM allcountries->GetAllMappings()
                 WHERE fromval != "-"
-                      AND fromval NOT IN countries //not explicitly mneitoned
+                      AND fromval NOT IN countries //not explicitly mentioned
               ORDER BY NormalizeText(toval, langcode);
     }
     ELSE IF(allcountries->Has(ToUppercase(incountry)))
