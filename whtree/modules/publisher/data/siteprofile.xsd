@@ -1804,8 +1804,8 @@
         <xs:list>
           <xs:simpleType>
             <xs:restriction base="xs:string">
-              <!-- A list of two-letter country codes and "-" (a divider in the country select option list) -->
-              <xs:pattern value="[A-Z]{2}|-"/>
+              <!-- A list of two-letter country codes and "-" (a divider in the country select option list). WORLD to add all countries not explicitly mentioned -->
+              <xs:pattern value="[A-Z]{2}|-|WORLD"/>
             </xs:restriction>
           </xs:simpleType>
         </xs:list>
