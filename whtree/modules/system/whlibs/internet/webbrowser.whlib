@@ -10,7 +10,6 @@ LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::internet/websocket.whlib";
-LOADLIB "wh::internal/ntlm.whlib";
 LOADLIB "wh::filetypes/xml.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/jobs.whlib";
@@ -204,7 +203,6 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
   STRING pvt_server;
   INTEGER pvt_port;
   INTEGER pvt_conn;
-  RECORD ntauthstate;
   BOOLEAN pvt_secure;
   STRING pvt_url;
   STRING pvt_hash;
@@ -596,29 +594,6 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
         RECORD proxyurl;
         STRING proxyauthurl;
 
-        IF(RecordExists(this->ntauthstate))
-        {
-          DELETE FROM headers WHERE field = "Authorization";
-          IF(this->ntauthstate.state = "sendnegotiate") //initial state
-          {
-            INSERT [ field := "Authorization", value := "NTLM " || EncodeBase64(EncodeNTLMType1(this->ntauthstate.hostname,this->ntauthstate.ntdomain)) ] INTO headers AT END;
-            this->ntauthstate.state := "expectchallenge";
-          }
-          ELSE IF(this->ntauthstate.state = "respondchallenge") //once we've got the connection
-          {
-            INSERT [ field := "Authorization", value := "NTLM " || EncodeBase64(this->ntauthstate.response) ] INTO headers AT END;
-            this->ntauthstate.state := "negotiated";
-          }
-          ELSE IF(this->ntauthstate.state = "negotiated") //we're done, stop sending NTLM packets
-          {
-
-          }
-          ELSE
-          {
-            THROW NEW Exception(`Unexpected NTLM state '${this->ntauthstate.state}'`);
-          }
-        }
-
         IF(NOT YIELD* this->SendBrowserTo(method, url
                                   , RecordExists(auth) ? auth.username : unpacked.user
                                   , RecordExists(auth) ? auth.password : unpacked.password
@@ -684,34 +659,14 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
           */
           STRING fieldname := isproxyauth ? "PROXY-AUTHENTICATE" : "WWW-AUTHENTICATE";
           RECORD x_basicauth := SELECT * FROM result.headers WHERE ToUppercase(field)=ToUppercase(fieldname) AND Touppercase(value) LIKE "BASIC *";
-          RECORD x_ntlmauth := SELECT * FROM result.headers WHERE ToUppercase(field)=ToUppercase(fieldname) AND (Touppercase(value) = "NTLM" OR Touppercase(value) LIKE "NTLM *");
           RECORD basicauth := RecordExists(x_basicauth) ? DecodeHTTPAuthenticationHeader(x_basicauth.value, FALSE) : DEFAULT RECORD;
 
-          IF( (NOT RecordExists(basicauth) OR NOT CellExists(basicauth,"realm")) AND NOT RecordExists(x_ntlmauth))
+          IF(NOT RecordExists(basicauth) OR NOT CellExists(basicauth,"realm"))
           {
             this->MyErrorHandler("No supported authentication method available");
             RETURN FALSE;
           }
-          IF(RecordExists(x_ntlmauth) AND RecordExists(this->ntauthstate))
-          {
-            IF(this->ntauthstate.state = "expectchallenge" AND x_ntlmauth.value LIKE "NTLM *")
-            {
-              RECORD challenge := DecodeNTLMType2(DecodeBase64(Tokenize(x_ntlmauth.value,' ')[1]));
-              IF(challenge.header != "NTLMSSP" OR challenge.type != 0)
-                THROW NEW Exception("Misunderstood NTLM auth challenge");
 
-              this->ntauthstate.state := "respondchallenge";
-              this->ntauthstate.response := EncodeNTLMType3(this->ntauthstate.username
-                                                           ,this->ntauthstate.hostname
-                                                           ,this->ntauthstate.ntdomain
-                                                           ,challenge.nonce
-                                                           ,this->ntauthstate.password
-                                                           );
-              auths := auths + 1;
-              CONTINUE;
-            }
-            THROW NEW Exception(`Unexpected NTLM challenge in state '${this->ntauthstate.state}'`);
-          }
           IF(isproxyauth AND proxyauthurl="")
           {
             this->MyErrorHandler("Unexpected Proxy-Authenticate");
@@ -736,23 +691,6 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
           {
             this->MyErrorHandler("No authentication information provided by authentication callback");
             RETURN FALSE;
-          }
-
-          IF(RecordExists(x_ntlmauth))
-          {
-            STRING ntdomain := authdata.username LIKE "*\\*" ? Tokenize(authdata.username, "\\")[0] : "";
-            STRING username := authdata.username LIKE "*\\*" ? Tokenize(authdata.username, "\\")[1] : authdata.username;
-
-            this->ntauthstate :=
-              [ state := "sendnegotiate"
-              , ntdomain := ntdomain
-              , hostname := "webhare"
-              , username := username
-              , password := authdata.password
-              , response := ""
-              ];
-
-            CONTINUE;
           }
 
           IF(RecordExists(auth) AND (isproxyauth ? auth.urlspace = proxyauthurl : auth.urlspace = authurlspace))
@@ -1023,7 +961,6 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
     {
       CloseHTTPServer(this->pvt_conn);
       this->pvt_conn := 0;
-      this->ntauthstate := DEFAULT RECORD;
     }
 
     this->SetCloseTimer(FALSE);

@@ -639,7 +639,7 @@ PUBLIC STRING FUNCTION GetVariableHash(VARIANT variable)
 
 PUBLIC STRING FUNCTION Encrypt(STRING algorithm, STRING keydata, STRING data, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  IF(algorithm NOT IN ["bf-ecb","bf-cbc","des-ecb"])
+  IF(algorithm NOT IN ["bf-ecb","bf-cbc"])
     THROW NEW Exception(`Unsupported algorithm '${algorithm}'`); //ADDME open up more values, but first add verification tests to test_crypto
   options := ValidateOptions([ iv := "" ], options);
   RETURN __DoEvpCrypt(algorithm, TRUE, keydata, data, options.iv);

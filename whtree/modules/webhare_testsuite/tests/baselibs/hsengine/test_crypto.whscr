@@ -3,7 +3,6 @@
 
 LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::internal/interface.whlib";
-LOADLIB "wh::internal/ntlm.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::filetypes/pkcs.whlib";
 
@@ -18,9 +17,6 @@ RECORD ARRAY errors;
 
 MACRO HashTest()
 {
-  TestEq("31D6CFE0D16AE931B73C59D7E0C089C0", EncodeBase16(GetHashForString("", "MD4")));
-  TestEq("1BEE69A46BA811185C194762ABAEAE90", EncodeBase16(GetHashForString("The quick brown fox jumps over the lazy dog", "MD4")));
-
   TestEq("D41D8CD98F00B204E9800998ECF8427E", EncodeBase16(GetMD5Hash("")));
   TestEq("EF654C40AB4F1747FC699915D4F70902", EncodeBase16(GetMD5Hash("testdata")));
   TestEq("8AD9F1B219A7285AC52DB689139498A1", EncodeBase16(GetMD5Hash("Dit is een test")));
@@ -328,26 +324,6 @@ CP31msR8uNuQ7QOhlvxbx9Moh8x4Bg4yBGuyIK8+RnujLFt8Hd4bH/zLT6nddbv2VrO0lrfFJNTZKTtf
   TestThrowsLike('Encryption iv length is wrong*', PTR Encrypt("bf-cbc","0131D9619DC1376E", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", [ iv := "ABCDEFG" ]));
   TestThrowsLike('Encryption iv length is wrong*', PTR Encrypt("bf-cbc","0131D9619DC1376E", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", [ iv := "ABCDEFGHI" ]));
 
-  /* reference values for DES-ECB
-php -r 'print openssl_encrypt("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789","des-ecb","0131D96",0) . "\n";'
-mD36t8a0pMRGed39CeLFTXrGEwIaFroE2aWdYOEJ8dTa5W41v+2qJ8Fq5fjd8JDEzNuph3pxE2l/NJeAFB6TIw==
-
-php -r 'print openssl_encrypt("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789","des-ecb","0131D960",0) . "\n";'
-qIpzDBARpTOJIK+3EaJ8PPeoU2cJJMBkK++iFZ6xk0RVIl9ujzrKtI5NaoOP/5IXo15M0kq+z5qW5mPq/2jXUw==
-
-php -r 'print openssl_encrypt("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789","des-ecb","0131D968",0) . "\n";'
-jCoFdC0klCmZ0It+q5pc9jZwG64r/94V+AaAx/AAy0ALwnlIAh5zKOaWghV1YswnypLPA/ag+WabqtlFNq/4rg==
-
-php -r 'print openssl_encrypt("abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789","des-ecb","0131D969",0) . "\n";'
-jCoFdC0klCmZ0It+q5pc9jZwG64r/94V+AaAx/AAy0ALwnlIAh5zKOaWghV1YswnypLPA/ag+WabqtlFNq/4rg==
-*/
-
-  TestEq("mD36t8a0pMRGed39CeLFTXrGEwIaFroE2aWdYOEJ8dTa5W41v+2qJ8Fq5fjd8JDEzNuph3pxE2l/NJeAFB6TIw==", EncodeBase64(Encrypt("des-ecb","0131D96", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
-  TestEq("qIpzDBARpTOJIK+3EaJ8PPeoU2cJJMBkK++iFZ6xk0RVIl9ujzrKtI5NaoOP/5IXo15M0kq+z5qW5mPq/2jXUw==", EncodeBase64(Encrypt("des-ecb","0131D960", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
-  TestEq("jCoFdC0klCmZ0It+q5pc9jZwG64r/94V+AaAx/AAy0ALwnlIAh5zKOaWghV1YswnypLPA/ag+WabqtlFNq/4rg==", EncodeBase64(Encrypt("des-ecb","0131D968", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
-  TestEq("jCoFdC0klCmZ0It+q5pc9jZwG64r/94V+AaAx/AAy0ALwnlIAh5zKOaWghV1YswnypLPA/ag+WabqtlFNq/4rg==", EncodeBase64(Encrypt("des-ecb","0131D969", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789")));
-  TestThrowsLike('Encryption iv length is wrong*', PTR Encrypt("des-ecb","0131D969", "abcdefghijklmnopqrstuvwxyzabcdefghijklmnopqrstuvwxyz123456789", [iv := "x"]));
-
   //not expecting this to throw
   TestEq("", EncodeBase16(Decrypt("bf-cbc","0131D9619DC1376E","xxx")));
 }
@@ -503,26 +479,6 @@ H2h8jdsZh7NNS721SRqwqyI8n1LeVEKhtQDO
   TestEq("C=GB, ST=Greater Manchester, L=Salford, O=COMODO CA Limited, CN=COMODO RSA Domain Validation Secure Server CA", result.issuer);
 }
 
-MACRO NTLMTests()
-{
-  TestEq("5FBC3D5FEC8206A30F4B6C473D68AE76", EncodeBase16(GetNTHash("pass123")));
-  TestEq("CD06CA7C7E10C99B1D33B7485A2ED808", EncodeBase16(GetNTHash("SecREt01")));
-  TestEq("E3C2D68648C27222CB4520BD7783FB87", EncodeBase16(GetNTHash("longerthanfourteen")));
-  TestEq("8C1B59E32E666DADF175745FAD62C133", EncodeBase16(GetNTHash("Beeblebrox")));
-
-  TestEq("4FB7D301186E0EB3AAD3B435B51404EE", EncodeBase16(GetLMHash("pass123")));
-  TestEq("FF3750BCC2B22412C2265B23734E0DAC", EncodeBase16(GetLMHash("SecREt01")));
-  TestEq("D9D77D9926DDEB881942ED25097AC704", EncodeBase16(GetLMHash("longerthanfourteen")));
-  TestEq("919016F64EC7B00BA235028CA50C7A03", EncodeBase16(GetLMHash("Beeblebrox")));
-
-//  TestEq("TlRMTVNTUAABAAAAA7IAAAoACgApAAAACQAJACAAAABMSUdIVENJVFlVUlNBLU1JTk9S", EncodeBase64(EncodeNTLMType1("LightCity","Ursa-Minor"))); //we disabled passing these params until we can find a proper referential case. it looks like our offsets were actually wrong!
-  TestEq("TlRMTVNTUAABAAAAAwIAAAAAAAAoAAAAAAAAACgAAAAAAAAAAAAAAA==", EncodeBase64(EncodeNTLMType1("","")));
-  TestEq( [ header := "NTLMSSP", type := 0, nonce := "SrvNonce" ], DecodeNTLMTYpe2(DecodeBase64("TlRMTVNTUAACAAAAAAAAACgAAAABggAAU3J2Tm9uY2UAAAAAAAAAAA==")));
-
-  TestEq("4E544C4D53535000030000001800180072000000180018008A00000014001400400000000C000C0054000000120012006000000000000000A20000000182000055005200530041002D004D0049004E004F0052005A006100700068006F0064004C0049004700480054004300490054005900AD87CA6DEFE34685B9C43C477A8C42D600667D6892E7E897E0E00DE3104A1BF2053F07C7DDA82D3C489AE989E1B000D3"
-        ,EncodeBase16(EncodeNTLMType3("Zaphod","LightCity","Ursa-Minor","SrvNonce","Beeblebrox")));
-}
-
 MACRO HMACTest()
 {
   STRING testdata := 'Testdata\n';
@@ -561,6 +517,5 @@ PasswordTest();
 XorTest();
 EvpTest();
 PKCSTest();
-NTLMTests();
 HMACTest();
 GUIDTest();
