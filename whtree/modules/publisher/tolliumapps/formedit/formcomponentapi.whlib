@@ -243,6 +243,7 @@ PUBLIC STATIC OBJECTTYPE FormComponentAPI
            WHERE rowkey IN condition.value;
       DELETE CELL value FROM condition;
       INSERT CELL value := value INTO condition;
+      BOOLEAN multiple := RecordExists(SELECT FROM ToRecordArray(field.supportedvalues, "val") WHERE val LIKE "*array");
 
       SWITCH (condition.matchtype)
       {
@@ -253,8 +254,12 @@ PUBLIC STATIC OBJECTTYPE FormComponentAPI
                 ? GetTid("publisher:webtools.formconditions.condition-notcontains", fieldname, condition.value[0])
                 : GetTid("publisher:webtools.formconditions.condition-contains", fieldname, condition.value[0]);
           RETURN negative
-              ? GetTid("publisher:webtools.formconditions.condition-notcontainsone", fieldname, FormatStringList(condition.value, "OR", GetTidLanguage()))
-              : GetTid("publisher:webtools.formconditions.condition-containsone", fieldname, FormatStringList(condition.value, "OR", GetTidLanguage()));
+              ? (multiple
+                  ? GetTid("publisher:webtools.formconditions.condition-notcontainsoneormore", fieldname, FormatStringList(condition.value, "OR", GetTidLanguage()))
+                  : GetTid("publisher:webtools.formconditions.condition-notcontainsone", fieldname, FormatStringList(condition.value, "OR", GetTidLanguage())))
+              : (multiple
+                  ? GetTid("publisher:webtools.formconditions.condition-containsoneormore", fieldname, FormatStringList(condition.value, "OR", GetTidLanguage()))
+                  : GetTid("publisher:webtools.formconditions.condition-containsone", fieldname, FormatStringList(condition.value, "OR", GetTidLanguage())));
         }
         CASE "HAS" // Contains (at least) all of these values
         {

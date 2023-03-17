@@ -699,7 +699,7 @@ RECORD ARRAY FUNCTION GetOptions(STRING valtype, OBJECT parent, STRING parenttid
 PUBLIC STRING ARRAY FUNCTION GetFormSelectSupportedValues(RECORD field)
 {
   IF(CellExists(field,'rowkeytype')) //These may not have been set if we came through AppendFormField and no match option was set
-    RETURN [ "options", field.rowkeytype || (field.type = "checkbox" ? "array" : "") ];
+    RETURN [ "options", field.rowkeytype || (field.selecttype = "checkbox" ? "array" : "") ];
 
   RETURN [ "options", "string" ];
 }

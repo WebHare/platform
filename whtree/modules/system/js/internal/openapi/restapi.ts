@@ -1,6 +1,7 @@
 import SwaggerParser from "@apidevtools/swagger-parser";
 import { createJSONResponse, HTTPErrorCode, WebRequest, DefaultRestParams, RestRequest, WebResponse, HTTPMethod, RestAuthorizationFunction, RestImplementationFunction } from "@webhare/router";
 import Ajv from "ajv";
+import addFormats from "ajv-formats";
 import { OpenAPIV3 } from "openapi-types";
 import { resolveResource, toFSPath } from "@webhare/services";
 import { loadJSFunction } from "../resourcetools";
@@ -87,6 +88,7 @@ export class RestAPI {
   protected get ajv() {
     if (!this._ajv) {
       this._ajv = new Ajv();
+      addFormats(this._ajv);
     }
     return this._ajv;
   }

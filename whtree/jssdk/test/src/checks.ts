@@ -1,6 +1,7 @@
 import * as testsupport from "./testsupport";
 import * as diff from 'diff';
 import Ajv, { SchemaObject, ValidateFunction } from "ajv";
+import addFormats from "ajv-formats";
 export { LoadTSTypeOptions } from "./testsupport";
 export { sleep } from "@webhare/std";
 
@@ -365,8 +366,10 @@ let ajv: (Ajv | null) = null;
 export async function loadTSType(typeref: string, options: testsupport.LoadTSTypeOptions = {}): Promise<TestTypeValidator> {
   const schema = await testsupport.getJSONSchemaFromTSType(typeref, options);
 
-  if (!ajv)
+  if (!ajv) {
     ajv = new Ajv();
+    addFormats(ajv);
+  }
 
   return new JSONSchemaValidator(ajv.compile(schema));
 }
@@ -378,8 +381,10 @@ export async function loadJSONSchema(schema: string | SchemaObject): Promise<Tes
   } else
     tocompile = schema;
 
-  if (!ajv)
+  if (!ajv) {
     ajv = new Ajv();
+    addFormats(ajv);
+  }
 
   return new JSONSchemaValidator(ajv.compile(tocompile));
 }

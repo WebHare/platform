@@ -196,6 +196,7 @@
       <text tid="selectvalues">Select values</text>
       <text tid="value_hasvalue-false">is not set</text>
       <text tid="value_hasvalue-true">is set</text>
+      <text tid="value_in">is one of</text>
     </textgroup>
     <textgroup gid="internallinks">   <!-- components.internallinks -->
       <text tid="append">addition</text>
@@ -2689,18 +2690,18 @@
       <text tid="poll">Poll</text>
     </textgroup>
     <textgroup gid="formconditions">   <!-- webtools.formconditions -->
-      <text tid="cannoteditcomplexcondition">This condition is too complex to be modified using the forms application</text>
       <text tid="condition-and"><param p="1"/> AND <param p="2"/></text>
       <text tid="condition-contains">The field '<param p="1"/>' contains value <param p="2"/></text>
       <text tid="condition-containsall">The field '<param p="1"/>' contains all of the values <param p="2"/></text>
-      <text tid="condition-containsone">The field '<param p="1"/>' contains one or more of the values <param p="2"/></text>
+      <text tid="condition-containsone">The field '<param p="1"/>' contains one of the values <param p="2"/></text>
+      <text tid="condition-containsoneormore">The field '<param p="1"/>' contains one or more of the values <param p="2"/></text>
       <text tid="condition-hasvalue">The field<ifparam p="1" value=""><else/> '<param p="1"/>'</ifparam> is filled/set</text>
       <text tid="condition-isexactly">The field '<param p="1"/>' contains exactly the values <param p="2"/></text>
       <text tid="condition-isexactlyone">The field '<param p="1"/>' contains exactly the value <param p="2"/></text>
-      <text tid="condition-not">NOT <param p="1"/></text>
-      <text tid="condition-notcontains">The field '<param p="1"/>' does not contain value <param p="2"/></text>
+      <text tid="condition-notcontains">The field '<param p="1"/>' does not contain the value <param p="2"/></text>
       <text tid="condition-notcontainsall">The field '<param p="1"/>' does not contain all of the values <param p="2"/></text>
-      <text tid="condition-notcontainsone">The field '<param p="1"/>' does not contain one or more of the values <param p="2"/></text>
+      <text tid="condition-notcontainsone">The field '<param p="1"/>' does not contain any of the values <param p="2"/></text>
+      <text tid="condition-notcontainsoneormore">The field '<param p="1"/>' does not contain one or more of the values <param p="2"/></text>
       <text tid="condition-notisexactly">The field '<param p="1"/>' does not contain exactly the values <param p="2"/></text>
       <text tid="condition-notisexactlyone">The field '<param p="1"/>' does not contain exactly the value <param p="2"/></text>
       <text tid="condition-notolderthan">The date in '<param p="1"/>' is not less than <param p="2"/> years ago</text>

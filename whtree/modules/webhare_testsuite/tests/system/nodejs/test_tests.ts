@@ -37,9 +37,10 @@ async function testChecks() {
   }
 
   {
-    const v_js = await test.loadJSONSchema({ "type": "object", "properties": { "a": { "type": "number" }, "b": { "type": "string" } }, "$schema": "http://json-schema.org/draft-07/schema#" });
-    v_js.validateStructure({ a: 0, c: "1" });
+    const v_js = await test.loadJSONSchema({ "type": "object", "properties": { "a": { "type": "number" }, "b": { "type": "string" }, "d": { "type": "string", "format": "date-time" } }, "$schema": "http://json-schema.org/draft-07/schema#" });
+    v_js.validateStructure({ a: 0, c: "1", d: "2000-01-01T12:34:56Z" });
     await test.throws(/data does not conform to the structure: "\/b" must be string/, () => v_js.validateStructure({ a: 0, b: 1 }), "wrong type not detected");
+    await test.throws(/data does not conform to the structure: "\/d" must match format "date-time"/, () => v_js.validateStructure({ a: 0, d: "test" }), "wrong format not detected");
   }
 
   {
@@ -47,7 +48,8 @@ async function testChecks() {
     await test.throws(/data does not conform to the structure: "\/b" must be string/, () => v_jsf.validateStructure({ a: 0, b: 1 }), "wrong type not detected");
     await test.throws(/must NOT have additional properties/, () => v_jsf.validateStructure({ a: 0, b: "a", c: "1" }), "extra property not detected");
     await test.throws(/must have required property 'b'/, () => v_jsf.validateStructure({ a: 0 }), "missing property not detected");
-    v_jsf.validateStructure({ a: 0, b: "a" });
+    await test.throws(/data does not conform to the structure: "\/d" must match format "date-time"/, () => v_jsf.validateStructure({ a: 0, b: "a", d: "test" }), "wrong format not detected");
+    v_jsf.validateStructure({ a: 0, b: "a", d: "2000-01-01T12:34:56Z" });
   }
 
 

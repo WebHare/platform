@@ -216,8 +216,11 @@ PUBLIC STATIC OBJECTTYPE SingleFormCondition EXTEND TolliumFragmentBase
   // List of condition component references
   OBJECT ARRAY conditionobjs;
 
-  // Selected values for value_in
+  // Selected values for 'in' conditions
   RECORD ARRAY value_in_options;
+
+  // If multiple values can be selected for 'in' conditions
+  BOOLEAN match_multiple_in;
 
 
   // ---------------------------------------------------------------------------
@@ -337,6 +340,7 @@ PUBLIC STATIC OBJECTTYPE SingleFormCondition EXTEND TolliumFragmentBase
         CASE "in"
         {
           this->value_in_options := SELECT *, value := rowkey, rowkey := EncodeHSON(rowkey), tolliumselected := FALSE FROM ^field->selection.options;
+          this->match_multiple_in := RecordExists(SELECT FROM ToRecordArray(^field->selection.supportedvalues, "value") WHERE value LIKE "*array");
 
           // Delete any subcondition components
           FOREVERY (OBJECT conditionobj FROM this->conditionobjs)
@@ -556,7 +560,8 @@ PUBLIC STATIC OBJECTTYPE SingleFormCondition EXTEND TolliumFragmentBase
   {
     // Show only the matchtype-specific settings
     STRING matchtype := RecordExists(^field->selection) ? ^field->selection.type : "";
-    ^settings_in->visible := matchtype = "in";
+    ^settings_in->visible := matchtype = "in" AND NOT this->match_multiple_in;
+    ^settings_match->visible := matchtype = "in" AND this->match_multiple_in;
     ^settings_hasvalue->visible := matchtype = "hasvalue";
     ^settings_datetime->visible := matchtype = "datetime";
     ^datetime_age->visible := matchtype = "datetime";
@@ -564,6 +569,7 @@ PUBLIC STATIC OBJECTTYPE SingleFormCondition EXTEND TolliumFragmentBase
     ^settings_suffix->visible := matchtype IN [ "and", "or" ];
 
     ^value_in->value := Detokenize((SELECT AS STRING ARRAY title FROM this->value_in_options WHERE tolliumselected), "; ");
+    ^value_match->value := Detokenize((SELECT AS STRING ARRAY title FROM this->value_in_options WHERE tolliumselected), "; ");
 
     // Update the add/delete button state for subconditions
     IF (Length(this->conditionobjs) > 0)
