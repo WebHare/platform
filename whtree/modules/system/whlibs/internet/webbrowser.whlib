@@ -233,7 +233,6 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
   STRING pvt_connectingto;
 
   RECORD ARRAY pvt_hostnameoverrides;
-  RECORD ARRAY __proxies; //connection proxyies
 
   /** List of macro ptrs that will be called for every request
       Signature: MACRO hook(BOOLEAN beforerequest, STRING method, STRING url, INTEGER transactionid, RECORD data);
@@ -822,19 +821,6 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
     }
   }
 
-  /** EXPERIMENTAL SetProxyFor - little or no test coverage yet
-      @param proxy Addres of the proxy (must start with 'socks4://')
-      @param urlmask Mask for urls to route through the proxy
-  */
-  PUBLIC MACRO SetProxyFor(STRING proxy, STRING urlmask)
-  {
-    IF(proxy NOT LIKE "socks4://*")
-      THROW NEW Exception(`Unsupported proxy type`); //probably shouldn't dump the URI, obvious candidates for containing passwords..
-
-    DELETE FROM this->__proxies WHERE __proxies.urlmask = proxy;
-    INSERT CELL[ proxy, urlmask ] INTO this->__proxies AT END;
-  }
-
   /** Set up for use of trusted ports (ADDME convert this to 'generic' reconfiguration and routing)
       @param ip IP address of the trusted port
       @param port Port number of the trusted port
@@ -903,100 +889,46 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
       STRING connecttohost := RecordExists(override) ? override.overridewith : server;
       INTEGER connecttoport := RecordExists(override) AND override.outport != 0 ? override.outport : port;
 
-      RECORD proxy := SELECT * FROM this->__proxies WHERE url LIKE urlmask;
-      IF(RecordExists(proxy))
+      IF(this->debug OR __webbrowser_debugall)
+        Print(`Connecting to ${connecttohost}:${connecttoport} (for ${url})\n`);
+
+      BOOLEAN connectresult := FALSE;
+      STRING ARRAY connectips := this->GetConnectIPsForHost(connecttohost);
+      IF (IsDefaultValue(connectips))
+        this->pvt_sockerr := -16; // unable to resolve*/
+      ELSE
       {
-        IF(this->debug OR __webbrowser_debugall)
-          Print(`Proxy! Connect through ${proxy.proxy} to ${url}\n`);
-
-        RECORD proxyurl := UnpackURL(proxy.proxy);
-        BOOLEAN connectresult := isasync
-            ? YIELD AsyncConnectSocket(connid, proxyurl.host, proxyurl.port)
-            : ConnectSocket(connid, proxyurl.host, proxyurl.port);
-
-        IF (NOT connectresult)
+        BOOLEAN anyallowed;
+        STRING ARRAY disallowerrors;
+        FOREVERY (STRING ip FROM connectips)
         {
+          IF (IsValueSet(this->__checkconnectipport) AND NOT this->__checkconnectipport(url, ip, connecttoport))
+          {
+            INSERT FormatSocketAddress(ip, connecttoport) INTO disallowerrors AT END;
+            CONTINUE;
+          }
+          anyallowed := TRUE;
+          connectresult := isasync
+              ? YIELD AsyncConnectSocket(connid, ip, connecttoport)
+              : ConnectSocket(connid, ip, connecttoport);
+          IF (connectresult)
+            BREAK;
           this->pvt_sockerr := GetLastSocketError(connid);
           this->pvt_sockerrmessage := GetLastSocketErrorMessage(connid);
-          this->MyErrorHandler("Could not connect to proxy " || connecttohost || ":" || connecttoport || " (for " || url || ")");
-          CloseSocket(connid);
-          RETURN 0;
         }
-
-        STRING connectpacket := EncodePacket("ver:C,cmd:C,dstport:n,destip:P,userid:a*,domain:a*",
-                                              CELL[ ver := 4
-                                                  , cmd := 1
-                                                  , dstport := connecttoport
-                                                  , destip := 1 //socks4a : send domain name
-                                                  , userid := "socks"
-                                                  , domain := connecttohost //FIXME shouldn't we use destip if this is a IP?
-                                                  ]);
-
-        STRING response;
-        IF(isasync)
+        IF (NOT anyallowed)
         {
-          YIELD AsyncSendBlobTo(connid, StringToBlob(connectpacket));
-          response := YIELD AsyncReadFrom(connid, 8);
-        }
-        ELSE
-        {
-          PrintTo(connid, connectpacket);
-          response := ReadFrom(connid,8);
-
-        }
-
-        /* TODO strictly we should wait for 8 bytes to arrive, but short reads are pretty much impossible in practice at the
-           start of a connection, so deal with that when we hit it. by that time SOCKS support should be in tcpip.whlib, not here */
-        IF(Length(response) < 8 OR Substring(response,1,1) != "\x5A") //5A is 'request granted'.
-        {
-          this->MyErrorHandler("SOCKS4 connection to " || connecttohost || ":" || connecttoport || " failed (for " || url || ")");
+          this->MyErrorHandler(`Not allowed to connect to ${Detokenize(disallowerrors, ", ")}`);
           CloseSocket(connid);
           RETURN 0;
         }
       }
-      ELSE
+
+      IF (NOT connectresult)
       {
-        IF(this->debug OR __webbrowser_debugall)
-          Print(`Connecting to ${connecttohost}:${connecttoport} (for ${url})\n`);
-
-        BOOLEAN connectresult := FALSE;
-        STRING ARRAY connectips := this->GetConnectIPsForHost(connecttohost);
-        IF (IsDefaultValue(connectips))
-          this->pvt_sockerr := -16; // unable to resolve*/
-        ELSE
-        {
-          BOOLEAN anyallowed;
-          STRING ARRAY disallowerrors;
-          FOREVERY (STRING ip FROM connectips)
-          {
-            IF (IsValueSet(this->__checkconnectipport) AND NOT this->__checkconnectipport(url, ip, connecttoport))
-            {
-              INSERT FormatSocketAddress(ip, connecttoport) INTO disallowerrors AT END;
-              CONTINUE;
-            }
-            anyallowed := TRUE;
-            connectresult := isasync
-                ? YIELD AsyncConnectSocket(connid, ip, connecttoport)
-                : ConnectSocket(connid, ip, connecttoport);
-            IF (connectresult)
-              BREAK;
-            this->pvt_sockerr := GetLastSocketError(connid);
-            this->pvt_sockerrmessage := GetLastSocketErrorMessage(connid);
-          }
-          IF (NOT anyallowed)
-          {
-            this->MyErrorHandler(`Not allowed to connect to ${Detokenize(disallowerrors, ", ")}`);
-            CloseSocket(connid);
-            RETURN 0;
-          }
-        }
-
-        IF (NOT connectresult)
-        {
-          this->MyErrorHandler("Could not connect to " || connecttohost || ":" || connecttoport || " (for " || url || ")");
-          CloseSocket(connid);
-          RETURN 0;
-        }
+        this->MyErrorHandler("Could not connect to " || connecttohost || ":" || connecttoport || " (for " || url || ")");
+        CloseSocket(connid);
+        RETURN 0;
       }
 
       BOOLEAN requires_secure := RecordExists(this->webharetrustedport) ? FALSE
