@@ -38,9 +38,7 @@ CryptoContext::Hasher::~Hasher()
 
 Blex::HashAlgorithm::Type GetHashAlgorithmFromString(HSVM *vm, std::string const &algo)
 {
-        if (algo=="MD4")
-            return Blex::HashAlgorithm::MD4;
-        else if (algo=="MD5")
+        if (algo=="MD5")
             return Blex::HashAlgorithm::MD5;
         else if(algo=="SHA-1")
             return Blex::HashAlgorithm::SHA1;
