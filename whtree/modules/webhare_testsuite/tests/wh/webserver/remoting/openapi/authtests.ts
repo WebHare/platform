@@ -1,4 +1,4 @@
-import { createJSONResponse, HTTPErrorCode, RestAuthorizationFunction, RestAuthorizationResult, RestImplementationFunction, RestRequest } from "@webhare/router";
+import { createJSONResponse, HTTPErrorCode, HTTPSuccessCode, RestAuthorizationFunction, RestAuthorizationResult, RestImplementationFunction, RestRequest } from "@webhare/router";
 
 export async function denyAll(req: RestRequest): Promise<RestAuthorizationResult> {
   return { authorized: false };
@@ -8,10 +8,9 @@ export async function needSecret(req: RestRequest): Promise<RestAuthorizationRes
   if (!req.webrequest.headers.get("x-key"))
     return {
       authorized: false,
-      response: createJSONResponse({
+      response: createJSONResponse(HTTPErrorCode.Unauthorized, {
         error: "Dude where's my key?"
       }, {
-        status: HTTPErrorCode.Unauthorized,
         headers: { "WWW-Authenticate": "X-Key" }
       })
     };
@@ -20,7 +19,7 @@ export async function needSecret(req: RestRequest): Promise<RestAuthorizationRes
 }
 
 export async function getDummy(req: RestRequest) {
-  return createJSONResponse((req.authorization as any).key);
+  return createJSONResponse(HTTPSuccessCode.Ok, (req.authorization as any).key);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- validate the signature

@@ -25,13 +25,13 @@ export async function getUsers(req: MyRestRequest): Promise<WebResponse> {
   if (req.params.searchFor)
     foundpersons = foundpersons.filter(person => person.firstName.includes(req.params.searchFor as string));
 
-  return createJSONResponse(foundpersons);
+  return createJSONResponse(HTTPSuccessCode.Ok, foundpersons);
 }
 
 export async function getUser(req: MyRestRequest): Promise<WebResponse> {
   test.eq(`/users/${req.params.userid}`, req.path);
   test.eq("number", typeof req.params.userid);
-  return createJSONResponse(persons.find(_ => _.id == req.params.userid));
+  return createJSONResponse(HTTPSuccessCode.Ok, persons.find(_ => _.id == req.params.userid));
 }
 
 export async function createUser(req: MyRestRequest): Promise<WebResponse> {
@@ -41,15 +41,15 @@ export async function createUser(req: MyRestRequest): Promise<WebResponse> {
   test.assert("email" in addperson);
   test.assert("firstName" in addperson);
 
-  return createJSONResponse({ ...addperson, id: 77 }, { status: HTTPSuccessCode.Created });
+  return createJSONResponse(HTTPSuccessCode.Created, { ...addperson, id: 77 });
 }
 
 export async function validateOutput(req: MyRestRequest): Promise<WebResponse> {
   switch (req.params.test) {
-    case "ok": return createJSONResponse("ok");
-    case "unknownStatusCode": return createJSONResponse({ error: `Expectation failed` }, { status: HTTPErrorCode.ExpectationFailed });
-    case "illegalData": return createJSONResponse({ structure: "wrong" });
+    case "ok": return createJSONResponse(HTTPSuccessCode.Ok, "ok");
+    case "unknownStatusCode": return createJSONResponse(HTTPSuccessCode.SeeOther, { error: `See other people` });
+    case "illegalData": return createJSONResponse(HTTPSuccessCode.Ok, { structure: "wrong" });
   }
 
-  return createJSONResponse({ error: `Illegal type` }, { status: HTTPErrorCode.BadRequest });
+  return createJSONResponse(HTTPErrorCode.BadRequest, { error: `Illegal type` });
 }

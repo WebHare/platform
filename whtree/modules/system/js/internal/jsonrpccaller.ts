@@ -1,4 +1,4 @@
-import { HTTPErrorCode, createJSONResponse, WebResponse } from "@webhare/router";
+import { HTTPErrorCode, createJSONResponse, WebResponse, HTTPSuccessCode } from "@webhare/router";
 import * as services from "@webhare/services";
 import { WebRequestInfo, WebResponseInfo } from "./types";
 
@@ -27,7 +27,7 @@ type RequestID = number | string | null;
  * @param options - Optional statuscode
  */
 export function createJSONRPCError(requestid: RequestID, status: HTTPErrorCode, errorCode: number, message: string) {
-  return createJSONResponse({ id: requestid, error: { code: errorCode, message }, result: null }, { status });
+  return createJSONResponse(status, { id: requestid, error: { code: errorCode, message }, result: null });
 }
 
 export class JSONRPCError {
@@ -64,7 +64,7 @@ async function runJSONAPICall(servicedef: WebServiceDefinition, req: WebRequestI
       throw new JSONRPCError(HTTPErrorCode.NotFound, JSONRPCError.MethodNotFound, `Method '${jsonrpcreq.method}' not found`);
 
     const result = await instance[jsonrpcreq.method](...jsonrpcreq.params);
-    return createJSONResponse({ id, error: null, result });
+    return createJSONResponse(HTTPSuccessCode.Ok, { id, error: null, result });
   } catch (e) {
     if (e instanceof JSONRPCError)
       return createJSONRPCError(id, e.status, e.errorCode, e.message);

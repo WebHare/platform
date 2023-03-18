@@ -1,16 +1,53 @@
 import { WebRequest } from "./request";
-import { createJSONResponse, HTTPStatusCode, HTTPSuccessCode, WebResponse } from "./response";
+import { createJSONResponse, createWebResponse, HTTPErrorCode, HTTPSuccessCode, WebResponse } from "./response";
+
+export type RestDefaultErrorBody = { status: HTTPErrorCode; error: string };
+
+/** Every rest responses specification must extend from this type. For allowed JSON responses, set `isjson`
+ * to true and put the expected body type in `response`. For raw results, set isjson to true.
+ */
+export type RestResponsesBase =
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed for signature
+  { status: HTTPSuccessCode; isjson: true; response: any } |
+  { status: HTTPSuccessCode; isjson: false } |
+  { status: HTTPErrorCode; isjson: true; response: RestDefaultErrorBody };
+
+/// Default, you can send every response code as json or as raw
+export type DefaultRestResponses =
+  { status: HTTPSuccessCode; isjson: boolean; response: unknown };
+
+/** Returns all responses that acccept json (could also do (`& { json: true }`, but this results in cleaner result
+ * types. Intersections are usually kept in the result type and complicate type tests
+ */
+export type JSONResponses<Responses extends RestResponsesBase> = Responses extends { isjson: false } ? never : Responses;
+
+/** Returns the allowed response codes for JSON responses. Error codes are always allowed, as are success codes
+ * where isjson is set to true (or to true | false).
+ */
+export type JSONResponseCodes<Responses extends RestResponsesBase> = HTTPErrorCode | (Responses & { isjson: true })["status"];
+
+/** Returns the allowed response codes for raw responses. Error codes are always allowed, as are success codes
+ * where isjson is set to false (or to true | false).
+ */
+export type RawResponseCodes<Responses extends RestResponsesBase> = (Responses & { isjson: false })["status"];
 
 export type DefaultRestParams = Record<string, string | number>;
 
-export type DefaultRestResponses = { status: HTTPStatusCode; response: unknown };
+/** For responses specified in Responses, returns the type of the JSON body */
+export type JSONResponseForCode<
+  Responses extends RestResponsesBase,
+  DefaultErrorFormat extends RestDefaultErrorBody,
+  C extends JSONResponseCodes<Responses>
+> = C extends Responses["status"]
+  ? (Responses extends { status: C; response: infer R } ? R : never) // This allowes numberic status codes. To disallow them, use `? (Responses & { status: C; response: any })["response"]` instead
+  : (C extends HTTPErrorCode ? DefaultErrorFormat : never); // for non-specified error codes, falls back to DefaultErrorFormat
 
 export class RestRequest<
   Authorization = unknown,
   Params extends object = DefaultRestParams,
   Body = unknown,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed for signature
-  Responses extends { status: HTTPStatusCode; response: any } = DefaultRestResponses,
+  Responses extends RestResponsesBase = DefaultRestResponses,
+  DefaultErrorFormat extends RestDefaultErrorBody = RestDefaultErrorBody
 > {
   ///The original WebRequest we received
   readonly webrequest: WebRequest;
@@ -32,15 +69,43 @@ export class RestRequest<
     this.authorization = null as Authorization;
   }
 
-  createJSONResponse<C extends Responses["status"] & HTTPStatusCode>(status: C, jsonbody: (Responses & { status: C })["response"], options?: { headers?: Record<string, string> }) {
-    return createJSONResponse(jsonbody, { status, ...options });
+  /** Create a webresponse for a successfull response, returning a JSON body
+   * @param status - Status code to return
+   * @param jsonbody - The JSON body to return
+   * @param options - Optional statuscode and headers
+   */
+  createJSONResponse<Status extends JSONResponseCodes<Responses> & HTTPSuccessCode>(status: Status, jsonbody: JSONResponseForCode<Responses, DefaultErrorFormat, Status>, options?: { headers?: Record<string, string> }) {
+    return createJSONResponse(status, jsonbody, options);
+  }
+  /** Create a webresponse for an error response, returning a JSON body
+   * @param status - Status code to return
+   * @param jsonbody - The JSON body to return
+   * @param options - Optional statuscode and headers
+   */
+  createErrorResponse<Status extends HTTPErrorCode>(status: Status, jsonbody: Omit<JSONResponseForCode<Responses, DefaultErrorFormat, Status>, "status">, options?: { headers?: Record<string, string> }) {
+    return createJSONResponse(status, { status, ...jsonbody }, options);
+  }
+
+  /** Create a webresponse for a successfull response, returning a raw file
+   * @typeParam Status - Inferred type of the status code, used for typing purposes
+   * @param status - Status code to return
+   * @param body - The body of the response to return
+   * @param options - Optional statuscode and headers
+   */
+  createRawResponse<Status extends RawResponseCodes<Responses>>(status: Status, body: string, options?: { headers?: Record<string, string> }) {
+    return createWebResponse(body, { status, headers: options?.headers });
   }
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any -- needed for type inference
 type ResponsesOfRequest<Request extends RestRequest> = Request extends RestRequest<any, any, any, infer Responses> ? Responses : never;
 
-export type RestResponseType<Request extends RestRequest, C extends ResponsesOfRequest<Request>["status"] = ResponsesOfRequest<Request>["status"] & HTTPSuccessCode> = (ResponsesOfRequest<Request> & { status: C })["response"];
+/** Returns the JSON response type for a specific status code
+ * @typeParam Request - Type of the Rest request (typically `typeof req` in an openapi handler function)
+ * @typeParam Status - Status code. If omitted, defaults to all success codes specified in the Responses type parameter of the rest request
+*/
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type RestResponseType<Request extends RestRequest<any, any, any, any, any>, Status extends ResponsesOfRequest<Request>["status"] = ResponsesOfRequest<Request>["status"] & HTTPSuccessCode> = (ResponsesOfRequest<Request> & { status: Status })["response"];
 
 /** Returned upon a succesful authorization. May be extended to store authorization details */
 export interface RestSuccessfulAuthorization<T = unknown> {
