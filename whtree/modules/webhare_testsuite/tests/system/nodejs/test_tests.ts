@@ -82,6 +82,10 @@ async function testChecks() {
     // @ts-expect-error -- Can't assign a number to 2
     test.typeAssert<test.Assignable<2, number>>();
 
+    test.typeAssert<test.Extends<2, number>>();
+    // @ts-expect-error -- Number doesn't extend 2
+    test.typeAssert<test.Extends<number, 2>>();
+
     test.typeAssert<test.Equals<1, 1>>();
     test.typeAssert<test.Equals<{ a: 1; b: 2 }, { a: 1; b: 2 }>>();
 
@@ -91,6 +95,14 @@ async function testChecks() {
     test.typeAssert<test.Equals<1, number>>();
     // @ts-expect-error -- Can't assign 2 to 1
     test.typeAssert<test.Assignable<1, 2>>();
+
+    // @ts-expect-error -- Can't assign a number to 2
+    test.typeAssert<test.Equals<number, 1>>();
+    // @ts-expect-error -- Can't assign a number to 2
+    test.typeAssert<test.Equals<1, number>>();
+    // @ts-expect-error -- Can't assign 2 to 1
+    test.typeAssert<test.Assignable<1, 2>>();
+
   }
 }
 

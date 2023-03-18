@@ -18,6 +18,7 @@ export {
   Equals,
   RevEquals,
   Assignable,
+  Extends,
   typeAssert
 } from './checks';
 let testscompleted = false;
