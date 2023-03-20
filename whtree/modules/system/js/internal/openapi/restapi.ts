@@ -289,19 +289,19 @@ export class RestAPI {
     return await resthandler(restreq);
   }
 
-  renderOpenAPIJSON(baseurl: string, options: { filterxwebhare: boolean; format?: boolean }): WebResponse {
+  renderOpenAPIJSON(baseurl: string, options: { filterxwebhare: boolean; indent?: boolean }): WebResponse {
     let def = { ...this.bundled };
     if (options.filterxwebhare)
       def = filterXWebHare(def) as typeof def;
 
     if (!this.def)
-      return createJSONResponse(HTTPErrorCode.InternalServerError, { error: `Service not configured` }, { format: options.format });
+      return createJSONResponse(HTTPErrorCode.InternalServerError, { error: `Service not configured` }, { indent: options.indent });
 
     if (def.servers)
       for (const server of def.servers)
         if (server.url)
           server.url = new URL(server.url, baseurl).toString();
 
-    return createJSONResponse(HTTPSuccessCode.Ok, def, { format: options.format });
+    return createJSONResponse(HTTPSuccessCode.Ok, def, { indent: options.indent });
   }
 }

@@ -61,8 +61,8 @@ export class RestService {
     }
 
     if (relurl == relurl_spec) {
-      const format = ["1", "true"].includes(new URL(req.url).searchParams.get("format") || "");
-      return this.restapi!.renderOpenAPIJSON(apibaseurl, { filterxwebhare: true, format });
+      const indent = ["1", "true"].includes(new URL(req.url).searchParams.get("indent") || "");
+      return this.restapi!.renderOpenAPIJSON(apibaseurl, { filterxwebhare: true, indent });
     }
 
     return createWebResponse("Not found", { status: HTTPErrorCode.NotFound }); //TODO or should we fallback to a global 404 handler... although that probably isn't useful inside a namespace intended for robots
