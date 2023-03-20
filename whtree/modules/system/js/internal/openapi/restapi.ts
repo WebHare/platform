@@ -1,5 +1,5 @@
 import SwaggerParser from "@apidevtools/swagger-parser";
-import { createJSONResponse, HTTPErrorCode, WebRequest, DefaultRestParams, RestRequest, WebResponse, HTTPMethod, RestAuthorizationFunction, RestImplementationFunction } from "@webhare/router";
+import { createJSONResponse, HTTPErrorCode, WebRequest, DefaultRestParams, RestRequest, WebResponse, HTTPMethod, RestAuthorizationFunction, RestImplementationFunction, HTTPSuccessCode } from "@webhare/router";
 import Ajv from "ajv";
 import addFormats from "ajv-formats";
 import { OpenAPIV3 } from "openapi-types";
@@ -166,18 +166,18 @@ export class RestAPI {
 
   async handleRequest(req: WebRequest, relurl: string): Promise<WebResponse> {
     if (!this.def) //TODO with 'etr' return validation issues
-      return createJSONResponse({ error: `Service not configured` }, { status: HTTPErrorCode.InternalServerError });
+      return createJSONResponse(HTTPErrorCode.InternalServerError, { error: `Service not configured` });
 
     // Find the route matching the request path
     const match = this.findRoute(relurl, req);
     if (!match)
-      return createJSONResponse({ error: `No route for '${relurl}'` }, { status: HTTPErrorCode.NotFound });
+      return createJSONResponse(HTTPErrorCode.NotFound, { error: `No route for '${relurl}'` });
 
     const endpoint = match.route.methods[req.method];
     if (!endpoint)
-      return createJSONResponse({ error: `Method ${req.method.toUpperCase()} not allowed for path '${relurl}'` }, { status: HTTPErrorCode.MethodNotAllowed });
+      return createJSONResponse(HTTPErrorCode.MethodNotAllowed, { error: `Method ${req.method.toUpperCase()} not allowed for path '${relurl}'` });
     if (!endpoint.authorization) //TODO with 'etr' return more about 'why'
-      return createJSONResponse({ error: `Not authorized` }, { status: HTTPErrorCode.Forbidden });
+      return createJSONResponse(HTTPErrorCode.Forbidden, { error: `Not authorized` });
 
     const response = await this.handleEndpointRequest(req, relurl, match, endpoint);
 
@@ -185,15 +185,25 @@ export class RestAPI {
       // ADDME: add flag to disable for performance testing
 
       // Check if response is listed
-      if (!(response.status.toString() in endpoint.responses))
-        throw new Error(`Handler returned status code ${response.status} which is not mentioned for path ${JSON.stringify(`${req.method} ${relurl}`)}`);
-      const responsedef = endpoint.responses[response.status] as OpenAPIV3.ResponseObject;
-      const responseschema = responsedef?.content?.["application/json"]?.schema;
-      if (responseschema) {
-        const validator = this.ajv.compile(responseschema);
-        if (!validator(JSON.parse(response.body))) {
-          throw new Error(`Validation of the response (code ${response.status}) for ${JSON.stringify(`${req.method} ${relurl}`)} returned error: ${validator.errors?.[0]?.message || `Invalid request body`}`);
+      if (response.status.toString() in endpoint.responses || (response.status in HTTPErrorCode && this.def?.components?.schemas?.defaulterror)) {
+        let responseschema;
+        if (response.status.toString() in endpoint.responses) {
+          const responsedef = endpoint.responses[response.status] as OpenAPIV3.ResponseObject;
+          responseschema = responsedef?.content?.["application/json"]?.schema;
         }
+        // Fallback to 'defaulterror' for errors, if specified in components.schemas
+        if (!responseschema && response.status in HTTPErrorCode && this.def?.components?.schemas?.defaulterror) {
+          responseschema = this.def.components.schemas.defaulterror;
+        }
+        if (responseschema) {
+          const validator = this.ajv.compile(responseschema);
+          if (!validator(JSON.parse(response.body))) {
+            throw new Error(`Validation of the response (code ${response.status}) for ${JSON.stringify(`${req.method} ${relurl}`)} returned error: ${validator.errors?.[0]?.message || `Invalid request body`}`);
+          }
+        }
+      } else if (!(response.status in HTTPErrorCode)) {
+        // ADDME:
+        throw new Error(`Handler returned status code ${response.status} which is not mentioned for path ${JSON.stringify(`${req.method} ${relurl}`)}`);
       }
     }
 
@@ -233,12 +243,12 @@ export class RestAPI {
       //We have something useful to proces
       const ctype = req.headers.get("content-type");
       if (ctype != "application/json") //TODO what about endpoints supporting multiple types?
-        return createJSONResponse({ error: `Invalid content-type '${ctype}', expected application/json` }, { status: HTTPErrorCode.BadRequest });
+        return createJSONResponse(HTTPErrorCode.BadRequest, { error: `Invalid content-type '${ctype}', expected application/json` });
 
       try {
         body = JSON.parse(req.body);
       } catch (e) { //parse error. There's no harm in 'leaking' a JSON parse error details
-        return createJSONResponse({ error: `Failed to parse the body: ${(e as Error)?.message}` }, { status: HTTPErrorCode.BadRequest });
+        return createJSONResponse(HTTPErrorCode.BadRequest, { error: `Failed to parse the body: ${(e as Error)?.message}` });
       }
 
       // Validate the incoming request body (TODO cache validators, prevent parallel compilation when a lot of requests come in before we finished compilation)
@@ -254,7 +264,7 @@ export class RestAPI {
             }
             so we might be able to use it to generate a more useful error message ?
         */
-        return createJSONResponse({ error: validator.errors?.[0]?.message || `Invalid request body` }, { status: HTTPErrorCode.BadRequest });
+        return createJSONResponse(HTTPErrorCode.BadRequest, { error: validator.errors?.[0]?.message || `Invalid request body` });
       }
     }
 
@@ -265,11 +275,11 @@ export class RestAPI {
     const authorizer = (await loadJSFunction(endpoint.authorization)) as RestAuthorizationFunction;
     const authresult = await authorizer(restreq);
     if (!authresult.authorized)
-      return authresult.response || createJSONResponse({ error: "Authorization is required for this endpoint" }, { status: HTTPErrorCode.Unauthorized });
+      return authresult.response || createJSONResponse(HTTPErrorCode.Unauthorized, { error: "Authorization is required for this endpoint" });
 
     restreq.authorization = authresult.authorization;
     if (!endpoint.handler)
-      return createJSONResponse({ error: `Method ${req.method.toUpperCase()} for route '${relurl}' not yet implemented` }, { status: HTTPErrorCode.NotImplemented });
+      return createJSONResponse(HTTPErrorCode.NotImplemented, { error: `Method ${req.method.toUpperCase()} for route '${relurl}' not yet implemented` });
 
     // FIXME should we cache the resolved handler or will that break auto reloading?
     const resthandler = (await loadJSFunction(endpoint.handler)) as RestImplementationFunction;
@@ -279,19 +289,19 @@ export class RestAPI {
     return await resthandler(restreq);
   }
 
-  renderOpenAPIJSON(baseurl: string, options: { filterxwebhare: boolean }): WebResponse {
+  renderOpenAPIJSON(baseurl: string, options: { filterxwebhare: boolean; indent?: boolean }): WebResponse {
     let def = { ...this.bundled };
     if (options.filterxwebhare)
       def = filterXWebHare(def) as typeof def;
 
     if (!this.def)
-      return createJSONResponse({ error: `Service not configured` }, { status: HTTPErrorCode.InternalServerError });
+      return createJSONResponse(HTTPErrorCode.InternalServerError, { error: `Service not configured` }, { indent: options.indent });
 
     if (def.servers)
       for (const server of def.servers)
         if (server.url)
           server.url = new URL(server.url, baseurl).toString();
 
-    return createJSONResponse(def);
+    return createJSONResponse(HTTPSuccessCode.Ok, def, { indent: options.indent });
   }
 }

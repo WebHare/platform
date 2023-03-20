@@ -2,6 +2,7 @@ import * as test from "@webhare/test";
 import * as services from "@webhare/services";
 import { getServiceInstance } from "@mod-system/js/internal/openapi/openapiservice";
 import { HTTPMethod, HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
+import * as restrequest from "@webhare/router/src/restrequest";
 
 let userapiroot = '', authtestsroot = '';
 
@@ -79,8 +80,6 @@ function enumRefs(obj: unknown, result: string[] = []): string[] {
 }
 
 async function testAuthorization() {
-  await services.ready();
-
   //whitebox try the service directly for more useful traces etc
   const instance = await getServiceInstance("webhare_testsuite:authtests");
   let res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/other", body: "", headers: {} }, "other");
@@ -138,8 +137,68 @@ async function verifyPublicParts() {
   test.eq({ error: "Dude where's my key?" }, await deniedcall.json());
 }
 
+function testInternalTypes() {
+
+  type TestResponses =
+    { status: HTTPSuccessCode.Ok; isjson: true; response: number } |
+    { status: HTTPSuccessCode.Created; isjson: false } |
+    { status: HTTPSuccessCode.PartialContent; isjson: boolean; response: string } | // true|false, so both raw and json requests are accepted
+    { status: HTTPErrorCode.NotFound; isjson: true; response: { status: HTTPErrorCode.NotFound; error: string; extra: string } };
+
+  test.typeAssert<test.Extends<TestResponses, restrequest.RestResponsesBase>>();
+
+  test.typeAssert<test.RevEquals<
+    { status: HTTPSuccessCode.Ok; isjson: true; response: number } |
+    { status: HTTPSuccessCode.PartialContent; isjson: boolean; response: string } |
+    { status: HTTPErrorCode.NotFound; isjson: true; response: { status: HTTPErrorCode.NotFound; error: string; extra: string } },
+    restrequest.JSONResponses<TestResponses>>>();
+
+  test.typeAssert<test.Equals<HTTPErrorCode | HTTPSuccessCode.Ok | HTTPSuccessCode.PartialContent, restrequest.JSONResponseCodes<TestResponses>>>();
+  test.typeAssert<test.Equals<HTTPSuccessCode.Created | HTTPSuccessCode.PartialContent, restrequest.RawResponseCodes<TestResponses>>>();
+
+  test.typeAssert<test.Equals<number, restrequest.JSONResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPSuccessCode.Ok>>>();
+  test.typeAssert<test.Equals<{ status: HTTPErrorCode.NotFound; error: string; extra: string }, restrequest.JSONResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPErrorCode.NotFound>>>();
+  test.typeAssert<test.Equals<{ status: HTTPErrorCode; error: string }, restrequest.JSONResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPErrorCode.BadRequest>>>();
+  // When both json and non-json are accepted, returns the JSON format
+  test.typeAssert<test.Equals<string, restrequest.JSONResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPSuccessCode.PartialContent>>>();
+  // Test with override of default error
+  test.typeAssert<test.Equals<{ status: HTTPErrorCode; error: string; extra: string }, restrequest.JSONResponseForCode<TestResponses, { status: HTTPErrorCode; error: string; extra: string }, HTTPErrorCode.BadRequest>>>();
+
+  // just type-check the following code, don't run it
+  const f = false;
+  if (f) {
+    const req: restrequest.RestRequest<null, object, null, TestResponses, restrequest.RestDefaultErrorBody> = null as any;
+    const req_errdef: restrequest.RestRequest<null, object, null, TestResponses, { status: HTTPErrorCode; error: string; extra: string }> = null as any;
+
+    req.createJSONResponse(HTTPSuccessCode.Ok, 3);
+    // @ts-expect-error -- Wrong type for response body
+    req.createJSONResponse(HTTPSuccessCode.Ok, "a");
+    // @ts-expect-error -- Errors only via createErrorResponse
+    req.createJSONResponse(HTTPErrorCode.BadRequest, { error: "a" });
+    // @ts-expect-error -- When response isn't json
+    req.createJSONResponse(HTTPSuccessCode.Created, { error: "a" });
+    req.createJSONResponse(HTTPSuccessCode.PartialContent, "content");
+
+    req.createErrorResponse(HTTPErrorCode.NotFound, { error: "not found", extra: "extra" });
+    // @ts-expect-error -- doesn't accept default error if overridden
+    req.createErrorResponse(HTTPErrorCode.NotFound, { error: "not found" });
+    // @ts-expect-error -- Don't allow extra stuff in literal
+    req.createErrorResponse(HTTPErrorCode.BadGateway, { error: "not found", nonexisting: "extra" });
+    // Is override of default error format handled?
+    req_errdef.createErrorResponse(HTTPErrorCode.BadRequest, { error: "not found", extra: "extra" });
+    // @ts-expect-error -- 'extra' is required
+    req_errdef.createErrorResponse(HTTPErrorCode.BadRequest, { error: "not found" });
+
+    req.createRawResponse(HTTPSuccessCode.Created, "blabla");
+    req.createRawResponse(HTTPSuccessCode.PartialContent, "blabla");
+    // @ts-expect-error -- not allowed for json-only apis
+    req.createRawResponse(HTTPSuccessCode.Ok, "blabla");
+  }
+}
+
 test.run([
   testService,
   testAuthorization,
-  verifyPublicParts
+  verifyPublicParts,
+  testInternalTypes
 ]);

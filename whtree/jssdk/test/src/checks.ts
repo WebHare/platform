@@ -457,6 +457,12 @@ export type RevEquals<X, Y extends X> = EqualsInternal<X, Y>;
  */
 export type Assignable<X, Y extends X> = Y extends X ? true : true;
 
+/** Returns whether type X extends from type Y
+ * @typeParam X - Type that is should extend Y
+ * @typeParam Y - Type that X is ectended from
+ */
+export type Extends<X extends Y, Y> = X extends Y ? true : true;
+
 /** Checks if a type assertion holds. Use Equals or RevEquals to check for equality, Assignable for assignabilty
  * @param X - Type assertion
  */

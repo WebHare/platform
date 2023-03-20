@@ -60,8 +60,10 @@ export class RestService {
       return createWebResponse(await witty.runComponent(comp, apidata), { headers: metapageheaders });
     }
 
-    if (relurl == relurl_spec)
-      return this.restapi!.renderOpenAPIJSON(apibaseurl, { filterxwebhare: true });
+    if (relurl == relurl_spec) {
+      const indent = ["1", "true"].includes(new URL(req.url).searchParams.get("indent") || "");
+      return this.restapi!.renderOpenAPIJSON(apibaseurl, { filterxwebhare: true, indent });
+    }
 
     return createWebResponse("Not found", { status: HTTPErrorCode.NotFound }); //TODO or should we fallback to a global 404 handler... although that probably isn't useful inside a namespace intended for robots
   }
@@ -85,11 +87,11 @@ export class RestService {
       services.logError(e as Error);
 
       if (env.flags.etr)
-        result = createJSONResponse({ error: (e as Error).message, stack: (e as Error).stack }, { status: HTTPErrorCode.InternalServerError });
+        result = createJSONResponse(HTTPErrorCode.InternalServerError, { error: (e as Error).message, stack: (e as Error).stack });
       else if (services.config.dtapstage == "development")
-        result = createJSONResponse({ error: "Internal error - enable the 'etr' debug flag to enable full error tracing" }, { status: HTTPErrorCode.InternalServerError });
+        result = createJSONResponse(HTTPErrorCode.InternalServerError, { error: "Internal error - enable the 'etr' debug flag to enable full error tracing" });
       else
-        result = createJSONResponse({ error: "Internal error" }, { status: HTTPErrorCode.InternalServerError });
+        result = createJSONResponse(HTTPErrorCode.InternalServerError, { error: "Internal error" });
     }
 
     if (env.flags.openapi) {
