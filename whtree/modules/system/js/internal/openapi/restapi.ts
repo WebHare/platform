@@ -198,7 +198,7 @@ export class RestAPI {
         if (responseschema) {
           const validator = this.ajv.compile(responseschema);
           if (!validator(JSON.parse(response.body))) {
-            throw new Error(`Valida tion of the response (code ${response.status}) for ${JSON.stringify(`${req.method} ${relurl}`)} returned error: ${validator.errors?.[0]?.message || `Invalid request body`}`);
+            throw new Error(`Validation of the response (code ${response.status}) for ${JSON.stringify(`${req.method} ${relurl}`)} returned error: ${validator.errors?.[0]?.message || `Invalid request body`}`);
           }
         }
       } else if (!(response.status in HTTPErrorCode)) {
