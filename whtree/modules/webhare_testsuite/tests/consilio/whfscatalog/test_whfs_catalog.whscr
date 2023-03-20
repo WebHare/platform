@@ -135,6 +135,7 @@ MACRO TestIndexFields()
          , keywordfield := "K1"
          , textfield := ""
          , arrayfield := [ arrayfield := ""
+                         , textfield := ""
                          , date_otherfield := DEFAULT DATETIME
                          , libraryfield := "array_" || testfile->id  || "_0"
                          , deeper_whfsrefarray := INTEGER[]
@@ -171,6 +172,7 @@ MACRO TestWHFSCatalog()
                  , type := "record"
                  , defaultvalue := [ arrayfield := "", date_otherfield := DEFAULT DATETIME, libraryfield := "" ]
                  , properties := [[ name := "arrayfield", type := "keyword" ]
+                                 ,[ name := "textfield", type := "text", settings := [ index_options := "offsets" ] ] //NOTE added settings
                                  ,[ name := "date_otherfield", type := "datetime" ] //NOTE implicit adding of date_
                                  ,[ name := "libraryfield", type := "keyword" ]
                                  ,[ name := "deeper_whfsrefarray", type := "integer", defaultvalue := INTEGER[] ]

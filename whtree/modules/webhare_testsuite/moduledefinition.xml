@@ -378,6 +378,7 @@
                 member="testarray"
                 namespace="http://www.webhare.net/xmlns/webhare_testsuite/publisher/publishersearchtest">
       <arrayfield member="arrayfield" />
+      <arrayfield member="textfield" tokenized="true" />
       <arrayfield name="date_otherfield" member="otherfield" />
       <arrayfield name="libraryfield" fieldfunc="lib/publisher/publishersearch.whlib#getarrayfield" />
       <arrayfield member="deeper_whfsrefarray" />

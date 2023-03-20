@@ -168,10 +168,6 @@ RECORD ARRAY FUNCTION GetContentSourcesMapping(RECORD ARRAY contentsources, STRI
   properties := EnforceStructure([[ suggested := FALSE ]], properties);
   properties := ParseContentSourceMapping(properties, fields);
 
-  FOREVERY(RECORD prop FROM properties)
-    IF(prop.type = "text") //set the default for contentsource fields we also set for module mappings..
-      INSERT CELL index_options := "offsets" INTO properties[#prop].settings;
-
   properties := MakeTree(properties);
   RETURN properties;
 }
@@ -195,6 +191,10 @@ RECORD ARRAY FUNCTION ParseContentSourceMapping(RECORD ARRAY properties, RECORD 
 
         IF(field.suggested)
           properties[idx].suggested := TRUE;
+
+        //set the default for contentsource fields we also set for module mappings..
+        IF (properties[idx].type = "text")
+          properties[idx].settings := [ index_options := "offsets" ];
       }
     }
     ELSE IF (NOT RecordExists(SELECT FROM properties WHERE name = field.name))
@@ -204,7 +204,8 @@ RECORD ARRAY FUNCTION ParseContentSourceMapping(RECORD ARRAY properties, RECORD 
           [ type
           , defaultvalue := CellExists(field, "defaultvalue") ? field.defaultvalue : GetFieldTypeDefaultValue(type)
           , field.name
-          , settings := DEFAULT RECORD
+            //set the default for contentsource fields we also set for module mappings..
+          , settings := type = "text" ? [ index_options := "offsets" ] : DEFAULT RECORD
           , properties := type IN [ "record", "nested" ] ? ParseContentSourceMapping(RECORD[], field.properties) : RECORD[]
           , field.definedby
           , suggested := CellExists(field,"suggested") ? field.suggested : FALSE
