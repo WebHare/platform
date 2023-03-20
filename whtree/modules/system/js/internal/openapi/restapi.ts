@@ -78,6 +78,10 @@ function matchesPath(path: string[], routePath: string[], req: WebRequest): Reco
   return params;
 }
 
+function createErrorResponse(status: HTTPErrorCode, json: { error: string; status?: never }, options?: { headers?: Record<string, string> }) {
+  return createJSONResponse(status, { status, ...json }, options);
+}
+
 // An OpenAPI handler
 export class RestAPI {
   _ajv: Ajv | null = null;
@@ -166,18 +170,18 @@ export class RestAPI {
 
   async handleRequest(req: WebRequest, relurl: string): Promise<WebResponse> {
     if (!this.def) //TODO with 'etr' return validation issues
-      return createJSONResponse(HTTPErrorCode.InternalServerError, { error: `Service not configured` });
+      return createErrorResponse(HTTPErrorCode.InternalServerError, { error: `Service not configured` });
 
     // Find the route matching the request path
     const match = this.findRoute(relurl, req);
     if (!match)
-      return createJSONResponse(HTTPErrorCode.NotFound, { error: `No route for '${relurl}'` });
+      return createErrorResponse(HTTPErrorCode.NotFound, { error: `No route for '${relurl}'` });
 
     const endpoint = match.route.methods[req.method];
     if (!endpoint)
-      return createJSONResponse(HTTPErrorCode.MethodNotAllowed, { error: `Method ${req.method.toUpperCase()} not allowed for path '${relurl}'` });
+      return createErrorResponse(HTTPErrorCode.MethodNotAllowed, { error: `Method ${req.method.toUpperCase()} not allowed for path '${relurl}'` });
     if (!endpoint.authorization) //TODO with 'etr' return more about 'why'
-      return createJSONResponse(HTTPErrorCode.Forbidden, { error: `Not authorized` });
+      return createErrorResponse(HTTPErrorCode.Forbidden, { error: `Not authorized` });
 
     const response = await this.handleEndpointRequest(req, relurl, match, endpoint);
 
@@ -243,12 +247,12 @@ export class RestAPI {
       //We have something useful to proces
       const ctype = req.headers.get("content-type");
       if (ctype != "application/json") //TODO what about endpoints supporting multiple types?
-        return createJSONResponse(HTTPErrorCode.BadRequest, { error: `Invalid content-type '${ctype}', expected application/json` });
+        return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Invalid content-type '${ctype}', expected application/json` });
 
       try {
         body = JSON.parse(req.body);
       } catch (e) { //parse error. There's no harm in 'leaking' a JSON parse error details
-        return createJSONResponse(HTTPErrorCode.BadRequest, { error: `Failed to parse the body: ${(e as Error)?.message}` });
+        return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Failed to parse the body: ${(e as Error)?.message}` });
       }
 
       // Validate the incoming request body (TODO cache validators, prevent parallel compilation when a lot of requests come in before we finished compilation)
@@ -264,7 +268,8 @@ export class RestAPI {
             }
             so we might be able to use it to generate a more useful error message ?
         */
-        return createJSONResponse(HTTPErrorCode.BadRequest, { error: validator.errors?.[0]?.message || `Invalid request body` });
+        const error = validator.errors?.[0];
+        return createErrorResponse(HTTPErrorCode.BadRequest, { error: (error?.message || `Invalid request body`) + (error?.instancePath ? ` (at ${JSON.stringify(error?.instancePath)})` : "") });
       }
     }
 
@@ -275,11 +280,11 @@ export class RestAPI {
     const authorizer = (await loadJSFunction(endpoint.authorization)) as RestAuthorizationFunction;
     const authresult = await authorizer(restreq);
     if (!authresult.authorized)
-      return authresult.response || createJSONResponse(HTTPErrorCode.Unauthorized, { error: "Authorization is required for this endpoint" });
+      return authresult.response || createErrorResponse(HTTPErrorCode.Unauthorized, { error: "Authorization is required for this endpoint" });
 
     restreq.authorization = authresult.authorization;
     if (!endpoint.handler)
-      return createJSONResponse(HTTPErrorCode.NotImplemented, { error: `Method ${req.method.toUpperCase()} for route '${relurl}' not yet implemented` });
+      return createErrorResponse(HTTPErrorCode.NotImplemented, { error: `Method ${req.method.toUpperCase()} for route '${relurl}' not yet implemented` });
 
     // FIXME should we cache the resolved handler or will that break auto reloading?
     const resthandler = (await loadJSFunction(endpoint.handler)) as RestImplementationFunction;
@@ -295,7 +300,7 @@ export class RestAPI {
       def = filterXWebHare(def) as typeof def;
 
     if (!this.def)
-      return createJSONResponse(HTTPErrorCode.InternalServerError, { error: `Service not configured` }, { indent: options.indent });
+      return createErrorResponse(HTTPErrorCode.InternalServerError, { error: `Service not configured` });
 
     if (def.servers)
       for (const server of def.servers)
