@@ -226,35 +226,153 @@ export default class FormBase {
     }
   }
 
+  /**
+   * Set or update the message for the specified field
+   * @param field - node on which the validation triggered
+   * @param type - type of the message ("error" or "suggestion") - a field or group can have both an "error" and "suggestion" visible
+   * @param getError - function which returns a reference to the error node (or DocumentFragment) or a text
+   *
+   * .wh-form__field--error      - Used to indicate this element has an error
+   * .wh-form__field--suggestion - Used to indicate this element has an suggestion
+   * .wh-form__error             - The error message container
+   * .wh-form_suggestion         - The suggestion message container
+   */
   _updateFieldGroupMessageState(field, type, getError) {
-    const mygroup = field.closest(".wh-form__fieldgroup");
-    if (!mygroup)
+    /*
+    ADDME: ability to show multiple messages in case both the toplevel and a subfield have an error/suggestion.
+           Example: a checkboxgroup in which too many options are selected AND the required textfield of a selected option is empty.
+
+    ADDME: how should an error message reference a required nested textfield?
+
+    ADDME: Support progressive enhancements such as splitdatetime which use a native form element
+           to store the value. (it's probably confusing that aria-described by ends up on an
+           element which needs receives focus and cannot be used to influence/fix the value).
+           (such as the splitdatetime)
+
+           Suggestion for possible solution:
+           - have the progressive enchancement code add an attribute to the native form element
+             with the ID of the (group)element.
+    */
+    const fieldgroup = field.closest(".wh-form__fieldgroup");
+    //console.log("_updateFieldGroupMessageState", field, fieldgroup);
+    if (!fieldgroup)
       return null;
 
-    //look for failing class, eg .wh-form__field--error - might actually apply to this group itself!
-    const failedfield = mygroup.classList.contains("wh-form__field--" + type) ? mygroup : mygroup.querySelector(".wh-form__field--" + type);
-    dompack.toggleClass(mygroup, "wh-form__fieldgroup--" + type, Boolean(failedfield)); //eg. wh-form__fieldgroup--error
+    // Within the group this field belongs to we lookup the first node we can find which is marked as having the
+    // type of message we want ("error" or "suggestion").
+    // First we'll see if the fieldgroup wants to report something, otherwise whe'll look for the first node which has a message.
+    const field_with_message = fieldgroup.classList.contains("wh-form__field--" + type) ? fieldgroup : fieldgroup.querySelector(".wh-form__field--" + type);
 
-    let error = (failedfield ? getError(failedfield) : null) || null;
+
+    // Now mark the whole .wh-form__fieldgroup as having an error/suggestion
+    fieldgroup.classList.toggle("wh-form__fieldgroup--" + type, Boolean(field_with_message));
+
+    let error = (field_with_message ? getError(field_with_message) : null) || null;
     if (error) //mark the field has having failed at one point. we will now switch to faster updating error state
       field.classList.add('wh-form__field--everfailed');
 
+    // if the error is plain text, convert it to a element containing the text
     if (error && !(error instanceof Node))
       error = dompack.create('span', { textContent: error });
 
-    let messagenode = mygroup.querySelector(".wh-form__" + type); //either wh-form__error or wh-form__suggestion
-    if (!messagenode) {
-      if (!failedfield)
-        return; //nothing to do
 
-      const suggestionholder = field.closest('.wh-form__fields') || mygroup.querySelector('.wh-form__fields') || mygroup;
-      messagenode = dompack.create("div", { className: "wh-form__" + type });
-      dompack.append(suggestionholder, messagenode);
+    // Determine the contextnode to set ARIA attributes on
+    let contextnode;
+
+
+    // ADDME: before looking up a group, check if there an attribute specifying
+    //        another element with role="group" handled the input.
+
+    // Find the first role="group" we can find
+    // (ineither the .wh-form__subfield or .wh-form__field)
+    let group = field;
+    let found = false;
+    while (group) {
+      if (!group.getAttribute)
+        console.error(group);
+
+      if (group.getAttribute("role") == "group") {
+        found = true;
+        break;
+      }
+
+      if (group.classList.contains("wh-form__subfield")
+        || group.classList.contains("wh-form__fieldgroup")) {
+        group = null;
+        break;
+      }
+
+      group = group.parentNode;
     }
 
-    dompack.empty(messagenode);
-    if (error)
+    contextnode = group ?? field;
+
+
+    let messageid = "";
+    let messagenode = fieldgroup.querySelector(".wh-form__" + type); //either wh-form__error or wh-form__suggestion
+
+    // Create a container for the suggestion or error
+    if (messagenode) {
+      messageid = messagenode.id; // reuse the existing messagenode
+      dompack.empty(messagenode); // remove previous errors/suggestions texts from the errornode
+    } else {
+      if (!error)
+        return; //nothing to do
+
+      // Generate a temporary id for the message which we can use in
+      // the aria-describedby to point to the message.
+      const random = Math.floor((1 + Math.random()) * 0x10000000).toString(16);
+      messageid = "whform-msg-" + random; // `${fieldname}-${random}`;
+
+      const suggestionholder = field.closest('.wh-form__fields') || fieldgroup.querySelector('.wh-form__fields') || fieldgroup;
+      messagenode = dompack.create("div", { className: "wh-form__" + type }); // add a wh-form__error or wh-form__suggestion message container
+      messagenode.id = messageid; // id to reference to in the aria-describedby
+      suggestionholder.appendChild(messagenode);
+    }
+
+
+
+    if (error) { // Do we show a message?
       messagenode.appendChild(error);
+      this._addDescribedBy(contextnode, messageid);
+
+      if (type == "error")
+        contextnode.setAttribute("aria-invalid", "true");
+    } else {
+      this._removeDescribedBy(contextnode, messageid);
+      contextnode.removeAttribute("aria-invalid");
+    }
+
+  }
+
+  // add the specified id of the message element to the list of elements in aria-describedby
+  _addDescribedBy(contextnode, messageid) {
+    const describedby = contextnode.getAttribute("aria-describedby") ?? "";
+    const describedby_fields = describedby != "" ? describedby.split(" ") : [];
+
+    if (describedby_fields.indexOf(messageid) == -1) {
+
+      describedby_fields.push(messageid);
+      contextnode.setAttribute("aria-describedby", describedby_fields.join(" "));
+    }
+  }
+
+  // remove the specified id of the message element from the list of elements in aria-describedby
+  _removeDescribedBy(contextnode, messageid) {
+    const describedby = contextnode.getAttribute("aria-describedby") ?? "";
+    const describedby_fields = describedby != "" ? describedby.split(" ") : [];
+
+    for (let idx = 0; idx < describedby_fields.length; idx++) {
+      if (describedby_fields[idx] == messageid) {
+        describedby_fields.splice(idx, 1); // remove that item
+        break;
+      }
+    }
+
+    if (describedby_fields.length > 0)
+      contextnode.setAttribute("aria-describedby", describedby_fields.join(" "));
+    else
+      contextnode.removeAttribute("aria-describedby");
   }
 
   _updateFieldGroupErrorState(field) {
