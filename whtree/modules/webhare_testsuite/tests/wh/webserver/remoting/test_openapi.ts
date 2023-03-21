@@ -95,7 +95,7 @@ async function testAuthorization() {
 
   res = await instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/dummy", body: "", headers: { "x-key": "secret" } }, "dummy");
   test.eq(HTTPErrorCode.Unauthorized, res.status, "Should not be getting NotImplemented - access checks go first!");
-  test.eq({ error: "Authorization is required for this endpoint" }, JSON.parse(res.body));
+  test.eq({ status: HTTPErrorCode.Unauthorized, error: "Authorization is required for this endpoint" }, JSON.parse(res.body));
 }
 
 async function verifyPublicParts() {
@@ -147,7 +147,7 @@ function testInternalTypes() {
 
   test.typeAssert<test.Extends<TestResponses, restrequest.RestResponsesBase>>();
 
-  test.typeAssert<test.RevEquals<
+  test.typeAssert<test.Equals<
     { status: HTTPSuccessCode.Ok; isjson: true; response: number } |
     { status: HTTPSuccessCode.PartialContent; isjson: boolean; response: string } |
     { status: HTTPErrorCode.NotFound; isjson: true; response: { status: HTTPErrorCode.NotFound; error: string; extra: string } },
