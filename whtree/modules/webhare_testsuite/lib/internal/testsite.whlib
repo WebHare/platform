@@ -1145,7 +1145,7 @@ PUBLIC RECORD FUNCTION BuildWebtoolForm(RECORD options DEFAULTSTO DEFAULT RECORD
 {
   options := ValidateOptions(testformfileoptions, options);
 
-  //Create a poll in the webtools site
+  //Create a form in the webtools site
   OBJECT webtoolsfolder := OpenTestsuiteSite()->OpenByPath(options.infolder);
   TestEq(TRUE, ObjectExists(webtoolsfolder), `'${options.infolder}' folder missing in testsite, run resettestsite.whscr?`);
 

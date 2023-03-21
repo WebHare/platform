@@ -48,6 +48,7 @@ export default class UploadField extends FileEditBase {
             <span class="wh-form__uploadfielddelete"
               aria-label={getTid("publisher:site.forms.upload-remove")}
               tabindex="0"
+              role="button"
               on={{ click: evt => this._doDelete(evt), keypress: evt => this._checkForDelete(evt) }}
             />
           }

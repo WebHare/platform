@@ -248,6 +248,26 @@ test.registerTests(
       }
     },
 
+    "Test labeling and group role",
+    async function() {
+      // Check for simple input fields having a <label> with the correct content
+      test.eq('Email', test.qS('[for="coretest-email"]').textContent);
+      test.eq('Text', test.qS('[for="coretest-text"]').textContent);
+      test.eq('NumberPlease', test.qR('[for="coretest-number"]').textContent);
+      test.eq('Pulldowntest', test.qR('[for="coretest-pulldowntest"]').textContent);
+      test.eq('DateOfBirth', test.qR('[for="coretest-dateofbirth"]').textContent);
+
+      // Check fields which consist of grouped input elements
+      // FIXME: for replaced components we might have an element with role="group" within our fieldgroup..
+      const fieldgroupnode = test.qR('[data-wh-form-group-for="requiredradio"]');
+      test.eq("group", fieldgroupnode.getAttribute("role"));
+      test.eq("coretest-requiredradio-label", fieldgroupnode.getAttribute("aria-labelledby"));
+
+      // Check select type="checkbox" for correct labeling
+      const groupnode = test.qR('[data-wh-form-group-for="checkboxes"]');
+      test.eq('coretest-checkboxes-label', groupnode.getAttribute("aria-labelledby"));
+    },
+
     "Test data-wh-group-for",
     async function() {
       const optselect5_group = test.qS("#coretest-opt5_select").closest('.wh-form__fieldgroup');
@@ -413,12 +433,15 @@ test.registerTests(
       await test.wait('ui');
       test.eq("", test.qS('#coreformsubmitresponse').textContent, "expected no submission");
 
+      const fieldnode = test.qS('#coretest-password');
       passwordgroup = test.qS('#coretest-password').closest('.wh-form__fieldgroup');
       test.assert(passwordgroup.classList.contains('wh-form__fieldgroup--error')); //this field is in error
+      test.assert(fieldnode, fieldnode.hasAttribute("aria-invalid"));
 
-      const errors = passwordgroup.querySelector('.wh-form__error');
-      test.assert(errors);
-      test.eq("'secret' is a bad password", errors.textContent);
+      const errornode = passwordgroup.querySelector('.wh-form__error');
+      test.assert(errornode);
+      test.eq(errornode.id, fieldnode.getAttribute("aria-describedby"));
+      test.eq("'secret' is a bad password", errornode.textContent);
 
       //trigger global error popup
       test.fill(test.qS('#coretest-password'), 'globalerror');
