@@ -30,35 +30,54 @@ test.registerTests(
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?customemailvalidator=1');
       test.click('#coretest-email');
       test.eq(0, test.qSA('.wh-form__fieldgroup--error').length, "Form should be initially clean of errors");
+      test.eq(0, test.qSA('aria-invalid').length, "Form should not have any aria-invalid attributes yet");
 
       test.fill('#coretest-email', 'x');
       test.eq(0, test.qSA('.wh-form__fieldgroup--error').length, "No errors if this field never failed #1");
       test.fill('#coretest-email', '');
       test.eq(0, test.qSA('.wh-form__fieldgroup--error').length, "No errors if this field never failed #2");
 
-      await test.pressKey('Tab');
+      await test.pressKey('Tab'); // leave email field
 
-      const emailgroup = test.qS('#coretest-email').closest('.wh-form__fieldgroup');
-      test.assert(emailgroup.classList.contains('wh-form__fieldgroup--error'), "Expecting required emailfield to be in error mode now");
-      test.eq('Dit veld is verplicht.', emailgroup.querySelector('.wh-form__error').textContent);
+      // The email field should now get validated and give an error because it's required and the value is empty
+      const emailfield = test.qS('#coretest-email');
+      const emailgroup = emailfield.closest('.wh-form__fieldgroup');
 
-      await new Promise(resolve => setTimeout(resolve, 50)); //small delay to make sure no odd event handlers/focus change is iinterecept us
+      test.assert(emailfield.getAttribute("aria-invalid"), "Expecting required emailfield to be in error mode now");
 
-      await test.pressKey('z'); //this should end up in 'setValiator' field
+      let errornode = emailgroup.querySelector('.wh-form__error');
+      test.assert(emailgroup.classList.contains('wh-form__fieldgroup--error'), "Expecting required emailfield to have an error message");
+      test.eq('Dit veld is verplicht.', errornode.textContent);
+      test.eq(errornode.id, emailfield.getAttribute("aria-describedby"));
+
+      await new Promise(resolve => setTimeout(resolve, 50)); //small delay to make sure no odd event handlers/focus change is interecept us
+
+      await test.pressKey('z'); //this should end up in 'setValidator' field
 
       await test.pressKey('Tab', { shiftKey: true });
       await test.pressKey('x');
-      test.eq('Dit is geen geldig e-mailadres.', emailgroup.querySelector('.wh-form__error').textContent);
 
+      errornode = emailgroup.querySelector('.wh-form__error');
+      test.eq('Dit is geen geldig e-mailadres.', emailgroup.querySelector('.wh-form__error').textContent);
+      test.eq("true", emailfield.getAttribute("aria-invalid"));
+      test.eq(errornode.id, emailfield.getAttribute("aria-describedby"));
+
+      // Set a correct email and check that errors has gone
       test.fill('#coretest-email', 'advocado@beta.webhare.net');
       await test.wait('ui');
       test.eq('', emailgroup.querySelector('.wh-form__error').textContent);
       test.assert(!emailgroup.classList.contains('wh-form__fieldgroup--error'));
+      test.assert(!emailfield.hasAttribute("aria-invalid"));
+      test.assert(!emailfield.hasAttribute("aria-describedby"));
 
       //but now we should again warn immediately about errors
       await test.pressKey('@');
       test.eq('Dit is geen geldig e-mailadres.', emailgroup.querySelector('.wh-form__error').textContent);
       test.assert(emailgroup.classList.contains('wh-form__fieldgroup--error'));
+
+      test.eq("true", emailfield.getAttribute("aria-invalid"));
+      errornode = emailgroup.querySelector('.wh-form__error');
+      test.eq(errornode.id, emailfield.getAttribute("aria-describedby"));
     },
 
     'Test required/focus behavior of additional fields inside radio groups',
@@ -76,13 +95,19 @@ test.registerTests(
 
     'Test number field',
     async function() {
+      const field = test.qS('#coretest-number');
       const numbergroup = test.qS('#coretest-number').closest('.wh-form__fieldgroup');
       test.fill('#coretest-number', '5');
       await test.pressKey('Tab', { shiftKey: true });
+      test.assert(field.getAttribute("aria-invalid"));
       test.eq('De waarde mag niet groter zijn dan 2.', numbergroup.querySelector('.wh-form__error').textContent);
       test.fill('#coretest-number', '-5');
       await test.wait('ui');
       test.eq('De waarde mag niet lager zijn dan -2.', numbergroup.querySelector('.wh-form__error').textContent);
+
+      // check ARIA attributes
+      const errornode = numbergroup.querySelector('.wh-form__error');
+      test.eq(errornode.id, field.getAttribute("aria-describedby"));
     },
 
     'Test datetime field',
@@ -102,13 +127,26 @@ test.registerTests(
 
       test.fill("#coretest-dateofbirth", "");
       test.eq('Dit veld is verplicht.', dateofbirthgroup.querySelector('.wh-form__error').textContent);
+
+      const errornode = dateofbirthgroup.querySelector('.wh-form__error');
+
+      // check ARIA attributes
+      const field = test.qS('#coretest-dateofbirth');
+      // test.eq("true", field.getAttribute("aria-invalid"));
+      test.eq(errornode.id, field.getAttribute("aria-describedby"));
     },
 
     'Test radio visiblity and checks',
     async function() {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?customemailvalidator=1');
 
-      test.assert(!test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains("wh-form__fieldgroup--error"));
+      //      test.assert(!test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains("wh-form__fieldgroup--error"));
+      // Checkbox groups (select type="checkbox") must have a groupnode with aria-labels
+      const groupnode = test.qS('[data-wh-form-group-for="requiredradio"]');
+      test.assert(!groupnode.classList.contains("wh-form__fieldgroup--error"));
+      test.eq(false, groupnode.hasAttribute("aria-invalid"));
+      test.eq(false, groupnode.hasAttribute("aria-describedby"));
+
       test.click('#coretest-showradioy'); //hid e Y
 
       test.assert(!test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains("wh-form__fieldgroup--error"));
@@ -126,15 +164,22 @@ test.registerTests(
       //the CLIENT should have detected this..
       const errorinfo = test.getPxlLog(/^publisher:form.+/).at(-1);
       test.eq('client', errorinfo.data.ds_formmeta_errorsource);
+
+      // select type="radio" must use a container with role="group"
+      // on which to set the ARIA attributes
+      test.eq("true", groupnode.getAttribute("aria-invalid"));
+      const errornode = groupnode.querySelector('.wh-form__error');
+      test.eq(errornode.id, groupnode.getAttribute("aria-describedby"));
     },
 
     'Test checkboxes min/max',
     async function() {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?customemailvalidator=1');
+
       setRequiredFields();
       const formhandler = FormBase.getForNode(test.qS('#coreform'));
 
-      //1 + 3 are now checked
+      //1 + 3 are now preselected (as defined in the formtest.formdef.xml)
       test.click('#coretest-checkboxes-2'); //adding 2 to the set
       test.click(test.qS('#submitbutton'));
       await test.wait('ui');
@@ -149,17 +194,30 @@ test.registerTests(
       test.assert(test.hasFocus(test.qS('#coretest-checkboxes-1')), "first focusable checkbox of this group should receive focus");
       test.eq('Kies maximaal 2 items.', checkboxgroup.querySelector('.wh-form__error').textContent);
 
+      // The ARIA attributes are expected on the group container
+      test.eq("true", checkboxgroup.getAttribute("aria-invalid"));
+      let errornode = checkboxgroup.querySelector('.wh-form__error');
+      test.eq(errornode.id, checkboxgroup.getAttribute("aria-describedby"));
+
       test.click('#coretest-checkboxes-3'); //deselecting #3
       await test.wait('ui'); //checkboxes don't update until UI is open (because it uses a validation handler) so wait for it..
+
+      // Check wether all error indicators have been cleared
       test.eq('', checkboxgroup.querySelector('.wh-form__error').textContent);
+      test.eq(false, checkboxgroup.hasAttribute("aria-invalid"));
+      test.eq(false, checkboxgroup.hasAttribute("aria-describedby"));
 
       test.click('#coretest-checkboxes-3'); //selecting #3 - now expecting immediate responses
       await test.wait('ui');
-      test.eq('Kies maximaal 2 items.', checkboxgroup.querySelector('.wh-form__error').textContent);
 
-      test.click('#coretest-checkboxes-3'); //selecting #3 - now expecting immediate responses
-      test.click('#coretest-checkboxes-2'); //selecting #3 - now expecting immediate responses
-      test.click('#coretest-checkboxes-1'); //selecting #3 - now expecting immediate responses
+      test.eq('Kies maximaal 2 items.', checkboxgroup.querySelector('.wh-form__error').textContent);
+      test.eq("true", checkboxgroup.getAttribute("aria-invalid"));
+      errornode = checkboxgroup.querySelector('.wh-form__error');
+      test.eq(errornode.id, checkboxgroup.getAttribute("aria-describedby"));
+
+      test.click('#coretest-checkboxes-3'); //deselecting #3 - now expecting immediate responses
+      test.click('#coretest-checkboxes-2'); //deselecting #2 - now expecting immediate responses
+      test.click('#coretest-checkboxes-1'); //deselecting #1 - now expecting immediate responses
       await test.wait('ui');
       test.eq('Kies minimaal 1 item.', checkboxgroup.querySelector('.wh-form__error').textContent);
       let result = await formhandler.validate(checkboxgroup);
@@ -186,6 +244,10 @@ test.registerTests(
     'Test server fallback error handling',
     async function() {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/');
+
+      // Check for correct labeling
+      test.eq('Textarea', test.qS('[for="coretest-textarea"]').textContent);
+
       test.eq(70, test.qS("textarea").maxLength);
       test.qS("textarea").removeAttribute("maxlength");
       test.fill("textarea", "This text is way too long. Yes it is way too long. Yes it is way too long. Yes it is way too long. 113 characters");
@@ -195,6 +257,13 @@ test.registerTests(
       await test.wait('ui');
 
       test.assert(test.qS('[data-wh-form-group-for="textarea"]').classList.contains("wh-form__fieldgroup--error"), "should have failed serverside");
+
+      // Serverside errors must also trigger the ARIA attributes
+      const field = test.qS('#coretest-textarea');
+      test.eq("true", field.getAttribute("aria-invalid"));
+
+      const errornode = field.closest('.wh-form__fieldgroup').querySelector('.wh-form__error');
+      test.eq(errornode.id, field.getAttribute("aria-describedby"));
     },
 
     'Test server side errors',
@@ -214,6 +283,13 @@ test.registerTests(
           + `  Add the URL ${test.getWin().location.origin}/webhare-testsuite.site/* to the "Never Do Anything" list\n\n`);
         throw new Error("YOUR PASSWORD MANAGER CHANGED THE PASSWORD! disable it!");
       }
+
+      const field = test.qS("#coretest-password");
+      test.eq("true", field.getAttribute("aria-invalid"));
+
+      let errornode = field.closest('.wh-form__fieldgroup').querySelector('.wh-form__error');
+      test.eq(errornode.id, field.getAttribute("aria-describedby"));
+
       test.assert(test.qS('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"));
       await test.pressKey('Tab');
       test.assert(test.qS('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"), "should still have error state after tab");
@@ -224,11 +300,16 @@ test.registerTests(
       //change it, immediately clears the error
       test.fill("#coretest-password", "secret!");
       test.assert(!test.qS('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"));
+      test.assert(!field.hasAttribute("aria-invalid"));
+      test.assert(!field.hasAttribute("aria-describedby"));
 
       //submit that, fails again
       test.click(test.qS('#submitbutton'));
       await test.wait('ui');
       test.assert(test.qS('[data-wh-form-group-for="password"]').classList.contains("wh-form__fieldgroup--error"));
+      test.assert(field.hasAttribute("aria-invalid"));
+      errornode = field.closest('.wh-form__fieldgroup').querySelector('.wh-form__error');
+      test.eq(errornode.id, field.getAttribute("aria-describedby"));
 
       //now set a _different_ field to allow the password
       test.qS("#coretest-number").focus();
@@ -293,7 +374,7 @@ test.registerTests(
         test.assert(emailgroup.classList.contains('wh-form__fieldgroup--error'), 'email group should be marked as error after explicit setFieldError');
 
         result = await formhandler.validate(emailgroup);
-        test.assert(emailgroup.classList.contains('wh-form__fieldgroup--error'), 'revalidation may not clear explicit errors, as they have no callback to restore erros');
+        test.assert(emailgroup.classList.contains('wh-form__fieldgroup--error'), 'revalidation may not clear explicit errors, as they have no callback to restore errors');
 
         formhandler.setFieldError(test.qS('#coretest-email'), null);
         test.assert(!emailgroup.classList.contains('wh-form__fieldgroup--error'), 'email group should be unmarked as error');
