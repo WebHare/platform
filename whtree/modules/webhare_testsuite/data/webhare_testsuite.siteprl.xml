@@ -242,6 +242,7 @@
       <integer name="testfield" />
       <array name="testarray">
         <string name="arrayfield" />
+        <string name="textfield" />
         <datetime name="otherfield" />
         <whfsrefarray name="deeper_whfsrefarray" />
       </array>
