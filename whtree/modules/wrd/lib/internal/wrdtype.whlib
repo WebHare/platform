@@ -1971,6 +1971,10 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       }
       CASE 8 /* multiple select*/
       {
+        // Allow DEFAULT VARIANT ARRAY received from incoming JSON as empty value
+        IF(TypeID(val) = TypeID(VARIANT ARRAY) AND Length(val) = 0)
+          RETURN CELL[ attr, newsets, subs ];
+
         IF(TypeId(val) = TYPEID(STRING ARRAY))
         {
           IF(NOT isv2api)
@@ -1997,6 +2001,10 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       }
       CASE 13
       {
+        // Allow DEFAULT VARIANT ARRAY received from incoming JSON as empty value
+        IF(TypeID(val) = TypeID(VARIANT ARRAY) AND Length(val) = 0)
+          RETURN CELL[ attr, newsets, subs ];
+
         IF(TypeId(val) != TYPEID(RECORD ARRAY))
           THROW NEW Exception(`Value must be of type RECORD ARRAY, got ${GetTypeName(TYPEID(val))}`);
 
@@ -2158,6 +2166,10 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       }
       CASE 24 //ENUMARRAY
       {
+        // Allow DEFAULT VARIANT ARRAY received from incoming JSON as empty value
+        IF(TypeID(val) = TypeID(VARIANT ARRAY) AND Length(val) = 0)
+          RETURN CELL[ attr, newsets, subs ];
+
         IF(TypeId(val) != TYPEID(STRING ARRAY))
           THROW NEW Exception(`Value must be of type STRING ARRAY, got ${GetTypeName(TYPEID(val))}`);
 
@@ -2274,10 +2286,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
              , unique_rawdata := attr.isunique ? rawdata : ""
           FROM newsets;
 
-    RETURN [ attr    := attr
-           , newsets := newsets
-           , subs    := subs
-           ];
+    RETURN CELL[ attr, newsets, subs ];
   }
 
   BOOLEAN FUNCTION ValidateSettings(RECORD ARRAY insettings, INTEGER currententityid, INTEGER currentattribute, BOOLEAN isv2api, RECORD options)
