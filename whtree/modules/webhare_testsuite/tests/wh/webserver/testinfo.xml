@@ -3,6 +3,7 @@
   <test script="test-configure.whscr" />
   <test script="test-webserver-debugging.whscr" />
   <test script="configfiles.whscr" />
+  <test script="test_fetch.whscr" />
   <test script="loopbacks.whscr" />
   <test script="ranges.whscr" />
   <test script="mutexes.whscr" />

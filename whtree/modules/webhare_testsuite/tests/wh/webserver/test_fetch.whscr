@@ -1,0 +1,25 @@
+<?wh
+LOADLIB "wh::internet/fetch.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+MACRO TestFetch()
+{
+  OBJECT response := FetchSync(GetPrimaryWebHareInterfaceURL() || "tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml",
+     [ headers := [ accept := "application/json" ]]);
+
+  TestEq(200, response->status);
+  TestEq(TRUE, response->ok);
+  TestEqLike(`{*}`, response->text());
+
+  TestEq("application/json", response->headers->get("content-type"));
+
+  //TODO shouldn't requesting as json() (or even another text() request) fail?
+  //ABORT(response->json());
+
+  TestRejectedLike("The operation was aborted due to timeout", Fetch(GetPrimaryWebHareInterfaceURL() || ".webhare_testsuite/tests/consilio/timeout.shtml", [ timeout := 1000 ]));
+}
+
+RunTestFramework([ PTR TestFetch ]);
+

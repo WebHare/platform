@@ -1,5 +1,12 @@
+interface ExtendedRequestInit extends RequestInit {
+  timeout?: number;
+}
+
 export class Fetcher {
-  async goFetch(url: string, options: RequestInit) {
+  async goFetch(url: string, options: ExtendedRequestInit) {
+
+    if ("timeout" in options)
+      options.signal = AbortSignal.timeout(options.timeout!);
 
     try {
       const response = await fetch(url, options);
@@ -7,7 +14,7 @@ export class Fetcher {
         status: response.status,
         statusText: response.statusText,
         ok: response.ok,
-        headers: response.headers.entries(),
+        headers: [...response.headers.entries()],
         body: await response.arrayBuffer()
       };
       return retval;
