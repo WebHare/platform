@@ -82,9 +82,10 @@ STATIC OBJECTTYPE SyncFetchResponse
 /** Fetch a HTTP resource
     @param uri URI of the resource
     @param options Fetch options
+    @param pooloptions Pool options
     @return Promise resvoling to a Response
 */
-PUBLIC ASYNC FUNCTION Fetch(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC ASYNC FUNCTION Fetch(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD, RECORD pooloptions DEFAULTSTO DEFAULT RECORD)
 {
   IF(NOT ObjectExists(fetchpool))
     fetchpool := OpenWebHareService("system:fetchpool");
@@ -94,32 +95,43 @@ PUBLIC ASYNC FUNCTION Fetch(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD
       , headers :=        DEFAULT RECORD
       , body :=           DEFAULT BLOB
       , redirect :=       "follow"
-      , timeout :=        0
       ],
       options,
       [ enums :=        [ redirect := [ "follow", "error", "manual" ]
                         ]
-      , optional :=     [ "body", "timeout" ]
+      , optional :=     [ "body" ]
+      , notypecheck  := [ "body" ]
       ]);
+
+  pooloptions := ValidateOptions(
+      [ timeout :=  -1 //fetch would use (abort) siganl
+      , debug :=    FALSE //debug from pool to console
+      ], pooloptions);
+
+  IF(CellExists(options,'body'))
+  {
+    IF(TYPEID(options.body) NOT IN [TYPEID(BLOB),TYPEID(STRING)])
+      THROW NEW Exception(`BODY must be either a BLOB or a STRING`);
+  }
 
   IF(NOT RecordExists(options.headers))
     options.headers := CELL[];
 
   TRY
   {
-    RETURN NEW FetchResponse(AWAIT (AWAIT fetchpool)->goFetch(uri, options));
+    RETURN NEW FetchResponse(AWAIT (AWAIT fetchpool)->goFetch(uri, options, pooloptions));
   }
 
   CATCH(OBJECT<ServiceDisconnectException> e)
   {
     //just reconnect (once)
     fetchpool := OpenWebHareService("system:fetchpool");
-    RETURN NEW FetchResponse(AWAIT (AWAIT fetchpool)->goFetch(uri, options));
+    RETURN NEW FetchResponse(AWAIT (AWAIT fetchpool)->goFetch(uri, options, pooloptions));
   }
 }
 
 /** Synchronous fetch implemtentation */
-PUBLIC OBJECT FUNCTION FetchSync(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC OBJECT FUNCTION FetchSync(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD, RECORD pooloptions DEFAULTSTO DEFAULT RECORD)
 {
-  RETURN NEW SyncFetchResponse(WaitForPromise(Fetch(uri,options)));
+  RETURN NEW SyncFetchResponse(WaitForPromise(Fetch(uri, options, pooloptions)));
 }
