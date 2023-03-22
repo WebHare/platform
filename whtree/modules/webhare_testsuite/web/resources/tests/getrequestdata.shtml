@@ -17,5 +17,11 @@ RECORD data :=
     , method :=           GetRequestMethod()
     ];
 
+IF(GetWebHeader("Accept") = "application/json")
+{
+  AddHTTPHeader("Content-Type", "application/json", FALSE);
+  SendWebFile(EncodeJSONBlob(data));
+}
+
 AddHTTPHeader("Content-Type", "application/x-hson", FALSE);
 SendWebFile(EncodeHSONBlob(data));

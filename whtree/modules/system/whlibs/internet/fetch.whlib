@@ -7,6 +7,7 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/xml.whlib";
 LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::internal/interface.whlib";
@@ -14,21 +15,43 @@ LOADLIB "mod::system/lib/services.whlib";
 
 OBJECT fetchpool;
 
+STATIC OBJECTTYPE FetchResponseHeaders
+<
+  RECORD ARRAY headers;
+  MACRO NEW(VARIANT ARRAY headers)
+  {
+    FOREVERY(VARIANT hdr FROM headers)
+      INSERT CELL[ name  := hdr[0], value := hdr[1] ] INTO this->headers AT END;
+  }
+  PUBLIC STRING FUNCTION get(STRING headername)
+  {
+    RETURN SELECT AS STRING value FROM this->headers WHERE ToUppercase(name) = ToUppercase(headername);
+  }
+>;
+
 STATIC OBJECTTYPE FetchResponse
 <
   RECORD fetchresult;
+  OBJECT __headers;
+
   PUBLIC PROPERTY status(fetchresult.status, -);
   PUBLIC PROPERTY statustext(fetchresult.statustext, -);
   // A boolean indicating whether the response was successful (status in the range 200 – 299) or not.
   PUBLIC PROPERTY ok(fetchresult.ok, -);
+  PUBLIC PROPERTY headers(__headers, -);
 
   MACRO NEW(RECORD fetchresult)
   {
     this->fetchresult := fetchresult;
+    this->__headers := NEW FetchResponseHeaders(fetchresult.headers);
   }
   PUBLIC ASYNC FUNCTION JSON()
   {
     RETURN DecodeJSONBlob(this->fetchresult.body);
+  }
+  PUBLIC ASYNC FUNCTION Text()
+  {
+    RETURN BlobToString(this->fetchresult.body);
   }
 >;
 
@@ -44,10 +67,15 @@ STATIC OBJECTTYPE SyncFetchResponse
   PUBLIC PROPERTY status(asyncresponse->status, -);
   PUBLIC PROPERTY statustext(asyncresponse->statustext, -);
   PUBLIC PROPERTY ok(asyncresponse->ok, -);
+  PUBLIC PROPERTY headers(asyncresponse->headers, -);
 
   PUBLIC VARIANT FUNCTION JSON()
   {
     RETURN WaitForPromise(this->asyncresponse->JSON());
+  }
+  PUBLIC VARIANT FUNCTION Text()
+  {
+    RETURN WaitForPromise(this->asyncresponse->Text());
   }
 >;
 
@@ -66,11 +94,12 @@ PUBLIC ASYNC FUNCTION Fetch(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD
       , headers :=        DEFAULT RECORD
       , body :=           DEFAULT BLOB
       , redirect :=       "follow"
+      , timeout :=        0
       ],
       options,
       [ enums :=        [ redirect := [ "follow", "error", "manual" ]
                         ]
-      , optional :=     [ "body" ]
+      , optional :=     [ "body", "timeout" ]
       ]);
 
   IF(NOT RecordExists(options.headers))
