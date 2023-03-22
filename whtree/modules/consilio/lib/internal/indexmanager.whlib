@@ -274,7 +274,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
 
   RECORD indexmanager := indexoptions.indexmanagers;
   IF (NOT RecordExists(indexmanager))
-    THROW NEW ElasticSearchException(`No indices attached to catalog '${catalog}'`, DEFAULT OBJECT);
+    THROW NEW ElasticSearchException(`No indices attached to catalog '${catalog}'`, DEFAULT OBJECT, "");
 
   IF (RecordExists(indexmanager))
   {
@@ -972,7 +972,7 @@ STATIC OBJECTTYPE IndexManagerBulkKeeper
     {
       //FIXME we get an _id back, but we don't calculate them here so how to figure out which object it actually referred to for a proper error?
       //FIXME what if more than one object failed? we should throw more informing errors
-      THROW NEW ElasticSearchException(`Failed on document '${errors[0].operation._id}': ${errors[0].operation.error.reason} (${errors[0].operation.error.type})`, DEFAULT OBJECT);
+      THROW NEW ElasticSearchException(`Failed on document '${errors[0].operation._id}': ${errors[0].operation.error.reason} (${errors[0].operation.error.type})`, DEFAULT OBJECT, "");
     }
     RETURN retval;
   }

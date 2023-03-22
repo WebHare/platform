@@ -25,7 +25,7 @@ FOREVERY(RECORD candidate FROM candidates)
 
   //TODO fuller URLs than just the index name in case you're working with multiple managers
   //TODO escape regex ? will names get weird?
-  indexnames := indexnames CONCAT SELECT AS STRING ARRAY indexname FROM indices;
+  indexnames := indexnames CONCAT SELECT AS STRING ARRAY `/${indexname}/` FROM indices;
 }
 
 Print(Detokenize(indexnames,'|')||'\n');

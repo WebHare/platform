@@ -18,4 +18,4 @@ if [ -z "$INDEXREGEX" ]; then
   exit 1 #getindexnames should have printed an error
 fi
 
-wh watchlog rpc | grep --line-buffered -E "${INDEXREGEX}" | wh logreader --format rpc
+wh watchlog debug | grep --line-buffered -E "${INDEXREGEX}|--- MARK: "

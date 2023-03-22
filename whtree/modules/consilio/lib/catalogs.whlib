@@ -604,11 +604,18 @@ STATIC OBJECTTYPE ConsilioCatalog
     IF(Length(indices) = 0)
       RETURN FALSE; //we need at least one writable index
 
-    IF(NOT this->suffixed)
-      FOREVERY(RECORD indice FROM indices)
-        IF(NOT IsOpenSearchIndexPresent(indice.indexmanager, indice.indexname)) //TODO also verify mapping/settings are truly applied
-          RETURN FALSE;
-
+    TRY
+    {
+      IF(NOT this->suffixed)
+        FOREVERY(RECORD indice FROM indices)
+          IF(NOT IsOpenSearchIndexPresent(indice.indexmanager, indice.indexname)) //TODO also verify mapping/settings are truly applied
+            RETURN FALSE;
+    }
+    CATCH(OBJECT<SearchUnavailableException> e)
+    {
+      //If we can't talk yet to the server, we're note readdy (IsOpenSearchIndexPresent is too low level to determine the proper response to no-opensaerch
+      RETURN FALSE;
+    }
     RETURN TRUE;
   }
 
