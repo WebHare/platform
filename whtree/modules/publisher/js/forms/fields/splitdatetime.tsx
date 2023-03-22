@@ -10,6 +10,8 @@ import "../internal/form.lang.json";
 import "./splitdatetime.scss";
 
 
+if (!whintegration.config.islive)
+  console.warn("@mod-publisher/js/forms/splitdatetime has some known issues and is no longer being maintained. Please switch to the @mod-publisher/js/forms/datetime version");
 
 let labelcount = 0;
 
