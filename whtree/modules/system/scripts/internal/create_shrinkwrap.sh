@@ -64,7 +64,7 @@ if [ -z "$WEBHARE_IN_DOCKER" ]; then #Not inside docker, setup save working envi
 
   # Destroy existing instances
   rm -rf -- /"${SHRINKWRAPBASEDIR}"create_shrinkwrap.* 2>/dev/null
-  export WEBHARE_DATAROOT="${SHRINKWRAPBASEDIR}create_shrinkwrap.$$"
+  export WEBHARE_DATAROOT="${SHRINKWRAPBASEDIR}create_shrinkwrap.$$/"
   export WEBHARE_BASEPORT=38679
 fi
 

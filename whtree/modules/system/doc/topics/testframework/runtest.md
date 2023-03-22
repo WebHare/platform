@@ -122,7 +122,7 @@ installation. Create an executable (chmod a+x) `wh-test` containing:
 #!/bin/bash
 export WEBHARE_NOINSTALLATIONINFO=1
 export WEBHARE_DTAPSTAGE=development
-export WEBHARE_DATAROOT=$HOME/projects/whdata/test
+export WEBHARE_DATAROOT=$HOME/projects/whdata/test/
 export WEBHARE_BASEPORT=13300
 exec wh "$@"
 ```

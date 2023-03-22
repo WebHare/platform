@@ -55,12 +55,12 @@ example:
 
 ```bash
 # A simple secondary installation:
-alias wh-moe2="WEBHARE_DATAROOT=$HOME/projects/whdata/moe2 WEBHARE_BASEPORT=14000 wh"
+alias wh-moe2="WEBHARE_DATAROOT=$HOME/projects/whdata/moe2/ WEBHARE_BASEPORT=14000 wh"
 wh-moe2 console # Launches it
 
 # A completely separate source checkout:
 alias wh-stable="WEBHARE_DIR=~/projects/wh_stable/whtree
-                 WEBHARE_DATAROOT=$HOME/projects/whdata/wh-stable
+                 WEBHARE_DATAROOT=$HOME/projects/whdata/wh-stable/
                  WEBHARE_BASEPORT=14100 ~/projects/wh_stable/whtree/bin/wh"
 wh-stable mic # Make, install, console
 ```

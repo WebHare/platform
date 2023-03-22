@@ -8,7 +8,7 @@ MAINTAINER WebHare bv <info@webhare.com>
 # Environment variables
 ENV LC_ALL=C \
   WEBHARE_IN_DOCKER=1 \
-  WEBHARE_DATAROOT=/opt/whdata \
+  WEBHARE_DATAROOT=/opt/whdata/ \
   WEBHARE_BUILDDIR=/opt/whbuild/ \
   WEBHARE_DIR=/opt/wh/whtree \
   WEBHARE_CHECKEDOUT_TO=/opt/wh \

@@ -4,9 +4,17 @@ set -e
 # To locally test and debug changes to the OpenSearch build and initialization in docker:
 # wh builddocker && wh testdocker --sh --tag=-external -w local consilio
 
+if [ -z "$WEBHARE_BASEPORT" ]; then
+  echo "WEBHARE_BASEPORT name not set"
+  exit 1
+fi
+if [ -z "$WEBHARE_DATAROOT" ]; then
+  echo "WEBHARE_DATAROOT name not set"
+  exit 1
+fi
+
 echo "Max open files: $(ulimit -n)"
 
-eval $("$WEBHARE_DIR/bin/webhare" printparameters)
 OPENSEARCHPORT=$(( $WEBHARE_BASEPORT + 6 ))
 OPENSEARCHROOT="$WEBHARE_DATAROOT/opensearch"
 
