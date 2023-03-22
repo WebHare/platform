@@ -616,6 +616,9 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
       , managedonly := FALSE
       , indexmanager := 0
       , totaltotrack := 10000
+        /* If 'acceptmissingindex' is set, we'll consider a 404 (no such index) to be equivalent to "no results". This is
+           useful for eg. analysis code which will deal with in-progress indexeas at a later stage */
+      , acceptmissingindex := FALSE
       ];
   options := ValidateOptions(defaultoptions, options);
 
@@ -674,7 +677,11 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
       ELSE
       {
         STRING suffix := indexid > 0 AND indexmanager.indextype = whconstant_consilio_catalogtype_unmanaged ? (options.suffix != "" ? "-" || options.suffix : "") : "";
-        response := SendRawJSONToElasticsearch(indexmanager.id, "GET", (indexid != 0 ? indexmanager.indexname || suffix : "_all") || "/_search" || (scrolling ? "?scroll=10s" : ""), searchquery);
+        response := SendRawJSONToElasticsearch(indexmanager.id, "GET", (indexid != 0 ? indexmanager.indexname || suffix : "_all") || "/_search" || (scrolling ? "?scroll=10s" : "")
+                                              , searchquery
+                                              , [ expectstatus := options.acceptmissingindex ? [ 200, 404 ] : [ 200 ] ]);
+        IF(response.code = 404) //Index (not yet) present
+          RETURN CELL[ ...result, status := SearchOk ];
       }
 
       result.status := response.status;

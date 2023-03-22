@@ -1046,7 +1046,7 @@ RECORD ARRAY FUNCTION GetContentSourcesWithGroup(INTEGER indexid, STRING groupid
   FOREVERY (RECORD indexmanager FROM indexmanagers)
   {
     // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
-    RECORD result := QueryIndexManager(indexid, CQAnd(queries), [ count := fetcher_search_window, mapping := [ _contentsource := 0 ], managedonly := TRUE, indexmanager := indexmanager.id ]);
+    RECORD result := QueryIndexManager(indexid, CQAnd(queries), [ count := fetcher_search_window, mapping := [ _contentsource := 0 ], managedonly := TRUE, indexmanager := indexmanager.id, acceptmissingindex := TRUE  ]);
     IF (result.totalcount > fetcher_search_window)
       result := QueryIndexManager(indexid, CQAnd(queries), [ count := -1, mapping := [ _contentsource := 0 ], managedonly := TRUE, indexmanager := indexmanager.id ]);
 
@@ -1168,7 +1168,7 @@ RECORD ARRAY FUNCTION GetExistingContentSourceGroups(INTEGER contentsourceid)
   FOREVERY (RECORD indexmanager FROM GetIndexManagersForIndex(indexid))
   {
     // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
-    RECORD result := QueryIndexManager(indexid, query, [ count := fetcher_search_window, mapping := [ groupid := "" ], indexmanager := indexmanager.id ]);
+    RECORD result := QueryIndexManager(indexid, query, [ count := fetcher_search_window, mapping := [ groupid := "" ], indexmanager := indexmanager.id, acceptmissingindex := TRUE ]);
     IF (result.totalcount > fetcher_search_window)
       result := QueryIndexManager(indexid, query, [ count := -1, mapping := [ groupid := "" ], indexmanager := indexmanager.id ]);
 
@@ -1220,7 +1220,7 @@ RECORD ARRAY FUNCTION GetExistingGroupObjects(INTEGER contentsourceid, STRING gr
   FOREVERY (RECORD indexmanager FROM indexmanagers)
   {
     // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
-    RECORD result := QueryIndexManager(indexid, CQAnd(queries), [ count := fetcher_search_window, mapping := mapping, indexmanager := indexmanager.id ]);
+    RECORD result := QueryIndexManager(indexid, CQAnd(queries), [ count := fetcher_search_window, mapping := mapping, indexmanager := indexmanager.id, acceptmissingindex := TRUE ]);
     IF (result.totalcount > fetcher_search_window)
       result := QueryIndexManager(indexid, CQAnd(queries), [ count := -1, mapping := mapping, indexmanager := indexmanager.id ]);
 
@@ -1261,7 +1261,7 @@ MACRO RemoveUnknownContentSourceObjects(INTEGER indexid, INTEGER ARRAY validcont
   FOREVERY (RECORD indexmanager FROM GetIndexManagersForIndex(indexid))
   {
     // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
-    RECORD result := QueryIndexManager(indexid, query, [ count := fetcher_search_window, mapping := [ _contentsource := 0 ] ]);
+    RECORD result := QueryIndexManager(indexid, query, [ count := fetcher_search_window, mapping := [ _contentsource := 0 ], acceptmissingindex := TRUE ]);
     IF (result.totalcount > fetcher_search_window)
       result := QueryIndexManager(indexid, query, [ count := -1, mapping := [ _contentsource := 0 ] ]);
 
