@@ -8,7 +8,6 @@ class Webhare < Formula
   version "1"
   sha256 :no_check
 
-  depends_on "aws-sdk-cpp"
   depends_on "ccache"
   depends_on "freetype"
   depends_on "fswatch"

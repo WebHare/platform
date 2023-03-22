@@ -48,12 +48,6 @@ RUN --mount=type=bind,source=/setup-opensearch.sh,target=/setup-opensearch.sh \
     --mount=type=cache,id=opensearch,target=/tmp/downloads \
     /bin/bash /setup-opensearch.sh
 
-# Install AWS C++ API
-RUN --mount=type=bind,source=/setup-awssdk.sh,target=/setup-awssdk.sh \
-    --mount=type=cache,id=aws,target=/tmp/aws/cache/ \
-    --mount=type=tmpfs,target=/tmp/aws/build/ \
-    /bin/bash /setup-awssdk.sh "1.7.231"
-
 # Let's do the NPM work first, for better caching
 RUN --mount=type=tmpfs,target=/tmp/,readwrite \
     --mount=type=tmpfs,target=/root/,readwrite \

@@ -74,7 +74,6 @@ fi
 
 PACKAGES="ccache
     certbot
-    cmake
     cron
     dumb-init
     fontconfig
