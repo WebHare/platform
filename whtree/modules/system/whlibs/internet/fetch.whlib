@@ -15,6 +15,15 @@ LOADLIB "mod::system/lib/services.whlib";
 
 OBJECT fetchpool;
 
+STRING FUNCTION SanitizeBody(VARIANT body)
+{
+  STRING bodytext := TYPEID(body) = TYPEID(BLOB) ? BlobToString(body, 5000) : body;
+  bodytext := LimitUTF8Bytes(bodytext, 5000);
+  bodytext := Substitute(bodytext,"\r", " ");
+  bodytext := Substitute(bodytext,"\n", " ");
+  RETURN Bodytext;
+}
+
 STATIC OBJECTTYPE FetchResponseHeaders
 <
   RECORD ARRAY headers;
@@ -117,17 +126,44 @@ PUBLIC ASYNC FUNCTION Fetch(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD
   IF(NOT RecordExists(options.headers))
     options.headers := CELL[];
 
+  STRING debugrequestid;
+  BOOLEAN debug := IsDebugTagEnabled("wrq");
+  IF(debug)
+  {
+    debugrequestid := GenerateUFS128BitId();
+    STRING method := Length(options.method) < 7 ? Left(options.method || "      ",7) : options.method;
+
+    Print(`[wrq] ${debugrequestid} ${method} ${uri}\n`);
+    Print(`[wrq] ${debugrequestid} headers ${EncodeJSON(options.headers)}\n`);
+    IF(CellExists(options,'body'))
+      Print(`[wrq] ${debugrequestid} body    ${SanitizeBody(options.body)}\n`);
+  }
+
+  RECORD fetchresult;
   TRY
   {
-    RETURN NEW FetchResponse(AWAIT (AWAIT fetchpool)->goFetch(uri, options, pooloptions));
+    fetchresult := AWAIT (AWAIT fetchpool)->goFetch(uri, options, pooloptions);
   }
 
   CATCH(OBJECT<ServiceDisconnectException> e)
   {
     //just reconnect (once)
+    IF(debug)
+      Print(`[wrq] ${debugrequestid} ServiceDisconnectException, retrying\n`);
+
     fetchpool := OpenWebHareService("system:fetchpool");
-    RETURN NEW FetchResponse(AWAIT (AWAIT fetchpool)->goFetch(uri, options, pooloptions));
+    fetchresult := AWAIT (AWAIT fetchpool)->goFetch(uri, options, pooloptions);
   }
+
+  IF(debug)
+  {
+    Print(`[wrq] ${debugrequestid} result  ${fetchresult.status} ${fetchresult.statustext} (${Length(fetchresult.body)} bytes)\n`);
+    Print(`[wrq] ${debugrequestid} headers ${EncodeJSON(fetchresult.headers)}\n`);
+    IF(Length(fetchresult.body) > 0)
+      Print(`[wrq] ${debugrequestid} body    ${SanitizeBody(fetchresult.body)}\n`);
+  }
+
+  RETURN NEW FetchResponse(fetchresult);
 }
 
 /** Synchronous fetch implemtentation */
