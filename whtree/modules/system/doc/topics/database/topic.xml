@@ -1,7 +1,7 @@
 <topic xmlns="http://www.webhare.net/xmlns/dev/topic"
        title="Database"
        shortdescription="Database connections and transactions"
-       docorder="accessing-databases odbc oracle">
+       docorder="accessing-databases oracle">
   <section name="webharedb" title="Built-in WebHare database" />
   <section name="dynquery" title="Dynamic queries" />
   <section name="ldap" title="Accessing a LDAP server as a database" />
