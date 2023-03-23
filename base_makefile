@@ -89,7 +89,7 @@ ifneq ($(DISABLE_PCH),1)
 endif
 
 
-PKGCONFIG_PACKAGES = openssl freetype2 pixman-1 icu-i18n libxml-2.0 aws-cpp-sdk-s3 libpq
+PKGCONFIG_PACKAGES = openssl freetype2 pixman-1 icu-i18n libxml-2.0 libpq
 CPPFLAGS += -I$(SRCDIR)
 
 PKGCONFIGCFLAGS := $(shell $(PKGCONFIG) --cflags $(PKGCONFIG_PACKAGES))
@@ -246,14 +246,11 @@ else
 endif
 
 BLEX_BASE_LIBS += z dl
-BLEX_HSVM_LIBS = $(ICU_LIBS) aws-cpp-sdk-s3
+BLEX_HSVM_LIBS = $(ICU_LIBS)
 ifneq ($(WHBUILD_PLATFORM),darwin)
 	BLEX_BASE_LIBS += rt            # cap
 	# For asynchronous DNS
 	BLEX_BASE_LIBS += anl
-else
-  # for aws-cpp-sdk linker errors
-	BLEX_HSVM_LIBS += aws-crt-cpp aws-c-common
 endif
 
 harescript_HsMod_oci_AddLibs = clntsh
@@ -807,7 +804,6 @@ harescript/modules/git/git.o: $(BREWPREFIX)/lib/libgit2.dylib
 $(blex_DEPLOYABLES_HSENGINE) blex/tests/dynamic$(DLL_SUFFIX) harescript/modules/icu/icu_provider.o: $(BREWPREFIX)/opt/icu4c/INSTALL_RECEIPT.json
 $(blex_DEPLOYABLES_HSENGINE) harescript/vm/bl_crypto.o: $(BREWPREFIX)/opt/openssl/INSTALL_RECEIPT.json
 $(blex_DEPLOYABLES_HSENGINE) blex/xml.o: $(BREWPREFIX)/opt/libxml2/INSTALL_RECEIPT.json
-$(ALLPCHS) $(LIBHSVM_OBJS): $(BREWPREFIX)/opt/aws-sdk-cpp/INSTALL_RECEIPT.json
 
 endif # end darwin check
 

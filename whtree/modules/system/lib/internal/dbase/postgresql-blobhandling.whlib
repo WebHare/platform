@@ -388,7 +388,7 @@ STATIC OBJECTTYPE S3BlobPartStorage EXTEND BlobPartStorageBase
       params.bucket_name := "";
     }
 
-    RETURN __HS_CREATES3BLOB(params);
+    THROW NEW Exception(`S3 blob support not available`); //used to be: RETURN __HS_CREATES3BLOB(params);
   }
 
   UPDATE PUBLIC MACRO DeleteBlobParts(STRING ARRAY blobpartids)
@@ -493,9 +493,6 @@ STATIC OBJECTTYPE S3BlobPartStorage EXTEND BlobPartStorageBase
     RETURN SELECT AS STRING ARRAY blobpartid FROM todelete ORDER BY blobpartid;
   }
 >;
-
-BLOB FUNCTION __HS_CREATES3BLOB(RECORD data) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
-
 
 PUBLIC STATIC OBJECTTYPE WHPostgreSQLBlobHandler
 < /** @type(object #BlobPartStorageBase) Blob part storage

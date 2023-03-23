@@ -8,7 +8,7 @@ MAINTAINER WebHare bv <info@webhare.com>
 # Environment variables
 ENV LC_ALL=C \
   WEBHARE_IN_DOCKER=1 \
-  WEBHARE_DATAROOT=/opt/whdata \
+  WEBHARE_DATAROOT=/opt/whdata/ \
   WEBHARE_BUILDDIR=/opt/whbuild/ \
   WEBHARE_DIR=/opt/wh/whtree \
   WEBHARE_CHECKEDOUT_TO=/opt/wh \
@@ -47,12 +47,6 @@ RUN --mount=type=bind,source=/setup-tika.sh,target=/setup-tika.sh \
 RUN --mount=type=bind,source=/setup-opensearch.sh,target=/setup-opensearch.sh \
     --mount=type=cache,id=opensearch,target=/tmp/downloads \
     /bin/bash /setup-opensearch.sh
-
-# Install AWS C++ API
-RUN --mount=type=bind,source=/setup-awssdk.sh,target=/setup-awssdk.sh \
-    --mount=type=cache,id=aws,target=/tmp/aws/cache/ \
-    --mount=type=tmpfs,target=/tmp/aws/build/ \
-    /bin/bash /setup-awssdk.sh "1.7.231"
 
 # Let's do the NPM work first, for better caching
 RUN --mount=type=tmpfs,target=/tmp/,readwrite \

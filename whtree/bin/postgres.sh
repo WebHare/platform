@@ -5,9 +5,12 @@ if [ -z "$WEBHARE_DBASENAME" ]; then
   echo "WEBHARE_DBASENAME name not set"
   exit 1
 fi
+if [ -z "$WEBHARE_DATAROOT" ]; then
+  echo "WEBHARE_DATAROOT name not set"
+  exit 1
+fi
 
 # We put everything under a postgresql folder, so we can chown that to ourselves in the future
-eval `$WEBHARE_DIR/bin/webhare printparameters`
 PSROOT="${WEBHARE_DATAROOT}postgresql"
 
 if [ -n "$WEBHARE_IN_DOCKER" ]; then  #TODO should share with recreate-database and postgres-single

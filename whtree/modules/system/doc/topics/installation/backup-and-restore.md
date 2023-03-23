@@ -21,7 +21,7 @@ To restore a WebHare database backed up using the above webhare-backup with a ch
 - configure an environment for the restore, and restore. ideally set WEBHARE_ISRESTORED to describe what data you exactly restored
 
 ```bash
-export WEBHARE_DATAROOT=$HOME/projects/whdata/restore
+export WEBHARE_DATAROOT=$HOME/projects/whdata/restore/
 export WEBHARE_BASEPORT=33100
 export WEBHARE_ISRESTORED="Restored server"
 export WEBHARE_NOINSTALLATIONINFO=1

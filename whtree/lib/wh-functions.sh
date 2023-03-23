@@ -64,14 +64,13 @@ getwhparameters()
   if [ "$GOTWHPARAMETERS" = "1" ]; then
     return
   fi
-
-  if [ ! -x "$WEBHARE_DIR/bin/webhare" ]; then
-    echo "This command needs an installed (make install) WebHare, but $WEBHARE_DIR/bin/webhare appears unavailable"
+  if [ -z "${WEBHARE_DATAROOT}" ]; then
+    echo WEBHARE_DATAROOT not set
     exit 1
   fi
-  eval $("$WEBHARE_DIR/bin/webhare" printparameters)
-  export WEBHARE_COMPILECACHE
-  export WEBHARE_DATABASEPATH="$WEBHARE_DATAROOT/postgresql"
+
+  [ -n "$WEBHARE_COMPILECACHE" ] || export WEBHARE_COMPILECACHE="${WEBHARE_DATAROOT}/ephemeral/compilecache/"
+  export WEBHARE_DATABASEPATH="${WEBHARE_DATAROOT}/postgresql"
 
   if [ -f "$WEBHARE_DATAROOT/webhare.restoremode" ]; then
     WEBHARE_ISRESTORED="$(cat "$WEBHARE_DATAROOT/webhare.restoremode")"
@@ -195,12 +194,7 @@ calc_dir_relpath()
 getlog()
 {
   local XLOGFILE
-  getwhparameters
-  if [ -z "$LOGFILEPATH" ]; then
-    echo "Unable to determine logging path"
-    exit 1
-  fi
-  XLOGFILE="${LOGFILEPATH}$2.$LOGFILETODAY.log"
+  XLOGFILE="${WEBHARE_DATAROOT}/log/$2.$(TZ=UTC date +%Y%m%d).log"
   if [ ! -f "$XLOGFILE" ]; then
     echo "Unable to open logfile $XLOGFILE"
     exit 1

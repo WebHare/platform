@@ -606,19 +606,6 @@ int UTF8Main(std::vector<std::string> const &args)
         compileserverloc.SetIPAddress("127.0.0.1");
         compileserverloc.SetPort(whconn->GetDbaseAddr().GetPort()+1);
 
-        if (optparser.Param("mode") == "printparameters")
-        {
-                char buffer[40];
-                struct std::tm time = Blex::DateTime::Now().GetTM();
-                std::sprintf(buffer, "%04d%02d%02d",time.tm_year+1900,time.tm_mon + 1,time.tm_mday);
-
-                std::cout << "LOGFILEPATH=" << whconn->GetLogRoot() << "\n";
-                std::cout << "LOGFILETODAY=" << buffer << "\n";
-                std::cout << "WEBHARE_DATAROOT=" << whconn->GetBaseDataRoot() << "\n";
-                std::cout << "WEBHARE_COMPILECACHE=" << (whconn->GetCompileCache()) << "\n";
-                return EXIT_SUCCESS;
-        }
-
         if (optparser.Param("mode") != "console")
         {
                 Blex::ErrStream() << "Unrecognized mode " << optparser.Param("mode") << "\n";
