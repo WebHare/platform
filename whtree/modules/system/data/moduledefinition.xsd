@@ -1448,22 +1448,6 @@
           </xs:attribute>
         </xs:complexType>
       </xs:element>
-      <xs:element name="addrootitem" minOccurs="0" maxOccurs="unbounded">
-        <xs:complexType>
-          <xs:attribute name="title" type="xs:string"/>
-          <xs:attribute name="tid" type="SimpleTid" />
-          <xs:attribute name="gotoitem" type="xs:string"/>
-          <xs:attribute name="gotoitemtid" type="SimpleTid" />
-          <xs:attribute name="gotoshortcut" type="tc:Shortcut" />
-          <xs:attribute name="filterscreen" type="xs:string">
-            <xs:annotation>
-              <xs:documentation>Screen to open</xs:documentation>
-            </xs:annotation>
-          </xs:attribute>
-          <xs:attribute name="contentmode" type="xs:string" />
-          <xs:attribute name="icon" type="sc:ImageSrc" />
-        </xs:complexType>
-      </xs:element>
     </xs:sequence>
     <xs:attributeGroup ref="ApplicabletoWebHare" />
   </xs:complexType>
