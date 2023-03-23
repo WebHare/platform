@@ -253,7 +253,7 @@ PUBLIC RECORD FUNCTION AnalyzeJavascriptNoticeLogEntry(RECORD javascriptmsg)
                                 : normalized_filename
              , line :=        CellExists(trace, "LINE") ? line : 0
              , col :=         CellExists(trace, "COL") ? col : 0
-             , func :=        CellExists(trace, "FUNC") ? func : ""
+             , func :=        CellExists(trace, "FUNC") ? func : CellExists(trace, "FUNCTIONNAME") ? functionname : ""
           FROM javascriptmsg.trace;
 
     IF (LENGTH(trace) > 0)
