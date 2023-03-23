@@ -113,7 +113,7 @@ PUBLIC ASYNC FUNCTION Fetch(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD
       ]);
 
   pooloptions := ValidateOptions(
-      [ timeout :=  -1 //fetch would use (abort) siganl
+      [ timeout :=  -1 //fetch would use (abort) signal
       , debug :=    FALSE //debug from pool to console
       ], pooloptions);
 
@@ -166,7 +166,7 @@ PUBLIC ASYNC FUNCTION Fetch(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD
   RETURN NEW FetchResponse(fetchresult);
 }
 
-/** Synchronous fetch implemtentation */
+/** Synchronous fetch implementation */
 PUBLIC OBJECT FUNCTION FetchSync(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD, RECORD pooloptions DEFAULTSTO DEFAULT RECORD)
 {
   RETURN NEW SyncFetchResponse(WaitForPromise(Fetch(uri, options, pooloptions)));
