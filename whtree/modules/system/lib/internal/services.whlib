@@ -32,7 +32,7 @@ PUBLIC STATIC OBJECTTYPE WebHareServiceProxyBase
     RECORD res := this->__link->SendMessage(outmsg);
 
     IF (res.status != "ok")
-      THROW NEW ServiceDisconnectException(this->__servicename);
+      THROW NEW ServiceDisconnectException(this->__servicename, TRUE);
   }
 >;
 
@@ -73,7 +73,7 @@ PUBLIC OBJECTTYPE ClusteredServiceBase EXTEND EventEmitter
     RECORD res := this->__link->SendMessage(outmsg);
 
     IF(res.status != "ok")
-      THROW NEW ServiceDisconnectException(this->__servicename);
+      THROW NEW ServiceDisconnectException(this->__servicename, TRUE);
 
     // Add a waiting registration
     RECORD reg := [ replyto := res.msgid, resolve := req.resolve, reject := req.reject ];
@@ -141,7 +141,7 @@ PUBLIC OBJECTTYPE ClusteredServiceBase EXTEND EventEmitter
       UnregisterCallback(this->__listener);
     this->__listener := 0;
     FOREVERY(RECORD toreject FROM this->__calllist)
-      toreject.reject(NEW ServiceDisconnectException(this->__servicename));
+      toreject.reject(NEW ServiceDisconnectException(this->__servicename, FALSE));
     FOREVERY (FUNCTION PTR f FROM this->__onclose)
       f();
     IF (ObjectExists(this->__link))
@@ -156,12 +156,14 @@ PUBLIC OBJECTTYPE ClusteredServiceBase EXTEND EventEmitter
     @public
     @loadlib mod::system/lib/services.whlib
 */
-PUBLIC OBJECTTYPE ServiceDisconnectException EXTEND Exception
+PUBLIC STATIC OBJECTTYPE ServiceDisconnectException EXTEND Exception
 <
+  /// If TRUE, the connection was disconnected before the current message arrived at the recipient. If FALSE, it's unknown whether the recipient processed your message
+  PUBLIC BOOLEAN beforerequest;
   /// @private
-  MACRO NEW(STRING servicename) : Exception(`Connection to cluster service ${EncodeJSON(servicename)} lost`)
+  MACRO NEW(STRING servicename, BOOLEAN beforerequest) : Exception(`Connection to cluster service ${EncodeJSON(servicename)} lost`)
   {
-
+    this->beforerequest := beforerequest;
   }
 >;
 
@@ -292,8 +294,8 @@ PUBLIC OBJECT ASYNC FUNCTION OpenWebHareService(STRING servicename, RECORD optio
 
   mgrport->autothrow := TRUE;
   RECORD response := AWAIT mgrport->AsyncDoRequest( [ __new := options.arguments ] );
-  IF(response.status="gone")
-    THROW NEW ServiceDisconnectException(servicename);
+  IF(response.status = "gone")
+    THROW NEW ServiceDisconnectException(servicename, FALSE);
 
   RETURN NEW ClusteredServiceBase(servicename, response.msg, mgrport);
 }
@@ -337,14 +339,14 @@ OBJECTTYPE SyncClusteredServiceBase EXTEND EventEmitter
   VARIANT FUNCTION __RemotingFunc(STRING tocall, VARIANT ARRAY args) __ATTRIBUTES__(SKIPTRACE, VARARG)
   {
     IF (NOT ObjectExists(this->__link))
-      THROW NEW Exception(`Connection to the clustered service '${this->__servicename}' was already lost.`);
+      THROW NEW ServiceDisconnectException(this->__servicename, TRUE);
 
     RECORD outmsg := [ call := tocall, args := args ];
 
     RECORD res := this->__link->SendMessage(outmsg);
 
     IF(res.status != "ok")
-      THROW NEW ServiceDisconnectException(this->__servicename);
+      THROW NEW ServiceDisconnectException(this->__servicename, TRUE);
 
     // Add a waiting registration
     RECORD reg := [ replyto := res.msgid, type := "" ];
@@ -370,7 +372,7 @@ OBJECTTYPE SyncClusteredServiceBase EXTEND EventEmitter
   MACRO RunEvents()
   {
     IF (NOT ObjectExists(this->__link))
-      THROW NEW ServiceDisconnectException(this->__servicename);
+      THROW NEW ServiceDisconnectException(this->__servicename, FALSE);
 
     this->__link->Wait(MAX_DATETIME);
     RECORD msg := this->__link->ReceiveMessage(DEFAULT DATETIME);
@@ -382,7 +384,7 @@ OBJECTTYPE SyncClusteredServiceBase EXTEND EventEmitter
     {
       //Uh oh. We are doomed. Reject all promises
       this->CloseService();
-      THROW NEW ServiceDisconnectException(this->__servicename);
+      THROW NEW ServiceDisconnectException(this->__servicename, FALSE);
     }
 
     // This is an event emitted on the WebHareServiceProxyBase
@@ -500,8 +502,8 @@ PUBLIC OBJECT FUNCTION __OpenSynchronousWebHareService(STRING servicename, RECOR
 
   mgrport->autothrow := TRUE;
   RECORD response := mgrport->DoRequest( [ __new := options.arguments ] );
-  IF(response.status="gone")
-    THROW NEW ServiceDisconnectException(servicename);
+  IF(response.status = "gone")
+    THROW NEW ServiceDisconnectException(servicename, FALSE);
 
   RETURN NEW SyncClusteredServiceBase(servicename, response.msg, mgrport);
 }
