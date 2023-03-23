@@ -131,7 +131,7 @@ PUBLIC ASYNC FUNCTION Fetch(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD
   IF(debug)
   {
     debugrequestid := GenerateUFS128BitId();
-    STRING method := Length(options.method) < 7 ? Left(options.method || "      ",7) : options.method;
+    STRING method := ToUppercase(Length(options.method) < 7 ? Left(options.method || "      ",7) : options.method);
 
     Print(`[wrq] ${debugrequestid} ${method} ${uri}\n`);
     Print(`[wrq] ${debugrequestid} headers ${EncodeJSON(options.headers)}\n`);
@@ -147,12 +147,21 @@ PUBLIC ASYNC FUNCTION Fetch(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD
 
   CATCH(OBJECT<ServiceDisconnectException> e)
   {
-    //just reconnect (once)
-    IF(debug)
-      Print(`[wrq] ${debugrequestid} ServiceDisconnectException, retrying\n`);
+    IF(e->beforerequest OR ToUppercase(options.method) in ["GET", "HEAD"]) //it should be safe to retry GET and HEAD, and it *is* safe to retry if the fetchpool can never have received our request
+    {
+      IF(debug)
+        Print(`[wrq] ${debugrequestid} ServiceDisconnectException, retrying once\n`);
 
-    fetchpool := OpenWebHareService("system:fetchpool");
-    fetchresult := AWAIT (AWAIT fetchpool)->goFetch(uri, options, pooloptions);
+      fetchpool := OpenWebHareService("system:fetchpool");
+      fetchresult := AWAIT (AWAIT fetchpool)->goFetch(uri, options, pooloptions);
+    }
+    ELSE
+    {
+      IF(debug)
+        Print(`[wrq] ${debugrequestid} ServiceDisconnectException, unsafe to retry\n`);
+
+      THROW NEW Exception("Fetch pool connection was lost, fetch request status is unknown");
+    }
   }
 
   IF(debug)
