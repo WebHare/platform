@@ -1041,7 +1041,7 @@ function hookConsoleLog() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   process.stdout.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
     if (envbackend.flags.conloc && source.location)
-      old_std_writes.stdout.call(process.stdout, `${source.location.filename.split("/").at(-1)}:${source.location.line}: `, "utf-8");
+      old_std_writes.stdout.call(process.stdout, `${(new Date).toISOString()} ${source.location.filename.split("/").at(-1)}:${source.location.line}: `, "utf-8");
     const retval = old_std_writes.stdout.call(process.stdout, data, encoding, cb);
     const tolog: string = typeof data == "string" ? data : Buffer.from(data).toString("utf-8");
     consoledata.push({ func: source.func, data: tolog, when: source.when, location: source.location });
@@ -1052,7 +1052,7 @@ function hookConsoleLog() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   process.stderr.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
     if (envbackend.flags.conloc && source.location)
-      old_std_writes.stderr.call(process.stderr, `${source.location.filename.split("/").at(-1)}:${source.location.line}: `, "utf-8");
+      old_std_writes.stderr.call(process.stderr, `${(new Date).toISOString()} ${source.location.filename.split("/").at(-1)}:${source.location.line}: `, "utf-8");
     const retval = old_std_writes.stderr.call(process.stderr, data, encoding, cb);
     const tolog: string = typeof data == "string" ? data : Buffer.from(data).toString("utf-8");
     consoledata.push({ func: source.func, data: tolog, when: source.when, location: source.location });
