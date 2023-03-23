@@ -5,7 +5,9 @@ import { flags } from "@webhare/env/src/envbackend"; // don't want services modu
 
 type LibraryData = {
   fixed: boolean;
+  dynamicloader: boolean;
   directloads: string[];
+  resources: string[];
 };
 
 const libdata: Record<string, LibraryData | undefined> = {};
@@ -52,21 +54,38 @@ let realpathCache: Map<string, string> | undefined;
 */
 export function registerAsDynamicLoadingLibrary(mod: NodeModule) {
   const lib = libdata[mod.id];
-  if (lib)
+  if (lib) {
+    lib.dynamicloader = true;
     lib.directloads.push(...mod.children.map(m => m.id));
-  else
-    libdata[mod.id] = { fixed: false, directloads: mod.children.map(m => m.id) };
+  } else
+    libdata[mod.id] = { fixed: false, dynamicloader: true, directloads: mod.children.map(m => m.id), resources: [] };
 }
 
 /** Register as a module that should not be reloaded by hmr
-    Call with `registerAsNonReloadableLibrary(module)`.
+    Call with `registerAsNonReloadableLibrary(module);`.
 */
 export function registerAsNonReloadableLibrary(mod: NodeModule) {
   const lib = libdata[mod.id];
   if (lib)
     lib.fixed = true;
   else
-    libdata[mod.id] = { fixed: true, directloads: [] };
+    libdata[mod.id] = { fixed: true, dynamicloader: false, directloads: [], resources: [] };
+}
+
+/** Register as a loaded resources as a dependency, to trigger reload when that resource changes.
+    Call with `registerLoadedResource(module, path)`.
+*/
+export function registerLoadedResource(mod: NodeModule, path: string) {
+  const lib = libdata[mod.id];
+  if (lib) {
+    if (lib.resources.includes(path))
+      return;
+    lib.resources.push(path);
+  } else
+    libdata[mod.id] = { fixed: false, dynamicloader: false, directloads: [], resources: [path] };
+
+  if (flags.hmr)
+    console.log(`[hmr] register resource ${path} by module ${mod.id}`);
 }
 
 let deferred: Set<string> | null = new Set<string>;
@@ -94,6 +113,13 @@ export function handleModuleInvalidation(path: string) {
     return true;
   });
 
+  for (const [key, lib] of Object.entries(libdata)) {
+    if (lib?.resources.includes(path) && !toinvalidate.includes(key) && !lib?.fixed) {
+      console.log(`[hmr] resource ${path} was loaded as resource by module ${key}`);
+      toinvalidate.push(key);
+    }
+  }
+
   // also iterates over newly added libraries
   for (const testid of toinvalidate) {
     for (const [key, module] of Object.entries(require.cache)) {
@@ -104,16 +130,20 @@ export function handleModuleInvalidation(path: string) {
       if (lib && lib.fixed)
         continue;
 
-      if (module.children.some(({ id }) => id == testid && (!lib || lib.directloads.includes(id))))
+      if (module.children.some(({ id }) => id == testid && (!lib || !lib.dynamicloader || lib.directloads.includes(id)))) {
         toinvalidate.push(key);
+      }
     }
   }
 
-  if (flags.hmr && toinvalidate.length)
-    console.log(`[hmr] to remove from cache: ${toinvalidate.join(", ")}`);
-
-  for (const key of toinvalidate)
+  for (const key of toinvalidate) {
+    if (flags.hmr)
+      console.log(`[hmr] evict module ${key} from the cache`);
     delete require.cache[key];
+    delete libdata[key];
+  }
+  if (flags.hmr)
+    console.log(`[hmr] Invalidation handled`);
 }
 
 function toRealPaths(paths: readonly string[]) {
@@ -184,6 +214,8 @@ export function handleSoftReset() {
 
 export function activate() {
   if (deferred) {
+    if (flags.hmr)
+      console.log(`[hmr] activated`);
     const toprocess = Array.from(deferred);
     deferred = null;
     for (const path of toprocess)
