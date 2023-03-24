@@ -9,20 +9,19 @@ LOADLIB "wh::os.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/keystore.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 RECORD args := ParseArguments(GetConsoleArguments(),
-    [ [ name := "debug", type := "switch" ]
+    [ [ name := "force", type := "switch" ]
     ]);
 
 IF (NOT RecordExists(args))
 {
-  PRINT("Syntax: wh run mod::system/scripts/tasks/renewcertbot.whscr [ --debug ]\n");
+  PRINT("Syntax: wh run mod::system/scripts/tasks/updatefallbackcertificate.whscr [--force]\n");
   RETURN;
 }
 
-BOOLEAN debug := args.debug;
 OBJECT trans := OpenPrimary();
-
 trans->BeginWork();
 
 IF (NOT RecordExists(SELECT FROM ListKeyPairs() WHERE name = "fallback"))
@@ -45,10 +44,10 @@ IF (LENGTH(certfile) != 0)
     certdata := DEFAULT RECORD;
 }
 
-// Renew a little before the keystore warning at 28 days
-DATETIME validitylimit := AddDaysToDate(30, GetCurrentDateTime());
+// Renew before the keystore warning at 45 days
+DATETIME validitylimit := AddDaysToDate(whconstant_default_warnexpirydays + 14, GetCurrentDateTime());
 
-IF (NOT RecordExists(certdata) OR certdata.valid_until < validitylimit)
+IF (NOT RecordExists(certdata) OR certdata.valid_until < validitylimit OR args.force)
 {
   IF (RecordExists(certdata))
   {
