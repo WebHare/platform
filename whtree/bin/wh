@@ -795,7 +795,7 @@ HERE
     # This should match the whconstant_javascript_extensions:
     for EXT in es js ts tsx ; do
       if [ -f "${MODULEDIR}scripts/whcommands/$SUBCOMMAND.$EXT" ] ; then
-        exec "$WEBHARE_DIR/modules/system/scripts/whcommands/node.sh" "${MODULEDIR}scripts/whcommands/$SUBCOMMAND.$EXT"
+        exec "$WEBHARE_DIR/modules/system/scripts/whcommands/node.sh" "${MODULEDIR}scripts/whcommands/$SUBCOMMAND.$EXT" "${OPTIONS[@]}"
       fi
     done
 
