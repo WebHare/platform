@@ -83,5 +83,42 @@ test.registerTests(
         `<p class="normal"><br data-wh-rte="bogus"></p>` +
         `<p class="normal">"2(*0*)(*1*)"</p>` +
         `<p class="normal">"a"</p>`);
+    },
+    "Paste in list",
+    async function() {
+      const rte = test.getWin().rte.getEditor();
+      const body = rte.getBody();
+      body.focus();
+
+      // Paste at empty li at end of list
+      {
+        rtetest.setStructuredContent(test.getWin(),
+          `<p class="normal">"1"</p><ul class="unordered"><li>"a"</li><li>"(*0*)(*1*)"<br data-wh-rte="bogus"></li>`);
+
+        await rtetest.runWithUndo(rte, () => rtetest.paste(rte,
+          {
+            typesdata: { "text/html": `<p class="normal">aaa</p><br class="Apple-interchange-newline">` },
+            files: [],
+            items: []
+          }), { waits: 1 });
+
+        rtetest.testEqSelHTMLEx(test.getWin(),
+          `<p class="normal">"1"</p><ul class="unordered"><li>"a"</li><li>"aaa(*0*)(*1*)"</li>`);
+      }
+
+      // Paste at empty li inside of list
+      {
+        rtetest.setStructuredContent(test.getWin(),
+          `<p class="normal">"1"</p><ul class="unordered"><li>"a"</li><li>"(*0*)(*1*)"<br data-wh-rte="bogus"></li><li>"bbb"</li>`);
+
+        await rtetest.runWithUndo(rte, () => rtetest.paste(rte,
+          {
+            typesdata: { "text/html": `<p class="normal">aaa</p><p><br></p>` },
+            files: [],
+            items: []
+          }), { waits: 1 });
+        rtetest.testEqSelHTMLEx(test.getWin(),
+          `<p class="normal">"1"</p><ul class="unordered"><li>"a"</li><li>"aaa"<br data-wh-rte="bogus"></li><li>(*0*)(*1*)<br data-wh-rte="bogus"></li><li>"bbb"</li></ul>`);
+      }
     }
   ]);
