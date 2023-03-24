@@ -2,23 +2,6 @@
 # wh runtest system.test-wh-functions
 source "${WEBHARE_DIR}/lib/wh-functions.sh"
 
-testEq()
-{
-  if [ "$1" != "$2" ]; then
-    echo "** TEST FAILED"
-    echo "Expected: $1"
-    echo "Got:      $2"
-    echo ""
-    exit 1
-  fi
-}
-
-die()
-{
-  echo "$@"
-  exit 1
-}
-
 testVersionCheck()
 {
   local TEXT STATUS

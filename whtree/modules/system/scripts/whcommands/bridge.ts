@@ -28,18 +28,28 @@ program
 
 program.command('connections')
   .description('List all scripts connected to the bridge')
-  .action(async () => {
+  .option('--json', 'output as JSON')
+  .action(async (options) => {
+
     const link = bridge.connect<DebugMgrClientLink>("ts:debugmgr", { global: true });
+    let result;
+
     try {
       await link.activate();
-      const res = await link.doRequest({ type: DebugMgrClientLinkRequestType.getProcessList });
-      link.close();
-      console.table(res.processlist.filter(p => p.type === ProcessType.TypeScript), ["pid", "name", "processcode"]);
+      result = await link.doRequest({ type: DebugMgrClientLinkRequestType.getProcessList });
     } catch (e) {
       console.error(`Could not connect to debug manager`);
       process.exitCode = 1;
+      return;
+    } finally {
       link.close();
     }
+
+    const list = result.processlist.filter(p => p.type === ProcessType.TypeScript);
+    if (options.json)
+      console.log(JSON.stringify(list));
+    else
+      console.table(list, ["pid", "name", "processcode"]);
   });
 
 program.command('inspect')
