@@ -1,4 +1,20 @@
 # This script is also deployed to https://build.webhare.dev/ci/scripts/wh-functions.sh
+die()
+{
+  echo "$@" 1>&2
+  exit 1
+}
+
+testEq()
+{
+  if [ "$1" != "$2" ]; then
+    echo "** TEST FAILED"
+    echo "Expected: $1"
+    echo "Got:      $2"
+    echo ""
+    exit 1
+  fi
+}
 
 estimate_buildj()
 {
@@ -245,12 +261,6 @@ get_absolute_path()
   else
     echo "$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
   fi
-}
-
-die()
-{
-  echo "$@" 1>&2
-  exit 1
 }
 
 trim()

@@ -4,19 +4,20 @@ import { DebugMgrClientLink, DebugMgrClientLinkRequestType, ProcessType } from "
 
 /// short: Control WebHare bridge connections (ie. javascript processes)
 
-async function getProcessCodeFromInstance(link: DebugMgrClientLink["ConnectEndPoint"], instance: string): Promise<bigint> {
-  try {
-    return BigInt(instance);
-  } catch (e) {
-    const res = await link.doRequest({ type: DebugMgrClientLinkRequestType.getProcessList });
-    const matches = res.processlist.filter(proc => proc.name.endsWith(instance));
-    if (matches.length === 0) {
-      throw new Error(`No process matching ${JSON.stringify(instance)}`);
-    } else if (matches.length !== 1) {
-      throw new Error(`Multiple processes matching ${JSON.stringify(instance)}: ${matches.map(proc => JSON.stringify(proc.name)).join(", ")}`);
-    }
-    return matches[0].processcode;
+async function getProcessCodeFromInstance(link: DebugMgrClientLink["ConnectEndPoint"], instance: string): Promise<number> {
+  const asnumber = parseInt(instance);
+  if (!isNaN(asnumber))
+    return asnumber;
+
+
+  const res = await link.doRequest({ type: DebugMgrClientLinkRequestType.getProcessList });
+  const matches = res.processlist.filter(proc => proc.name.endsWith(instance));
+  if (matches.length === 0) {
+    throw new Error(`No process matching ${JSON.stringify(instance)}`);
+  } else if (matches.length !== 1) {
+    throw new Error(`Multiple processes matching ${JSON.stringify(instance)}: ${matches.map(proc => JSON.stringify(proc.name)).join(", ")}`);
   }
+  return matches[0].processcode;
 }
 
 
@@ -27,18 +28,28 @@ program
 
 program.command('connections')
   .description('List all scripts connected to the bridge')
-  .action(async () => {
+  .option('--json', 'output as JSON')
+  .action(async (options) => {
+
     const link = bridge.connect<DebugMgrClientLink>("ts:debugmgr", { global: true });
+    let result;
+
     try {
       await link.activate();
-      const res = await link.doRequest({ type: DebugMgrClientLinkRequestType.getProcessList });
-      link.close();
-      console.table(res.processlist.filter(p => p.type === ProcessType.TypeScript), ["pid", "name", "processcode"]);
+      result = await link.doRequest({ type: DebugMgrClientLinkRequestType.getProcessList });
     } catch (e) {
       console.error(`Could not connect to debug manager`);
       process.exitCode = 1;
+      return;
+    } finally {
       link.close();
     }
+
+    const list = result.processlist.filter(p => p.type === ProcessType.TypeScript);
+    if (options.json)
+      console.log(JSON.stringify(list));
+    else
+      console.table(list, ["pid", "name", "processcode"]);
   });
 
 program.command('inspect')

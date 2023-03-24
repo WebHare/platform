@@ -434,7 +434,7 @@ class MainBridge extends EventSource<BridgeEvents> {
   systemconfig: Record<string, unknown>;
 
   bridgename = "main bridge";
-  processcode = BigInt(0);
+  processcode = 0;
 
   /// Set when waiting for data to flush
   waitunref?: DeferredPromise<void>;
@@ -456,7 +456,7 @@ class MainBridge extends EventSource<BridgeEvents> {
   register() {
     this.sendData({
       opcode: WHMRequestOpcode.RegisterProcess,
-      processcode: BigInt(0),
+      processcode: 0,
       pid: process.pid,
       type: WHMProcessType.TypeScript,
       name: require.main?.filename ?? "<unknown javascript script>",
