@@ -1,10 +1,10 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as domlevel from "./domlevel";
 
-class PasteCleanup {
-  constructor(options) {
+export default class PasteCleanup {
+  data: HTMLElement | null;
+  options: { mode: "" | "clipboarddata" | "framepaste" };
+
+  constructor(options?: { mode?: "" | "clipboarddata" | "framepaste" }) {
     this.data = null;
     this.options =
     {
@@ -16,23 +16,24 @@ class PasteCleanup {
       throw new Error("Illegal paste cleanup mode '" + this.options.mode + "'");
   }
 
-  applyCleanup(data) {
+  applyCleanup(data: HTMLElement): { breakafter: null | boolean } {
     this.data = data;
 
-    const result =
-    {
+    const result: {
+      breakafter: null | boolean;
+    } = {
       breakafter: null // not yet known
     };
 
     if (this.options.mode == 'framepaste')
       result.breakafter = true;
 
-    const todelete = [];
+    const todelete: Element[] = [];
 
     // Remove the interchange nodes - and all nodes that are left empty because of their removal.
     // FIXME: test for partial table selection
     for (let i = 0; i < todelete.length; ++i) {
-      let node = todelete[i];
+      let node: Node = todelete[i];
       while (node != this.data && node.parentNode && !node.firstChild) {
         const parent = node.parentNode;
         parent.removeChild(node);
@@ -48,21 +49,21 @@ class PasteCleanup {
         const locator = new domlevel.Locator(node, 0);
         const res = locator.scanForward(node, { whitespace: true });
         if (res.type == 'outerblock')
-          pnodes[i].parentNode.removeChild(pnodes[i]);
+          pnodes[i].remove();
       }
 
     // IE can copy LI nodes without their parent OL/UL. Create a UL, move them into it
     const linodes = this.data.querySelectorAll('li');
     for (let i = 0; i < linodes.length; ++i) {
       const parent = linodes[i].parentNode;
-      if (!['ol', 'ul'].includes(parent.nodeName.toLowerCase())) {
-        let node = linodes[i];
+      if (!['ol', 'ul'].includes(parent?.nodeName.toLowerCase() || "")) {
+        let node: Node | null = linodes[i];
         const nodes = [];
         for (; node && node.nodeType == 1 && node.nodeName.toLowerCase() == 'li'; node = node.nextSibling)
           nodes.push(node);
 
         const listnode = document.createElement('ul');
-        parent.insertBefore(listnode, linodes[i]);
+        parent?.insertBefore(listnode, linodes[i]);
         for (let j = 0; j < nodes.length; ++j)
           listnode.appendChild(nodes[j]);
       }
@@ -80,7 +81,4 @@ class PasteCleanup {
 
     return result;
   }
-
 }
-
-module.exports = PasteCleanup;
