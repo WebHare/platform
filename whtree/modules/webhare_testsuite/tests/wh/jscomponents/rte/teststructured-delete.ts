@@ -199,6 +199,13 @@ test.registerTests(
         rtetest.setStructuredContent(win, `<ul class="unordered"><li>"a(*0*)(*1*)b"<ol class="ordered"><li>"c"</li><li>"d"</li></ol></li></ul>`);
         await rtetest.runWithUndo(rte, () => test.pressKey("Delete"));
         rtetest.testEqSelHTMLEx(win, `<ul class="unordered"><li>"a(*0*)(*1*)"<ol class="ordered"><li>"c"</li><li>"d"</li></ol></li></ul>`);
+
+        // Backspace in empty document with only one <li>
+        test.subtest("Backspace on document with only one <li>");
+        rtetest.setStructuredContent(win, `<ul class="unordered"><li>"(*0*)(*1*)"<br data-wh-rte="bogus"></li></ul>`);
+        await rtetest.runWithUndo(rte, () => test.pressKey("Backspace"));
+        rtetest.testEqSelHTMLEx(win, `<p class="normal">(*0*)(*1*)<br data-wh-rte="bogus"></p>`);
+
       }
     }
   ]);
