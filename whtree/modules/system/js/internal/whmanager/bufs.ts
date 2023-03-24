@@ -20,6 +20,16 @@ export class LinearBufferReader {
   readS32(): number {
     return this.readS(4);
   }
+  /// Read a 64bit integer assuming its within the safe range for a JavaScript Number
+  readBigNumber(): number {
+    if (this.readpos + 8 > this.buffer.length)
+      throw new Error("Invalid RPC data");
+    const retval = this.buffer.readBigInt64LE(this.readpos);
+    if (retval < Number.MIN_SAFE_INTEGER || retval > Number.MAX_SAFE_INTEGER)
+      throw new Error("Invalid RPC data - expected a 64bit integer that was within a safe range for a JavaScript Number");
+    this.readpos += 8;
+    return Number(retval);
+  }
   readBigU64(): bigint {
     if (this.readpos + 8 > this.buffer.length)
       throw new Error("Invalid RPC data");
@@ -101,6 +111,11 @@ export class LinearBufferWriter {
   writeS32(value: number): void {
     this.writeS(value, 4);
   }
+  writeBigNumber(value: number): void {
+    if (value !== Math.floor(value) || value < Number.MIN_SAFE_INTEGER || value > Number.MAX_SAFE_INTEGER)
+      throw new Error(`Attempted to write a non-integer or out-of-range number to a 64bit integer buffer: ${value}`);
+    this.writeS64(BigInt(value));
+  }
   writeU64(value: bigint): void {
     this.ensureRoom(8);
     this.buffer.writeBigUInt64LE(value, this.writepos);
@@ -147,4 +162,3 @@ export class LinearBufferWriter {
     return this.buffer.subarray(0, this.writepos);
   }
 }
-

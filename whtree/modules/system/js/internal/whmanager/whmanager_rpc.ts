@@ -85,7 +85,7 @@ export function parseRPC(data: Buffer): defs.WHMResponse {
       const count = iobuf.readU32();
       const processes = [];
       for (let i = 0; i < count; ++i) {
-        const processcode = iobuf.readBigU64();
+        const processcode = iobuf.readBigNumber();
         const pid = iobuf.readS32();
         const type = iobuf.readU8() as defs.WHMProcessType;
         const name = iobuf.readString();
@@ -119,7 +119,7 @@ export function parseRPC(data: Buffer): defs.WHMResponse {
       return { opcode, have_hs_debugger, have_ts_debugger, systemconfigdata };
     }
     case defs.WHMResponseOpcode.RegisterProcessResult: {
-      const processcode = iobuf.readBigU64();
+      const processcode = iobuf.readBigNumber();
       const have_hs_debugger = iobuf.readBoolean();
       const have_ts_debugger = iobuf.readBoolean();
       const systemconfigdata = iobuf.readBinary();
@@ -170,7 +170,7 @@ export function createRPC(message: defs.WHMRequest): Buffer {
       iobuf.writeBinary(message.messagedata);
     } break;
     case defs.WHMRequestOpcode.RegisterProcess: {
-      iobuf.writeU64(message.processcode);
+      iobuf.writeBigNumber(message.processcode);
       iobuf.writeS32(message.pid);
       iobuf.writeU8(message.type);
       iobuf.writeString(message.name);

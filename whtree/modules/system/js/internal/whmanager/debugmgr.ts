@@ -5,7 +5,7 @@ import { DebugIPCLinkType, DebugRequestType, DebugResponseType, DebugMgrClientLi
 
 
 type ProcessRegistration = {
-  processcode: bigint;
+  processcode: number;
   link: DebugIPCLinkType["AcceptEndPoint"];
 };
 
@@ -17,7 +17,7 @@ class DebuggerHandler extends EventSource<HandlerEvents>{
 
   debugport: DebugIPCLinkType["Port"];
 
-  processes = new Map<bigint, ProcessRegistration>();
+  processes = new Map<number, ProcessRegistration>();
 
   constructor() {
     super();
@@ -28,7 +28,7 @@ class DebuggerHandler extends EventSource<HandlerEvents>{
 
   gotLink(link: DebugIPCLinkType["AcceptEndPoint"]): void {
     const reg = {
-      processcode: BigInt(0),
+      processcode: 0,
       link
     };
     link.on("message", (packet) => this.gotLinkMessage(reg, packet));
@@ -122,7 +122,7 @@ class DebugMgrClient {
     }
   }
 
-  async ensureProcessConnected(processcode: bigint): Promise<ProcessRegistration | undefined> {
+  async ensureProcessConnected(processcode: number): Promise<ProcessRegistration | undefined> {
     {
       const proc = this.handler.processes.get(processcode);
       if (proc)

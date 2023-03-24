@@ -3,7 +3,7 @@ import { WHMProcessType as ProcessType } from "./whmanager_rpcdefs";
 export { WHMProcessType as ProcessType } from "./whmanager_rpcdefs";
 
 export type ProcessList = Array<{
-  processcode: bigint;
+  processcode: number;
   pid: number;
   type: ProcessType;
   name: string;
@@ -44,7 +44,7 @@ export type ConsoleLogItem = {
 
 type DebugResponse = {
   type: DebugResponseType.register;
-  processcode: bigint;
+  processcode: number;
 } | {
   type: DebugResponseType.enableInspectorResult;
   url: string;
@@ -84,11 +84,11 @@ export type DebugMgrClientLink = IPCLinkType<{
   __responseKey: { type: DebugMgrClientLinkResponseType.getProcessListResult };
 } | {
   type: DebugMgrClientLinkRequestType.enableInspector;
-  processcode: bigint;
+  processcode: number;
   __responseKey: { type: DebugMgrClientLinkResponseType.enableInspectorResult };
 } | {
   type: DebugMgrClientLinkRequestType.getRecentlyLoggedItems;
-  processcode: bigint;
+  processcode: number;
   __responseKey: { type: DebugMgrClientLinkResponseType.getRecentlyLoggedItemsResult };
 }, {
   type: DebugMgrClientLinkResponseType.subscribeProcessListResult;

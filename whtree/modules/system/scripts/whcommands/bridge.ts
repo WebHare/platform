@@ -4,19 +4,20 @@ import { DebugMgrClientLink, DebugMgrClientLinkRequestType, ProcessType } from "
 
 /// short: Control WebHare bridge connections (ie. javascript processes)
 
-async function getProcessCodeFromInstance(link: DebugMgrClientLink["ConnectEndPoint"], instance: string): Promise<bigint> {
-  try {
-    return BigInt(instance);
-  } catch (e) {
-    const res = await link.doRequest({ type: DebugMgrClientLinkRequestType.getProcessList });
-    const matches = res.processlist.filter(proc => proc.name.endsWith(instance));
-    if (matches.length === 0) {
-      throw new Error(`No process matching ${JSON.stringify(instance)}`);
-    } else if (matches.length !== 1) {
-      throw new Error(`Multiple processes matching ${JSON.stringify(instance)}: ${matches.map(proc => JSON.stringify(proc.name)).join(", ")}`);
-    }
-    return matches[0].processcode;
+async function getProcessCodeFromInstance(link: DebugMgrClientLink["ConnectEndPoint"], instance: string): Promise<number> {
+  const asnumber = parseInt(instance);
+  if (!isNaN(asnumber))
+    return asnumber;
+
+
+  const res = await link.doRequest({ type: DebugMgrClientLinkRequestType.getProcessList });
+  const matches = res.processlist.filter(proc => proc.name.endsWith(instance));
+  if (matches.length === 0) {
+    throw new Error(`No process matching ${JSON.stringify(instance)}`);
+  } else if (matches.length !== 1) {
+    throw new Error(`Multiple processes matching ${JSON.stringify(instance)}: ${matches.map(proc => JSON.stringify(proc.name)).join(", ")}`);
   }
+  return matches[0].processcode;
 }
 
 

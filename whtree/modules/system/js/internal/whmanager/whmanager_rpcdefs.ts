@@ -82,7 +82,7 @@ export type WHMRequest_SendMessageOverLink = {
 };
 export type WHMRequest_RegisterProcess = {
   opcode: WHMRequestOpcode.RegisterProcess;
-  processcode: bigint;
+  processcode: number;
   pid: number;
   type: WHMProcessType;
   name: string;
@@ -193,7 +193,7 @@ export type WHMResponse_GetProcessListResult = {
   opcode: WHMResponseOpcode.GetProcessListResult;
   requestid: number;
   processes: Array<{
-    processcode: bigint;
+    processcode: number;
     pid: number;
     type: WHMProcessType;
     name: string;
@@ -218,7 +218,7 @@ export type WHMResponse_SystemConfig = {
 };
 export type WHMResponse_RegisterProcessResult = {
   opcode: WHMResponseOpcode.RegisterProcessResult;
-  processcode: bigint;
+  processcode: number;
   have_hs_debugger: boolean;
   have_ts_debugger: boolean;
   systemconfigdata: Buffer;
