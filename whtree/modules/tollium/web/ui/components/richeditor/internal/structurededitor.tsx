@@ -2364,7 +2364,7 @@ export default class StructuredEditor extends EditorBase {
           }
         }
 
-        this.selectRange(Range.fromLocator(newpos));
+        this.checkDomStructure(Range.fromLocator(newpos), []);
         undolock.close();
 
         return true;
