@@ -233,17 +233,20 @@ PUBLIC STATIC OBJECTTYPE EditComponent EXTEND TolliumScreenBase
       RETURN;
     }
 
+    RECORD integrationsettings := this->contexts->formcomponentapi->integrationsettings;
+    STRING autocompleteusername := RecordExists(integrationsettings) ? integrationsettings.autocompleteusername : "";
     RECORD ARRAY autocompleteoptions :=
         [ [ rowkey := "", title := this->GetTid(".autocomplete-none") ]
         , [ rowkey := " div1 ", isdivider := TRUE ]
         , ...(SELECT rowkey := tid != "" ? rowkey : " div2- " || #forms_autocomplete_settings //just something unique
                    , isdivider := tid = ""
-                   , title := tid != "" ? GetTid(tid) : ""
+                   , title := (rowkey = "username" AND autocompleteusername != "*") ? autocompleteusername //if autocompleteusername isn't '*' we'll use it as the actual labael
+                              : tid != "" ? GetTid(tid) : ""
                 FROM forms_autocomplete_settings
-               WHERE rowkey IN this->compdef.autocomplete OR tid = "")
+               WHERE tid = "" OR (rowkey IN this->compdef.autocomplete
+                                  AND (autocompleteusername != "" OR rowkey != "username")) //only show username if explicitly enabled
+             )
         ];
-
-
 
     STRING currentautocomplete := ObjectExists(this->node) ? this->node->GetAttribute("autocomplete") : "";
     BOOLEAN iscustom := currentautocomplete != "" AND NOT RecordExists(SELECT FROM autocompleteoptions WHERE rowkey = currentautocomplete);
