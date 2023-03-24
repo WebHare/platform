@@ -1,8 +1,36 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
+export interface ListDataColumn {
+  dataidx: number;
+  title: string;
+  render: unknown; //FIXME fill in
+  checkboxidx?: number;
+}
+
+export interface ListColumn {
+  width: number;
+}
+
+export interface ListRowLayoutCell {
+  cellnum?: number;
+}
+
+export interface ListRowLayoutRow {
+  cells: ListRowLayoutCell[];
+}
+
+export interface ListDataStructure {
+  datacolumns: ListDataColumn[];
+  cols: ListColumn[];
+  selectedidx?: number;
+  rowlayout?: ListRowLayoutRow[];
+}
+
 // looks like we've planned this as a base class for listdatasources, but tollium never used it!
-export default class ListDataSource {
+export default abstract class ListDataSource {
+  list;
+
   constructor() {
     this.list = null;
   }
@@ -48,4 +76,8 @@ export default class ListDataSource {
   */
   selectFirstMatchFromCurrent(tomatch, searchidx) {
   }
+
+  abstract getDataStructure(): ListDataStructure {
+  }
+
 }
