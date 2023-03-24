@@ -2375,7 +2375,7 @@ export default class EditorBase {
           break;
         }
       }
-      if (!found)
+      if (info.wrapin)
         formatting.textstyles.push({ nodeName: info.element });
     }
 
@@ -3134,7 +3134,7 @@ export default class EditorBase {
       case 'strike':
         this.applyTextStyle(action.action, !this.getSelectionState().hasTextStyle(action.action));
         break;
-      case 'sub': // sub & sup are mutually recursive
+      case 'sub': // sub & sup are mutually exclusive
       case 'sup':
         if (!this.getSelectionState().hasTextStyle(action.action))
           this.applyTextStyle((action.action == 'sub' ? 'sup' : 'sub'), false);

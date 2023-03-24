@@ -1248,6 +1248,43 @@ test.registerTests(
           `<div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceref="inst2"></div>` +
           `<h2 class="heading2">"Quote"</h2>`);
       }
+    },
+    "Toolbar buttons activation for delayed surrounds",
+    async function() {
+      const rte = test.getWin().rte.getEditor();
+      rtetest.setStructuredContent(test.getWin(), `<p class="normal">"a(*0*)(*1*)b"</p>`);
+
+      const btn_sub = test.qS('span.wh-rtd-button[data-button=sub]');
+      const btn_sup = test.qS('span.wh-rtd-button[data-button=sup]');
+
+      test.assert(!btn_sub.classList.contains('active'));
+      test.assert(!btn_sup.classList.contains('active'));
+      test.click(btn_sub);
+      test.assert(btn_sub.classList.contains('active'));
+      test.assert(!btn_sup.classList.contains('active'));
+      test.click(btn_sub);
+      test.assert(!btn_sub.classList.contains('active'));
+      test.assert(!btn_sup.classList.contains('active'));
+      test.click(btn_sub);
+      test.assert(btn_sub.classList.contains('active'));
+      test.assert(!btn_sup.classList.contains('active'));
+      test.click(btn_sup);
+      test.assert(!btn_sub.classList.contains('active'));
+      test.assert(!btn_sup.classList.contains('active'));
+      test.click(btn_sup);
+      test.assert(!btn_sub.classList.contains('active'));
+      test.assert(btn_sup.classList.contains('active'));
+      await rtetest.runWithUndo(rte, () => test.pressKey("Delete")); // clear delayed surrounds
+
+      rtetest.setStructuredContent(test.getWin(), `<p class="normal"><sub>"a(*0*)(*1*)c"</sub<</p>`);
+      test.assert(btn_sub.classList.contains('active'));
+      test.assert(!btn_sup.classList.contains('active'));
+      test.click(btn_sub);
+      test.assert(!btn_sub.classList.contains('active'));
+      test.assert(!btn_sup.classList.contains('active'));
+      test.click(btn_sup);
+      test.assert(!btn_sub.classList.contains('active'));
+      test.assert(btn_sup.classList.contains('active'));
     }
 
   ]);
