@@ -2,7 +2,7 @@ import EventSource from "../eventsource";
 import { WHManagerConnection, WHMResponse } from "./whmanager_conn";
 import { WHMRequest, WHMRequestOpcode, WHMResponseOpcode, WHMProcessType, WHMResponse_IncomingEvent } from "./whmanager_rpcdefs";
 import * as hsmarshalling from "./hsmarshalling";
-import { registerAsNonReloadableLibrary } from "../hmrinternal";
+import { registerAsNonReloadableLibrary, getState as getHMRState } from "../hmrinternal";
 import { createDeferred, DeferredPromise } from "@webhare/std";
 import { DebugConfig, updateDebugConfig } from "@webhare/env/src/envbackend";
 import { IPCPortControlMessage, IPCEndPointImplControlMessage, IPCEndPointImpl, IPCPortImpl, IPCPortControlMessageType, IPCEndPointImplControlMessageType, IPCLinkType } from "./ipc";
@@ -975,6 +975,12 @@ class MainBridge extends EventSource<BridgeEvents> {
         this.debuglink?.send({
           type: DebugResponseType.getRecentLoggedItemsResult,
           items: consoledata
+        }, packet.msgid);
+      } break;
+      case DebugRequestType.getHMRState: {
+        this.debuglink?.send({
+          type: DebugResponseType.getHMRStateResult,
+          ...getHMRState()
         }, packet.msgid);
       } break;
       default:

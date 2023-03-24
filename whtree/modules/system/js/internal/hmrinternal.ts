@@ -3,7 +3,7 @@ import Module from "node:module";
 import { config, getFullConfigFile } from "./configuration";
 import { flags } from "@webhare/env/src/envbackend"; // don't want services module, included from @webhare/env
 
-type LibraryData = {
+export type LibraryData = {
   fixed: boolean;
   dynamicloader: boolean;
   directloads: string[];
@@ -221,4 +221,21 @@ export function activate() {
     for (const path of toprocess)
       handleModuleInvalidation(path);
   }
+}
+
+export type State = {
+  modulecache: Array<{ id: string; children: string[] }>;
+  registrations: Array<{ id: string } & LibraryData>;
+};
+
+export function getState(): State {
+  const registrations = new Array<{ id: string } & LibraryData>;
+  for (const [id, value] of Object.entries(libdata))
+    if (value)
+      registrations.push({ id, ...value });
+
+  return {
+    modulecache: Array.from(Object.entries(require.cache)).map(([key, value]) => ({ id: key, children: value?.children.map(c => c.id) ?? [] })),
+    registrations
+  };
 }

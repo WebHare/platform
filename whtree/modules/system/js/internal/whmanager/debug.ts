@@ -1,5 +1,6 @@
-import { IPCLinkType } from "./ipc";
-import { WHMProcessType as ProcessType } from "./whmanager_rpcdefs";
+import type { IPCLinkType } from "./ipc";
+import type { WHMProcessType as ProcessType } from "./whmanager_rpcdefs";
+import type { State as HMRState } from "../hmrinternal";
 export { WHMProcessType as ProcessType } from "./whmanager_rpcdefs";
 
 export type ProcessList = Array<{
@@ -14,6 +15,7 @@ export type ProcessList = Array<{
 export enum DebugRequestType {
   enableInspector,
   getRecentLoggedItems,
+  getHMRState,
 }
 
 type DebugRequest = {
@@ -23,12 +25,16 @@ type DebugRequest = {
 } | {
   type: DebugRequestType.getRecentLoggedItems;
   __responseKey: { type: DebugResponseType.getRecentLoggedItemsResult };
+} | {
+  type: DebugRequestType.getHMRState;
+  __responseKey: { type: DebugResponseType.getHMRStateResult };
 };
 
 export enum DebugResponseType {
   register,
   enableInspectorResult,
   getRecentLoggedItemsResult,
+  getHMRStateResult
 }
 
 export type ConsoleLogItem = {
@@ -51,7 +57,9 @@ type DebugResponse = {
 } | {
   type: DebugResponseType.getRecentLoggedItemsResult;
   items: ConsoleLogItem[];
-};
+} | {
+  type: DebugResponseType.getHMRStateResult;
+} & HMRState;
 
 /** Request and response are swapped here, because conceptually the
  * debugmanager makes requests, even though the individual processes
@@ -64,6 +72,7 @@ export enum DebugMgrClientLinkRequestType {
   getProcessList,
   enableInspector,
   getRecentlyLoggedItems,
+  getHMRState,
 }
 
 export enum DebugMgrClientLinkResponseType {
@@ -72,9 +81,34 @@ export enum DebugMgrClientLinkResponseType {
   eventProcessListUpdated,
   enableInspectorResult,
   getRecentlyLoggedItemsResult,
+  getHMRStateResult,
 }
 
-export type DebugMgrClientLink = IPCLinkType<{
+/** List of directly forwarded calls */
+export const directforwards = {
+  [DebugMgrClientLinkRequestType.getRecentlyLoggedItems]: { requesttype: DebugRequestType.getRecentLoggedItems, responsetype: DebugMgrClientLinkResponseType.getRecentlyLoggedItemsResult },
+  [DebugMgrClientLinkRequestType.getHMRState]: { requesttype: DebugRequestType.getHMRState, responsetype: DebugMgrClientLinkResponseType.getHMRStateResult }
+} as const;
+
+/// Returns the matching objects in a union whose "type" property extends from T
+type GetByType<T extends { type: unknown }, K> = T extends { type: K } ? T : never;
+
+/// Constructs the types needed to declare the forward in DebugMgrClientLinkRequest, DebugMgrClientLinkResponse and to type the client message in the forwarder
+type Forward<ClientRequestType extends DebugMgrClientLinkRequestType, RequestType extends DebugRequestType, ClientResponseType extends DebugMgrClientLinkResponseType> = {
+  /// Request record for the DebugMgrClientLinkRequest type
+  RequestTypeForLink: { type: ClientRequestType; processcode: number; __responseKey: { type: ClientResponseType } } & Omit<GetByType<DebugRequest, RequestType>, "type" | "__responseKey">;
+  /// Format of the message sent by the client
+  Request: { type: ClientRequestType; processcode: number } & Omit<GetByType<DebugRequest, RequestType>, "type" | "__responseKey">;
+  /// Format of the message to return (also for DebugMgrClientLinkResponse type)
+  Response: { type: ClientResponseType } & Omit<GetByType<DebugResponse, GetByType<DebugRequest, RequestType>["__responseKey"]["type"]>, "type">;
+};
+
+/** Get the forward data given a forwarded client request type */
+export type ForwardByRequestType<K extends keyof typeof directforwards> = Forward<K, typeof directforwards[K]["requesttype"], typeof directforwards[K]["responsetype"]>;
+
+type ForwardLinkSpecs<K extends keyof typeof directforwards = keyof typeof directforwards> = K extends unknown ? ForwardByRequestType<K> : never;
+
+export type DebugMgrClientLinkRequest = {
   // If enabled, send a `eventProcessListUpdated` message every time the process list has changed after a `getProcessList` call.
   type: DebugMgrClientLinkRequestType.subscribeProcessList;
   enable: boolean;
@@ -86,21 +120,18 @@ export type DebugMgrClientLink = IPCLinkType<{
   type: DebugMgrClientLinkRequestType.enableInspector;
   processcode: number;
   __responseKey: { type: DebugMgrClientLinkResponseType.enableInspectorResult };
-} | {
-  type: DebugMgrClientLinkRequestType.getRecentlyLoggedItems;
-  processcode: number;
-  __responseKey: { type: DebugMgrClientLinkResponseType.getRecentlyLoggedItemsResult };
-}, {
+} | ForwardLinkSpecs["RequestTypeForLink"];
+
+export type DebugMgrClientLinkResponse = {
   type: DebugMgrClientLinkResponseType.subscribeProcessListResult;
 } | {
   type: DebugMgrClientLinkResponseType.getProcessListResult;
   processlist: ProcessList;
 } | {
+  type: DebugMgrClientLinkResponseType.eventProcessListUpdated;
+} | {
   type: DebugMgrClientLinkResponseType.enableInspectorResult;
   url: string;
-} | {
-  type: DebugMgrClientLinkResponseType.getRecentlyLoggedItemsResult;
-  items: ConsoleLogItem[];
-} | {
-  type: DebugMgrClientLinkResponseType.eventProcessListUpdated;
-}>;
+} | ForwardLinkSpecs["Response"];
+
+export type DebugMgrClientLink = IPCLinkType<DebugMgrClientLinkRequest, DebugMgrClientLinkResponse>;
