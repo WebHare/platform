@@ -74,6 +74,7 @@ PUBLIC OBJECTTYPE FormIntegrationPlugin EXTEND WebDesignPluginBase
            , addressvalidationkey := node->GetAttribute("addressvalidationkey")
            , addressvalidationschema := node->GetAttribute("addressvalidationschema")
            , webtoolformhooks := siteprofile->ParseFSPath(node, "webtoolformhooks")
+           , autocompleteusername := node->GetAttribute("autocompleteusername")
            ];
   }
 
