@@ -1254,8 +1254,8 @@ test.registerTests(
       const rte = test.getWin().rte.getEditor();
       rtetest.setStructuredContent(test.getWin(), `<p class="normal">"a(*0*)(*1*)b"</p>`);
 
-      const btn_sub = test.qS('span.wh-rtd-button[data-button=sub]');
-      const btn_sup = test.qS('span.wh-rtd-button[data-button=sup]');
+      const btn_sub = test.qR('span.wh-rtd-button[data-button=sub]');
+      const btn_sup = test.qR('span.wh-rtd-button[data-button=sup]');
 
       test.assert(!btn_sub.classList.contains('active'));
       test.assert(!btn_sup.classList.contains('active'));

@@ -115,7 +115,8 @@ export function handleModuleInvalidation(path: string) {
 
   for (const [key, lib] of Object.entries(libdata)) {
     if (lib?.resources.includes(path) && !toinvalidate.includes(key) && !lib?.fixed) {
-      console.log(`[hmr] resource ${path} was loaded as resource by module ${key}`);
+      if (flags.hmr)
+        console.log(`[hmr] resource ${path} was loaded as resource by module ${key}`);
       toinvalidate.push(key);
     }
   }
