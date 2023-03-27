@@ -104,4 +104,26 @@ program.command('getrecentlog')
     }
   });
 
+program.command('gethmrstate')
+  .description('Get the HMR state')
+  .argument('<instance>', 'Instance to connect to')
+  .action(async (instance: string) => {
+    const link = bridge.connect<DebugMgrClientLink>("ts:debugmgr", { global: true });
+    try {
+      await link.activate();
+
+      const searchprocesscode = await getProcessCodeFromInstance(link, instance);
+      const result = await link.doRequest({
+        type: DebugMgrClientLinkRequestType.getHMRState,
+        processcode: searchprocesscode
+      });
+      link.close();
+      console.log(JSON.stringify(result));
+    } catch (e) {
+      console.error(`Error: ${(e as Error).message}`);
+      process.exitCode = 1;
+      link.close();
+    }
+  });
+
 program.parse();

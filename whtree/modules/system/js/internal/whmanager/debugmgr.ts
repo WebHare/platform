@@ -1,7 +1,7 @@
 import EventSource from "../eventsource";
 import { createDeferred, DeferredPromise } from "@webhare/std";
 import bridge, { checkAllMessageTypesHandled } from "./bridge";
-import { DebugIPCLinkType, DebugRequestType, DebugResponseType, DebugMgrClientLink, DebugMgrClientLinkRequestType, DebugMgrClientLinkResponseType } from "./debug";
+import { DebugIPCLinkType, DebugRequestType, DebugResponseType, DebugMgrClientLink, DebugMgrClientLinkRequestType, DebugMgrClientLinkResponseType, directforwards, ForwardByRequestType } from "./debug";
 
 
 type ProcessRegistration = {
@@ -45,6 +45,7 @@ class DebuggerHandler extends EventSource<HandlerEvents>{
       } break;
       case DebugResponseType.enableInspectorResult: break; // only response type
       case DebugResponseType.getRecentLoggedItemsResult: break; // only response type
+      case DebugResponseType.getHMRStateResult: break; // only response type
       default: {
         checkAllMessageTypesHandled(packet.message, "type");
       }
@@ -149,6 +150,23 @@ class DebugMgrClient {
     }
   }
 
+  async forwardRequest<K extends keyof typeof directforwards
+  >(message: ForwardByRequestType<K>["Request"], msgid: bigint) {
+    try {
+      const reg = await this.ensureProcessConnected(message.processcode);
+      if (!reg) {
+        throw new Error(`Process has already terminated`);
+      }
+      const res = await reg.link.doRequest({ ...message, type: directforwards[message.type].requesttype });
+      this.link.send({
+        ...res,
+        type: directforwards[message.type].responsetype,
+      } as unknown as DebugMgrClientLink["ConnectEndPointPacket"]["message"], msgid);
+    } catch (e) {
+      this.link.sendException(e as Error, msgid);
+    }
+  }
+
   async _gotMessage(packet: DebugMgrClientLink["AcceptEndPointPacket"]) {
     switch (packet.message.type) {
       case DebugMgrClientLinkRequestType.subscribeProcessList: {
@@ -194,19 +212,9 @@ class DebugMgrClient {
           this.link.sendException(e as Error, packet.msgid);
         }
       } break;
-      case DebugMgrClientLinkRequestType.getRecentlyLoggedItems: {
-        try {
-          const reg = await this.ensureProcessConnected(packet.message.processcode);
-          if (!reg)
-            throw new Error(`Process has already terminated`);
-          const res = await reg.link.doRequest({ type: DebugRequestType.getRecentLoggedItems });
-          this.link.send({
-            type: DebugMgrClientLinkResponseType.getRecentlyLoggedItemsResult,
-            items: res.items
-          }, packet.msgid);
-        } catch (e) {
-          this.link.sendException(e as Error, packet.msgid);
-        }
+      case DebugMgrClientLinkRequestType.getRecentlyLoggedItems:
+      case DebugMgrClientLinkRequestType.getHMRState: {
+        await this.forwardRequest(packet.message, packet.msgid);
       } break;
       default:
         checkAllMessageTypesHandled(packet.message, "type");

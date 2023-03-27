@@ -7,6 +7,7 @@ import { RestAPI } from "./restapi";
 import { createJSONResponse, WebRequest, WebResponse, HTTPErrorCode, createWebResponse } from "@webhare/router";
 import { WebRequestInfo, WebResponseInfo } from "../types";
 import { getOpenAPIService } from "@webhare/services/src/moduledefparser";
+import { registerLoadedResource } from "../hmrinternal";
 
 // A REST service supporting an OpenAPI definition
 export class RestService {
@@ -20,8 +21,11 @@ export class RestService {
     if (!serviceinfo)
       throw new Error(`Invalid OpenAPI service name: ${apispec}`);
 
+    const apispec_fs = toFSPath(serviceinfo.spec);
+    registerLoadedResource(module, apispec_fs);
+
     // Read and parse the OpenAPI Yaml definition
-    const def = YAML.parse(await fs.promises.readFile(toFSPath(serviceinfo.spec), "utf8"));
+    const def = YAML.parse(await fs.promises.readFile(apispec_fs, "utf8"));
     // Create and initialize the API handler
     this.restapi = new RestAPI();
     try {
@@ -108,9 +112,17 @@ export class RestService {
   }
 }
 
+const cache: Record<string, RestService> = {};
+
 export async function getServiceInstance(apispec: string) {
-  //TODO cache restserver objects based on apispec
+  if (cache[apispec])
+    return cache[apispec];
+
+  //TODO reset cache on moduledefinition changes or softreset too
   const service = new RestService();
   await service.init(apispec);
+
+  if (!cache[apispec])
+    cache[apispec] = service;
   return service;
 }
