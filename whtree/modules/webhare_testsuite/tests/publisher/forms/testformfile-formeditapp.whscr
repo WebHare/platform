@@ -98,12 +98,22 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));
   TestEq("Just another doc",TT("doceditor->questions")->selection.title);
 
+  //Add a text field
+  TT("doceditor->questions")->selection := RECORD[TT("doceditor->questions")->rows[0]]; //select first page
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Question", [menuitem := TRUE]));
+  TT("builtincomponents")->selection := RECORD(SELECT * FROM TT("builtincomponents")->rows WHERE name = "Short text field");
+  AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
+  TestEq(TRUE, TTIsVisible("autocomplete"), "Autosuggest should still not appear here");
+  TestEq("m/s-nummer", SELECT AS STRING title FROM TT("autocomplete")->options WHERE rowkey = "username");
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
   //Add a field
   TT("doceditor->questions")->selection := RECORD[TT("doceditor->questions")->rows[0]]; //select first page
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Question", [menuitem := TRUE]));
   TT("builtincomponents")->selection := RECORD(SELECT * FROM TT("builtincomponents")->rows WHERE name = "Email");
   AWAIT ExpectScreenChange(0, PTR TTClick(":OK"));
   TestEq(TRUE, TTIsVisible("autocomplete"), "Autosuggest should still not appear here");
+  TestEq("", SELECT AS STRING title FROM TT("autocomplete")->options WHERE rowkey = "username", "Username shouldn't appear in email's autocomplete list (unless we know usernames to be email through siteprl?)");
   TestEq(["No autofill", "User's email address","Custom 'autocomplete'"], SELECT AS STRING ARRAY title FROM TT("autocomplete")->options WHERE NOT isdivider);
   TestEq("", TT("autocomplete")->value, "No autofill should be initially selected");
   TestEq(FALSE, TTIsVisible("autocomplete_customvalue"));

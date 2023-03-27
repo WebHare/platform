@@ -1799,6 +1799,11 @@
         <xs:documentation>Maximum days we allow to keep results for processing (minimal: 1)</xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="autocompleteusername">
+      <xs:annotation>
+        <xs:documentation>Enables the username autocomplete and sets it title. Set to '*' to use the default title</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
     <xs:attribute name="countrylist">
       <xs:simpleType>
         <xs:list>
