@@ -2,6 +2,7 @@ import * as testsupport from "./testsupport";
 import * as diff from 'diff';
 import Ajv, { SchemaObject, ValidateFunction } from "ajv";
 import addFormats from "ajv-formats";
+import { RecursivePartial } from "@mod-system/js/internal/util/algorithms";
 export { LoadTSTypeOptions } from "./testsupport";
 export { sleep } from "@webhare/std";
 
@@ -238,12 +239,12 @@ export async function throws(expect: RegExp, func_or_promise: Promise<unknown> |
     @param actual - Actual value
     @param ignore - List of properties to ignore
     @param annotation - Message to display when the test fails */
-export function eqProps<T>(expect: T, actual: T, ignore: string[] = [], annotation?: Annotation) {
+export function eqProps<T>(expect: RecursivePartial<T>, actual: T, ignore: string[] = [], annotation?: Annotation) {
   eqPropsRecurse(expect, actual, "root", ignore, annotation);
   return actual;
 }
 
-function eqPropsRecurse<T>(expect: T, actual: T, path: string, ignore: string[], annotation?: Annotation) {
+function eqPropsRecurse<T>(expect: RecursivePartial<T>, actual: T, path: string, ignore: string[], annotation?: Annotation) {
   switch (typeof expect) {
     case "undefined": return;
     case "object":
