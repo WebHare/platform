@@ -21,11 +21,24 @@ class WebServer {
         throw new Error("Incomplete request?");
 
       console.log(`${req.method} ${req.headers.host} ${req.url}`);
+      //TODO timeout for receiving 'end' event or something else that discards too long requests
+      let body = '';
+      req.on('readable', function() {
+        const inp = req.read();
+        if (inp)
+          body += inp;
+      });
+
+      await new Promise<void>(resolve =>
+        req.on('end', function() {
+          resolve();
+        }));
+
       //FIXME verify whether host makes sense given the incoming port (ie virtualhost or force to IP ?)
       const finalurl = (port.privatekey ? "https://" : "http://") + req.headers.host + req.url;
 
       //Translate nodejs request to our Router stuff
-      const webreq = new WebRequest(finalurl, { method: req.method.toLowerCase() as HTTPMethod, headers: req.headers as Record<string, string> }); //FIXME pass the body too
+      const webreq = new WebRequest(finalurl, { method: req.method.toLowerCase() as HTTPMethod, headers: req.headers as Record<string, string>, body });
       //TODO timeouts, separate VMs, whatever a Robust webserver Truly Requires
       const response = await coreWebHareRouter(webreq);
       //TODO freeze the WebResponse, log errors if any modification still occurs after we're supposedly done

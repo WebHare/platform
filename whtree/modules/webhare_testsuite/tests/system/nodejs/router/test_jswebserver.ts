@@ -5,6 +5,11 @@ import { Configuration } from "@mod-system/js/internal/webserver/webconfig";
 import * as webserver from "@mod-system/js/internal/webserver/webserver";
 import * as net from "node:net";
 
+interface GetRequestDataResponse {
+  method: string;
+  webvars: Array<{ ispost: boolean; name: string; value: string }>;
+}
+
 async function getAvailableServerPort() {
   //have the OS select a free port
   const server = net.createServer({});
@@ -47,7 +52,24 @@ async function testOurWebserver() {
 
   const response = await (await fetch("http://127.0.0.1:" + port + markdowndocurl.pathname, { headers: { host: markdowndocurl.host } })).text();
   test.eqMatch(/<html.*>.*<h2.*>Markdown file<\/h2>/, response);
+
+  const testsuiteresources = "http://127.0.0.1:" + port + "/tollium_todd.res/webhare_testsuite/tests/";
+  let grd = await (await fetch(testsuiteresources + "getrequestdata.shtml", { headers: { host: markdowndocurl.host, accept: "application/json" } })).json() as GetRequestDataResponse;
+  test.eq("GET", grd.method);
+
+  grd = await (await fetch(testsuiteresources + "getrequestdata.shtml", {
+    headers: {
+      host: markdowndocurl.host,
+      accept: "application/json",
+      "content-type": "application/x-www-form-urlencoded"
+    },
+    body: "a=1&b=2",
+    method: "POST"
+  })).json() as GetRequestDataResponse;
+  test.eq("POST", grd.method);
+
   ws.close(); //without explicitly closing the servers we linger for 4 seconds if we did a request ... but not sure why.
 }
+
 
 test.run([testOurWebserver]);

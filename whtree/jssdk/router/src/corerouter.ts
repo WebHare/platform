@@ -37,7 +37,15 @@ async function routeThroughHSWebserver(request: WebRequest): Promise<WebResponse
   headers.set("Host", request.url.host);
 
   const targeturl = `http://${trustedip}:${trustedlocalport}${request.url.pathname}${request.url.search}`;
-  const result = await fetch(targeturl, { headers, redirect: "manual" });
+  const fetchmethod = request.method.toUpperCase();
+  const fetchoptions: RequestInit = {
+    redirect: "manual",
+    headers,
+    method: fetchmethod
+  };
+  if (!["GET", "HEAD"].includes(fetchmethod))
+    fetchoptions.body = request.body;
+  const result = await fetch(targeturl, fetchoptions);
   const body = await result.text();
   const responseheaders: Record<string, string> = {};
   for (const header of result.headers.entries())
