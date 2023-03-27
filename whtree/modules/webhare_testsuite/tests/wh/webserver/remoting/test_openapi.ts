@@ -140,7 +140,7 @@ async function verifyPublicParts() {
 function testInternalTypes() {
 
   type TestResponses =
-    { status: HTTPSuccessCode.Ok; isjson: true; response: number } |
+    { status: HTTPSuccessCode.Ok; isjson: true; response: { code: number } } |
     { status: HTTPSuccessCode.Created; isjson: false } |
     { status: HTTPSuccessCode.PartialContent; isjson: boolean; response: string } | // true|false, so both raw and json requests are accepted
     { status: HTTPErrorCode.NotFound; isjson: true; response: { status: HTTPErrorCode.NotFound; error: string; extra: string } };
@@ -148,7 +148,7 @@ function testInternalTypes() {
   test.typeAssert<test.Extends<TestResponses, restrequest.RestResponsesBase>>();
 
   test.typeAssert<test.Equals<
-    { status: HTTPSuccessCode.Ok; isjson: true; response: number } |
+    { status: HTTPSuccessCode.Ok; isjson: true; response: { code: number } } |
     { status: HTTPSuccessCode.PartialContent; isjson: boolean; response: string } |
     { status: HTTPErrorCode.NotFound; isjson: true; response: { status: HTTPErrorCode.NotFound; error: string; extra: string } },
     restrequest.JSONResponses<TestResponses>>>();
@@ -156,7 +156,7 @@ function testInternalTypes() {
   test.typeAssert<test.Equals<HTTPErrorCode | HTTPSuccessCode.Ok | HTTPSuccessCode.PartialContent, restrequest.JSONResponseCodes<TestResponses>>>();
   test.typeAssert<test.Equals<HTTPSuccessCode.Created | HTTPSuccessCode.PartialContent, restrequest.RawResponseCodes<TestResponses>>>();
 
-  test.typeAssert<test.Equals<number, restrequest.JSONResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPSuccessCode.Ok>>>();
+  test.typeAssert<test.Equals<{ code: number }, restrequest.JSONResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPSuccessCode.Ok>>>();
   test.typeAssert<test.Equals<{ status: HTTPErrorCode.NotFound; error: string; extra: string }, restrequest.JSONResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPErrorCode.NotFound>>>();
   test.typeAssert<test.Equals<{ status: HTTPErrorCode; error: string }, restrequest.JSONResponseForCode<TestResponses, restrequest.RestDefaultErrorBody, HTTPErrorCode.BadRequest>>>();
   // When both json and non-json are accepted, returns the JSON format
@@ -170,7 +170,9 @@ function testInternalTypes() {
     const req: restrequest.RestRequest<null, object, null, TestResponses, restrequest.RestDefaultErrorBody> = null as any;
     const req_errdef: restrequest.RestRequest<null, object, null, TestResponses, { status: HTTPErrorCode; error: string; extra: string }> = null as any;
 
-    req.createJSONResponse(HTTPSuccessCode.Ok, 3);
+    req.createJSONResponse(HTTPSuccessCode.Ok, { code: 3 });
+    // @ts-expect-error -- Not allowed to add extra properties
+    req.createJSONResponse(HTTPSuccessCode.Ok, { code: 3, extra: 6 });
     // @ts-expect-error -- Wrong type for response body
     req.createJSONResponse(HTTPSuccessCode.Ok, "a");
     // @ts-expect-error -- Errors only via createErrorResponse
@@ -188,6 +190,8 @@ function testInternalTypes() {
     req_errdef.createErrorResponse(HTTPErrorCode.BadRequest, { error: "not found", extra: "extra" });
     // @ts-expect-error -- 'extra' is required
     req_errdef.createErrorResponse(HTTPErrorCode.BadRequest, { error: "not found" });
+    // @ts-expect-error -- Not allowed to add extra properties
+    req.createErrorResponse(HTTPErrorCode.BadGateway, { error: "Bad gateway", extra: 6 });
 
     req.createRawResponse(HTTPSuccessCode.Created, "blabla");
     req.createRawResponse(HTTPSuccessCode.PartialContent, "blabla");
