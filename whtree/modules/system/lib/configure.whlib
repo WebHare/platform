@@ -134,7 +134,6 @@ PUBLIC BOOLEAN FUNCTION IsProductionOrAsIf()
 /** @short Get the WebHare installation/configuration parameters
     @long This function returns the various path locations and database settings as configured in the webhare-(default-)config.xml file.
     @return Configuration parameters
-    @cell(boolean) return.use_externaldb True if we're configured to use an external database, false if we used the locally installed WebHare dbserver
     @cell(string) return.installationtype The installation type ('production', 'restore' or 'test')
     @cell(string) return.installationroot The WebHare installation root directory (eg /opt/webhare)
     @cell(string) return.basedataroot The base directory for the WebHare data files (dbase, etc). Custom and modulespecific folders should use the varroot or the ephemeralroot
@@ -146,6 +145,8 @@ PUBLIC BOOLEAN FUNCTION IsProductionOrAsIf()
     @cell(string) return.logroot The directory where log files are stored (eg /log/).
     @cell(string) return.consilio ip:port used for consilios
     @cell(integer) return.baseport Baseport for local services (eg 13679)
+    @cell(integer) return.trustedport Port for incoming LB connections where we trust X-Forwarded-For etc headers. baseport + 5, eg 13684
+    @cell(integer) return.hstrustedport Like trustedport, but opened for the JS webserver. baseport + 3, eg 13682.
     */
 PUBLIC RECORD FUNCTION GetWebHareConfiguration()
 {
@@ -154,8 +155,8 @@ PUBLIC RECORD FUNCTION GetWebHareConfiguration()
   params := CELL[ ...params
                 , baseport
                 , trustedhost := GetEnvironmentVariable("WEBHARE_SECUREPORT_BINDIP") ?? "127.0.0.1"
-                , trustedport := baseport + 5
-                , use_externaldb := FALSE
+                , trustedport := baseport + whconstant_webserver_trustedportoffset
+                , hstrustedport := baseport + whconstant_webserver_hstrustedportoffset
                 ];
   RETURN params;
 }
@@ -240,4 +241,3 @@ PUBLIC BOOLEAN FUNCTION IsModuleVersionMatch(STRING modulename, STRING semverran
 
   RETURN VersionSatisfiesRange(modinfo.version, semverrange);
 }
-

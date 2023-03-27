@@ -1,4 +1,5 @@
 ﻿<?wh
+LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 
@@ -252,6 +253,12 @@ PUBLIC RECORD ARRAY FUNCTION GetSystemAppRunnerConfig()
         ] INTO apps AT END;
   }
 
+  IF(GetEnvironmentVariable("WEBHARE_WEBSERVER") = "node") //servicemanager will have to manage the HareScript/C++ webserver?
+    INSERT
+        [ name :=       "system:hswebserver"
+        , cmdline :=    "webserver"
+        ] INTO apps AT END;
+
   trans->Close();
 
   RETURN apps;
@@ -273,4 +280,3 @@ PUBLIC INTEGER ARRAY FUNCTION GetWHFSObjectsToHide(OBJECT user)
    INSERT 16 INTO tohide AT END;
   RETURN tohide;
 }
-

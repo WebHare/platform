@@ -16,6 +16,7 @@ LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 LOADLIB "mod::system/lib/internal/nginx/config.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
 
 RECORD FUNCTION FixedAuthHandler(STRING password, STRING realm, STRING url)
 {
@@ -43,12 +44,9 @@ RECORD FUNCTION LoadConfig(RECORD configuration, BOOLEAN isuptodate)
   }
 
   RECORD useconfiguration := configuration;
+  IF(GetEnvironmentVariable("WEBHARE_WEBSERVER") = "node") //Get out of node's way
+    DELETE FROM useconfiguration.ports WHERE id != whwebserverconfig_hstrustedportid;
 
-  //Allow __WEBHARE_WEBSERVER_IGNOREPORTS to mask ports we want to run another webserver on
-  STRING ignoreports := GetEnvironmentVariable("__WEBHARE_WEBSERVER_IGNOREPORTS");
-  IF(ignoreports != "")
-    FOREVERY(STRING portnumber FROM Tokenize(ignoreports,','))
-      DELETE FROM useconfiguration.ports WHERE port = ToInteger(portnumber,-1);
 
   RECORD reloadstatus := ConfigureWebserver(useconfiguration);
 

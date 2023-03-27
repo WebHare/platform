@@ -3,6 +3,7 @@ import * as whfs from "@webhare/whfs";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
 import { WebHareWHFSRouter, WebRequest, WebResponse, SiteRequest, createWebResponse } from "./router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
+import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 
 export async function lookupPublishedTarget(url: string) {
   //we'll use the HS version for now. rebuilding lookup is complex and we should really port the tests too before we attempt it...
@@ -28,7 +29,7 @@ export async function lookupPublishedTarget(url: string) {
 async function routeThroughHSWebserver(request: WebRequest): Promise<WebResponse> {
   //FIXME abortsignal / timeout
 
-  const trustedlocalport = 13679 + 5;
+  const trustedlocalport = getFullConfigFile().baseport + 3; //3 = whconstant_webserver_hstrustedportoffset
   const trustedip = process.env["WEBHARE_SECUREPORT_BINDIP"] || "127.0.0.1"; //TODO we should probably name this WEBHARE_PROXYPORT_BINDIP ? not much secure about this port..
   const headers = request.headers;
   headers.set("X-Forwarded-For", "1.2.3.4"); //FIXME use real remote IP, should be in 'request'

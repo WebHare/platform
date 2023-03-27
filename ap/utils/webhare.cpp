@@ -122,7 +122,7 @@ const ServiceInfo services[WHService::NumberOfServices]=
 { { nullptr,        "Service manager",    ""}
 , { "whcompile",    "Compile server",     "--listen"}
 , { "postgres.sh",  "PostgreSQL",         ""}
-, { "webserver",    "Webserver",          ""}
+, { "webserver.sh", "Webserver",          ""}
 , { "runscript",    "Startup script",     "--workerthreads\t4\tmod::system/scripts/internal/webhareservice-startup.whscr" }
 , { "runscript",    "Application runner", "mod::system/scripts/internal/apprunner.whscr"}
 , { "whmanager",    "WebHare manager",    ""}
@@ -399,6 +399,7 @@ void WHService::MainLoop()
         Log(ServiceManager, "Starting service (" + Blex::GetEnvironVariable("WEBHARE_DISPLAYBUILDINFO") + ")");
 
         ReadKeyConfig();
+        bool earlywebserver = Blex::GetEnvironVariable("WEBHARE_WEBSERVER") == "node";
 
         //whmanager, postgresql and whcompiler do not communicate with each other, so start these three first
         if (start_whmanager && !StartServer(WHManager))
@@ -407,6 +408,9 @@ void WHService::MainLoop()
             throw std::runtime_error("Cannot launch PostgreSQL");
         if (start_whcompiler && !StartServer(CompileServer))
             throw std::runtime_error("Cannot launch the compilation server");
+        //The node webserver doesn't need to wait for the compileserver so launch it right away
+        if (earlywebserver && start_webserver && !StartServer(Webserver))
+            throw std::runtime_error("Cannot launch the web server process");
 
         bool only_whmanager; // Indicates if the whmanager is the only running process
         while(SetWaitEvents(&only_whmanager)) //SetWaitEvents returns false if no running processes exist
@@ -506,7 +510,7 @@ void WHService::MainLoop()
                                 else
                                 {       //We can move to the next stage
                                         nextcompileservercheck = Blex::DateTime::Max();
-                                        if (start_webserver && !StartServer(Webserver))
+                                        if (!earlywebserver && start_webserver && !StartServer(Webserver))
                                             throw std::runtime_error("Cannot launch the web server process");
 
                                         stage = RunningStartupScripts;
