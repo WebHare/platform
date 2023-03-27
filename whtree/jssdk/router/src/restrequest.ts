@@ -33,6 +33,22 @@ export type RawResponseCodes<Responses extends RestResponsesBase> = (Responses &
 
 export type DefaultRestParams = Record<string, string | number>;
 
+/** Given a type Contract and a type Actual that extends Contract, returns Contract with
+ * properties that are added in Actual with type never. If used in a function signature like
+ * this: `<Actual extends Contact>(param: Actual & DisallowExtraPropsRecursive<Actual, Contract>`,
+ * this has the effect that extra properties in Actual will be disallowed compile-time.
+ */
+type DisallowExtraPropsRecursive<Actual extends Contract, Contract> = Contract extends unknown[]
+  ? (Actual extends unknown[]
+    ? Array<DisallowExtraPropsRecursive<Actual[number], Contract[number]>>
+    : Contract)
+  : (Contract extends object
+    ? (Actual extends Contract
+      ? { [K in keyof Contract]: K extends keyof Actual ? DisallowExtraPropsRecursive<Actual[K], Contract[K]> : Contract[K] } & { [K in Exclude<keyof Actual, keyof Contract>]: never }
+      : Contract)
+    : Contract);
+
+
 /** For responses specified in Responses, returns the type of the JSON body */
 export type JSONResponseForCode<
   Responses extends RestResponsesBase,
@@ -74,7 +90,14 @@ export class RestRequest<
    * @param jsonbody - The JSON body to return
    * @param options - Optional statuscode and headers
    */
-  createJSONResponse<Status extends JSONResponseCodes<Responses> & HTTPSuccessCode>(status: Status, jsonbody: JSONResponseForCode<Responses, DefaultErrorFormat, Status>, options?: { headers?: Record<string, string> }) {
+  createJSONResponse<
+    Status extends JSONResponseCodes<Responses> & HTTPSuccessCode,
+    ResponseBody extends JSONResponseForCode<Responses, DefaultErrorFormat, Status>
+  >(
+    status: Status,
+    jsonbody: ResponseBody & DisallowExtraPropsRecursive<ResponseBody, JSONResponseForCode<Responses, DefaultErrorFormat, Status>>,
+    options?: { headers?: Record<string, string> }
+  ) {
     return createJSONResponse(status, jsonbody, options);
   }
   /** Create a webresponse for an error response, returning a JSON body
@@ -82,7 +105,14 @@ export class RestRequest<
    * @param jsonbody - The JSON body to return
    * @param options - Optional statuscode and headers
    */
-  createErrorResponse<Status extends HTTPErrorCode>(status: Status, jsonbody: Omit<JSONResponseForCode<Responses, DefaultErrorFormat, Status>, "status">, options?: { headers?: Record<string, string> }) {
+  createErrorResponse<
+    Status extends HTTPErrorCode,
+    ResponseBody extends Omit<JSONResponseForCode<Responses, DefaultErrorFormat, Status>, "status">
+  >(
+    status: Status,
+    jsonbody: ResponseBody & DisallowExtraPropsRecursive<ResponseBody, Omit<JSONResponseForCode<Responses, DefaultErrorFormat, Status>, "status">>,
+    options?: { headers?: Record<string, string> }
+  ) {
     return createJSONResponse(status, { status, ...jsonbody }, options);
   }
 
