@@ -567,7 +567,7 @@
             descriptiontid="formcomponents.textedit.description"
             editextension="/screens/formcomponents.xml#formtextedit"
             editdefaults="name title hidetitle required groupclasses placeholder prefix suffix infotext"
-            autocomplete="name given-name family-name organization organization-title"
+            autocomplete="name given-name family-name organization organization-title username"
             supportedvaluesfunc="/lib/webtools/formcomponents/textedit.whlib#getformtexteditsupportedvalues"
             parserfunc="/lib/webtools/formcomponents/textedit.whlib#parseformtextedit"
             fieldobject="/lib/webtools/formcomponents/textedit.whlib#TextEditField"
