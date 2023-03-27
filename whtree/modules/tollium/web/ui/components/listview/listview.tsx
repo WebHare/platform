@@ -923,11 +923,10 @@ export default class ListView {
   }
 
   onKeyboardSelectAll(event) {
-    event.stopPropagation();
-    event.preventDefault();
+    dompack.stop(event);
 
-    // Only allowed when selectmode is multiple
-    if (this.options.selectmode != "multiple")
+    // Only allowed when selectmode is multiple and we actually have rows
+    if (this.options.selectmode != "multiple" || this.numrows == 0)
       return;
 
     this.setCursorRow(this.numrows - 1);

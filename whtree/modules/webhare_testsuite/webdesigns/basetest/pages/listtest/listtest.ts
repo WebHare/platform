@@ -89,7 +89,7 @@ class EmptyDataSource extends TestBaseSource {
     super();
   }
   getDataStructure() {
-    return { columns: [], colwidths: [] };
+    return { datacolumns: [], cols: [] };
   }
   sendNumRows() {
     this.list.updateNumRows(0);

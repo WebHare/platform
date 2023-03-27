@@ -2,6 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as test from "@mod-tollium/js/testframework";
+import { browser } from "@webhare/dompack";
 //FIXME fix and test ClearSelection
 
 test.registerTests(
@@ -135,6 +136,19 @@ test.registerTests(
         test.eq(1, test.qSA('#listview .wh-list__row--selected').length);
         test.assert(test.getListViewRow('Rij #1.').classList.contains("wh-list__row--selected"));
       }
+    },
+
+    'multiselect empty list issues',
+    async function() {
+      test.fill('#datasource', 'emptysource');
+
+      test.focus("#listview");
+      await test.pressKey("A", browser.platform == "mac" ? { metaKey: true } : { ctrlKey: true });
+
+      test.fill('#datasource', 'none');
+
+      test.focus("#listview");
+      await test.pressKey("A", browser.platform == "mac" ? { metaKey: true } : { ctrlKey: true });
     },
 
     'treeexpand',
