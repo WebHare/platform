@@ -1,6 +1,6 @@
 import SwaggerParser from "@apidevtools/swagger-parser";
 import { createJSONResponse, HTTPErrorCode, WebRequest, DefaultRestParams, RestRequest, WebResponse, HTTPMethod, RestAuthorizationFunction, RestImplementationFunction, HTTPSuccessCode } from "@webhare/router";
-import Ajv from "ajv";
+import Ajv, { ValidateFunction } from "ajv";
 import addFormats from "ajv-formats";
 import { OpenAPIV3 } from "openapi-types";
 import { resolveResource, toFSPath } from "@webhare/services";
@@ -87,6 +87,7 @@ export class RestAPI {
   _ajv: Ajv | null = null;
   bundled: WHOpenAPIDocument | null = null;
   def: WHOpenAPIDocument | null = null;
+  _validators = new Map<object, ValidateFunction>;
 
   // Get the JSON schema validator singleton
   protected get ajv() {
@@ -158,6 +159,15 @@ export class RestAPI {
     }
   }
 
+  #getValidator(schema: object): ValidateFunction {
+    let res = this._validators.get(schema);
+    if (res)
+      return res;
+    res = this.ajv.compile(schema);
+    this._validators.set(schema, res);
+    return res;
+  }
+
   findRoute(relurl: string, req: WebRequest): Match | null {
     const path = relurl.split("/");
     for (const route of this.routes) {
@@ -200,7 +210,7 @@ export class RestAPI {
           responseschema = this.def.components.schemas.defaulterror;
         }
         if (responseschema) {
-          const validator = this.ajv.compile(responseschema);
+          const validator = this.#getValidator(responseschema);
           if (!validator(JSON.parse(response.body))) {
             throw new Error(`Validation of the response (code ${response.status}) for ${JSON.stringify(`${req.method} ${relurl}`)} returned error: ${validator.errors?.[0]?.message || `Invalid request body`}`);
           }
@@ -256,7 +266,7 @@ export class RestAPI {
       }
 
       // Validate the incoming request body (TODO cache validators, prevent parallel compilation when a lot of requests come in before we finished compilation)
-      const validator = this.ajv.compile(bodyschema);
+      const validator = this.#getValidator(bodyschema);
       if (!validator(body)) {
         /* The error looks like this:
         >   {
