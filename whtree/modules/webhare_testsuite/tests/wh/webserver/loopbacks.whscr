@@ -1188,8 +1188,7 @@ MACRO TestAutoFollow()
 
 MACRO TestCookies()
 {
-  //Allow us to run this step without going through Setup
-  STRING cookietestpath := ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), "/.webhare_testsuite/tests/webserver/cookies.shtml");
+  STRING cookietestpath := GetPrimaryWebHareInterfaceURL() || "tollium_todd.res/webhare_testsuite/tests/cookies.shtml";
 
   //get a proper cookie, and one set by old webhare code
   TestEq(TRUE, testfw->browser->PostWebPage(cookietestpath, [[ name := "type", value := "setcookie1" ]
