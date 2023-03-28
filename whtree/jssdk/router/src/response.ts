@@ -1,8 +1,6 @@
 import * as env from "@webhare/env";
 import { getCallStackAsText } from "@mod-system/js/internal/util/stacktrace";
 
-type Headers = { [key: string]: string };
-
 export enum HTTPErrorCode {
   BadRequest = 400,
   Unauthorized = 401,
@@ -55,14 +53,15 @@ export enum HTTPSuccessCode {
 export type HTTPStatusCode = HTTPErrorCode | HTTPSuccessCode;
 
 export class WebResponse {
-  private _status: HTTPStatusCode = HTTPSuccessCode.Ok;
+  private _status: HTTPStatusCode;
   private _body = '';
   private _headers: Headers;
   private _trace: string | undefined;
 
-  constructor() {
-    this._headers = { "content-type": "text/html; charset=utf-8" }; //TODO caller should set this based on expected extension eg to text/plain
-    if (env.flags.openapi) {
+  constructor(status: HTTPStatusCode, headers: Record<string, string> | Headers) {
+    this._status = status;
+    this._headers = new Headers(headers);
+    if (env.flags.openapi) { //TODO this seems a bit too low level to be considering a 'openapi' flag ?
       this._trace = getCallStackAsText(1);
     }
   }
@@ -75,10 +74,6 @@ export class WebResponse {
     return this._body;
   }
 
-  get headers() {
-    return this._headers;
-  }
-
   get trace() {
     return this._trace;
   }
@@ -88,12 +83,26 @@ export class WebResponse {
     this._body = text;
   }
 
+  getHeader(header: string): string | null {
+    return this._headers.get(header);
+  }
+
+  /** Get all headers */
+  getHeaders(): string[][] {
+    return [...this._headers.entries()];
+  }
+
+  /** Get all setCookie headers */
+  getSetCookie(): string[] {
+    //https://fetch.spec.whatwg.org/#dom-headers-getsetcookie
+    interface HeadersWithSetSookie extends Headers {
+      getSetCookie(): string[];
+    }
+    return (this._headers as HeadersWithSetSookie).getSetCookie();
+  }
+
   setHeader(header: string, value: string) {
-    //TODO WebResponse should track the context for which a response is generated. for static publication it shouldn't permit *any* header for now other than one specific fixed charset header
-    if (value)
-      this._headers[header] = value;
-    else
-      delete this._headers[header];
+    this._headers.set(header, value);
   }
 
   setStatus(status: HTTPStatusCode) {
@@ -108,15 +117,10 @@ export class WebResponse {
  * @param body - The body to return.
  * @param options - Optional statuscode and headers
  */
-export function createWebResponse(body: string, options?: { status?: HTTPStatusCode; headers?: Record<string, string> }): WebResponse {
-  const resp = new WebResponse;
-  resp.setStatus(options?.status || HTTPSuccessCode.Ok);
-  if (body)
+export function createWebResponse(body: string, options?: { status?: HTTPStatusCode; headers?: Record<string, string> | Headers }): WebResponse {
+  const resp = new WebResponse(options?.status || HTTPSuccessCode.Ok, options?.headers || {});
+  if (body && !resp.getHeader("content-type"))
     resp.setHeader("content-type", "text/html; charset=utf-8");
-
-  if (options?.headers)
-    for (const [key, value] of Object.entries(options.headers))
-      resp.setHeader(key, value);
 
   resp.setBody(body);
   return resp;
@@ -126,7 +130,11 @@ export function createWebResponse(body: string, options?: { status?: HTTPStatusC
  * @param jsonbody - The JSON body to return
  * @param options - Optional statuscode and headers
  */
-export function createJSONResponse<T = unknown>(status: HTTPStatusCode, jsonbody: T, options?: { headers?: Record<string, string>; indent?: boolean }): WebResponse {
-  const headers = { "content-type": "application/json", ...options?.headers };
-  return createWebResponse(JSON.stringify(jsonbody, null, options?.indent ? 2 : undefined), { status, headers });
+export function createJSONResponse<T = unknown>(status: HTTPStatusCode, jsonbody: T, options?: { headers?: Record<string, string> | Headers; indent?: boolean }): WebResponse {
+  const resp = new WebResponse(status, options?.headers || {});
+  if (!resp.getHeader("content-type"))
+    resp.setHeader("content-type", "application/json");
+
+  resp.setBody(JSON.stringify(jsonbody, null, options?.indent ? 2 : undefined));
+  return resp;
 }

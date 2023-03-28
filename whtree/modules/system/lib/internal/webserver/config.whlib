@@ -771,7 +771,7 @@ OBJECTTYPE WebConfigBuilder
     STRING rescueport_bindip := GetEnvironmentVariable("WEBHARE_RESCUEPORT_BINDIP") ?? "127.0.0.1";
 
     //Add the NGINX/reverse proxy port
-    INSERT [ id := -2
+    INSERT [ id := whwebserverconfig_trustedportid
            , ip := secureport_bindip ?? "127.0.0.1"
            , privatekey := ""
            , certificatechain := ""
@@ -781,9 +781,21 @@ OBJECTTYPE WebConfigBuilder
            , istrustedport := TRUE
            ] INTO ports AT END;
 
+    //Add a 'harescript webserver' version - the only one opened by the C++ webserver if WEBHARE_WEBSERVER=node
+    INSERT [ id := whwebserverconfig_hstrustedportid
+           , ip := secureport_bindip ?? "127.0.0.1"
+           , privatekey := ""
+           , certificatechain := ""
+           , port := GetWebHareConfiguration().hstrustedport
+           , virtualhost := TRUE
+           , ciphersuite := ""
+           , istrustedport := TRUE
+           ] INTO ports AT END;
+
+    //Adds an IPv6 version of the nginx reverse proxy port
     IF (secureport_bindip IN [ "", "0.0.0.0" ])
     {
-      INSERT [ id := -3
+      INSERT [ id := whwebserverconfig_trustedportid_ipv6
              , ip := secureport_bindip = "" ? "::1" : "::0"
              , privatekey := ""
              , certificatechain := ""

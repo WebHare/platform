@@ -1,8 +1,9 @@
 import { callHareScript } from "@webhare/services";
 import * as whfs from "@webhare/whfs";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
-import { WebHareWHFSRouter, WebRequest, WebResponse, SiteRequest, createWebResponse } from "./router";
+import { WebHareWHFSRouter, WebRequest, WebResponse, SiteRequest } from "./router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
+import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 
 export async function lookupPublishedTarget(url: string) {
   //we'll use the HS version for now. rebuilding lookup is complex and we should really port the tests too before we attempt it...
@@ -28,7 +29,7 @@ export async function lookupPublishedTarget(url: string) {
 async function routeThroughHSWebserver(request: WebRequest): Promise<WebResponse> {
   //FIXME abortsignal / timeout
 
-  const trustedlocalport = 13679 + 5;
+  const trustedlocalport = getFullConfigFile().baseport + 3; //3 = whconstant_webserver_hstrustedportoffset
   const trustedip = process.env["WEBHARE_SECUREPORT_BINDIP"] || "127.0.0.1"; //TODO we should probably name this WEBHARE_PROXYPORT_BINDIP ? not much secure about this port..
   const headers = request.headers;
   headers.set("X-Forwarded-For", "1.2.3.4"); //FIXME use real remote IP, should be in 'request'
@@ -36,13 +37,27 @@ async function routeThroughHSWebserver(request: WebRequest): Promise<WebResponse
   headers.set("Host", request.url.host);
 
   const targeturl = `http://${trustedip}:${trustedlocalport}${request.url.pathname}${request.url.search}`;
-  const result = await fetch(targeturl, { headers, redirect: "manual" });
-  const body = await result.text();
-  const responseheaders: Record<string, string> = {};
-  for (const header of result.headers.entries())
-    responseheaders[header[0]] = header[1];
+  const fetchmethod = request.method.toUpperCase();
+  const fetchoptions: RequestInit = {
+    redirect: "manual",
+    headers,
+    method: fetchmethod
+  };
+  if (!["GET", "HEAD"].includes(fetchmethod))
+    fetchoptions.body = request.body;
 
-  return createWebResponse(body, { status: result.status, headers: responseheaders });
+  const result = await fetch(targeturl, fetchoptions);
+  const body = await result.text();
+
+  //Rebuild headers to get rid of the dangerous ones
+  const newheaders = new Headers(result.headers);
+  for (const header of result.headers.keys())
+    if (['content-length', 'date', 'content-encoding'].includes(header) || header.startsWith('transfer-'))
+      newheaders.delete(header);
+
+  const resp = new WebResponse(result.status, newheaders);
+  resp.setBody(body);
+  return resp;
 }
 
 /* TODO Unsure if this should be a public API of @webhare/router or whether it should be part of the router at all. We risk

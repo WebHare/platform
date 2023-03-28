@@ -1,6 +1,6 @@
 import { WittyTemplate } from "@webhare/witty";
 import { readFile } from "node:fs";
-import { WebResponse } from "./response";
+import { createWebResponse, WebResponse } from "./response";
 import type { SiteRequest } from "./siterequest";
 import util from 'node:util';
 import * as services from "@webhare/services";
@@ -41,7 +41,7 @@ export class SiteResponse<T extends object> {
   async finish(): Promise<WebResponse> {
     const mywittytext = (await util.promisify(readFile)(services.toFSPath(this.settings.witty))).toString();
     const mywitty = new WittyTemplate(mywittytext); //TODO check/handle errors? or Will It Throw?
-    let body = await mywitty.run({
+    const body = await mywitty.run({
       ...this.pageconfig,
       contents: this.contents
     });
@@ -49,9 +49,6 @@ export class SiteResponse<T extends object> {
     if (body === null)
       throw new Error("Witty returned 'null' (it failed?)"); //FIXME shouldn't witty just throw? I presume callbacks inside witty will be able to throw anyway
 
-    const webresponse = new WebResponse;
-    body = `<html><head></head><body>` + body + `</body></html>`;
-    webresponse.setBody(body);
-    return webresponse;
+    return createWebResponse(`<html><head></head><body>` + body + `</body></html>`);
   }
 }

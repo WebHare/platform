@@ -14,6 +14,7 @@ RECORD data :=
     , clientbinding :=    GetClientBinding()
     , serverurl :=        GetRequestURL()
     , headers :=          GetAllWebHeaders()
+    , webvars :=          GetAllWebVariables()
     , body :=             GetRequestBody()
     , method :=           GetRequestMethod()
     ];

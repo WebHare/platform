@@ -69,6 +69,9 @@ Override the configuration file passed to PostgreSQL
 ### WEBHARE_WH_HOOK
 Points to a script that will be sourced by 'wh' and can filter any command passed to it
 
+### WEBHARE_WEBSERVER
+If set to `node` this will enable the experimental JS webserver.
+
 ## Networking
 Changing the bindings of internal ports gives you more flexibility to route internal WebHare traffic or to access ports
 for debugging but may have serious repercussions for security. Be very careful when opening these ports and make sure

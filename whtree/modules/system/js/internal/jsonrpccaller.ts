@@ -75,5 +75,5 @@ async function runJSONAPICall(servicedef: WebServiceDefinition, req: WebRequestI
 
 export async function JSONAPICall(servicedef: WebServiceDefinition, req: WebRequestInfo): Promise<WebResponseInfo> {
   const result = await runJSONAPICall(servicedef, req);
-  return { status: result.status, headers: result.headers, body: result.body };
+  return { status: result.status, headers: Object.fromEntries(result.getHeaders()), body: result.body };
 }

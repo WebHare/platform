@@ -61,7 +61,7 @@ async function testSiteResponse() {
   test.eq(markdowndoc.whfspath, doc.html.body.div[0]["#text"], "Expect our whfspath to be in the source");
   const contentdiv = doc.html.body.div.find((_: any) => _["@_id"] === "content");
   test.eq("This is a body!", contentdiv.p[0]);
-  test.eq("text/html; charset=utf-8", response.headers["content-type"]);
+  test.eq("text/html; charset=utf-8", response.getHeader("content-type"));
 }
 
 async function testCaptureJSDesign() {
