@@ -1,8 +1,10 @@
 import * as dompack from 'dompack';
 import './menu.css';
 
+const MenuController = Symbol();
+
 type PreferredDirection = '' | 'right' | 'left' | 'up' | 'down';
-type ExitDirection = '' | 'left' | 'right';
+type ExitDirection = '' | 'left' | 'top';
 // type Position = "first" | "last" | "previous" | "next";
 
 interface MenuOptions {
@@ -11,6 +13,10 @@ interface MenuOptions {
   eventnode?: HTMLElement;
   align?: PreferredDirection;
   exitdirection?: ExitDirection;
+}
+
+interface MenuCandidateElement extends HTMLUListElement {
+  [MenuController]?: MenuBase;
 }
 
 /* Display and handle menus.
@@ -357,25 +363,22 @@ function closeAll() {
   eventnode = null;
 }
 
-function openSubMenu(parentmenu: MenuBase, horizontalsubs: boolean, li: HTMLLIElement) {
+function openSubMenu(parentmenu: MenuBase, horizontalsubs: boolean, li: HTMLLIElement): MenuList | null {
   if (dompack.debugflags.men)
     console.log("[men] openSubMenu called");
 
   const ul = li.querySelector<HTMLUListElement>('ul');
   if (!ul)
-    return;
-  ///@ts-ignore Let's reconsider whether we really need propWhMenu and propWhMenuParentmenu
-  const submenu = ul.propWhMenu || createSubMenu(ul);
+    return null;
+
+  const submenu = ensureSubMenu(ul as MenuCandidateElement);
   if (!submenu._fireOpenCloseEvent(true))
-    return;
+    return null;
 
   closingmenus = []; //if we're back to opening menus, forget about the close list
   submenu._openMenu(dompack.getRelativeBounds(li), horizontalsubs ? parentmenu.currentalign == 'right' ? 'left' : 'right' : 'down', parentmenu, horizontalsubs ? parentmenu.currentalign : null, horizontalsubs ? "left" : "top", 0);
   recomputeSubSelection();
 
-  //make their relations clear for users iterating through the DOM
-  ///@ts-ignore Let's reconsider whether we really need propWhMenu and propWhMenuParentmenu
-  ul.propWhMenuParentmenu = li;
   return submenu;
 }
 
@@ -400,12 +403,14 @@ function openAsList(submenu: MenuList, coords: dompack.Rect, preferreddirection:
   takeSemiFocus();
 }
 
-function createSubMenu(ul: HTMLUListElement) {
+function ensureSubMenu(ul: MenuCandidateElement): MenuList {
   if (dompack.debugflags.men)
     console.log("[men] createSubMenu called");
 
-  const submenu = new MenuList(ul);
-  return submenu;
+  if (ul[MenuController] instanceof MenuBar)
+    throw new Error("Cannot create a submenu from a menubar");
+
+  return (ul[MenuController] || (ul[MenuController] = new MenuList(ul))) as MenuList;
 }
 
 function _checkMenuClose() {
@@ -442,7 +447,7 @@ class MenuBase {
   parentmenu: MenuBase | null = null;
   exitdirection = '';
   selecteditem: HTMLElement | null = null;
-  currentalign: PreferredDirection;
+  currentalign: PreferredDirection | null;
 
   constructor(el: HTMLElement, openonhover: boolean) {
     this.active = false;
@@ -463,34 +468,13 @@ class MenuBase {
       throw new Error("No such menubar node");
     }
     this.el.classList.add("wh-menu");
-    ///@ts-ignore Let's reconsider whether we really need propWhMenu and propWhMenuParentmenu
-    this.el.propWhMenu = this;
 
-    this._onMouseDownOnItem = this._onMouseDownOnItem.bind(this);
-    this._onMouseEnter = this._onMouseEnter.bind(this);
-    this._onMouseLeave = this._onMouseLeave.bind(this);
-    this._onMouseMove = this._onMouseMove.bind(this);
-    this._onContextMenu = this._onContextMenu.bind(this);
-
-    this.el.addEventListener("mousedown", this._onMouseDownOnItem);
-    this.el.addEventListener("click", this._closeAfterClick, true); //capture
-    this.el.addEventListener("mouseenter", this._onMouseEnter);
-    this.el.addEventListener("mouseleave", this._onMouseLeave);
-    this.el.addEventListener("mousemove", this._onMouseMove);
-    this.el.addEventListener("contextmenu", this._onContextMenu);
-  }
-
-  destroy() {
-    this._closeMenu();
-    this.el.removeEventListener("mousedown", this._onMouseDownOnItem);
-    this.el.removeEventListener("click", this._closeAfterClick, true);
-    this.el.removeEventListener("mouseenter", this._onMouseEnter);
-    this.el.removeEventListener("mouseleave", this._onMouseLeave);
-    this.el.removeEventListener("mousemove", this._onMouseMove);
-    this.el.removeEventListener("contextmenu", this._onContextMenu);
-    this.el.classList.remove("wh-menu");
-    ///@ts-ignore Let's reconsider whether we really need propWhMenu and propWhMenuParentmenu
-    this.el.propWhMenu = null;
+    this.el.addEventListener("mousedown", event => this._onMouseDownOnItem(event));
+    this.el.addEventListener("click", event => this._closeAfterClick(event), true); //capture
+    this.el.addEventListener("mouseenter", event => this._onMouseEnter(event));
+    this.el.addEventListener("mouseleave", event => this._onMouseLeave(event));
+    this.el.addEventListener("mousemove", event => this._onMouseMove(event));
+    this.el.addEventListener("contextmenu", event => this._onContextMenu(event));
   }
 
   // ---------------------------------------------------------------------------
@@ -801,15 +785,14 @@ export class MenuBar extends MenuBase {
   constructor(el: HTMLElement) {
     super(el, false);
 
+    if ((el as MenuCandidateElement)[MenuController])
+      throw new Error("Menu already initialized");
+    (el as MenuCandidateElement)[MenuController] = this;
+
     this.horizontalsubs = false;
     if (dompack.debugflags.men)
       console.error("[men] initialize MenuBar called");
     this.el.classList.add("wh-menubar");
-  }
-
-  destroy() {
-    this.el.classList.remove("wh-menubar");
-    super.destroy();
   }
 }
 
@@ -1011,7 +994,7 @@ class MenuList extends MenuBase {
 -       @param preferredalign - left/right (only used when preferreddirection is 'up' or 'down')
       @param exitdirection - '', 'top', 'left' - cursor direction in which the selection can be removed
   */
-  _openMenu(coords: dompack.Rect, preferreddirection: PreferredDirection, parentmenu: MenuBase | null, preferredalign: PreferredDirection, exitdirection: ExitDirection, minwidth: number, options: MenuOptions) {
+  _openMenu(coords: dompack.Rect, preferreddirection: PreferredDirection, parentmenu: MenuBase | null, preferredalign: PreferredDirection | null, exitdirection: ExitDirection, minwidth: number, options?: MenuOptions) {
     if (dompack.debugflags.men)
       console.log("[men] openMenu called, prefdir:", preferreddirection, "prefalign:", preferreddirection, "exitdir", exitdirection);
 
@@ -1127,15 +1110,6 @@ class MenuList extends MenuBase {
       console.log("[men] dispatching wh-menu-closed for menu ", this.el, " to ", cureventnode, " in tree ", getParents(cureventnode));
     dompack.dispatchCustomEvent(cureventnode, "wh:menu-closed", { bubbles: true, cancelable: false, detail: { menu: this.el } });
 
-    //make their relations clear for users iterating through the DOM
-    ///@ts-ignore Let's reconsider whether we really need propWhMenu and propWhMenuParentmenu
-    const parentmenu = this.el.propWhMenuParentmenu;
-    if (parentmenu) {
-      ///@ts-ignore Let's reconsider whether we really need propWhMenu and propWhMenuParentmenu
-      this.el.propWhMenuParentmenu = null;
-    }
-    //this.el.fireEvent('menuclose');
-
     if (!dompack.debugflags.meo) {
       this.el.classList.remove("open");
 
@@ -1191,11 +1165,7 @@ export function openAt(el: HTMLElement, at: { pageX?: number; pageY?: number; ta
 
   const cureventnode = options!.eventnode;
 
-  ///@ts-ignore Let's reconsider whether we really need propWhMenu and propWhMenuParentmenu
-  let ml = el.propWhMenu;
-  if (!ml)
-    ml = new MenuList(el);
-
+  const ml = ensureSubMenu(el as MenuCandidateElement);
   closeAll();
 
   const openaslistoptions: MenuOptions = {};

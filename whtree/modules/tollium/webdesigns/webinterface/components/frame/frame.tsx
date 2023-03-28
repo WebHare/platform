@@ -156,9 +156,7 @@ export default class Frame extends ComponentBase {
     if (comp == this.menubarcomponent) //already have it in its place
       return;
 
-    if (this.menubarcomponent) //remove current menubar
-    {
-      this.menubarhandler.destroy();
+    if (this.menubarcomponent) { //remove current menubar
       this.menubarhandler = null;
       this.menubarnode = null;
     }
