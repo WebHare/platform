@@ -1,7 +1,7 @@
 import { callHareScript } from "@webhare/services";
 import * as whfs from "@webhare/whfs";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
-import { WebHareWHFSRouter, WebRequest, WebResponse, SiteRequest, createWebResponse } from "./router";
+import { WebHareWHFSRouter, WebRequest, WebResponse, SiteRequest } from "./router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 
@@ -45,13 +45,19 @@ async function routeThroughHSWebserver(request: WebRequest): Promise<WebResponse
   };
   if (!["GET", "HEAD"].includes(fetchmethod))
     fetchoptions.body = request.body;
+
   const result = await fetch(targeturl, fetchoptions);
   const body = await result.text();
-  const responseheaders: Record<string, string> = {};
-  for (const header of result.headers.entries())
-    responseheaders[header[0]] = header[1];
 
-  return createWebResponse(body, { status: result.status, headers: responseheaders });
+  //Rebuild headers to get rid of the danegrous
+  const newheaders = new Headers(result.headers);
+  for (const header of result.headers.keys())
+    if (['content-length', 'date', 'content-encoding'].includes(header) || header.startsWith('transfer-'))
+      newheaders.delete(header);
+
+  const resp = new WebResponse(result.status, newheaders);
+  resp.setBody(body);
+  return resp;
 }
 
 /* TODO Unsure if this should be a public API of @webhare/router or whether it should be part of the router at all. We risk

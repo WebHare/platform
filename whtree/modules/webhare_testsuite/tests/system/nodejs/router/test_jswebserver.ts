@@ -5,6 +5,11 @@ import { Configuration } from "@mod-system/js/internal/webserver/webconfig";
 import * as webserver from "@mod-system/js/internal/webserver/webserver";
 import * as net from "node:net";
 
+//https://fetch.spec.whatwg.org/#dom-headers-getsetcookie
+interface HeadersWithSetSookie extends Headers {
+  getSetCookie(): string[];
+}
+
 interface GetRequestDataResponse {
   method: string;
   webvars: Array<{ ispost: boolean; name: string; value: string }>;
@@ -54,7 +59,10 @@ async function testOurWebserver() {
   test.eqMatch(/<html.*>.*<h2.*>Markdown file<\/h2>/, response);
 
   const testsuiteresources = "http://127.0.0.1:" + port + "/tollium_todd.res/webhare_testsuite/tests/";
-  let grd = await (await fetch(testsuiteresources + "getrequestdata.shtml", { headers: { host: markdowndocurl.host, accept: "application/json" } })).json() as GetRequestDataResponse;
+  let fetcher = await fetch(testsuiteresources + "getrequestdata.shtml", { headers: { host: markdowndocurl.host, accept: "application/json" } });
+  test.eq(200, fetcher.status);
+  test.eq("application/json", fetcher.headers.get("content-type"));
+  let grd = await fetcher.json() as GetRequestDataResponse;
   test.eq("GET", grd.method);
 
   grd = await (await fetch(testsuiteresources + "getrequestdata.shtml", {
@@ -68,7 +76,13 @@ async function testOurWebserver() {
   })).json() as GetRequestDataResponse;
   test.eq("POST", grd.method);
 
-  ws.close(); //without explicitly closing the servers we linger for 4 seconds if we did a request ... but not sure why.
+  //Verify cookie processing
+  fetcher = await fetch(testsuiteresources + "cookies.shtml?type=setcookie3", { headers: { host: markdowndocurl.host, accept: "application/json" } });
+  test.eq(7, (fetcher.headers as HeadersWithSetSookie).getSetCookie().length);
+  test.eq("sc3-test2=val2-overwrite;Path=/;HttpOnly", (fetcher.headers as HeadersWithSetSookie).getSetCookie()[1]);
+
+  //without explicitly closing the servers we linger for 4 seconds if we did a request ... but not sure why.
+  ws.close();
 }
 
 

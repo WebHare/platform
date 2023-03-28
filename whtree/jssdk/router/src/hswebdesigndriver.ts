@@ -1,5 +1,5 @@
 import { HSVM, HSVMObject, openHSVM } from "@webhare/services/src/hsvm";
-import { WebResponse } from "./response";
+import { createWebResponse } from "./response";
 import { SiteResponse, SiteResponseSettings } from "./sitereponse";
 import type { SiteRequest } from "./siterequest";
 
@@ -26,9 +26,7 @@ class HSWebdesignDriver<T extends object> extends SiteResponse<T> {
     const page = await fileswhlib.makeBlobFromStream(stream) as Buffer;
 
     const pagebody = page.toString().replaceAll(placeholder, this.contents);
-    const webresponse = new WebResponse;
-    webresponse.setBody(pagebody);
-    return webresponse;
+    return createWebResponse(pagebody);
   }
 }
 

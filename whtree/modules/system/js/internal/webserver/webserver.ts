@@ -41,6 +41,14 @@ class WebServer {
       const webreq = new WebRequest(finalurl, { method: req.method.toLowerCase() as HTTPMethod, headers: req.headers as Record<string, string>, body });
       //TODO timeouts, separate VMs, whatever a Robust webserver Truly Requires
       const response = await coreWebHareRouter(webreq);
+      for (const [key, value] of response.getHeaders())
+        if (key !== 'set-cookie')
+          res.setHeader(key, value);
+
+      const cookies = response.getSetCookie();
+      if (cookies)
+        res.setHeader("set-cookie", cookies);
+
       //TODO freeze the WebResponse, log errors if any modification still occurs after we're supposedly done
       res.write(response.body);
       res.end();

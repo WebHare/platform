@@ -13,7 +13,7 @@ async function testHSWebserver() {
   const testsuiteresources = services.config.backendurl + "tollium_todd.res/webhare_testsuite/tests/";
   let result = await coreWebHareRouter(new WebRequest(testsuiteresources + "getrequestdata.shtml"));
   test.eq(200, result.status);
-  test.eq("application/x-hson", result.headers["content-type"]);
+  test.eq("application/x-hson", result.getHeader("content-type"));
 
   let response = decodeHSON(result.body) as unknown as GetRequestDataResponse;
   test.eq("GET", response.method);
@@ -25,7 +25,7 @@ async function testHSWebserver() {
   }));
 
   test.eq(200, result.status);
-  test.eq("application/json", result.headers["content-type"]);
+  test.eq("application/json", result.getHeader("content-type"));
 
   response = JSON.parse(result.body) as GetRequestDataResponse;
   test.eq("POST", response.method);
