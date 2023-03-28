@@ -23,8 +23,6 @@ export default class HTMLCompBase extends ComponentBase {
   setRequired(value) {
     if (Boolean(value) != Boolean(this.node.required)) {
       this.node.required = Boolean(value);
-      //ADDME? this.node.classList.toggle("required", this.required);
-      // this.node.fireEvent("wh-refresh");
     }
   }
 
@@ -34,7 +32,6 @@ export default class HTMLCompBase extends ComponentBase {
         this.node.readOnly = !value;
       else
         this.node.disabled = !value;
-      // this.node.fireEvent("wh-refresh");
     }
   }
 

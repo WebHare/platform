@@ -54,19 +54,6 @@ function pageinit() {
     if (dompack.qS('#toggleclass'))
       dompack.qS('#toggleclass').addEventListener("click", toggleClass);
   }
-
-  /*
-    dompack.qS('#ridiculousbottom').empty();
-    dompack.qS('#ridiculousbottom').adopt(new Element("option", { selected: 'selected'
-                                                      , disabled: 'disabled'
-                                                      , text:'Many'}));
-    for(var i = 1; i < 30; i++)
-    {
-      dompack.qS('#ridiculousbottom').adopt(new Element("option", { value: i
-                                                    , text: "item " + i}));
-    }
-    dompack.qS('#ridiculousbottom').fireEvent('wh-refresh');
-  */
 }
 
 

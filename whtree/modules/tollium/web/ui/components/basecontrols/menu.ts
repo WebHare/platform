@@ -476,7 +476,6 @@ class MenuBase {
     this._onMouseLeave = this._onMouseLeave.bind(this);
     this._onMouseMove = this._onMouseMove.bind(this);
     this._onContextMenu = this._onContextMenu.bind(this);
-    this._onRefresh = this._onRefresh.bind(this);
 
     this.el.addEventListener("mousedown", this._onMouseDownOnItem);
     this.el.addEventListener("click", this._closeAfterClick, true); //capture
@@ -484,7 +483,6 @@ class MenuBase {
     this.el.addEventListener("mouseleave", this._onMouseLeave);
     this.el.addEventListener("mousemove", this._onMouseMove);
     this.el.addEventListener("contextmenu", this._onContextMenu);
-    this.el.addEventListener('wh-refresh', this._onRefresh);
   }
 
   destroy() {
@@ -495,7 +493,6 @@ class MenuBase {
     this.el.removeEventListener("mouseleave", this._onMouseLeave);
     this.el.removeEventListener("mousemove", this._onMouseMove);
     this.el.removeEventListener("contextmenu", this._onContextMenu);
-    this.el.removeEventListener("wh-refresh", this._onRefresh);
     this.el.classList.remove("wh-menu");
     ///@ts-ignore Let's reconsider whether we really need propWhMenu and propWhMenuParentmenu
     this.el.propWhMenu = null;
@@ -665,10 +662,6 @@ class MenuBase {
     */
     if (tookfocus ? this.active : this.options.openonhover)
       this._selectItem(li);
-  }
-
-  _onRefresh() {
-    // eslint-disable-current-line no-empty-function
   }
 
   // ---------------------------------------------------------------------------
@@ -842,17 +835,6 @@ class MenuList extends MenuBase {
       console.log("[men] initialize MenuList called");
 
     this.el.classList.add("wh-menulist");
-  }
-
-  // ---------------------------------------------------------------------------
-  //
-  // Callbacks
-  //
-
-  _onRefresh() {
-    if (dompack.debugflags.men)
-      console.log('Menulist refresh', this.el, this.el.innerHTML);
-    this._fixupDividers();
   }
 
   // ---------------------------------------------------------------------------

@@ -169,15 +169,6 @@ export default class ObjMenuItem extends ComponentBase {
   /****************************************************************************************************************************
    * Events
    */
-  onActionUpdated() {/*
-    this.node.classList.toggle('disabled',!this.isEnabled());
-    this.node.classList.toggle('hidden', this.disablemode == 'hidden' && !this.isEnabled());
-
-    // Signal the menu visibility of subitems has changed
-    if (this.node.parentNode)
-      this.node.parentNode.fireEvent('wh-refresh');*/
-  }
-
   readdComponent(comp) {
     //ADDME if the menu or our parent is open, we should probably refresh/reposition?
     const oldpos = this.items.indexOf(comp);

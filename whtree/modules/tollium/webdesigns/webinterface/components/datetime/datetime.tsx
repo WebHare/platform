@@ -177,12 +177,10 @@ export default class ObjDateTime extends ComponentBase {
 
       if (this.datefield) {
         this.datefield.required = this.required;
-        // this.datefield.fireEvent("wh-refresh");
       }
 
       if (this.timefield) {
         this.timefield.required = this.required;
-        // this.timefield.fireEvent("wh-refresh");
       }
     }
   }
@@ -194,11 +192,9 @@ export default class ObjDateTime extends ComponentBase {
 
       if (this.datefield) {
         this.datefield.disabled = !this.enabled;
-        // this.datefield.fireEvent("wh-refresh");
       }
       if (this.timefield) {
         this.timefield.disabled = !this.enabled;
-        // this.timefield.fireEvent("wh-refresh");
       }
     }
   }
@@ -257,8 +253,6 @@ export default class ObjDateTime extends ComponentBase {
       this.timefield.disabled = !this.enabled;
 
       new TimeField(this.timefield, { baseclass: "tollium__datetime" });
-
-      // this.timefield.fireEvent("wh-refresh");
     }
   }
 
