@@ -10,7 +10,6 @@ interface MenuOptions {
   direction?: PreferredDirection;
   eventnode?: HTMLElement;
   align?: PreferredDirection;
-  openonhover?: boolean;
   exitdirection?: ExitDirection;
 }
 
@@ -434,7 +433,7 @@ function recomputeSubSelection() {
 
 class MenuBase {
   el: HTMLElement;
-  options: MenuOptions;
+  openonhover: boolean;
   /// Whether this menu is active
   active = false;
   horizontalsubs = true;
@@ -445,7 +444,7 @@ class MenuBase {
   selecteditem: HTMLElement | null = null;
   currentalign: PreferredDirection;
 
-  constructor(el: HTMLElement, options?: MenuOptions) {
+  constructor(el: HTMLElement, openonhover: boolean) {
     this.active = false;
     this.selecteditem = null;
     this.horizontalsubs = true;
@@ -454,6 +453,7 @@ class MenuBase {
     this.parentmenu = null;
     this.exitdirection = '';
     this.currentalign = '';
+    this.openonhover = openonhover;
     if (dompack.debugflags.men)
       console.log("[men] initialize $wh.MenuBase called");
 
@@ -465,11 +465,6 @@ class MenuBase {
     this.el.classList.add("wh-menu");
     ///@ts-ignore Let's reconsider whether we really need propWhMenu and propWhMenuParentmenu
     this.el.propWhMenu = this;
-
-    if (this.el.hasAttribute("data-menu-options")) //parse these, but explicit JS options take precedence
-      options = Object.assign(JSON.parse(this.el.getAttribute("data-menu-options") || ""), options);
-    //@ts-ignore FIXME cleanup options first
-    this.options = { openonhover: true, ...options };
 
     this._onMouseDownOnItem = this._onMouseDownOnItem.bind(this);
     this._onMouseEnter = this._onMouseEnter.bind(this);
@@ -660,7 +655,7 @@ class MenuBase {
        When taken focus, menu must be active (prevent menubar from reacting when contextmenu is open)
        Otherwise, react only when openonhover is set
     */
-    if (tookfocus ? this.active : this.options.openonhover)
+    if (tookfocus ? this.active : this.openonhover)
       this._selectItem(li);
   }
 
@@ -803,9 +798,8 @@ class MenuBase {
 }
 
 export class MenuBar extends MenuBase {
-  constructor(el: HTMLElement, options: MenuOptions) {
-    options = { openonhover: false, ...options };
-    super(el, options);
+  constructor(el: HTMLElement) {
+    super(el, false);
 
     this.horizontalsubs = false;
     if (dompack.debugflags.men)
@@ -824,8 +818,8 @@ class MenuList extends MenuBase {
   position: { x: number; y: number } | null;
   preferreddirection: PreferredDirection;
 
-  constructor(el: HTMLElement, options?: MenuOptions) {
-    super(el, options);
+  constructor(el: HTMLElement) {
+    super(el, true);
 
     this.position = null;
     this.substitutionnode = null;
@@ -1200,7 +1194,7 @@ export function openAt(el: HTMLElement, at: { pageX?: number; pageY?: number; ta
   ///@ts-ignore Let's reconsider whether we really need propWhMenu and propWhMenuParentmenu
   let ml = el.propWhMenu;
   if (!ml)
-    ml = new MenuList(el); //really none of the options are actually used...
+    ml = new MenuList(el);
 
   closeAll();
 
