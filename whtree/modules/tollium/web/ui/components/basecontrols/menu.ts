@@ -193,14 +193,15 @@ let checkclosedelay: NodeJS.Timeout | null = null;
 let eventnode: HTMLElement | null = null;  //
 
 function _gotGlobalMouseDown(htmlevent: Event) {
-  //var evt = new DOMEvent(htmlevent);
-  const menu = _getMenuByElement(htmlevent.target as HTMLElement);
-  if (dompack.debugflags.men)
-    console.log('[men] globalMouseDown handler captured mousedown (semifocus) and detected menu: ', menu, htmlevent);
+  if (htmlevent.target) {
+    //as a global handler we *cannot* assume the event.target to be a HTMLElement - it can be window!
+    const menu = activemenus.find(openmenu => openmenu.isInMenu(htmlevent.target));
+    if (dompack.debugflags.men)
+      console.log('[men] globalMouseDown handler captured mousedown (semifocus) and detected menu: ', menu, htmlevent);
 
-  if (menu)
-    return true; //inside our menus. let it pass
-
+    if (menu)
+      return true; //inside our menus. let it pass
+  }
   closeAll();
 }
 
@@ -245,10 +246,6 @@ function _gotGlobalKeyPressed(htmlevent: KeyboardEvent) {
 //
 // Helper functions
 //
-
-function _getMenuByElement(el: HTMLElement) {
-  return activemenus.find(openmenu => openmenu.el == el || openmenu.el.contains(el));
-}
 
 function clearCloseTimeout() {
   if (checkclosedelay)
@@ -305,7 +302,7 @@ function setMenuActive(menu: MenuBase, active: boolean) {
 
       if (document.activeElement?.nodeName == 'IFRAME') {
         //note: IE ingnores 'blur' and firefox seems to have problems with window.focus
-        (document.activeElement as HTMLElement).blur();//remove focus from iframe
+        (document.activeElement as HTMLIFrameElement).blur();//remove focus from iframe
         if (!document.activeElement || document.activeElement.nodeName == 'IFRAME')
           window.focus();
       }
@@ -475,6 +472,10 @@ class MenuBase {
     this.el.addEventListener("mouseleave", event => this._onMouseLeave(event));
     this.el.addEventListener("mousemove", event => this._onMouseMove(event));
     this.el.addEventListener("contextmenu", event => this._onContextMenu(event));
+  }
+
+  isInMenu(node: EventTarget | null) {
+    return node && node instanceof HTMLElement && this.el.contains(node);
   }
 
   // ---------------------------------------------------------------------------
