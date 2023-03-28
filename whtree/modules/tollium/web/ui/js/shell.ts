@@ -630,20 +630,30 @@ class IndyShell extends TolliumShell {
 
 
 $todd.handleApplicationErrors = async function(app, data) {
-  if (data.error === "notloggedin") //StartApp error
-  {
-    await runSimpleScreen(app, { text: getTid("tollium:shell.login.notloggedin"), buttons: [{ name: 'ok', title: getTid("~ok") }] });
-    if (!$shell.anyConnectedApplications()) //looks safe to restart ? as long as we don't have JSApps other than dashboard I guess
-      $shell.doLogoff();
-    return;
+  if (data.error) { //An error code from StartApp
+    switch (data.error) {
+      case "notloggedin": {
+        await runSimpleScreen(app, { text: getTid("tollium:shell.login.notloggedin"), buttons: [{ name: 'ok', title: getTid("~ok") }] });
+        if (!$shell.anyConnectedApplications()) //looks safe to restart ? as long as we don't have JSApps other than dashboard I guess
+          $shell.doLogoff();
+        return;
+      }
+      case "unexpectedprotocolversion": {
+        await runSimpleScreen(app, { text: getTid("tollium:shell.login.unexpectedprotocolversion"), buttons: [{ name: 'ok', title: getTid("~ok") }] });
+        if (!$shell.anyConnectedApplications()) //looks safe to restart ? as long as we don't have JSApps other than dashboard I guess
+          location.reload(true);
+        return;
+      }
+      default: {
+        // TODO unexpectedprotocolversion is being updated to transmit an errormessage.. once rolled out sufficiently we can rely on that and remove the case above
+        await runSimpleScreen(app, { text: data.errormessage || data.error, buttons: [{ name: 'ok', title: getTid("~ok") }] });
+        if (!$shell.anyConnectedApplications()) //looks safe to restart ? as long as we don't have JSApps other than dashboard I guess
+          location.reload(true);
+        return;
+      }
+    }
   }
-  if (data.error === "unexpectedprotocolversion") //StartApp error
-  {
-    await runSimpleScreen(app, { text: getTid("tollium:shell.login.unexpectedprotocolversion"), buttons: [{ name: 'ok', title: getTid("~ok") }] });
-    if (!$shell.anyConnectedApplications()) //looks safe to restart ? as long as we don't have JSApps other than dashboard I guess
-      location.reload(true);
-    return;
-  }
+
   if (data.type === "expired") //StartApp error
   {
     await runSimpleScreen(app, { text: getTid("tollium:shell.controller.sessionexpired"), buttons: [{ name: 'ok', title: getTid("~ok") }] });
@@ -652,7 +662,7 @@ $todd.handleApplicationErrors = async function(app, data) {
     return;
   }
 
-  if (!data.errors.length) {
+  if (!data.errors?.length) {
     //It's just telling us our parent app has terminated. ADDME if we get no errors, but there are still screens open, there's still an issue!
     app.terminateApplication();
     return;

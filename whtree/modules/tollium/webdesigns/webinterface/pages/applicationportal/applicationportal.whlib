@@ -826,7 +826,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     options := ValidateOptions(appstartoptions, EnforceStructure([webvars := RECORD[]], options));
 
     IF(options.protocolversion != expecttoddprotocolversion)
-      RETURN [ error := "unexpectedprotocolversion" ];
+      RETURN [ error := "unexpectedprotocolversion", errormessage := GetTid("tollium:shell.login.unexpectedprotocolversion") ];
 
     this->SetupPortal(webcontext);
     STRING toddbase := ResolveToAbsoluteURL(GetRequestURL(), "/tollium_todd/");
