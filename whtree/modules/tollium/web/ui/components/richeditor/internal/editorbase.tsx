@@ -621,6 +621,8 @@ export default class EditorBase {
     })) {
       return;
     }
+    if (!menuitems.some(_ => _))
+      return; //no non-null items, don't open it
 
     const contextmenu = <ul onClick={evt => this._activateRTDMenuItem(evt, actiontarget)}>
       {menuitems.map(item => item ? <li data-action={item.action}>{item.title}</li> : <li class="divider" />)}
