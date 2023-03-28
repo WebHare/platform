@@ -1090,7 +1090,7 @@ test.registerTests(
         locators = rtetest.setStructuredContent(win, '<ul class="unordered"><li><i>"(*0*)(*1*)a"</i></li></ul>');
         topaste = dompack.create("div", { innerHTML: 'woord<br>woord2' }); // Need space after last <br>, or it will be ignored
         await rtetest.runWithUndo(rte, () => rte._pasteContentAt(doc.importNode(topaste, true), locators[0]));
-        rtetest.testEqSelHTMLEx(win, '<p class="normal">"woord"</p><p class="normal">"woord2(*0*)(*1*)"</p><ul class="unordered"><li><i>"a"</i></li></ul>');
+        rtetest.testEqSelHTMLEx(win, '<ul class="unordered"><li>"woord"</li><li>"woord2(*0*)(*1*)"</li><li><i>"a"</i></li></ul>');
 
         locators = rtetest.setStructuredContent(win, '<ul class="unordered"><li><i>"a(*0*)(*1*)"</i></li></ul>');
         topaste = dompack.create("div", { innerHTML: '<p class="normal">1</p><p class="normal">2</p><p class="normal"><br data-wh-rte="bogus"></p>' });
@@ -1248,6 +1248,43 @@ test.registerTests(
           `<div class="wh-rtd-embeddedobject wh-rtd-embeddedobject--block" data-instanceref="inst2"></div>` +
           `<h2 class="heading2">"Quote"</h2>`);
       }
+    },
+    "Toolbar buttons activation for delayed surrounds",
+    async function() {
+      const rte = test.getWin().rte.getEditor();
+      rtetest.setStructuredContent(test.getWin(), `<p class="normal">"a(*0*)(*1*)b"</p>`);
+
+      const btn_sub = test.qR('span.wh-rtd-button[data-button=sub]');
+      const btn_sup = test.qR('span.wh-rtd-button[data-button=sup]');
+
+      test.assert(!btn_sub.classList.contains('active'));
+      test.assert(!btn_sup.classList.contains('active'));
+      test.click(btn_sub);
+      test.assert(btn_sub.classList.contains('active'));
+      test.assert(!btn_sup.classList.contains('active'));
+      test.click(btn_sub);
+      test.assert(!btn_sub.classList.contains('active'));
+      test.assert(!btn_sup.classList.contains('active'));
+      test.click(btn_sub);
+      test.assert(btn_sub.classList.contains('active'));
+      test.assert(!btn_sup.classList.contains('active'));
+      test.click(btn_sup);
+      test.assert(!btn_sub.classList.contains('active'));
+      test.assert(!btn_sup.classList.contains('active'));
+      test.click(btn_sup);
+      test.assert(!btn_sub.classList.contains('active'));
+      test.assert(btn_sup.classList.contains('active'));
+      await rtetest.runWithUndo(rte, () => test.pressKey("Delete")); // clear delayed surrounds
+
+      rtetest.setStructuredContent(test.getWin(), `<p class="normal"><sub>"a(*0*)(*1*)c"</sub<</p>`);
+      test.assert(btn_sub.classList.contains('active'));
+      test.assert(!btn_sup.classList.contains('active'));
+      test.click(btn_sub);
+      test.assert(!btn_sub.classList.contains('active'));
+      test.assert(!btn_sup.classList.contains('active'));
+      test.click(btn_sup);
+      test.assert(!btn_sub.classList.contains('active'));
+      test.assert(btn_sup.classList.contains('active'));
     }
 
   ]);

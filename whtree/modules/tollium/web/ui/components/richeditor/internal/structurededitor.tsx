@@ -1853,7 +1853,7 @@ export default class StructuredEditor extends EditorBase {
       //      console.warn("inblock not specified, checking if at start of block");
       const downres = locator.clone().scanBackward(this.getBody(), { whitespace: true });
       if (downres.type == 'outerblock') {
-        options.inblock = false;
+        options.inblock = block.islist;
         breakblock = true;
       } else
         options.inblock = true;
@@ -1869,10 +1869,19 @@ export default class StructuredEditor extends EditorBase {
 
     if (breakblock) {
       const upres = locator.clone().scanForward(this.getBody(), { whitespace: true });
-      if (upres.bogussegmentbreak && !block.inlist && parsed.length) {
-        // paragraph is empty, just delete it
-        locator = domlevel.Locator.newPointingTo(block.node);
-        locator.removeNode(preservelocators, undoitem);
+      let blockisempty = false;
+      if (upres.bogussegmentbreak) {
+        const downres = locator.clone().scanBackward(this.getBody(), { whitespace: true });
+        if (downres.type === "outerblock")
+          blockisempty = true;
+      }
+
+      if (blockisempty && parsed.length) {
+        if (!block.islist) {
+          // paragraph is empty, just delete it
+          locator = domlevel.Locator.newPointingTo(block.contentnode);
+          locator.removeNode(preservelocators);
+        }
       } else {
         // break block at insert position into two, append at the end of the first part
         if (block.contentnode != block.blockroot) {
@@ -2355,7 +2364,7 @@ export default class StructuredEditor extends EditorBase {
           }
         }
 
-        this.selectRange(Range.fromLocator(newpos));
+        this.checkDomStructure(Range.fromLocator(newpos), []);
         undolock.close();
 
         return true;
