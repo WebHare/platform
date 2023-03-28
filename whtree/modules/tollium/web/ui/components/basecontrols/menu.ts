@@ -176,7 +176,6 @@ function getParents(node: HTMLElement) {
   return retval;
 }
 
-
 class MenuController {
   tookfocus = false;
   /// List of currently active menus
@@ -195,8 +194,6 @@ class MenuController {
   boundglobalmousedown: (arg0: Event) => void;
   boundglobalkeypressed: (arg0: KeyboardEvent) => void;
 
-  touch_enabled: boolean;
-
   // ---------------------------------------------------------------------------
   //
   // Constructor & destroy
@@ -208,8 +205,6 @@ class MenuController {
 
     this.boundglobalmousedown = this._gotGlobalMouseDown.bind(this);
     this.boundglobalkeypressed = this._gotGlobalKeyPressed.bind(this);
-
-    this.touch_enabled = "createTouch" in document;
   }
 
   destroy() {
@@ -334,8 +329,8 @@ class MenuController {
 
     if (this.activemenus.length == (active ? 1 : 0)) { // did we change from/tone no active menus?
       if (active) { // First active menu
-        document.addEventListener("mousedown", this.boundglobalmousedown, true); //capture if possible
-        document.addEventListener("keydown", this.boundglobalkeypressed, true);
+        window.addEventListener("mousedown", this.boundglobalmousedown, true); //capture if possible
+        window.addEventListener("keydown", this.boundglobalkeypressed, true);
 
         if (document.activeElement?.nodeName == 'IFRAME') {
           //note: IE ingnores 'blur' and firefox seems to have problems with window.focus
@@ -345,15 +340,13 @@ class MenuController {
         }
 
         window.addEventListener('blur', this.boundglobalmousedown, false);
-        if (this.touch_enabled)
-          document.addEventListener("touchstart", this.boundglobalmousedown, true); //capture if possible
+        window.addEventListener("touchstart", this.boundglobalmousedown, true);
       } else {
-        document.removeEventListener("mousedown", this.boundglobalmousedown, true);
-        document.removeEventListener("keydown", this.boundglobalkeypressed, true);
+        window.removeEventListener("mousedown", this.boundglobalmousedown, true);
+        window.removeEventListener("keydown", this.boundglobalkeypressed, true);
 
         window.removeEventListener('blur', this.boundglobalmousedown, false);
-        if (this.touch_enabled)
-          document.removeEventListener("touchstart", this.boundglobalmousedown, true); //capture if possible
+        window.removeEventListener("touchstart", this.boundglobalmousedown, true);
 
         // All menu's are gone, no need for the close timeout anymore
         this.clearCloseTimeout();
