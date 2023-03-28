@@ -781,7 +781,7 @@ OBJECTTYPE WebConfigBuilder
            , istrustedport := TRUE
            ] INTO ports AT END;
 
-    //Add a 'harescript webserver' version - the only one opened by the C++ webserver if WEBHARE_WEBSERVER=nide
+    //Add a 'harescript webserver' version - the only one opened by the C++ webserver if WEBHARE_WEBSERVER=node
     INSERT [ id := whwebserverconfig_hstrustedportid
            , ip := secureport_bindip ?? "127.0.0.1"
            , privatekey := ""

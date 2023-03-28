@@ -49,7 +49,7 @@ async function routeThroughHSWebserver(request: WebRequest): Promise<WebResponse
   const result = await fetch(targeturl, fetchoptions);
   const body = await result.text();
 
-  //Rebuild headers to get rid of the danegrous
+  //Rebuild headers to get rid of the dangerous ones
   const newheaders = new Headers(result.headers);
   for (const header of result.headers.keys())
     if (['content-length', 'date', 'content-encoding'].includes(header) || header.startsWith('transfer-'))
