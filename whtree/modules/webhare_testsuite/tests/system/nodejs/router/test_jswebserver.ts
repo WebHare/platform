@@ -31,20 +31,34 @@ async function getAvailableServerPort() {
 
 
 async function testOurWebserver() {
-  await services.ready();
+  //Get the fallback certificate so we have a keypair to test with
+  const fallback_privatekey = await whfs.openFile("/webhare-private/system/keystore/fallback/privatekey.pem");
+  const fallback_certificate = await whfs.openFile("/webhare-private/system/keystore/fallback/certificatechain.pem");
 
-  const port = await getAvailableServerPort();
+  const port_http = await getAvailableServerPort();
+  const port_https = await getAvailableServerPort();
   const config = (await services.callHareScript("mod::system/lib/internal/webserver/config.whlib#DownloadWebserverConfig", [], { openPrimary: true })) as Configuration;
   config.ports = [
     {
-      port: port,
+      port: port_http,
       certificatechain: "",
       ciphersuite: "",
       id: -1,
       ip: "127.0.0.1",
-      istrustedport: true,
+      istrustedport: false,
       keypair: 0,
       privatekey: "",
+      virtualhost: true
+    },
+    {
+      port: port_https,
+      certificatechain: await fallback_certificate.data.text(),
+      ciphersuite: "",
+      id: -1,
+      ip: "127.0.0.1",
+      istrustedport: false,
+      keypair: 0,
+      privatekey: await fallback_privatekey.data.text(),
       virtualhost: true
     }
   ];
@@ -54,12 +68,17 @@ async function testOurWebserver() {
 
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage");
   const markdowndocurl = new URL(markdowndoc.link);
+  const testorigin = markdowndocurl.protocol + "//127.0.0.1:" + (markdowndocurl.protocol === "https:" ? port_https : port_http);
 
-  const response = await (await fetch("http://127.0.0.1:" + port + markdowndocurl.pathname, { headers: { host: markdowndocurl.host } })).text();
+  //We need to match the protocol of the testorigin. CI publishes the testsit on http, but development servers often use https
+  if (markdowndocurl.protocol === "https:") //we'll be connecting to a selfsigned cert, so we need to disable validation. can't do it at the fetch() itself (no agent support)
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+
+  const response = await (await fetch(testorigin + markdowndocurl.pathname, { headers: { host: markdowndocurl.host } })).text();
   test.eqMatch(/<html.*>.*<h2.*>Markdown file<\/h2>/, response);
 
-  const testsuiteresources = "http://127.0.0.1:" + port + "/tollium_todd.res/webhare_testsuite/tests/";
-  let fetcher = await fetch(testsuiteresources + "getrequestdata.shtml", { headers: { host: markdowndocurl.host, accept: "application/json" } });
+  const testsuiteresources = testorigin + "/tollium_todd.res/webhare_testsuite/tests/";
+  let fetcher = await fetch(testsuiteresources + "getrequestdata.shtml", { redirect: "manual", headers: { host: markdowndocurl.host, accept: "application/json" } });
   test.eq(200, fetcher.status);
   test.eq("application/json", fetcher.headers.get("content-type"));
   let grd = await fetcher.json() as GetRequestDataResponse;
@@ -81,9 +100,9 @@ async function testOurWebserver() {
   test.eq(7, (fetcher.headers as HeadersWithSetSookie).getSetCookie().length);
   test.eq("sc3-test2=val2-overwrite;Path=/;HttpOnly", (fetcher.headers as HeadersWithSetSookie).getSetCookie()[1]);
 
-  //without explicitly closing the servers we linger for 4 seconds if we did a request ... but not sure why.
+  //TODO without explicitly closing the servers we linger for 4 seconds if we did a request ... but not sure why. and now ws.close isn't enough either so we're missing something...
+  console.log("jswebserver test done");
   ws.close();
 }
-
 
 test.run([testOurWebserver]);
