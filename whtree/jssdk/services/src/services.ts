@@ -10,6 +10,7 @@ import { config, WebHareBackendConfiguration } from "./config";
 export { broadcast, subscribe, BackendEvent, BackendEventSubscription } from "./backendevents";
 export { log, flushLog, logError } from "./logging";
 export { ConvertBackendServiceInterfaceToClientInterface } from "@mod-system/js/internal/webhareservice";
+export type { RichBlob } from "./richblob";
 
 /** Promise that resolves as soon as the WebHare configuration is available
  * @deprecated The configuration is now always available
