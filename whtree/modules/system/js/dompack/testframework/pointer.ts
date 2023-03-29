@@ -1183,7 +1183,7 @@ export function focus(element) //focus could have gone into either pointer.es or
   element.focus();
 }
 
-export function canClick(element, x, y) {
+export function canClick(element, x?, y?) { //FIXME make options argument out of this.. just like click
   element = _resolveToSingleElement(element);
 
   const atpos = getPartPosition({ el: element, x: x, y: y });
@@ -1224,4 +1224,3 @@ export function getCurrentDragDataStore() {
 export function cancelDrag(options) {
   finishCurrentDrag(true, options);
 }
-

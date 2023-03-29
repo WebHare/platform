@@ -53,9 +53,7 @@ test.registerTests([
   "Check if we got the issue",
   async function() {
     // Wait for a row to appear with the generated feedback id
-    await test.wait(() => test.qSA<HTMLDivElement>(`div.listrow`).filter((row: HTMLDivElement) => row.querySelector(".list__row__cell")?.textContent == feedbackid).length);
-    const feedbackrows = await test.waitForToddComponent('feedback');
-    test.click(test.qSA(feedbackrows, 'div.listrow')[0]);
+    test.click(await test.waitForElement(['div.listrow .list__row__cell', new RegExp(`^${feedbackid}$`), 0]));
     await test.wait('ui'); //list apparently needs this time to process the selection update
   }
 ]);
