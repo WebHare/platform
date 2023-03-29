@@ -123,12 +123,6 @@ test.registerTests(
         test.sendMouseGesture([{ el: X04 }]);
 
         //verify that only X07, X08, and the divider between them are visible
-
-        //propWhMenuSubmenu is menu specific reference to the
-        // absolute positioned scrollcontainer of the submenu
-
-        //reload nodes
-
         test.assert(!test.qSA(test.getOpenMenu(), "li").filter(li => li.textContent.includes('X05'))[0]);
         test.assert(!test.qSA(test.getOpenMenu(), "li").filter(li => li.textContent.includes('X06'))[0]);
         test.assert(test.qSA(test.getOpenMenu(), "li").filter(li => li.textContent.includes('X07'))[0]);
