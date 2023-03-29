@@ -109,10 +109,9 @@ function generateKyselyDefs(modulename: string, modules: string[]): string {
           const isprimarykey = name === primarykey;
           //Read nullable and noupdate settings. These default to true resp. false
           const col_nullable: boolean = ["1", "true"].includes(col.getAttribute("nullable") || "true");
-          const col_noupdate: boolean = ["1", "true"].includes(col.getAttribute("noupdate") || "false");
+          const col_noupdate: boolean = (["1", "true"].includes(col.getAttribute("noupdate") || "false"));
           let tstype: string;
           let nullable = false;
-          let canupdate = true;
 
           let documentation: Element | undefined;
           for (const documentationnode of elements(col.getElementsByTagNameNS("http://www.webhare.net/xmlns/whdb/databaseschema", "documentation"))) {
@@ -133,10 +132,6 @@ function generateKyselyDefs(modulename: string, modules: string[]): string {
                 if (!col_nullable)
                   nullable = false;
               }
-
-              if (nullable)
-                if (!col_noupdate)
-                  canupdate = false;
             } break;
             case "integer64":
             case "__longkey": {
@@ -146,8 +141,6 @@ function generateKyselyDefs(modulename: string, modules: string[]): string {
                 if (col_nullable)
                   nullable = false;
               }
-              if (!col_noupdate)
-                canupdate = false;
             } break;
             case "float": {
               tstype = "number";
@@ -178,7 +171,7 @@ function generateKyselyDefs(modulename: string, modules: string[]): string {
           }
           if (nullable)
             tstype = `${tstype} | null`;
-          if (isprimarykey || !canupdate)
+          if (isprimarykey || col_noupdate)
             tstype = `IsGenerated<${tstype}>`;
 
           if (documentation) {
