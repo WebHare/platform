@@ -1,7 +1,7 @@
 import * as dompack from 'dompack';
 import './menu.css';
 
-const MenuController = Symbol();
+const MenuController = Symbol("wh-tollium-menucontroller");
 
 type PreferredDirection = '' | 'right' | 'left' | 'up' | 'down';
 type ExitDirection = '' | 'left' | 'top';
