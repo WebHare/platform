@@ -78,8 +78,10 @@ class WHFSFolder extends WHFSObject {
       .$if(keys.includes("parentsite" as K), qb => qb.select(sql<number>`webhare_proc_fs_objects_highestparent(id, NULL)`.as("parentsite")))
       .execute();
 
-    // Need an explicit cast because $if can't be made type-safe
-    return retval as Array<Pick<FsObjectRow, K | "id" | "name" | "isfolder">>;
+    /* Need an explicit cast because $if can't be made type-safe. cast to unknown needed because TS 5.0.2 errors out on the
+       comparision with retval's current type, with `Type instantiation is excessively deep and possibly infinite. (ts2589)`
+    */
+    return retval as unknown as Array<Pick<FsObjectRow, K | "id" | "name" | "isfolder">>;
   }
 }
 
