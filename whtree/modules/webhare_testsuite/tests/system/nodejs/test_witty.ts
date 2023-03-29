@@ -1,3 +1,4 @@
+/* eslint-disable require-atomic-updates -- too much noise about the witty = assignments */
 import * as test from "@webhare/test";
 import * as services from "@webhare/services/src/services";
 import { encodeValue } from "dompack/types/text";
@@ -169,14 +170,14 @@ async function encodingSensitivity() {
   test.eq("<a href='>'&#10;", await witty.run({ test1: "\n" }));
   witty = new WittyTemplate("<a href='>\"[test1]");
   test.eq("<a href='>\"&#10;", await witty.run({ test1: "\n" }));
-  witty = new WittyTemplate("<a href=\">\'[test1]");
+  witty = new WittyTemplate("<a href=\">'[test1]");
   test.eq("<a href=\">'&#10;", await witty.run({ test1: "\n" }));
   witty = new WittyTemplate("<a href=\">\"[test1]");
   test.eq("<a href=\">\"&#10;", await witty.run({ test1: "\n" }));
   witty = new WittyTemplate("<a href=\">\">[test1]");
   test.eq("<a href=\">\"><br />", await witty.run({ test1: "\n" }));
-  witty = new WittyTemplate("<a href=\">\'>[test1]");
-  test.eq("<a href=\">\'>&#10;", await witty.run({ test1: "\n" }));
+  witty = new WittyTemplate("<a href=\">'>[test1]");
+  test.eq("<a href=\">'>&#10;", await witty.run({ test1: "\n" }));
 
   //Test other encodings
   witty = new WittyTemplate("[test1]", { encoding: EncodingStyles.XML });
@@ -189,8 +190,7 @@ async function encodingSensitivity() {
 }
 
 async function rawComponent() {
-  let witty: WittyTemplate;
-  witty = new WittyTemplate("[rawcomponent x]<div>[[\n  <span>[test1]</span>\n</div>\n![/rawcomponent][embed x]");
+  const witty = new WittyTemplate("[rawcomponent x]<div>[[\n  <span>[test1]</span>\n</div>\n![/rawcomponent][embed x]");
   test.eq("<div>[[\n  <span>[test1]</span>\n</div>\n!", await witty.run({ test1: () => "yes" }));
 }
 
@@ -404,7 +404,7 @@ async function encoding() {
   test.eq('Test: 999999999999999', await witty.run({ bla: 999999999999999 }));
 
   witty = new WittyTemplate("Test: [bla:none]");
-  test.eq("Test: <>java\'\"&code; </script>", await witty.run({ bla: "<>java\'\"&code; </script>" }));
+  test.eq("Test: <>java'\"&code; </script>", await witty.run({ bla: "<>java'\"&code; </script>" }));
 
   witty = new WittyTemplate("Test: [bla:cdata]");
   test.eq("Test: <![CDATA[yeey]]>", await witty.run({ bla: "yeey" }));
