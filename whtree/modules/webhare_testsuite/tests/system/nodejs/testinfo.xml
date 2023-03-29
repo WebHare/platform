@@ -1,6 +1,7 @@
-﻿<group xmlns="http://www.webhare.net/xmlns/system/testinfo" tags="nodejs" ignoremasks="hmrlibs invoke_hsmarshalling.ts">
+﻿<group xmlns="http://www.webhare.net/xmlns/system/testinfo" tags="nodejs" ignoremasks="hmrlibs invoke_hsmarshalling.ts test_std_tests.ts">
   <test script="test_algorithms.ts" />
   <test script="test_std_api.ts" />
+  <jstest file="test_std_frontend.ts" />
   <test script="test_hscompat.ts" />
   <test script="test_services.ts" />
   <test script="test_bridge_from_harescript.whscr" />
