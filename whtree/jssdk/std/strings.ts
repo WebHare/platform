@@ -9,7 +9,7 @@ export function wildcardsToRegExp(mask: string): string {
   return mask;
 }
 
-export function encodeString(str: string, encoding = "base64url"): string {
+export function encodeString(str: string, encoding: "base64url"): string {
   if (encoding === "base64url")
     return btoa(str).replaceAll("=", "").replaceAll("+", "-").replaceAll("/", "_");
   throw new Error(`Invalid encoding '${encoding}'`);
