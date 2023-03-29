@@ -30,7 +30,8 @@ function generateInsertList(nodes: Array<string | Node>) {
 }
 
 export function matches(node: Element, selector: string): boolean {
-  return node.matches(selector);
+  //only invoke 'matches' if it exists. it *should* but past versions of dompack.matches would check for it too (and thus not fail if you passed in a string instead of a Node)
+  return node.matches?.(selector);
 }
 export function closest(node: Element, selector: string) {
   if (node.closest)

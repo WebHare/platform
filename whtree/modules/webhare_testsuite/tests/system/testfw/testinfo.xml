@@ -1,3 +1,4 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <jstest file="testkeyboard.ts" />
+  <jstest file="test_frontendtests.tsx" />
 </group>

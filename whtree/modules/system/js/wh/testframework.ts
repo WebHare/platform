@@ -37,6 +37,10 @@ export {
 } from 'dompack/testframework/pointer';
 
 export {
+  waitForElement
+} from "../internal/tests/waitforelement";
+
+export {
   waitForEvent as waitForEvent
   , simulateTabKey as simulateTabKey
   , focus
