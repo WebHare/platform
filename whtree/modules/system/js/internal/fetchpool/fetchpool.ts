@@ -26,7 +26,8 @@ export class Fetcher {
         console.log(retval);
       return retval;
     } catch (e) {
-      console.log("Fetch error", (e as Error).message);
+      if (pooloptions?.debug)
+        console.log("Fetch error", (e as Error).message);
       throw e;
     }
   }
