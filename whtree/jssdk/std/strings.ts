@@ -15,7 +15,7 @@ export function encodeString(str: string, encoding: "base64url"): string {
   throw new Error(`Invalid encoding '${encoding}'`);
 }
 
-export function decodeString(str: string, encoding = "base64url"): string {
+export function decodeString(str: string, encoding: "base64url"): string {
   if (encoding === "base64url")
     return atob(str.replaceAll("-", "+").replaceAll("_", "/"));
   throw new Error(`Invalid encoding '${encoding}'`);
