@@ -1,6 +1,7 @@
 import { describeFileType, PublicFileTypeInfo } from "./siteprofiles";
-import { db, sql, Selectable } from "@webhare/whdb";
+import { db, sql, Selectable, WHDBBlob } from "@webhare/whdb";
 import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
+import { RichBlob } from "@webhare/services/src/richblob";
 
 /// Adds the custom generated columns
 interface FsObjectRow extends Selectable<WebHareDB, "system.fs_objects"> {
@@ -45,9 +46,18 @@ function excludeKeys<T extends string, K extends string>(t: T[], k: K[]): Array<
   return result;
 }
 
+class WHFSRichBlob extends RichBlob {
+  constructor(blob: WHDBBlob | null) {
+    super(blob);
+  }
+}
+
 class WHFSFile extends WHFSObject {
   constructor(dbrecord: FsObjectRow) {
     super(dbrecord);
+  }
+  get data(): RichBlob {
+    return new WHFSRichBlob(this.dbrecord.data);
   }
   get type(): PublicFileTypeInfo {
     return describeFileType(this.dbrecord.type, { mockifmissing: true });
@@ -82,6 +92,18 @@ class WHFSFolder extends WHFSObject {
        comparision with retval's current type, with `Type instantiation is excessively deep and possibly infinite. (ts2589)`
     */
     return retval as unknown as Array<Pick<FsObjectRow, K | "id" | "name" | "isfolder">>;
+  }
+
+  async openFile(path: string, options: { allowMissing: true }): Promise<WHFSFile | null>;
+  async openFile(path: string, options?: { allowMissing: boolean }): Promise<WHFSFile>;
+  async openFile(path: string, options?: { allowMissing: boolean }) {
+    return openWHFSObject(this.id, path, true, options?.allowMissing ?? false, `in folder '${this.whfspath}'`);
+  }
+
+  async openFolder(path: string, options: { allowMissing: true }): Promise<WHFSFolder | null>;
+  async openFolder(path: string, options?: { allowMissing: boolean }): Promise<WHFSFolder>;
+  async openFolder(path: string, options?: { allowMissing: boolean }) {
+    return openWHFSObject(this.id, path, false, options?.allowMissing ?? false, `in folder '${this.whfspath}'`);
   }
 }
 
@@ -294,4 +316,4 @@ export async function openFolder(path: number | string, options?: { allowMissing
   return openWHFSObject(0, path, false, options?.allowMissing ?? false, "");
 }
 
-export type { Site, WHFSObject, WHFSFile, WHFSFolder };
+export type { Site, WHFSObject, WHFSFile, WHFSFolder, WHFSRichBlob };

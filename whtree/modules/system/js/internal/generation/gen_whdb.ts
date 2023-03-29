@@ -82,25 +82,8 @@ function formatDocumentation(node: Element, indent: string): string {
 function generateKyselyDefs(modulename: string, modules: string[]): string {
   const interfacename = modulename === "webhare" ? "WebHareDB" : `${generateTableTypeName(modulename)}DB`;
   const kyselyimportlib = modulename === "webhare" ? "kysely" : "wh:internal/whtree/node_modules/kysely";
-  let genfile = `import type { ColumnType } from ${JSON.stringify(kyselyimportlib)};
-
-/* Contains the Kysely database definitions for ${modulename == "webhare" ? `the WebHare core modules` : `module ${modulename}`}
-   Example usage:
-
-\`\`\`
-import { db, Selectable } from "@webhare/whdb";
-import type { ${interfacename} } from "@mod-system/js/internal/generated/whdb/${modulename}";
-
-let rows: Selectable<${interfacename}, "<tablename>">;
-rows = db<${interfacename}>().selectFrom("<tablename>").selectAll().execute();
-\`\`\`
-*/
-
-// This file is generated, don't try to modify this file. Regenerate using \`wh updategeneratedfiles\`
-
-type IsGenerated<T> = ColumnType<T, T | undefined, never>;
-
-`;
+  let tabledefs = "";
+  let hasblobs = false;
 
   const tablemap = new Map<string, string>;
   for (const mod of Object.entries(config.module)) {
@@ -124,9 +107,11 @@ type IsGenerated<T> = ColumnType<T, T | undefined, never>;
         for (const col of Array.from(dbtable.childNodes).filter(elt => elt.nodeType === elt.ELEMENT_NODE) as Element[]) {
           const name = col.getAttribute("name");
           const isprimarykey = name === primarykey;
+          //Read nullable and noupdate settings. These default to true resp. false
+          const col_nullable: boolean = ["1", "true"].includes(col.getAttribute("nullable") || "true");
+          const col_noupdate: boolean = (["1", "true"].includes(col.getAttribute("noupdate") || "false"));
           let tstype: string;
           let nullable = false;
-          let canupdate = true;
 
           let documentation: Element | undefined;
           for (const documentationnode of elements(col.getElementsByTagNameNS("http://www.webhare.net/xmlns/whdb/databaseschema", "documentation"))) {
@@ -142,30 +127,28 @@ type IsGenerated<T> = ColumnType<T, T | undefined, never>;
               tstype = "number";
 
               if (col.getAttribute("references")) {
+                //we store HS-default integers as '0' but referencing HS integers as 'null'. so we only honour !col_nullable for references
                 nullable = true;
-                if (["0", "false"].includes(col.getAttribute("nullable") ?? "true"))
+                if (!col_nullable)
                   nullable = false;
               }
-              if (nullable)
-                if (["0", "false"].includes(col.getAttribute("noupdate") ?? "true"))
-                  canupdate = false;
             } break;
             case "integer64":
             case "__longkey": {
               tstype = "bigint";
               if (col.getAttribute("references")) {
                 nullable = true;
-                if (["0", "false"].includes(col.getAttribute("nullable") ?? "true"))
+                if (col_nullable)
                   nullable = false;
               }
-              if (["0", "false"].includes(col.getAttribute("noupdate") ?? "true"))
-                canupdate = false;
             } break;
             case "float": {
               tstype = "number";
             } break;
             case "blob": {
-              tstype = "object";
+              hasblobs = true;
+              nullable = col_nullable;
+              tstype = "WHDBBlob";
             } break;
             case "boolean": {
               tstype = "boolean";
@@ -188,7 +171,7 @@ type IsGenerated<T> = ColumnType<T, T | undefined, never>;
           }
           if (nullable)
             tstype = `${tstype} | null`;
-          if (isprimarykey || !canupdate)
+          if (isprimarykey || col_noupdate)
             tstype = `IsGenerated<${tstype}>`;
 
           if (documentation) {
@@ -200,8 +183,7 @@ type IsGenerated<T> = ColumnType<T, T | undefined, never>;
         }
         tablemap.set(`${mod[0]}.${table_name}`, `${generateTableTypeName(mod[0])}_${generateTableTypeName(table_name)}`);
         tabledef += `}\n\n`;
-
-        genfile += tabledef;
+        tabledefs += tabledef;
       }
     }
   }
@@ -210,11 +192,31 @@ type IsGenerated<T> = ColumnType<T, T | undefined, never>;
   if (!tablemap.size)
     return "";
 
-  genfile += `export interface ${interfacename} {\n`;
-  for (const entry of tablemap)
-    genfile += `  ${JSON.stringify(entry[0])}: ${entry[1]};\n`;
-  genfile += `}\n`;
-  return genfile;
+  return `import type { ColumnType } from ${JSON.stringify(kyselyimportlib)};
+${hasblobs ? `import type { WHDBBlob } from "@webhare/whdb";` : ""}
+
+/* Contains the Kysely database definitions for ${modulename == "webhare" ? `the WebHare core modules` : `module ${modulename}`}
+    Example usage:
+
+\`\`\`
+import { db, Selectable } from "@webhare/whdb";
+import type { ${interfacename} } from "@mod-system/js/internal/generated/whdb/${modulename}";
+
+let rows: Selectable<${interfacename}, "<tablename>">;
+rows = db<${interfacename}>().selectFrom("<tablename>").selectAll().execute();
+\`\`\`
+*/
+
+// This file is generated, don't try to modify this file. Regenerate using \`wh updategeneratedfiles\`
+
+type IsGenerated<T> = ColumnType<T, T | undefined, never>;
+
+${tabledefs}
+
+export interface ${interfacename} {
+${[...tablemap.entries()].map(entry => `  ${JSON.stringify(entry[0])}: ${entry[1]};`).join('\n')}
+}
+`;
 }
 
 function generateFile(file: string, { defname, modules }: { defname: string; modules: string[] }) {

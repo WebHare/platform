@@ -58,6 +58,11 @@ async function testWHFS() {
   test.eq(testpagesfolder.id, (await whfs.openFolder("site::webhare_testsuite.testsite/testpages/")).id);
   test.eq(testpagesfolder.id, (await whfs.openFolder(testpagesfolder.id)).id);
   test.eq(testpagesfolder.id, (await whfs.openFolder("whfs::" + testpagesfolder.whfspath)).id);
+
+  //Read a 'fs_objects.data' cell
+  const wittytestfile = await testpagesfolder.openFile("wittytest.witty");
+  test.eq(11, await wittytestfile.data.size);
+  test.eq(`[wittytest]`, await wittytestfile.data.text());
 }
 
 async function testSiteProfiles() {

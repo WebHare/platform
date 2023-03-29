@@ -12,10 +12,15 @@ import {
   Insertable as KInsertable,
   Updateable as KUpdateable,
 } from 'kysely';
-import { Client, Connection } from 'pg';
+import { Client, Connection, types } from 'pg';
 import { RefTracker, checkIsRefCounted } from '@mod-system/js/internal/whmanager/refs';
 import { BackendEventData, broadcast } from '@webhare/services/src/backendevents';
 import { BackendEvent } from '../../services/src/services';
+
+import { createPGBlob, uploadBlobToConnection, WHDBBlob, ValidBlobSources } from './blobs';
+export { WHDBBlob } from "./blobs";
+
+let configuration: { bloboid: number } | null = null;
 
 // Export kysely helper stuff for use in external modules
 export {
@@ -40,6 +45,22 @@ interface ClientWithConnection extends Client {
   connection: Connection;
 }
 
+//Read database connection settings and configure our PG driver. We attempt this at the start of every connection (bootstrap might need to reinvoke us?)
+async function configureWHDBClient(pg: Client) {
+  //TODO barrier against multiple parallel configureWHDBClient invocations
+  const bloboidquery = await pg.query<{ oid: number }>(
+    `SELECT t.oid, t.typname
+      FROM pg_catalog.pg_type t
+          JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
+          JOIN pg_catalog.pg_proc p ON t.typinput = p.oid
+    WHERE nspname = 'webhare_internal' AND t.typname = 'webhare_blob' AND proname = 'record_in'`);
+
+  if (bloboidquery.rowCount) {
+    configuration = { bloboid: bloboidquery.rows[0].oid };
+    types.setTypeParser(configuration.bloboid, (val) => createPGBlob(val));
+  }
+}
+
 class Work {
   conn;
   open;
@@ -55,6 +76,20 @@ class Work {
   async _invokeFinishHandlers(handler: "onBeforeCommit" | "onCommit" | "onRollback") {
     //invoke all finishedhandlers in 'parallel' and wait for them to finish
     await Promise.all(Array.from(this.finishhandlers.values()).map(h => h[handler]?.()));
+  }
+
+  async uploadBlob(data: ValidBlobSources): Promise<WHDBBlob | null> {
+    if (!this.open)
+      throw new Error(`Work is already closed`);
+    if (!this.conn.pgclient)
+      throw new Error(`Connection was already closed`);
+
+    const lock = this.conn.reftracker.getLock("query lock: UPLOADBLOB");
+    try {
+      return await uploadBlobToConnection(this.conn.pgclient, data);
+    } finally {
+      lock.release();
+    }
   }
 
   async commit() {
@@ -172,7 +207,10 @@ class WHDBConnectionImpl implements WHDBConnection, PostgresPool, PostgresPoolCl
       const lock = this.reftracker.getLock("connect lock");
       try {
         await this.pgclient.connect();
+        if (!configuration)
+          await configureWHDBClient(this.pgclient);
         this.connected = true;
+
       } finally {
         lock.release();
       }
@@ -249,6 +287,10 @@ class WHDBConnectionImpl implements WHDBConnection, PostgresPool, PostgresPoolCl
     return this.checkState(true).rollback();
   }
 
+  async uploadBlob(data: ValidBlobSources): Promise<WHDBBlob | null> {
+    return this.checkState(true).uploadBlob(data);
+  }
+
   onFinishWork<T extends FinishHandler>(handler: T | (() => T), options?: { uniqueTag?: string | symbol }): T {
     return this.checkState(true).onFinish(handler, options);
   }
@@ -267,7 +309,7 @@ class WHDBConnectionImpl implements WHDBConnection, PostgresPool, PostgresPoolCl
     @typeParam T - Kysely database definition interface
 */
 
-type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "onFinishWork" | "broadcastOnCommit">;
+type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob">;
 
 const conn: WHDBConnection = new WHDBConnectionImpl();
 
@@ -307,6 +349,12 @@ export async function commitWork() {
 */
 export async function rollbackWork() {
   await conn.rollbackWork();
+}
+
+/** Upload a blob to the database
+*/
+export async function uploadBlob(data: ValidBlobSources): Promise<WHDBBlob | null> {
+  return conn.uploadBlob(data);
 }
 
 /** Register a finish hander for the current work with the specified tag
