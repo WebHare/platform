@@ -1,11 +1,12 @@
 import * as test from "@webhare/test";
 import * as whfs from "@webhare/whfs";
 import * as services from "@webhare/services";
-import { WebRequest, WebResponse, SiteRequest } from "@webhare/router";
+import { WebRequest, WebResponse } from "@webhare/router";
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
 import { BaseTestPageConfig } from "@mod-webhare_testsuite/webdesigns/basetestjs/webdesign/webdesign";
 import { XMLParser } from "fast-xml-parser";
 import { captureJSDesign, captureJSPage } from "@mod-publisher/js/internal/capturejsdesign";
+import { buildSiteRequest } from "@mod-webhare_testsuite/../../jssdk/router/src/siterequest";
 
 function parseHTMLDoc(html: string) {
   const parsingOptions = {
@@ -42,7 +43,7 @@ function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: WebRespo
 async function testSiteResponse() {
   //Create a SiteRequest so we have context for a SiteResponse
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
-  const sitereq = new SiteRequest(new WebRequest(markdowndoc.link), markdowndoc);
+  const sitereq = await buildSiteRequest(new WebRequest(markdowndoc.link), markdowndoc);
 
   //It should be okay to initialize the composer without knowing its tpye
   const outputpage = await sitereq.createComposer();

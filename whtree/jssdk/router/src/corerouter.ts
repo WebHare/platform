@@ -1,9 +1,10 @@
 import { callHareScript } from "@webhare/services";
 import * as whfs from "@webhare/whfs";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
-import { WebHareWHFSRouter, WebRequest, WebResponse, SiteRequest } from "./router";
+import { WebHareWHFSRouter, WebRequest, WebResponse } from "./router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
+import { buildSiteRequest } from "./siterequest";
 
 export async function lookupPublishedTarget(url: string) {
   //we'll use the HS version for now. rebuilding lookup is complex and we should really port the tests too before we attempt it...
@@ -11,17 +12,17 @@ export async function lookupPublishedTarget(url: string) {
   if (!lookupresult.file)
     return null;
 
-  const fileinfo = await whfs.openFile(lookupresult.file);
-  if (!fileinfo)
+  const targetobject = await whfs.openFile(lookupresult.file);
+  if (!targetobject || !targetobject.parentsite || !targetobject.parent)
     return null;
 
   //TODO also gather webdesign info
-  const applytester = await getApplyTesterForObject(fileinfo);
+  const applytester = await getApplyTesterForObject(targetobject);
   const renderinfo = await applytester.getObjRenderInfo();
 
   return {
     lookupresult,
-    fileinfo,
+    targetobject,
     renderer: renderinfo.renderer
   };
 }
@@ -77,7 +78,6 @@ export async function coreWebHareRouter(request: WebRequest): Promise<WebRespons
   //Invoke the render function. TODO seperate VM/ShadowRealm etc
 
   const renderer: WebHareWHFSRouter = await resourcetools.loadJSFunction(target.renderer) as WebHareWHFSRouter;
-  const whfsreq = new SiteRequest(request, target.fileinfo);
-
+  const whfsreq = await buildSiteRequest(request, target.targetobject);
   return await renderer(whfsreq);
 }
