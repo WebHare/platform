@@ -3,7 +3,7 @@
 
 // when developing, to explicitly recompile our package: wh assetpacks recompile publisher:pwaserviceworker
 import * as pwadb from '@mod-publisher/js/pwa/internal/pwadb';
-
+import { generateRandomId } from "@webhare/std";
 const serviceworkerurl = new URL(location.href);
 const appname = serviceworkerurl.searchParams.get('app');
 if (!appname)
@@ -11,12 +11,7 @@ if (!appname)
 
 const debugassetpacks = serviceworkerurl.searchParams.get('debug') == '1';
 
-function generateBase64UniqueID() {
-  const u8array = new Uint8Array(16);
-  crypto.getRandomValues(u8array);
-  return btoa(String.fromCharCode.apply(null, u8array));
-}
-const logprefix = `[SW ${appname} ${generateBase64UniqueID()}] `;
+const logprefix = `[SW ${appname} ${generateRandomId()}] `;
 
 ////////////////////////////////
 //

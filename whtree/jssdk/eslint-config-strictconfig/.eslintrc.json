@@ -105,6 +105,8 @@
         //Need typescript parser services for this one
         "@typescript-eslint/no-throw-literal": "off",
         "@typescript-eslint/no-unused-expressions": "error",
+        //There's really no such thing as 'too much documentation'
+        "@typescript-eslint/no-inferrable-types": "off",
         "@typescript-eslint/no-unused-vars": [
             "error",
             {
