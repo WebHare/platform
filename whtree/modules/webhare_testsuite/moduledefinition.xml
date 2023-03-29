@@ -245,6 +245,7 @@
     <d:table name="exporttest" primarykey="id">
       <d:integer name="id" />
       <d:varchar name="text" maxlength="4096" />
+      <d:blob name="datablob" />
     </d:table>
   </databaseschema>
 

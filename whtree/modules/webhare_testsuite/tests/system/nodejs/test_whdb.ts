@@ -1,15 +1,29 @@
 import { BackendEvent, BackendEventSubscription, subscribe } from "@webhare/services";
 import * as test from "@webhare/test";
 import { sleep } from "@webhare/std";
-import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen } from "@webhare/whdb";
+import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen, uploadBlob } from "@webhare/whdb";
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
 
 async function testQueries() {
   await beginWork();
   await db<WebHareTestsuiteDB>().deleteFrom("webhare_testsuite.exporttest").execute();
-  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: 5, text: "This is a text" }).execute();
+  test.eq(null, await uploadBlob(""));
+
+  const newblob = await uploadBlob("This is a blob");
+  test.assert(newblob);
+  test.eq(14, newblob.size);
+  test.eq("This is a blob", await newblob.text());
+
+  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: 5, text: "This is a text", datablob: newblob }).execute();
+  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: 10, text: "This is another text" }).execute();
   await commitWork();
-  test.eq([{ id: 5, text: 'This is a text' }], await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").selectAll().execute());
+
+  const tablecontents = await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").selectAll().orderBy("id").execute();
+  test.eqProps([{ id: 5, text: 'This is a text' }, { id: 10, text: 'This is another text' }], tablecontents);
+  test.assert(tablecontents[0].datablob);
+  test.eq(14, tablecontents[0].datablob.size);
+  test.eq("This is a blob", await tablecontents[0].datablob.text());
+  test.eq(null, tablecontents[1].datablob);
 
   await beginWork();
   await test.throws(/already been opened/, () => beginWork());

@@ -27,6 +27,7 @@ PUBLIC SCHEMA
 , TABLE
   < INTEGER id NULL := 0
   , STRING text
+  , BLOB datablob
   ; KEY id
   > exporttest
 > webhare_testsuite;
