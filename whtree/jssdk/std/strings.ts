@@ -8,3 +8,15 @@ export function wildcardsToRegExp(mask: string): string {
   mask = mask.replaceAll("\\?", ".");
   return mask;
 }
+
+export function encodeString(str: string, encoding: "base64url"): string {
+  if (encoding === "base64url")
+    return btoa(str).replaceAll("=", "").replaceAll("+", "-").replaceAll("/", "_");
+  throw new Error(`Invalid encoding '${encoding}'`);
+}
+
+export function decodeString(str: string, encoding = "base64url"): string {
+  if (encoding === "base64url")
+    return atob(str.replaceAll("-", "+").replaceAll("_", "/"));
+  throw new Error(`Invalid encoding '${encoding}'`);
+}

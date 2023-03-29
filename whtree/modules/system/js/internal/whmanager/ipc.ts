@@ -5,7 +5,7 @@ import * as stacktrace_parser from "stacktrace-parser";
 import { TypedMessagePort, createTypedMessageChannel } from './transport';
 import { RefTracker } from "./refs";
 import { bufferToArrayBuffer } from "./transport";
-import { generateBase64UniqueID } from "../util/crypto";
+import { generateRandomId } from "@webhare/std";
 import * as envbackend from "@webhare/env/src/envbackend";
 
 const logmessages = envbackend.flags.ipc;
@@ -453,7 +453,7 @@ export class IPCPortImpl<SendType extends object | null, ReceiveType extends obj
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createIPCEndPointPair<LinkType extends IPCLinkType<any, any> = IPCLinkType>(): [LinkType["ConnectEndPoint"], LinkType["AcceptEndPoint"]] {
   const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>();
-  const id = generateBase64UniqueID();
+  const id = generateRandomId();
   return [new IPCEndPointImpl(`${id} - port1`, port1, "direct"), new IPCEndPointImpl(`${id} - port2`, port2, "direct")];
 }
 

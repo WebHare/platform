@@ -6,6 +6,7 @@ import * as domdebug from "dompack/src/debug";
 import { browser } from "@webhare/dompack";
 import * as cookie from "dompack/extra/cookie";
 import * as whintegration from "@mod-system/js/wh/integration";
+import { generateRandomId } from "@webhare/std";
 
 const eventname_regex = /^[\w:]+$/;
 const datakey_regex = /^(ds_[0-9a-z_]+)|(dn_[0-9a-z_]+)|(db_[0-9a-z_]+)$/;
@@ -262,11 +263,8 @@ function pingPxlEvent(evt) {
   }
 }
 
-function makePart() {
-  return ("00000000" + Math.abs(Date.now() ^ Math.floor(Math.random() * 4000000000)).toString(16)).substr(-8);
-}
 export function generateId() {
-  return makePart() + makePart();
+  return generateRandomId('hex', 8);
 }
 
 setPxlOptions(null);

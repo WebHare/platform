@@ -8,7 +8,7 @@ import { DebugConfig, updateDebugConfig } from "@webhare/env/src/envbackend";
 import { IPCPortControlMessage, IPCEndPointImplControlMessage, IPCEndPointImpl, IPCPortImpl, IPCPortControlMessageType, IPCEndPointImplControlMessageType, IPCLinkType } from "./ipc";
 import { TypedMessagePort, createTypedMessageChannel, bufferToArrayBuffer } from './transport';
 import { RefTracker } from "./refs";
-import { generateBase64UniqueID } from "../util/crypto";
+import { generateRandomId } from "@webhare/std";
 import * as stacktrace_parser from "stacktrace-parser";
 import { ProcessList, DebugIPCLinkType, DebugRequestType, DebugResponseType, ConsoleLogItem } from "./debug";
 import * as inspector from "node:inspector";
@@ -373,7 +373,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   connect<LinkType extends IPCLinkType<any, any> = IPCLinkType>(name: string, { global }: { global?: boolean } = {}): LinkType["ConnectEndPoint"] {
     const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>();
-    const id = generateBase64UniqueID();
+    const id = generateRandomId();
     this.port.postMessage({
       type: ToMainBridgeMessageType.ConnectLink,
       name,
@@ -937,7 +937,7 @@ class MainBridge extends EventSource<BridgeEvents> {
       this.debuglink.close();
     else if (!this.debuglink && has_ts_debugger && this.connectionactive) {
       const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>();
-      const id = generateBase64UniqueID();
+      const id = generateRandomId();
       this.debuglink = new IPCEndPointImpl(`${id} - origin (ts:debugmgr_internal)`, port2, "connecting", "global port ts:debugmgr_internal");
       const link = this.debuglink;
       this.debuglink.on("message", (packet) => this.gotDebugMessage(packet));
@@ -998,7 +998,7 @@ class MainBridge extends EventSource<BridgeEvents> {
 
   getLocalHandlerInitData(): LocalBridgeInitData {
     const { port1, port2 } = createTypedMessageChannel<ToLocalBridgeMessage, ToMainBridgeMessage>();
-    const id = generateBase64UniqueID();
+    const id = generateRandomId();
     port1.on("message", (msg) => this.gotLocalBridgeMessage(id, port1, msg));
     port1.on("close", () => this.gotLocalBridgeClose(id, port1));
     this.localbridges.add({ id, port: port1 });
