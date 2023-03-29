@@ -38,7 +38,10 @@ async function testFileEdits() {
   test.assert(require.cache[path_root]);
 
   test.assert(require.cache[path_dep]);
-  fs.writeFileSync(path_dep, fs.readFileSync(path_dep, "utf-8"), "utf-8");
+
+  // Rewrite via rename, linux picks up multiple events when writing directly with writeFileSync
+  fs.writeFileSync(path_dep + ".tmp", fs.readFileSync(path_dep, "utf-8"), "utf-8");
+  fs.renameSync(path_dep + ".tmp", path_dep);
 
   await test.wait(async () => !require.cache[path_dep]);
   test.assert(!require.cache[path_dyn1]);
@@ -61,7 +64,8 @@ async function testFileEdits() {
     "static.ts": 7
   }, map);
 
-  fs.writeFileSync(path_dep2, fs.readFileSync(path_dep2, "utf-8"), "utf-8");
+  fs.writeFileSync(path_dep2 + ".tmp", fs.readFileSync(path_dep2, "utf-8"), "utf-8");
+  fs.renameSync(path_dep2 + ".tmp", path_dep2);
 
   await test.wait(async () => !require.cache[path_dep2]);
   test.assert(require.cache[path_static]);
@@ -76,7 +80,8 @@ async function testFileEdits() {
   }, map);
 
   // Update a resource marked as loaded by dyn1
-  fs.writeFileSync(path_resource, fs.readFileSync(path_resource, "utf-8"), "utf-8");
+  fs.writeFileSync(path_resource + ".tmp", fs.readFileSync(path_resource, "utf-8"), "utf-8");
+  fs.renameSync(path_resource + ".tmp", path_resource);
 
   await test.wait(async () => !require.cache[path_dyn1]);
   await dynimport(path_dyn1);
