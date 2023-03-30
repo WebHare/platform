@@ -35,10 +35,12 @@ class SiteRequest {
       return wrapHSWebdesign<T>(this);
 
     const factory = await resourcetools.loadJSFunction(publicationsettings.siteresponsefactory) as WebDesignFunction<T>;
-    const settings: SiteResponseSettings = { //TODO is it useful to transfer these from siteprl to webdesign? why can't the user's WebDesignFunction manage these?
-      assetpack: publicationsettings.assetpack,
-      witty: publicationsettings.witty
-    };
+    //FIXME - we need to fill in some more data based on the site profile
+    const settings = new SiteResponseSettings;
+    settings.assetpack = publicationsettings.assetpack;
+    settings.witty = publicationsettings.witty;
+    settings.supportedlanguages = publicationsettings.supportedlanguages;
+
     return await factory(this, settings);
   }
 }
