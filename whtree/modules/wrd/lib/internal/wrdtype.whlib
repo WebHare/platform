@@ -348,11 +348,11 @@ RECORD FUNCTION GenerateNewSettingList(INTEGER setentity, RECORD attr, RECORD AR
   IF (IsValueSet(allcurrent))
     current := RecordRange(allcurrent, CELL[ attribute := setattribute, parentsetting ], [ "ATTRIBUTE", "PARENTSETTING" ]);
 
-  IF (LENGTH(subs) != 0 AND attr.attributetype != 13)
+  IF (LENGTH(subs) != 0 AND attr.attributetype != wrd_attributetype_array)
     ABORT(`Not expecting subs in non-arrays!`);
 
   // Generate newsets for array rows
-  IF (attr.attributetype = 13) // Array
+  IF (attr.attributetype = wrd_attributetype_array)
   {
     current :=
         SELECT *
@@ -437,7 +437,7 @@ RECORD FUNCTION GenerateNewSettingList(INTEGER setentity, RECORD attr, RECORD AR
   }
 
   // Recurse for arrays
-  IF (attr.attributetype = 13)
+  IF (attr.attributetype = wrd_attributetype_array)
   {
     FOREVERY (RECORD sub FROM subs)
       FOREVERY (RECORD setting FROM sub.settings)
@@ -657,19 +657,19 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
   BOOLEAN FUNCTION GetIsObject()
   {
-    RETURN this->typerec.metatype = 1;
+    RETURN this->typerec.metatype = wrd_metatype_object;
   }
   BOOLEAN FUNCTION GetIsLink()
   {
-    RETURN this->typerec.metatype = 2;
+    RETURN this->typerec.metatype = wrd_metatype_link;
   }
   BOOLEAN FUNCTION GetIsAttachment()
   {
-    RETURN this->typerec.metatype = 3;
+    RETURN this->typerec.metatype = wrd_metatype_attachment;
   }
   BOOLEAN FUNCTION GetIsDomain()
   {
-    RETURN this->typerec.metatype = 4;
+    RETURN this->typerec.metatype = wrd_metatype_domain;
   }
 
   INTEGER ARRAY FUNCTION GetValidTypeIDs()
@@ -1123,7 +1123,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
                         WHERE type=this->typerec.id
                               AND parent=attrparent
                               AND Touppercase(attrs.tag)=ToUppercase(find)
-                              AND attrs.attributetype=13;
+                              AND attrs.attributetype=wrd_attributetype_array;
       IF(attrparent=0)
         ABORT("Cannot locate the proper array parent to create attribute '" || base.tag || "'");
     }
@@ -1218,7 +1218,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
         IF (NOT RecordExists(parentattr))
           THROW NEW Exception(`The parent attribute for '${Detokenize(ArraySlice(tagparts, 0, #part + 1), ".")}' in type '${this->tag}' hasn't been created yet`);
-        IF (parentattr.attributetype != 13)
+        IF (parentattr.attributetype != wrd_attributetype_array)
           THROW NEW Exception(`The parent attribute for '${Detokenize(ArraySlice(tagparts, 0, #part + 1), ".")}' in type '${this->tag}' must be of type ARRAY but is a ${attrtypes[parentattr.attributetype]??"UNKNOWN"}`);
 
         parentattrid := parentattr.id;
@@ -1330,7 +1330,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
              ];
     }
 
-    IF(this->__final_attrs[attrid-1].attributetype NOT IN [1,8])
+    IF(this->__final_attrs[attrid-1].attributetype NOT IN [wrd_attributetype_domain,wrd_attributetype_domainarray])
       THROW NEW Exception("Attribute '" || findtag || "' is not of a single or multiple domain type");
 
     OBJECT typeobj := this->__final_attrs[attrid-1].__reftype;
@@ -1834,7 +1834,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
     SWITCH(attr.attributetype)
     {
-      CASE 3 /* Address */
+      CASE wrd_attributetype_address
       {
         IF(TypeId(val) != TYPEID(RECORD))
           THROW NEW Exception(`Value must be of type RECORD, got ${GetTypeName(TYPEID(val))}`);
@@ -1850,7 +1850,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           INSERT [ setting := 0, rawdata := rawdata, blobdata := DEFAULT BLOB ] INTO newsets AT END;
         }
       }
-      CASE 2 /* Free text */, 4 /*Email*/, 5 /* Telephone  */, 21 /* URL */
+      CASE wrd_attributetype_free, wrd_attributetype_email, wrd_attributetype_telephone, wrd_attributetype_url
       {
         IF(TypeId(val) != TYPEID(STRING))
           THROW NEW Exception(`Value must be of type STRING, got ${GetTypeName(TYPEID(val))}`);
@@ -1859,7 +1859,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         IF(val!="")
           INSERT [ setting := 0, rawdata := val, blobdata := DEFAULT BLOB ] INTO newsets AT END;
       }
-      CASE 6, 12 /* Date and datetime types */
+      CASE wrd_attributetype_date, wrd_attributetype_datetime
       {
         IF(TypeId(val) != TYPEID(DATETIME))
           THROW NEW Exception(`Value must be of type DATETIME, got ${GetTypeName(TYPEID(val))}`);
@@ -1867,7 +1867,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         IF(val != DEFAULT DATETIME)
           INSERT [ setting := 0, rawdata := GetDayCount(val) || "," || GetMsecondCount(val), blobdata := DEFAULT BLOB ] INTO newsets AT END;
       }
-      CASE 16 /* Boolean */
+      CASE wrd_attributetype_boolean
       {
         IF(TypeId(val) != TYPEID(BOOLEAN))
           THROW NEW Exception(`Value must be of type BOOLEAN, got ${GetTypeName(TYPEID(val))}`);
@@ -1875,7 +1875,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         IF(val)
           INSERT [ setting := 0, rawdata := "1", blobdata := DEFAULT BLOB ] INTO newsets AT END;
       }
-      CASE 7 /* Password */
+      CASE wrd_attributetype_password
       {
         IF(TypeId(val) != TYPEID(STRING))
           THROW NEW Exception(`Value must be of type STRING, got ${GetTypeName(TYPEID(val))}`);
@@ -1899,7 +1899,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         IF(val!="")
           INSERT [ setting := 0, rawdata := val, blobdata := DEFAULT BLOB ] INTO newsets AT END;
       }
-      CASE 9 /* Image */
+      CASE wrd_attributetype_image
       {
         IF(TypeID(val) = TypeID(BLOB))
           IF(isv2api)
@@ -1925,7 +1925,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
               ] INTO newsets AT END;
         }
       }
-      CASE 14 /* Money */
+      CASE wrd_attributetype_money
       {
         IF(TypeId(val) NOT IN[ TYPEID(INTEGER), TYPEID(MONEY) ])
           THROW NEW Exception(`Value must be of type MONEY, got ${GetTypeName(TYPEID(val))}`);
@@ -1933,21 +1933,21 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           INSERT [ setting := 0, rawdata := FormatMoney(val,0,'.','',FALSE), blobdata := DEFAULT BLOB ] INTO newsets AT END;
       }
 
-      CASE 11,15 /* Time, Integer */
+      CASE wrd_attributetype_time, wrd_attributetype_integer
       {
         IF(TypeId(val) != TYPEID(INTEGER))
           THROW NEW Exception(`Value must be of type INTEGER, got ${GetTypeName(TYPEID(val))}`);
         IF(val!=0)
           INSERT [ setting := 0, rawdata := ToString(val), blobdata := DEFAULT BLOB ] INTO newsets AT END;
       }
-      CASE 18 /* Integer64 */
+      CASE wrd_attributetype_integer64
       {
         IF(TypeId(val) NOT IN [ TYPEID(INTEGER), TYPEID(INTEGER64) ])
           THROW NEW Exception(`Value must be of type INTEGER64, got ${GetTypeName(TYPEID(val))}`);
         IF(val!=0)
           INSERT [ setting := 0, rawdata := ToString(val), blobdata := DEFAULT BLOB ] INTO newsets AT END;
       }
-      CASE 1 /* single select*/
+      CASE wrd_attributetype_domain
       {
         IF(TypeId(val) = TYPEID(STRING))
         {
@@ -1969,7 +1969,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           THROW NEW Exception(`Value must be of type INTEGER or STRING, got ${GetTypeName(TYPEID(val))}`);
         }
       }
-      CASE 8 /* multiple select*/
+      CASE wrd_attributetype_domainarray
       {
         // Allow DEFAULT VARIANT ARRAY received from incoming JSON as empty value
         IF(TypeID(val) = TypeID(VARIANT ARRAY) AND Length(val) = 0)
@@ -1999,7 +1999,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           THROW NEW Exception(`Value must be of type INTEGER ARRAY or STRING ARRAY, got ${GetTypeName(TYPEID(val))}`);
         }
       }
-      CASE 13
+      CASE wrd_attributetype_array
       {
         // Allow DEFAULT VARIANT ARRAY received from incoming JSON as empty value
         IF(TypeID(val) = TypeID(VARIANT ARRAY) AND Length(val) = 0)
@@ -2029,7 +2029,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           INSERT outputrow INTO subs AT END;
         }
       }
-      CASE 10 /* File */
+      CASE wrd_attributetype_file
       {
         //ADDME: Return a record like this or simply a blob? Use JoinBlobSetting?
 
@@ -2049,7 +2049,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
               ] INTO newsets AT END;
         }
       }
-      CASE 17 /* rich */
+      CASE wrd_attributetype_richdocument
       {
         IF(TypeId(val) != TYPEID(RECORD))
           THROW NEW Exception(`Value must be of type RECORD, got ${GetTypeName(TYPEID(val))}`);
@@ -2097,12 +2097,12 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           }
         }
       }
-      CASE 19 /* whfs instance */
+      CASE wrd_attributetype_whfsinstance
       {
         IF(RecordExists(val))
           INSERT [ setting := 0, rawdata := "WHFS", blobdata := DEFAULT BLOB, whfsdata := val/*StoreInstanceInWHFS(this->wrdschema->id, val, whfsmapper)*/, linktype := 1 ] INTO newsets AT END;
       }
-      CASE 20 // WHFSINTEXTLINK
+      CASE wrd_attributetype_whfsintextlink
       {
         val := this->EnsureRecord(attr, val);
 
@@ -2123,7 +2123,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
             INSERT [ setting := 0, rawdata := "WHFS", blobdata := DEFAULT BLOB, whfsdata := val.internallink, linktype := 2 ] INTO newsets AT END;
         }
       }
-      CASE 29 // WHFSLINK
+      CASE wrd_attributetype_whfslink
       {
         IF (NOT IsDefaultValue(whfsmapper))
         {
@@ -2137,7 +2137,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         IF(val != 0)
           INSERT [ setting := 0, rawdata := "WHFS", blobdata := DEFAULT BLOB, whfsdata := val, linktype := 2 ] INTO newsets AT END;
       }
-      CASE 22 //RECORD (HSON)
+      CASE wrd_attributetype_record
       {
         IF(TypeId(val) != TYPEID(RECORD))
           THROW NEW Exception(`Value must be of type RECORD, got ${GetTypeName(TYPEID(val))}`);
@@ -2151,7 +2151,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
             INSERT [ setting := 0, rawdata := "", blobdata := StringToBlob(data) ] INTO newsets AT END;
         }
       }
-      CASE 23 //ENUM
+      CASE wrd_attributetype_enum
       {
         IF(TypeId(val) != TYPEID(STRING))
           THROW NEW Exception(`Value must be of type STRING, got ${GetTypeName(TYPEID(val))}`);
@@ -2164,7 +2164,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           INSERT [ setting := 0, rawdata := val, blobdata := DEFAULT BLOB ] INTO newsets AT END;
         }
       }
-      CASE 24 //ENUMARRAY
+      CASE wrd_attributetype_enumarray
       {
         // Allow DEFAULT VARIANT ARRAY received from incoming JSON as empty value
         IF(TypeID(val) = TypeID(VARIANT ARRAY) AND Length(val) = 0)
@@ -2190,7 +2190,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           INSERT [ setting := 0, rawdata := Detokenize(outvals,'\t'), blobdata := DEFAULT BLOB ] INTO newsets AT END;
         }
       }
-      CASE 25 //PAYMENTPROVIDER
+      CASE wrd_attributetype_paymentprovider
       {
         val := this->EnsureRecord(attr, val);
 
@@ -2209,7 +2209,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           INSERT [ setting := 0, rawdata := EncodeHSON(val.__paymentprovider), blobdata := DEFAULT BLOB, whfsdata := keypair, linktype := 2 ] INTO newsets AT END;
         }
       }
-      CASE 26 //PAYMENT
+      CASE wrd_attributetype_payment
       {
         val := this->EnsureRecord(attr, val);
         IF(RecordExists(val))
@@ -2230,7 +2230,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
               INSERT [ setting := payment.paymentprovider, ordering := #payment + 1, rawdata := "", blobdata := StringToBlob(data) ] INTO newsets AT END;
           }
       }
-      CASE 27 //STATUSRECORD
+      CASE wrd_attributetype_statusrecord
       {
         val := this->EnsureRecord(attr, val);
         IF(RecordExists(val))
@@ -2255,7 +2255,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
         }
       }
-      CASE 28 // AUTHENTICATIONSETTINGS
+      CASE wrd_attributetype_authenticationsettings
       {
         val := this->EnsureRecord(attr, val);
         IF(RecordExists(val))
@@ -2275,7 +2275,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       }
     }
 
-    IF(NOT this->wrdschema->__disableintegritychecks AND attr.attributetype IN [1,8,26]) //domain, payment fields
+    IF(NOT this->wrdschema->__disableintegritychecks AND attr.attributetype IN [wrd_attributetype_domain, wrd_attributetype_domainarray, wrd_attributetype_payment]) //domain, payment fields
     {
       INTEGER ARRAY tocheck := SELECT AS INTEGER ARRAY DISTINCT setting FROM newsets WHERE setting != 0; // payments can have null paymentprovider
       this->ValidateReferredType(tocheck, attr.domain, attr.tag);
@@ -2304,7 +2304,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         anyerror := TRUE;
       }
 
-      IF(toset.attr.attributetype = 13)//array, validate subs
+      IF(toset.attr.attributetype = wrd_attributetype_array)//array, validate subs
       {
         FOREVERY(RECORD arrayelement FROM toset.subs)
           IF(NOT this->ValidateSettings(arrayelement.settings, currententityid, toset.attr.id, isv2api, options))
@@ -2314,11 +2314,11 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       //all the following checks only apply if there is data
       IF(Length(toset.newsets)=0)
         CONTINUE;
-      IF(Length(toset.newsets)>1 AND toset.attr.attributetype NOT IN [8,13,17,26])
+      IF(Length(toset.newsets)>1 AND toset.attr.attributetype NOT IN [wrd_attributetype_domainarray, wrd_attributetype_array, wrd_attributetype_richdocument, wrd_attributetype_payment])
         THROW NEW Exception("Internal error, attribute " || toset.attr.tag || " of type #" || toset.attr.attributetype || " may not have " ||Length(toset.newsets) || " settings");
 
-      IF (((toset.attr.attributetype = 4 AND NOT IsValidEmailAddress(toset.newsets[0].rawdata))
-          OR (toset.attr.attributetype = 21 AND NOT IsValidURL(toset.newsets[0].rawdata))) AND NOT options.importmode)
+      IF (((toset.attr.attributetype = wrd_attributetype_email AND NOT IsValidEmailAddress(toset.newsets[0].rawdata))
+          OR (toset.attr.attributetype = wrd_attributetype_url AND NOT IsValidURL(toset.newsets[0].rawdata))) AND NOT options.importmode)
       {
         options.errorcallback([tag := toset.attr.tag, code := "INVALIDVALUE", setvalue := toset.newsets[0].rawdata ]);
         anyerror := TRUE;
@@ -2333,13 +2333,13 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       }
       IF (toset.attr.isunique AND NOT size_error AND NOT options.importmode)
       {
-        IF(toset.attr.attributetype NOT IN [2,4,15,18])
+        IF(toset.attr.attributetype NOT IN [wrd_attributetype_free, wrd_attributetype_email, wrd_attributetype_integer, wrd_attributetype_integer64])
           THROW NEW Exception("Internal error, attribute " || toset.attr.tag || " of type #" || toset.attr.attributetype || " incorrectly marked as isunique");
 
         VARIANT findvalue;
-        IF(toset.attr.attributetype = 15)
+        IF(toset.attr.attributetype = wrd_attributetype_integer)
           findvalue := ToInteger(toset.newsets[0].rawdata,0);
-        ELSE IF(toset.attr.attributetype = 18)
+        ELSE IF(toset.attr.attributetype = wrd_attributetype_integer64)
           findvalue := ToInteger64(toset.newsets[0].rawdata,0);
         ELSE
           findvalue := toset.newsets[0].rawdata;
@@ -2437,7 +2437,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
         SWITCH (attr.attributetype)
         {
-          CASE 1 /*domain_single*/
+          CASE wrd_attributetype_domain
           {
             RECORD parsed := this->ParseAttr(attr, rec.value, isv2api, options.onmapdomvalue, options.whfsmapper, options.decodeinvalidutf8as, options.importmode);
             entityrec := CellDelete(entityrec, attr.cellname);
@@ -2445,22 +2445,22 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
             entityrec := CellInsert(entityrec, attr.cellname, Length(parsed.newsets) > 0 ? parsed.newsets[0].setting : 0);
             newsets := parsed.newsets;
           }
-          CASE 2 /*free*/
+          CASE wrd_attributetype_free
           {
             IF(rec.value!="")
               newsets := [[ rawdata := rec.value ]];
           }
-          CASE 6/*date*/
+          CASE wrd_attributetype_date
           {
             IF(rec.value != DEFAULT DATETIME) //TODO perhaps we can stop storing msecondcounts, but do query engines agree ?
               newsets := [[ rawdata := GetDayCount(rec.value) || "," || 0 ]];
           }
-          CASE 12 /*datetime*/
+          CASE wrd_attributetype_datetime
           {
             IF(rec.value != DEFAULT DATETIME)
               newsets := [[ rawdata := GetDayCount(rec.value) || "," || GetMsecondCount(rec.value) ]];
           }
-          CASE 15/*int*/, 18 /*int64*/
+          CASE wrd_attributetype_integer, wrd_attributetype_integer64
           {
             IF(rec.value!=0)
               newsets := [[ rawdata := ToString(rec.value) ]];
@@ -2959,11 +2959,11 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
     BOOLEAN allow_unique_rawdata := entity_limit = MAX_DATETIME OR entity_limit > GetCurrentDatetime();
 
-    IF(this->__typerec.metatype IN [2,3,4] AND (is_new OR CellExists(splitdata.entityrec,"leftentity")))
+    IF(this->__typerec.metatype IN [wrd_metatype_link,wrd_metatype_attachment,wrd_metatype_domain] AND (is_new OR CellExists(splitdata.entityrec,"leftentity")))
     {
       IF((NOT CellExists(splitdata.entityrec,"leftentity") OR splitdata.entityrec.leftentity=0))
       {
-        IF(NOT is_temp AND this->__typerec.metatype != 4 AND NOT options.importmode) //for domains its optional
+        IF(NOT is_temp AND this->__typerec.metatype != wrd_metatype_domain AND NOT options.importmode) //for domains its optional
         {
           options.errorcallback([tag := "WRD_LEFTENTITY", code := "REQUIRED" ]);
           anyerror := TRUE;
@@ -2976,11 +2976,11 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       }
       ELSE IF(CellExists(splitdata.entityrec,"leftentity") AND NOT this->wrdschema->__disableintegritychecks) //ADDME try to skip validation check if the entity didn't actually change
       {
-        this->ValidateReferredType([INTEGER(splitdata.entityrec.leftentity)], this->__typerec.metatype=4 ? this->__typerec.id : this->__typerec.requiretype_left, "WRD_LEFTENTITY");
+        this->ValidateReferredType([INTEGER(splitdata.entityrec.leftentity)], this->__typerec.metatype=wrd_metatype_domain ? this->__typerec.id : this->__typerec.requiretype_left, "WRD_LEFTENTITY");
       }
     }
 
-    IF(this->__typerec.metatype = 2 AND (is_new OR CellExists(splitdata.entityrec,"rightentity")))
+    IF(this->__typerec.metatype = wrd_metatype_link AND (is_new OR CellExists(splitdata.entityrec,"rightentity")))
     {
       IF((NOT CellExists(splitdata.entityrec,"rightentity") OR splitdata.entityrec.rightentity=0))
       {
