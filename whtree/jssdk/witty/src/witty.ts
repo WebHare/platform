@@ -1,4 +1,4 @@
-import { encodeHTML, encodeValue } from "dompack/types/text";
+import { encodeString } from "@webhare/std";
 import { getHTMLTid, getTid } from "@mod-tollium/js/gettid";
 import * as path from "node:path";
 
@@ -1089,11 +1089,11 @@ export class WittyTemplate {
         }
       case ContentEncoding.Html:
         {
-          return encodeHTML(value);
+          return encodeString(value, 'html');
         }
       case ContentEncoding.Value:
         {
-          return encodeValue(value);
+          return encodeString(value, 'attribute');
         }
       case ContentEncoding.CData:
         {

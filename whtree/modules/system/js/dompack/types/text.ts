@@ -4,10 +4,12 @@ export function encodeTextNode(str: string) {
     .split('>').join('&gt;');
 }
 
+/** @deprecated You should use encodeString(str, 'attribute') */
 export function encodeValue(str: string) {
   return encodeEntities(str, false);
 }
 
+/** @deprecated You should use decodeString(str, 'attribute') */
 export function decodeValue(str: string) {
   return str.replace(/<br *\/?>/g, "\n")
     .replace(/&#(\d+);/g, (_, dec) => String.fromCharCode(dec))
@@ -18,6 +20,7 @@ export function decodeValue(str: string) {
     .replace(/&amp;/g, "&");
 }
 
+/** @deprecated You should use encodeString(str, 'html') */
 export function encodeHTML(str: string) {
   return encodeEntities(str, true);
 }

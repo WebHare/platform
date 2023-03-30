@@ -2,7 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as domlevel from "./domlevel";
-import { encodeValue } from "dompack/types/text";
+import { encodeString } from "@webhare/std";
 
 /* Snapshots are a representation of a DOM-tree. References are taken to all
    nodes (elements and text), and all modifyable properties (nodeValue, attributes
@@ -286,7 +286,7 @@ export function dumpSnapShot(item, snapshot, indent) {
   let res = `<${item.node.nodeName}`;
   if (item.attrs) {
     for (const a of Object.entries(item.attrs))
-      res += ` ${a[0]}="${encodeValue(a[1])}"`;
+      res += ` ${a[0]}="${encodeString(a[1], 'attribute')}"`;
   }
 
   if (item.childNodes && item.childNodes.length)

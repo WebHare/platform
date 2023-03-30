@@ -4,7 +4,7 @@
 // Implements the frontend 'wh check' towl notifications
 const JSONRPC = require('@mod-system/js/net/jsonrpc');
 import { getTid } from "@mod-tollium/js/gettid";
-import * as domencoding from 'dompack/types/text';
+import { encodeString } from "@webhare/std";
 import $todd from "@mod-tollium/web/ui/js/support";
 
 let checkservice;
@@ -34,8 +34,8 @@ function onCheckResponse(success, response) {
       {
         id: "system:checks",
         icon: "tollium:messageboxes/warning",
-        title: domencoding.encodeValue(getTid("tollium:shell.checks.unresolvedissues")),
-        description: domencoding.encodeValue(messagetext),
+        title: encodeString(getTid("tollium:shell.checks.unresolvedissues"), 'attribute'),
+        description: encodeString(messagetext, 'attribute'),
         timeout: 0,
         applicationmessage: message,
         persistent: true

@@ -1,8 +1,7 @@
-import * as encoding from "dompack/types/text";
 import * as domdebug from "dompack/src/debug";
 // @ts-ignore Not converted to TypeScript yet
 import * as wh from "@mod-system/js/wh/integration";
-import { encodeHTML } from "dompack/types/text";
+import { encodeString } from "@webhare/std";
 
 /*
 Supported debug flags:
@@ -56,17 +55,17 @@ function executeCompiledTidText(text: LanguageText, params: string[], rich: bool
   if (text == null)
     return text;
   if (typeof text == "string")
-    return rich ? encodeHTML(text) : text;
+    return rich ? encodeString(text, 'html') : text;
 
   let output = '';
   for (const tok of text) {
     if (typeof tok == "string") {
-      output += rich ? encodeHTML(tok) : tok;
+      output += rich ? encodeString(tok, 'html') : tok;
     } else if (typeof tok == "number") {
       if (tok >= 1) {
         const get_param = params?.[tok - 1];
         if (get_param) {
-          output += rich ? encodeHTML(get_param) : get_param;
+          output += rich ? encodeString(get_param, 'html') : get_param;
         }
       }
     } else if (tok.t == "tag") {
@@ -82,7 +81,7 @@ function executeCompiledTidText(text: LanguageText, params: string[], rich: bool
         if (tok.linkparam > 0 && tok.linkparam <= params.length)
           link = params[tok.linkparam - 1];
         if (link)
-          output += `<a href="${encoding.encodeValue(link)}">${sub}</a>`;
+          output += `<a href="${encodeString(link, 'attribute')}">${sub}</a>`;
         else
           output += sub;
       } else {

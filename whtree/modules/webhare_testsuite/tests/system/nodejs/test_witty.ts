@@ -1,7 +1,7 @@
 /* eslint-disable require-atomic-updates -- too much noise about the witty = assignments */
 import * as test from "@webhare/test";
 import * as services from "@webhare/services/src/services";
-import { encodeValue } from "dompack/types/text";
+import { encodeString } from "@webhare/std";
 import { WittyTemplate, EncodingStyles, WittyError, WittyErrorCode, WittyCallContext } from "@webhare/witty";
 import { registerTexts, setTidLanguage } from "@mod-tollium/js/gettid";
 import { flags } from "@webhare/env";
@@ -156,7 +156,7 @@ async function encodingSensitivity() {
   //Test HTML encoding..
   witty = new WittyTemplate("[test1]");
   test.eq("&lt;", await witty.run({ test1: "<" }));
-  test.eq("<br />", await witty.run({ test1: "\n" }));
+  test.eq("<br>", await witty.run({ test1: "\n" }));
 
   //Test whether the href is properly recognized
   witty = new WittyTemplate("<a href=[test1]>");
@@ -165,7 +165,7 @@ async function encodingSensitivity() {
 
   //Test whether we properly recognize when a '>' falls inside our outside a tag
   witty = new WittyTemplate("<a href=>[test1]");
-  test.eq("<a href=><br />", await witty.run({ test1: "\n" }));
+  test.eq("<a href=><br>", await witty.run({ test1: "\n" }));
   witty = new WittyTemplate("<a href='>'[test1]");
   test.eq("<a href='>'&#10;", await witty.run({ test1: "\n" }));
   witty = new WittyTemplate("<a href='>\"[test1]");
@@ -175,7 +175,7 @@ async function encodingSensitivity() {
   witty = new WittyTemplate("<a href=\">\"[test1]");
   test.eq("<a href=\">\"&#10;", await witty.run({ test1: "\n" }));
   witty = new WittyTemplate("<a href=\">\">[test1]");
-  test.eq("<a href=\">\"><br />", await witty.run({ test1: "\n" }));
+  test.eq("<a href=\">\"><br>", await witty.run({ test1: "\n" }));
   witty = new WittyTemplate("<a href=\">'>[test1]");
   test.eq("<a href=\">'>&#10;", await witty.run({ test1: "\n" }));
 
@@ -422,11 +422,11 @@ async function encoding() {
   test.eq('Test: {"x":null}', await witty.run({ test: { x: null } }));
 
   witty = new WittyTemplate("Test: [test:jsonvalue]");
-  test.eq(encodeValue('Test: 42'), await witty.run({ test: 42 }));
-  test.eq(encodeValue('Test: 42.123'), await witty.run({ test: 42.123 }));
-  test.eq(encodeValue('Test: "42"'), await witty.run({ test: "42" }));
-  test.eq(encodeValue('Test: {"x":42}'), await witty.run({ test: { x: 42 } }));
-  test.eq(encodeValue('Test: {"x":"42"}'), await witty.run({ test: { x: "42" } }));
+  test.eq(encodeString('Test: 42', 'attribute'), await witty.run({ test: 42 }));
+  test.eq(encodeString('Test: 42.123', 'attribute'), await witty.run({ test: 42.123 }));
+  test.eq(encodeString('Test: "42"', 'attribute'), await witty.run({ test: "42" }));
+  test.eq(encodeString('Test: {"x":42}', 'attribute'), await witty.run({ test: { x: 42 } }));
+  test.eq(encodeString('Test: {"x":"42"}', 'attribute'), await witty.run({ test: { x: "42" } }));
 
   // JavaScript wittys don't support url, java, base16 and base64 encodings
   await test.throws(/Witty parse error at 1:8: Unknown encoding 'url' requested/, () => new WittyTemplate("Test: [gettid bla test:url]"));
@@ -437,7 +437,7 @@ async function encoding() {
   //Make sure the state is 'reset' at a new component, to avoid a html error confusing a whole lot more
   await services.ready();
   witty = await services.loadWittyResource("mod::system/whlibs/tests/encoding.witty");
-  test.eq("x<br />y", await witty.runComponent("masterinfo_popup", { ismaster: true, description: "x\ny", popupid: "", name: "" }));
+  test.eq("x<br>y", await witty.runComponent("masterinfo_popup", { ismaster: true, description: "x\ny", popupid: "", name: "" }));
 }
 
 let scopedcallbackcounter = 0;
