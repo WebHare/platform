@@ -261,7 +261,7 @@ export const whconstant_harescript_autoloaded_libraries = [
 ];
 
 // Version tag for the tika cache entries
-export const whconstants_consilio_tikacache_versiontag = "1";
+export const whconstants_consilio_tikacache_versiontag = "2";
 
 // Extension list (compatible with GetExtensionFromPath) for code that requires ts-node to run, not runscript
 export const whconstant_typescript_extensions = [".ts", ".tsx"];
