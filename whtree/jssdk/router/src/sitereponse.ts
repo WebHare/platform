@@ -78,7 +78,7 @@ export class SiteResponse<T extends object> {
       site: {}, //FIXME this->__jssiteconfig
       obj: {}, //FIXME this->__jsoobjconfig
       dtapstage: services.config.dtapstage,
-      //TODO should we hvae a services.config.islive?
+      //TODO should we have a services.config.islive?
       islive: ["production", "acceptance"].includes(services.config.dtapstage),
       locale: this.settings.lang, //why doesn't JS just get the html lang= ?
       //FIXME do we still want the 5 digit server number? does anyone really use it anyway?
