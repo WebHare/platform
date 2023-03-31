@@ -160,7 +160,7 @@ test.registerTests([
     test.eq("Vet!", getTid("html:tags"));
     test.eq("Codeer &lt;tag&gt; en &amp;lt;", getTid.html("html:encoding"));
     test.eq("Codeer <tag> en &lt;", getTid("html:encoding"));
-    test.eq(`<a href="http://b-lex.nl/?quot=&amp;quot;&amp;amp;aap=&amp;lt;noot&amp;gt;">&lt;hr/&gt;<br /></a>`, getTid.html("html:params", "<hr/>\n"));
+    test.eq(`<a href="http://b-lex.nl/?quot=&amp;quot;&amp;amp;aap=&amp;lt;noot&amp;gt;">&lt;hr/&gt;<br></a>`, getTid.html("html:params", "<hr/>\n"));
     test.eq("<hr/>\n", getTid("html:params", "<hr/>\n"));
   },
 
@@ -170,7 +170,7 @@ test.registerTests([
     const tids = test.getWin().getTidTest();
     test.eq("(cannot find text:webhare_testsuite:webdesigns.basetest.consolelog)", tids.consolelog, "Not included in lang.json");
     test.eq('\u2028unicode line separator,\u2029another separator', tids.unicode2028);
-    test.eq('Dit is <b>bold</b><br />volgende<br />regel', tids.richtext);
+    test.eq('Dit is <b>bold</b><br>volgende<br>regel', tids.richtext);
     test.eq('Please note: max 1 person', tids.maxextras_1);
     test.eq('Please note: max 2 persons', tids.maxextras_2);
 

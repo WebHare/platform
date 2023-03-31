@@ -3,7 +3,7 @@
 
 import * as test from "@mod-tollium/js/testframework";
 import * as rtetest from "@mod-tollium/js/testframework-rte";
-import { encodeValue } from 'dompack/types/text';
+import { encodeString } from "@webhare/std";
 
 let instanceref; // instance ref at the frontend side
 let instanceid; // instance id at the backend site
@@ -81,10 +81,10 @@ test.registerTests(
 
         // The raw code has an instanceid. Replace that with our instanceref for the compare
         instanceid = /data-instanceid="([^"]*)"/.exec(rawcode)[1];
-        const comparecode = rawcode.replace('data-instanceid="' + instanceid, 'data-instanceref="' + encodeValue(instanceref));
+        const comparecode = rawcode.replace('data-instanceid="' + instanceid, 'data-instanceref="' + encodeString(instanceref, 'attribute'));
 
         test.eqHTML('<p class="normal">This docs opens with a heading2. It should be selected in the Pulldown!</p><p class="normal">Hier is een image!<img class="wh-rtd__img" height="26" src="cid:SRCEMBED-4tE8e-B6Eig" width="27"></p>'
-          + '<div class="wh-rtd-embeddedobject" data-instanceref="' + encodeValue(instanceref) + '"></div>'
+          + '<div class="wh-rtd-embeddedobject" data-instanceref="' + encodeString(instanceref, 'attribute') + '"></div>'
           + '<p class="normal">And an inline object in <span class="wh-rtd-embeddedobject" data-instanceid="inlineobj-Cw-usGy9kO-g"></span> of the paragraph</p>'
           , comparecode);
 
@@ -116,9 +116,9 @@ test.registerTests(
         // Instance id should not have changed on the backend site
         test.assert(rawcode.indexOf(instanceid) != -1);
 
-        const comparecode = rawcode.replace('data-instanceid="' + instanceid, 'data-instanceref="' + encodeValue(instanceref));
+        const comparecode = rawcode.replace('data-instanceid="' + instanceid, 'data-instanceref="' + encodeString(instanceref, 'attribute'));
         test.eqHTML('<p class="normal">This docs opens with a heading2. It should no longer be selected in the Pulldown!</p><p class="normal">Hier is een image!<img class="wh-rtd__img" height="26" src="cid:SRCEMBED-4tE8e-B6Eig" width="27"></p>'
-          + '<div class="wh-rtd-embeddedobject" data-instanceref="' + encodeValue(instanceref) + '"></div>'
+          + '<div class="wh-rtd-embeddedobject" data-instanceref="' + encodeString(instanceref, 'attribute') + '"></div>'
           + '<p class="normal">And an inline object in <span class="wh-rtd-embeddedobject" data-instanceid="inlineobj-Cw-usGy9kO-g"></span> of the paragraph</p>', comparecode);
 
         test.getCurrentScreen().clickCloser();

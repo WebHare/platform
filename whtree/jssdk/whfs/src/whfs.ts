@@ -25,6 +25,7 @@ class WHFSObject {
 
   get id() { return this.dbrecord.id; }
   get name() { return this.dbrecord.name; }
+  get title() { return this.dbrecord.title; }
   get parent() { return this.dbrecord.parent; }
   get isfile() { return !this.dbrecord.isfolder; }
   get isfolder() { return !this.dbrecord.isfolder; }

@@ -1,48 +1,41 @@
 import * as test from "@webhare/test";
 import * as whfs from "@webhare/whfs";
 import * as services from "@webhare/services";
-import { WebRequest, WebResponse, SiteRequest } from "@webhare/router";
+import { WebRequest, WebResponse } from "@webhare/router";
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
 import { BaseTestPageConfig } from "@mod-webhare_testsuite/webdesigns/basetestjs/webdesign/webdesign";
-import { XMLParser } from "fast-xml-parser";
+//TODO why doesn't this work?  Now importing it into testsuite's package.json
+//import { DOMParser } from "wh:internal/whtree/node_modules/@xmldom/xmldom";
+import { DOMParser } from "@xmldom/xmldom";
 import { captureJSDesign, captureJSPage } from "@mod-publisher/js/internal/capturejsdesign";
+import { buildSiteRequest } from "@webhare/router/src/siterequest";
 
 function parseHTMLDoc(html: string) {
-  const parsingOptions = {
-    ignoreAttributes: false,
-    unpairedTags: ["hr", "br", "link", "meta", "img"],
-    stopNodes: ["*.pre", "*.script"],
-    processEntities: true,
-    htmlEntities: true,
-    //convert about everything but known unique tags to arrays..
-    isArray: (name: string, jpath: unknown, isLeafNode: boolean, isAttribute: boolean) => !isAttribute && !["html", "head", "body", "main", "thead", "tbody"].includes(name)
-  };
-  const parser = new XMLParser(parsingOptions);
-  return parser.parse(html);
+  // eslint-disable-next-line @typescript-eslint/no-empty-function -- we want an empty function!
+  return new DOMParser({ errorHandler: { warning: w => { } } }).parseFromString(html, "text/html");
 }
 
 function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: WebResponse) {
   const doc = parseHTMLDoc(response.body);
-  const whfspathnode = doc.html.body.div.find((_: any) => _["@_id"] === "whfspath");
-  test.eq(markdowndoc.whfspath, whfspathnode["#text"], "Expect our whfspath to be in the source");
+  test.eq(markdowndoc.whfspath, doc.getElementById("whfspath")?.textContent, "Expect our whfspath to be in the source");
 
-  const contentdiv = doc.html.body.div.find((_: any) => _["@_id"] === "content");
-
-  test.eq("Markdown file", contentdiv.h2[0]["#text"]); //it has an id= so this one currently becomes an object
-  test.eq("heading2", contentdiv.h2[0]["@_class"]); //it has an id= so this one currently becomes an object
-  test.eq("This is amarked down file", contentdiv.p[0]["#text"]);
-  test.eq(["commonmark"], contentdiv.p[0].code);
-  test.eq("normal", contentdiv.p[0]["@_class"]);
+  const contentdiv = doc.getElementById("content");
+  test.eq("Markdown file", contentdiv?.getElementsByTagName("h2")[0]?.textContent);
+  test.eq("heading2", contentdiv?.getElementsByTagName("h2")[0]?.getAttribute("class"));
+  const firstpara = contentdiv?.getElementsByTagName("p")[0];
+  test.eq("This is a commonmark marked down file", firstpara?.textContent);
+  test.eq("commonmark", firstpara?.getElementsByTagName("code")[0]?.textContent);
+  test.eq("normal", firstpara?.getAttribute("class"));
   //FIXME also ensure proper classes on table and tr/td!
-  test.eq(["baz", "bim"], contentdiv.table[0].tbody.tr[0].td);
+  test.eq("baz", contentdiv?.getElementsByTagName("td")[0]?.textContent);
+  test.eq("bim", contentdiv?.getElementsByTagName("td")[1]?.textContent);
 }
-
 
 //Test SiteResponse. we look a lot like testRouter except that we're not really using the file we open but just need it to bootstrap SiteRequest
 async function testSiteResponse() {
   //Create a SiteRequest so we have context for a SiteResponse
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
-  const sitereq = new SiteRequest(new WebRequest(markdowndoc.link), markdowndoc);
+  const sitereq = await buildSiteRequest(new WebRequest(markdowndoc.link), markdowndoc);
 
   //It should be okay to initialize the composer without knowing its tpye
   const outputpage = await sitereq.createComposer();
@@ -57,10 +50,9 @@ async function testSiteResponse() {
 
   //Verify markdown contents
   const doc = parseHTMLDoc(response.body);
-  test.eq("whfspath", doc.html.body.div[0]["@_id"]);
-  test.eq(markdowndoc.whfspath, doc.html.body.div[0]["#text"], "Expect our whfspath to be in the source");
-  const contentdiv = doc.html.body.div.find((_: any) => _["@_id"] === "content");
-  test.eq("This is a body!", contentdiv.p[0]);
+  test.eq(markdowndoc.whfspath, doc.getElementById("whfspath")?.textContent, "Expect our whfspath to be in the source");
+  const contentdiv = doc.getElementById("content");
+  test.eq("This is a body!", contentdiv?.getElementsByTagName("p")[0]?.textContent);
   test.eq("text/html; charset=utf-8", response.getHeader("content-type"));
 }
 
@@ -69,7 +61,7 @@ async function testCaptureJSDesign() {
   const targetpage = await whfs.openFile("site::webhare_testsuite.testsitejs/webtools/pollholder");
   const resultpage = await captureJSDesign(targetpage.id);
   test.eq(2, resultpage.parts.length, "Expect two parts to be generated, for each side of the placeholder");
-  test.eqMatch(/<html.*<body.*<div id="content">$/, resultpage.parts[0].replaceAll("\n", " "));
+  test.eqMatch(/.*<html.*<body.*<div id="content"[^>]+> *$/, resultpage.parts[0].replaceAll("\n", " "));
   test.eqMatch(/^ *<\/div>.*\/body.*\/html/, resultpage.parts[1].replaceAll("\n", " "));
 }
 
@@ -78,7 +70,7 @@ async function testCaptureJSRendered() {
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
   const resultpage = await captureJSPage(markdowndoc.id);
   // console.log(resultpage.body);
-  test.eqMatch(/<html.*<body.*<div id="content">.*<code>commonmark<\/code>.*<\/div>.*\/body.*\/html/, resultpage.body.replaceAll("\n", " "));
+  test.eqMatch(/<html.*<body.*<div id="content".*<code>commonmark<\/code>.*<\/div>.*\/body.*\/html/, resultpage.body.replaceAll("\n", " "));
 }
 
 //Unlike testSiteResponse the testRouter_... tests actually attempt to render the markdown document *and* go through the path lookup motions

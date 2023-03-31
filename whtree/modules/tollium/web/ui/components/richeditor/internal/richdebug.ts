@@ -2,7 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as domlevel from "./domlevel";
-import * as texttype from 'dompack/types/text';
+import { encodeString } from "@webhare/std";
 import Range from './dom/range';
 
 function getIndentedLineBreak(indent: number, incr?: number) {
@@ -127,14 +127,14 @@ function getStructuredOuterHTMLInternal(node, namedlocators, indent) {
     return retval;
   }
   if (node.nodeType == 1) {
-    retval += '<' + texttype.encodeValue(node.nodeName);
+    retval += '<' + encodeString(node.nodeName, 'attribute');
     for (let i = 0; i < node.attributes.length; ++i) {
       const attrvalue = String(node.attributes[i].value || node.attributes[i].nodeValue || '');
       if (attrvalue) {
         const attrname = String(node.attributes[i].nodeName);
         if (attrvalue.substr(0, 9) == "function(") // Readability for IE8
           continue;
-        retval += ' ' + texttype.encodeValue(attrname) + '="' + texttype.encodeValue(attrvalue) + '"';
+        retval += ' ' + encodeString(attrname, 'attribute') + '="' + encodeString(attrvalue, 'attribute') + '"';
       }
     }
 
@@ -157,7 +157,7 @@ function getStructuredOuterHTMLInternal(node, namedlocators, indent) {
     retval += nodecontents;
     if (nodecontents)
       retval += getIndentedLineBreak(indent);
-    return retval + '</' + texttype.encodeValue(node.nodeName) + '>';
+    return retval + '</' + encodeString(node.nodeName, 'attribute') + '>';
   }
   if (node.nodeType == 3 || node.nodeType == 4 || node.nodeType == 8) {
     if (node.nodeType == 3)
@@ -175,7 +175,7 @@ function getStructuredOuterHTMLInternal(node, namedlocators, indent) {
       text += intext.substr(i, 1);
     }
     text += getNamedLocatorsText(namedlocators, node, intext.length);
-    const valenc = unescape(escape(texttype.encodeValue(text)).split('%u').join('\\u').split('%A0').join('\\u00A0'));
+    const valenc = unescape(escape(encodeString(text, 'attribute')).split('%u').join('\\u').split('%A0').join('\\u00A0'));
     retval += '"' + valenc + '"';// + (valenc != urienc ? ' - "' + urienc + '"' : '');
     return retval;
   }

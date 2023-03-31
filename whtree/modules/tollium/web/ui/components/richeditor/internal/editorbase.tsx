@@ -23,10 +23,10 @@ import * as richdebug from "./richdebug";
 import * as domlevel from "./domlevel";
 import * as support from "./support";
 import * as compatupload from '@mod-system/js/compat/upload';
-import * as texttype from 'dompack/types/text';
 import * as icons from '@mod-tollium/js/icons';
 import Range from './dom/range';
 import type ParsedStructure from "./parsedstructure";
+import { encodeString } from "@webhare/std";
 
 let editableFix;
 
@@ -70,7 +70,7 @@ function GetOuterPlain(node: Node): string {
   if (node.nodeType == 3 || node.nodeType == 4) {
     if (!node.nodeValue)
       return '';
-    let value = texttype.encodeValue(node.nodeValue);
+    let value = encodeString(node.nodeValue, 'attribute');
 
     // Replace newlines with <br> nodes within pre elements
     let nodeitr = node.parentNode;
@@ -122,7 +122,7 @@ function GetNodeXML(node: Node, inner?: boolean): string {
       break;
     case 3: // text
       if (node.nodeValue)
-        s.push(texttype.encodeValue(node.nodeValue));
+        s.push(encodeString(node.nodeValue, 'attribute'));
       break;
   }
   return s.join('');
@@ -131,7 +131,7 @@ function GetNodeXML(node: Node, inner?: boolean): string {
 function GetNodeXML_Attributes(node: Element) {
   const s = [];
   for (let i = 0; i < node.attributes.length; ++i)
-    s.push(' ' + node.attributes[i].nodeName.toLowerCase() + '="' + texttype.encodeValue(node.attributes[i].nodeValue || "") + '"');
+    s.push(' ' + node.attributes[i].nodeName.toLowerCase() + '="' + encodeString(node.attributes[i].nodeValue || "", 'attribute') + '"');
   return s.join('');
 }
 

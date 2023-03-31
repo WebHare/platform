@@ -2,8 +2,8 @@ import fs from "node:fs";
 import { DOMParser } from '@xmldom/xmldom';
 import { config } from "../configuration";
 import { whconstant_builtinmodules } from "../webhareconstants";
-import { encodeValue } from "dompack/types/text";
 import { updateDir } from "./shared";
+import { encodeString } from "@webhare/std";
 
 
 function elements<T extends Element>(collection: HTMLCollectionOf<T>): T[] {
@@ -31,7 +31,7 @@ function getInnerXML(node: Element, withelt = false): string {
       if (child.nodeType === 1)
         retval += getInnerXML(child as Element, true);
       else if (child.nodeType === child.TEXT_NODE)
-        retval += (child.nodeValue ?? "").split("\n").map(l => encodeValue(l)).join("\n");
+        retval += (child.nodeValue ?? "").split("\n").map(l => encodeString(l, "attribute")).join("\n");
     }
     return retval + (withelt ? `</${node.localName}>` : "");
   }

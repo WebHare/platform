@@ -37,5 +37,5 @@ export async function wrapHSWebdesign<T extends object>(request: SiteRequest): P
   const webdesign = await siteprofileslib.GetWebDesign(request.targetobject.id) as HSVMObject;
   const pageconfig = await webdesign.get("pageconfig");
 
-  return new HSWebdesignDriver<T>(hsvm, webdesign, pageconfig as T, request, { witty: "", assetpack: "" });
+  return new HSWebdesignDriver<T>(hsvm, webdesign, pageconfig as T, request, new SiteResponseSettings);
 }
