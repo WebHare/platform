@@ -53,6 +53,21 @@ MACRO TestParserHtml()
   TestEq([[ name := "firstfield", value := "keepme" ]
          ,[ name := "pagekeywords", value := ["by-name testfile6.rtd","</script>","by-id 60039"]]
          ], parsed.extrafields);
+
+  // Regression: Consilio returned the text of all 'title' texts as title instead of only html>head>title
+  parsed := ParseHTMLPage(StringToBlob(`<!doctype html>
+    <html>
+      <head>
+        <title>test\uFFFDtitle</title>
+      </head>
+      <body>
+        <p>
+          test\uFFFDbody
+        </p>
+      </body>
+    </html>`),TRUE);
+  TestEq("test title", parsed.title);
+  TestEq("test body", parsed.text);
 }
 
 RunTestframework([ PTR TestParserHtml
