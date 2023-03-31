@@ -322,6 +322,13 @@ MACRO Text(STRING text)
   IF (Length(element_path) = 0)
     RETURN; // Not parsing elements yet
 
+  // Replace Unicode replacement characters (\uFFFD) with spaces
+  // Tika replaces invalid character with Unicode replacement characters, we'll just replace those with spaces
+  // See https://tika.apache.org/0.10/index.html
+  // "Invalid characters are now replaced with the Unicode replacement character (U+FFFD), whereas before such characters
+  //  were replaced with spaces, so you may need to change your processing of Tika's output to now handle U+FFFD"
+  text := Substitute(text, "\uFFFD", " ");
+
   IF (Length(element_path) = 3 AND element_path[0] = "TITLE" AND element_path[1] = "HEAD" AND element_path[2] = "HTML")
     // We're currently parsing the document title
     parsed_page.title := parsed_page.title || (previous_text OR parsed_page.title = "" ? "" : " ") || text;
