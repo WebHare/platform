@@ -70,6 +70,7 @@ if ! ( apt-get changelog openssl | grep -q CVE-2021-3449 ) ; then
   exit 1
 fi
 
+# 2023-04-02: Added 'libaio1' - it's a dependency for oracle instantclient
 # 2021-12-22: Added 'zip' for shrinkwrap (building history/source.zips)
 # 2022-08-05: Added 'jq' to parse webhare.version
 
@@ -91,6 +92,7 @@ PACKAGES="ccache
     openjdk-8-jre-headless
     fonts-liberation
     less
+    libaio1
     lftp
     libcurl4-openssl-dev
     libmaxminddb-dev
