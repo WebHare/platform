@@ -6,6 +6,7 @@ import { config } from "@mod-system/js/internal/configuration";
 import { activate } from "@mod-system/js/internal/hmrinternal";
 import { openHSVM, HSVM, HSVMObject } from "@webhare/services/src/hsvm";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
+import { toFSPath } from "@webhare/services";
 
 async function testFileEdits() {
 
@@ -140,12 +141,33 @@ async function testModuleReplacement() {
     <version>0.0.1</version>
   </meta>
 </module>`,
-    "js/file2.ts": `import { func } from "@mod-webhare_testsuite_hmrtest/js/file"; export function func2() { return func(); }`
+    "js/file2.ts": `import { func } from "@mod-webhare_testsuite_hmrtest/js/file"; export function func2() { return func(); }`,
+    "js/file3.ts": `import { registerLoadedResource } from "@mod-system/js/internal/hmrinternal";
+import { toFSPath } from "@webhare/services";
+import * as fs from "node:fs";
+const fspath = toFSPath("mod::webhare_testsuite_hmrtest/js/file.ts");
+const file = fs.readFileSync(fspath).toString();
+registerLoadedResource(module, fspath);
+export function func3() { return Number(/return\\s*([^\\s])*\\t*;/.exec(file)?.[1]); }
+`
   });
+
+  const loaderfilepath = toFSPath("mod::system/js/internal/resourcetools.ts");
+
+  test.assert(!Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest/js/file.ts")));
+  test.assert(!Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest2/js/file2.ts")));
 
   test.eq(1, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest/js/file.ts#func"))());
   test.eq(1, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest2/js/file2.ts#func2"))());
+  test.eq(1, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest2/js/file3.ts#func3"))());
   const orgpath = config.module["webhare_testsuite_hmrtest"].root;
+
+  test.assert(Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest/js/file.ts")));
+  test.assert(Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest2/js/file2.ts")));
+  test.assert(Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest2/js/file3.ts")));
+  test.eq(1, require.cache[loaderfilepath]?.children.filter(({ id }) => id === toFSPath("mod::webhare_testsuite_hmrtest/js/file.ts")).length);
+  test.eq(1, require.cache[loaderfilepath]?.children.filter(({ id }) => id === toFSPath("mod::webhare_testsuite_hmrtest2/js/file2.ts")).length);
+  test.eq(1, require.cache[loaderfilepath]?.children.filter(({ id }) => id === toFSPath("mod::webhare_testsuite_hmrtest2/js/file3.ts")).length);
 
   console.log(`create 2nd version of module webhare_testsuite_hmrtest`);
   await createModule(hsvm, "webhare_testsuite_hmrtest", {
@@ -158,9 +180,22 @@ async function testModuleReplacement() {
     "js/file.ts": `export function func() { return 2; }; console.log("load file 2");`
   });
 
+  // All modules referencing file.ts should be removed from the cache
+  test.assert(!Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest/js/file.ts")));
+  test.assert(!Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest2/js/file2.ts")));
+  test.assert(!Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest2/js/file3.ts")));
+  test.eq(0, require.cache[loaderfilepath]?.children.filter(({ id }) => id === toFSPath("mod::webhare_testsuite_hmrtest/js/file.ts")).length);
+  test.eq(0, require.cache[loaderfilepath]?.children.filter(({ id }) => id === toFSPath("mod::webhare_testsuite_hmrtest2/js/file2.ts")).length);
+  test.eq(0, require.cache[loaderfilepath]?.children.filter(({ id }) => id === toFSPath("mod::webhare_testsuite_hmrtest2/js/file3.ts")).length);
+
   test.assert(orgpath !== config.module["webhare_testsuite_hmrtest"].root, `new path ${config.module["webhare_testsuite_hmrtest"].root} should differ from old path ${orgpath}`);
   test.eq(2, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest/js/file.ts#func"))());
-  test.eq(2, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest2/js/file2.ts#func2"))());
+  test.eq(2, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest2/js/file2.ts#func2"))(), "Recursive invalidation of modules should work, resolve cache and realpath cache should also be cleared");
+  test.eq(2, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest2/js/file3.ts#func3"))(), "Invalidation by loaded resources should work");
+
+  test.assert(Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest/js/file.ts")));
+  test.assert(Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest2/js/file2.ts")));
+  test.assert(Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest2/js/file3.ts")));
 
   if (!await hsvm.loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule("webhare_testsuite_hmrtest"))
     throw new Error(`Could not delete module "webhare_testsuite_hmrtest"`);
