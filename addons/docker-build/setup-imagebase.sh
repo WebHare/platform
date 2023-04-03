@@ -39,9 +39,7 @@ echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/
 ( curl -sL https://deb.nodesource.com/setup_18.x | bash - )
 apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 7FCC7D46ACCC4CF8 #Postgres key
 add-apt-repository 'deb http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main'
-# ( curl -sL https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - )
 ( curl -sL https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add )
-# ( echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list )
 
 
 # Modify root to live in /opt/whdata/home/root/ so data there is preserved between restarts
@@ -125,7 +123,6 @@ PACKAGES="ccache
     sshfs
     stunnel4
     tar
-    unixodbc-dev
     unzip
     valgrind
     vim

@@ -96,7 +96,7 @@ class PGSQLTransactionDriver : public DatabaseTransactionDriverInterface
         void ExecuteInsertInternal(DatabaseQuery const &query, VarId newrecord, bool isarray);
 
     public:
-        /// Initializes ODBC transaction
+        /// Initializes PG transaction
         PGSQLTransactionDriver(HSVM *vm, PGconn *conn, Options const &options);
         ~PGSQLTransactionDriver();
 
@@ -147,7 +147,7 @@ struct PGSQLConn
         ~PGSQLConn();
 };
 
-/** Global ODBC data, per VM */
+/** Global PG data, per VM */
 struct PGSQLProviderContextData
 {
         PGSQLProviderContextData();

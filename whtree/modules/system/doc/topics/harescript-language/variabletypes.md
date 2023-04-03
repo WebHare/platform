@@ -389,7 +389,6 @@ write real NULLs to an external database:
 
 ```harescript
 //Bind table `mydata` to some external database
-//(eg, an MS Access dbase via ODBC)
 TABLE mydata<INTEGER ref NULL -1, STRING name> := ....;
 
 //This will insert a NULL into the `ref` field in the real table
@@ -429,7 +428,6 @@ Inside HareScript expressions and statements, schemas can only appear after an
 
 ```harescript
 //Bind table `myschema` to some external database
-//(eg, an MS Access dbase via ODBC)
 SCHEMA
 < TABLE
   < INTEGER ref NULL -1
