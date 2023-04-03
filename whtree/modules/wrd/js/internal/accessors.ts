@@ -151,13 +151,13 @@ function addQueryFilter<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", 
 type WRDDBStringConditions = {
   condition: "=" | ">=" | ">" | "!=" | "<" | "<="; value: string; options?: { matchcase?: boolean };
 } | {
-  condition: "in"; value: string[]; options?: { matchcase?: boolean };
+  condition: "in"; value: readonly string[]; options?: { matchcase?: boolean };
 } | {
   condition: "like"; value: string; options?: { matchcase?: boolean };
 } | {
   condition: "mentions"; value: string; options?: { matchcase?: boolean };
 } | {
-  condition: "mentionsany"; value: string[]; options?: { matchcase?: boolean };
+  condition: "mentionsany"; value: readonly string[]; options?: { matchcase?: boolean };
 };
 
 class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRDDBStringConditions> {
@@ -265,7 +265,7 @@ class WRDDBBooleanValue extends WRDAttributeValueBase<boolean, boolean, boolean,
 type WRDDBIntegerConditions = {
   condition: "<" | "<=" | "=" | "!=" | ">=" | ">"; value: number;
 } | {
-  condition: "in"; value: number[];
+  condition: "in"; value: readonly number[];
 };
 
 class WRDDBIntegerValue extends WRDAttributeValueBase<number, number, number, WRDDBIntegerConditions> {
@@ -303,11 +303,11 @@ class WRDDBIntegerValue extends WRDAttributeValueBase<number, number, number, WR
 type WRDDBDomainConditions = {
   condition: "=" | "!="; value: number | null;
 } | {
-  condition: "in"; value: number[];
+  condition: "in"; value: ReadonlyArray<number | null>;
 } | {
   condition: "mentions"; value: number;
 } | {
-  condition: "mentionsany"; value: number[];
+  condition: "mentionsany"; value: readonly number[];
 };
 
 class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
@@ -373,9 +373,9 @@ class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
 type WRDDBDomainArrayConditions = {
   condition: "mentions" | "contains"; value: number;
 } | {
-  condition: "mentionsany" | "intersects"; value: number[];
+  condition: "mentionsany" | "intersects"; value: readonly number[];
 } | {
-  condition: "=" | "!="; value: number[];
+  condition: "=" | "!="; value: readonly number[];
 };
 
 class WRDDBDomainArrayValue extends WRDAttributeValueBase<number[], number[], number[], WRDDBDomainArrayConditions> {
@@ -419,7 +419,7 @@ class WRDDBDomainArrayValue extends WRDAttributeValueBase<number[], number[], nu
     type Conditions = {
       condition: "=" | "!="; value: number;
     } | {
-      condition: "in" | "not in"; value: number[];
+      condition: "in" | "not in"; value: readonly number[];
     } | undefined;
 
     // For '=' and '!=',
@@ -465,13 +465,13 @@ type WRDDBEnumConditions = {
 } | {
   condition: ">" | "<"; value: string;
 } | {
-  condition: "in"; value: string[];
+  condition: "in"; value: readonly string[];
 } | {
   condition: "like"; value: string;
 } | {
   condition: "mentions"; value: string;
 } | {
-  condition: "mentionsany"; value: string[];
+  condition: "mentionsany"; value: readonly string[];
 };
 
 // FIXME: add wildcard support
@@ -574,8 +574,9 @@ export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default
 type GetEnumArrayAllowedValues<Options extends { allowedvalues: string }> = Options extends { allowedvalues: infer V } ? V : never;
 
 /// The following accessors are not implemented yet, but have some typings
-class WRDDBDateValue extends WRDAttributeUnImplementedValueBase<Date, Date, Date> { }
-class WRDDBDateTimeValue extends WRDAttributeUnImplementedValueBase<Date, Date, Date> { }
+class WRDDBDateValue extends WRDAttributeUnImplementedValueBase<Date | null, Date | null, Date | null> { }
+class WRDDBDateTimeValue extends WRDAttributeUnImplementedValueBase<Date | null, Date | null, Date | null> { }
+class WRDDBBaseModificationDateValue extends WRDAttributeUnImplementedValueBase<Date, Date, Date> { }
 class WRDDBMoneyValue extends WRDAttributeUnImplementedValueBase<Money, Money, Money> { }
 class WRDDBInteger64Value extends WRDAttributeUnImplementedValueBase<bigint, bigint, bigint> { }
 class WRDDBBaseGenderValue extends WRDAttributeUnImplementedValueBase<WRDGender, WRDGender, WRDGender> { }
@@ -601,7 +602,8 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDAttributeType.Base_Integer]: WRDDBIntegerValue;
   [WRDAttributeType.Base_Guid]: WRDDBStringValue;
   [WRDAttributeType.Base_Tag]: WRDDBStringValue;
-  [WRDAttributeType.Base_DateTime]: WRDDBDateValue;
+  [WRDAttributeType.Base_CreationLimitDate]: WRDDBDateValue;
+  [WRDAttributeType.Base_ModificationDate]: WRDDBBaseModificationDateValue;
   [WRDAttributeType.Base_Date]: WRDDBDateValue;
   [WRDAttributeType.Base_GeneratedString]: WRDDBStringValue;
   [WRDAttributeType.Base_NameString]: WRDDBStringValue;

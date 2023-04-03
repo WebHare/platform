@@ -211,7 +211,7 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options = {}) {
   persontype->CreateAttribute("TEST_ARRAY.TEST_MULTIPLE",         "DOMAINARRAY",       [ title := "Array multiple domain attribute", domaintag := domain1_obj->tag ]);
   persontype->CreateAttribute("TEST_ARRAY.TEST_EMAIL",            "EMAIL",             [ title := "Array email attribute" ]);
 
-  BLOB testimage_blob := GetWebhareResource("mod::system/web/tests/goudvis.png");
+  BLOB testimage_blob := GetWebHareResource("mod::system/web/tests/goudvis.png");
   RECORD testimage := WrapBlob(testimage_blob,"goudvis.png");
 
   BLOB testfile_blob; //FIXME: Get from disk

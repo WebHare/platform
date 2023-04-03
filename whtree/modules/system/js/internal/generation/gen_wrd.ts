@@ -104,9 +104,9 @@ async function generateWRDDefs(modulename: string, modules: string[]): Promise<s
             attrdefs.wrd_guid = { generated: false, required: false, defstr: `WRDAttributeType.Base_Guid` };
             attrdefs.wrd_type = { generated: true, required: false, defstr: `IsGenerated<WRDAttributeType.Base_Integer>` };
             attrdefs.wrd_tag = { generated: false, required: false, defstr: `WRDAttributeType.Base_Tag` };
-            attrdefs.wrd_creationdate = { generated: false, required: false, defstr: `WRDAttributeType.Base_DateTime` };
-            attrdefs.wrd_limitdate = { generated: false, required: false, defstr: `WRDAttributeType.Base_DateTime` };
-            attrdefs.wrd_modificationdate = { generated: false, required: false, defstr: `WRDAttributeType.Base_DateTime` };
+            attrdefs.wrd_creationdate = { generated: false, required: false, defstr: `WRDAttributeType.Base_CreationLimitDate` };
+            attrdefs.wrd_limitdate = { generated: false, required: false, defstr: `WRDAttributeType.Base_CreationLimitDate` };
+            attrdefs.wrd_modificationdate = { generated: false, required: false, defstr: `WRDAttributeType.Base_ModificationDate` };
 
             if (type.type !== "OBJECT") {
               if (type.type === "DOMAIN") {

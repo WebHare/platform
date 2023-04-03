@@ -10,9 +10,9 @@ function testTypes() {
     wrd_guid: WRDAttributeType.Base_Guid;
     wrd_type: IsGenerated<WRDAttributeType.Base_Integer>;
     wrd_tag: WRDAttributeType.Base_Tag;
-    wrd_creationdate: WRDAttributeType.Base_DateTime;
-    wrd_limitdate: WRDAttributeType.Base_DateTime;
-    wrd_modificationdate: WRDAttributeType.Base_DateTime;
+    wrd_creationdate: WRDAttributeType.Base_CreationLimitDate;
+    wrd_limitdate: WRDAttributeType.Base_CreationLimitDate;
+    wrd_modificationdate: WRDAttributeType.Base_ModificationDate;
     wrd_gender: WRDAttributeType.Base_Gender;
     wrd_salute_formal: IsGenerated<WRDAttributeType.Base_GeneratedString>;
     wrd_address_formal: IsGenerated<WRDAttributeType.Base_GeneratedString>;
@@ -132,11 +132,11 @@ function testTypes() {
     whuser_disabled?: boolean;
     whuser_disablereason?: string;
     whuser_hiddenannouncements?: number[];
-    whuser_lastlogin?: Date;
+    whuser_lastlogin?: Date | null;
     whuser_unit: number;
-    wrd_creationdate?: Date;
-    wrd_dateofbirth?: Date;
-    wrd_dateofdeath?: Date;
+    wrd_creationdate?: Date | null;
+    wrd_dateofbirth?: Date | null;
+    wrd_dateofdeath?: Date | null;
     wrd_firstname?: string;
     wrd_firstnames?: string;
     wrd_gender?: WRDGender;
@@ -145,7 +145,7 @@ function testTypes() {
     wrd_infix?: string;
     wrd_initials?: string;
     wrd_lastname?: string;
-    wrd_limitdate?: Date;
+    wrd_limitdate?: Date | null;
     wrd_modificationdate?: Date;
     wrd_tag?: string;
     wrd_titles_suffix?: string;

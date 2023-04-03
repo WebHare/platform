@@ -13,6 +13,7 @@
   <test script="consilio.whscr" />
   <test script="testtollium.whscr" />
   <test script="test_exchange.whscr" />
+  <test script="test_jsmode.whscr" />
   <test name="test_sync-batch" script="test_sync.whscr">
     <arg value="batch" />
   </test>

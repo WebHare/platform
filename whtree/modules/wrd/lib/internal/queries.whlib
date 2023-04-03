@@ -58,7 +58,7 @@ BOOLEAN FUNCTION IsWrapper(VARIANT val)
 
 }
 
-PUBLIC RECORD FUNCTION GenerateBaseFields(RECORD ARRAY base_fields, RECORD inrow)
+PUBLIC RECORD FUNCTION GenerateBaseFields(RECORD ARRAY base_fields, RECORD inrow, BOOLEAN jsmode)
 {
   RECORD addfields;
   FOREVERY (RECORD field FROM base_fields)
@@ -68,7 +68,11 @@ PUBLIC RECORD FUNCTION GenerateBaseFields(RECORD ARRAY base_fields, RECORD inrow
     IF(field.isgenerated)
       mycell := field.generator(inrow);
     ELSE
+    {
       mycell := GetCell(inrow, field.cellname);
+      IF (jsmode AND (field.attributetype = wrd_attributetype_date OR field.attributetype = wrd_attributetype_datetime) AND (mycell = DEFAULT DATETIME OR mycell = MAX_DATETIME))
+        mycell := DEFAULT RECORD;
+    }
 
     FOREVERY(STRING sub FROM field.subselect)
       IF(CellExists(mycell,sub))
@@ -289,15 +293,18 @@ STATIC OBJECTTYPE WRDQuerySource EXTEND WRDMultiCondition
 
   OBJECT pvt_whfsmapper;
 
+  BOOLEAN pvt_jsmode;
+
   /** Constructor for a WRDQuerySource object; pass the type of entity to select.
       @param wrd_type WRD type object
       @param whfsmapper WHFS mapper
   */
-  PUBLIC MACRO NEW(OBJECT wrd_type, OBJECT whfsmapper)
+  PUBLIC MACRO NEW(OBJECT wrd_type, OBJECT whfsmapper, BOOLEAN jsmode)
   : WRDMulticondition("AND")
   {
     this->wrd_type := wrd_type;
     this->pvt_whfsmapper := whfsmapper;
+    this->pvt_jsmode := jsmode;
   }
 
   RECORD FUNCTION ExpandWildcards(STRING ARRAY masks)
@@ -335,7 +342,7 @@ STATIC OBJECTTYPE WRDQuerySource EXTEND WRDMultiCondition
     IF (LENGTH(this->selected_attributes) = 0)
       RETURN DEFAULT RECORD;
 
-    RETURN GetAccessors(this->wrd_type, this->selected_attributes, DEFAULT OBJECT, this->pvt_whfsmapper);
+    RETURN GetAccessors(this->wrd_type, this->selected_attributes, DEFAULT OBJECT, this->pvt_whfsmapper, this->pvt_jsmode);
   }
 
   PUBLIC RECORD ARRAY FUNCTION RecurseGetOutputColumns(VARIANT in_outputcolumns)
@@ -508,6 +515,8 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
 
     OBJECT pvt_whfsmapper;
 
+    BOOLEAN jsmode;
+
     // Initialize the multiquery with a single query
     // ----------------------------------------------------------------------------
     //
@@ -517,10 +526,11 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
     /** @param wrd_schema WRD schema
         @param whfsmapper WHFS mapper
     */
-    PUBLIC MACRO NEW(OBJECT wrd_schema, OBJECT whfsmapper)
+    PUBLIC MACRO NEW(OBJECT wrd_schema, OBJECT whfsmapper, BOOLEAN jsmode)
     {
       this->wrd_schema := wrd_schema;
       this->pvt_whfsmapper := whfsmapper;
+      this->jsmode := jsmode;
       this->resultlimit := -1;
     }
 
@@ -969,7 +979,7 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
       OBJECT last_lowerbound;
       FOREVERY (OBJECT condition FROM conditions)
       {
-        IF (NOT RecordExists(condition->attr) OR condition->attr.attributetype NOT IN [ 6, 12 ]) // date, datetime
+        IF (NOT RecordExists(condition->attr) OR condition->attr.attributetype NOT IN [ 6, 12 ] OR condition->attr.base) // date, datetime
         {
           INSERT condition INTO result AT END;
           CONTINUE;
@@ -1136,15 +1146,86 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
         IF (NOT condition->match_case AND condition->match_type = "IN")
           RETURN FALSE;
 
+        IF (this->jsmode)
+        {
+          IF (condition->attr.tag = "WRD_CREATIONDATE" OR condition->attr.tag = "WRD_LIMITDATE")
+          {
+            BOOLEAN isnull := TypeID(condition->value_holder.data) = TypeID(RECORD) AND IsDefaultValue(condition->value_holder.data);
+
+            /* mapping queries on creationdate and limitdate. null is stored as MAX_DATETIME for HS compatibility
+                = null -> = MAX_DATETIME
+                != null -> != MAX_DATETIME
+                > null -> != MAX_DATETIME
+                >= null -> TRUE
+                <= null -> = MAX_DATETIME
+                < null -> NEVER (< DEFAULT DATETIME)
+                = X -> = X
+                != X -> != X
+                > X -> > X && != MAX_DATETIME
+                >= X -> >= X && X != MAX_DATETIME
+                <= X -> = <= X OR = MAX_DATETIME - //HS cannot handle this
+                < X -> <= X OR = MAX_DATETIME - //HS cannot handle this
+            */
+            IF (isnull)
+            {
+              VARIANT value := MAX_DATETIME;
+              STRING matchtype := condition->match_type;
+              IF (condition->match_type = ">=")
+                RETURN TRUE; // always true
+              ELSE IF (condition->match_type = "<")
+                value := DEFAULT DATETIME;
+              ELSE IF (condition->match_type = ">")
+                matchtype := "!="; // != MAX_DATETIME
+              ELSE IF (condition->match_type = "<=")
+                matchtype := "=";
+              dbquery->AddConstraint(query_name || "." || condition->attr.cellname, matchtype, value);
+            }
+            ELSE
+            {
+              VARIANT value := condition->value_holder.data;
+              IF (condition->match_type = "IN" AND IsTypeIDArray(TypeID(value)))
+              {
+                FOREVERY (VARIANT elt FROM value)
+                  IF (TypeID(elt) = TypeID(RECORD) AND IsDefaultValue(elt))
+                    value[#elt] := MAX_DATETIME;
+                value := DATETIME ARRAY(value);
+              }
+
+              IF (condition->match_type = "<" OR condition->match_type = "<=")
+              {
+                // Should change to '<'/'<=' X OR == MAX_DATEIME, but dynquery can't handle that kind of queries
+                RETURN FALSE;
+              }
+              IF (condition->match_type = ">" OR condition->match_type = ">=") // MAX_DATETIME matches, but shouldn't
+                dbquery->AddConstraint(query_name || "." || condition->attr.cellname, "!=", MAX_DATETIME);
+
+              dbquery->AddConstraint(query_name || "." || condition->attr.cellname, condition->match_type, value);
+            }
+            RETURN TRUE;
+          }
+          ELSE IF (condition->attr.attributetype = wrd_attributetype_date OR condition->attr.attributetype = wrd_attributetype_datetime)
+          {
+            VARIANT value := condition->value_holder.data;
+            IF (condition->match_type = "IN" AND IsTypeIDArray(TypeID(value)))
+            {
+              FOREVERY (VARIANT elt FROM value)
+                IF (TypeID(elt) = TypeID(RECORD) AND IsDefaultValue(elt))
+                  value[#elt] := DEFAULT DATETIME;
+              value := DATETIME ARRAY(value);
+            }
+            ELSE
+              value := DATETIME(TypeID(value) = TypeID(RECORD) AND IsDefaultValue(value) ? DEFAULT DATETIME : value);
+            dbquery->AddConstraint(query_name || "." || condition->attr.cellname, condition->match_type, value);
+            RETURN TRUE;
+          }
+        }
+
         IF (TypeId(condition->value_holder.data) = TypeId(STRING) AND LENGTH(condition->value_holder.data) >= 4096) // DB can't handle 4096 or more chars in a query
           RETURN FALSE;
 
         // Base fields are always present, direct condition can be added
         IF (condition->match_type = "__INRANGE")
-        {
-          dbquery->AddConstraint(query_name || "." || condition->attr.cellname, ">=", condition->value_holder.data[0]);
-          dbquery->AddConstraint(query_name || "." || condition->attr.cellname, "<=", condition->value_holder.data[1]);
-        }
+          THROW NEW Exception(`Match type __INRANGE not supported for base attributes`);
         ELSE IF (condition->match_case)
           dbquery->AddConstraint(query_name || "." || condition->attr.cellname, condition->match_type, condition->value_holder.data);
         ELSE
@@ -1155,7 +1236,9 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
         OBJECT accessor := GetAccessorForAttributeType(condition->attr, wrd_type, CELL[ linkgetter := DEFAULT OBJECT
                                                                                       , whfsmapper := this->pvt_whfsmapper
                                                                                       , wrapper := DEFAULT RECORD
+                                                                                      , this->jsmode
                                                                                       ]);
+
         IF (NOT accessor->CheckUserInput(condition->value_holder.data, condition))
           THROW NEW Exception("This is not a valid value for this attribute '"||condition->attr.tag||"' of type " || GetAttributeTypeNameByTypeId(condition->attr.attributetype) || ": (match type '"||condition->match_type||"', data type: " || GetTypeName(TypeID(condition->value_holder.data)) || ")\n" || AnyToString(condition->value_holder.data, "boxed"));
 
@@ -1389,7 +1472,30 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
                   BOOLEAN done := FALSE;
                   query->RequestAdditionalColumns("ENTITIES", [ STRING(attrinfo.cellname) ]);
                   BOOLEAN db_can_handle := TypeId(match_value) != TypeId(STRING) OR LENGTH(match_value) < 4096;
-                  IF (db_can_handle AND cond->match_case)
+                  IF (this->jsmode AND (attrinfo.attributetype = wrd_attributetype_date OR attrinfo.attributetype = wrd_attributetype_datetime))
+                  {
+                    IF (TypeID(match_value) = TypeID(RECORD) AND IsDefaultValue(match_value))
+                      match_value := DEFAULT DATETIME;
+                    ELSE IF (IsTypeIDArray(TypeID(match_value)))
+                    {
+                      FOREVERY (VARIANT elt FROM match_value)
+                        IF (TypeID(elt) = TypeID(RECORD) AND IsDefaultValue(elt))
+                          match_value[#elt] := DEFAULT DATETIME;
+                      match_value := DATETIME ARRAY(match_value);
+                    }
+                    RECORD ARRAY rows := query->Execute();
+                    FOREVERY (RECORD row FROM rows)
+                    {
+                      DATETIME storedvalue := GetCell(row.entities, attrinfo.cellname);
+                      IF (storedvalue = MAX_DATETIME)
+                        storedvalue := DEFAULT DATETIME;
+                      IF (EvaluateConstraint(storedvalue, cond->match_type, match_value))
+                        INSERT row.entities.id INTO matches AT END;
+                      matches := GetSortedSet(matches);
+                    }
+                    done := TRUE;
+                  }
+                  ELSE IF (db_can_handle AND cond->match_case)
                     query->AddConstraint("ENTITIES." || attrinfo.cellname, cond->match_type, match_value);
                   ELSE IF (db_can_handle AND cond->match_type != "IN")
                     query->AddUppercaseConstraint("ENTITIES." || attrinfo.cellname, cond->match_type, match_value);
@@ -1398,9 +1504,9 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
     //                query->RequestAdditionalColumns("ENTITIES", [ STRING(attrinfo.cellname) ]);
     //                PRINT("IN!\n" ||anytostring(match_value, "tree") || "\n");
                     matches := SELECT AS INTEGER ARRAY entities.id
-                                 FROM query->Execute() AS row
+                                FROM query->Execute() AS row
                                 WHERE EvaluateConstraint(ToUppercase(GetCell(row.entities, attrinfo.cellname)), cond->match_type, match_value)
-                             ORDER BY entities.id;
+                            ORDER BY entities.id;
                     done := TRUE;
                   }
                   IF (NOT done)
@@ -1424,6 +1530,7 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
               OBJECT accessor := GetAccessorForAttributeType(attrinfo, single->wrd_type, CELL[ linkgetter := DEFAULT OBJECT
                                                                                              , whfsmapper := this->pvt_whfsmapper
                                                                                              , wrapper := DEFAULT RECORD
+                                                                                             , this->jsmode
                                                                                              ]);
               IF (NOT accessor->CheckUserInput(cond->value_holder.data, cond))
                 THROW NEW Exception("The specified value to match against is not a valid value or valuetype for attribute "||attrinfo.localtag||" in combination with matchtype "||cond->match_type||" (got valuetype "||GetTypeName(TypeID(cond->value_holder.data))||")");
@@ -1548,7 +1655,7 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
         // Enrich base fields (needed entity record data is present in GetCell(row, name))
         FOREVERY (RECORD row FROM finalresults)
         {
-          finalresults[#row].data := MakeMergedRecord(finalresults[#row].data, GenerateBaseFields(base_fields, GetCell(row, single->name)));
+          finalresults[#row].data := MakeMergedRecord(finalresults[#row].data, GenerateBaseFields(base_fields, GetCell(row, single->name), this->jsmode));
         }
 
         // Merge the data for this source into the final result
@@ -2029,7 +2136,7 @@ STATIC OBJECTTYPE WRDQueryInterfaceNormalQuery EXTEND WRDQueryInterface
     PUBLIC INTEGER FUNCTION GetTypeForOutputcolumn(STRING colname)
     {
       //NOTE this only supports single source scenario
-      RETURN TypeID(GetCell(GetDefaultRecordForSource(this->query->singles[0]), colname));
+      RETURN TypeID(GetCell(GetDefaultRecordForSource(this->query->singles[0], FALSE), colname));
     }
     UPDATE PUBLIC MACRO ResetCurrentTime(DATETIME current_time DEFAULTSTO DEFAULT DATETIME)
     {
@@ -2634,38 +2741,92 @@ STRING FUNCTION GetDateTimeSharedPrefix(STRING range_from, STRING range_to)
 /// Object accessor for datetimes
 STATIC OBJECTTYPE WRDDBDateTimeValue EXTEND WRDDBValue
 < BOOLEAN isdatetime;
+  BOOLEAN jsmode;
 
-  MACRO NEW(OBJECT wrdtype, RECORD attr, BOOLEAN isdatetime) : WRDDBValue(wrdtype, attr)
+  MACRO NEW(OBJECT wrdtype, RECORD attr, BOOLEAN isdatetime, RECORD options) : WRDDBValue(wrdtype, attr)
   {
     this->isdatetime := isdatetime;
+    this->jsmode := options.jsmode;
   }
+
+  VARIANT FUNCTION DoJSModeConvert(VARIANT user_input)
+  {
+    IF (this->jsmode)
+    {
+      IF (IsTypeidArray(TypeID(user_input)))
+      {
+        user_input := VARIANT ARRAY(user_input);
+        FOREVERY (VARIANT v FROM user_input)
+          IF (TypeID(v) = TypeID(RECORD) AND IsDefaultValue(v))
+            user_input[#v] := DEFAULT DATETIME;
+          ELSE IF (v = DEFAULT DATETIME OR v = MAX_DATETIME)
+            THROW NEW Exception(`Not allowed to use DEFAULT DATETIME OR MAX_DATETIME as comparison value for ${this->wrdtype->tag}.${this->attr.tag}`);
+        user_input := DATETIME ARRAY(user_input);
+      }
+      ELSE IF (TypeID(user_input) = TypeID(RECORD) AND IsDefaultValue(user_input))
+        user_input := DEFAULT DATETIME;
+      ELSE IF (user_input = DEFAULT DATETIME OR user_input = MAX_DATETIME)
+        THROW NEW Exception(`Not allowed to use DEFAULT DATETIME OR MAX_DATETIME as comparison value for ${this->wrdtype->tag}.${this->attr.tag}`);
+    }
+    RETURN user_input;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION MatchesDefault(VARIANT value, OBJECT condition)
+  {
+    IF(condition->match_type="MENTIONS" OR condition->match_type="MENTIONSANY")
+      RETURN FALSE;
+
+    IF (NOT this->CheckUserInput(value, condition))
+      THROW NEW Exception("Specified value is of the wrong type for this type of attribute");
+
+    value := this->DoJSModeConvert(value);
+    RETURN EvaluateConstraintWithSpecCase(DEFAULT DATETIME, condition->match_type, value, condition->match_case);
+  }
+
 
   PUBLIC UPDATE VARIANT FUNCTION GetDefaultValue()
   {
+    IF (this->jsmode)
+      RETURN DEFAULT RECORD;
     RETURN DEFAULT DATETIME;
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION CheckUserInput(VARIANT user_input, OBJECT condition)
   {
+    VARIANT org := user_input;
+    user_input := this->DoJSModeConvert(user_input);
+
     IF (condition->match_type = "__INRANGE")
       RETURN TypeID(user_input) = TypeID(DATETIME ARRAY) AND LENGTH(user_input) = 2;
 
-    RETURN WRDDBValue::CheckUserInput(user_input, condition);
+    IF (condition->match_type = "IN")
+    {
+      IF (NOT IsTypeIDArray(TypeID(user_input)))
+        RETURN FALSE;
+      RETURN LENGTH(user_input) = 0 OR TypeID(user_input) = TypeID(DATETIME ARRAY);
+    }
+    RETURN TypeID(user_input) = TypeID(DATETIME);
   }
 
   PUBLIC UPDATE VARIANT FUNCTION GetFromRecord(RECORD ARRAY entity_settings, INTEGER settings_start, INTEGER settings_limit)
   {
-    RETURN DecodeWRDAttribute(entity_settings[settings_start].rawdata, this->isdatetime ? 12 : 6);
+    DATETIME retval := DecodeWRDAttribute(entity_settings[settings_start].rawdata, this->isdatetime ? 12 : 6);
+    IF (this->jsmode AND (retval = DEFAULT DATETIME OR retval = MAX_DATETIME))
+      RETURN DEFAULT RECORD;
+    RETURN retval;
   }
 
   UPDATE PUBLIC RECORD FUNCTION TryAddToDBQuery(OBJECT query, STRING settings_source, VARIANT value, OBJECT condition, BOOLEAN ignore_default_also_match)
   {
+    VARIANT org := value;
+    value := this->DoJSModeConvert(value);
+
     STRING comparetype := condition->match_type;
     BOOLEAN match_case := condition->match_case;
     BOOLEAN ignoreallowedvalues := condition->ignoreallowedvalues;
 
     // Can't handle when default also matches
-    IF (this->MatchesDefault(value, condition))
+    IF (this->MatchesDefault(org, condition))
     {
       IF (NOT ignore_default_also_match)
         RETURN [ canhandle := FALSE, canhandlepartially := FALSE, noresults := FALSE ];
@@ -2761,12 +2922,14 @@ STATIC OBJECTTYPE WRDDBMoneyValue EXTEND WRDDBValue
 /// Object accessor for images and files - TODO there's probably room for a RecordBasedValue so we can also test other recordbased types for existence
 STATIC OBJECTTYPE WRDDBWrappedBlobValue EXTEND WRDDBValue
 <
+  BOOLEAN jsmode;
   OBJECT linkgetter;
   OBJECT whfsmapper;
 
   MACRO NEW(OBJECT type, RECORD attr, RECORD options)
   : WRDDBValue(type, attr)
   {
+    this->jsmode := options.jsmode;
     this->linkgetter := options.linkgetter;
     this->whfsmapper := options.whfsmapper;
   }
@@ -2843,7 +3006,7 @@ STATIC OBJECTTYPE WRDDBImageValue EXTEND WRDDBWrappedBlobValue
 
   PUBLIC UPDATE VARIANT FUNCTION GetFromRecord(RECORD ARRAY entity_settings, INTEGER settings_start, INTEGER settings_limit)
   {
-    RECORD image := GetWrappedObjectFromWRDSetting(entity_settings[settings_start], FALSE, this->linkgetter, this->whfsmapper);
+    RECORD image := GetWrappedObjectFromWRDSetting(entity_settings[settings_start], FALSE, this->linkgetter, this->whfsmapper, this->jsmode);
     IF(RecordExists(this->wrapper))
       image := WrapCachedImage(image, this->wrapper.resizemethod);
     RETURN image;
@@ -2855,25 +3018,60 @@ STATIC OBJECTTYPE WRDDBFileValue EXTEND WRDDBWrappedBlobValue
 <
   PUBLIC UPDATE VARIANT FUNCTION GetFromRecord(RECORD ARRAY entity_settings, INTEGER settings_start, INTEGER settings_limit)
   {
-    RETURN GetWrappedObjectFromWRDSetting(entity_settings[settings_start], TRUE, this->linkgetter, this->whfsmapper);
+    RETURN GetWrappedObjectFromWRDSetting(entity_settings[settings_start], TRUE, this->linkgetter, this->whfsmapper, this->jsmode);
   }
 >;
 
 STATIC OBJECTTYPE WRDDBLinkValueBase EXTEND WRDDBValue
 <
+  BOOLEAN jsmode;
+
+  MACRO NEW(OBJECT type, RECORD attr, RECORD options)
+  : WRDDBValue(type, attr)
+  {
+    this->jsmode := options.jsmode;
+  }
+
+  VARIANT FUNCTION DoJSModeConvert(VARIANT user_input)
+  {
+    IF (this->jsmode)
+    {
+      IF (IsTypeidArray(TypeID(user_input)))
+      {
+        user_input := VARIANT ARRAY(user_input);
+        FOREVERY (VARIANT v FROM user_input)
+          IF (TypeID(v) = TypeID(RECORD) AND IsDefaultValue(v))
+            user_input[#v] := 0;
+          ELSE IF (v = 0)
+            THROW NEW Exception(`Not allowed to use 0 as value for a condition on link`);
+        user_input := INTEGER ARRAY(user_input);
+      }
+      ELSE IF (TypeID(user_input) = TypeID(RECORD) AND IsDefaultValue(user_input))
+        user_input := 0;
+      ELSE IF (user_input = 0)
+        THROW NEW Exception(`Not allowed to use 0 as value for a condition on link`);
+    }
+    RETURN user_input;
+  }
 >;
 
 /// Object accessor for single links
 STATIC OBJECTTYPE WRDDBLinkValue EXTEND WRDDBLinkValueBase
-< UPDATE PUBLIC BOOLEAN FUNCTION CheckUserInput(VARIANT user_input, OBJECT condition)
+<
+
+  UPDATE PUBLIC BOOLEAN FUNCTION CheckUserInput(VARIANT user_input, OBJECT condition)
   {
+    user_input := this->DoJSModeConvert(user_input);
+
     STRING match_type := condition->match_type;
     IF (match_type = "IN")
     {
-      IF (LENGTH(user_input) = 0 AND IsTypeidArray(TypeID(user_input)))
-        RETURN TRUE;
-      ELSE
-        user_input := user_input[0];
+      IF (NOT IsTypeidArray(TypeID(user_input)))
+        THROW NEW Exception(`Expected an array of values`);
+      FOREVERY (VARIANT elt FROM user_input)
+        IF (TypeID(elt) != TypeID(INTEGER))
+          RETURN FALSE;
+      RETURN TRUE;
     }
 
     IF (match_type = "MENTIONS" AND user_input = 0)
@@ -2891,26 +3089,46 @@ STATIC OBJECTTYPE WRDDBLinkValue EXTEND WRDDBLinkValueBase
     IF (match_type IN [ "__INRANGE" ])
       THROW NEW Exception(`The match type '${match_type}' is not allowed for attribute '${this->attr.tag}'`);
 
-    INTEGER user_type := TypeID(user_input);
-    RETURN user_type = TypeID(this->GetDefaultValue());
+    RETURN TypeID(user_input) = TypeID(INTEGER);
   }
 
   PUBLIC UPDATE VARIANT FUNCTION GetDefaultValue()
   {
+    IF (this->jsmode)
+      RETURN DEFAULT RECORD;
     RETURN DEFAULT INTEGER;
+  }
+
+  PUBLIC UPDATE BOOLEAN FUNCTION ContainsOnlyDefaultValues(VARIANT value)
+  {
+    IF (IsTypeidArray(TypeID(value)))
+    {
+      FOREVERY (VARIANT v FROM value)
+        IF (IsValueSet(v))
+          RETURN FALSE;
+      RETURN TRUE;
+    }
+    RETURN IsValueSet(value);
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION MatchesDefault(VARIANT value, OBJECT condition)
   {
-    //print(comparetype||'\n');
     IF(condition->match_type="MENTIONS" OR condition->match_type="MENTIONSANY")
       RETURN FALSE;
-    RETURN WRDDBValue::MatchesDefault(value, condition);
+
+    IF (NOT this->CheckUserInput(value, condition))
+      THROW NEW Exception("Specified value is of the wrong type for this type of attribute");
+
+    value := this->DoJSModeConvert(value);
+    RETURN EvaluateConstraintWithSpecCase(0, condition->match_type, value, condition->match_case);
   }
 
   PUBLIC UPDATE VARIANT FUNCTION GetFromRecord(RECORD ARRAY entity_settings, INTEGER settings_start, INTEGER settings_limit)
   {
-    RETURN entity_settings[settings_start].setting;
+    INTEGER setting := entity_settings[settings_start].setting;
+    IF (this->jsmode AND setting = 0)
+      RETURN DEFAULT RECORD;
+    RETURN setting;
   }
 
   UPDATE PUBLIC RECORD FUNCTION TryAddToDBQuery(OBJECT query, STRING settings_source, VARIANT value, OBJECT condition, BOOLEAN ignore_default_also_match)
@@ -2919,14 +3137,18 @@ STATIC OBJECTTYPE WRDDBLinkValue EXTEND WRDDBLinkValueBase
     BOOLEAN match_case := condition->match_case;
     BOOLEAN ignoreallowedvalues := condition->ignoreallowedvalues;
 
+    VARIANT orgvalue := value;
+    value := this->DoJSModeConvert(value);
+
     // Can't handle when default also matches
-    IF (this->MatchesDefault(value, condition))
+    IF (this->MatchesDefault(orgvalue, condition))
     {
       IF (NOT ignore_default_also_match)
         RETURN [ canhandle := FALSE, canhandlepartially := FALSE, noresults := FALSE ];
       IF (comparetype IN [ "MENTIONS", "MENTIONSANY", "=", "IN" ] AND this->ContainsOnlyDefaultValues(value))
         RETURN [ canhandle := FALSE, canhandlepartially := FALSE, noresults := TRUE ];
     }
+
 
     INTEGER transaction := GetBindingFromTable(wrd.types).transaction;
     query->AddDeclaredTable(settings_source, wrd.entity_settings, DEFAULT STRING ARRAY);
@@ -2962,6 +3184,8 @@ STATIC OBJECTTYPE WRDDBLinkValue EXTEND WRDDBLinkValueBase
 STATIC OBJECTTYPE WRDDBLinksValue EXTEND WRDDBLinkValueBase
 < PUBLIC UPDATE BOOLEAN FUNCTION CheckUserInput(VARIANT user_input, OBJECT condition)
   {
+    user_input := this->DoJSModeConvert(user_input);
+
     STRING match_type := condition->match_type;
     IF (match_type = "CONTAINS")
     {
@@ -3007,10 +3231,14 @@ STATIC OBJECTTYPE WRDDBLinksValue EXTEND WRDDBLinkValueBase
 
   UPDATE PUBLIC BOOLEAN FUNCTION MatchesDefault(VARIANT value, OBJECT condition)
   {
-    //print(comparetype||'\n');
-    IF(condition->match_type ="MENTIONS" OR condition->match_type ="MENTIONSANY")
+    IF(condition->match_type="MENTIONS" OR condition->match_type="MENTIONSANY")
       RETURN FALSE;
-    RETURN WRDDBValue::MatchesDefault(value, condition);
+
+    IF (NOT this->CheckUserInput(value, condition))
+      THROW NEW Exception("Specified value is of the wrong type for this type of attribute");
+
+    value := this->DoJSModeConvert(value);
+    RETURN EvaluateConstraintWithSpecCase(INTEGER[], condition->match_type, value, condition->match_case);
   }
 
   PUBLIC UPDATE VARIANT FUNCTION GetFromRecord(RECORD ARRAY entity_settings, INTEGER settings_start, INTEGER settings_limit)
@@ -3032,6 +3260,8 @@ STATIC OBJECTTYPE WRDDBLinksValue EXTEND WRDDBLinkValueBase
       // Can't express a multiple link match in SQL (at least, not in this framework)
       RETURN [ canhandle := FALSE, canhandlepartially := FALSE, noresults := FALSE ];
     }
+
+    value := this->DoJSModeConvert(value);
 
     // Assume that all values are unique
     INTEGER transaction := GetBindingFromTable(wrd.types).transaction;
@@ -3742,10 +3972,10 @@ PUBLIC OBJECT FUNCTION GetAccessorForAttributeType(RECORD attrinfo, OBJECT wrd_t
   SWITCH (attributetype)
   {
   CASE wrd_attributetype_domain
-    { RETURN NEW WRDDBLinkValue(wrd_type, attrinfo); }
+    { RETURN NEW WRDDBLinkValue(wrd_type, attrinfo, options); }
 
   CASE wrd_attributetype_domainarray
-    { RETURN NEW WRDDBLinksValue(wrd_type, attrinfo); }
+    { RETURN NEW WRDDBLinksValue(wrd_type, attrinfo, options); }
 
   CASE wrd_attributetype_free
      , wrd_attributetype_email
@@ -3761,7 +3991,7 @@ PUBLIC OBJECT FUNCTION GetAccessorForAttributeType(RECORD attrinfo, OBJECT wrd_t
 
   CASE wrd_attributetype_date
      , wrd_attributetype_datetime
-    { RETURN NEW WRDDBDateTimeValue(wrd_type, attrinfo, attributetype = 12); }
+    { RETURN NEW WRDDBDateTimeValue(wrd_type, attrinfo, attributetype = 12, options); }
 
   CASE wrd_attributetype_image
     { RETURN NEW WRDDBImageValue(wrd_type, attrinfo, options); }
@@ -3945,11 +4175,11 @@ RECORD ARRAY FUNCTION ProcessParameters(RECORD ARRAY parameters, BOOLEAN strict)
   RETURN processed_parameters;
 }
 
-RECORD FUNCTION GetDefaultRecordForSource(OBJECT querysource)
+RECORD FUNCTION GetDefaultRecordForSource(OBJECT querysource, BOOLEAN jsmode)
 {
   RECORD accessors := querysource->CreateAccessors();
 
-  RECORD data := GenerateBaseFields(accessors.base_fields, default_entity);
+  RECORD data := GenerateBaseFields(accessors.base_fields, default_entity, jsmode);
   FOREVERY (RECORD field FROM accessors.fields)
   {
     VARIANT val := field.accessor->GetDefaultValue();
@@ -3964,11 +4194,12 @@ PUBLIC RECORD FUNCTION GetDefaultJoinRecord(OBJECT wrdtype, RECORD outputcolumns
 {
   options := ValidateOptions(
       [ whfsmapper :=   DEFAULT OBJECT
+      , jsmode :=       FALSE
       ], options);
 
-  OBJECT obj := NEW WRDQuerySource(wrdtype, options.whfsmapper);
+  OBJECT obj := NEW WRDQuerySource(wrdtype, options.whfsmapper, options.jsmode);
   obj->return_map := obj->RecurseGetoutputColumns(outputcolumns);
-  RETURN GetDefaultRecordForSource(obj);
+  RETURN GetDefaultRecordForSource(obj, options.jsmode);
 }
 
 /** Constructs a WRD query
@@ -4005,7 +4236,7 @@ PUBLIC RECORD FUNCTION GetDefaultJoinRecord(OBJECT wrdtype, RECORD outputcolumns
     @cell(record array) querydata.params Parameters
     @cell(integer) querydata.resultlimit Maximum number of results to return. Omit or set negative to return all results.
     @cell(object %WRDSchema2017) querydata.wrdschema WRD schema to use. If set, tags can be used to select a type in the sources list.
-    @cell(object %WHFSResourceNameMapper) querydata.whfsmapper WHFS mapper to use to convert WHFS ids
+    @cell(object mod::system/lib/internal/whfs/objects.whlib#WHFSResourceNameMapper) querydata.whfsmapper WHFS mapper to use to convert WHFS ids
     @return(object #WRDQueryInterfaceNormalQuery) Query interface
 */
 PUBLIC OBJECT FUNCTION MakeWRDQuery(RECORD querydata)
@@ -4014,12 +4245,13 @@ PUBLIC OBJECT FUNCTION MakeWRDQuery(RECORD querydata)
     THROW NEW Exception(`Trying to execute a query on a WRD schema without specifying the type (use wrdschema->^type->RunQuery)`);
 
   FOREVERY(RECORD cellrec FROM UnpackRecord(querydata))
-    IF(cellrec.name NOT IN ["SOURCES","LINKS","PARAMS","RESULTLIMIT","WRDSCHEMA", "WHFSMAPPER"])
+    IF(cellrec.name NOT IN ["SOURCES","LINKS","PARAMS","RESULTLIMIT","WRDSCHEMA", "WHFSMAPPER", "JSMODE"])
       THROW NEW Exception(`Unsupported query parameter '${cellrec.name}'`);
 
   RECORD ARRAY sources := querydata.sources;
   RECORD ARRAY links := CellExists(querydata, "LINKS") ? querydata.links : DEFAULT RECORD ARRAY;
   RECORD ARRAY parameters := CellExists(querydata, "PARAMS") ? querydata.params : DEFAULT RECORD ARRAY;
+  BOOLEAN jsmode := CellExists(querydata, "JSMODE") AND querydata.jsmode;
 
   // Parsed links and sources (objects)
   OBJECT ARRAY parsed_sources;
@@ -4079,7 +4311,7 @@ PUBLIC OBJECT FUNCTION MakeWRDQuery(RECORD querydata)
       THROW NEW Exception("The type object for source " || (CellExists(source, "NAME") ? "'" || source.name || "'" : "#" || #source) || " does not exist");
 
     // Build a new source object
-    OBJECT obj := NEW WRDQuerySource(type, whfsmapper);
+    OBJECT obj := NEW WRDQuerySource(type, whfsmapper, jsmode);
 
     // Get the name (defaults to the a reserved name)
     obj->name := CellExists(source, "NAME") AND source.name != "" ? source.name : "__source" || #source;
@@ -4243,7 +4475,7 @@ PUBLIC OBJECT FUNCTION MakeWRDQuery(RECORD querydata)
   OBJECT wrd_schema := parsed_sources[0]->wrd_type->wrdschema;
 
   // Build a new query object
-  OBJECT query := NEW WRDQuery(wrd_schema, whfsmapper);
+  OBJECT query := NEW WRDQuery(wrd_schema, whfsmapper, jsmode);
   query->singles := parsed_sources;
   query->links := parsed_links;
   query->parameters := parsed_parameters;
@@ -5167,11 +5399,12 @@ PUBLIC RECORD FUNCTION ImportQueryFromXML(OBJECT wrd_schema, OBJECT query_node)
     @cell return.base_fields List of fields with base attributes
     @cell return.fields List of fields with normal attributes
 */
-PUBLIC RECORD FUNCTION GetAccessors(OBJECT wrd_type, RECORD ARRAY selectfields, OBJECT linkgetter, OBJECT whfsmapper)
+PUBLIC RECORD FUNCTION GetAccessors(OBJECT wrd_type, RECORD ARRAY selectfields, OBJECT linkgetter, OBJECT whfsmapper, BOOLEAN jsmode)
 {
   RECORD options := CELL
       [ linkgetter
       , whfsmapper
+      , jsmode
       ];
 
   RECORD ARRAY fields, base_fields;

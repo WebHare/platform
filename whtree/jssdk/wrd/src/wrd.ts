@@ -109,6 +109,13 @@ class WRDType {
     return;
   }
 
+  async createAttribute(tag: string, type: string, settings: WRDEntitySettings) {
+    const typeobj = await this.ensureType();
+    await extendWorkToCoHSVM();
+    await typeobj.CreateAttribute(tag, type, settings);
+    return;
+  }
+
   private async buildEntity(hsvm_wrdentity: HSVMObject) {
     const entityid = await hsvm_wrdentity.get("id") as number;
     return new WRDEntity(this, entityid, hsvm_wrdentity);
