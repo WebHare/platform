@@ -23,7 +23,8 @@ export enum WRDAttributeType {
   Base_Integer = -1, // wrd_id, wrd_type
   Base_Guid = -2, // wrd_guid
   Base_Tag = -3, // tag
-  Base_DateTime = -4, // wrd_creationdate, wrd_limitdate, wrd_modificationdate
+  Base_CreationLimitDate = -4, // wrd_creationdate, wrd_limitdate
+  Base_ModificationDate = -10, // wrd_modificationdate
   Base_Date = -5, // wrd_dateofbirth, wrd_dateofdeath
   Base_GeneratedString = -6, // wrd_salute_formal, wrd_address_formal, wrd_fullname
   Base_NameString = -7, // wrd_titles, wrd_initials, wrd_firstname, wrd_firstnames, wrd_infix, wrd_lastname, wrd_titles_suffix
@@ -67,7 +68,8 @@ export type SimpleWRDAttributeType =
   WRDAttributeType.Base_Integer |
   WRDAttributeType.Base_Guid |
   WRDAttributeType.Base_Tag |
-  WRDAttributeType.Base_DateTime |
+  WRDAttributeType.Base_CreationLimitDate |
+  WRDAttributeType.Base_ModificationDate |
   WRDAttributeType.Base_Date |
   WRDAttributeType.Base_GeneratedString |
   WRDAttributeType.Base_NameString |

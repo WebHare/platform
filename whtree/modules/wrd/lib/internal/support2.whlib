@@ -39,24 +39,35 @@ PUBLIC STRING FUNCTION GetCachedWRDFileURL(STRING baseurl, INTEGER64 fileid)
   RETURN GetUnifiedCacheURL(baseurl, 2, 3, fileid, DEFAULT RECORD);
 }
 
-PUBLIC RECORD FUNCTION MappedSplitBlobSetting(STRING setting, BLOB blobdata, INTEGER fs_object, OBJECT whfs_mapper)
+PUBLIC RECORD FUNCTION MappedSplitBlobSetting(STRING setting, BLOB blobdata, INTEGER fs_object, OBJECT whfs_mapper, BOOLEAN jsmode)
 {
   RECORD retval := SplitBlobSetting(setting, blobdata, fs_object);
   IF (IsValueSet(whfs_mapper))
     retval := CELL[ ...retval, source_fsobject := whfs_mapper->MapWHFSRef(retval.source_fsobject) ];
 
+  IF (jsmode AND retval.source_fsobject = 0)
+    retval := CELL[ ...retval, source_fsobject := DEFAULT RECORD ];
+
   RETURN retval;
 }
 
-PUBLIC RECORD FUNCTION MappedJoinBlobSetting(RECORD fileinfo, OBJECT whfs_mapper)
+PUBLIC RECORD FUNCTION MappedJoinBlobSetting(RECORD fileinfo, OBJECT whfs_mapper, BOOLEAN jsmode)
 {
   IF (IsValueSet(whfs_mapper) AND CellExists(fileinfo, "source_fsobject"))
     fileinfo := CELL[ ...fileinfo, source_fsobject := whfs_mapper->UnmapWHFSRef(fileinfo.source_fsobject) ];
 
+  IF (jsmode)
+  {
+    IF (CellExists(fileinfo, "source_fsobject") AND TypeID(fileinfo.source_fsobject) = TypeID(RECORD) AND IsDefaultValue(fileinfo.source_fsobject))
+      fileinfo := CELL[ ...fileinfo, source_fsobject := 0 ];
+    ELSE IF (fileinfo.source_fsobject = 0)
+      THROW NEW Exception(`Not allowed to use 0 for source_fsobject, use null`);
+  }
+
   RETURN JoinBlobSetting(fileinfo);
 }
 
-PUBLIC RECORD FUNCTION GetWrappedObjectFromWRDSetting(RECORD entitysetting, BOOLEAN isfile, OBJECT linkgetter, OBJECT whfs_mapper)
+PUBLIC RECORD FUNCTION GetWrappedObjectFromWRDSetting(RECORD entitysetting, BOOLEAN isfile, OBJECT linkgetter, OBJECT whfs_mapper, BOOLEAN jsmode)
 {
   INTEGER fs_object;
   STRING rawdata := entitysetting.rawdata;
@@ -69,7 +80,7 @@ PUBLIC RECORD FUNCTION GetWrappedObjectFromWRDSetting(RECORD entitysetting, BOOL
       fs_object := SELECT AS INTEGER fsobject FROM wrd.entity_settings_whfslink WHERE id = entitysetting.id; // Allow deleted refs
   }
 
-  RECORD retval := MappedSplitBlobSetting(rawdata, entitysetting.blobdata, fs_object, whfs_mapper);
+  RECORD retval := MappedSplitBlobSetting(rawdata, entitysetting.blobdata, fs_object, whfs_mapper, jsmode);
   IF(isfile)
     INSERT CELL fileid := entitysetting.id INTO retval;
   ELSE

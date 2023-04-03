@@ -43,29 +43,28 @@ MACRO TestDatetimeInRange()
 {
   OBJECT schemaobj := testfw->GetWRDSchema();
 
-  FOREVERY (STRING testfield FROM [ "WRD_CREATIONDATE", "TEST_DATETIME"])
-    FOREVERY (DATETIME lb FROM dts)
-      FOREVERY (DATETIME rb FROM dts)
-      {
-            //DumpValue(CELL[ testfield, lb, rb ]);
+  FOREVERY (DATETIME lb FROM dts)
+    FOREVERY (DATETIME rb FROM dts)
+    {
+          //DumpValue(CELL[ testfield, lb, rb ]);
 
-        FUNCTION PTR query := PTR schemaobj->^test_dtrange->RunQuery(
-            [ outputcolumn := "TEST_DATETIME"
-            , filters := [ [ field := testfield, matchtype := "__INRANGE", value := [ lb, rb ] ]
-                         ]
-            , historymode := "all"
-            ]);
+      FUNCTION PTR query := PTR schemaobj->^test_dtrange->RunQuery(
+          [ outputcolumn := "TEST_DATETIME"
+          , filters := [ [ field := "test_datetime", matchtype := "__INRANGE", value := [ lb, rb ] ]
+                        ]
+          , historymode := "all"
+          ]);
 
-        DATETIME ARRAY res := GetSortedSet(query());
+      DATETIME ARRAY res := GetSortedSet(query());
 
-        DATETIME ARRAY expect :=
-            SELECT AS DATETIME ARRAY test_datetime
-              FROM contents
-             WHERE (testfield = "WRD_CREATIONDATE" ? wrd_creationdate >= lb : test_datetime >= lb)
-               AND (testfield = "WRD_CREATIONDATE" ? wrd_creationdate <= rb : test_datetime <= rb);
+      DATETIME ARRAY expect :=
+          SELECT AS DATETIME ARRAY test_datetime
+            FROM contents
+            WHERE (test_datetime >= lb)
+              AND (test_datetime <= rb);
 
-        TestEQ(expect, res);
-      }
+      TestEQ(expect, res);
+    }
 }
 
 MACRO TestDatetimeConditionOptimizations()

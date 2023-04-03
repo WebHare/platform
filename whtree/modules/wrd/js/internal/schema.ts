@@ -92,22 +92,22 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
 
   async createEntity(value: Updatable<S[T]>): Promise<number> {
     await extendWorkToCoHSVM();
-    const entityobj = await (await this._getType()).createEntity(value);
+    const entityobj = await (await this._getType()).createEntity(value, { jsmode: true });
     return await (entityobj as HSVMObject).get("id") as number;
   }
 
   async updateEntity(wrd_id: number, value: Updatable<S[T]>): Promise<void> {
     await extendWorkToCoHSVM();
-    await (await this._getType()).updateEntity(wrd_id, value);
+    await (await this._getType()).updateEntity(wrd_id, value, { jsmode: true });
   }
 
   async search<F extends AttrRef<S[T]>>(field: F, value: (GetCVPairs<S[T][F]> & { condition: "=" })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }>): Promise<number | null> {
-    const res = await (await this._getType()).search(field, value, options || {}) as number;
+    const res = await (await this._getType()).search(field, value, { ...(options || {}), jsmode: true }) as number;
     return res || null;
   }
 
-  async enrich<F extends keyof D, M extends EnrichOutputMap<S[T]>, D extends { [K in F]: number }>(data: D[], field: F, mapping: M): Promise<Array<D & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>> {
-    return (await this._getType()).enrich(data, field, mapping) as Promise<Array<D & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>>;
+  async enrich<F extends keyof D, M extends EnrichOutputMap<S[T]>, D extends { [K in F]: number | null }>(data: D[], field: F, mapping: M, options: { rightouterjoin?: boolean } = {}): Promise<Array<D & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>> {
+    return (await this._getType()).enrich(data, field, recordizeOutputMap(mapping), { ...options, jsmode: true }) as Promise<Array<D & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>>;
   }
 
   async delete(ids: number | number[]): Promise<void> {
@@ -119,7 +119,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   async runQuery(query: object): Promise<unknown[]> {
-    return (await (await this._getType()).runQuery(query)) as unknown[];
+    return (await (await this._getType()).runQuery({ ...query, jsmode: true })) as unknown[];
   }
 }
 type HistoryModeData = { historymode: "now" | "all" | "__getfields" } | { historymode: "at"; when: Date } | { historymode: "range"; when_start: Date; when_limit: Date } | null;
@@ -132,6 +132,7 @@ type HSWRDQuery = {
   when?: Date;
   when_start?: Date;
   when_limit?: Date;
+  jsmode: true;
 };
 
 export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> {
@@ -180,7 +181,7 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
     if (!this.#selects)
       throw new Error(`A select is required`);
     const type = await this.#type._getType();
-    let query: HSWRDQuery = {};
+    let query: HSWRDQuery = { jsmode: true };
     if (typeof this.#selects === "string")
       query.outputcolumn = this.#selects;
     else

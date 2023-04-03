@@ -15,6 +15,7 @@ LOADLIB "wh::internal/enrichment.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/contenttypes.whlib";
@@ -1526,6 +1527,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     options := ValidateOptions([ matchcase :=           TRUE
                                , ignoreallowedvalues := FALSE
                                , historymode :=         "now"
+                               , jsmode :=              FALSE
                                ], options);
     RECORD ARRAY results := this->RunQuery( [ filters := [ [ field := tagname
                                                            , match_type := "="
@@ -1537,6 +1539,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
                                             , outputcolumns := [ id := "WRD_ID" ]
                                             , historymode := options.historymode
                                             , resultlimit := 1
+                                            , jsmode := options.jsmode
                                             ]);
     RETURN Length(results) > 0 ? results[0].id : 0;
   }
@@ -1589,6 +1592,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
                                , when_limit :=    DEFAULT DATETIME
                                , joinfield :=     "WRD_ID"
                                , cachettl := 0
+                               , jsmode :=        FALSE
                                ], options,
                                [ passthroughin := "enrichoptions"
                                , optional := [ "WHEN", "WHEN_START", "WHEN_LIMIT", "CACHETTL" ]
@@ -1597,7 +1601,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     //ADDME reuse existing id cells
     INSERT CELL __joinid := options.joinfield INTO addcolumns;
     FUNCTION PTR getfields := PTR this->__GetBulkFields(#1, #2, #3, addcolumns, CELL[ ...options, DELETE joinfield, DELETE enrichoptions ]);
-    RETURN ExecuteEnrichment(inrows, idcellname, options.enrichoptions, getfields, PTR GetDefaultJoinRecord(this, addcolumns));
+    RETURN ExecuteEnrichment(inrows, idcellname, options.enrichoptions, getfields, PTR GetDefaultJoinRecord(this, addcolumns, CELL[ options.jsmode ]));
   }
 
   /** Execute a query on this type
@@ -1644,6 +1648,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     INTEGER resultlimit := -1;
     OBJECT whfsmapper;
     BOOLEAN singlecolumn;
+    BOOLEAN jsmode;
     IF (CellExists(querydata, "resultlimit"))
     {
       resultlimit := querydata.resultlimit;
@@ -1664,12 +1669,20 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       singlecolumn := TRUE;
       querydata := CELL[...querydata, outputcolumns := [ retval := querydata.outputcolumn ], DELETE outputcolumn ];
     }
+    IF (CellExists(querydata, "jsmode"))
+    {
+      jsmode := querydata.jsmode;
+      DELETE CELL jsmode FROM querydata;
+    }
+
 
     RECORD wrdquery := [ sources := [ CELL[...querydata, type := this] ]];
     IF (resultlimit >= 0)
       INSERT CELL resultlimit := resultlimit INTO wrdquery;
     IF (NOT IsDefaultValue(whfsmapper))
       INSERT CELL whfsmapper := whfsmapper INTO wrdquery;
+    IF (jsmode)
+      INSERT CELL jsmode := jsmode INTO wrdquery;
 
     OBJECT wrd_query := MakeWRDQuery(wrdquery);
     VARIANT returnvalue := wrd_query->Execute(DEFAULT RECORD);
@@ -1748,6 +1761,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
                                 , when_limit := DEFAULT DATETIME
                                 , historymode := "__getfields"
                                 , cachettl := 0
+                                , jsmode := FALSE
                                 ], options, [ optional := ["WHEN", "WHEN_START", "WHEN_LIMIT", "CACHETTL"]]);
 
     RETURN this->RunQuery(CELL
@@ -1766,7 +1780,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   PUBLIC VARIANT FUNCTION GetEntityField(INTEGER find_id, STRING field, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     RECORD outputcolumns := [ result := field ];
-    RETURN (this->GetEntityFields(find_id, outputcolumns, options) ?? GetDefaultJoinRecord(this, outputcolumns)).result;
+    RETURN (this->GetEntityFields(find_id, outputcolumns, options) ?? GetDefaultJoinRecord(this, outputcolumns, CELL[ jsmode := CellExists(options, "JSMODE") AND options.jsmode ])).result;
   }
 
   /////////////////////////////////////////////////////////////////////////////
@@ -1824,7 +1838,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     RETURN val;
   }
 
-  RECORD FUNCTION ParseAttr(RECORD attr, VARIANT val, BOOLEAN isv2api, FUNCTION PTR onmapdomvalue, OBJECT whfsmapper, STRING decodeinvalidutf8as, BOOLEAN importmode)
+  RECORD FUNCTION ParseAttr(RECORD attr, VARIANT val, BOOLEAN isv2api, FUNCTION PTR onmapdomvalue, OBJECT whfsmapper, STRING decodeinvalidutf8as, BOOLEAN importmode, BOOLEAN jsmode)
   {
     RECORD ARRAY newsets;
     RECORD ARRAY subs;
@@ -1861,8 +1875,19 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       }
       CASE wrd_attributetype_date, wrd_attributetype_datetime
       {
+        IF (jsmode AND TypeID(val) = TypeID(RECORD) AND IsDefaultValue(val))
+          val := DEFAULT DATETIME;
+
         IF(TypeId(val) != TYPEID(DATETIME))
           THROW NEW Exception(`Value must be of type DATETIME, got ${GetTypeName(TYPEID(val))}`);
+        IF (val = MAX_DATETIME)
+        {
+          IF ("wrd:store_maxdatetime" NOT IN warnings_per_vm)
+          {
+            INSERT "wrd:store_maxdatetime" INTO warnings_per_vm AT END;
+            LogWarning("wrd:store_maxdatetime", `Storing MAX_DATETIME in field ${this->__tag}.${attr.tag} in schema ${this->pvt_wrdschema->tag}`, [ trace := GetAsyncStackTrace() ]);
+          }
+        }
 
         IF(val != DEFAULT DATETIME)
           INSERT [ setting := 0, rawdata := GetDayCount(val) || "," || GetMsecondCount(val), blobdata := DEFAULT BLOB ] INTO newsets AT END;
@@ -1915,7 +1940,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
         IF(RecordExists(val))
         {
-          RECORD newinfo := MappedJoinBlobSetting(val, whfsmapper);
+          RECORD newinfo := MappedJoinBlobSetting(val, whfsmapper, jsmode);
           INSERT
               [ setting := 0
               , whfsdata := newinfo.fs_object
@@ -1949,6 +1974,17 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       }
       CASE wrd_attributetype_domain
       {
+        IF (jsmode)
+        {
+          IF (TypeId(val) = TypeId(RECORD))
+          {
+            IF (RecordExists(val))
+              THROW NEW Exception("Value must be of type number or null");
+            val := 0;
+          }
+          ELSE IF(TypeId(val) = TYPEID(INTEGER) AND val = 0)
+            THROW NEW Exception("Value may not be the number 0");
+        }
         IF(TypeId(val) = TYPEID(STRING))
         {
           IF(NOT isv2api)
@@ -1971,9 +2007,35 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       }
       CASE wrd_attributetype_domainarray
       {
-        // Allow DEFAULT VARIANT ARRAY received from incoming JSON as empty value
-        IF(TypeID(val) = TypeID(VARIANT ARRAY) AND Length(val) = 0)
-          RETURN CELL[ attr, newsets, subs ];
+        IF (jsmode AND TypeID(val) = TypeID(VARIANT ARRAY))
+        {
+          BOOLEAN allstrings := TRUE, allnumbers := TRUE;
+          FOREVERY (VARIANT v FROM val)
+            IF (TypeID(v) = TypeID(STRING))
+              allnumbers := FALSE;
+            ELSE
+            {
+              allstrings := FALSE;
+              IF (TypeID(v) = TypeID(RECORD))
+              {
+                IF (RecordExists(val))
+                  THROW NEW Exception("Value must be an array of number or null, or an array of strings");
+                val[#v] := 0;
+              }
+              ELSE IF(TypeId(val) = TYPEID(INTEGER) AND val = 0)
+                THROW NEW Exception("Value may not be the number 0");
+            }
+          IF (allstrings)
+            val := STRING ARRAY(val);
+          ELSE IF (allnumbers)
+            val := INTEGER ARRAY(val);
+        }
+        ELSE
+        {
+          // Allow DEFAULT VARIANT ARRAY received from incoming JSON as empty value
+          IF(TypeID(val) = TypeID(VARIANT ARRAY) AND Length(val) = 0)
+            RETURN CELL[ attr, newsets, subs ];
+        }
 
         IF(TypeId(val) = TYPEID(STRING ARRAY))
         {
@@ -2024,7 +2086,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
             IF(NOT RecordExists(subattr))
               THROW NEW Exception(`No such array subcell '${subval.name}'`);
 
-            INSERT this->ParseAttr(subattr, subval.value, isv2api, onmapdomvalue, whfsmapper, decodeinvalidutf8as, importmode) INTO outputrow.settings AT END;
+            INSERT this->ParseAttr(subattr, subval.value, isv2api, onmapdomvalue, whfsmapper, decodeinvalidutf8as, importmode, jsmode) INTO outputrow.settings AT END;
           }
           INSERT outputrow INTO subs AT END;
         }
@@ -2039,7 +2101,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         //ADDME: Compensate missing fields
         IF (RecordExists(val))
         {
-          RECORD newinfo := MappedJoinBlobSetting(val, whfsmapper);
+          RECORD newinfo := MappedJoinBlobSetting(val, whfsmapper, jsmode);
           INSERT
               [ setting :=    0
               , whfsdata :=   newinfo.fs_object
@@ -2085,7 +2147,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
               DELETE CELL filename FROM embed;
               INSERT CELL filename := embed.contentid INTO embed;
 
-              RECORD newinfo := MappedJoinBlobSetting(embed, whfsmapper);
+              RECORD newinfo := MappedJoinBlobSetting(embed, whfsmapper, jsmode);
               INSERT
                   [ setting := 0
                   , whfsdata := newinfo.fs_object
@@ -2409,6 +2471,22 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         IF(attr.tag != "WRD_GUID" AND TYPEID(toset) = TYPEID(STRING) AND NOT IsValidUTF8(toset))
           toset := HandleInvalidUTF8(attr.tag, toset, options.decodeinvalidutf8as);
 
+        IF (attr.attributetype = wrd_attributetype_date OR attr.attributetype = wrd_attributetype_datetime)
+        {
+          IF (options.jsmode)
+          {
+            IF (TypeID(toset) = TypeID(RECORD) AND IsDefaultValue(toset))
+              toset := attr.tag = "WRD_CREATIONDATE" OR attr.tag = "WRD_LIMITDATE" ? MAX_DATETIME : DEFAULT DATETIME;
+            ELSE IF (toset = DEFAULT DATETIME OR toset = MAX_DATETIME)
+              THROW NEW Exception(`Not allowed to use DEFAULT DATETIME or MAX_DATETIME, use null`);
+          }
+          ELSE
+          {
+            IF (attr.tag != "WRD_CREATIONDATE" AND attr.tag != "WRD_LIMITDATE" AND toset = MAX_DATETIME)
+              THROW NEW Exception(`Not allowed to store MAX_DATETIME in field ${attr.tag}`);
+          }
+        }
+
         INSERT [ tag := attr.tag
                , value := toset
                , cellname := attr.cellname
@@ -2439,7 +2517,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         {
           CASE wrd_attributetype_domain
           {
-            RECORD parsed := this->ParseAttr(attr, rec.value, isv2api, options.onmapdomvalue, options.whfsmapper, options.decodeinvalidutf8as, options.importmode);
+            RECORD parsed := this->ParseAttr(attr, rec.value, isv2api, options.onmapdomvalue, options.whfsmapper, options.decodeinvalidutf8as, options.importmode, options.jsmode);
             entityrec := CellDelete(entityrec, attr.cellname);
             //make sure any string in eg wrd_leftentity is converted to integer
             entityrec := CellInsert(entityrec, attr.cellname, Length(parsed.newsets) > 0 ? parsed.newsets[0].setting : 0);
@@ -2477,7 +2555,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         CONTINUE;
 
       TRY
-        INSERT this->ParseAttr(attr, GetCell(fieldsdata, attr.tag), isv2api, options.onmapdomvalue, options.whfsmapper, options.decodeinvalidutf8as, options.importmode) INTO settings AT END;
+        INSERT this->ParseAttr(attr, GetCell(fieldsdata, attr.tag), isv2api, options.onmapdomvalue, options.whfsmapper, options.decodeinvalidutf8as, options.importmode, options.jsmode) INTO settings AT END;
       CATCH (OBJECT e)
       {
         e->what := e->what || ` while parsing value for attribute ${EncodeJSON(attr.tag)}`;
@@ -2638,6 +2716,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         , mergechanges :=           FALSE
         , __debug :=                FALSE
         , filterentities :=         INTEGER[]
+        , jsmode :=                 FALSE
         ], options);
 
     STRING ARRAY filterguids;
@@ -2681,7 +2760,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
              , sourcename :=  "rowdata"
              , subselect :=   STRING[]
              , wrapper := DEFAULT RECORD
-          FROM this->__final_attrs), linkgetter, DEFAULT OBJECT);
+          FROM this->__final_attrs), linkgetter, DEFAULT OBJECT, options.jsmode);
 
     FOREVERY (RECORD change FROM changes)
     {
@@ -2740,7 +2819,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       // rebuild modified attributes
       RECORD modifications := CELL
           [ ...this->ParseSettings(modified_attrs, newsettings, newwhfslinks, linkgetter, [ rowdata := modentityrec ])
-          , ...GenerateBaseFields(modified_basefields, modentityrec)
+          , ...GenerateBaseFields(modified_basefields, modentityrec, options.jsmode)
           ];
 
       RECORD oldsettings;
@@ -2749,7 +2828,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         RECORD ARRAY org_basefields := options.allfieldsinoriginal ? acc.base_fields : modified_basefields;
         oldsettings := CELL
             [ ...this->ParseSettings(org_attrs, change.oldsettings.settings, orgwhfslinks, linkgetter, [ rowdata := oldentityrec ])
-            , ...GenerateBaseFields(org_basefields, oldentityrec)
+            , ...GenerateBaseFields(org_basefields, oldentityrec, options.jsmode)
             ];
       }
 
@@ -2834,6 +2913,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
                                , temp := FALSE
                                , changeset := 0
                                , decodeinvalidutf8as := ""
+                               , jsmode := FALSE
                                ], options);
 
     IF(options.temp)

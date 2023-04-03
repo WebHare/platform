@@ -144,7 +144,7 @@ PUBLIC RECORD FUNCTION GetWrappedSourceFromURL(STRING url)
     IF(info.type=3) //WRD
     {
       RECORD imgrecinfo := SELECT * FROM wrd.entity_settings WHERE id = info.id;
-      RETURN RecordExists(imgrecinfo) ? GetWrappedObjectFromWRDSetting(imgrecinfo, FALSE, DEFAULT OBJECT, DEFAULT OBJECT) : DEFAULT RECORD;
+      RETURN RecordExists(imgrecinfo) ? GetWrappedObjectFromWRDSetting(imgrecinfo, FALSE, DEFAULT OBJECT, DEFAULT OBJECT, FALSE) : DEFAULT RECORD;
     }
     IF(info.type=4)
     {
