@@ -1947,16 +1947,6 @@ int32_t FakeGDI::CalcLineWidth(int32_t LogicalWidth)
 
 void FakeGDI::RegionToPermission()
 {
-        uint32_t countprotection = 0;
-
-        uint32_t width = drobj->GetCanvas()->GetWidth();
-        uint32_t height = drobj->GetCanvas()->GetHeight();
-        for (uint32_t y = 0; y<height; y++)
-                for (uint32_t x = 0; x<width; x++)
-                        if (devicecontext->region->IsProtected(x,y))
-                                countprotection++;
-
-        DEBUGPRINT("Number of protected pixels = " << countprotection);
         protected_bitmap->SetAreaProtection(*devicecontext->region);
 }
 
