@@ -3043,13 +3043,13 @@ STATIC OBJECTTYPE WRDDBLinkValueBase EXTEND WRDDBValue
           IF (TypeID(v) = TypeID(RECORD) AND IsDefaultValue(v))
             user_input[#v] := 0;
           ELSE IF (v = 0)
-            THROW NEW Exception(`Not allowed to use 0 as value for a condition on link `);
+            THROW NEW Exception(`Not allowed to use 0 as value for a condition on link`);
         user_input := INTEGER ARRAY(user_input);
       }
       ELSE IF (TypeID(user_input) = TypeID(RECORD) AND IsDefaultValue(user_input))
         user_input := 0;
       ELSE IF (user_input = 0)
-        THROW NEW Exception(`Not allowed to use 0 as value for a condition on link `);
+        THROW NEW Exception(`Not allowed to use 0 as value for a condition on link`);
     }
     RETURN user_input;
   }
