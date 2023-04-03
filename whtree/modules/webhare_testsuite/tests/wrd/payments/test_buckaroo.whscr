@@ -37,18 +37,18 @@ ASYNC MACRO SetupBuckaroo()
     AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick("paymentextension->connect"), [ messagemask := "*succeeded*" ]);
   }
 
-  TT("{select}:Methods")->selection := SELECT * FROM TT("{select}:Methods")->options WHERE ToUppercase(title) IN ["IDEAL"];
+  TT("{select}:Methods")->selection := SELECT * FROM TT("{select}:Methods")->options WHERE ToUppercase(title) IN ["IDEAL","E-MANDATE"];
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
   TestEq(TRUE, TT("paymentextension->testmode")->value);
-  TestEq(["iDEAL"], SELECT AS STRING ARRAY title FROM TT("{select}:Methods")->selection);
+  TestEq(["iDEAL","E-mandate"], SELECT AS STRING ARRAY title FROM TT("{select}:Methods")->selection);
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
 }
 
-ASYNC MACRO TestPaymentBuckaroo()
+ASYNC MACRO TestPaymentBuckaroo_Ideal()
 {
   IF(offlineonly)
     RETURN;
@@ -56,17 +56,17 @@ ASYNC MACRO TestPaymentBuckaroo()
   OBJECT paymentapi := GetWRDTestPaymentAPI();
 
   testfw->BeginWork();
-  RECORD ARRAY methods := paymentapi->ListAllPaymentOptions();
-  TestEq(1,Length(methods));
-  TestEq("iDEAL", methods[0].title);
-  TEstEq(TRUE, Length(methods[0].issuers) > 8);
+  RECORD ARRAY methods := SELECT * FROM paymentapi->ListAllPaymentOptions() ORDER BY title;
+  RECORD idealmethod := SELECT * FROM methods WHERE ToUppercase(title) = "IDEAL";
+  TestAssert(RecordExists(idealmethod));
+  TestEq(TRUE, Length(idealmethod.issuers) > 0);
 
   OBJECT entity := paymentapi->paymenttype->CreateEntity(CELL[]);
   testfw->CommitWork();
 
-  RECORD properrequest := [ paymentprovider := methods[0].paymentprovider
-                          , paymentoptiontag := methods[0].paymentoptiontag
-                          , issuer := methods[0].issuers[0].rowkey
+  RECORD properrequest := [ paymentprovider := idealmethod.paymentprovider
+                          , paymentoptiontag := idealmethod.paymentoptiontag
+                          , issuer := idealmethod.issuers[0].rowkey
                           , returnurl := GetWRDTestPaymentReturnURL(paymentapi)
                           ];
   IF(testfw->debug)
@@ -126,11 +126,28 @@ ASYNC MACRO TestPaymentBuckaroo()
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
 }
 
+ASYNC MACRO TestPaymentBuckaroo_Emandate()
+{
+  IF(offlineonly)
+    RETURN;
+
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+
+  testfw->BeginWork();
+  RECORD ARRAY methods := SELECT * FROM paymentapi->ListAllPaymentOptions() ORDER BY title;
+  RECORD emandatemethod := SELECT * FROM methods WHERE ToUppercase(title) = "E-MANDATE";
+  TestAssert(RecordExists(emandatemethod));
+  TestEq(TRUE, Length(emandatemethod.issuers) > 0);
+
+  testfw->CommitWork();
+}
+
 IF(offlineonly)
   Print("*** Skipping some tests as TESTSECRET_BUCKAROO_WEBSITEID and TESTSECRET_BUCKAROO_SECRETID are unset\n\n");
 
 RunTestframework([ PTR CreateWRDTestSchema
                  , PTR SetupBuckaroo
                  , PTR RunStandardPaymentMethodTests([ ignorestatuscheckresult := offlineonly ])
-                 , PTR TestPaymentBuckaroo
+                 , PTR TestPaymentBuckaroo_Ideal
+                 , PTR TestPaymentBuckaroo_Emandate
                  ]);
