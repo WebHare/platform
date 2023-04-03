@@ -1035,11 +1035,20 @@ function hookConsoleLog() {
     if (key != "Console") {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (console as any)[key] = (...args: unknown[]) => {
-        source.func = key;
-        source.when = new Date();
-        source.location = getCallerLocation(1); // 1 is location of parent
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return (func as (...args: any[]) => any).apply(console, args);
+        if (source.func) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          return (func as (...args: any[]) => any).apply(console, args);
+        } else {
+          source.func = key;
+          source.when = new Date();
+          source.location = getCallerLocation(1); // 1 is location of parent
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            return (func as (...args: any[]) => any).apply(console, args);
+          } finally {
+            source.func = "";
+          }
+        }
       };
     }
   }
@@ -1047,7 +1056,7 @@ function hookConsoleLog() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   process.stdout.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
     if (envbackend.flags.conloc && source.location)
-      old_std_writes.stdout.call(process.stdout, `${(new Date).toISOString()} ${source.location.filename.split("/").at(-1)}:${source.location.line}: `, "utf-8");
+      old_std_writes.stdout.call(process.stdout, `${(new Date).toISOString()} ${source.location.filename.split("/").at(-1)}:${source.location.line}:${source.func === "table" ? "\n" : " "}`, "utf-8");
     const retval = old_std_writes.stdout.call(process.stdout, data, encoding, cb);
     const tolog: string = typeof data == "string" ? data : Buffer.from(data).toString("utf-8");
     consoledata.push({ func: source.func, data: tolog, when: source.when, location: source.location });
