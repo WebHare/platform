@@ -167,6 +167,84 @@ test.registerTests(
         test.assert(!result.contacts[0].photo);
       }
     },
+
+    "Test setting value client-side",
+    {
+      test: async function() {
+        await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1&prefill=1");
+
+        // Check the prefilled value
+        const formhandler = FormBase.getForNode(test.qS("form"));
+        let result = await formhandler.getFormValue();
+        test.eq("prefilled name", result.text);
+        test.eq(1, result.contacts.length);
+        test.eq("first contact", result.contacts[0].name);
+        test.assert(result.contacts[0].photo);
+        test.eq("imgeditfile.jpeg", result.contacts[0].photo.filename);
+
+        // Clear the array by setting the value to an empty array
+        const arrayvalue = test.qS("[data-wh-form-group-for=contacts] .wh-form__arrayinput");
+        formhandler.setFieldValue(arrayvalue, []);
+        test.eq(0, test.qSA(".wh-form__arrayrow").length);
+
+        test.fill(test.qS("input[name=text]"), "no longer prefilled");
+
+        result = await formhandler.getFormValue();
+        test.eq("no longer prefilled", result.text);
+        test.eq(0, result.contacts.length);
+
+        // Set the value to an empty row
+        formhandler.setFieldValue(arrayvalue, [{}]);
+        test.eq(1, test.qSA(".wh-form__arrayrow").length);
+
+        result = await formhandler.getFormValue();
+        test.eq("no longer prefilled", result.text);
+        test.eq(1, result.contacts.length);
+        test.eq("", result.contacts[0].name);
+        test.eq("0", result.contacts[0].gender);
+        test.eq("", result.contacts[0].wrd_dateofbirth);
+        test.assert(!result.contacts[0].photo);
+
+        // Set the value to two rows with values
+        formhandler.setFieldValue(arrayvalue, [{ name: "First person", gender: 1, wrd_dateofbirth: "2000-02-02" }, { name: "Another person", gender: 2, wrd_dateofbirth: "2000-03-03" }]);
+        test.eq(2, test.qSA(".wh-form__arrayrow").length);
+
+        result = await formhandler.getFormValue();
+        test.eq("no longer prefilled", result.text);
+        test.eq(2, result.contacts.length);
+        test.eq("First person", result.contacts[0].name);
+        test.eq("1", result.contacts[0].gender);
+        test.eq("2000-02-02", result.contacts[0].wrd_dateofbirth);
+        test.assert(!result.contacts[0].photo);
+        test.eq("Another person", result.contacts[1].name);
+        test.eq("2", result.contacts[1].gender);
+        test.eq("2000-03-03", result.contacts[1].wrd_dateofbirth);
+        test.assert(!result.contacts[1].photo);
+        test.click(test.qS("button[type=submit]"));
+      },
+      waits: ["ui"]
+    },
+    {
+      test: async function() {
+        // Check the submission result
+        let result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
+        test.assert(result.ok);
+        result = result.value;
+        test.eq("no longer prefilled", result.text);
+        test.eq(2, result.contacts.length);
+        test.eq("First person", result.contacts[0].name);
+        test.eq(1, result.contacts[0].gender);
+        test.eqMatch(/^2000-02-02/, result.contacts[0].wrd_dateofbirth);
+        test.assert(!result.contacts[0].photo);
+        test.eq("Another person", result.contacts[1].name);
+        test.eq(2, result.contacts[1].gender);
+        test.eqMatch(/^2000-03-03/, result.contacts[1].wrd_dateofbirth);
+        test.assert(!result.contacts[1].photo);
+        test.click(test.qS("button[type=submit]"));
+      }
+    },
+
+    "Test prefilled array value",
     {
       test: async function() {
         await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1&prefill=1");

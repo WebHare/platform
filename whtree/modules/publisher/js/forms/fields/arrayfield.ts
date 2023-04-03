@@ -14,7 +14,7 @@ export default class ArrayField {
 
     // The template for new rows
     this.template = node.querySelector("template");
-    this.template.parentNode.removeChild(this.template);
+    this.template.remove();
 
     // The node before which to add new rows
     this.insertPoint = this.node.querySelector(".wh-form__arrayadd");
@@ -26,6 +26,7 @@ export default class ArrayField {
     this.valueNode = this.node.querySelector(".wh-form__arrayinput");
     this.valueNode.whUseFormGetValue = true;
     this.valueNode.addEventListener("wh:form-getvalue", event => this._onGetValue(event));
+    this.valueNode.addEventListener("wh:form-setvalue", event => this._onSetValue(event));
 
     // Initialize initial value rows
     for (const rownode of this.node.querySelectorAll(".wh-form__arrayrow"))
@@ -45,6 +46,7 @@ export default class ArrayField {
     dompack.registerMissed(this.insertPoint.previousSibling);
     this._checkValidity();
     this.form.refreshConditions();
+    return this.insertPoint.previousSibling;
   }
   /* seems a unused API ?.  .. if we need to provide this, just let people pass us a row node instead of understanding IDs
     removeRow(id)
@@ -99,6 +101,29 @@ export default class ArrayField {
     // Wait for all the row promises (which resolves with a list of promise resolution values, which will be the final value
     // of the array field)
     Promise.all(valuePromises).then(valueRows => event.detail.deferred.resolve(valueRows));
+  }
+
+  _onSetValue(event) {
+    // Remove all current rows
+    while (this.insertPoint.previousSibling?.classList.contains("wh-form__arrayrow"))
+      this._removeRowNode(this.insertPoint.previousSibling);
+
+    // Check if we have an array value
+    if (Array.isArray(event.detail.value)) {
+      for (const value of event.detail.value) {
+        // Add a row
+        const row = this.addRow();
+        // Initialize the row's fields
+        for (const field of this._queryAllFields(row)) {
+          for (const fieldnode of (field.nodes || [field.node])) {
+            if (fieldnode.dataset.whFormCellname in value) {
+              this.form.setFieldValue(fieldnode, value[fieldnode.dataset.whFormCellname]);
+            }
+          }
+        }
+      }
+    }
+    this._checkValidity();
   }
 
   _fixupRowNode(node) {
@@ -165,7 +190,7 @@ export default class ArrayField {
 
   _removeRowNode(node) {
     // Remove the row node
-    node.parentNode.removeChild(node);
+    node.remove();
     this._checkValidity();
   }
 
