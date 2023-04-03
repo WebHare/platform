@@ -2,7 +2,7 @@
 source ${BASH_SOURCE%/*}/../lib/wh-functions.sh
 
 REQUIRENPMVERSION="7.13.0"
-export WHBUILD_PLATFORM="`uname | tr A-Z a-z`"
+export WHBUILD_PLATFORM="$(uname | tr A-Z a-z)"
 export PGUSER="root" #postgres user, must be locked for compatibility between dev and prod
 export HOMEBREW_NO_AUTO_UPDATE=1 # We don't want to responsible for brew/trigger updates.
 
@@ -61,6 +61,17 @@ fi
 if [ -f "${WEBHARE_DATAROOT}dbase/translog.whdb" ]; then
   echo "The dbserver is no longer suppported by WebHare 5.0 and up. Downgrade and convert first!"
   exit 1
+fi
+
+# Oracle's instantclient requires additional libraries we can't ship with WebHare or through npm so we offer an option
+# to place additional libraries in $WEBHARE_DATAROOT/lib/
+if [ -z "$INFERRED_DATAROOT" ]; then
+  if [ "$WHBUILD_PLATFORM" = "darwin" ]; then
+    # Note that SIP on Darwin may interfere with this setting (see eg https://developer.apple.com/forums/thread/703757)
+    export DYLD_LIBRARY_PATH="${WEBHARE_DATAROOT}lib:$DYLD_LIBRARY_PATH"
+  else
+    export LD_LIBRARY_PATH="${WEBHARE_DATAROOT}lib:$LD_LIBRARY_PATH"
+  fi
 fi
 
 export WEBHARE_DBASENAME="webhare" # embedded database is always named WH
@@ -334,7 +345,7 @@ setup_for_console() #setup_for_console is invoked when we're starting a major su
     exit 1
   fi
 
-  mkdir -p "$WEBHARE_DATAROOT"/home "$WEBHARE_DATAROOT"/tmp >/dev/null 2>&1
+  mkdir -p "$WEBHARE_DATAROOT"/lib "$WEBHARE_DATAROOT"/home "$WEBHARE_DATAROOT"/tmp >/dev/null 2>&1
 
   # WH 5.0 - move the unified cache (image cache) into the right place. To avoid races we *have* to do this before we start WebHare - it should normally be done in a sec...
   if [ -d "$WEBHARE_DATAROOT"/ephemeral/system.uc2 ]; then
