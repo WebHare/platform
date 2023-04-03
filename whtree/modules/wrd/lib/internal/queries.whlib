@@ -2102,9 +2102,8 @@ STATIC OBJECTTYPE WRDDBValue
   }
 
   /** Validate user input for validity
-      @param match_type Matching type
       @param user_input User provided input
-      @param match_case Whether case-matching was requested
+      @param condition Condition the input is used for
       @return Whether the value is valid for this type.
   */
   PUBLIC BOOLEAN FUNCTION CheckUserInput(VARIANT user_input, OBJECT condition)
@@ -2184,8 +2183,7 @@ STATIC OBJECTTYPE WRDDBValue
       @param query
       @param settings_source Name that must be used when adding a table to the dynamic query to select entity settings
       @param value Value to search for
-      @param comparetype Comparison operator
-      @param match_case Whether to match case insensitive
+      @param condition Condition (used for match_type and match_case)
       @param ignore_default_also_match If TRUE, you can safely filter out default values, and add the query anyway.
       @return
       @cell return.canhandle Whether the query has been amended to filter for this constraint.
@@ -2331,9 +2329,8 @@ STATIC OBJECTTYPE WRDDBEnumMultipleValue EXTEND WRDDBValue
 STATIC OBJECTTYPE WRDDBStringValue EXTEND WRDDBValue
 <
   /** Validate user input for validity
-      @param match_type Matching type
+      @param condition Condition (only used for match_type and match_case)
       @param user_input User provided input
-      @param match_case Whether case-matching was requested
       @return Whether the value is valid for this type.
   */
   UPDATE PUBLIC BOOLEAN FUNCTION CheckUserInput(VARIANT user_input, OBJECT condition)
