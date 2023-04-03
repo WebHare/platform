@@ -1036,15 +1036,13 @@ function hookConsoleLog() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (console as any)[key] = (...args: unknown[]) => {
         if (source.func) {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          return (func as (...args: any[]) => any).apply(console, args);
+          return (func as (...args: unknown[]) => unknown).apply(console, args);
         } else {
           source.func = key;
           source.when = new Date();
           source.location = getCallerLocation(1); // 1 is location of parent
           try {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            return (func as (...args: any[]) => any).apply(console, args);
+            return (func as (...args: unknown[]) => unknown).apply(console, args);
           } finally {
             source.func = "";
           }
