@@ -130,7 +130,8 @@ async function testModuleReplacement() {
     <version>0.0.1</version>
   </meta>
 </module>`,
-    "js/file.ts": `export function func() { return 1; }; console.log("load file 1");`
+    "js/file.ts": `export function func() { return 1; }; console.log("load file 1");`,
+    "js/data.txt": `1`
   });
 
   console.log(`create module webhare_testsuite_hmrtest2`);
@@ -145,10 +146,10 @@ async function testModuleReplacement() {
     "js/file3.ts": `import { registerLoadedResource } from "@mod-system/js/internal/hmrinternal";
 import { toFSPath } from "@webhare/services";
 import * as fs from "node:fs";
-const fspath = toFSPath("mod::webhare_testsuite_hmrtest/js/file.ts");
+const fspath = toFSPath("mod::webhare_testsuite_hmrtest/js/data.txt");
 const file = fs.readFileSync(fspath).toString();
 registerLoadedResource(module, fspath);
-export function func3() { return Number(/return\\s*([^\\s])*\\t*;/.exec(file)?.[1]); }
+export function func3() { return Number(file.trim()); }
 `
   });
 
@@ -177,7 +178,8 @@ export function func3() { return Number(/return\\s*([^\\s])*\\t*;/.exec(file)?.[
     <version>0.0.2</version>
   </meta>
 </module>`,
-    "js/file.ts": `export function func() { return 2; }; console.log("load file 2");`
+    "js/file.ts": `export function func() { return 2; }; console.log("load file 2");`,
+    "js/data.txt": `2`
   });
 
   // All modules referencing file.ts should be removed from the cache
