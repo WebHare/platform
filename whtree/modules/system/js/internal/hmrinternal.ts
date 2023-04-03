@@ -137,12 +137,19 @@ export function handleModuleInvalidation(path: string) {
     }
   }
 
+  // Remove the invalidated libraries from the cache
   for (const key of toinvalidate) {
     if (flags.hmr)
       console.log(`[hmr] evict module ${key} from the cache`);
     delete require.cache[key];
     delete libdata[key];
   }
+
+  // Remove the invalidated libraries from the list of children of libraries that loaded them
+  for (const mod of Object.values(require.cache))
+    if (mod)
+      mod.children = mod.children.filter(child => !toinvalidate.includes(child.id));
+
   if (flags.hmr)
     console.log(`[hmr] Invalidation handled`);
 }
@@ -183,6 +190,13 @@ export function handleSoftReset() {
 
   // Delete all modules from require.cache with paths that are now invalid
   const cache_todelete = Object.keys(require.cache).filter(isInvalidPath);
+
+  // And all modules that reference resources with paths that are now invalid
+  for (const [key, data] of Object.entries(libdata)) {
+    if (data?.resources.filter(isInvalidPath).length && (!cache_todelete.includes(key)))
+      cache_todelete.push(key);
+  }
+
   if (flags.hmr && cache_todelete.length)
     console.log(`[hmr] to remove from cache: ${cache_todelete.join(", ")}`);
   for (const key of cache_todelete) {

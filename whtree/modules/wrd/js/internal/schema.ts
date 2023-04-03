@@ -152,7 +152,7 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
     return new WRDSingleQueryBuilder(this.#type, combineRecordOutputMaps(this.#selects, recordmapping), this.#wheres, this.#historymode);
   }
 
-  where<F extends keyof S[T] & string, Condition extends GetCVPairs<S[T][F]>["condition"]>(field: F, condition: Condition, value: (GetCVPairs<S[T][F]> & { condition: Condition })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: Condition }>): WRDSingleQueryBuilder<S, T, O> {
+  where<F extends keyof S[T] & string, Condition extends GetCVPairs<S[T][F]>["condition"] & AllowedFilterConditions>(field: F, condition: Condition, value: (GetCVPairs<S[T][F]> & { condition: Condition })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: Condition }>): WRDSingleQueryBuilder<S, T, O> {
     return new WRDSingleQueryBuilder(this.#type, this.#selects, [...this.#wheres, { field, condition, value }], this.#historymode);
   }
 

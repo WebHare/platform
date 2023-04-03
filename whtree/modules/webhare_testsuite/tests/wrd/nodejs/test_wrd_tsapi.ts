@@ -122,6 +122,15 @@ async function testNewAPI() {
     "id",
     { wrd_firstname: "wrd_firstname", lastname: "wrd_lastname" }));
 
+  const f = false;
+  if (f) {
+    // @ts-expect-error -- Should only allow string
+    test.eq([secondperson], await schema.selectFrom("wrd_person").select("wrd_id").where("wrd_firstname", "=", ["a"]).execute());
+
+    // @ts-expect-error -- Should only allow number array
+    test.eq([secondperson], await schema.selectFrom("wrd_person").select("wrd_id").where("wrd_id", "in", 6).execute());
+  }
+
   await whdb.beginWork();
   await schema.delete("wrd_person", firstperson);
   await whdb.commitWork();

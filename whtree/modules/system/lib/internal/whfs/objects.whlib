@@ -2009,7 +2009,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
 
 
   /** Callback called with progress info
-      @param data
+      @cell data
       @cell data.progress Progress (0..100)
       @cell data.file
   */
@@ -2640,7 +2640,7 @@ STATIC OBJECTTYPE WHFSBulkReceiver EXTEND InstanceMapperBase
 
   /** Collects all metadata for a fs object
       @param source Source object (from the plan)
-      @param source.sourceid Id of the source file
+      @cell source.sourceid Id of the source file
       @return Lots of metadata (not mapped!)
   */
   RECORD FUNCTION GetCopyMetadata(RECORD source)

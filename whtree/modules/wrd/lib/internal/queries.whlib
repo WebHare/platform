@@ -2102,9 +2102,8 @@ STATIC OBJECTTYPE WRDDBValue
   }
 
   /** Validate user input for validity
-      @param match_type Matching type
       @param user_input User provided input
-      @param match_case Whether case-matching was requested
+      @param condition Condition the input is used for
       @return Whether the value is valid for this type.
   */
   PUBLIC BOOLEAN FUNCTION CheckUserInput(VARIANT user_input, OBJECT condition)
@@ -2184,8 +2183,7 @@ STATIC OBJECTTYPE WRDDBValue
       @param query
       @param settings_source Name that must be used when adding a table to the dynamic query to select entity settings
       @param value Value to search for
-      @param comparetype Comparison operator
-      @param match_case Whether to match case insensitive
+      @param condition Condition (used for match_type and match_case)
       @param ignore_default_also_match If TRUE, you can safely filter out default values, and add the query anyway.
       @return
       @cell return.canhandle Whether the query has been amended to filter for this constraint.
@@ -2331,9 +2329,8 @@ STATIC OBJECTTYPE WRDDBEnumMultipleValue EXTEND WRDDBValue
 STATIC OBJECTTYPE WRDDBStringValue EXTEND WRDDBValue
 <
   /** Validate user input for validity
-      @param match_type Matching type
+      @param condition Condition (only used for match_type and match_case)
       @param user_input User provided input
-      @param match_case Whether case-matching was requested
       @return Whether the value is valid for this type.
   */
   UPDATE PUBLIC BOOLEAN FUNCTION CheckUserInput(VARIANT user_input, OBJECT condition)
@@ -3744,77 +3741,77 @@ PUBLIC OBJECT FUNCTION GetAccessorForAttributeType(RECORD attrinfo, OBJECT wrd_t
 
   SWITCH (attributetype)
   {
-  CASE 1 /* single select*/
+  CASE wrd_attributetype_domain
     { RETURN NEW WRDDBLinkValue(wrd_type, attrinfo); }
 
-  CASE 8 /* multiple select */
+  CASE wrd_attributetype_domainarray
     { RETURN NEW WRDDBLinksValue(wrd_type, attrinfo); }
 
-  CASE 2 /* free text */
-     , 4 /* Email */
-     , 5 /* Telephone  */
-     , 21 /* URL */
+  CASE wrd_attributetype_free
+     , wrd_attributetype_email
+     , wrd_attributetype_telephone
+     , wrd_attributetype_url
     { RETURN NEW WRDDBStringValue(wrd_type, attrinfo); }
 
-  CASE 7 /* Password */
+  CASE wrd_attributetype_password
     { RETURN NEW WRDDBPasswordValue(wrd_type, attrinfo); }
 
-  CASE 3 /* Address */
+  CASE wrd_attributetype_address
     { RETURN NEW WRDDBAddressValue(wrd_type, attrinfo); }
 
-  CASE 6 /* Date */
-     , 12 /* datetime */
+  CASE wrd_attributetype_date
+     , wrd_attributetype_datetime
     { RETURN NEW WRDDBDateTimeValue(wrd_type, attrinfo, attributetype = 12); }
 
-  CASE 9 /* Image */
+  CASE wrd_attributetype_image
     { RETURN NEW WRDDBImageValue(wrd_type, attrinfo, options); }
 
-  CASE 10 /* File */
+  CASE wrd_attributetype_file
     { RETURN NEW WRDDBFileValue(wrd_type, attrinfo, options); }
 
-  CASE 11 /* time */
-     , 15 /* Integer */
+  CASE wrd_attributetype_time
+     , wrd_attributetype_integer
     { RETURN NEW WRDDBIntegerValue(wrd_type, attrinfo); }
 
-  CASE 13 /* Array */
+  CASE wrd_attributetype_array
     { RETURN NEW WRDDBArrayValue(wrd_type, attrinfo, options); }
 
-  CASE 14 /* Money */
+  CASE wrd_attributetype_money
     { RETURN NEW WRDDBMoneyValue(wrd_type, attrinfo); }
 
-  CASE 16 /* Boolean */
+  CASE wrd_attributetype_boolean
     { RETURN NEW WRDDBBooleanValue(wrd_type, attrinfo); }
 
-  CASE 17
+  CASE wrd_attributetype_richdocument
     { RETURN NEW WRDDBRichDocumentValue(wrd_type, attrinfo, options); }
 
-  CASE 18 /* Integer64 */
+  CASE wrd_attributetype_integer64
     { RETURN NEW WRDDBInteger64Value(wrd_type, attrinfo); }
 
-  CASE 19 /* Instance */
+  CASE wrd_attributetype_whfsinstance
     { RETURN NEW WRDDBInstanceValue(wrd_type, attrinfo, options); }
 
-  CASE 20 /* IntExtLink */
+  CASE wrd_attributetype_whfsintextlink
     { RETURN NEW WRDDBIntExtLinkValue(wrd_type, attrinfo, options); }
 
-  CASE 22 /* RECORD */
+  CASE wrd_attributetype_record
     { RETURN NEW WRDDBRecordValue(wrd_type, attrinfo); }
 
-  CASE 23 //ENUM
+  CASE wrd_attributetype_enum
     { RETURN NEW WRDDBEnumSingleValue(wrd_type, attrinfo); }
-  CASE 24 //ENUMARRAY
+  CASE wrd_attributetype_enumarray
     { RETURN NEW WRDDBEnumMultipleValue(wrd_type, attrinfo); }
 
-  CASE 25 /* PAYMENTMETHOD */
+  CASE wrd_attributetype_paymentprovider
     { RETURN NEW WRDDBPaymentProviderValue(wrd_type, attrinfo, options); }
-  CASE 26 /* PAYMENT */
+  CASE wrd_attributetype_payment
     { RETURN NEW WRDDBPaymentValue(wrd_type, attrinfo); }
-  CASE 27 /* STATUSRECORD */
+  CASE wrd_attributetype_statusrecord
     { RETURN NEW WRDDBStatusRecordValue(wrd_type, attrinfo); }
-  CASE 28 /* AUTHENTICATIONSETTINGS */
+  CASE wrd_attributetype_authenticationsettings
     { RETURN NEW WRDDBAuthenticationSettingsValue(wrd_type, attrinfo); }
 
-  CASE 29 /* WHFSLINK */
+  CASE wrd_attributetype_whfslink
     { RETURN NEW WRDDBWHFSLinkValue(wrd_type, attrinfo, options); }
 
   DEFAULT
