@@ -87,6 +87,15 @@ export function getDefaultValue<T extends VariableType>(type: T): HSType<T> {
   }
 }
 
+type ArrayVariableType = VariableType.VariantArray | VariableType.IntegerArray | VariableType.MoneyArray | VariableType.FloatArray | VariableType.BooleanArray | VariableType.DateTimeArray | VariableType.Integer64Array | VariableType.FunctionPtrArray | VariableType.RecordArray | VariableType.StringArray | VariableType.BlobArray;
+
+/** Add a HareScript type annotation to an array, makes sure empty arrays are sent correctly over IPC */
+export function getTypedArray<V extends ArrayVariableType, T extends HSType<V>>(type: V, array: T): T {
+  const copy = getDefaultValue<V>(type) as unknown[];
+  copy.push(...array);
+  return copy as T;
+}
+
 /* new Date(100000000 * 86400000) is also valid, but to keep parity with HS we set
    it at the very last millisecond of a day
 */
