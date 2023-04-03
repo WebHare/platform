@@ -1,4 +1,6 @@
-# We can't mark this script as executable as it shouldn't be run on a build host
+#!/bin/bash
+# We can't mark this script as executable as it shouldn't be run on a build host. But we still need the she-bang for shellcheck
+
 # DL instructions from https://opensearch.org/docs/latest/opensearch/install/tar/
 # DL packages from here - https://opensearch.org/downloads.html
 
@@ -18,6 +20,9 @@ mkdir /opt/opensearch
 tar zx -C /opt/opensearch --strip-components=1 -f $DLPATH
 chown -R opensearch /opt/opensearch
 
+# Remove the bundled JDK and plugins
+rm -rf /opt/opensearch/jdk /opt/opensearch/plugins/* /opt/opensearch/performance-analyzer-rca
+
 runuser --user opensearch --group opensearch -- /opt/opensearch/bin/opensearch --version
 RETVAL="$?"
 if [ "$RETVAL" != "0" ]; then
@@ -25,11 +30,18 @@ if [ "$RETVAL" != "0" ]; then
   exit 1
 fi
 
+# Remove alll the shipped plugins
+#for PLUGIN in $(runuser --user opensearch --group opensearch -- /opt/opensearch/bin/opensearch-plugin list); do
+#  runuser --user opensearch --group opensearch -- /opt/opensearch/bin/opensearch-plugin remove "$PLUGIN"
+#done
+
 runuser --user opensearch --group opensearch -- /opt/opensearch/bin/opensearch-plugin install analysis-icu
 RETVAL="$?"
 if [ "$RETVAL" != "0" ]; then
   echo "Install failed? Errorcode $RETVAL from analysis-icu installation"
   exit 1
 fi
+
+
 
 exit 0
