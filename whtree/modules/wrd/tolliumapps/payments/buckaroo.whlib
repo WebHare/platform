@@ -40,6 +40,7 @@ PUBLIC STATIC OBJECTTYPE PayInfo EXTEND TolliumScreenBase
     RECORD meta := data.payment->__GetPaymentData();
     ^transactionkey->value := meta.transactionkey;
     ^paymentkey->value := meta.paymentkey;
+    ^validationreference->value := meta.validationreference;
   }
 >;
 

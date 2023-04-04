@@ -100,7 +100,7 @@ RECORD FUNCTION DoBuckarooRequest(RECORD settings, STRING suburl, RECORD body, S
 PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase_V2
 <
   MACRO NEW(RECORD settings)
-  : WRDPaymentProviderBase_V2("wrd:buckaroo", "redirect", settings, [ responsekey := "", transactionkey := "" ])
+  : WRDPaymentProviderBase_V2("wrd:buckaroo", "redirect", settings, [ responsekey := "", transactionkey := "", validationreference := "", isrecurring := FALSE ])
   {
     this->needspaymentref := TRUE;
   }
@@ -156,11 +156,24 @@ PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase_V
   {
     WRDPaymentProviderBase::__SetupNewTransaction(amount_payable, paymentmethod);
 
-    RECORD customerinfo := this->GetCustomerInfo(paymentmethod);
-    this->paymentdata := CELL[ customerinfo.ipaddress
+    STRING ARRAY requirements;
+    BOOLEAN isrecurring;
+    IF(paymentmethod.paymentoptiontag = "emandate")
+    {
+      INSERT "customerid" INTO requirements AT END;
+    }
+
+    RECORD customerinfo := this->GetCustomerInfo(paymentmethod, CELL [ requirements ]);
+    IF(Length(customerinfo.customerid) > 35)
+      THROW NEW Exception(`Customer id '${customerinfo.customerid}' too long, may be up to 35 characters`);
+
+    this->paymentdata := CELL[ ...this->paymentdatastructure
+                             , customerinfo.ipaddress
+                             , customerinfo.customerid
                              , culture := ToUppercase(paymentmethod.language) = "DE" ? "de-DE"
                                          : ToUppercase(paymentmethod.language) = "NL" ? "nl-NL"
                                          : "en-US"
+                             , isrecurring
                              ];
   }
 
@@ -178,23 +191,42 @@ PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase_V
        Limitations of invoice field are unclear. "This can be a combination of numbers and letters" but
        then their example says "testinvoice 123"
     */
-    RECORD ARRAY parameters;
-    IF(this->issuer != "")
-      parameters := [[ name := "issuer", value := this->issuer ]];
-
     RECORD paymentrequest :=
       CELL[ currency := "EUR"
-          , amountdebit := this->amountpayable //Yes, transmitted as float :=(
-          , invoice := this->paymentref
           , description := this->orderid
           , returnurl := GetInternalReturnURL(paymenttok)
           , services := [ servicelist := [[ name := this->paymentoptiontag
                                           , action := "Pay"
-                                          , parameters := parameters
+                                          , parameters := RECORD[]
                                          ]]
                         ]
           , pushurl := GetInternalReturnURL(paymenttok, [ isnotification := TRUE ])
           ];
+    STRING actiontype := "Transaction";
+    IF(this->paymentoptiontag = "emandate")
+    {
+      paymentrequest.services.servicelist[0].parameters := paymentrequest.services.servicelist[0].parameters CONCAT
+              [[ name := "debtorbankid", value := this->issuer ]
+              ,[ name := "debtorreference", value := this->paymentdata.customerid ]
+              ,[ name := "sequencetype", value := this->paymentdata.isrecurring ? "1" : "0" ]
+              ,[ name := "purchaseid", value := this->paymentref ]
+              ,[ name := "language", value := ToLowercase(tokenize(this->paymentdata.culture,'-')[0]) ]
+              ,[ name := "emandatereason", value := this->orderid ]
+              ];
+
+      paymentrequest.services.servicelist[0].action := "CreateMandate";
+      actiontype := "DataRequest";
+    }
+    ELSE
+    {
+      IF(this->issuer != "")
+        INSERT [[ name := "issuer", value := this->issuer ]] INTO paymentrequest.services.servicelist[0].parameters AT END;
+
+      INSERT CELL amountdebit := this->amountpayable //Yes, transmitted as float :=(
+                , invoice := this->paymentref
+             INTO paymentrequest;
+
+    }
 
     IF(this->paymentdata.ipaddress != "")
     {
@@ -203,14 +235,15 @@ PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase_V
                               ] INTO paymentrequest;
     }
 
-    RECORD callresult := DoBuckarooRequest(this->settings, "Transaction", paymentrequest, this->paymentdata.culture, "Web");
+    RECORD callresult := DoBuckarooRequest(this->settings, actiontype, paymentrequest, this->paymentdata.culture, "Web");
 
     IF(callresult.status != 200)
       THROW NEW Exception(`Unexpected status: ${callresult.status}`);
 
     GetPrimary()->BeginWork();
     UpdatePaymentMetadata(paymenttok, [ transactionkey := callresult.response."key"
-                                      , paymentkey := callresult.response.paymentkey
+                                      , paymentkey := CellExists(callresult.response, 'paymentkey') ? callresult.response.paymentkey : ""
+                                      , mandateid := (SELECT AS STRING value FROM callresult.response.services[0].parameters WHERE ToUppercase(name) = "MANDATEID")
                                       ]);
     GetPrimary()->CommitWork();
 
@@ -223,8 +256,29 @@ PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase_V
     IF(this->paymentdata.transactionkey = "")
       RETURN; //have nothing to poll
 
-    RECORD callresult := DoBuckarooRequest(this->settings, `Transaction/Status/${EncodeURL(this->paymentdata.transactionkey)}`, DEFAULT RECORD, this->paymentdata.culture, "Web");
+    RECORD callresult;
+    IF(this->paymentoptiontag = "emandate")
+    {
+      RECORD inforequest :=
+        CELL[ currency := "EUR"
+            , description := this->orderid
+            , services := [ servicelist := [[ name := "emandate"
+                                            , action := "GetStatus"
+                                            , parameters := RECORD[[ name := "mandateid", value := this->paymentdata.mandateid ]]
+                                           ]]
+                          ]
+            ];
 
+      callresult := DoBuckarooRequest(this->settings, "DataRequest", inforequest, this->paymentdata.culture, "Web");
+
+      STRING validationreference := SELECT AS STRING value FROM callresult.response.services[0].parameters WHERE ToUppercase(name) = "VALIDATIONREFERENCE";
+      IF(validationreference != "") //buckaroo recommends saving this, so i guess we will.
+        this->paymentdata.validationreference := validationreference;
+    }
+    ELSE
+    {
+      callresult := DoBuckarooRequest(this->settings, `Transaction/Status/${EncodeURL(this->paymentdata.transactionkey)}`, DEFAULT RECORD, this->paymentdata.culture, "Web");
+    }
     IF(callresult.status != 200)
       THROW NEW Exception(`Unexpected status: ${callresult.status}`);
 

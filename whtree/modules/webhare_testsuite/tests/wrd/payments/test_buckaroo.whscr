@@ -48,36 +48,9 @@ ASYNC MACRO SetupBuckaroo()
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
 }
 
-ASYNC MACRO TestPaymentBuckaroo_Ideal()
+ASYNC MACRO NavigateThroughBuckaroo(OBJECT entity, STRING payurl)
 {
-  IF(offlineonly)
-    RETURN;
-
   OBJECT paymentapi := GetWRDTestPaymentAPI();
-
-  testfw->BeginWork();
-  RECORD ARRAY methods := SELECT * FROM paymentapi->ListAllPaymentOptions() ORDER BY title;
-  RECORD idealmethod := SELECT * FROM methods WHERE ToUppercase(title) = "IDEAL";
-  TestAssert(RecordExists(idealmethod));
-  TestEq(TRUE, Length(idealmethod.issuers) > 0);
-
-  OBJECT entity := paymentapi->paymenttype->CreateEntity(CELL[]);
-  testfw->CommitWork();
-
-  RECORD properrequest := [ paymentprovider := idealmethod.paymentprovider
-                          , paymentoptiontag := idealmethod.paymentoptiontag
-                          , issuer := idealmethod.issuers[0].rowkey
-                          , returnurl := GetWRDTestPaymentReturnURL(paymentapi)
-                          ];
-  IF(testfw->debug)
-    Print("Planned return url: " || properrequest.returnurl || "\n");
-
-  RECORD paymentinstruction := paymentapi->StartPayment(entity->id, 219.57, properrequest);
-  STRING payurl := ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), paymentinstruction.submitinstruction.url);
-  IF(testfw->debug)
-    Print(`Payment url: ${payurl}\n`);
-
-  //abort(); //ABORT here if you want to visit the payment URL yourself
 
   TestEq("pending", entity->GetField("DATA").status);
 
@@ -126,6 +99,39 @@ ASYNC MACRO TestPaymentBuckaroo_Ideal()
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Close"));
 }
 
+ASYNC MACRO TestPaymentBuckaroo_Ideal()
+{
+  IF(offlineonly)
+    RETURN;
+
+  OBJECT paymentapi := GetWRDTestPaymentAPI();
+
+  testfw->BeginWork();
+  RECORD ARRAY methods := SELECT * FROM paymentapi->ListAllPaymentOptions() ORDER BY title;
+  RECORD idealmethod := SELECT * FROM methods WHERE ToUppercase(title) = "IDEAL";
+  TestAssert(RecordExists(idealmethod));
+  TestEq(TRUE, Length(idealmethod.issuers) > 0);
+
+  OBJECT entity := paymentapi->paymenttype->CreateEntity(CELL[]);
+  testfw->CommitWork();
+
+  RECORD properrequest := [ paymentprovider := idealmethod.paymentprovider
+                          , paymentoptiontag := idealmethod.paymentoptiontag
+                          , issuer := idealmethod.issuers[0].rowkey
+                          , returnurl := GetWRDTestPaymentReturnURL(paymentapi)
+                          ];
+  IF(testfw->debug)
+    Print("Planned return url: " || properrequest.returnurl || "\n");
+
+  RECORD paymentinstruction := paymentapi->StartPayment(entity->id, 219.57, properrequest);
+  STRING payurl := ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), paymentinstruction.submitinstruction.url);
+  IF(testfw->debug)
+    Print(`Payment url: ${payurl}\n`);
+
+  //abort(); //ABORT here if you want to visit the payment URL yourself
+  AWAIT NavigateThroughBuckaroo(entity, payurl);
+}
+
 ASYNC MACRO TestPaymentBuckaroo_Emandate()
 {
   IF(offlineonly)
@@ -139,7 +145,26 @@ ASYNC MACRO TestPaymentBuckaroo_Emandate()
   TestAssert(RecordExists(emandatemethod));
   TestEq(TRUE, Length(emandatemethod.issuers) > 0);
 
+  // https://docs.buckaroo.io/docs/e-mandate-requests
+  RECORD properrequest := [ paymentprovider := emandatemethod.paymentprovider
+                          , paymentoptiontag := emandatemethod.paymentoptiontag
+                          , issuer := emandatemethod.issuers[0].rowkey
+                          , returnurl := GetWRDTestPaymentReturnURL(paymentapi)
+                          , isrecurring := TRUE
+                          , customerid := "C123"
+                          ];
+  OBJECT captureentity := paymentapi->paymenttype->CreateEntity(CELL[]);
+
   testfw->CommitWork();
+
+  //For e-mandate - set the maximum amount you intend to charge (we'll need it for B2B mandates in the future? for now it's ignored anyway)
+  RECORD paymentinstruction := paymentapi->StartPayment(captureentity->id, 212.0, properrequest);
+  STRING payurl := ResolveToAbsoluteURL(GetPrimaryWebHareInterfaceURL(), paymentinstruction.submitinstruction.url);
+  IF(testfw->debug)
+    Print(`Payment url: ${payurl}\n`);
+
+  //abort(); //ABORT here if you want to visit the payment URL yourself
+  AWAIT NavigateThroughBuckaroo(captureentity, payurl);
 }
 
 IF(offlineonly)

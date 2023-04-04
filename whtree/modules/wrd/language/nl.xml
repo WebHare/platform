@@ -995,6 +995,7 @@
         <text tid="paymentkey">Betaalsleutel</text>
         <text tid="secretid">Secret ID</text>
         <text tid="transactionkey">Transactiesleutel</text>
+        <text tid="validationreference">Validatiereferentie</text>
         <text tid="websiteid">Website ID</text>
       </textgroup>
       <textgroup gid="builtins">   <!-- tolliumapps.payments.builtins -->
