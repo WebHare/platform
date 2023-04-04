@@ -16,7 +16,8 @@ ENV LC_ALL=C \
   WEBHARE_MODULEPATHS=/opt/whmodules \
   WEBHARE_SECUREPORT_BINDIP=0.0.0.0 \
   WHBUILD_DOWNLOADCACHE=/tmp/downloads \
-  PATH=/opt/wh/whtree/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/opt/mssql-tools/bin
+  JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64/ \
+  PATH=/opt/wh/whtree/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/jvm/java-17-openjdk-amd64/bin
 
 # Expose usual WebHare hostingports
 EXPOSE 13684

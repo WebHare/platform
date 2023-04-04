@@ -33,7 +33,7 @@ mkdir -p "$OPENSEARCHROOT/logs" "$OPENSEARCHROOT/data" "$OPENSEARCHROOT/repo"
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
   chown opensearch:opensearch "$OPENSEARCHROOT/logs" "$OPENSEARCHROOT/data" "$OPENSEARCHROOT/repo"
   # It seems the linux version has more plugins than the brew version, and needs these options:
-  ADDOPTIONS="-Eplugins.security.disabled=true -Eplugins.security.ssl.http.enabled=false"
+  #ADDOPTIONS="-Eplugins.security.disabled=true -Eplugins.security.ssl.http.enabled=false"
 fi
 
 if [ -x /usr/local/opt/opensearch/bin/opensearch ]; then  #macOS Homebrew on x86

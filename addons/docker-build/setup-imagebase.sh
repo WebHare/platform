@@ -10,8 +10,6 @@
 # For envsubst: gettext-base
 # Packages not needed for building: curl strace wget
 # TODO - createrepo can go if we don't need WH1 to build repositories anymore
-# openssh-server: needed for sftp server for sshfs mounts
-# sshfs: needed to mount backups in the docker (mounting from outside is slow on mac)
 # stunnel: some modules use it for connectivity. must be a stunnel version with PSK support
 # liberation-fonts: fonts that look like Arial, Times New Roman, Courier New
 
@@ -74,7 +72,6 @@ fi
 PACKAGES="ccache
     certbot
     cron
-    dumb-init
     fontconfig
     fonts-open-sans
     libfreetype6
@@ -85,7 +82,7 @@ PACKAGES="ccache
     git
     inotify-tools
     jq
-    openjdk-8-jre-headless
+    openjdk-17-jre-headless
     fonts-liberation
     less
     libaio1
@@ -106,7 +103,6 @@ PACKAGES="ccache
     locales-all
     make
     nodejs
-    openssh-server
     openssl
     libpixman-1-dev
     pkg-config
@@ -118,9 +114,7 @@ PACKAGES="ccache
     rapidjson-dev
     runit
     rsync
-    smbclient
     software-properties-common
-    sshfs
     stunnel4
     tar
     unzip
@@ -135,7 +129,7 @@ if ! ( apt-get -q update && apt-get -qy install --no-install-recommends $PACKAGE
 fi
 
 # Remove /etc/java-8-openjdk/accessibility.properties to fix PDFBOX. see https://askubuntu.com/questions/695560/assistive-technology-not-found-error-while-building-aprof-plot
-rm /etc/java-8-openjdk/accessibility.properties
+rm /etc/java-17-openjdk/accessibility.properties
 
 ln -sf /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime
 mkdir -p /opt/wh/whtree /opt/whdata /opt/whmodules /opt/wh/whtree/currentinstall/compilecache
