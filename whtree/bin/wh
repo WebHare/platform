@@ -65,7 +65,7 @@ if [ -z "$INFERRED_DATAROOT" ]; then
     # Note that SIP on Darwin may interfere with this setting (see eg https://developer.apple.com/forums/thread/703757)
     export DYLD_LIBRARY_PATH="${WEBHARE_DATAROOT}lib:$DYLD_LIBRARY_PATH"
   else
-    export LD_LIBRARY_PATH="${WEBHARE_DATAROOT}lib:$LD_LIBRARY_PATH"
+    export LD_LIBRARY_PATH="${WEBHARE_DATAROOT}/lib:$LD_LIBRARY_PATH"
   fi
 fi
 
