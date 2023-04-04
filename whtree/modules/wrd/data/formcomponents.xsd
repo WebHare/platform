@@ -27,6 +27,18 @@
       <xs:attribute name="wrdschema" type="xs:string" />
       <xs:attribute name="paymentfield" type="xs:string" />
       <xs:attribute name="providerfield" type="xs:string" />
+      <xs:attribute name="optiontypes">
+        <xs:simpleType>
+          <xs:list>
+            <xs:simpleType>
+              <xs:restriction base="xs:string">
+                <xs:enumeration value="mandate"/>
+                <xs:enumeration value="payment"/>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:list>
+        </xs:simpleType>
+      </xs:attribute>
     </xs:complexType>
   </xs:element>
 
