@@ -39,11 +39,6 @@ ifeq ($(WHBUILD_PLATFORM),darwin)
 	CPPFLAGS += -I$(BREWPREFIX)/include -I$(BREWPREFIX)/include/pixman-1
 	GLOBALLDFLAGS += -L$(BREWPREFIX)/lib
 
-	ifneq (,$(wildcard $(BREWPREFIX)/lib/libocci.dylib))
-		#OCI detected, enable it if WHBUILD_OCI is not yet set
-		WHBUILD_OCI ?= 1
-	endif
-
 else
 	BUILDSYSTEM ?= gcc
 	PKGCONFIGPATHS = /usr/lib/x86_64-linux-gnu/pkgconfig/:/usr/local/ssl/lib/pkgconfig/:/usr/local/lib/pkgconfig:/usr/local/lib64/pkgconfig/:/usr/lib64/pkgconfig/
@@ -246,8 +241,6 @@ ifneq ($(WHBUILD_PLATFORM),darwin)
 	BLEX_BASE_LIBS += anl
 endif
 
-harescript_HsMod_oci_AddLibs = clntsh
-harescript_HsMod_odbc_AddLibs = odbc
 harescript_HsMod_pgsql_AddLibs = pq
 
 FullPath=$(if $(filter /%,$(1)),$(1),$(abspath $(WHBUILD_BUILDDIR)/$(1)))
@@ -308,17 +301,13 @@ blex_OBJFILES=$(call Src2ObjFiles, $(blex_CPPFILES))
 # HARESCRIPT
 
 HS_SUBPROJECTS = compiler vm
-HS_HS_MODULES = witty xml icu selfcompile git odbc pgsql
+HS_HS_MODULES = witty xml icu selfcompile git pgsql
 
 HS_LIBS=blex_hscompiler blex_hsvm $(BLEX_LIBS)
 
 PCH_HEADERS+=harescript/vm/allincludes.h
 
 PCH_HEADERS+=harescript/compiler/allincludes.h
-
-ifeq ($(WHBUILD_OCI),1)
-	HS_HS_MODULES += oci
-endif
 
 HS_DEPLOYABLES_PREP=\
 	$(addprefix lib/hsm_wh_,$(addsuffix $(DLL_SUFFIX),$(HS_HS_MODULES)))
@@ -811,13 +800,12 @@ MOD_ALIASES = libblex_draw libblex_hscompiler libblex_hsvm libblex_parser_office
 showtargets:
 	@echo $(BIN_ALIASES)
 	@echo $(MOD_ALIASES)
-	@echo wordconv oci
+	@echo wordconv
 	@echo "Above targets can be combined with -overwrite and -uninstall"
 
 #Convenience overwrite targets
 wordconv-overwrite: libblex_parser_office_escher-overwrite hsm_parser_office_msword-overwrite libblex_draw-overwrite
 wordconv-uninstall: libblex_parser_office_escher-uninstall hsm_parser_office_msword-uninstall
-oci-overwrite: hsm_wh_oci-overwrite
 
 define GenerateBinAlias
 $1: bin/$1

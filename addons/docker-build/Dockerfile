@@ -61,12 +61,10 @@ RUN --mount=type=tmpfs,target=/tmp/,readwrite \
 COPY tocompile/ /opt/wh/
 
 # Build those parts.
-ARG WHBUILD_OCI
 RUN --mount=type=bind,source=/compile-source.sh,target=/compile-source.sh \
     --mount=type=tmpfs,target=/opt/whbuild,readwrite \
     --mount=type=tmpfs,target=/tmp,readwrite \
     --mount=type=cache,id=compile,target=/tmp/compile  \
-    --mount=type=secret,id=instantclienturl \
     /bin/bash /compile-source.sh
 
 # Throw in the whtree and addons - note: builds will always stop caching after this step

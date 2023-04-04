@@ -72,9 +72,6 @@ If you're getting an error that openjdk isn't notarized, you can go to System Pr
 wh builddocker
 ```
 
-## Building instantclient/OCI
-On macOS, just `brew install InstantClientTap/instantclient/instantclient-sdk` and remake
-
 ## Advanced build options
 `WHBUILD_DEBUG=1` - Use whbuild.debug and build versions with extra debugging
 

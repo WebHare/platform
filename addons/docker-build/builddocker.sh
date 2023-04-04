@@ -78,15 +78,6 @@ rm -rf $WORKDIR
 mkdir -p $WORKDIR
 cd $WORKDIR
 
-if [ -n "$WHBUILDSECRET_INSTANTCLIENT_URL" ]; then
-  echo $WHBUILDSECRET_INSTANTCLIENT_URL > instantclienturl.txt
-
-  DOCKERBUILDARGS+=(--secret)
-  DOCKERBUILDARGS+=(id=instantclienturl,src=instantclienturl.txt)
-  DOCKERBUILDARGS+=(--build-arg)
-  DOCKERBUILDARGS+=("WHBUILD_OCI=1")
-fi
-
 # select the right tar implementation, we need gnu-tar
 if [ "`uname`" == "Darwin" ]; then
   if ! which gtar >/dev/null 2>&1 ; then
