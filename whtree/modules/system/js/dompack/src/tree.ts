@@ -120,7 +120,10 @@ export function append(node: ParentNode, ...nodes: Array<string | Node>) {
  * @deprecated Just use classList.toggle on the node itself
  */
 export function toggleClass(node: Element, classname: string, settoggle?: boolean) {
-  node.classList.toggle(classname, settoggle);
+  if (arguments.length === 2) //in old dompack, 2 argument version toggled and 3 argument version toggled off. match that behavior
+    node.classList.toggle(classname);
+  else
+    node.classList.toggle(classname, settoggle);
 }
 
 /**
