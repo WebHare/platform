@@ -7,7 +7,7 @@
 import * as test from "@webhare/test";
 import { Money, isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts } from "@webhare/hscompat";
 import { compare } from "@webhare/hscompat/algorithms";
-import { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { getTypedArray, IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 
 function testStrings() {
   //based on test_operators.whscr LikeTest
@@ -49,6 +49,9 @@ async function testCompare() {
   test.eq(-1, compare(null, new Money("-1")));
   test.eq(-1, compare(null, new Money("0")));
   test.eq(-1, compare(null, new Money("1")));
+  test.eq(-1, compare(null, new Date(-1)));
+  test.eq(-1, compare(null, new Date(0)));
+  test.eq(-1, compare(null, new Date(1)));
   test.eq(-1, compare("a", "b"));
   test.eq(-1, compare(new Date(1), new Date(2)));
 
@@ -85,6 +88,9 @@ async function testCompare() {
   test.eq(1, compare(new Money("0"), new Money("-1")));
   test.eq(1, compare("b", "a"));
   test.eq(1, compare(new Date(2), new Date(1)));
+  test.eq(1, compare(new Date(-1), null));
+  test.eq(1, compare(new Date(0), null));
+  test.eq(1, compare(new Date(1), null));
 }
 
 async function testRecordLowerBound() {
@@ -249,25 +255,25 @@ function testHSON() {
   testHSONEnDeCode('hson:{}', {});
 
   testHSONEnDeCode('hson:va[]', []);
-  /* TODO can/do we want to suport these ?
-  testHSONEnDeCode('hson:ia[]', DEFAULT INTEGER ARRAY);
 
-  testHSONEnDeCode('hson:i64a[]', DEFAULT INTEGER64 ARRAY);
+  testHSONEnDeCode('hson:ia[]', getTypedArray(VariableType.IntegerArray, []));
 
-  testHSONEnDeCode('hson:ma[]', DEFAULT MONEY ARRAY);
+  testHSONEnDeCode('hson:i64a[]', getTypedArray(VariableType.Integer64Array, []));
 
-  testHSONEnDeCode('hson:fa[]', DEFAULT FLOAT ARRAY);
+  testHSONEnDeCode('hson:ma[]', getTypedArray(VariableType.MoneyArray, []));
 
-  testHSONEnDeCode('hson:xa[]', DEFAULT BLOB ARRAY);
+  testHSONEnDeCode('hson:fa[]', getTypedArray(VariableType.FloatArray, []));
 
-  testHSONEnDeCode('hson:ra[]', DEFAULT RECORD ARRAY);
+  testHSONEnDeCode('hson:xa[]', getTypedArray(VariableType.BlobArray, []));
 
-  testHSONEnDeCode('hson:da[]', DEFAULT DATETIME ARRAY);
+  testHSONEnDeCode('hson:ra[]', getTypedArray(VariableType.RecordArray, []));
 
-  testHSONEnDeCode('hson:ba[]', DEFAULT BOOLEAN ARRAY);
+  testHSONEnDeCode('hson:da[]', getTypedArray(VariableType.DateTimeArray, []));
 
-  testHSONEnDeCode('hson:sa[]', DEFAULT STRING ARRAY);
-*/
+  testHSONEnDeCode('hson:ba[]', getTypedArray(VariableType.BooleanArray, []));
+
+  testHSONEnDeCode('hson:sa[]', getTypedArray(VariableType.StringArray, []));
+
   testHSONEnDeCode('hson:ia[1,2,3]', [1, 2, 3]);
 
   testHSONEnDeCode('hson:b""', Buffer.from(''));
