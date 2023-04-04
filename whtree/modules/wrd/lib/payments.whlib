@@ -290,6 +290,14 @@ STATIC OBJECTTYPE PaymentAPI
 
     paymentdata := this->FixupPaymentMethod(paymentdata);
     OBJECT psp;
+    IF(RecordExists(paymentdata.capturefrom))
+    {
+      paymentdata.paymentprovider := paymentdata.capturefrom.paymentprovider;
+      paymentdata.paymentoptiontag := paymentdata.capturefrom.__bestpayment.__PAYMENTDATA.o;
+      IF(CellExists(paymentdata.capturefrom.__bestpayment.__PAYMENTDATA.m,'issuer')) //TODO not sure if all payment methods store it in m.issuer. well they should
+        paymentdata.issuer := paymentdata.capturefrom.__bestpayment.__PAYMENTDATA.m.issuer;
+    }
+
     IF(paymentdata.isexternal AND paymentdata.paymentprovider != 0)
         THROW NEW Exception(`Cannot select external handling if a payment provider is selected`);
     IF(NOT paymentdata.isexternal AND paymentdata.paymentprovider = 0)
@@ -588,26 +596,25 @@ STATIC OBJECTTYPE PaymentAPI
     RETURN psp;
   }
 
-  /** Returns the list of payment providers
+  /** List paymnet options
       @cell(record) options.extrafields Extra fields to return
       @cell(boolean) options.externalonly If TRUE, return only payment providers of type 'wrd:external'
       @cell(string) options.withhistoric if TRUE, also return deleted payment providers
-      @return List of payment providers
-      @cell return.id Id of the provider
-      @cell return.guid GUID of the provider
-      @cell return.tag Tag of the provider
-      @cell return.ordering Relative ordering of this provider
-      @cell return.creationdate Creationdate of this provider
-      @cell return.extra Extra selected fields
-      @cell return.provider Provider attribute
+      @cell(string) options.types Requested types. Default 'payment', alternatively 'mandate'
+      @return List of payment options @includecelldef #ListPaymentOptions.return
+      @cell(integer) return.paymentprovider Id of the payment provider
+      @cell(string) return.paymentproviderguid GUID of the payment provider
+      @cell(record) return.extra Extra selected fields
+      @cell(string) return.paymentmethodtag Tag of the payment method option
   */
-  RECORD ARRAY FUNCTION GetAllPaymentProviders(RECORD options DEFAULTSTO DEFAULT RECORD)
+  PUBLIC RECORD ARRAY FUNCTION ListAllPaymentOptions(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ extrafields := DEFAULT RECORD
                                , externalonly := FALSE
                                , withhistoric := FALSE
                                , filters := RECORD[]
-                               ], options);
+                               , types := STRING[ "payment" ]
+                               ], options, [ enums := [ types  := [ "payment", "mandate" ]]]);
 
     RECORD ARRAY providers :=
           SELECT * FROM this->pvt_providertype->RunQuery(
@@ -627,29 +634,15 @@ STATIC OBJECTTYPE PaymentAPI
     IF(options.externalonly)
       providers := SELECT * FROM providers WHERE RecordExists(provider.__paymentprovider) AND provider.__paymentprovider.type="wrd:external";
 
-    RETURN SELECT *, DELETE provider FROM providers;
-  }
-
-  /** @param options @includecelldef #GetAllPaymentProviders.options
-      @return List of payment options @includecelldef #ListPaymentOptions.return
-      @cell(integer) return.paymentprovider Id of the payment provider
-      @cell(string) return.paymentproviderguid GUID of the payment provider
-      @cell(record) return.extra Extra selected fields
-      @cell(string) return.paymentmethodtag Tag of the payment method option
-  */
-  PUBLIC RECORD ARRAY FUNCTION ListAllPaymentOptions(RECORD options DEFAULTSTO DEFAULT RECORD)
-  {
-    //GetAllPaymentProviders validates our options
-
     RECORD ARRAY alloptions;
-    FOREVERY(RECORD opt FROM this->GetAllPaymentProviders(options))
+    FOREVERY(RECORD opt FROM providers)
     {
       alloptions := alloptions CONCAT SELECT *
                                            , paymentprovider := opt.id
                                            , paymentproviderguid := opt.guid
                                            , extra := opt.extra
                                            , paymentmethodtag := ConstructMethodTag(opt, paymentoptiontag)
-                                        FROM this->ListPaymentOptions(opt.id);
+                                        FROM this->ListPaymentOptions(opt.id, CELL[ options.types ]);
     }
     RETURN alloptions;
   }
@@ -666,8 +659,11 @@ STATIC OBJECTTYPE PaymentAPI
       @cell(string) return.htmlagreeterms If set, HTML of an agreement option that must be offered to use this payment method (terms and conditions)
       @cell(boolean) return.islive Whether this option connects to a live platform
   */
-  PUBLIC RECORD ARRAY FUNCTION ListPaymentOptions(INTEGER paymentprovider)
+  PUBLIC RECORD ARRAY FUNCTION ListPaymentOptions(INTEGER paymentprovider, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions([ types := STRING[ "payment" ]
+                               ], options, [ enums := [ types  := [ "payment", "mandate" ]]]);
+
     OBJECT psp := this->__InstantiatePSP(paymentprovider);
     RETURN SELECT paymentoptiontag
                 , title
@@ -675,7 +671,9 @@ STATIC OBJECTTYPE PaymentAPI
                 , requirements
                 , htmlagreeterms
                 , islive
+                , type
              FROM psp->GetPaymentOptions() AS paymentoption
+            WHERE type IN options.types
          ORDER BY ToUppercase(title);
   }
 
@@ -699,6 +697,12 @@ STATIC OBJECTTYPE PaymentAPI
                        , options := options
                        ]
                      ,[ contexts := [ wrdschema := this->providertype->wrdschema ]]);
+  }
+
+  /** Open a payment object */
+  PUBLIC OBJECT FUNCTION OpenPayment(RECORD paymentdata)
+  {
+    RETURN this->__OpenPSP(paymentdata, DEFAULT DATETIME, "");
   }
 
   /** Explain a payment status

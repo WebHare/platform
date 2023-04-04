@@ -10,6 +10,7 @@ LOADLIB "mod::wrd/lib/internal/psp/base.whlib";
 PUBLIC STATIC OBJECTTYPE TestPaymentProvider EXTEND WRDPaymentProviderBase
 <
   DATETIME expires;
+  DATETIME autocompletes;
   STRING lastname;
   STRING email;
   STRING rejectreason;
@@ -42,6 +43,7 @@ PUBLIC STATIC OBJECTTYPE TestPaymentProvider EXTEND WRDPaymentProviderBase
       INSERT [ paymentoptiontag := "WITHISSUER"
              , title := "TestWithIssuer"
              , islive := FALSE
+             , type := "payment"
              , issuers := options.getissuers ?
                  [[ rowkey := "BLB", title := "BoerenLeenBank" ]
                  ,[ rowkey := "DPB", title := "DurePakkenBank" ]
@@ -49,13 +51,27 @@ PUBLIC STATIC OBJECTTYPE TestPaymentProvider EXTEND WRDPaymentProviderBase
              ]
              INTO opts AT END;
     }
+
+    INSERT [ paymentoptiontag := "MANDATE"
+           , title := "Mandate"
+           , type := "mandate"
+           , islive := FALSE
+           , issuers := options.getissuers ?
+               [[ rowkey := "MD1", title := "MD-1" ]
+               ,[ rowkey := "MD39", title := "MD-39" ]
+               ] : RECORD[]
+           ]
+           INTO opts AT END;
+
     RETURN opts;
   }
 
   UPDATE PUBLIC RECORD FUNCTION RunPaymentRequest(STRING paymenttok)
   {
     RECORD result := [ submitinstruction := DEFAULT RECORD
+                     , complete := FALSE
                      , errors := RECORD[]
+                     , processnow := FALSE
                      ];
 
     IF(this->paymentoptiontag != "NOISSUER" AND this->issuer = "")
@@ -69,6 +85,12 @@ PUBLIC STATIC OBJECTTYPE TestPaymentProvider EXTEND WRDPaymentProviderBase
 
     IF(ToUppercase(this->email) LIKE "*THROW*")
       THROW NEW Exception(`The address '${this->email}' triggers a throw!`);
+
+    IF(this->autocompletes != DEFAULT DATETIME)
+    {
+      result.complete := TRUE;
+      RETURN result;
+    }
 
     result.submitinstruction := [ type := "redirect" , url := "/.wrd/endpoints/psp/test.shtml?pi=" || EncodeURL(paymenttok) || "&sleep=" || this->settings.sleep ];
     RETURN result;
@@ -100,13 +122,22 @@ PUBLIC STATIC OBJECTTYPE TestPaymentProvider EXTEND WRDPaymentProviderBase
     this->lastname := personfields.wrd_lastname;
     this->email := personfields.wrd_contact_email;
     this->orderlines := paymentmethod.baseoptions.orderlines;
+
+    IF(RecordExists(baseoptions.capturefrom))
+    {
+      IF(this->paymentoptiontag != "MANDATE")
+        THROW NEW Exception(`Capture requires a MANDATE payment`);
+
+      this->autocompletes := AddTimeToDate(1000, GetCurrentDatetime());
+    }
   }
 
   UPDATE PUBLIC MACRO __SetupExistingTransaction(RECORD payment)
   {
     WRDPaymentProviderBase::__SetupExistingTransaction(payment);
-    RECORD opts := EnforceStructure([ expires := DEFAULT DATETIME, lastname := "", email := "", rejectreason := "", orderlines := RECORD[] ], payment.__paymentdata.m);
+    RECORD opts := EnforceStructure([ expires := DEFAULT DATETIME, autocompletes := DEFAULT DATETIME, lastname := "", email := "", rejectreason := "", orderlines := RECORD[] ], payment.__paymentdata.m);
     this->expires := opts.expires;
+    this->autocompletes := opts.autocompletes;
     this->lastname := opts.lastname;
     this->email := opts.email;
     this->rejectreason := opts.rejectreason;
@@ -144,6 +175,7 @@ PUBLIC STATIC OBJECTTYPE TestPaymentProvider EXTEND WRDPaymentProviderBase
   UPDATE PUBLIC RECORD FUNCTION __GetPaymentData()
   {
     RETURN [ expires := this->expires
+           , autocompletes := this->autocompletes
            , lastname := this->lastname
            , email := this->email
            , rejectreason := this->rejectreason
@@ -153,6 +185,13 @@ PUBLIC STATIC OBJECTTYPE TestPaymentProvider EXTEND WRDPaymentProviderBase
 
   UPDATE PUBLIC MACRO RecheckPayment()
   {
+    IF(this->autocompletes != DEFAULT DATETIME)
+    {
+      IF(this->autocompletes < GetCurrentDatetime())
+        RETURN;
+      this->pvt_status := "approved";
+      RETURN;
+    }
     IF(GetCurrentDatetime() < this->expires OR this->pvt_status != "pending")
       RETURN; //not yet expired
     this->pvt_status := "failed";
@@ -163,3 +202,4 @@ PUBLIC STATIC OBJECTTYPE TestPaymentProvider EXTEND WRDPaymentProviderBase
     RETURN this->rejectreason;
   }
 >;
+

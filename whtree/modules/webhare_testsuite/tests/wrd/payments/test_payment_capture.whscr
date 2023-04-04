@@ -1,0 +1,70 @@
+<?wh
+
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/connector.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/page.whlib";
+LOADLIB "mod::system/lib/internal/browsers/chrome/navigationwatcher.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
+LOADLIB "mod::wrd/lib/testfw/payments.whlib";
+LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
+LOADLIB "mod::wrd/lib/payments.whlib";
+LOADLIB "mod::wrd/lib/internal/payments/poller.whlib";
+
+OBJECT paymentapi;
+OBJECT pm1;
+
+MACRO Prep()
+{
+  paymentapi := GetWRDTestPaymentAPI();
+
+  testfw->BeginWork();
+  OBJECT wrdschema :=  testfw->GetWRDSchema();
+  pm1 := wrdschema->^payprov->CreateEntity(
+    [ wrd_title := "capturetest"
+    , wrd_tag := "CAPTURETEST"
+    , method := MakePaymentProviderValue("wrd:test")
+    , wrd_ordering := 5
+    ]);
+  testfw->CommitWork();
+
+  RECORD ARRAY paymentoptions := paymentapi->ListAllPaymentOptions(CELL[ types := [ "mandate" ]]);
+  TestEq(1, Length(paymentoptions));
+  TestEq("Mandate", paymentoptions[0].title);
+  TestEq(2, Length(paymentoptions[0].issuers));
+}
+
+MACRO TestCapture()
+{
+  testfw->BeginWork();
+  OBJECT pd3 := paymentapi->paymenttype->CreateEntity([wrd_tag := "PD3"]);
+  OBJECT paypart1 := paymentapi->paymenttype->CreateEntity([wrd_tag := "PAYPART1"]);
+  testfw->CommitWork();
+
+  STRING gotourl := StartWRDTestPayment(paymentapi, pd3->id, 125.91m, [ paymentprovider := pm1->id, paymentoptiontag := "MANDATE", isrecurring := TRUE, issuer := "MD39" ]);
+  CompleteWRDTestpayment(gotourl, "approved");
+
+  TestEq("approved", pd3->GetField("DATA").status);
+
+  RECORD actualdebit := paymentapi->StartPayment(paypart1->id, 25, [ capturefrom := pd3->GetField("DATA") ]);
+  TestEq("pending", paypart1->GetField("DATA").status);
+  WHILE(paypart1->GetField("DATA").status = "pending")
+  {
+    Sleep(50);
+    PollPaymentStatuses(TRUE, testfw->starttime);
+  }
+  TestEq("approved", paypart1->GetField("DATA").status);
+}
+
+RunTestframework([ PTR CreateWRDTestSchema
+                 , PTR Prep
+                 , PTR TestCapture
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"]]]]);
