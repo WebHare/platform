@@ -87,7 +87,6 @@ export class SiteResponse<T extends object> {
 
     //FIXME adhoc bundle support
     const bundlebaseurl = "/.ap/" + this.settings.assetpack.replace(":", ".") + "/";
-    console.error(bundlebaseurl);
     /* TODO cachebuster /! support
       IF(cachebuster != "")
         bundlebaseurl := "/!" || EncodeURL(cachebuster) || bundlebaseurl;

@@ -803,7 +803,8 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
 
   MACRO UpdatePinned()
   {
-    BOOLEAN pinned := ^pinobject->value OR this->isdeleted;
+    //Do not honor 'pinned' for new objects... then it should apply only AFTER we finalize the dialog. Also ensures valid-whfsname validation still happens
+    BOOLEAN pinned := (^pinobject->value OR this->isdeleted) AND NOT this->isnew;
     BOOLEAN parentfullaccess := this->tolliumuser->HasRightOn("system:fs_fullaccess", this->parentfolder->id);
 
     this->frame->flags.ispinned := pinned;

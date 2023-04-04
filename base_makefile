@@ -205,13 +205,6 @@ endif
 
 ifeq ($(WHBUILD_NOCCACHE),)
 	CXX:=ccache ${CXX}
-	ifneq ($(DISTCC_HOSTS),)
-		export CCACHE_PREFIX=distcc
-	endif
-else
-	ifneq ($(DISTCC_HOSTS),)
-		export CXX:=distcc ${CXX}
-	endif
 endif
 
 WHLDFLAGS=$(GLOBALLDFLAGS)

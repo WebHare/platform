@@ -28,14 +28,6 @@ while [[ $1 =~ ^-.* ]]; do
     shift
     DOCKERBUILDARGS+=(-f)
     DOCKERBUILDARGS+=($1)
-  elif [ "$1" == "--distcc" ]; then
-    shift
-    if [ -z "$1" ]; then
-      echo "Missing distcc config"
-      exit 1
-    fi
-    DOCKERBUILDARGS+=(--build-arg)
-    DOCKERBUILDARGS+=("DISTCC_HOSTS=$1")
   else
     echo "Illegal option $1"
     exit 1
@@ -106,8 +98,6 @@ else
   TAR=tar
 fi
 
-CCACHE_SERVER=
-DISTCC_HOSTS=
 GITCHECKOUT=
 
 DOCKERPULLARG=--pull
