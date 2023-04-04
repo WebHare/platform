@@ -480,6 +480,44 @@ RECORD FUNCTION GetCacheableTypeData(RECORD typerec, STRING langcode)
       ];
 }
 
+VARIANT FUNCTION ConvertLinksFromJSMode(VARIANT value)
+{
+  IF (IsTypeIDArray(TypeID(value)))
+  {
+    value := VARIANT ARRAY(value);
+    FOREVERY (VARIANT elt FROM value)
+      IF (TypeID(elt) = TypeID(RECORD) AND IsDefaultValue(elt))
+        value[#elt] := 0;
+    RETURN INTEGER ARRAY(value);
+  }
+  ELSE
+  {
+    IF (TypeID(value) = TypeID(RECORD) AND IsDefaultValue(value))
+      RETURN 0;
+    RETURN INTEGER(value);
+  }
+}
+
+VARIANT FUNCTION ConvertLinksToJSMode(VARIANT value)
+{
+  IF (IsTypeIDArray(TypeID(value)))
+  {
+    IF (0 NOT IN value)
+      RETURN value;
+    value := VARIANT ARRAY(value);
+    FOREVERY (VARIANT elt FROM value)
+      IF (elt = 0)
+        value[#elt] := DEFAULT RECORD;
+    RETURN value;
+  }
+  ELSE
+  {
+    IF (value != 0)
+      RETURN value;
+    RETURN DEFAULT RECORD;
+  }
+}
+
 
 /** Maps a value to another
     @param mapping Mapping, must be sorted on inval
@@ -1601,7 +1639,34 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     //ADDME reuse existing id cells
     INSERT CELL __joinid := options.joinfield INTO addcolumns;
     FUNCTION PTR getfields := PTR this->__GetBulkFields(#1, #2, #3, addcolumns, CELL[ ...options, DELETE joinfield, DELETE enrichoptions ]);
-    RETURN ExecuteEnrichment(inrows, idcellname, options.enrichoptions, getfields, PTR GetDefaultJoinRecord(this, addcolumns, CELL[ options.jsmode ]));
+
+    IF (options.jsmode)
+    {
+      BOOLEAN converted;
+      STRING cellname := idcellname LIKE "*[]" ? Left(idcellname, LENGTH(idcellname) - 2) : idcellname;
+      FOREVERY (RECORD rec FROM inrows)
+      {
+        VARIANT val := GetCell(rec, cellname);
+        IF (TypeID(val) != TypeID(INTEGER) AND TypeID(val) != TypeID(INTEGER ARRAY))
+        {
+          converted := TRUE;
+          inrows[#rec] := CELL[ ...rec, ...CellInsert(CELL[], cellname, ConvertLinksFromJSMode(val)) ];
+        }
+      }
+      inrows := ExecuteEnrichment(inrows, idcellname, options.enrichoptions, getfields, PTR GetDefaultJoinRecord(this, addcolumns, CELL[ options.jsmode ]));
+      IF (converted AND (idcellname NOT LIKE "*[]" OR (CellExists(options.enrichoptions, "WRAPFIELDS") AND options.enrichoptions.wrapfields != "")))
+      {
+        FOREVERY (RECORD rec FROM inrows)
+        {
+          VARIANT val := GetCell(rec, cellname);
+          IF ((TypeID(val) = TypeID(INTEGER) AND val = 0) OR (TypeID(val) = TypeID(INTEGER ARRAY) AND 0 IN val))
+            inrows[#rec] := CELL[ ...rec, ...CellInsert(CELL[], cellname, ConvertLinksToJSMode(val)) ];
+        }
+      }
+      RETURN inrows;
+    }
+    ELSE
+      RETURN ExecuteEnrichment(inrows, idcellname, options.enrichoptions, getfields, PTR GetDefaultJoinRecord(this, addcolumns, CELL[ options.jsmode ]));
   }
 
   /** Execute a query on this type
@@ -1688,7 +1753,14 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     VARIANT returnvalue := wrd_query->Execute(DEFAULT RECORD);
     IF(singlecolumn)
     {
-      VARIANT returnlist := GetTypeDefaultArray(wrd_query->GetTypeForOutputcolumn("RETVAL"));
+      INTEGER returntype := wrd_query->GetTypeForOutputcolumn("RETVAL");
+      IF (jsmode)
+      {
+        INTEGER jsreturntype := wrd_query->GetTypeForOutputcolumn("RETVAL", TRUE);
+        IF (returntype != jsreturntype)
+          returntype := TypeID(VARIANT);
+      }
+      VARIANT returnlist := GetTypeDefaultArray(returntype);
       FOREVERY(RECORD res FROM returnvalue)
         INSERT res.retval INTO returnlist AT END;
       returnvalue := returnlist;

@@ -80,6 +80,11 @@ function binaryRecordSearchImpl<
 }
 
 export function compare(left: ComparableType, right: ComparableType): -1 | 0 | 1 {
+  if (left === null)
+    return right === null ? 0 : -1;
+  else if (right === null)
+    return 1;
+
   switch (typeof left) {
     case "boolean": {
       if (typeof right === "boolean")
@@ -95,9 +100,7 @@ export function compare(left: ComparableType, right: ComparableType): -1 | 0 | 1
           return left !== right ? left < right ? -1 : 1 : 0;
         }
         case "object": {
-          if (right === null) {
-            return 1;
-          } else if (Money.isMoney(right)) {
+          if (Money.isMoney(right)) {
             const left_money = new Money(left.toString());
             return left_money.cmp(right);
           }
@@ -114,9 +117,7 @@ export function compare(left: ComparableType, right: ComparableType): -1 | 0 | 1
           return left_number !== right ? left_number < right ? -1 : 1 : 0;
         }
         case "object": {
-          if (right === null) {
-            return 1;
-          } else if (Money.isMoney(right)) {
+          if (Money.isMoney(right)) {
             const left_money = new Money(left.toString());
             return left_money.cmp(right);
           }
@@ -128,45 +129,27 @@ export function compare(left: ComparableType, right: ComparableType): -1 | 0 | 1
         return left === right ? 0 : left < right ? -1 : 1;
     } break;
     case "object": {
-      if (left === null) {
+      if (Money.isMoney(left)) {
         switch (typeof right) {
-          case "number":
+          case "number": {
+            const right_money = new Money(right.toString());
+            return left.cmp(right_money);
+          }
           case "bigint": {
-            return -1;
+            const right_money = new Money(right.toString());
+            return left.cmp(right_money);
           }
           case "object": {
             if (right === null) {
-              return 0;
-            } else if (Money.isMoney(right)) {
-              return -1;
-            }
-          } break;
-        }
-      } else {
-        if (Money.isMoney(left)) {
-          switch (typeof right) {
-            case "number": {
-              const right_money = new Money(right.toString());
-              return left.cmp(right_money);
-            }
-            case "bigint": {
-              const right_money = new Money(right.toString());
-              return left.cmp(right_money);
-            }
-            case "object": {
-              if (right === null) {
-                return 1;
-              } else if (Money.isMoney(right))
-                return left.cmp(right);
-            }
-          }
-        } else if (isDate(left)) {
-          if (isDate(right)) {
-            const left_value = Number(left);
-            const right_value = Number(right);
-            return left_value !== right_value ? left_value < right_value ? -1 : 1 : 0;
+              return 1;
+            } else if (Money.isMoney(right))
+              return left.cmp(right);
           }
         }
+      } else if (isDate(left) && isDate(right)) {
+        const left_value = Number(left);
+        const right_value = Number(right);
+        return left_value !== right_value ? left_value < right_value ? -1 : 1 : 0;
       }
     } break;
   }

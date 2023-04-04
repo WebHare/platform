@@ -70,8 +70,13 @@ PUBLIC RECORD FUNCTION GenerateBaseFields(RECORD ARRAY base_fields, RECORD inrow
     ELSE
     {
       mycell := GetCell(inrow, field.cellname);
-      IF (jsmode AND (field.attributetype = wrd_attributetype_date OR field.attributetype = wrd_attributetype_datetime) AND (mycell = DEFAULT DATETIME OR mycell = MAX_DATETIME))
-        mycell := DEFAULT RECORD;
+      IF (jsmode)
+      {
+        IF ((field.attributetype = wrd_attributetype_date OR field.attributetype = wrd_attributetype_datetime) AND (mycell = DEFAULT DATETIME OR mycell = MAX_DATETIME))
+          mycell := DEFAULT RECORD;
+        IF ((field.attributetype = wrd_attributetype_domain OR field.tag = "WRD_ID") AND IsDefaultValue(mycell))
+          mycell := DEFAULT RECORD;
+      }
     }
 
     FOREVERY(STRING sub FROM field.subselect)
@@ -336,13 +341,13 @@ STATIC OBJECTTYPE WRDQuerySource EXTEND WRDMultiCondition
     RETURN outputcolumns;
   }
 
-  //Split selected attributes into fields and basefields and setup accessors for non basefields
-  PUBLIC RECORD FUNCTION CreateAccessors()
+  //Split selected attributes into fields and basefields and setup accessors for non basefields. Can be called with different jsmode
+  PUBLIC RECORD FUNCTION CreateAccessors(BOOLEAN jsmode)
   {
     IF (LENGTH(this->selected_attributes) = 0)
       RETURN DEFAULT RECORD;
 
-    RETURN GetAccessors(this->wrd_type, this->selected_attributes, DEFAULT OBJECT, this->pvt_whfsmapper, this->pvt_jsmode);
+    RETURN GetAccessors(this->wrd_type, this->selected_attributes, DEFAULT OBJECT, this->pvt_whfsmapper, jsmode);
   }
 
   PUBLIC RECORD ARRAY FUNCTION RecurseGetOutputColumns(VARIANT in_outputcolumns)
@@ -1164,7 +1169,7 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
                 > X -> > X && != MAX_DATETIME
                 >= X -> >= X && X != MAX_DATETIME
                 <= X -> = <= X OR = MAX_DATETIME - //HS cannot handle this
-                < X -> <= X OR = MAX_DATETIME - //HS cannot handle this
+                < X -> < X OR = MAX_DATETIME - //HS cannot handle this
             */
             IF (isnull)
             {
@@ -1185,6 +1190,7 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
               VARIANT value := condition->value_holder.data;
               IF (condition->match_type = "IN" AND IsTypeIDArray(TypeID(value)))
               {
+                value := VARIANT ARRAY(value);
                 FOREVERY (VARIANT elt FROM value)
                   IF (TypeID(elt) = TypeID(RECORD) AND IsDefaultValue(elt))
                     value[#elt] := MAX_DATETIME;
@@ -1193,7 +1199,7 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
 
               IF (condition->match_type = "<" OR condition->match_type = "<=")
               {
-                // Should change to '<'/'<=' X OR == MAX_DATEIME, but dynquery can't handle that kind of queries
+                // Should change to '<'/'<=' X OR == MAX_DATETIME, but dynquery can't handle that kind of queries
                 RETURN FALSE;
               }
               IF (condition->match_type = ">" OR condition->match_type = ">=") // MAX_DATETIME matches, but shouldn't
@@ -1208,6 +1214,7 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
             VARIANT value := condition->value_holder.data;
             IF (condition->match_type = "IN" AND IsTypeIDArray(TypeID(value)))
             {
+              value := VARIANT ARRAY(value);
               FOREVERY (VARIANT elt FROM value)
                 IF (TypeID(elt) = TypeID(RECORD) AND IsDefaultValue(elt))
                   value[#elt] := DEFAULT DATETIME;
@@ -1217,6 +1224,58 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
               value := DATETIME(TypeID(value) = TypeID(RECORD) AND IsDefaultValue(value) ? DEFAULT DATETIME : value);
             dbquery->AddConstraint(query_name || "." || condition->attr.cellname, condition->match_type, value);
             RETURN TRUE;
+          }
+          ELSE IF (condition->attr.attributetype = wrd_attributetype_domain)
+          {
+            IF (condition->match_type = "IN")
+            {
+              VARIANT ARRAY value := VARIANT ARRAY(condition->value_holder.data);
+              FOREVERY (VARIANT elt FROM value)
+                IF (TypeID(elt) = TypeID(RECORD) AND IsDefaultValue(elt))
+                  value[#elt] := 0;
+              dbquery->AddConstraint(query_name || "." || condition->attr.cellname, "IN", INTEGER ARRAY(value));
+              RETURN TRUE;
+            }
+            /* mapping queries on domainsingles. null is translated to 0 in HareScript
+                  = null -> = 0
+                  != null -> != 0
+                  > null -> != 0
+                  >= null -> TRUE
+                  <= null -> = 0
+                  < null -> never
+                  = X -> = X
+                  != X -> != X
+                  > X -> > X && != 0
+                  >= X -> >= X && X != 0
+                  <= X -> = <= X OR = 0 - //HS cannot handle this (only if X < 0)
+                  < X -> < X OR = 0 - //HS cannot handle this (only if if X < 0)
+            */
+            BOOLEAN isnull := TypeID(condition->value_holder.data) = TypeID(RECORD) AND IsDefaultValue(condition->value_holder.data);
+
+            IF (isnull)
+            {
+              INTEGER value := 0;
+              STRING matchtype := condition->match_type;
+              IF (condition->match_type = ">=")
+                RETURN TRUE; // always true
+              ELSE IF (condition->match_type = "<")
+                value := -2147483648; // never true
+              ELSE IF (condition->match_type = ">")
+                matchtype := "!="; // != 0
+              ELSE IF (condition->match_type = "<=")
+                matchtype := "=";
+              dbquery->AddConstraint(query_name || "." || condition->attr.cellname, matchtype, value);
+            }
+            ELSE IF (condition->value_holder.data < 0)
+            {
+              IF (condition->match_type = ">" OR condition->match_type = ">=") // 0 matches, but shouldn't
+                dbquery->AddConstraint(query_name || "." || condition->attr.cellname, "!=", 0);
+              IF (condition->match_type = "<" OR condition->match_type = "<=")
+              {
+                // Should change to '<'/'<=' X OR == 0, but dynquery can't handle that kind of queries
+                RETURN FALSE;
+              }
+            }
           }
         }
 
@@ -1472,28 +1531,55 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
                   BOOLEAN done := FALSE;
                   query->RequestAdditionalColumns("ENTITIES", [ STRING(attrinfo.cellname) ]);
                   BOOLEAN db_can_handle := TypeId(match_value) != TypeId(STRING) OR LENGTH(match_value) < 4096;
-                  IF (this->jsmode AND (attrinfo.attributetype = wrd_attributetype_date OR attrinfo.attributetype = wrd_attributetype_datetime))
+                  IF (this->jsmode)
                   {
-                    IF (TypeID(match_value) = TypeID(RECORD) AND IsDefaultValue(match_value))
-                      match_value := DEFAULT DATETIME;
-                    ELSE IF (IsTypeIDArray(TypeID(match_value)))
+                    IF (attrinfo.attributetype = wrd_attributetype_date OR attrinfo.attributetype = wrd_attributetype_datetime)
                     {
-                      FOREVERY (VARIANT elt FROM match_value)
-                        IF (TypeID(elt) = TypeID(RECORD) AND IsDefaultValue(elt))
-                          match_value[#elt] := DEFAULT DATETIME;
-                      match_value := DATETIME ARRAY(match_value);
+                      IF (TypeID(match_value) = TypeID(RECORD) AND IsDefaultValue(match_value))
+                        match_value := DEFAULT DATETIME;
+                      ELSE IF (IsTypeIDArray(TypeID(match_value)))
+                      {
+                        FOREVERY (VARIANT elt FROM match_value)
+                          IF (TypeID(elt) = TypeID(RECORD) AND IsDefaultValue(elt))
+                            match_value[#elt] := DEFAULT DATETIME;
+                        match_value := DATETIME ARRAY(match_value);
+                      }
+                      RECORD ARRAY rows := query->Execute();
+                      FOREVERY (RECORD row FROM rows)
+                      {
+                        DATETIME storedvalue := GetCell(row.entities, attrinfo.cellname);
+                        IF (storedvalue = MAX_DATETIME)
+                          storedvalue := DEFAULT DATETIME;
+                        IF (EvaluateConstraint(storedvalue, cond->match_type, match_value))
+                          INSERT row.entities.id INTO matches AT END;
+                        matches := GetSortedSet(matches);
+                      }
+                      done := TRUE;
                     }
-                    RECORD ARRAY rows := query->Execute();
-                    FOREVERY (RECORD row FROM rows)
+                    ELSE IF (attrinfo.attributetype = wrd_attributetype_domain)
                     {
-                      DATETIME storedvalue := GetCell(row.entities, attrinfo.cellname);
-                      IF (storedvalue = MAX_DATETIME)
-                        storedvalue := DEFAULT DATETIME;
-                      IF (EvaluateConstraint(storedvalue, cond->match_type, match_value))
-                        INSERT row.entities.id INTO matches AT END;
-                      matches := GetSortedSet(matches);
+                      // Use -2147483649i64, lower than all valid INTEGERs
+                      IF (TypeID(match_value) = TypeID(RECORD) AND IsDefaultValue(match_value))
+                        match_value := -2147483649i64;
+                      ELSE IF (IsTypeIDArray(TypeID(match_value)))
+                      {
+                        FOREVERY (VARIANT elt FROM match_value)
+                          IF (TypeID(elt) = TypeID(RECORD) AND IsDefaultValue(elt))
+                            match_value[#elt] := -21474836489i64;
+                        match_value := INTEGER64 ARRAY(match_value);
+                      }
+                      RECORD ARRAY rows := query->Execute();
+                      FOREVERY (RECORD row FROM rows)
+                      {
+                        INTEGER64 storedvalue := GetCell(row.entities, attrinfo.cellname);
+                        IF (storedvalue = 0)
+                          storedvalue := -2147483649i64;
+                        IF (EvaluateConstraint(storedvalue, cond->match_type, match_value))
+                          INSERT row.entities.id INTO matches AT END;
+                        matches := GetSortedSet(matches);
+                      }
+                      done := TRUE;
                     }
-                    done := TRUE;
                   }
                   ELSE IF (db_can_handle AND cond->match_case)
                     query->AddConstraint("ENTITIES." || attrinfo.cellname, cond->match_type, match_value);
@@ -1525,6 +1611,39 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
                            ORDER BY entities.id;
                 }
                 RETURN matches;
+              }
+              ELSE IF (this->jsmode)
+              {
+                IF (attrinfo.attributetype = wrd_attributetype_date OR attrinfo.attributetype = wrd_attributetype_datetime)
+                {
+                  IF (TypeID(match_value) = TypeID(RECORD) AND IsDefaultValue(match_value))
+                    match_value := DEFAULT DATETIME;
+                  ELSE IF (IsTypeIDArray(TypeID(match_value)))
+                  {
+                    match_value := VARIANT ARRAY(match_value);
+                    FOREVERY (VARIANT elt FROM match_value)
+                      IF (TypeID(elt) = TypeID(RECORD) AND IsDefaultValue(elt))
+                        match_value[#elt] := DEFAULT DATETIME;
+                    match_value := DATETIME ARRAY(match_value);
+                  }
+                }
+                ELSE IF (attrinfo.attributetype = wrd_attributetype_domain OR attrinfo.attributetype = wrd_attributetype_domainarray)
+                {
+                  IF (TypeID(match_value) = TypeID(RECORD) AND IsDefaultValue(match_value))
+                    match_value := 0;
+                  ELSE IF (IsTypeIDArray(TypeID(match_value)))
+                  {
+                    match_value := VARIANT ARRAY(match_value);
+                    FOREVERY (VARIANT elt FROM match_value)
+                      IF (TypeID(elt) = TypeID(RECORD) AND IsDefaultValue(elt))
+                        match_value[#elt] := 0;
+                      ELSE IF (TypeID(elt) = TypeID(INTEGER) AND elt = 0)
+                        THROW NEW Exception(`Not allowed to use 0 as comparison value for a domainsingle/domainmultiple`);
+                    match_value := INTEGER ARRAY(match_value);
+                  }
+                  ELSE IF (TypeID(match_value) = TypeID(INTEGER) AND match_value = 0)
+                    THROW NEW Exception(`Not allowed to use 0 as comparison value for a domainsingle/domainmultiple`);
+                }
               }
 
               OBJECT accessor := GetAccessorForAttributeType(attrinfo, single->wrd_type, CELL[ linkgetter := DEFAULT OBJECT
@@ -1630,7 +1749,7 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
 
       FOREVERY (OBJECT single FROM this->singles)
       {
-        RECORD accessors := single->CreateAccessors();
+        RECORD accessors := single->CreateAccessors(this->jsmode);
         IF(NOT RecordExists(accessors))
           CONTINUE;
 
@@ -2133,10 +2252,10 @@ STATIC OBJECTTYPE WRDQueryInterfaceNormalQuery EXTEND WRDQueryInterface
       RETURN this->query->GetOutputColumns();
     }
 
-    PUBLIC INTEGER FUNCTION GetTypeForOutputcolumn(STRING colname)
+    PUBLIC INTEGER FUNCTION GetTypeForOutputcolumn(STRING colname, BOOLEAN jsmode DEFAULTSTO FALSE)
     {
       //NOTE this only supports single source scenario
-      RETURN TypeID(GetCell(GetDefaultRecordForSource(this->query->singles[0], FALSE), colname));
+      RETURN TypeID(GetCell(GetDefaultRecordForSource(this->query->singles[0], jsmode), colname));
     }
     UPDATE PUBLIC MACRO ResetCurrentTime(DATETIME current_time DEFAULTSTO DEFAULT DATETIME)
     {
@@ -2814,6 +2933,18 @@ STATIC OBJECTTYPE WRDDBDateTimeValue EXTEND WRDDBValue
     IF (this->jsmode AND (retval = DEFAULT DATETIME OR retval = MAX_DATETIME))
       RETURN DEFAULT RECORD;
     RETURN retval;
+  }
+
+  UPDATE PUBLIC BOOLEAN FUNCTION ContainsOnlyDefaultValues(VARIANT value)
+  {
+    IF (IsTypeidArray(TypeID(value)))
+    {
+      FOREVERY (VARIANT v FROM value)
+        IF (IsValueSet(v))
+          RETURN FALSE;
+      RETURN TRUE;
+    }
+    RETURN IsDefaultValue(value);
   }
 
   UPDATE PUBLIC RECORD FUNCTION TryAddToDBQuery(OBJECT query, STRING settings_source, VARIANT value, OBJECT condition, BOOLEAN ignore_default_also_match)
@@ -4177,7 +4308,7 @@ RECORD ARRAY FUNCTION ProcessParameters(RECORD ARRAY parameters, BOOLEAN strict)
 
 RECORD FUNCTION GetDefaultRecordForSource(OBJECT querysource, BOOLEAN jsmode)
 {
-  RECORD accessors := querysource->CreateAccessors();
+  RECORD accessors := querysource->CreateAccessors(jsmode);
 
   RECORD data := GenerateBaseFields(accessors.base_fields, default_entity, jsmode);
   FOREVERY (RECORD field FROM accessors.fields)

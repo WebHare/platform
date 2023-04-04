@@ -117,7 +117,7 @@ PUBLIC RECORD ARRAY FUNCTION ExecuteEnrichment(RECORD ARRAY inrows, STRING idcel
         IF(NOT rightouterjoin)
           CONTINUE;
         IF(NOT RecordExists(defaults))
-          defaults := getdefaultjoinrecord();
+          defaults := CellDelete(getdefaultjoinrecord(), "__JOINID");
         matchrow := defaults;
         IF(presentfield != "")
           matchrow := CellInsert(matchrow, presentfield, "left");
@@ -161,7 +161,7 @@ PUBLIC RECORD ARRAY FUNCTION ExecuteEnrichment(RECORD ARRAY inrows, STRING idcel
           IF(NOT rightouterjoin)
             CONTINUE;
           IF(NOT RecordExists(defaults))
-            defaults := getdefaultjoinrecord();
+            defaults := CellDelete(getdefaultjoinrecord(), "__JOINID");
           matchrow := defaults;
           IF(presentfield != "")
             matchrow := CellInsert(matchrow, presentfield, "left");
