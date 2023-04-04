@@ -528,6 +528,64 @@ class WRDDBEnumValue<Options extends { allowedvalues: string }, Required extends
   }
 }
 
+type WRDDBDateTimeConditions = {
+  condition: "=" | "!=" | ">=" | "<=" | "<" | ">"; value: Date | null;
+} | {
+  condition: "in"; value: ReadonlyArray<Date | null>;
+};
+
+class WRDDBDateValue<Required extends boolean> extends WRDAttributeValueBase<(true extends Required ? Date : Date | null), Date | null, (true extends Required ? Date : Date | null), WRDDBDateTimeConditions> {
+  getDefaultValue(): Date | null { return null; }
+  checkFilter({ condition, value }: WRDDBDateTimeConditions) {
+    /* always ok */
+  }
+  matchesValue(value: Date | null, cv: WRDDBDateTimeConditions): boolean {
+    if (cv.condition === "in") {
+      return cv.value.includes(value);
+    }
+    return cmp(value, cv.condition, cv.value);
+  }
+
+  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBDateTimeConditions): AddToQueryResponse<O> {
+    throw new Error(`not implemented`);
+  }
+
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): (true extends Required ? Date : Date | null) {
+    throw new Error(`not implemented`);
+  }
+
+  validateInput(value: (true extends Required ? Date : Date | null)) {
+    if (this.attr.required && !value)
+      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+  }
+}
+
+class WRDDBDateTimeValue<Required extends boolean> extends WRDAttributeValueBase<(true extends Required ? Date : Date | null), Date | null, (true extends Required ? Date : Date | null), WRDDBDateTimeConditions> {
+  getDefaultValue(): Date | null { return null; }
+  checkFilter({ condition, value }: WRDDBDateTimeConditions) {
+    /* always ok */
+  }
+  matchesValue(value: Date | null, cv: WRDDBDateTimeConditions): boolean {
+    if (cv.condition === "in") {
+      return cv.value.includes(value);
+    }
+    return cmp(value, cv.condition, cv.value);
+  }
+
+  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBDateTimeConditions): AddToQueryResponse<O> {
+    throw new Error(`not implemented`);
+  }
+
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): (true extends Required ? Date : Date | null) {
+    throw new Error(`not implemented`);
+  }
+
+  validateInput(value: (true extends Required ? Date : Date | null)) {
+    if (this.attr.required && !value)
+      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+  }
+}
+
 export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default, C extends { condition: AllowedFilterConditions; value: unknown } = { condition: AllowedFilterConditions; value: unknown }> extends WRDAttributeValueBase<In, Default, Out, C> {
 
   throwError(): never {
@@ -574,8 +632,7 @@ export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default
 type GetEnumArrayAllowedValues<Options extends { allowedvalues: string }> = Options extends { allowedvalues: infer V } ? V : never;
 
 /// The following accessors are not implemented yet, but have some typings
-class WRDDBDateValue extends WRDAttributeUnImplementedValueBase<Date | null, Date | null, Date | null> { }
-class WRDDBDateTimeValue extends WRDAttributeUnImplementedValueBase<Date | null, Date | null, Date | null> { }
+class WRDDBBaseCreationLimitDateValue extends WRDAttributeUnImplementedValueBase<Date | null, Date | null, Date | null> { }
 class WRDDBBaseModificationDateValue extends WRDAttributeUnImplementedValueBase<Date, Date, Date> { }
 class WRDDBMoneyValue extends WRDAttributeUnImplementedValueBase<Money, Money, Money> { }
 class WRDDBInteger64Value extends WRDAttributeUnImplementedValueBase<bigint, bigint, bigint> { }
@@ -602,9 +659,9 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDAttributeType.Base_Integer]: WRDDBIntegerValue;
   [WRDAttributeType.Base_Guid]: WRDDBStringValue;
   [WRDAttributeType.Base_Tag]: WRDDBStringValue;
-  [WRDAttributeType.Base_CreationLimitDate]: WRDDBDateValue;
+  [WRDAttributeType.Base_CreationLimitDate]: WRDDBBaseCreationLimitDateValue;
   [WRDAttributeType.Base_ModificationDate]: WRDDBBaseModificationDateValue;
-  [WRDAttributeType.Base_Date]: WRDDBDateValue;
+  [WRDAttributeType.Base_Date]: WRDDBDateValue<false>;
   [WRDAttributeType.Base_GeneratedString]: WRDDBStringValue;
   [WRDAttributeType.Base_NameString]: WRDDBStringValue;
   [WRDAttributeType.Base_Domain]: WRDDBDomainValue<Required>;
@@ -620,10 +677,8 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDAttributeType.DomainArray]: WRDDBDomainArrayValue;
   [WRDAttributeType.Address]: WRDDBAddressValue;
   [WRDAttributeType.Password]: WRDDBPasswordValue;
-  [WRDAttributeType.Date]: WRDDBDateValue;
   [WRDAttributeType.Image]: WRDDBImageValue;
   [WRDAttributeType.File]: WRDDBFileValue;
-  [WRDAttributeType.DateTime]: WRDDBDateTimeValue;
   [WRDAttributeType.Money]: WRDDBMoneyValue;
   [WRDAttributeType.RichDocument]: WRDDBRichDocumentValue;
   [WRDAttributeType.Integer64]: WRDDBInteger64Value;
@@ -647,4 +702,8 @@ export type AccessorType<T extends WRDAttrBase> = T["__attrtype"] extends keyof 
     ? WRDDBEnumValue<T["__options"], T["__required"]>
     : (T extends { __attrtype: WRDAttributeType.EnumArray }
       ? WRDDBEnumArrayValue<T["__options"], T["__required"]>
-      : never));
+      : (T extends { __attrtype: WRDAttributeType.Date }
+        ? WRDDBDateValue<T["__required"]>
+        : (T extends { __attrtype: WRDAttributeType.DateTime }
+          ? WRDDBDateTimeValue<T["__required"]>
+          : never))));

@@ -51,13 +51,13 @@ MACRO TestJSMode()
     , jsmode := TRUE
     ]));
 
-  TestEQ([ personid ], schemaobj->^wrd_person->RunQuery(
+  TestEQ(VARIANT[ personid ], schemaobj->^wrd_person->RunQuery(
     [ outputcolumn := "wrd_id"
     , filters := [ [ field := "test_single_domain", matchtype := "=", value := DEFAULT RECORD ] ]
     , jsmode := TRUE
     ]));
 
-  TestEQ([ personid ], schemaobj->^wrd_person->RunQuery(
+  TestEQ(VARIANT[ personid ], schemaobj->^wrd_person->RunQuery(
     [ outputcolumn := "wrd_id"
     , filters := [ [ field := "test_single_domain", matchtype := "IN", value := VARIANT[DEFAULT RECORD] ] ]
     , jsmode := TRUE
@@ -69,6 +69,44 @@ MACRO TestJSMode()
     , filters := [ [ field := "test_single_domain", matchtype := "=", value := domain1value1->id ] ]
     , jsmode := TRUE
     ]));
+
+  TestEQ(
+    [ [ test_single_domain := domain1value1->id
+      , wrd_tag := "TEST_DOMAINVALUE_1_1"
+      , wrd_leftentity := DEFAULT RECORD
+      ]
+    , [ test_single_domain := DEFAULT RECORD
+      , wrd_tag := ""
+      , wrd_leftentity := DEFAULT RECORD
+      ]
+    ], schemaobj->^test_domain_1->Enrich(
+      [ [ test_single_domain := domain1value1->id ]
+      , [ test_single_domain := DEFAULT RECORD ]
+      ], "test_single_domain", CELL[ "wrd_tag", "wrd_leftentity" ], [ jsmode := TRUE, rightouterjoin := TRUE ]));
+
+  TestEQ(
+    [ [ test_single_domain :=
+            [ [ wrd_tag := ""
+              , wrd_leftentity := DEFAULT RECORD
+              , wrd_id := DEFAULT RECORD
+              ]
+            , [ wrd_tag := "TEST_DOMAINVALUE_1_1"
+              , wrd_leftentity := DEFAULT RECORD
+              , wrd_id := domain1value1->id
+              ]
+            ]
+      ]
+    , [ test_single_domain :=
+            [ [ wrd_tag := ""
+              , wrd_leftentity := DEFAULT RECORD
+              , wrd_id := DEFAULT RECORD
+              ]
+            ]
+      ]
+    ], schemaobj->^test_domain_1->Enrich(
+      [ [ test_single_domain := VARIANT[ DEFAULT RECORD, domain1value1->id ] ]
+      , [ test_single_domain := [ DEFAULT RECORD ] ]
+      ], "test_single_domain[]", CELL[ "wrd_tag", "wrd_leftentity", "wrd_id" ], [ jsmode := TRUE, rightouterjoin := TRUE ]));
 
   schemaobj->^wrd_person->UpdateEntity(personid, [ test_single_domain := DEFAULT RECORD ], [ jsmode := TRUE ]);
   TestEQ([ [ wrd_id := personid, test_single_domain := DEFAULT RECORD ] ], schemaobj->^wrd_person->RunQuery(
@@ -108,22 +146,22 @@ MACRO TestJSMode()
   schemaobj->^wrd_person->UpdateEntity(personid,
       [ wrd_creationdate := MAX_DATETIME
       ]);
-  TestEQ([ personid ], schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields"
+  TestEQ(VARIANT[ personid ], schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields"
       , filters := [ [ field := "wrd_creationdate", matchtype := "=", value := DEFAULT RECORD ] ]
       ]));
-  TestEQ([ personid ], schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields"
+  TestEQ(VARIANT[ personid ], schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields"
       , filters := [ [ field := "wrd_creationdate", matchtype := ">=", value := DEFAULT RECORD ] ]
       ]));
-  TestEQ(INTEGER[], schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields"
+  TestEQ(VARIANT[], schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields"
       , filters := [ [ field := "wrd_creationdate", matchtype := ">", value := DEFAULT RECORD ] ]
       ]));
-  TestEQ(INTEGER[], schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields"
+  TestEQ(VARIANT[], schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields"
       , filters := [ [ field := "wrd_creationdate", matchtype := "!=", value := DEFAULT RECORD ] ]
       ]));
-  TestEQ(INTEGER[], schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields"
+  TestEQ(VARIANT[], schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields"
       , filters := [ [ field := "wrd_creationdate", matchtype := ">", value := MakeDate(2020, 1, 1) ] ]
       ]));
-  TestEQ([ personid ], schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields"
+  TestEQ(VARIANT[ personid ], schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields"
       , filters := [ [ field := "wrd_creationdate", matchtype := "<", value := MakeDate(2020, 1, 1) ] ]
       ]));
 
@@ -149,30 +187,91 @@ MACRO TestJSMode()
       ]
     ], schemaobj->^wrd_person->RunQuery([ outputcolumns := [ "wrd_limitdate", "wrd_creationdate", "wrd_dateofbirth" ], filters := [ [ field := "wrd_id", value := personid ] ], historymode := "__getfields", jsmode := TRUE ]));
 
+  TestEQ(VARIANT[ DEFAULT RECORD ], schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_limitdate", filters := [ [ field := "wrd_id", value := personid ] ], historymode := "__getfields", jsmode := TRUE ]));
+
   // Test conditions on base fields
   INTEGER p1 := schemaobj->^wrd_person->CreateEntity([ wrd_creationdate := MakeDate(2020, 1, 1), wrd_dateofbirth := MakeDate(2020, 1, 1) ])->id;
   INTEGER p2 := schemaobj->^wrd_person->CreateEntity([ wrd_creationdate := MakeDate(2020, 1, 2), wrd_dateofbirth := MakeDate(2020, 1, 2) ])->id;
   INTEGER p3 := schemaobj->^wrd_person->CreateEntity([ wrd_creationdate := MakeDate(2020, 1, 3), wrd_dateofbirth := MakeDate(2020, 1, 3) ])->id;
 
-  TestEQ(GetSortedSet([p2]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_creationdate", matchtype := "=", value := MakeDate(2020, 1, 2) ] ] ])));
-  TestEQ(GetSortedSet([personid, p1, p3]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_creationdate", matchtype := "!=", value := MakeDate(2020, 1, 2) ] ] ])));
-  TestEQ(GetSortedSet([p3]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_creationdate", matchtype := ">", value := MakeDate(2020, 1, 2) ] ] ])));
-  TestEQ(GetSortedSet([p2, p3]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_creationdate", matchtype := ">=", value := MakeDate(2020, 1, 2) ] ] ])));
-  TestEQ(GetSortedSet([personid, p1, p2]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_creationdate", matchtype := "<=", value := MakeDate(2020, 1, 2) ] ] ])));
-  TestEQ(GetSortedSet([personid, p1]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_creationdate", matchtype := "<", value := MakeDate(2020, 1, 2) ] ] ])));
-  TestEQ(GetSortedSet([personid, p2]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_creationdate", matchtype := "IN", value := VARIANT[ DEFAULT RECORD, MakeDate(2020, 1, 2) ] ] ] ])));
+  TestEQ(GetSortedSet(VARIANT[p2]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_creationdate", matchtype := "=", value := MakeDate(2020, 1, 2) ] ] ])));
+  TestEQ(GetSortedSet(VARIANT[personid, p1, p3]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_creationdate", matchtype := "!=", value := MakeDate(2020, 1, 2) ] ] ])));
+  TestEQ(GetSortedSet(VARIANT[p3]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_creationdate", matchtype := ">", value := MakeDate(2020, 1, 2) ] ] ])));
+  TestEQ(GetSortedSet(VARIANT[p2, p3]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_creationdate", matchtype := ">=", value := MakeDate(2020, 1, 2) ] ] ])));
+  TestEQ(GetSortedSet(VARIANT[personid, p1, p2]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_creationdate", matchtype := "<=", value := MakeDate(2020, 1, 2) ] ] ])));
+  TestEQ(GetSortedSet(VARIANT[personid, p1]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_creationdate", matchtype := "<", value := MakeDate(2020, 1, 2) ] ] ])));
+  TestEQ(GetSortedSet(VARIANT[personid, p2]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_creationdate", matchtype := "IN", value := VARIANT[ DEFAULT RECORD, MakeDate(2020, 1, 2) ] ] ] ])));
 
-  TestEQ(GetSortedSet([p2]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_dateofbirth", matchtype := "=", value := MakeDate(2020, 1, 2) ] ] ])));
-  TestEQ(GetSortedSet([personid, p1, p3]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_dateofbirth", matchtype := "!=", value := MakeDate(2020, 1, 2) ] ] ])));
-  TestEQ(GetSortedSet([p3]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_dateofbirth", matchtype := ">", value := MakeDate(2020, 1, 2) ] ] ])));
-  TestEQ(GetSortedSet([p2, p3]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_dateofbirth", matchtype := ">=", value := MakeDate(2020, 1, 2) ] ] ])));
-  TestEQ(GetSortedSet([personid, p1, p2]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_dateofbirth", matchtype := "<=", value := MakeDate(2020, 1, 2) ] ] ])));
-  TestEQ(GetSortedSet([personid, p1]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_dateofbirth", matchtype := "<", value := MakeDate(2020, 1, 2) ] ] ])));
-  TestEQ(GetSortedSet([personid, p2]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_dateofbirth", matchtype := "IN", value := VARIANT[ DEFAULT RECORD, MakeDate(2020, 1, 2) ] ] ] ])));
+  TestEQ(GetSortedSet(VARIANT[p2]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_dateofbirth", matchtype := "=", value := MakeDate(2020, 1, 2) ] ] ])));
+  TestEQ(GetSortedSet(VARIANT[personid, p1, p3]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_dateofbirth", matchtype := "!=", value := MakeDate(2020, 1, 2) ] ] ])));
+  TestEQ(GetSortedSet(VARIANT[p3]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_dateofbirth", matchtype := ">", value := MakeDate(2020, 1, 2) ] ] ])));
+  TestEQ(GetSortedSet(VARIANT[p2, p3]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_dateofbirth", matchtype := ">=", value := MakeDate(2020, 1, 2) ] ] ])));
+  TestEQ(GetSortedSet(VARIANT[personid, p1, p2]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_dateofbirth", matchtype := "<=", value := MakeDate(2020, 1, 2) ] ] ])));
+  TestEQ(GetSortedSet(VARIANT[personid, p1]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_dateofbirth", matchtype := "<", value := MakeDate(2020, 1, 2) ] ] ])));
+  TestEQ(GetSortedSet(VARIANT[personid, p2]), GetSortedSet(schemaobj->^wrd_person->RunQuery([ outputcolumn := "wrd_id", jsmode := TRUE, historymode := "__getfields", filters := [ [ field := "wrd_dateofbirth", matchtype := "IN", value := VARIANT[ DEFAULT RECORD, MakeDate(2020, 1, 2) ] ] ] ])));
+
+  RECORD tests :=
+  [ wrd_creationdate := [ vals := VARIANT[DEFAULT RECORD, AddTimeToDate(-1, MakeDate(1970, 1, 1)), MakeDate(1970, 1, 1), AddTimeToDate(1, MakeDate(1970, 1, 1))] ]
+  , wrd_limitdate := [ vals:= VARIANT[DEFAULT RECORD, AddTimeToDate(-1, MakeDate(1970, 1, 1)), MakeDate(1970, 1, 1), AddTimeToDate(1, MakeDate(1970, 1, 1))] ]
+  , wrd_dateofbirth := [ vals := VARIANT[DEFAULT RECORD, AddDaysToDate(-1, MakeDate(1970, 1, 1)), MakeDate(1970, 1, 1), AddDaysToDate(1, MakeDate(1970, 1, 1))] ]
+  , test_date := [ vals := VARIANT[DEFAULT RECORD, AddDaysToDate(-1, MakeDate(1970, 1, 1)), MakeDate(1970, 1, 1), AddDaysToDate(1, MakeDate(1970, 1, 1))] ]
+  , test_datetime := [ vals := VARIANT[DEFAULT RECORD, AddTimeToDate(-1, MakeDate(1970, 1, 1)), MakeDate(1970, 1, 1), AddTimeToDate(1, MakeDate(1970, 1, 1))] ]
+  ];
+
+  STRING ARRAY comparetypes := ["=", "!=", "<", "<=", ">", ">=", "IN"];
+
+  // Test all comparisons
+  FOREVERY (RECORD test FROM UnpackRecord(tests))
+  {
+    FOREVERY (VARIANT val FROM test.value.vals)
+    {
+      RECORD entityval := CellInsert(CELL[], test.name, val);
+      schemaobj->^wrd_person->UpdateEntity(personid, entityval, [ jsmode := TRUE ]);
+      FOREVERY (VARIANT otherval FROM test.value.vals)
+        FOREVERY (STRING comparetype FROM comparetypes) {
+          if (comparetype = "IN")
+            otherval := VARIANT[otherval];
+          VARIANT selres := schemaobj->^wrd_person->Runquery([ outputcolumn := test.name, filters := [ [ field := test.name, match_type := comparetype, value := otherval ], [ field := "WRD_ID", value := personid ] ], historymode := "__getfields", jsmode := TRUE ]);
+          BOOLEAN expect := JSCmp(val, comparetype, otherval);
+          //PRINT(`Testing ${EncodeJSON(val)} ${comparetype} ${EncodeJSON(otherval)}, expect: ${EncodeJSON(expect)}, entityval: ${EncodeJSON(entityval)}, selectresult: ${EncodeJSON(selres)}\n`);
+          TestEQ(expect, LENGTH(selres) = 1, `Testing ${EncodeJSON(val)} ${comparetype} ${EncodeJSON(otherval)}`);
+        }
+    }
+  }
 
   testfw->CommitWork();
 }
 
+INTEGER FUNCTION JSCompare(VARIANT a,VARIANT b)
+{
+  IF (TypeID(a) = TypeID(RECORD))
+    RETURN TypeID(b) = TypeID(RECORD) ? 0 : -1;
+  IF (TypeID(b) = TypeID(RECORD))
+    RETURN 1;
+  RETURN a = b ? 0 : a < b ? -1 : 1;
+}
+
+BOOLEAN FUNCTION JSCmp(VARIANT a, STRING comparetype, VARIANT b)
+{
+  IF (comparetype = "IN")
+  {
+    FOREVERY (VARIANT val FROM b)
+      IF (JSCompare(a, val) = 0)
+        RETURN TRUE;
+    RETURN FALSE;
+  }
+  INTEGER cmpres := JSCompare(a, b);
+  SWITCH (comparetype)
+  {
+    case "=" { return cmpres = 0; }
+    case ">=" { return cmpres >= 0; }
+    case "<=" { return cmpres <= 0; }
+    case "<" { return cmpres < 0; }
+    case ">" { return cmpres > 0; }
+    case "!=" { return cmpres != 0; }
+  }
+  return FALSE;
+}
 
 RunTestframework([ PTR CreateWRDTestSchema
                  , PTR TestJSMode

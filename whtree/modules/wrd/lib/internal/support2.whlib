@@ -56,9 +56,9 @@ PUBLIC RECORD FUNCTION MappedJoinBlobSetting(RECORD fileinfo, OBJECT whfs_mapper
   IF (IsValueSet(whfs_mapper) AND CellExists(fileinfo, "source_fsobject"))
     fileinfo := CELL[ ...fileinfo, source_fsobject := whfs_mapper->UnmapWHFSRef(fileinfo.source_fsobject) ];
 
-  IF (jsmode)
+  IF (jsmode AND CellExists(fileinfo, "source_fsobject"))
   {
-    IF (CellExists(fileinfo, "source_fsobject") AND TypeID(fileinfo.source_fsobject) = TypeID(RECORD) AND IsDefaultValue(fileinfo.source_fsobject))
+    IF (TypeID(fileinfo.source_fsobject) = TypeID(RECORD) AND IsDefaultValue(fileinfo.source_fsobject))
       fileinfo := CELL[ ...fileinfo, source_fsobject := 0 ];
     ELSE IF (fileinfo.source_fsobject = 0)
       THROW NEW Exception(`Not allowed to use 0 for source_fsobject, use null`);

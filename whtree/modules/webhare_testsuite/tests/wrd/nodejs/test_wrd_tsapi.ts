@@ -2,10 +2,11 @@ import { WRDSchema } from "@webhare/wrd";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { prepareTestFramework, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { IsGenerated, IsNonUpdatable, IsRequired, WRDAttr, WRDAttributeType } from "@mod-wrd/js/internal/types";
+import { Combine, IsGenerated, IsNonUpdatable, IsRequired, WRDAttr, WRDAttributeType } from "@mod-wrd/js/internal/types";
 import { WRDSchema as newWRDschema } from "@mod-wrd/js/internal/schema";
 import { HSVMObject } from '@webhare/services/src/hsvm';
 import { getTypedArray, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { ComparableType, compare } from "@webhare/hscompat/algorithms";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function createWRDTestSchema(options: any = {}) {
@@ -423,9 +424,27 @@ type CustomExtensions = {
 */
 };
 
+function cmp(a: unknown, condition: string, b: unknown) {
+  if (condition === "in") {
+    return (b as unknown[]).some(e => compare(a as ComparableType, e as ComparableType) === 0);
+  }
+  const cmpres = compare(a as ComparableType, b as ComparableType);
+  switch (condition) {
+    case "=": return cmpres === 0;
+    case ">=": return cmpres >= 0;
+    case "<=": return cmpres <= 0;
+    case "<": return cmpres < 0;
+    case ">": return cmpres > 0;
+    case "!=": return cmpres !== 0;
+  }
+  return false;
+}
+
+
 
 async function testNewAPI() {
-  const schema = new newWRDschema<TestSchema>("wrd:testschema").extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>();
+  type Combined = Combine<[TestSchema, SchemaUserAPIExtension, CustomExtensions]>;
+  const schema = new newWRDschema<Combined>("wrd:testschema");//extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>();
 
   await whdb.beginWork();
   const unit_id = await schema.insert("whuser_unit", { wrd_title: "Root unit", wrd_tag: "TAG" });
@@ -505,6 +524,53 @@ async function testNewAPI() {
   await schema.update("wrd_person", newperson, { wrd_creationdate: null, wrd_limitdate: null });
   test.eq([{ wrd_creationdate: null, wrd_limitdate: null }], await schema.selectFrom("wrd_person").select(["wrd_creationdate", "wrd_limitdate"]).where("wrd_id", "=", newperson).historyMode("__getfields").execute());
 
+  const nottrue = false;
+  if (nottrue) {
+    // @ts-expect-error -- wrd_leftentity and wrd_rightentity must be numbers
+    await schema.insert("personorglink", { wrd_leftentity: null, wrd_rightentity: null });
+  }
+
+  await schema.update("wrd_person", newperson, {
+    wrd_creationdate: null,
+    wrd_limitdate: null,
+    wrd_dateofbirth: null,
+    wrd_dateofdeath: null
+  });
+  test.eq([
+    {
+      wrd_creationdate: null,
+      wrd_limitdate: null,
+      wrd_dateofbirth: null,
+      wrd_dateofdeath: null
+    }
+  ], await schema.selectFrom("wrd_person").select(["wrd_creationdate", "wrd_limitdate", "wrd_dateofbirth", "wrd_dateofdeath"]).where("wrd_id", "=", newperson).historyMode("__getfields").execute());
+
+  const tests = {
+    wrd_creationdate: { values: [null, new Date(-1), new Date(0), new Date(1)] },
+    wrd_limitdate: { values: [null, new Date(-1), new Date(0), new Date(1)] },
+    wrd_dateofbirth: { values: [null, new Date(-86400000), new Date(0), new Date(86400000)] },
+    test_date: { values: [null, new Date(-86400000), new Date(0), new Date(86400000)] },
+    test_datetime: { values: [null, new Date(-1), new Date(0), new Date(1)] },
+  };
+
+  const comparetypes = ["=", "!=", "<", "<=", ">", ">=", "in"] as const;
+
+  // Test all comparisons
+  for (const [attr, { values }] of Object.entries(tests)) {
+    for (const value of values) {
+      const entityval = { [attr]: value };
+      await schema.update("wrd_person", newperson, entityval);
+      for (let othervalue of values as unknown[])
+        for (const comparetype of comparetypes) {
+          if (comparetype == "in")
+            othervalue = [othervalue];
+          const select = await schema.selectFrom("wrd_person").select(attr as any).where(attr as any, comparetype, othervalue).where("wrd_id", "=", newperson).historyMode("__getfields").execute();
+          const expect = cmp(value, comparetype, othervalue);
+          console.log(`Testing ${JSON.stringify(value)} ${comparetype} ${othervalue}, expect: ${expect}, entityval: ${JSON.stringify(entityval)}, selectresult: ${JSON.stringify(select)}`);
+          test.eq(expect, select.length === 1, `Testing ${JSON.stringify(value)} ${comparetype} ${othervalue}`);
+        }
+    }
+  }
 
   await whdb.commitWork();
 }
