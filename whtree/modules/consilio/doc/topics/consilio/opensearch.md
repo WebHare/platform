@@ -69,3 +69,9 @@ docker run -p 127.0.0.1:5601:5601\
 Update the environment variables and version number as needed.
 
 The OpenSearch Dashboard docker will say something like `Server running at http://127.0.0.1:5601`, which is the url to use to open the Dashboard
+
+## Index manipulation
+```
+# close an index
+wh consilio:opensearch_curl -XPOST '/<indexname>/_close'
+```

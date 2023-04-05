@@ -35,7 +35,7 @@ MACRO ObsoleteCatalogs(RECORD options)
                               FROM consilio.catalogs
                               WHERE ToUppercase(name) LIKE ToUppercase(options.catalogmask)
                                     AND ToUppercase(name) IN obsoletecatalogs;
-;
+
   IF(Length(tocleanup) > 0)
   {
     GetPrimary()->BeginWork();
@@ -137,8 +137,44 @@ BOOLEAN FUNCTION AttemptZap(OBJECT catalog)
   RETURN TRUE;
 }
 
+//TODO we assume we won't be inside a long running process. UpdateIncides should only run in CI and in a task..
+RECORD ARRAY indexmanagers;
+
+MACRO EnsureIndexManagerUp(INTEGER id)
+{
+  INTEGER idx := (SELECT AS INTEGER #indexmanagers + 1 FROM indexmanagers WHERE indexmanagers.id = VAR id) - 1;
+  IF(idx < 0)
+    THROW NEW Exception(`Unknown indexmanager #${id}`);
+  WHILE(NOT indexmanagers[idx].isup)
+  {
+    TRY
+    {
+      RECORD ARRAY indices := ListOpenSearchIndices(indexmanagers[idx].id);
+      /* +RECORD ARRAY
+           +RECORD
+            +DOCS: 0
+            +HEALTH: 'red'
+            +INDEXNAME: 'c_a41aadb1f49583fa2708e5c325ef19b3'
+            +SHARDS: 1
+            +SIZE: 0i64
+            +STATUS: 'close'
+            +UUID: 'ES4GCGCZSn2DNpKbMm_ngA'
+
+        TODO do we als need to be able to wait for specific indices to be open? */
+      indexmanagers[idx].isup := TRUE;
+    }
+    CATCH(OBJECT<SearchUnavailableException> e)
+    {
+      //Wait for it to come online TODO: we should probably log this after some wait time but I'm not sure what a reasonable give up timeout is
+      Sleep(200);
+    }
+  }
+}
+
 MACRO UpdateModuleCatalogs(RECORD options)
 {
+  indexmanagers := SELECT *, isup := FALSE FROM ListIndexManagers() ORDER BY isdefault DESC;
+
   OBJECT trans := GetPrimary();
 
   RECORD ARRAY wantcatalogs := SELECT *
@@ -146,19 +182,23 @@ MACRO UpdateModuleCatalogs(RECORD options)
                                  FROM GetRequiredCatalogs(FALSE)
                                 WHERE ToUppercase(tag) LIKE ToUppercase(options.catalogmask);
 
-  BOOLEAN havedefaultindexmanager := RecordExists(SELECT FROM ListIndexManagers() WHERE isdefault);
-
+  BOOLEAN havedefaultindexmanager := Length(indexmanagers) >= 1 AND indexmanagers[0].isdefault;
   trans->BeginWork();
   FOREVERY(RECORD want FROM wantcatalogs)
   {
     OBJECT catalog := OpenConsilioCatalog(want.tag);
     IF(NOT ObjectExists(catalog))
     {
-      IF(want.managed AND NOT havedefaultindexmanager)
-        CONTINUE; //we cannot create catalogs if the defaultindexmanager doesn't exist (yet)
+      IF(want.managed)
+      {
+        IF(NOT havedefaultindexmanager)
+          CONTINUE; //we cannot create catalogs if the defaultindexmanager doesn't exist (yet))
 
+        EnsureIndexManagerUp(indexmanagers[0].id); //create will need the indexmanager
+      }
       catalog := CreateConsilioCatalog(want.tag, CELL[ want.managed, want.suffixed ]);
     }
+
     wantcatalogs[#want].catalog := catalog;
     IF(catalog->managed != want.managed)
     {
@@ -189,9 +229,12 @@ MACRO UpdateModuleCatalogs(RECORD options)
     IF(NOT ObjectExists(want.catalog))
      CONTINUE;
 
+    RECORD ARRAY indices := want.catalog->ListAttachedIndices();
+    FOREVERY(RECORD indic FROM indices)
+      EnsureIndexManagerUp(indic.indexmanager);
+
     IF(want.managed AND want.catalog->managed) //If we are supposed to manage the catalog, we'll restore indices if needed
     {
-      RECORD ARRAY indices := want.catalog->ListAttachedIndices();
       //only add indices for managed catalogs that have something to index. cleanupindices will cleanup catalogs that lost all sources
       IF(Length(indices) = 0 AND Length(want.catalog->ListContentSources()) > 0)
       {
@@ -219,6 +262,8 @@ MACRO UpdateModuleCatalogs(RECORD options)
 
     IF(want.managed AND want.catalog->managed)
       FOREVERY(RECORD opensearch FROM SELECT * FROM want.catalog->ListAttachedIndices())
+      {
+        EnsureIndexManagerUp(opensearch.indexmanager);
         FOREVERY(STRING suffix FROM want.catalog->__ListSuffixes())
         {
           STRING fullname := opensearch.indexname || (suffix != "" ? "-" || suffix : "");
@@ -250,6 +295,7 @@ MACRO UpdateModuleCatalogs(RECORD options)
           }
         }
       }
+  } //FOREVERY wantcatalogs
 }
 
 PUBLIC MACRO FixConsilioIndices(RECORD options DEFAULTSTO DEFAULT RECORD)
