@@ -30,6 +30,7 @@
     <body>
       <text name="transactionkey" />
       <text name="paymentkey" />
+      <text name="validationreference" />
     </body>
   </screen>
 

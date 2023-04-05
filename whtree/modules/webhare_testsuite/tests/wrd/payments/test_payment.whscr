@@ -584,7 +584,7 @@ ASYNC MACRO TestPaymentProvidersDialog()
   TestEq("External", rows[1].type);
   TestEq("CASH PAYMENTS", rows[1].title);
   TestEq("Pay by invoice", rows[2].title);
-  TestEq("TestNoIssuer, TestWithIssuer", rows[3].title);
+  TestEq("TestNoIssuer, TestWithIssuer, Mandate", rows[3].title); //the config screen is allowed to show all payment options
 
   //First delete the current TestNoIssuer, TestWithIssuer
   topscreen->providers->selection := rows[3];
@@ -601,7 +601,7 @@ ASYNC MACRO TestPaymentProvidersDialog()
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   TestEq(4, Length(TT("providers")->rows));
-  TestEq("TestNoIssuer", topscreen->providers->selection.title);
+  TestEq("TestNoIssuer, Mandate", topscreen->providers->selection.title);
 
   AWAIT ExpectScreenChange(+1, PTR topscreen->editprovider->TolliumClick);
   TestEq("Nieuwe Titel", topscreen->contextextension->wrd_title->value);

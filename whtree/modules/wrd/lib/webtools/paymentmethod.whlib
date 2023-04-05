@@ -2,6 +2,7 @@
 /** @short Payment selector
     @topic payments/selector
 */
+LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
@@ -19,6 +20,7 @@ PUBLIC RECORD FUNCTION __ParsePaymentMethod(RECORD fielddef, OBJECT node, RECORD
             , has_wrdschema := node->HasAttribute("wrdschema")
             , providerfield := node->GetAttribute("providerfield")
             , paymentfield := node->GetAttribute("paymentfield")
+            , optiontypes := node->HasAttribute("optiontypes") ? ParseXSList(node->GetAttribute("optiontypes")) : ["payment"]
         INTO fielddef;
   RETURN fielddef;
 }
@@ -136,7 +138,7 @@ PUBLIC STATIC OBJECTTYPE PaymentMethodField EXTEND ComposedFormFieldBase
       RETURN;
 
     IF(NOT this->manualpaymentoptions)
-      this->paymentoptions := this->ConstructPaymentOptions(this->pvt_paymentapi->ListAllPaymentOptions([ filters := this->filters ]));
+      this->paymentoptions := this->ConstructPaymentOptions(this->pvt_paymentapi->ListAllPaymentOptions([ filters := this->filters, types := this->field.optiontypes ]));
 
     BOOLEAN warnlive := GetDtapStage() != "production";
     RECORD ARRAY opts := SELECT subfields
