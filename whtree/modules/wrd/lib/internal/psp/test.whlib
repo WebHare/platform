@@ -128,7 +128,7 @@ PUBLIC STATIC OBJECTTYPE TestPaymentProvider EXTEND WRDPaymentProviderBase
       IF(this->paymentoptiontag != "MANDATE")
         THROW NEW Exception(`Capture requires a MANDATE payment`);
 
-      this->autocompletes := AddTimeToDate(1000, GetCurrentDatetime());
+      this->autocompletes := baseoptions.capturedate ?? AddTimeToDate(1000, GetCurrentDatetime());
     }
   }
 
@@ -187,9 +187,8 @@ PUBLIC STATIC OBJECTTYPE TestPaymentProvider EXTEND WRDPaymentProviderBase
   {
     IF(this->autocompletes != DEFAULT DATETIME)
     {
-      IF(this->autocompletes < GetCurrentDatetime())
-        RETURN;
-      this->pvt_status := "approved";
+      IF(this->autocompletes < GetCurrentDatetime() )
+        this->pvt_status := "approved";
       RETURN;
     }
     IF(GetCurrentDatetime() < this->expires OR this->pvt_status != "pending")

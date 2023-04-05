@@ -38,6 +38,7 @@ PUBLIC RECORD paymentbaseoptions :=
   , userdata := DEFAULT RECORD
   , isrecurring := FALSE
   , capturefrom := DEFAULT RECORD
+  , capturedate := DEFAULT DATETIME
 
   , wrdpersonentity := DEFAULT OBJECT
   , wrdpersonfields := DEFAULT RECORD

@@ -16,8 +16,9 @@ STRING FUNCTION DescribePayment(RECORD paymentrecord, RECORD paymentattr, OBJECT
   RETURN `Payment #${paymentrecord.id} for ${ToLowercase(wrdschema->tag || "." || paymentattr.wrdtypetag)} entity #${paymentrecord.paymententity} (${paymentrecord.paymentdata.paymentref})`;
 }
 
-PUBLIC MACRO PollPaymentStatuses(BOOLEAN for_test, DATETIME delete_threshold)
+PUBLIC MACRO PollPaymentStatuses(BOOLEAN for_test, DATETIME delete_threshold, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions([ recheckinterval := 5*60*1000 ], options);
   STRING ARRAY block_payments := SELECT AS STRING ARRAY uuid FROM wrd.pendingpayments GROUP BY uuid HAVING COUNT(*)>1;
   IF(Length(block_payments)>0)
   {
@@ -112,7 +113,7 @@ PUBLIC MACRO PollPaymentStatuses(BOOLEAN for_test, DATETIME delete_threshold)
         ELSE IF(diff.msecs >= 2*60*60*1000) //after 2 hours, checking every 30 minutes is enough
           setnextcheck := AddTimeToDate(30*60*1000, GetCurrentDatetime());
         ELSE //check every 5 minutes (TODO reschedule pollpaymentstatus ourselves instead of having to actually wait for the next tick)
-          setnextcheck := AddTimeToDate(5*60*1000, GetCurrentDatetime());
+          setnextcheck := AddTimeToDate(options.recheckinterval, GetCurrentDatetime());
 
         GetPrimary()->BeginWork();
         UPDATE wrd.pendingpayments SET nextcheck := setnextcheck, error := seterror WHERE id = paymentrecord.id;
