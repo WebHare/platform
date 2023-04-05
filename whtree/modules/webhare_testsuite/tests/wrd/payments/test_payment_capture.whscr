@@ -47,6 +47,7 @@ MACRO TestCapture()
   testfw->BeginWork();
   OBJECT pd3 := paymentapi->paymenttype->CreateEntity([wrd_tag := "PD3"]);
   OBJECT paypart1 := paymentapi->paymenttype->CreateEntity([wrd_tag := "PAYPART1"]);
+  OBJECT paypart2 := paymentapi->paymenttype->CreateEntity([wrd_tag := "PAYPART2"]);
   testfw->CommitWork();
 
   STRING gotourl := StartWRDTestPayment(paymentapi, pd3->id, 125.91m, [ paymentprovider := pm1->id, paymentoptiontag := "MANDATE", isrecurring := TRUE, issuer := "MD39" ]);
@@ -54,14 +55,17 @@ MACRO TestCapture()
 
   TestEq("approved", pd3->GetField("DATA").status);
 
-  RECORD actualdebit := paymentapi->StartPayment(paypart1->id, 25, [ capturefrom := pd3->GetField("DATA") ]);
-  TestEq("pending", paypart1->GetField("DATA").status);
-  WHILE(paypart1->GetField("DATA").status = "pending")
+  RECORD actualdebit1 := paymentapi->StartPayment(paypart1->id, 25, [ capturefrom := pd3->GetField("DATA"), capturedate := AddDaysToDate(3, GetCurrentDatetime()) ]);
+  RECORD actualdebit2 := paymentapi->StartPayment(paypart2->id, 25, [ capturefrom := pd3->GetField("DATA") ]);
+
+  TestEq("pending", paypart2->GetField("DATA").status);
+  WHILE(paypart2->GetField("DATA").status = "pending")
   {
     Sleep(50);
-    PollPaymentStatuses(TRUE, testfw->starttime);
+    PollPaymentStatuses(TRUE, testfw->starttime, [ recheckinterval := 50 ]);
   }
-  TestEq("approved", paypart1->GetField("DATA").status);
+  TestEq("approved", paypart2->GetField("DATA").status);
+  TestEq("pending", paypart1->GetField("DATA").status); //still pending...
 }
 
 RunTestframework([ PTR CreateWRDTestSchema
