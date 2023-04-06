@@ -69,7 +69,7 @@ RECORD FUNCTION DoBuckarooRequest(RECORD settings, STRING suburl, RECORD body, S
   STRING finalurl := ResolveToAbsoluteURL(settings.testmode ? apiroot_test : apiroot_prod, suburl);
   INTEGER requesttimestamp := GetUnixTimestamp(GetCurrentDatetime());
   STRING nonce := GenerateUFS128BitId();
-  STRING bodytext := EncodeJSON(body, CELL["AmountDebit","Currency","Description","PushURL","ReturnURL","Services","StartRecurrent","ServiceList","Paramters","Name","Action","Value"]);
+  STRING bodytext := EncodeJSON(body, CELL["AmountDebit","Currency","Description","PushURL","ReturnURL","Services","StartRecurrent","ServiceList","Parameters","Name","Action","Value"]);
 
   // Signature algorithms: https://dev.buckaroo.nl/Apis/Description/json#authentication
   //                       read the C# example code! the spec is ambiguous (eg requestContentBase64String should be empty if no body, secretkey should not be concatenated, Channel is not optional)
