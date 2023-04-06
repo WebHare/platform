@@ -729,7 +729,7 @@ STATIC OBJECTTYPE ConsilioCatalog
       @param settings Settings to apply
       @cell(string) settings.definedby Definition location
   */
-  PUBLIC BOOLEAN FUNCTION UpdateCatalog(RECORD settings)
+  PUBLIC MACRO UpdateCatalog(RECORD settings)
   {
     settings := ValidateOptions([ definedby := ""
                                 , lang := ""
@@ -743,10 +743,12 @@ STATIC OBJECTTYPE ConsilioCatalog
 
     // If the catalog language changes, the catalog has to be rebuilt
     BOOLEAN language_changed := CellExists(settings, "lang") AND settings.lang != this->lang;
+
     RECORD cursettings := SELECT * FROM consilio.catalogs WHERE id = this->id;
     IF(NOT RecordExists(cursettings))
       THROW NEW Exception(`Catalog ${this->tag} (#${this->id}) is no longer present in the database`);
 
+    STRING applylanguage := CellExists(settings,"lang") ? settings.lang : this->lang;
     IF(CellExists(settings, 'title'))
     {
       settings := CELL[ ...settings
@@ -789,32 +791,36 @@ STATIC OBJECTTYPE ConsilioCatalog
 
     internalmetadata := EnforceStructure(CELL[ lastupdate := DEFAULT DATETIME
                                              , fields := RECORD[]
+                                             , lang := "?" //mark that we never stored the language yet
                                              ], internalmetadata);
 
     RECORD ARRAY contentsources;
     IF(this->managed)
       contentsources := this->ListContentSources([__withdata := TRUE]);
 
-    RECORD config := CalculateExpectedConfiguration(applyfieldgroups, this->managed, this->tag, contentsources);
-    IF(EncodeHSON(config.fields) != EncodeHSON(internalmetadata.fields))
+    RECORD config := CalculateExpectedConfiguration(applyfieldgroups, this->managed, this->tag, contentsources, applylanguage);
+    BOOLEAN fieldschanged := EncodeHSON(config.fields) != EncodeHSON(internalmetadata.fields);
+    BOOLEAN languagechanged := config.lang != internalmetadata.lang;
+    BOOLEAN scheduleupdate := fieldschanged OR (languagechanged AND internalmetadata.lang != "?"); //ignore changing ? to a language for update, as this may just be a 5.0x->5.03 upgrade
+
+    IF(fieldschanged OR languagechanged)
     {
       internalmetadata := BuildInternalMetadataFromConfiguration(config);
       INSERT CELL internalmetadata := EncodeHSONBlob(internalmetadata) INTO settings;
     }
 
     IF(Length(UnpackRecord(settings)) = 0)
-      RETURN FALSE; //no change
+      RETURN; //no change
 
     UPDATE consilio.catalogs SET RECORD settings WHERE id = this->id;
 
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
     this->catalog := SELECT * FROM consilio.catalogs WHERE id = this->id;
 
-    IF(language_changed OR CellExists(settings,'internalmetadata'))
+    IF(scheduleupdate)
       GetConsilioFinishHandler()->RequestReconfigureCatalog(this);
 
     this->ensuredsuffixes := STRING[]; //better recheck everything after a catalog update
-    RETURN language_changed;
   }
 
   /// Delete this catalog
@@ -1357,7 +1363,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
     THROW NEW Exception(`A managed index can't be set to suffixed`);
 
   // Prepare configuration
-  RECORD config := CalculateExpectedConfiguration(options.fieldgroups, options.managed, tag, RECORD[]); //no contentsource ids yet
+  RECORD config := CalculateExpectedConfiguration(options.fieldgroups, options.managed, tag, RECORD[], options.lang); //no contentsource ids yet
   RECORD internalmetadata := BuildInternalMetadataFromConfiguration(config);
 
   INSERT CELL[ id := indexid

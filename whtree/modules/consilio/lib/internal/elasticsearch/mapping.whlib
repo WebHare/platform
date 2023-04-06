@@ -360,7 +360,7 @@ PUBLIC RECORD FUNCTION PrepareMappingUpdate(RECORD ARRAY input_properties)
              ];
 }
 
-PUBLIC RECORD FUNCTION CalculateExpectedConfiguration(STRING ARRAY fieldgroups, BOOLEAN managed, STRING catalogtag, RECORD ARRAY contentsources)
+PUBLIC RECORD FUNCTION CalculateExpectedConfiguration(STRING ARRAY fieldgroups, BOOLEAN managed, STRING catalogtag, RECORD ARRAY contentsources, STRING lang)
 {
   /* We need to optimize consilio:site contentsources, a catalog can have hundreds of them but they'll all have the same field definition
      for now we'll just look at the first. ideally we'd get rid of intermediate consilio:custom and contentsources would either declare XML
@@ -396,12 +396,13 @@ PUBLIC RECORD FUNCTION CalculateExpectedConfiguration(STRING ARRAY fieldgroups, 
         ] INTO fields AT END;
   }
 
-  RETURN CELL[ fields ];
+  RETURN CELL[ fields, lang ];
 }
 
 PUBLIC RECORD FUNCTION BuildInternalMetadataFromConfiguration(RECORD config)
 {
   RETURN CELL[ config.fields
+             , config.lang
              , lastupdate := GetCurrentDatetime()
              ];
 
