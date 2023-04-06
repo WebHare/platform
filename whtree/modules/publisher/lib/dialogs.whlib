@@ -435,7 +435,7 @@ PUBLIC MACRO RunPublisherFileManager(OBJECT parentscreen, INTEGER objectid, RECO
     @param parentscreen Screen invoking us
     @param objectid Object to edit
     @cell(boolean) options.forceintegrated Do not launch a separate application
-    @cell(boolean) options.assumereadaccess Assume the user has write access
+    @cell(boolean) options.assumereadaccess Assume the user has read access
     @cell(boolean) options.assumewriteaccess Assume the user has write access
     @cell(integer array) options.internallinkroots Limit RTE internal links to these subfolders
 */
