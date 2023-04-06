@@ -2252,13 +2252,6 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
     LaunchOpenInEditor(this, "whfs::" || path);
   }
 
-  MACRO DoSearch()
-  {
-    INTEGER result := this->RunScreen("search.xml#searchpublisher");
-    IF (result != 0)
-      this->SelectObject(result);
-  }
-
   MACRO DoShowModificationsList()
   {
     RECORD obj := ^filelist->selection;
