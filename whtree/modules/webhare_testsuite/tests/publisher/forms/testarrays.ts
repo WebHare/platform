@@ -365,12 +365,30 @@ test.registerTests(
     async function() {
       await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1&prefill=2");
 
-      // Find the first fieldgroup of the second row ('Name')
-      const fieldgroup = test.qSA(".wh-form__arrayrow")[1].firstChild;
+      // Find the 'Name' fieldgroup of the second row
+      let fieldgroup = test.qSA(".wh-form__arrayrow")[1].querySelector(`[data-wh-form-group-for="contacts.name"]`);
       // Click the fieldgroup's label
       test.click(fieldgroup.querySelector("label"));
       // The fieldgroup's input should have focus
       test.assert(test.hasFocus(fieldgroup.querySelector("input")));
+
+      // Find the 'Please confirm' fieldgroup of the second row
+      fieldgroup = test.qSA(".wh-form__arrayrow")[1].querySelector(`[data-wh-form-group-for="contacts.confirm"]`);
+      // The fieldgroup's checkbox should not be checked
+      test.assert(!fieldgroup.querySelector("input").checked);
+      // Click the checkbox' label
+      test.click(fieldgroup.querySelector("label.wh-form__optionlabel"));
+      // The fieldgroup's checkbox should now be checked
+      test.assert(fieldgroup.querySelector("input").checked);
+
+      // Find the 'Favorite color' fieldgroup of the second row
+      fieldgroup = test.qSA(".wh-form__arrayrow")[1].querySelector(`[data-wh-form-group-for="contacts.favcolor"]`);
+      // None of the fieldgroup's radiobuttons should be checked
+      test.assert(![...fieldgroup.querySelectorAll("input")].filter(_ => _.checked)[0]?.value);
+      // Click the second radiobutton's label
+      test.click(fieldgroup.querySelectorAll(".wh-form__fieldline")[1].querySelector("label.wh-form__optionlabel"));
+      // The second radiobutton should now be checked
+      test.assert([...fieldgroup.querySelectorAll("input")].filter(_ => _.checked)[0]?.value == "yellow");
     },
 
     "Test adding subfields dynamically and using inter-subfield conditions",
