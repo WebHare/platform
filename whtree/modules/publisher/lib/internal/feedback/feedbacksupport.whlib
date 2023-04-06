@@ -219,6 +219,9 @@ STRING FUNCTION GetFeedbackSecret(STRING kid_unused)
 PUBLIC STRING FUNCTION GetFeedbackWebToken(OBJECT tolliumuser)
 {
   RECORD userdata := tolliumuser->GetUserDataForLogging();
+  IF(userdata.wrd_guid = "")
+    RETURN ""; //anonymous user or override token
+
   // Convert GetUserDataForLogging data to JWT claims (see https://www.iana.org/assignments/jwt/jwt.xhtml)
   userdata :=
       [ iap := userdata.when
