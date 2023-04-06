@@ -312,6 +312,12 @@
         <upload name="photo" title="Photo" />
         <select name="gender" rowkeytype="integer" type="pulldown" title="Gender"/>
         <date name="wrd_dateofbirth" title="DOB" />
+        <checkbox name="confirm" title="" label="Please confirm" />
+        <select name="favcolor" type="radio" title="Favorite color">
+          <option rowkey="red" title="Red" />
+          <option rowkey="yellow" title="Yellow" />
+          <option rowkey="blue" title="Blue" />
+        </select>
       </array>
       <array name="contacts2" min="0" max="1" title="More contacts">
         <textedit name="name" title="Name"/>  <!-- shouldn't conflict with array above us -->
