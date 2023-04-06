@@ -171,12 +171,17 @@ class BLEXLIB_PUBLIC Marshaller
         Blex::PodVector< Blex::StringPair > strings;
         std::unique_ptr< std::unordered_map< ColumnNameId, unsigned > > columnmap;
         bool use_library_column_list;
+        ColumnNameId col_marshaldata;
+        VarId marshalencoder_fptr;
+        VarId marshaldecoder_fptr;
 
         std::vector< ColumnNameId > const *library_column_list;
         std::function< uint32_t(ColumnNameId) > library_column_encoder;
 
         // Packets are destroyed at destruction time
         std::list< MarshalPacket * > packets;
+
+        std::map<VarId, VarId> objectmarshaldata;
 
     public:
         Marshaller(VirtualMachine *vm, MarshalMode::Type mode);
@@ -237,11 +242,12 @@ class BLEXLIB_PUBLIC Marshaller
 
         Blex::FileOffset AnalyzeInternal(VarId var, bool to_packet);
 
-        Blex::FileOffset CalculateVarLength(VarId var, bool to_packet);
+        Blex::FileOffset CalculateVarLength(VarId var, bool to_packet, VariableTypes::Type type);
 
         void WriteInternal(VarId var, uint8_t *begin, uint8_t *limit, MarshalPacket *packet);
 
-        uint8_t* MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket *packet);
+        VariableTypes::Type DetermineType(VarId var);
+        uint8_t* MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket *packet, VariableTypes::Type type);
         uint8_t const * MarshalReadInternal(VarId var, VariableTypes::Type type, uint8_t const *ptr, size_t remainingsize, Blex::PodVector< ColumnNameId > const &nameids, MarshalPacket *packet);
         void ReadInternal(VarId var, uint8_t const *begin, uint8_t const *limit, MarshalPacket *packet);
         void ReadColumnData(uint8_t const **ptr, size_t *size, Blex::PodVector< ColumnNameId > *nameids);

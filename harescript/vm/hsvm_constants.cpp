@@ -75,6 +75,9 @@ std::string GetTypeName(VariableTypes::Type type)
         case VariableTypes::WeakObject:
                 x = "WEAKOBJECT";
                 break;
+        case VariableTypes::SerializedObject:
+                x = "SERIALIZEDOBJECT";
+                break;
         default:
                 x = "unknown type #" + Blex::AnyToString((unsigned)type);
                 break;
