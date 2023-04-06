@@ -6,7 +6,7 @@
   <screen name="browseforobject" width="800px" height="600px" allowresize="true" title="">
     <actions>
       <action name="openfilelist" onexecute="doopenfilelist" title="" />
-      <action name="openinpublisher" ellipsis="true" tid="tolliumapps.common.actions.revealinpublisher">
+      <action name="openinpublisher" tid="tolliumapps.common.actions.revealinpublisher">
         <enableon source="folders" min="1" onexecute="doopeninpublisher_folders" />
         <enableon source="fileslist" min="1" onexecute="doopeninpublisher_fileslist" />
       </action>

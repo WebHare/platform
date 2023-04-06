@@ -402,6 +402,17 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     // Can start autosaving when RTE is initialized (not before, would save empty document)
     this->canautosave := NOT this->readonly;
 
+
+    /*
+    When we are called from another application which tells us the user MUST be able to have write access,
+    we can assume that application is meant to be used to manage this document.
+    This means we don't want to confuse users by pointing them to the original source file/folder in the Publisher.
+    Also they may not have access to the original location of the document.
+    */
+    IF (this->assumewriteaccess)
+      ^openinpublisher->enabled := FALSE;
+
+
     this->RefreshState();
 
     RegisterTimedCallback(AddTimeToDate(1, GetCurrentDatetime()), PTR this->CalculateInitialDirty);
@@ -1162,6 +1173,11 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
   {
     this->showdraftbar := FALSE;
     this->draftbar->visible := FALSE;
+  }
+
+  MACRO DoOpenInPublisher()
+  {
+    RunPublisherFileManager(this, this->fileid);
   }
 
   MACRO DoInspectAutosave()

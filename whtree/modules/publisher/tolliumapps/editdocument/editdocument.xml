@@ -20,6 +20,7 @@
       <action name="sendpreviewlink" ellipsis="true" frameflags="havesomethingtopublish" onexecute="dosendpreviewlink" />
       <action name="publish" frameflags="canpublish" onexecute="dopublish" />
       <action name="close" onexecute="doclose" tid="~close" />
+
       <windowopenaction name="viewpublished"
                         frameflags="canview"
                         onwindowopen="doviewpublished"
@@ -32,6 +33,12 @@
                         frameflags="canpreview isdirty"
                         onwindowopen="dopreviewcurrentcontent"
                         target="webhare_publisher_editdocument" />
+
+      <action name="openinpublisher"
+              tid="tolliumapps.common.actions.revealinpublisher"
+              onexecute="doopeninpublisher"
+              />
+
       <action name="inspectautosave" frameflags="isdeveloper" onexecute="doinspectautosave" />
       <action name="inspectdraft" frameflags="isdeveloper" onexecute="doinspectdraft" />
       <action name="inspectfinal" frameflags="isdeveloper" onexecute="doinspectfinal" />
@@ -48,7 +55,14 @@
           <divider />
           <item action="sendpreviewlink" />
         </item>
+
+        <!-- The "openinpublisher_public" item will be hidden if
+             this application was opened by another app with the
+             "assumewriteaccess" parameter -->
+        <item name="openinpublisher_public" action="openinpublisher" tid="tolliumapps.common.actions.revealinpublisher" />
+
         <divider />
+
         <item name="canceldraftmenu" action="canceldraft" />
         <item name="cancelrequestmenu" action="cancelrequest" />
         <divider />
@@ -60,10 +74,13 @@
           <item action="inspectautosave" disablemode="hidden" />
           <item action="inspectdraft" disablemode="hidden" />
           <item action="inspectfinal" disablemode="hidden" />
+          <divider />
+          <item action="openinpublisher" />
         </item>
         <divider />
         <item action="close" tid="~exit" />
       </menu>
+
       <menu name="previewmenu">
         <item action="viewpublished" />
         <item action="previewdraft" />
