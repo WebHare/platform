@@ -143,11 +143,12 @@ export default class ArrayField {
           fieldnode.name = subname;
         mapping.set(field.name, subname);
 
-        // Rename id's to make them unique; update the label within the field's fieldgroup to point to the new id
+        // Rename id's to make them unique; update the labels within the field's fieldgroup to point to the new id
         if (fieldnode.id) {
-          const labelnode = fieldnode.closest(".wh-form__fieldgroup").querySelector(`label[for="${fieldnode.id}"]`);
+          // Checkboxes/radiobuttons have two labels: the first is the checkbox/radiobutton itself, the second is the actual label
+          const labelnodes = fieldnode.closest(".wh-form__fieldgroup").querySelectorAll(`label[for="${fieldnode.id}"]`);
           fieldnode.id += "-" + rowid;
-          if (labelnode)
+          for (const labelnode of labelnodes)
             labelnode.htmlFor = fieldnode.id;
         }
       }
