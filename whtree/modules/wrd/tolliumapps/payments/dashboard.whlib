@@ -4,6 +4,8 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/screenbase.whlib";
 
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/payments.whlib";
 LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
 
 
@@ -44,5 +46,21 @@ PUBLIC STATIC OBJECTTYPE PaymentsDashboard EXTEND DashboardPanelBase
   MACRO DoOpenInWRD()
   {
     this->tolliumcontroller->SendApplicationMessage("wrd:browser", [ entityid := ^payments->selection.paymententity ], DEFAULT RECORD, FALSE);
+  }
+  MACRO DoProperties()
+  {
+    RECORD paymentinfo := SELECT * FROM wrd.pendingpayments WHERE id = ^payments->value;
+    RECORD providerattr := DescribeWRDAttribute(paymentinfo.providerattr);
+    RECORD paymentattr := DescribeWRDAttribute(paymentinfo.paymentattr);
+    OBJECT wrdschema := OpenWRDSchemaById(providerattr.wrdschema);
+    IF(NOT ObjectExists(wrdschema))
+      RETURN; //this schema has been deleted
+
+    OBJECT api := GetPaymentAPI(wrdschema, [ providertypeid := providerattr.wrdtype
+                                           , providerfield := providerattr.attributetag
+                                           , paymenttypeid := paymentattr.wrdtype
+                                           , paymentfield := paymentattr.attributetag
+                                           ]);
+    api->RunShowPaymentDetailsDialog(this, paymentinfo.paymententity, [ canmanagepayments := TRUE]);
   }
 >;

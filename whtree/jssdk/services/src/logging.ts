@@ -12,7 +12,7 @@ function replaceLogParts(key: string, value: unknown) {
 
 //exported for tests
 export function formatLogObject(logline: object): string {
-  return JSON.stringify({ "@timestamp": (new Date).toUTCString(), ...logline }, replaceLogParts);
+  return JSON.stringify({ "@timestamp": (new Date).toISOString(), ...logline }, replaceLogParts);
 }
 
 /** Write a line to a log file

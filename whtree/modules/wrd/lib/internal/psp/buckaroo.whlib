@@ -100,7 +100,7 @@ RECORD FUNCTION DoBuckarooRequest(RECORD settings, STRING suburl, RECORD body, S
 PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase_V2
 <
   MACRO NEW(RECORD settings)
-  : WRDPaymentProviderBase_V2("wrd:buckaroo", "redirect", settings, [ responsekey := "", transactionkey := "", validationreference := "", isrecurring := FALSE ])
+  : WRDPaymentProviderBase_V2("wrd:buckaroo", "redirect", settings, [ transactionkey := "", validationreference := "", isrecurring := FALSE, paymentkey := "" ])
   {
     this->needspaymentref := TRUE;
   }
