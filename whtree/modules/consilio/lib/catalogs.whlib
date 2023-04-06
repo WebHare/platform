@@ -10,6 +10,7 @@ LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 
 LOADLIB "mod::consilio/lib/database.whlib";
+LOADLIB "mod::consilio/lib/internal/catalogdefparser.whlib";
 LOADLIB "mod::consilio/lib/internal/contentsources.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT fetcher_trusted_ip;
 LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
@@ -741,7 +742,17 @@ STATIC OBJECTTYPE ConsilioCatalog
                                              , title := "settings"
                                              ]);
 
+    //TODO shouldn't we lock other properties like fieldgroups in case a catalogconfig is available, to prevent battles with consilio:update ? or explicitly only set some props at creation?
+    RECORD catalogconfig := SELECT * FROM GetRequiredCatalogs(TRUE) WHERE tag = this->tag;
+
     // If the catalog language changes, the catalog has to be rebuilt
+    IF(RecordExists(catalogconfig) AND "lang" NOT IN catalogconfig.dynamicproperties)
+    {
+      IF(CellExists(settings, 'lang'))
+        THROW NEW Exception(`Catalog ${this->tag} has not been configured with dynamicproperties=lang so you cannot update it`);
+      INSERT CELL lang := catalogconfig.lang INTO settings; //enforce this setting
+    }
+
     BOOLEAN language_changed := CellExists(settings, "lang") AND settings.lang != this->lang;
 
     RECORD cursettings := SELECT * FROM consilio.catalogs WHERE id = this->id;
@@ -770,13 +781,20 @@ STATIC OBJECTTYPE ConsilioCatalog
 
     // Determine final fieldgroups
     STRING ARRAY applyfieldgroups;
+    IF(RecordExists(catalogconfig) AND "fieldgroups" NOT IN catalogconfig.dynamicproperties)
+    {
+      IF(CellExists(settings, 'fieldgroups'))
+        THROW NEW Exception(`Catalog ${this->tag} has not been configured with dynamicproperties=fieldgroups so you cannot update it`);
+      INSERT CELL fieldgroups := catalogconfig.fieldgroups INTO settings; //enforce this setting
+    }
+
     IF(CellExists(settings, 'fieldgroups'))
     {
       STRING newval := BuildFieldgroups(settings.fieldgroups);
       applyfieldgroups := settings.fieldgroups;
       DELETE CELL fieldgroups FROM settings;
 
-      IF(newval != this->catalog.fieldgroups)
+      IF(newval != this->catalog.fieldgroups) //a change
         INSERT CELL fieldgroups := newval INTO settings;
     }
     ELSE
@@ -1355,15 +1373,37 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
                               , managed := TRUE
                               , suffixed := FALSE
                               , lang := ""
-                              ], options);
+                              ], options, [ optional := [ "fieldgroups", "lang" ]]);
 
   INTEGER indexid := MakeAutoNumber(consilio.catalogs, "id");
 
   IF(options.suffixed AND options.managed)
     THROW NEW Exception(`A managed index can't be set to suffixed`);
 
+  STRING lang;
+  STRING ARRAY fieldgroups;
+
+  RECORD catalogconfig := SELECT * FROM GetRequiredCatalogs(TRUE) WHERE COLUMN tag = VAR tag;
+  IF(RecordExists(catalogconfig))
+  {
+    IF("fieldgroups" NOT IN catalogconfig.dynamicproperties AND CellExists(options, 'fieldgroups'))
+      THROW NEW Exception(`Catalog ${tag} has not been configured with dynamicproperties=fieldgroups so you cannot update it`);
+    IF("lang" NOT IN catalogconfig.dynamicproperties AND CellExists(options, 'fieldgroups'))
+      THROW NEW Exception(`Catalog ${tag} has not been configured with dynamicproperties=lang so you cannot update it`);
+  }
+
+  IF(CellExists(options,'fieldgroups'))
+    fieldgroups := options.fieldgroups;
+  ELSE IF(NOT CellExists(options,'fieldgroups') AND RecordExists(catalogconfig))
+    fieldgroups := catalogconfig.fieldgroups;
+
+  IF(CellExists(options,'lang'))
+    lang := options.lang;
+  ELSE IF(NOT CellExists(options,'lang') AND RecordExists(catalogconfig))
+    lang := catalogconfig.lang;
+
   // Prepare configuration
-  RECORD config := CalculateExpectedConfiguration(options.fieldgroups, options.managed, tag, RECORD[], options.lang); //no contentsource ids yet
+  RECORD config := CalculateExpectedConfiguration(fieldgroups, options.managed, tag, RECORD[], lang); //no contentsource ids yet
   RECORD internalmetadata := BuildInternalMetadataFromConfiguration(config);
 
   INSERT CELL[ id := indexid
@@ -1375,8 +1415,8 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
              , type := options.managed ? whconstant_consilio_catalogtype_managed
                                        : whconstant_consilio_catalogtype_unmanaged
              , suffix := options.suffixed ? default_suffix_mask : ""
-             , fieldgroups := BuildFieldgroups(options.fieldgroups)
-             , options.lang
+             , fieldgroups := BuildFieldgroups(fieldgroups)
+             , lang
              , internalmetadata := EncodeHSONBlob(internalmetadata)
              ] INTO consilio.catalogs;
 
