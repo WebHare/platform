@@ -105,10 +105,6 @@
       <accesscheck/>
     </application>
 
-    <application name="search" screen="/tolliumapps/filemanager/search.xml#searchpublisher" icon="tollium:actions/search">
-      <accesscheck/>
-    </application>
-
     <application name="reportissues" screen="reports/issues.main">
       <accesscheck>
         <requireright right="system:supervisor"/>

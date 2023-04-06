@@ -70,15 +70,4 @@
     </footer>
   </screen>
 
-  <screen name="searchpublisher" gid=".searchpublisher" icon="tollium:actions/search" width="75x">
-    <actions>
-      <action name="open" title="" onexecute="doopen" />
-    </actions>
-    <body>
-      <textedit name="query" title="" placeholdertid=".query" width="1pr" minimumsuggestlength="1">
-        <autosuggest name="autosuggest" suggestobjectname="mod::publisher/tolliumapps/filemanager/search.whlib#searchpublisherautocomplete" />
-      </textedit>
-    </body>
-  </screen>
-
 </screens>

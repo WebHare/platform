@@ -223,11 +223,6 @@
       </action>
       <action name="gotoanything" ellipsis="true" onexecute="dogotoanything" shortcut="ctrl+shift+g"  />
 
-      <action name="search"
-              tid="~search"
-              onexecute="dosearch" />
-              <!-- shortcut="ctrl+f" -->
-
       <action name="linkcheck">
         <enableon source="foldertree" min="1" checkflags="issite" onexecute="dolinkchecktree" />
         <enableon source="filelist" min="1" max="1" checkflags="issite" onexecute="dolinkchecklist" />
@@ -395,11 +390,6 @@
           <divider />
           <item action="gotoresult" disablemode="hidden" />
           <item action="gotoanything" />
-
-          <!-- Publisher search popup
-          <item action="search" />
-          -->
-
         </item>
 
         <item tid="tollium:common.menus.view">
@@ -563,13 +553,6 @@
               icon="tollium:actions/trash" />
       <button action="props"
               icon="tollium:actions/properties" />
-
-      <!-- Publisher search popup
-      <divider type="flex" />
-
-      <button action="search"
-              icon="tollium:actions/search" />
-      -->
     </toolbar>
 
     <!-- The main screen -->
