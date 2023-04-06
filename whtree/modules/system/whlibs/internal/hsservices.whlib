@@ -768,7 +768,7 @@ PUBLIC STATIC OBJECTTYPE __HS_INTERNAL_AsyncGeneratorGenerator EXTEND __HS_INTER
         CASE 4 // continue with yielded value
         {
           // (assert: done=false)
-          INSERT [ type := 0, value := res.value ] INTO this->queued AT 0;
+          instr := [ type := 0, value := res.value ];
         }
       }
     }
