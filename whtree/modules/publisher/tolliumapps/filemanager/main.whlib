@@ -2267,7 +2267,12 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   MACRO OnViewBrowserList(OBJECT openhandler)
   {
     OBJECT obj := OpenWHFSObject(^filelist->selection.id);
-    openhandler->SendURL(`${obj->url}?wh-feedback-token=${EncodeURL(GetFeedbackWebToken(this->contexts->user))}`);
+    STRING target := obj->link;
+    STRING feedbacktoken := GetFeedbackWebToken(this->contexts->user);
+    IF(feedbacktoken != "") //ie not anonymous/override user
+      target := UpdateURLVariables(target, [ "wh-feedback-token" := feedbacktoken ]);
+
+    openhandler->SendURL(target);
   }
 
   MACRO OnViewBrowserLive(OBJECT openhandler)
