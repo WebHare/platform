@@ -9,7 +9,7 @@ LOADLIB "mod::system/lib/services.whlib";
 
 RECORD ARRAY untransferred_table;
 INTEGER next_untransferred_id := 24000;
-BOOLEAN debug := FALSE;
+BOOLEAN debug := "--debug" IN GetConsoleArguments();
 
 VARIANT FUNCTION MapToBridgeRecursive(VARIANT input)
 {

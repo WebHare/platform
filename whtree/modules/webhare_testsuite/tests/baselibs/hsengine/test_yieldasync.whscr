@@ -75,6 +75,13 @@ OBJECTTYPE AsyncType
   PUBLIC ASYNC FUNCTION *AsyncGenerator2() { RETURN 2; }
 >;
 
+ASYNC FUNCTION * GeneratorAutoLinkCancel(OBJECT promise)
+{
+  // Doesn't do much, but shouldn't crash
+  (AWAIT GetAsyncControl())->autolinkcancel := TRUE;
+  RETURN 2;
+}
+
 MACRO TestSyntax()
 {
   RECORD result;
@@ -131,6 +138,10 @@ FUNCTION *test() { AWAIT 1; }
   TestEQ([ done := TRUE, value := 2 ], x->Generator2()->Next());
   TestEQ([ done := TRUE, value := 1 ], WaitForPromise(x->AsyncGenerator1()->Next()));
   TestEQ([ done := TRUE, value := 2 ], WaitForPromise(x->AsyncGenerator2()->Next()));
+
+  RECORD defer := CreateDeferredPromise();
+  OBJECT itr := GeneratorAutoLinkCancel(defer.promise);
+  TestEQ([ done := TRUE, value := 2 ], WaitForPromise(itr->Next()));
 }
 
 MACRO TestYield()
@@ -527,4 +538,3 @@ TestYield();
 TestAsync();
 TestAsyncGenerator();
 TestYieldStar();
-

@@ -768,7 +768,7 @@ PUBLIC STATIC OBJECTTYPE __HS_INTERNAL_AsyncGeneratorGenerator EXTEND __HS_INTER
         CASE 4 // continue with yielded value
         {
           // (assert: done=false)
-          INSERT [ type := 0, value := res.value ] INTO this->queued AT 0;
+          instr := [ type := 0, value := res.value ];
         }
       }
     }
@@ -1540,4 +1540,16 @@ PUBLIC OBJECT ASYNC FUNCTION AsyncSendBlobTo(INTEGER outputid, BLOB data)
   {
     __HS_CloseFile(blobfile);
   }
+}
+
+/** Only invoked if the objecttype definition has a *declared* __GetMarshalData method (or member). The member may be private. */
+PUBLIC VARIANT FUNCTION __HS_INTERNAL_EncodeObjectMarshalData(OBJECT obj)
+{
+  // obj is a privileged pointer
+  RETURN obj->__GetMarshalData();
+}
+
+PUBLIC OBJECT FUNCTION __HS_INTERNAL_DecodeObjectMarshalData(VARIANT data)
+{
+  RETURN OBJECT(__OnDecodeObjectMarshalData(data));
 }

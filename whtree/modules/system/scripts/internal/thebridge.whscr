@@ -9,6 +9,8 @@ LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 
 
+BOOLEAN debug := PickFirst(GetConsoleArguments()) = "--debug";
+
 STATIC OBJECTTYPE BridgeConnection
 <
   RECORD ARRAY myjobs;
@@ -28,6 +30,9 @@ STATIC OBJECTTYPE BridgeConnection
     RECORD jobrecord := CreateJob(Resolve("thebridge_hsvm.whscr"));
     IF(Length(jobrecord.errors) > 0)
       THROW NEW Exception(`Failed to start HSVM job: ${jobrecord.errors[0].message}`);
+
+    IF (debug)
+      jobrecord.job->SetConsoleArguments([ "--debug" ]);
 
     jobrecord.job->AsyncWaitRead(MAX_DATETIME)->Then(PTR this->CheckJobErrors(jobrecord.job));
     jobrecord.job->Start();
@@ -54,7 +59,6 @@ OBJECT FUNCTION Constructor()
   RETURN NEW BridgeConnection;
 }
 
-BOOLEAN debug := PickFirst(GetConsoleArguments()) = "--debug";
 
 OpenPrimary();
 

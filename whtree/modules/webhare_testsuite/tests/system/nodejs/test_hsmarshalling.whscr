@@ -37,6 +37,42 @@ ASYNC MACRO TestHSONEnDeCode(STRING hson, VARIANT val, STRING retval DEFAULTSTO 
   TestEQ(retval ?? hson, res);
 }
 
+
+OBJECTTYPE MarshalTestObject
+< PUBLIC INTEGER testid;
+
+  MACRO NEW(INTEGER testid)
+  {
+    this->testid := testid;
+  }
+
+  VARIANT FUNCTION __GetMarshalData()
+  {
+    RETURN [ test := this->testid ];
+  }
+>;
+
+OBJECT FUNCTION DoDecodeMarshalDataObject(VARIANT data)
+{
+  RETURN NEW MarshalTestObject(RECORD(data).test);
+}
+
+VARIANT FUNCTION RoundTripMarshalData(VARIANT indata)
+{
+  INTEGER str := CreateStream();
+  __HS_MARSHALWRITETO(str, indata);
+  BLOB marshaldata := MakeBlobFromStream(str);
+  RETURN __HS_MARSHALREADFROMBLOB(marshaldata);
+}
+
+VARIANT FUNCTION RoundTripMarshalPacket(VARIANT indata)
+{
+  INTEGER str := CreateStream();
+  __HS_MARSHALPACKETWRITETO(str, indata);
+  BLOB marshaldata := MakeBlobFromStream(str);
+  RETURN __HS_MARSHALPACKETREADFROMBLOB(marshaldata);
+}
+
 ASYNC MACRO TestMarshalling()
 {
   STRING res;
@@ -154,6 +190,14 @@ ASYNC MACRO TestMarshalling()
   VARIANT vres := AWAIT CallAsync(Resolve("invoke_hsmarshalling.ts#arrayEncodeTest"), VARIANT[]);
   TestEQ(expect_arrays, __HS_MarshalReadFromBlob(StringToBlob(DecodeBase16(vres.marshal))));
   TestEQ(expect_arrays, DecodeHSON(vres.hson));
+
+  FUNCTION PTR org_OnDecodeObjectMarshalData := __OnDecodeObjectMarshalData;
+  __OnDecodeObjectMarshalData := PTR DoDecodeMarshalDataObject;
+
+  TestEQ(1, RoundTripMarshalData(NEW MarshalTestObject(1))->testid);
+  TestEQ(2, RoundTripMarshalPacket(NEW MarshalTestObject(2))->testid);
+
+  __OnDecodeObjectMarshalData := org_OnDecodeObjectMarshalData;
 }
 
 RunTestFrameWork(

@@ -311,6 +311,7 @@ PUBLIC FUNCTION PTR __UnhandledRejection;
 PUBLIC FUNCTION PTR __RejectionHandled;
 PUBLIC FUNCTION PTR __TooManyUnhandledRejections;
 PUBLIC FUNCTION PTR __OnBeforeTerminateScript;
+PUBLIC FUNCTION PTR __OnDecodeObjectMarshalData;
 
 /** @topic harescript-core/datetime
     @public

@@ -45,6 +45,8 @@ namespace VariableTypes
         Object          = HSVM_VAR_Object,      //0x23
         WeakObject      = HSVM_VAR_WeakObject,  //0x24
 
+        SerializedObject = 0x2F, // internal for marshalling
+
         Blob            = HSVM_VAR_Blob,        //0x40
         VMRef           = 0x41,                 ///< Reference to another VM
 
@@ -63,6 +65,7 @@ namespace VariableTypes
         StringArray     = HSVM_VAR_StringArray,
         ObjectArray     = HSVM_VAR_ObjectArray,
 
+        SerializedObjectArray = 0xAF, // internal for marshalling
         BlobArray       = HSVM_VAR_BlobArray,
 
         IsBacked        = 0xA0,                 ///< Bit flag to indicate backing

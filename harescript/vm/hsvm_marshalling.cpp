@@ -232,6 +232,9 @@ Marshaller::Marshaller(VirtualMachine *_vm, MarshalMode::Type _mode)
 , mode(_mode)
 , data_size(0)
 , use_library_column_list(false)
+, col_marshaldata(0)
+, marshalencoder_fptr(0)
+, marshaldecoder_fptr(0)
 , library_column_list(0)
 , library_column_encoder(0)
 {
@@ -245,6 +248,9 @@ Marshaller::Marshaller(StackMachine &_stackm, MarshalMode::Type _mode)
 , blobcount(0)
 , largeblobs(false)
 , use_library_column_list(false)
+, col_marshaldata(0)
+, marshalencoder_fptr(0)
+, marshaldecoder_fptr(0)
 , library_column_list(0)
 , library_column_encoder(0)
 {
@@ -255,6 +261,8 @@ Marshaller::~Marshaller()
 {
         for (std::list< MarshalPacket * >::iterator it = packets.begin(); it != packets.end(); ++it)
             delete *it;
+        for (auto &itr: objectmarshaldata)
+            stackm.DeleteHeapVariable(itr.second);
 }
 
 unsigned Marshaller::FixedVariableLength(VariableTypes::Type type)
@@ -288,7 +296,7 @@ Blex::FileOffset Marshaller::AnalyzeInternal(VarId var, bool to_packet)
 
         largeblobs = false;
         blobcount = 0;
-        data_size = CalculateVarLength(var, to_packet);
+        data_size = CalculateVarLength(var, to_packet, DetermineType(var));
 
         if (!to_packet && largeblobs)
             data_size += 4ull * blobcount;
@@ -328,10 +336,8 @@ Blex::FileOffset Marshaller::AnalyzeInternal(VarId var, bool to_packet)
         return data_size;
 }
 
-Blex::FileOffset Marshaller::CalculateVarLength(VarId var, bool to_packet)
+Blex::FileOffset Marshaller::CalculateVarLength(VarId var, bool to_packet, VariableTypes::Type type)
 {
-        VariableTypes::Type type = stackm.GetType(var);
-
         if (type & VariableTypes::Array)
         {
                 // Element count
@@ -342,6 +348,12 @@ Blex::FileOffset Marshaller::CalculateVarLength(VarId var, bool to_packet)
                 {
                         // Type byte needed for every element
                         size += eltcount;
+
+                        for (unsigned idx = 0; idx < eltcount; ++idx)
+                        {
+                                VarId elt = stackm.ArrayElementRef(var, idx);
+                                size += CalculateVarLength(elt, to_packet, DetermineType(elt));
+                        }
                 }
                 else
                 {
@@ -349,10 +361,10 @@ Blex::FileOffset Marshaller::CalculateVarLength(VarId var, bool to_packet)
                         unsigned eltlen = FixedVariableLength(ToNonArray(type));
                         if (eltlen)
                             return size + eltcount * eltlen;
-                }
 
-                for (unsigned idx = 0; idx < eltcount; ++idx)
-                    size += CalculateVarLength(stackm.ArrayElementRef(var, idx), to_packet);
+                        for (unsigned idx = 0; idx < eltcount; ++idx)
+                            size += CalculateVarLength(stackm.ArrayElementRef(var, idx), to_packet, ToNonArray(type));
+                }
 
                 return size;
         }
@@ -413,8 +425,10 @@ Blex::FileOffset Marshaller::CalculateVarLength(VarId var, bool to_packet)
                                         columns.push_back(nameid);
                                 }
 
+                                VarId elt = stackm.RecordCellGetByName(var, nameid);
+
                                 size += 5; // Column nameid mapping, type of column
-                                size += CalculateVarLength(stackm.RecordCellGetByName(var, nameid), to_packet);
+                                size += CalculateVarLength(elt, to_packet, DetermineType(elt));
                         }
                         return size;
                 }
@@ -432,6 +446,46 @@ Blex::FileOffset Marshaller::CalculateVarLength(VarId var, bool to_packet)
                             ThrowInternalError("Cannot marshal live weak objects"); //ADDME: Allow objects to offer an optional serializer member?
                         return 0;
                 }
+        case VariableTypes::SerializedObject:
+                {
+                        bool hasmarshaller = vm->ResolveVTableEntry(var, col_marshaldata);
+                        if (!hasmarshaller)
+                             return to_packet ? 4 : 1;
+
+                        if (!vm)
+                            ThrowInternalError("Can only marshal objects when a VM is present");
+
+                        std::map<VarId, VarId>::iterator itr = objectmarshaldata.find(var);
+                        if (itr == objectmarshaldata.end())
+                            itr = objectmarshaldata.insert(std::make_pair(var, 0)).first;
+                        else if (!itr->second)
+                            ThrowInternalError("Recursively encoding objects in marshal data");
+
+                        if (!marshalencoder_fptr)
+                        {
+                                marshalencoder_fptr = HSVM_AllocateVariable(*vm);
+                                const HSVM_VariableType args[1] = { VariableTypes::Object };
+                                int result = HSVM_MakeFunctionPtr(*vm, marshalencoder_fptr, "wh::internal/hsservices.whlib", "__HS_INTERNAL_ENCODEOBJECTMARSHALDATA", VariableTypes::Variant, 1, args, 0);
+                                if(result <= 0)
+                                    ThrowInternalError("Error looking up function __HS_INTERNAL_ENCODEOBJECTMARSHALDATA");
+                        }
+
+                        // Create the object in var
+                        HSVM_OpenFunctionCall(*vm, 1);
+                        HSVM_CopyFrom(*vm, HSVM_CallParam(*vm, 0), var);
+                        stackm.ObjectSetReferencePrivilegeStatus(HSVM_CallParam(*vm, 0), true);
+                        HSVM_VariableId obj = HSVM_CallFunctionPtr(*vm, marshalencoder_fptr, false);
+                        if (!obj)
+                            ThrowInternalError("Error encoding object marshal data");
+                        itr->second = stackm.NewHeapVariable();
+                        HSVM_CopyFrom(*vm, itr->second, obj);
+                        HSVM_CloseFunctionCall(*vm);
+
+                        if (stackm.GetType(itr->second) == VariableTypes::Object)
+                            ThrowInternalError("Error encoding object marshal data, got an object as marshal data");
+
+                        return (to_packet ? 5 : 1) + CalculateVarLength(itr->second, to_packet, DetermineType(itr->second));
+                }
         default:
             // Table, Schema
             ThrowInternalError("Cannot marshal variables of type " + GetTypeName(type));
@@ -439,9 +493,34 @@ Blex::FileOffset Marshaller::CalculateVarLength(VarId var, bool to_packet)
         return 0;
 }
 
-uint8_t* Marshaller::MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket *packet)
+VariableTypes::Type Marshaller::DetermineType(VarId var)
 {
         VariableTypes::Type type = stackm.GetType(var);
+        if ((type != VariableTypes::Object && type != VariableTypes::ObjectArray) || !vm)
+             return type;
+
+        if (!col_marshaldata)
+            col_marshaldata = stackm.columnnamemapper.GetMapping("__GETMARSHALDATA");
+
+        if (type == VariableTypes::Object)
+        {
+                if (vm->ResolveVTableEntry(var, col_marshaldata))
+                    return VariableTypes::SerializedObject;
+        }
+        else
+        {
+                for (unsigned idx = 0, end = stackm.ArraySize(var); idx < end; ++idx)
+                {
+                        VarId elt = stackm.ArrayElementGet(var, idx);
+                        if (vm->ResolveVTableEntry(elt, col_marshaldata))
+                            return VariableTypes::SerializedObjectArray;
+                }
+        }
+        return type;
+}
+
+uint8_t* Marshaller::MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket *packet, VariableTypes::Type type)
+{
         if (type & VariableTypes::Array)
         {
                 unsigned eltcount = stackm.ArraySize(var);
@@ -453,14 +532,15 @@ uint8_t* Marshaller::MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket
                         for (unsigned idx = 0; idx < eltcount; ++idx)
                         {
                                 VarId elt = stackm.ArrayElementGet(var, idx);
-                                Blex::PutLsb<uint8_t>(ptr++, static_cast<uint8_t>(stackm.GetType(elt)));
-                                ptr = MarshalWriteInternal(elt, ptr, packet);
+                                VariableTypes::Type elttype = DetermineType(elt);
+                                Blex::PutLsb<uint8_t>(ptr++, static_cast<uint8_t>(elttype));
+                                ptr = MarshalWriteInternal(elt, ptr, packet, elttype);
                         }
                 }
                 else
                 {
                         for (unsigned idx = 0; idx < eltcount; ++idx)
-                            ptr = MarshalWriteInternal(stackm.ArrayElementGet(var, idx), ptr, packet);
+                            ptr = MarshalWriteInternal(stackm.ArrayElementGet(var, idx), ptr, packet, ToNonArray(type));
                 }
                 return ptr;
         }
@@ -520,8 +600,9 @@ uint8_t* Marshaller::MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket
                                 ptr += 4;
 
                                 VarId elt = stackm.RecordCellGetByName(var, nameid);
-                                Blex::PutLsb<uint8_t>(ptr++, static_cast<uint8_t>(stackm.GetType(elt)));
-                                ptr = MarshalWriteInternal(elt, ptr, packet);
+                                VariableTypes::Type elttype = DetermineType(elt);
+                                Blex::PutLsb<uint8_t>(ptr++, static_cast<uint8_t>(elttype));
+                                ptr = MarshalWriteInternal(elt, ptr, packet, elttype);
                         }
                         return ptr;
                 }
@@ -635,7 +716,7 @@ uint8_t* Marshaller::MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket
                         else
                         {
                                 if (stackm.ObjectExists(var))
-                                     ThrowInternalError("Cannot marshal live objects"); //ADDME: ALlow objects to offer an optional serializer member?
+                                    ThrowInternalError("Cannot marshal live objects"); //ADDME: ALlow objects to offer an optional serializer member?
                                 return ptr;
                         }
                 }
@@ -647,6 +728,67 @@ uint8_t* Marshaller::MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket
                         return ptr;
                 }
 
+        case VariableTypes::SerializedObject:
+                {
+                        auto itr = objectmarshaldata.find(var);
+                        if (packet)
+                        {
+                                if (!stackm.ObjectExists(var))
+                                {
+                                        Blex::PutLsb< uint32_t >(ptr, 0);
+                                        return ptr + 4;
+                                }
+
+                                if (itr != objectmarshaldata.end())
+                                {
+                                        Blex::PutLsb< uint32_t >(ptr, 0xFFFFFFFF);
+                                        ptr += 4;
+                                        VariableTypes::Type marshaldatatype = DetermineType(itr->second);
+                                        Blex::PutLsb<uint8_t>(ptr++, static_cast<uint8_t>(marshaldatatype));
+                                        return MarshalWriteInternal(itr->second, ptr, packet, marshaldatatype);
+                                }
+
+                                if (mode != MarshalMode::All && mode != MarshalMode::AllClonable)
+                                    ThrowInternalError("Cannot only marshal objects in marshal mode 'All' and 'AllClonable'");
+
+                                uint32_t dataid = packet->objects.size() + 1;
+                                {
+                                        std::shared_ptr< ObjectMarshalData > data(new ObjectMarshalData);
+                                        data->data = 0;
+                                        data->restorefunc = 0;
+                                        data->clonefunc = 0;
+                                        data->varid = var;
+
+                                        packet->objects.push_back(data);
+                                }
+                                ObjectMarshalData &data = *packet->objects.back();
+
+                                HSVM_ObjectMarshallerPtr marshaller = stackm.ObjectGetMarshaller(var);
+                                if (!marshaller)
+                                    ThrowInternalError("Cannot marshal variables of type OBJECT that have no marshalling function");
+
+                                if (!(*marshaller)(*vm, var, &data.data, &data.restorefunc, mode == MarshalMode::AllClonable ? &data.clonefunc : 0))
+                                    ThrowInternalError("The marshalling function of a variable of type OBJECT failed: could not create a marshalling packet");
+
+                                if (!data.data || !data.restorefunc)
+                                    ThrowInternalError("The marshalling function of a variable of type OBJECT failed: no data or restore function returned");
+
+                                if (mode == MarshalMode::AllClonable && !data.clonefunc)
+                                    ThrowInternalError("The marshalling function of a variable of type OBJECT failed: object cannot be copied");
+
+                                Blex::PutLsb< uint32_t >(ptr, dataid);
+                                return ptr + 4;
+                        }
+                        if (itr == objectmarshaldata.end())
+                            Blex::PutLsb<uint8_t>(ptr++, 0);
+                        else
+                        {
+                                VariableTypes::Type marshaldatatype = DetermineType(itr->second);
+                                Blex::PutLsb<uint8_t>(ptr++, static_cast<uint8_t>(marshaldatatype));
+                                ptr = MarshalWriteInternal(itr->second, ptr, packet, marshaldatatype);
+                        }
+                        return ptr;
+                }
         default:
                 // Blob, Table, VMRef, FunctionPtr
                 ThrowInternalError("Cannot marshal variables of type " + GetTypeName(stackm.GetType(var)));
@@ -741,11 +883,12 @@ void Marshaller::WriteInternal(VarId var, uint8_t *begin, uint8_t *limit, Marsha
                 }
         }
 
-        Blex::PutLsb<uint8_t>(ptr++, stackm.GetType(var));
-        ptr = MarshalWriteInternal(var, ptr, packet);
+        VariableTypes::Type type = DetermineType(var);
+        Blex::PutLsb<uint8_t>(ptr++, type);
+        ptr = MarshalWriteInternal(var, ptr, packet, type);
         if (ptr != limit)
         {
-                if (ptr < limit)
+                if (ptr > limit)
                     Blex::SafeErrorPrint("Internal error: MarshalWriter::Write overflowed its buffer!\n");
                 else
                     Blex::SafeErrorPrint("Internal error: MarshalWriter::Write did not fill its buffer!\n");
@@ -824,7 +967,7 @@ uint8_t const * Marshaller::MarshalReadInternal(VarId var, VariableTypes::Type t
                 unsigned eltcount = Blex::GetLsb<int32_t>(ptr);
                 ptr += 4;
 
-                stackm.InitVariable(var, type);
+                stackm.InitVariable(var, type == VariableTypes::SerializedObjectArray ? VariableTypes::ObjectArray : type);
                 if (type == VariableTypes::VariantArray)
                 {
                         for (unsigned idx = 0; idx < eltcount; ++idx)
@@ -839,7 +982,7 @@ uint8_t const * Marshaller::MarshalReadInternal(VarId var, VariableTypes::Type t
                 }
                 else
                 {
-                        VariableTypes::Type elttype = static_cast<VariableTypes::Type>(stackm.GetType(var) & ~VariableTypes::Array);
+                        VariableTypes::Type elttype = ToNonArray(type);
                         if (eltcount)
                             stackm.ArrayResize(var, eltcount);
 
@@ -1028,6 +1171,72 @@ uint8_t const * Marshaller::MarshalReadInternal(VarId var, VariableTypes::Type t
         case VariableTypes::WeakObject:
                 {
                         stackm.WeakObjectInitializeDefault(var);
+                        return ptr;
+                }
+        case VariableTypes::SerializedObject:
+                {
+                        if (packet && (vm || mode != MarshalMode::SimpleOnly))
+                        {
+                                EatBytes(remainingsize, 4);
+                                unsigned objectnr = Blex::GetLsb<uint32_t>(ptr);
+                                ptr += 4;
+
+                                if (objectnr != 0xFFFFFFFF)
+                                {
+                                        if (objectnr == 0)
+                                        stackm.ObjectInitializeDefault(var);
+                                        else
+                                        {
+                                                if (!vm)
+                                                ThrowInternalError("Can only unmarshal objects when a VM is present");
+
+                                                ObjectMarshalData &data = *packet->objects[objectnr - 1];
+                                                if (!data.data)
+                                                {
+                                                        stackm.CopyFrom(var, data.varid);
+                                                        stackm.ObjectInitializeDefault(var);
+                                                }
+                                                else
+                                                {
+                                                        void *mdata = data.data;
+                                                        data.data = 0;
+                                                        bool success = data.restorefunc(*vm, var, mdata);
+                                                        if (!success)
+                                                        ThrowInternalError("Failed to restore an object from marshal data");
+                                                        data.varid = var;
+                                                }
+                                        }
+                                        return ptr;
+                                }
+                        }
+
+                        EatBytes(remainingsize, 1);
+                        VariableTypes::Type datatype = static_cast<VariableTypes::Type>(Blex::GetLsb<uint8_t>(ptr++));
+                        if (!datatype)
+                            stackm.ObjectInitializeDefault(var);
+                        else
+                        {
+                                if (!vm)
+                                     ThrowInternalError("Can only unmarshal objects when a VM is present");
+
+                                if (!marshaldecoder_fptr)
+                                {
+                                        marshaldecoder_fptr = HSVM_AllocateVariable(*vm);
+                                        const HSVM_VariableType args[1] = { VariableTypes::Variant };
+                                        int result = HSVM_MakeFunctionPtr(*vm, marshaldecoder_fptr, "wh::internal/hsservices.whlib", "__HS_INTERNAL_DECODEOBJECTMARSHALDATA", HSVM_VAR_Object, 1, args, 0);
+                                        if(result <= 0)
+                                            ThrowInternalError("Error looking up function __HS_INTERNAL_DECODEOBJECTMARSHALDATA");
+                                }
+
+                                // Create the object in var
+                                HSVM_OpenFunctionCall(*vm, 1);
+                                ptr = MarshalReadInternal(HSVM_CallParam(*vm, 0), datatype, ptr, remainingsize, nameids, packet);
+                                HSVM_VariableId obj = HSVM_CallFunctionPtr(*vm, marshaldecoder_fptr, false);
+                                if (!obj)
+                                    ThrowInternalError("Error decoding object marshal data");
+                                HSVM_CopyFrom(*vm, var, obj);
+                                HSVM_CloseFunctionCall(*vm);
+                        }
                         return ptr;
                 }
         default:

@@ -246,14 +246,23 @@ PUBLIC RECORD FUNCTION AnalyzeJavascriptNoticeLogEntry(RECORD javascriptmsg)
 
   IF (CellExists(javascriptmsg, "TRACE"))
   {
+    javascriptmsg.trace := EnforceStructure(
+      [ [ filename := ""
+        , line := 0
+        , col := 0
+        , func := ""
+        , functionname := ""
+        ]
+      ], javascriptmsg.trace);
+
     trace :=
         SELECT TEMPORARY normalized_filename := Substitute(filename, "file://", "")
              , filename :=    normalized_filename LIKE "*/.system/jstests/!/*.?s"
                                 ? testscript
                                 : normalized_filename
-             , line :=        CellExists(trace, "LINE") ? line : 0
-             , col :=         CellExists(trace, "COL") ? col : 0
-             , func :=        CellExists(trace, "FUNC") ? func : CellExists(trace, "FUNCTIONNAME") ? functionname : ""
+             , line
+             , col
+             , func :=        func ?? functionname
           FROM javascriptmsg.trace;
 
     IF (LENGTH(trace) > 0)
