@@ -9,6 +9,7 @@ LOADLIB "mod::system/lib/internal/browsers/chrome/connector.whlib";
 LOADLIB "mod::system/lib/internal/browsers/chrome/page.whlib";
 LOADLIB "mod::system/lib/internal/browsers/chrome/navigationwatcher.whlib";
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
@@ -140,7 +141,8 @@ ASYNC MACRO TestPaymentBuckaroo_Emandate()
   OBJECT paymentapi := GetWRDTestPaymentAPI();
 
   testfw->BeginWork();
-  RECORD ARRAY methods := SELECT * FROM paymentapi->ListAllPaymentOptions() ORDER BY title;
+  OBJECT paypart1 := paymentapi->paymenttype->CreateEntity([wrd_tag := "PAYPART1"]);
+  RECORD ARRAY methods := SELECT * FROM paymentapi->ListAllPaymentOptions([types := ["mandate"]]) ORDER BY title;
   RECORD emandatemethod := SELECT * FROM methods WHERE ToUppercase(title) = "E-MANDATE";
   TestAssert(RecordExists(emandatemethod));
   TestEq(TRUE, Length(emandatemethod.issuers) > 0);
@@ -165,6 +167,14 @@ ASYNC MACRO TestPaymentBuckaroo_Emandate()
 
   //abort(); //ABORT here if you want to visit the payment URL yourself
   AWAIT NavigateThroughBuckaroo(captureentity, payurl);
+
+  //Capture a payment
+  RECORD actualdebit1 := paymentapi->StartPayment(paypart1->id, 25, [ capturefrom := captureentity->GetField("DATA"), capturedate := GetCurrentDatetime() ]);
+  dumpvalue(actualdebit1);
+  TestEq("pending", paypart1->GetField("DATA").status);
+
+  paymentapi->ForceRecheckPayment(paypart1->id);
+  TestEq(TRUE, paypart1->GetField("DATA").status IN ["approved","pending"]);
 }
 
 IF(offlineonly)

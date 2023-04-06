@@ -69,7 +69,7 @@ RECORD FUNCTION DoBuckarooRequest(RECORD settings, STRING suburl, RECORD body, S
   STRING finalurl := ResolveToAbsoluteURL(settings.testmode ? apiroot_test : apiroot_prod, suburl);
   INTEGER requesttimestamp := GetUnixTimestamp(GetCurrentDatetime());
   STRING nonce := GenerateUFS128BitId();
-  STRING bodytext := EncodeJSON(body, CELL["Currency","Services","ServiceList","Name","Action"]);
+  STRING bodytext := EncodeJSON(body, CELL["AmountDebit","Currency","Description","PushURL","ReturnURL","Services","StartRecurrent","ServiceList","Parameters","Name","Action","Value"]);
 
   // Signature algorithms: https://dev.buckaroo.nl/Apis/Description/json#authentication
   //                       read the C# example code! the spec is ambiguous (eg requestContentBase64String should be empty if no body, secretkey should not be concatenated, Channel is not optional)
@@ -146,7 +146,9 @@ PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase_V
 
       INSERT [CELL[ paymentoptiontag := method.rowkey
                   , method.title
+                  , method.type
                   , issuers
+                  , islive := NOT this->settings.testmode
                  ]] INTO methods AT END;
     }
     RETURN methods;
@@ -157,10 +159,23 @@ PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase_V
     WRDPaymentProviderBase::__SetupNewTransaction(amount_payable, paymentmethod);
 
     STRING ARRAY requirements;
-    BOOLEAN isrecurring;
+    STRING mandateid;
     IF(paymentmethod.paymentoptiontag = "emandate")
     {
       INSERT "customerid" INTO requirements AT END;
+
+      IF(RecordExists(paymentmethod.capturefrom))
+      {
+        IF(paymentmethod.capturedate = DEFAULT DATETIME)
+          THROW NEW Exception(`Missing capturedate`);
+
+        RECORD origmetadata := paymentmethod.capturefrom.__bestpayment.__paymentdata.m;
+        mandateid := origmetadata.mandateid;
+        IF(paymentmethod.customerid = "")
+          paymentmethod.customerid := origmetadata.customerid;
+
+        paymentmethod.isrecurring := origmetadata.isrecurring;
+      }
     }
 
     RECORD customerinfo := this->GetCustomerInfo(paymentmethod, CELL [ requirements ]);
@@ -173,7 +188,9 @@ PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase_V
                              , culture := ToUppercase(paymentmethod.language) = "DE" ? "de-DE"
                                          : ToUppercase(paymentmethod.language) = "NL" ? "nl-NL"
                                          : "en-US"
-                             , isrecurring
+                             , paymentmethod.isrecurring
+                             , usemandateid := mandateid
+                             , capturedate := paymentmethod.capturedate
                              ];
   }
 
@@ -202,13 +219,15 @@ PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase_V
                         ]
           , pushurl := GetInternalReturnURL(paymenttok, [ isnotification := TRUE ])
           ];
+
     STRING actiontype := "Transaction";
-    IF(this->paymentoptiontag = "emandate")
+    IF(this->paymentoptiontag = "emandate" AND this->paymentdata.usemandateid = "") //not using an existing mandate
     {
       paymentrequest.services.servicelist[0].parameters := paymentrequest.services.servicelist[0].parameters CONCAT
               [[ name := "debtorbankid", value := this->issuer ]
               ,[ name := "debtorreference", value := this->paymentdata.customerid ]
-              ,[ name := "sequencetype", value := this->paymentdata.isrecurring ? "1" : "0" ]
+              // Indicates type of eMandate: one-off or recurring direct debit. 0 = recurring, 1 = one off.
+              ,[ name := "sequencetype", value := this->paymentdata.isrecurring ? "0" : "1" ]
               ,[ name := "purchaseid", value := this->paymentref ]
               ,[ name := "language", value := ToLowercase(tokenize(this->paymentdata.culture,'-')[0]) ]
               ,[ name := "emandatereason", value := this->orderid ]
@@ -219,8 +238,25 @@ PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase_V
     }
     ELSE
     {
-      IF(this->issuer != "")
-        INSERT [[ name := "issuer", value := this->issuer ]] INTO paymentrequest.services.servicelist[0].parameters AT END;
+      IF(this->paymentoptiontag = "emandate" AND this->paymentdata.usemandateid != "")
+      {
+        //https://docs.buckaroo.io/docs/sepadirectdebit-requests#paywithemandate
+        paymentrequest.services.servicelist[0].name := "SepaDirectDebit";
+        paymentrequest.services.servicelist[0].action := "PayWithEmandate";
+        paymentrequest.services.servicelist[0].parameters := paymentrequest.services.servicelist[0].parameters CONCAT
+              [[ name := "MandateReference", value := this->paymentdata.usemandateid ]
+              ,[ name := "CollectDate", value := FormatDatetime("%Y-%m-%d", this->paymentdata.capturedate) ]
+              ];
+
+        INSERT CELL Startrecurrent := this->paymentdata.isrecurring INTO paymentrequest;
+
+        DELETE CELL returnurl FROM paymentrequest; //doesn't make sense
+      }
+      ELSE
+      {
+        IF(this->issuer != "")
+          INSERT [[ name := "issuer", value := this->issuer ]] INTO paymentrequest.services.servicelist[0].parameters AT END;
+      }
 
       INSERT CELL amountdebit := this->amountpayable //Yes, transmitted as float :=(
                 , invoice := this->paymentref
@@ -236,18 +272,25 @@ PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase_V
     }
 
     RECORD callresult := DoBuckarooRequest(this->settings, actiontype, paymentrequest, this->paymentdata.culture, "Web");
+    dumpvalue(callresult,'tree');
 
     IF(callresult.status != 200)
       THROW NEW Exception(`Unexpected status: ${callresult.status}`);
 
+    callresult.response := EnforceStructure( [ paymentkey := ""
+                                             , services := RECORD[] ], callresult.response);
     GetPrimary()->BeginWork();
     UpdatePaymentMetadata(paymenttok, [ transactionkey := callresult.response."key"
-                                      , paymentkey := CellExists(callresult.response, 'paymentkey') ? callresult.response.paymentkey : ""
-                                      , mandateid := (SELECT AS STRING value FROM callresult.response.services[0].parameters WHERE ToUppercase(name) = "MANDATEID")
+                                      , paymentkey := callresult.response.paymentkey
+                                      , mandateid := Length(callresult.response.services) > 0 ? (SELECT AS STRING value FROM callresult.response.services[0].parameters WHERE ToUppercase(name) = "MANDATEID") : ""
                                       ]);
     GetPrimary()->CommitWork();
 
-    result.submitinstruction := [ type := "redirect", url := callresult.response.requiredaction.redirecturl ];
+    IF(RecordExists(callresult.response.requiredaction))
+      result.submitinstruction := [ type := "redirect", url := callresult.response.requiredaction.redirecturl ];
+    ELSE
+      result.complete := TRUE;
+
     RETURN result;
   }
 
@@ -257,7 +300,7 @@ PUBLIC STATIC OBJECTTYPE BuckarooPaymentProvider EXTEND WRDPaymentProviderBase_V
       RETURN; //have nothing to poll
 
     RECORD callresult;
-    IF(this->paymentoptiontag = "emandate")
+    IF(this->paymentoptiontag = "emandate" AND this->paymentdata.usemandateid = "")
     {
       RECORD inforequest :=
         CELL[ currency := "EUR"
