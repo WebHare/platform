@@ -910,7 +910,7 @@ STATIC OBJECTTYPE ConsilioCatalog
   {
     RECORD ARRAY newmapping := this->GetExpectedMapping();
     RECORD finalupdate := PrepareMappingUpdate(newmapping);
-    STRING ARRAY synonyms := SELECT AS STRING ARRAY `# wordgroup ${wordgroupid}\n` || Detokenize(words, ", ") FROM this->GetSynonyms();
+    STRING ARRAY synonyms := SELECT AS STRING ARRAY Detokenize(words, ", ") FROM this->GetSynonyms();
 
     FOREVERY(RECORD opensearch FROM SELECT * FROM this->ListAttachedIndices() WHERE NOT readonly)
       FOREVERY(STRING suffix FROM suffixes)
