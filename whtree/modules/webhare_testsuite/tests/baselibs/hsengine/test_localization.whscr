@@ -119,24 +119,26 @@ MACRO LocalizeDateTimeTest()
 
   // Show long formats were possible
   format := "EEEEGyMMMMdHms"; // H: 24-hour notation
-  TestEq("Saturday, October 2, 2010 AD, 13:24:35", LocalizeDateTime(format, value, "en"));
-  TestEq("Saturday, 2 October 2010 AD, 13:24:35", LocalizeDateTime(format, value, "en-GB"));
-  TestEq("zaterdag 2 oktober 2010 n.Chr. 13:24:35", LocalizeDateTime(format, value, "nl"));
-  TestEq("Samstag, 2. Oktober 2010 n. Chr., 13:24:35", LocalizeDateTime(format, value, "de"));
+  //Some ICUs report `Saturday, 2 October 2010 AD, 13:24:35`, but somewhere at or before 72.1/2022e it switched to 'Saturday, 2 October 2010 AD at 13:24:35'
+  TestEqLike("Saturday, October 2, 2010 AD* 13:24:35", LocalizeDateTime(format, value, "en"));
+  TestEqLike("Saturday, 2 October 2010 AD* 13:24:35", LocalizeDateTime(format, value, "en-GB"));
+  TestEqLike("zaterdag 2 oktober 2010 n.Chr.* 13:24:35", LocalizeDateTime(format, value, "nl"));
+  TestEqLike("Samstag, 2. Oktober 2010 n. Chr.* 13:24:35", LocalizeDateTime(format, value, "de"));
   format := "EEEEGyMMMMdhms"; // h: 12-hour notation (am/pm marker is added)
-  TestEq("Saturday, October 2, 2010 AD, 1:24:35 PM", LocalizeDateTime(format, value, "en"));
-  TestEq("Saturday, 2 October 2010 AD, 1:24:35 pm", LocalizeDateTime(format, value, "en-GB"));
-  TestEq("zaterdag 2 oktober 2010 n.Chr. 1:24:35 p.m.", LocalizeDateTime(format, value, "nl"));
+  //Some ICUs do `1:24:35 PM`, but somewhere at or before 72.1/2022e it switched to '1:24:35\u202FPM' - 202F is a Narrow NBSP. Today you learned.
+  TestEqLike("Saturday, October 2, 2010 AD* 1:24:35*PM", LocalizeDateTime(format, value, "en"));
+  TestEqLike("Saturday, 2 October 2010 AD* 1:24:35*pm", LocalizeDateTime(format, value, "en-GB"));
+  TestEqLike("zaterdag 2 oktober 2010 n.Chr.*1:24:35*p.m.", LocalizeDateTime(format, value, "nl"));
   // The German am/pm identifier has changed several times between "vorm."/"nachm." and "AM"/"PM". It's "vorm."/"nachm." in
   // ICU4C 60.2 (CLDR 32.0.1), which we're using for building WebHare, but changed back to "AM"/"PM" in ICU4C 62.1 (CLDR 33.1),
   // which is the current version on development systems. We'll do a like test for now.
   //TestEq("Samstag, 2. Oktober 2010 n. Chr., 1:24:35 PM", LocalizeDateTime(format, value, "de"));
-  TestEqLike("Samstag, 2. Oktober 2010 n. Chr., 1:24:35 ?*", LocalizeDateTime(format, value, "de"));
+  TestEqLike("Samstag, 2. Oktober 2010 n. Chr.*1:24:35*", LocalizeDateTime(format, value, "de"));
   format := "EEEEGyMMMMdjms"; // j: locale-specific notation
-  TestEq("Saturday, October 2, 2010 AD, 1:24:35 PM", LocalizeDateTime(format, value, "en"));
-  TestEq("Saturday, 2 October 2010 AD, 13:24:35", LocalizeDateTime(format, value, "en-GB"));
-  TestEq("zaterdag 2 oktober 2010 n.Chr. 13:24:35", LocalizeDateTime(format, value, "nl"));
-  TestEq("Samstag, 2. Oktober 2010 n. Chr., 13:24:35", LocalizeDateTime(format, value, "de"));
+  TestEqLike("Saturday, October 2, 2010 AD* 1:24:35*PM", LocalizeDateTime(format, value, "en"));
+  TestEqLike("Saturday, 2 October 2010 AD* 13:24:35", LocalizeDateTime(format, value, "en-GB"));
+  TestEqLike("zaterdag 2 oktober 2010 n.Chr.* 13:24:35", LocalizeDateTime(format, value, "nl"));
+  TestEqLike("Samstag, 2. Oktober 2010 n. Chr.* 13:24:35", LocalizeDateTime(format, value, "de"));
 
   // Show 2-digit values
   format := "yyMMddHHmmss";
@@ -147,7 +149,7 @@ MACRO LocalizeDateTimeTest()
 
   // Use and show specific timezone
   format := "yMMddjjmmssz";
-  TestEq("10/02/2010, 03:24:35 PM GMT+2", LocalizeDateTime(format, value, "en", "Europe/Amsterdam")); // Specifying 'z' also results in 'a' being added
+  TestEqLike("10/02/2010, 03:24:35*PM GMT+2", LocalizeDateTime(format, value, "en", "Europe/Amsterdam")); // Specifying 'z' also results in 'a' being added
   TestEq("02/10/2010, 15:24:35 CEST", LocalizeDateTime(format, value, "en-GB", "Europe/Amsterdam"));
   TestEq("02-10-2010 15:24:35 CEST", LocalizeDateTime(format, value, "nl", "Europe/Amsterdam"));
   TestEq("02.10.2010, 15:24:35 MESZ", LocalizeDateTime(format, value, "de", "Europe/Amsterdam"));
@@ -755,18 +757,18 @@ MACRO DateTimeFormatTest()
   // Show long formats were possible
   options := [ weekday := "long", era := "short", year := "numeric", month := "long", day := "numeric", hour := "numeric", minute := "numeric", second := "numeric" ];
   format := NEW DateTimeFormat("en", options)->format;
-  TestEq("Saturday, October 2, 2010 AD, 1:24:35 PM", format(value));
+  TestEqLike("Saturday, October 2, 2010 AD* 1:24:35*PM", format(value));
   format := NEW DateTimeFormat("en-GB", options)->format;
-  TestEq("Saturday, 2 October 2010 AD, 13:24:35", format(value));
+  TestEqLike("Saturday, 2 October 2010 AD* 13:24:35", format(value));
   format := NEW DateTimeFormat("nl", options)->format;
-  TestEq("zaterdag 2 oktober 2010 n.Chr. 13:24:35", format(value));
+  TestEqLike("zaterdag 2 oktober 2010 n.Chr.* 13:24:35", format(value));
   format := NEW DateTimeFormat("de", options)->format;
-  TestEq("Samstag, 2. Oktober 2010 n. Chr., 13:24:35", format(value));
+  TestEqLike("Samstag, 2. Oktober 2010 n. Chr.* 13:24:35", format(value));
 
   // Show 2-digit values
   options := [ year := "2-digit", month := "2-digit", day := "2-digit", hour := "2-digit", minute := "2-digit", second := "2-digit" ];
   format := NEW DateTimeFormat("en", options)->format;
-  TestEq("10/02/10, 01:24:35 PM", format(value));
+  TestEqLike("10/02/10, 01:24:35*PM", format(value));
   format := NEW DateTimeFormat("en-GB", options)->format;
   TestEq("02/10/10, 13:24:35", format(value));
   format := NEW DateTimeFormat("nl", options)->format;
@@ -777,7 +779,7 @@ MACRO DateTimeFormatTest()
   // Use and show specific timezone
   options := [ year := "numeric", month := "2-digit", day := "2-digit", hour := "2-digit", minute := "2-digit", second := "2-digit", timezone := "Europe/Amsterdam", timezonename := "short" ];
   format := NEW DateTimeFormat("en", options)->format;
-  TestEq("10/02/2010, 03:24:35 PM GMT+2", format(value));
+  TestEqLike("10/02/2010, 03:24:35*PM GMT+2", format(value));
   format := NEW DateTimeFormat("en-GB", options)->format;
   TestEq("02/10/2010, 15:24:35 CEST", format(value));
   format := NEW DateTimeFormat("nl", options)->format;

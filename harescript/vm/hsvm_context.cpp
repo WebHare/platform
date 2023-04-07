@@ -4055,6 +4055,13 @@ HSVM *VMGroup::CreateVirtualMachine()
 void VMGroup::SetupConsole(HSVM *vm, std::vector<std::string> const &args) //ADDME: SHouldn't this be a VMGroup-wide resource?
 {
         HareScript::SetupConsole(*GetVirtualMachine(vm));
+        /* With
+           Apple clang version 14.0.3 (clang-1403.0.22.14.1)
+           we need to do this silly check - and explcitly mention args.size() in the exception. Or it'll start SEGV-ing
+           testprocessmgr.cpp (which doesn't even set any arguments)
+        */
+        if(args.size() > 9999)
+                throw std::invalid_argument("Too many arguments: " + Blex::AnyToString(args.size()));
 
         std::vector<const char*> argsptrs(args.size());
         for(unsigned i=0;i<args.size();++i)
