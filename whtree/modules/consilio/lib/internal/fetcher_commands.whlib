@@ -68,23 +68,20 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
 
   FetcherDebug(ConsilioDebugInfo, "Processing " || GetCommandFromQueueData(data));
 
-  IF (data.indexid != 0)
-  {
-    RECORD catalog :=
-        SELECT catalogs.id
-             , catalog_indexmanagers.indexmanager
-             , catalogs.type
-          FROM consilio.catalogs
-             , consilio.catalog_indexmanagers
-         WHERE catalogs.id = data.indexid
-               AND catalog_indexmanagers.catalogid = catalogs.id;
+  RECORD catalogdata :=
+      SELECT catalogs.id
+           , catalog_indexmanagers.indexmanager
+           , catalogs.type
+        FROM consilio.catalogs
+           , consilio.catalog_indexmanagers
+       WHERE catalogs.id = data.indexid
+             AND catalog_indexmanagers.catalogid = catalogs.id;
 
-    IF (NOT RecordExists(catalog))
-      RETURN result; // Index gone, nothing to do
+  IF (NOT RecordExists(catalogdata))
+    RETURN result; // Index gone, nothing to do
 
-    IF (catalog.type = whconstant_consilio_catalogtype_unmanaged)
-      RETURN result; // Unmanaged index, nothing to do
-  }
+  IF (catalogdata.type = whconstant_consilio_catalogtype_unmanaged)
+    RETURN result; // Unmanaged index, nothing to do
 
   IF (data.contentsourceid = 0)
   {
@@ -93,7 +90,7 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
        SET status := contentsourcestatus_rebuilding
          , last_indexed := VAR data.commanddate
      WHERE status >= contentsourcestatus_idle
-           AND (VAR data.indexid = 0 ? TRUE : catalogid = VAR data.indexid)
+           AND catalogid = VAR data.indexid
            AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
     GetPrimary()->CommitWork();
@@ -120,8 +117,7 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
     }
 
     // When rebuilding an index, clean out all documents from removed contentsources
-    IF (data.indexid != 0)
-      RemoveUnknownContentSourceObjects(data.indexid, SELECT AS INTEGER ARRAY id FROM sources);
+    RemoveUnknownContentSourceObjects(data.indexid, SELECT AS INTEGER ARRAY id FROM sources);
 
     result.tocheck_sources := sources;
     RETURN result;
@@ -226,7 +222,7 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
       , dontdelete := TRUE
       ];
 
-    // Get all existing groups, then remove all the ones that are not returned.
+  // Get all existing groups, then remove all the ones that are not returned.
   RECORD ARRAY existing_groups :=
       SELECT id
            , referenced := FALSE
