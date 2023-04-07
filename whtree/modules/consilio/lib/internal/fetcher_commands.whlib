@@ -166,7 +166,13 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
 
   FetcherDebug(ConsilioDebugInfo, "Checking content source " || source.id || " in index " || data.indexid, source.loglevel);
 
-  // Update status for single content source checks
+  OBJECT catalog := OpenConsilioCatalogById(data.indexid);
+  IF(NOT ObjectExists(catalog))
+    RETURN CELL [ ...result, error := [ message := `Catalog #${data.indexid} no longer exists`, level := 1] ];
+
+  catalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE, forstorage := TRUE ]);  //TODO timeout? ideally we wouldn't even be queued, or we would be requeued later when the index is avaialble
+
+  // Update status for single content source checks (TODO shouldn't whoever triggered CheckIndex not have set contentsourcestatus_rebuilding to ensure it will actually take place ?)
   {
     GetPrimary()->BeginWork();
 
@@ -870,6 +876,8 @@ PUBLIC RECORD FUNCTION CleanupIndex(RECORD data, RECORD options DEFAULTSTO DEFAU
         ];
     RETURN result;
   }
+
+  OpenConsilioCatalogById(data.indexid)->WaitReady(MAX_DATETIME, [ forstorage := TRUE ]);
 
   // Make sure all modifications are visible after cleanup
   RefreshAttachedIndices(data.indexid);

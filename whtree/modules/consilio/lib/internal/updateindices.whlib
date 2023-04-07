@@ -222,9 +222,18 @@ MACRO UpdateModuleCatalogs(RECORD options)
       CONTINUE;
     }
   }
+
+  UndoScheduleUpdate();   //either UpdateManagedcatalog or UpdateCatalog may schedule one.. but we *are* updateindices so undo that
   trans->CommitWork();
 
-  FOREVERY(RECORD want FROM wantcatalogs)
+  STRING ARRAY wantedtags := SELECT AS STRING ARRAY tag FROM wantcatalogs;
+  RECORD ARRAY othermanagedcatalogs := SELECT catalog := OpenConsilioCatalogById(id)
+                                            , managed
+                                            , tag
+                                         FROM ListConsilioCatalogs()
+                                        WHERE tag NOT IN wantedtags;
+
+  FOREVERY(RECORD want FROM wantcatalogs CONCAT othermanagedcatalogs) //we also need to manage nanually created managed catalogs
   {
     IF(NOT ObjectExists(want.catalog))
      CONTINUE;
@@ -260,41 +269,42 @@ MACRO UpdateModuleCatalogs(RECORD options)
         AttemptZap(want.catalog);
     }
 
-    IF(want.managed AND want.catalog->managed)
-      FOREVERY(RECORD opensearch FROM SELECT * FROM want.catalog->ListAttachedIndices())
+    /* Verify field mappings and update where needed. We do this for all registered indices
+       (at some point during development we left unmanaged indices alone during consilio:update, but not during ApplyConfiguration. now
+        that ApplyConfiguration is always async and relies on us to update, we shouldn't make that exception anymore (and probably should never have) */
+    FOREVERY(RECORD opensearch FROM SELECT * FROM want.catalog->ListAttachedIndices() WHERE NOT readonly)
+    {
+      EnsureIndexManagerUp(opensearch.indexmanager);
+      FOREVERY(STRING suffix FROM want.catalog->__ListSuffixes())
       {
-        EnsureIndexManagerUp(opensearch.indexmanager);
-        FOREVERY(STRING suffix FROM want.catalog->__ListSuffixes())
+        STRING fullname := opensearch.indexname || (suffix != "" ? "-" || suffix : "");
+
+        RECORD res;
+        TRY
         {
-          STRING fullname := opensearch.indexname || (suffix != "" ? "-" || suffix : "");
+          res := GetOpenSearchCurrentMapping(opensearch.indexmanager, fullname);
+        }
+        CATCH(OBJECT e)
+        {
+          Print(`Catalog ${want.catalog->tag} index ${fullname}: GetOpenSearchCurrentMapping failed: ${e->what}\n`);
+          CONTINUE;
+        }
 
-          RECORD res;
-          TRY
-          {
-            res := GetOpenSearchCurrentMapping(opensearch.indexmanager, fullname);
-          }
-          CATCH(OBJECT e)
-          {
-            Print(`Catalog ${want.catalog->tag} index ${fullname}: GetOpenSearchCurrentMapping failed: ${e->what}\n`);
-            CONTINUE;
-          }
+        RECORD ARRAY exp := want.catalog->GetExpectedMapping();
+        RECORD ARRAY issues := CompareMappings(res,exp,"");
+        IF (IsDefaultValue(issues))
+          CONTINUE;
 
-          RECORD ARRAY exp := want.catalog->GetExpectedMapping();
-          RECORD ARRAY issues := CompareMappings(res,exp,"");
+        IF(options.zapanymismatch AND AttemptZap(want.catalog))
+          BREAK;
 
-          IF (IsDefaultValue(issues))
-            CONTINUE;
-
-          IF(options.zapanymismatch AND AttemptZap(want.catalog))
-            BREAK;
-
-          FOREVERY(RECORD issue FROM issues)
-          {
-            //Not sure about printing to 2... once we have a way to fix/snooze/perma--ignore such issues ?
-            Print(`Catalog ${want.catalog->tag} index ${fullname}: field '${issue.field}': ${issue.message} (${issue.definedby})\n`);
-          }
+        FOREVERY(RECORD issue FROM issues)
+        {
+          //Not sure about printing to 2... once we have a way to fix/snooze/perma--ignore such issues ?
+          Print(`Catalog ${want.catalog->tag} index ${fullname}: field '${issue.field}': ${issue.message} (${issue.definedby})\n`);
         }
       }
+    }
   } //FOREVERY wantcatalogs
 }
 

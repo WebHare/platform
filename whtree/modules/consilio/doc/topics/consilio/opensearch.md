@@ -19,6 +19,9 @@ wh consilio:opensearch_curl '/_cat/indices?v'
 # Get field mapping for an index
 wh consilio:opensearch_curl '/<indexname>/_mapping?pretty=true'
 
+# Raw search
+wh consilio:opensearch_curl -XPOST -H'Content-Type: application/json' -d'<query>' '/<indexname>/_search'
+
 # Delete all indices starting with myprefix__
 wh consilio:opensearch_curl -XDELETE '/myprefix__*'
 

@@ -1,9 +1,11 @@
 <?wh
+LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/database.whlib";
@@ -23,14 +25,16 @@ MACRO TestThesaurus()
 
   OBJECT testcatalog := CreateConsilioCatalog("consilio:testfw_thesaurus", [ priority := 9 ]);
 
-  //having indexnames makes log analysis easier
-  Print(testcatalog->GetStorageInfo() || "\n");
 
   OBJECT contentsource := testcatalog->AddCustomContentSource("webhare_testsuite:thesaurus", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
       [ maxgroupobjects :=      1000
       ]);
 
   testfw->CommitWork();
+  TestEq(TRUE, testcatalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE ]));
+
+  Print(testcatalog->GetStorageInfo() || "\n");
+
   search_obj := OpenSearchObject("en", "consilio:testfw_thesaurus");
 
   // Clear the index
@@ -58,6 +62,7 @@ MACRO TestThesaurus()
   INTEGER wordgroupid := (SELECT AS INTEGER Max(wordgroup) FROM consilio.thesaurus) + 1;
   testcatalog->SetSynonyms([ CELL[ wordgroupid, words := [ "a", "b" ] ] ]);
   testfw->CommitWork();
+  TestEq(TRUE, testcatalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE, forstorage := TRUE ]));
 
   // Search again
   res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("a") ]), 0, 1000);
@@ -77,6 +82,7 @@ MACRO TestThesaurus()
   testfw->BeginWork();
   testcatalog->SetSynonyms([ CELL[ wordgroupid, words := [ "a", "c" ] ] ]);
   testfw->CommitWork();
+  TestEq(TRUE, testcatalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE ]));
 
   res := search_obj->SearchQuery(CQAnd([ CQMatch("_contentsource", "=", contentsource->id), CQParseUserQuery("b") ]), 0, 1000);
   TestEq(0, Length(res.results));

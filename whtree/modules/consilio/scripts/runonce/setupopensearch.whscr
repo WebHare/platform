@@ -46,26 +46,3 @@ IF(builtin_indexmanager = 0)
   GetPrimary()->BroadcastOnCommit("system:apprunner.internal.rescan", DEFAULT RECORD);
   trans->CommitWork();
 }
-
-LogStartup("Waiting for OpenSearch to come online");
-WHILE(TRUE)
-{
-  TRY
-  {
-    SendRawJSONToElasticsearch(builtin_indexmanager, "GET", "_cluster/health?local=true", DEFAULT RECORD);
-    //Any succesful health response we'll see as "meh, usable". It's now up to callers to retry requests where needed
-    BREAK;
-  }
-  CATCH(OBJECT<SearchUnavailableException> e)
-  {
-    LogStartup(`Consilio not yet available: ${e->what}`);
-    Sleep(500);
-  }
-}
-
-LogStartup("Autocreated OpenSearch is online");
-
-FixConsilioIndices();
-
-LogStartup("Autocreated OpenSearch is configured");
-
