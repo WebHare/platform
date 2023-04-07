@@ -2493,11 +2493,9 @@ std::pair< unsigned, uint64_t > VarMemory::RecursiveGetObjectLinks(ObjectLink &s
                         if (backing->contextbufpos != SharedPool::AllocationUnused)
                             oresult.second += backings.GetBufferSize(backing->contextbufpos);
 
-                        unsigned total_elts = 0;
                         for (; length; --length, ++cell)
                             if (cell->nameid)// && !cell->contains_no_objects)
                             {
-                                    ++total_elts;
                                     newsource.source_cell = cell->nameid;
                                     std::pair< unsigned, uint64_t > subr = RecursiveGetObjectLinks(newsource, cell->varid, links, objects, seenvarsptr);
 

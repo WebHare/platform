@@ -143,7 +143,7 @@ bool Run(unsigned options, std::string const &mask)
                 }
                 catch (std::exception&e)
                 {
-                        std::cout<<"\nTest '" << test.name << "': Unexpected exception: '" << e.what () << "\n";
+                        std::cout<<"\nTest '" << test.name << "': Unexpected exception: '" << e.what () << "'\n";
                         ++count_failure;
                         break;
                 }
