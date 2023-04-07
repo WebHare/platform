@@ -11,6 +11,10 @@
 
   <hr>
   <p>
-    You are seeing this page because a HareScript error occured and you specifically enabled error stracktraces in the <a href="[debuglink]">debug</a> settings. Only users with supervisor rights or above can toggle that setting.
+    [if isglobal]
+      You are seeing this page because a HareScript error occured and stracktraces have been enabled globally (eg: wh debug enable etr). Only sysops can toggle this setting.
+    [else]
+      You are seeing this page because a HareScript error occured and you specifically enabled error stracktraces in the <a href="[debuglink]">debug</a> settings. Only users with supervisor rights or above can toggle that setting.
+    [/if]
   </p>
 </div>
