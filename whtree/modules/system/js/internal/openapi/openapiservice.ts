@@ -11,29 +11,10 @@ import { registerLoadedResource } from "../hmrinternal";
 
 // A REST service supporting an OpenAPI definition
 export class RestService {
-  restapi: RestAPI | null = null;
+  readonly restapi: RestAPI;
 
-  /** Initialize
-   * @param apispec - The openapi yaml spec resource
-   * */
-  async init(apispec: string) {
-    const serviceinfo = getOpenAPIService(apispec);
-    if (!serviceinfo)
-      throw new Error(`Invalid OpenAPI service name: ${apispec}`);
-
-    const apispec_fs = toFSPath(serviceinfo.spec);
-    registerLoadedResource(module, apispec_fs);
-
-    // Read and parse the OpenAPI Yaml definition
-    const def = YAML.parse(await fs.promises.readFile(apispec_fs, "utf8"));
-    // Create and initialize the API handler
-    this.restapi = new RestAPI();
-    try {
-      await this.restapi.init(def, serviceinfo.spec);
-    } catch (e) {
-      //FIXME deal with the error, don't swallow!
-      console.error(e);
-    }
+  constructor(restapi: RestAPI) {
+    this.restapi = restapi;
   }
 
   async APICall(req: WebRequestInfo, relurl: string): Promise<WebResponseInfo> {
@@ -114,14 +95,27 @@ export class RestService {
 
 const cache: Record<string, RestService> = {};
 
+/** Initialize service
+ * @param apispec - The openapi yaml spec resource
+ * */
 export async function getServiceInstance(apispec: string) {
   if (cache[apispec])
     return cache[apispec];
 
-  //TODO reset cache on moduledefinition changes or softreset too
-  const service = new RestService();
-  await service.init(apispec);
+  const serviceinfo = getOpenAPIService(apispec);
+  if (!serviceinfo)
+    throw new Error(`Invalid OpenAPI service name: ${apispec}`);
 
+  const apispec_fs = toFSPath(serviceinfo.spec);
+  registerLoadedResource(module, apispec_fs);
+
+  // Read and parse the OpenAPI Yaml definition
+  const def = YAML.parse(await fs.promises.readFile(apispec_fs, "utf8"));
+  // Create and initialize the API handler
+  const restapi = new RestAPI();
+  await restapi.init(def, serviceinfo.spec);
+
+  const service = new RestService(restapi);
   if (!cache[apispec])
     cache[apispec] = service;
   return service;
