@@ -212,13 +212,6 @@ PUBLIC RECORD FUNCTION CQAll(RECORD options DEFAULTSTO DEFAULT RECORD)
       ];
 }
 
-/// @private
-PUBLIC RECORD FUNCTION CQBoost(RECORD query, FLOAT boost) __ATTRIBUTES__(DEPRECATED "Use the 'boost' option when creating a query")
-{
-  query.boost := boost;
-  RETURN query;
-}
-
 /** @short Combine queries using AND
     @param inputqueries Consilio queries to combine
     @cell(float) options.boost Factor to increase or decrease the score for this query (defaults to 1f)
@@ -317,7 +310,6 @@ PUBLIC RECORD FUNCTION CQNot(RECORD inputquery, RECORD options DEFAULTSTO DEFAUL
     @cell(string) options.defaultfields.field Field name
     @cell(float) options.defaultfields.boost Factor to increase or decrease the score for this field (defaults to 1f)
     @cell(boolean) options.defaultfields.stemmed_field Set to true to also use stemming when searching for terms in this field
-    @cell(integer) options.thesaurusid If set, use the thesaurus of this index id (legacy Consilio only)
     @cell(boolean) options.synonyms If the catalog synonyms list should be used (defaults to TRUE, Opensearch only)
     @cell(float) options.boost Factor to increase or decrease the score for this query (defaults to 1f)
     @return Consilio query record
@@ -327,22 +319,12 @@ PUBLIC RECORD FUNCTION CQParseUserQuery(STRING userquery, RECORD options DEFAULT
   options := ValidateOptions(
       [ querymode := "AND"
       , defaultfields := DEFAULT RECORD ARRAY
-      , thesaurusid := 0
       , synonyms := TRUE
-      , defaultrequire := 0
       , boost := 1f
       ],
       options,
       [ enums := [ querymode := [ "AND", "OR" ] ]
-      , optional := [ "defaultrequire" ]
       ]);
-
-  //TODO: This code checks if 'defaultrequire' is still used, can be removed if it's removed from all modules, along with the
-  //      option itself and the 'require_*' variables
-  IF (CellExists(options, "defaultrequire") AND GetDTAPStage() = "development" AND GetEnvironmentVariable("WEBHARE_CI") = "")
-    THROW NEW Exception("The 'defaultrequire' option is deprecated, use 'querymode' instead");
-  IF (options.thesaurusid != 0 AND GetDTAPStage() = "development")
-    THROW NEW Exception("The 'thesaurusid' option is deprecated, use synonyms instead");
 
   userquery := TrimWhitespace(userquery);
   IF(userquery = "") //FIXME validate for other weird stuff that should require us to just discard this
