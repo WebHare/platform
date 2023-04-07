@@ -1,0 +1,119 @@
+<?wh
+
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
+
+LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
+
+PUBLIC RECORD ARRAY FUNCTION GetRequiredCatalogs(BOOLEAN ignoreerrors) //consilio:update needs to show errors, catalog.whlib parsers don't
+{
+  //Figure out which catalogs to create..
+  RECORD ARRAY wantcatalogs;
+  FOREVERY(RECORD catalognode FROM GetCustomModuleSettings("http://www.webhare.net/xmlns/system/moduledefinition", "catalog"))
+  {
+    RECORD catalog := CELL[ tag := ToLowercase(`${catalognode.module}:${catalognode.node->GetAttribute("tag")}`)
+                          , priority := ParseXSInt(catalognode.node->Getattribute("priority"))
+                          , definedby := "<catalog> " || catalognode.resource || ":" || catalognode.node->linenum
+                          , sourcemodule := catalognode.module
+                          , contentsources := RECORD[]
+                          , managed := NOT catalognode.node->HasAttribute("managed") OR ParseXSBoolean(catalognode.node->GetAttribute("managed"))
+                          , suffixed := ParseXSBoolean(catalognode.node->GetAttribute("suffixed"))
+                          , fieldgroups := ParseAndQualifyXMLList(catalognode.module, catalognode.node->GetAttribute("fieldgroups"))
+                          , lang := catalognode.node->GetAttribute("lang")
+                          , dynamicproperties := ParseXSList(catalognode.node->GetAttribute("dynamicproperties"))
+                          ];
+
+    STRING ongetsources := MakeAbsoluteResourcePath(catalognode.resource, catalognode.node->GetAttribute("ongetsources"));
+    IF(ongetsources != "")
+    {
+      TRY
+      {
+        catalog.contentsources := EnforceStructure([[ definedby := "<catalog ongetsources> " || ongetsources
+                                                    , fsobject := 0
+                                                    , contentobject := ""
+                                                    , tag := ""
+                                                   ]], MakeFunctionPtr(ongetsources, TYPEID(RECORD ARRAY), [TYPEID(STRING)])(catalog.tag));
+      }
+      CATCH(OBJECT e)
+      {
+        IF(NOT ignoreerrors)
+        {
+          LogHarescriptException(e);
+          Print(`ongetsources failed for catalog '${catalog.tag}': ${e->what}\n`);
+        }
+        CONTINUE; //don't update the catalog then..
+      }
+    }
+
+    FOREVERY(OBJECT customsource FROM catalognode.node->ListElements(catalognode.node->namespaceuri, "customsource"))
+    {
+      INSERT [[ definedby :=  "<customsource> " || catalognode.resource || ":" || customsource->linenum
+              , fsobject := 0
+              , contentobject := MakeAbsoluteResourcePath(catalognode.resource, customsource->GetAttribute("contentobject"))
+              , tag := `${catalognode.module}:${customsource->GetAttribute("tag")}`
+              ]
+             ] INTO catalog.contentsources AT END;
+    }
+
+    INSERT catalog INTO wantcatalogs AT END;
+  }
+
+  FOREVERY(RECORD indexnode FROM GetCustomModuleSettings("http://www.webhare.net/xmlns/system/moduledefinition", "index")) //support for <index> should be dropped ASAP
+  {
+    RECORD catalog := CELL[ tag := ToLowercase(`${indexnode.module}:${indexnode.node->GetAttribute("tag")}`)
+                          , priority := ParseXSInt(indexnode.node->Getattribute("priority"))
+                          , definedby := "<index> " || indexnode.resource || ":" || indexnode.node->linenum
+                          , sourcemodule := indexnode.module
+                          , contentsources := RECORD[]
+                          , managed := FALSE
+                          , suffixed := TRUE
+                          , fieldgroups := [ `<index>${indexnode.module}:${indexnode.node->GetAttribute("tag")}` ]
+                          , lang := ""
+                          , dynamicproperties := STRING[]
+                          ];
+
+    INSERT catalog INTO wantcatalogs AT END;
+  }
+
+  RECORD siteprofs := GetCachedSiteProfiles();
+  FOREVERY (RECORD addtocatalog FROM siteprofs.addtocatalogs)
+  {
+    INTEGER matchcatalog := (SELECT AS INTEGER #wantcatalogs + 1 FROM wantcatalogs WHERE wantcatalogs.tag = addtocatalog.catalog)-1;
+    IF(matchcatalog = -1)
+    {
+      //TODO make sure the error goes somewhere recorded/validateable/reportable
+      IF(NOT ignoreerrors)
+        PrintTo(2,`<addtocatalog> on ${addtocatalog.siteprofile}:${addtocatalog.line} refers to undefined catalog '${addtocatalog.catalog}'\n`);
+      CONTINUE;
+    }
+
+    INSERT CELL definedby := "<addtocatalog> " || addtocatalog.siteprofile || ":" || addtocatalog.line INTO addtocatalog;
+    FOREVERY(INTEGER siteid FROM GetSiteSettingIDs(addtocatalog))
+    {
+      OBJECT site := OpenSite(siteid);
+      IF(NOT ObjectExists(site))
+        CONTINUE; //race, just deleted ?
+
+      OBJECT target := site->OpenByPath(addtocatalog.folder, [ allowinitialslash := TRUE ]);
+      IF(NOT ObjectExists(target) OR NOT target->isfolder)
+      {
+        IF(NOT ignoreerrors)
+          PrintTo(2,`<addtocatalog> on ${addtocatalog.siteprofile}:${addtocatalog.line} refers to nonexisting folder '${addtocatalog.folder}' in site '${site->name}'\n`);
+        CONTINUE;
+      }
+      INSERT CELL[ ...addtocatalog
+                 , fsobject := target->id
+                 , contentobject := ""
+                 , tag := ""
+                 ] INTO wantcatalogs[matchcatalog].contentsources AT END;
+    }
+  }
+
+  RETURN wantcatalogs;
+}
+

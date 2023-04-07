@@ -118,24 +118,7 @@ MACRO WaitForPublisherScheduledTasks(DATETIME timeaftertrigger, DATETIME deadlin
     IF(GetCurrentDatetime() >= deadline)
       ABORT("Task isn't completing");
   }
-
-  // Wait for the postcommit effects of the scheduled tasks to finish too
-  WHILE (TRUE)
-  {
-    RECORD executetaskstatus :=
-         SELECT tag, currentstart, nexttime
-           FROM system_internal.tasks
-          WHERE tag = "publisher.scheduledtasks";
-
-    IF (executetaskstatus.currentstart = DEFAULT DATETIME
-        AND (executetaskstatus.nexttime = DEFAULT DATETIME
-             OR GetDatetimeDifference(GetCurrentDatetime(),executetaskstatus.nexttime).totalmsecs >= 60*60*1000)) //also ignore tasks after next hour in case you actually scheduled stuff
-      BREAK;
-
-    Sleep(10);
-    IF(GetCurrentDatetime() >= deadline)
-      ABORT("publisher.scheduledtasks isn't completing");
-  }
+  WaitForTimedTask("publisher:scheduledtasks", deadline, [ debug := TRUE ]);
 }
 
 /** Wait for output analyser scans to finish

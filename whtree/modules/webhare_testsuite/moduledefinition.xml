@@ -456,8 +456,8 @@
         </nested>
       </nested>
     </fieldgroup>
-    <catalog tag="testindex" fieldgroups="testindexfields" lang="nl" managed="false" />
-    <catalog tag="testindex_suffixed" fieldgroups="testindexfields" lang="nl" managed="false" suffixed="true" />
+    <catalog tag="testindex" fieldgroups="testindexfields" lang="nl" managed="false" dynamicproperties="fieldgroups lang" />
+    <catalog tag="testindex_suffixed" fieldgroups="testindexfields" lang="nl" managed="false" suffixed="true" dynamicproperties="fieldgroups" />
     <fieldgroup tag="testindexfields">
       <datetime name="@timestamp" />
       <text name="title" />

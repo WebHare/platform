@@ -175,6 +175,68 @@ PUBLIC MACRO ScheduleTimedTask(STRING taskname, RECORD options DEFAULTSTO DEFAUL
   GetTaskFinishHandler()->ScheduleTask(taskname, options.when);
 }
 
+/** Wait for timed tasks to finish
+    @param taskname Task to wait for
+    @param deadline Wait until
+    @cell(boolean) options.debug Print debuginfo if waiting
+    @cell(boolean) options.allowmissing Don't fail if the task isn't registered (yet)
+    @return True if the task finished, false if timed out
+*/
+PUBLIC BOOLEAN FUNCTION WaitForTimedTask(STRING taskname, DATETIME deadline, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ debug := FALSE
+                             , allowmissing := FALSE
+                             ], options);
+
+  IF(taskname NOT LIKE "?*:?*")
+    THROW NEW Exception(`Invalid task name '${taskname}'`);
+
+  STRING matchtag := Substitute(taskname,':','.');
+  IF(NOT options.allowmissing AND NOT RecordExists(SELECT FROM system_internal.tasks WHERE tasks.tag = VAR matchtag))
+    THROW NEW Exception(`No such timed task '${taskname}' registered`);
+
+  OBJECT primary := GetPrimaryWebHareTransactionObject();
+  IF(ObjectExists(primary) AND primary->IsWorkOpen())
+    THROW NEW Exception(`WaitForTimedTask cannot be use with open work`); //as we can't observe the consilo:update task status then
+
+  DATETIME start := GetCurrentDateTime();
+  FOR (INTEGER iter := 0;; iter := iter + 1)
+  {
+    OBJECT link := ConnectToGlobalIPCPort("system:executetasks");
+    RECORD retval := link->DoRequest([ task := "listprocesses" ]);
+    link->Close();
+
+    IF (retval.status != "ok" OR retval.msg.status != "ok")
+      THROW NEW Exception(`Connection to system:executetasks service lost`);
+
+    IF(RecordExists(SELECT FROM system_internal.tasks WHERE tasks.tag = VAR matchtag) //if the tag exists (we might still need it to be registered. TODO have executetasks transmit a list of all known tasks)
+       AND NOT RecordExists(
+          SELECT
+            FROM retval.msg.processes CONCAT retval.msg.module_startup_scripts CONCAT retval.msg.uncompleted_startup_scripts
+           WHERE tag = VAR matchtag))
+    {
+      RETURN TRUE;
+    }
+
+    DATETIME now := GetCurrentDatetime();
+    IF (options.debug AND (((iter + 1) % 50) = 0 OR now >= deadline))
+    {
+      PRINT(`** ${now >= deadline ? "timeout " : iter<50 ? "" : "still "}waiting for executetasks to finish (waited ${GetDateTimeDifference(start, now).msecs / 1000} secs)\n`);
+      PRINT(`Waiting for tags [${Detokenize(options.tags, ", ")}], scripts [${Detokenize(options.scripts, ", ")}]\n`);
+      PRINT(`Now running:\n${AnyToString((SELECT script, tag, starttime, ismatch := tag = VAR matchtag FROM retval.msg.processes ORDER BY starttime), "boxed")}`);
+      PRINT(`Module startup scripts:\n${AnyToString((SELECT script, tag, ismatch := tag = VAR matchtag FROM retval.msg.module_startup_scripts ORDER BY tag), "boxed")}`);
+      PRINT(`Uncompleted startup scripts:\n${AnyToString((SELECT script, tag, ismatch := tag = VAR matchtag FROM retval.msg.uncompleted_startup_scripts ORDER BY tag), "boxed")}`);
+    }
+
+    IF (now >= deadline)
+      RETURN FALSE;
+
+    Sleep(100);
+  }
+}
+
+
+
 /** @short Retry all pending managed tasks of a specific type now
     @param taskids Ids of tasks to retry
     */
