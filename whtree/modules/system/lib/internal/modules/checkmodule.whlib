@@ -14,6 +14,7 @@ LOADLIB "mod::system/lib/internal/modules/node.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/validation/config.whlib";
 LOADLIB "mod::system/lib/internal/validation/javascript.whlib";
+LOADLIB "mod::system/lib/internal/validation/scan.whlib";
 
 
 OBJECTTYPE CheckerObject
@@ -173,11 +174,13 @@ OBJECTTYPE CheckerObject
 
     IF (ObjectExists(typescriptresultpromise))
     {
+      STRING ARRAY exclusions := SELECT AS STRING ARRAY mask FROM this->validateconfig.excludemasks;
       RECORD typescriptresult := WaitForPromise(typescriptresultpromise);
       FOREVERY (RECORD issue FROM typescriptresult.issues)
       {
         //We can't limit what TSC checks, but we can at least ignore the messages
-        IF(GetNameFromPath(issue.resourcename) NOT LIKE this->options.filemask)
+        IF(GetNameFromPath(issue.resourcename) NOT LIKE this->options.filemask
+           OR MatchesPathMasks(issue.resourcename, exclusions))
           CONTINUE;
 
         this->AddIssue(issue, issue.category);
