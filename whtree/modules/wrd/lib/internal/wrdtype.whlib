@@ -14,6 +14,7 @@ LOADLIB "wh::internal/enrichment.whlib";
 
 LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
@@ -2679,18 +2680,27 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @param requiredfields The values to set on the entity
       @cell(string array) options.entitykey List of fields that must be unique for the entity to match
       @cell(record) options.ifnew Additional fields to set if the entity is newly created
+      @cell(string) options.historymode History mode to use for finding existing entries. Defaults to 'now', alternatively supports 'all'
       @return(object %WRDEntity2017) The entity */
   PUBLIC OBJECT FUNCTION EnsureEntity(RECORD requiredfields, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions([ entitykey := STRING[]
                                , ifnew := DEFAULT RECORD
-                               ], options, [ required := ["entitykey"]]);
+                               , historymode := "now"
+                               ], options, [ required := ["entitykey"]
+                                           , enums := [ historymode := [ "now", "all" ] ]
+                                           ]);
 
     RECORD ARRAY filters;
     IF(Length(options.entitykey) = 0)
       THROW NEW Exception(`EnsureEntity requires an explicit entitykey`);
     IF(NOT GetPrimary()->IsWorkOpen())
       THROW NEW Exception(`EnsureEntity requires open work`); //prevent users from 'getting away' with EnsureEntity outside work if it didn't make any material change
+
+    //TODO: Enforce this on all stages. It's probably always incorrect or at best a no-op.
+    //Attempting to ensure wrd_limitdate is MAX_DATETIME is an attempt to resurrect any 'closed' version of a matched entity. However we never supported historymode=all before so it never worked.
+    IF(CellExists(requiredfields,'WRD_LIMITDATE') AND options.historymode != "all" AND GetDtapStage() = "development" AND requiredfields.wrd_limitdate = MAX_DATETIME)
+      THROW NEW Exception(`Setting WRD_LIMITDATE to MAX_DATETIME without using historymode=all is probably incorrect`);
 
     FOREVERY(STRING keyname FROM options.entitykey)
     {
@@ -2700,7 +2710,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       INSERT [ field := keyname, value := GetCell(requiredfields, keyname) ] INTO filters AT END;
     }
 
-    RECORD ARRAY matches := this->RunQuery([ outputcolumns := [ id := "WRD_ID" ], filters := filters]);
+    RECORD ARRAY matches := this->RunQuery(CELL[ outputcolumns := [ id := "WRD_ID" ], filters, options.historymode ]);
     IF(Length(matches)>1)
       THROW NEW Exception("Multiple matches for ensured data");
 
