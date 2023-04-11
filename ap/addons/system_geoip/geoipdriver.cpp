@@ -95,14 +95,20 @@ GlobalData::~GlobalData()
         ResetState();
 }
 
-void LoadGeoIPStringField(HSVM *vm, HSVM_VariableId toset, MMDB_lookup_result_s result, const char *const path[])
+bool LoadGeoIPStringField(HSVM *vm, HSVM_VariableId toset, MMDB_lookup_result_s result, const char *const path[])
 {
         MMDB_entry_data_s entry_data;
         int mmdb_error = MMDB_aget_value(&result.entry, &entry_data, path);
         if(mmdb_error == MMDB_SUCCESS && entry_data.has_data && entry_data.type == MMDB_DATA_TYPE_UTF8_STRING)
-            HSVM_StringSet(vm, toset, entry_data.utf8_string, entry_data.utf8_string + entry_data.data_size);
+        {
+                HSVM_StringSet(vm, toset, entry_data.utf8_string, entry_data.utf8_string + entry_data.data_size);
+                return true;
+        }
         else
-            HSVM_SetDefault(vm, toset, HSVM_VAR_String);
+        {
+                HSVM_SetDefault(vm, toset, HSVM_VAR_String);
+                return false;
+        }
 }
 
 void LoadGeoIPFloatField(HSVM *vm, HSVM_VariableId toset, MMDB_lookup_result_s result, const char *const path[])
@@ -132,7 +138,12 @@ void LookupCityByIP(HSVM *vm, HSVM_VariableId id_set)
 
         //TODO see the example on https://dev.maxmind.com/geoip/geoip2/whats-new-in-geoip2/ - there's much more we could return!
         const char *country_code_path[] = {"country","iso_code",nullptr};
-        LoadGeoIPStringField(vm, HSVM_RecordCreate(vm, id_set, HSVM_GetColumnId(vm, "COUNTRY_CODE")), result, country_code_path);
+        if(!LoadGeoIPStringField(vm, HSVM_RecordCreate(vm, id_set, HSVM_GetColumnId(vm, "COUNTRY_CODE")), result, country_code_path))
+        {
+                //We've seen geoip returning found_entry true without any real data. Convert that back to a default record
+                HSVM_SetDefault(vm, id_set, HSVM_VAR_Record);
+                return;
+        }
 
         const char *country_name_path[] = {"country","names","en",nullptr};
         LoadGeoIPStringField(vm, HSVM_RecordCreate(vm, id_set, HSVM_GetColumnId(vm, "COUNTRY_NAME")), result, country_name_path);
