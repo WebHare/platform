@@ -30,6 +30,9 @@ MACRO TestGEOIP()
   TestEq("", GetGeoIPCountryForIP("10.144.201.112")); //internal IPs should never return a match
   TestEq(DEFAULT RECORD, GetGeoIPInfoForIP("10.144.201.112")); //internal IPs should never return a match
 
+  //an IP similar to this one returned a record with all values set to default (ie country_code = "") instead of default record.
+  RECORD res := GetGeoIPInfoForIP("192.42.116.13");
+  TestAssert(NOT RecordExists(res) OR res.country_code != ""); //it's a DEFAULT RECORD *now* but might resolve at some point in the future
 }
 
 RunTestframework([ PTR TestGEOIP

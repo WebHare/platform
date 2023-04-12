@@ -28,7 +28,7 @@
       <arg>ARG1 SHOT</arg>
       <arg>arg2</arg>
     </task>
-    <task runat="5 0 * * *" runtz="Europe/Amsterdam" script="scripts/whcommands/reset.whscr" tag="resettestsite" description="Periodically reset testsite and testdata" />
+    <task runat="5 0 * * *" runtz="Europe/Amsterdam" script="scripts/whcommands/reset.whscr" tag="resettestsite" description="Periodically reset testsite and testdata" unlessenvironset="WEBHARE_CI" />
 
     <taskcluster harescriptworkers="2" tag="testcluster" />
 

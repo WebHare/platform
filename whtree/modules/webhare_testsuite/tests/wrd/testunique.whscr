@@ -199,6 +199,17 @@ MACRO TestEnsureEntity()
   TestThrowsLike("*ENTITYKEY*", PTR whunit->EnsureEntity( [ wrd_leftentity := firstunit->id ]));
   TestThrowsLike("*ENTITYKEY*", PTR whunit->EnsureEntity( [ wrd_leftentity := 0, wrd_tag := "FIRSTUNIT"] , [ifnew := [ wrd_title := "Unit #1b" ]]), "Entitykey is required");
 
+  whunit->CloseEntity(firstunit->id);
+
+  TestThrowsLike("*WRD_LIMITDATE*without*historymode*all*", PTR whunit->EnsureEntity([ wrd_leftentity := 0, wrd_tag := "FIRSTUNIT", wrd_title := "Unit #1b", wrd_limitdate := MAX_DATETIME ], [ entitykey := ["wrd_leftentity","wrd_tag" ] ]));
+
+  OBJECT recreate := whunit->EnsureEntity( [ wrd_leftentity := 0, wrd_tag := "FIRSTUNIT", wrd_title := "Unit #1b" ], [ entitykey := ["wrd_leftentity","wrd_tag" ] ]);
+  TestAssert(recreate->id != firstunit->id);
+  whunit->DeleteEntity(recreate->id);
+
+  recreate := whunit->EnsureEntity( [ wrd_leftentity := 0, wrd_tag := "FIRSTUNIT", wrd_title := "Unit #1b" ], [ entitykey := ["wrd_leftentity","wrd_tag"], historymode := "all" ]);
+  TestAssert(recreate->id = firstunit->id);
+
   testfw->CommitWork();
 }
 

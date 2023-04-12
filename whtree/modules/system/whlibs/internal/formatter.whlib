@@ -83,11 +83,11 @@ STRING FUNCTION FormatDateTime(DATETIME time)
   RETURN year
               || "-" || Right("0" || month,2)
               || "-" || Right("0" || dayofmonth,2)
-              || " (" || dayofyear || ")"
-              || " " || Right("0"||(msecondcount/(1000*60*60)),2)
+              || "T" || Right("0"||(msecondcount/(1000*60*60)),2)
               || ":" || Right("0"||((msecondcount%(1000*60*60)) / (1000*60)),2)
               || ":" || Right("0"||((msecondcount%(1000*60)) / (1000)),2)
-              || "." || Right("000" || msecondcount%1000,3);
+              || (msecondcount % 1000 > 0 ? "." || Right("000" || msecondcount%1000,3) : "")
+              || "Z";
 }
 
 STRING FUNCTION FormatMoney(MONEY value)
