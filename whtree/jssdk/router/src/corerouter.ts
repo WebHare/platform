@@ -52,7 +52,7 @@ async function routeThroughHSWebserver(request: WebRequest): Promise<WebResponse
     fetchoptions.body = request.body;
 
   const result = await fetch(targeturl, fetchoptions);
-  const body = await result.text();
+  const body = await result.arrayBuffer(); //TODO even better if we can stream blobs
 
   //Rebuild headers to get rid of the dangerous ones
   const newheaders = new Headers(result.headers);

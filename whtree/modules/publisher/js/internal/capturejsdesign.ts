@@ -14,12 +14,12 @@ export async function captureJSDesign(obj: number) {
   outputpage.appendHTML(placeholder);
   const response = await outputpage.finish();
 
-  return { parts: response.body.split(placeholder) };
+  return { parts: (await response.text()).split(placeholder) };
 }
 
 export async function captureJSPage(obj: number) {
   const targetdoc = await whfs.openFile(obj);
   const req = new WebRequest(targetdoc.link || "https://www.example.net/");
   const response = await coreWebHareRouter(req);
-  return { body: response.body };
+  return { body: (await response.text()) };
 }

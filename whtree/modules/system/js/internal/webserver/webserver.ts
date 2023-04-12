@@ -56,7 +56,7 @@ class WebServer {
         res.setHeader("set-cookie", cookies);
 
       //TODO freeze the WebResponse, log errors if any modification still occurs after we're supposedly done
-      res.write(response.body);
+      res.write(new Uint8Array(await response.arrayBuffer()));
       res.end();
     } catch (e) {
       this.handleException(e, req, res);
