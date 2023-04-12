@@ -5,12 +5,12 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 MACRO TestEchoAndPing()
 {
-  RECORD port := testfw->GetLocalhostWebinterface();
-  STRING resbaseurl := port.baseurl || "tollium_todd.res/webhare_testsuite/";
+  STRING resbaseurl := GetPrimaryWebHareInterfaceURL() || "tollium_todd.res/webhare_testsuite/";
 
   // Create a global port for the echo test to report to
   STRING portname := "test:" || GenerateUFS128BitId();
@@ -19,6 +19,8 @@ MACRO TestEchoAndPing()
   RECORD msg := whmanagerconn->DoRequest([ type := "register", port := commport->name ]);
   RECORD ARRAY headers;
   RECORD rec := testfw->browser->OpenWebSocket(resbaseurl || "/tests/websockets/echo.whsock", headers);
+  IF(NOT rec.success)
+    DumpValue(rec);
   TestEQ(TRUE, rec.success);
 
   rec.conn->SendData("message");
@@ -68,8 +70,7 @@ MACRO TestEchoAndPing()
 
 MACRO TestPongTimeout()
 {
-  RECORD port := testfw->GetLocalhostWebinterface();
-  STRING resbaseurl := port.baseurl || "tollium_todd.res/webhare_testsuite/";
+  STRING resbaseurl := GetPrimaryWebHareInterfaceURL() || "tollium_todd.res/webhare_testsuite/";
 
   // Create a global port for the echo test to report to
   STRING portname := "test:" || GenerateUFS128BitId();
@@ -104,8 +105,7 @@ MACRO TestPongTimeout()
 
 MACRO TestLargeMessage()
 {
-  RECORD port := testfw->GetLocalhostWebinterface();
-  STRING resbaseurl := port.baseurl || "tollium_todd.res/webhare_testsuite/";
+  STRING resbaseurl := GetPrimaryWebHareInterfaceURL() || "tollium_todd.res/webhare_testsuite/";
 
   RECORD ARRAY headers;
   RECORD rec := testfw->browser->OpenWebSocket(resbaseurl || "/tests/websockets/echo.whsock", headers);
@@ -132,8 +132,7 @@ MACRO TestLargeMessage()
 
 ASYNC MACRO TestAsyncReceiveCancel()
 {
-  RECORD port := testfw->GetLocalhostWebinterface();
-  STRING resbaseurl := port.baseurl || "tollium_todd.res/webhare_testsuite/";
+  STRING resbaseurl := GetPrimaryWebHareInterfaceURL() || "tollium_todd.res/webhare_testsuite/";
 
   RECORD ARRAY headers;
   RECORD rec := testfw->browser->OpenWebSocket(resbaseurl || "/tests/websockets/echo.whsock", headers);
