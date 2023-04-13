@@ -294,20 +294,13 @@ OBJECTTYPE ParsedSchemaDef
     RETURN val;
   }
 
-  PUBLIC MACRO ReadSchemaDef(OBJECT el, STRING filename, BLOB overridedata, DATETIME modtime)
+  PUBLIC MACRO ReadSchemaDef(STRING filename, BLOB data, DATETIME modtime)
   {
-    RECORD validateres;
-    IF(length(overridedata) > 0)
-    {
-      validateres := ValidateSingleFile(filename, [ overridedata := overridedata ]);
-    }
-    ELSE
-    {
-      validateres := ValidateSingleFile(filename);
-    }
+    RECORD validateres := ValidateSingleFile(filename, [ overridedata := data ]);
+    IF(Length(validateres.errors) > 0)
+      THROW NEW Exception(`Cannot apply schemadefinition: ${FormatValidationError(validateres.errors[0])}`);
 
-
-    IF (Length(overridedata) > 0 OR modtime = DEFAULT DATETIME)
+    IF(modtime = DEFAULT DATETIME)
     {
       this->withoverride := TRUE;
       this->schemaresource := "";
@@ -319,12 +312,11 @@ OBJECTTYPE ParsedSchemaDef
         this->schemaresource := filename;
     }
 
-    IF(Length(validateres.errors) > 0)
-      THROW NEW Exception(`Cannot apply schemadefinition: ${FormatValidationError(validateres.errors[0])}`);
 
     STRING oldcurrent := this->currentfile;
     this->currentfile := filename;
 
+    OBJECT el := MakeXMLDocument(data)->documentelement;
     FOREVERY(OBJECT node FROM el->childnodes->GetCurrentElements())
     {
       IF(node->localname="import")
@@ -337,8 +329,7 @@ OBJECTTYPE ParsedSchemaDef
           INSERT filetoimport INTO this->importedfiles AT END;
 
           RECORD rec := RetrieveWebHareResource(filetoimport);
-          OBJECT xmldoc := MakeXMLDocument(rec.data);
-          this->ReadSchemaDef(xmldoc->documentelement, filetoimport, DEFAULT BLOB, rec.modified);
+          this->ReadSchemaDef(filetoimport, rec.data, rec.modified);
         }
       }
       ELSE IF(node->localname="migration")
@@ -376,36 +367,24 @@ OBJECTTYPE ParsedSchemaDef
   }
 >;
 
-PUBLIC RECORD FUNCTION ReadSchemaDefFromXML(OBJECT doc, STRING resourcename, BLOB overridedata, DATETIME modtime)
+PUBLIC RECORD FUNCTION OpenWRDSchemaDefFile(STRING resourcepath, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  OBJECT parser := NEW ParsedSchemaDef;
-  parser->ReadSchemaDef(doc, resourcename, overridedata, modtime);
-  RETURN parser->GetResult();
-}
+  options := ValidateOptions([ overridedata := DEFAULT BLOB ], options, [ optional := ["overridedata"]]);
 
-
-OBJECT schemadefxsd; //FIXME use eg. tollum's resource cache?
-
-PUBLIC OBJECT FUNCTION GetSchemadefXSD()
-{
-  IF (NOT ObjectExists(schemadefxsd))
-  {
-    BLOB schemadeffile := GetWebHareResource("mod::wrd/data/schemadefinition.xsd");
-    schemadefxsd := MakeXMLSchema(schemadeffile);
-    IF (NOT ObjectExists(schemadefxsd))
-      THROW NEW Exception("Unable to use schemadefinition.xsd, it has errors");
-  }
-  RETURN schemadefxsd;
-}
-
-PUBLIC RECORD FUNCTION OpenWRDSchemaDefFile(STRING resourcepath)
-{
+  BLOB contents;
   DATETIME modtime;
-  OBJECT xmldoc;
+  IF(CellExists(options, 'overridedata'))
+  {
+    contents := options.overridedata;
+  }
+  ELSE
+  {
+    RECORD rec := RetrieveWebHareResource(resourcepath);
+    contents := rec.data;
+    modtime := rec.modified;
+  }
 
-  RECORD rec := RetrieveWebHareResource(resourcepath);
-  xmldoc := MakeXMLDocument(rec.data);
-  modtime := rec.modified;
-
-  RETURN ReadSchemaDefFromXML(xmldoc->documentelement, resourcepath, DEFAULT BLOB, modtime);
+  OBJECT parser := NEW ParsedSchemaDef;
+  parser->ReadSchemaDef(resourcepath, contents, modtime);
+  RETURN parser->GetResult();
 }

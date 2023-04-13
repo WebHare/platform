@@ -4,6 +4,10 @@
 */
 
 LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::xml/xsd.whlib";
+
+LOADLIB "mod::system/lib/resources.whlib";
+
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/internal/import.whlib";
 LOADLIB "mod::wrd/lib/internal/exchange.whlib";
@@ -46,7 +50,11 @@ PUBLIC BLOB FUNCTION CreateWRDSchemaDefinitionFile(OBJECT wrdschema)
   newdoc->NormalizeDocument();
 
   //Selfcheck
-  RECORD ARRAY errors := GetSchemadefXSD()->ValidateDocument(newdoc);
+  OBJECT schemadefxsd := MakeXMLSchema(GetWebHareResource("mod::wrd/data/schemadefinition.xsd"));
+  IF (NOT ObjectExists(schemadefxsd))
+    THROW NEW Exception("Unable to use schemadefinition.xsd, it has errors");
+
+  RECORD ARRAY errors := schemadefxsd->ValidateDocument(newdoc);
   IF(Length(errors)>0)
   {
     THROW NEW Exception(`Errors in generated WRD schemadefinition (${errors[0].message}`);
