@@ -170,7 +170,7 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
   IF(NOT ObjectExists(catalog))
     RETURN CELL [ ...result, error := [ message := `Catalog #${data.indexid} no longer exists`, level := 1] ];
 
-  catalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE, forstorage := TRUE ]);  //TODO timeout? ideally we wouldn't even be queued, or we would be requeued later when the index is avaialble
+  catalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE, forstorage := TRUE ]);  //TODO timeout? ideally we wouldn't even be queued, or we would be requeued later when the index is available
 
   // Update status for single content source checks (TODO shouldn't whoever triggered CheckIndex not have set contentsourcestatus_rebuilding to ensure it will actually take place ?)
   {

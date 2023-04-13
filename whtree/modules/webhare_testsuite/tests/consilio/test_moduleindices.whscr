@@ -767,7 +767,7 @@ MACRO TestESLangFeatures()
   TestEq(0, res.totalcount);
 
   // Change the language
-  writelogmarker("chage the language");
+  writelogmarker("change the language");
   testfw->BeginWork();
   catalog->UpdateCatalog([ lang := "en" ]);
   TestEq("en", catalog->lang);

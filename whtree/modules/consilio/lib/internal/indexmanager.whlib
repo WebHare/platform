@@ -617,7 +617,7 @@ PUBLIC RECORD FUNCTION QueryIndexManager(INTEGER indexid, RECORD query, RECORD o
       , indexmanager := 0
       , totaltotrack := 10000
         /* If 'acceptmissingindex' is set, we'll consider a 404 (no such index) to be equivalent to "no results". This is
-           useful for eg. analysis code which will deal with in-progress indexeas at a later stage */
+           useful for eg. analysis code which will deal with in-progress indices at a later stage */
       , acceptmissingindex := FALSE
       ];
   options := ValidateOptions(defaultoptions, options);
