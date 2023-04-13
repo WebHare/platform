@@ -16,6 +16,8 @@ import { Client, Connection, types } from 'pg';
 import { RefTracker, checkIsRefCounted } from '@mod-system/js/internal/whmanager/refs';
 import { BackendEventData, broadcast } from '@webhare/services/src/backendevents';
 import { BackendEvent } from '../../services/src/services';
+import { flags } from '@webhare/env/src/envbackend';
+import { checkPromiseErrorsHandled } from '@mod-system/js/internal/util/devhelpers';
 
 import { createPGBlob, uploadBlobToConnection, WHDBBlob, ValidBlobSources } from './blobs';
 export { WHDBBlob } from "./blobs";
@@ -179,6 +181,7 @@ class WHDBConnectionImpl implements WHDBConnection, PostgresPool, PostgresPoolCl
   reftracker;
   openwork?: Work;
   connected = false;
+  lastopen?: Error;
 
   constructor() {
     this.pgclient = new Client({
@@ -258,13 +261,16 @@ class WHDBConnectionImpl implements WHDBConnection, PostgresPool, PostgresPoolCl
   private checkState(expectwork: boolean | undefined): Work | null {
     if (!this.pgclient)
       throw new Error(`Connection was already closed`);
-    if (expectwork !== undefined && Boolean(this.openwork) !== expectwork)
-      throw new Error(expectwork ? `Work has already been closed` : `Work has already been opened`);
+    if (expectwork !== undefined && Boolean(this.openwork) !== expectwork) {
+      throw new Error(expectwork ? `Work has already been closed` : `Work has already been opened`, { cause: this.lastopen });
+    }
     return this.openwork || null;
   }
 
   async beginWork(): Promise<void> {
     this.checkState(false);
+    if (flags.async)
+      this.lastopen = new Error(`Work was last opened here`);
 
     const lock = this.reftracker.getLock("work lock");
     this.openwork = new Work(this);
@@ -335,20 +341,20 @@ export function isWorkOpen() {
 
 /** Begins a new transaction. Throws when a transaction is already in progress
 */
-export async function beginWork() {
-  await conn.beginWork();
+export function beginWork() {
+  return checkPromiseErrorsHandled(conn.beginWork());
 }
 
 /** Commits the current transaction
 */
-export async function commitWork() {
-  await conn.commitWork();
+export function commitWork() {
+  return checkPromiseErrorsHandled(conn.commitWork());
 }
 
 /** Rollbacks the transaction
 */
-export async function rollbackWork() {
-  await conn.rollbackWork();
+export function rollbackWork() {
+  return checkPromiseErrorsHandled(conn.rollbackWork());
 }
 
 /** Upload a blob to the database

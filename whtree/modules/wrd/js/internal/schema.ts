@@ -1,6 +1,7 @@
 import { HSVMObject } from "@webhare/services/src/hsvm";
 import { AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps } from "./types";
 import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
+import { checkPromiseErrorsHandled } from "@mod-system/js/internal/util/devhelpers";
 
 
 export class WRDSchema<S extends SchemaTypeDefinition> {
@@ -40,23 +41,23 @@ export class WRDSchema<S extends SchemaTypeDefinition> {
   }
 
   insert<T extends keyof S & string>(type: T, value: Insertable<S[T]>) {
-    return this.#getType(type).createEntity(value);
+    return checkPromiseErrorsHandled(this.#getType(type).createEntity(value));
   }
 
   update<T extends keyof S & string>(type: T, wrd_id: number, value: Updatable<S[T]>) {
-    return this.#getType(type).updateEntity(wrd_id, value);
+    return checkPromiseErrorsHandled(this.#getType(type).updateEntity(wrd_id, value));
   }
 
   search<T extends keyof S & string, F extends AttrRef<S[T]>>(type: T, field: F, value: (GetCVPairs<S[T][F]> & { condition: "=" })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }>): Promise<number | null> {
-    return this.#getType(type).search(field, value, options);
+    return checkPromiseErrorsHandled(this.#getType(type).search(field, value, options));
   }
 
-  enrich<T extends keyof S & string, F extends keyof D, M extends EnrichOutputMap<S[T]>, D extends { [K in F]: number }>(type: T, data: D[], field: F, mapping: M): Promise<Array<D & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>> {
-    return this.#getType(type).enrich(data, field, mapping);
+  enrich<T extends keyof S & string, F extends keyof D, M extends EnrichOutputMap<S[T]>, D extends { [K in F]: number | null }>(type: T, data: D[], field: F, mapping: M, options: { rightouterjoin?: boolean } = {}): Promise<Array<D & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>> {
+    return checkPromiseErrorsHandled(this.#getType(type).enrich(data, field, mapping, options));
   }
 
   delete<T extends keyof S & string>(type: T, ids: number | number[]): Promise<void> {
-    return this.#getType(type).delete(ids);
+    return checkPromiseErrorsHandled(this.#getType(type).delete(ids));
   }
 
   extendWith<T extends SchemaTypeDefinition>(): WRDSchema<CombineSchemas<S, T>> {
@@ -177,7 +178,7 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
     }
   }
 
-  async execute(): Promise<O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never> {
+  async #executeInternal(): Promise<O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never> {
     if (!this.#selects)
       throw new Error(`A select is required`);
     const type = await this.#type._getType();
@@ -192,5 +193,9 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
       query.filters = this.#wheres.map(({ field, condition, value }) => ({ field, matchtype: condition.toUpperCase(), value }));
     const retval = await type.runQuery(query);
     return retval as unknown as (O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never);
+  }
+
+  execute(): Promise<O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never> {
+    return checkPromiseErrorsHandled(this.#executeInternal());
   }
 }
