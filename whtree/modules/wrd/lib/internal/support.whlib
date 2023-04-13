@@ -20,7 +20,6 @@ PUBLIC CONSTANT INTEGER current_schema_version := 1;
 PUBLIC INTEGER ttl_wrdschemacache := 5 * 60 * 1000;
 
 PUBLIC STRING worldinfo_ns := "http://www.webhare.net/xmlns/wrd/worldinfo";
-PUBLIC STRING query_ns := "http://www.webhare.net/xmlns/wrd/query";
 PUBLIC STRING ARRAY builtin_wrdtypes := ["WRD_RELATION","WRD_PERSON","WRD_ORGANIZATION"];
 
 PUBLIC STRING ARRAY attrtypes := [ "DOMAIN", /*2*/"FREE", "ADDRESS", "EMAIL", "TELEPHONE", "DATE", "PASSWORD"

@@ -39,22 +39,6 @@ PUBLIC OBJECT FUNCTION ExportWRDSchemaDefinition(OBJECT wrdschema, OBJECT doc)
   RETURN root;
 }
 
-PUBLIC OBJECT FUNCTION ExportWRDQueryDefinition(OBJECT wrdschema, RECORD query, OBJECT doc)
-{
-  OBJECT queryholder := doc->CreateElementNS("http://www.webhare.net/xmlns/wrd/query", "query");
-  DELETE CELL wrdschema FROM query;
-  INSERT CELL wrdschema := wrdschema INTO query;
-  MakeWRDQuery(query)->SerializeToXML(queryholder);
-  RETURN queryholder;
-}
-
-PUBLIC RECORD FUNCTION ImportWRDQueryDefinition(OBJECT wrdschema, OBJECT node)
-{
-  IF(node->namespaceuri != "http://www.webhare.net/xmlns/wrd/query" OR node->localname != "query")
-    THROW NEW Exception("Not a valid WRD Query node");
-  RETURN ImportQueryFromXML(wrdschema, node);
-}
-
 PUBLIC BLOB FUNCTION CreateWRDSchemaDefinitionFile(OBJECT wrdschema)
 {
   OBJECT newdoc := NEW XMLDomImplementation->CreateDocument(ns_schemadef, "schemadefinition", DEFAULT OBJECT);

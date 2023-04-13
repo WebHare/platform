@@ -69,7 +69,6 @@ RECORD ARRAY FUNCTION GetXMLAttributes(OBJECT parent)
 OBJECTTYPE ParsedSchemaDef
 <
   RECORD ARRAY types;
-  RECORD ARRAY queries;
   RECORD ARRAY keyvaluestore;
   RECORD metadata;
   STRING currentfile;
@@ -79,20 +78,6 @@ OBJECTTYPE ParsedSchemaDef
   STRING schemaresource;
   RECORD ARRAY resources;
 
-  MACRO AddQuery(OBJECT querynode)
-  {
-    STRING typetag := ToUppercase(querynode->GetAttribute("tag"));
-    IF(typetag="")
-      THROW NEW Exception("Query has no tag");
-
-    RECORD query := [ tag := ToUppercase(querynode->GetAttribute("tag"))
-                    , title := querynode->GetAttribute("title")
-                    , description := querynode->GetAttribute("description")
-                    , ispublic := ParseXSBoolean(querynode->GetAttribute("ispublic"))
-                    , querynode := querynode
-                    ];
-    INSERT query INTO this->queries AT END;
-  }
 
   MACRO AddKeyValue(OBJECT keyvaluenode)
   {
@@ -365,11 +350,6 @@ OBJECTTYPE ParsedSchemaDef
                     , updatefunction := MakeAbsoluteResourcePath(this->currentfile, node->GetAttribute("updatefunction"))
                     ] INTO this->migrations AT END;
       }
-      ELSE IF(node->localname="queries")
-      {
-        FOREVERY(OBJECT query FROM node->childnodes->GetCurrentElements())
-          this->AddQuery(query);
-      }
       ELSE IF(node->localname="keyvalues")
       {
         FOREVERY(OBJECT keyvalue FROM node->childnodes->GetCurrentElements())
@@ -388,7 +368,6 @@ OBJECTTYPE ParsedSchemaDef
   {
     RETURN
         CELL[ this->types
-            , this->queries
             , this->metadata
             , this->keyvaluestore
             , this->migrations

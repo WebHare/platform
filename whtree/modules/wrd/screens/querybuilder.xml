@@ -15,8 +15,6 @@
     <actions>
       <action name="close" onexecute="cancel" />
       <action name="runquery" frameflags="havequery" onexecute="dorunquery" />
-      <action name="exportquery" frameflags="havequery" onexecute="doexportquery" />
-      <action name="importquery" onexecute="doimportquery" />
       <action name="exportresults" frameflags="havequery" onexecute="doexportresults" />
       <action name="exportresultsasschemaxml" frameflags="havequery" onexecute="doexportresultsasschemaxml" />
       <action name="edithistorymode" >
@@ -41,8 +39,6 @@
     <menus>
       <menu name="menubar">
         <item action="runquery" />
-        <item action="exportquery" />
-        <item action="importquery" />
         <divider />
         <item action="exportresults" />
         <item action="exportresultsasschemaxml" />
@@ -61,8 +57,6 @@
 
     <toolbar>
       <button action="runquery" icon="tollium:actions/play"/>
-      <button action="exportquery" icon="tollium:actions/export" />
-      <button action="importquery" icon="tollium:actions/import" />
       <divider />
       <button action="exportresults" icon="tollium:files/application_vnd_ms-excel" />
       <button action="exportresultsasschemaxml" icon="tollium:files/text_xml" />
@@ -150,15 +144,6 @@
       <list name="resultselect" selectmode="single">
         <column name="stuff" type="text" title="Stuff"/>
       </list>
-    </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
-  </screen>
-
-  <screen name="exportquery" width="500px" height="300px" implementation="none">
-    <body>
-      <textarea name="query" width="1pr" height="1pr" public="true" />
     </body>
     <footer>
       <defaultformbuttons buttons="ok cancel" />
