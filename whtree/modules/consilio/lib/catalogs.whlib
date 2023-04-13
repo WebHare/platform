@@ -22,7 +22,10 @@ LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 
 
 CONSTANT RECORD default_contentsource_options := CELL[ maxgroupobjects := 0
@@ -77,16 +80,6 @@ PUBLIC RECORD ARRAY FUNCTION ListIndexManagers()
               , name
               , url := address = "builtin-opensearch" ? GetBuiltinOpensearchAddress() : address
            FROM consilio.indexmanagers;
-}
-
-MACRO VerifyCatalogSafeToUpdate(INTEGER catalog)
-{
-  IF(GetPrimary()->IsWorkOpen())
-  {
-    OBJECT handler := GetConsilioFinishHandler(FALSE);
-    IF (ObjectExists(handler) AND handler->HasPendingUpdates(catalog))
-      THROW NEW Exception(`You must commit the current transaction to ensure the newly attached indices are registered in the database`);
-  }
 }
 
 /** Content source object
@@ -595,21 +588,72 @@ STATIC OBJECTTYPE ConsilioCatalog
      ORDER BY searchpriority DESC, catalog_indexmanagers.id;
   }
 
-  /** Is this index ready for storing objects ?
-      @return TRUE if the index is ready
-  */
   PUBLIC BOOLEAN FUNCTION IsReadyForStorage()
   {
-    RECORD ARRAY indices := SELECT * FROM this->ListAttachedIndices() WHERE NOT readonly;
-    IF(Length(indices) = 0)
-      RETURN FALSE; //we need at least one writable index
+    //IsReadyForStorage() is and old API from when configuration was still sync, so wait for reconfigure too
+    RETURN this->WaitReady(DEFAULT DATETIME, [ forstorage := TRUE, forconfiguration := TRUE ]);
+  }
 
-    IF(NOT this->suffixed)
-      FOREVERY(RECORD indice FROM indices)
-        IF(NOT IsOpenSearchIndexPresent(indice.indexmanager, indice.indexname)) //TODO also verify mapping/settings are truly applied
-          RETURN FALSE;
+  // return -1 for never ready, 0 for not ready, 1 for ready
+  INTEGER FUNCTION CheckReady(RECORD checkoptions)
+  {
+    BOOLEAN isready := TRUE;
+    TRY
+    {
+      RECORD ARRAY indices := SELECT * FROM this->ListAttachedIndices() WHERE NOT readonly;
+      IF(Length(indices) = 0 AND checkoptions.forstorage)
+        RETURN -1; //we need at least one writable index. if there are none, abort immediately
 
-    RETURN TRUE;
+      IF(checkoptions.forconfiguration) //just ensure consilio:update is ready
+      {
+        IF(NOT WaitForTimedTask("consilio:update", DEFAULT DATETIME, CELL[ allowmissing := TRUE, checkoptions.debug ]))
+          RETURN 0; //task not done / or not even installed yet
+      }
+
+      //A suffixed index will create the indices on demand, so ready for storage as long as we're attached
+      IF(NOT this->suffixed)
+        FOREVERY(RECORD indice FROM indices)
+          IF(NOT IsOpenSearchIndexPresent(indice.indexmanager, indice.indexname)) //TODO also verify mapping/settings are truly applied
+            RETURN 0;
+    }
+    CATCH(OBJECT<SearchUnavailableException> e)
+    {
+      //If we can't talk yet to the server, we're not readdy (IsOpenSearchIndexPresent is too low level to determine the proper response to no-opensaerch)
+      RETURN 0;
+    }
+
+    RETURN 1;
+  }
+
+  /** Wait until the index is ready for storage
+      @param deadline Deadline, set to DEFAULT DATETIME for nonblocking wait.
+      @param options.forstorage Wait for storage to be ready. If the index is readonly, WaitReady will return immediately, even if the deadline wasn't hit yet
+      @param options.forconfiguration Wait for configuration to be applied.
+      @return True if index is ready */
+  PUBLIC BOOLEAN FUNCTION WaitReady(DATETIME deadline, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions(CELL[ forstorage := FALSE, forconfiguration := FALSE, debug := FALSE ], options);
+
+    IF(options.forconfiguration) //just ensure consilio:update is ready
+    {
+      OBJECT primary := GetPrimaryWebHareTransactionObject();
+      IF(ObjectExists(primary) AND primary->IsWorkOpen())
+        THROW NEW Exception(`WaitReady forconfiguration cannot be use with open work`); //as we can't observe the consilo:update task status then
+    }
+
+    WHILE(TRUE)
+    {
+      INTEGER status := this->CheckReady(options);
+      IF(status = -1)
+        RETURN FALSE; //abort immediately, ignore deadline.
+      IF(status = 1)
+        RETURN TRUE;
+
+      IF(GetCurrentDatetime() > deadline)
+        RETURN FALSE;
+
+      Sleep(250);
+    }
   }
 
   STRING ARRAY FUNCTION GetFieldgroups()
@@ -670,7 +714,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     RefreshAttachedIndices(this->id);
   }
 
-  /** Attach an index (backing store) to a catalog
+  /** Attach an index (backing store) to a catalog. Creation may not apply until you've waited for reconfiguration (WaitReady with forconfiguration := TRUE)
       @parmm indexmanager Index manager to use. Use 0 for the builtin index manager
       @cell(string) options.indexname Index name
       @cell(boolean) options.readonly Do not write to or apply mappings to this index
@@ -709,7 +753,7 @@ STATIC OBJECTTYPE ConsilioCatalog
 
     //This will ensure the index is setup after Commit (it's unsafe to create it right away, cleanupindices might 'disagree' - and this *does* happen during eg. CI)
     IF(NOT options.readonly)
-      GetConsilioFinishHandler()->RequestReconfigureCatalog(this);
+      GetConsilioFinishHandler()->ScheduleUpdate();
 
     RETURN newid;
   }
@@ -726,8 +770,8 @@ STATIC OBJECTTYPE ConsilioCatalog
     GetConsilioFinishHandler()->ScheduleCleanup(); //remove stale indices ASAP (TODO only for builtin indexmanagers?)
   }
 
-  /** Update catalog settings
-      @param settings Settings to apply
+  /** Update catalog settings. Note thate some settings will not apply until you've waited for reconfiguration (WaitReady with forconfiguration := TRUE)
+      @param settings Settings to apply.
       @cell(string) settings.definedby Definition location
   */
   PUBLIC MACRO UpdateCatalog(RECORD settings)
@@ -836,7 +880,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     this->catalog := SELECT * FROM consilio.catalogs WHERE id = this->id;
 
     IF(scheduleupdate)
-      GetConsilioFinishHandler()->RequestReconfigureCatalog(this);
+      GetConsilioFinishHandler()->ScheduleUpdate();
 
     this->ensuredsuffixes := STRING[]; //better recheck everything after a catalog update
   }
@@ -998,7 +1042,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     }
 
     IF(anychanges)
-      GetConsilioFinishHandler()->RequestReconfigureCatalog(this);
+      GetConsilioFinishHandler()->ScheduleUpdate();
   }
 
   RECORD FUNCTION GetBaseDebugInfo()
@@ -1021,7 +1065,6 @@ STATIC OBJECTTYPE ConsilioCatalog
   {
     IF(this->managed)
       THROW NEW Exception(`Managed catalogs do not support manual document management`);
-    VerifyCatalogSafeToUpdate(this->id);
 
     options := ValidateOptions( [ suffix := ""
                                 , chunksize := 128
@@ -1054,7 +1097,6 @@ STATIC OBJECTTYPE ConsilioCatalog
   */
   PUBLIC MACRO DeleteObjects(STRING ARRAY objectids, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    VerifyCatalogSafeToUpdate(this->id);
     options := ValidateOptions( [ suffix := ""
                                 , chunksize := 128
                                 , synchronous := FALSE //legacy, remove as soon as all callers are updated
@@ -1133,7 +1175,7 @@ STATIC OBJECTTYPE ConsilioCatalog
       this->AttachIndex(0);
 
     GetPrimary()->BroadCastOnCommit("consilio:contentsourceschanged", DEFAULT RECORD);
-    GetConsilioFinishHandler()->RequestReconfigureCatalog(this);
+    GetConsilioFinishHandler()->ScheduleUpdate();
 
     RETURN contentsource;
   }
@@ -1259,6 +1301,8 @@ STATIC OBJECTTYPE ConsilioCatalog
       RETURN DEFAULT OBJECT;
   }
 
+  /** @short Reindex the catalog
+      @long Reindexes all sources in the catalog and cleans up any objects belonging to nonexisting sources */
   PUBLIC MACRO ReindexCatalog(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     IF(NOT this->managed)
@@ -1420,6 +1464,7 @@ PUBLIC OBJECT FUNCTION CreateConsilioCatalog(STRING tag, RECORD options DEFAULTS
              , internalmetadata := EncodeHSONBlob(internalmetadata)
              ] INTO consilio.catalogs;
 
+  GetConsilioFinishHandler()->ScheduleUpdate();
   GetPrimary()->BroadCastOnCommit("consilio:indiceschanged", DEFAULT RECORD);
 
   OBJECT catalog := OpenConsilioCatalogById(indexid);

@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
@@ -7,9 +8,9 @@ LOADLIB "wh::float.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::internal/any.whlib";
+LOADLIB "wh::internet/fetch.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internet/urls.whlib";
-LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
@@ -29,32 +30,23 @@ CONSTANT RECORD ARRAY defaultfields :=
 , [ field := "body",        boost := 1,  stemmed_field := TRUE ]
 ];
 
-MACRO UpdateRequestDebugSetting(OBJECT browser)
-{
-  //the setting can change while running, so always recheck
-  IF(IsDebugTagEnabled("consilio:traffic"))
-  {
-    IF(Length(browser->pvt_traffichooks) = 0)
-      LogRPCForWebbrowser("consilio:traffic", "", browser);
-  }
-  ELSE
-  {
-    browser->pvt_traffichooks := MACRO PTR[];
-  }
-}
+PUBLIC OBJECTTYPE SearchUnavailableException EXTEND Exception
+<
+>;
+
 
 PUBLIC OBJECTTYPE ElasticsearchException EXTEND Exception
 <
   PUBLIC RECORD error;
 
-  MACRO NEW(STRING what, OBJECT browser)
+  MACRO NEW(STRING what, OBJECT fetchresponse, STRING text)
   : Exception(what)
   {
-    IF (Objectexists(browser)
-        AND (browser->GetHTTPStatusCode() < 200 OR browser->GetHTTPStatusCode() > 200)
-        AND browser->mimetype = "application/json")
+    IF (Objectexists(fetchresponse)
+        AND (fetchresponse->status < 200 OR fetchresponse->status > 200)
+        AND Tokenize(fetchresponse->headers->get("content-type"),';')[0] = "application/json")
     {
-      RECORD decoded := DecodeJSONBLOB(browser->content);
+      RECORD decoded := DecodeJSON(text);
       IF(CellExists(decoded,'error') AND TypeID(decoded.error) = TypeID(RECORD))
       {
         IF(CellExists(decoded.error,'root_cause'))
@@ -67,6 +59,7 @@ PUBLIC OBJECTTYPE ElasticsearchException EXTEND Exception
 
           IF(this->error.reason != "")
             this->what := this->what || " (" || this->error.reason || ")";
+
           RETURN;
         }
         this->error := EnforceStructure([ "index" := ""
@@ -81,8 +74,8 @@ PUBLIC OBJECTTYPE ElasticsearchException EXTEND Exception
       }
     }
 
-    IF(Objectexists(browser) AND browser->GetHTTPStatusCode() != 0)
-      this->what := this->what || " (" || browser->GetHTTPStatusText() || ")";
+    IF(Objectexists(fetchresponse))
+      this->what := this->what || " (" || fetchresponse->status || " " || fetchresponse->statustext || ")";
   }
 >;
 
@@ -92,77 +85,17 @@ PUBLIC STRING FUNCTION GetBuiltinOpensearchAddress()
   RETURN `http://${GetEnvironmentVariable("WEBHARE_OPENSEARCH_BINDHOST") ?? "127.0.0.1"}:${GetWebhareConfiguration().baseport + whconstant_consilio_osportoffset}/`;
 }
 
-PUBLIC STRING FUNCTION WaitForElasticsearch(INTEGER indexmgrid, DATETIME waituntil)
+RECORD FUNCTION GetCacheableIndexMgrDescription(INTEGER id)
 {
-  RETURN ConnectElasticsearch(indexmgrid, waituntil);
+  RECORD info := (SELECT * FROM consilio.indexmanagers WHERE indexmanagers.id = VAR id);
+  RETURN [ value := info
+         , ttl := 5 * 1000 //FIXME eventmasks when an indexmangaer is modifiedm then we can increase this TTL a lot!
+         ];
 }
 
-STRING FUNCTION ConnectElasticsearch(INTEGER indexmgrid, DATETIME waituntil)
+RECORD FUNCTION DescribeIndexManager(INTEGER id)
 {
-  WHILE (GetCurrentDateTime() < waituntil)
-  {
-    RECORD indexmanager;
-    IF (indexmanagerconnections->Has(indexmgrid))
-    {
-      indexmanager := indexmanagerconnections->Lookup(indexmgrid);
-    }
-    ELSE
-    {
-      RECORD indexmgr := SELECT * FROM consilio.indexmanagers WHERE id = indexmgrid;
-      IF (NOT RecordExists(indexmgr) OR (NOT IsValidPlainHTTPUrl(indexmgr.address) AND indexmgr.address != "builtin-opensearch"))
-        THROW NEW Exception(SearchInvalidArgument);
-
-      indexmanager := [ address := indexmgr.address
-                      , browser := DEFAULT OBJECT
-                      , clusterstatus := ""
-                      ];
-
-      IF (indexmanager.address = "builtin-opensearch")
-        indexmanager.address := GetBuiltinOpensearchAddress();
-
-      // Make sure the address doesn't end with a slash
-      IF (indexmanager.address LIKE "*/")
-        indexmanager.address := Left(indexmanager.address, Length(indexmanager.address) - 1);
-    }
-    IF (NOT ObjectExists(indexmanager.browser))
-    {
-      indexmanager.browser := NEW WebBrowser();
-      indexmanager.browser->timeout := opensearch_read_timeout;
-    }
-
-    UpdateRequestDebugSetting(indexmanager.browser);
-    IF (indexmanager.clusterstatus NOT IN [ "yellow", "green" ])
-    {
-      FetcherDebug(ConsilioDebugInfo, "Connecting to Elasticsearch");
-      // Wait for the cluster to reach 'yellow' status
-      IF (NOT indexmanager.browser->SendRawRequest("GET", `${indexmanager.address}/_cluster/health?wait_for_status=yellow&timeout=${opensearch_read_timeout}ms`, [ [ field := "Content-Type", value := "application/json" ] ], DEFAULT BLOB))
-      {
-        INTEGER statuscode := indexmanager.browser->GetHTTPStatusCode();
-        IF (statuscode = 401)
-        {
-          FetcherDebug(ConsilioDebugInfo, `Authentication error while connecting to Elasticsearch ${indexmgrid} on ${indexmanager.address}`);
-          THROW NEW ElasticsearchException(SearchNoAccess, indexmanager.browser);
-        }
-
-        FetcherDebug(ConsilioDebugInfo, `Could not connect to Elasticsearch ${indexmgrid} on ${indexmanager.address}`);
-      }
-      ELSE
-      {
-        RECORD status := DecodeJSONBlob(indexmanager.browser->content);
-        indexmanager.clusterstatus := status.status;
-        indexmanagerconnections->Add(indexmgrid, indexmanager);
-        FetcherDebug(ConsilioDebugInfo, `Elasticsearch ${indexmgrid} cluster status: ${indexmanager.clusterstatus}`);
-      }
-    }
-    IF (indexmanager.clusterstatus IN [ "yellow", "green" ])
-    {
-      RETURN SearchOk;
-    }
-
-    // Wait before trying again
-    Sleep(1000);
-  }
-  THROW NEW Exception(SearchTimeOutError);
+  RETURN GetAdhocCached(CELL[indexmanager := id], PTR GetCacheableIndexMgrDescription(id));
 }
 
 PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING method, STRING suburl, RECORD requestbody, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -177,7 +110,7 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
                               [ enums := [ enforce := [ "", "_search_get" ] ]
                               ]);
 
-  //TODO remove this up when we trust our APIs well enough
+  //TODO remove this up when we trust our APIs well enough. Or better: use cached data so we can validate this without SQL overhead
   IF(ToUppercase(method) NOT IN ["HEAD","GET"])
   {
     STRING findindexname := suburl LIKE "/*" ? Tokenize(suburl,'/')[1] : suburl;
@@ -185,82 +118,84 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
     IF(Length(attachedindexinfo) = 1 AND attachedindexinfo[0].readonly)
       THROW NEW Exception(`Attempting to write to readonly index '${findindexname}': ${method} ${suburl}`);
   }
-
-  WaitForElasticsearch(indexmgrid, AddTimeToDate(options.firstconnect_timeout, GetCurrentDateTime()));
-
-  INTEGER statuscode;
-  RECORD indexmanager;
-  WHILE (TRUE) // Repeat until succesfully sent
+  ELSE IF(RecordExists(requestbody)) //we're assuming this will be a POST search. fetch() will not let us GET with a body
   {
-    // If WaitForElasticsearch returned SearchOk, the indexmanager is present in indexmanagerconnections
-    indexmanager := indexmanagerconnections->Lookup(indexmgrid);
-    IF (NOT ObjectExists(indexmanager.browser))
-    {
-      IF (running_in_fetcher AND print_defer_connection)
-        Print("Defer:connection\n");
-
-      THROW NEW ElasticsearchException("Connection failed", DEFAULT OBJECT);
-    }
-
-    STRING url := indexmanager.address || (suburl LIKE "/*" ? "" : "/") || suburl;
-    BLOB body;
-    IF (options.ndjson)
-    {
-      // For _bulk requests, convert the request records to NDJSON
-      body := StringToBlob(Detokenize((SELECT AS STRING ARRAY EncodeJSON(bulkrequests) FROM requestbody.bulkrequests), "\n") || "\n");
-    }
-    ELSE IF (RecordExists(requestbody))
-    {
-      // Other requests are just JSON-encoded
-      body := EncodeJSONBlob(requestbody);
-    }
-    RECORD ARRAY headers;
-    IF (Length(body) > 0)
-      INSERT [ field := "Content-Type", value := options.ndjson ? "application/x-ndjson" : "application/json" ] INTO headers AT END;
-
-    UpdateRequestDebugSetting(indexmanager.browser);
-    indexmanager.browser->timeout := options.timeout;
-    BOOLEAN success := indexmanager.browser->SendRawRequest(method, url, headers, body);
-
-    statuscode := indexmanager.browser->GetHTTPStatusCode();
-    IF (statuscode NOT IN options.expectstatus)
-    {
-      IF (indexmanager.browser->GetSocketError() = -9) // timeout
-      {
-        FetcherDebug(ConsilioDebugAll, "Connection probably timed out, trying to reconnect...");
-        WaitForElasticsearch(indexmgrid, AddTimeToDate(options.timeout, GetCurrentDateTime()));
-        FetcherDebug(ConsilioDebugAll, "Reconnected, trying request again");
-        // Don't break, try to send request again with new connection
-      }
-      ELSE
-      {
-        THROW NEW ElasticsearchException("Unexpected response code " || statuscode, indexmanager.browser);
-      }
-    }
-    ELSE
-    {
-      // Got 2xx response code, everything is alright
-      BREAK;
-    }
+    method := "POST";
   }
 
+  RECORD indexmanager := DescribeIndexManager(indexmgrid);
+  IF (indexmanager.address = "builtin-opensearch")
+    indexmanager.address := GetBuiltinOpensearchAddress();
+
+  STRING url := ResolveToAbsoluteURL(indexmanager.address, (suburl LIKE "/*" ? "" : "/") || suburl);
+
+  STRING body;
+  IF (options.ndjson)
+  {
+    // For _bulk requests, convert the request records to NDJSON
+    body := Detokenize((SELECT AS STRING ARRAY EncodeJSON(bulkrequests) FROM requestbody.bulkrequests), "\n") || "\n";
+  }
+  ELSE IF (RecordExists(requestbody))
+  {
+    // Other requests are just JSON-encoded
+    body := EncodeJSON(requestbody);
+  }
+
+  OBJECT response;
+  STRING text;
+  STRING cause := " on " || method || " " || url;
+
+  TRY
+  {
+    //FIXME   IF(IsDebugTagEnabled("consilio:traffic")) ..
+    RECORD fetchoptions := CELL[ headers := CELL[]
+                               , method
+                               ];
+
+    IF (Length(body) > 0)
+    {
+      INSERT CELL "Content-Type" := options.ndjson ? "application/x-ndjson" : "application/json" INTO fetchoptions.headers;
+      INSERT CELL body := body INTO fetchoptions;
+    }
+
+    IF(IsDebugTagEnabled("consilio:traffic")) //TODO prevent huge bodies from being submitted ?
+      LogDebug("consilio:traffic", "OUT: " || method || " " || url, fetchoptions);
+
+    response := FetchSync(url, fetchoptions, [ timeout := options.timeout ]);
+    text := response->text();
+
+    IF(IsDebugTagEnabled("consilio:traffic")) //TODO prevent huge bodies from being submitted ?
+      LogDebug("consilio:traffic", "IN: " || method || " " || url, CELL[response->status, text]);
+  }
+  CATCH(OBJECT e)
+  {
+    IF (running_in_fetcher AND print_defer_connection)
+      Print("Defer:connection\n");
+
+    THROW NEW SearchUnavailableException(`Search unavailable (${e->what}) ${cause}`);
+  }
+
+  IF (response->status NOT IN options.expectstatus)
+    IF(response->status IN [502,503]) //still starting up
+      THROW NEW SearchUnavailableException(`Search unavailable, status code ${response->status} ${cause}`);
+    ELSE
+      THROW NEW ElasticsearchException(`Unexpected response code ${response->status} ${cause}`, response, text);
+
   VARIANT decoded := DEFAULT RECORD;
-  IF (ToLowercase(indexmanager.browser->contenttype) LIKE "application/json*")
+  IF (response->headers->Get("Content-Type") LIKE "application/json*")
   {
     IF (options.enforce != "")
-      decoded := DecodeIncomingJSON(indexmanager.browser->content, options.enforce, CELL[ options.explain ]);
+      decoded := DecodeIncomingJSON(response->text(), options.enforce, CELL[ options.explain ]);
     ELSE
-      decoded := DecodeJSONBlob(indexmanager.browser->content);
+      decoded := response->json();
   }
 
   RETURN
-      [ status  := statuscode = 404 ? SearchIndexNotFound
-                 : statuscode = 401 ? SearchNoAccess
-                 : statuscode < 200 OR statuscode > 299 ? SearchHTTPError
+      [ status  := response->status = 404 ? SearchIndexNotFound
+                 : response->status = 401 ? SearchNoAccess
+                 : response->status < 200 OR response->status > 299 ? SearchHTTPError
                  : SearchOk
-      , code    := indexmanager.browser->GetSocketError() ?? statuscode
-      , content := indexmanager.browser->content
-      , headers := indexmanager.browser->responseheaders
+      , code    := response->status
       , result  := decoded
       ];
 }
@@ -1368,9 +1303,9 @@ MONEY FUNCTION ReadMoneyValue(STRING value)
   RETURN __HS_SetRawMoney(ToInteger64(value, 0));
 }
 
-RECORD FUNCTION DecodeIncomingJSON(BLOB content, STRING type, RECORD options)
+RECORD FUNCTION DecodeIncomingJSON(STRING content, STRING type, RECORD options)
 {
-  RECORD decoded := DecodeJSONBlob(content, DEFAULT RECORD, [ alltostring := TRUE ]);
+  RECORD decoded := DecodeJSON(content, DEFAULT RECORD, [ alltostring := TRUE ]);
   SWITCH (type)
   {
     CASE "_search_get"

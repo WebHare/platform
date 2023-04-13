@@ -1,5 +1,5 @@
 <?wh
-//bootstrap the first index manager
+//bootstrap the first index manager, wait for it to come online and apply the first index settings
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
@@ -33,33 +33,16 @@ IF(builtin_indexmanager != 0) //old name, we need to update it. can go away past
 }
 
 builtin_indexmanager := SELECT AS INTEGER id FROM consilio.indexmanagers WHERE address = "builtin-opensearch";
-IF(builtin_indexmanager != 0)
-  RETURN; //we already have one
-
-LogStartup("There is no local OpenSearch yet, need to create one");
-
-trans->BeginWork();
-builtin_indexmanager := MakeAutonumber(consilio.indexmanagers,"id");
-LogStartup("Creating OpenSearch");
-INSERT INTO consilio.indexmanagers(id, name, address)
-     VALUES (builtin_indexmanager, "Builtin OpenSearch", "builtin-opensearch");
-
-GetPrimary()->BroadcastOnCommit("system:apprunner.internal.rescan", DEFAULT RECORD);
-trans->CommitWork();
-
-LogStartup("Waiting for OpenSearch to come online");
-
-STRING status := WaitForElasticsearch(builtin_indexmanager, MAX_DATETIME);
-IF (status != SearchOk)
+IF(builtin_indexmanager = 0)
 {
-  LogStartup(`Got status '${status}' while trying to connect to newly created index manager ${builtin_indexmanager}`);
-  Print(`Got status '${status}' while trying to connect to newly created index manager ${builtin_indexmanager}\n`);
-  RETURN;
+  LogStartup("There is no local OpenSearch yet, need to create one");
+
+  trans->BeginWork();
+  builtin_indexmanager := MakeAutonumber(consilio.indexmanagers,"id");
+  LogStartup("Creating OpenSearch");
+  INSERT INTO consilio.indexmanagers(id, name, address)
+       VALUES (builtin_indexmanager, "Builtin OpenSearch", "builtin-opensearch");
+
+  GetPrimary()->BroadcastOnCommit("system:apprunner.internal.rescan", DEFAULT RECORD);
+  trans->CommitWork();
 }
-
-LogStartup("Autocreated OpenSearch is online");
-
-FixConsilioIndices();
-
-LogStartup("Autocreated OpenSearch is configured");
-

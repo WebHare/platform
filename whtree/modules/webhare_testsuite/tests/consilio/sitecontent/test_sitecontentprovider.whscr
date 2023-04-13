@@ -62,6 +62,7 @@ MACRO ConsilioTest()
   testfw->CommitWork();
 
   testfw->WaitForPublishCompletion(siteroot->id);
+  catalog_1->WaitReady(MAX_DATETIME);
   WHILE(RunConsilioSearch("consilio:testfw_frontend_1", CQAll(), [refresh := TRUE ]).totalcount < 5)
     Sleep(50);
   Print(`.. consilio:testfw_frontend_1 reached expected length >= 5\n`);

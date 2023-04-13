@@ -15,6 +15,7 @@ LOADLIB "mod::consilio/lib/internal/stats.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 
 RECORD testindex, testindex_suffixed;
 RECORD builtin_opensearch;
@@ -117,6 +118,7 @@ MACRO PrepareIndices()
 MACRO TestInitialAttachment()
 {
   OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex");
+  TestEq(FALSE, catalog->managed);
   TestEq(FALSE, catalog->IsReadyForStorage(), "Can't be ready, no attached indices");
 
   testfw->BeginWork();
@@ -134,10 +136,10 @@ MACRO TestInitialAttachment()
 
   catalog->AttachIndex(builtin_opensearch.id, [ readonly := TRUE ]);
   Print(catalog->GetStorageInfo() || "\n");
-  TestEq(FALSE, catalog->IsReadyForStorage(), "An unsuffixed index is not ready until attachment are commited");
+  TestEq(FALSE, catalog->WaitReady(DEFAULT DATETIME), "An unsuffixed index can't be ready before attachments are commited");
   testfw->CommitWork();
 
-  TestEq(TRUE, catalog->IsReadyForStorage(), "Has to be ready, CommitWork after AttachIndex synchronously applies the configuration");
+  TestEq(TRUE, catalog->WaitReady(MAX_DATETIME));
 }
 
 MACRO TestMappingUpdates()
@@ -159,11 +161,12 @@ MACRO TestMappingUpdates()
   RECORD ARRAY diff := VerifyOpensearchMapping(testindex.indexmanager, testindex.indexname, "", catalog->GetExpectedMapping());
   TestEq(["missing"], GetSortedSet(SELECT AS STRING ARRAY issue FROM diff));
   TestEq(["no","no.such","no.such.field","no.such.field.yet","nosuchfieldyet_extra","nosuchfieldyet_extra2"], GetSortedSet(SELECT AS STRING ARRAY field FROM diff WHERE issue = "missing"));
-
   testfw->CommitWork();
 
   TestEq("added nosuchfieldyet", OpenConsilioCatalog(catalog->tag)->title);
   TestEq(2, OpenConsilioCatalog(catalog->tag)->priority);
+
+  TestEq(TRUE, catalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE ]));
 
   //After commit, the catalogchange should be applied and no issues should remain
   diff := VerifyOpensearchMapping(testindex.indexmanager, testindex.indexname, "", catalog->GetExpectedMapping());
@@ -226,18 +229,20 @@ MACRO TestMappingUpdates()
 
   //Make sure that we won't crash create a mapping for the ignored fields. Recreate the index
   SendRawJSONToElasticsearch(testindex.indexmanager, "DELETE", `/${testindex.indexname}*`, DEFAULT RECORD);
-  TestEq(FALSE, catalog->IsReadyForStorage(), "With the index gone, we're no longer ready");
+  TestEq(FALSE, catalog->WaitReady(DEFAULT DATETIME, [forstorage := TRUE ]), "With the index gone, we're no longer ready");
   catalog->ApplyConfiguration();
-  TestEq(TRUE, catalog->IsReadyForStorage(), "ApplyConfiguration should have fixed it");
+  TestEq(TRUE, catalog->WaitReady(DEFAULT DATETIME, [forstorage := TRUE ]), "ApplyConfiguration should have fixed it");
 
   //Test direct conflicts
   testfw->BeginWork();
   catalog->UpdateCatalog(CELL[ fieldgroups := [ "webhare_testsuite:conflicttest_blue" ] ]);
   testfw->CommitWork();
+  TestEq(TRUE, catalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE ]));
 
   testfw->BeginWork();
   catalog->UpdateCatalog(CELL[ fieldgroups := [ "webhare_testsuite:conflicttest_red" ] ]);
   testfw->CommitWork();
+  TestEq(TRUE, catalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE ]));
 
   diff := VerifyOpensearchMapping(testindex.indexmanager, testindex.indexname, "", catalog->GetExpectedMapping());
   TestEq(["parammismatch", "superfluous","typemismatch"], GetSortedSet(SELECT AS STRING ARRAY issue FROM diff));
@@ -248,6 +253,7 @@ MACRO TestMappingUpdates()
   testfw->BeginWork();
   catalog->UpdateCatalog(CELL[ fieldgroups := [ "webhare_testsuite:testindexfields" ] ]);
   testfw->CommitWork();
+  TestEq(TRUE, catalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE ]));
 }
 
 MACRO TestESCreationAPIs()
@@ -269,10 +275,10 @@ MACRO TestESCreationAPIs()
   TestThrowsLike("*Invalid*indexname*", PTR catalog->AttachIndex(mock_external_index, [ indexname := testindex.indexname || "-u" ]));
   catalog->AttachIndex(mock_external_index, [ indexname := "dummyname", readonly := TRUE ]);
 
-  TestEq(TRUE, catalog->IsReadyForStorage(), "Should appear ready, readonly indices not relevant");
+  TestEq(TRUE, catalog->WaitReady(DEFAULT DATETIME, [ forstorage := TRUE ]), "Should appear ready, readonly indices not relevant");
 
   catalog->AttachIndex(mock_external_index, [ indexname := "dummyname2", readonly := FALSE ]);
-  TestEq(FALSE, catalog->IsReadyForStorage(), "Can't be ready, not commited");
+  TestEq(FALSE, catalog->WaitReady(DEFAULT DATETIME, [ forstorage := TRUE ]), "Can't be ready, not commited");
 
   testfw->RollbackWork();
 
@@ -318,10 +324,11 @@ MACRO TestESCreationAPIs()
   catalog->AttachIndex(0);
   catalog->AttachIndex(0, [ readonly := TRUE ]);
   Print(catalog->GetStorageInfo() || "\n");
-  TestEq(TRUE, catalog->IsReadyForStorage(), "A suffixed index will create the indices on demand, so ready for storage as long as we're attached");
+  TestEq(TRUE, catalog->WaitReady(DEFAULT DATETIME, [ forstorage := TRUE ]), "A suffixed index will create the indices on demand, so ready for storage as long as we're attached");
   testindex_suffixed := catalog->ListAttachedIndices()[0];
   catalog->UpdateCatalog(CELL[ fieldgroups := [ "webhare_testsuite:testindexfields" ] ]);
   testfw->CommitWork();
+  TestEq(TRUE, catalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE ]));
 
   catalog->ApplyConfiguration([ suffixes := ["suffix2","suffix"]]);
   TestEq(RECORD[[ suffix := "suffix" ], [ suffix := "suffix2" ]], SELECT * FROM catalog->ListSuffixes() ORDER BY suffix);
@@ -353,6 +360,7 @@ MACRO TestESCreationAPIs()
   testfw->BeginWork();
   catalog->AttachIndex(0);
   testfw->CommitWork();
+  TestEq(TRUE, catalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE ]));
 
   indices := GetIndexManagerIndexList(testindex.indexmanager);
   TestAssert(IsValueSet(SELECT * FROM indices WHERE indexid = catalog->id));
@@ -759,13 +767,16 @@ MACRO TestESLangFeatures()
   TestEq(0, res.totalcount);
 
   // Change the language
+  writelogmarker("change the language");
   testfw->BeginWork();
   catalog->UpdateCatalog([ lang := "en" ]);
   TestEq("en", catalog->lang);
-  TestThrowsLike("*must commit*", PTR catalog->AddObjects([ doc ], [ synchronous := TRUE ]));
   testfw->CommitWork();
 
   // Reindex the document (an unmanaged index isn't rebuilt automatically)
+  writelogmarker("wait for ready");
+  TestEq(TRUE, catalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE, forstorage := TRUE ]));
+  writelogmarker("ready");
   catalog->AddObjects([ doc ], [ synchronous := TRUE ]);
 
   // The document can no longer be found using Dutch stemming
@@ -779,6 +790,7 @@ MACRO TestESLangFeatures()
   testfw->BeginWork();
   catalog->UpdateCatalog([ lang := "nl" ]);
   testfw->CommitWork();
+  TestEq(TRUE, catalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE, forstorage := TRUE ]));
 
   // Verify multiple languages don't cause unneeded close/reopens
   __did_opensearch_close_and_reopen := FALSE;

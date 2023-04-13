@@ -19,6 +19,9 @@ wh consilio:opensearch_curl '/_cat/indices?v'
 # Get field mapping for an index
 wh consilio:opensearch_curl '/<indexname>/_mapping?pretty=true'
 
+# Raw search
+wh consilio:opensearch_curl -XPOST -H'Content-Type: application/json' -d'<query>' '/<indexname>/_search'
+
 # Delete all indices starting with myprefix__
 wh consilio:opensearch_curl -XDELETE '/myprefix__*'
 
@@ -69,3 +72,9 @@ docker run -p 127.0.0.1:5601:5601\
 Update the environment variables and version number as needed.
 
 The OpenSearch Dashboard docker will say something like `Server running at http://127.0.0.1:5601`, which is the url to use to open the Dashboard
+
+## Index manipulation
+```
+# close an index
+wh consilio:opensearch_curl -XPOST '/<indexname>/_close'
+```

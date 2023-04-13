@@ -11,37 +11,19 @@ LOADLIB "mod::system/lib/tasks.whlib";
 STATIC OBJECTTYPE ConsilioFinishHandler EXTEND TransactionFinishHandlerBase
 <
   BOOLEAN mustcleanupindices;
-  RECORD ARRAY reconfigurecatalogs;
+  BOOLEAN mustreconfigurecatalogs;
   MACRO PTR ARRAY execoncommit;
 
   UPDATE PUBLIC MACRO OnPreCommit(OBJECT transaction)
   {
     IF(this->mustcleanupindices)
       ScheduleTimedTask("consilio:cleanupindices"); //remove stale indices ASAP
+    IF(this->mustreconfigurecatalogs)
+      ScheduleTimedTask("consilio:update");
   }
 
   UPDATE PUBLIC MACRO OnCommit()
   {
-    FOREVERY(RECORD rec FROM this->reconfigurecatalogs)
-    {
-      OBJECT catalog;
-      TRY
-      {
-        //Let's make sure we have the most recent view
-        //catalog := OpenConsilioCatalogById(rec.id);
-        catalog := MakeFunctionPtr("mod::consilio/lib/catalogs.whlib#OpenConsilioCatalogById")(rec.id); //TODO maybe we should merge with catalogs.whlib ?
-        IF(NOT ObjectExists(catalog))
-          CONTINUE; //already got deleted, either here or in parallel
-
-        catalog->ApplyConfiguration();
-      }
-      CATCH(OBJECT e)
-      {
-        LogHarescriptException(e);
-        LogError("consilio:applyconfiguration", `ApplyConfiguration failed for '${rec.id}': ${e->what}`, [ catalogid := rec.id, catalog := rec.tag, error := e->what ]);
-      }
-    }
-
     FOREVERY(MACRO PTR todo FROM this->execoncommit)
       todo();
   }
@@ -57,24 +39,15 @@ STATIC OBJECTTYPE ConsilioFinishHandler EXTEND TransactionFinishHandlerBase
     this->mustcleanupindices := TRUE;
   }
 
-  /** Returns whether reconfiguration is requested for a catalog
-      @param catalogid ID of catalog to check
-      @return TRUE if reconfiguration was requested for this catalog
-  */
-  PUBLIC BOOLEAN FUNCTION HasPendingUpdates(INTEGER catalogid)
+  /// Schedule task consilio:update
+  PUBLIC MACRO ScheduleUpdate()
   {
-    RECORD pos := RecordLowerBound(this->reconfigurecatalogs, CELL[ id := catalogid ], [ "ID" ]);
-    RETURN pos.found;
+    this->mustreconfigurecatalogs := TRUE;
   }
 
-  /** Request reconfiguration for a catalog
-      @param catalog Catalog to reconfigure
-  */
-  PUBLIC MACRO RequestReconfigureCatalog(OBJECT catalog)
+  PUBLIC MACRO UndoScheduleUpdate()
   {
-    RECORD pos := RecordLowerBound(this->reconfigurecatalogs, CELL[ catalog->id ], [ "ID" ]);
-    IF (NOT pos.found)
-      INSERT CELL[ catalog->id, catalog->tag ] INTO this->reconfigurecatalogs AT pos.position;
+    this->mustreconfigurecatalogs := FALSE;
   }
 
   /** Request reindexing a content source
@@ -95,4 +68,11 @@ PUBLIC OBJECT FUNCTION GetConsilioFinishHandler(BOOLEAN create DEFAULTSTO TRUE)
     GetPrimary()->SetFinishHandler("consilio:finish", handler);
   }
   RETURN handler;
+}
+
+PUBLIC MACRO UndoScheduleUpdate()
+{
+  OBJECT handler := GetConsilioFinishHandler(FALSE);
+  IF(ObjectExists(handler))
+    handler->UndoScheduleUpdate();
 }

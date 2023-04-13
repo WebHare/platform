@@ -21,6 +21,7 @@
     <task runat="17 */8 * * *" script="scripts/tasks/executelinkcheck.whscr" tag="linkchecker" description="Check links on indexed pages" />  <!-- even though the script self-schedules, we should regularly retry it if it crashed -->
     <task runat="27   3 * * *" runtz="maintenance" script="scripts/tasks/executemaintenance.whscr" tag="maintenance_task" description="Consilio maintenance task" />
     <task runat=" 6   3 * * *" runtz="maintenance" script="scripts/tasks/cleanupindices.whscr" tag="cleanupindices" description="Verify and cleanup indices" />
+    <task tag="update" script="scripts/whcommands/update.whscr" description="Update indices" runatstartup="true" />
   </servicemanager>
 
   <services>

@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/catalogs.whlib";
@@ -104,10 +105,12 @@ MACRO TestOpeningExternalIndex()
   TestIndexConfiguration(FALSE, testcatalog);
   testcatalog->DetachIndex(newattachment);
 
-  //Normal AttachIndex immediately applies our configuration
+  //Normal AttachIndex will schedule an update of our configuration
   testcatalog->AttachIndex(builtin_opensearch.id, [ indexname := updateindexname, readonly := FALSE ]);
   TestIndexConfiguration(FALSE, testcatalog);
   testfw->CommitWork();
+
+  TestEq(TRUE, testcatalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE]));
 
   TestIndexConfiguration(TRUE, testcatalog);
   testcatalog->AddObjects([[ objectid := "x123", documentfields := [ myfield1 := "hi this is a test" ]]]);

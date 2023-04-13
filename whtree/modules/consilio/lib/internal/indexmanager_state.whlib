@@ -3,9 +3,6 @@
 LOADLIB "wh::util/algorithms.whlib";
 
 
-/// Indexmanager connections, mapping from indexmanager id to [ (STRING)address, (STRING)prefix, (OBJECT)browser ] records
-PUBLIC OBJECT indexmanagerconnections := NEW ValueMapper();
-
 /// Are we running within a fetcher?
 PUBLIC BOOLEAN running_in_fetcher;
 /// Are we allowed to print Defer: Connection?

@@ -1,4 +1,5 @@
 <?wh
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
@@ -15,13 +16,15 @@ MACRO TestHTMLIndexing()
   // First page has robots "index, follow" -> both pages should be indexed
   testfw->BeginWork();
   OBJECT catalog := CreateConsilioCatalog("consilio:testfw_robots", [ priority := 9 ]);
-  Print(catalog->GetStorageInfo() || "\n");
+  TestEq(TRUE, catalog->managed);
 
   OBJECT siteroot := GetTestsuiteTempFolder();
   OBJECT newsource := catalog->AddFolderToCatalog(siteroot->id, [ enabled := FALSE ]); //disable it so we can manually control the frontend (and can avoid WaitIndexDone etc) without risking conflicting/duplicate index actions
   OBJECT testfile := siteroot->CreateFile([ name := "robottest", typens := "http://www.webhare.net/xmlns/webhare_testsuite/consilio/robottest", publish := TRUE]);
 
   testfw->CommitWork();
+  Print(catalog->GetStorageInfo() || "\n");
+  TestEq(TRUE, catalog->WaitReady(MAX_DATETIME, [ forstorage := TRUE, debug := TRUE ]));
 
   IF (testfw->debug)
     Print(testfile->url || "\n");

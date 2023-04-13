@@ -68,23 +68,20 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
 
   FetcherDebug(ConsilioDebugInfo, "Processing " || GetCommandFromQueueData(data));
 
-  IF (data.indexid != 0)
-  {
-    RECORD catalog :=
-        SELECT catalogs.id
-             , catalog_indexmanagers.indexmanager
-             , catalogs.type
-          FROM consilio.catalogs
-             , consilio.catalog_indexmanagers
-         WHERE catalogs.id = data.indexid
-               AND catalog_indexmanagers.catalogid = catalogs.id;
+  RECORD catalogdata :=
+      SELECT catalogs.id
+           , catalog_indexmanagers.indexmanager
+           , catalogs.type
+        FROM consilio.catalogs
+           , consilio.catalog_indexmanagers
+       WHERE catalogs.id = data.indexid
+             AND catalog_indexmanagers.catalogid = catalogs.id;
 
-    IF (NOT RecordExists(catalog))
-      RETURN result; // Index gone, nothing to do
+  IF (NOT RecordExists(catalogdata))
+    RETURN result; // Index gone, nothing to do
 
-    IF (catalog.type = whconstant_consilio_catalogtype_unmanaged)
-      RETURN result; // Unmanaged index, nothing to do
-  }
+  IF (catalogdata.type = whconstant_consilio_catalogtype_unmanaged)
+    RETURN result; // Unmanaged index, nothing to do
 
   IF (data.contentsourceid = 0)
   {
@@ -93,7 +90,7 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
        SET status := contentsourcestatus_rebuilding
          , last_indexed := VAR data.commanddate
      WHERE status >= contentsourcestatus_idle
-           AND (VAR data.indexid = 0 ? TRUE : catalogid = VAR data.indexid)
+           AND catalogid = VAR data.indexid
            AND contentsources.tag NOT LIKE "$consilio$deleted$*";
 
     GetPrimary()->CommitWork();
@@ -120,8 +117,7 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
     }
 
     // When rebuilding an index, clean out all documents from removed contentsources
-    IF (data.indexid != 0)
-      RemoveUnknownContentSourceObjects(data.indexid, SELECT AS INTEGER ARRAY id FROM sources);
+    RemoveUnknownContentSourceObjects(data.indexid, SELECT AS INTEGER ARRAY id FROM sources);
 
     result.tocheck_sources := sources;
     RETURN result;
@@ -170,7 +166,13 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
 
   FetcherDebug(ConsilioDebugInfo, "Checking content source " || source.id || " in index " || data.indexid, source.loglevel);
 
-  // Update status for single content source checks
+  OBJECT catalog := OpenConsilioCatalogById(data.indexid);
+  IF(NOT ObjectExists(catalog))
+    RETURN CELL [ ...result, error := [ message := `Catalog #${data.indexid} no longer exists`, level := 1] ];
+
+  catalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE, forstorage := TRUE ]);  //TODO timeout? ideally we wouldn't even be queued, or we would be requeued later when the index is available
+
+  // Update status for single content source checks (TODO shouldn't whoever triggered CheckIndex not have set contentsourcestatus_rebuilding to ensure it will actually take place ?)
   {
     GetPrimary()->BeginWork();
 
@@ -226,7 +228,7 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
       , dontdelete := TRUE
       ];
 
-    // Get all existing groups, then remove all the ones that are not returned.
+  // Get all existing groups, then remove all the ones that are not returned.
   RECORD ARRAY existing_groups :=
       SELECT id
            , referenced := FALSE
@@ -875,6 +877,8 @@ PUBLIC RECORD FUNCTION CleanupIndex(RECORD data, RECORD options DEFAULTSTO DEFAU
     RETURN result;
   }
 
+  OpenConsilioCatalogById(data.indexid)->WaitReady(MAX_DATETIME, [ forstorage := TRUE ]);
+
   // Make sure all modifications are visible after cleanup
   RefreshAttachedIndices(data.indexid);
 
@@ -1046,7 +1050,7 @@ RECORD ARRAY FUNCTION GetContentSourcesWithGroup(INTEGER indexid, STRING groupid
   FOREVERY (RECORD indexmanager FROM indexmanagers)
   {
     // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
-    RECORD result := QueryIndexManager(indexid, CQAnd(queries), [ count := fetcher_search_window, mapping := [ _contentsource := 0 ], managedonly := TRUE, indexmanager := indexmanager.id ]);
+    RECORD result := QueryIndexManager(indexid, CQAnd(queries), [ count := fetcher_search_window, mapping := [ _contentsource := 0 ], managedonly := TRUE, indexmanager := indexmanager.id, acceptmissingindex := TRUE  ]);
     IF (result.totalcount > fetcher_search_window)
       result := QueryIndexManager(indexid, CQAnd(queries), [ count := -1, mapping := [ _contentsource := 0 ], managedonly := TRUE, indexmanager := indexmanager.id ]);
 
@@ -1168,7 +1172,7 @@ RECORD ARRAY FUNCTION GetExistingContentSourceGroups(INTEGER contentsourceid)
   FOREVERY (RECORD indexmanager FROM GetIndexManagersForIndex(indexid))
   {
     // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
-    RECORD result := QueryIndexManager(indexid, query, [ count := fetcher_search_window, mapping := [ groupid := "" ], indexmanager := indexmanager.id ]);
+    RECORD result := QueryIndexManager(indexid, query, [ count := fetcher_search_window, mapping := [ groupid := "" ], indexmanager := indexmanager.id, acceptmissingindex := TRUE ]);
     IF (result.totalcount > fetcher_search_window)
       result := QueryIndexManager(indexid, query, [ count := -1, mapping := [ groupid := "" ], indexmanager := indexmanager.id ]);
 
@@ -1220,7 +1224,7 @@ RECORD ARRAY FUNCTION GetExistingGroupObjects(INTEGER contentsourceid, STRING gr
   FOREVERY (RECORD indexmanager FROM indexmanagers)
   {
     // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
-    RECORD result := QueryIndexManager(indexid, CQAnd(queries), [ count := fetcher_search_window, mapping := mapping, indexmanager := indexmanager.id ]);
+    RECORD result := QueryIndexManager(indexid, CQAnd(queries), [ count := fetcher_search_window, mapping := mapping, indexmanager := indexmanager.id, acceptmissingindex := TRUE ]);
     IF (result.totalcount > fetcher_search_window)
       result := QueryIndexManager(indexid, CQAnd(queries), [ count := -1, mapping := mapping, indexmanager := indexmanager.id ]);
 
@@ -1261,7 +1265,7 @@ MACRO RemoveUnknownContentSourceObjects(INTEGER indexid, INTEGER ARRAY validcont
   FOREVERY (RECORD indexmanager FROM GetIndexManagersForIndex(indexid))
   {
     // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
-    RECORD result := QueryIndexManager(indexid, query, [ count := fetcher_search_window, mapping := [ _contentsource := 0 ] ]);
+    RECORD result := QueryIndexManager(indexid, query, [ count := fetcher_search_window, mapping := [ _contentsource := 0 ], acceptmissingindex := TRUE ]);
     IF (result.totalcount > fetcher_search_window)
       result := QueryIndexManager(indexid, query, [ count := -1, mapping := [ _contentsource := 0 ] ]);
 

@@ -10,13 +10,13 @@ LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
-LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/embedvideo.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/webtools/poll.whlib";
 
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
@@ -372,6 +372,9 @@ IF(alttestsitehost != "")
         ]);
 }
 
+//recreate catalogs for our testsite subfolders
+ScheduleTimedTask("consilio:update");
+
 trans->CommitWork();
 
 IF(ObjectExists(alttestsite))
@@ -395,7 +398,3 @@ IF(ObjectExists(alttestsite))
 
 IF(RecordExists(PollWHServiceState("poststartdone"))) //we've already started webhare, so this was not the first runonce
   Runtestframework(MACRO PTR[]); //cleanup any pending testframework state
-
-//recreate catalogs for our testsite subfolders
-LogDebug("webhare_testsuite:reset", "Fixing consilio indices");
-FixConsilioIndices();

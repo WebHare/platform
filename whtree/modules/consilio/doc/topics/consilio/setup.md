@@ -78,9 +78,8 @@ To set up an unmanaged catalog, specify the `managed="false"` attribute to the
 to partition the data into multiple indices (with the same base name but a
 different suffix).
 
-An unmanaged catalog does not automatically create its indices. To create an
-the indices on the index manager, use the Consilio Catalogs app or the
-catalogs.whlib API:
+An unmanaged catalog does not automatically attach indices. To attach indices on
+the index manager, use the Consilio Catalogs app or the catalogs.whlib API:
 
 ```harescript
 OBJECT catalog := OpenConsilioCatalog("mymodule:myindex");
@@ -88,7 +87,8 @@ IF(Length(catalog->ListAttachedIndices()) = 0) // nothing configured yet?
   catalog->AttachIndex(0); // attach to default builtin indexmanager
 ```
 
-The indices aren't actually created until you've committed the current transaction.
+The indices aren't actually created until you've committed the current transaction
+and waited for reconfiguration.
 
 ## Legacy catalogs
 Legacy catalogs may not follow the `module:tag` naming convention. We recommend
