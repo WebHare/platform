@@ -146,7 +146,7 @@ class Work {
     if (!this.open)
       throw new Error(`Work is already closed`);
 
-    const tag = options?.uniqueTag ?? Symbol();
+    const tag = options?.uniqueTag ?? Symbol("whdbUntaggedFinishHandler");
     let registeredhandler = this.finishhandlers.get(tag);
     if (!registeredhandler) {
       registeredhandler = typeof handler === "function" ? handler() : handler;
