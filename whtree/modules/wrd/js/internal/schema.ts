@@ -158,6 +158,10 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
     return new WRDSingleQueryBuilder(this.#type, this.#selects, [...this.#wheres, { field, condition, value }], this.#historymode);
   }
 
+  $call<TO extends RecordOutputMap<S[T]> | null>(cb: (b: WRDSingleQueryBuilder<S, T, O>) => WRDSingleQueryBuilder<S, T, TO>): WRDSingleQueryBuilder<S, T, TO> {
+    return cb(this);
+  }
+
   historyMode(mode: "now" | "all" | "__getfields"): WRDSingleQueryBuilder<S, T, O>;
   historyMode(mode: "at", when: Date): WRDSingleQueryBuilder<S, T, O>;
   historyMode(mode: "range", start: Date, limit: Date): WRDSingleQueryBuilder<S, T, O>;
