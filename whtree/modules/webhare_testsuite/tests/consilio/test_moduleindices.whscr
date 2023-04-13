@@ -229,7 +229,7 @@ MACRO TestMappingUpdates()
 
   //Make sure that we won't crash create a mapping for the ignored fields. Recreate the index
   SendRawJSONToElasticsearch(testindex.indexmanager, "DELETE", `/${testindex.indexname}*`, DEFAULT RECORD);
-  TestEq(FALSE, catalog->WaitReady(DEFAULT DATETIME, [forstorage := FALSE ]), "With the index gone, we're no longer ready");
+  TestEq(FALSE, catalog->WaitReady(DEFAULT DATETIME, [forstorage := TRUE ]), "With the index gone, we're no longer ready");
   catalog->ApplyConfiguration();
   TestEq(TRUE, catalog->WaitReady(DEFAULT DATETIME, [forstorage := TRUE ]), "ApplyConfiguration should have fixed it");
 

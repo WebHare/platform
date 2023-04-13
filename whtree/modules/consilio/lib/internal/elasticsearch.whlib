@@ -118,7 +118,7 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
     IF(Length(attachedindexinfo) = 1 AND attachedindexinfo[0].readonly)
       THROW NEW Exception(`Attempting to write to readonly index '${findindexname}': ${method} ${suburl}`);
   }
-  ELSE IF(RecordExists(requestbody)) //we're assuming this will be a GET search. fetch() will not let us GET with a body
+  ELSE IF(RecordExists(requestbody)) //we're assuming this will be a POST search. fetch() will not let us GET with a body
   {
     method := "POST";
   }
