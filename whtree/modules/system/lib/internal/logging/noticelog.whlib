@@ -127,6 +127,25 @@ PUBLIC RECORD ARRAY FUNCTION GetNoticeErrors(RECORD options DEFAULTSTO DEFAULT R
   RETURN allerrors;
 }
 
+RECORD FUNCTION ParseErrorCause(RECORD cause)
+{
+  cause := EnforceStructure(
+    [ trace :=
+        [ [ filename := ""
+          , line := 0
+          , col := 0
+          , functionname := ""
+          ]
+        ]
+    , error := ""
+    , cause := DEFAULT RECORD
+    ], cause);
+  cause.trace := SELECT *, func := functionname FROM cause.trace;
+  IF (RecordExists(cause.cause))
+    cause.cause := ParseErrorCause(cause.cause);
+  RETURN cause;
+}
+
 PUBLIC RECORD FUNCTION AnalyzeJavascriptNoticeLogEntry(RECORD javascriptmsg)
 {
   STRING errormsg := javascriptmsg.error;
@@ -299,5 +318,6 @@ PUBLIC RECORD FUNCTION AnalyzeJavascriptNoticeLogEntry(RECORD javascriptmsg)
       , errors :=     errors
       , trace :=      trace
       , warnings :=   DEFAULT RECORD ARRAY
+      , cause :=      CellExists(javascriptmsg, "cause") ? ParseErrorCause(javascriptmsg.cause) : DEFAULT RECORD
       ];
 }
