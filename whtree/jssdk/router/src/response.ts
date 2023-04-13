@@ -54,7 +54,7 @@ export type HTTPStatusCode = HTTPErrorCode | HTTPSuccessCode;
 
 export class WebResponse {
   private _status: HTTPStatusCode;
-  private _body = '';
+  private _bodybuffer: ArrayBuffer | null = null;
   private _headers: Headers;
   private _trace: string | undefined;
 
@@ -70,8 +70,27 @@ export class WebResponse {
     return this._status;
   }
 
+  /* TODO if body() returns - it should be a ReadableStream!
   get body() {
-    return this._body;
+    return this._bodystring;
+  }*/
+
+  /** Get the body as an arraybuffer */
+  async arrayBuffer(): Promise<ArrayBuffer> {
+    if (this._bodybuffer)
+      return this._bodybuffer;
+    return new ArrayBuffer(0);
+  }
+
+  /** Get the body as a JavaScript string */
+  async text(): Promise<string> {
+    return new TextDecoder().decode(await this.arrayBuffer());
+  }
+
+  /** Parse the body as JSON */
+  async json(): Promise<unknown> {
+    //FIXME validate content type?
+    return JSON.parse(await this.text());
   }
 
   get trace() {
@@ -79,8 +98,11 @@ export class WebResponse {
   }
 
   /** Set the body */
-  setBody(text: string) {
-    this._body = text;
+  setBody(text: string | ArrayBuffer) {
+    if (text instanceof ArrayBuffer)
+      this._bodybuffer = text;
+    else
+      this._bodybuffer = new TextEncoder().encode(text).buffer;
   }
 
   getHeader(header: string): string | null {

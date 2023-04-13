@@ -211,7 +211,7 @@ export class RestAPI {
         }
         if (responseschema) {
           const validator = this.#getValidator(responseschema);
-          if (!validator(JSON.parse(response.body))) {
+          if (!validator(await response.json())) {
             throw new Error(`Validation of the response (code ${response.status}) for ${JSON.stringify(`${req.method} ${relurl}`)} returned error: ${validator.errors?.[0]?.message || `Invalid request body`}`);
           }
         }

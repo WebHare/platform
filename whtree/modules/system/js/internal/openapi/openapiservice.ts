@@ -21,7 +21,7 @@ export class RestService {
     //WebRequestInfo is an internal type used by openapiservice.shtml until we can be directly connected to the WebHareRouter
     const webreq = new WebRequest(req.url, { method: req.method, headers: req.headers, body: req.body });
     const response = await this.#runRestRouter(webreq, relurl);
-    return { status: response.status, headers: Object.fromEntries(response.getHeaders()), body: response.body };
+    return { status: response.status, headers: Object.fromEntries(response.getHeaders()), body: await response.text() };
   }
 
   async #handleMetaPage(req: WebRequest, relurl: string): Promise<WebResponse> {
@@ -84,7 +84,7 @@ export class RestService {
     if (env.flags.openapi) {
       services.log("system:debug", {
         request: req,
-        response: { status: result.status, body: result.body, headers: Object.fromEntries(result.getHeaders()) },
+        response: { status: result.status, body: await result.text(), headers: Object.fromEntries(result.getHeaders()) },
         trace: result.trace
       });
     }

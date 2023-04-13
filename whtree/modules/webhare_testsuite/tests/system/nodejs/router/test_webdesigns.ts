@@ -15,8 +15,8 @@ function parseHTMLDoc(html: string) {
   return new DOMParser({ errorHandler: { warning: w => { } } }).parseFromString(html, "text/html");
 }
 
-function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: WebResponse) {
-  const doc = parseHTMLDoc(response.body);
+async function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: WebResponse) {
+  const doc = parseHTMLDoc(await response.text());
   test.eq(markdowndoc.whfspath, doc.getElementById("whfspath")?.textContent, "Expect our whfspath to be in the source");
 
   const contentdiv = doc.getElementById("content");
@@ -49,7 +49,7 @@ async function testSiteResponse() {
   const response = await typedoutputpage.finish();
 
   //Verify markdown contents
-  const doc = parseHTMLDoc(response.body);
+  const doc = parseHTMLDoc(await response.text());
   test.eq(markdowndoc.whfspath, doc.getElementById("whfspath")?.textContent, "Expect our whfspath to be in the source");
   const contentdiv = doc.getElementById("content");
   test.eq("This is a body!", contentdiv?.getElementsByTagName("p")[0]?.textContent);
@@ -78,14 +78,14 @@ async function testRouter_HSWebDesign() {
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage");
   const result = await coreWebHareRouter(new WebRequest(markdowndoc.link));
 
-  verifyMarkdownResponse(markdowndoc, result);
+  await verifyMarkdownResponse(markdowndoc, result);
 }
 
 async function testRouter_JSWebDesign() {
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
   const result = await coreWebHareRouter(new WebRequest(markdowndoc.link));
 
-  verifyMarkdownResponse(markdowndoc, result);
+  await verifyMarkdownResponse(markdowndoc, result);
 }
 
 test.run([

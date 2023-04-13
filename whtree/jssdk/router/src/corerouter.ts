@@ -27,18 +27,22 @@ export async function lookupPublishedTarget(url: string) {
   };
 }
 
-async function routeThroughHSWebserver(request: WebRequest): Promise<WebResponse> {
-  //FIXME abortsignal / timeout
-
+export function getHSWebserverTarget(request: WebRequest) {
   const trustedlocalport = getFullConfigFile().baseport + 3; //3 = whconstant_webserver_hstrustedportoffset
   const trustedip = process.env["WEBHARE_SECUREPORT_BINDIP"] || "127.0.0.1"; //TODO we should probably name this WEBHARE_PROXYPORT_BINDIP ? not much secure about this port..
   const headers = request.headers;
   headers.set("X-Forwarded-For", "1.2.3.4"); //FIXME use real remote IP, should be in 'request'
   headers.set("X-Forwarded-Proto", request.url.protocol.split(':')[0]); //without ':'
   headers.set("Host", request.url.host);
-
   const targeturl = `http://${trustedip}:${trustedlocalport}${request.url.pathname}${request.url.search}`;
   const fetchmethod = request.method.toUpperCase();
+  return { targeturl, fetchmethod, headers };
+}
+
+async function routeThroughHSWebserver(request: WebRequest): Promise<WebResponse> {
+  //FIXME abortsignal / timeout
+  const { targeturl, fetchmethod, headers } = getHSWebserverTarget(request);
+
   const fetchoptions: RequestInit = {
     redirect: "manual",
     headers,
@@ -48,7 +52,7 @@ async function routeThroughHSWebserver(request: WebRequest): Promise<WebResponse
     fetchoptions.body = request.body;
 
   const result = await fetch(targeturl, fetchoptions);
-  const body = await result.text();
+  const body = await result.arrayBuffer(); //TODO even better if we can stream blobs
 
   //Rebuild headers to get rid of the dangerous ones
   const newheaders = new Headers(result.headers);
