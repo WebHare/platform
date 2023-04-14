@@ -26,7 +26,7 @@ MACRO TestFetch()
   RECORD responsejson := response->json();
   TestEq(`{"x":42}`, responsejson.body);
 
-  TestRejectedLike("The operation was aborted due to timeout", Fetch(GetPrimaryWebHareInterfaceURL() || ".webhare_testsuite/tests/consilio/timeout.shtml", CELL[], [ timeout := 1000 ]));
+  TestRejectedLike("The operation was aborted due to timeout", Fetch(GetPrimaryWebHareInterfaceURL() || ".webhare_testsuite/tests/consilio/timeout.shtml", CELL[], [ debug := TRUE, timeout := 1000 ]));
 }
 
 RunTestFramework([ PTR TestFetch ]);
