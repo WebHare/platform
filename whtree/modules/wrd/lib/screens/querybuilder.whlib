@@ -868,25 +868,6 @@ PUBLIC STATIC OBJECTTYPE QueryBuilder EXTEND TolliumScreenBase
     ^results->rows := rows;
   }
 
-  PUBLIC MACRO DoExportQuery()
-  {
-    OBJECT expdialog := this->LoadScreen(".exportquery");
-    OBJECT query := this->ConstructQuery();
-
-    OBJECT domimpl := NEW XmlDOMImplementation;
-    OBJECT doc := domimpl->CreateDocument("http://www.webhare.net/xmlns/wrd/query", "query", DEFAULT OBJECT);
-    query->SerializeToXML(doc->documentElement);
-    doc->NormalizeDocument();
-    BLOB serialized := doc->GetDocumentBlob(true);
-
-    expdialog->query->value := BlobToString(serialized, -1);
-    expdialog->RunModal();
-  }
-
-  PUBLIC MACRO DoImportQuery()
-  {
-  }
-
   RECORD FUNCTION PrepareExport(BOOLEAN alwaystostring)
   {
     // Calculate columns

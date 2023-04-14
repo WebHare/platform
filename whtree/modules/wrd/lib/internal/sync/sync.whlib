@@ -624,11 +624,7 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchemaBatch(OBJECT wrdschema, OBJECT rem
 
   YIELD [ status := `Updating settings`, progress := 90m, important := TRUE ];
 
-  OBJECT schemadefdoc := MakeXMLDocument(res.schemadefinition);
-  IF (Length(schemadefdoc->GetParseErrors()) != 0)
-    THROW NEW Exception(`Invalid schema definition`); // should have crashed earlier anyway
-
-  RECORD schemadef := ReadSchemaDefFromXML(schemadefdoc->documentelement, "mod::wrd/dummyresource.xml", res.schemadefinition, DEFAULT DATETIME);
+  RECORD schemadef := OpenWRDSchemaDefFile("mod::wrd/dummyresource.xml", [ overridedata := res.schemadefinition ]);
 
   BOOLEAN settingschanges := UpdateSchemaSettings(
       wrdschema,
@@ -1074,7 +1070,7 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchemaIncremental(OBJECT wrdschema, OBJE
     DoPopWork(e);
 
   // Re-parse the schema definition to get the list of available types
-  RECORD sourceschemadef := ReadSchemaDefFromXML(MakeXMLDocument(schemasyncinstr.schemadefinition)->documentelement, "mod::wrd/dummyresource.xml", schemasyncinstr.schemadefinition, DEFAULT DATETIME);
+  RECORD sourceschemadef := OpenWRDSchemaDefFile("mod::wrd/dummyresource.xml", [ overridedata := schemasyncinstr.schemadefinition ]);
   STRING ARRAY sourcetypes := SELECT AS STRING ARRAY tag FROM sourceschemadef.types;
 
   // List the local types that also exist in the source schema
