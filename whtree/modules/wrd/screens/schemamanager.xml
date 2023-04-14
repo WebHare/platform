@@ -123,7 +123,6 @@
           <select type="pulldown" composition="wrdschema" rowkeytype="integer" cellname="accountlogin" name="accountlogin" />
           <select type="pulldown" composition="wrdschema" rowkeytype="integer" cellname="accountpassword" name="accountpassword" />
           <datetime composition="wrdschema" cellname="creationdate" storeutc="true" tid="~creationdate" readonly="true" type="datetime" />
-          <textarea composition="wrdschema" cellname="creationsource" tid=".creationsource" maxlength="1024" readonly="true" />
         </tab>
         <tab name="addressvalidation">
           <wrd:addressvalidation name="validationsettings" />

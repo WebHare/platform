@@ -20,7 +20,7 @@ LOADLIB "mod::wrd/lib/internal/sync/support.whlib";
 CONSTANT STRING ARRAY ignore_schemasettings :=
     [ "wrd:syncpoints"
     , "wrd:schemaresources"
-    , "wrd:sync.history"
+    , "wrd:sync.history" //removed in 5.3 but we'll keep it on the ignorelist for when we communicate with older servers
     ];
 
 RECORD ARRAY FUNCTION GetExisting(RECORD ARRAY newcurrentcontents, INTEGER id)
@@ -286,7 +286,6 @@ PUBLIC OBJECT FUNCTION SyncFromExternalSchema(OBJECT wrdschema, OBJECT remotepee
     @cell(object %WebBrowser) options.browser Optional browser to use
     @cell(boolean) options.commitoften Whether to commit multiple times during the syncing process (instead of only once, after the sync)
     @cell(boolean) options.updateall Set to TRUE to update all entities with their source data
-    @cell(boolean) options.updatesynchistory Update the creation source with sync data
 */
 PUBLIC OBJECT FUNCTION *SyncFromExternalSchemaBatch(OBJECT wrdschema, OBJECT remotepeer, STRING remoteschemaname, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -297,7 +296,6 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchemaBatch(OBJECT wrdschema, OBJECT rem
       , browser :=        DEFAULT OBJECT
       , commitoften :=    FALSE
       , updateall :=      FALSE
-      , updatesynchistory := TRUE
       ], options);
 
   // Is this a full synchronization?
@@ -372,7 +370,6 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchemaBatch(OBJECT wrdschema, OBJECT rem
       , DELETE commitoften
       , DELETE updateall
       , DELETE forcetypes
-      , DELETE updatesynchistory
       , knownblobs :=     (SELECT AS STRING ARRAY DISTINCT hash FROM knownblobs)
       ];
 
@@ -695,61 +692,6 @@ BOOLEAN FUNCTION UpdateSchemaSettings(
   IF (RecordExists(SELECT FROM allorgsettings WHERE name = "wrd:schemaresources"))
     wrdschema->RemoveSchemaSetting("wrd:schemaresources");
 
-  IF (options.updatesynchistory)
-  {
-    // Record the synchistory
-    STRING remoteschema := (ObjectExists(remotepeer) ? remotepeer->url || "#" : "local schema ") || remoteschemaname;
-    STRING remotecreationsource := CellExists(syncinstrs, "creationsource") ? syncinstrs.creationsource : "unknown creationsource";
-    DATETIME remotecreationdate := CellExists(syncinstrs, "creationdate") ? syncinstrs.creationdate : DEFAULT DATETIME;
-
-    // Gather remote sync history
-    RECORD ARRAY remotesynchistory;
-    FOREVERY (RECORD rec FROM schemadef_settings)
-      IF (rec.name = "wrd:sync.history")
-        remotesynchistory := rec.value;
-
-    // Get local sync history for partial syncs
-    RECORD ARRAY synchistory := isfullsync
-        ? DEFAULT RECORD ARRAY
-        : (wrdschema->GetSchemaSetting("wrd:sync.history", [ fallback := DEFAULT RECORD ARRAY ])
-              ?? [ [ type :=            "existingschema"
-                   , creationsource :=  wrdschema->creationsource
-                   , creationdate :=    wrdschema->creationdate
-                   ]
-                 ]);
-
-    INSERT CELL
-        [ type :=                 isfullsync ? "fullsync" : "partialsync"
-        , creationsource :=       remotecreationsource
-        , creationdate :=         remotecreationdate
-        , remoteschema
-        , options.excludetypes
-        , options.includetypes
-        , remotesynchistory
-        , when :=                 now
-        , user :=                 ObjectExists(GetEffectiveUser()) ? GetEffectiveUser()->GetUserDataForLogging() : DEFAULT RECORD
-        ] INTO synchistory AT END;
-
-    wrdschema->SetSchemaSetting("wrd:sync.history", synchistory);
-
-    IF (remotecreationsource != "")
-    {
-      IF (isfullsync)
-      {
-        wrdschema->UpdateMetadata(CELL
-            [ creationdate :=     now
-            , creationsource :=   `Synchronized from ${remoteschema} at ${FormatISO8601DateTime(now)}${remotecreationsource = "" ? "" : `(${remotecreationsource}`})`
-            ]);
-      }
-      ELSE
-      {
-        wrdschema->UpdateMetadata(CELL
-            [ creationsource :=   Left(`${wrdschema->creationsource}, partially synchronized from ${remoteschema} at ${FormatISO8601DateTime(now)}${remotecreationsource = "" ? "" : ` (${remotecreationsource})`}`, 1024)
-            ]);
-      }
-    }
-  }
-
   RETURN settingschanges;
 }
 
@@ -1011,7 +953,6 @@ MACRO DoPopWork(OBJECT exc)
     @cell(object %WebBrowser) options.browser Optional browser to use
     @cell(boolean) options.commitoften Whether to commit multiple times during the syncing process (instead of only once, after the sync)
     @cell(boolean) options.updateall Set to TRUE to update all entities with their source data
-    @cell(boolean) options.updatesynchistory Update the creation source with sync data
 */
 PUBLIC OBJECT FUNCTION *SyncFromExternalSchemaIncremental(OBJECT wrdschema, OBJECT remotepeer, STRING remoteschemaname, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
@@ -1022,7 +963,6 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchemaIncremental(OBJECT wrdschema, OBJE
       , browser :=        DEFAULT OBJECT
       , commitoften :=    FALSE
       , updateall :=      FALSE
-      , updatesynchistory := TRUE
       ], options);
 
   // Is this a full synchronization?

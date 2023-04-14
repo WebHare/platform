@@ -362,8 +362,6 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
 
   /// @type(datetime) Creation date, if known
   PUBLIC PROPERTY creationdate(this->schemarec.creationdate, -);
-  /// @type(string) Creation source, if known
-  PUBLIC PROPERTY creationsource(this->schemarec.creationsource, -);
 
   /// @type(boolean) Whether this schema is protected against deleting and overwriting
   PUBLIC PROPERTY protected(this->schemarec.protected, -);
@@ -469,7 +467,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
       IF (cellrec.name NOT IN
             [ "LANGUAGES", "DESCRIPTION", "NAME", "TAG", "PROTECTED", "USERMGMT"
             , "ACCOUNTTYPE", "ACCOUNTLOGIN", "ACCOUNTPASSWORD", "ACCOUNTEMAIL", "ACCOUNTLOGINTAG"
-            , "ACCOUNTPASSWORDTAG", "ACCOUNTEMAILTAG", "TITLE", "CREATIONDATE", "CREATIONSOURCE"
+            , "ACCOUNTPASSWORDTAG", "ACCOUNTEMAILTAG", "TITLE", "CREATIONDATE"
             ])
       {
         THROW NEW Exception("Updating '" || cellrec.name || "' using UpdateMetadata not supported");
@@ -517,8 +515,6 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
     }
     IF(CellExists(newsettings,'creationdate'))
       INSERT CELL creationdate := newsettings.creationdate INTO toset;
-    IF(CellExists(newsettings,'creationsource'))
-      INSERT CELL creationsource := newsettings.creationsource INTO toset;
 
     UPDATE wrd.schemas SET RECORD toset WHERE id = this->id;
     this->__RefreshFromDB();

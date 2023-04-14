@@ -848,7 +848,6 @@
       <text tid="accountpassword">Wachtwoordveld</text>
       <text tid="accounttype">Type voor logins</text>
       <text tid="addressvalidation">Adresvalidatie</text>
-      <text tid="creationsource">Bron</text>
       <text tid="payments">Betalingen</text>
       <text tid="protect">Bescherm dit schema tegen imports en verwijdering</text>
       <text tid="schema">Schema</text>

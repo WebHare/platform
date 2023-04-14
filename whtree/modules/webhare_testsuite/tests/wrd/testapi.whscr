@@ -65,7 +65,6 @@ MACRO TestSchema()
   RECORD testimage := WrapBlob(testimage_blob,"goudvis.png");
 
   OBJECT schemaobj := testfw->GetWRDSchema();
-  TestEq("mod::system/lib/testframework.whlib#testframework#cleanuptests", schemaobj->creationsource);
   TestEq(TRUE, schemaobj->creationdate != DEFAULT DATETIME);
   OBJECT persontype := schemaobj->^wrd_person;
 

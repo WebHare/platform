@@ -170,7 +170,6 @@ PUBLIC OBJECTTYPE NewSchema EXTEND TolliumScreenBase
     IF(NOT work->HasFailed())
     {
       OBJECT wrdschema := CreateWRDSchema(this->name->value, [ description := this->description->value
-                                                             , creationsource := "Created by " || this->contexts->user->login
                                                              ]);
       newschemaid := wrdschema->id;
 
@@ -205,7 +204,7 @@ PUBLIC STATIC OBJECTTYPE SchemaProps EXTEND TolliumScreenBase
                                    WHERE Length(GetSuitableAccountAttributes(this->contexts->wrdschema->GetTypeById(id)))>0
                                 ORDER BY tag;
 
-    ^wrdschema->value := SELECT name, description, title, usermgmt, accounttype, protected, accountlogin, accountemail, accountpassword, creationsource, creationdate
+    ^wrdschema->value := SELECT name, description, title, usermgmt, accounttype, protected, accountlogin, accountemail, accountpassword, creationdate
                            FROM wrd.schemas
                           WHERE id = this->contexts->wrdschema->id;
 
@@ -242,7 +241,7 @@ PUBLIC STATIC OBJECTTYPE SchemaProps EXTEND TolliumScreenBase
     IF(NOT work->HasFailed())
     {
       SetupWRDAddressVerification(this->contexts->wrdschema, ^validationsettings->value);
-      this->contexts->wrdschema->UpdateMetadata(CELL[...^wrdschema->value, DELETE creationsource, DELETE creationdate]);
+      this->contexts->wrdschema->UpdateMetadata(CELL[...^wrdschema->value, DELETE creationdate]);
     }
 
     RETURN work->Finish();

@@ -382,9 +382,7 @@
       <d:datetime name="creationdate">
         <d:documentation>When was this schema created (4.19 and up)</d:documentation>
       </d:datetime>
-      <d:varchar name="creationsource" maxlength="1024">
-        <d:documentation>What is the source of this schema (4.19 and up)</d:documentation>
-      </d:varchar>
+      <d:obsoletecolumn name="creationsource" />
       <d:varchar name="description" maxlength="1024">
         <d:documentation>
 

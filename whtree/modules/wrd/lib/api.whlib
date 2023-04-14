@@ -101,7 +101,6 @@ PUBLIC OBJECT FUNCTION OpenWRDSchemaById(INTEGER schemaid)
     @cell(boolean) metadata.initialize Set up the schema using the wrdschema defined in its moduledefinition
     @cell(string) metadata.schemaresource Override the schemaresource to use for initialization
     @cell(boolean) metadata.usermgmt Whether this schema is used for user management
-    @cell(string) metadata.creationsource Location where this schema was originally created
     @return(object %WRDSchema2017) The created WRD schema
 */
 PUBLIC OBJECT FUNCTION CreateWRDSchema(STRING tag, RECORD metadata DEFAULTSTO DEFAULT RECORD)
@@ -111,10 +110,7 @@ PUBLIC OBJECT FUNCTION CreateWRDSchema(STRING tag, RECORD metadata DEFAULTSTO DE
                               , initialize := FALSE //initialize based on module data
                               , schemaresource := ""
                               , usermgmt := FALSE
-                              , creationsource := ""
                               ], metadata, [ title := "metadata" ]);
-  IF(metadata.creationsource = "")
-    metadata.creationsource := GetStackTrace()[1].filename || "#" || ToLowercase(GetStackTrace()[1].func);
 
   IF(RecordExists(SELECT FROM wrd.schemas WHERE ToUppercase(name) = ToUppercase(tag)))
     THROW NEW Exception(`A schema with tag '${tag}' already exists`);
@@ -143,7 +139,6 @@ PUBLIC OBJECT FUNCTION CreateWRDSchema(STRING tag, RECORD metadata DEFAULTSTO DE
              , name := tag
              , metadata.title
              , metadata.description
-             , metadata.creationsource
              , creationdate := GetCurrentDatetime()
              ] INTO wrd.schemas;
 

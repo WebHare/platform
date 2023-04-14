@@ -153,7 +153,6 @@ PUBLIC RECORD FUNCTION GetSyncInstructions(OBJECT wrdschema, RECORD ARRAY curren
   RETURN CELL
       [ schemadefinition :=   CreateWRDSchemaDefinitionFile(wrdschema)
       , types :=              returntypes
-      , creationsource :=     wrdschema->creationsource
       , creationdate :=       wrdschema->creationdate
       ];
 }
