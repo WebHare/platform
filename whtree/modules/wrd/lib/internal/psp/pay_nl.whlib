@@ -106,6 +106,7 @@ RECORD FUNCTION DoPayNLRequest(RECORD creds, STRING method, STRING endpoint, REC
 
     IF(options.nofail)
       RETURN CELL[ error ];
+
     THROW NEW Exception(error);
   }
 
@@ -147,9 +148,8 @@ PUBLIC STATIC OBJECTTYPE PayNLPaymentProvider EXTEND WRDPaymentProviderBase
   UPDATE RECORD ARRAY FUNCTION __DoGetPaymentOptions(RECORD options)
   {
     RECORD methodsresponse := GetCachedMethods(this->settings, FALSE); //do not force a remote lookup - we may be invoked for the frontend!
-
     IF(NOT RecordExists(methodsresponse))
-      THROW NEW Exception(`Unable to request payment methods`);
+      RETURN RECORD[];
 
     RECORD ARRAY methods := methodsresponse.methods;
     DELETE FROM methods WHERE rowkey NOT IN (SELECT AS STRING ARRAY rowkey FROM this->settings.methods);
@@ -159,8 +159,6 @@ PUBLIC STATIC OBJECTTYPE PayNLPaymentProvider EXTEND WRDPaymentProviderBase
                 , issuers
                 , islive := this->settings.testmode = FALSE
              FROM methods;
-
-    RETURN methods;
   }
 
   UPDATE PUBLIC RECORD FUNCTION __GetPaymentData()
@@ -330,7 +328,19 @@ PUBLIC RECORD FUNCTION GetCacheableMethods(RECORD creds)
   }
 
   //https://docs.pay.nl/developers#services
-  RECORD methodsresponse := DoPayNLRequest(creds, "POST", "v16/Transaction/getService/json", RECORD[]);
+  RECORD methodsresponse;
+  TRY
+  {
+    methodsresponse := DoPayNLRequest(creds, "POST", "v16/Transaction/getService/json", RECORD[]);
+  }
+  CATCH(OBJECT e)
+  {
+    LogHarescriptException(e);
+    RETURN [ value := DEFAULT RECORD
+           , softttl := 5 * 1000 // recheck very soon
+           , liverefreshtimeout := 5000
+           ];
+  }
   /*
    +RECORD
  +SETTINGS: ''
