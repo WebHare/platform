@@ -1225,7 +1225,7 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
             dbquery->AddConstraint(query_name || "." || condition->attr.cellname, condition->match_type, value);
             RETURN TRUE;
           }
-          ELSE IF (condition->attr.attributetype = wrd_attributetype_domain)
+          ELSE IF (condition->attr.attributetype = wrd_attributetype_domain OR condition->attr.tag = "WRD_ID")
           {
             IF (condition->match_type = "IN")
             {

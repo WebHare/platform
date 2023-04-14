@@ -524,6 +524,13 @@ async function testNewAPI() {
   await schema.update("wrd_person", newperson, { wrd_creationdate: null, wrd_limitdate: null });
   test.eq([{ wrd_creationdate: null, wrd_limitdate: null }], await schema.selectFrom("wrd_person").select(["wrd_creationdate", "wrd_limitdate"]).where("wrd_id", "=", newperson).historyMode("__getfields").execute());
 
+  test.eq([{ wrd_creationdate: null, wrd_limitdate: null }], await schema
+    .selectFrom("wrd_person")
+    .$call(qb => qb.select(["wrd_creationdate", "wrd_limitdate"]))
+    .$call(qb => qb.where("wrd_id", "=", newperson))
+    .$call(qb => qb.historyMode("__getfields"))
+    .execute());
+
   const nottrue = false;
   if (nottrue) {
     // @ts-expect-error -- wrd_leftentity and wrd_rightentity must be numbers

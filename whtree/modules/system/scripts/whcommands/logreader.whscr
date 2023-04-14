@@ -98,6 +98,22 @@ STRING FUNCTION ParseContextInfo(STRING contextinfo)
   }
 }
 
+STRING FUNCTION FormatJavascriptErrorCause(RECORD error)
+{
+  STRING retval;
+  IF (CellExists(error, "CAUSE") AND RecordExists(error.cause))
+  {
+    retval := `Cause: ${error.cause.error}\n`;
+    FOREVERY (RECORD t FROM error.cause.trace)
+    {
+      STRING func := CellExists(t, "FUNCTION") ? t."function" : CellExists(t, "FUNC") ? t.func : "";
+      retval := retval || "At " || t.filename || "(" || (CellExists(t, "LINE") ? t.line : 1) || "," || (CellExists(t, "COL") ? t.col : 1) || ")" || (func = "" ? "" : " (" || func || ")") || "\n";
+    }
+    retval := retval || FormatJavascriptErrorCause(error.cause);
+  }
+  RETURN retval;
+}
+
 RECORD info := ParseArguments(GetConsoleArguments(),
                               [ [ name := "format", type := "stringopt" ]
                               , [ name := "output", type := "stringopt" ]
@@ -372,6 +388,7 @@ WHILE(TRUE)
               STRING func := CellExists(t, "FUNCTION") ? t."function" : CellExists(t, "FUNC") ? t.func : "";
               lastlines[END-1] := lastlines[END-1] || "At " || t.filename || "(" || (CellExists(t, "LINE") ? t.line : 1) || "," || (CellExists(t, "COL") ? t.col : 1) || ")" || (func = "" ? "" : " (" || func || ")") || "\n";
             }
+            lastlines[END-1] := lastlines[END-1] || FormatJavascriptErrorCause(entry);
             DELETE CELL trace FROM line.message;
           }
         }

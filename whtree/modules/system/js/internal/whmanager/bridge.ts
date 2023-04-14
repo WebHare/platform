@@ -193,6 +193,17 @@ export function checkAllMessageTypesHandled<T extends never>(message: T, key: st
   throw new Error(`message type ${(message as { [type: string]: unknown })[key]} not handled`);
 }
 
+type JavaScriptExceptionData = {
+  error: string;
+  trace: Array<{
+    filename: string;
+    line: number;
+    col: number;
+    functionname: string;
+  }>;
+  cause?: JavaScriptExceptionData;
+};
+
 class LocalBridge extends EventSource<BridgeEvents> {
   id: string;
   port: TypedMessagePort<ToMainBridgeMessage, ToLocalBridgeMessage>;
@@ -298,24 +309,31 @@ class LocalBridge extends EventSource<BridgeEvents> {
     });
   }
 
+  private encodeJavaScriptExceptionData(e: Error, depth: number = 0): JavaScriptExceptionData {
+    const trace = stacktrace_parser.parse(e?.stack ?? "");
+    return {
+      trace: trace.map(entry => ({
+        filename: entry.file || "",
+        line: entry.lineNumber || 0,
+        col: entry.column || 0,
+        functionname: entry.methodName || ""
+      })),
+      error: e.message || "",
+      ...(e.cause && typeof e.cause === "object" && ("message" in e.cause) && depth < 4 ? { cause: this.encodeJavaScriptExceptionData(e.cause as Error, depth + 1) } : {})
+    };
+  }
+
   private encodeJavaScriptException(e: Error, options: {
     script?: string;
     contextinfo?: hsmarshalling.IPCMarshallableRecord;
     errortype?: "exception" | "unhandledRejection";
   }) {
-    const trace = stacktrace_parser.parse(e?.stack ?? "");
     const data = {
+      ...this.encodeJavaScriptExceptionData(e),
       script: options.script ?? require.main?.filename ?? "",
-      trace: trace.map(entry => ({
-        filename: entry.file,
-        line: entry.lineNumber,
-        col: entry.column,
-        functionname: entry.methodName
-      })),
-      error: e.message || "",
       browser: { name: "nodejs" },
       contextinfo: options.contextinfo ? hsmarshalling.encodeHSON(options.contextinfo) : "",
-      type: options.errortype === "unhandledRejection" ? "javascript-unhandled-rejection" : "javascript-error"
+      type: options.errortype === "unhandledRejection" ? "javascript-unhandled-rejection" : "javascript-error",
     };
     return hsmarshalling.encodeHSON(data);
   }
