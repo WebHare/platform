@@ -211,7 +211,7 @@ PUBLIC RECORD FUNCTION GetOpensearchStatus(INTEGER indexmgrid, RECORD options DE
       ];
 
   // Get file system status (containing total and available disk space) and cluster settings (containing disk thresholds). Both calls will throw if no 200 Ok is received
-  RECORD stats := SendRawJSONToElasticsearch(indexmgrid, "GET", "/_nodes/stats", options);
+  RECORD stats := SendRawJSONToElasticsearch(indexmgrid, "GET", "/_nodes/stats", DEFAULT RECORD, options);
 
   // The nodes are named; we'll just use the first (and, at least for now, only) node
   stats := UnpackRecord(stats.result.nodes)[0].value;
@@ -287,7 +287,7 @@ PUBLIC RECORD FUNCTION GetElasticsearchSettings(INTEGER indexmgrid, BOOLEAN incl
   IF (include_defaults)
     command := command || "&include_defaults=true";
 
-  RECORD settings := SendRawJSONToElasticsearch(indexmgrid, "GET", command, CELL[ options.timeout, options.firstconnect_timeout ]);
+  RECORD settings := SendRawJSONToElasticsearch(indexmgrid, "GET", command, DEFAULT RECORD, CELL[ options.timeout, options.firstconnect_timeout ]);
   IF (settings.status != SearchOk)
     RETURN DEFAULT RECORD;
 

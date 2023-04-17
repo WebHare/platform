@@ -638,7 +638,7 @@ STATIC OBJECTTYPE ConsilioCatalog
     {
       OBJECT primary := GetPrimaryWebHareTransactionObject();
       IF(ObjectExists(primary) AND primary->IsWorkOpen())
-        THROW NEW Exception(`WaitReady forconfiguration cannot be use with open work`); //as we can't observe the consilo:update task status then
+        THROW NEW Exception(`WaitReady forconfiguration cannot be used with open work`); //as we can't observe the consilo:update task status then
     }
 
     WHILE(TRUE)
