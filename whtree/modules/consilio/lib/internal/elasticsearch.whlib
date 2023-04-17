@@ -809,6 +809,14 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD result, RECORD indexopt
       IF (query.first > 0)
         INSERT CELL "from" := query.first INTO inner_hits;
       INSERT CELL size := query.count >= 0 AND query.count <= 100 - query.first ? query.count : 100 INTO inner_hits; // Maximum window size (from+size) of inner hits is 100
+      IF (query.orderby != "")
+      {
+        STRING orderfield := query.orderby = query.scorefield ? "_score" : query.field || "." || query.orderby;
+        IF (CellExists(query, "orderdesc"))
+          INSERT CELL sort := [ CellInsert(DEFAULT RECORD, orderfield, query.orderdesc ? "desc" : "asc") ] INTO inner_hits;
+        ELSE
+          INSERT CELL sort := [ orderfield ] INTO inner_hits;
+      }
       result.query :=
           [ nested := CELL
               [ path := query.field

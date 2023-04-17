@@ -4,7 +4,6 @@
 
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 //The exports from catalogs.whlib are for legacy users... caller should switch to the catalogs.whlib and as soon as they're all >5.02+ we will remove the exports
@@ -13,7 +12,6 @@ LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT fetcher_trusted_ip;
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
@@ -416,6 +414,10 @@ PUBLIC RECORD FUNCTION CQAggregate(STRING field, STRING type, RECORD options DEF
     @cell(string) options.summaryfield The name of the field to return the summary for the nested result in
     @cell(string) options.scorefield The name of the field to return the nested result's score in
     @cell(string) options.totalcountfield The name of the field to return the total number of nested results in
+    @cell(string) options.orderby Field to order over (defaults to `""`, which orders descending by score, can be set to the
+        value of the `scorefield` option, doesn't have to be a field in the `mapping` option)
+    @cell(boolean) options.orderdesc Whether to reverse the ordering (defaults to `TRUE` when ordering by score or `FALSE`
+        when ordering by another field)
     @cell(float) options.boost Factor to increase or decrease the score for this query (defaults to 1f)
 */
 PUBLIC RECORD FUNCTION CQNested(STRING field, RECORD query, RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -427,8 +429,10 @@ PUBLIC RECORD FUNCTION CQNested(STRING field, RECORD query, RECORD options DEFAU
       , summaryfield := ""
       , scorefield := ""
       , totalcountfield := ""
+      , orderby := ""
+      , orderdesc := FALSE
       , boost := 1f
-      ], options);
+      ], options, [ optional := [ "orderdesc" ] ]);
 
   RETURN CELL
       [ _type := "nested"
