@@ -50,6 +50,9 @@ Current semantic WebHare version number, eg 4.27.0
 ### WEBHARE_CHECKEDOUT_TO
 WebHare source directory, if you're running WebHare from source.
 
+### WEBHARE_NODE_OPTIONS
+Options to pass to `node` (for options not acceptd by `$NODE_OPTIONS`)
+
 ### WEBHARE_TEMP
 Directory for temporary files. If not set, $WEBHARE_DATAROOT/tmp will be used.
 
