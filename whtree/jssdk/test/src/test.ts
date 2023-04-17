@@ -9,7 +9,6 @@ export {
   eq,
   eqMatch,
   eqProps,
-  sleep,
   throws,
   setupLogging,
   wait,
@@ -21,6 +20,9 @@ export {
   Extends,
   typeAssert
 } from './checks';
+
+export { sleep } from "@webhare/std";
+
 let testscompleted = false;
 
 function onTestExit(exitCode: number) {

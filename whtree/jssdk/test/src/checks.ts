@@ -4,7 +4,6 @@ import Ajv, { SchemaObject, ValidateFunction } from "ajv";
 import addFormats from "ajv-formats";
 import { RecursivePartial } from "@mod-system/js/internal/util/algorithms";
 export { LoadTSTypeOptions } from "./testsupport";
-export { sleep } from "@webhare/std";
 
 /** An Annotation must either be a simple string or a callback returning one */
 export type Annotation = string | (() => string);

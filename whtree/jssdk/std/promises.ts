@@ -1,3 +1,5 @@
+import { WaitPeriod, convertWaitPeriodToDate } from "./api";
+
 /// A deferred promise with typed result value
 export type DeferredPromise<T> = {
   promise: Promise<T>;
@@ -6,12 +8,11 @@ export type DeferredPromise<T> = {
 };
 
 /** A promise that sleeps for the specified number of milliseconds
- *  @param milliseconds - Number of milliseconds to sleep. Must be 0 or more
+ *  @param duration - Relative (milliseconds) or absolute (Date) wait duration
 */
-export async function sleep(milliseconds: number): Promise<void> {
-  if (milliseconds < 0)
-    throw new Error(`Wait duration must be positive, got '${milliseconds}'`);
-  await new Promise(resolve => setTimeout(resolve, milliseconds));
+export async function sleep(duration: WaitPeriod): Promise<void> {
+  const until = convertWaitPeriodToDate(duration);
+  await new Promise(resolve => setTimeout(resolve, Date.now() - until.getTime()));
   return;
 }
 
