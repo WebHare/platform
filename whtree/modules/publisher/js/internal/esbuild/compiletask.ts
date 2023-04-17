@@ -115,7 +115,6 @@ function mapESBuildError(entrypoint, error) {
 }
 
 export async function recompile(data) {
-  await services.ready(); //TODO shouldn't callrunner.ts take care of this? we should be part of a longrunning environment?
   compileutils.resetResolveCache();
 
   const bundle = data.bundle;
@@ -187,7 +186,7 @@ export async function recompile(data) {
     // TODO metafile gives some more stats and an alternative way towards grabbing dependencies, but doesnt return anything on error, so we'll stick to our handler for now
     // , metafile:true
 
-    nodePaths: [services.getConfig().dataroot + "node_modules/"],
+    nodePaths: [services.config.dataroot + "node_modules/"],
     resolveExtensions: [".js", ".ts", ".tsx", ".es"], //es must be last so it can re-export .ts(x) without using extensions
     logLevel: data.logLevel || 'silent'
   };

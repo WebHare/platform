@@ -28,4 +28,4 @@ async function main() {
 }
 
 services.activateHMR();
-services.ready().then(main);
+main();

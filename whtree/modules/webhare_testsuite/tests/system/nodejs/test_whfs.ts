@@ -1,6 +1,5 @@
 import * as test from "@webhare/test";
 import * as whfs from "@webhare/whfs";
-import * as services from "@webhare/services";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 
 async function testWHFS() {
@@ -66,7 +65,6 @@ async function testWHFS() {
 }
 
 async function testSiteProfiles() {
-  await services.ready();
   const markdownfile = await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage");
   test.eq("http://www.webhare.net/xmlns/publisher/markdownfile", markdownfile.type.namespace);
 

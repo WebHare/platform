@@ -1,11 +1,9 @@
 import * as test from '@webhare/test';
-import * as services from '@webhare/services';
 import { JSONAPICall } from '@mod-system/js/internal/jsonrpccaller';
 import noAuthJSService from '@mod-webhare_testsuite/js/jsonrpc/client';
 import { HTTPMethod } from '@webhare/router';
 
 async function testRPCCaller() {
-  await services.ready();
   const servicedef = { service: "mod::webhare_testsuite/js/jsonrpc/service.ts#TestNoAuthJS" };
   const request = {
     url: "",
@@ -35,7 +33,6 @@ async function testRPCCaller() {
 }
 
 async function testTypedClient() {
-  await services.ready();
   test.eq(true, await noAuthJSService.validateEmail("nl", "pietje@webhare.dev"));
   test.eq(false, await noAuthJSService.validateEmail("en", "klaasje@beta.webhare.net"));
 }

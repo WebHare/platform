@@ -46,9 +46,6 @@ export class JSONRPCError {
 
 async function runJSONAPICall(servicedef: WebServiceDefinition, req: WebRequestInfo): Promise<WebResponse> {
   let id: RequestID = null;
-  //FIXME reload (only) when code updates
-  await services.ready();
-
   try {
     // eslint-disable-next-line @typescript-eslint/no-var-requires -- TODO - our require plugin doesn't support await import yet
     const theapi = require(services.toFSPath(servicedef.service.split('#')[0]));
