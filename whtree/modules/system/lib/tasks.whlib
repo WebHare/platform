@@ -197,7 +197,7 @@ PUBLIC BOOLEAN FUNCTION WaitForTimedTask(STRING taskname, DATETIME deadline, REC
 
   OBJECT primary := GetPrimaryWebHareTransactionObject();
   IF(ObjectExists(primary) AND primary->IsWorkOpen())
-    THROW NEW Exception(`WaitForTimedTask cannot be use with open work`); //as we can't observe the consilo:update task status then
+    THROW NEW Exception(`WaitForTimedTask cannot be used with open work`); //as we can't observe the consilo:update task status then
 
   DATETIME start := GetCurrentDateTime();
   FOR (INTEGER iter := 0;; iter := iter + 1)
