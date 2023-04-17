@@ -1,0 +1,108 @@
+import bridge from "@mod-system/js/internal/whmanager/bridge";
+import { IPCLinkType } from "@mod-system/js/internal/whmanager/ipc";
+import { WaitPeriod } from "@webhare/std/api";
+import * as std from "@webhare/std";
+import { maxDateTime } from "@mod-system/js/internal/whmanager/hsmarshalling";
+
+interface InitTask {
+  task: "init";
+  clientname: string;
+  groupid: string;
+}
+interface InitResponse {
+  status: "ok";
+  logtraces: boolean;
+}
+
+interface LockTask {
+  task: "lock";
+  mutexname: string;
+  wait_until: Date;
+  trace: [];
+  trylock: boolean;
+}
+
+interface LockResponse {
+  status: "ok" | "timeout" | "error" | "no";
+}
+
+interface UnlockTask {
+  task: "unlock";
+  mutexname: string;
+}
+
+interface UnlockResponse {
+  status: string;
+}
+
+export type MutexManagerLinkType = IPCLinkType<InitTask | LockTask | UnlockTask, InitResponse | LockResponse | UnlockResponse>;
+export type MutexManagerLink = MutexManagerLinkType["ConnectEndPoint"];
+
+class Mutex {
+  private link: MutexManagerLink | null = null;
+  private readonly mutexname;
+
+  constructor(mutexmgr: MutexManagerLink, mutexname: string) {
+    this.link = mutexmgr;
+    this.mutexname = mutexname;
+  }
+  release(): void {
+    // Send an unlock request, don't care about the result (it is ignored by our dorequests)
+    if (this.link) {
+      this.link.send({ task: "unlock", mutexname: this.mutexname });
+      this.link.close();
+    }
+    this.link = null;
+  }
+}
+
+//Connect, set up IPC port in mutexmanager. TODO: Reuse connections - but this will *also* require us to locally handle mutex conflicts inside our link
+async function connectMutexManager(): Promise<MutexManagerLink> {
+  //Wait up to 60 seconds (perhaps a bit more) for the mutexmanager to be reachable.
+  //it might be unreachable for a few seconds after a crash or during webhare startup
+  const link = bridge.connect<MutexManagerLinkType>("system:mutexmanager", { global: true });
+  // link.on("close", function () { // cleanup on disconnect - not after every lock..
+  link.activate();
+
+  const connectrequest = link.doRequest({ task: "init", clientname: "JS clientname", groupid: "JS group" });
+  await std.wrapInTimeout(connectrequest, 60000, new Error("Unable to connect to the mutex manager"));
+  return link;
+}
+
+/** Lock the requested nutex
+ * @param name - The name of the mutex to lock
+ * @param options - timeout optional timeout in milliseconds. If not specified, the mutex will be waited for indefinitely
+ * @returns A locked mutex, or null if locking failed due to a timeout
+ */
+export async function lockMutex(name: string): Promise<Mutex>;
+export async function lockMutex(name: string, options?: { timeout: WaitPeriod }): Promise<Mutex | null>;
+
+export async function lockMutex(name: string, options?: { timeout: WaitPeriod }): Promise<Mutex | null> {
+  //convert any non-infinite relative timeout to an absolute one
+  const timeout = options?.timeout && options?.timeout !== Infinity ? std.convertWaitPeriodToDate(options.timeout) : Infinity;
+
+  //TODO should we have a shorter timeout if not connected yet? but that will break a tryLock/timeout:0 as they'd disconect immediately
+  const mutexmanager = await connectMutexManager();
+  try {
+    const trylock = timeout !== Infinity && (timeout as Date).getTime() < Date.now();
+    const lockrequest = mutexmanager!.doRequest({
+      task: "lock",
+      mutexname: name,
+      trylock: trylock,
+      trace: [],
+      wait_until: timeout === Infinity ? maxDateTime : timeout as Date
+    });
+
+    const lockresult = await lockrequest;
+    if (lockresult.status == "timeout" || lockresult.status == "no")
+      return null;
+    if (lockresult.status == "ok")
+      return await new Mutex(mutexmanager!, name);
+
+    throw new Error(`Unexpected status '${lockresult.status}' from mutexmanager locking '${name}'`);
+  } finally {
+    mutexmanager.dropReference();
+  }
+}
+
+export type { Mutex };

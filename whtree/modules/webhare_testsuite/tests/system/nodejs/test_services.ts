@@ -101,6 +101,45 @@ async function testServiceState() {
   instance2.close();
 }
 
+async function testMutex() {
+  //Simple race of ourselves to a lock
+  const lock1 = await services.lockMutex("test:mutex1");
+  const lock2promise = services.lockMutex("test:mutex1");
+  test.eq("No lock", await Promise.race([
+    test.sleep(50).then(() => "No lock"),
+    lock2promise.then(() => "We have a lock!")
+  ]), "Give the second lock some time to block, ensure we had to wait");
+  lock1.release();
+
+  const lock2 = await lock2promise;
+  test.assert(lock2);
+
+  //Test 'try' lock. Should hit the already locked mutex
+  test.eq(null, await services.lockMutex("test:mutex1", { timeout: 10 }));
+  lock2.release();
+
+  const lock3 = (await services.lockMutex("test:mutex1", { timeout: 10000 }));
+  test.assert(lock3);
+  lock3.release();
+
+  //We should be able to get a completely free mutex even with timeout 0
+  const mutex2lock = await services.lockMutex("test:mutex2", { timeout: 0 });
+  test.assert(mutex2lock);
+  mutex2lock.release();
+
+  //Attempt to lock from HareScript and then to get that lock to ensure we're speaking the same namespace
+  const lockingvm = await openHSVM();
+  const hs_lockmgr = await lockingvm.loadlib("mod::system/lib/services.whlib").openLockManager() as HSVMObject;
+  const hs_mutex2lock = await hs_lockmgr.lockMutex("test:mutex2") as HSVMObject;
+  test.assert(hs_mutex2lock);
+
+  test.eq(null, await services.lockMutex("test:mutex2", { timeout: 10 }));
+  const mutex2lock2promise = services.lockMutex("test:mutex2");
+  hs_mutex2lock.release();
+  const mutex2lock2 = await mutex2lock2promise;
+  (await mutex2lock2).release();
+}
+
 async function testEvents() {
   const allevents: services.BackendEvent[] = [];
 
@@ -373,6 +412,7 @@ test.run(
     testResolve,
     testServices,
     testServiceState,
+    testMutex,
     testEvents,
     testHSVM,
     testHSVMFptrs,
