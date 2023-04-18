@@ -69,13 +69,13 @@ async function connectMutexManager(): Promise<MutexManagerLink> {
   return link;
 }
 
-/** Lock the requested nutex
+/** Lock the requested mutex
  * @param name - The name of the mutex to lock
  * @param options - timeout optional timeout in milliseconds. If not specified, the mutex will be waited for indefinitely
  * @returns A locked mutex, or null if locking failed due to a timeout
  */
 export async function lockMutex(name: string): Promise<Mutex>;
-export async function lockMutex(name: string, options?: { timeout: WaitPeriod }): Promise<Mutex | null>;
+export async function lockMutex(name: string, options: { timeout: WaitPeriod }): Promise<Mutex | null>;
 
 export async function lockMutex(name: string, options?: { timeout: WaitPeriod }): Promise<Mutex | null> {
   //convert any non-infinite relative timeout to an absolute one
@@ -85,7 +85,7 @@ export async function lockMutex(name: string, options?: { timeout: WaitPeriod })
   const mutexmanager = await connectMutexManager();
   try {
     const trylock = timeout !== Infinity && (timeout as Date).getTime() < Date.now();
-    const lockrequest = mutexmanager!.doRequest({
+    const lockrequest = mutexmanager.doRequest({
       task: "lock",
       mutexname: name,
       trylock: trylock,
