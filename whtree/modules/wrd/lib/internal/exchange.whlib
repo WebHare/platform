@@ -234,9 +234,9 @@ PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport
                  , DELETE schemadata_xml
                  , DELETE required_fields
                  , DELETE unique_fields
+                 , DELETE creationsource
                  , creationdate := GetCurrentDateTime()
                  , id := this->newschemaid
-                 , creationsource := LimitUTF8Bytes(CellExists(inrec,"creationsource") ? inrec.creationsource : "", 1024)
                  ];
 
     STRING usename := this->options.renameto ?? inrec.name;
@@ -284,7 +284,6 @@ PUBLIC STATIC OBJECTTYPE WRDImExport EXTEND DatabaseImExport
   RECORD FUNCTION ExportSchemasFilter(RECORD inrec)
   {
     inrec.creationdate := GetCurrentDatetime();
-    inrec.creationsource := `Exported from ${GetServerName()} at ${FormatISO8601DateTime(inrec.creationdate)} (${inrec.creationsource})`;
     RETURN inrec;
   }
 

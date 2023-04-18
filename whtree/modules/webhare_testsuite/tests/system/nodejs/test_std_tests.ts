@@ -97,11 +97,24 @@ async function testStrings() {
   //TODO strip all html, HS DecodeHTML learned that too?
 }
 
+async function testPromises() {
+  const aborter = new AbortController; //to make sure our tests don't hang on the unresolved sleep
+  await std.wrapInTimeout(std.sleep(1), 10000, new Error("Should not timeout"));
+  // various ways to create an error:
+  await test.throws(/oepsie/, std.wrapInTimeout(std.sleep(60000, { signal: aborter.signal }), 1, "oepsie"));
+  await test.throws(/oepsie/, std.wrapInTimeout(std.sleep(60000, { signal: aborter.signal }), 1, new Error("oepsie")));
+  await test.throws(/oepsie/, std.wrapInTimeout(std.sleep(60000, { signal: aborter.signal }), 1, () => "oepsie"));
+  await test.throws(/oepsie/, std.wrapInTimeout(std.sleep(60000, { signal: aborter.signal }), 1, () => new Error("oepsie")));
+  aborter.abort();
+}
+
 const testlist = [
   "Basic API tests",
   testAPI,
   "Crypto and strings",
-  testStrings
+  testStrings,
+  "Promises",
+  testPromises
 ];
 
 export default testlist;

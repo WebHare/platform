@@ -1,3 +1,5 @@
+import { WaitPeriod, convertWaitPeriodToDate } from "./api";
+
 /// A deferred promise with typed result value
 export type DeferredPromise<T> = {
   promise: Promise<T>;
@@ -6,13 +8,19 @@ export type DeferredPromise<T> = {
 };
 
 /** A promise that sleeps for the specified number of milliseconds
- *  @param milliseconds - Number of milliseconds to sleep. Must be 0 or more
+ *  @param duration - Relative (milliseconds, but not Infinity) or absolute (Date) wait duration. May not be Infinity
+ *  @param options - Options - `signal` to set an AbortSignal which will canel this sleep
 */
-export async function sleep(milliseconds: number): Promise<void> {
-  if (milliseconds < 0)
-    throw new Error(`Wait duration must be positive, got '${milliseconds}'`);
-  await new Promise(resolve => setTimeout(resolve, milliseconds));
-  return;
+export async function sleep(duration: WaitPeriod, options?: { signal?: AbortSignal }): Promise<void> {
+  if (duration === Infinity)
+    throw new Error(`A sleep may not be infinite`);
+
+  const until = convertWaitPeriodToDate(duration);
+  return new Promise(resolve => {
+    const timeoutid = setTimeout(resolve, until.getTime() - Date.now());
+    if (options?.signal)
+      options.signal.addEventListener("abort", () => clearTimeout(timeoutid));
+  });
 }
 
 /** Create a promise together with resolve & reject functions
@@ -27,4 +35,28 @@ export function createDeferred<T>(): DeferredPromise<T> {
   // @ts-ignore `resolve` and `reject` are assigned synchronously, which isn't picked up by the TypeScript compiler (see
   // https://github.com/Microsoft/TypeScript/issues/30053)
   return { promise, resolve, reject };
+}
+
+/** Wrap a promise in a timeout
+ * @param promise - Promise to wrap
+ * @param timeout - Timeout in milliseconds or as a Date
+ * @param rejectWith - Error to reject with if the timeout expires (string, Error, or a callback returning one)
+*/
+export function wrapInTimeout<T>(promise: Promise<T>, timeout: WaitPeriod, rejectWith: string | Error | (() => string | Error)): Promise<T> {
+  if (timeout === Infinity)
+    return promise;
+
+  const until = convertWaitPeriodToDate(timeout);
+  const timeoutpromise = new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      //this approach allows to delay actual Error object construction
+      const error: string | Error = typeof rejectWith === "function" ? rejectWith() : rejectWith;
+      reject(typeof error === "object" ? error : new Error(error));
+    }, until.getTime() - Date.now());
+
+    //ensure timer cancellation
+    promise.finally(() => clearTimeout(timer));
+  });
+
+  return Promise.race([promise, timeoutpromise]);
 }

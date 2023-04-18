@@ -38,7 +38,7 @@ PUBLIC MACRO PrintGDPRScanReport(RECORD report)
   FOREVERY(RECORD wrdschema FROM report.wrdschemas)
   {
     Print("WRD Schema: " || wrdschema.name || (wrdschema.title != "" ? " (" || wrdschema.title || ")" : "") || "\n");
-    Print("   created: " || FormatDatetime("%Y-%m-%d", wrdschema.creationdate) || " " || wrdschema.creationsource || "\n");
+    Print("   created: " || FormatDatetime("%Y-%m-%d", wrdschema.creationdate) || "\n");
 
     RECORD personstats := wrdschema.personstats;
     IF(RecordExists(personstats))

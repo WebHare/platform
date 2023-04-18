@@ -65,7 +65,6 @@ MACRO ExportImportWRD()
   DATETIME beforeimport := GetCurrentDatetime();
   OBJECT importedschema := CreateWRDSchemaFromImport(result);
   TestEq(TRUE, importedschema->creationdate >= beforeimport); //ensure we got a fresh creationdate
-  TestEqLike(`Exported from * at *Z (*)`, importedschema->creationsource);
   TestEq(TRUE, importedschema->id != schemaobj->id);
   TestEq(42, importedschema->GetSchemaSetting("wrd:debug.answer"));
 

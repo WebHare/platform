@@ -44,7 +44,7 @@ PUBLIC BOOLEAN FUNCTION UpdateACandidateSchema(STRING candidate, STRING resource
     IF(ObjectExists(wrdschema))
       wrdschema->ApplySchemaDefinition([ schemaresource := resourcename, ...options ]);
     ELSE
-      CreateWRDSchema(candidate, [ initialize := TRUE, schemaresource := resourcename, creationsource := resourcename ?? "moduledefinition" ]);
+      CreateWRDSchema(candidate, [ initialize := TRUE, schemaresource := resourcename ]);
 
     GetPrimary()->CommitWork();
     RETURN TRUE;

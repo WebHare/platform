@@ -19,7 +19,6 @@ PUBLIC SCHEMA
     , INTEGER "accountlogin" NULL := 0
     , INTEGER "accountpassword" NULL := 0
     , DATETIME "creationdate"
-    , STRING "creationsource"
     ; KEY id
     > schemas
   , TABLE

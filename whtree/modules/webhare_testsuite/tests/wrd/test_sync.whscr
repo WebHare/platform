@@ -332,15 +332,6 @@ MACRO TestSchemaSettings()
       , [ name := "webhare_testsuite:c", value := "f" ]
       , [ name := "wrd:auth.domainsecret", value := testfw->GetWRDSchema()->GetSchemaSetting("wrd:auth.domainsecret") ]
       , [ name := "wrd:debug.answer", value := 42 ]
-      , [ name := "wrd:sync.history", value :=  [ [ type :=               "fullsync"
-                                                  , creationsource :=     testfw->GetWRDSchema()->creationsource
-                                                  , remoteschema :=       `local schema ${testfw->GetWRDSchema()->tag}`
-                                                  , excludetypes :=       STRING[]
-                                                  , includetypes :=       STRING[]
-                                                  , remotesynchistory :=  RECORD[]
-                                                  ]
-                                                ]
-        ]
       ], (SELECT * FROM synctarget->ListSchemaSettings() WHERE name NOT LIKE "wrd:migrations.*"), "*");
 
   syncres := RunSync(synctarget, DEFAULT OBJECT, testfw->GetWRDSchema()->tag);
@@ -351,115 +342,6 @@ MACRO TestSchemaSettings()
       , [ name := "wrd:auth.domainsecret", value := testfw->GetWRDSchema()->GetSchemaSetting("wrd:auth.domainsecret") ]
       , [ name := "wrd:debug.answer", value := 42 ]
       ], SELECT * FROM testfw->GetWRDSchema()->ListSchemaSettings() WHERE name NOT LIKE "wrd:migrations.*" AND name NOT IN [ "wrd:schemaresources" ]);
-}
-
-MACRO TestSyncHistory()
-{
-  // Clean schema for clean sync history
-  testfw->BeginWork();
-  IF (ObjectExists(OpenWRDSchema("webhare_testsuite:synctarget")))
-    OpenWRDSchema("webhare_testsuite:synctarget")->DeleteSelf();
-  IF (ObjectExists(OpenWRDSchema("webhare_testsuite:synctarget2")))
-    OpenWRDSchema("webhare_testsuite:synctarget2")->DeleteSelf();
-
-  OBJECT synctarget := CreateWRDSchema("webhare_testsuite:synctarget",
-        [ title := "webhare_testsuite schema, sync target"
-        , description := "The webhare_testsuite WRD schema sync target"
-        ]);
-
-  OBJECT synctarget2 := CreateWRDSchema("webhare_testsuite:synctarget2",
-        [ title := "webhare_testsuite schema, sync target2"
-        , description := "The webhare_testsuite WRD schema 2nd sync target"
-        ]);
-
-  //done with schema-specific grants, we'll just give our accounts access to all schemas now
-  testfw->GetUserObject("wrd_metadatarights")->UpdateGrant("grant", "wrd:metadata",  0, testfw->GetUserObject("wrd_metadatarights"), [ allowselfassignment := TRUE ]);
-  testfw->GetUserObject("wrd_readrights")->UpdateGrant("grant", "wrd:read",  0, testfw->GetUserObject("wrd_readrights"), [ allowselfassignment := TRUE ]);
-  testfw->CommitWork();
-
-  STRING org_creationsource := synctarget->creationsource;
-  DATETIME org_creationdate := synctarget->creationdate;
-
-  // Run a partial sync
-  RECORD syncres := RunSync(synctarget, DEFAULT OBJECT, testfw->GetWRDSchema()->tag, [ excludetypes := [ "DOESNOTEXIST"]]);
-
-  TestEQMembers(
-      [ [ type :=               "existingschema"
-        , creationsource :=     org_creationsource
-        , creationdate :=       org_creationdate
-        ]
-      , [ type :=               "partialsync"
-        , creationsource :=     testfw->GetWRDSchema()->creationsource
-        , creationdate :=       testfw->GetWRDSchema()->creationdate
-        , remoteschema :=       `local schema ${testfw->GetWRDSchema()->tag}`
-        , excludetypes :=       STRING[ "DOESNOTEXIST" ]
-        , includetypes :=       STRING[]
-        , remotesynchistory :=  RECORD[]
-        , user :=               [ login := "wrd_metadatarights@beta.webhare.net" ]
-        ]
-      ], synctarget->GetSchemaSetting("wrd:sync.history"), "*");
-
-  TestEQLike(
-      `*testsynchistory*partial*sync*${testfw->GetWRDSchema()->tag}*${testfw->GetWRDSchema()->creationsource}*`,
-      synctarget->creationsource);
-
-  STRING org_creationsource2 := synctarget2->creationsource;
-
-  RECORD syncres2 := RunSync(synctarget2, DEFAULT OBJECT, synctarget->tag, [ excludetypes := [ "DOESNOTEXIST2"]]);
-  TestEQMembers(
-      [ [ type :=               "existingschema"
-        , creationsource :=     org_creationsource2
-        ]
-      , [ type :=               "partialsync"
-        , creationsource :=     synctarget->creationsource
-        , creationdate :=       synctarget->creationdate
-        , remoteschema :=       `local schema ${synctarget->tag}`
-        , excludetypes :=       STRING[ "DOESNOTEXIST2" ]
-        , includetypes :=       STRING[]
-        , remotesynchistory :=  synctarget->GetSchemaSetting("wrd:sync.history")
-        , user :=               [ login := "wrd_metadatarights@beta.webhare.net" ]
-        ]
-      ], synctarget2->GetSchemaSetting("wrd:sync.history"), "*");
-
-  TestEQLike(
-      `*testsynchistory*partial*sync*${synctarget->tag}*${synctarget->creationsource}*`,
-      synctarget2->creationsource);
-
-  // full sync clears the history
-  RECORD syncres3 := RunSync(synctarget2, DEFAULT OBJECT, synctarget->tag);
-  TestEQMembers(
-      [ [ type :=               "fullsync"
-        , creationsource :=     synctarget->creationsource
-        , creationdate :=       synctarget->creationdate
-        , remoteschema :=       `local schema ${synctarget->tag}`
-        , excludetypes :=       STRING[]
-        , includetypes :=       STRING[]
-        , remotesynchistory :=  synctarget->GetSchemaSetting("wrd:sync.history")
-        , user :=               [ login := "wrd_metadatarights@beta.webhare.net" ]
-        ]
-      ], synctarget2->GetSchemaSetting("wrd:sync.history"), "*");
-
-  TestEQLike(
-      `Sync*${synctarget->tag}*${synctarget->creationsource}*`,
-      synctarget2->creationsource);
-
-  // rmote peer
-  RECORD syncres4 := RunSync(synctarget2, syncpeer, synctarget->tag);
-  TestEQMembers(
-      [ [ type :=               "fullsync"
-        , creationsource :=     synctarget->creationsource
-        , creationdate :=       synctarget->creationdate
-        , remoteschema :=       `${syncpeer->url}#${synctarget->tag}`
-        , excludetypes :=       STRING[]
-        , includetypes :=       STRING[]
-        , remotesynchistory :=  synctarget->GetSchemaSetting("wrd:sync.history")
-        , user :=               [ login := "wrd_metadatarights@beta.webhare.net" ]
-        ]
-      ], synctarget2->GetSchemaSetting("wrd:sync.history"), "*");
-
-  TestEQLike(
-      `Sync*${syncpeer->url}*${synctarget->tag}*${synctarget->creationsource}*`,
-      synctarget2->creationsource);
 }
 
 MACRO TestLocalBlobUsage()
@@ -527,8 +409,7 @@ RunTestframework(
     , PTR TestRenamedTypeBreaks
     , PTR TestCopyTo
     , PTR TestSchemaSettings
-    , PTR TestSyncHistory()
-    , PTR TestLocalBlobUsage()
+    , PTR TestLocalBlobUsage
     ],
     [ testusers :=
           [ [ login := "wrd_metadatarights" ]

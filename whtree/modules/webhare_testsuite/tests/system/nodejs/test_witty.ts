@@ -245,8 +245,6 @@ async function getTids() {
 }
 
 async function libraries() {
-  await services.ready();
-
   const script = await services.loadWittyResource("mod::system/whlibs/tests/test.witty");
   test.eq("Test: yes!", (await script.run({ bla: "yes!" })).trim());
   test.eq("c7a-te", await script.runComponent("c7atext"));
@@ -332,7 +330,6 @@ async function errorHandling() {
 
   await test.throws(/Invalid closing tag/, () => new WittyTemplate("[/unknown]"));
 
-  await services.ready();
   await test.throws(/Cannot load library/, () => services.loadWittyResource("mod::system/whlibs/tests/bestaatniet.witty"));
 
   await test.throws(/Missing.*parameter/, () => new WittyTemplate("[:html]"));
@@ -359,8 +356,6 @@ async function errorHandling() {
 }
 
 async function callComponent() {
-  await services.ready();
-
   const witty = new WittyTemplate("Test: [invoke][component comp](bla)[/component]");
   await test.throws(/No such component 'bla'/, () => witty.run({ invoke: (ctx: WittyCallContext) => ctx.embed("bla") }));
   test.eq("Test: (bla)", await witty.run({ invoke: (ctx: WittyCallContext) => ctx.embed("comp") }));
@@ -435,7 +430,6 @@ async function encoding() {
   await test.throws(/Witty parse error at 1:8: Unknown encoding 'base64' requested/, () => new WittyTemplate("Test: [gettid bla test:base64]"));
 
   //Make sure the state is 'reset' at a new component, to avoid a html error confusing a whole lot more
-  await services.ready();
   witty = await services.loadWittyResource("mod::system/whlibs/tests/encoding.witty");
   test.eq("x<br>y", await witty.runComponent("masterinfo_popup", { ismaster: true, description: "x\ny", popupid: "", name: "" }));
 }
@@ -468,8 +462,6 @@ function scopedCallbackFunc() {
 }
 
 async function callWithScope() {
-  await services.ready();
-
   const script = await services.loadWittyResource("mod::system/whlibs/tests/testsuite.witty");
   test.eq("", await script.callWithScope((ctx: WittyCallContext) => scopedCallback("test1", ctx), { a: "3" }));
   test.eq(1, scopedcallbackcounter);

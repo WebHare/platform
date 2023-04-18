@@ -11,6 +11,7 @@ export { broadcast, subscribe, BackendEvent, BackendEventSubscription } from "./
 export { log, flushLog, logError } from "./logging";
 export { ConvertBackendServiceInterfaceToClientInterface } from "@mod-system/js/internal/webhareservice";
 export type { RichBlob } from "./richblob";
+export { lockMutex } from "./mutex";
 
 /** Promise that resolves as soon as the WebHare configuration is available
  * @deprecated The configuration is now always available

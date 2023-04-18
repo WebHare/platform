@@ -10,8 +10,6 @@ const pietje = { email: "pietje@beta.webhare.net", firstName: "pietje" };
 const jsonheader = { "Content-Type": "application/json" };
 
 async function testService() {
-  await services.ready();
-
   //whitebox try the service directly for more useful traces etc
   const instance = await getServiceInstance("webhare_testsuite:testservice");
   let res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/unknownapi", body: "", headers: {} }, "unknownapi");
@@ -99,8 +97,8 @@ async function testAuthorization() {
 }
 
 async function verifyPublicParts() {
-  userapiroot = services.getConfig().backendurl + ".webhare_testsuite/openapi/testservice/";
-  authtestsroot = services.getConfig().backendurl + ".webhare_testsuite/openapi/authtests/";
+  userapiroot = services.config.backendurl + ".webhare_testsuite/openapi/testservice/";
+  authtestsroot = services.config.backendurl + ".webhare_testsuite/openapi/authtests/";
 
   //Verify we get the openapi.json (not available through direct APICalls)
   const useropenapi = await (await fetch(userapiroot + "openapi/openapi.json")).json();

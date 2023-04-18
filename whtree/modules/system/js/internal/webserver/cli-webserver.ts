@@ -5,7 +5,7 @@ import * as webserver from "./webserver";
 import { Configuration } from "./webconfig";
 import * as services from "@webhare/services";
 
-services.ready().then(async () => {
+async function main() {
   const config = (await services.callHareScript("mod::system/lib/internal/webserver/config.whlib#DownloadWebserverConfig", [], { openPrimary: true })) as Configuration;
 
   //Remove the HS trusted port from our bindlist - we should stay away
@@ -14,4 +14,6 @@ services.ready().then(async () => {
     config.ports.splice(trustedportidx, 1);
 
   webserver.launch(config);
-});
+}
+
+main();

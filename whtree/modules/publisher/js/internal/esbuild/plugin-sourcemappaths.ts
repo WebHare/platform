@@ -13,7 +13,7 @@ module.exports = (outdir) =>
 ({
   name: "sourceMapTransformer",
   setup: build => {
-    const config = services.getConfig();
+    const config = services.config;
     build.onEnd(result => {
       for (const file of result.outputFiles.filter(f => f.path.endsWith("/ap.js.map"))) {
         const jsondata = JSON.parse(new TextDecoder("utf-8").decode(file.contents));
