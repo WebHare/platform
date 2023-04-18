@@ -55,7 +55,8 @@ async function testSiteResponse() {
   const response = await typedoutputpage.finish();
 
   //Verify markdown contents
-  const doc = parseHTMLDoc(await response.text());
+  const responsetext = await response.text();
+  const doc = parseHTMLDoc(responsetext);
   test.eq(markdowndoc.whfspath, doc.getElementById("whfspath")?.textContent, "Expect our whfspath to be in the source");
   const contentdiv = doc.getElementById("content");
   test.eq("This is a body!", contentdiv?.getElementsByTagName("p")[0]?.textContent);
@@ -64,6 +65,9 @@ async function testSiteResponse() {
   //Verify the GTM plugin is present
   const config = getWHConfig(doc);
   test.eq({ "a": "GTM-TN7QQM", "h": true, "m": false }, config["socialite:gtm"]);
+
+  //Verify the GTM noscript is present
+  test.eqMatch(/.*<noscript>.*<iframe.*src=".*googletagmanager.com.*id=GTM-TN7QQM".*<\/noscript>.*/, responsetext.replaceAll("\n", " "));
 }
 
 async function testCaptureJSDesign() {
