@@ -20,6 +20,7 @@ import { flags } from '@webhare/env/src/envbackend';
 import { checkPromiseErrorsHandled } from '@mod-system/js/internal/util/devhelpers';
 
 import { createPGBlob, uploadBlobToConnection, WHDBBlob, ValidBlobSources } from './blobs';
+import { emplaceInCodeContext } from '@webhare/services/src/codecontexts';
 export { WHDBBlob } from "./blobs";
 
 let configuration: { bloboid: number } | null = null;
@@ -317,7 +318,11 @@ class WHDBConnectionImpl implements WHDBConnection, PostgresPool, PostgresPoolCl
 
 type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob">;
 
-const conn: WHDBConnection = new WHDBConnectionImpl();
+const connsymbol = Symbol("WHDBConnection");
+
+function getConnection() {
+  return emplaceInCodeContext(connsymbol, { insert: () => new WHDBConnectionImpl() });
+}
 
 /* db<T> is defined as a function so a call is made every time it is accessed.
    We're just returning the conn.db (with a typecast, but that is transpiled away),
@@ -329,38 +334,38 @@ const conn: WHDBConnection = new WHDBConnectionImpl();
     @typeParam T Kysely database definition
 */
 export function db<T>() {
-  return conn.db<T>();
+  return getConnection().db<T>();
 }
 
 /** Returns whether work is currently open
     @returns `true` if work is open, `false` if not.
 */
 export function isWorkOpen() {
-  return conn.isWorkOpen();
+  return getConnection().isWorkOpen();
 }
 
 /** Begins a new transaction. Throws when a transaction is already in progress
 */
 export function beginWork() {
-  return checkPromiseErrorsHandled(conn.beginWork());
+  return checkPromiseErrorsHandled(getConnection().beginWork());
 }
 
 /** Commits the current transaction
 */
 export function commitWork() {
-  return checkPromiseErrorsHandled(conn.commitWork());
+  return checkPromiseErrorsHandled(getConnection().commitWork());
 }
 
 /** Rollbacks the transaction
 */
 export function rollbackWork() {
-  return checkPromiseErrorsHandled(conn.rollbackWork());
+  return checkPromiseErrorsHandled(getConnection().rollbackWork());
 }
 
 /** Upload a blob to the database
 */
 export async function uploadBlob(data: ValidBlobSources): Promise<WHDBBlob | null> {
-  return conn.uploadBlob(data);
+  return getConnection().uploadBlob(data);
 }
 
 /** Register a finish hander for the current work with the specified tag
@@ -370,12 +375,12 @@ export async function uploadBlob(data: ValidBlobSources): Promise<WHDBBlob | nul
  * @returns The newly registerd handler. If uniqueTag is set, the originally registered handler is returned
 */
 export function onFinishWork<T extends FinishHandler>(handler: T | (() => T), options?: { uniqueTag?: string | symbol }): T {
-  return conn.onFinishWork(handler, options);
+  return getConnection().onFinishWork(handler, options);
 }
 
 /** Broadcast event on a succesful commit */
 export function broadcastOnCommit(event: string, data?: BackendEventData) {
-  conn.broadcastOnCommit(event, data);
+  getConnection().broadcastOnCommit(event, data);
 }
 
 /** Get a new, indepedent database connection.
