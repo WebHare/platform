@@ -189,8 +189,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   PUBLIC PROPERTY startedrendering(pvt_startedrendering, -);
   ///Witty encoding to use
   PUBLIC STRING wittyencoding;
-  ///Lazy load CSS ?
-  PUBLIC BOOLEAN lazyloadcss;
   ///Content navigation stops, a list of tagnames (eg ['h1','h2']) that will be included in content navigation
   PUBLIC PROPERTY contentnavstops(pvt_contentnavstops, SetContentNavStops);
   ///Current site configuration record
@@ -230,7 +228,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
 
     this->pvt_htmldata := __webdesign_config.htmldataset;
     this->wittyencoding := __webdesign_config.wittyencoding;
-    this->lazyloadcss := __webdesign_config.lazyloadcss;
     this->contentbody := PTR this->__RenderCurrentPage; //we provide this wrapper to allow simple hooking of the content rendering
     this->maxcontentwidth := __webdesign_config.maxcontentwidth;
     this->pageobject := this->__config.pageobject;
@@ -1051,7 +1048,7 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     IF(this->pvt_linkmode="absolute" OR data.designroot != data.designcdnroot)
       designroot := data.designcdnroot;
 
-    this->pvt_dependencyresolverv2->PrintHeaders(this, designroot, this->assetcachebuster, this->lazyloadcss);
+    this->pvt_dependencyresolverv2->PrintHeaders(this, designroot, this->assetcachebuster);
 
     this->DoInserts("dependencies-bottom");
 
@@ -1128,11 +1125,6 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
   MACRO __PrintBodyFinale(RECORD data)
   {
     this->DoInserts("body-bottom");
-    STRING designroot;
-    IF(this->pvt_linkmode="absolute" OR data.designroot != data.designcdnroot)
-      designroot := data.designcdnroot;
-
-    this->pvt_dependencyresolverv2->PrintBodyFinale(this, designroot, this->assetcachebuster, this->lazyloadcss);
 
     IF(RecordExists(this->consiliofields))
     {

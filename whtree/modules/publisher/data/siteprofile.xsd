@@ -1268,7 +1268,6 @@
     <xs:attribute name="designfolder" type="xs:string" />
     <xs:attribute name="wittyencoding" type="WittyEncoding" default="HTML" />
     <xs:attribute name="maxcontentwidth" type="PixelWidth" />
-    <xs:attribute name="lazyloadcss" type="xs:boolean" />
     <xs:attribute name="assetpack" type="xs:string">
       <xs:annotation>
         <xs:documentation>

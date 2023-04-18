@@ -295,7 +295,6 @@ PUBLIC RECORD FUNCTION GetDefaultWebDesignInfo()
                       , siteprofile     := ""
                       , is404           := FALSE
                       , contentnavstops := DEFAULT STRING ARRAY
-                      , lazyloadcss     := FALSE
                       ];
   RETURN webdesign;
 }
@@ -1399,7 +1398,6 @@ STATIC OBJECTTYPE ApplyRuleTester
       webdesign.supportsaccessdenied := apply.webdesign.has_supportsaccessdenied ? apply.webdesign.supportsaccessdenied : webdesign.supportsaccessdenied;
       webdesign.asyncbundle          := apply.webdesign.has_asyncbundle          ? apply.webdesign.asyncbundle          : webdesign.asyncbundle;
       webdesign.contentnavstops      := apply.webdesign.has_contentnavstops      ? apply.webdesign.contentnavstops      : webdesign.contentnavstops;
-      webdesign.lazyloadcss          := apply.webdesign.has_lazyloadcss          ? apply.webdesign.lazyloadcss          : webdesign.lazyloadcss;
 
       IF(CellExists(apply.webdesign,'siteresponsefactory')) //introduced in 5.2
         webdesign.siteresponsefactory := apply.webdesign.siteresponsefactory ?? webdesign.siteresponsefactory;

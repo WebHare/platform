@@ -182,7 +182,7 @@ STATIC OBJECTTYPE Resolver
     }
   }
 
-  PUBLIC MACRO PrintHeaders(OBJECT webdesign, STRING usedesignroot, STRING cachebuster DEFAULTSTO "", BOOLEAN lazyloadcss DEFAULTSTO FALSE)
+  PUBLIC MACRO PrintHeaders(OBJECT webdesign, STRING usedesignroot, STRING cachebuster DEFAULTSTO "")
   {
     this->EnsurePackingInfo();
 
@@ -199,33 +199,10 @@ STATIC OBJECTTYPE Resolver
     IF(usedesignroot != "")
       bundlebaseurl := ResolveToAbsoluteURL(usedesignroot, bundlebaseurl);
 
-    IF(NOT lazyloadcss)
-    {
-      Print(`<link rel="stylesheet" href="${EncodeValue(bundlebaseurl)}ap.css">`);
-    }
+    Print(`<link rel="stylesheet" href="${EncodeValue(bundlebaseurl)}ap.css">`);
     Print(`<script src="${EncodeValue(bundlebaseurl)}ap.js"${jssettings}></script>`);
     IF(NOT ObjectExists(webdesign) OR webdesign->wittyencoding NOT LIKE "*-NI")
       Print('\n');
-  }
-
-  PUBLIC MACRO PrintBodyFinale(OBJECT webdesign, STRING usedesignroot, STRING cachebuster DEFAULTSTO "", BOOLEAN lazyloadcss DEFAULTSTO FALSE)
-  {
-    //FIXME have printbodyfinale and printheaders share this. should probably just merge us completely into webdesign.whlib
-    STRING bundlebaseurl := this->bundlebaseurl;
-    IF(cachebuster != "")
-      bundlebaseurl := "/!" || EncodeURL(cachebuster) || bundlebaseurl;
-    IF(usedesignroot != "")
-      bundlebaseurl := ResolveToAbsoluteURL(usedesignroot, bundlebaseurl);
-
-    IF(lazyloadcss)
-    {
-      //generate the link element. append it after one frame or 50 msecs
-      Print('<script>(function(){'
-            || 'var f=function(){var l=document.createElement("link");l.rel="stylesheet";l.href="' || EncodeJava(bundlebaseurl || 'ap.css') || '";document.querySelector("head").appendChild(l)};'
-            || 'var r=window.requestAnimationFrame;r?r(f):setTimeout(f,50)'
-            || '})()</script>');
-      Print('<noscript><link rel="stylesheet" href="' || EncodeValue(bundlebaseurl || 'ap.css') || '"></noscript>');
-    }
   }
 >;
 
