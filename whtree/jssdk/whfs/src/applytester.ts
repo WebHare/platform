@@ -1,9 +1,10 @@
-import { CSPApplyTo, CSPApplyRule, getCachedSiteProfiles, CSPApplyToTo } from "./siteprofiles";
+import { CSPApplyTo, CSPApplyRule, getCachedSiteProfiles, CSPApplyToTo, CSPPluginBase, CSPPluginDataRow } from "./siteprofiles";
 import { openFolder, WHFSObject, WHFSFolder, WHFSFile } from "./whfs";
 import { HSVM, openHSVM } from "@webhare/services/src/hsvm";
 import { db, Selectable } from "@webhare/whdb";
 import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { isLike, isNotLike } from "@webhare/hscompat/strings";
+import { emplace } from "@webhare/std";
 
 export interface WebDesignInfo {
   objectname: string;
@@ -11,6 +12,10 @@ export interface WebDesignInfo {
 }
 
 let myvm: Promise<HSVM> | null = null;
+
+interface PluginData extends CSPPluginBase {
+  datas: CSPPluginDataRow[];
+}
 
 interface SiteApplicabilityInfo {
   siteprofileids: number[];
@@ -258,7 +263,8 @@ export class WHFSApplyTester {
     const siteprofs = getCachedSiteProfiles();
     const resultset: CSPApplyRule[] = [];
     for (const rule of siteprofs.applies) {
-      if (propname && !(rule as unknown as { [key: string]: unknown })[propname])
+      const propvalue = (rule as unknown as { [key: string]: unknown })[propname];
+      if (!propvalue || (Array.isArray(propvalue) && !propvalue.length))
         continue; //even if it matches, this rule wouldn't be interesting
 
       if (await this.applyIsMatch(rule))
@@ -287,7 +293,9 @@ export class WHFSApplyTester {
       siteprofile: "",
       is404: false,
       contentnavstops: [],
-      lazyloadcss: false
+      lazyloadcss: false,
+
+      plugins: [] as PluginData[]
     };
 
     for (const apply of await this.getMatchingRules('webdesign')) {
@@ -329,7 +337,22 @@ export class WHFSApplyTester {
       {
         webdesign.renderinfo := this->GetObjRenderInfo();
       }*/
+    //Parse plugins (combines configuration data for later parsing)
+    const namedplugins = new Map<string, PluginData>;
+    const customplugins: PluginData[] = [];
 
+    for (const apply of await this.getMatchingRules('plugins')) {
+      for (const plugin of apply.plugins)
+        if (plugin.combine) //this is a normal plugin where we merge configuration
+          emplace(namedplugins, plugin.name, {
+            insert: () => ({ ...plugin, datas: [plugin.data] }),
+            update: cur => ({ ...cur, datas: [...cur.datas, plugin.data] })
+          });
+        else
+          customplugins.push({ ...plugin, datas: [plugin.data] });
+    }
+
+    webdesign.plugins = [...namedplugins.values(), ...customplugins];
     return webdesign;
   }
 

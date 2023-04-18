@@ -9,9 +9,16 @@ import { DOMParser } from "@xmldom/xmldom";
 import { captureJSDesign, captureJSPage } from "@mod-publisher/js/internal/capturejsdesign";
 import { buildSiteRequest } from "@webhare/router/src/siterequest";
 
-function parseHTMLDoc(html: string) {
+function parseHTMLDoc(html: string): Document {
   // eslint-disable-next-line @typescript-eslint/no-empty-function -- we want an empty function!
   return new DOMParser({ errorHandler: { warning: w => { } } }).parseFromString(html, "text/html");
+}
+
+function getWHConfig(parseddoc: Document) {
+  const config = parseddoc.getElementById("wh-config");
+  if (!config)
+    throw new Error("No wh-config element found");
+  return JSON.parse(config.textContent || "");
 }
 
 async function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: WebResponse) {
@@ -53,6 +60,10 @@ async function testSiteResponse() {
   const contentdiv = doc.getElementById("content");
   test.eq("This is a body!", contentdiv?.getElementsByTagName("p")[0]?.textContent);
   test.eq("text/html; charset=utf-8", response.getHeader("content-type"));
+
+  //Verify the GTM plugin is present
+  const config = getWHConfig(doc);
+  test.eq({ "a": "GTM-TN7QQM", "h": true, "m": false }, config["socialite:gtm"]);
 }
 
 async function testCaptureJSDesign() {

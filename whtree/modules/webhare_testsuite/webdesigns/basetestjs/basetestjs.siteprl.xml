@@ -58,15 +58,9 @@
     <allowfiletype typedef="http://www.webhare.net/xmlns/publisher/msworddownload" />
     <uploadtypemapping mimetypemask="application/msword" filetype="http://www.webhare.net/xmlns/publisher/msworddownload" />
     <uploadtypemapping mimetypemask="application/vnd.openxmlformats-officedocument.wordprocessingml.document" filetype="http://www.webhare.net/xmlns/publisher/msworddownload" />
-  </apply>
 
-  <!-- Live only settings, eg analytics -->
-  <apply minservertype="production">
-    <to type="all" />
-    <!-- Pick one of:
-    <googleanalytics4 account="G-XXXXXXXX" />
-    <gtm account="GTM-XXXXXX" />
-    -->
+    <!-- Test a plugin -->
+    <gtm account="GTM-TN7QQM" integration="selfhosted" launch="pagerender" />
   </apply>
 
   <apply>

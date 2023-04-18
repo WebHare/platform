@@ -28,7 +28,7 @@ function encodeAttr(s: string): string {
 }
 
 /** SiteResponse implements HTML pages rendered using site configuration from WHFS and site profiles */
-export class SiteResponse<T extends object> {
+export class SiteResponse<T extends object = object> {
   siterequest: SiteRequest;
   settings: SiteResponseSettings;
   protected contents = "";
@@ -67,6 +67,14 @@ export class SiteResponse<T extends object> {
   /** Append the specified text */
   appendHTML(text: string) {
     this.contents += text;
+  }
+
+  /** Set data associated with a plugin */
+  setPluginConfig(pluginname: string, data: object | null) { //HareScript: WebDesignBase::SetJSPluginConfig
+    if (data)
+      this.jsconfig[pluginname] = data;
+    else
+      delete this.jsconfig[pluginname];
   }
 
   private async generatePage(head: string, body: string, urlpointers: { designroot: string; designcdnroot: string; imgroot: string; siteroot: string }) {

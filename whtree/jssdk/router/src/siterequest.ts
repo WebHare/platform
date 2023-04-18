@@ -9,8 +9,32 @@ import { WebRequest } from "./request";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
 import { wrapHSWebdesign } from "./hswebdesigndriver";
+import { CSPPluginDataRow } from "@webhare/whfs/src/siteprofiles";
 
 export type WebDesignFunction<T extends object> = (request: SiteRequest, settings: SiteResponseSettings) => Promise<SiteResponse<T>>;
+export type ComposerHookFunction<PluginDataType = object, T extends object = object> = (plugindata: PluginDataType, composer: SiteResponse<T>) => Promise<void> | void;
+
+function buildPluginData(datas: CSPPluginDataRow[]) {
+  /* this is the more-or-less equivalent of CombinePartialNodes. it receives one or more records of the format
+
+    account: 'GTM-TN7QQM',
+    integration: 'script',
+    launch: 'pagerender',
+    __attributes: [ 'ACCOUNT' ],
+    __location: 'mod::webhare_testsuite/webdesigns/basetestjs/basetestjs.siteprl.xml:63'
+
+    It should take the first record as returnvalue (without the __ props) and for the following records, merge only the cells mentioned in __attributes.
+    Note that __attributes is uppercase but the cells themselvs are lowercase
+   */
+  const data = { ...datas[0] } as Omit<CSPPluginDataRow, '__attributes' | '__location'> & { __attributes?: string[]; __location?: string };
+  delete data.__attributes;
+  delete data.__location;
+  for (const row of datas.slice(1))
+    for (const key of row.__attributes.map(attr => attr.toLowerCase()))
+      data[key] = row[key];
+
+  return data;
+}
 
 class SiteRequest {
   readonly webrequest: WebRequest;
@@ -30,7 +54,8 @@ class SiteRequest {
   }
 
   async createComposer<T extends object = object>(): Promise<SiteResponse<T>> { //async because we may delay loading the actual webdesign code until this point
-    const publicationsettings = await (await getApplyTesterForObject(this.targetobject)).getWebDesignInfo();
+    const applytester = await getApplyTesterForObject(this.targetobject);
+    const publicationsettings = await applytester.getWebDesignInfo();
     if (!publicationsettings.siteresponsefactory)
       return wrapHSWebdesign<T>(this);
 
@@ -41,7 +66,15 @@ class SiteRequest {
     settings.witty = publicationsettings.witty;
     settings.supportedlanguages = publicationsettings.supportedlanguages;
 
-    return await factory(this, settings);
+    const composer = await factory(this, settings);
+
+    for (const plugin of publicationsettings.plugins) //apply plugins
+      if (plugin.composerhook) {
+        const plugindata = buildPluginData(plugin.datas);
+        (await resourcetools.loadJSFunction(plugin.composerhook) as ComposerHookFunction)(plugindata, composer);
+      }
+
+    return composer;
   }
 }
 

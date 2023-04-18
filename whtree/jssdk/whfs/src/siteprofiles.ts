@@ -46,7 +46,13 @@ interface CSPContentType {
   wittycomponent: string;
 }
 
-export interface CSPPluginData {
+export interface CSPPluginDataRow {
+  [key: string]: unknown;
+  __attributes: string[];
+  __location: string;
+}
+
+export interface CSPFormIntegrationPluginData extends CSPPluginDataRow {
   addressoptions: string[];
   addressvalidationkey: string;
   addressvalidationschema: string;
@@ -62,8 +68,6 @@ export interface CSPPluginData {
   processdays: number;
   usecaptcha: boolean;
   webtoolformhooks: string;
-  __attributes: string[];
-  __location: string;
 }
 
 export interface CSPPluginBase {
@@ -79,7 +83,7 @@ export interface CSPPluginBase {
 
 export interface CSPPlugin extends CSPPluginBase {
   //data stored by the plugin parser, format only known to the plugin itself
-  data: object;
+  data: CSPPluginDataRow;
 }
 
 export interface CSPRtddoc {
