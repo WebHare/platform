@@ -97,6 +97,17 @@ async function testStrings() {
   //TODO strip all html, HS DecodeHTML learned that too?
 }
 
+async function testCollections() {
+  const map = new Map<string, number>();
+  await test.throws(/Key not found and no insert handler provided/, () => std.emplace(map, "A"));
+  test.eq(1, std.emplace(map, "A", { insert: () => 1, update: n => n + 1 }));
+  test.eq(1, map.get("A"));
+  test.eq(2, std.emplace(map, "A", { insert: () => 1, update: n => n + 1 }));
+
+  const map2 = new Map<string | symbol, unknown>();
+  test.eq("Horse", std.emplace(map2, Symbol(), { insert: () => "Horse" }));
+}
+
 async function testPromises() {
   const aborter = new AbortController; //to make sure our tests don't hang on the unresolved sleep
   await std.wrapInTimeout(std.sleep(1), 10000, new Error("Should not timeout"));
@@ -113,6 +124,8 @@ const testlist = [
   testAPI,
   "Crypto and strings",
   testStrings,
+  "Collections",
+  testCollections,
   "Promises",
   testPromises
 ];
