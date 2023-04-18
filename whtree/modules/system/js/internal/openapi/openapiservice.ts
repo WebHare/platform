@@ -69,7 +69,7 @@ export class RestService {
     // Handle the request
     let result: WebResponse;
     try {
-      result = await this.restapi.handleRequest(req, "/" + relurl);
+      result = await (new services.CodeContext).run(() => this.restapi.handleRequest(req, "/" + relurl));
     } catch (e) {
       services.logError(e as Error);
 
