@@ -6,7 +6,7 @@ import * as restrequest from "@webhare/router/src/restrequest";
 
 let userapiroot = '', authtestsroot = '';
 
-const pietje = { email: "pietje@beta.webhare.net", firstName: "pietje" };
+const pietje = { email: "openapi@beta.webhare.net", firstName: "pietje" };
 const jsonheader = { "Content-Type": "application/json" };
 
 async function testService() {
@@ -22,6 +22,9 @@ async function testService() {
     { id: 55, firstName: "Bravo", email: "bravo@beta.webhare.net" }
   ], JSON.parse(res.body));
   test.eq("application/json", res.headers["content-type"]);
+
+  res = await instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/reset", body: "", headers: {} }, "reset");
+  test.eq(HTTPSuccessCode.NoContent, res.status);
 
   res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/users/1", body: "", headers: {} }, "users/1");
   test.eq(HTTPSuccessCode.Ok, res.status);
@@ -46,7 +49,10 @@ async function testService() {
 
   res = await instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/users", body: JSON.stringify(pietje), headers: jsonheader }, "users");
   test.eq(HTTPSuccessCode.Created, res.status);
-  test.eq({ "email": "pietje@beta.webhare.net", "firstName": "pietje", "id": 77 }, JSON.parse(res.body));
+
+  const resbody = JSON.parse(res.body);
+  test.eqProps({ "email": "openapi@beta.webhare.net", "firstName": "pietje" }, resbody);
+  test.assert(resbody.id > 0);
 
   res = await instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/users", body: JSON.stringify({ firstName: "Klaasje" }), headers: jsonheader }, "users");
   test.eq(HTTPErrorCode.BadRequest, res.status);
@@ -94,6 +100,25 @@ async function testAuthorization() {
   res = await instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/dummy", body: "", headers: { "x-key": "secret" } }, "dummy");
   test.eq(HTTPErrorCode.Unauthorized, res.status, "Should not be getting NotImplemented - access checks go first!");
   test.eq({ status: HTTPErrorCode.Unauthorized, error: "Authorization is required for this endpoint" }, JSON.parse(res.body));
+}
+
+async function testOverlappingCalls() {
+  const instance = await getServiceInstance("webhare_testsuite:testservice");
+
+  //TODO also test overlapping authorization calls so they can write to the database too (eg. audit)
+  const lockadduser = await services.lockMutex("webhare_testsuite:adduser");
+
+  const respromise1 = instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/users", body: JSON.stringify({ ...pietje, email: "user1@beta.webare.net" }), headers: jsonheader }, "users");
+  const respromise2 = instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/users", body: JSON.stringify({ ...pietje, email: "user2@beta.webare.net" }), headers: jsonheader }, "users");
+
+  test.eq("still waiting", await Promise.race([
+    test.sleep(200).then(() => "still waiting"),
+    respromise1.then(() => "respromise1 should not have completed"),
+    respromise2.then(() => "respromise2 should not have completed")
+  ]));
+  lockadduser.release();
+  test.eq(HTTPSuccessCode.Created, (await respromise1).status);
+  test.eq(HTTPSuccessCode.Created, (await respromise2).status);
 }
 
 async function verifyPublicParts() {
@@ -201,6 +226,7 @@ function testInternalTypes() {
 test.run([
   testService,
   testAuthorization,
+  testOverlappingCalls,
   verifyPublicParts,
   testInternalTypes
 ]);

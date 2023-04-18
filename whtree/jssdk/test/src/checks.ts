@@ -118,7 +118,7 @@ function toTestableString(val: unknown): string {
   if (typeof val == "string")
     return unescape(escape(val).split('%u').join('/u'));
   try {
-    return JSON.stringify(val);
+    return JSON.stringify(val, (key, value) => value === undefined ? "undefined" : value);
   } catch (ignore) {
     return "";
   }

@@ -1,8 +1,9 @@
-import { BackendEvent, BackendEventSubscription, subscribe } from "@webhare/services";
+import { BackendEvent, BackendEventSubscription, subscribe, CodeContext } from "@webhare/services";
 import * as test from "@webhare/test";
 import { sleep } from "@webhare/std";
 import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen, uploadBlob } from "@webhare/whdb";
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
+import * as contexttests from "./data/context-tests";
 
 async function testQueries() {
   await beginWork();
@@ -31,9 +32,30 @@ async function testQueries() {
   await test.throws(/already been closed/, () => commitWork());
   await test.throws(/already been closed/, () => rollbackWork());
   await beginWork();
+  await db<WebHareTestsuiteDB>().deleteFrom("webhare_testsuite.exporttest").execute(); //clean up for testContexts
   await commitWork();
   await test.throws(/already been closed/, () => commitWork());
   await test.throws(/already been closed/, () => rollbackWork());
+}
+
+async function testCodeContexts() {
+  const context1 = new CodeContext;
+  const context2 = new CodeContext;
+
+  const c1 = context1.runGenerator(() => contexttests.inContextWHDB(40));
+  const c2 = context2.runGenerator(() => contexttests.inContextWHDB(41));
+
+  //prove the transactions are running in parallel:
+  test.eq("inserted 40", (await c1.next()).value);
+  test.eq("inserted 41", (await c2.next()).value);
+  test.eqProps([{ id: 40 }], (await c1.next()).value, [], "context1 sees only 40");
+  test.eqProps([{ id: 41 }], (await c2.next()).value, [], "context2 sees only 41");
+
+  //and that, once committed, they see each other's changes:
+  test.eq("committed", (await c1.next()).value);
+  test.eq("committed", (await c2.next()).value);
+  test.eqProps([{ id: 40 }, { id: 41 }], (await c1.next()).value, [], "context1 sees both now");
+  test.eqProps([{ id: 40 }, { id: 41 }], (await c2.next()).value, [], "context2 sees both now");
 }
 
 async function testFinishHandlers() {
@@ -136,5 +158,6 @@ async function testFinishHandlers() {
 
 test.run([
   testQueries,
-  testFinishHandlers
+  testCodeContexts,
+  testFinishHandlers,
 ]);

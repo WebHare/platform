@@ -1,5 +1,8 @@
+import { createWRDTestSchema, getWRDSchema, prepareTestFramework } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { createJSONResponse, HTTPErrorCode, HTTPSuccessCode, RestRequest, RestSuccessfulAuthorization, WebResponse } from "@webhare/router";
+import * as services from "@webhare/services";
 import * as test from "@webhare/test";
+import * as whdb from "@webhare/whdb";
 
 const persons = [
   { id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" },
@@ -17,6 +20,12 @@ interface MyRestRequest extends RestRequest {
 
 export async function allowAll(req: RestRequest): Promise<RestSuccessfulAuthorization> {
   return { authorized: true, authorization: null };
+}
+
+export async function reset() {
+  await prepareTestFramework({ wrdauth: false });
+  await createWRDTestSchema();
+  return createJSONResponse(HTTPSuccessCode.NoContent, {});
 }
 
 export async function getUsers(req: MyRestRequest): Promise<WebResponse> {
@@ -41,7 +50,23 @@ export async function createUser(req: MyRestRequest): Promise<WebResponse> {
   test.assert("email" in addperson);
   test.assert("firstName" in addperson);
 
-  return createJSONResponse(HTTPSuccessCode.Created, { ...addperson, id: 77 });
+  const wrdschema = await getWRDSchema();
+
+  await whdb.beginWork(); //we need to get the transaction *before* we lock the mutex for testOverlappingCalls to make sense
+  const lockadduser = await services.lockMutex("webhare_testsuite:adduser");
+
+  const persontype = wrdschema.types.wrd_person;
+  const personid: number = (await persontype.createEntity({ wrd_contact_email: addperson.email, wrd_firstname: addperson.firstName })).id;
+  await whdb.commitWork();
+
+  lockadduser.release(); //TODO it would be even cooler if WebHare could autorelease (or at least detect failure to release)
+  return createJSONResponse(HTTPSuccessCode.Created, { ...addperson, id: personid });
+}
+
+export async function deleteUser(req: MyRestRequest): Promise<WebResponse> {
+  test.eq(`/users/${req.params.userid}`, req.path);
+  test.eq("number", typeof req.params.userid);
+  return createJSONResponse(HTTPSuccessCode.NoContent, null);
 }
 
 export async function validateOutput(req: MyRestRequest): Promise<WebResponse> {
