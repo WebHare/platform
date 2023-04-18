@@ -66,16 +66,20 @@ export interface CSPPluginData {
   __location: string;
 }
 
-export interface CSPPlugin {
+export interface CSPPluginBase {
   combine: boolean;
-  //data stored by the plugin parser, format only known to the plugin itself
-  data: unknown;
-  hooksfeatures: any[];
-  hooksplugins: any[];
+  hooksfeatures: string[];
+  hooksplugins: string[];
   name: string;
   namespace: string;
   objectname: string;
   wittyname: string;
+  composerhook?: string;
+}
+
+export interface CSPPlugin extends CSPPluginBase {
+  //data stored by the plugin parser, format only known to the plugin itself
+  data: object;
 }
 
 export interface CSPRtddoc {

@@ -23,7 +23,7 @@ PUBLIC STATIC OBJECTTYPE MyPlugin EXTEND WebDesignPluginBase
 >;
 ```
 
-The siteprofile reader willl combine the parseed values for all apply nodes and update settings based on which
+The siteprofile reader willl combine the parsed values for all apply nodes and update settings based on which
 attributes are actually set. For this reason, the cellnames returned by ParseCongigurationNode *must* match the attribute
 names used in the siteprofile (unless you also override ListConfigurationNodeAttributes to explain which attributes are
 overridden by each node)
