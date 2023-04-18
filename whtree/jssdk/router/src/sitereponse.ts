@@ -1,3 +1,4 @@
+import { WHConfigScriptData } from "@mod-publisher/js/internal/sharedtypes";
 import { createWebResponse, WebResponse } from "./response";
 import type { SiteRequest } from "./siterequest";
 import * as services from "@webhare/services";
@@ -35,10 +36,24 @@ export class SiteResponse<T extends object> {
   /** The pageconfig. Not protected because we assume that if you know it's type T, its on you if you access it */
   pageconfig: T;
 
+  /** JS configuration data */
+  private jsconfig: WHConfigScriptData;
+
   constructor(pageconfig: T, siterequest: SiteRequest, settings: SiteResponseSettings) {
     this.siterequest = siterequest;
     this.pageconfig = pageconfig;
     this.settings = settings;
+
+    this.jsconfig = {
+      siteroot: "",
+      site: {},
+      obj: {},
+      dtapstage: services.config.dtapstage,
+      //TODO should we have a services.config.islive? or just clientside or never generate that?
+      islive: ["production", "acceptance"].includes(services.config.dtapstage),
+      locale: this.settings.lang, //why doesn't JS just get the html lang= ?
+      server: 50300 //FIXME how to get it, and do we still want to in JS ?
+    };
   }
 
   /** Render the contents of the specified witty component (path#component) with the specified data
@@ -70,20 +85,11 @@ export class SiteResponse<T extends object> {
       page += `<link rel="canonical" href="${encodeAttr(this.settings.canonicalurl)}">`;
     page += head;
 
+    //TODO do we (still) need all these roots?
+    this.jsconfig.siteroot = urlpointers.siteroot;
+
     //FIXME this->DoInserts("dependencies-top");
-    const finaljsconfig = {
-      //FIXME ...this->__jsconfig
-      //TODO do we (still) need all these roots?
-      siteroot: urlpointers.siteroot,
-      site: {}, //FIXME this->__jssiteconfig
-      obj: {}, //FIXME this->__jsoobjconfig
-      dtapstage: services.config.dtapstage,
-      //TODO should we have a services.config.islive?
-      islive: ["production", "acceptance"].includes(services.config.dtapstage),
-      locale: this.settings.lang, //why doesn't JS just get the html lang= ?
-      //FIXME do we still want the 5 digit server number? does anyone really use it anyway?
-    };
-    page += `<script type="application/json" id="wh-config">${JSON.stringify(finaljsconfig)}</script>`;
+    page += `<script type="application/json" id="wh-config">${JSON.stringify(this.jsconfig)}</script>`;
 
     //FIXME adhoc bundle support
     const bundlebaseurl = "/.ap/" + this.settings.assetpack.replace(":", ".") + "/";
