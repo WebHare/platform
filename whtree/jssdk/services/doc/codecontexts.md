@@ -84,6 +84,6 @@ This has some major drawbacks:
 
 ### ShadowRealms
 They look promising but aren't finished. However, you can only pass `PrimitiveValueOrCallable`s over the realm boundaries - ie,
-wa can't even *try* to pass a `pg` connection cached inside a pool to a new context. All complex resource sharing will require
+you can't even *try* to pass a `pg` connection cached inside a pool to a new context. All complex resource sharing will require
 some form of proxying, message passing or rebuilding objects with bound functions (which can then still only take primivites or
 bound functions, but no objects). It looks like ShadowRealm gives more isolation than we need (and thus less chance of optimization)
