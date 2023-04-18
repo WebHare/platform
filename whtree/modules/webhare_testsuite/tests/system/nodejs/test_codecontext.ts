@@ -1,6 +1,7 @@
 import { getCodeContext, CodeContext } from "@webhare/services";
 import * as test from "@webhare/test";
 import * as contexttests from "./data/context-tests";
+import { emplaceInCodeContext } from "@webhare/services/src/codecontexts";
 
 async function testContextSetup() {
   test.throws(/Not running inside a CodeContext/, getCodeContext);
@@ -36,4 +37,21 @@ async function testContextSetup() {
   test.eq({ value: undefined, done: true }, await contextidgeneratorasync.next());
 }
 
-test.run([testContextSetup]);
+async function testContextStorage() {
+  const context1 = new CodeContext;
+  const context2 = new CodeContext;
+  test.throws(/Key not found and no insert handler provided/, () => emplaceInCodeContext("webhare_testsuite:mykey"));
+
+  emplaceInCodeContext("webhare_testsuite:mykey", { insert: () => 77 });
+  context1.emplaceInStorage("webhare_testsuite:mykey", { insert: () => 88 });
+  context2.run(() => emplaceInCodeContext("webhare_testsuite:mykey", { insert: () => 99 }));
+
+  test.eq(77, emplaceInCodeContext("webhare_testsuite:mykey"));
+  test.eq(88, context1.emplaceInStorage("webhare_testsuite:mykey"));
+  test.eq(99, context2.emplaceInStorage("webhare_testsuite:mykey"));
+}
+
+test.run([
+  testContextSetup,
+  testContextStorage
+]);
