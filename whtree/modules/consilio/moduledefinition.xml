@@ -246,8 +246,8 @@
     <d:table name="checked_objectlinks" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
       <d:integer name="link" noupdate="1" nullable="0" ondelete="cascade" references=".checked_links" />
-      <d:integer64 name="wrd_entity_setting" noupdate="1" nullable="1" ondelete="cascade" references="wrd.entity_settings" />
-      <d:integer64 name="system_fs_setting" noupdate="1" nullable="1" ondelete="cascade" references="system.fs_settings" />
+      <d:number name="wrd_entity_setting" noupdate="1" nullable="1" ondelete="cascade" references="wrd.entity_settings" />
+      <d:number name="system_fs_setting" noupdate="1" nullable="1" ondelete="cascade" references="system.fs_settings" />
       <d:varchar name="text" maxlength="90" />
       <d:varchar name="url" maxlength="1024" nullable="0" />  <!-- Original, non-normalized URL -->
       <d:index name="objectslinks" columns="wrd_entity_setting system_fs_setting link" unique="1" />

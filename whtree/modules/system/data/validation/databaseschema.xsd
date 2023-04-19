@@ -27,7 +27,17 @@
                     </xs:complexContent>
                   </xs:complexType>
                 </xs:element>
-                <xs:element name="__longkey"> <!-- FIXME remove when Connect is updated -->
+                <xs:element name="__longkey"> <!-- FIXME remove when Connect is updated (although it now needs to update to :number, not :integer64 -->
+                  <xs:complexType>
+                    <xs:complexContent>
+                      <xs:extension base="BaseColumnType">
+                        <xs:attributeGroup ref="ReferenceAttributes" />
+                        <xs:attribute name="autonumberstart" type="xs:integer" />
+                      </xs:extension>
+                    </xs:complexContent>
+                  </xs:complexType>
+                </xs:element>
+                <xs:element name="number">
                   <xs:complexType>
                     <xs:complexContent>
                       <xs:extension base="BaseColumnType">

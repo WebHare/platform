@@ -556,7 +556,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                         , supportserrors           := ParseXSBoolean(node->GetAttribute("supportserrors"))
                         , supportsaccessdenied     := ParseXSBoolean(node->GetAttribute("supportsaccessdenied"))
                         , asyncbundle              := ParseXSBoolean(node->GetAttribute("async"))
-                        , lazyloadcss              := ParseXSBoolean(node->GetAttribute("lazyloadcss"))
                         , supportedlanguages       := ParseXSList(node->GetAttribute("supportedlanguages"))
                         , contentnavstops          := ParseXSList(node->GetAttribute("contentnavstops"))
 
@@ -565,7 +564,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                         , has_supportsaccessdenied := node->HasAttribute("supportsaccessdenied")
                         , has_asyncbundle          := node->HasAttribute("async")
                         , has_contentnavstops      := node->HasAttribute("contentnavstops")
-                        , has_lazyloadcss          := node->HasAttribute("lazyloadcss")
                         ];
 
     webdesign.assetpack := QualifyName(this->module,node->GetAttribute("assetpack"));

@@ -1,0 +1,11 @@
+<?wh
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/reporting/deprecationscan.whlib";
+
+OBJECT trans := OpenPrimary();
+RECORD scanresult := GetDeprecationScanReport();
+PrintDeprecationScanReport(scanresult);
+IF(scanresult.numissues > 0)
+  SetConsoleExitCode(1);

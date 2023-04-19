@@ -111,7 +111,7 @@ function cmp<T extends ComparableType>(a: T, condition: "=" | ">=" | ">" | "!=" 
   }
 }
 
-type SettingsSelectBuilder = SelectQueryBuilder<WebHareDB, "wrd.entities" | "wrd.entity_settings", { id: bigint }>;
+type SettingsSelectBuilder = SelectQueryBuilder<WebHareDB, "wrd.entities" | "wrd.entity_settings", { id: number }>;
 
 /** Returns a subquery over wrd.entity_settings on a wrd.entities where, joined on the entity id
  * @param qb - Query over wrd.entities
