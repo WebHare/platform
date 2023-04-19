@@ -1711,6 +1711,7 @@
         </xs:list>
       </xs:simpleType>
     </xs:attribute>
+    <xs:attribute name="composerhook" />
     <xs:attributeGroup ref="ApplicabletoWebHare" />
   </xs:complexType>
 

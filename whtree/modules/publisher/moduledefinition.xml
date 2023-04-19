@@ -999,7 +999,7 @@
     <webdesignplugin name="formintegration" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/forms/webdesignplugin.whlib#formintegrationplugin"  />
     <webdesignplugin name="captchaintegration" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/captcha/webdesignplugin.whlib#captchaintegrationplugin"  />
     <webdesignplugin name="forumplugin" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/forum/forumplugin.whlib#forumplugin" hooksfeatures="objectprops" />
-    <webdesignplugin name="gtm" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/analytics/gtmplugin.whlib#GTMPlugin" hooksfeatures="debugsettings" />
+    <webdesignplugin name="gtm" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/analytics/gtmplugin.whlib#GTMPlugin" hooksfeatures="debugsettings" composerhook="js/internal/plugins/gtmplugin.ts#hookComposer" />
     <webdesignplugin name="googleanalytics" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/analytics/gaplugin.whlib#GoogleAnalyticsPlugin" />
     <webdesignplugin name="googleanalytics4" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/analytics/ga4plugin.whlib#GoogleAnalytics4Plugin" />
     <webdesignplugin name="pwafile" namespace="http://www.webhare.net/xmlns/publisher/siteprofile" objectname="lib/internal/pwa/pwafileplugin.whlib#pwafileplugin" hooksfeatures="objectprops" />

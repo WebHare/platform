@@ -3,3 +3,4 @@ export { convertWaitPeriodToDate } from "./api";
 export { DeferredPromise, sleep, createDeferred, wrapInTimeout } from "./promises";
 export { encodeString, decodeString, wildcardsToRegExp, StringEncodings } from "./strings";
 export { generateRandomId } from "./platformbased";
+export { emplace, EmplaceHandler } from "./collections";

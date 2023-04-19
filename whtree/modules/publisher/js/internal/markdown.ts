@@ -4,7 +4,7 @@ import MarkdownIt from 'markdown-it';
 
 export async function renderMarkdown(request: SiteRequest): Promise<WebResponse> {
   //FIXME we need a JS getInstanceData that gives us nicer Image records with a formatImage or getImageURL or something.. and real blobs
-  const markdowninfo = await callHareScript("mod::system/lib/internal/jshelpers.whlib#GetInstanceData", [request.targetobject.id, "http://www.webhare.net/xmlns/publisher/markdownfile"], { openPrimary: true }) as { data: { text: string } } | null;
+  const markdowninfo = await callHareScript("mod::system/lib/internal/jshelpers.whlib#GetInstanceData", [request.contentobject.id, "http://www.webhare.net/xmlns/publisher/markdownfile"], { openPrimary: true }) as { data: { text: string } } | null;
   const outputpage = await request.createComposer();
   if (!markdowninfo?.data?.text)
     return outputpage.finish();

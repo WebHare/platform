@@ -14,6 +14,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/printer.whlib";
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
@@ -139,7 +140,10 @@ MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderwidgetpr
   __pageinfo := [ pagefolder := GetDirectoryFromPath(Tokenize(webdesigninfo.renderinfo.objectname,'#')[0]) ];
 
   IF(webdesigninfo.renderinfo.renderer != "")
-    THROW NEW Exception("Don't know how to render a JS object"); //TODO it's not clear if *we* should or if the preview should have been routed to JS earlier
+  {
+    RECORD capturedpage := WaitForPromise(CallAsync("mod::publisher/js/internal/capturejsdesign.ts#captureJSPage", VARIANT[ source, openobj->id ]));
+    SendWebFile(StringToBlob(capturedpage.body));
+  }
   ELSE IF(webdesigninfo.renderinfo.objectname = "")
     THROW NEW Exception("Don't know how to render a type without a rendering object");
 
@@ -228,4 +232,3 @@ IF (NOT ObjectExists(draftobj) AND NOT ObjectExists(openobj))
   THROW NEW Exception("Document to preview doesn't exist. It might have been deleted or there's a new draft available.");
 
 RunPublisherPreview(openobj, source, renderwidgetpreview, options);
-

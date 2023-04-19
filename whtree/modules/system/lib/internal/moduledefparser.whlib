@@ -1459,6 +1459,8 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
           plugin.name := subchild->GetAttribute("name");
           plugin.namespace := subchild->GetAttribute("namespace");
           plugin.hooksfeatures := ParseXSList(subchild->GetAttribute("hooksfeatures"));
+          IF(subchild->GetAttribute("composerhook") != "")
+            INSERT CELL composerhook := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("composerhook")) INTO plugin;
 
           FOREVERY(STRING hookplugin FROM ParseXSList(subchild->GetAttribute("hooksplugins")))
             INSERT subchild->LookupQualifiedName(hookplugin) INTO plugin.hooksplugins AT END;

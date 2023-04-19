@@ -1,22 +1,6 @@
+import { WHConfigScriptData } from '@mod-publisher/js/internal/sharedtypes';
 import * as dompack from 'dompack';
 import * as storage from 'dompack/extra/storage';
-
-interface Config {
-  [key: string]: unknown;
-
-  //NOTE: existing code doesn't expect site/obj to ever be null. not sure if 'object' provides the best interface or whether we need some sort of 'unknown but an existing object'
-  /** Page (targetobject) specific settings */
-  obj: object;
-  /** Site specific settings */
-  site: object;
-
-  /** True if the current WebHare is in production or acceptance DTAP stage. Often used to show/hide developer-targed runtime warnings */
-  islive: boolean;
-  /** Current WebHare's DTAP stage */
-  dtapstage: "production" | "acceptance" | "test" | "development";
-  /** Numeric server version number (eg 5.02.24 = 50224) */
-  server: number;
-}
 
 type FormValueList = Array<{ name: string; value: string }>;
 
@@ -168,12 +152,12 @@ function checkAuthorMode() {
   }
 }
 
-function getIntegrationConfig(): Config {
+function getIntegrationConfig(): WHConfigScriptData {
   let config;
   if (typeof window !== 'undefined') { //check we're in a browser window, ie not serverside or some form of worker
     const whconfigel = typeof document != "undefined" ? document.querySelector('script#wh-config') : null;
     if (whconfigel?.textContent) {
-      config = JSON.parse(whconfigel.textContent) as Partial<Config>;
+      config = JSON.parse(whconfigel.textContent) as Partial<WHConfigScriptData>;
     }
   }
 
@@ -184,7 +168,8 @@ function getIntegrationConfig(): Config {
     server: 0,
     ...config,
     obj: config?.obj || {},
-    site: config?.site || {}
+    site: config?.site || {},
+    siteroot: config?.siteroot || ""
   };
 }
 
