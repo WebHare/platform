@@ -1,4 +1,5 @@
-import { Money, isDate, determineType, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { Money } from "@webhare/std";
+import { isDate, determineType, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 
 export type ComparableType = number | null | bigint | string | Date | Money | boolean;
 
@@ -100,10 +101,8 @@ export function compare(left: ComparableType, right: ComparableType): -1 | 0 | 1
           return left !== right ? left < right ? -1 : 1 : 0;
         }
         case "object": {
-          if (Money.isMoney(right)) {
-            const left_money = new Money(left.toString());
-            return left_money.cmp(right);
-          }
+          if (Money.isMoney(right))
+            return Money.cmp(left.toString(), right);
         }
       }
     } break;
@@ -118,8 +117,7 @@ export function compare(left: ComparableType, right: ComparableType): -1 | 0 | 1
         }
         case "object": {
           if (Money.isMoney(right)) {
-            const left_money = new Money(left.toString());
-            return left_money.cmp(right);
+            return Money.cmp(left.toString(), right);
           }
         }
       }
@@ -131,19 +129,14 @@ export function compare(left: ComparableType, right: ComparableType): -1 | 0 | 1
     case "object": {
       if (Money.isMoney(left)) {
         switch (typeof right) {
-          case "number": {
-            const right_money = new Money(right.toString());
-            return left.cmp(right_money);
-          }
-          case "bigint": {
-            const right_money = new Money(right.toString());
-            return left.cmp(right_money);
-          }
+          case "number":
+          case "bigint":
+            return Money.cmp(left, right.toString());
           case "object": {
             if (right === null) {
               return 1;
             } else if (Money.isMoney(right))
-              return left.cmp(right);
+              return Money.cmp(left, right);
           }
         }
       } else if (isDate(left) && isDate(right)) {
