@@ -1,11 +1,10 @@
 import { WRDAttributeType, AllowedFilterConditions, WRDAttrBase, WRDGender } from "./types";
 import type { AttrRec, EntityPartialRec, EntitySettingsRec } from "./db";
-import type { SelectQueryBuilder, ExpressionBuilder } from "kysely";
-import { sql } from "kysely";
+import { sql, SelectQueryBuilder, ExpressionBuilder } from "kysely";
 import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { compare, ComparableType } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
-import { Money } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { Money } from "@webhare/std";
 
 
 /** Response type for addToQuery

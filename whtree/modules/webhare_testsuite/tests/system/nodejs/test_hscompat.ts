@@ -5,7 +5,8 @@
 */
 
 import * as test from "@webhare/test";
-import { Money, isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts } from "@webhare/hscompat";
+import { Money } from "@webhare/std";
+import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts } from "@webhare/hscompat";
 import { compare } from "@webhare/hscompat/algorithms";
 import { getTypedArray, IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 
@@ -230,7 +231,7 @@ function testHSON() {
 
   testHSONEnDeCode('hson:b"' + btoa("Ik ben een blob") + '"', Buffer.from("Ik ben een blob"));
 
-  testHSONEnDeCode('hson:m -92233720368547.75808', new Money("-92233720368547.75808"));
+  testHSONEnDeCode('hson:m -92233720.75808', new Money("-92233720.75808"));
 
   testHSONEnDeCode('hson:m -5', new Money("-5"));
 
@@ -240,7 +241,7 @@ function testHSON() {
 
   testHSONEnDeCode('hson:m 5.42', new Money("5.42"));
 
-  testHSONEnDeCode('hson:m 92233720368547.75807', new Money("92233720368547.75807"));
+  testHSONEnDeCode('hson:m 92233720.75807', new Money("92233720.75807"));
 
   // TODO is there a need to be able to EncodeAsFloat ? testHSONEnDeCode('hson:f -5', -5);
 

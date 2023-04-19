@@ -1,11 +1,12 @@
 import { LinearBufferReader, LinearBufferWriter } from "./bufs";
-import * as finmath from '../../util/finmath';
+// FIXME - import { Money } from "@webhare/std"; - but this breaks the shrinkwrap (it can't find @webhare/std)
+import { Money } from "../../../../../jssdk/std/money";
 
 export enum VariableType {
   Uninitialized = 0x00,                 ///< Not initialised variable
   Variant = 0x01,
   Integer = 0x10,
-  Money = 0x11,
+  HSMoney = 0x11,
   Float = 0x12,
   Boolean = 0x13,
   DateTime = 0x14,
@@ -37,7 +38,7 @@ export enum VariableType {
 
 export type HSType<T extends VariableType> =
   T extends VariableType.Integer ? number :
-  T extends VariableType.Money ? Money :
+  T extends VariableType.HSMoney ? Money :
   T extends VariableType.Float ? number :
   T extends VariableType.Boolean ? boolean :
   T extends VariableType.DateTime ? Date :
@@ -48,7 +49,7 @@ export type HSType<T extends VariableType> =
   T extends VariableType.Blob ? Uint8Array :
   T extends VariableType.VariantArray ? IPCMarshallableData[] :
   T extends VariableType.IntegerArray ? Array<HSType<VariableType.Integer>> :
-  T extends VariableType.MoneyArray ? Array<HSType<VariableType.Money>> :
+  T extends VariableType.MoneyArray ? Array<HSType<VariableType.HSMoney>> :
   T extends VariableType.FloatArray ? Array<HSType<VariableType.Float>> :
   T extends VariableType.BooleanArray ? Array<HSType<VariableType.Boolean>> :
   T extends VariableType.DateTimeArray ? Array<HSType<VariableType.DateTime>> :
@@ -62,7 +63,7 @@ export type HSType<T extends VariableType> =
 export function getDefaultValue<T extends VariableType>(type: T): HSType<T> {
   switch (type) {
     case VariableType.Integer: { return 0 as HSType<T>; }
-    case VariableType.Money: { return new Money("0") as HSType<T>; }
+    case VariableType.HSMoney: { return new Money("0") as HSType<T>; }
     case VariableType.Float: { return 0 as HSType<T>; }
     case VariableType.Boolean: { return false as HSType<T>; }
     case VariableType.DateTime: { return defaultDateTime as HSType<T>; }
@@ -105,47 +106,6 @@ const maxDateTimeTotalMsecs = 100000000 * 86400000 - 1;
 */
 export const maxDateTime: Date = Object.freeze(new Date(maxDateTimeTotalMsecs));
 export const defaultDateTime: Date = Object.freeze(new Date(-719163 * 86400000));
-
-/** Encapsulates HareScript MONEY value */
-export class Money {
-  /** finmath-compatible value */
-  value: string;
-
-  constructor(value?: string) {
-    this.value = value ?? "0";
-
-    /// Marker for safe type detections across realms
-    Object.defineProperty(this, "__hstype", { value: VariableType.Money });
-  }
-
-  static isMoney(value: unknown): value is Money {
-    return typeof value === "object" && Boolean(value) && ((value as { __hstype: unknown }).__hstype === VariableType.Money);
-  }
-
-  add(right: Money) {
-    return new Money(finmath.add(this.value, right.value));
-  }
-
-  subtract(right: Money) {
-    return new Money(finmath.subtract(this.value, right.value));
-  }
-
-  roundToMultiple(right: Money, mode: finmath.RoundMode) {
-    return new Money(finmath.roundToMultiple(this.value, right.value, mode));
-  }
-
-  cmp(right: Money) {
-    return finmath.cmp(this.value, right.value);
-  }
-
-  multiply(right: Money) {
-    return new Money(finmath.multiply(this.value, right.value));
-  }
-
-  divide(right: Money) {
-    return new Money(finmath.divide(this.value, right.value));
-  }
-}
 
 export function isDate(value: unknown): value is Date {
   return Boolean(typeof value === "object" && value && "getDate" in value);
@@ -250,7 +210,7 @@ function marshalReadInternal(buf: LinearBufferReader, type: VariableType, column
     case VariableType.Integer64: {
       return buf.readBigS64();
     }
-    case VariableType.Money: {
+    case VariableType.HSMoney: {
       const value = buf.readBigS64();
       let str = value.toString();
       const isnegative = value < BigInt(0);
@@ -387,13 +347,13 @@ function unifyEltTypes(a: VariableType, b: VariableType): VariableType {
     return a;
   if (b === VariableType.Variant)
     return b;
-  if (a === VariableType.Integer && (b === VariableType.Float || b === VariableType.Money || b === VariableType.Integer64))
+  if (a === VariableType.Integer && (b === VariableType.Float || b === VariableType.HSMoney || b === VariableType.Integer64))
     return b;
-  if ((a === VariableType.Float || a === VariableType.Money || a === VariableType.Integer64) && b === VariableType.Integer)
+  if ((a === VariableType.Float || a === VariableType.HSMoney || a === VariableType.Integer64) && b === VariableType.Integer)
     return a;
-  if (a === VariableType.Float && b === VariableType.Money)
+  if (a === VariableType.Float && b === VariableType.HSMoney)
     return a;
-  if (a === VariableType.Money && b === VariableType.Float)
+  if (a === VariableType.HSMoney && b === VariableType.Float)
     return b;
   return VariableType.Variant;
 }
@@ -423,8 +383,8 @@ export function determineType(value: unknown): VariableType {
         return VariableType.DateTime;
       if (value && "__hstype" in value) {
         const rec = value as Record<"__hstype", VariableType>;
-        if (rec.__hstype === VariableType.Money)
-          return VariableType.Money;
+        if (rec.__hstype === VariableType.HSMoney)
+          return VariableType.HSMoney;
       }
       return VariableType.Record;
     }
@@ -489,7 +449,7 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
       } else
         writer.writeDouble(value as number);
     } break;
-    case VariableType.Money: {
+    case VariableType.HSMoney: {
       if (typeof value !== "number") { // Money?
         if (!Money.isMoney(value))
           throw new Error(`Unknown object to encode as float`);
@@ -639,7 +599,7 @@ function encodeHSONInternal(value: IPCMarshallableData, needtype?: VariableType)
     } break;
     case VariableType.Integer64: retval = "i64 " + (value as number | bigint).toString(); break;
     case VariableType.Integer: retval = (value as number).toString(); break;
-    case VariableType.Money: {
+    case VariableType.HSMoney: {
       if (typeof value === "object") {
         if (!Money.isMoney(value))
           throw new Error(`Unknown object to encode as money`);
@@ -1274,7 +1234,7 @@ class JSONParser {
           if (this.hson && tokentype == TokenType.JTT_Token) { // Either type specifier, '*', 'true' or 'false'
             if (token.length == 1) {
               switch (token[0]) {
-                case 'm': this.lasttype = VariableType.Money; break;
+                case 'm': this.lasttype = VariableType.HSMoney; break;
                 case 'f': this.lasttype = VariableType.Float; break;
                 case 'd': this.lasttype = VariableType.DateTime; break;
                 case 'b': this.lasttype = VariableType.Blob; break;
@@ -1530,7 +1490,7 @@ class JSONParser {
         parent[key] = BigInt(token);
         return true;
       }
-      case VariableType.Money: {
+      case VariableType.HSMoney: {
         parent[key] = new Money(token);
         return true;
       }

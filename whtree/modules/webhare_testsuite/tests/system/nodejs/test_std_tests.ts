@@ -8,20 +8,189 @@ wh runtest system.nodejs.test_std_frontend
 
 import * as test from "@webhare/test";
 import * as std from "@webhare/std";
-import * as api from "@webhare/std/api";
+import { Money } from "@webhare/std";
+
 
 //Test helpers for building APIs
 async function testAPI() {
   //convertWaitPeriodToDate
-  test.eq(-864000 * 1000 * 10000000, api.convertWaitPeriodToDate(0).getTime(), "minimum date");
-  test.eq(864000 * 1000 * 10000000, api.convertWaitPeriodToDate(Infinity).getTime(), "maximum date");
+  test.eq(-864000 * 1000 * 10000000, std.convertWaitPeriodToDate(0).getTime(), "minimum date");
+  test.eq(864000 * 1000 * 10000000, std.convertWaitPeriodToDate(Infinity).getTime(), "maximum date");
 
-  const now = Date.now(), soon = api.convertWaitPeriodToDate(100);
+  const now = Date.now(), soon = std.convertWaitPeriodToDate(100);
   test.assert(now <= soon.getTime() && soon.getTime() <= now + 1000);
 
-  await test.throws(/Invalid wait duration/, () => api.convertWaitPeriodToDate(-1));
-  await test.throws(/Invalid wait duration/, () => api.convertWaitPeriodToDate(7 * 86400 * 1000 + 1));
-  await test.throws(/Invalid wait duration/, () => api.convertWaitPeriodToDate(Date.now()));
+  await test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(-1));
+  await test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(7 * 86400 * 1000 + 1));
+  await test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(Date.now()));
+}
+
+function testRoundingCall(base: number, mode: std.MoneyRoundingMode, expect: number[]) {
+  const mgot = [], mexpect = [];
+
+  for (let i = -base; i <= base; ++i) {
+    mexpect.push(Money.multiply(String(expect[i + base]), "0.1"));
+    mgot.push(Money.roundToMultiple(Money.multiply(String(i), "0.1"), Money.multiply(String(base), "0.1"), mode));
+  }
+
+  test.eq(mexpect.join("_"), mgot.join("_"), `Rounding mode ${mode} for money`);
+}
+
+function testEqMoney(expect: string, actual: Money) {
+  test.eq(expect, actual.toString());
+}
+
+function testMoney() {
+  //test the constructor
+  test.eq('"0"', JSON.stringify(new Money));
+  test.eq('"0"', JSON.stringify(new Money('-0')));
+  test.eq('"0"', JSON.stringify(new Money('0')));
+  test.eq('"15.5"', JSON.stringify(new Money("15.50")));
+  ///@ts-ignore -- we do not allow number casts as mixing number and Money may cause loss of precision/floating point decimal noise. verify runtime checks are in place
+  test.throws(/Money cannot be constructed out of a value of type number/, () => new Money(0));
+  ///@ts-ignore -- another throw check
+  test.throws(/Money cannot be constructed out of a value of type number/, () => new Money(-1));
+  test.throws(/Money value is out of range/, () => new Money("1000000000"));
+  test.throws(/Money value is out of range/, () => new Money("-1000000000"));
+  //but it's okay to explicitly build from numbers
+  test.eq('"15.5"', JSON.stringify(Money.fromNumber(15.5)));
+  test.throws(/Money value is out of range/, () => Money.fromNumber(1_000_000_000));
+  test.throws(/Money value is out of range/, () => Money.fromNumber(-1_000_000_000));
+
+  // testPresentation
+  test.eq("0", new Money("0").format(".", 0));
+  test.eq("-2", new Money("-2").format(".", 0));
+  test.eq("-2.0", new Money("-2").format(".", 1));
+  test.eq("-2.1", new Money("-2.1").format(".", 1));
+  test.eq("-0.1", new Money("-0.1").format(".", 1));
+  test.eq("-0.01", new Money("-0.01").format(".", 1));
+  test.eq("1", new Money("1.0").format(".", 0));
+  test.eq("1.0", new Money("1.0").format(".", 1));
+  test.eq("1.01", new Money("1.01").format(".", 0));
+  test.eq("0.50", new Money("0.50").format(".", 2));
+  test.eq("119.50", new Money("119.5").format(".", 2));
+
+  // testAddition()
+  testEqMoney("0.5", Money.add("0.50", "0"));
+  testEqMoney("119.5", Money.add("119.00", "0.50"));
+
+  // testMultiplicationAndPercentages()
+  testEqMoney("415.5", Money.multiply("138.5", '3'));
+  testEqMoney("-138.5", Money.multiply("138.5", '-1'));
+  testEqMoney("5", Money.multiply("-5", '-1'));
+  testEqMoney("0.145", Money.multiply("145", "0.001"));
+  testEqMoney("-0.145", Money.multiply("-145", "0.001"));
+  testEqMoney("0.0145", Money.multiply("14.5", "0.001"));
+  testEqMoney("-0.0145", Money.multiply("-14.5", "0.001"));
+  testEqMoney("0.00145", Money.multiply("1.45", "0.001"));
+  testEqMoney("-0.00145", Money.multiply("-1.45", "0.001"));
+  testEqMoney("0.00014", Money.multiply("0.144", "0.001"));
+  testEqMoney("-0.00014", Money.multiply("-0.144", "0.001"));
+  testEqMoney("0.00015", Money.multiply("0.145", "0.001"));
+  testEqMoney("-0.00015", Money.multiply("-0.145", "0.001"));
+  testEqMoney("0.00001", Money.multiply("0.0145", "0.001"));
+  testEqMoney("-0.00001", Money.multiply("-0.0145", "0.001"));
+  //must stay in safe range, so round 1.192992 to 1.19299
+  testEqMoney("1.19299", Money.multiply("13.76", "0.0867"));
+  testEqMoney("-1.19299", Money.multiply("-13.76", "0.0867"));
+
+  testEqMoney("415.5", Money.getPercentage("138.5", "300"));
+  testEqMoney("-138.5", Money.getPercentage("138.5", "-100"));
+  testEqMoney("5", Money.getPercentage("-5", "-100"));
+  testEqMoney("0.145", Money.getPercentage("145", "0.1"));
+  testEqMoney("-0.145", Money.getPercentage("-145", "0.1"));
+  testEqMoney("0.0145", Money.getPercentage("14.5", "0.1"));
+  testEqMoney("-0.0145", Money.getPercentage("-14.5", "0.1"));
+  testEqMoney("0.00145", Money.getPercentage("1.45", "0.1"));
+  testEqMoney("-0.00145", Money.getPercentage("-1.45", "0.1"));
+  testEqMoney("0.00014", Money.getPercentage("0.144", "0.1"));
+  testEqMoney("-0.00014", Money.getPercentage("-0.144", "0.1"));
+  testEqMoney("0.00015", Money.getPercentage("0.145", "0.1"));
+  testEqMoney("-0.00015", Money.getPercentage("-0.145", "0.1"));
+  testEqMoney("0.00001", Money.getPercentage("0.0145", "0.1"));
+  testEqMoney("-0.00001", Money.getPercentage("-0.0145", "0.1"));
+  //must stay in safe range, so round 1.192992 to 1.19299
+  testEqMoney("1.19299", Money.getPercentage("13.76", "8.67"));
+  testEqMoney("-1.19299", Money.getPercentage("-13.76", "8.67"));
+
+  // testSubtraction()
+  testEqMoney("-0.05", Money.subtract("4.95", '5'));
+
+  // testComparison()
+  test.eq(-1, Money.cmp("0.50", "1.50"));
+  test.eq(0, Money.cmp("1.50", "1.50"));
+  test.eq(1, Money.cmp("2.50", "1.50"));
+  test.eq(1, Money.cmp("0.50", "0.0"));
+  test.eq(-1, Money.cmp("-0.50", "0.00"));
+  test.eq(-1, Money.cmp("0.0", "0.50"));
+  test.eq(0, Money.cmp("-0", "0"));
+
+  test.eq(false, Money.test("1", "<", "0"));
+  test.eq(false, Money.test("1", "<", "1"));
+  test.eq(true, Money.test("1", "<", "2"));
+
+  test.eq(false, Money.test("1", "<=", "0"));
+  test.eq(true, Money.test("1", "<=", "1"));
+  test.eq(true, Money.test("1", "<=", "2"));
+
+  test.eq(false, Money.test("1", "==", "0"));
+  test.eq(true, Money.test("1", "==", "1"));
+  test.eq(false, Money.test("1", "==", "2"));
+
+  test.eq(true, Money.test("1", "!=", "0"));
+  test.eq(false, Money.test("1", "!=", "1"));
+  test.eq(true, Money.test("1", "!=", "2"));
+
+  test.eq(true, Money.test("1", ">", "0"));
+  test.eq(false, Money.test("1", ">", "1"));
+  test.eq(false, Money.test("1", ">", "2"));
+
+  test.eq(true, Money.test("1", ">=", "0"));
+  test.eq(true, Money.test("1", ">=", "1"));
+  test.eq(false, Money.test("1", ">=", "2"));
+
+  // testRounding()
+  //                                        -5  -4  -3  -2  -1  0  1  2  3  4  5
+  testRoundingCall(5, "toward-zero", [-5, 0, 0, 0, 0, 0, 0, 0, 0, 0, 5]);
+  testRoundingCall(5, "down", [-5, -5, -5, -5, -5, 0, 0, 0, 0, 0, 5]);
+  testRoundingCall(5, "up", [-5, 0, 0, 0, 0, 0, 5, 5, 5, 5, 5]);
+  testRoundingCall(5, "half-toward-zero", [-5, -5, -5, 0, 0, 0, 0, 0, 5, 5, 5]);
+  testRoundingCall(5, "half-down", [-5, -5, -5, 0, 0, 0, 0, 0, 5, 5, 5]);
+  testRoundingCall(5, "half-up", [-5, -5, -5, 0, 0, 0, 0, 0, 5, 5, 5]);
+
+  //                                        -6  -5  -4  -3  -2  -1  0  1  2  3  4  5  6
+  testRoundingCall(6, "toward-zero", [-6, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 6]);
+  testRoundingCall(6, "down", [-6, -6, -6, -6, -6, -6, 0, 0, 0, 0, 0, 0, 6]);
+  testRoundingCall(6, "up", [-6, 0, 0, 0, 0, 0, 0, 6, 6, 6, 6, 6, 6]);
+  testRoundingCall(6, "half-toward-zero", [-6, -6, -6, 0, 0, 0, 0, 0, 0, 0, 6, 6, 6]);
+  testRoundingCall(6, "half-down", [-6, -6, -6, -6, 0, 0, 0, 0, 0, 0, 6, 6, 6]);
+  testRoundingCall(6, "half-up", [-6, -6, -6, 0, 0, 0, 0, 0, 0, 6, 6, 6, 6]);
+
+  // testMinMax()
+  testEqMoney("3", Money.max("3"));
+  testEqMoney("3", Money.max("3", "2"));
+  testEqMoney("4", Money.max("3", "2", "4"));
+  testEqMoney("4", Money.max("3", "2", "4", "1.5"));
+  testEqMoney("4.5", Money.max("3", "2", "4", "1.5", "4.5"));
+
+  testEqMoney("3", Money.min("3"));
+  testEqMoney("2", Money.min("3", "2"));
+  testEqMoney("2", Money.min("3", "2", "4"));
+  testEqMoney("1.5", Money.min("3", "2", "4", "1.5"));
+  testEqMoney("1.5", Money.min("3", "2", "4", "1.5", "4.5"));
+
+  // testDivision()
+  testEqMoney("0.33333", Money.divide("1", "3"));
+  testEqMoney("-0.33333", Money.divide("-1", "3"));
+  testEqMoney("0.66667", Money.divide("2", "3"));
+  testEqMoney("-0.66667", Money.divide("-2", "3"));
+  testEqMoney("0.00002", Money.divide("0.00150", "100"));
+  testEqMoney("0.00001", Money.divide("0.00149", "100"));
+  testEqMoney("5", Money.divide("100", "20"));
+  testEqMoney("-0.00001", Money.divide("-5", "1000000"));
+  testEqMoney("2", Money.divide("5", "2.5"));
+  testEqMoney("10", Money.divide("5", "0.5"));
+  testEqMoney("13.75998", Money.divide("1.19299", "0.0867"));
 }
 
 function testUFS(decoded: string, encoded: string) {
@@ -122,6 +291,8 @@ async function testPromises() {
 const testlist = [
   "Basic API tests",
   testAPI,
+  "Money",
+  testMoney,
   "Crypto and strings",
   testStrings,
   "Collections",

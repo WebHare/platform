@@ -4,3 +4,4 @@ export { DeferredPromise, sleep, createDeferred, wrapInTimeout } from "./promise
 export { encodeString, decodeString, wildcardsToRegExp, StringEncodings } from "./strings";
 export { generateRandomId } from "./platformbased";
 export { emplace, EmplaceHandler } from "./collections";
+export { Money, MoneyRoundingMode } from "./money";

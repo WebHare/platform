@@ -1,4 +1,5 @@
-import { writeMarshalData, readMarshalData, readMarshalPacket, writeMarshalPacket, encodeHSON, decodeHSON, Money } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { writeMarshalData, readMarshalData, readMarshalPacket, writeMarshalPacket, encodeHSON, decodeHSON } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { Money } from "@webhare/std";
 
 
 export function decodeEncode(data: string) {

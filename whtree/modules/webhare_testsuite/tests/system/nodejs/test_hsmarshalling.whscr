@@ -124,12 +124,12 @@ ASYNC MACRO TestMarshalling()
   AWAIT TestHSONEnDeCode('hson:d"20100101T151617.123"', AddTimeToDate(123, MakeDateTime(2010,1,1,15,16,17)));
   AWAIT TestHSONEnDeCode('hson:d"201100415"', MakeDateFromParts(7344766,0));
   AWAIT TestHSONEnDeCode('hson:b"' || EncodeBase64("Ik ben een blob") || '"', StringToBlob("Ik ben een blob"));
-  AWAIT TestHSONEnDeCode('hson:m -92233720368547.75808', -92233720368547.75808m);
+  AWAIT TestHSONEnDeCode('hson:m -92233720.75808', -92233720.75808m);
   AWAIT TestHSONEnDeCode('hson:m -5', -5m);
   AWAIT TestHSONEnDeCode('hson:m -5.42', -5.42m);
   AWAIT TestHSONEnDeCode('hson:m 5', 5m);
   AWAIT TestHSONEnDeCode('hson:m 5.42', 5.42m);
-  AWAIT TestHSONEnDeCode('hson:m 92233720368547.75807', 92233720368547.75807m);
+  AWAIT TestHSONEnDeCode('hson:m 92233720.75807', 92233720.75807m);
   // can't preserve floats without fractional parts
   AWAIT TestHSONEnDeCode('hson:f -5', -5f, "hson:-5");
   AWAIT TestHSONEnDeCode('hson:f -5.5', -5.5f);
