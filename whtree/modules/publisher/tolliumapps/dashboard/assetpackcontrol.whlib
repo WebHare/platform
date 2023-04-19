@@ -65,7 +65,7 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
                            , watchcount
                            , dev := (outputtag NOT LIKE "*:*" OR settings.dev) ? 1 : 0
                            , dummy := ""
-                           , compatibility := compatibility ?? "es2016"
+                           , compatibility := compatibility ?? whconstant_default_compatibility
                        FROM bundles;
 
     this->LoadConfig();

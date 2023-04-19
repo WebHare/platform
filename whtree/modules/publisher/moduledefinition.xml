@@ -1016,8 +1016,7 @@
       <!-- (ab)using this <webdesign> to create other assetpacks as we can't create them outside a design
            we shouldn't polyfill with this assetpack or we'll be messing up anyone trying to test locally ('dev' module will affect their site)
      -->
-      <assetpack compatibility="es2016"
-                 entrypoint="webdesigns/authormode/authormode.tsx"
+      <assetpack entrypoint="webdesigns/authormode/authormode.tsx"
                  supportedlanguages="en nl"
                  webharepolyfills="false" />
     </webdesign>

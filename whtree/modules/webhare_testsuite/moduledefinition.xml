@@ -297,7 +297,7 @@
                title="WH testsuite: selftest 'basetest'"
                hidden="true"
                siteprofile="webdesigns/basetest/basetest.siteprl.xml">
-      <assetpack compatibility="es2016" entrypoint="webdesigns/basetest/js/basetest" supportedlanguages="en nl ps" />
+      <assetpack entrypoint="webdesigns/basetest/js/basetest" supportedlanguages="en nl ps" />
     </webdesign>
     <webdesign name="pwatest"
                title="WH testsuite: pwatest"
