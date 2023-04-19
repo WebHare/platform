@@ -1,7 +1,8 @@
-import { describeFileType, PublicFileTypeInfo } from "./siteprofiles";
 import { db, sql, Selectable, WHDBBlob } from "@webhare/whdb";
 import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { RichBlob } from "@webhare/services/src/richblob";
+import { FileTypeInfo, describeContentType } from "./contenttypes";
+export { describeContentType } from "./contenttypes";
 
 /// Adds the custom generated columns
 interface FsObjectRow extends Selectable<WebHareDB, "system.fs_objects"> {
@@ -60,8 +61,8 @@ class WHFSFile extends WHFSObject {
   get data(): RichBlob {
     return new WHFSRichBlob(this.dbrecord.data);
   }
-  get type(): PublicFileTypeInfo {
-    return describeFileType(this.dbrecord.type, { mockifmissing: true });
+  get type(): FileTypeInfo {
+    return describeContentType(this.dbrecord.type || 0, { allowMissing: true, kind: "filetype" });
   }
 }
 

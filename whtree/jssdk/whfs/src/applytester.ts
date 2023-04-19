@@ -214,7 +214,7 @@ export class WHFSApplyTester {
   }
 
   isTypeNeedsTemplate() {
-    return this.objinfo.obj.isfile && (this.objinfo.obj as WHFSFile).type.inwebdesign;
+    return this.objinfo.obj.isfile && (this.objinfo.obj as WHFSFile).type.iswebpage;
   }
 
   /** Are any of these webfeatures active? ('to webfeatures=') */

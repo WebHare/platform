@@ -2,16 +2,39 @@
 import * as services from '@webhare/services';
 import * as fs from 'node:fs';
 
-//Here we add properties that we think are useful to support longterm on the `whfsobject.type` property. At some point CSP should perhaps directly store this format
-export interface PublicContentTypeInfo {
-  namespace: string;
-}
-export interface PublicFileTypeInfo extends PublicContentTypeInfo {
-  /// When rendered, render inside a webdesign (aka 'needstemplate')
-  inwebdesign: boolean;
+export const CSPMemberTypeNames = [null, null, "string", null, "datetime", "file", "boolean", "integer", "float", "money", null, "whfsref", "array", "whfsrefarray", "stringarray", "richdocument", "intextlink", null, "instance", "url", "composeddocument", "record", "formcondition"];
+
+export enum CSPMemberType {
+  String = 2,
+  DateTime = 4,
+  File = 5,
+  Boolean = 6,
+  Integer = 7,
+  Float = 8,
+  Money = 9,
+  WHFSRef = 11,
+  Array = 12,
+  WHFSRefArray = 13,
+  StringArray = 14,
+  RichDocument = 15,
+  IntExtLink = 16,
+  Instance = 18,
+  URL = 19,
+  ComposedDocument = 20,
+  Record = 21,
+  FormCondition = 22
 }
 
-interface CSPContentType {
+export interface CSPMember {
+  id: number;
+  children: CSPMember[];
+  name: string;
+  type: CSPMemberType;
+  orphan: boolean;
+  parent: number;
+}
+
+export interface CSPContentType {
   cloneoncopy: boolean;
   dynamicexecution: null;
   filetype: {
@@ -35,7 +58,7 @@ interface CSPContentType {
   isembeddedobjecttype: boolean;
   isrtdtype: boolean;
   line: number;
-  members: unknown; //TODO: specify
+  members: CSPMember[];
   namespace: string;
   orphan: boolean;
   previewcomponent: string;
@@ -202,39 +225,4 @@ export function getCachedSiteProfiles() {
     csp = JSON.parse(fs.readFileSync(services.toFSPath("storage::system/config/siteprofiles.json")).toString()) as CachedSiteProfiles;
 
   return csp;
-}
-
-export function describeFileType(type: number | string | null, options: { mockifmissing: true }): PublicFileTypeInfo;
-export function describeFileType(type: number | string | null, options: { mockifmissing: boolean }): PublicFileTypeInfo | null;
-
-//We want to avoid being async, instead we should make sure we're part of services being ready()
-export function describeFileType(type: number | string | null, options: { mockifmissing: boolean }): PublicFileTypeInfo | null {
-  //This is a port of HS DescribeContentTypeById - but we also set up a publicinfo to define a limited/cleaned set of data for the JS WHFSObject.type API
-  const types = getCachedSiteProfiles().contenttypes;
-  let matchtype = type ? types.find(_ => _.filetype && typeof type == "number" ? _.id === type : _.namespace === type) : undefined;
-
-  if (!matchtype) {
-    if (!options.mockifmissing)
-      return null;
-
-    const fallbacktype = types.find(_ => _.namespace === "http://www.webhare.net/xmlns/publisher/unknownfile");
-    if (!fallbacktype)
-      throw new Error(`Internal error: missing builting content types`);
-
-    const namespace = !type ? "NULL" : typeof type !== "string" ? "#" + type : type;
-    matchtype = {
-      ...fallbacktype,
-      namespace: namespace,
-      title: ":" + namespace,
-      siteprofile: "",
-      line: 0
-    };
-  }
-
-  const retval = {
-    namespace: matchtype.namespace,
-    inwebdesign: Boolean(matchtype.filetype?.needstemplate),
-  };
-
-  return retval;
 }
