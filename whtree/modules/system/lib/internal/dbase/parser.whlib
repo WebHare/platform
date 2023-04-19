@@ -169,7 +169,7 @@ PUBLIC RECORD FUNCTION ParseWHDBSchemaSpec(STRING modulename, OBJECT schemanode)
                 CONTINUE;
               }
             }
-            CASE "__longkey", "integer64"
+            CASE "__longkey", "integer64", "number"
             {
               INTEGER defvalin := ToInteger(col->GetAttribute("default"),0);
               basecol := [ dbtype := "INTEGER64"

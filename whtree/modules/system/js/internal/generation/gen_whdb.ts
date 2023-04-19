@@ -123,7 +123,9 @@ function generateKyselyDefs(modulename: string, modules: string[]): string {
               tabledef = formatDocumentation(col, "") + tabledef;
               continue;
             }
-            case "integer": {
+            case "integer":
+            case "__longkey":
+            case "number": {
               tstype = "number";
 
               if (col.getAttribute("references")) {
@@ -133,9 +135,9 @@ function generateKyselyDefs(modulename: string, modules: string[]): string {
                   nullable = false;
               }
             } break;
-            case "integer64":
-            case "__longkey": {
+            case "integer64": {
               tstype = "bigint";
+
               if (col.getAttribute("references")) {
                 nullable = true;
                 if (col_nullable)

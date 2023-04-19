@@ -89,7 +89,7 @@ VARIANT FUNCTION GetColumnDefaultValue(RECORD colinfo)
 {
   IF(colinfo.dbtype="INTEGER")
     RETURN ToInteger(colinfo.defval,0);
-  IF(colinfo.dbtype IN [ "__LONGKEY", "INTEGER64" ])
+  IF(colinfo.dbtype IN [ "__LONGKEY", "INTEGER64", "NUMBER" ])
     RETURN ToInteger(colinfo.defval,0);
   IF(colinfo.dbtype="BOOLEAN")
     RETURN ToUppercase(colinfo.defval) IN ["TRUE","1"];

@@ -492,7 +492,7 @@ RECORD FUNCTION TransformColumnDef(OBJECT context, STRING table_schema, STRING t
   BOOLEAN validated_defval;
   SWITCH (colrec.dbtype)
   {
-    CASE "integer", "integer64", "__longkey"
+    CASE "integer", "integer64", "__longkey", "number"
     {
       IF (colrec.autonumberstart > 0)
       {
@@ -1623,7 +1623,7 @@ PUBLIC RECORD FUNCTION GetPostgreSQLDatabaseSchemaDef(OBJECT trans, STRING schem
 
       IF (coldef.dbtype = "VARCHAR")
         INSERT CELL maxlength := col.character_maximum_length INTO coldef;
-      IF (coldef.dbtype IN [ "INTEGER", "INTEGER64", "__LONGKEY" ])
+      IF (coldef.dbtype IN [ "INTEGER", "INTEGER64", "__LONGKEY", "NUMBER" ])
         INSERT CELL autonumberstart := autonumberstart INTO coldef;
 
       INSERT coldef INTO tabledef.cols AT END;
