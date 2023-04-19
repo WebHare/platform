@@ -21,3 +21,12 @@
   margin-right: 1%;
   margin-top: 0px;
 }
+
+.test1c
+{
+  //should not collapse into inset: ..
+  top:0;
+  bottom:0;
+  left:0;
+  right:0;
+}
