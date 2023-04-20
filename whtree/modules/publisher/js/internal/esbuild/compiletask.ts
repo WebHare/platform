@@ -155,6 +155,7 @@ export async function recompile(data) {
     jsxFactory: 'dompack.jsxcreate',
     jsxFragment: 'dompack.jsxfragment',
     write: false,
+    target: bundle.bundleconfig.compatibility.split(','),
     define: { "process.env.ASSETPACK_ENVIRONMENT": `"${bundle.bundleconfig.environment}"` },
     plugins: [
       captureplugin.getPlugin(),

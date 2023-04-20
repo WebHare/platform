@@ -88,6 +88,7 @@ async function testCompileerrors() {
     ];
     console.log("Acceptable locations:", acceptablenames);
     console.log("Reported location:", result.info.errors[0].resource);
+    console.log(result.info);
     test.assert(acceptablenames.includes(result.info.errors[0].resource));
 
     const filedeps = Array.from(result.info.dependencies.fileDependencies);
@@ -274,6 +275,9 @@ async function testCompileerrors() {
     test.assert(css.match(/.test1a{.*padding-left:initial.*}/));
     // Check if numerical values are collapsed properly
     test.assert(css.match(/.test1b{.*margin:0 1% auto 1px.*}/));
+    // Avoid inset: collapse, safari v14 doesn't like this and we're in no rush to deprecate that one
+    test.eqMatch(/.test1c{.*top:.*}/, css);
+    test.assert(!css.match(/.test1c{.*inset:.*}/));
   }
 
   console.log("TypeScript is working");

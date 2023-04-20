@@ -469,7 +469,12 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
        style-src unsafe-inline is required for the RTD which sets element styles through innerHTML
        style-src and font-src * so RTDs can load fonts.google.com and similar sites
     */
-    AddHTTPHeader("Content-Security-Policy", `default-src 'self'; img-src 'self' data: blob: https:; style-src * 'unsafe-inline' ; connect-src 'self'; frame-src *; font-src *`, FALSE);
+    STRING connectsrc;
+    IF(GetWebHeader("User-Agent") LIKE "*Safari/*") //this issue was fixed in Safari 16+ but we need a better useragent parser
+      connectsrc := "'self' ws: wss:"; //workaround https://bugs.webkit.org/show_bug.cgi?id=235873
+    ELSE
+      connectsrc := "'self'";
+    AddHTTPHeader("Content-Security-Policy", `default-src 'self'; img-src 'self' data: blob: https:; style-src * 'unsafe-inline' ; connect-src ${connectsrc}; frame-src *; font-src *`, FALSE);
 
     AddHTTPHeader("X-Robots-Tag", "noindex, nofollow", FALSE);
   }

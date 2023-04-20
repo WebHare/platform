@@ -54,8 +54,7 @@
     <siteprofile path="data/tollium.siteprl.xml" />
 
     <webdesign name="webinterface" title="WebHare interface" siteprofile="webdesigns/webinterface/webinterface.siteprl.xml">
-      <assetpack compatibility="es2016"
-                 entrypoint="mod::tollium/webdesigns/webinterface/webinterface"
+      <assetpack entrypoint="mod::tollium/webdesigns/webinterface/webinterface"
                  supportedlanguages="en nl"
                  webharepolyfills="false" />
     </webdesign>
