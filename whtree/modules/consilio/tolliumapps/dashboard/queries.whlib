@@ -101,7 +101,7 @@ PUBLIC STATIC OBJECTTYPE InspectQuery EXTEND TolliumScreenBase
         THROW NEW Exception("Invalid JSON format");
 
       RECORD res := SendRawJSONToElasticsearch(^indexmanager->value, query.method, query.path, query.body);
-      ^result->value := PrettifyJSON(BlobToString(res.content));
+      ^result->value := PrettifyJSON(EncodeJSON(res.result));
     }
     CATCH(OBJECT e)
     {
