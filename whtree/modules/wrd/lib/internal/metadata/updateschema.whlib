@@ -143,7 +143,9 @@ RECORD ARRAY FUNCTION SetDefinitionDefaults(RECORD ARRAY types, RECORD ARRAY tag
   FOREVERY (RECORD rec FROM types)
   {
     rec := InsertDefaultFields(rec, wrdtype_default, wrdtype_allowed);
-    IF (CellExists(rec, "TYPE"))
+    IF (CellExists(rec, "TYPE") AND ToUppercase(rec.type) = "EXTEND") //obtain the metatype from existing info
+      rec.metatype := SELECT AS INTEGER metatype fROM tagidmapping WHERE tagidmapping.tag = rec.tag;
+    IF (CellExists(rec, "TYPE") AND ToUppercase(rec.type) != "EXTEND")
     {
       rec.metatype := SearchElement([ "", "OBJECT", "LINK", "ATTACHMENT", "DOMAIN" ], ToUppercase(rec.type));
     }
@@ -326,11 +328,11 @@ MACRO CreateType(OBJECT local_schema, RECORD data, RECORD ARRAY remote_types, RE
 
   SWITCH (data.metatype)
   {
-  CASE 1
+    CASE wrd_metatype_object
     {
       local_schema->CreateType(data.tag, [ title := data.title, description := data.description ]);
     }
-  CASE 2
+    CASE wrd_metatype_link
     {
       IF (type_left = 0)
         THROW NEW Exception(`Could not resolve link to '${type_left_tag}' for type '${data.tag}'`);
@@ -340,14 +342,14 @@ MACRO CreateType(OBJECT local_schema, RECORD data, RECORD ARRAY remote_types, RE
 
       local_schema->CreateType(data.tag, [ title := data.title, description := data.description, linkfrom := type_left, linkto := type_right ]);
     }
-  CASE 3
+    CASE wrd_metatype_attachment
     {
       IF (type_left = 0)
         THROW NEW Exception(`Could not resolve link to '${type_left_tag}' for type '${data.tag}'`);
 
       local_schema->CreateType(data.tag, [ title := data.title, description := data.description, linkfrom := type_left ]);
     }
-  CASE 4
+    CASE wrd_metatype_domain
     {
       local_schema->CreateDomain(data.tag, [ title := data.title, description := data.description ]);
     }
@@ -535,7 +537,7 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
     IF (r.left.metatype = 4 AND NOT CellExists(outputcolumns, "WRD_LEFTENTITY"))
       INSERT CELL wrd_leftentity := "WRD_LEFTENTITY" INTO outputcolumns;
 
-   IF (CellExists(r.right, "DOMVALSOVERWRITEFIELDS"))
+    IF (CellExists(r.right, "DOMVALSOVERWRITEFIELDS"))
       FOREVERY(STRING tooverwrite FROM r.right.domvalsoverwritefields)
         IF(NOT CellExists(outputcolumns, tooverwrite))
           outputcolumns := CellInsert(outputcolumns, tooverwrite, tooverwrite);

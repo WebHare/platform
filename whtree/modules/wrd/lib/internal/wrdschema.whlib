@@ -1019,7 +1019,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
 
     RECORD schemadef;
     IF(Length(options.__schemadefinition) > 0)//backdoor used by WRD sync. could switch to inline? and/or merge with 'fromexternal' option?
-      schemadef := OpenWRDSchemaDefFile("mod::wrd/dummyresource.xml", [ overridedata := options.__schemadefinition]);  //TODO apparently we parse twice..once for validate and once for ourselves
+      schemadef := OpenWRDSchemaDefFile("mod::wrd/dummyresource.xml", [ overridedata := options.__schemadefinition ]);  //TODO apparently we parse twice..once for validate and once for ourselves
 
     IF(NOT RecordExists(schemadef))
     {
@@ -1027,13 +1027,16 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
       IF(schemaresource = "")
       {
         schemadef := GetModuleWRDSchemaDefinition(this->tag);
-        IF(NOT RecordExists(schemadef))
-          THROW NEW Exception(`No WRD schema definition for schema '${this->tag}'`);
-
-        schemaresource := schemadef.definitionfile;
-
-        IF(schemadef.title != "" AND this->title != schemadef.title)
-          this->UpdateMetadata([ title := schemadef.title ]);
+        IF(RecordExists(schemadef))
+        {
+          schemaresource := schemadef.definitionfile ?? wrd_baseschemaresource;
+          IF(schemadef.title != "" AND this->title != schemadef.title)
+            this->UpdateMetadata([ title := schemadef.title ]);
+        }
+        ELSE
+        {
+          schemaresource := wrd_baseschemaresource;
+        }
       }
 
       IF(schemaresource = "")

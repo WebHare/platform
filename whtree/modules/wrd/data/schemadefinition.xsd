@@ -53,6 +53,7 @@
 
       <xs:sequence minOccurs="0" maxOccurs="unbounded">
         <xs:choice>
+          <xs:element name="extend" type="ExtendingDefinition" />
           <xs:element name="object" type="ObjectDefinition" />
           <xs:element name="link" type="LinkDefinition" />
           <xs:element name="attachment" type="AttachmentDefinition" />
@@ -98,6 +99,16 @@
     <xs:attribute name="haspersonaldata" type="xs:boolean" />
     <xs:anyAttribute namespace="##other" processContents="lax"/>
 
+  </xs:complexType>
+
+  <xs:complexType name="ExtendingDefinition">
+    <xs:complexContent>
+      <xs:extension base="TypeDefinition">
+        <xs:sequence>
+          <xs:element name="values" type="Values" minOccurs="0" maxOccurs="1" />
+        </xs:sequence>
+      </xs:extension>
+    </xs:complexContent>
   </xs:complexType>
 
   <xs:complexType name="ObjectDefinition">

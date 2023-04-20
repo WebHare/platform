@@ -1,0 +1,13 @@
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+
+  <object tag="wrd_settings">
+    <attributes />
+    <values matchattribute="wrd_guid" overwriteattributes="wrd_tag">
+      <value>
+        <field tag="wrd_guid">wrd:BEA61EF00D0000000000000000000000</field>
+        <field tag="wrd_tag">WRD_SETTINGS</field>
+      </value>
+    </values>
+  </object>
+
+</schemadefinition>

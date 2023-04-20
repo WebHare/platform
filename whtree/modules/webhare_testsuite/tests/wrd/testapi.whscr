@@ -64,9 +64,16 @@ MACRO TestSchema()
   BLOB testimage_blob := GetWebhareResource("mod::system/web/tests/goudvis.png");
   RECORD testimage := WrapBlob(testimage_blob,"goudvis.png");
 
+  testfw->BeginWork();
+  OBJECT emptyschema := CreateWRDSchema("webhare_testsuite:emptyschema");
+  TestEq(TRUE, ObjectExists(emptyschema->^wrd_settings));
+  TestEq([[ wrd_tag := "WRD_SETTINGS" ]], emptyschema->^wrd_settings->RunQuery([outputcolumns:=["wrd_tag"]]), "An empty undefined schema should have WRD_SETTINGS");
+  testfw->RollbackWork();
+
   OBJECT schemaobj := testfw->GetWRDSchema();
   TestEq(TRUE, schemaobj->creationdate != DEFAULT DATETIME);
   OBJECT persontype := schemaobj->^wrd_person;
+  TestEq([[ wrd_tag := "WRD_SETTINGS" ]], schemaobj->^wrd_settings->RunQuery([outputcolumns:=["wrd_tag"]]), "And any normally defined schema should have it too");
 
   TestThrowsLike("*requires*transaction*", PTR persontype->GetNewEntityId());
   TestEqLike('wrd:*', persontype->GetNewEntityGUID(), 'GetNewEntityGUID should work outside work');

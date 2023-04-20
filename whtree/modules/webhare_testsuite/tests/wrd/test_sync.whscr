@@ -31,7 +31,7 @@ STRING syncmode;
 
 RECORD FUNCTION RunSync(OBJECT synctarget, OBJECT peer, STRING remotetag, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  OBJECT itr := SyncFromExternalSchema(synctarget, peer, remotetag, CELL[ ...options, syncmode ]);
+  OBJECT itr := SyncFromExternalSchema(synctarget, peer, remotetag, CELL[ syncmode, ...options ]);
   RECORD rec;
   WHILE (TRUE)
   {
@@ -270,12 +270,21 @@ MACRO TestSync()
   RunSync(synctarget, syncpeer, testfw->GetWRDSchema()->tag,
       [ includetypes := [ "WRD_PERSON" ]
       ]);
-
-
-
-
-
 }
+
+MACRO TestNoSettingsBreaks()
+{
+  //Syncing against an pre 5.3 server shouldn't fail because that server has no WRD_SETTINGS yet
+  OBJECT synctarget := OpenWRDSchema("webhare_testsuite:synctarget");
+
+  TestEq(TRUE, ObjectExists(testfw->GetWRDSchema()->GetType("WRD_SETTINGS")));
+  testfw->BeginWork();
+  testfw->GetWRDSchema()->^WRD_SETTINGS->DeleteSelf();
+  testfw->CommitWork();
+
+  RunSync(synctarget, syncpeer, testfw->GetWRDSchema()->tag, [ syncmode := "incremental" ]);
+}
+
 
 MACRO TestRenamedTypeBreaks()
 {
@@ -410,6 +419,7 @@ RunTestframework(
     , PTR TestCopyTo
     , PTR TestSchemaSettings
     , PTR TestLocalBlobUsage
+    , PTR TestNoSettingsBreaks
     ],
     [ testusers :=
           [ [ login := "wrd_metadatarights" ]

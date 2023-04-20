@@ -12,6 +12,7 @@ LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/schemaparser.whlib";
+LOADLIB "mod::wrd/lib/internal/metadata/updateschema.whlib";
 LOADLIB "mod::wrd/lib/internal/sync/service.whlib";
 LOADLIB "mod::wrd/lib/internal/sync/support.whlib";
 
@@ -621,7 +622,7 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchemaBatch(OBJECT wrdschema, OBJECT rem
 
   YIELD [ status := `Updating settings`, progress := 90m, important := TRUE ];
 
-  RECORD schemadef := OpenWRDSchemaDefFile("mod::wrd/dummyresource.xml", [ overridedata := res.schemadefinition ]);
+  RECORD schemadef := OpenWRDSchemaDefFile("mod::wrd/dummyresource.xml", [ overridedata := res.schemadefinition, addbaseschema := FALSE ]);
 
   BOOLEAN settingschanges := UpdateSchemaSettings(
       wrdschema,
@@ -995,22 +996,14 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchemaIncremental(OBJECT wrdschema, OBJE
   YIELD [ status := `Applying schema updates`, progress := 5m, important := TRUE ];
 
   // Apply type updates
+  RECORD sourceschemadef := OpenWRDSchemaDefFile("mod::wrd/dummyresource.xml", [ overridedata := schemasyncinstr.schemadefinition, addbaseschema := FALSE ]);
   GetPrimary()->PushWork();
   TRY
-  {
-    wrdschema->ApplySchemaDefinition(
-          [ __schemadefinition := schemasyncinstr.schemadefinition
-          , fromexternal := TRUE
-          , applysettings := FALSE
-          , reportupdates := TRUE
-          , reportskips := TRUE
-          ]);
-  }
+    UpdateSchema(wrdschema, sourceschemadef, CELL[ fromexternal := TRUE, skipmigrations := TRUE ]);
   FINALLY (OBJECT e)
     DoPopWork(e);
 
   // Re-parse the schema definition to get the list of available types
-  RECORD sourceschemadef := OpenWRDSchemaDefFile("mod::wrd/dummyresource.xml", [ overridedata := schemasyncinstr.schemadefinition ]);
   STRING ARRAY sourcetypes := SELECT AS STRING ARRAY tag FROM sourceschemadef.types;
 
   // List the local types that also exist in the source schema

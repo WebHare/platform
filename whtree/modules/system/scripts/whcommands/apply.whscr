@@ -61,7 +61,7 @@ IF(resname LIKE "*.wrdschema.xml")
 
   STRING ARRAY candidates := GetWRDSchemaDefCandidates(matchschemas);
   FOREVERY(STRING candidate FROM candidates)
-    IF(NOT UpdateACandidateSchema(candidate, resname))
+    IF(NOT UpdateACandidateSchema(candidate))
       SetConsoleExitCode(1);
 
   RETURN;
