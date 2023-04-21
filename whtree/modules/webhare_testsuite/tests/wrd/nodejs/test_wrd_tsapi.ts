@@ -2,7 +2,7 @@ import { WRDSchema } from "@webhare/wrd";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { prepareTestFramework, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { Combine, IsGenerated, IsNonUpdatable, IsRequired, WRDAttr, WRDAttributeType } from "@mod-wrd/js/internal/types";
+import { Combine, IsGenerated, IsNonUpdatable, IsRequired, WRDAttr, WRDAttributeType, WRDBaseAttributeType } from "@mod-wrd/js/internal/types";
 import { WRDSchema as newWRDschema } from "@mod-wrd/js/internal/schema";
 import { HSVMObject } from '@webhare/services/src/hsvm';
 import { getTypedArray, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
@@ -278,27 +278,27 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { keephistor
 
 type TestSchema = {
   wrd_person: {
-    wrd_id: IsNonUpdatable<WRDAttributeType.Base_Integer>;
-    wrd_guid: WRDAttributeType.Base_Guid;
-    wrd_type: IsGenerated<WRDAttributeType.Base_Integer>;
-    wrd_tag: WRDAttributeType.Base_Tag;
-    wrd_creationdate: WRDAttributeType.Base_CreationLimitDate;
-    wrd_limitdate: WRDAttributeType.Base_CreationLimitDate;
-    wrd_modificationdate: WRDAttributeType.Base_ModificationDate;
-    wrd_gender: WRDAttributeType.Base_Gender;
-    wrd_salute_formal: IsGenerated<WRDAttributeType.Base_GeneratedString>;
-    wrd_address_formal: IsGenerated<WRDAttributeType.Base_GeneratedString>;
-    wrd_fullname: IsGenerated<WRDAttributeType.Base_GeneratedString>;
-    wrd_titles: WRDAttributeType.Base_NameString;
-    wrd_initials: WRDAttributeType.Base_NameString;
-    wrd_firstname: WRDAttributeType.Base_NameString;
-    wrd_firstnames: WRDAttributeType.Base_NameString;
-    wrd_infix: WRDAttributeType.Base_NameString;
-    wrd_lastname: WRDAttributeType.Base_NameString;
-    wrd_titles_suffix: WRDAttributeType.Base_NameString;
-    wrd_dateofbirth: WRDAttributeType.Base_Date;
-    wrd_dateofdeath: WRDAttributeType.Base_Date;
-    wrd_title: IsGenerated<WRDAttributeType.Base_GeneratedString>;
+    wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
+    wrd_guid: WRDBaseAttributeType.Base_Guid;
+    wrd_type: IsGenerated<WRDBaseAttributeType.Base_Integer>;
+    wrd_tag: WRDBaseAttributeType.Base_Tag;
+    wrd_creationdate: WRDBaseAttributeType.Base_CreationLimitDate;
+    wrd_limitdate: WRDBaseAttributeType.Base_CreationLimitDate;
+    wrd_modificationdate: WRDBaseAttributeType.Base_ModificationDate;
+    wrd_gender: WRDBaseAttributeType.Base_Gender;
+    wrd_salute_formal: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
+    wrd_address_formal: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
+    wrd_fullname: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
+    wrd_titles: WRDBaseAttributeType.Base_NameString;
+    wrd_initials: WRDBaseAttributeType.Base_NameString;
+    wrd_firstname: WRDBaseAttributeType.Base_NameString;
+    wrd_firstnames: WRDBaseAttributeType.Base_NameString;
+    wrd_infix: WRDBaseAttributeType.Base_NameString;
+    wrd_lastname: WRDBaseAttributeType.Base_NameString;
+    wrd_titles_suffix: WRDBaseAttributeType.Base_NameString;
+    wrd_dateofbirth: WRDBaseAttributeType.Base_Date;
+    wrd_dateofdeath: WRDBaseAttributeType.Base_Date;
+    wrd_title: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
     whuser_disabled: WRDAttributeType.Boolean;
     whuser_disablereason: WRDAttributeType.Free;
     whuser_comment: WRDAttributeType.Free;
@@ -313,14 +313,14 @@ type SchemaUserAPIExtension = {
     whuser_unit: IsRequired<WRDAttributeType.Domain>;
   };
   whuser_unit: {
-    wrd_id: IsNonUpdatable<WRDAttributeType.Base_Integer>;
-    wrd_guid: WRDAttributeType.Base_Guid;
-    wrd_type: IsGenerated<WRDAttributeType.Base_Integer>;
-    wrd_tag: WRDAttributeType.Base_Tag;
-    wrd_creationdate: WRDAttributeType.Base_CreationLimitDate;
-    wrd_limitdate: WRDAttributeType.Base_CreationLimitDate;
-    wrd_modificationdate: WRDAttributeType.Base_ModificationDate;
-    wrd_leftentity: WRDAttributeType.Base_Domain;
+    wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
+    wrd_guid: WRDBaseAttributeType.Base_Guid;
+    wrd_type: IsGenerated<WRDBaseAttributeType.Base_Integer>;
+    wrd_tag: WRDBaseAttributeType.Base_Tag;
+    wrd_creationdate: WRDBaseAttributeType.Base_CreationLimitDate;
+    wrd_limitdate: WRDBaseAttributeType.Base_CreationLimitDate;
+    wrd_modificationdate: WRDBaseAttributeType.Base_ModificationDate;
+    wrd_leftentity: WRDBaseAttributeType.Base_Domain;
     wrd_title: WRDAttributeType.Free;
     whuser_comment: WRDAttributeType.Free;
   };
@@ -373,39 +373,39 @@ type CustomExtensions = {
     richie: WRDAttributeType.RichDocument;//", { title: "Rich document" });
   };
   test_domain_1: {
-    wrd_id: IsNonUpdatable<WRDAttributeType.Base_Integer>;
-    wrd_tag: WRDAttributeType.Base_Tag;
-    wrd_leftentity: WRDAttributeType.Base_Domain;
-    wrd_ordering: WRDAttributeType.Base_Integer;
+    wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
+    wrd_tag: WRDBaseAttributeType.Base_Tag;
+    wrd_leftentity: WRDBaseAttributeType.Base_Domain;
+    wrd_ordering: WRDBaseAttributeType.Base_Integer;
   };
   test_domain_2: {
-    wrd_id: IsNonUpdatable<WRDAttributeType.Base_Integer>;
-    wrd_tag: WRDAttributeType.Base_Tag;
-    wrd_leftentity: WRDAttributeType.Base_Domain;
-    wrd_ordering: WRDAttributeType.Base_Integer;
+    wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
+    wrd_tag: WRDBaseAttributeType.Base_Tag;
+    wrd_leftentity: WRDBaseAttributeType.Base_Domain;
+    wrd_ordering: WRDBaseAttributeType.Base_Integer;
   };
   personattachment: {
-    wrd_id: IsNonUpdatable<WRDAttributeType.Base_Integer>;
-    wrd_leftentity: IsRequired<WRDAttributeType.Base_Domain>;
+    wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
+    wrd_leftentity: IsRequired<WRDBaseAttributeType.Base_Domain>;
     attachfree: WRDAttributeType.Free;
   };
   personorglink: {
-    wrd_id: IsNonUpdatable<WRDAttributeType.Base_Integer>;
-    wrd_leftentity: IsRequired<WRDAttributeType.Base_Domain>;
-    wrd_rightentity: IsRequired<WRDAttributeType.Base_Domain>;
+    wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
+    wrd_leftentity: IsRequired<WRDBaseAttributeType.Base_Domain>;
+    wrd_rightentity: IsRequired<WRDBaseAttributeType.Base_Domain>;
     text: WRDAttributeType.Free;
   };
   payprov: {
-    wrd_id: IsNonUpdatable<WRDAttributeType.Base_Integer>;
+    wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
     method: IsRequired<WRDAttributeType.PaymentProvider>;
   };
   paydata: {
-    wrd_id: IsNonUpdatable<WRDAttributeType.Base_Integer>;
+    wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
     data: WRDAttributeType.Payment;
     log: WRDAttributeType.Record;
   };
   paydata2: {
-    wrd_id: IsNonUpdatable<WRDAttributeType.Base_Integer>;
+    wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
     data: WRDAttributeType.Payment;
     log: WRDAttributeType.Record;
   };

@@ -1,4 +1,4 @@
-import { WRDAttributeType, AllowedFilterConditions, WRDAttrBase, WRDGender } from "./types";
+import { WRDBaseAttributeType, WRDAttributeType, AllowedFilterConditions, WRDAttrBase, WRDGender } from "./types";
 import type { AttrRec, EntityPartialRec, EntitySettingsRec } from "./db";
 import { sql, SelectQueryBuilder, ExpressionBuilder } from "kysely";
 import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
@@ -655,16 +655,16 @@ class WRDDBWHFSLinkValue extends WRDAttributeUnImplementedValueBase<unknown, unk
 
 /// Map for all attribute types that have no options
 type SimpleTypeMap<Required extends boolean> = {
-  [WRDAttributeType.Base_Integer]: WRDDBIntegerValue;
-  [WRDAttributeType.Base_Guid]: WRDDBStringValue;
-  [WRDAttributeType.Base_Tag]: WRDDBStringValue;
-  [WRDAttributeType.Base_CreationLimitDate]: WRDDBBaseCreationLimitDateValue;
-  [WRDAttributeType.Base_ModificationDate]: WRDDBBaseModificationDateValue;
-  [WRDAttributeType.Base_Date]: WRDDBDateValue<false>;
-  [WRDAttributeType.Base_GeneratedString]: WRDDBStringValue;
-  [WRDAttributeType.Base_NameString]: WRDDBStringValue;
-  [WRDAttributeType.Base_Domain]: WRDDBDomainValue<Required>;
-  [WRDAttributeType.Base_Gender]: WRDDBBaseGenderValue;
+  [WRDBaseAttributeType.Base_Integer]: WRDDBIntegerValue;
+  [WRDBaseAttributeType.Base_Guid]: WRDDBStringValue;
+  [WRDBaseAttributeType.Base_Tag]: WRDDBStringValue;
+  [WRDBaseAttributeType.Base_CreationLimitDate]: WRDDBBaseCreationLimitDateValue;
+  [WRDBaseAttributeType.Base_ModificationDate]: WRDDBBaseModificationDateValue;
+  [WRDBaseAttributeType.Base_Date]: WRDDBDateValue<false>;
+  [WRDBaseAttributeType.Base_GeneratedString]: WRDDBStringValue;
+  [WRDBaseAttributeType.Base_NameString]: WRDDBStringValue;
+  [WRDBaseAttributeType.Base_Domain]: WRDDBDomainValue<Required>;
+  [WRDBaseAttributeType.Base_Gender]: WRDDBBaseGenderValue;
 
   [WRDAttributeType.Free]: WRDDBStringValue;
   [WRDAttributeType.Email]: WRDDBStringValue;

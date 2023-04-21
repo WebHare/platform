@@ -19,7 +19,7 @@ export enum WRDGender {
 }
 
 /** WRD attribute types. Negative values are used for base attributes (which will have a different accessor than the attributes read from settings) */
-export enum WRDAttributeType {
+export enum WRDBaseAttributeType {
   Base_Integer = -1, // wrd_id, wrd_type
   Base_Guid = -2, // wrd_guid
   Base_Tag = -3, // tag
@@ -30,7 +30,9 @@ export enum WRDAttributeType {
   Base_NameString = -7, // wrd_titles, wrd_initials, wrd_firstname, wrd_firstnames, wrd_infix, wrd_lastname, wrd_titles_suffix
   Base_Domain = -8, // wrd_leftentity, wrd_rightentity
   Base_Gender = -9, // wrd_gender
+}
 
+export enum WRDAttributeType {
   Domain = 1,
   Free = 2,
   Address = 3,
@@ -65,16 +67,16 @@ export enum WRDAttributeType {
 /** List of simple attribute types, that have no associated options
 */
 export type SimpleWRDAttributeType =
-  WRDAttributeType.Base_Integer |
-  WRDAttributeType.Base_Guid |
-  WRDAttributeType.Base_Tag |
-  WRDAttributeType.Base_CreationLimitDate |
-  WRDAttributeType.Base_ModificationDate |
-  WRDAttributeType.Base_Date |
-  WRDAttributeType.Base_GeneratedString |
-  WRDAttributeType.Base_NameString |
-  WRDAttributeType.Base_Domain |
-  WRDAttributeType.Base_Gender |
+  WRDBaseAttributeType.Base_Integer |
+  WRDBaseAttributeType.Base_Guid |
+  WRDBaseAttributeType.Base_Tag |
+  WRDBaseAttributeType.Base_CreationLimitDate |
+  WRDBaseAttributeType.Base_ModificationDate |
+  WRDBaseAttributeType.Base_Date |
+  WRDBaseAttributeType.Base_GeneratedString |
+  WRDBaseAttributeType.Base_NameString |
+  WRDBaseAttributeType.Base_Domain |
+  WRDBaseAttributeType.Base_Gender |
   WRDAttributeType.Domain |
   WRDAttributeType.Free |
   WRDAttributeType.Address |
@@ -107,7 +109,7 @@ export type SimpleWRDAttributeType =
  * @typeParam O - Options for the type. For enum/enum array use `{ allowedvalues: "a" | "b" }`, for arrays
  * use `{ members: { a: WRDAttributeType.Integer } }`
 */
-export type WRDAttr<T extends WRDAttributeType, O extends (WRDAttrBase & { __attrtype: T })["__options"] = never> = {
+export type WRDAttr<T extends WRDAttributeType | WRDBaseAttributeType, O extends (WRDAttrBase & { __attrtype: T })["__options"] = never> = {
   /// Attribute type
   __attrtype: T;
   /// Options for this attribute
@@ -120,7 +122,7 @@ export type WRDAttr<T extends WRDAttributeType, O extends (WRDAttrBase & { __att
   __updatable: true;
 };
 
-export type WRDAttrBaseGen<T extends WRDAttributeType, O extends (WRDAttrBase & { __attrtype: T })["__options"] = never> = {
+export type WRDAttrBaseGen<T extends (WRDAttributeType | WRDBaseAttributeType), O extends (WRDAttrBase & { __attrtype: T })["__options"] = never> = {
   __attrtype: T;
   __options: T extends SimpleWRDAttributeType ? never : O;
   __required: boolean;
