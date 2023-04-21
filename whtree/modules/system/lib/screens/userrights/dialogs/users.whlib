@@ -1,5 +1,6 @@
 ﻿<?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -200,8 +201,11 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
         [ whuser_unit := this->pvt_parent->entityid
         ];
 
+    BOOLEAN currentlydisabled := RecordExists(currentsettings) AND currentsettings.whuser_disabled;
     IF(NOT ObjectExists(this->pvt_user))
       extrafields := CellInsert(extrafields, this->contexts->wrdschema->accountpasswordtag, CreateAuthenticationSettingsFromPasswordHash(^password->value));
+    IF(^whuser_disabled->value != currentlydisabled)
+      INSERT CELL whuser_disable_type := ^whuser_disabled->value ? "manual" : "" INTO extrafields;
 
     INTEGER id := ^userobj->StoreEntity(work, extrafields);
     IF (id != 0)
@@ -221,14 +225,14 @@ PUBLIC STATIC OBJECTTYPE EditUser EXTEND TolliumScreenBase
 
     IF(NOT work->HasFailed() AND RecordExists(currentsettings))
     {
-      IF(^whuser_disabled->value != currentsettings.whuser_disabled
-         OR (^whuser_disabled->value AND ^whuser_disablereason->value != currentsettings.whuser_disablereason))
+      IF(^whuser_disabled->value != currentlydisabled OR (^whuser_disabled->value AND ^whuser_disablereason->value != currentsettings.whuser_disablereason))
       {
         this->tolliumcontroller->wrdauthplugin->LogCustomAuditEvent("system:userdisable",
           [ account := ^userobj->entityid
           , login := ^username->value
           , message := [ disabled := ^whuser_disabled->value
                        , reason := ^whuser_disablereason->value
+                       , type := ^whuser_disabled->value ? "manual" : ""
                        ]
           ]);
       }
