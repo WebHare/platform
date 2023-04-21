@@ -268,7 +268,7 @@ async function testStrings() {
 
 async function testCollections() {
   const map = new Map<string, number>();
-  await test.throws(/Key not found and no insert handler provided/, () => std.emplace(map, "A"));
+  test.throws(/Key not found and no insert handler provided/, () => std.emplace(map, "A"));
   test.eq(1, std.emplace(map, "A", { insert: () => 1, update: n => n + 1 }));
   test.eq(1, map.get("A"));
   test.eq(2, std.emplace(map, "A", { insert: () => 1, update: n => n + 1 }));

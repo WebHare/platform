@@ -109,13 +109,13 @@ async function testRecordLowerBound() {
   test.eq({ found: false, position: 0 }, recordLowerBound(list, { a: 1, b: 8 }, ["a", "b"]));
   test.throws(/.*not.*sorted.*/, () => recordLowerBound([{ a: 3 }, { a: 2 }, { a: 2 }], { a: 2 }, ["a"]));
 
-  await test.throws(/Missing key "A" in array\[2\]/, () => recordLowerBound(
+  test.throws(/Missing key "A" in array\[2\]/, () => recordLowerBound(
     list,
     { a: 1 },
     // @ts-expect-error -- Used key that doesn't exist in list. Error should be given on key list, not on search record!
     ["A"]));
 
-  await test.throws(/Missing key "a" in search record/, () => recordLowerBound(
+  test.throws(/Missing key "a" in search record/, () => recordLowerBound(
     list,
     // @ts-expect-error -- Used property in searchrecord that doesn't exist in keylist
     { c: 3 },
@@ -129,7 +129,7 @@ async function testRecordLowerBound() {
   // should work with type-erased list
   test.eq({ found: true, position: 1 }, recordLowerBound(list as any, { a: 3 }, ["a"]));
 
-  await test.throws(/Missing key "b" in search record/, () => recordLowerBound(
+  test.throws(/Missing key "b" in search record/, () => recordLowerBound(
     list as any,
     { a: 3 },
     // @ts-expect-error -- but not when searchrecord is known and key doesn't exist there.
@@ -156,16 +156,16 @@ async function testRecordUpperBound() {
   test.eq(3, recordUpperBound(list, { a: 3, b: 1 }, ["a", "b"]));
   test.eq(5, recordUpperBound(list, { a: 5, b: 8 }, ["a", "b"]));
   test.eq(0, recordUpperBound(list, { a: 1, b: 8 }, ["a", "b"]));
-  await test.throws(/.*not.*sorted.*/, () => recordUpperBound([{ a: 1 }, { a: 2 }, { a: 2 }, { a: 1 }], { a: 2 }, ["a"]));
+  test.throws(/.*not.*sorted.*/, () => recordUpperBound([{ a: 1 }, { a: 2 }, { a: 2 }, { a: 1 }], { a: 2 }, ["a"]));
 
 
-  await test.throws(/Missing key "A" in array\[2\]/, () => recordLowerBound(
+  test.throws(/Missing key "A" in array\[2\]/, () => recordLowerBound(
     list,
     { a: 1 },
     // @ts-expect-error -- Used key that doesn't exist in list. Error should be given on key list, not on search record
     ["A"]));
 
-  await test.throws(/Missing key "a" in search record/, () => recordLowerBound(
+  test.throws(/Missing key "a" in search record/, () => recordLowerBound(
     list,
     // @ts-expect-error -- Used property in searchrecord that doesn't exist in keylist
     { c: 3 },
@@ -179,7 +179,7 @@ async function testRecordUpperBound() {
   // should work with type-erased list
   test.eq(4, recordUpperBound(list as any, { a: 3 }, ["a"]));
 
-  await test.throws(/Missing key "b" in search record/, () => recordUpperBound(
+  test.throws(/Missing key "b" in search record/, () => recordUpperBound(
     list as any,
     { a: 3 },
     // @ts-expect-error -- but not when searchrecord is known and key doesn't exist there

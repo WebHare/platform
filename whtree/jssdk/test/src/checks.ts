@@ -190,49 +190,81 @@ function quacksLikeAnError(e: unknown): e is Error {
   return (typeof e === "object") && ("stack" in e) && ("message" in e);
 }
 
-/** @returns The Error object thrown */
-export async function throws(expect: RegExp, func_or_promise: Promise<unknown> | (() => unknown), annotation?: Annotation): Promise<Error> {
+async function throwsAsync(expect: RegExp, promise: Promise<unknown>, annotation?: Annotation): Promise<Error> {
+  let retval;
   try {
-    //If we got a function, execute it
-    const promiselike = typeof func_or_promise == "function" ? func_or_promise() : func_or_promise;
-    //To be safe and consistently take up a tick, we'll await the return value. awaiting non-promises is otherwise safe anyway
-    const retval = await promiselike;
+    retval = await promise;
+    //fallthrough OUT OF the catch to do the actual throw, or we'll just recatch it below
+  } catch (e) {
+    return verifyThrowsException(expect, e, annotation);
+  }
 
-    //If we get here, no exception occurred
+  failThrows(expect, retval, annotation);
+}
+
+//handle the failure of throws(Async)
+function failThrows(expect: RegExp, retval: unknown, annotation?: Annotation): never {
+  //If we get here, no exception occurred
+  if (annotation)
+    logAnnotation(annotation);
+
+  onLog("Expected exception: ", expect.toString());
+  if (retval === undefined)
+    onLog("Did not get an exception or return value");
+  else
+    onLog("Instead we got: ", retval);
+
+  throw new Error(`testThrows fails: Expected function to throw ${expect.toString()}`);
+}
+
+function verifyThrowsException(expect: RegExp, exception: unknown, annotation?: Annotation): Error {
+  if (!quacksLikeAnError(exception)) {
+    if (annotation)
+      logAnnotation(annotation);
+
+    console.error("Expected a proper Error but got:", exception);
+    throw new Error("testThrows fails - didn't get an Error object");
+  }
+
+  const exceptiontext = exception.message;
+  if (!exceptiontext.match(expect)) {
     if (annotation)
       logAnnotation(annotation);
 
     onLog("Expected exception: ", expect.toString());
-    if (retval === undefined)
-      onLog("Did not get an exception or return value");
-    else
-      onLog("Instead we got: ", retval);
+    onLog("Got exception: ", exceptiontext);
+    if (exception.stack)
+      onLog("Stack: ", exception.stack);
+    throw new Error("testThrows fails - exception mismatch");
+  }
 
+  return exception; //we got what we wanted - a throw! return the Error
+}
+
+/** Expect a call or promise to throw
+ * @param expect - A regular expression to match the exception message against
+ * @param func_or_promise - A function to call, or a promise to await
+ * @param annotation - Optional annotation to log if the test fails
+ * @returns The Error object thrown */
+export function throws(expect: RegExp, func_or_promise: Promise<unknown>, annotation?: Annotation): Promise<Error>;
+export function throws(expect: RegExp, func_or_promise: () => Promise<unknown>, annotation?: Annotation): Promise<Error>;
+export function throws(expect: RegExp, func_or_promise: () => unknown, annotation?: Annotation): Error;
+
+export function throws(expect: RegExp, func_or_promise: Promise<unknown> | (() => unknown), annotation?: Annotation): Error | Promise<Error> {
+  let retval;
+  try {
+    //If we got a function, execute it
+    const potentialpromise = typeof func_or_promise == "function" ? func_or_promise() : func_or_promise;
+    if ((potentialpromise as Promise<unknown>)?.then)
+      return throwsAsync(expect, potentialpromise as Promise<unknown>, annotation);
+
+    retval = potentialpromise;
     //fallthrough OUT OF the catch to do the actual throw, or we'll just recatch it below
   } catch (e) {
-    if (!quacksLikeAnError(e)) {
-      if (annotation)
-        logAnnotation(annotation);
-
-      console.error("Expected a proper Error but got:", e);
-      throw new Error("testThrows fails - didn't get an Error object");
-    }
-
-    const exceptiontext = e.message;
-    if (!exceptiontext.match(expect)) {
-      if (annotation)
-        logAnnotation(annotation);
-
-      onLog("Expected exception: ", expect.toString());
-      onLog("Got exception: ", exceptiontext);
-      if (e.stack)
-        onLog("Stack: ", e.stack);
-      throw new Error("testThrows fails - exception mismatch");
-    }
-
-    return e; //we got what we wanted - a throw! return the Error
+    return verifyThrowsException(expect, e, annotation);
   }
-  throw new Error(`testThrows fails: Expected function to throw ${expect.toString()}`);
+  failThrows(expect, retval, annotation);
+
 }
 
 /** Compare specific cells of two values (recursive)

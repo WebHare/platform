@@ -15,14 +15,14 @@ function ensureProperPath(inpath: string) {
 }
 
 async function testResolve() {
-  await test.throws(/without a base path/, () => services.resolveResource("", "lib/emtpydesign.whlib"));
+  test.throws(/without a base path/, () => services.resolveResource("", "lib/emtpydesign.whlib"));
 
   test.eq("", services.resolveResource("mod::a/b/c/d", ""));
   test.eq("mod::a/e", services.resolveResource("mod::a/b/c/d", "/e"));
   test.eq("mod::a/b/c/e", services.resolveResource("mod::a/b/c/d", "./e"));
   test.eq("mod::a/b/e", services.resolveResource("mod::a/b/c/d", "../e"));
   test.eq("mod::a/e", services.resolveResource("mod::a/b/c/d", "../../e"));
-  await test.throws(/tries to escape/, () => services.resolveResource("mod::a/b/c/d", "../../../e"));
+  test.throws(/tries to escape/, () => services.resolveResource("mod::a/b/c/d", "../../../e"));
 
   test.eq(true, services.isAbsoluteResource("mod::publisher/designs/emptydesign/"));
   // test.eq(true, services.isAbsoluteResource("whres::xml/xmlschema.xsd")); //TODO if we re-add support for whres::..
@@ -55,11 +55,11 @@ async function testResolve() {
   await test.throws(/tries to escape/, () => services.resolveResource("wh::a/b.whlib", "../../c.whlib"));
   await test.throws(/tries to escape/, () => services.resolveResource("wh::a.whlib", "../../c.whlib"));
   */
-  await test.throws(/Invalid namespace 'xx'/, () => services.resolveResource("xx::a/b/c/d", "e"));
-  await test.throws(/Invalid namespace 'xx'/, () => services.resolveResource("mod::publisher/designs/emptydesign/", "xx::a/b/c/d"));
+  test.throws(/Invalid namespace 'xx'/, () => services.resolveResource("xx::a/b/c/d", "e"));
+  test.throws(/Invalid namespace 'xx'/, () => services.resolveResource("mod::publisher/designs/emptydesign/", "xx::a/b/c/d"));
 
-  await test.throws(/tries to escape/, () => services.resolveResource("mod::publisher/designs/emptydesign/", "../../../bla.whlib"));
-  await test.throws(/tries to escape/, () => services.resolveResource("site::mysite/folder/test.html", "../../bla.html"));
+  test.throws(/tries to escape/, () => services.resolveResource("mod::publisher/designs/emptydesign/", "../../../bla.whlib"));
+  test.throws(/tries to escape/, () => services.resolveResource("site::mysite/folder/test.html", "../../bla.html"));
 }
 
 async function testServices() {
@@ -83,7 +83,7 @@ async function testServices() {
   ensureProperPath(services.config.dataroot);
   ensureProperPath(services.config.installationroot);
 
-  await test.throws(/The WebHare configuration is read-only/, () => { if (services.config) (services.config as any).dataroot = "I touched it"; });
+  test.throws(/The WebHare configuration is read-only/, () => { if (services.config) (services.config as any).dataroot = "I touched it"; });
 
   test.eq(await services.callHareScript("mod::system/lib/configure.whlib#GetModuleInstallationRoot", ["system"]), services.config.module.system.root);
   ensureProperPath(services.config.module.system.root);
@@ -247,7 +247,7 @@ async function testResources() {
 
   const systempath = services.config.module.system.root;
   test.eq("mod::system/lib/tests/cluster.whlib", services.toResourcePath(systempath + "lib/tests/cluster.whlib"));
-  await test.throws(/Cannot match filesystem path/, () => services.toResourcePath("/etc"));
+  test.throws(/Cannot match filesystem path/, () => services.toResourcePath("/etc"));
   test.eq(null, services.toResourcePath("/etc", { allowUnmatched: true }));
 
   test.throws(/^Unsupported resource path/, () => services.toFSPath("site::repository/"));
