@@ -7,7 +7,7 @@ let setupdata;
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup'
         , {
           createsysop: true,
@@ -21,13 +21,13 @@ test.registerTests(
       test.clickToddButton('Login');
       await test.wait("ui");
     },
-    async function() {
+    async function () {
       test.click(test.getCurrentScreen().getListRow('filelist!mylist', 'testapp-editrtd.rtd'));
       test.click(test.getCurrentScreen().getListRow('filelist!mylist', 'testapp-editrtd.rtd'));
 
       await test.wait('ui');
     },
-    async function() {
+    async function () {
       const h1 = test.getCurrentScreen().qSA('h1.heading1');
       test.eq(1, h1.length);
       //ADDME css ready would be nice, but we'll just wait
@@ -35,7 +35,7 @@ test.registerTests(
       await test.sleep(200);
     },
     "Empty line between objects disappear on save",
-    async function() {
+    async function () {
       // focus the edit area
       let body = test.getCurrentScreen().qS(".wh-rtd-editor-bodynode");
       test.click(body);

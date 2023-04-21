@@ -111,7 +111,7 @@ export default class WebSocketTransport extends TransportBase {
     const links = [];
     const frontendids = [];
 
-    this.endpoints.forEach(function(endpoint) {
+    this.endpoints.forEach(function (endpoint) {
       if (!links.includes(endpoint.options.linkid))
         links.push(endpoint.options.linkid);
       if (!frontendids.includes(endpoint.options.frontendid))

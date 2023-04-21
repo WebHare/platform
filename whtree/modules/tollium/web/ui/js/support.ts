@@ -91,7 +91,7 @@ $todd.applicationstack = [];
 $todd.resourcebase = "";
 $todd.customactions = {};
 
-$todd.getActiveApplication = function() {
+$todd.getActiveApplication = function () {
   return $todd.applicationstack.at(-1);
 };
 
@@ -111,7 +111,7 @@ $todd.textsize = {
   }
 };
 
-$todd.UpToGridsize = function(size, gridsize) {
+$todd.UpToGridsize = function (size, gridsize) {
   if (!gridsize || gridsize <= 1)
     return size;
 
@@ -123,15 +123,15 @@ $todd.UpToGridsize = function(size, gridsize) {
 
 
 
-$todd.ResetCachedTextSizes = function() {
+$todd.ResetCachedTextSizes = function () {
   $todd.textsize.cache = {};
 };
 
-$todd.GetCalculateTextStyles = function() {
+$todd.GetCalculateTextStyles = function () {
   return Object.keys($todd.textsize.styles);
 };
 
-$todd.CalculateSize = function(node) {
+$todd.CalculateSize = function (node) {
   if (!$todd.calcsizenode) {
     $todd.calcsizenode = dompack.create("div", {
       style: {
@@ -153,7 +153,7 @@ $todd.CalculateSize = function(node) {
 // text: string with text to calculate size for
 // width: maximum width in pixels for wrapping text, or 0 for no wrapping
 // styles: getStyle-compatible object with font/text settings
-$todd.CalculateTextSize = function(text, width, styles, ishtml) {
+$todd.CalculateTextSize = function (text, width, styles, ishtml) {
   if (!$todd.textsize.node) {
     $todd.textsize.node = dompack.create("div", {
       style: {
@@ -215,7 +215,7 @@ $todd.CalculateTextSize = function(text, width, styles, ishtml) {
   return size;
 };
 
-$todd.ReadSize = function(sizeval) {
+$todd.ReadSize = function (sizeval) {
   if (!sizeval)
     return null;
   if (sizeval.substr(sizeval.length - 2) == 'gr')
@@ -230,18 +230,18 @@ $todd.ReadSize = function(sizeval) {
     return { type: 4, size: 1 };
   return null;
 };
-$todd.IsAbsoluteParsedSize = function(size) {
+$todd.IsAbsoluteParsedSize = function (size) {
   return size && size.type != 1;
 };
 
 // Return the set width/height, or the xml width/height, for a component's size object
-$todd.ReadSetWidth = function(sizeobj) {
+$todd.ReadSetWidth = function (sizeobj) {
   return $todd.ReadSetSize(sizeobj, true);
 };
-$todd.ReadSetHeight = function(sizeobj) {
+$todd.ReadSetHeight = function (sizeobj) {
   return $todd.ReadSetSize(sizeobj, false);
 };
-$todd.ReadSetSize = function(sizeobj, horizontal) {
+$todd.ReadSetSize = function (sizeobj, horizontal) {
   let size = sizeobj.new_set;
   if (size === null) {
     const xml = $todd.ReadSize(sizeobj.xml_set);
@@ -249,18 +249,18 @@ $todd.ReadSetSize = function(sizeobj, horizontal) {
   }
   return size;
 };
-$todd.CalcAbsWidth = function(size) {
+$todd.CalcAbsWidth = function (size) {
   return $todd.CalcAbsSize(size, true);
 };
 //Calculate the absolute height for a block element (where 2gr = 56)
-$todd.CalcAbsHeight = function(size) {
+$todd.CalcAbsHeight = function (size) {
   return $todd.CalcAbsSize(size, false);
 };
 //Calculate the absolute height for an inline element (where 2gr = 51)
-$todd.CalcAbsInlineHeight = function(size) {
+$todd.CalcAbsInlineHeight = function (size) {
   return $todd.CalcAbsSize(size, false, true);
 };
-$todd.CalcAbsSize = function(size, horizontal, inline) {
+$todd.CalcAbsSize = function (size, horizontal, inline) {
   if (!size)
     return 0;
 
@@ -309,7 +309,7 @@ $todd.CalcAbsSize = function(size, horizontal, inline) {
   return 0;
 };
 
-$todd.IsFixedSize = function(size) {
+$todd.IsFixedSize = function (size) {
   return size && (size.substr(size.length - 1) == 'x' //matches both 'px' and 'x' :)
     || size.substr(size.length - 2) == 'gr'
     || size == 'sp'
@@ -334,14 +334,14 @@ function readXMLSize(min, set, iswidth, inline) {
 }
 
 //ADDME why can't we receive widths already in the proper format as much as possible?
-$todd.ReadXMLWidths = function(xmlnode) //xmlnode may be null to init a default width object
+$todd.ReadXMLWidths = function (xmlnode) //xmlnode may be null to init a default width object
 {
   return readXMLSize(xmlnode && xmlnode.minwidth ? xmlnode.minwidth : ''
     , xmlnode && xmlnode.width ? xmlnode.width : ''
     , true
   );
 };
-$todd.ReadXMLHeights = function(xmlnode, inline) {
+$todd.ReadXMLHeights = function (xmlnode, inline) {
   return readXMLSize(xmlnode && xmlnode.minheight ? xmlnode.minheight : ''
     , xmlnode && xmlnode.height ? xmlnode.height : ''
     , false
@@ -377,7 +377,7 @@ $todd.desktop =
  * Some experimental and implementation test functions
  */
 
-$todd.componentsToMessages = function(components) {
+$todd.componentsToMessages = function (components) {
   /* ADDME: updateScreen is currently an attempt at a 'prettier' API for screen management but we should probably merge with processMessages eventually (perhaps todd controller should change its format)
    */
   const messages = [];
@@ -416,11 +416,11 @@ $todd.componentsToMessages = function(components) {
   return messages;
 };
 
-$todd.IsDebugTypeEnabled = function(type) {
+$todd.IsDebugTypeEnabled = function (type) {
   return enabledlogtypes.includes('all') || enabledlogtypes.includes(type);
 };
 
-$todd.DebugTypedLog = function(target) {
+$todd.DebugTypedLog = function (target) {
   let type;
   if (typeof (target) == "string") {
     target = target.split(":");
@@ -460,7 +460,7 @@ function checkLogTypes() {
    by (all?) browser (yet?). This functions rewrites them to rgba() notation.
    [1] https://drafts.csswg.org/css-color/#hex-notation
    https://caniuse.com/#search=rgba - IE11 still fails */
-$todd.fixupColor = function(color) {
+$todd.fixupColor = function (color) {
   if (color.match(/\#[0-9a-z]{8}$/)) {
     return "rgba(" + parseInt(color.substr(1, 2), 16) + ","
       + parseInt(color.substr(3, 2), 16) + ","
@@ -491,7 +491,7 @@ $todd.fixupColor = function(color) {
     @param selectionmatch ("all", "any")
     @return whether the action should be enabled (all checkflags match each item in flags)
 */
-$todd.checkEnabledFlags = function(flags, checkflags, min, max, selectionmatch) //FIXME rename and move out of Screen... compbase?
+$todd.checkEnabledFlags = function (flags, checkflags, min, max, selectionmatch) //FIXME rename and move out of Screen... compbase?
 {
   // This code should be synchronized with checkEnabledFlags in tollium/include/internal/support.whlib
   $todd.DebugTypedLog("actionenabler", "- - Checking checkflags [" + checkflags.join(", ") + "], " + flags.length + " in [" + min + "," + (max >= 0 ? max + "]" : "->") + " (" + selectionmatch + ")");

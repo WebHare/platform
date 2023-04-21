@@ -207,7 +207,7 @@ function convertElementTids(scope = document.body) {
   // Only available in a DOM context and if the DOM is ready
   if (typeof document == "undefined" || !scope)
     return;
-  Array.from(scope.querySelectorAll("*[data-texttid]")).forEach(function(node) {
+  Array.from(scope.querySelectorAll("*[data-texttid]")).forEach(function (node) {
     node.textContent = getTid(node.getAttribute("data-texttid") || "");
   });
 }

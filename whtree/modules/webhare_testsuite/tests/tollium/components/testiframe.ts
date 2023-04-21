@@ -6,7 +6,7 @@ import { loadImage } from "@webhare/dompack";
 
 function iframeAddEventOnce(node, eventname, callback) {
   let regfunc;
-  regfunc = function(event) {
+  regfunc = function (event) {
     if (node.removeEventListener)
       node.removeEventListener(eventname, regfunc);
     else
@@ -31,17 +31,17 @@ test.registerTests(
 
     {
       name: 'iframeloadwait',
-      test: function(doc, win) {
+      test: function (doc, win) {
         lasttextareavalue = test.qSA('textarea')[0].value;
         //var iframe = test.qSA('iframe')[0];
         test.click(test.getMenu(['I00']));
       },
-      waits: [function() { return test.qSA('textarea')[0].value != lasttextareavalue; }]
+      waits: [function () { return test.qSA('textarea')[0].value != lasttextareavalue; }]
     },
 
     {
       name: 'iframeinitialcall',
-      wait: function(doc, win, callback) {
+      wait: function (doc, win, callback) {
         const iframe = test.qSA('iframe')[0];
         const calls = iframe.contentWindow.document.getElementById('calls');
         test.eq('func1 1 test\n', calls.value);
@@ -50,14 +50,14 @@ test.registerTests(
         test.eq('{"args":[1,"test"],"type":"receivedcall"}', textarea.value.trim());
 
         test.click(test.getMenu(['I04']));
-        iframeAddEventOnce(iframe.contentWindow, 'message', function() { console.error("GOT MESSAGE"); callback(); });
+        iframeAddEventOnce(iframe.contentWindow, 'message', function () { console.error("GOT MESSAGE"); callback(); });
       },
       waits: ['ui']
     },
 
     {
       name: 'serverdataupdate',
-      test: function(doc, win)//, callback)
+      test: function (doc, win)//, callback)
       {
         const iframe = test.qSA('iframe')[0];
         const data = iframe.contentWindow.document.getElementById('data');
@@ -74,7 +74,7 @@ test.registerTests(
 
     {
       name: 'clientdataupdate_prepare',
-      wait: function(doc, win, callback) {
+      wait: function (doc, win, callback) {
         const iframe = test.qSA('iframe')[0];
 
         // Add 'b' to iframe data
@@ -86,7 +86,7 @@ test.registerTests(
 
     {
       name: 'clientdataupdate',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const iframe = test.qSA('iframe')[0];
         const data = iframe.contentWindow.document.getElementById('data');
         test.eq('databab', data.value);
@@ -105,7 +105,7 @@ test.registerTests(
 
     {
       name: 'iframehtmlcontent',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const iframe = test.qSA('iframe')[0];
 
         // Test html content
@@ -121,7 +121,7 @@ test.registerTests(
 
     {
       name: 'normalcall',
-      test: function(doc, win) {
+      test: function (doc, win) {
         // Test if call was handled properly
         const textarea = test.qSA('textarea')[0];
         test.eq('{"args":[1,"test"],"type":"receivedcall"}\n' +
@@ -132,7 +132,7 @@ test.registerTests(
     },
 
     "iframe blobcontent",
-    async function() {
+    async function () {
       // Next test: go to blob content
       test.click(test.getMenu(['I02']));
 
@@ -150,7 +150,7 @@ test.registerTests(
 
     {
       name: 'clicklink',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const iframe = test.qSA('iframe')[0];
         //wait for us to have intercepted the click handler
         await test.wait(() => iframe.contentWindow.whIframeAttached === true);
@@ -163,7 +163,7 @@ test.registerTests(
 
     {
       name: 'clicklink verify',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.qSA('textarea')[0];
         test.eq('{"args":[1,"test"],"type":"receivedcall"}\n' +
           'data:data\n' +
@@ -175,7 +175,7 @@ test.registerTests(
 
     {
       name: 'postmessage',
-      test: async function() {
+      test: async function () {
         test.compByName('callbacks').querySelector('textarea').value = '';
         test.click(test.getMenu(['I06'])); //postmessage
 
@@ -186,11 +186,11 @@ test.registerTests(
     },
     {
       name: 'postrequest',
-      test: async function() {
+      test: async function () {
         test.compByName('callbacks').querySelector('textarea').value = '';
         test.click(test.getMenu(['I07'])); //postrequest
 
-        await test.wait(function() { return Boolean(test.compByName('callbacks').querySelector('textarea').value); });
+        await test.wait(function () { return Boolean(test.compByName('callbacks').querySelector('textarea').value); });
 
         const result = test.compByName('callbacks').querySelector('textarea').value;
         test.eq(`response:{"response":1764}`, result);
@@ -200,14 +200,14 @@ test.registerTests(
     {
       loadpage: test.getTestScreen('tests/basecomponents.iframetestincontents'),
       waits: [
-        'ui', function() { /*var iframe = test.qSA('iframe')[0]; */
+        'ui', function () { /*var iframe = test.qSA('iframe')[0]; */
           return Boolean(test.qSA('iframe')[0].contentWindow.document.querySelector('#source, .wh-errorinfo'));
         }
       ]
     },
     {
       name: "test iframe load when component renamed",
-      test: function(doc, win) {
+      test: function (doc, win) {
         const iframe = test.qSA('iframe')[0];
         test.eq('htmlcontent1', iframe.contentWindow.document.getElementById('source').dataset.source);
       },

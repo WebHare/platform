@@ -12,7 +12,7 @@ let testdata;
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       //remove all webtool vote blockers locally
       for (const key of Object.keys(localStorage))
         if (key.startsWith("wh-webtools-votetime:"))
@@ -22,7 +22,7 @@ test.registerTests(
       pollurl = testdata.pollurl;
     },
 
-    async function() {
+    async function () {
       await test.load(pollurl);
       console.log(test.qS('.wh-poll__showresultsbutton').getBoundingClientRect());
       console.log(test.qS('.wh-poll').getBoundingClientRect());
@@ -30,7 +30,7 @@ test.registerTests(
       test.eq([0, 0], getVoteCounts());
     },
 
-    async function() {
+    async function () {
       //there's no way to navigate back, so... reload!
       await test.load(pollurl);
       const voteoptions = test.qSA('.wh-poll__option input');
@@ -44,7 +44,7 @@ test.registerTests(
       test.eq([0, 1], getVoteCounts());
     },
 
-    async function() {
+    async function () {
       await test.load(testdata.pollholder);
       await test.wait('ui');
 

@@ -30,19 +30,19 @@ test.registerTests(
     },
     {
       name: 'statictree-headersize',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //Test whether distribute sizes bothered to make use of all available room for the columns
         const list = test.qSA('.wh-ui-listview')[0];
         const headers = test.qSA(list, '.listheader > span');
         let totalwidth = 2; // borders
-        headers.forEach(function(el) { totalwidth += el.offsetWidth; });
+        headers.forEach(function (el) { totalwidth += el.offsetWidth; });
         test.eq(list.offsetWidth, totalwidth);
       }
     },
 
     {
       name: 'statictree-initialsort',
-      test: function(doc, win) {
+      test: function (doc, win) {
         /* Study the list! It should be sorted like this:
            Row #1, Row #1.1, Row #2, Row #3 */
         test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1|').getBoundingClientRect().top < test.getCurrentScreen().getListRow('staticlist', 'Row #1.1').getBoundingClientRect().top);
@@ -59,7 +59,7 @@ test.registerTests(
 
     {
       name: 'statictree',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //should be initially selected
         const listrow = test.getCurrentScreen().getListRow('staticlist', 'Row #2|');
         test.assert(listrow.classList.contains("wh-list__row--selected"));
@@ -83,7 +83,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq('1', test.compByName("staticlistselection").textContent); //we didn't even touch it...
 
         //Row #1.1 is initially expanded, check for visibility
@@ -136,7 +136,7 @@ test.registerTests(
 
     {
       name: 'statictree-buttonplay',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //note: the rowkeys are generated dynamically, row 1=1, etc
         //check selection
         test.eq('1', test.compByName("staticlistselection").textContent); //we didn't even touch it...
@@ -168,7 +168,7 @@ test.registerTests(
 
     {
       name: 'statictree-buttonplay2',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //this should have selected and expanded Row#1.1
         test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1.1') != null);
         test.assert(test.getCurrentScreen().getListRow('staticlist', 'Row #1.1').classList.contains("wh-list__row--selected"));
@@ -178,7 +178,7 @@ test.registerTests(
 
     {
       name: 'statictree-sort',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const spancol = test.qSA('.listheader span').filter(span => span.textContent.includes("Integer column"))[0];
         test.eq(null, spancol.querySelector(".sortdirection"));
         test.click(spancol);
@@ -200,7 +200,7 @@ test.registerTests(
     },
     {
       name: 'select invisible element',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const M10 = test.getMenu(['M01', 'M10']);
         console.log("Click M10");
         test.click(M10);
@@ -210,7 +210,7 @@ test.registerTests(
 
     {
       name: 'dynamictree',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(0, test.qSA('.listheader span').filter(span => span.textContent.includes("Text col (asc)")).length);//should not be there, list is not sortable
         test.assert(test.getCurrentScreen().getListRow('dynamiclist', 'haschildren 10').getBoundingClientRect().top < test.getCurrentScreen().getListRow('dynamiclist', '0 nochildren 10').getBoundingClientRect().top); //should retain original order
 
@@ -227,13 +227,13 @@ test.registerTests(
         test.assert(getexpanded(test.getCurrentScreen().getListRow('dynamiclist', 'haschildren 20')));
       },
       //, waits:["ui"]
-      waits: [function() { return test.getCurrentScreen().getListRow('dynamiclist', 'haschildren 30') != null; }]
+      waits: [function () { return test.getCurrentScreen().getListRow('dynamiclist', 'haschildren 30') != null; }]
     },
 
 
     {
       name: 'dynamictree-dynexpand',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //FIXME Inspecting the JSON output, it looks like the entire list is re-sent by Tollium in NG mode (old Todd is better). should only send new rows...
 
         test.assert(getexpanded(test.getCurrentScreen().getListRow('dynamiclist', 'haschildren 20')));
@@ -251,7 +251,7 @@ test.registerTests(
 
     {
       name: 'dynamictree-multiselect',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(getexpanded(test.getCurrentScreen().getListRow('dynamiclist', 'haschildren 20')));
         test.assert(!getexpanded(test.getCurrentScreen().getListRow('dynamiclist', 'haschildren 30')));
         test.assert(test.getCurrentScreen().getListRow('dynamiclist', '0 nochildren 10').classList.contains("wh-list__row--selected"));
@@ -262,7 +262,7 @@ test.registerTests(
 
     {
       name: 'contextmenu',
-      test: function(doc, win) {
+      test: function (doc, win) {
         let ctxtmenu = test.qS('.toddContextMenu');
         test.assert(ctxtmenu == null);
 
@@ -298,7 +298,7 @@ test.registerTests(
 
     {
       name: 'contextmenu-checkclick',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //the menu should have left the DOM
         test.eq(null, test.qS('.toddContextMenu'));
         //check selection after clicking 'do something'
@@ -317,7 +317,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq('2', test.getCurrentScreen().getText("staticlistselection"));
 
         //collapse Row #2
@@ -362,7 +362,7 @@ test.registerTests(
 
     {
       name: 'empty text is hidden',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(0, test.qSA('.emptytextholder')[0].offsetHeight);
         test.eq('', test.qSA('.emptytext')[0].textContent);
 
@@ -373,7 +373,7 @@ test.registerTests(
 
     {
       name: 'empty text is shown but empty',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(!test.qSA('.emptytextholder')[0].offsetHeight == 0);
         test.eq('', test.qSA('.emptytext')[0].textContent);
 
@@ -384,7 +384,7 @@ test.registerTests(
 
     {
       name: 'empty text is shown and non-empty',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(!test.qSA('.emptytextholder')[0].offsetHeight == 0);
         test.eq('empty 1', test.qSA('.emptytext')[0].textContent);
 
@@ -395,7 +395,7 @@ test.registerTests(
 
     {
       name: 'empty text is changed, multiline',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(!test.qSA('.emptytextholder')[0].offsetHeight == 0);
         test.eq('empty 2\nsecond line', test.qSA('.emptytext')[0].textContent);
 
@@ -407,14 +407,14 @@ test.registerTests(
 
     {
       name: 'empty text is hidden again',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.qSA('.emptytextholder')[0].offsetHeight == 0);
       }
     },
 
     {
       name: 'sort-fallback',
-      test: function(doc, win) {
+      test: function (doc, win) {
         let spancol = test.qSA('.listheader span').filter(span => span.textContent.includes("Text col"))[0];
         test.click(spancol);
 
@@ -445,7 +445,7 @@ test.registerTests(
 
     {
       name: 'sort-by-ordering',
-      test: function(doc, win) {
+      test: function (doc, win) {
         let spancol = test.qSA('.listheader span').filter(span => span.textContent.includes("Text col"))[0];
         test.eq(null, spancol.querySelector(".sortdirection"));
         spancol = test.qSA('.listheader span').filter(span => span.textContent.includes("Integer column"))[0];
@@ -460,7 +460,7 @@ test.registerTests(
 
     {
       name: 'column-resize',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         // Test if column resize is at least functional
         const splittercol = test.qS('.listheader .splitter');
 
@@ -476,7 +476,7 @@ test.registerTests(
 
     {
       name: 'focusin',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         test.eq('0', test.compByName("staticlistfocusincount").textContent);
 
         test.click(test.compByName("dynamiclist"));

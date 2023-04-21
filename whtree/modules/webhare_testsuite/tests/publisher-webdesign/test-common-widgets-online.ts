@@ -10,7 +10,7 @@ function forceResetConsent() {
 test.registerTests(
   [
     "Test v1 video",
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + "testpages/simpletest/");
       const videowidget = test.qS("#content > div");
       test.assert(videowidget.classList.contains("wh-video"));
@@ -21,7 +21,7 @@ test.registerTests(
     },
 
     "Test v2 video",
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + "testpages/v2videotest/");
       const videowidget = test.qS("#content > div");
       test.assert(videowidget.classList.contains("wh-video"));
@@ -34,7 +34,7 @@ test.registerTests(
     },
 
     "Test consent video",
-    async function() {
+    async function () {
       forceResetConsent();
       await test.load(test.getTestSiteRoot() + "testpages/consenttest/");
       const videowidget = test.qS("#content > div");

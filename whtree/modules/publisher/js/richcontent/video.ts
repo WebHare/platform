@@ -139,7 +139,7 @@ function initializeVideoElementV2(node) {
   const videonodes = dompack.qSA(node, ".wh-video--activate");
 
   for (const videonode of videonodes) {
-    videonode.addEventListener("click", function() {
+    videonode.addEventListener("click", function () {
       activateVideo(videonode, video);
     });
 
@@ -148,12 +148,12 @@ function initializeVideoElementV2(node) {
     playbutton.setAttribute("role", "button");
     playbutton.setAttribute("aria-label", getTid("publisher:site.rtd.embedvideo.playbutton-aria"));
 
-    playbutton.addEventListener("click", function() {
+    playbutton.addEventListener("click", function () {
       activateVideo(videonode, video, { autoplay: true });
     });
 
     // Because we don't use <button> we must implement it's keyboard interaction
-    playbutton.addEventListener("keypress", function(evt) {
+    playbutton.addEventListener("keypress", function (evt) {
       // we are only interested in enter and space keypressed
       if (evt.keyCode != 13 && evt.keyCode != 32)
         return;

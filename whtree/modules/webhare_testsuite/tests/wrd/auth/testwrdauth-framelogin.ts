@@ -34,13 +34,13 @@ async function tryProtectedURL(gotourl) {
 test.registerTests(
   [
     "Test with protected subdir",
-    async function() {
+    async function () {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup', { createsysop: true, requirealternatesite: true });
       await tryProtectedURL(setupdata.alternatesite + "requirewhaccount");
     },
 
     "Now try with a protected ROOT",
-    async function() {
+    async function () {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup', { createsysop: true, requirealternatesite: true, protectroot: true });
       await tryProtectedURL(setupdata.alternatesite);
     }

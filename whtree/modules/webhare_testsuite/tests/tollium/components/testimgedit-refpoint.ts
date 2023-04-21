@@ -6,7 +6,7 @@ import * as test from '@mod-tollium/js/testframework';
 test.registerTests(
   [
     "load component test page",
-    async function() {
+    async function () {
       await test.load(test.getCompTestPage("imgedit", {
         width: "250px",
         height: "250px",
@@ -17,7 +17,7 @@ test.registerTests(
     },
 
     "upload image",
-    async function() {
+    async function () {
       const uploadpromise = test.prepareUpload(
         [
           {
@@ -34,7 +34,7 @@ test.registerTests(
     },
 
     "refpoint procedure",
-    async function() {
+    async function () {
       const refpoint = test.qSA("t-custom[data-name='imageeditor'] .wh-toolbar-button")
         .filter(button => button.textContent.includes('Reference Point'))[0];
       test.click(refpoint);

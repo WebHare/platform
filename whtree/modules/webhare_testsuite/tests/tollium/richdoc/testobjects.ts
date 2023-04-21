@@ -14,7 +14,7 @@ test.registerTests(
     },
 
     "Test initial objects",
-    async function() {
+    async function () {
       test.click(test.qSA("nav t-text").filter(node => node.textContent == "Tab with Structured RTE")[0]);
 
       const rte = rtetest.getRTE(test.getWin(), 'structured');
@@ -24,7 +24,7 @@ test.registerTests(
 
     {
       name: 'structured-rte',
-      test: function() {
+      test: function () {
         const rte = rtetest.getRTE(test.getWin(), 'structured');
         rtetest.setRTESelection(test.getWin(), rte.getEditor(),
           {
@@ -40,7 +40,7 @@ test.registerTests(
 
     {
       name: 'objectprops',
-      test: function() {
+      test: function () {
         const rte = rtetest.getRTE(test.getWin(), 'structured');
         const selection = rte.getEditor().getSelectionRange();
 
@@ -63,7 +63,7 @@ test.registerTests(
     },
     {
       name: 'objectprops-settitle',
-      test: function() {
+      test: function () {
         test.eq(2, test.getCurrentApp().getNumOpenScreens());
         const textfield = test.compByName("fragment1!html").querySelector("textarea");
         test.eq("<u>inserted</u> object", textfield.value);
@@ -74,7 +74,7 @@ test.registerTests(
     },
     {
       name: 'objectprops-checktitle',
-      test: function() {
+      test: function () {
         const rte = rtetest.getRTE(test.getWin(), 'structured');
         const selection = rte.getEditor().getSelectionRange();
 
@@ -95,7 +95,7 @@ test.registerTests(
     },
     {
       name: 'objectprops-checkhtml',
-      test: function() {
+      test: function () {
         const rawcode = rtetest.getRawHTMLCode(test.getWin());
 
         const instanceid_regex = /data-instanceid="([^"]*)"/g;
@@ -124,7 +124,7 @@ test.registerTests(
     },
     {
       name: 'objectprops-checkhtml',
-      test: function() {
+      test: function () {
         test.eq(1, test.getCurrentApp().getNumOpenScreens());
       }
     },
@@ -136,7 +136,7 @@ test.registerTests(
     },
     {
       name: 'objects-badpaste',
-      test: async function() {
+      test: async function () {
         test.clickTolliumLabel("Tab with Structured RTE");
 
         //make sure 'dirty' is still false. note that tollium checkboxes are hard to scan :/
@@ -169,7 +169,7 @@ test.registerTests(
     },
     {
       name: 'objects-badpaste should now be dirty',
-      test: function() {
+      test: function () {
         const rte = rtetest.getRTE(test.getWin(), 'structured');
 
         test.eq('YES', test.compByName('dirty').querySelector('input').value);
@@ -181,7 +181,7 @@ test.registerTests(
 
     {
       name: 'edit object, test nested embedded objects',
-      test: async function() {
+      test: async function () {
         /* throw in a 2column object that will contain embedded widgets  to test proper handling of recursive embedded objects
            (at some point the RTD was rewriting embedded widgetpreviews because they match the same selector) */
 
@@ -248,7 +248,7 @@ test.registerTests(
 
     {
       name: 'test select and copy paste objects',
-      test: async function() {
+      test: async function () {
         const rte = rtetest.getRTE(test.getWin(), 'structured');
         test.eq(4, rte.qSA("div.wh-rtd-embeddedobject").length);
 

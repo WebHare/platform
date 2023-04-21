@@ -297,7 +297,7 @@ class FakeUploadSession {
     const self = this;
     this.inputnode = inputnode;
 
-    this.files.forEach(function(file, idx) {
+    this.files.forEach(function (file, idx) {
       getFileFromURL(file.url, file.filename).then(blob => self.doneUpload(blob, idx));
     });
   }
@@ -324,7 +324,7 @@ export function prepareUploadTest(node, files, donecallback?) {
 
 export async function prepareUpload(files) {
   const deferred = dompack.createDeferred();
-  const uploadclass = new FakeUploadSession(files, function() { deferred.resolve(); });
+  const uploadclass = new FakeUploadSession(files, function () { deferred.resolve(); });
   window.top.wh_testapi_fakeupload = uploadclass.runUpload.bind(uploadclass);
   await deferred.promise;
 }
@@ -377,7 +377,7 @@ export function fillUpload(element, files) {
     output.name = file.filename;
     return output;
   });
-  Object.defineProperty(element, 'files', { get: function() { return blobs; }, configurable: true });
+  Object.defineProperty(element, 'files', { get: function () { return blobs; }, configurable: true });
 }
 export function getTestSiteRoot() {
   const topdoc = window.parent.document.documentElement;
@@ -600,7 +600,7 @@ export async function getFileFromURL(url, filename) {
   xhr.open('GET', url, true);
 
   xhr.responseType = 'blob';
-  xhr.onload = function(e) {
+  xhr.onload = function (e) {
     console.log('onload', this, e, this.response);
     if (this.status == 200) {
       // Create a blob with the response's Content-Type as file type
@@ -609,7 +609,7 @@ export async function getFileFromURL(url, filename) {
     } else
       defer.reject(new Error(`Error ${this.status} retrieving ${url}`));
   };
-  xhr.onerror = function(e) { defer.reject(new Error(`Error ${e} retrieving ${url}`)); };
+  xhr.onerror = function (e) { defer.reject(new Error(`Error ${e} retrieving ${url}`)); };
   xhr.send();
   return defer.promise;
 }

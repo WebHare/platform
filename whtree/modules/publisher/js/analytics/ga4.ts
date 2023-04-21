@@ -27,7 +27,7 @@ if (!window.dataLayer)
   window.dataLayer = [];
 
 if (!window.gtag) {
-  window.gtag = function() {
+  window.gtag = function () {
     window.dataLayer.push(arguments);
   };
 

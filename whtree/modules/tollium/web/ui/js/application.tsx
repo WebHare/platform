@@ -262,7 +262,7 @@ export class ApplicationBase {
   }
 
   promiseComponentTypes(requiredtypes) {
-    return new Promise(function(resolve, reject) {
+    return new Promise(function (resolve, reject) {
       this.requireComponentTypes(requiredtypes, resolve);
     }.bind(this));
   }
@@ -643,7 +643,7 @@ export class BackendApplication extends ApplicationBase {
     this.deferred_metamessage = dompack.createDeferred();
 
     this.deferred_close.promise
-      .then(function() { return this.deferred_metamessage.promise; }.bind(this)) // wait for metamessage and adopt the value
+      .then(function () { return this.deferred_metamessage.promise; }.bind(this)) // wait for metamessage and adopt the value
       .then(this._closeApplication.bind(this));
   }
 
@@ -803,13 +803,13 @@ export class BackendApplication extends ApplicationBase {
     if ($todd.IsDebugTypeEnabled('rpc')) {
       console.group("RPC log - incoming");
       console.log(msg);
-      msg.instructions.forEach(function(instr) {
+      msg.instructions.forEach(function (instr) {
         console.log(instr.instr, instr);
       });
 
-      msg.screens.forEach(function(screenupdate, idx) {
+      msg.screens.forEach(function (screenupdate, idx) {
         console.log("Screen #" + idx + ": " + screenupdate.name);
-        screenupdate.messages.forEach(function(screenmsg, idx) {
+        screenupdate.messages.forEach(function (screenmsg, idx) {
           console.log(idx, screenupdate.name + ':' + screenmsg.target, screenmsg.instr, screenmsg);
         });
       });
@@ -846,7 +846,7 @@ export class BackendApplication extends ApplicationBase {
     //ADDME Instead of a list of instructions, the server should simply transfer one JSON object, ready to reprocess
     const pendingreplies = [];
 
-    response.instructions.forEach(function(instr) {
+    response.instructions.forEach(function (instr) {
       const instrname = instr.instr;
 
       if (instrname == "shellinstruction")

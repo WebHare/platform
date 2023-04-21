@@ -5,7 +5,7 @@ import { parseUserAgent } from '@webhare/dompack/impl/browser';
 test.registerTests(
   [
     "Browser detection",
-    async function() {
+    async function () {
       let useragent;
       useragent = parseUserAgent('Mozilla/5.0 (iPad; CPU OS 11_0 like Mac OS X) AppleWebKit/604.1.32 (KHTML, like Gecko) Version/11.0 Mobile/15A337 Safari/604.1');
       test.eq("safari", useragent.name);

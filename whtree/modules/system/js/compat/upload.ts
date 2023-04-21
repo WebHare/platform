@@ -250,7 +250,7 @@ class UploaderAggregator extends RawUploadItem {
     this.pvt_sentloadend = false;
 
     // Listen to events of the sub-items
-    this.pvt_subitems.forEach(function(i) {
+    this.pvt_subitems.forEach(function (i) {
       i.pvt_parentgroup = this;
       i.addEventListener('loadstart', this.gotLoadStart.bind(this));
       i.addEventListener('progress', this.fireProgress.bind(this));
@@ -263,7 +263,7 @@ class UploaderAggregator extends RawUploadItem {
 
   /// Schedule all subitems, run some events when empty
   schedule() {
-    this.pvt_subitems.forEach(function(i, idx) { i.schedule(); });
+    this.pvt_subitems.forEach(function (i, idx) { i.schedule(); });
 
     if (!this.pvt_subitems.length) //simulate an upload
     {
@@ -275,13 +275,13 @@ class UploaderAggregator extends RawUploadItem {
 
   getUploadSize() {
     let size = 0;
-    this.pvt_subitems.forEach(function(i) { size += i.getUploadSize(); });
+    this.pvt_subitems.forEach(function (i) { size += i.getUploadSize(); });
     return size;
   }
 
   getUploaded() {
     let loaded = 0;
-    this.pvt_subitems.forEach(function(i) { loaded += i.getUploaded(); });
+    this.pvt_subitems.forEach(function (i) { loaded += i.getUploaded(); });
     return loaded;
   }
 
@@ -301,7 +301,7 @@ class UploaderAggregator extends RawUploadItem {
   getCompletedFiles() {
     let result = [];
     if (this.status == 'loaded')
-      this.pvt_subitems.forEach(function(i) { result = result.concat(i.getCompletedFiles()); });
+      this.pvt_subitems.forEach(function (i) { result = result.concat(i.getCompletedFiles()); });
     //sanitize the result, don't leak internal data
     return result.map(file => ({
       name: file.name,
@@ -318,7 +318,7 @@ class UploaderAggregator extends RawUploadItem {
   getFileTokens() {
     let result = [];
     if (this.status == 'loaded')
-      this.pvt_subitems.forEach(function(i) { result = result.concat(i.getFileTokens()); });
+      this.pvt_subitems.forEach(function (i) { result = result.concat(i.getFileTokens()); });
     return result;
   }
 
@@ -346,14 +346,14 @@ class UploaderAggregator extends RawUploadItem {
   }
 
   gotLoad(event) {
-    if (!this.status && !this.pvt_subitems.some(function(i) { return i.status != 'loaded'; })) {
+    if (!this.status && !this.pvt_subitems.some(function (i) { return i.status != 'loaded'; })) {
       this.status = 'loaded';
       this.fireLoad();
     }
   }
 
   gotLoadEnd(event) {
-    if (!this.pvt_subitems.some(function(i) { return i.status == ''; }) && !this.pvt_sendloadend) {
+    if (!this.pvt_subitems.some(function (i) { return i.status == ''; }) && !this.pvt_sendloadend) {
       this.pvt_sendloadend = true;
       this.fireLoadEnd();
     }
@@ -601,7 +601,7 @@ export class UploadItemGroup extends UploaderAggregator {
 }
 
 /// Generate a group of items from a file input element
-UploadItemGroup.fromFileList = function(uploadhost, filelist, options) {
+UploadItemGroup.fromFileList = function (uploadhost, filelist, options) {
   const items = [];
   for (let i = 0; i < filelist.length; ++i)
     items.push(new Html5UploadItem(uploadhost, filelist[i], options));
@@ -694,7 +694,7 @@ export function selectFiles(options?): Promise<FileList> //TODO return our own o
   //let selectlock = dompack.flagUIBusy();
 
   // Set a handler on next action to capture someone cancelling the upload without telling us (browsers dont inform us the dialog is gone)
-  const canceluploadhandler = function() {
+  const canceluploadhandler = function () {
     uploaddefer.resolve([]);
     window.removeEventListener('mousedown', canceluploadhandler, true);
     window.removeEventListener('keydown', canceluploadhandler, true);
@@ -748,7 +748,7 @@ export class UploadSession extends EventTarget {
              purposes, we'll pretend it was an abort */
     if (files.length) {
       this.group = new UploadItemGroup(options);
-      const items = Array.from(files).map(function(item) {
+      const items = Array.from(files).map(function (item) {
         return new Html5UploadItem(host, item, { params: options.params });
       });
 
@@ -822,10 +822,10 @@ export class UploadSession extends EventTarget {
 export function getFileAsDataURL(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader;
-    reader.onload = function(readdata) {
+    reader.onload = function (readdata) {
       resolve(reader.result);
     };
-    reader.onerror = function() {
+    reader.onerror = function () {
       reject(new Error("Failed to load file"));
     };
     reader.readAsDataURL(file);

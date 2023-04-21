@@ -12,7 +12,7 @@ async function clearState() {
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       await test.load(test.getTestScreen('tests/dirty.dirtytest'));
       await test.wait('ui');
 

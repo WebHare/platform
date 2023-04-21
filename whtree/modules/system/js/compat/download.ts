@@ -72,7 +72,7 @@ class DownloadManager {
 }
 
 DownloadManager.dlid = 0;
-window.__wh_downloadfailurecallback = function(iframe, data) {
+window.__wh_downloadfailurecallback = function (iframe, data) {
   iframe.__whDownloadManagerFailureCallback(data);
 };
 

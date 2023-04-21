@@ -30,14 +30,14 @@ function verifyImage() {
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte');
     },
 
     {
       name: 'Reset RTE',
-      test: function() {
+      test: function () {
         //We didn't specify a video provider so the button shouldn't be there
         test.eq(null, test.qS(videobuttonselector), 'video button should not be present yet');
         //There is no table style defined in the rtd's structure so the button shouldn't be there
@@ -50,7 +50,7 @@ test.registerTests(
       waits: ['ui']
     },
     {
-      test: function() {
+      test: function () {
         const serverreponse = JSON.parse(test.qS('#rtdformresponse').textContent);
         test.eq('<html><body><p class=\"normal\">Initial state</p></body></html>', serverreponse.htmltext);
       }
@@ -58,7 +58,7 @@ test.registerTests(
     { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&video=1' },
     {
       name: 'Verify basic RTE content',
-      test: function() {
+      test: function () {
         const rtebody = test.qS('[data-wh-form-name="rtd"] .wh-rtd__body');
         test.eq(1, rtebody.querySelectorAll('p').length);
         test.eq('Initial state', rtebody.querySelectorAll('p')[0].textContent);
@@ -66,7 +66,7 @@ test.registerTests(
     },
 
     'test RPC',
-    async function() {
+    async function () {
       const rtebody = test.qS('[data-wh-form-name="rtd"] .wh-rtd__body');
       rtebody.innerHTML = '<p class="normal">Changed content</p>';
       test.eq(1, rtebody.querySelectorAll('p').length);
@@ -85,14 +85,14 @@ test.registerTests(
 
     {
       name: 'Insert beagle',
-      test: function() {
+      test: function () {
         rtetestapi.setStructuredContent(test.qS('[data-wh-form-name="rtd"]'), '<p class="normal">"Ik wil hier(*0*)een object"</p>');
         test.qS(videobuttonselector).click();
       },
       waits: ['ui']
     },
     {
-      test: function() {
+      test: function () {
         test.eq(null, test.qS('#embedvideo'));
         test.eq(null, test.qS('#embedvideo-videourl')); //do not want the fields to leak with a name
 
@@ -104,7 +104,7 @@ test.registerTests(
     },
     {
       name: 'Test beagle',
-      test: function() {
+      test: function () {
         verifyBeagleVideo();
         test.click(test.qS('#submitbutton'));
       },
@@ -113,14 +113,14 @@ test.registerTests(
     { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&video=1' },
     {
       name: 'Test beagle after reload',
-      test: function() {
+      test: function () {
         verifyBeagleVideo();
       }
     },
 
     {
       name: 'Insert image!',
-      test: async function() {
+      test: async function () {
         rtetestapi.setStructuredContent(test.qS('[data-wh-form-name="rtd"]'), '<p class="normal">"Ik wil hier(*0*)een afbeelding"</p>');
         const uploadpromise = test.prepareUpload(
           [
@@ -137,7 +137,7 @@ test.registerTests(
 
     {
       name: 'Verify image',
-      test: function() {
+      test: function () {
         verifyImage();
         test.click(test.qS('#submitbutton'));
       },
@@ -147,14 +147,14 @@ test.registerTests(
     { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&video=1' },
     {
       name: 'Verify image after reload',
-      test: function() {
+      test: function () {
         verifyImage();
       }
     },
 
     {
       name: 'Test disable',
-      test: async function() {
+      test: async function () {
         test.click(test.qS('#rtdtest-enablefields'));
         test.assert(!test.qS('#rtdtest-enablefields').checked, "enablefields should have been unchecked now");
 
@@ -171,7 +171,7 @@ test.registerTests(
     { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&rtdrequired=1' },
     {
       name: 'Test error handling',
-      test: async function() {
+      test: async function () {
         rtetestapi.setStructuredContent(test.qS('[data-wh-form-name="rtd"]'), '<p class="normal"><br data-wh-rte="bogus"/></p>');
         test.click('#submitbutton'); //image should be removed. submit
         await test.wait('ui');

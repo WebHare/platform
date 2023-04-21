@@ -6,7 +6,7 @@ import * as langparser from "@mod-tollium/js/internal/lang";
 
 // Test the lang.json parser
 async function testLangJsonParser() {
-  //it("parser", async function()
+  //it("parser", async function ()
   {
     const alltexts = new Map();
     alltexts.set("webhare_testsuite", {});
@@ -58,7 +58,7 @@ async function testLangJsonParser() {
       });
   }
 
-  //it("fallbacklanguage", async function()
+  //it("fallbacklanguage", async function ()
   {
     const alltexts = new Map();
     const filecache: string[] = [];

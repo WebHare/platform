@@ -10,7 +10,7 @@ let confirmlink;
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { filename: "formcaptcha" });
 
       await test.load(setupdata.url + '?skipcaptcha=1');
@@ -44,7 +44,7 @@ test.registerTests(
       await test.wait(() => test.qS('[data-wh-form-pagerole=thankyou]').classList.contains('wh-form__page--visible'));
     },
 
-    async function() {
+    async function () {
       //Note using formcaptcha2 because we saw us racing and sometimes showing a recyclebin version of the previous file instead of the one we're creating
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { filename: "formcaptcha2", mailconfirmation: true });
 
@@ -72,7 +72,7 @@ test.registerTests(
     },
 
     "Process confirmation mail",
-    async function() {
+    async function () {
       const emails = await test.waitForEmails(testemail, { timeout: 60000 });
       test.eq(1, emails.length, "No emails!");
       test.eq("Confirm your email address", emails[0].subject);
@@ -81,7 +81,7 @@ test.registerTests(
     },
 
     "Confirm result",
-    async function() {
+    async function () {
       await test.load(confirmlink);
 
       test.assert(test.qS('[data-wh-form-group-for="thankyou_unconfirmed"]').classList.contains('wh-form__fieldgroup--hidden'));

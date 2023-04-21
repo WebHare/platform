@@ -235,8 +235,8 @@ export default class ApplicationBar {
     dompack.empty(this.appnavmenu);
 
     // Add all apps (first the fixed apps, then the unfixed ones)
-    this.apps.forEach(function(item) { if (item.fixed) this.appnavmenu.appendChild(item.menuitem); }.bind(this));
-    this.apps.forEach(function(item) { if (!item.fixed) this.appnavmenu.appendChild(item.menuitem); }.bind(this));
+    this.apps.forEach(function (item) { if (item.fixed) this.appnavmenu.appendChild(item.menuitem); }.bind(this));
+    this.apps.forEach(function (item) { if (!item.fixed) this.appnavmenu.appendChild(item.menuitem); }.bind(this));
 
     menu.openAt(this.appnavmenu, this.nav_node, { direction: 'down', align: 'right' });
   }
@@ -302,7 +302,7 @@ export default class ApplicationBar {
   _recalculateCSSClasses() {
     const allnodes = dompack.qSA(this.node, ".t-apptab");
 
-    allnodes.forEach(function(item, idx) {
+    allnodes.forEach(function (item, idx) {
       item.classList.toggle("t-apptab--first", idx == 0);
       item.classList.toggle("t-apptab--last", idx == allnodes.length - 1);
       item.classList.toggle("t-apptab--prevactiveapp", idx != 0 && allnodes[idx - 1].classList.contains("t-apptab--activeapp"));

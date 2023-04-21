@@ -17,13 +17,13 @@ function anyEventHandler(evt) {
 test.registerTests(
   [
     "Verify dompack identity",
-    async function() {
+    async function () {
       //make sure 'both' dompack paths point to the same APIs
       test.assert(dompack.register === webhare_dompack.register);
     },
 
     "Internal utility functions",
-    async function() {
+    async function () {
       test.eq("a", create.toDashed("A"));
       test.eq("aa-bb-cc", create.toDashed("AaBbCc"));
       test.eq("a-b-c-d", create.toDashed("ABCD"));
@@ -34,7 +34,7 @@ test.registerTests(
     },
 
     "jsxcreate",
-    async function() {
+    async function () {
       //please note this tests the lower layers of the JSX, it does not bother with the JSX syntax
       test.eq(0, eventcount);
       let node = dompack.jsxcreate('input', { type: 'checkbox', checked: false });
@@ -53,14 +53,14 @@ test.registerTests(
     },
 
     "jsx-syntax",
-    async function() {
+    async function () {
       const node1 = <div id="div1" />;
       node1.append(<><div id="div2" /><div id="div3" /></>);
       test.eq('<div id="div2"></div><div id="div3"></div>', node1.innerHTML);
     },
 
     "Array/String.prototype.at polyfill",
-    async function() {
+    async function () {
       test.eq(undefined, [1, 2, 3].at(3));
       test.eq(1, [1, 2, 3].at(0));
       test.eq(3, [1, 2, 3].at(2));

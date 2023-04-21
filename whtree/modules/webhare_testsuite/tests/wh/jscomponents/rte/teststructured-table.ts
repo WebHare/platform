@@ -8,7 +8,7 @@ import * as rteapi from '@mod-tollium/web/ui/components/richeditor';
 test.registerTests(
   [
     "Basic table checks",
-    async function() {
+    async function () {
       await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured&toolbarlayout=td-class,p-class/b,i,u/action-properties');
 
       const driver = new rtetest.RTEDriver;
@@ -108,7 +108,7 @@ test.registerTests(
 
     {
       name: 'checkresizers',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
         const table = rte.getBody().getElementsByTagName('table')[0];
         const driver = new rtetest.RTEDriver;
@@ -158,7 +158,7 @@ test.registerTests(
 
     {
       name: 'checkstyle',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         // The 'table' style should not be available as a selectable style
@@ -169,7 +169,7 @@ test.registerTests(
 
     {
       name: 'refilter table',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
         rte.setContentsHTML('<h1 class="heading1">H1</h1>'
           + '<table class="table"><tbody>'
@@ -193,7 +193,7 @@ test.registerTests(
 
     {
       name: 'insertcolumnbefore',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
         rte.setCursor(rte.getBody().querySelectorAll('td > p')[1], 0);
         await rtetest.runWithUndo(rte, () => rte.executeAction('table-addcolumn-before'));
@@ -206,7 +206,7 @@ test.registerTests(
 
     {
       name: 'insertrowafter',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
         const extendfromcell = rte.getBody().querySelectorAll('td')[2];
         rte.setCursor(extendfromcell.querySelector('p'), 0);
@@ -228,7 +228,7 @@ test.registerTests(
 
     {
       name: 'insertrowabove',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
         const extendfromcell = rte.getBody().querySelectorAll('tr')[2].cells[0];
         rte.setCursor(extendfromcell.querySelector('p'), 0);
@@ -242,7 +242,7 @@ test.registerTests(
 
     {
       name: 'mergetoright',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
         rte.setContentsHTML('<table class="table"><tbody>'
           + '<tr> <td><p class="normal">1</p></td> <td><p class="normal">2</p></td> <td><p class="normal">3</p></td> </tr>'
@@ -275,7 +275,7 @@ test.registerTests(
 
     {
       name: 'mergedown',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
         rte.setContentsHTML('<table class="table"><tbody>'
           + '<tr> <td><p class="normal">1</p></td> <td><p class="normal">2</p></td> <td><p class="normal">3</p></td> </tr>'
@@ -308,7 +308,7 @@ test.registerTests(
 
     {
       name: 'complicatedsplit',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
         let tdp;
 
@@ -354,7 +354,7 @@ test.registerTests(
 
     {
       name: 'insertrowwithspans',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
 
         // In combination with col/rowspans
@@ -389,7 +389,7 @@ test.registerTests(
     },
 
     "Remove the table",
-    async function() {
+    async function () {
       //select a cell
       const driver = new rtetest.RTEDriver;
       driver.setSelection(driver.qS("td p"));

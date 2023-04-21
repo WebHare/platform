@@ -4,12 +4,12 @@ import { readBackgroundUrl } from '@mod-publisher/js/forms/fields/imgedit';
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte');
     },
     'Reset image',
-    async function() {
+    async function () {
       test.prepareUpload([
         {
           url: '/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg',
@@ -24,7 +24,7 @@ test.registerTests(
       await test.wait('ui');
     },
     {
-      test: async function() {
+      test: async function () {
         test.assert(!test.qR('[data-wh-form-group-for=img]').classList.contains("wh-form--uploading"));
         const img = test.qS('#rtdtest-img .wh-form__imgeditimg');
         test.assert(img, 'no image present');
@@ -39,7 +39,7 @@ test.registerTests(
       waits: ['ui']
     },
     {
-      test: function() {
+      test: function () {
         const serverreponse = JSON.parse(test.qR('#rtdformresponse').textContent || '');
         test.eq('.jpg', serverreponse.img.extension);
         test.eq(600, serverreponse.img.width);
@@ -51,7 +51,7 @@ test.registerTests(
     },
     {
       name: 'Verify reloaded image',
-      test: async function() {
+      test: async function () {
         //wait for image to load
         const img = test.qS('#rtdtest-img .wh-form__imgeditimg');
         test.assert(img, 'no image present #2');
@@ -70,7 +70,7 @@ test.registerTests(
     },
     {
       name: 'Verify re-reloaded image',
-      test: async function() {
+      test: async function () {
         //wait for image to load
         let img = test.qS('#rtdtest-img .wh-form__imgeditimg');
         test.assert(img, 'no image present #3');
@@ -99,7 +99,7 @@ test.registerTests(
     },
     {
       name: 'Test error handling',
-      test: async function() {
+      test: async function () {
         test.focus('#rtdtest-img');
         test.click('.wh-form__imgeditdelete'); //kill image
         test.click('#submitbutton'); //image should be removed. submit
@@ -126,7 +126,7 @@ test.registerTests(
     { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&disabled=1' },
 
     'Initially disabled imgedit',
-    async function() {
+    async function () {
       test.assert(test.qS('[data-wh-form-group-for=img] .wh-form__imgedit[data-wh-form-disabled]'));
     }
   ]);

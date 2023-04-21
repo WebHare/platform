@@ -23,7 +23,7 @@ test.registerTests(
   [
     'Study page fields',
     {
-      test: async function() {
+      test: async function () {
         await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
         await test.load(test.getTestSiteRoot() + 'testpages/formtest/' + urlappend);
 
@@ -249,7 +249,7 @@ test.registerTests(
     },
 
     "Test labeling and group role",
-    async function() {
+    async function () {
       // Check for simple input fields having a <label> with the correct content
       test.eq('Email', test.qS('[for="coretest-email"]').textContent);
       test.eq('Text', test.qS('[for="coretest-text"]').textContent);
@@ -269,7 +269,7 @@ test.registerTests(
     },
 
     "Test data-wh-group-for",
-    async function() {
+    async function () {
       const optselect5_group = test.qS("#coretest-opt5_select").closest('.wh-form__fieldgroup');
       test.eq("radiotest radiotestnamelijk opt5_select opt5_textedit", optselect5_group.dataset.whFormGroupFor);
 
@@ -281,7 +281,7 @@ test.registerTests(
 
     {
       name: 'Test formapis',
-      test: async function() {
+      test: async function () {
         const formhandler = FormBase.getForNode(test.qS('#coreform'));
         test.assert(formhandler, 'no formhandler available');
 
@@ -329,7 +329,7 @@ test.registerTests(
 
     {
       name: 'Study page flexlayout', //study als in 'bestudeer de layout'
-      test: function() {
+      test: function () {
         //also test stability of DOM by making selectors as explicit as posbible
         const label_option1 = test.qS(".wh-form__fields label.wh-form__optionlabel[for=coretest-radiotest-1]");
         const label_namelijk = test.qS(".wh-form__fields label.wh-form__subfieldlabel[for=coretest-radiotestnamelijk]");
@@ -341,7 +341,7 @@ test.registerTests(
         test.assert(label_option1.getBoundingClientRect().right <= label_namelijk.getBoundingClientRect().left, "'namelijk' should be to the right of 'option1'");
       }
     },
-    async function() {
+    async function () {
       const label_option4 = test.qS(".wh-form__fields label.wh-form__optionlabel[for=coretest-radiotest-4]");
       const field_pulldowntest = test.qS(".wh-form__fields .wh-form__fieldline select[name=pulldowntest]");
 
@@ -391,7 +391,7 @@ test.registerTests(
       await test.wait('ui');
     },
     {
-      test: function() {
+      test: function () {
         test.eq("pietje@example.com", test.qS("#lastsuccessfulsubmit").textContent);
 
         const formevents = test.getPxlLog(/^publisher:form.+/);
@@ -422,7 +422,7 @@ test.registerTests(
     },
 
     "serverside error handling",
-    async function() {
+    async function () {
       let passwordgroup = test.qS('#coretest-password').closest('.wh-form__fieldgroup');
       test.assert(!passwordgroup.classList.contains('wh-form__fieldgroup--error')); //this field is in error
       test.eq(null, passwordgroup.querySelector('.wh-form__error'));
@@ -452,7 +452,7 @@ test.registerTests(
     },
     {
       name: 'test RPC',
-      test: function() {
+      test: function () {
         test.click('#coretest-email');
         test.click('.prefillbutton');
       },
@@ -460,13 +460,13 @@ test.registerTests(
     },
     {
       name: 'test RPC response',
-      test: function() {
+      test: function () {
         test.eq('pietje+test@example.com', test.qS('#coretest-email').value);
         test.eq('2000-01-01', test.qS('#coretest-dateofbirth').value);
       }
     },
     'Test disabled fields',
-    async function() {
+    async function () {
       test.fill(test.qS('#coretest-password'), 'acceptable');
       test.qS('#coretest-disabledpulldowntest').disabled = false;
       test.qS('#coretest-disabledpulldowntest').value = "cant";
@@ -481,7 +481,7 @@ test.registerTests(
     },
 
     'Test core',
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?require=number,numberemptyvalue');
 
       test.eq('', test.qS('input[name=number]').value);
@@ -505,7 +505,7 @@ test.registerTests(
     },
 
     'Test unlocking disabled fields',
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/' + urlappend);
 
       quickFillDefaultRequiredFields();
@@ -520,7 +520,7 @@ test.registerTests(
     },
 
     "Test URL preload and slow submission",
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?email=joop%40beta.webhare.net&text=Text&opt5_textedit=opt5&opt5_select=BANK2&radiotest=5&disabledpulldowntest=this&checkboxes=2&checkboxes=3&checkboxes=nonexistent&submitsleep=6000' + urlappend);
       test.eq("joop@beta.webhare.net", test.qS('[name=email]').value);
       test.eq("", test.qS('[name=text]').value);
@@ -541,7 +541,7 @@ test.registerTests(
     },
 
     "Test back link",
-    async function() {
+    async function () {
       await test.load(`${test.getTestSiteRoot()}testpages/formtest/?backlink=${encodeURIComponent(test.getTestSiteRoot())}`);
       test.qS("#globalform .wh-form__button--previous").scrollIntoView();
       test.assert(test.canClick('#globalform .wh-form__button--previous'), "'previous' button should be available with a backlink");

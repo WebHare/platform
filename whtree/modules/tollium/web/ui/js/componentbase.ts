@@ -454,7 +454,7 @@ class ToddCompBase {
   }
   // If the dim should be calculated (because the dim of this component or any child components is dirty)
   isDimensionDirty(horizontal) {
-    return this.dim(horizontal).dirty || this.getVisibleChildren().some(function(child) { return child.isDimensionDirty(horizontal); });
+    return this.dim(horizontal).dirty || this.getVisibleChildren().some(function (child) { return child.isDimensionDirty(horizontal); });
   }
   // If no minimum is set but an absolute size is given, set the minimum to it. This implements taking a height as minheight, needed to prevent components from suddenly shrinking
   setMinToAbs(sizeprop) {
@@ -747,7 +747,7 @@ export function distributeSizes(available, sizeobjs, horizontal, leftoverobj, op
 
   let total_prop = 0, total_pixels = 0, added_size = 0;
   const tempsizes = [];//Temporay store for calculated sizes
-  sizeobjs.forEach(function(sizeobj, idx) {
+  sizeobjs.forEach(function (sizeobj, idx) {
     tempsizes[idx] = { set: 0, min: 0, pref: 0, prop: 0 };
 
     // If a size is already set, use that, otherwise read the size set in xml
@@ -801,7 +801,7 @@ export function distributeSizes(available, sizeobjs, horizontal, leftoverobj, op
 
     if (logdistribute)
       console.log("Distribute remainders: props=" + propleft + " available=" + spaceleft);
-    sizeobjs.forEach(function(sizeobj, idx) {
+    sizeobjs.forEach(function (sizeobj, idx) {
       if (tempsizes[idx].prop) {
         // var part = Math.floor(spaceleft * tempsizes[idx].set.size / propleft);
         const part = prop * tempsizes[idx].prop;
@@ -828,7 +828,7 @@ export function distributeSizes(available, sizeobjs, horizontal, leftoverobj, op
       console.log("Overcommitted (preferred sizes exceeded available) distribute the damage: overcommit=" + (total_pixels - available) + ", available=" + added_size + ", propleft=" + propleft);
 
     var takenaway = 0;
-    sizeobjs.forEach(function(sizeobj, idx) {
+    sizeobjs.forEach(function (sizeobj, idx) {
       let takeaway = 0;
       if (propleft && tempsizes[idx].prop) {
         // Using ceil to take at least 1 pixel if there are any pixels available (otherwise we could end up in an endless loop)
@@ -867,7 +867,7 @@ export function distributeSizes(available, sizeobjs, horizontal, leftoverobj, op
       if (logdistribute)
         console.log("We have " + (available - total_pixels) + " unassigned pixels, try to distribute evently over proportionals");
 
-      tempsizes.some(function(size, i) {
+      tempsizes.some(function (size, i) {
         if (size.prop) {
           ++size.pref;
           --remaining;
@@ -878,7 +878,7 @@ export function distributeSizes(available, sizeobjs, horizontal, leftoverobj, op
   }
 
   // Set sizes and fix any leftovers immediately
-  sizeobjs.forEach(function(sizeobj, idx) {
+  sizeobjs.forEach(function (sizeobj, idx) {
     if (logdistribute)
       console.log("Child " + idx + " minimum=" + tempsizes[idx].min + " final=" + tempsizes[idx].pref);
     sizeobj.set = tempsizes[idx].pref;

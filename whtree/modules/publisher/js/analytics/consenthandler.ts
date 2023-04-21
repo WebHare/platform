@@ -183,7 +183,7 @@ function storeConsent() {
     cookie.write(cookiename, JSON.stringify(consentstatus), { duration: consentoptions.cookieduration, domain: consentoptions.cookiedomain });
 }
 
-window.whResetConsent = function() {
+window.whResetConsent = function () {
   if (cookiename === undefined)
     throw new Error("Consent handler not setup");
   else if (!cookiename)

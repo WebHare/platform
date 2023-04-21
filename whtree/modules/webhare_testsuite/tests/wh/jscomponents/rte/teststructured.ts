@@ -29,7 +29,7 @@ test.registerTests(
     },
     {
       name: 'verifyclasses',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
         const bodynode = rte.getBody();
         test.assert(bodynode.className.indexOf('html-class') == -1);
@@ -39,7 +39,7 @@ test.registerTests(
     },
     {
       name: 'verifybodymargin',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const body = win.rte.getEditor().getBody();
         const html = body.parentNode;
         const h1 = body.getElementsByTagName('h1')[0];
@@ -58,7 +58,7 @@ test.registerTests(
     },
     {
       name: 'initialcursor',
-      test: function(doc, win) {
+      test: function (doc, win) {
         // Initial cursor must be placed at start of document
         const rte = win.rte.getEditor();
         const range = rte.getSelectionRange();
@@ -83,7 +83,7 @@ test.registerTests(
 
     {
       name: 'emptytest',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //blockfill = win.$wh.Rich.Dom.usesBRAsBlockFill() ? '<br>' : '\u200b';
         //blockfillistext = blockfill.substr(0,1) != '<';
         //quotedblockfill = !blockfillistext ? blockfill : '"' + blockfill + '"';
@@ -96,7 +96,7 @@ test.registerTests(
 
     {
       name: 'interchange',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         // In !usebrasblockblockfill mode, br is not present in raw html
@@ -127,7 +127,7 @@ test.registerTests(
 
     {
       name: 'restructuring_1',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         rtetest.setRawStructuredContent(win, '<p class=normal><b><u>"a(*0*)(*1*)"</u></b><i>"b"</i></p>');
@@ -139,7 +139,7 @@ test.registerTests(
 
     {
       name: 'blocknodeinsert',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
         const style_ordered = rte.structure.getBlockStyleByTag('ORDERED');
         const style_normal = rte.structure.getBlockStyleByTag('NORMAL');
@@ -230,7 +230,7 @@ test.registerTests(
 
     {
       name: 'stitch',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
         let body, node_br, locator;
 
@@ -303,7 +303,7 @@ test.registerTests(
 
     {
       name: 'structuring',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('<h1 class="heading1">Kop</h1><p class="mystyle">in mijn <a href="http://b-lex.nl/" trash="true">stijl</a>.</p>');
@@ -377,7 +377,7 @@ test.registerTests(
 
     {
       name: 'checkDomStructure',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         rtetest.setRawStructuredContent(win, '"(*0*)a"');
@@ -392,7 +392,7 @@ test.registerTests(
 
     {
       name: 'toggleliststyle',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
         let range, prestate;
 
@@ -491,7 +491,7 @@ test.registerTests(
 
     {
       name: 'initialstyle',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         //make sure the style of the first paragraph is selected
@@ -512,7 +512,7 @@ test.registerTests(
 
     {
       name: 'addcr',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
         let body, prestate;
 
@@ -557,7 +557,7 @@ test.registerTests(
 
     {
       name: 'softenter',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
         let locators, range, prestate;
 
@@ -659,7 +659,7 @@ test.registerTests(
 
     {
       name: 'hardenter',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
         let locators, range;
 
@@ -857,7 +857,7 @@ test.registerTests(
 
     {
       name: 'addlistlevel',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
         let range;
 
@@ -911,7 +911,7 @@ test.registerTests(
 
     {
       name: 'removelistlevel',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
         let range;
 
@@ -944,7 +944,7 @@ test.registerTests(
 
     {
       name: 'removelistlevel_ie8andlower',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
         let range;
 
@@ -962,7 +962,7 @@ test.registerTests(
 
     {
       name: 'pasting',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
 
         let locators, topaste, range, imglocator;
@@ -1143,7 +1143,7 @@ test.registerTests(
 
     {
       name: 'pasting_inline',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
 
         const locators = rtetest.setStructuredContent(win, '<h1 class="heading1">"Kop 1"</h1><p class="normal">"Tekst paragraaf.(*0*)"</p>');
@@ -1158,7 +1158,7 @@ test.registerTests(
 
     {
       name: 'deleteandbackspace',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
 
         // Forward delete
@@ -1202,7 +1202,7 @@ test.registerTests(
 
     {
       name: 'focus_after_stylechange',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         // Get the select element
         const select = doc.querySelector(".wh-rtd__toolbarstyle");
 
@@ -1223,7 +1223,7 @@ test.registerTests(
 
     {
       name: 'blockstyle change',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         // Get the select element
         const select = doc.querySelector(".wh-rtd__toolbarstyle");
         rtetest.setStructuredContent(win,
@@ -1250,7 +1250,7 @@ test.registerTests(
       }
     },
     "Toolbar buttons activation for delayed surrounds",
-    async function() {
+    async function () {
       const rte = test.getWin().rte.getEditor();
       rtetest.setStructuredContent(test.getWin(), `<p class="normal">"a(*0*)(*1*)b"</p>`);
 

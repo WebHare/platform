@@ -32,7 +32,7 @@ const TestImageEditor =
   [
     {
       name: "image editor",
-      test: function(doc, win) {
+      test: function (doc, win) {
         // Test if the image editor screen is now opened
         const editor = test.qS("t-custom[data-name='imageeditor']");
         test.assert(editor);
@@ -45,7 +45,7 @@ const TestImageEditor =
 
     {
       name: "activate image cropping",
-      test: function(doc, win) {
+      test: function (doc, win) {
         const editor = test.qS("t-custom[data-name='imageeditor']");
         const toolbar = editor.querySelector(".wh-toolbar");
         const cropbutton = test.qSA(toolbar, ".wh-toolbar-button").filter(button => button.textContent.includes('Crop'))[0];
@@ -65,7 +65,7 @@ const TestImageEditor =
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         // Resize the cropbox some more
         const editor = test.qS("t-custom[data-name='imageeditor']");
         const cropbox = editor.querySelector(".wh-cropbox");
@@ -84,7 +84,7 @@ const TestImageEditor =
 
     {
       name: "image crop cancelled",
-      test: function(doc, win) {
+      test: function (doc, win) {
         // Check if the image size hasn't changed (it's set by the tollium backend based on the uploaded blob)
         const dimensions = test.compByName('fragment1!dimensions');
         test.assert(dimensions);
@@ -97,7 +97,7 @@ const TestImageEditor =
 
     {
       name: "activate image cropping again",
-      test: function(doc, win) {
+      test: function (doc, win) {
         const editor = test.qS("t-custom[data-name='imageeditor']");
         const toolbar = editor.querySelector(".wh-toolbar");
         const cropbutton = test.qSA(toolbar, ".wh-toolbar-button").filter(button => button.textContent.includes('Crop'))[0];
@@ -117,7 +117,7 @@ const TestImageEditor =
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         // Resize the cropbox some more
         const editor = test.qS("t-custom[data-name='imageeditor']");
         const cropbox = editor.querySelector(".wh-cropbox");
@@ -136,7 +136,7 @@ const TestImageEditor =
 
     {
       name: "image saved",
-      test: function(doc, win) {
+      test: function (doc, win) {
         // Check if the image size is set correctly (it's set by the tollium backend based on the uploaded blob)
         const dimensions = test.compByName('fragment1!dimensions');
         test.assert(dimensions);
@@ -151,7 +151,7 @@ const TestImageEditor =
     { test: testBackground },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(367, testimg.width);
         test.eq(241, testimg.height);
         testimg = null;
@@ -163,7 +163,7 @@ const TestImageEditor =
 
     {
       name: "edit image",
-      test: function(doc, win) {
+      test: function (doc, win) {
         // Test if the image editor screen is now opened
         const editor = test.qS("t-custom[data-name='imageeditor']");
         test.assert(editor);
@@ -175,7 +175,7 @@ const TestImageEditor =
     },
 
     "Apply filters",
-    async function() {
+    async function () {
       const filterbutton = test.qSA("t-custom[data-name='imageeditor'] .wh-toolbar-button").filter(button => button.textContent.includes('Apply Filters'))[0];
       test.assert(filterbutton);
       test.click(filterbutton);
@@ -197,7 +197,7 @@ test.registerTests(
   [
     {
       name: "load component test page",
-      loadpage: function() {
+      loadpage: function () {
         // Delayed to pick up overridetoken
         return test.getCompTestPage("imgedit", {
           width: "250px",
@@ -209,7 +209,7 @@ test.registerTests(
 
     {
       name: "button status",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.compByName("fragment1!uploadbutton"));
         test.assert(test.compByName("fragment1!publisherbutton"));
         test.assert(!test.compByName("fragment1!editbutton"));
@@ -220,7 +220,7 @@ test.registerTests(
 
     {
       name: "upload image",
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const uploadpromise = test.prepareUpload(
           [
             {
@@ -237,7 +237,7 @@ test.registerTests(
     },
     //note: the editor is skipped, because the image is already proper and then we won't auto-open
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         console.log(doc.querySelectorAll("t-button"));
         test.assert(test.compByName("fragment1!editbutton"));
         test.click(test.compByName("fragment1!editbutton"));
@@ -248,7 +248,7 @@ test.registerTests(
     ...TestImageEditor,
 
     "Button status",
-    async function() {
+    async function () {
       test.assert(!test.compByName("fragment1!uploadbutton"));
       test.assert(!test.compByName("fragment1!publisherbutton"));
       test.assert(test.compByName("fragment1!editbutton"));
@@ -259,7 +259,7 @@ test.registerTests(
     },
 
     "Set properties",
-    async function() {
+    async function () {
       test.click(test.getOpenMenuItem('Properties'));
       await test.wait('ui');
       test.eq("imgeditfile.jpg", test.compByName("filename").querySelector("input").value);
@@ -275,7 +275,7 @@ test.registerTests(
 
     {
       name: "visibility",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.compByName("fragment1!preview"));
         test.click(test.compByName("visible"));
       },
@@ -283,7 +283,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(!test.compByName("fragment1!preview"));
         test.click(test.compByName("visible"));
       },
@@ -293,7 +293,7 @@ test.registerTests(
     { test: testBackground },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(367, testimg.width);
         test.eq(241, testimg.height);
         testimg = null;
@@ -302,7 +302,7 @@ test.registerTests(
 
     {
       name: "button status",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(!test.compByName("fragment1!uploadbutton"));
         test.assert(!test.compByName("fragment1!publisherbutton"));
         test.assert(test.compByName("fragment1!editbutton"));
@@ -315,7 +315,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(!test.compByName("fragment1!uploadbutton"));
         test.assert(!test.compByName("fragment1!publisherbutton"));
         test.assert(!test.compByName("fragment1!editbutton"));
@@ -329,7 +329,7 @@ test.registerTests(
 
     {
       name: "clear image",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.click(test.compByName("fragment1!clearbutton"));
       },
       waits: ["ui"]
@@ -339,7 +339,7 @@ test.registerTests(
 
     {
       name: "imgedit status",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.compByName("fragment1!uploadbutton"));
         test.assert(test.compByName("fragment1!publisherbutton"));
         test.assert(!test.compByName("fragment1!editbutton"));
@@ -356,7 +356,7 @@ test.registerTests(
 
     {
       name: "open browse for object",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.click(test.compByName("fragment1!publisherbutton"));
       },
       waits: ["ui"]
@@ -366,7 +366,7 @@ test.registerTests(
 
     {
       name: "select image",
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const testpagerow = test.getCurrentScreen().getListRow('folders!thelist', 'TestPages');
         test.assert(testpagerow);
         test.click(testpagerow);
@@ -383,7 +383,7 @@ test.registerTests(
     ...TestImageEditor,
 
     "Image dropping",
-    async function() {
+    async function () {
       // Get the file to drop
       const imgurl = `/tollium_todd.res/webhare_testsuite/tollium/portrait_8.jpg`;
       const file = await test.getFileFromURL(imgurl, "portrait_8.jpg");

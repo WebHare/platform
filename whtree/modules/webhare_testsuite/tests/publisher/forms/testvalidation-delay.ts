@@ -7,7 +7,7 @@ import * as test from '@mod-system/js/wh/testframework';
 test.registerTests(
   [
     'Test validation running too fast when a radio is focused',
-    async function() {
+    async function () {
 
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/');
 
@@ -27,7 +27,7 @@ test.registerTests(
     },
 
     'Test validation executing on radio after focus loss',
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/');
 
       /* If a required radio is focused, and you select a different radio, required validation will temporarily show up

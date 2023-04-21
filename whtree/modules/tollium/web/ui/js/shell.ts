@@ -227,11 +227,11 @@ class IndyShell extends TolliumShell {
 
   completeLogin(data, lock) {
     this.tolliumservice.completeLogin(data).then(
-      function(response) //onsuccess
+      function (response) //onsuccess
       {
         location.reload(true);
       },
-      function(err) //onfail
+      function (err) //onfail
       {
         console.error(err);
         lock.release();
@@ -561,7 +561,7 @@ class IndyShell extends TolliumShell {
     $todd.DebugTypedLog('communication', frontendid, 'connection closed');
 
     let openapps = false;
-    $todd.applications.forEach(function(app) {
+    $todd.applications.forEach(function (app) {
       // Do we have any (non-crashed) applications open? Close them now.
       if (app.frontendid === frontendid && !app.appisclosing) {
         app.handleMetaClose();
@@ -621,7 +621,7 @@ class IndyShell extends TolliumShell {
     this.transportmgr.prepareForUnload();
 
     // Let every app send their shutdown message
-    $todd.applicationstack.forEach(function(app) { app.queueUnloadMessage(); });
+    $todd.applicationstack.forEach(function (app) { app.queueUnloadMessage(); });
     this.transportmgr.executeUnload();
 
     this.transportmgr.destroy();
@@ -629,7 +629,7 @@ class IndyShell extends TolliumShell {
 }
 
 
-$todd.handleApplicationErrors = async function(app, data) {
+$todd.handleApplicationErrors = async function (app, data) {
   if (data.error) { //An error code from StartApp
     switch (data.error) {
       case "notloggedin": {
@@ -739,7 +739,7 @@ function reportApplicationError(app, data, messages, trace) {
 
   // Disable debug option after timeout
   if (data.debugtimeout) {
-    setTimeout(function() {
+    setTimeout(function () {
       if (!result.closed) {
         const debugaction = crashdialog.getComponent("debugaction");
         if (debugaction) {

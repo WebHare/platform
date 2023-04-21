@@ -185,7 +185,7 @@ export default class StructuredEditor extends EditorBase {
             const promise = this.uploadImageToServer(item.getAsFile(), repl);
             if (promise) // Upload didn't fail early?
             {
-              promise.then(function() {
+              promise.then(function () {
                 this._pasteContent(pastecontent, 'clipboarddata');
               }.bind(this));
 

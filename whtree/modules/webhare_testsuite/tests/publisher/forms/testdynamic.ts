@@ -6,14 +6,14 @@ import * as dompack from 'dompack';
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?dynamic=1');
     },
 
     {
       name: 'Study page fields',
-      test: async function() {
+      test: async function () {
         const form = test.qS('#dynamicform');
         const extra_textfield = form.elements.textfield;
         test.eq('beagle', form.dataset.bob);
@@ -32,7 +32,7 @@ test.registerTests(
       waits: ['ui']
     },
     {
-      test: function() {
+      test: function () {
         const serverreponse = JSON.parse(test.qS('#dynamicformsubmitresponse').textContent);
         test.eq(42, serverreponse.form.myradio);
         test.assert(serverreponse.form.mycheckbox);

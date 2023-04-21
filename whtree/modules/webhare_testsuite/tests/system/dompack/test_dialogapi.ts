@@ -6,7 +6,7 @@ import * as test from "@mod-system/js/wh/testframework";
 test.registerTests(
   [
     "Tests dialog api",
-    async function() {
+    async function () {
       await test.load('/.webhare_testsuite/tests/pages/dompack/?testpage=dialog');
       await test.wait(() => test.hasFocus('#inputfield2'), 'focus should be initially with #inputfield2');
 

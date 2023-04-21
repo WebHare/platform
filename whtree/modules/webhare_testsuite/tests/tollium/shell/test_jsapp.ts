@@ -11,7 +11,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(2, test.qSA('.t-apptab').length);
 
         test.assert(test.getCurrentScreen().getNode().textContent.includes("Hello, World"));
@@ -22,7 +22,7 @@ test.registerTests(
 
     {
       name: "Remote app embedding test",
-      test: function(doc, win) {
+      test: function (doc, win) {
         //no extra app should visibly appear
         test.eq(2, test.qSA('.t-apptab').length);
 
@@ -44,7 +44,7 @@ test.registerTests(
     },
     {
       name: "click away first subscreen",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(4, test.qSA(".t-screen").length);
         test.assert(test.getMenu(['M01', 'A02']) != null); //check if M01 A02 exists, then assume all is good
         test.getCurrentScreen().clickCloser();
@@ -53,7 +53,7 @@ test.registerTests(
     },
     {
       name: "click away second subscreen",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(4, test.qSA(".t-screen").length);
         test.assert(!test.getMenu(['M01', 'A02']) != null);
         test.click(test.getCurrentScreen().qS('t-button'));
@@ -61,21 +61,21 @@ test.registerTests(
       waits: ['ui']
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(3, test.qSA(".t-screen").length);
         test.click(test.getCurrentScreen().qS('t-button'));
       },
       waits: ['ui']
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(2, test.qSA(".t-screen").length);
         test.getCurrentScreen().clickCloser();
       },
       waits: ['ui']
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(1, test.qSA(".t-screen").length);
         //test.click(test.getCurrentScreen().qS('.toddButton'));
       }

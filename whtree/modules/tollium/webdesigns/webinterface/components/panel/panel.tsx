@@ -134,7 +134,7 @@ export default class ObjPanel extends ComponentBase {
     //ADDME can't we embed Block items directly instead of wrapping them into lines?
     this.lines = [];
     if (data.lines)
-      data.lines.forEach(function(srcline, i) {
+      data.lines.forEach(function (srcline, i) {
         srcline.target = this.name + "#line$" + i;
         srcline.destroywithparent = true;
         const line = new ObjPanelLine(this, srcline, null);
@@ -155,7 +155,7 @@ export default class ObjPanel extends ComponentBase {
         }
 
         if (srcline.items)
-          srcline.items.forEach(function(srcitem, idx) {
+          srcline.items.forEach(function (srcitem, idx) {
             let newcomp;
             if (srcitem.title) {
               newcomp = new ObjText(line, {
@@ -423,7 +423,7 @@ export default class ObjPanel extends ComponentBase {
       return false;
     }
 
-    toddupload.uploadFilesForDrop(this, dragdata, function(msg, dialogclosecallback) {
+    toddupload.uploadFilesForDrop(this, dragdata, function (msg, dialogclosecallback) {
       // Upload successfully (or no files)
       msg.droplocation = "ontarget";
 

@@ -5,7 +5,7 @@ import * as test from "@webhare/test";
 async function testInitialState() {
   const timer = new WaitableTimer;
 
-  //it("is not signalled according to waitSignalled", function(callback)
+  //it("is not signalled according to waitSignalled", function (callback)
   {
     let fulfilled = false;
     timer.waitSignalled().then(() => fulfilled = true);
@@ -13,7 +13,7 @@ async function testInitialState() {
     test.assert(!fulfilled, "Initial state is immediately signalled according to waitSignalled");
   }
 
-  //it("is not signalled according to waitNotSignalled", function(callback)
+  //it("is not signalled according to waitNotSignalled", function (callback)
   {
     let fulfilled = false;
     timer.waitNotSignalled().then(() => fulfilled = true);
@@ -23,7 +23,7 @@ async function testInitialState() {
 }
 
 async function testBasicManipulation() {
-  //it("isn't immediately signalled after setting", function(callback)
+  //it("isn't immediately signalled after setting", function (callback)
   {
     const timer = new WaitableTimer;
 
@@ -34,7 +34,7 @@ async function testBasicManipulation() {
     test.assert(!fulfilled, "Is immediately fulfilled when a timer was set");
   }
 
-  //it("becomes signalled after a time", function(callback)
+  //it("becomes signalled after a time", function (callback)
   {
     const timer = new WaitableTimer;
 
@@ -46,7 +46,7 @@ async function testBasicManipulation() {
     test.assert(fulfilled, "Is not fulfulled after the timer expired");
   }
 
-  //it("stays signalled after expiring", function(callback)
+  //it("stays signalled after expiring", function (callback)
   {
     const timer = new WaitableTimer;
 
@@ -60,7 +60,7 @@ async function testBasicManipulation() {
     test.assert(fulfilled, "Doesn't stay fulfilled after timer expire");
   }
 
-  //it("becomes unsignalled after resetting", function(callback)
+  //it("becomes unsignalled after resetting", function (callback)
   {
     const timer = new WaitableTimer;
 

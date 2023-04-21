@@ -9,8 +9,8 @@ type ScrollStyle =
 
 const debugscrolling = false;
 
-const clamp = function(min: number, max: number, val: number) { return val < min ? min : val > max ? max : val; };
-const parsepx = function(val: string) {
+const clamp = function (min: number, max: number, val: number) { return val < min ? min : val > max ? max : val; };
+const parsepx = function (val: string) {
   if (val == "0")
     return parseInt(val, 10);
   if (!/^-?[0-9]+(\.[0-9]*)?px$/.test(val))
@@ -21,7 +21,7 @@ const parsepx = function(val: string) {
   return floatVal;
 };
 
-const addContextToRect = function(rect: Rect, context: Rect): Rect {
+const addContextToRect = function (rect: Rect, context: Rect): Rect {
   return (
     {
       top: rect.top - context.top,
@@ -80,11 +80,11 @@ function aniHookSetScrollStyle(node: Element, style: ScrollStyle) {
   return style;
 }
 
-const getMovedBoxes = function(boxes: Rect[], x: number, y: number) {
+const getMovedBoxes = function (boxes: Rect[], x: number, y: number) {
   const newboxes: Rect[] = [];
 
   // Correct box positions for new scrolling params
-  boxes.forEach(function(item) {
+  boxes.forEach(function (item) {
     newboxes.push(
       {
         top: item.top + y,
@@ -100,11 +100,11 @@ const getMovedBoxes = function(boxes: Rect[], x: number, y: number) {
   return newboxes;
 };
 
-const getClampedBoxes = function(boxes: Rect[], max_x: number, max_y: number) {
+const getClampedBoxes = function (boxes: Rect[], max_x: number, max_y: number) {
   const newboxes: Rect[] = [];
 
   // Correct box positions for new scrolling params
-  boxes.forEach(function(item) {
+  boxes.forEach(function (item) {
     const newbox =
     {
       top: clamp(0, max_y, item.top),
@@ -149,7 +149,7 @@ type ScrollOptions =
  */
 export function scrollToElement(node: HTMLElement, options?: ScrollOptions) {
   const animations = getScrollToElementAnimations(node, options);
-  animations.forEach(function(item) { item.hooksetstyles(item.to); }); //FIXME remove hooksetstyles
+  animations.forEach(function (item) { item.hooksetstyles(item.to); }); //FIXME remove hooksetstyles
 }
 
 type ScrollPos = { scrollLeft?: number; scrollTop?: number };
@@ -335,7 +335,7 @@ function getScrollToElementAnimations(node: HTMLElement, options?: ScrollOptions
 
     //if(debugscrolling) console.log('range pre', range);
 
-    boxes.forEach(function(item) {
+    boxes.forEach(function (item) {
       range.maxleft = clamp(range.minleft, range.maxleft, item.left);
       range.minleft = clamp(range.minleft, range.maxleft, item.right - clientsize.x);
 

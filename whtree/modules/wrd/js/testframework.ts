@@ -7,13 +7,13 @@ import * as test from "@mod-system/js/wh/testframework";
 export function testResetPassword(options) {
   return [
     `Start password reset for ${options.email}`,
-    async function() {
+    async function () {
       test.fill(test.qS('.wh-wrdauth-forgotpassword input[name="email"]'), options.email);
       test.click(test.qS('.wh-wrdauth-forgotpassword__forgotbutton'));
       await test.wait('ui');
     },
     `Handle password reset mail for ${options.email}`,
-    async function() {
+    async function () {
       const emails = await test.waitForEmails(options.email, { count: 1, timeout: 10000 });
       test.eq(true, emails[0].subject.startsWith("Reset your password for"), "Unexpected subject " + emails[0].subject);
 
@@ -23,7 +23,7 @@ export function testResetPassword(options) {
       await test.wait('load');
     },
     'Set my new password',
-    async function() {
+    async function () {
       test.fill(test.qS('[name="passwordnew"]'), options.newpassword);
       test.fill(test.qS('[name="passwordrepeat"]'), options.newpassword);
       test.click(test.qS('.wh-wrdauth-resetpassword__resetbutton'));

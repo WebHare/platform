@@ -15,7 +15,7 @@ test.registerTests(
 
     {
       name: 'init',
-      test: function(doc, win) {
+      test: function (doc, win) {
         rte = win.rte.getEditor();
         const body = rte.getBody();
 
@@ -31,7 +31,7 @@ test.registerTests(
 
     {
       name: 'tableeditor-resize',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         // Test initial table sizes
         const coords = table.getBoundingClientRect();
         test.eq(301, coords.width); // (4 * 75 column + 2 * 1 outer border)
@@ -61,7 +61,7 @@ test.registerTests(
 
     {
       name: 'tableeditor-resize-col1-row1',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const cells = table.querySelectorAll('tr:first-child th');
         test.eq(65, cells[0].getBoundingClientRect().width);
 
@@ -80,7 +80,7 @@ test.registerTests(
 
     {
       name: 'tableeditor-resize-tableheight',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const coords = table.getBoundingClientRect();
 
         test.eq(301, coords.width); // (4 * 75 column + 2 * 1 outer border)
@@ -89,7 +89,7 @@ test.registerTests(
     },
 
     "Test loading table into structured RTE without table support",
-    async function() {
+    async function () {
       await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured-contentarea&notablestyle=1');
       rte = test.getWin().rte;
       // let editor = rte.getEditor();

@@ -13,7 +13,7 @@ test.registerTests(
 
     {
       name: 'openwizard',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const A01 = test.getMenu(['M01', 'A01']); //simply opening it was already enough to trigger a crash
         test.click(A01);
       },
@@ -22,14 +22,14 @@ test.registerTests(
 
     {
       name: 'nextpage',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.clickTolliumButton("Next");
       },
       waits: ['ui']
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(2, test.getCurrentApp().getNumOpenScreens());
         test.clickTolliumButton("Finish");
       },
@@ -37,7 +37,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(3, test.getCurrentApp().getNumOpenScreens()); //should have failed and be showing an error dialog even
       }
     }

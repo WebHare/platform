@@ -591,7 +591,7 @@ export class TableEditor {
   */
   setFirstDataCell(datacellrow, datacellcol) {
     let havechange = false;
-    iterateTableCells(this.node, function(td, row, col) {
+    iterateTableCells(this.node, function (td, row, col) {
       const want_topheader = row < datacellrow;
       const want_leftheader = col < datacellcol;
 
@@ -829,14 +829,14 @@ export class TableEditor {
   _applyColumnWidths(widths) {
     // Calculate total width
     let totalwidth = 1; // border
-    widths.forEach(function(width) { totalwidth += width; });
+    widths.forEach(function (width) { totalwidth += width; });
 
     // Apply the new total width
     this.node.style.width = totalwidth + "px";
 
     // Apply width to colgroups
     const cols = getCols(this.node);
-    cols.forEach(function(node, idx) {
+    cols.forEach(function (node, idx) {
       node.style.width = widths[idx] + "px";
     }, this);
   }
@@ -964,7 +964,7 @@ export class TableEditor {
       rowspans.push(0);
 
     // Add the columns to the other table rows
-    getBodyTRs(this.node).forEach(function(tr, row) {
+    getBodyTRs(this.node).forEach(function (tr, row) {
       const cells = Array.from(tr.cells);
       let col = 0, // logical column
         cell = 0; // actual cell within row
@@ -1083,11 +1083,11 @@ export class TableEditor {
     fixTableMissingCells(this.node);
 
     const changes = [];
-    iterateTableCells(this.node, function(node, row, col) {
+    iterateTableCells(this.node, function (node, row, col) {
       changes.push(this._removeRange(node, col, col + node.colSpan, remove_start, remove_limit));
     }.bind(this));
 
-    changes.forEach(function(rec) {
+    changes.forEach(function (rec) {
       if (rec.span)
         rec.node.colSpan = rec.span;
       else
@@ -1095,7 +1095,7 @@ export class TableEditor {
     });
 
     // Remove the columns from the colgroup
-    Array.from(this.colgroup.childNodes).slice(remove_start.num).forEach(function(item) { item.remove(); });
+    Array.from(this.colgroup.childNodes).slice(remove_start.num).forEach(function (item) { item.remove(); });
 
     this.numcolumns -= num;
     this.reset();
@@ -1109,7 +1109,7 @@ export class TableEditor {
     fixTableMissingCells(this.node);
 
     const changes = [];
-    iterateTableCells(this.node, function(node, row) {
+    iterateTableCells(this.node, function (node, row) {
       changes.push(this._removeRange(node, row, row + node.rowSpan, remove_start, remove_limit));
     }.bind(this));
 
@@ -1118,7 +1118,7 @@ export class TableEditor {
     const delete_trs = all_trs.splice(remove_start, num);
 
     // Apply the changed rowspans, and re-add to the right tr
-    changes.forEach(function(rec) {
+    changes.forEach(function (rec) {
       if (rec.span) {
         rec.node.rowSpan = rec.span;
         all_trs[rec.start].appendChild(rec.node);
@@ -1296,7 +1296,7 @@ export function cleanupTree(tree) {
 }
 
 //Capture all load events, see if we need to resize tables
-document.addEventListener("load", function(event) {
+document.addEventListener("load", function (event) {
   if (event.target && event.target.nodeName == 'LINK' && event.target.rel == 'stylesheet') {
     activetables.forEach(table => table.updateResizers());
   }

@@ -10,7 +10,7 @@ let watchingreset = false;
 function onReset() {
   const lock = dompack.flagUIBusy();
   //reset doesn't invoke onchange, so we'll have to recheck every select after a form reset (but we'll need to wait for the default event processing to kick in after a timeout)
-  setTimeout(function() {
+  setTimeout(function () {
     dompack.qSA('select').forEach(node => {
       if (node._dompackValueUpdated)
         node._dompackValueUpdated();

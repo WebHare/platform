@@ -12,7 +12,7 @@ test.registerTests(
 
     {
       name: 'emptyimg',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const img = test.compByName('image').querySelector('img,canvas');
 
         test.eq(300, img.naturalWidth);
@@ -29,7 +29,7 @@ test.registerTests(
 
     {
       name: 'updatedplaceholder',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const img = test.compByName('image').querySelector('img,canvas');
 
         //tollium scales up SVGs to match the devicePixelRatio
@@ -42,7 +42,7 @@ test.registerTests(
 
     {
       name: 'imagebysrc',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const img = test.compByName('image').querySelector('img');
 
         test.eq(1024, img.naturalWidth);
@@ -61,7 +61,7 @@ test.registerTests(
 
     {
       name: 'topclick',
-      test: function(doc, win) {
+      test: function (doc, win) {
         /* click coordinates are supposed to scale back to the original image
             x=9, 9/100*1024= 92,16
             y=15, 15/75*768 = 153,6 */
@@ -76,7 +76,7 @@ test.registerTests(
 
     {
       name: 'preparesecondtopclick',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.compByName('image').classList.contains('todd--disabled'), "Expected image to be disabled after I05 changed the action");
         const img = test.compByName('image').querySelector('img');
         test.sendMouseGesture([
@@ -89,7 +89,7 @@ test.registerTests(
 
     {
       name: 'bottomclick',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         let textarea = test.compByName('log').querySelector('textarea');
         test.eq('action\ncallback 92 154\ncallback2 92 154', textarea.value);
 
@@ -116,7 +116,7 @@ test.registerTests(
 
     {
       name: 'preparebottomclickwithoutaction',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         test.assert(!test.compByName('image').classList.contains('todd--disabled'), 'removing action should unlink image from disabling-by-action');
         test.click(test.compByName('action2checkbox'));
 
@@ -131,7 +131,7 @@ test.registerTests(
 
     {
       name: 'bottomclickwithoutaction',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('action\ncallback 92 154\ncallback2 92 154\naction2\ncallback2 1004 717\ncallback2 1004 717', textarea.value);
 
@@ -146,7 +146,7 @@ test.registerTests(
 
     {
       name: 'bottomclickwithoutanycallbacks',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('action\ncallback 92 154\ncallback2 92 154\naction2\ncallback2 1004 717\ncallback2 1004 717', textarea.value);
 

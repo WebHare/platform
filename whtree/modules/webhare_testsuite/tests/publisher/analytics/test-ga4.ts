@@ -34,7 +34,7 @@ export function hasAnalyticsHit(regex) {
 test.registerTests(
   [
     "Test integration=inpage (raw <script> tags)",
-    async function() {
+    async function () {
       //forcibly clear cookie first, so we can see the consent not firing
       forceResetConsent();
 
@@ -48,7 +48,7 @@ test.registerTests(
     },
 
     "Test integration=onload (auto activation by ga4.es)",
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?gtmplugin_integration=none');
       await test.wait(() => test.qS("script[src*='googletagmanager.com/gtag']"));
       checkForGTM({ selfhosted: false, remote: false, snippet: false });
@@ -62,7 +62,7 @@ test.registerTests(
 
     // Test GA4 loading only after the analytics consent option has been chosen.
     "Test consent API",
-    async function() {
+    async function () {
       //forcibly clear cookie first
       forceResetConsent();
 
@@ -88,7 +88,7 @@ test.registerTests(
 
     // Test GA4 loading directly due to default consent "analytics" (without requiredconsent option used for GA4 initOnConsent any consent flag will trigger GA4)
     "Test consent API defaults",
-    async function() {
+    async function () {
       //forcibly clear cookie first
       forceResetConsent();
 
@@ -126,7 +126,7 @@ test.registerTests(
 
     // Test GA4 NOT loading directly due to the requiredconsent for GA4 not being part of the consent flags from defaultconsent
     "Test GA4 requiredconsent setting",
-    async function() {
+    async function () {
       //forcibly clear cookie first
       forceResetConsent();
 
@@ -149,7 +149,7 @@ test.registerTests(
 
 
     "Deep test integration=inpage (raw <script> tags)",
-    async function() {
+    async function () {
       //forcibly clear cookie first, so we can see the consent not firing
       forceResetConsent();
 
@@ -162,7 +162,7 @@ test.registerTests(
     },
 
     "Deep test integration=onload (auto activation by ga4.es)",
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?gtmplugin_integration=none');
 
       await test.wait(() => getAnalyticsHits(/.*/).length > 0);
@@ -172,7 +172,7 @@ test.registerTests(
     },
 
     "Test not anonymous",
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?gtmplugin_integration=none&ga4_anonymizeip=false');
       await test.wait(() => getAnalyticsHits(/.*/).length > 0);
       checkForGTM({ selfhosted: false, remote: false, snippet: false });

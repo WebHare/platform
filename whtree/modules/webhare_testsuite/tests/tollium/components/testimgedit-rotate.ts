@@ -6,7 +6,7 @@ import * as test from '@mod-tollium/js/testframework';
 test.registerTests(
   [
     "load component test page",
-    async function() {
+    async function () {
       await test.load(test.getCompTestPage("imgedit", {
         width: "250px",
         height: "250px",
@@ -17,7 +17,7 @@ test.registerTests(
     },
 
     "upload image",
-    async function() {
+    async function () {
       const uploadpromise = test.prepareUpload(
         [
           {
@@ -34,7 +34,7 @@ test.registerTests(
     },
 
     "rotate procedure",
-    async function() {
+    async function () {
       //analyze the image .. the first canvas holds it (the second canvas does the crop overlay)
       let firstcanvas = test.qS(".wh-image-surface canvas");
       test.eq(600, firstcanvas.width);

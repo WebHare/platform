@@ -230,7 +230,7 @@ export default class Slider {
       ev.stop();
 
       var referencenode = null;
-      this.slidebasenode.getElements('.wh-slider-knob').each(function(dragnode)
+      this.slidebasenode.getElements('.wh-slider-knob').each(function (dragnode)
       { //get nearest dragger
         if(!referencenode || referencenode.wh_dragpos > dragnode.wh_dragpos)
           referencenode = dragnode;
@@ -253,7 +253,7 @@ export default class Slider {
       ev.stop();
 
       var referencenode = null;
-      this.slidebasenode.getElements('.wh-slider-knob').each(function(dragnode)
+      this.slidebasenode.getElements('.wh-slider-knob').each(function (dragnode)
       { //get nearest dragger
         if(!referencenode || referencenode.wh_dragpos < dragnode.wh_dragpos)
           referencenode = dragnode;
@@ -282,7 +282,7 @@ export default class Slider {
     let minnode = null;
     let maxnode = null;
     const dragnodes = dompack.qSA(this.slidebasenode, '.wh-slider-knob');
-    dragnodes.forEach(function(dragnode) {
+    dragnodes.forEach(function (dragnode) {
       const relpos = Math.abs(dragnode.wh_dragpos - mousepos);
       if (!nearestnode || relpos < delta) {
         nearestnode = dragnode;
@@ -305,7 +305,7 @@ export default class Slider {
               firstpos-=(maxnode.wh_dragpos - minnode.wh_dragpos);
             delta = minnode.wh_dragpos - firstpos;
 
-            dragnodes.each(function(dragnode,i)
+            dragnodes.each(function (dragnode,i)
             {
               var val = (dragnode.wh_dragpos - delta)*this.scale + this.options.minvalue;
               if(this.options.snap > 0)
@@ -411,7 +411,7 @@ export default class Slider {
     }
 
     const rangebarvalues = this.values;
-    dompack.qSA(this.slidebasenode, '.wh-slider-knob').forEach(function(dragnode, i) {
+    dompack.qSA(this.slidebasenode, '.wh-slider-knob').forEach(function (dragnode, i) {
       let snapvalue = this.values[i];
       if (this.options.snap > 0) {
         snapvalue = this.calcSnapValue(this.values[i]);

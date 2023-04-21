@@ -19,7 +19,7 @@ test.registerTests(
       }*/
     {
       name: 'firsttest',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('<p><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>');
@@ -29,7 +29,7 @@ test.registerTests(
 
     {
       name: 'selectionapi_1',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         const tests =
@@ -113,7 +113,7 @@ test.registerTests(
     //test the selection apis, mostly used to verify the IE6-8 range emulation
     {
       name: 'selectionapi_2',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('hey <b>bold</b> text');
@@ -272,7 +272,7 @@ test.registerTests(
 
     {
       name: 'selectionapi_ie8andlower',
-      test: function(doc, win) {
+      test: function (doc, win) {
         // Rangy has problems with positioning at end of text node just before OL, places them inside the ol
         rtetest.setStructuredContent(win, '<ol><li>"ab(*0*)"<ol><li>"c"</li></ol></li></ol>');
         rtetest.testEqSelHTMLEx(win, '<ol><li>"ab(*0*)(*1*)"<ol><li>"c"</li></ol></li></ol>');
@@ -321,7 +321,7 @@ test.registerTests(
         rte.setCursor(test.qS('#link').firstChild, 1);
         test.assert(rte.getSelectionState().propstarget);
 
-        win.apropshandler = function(targetid, target) {
+        win.apropshandler = function (targetid, target) {
           test.eq("#link", target.getAttribute("href"));
           win.apropshandler = null;
         };
@@ -348,7 +348,7 @@ test.registerTests(
         test.assert(state.propstarget);
         test.eq("IMG", rte.getSelectionState().propstarget.tagName);
 
-        win.imgpropshandler = function(targetid, target) {
+        win.imgpropshandler = function (targetid, target) {
           test.eq("../link2", target.parentNode.getAttribute("href"));
           win.imgpropshandler = null;
         };
@@ -356,7 +356,7 @@ test.registerTests(
         test.eq(null, win.imgpropshandler); //ensure it was invoked
 
         //now try to trigger it by doubleclicking
-        win.imgpropshandler = function(targetid, target) {
+        win.imgpropshandler = function (targetid, target) {
           if (target.nodeName.toUpperCase() == 'IMG')
             win.imgpropshandler = null;
         };
@@ -371,7 +371,7 @@ test.registerTests(
 
     {
       name: 'formattingstate',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         const stdavailable = ["img", "b", "i", "u", "strike", "sub", "sup", "ol", "ul"];
@@ -421,7 +421,7 @@ test.registerTests(
 
     {
       name: 'insertimage',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
         rte.setContentsHTML('<b id="b">Bold tekst</b>');
         rte.setCursor(test.qS('#b').firstChild, 4);
@@ -449,7 +449,7 @@ test.registerTests(
 
     {
       name: 'simplereadwritetest',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
         const body = rte.getBody();
 
@@ -580,7 +580,7 @@ test.registerTests(
 
     {
       name: 'elementoffsettest',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('<b>this text a b<span>old</span> text</b>');
@@ -634,7 +634,7 @@ test.registerTests(
 
     {
       name: 'doubleapplytest',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('<b>this text a bold text</b>');
@@ -691,7 +691,7 @@ test.registerTests(
 
     {
       name: 'complexmaniptest',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
         rte.setContentsHTML('just another text. <b>bold 1</b>, <i>italic 1</i>, <b>secondbold</b>, <u>underline 1</u>');
         test.eq('just another text. <b>bold 1</b>, <i>italic 1</i>, <b>secondbold</b>, <u>underline 1</u>', win.rte.getValue().toLowerCase());
@@ -714,7 +714,7 @@ test.registerTests(
 
     {
       name: 'breaktest',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
         rte.setContentsHTML('a<br>b<br>c<br>');
 
@@ -737,7 +737,7 @@ test.registerTests(
 
     {
       name: 'paramaniptest',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
         rte.setContentsHTML('<p>Haikus are easy</p><p>But sometimes they don\'t make sense</p><p>Refrigerator</p>');
         //testEqHTML( '<p>haikus are easy</p><p>but sometimes they don\'t make sense</p><p>refrigerator</p>'
@@ -779,7 +779,7 @@ test.registerTests(
 
     {
       name: 'hyperlinktest',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
         win.rte.setValue('<p>Haikus are easy</p><p>But sometimes they don\'t make sense</p><p>Refrigerator</p>');
         test.assert(!win.rte.isDirty());
@@ -877,7 +877,7 @@ test.registerTests(
 
     {
       name: 'iteratortest',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
         rte.setContentsHTML('<p>Haikus are easy</p><p>But sometimes they don\'t make sense</p><p>Refrigerator</p>');
 

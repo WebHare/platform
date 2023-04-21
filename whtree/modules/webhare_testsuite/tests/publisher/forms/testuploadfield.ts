@@ -10,12 +10,12 @@ function getUploadField() //get the replament field, not the original input
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte');
     },
     'Reset file',
-    async function() {
+    async function () {
       test.prepareUpload([
         {
           url: '/tollium_todd.res/webhare_testsuite/tollium/testfile.txt',
@@ -30,7 +30,7 @@ test.registerTests(
       await test.wait('ui');
     },
     {
-      test: async function() {
+      test: async function () {
         test.assert(!test.qS('[data-wh-form-group-for=file]').classList.contains("wh-form--uploading"));
         const filenameinput = getUploadField().querySelector('.wh-form__uploadfieldfilename');
         test.eq('mytestfile.txt', filenameinput.value, 'should be a file present');
@@ -41,7 +41,7 @@ test.registerTests(
       waits: ['ui']
     },
     {
-      test: function() {
+      test: function () {
         const serverreponse = JSON.parse(test.qS('#rtdformresponse').textContent);
         test.eq('.txt', serverreponse.file.extension);
         test.eq('text/plain', serverreponse.file.mimetype);
@@ -50,7 +50,7 @@ test.registerTests(
     { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte' },
     {
       name: 'Verify reloaded file',
-      test: async function() {
+      test: async function () {
         const filenameinput = getUploadField().querySelector('.wh-form__uploadfieldfilename');
         test.eq('mytestfile.txt', filenameinput.value, 'should be a file present');
         test.assert(getUploadField().classList.contains('wh-form__uploadfield--hasfile'));
@@ -62,7 +62,7 @@ test.registerTests(
     { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte' },
     {
       name: 'Verify re-reloaded file',
-      test: async function() {
+      test: async function () {
         const filenameinput = getUploadField().querySelector('.wh-form__uploadfieldfilename');
         test.eq('mytestfile.txt', filenameinput.value, 'should be a file present');
         test.getWin().scrollTo(0, filenameinput.getBoundingClientRect().top);
@@ -77,7 +77,7 @@ test.registerTests(
     },
 
     "test limited allowed types",
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&accept=image/gif,image/jpeg');
       test.prepareUpload([
         {
@@ -107,7 +107,7 @@ test.registerTests(
     },
 
     "test limited allowed types with custom error",
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&accept=image/gif,image/jpeg&accepterror=snap+ik+niet');
       test.prepareUpload([
         {
@@ -126,7 +126,7 @@ test.registerTests(
     { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&filerequired=1' },
     {
       name: 'Test validation button',
-      test: async function() {
+      test: async function () {
         test.click('.validatebutton');
         await test.wait('ui');
 
@@ -150,7 +150,7 @@ test.registerTests(
     { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&filerequired=1' },
     {
       name: 'Test error handling',
-      test: async function() {
+      test: async function () {
         test.click('#submitbutton');
         await test.wait('ui');
 
@@ -174,7 +174,7 @@ test.registerTests(
 
     {
       name: 'Test disable (for all fields, not just upload)',
-      test: async function() {
+      test: async function () {
         test.assert(!test.qS('[data-wh-form-group-for=file] button').disabled, "custom file upload field button expected to not have the disabled attribute");
         test.assert(!test.qS('[data-wh-form-group-for=img] .wh-form__imgedit[data-wh-form-disabled]'), "imgedit component expected to not have the data-wh-form-disabled attribute");
         test.assert(!test.qS('[data-wh-form-group-for=rtd] .wh-form__rtd[data-wh-form-disabled]'), "RTD component expected to not have the data-wh-form-disabled attribute");
@@ -200,7 +200,7 @@ test.registerTests(
 
     "Test uploading file through initially invisible field",
     { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1' },
-    async function() {
+    async function () {
       test.click(test.qS('#rtdtest-showfile2'));
       test.prepareUpload([
         {
@@ -222,7 +222,7 @@ test.registerTests(
     { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?rtd=1&store=testrte&disabled=1' },
 
     'Initially disabled upload',
-    async function() {
+    async function () {
       test.assert(test.qS('[data-wh-form-group-for=file] button').disabled);
     }
   ]);

@@ -5,7 +5,7 @@ import * as test from "@webhare/test";
 async function testInitialState() {
   const mc = new ManualCondition;
 
-  //it("is not signalled according to waitSignalled", function(callback)
+  //it("is not signalled according to waitSignalled", function (callback)
   {
     let fulfilled = false;
     mc.waitSignalled().then(() => fulfilled = true);
@@ -13,7 +13,7 @@ async function testInitialState() {
     test.assert(!fulfilled, "Initial state is immediately signalled according to waitSignalled");
   }
 
-  //it("is not signalled according to waitNotSignalled", function(callback)
+  //it("is not signalled according to waitNotSignalled", function (callback)
   {
     let fulfilled = false;
     mc.waitNotSignalled().then(() => fulfilled = true);
@@ -25,7 +25,7 @@ async function testInitialState() {
 async function testGoingFromNotSignalledToSignalled() {
   const mc = new ManualCondition;
 
-  //it("fulfills the wait promise", function(callback)
+  //it("fulfills the wait promise", function (callback)
   {
     let fulfilled = false;
     mc.waitSignalled().then(() => fulfilled = true);
@@ -35,7 +35,7 @@ async function testGoingFromNotSignalledToSignalled() {
     test.assert(fulfilled, "Previous wait promise isn't resolved when the condition becomes signalled");
   }
 
-  //it("stays signalled after that", function(callback)
+  //it("stays signalled after that", function (callback)
   {
     let fulfilled = false;
     mc.waitSignalled().then(() => fulfilled = true);
@@ -48,7 +48,7 @@ async function testGoingFromSignalledToNotSignalled() {
   const mc = new ManualCondition;
   mc.setSignalled(true);
 
-  //it("fulfills the wait promise", function(callback)
+  //it("fulfills the wait promise", function (callback)
   {
     let fulfilled = false;
     mc.waitNotSignalled().then(() => fulfilled = true);
@@ -58,7 +58,7 @@ async function testGoingFromSignalledToNotSignalled() {
   }
 
 
-  //it("stays unsignalled after that", function(callback)
+  //it("stays unsignalled after that", function (callback)
   {
     let fulfilled = false;
     mc.waitNotSignalled().then(() => fulfilled = true);

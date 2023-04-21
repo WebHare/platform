@@ -41,7 +41,7 @@ test.registerTests(
 
     {
       name: 'clean-embeddedobject',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = test.getWin().rte.getEditor();
 
         //processing embedded object
@@ -110,7 +110,7 @@ test.registerTests(
     // Now test creating one from scratch
     {
       name: 'create-embeddedobject',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = test.getWin().rte.getEditor();
         rtetest.setRawStructuredContent(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
         rtetest.testEqSelHTMLEx(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
@@ -129,7 +129,7 @@ test.registerTests(
     },
 
     "Test block object selection",
-    async function() {
+    async function () {
       const rte = test.getWin().rte.getEditor();
       const body = rte.getBody();
 
@@ -148,7 +148,7 @@ test.registerTests(
 
     {
       name: 'embeddedobject-contentsignore',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = test.getWin().rte.getEditor();
 
         const href_contents = escapeHTML(
@@ -170,7 +170,7 @@ test.registerTests(
     // Now test creating one from scratch
     {
       name: 'create-inlineobject',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = test.getWin().rte.getEditor();
         rtetest.setRawStructuredContent(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
         rtetest.testEqSelHTMLEx(win, '<p class=normal>"Dit is een paragraaf tekst waar (*0*)HIER(*1*) een object ingevoegd gaat worden"</p>');
@@ -196,7 +196,7 @@ test.registerTests(
     },
 
     "Should not be able to delete inline objects",
-    async function() {
+    async function () {
       const rte = test.getWin().rte.getEditor();
       const body = rte.getBody();
 
@@ -208,7 +208,7 @@ test.registerTests(
     },
 
     "Expansion of previews when started in disabled mode",
-    async function() {
+    async function () {
       await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none&disabled=true');
 
       //processing embedded object
@@ -223,7 +223,7 @@ test.registerTests(
     },
 
     "Cursor positioning after last inline object in paragraph",
-    async function() {
+    async function () {
       // Chrome 103 places the cursor at the end of the line when it is positioned just after an inline embedded block that is the last element in its parent block
       // fixed by added a bogus br after it
       await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured&fill=none');

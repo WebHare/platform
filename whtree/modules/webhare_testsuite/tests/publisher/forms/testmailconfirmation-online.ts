@@ -12,7 +12,7 @@ let testemail_guid;
 test.registerTests(
   [
     "Load and submit form",
-    async function() {
+    async function () {
       setupdata = await test.invoke("mod::webhare_testsuite/lib/internal/testsite.whlib", "BuildWebtoolForm", { which: "custom2", mailconfirmation: true });
 
       await test.load(setupdata.url);
@@ -31,7 +31,7 @@ test.registerTests(
     },
 
     "Request results",
-    async function() {
+    async function () {
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
       test.assert(test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should see thankyou_unconfirmed text");
@@ -48,7 +48,7 @@ test.registerTests(
     },
 
     "Process confirmation mail",
-    async function() {
+    async function () {
       const emails = await test.waitForEmails(testemail, { timeout: 60000 });
       test.eq(1, emails.length, "No emails!");
       test.eq("Confirm your email address", emails[0].subject);
@@ -57,7 +57,7 @@ test.registerTests(
     },
 
     "Confirm result",
-    async function() {
+    async function () {
       await test.load(confirmlink);
 
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
@@ -75,7 +75,7 @@ test.registerTests(
     },
 
     "Reload confirm result",
-    async function() {
+    async function () {
       await test.load(confirmlink);
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should not see thankyou_unconfirmed text");
       test.assert(test.canClick('[data-wh-form-group-for="thankyou_confirmed"]'), "Should see thankyou_confirmed text");
@@ -83,7 +83,7 @@ test.registerTests(
     },
 
     "Process results mail",
-    async function() {
+    async function () {
       const emails = await test.waitForEmails(testemail, { timeout: 60000 });
       test.eq(1, emails.length, "No emails!");
       test.eq("About Your Submission", emails[0].subject);
@@ -92,7 +92,7 @@ test.registerTests(
     // When submitting the same email address, the existing entry is updated after confirmation, should not trigger the
     // 'duplicate' state
     "Reload and resubmit form updating the submission",
-    async function() {
+    async function () {
       await test.load(setupdata.url);
 
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
@@ -109,7 +109,7 @@ test.registerTests(
     },
 
     "Request results",
-    async function() {
+    async function () {
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
       test.assert(test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should see thankyou_unconfirmed text");
@@ -126,7 +126,7 @@ test.registerTests(
     },
 
     "Process confirmation mail",
-    async function() {
+    async function () {
       const emails = await test.waitForEmails(testemail, { timeout: 60000 });
       test.eq(1, emails.length, "No emails!");
       test.eq("Confirm your email address", emails[0].subject);
@@ -135,7 +135,7 @@ test.registerTests(
     },
 
     "Confirm result",
-    async function() {
+    async function () {
       await test.load(confirmlink);
 
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
@@ -153,7 +153,7 @@ test.registerTests(
     },
 
     "Process results mail",
-    async function() {
+    async function () {
       const emails = await test.waitForEmails(testemail, { timeout: 60000 });
       test.eq(1, emails.length, "No emails!");
       test.eq("About Your Submission", emails[0].subject);
@@ -162,7 +162,7 @@ test.registerTests(
     // Adding 'testduplicate=1' disables the 'overwriteexisting' property of the email address, so we can submit a second
     // entry with the same address, which should trigger the 'duplicate' state
     "Reload and resubmit form with duplicate address",
-    async function() {
+    async function () {
       await test.load(setupdata.url + "?testduplicate=1");
 
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
@@ -179,7 +179,7 @@ test.registerTests(
     },
 
     "Request results",
-    async function() {
+    async function () {
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
       test.assert(test.canClick('[data-wh-form-group-for="thankyou_unconfirmed"]'), "Should see thankyou_unconfirmed text");
@@ -196,7 +196,7 @@ test.registerTests(
     },
 
     "Process confirmation mail",
-    async function() {
+    async function () {
       const emails = await test.waitForEmails(testemail, { timeout: 60000 });
       test.eq(1, emails.length, "No emails!");
       test.eq("Confirm your email address", emails[0].subject);
@@ -205,7 +205,7 @@ test.registerTests(
     },
 
     "Confirm result",
-    async function() {
+    async function () {
       await test.load(confirmlink);
 
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");

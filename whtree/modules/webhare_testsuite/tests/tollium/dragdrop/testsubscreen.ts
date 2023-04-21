@@ -13,7 +13,7 @@ test.registerTests(
 
     {
       name: 'source.row1->target.row1_prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const toplog = test.qSA('t-textarea')[0];
         const bottomlog = test.qSA('t-textarea')[1];
         const topsource = test.qSA('.wh-ui-listview[data-name$=source]')[0];
@@ -34,7 +34,7 @@ test.registerTests(
 
     {
       name: 'source.row1->target.row1_test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq('1 T1 ontarget move', test.qSA('t-textarea')[1].querySelector('textarea').value);
       }
     }

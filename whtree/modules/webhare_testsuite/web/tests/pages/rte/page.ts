@@ -18,16 +18,16 @@ function reparent_rte() {
 
 window.reparent_rte = reparent_rte;
 
-window.givefocus = function() {
+window.givefocus = function () {
   window.rte.takeFocus();
 };
 
-window.delayedhide = function() {
+window.delayedhide = function () {
   window.delayedhide.count = 5;
   delayedhidestep();
 };
 
-window.delayedhideandshow = function() {
+window.delayedhideandshow = function () {
   window.delayedhideandshow.count = 20;
   delayedhideandshowstep();
 };
@@ -58,15 +58,15 @@ function delayedhideandshowstep() {
   qS('#holder').style.display = '';
 }
 
-window.loadstore = function() {
+window.loadstore = function () {
   qS('#store').value = window.rte.getValue();
 };
 
-window.savestore = function() {
+window.savestore = function () {
   window.rte.setValue(qS('#store').value);
 };
 
-window.showrendered = function() {
+window.showrendered = function () {
   const html = qS('#store').value;
   let cd = qS('#result').contentDocument;
   if (!cd)
@@ -264,7 +264,7 @@ function initRTE() {
   window.sourcesyncer = new richdebug.SourceDebugger(rte, document.getElementById('sourcesync'), document.getElementById('rangebox'));
 }
 
-window.refreshdebug = function() {
+window.refreshdebug = function () {
   window.sourcesyncer.refresh();
 };
 //console.log("*** addevent");

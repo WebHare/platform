@@ -7,7 +7,7 @@ import * as testhelpers from './testhelpers';
 test.registerTests(
   [
     "Autosuggest test",
-    async function() {
+    async function () {
       await test.load('/.webhare_testsuite/tests/pages/dompack/?testpage=autosuggest&addseqnr=1');
 
       test.eq(false, test.qS('#alwaysopendown').classList.contains("selectlist--autosuggesting"));
@@ -48,7 +48,7 @@ test.registerTests(
     },
 
     "Test disabled & readonly",
-    async function() {
+    async function () {
       test.click(test.qS('#disabledlist'));
       test.eq(false, test.qS('#disabledlist').classList.contains("selectlist--autosuggesting"));
       test.click(test.qS('#readonlylist'));
@@ -56,7 +56,7 @@ test.registerTests(
     },
 
     "Staticlist tests",
-    async function() {
+    async function () {
       test.click('#simplelist');
       let items = testhelpers.getSelectListVisibleItems();
       test.eq(0, items.length); //there should be NO items now
@@ -98,7 +98,7 @@ test.registerTests(
     },
 
     "Immediatelist tests",
-    async function() {
+    async function () {
       test.click('#immediatelist');
       await test.waitUIFree();
 
@@ -108,7 +108,7 @@ test.registerTests(
     },
 
     "With titles",
-    async function() {
+    async function () {
       test.click('#withtitleslist');
       await test.waitUIFree();
       test.eq(true, Boolean(testhelpers.getOpenSelectList()), "#withtitleslist list should immediately open");
@@ -122,7 +122,7 @@ test.registerTests(
     },
 
     "Space tests",
-    async function() {
+    async function () {
       test.click('#casesensitivelist');
       test.fill('#casesensitivelist', 'Spa');
       await test.waitUIFree();
@@ -134,7 +134,7 @@ test.registerTests(
     }
 
     // , "Keyboard tests"
-    // , async function()
+    // , async function ()
     //   {
     //     test.click(test.qS('#alwaysopendown'));
     //     let items = testhelpers.getSelectListVisibleItems();

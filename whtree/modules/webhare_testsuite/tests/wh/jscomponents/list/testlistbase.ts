@@ -7,14 +7,14 @@ import { browser } from "@webhare/dompack";
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/listtest/');
       test.assert(!test.qS("#listview.wh-ui-listview--columnselect"));
     },
 
     {
       name: 'selection',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.fill('#selectmode', 'single');
 
         //As general class names are standardized for CSS-ers, we should be reasonably safe using them in the tests
@@ -45,7 +45,7 @@ test.registerTests(
 
     {
       name: 'contextmenu',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.fill('#selectmode', 'single');
         test.click(test.getListViewRow('Rij #0.'));
         test.eq(0, win.numcontexts);
@@ -62,7 +62,7 @@ test.registerTests(
 
     {
       name: 'clickoutsidelist',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.fill('#datasource', 'smallsource');
         test.eq(0, test.qSA("#listview .wh-list__row--selected").length);
 
@@ -91,7 +91,7 @@ test.registerTests(
 
     {
       name: 'multiselect',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.fill('#datasource', 'immediatesource');
         test.fill('#selectmode', 'multiple');
 
@@ -116,7 +116,7 @@ test.registerTests(
 
     {
       name: 'checkbox',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(1, test.qSA('#listview .wh-list__row--selected').length);
         test.assert(test.getListViewRow('Rij #1.').classList.contains("wh-list__row--selected"));
 
@@ -139,7 +139,7 @@ test.registerTests(
     },
 
     'multiselect empty list issues',
-    async function() {
+    async function () {
       test.fill('#datasource', 'emptysource');
 
       test.focus("#listview");
@@ -152,7 +152,7 @@ test.registerTests(
     },
 
     'treeexpand',
-    async function(doc, win) {
+    async function (doc, win) {
       test.fill('#selectmode', 'single');
       test.fill('#datasource', 'treesource');
 
@@ -191,7 +191,7 @@ test.registerTests(
 
     {
       name: 'multirow',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.fill('#selectmode', 'single');
         test.fill('#datasource', 'multirowsource');
 

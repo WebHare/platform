@@ -34,7 +34,7 @@ test.registerTests(
 
     {
       name: 'restructuring',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
         const rpc = new JSONRPC(
           {

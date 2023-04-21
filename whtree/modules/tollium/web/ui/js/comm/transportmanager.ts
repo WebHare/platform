@@ -118,7 +118,7 @@ export default class TransportManager { // -------------------------------------
 
   /// Signal shutdown
   prepareForUnload() {
-    this.transports.forEach(function(item) { item.unloading = true; });
+    this.transports.forEach(function (item) { item.unloading = true; });
   }
 
   /// Signal shutdown
@@ -126,12 +126,12 @@ export default class TransportManager { // -------------------------------------
     // Send the dying message (cancel any pending requests). IE 11 doesn't cancel them within iframe
     // which the tests don't like
     //    console.log('startRequest for transports ', this.transports.length);
-    this.transports.forEach(function(item) { item.runUnloadHandler(); });
+    this.transports.forEach(function (item) { item.runUnloadHandler(); });
   }
 
   /// Release all resources
   destroy() {
-    this.transports.forEach(function(item) { item.destroy(); });
+    this.transports.forEach(function (item) { item.destroy(); });
     this.endpoints = [];
     this.transports = [];
   }

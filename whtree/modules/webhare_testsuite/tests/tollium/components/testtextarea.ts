@@ -13,7 +13,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         const holder = test.compByName("componentpanel");
         const textedits = holder.querySelectorAll("textarea");
         test.eq(1, textedits.length); //make sure we've got the right(only) one
@@ -36,7 +36,7 @@ test.registerTests(
     },
 
     "Test min/max-length, counter", //TODO combine with testtextedit?  almost the same...
-    async function() {
+    async function () {
       let textedit_comp = test.compByName("componentpanel");
       let textedit = textedit_comp.querySelector("textarea");
 
@@ -106,7 +106,7 @@ test.registerTests(
 
 
     "Required/HideRequiredIfDisabled",
-    async function() {
+    async function () {
       //we start at Enabled,Required,HideRequiredIfDisabled all true
       test.eq('rgb(252, 248, 208)', getComputedStyle(test.compByName("componentpanel").querySelector("textarea")).backgroundColor);
       test.eq("none", getComputedStyle(test.compByName("componentpanel").querySelector("textarea")).backgroundImage);

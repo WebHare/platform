@@ -11,7 +11,7 @@ test.registerTests(
 
     "Test google specific recaptcha",
 
-    async function() {
+    async function () {
       test.click('#trigger_googlerecaptcha');
       await test.wait('ui');
       test.eq(1, test.qSA('.mydialog').length);
@@ -25,7 +25,7 @@ test.registerTests(
 
     "Test context api",
 
-    async function() {
+    async function () {
       test.click('#trigger_webcontextcaptcha');
       await test.wait('ui');
       test.eq(1, test.qSA('.mydialog').length);

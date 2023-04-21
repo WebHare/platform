@@ -12,18 +12,18 @@ let testemail_guid;
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { which: "custom2", addtscustomcomp: true, formid: "custom form 2" });
     },
 
-    async function() {
+    async function () {
       await test.load(setupdata.url + "?error=formunavailable");
 
       const content = test.qS('#content');
       test.eq("The form is currently unavailable", content.textContent.trim(), "Cannot find default form unavailable text");
     },
 
-    async function() {
+    async function () {
       await test.load(setupdata.url);
 
       test.assert(test.canClick('[data-wh-form-group-for="greeting_new"]'), "Should see 'new' text");
@@ -53,7 +53,7 @@ test.registerTests(
     },
 
     'Request results',
-    async function() {
+    async function () {
       test.assert(test.canClick('[data-wh-form-group-for="thankyou"]'), "Should see thankyou");
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
 
@@ -80,14 +80,14 @@ test.registerTests(
     },
 
     'Process mail',
-    async function() {
+    async function () {
       const emails = await test.waitForEmails("mailresult+jstest@beta.webhare.net", { timeout: 60000 });
       test.eq(1, emails.length, "No emails!");
       test.eq("Your Form Was Filled", emails[0].subject);
     },
 
     'Test results prefill and edit',
-    async function() {
+    async function () {
       await test.load(editlink);
 
       const namefield = test.qSA('input[type=text]')[0], emailfield = test.qSA('input[type=email]')[0];
@@ -120,7 +120,7 @@ test.registerTests(
     },
 
     'Test editing through id field',
-    async function() {
+    async function () {
       await test.load(setupdata.url);
 
       const namefield = test.qSA('input[type=text]')[0], emailfield = test.qSA('input[type=email]')[0];
@@ -138,18 +138,17 @@ test.registerTests(
     },
 
     'Process mail',
-    async function() {
+    async function () {
       const emails = await test.waitForEmails("mailresult+jstest@beta.webhare.net", { timeout: 60000, count: 2 });
       test.eq(2, emails.length, "No emails!");
       test.eq("Your Form Was Filled", emails[0].subject, "Should be two mails, both for the NEW and for the EDIT action");
     },
 
     'Test cancellation',
-    async function() {
+    async function () {
       await test.load(editlink + "?cancel=1");
 
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
       test.assert(test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should  see thankyou_cancelled text");
     }
   ]);
-

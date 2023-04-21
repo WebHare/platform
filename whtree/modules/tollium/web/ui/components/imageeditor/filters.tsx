@@ -370,7 +370,7 @@ class PhotoFilters extends SurfaceTool {
               this.progress = null;
             }
 
-            requestAnimationFrame(function() {
+            requestAnimationFrame(function () {
               this.filterdata = data.result.data;
               this.setPixels(this.tmpcanvas, data.result);
 

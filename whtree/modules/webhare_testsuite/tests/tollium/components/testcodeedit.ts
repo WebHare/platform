@@ -13,7 +13,7 @@ test.registerTests(
 
     {
       name: 'initialselectedline',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.hasFocus(test.qS('textarea')));
         test.assert(!test.qS('textarea').scrollTop == 0, 'scrollTop = 0, so no initial selection done');
         test.assert(!test.qS('textarea').readOnly);
@@ -26,7 +26,7 @@ test.registerTests(
 
     {
       name: 'disabled',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.qS('textarea').readOnly);
         test.assert(!test.qS('textarea').scrollTop == 0);
 
@@ -38,7 +38,7 @@ test.registerTests(
 
     {
       name: 'reenabled',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(!test.qS('textarea').readOnly);
         test.assert(!test.qS('textarea').scrollTop == 0);
 
@@ -50,7 +50,7 @@ test.registerTests(
 
     {
       name: 'firstline',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.qS('textarea').scrollTop == 0);
 
         // Last line
@@ -61,7 +61,7 @@ test.registerTests(
 
     {
       name: 'lastline',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.qS('textarea');
         test.eq(textarea.scrollHeight - textarea.clientHeight, textarea.scrollTop);
 
@@ -73,7 +73,7 @@ test.registerTests(
 
     {
       name: 'reset',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.qS('textarea').scrollTop == 0);
         const textarea = test.qS('textarea');
         test.eq('', textarea.value);
@@ -82,7 +82,7 @@ test.registerTests(
 
     {
       name: 'set',
-      test: async function() {
+      test: async function () {
         const textarea = test.qS('textarea');
         dompack.focus(textarea);
         await test.pressKey('Enter'); //ensure cr doesn't kill us by leaking to parent frame
@@ -94,7 +94,7 @@ test.registerTests(
 
     {
       name: 'setcheck',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.qS('textarea');
         test.eq("RGl0IGlzIGVlbiB0ZXN0", textarea.value);
       }

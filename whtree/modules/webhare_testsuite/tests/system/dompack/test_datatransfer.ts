@@ -7,7 +7,7 @@ import * as pointer from "dompack/testframework/pointer";
 test.registerTests(
   [
     "Datatransfer object",
-    async function() {
+    async function () {
       const dds = new pointer.SimulatedDragDataStore(null);
 
       let dt = new pointer.SimulatedDataTransfer(dds, "read/write", "copy");

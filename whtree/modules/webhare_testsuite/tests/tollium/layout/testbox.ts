@@ -14,7 +14,7 @@ test.registerTests(
     {
       name: 'verifybox',
       //   , xfail: "box layout will be changed significantly in new interface design"
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(2, test.qSA('.t-screen').length);
 
         const box1 = test.compByName('box1!boxcontents'); //box1 is leading, as it has explicit with/height

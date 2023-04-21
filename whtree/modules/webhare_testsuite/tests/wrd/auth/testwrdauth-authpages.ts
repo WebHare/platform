@@ -8,12 +8,12 @@ let setupdata;
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupWRDAuth', test.getTestSiteRoot() + "testpages/wrdauthtest-router/", "tester@beta.webhare.net"); //executes TestInvoke_SetupWRDAuth
     },
 
     "Simple login",
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + "testpages/wrdauthtest-router/");
 
       test.eq('', test.qS('[name="username"]').value);
@@ -27,7 +27,7 @@ test.registerTests(
     },
 
     "Start forgot password sequence",
-    async function() {
+    async function () {
       test.click(test.qS('.wh-wrdauth-login__forgotpasswordlink'));
       await test.wait("pageload");
     },
@@ -38,14 +38,14 @@ test.registerTests(
     }),
 
     'After login stuff',
-    async function() {
+    async function () {
       test.assert(test.qS('#isloggedin').checked);
       test.assert(!test.qS('#emailchangelink')); //should not be available unless enabled
       test.assert(!test.qS('#passwordchangelink')); //should not be available unless enabled
     },
 
     "Change password",
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + "testpages/wrdauthtest-router-extended/");
       test.assert(test.qS('#isloggedin').checked);
       test.assert(test.qS('#passwordchangelink'));
@@ -75,7 +75,7 @@ test.registerTests(
     },
 
     "verify whether the new password works",
-    async function() {
+    async function () {
       test.click('#logoutlink');
       await test.wait('pageload');
 
@@ -90,14 +90,14 @@ test.registerTests(
       await test.wait('pageload');
     },
 
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + "testpages/wrdauthtest-router-extended/");
       test.assert(test.qS('#isloggedin').checked);
       test.assert(test.qS('#emailchangelink')); //should not be available unless enabled
     },
 
     "Change email",
-    async function() {
+    async function () {
       await test.load(test.qS('#emailchangelink').href);
 
       test.eq("Crude test of witty override", test.qS("#custom-emailchange-text").textContent); //is our witty override in play ?
@@ -118,7 +118,7 @@ test.registerTests(
       test.assert(test.qS('.wh-wrdauth-emailchange__done').textContent.includes("pietjenieuw@beta.webhare.net"), "Feedback should mention my email address");
     },
     "Verify old email still works",
-    async function() {
+    async function () {
       await test.load(test.qS('#logoutlink').href);
 
       test.fill(test.qS('[name="username"]'), 'pietjetester@beta.webhare.net');
@@ -130,7 +130,7 @@ test.registerTests(
       test.assert(test.qS('#isloggedin').checked);
     },
     "Handle email change email",
-    async function() {
+    async function () {
       const emails = await test.waitForEmails("pietjenieuw@beta.webhare.net", { timeout: 60000 });
       test.eq(1, emails.length, emails.length == 0 ? "No emails!" : "More than expected emails (" + emails.length + ")");
       test.eqMatch(/^Email reset for '.+'$/, emails[0].subject, `Unexpected subject '${emails[0].subject}'`);
@@ -147,7 +147,7 @@ test.registerTests(
     },
 
     "Verify old email is now broken",
-    async function() {
+    async function () {
       await test.load(test.qS('#logoutlink').href);
 
       test.fill(test.qS('[name="username"]'), 'pietjetester@beta.webhare.net');
@@ -161,7 +161,7 @@ test.registerTests(
     },
 
     "Verify new email works",
-    async function() {
+    async function () {
       test.fill(test.qS('[name="username"]'), 'pietjenieuw@beta.webhare.net');
       test.click('.wh-wrdauth-login__loginbutton');
 
@@ -171,7 +171,7 @@ test.registerTests(
     },
 
     "Try to take email address used by someone else",
-    async function() {
+    async function () {
       await test.load(test.qS('#emailchangelink').href);
 
       test.fill(test.qS('#emailchange-email'), 'jantjetester@beta.webhare.net');
@@ -182,7 +182,7 @@ test.registerTests(
     },
 
     "Handle email change email",
-    async function() {
+    async function () {
       const emails = await test.waitForEmails("jantjetester@beta.webhare.net", { timeout: 60000 });
       test.eq(1, emails.length, emails.length == 0 ? "No emails!" : "More than expected emails (" + emails.length + ")");
       test.eqMatch(/^Email reset for '.+'$/, emails[0].subject, `Unexpected subject '${emails[0].subject}'`);
@@ -193,7 +193,7 @@ test.registerTests(
     },
 
     "Verify new email works",
-    async function() {
+    async function () {
       await test.load(test.qS('#logoutlink').href);
 
       test.fill(test.qS('[name="username"]'), 'pietjenieuw@beta.webhare.net');
@@ -206,7 +206,7 @@ test.registerTests(
     },
 
     "logincontrol test",
-    async function() {
+    async function () {
       test.click('#logoutlink');
       await test.wait('pageload');
 

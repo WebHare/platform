@@ -8,12 +8,12 @@ import ConsilioBackend from '@mod-consilio/js/backend';
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       /*testdata =*/ await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupConsilioTest');
       await test.load(test.getTestSiteRoot());
     },
     "test low level api",
-    async function() {
+    async function () {
       const backend = new ConsilioBackend(test.getWin().whintegration_config.site.consiliotoken);
       let suggestions = await backend.getSuggestions('StaticP');
       test.eq(1, suggestions.length);

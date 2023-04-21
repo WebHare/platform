@@ -6,7 +6,7 @@ import * as test from '@mod-tollium/js/testframework';
 test.registerTests(
   [
     'create first tag',
-    async function() {
+    async function () {
       await test.load(test.getCompTestPage('tagedit'));
       await test.wait('ui');
 
@@ -35,7 +35,7 @@ test.registerTests(
     },
 
     "Test keyboard nav",
-    async function() {
+    async function () {
       const holder = test.compByName("componentpanel");
       let tags = holder.querySelectorAll('.wh-tagedit-tag');
       test.eq(2, tags.length);
@@ -72,7 +72,7 @@ test.registerTests(
     },
 
     "Test disabling",
-    async function() {
+    async function () {
       let holder = test.compByName("componentpanel");
       test.assert(test.canClick(holder.querySelector(".wh-tagedit-input")), "entry field should be there");
       await test.pressKey("X");

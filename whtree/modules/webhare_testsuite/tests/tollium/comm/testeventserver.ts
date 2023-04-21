@@ -11,7 +11,7 @@ function getTowlNotifications() {
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup', { createsysop: true });
 
       await test.load(`${test.getTestSiteRoot()}portal1/${setupdata.overridetoken}?app=webhare_testsuite:runscreen(${'tests/comm.eventserver'})&notifications=browser&checkinterval=0`);
@@ -19,7 +19,7 @@ test.registerTests(
     },
     {
       name: 'send event',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         test.eq(0, test.qSA('t-towlnotification').length);
         test.click(test.getMenu(['A01']));
         await test.wait("ui");
@@ -28,7 +28,7 @@ test.registerTests(
     },
 
     "Check second event",
-    async function() {
+    async function () {
       //TODO what if you've enabled native notifications? perhaps a wh-debug=tollium-nonativenotification flag
       let notes = getTowlNotifications();
       test.eq(1, notes.length); //one for the note itself and one to suggest enabling native notifications
@@ -44,7 +44,7 @@ test.registerTests(
     },
 
     "Check third event - should REPLACE second event",
-    async function() {
+    async function () {
       test.click(test.getMenu(['A01']));
       await test.wait(() => getTowlNotifications()[1].querySelector('.description').textContent == 'Message count: 3'
         || getTowlNotifications().length > 2);
@@ -52,7 +52,7 @@ test.registerTests(
       test.eq(2, getTowlNotifications().length);
     },
 
-    async function() {
+    async function () {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup', { createsysop: true });
 
       await test.load(`${test.getTestSiteRoot()}portal1/${setupdata.overridetoken}?app=webhare_testsuite:runscreen(${'tests/comm.eventserver'})&notifications=browser&checkinterval=0`);
@@ -61,14 +61,14 @@ test.registerTests(
     },
     {
       name: 'no duplicate events form last test?',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(0, getTowlNotifications().length);
         test.click(test.getMenu(['A01']));
       },
       waits: [(doc, win) => { return getTowlNotifications().length > 0; }]
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         const notes = getTowlNotifications();
         test.eq(1, notes.length);
       }

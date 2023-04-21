@@ -30,7 +30,7 @@ test.registerTests(
   [
     'test height no title',
 
-    async function() {
+    async function () {
       await test.load(test.getCompTestPage('datetime', { title: '' }));
       await test.wait("ui");
 
@@ -62,7 +62,7 @@ test.registerTests(
     },
 
     "Test right aligned datetime",
-    async function() {
+    async function () {
       await test.load(test.getCompTestPage('datetime', { __splitside: 'right' }));
       await test.wait("ui");
 
@@ -74,7 +74,7 @@ test.registerTests(
     },
 
     "Test bottom aligned datetime",
-    async function() {
+    async function () {
       await test.load(test.getCompTestPage('datetime', { __splitpage: 'bottom' }));
       await test.wait("ui");
 
@@ -87,7 +87,7 @@ test.registerTests(
     },
 
     "suggestion test",
-    async function() {
+    async function () {
       const suggestion = test.compByTitle("suggestion");
       setDate(suggestion, "1-7-2021");
       setTime(suggestion, "00:00:00");
@@ -103,12 +103,12 @@ test.registerTests(
     },
 
     "Initial tests",
-    async function() {
+    async function () {
       await test.load(test.getTestScreen('tests/basecomponents.datetimetest'));
       await test.wait("ui");
     },
 
-    async function() {
+    async function () {
       const dt1 = test.compByName('dt1'); //datetime with minute precision
       test.eq("2009-08-13", dt1.querySelector('[type=date]').value);
       test.eq("08:09", dt1.querySelector('[type=time]').value);
@@ -145,7 +145,7 @@ test.registerTests(
     },
 
     'set-max',
-    async function() {
+    async function () {
       let dt2 = test.compByName('dt2');
       setDate(dt2, '--');
       setTime(dt2, '::');
@@ -165,7 +165,7 @@ test.registerTests(
     },
 
     'set-utc',
-    async function() {
+    async function () {
       test.click(test.getMenu(['M01', 'A05'])); //toggle utc
       await test.wait("ui");
 
@@ -187,7 +187,7 @@ test.registerTests(
     },
 
     'readonly',
-    async function() {
+    async function () {
       test.click(test.getMenu(['M01', 'A06'])); //toggle read only
       await test.wait("ui");
 
@@ -214,13 +214,13 @@ test.registerTests(
     },
 
     'writable',
-    async function() {
+    async function () {
       test.click(test.getMenu(['M01', 'A06'])); //toggle read only
       await test.wait("ui");
     },
 
     'datepicker',
-    async function() {
+    async function () {
       const dt1 = test.compByName('dt1'); //datetime with minute precision
       test.assert(dt1.querySelector('[type=date]').value);
 
@@ -259,7 +259,7 @@ test.registerTests(
     },
 
     'updownkeys',
-    async function(doc, win) {
+    async function (doc, win) {
       const ti6 = test.compByName('ti6!dt'); //datetime with minute precision
       test.assert(ti6.classList.contains('required'));
       test.eq("08:09:18.189", ti6.querySelector('[type=time]').value);
@@ -349,7 +349,7 @@ test.registerTests(
     },
 
     "cutoff year",
-    async function(doc, win) {
+    async function (doc, win) {
       // Check cutoff year, should be 70
       const cutoff = test.compByName('cutoff');
       setDate(cutoff, '1-1-69');
@@ -368,7 +368,7 @@ test.registerTests(
     },
 
     'cutoff year 10',
-    async function(doc, win) {
+    async function (doc, win) {
 
       const cutoff = test.compByName('cutoff');
       setDate(cutoff, '1-1-69');
@@ -387,7 +387,7 @@ test.registerTests(
     },
 
     'cutoff year 90',
-    async function(doc, win) {
+    async function (doc, win) {
 
       const cutoff = test.compByName('cutoff');
       setDate(cutoff, '1-1-69');
@@ -406,7 +406,7 @@ test.registerTests(
     },
 
     'cutoff year 0',
-    async function(doc, win) {
+    async function (doc, win) {
       const cutoff = test.compByName('cutoff');
       setDate(cutoff, '1-1-1');
       await test.wait("ui");
@@ -424,7 +424,7 @@ test.registerTests(
     },
 
     'cutoff year 100',
-    async function(doc, win) {
+    async function (doc, win) {
 
       const cutoff = test.compByName('cutoff');
       setDate(cutoff, '1-1-1');
@@ -443,7 +443,7 @@ test.registerTests(
     },
 
     'cutoff year -1',
-    async function(doc, win) {
+    async function (doc, win) {
       const cutoff = test.compByName('cutoff');
       setDate(cutoff, '1-1-30');
       await test.wait("ui");
@@ -461,7 +461,7 @@ test.registerTests(
     },
 
     'defaultbuttons',
-    async function() {
+    async function () {
       const alternatedefault = test.compByName('alternatedefault');
       test.assert(!alternatedefault.classList.contains("default"));
 

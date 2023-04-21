@@ -97,7 +97,7 @@ export default class ObjInlineBlock extends ComponentBase {
 
   getVisibleChildren() {
     const children = [];
-    this.lines.forEach(function(line) {
+    this.lines.forEach(function (line) {
       if (line.titlecomp) {
         children.push(line.titlecomp);
       }
@@ -221,4 +221,3 @@ export default class ObjInlineBlock extends ComponentBase {
     this.lines.forEach(comp => comp.relayout());
   }
 }
-

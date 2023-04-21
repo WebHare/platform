@@ -7,7 +7,7 @@ import * as test from '@mod-system/js/wh/testframework';
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       await test.updateFrame("main", { width: 400 });
       await test.addFrame("second", { width: 400 });
       await test.load(test.getTestSiteRoot() + "TestPages/exclusiveaccesstest/#2,piet");
@@ -19,7 +19,7 @@ test.registerTests(
       await test.load(test.getTestSiteRoot() + "TestPages/exclusiveaccesstest/#1,hans");
     },
     "test exclusive access",
-    async function() {
+    async function () {
       // story: normal locking
       test.click("#startexclusiveaccesstest");
       await test.wait(() => test.qS("#status").textContent == "Got lock");
@@ -194,7 +194,7 @@ test.registerTests(
       await test.wait(() => test.qS("#status").textContent == "Got lock");
     },
     "mutex lock",
-    async function() {
+    async function () {
       await test.selectFrame("main");
       test.click("#startexclusiveaccesstest");
       await test.wait(() => test.qS("#status").textContent == "Got lock");

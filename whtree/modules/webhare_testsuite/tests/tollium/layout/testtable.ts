@@ -13,7 +13,7 @@ test.registerTests(
 
     {
       name: 'opensplit',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const A06 = test.getMenu(['M01', 'A06']);
         test.click(A06);
       },
@@ -22,7 +22,7 @@ test.registerTests(
 
     {
       name: 'verifytable',
-      test: function(doc, win) {
+      test: function (doc, win) {
         // The screen should show up
         const cell_left = test.compByName('cell_left');
         test.assert(cell_left);

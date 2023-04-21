@@ -7,11 +7,11 @@ import * as testhelpers from './testhelpers';
 test.registerTests(
   [
     "Pulldown seqnr/registerMissed test",
-    async function() {
+    async function () {
       await test.load('/.webhare_testsuite/tests/pages/dompack/?testpage=pulldown&addseqnr=1');
     },
 
-    async function() {
+    async function () {
       const alwaysopendown_replacement = test.qS('#alwaysopendown').nextSibling;
       test.eq("Should always open down req#1 (current)", alwaysopendown_replacement.querySelector(".selectlist__current").textContent);
 

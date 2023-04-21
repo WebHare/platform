@@ -9,7 +9,7 @@ let setupdata;
 const preparereset =
   [
     {
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupWRDAuth', test.getTestSiteRoot() + "testpages/wrdauthtest/", "frontend@beta.webhare.net"); //executes TestInvoke_SetupWRDAuth
       }
     },
@@ -21,7 +21,7 @@ test.registerTests(
     ...preparereset,
     {
       name: "login",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(!test.qS('#isloggedin').checked);
         test.assert(!test.qS('#js_isloggedin').checked);
         test.eq('', test.qS('#js_fullname').value);
@@ -31,7 +31,7 @@ test.registerTests(
       waits: ['ui']
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq('login failed', test.qS('#status').textContent);
         test.assert(!test.qS('#isloggedin').checked);
         test.assert(!test.qS('#js_isloggedin').checked);
@@ -41,7 +41,7 @@ test.registerTests(
       waits: ['ui']
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq('login failed', test.qS('#status').textContent);
         test.assert(!test.qS('#isloggedin').checked);
         test.assert(!test.qS('#js_isloggedin').checked);
@@ -51,14 +51,14 @@ test.registerTests(
       waits: ['pageload']
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.qS('#isloggedin').checked);
         test.assert(test.qS('#js_isloggedin').checked, "JavaScript isloggedin should be set");
         test.eq('Pietje Tester', test.qS('#js_fullname').value);
       }
     },
     "Test restoring sessions after loss of the _c cookie",
-    async function() {
+    async function () {
       const wrdconfig = JSON.parse(test.getDoc().querySelector("script#wh-config").textContent)["wrd:auth"];
       let cookie_c = test.getDoc().cookie.match('(?:^|;)\\s*' + wrdconfig.cookiename + "_c" + '=([^;]*)')[1];
       let cookie_j = test.getDoc().cookie.match('(?:^|;)\\s*' + wrdconfig.cookiename + "_j" + '=([^;]*)')[1];
@@ -90,7 +90,7 @@ test.registerTests(
     },
     {
       name: "Set new user details",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.fill(test.qS('#firstname'), 'Klaas');
         test.fill(test.qS('#lastname'), 'Testertje');
         test.click(test.qS('#detailsbutton'));
@@ -99,14 +99,14 @@ test.registerTests(
     },
     {
       name: "verify userdetails",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.qS('#isloggedin').checked);
         test.eq('Klaas Testertje', test.qS('#js_fullname').value);
       }
     },
     ...preparereset,
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         //resetting the WRD schema immediately clears all state
         test.assert(!test.qS('#isloggedin').checked);
         test.assert(!test.qS('#js_isloggedin').checked);
@@ -115,14 +115,14 @@ test.registerTests(
     },
     {
       name: "reset password bad mail",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.fill(test.qS('#resetlogin'), 'bestaatniet@example.net');
         test.click(test.qS('#passwordresetbutton'));
       },
       waits: ['pageload']
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq('No such user', test.qS('#errormessage').textContent);
         test.click(test.qS('#back'));
       },
@@ -130,7 +130,7 @@ test.registerTests(
     },
     {
       name: "reset password proper mail",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(!test.qS('#isloggedin').checked);
         test.assert(!test.qS('#js_isloggedin').checked);
         test.fill(test.qS('#resetlogin'), 'pietjefrontend@beta.webhare.net');
@@ -140,7 +140,7 @@ test.registerTests(
     },
     {
       name: "Set new password",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.fill(test.qS('#password'), 'NewPwd');
         test.click(test.qS('#setpassword'));
       },
@@ -148,7 +148,7 @@ test.registerTests(
     },
     {
       name: "verify autologin after setting new password",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.qS('#isloggedin').checked);
         test.assert(test.qS('#js_isloggedin').checked, 'not loggedin in JS. redirection loop?');
         test.eq('Pietje Tester', test.qS('#js_fullname').value);
@@ -156,14 +156,14 @@ test.registerTests(
     },
     {
       name: 'click #static',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         test.click("#static");
         await test.wait("pageload");
       }
     },
     {
       name: "verify static",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.qS('#js_isloggedin').checked, "Expected to be still logged in");
         test.eq('Pietje Tester', test.qS('#js_fullname').value);
         test.click(test.qSA('button').filter(button => button.textContent == 'JS Logout')[0]);
@@ -172,7 +172,7 @@ test.registerTests(
     },
     {
       name: "verify static logout and relogin",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(!test.qS('#js_isloggedin').checked);
         test.eq('', test.qS('#js_fullname').value);
 
@@ -183,15 +183,15 @@ test.registerTests(
       waits: ['pageload']
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.qS('#js_isloggedin').checked);
         test.eq('Pietje Tester', test.qS('#js_fullname').value);
       }
     },
 
     "Test form prefill and loggedin submission",
-    { loadpage: function() { return setupdata.url; } },
-    async function() {
+    { loadpage: function () { return setupdata.url; } },
+    async function () {
       test.eq(test.qSA('input[type=text]')[0].value, 'Pietje');
       test.eq(test.qSA('input[type=email]')[0].value, 'pietjefrontend@beta.webhare.net');
       test.click(test.qSA('[type=submit]')[0]);

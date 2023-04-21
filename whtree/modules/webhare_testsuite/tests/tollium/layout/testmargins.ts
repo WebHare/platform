@@ -13,7 +13,7 @@ test.registerTests(
 
     {
       name: 'verifybox',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(test.compByName('te1').getBoundingClientRect().right, test.compByName('bu2').getBoundingClientRect().right, "Right edges of TE1 and BU2 should align");
         //FIXME add and test margins
       }

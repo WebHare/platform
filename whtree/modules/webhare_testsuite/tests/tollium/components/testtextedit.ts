@@ -7,7 +7,7 @@ import * as test from "@mod-tollium/js/testframework";
 test.registerTests(
   [
     "Test rendering",
-    async function() {
+    async function () {
       await test.load(test.getCompTestPage('textedit'));
       await test.wait("ui");
 
@@ -22,7 +22,7 @@ test.registerTests(
     },
 
     "Test inline autocorrection", //#522
-    async function() {
+    async function () {
       await test.load(test.getCompTestPage('textedit', { validationchecks: ['url-plus-relative'] }));
       await test.wait("ui");
 
@@ -37,7 +37,7 @@ test.registerTests(
     },
 
     "Test min/max-length, counter",
-    async function() {
+    async function () {
       await test.load(test.getCompTestPage('textedit', { validationchecks: ['url-plus-relative'] }));
       await test.wait("ui");
 
@@ -111,7 +111,7 @@ test.registerTests(
     },
 
     "Required/HideRequiredIfDisabled",
-    async function() {
+    async function () {
       //we start at Enabled,Required,HideRequiredIfDisabled all true
       test.eq('rgb(252, 248, 208)', getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundColor);
       test.eq("none", getComputedStyle(test.compByName("componentpanel").querySelector("input")).backgroundImage);

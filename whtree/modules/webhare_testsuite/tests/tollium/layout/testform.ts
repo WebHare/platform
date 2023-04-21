@@ -13,7 +13,7 @@ test.registerTests(
 
     {
       name: 'openform',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.click(test.getMenu(['M01', 'A05']));
       },
       waits: ['ui']
@@ -21,7 +21,7 @@ test.registerTests(
 
     {
       name: 'verifybox',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(2, test.qSA('.t-screen').length);
 
         const emptytext = test.compByName('emptytext');
@@ -73,7 +73,7 @@ test.registerTests(
 
     {
       name: 'verifybox-wrapequality',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const nolabeltext_wrapped = test.compByName('nolabel_wrapped');
         const nolabeltext_crs = test.compByName('nolabel_crs');
         test.eq(nolabeltext_wrapped.offsetHeight, nolabeltext_crs.offsetHeight, "nolabel_wrapped should be just as high as nolabel_crs. it wrapped in unexpected places");
@@ -82,7 +82,7 @@ test.registerTests(
 
     {
       name: 'verifyalignmodes',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //mode should not affect positioning if no titles are specified
         test.eq(test.compByName('mode_left').getBoundingClientRect().left, test.compByName('mode_right').getBoundingClientRect().left);
         test.eq(test.compByName('mode_left').getBoundingClientRect().left, test.compByName('mode_form').getBoundingClientRect().left);
@@ -91,7 +91,7 @@ test.registerTests(
 
     {
       name: 'verifyspacers',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const label = test.qSA("t-text").filter(text => text.textContent.includes('label'))[0];
         test.eq('label:', label.textContent); //Semicolons
 
@@ -106,7 +106,7 @@ test.registerTests(
     },
     {
       name: 'verifyellipsis',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const valuenode = test.compByName('ellipsistest');
         //compare with panel width minus padding 2*10px
         test.eq(valuenode.closest('t-panel').offsetWidth - 20, valuenode.offsetWidth);

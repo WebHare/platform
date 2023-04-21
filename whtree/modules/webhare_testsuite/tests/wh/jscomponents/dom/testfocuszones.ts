@@ -20,7 +20,7 @@ test.registerTests(
 
     {
       name: 'focus zones using mouse',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         test.assert(doc.hasFocus(), "This test requires the browser to have focus");
         test.eq("Focused focuszone2", test.qS('#log').lastElementChild.textContent, 'make sure the test has focus');
         test.assert(test.hasFocus(test.qS('#input2_2')));
@@ -67,7 +67,7 @@ test.registerTests(
 
     {
       name: 'focus zones programmatically',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         test.assert(test.hasFocus(test.qS('#input2_2')));
         test.eq('focuszone2', win.focusZones.getCurrentFocusZone().id, 'verifying initial state');
         win.focusZones.focusZone(test.qS('#focuszone1'));
@@ -83,7 +83,7 @@ test.registerTests(
 
     /*
       , { name: 'initial'
-        , test: function(doc,win)
+        , test: function (doc,win)
           {
             test.eq(test.qS('#input2_2'),$wh.getCurrentlyFocusedElement());
             test.eq(2, $wh.getFocusableComponents(doc).length);

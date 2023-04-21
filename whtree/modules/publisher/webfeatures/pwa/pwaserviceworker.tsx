@@ -204,7 +204,7 @@ async function startBackgroundVersionCheck(data) {
   }
 }
 
-self.addEventListener('activate', async function(event) {
+self.addEventListener('activate', async function (event) {
   console.log(`${logprefix}Activated from`, location.href);
   console.log(`${logprefix}For scope`, self.registration.scope);
 
@@ -361,7 +361,7 @@ async function sendIssueReport(body) {
   }
 }
 
-self.onerror = function(error) {
+self.onerror = function (error) {
   console.error("Error", error, error.trace);
   sendIssueReport({
     type: "error",
@@ -370,7 +370,7 @@ self.onerror = function(error) {
   });
 };
 
-addEventListener("unhandledrejection", function(event) {
+addEventListener("unhandledrejection", function (event) {
   console.error('Unhandled rejection (promise: ', event.promise, ', reason: ', event.reason, event);
   sendIssueReport({
     type: "unhandledrejection",

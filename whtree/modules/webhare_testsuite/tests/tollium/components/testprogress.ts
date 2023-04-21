@@ -10,7 +10,7 @@ test.registerTests(
       waits: ['ui']
     },
     {
-      test: async function() {
+      test: async function () {
       }
     }
   ]);

@@ -22,7 +22,7 @@ function checkForGTM(opts) {
 test.registerTests(
   [
     "Test basic integration",
-    async function() {
+    async function () {
       //forcibly clear cookie first, so we can see the consent not firing
       forceResetConsent();
 
@@ -36,7 +36,7 @@ test.registerTests(
     },
 
     "Test assetpack mode",
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?gtmplugin_integration=assetpack&ga4_integration=none');
       await waitForGTM();
       test.eq(undefined, test.getWin().gtm_consent);
@@ -47,7 +47,7 @@ test.registerTests(
     },
 
     "Test script integration",
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?gtmplugin_integration=script&ga4_integration=none');
       await waitForGTM();
       test.eq(undefined, test.getWin().gtm_consent);
@@ -58,7 +58,7 @@ test.registerTests(
     },
 
     "The new debugflag 'sne' should disable selfhosting",
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/dynamicpage?wh-debug=sne&ga4_integration=none');
       await waitForGTM();
       test.eq(undefined, test.getWin().gtm_consent);
@@ -66,7 +66,7 @@ test.registerTests(
     },
 
     "Test consent API",
-    async function() {
+    async function () {
       //forcibly clear cookie first
       forceResetConsent();
 

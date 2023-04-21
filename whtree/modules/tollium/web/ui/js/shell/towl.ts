@@ -47,7 +47,7 @@ class TowlNotifications {
 
   _handleUnload() {
     // Remove all notifications on unload
-    this._notifications.forEach(function(data) {
+    this._notifications.forEach(function (data) {
       if (data.native)
         data.native.close();
     });
@@ -139,7 +139,7 @@ class TowlNotifications {
       data.native = new Notification(notification.title ? notification.title : getTid("tollium:shell.towl.notificationtitle"), options);
 
       if (data.appmsg || data.onclick)
-        data.native.addEventListener("click", function(ev) { return; });// This fixes an implementation bug in Webkit where events can't be bound to notifications unless an event listener is attached first.
+        data.native.addEventListener("click", function (ev) { return; });// This fixes an implementation bug in Webkit where events can't be bound to notifications unless an event listener is attached first.
 
       // This seems like a double call, but it is necessary for Webkit browsers! See the comment above. Maybe in the future it can be implemented in a more elegant way, but for now, leave it as it is!
       data.native.onclick = evt => this._handleClick(data);
@@ -162,7 +162,7 @@ class TowlNotifications {
         data.div = newelement;
 
         this._notificationcontainer.appendChild(data.div);
-        window.setTimeout(function() { newelement.classList.remove("hidden"); }, 1);
+        window.setTimeout(function () { newelement.classList.remove("hidden"); }, 1);
       }
 
       // Clear out old content, add the new content
@@ -210,7 +210,7 @@ class TowlNotifications {
     const mydiv = data.div;
     data.div.classList.add("hidden");
     data.div = null;
-    setTimeout(function() { mydiv.remove(); }, 250);
+    setTimeout(function () { mydiv.remove(); }, 250);
   }
 
   _showPermissionRequestNotification() {

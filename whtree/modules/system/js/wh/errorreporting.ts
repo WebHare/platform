@@ -27,7 +27,7 @@ else if (typeof self != "undefined")
 // at construction time, so we can trace where the rejected promise came from
 if (dompack.debugflags.pro) {
   const P = Promise;
-  const MyPromise = function(executor) {
+  const MyPromise = function (executor) {
     const p = new P(executor);
     p.error = new Error("unhandled rejected promise");
     p.__proto__ = MyPromise.prototype;

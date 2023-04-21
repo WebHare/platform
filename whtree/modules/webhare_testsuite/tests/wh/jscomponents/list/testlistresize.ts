@@ -9,7 +9,7 @@ test.registerTests(
     { loadpage: test.getTestSiteRoot() + 'testpages/listtest/' },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.fill(test.qS('#datasource'), 'resizerowsource');
         const row = test.getListViewRow('the fourth cell');
         console.log(row);

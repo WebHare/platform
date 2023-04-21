@@ -7,7 +7,7 @@ import * as test from '@mod-system/js/wh/testframework';
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?visibleconditions=1');
 

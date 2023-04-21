@@ -12,7 +12,7 @@ test.registerTests(
 
     {
       name: 'enablecomponents',
-      test: function(doc, win) {
+      test: function (doc, win) {
         // The box's checkbox should be disabled
         const box_checkbox_node = test.qSA(".t-checkbox")[1];
         const box_checkbox_comp = box_checkbox_node.propTodd;
@@ -38,7 +38,7 @@ test.registerTests(
 
     {
       name: 'box just enabled',
-      test: function(doc, win) {
+      test: function (doc, win) {
         let textedit_node = test.compByName('boxedit');
         let textedit_comp = textedit_node.propTodd;
 
@@ -56,7 +56,7 @@ test.registerTests(
 
     {
       name: 'checkbox',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textedit_node = test.compByName('boxedit');
         const textedit_comp = textedit_node.propTodd;
         test.assert(textedit_comp.getEnabled());
@@ -69,7 +69,7 @@ test.registerTests(
 
     {
       name: 'pulldown',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textedit_node = test.compByName('selectedit');
         const textedit_comp = textedit_node.propTodd;
         console.log(textedit_comp);
@@ -84,7 +84,7 @@ test.registerTests(
 
     {
       name: 'enablecomponents_subwindow_open',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textedit_node = test.getCurrentScreen().getParent().getToddElement('boxedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -99,7 +99,7 @@ test.registerTests(
 
     {
       name: 'enablecomponents_subwindow_close',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textedit_node = test.compByName('boxedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -114,7 +114,7 @@ test.registerTests(
 
     {
       name: 'enablecomponents_subwindow_enabled',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textedit_node = test.compByName('boxedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -129,7 +129,7 @@ test.registerTests(
 
     {
       name: 'enablecomponents_radio_select',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textedit_node = test.compByName('selectedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -144,7 +144,7 @@ test.registerTests(
 
     {
       name: 'enablecomponents_radio_select_enabled',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textedit_node = test.compByName('selectedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -159,7 +159,7 @@ test.registerTests(
 
     {
       name: 'enablecomponents_radio_select_also_enabled',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textedit_node = test.compByName('selectedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -174,7 +174,7 @@ test.registerTests(
 
     {
       name: 'enablecomponents_radio_select_enabled_again',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textedit_node = test.compByName('selectedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -189,7 +189,7 @@ test.registerTests(
 
     {
       name: 'enablecomponents_radio_select_also_disabled',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textedit_node = test.compByName('selectedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -204,7 +204,7 @@ test.registerTests(
 
     {
       name: 'enablecomponents_radio_group',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textedit_node = test.compByName('groupedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -219,7 +219,7 @@ test.registerTests(
 
     {
       name: 'enablecomponents_radio_group_enabled',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textedit_node = test.compByName('groupedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -234,7 +234,7 @@ test.registerTests(
 
     {
       name: 'enablecomponents_radio_group_also_enabled',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textedit_node = test.compByName('groupedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -249,7 +249,7 @@ test.registerTests(
 
     {
       name: 'enablecomponents_radio_group_enabled_again',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textedit_node = test.compByName('groupedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -264,7 +264,7 @@ test.registerTests(
 
     {
       name: 'enablecomponents_radio_group_also_disabled',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textedit_node = test.compByName('groupedit');
         const textedit_comp = textedit_node.propTodd;
 
@@ -279,7 +279,7 @@ test.registerTests(
     test.testClickTolliumLabel("Enabled", "Enable arrayedit"),
     {
       name: "select arrayedit row",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.click(test.$screen(win).getListRow("arrayedit!list", "Title"));
       },
       waits: ["ui"]
@@ -287,7 +287,7 @@ test.registerTests(
     test.testClickTolliumButton("Edit", "Click edit button"),
     {
       name: "arrayedit test edit screen opened",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq("editscreen", test.$screen(win).getFrameTitle(), "Edit screen should have opened");
       }
     }

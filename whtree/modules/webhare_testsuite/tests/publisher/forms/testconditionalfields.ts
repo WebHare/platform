@@ -8,7 +8,7 @@ const urlappend = replacedcomponents ? '?dompackpulldown=1' : '';
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/' + urlappend);
       test.qS('#coretest-radiotestnamelijk').value = ''; //empty it for Required testing
@@ -44,7 +44,7 @@ test.registerTests(
       test.assert(JSON.parse(test.qS('#coreformsubmitresponse').textContent).form.agree, "expected successful submit #2");
     },
 
-    async function() {
+    async function () {
       const alloptions = test.qSA("#coretest-condition_options option");
 
       // 1 and 3 are now checked, so only 2 should be disabled

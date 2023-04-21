@@ -9,12 +9,12 @@ function getFormRPCRequests() {
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupEmailFieldtest'); //creates a simple blacklist
     },
 
     'Check smart email field BLOCKING ON SUBMIT',
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?email=1');
       test.eq(0, getFormRPCRequests().length, "Should be no RPC requests yet");
 
@@ -40,7 +40,7 @@ test.registerTests(
     },
 
     'Check smart email field BLOCKING ON FOCUS',
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?email=1');
 
       test.click('#emailform-email');
@@ -56,7 +56,7 @@ test.registerTests(
       test.eqMatch(/problemen.*@blocked.beta.webhare.net/, emailgroup.querySelector('.wh-form__error').textContent);
     },
     'Check smart email field CORRECTING on focus',
-    async function() {
+    async function () {
       test.click('#emailform-email');
       test.fill('#emailform-email', "fixme@bijna.beta.WEBHARE.net");
       await test.pressKey('Tab');
@@ -65,7 +65,7 @@ test.registerTests(
       test.eq(2, getFormRPCRequests().length);
     },
     'Check smart email field SUGGESTING on focus',
-    async function() {
+    async function () {
       test.click('#emailform-email');
       test.fill('#emailform-email', "pietje@fuzy.beta.webhare.net");
       await test.pressKey('Tab');

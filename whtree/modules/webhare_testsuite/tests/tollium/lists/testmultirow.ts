@@ -12,7 +12,7 @@ test.registerTests(
     },
     {
       name: 'setsort',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const baselist = test.compByName("layout");
         const senderheader = test.qSA(baselist, '.listheader span').filter(span => span.textContent.includes("Sender"))[0];
         test.click(senderheader);
@@ -21,7 +21,7 @@ test.registerTests(
     },
     {
       name: 'footer',
-      test: function() {
+      test: function () {
         const normalrow = test.getCurrentScreen().getListRow('normal', /^SU45 .*/);
         const footerrow = test.getCurrentScreen().getListRow('normal', 'footer-subject');
         for (let i = 0; i < 4; ++i)

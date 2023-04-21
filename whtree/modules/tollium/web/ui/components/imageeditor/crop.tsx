@@ -114,7 +114,7 @@ class PhotoCrop extends SurfaceTool {
     //initial crop values
     this.crop = [0, 1, 1, 0];
 
-    this.setAspectratio(this.options.ratiosize, function() {
+    this.setAspectratio(this.options.ratiosize, function () {
       this.active = true;
     }.bind(this));
   }
@@ -392,7 +392,7 @@ class PhotoCrop extends SurfaceTool {
       height: h || this.surface.canvasdata.realsize.y,
       debug: dompack.debugflags.isc
     };
-    SmartCrop.crop(this.surface.canvas, options, function(result) {
+    SmartCrop.crop(this.surface.canvas, options, function (result) {
       //ADDME:      if (options.debug && result.debugCanvas)
       //        this.tmpcanvas.getContext("2d").drawImage(result.debugCanvas, 0, 0, this.tmpcanvas.width, this.tmpcanvas.height);
       this.setClipValues(result.topCrop.x, result.topCrop.y, result.topCrop.y + result.topCrop.height, result.topCrop.x + result.topCrop.width);

@@ -12,7 +12,7 @@ test.registerTests(
     },
 
     {
-      test: async function() {
+      test: async function () {
         //first image is selected
         test.assert(!test.compByName("anybutton").classList.contains("todd--disabled"));
         test.assert(!test.compByName("anywithfocusbutton").classList.contains("todd--disabled"));

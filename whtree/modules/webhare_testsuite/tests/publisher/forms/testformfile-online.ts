@@ -8,12 +8,12 @@ let setupdata;
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { addpulldown: true, addgtmdatalayer: "muhdata" });
     },
 
     'Verify initial form',
-    async function() {
+    async function () {
       await test.load(setupdata.url);
 
       // The thankyou node is only filled after submission, so check for the empty richtext node
@@ -38,7 +38,7 @@ test.registerTests(
     },
 
     'Submit a form',
-    async function() {
+    async function () {
       test.fill(test.qSA('input[type=text]')[0], 'Joe');
       test.fill(test.qSA('input[type=email]')[0], testemail);
 
@@ -66,14 +66,14 @@ test.registerTests(
     },
 
     'Process mail',
-    async function() {
+    async function () {
       const emails = await test.waitForEmails("mailresult+jstest@beta.webhare.net", { timeout: 60000 });
       test.eq(1, emails.length, "No emails!");
       test.eq("Your Form Was Filled", emails[0].subject);
     },
 
     'Request results',
-    async function() {
+    async function () {
       const getguid = test.qS('form[data-wh-form-resultguid]').dataset.whFormResultguid;
       const formresult = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult', getguid);
       test.eq('tollium:tilde.firstname', formresult.fields[0].title); //':' as its not a tid but just a plain untranslated field
@@ -89,7 +89,7 @@ test.registerTests(
     },
 
     'Submitform api',
-    async function() {
+    async function () {
       const target = test.getDoc().documentElement.dataset.rpcformtarget;
       let result = await test.getWin().formrpc_submitForm(target, {});
       test.eqProps([{ message: "This value is required.", name: "requiredpulldownfield" }], result.errors);

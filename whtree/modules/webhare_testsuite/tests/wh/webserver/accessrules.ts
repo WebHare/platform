@@ -8,7 +8,7 @@ const webroot = test.getTestSiteRoot();
 test.registerTests(
   [
     {
-      test: async function() {
+      test: async function () {
         await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupAccessRules');
       }
     },
@@ -22,7 +22,7 @@ test.registerTests(
 
     {
       name: "access rule portal login", //this lands on /porta1l/
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eqMatch(/.*\/portal1\/.*/, win.location.href);
         test.setTodd('loginname', "test-portal1@example.com");
         test.setTodd('password', "secret");
@@ -34,7 +34,7 @@ test.registerTests(
 
     {
       name: "protected portal login",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.setTodd('loginname', 'test-portal2@example.com');
         test.setTodd('password', "secret");
         test.clickToddButton('Login');
@@ -44,14 +44,14 @@ test.registerTests(
 
     {
       name: "check login result",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq("test portal2", test.qS("#dashboard-user-name").textContent);
       }
     },
 
     {
       name: "remove cookies for /portal2", // Leave portal1, so we are still logged in there
-      test: async function() {
+      test: async function () {
         await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#logoutportal2path');
       }
     },
@@ -63,18 +63,18 @@ test.registerTests(
       waits: ['ui']
     },
     /*, { name: 'redirect to login page'
-      , loadpage: function(doc,win) { console.log("currentlocation", doc.location.href, doc.getElementById('redirectto')); return doc.getElementById('redirectto').href }
+      , loadpage: function (doc,win) { console.log("currentlocation", doc.location.href, doc.getElementById('redirectto')); return doc.getElementById('redirectto').href }
       }
     , { name: 'redirect to import'
-      , loadpage: function(doc,win) { console.log("currentlocation", doc.location.href, doc.getElementById('redirectto')); return doc.getElementById('redirectto').href }
+      , loadpage: function (doc,win) { console.log("currentlocation", doc.location.href, doc.getElementById('redirectto')); return doc.getElementById('redirectto').href }
       }
     , { name: 'redirect to protected portal'
-      , loadpage: function(doc,win) { console.log("currentlocation", doc.location.href, doc.getElementById('redirectto')); return doc.getElementById('redirectto').href }
+      , loadpage: function (doc,win) { console.log("currentlocation", doc.location.href, doc.getElementById('redirectto')); return doc.getElementById('redirectto').href }
       , waits: [ 'ui' ]
       }*/
     {
       name: "protected portal login", //we should be on portal1 here!
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eqMatch(/.*\/portal2\/.*/, win.location.href);
         test.setTodd('loginname', 'test-portal2@example.com');
         test.setTodd('password', "secret");
@@ -84,14 +84,14 @@ test.registerTests(
     },
     {
       name: "check login result",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq("test portal2", test.qS("#dashboard-user-name").textContent);
       }
     },
 
     {
       name: "remove cookies for /portal2", // Leave portal1, so we are still logged in there
-      test: async function() {
+      test: async function () {
         await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#logoutstaticlogin');
       }
     },
@@ -105,7 +105,7 @@ test.registerTests(
     //, testFollowWRDAuthRedirect("redirect to login page #2")
     {
       name: "access rule portal login #2",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.qS("#login").value = "test-portal1@example.com";
         test.qS("#password").value = "secret";
         test.click('input[type=submit]');
@@ -116,20 +116,20 @@ test.registerTests(
     //, testFollowWRDAuthRedirect("redirect to protected page #2") //sets window.wrdauth_lastredirectsource
     {
       name: 'protected page location test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(win.location.href.match(/staticprotected/));
         test.assert(/THE FIRST PROTECTED CONTENT/.exec(doc.body.textContent));
       }
     },
     /*  , { name: 'test variable clear' //the authentication rules have gotten out of the way, so see if URLs are still fixed
-        , loadpage: function(doc,win)
+        , loadpage: function (doc,win)
           {
             console.log("Restarting flow at ",window.wrdauth_lastredirectsource);
             return window.wrdauth_lastredirectsource;
           }
         }
       , { name: 'protected page location varclear test'
-        , test:function(doc,win)
+        , test:function (doc,win)
           {
             test.assert(win.location.href.match(/staticprotected/));
             test.assert(/THE FIRST PROTECTED CONTENT/.exec(doc.body.textContent));
@@ -137,7 +137,7 @@ test.registerTests(
         }*/
     {
       name: "reset my session for staticprotected",
-      test: async function() {
+      test: async function () {
         await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#staticprotectedresetsession');
       }
     },
@@ -147,7 +147,7 @@ test.registerTests(
       loadpage: webroot + 'staticprotected/?wh-debug=aut'
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(win.location.href.match(/staticprotected/));
         test.assert(/THE FIRST PROTECTED CONTENT/.exec(doc.body.textContent));
       }
@@ -155,7 +155,7 @@ test.registerTests(
 
     {
       name: "remove cookies for staticlogin page",
-      test: async function() {
+      test: async function () {
         await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#logoutstaticlogin');
       }
     },
@@ -169,7 +169,7 @@ test.registerTests(
 
     {
       name: "access rule portal login - fail",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.fill(test.qS("#login"), "external");
         test.fill(test.qS("#password"), "b");
         test.click('input[type=submit]');
@@ -178,7 +178,7 @@ test.registerTests(
     },
     {
       name: "access rule portal login - ok",
-      test: function(doc, win) {
+      test: function (doc, win) {
         const elts = test.qSA("#loginresult.loginfailed");
         test.eq(1, elts.length);
 
@@ -192,7 +192,7 @@ test.registerTests(
     //, testFollowWRDAuthRedirect('redirect to protected page')
     {
       name: 'protected page location test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(win.location.href.match(/staticprotected2/));
         test.assert(/THE PROTECTED CONTENT/.exec(doc.body.textContent));
       }

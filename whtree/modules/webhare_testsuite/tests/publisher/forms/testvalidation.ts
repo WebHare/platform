@@ -22,7 +22,7 @@ function setRequiredFields() //fill them with a value so we can submit
 test.registerTests(
   [
     'Test the new native validator',
-    async function() {
+    async function () {
       if (dompack.debugflags.fdv)
         alert("Disable the 'fdv' debugflag before running a validation test");
 
@@ -81,7 +81,7 @@ test.registerTests(
     },
 
     'Test required/focus behavior of additional fields inside radio groups',
-    async function() {
+    async function () {
       test.click("#coretest-radiotest-5");
       test.click("#coretest-opt5_textedit");
       test.assert(!test.qS("#coretest-opt5_textedit").matches(".wh-form__field--error, .wh-form__field--everfailed"), "Should not be in failed state yet");
@@ -94,7 +94,7 @@ test.registerTests(
     },
 
     'Test number field',
-    async function() {
+    async function () {
       const field = test.qS('#coretest-number');
       const numbergroup = test.qS('#coretest-number').closest('.wh-form__fieldgroup');
       test.fill('#coretest-number', '5');
@@ -111,7 +111,7 @@ test.registerTests(
     },
 
     'Test datetime field',
-    async function() {
+    async function () {
       test.eq('', test.qS('#coretest-dateofbirth').validationMessage || '');
 
       const dateofbirthgroup = test.qS('#coretest-dateofbirth').closest('.wh-form__fieldgroup');
@@ -137,7 +137,7 @@ test.registerTests(
     },
 
     'Test radio visiblity and checks',
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?customemailvalidator=1');
 
       //      test.assert(!test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains("wh-form__fieldgroup--error"));
@@ -173,7 +173,7 @@ test.registerTests(
     },
 
     'Test checkboxes min/max',
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?customemailvalidator=1');
 
       setRequiredFields();
@@ -242,7 +242,7 @@ test.registerTests(
     },
 
     'Test server fallback error handling',
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/');
 
       // Check for correct labeling
@@ -267,7 +267,7 @@ test.registerTests(
     },
 
     'Test server side errors',
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/');
       setRequiredFields();
 
@@ -326,7 +326,7 @@ test.registerTests(
     //the following tests only test the API (and for compatibility with parlsey). We can get through these tests without actually responding to the user (ie no triggers)
     {
       name: 'Test builtin validation API',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const formhandler = FormBase.getForNode(test.qS('#coreform'));
         test.eq(0, test.qSA('.wh-form__fieldgroup--error').length, "Form should be initially clean of errors");
 
@@ -396,7 +396,7 @@ test.registerTests(
 
     {
       name: 'Test built-in validation far away validation',
-      test: function(doc, win) {
+      test: function (doc, win) {
         win.scrollTo(0, doc.documentElement.scrollHeight - win.innerHeight);
         test.assert(!test.canClick(test.qS('#coretest-email')), '#coretest-email should be out of sight');
         test.click(test.qS('.validatebutton'));
@@ -404,7 +404,7 @@ test.registerTests(
       waits: ['ui']
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.canClick(test.qS('#coretest-email')), '#coretest-email should be back in of sight');
         test.assert(test.hasFocus(test.qS('#coretest-email')), '#coretest-email should have focus');
       }
@@ -415,7 +415,7 @@ test.registerTests(
       loadpage: test.getTestSiteRoot() + 'testpages/formtest/'
     },
 
-    async function(doc, win) {
+    async function (doc, win) {
       const setvalidatorgroup = test.qS('#coretest-setvalidator').closest('.wh-form__fieldgroup');
       test.assert(!setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'));
 
@@ -433,7 +433,7 @@ test.registerTests(
       loadpage: test.getTestSiteRoot() + 'testpages/formtest/'
     },
 
-    async function(doc, win) {
+    async function (doc, win) {
       const setvalidatorgroup = test.qS('#coretest-setvalidator').closest('.wh-form__fieldgroup');
       test.assert(!setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'));
 
@@ -449,7 +449,7 @@ test.registerTests(
       loadpage: test.getTestSiteRoot() + 'testpages/formtest/'
     },
 
-    async function(doc, win) {
+    async function (doc, win) {
       const setvalidatorgroup = test.qS('#coretest-setvalidator').closest('.wh-form__fieldgroup');
       test.assert(!setvalidatorgroup.classList.contains('wh-form__fieldgroup--error'));
 
@@ -467,7 +467,7 @@ test.registerTests(
       name: 'Test odd radio validation behaviour',
       loadpage: test.getTestSiteRoot() + 'testpages/formtest/'
     },
-    async function(doc, win) {
+    async function (doc, win) {
       test.click(test.qS('#submitbutton'));
       await test.wait('ui');
       test.assert(test.qS('[data-wh-form-group-for="requiredradio"]').classList.contains('wh-form__fieldgroup--error'));
@@ -480,7 +480,7 @@ test.registerTests(
     //load the page without initial checkboxes selected
     { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?nocheckboxselect=1' },
 
-    async function() {
+    async function () {
       test.assert(!test.qS('[data-wh-form-group-for=checkboxes]').classList.contains("wh-form__fieldgroup--error"));
       test.click(test.qS('#submitbutton'));
       await test.wait('ui');
@@ -488,7 +488,7 @@ test.registerTests(
     },
 
     'Test async validation with SetupValidator',
-    async function() {
+    async function () {
       const setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm',
         {
           jshandler: "webhare_testsuite:customform2",

@@ -48,7 +48,7 @@ export function setup(options) {
       form.propWhFormhandler._setupFormHandler(formoptions);
 }
 
-dompack.register("form[data-wh-form-handler]", function(form) {
+dompack.register("form[data-wh-form-handler]", function (form) {
   //ADDME allow late registration of handlers, delay/block form submission until we have the handler
   didregister = true;
   if (handlers[form.dataset.whFormHandler] && !form.propWhFormhandler) {

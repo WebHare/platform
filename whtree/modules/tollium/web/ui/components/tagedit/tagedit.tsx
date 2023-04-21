@@ -11,7 +11,7 @@ require('./tagedit.css');
   Example usage:
     <input name="tags" value="aap;noot ; mies ;aap" class="tageditor" placeholder="Add more..." />
 
-    document.getElements("input.tageditor").each(function(input)
+    document.getElements("input.tageditor").each(function (input)
     {
       new TagEdit(input, { tagSeparator: ";" });
     });
@@ -100,7 +100,7 @@ class TagEdit {
     let tag = this._getTag(text);
     while (tag) {
       // Remove the tag from the array
-      this.tags = this.tags.filter(function(check) {
+      this.tags = this.tags.filter(function (check) {
         return check != tag;
       });
       // Get a reference to the next node to focus
@@ -121,7 +121,7 @@ class TagEdit {
   /** @short Get the tags
   */
   getValue() {
-    return this.tags.map(function(tag) {
+    return this.tags.map(function (tag) {
       return typeof tag === "string" ? tag : tag.tag;
     });
   }
@@ -366,7 +366,7 @@ class TagEdit {
       @return(bool) Whether the tag is present in the result (case-insensitive)
   */
   _testAutoCompleteResultContainsTag(text, result) {
-    return result.values.some(function(value) {
+    return result.values.some(function (value) {
       return value.value.toUpperCase() == text.toUpperCase();
     });
   }
@@ -450,12 +450,12 @@ class TagEdit {
     let res = this._validateTags(values, from_autocomplete);
 
     // When we have the valid tags, add them, return whether we have added a tag
-    res.then(function(validtags) {
+    res.then(function (validtags) {
       this._addValidTags(validtags);
       return validtags.length != 0;
     }.bind(this));
 
-    res = res["catch"](function(e) { console.error('Got exception validating tags: ', e.stack || e); return []; });
+    res = res["catch"](function (e) { console.error('Got exception validating tags: ', e.stack || e); return []; });
 
     return res;
   }
@@ -517,14 +517,14 @@ class TagEdit {
   _getTag(tag) {
     // If not searching for a string, find the requested tag object
     if (typeof tag != "string")
-      return this.tags.filter(function(check) {
+      return this.tags.filter(function (check) {
         return check === tag;
       })[0];
 
     // Find the tag with the requested text
     if (!this.options.caseSensitive)
       tag = tag.toUpperCase();
-    return this.tags.filter(function(check) {
+    return this.tags.filter(function (check) {
       check = typeof check === "string" ? check : check.tag;
       return (this.options.caseSensitive ? check : check.toUpperCase()) === tag;
     }, this)[0];
@@ -535,7 +535,7 @@ class TagEdit {
   */
   _setSelectedTag(tagNode) {
     // Find the tag with the request node
-    const tag = this.tags.filter(function(check) {
+    const tag = this.tags.filter(function (check) {
       return typeof check === "object" && check.node === tagNode;
     })[0];
     if (this.selectedTag === tag)

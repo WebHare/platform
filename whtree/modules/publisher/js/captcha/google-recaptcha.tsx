@@ -12,7 +12,7 @@ import { captcharegistry } from "@mod-publisher/js/captcha/api";
 let recaptchaload;
 let settings;
 
-window.$wh__ongooglerecaptchaloaded = function() {
+window.$wh__ongooglerecaptchaloaded = function () {
   recaptchaload.resolve();
 };
 

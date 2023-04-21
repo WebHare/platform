@@ -1110,7 +1110,7 @@ export default class ListView {
       });
     this.dragnode.className = 'dragbodyholder';
 
-    rows.forEach(function(data, rownum) {
+    rows.forEach(function (data, rownum) {
       const rowel = dompack.create("div", {
         className: "listrow drag",
         style: {
@@ -1342,7 +1342,7 @@ export default class ListView {
     // Save the original widths and minwidths, plus some info we need in _applySplitMove
     this.draginfo = {
       lastpos: { x: event.detail.movedX, y: event.detail.movedY },
-      orgsizes: this.cols.map(function(item) {
+      orgsizes: this.cols.map(function (item) {
         return {
           width: item.width,
           minwidth: item.minwidth,
@@ -1368,12 +1368,12 @@ export default class ListView {
     }
 
     // Calculate how much the split may be moved to the left
-    this.draginfo.room_left = Math.min.apply(Math, left_resize.map(function(colnr) {
+    this.draginfo.room_left = Math.min.apply(Math, left_resize.map(function (colnr) {
       return this.draginfo.orgsizes[colnr].room;
     }.bind(this)));
 
     // And to the right
-    this.draginfo.room_right = Math.min.apply(Math, right_resize.map(function(colnr) {
+    this.draginfo.room_right = Math.min.apply(Math, right_resize.map(function (colnr) {
       return this.draginfo.orgsizes[colnr].room;
     }.bind(this)));
 
@@ -1781,7 +1781,7 @@ export default class ListView {
   // Returns number of lines per row
   _setupRowLayoutCells(datacolumns, layout, dragmode) {
     // reset datacolumns x,y,w,h
-    datacolumns.forEach(function(item) { item.x = -1; item.y = 0; item.w = 1; item.h = 1; });
+    datacolumns.forEach(function (item) { item.x = -1; item.y = 0; item.w = 1; item.h = 1; });
 
     if (!layout || !layout.length) //no layout specified
     {
@@ -1922,10 +1922,10 @@ export default class ListView {
 
   _calculateCoupledColumns() {
     // Reset coupling. Mark all splits as coupled to themselves
-    this.cols.forEach(function(item, idx) { item.coupled_cols = [idx]; });
+    this.cols.forEach(function (item, idx) { item.coupled_cols = [idx]; });
 
     // Make sure coupled columns use the same coupled_cols arrays
-    this.datacolumns.forEach(function(cell) {
+    this.datacolumns.forEach(function (cell) {
       if (!cell.resizable) {
         let rightnr = cell.x + cell.w;
         if (rightnr >= this.cols.length) // Right-split? Change to 0, to indicate 'don't move'.
@@ -1940,8 +1940,8 @@ export default class ListView {
   */
   _calculateRowLayoutColMinWidths() {
     // Gather the datacolumns per start position, for easy access
-    const celllists = this.cols.map(function() { return []; });
-    this.datacolumns.forEach(function(cell) {
+    const celllists = this.cols.map(function () { return []; });
+    this.datacolumns.forEach(function (cell) {
       if (cell.x != -1)
         celllists[cell.x].push(cell);
     });
@@ -1952,9 +1952,9 @@ export default class ListView {
       rows.push({ minwidth: 0, until: -1 });
 
     // Process one column at a time
-    this.cols.forEach(function(col, colidx) {
+    this.cols.forEach(function (col, colidx) {
       // Administrate the cells that start at this column (minwidth they need to have, and nr of their last column)
-      celllists[colidx].forEach((function(cell) {
+      celllists[colidx].forEach((function (cell) {
         for (let rownr = cell.y; rownr < cell.y + cell.h; ++rownr) {
           rows[rownr].minwidth = cell.minwidth;
           rows[rownr].lastcolumn = cell.x + cell.w - 1;
@@ -1963,11 +1963,11 @@ export default class ListView {
 
       // Calculate the minwidth, by getting max of left minwidth for all columns that end at this column
       let minwidth = ListColumn.minwidth;
-      rows.forEach(function(row) { if (row.lastcolumn == colidx && row.minwidth > minwidth) minwidth = row.minwidth; });
+      rows.forEach(function (row) { if (row.lastcolumn == colidx && row.minwidth > minwidth) minwidth = row.minwidth; });
       col.minwidth = minwidth;
 
       // Adjust minwidth for the cols that end at a later column
-      rows.forEach(function(row) { row.minwidth -= minwidth; });
+      rows.forEach(function (row) { row.minwidth -= minwidth; });
     });
   }
 

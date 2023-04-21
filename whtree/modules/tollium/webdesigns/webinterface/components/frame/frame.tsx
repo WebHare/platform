@@ -756,7 +756,7 @@ export default class Frame extends ComponentBase {
           };
           const self = this;
           let senterror = false;
-          navigator.geolocation.getCurrentPosition(function(pos) {
+          navigator.geolocation.getCurrentPosition(function (pos) {
             // Success :-) Return the current location
             self.queueMessage("message", {
               status: 0,
@@ -768,7 +768,7 @@ export default class Frame extends ComponentBase {
               heading: pos.coords.heading,
               speed: pos.coords.speed
             });
-          }, function(err) {
+          }, function (err) {
             // getCurrentPosition also gives a timeout after an error on Chrome
             if (senterror)
               return;
@@ -1165,7 +1165,7 @@ export default class Frame extends ComponentBase {
         el.removeAttribute('todd-savedtabindex');
       });
     } else {
-      domfocus.getFocusableComponents(this.node, false).forEach(function(el) {
+      domfocus.getFocusableComponents(this.node, false).forEach(function (el) {
         el.setAttribute("todd-savedtabindex", el.hasAttribute("tabindex") ? el.getAttribute("tabindex") : "none");
         el.setAttribute("tabindex", "-1");
       });
@@ -1375,7 +1375,7 @@ export default class Frame extends ComponentBase {
     if (Object.keys(this.pendingmessages).length && !this.isdestroyed) {
       const ids = [];
       Object.keys(this.pendingmessages).forEach(key => ids.push("'" + key + "' (" + this.pendingmessages[key][0].type + ")"));
-      //var ids = Object.keys(this.pendingmessages).map(function(name){ return "'" + name + "' (" + this.pendingmessages[name][0].type + ")"; });
+      //var ids = Object.keys(this.pendingmessages).map(function (name){ return "'" + name + "' (" + this.pendingmessages[name][0].type + ")"; });
       console.log("Some components were sent but not added: " + ids.join(", "));
       this.pendingmessages = {};
     }

@@ -25,7 +25,7 @@ test.registerTests(
       loadpage: test.getCompTestPage('slider'),
       waits: ['ui']
     },
-    async function() {
+    async function () {
       // This was fixed at 200px, should have been set through component width
       const sliderlength = test.compByName("componentpanel").querySelector(".wh-slider-holder").getBoundingClientRect().width;
       test.eq(500, sliderlength);
@@ -38,7 +38,7 @@ test.registerTests(
       test.eq("50", knob.textContent);
     },
     "Test enabled",
-    async function() {
+    async function () {
       test.click(test.compByName('enable'));
       await test.wait('ui');
 

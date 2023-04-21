@@ -53,7 +53,7 @@ document.addEventListener("wh:wrdauth-loginfailed", e => {
 
 dialogapi.setupDialogs(options => dialog.createDialog('mydialog', options));
 
-window.getTidTest = function() {
+window.getTidTest = function () {
   return { //this never used, but we want this for the tid scanner
     consolelog: getTid("webhare_testsuite:webdesigns.basetest.consolelog"),
     unicode2028: getTid("webhare_testsuite:test.unicode_2028"),
@@ -64,7 +64,7 @@ window.getTidTest = function() {
   };
 };
 
-window.getIconTest = function() {
+window.getIconTest = function () {
   return { //this never used, but we want this for the icon scanner
     consolelog: /*icon*/'tollium:status/not_available'
   };
@@ -79,7 +79,7 @@ import * as ga4 from '@mod-publisher/js/analytics/ga4';
 import * as gtm from '@mod-publisher/js/analytics/gtm';
 import * as consenthandler from '@mod-publisher/js/analytics/consenthandler';
 
-window.revokeConsent = function() { consenthandler.setConsent([]); };
+window.revokeConsent = function () { consenthandler.setConsent([]); };
 
 async function startCookieRequest() {
   //launch a banner..

@@ -16,7 +16,7 @@ test.registerTests(
 
     {
       name: 'opensplit',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const A03 = test.getMenu(['M01', 'A03']);
         test.click(A03);
       },
@@ -25,7 +25,7 @@ test.registerTests(
 
     {
       name: 'verifysplits',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //The splits should be stretched to fill the body
         const splitleft = test.compByName("split_left");
         const splitright = test.compByName("split_right");

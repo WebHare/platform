@@ -169,7 +169,7 @@ function fixCssUrl(filePath) {
 
 module.exports = (captureplugin, options = {}) => ({
   name: "sass",
-  setup: function(build) {
+  setup: function (build) {
     const { rootDir = process.cwd(), } = options;
 
     build.onLoad({ filter: /.\.(scss|sass)$/, namespace: "file" }, async (args) => {
@@ -178,7 +178,7 @@ module.exports = (captureplugin, options = {}) => ({
 
       // Compile SASS to CSS
       const result = await sassRender({
-        importer: function(url, prev, done) { sassImporter(sourceFullPath, url, prev, done); },
+        importer: function (url, prev, done) { sassImporter(sourceFullPath, url, prev, done); },
         file: sourceFullPath
       });
 

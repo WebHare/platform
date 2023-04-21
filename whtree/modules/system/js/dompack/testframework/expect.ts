@@ -3,7 +3,7 @@
 
 import { log } from './log';
 
-const typeOf = function(item: object | null) {
+const typeOf = function (item: object | null) {
   if (item == null) return 'null';
 
   if (item.nodeName) {

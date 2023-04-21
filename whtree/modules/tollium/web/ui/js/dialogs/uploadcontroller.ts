@@ -46,7 +46,7 @@ class UploadDialogController {
     return {
       divider: divider,
       postfix: postfix,
-      values: values.map(function(i) { return { txt: (i / divider).toFixed(1) }; })
+      values: values.map(function (i) { return { txt: (i / divider).toFixed(1) }; })
     };
   }
 

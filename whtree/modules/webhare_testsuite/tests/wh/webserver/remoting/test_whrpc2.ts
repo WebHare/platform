@@ -5,7 +5,7 @@ import noAuthJSService from '@mod-webhare_testsuite/js/jsonrpc/client';
 test.registerTests(
   [
     "Use new JSONRPCClient in TS context",
-    async function() {
+    async function () {
       const testnoauthclient = createRPCClient("webhare_testsuite:testnoauth") as any;
       test.eq('Hi', await testnoauthclient.echo('Hi'));
       test.eq({ x: 42 }, await testnoauthclient.complexResultsSlow({ x: 42 }));
@@ -19,7 +19,7 @@ test.registerTests(
     },
 
     "Test typed client",
-    async function() {
+    async function () {
       test.eq(true, await noAuthJSService.validateEmail("nl", "pietje@webhare.dev"));
       test.eq(false, await noAuthJSService.validateEmail("en", "klaasje@beta.webhare.net"));
     }

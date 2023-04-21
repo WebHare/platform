@@ -8,7 +8,7 @@ const testemail = Math.floor(100000000 * Math.random()) + '-testformfile-online+
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       testinfo = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupABTest');
       await test.load(testinfo.abtestlink + "?appending");
 
@@ -22,7 +22,7 @@ test.registerTests(
     },
 
     'Submit a form',
-    async function() {
+    async function () {
       test.fill(test.qSA('input[type=text]')[0], 'Joe');
       test.fill(test.qSA('input[type=email]')[0], testemail);
       test.click(test.qSA('[type=submit]')[0]);
@@ -39,7 +39,7 @@ test.registerTests(
     },
 
     'Process mail',
-    async function() {
+    async function () {
       const emails = await test.waitForEmails("mailresult+jstest@beta.webhare.net", { timeout: 60000 });
       test.eq(1, emails.length, "No emails!");
       test.eq("Your Form Was Filled", emails[0].subject);

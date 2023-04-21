@@ -10,7 +10,7 @@ test.registerTests(
       waits: ['ui']
     },
     {
-      test: async function() {
+      test: async function () {
         //make sure component fits
         const comppanel = test.compByName("componentpanel");
         const textlabel = comppanel.querySelector('t-text');
@@ -91,7 +91,7 @@ test.registerTests(
       waits: ['ui']
     },
     {
-      test: async function() {
+      test: async function () {
         //make sure component fits
         const comppanel = test.compByName("componentpanel");
         const textlabel = comppanel.querySelector('t-text');

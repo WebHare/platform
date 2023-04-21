@@ -176,13 +176,13 @@ export default class ObjAction extends ActionForwardBase {
       }
     } else {
       const busylock = dompack.flagUIBusy();
-      toddupload.uploadFiles(this, function(files, callback) {
+      toddupload.uploadFiles(this, function (files, callback) {
         busylock.release();
         if (!files.length) {
           callback();
           return;
         }
-        data.items = files.map(function(i) { return { type: "file", filename: i.filename, token: i.filetoken }; });
+        data.items = files.map(function (i) { return { type: "file", filename: i.filename, token: i.filetoken }; });
         this.asyncMessage("upload", data).then(callback);
       }.bind(this), {
         mimetypes: this.mimetypes,
@@ -238,7 +238,7 @@ export default class ObjAction extends ActionForwardBase {
   }
 
   handleImageReset() {
-    return new Promise(function(resolve) {
+    return new Promise(function (resolve) {
       $todd.createMessageBox(this.owner.displayapp,
         {
           title: getTid("tollium:components.imgedit.editor.title"),
@@ -248,7 +248,7 @@ export default class ObjAction extends ActionForwardBase {
             { name: "yes", title: getTid("~yes") },
             { name: "no", title: getTid("~no") }
           ],
-          onclose: function(result) {
+          onclose: function (result) {
             if (result == "yes")
               this.queueMessage("resend", {}, true);
             resolve(result);

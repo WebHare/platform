@@ -135,8 +135,8 @@ function calculateTableSizes(table, rowcount, colcount, getcelldata, getcoldata,
     @param table
     @param rowcount
     @param colcount
-    @param getcelldata function(row, col). Must return 'min', 'calc', 'calcpr', 'colspan', 'rowspan' if a cell exists.
-    @param getcoldata function(row). Must return 'min', 'calc', 'calcpr' for the width of a row.
+    @param getcelldata function (row, col). Must return 'min', 'calc', 'calcpr', 'colspan', 'rowspan' if a cell exists.
+    @param getcoldata function (row). Must return 'min', 'calc', 'calcpr' for the width of a row.
 */
 function calculateTableWidths(table, rowcount, colcount, getcelldata, getcoldata, forheights) {
   return calculateTableSizes(table, rowcount, colcount, getcelldata, getcoldata, false);
@@ -146,11 +146,11 @@ function calculateTableWidths(table, rowcount, colcount, getcelldata, getcoldata
     @param table
     @param rowcount
     @param colcount
-    @param getcelldata function(row, col). Must return 'min', 'calc', 'calcpr', 'colspan', 'rowspan' if a cell exists.
-    @param getrowdata function(row). Must return 'min', 'calc', 'calcpr' for the height of a row.
+    @param getcelldata function (row, col). Must return 'min', 'calc', 'calcpr', 'colspan', 'rowspan' if a cell exists.
+    @param getrowdata function (row). Must return 'min', 'calc', 'calcpr' for the height of a row.
 */
 function calculateTableHeights(table, rowcount, colcount, getcelldata, getrowdata) {
-  const wrapper = function(row, col) {
+  const wrapper = function (row, col) {
     const data = getcelldata(col, row);
     if (data) {
       // Swap rowspan and colspan
@@ -364,14 +364,14 @@ export default class ObjTable extends ComponentBase {
   calculateDimWidth() //toddObjTable calculateDimWidth
   {
     let rowcount = 0;
-    this.rowgroups.forEach(function(rowgroup) { rowcount += rowgroup.rows.length; });
+    this.rowgroups.forEach(function (rowgroup) { rowcount += rowgroup.rows.length; });
     const colcount = this.cols.length;
     this.debugLog('dimensions', rowcount, colcount);
 
     const res = calculateTableWidths(this, rowcount, colcount, this.getCellForSizeCalc.bind(this, 'width'), this.getColForSizeCalc.bind(this));
     this.debugLog('dimensions', res);
 
-    this.cols.forEach(function(item, idx) {
+    this.cols.forEach(function (item, idx) {
       item.width.min = res.parts[idx].min;
       item.width.calc = res.parts[idx].calc;
     });
@@ -399,7 +399,7 @@ export default class ObjTable extends ComponentBase {
 
   calculateDimHeight() {
     let rowcount = 0;
-    this.rowgroups.forEach(function(rowgroup) { rowcount += rowgroup.rows.length; });
+    this.rowgroups.forEach(function (rowgroup) { rowcount += rowgroup.rows.length; });
     const colcount = this.cols.length;
     this.debugLog('dimensions', 'Table cell dimensions: ', colcount + 'x' + rowcount);
 
@@ -512,7 +512,7 @@ export default class ObjTable extends ComponentBase {
   }
 
   findOverlay(id) {
-    return this.overlays.filter(function(overlay) {
+    return this.overlays.filter(function (overlay) {
       return overlay.id == id;
     })[0];
   }
@@ -531,16 +531,16 @@ export default class ObjTable extends ComponentBase {
 
       case 'layout':
         //console.info("received new layout", data);
-        this.cols.forEach(function(col, i) {
+        this.cols.forEach(function (col, i) {
           col.width = $todd.ReadXMLWidths(data.cols[i]);
           col.height = $todd.ReadXMLHeights(data.cols[i]);
           col.bottomborder = data.bottomborder;
         });
-        this.rowgroups.forEach(function(rowgroup, i) {
+        this.rowgroups.forEach(function (rowgroup, i) {
           rowgroup.width = $todd.ReadXMLWidths(data.rowgroups[i]);
           rowgroup.height = $todd.ReadXMLHeights(data.rowgroups[i]);
 
-          rowgroup.rows.forEach(function(row, j) {
+          rowgroup.rows.forEach(function (row, j) {
             row.width = $todd.ReadXMLWidths(data.rowgroups[i].rows[j]);
             row.height = $todd.ReadXMLHeights(data.rowgroups[i].rows[j]);
           });
@@ -901,7 +901,7 @@ export default class ObjTable extends ComponentBase {
     this.draginfo.outline.remove();
     this.draginfo = null;
 
-    this.overlays.forEach(function(overlay) {
+    this.overlays.forEach(function (overlay) {
       overlay.node.style.pointerEvents = "";
     });
   }
@@ -1005,7 +1005,7 @@ export default class ObjTable extends ComponentBase {
     event.preventDefault();
     event.stopPropagation(); //do not
 
-    toddupload.uploadFilesForDrop(this, dragdata, function(msg, dialogclosecallback) {
+    toddupload.uploadFilesForDrop(this, dragdata, function (msg, dialogclosecallback) {
       // Upload successfully (or no files)
       msg.droplocation = "oncell";
       if (cell)
@@ -1144,7 +1144,7 @@ class ObjRowGroup extends ComponentBase {
     this.startrow = data.startrow;
 
     this.rows = [];
-    data.rows.forEach(function(row, rownum) {
+    data.rows.forEach(function (row, rownum) {
       row.rownum = rownum;
       this.rows.push(new ObjRow(this, row));
     }, this);
