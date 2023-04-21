@@ -369,7 +369,7 @@ let ajv2020: (Ajv2020 | null) = null;
 
 function getCompiledJSONSchema(schema: SchemaObject) {
   if ([
-    "http://json-schema.org/draft-06/schema#",
+    "http://json-schema.org/draft-04/schema#",
     "http://json-schema.org/draft-06/schema#",
     "http://json-schema.org/draft-07/schema#",
   ].includes(schema.$schema ?? "")) {
