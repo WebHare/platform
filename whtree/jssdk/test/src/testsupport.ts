@@ -112,5 +112,10 @@ export function scheduleLingeringProcessCheck() {
 export async function triggerGarbageCollection() {
   v8.setFlagsFromString('--expose-gc');
   const gc = vm.runInNewContext('gc');
-  setImmediate(() => gc());
+  return new Promise<void>(resolve => {
+    setImmediate(() => {
+      gc();
+      resolve();
+    });
+  });
 }
