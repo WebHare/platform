@@ -4,7 +4,7 @@ import vm from 'node:vm';
 import * as stacktrace_parser from "stacktrace-parser";
 import * as path from "path";
 import ts from "typescript";
-import { SchemaObject } from "ajv";
+import { SchemaObject } from "ajv/dist/2020";
 import * as TJS from "typescript-json-schema";
 import { dumpActiveIPCMessagePorts } from '@mod-system/js/internal/whmanager/transport';
 import '@mod-system/js/internal/whmanager/bridge'; // for whmanager registration and automatic error reporting
@@ -112,5 +112,10 @@ export function scheduleLingeringProcessCheck() {
 export async function triggerGarbageCollection() {
   v8.setFlagsFromString('--expose-gc');
   const gc = vm.runInNewContext('gc');
-  setImmediate(() => gc());
+  return new Promise<void>(resolve => {
+    setImmediate(() => {
+      gc();
+      resolve();
+    });
+  });
 }
