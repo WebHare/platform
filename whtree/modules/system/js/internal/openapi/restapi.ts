@@ -1,6 +1,6 @@
 import SwaggerParser from "@apidevtools/swagger-parser";
 import { createJSONResponse, HTTPErrorCode, WebRequest, DefaultRestParams, RestRequest, WebResponse, HTTPMethod, RestAuthorizationFunction, RestImplementationFunction, HTTPSuccessCode } from "@webhare/router";
-import Ajv, { ValidateFunction } from "ajv";
+import Ajv2020, { ValidateFunction } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import { OpenAPIV3 } from "openapi-types";
 import { resolveResource, toFSPath } from "@webhare/services";
@@ -84,7 +84,7 @@ function createErrorResponse(status: HTTPErrorCode, json: { error: string; statu
 
 // An OpenAPI handler
 export class RestAPI {
-  _ajv: Ajv | null = null;
+  _ajv: Ajv2020 | null = null;
   bundled: WHOpenAPIDocument | null = null;
   def: WHOpenAPIDocument | null = null;
   _validators = new Map<object, ValidateFunction>;
@@ -92,7 +92,7 @@ export class RestAPI {
   // Get the JSON schema validator singleton
   protected get ajv() {
     if (!this._ajv) {
-      this._ajv = new Ajv();
+      this._ajv = new Ajv2020({ allowMatchingProperties: true });
       addFormats(this._ajv);
     }
     return this._ajv;
