@@ -5,3 +5,4 @@ export { encodeString, decodeString, wildcardsToRegExp, StringEncodings } from "
 export { generateRandomId } from "./platformbased";
 export { emplace, EmplaceHandler } from "./collections";
 export { Money, MoneyRoundingMode } from "./money";
+export { addDuration, parseDuration, Duration } from "./datetime";
