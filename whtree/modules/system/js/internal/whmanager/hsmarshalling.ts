@@ -1,6 +1,7 @@
 import { LinearBufferReader, LinearBufferWriter } from "./bufs";
 // FIXME - import { Money } from "@webhare/std"; - but this breaks the shrinkwrap (it can't find @webhare/std)
 import { Money } from "../../../../../jssdk/std/money";
+import { defaultDateTime, maxDateTime, maxDateTimeTotalMsecs } from "../../../../../jssdk/hscompat/datetime";
 
 export enum VariableType {
   Uninitialized = 0x00,                 ///< Not initialised variable
@@ -96,16 +97,6 @@ export function getTypedArray<V extends ArrayVariableType, T extends HSType<V>>(
   copy.push(...array);
   return copy as T;
 }
-
-/* new Date(100000000 * 86400000) is also valid, but to keep parity with HS we set
-   it at the very last millisecond of a day
-*/
-const maxDateTimeTotalMsecs = 100000000 * 86400000 - 1;
-
-/** Maximum representable datetime
-*/
-export const maxDateTime: Date = Object.freeze(new Date(maxDateTimeTotalMsecs));
-export const defaultDateTime: Date = Object.freeze(new Date(-719163 * 86400000));
 
 export function isDate(value: unknown): value is Date {
   return Boolean(typeof value === "object" && value && "getDate" in value);
@@ -1521,12 +1512,12 @@ class JSONParser {
         }
         let value: Date;
         if (token === "")
-          value = new Date(-719163 * 86400000);
+          value = defaultDateTime;
         else if (token === "MAX")
           value = maxDateTime;
         else if (token[0] === 'T') {
           const msecs = Number(token.substring(1));
-          value = new Date(-719163 * 86400000 + msecs);
+          value = new Date(defaultDateTime.getTime() + msecs);
         } else {
           if (token.indexOf("T") === -1)
             token = token + "T000000";

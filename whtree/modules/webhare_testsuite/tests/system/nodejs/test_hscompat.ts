@@ -6,7 +6,7 @@
 
 import * as test from "@webhare/test";
 import { Money } from "@webhare/std";
-import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts } from "@webhare/hscompat";
+import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime } from "@webhare/hscompat";
 import { compare } from "@webhare/hscompat/algorithms";
 import { getTypedArray, IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 
@@ -279,11 +279,11 @@ function testHSON() {
 
   testHSONEnDeCode('hson:b""', Buffer.from(''));
 
-  testHSONEnDeCode('hson:d""', new Date(-864000 * 1000 * 10000000));
+  testHSONEnDeCode('hson:d""', defaultDateTime);
 
   testHSONEnDeCode('hson:d"T12345"', makeDateFromParts(0, 12345));
 
-  testHSONEnDeCode('hson:d"MAX"', new Date(+864000 * 1000 * 10000000));
+  testHSONEnDeCode('hson:d"MAX"', maxDateTime);
 
   testHSONEnDeCode('hson:d"00010101T000000.001"', makeDateFromParts(1, 1));
 
