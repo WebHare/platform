@@ -17,6 +17,8 @@
       <free tag="WHUSER_COMMENT" title="Usermanagement app comment"/>
       <boolean tag="OVERRIDE_PASSWORDCHECKS" title="Override password checks" />
       <free tag="PASSWORDCHECKS" title="Password check overrides for users in this unit" />
+      <boolean tag="OVERRIDE_EXPIRATION" title="Override expiration settings" />
+      <record tag="EXPIRATION" title="Expiration settings" />
       <free tag="USEREDITPOLICY" title="User edit policy" />
     </attributes>
   </domain>

@@ -3,6 +3,7 @@
 LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::wrd/lib/internal/auth/usereditpolicy.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
@@ -27,8 +28,17 @@ PUBLIC STATIC OBJECTTYPE EditUnit EXTEND TolliumScreenBase
       ^entity->extradata := [ wrd_leftentity := data.parent ];
 
     ^override_passwordchecks->enabled := this->contexts->user->HasRight("system:sysop");
+    ^override_expiration->enabled := this->contexts->user->HasRight("system:sysop");
   }
 
+  STRING FUNCTION SelectDuration(STRING value)
+  {
+    RETURN this->RunScreen("mod::system/tolliumapps/config/settings.xml#selectduration", CELL[ value, withtime := FALSE ]);
+  }
+  STRING FUNCTION MapDuration(STRING duration)
+  {
+    RETURN GetDurationTitle(duration);
+  }
   INTEGER FUNCTION Submit()
   {
     OBJECT work := this->BeginWork( [ mutex := "wrd:usermgmt" ]);

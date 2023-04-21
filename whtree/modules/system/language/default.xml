@@ -2262,8 +2262,9 @@
     </textgroup>
     <textgroup gid="editunit">   <!-- userrights.editunit -->
       <text tid="editunit">Edit unit</text>
+      <text tid="locknologin">Lock inactive users after</text>
+      <text tid="override_expiration">Override acount expiration</text>
       <text tid="override_passwordchecks">Override password restrictions</text>
-      <text tid="passwordchecks">Password restrictions</text>
       <text tid="policy">Policy</text>
       <text tid="usereditpolicy">User edit policy</text>
     </textgroup>
