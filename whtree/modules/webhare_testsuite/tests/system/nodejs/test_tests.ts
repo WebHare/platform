@@ -10,6 +10,13 @@ async function testChecks() {
   test.throws(/Expected function to throw/, () => test.throws(/Fourty two/, () => 42));
   console.log("(you can ignore the message above about expecting a fourty two exception)");
 
+  test.eq(new Date("2023-01-01"), new Date("2023-01-01"));
+  test.eq({ deep: new Date("2023-01-01") }, { deep: new Date("2023-01-01") });
+  test.eqProps({ deep: new Date("2023-01-01") }, { deep: new Date("2023-01-01") });
+  test.throws(/Expected date/, () => test.eq(new Date("2023-01-02"), new Date("2023-01-01")));
+  test.throws(/Expected date/, () => test.eq({ deep: new Date("2023-01-02") }, { deep: new Date("2023-01-01") }));
+  test.throws(/Expected date/, () => test.eqProps({ deep: new Date("2023-01-02") }, { deep: new Date("2023-01-01") }));
+
   const x_ab = { cellA: "A", cellB: "B" };
   const x_abc = { ...x_ab, cellC: "test" };
 

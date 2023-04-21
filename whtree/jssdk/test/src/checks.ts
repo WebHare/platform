@@ -14,6 +14,10 @@ type LoggingCallback = (...args: unknown[]) => void;
 
 let onLog: LoggingCallback = console.log.bind(console) as LoggingCallback;
 
+function isDate(item: unknown) {
+  return item && Object.prototype.toString.call(item) === "[object Date]";
+}
+
 function myTypeOf(item: unknown) {
   if (item === undefined) return 'undefined';
   if (item === null) return 'null';
@@ -22,6 +26,9 @@ function myTypeOf(item: unknown) {
     if ((item as Node).nodeType === 1) return 'element';
     if ((item as Node).nodeType === 3) return (/\S/).test((item as Node).nodeValue || '') ? 'textnode' : 'whitespace';
   }
+
+  if (isDate(item))
+    return "date";
 
   return typeof item;
 }
@@ -64,6 +71,14 @@ function testDeepEq(expected: unknown, actual: unknown, path: string) {
 
   if (type_expected != type_actual)
     throw new Error("Expected type: " + type_expected + " actual type: " + type_actual + (path != "" ? " at " + path : ""));
+
+  if (type_expected === 'date') {
+    expected = JSON.stringify(expected);
+    actual = JSON.stringify(actual);
+    if (expected !== actual)
+      throw new Error("Expected date: " + expected + " actual date: " + actual + (path != "" ? " at " + path : ""));
+    return;
+  }
 
   if (['element', 'textnode', 'whitespace'].includes(type_expected) && expected != actual) {
     onLog("Expected node: ", expected);
@@ -282,6 +297,11 @@ function eqPropsRecurse<T>(expect: RecursivePartial<T>, actual: T, path: string,
     case "undefined": return;
     case "object":
       {
+        if (isDate(expect) || isDate(actual)) {
+          testDeepEq(expect, actual, path);
+          return;
+        }
+
         if (expect === null) {
           if (expect !== actual) {
             onLog({ expect, actual });
