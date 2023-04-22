@@ -1824,7 +1824,7 @@ export default class EditorBase {
     if (locators.start.element != locators.end.element || locators.start.offset != locators.end.offset)
       splitlocators.push({ locator: locators.end, toward: 'end' });
 
-    //console.log('rs presplit: ', richdebug.getStructuredOuterHTML(this.getBody(), splitlocators.map(function(item){return item.locator;})));
+    //console.log('rs presplit: ', richdebug.getStructuredOuterHTML(this.getBody(), splitlocators.map(function (item){return item.locator;})));
     const parts = domlevel.splitDom(splitparent, splitlocators, undolock.undoitem);
     //console.log(parts);
     //console.log('rs post: ', richdebug.getStructuredOuterHTML(this.getBody(), parts));
@@ -2033,10 +2033,10 @@ export default class EditorBase {
       console.log("CP item", item, item.kind);
 
       if (item.kind == "string")
-        item.getAsString(function(str) { console.warn(str); });
+        item.getAsString(function (str) { console.warn(str); });
       else if (item.kind == "file") {
         const reader = new FileReader();
-        reader.onload = function(loadevent) {
+        reader.onload = function (loadevent) {
           console.warn(loadevent.target.result);
         };
         reader.readAsDataURL(item.getAsFile());
@@ -2662,7 +2662,7 @@ export default class EditorBase {
     if (this.repeatupdatetableuntil && Date.now() < this.repeatupdatetableuntil && !this.scheduledupdatetableeditors) {
       //reschedule us on the next available frame after 200ms has passed
       this.scheduledupdatetableeditors = true;
-      this.repeatupdatetabletimeout = setTimeout((function() { this.repeatupdatetableanimframe = requestAnimationFrame(this.rescheduledUpdateTableEditors.bind(this)); }).bind(this), 200);
+      this.repeatupdatetabletimeout = setTimeout((function () { this.repeatupdatetableanimframe = requestAnimationFrame(this.rescheduledUpdateTableEditors.bind(this)); }).bind(this), 200);
     }
   }
 

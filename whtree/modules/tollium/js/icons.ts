@@ -5,7 +5,7 @@ import * as dompack from "dompack";
 import * as toddrpc from "./internal/todd.rpc.json";
 
 // Canvas pixel ratio
-const canvasRatio = (function() {
+const canvasRatio = (function () {
   const ctx = document.createElement("canvas").getContext("2d");
   const devicePixelRatio = window.devicePixelRatio || 1,
     backingStoreRatio = ctx.webkitBackingStorePixelRatio ||
@@ -233,12 +233,12 @@ async function processImage(key, images, data) {
     imgloads.push(new Promise((resolve, reject) => {
       if (dompack.debugflags.ild)
         console.log("Reading image " + idx);
-      imgnode.onload = function() {
+      imgnode.onload = function () {
         if (dompack.debugflags.ild)
           console.log("Read image " + idx);
         resolve(idx);
       };
-      imgnode.onerror = function(e) {
+      imgnode.onerror = function (e) {
         reject("Error reading image " + idx + " for " + key + " (" + imgsrc + ")");
       };
       imgnode.src = imgsrc;

@@ -11,7 +11,7 @@ import "../../common.lang.json";
     @param options Options
     @cell options.text
     @cell options.icon "confirmation", "error", "information", "question", "unrecoverable", "warning"
-    @cell options.onclose Called when a buttons is clicked. Signature: function(buttonname)
+    @cell options.onclose Called when a buttons is clicked. Signature: function (buttonname)
     @cell options.buttons List of buttons
     @cell options.buttons.name Name of button
     @cell options.buttons.title Title of button
@@ -77,7 +77,7 @@ export async function runSimpleScreen(app, options) //TODO move API closer to to
 
     const newscreen = app.createNewScreenObject('dialog', 'frame', $todd.componentsToMessages(dialog));
     options.buttons.forEach(button => {
-      newscreen.setMessageHandler("action_" + button.name, "execute", function(data, callback) {
+      newscreen.setMessageHandler("action_" + button.name, "execute", function (data, callback) {
         //ADDME if (! onclick or something like that i think) ?
         newscreen.terminateScreen();
         if (options.onclose)

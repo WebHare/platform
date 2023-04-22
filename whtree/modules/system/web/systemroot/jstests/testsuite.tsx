@@ -99,7 +99,7 @@ class TestFramework {
         dompack.toggleClass(roots.html, 'dompack--busymodal', evt.detail.islock);
     });
 
-    document.getElementById('stoptests').addEventListener('click', function(e) { this.stop = true; this.stoppromise.reject(Error("test was cancelled")); e.target.disabled = "disabled"; }.bind(this));
+    document.getElementById('stoptests').addEventListener('click', function (e) { this.stop = true; this.stoppromise.reject(Error("test was cancelled")); e.target.disabled = "disabled"; }.bind(this));
     qS('#logmoreinfo').addEventListener('click', () => document.documentElement.classList.add('testframework--showfullerror'));
     qS('#testframetabs').addEventListener(`click`, evt => {
       if (evt.target.classList.contains("testframetab")) {
@@ -314,11 +314,11 @@ class TestFramework {
       .then(this.runAllTestSteps.bind(this));
 
     // Mark test as finished.
-    result = result.finally(function() { test.finished = true; });
+    result = result.finally(function () { test.finished = true; });
 
     // If we're in report mode, swallow any errors from loading the iframe / test registration
     if (this.reportid)
-      result = result.catch(function(e) { console.error('Swallowed exception', e); });
+      result = result.catch(function (e) { console.error('Swallowed exception', e); });
 
     return result;
   }
@@ -425,7 +425,7 @@ class TestFramework {
       result = result.then(this.doLoadPage.bind(this, step));
 
     // Initialize the signals - AFTER loading the page.
-    result = result.then(function() {
+    result = result.then(function () {
       // Modify signals, don't re-assign! We want to modify the object bound to executeWait.
       this.getFrameRecord().currentsignals.pageload = this.waitForPageFrameLoad(this.getFrameRecord(), { timeout: -1 }); // no timeout
 
@@ -447,7 +447,7 @@ class TestFramework {
 
     // Schedule all waits serially after the tests. Clears signals if it uses them
     if (step.waits)
-      step.waits.forEach(function(item) { result = result.then(this.executeWait.bind(this, step, item, this.getFrameRecord().currentsignals)); }.bind(this));
+      step.waits.forEach(function (item) { result = result.then(this.executeWait.bind(this, step, item, this.getFrameRecord().currentsignals)); }.bind(this));
 
     // After the waits have all executed, see if a page load happened we did'nt expect
     result = result.then(() => {
@@ -455,7 +455,7 @@ class TestFramework {
       for (const f of this.testframes)
         if (f.currentsignals.pageload) {
           var err = new Error(`Page load happened in frame ${f.name} but was not expected`);
-          const errorfunc = function() { throw err; };
+          const errorfunc = function () { throw err; };
           // FIXME: test if this really works. As far as I read the specs, if signals.pageload is already resolved/rejected
           // it should win the race, ignoring the second Promise.resolve().
           return Promise.race([f.currentsignals.pageload.then(errorfunc, errorfunc), Promise.resolve()]);
@@ -465,8 +465,8 @@ class TestFramework {
     // If marked as xfail, give an error when no exception, and swallow exceptions (but note them & update state)
     if (step.xfail) {
       result = result.then(
-        function() { throw new Error("Step " + idx + " should have failed, but didn't (is marked as xfail)"); },
-        function() {
+        function () { throw new Error("Step " + idx + " should have failed, but didn't (is marked as xfail)"); },
+        function () {
           // Note & swallow the execution
           test.xfails = test.xfails || [];
           test.xfails.push({ stepname: step.name || '', stepnr: idx, text: step.xfail, e: 'Failed as expected' });
@@ -474,7 +474,7 @@ class TestFramework {
         }.bind(this));
     }
 
-    result = result.finally(function() {
+    result = result.finally(function () {
       //        for (const f of this.testframes)
       //          f.currentsignals = null;
       test.runsteps = test.runsteps || [];
@@ -606,7 +606,7 @@ class TestFramework {
     document.getElementById('currentwait').textContent = "Wait: pageload";
     document.getElementById('currentwait').style.display = "inline-block";
 
-    return this.waitForPageFrameLoad(framerec).finally(function() {
+    return this.waitForPageFrameLoad(framerec).finally(function () {
       document.getElementById('currentwait').style.display = "none";
     });
   }
@@ -791,7 +791,7 @@ class TestFramework {
       const text = "Wait: " + (step.wait ? "callback" : "test promise");
       document.getElementById('currentwait').textContent = text;
       document.getElementById('currentwait').style.display = "inline-block";
-      deferred.promise = deferred.promise.finally(function() { document.getElementById('currentwait').style.display = "none"; });
+      deferred.promise = deferred.promise.finally(function () { document.getElementById('currentwait').style.display = "none"; });
     }
 
     if (step.test) {
@@ -837,7 +837,7 @@ class TestFramework {
     this.timedReject(deferred, "Timeout when waiting for function", step.timeout || this.waittimeout);
 
     // If the timeout triggers, cancel the animationframerequest
-    deferred.promise.catch(function() {
+    deferred.promise.catch(function () {
       if (this.animationframerequest)
         cancelAnimationFrame(this.animationframerequest);
       this.animationframerequest = 0;
@@ -876,7 +876,7 @@ class TestFramework {
 
     const deferred = dompack.createDeferred();
     if (dompack.debugflags.bus)
-      deferred.promise = deferred.promise.then(function(x) { console.debug("Finished wait for '" + item + "'"); return x; });
+      deferred.promise = deferred.promise.then(function (x) { console.debug("Finished wait for '" + item + "'"); return x; });
 
     // When the test is cancelled, resolve the wait promise immediately
     this.stoppromise.promise.then(deferred.resolve, deferred.reject);
@@ -922,7 +922,7 @@ class TestFramework {
 
           console.log('start wait for upload');
           framerec.win.__todd.waitForUploadProgress(deferred.resolve);
-          deferred.promise.then(function() { console.log('upload done'); });
+          deferred.promise.then(function () { console.log('upload done'); });
           deferred.promise.then(() => this.currentwaitstack = null);
 
           this.timedReject(deferred, "Timeout when waiting for upload progress", step.timeout || this.waittimeout);
@@ -961,7 +961,7 @@ class TestFramework {
       case "scroll":
         {
           const win = this.getFrameRecord().win;
-          var scrollwaiter = function() {
+          var scrollwaiter = function () {
             //this event will fire on scroll, and then schedule a delay() to allow other scroll handlers to run
             setTimeout(deferred.resolve, 0);
             this.currentwaitstack = null;
@@ -996,7 +996,7 @@ class TestFramework {
       waitforanimationframe: 'animationframe'
     };
 
-    Object.entries(translations, function([name, value]) {
+    Object.entries(translations, function ([name, value]) {
       if (step[name]) {
         console.error(name + " is deprecated, use waits:[\"" + value + "\"]");
         waits.push(value);
@@ -1012,7 +1012,7 @@ class TestFramework {
     }
 
     if (step.waituntil) {
-      console.error('waituntil is deprecated, use waits: [function(doc, win) { ... } ]', step);
+      console.error('waituntil is deprecated, use waits: [function (doc, win) { ... } ]', step);
       waits.unshift(step.waituntil);
       delete step.waituntil;
     }
@@ -1119,8 +1119,8 @@ class TestFramework {
       Object.assign(node_teststatus.style, { 'font-weight': 'bold', 'color': '#FF0000' });
     } else {
       const stepname = (this.currentsteps[this.currentstep] || {}).name;
-      const xfails = test.xfails ? ' (xfails: ' + test.xfails.map(function(v) { return v.stepnr + (v.stepname ? ': ' + v.stepname : ''); }).join(', ') + ')' : '';
-      const fails = test.fails ? ' (fails: ' + test.fails.map(function(v) { return v.stepnr + (v.stepname ? ': ' + v.stepname : ''); }).join(', ') + ')' : '';
+      const xfails = test.xfails ? ' (xfails: ' + test.xfails.map(function (v) { return v.stepnr + (v.stepname ? ': ' + v.stepname : ''); }).join(', ') + ')' : '';
+      const fails = test.fails ? ' (fails: ' + test.fails.map(function (v) { return v.stepnr + (v.stepname ? ': ' + v.stepname : ''); }).join(', ') + ')' : '';
 
       let suffix = (stepname ? ': ' + stepname : '') + fails + xfails;
       if (!suffix && this.currentstep >= this.currentsteps.length)

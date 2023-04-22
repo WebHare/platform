@@ -13,7 +13,7 @@ test.registerTests(
 
     {
       name: 'imagebuttontest',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = rtetest.getRTE(win, 'editor');
         const geoffreynode = rte.qSA("br")[1].nextSibling;
         rtetest.setRTESelection(win, rte.getEditor(),
@@ -45,7 +45,7 @@ test.registerTests(
 
     {
       name: 'verifyimage',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const img = test.compByName('editor').querySelector("div.wh-rtd-editor-bodynode img");
         //did it return to portrait ?
         test.eq(600, img.height);

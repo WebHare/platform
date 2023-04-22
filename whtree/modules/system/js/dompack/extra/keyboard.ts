@@ -40,12 +40,12 @@ function getKeyNames(event: NormalizedKeyboardEvent) {
       // The key is pressed. Add the modifier name to all current names.
       const modifier: string | string[] = propnames[propname];
       if (!Array.isArray(modifier))
-        names.forEach(function(arr) { arr.push(modifier); });
+        names.forEach(function (arr) { arr.push(modifier); });
       else {
         // Multiple modifiers map to this key, duplicate all result sequences for every modifier
         const newkeys: string[][] = [];
-        modifier.forEach(function(singlemodifier) {
-          names.forEach(function(arr) {
+        modifier.forEach(function (singlemodifier) {
+          names.forEach(function (arr) {
             newkeys.push(arr.concat([singlemodifier]));
           });
         });
@@ -54,7 +54,7 @@ function getKeyNames(event: NormalizedKeyboardEvent) {
     }
   });
 
-  return names.map(function(arr) {
+  return names.map(function (arr) {
     // Sort the modifier names
     arr = arr.sort();
     arr.push(getFinalKey(event));
@@ -67,7 +67,7 @@ function validateKeyName(key: string) {
   modifiers.pop();
 
   // Check for allowed modifiers
-  modifiers.forEach(function(mod) {
+  modifiers.forEach(function (mod) {
     if (!["Accel", "Alt", "Control", "Meta", "Shift"].includes(mod))
       throw new Error("Illegal modifier name '" + mod + "' in key '" + key + "'");
   });
@@ -96,7 +96,7 @@ type KeyboardHandlerOptions =
     keymap: Keymap
     options.stopmapped - preventDefault and stopPropagation on any key we have in our map
     options.dontpropagate - string array of keys not to propagate out of this object
-    options.onkeypress - when set, call for all keypresses. signature: function(event, key). Should always return true and preventDefault (and/or stop) the event to cancel its handling
+    options.onkeypress - when set, call for all keypresses. signature: function (event, key). Should always return true and preventDefault (and/or stop) the event to cancel its handling
     options.listenoptions - addEventListener options (eg \{capture:true\})
  */
 export default class KeyboardHandler {
@@ -173,7 +173,7 @@ export default class KeyboardHandler {
         is_special_combo = true;
 
       // These exact combo's are wanted by all inputs
-      ["Accel+A", "Accel+V", "Accel+C", "Accel+X"].forEach(function(name) {
+      ["Accel+A", "Accel+V", "Accel+C", "Accel+X"].forEach(function (name) {
         is_special_combo = is_special_combo || keynames.indexOf(name) != -1;
       });
       return is_special_combo;

@@ -208,7 +208,7 @@ export default class ObjIFrame extends ComponentBase {
         obj.addEventListener(type, fn, false);
       } else {
         //replace 'fn' with a wrapper that will invoke it with an event
-        fn = function() { return fn.apply(this, [window.event]); };
+        fn = function () { return fn.apply(this, [window.event]); };
         obj.attachEvent('on' + type, fn);
       }
     } catch (e) {
@@ -303,7 +303,7 @@ export default class ObjIFrame extends ComponentBase {
   }
 }
 
-window.addEventListener('message', function(evt) {
+window.addEventListener('message', function (evt) {
   if (typeof evt.data != "object")
     return; // Tollium expects a data RECORD
 

@@ -8,7 +8,7 @@ let setupdata;
 test.registerTests(
   [
     "Prepare",
-    async function() {
+    async function () {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup'
         , { createsysop: true });
       await test.load(setupdata.testportalurl);
@@ -22,7 +22,7 @@ test.registerTests(
     },
 
     "Test dashboard menu",
-    async function() {
+    async function () {
       //test dashboard now at the end
       test.eq("TEST GROUP", test.qS(".dashboard__menuitem:last-of-type .dashboard__menusectiontitle").textContent);
       test.eq("Dashboard", test.qS(".dashboard__menuitem:last-of-type .dashboard__app:last-of-type .dashboard__apptitle").textContent);

@@ -12,7 +12,7 @@ test.registerTests(
       waits: ["ui"]
     },
     "test resizing",
-    async function() {
+    async function () {
       const listview = test.compByName("list").propTodd.list;
       test.eq(0, listview.getFirstVisibleRow());
 

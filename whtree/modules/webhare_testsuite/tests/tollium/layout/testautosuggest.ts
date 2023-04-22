@@ -16,7 +16,7 @@ test.registerTests(
     },
 
     'legacy combobox',
-    async function() {
+    async function () {
       test.click(test.compByName('legacystatic'));
       await test.waitUIFree();
 
@@ -38,13 +38,13 @@ test.registerTests(
     },
 
     'testcombobox',
-    async function() {
+    async function () {
       test.click(test.compByName('enablecombo'));
       await test.waitUIFree();
     },
 
     'cant triger disabled combo',
-    async function() {
+    async function () {
       test.click(test.compByName('combo'));
       test.assert(!test.compByName('combo').querySelector("input").classList.contains("t-selectlist--autosuggesting"));
 
@@ -54,7 +54,7 @@ test.registerTests(
     },
 
     'CAN triger enabled combo',
-    async function() {
+    async function () {
       test.click(test.compByName('combo'));
       test.fill(test.compByName('combo').querySelector("input"), "COMBO");
       test.assert(test.compByName('combo').querySelector("input").classList.contains("t-selectlist--autosuggesting"));
@@ -71,7 +71,7 @@ test.registerTests(
     },
 
     'Test dynamic autocomplete',
-    async function() {
+    async function () {
       test.click(test.compByName('combodynamic'));
       test.fill(test.compByName('combodynamic').querySelector("input"), "Test");
       test.assert(test.compByName('combodynamic').querySelector("input").classList.contains("t-selectlist--autosuggesting"));
@@ -86,7 +86,7 @@ test.registerTests(
     },
 
     'Test tagedit',
-    async function() {
+    async function () {
       await test.pressKey('Tab'); //moves to tagedit
       test.assert(!test.getOpenSelectList(), "Tab should close current selectlist");
 
@@ -115,7 +115,7 @@ test.registerTests(
     },
 
     'Test restricted tagedit',
-    async function() {
+    async function () {
       test.click(test.compByName('tageditrestrict').querySelector("input"));
 
       test.fill(test.compByName('tageditrestrict').querySelector("input"), "test");

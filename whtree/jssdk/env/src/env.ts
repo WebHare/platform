@@ -14,7 +14,7 @@ let hookedfetch = false;
 
 function hookFetch() {
   const originalfetch = globalThis.fetch;
-  globalThis.fetch = async function(input: RequestInfo | URL, init?: RequestInit) {
+  globalThis.fetch = async function (input: RequestInfo | URL, init?: RequestInit) {
     const method = init?.method || "GET";
     const url = input instanceof URL ? input.toString() : input;
     if (flags.wrq)

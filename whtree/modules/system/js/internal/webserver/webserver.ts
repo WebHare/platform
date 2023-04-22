@@ -33,14 +33,14 @@ class WebServer {
       console.log(`${req.method} ${req.headers.host} ${req.url}`);
       //TODO timeout for receiving 'end' event or something else that discards too long requests
       let body = '';
-      req.on('readable', function() {
+      req.on('readable', function () {
         const inp = req.read();
         if (inp)
           body += inp;
       });
 
       await new Promise<void>(resolve =>
-        req.on('end', function() {
+        req.on('end', function () {
           resolve();
         }));
 

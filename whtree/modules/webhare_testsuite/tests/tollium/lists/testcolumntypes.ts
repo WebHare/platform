@@ -18,7 +18,7 @@ test.registerTests(
     },
     {
       name: 'statictree',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //Test whether distribute sizes bothered to make use of all available room for the columns
         const list = test.compByName('list1');
 
@@ -95,7 +95,7 @@ test.registerTests(
 
     {
       name: 'statictree-sort',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.click(test.qSA('.listheader span').filter(span => span.textContent.includes("Date"))[0]);
 
         /* First click on Date should sort: <R01> <R03> <R02> */
@@ -107,7 +107,7 @@ test.registerTests(
 
     {
       name: 'clickiconcolumn',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //find the icon in col A03. icon is 16x16 so x:15/y:15 should work
         const listrow = test.getCurrentScreen().getListRow('list1', '<A03>');
         const imgcell = listrow.childNodes[2];

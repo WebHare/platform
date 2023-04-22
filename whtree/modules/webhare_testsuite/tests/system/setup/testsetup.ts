@@ -20,18 +20,18 @@ let pietje_resetlink, jantje_resetlink;
 test.registerTests(
   [
     {
-      test: async function() {
+      test: async function () {
         setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup');
       }
     },
     {
       name: "Start backend",
-      loadpage: function() { return webroot + 'portal1/' + setupdata.overridetoken + "&notifications=0&language=en&transport=" + test.getTestArgument(0); },
+      loadpage: function () { return webroot + 'portal1/' + setupdata.overridetoken + "&notifications=0&language=en&transport=" + test.getTestArgument(0); },
       waits: ['ui'] // Also wait for user profile data (applications & such)
     },
     {
       name: "Launch usermanagement",
-      test: function(doc, win) {
+      test: function (doc, win) {
         //verify whether we see the Publisher as an option (we need to make sure this selector works, otherwise our test as pietje makes no sense)
         test.click(test.qSA('li li').filter(node => node.textContent.includes("User Management"))[0]);
       },
@@ -40,20 +40,20 @@ test.registerTests(
 
     {
       name: "Create unit",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.click(test.qSA('div.listrow').filter(node => node.textContent.includes("Units"))[0]);
         // Wait for selection update
       },
       waits: ["ui"]
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.clickToddToolbarButton("Add", "New unit");
       },
       waits: ['ui']
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.setTodd('wrd_title', "Testunit");
         test.clickToddButton('OK');
       },
@@ -99,7 +99,7 @@ test.registerTests(
     },
     ToddTest.selectListRow("Select jantje", 'unitcontents!userandrolelist', 'jantje', { rightclick: true }),
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.click(test.qSA('.wh-menulist.open li').filter(node => node.textContent.includes("Grant right"))[0]);
       },
       waits: ['ui']
@@ -109,7 +109,7 @@ test.registerTests(
     ToddTest.plainButton("Confirm user as sysop", "OK"),
 
     "Reset password of Pietje",
-    async function() {
+    async function () {
       await test.load(pietje_resetlink);
       await test.wait('ui');
 
@@ -136,7 +136,7 @@ test.registerTests(
     },
 
     "Check passwork link expired after use",
-    async function() {
+    async function () {
       // test re-use isn't allowed
       await test.load(pietje_resetlink);
       await test.wait('ui');
@@ -145,7 +145,7 @@ test.registerTests(
     },
 
     "Reset password of Jantje",
-    async function() {
+    async function () {
       await test.load(jantje_resetlink);
       await test.wait('ui');
 
@@ -163,17 +163,17 @@ test.registerTests(
 
     {
       name: "login as jantje",
-      loadpage: function() { return webroot + 'portal1/?language=en&transport=' + test.getTestArgument(0); }
+      loadpage: function () { return webroot + 'portal1/?language=en&transport=' + test.getTestArgument(0); }
     },
     {
-      test: function() {
+      test: function () {
         //force a logout, as we may still have a cookie referring to a session lingering referring to a now delete schema
         test.wrdAuthLogout();
       },
       waits: ['pageload', 'ui']
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.setTodd('loginname', 'jantje@example.com');
         test.setTodd('password', 'xecret2');
         console.error("GO LOGIN");
@@ -183,7 +183,7 @@ test.registerTests(
       waits: ['ui']
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.qS('#dashboard-user-name'), 'where is the portal? (looking for jantje)');
         test.eq('jantje@example.com', test.qS('#dashboard-user-name').textContent);
         test.assert(getAppInStartMenuByName('Publisher'), "should be able to see the publisher");
@@ -192,10 +192,10 @@ test.registerTests(
     },
     {
       name: "login as pietje",
-      loadpage: function() { return webroot + "portal1/?openas=" + pietjeguid + "&language=en&transport=" + test.getTestArgument(0); },
+      loadpage: function () { return webroot + "portal1/?openas=" + pietjeguid + "&language=en&transport=" + test.getTestArgument(0); },
       waits: ['ui']
     },
-    async function(doc, win) {
+    async function (doc, win) {
       test.assert(test.qS('#dashboard-user-name'), 'where is the portal? (looking for pietje)');
       test.eq('Pietje', test.qS('#dashboard-user-name').textContent);
       test.assert(!getAppInStartMenuByName('Publisher'), "shouldn't be able to see the publisher. openas failed?");
@@ -209,34 +209,34 @@ test.registerTests(
     },
     {
       name: "logout as pietje action",
-      loadpage: function() { return webroot + 'portal1/?language=en&transport=' + test.getTestArgument(0) + '&wh-debug=aut'; },
+      loadpage: function () { return webroot + 'portal1/?language=en&transport=' + test.getTestArgument(0) + '&wh-debug=aut'; },
       waits: ['ui']
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.click('#dashboard-logout');
       },
       waits: ['ui']
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.clickToddButton('Yes');
       },
       waits: ['pageload', 'ui']
     },
     //logout refreshes, and then we need to wait for tollium to get online
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.compByName('loginname'), 'no loginname field - are we actually logged out? ');
       }
     },
     {
       name: "to the requiresysop page",
-      loadpage: function() { return webroot + 'portal1/requiresysop/?language=en&wh-debug=aut'; }, //we should get redirected to portal1
+      loadpage: function () { return webroot + 'portal1/requiresysop/?language=en&wh-debug=aut'; }, //we should get redirected to portal1
       waits: ['ui']
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.setTodd('loginname', 'pietje@example.com');
         test.setTodd('password', 'xecret');
         test.clickToddButton('Login');
@@ -245,41 +245,41 @@ test.registerTests(
     },
     {
       name: 'should be access denied',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq("Access denied", doc.title);
       }
     },
     {
-      loadpage: function(doc, win) { return webroot + 'portal1/?language=en&wh-debug=aut'; },
+      loadpage: function (doc, win) { return webroot + 'portal1/?language=en&wh-debug=aut'; },
       waits: ['ui']
     },
     //logout, so we can become jantje
     {
       name: "click logout",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.click('#dashboard-logout');
       },
       waits: ['ui']
     },
     {
       name: "confirm logout",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.clickToddButton('Yes');
       },
       waits: ['pageload', 'ui']
     },
     //logout refreshes, and then we need to wait for tollium to get online
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.compByName('loginname'), 'no loginname field - are we actually logged out? ');
       }
     },
     {
-      loadpage: function(doc, win) { return webroot + 'portal1/requiresysop/?language=en&wh-debug=aut'; },
+      loadpage: function (doc, win) { return webroot + 'portal1/requiresysop/?language=en&wh-debug=aut'; },
       waits: ['ui']
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.setTodd('loginname', 'jantje@example.com');
         test.setTodd('password', 'xecret2');
         test.click(test.compByName('savelogintext'));
@@ -288,30 +288,30 @@ test.registerTests(
       waits: ['pageload']
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.qS('#success'));
       }
     },
     {
-      loadpage: function(doc, win) { return webroot + 'portal1/?language=en'; },
+      loadpage: function (doc, win) { return webroot + 'portal1/?language=en'; },
       waits: ['ui']
     },
     {
       name: "click logout",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.click('#dashboard-logout');
       },
       waits: ['ui']
     },
     {
       name: "confirm logout",
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.clickToddButton('Yes');
       },
       waits: ['pageload', 'ui'] //logout refreshes, and then we need to wait for tollium to get online
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.compByName('loginname'), 'no loginname field - are we actually logged out? ');
       }
     }

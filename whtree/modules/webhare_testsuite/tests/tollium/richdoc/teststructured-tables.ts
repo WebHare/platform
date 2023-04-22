@@ -28,7 +28,7 @@ test.registerTests(
 
     {
       name: 'create-table',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.clickTolliumLabel("Tab with Structured RTE");
 
         const rtenode = test.compByName('structured');
@@ -53,7 +53,7 @@ test.registerTests(
     },
 
     "Test table top header",
-    async function() {
+    async function () {
       await openPropsOnFirstTable();
 
       test.eq('mytable', test.getCurrentScreen().qSA("select")[0].value);
@@ -118,7 +118,7 @@ test.registerTests(
     },
 
     "Test chrome contextmenu issue",
-    async function() {
+    async function () {
       /* Chrome seems to move the selection just before dispatching the rightclick event.
          the selection will appear to to start behind the '1' end before the "0" in the P in the NEXT cell
 
@@ -145,7 +145,7 @@ test.registerTests(
     // Test table left
     {
       name: 'leftheader-open-properties-1',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rtenode = test.compByName('structured');
         const table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
 
@@ -157,7 +157,7 @@ test.registerTests(
     },
     {
       name: 'leftheader-enable',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.click(test.qSA('t-text').filter(node => node.textContent.includes("header row"))[0]);  // disable
         test.click(test.qSA('t-text').filter(node => node.textContent.includes("header column"))[0]);  // enable
         test.fill(test.getCurrentScreen().qSA("select")[1], 'redpill');
@@ -166,7 +166,7 @@ test.registerTests(
       waits: ["ui"]
     },
     'leftheader reclick (crashed earlier when targetting existing TH)',
-    async function(doc, win) {
+    async function (doc, win) {
       const rtenode = test.compByName('structured');
       const table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
       test.click(table.querySelector("th"), { button: 2 });
@@ -179,7 +179,7 @@ test.registerTests(
     },
     {
       name: 'leftheader-test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rtenode = test.compByName('structured');
         const table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
         test.eq(0, table.querySelectorAll(".wh-rtd--hascolheader").length);
@@ -200,7 +200,7 @@ test.registerTests(
     // Test table header disable
     {
       name: 'headerdisable-open-properties-1',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rtenode = test.compByName('structured');
         const table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
         const first_td_p = table.querySelector("td p");
@@ -221,7 +221,7 @@ test.registerTests(
     },
     {
       name: 'headerdisable-enable',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.click(test.qSA('t-text').filter(node => node.textContent.includes("header column"))[0]);  // disable
         test.clickTolliumButton("OK");
       },
@@ -229,7 +229,7 @@ test.registerTests(
     },
     {
       name: 'headerdisable-test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rtenode = test.compByName('structured');
         const table = rtenode.querySelector(".wh-rtd-editor-bodynode table");
         test.eq(0, table.querySelectorAll(".wh-rtd--hascolheader").length);
@@ -248,7 +248,7 @@ test.registerTests(
     },
 
     "Remove the table",
-    async function(doc, win) {
+    async function (doc, win) {
       const rtenode = test.compByName('structured');
       const driver = new rtetest.RTEDriver('structured');
       driver.setSelection(driver.qS("td p"));

@@ -13,7 +13,7 @@ test.registerTests(
 
     {
       name: 'verifylayout',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.compByName('calendarholder').offsetHeight < 768, 'calendarholder too big'); //should not be escaping the screen
 
         //find our overlay

@@ -441,7 +441,7 @@ export default class ObjTabs extends ComponentBase {
 
   getVisibleChildren() {
     const comps = [];
-    this.pages.forEach(function(page) {
+    this.pages.forEach(function (page) {
       comps.push(page.titlecomp);
       comps.push(page.comp);
     });
@@ -572,7 +572,7 @@ export default class ObjTabs extends ComponentBase {
   */
 
   onShow() {
-    return !this.pages.some(function(page) {
+    return !this.pages.some(function (page) {
       if (page.titlecomp && !page.titlecomp.onShow())
         return true;
 
@@ -608,7 +608,7 @@ export default class ObjTabs extends ComponentBase {
   */
 
   getTabWithName(name) {
-    const selected = this.pages.filter(function(page) { return page.name == name; });
+    const selected = this.pages.filter(function (page) { return page.name == name; });
     return selected.length ? selected[0] : null;
   }
 

@@ -9,7 +9,7 @@ import '@mod-tollium/web/ui/components/richeditor/styling';
 
 let richeditor;
 
-/** options.onInsertVideo: function(node) - should return a promise resolving to an instance if the insertion is successful, or resolve to null if cancelled. receives the html rteedit node on which we're invoked */
+/** options.onInsertVideo: function (node) - should return a promise resolving to an instance if the insertion is successful, or resolve to null if cancelled. receives the html rteedit node on which we're invoked */
 
 export default class RTDField {
   constructor(node, options?) {
@@ -112,6 +112,6 @@ export default class RTDField {
   }
 }
 
-RTDField.getForNode = function(node) {
+RTDField.getForNode = function (node) {
   return node.whRTDField || null;
 };

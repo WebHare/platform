@@ -3,7 +3,7 @@ import * as test from "@mod-tollium/js/testframework";
 let setupdata: any, feedbackid: string;
 
 test.registerTests([
-  async function() {
+  async function () {
     setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup'
       , { createsysop: true, prepfeedback: true });
     await test.load(test.getWrdLogoutUrl(setupdata.testportalurl));
@@ -16,7 +16,7 @@ test.registerTests([
     await test.wait('ui');
   },
   "Start feedback app, check if we can control feedback",
-  async function() {
+  async function () {
     await test.load(setupdata.testportalurl + "?app=publisher:feedback");
     await test.wait('ui');
 
@@ -32,7 +32,7 @@ test.registerTests([
     await test.wait(() => test.qS(".wh-tollium__feedback"));
   },
   "Report an issue!",
-  async function() {
+  async function () {
     test.click('.wh-tollium__feedback');
     await test.wait('ui');
 
@@ -51,7 +51,7 @@ test.registerTests([
     test.clickToddButton('OK');
   },
   "Check if we got the issue",
-  async function() {
+  async function () {
     // Wait for a row to appear with the generated feedback id
     test.click(await test.waitForElement(['div.listrow .list__row__cell', new RegExp(`^${feedbackid}$`), 0]));
     await test.wait('ui'); //list apparently needs this time to process the selection update

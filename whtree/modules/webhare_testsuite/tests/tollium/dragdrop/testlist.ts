@@ -17,7 +17,7 @@ test.registerTests(
 
     {
       name: 'source.row1->target.row1_prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('target', /Row 1/);
@@ -32,7 +32,7 @@ test.registerTests(
 
     {
       name: 'source.row1->target.row1_test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('1 T1 ontarget move', textarea.value);
       }
@@ -42,7 +42,7 @@ test.registerTests(
 
     {
       name: 'source.row2->target.row1_prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 2/);
         const trow = test.getCurrentScreen().getListRow('target', /Row 1/);
@@ -58,7 +58,7 @@ test.registerTests(
 
     {
       name: 'source.row2->target.row1_test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('', textarea.value);
       }
@@ -68,7 +68,7 @@ test.registerTests(
 
     {
       name: 'source.row2->target.row1_copy_prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 2/);
         const trow = test.getCurrentScreen().getListRow('target', /Row 1/);
@@ -83,7 +83,7 @@ test.registerTests(
 
     {
       name: 'source.row2->target.row1_copy_test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('2 T1 ontarget copy', textarea.value);
       }
@@ -93,7 +93,7 @@ test.registerTests(
 
     {
       name: 'source.row3->target.row1_copy_prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 3/);
         const trow = test.getCurrentScreen().getListRow('target', /Row 1/);
@@ -108,7 +108,7 @@ test.registerTests(
 
     {
       name: 'source.row3->target.row1_copy_test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('', textarea.value);
       }
@@ -118,7 +118,7 @@ test.registerTests(
 
     {
       name: 'source.row2->target.row2_copy_prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 2/);
         const trow = test.getCurrentScreen().getListRow('target', /Row 2/);
@@ -133,7 +133,7 @@ test.registerTests(
 
     {
       name: 'source.row2->target.row2_copy_test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('', textarea.value);
       }
@@ -143,7 +143,7 @@ test.registerTests(
 
     {
       name: 'source.row2->target.none_copy_prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 2/);
         const trow = test.compByName('target').querySelector('.listbodyholder');
@@ -158,7 +158,7 @@ test.registerTests(
 
     {
       name: 'source.row2->none.row2_copy_test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('2 n/a ontarget copy', textarea.value);
       }
@@ -169,7 +169,7 @@ test.registerTests(
 
     {
       name: 'source.row2->target.none_copy_clickrow1',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         test.click(srow, { x: 10 });
@@ -179,7 +179,7 @@ test.registerTests(
 
     {
       name: 'source.row2(sel:row1)->target.none_copy_prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const srow = test.getCurrentScreen().getListRow('source', /Row 2/);
         const trow = test.compByName('target').querySelector('.listbodyholder');
 
@@ -193,7 +193,7 @@ test.registerTests(
 
     {
       name: 'source.row2(sel:row1)->none.row2_copy_test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('2 n/a ontarget copy', textarea.value);
       }
@@ -204,7 +204,7 @@ test.registerTests(
 
     {
       name: 'source.row2->target.none_copy_clickrow1',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         test.click(srow, { x: 10 });
@@ -214,7 +214,7 @@ test.registerTests(
 
     {
       name: 'source.row2->target.none_copy_ctrlclickrow1',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const srow = test.getCurrentScreen().getListRow('source', /Row 2/);
         test.click(srow, { x: 10, cmd: true });
       },
@@ -223,7 +223,7 @@ test.registerTests(
 
     {
       name: 'source.row2(sel:row1)->target.none_copy_prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const srow = test.getCurrentScreen().getListRow('source', /Row 2/);
         const trow = test.compByName('target').querySelector('.listbodyholder');
 
@@ -237,7 +237,7 @@ test.registerTests(
 
     {
       name: 'source.row2(sel:row1)->none.row2_copy_test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('1,2 n/a ontarget copy', textarea.value);
       }
@@ -248,7 +248,7 @@ test.registerTests(
 
     {
       name: 'source.row4->target.none_copy_clickrow4',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 4/);
         test.click(srow, { x: 10 });
@@ -258,7 +258,7 @@ test.registerTests(
 
     {
       name: 'source.row4->target.none_copy_prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const srow = test.getCurrentScreen().getListRow('source', /Row 4/);
         const trow = test.compByName('target').querySelector('.listbodyholder');
 
@@ -272,7 +272,7 @@ test.registerTests(
 
     {
       name: 'source.row4->target.none.copy_test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('', textarea.value);
       }
@@ -283,7 +283,7 @@ test.registerTests(
 
     {
       name: 'source.row4->target.row1.copy_clickrow4',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 4/);
         test.click(srow, { x: 10 });
@@ -293,7 +293,7 @@ test.registerTests(
 
     {
       name: 'source.row4->target.row1.copy_prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const srow = test.getCurrentScreen().getListRow('source', /Row 4/);
         const trow = test.getCurrentScreen().getListRow('target', /Row 1/);
 
@@ -307,7 +307,7 @@ test.registerTests(
 
     {
       name: 'source.row4->target.row1.copy_test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('4 T1 ontarget copy', textarea.value);
       }
@@ -318,7 +318,7 @@ test.registerTests(
 
     {
       name: 'source.row4->target.row1.link_clickrow4',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         let srow = test.getCurrentScreen().getListRow('source', /Row 4/);
         test.click(srow, { x: 10 });
@@ -344,7 +344,7 @@ test.registerTests(
 
     {
       name: 'source.void->target.row1.copy_clickrow4',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 4/);
         test.click(srow, { x: 10 });
@@ -354,7 +354,7 @@ test.registerTests(
 
     {
       name: 'source.void->target.row1.copy_prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const srow = test.compByName('source').querySelector('.listbodyholder');
         const trow = test.getCurrentScreen().getListRow('target', /Row 1/);
 
@@ -368,7 +368,7 @@ test.registerTests(
 
     {
       name: 'source.void->target.row1.copy_test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('', textarea.value);
       }
@@ -379,7 +379,7 @@ test.registerTests(
 
     {
       name: 'tree.r1.to.r1-prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('tree', /R1/).querySelector('span.text');
         const trow = test.getCurrentScreen().getListRow('tree', /R1/).querySelector('span.text');
@@ -395,7 +395,7 @@ test.registerTests(
 
     {
       name: 'tree.r1.to.r1-test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('', textarea.value);
       }
@@ -406,7 +406,7 @@ test.registerTests(
 
     {
       name: 'tree.r1.to.r1.1-prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('tree', /R1/).querySelector('span.text');
         const trow = test.getCurrentScreen().getListRow('tree', /R1.1/).querySelector('span.text');
@@ -421,7 +421,7 @@ test.registerTests(
 
     {
       name: 'tree.r1.to.r1.1-test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('', textarea.value);
       }
@@ -432,7 +432,7 @@ test.registerTests(
 
     {
       name: 'tree.r1.1.to.r1-prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('tree', /R1.1/).querySelector('span.text');
         const trow = test.getCurrentScreen().getListRow('tree', /R1/).querySelector('span.text');
@@ -447,7 +447,7 @@ test.registerTests(
 
     {
       name: 'tree.r1.to.r1.1-test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('R1.1 R1 ontarget move', textarea.value);
       }
@@ -458,7 +458,7 @@ test.registerTests(
 
     {
       name: 'tree.r3.to.r3-prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('tree', /R3/).querySelector('span.text');
         const trow = test.getCurrentScreen().getListRow('tree', /R3/).querySelector('span.text');
@@ -474,7 +474,7 @@ test.registerTests(
 
     {
       name: 'tree.r3.to.r3-test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('R3 R3 ontarget move', textarea.value);
       }
@@ -485,7 +485,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-before-r1-prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1/).querySelector('span.text');
@@ -501,7 +501,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-before-r1-test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('1 R1 insertbefore move', textarea.value);
       }
@@ -512,7 +512,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-before-r1.1-prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.1/).querySelector('span.text');
@@ -528,7 +528,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-before-r1.1-test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('1 R1.1 insertbefore move', textarea.value);
       }
@@ -539,7 +539,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-before-r1.1-prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.1/).querySelector('span.text');
@@ -555,7 +555,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-before-r1.1-test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('1 R1.1 insertbefore move', textarea.value);
       }
@@ -566,7 +566,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-after-r1.2-prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.2/).querySelector('span.text');
@@ -582,7 +582,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-before-r1.1-test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('1 R1.2.1 insertbefore move', textarea.value);
       }
@@ -593,7 +593,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-after-r1.2.1-prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.2.1/).querySelector('span.text');
@@ -608,7 +608,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-before-r1.1-test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('1 R2 insertbefore move', textarea.value);
       }
@@ -619,7 +619,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-after-r1.2.1-prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.2.1/).querySelector('span.text');
@@ -634,7 +634,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-before-r1.1-test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('1 R1 appendchild move', textarea.value);
       }
@@ -645,7 +645,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-after-r1.2.1-prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.2.1/).querySelector('span.text');
@@ -660,7 +660,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-before-r1.1-test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('1 R1 appendchild move', textarea.value);
       }
@@ -671,7 +671,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-after-r1.2.1-prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.2.1/).querySelector('span.text');
@@ -686,7 +686,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-before-r1.1-test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('1 R1.2 appendchild move', textarea.value);
       }
@@ -697,7 +697,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-after-r1.2.1-prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R1.2.1/).querySelector('span.text');
@@ -712,7 +712,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-before-r1.1-test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('1 R1.2.1 appendchild move', textarea.value);
       }
@@ -723,7 +723,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-before-r1.4-prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R4/).querySelector('span.text');
@@ -738,7 +738,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-before-r1.1-test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('1 R3 appendchild move', textarea.value);
       }
@@ -749,7 +749,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-before-r1.4-prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R4/).querySelector('span.text');
@@ -764,7 +764,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-before-r1.1-test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('1 R3 appendchild move', textarea.value);
       }
@@ -775,7 +775,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-after-r2.1-prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /R2.1/).querySelector('span.text');
@@ -790,7 +790,7 @@ test.registerTests(
 
     {
       name: 'source-1-to-before-r1.1-test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('1 R2.1 ontarget move', textarea.value);
       }
@@ -801,7 +801,7 @@ test.registerTests(
 
     {
       name: 'drop-on-scrolled-list-prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const A01 = test.getMenu(['A01']);
         test.click(A01);
       },
@@ -810,7 +810,7 @@ test.registerTests(
 
     {
       name: 'drop-on-scrolled-list',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.compByName('log').querySelector('textarea').value = '';
         const srow = test.getCurrentScreen().getListRow('source', /Row 1/);
         const trow = test.getCurrentScreen().getListRow('tree', /S18/).querySelector('span.text');
@@ -827,7 +827,7 @@ test.registerTests(
 
     {
       name: 'drop-on-scrolled-list-test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textarea = test.compByName('log').querySelector('textarea');
         test.eq('1 S18 ontarget move', textarea.value);
       }

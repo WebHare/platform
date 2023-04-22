@@ -216,7 +216,7 @@ export default class ObjList extends ComponentBase {
       if (rows[i][2])
         retval += " e" + rows[i][0].rowkey;
 
-      this.checkboxcolumns.forEach(function(col) {
+      this.checkboxcolumns.forEach(function (col) {
         if (rows[i][col.checkboxidx] !== null)
           retval += " c" + rows[i][0].rowkey + "\t" + col.checkbox + "\t" + (rows[i][col.checkboxidx] ? "true" : "");
       });
@@ -1071,7 +1071,7 @@ export default class ObjList extends ComponentBase {
   }
 
   executeDrop(event, checkresult) {
-    toddupload.uploadFilesForDrop(this, checkresult.dragdata, function(msg, dialogclosecallback) {
+    toddupload.uploadFilesForDrop(this, checkresult.dragdata, function (msg, dialogclosecallback) {
       // Upload successfully (or no files)
 
       // Msg contains: source, sourcecomp, items, dropeffect
@@ -1199,7 +1199,7 @@ export default class ObjList extends ComponentBase {
   }
 
   onColumnResize(event) {
-    this.columnwidths.forEach(function(item, idx) {
+    this.columnwidths.forEach(function (item, idx) {
       if (event.detail.widths[idx])
         item.new_set = event.detail.widths[idx];
     });

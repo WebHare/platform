@@ -127,10 +127,10 @@ class WRDAuthenticationProvider {
           Boolean(options.persistent),
           opts
         ]
-        , function(response) { //success handler
+        , function (response) { //success handler
           resolve(response);
         }
-        , function(error) {
+        , function (error) {
           reject(error);//FIXME translate to exception
         }
       );
@@ -154,10 +154,10 @@ class WRDAuthenticationProvider {
           { ...data },
           opts
         ]
-        , function(response) { //success handler
+        , function (response) { //success handler
           resolve(response);
         }
-        , function(error) {
+        , function (error) {
           reject(error);//FIXME translate to exception
         }
       );
@@ -175,10 +175,10 @@ class WRDAuthenticationProvider {
     return new Promise((resolve, reject) => {
       this.loginservice.request('getAfterLoginSubmitInstruction',
         [location.href, logincontrol],
-        function(response) { //success handler
+        function (response) { //success handler
           resolve(response);
         }
-        , function(error) {
+        , function (error) {
           reject(error);//FIXME translate to exception
         }
       );
@@ -279,7 +279,7 @@ class WRDAuthenticationProvider {
   }
 }
 
-WRDAuthenticationProvider.getDefaultAuth = function() {
+WRDAuthenticationProvider.getDefaultAuth = function () {
   return defaultauth;
 };
 

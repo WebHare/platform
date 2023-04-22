@@ -5,7 +5,7 @@ import * as test from '@mod-system/js/wh/testframework';
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
       await test.load(`${test.getTestSiteRoot()}testpages/formtest/?multipage=1&cookiebar=1`);
 
@@ -107,7 +107,7 @@ test.registerTests(
     },
 
     { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1' },
-    async function() {
+    async function () {
       test.eq("Page 1", test.qS('form .wh-form__page--visible h2').textContent);
       test.assert(test.canClick(test.qS('input[name="email"]')), "'email' field available on page 1");
       test.assert(!test.canClick(test.qS('input[name="maybe"]')), "'maybe' field not available on page 1");
@@ -155,7 +155,7 @@ test.registerTests(
     },
 
     { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1' },
-    async function() {
+    async function () {
       test.eq("Page 1", test.qS('form .wh-form__page--visible h2').textContent);
       test.assert(test.canClick(test.qS('input[name="email"]')), "'email' field available on page 1");
       test.assert(!test.canClick(test.qS('input[name="maybe"]')), "'maybe' field not available on page 1");
@@ -253,7 +253,7 @@ test.registerTests(
     },
 
     { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1' },
-    async function() {
+    async function () {
       test.eq("Page 1", test.qS('form .wh-form__page--visible h2').textContent);
 
       // Check the 'maybe' checkbox
@@ -357,7 +357,7 @@ test.registerTests(
 
     { loadpage: test.getTestSiteRoot() + 'testpages/formtest/?multipage=1&cookiebar=1' },
     "Test scrolling back up on error",
-    async function() {
+    async function () {
       test.click('#multipagetest-vertspace');
       test.assert(!test.canClick(test.qS('.wh-form__button--next')));
       test.getWin().scrollTo(0, test.qS('*[data-wh-form-group-for="vertspacetext"]').getBoundingClientRect().bottom);
@@ -375,7 +375,7 @@ test.registerTests(
     },
 
     "Test scrolling between pages",
-    async function() {
+    async function () {
       await test.sleep(100); //workaround but we need to give the form a chance to scroll to its desired position
       test.getWin().scrollTo(0, test.qS('*[data-wh-form-group-for="vertspacetext"]').getBoundingClientRect().bottom);
       test.click(test.qS('.wh-form__button--next'));
@@ -393,7 +393,7 @@ test.registerTests(
     },
 
     "Test disabled radio buttons not evaluating to a value",
-    async function() {
+    async function () {
       await test.load(`${test.getTestSiteRoot()}testpages/formtest/?multipage=1&cookiebar=1`);
       test.fill('input[name="firstname"]', 'Homer');
       test.fill('input[name="email"]', 'multipage@beta.webhare.net');
@@ -424,7 +424,7 @@ test.registerTests(
     },
 
     "Test back link",
-    async function() {
+    async function () {
       await test.load(`${test.getTestSiteRoot()}testpages/formtest/?multipage=1&backlink=${encodeURIComponent(test.getTestSiteRoot())}`);
       test.assert(test.canClick('.wh-form__button--previous'), "'previous' button should be available with a backlink");
       test.click('.wh-form__button--previous');

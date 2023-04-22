@@ -12,7 +12,7 @@ function getAnalyticsRPCRequests() {
 test.registerTests(
   [
     "Basic GEOIP",
-    async function() {
+    async function () {
       test.getWin().localStorage.removeItem("_wh.geoinfo");
       test.getDoc().cookie = "wh-debug-overrideip=127.0.0.1; path=/";
       await test.load(test.getTestSiteRoot() + 'testpages/staticpage');
@@ -51,7 +51,7 @@ test.registerTests(
       test.eq(1, getAnalyticsRPCRequests().length);
     },
     "GEOIP + countryname",
-    async function() {
+    async function () {
       test.getWin().localStorage.removeItem("_wh.geoinfo");
       test.getDoc().cookie = "wh-debug-overrideip=127.0.0.1; path=/";
       await test.load(test.getTestSiteRoot() + 'testpages/staticpage');

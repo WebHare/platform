@@ -20,9 +20,9 @@ async function testAPI() {
   const now = Date.now(), soon = std.convertWaitPeriodToDate(100);
   test.assert(now <= soon.getTime() && soon.getTime() <= now + 1000);
 
-  await test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(-1));
-  await test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(7 * 86400 * 1000 + 1));
-  await test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(Date.now()));
+  test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(-1));
+  test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(7 * 86400 * 1000 + 1));
+  test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(Date.now()));
 }
 
 function testRoundingCall(base: number, mode: std.MoneyRoundingMode, expect: number[]) {
@@ -193,6 +193,51 @@ function testMoney() {
   testEqMoney("13.75998", Money.divide("1.19299", "0.0867"));
 }
 
+function testDateTime() {
+  const globalstamp = new Date("1916-12-31T12:34:56Z"); // Sunday 31-12-1916 12:34:56
+  const baseduration: std.Duration =
+  {
+    sign: "+",
+    years: 0,
+    months: 0,
+    days: 0,
+    weeks: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+    milliseconds: 0
+  };
+
+  test.eq({ ...baseduration, years: 1 }, std.parseDuration("P1Y"));
+  test.eq({ ...baseduration, sign: "-", years: 2 }, std.parseDuration("-P2Y"));
+  test.eq({ ...baseduration, months: 1 }, std.parseDuration("P1M"));
+  test.eq({ ...baseduration, days: 1 }, std.parseDuration("P1D"));
+  test.eq({ ...baseduration, weeks: 1 }, std.parseDuration("P1W"));
+  test.eq({ ...baseduration, hours: 1 }, std.parseDuration("PT1H"));
+  test.eq({ ...baseduration, minutes: 1 }, std.parseDuration("PT1M"));
+  test.eq({ ...baseduration, seconds: 1 }, std.parseDuration("PT1S"));
+  test.eq({ ...baseduration, seconds: 1, milliseconds: 200 }, std.parseDuration("PT1.2S"));
+  test.eq({ ...baseduration, seconds: 1, milliseconds: 1 }, std.parseDuration("PT1.0012S"));
+
+  test.throws(/Invalid ISO8601 duration/, () => std.parseDuration("P1y"));
+  test.throws(/Invalid ISO8601 duration/, () => std.parseDuration("P1y"));
+  test.throws(/Invalid ISO8601 duration/, () => std.parseDuration("P1S"));
+  test.throws(/Invalid ISO8601 duration/, () => std.parseDuration("P-1S"));
+  test.throws(/Invalid ISO8601 duration/, () => std.parseDuration("PT"));
+  test.throws(/Invalid ISO8601 duration/, () => std.parseDuration("PD"));
+  test.throws(/Invalid ISO8601 duration/, () => std.parseDuration("P1W1D"));
+  test.throws(/Invalid ISO8601 duration/, () => std.parseDuration("+P1Y"));
+  test.throws(/Invalid ISO8601 duration/, () => std.parseDuration("aP1Y"));
+  test.throws(/Invalid ISO8601 duration/, () => std.parseDuration("P1Yb"));
+
+  test.eq(new Date("2022-04-03"), std.addDuration(new Date("2022-04-02"), { days: 1 }));
+  test.eq(new Date("1917-01-02T20:00:00Z"), std.addDuration(globalstamp, "PT55H25M4S"));
+  test.eq(new Date("1918-01-02T20:00:00Z"), std.addDuration(globalstamp, "P365DT55H25M4S"));
+  test.eq(new Date("1926-11-09T12:34:56Z"), std.addDuration(globalstamp, "P3600D"));
+  test.eq(new Date("1916-12-31T12:34:56.789Z"), std.addDuration(globalstamp, "PT0.789S"));
+}
+
+
 function testUFS(decoded: string, encoded: string) {
   test.eq(encoded, std.encodeString(decoded, 'base64url'));
   test.eq(decoded, std.decodeString(encoded, 'base64url'));
@@ -268,7 +313,7 @@ async function testStrings() {
 
 async function testCollections() {
   const map = new Map<string, number>();
-  await test.throws(/Key not found and no insert handler provided/, () => std.emplace(map, "A"));
+  test.throws(/Key not found and no insert handler provided/, () => std.emplace(map, "A"));
   test.eq(1, std.emplace(map, "A", { insert: () => 1, update: n => n + 1 }));
   test.eq(1, map.get("A"));
   test.eq(2, std.emplace(map, "A", { insert: () => 1, update: n => n + 1 }));
@@ -293,6 +338,8 @@ const testlist = [
   testAPI,
   "Money",
   testMoney,
+  "Datetime",
+  testDateTime,
   "Crypto and strings",
   testStrings,
   "Collections",

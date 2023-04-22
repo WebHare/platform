@@ -135,7 +135,7 @@ class ImageEditor {
   }
   getImageAsBlob(callback) {
     if (!this.surface.ctx) {
-      setTimeout(function() {
+      setTimeout(function () {
         callback(null); //not ready yet
       }, 1);
       return;
@@ -155,7 +155,7 @@ class ImageEditor {
       if (!this.surface.isModified() && !ImageEditor.resizeMethodApplied(this.options.imgsize, canvas.width, canvas.height, mimetype)) {
         // Call callback after a delay; maybe the caller doesn't expect the callback to be called directly
         const blob = this.orgblob;
-        setTimeout(function() {
+        setTimeout(function () {
           callback(blob, settings);
         }, 1);
         return;
@@ -172,7 +172,7 @@ class ImageEditor {
       mimetype = this.options.imgsize.format || mimetype;
     }
 
-    canvas.toBlob(function(blob) {
+    canvas.toBlob(function (blob) {
       callback(blob, settings);
     }, mimetype, 0.85);
   }
@@ -233,7 +233,7 @@ class ImageEditor {
     const minwarning = (orgwidth > 0 && orgwidth < width) || (orgheight > 0 && orgheight < height);
     const maxwarning = (orgwidth > 0 || orgheight > 0)
       && this.surface.imagelimited
-      && !this.surface.undostack.some(function(item) { return item.action == "crop"; });
+      && !this.surface.undostack.some(function (item) { return item.action == "crop"; });
     this.options.setStatus(status, minwarning ? "min" : maxwarning ? "max" : null);
   }
   updateActionButtons() {
@@ -254,7 +254,7 @@ class ImageEditor {
     return this.allowedfilters;
   }
   resetImage() {
-    this.options.resetImage().then(function(result) {
+    this.options.resetImage().then(function (result) {
       this.dirty = this.dirty || result == "yes";
     }.bind(this));
   }
@@ -394,7 +394,7 @@ function resizeCanvasWithMethod(canvas, imgsize, refpoint, forupload) {
 }
 
 // Check if the given resize method is applied for an image with given widht, height and MIME type
-ImageEditor.resizeMethodApplied = function(imgsize, width, height, mimetype) {
+ImageEditor.resizeMethodApplied = function (imgsize, width, height, mimetype) {
   // If preserveifunchanged is not set (unless resize method is "none"), the method is applied
   if (!imgsize.noforce && imgsize.method != "none")
     return true;

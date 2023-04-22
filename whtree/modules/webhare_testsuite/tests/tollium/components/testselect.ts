@@ -19,7 +19,7 @@ test.registerTests(
     test.testClickTolliumLabel('Visible'),
     test.testClickTolliumLabel('Visible'),
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         const testpanel = test.compByName("componentpanel");
         const select = testpanel.querySelector('select');
         test.assert(test.canClick(select), 'and should be clickable');
@@ -28,7 +28,7 @@ test.registerTests(
     },
     {
       name: 'select second option',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //change the selection on the component. it should stay on its spot
         const testpanel = test.compByName("componentpanel");
         const select = testpanel.querySelector('select');
@@ -45,7 +45,7 @@ test.registerTests(
 
     test.testClickTolliumLabel('Enabled'),
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         const testpanel = test.compByName("componentpanel");
         const select = testpanel.querySelector('select');
         test.assert(select.disabled);
@@ -55,7 +55,7 @@ test.registerTests(
 
     test.testClickTolliumButton('Update options'),
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         const testpanel = test.compByName("componentpanel");
         const select = testpanel.querySelector('select');
         test.eq(5, select.options.length);
@@ -65,14 +65,14 @@ test.registerTests(
 
     {
       name: 'check dividers',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const testpanel = test.compByName("componentpanel");
         const select = testpanel.querySelector('select');
         test.assert(!select.disabled);
       }
     },
 
-    async function(doc, win) {
+    async function (doc, win) {
       const alternatedefault = test.compByName('alternatedefault');
       const textedit_selection = test.compByName("selection");
 
@@ -98,7 +98,7 @@ test.registerTests(
 
     {
       name: 'click_second',
-      test: async function() {
+      test: async function () {
         test.eq('"first"', test.compByName("value").querySelector("input").value);
         test.click(test.compByName("componentpanel").querySelectorAll("input")[1].nextSibling);
         await test.wait('ui');
@@ -112,7 +112,7 @@ test.registerTests(
 
     {
       name: 'enabletargets_set_1',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(!test.compByName("enableontarget2").querySelector("input").readOnly);
         test.click(test.compByName("enableontarget1_include"));
@@ -121,7 +121,7 @@ test.registerTests(
     },
     {
       name: 'enabletargets_set_2',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.click(test.compByName("enableontarget2_include"));
       },
       waits: ["ui"]
@@ -130,7 +130,7 @@ test.registerTests(
     test.testClickTolliumLabel('This is the third available option'),
     {
       name: 'enabletargets_test_both_disabled',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(test.compByName("enableontarget2").querySelector("input").readOnly);
       }
@@ -138,7 +138,7 @@ test.registerTests(
     test.testClickTolliumLabel('Another long option, but the second'),
     {
       name: 'enabletargets_test_both_enabled',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(!test.compByName("enableontarget2").querySelector("input").readOnly);
       }
@@ -172,7 +172,7 @@ test.registerTests(
 
     {
       name: 'enabletargets_set_1',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(!test.compByName("enableontarget2").querySelector("input").readOnly);
         test.click(test.compByName("enableontarget1_include"));
@@ -181,7 +181,7 @@ test.registerTests(
     },
     {
       name: 'enabletargets_set_2',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.click(test.compByName("enableontarget2_include"));
       },
       waits: ["ui"]
@@ -189,7 +189,7 @@ test.registerTests(
     test.testClickTolliumButton('Update options'),
     {
       name: 'enabletargets_test_both_disabled',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(test.compByName("enableontarget2").querySelector("input").readOnly);
       }
@@ -197,7 +197,7 @@ test.registerTests(
     test.testClickTolliumLabel('A very long first option'),
     {
       name: 'enabletargets_test_first_enabled',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(test.compByName("enableontarget2").querySelector("input").readOnly);
       }
@@ -205,7 +205,7 @@ test.registerTests(
     test.testClickTolliumLabel('Another long option, but the second'),
     {
       name: 'enabletargets_test_both_enabled',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(!test.compByName("enableontarget2").querySelector("input").readOnly);
       }
@@ -213,13 +213,13 @@ test.registerTests(
     test.testClickTolliumLabel('A very long first option'),
     {
       name: 'enabletargets_test_first_enabled',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly, "Enablecomponents of second checkbox should override the enablecomponents of the first");
         test.assert(!test.compByName("enableontarget2").querySelector("input").readOnly);
       }
     },
 
-    async function(doc, win) {
+    async function (doc, win) {
       const alternatedefault = test.compByName('alternatedefault');
       const textedit_selection = test.compByName("selection");
 
@@ -247,14 +247,14 @@ test.registerTests(
 
     {
       name: 'checkboxlist_enabletest_disabled',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(!test.compByName("componentpanel").querySelector("input").disabled);
       }
     },
     test.testClickTolliumLabel('Enabled'),
     {
       name: 'checkboxlist_enabletest_disabled',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.compByName("componentpanel").querySelector("input").disabled);
       }
     },
@@ -265,7 +265,7 @@ test.registerTests(
 
     {
       name: 'checkboxlist_enabletargets_test_both_disabled',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(test.compByName("enableontarget2").querySelector("input").readOnly);
       }
@@ -273,7 +273,7 @@ test.registerTests(
 
     {
       name: 'checkboxlist_enabletest_checkrow1',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.click(test.qSA('.listrow')[0].querySelector('input[type=checkbox]'));
       },
       waits: ['ui']
@@ -281,7 +281,7 @@ test.registerTests(
 
     {
       name: 'checkboxlist_enabletargets_test_first_enabled',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
         test.assert(test.compByName("enableontarget2").querySelector("input").readOnly);
       }
@@ -289,19 +289,19 @@ test.registerTests(
 
     {
       name: 'checkboxlist_enabletest_checkrow2',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.click(test.qSA('.listrow')[1].querySelector('input[type=checkbox]'));
       },
       waits: ['ui']
     },
 
     'checkboxlist_enabletargets_test_first_enabled',
-    async function(doc, win) {
+    async function (doc, win) {
       test.assert(!test.compByName("enableontarget1").querySelector("input").readOnly);
       test.assert(!test.compByName("enableontarget2").querySelector("input").readOnly);
     },
 
-    async function(doc, win) {
+    async function (doc, win) {
       const alternatedefault = test.compByName('alternatedefault');
       const textedit_selection = test.compByName("selection");
 

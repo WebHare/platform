@@ -132,7 +132,7 @@ function getStructuredOuterHTMLInternal(node, namedlocators, indent) {
       const attrvalue = String(node.attributes[i].value || node.attributes[i].nodeValue || '');
       if (attrvalue) {
         const attrname = String(node.attributes[i].nodeName);
-        if (attrvalue.substr(0, 9) == "function(") // Readability for IE8
+        if (attrvalue.substr(0, 9) == "function (") // Readability for IE8
           continue;
         retval += ' ' + encodeString(attrname, 'attribute') + '="' + encodeString(attrvalue, 'attribute') + '"';
       }

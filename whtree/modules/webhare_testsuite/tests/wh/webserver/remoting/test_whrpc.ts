@@ -9,7 +9,7 @@ import createRPCClient from "@webhare/jsonrpc-client";
 test.registerTests(
   [
     "Basic rpc",
-    async function() {
+    async function () {
       const rpc = new RPCClient("webhare_testsuite:testnoauth");
       let controller = new AbortController;
       let call;
@@ -52,7 +52,7 @@ test.registerTests(
     },
 
     "Test rate limiting",
-    async function() {
+    async function () {
       const rpc = new RPCClient("webhare_testsuite:testnoauth");
 
       //if we listen for 429 explicitly, we'll hear it
@@ -64,7 +64,7 @@ test.registerTests(
     },
 
     "Test setoptions",
-    async function() {
+    async function () {
       const rpc = new RPCClient("webhare_testsuite:testnoauth");
       test.eq({ x: 42 }, await rpc.invoke('complexresultsslow', { x: 42 }));
 
@@ -73,13 +73,13 @@ test.registerTests(
     },
 
     "Use real URLS",
-    async function() {
+    async function () {
       const rpc = new RPCClient(location.origin + "/wh_services/webhare_testsuite/testnoauth");
       test.eq('Hi', await rpc.invoke('echo', 'Hi'));
     },
 
     "Use rpc.json",
-    async function() {
+    async function () {
       test.eq('Hi', await testnoauthservice.echo('Hi'));
       test.eq({ x: 42 }, await testnoauthservice.complexResultsSlow({ x: 42 }));
       test.eq({ x: 42 }, await testnoauthservice.invoke('complexResultsSlow', { x: 42 }));
@@ -92,7 +92,7 @@ test.registerTests(
     },
 
     "Use new JSONRPCClient",
-    async function() {
+    async function () {
       const testnoauthclient = createRPCClient("webhare_testsuite:testnoauth");
       test.eq('Hi', await testnoauthclient.echo('Hi'));
       test.eq({ x: 42 }, await testnoauthclient.complexResultsSlow({ x: 42 }));

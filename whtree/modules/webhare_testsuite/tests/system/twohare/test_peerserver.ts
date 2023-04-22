@@ -10,7 +10,7 @@ let setupdata, setup2data;
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       const setup1 = test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup'
         , { createsysop: true });
 
@@ -31,7 +31,7 @@ test.registerTests(
     },
 
     "Setup peering",
-    async function() {
+    async function () {
       test.clickToddButton("Add");
       await test.wait("ui");
       test.setTodd('peer', setupdata.peerserver);

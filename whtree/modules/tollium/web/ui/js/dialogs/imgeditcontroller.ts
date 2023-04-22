@@ -131,7 +131,7 @@ class ImgeditDialogController {
 
   _loadImageUrl(url, options) {
     const img = new Image(); //FIXME error handler
-    img.addEventListener("load", (function() {
+    img.addEventListener("load", (function () {
       (URL || webkitURL).revokeObjectURL(url);
 
       if (this.editor) {
@@ -432,7 +432,7 @@ class ImgeditDialogController {
   }
 }
 
-ImgeditDialogController.checkTypeAllowed = function(screen, type) {
+ImgeditDialogController.checkTypeAllowed = function (screen, type) {
   const allowed_mimetypes = ["image/jpeg", "image/png", "image/gif"];
   if (!allowed_mimetypes.includes(type)) {
     runSimpleScreen(screen.displayapp,

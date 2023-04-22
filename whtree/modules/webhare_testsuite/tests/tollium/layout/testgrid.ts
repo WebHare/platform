@@ -6,13 +6,13 @@ import * as test from '@mod-tollium/js/testframework';
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       await test.load(test.getTestScreen('tests/layout.layouttest,grid'));
       await test.wait('ui');
     },
 
     "Verify first grid row (inline items)",
-    async function() {
+    async function () {
       //var stretcharea = test.compByName('stretcharea');
       //var stretchareaholder = test.compByName('stretchareaholder');
       const selectel = test.compByName('rightmiddlecell').querySelector('select');
@@ -47,7 +47,7 @@ test.registerTests(
     },
 
     "Verify second grid row (inlineblocks with blocks)",
-    async function() {
+    async function () {
       test.eq(test.compByName('testalign').getBoundingClientRect().top, test.compByName('inlineblock').getBoundingClientRect().top, "Top line of textarea and inline block should align");
       test.eq(test.compByName('testalign').getBoundingClientRect().bottom, test.compByName('inlineblock').getBoundingClientRect().bottom, "Bottom line of textarea and inline block should align");
 
@@ -63,7 +63,7 @@ test.registerTests(
     },
 
     "Verify third grid row (inlineblocks with inline elements)",
-    async function() {
+    async function () {
       test.eq(test.compByName('line2_2a').getBoundingClientRect().top, test.compByName('line2_2b').getBoundingClientRect().top, "Top line of Line 2.2A and Line 2.2B should align");
       test.eq(test.compByName('line2_2a').getBoundingClientRect().bottom, test.compByName('line2_2b').getBoundingClientRect().bottom, "Bottom line of Line 2.2A and Line 2.2B should align");
 
@@ -88,7 +88,7 @@ test.registerTests(
 
     {
       name: 'gridupdate',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(0, test.qSA('.wh-radiobutton').length);
         test.eq(4, test.qSA('select').length);
         test.click(test.compByName('button')); //converts the select to a radiobutton
@@ -97,7 +97,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(2, test.qSA('.wh-radiobutton').length);
         test.eq(3, test.qSA('select').length);
       }

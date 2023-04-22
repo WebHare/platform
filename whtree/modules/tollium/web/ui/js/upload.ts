@@ -20,7 +20,7 @@ function getUploadTolliumData(component) {
 /** Presents a HTML5 file selection dialog, uploads selected files to a component (with progress dialog). On success,
     calls processing callback that must close the progress dialog by callback.
     @param component Component
-    @param uploadcallback Signature: function(files, dialogclosecallback)
+    @param uploadcallback Signature: function (files, dialogclosecallback)
     @param options
     @cell options.mimetypes Array of mime types of files that are accepted (can also contain "image/*", "audio/*" or "video/*")
     @cell options.multiple
@@ -39,7 +39,7 @@ export async function uploadFiles(component, uploadedcallback, options) {
 
 /** Presents a HTML5 file selection dialog, receive selected files. On success, calls processing callback.
     @param component Component
-    @param uploadcallback Signature: function(files)
+    @param uploadcallback Signature: function (files)
     @param options
     @cell options.mimetypes Array of mime types of files that are accepted (can also contain "image/*", "audio/*" or "video/*")
     @cell options.multiple
@@ -93,7 +93,7 @@ async function gatherUploadFiles(items) {
     Marks tollium as busy until callback is called.
     @param component
     @param dragdata Dragdata (return value of $todd.checkDropTarget)
-    @param callback Callback to call when done uploading. Signature: function(draginfo, dialogclosecallback)
+    @param callback Callback to call when done uploading. Signature: function (draginfo, dialogclosecallback)
     @cell draginfo.source Source: 'local'/'files'/'external'
     @cell draginfo.sourcecomp Source component name (only if source == 'local')
     @cell items List of items (for type='file', with cells 'token' and 'name')
@@ -138,7 +138,7 @@ export async function uploadFilesForDrop(component, dragdata, callback) {
     if (done.blob) {
       // Start upload of the file
       uploadBlobs(component, [done.blob],
-        function(files, closedialogcallback) {
+        function (files, closedialogcallback) {
           if (!files.length) {
             // got an error uploading the file
             closedialogcallback();
@@ -151,7 +151,7 @@ export async function uploadFilesForDrop(component, dragdata, callback) {
 
           msg.items.push({ type: 'file', token: files[0].filetoken, name: filename, extradata: null, fullpath: file.fullpath });
 
-          callback(msg, function() {
+          callback(msg, function () {
             closedialogcallback();
             done.editcallback();
           });
@@ -169,7 +169,7 @@ export async function uploadFilesForDrop(component, dragdata, callback) {
 
     // Start upload of the file
     uploadBlobs(component, files,
-      function(files, closedialogcallback) {
+      function (files, closedialogcallback) {
         // got an error uploading the file?
         if (!files.length)
           return void closedialogcallback();

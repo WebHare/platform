@@ -236,7 +236,7 @@ function testClickTolliumButton(toddbuttontitle, options, _deprecated_waits) {
 
   return {
     name: options.name || "Click button: " + toddbuttontitle,
-    test: function(doc, win) {
+    test: function (doc, win) {
       clickTolliumButton(toddbuttontitle);
     },
     waits: (options.waits || ["ui"])
@@ -258,7 +258,7 @@ function testClickTolliumLabel(toddlabel, options, _deprecated_waits) {
 
   return {
     name: options.name || "Click label: " + toddlabel,
-    test: function(doc, win) {
+    test: function (doc, win) {
       clickTolliumLabel(toddlabel);
     },
     waits: (options.waits || ["ui"])
@@ -270,7 +270,7 @@ function testClickTolliumToolbarButton(toddlabel, submenulabel, options = {}) {
 
   return {
     name: name,
-    test: function(doc, win) {
+    test: function (doc, win) {
       clickToddToolbarButton(toddlabel, submenulabel);
     },
     waits: (options.waits || ["ui"])
@@ -397,19 +397,19 @@ function waitForResult(fn) {
 
 window.ToddTest =
 {
-  toolbarButton: function(name, toddlabel, submenulabel) {
+  toolbarButton: function (name, toddlabel, submenulabel) {
     return testClickTolliumToolbarButton(toddlabel, submenulabel, { name });
   },
-  plainButton: function(name, buttonlabel) {
+  plainButton: function (name, buttonlabel) {
     return {
       name: name,
-      test: function(doc, win) {
+      test: function (doc, win) {
         clickToddButton(buttonlabel);
       },
       waits: ['ui']
     };
   },
-  selectListRow: function(name, listname, textinrow, options) {
+  selectListRow: function (name, listname, textinrow, options) {
     options = { name, ...options };
     return testSelectListRow(listname, textinrow, options);
   }

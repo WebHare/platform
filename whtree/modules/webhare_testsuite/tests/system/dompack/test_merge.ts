@@ -8,7 +8,7 @@ import * as merge from "dompack/extra/merge";
 test.registerTests(
   [
     "Pulldown test",
-    async function() {
+    async function () {
       await test.load('/.webhare_testsuite/tests/pages/dompack/?testpage=merge');
       merge.registerFormatter("makeupper", value => value.toUpperCase());
       merge.registerFormatter("selectsubtext", value => value.subtext);

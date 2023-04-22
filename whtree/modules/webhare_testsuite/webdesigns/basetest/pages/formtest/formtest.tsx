@@ -92,7 +92,7 @@ class ArrayForm extends RPCFormBase {
 
 if (location.href.includes('customemailvalidator=1')) {
   //warn against qq@beta.webhare.net - but a custom validation shouldn't break required/email validation
-  dompack.register("input[type=email]", node => setupValidator(node, function() {
+  dompack.register("input[type=email]", node => setupValidator(node, function () {
     if (node == "qq@beta.webhare.net")
       return <span>Please use another email</span>;
   }));
@@ -154,7 +154,7 @@ if (!location.href.includes('method=htmlonly')) {
 }
 
 
-dompack.register("#datetime_debugging", node => node.addEventListener("click", function() {
+dompack.register("#datetime_debugging", node => node.addEventListener("click", function () {
   dompack.qSA(".datetime--replaced").forEach(node => node.classList.remove("datetime--replaced"));
   dompack.qSA("input[type=date], input[type=time]").forEach(node => {
     let inputcount = 0, changecount = 0;

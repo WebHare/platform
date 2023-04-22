@@ -2,7 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 if (!Array.prototype.at) { //not supported by Safari 15.3 and earlier
-  Array.prototype.at = function(index) {
+  Array.prototype.at = function (index) {
     const len = this.length;
     if (index < 0)
       index = len + index;
@@ -10,7 +10,7 @@ if (!Array.prototype.at) { //not supported by Safari 15.3 and earlier
   };
 }
 if (!String.prototype.at) { //not supported by Safari 15.3 and earlier
-  String.prototype.at = function(index) {
+  String.prototype.at = function (index) {
     const len = this.length;
     if (index < 0)
       index = len + index;
@@ -26,7 +26,7 @@ if (!String.prototype.at) { //not supported by Safari 15.3 and earlier
 //replaceChildren polyfill
 if (!Element.prototype.replaceChildren) {
   //not generally supported by Chrome, Firefox and Safari before Oct 2020
-  Element.prototype.replaceChildren = function() {
+  Element.prototype.replaceChildren = function () {
     this.innerHTML = "";
     this.append.apply(this, arguments);
   };

@@ -11,7 +11,7 @@ test.registerTests(
     },
     {
       name: "simulate paste",
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
         const body = rte.getBody();
         body.focus();
@@ -50,7 +50,7 @@ test.registerTests(
       }
     },
     "Empty paragraph handling",
-    async function() {
+    async function () {
       const rte = test.getWin().rte.getEditor();
       rtetest.setStructuredContent(test.getWin(),
         `<p class="normal">(*0*)(*1*)<br data-wh-rte="bogus"></p>` +
@@ -85,7 +85,7 @@ test.registerTests(
         `<p class="normal">"a"</p>`);
     },
     "Paste in list",
-    async function() {
+    async function () {
       const rte = test.getWin().rte.getEditor();
       const body = rte.getBody();
       body.focus();

@@ -12,7 +12,7 @@ test.registerTests(
     },
 
     {
-      test: async function() {
+      test: async function () {
         test.eq('0', test.compByName('onchangeoverlayscount').textContent);
         test.sendMouseGesture([
           { el: test.compByName("thecomponent$*"), x: 50, y: 50, down: 0 },
@@ -69,7 +69,7 @@ test.registerTests(
     },
     {
       name: "Add overlay",
-      test: async function() {
+      test: async function () {
         test.click(test.compByName('oncreateoverlay$*')); //enable new overlays
         await test.wait('ui');
         test.sendMouseGesture([
@@ -87,7 +87,7 @@ test.registerTests(
       }
     },
     {
-      test: function() {
+      test: function () {
         test.clickToddButton('selection');
       },
       waits: ['ui']

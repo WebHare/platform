@@ -11,7 +11,7 @@ test.registerTests(
     },
     {
       name: 'testallowtagsbar',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const boldbutton = test.qSA('span.wh-rtd-button[data-button=b]')[0];
         const italicbutton = test.qSA('span.wh-rtd-button[data-button=i]')[0];
 

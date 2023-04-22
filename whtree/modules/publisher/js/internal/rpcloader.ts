@@ -18,17 +18,17 @@ async function generateRPCWrappers(resourcePath, rpcdata) {
   let output = `// Auto-generated RPC interface from ${resourcePath}
 var RPCClient = require("@mod-system/js/wh/rpc").default;
 var request = exports.rpcclient = new RPCClient("${service}");
-exports.rpcResolve = function(promise, result) { request._handleLegacyRPCResolve(promise, result) };
-exports.invoke = function() { return request.invoke.apply(request,Array.prototype.slice.call(arguments)); }
+exports.rpcResolve = function (promise, result) { request._handleLegacyRPCResolve(promise, result) };
+exports.invoke = function () { return request.invoke.apply(request,Array.prototype.slice.call(arguments)); }
 `;
   // Define JSONRPC error code constants as getter-only properties on the exports object
   [
     "HTTP_ERROR", "JSON_ERROR", "PROTOCOL_ERROR", "RPC_ERROR", "OFFLINE_ERROR",
     "TIMEOUT_ERROR", "SERVER_ERROR"
-  ].forEach(function(code, i) {
+  ].forEach(function (code, i) {
     if (!i)
       output += "\n";
-    output += `Object.defineProperty(module.exports, "${code}", { get: function() { return JSONRPC.${code}; }});\n`;
+    output += `Object.defineProperty(module.exports, "${code}", { get: function () { return JSONRPC.${code}; }});\n`;
   });
 
   if (response.diskpath) {
@@ -48,7 +48,7 @@ exports.invoke = function() { return request.invoke.apply(request,Array.prototyp
         output += `exports.${jsfuncname} = `;
       }
       //note: use ES5 stuff to avoid us requiring a babel polyfill
-      output += `exports.${func.name} = /*${func.type}*/function(${args})
+      output += `exports.${func.name} = /*${func.type}*/function (${args})
 {
 return request.invoke.apply(request,["${func.name}"].concat(Array.prototype.slice.call(arguments)));
 }
@@ -67,7 +67,7 @@ module.exports = {};
 
 module.exports.getESBuildPlugin = (captureplugin) => ({
   name: "jsonrpc",
-  setup: function(build) {
+  setup: function (build) {
     build.onLoad({ filter: /.\.rpc\.json$/, namespace: "file" }, async (args) => {
       const source = await fs.promises.readFile(args.path);
       const result = await generateRPCWrappers(args.path, source);

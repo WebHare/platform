@@ -12,7 +12,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         const activewindow = test.qSA('.t-screen.active');
         test.eq(1, activewindow.length);
         test.eq(2, test.qSA('#mainarea .t-screen').length);
@@ -29,7 +29,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         //this sequentially opens two windows. let's get the first
         const activewindow = test.qSA('.t-screen.active');
         test.eq(1, activewindow.length);
@@ -51,7 +51,7 @@ test.registerTests(
     },
     {
       name: "embedded window tests",
-      test: function(doc, win) {
+      test: function (doc, win) {
         //Let's make sure there is only ONE body in the windowq
         const activewindow = test.qSA('.t-screen.active');
         test.eq(1, activewindow.length);
@@ -71,7 +71,7 @@ test.registerTests(
     },
     {
       name: "test after swap", //this used to cause issues because elementnames were something like embeddingpanelname!componentname, so two screens sharing component names woudl conflict
-      test: function(doc, win) {
+      test: function (doc, win) {
         const thetext = test.compByName("body").querySelector("t-text");
         test.eq('#1', thetext.textContent);
         const thetextedit = test.compByName("body").querySelector("input[type='text']");
@@ -83,7 +83,7 @@ test.registerTests(
       },
       waits: ['ui']
     },
-    async function() {
+    async function () {
       const activewindow = test.qSA('.t-screen.active');
       test.eq(1, activewindow.length);
 
@@ -97,7 +97,7 @@ test.registerTests(
       await test.wait('ui');
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         const activewindow = test.qSA('.t-screen.active');
         test.eq(1, activewindow.length);
         test.eq(3, test.qSA('#mainarea .t-screen').length); //if this test returns '4', the intermediate window wasn't killed
@@ -115,7 +115,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         const activewindow = test.qSA('.t-screen.active');
         test.eq(1, activewindow.length);
         test.eq(2, test.qSA('#mainarea .t-screen').length);
@@ -129,7 +129,7 @@ test.registerTests(
 
     {
       name: 'mbox-cancel',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(1, test.qSA('#mainarea .t-screen').length);
         test.click(test.getMenu(['M01', 'A03']));
       },
@@ -138,7 +138,7 @@ test.registerTests(
 
     {
       name: 'mbox-cancel-clickok',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(3, test.qSA('#mainarea .t-screen').length); //N01 + a box should popup
         test.clickToddButton("OK");
       },
@@ -147,14 +147,14 @@ test.registerTests(
 
     {
       name: 'mbox-cancel-clickok',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(1, test.qSA('#mainarea .t-screen').length); //Both dialogs should be gone
       }
     },
 
     {
       name: 'megawindow',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.click(test.getMenu(['M01', 'A04'])); //this screen will try to become MUCH bigger than the canvas
       },
       waits: ['ui'] //validateDimensions will ensure the screen size has been limited

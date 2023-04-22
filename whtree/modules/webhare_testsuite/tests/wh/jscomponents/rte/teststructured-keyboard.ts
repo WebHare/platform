@@ -7,7 +7,7 @@ import * as rtetest from "@mod-tollium/js/testframework-rte";
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured');
       const driver = new rtetest.RTEDriver();
       driver.setSelection(driver.rte.qS("body h1").firstChild, 1); //set inside first H1

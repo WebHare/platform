@@ -7,7 +7,7 @@ import * as test from "@mod-tollium/js/testframework";
 test.registerTests(
   [
     "Normal init",
-    async function() {
+    async function () {
       await test.load(test.getTolliumHost() + '?app=webhare_testsuite:appstarttest&' + test.getTolliumDebugVariables());
       await test.wait('ui');
       test.eq(2, test.qSA('.t-apptab').length);
@@ -22,7 +22,7 @@ test.registerTests(
 
     {
       name: 'checktargetedstart',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq('app_1_1', doc.title);
         const tabs = test.qSA('.t-apptab');
         const apps = test.qSA('.appcanvas');
@@ -45,7 +45,7 @@ test.registerTests(
 
     {
       name: 'checkselfmessage',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const tabs = test.qSA('.t-apptab');
         const apps = test.qSA('.appcanvas');
         test.eq(3, tabs.length);
@@ -66,7 +66,7 @@ test.registerTests(
 
     {
       name: 'checkappswitch',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const tabs = test.qSA('.t-apptab');
         const apps = test.qSA('.appcanvas');
         test.eq(3, tabs.length);
@@ -83,7 +83,7 @@ test.registerTests(
 
     {
       name: 'checkmessagetoother',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const tabs = test.qSA('.t-apptab');
         const apps = test.qSA('.appcanvas');
         test.eq(3, tabs.length);
@@ -101,7 +101,7 @@ test.registerTests(
 
     {
       name: 'checkcrash',
-      test: async function() {
+      test: async function () {
         test.click(test.getMenu(['X04']));
         await test.wait('ui');
         //both canvas and tab should still be here whilst we deal wit the crash
@@ -124,7 +124,7 @@ test.registerTests(
 
     {
       name: 'checkcrash-appgone',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(2, test.qSA('.appcanvas').length);
         test.eq(2, test.qSA('.t-apptab').length);
         test.eq(1, test.qSA('.t-apptab--activeapp').length);
@@ -132,7 +132,7 @@ test.registerTests(
     },
 
     "Restart",
-    async function() {
+    async function () {
       test.click(test.getMenu(['X09']));
       await test.wait('ui');
       test.eq("1", test.getCurrentScreen().getToddElement("targetval").querySelector('input').value);
@@ -150,7 +150,7 @@ test.registerTests(
     },
 
     "Test startup focus steal",
-    async function() {
+    async function () {
       await test.load(test.getTolliumHost() + '?app=webhare_testsuite:appstarttest(sleep)&' + test.getTolliumDebugVariables());
       await test.wait(() => test.qSA('.t-apptab').length >= 2);
       test.click(test.qSA('.t-apptab')[0]);
@@ -160,7 +160,7 @@ test.registerTests(
     },
 
     "Session-expiry",
-    async function() {
+    async function () {
       const setupdata = await test.invoke("mod::webhare_testsuite/tests/tollium/comm/lib/testappstartsupport.whlib#SetupUsers");
       await test.load(test.getTestSiteRoot() + "portal1/?app=webhare_testsuite:appstarttest");
       await test.wait('ui');

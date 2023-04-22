@@ -163,4 +163,3 @@ function onServiceWorkerMessage(event) {
 }
 navigator.serviceWorker.addEventListener("message", onServiceWorkerMessage);
 precheckExistingWorkers();
-

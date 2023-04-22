@@ -112,7 +112,7 @@ function applyPreserveFunc(preserve, func) {
   list.forEach((item, idx) => func(item, idx, list));
   /*/ // Enable this to get better debugging of preserve functions
   console.log('Apply preserve func', func);
-  list.each(function(item)
+  list.each(function (item)
     {
       if (item.id)
         console.log('pre  ' + (typeof item.id=="undefined"?'':'$'+item.id+'/'+(item.cc||0)),item.element, item.offset, func);

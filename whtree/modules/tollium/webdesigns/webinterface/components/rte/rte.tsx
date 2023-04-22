@@ -79,7 +79,7 @@ export default class ObjRTE extends ComponentBase {
       hidebuttons.push('object-insert');
     if (!data.allowvideo)
       hidebuttons.push('object-video');
-    if (!data.structure || !data.structure.blockstyles.some(function(style) { return style.type == "table"; }))
+    if (!data.structure || !data.structure.blockstyles.some(function (style) { return style.type == "table"; }))
       hidebuttons.push('table');
 
     this.rteoptions =

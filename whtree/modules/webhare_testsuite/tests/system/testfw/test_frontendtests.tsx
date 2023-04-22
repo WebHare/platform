@@ -7,7 +7,7 @@ function getPressedKeys() { return JSON.parse(test.qS('#keyspressed').value || "
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       await test.load('/.webhare_testsuite/tests/pages/statictestpage.html');
       //Test straight wait
       test.eq('H2', (await test.waitForElement('h2')).nodeName);

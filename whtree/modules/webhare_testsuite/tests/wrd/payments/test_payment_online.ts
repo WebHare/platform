@@ -9,13 +9,13 @@ let setupdata;
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { addpaymentmethod: true, addpaymenthandler: true, withpayment: ["withissuer"], filename: "paymenthandlerform" });
       await test.load(setupdata.url);
     },
 
     "Simple payment - cancel it",
-    async function() {
+    async function () {
       //only one issuer, so it should be selected
       test.fill(`[name="firstname"]`, "Jopie");
       test.assert(test.qS(`[name="pm.paymentmethod"]`).checked);
@@ -45,7 +45,7 @@ test.registerTests(
     },
 
     "Simple payment - keep it pending",
-    async function() {
+    async function () {
       await test.load(setupdata.url);
       //only one issuer, so it should be selected
       test.fill(`[name="firstname"]`, "Jaapie");
@@ -66,12 +66,12 @@ test.registerTests(
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou"]'), "Should not see thankyou");
     },
 
-    async function() {
+    async function () {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { addpaymentmethod: true, addpaymenthandler: true, addmoneyfield: true, withpayment: ["withissuer"], filename: "paymenthandlerform" });
       await test.load(setupdata.url);
     },
 
-    async function() {
+    async function () {
       test.fill(`[name="firstname"]`, "Joepie");
       test.fill(`[name="pm.paymentmethod.issuer0"]`, "DPB");
       test.fill(`[name="moneyfield"]`, '1.55');
@@ -103,7 +103,7 @@ test.registerTests(
     },
 
     "Test rejected payment succeeding after all",
-    async function() {
+    async function () {
       await test.load(setupdata.url);
       test.fill(`[name="firstname"]`, "Jippie");
       test.fill(`[name="pm.paymentmethod.issuer0"]`, "DPB");
@@ -144,7 +144,7 @@ test.registerTests(
     },
 
     "Test re-rejecting payment",
-    async function() {
+    async function () {
       await test.load(setupdata.url);
       test.fill(`[name="firstname"]`, "Joppie");
       test.fill(`[name="pm.paymentmethod.issuer0"]`, "DPB");
@@ -177,7 +177,7 @@ test.registerTests(
     },
 
     "Test custom field providing payment amounts",
-    async function() {
+    async function () {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { addpaymentmethod: true, addpaymenthandler: true, addtslinecomp: true, withpayment: ["withissuer"], filename: "paymenthandlerform" });
       await test.load(setupdata.url);
       test.fill(`[name="firstname"]`, "Joepje");

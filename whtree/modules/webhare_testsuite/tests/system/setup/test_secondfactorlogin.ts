@@ -17,12 +17,12 @@ function getAppInStartMenuByName(name) {
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup', { createsysop: true });
     },
 
     "create Pietje",
-    async function() {
+    async function () {
       await test.load(webroot + 'portal1/' + setupdata.overridetoken + "&notifications=0&language=en");
       await test.wait('ui');
 
@@ -52,7 +52,7 @@ test.registerTests(
     },
 
     "set Pietje password",
-    async function() {
+    async function () {
       await test.load(pietje_resetlink);
       await test.wait('ui');
 
@@ -82,7 +82,7 @@ test.registerTests(
     },
 
     "login Pietje",
-    async function() {
+    async function () {
       test.setTodd('loginname', 'pietje@allow2fa.test.webhare.net');
       test.setTodd('password', 'xecret');
       test.clickToddButton('Login');
@@ -146,7 +146,7 @@ test.registerTests(
     },
 
     "login Pietje with 2FA code",
-    async function() {
+    async function () {
       test.setTodd('loginname', 'pietje@allow2fa.test.webhare.net');
       test.setTodd('password', 'xecret');
       test.clickToddButton('Login');
@@ -191,7 +191,7 @@ test.registerTests(
     },
 
     "login Pietje with backup code",
-    async function() {
+    async function () {
       test.setTodd('loginname', 'pietje@allow2fa.test.webhare.net');
       test.setTodd('password', 'xecret');
       test.clickToddButton('Login');

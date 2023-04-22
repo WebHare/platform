@@ -125,11 +125,11 @@ async function runTest(teststep) {
       .then(this.runAllTestSteps.bind(this));
 
     // Mark test as finished.
-    result = result.finally(function() { test.finished = true; });
+    result = result.finally(function () { test.finished = true; });
 
     // If we're in report mode, swallow any errors from loading the iframe / test registration
     if (this.reportid)
-      result = result.catch(function(e){ console.error('Swallowed exception', e); });
+      result = result.catch(function (e){ console.error('Swallowed exception', e); });
 
     return result;
     */

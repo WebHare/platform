@@ -26,7 +26,7 @@ test.registerTests(
 
     {
       name: 'structured-rte',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         test.clickTolliumLabel("Tab with Structured RTE");
 
         const toddrte = test.compByName('structured');
@@ -76,7 +76,7 @@ test.registerTests(
     },
     {
       name: 'verify-normal',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rawcode = rtetest.getRawHTMLCode(win);
 
         // The raw code has an instanceid. Replace that with our instanceref for the compare
@@ -96,21 +96,21 @@ test.registerTests(
     },
     {
       name: 'rewrite', //rewrite it, to ensure the server is preserving its cid:
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.clickTolliumButton("Rewrite");
       },
       waits: ['ui']
     },
     {
       name: 'rewrite.2',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.clickTolliumButton("Edit raw html");
       },
       waits: ['ui']
     },
     {
       name: 'rewrite.3',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rawcode = rtetest.getRawHTMLCode(win);
 
         // Instance id should not have changed on the backend site
@@ -127,7 +127,7 @@ test.registerTests(
     },
 
     "Paste image from data url",
-    async function() {
+    async function () {
       //remove existing images RTE first
       const rte = rtetest.getRTE(test.getWin(), 'structured');
       rte.qSA('img').forEach(img => img.parentNode.removeChild(img));
@@ -150,7 +150,7 @@ test.registerTests(
     },
 
     "Paste image from HTTP url",
-    async function() {
+    async function () {
       const rte = rtetest.getRTE(test.getWin(), 'structured');
       const imgpaste = document.createElement("div");
       imgpaste.innerHTML = '<img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" width="27" height="13"/>';
@@ -173,7 +173,7 @@ test.registerTests(
 
     {
       name: 'imageprops',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = rtetest.getRTE(win, 'structured');
         rte.getEditor().selectNodeOuter(rte.qSA('img')[0]);
         test.click(test.compByName('structured').querySelector('.wh-rtd-button[data-button=action-properties]'));
@@ -217,7 +217,7 @@ test.registerTests(
     //reopen the properties to verify and unset 'overridedimensions'
     {
       name: 'openimageprops-2',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = rtetest.getRTE(win, 'structured');
 
         test.click(test.compByName('structured').querySelector('.wh-rtd-button[data-button=action-properties]'));
@@ -254,7 +254,7 @@ test.registerTests(
     //create a simple hyperlink
     {
       name: 'createlink',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = rtetest.getRTE(win, 'structured');
         const mypara = rte.qSA('p')[1];
         rtetest.setRTESelection(win, rte.getEditor(),
@@ -270,7 +270,7 @@ test.registerTests(
     },
     {
       name: 'createlink-enterit',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textfield = test.getTolliumLabel("External link").closest('.form').querySelector('input[type=text]');
         test.fill(textfield, "http://webhare.net/");
         test.clickTolliumButton("OK");
@@ -279,7 +279,7 @@ test.registerTests(
     },
     {
       name: 'createlink-verify',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = rtetest.getRTE(win, 'structured');
         const anode = rte.qSA('a')[1];
         test.eq("http://webhare.net/", anode.href);
@@ -291,7 +291,7 @@ test.registerTests(
     },
     {
       name: 'createlink-verifyprops',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textfield = test.getTolliumLabel("External link").closest('.form').querySelector('input[type=text]');
         test.eq("http://webhare.net/", textfield.value);
         test.getCurrentScreen().clickCloser();
@@ -301,7 +301,7 @@ test.registerTests(
 
     {
       name: 'imagebuttontest',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = rtetest.getRTE(win, 'structured');
         const textnode = rte.qSA("a")[1].nextSibling;
         rtetest.setRTESelection(win, rte.getEditor(),
@@ -328,13 +328,13 @@ test.registerTests(
     },
     /*
       , { name: 'imagebuttontest-waitupload'
-        , test: function() {}
+        , test: function () {}
         , waits: [ 'uploadprogress', 500 ] // FIXME: correct waits!
         }
     */
     {
       name: 'imagebuttontest-verify',
-      test: function(doc, win) {
+      test: function (doc, win) {
         // Image should be selected
         const rte = rtetest.getRTE(win, 'structured');
         const selection = rte.getEditor().getSelectionRange();
@@ -346,14 +346,14 @@ test.registerTests(
 
     {
       name: 'dirtytest-testnotdirty',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq('NO', test.compByName('dirty').querySelector('input').value);
       }
     },
 
     {
       name: 'append-paragraph',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rtenode = test.compByName('structured');
 
         //remove last paragraph with the inline block, as we need the lat para to be a block element for this test
@@ -382,14 +382,14 @@ test.registerTests(
 
     {
       name: 'dirtytest-testdirty', //should be dirty after appending paragraph
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq('YES', test.compByName('dirty').querySelector('input').value);
       }
     },
 
     {
       name: "Test dirtyness regression",
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         // a document that was changed and than reverted, and then undirties from the backend
         // was still marked as dirty in the rte - but not signalled anymore, so further edits
         // would not cause dirtyness in the backend
@@ -425,7 +425,7 @@ test.registerTests(
     },
 
     "Test another dirtyness regression",
-    async function(doc, win) {
+    async function (doc, win) {
       /* when
          - making a simple change
          - forcing undirty
@@ -462,7 +462,7 @@ test.registerTests(
     },
 
     "Test another dirtyness regression",
-    async function(doc, win) {
+    async function (doc, win) {
       test.clickTolliumButton("Rewrite");
       await test.wait("ui");
       test.clickTolliumButton("Rewrite");
@@ -481,7 +481,7 @@ test.registerTests(
 
     {
       name: "Test image copypaste within document",
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = rtetest.getRTE(win, 'structured');
 
         const rtenode = test.compByName('structured');
@@ -508,7 +508,7 @@ test.registerTests(
     },
 
     "Test insert image",
-    async function() {
+    async function () {
       test.click(test.getMenu(['M01', 'A04']));
       await test.wait('ui');
 
@@ -521,7 +521,7 @@ test.registerTests(
     },
 
     "Test RTE with failing CSS loads",
-    async function() {
+    async function () {
       await test.load(test.getTestScreen('tests/richdoc.main,loadfailingcss'));
       await test.wait("ui");
 

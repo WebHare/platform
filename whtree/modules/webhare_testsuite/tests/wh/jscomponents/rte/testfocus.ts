@@ -19,7 +19,7 @@ test.registerTests(
     },
     {
       name: "earlyselectionstatecheck",
-      test: function(doc, win) {
+      test: function (doc, win) {
         //create a local RTE and immediately check its selection state (ie before we know its loaded
         //        var rtenode = new Element('div');
         //        var myrte = new win.$wh.Rich.FreeEditor(rtenode);
@@ -30,7 +30,7 @@ test.registerTests(
 
     {
       name: "clickfocus",
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         test.qS('#store').focus();
         test.eq(test.qS('#store'), doc.activeElement);
         test.click(test.qS('.wh-rtd-editor'));
@@ -41,7 +41,7 @@ test.registerTests(
 
     {
       name: 'setfocus',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         test.qS('#store').focus();
@@ -55,7 +55,7 @@ test.registerTests(
 
     {
       name: 'setenabled(false)',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         test.assert(rte.hasFocus());
@@ -74,7 +74,7 @@ test.registerTests(
 
     {
       name: 'setenabled(true)',
-      test: function(doc, win) {
+      test: function (doc, win) {
         win.rte.setEnabled(true);
 
         test.assert(!win.rte.getBody().closest('.wh-rtd--disabled'));
@@ -91,7 +91,7 @@ test.registerTests(
 
     {
       name: 'setreadonly(true)',
-      test: function(doc, win) {
+      test: function (doc, win) {
         win.rte.setReadonly(true);
 
         test.assert(!win.rte.getBody().closest('.wh-rtd--disabled'));
@@ -102,7 +102,7 @@ test.registerTests(
 
     {
       name: 'setreadonly(false)',
-      test: function(doc, win) {
+      test: function (doc, win) {
         win.rte.setReadonly(false);
 
         test.assert(!win.rte.getBody().closest('.wh-rtd--disabled'));
@@ -117,7 +117,7 @@ test.registerTests(
 
     {
       name: 'hide parent container',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         //make sure setenabled(true) didn't ruin selection after sleep..
@@ -137,7 +137,7 @@ test.registerTests(
 
     {
       name: 'update rte while hidden',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
         const sel = rte.getSelectionState();
         test.assert(sel.hasTextStyle('b'));
@@ -152,7 +152,7 @@ test.registerTests(
     // simple reparenting test
     {
       name: 'simplereparent phase 1',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
         test.qS('#holder').style.display = "";
         rte.setContentsHTML('<p><b>bold</b><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>');
@@ -168,7 +168,7 @@ test.registerTests(
     //and verify restoration
     {
       name: 'simplereparent phase 2',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = win.rte.getEditor();
         rte.takeFocus();
         await test.wait("events");
@@ -180,7 +180,7 @@ test.registerTests(
     // reparenting test with offline change
     {
       name: 'reparenting phase 1',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //var rte=win.rte.getEditor();
         win.reparent_rte();
 
@@ -192,7 +192,7 @@ test.registerTests(
     //and verify restoration
     {
       name: 'reparenting phase 2',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //var rte=win.rte.getEditor();
         // IE 8 doesn't have correct selection here. Though manual tests seems to work, so xfailing.
         rtetest.testEqSelHTMLEx(win, '<p><b>"bo(*0*)(*1*)ld"</b><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>');
@@ -207,7 +207,7 @@ test.registerTests(
     // First test with valid selection just before hide&show
     {
       name: 'selectionrestore-validbefore-prepare',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('<p><b>bold</b><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>');
@@ -219,7 +219,7 @@ test.registerTests(
 
     {
       name: 'selectionrestore-validbefore-setcursor',
-      wait: function(doc, win, callback) {
+      wait: function (doc, win, callback) {
         const rte = win.rte.getEditor();
         console.log('TEST set cursor');
         rte.setCursor(rte.getBody().getElementsByTagName('b')[0].firstChild, 2);
@@ -232,7 +232,7 @@ test.registerTests(
 
     {
       name: 'selectionrestore-validbefore-hide',
-      wait: function(doc, win, callback) {
+      wait: function (doc, win, callback) {
         test.qS('#holder').style.display = "none";
         setTimeout(callback, 100);
       }
@@ -240,14 +240,14 @@ test.registerTests(
 
     {
       name: 'selectionrestore-validbefore-show',
-      wait: function(doc, win, callback) {
+      wait: function (doc, win, callback) {
         test.qS('#holder').style.display = "";
         setTimeout(callback, 100);
       }
     },
 
     'selectionrestore-validbefore-takefocus',
-    function() {
+    function () {
       const rte = test.getWin().rte.getEditor();
       test.getWin().focus();
       rte.takeFocus();
@@ -255,7 +255,7 @@ test.registerTests(
     /*
         // wait for it to load again...
       , { name: 'selectionrestore-validbefore-waitload'
-        , wait: function(doc,win,callback)
+        , wait: function (doc,win,callback)
           {
     //        var rte=win.rte.getEditor();
     //        rtetest.testEqSelHTMLEx(win, '<p><b>"bo(*0*)(*1*)ld"</b><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>');
@@ -270,7 +270,7 @@ test.registerTests(
     */
     {
       name: 'selectionrestore-validbefore-test',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
         const range = rte.debugGetRawSelectionRange();
         //        console.log('Real DOM range', range);
@@ -287,7 +287,7 @@ test.registerTests(
 
     {
       name: 'selectionrestore-setwhenhidden-prepare',
-      test: function(doc, win, callback) {
+      test: function (doc, win, callback) {
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('<p><b>bold</b><img src="/tollium_todd.res/webhare_testsuite/tollium/logo.png" height="10" width="10"></p>');
@@ -302,7 +302,7 @@ test.registerTests(
 
     {
       name: 'selectionrestore-setwhenhidden-show',
-      wait: function(doc, win, callback) {
+      wait: function (doc, win, callback) {
         const rte = win.rte.getEditor();
         rte.setCursor(rte.getBody().getElementsByTagName('b')[0].firstChild, 2);
         test.qS('#holder').style.display = "";
@@ -312,7 +312,7 @@ test.registerTests(
 
     {
       name: 'selectionrestore-setwhenhidden-refocus',
-      wait: function(doc, win, callback) {
+      wait: function (doc, win, callback) {
         const rte = win.rte.getEditor();
         win.focus();
         rte.takeFocus();
@@ -323,7 +323,7 @@ test.registerTests(
     {
       name: 'selectionrestore-setwhenhidden-test',
       xfail: test.getTestArgument(0) == 'contenteditable' && (browser.getName() === "chrome"), // see comment at -prepare
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
         const range = rte.debugGetRawSelectionRange();
         //console.log('Real DOM range', range);

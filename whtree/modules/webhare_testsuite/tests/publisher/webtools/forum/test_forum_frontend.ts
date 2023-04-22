@@ -50,17 +50,17 @@ async function runForumTests(withrecaptcha) {
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       const result = await test.invoke('mod::webhare_testsuite/tests/publisher/webtools/forum/forum.whlib', 'setupTestForum');
       baseurl = result.baseurl;
     },
 
     "Run standard tests",
-    { loadpage: function() { return baseurl + 'forumcomments'; }, waits: ["ui"] },
+    { loadpage: function () { return baseurl + 'forumcomments'; }, waits: ["ui"] },
     () => runForumTests(false),
 
     "Run with recaptcha",
-    { loadpage: function() { return baseurl + 'forumcomments-recaptcha/?wh-debug=nsc'; }, waits: ["ui"] },
+    { loadpage: function () { return baseurl + 'forumcomments-recaptcha/?wh-debug=nsc'; }, waits: ["ui"] },
     () => runForumTests(true)
 
   ]);

@@ -8,7 +8,7 @@ let timechangeevents = 0;
 test.registerTests([
   "Run unreplaced for compatibility test",
 
-  async function() {
+  async function () {
     await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
     await test.load(test.getTestSiteRoot() + 'testpages/formtest/?datetime=1');
 
@@ -25,7 +25,7 @@ test.registerTests([
   },
 
   "Run with split versions",
-  async function() {
+  async function () {
     await test.load(test.getTestSiteRoot() + 'testpages/formtest/?datetime=1&splitdatetime=1');
 
     //the fields inside the select controls should be initially disabled but not required
@@ -184,7 +184,7 @@ test.registerTests([
   },
 
   "Test invalid dates",
-  async function() {
+  async function () {
     await test.load(test.getTestSiteRoot() + 'testpages/formtest/?datetime=1&splitdatetime=1');
     test.fill('#datetimeform-require_fields', false);
 
@@ -214,7 +214,7 @@ test.registerTests([
 
   // * /
   "Test the date picker",
-  async function() {
+  async function () {
     await test.load(test.getTestSiteRoot() + 'testpages/formtest/?datetime=1&splitdatetime=1');
 
     let changeevents = 0;
@@ -285,7 +285,7 @@ test.registerTests([
   },
 
   "Test focus datepicker day",
-  async function() {
+  async function () {
     test.click('[name=dateofbirth] + * .datetime__togglepicker');
 
     //Focus should be on currently selected day
@@ -309,14 +309,14 @@ test.registerTests([
   },
 
   "Test weeknumbers",
-  async function() {
+  async function () {
     test.click('[name=weeknumbers] + * .datetime__togglepicker');
     test.eq('27', test.qSA(".datetime__picker__weeknr")[0].textContent);
     test.eq('1', test.qSA(".datetime__picker__day")[0].textContent); //first day should be '1', july 2019 started on a monday
   },
 
   "Test datepicker reset",
-  async function() {
+  async function () {
     //resetting it should reset the value AND close the picker
     test.click('[data-wh-form-group-for="dateofbirth"] .datetime__reset');
     test.eq("", test.qR("#datetimeform-time").value);
@@ -324,7 +324,7 @@ test.registerTests([
   },
 
   "Test keyboard for date field",
-  async function() {
+  async function () {
     await test.load(test.getTestSiteRoot() + 'testpages/formtest/?datetime=1&splitdatetime=1&webharevalidation=1');
     dompack.changeValue(test.qR("#datetimeform-dateofbirth"), "1979-06-13");
 
@@ -406,7 +406,7 @@ test.registerTests([
   },
 
   "Test keyboard for time field",
-  async function() {
+  async function () {
     let changeevents = 0;
     let inputevents = 0;
 
@@ -473,7 +473,7 @@ test.registerTests([
   },
 
   "Test direct value changing",
-  async function() {
+  async function () {
     await test.load(test.getTestSiteRoot() + 'testpages/formtest/?datetime=1&splitdatetime=1');
     __setUnderlyingValue(test.qR("#datetimeform-dateofbirth"), "2012-11-13");
     dompack.dispatchDomEvent(test.qR("#datetimeform-dateofbirth"), 'change');
@@ -490,7 +490,7 @@ test.registerTests([
   },
 
   "Test api",
-  async function() {
+  async function () {
     await test.load(test.getTestSiteRoot() + 'testpages/formtest/?datetime=1&splitdatetime=1');
     dompack.changeValue(test.qR("#datetimeform-dateofbirth"), "1979-06-13");
 

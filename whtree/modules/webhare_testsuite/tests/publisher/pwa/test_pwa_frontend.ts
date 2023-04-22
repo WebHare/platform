@@ -8,12 +8,12 @@ import * as pwatests from '@mod-publisher/js/pwa/tests';
 test.registerTests(
   [
     "cleanup",
-    async function() {
+    async function () {
       await pwatests.prepare('webhare_testsuite:pwatest');
     },
 
     "start app",
-    async function() {
+    async function () {
       //FOR DEBUGGING
       // setTimeout ( async () => console.table(await pwatests.getSWLog()), 1000);
       await test.load(test.getTestSiteRoot() + 'pwatest/');
@@ -26,7 +26,7 @@ test.registerTests(
     },
 
     "check for update",
-    async function() {
+    async function () {
       test.click('#checkforupdate');
       await test.wait(() => test.qS("#pwa-update-status").textContent != 'Checking...');
       test.eq("we are uptodate", test.qS("#pwa-update-status").textContent);
@@ -39,7 +39,7 @@ test.registerTests(
     },
 
     "apply update",
-    async function() {
+    async function () {
       const clock = test.qS("#pwa-published-at").textContent;
 
       console.log("RELOADING");
@@ -60,7 +60,7 @@ test.registerTests(
     },
 
     "get image",
-    async function() {
+    async function () {
       const deferred = dompack.createDeferred();
       test.qS("#myimglink").onload = deferred.resolve;
       test.qS("#myimglink").src = test.qS("#myimglink").dataset.imglink;
@@ -75,7 +75,7 @@ test.registerTests(
     },
 
     "test exclusion",
-    async function() {
+    async function () {
       let exclusionresult = await (await test.getWin().fetch("../exclusiontestpage/")).json();
       let exclusionresult2 = await (await test.getWin().fetch("../exclusiontestpage/")).json();
       test.assert(exclusionresult2.now != exclusionresult.now, "Fetches must not have been cached #1");
@@ -95,7 +95,7 @@ test.registerTests(
     },
 
     "test force refresh",
-    async function() {
+    async function () {
       const clock = test.qS("#pwa-published-at").textContent;
 
       await pwatests.forceRefresh(); //to trigger a refresh
@@ -106,7 +106,7 @@ test.registerTests(
     },
 
     "check error handling",
-    async function() {
+    async function () {
       //Load one never pre-reported asset
       await test.getWin().fetch("https://beta.webhare.net/", { mode: 'no-cors' });
 

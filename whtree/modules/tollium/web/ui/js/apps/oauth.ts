@@ -38,7 +38,7 @@ class OauthApp {
 
     this.oauth_clientid = url.searchParams.get("oauth_clientid");
     this.oauth_redirect = url.searchParams.get("oauth_redirect");
-    const scopes = url.searchParams.get("oauth_scopes").split(",").filter(function(scope) { return scope; });
+    const scopes = url.searchParams.get("oauth_scopes").split(",").filter(function (scope) { return scope; });
     this.oauth_scopes = scopes;
 
     let error = "";

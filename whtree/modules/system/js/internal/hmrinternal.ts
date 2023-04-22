@@ -29,7 +29,7 @@ function extractRealPathCache(): Map<string, string> {
   const saved_realpathSync = mod_fs.realpathSync;
   delete mod_fs.realpathSync;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  mod_fs.realpathSync = function(path: any, options: any) {
+  mod_fs.realpathSync = function (path: any, options: any) {
     if (options) {
       const symbols = Object.getOwnPropertySymbols(options);
       if (symbols.length === 1)

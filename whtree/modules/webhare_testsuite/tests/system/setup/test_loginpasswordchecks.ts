@@ -17,12 +17,12 @@ function getAppInStartMenuByName(name) {
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupForTestSetup', { createsysop: true });
     },
 
     "create Pietje",
-    async function() {
+    async function () {
       await test.load(webroot + 'portal1/' + setupdata.overridetoken + "&notifications=0&language=en");
       await test.wait('ui');
 
@@ -54,7 +54,7 @@ test.registerTests(
         });
     },
     "login tests",
-    async function() {
+    async function () {
       await test.load(webroot + "portal1/?notifications=0&language=en");
       await test.wait('ui');
 
@@ -147,7 +147,7 @@ test.registerTests(
     },
 
     "forgot password checks",
-    async function() {
+    async function () {
       // set a few previous passwords
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#SetUserAuthenticationSettings', "pietje@allow2fa.test.webhare.net",
         {
@@ -222,7 +222,7 @@ test.registerTests(
     },
 
     "force 2fa",
-    async function() {
+    async function () {
       await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#SetSchemaValidationChecks', "require2fa", { url: test.getWin().location.href });
 
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#SetUserAuthenticationSettings', "pietje@allow2fa.test.webhare.net",

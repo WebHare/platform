@@ -5,7 +5,7 @@ import * as test from '@mod-tollium/js/testframework';
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       await test.load(test.getTestScreen("tests/lists.columnselection"));
       await test.wait('ui');
 

@@ -7,7 +7,7 @@ import $todd from "@mod-tollium/web/ui/js/support";
 import { distributeSizes } from '@mod-tollium/web/ui/js/componentbase';
 
 
-$todd.DebugTypedLog = function() {
+$todd.DebugTypedLog = function () {
   const args = Array.prototype.slice.call(arguments);
   args.splice(0, 1);
   console.log.apply(console, args);
@@ -18,7 +18,7 @@ test.registerTests(
     { loadpage: 'about:blank' },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         // This triggered a bug, which should be fixed by now
         let sizeobjs = [
           { xml_set: "1pr", min: 116, calc: 1 },

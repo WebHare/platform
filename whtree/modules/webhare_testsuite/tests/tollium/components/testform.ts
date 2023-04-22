@@ -13,7 +13,7 @@ test.registerTests(
 
     {
       name: 'textfields ',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const richhtmlcomp = test.compByName('richhtmlcomp');
         const richplaincomp = test.compByName('richplaincomp');
 
@@ -27,7 +27,7 @@ test.registerTests(
     },
     {
       name: 'onclicklink',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const richplaincomp = test.compByName('richplaincomp');
         test.eq(doc.location.href.split('#')[0] + '#link', richplaincomp.textContent);
       }
@@ -35,7 +35,7 @@ test.registerTests(
 
     {
       name: 'setvalue',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //initially unset
         const textfield = test.compByName('v01').querySelector('input');
         test.eq('', textfield.value);
@@ -52,7 +52,7 @@ test.registerTests(
 
     {
       name: 'setvalue2',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textfield = test.compByName('v01').querySelector('input');
         test.eq('o01', textfield.value);
 
@@ -64,7 +64,7 @@ test.registerTests(
 
     {
       name: 'settextvalues',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const richhtmlcomp = test.compByName('richhtmlcomp');
         const richplaincomp = test.compByName('richplaincomp');
 

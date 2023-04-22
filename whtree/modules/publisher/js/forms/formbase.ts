@@ -1095,7 +1095,7 @@ export default class FormBase {
         filename: field.files[0].name.split('\\').join('/').split('/').pop(), //ensure we get the last part
         link: dataurl
       };
-      // return Promise.all(Array.from(field.files).map(async function(fileobject)
+      // return Promise.all(Array.from(field.files).map(async function (fileobject)
       //          {
       //            let dataurl = await compatupload.getFileAsDataURL(fileobject);
       //            return { filename: fileobject.name.split('\\').join('/').split('/').pop() //ensure we get the last part
@@ -1476,7 +1476,7 @@ export default class FormBase {
 window.addEventListener("mouseup", releasePendingValidations, true);
 window.addEventListener("focusin", handleFocusInEvent, true);
 
-FormBase.getForNode = function(node) {
+FormBase.getForNode = function (node) {
   return node.propWhFormhandler || null;
 };
 

@@ -11,7 +11,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         const holder = test.compByName('componentpanel');
         // The uploadfield's label should not be visible
         let label = holder.querySelector('[data-name$="#linelabel"]');
@@ -39,7 +39,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         const holder = test.compByName('componentpanel');
         // The uploadfield's label should be visible
         let label = holder.querySelector('[data-name$="#linelabel"]');
@@ -68,7 +68,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         const holder = test.compByName('componentpanel');
         // The uploadfield's label should not be visible
         let label = holder.querySelector('[data-name$="#linelabel"]');
@@ -96,7 +96,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         const holder = test.compByName('componentpanel');
         // The uploadfield's label should be visible
         let label = holder.querySelector('[data-name$="#linelabel"]');
@@ -124,7 +124,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         const holder = test.compByName('componentpanel');
         // The uploadfield's label should be visible
         let label = holder.querySelector('[data-name$="#linelabel"]');
@@ -152,7 +152,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         const holder = test.compByName('componentpanel');
         // The uploadfield's label should not be visible
         let label = holder.querySelector('[data-name$="#linelabel"]');
@@ -180,7 +180,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         const holder = test.compByName('componentpanel');
         // The uploadfield's label should be visible
         let label = holder.querySelector('[data-name$="#linelabel"]');

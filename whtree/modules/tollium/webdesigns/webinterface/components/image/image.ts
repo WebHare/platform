@@ -566,7 +566,7 @@ export default class ObjImage extends ActionableBase { // ----------------------
   editOverlay(overlay) {
     // overlay: { rowkey: <rowkey>, top: 0, left: 0, right: 0, bottom: 0, type: "rectangle" }
     let changed = false;
-    this.overlays.forEach(function(curoverlay) {
+    this.overlays.forEach(function (curoverlay) {
       if (curoverlay.rowkey == overlay.rowkey) {
         if (curoverlay.top != overlay.top) {
           curoverlay.top = overlay.top;
@@ -591,11 +591,11 @@ export default class ObjImage extends ActionableBase { // ----------------------
   }
 
   /*
-  , deleteOverlay: function(overlay)
+  , deleteOverlay: function (overlay)
     {
       // overlay: { rowkey: <rowkey> }
       var changed = false;
-      this.overlays = this.overlays.filter(function(curoverlay)
+      this.overlays = this.overlays.filter(function (curoverlay)
       {
         changed = changed || curoverlay.rowkey == overlay.rowkey;
         return curoverlay.rowkey != overlay.rowkey;
@@ -604,7 +604,7 @@ export default class ObjImage extends ActionableBase { // ----------------------
         this.queueMessage('overlays', this.overlays, true);
     }
 
-  , selectOverlay: function(overlay)
+  , selectOverlay: function (overlay)
     {
       // overlay: null || { rowkey: <rowkey> }
       this.selection = overlay ? [ overlay.rowkey ] : [];

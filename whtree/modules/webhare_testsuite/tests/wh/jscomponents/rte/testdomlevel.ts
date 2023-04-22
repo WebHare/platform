@@ -62,7 +62,7 @@ test.registerTests(
     },
     {
       name: 'firsttest',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         // First test, place to paste failing tests
@@ -90,7 +90,7 @@ test.registerTests(
 
     {
       name: 'locators',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('<i><b>abc</b>def<u>ghi</u></i>');
@@ -149,7 +149,7 @@ test.registerTests(
 
     {
       name: 'locatoractions',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('<div><p>a</p><p><br _moz_editor_bogus_node="_moz"></p></div>');
@@ -174,7 +174,7 @@ test.registerTests(
 
     {
       name: 'locatormove',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         /* Locator is put at (*0*)
@@ -244,7 +244,7 @@ test.registerTests(
 
     {
       name: 'locatorwalkleftright',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('<ol><li>ab<ol><li>c</li><li><br></li></ol>d</ol><p><br></p><p>a<svg></svg></p>');
@@ -323,7 +323,7 @@ test.registerTests(
 
     {
       name: 'rangestuff',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('<i><b>abc</b>def<u>ghi</u></i>');
@@ -343,7 +343,7 @@ test.registerTests(
 
     {
       name: 'datasplit',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('<i><b>ab</b>c</i>');
@@ -368,7 +368,7 @@ test.registerTests(
 
     {
       name: 'elementsplit',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('<i><b><u><br><br></u></b><u><br></u></i>');
@@ -394,7 +394,7 @@ test.registerTests(
 
     {
       name: 'moveSimpleRangeTo',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         // Subnode forward to root
@@ -460,7 +460,7 @@ test.registerTests(
 
     {
       name: 'removeSimpleRange',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         // Node with contents
@@ -484,7 +484,7 @@ test.registerTests(
 
     {
       name: 'elementcombine',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('<i><b><u><br></u><u><br></u></b><u><br></u></i>');
@@ -544,7 +544,7 @@ test.registerTests(
 
     {
       name: 'elementreplacewithchildren',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('<i><b><u><br><br></u><br></b><br></i>');
@@ -564,7 +564,7 @@ test.registerTests(
 
     {
       name: 'elementwrap',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('<i><b><br>a<br><br></b><br></i>');
@@ -600,7 +600,7 @@ test.registerTests(
 
     {
       name: 'removeNodesFromTree',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('<i><b><u><br><u><br></u><br></u><br></b><br></i>');
@@ -619,7 +619,7 @@ test.registerTests(
 
     {
       name: 'splitdom',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
 
@@ -778,7 +778,7 @@ test.registerTests(
 
     {
       name: 'removeNodesFromRange',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         // Test with normal range
@@ -829,7 +829,7 @@ test.registerTests(
 
     {
       name: 'wrapRange',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         // Test with normal range
@@ -849,7 +849,7 @@ test.registerTests(
 
         domlevel.wrapRange(
           range,
-          function() { return document.createElement('u'); },
+          function () { return document.createElement('u'); },
           null,
           null,
           locators);
@@ -872,7 +872,7 @@ test.registerTests(
 
         domlevel.wrapRange(
           range,
-          function() { return document.createElement('u'); },
+          function () { return document.createElement('u'); },
           null,
           null,
           locators);
@@ -887,8 +887,8 @@ test.registerTests(
 
         domlevel.wrapRange(
           new Range(locators[3], locators[12]),
-          function() { return document.createElement('u'); },
-          function() { return false; }, // may not split at all
+          function () { return document.createElement('u'); },
+          function () { return false; }, // may not split at all
           null,
           locators);
 
@@ -902,9 +902,9 @@ test.registerTests(
 
         domlevel.wrapRange(
           new Range(locators[3], locators[12]),
-          function() { return document.createElement('u'); },
-          function() { return false; }, // may not split at all
-          function(node) { return ['sub'].includes(node.nodeName.toLowerCase()); }, // but MUST wrap 'u's
+          function () { return document.createElement('u'); },
+          function () { return false; }, // may not split at all
+          function (node) { return ['sub'].includes(node.nodeName.toLowerCase()); }, // but MUST wrap 'u's
           locators);
 
         testEqHTMLEx('<i>(*0*)<b>(*1*)"(*2*)a"<u>"(*3*)b(*4*)"(*5*)</u></b><u>(*6*)"(*7*)c(*8*)"(*9*)<sub>(*10*)"(*11*)d"</sub></u><sub>"(*12*)e(*13*)"(*14*)</sub>(*15*)</i>', rte.getBody(), locators);
@@ -913,7 +913,7 @@ test.registerTests(
 
     {
       name: 'combineNodes',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('<i><b><u>a</u></b><b><u>b</u></b></i>');
@@ -934,7 +934,7 @@ test.registerTests(
         italicelement = rte.getBody().firstChild;
         locators = getAllLocators(win, italicelement);
         testEqHTMLEx('<i>(*0*)<b>(*1*)<u>(*2*)"(*3*)a(*4*)"(*5*)</u>(*6*)</b>(*7*)<b>(*8*)<u>(*9*)"(*10*)b(*11*)"(*12*)</u>(*13*)</b>(*14*)</i>', rte.getBody(), locators);
-        domlevel.combineWithPreviousNodesAtLocator(locators[4], italicelement, false, function() { return false; }, locators);
+        domlevel.combineWithPreviousNodesAtLocator(locators[4], italicelement, false, function () { return false; }, locators);
         testEqHTMLEx('<i>(*0*)<b>(*1*)<u>(*2*)"(*3*)a(*4*)"(*5*)</u>(*6*)</b>(*7*)<b>(*8*)<u>(*9*)"(*10*)b(*11*)"(*12*)</u>(*13*)</b>(*14*)</i>', rte.getBody(), locators);
 
         // Towards start on empty node
@@ -957,7 +957,7 @@ test.registerTests(
 
     {
       name: 'combineAdjacentTextNodes',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
         let placedlocators, alllocators, italicelement;
 
@@ -976,7 +976,7 @@ test.registerTests(
 
     {
       name: 'range.splitStartBoundary & insertbefore',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         rte.setContentsHTML('<i><b>abc</b>def</i>');
@@ -1063,7 +1063,7 @@ test.registerTests(
 
     {
       name: 'importNode',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
 
         rte.setContentsHTMLRaw('<i><a href="link">link</a></i>');
@@ -1074,7 +1074,7 @@ test.registerTests(
 
     {
       name: 'rewriteWhitespace',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = win.rte.getEditor();
         let placedlocators, alllocators, italicelement;
 

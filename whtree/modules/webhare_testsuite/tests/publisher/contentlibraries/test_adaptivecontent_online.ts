@@ -18,13 +18,13 @@ async function resetAll() {
 test.registerTests(
   [
     "setup",
-    async function() {
+    async function () {
       // Setup the test site
       testinfo = await test.invoke("mod::webhare_testsuite/tests/publisher/contentlibraries/libs/adaptivecontent.whlib#SetupDCTest");
     },
 
     "run tests",
-    async function() {
+    async function () {
       // Clear all beacons and reload
       await resetAll();
       await test.load(testinfo.url + "?wh-debug=bac");
@@ -54,7 +54,7 @@ test.registerTests(
     },
 
     "beacons",
-    async function() {
+    async function () {
       // Set and reset the student beacon
       test.assert(test.getWin().dataLayer);
       test.click("#setstudentbeacon");
@@ -72,7 +72,7 @@ test.registerTests(
     },
 
     "adaptivecontent",
-    async function() {
+    async function () {
       // Load the testpage again
       await test.load(testinfo.url + "?wh-debug=bac");
 
@@ -120,7 +120,7 @@ test.registerTests(
     },
 
     "form page beacons",
-    async function() {
+    async function () {
       // The thank you page beacon hasn't been triggered yet
       test.assert(!Array.from(test.getWin().dataLayer).some(_ => _.event == 'wh:trigger-user-beacon' && _.whUserBeacon == "form-thank-you-page"));
 
@@ -142,7 +142,7 @@ test.registerTests(
     },
 
     "consent beacons/views initially allowed",
-    async function() {
+    async function () {
       await resetAll();
       await test.load(testinfo.url + "?defaultconsent=analytics&beaconconsent=analytics&wh-debug=anl,bac");
       //visit count already on 1, even though a cookie bar will still appear... so the code is running!
@@ -152,7 +152,7 @@ test.registerTests(
     },
 
     "consent blocked beacons",
-    async function() {
+    async function () {
       await resetAll();
       await test.load(testinfo.url + "?defaultconsent=&beaconconsent=analytics&wh-debug=anl,bac");
 

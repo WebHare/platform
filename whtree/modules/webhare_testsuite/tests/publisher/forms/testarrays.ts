@@ -7,7 +7,7 @@ import FormBase from "@mod-publisher/js/forms/formbase";
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
       await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1");
 
@@ -97,7 +97,7 @@ test.registerTests(
     },
 
     {
-      test: async function() {
+      test: async function () {
         // Check the submission result
         let result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
         test.assert(result.ok);
@@ -156,7 +156,7 @@ test.registerTests(
       waits: ["ui"]
     },
     {
-      test: async function() {
+      test: async function () {
         // Check the submission result
         let result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
         test.assert(result.ok);
@@ -170,7 +170,7 @@ test.registerTests(
 
     "Test setting value client-side",
     {
-      test: async function() {
+      test: async function () {
         await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1&prefill=1");
 
         // Check the prefilled value
@@ -225,7 +225,7 @@ test.registerTests(
       waits: ["ui"]
     },
     {
-      test: async function() {
+      test: async function () {
         // Check the submission result
         let result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
         test.assert(result.ok);
@@ -246,7 +246,7 @@ test.registerTests(
 
     "Test prefilled array value",
     {
-      test: async function() {
+      test: async function () {
         await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1&prefill=1");
 
         // Check the prefilled value
@@ -286,7 +286,7 @@ test.registerTests(
       waits: ["ui"]
     },
     {
-      test: async function() {
+      test: async function () {
         // Check the submission result
         let result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
         test.assert(result.ok);
@@ -299,7 +299,7 @@ test.registerTests(
     },
 
     "Test prefill #2 - keep untransmitted values",
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1&prefill=2");
 
       // Delete the middle row
@@ -316,7 +316,7 @@ test.registerTests(
     },
 
     "Test custom component inside arrays",
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1&prefill=1");
       test.click('.wh-form__fieldgroup--array[data-wh-form-group-for="customarray"] .wh-form__arrayadd');
       test.click('.wh-form__fieldgroup--array[data-wh-form-group-for="customarray"] .wh-form__arrayadd');
@@ -362,7 +362,7 @@ test.registerTests(
     },
 
     "Test labels within array rows",
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1&prefill=2");
 
       // Find the 'Name' fieldgroup of the second row
@@ -392,7 +392,7 @@ test.registerTests(
     },
 
     "Test adding subfields dynamically and using inter-subfield conditions",
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + "testpages/formtest/?array=1&custom=1");
 
       // Add two rows

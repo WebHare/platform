@@ -258,7 +258,7 @@ function pingPxlEvent(evt) {
         console.error(`[pxl] Error while pinging pxl`, error);
       });
     } else {
-      promise.catch(function() { }); //we don't really care about failed fetches, but don't turn them into unhandled rejections
+      promise.catch(function () { }); //we don't really care about failed fetches, but don't turn them into unhandled rejections
     }
   }
 }

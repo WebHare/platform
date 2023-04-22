@@ -599,7 +599,7 @@ function validateMouseDownTarget(part, elhere, position) {
       //        console.log('elhere', elhere.innerHTML);
 
       const partel = wantedtotarget;
-      setTimeout(function() {
+      setTimeout(function () {
         console.log("AFTER DELAY: Original target", partel, partel.nodeName, partel.getBoundingClientRect());
         console.log("AFTER DELAY: Final target", elhere, elhere.nodeName, elhere.getBoundingClientRect());
       }, 400);
@@ -1088,7 +1088,7 @@ function fireMouseEventsTree(eventtype, cx, cy, el, button, relatedtarget, optio
   let eventlist = [];
 
   // Skip all parents that are in relatedtarget's parent list
-  elparents.forEach(function(parent) {
+  elparents.forEach(function (parent) {
     if (relatedparents.includes(parent) || parent.nodeType != 1)
       return;
     eventlist.push(parent);
@@ -1098,7 +1098,7 @@ function fireMouseEventsTree(eventtype, cx, cy, el, button, relatedtarget, optio
     eventlist = eventlist.reverse();
   }
 
-  eventlist.forEach(function(subel) {
+  eventlist.forEach(function (subel) {
     fireMouseEvent(eventtype, cx, cy, subel, button, relatedtarget, options);
   });
 }
@@ -1109,7 +1109,7 @@ export function checkedDispatchEvent(el, event) {
 
   //Save and pass on errors during event
   let eventerror;
-  win.onerror = function(msg, file, line, col, error) {
+  win.onerror = function (msg, file, line, col, error) {
     console.warn("checkedDispatchEvent error", msg, error);
     if (saveonerror)
       saveonerror.apply(win, arguments);

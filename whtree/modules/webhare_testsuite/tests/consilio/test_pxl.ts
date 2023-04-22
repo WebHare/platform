@@ -184,7 +184,7 @@ test.registerTests(
     },
 
     "Test live mode never throwing",
-    async function() {
+    async function () {
       whintegration.config.dtapstage = "live";
       whintegration.config.islive = true;
       test.eq(null, pxl.makePxlUrl("https://example.org"), "should not throw in development mode (which tests run in");

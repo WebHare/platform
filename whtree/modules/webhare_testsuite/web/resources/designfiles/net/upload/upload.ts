@@ -77,7 +77,7 @@ function logGroupEvents(group) {
   dompack.empty(document.getElementById('tokens'));
   dompack.empty(document.getElementById('files'));
 
-  group.pvt_subitems.forEach(function(file, i) {
+  group.pvt_subitems.forEach(function (file, i) {
     const elt = addProgress('item' + i, file, file.name);
 
     file.addEventListener('progress', evt => logItemEvent(evt, 'progress file #' + i, elt));
@@ -97,10 +97,10 @@ function logGroupEvents(group) {
   group.addEventListener('error', evt => logItemEvent(evt, 'error:g', elt));
   group.addEventListener('loadend', evt => logItemEvent(evt, 'loadend:g', null));
 
-  group.addEventListener('loadend', function() {
+  group.addEventListener('loadend', function () {
     document.getElementById('tokens').textContent = group.getFileTokens().join('\n');
 
-    group.getCompletedFiles().forEach(function(item) {
+    group.getCompletedFiles().forEach(function (item) {
       document.getElementById('files').appendChild(dompack.create('div',
         { text: 'Name: "' + item.name + '", size: ' + item.size + ', type: ' + item.type + ', token: ' + item.filetoken }));
     });
@@ -123,10 +123,10 @@ function uploadHTML5Files(files, callback) {
 }
 
 function devel_upload_init() {
-  document.getElementById('doaction2').addEventListener('click', function() {
+  document.getElementById('doaction2').addEventListener('click', function () {
     let changed = false;
     document.getElementById('myinput').addEventListener('change',
-      function() {
+      function () {
         if (changed) return;
         changed = true;
         uploadHTML5Files(document.getElementById('myinput').files);
@@ -135,12 +135,12 @@ function devel_upload_init() {
     document.getElementById('myinput').click();
   });
 
-  document.getElementById('doabort').addEventListener('click', function() {
+  document.getElementById('doabort').addEventListener('click', function () {
     if (currentgroup)
       currentgroup.abort();
   });
 
-  document.getElementById('dodialoguploadsingle').addEventListener('click', function() {
+  document.getElementById('dodialoguploadsingle').addEventListener('click', function () {
     const group = compatupload.selectAndUploadFile({});
 
     // Upload starts when loadstart event fires.
@@ -148,7 +148,7 @@ function devel_upload_init() {
     return false;
   });
 
-  document.getElementById('dodialoguploadmultiple').addEventListener('click', function() {
+  document.getElementById('dodialoguploadmultiple').addEventListener('click', function () {
     const group = compatupload.selectAndUploadFile({ multiple: true });
 
     // Upload starts when loadstart event fires.
@@ -160,7 +160,7 @@ function devel_upload_init() {
 
 window.test =
 {
-  runUpload: function(files, callback) {
+  runUpload: function (files, callback) {
     return uploadHTML5Files(files, callback);
   },
   logGroupEvents: logGroupEvents

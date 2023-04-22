@@ -6,9 +6,16 @@ import * as child_process from 'node:child_process';
 
 async function testChecks() {
   //test.throws should fail if a function did not throw. this will generate noise so tell the user to ignore
-  await test.throws(/Lemme throw/, () => { throw new Error("Lemme throw"); });
-  await test.throws(/Expected function to throw/, () => test.throws(/Fourty two/, () => 42));
+  test.throws(/Lemme throw/, () => { throw new Error("Lemme throw"); });
+  test.throws(/Expected function to throw/, () => test.throws(/Fourty two/, () => 42));
   console.log("(you can ignore the message above about expecting a fourty two exception)");
+
+  test.eq(new Date("2023-01-01"), new Date("2023-01-01"));
+  test.eq({ deep: new Date("2023-01-01") }, { deep: new Date("2023-01-01") });
+  test.eqProps({ deep: new Date("2023-01-01") }, { deep: new Date("2023-01-01") });
+  test.throws(/Expected date/, () => test.eq(new Date("2023-01-02"), new Date("2023-01-01")));
+  test.throws(/Expected date/, () => test.eq({ deep: new Date("2023-01-02") }, { deep: new Date("2023-01-01") }));
+  test.throws(/Expected date/, () => test.eqProps({ deep: new Date("2023-01-02") }, { deep: new Date("2023-01-01") }));
 
   const x_ab = { cellA: "A", cellB: "B" };
   const x_abc = { ...x_ab, cellC: "test" };
@@ -16,18 +23,18 @@ async function testChecks() {
   test.eqProps(x_ab, x_ab);
   test.eqProps(x_ab, x_abc);
   test.eqProps(x_abc, x_ab, ["cellC"], "shouldn't throw if cellC is explicitly ignored");
-  await test.throws(/Expected property 'cellC'.*at root/, () => test.eqProps(x_abc, x_ab));
+  test.throws(/Expected property 'cellC'.*at root/, () => test.eqProps(x_abc, x_ab));
 
   const x_abc_badb = { ...x_abc, cellB: "BAD" };
   test.eqProps(x_abc, x_abc_badb, ["cellB"], "shouldn't throw if cellB is explicitly ignored");
-  await test.throws(/Mismatched value at root.cellB/, () => test.eqProps(x_abc, x_abc_badb));
+  test.throws(/Mismatched value at root.cellB/, () => test.eqProps(x_abc, x_abc_badb));
 
   {
 
     const v_ts = await test.loadTSType(`@mod-webhare_testsuite/tests/system/nodejs/test_tests.ts#MyInterface`);
-    await test.throws(/data does not conform to the structure: "\/b" must be string/, () => v_ts.validateStructure({ a: 0, b: 1 }), "wrong type not detected");
-    await test.throws(/must NOT have additional properties/, () => v_ts.validateStructure({ a: 0, b: "a", c: "1" }), "extra property not detected");
-    await test.throws(/must have required property 'b'/, () => v_ts.validateStructure({ a: 0 }), "missing property not detected");
+    test.throws(/data does not conform to the structure: "\/b" must be string/, () => v_ts.validateStructure({ a: 0, b: 1 }), "wrong type not detected");
+    test.throws(/must NOT have additional properties/, () => v_ts.validateStructure({ a: 0, b: "a", c: "1" }), "extra property not detected");
+    test.throws(/must have required property 'b'/, () => v_ts.validateStructure({ a: 0 }), "missing property not detected");
     v_ts.validateStructure({ a: 0, b: "a" });
   }
 
@@ -39,16 +46,16 @@ async function testChecks() {
   {
     const v_js = await test.loadJSONSchema({ "type": "object", "properties": { "a": { "type": "number" }, "b": { "type": "string" }, "d": { "type": "string", "format": "date-time" } }, "$schema": "http://json-schema.org/draft-07/schema#" });
     v_js.validateStructure({ a: 0, c: "1", d: "2000-01-01T12:34:56Z" });
-    await test.throws(/data does not conform to the structure: "\/b" must be string/, () => v_js.validateStructure({ a: 0, b: 1 }), "wrong type not detected");
-    await test.throws(/data does not conform to the structure: "\/d" must match format "date-time"/, () => v_js.validateStructure({ a: 0, d: "test" }), "wrong format not detected");
+    test.throws(/data does not conform to the structure: "\/b" must be string/, () => v_js.validateStructure({ a: 0, b: 1 }), "wrong type not detected");
+    test.throws(/data does not conform to the structure: "\/d" must match format "date-time"/, () => v_js.validateStructure({ a: 0, d: "test" }), "wrong format not detected");
   }
 
   {
     const v_jsf = await test.loadJSONSchema("@mod-webhare_testsuite/tests/system/nodejs/data/test.schema.json");
-    await test.throws(/data does not conform to the structure: "\/b" must be string/, () => v_jsf.validateStructure({ a: 0, b: 1 }), "wrong type not detected");
-    await test.throws(/must NOT have additional properties/, () => v_jsf.validateStructure({ a: 0, b: "a", c: "1" }), "extra property not detected");
-    await test.throws(/must have required property 'b'/, () => v_jsf.validateStructure({ a: 0 }), "missing property not detected");
-    await test.throws(/data does not conform to the structure: "\/d" must match format "date-time"/, () => v_jsf.validateStructure({ a: 0, b: "a", d: "test" }), "wrong format not detected");
+    test.throws(/data does not conform to the structure: "\/b" must be string/, () => v_jsf.validateStructure({ a: 0, b: 1 }), "wrong type not detected");
+    test.throws(/must NOT have additional properties/, () => v_jsf.validateStructure({ a: 0, b: "a", c: "1" }), "extra property not detected");
+    test.throws(/must have required property 'b'/, () => v_jsf.validateStructure({ a: 0 }), "missing property not detected");
+    test.throws(/data does not conform to the structure: "\/d" must match format "date-time"/, () => v_jsf.validateStructure({ a: 0, b: "a", d: "test" }), "wrong format not detected");
     v_jsf.validateStructure({ a: 0, b: "a", d: "2000-01-01T12:34:56Z" });
   }
 
@@ -118,7 +125,7 @@ interface MyInterface {
 async function runWHTest(testname: string): Promise<string> {
   /* TODO: a much better approach would use child_process.spawn and pipes, merge the stdout&stderr pipe (so there are no ordering issues) and also watch the exit code */
   return new Promise(resolve =>
-    child_process.execFile(services.config.installationroot + "bin/wh", ["runtest", testname], { timeout: 30000 }, function(error, stdout, stderr) {
+    child_process.execFile(services.config.installationroot + "bin/wh", ["runtest", testname], { timeout: 30000 }, function (error, stdout, stderr) {
       // console.log({error, stdout, stderr});
       resolve(stdout + stderr);
     }));

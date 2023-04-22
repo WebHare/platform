@@ -5,7 +5,7 @@ import * as test from "@mod-tollium/js/testframework";
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/listtest/?selectmode=single&columnselectmode=single');
 
       test.assert(test.qS("#listview.wh-ui-listview--columnselect"));
@@ -46,7 +46,7 @@ test.registerTests(
     },
 
     "Test column select combined with multiple select mode",
-    async function() {
+    async function () {
       test.fill('#selectmode', 'multiple');
 
       test.click(test.getListViewRow('Rij #1.').childNodes[0]);

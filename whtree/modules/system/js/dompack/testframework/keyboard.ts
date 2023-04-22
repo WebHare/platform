@@ -237,9 +237,9 @@ export function generateKeyboardEvent(target, eventname, data) {
       cancelable: true
 
     });
-    Object.defineProperty(evt, 'charCode', { get: function() { return vals.charCode; } });
-    Object.defineProperty(evt, 'keyCode', { get: function() { return vals.keyCode; } });
-    Object.defineProperty(evt, 'which', { get: function() { return vals.which; } });
+    Object.defineProperty(evt, 'charCode', { get: function () { return vals.charCode; } });
+    Object.defineProperty(evt, 'keyCode', { get: function () { return vals.keyCode; } });
+    Object.defineProperty(evt, 'which', { get: function () { return vals.which; } });
 
     if (debugflags.testfw)
       console.log('[testfw] Constructed chrome keyboardevent', evt);
@@ -306,7 +306,7 @@ export function generateKeyboardEvent(target, eventname, data) {
         bubbles: true,
         cancelable: true
       });
-      Object.defineProperty(evt, 'locale', { get: function() { return "en-US"; } });
+      Object.defineProperty(evt, 'locale', { get: function () { return "en-US"; } });
     } else {
       evt = doc.createEvent("KeyboardEvent");
       const modifiers = [];
@@ -317,10 +317,10 @@ export function generateKeyboardEvent(target, eventname, data) {
       evt.initKeyboardEvent(eventname, true, true, doc.defaultView, props.key, props.location, modifiers, props.repeat, "en-US");
     }
 
-    Object.defineProperty(evt, 'char', { get: function() { return vals.char; } });
-    Object.defineProperty(evt, 'charCode', { get: function() { return vals.charCode; } });
-    Object.defineProperty(evt, 'keyCode', { get: function() { return vals.keyCode; } });
-    Object.defineProperty(evt, 'which', { get: function() { return vals.which; } });
+    Object.defineProperty(evt, 'char', { get: function () { return vals.char; } });
+    Object.defineProperty(evt, 'charCode', { get: function () { return vals.charCode; } });
+    Object.defineProperty(evt, 'keyCode', { get: function () { return vals.keyCode; } });
+    Object.defineProperty(evt, 'which', { get: function () { return vals.which; } });
   } else if (browserName() === "safari") {
     const keymapping = { "ArrowUp": "Up", "ArrowDown": "Down", "ArrowLeft": "Left", "ArrowRight": "Right" };
     props.key = keymapping[props.key] || props.key;
@@ -353,9 +353,9 @@ export function generateKeyboardEvent(target, eventname, data) {
       cancelable: true
     });
 
-    Object.defineProperty(evt, 'charCode', { get: function() { return vals.charCode; } });
-    Object.defineProperty(evt, 'keyCode', { get: function() { return vals.keyCode; } });
-    Object.defineProperty(evt, 'which', { get: function() { return vals.which; } });
+    Object.defineProperty(evt, 'charCode', { get: function () { return vals.charCode; } });
+    Object.defineProperty(evt, 'keyCode', { get: function () { return vals.keyCode; } });
+    Object.defineProperty(evt, 'which', { get: function () { return vals.which; } });
   }
 
   if (debugflags.testfw)

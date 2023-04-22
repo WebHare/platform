@@ -8,10 +8,10 @@ import * as testhelpers from './testhelpers';
 test.registerTests(
   [
     "Pulldown test",
-    async function() {
+    async function () {
       await test.load('/.webhare_testsuite/tests/pages/dompack/?testpage=pulldown');
     },
-    async function() {
+    async function () {
       const alwaysopendown_replacement = test.qS('#alwaysopendown').nextSibling;
       const ridiculous_replacement = test.qS('#ridiculous').nextSibling;
       test.eq(true, alwaysopendown_replacement.classList.contains('selectlist'));
@@ -74,7 +74,7 @@ test.registerTests(
       await test.wait(() => testhelpers.getSelectListVisibleItems()[1].classList.contains("copytoggle") === false);
     },
     'Test value indication',
-    async function() {
+    async function () {
       const onepixelshortselect_replacement = test.qS('#onepixelshortselect').nextSibling;
       test.click(onepixelshortselect_replacement);
       let menu = testhelpers.getOpenSelectList();
@@ -91,7 +91,7 @@ test.registerTests(
       test.eq(false, Boolean(menu), 'unable to close pulldown by reclicking it');
     },
     'Test optgroups',
-    async function() {
+    async function () {
       const optgroupsselect = test.qS('#withoptgroups > select');
       const replacement = optgroupsselect.nextSibling;
       const items = replacement.querySelector('.selectlist__items');
@@ -130,7 +130,7 @@ test.registerTests(
       test.eq(true, items.childNodes[6].classList.contains('selectlist__item--selected'));
     },
     'Test disabled',
-    async function() {
+    async function () {
       const ridiculous_replacement = test.qS('#ridiculous').nextSibling;
       test.click(ridiculous_replacement, { x: 5 });
 
@@ -149,7 +149,7 @@ test.registerTests(
       test.eq(false, test.qSA(menu, '.selectlist__item')[3].classList.contains('selectlist__item--disabled'));
     },
     'Test rendering position',
-    function() {
+    function () {
       const justenoughselect_replacement = test.qS('#justenoughselect').nextSibling;
       const onepixelshortselect_replacement = test.qS('#onepixelshortselect').nextSibling;
       test.click(justenoughselect_replacement);
@@ -169,7 +169,7 @@ test.registerTests(
       test.eq(false, test.canClick(justenoughmenu), 'expected justenough menu to have disappeared now we clicked on onepixelshort');
     },
     'Change value',
-    async function() {
+    async function () {
       const alwaysopendown_replacement = test.qS('#alwaysopendown').nextSibling;
       test.eq("Two", alwaysopendown_replacement.querySelector(".selectlist__current").textContent);
       test.qS('#alwaysopendown').value = "1";
@@ -190,7 +190,7 @@ test.registerTests(
       test.qS('#alwaysopendown').value = 2;
     },
     'Change name',
-    async function() {
+    async function () {
       const alwaysopendown_replacement = test.qS('#alwaysopendown').nextSibling;
       test.eq("Two", alwaysopendown_replacement.querySelector(".selectlist__current").textContent);
 
@@ -201,7 +201,7 @@ test.registerTests(
       test.eq("Twee", alwaysopendown_replacement.querySelector(".selectlist__current").textContent, 'expected current to be Twee');
     },
     'Modify pulldown',
-    async function() {
+    async function () {
       const ridiculous_replacement = test.qS('#ridiculous').nextSibling;
       test.eq("Should also open down", ridiculous_replacement.querySelector(".selectlist__current").textContent);
 
@@ -216,13 +216,13 @@ test.registerTests(
       test.eq(true, menu.getBoundingClientRect().top == ridiculous_replacement.getBoundingClientRect().bottom, 'expecting menu to open downwards and be attached');
     },
     'Ignore right mouse button',
-    function() {
+    function () {
       const justenoughselect_replacement = test.qS('#justenoughselect').nextSibling;
       test.sendMouseGesture([{ el: justenoughselect_replacement, down: 2 }, { up: 2 }]);
       test.eq(false, Boolean(testhelpers.getOpenSelectList()));
     },
     'Test keyboard nav',
-    async function() {
+    async function () {
       await test.load('/.webhare_testsuite/tests/pages/dompack/?testpage=pulldown');  //clean state
 
       const alwaysopendown_replacement = test.qS('#alwaysopendown').nextSibling;
@@ -310,7 +310,7 @@ test.registerTests(
       test.eq("Two", alwaysopendown_replacement.querySelector(".selectlist__current").textContent, "should have immediately changed to 'two'");
     },
     'Scroll to selection',
-    async function() {
+    async function () {
       dompack.focus(test.qS('#ridiculousbottomselect'));
       const ridiculousbottomselect_replacement = test.qS('#ridiculousbottomselect').nextSibling;
       await test.pressKey("s");//jump to 'Six'
@@ -331,7 +331,7 @@ test.registerTests(
     },
 
     'Disablepulldown',
-    async function() {
+    async function () {
       await test.load('/.webhare_testsuite/tests/pages/dompack/?testpage=pulldown');  //clean state
 
       const alwaysopendown_replacement = test.qS('#alwaysopendown').nextSibling;
@@ -348,14 +348,14 @@ test.registerTests(
       test.eq(true, test.qS('#alwaysopendown').disabled);
 
       //we cant use the waitforEvent mechanism: IE doesn't fire customevents on disabled elements
-      await test.wait(function() { return test.qS('#alwaysopendown').nextSibling.classList.contains("selectlist--disabled"); });
+      await test.wait(function () { return test.qS('#alwaysopendown').nextSibling.classList.contains("selectlist--disabled"); });
     },
-    function() {
+    function () {
       const alwaysopendown_replacement = test.qS('#alwaysopendown').nextSibling;
       test.eq(true, alwaysopendown_replacement.classList.contains("selectlist--disabled"), 'disabled class should have followed using mutations');
     },
     'Test reset',
-    async function() {
+    async function () {
       const onepixelshortselect = test.qS('#onepixelshortselect');
       onepixelshortselect.value = 3;
       test.eq('U_Three', onepixelshortselect.nextSibling.querySelector('.selectlist__current').textContent);
@@ -365,7 +365,7 @@ test.registerTests(
       test.eq('Upwards, one pixel short', onepixelshortselect.nextSibling.querySelector('.selectlist__current').textContent);
     },
     'scrolling!',
-    function() {
+    function () {
       test.click(test.qS('#scrollable'));
       test.getWin().scrollTo(0, test.getWin().innerHeight / 2);
 
@@ -377,7 +377,7 @@ test.registerTests(
       test.eq(onepixelshortselect_replacement.getBoundingClientRect().bottom, menu.getBoundingClientRect().top, 'new menu should attach to bottom of #onepixelshortselect');
     },
     'tab key',
-    async function() {
+    async function () {
       await test.pressKey("Tab");
       test.eq(false, Boolean(testhelpers.getOpenSelectList()), "selectlist must close when tabbing away");
 

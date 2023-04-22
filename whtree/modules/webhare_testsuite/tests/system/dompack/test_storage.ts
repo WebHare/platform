@@ -7,7 +7,7 @@ import * as dompack from "@webhare/dompack";
 test.registerTests(
   [
     "Test isolated storage",
-    async function() {
+    async function () {
       window.localStorage.removeItem("testFwKey");
       window.sessionStorage.removeItem("testFwKey");
       dompack.deleteCookie("testFwCookie");

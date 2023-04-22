@@ -32,7 +32,7 @@ test.registerTests(
 
     {
       name: 'focus1',
-      test: async function() {
+      test: async function () {
         test.assert(test.getDoc().hasFocus(), "This test requires the browser to have focus");
 
         //ADDME also test the Tollium hasFocus() calls
@@ -64,7 +64,7 @@ test.registerTests(
 
     {
       name: 'serverfocus',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eqMatch(/:list$/, getToddFocusedComponent());
 
         test.click(test.getMenu(['M01', 'A01']));
@@ -73,7 +73,7 @@ test.registerTests(
     },
 
     'focussub',
-    async function(doc, win) {
+    async function (doc, win) {
       test.eq(2, test.qSA('.t-screen').length);
       test.assert(test.getCurrentScreen().getNode().contains(doc.activeElement)); //make sure focus is in the expected window
       test.eqMatch(/:box!heading!cbox$/, getToddFocusedComponent());
@@ -101,7 +101,7 @@ test.registerTests(
 
     {
       name: 'focusback',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq(1, test.qSA('.t-screen').length);
         test.eqMatch(/:list$/, getToddFocusedComponent());
       }
@@ -109,7 +109,7 @@ test.registerTests(
 
     {
       name: 'openemptydialog',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.click(test.getMenu(['M01', 'A02']));
       },
       waits: ['ui']
@@ -117,7 +117,7 @@ test.registerTests(
 
     {
       name: 'openemptydialog-testfocus',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const screens = test.qSA('.t-screen');
         test.eq(2, screens.length);
         test.eq(screens[1], doc.activeElement);
@@ -128,7 +128,7 @@ test.registerTests(
 
     {
       name: 'opertedialog',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.click(test.getMenu(['M01', 'A03']));
       },
       waits: ['ui'],
@@ -137,7 +137,7 @@ test.registerTests(
 
     {
       name: 'openrtedialog-testfocus',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //the RTE should NOT have focus
         test.eq(2, test.qSA('.t-screen').length);
         test.eqMatch(/:textedit$/, getToddFocusedComponent());
@@ -152,7 +152,7 @@ test.registerTests(
 
     {
       name: 'openrtedialog-opensubwindow',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //and open a subwindow
         test.click(test.getMenu(['M02', 'A03']));
       },
@@ -161,14 +161,14 @@ test.registerTests(
 
     {
       name: 'openrtedialog-testsubwindowfocus',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eqMatch(/:textedit$/, getToddFocusedComponent());
       }
     },
 
     {
       name: 'openrtedialog-closesub',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //close the subwindow again
         test.getCurrentScreen().clickCloser();
       },
@@ -177,7 +177,7 @@ test.registerTests(
 
     {
       name: 'openrtedialog-testfocusafterclosesub',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //verify that the RTE got focus again
         test.eqMatch(/:rte/, getToddFocusedComponent());
       }
@@ -185,7 +185,7 @@ test.registerTests(
 
     {
       name: 'openrtedialog-close',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //close this window too, and we'll be back at the toplevel window
         test.getCurrentScreen().clickCloser();
       },
@@ -194,7 +194,7 @@ test.registerTests(
 
     {
       name: 'openrteonlydialog',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.click(test.getMenu(['M01', 'A04']));
       },
       waits: ['ui'],
@@ -202,7 +202,7 @@ test.registerTests(
     },
 
     { name: 'openrteonlydialog-testfocus' },
-    async function(doc, win) {
+    async function (doc, win) {
       //the RTE should NOT have focus
       test.eq(2, test.qSA('.t-screen').length);
       test.assert(dompack.matches(doc.activeElement, 'div.wh-rtd-editor[contenteditable]'));
@@ -212,7 +212,7 @@ test.registerTests(
     },
 
     "Open RTE+text Dialog, focus the RTE",
-    async function(doc, win) {
+    async function (doc, win) {
       test.click(test.getMenu(['M01', 'A05']));
       await test.waitUIFree();
       test.eq(2, test.qSA('.t-screen').length);

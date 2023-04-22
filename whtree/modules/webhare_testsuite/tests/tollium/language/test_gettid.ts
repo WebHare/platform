@@ -10,7 +10,7 @@ import * as domdebug from "dompack/src/debug";
 test.registerTests([
   // Test language
   "Tid language",
-  function() {
+  function () {
     test.eq(getTid.tidLanguage, "");
     getTid.tidLanguage = "nl";
     test.eq(getTid.tidLanguage, "nl");
@@ -19,7 +19,7 @@ test.registerTests([
   // Test registration of texts
 
   "Base texts",
-  function() {
+  function () {
     const base_texts =
       { "testgroup": { "testtext": "This is a test" } };
 
@@ -45,7 +45,7 @@ test.registerTests([
   },
 
   "Test string substitution (param, ifparam, else)",
-  function() {
+  function () {
     // NOTE: getTid expects all language texts to be well-formed as they're generated automatically from the language files and
     //       it doesn't check for unexpected end-of-string of unbalanced {i}'s, so we're not going to test that
 
@@ -118,7 +118,7 @@ test.registerTests([
   },
 
   "Test correct merging of new texts",
-  function() {
+  function () {
     getTid.tidLanguage = "en";
 
     const more_base_texts =
@@ -142,7 +142,7 @@ test.registerTests([
   },
 
   "Test HTML tid's",
-  function() {
+  function () {
     getTid.tidLanguage = "nl";
 
     const html_texts =
@@ -165,7 +165,7 @@ test.registerTests([
   },
 
   "Generated tids",
-  async function() {
+  async function () {
     await test.load(test.getTestSiteRoot());
     const tids = test.getWin().getTidTest();
     test.eq("(cannot find text:webhare_testsuite:webdesigns.basetest.consolelog)", tids.consolelog, "Not included in lang.json");

@@ -13,7 +13,7 @@ test.registerTests(
 
     {
       name: 'imagebuttontest',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         const rte = rtetest.getRTE(win, 'editor');
         const geoffreynode = rte.qSA("br")[1].nextSibling;
         rtetest.setRTESelection(win, rte.getEditor(),
@@ -41,7 +41,7 @@ test.registerTests(
 
     {
       name: 'imagebuttontest-verify',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = rtetest.getRTE(win, 'editor');
         const selection = rte.getEditor().getSelectionRange();
         test.eq(1, selection.querySelectorAll("img").length);
@@ -50,7 +50,7 @@ test.registerTests(
 
     {
       name: 'imagebutton properties',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = rtetest.getRTE(win, 'editor');
         test.click(rte.getButtonNode('action-properties'));
       },
@@ -58,7 +58,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq('27', test.compByName('width').querySelector('input').value);
         test.clickTolliumButton("OK");
       },
@@ -66,7 +66,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.clickTolliumButton("Rewrite");
       },
       waits: ['ui']
@@ -74,7 +74,7 @@ test.registerTests(
 
     {
       name: 'copypasteimage',
-      wait: function(doc, win, callback) {
+      wait: function (doc, win, callback) {
         const rte = rtetest.getRTE(win, 'editor');
         const imgnode = rte.qSA("img")[0];
 
@@ -93,7 +93,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.clickTolliumButton("Edit raw html");
       },
       waits: ['ui']
@@ -101,7 +101,7 @@ test.registerTests(
 
     {
       name: 'verify-copypasteimage',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const holder = document.createElement("div");
         holder.innerHTML = rtetest.getRawHTMLTextArea(win).value;
         const imgs = holder.querySelectorAll('img');
@@ -120,7 +120,7 @@ test.registerTests(
 
     {
       name: 'texthyperlink',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = rtetest.getRTE(win, 'editor');
         const quote = rte.qS('blockquote');
         rtetest.setRTESelection(win, rte.getEditor(),
@@ -136,7 +136,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textedit = test.getCurrentScreen().qSA('t-textedit');
         test.eq(1, textedit.length, 'Expected only one textedit control (external link)');
 
@@ -151,7 +151,7 @@ test.registerTests(
 
     {
       name: 'verifyhyperlink',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = rtetest.getRTE(win, 'editor');
         const range = rte.getEditor().getSelectionRange();
         //ensure hyperlink contents are selected
@@ -169,7 +169,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         const textedit = test.getCurrentScreen().qSA('t-textedit');
         test.eq(1, textedit.length, 'Expected only one textedit control (external link)');
 
@@ -182,7 +182,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = rtetest.getRTE(win, 'editor');
         const link = rte.qSA("a[href]")[0];
         test.eq('http://www.example.com/', link.href);
@@ -199,14 +199,14 @@ test.registerTests(
 
     {
       name: 'Remove hyperlink',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.clickTolliumButton("Remove hyperlink");
       },
       waits: ['ui']
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         const rte = rtetest.getRTE(win, 'editor');
         //Verify the link's disappearance
         test.eq(0, rte.qSA('a[href="http://www.example.com/"]').length);
@@ -215,7 +215,7 @@ test.registerTests(
 
     {
       name: 'Counter',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         // Enable the counter
         test.setTodd("showcounter", true);
         await test.wait("ui");
@@ -228,7 +228,7 @@ test.registerTests(
     },
 
     "Plain text conversion options",
-    async function() {
+    async function () {
       test.clickTolliumButton("View plaintext");
       await test.wait("ui");
 
@@ -272,14 +272,14 @@ test.registerTests(
     },
 
     "textcontent count mode",
-    async function() {
+    async function () {
       test.setTodd("toplaintextmethod", "textcontent");
       await test.wait("ui");
       test.eq('1091', test.compByName('editor').querySelector('.wh-counter__count').textContent);
     },
 
     "Copy paste with <style>",
-    async function() {
+    async function () {
       await test.load(test.getTestScreen('tests/richdoc.main'));
       await test.wait('ui');
 

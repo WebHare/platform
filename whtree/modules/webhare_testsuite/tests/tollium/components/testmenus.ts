@@ -24,7 +24,7 @@ test.registerTests(
 
     {
       name: 'dummyaction',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const X01 = test.getMenu(['X01']);
         test.click(X01);
         test.assert(X01.classList.contains("selected"));
@@ -43,7 +43,7 @@ test.registerTests(
 
     {
       name: 'triggerquickaction',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(!test.getCurrentApp().isBusy());
 
         // After clicking a menu item, ensure the menu is closed
@@ -76,7 +76,7 @@ test.registerTests(
 
     {
       name: 'verify X03',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         //hover to the click action
         const X03 = test.getMenu(['X03']);
         //should have hover and status, but not selected
@@ -98,7 +98,7 @@ test.registerTests(
 
     {
       name: 'visibility checks',
-      test: function(doc, win) {
+      test: function (doc, win) {
         let menu = test.qSA('.wh-menubar')[0];
         const X03 = test.qSA(menu, "*").filter(item => item.textContent.includes('X03'))[0];
         const X01 = test.qSA(menu, "*").filter(item => item.textContent.includes('X01'))[0];
@@ -149,7 +149,7 @@ test.registerTests(
     },
 
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.eq('1', test.compByName("action1count").textContent); //we didn't even touch it...
         const menu = test.qSA('.wh-menubar')[0];
         const X04 = menu.querySelector("li[data-menuitem$=':x04menu']");
@@ -163,7 +163,7 @@ test.registerTests(
 
     {
       name: 'disableaction',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(!test.getMenu(['X01', 'X11']).classList.contains('disabled'));
         const X12 = test.getMenu(['X01', 'X12']);
         test.click(X12);
@@ -173,7 +173,7 @@ test.registerTests(
 
     {
       name: 'disableaction2',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.getMenu(['X01', 'X11']).classList.contains('disabled'));
         const X12 = test.getMenu(['X01', 'X12']);
         test.click(X12);
@@ -183,7 +183,7 @@ test.registerTests(
 
     {
       name: 'customaction',
-      test: function(doc, win) {
+      test: function (doc, win) {
         win.$shell.registerCustomAction("webhare_testsuite:customaction", myCustomAction);
 
         test.assert(!test.getMenu(['X01', 'X11']).classList.contains('disabled'));
@@ -200,14 +200,14 @@ test.registerTests(
 
     {
       name: 'customaction2',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.getMenu(['X01', 'X11']).classList.contains('disabled'));
       }
     },
 
     {
       name: 'switchbar',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //Verify that the form properly accounted for the presence of the menubar
         const screennode = test.getCurrentScreen().getNode();
         const testbottom = test.getCurrentScreen().getToddElement('testbottom');
@@ -221,7 +221,7 @@ test.registerTests(
     },
     {
       name: 'switchbar2',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //Verify that the form properly accounted for the presence of the menubar
         const screennode = test.getCurrentScreen().getNode();
         const testbottom = test.getCurrentScreen().getToddElement('testbottom');
@@ -236,7 +236,7 @@ test.registerTests(
     },
     {
       name: 'switchbar3',
-      test: function(doc, win) {
+      test: function (doc, win) {
         //Verify that the form properly accounted for the presence of the menubar
         const screennode = test.getCurrentScreen().getNode();
         const testbottom = test.getCurrentScreen().getToddElement('testbottom');
@@ -251,7 +251,7 @@ test.registerTests(
 
     {
       name: 'toolbarbuttonvisible',
-      test: function(doc, win) {
+      test: function (doc, win) {
         const X13 = test.getMenu(['X01', 'X13']);
         test.assert(X13 != null);
         test.click(X13);
@@ -260,35 +260,35 @@ test.registerTests(
     },
     {
       name: 'toolbarbuttonvisible2 - now use keyboard',
-      test: async function(doc, win) {
+      test: async function (doc, win) {
         await test.pressKey('b', { ctrlKey: true });
       },
       waits: ['ui']
     },
     {
       name: 'toolbarbuttonvisible3',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.compByName('b02_togglebutton') != null);
       }
     },
 
     {
       name: 'toolbarbuttonenable',
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.compByName('b03_menubutton').classList.contains("todd--disabled"));
         test.click(test.getMenu(['X01', 'X15']));
       },
       waits: ['ui']
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(!test.compByName('b03_menubutton').classList.contains("todd--disabled"));
         test.click(test.getMenu(['X01', 'X15']));
       },
       waits: ['ui']
     },
     {
-      test: function(doc, win) {
+      test: function (doc, win) {
         test.assert(test.compByName('b03_menubutton').classList.contains("todd--disabled"));
       }
     }

@@ -1,8 +1,7 @@
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { IPCLinkType } from "@mod-system/js/internal/whmanager/ipc";
-import { WaitPeriod } from "@webhare/std/api";
 import * as std from "@webhare/std";
-import { maxDateTime } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { maxDateTime } from "@webhare/hscompat";
 
 interface InitTask {
   task: "init";
@@ -75,9 +74,9 @@ async function connectMutexManager(): Promise<MutexManagerLink> {
  * @returns A locked mutex, or null if locking failed due to a timeout
  */
 export async function lockMutex(name: string): Promise<Mutex>;
-export async function lockMutex(name: string, options: { timeout: WaitPeriod }): Promise<Mutex | null>;
+export async function lockMutex(name: string, options: { timeout: std.WaitPeriod }): Promise<Mutex | null>;
 
-export async function lockMutex(name: string, options?: { timeout: WaitPeriod }): Promise<Mutex | null> {
+export async function lockMutex(name: string, options?: { timeout: std.WaitPeriod }): Promise<Mutex | null> {
   //convert any non-infinite relative timeout to an absolute one
   const timeout = options?.timeout && options?.timeout !== Infinity ? std.convertWaitPeriodToDate(options.timeout) : Infinity;
 

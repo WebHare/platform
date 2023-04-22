@@ -18,7 +18,7 @@ function testHasLookup(fieldname) {
 test.registerTests(
   [
     'Check UX',
-    async function() {
+    async function () {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=2');
 
@@ -54,7 +54,7 @@ test.registerTests(
     },
 
     'Check UX - BE',
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=2');
       test.fill("#addressform-address\\.country", "BE");
       test.fill("#addressform-address\\.nr_detail", "100");
@@ -66,7 +66,7 @@ test.registerTests(
     },
 
     'Check required subfields',
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=2');
 
       test.assert(test.canClick("#addressform-address\\.country"));
@@ -120,7 +120,7 @@ test.registerTests(
     },
 
     'Check recursive enable/visible',
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=1');
 
       // initially not visible
@@ -151,7 +151,7 @@ test.registerTests(
     },
 
     'Check address validation',
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=1');
 
       // set country to NL
@@ -206,7 +206,7 @@ test.registerTests(
     },
 
     "Regression: addressfield clearing itself when receiving events that don't change anything",
-    async function() {
+    async function () {
       test.eq("NL", test.qS("[id='addressform-address.country']").value);
       test.eq("7500 OO", test.qS("[id='addressform-address.zip']").value);
       test.fill("[id='addressform-visiblegroup']", false); //hide the addreses
@@ -215,7 +215,7 @@ test.registerTests(
     },
     // */
     "Regression: modify during validation",
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=1');
       //fill in address2 just so we can submit...
       test.fill("#addressform-address2\\.country", "BE");
@@ -242,7 +242,7 @@ test.registerTests(
     },
 
     "Regression: addressfield nl-optional broke (incorrectly waiting for allrequiredset)",
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=1');
       test.fill("#addressform-address2\\.country", "NL");
       test.fill("#addressform-address2\\.zip", "7521AM");
@@ -255,7 +255,7 @@ test.registerTests(
     },
 
     "Test using (disabled) city field as condition source",
-    async function() {
+    async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=1');
 
       test.assert(!test.canClick("#addressform-neighbourhood"));

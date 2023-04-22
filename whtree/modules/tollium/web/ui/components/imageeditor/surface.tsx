@@ -89,7 +89,7 @@ class ImageSurface {
   // Are there image data modifying changes?
   isModified() {
     // Returns true if there is at least one image modifying state on the undo stack
-    return this.undostack.findIndex(function(state) {
+    return this.undostack.findIndex(function (state) {
       return !state.meta;
     }) >= 0;
   }
@@ -476,7 +476,7 @@ class ImageSurface {
   }
 }
 
-ImageSurface.addUndoButton = function(toolbar, surface, options) {
+ImageSurface.addUndoButton = function (toolbar, surface, options) {
   const button = new Toolbar.Button(toolbar,
     {
       label: getTid("~undo"),
@@ -489,7 +489,7 @@ ImageSurface.addUndoButton = function(toolbar, surface, options) {
   return { button: button };
 };
 
-ImageSurface.addRedoButton = function(toolbar, surface, options) {
+ImageSurface.addRedoButton = function (toolbar, surface, options) {
   const button = new Toolbar.Button(toolbar,
     {
       label: getTid("~redo"),

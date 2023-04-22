@@ -9,7 +9,7 @@ test.registerTests(
   [
     { loadpage: '/.webhare_testsuite/tests/pages/keyboard/' },
     'simple press',
-    async function() {
+    async function () {
       test.qS('#testfield').focus();
       await test.pressKey('b', { shiftKey: true });
       test.eq(['B'], getPressedKeys());
@@ -18,7 +18,7 @@ test.registerTests(
     },
 
     'keyboard bunny',
-    async function() {
+    async function () {
       test.qS('#keyboardbunny').focus();
       await test.pressKey('A', { ctrlKey: true });
       test.eq('^a', test.qS('#lastkey').value);

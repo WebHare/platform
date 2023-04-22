@@ -34,7 +34,7 @@ function refillJustenough() {
     disabled: true,
     textContent: 'Just Enough'
   }));
-  ["can't", "get", "it", "though"].forEach(function(text) {
+  ["can't", "get", "it", "though"].forEach(function (text) {
     dompack.qS('#justenoughselect').appendChild(dompack.create('option', { value: text, textContent: text }));
   });
 }

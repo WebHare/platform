@@ -8,12 +8,12 @@ let setupdata;
 
 test.registerTests(
   [
-    async function() {
+    async function () {
       setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#BuildWebtoolForm', { addcheckboxfield: true, addconditions: true, checkboxes: true, addtwolevelfield: true, checkboxsubs: true, custommergefields: true });
     },
 
     'Test datetime condition',
-    async function() {
+    async function () {
       await test.load(setupdata.url);
       test.assert(!test.canClick("#webtoolform-not18"));
 
@@ -33,10 +33,10 @@ test.registerTests(
       test.assert(!test.canClick("#webtoolform-not18"));
     },
 
-    { loadpage: function() { return setupdata.url; } },
+    { loadpage: function () { return setupdata.url; } },
 
     'Test conditional',
-    async function() {
+    async function () {
       test.assert(test.qS('input[name="firstname"]').closest('.wh-form__fieldgroup').classList.contains('wh-form__fieldgroup--required'), "firstname should be required");
 
       const select_with_placeholder = test.qS('select[name="toggleselectoptions_withplaceholder"]');
@@ -51,10 +51,10 @@ test.registerTests(
       test.click(test.qSA('[type=submit]')[0]);
     },
 
-    { loadpage: function() { return setupdata.url; } },
+    { loadpage: function () { return setupdata.url; } },
 
     'Test hiding',
-    async function() {
+    async function () {
       test.assert(test.canClick(test.qS('input[name="firstname"]')), "firstname should be clickable");
       test.click(test.qSA('[name=hidefirstname]')[0]);
       test.assert(!test.canClick(test.qS('input[name="firstname"]')), "firstname should no longer be clickable");
@@ -138,9 +138,9 @@ test.registerTests(
       test.eqMatch(/Subfield value: Subvalue #2/, emails[0].plaintext);
     },
 
-    { loadpage: function() { return setupdata.url; } },
+    { loadpage: function () { return setupdata.url; } },
     'Test disabling',
-    async function() {
+    async function () {
       test.assert(test.qS('input[name="conditionhas"]').disabled, "condition HAS should be disabled as the 'other' option isn't enabled");
       test.assert(test.qS('input[name="conditionis"]').disabled, "condition IS should be disabled as the 'other' option isn't enabled");
 
@@ -164,10 +164,10 @@ test.registerTests(
       test.eq("", thankyou[0].textContent, "Thankyou node should be empty");
     },
 
-    { loadpage: function() { return setupdata.url; } },
+    { loadpage: function () { return setupdata.url; } },
 
     'Test group dependencies',
-    async function() {
+    async function () {
       test.assert(!test.canClick(test.qS('input[name="phone"]')), "phone should not be visible");
       test.assert(!test.canClick(test.qS('input[name="mobile"]')), "mobile should not be visible");
       test.click(test.qS('[name=showcontact]'));
@@ -179,7 +179,7 @@ test.registerTests(
     },
 
     'Test case sensitivity',
-    async function() {
+    async function () {
       test.assert(test.qS('input[name="sensitivetarget"]').disabled, "sensitivetarget should be disabled");
       test.assert(test.qS('input[name="insensitivetarget"]').disabled, "insensitivetarget should be disabled");
       test.fill(test.qS('input[name="sourcetext"]'), "test");
@@ -191,7 +191,7 @@ test.registerTests(
     },
 
     'Test composed required',
-    async function() {
+    async function () {
       test.assert(!test.qS('.wh-form__fieldgroup[data-wh-form-group-for="reversed.text"]').classList.contains('wh-form__fieldgroup--required'));
       test.click(test.qS('[name=requirereversed]'));
       test.assert(test.qS('.wh-form__fieldgroup[data-wh-form-group-for="reversed.text"]').classList.contains('wh-form__fieldgroup--required'), "reversed should be required");
