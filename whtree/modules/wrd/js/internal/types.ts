@@ -1,6 +1,8 @@
 import { mapObject } from "@mod-system/js/internal/util/algorithms";
 import type { AccessorType } from "./accessors";
 
+//FIXME Shouldn't we stringify WRDMetaType, WRDGender and WRDAttributeType to also have prettier names at runtime?
+
 /** WRD entity metatypes.
 */
 export enum WRDMetaType {

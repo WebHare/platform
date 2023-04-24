@@ -1,11 +1,40 @@
 import { HSVMObject } from "@webhare/services/src/hsvm";
-import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps } from "./types";
+import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType } from "./types";
 import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
 import { checkPromiseErrorsHandled } from "@mod-system/js/internal/util/devhelpers";
 
 interface WRDEntitySettings { //TODO this will go away as soon as createAttribute/updateAttribute are redefined
   [key: string]: number | number[] | boolean | string | string[] | Date | WRDEntitySettings | WRDEntitySettings[] | null;
 }
+
+interface WRDTypeConfigurationBase {
+  metatype: WRDMetaType;
+  title?: string;
+  description?: string;
+  keephistorydays?: number;
+  haspersonaldata?: boolean;
+}
+
+interface WRDObjectTypeConfiguration extends WRDTypeConfigurationBase {
+  metatype: WRDMetaType.Object;
+}
+
+interface WRDAttachmentTypeConfiguration extends WRDTypeConfigurationBase {
+  metatype: WRDMetaType.Attachment;
+  left?: string;
+}
+
+interface WRDLinkTypeConfiguration extends WRDTypeConfigurationBase {
+  metatype: WRDMetaType.Link;
+  left?: string;
+  right?: string;
+}
+
+interface WRDDomainTypeConfiguration extends WRDTypeConfigurationBase {
+  metatype: WRDMetaType.Domain;
+}
+
+type WRDTypeConfiguration = WRDObjectTypeConfiguration | WRDAttachmentTypeConfiguration | WRDLinkTypeConfiguration | WRDDomainTypeConfiguration;
 
 export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
   #id: number | string;
@@ -24,6 +53,42 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     }
     return retval;
   }
+
+  private async toWRDTypeId(tag: string | undefined): Promise<number> {
+    if (!tag)
+      return 0;
+
+    const schemaobj = await this.getWRDSchema();
+    const typelist = await schemaobj.ListTypes() as Array<{ id: number; tag: string }>;
+    const match = typelist.find(t => t.tag === tag);
+    if (!match)
+      throw new Error(`No such type '${tag}' in schema '${this.#id}'`);
+    return match.id;
+  }
+
+  async createType(tag: string, config: WRDTypeConfiguration): Promise<WRDType<S, string>> {
+    const schemaobj = await this.getWRDSchema();
+    const left = await this.toWRDTypeId((config as WRDLinkTypeConfiguration)?.left);
+    const right = await this.toWRDTypeId((config as WRDLinkTypeConfiguration)?.right);
+
+    await extendWorkToCoHSVM();
+
+    const createrequest = {
+      title: "",
+      description: "",
+      tag,
+      requiretype_left: left,
+      requiretype_right: right,
+      metatype: config.metatype,
+      //TODO parenttype, abstract, hasperonaldata defaulting to TRUE for WRD_PERSON (but shouldn't the base schema do that?)
+      keephistorydays: config.keephistorydays || 0,
+      haspersonaldata: config.haspersonaldata || false
+    };
+
+    await schemaobj.__DoCreateType(createrequest);
+    return this.getType(tag);
+  }
+
 
   private async getWRDSchema(): Promise<HSVMObject> {
     if (!this.#wrdschema) {
@@ -127,7 +192,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     }
   }
 
-  async createAttribute(tag: string, type: string, settings: WRDEntitySettings) {
+  async createAttribute(tag: string, type: string, settings: WRDEntitySettings = {}) {
     await extendWorkToCoHSVM();
     const typeobj = await this._getType();
     await typeobj.CreateAttribute(tag, type, settings);
