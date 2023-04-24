@@ -548,30 +548,6 @@
     </xs:attribute>
   </xs:complexType>
 
-  <xs:complexType name="PrebuiltPage">
-    <xs:annotation>
-      <xs:documentation>
-        Deprecated!
-      </xs:documentation>
-    </xs:annotation>
-
-    <xs:complexContent>
-      <xs:extension base="DynamicExecution">
-        <xs:attribute name="tag" type="xs:string" use="required" />
-        <xs:attribute name="type">
-          <xs:simpleType>
-            <xs:restriction base="xs:string">
-              <xs:enumeration value="static"/>
-              <xs:enumeration value="dynamic"/>
-            </xs:restriction>
-          </xs:simpleType>
-        </xs:attribute>
-        <xs:attributeGroup ref="sc:TidOrTitle" />
-        <xs:attributeGroup ref="CaptureSubPaths" />
-      </xs:extension>
-    </xs:complexContent>
-  </xs:complexType>
-
   <!-- ADDME: Can we clean this up? -->
   <!-- duplicated propertyeditor in sitepropfilecomponentes.xsd to break a recursive import causing two imports for tollium components
        without it siteprofile extensions in the publisher won't work -->
@@ -879,7 +855,6 @@
       <xs:element name="customplugin" type="CustomPlugin" />
       <xs:element name="rtddoc" type="RTDDoc" />
       <xs:element name="setlibrary" type="SetLibrary" />
-      <xs:element name="prebuiltpage" type="PrebuiltPage" />
       <xs:element name="mailtemplate" type="MailTemplate" />
       <xs:element name="debugsettings" type="DebugSettings" />
       <xs:element name="pwafile" type="PWAFile" />
@@ -1728,7 +1703,6 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="prebuiltmasks" type="sc:WildcardMasks" />
     <xs:attribute name="webfeatures" type="sc:WildcardMasks">
       <xs:annotation>
         <xs:documentation>

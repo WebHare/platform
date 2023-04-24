@@ -54,10 +54,6 @@ MACRO InitializeFileTypes()
                             , [ id := 36, namespace := "http://www.webhare.net/xmlns/tollium/applicationportal",  isfoldertype := FALSE, isfiletype := TRUE ]
                             //, [ id := 37, namespace := "http://www.webhare.net/xmlns/tollium/frontendapplication",  isfoldertype := FALSE, isfiletype := TRUE ]
                             , [ id := 38, namespace := "http://www.webhare.net/xmlns/publisher/shtmlwithdesignfile",  isfoldertype := FALSE, isfiletype := TRUE ]
-                            , [ id := 39, namespace := "http://www.webhare.net/xmlns/publisher/prebuiltpage",  isfoldertype := FALSE, isfiletype := TRUE, members :=
-                                [[ name := "prebuilttag", type := "string"
-                                ]]
-                              ]
                             , [ id := 40, namespace := "http://www.webhare.net/xmlns/publisher/draftmetadata",  isfoldertype := FALSE, isfiletype := FALSE ]
                             , [ id := 0, namespace := "http://www.webhare.net/xmlns/publisher/sitesettings",  isfoldertype := FALSE, isfiletype := FALSE, members :=
                                 [//set up properties needed for siteprofile compiler and backend site

@@ -575,7 +575,6 @@ PUBLIC RECORD FUNCTION GetSystemRedirectInfo(INTEGER fileid)
   }
   CATCH(OBJECT e)
   {
-    //prebuilt files can throw in GetWebDesignObjinfo
     LogHarescriptException(e);
     RETURN [ success := FALSE, error := `Cannot get webdesign info for #${fileid}: ${e->what}` ];
   }
@@ -587,20 +586,7 @@ PUBLIC RECORD FUNCTION GetSystemRedirectInfo(INTEGER fileid)
   IF(finaltype = 20) //contentlink
     finaltype := SELECT AS INTEGER type FROM system.fs_objects WHERE id = applytester->__Deprecated_GetObjInfo().obj.filelink;
 
-  IF(finaltype = 39) //prebuiltpages
-  {
-    OBJECT prebuilttype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/prebuiltpage");
-    RECORD prebuiltinfo := prebuilttype->GetInstanceData(fileid);
-    settings := applytester->GetPrebuiltPageSettings(prebuiltinfo.prebuilttag);
-
-    IF(NOT RecordExists(settings))
-      RETURN [ success := FALSE, error := "fsobject id #" || fileid || " cannot find prebuilt settings with tag '" || prebuiltinfo.prebuilttag || "'" ];
-    IF(settings.type != "dynamic")
-      RETURN [ success := FALSE, error := "fsobject id #" || fileid || " is not a dynamic prebuilt file" ];
-
-    settings := settings.dynexecute;
-  }
-  ELSE IF(finaltype = 25) //SHTML page
+  IF(finaltype = 25) //SHTML page
   {
     OBJECT dest := OpenWHFSObject(applytester->__Deprecated_GetObjInfo().obj.type = 20 ? applytester->__Deprecated_GetObjInfo().obj.filelink : fileid);
 
@@ -768,9 +754,6 @@ STATIC OBJECTTYPE ApplyRuleTester
 
   INTEGER contenttype;
 
-  STRING prebuilttag;
-  BOOLEAN haveprebuilttag;
-
   // ---------------------------------------------------------------------------
   //
   // Public properties
@@ -898,9 +881,7 @@ STATIC OBJECTTYPE ApplyRuleTester
   RECORD FUNCTION GetCacheableCSPSubset(INTEGER siteid)
   {
     RECORD value := MakeReplacedRecord(
-          [ prebuilttag_memberid :=   0
-          , prebuilttag_typeid :=     0
-          , applies :=                DEFAULT RECORD ARRAY
+          [ applies :=                DEFAULT RECORD ARRAY
           ], GetCachedSiteProfiles());
 
     value.applies := this->FilterApplies(value.applies, GetSiteApplicabilityInfo(siteid).siteprofileids);
@@ -999,30 +980,6 @@ STATIC OBJECTTYPE ApplyRuleTester
     RETURN this->contenttype;
   }
 
-  STRING FUNCTION GetPrebuiltTag()
-  {
-    IF(this->objinfo.obj.id = 0 OR this->objinfo.obj.isfolder)
-      RETURN "";
-    IF(NOT this->haveprebuilttag)
-    {
-      // Move 'parent = 0' condition out of query, database optimizes wrong
-      RECORD ARRAY candidates :=
-          SELECT setting :=     fs_settings.setting
-               , parent :=      fs_settings.parent
-            FROM system.fs_settings
-               , system.fs_instances
-           WHERE fs_instances.fs_object = this->objinfo.obj.id
-             AND fs_settings.fs_instance = fs_instances.id
-             AND fs_instances.fs_type = this->csp.prebuilttag_typeid
-             AND fs_settings.fs_member = this->csp.prebuilttag_memberid;
-//           AND fs_settings.parent = 0 // this one was used as primary search, should have used fs_object condition
-
-      this->prebuilttag := SELECT AS STRING setting FROM candidates WHERE parent = 0;
-      this->haveprebuilttag := TRUE;
-    }
-    RETURN this->prebuilttag;
-  }
-
   BOOLEAN FUNCTION ToIsMatch(RECORD element, RECORD site, RECORD folder)
   {
     SWITCH(element.type)
@@ -1104,8 +1061,6 @@ STATIC OBJECTTYPE ApplyRuleTester
 
         IF (CellExists(element, "TYPENEEDSTEMPLATE") AND element.typeneedstemplate AND NOT this->IsTypeNeedsTemplate())
           RETURN FALSE;
-        IF (CellExists(element, "PREBUILTMASKS") AND Length(element.prebuiltmasks) > 0 AND NOT this->MatchPrebuiltMasks(element.prebuiltmasks))
-          RETURN FALSE;
         IF (CellExists(element, "WEBFEATURES") AND Length(element.webfeatures) > 0 AND NOT this->MatchWebfeatures(element.webfeatures))
           RETURN FALSE;
 
@@ -1162,12 +1117,6 @@ STATIC OBJECTTYPE ApplyRuleTester
     //Split off as API to allow us to cache stuff
     RECORD typerec := this->GetTypeRecordData();
     RETURN RecordExists(typerec) AND typerec.needstemplate;
-  }
-  /** Does this type match any of these prebuilt masks? (like <to prebuiltmasks=)
-  */
-  PUBLIC BOOLEAN FUNCTION MatchPrebuiltMasks(STRING ARRAY masks)
-  {
-    RETURN MatchCommonXMLWildcardMasks(this->GetPrebuiltTag(), masks);
   }
   /** Are any of these webfeatures active? (like <to webfeatures=)
   */
@@ -1259,37 +1208,6 @@ STATIC OBJECTTYPE ApplyRuleTester
       retval := UpdateListedAttributes(retval, GetCell(apply, cellname));
 
     RETURN retval;
-  }
-
-  PUBLIC RECORD FUNCTION GetPrebuiltPageSettings(STRING tag)
-  {
-    RECORD retval;
-    FOREVERY(RECORD apply FROM this->__GetAppliesForcell("PREBUILTPAGES"))
-      FOREVERY(RECORD prebuilt FROM apply.prebuiltpages)
-        IF(ToUppercase(prebuilt.tag) = ToUppercase(tag))
-        {
-          IF(NOT RecordExists(retval))
-            retval := prebuilt;
-          ELSE
-            retval := UpdateListedAttributes(retval, prebuilt);
-        }
-    RETURN retval;
-  }
-
-  PUBLIC RECORD ARRAY FUNCTION GetPrebuiltPages()
-  {
-    RECORD ARRAY pages;
-    FOREVERY(RECORD apply FROM this->__GetAppliesForcell("PREBUILTPAGES"))
-      FOREVERY(RECORD prebuilt FROM apply.prebuiltpages)
-      {
-        INTEGER offs := (SELECT AS INTEGER #pages+1 FROM pages WHERE ToUppercase(pages.tag) = ToUppercase(prebuilt.tag))-1;
-        IF(offs=-1)
-          INSERT prebuilt INTO pages AT END;
-        ELSE
-          pages[offs] := UpdateListedAttributes(pages[offs], prebuilt);
-      }
-
-    RETURN pages;
   }
 
   PUBLIC STRING FUNCTION GetSiteLanguage()
@@ -1405,22 +1323,7 @@ STATIC OBJECTTYPE ApplyRuleTester
 
     IF (RecordExists(webdesign))
     {
-      IF(this->objinfo.obj.type = 39) //prebuiltpage
-      {
-        OBJECT prebuilttype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/prebuiltpage");
-        RECORD prebuiltinfo := prebuilttype->GetInstanceData(this->objinfo.obj.id);
-        RECORD prebuiltsettings := this->GetPrebuiltPageSettings(prebuiltinfo.prebuilttag);
-        IF(NOT RecordExists(prebuiltsettings))
-          THROW NEW Exception(`Do not know how to render prebuilt file #${this->objinfo.obj.id} with tag '${prebuiltinfo.prebuilttag}'`);
-
-        webdesign.renderinfo := [ rendermacro := prebuiltsettings.dynexecute.startmacro
-                                , preparemacro := ""
-                                , objectname := prebuiltsettings.dynexecute.webpageobjectname
-                                , issystemredirect := prebuiltsettings.type="dynamic"
-                                , capturesubpaths := prebuiltsettings.capturesubpaths
-                                ];
-      }
-      ELSE IF (this->objinfo.obj.type = 20)//content link
+      IF (this->objinfo.obj.type = 20)//content link
       {
         OBJECT link_tester := GetApplyTesterForObject(this->objinfo.obj.filelink);
         IF (ObjectExists(link_tester))

@@ -683,7 +683,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                        , contentfiletype := crit->GetAttribute("contentfiletype")
                        , foldertype   := crit->GetAttribute("foldertype")
                        , typeneedstemplate := ParseXSBoolean(crit->GetAttribute("typeneedstemplate"))
-                       , prebuiltmasks := ParseXSList(ToUppercase(crit->GetAttribute("prebuiltmasks")))
                        , webfeatures  := ParseXSList(ToUppercase(crit->GetAttribute("webfeatures" )))
                        ];
 
@@ -694,8 +693,11 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               this->ValidateRegex(crit, applyto.parentregex, "parentregex");
             IF(applyto.whfspathregex != "")
               this->ValidateRegex(crit, applyto.whfspathregex, "whfspathregex");
-            IF(Length(applyto.prebuiltmasks) > 0)
-              this->AddWarning(crit, "A future WebHare version will drop <prebuiltpage> support - you should switch to filetypes (see https://www.webhare.dev/reference/siteprofiles/types)");
+            IF(crit->HasAttribute("prebuiltmasks"))
+            {
+              this->AddError(crit, "<prebuiltpage> support has been removed - you should switch to filetypes (see https://www.webhare.dev/reference/siteprofiles/types)");
+              CONTINUE;
+            }
 
             IF( (applyto.filetype!="" OR applyto.contentfiletype != "") AND NOT applyto.match_file)
             {
@@ -837,7 +839,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
                     , usepublishtemplate := DEFAULT RECORD
                     , webdesign := DEFAULT RECORD
                     , formdefinitions := DEFAULT RECORD ARRAY
-                    , prebuiltpages := DEFAULT RECORD ARRAY
                     , mailtemplates := RECORD[]
                     , foldersettings := DEFAULT RECORD
                     , webtoolsformrules := DEFAULT RECORD ARRAY
@@ -1187,18 +1188,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
               IF("title" NOT IN haslist AND node->HasAttribute("tid"))
                 INSERT "title" INTO haslist AT END;
 
-              this->AddWarning(node, "A future WebHare version will drop <prebuiltpage> support - you should switch to filetypes (see https://www.webhare.dev/reference/siteprofiles/types)");
-              IF(applyblock->localname != "apply")
-                this->AddError(node, "<prebuiltpage> cannot be used on a <filetype> or <foldertype>");
-
-              INSERT CELL [ type := node->GetAttribute('type')
-                          , tag := node->GetAttribute('tag')
-                          , haslist := haslist
-                          , title := ParseXMLTidPtr(this->filename, this->toplevelgid, node, "title")
-                          , dynexecute := this->ParseDynamicExecuteData(node)
-                          , capturesubpaths := ParseXSBoolean(node->GetAttribute("capturesubpaths"))
-                          ]
-                     INTO apply.prebuiltpages AT END;
+              this->AddError(node, "<prebuiltpage> support has been removed - you should switch to filetypes (see https://www.webhare.dev/reference/siteprofiles/types)");
               CONTINUE;
             }
             CASE "mailtemplate"

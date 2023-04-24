@@ -1401,13 +1401,6 @@
     <text tid="worklist_resolve">Handle work list items</text>
     <text tid="worklists">Work lists</text>
   </textgroup>
-  <textgroup gid="screens" limitlanguages="en nl">   <!-- screens -->
-    <textgroup gid="objectprops">   <!-- screens.objectprops -->
-      <textgroup gid="specialtypes">   <!-- screens.objectprops.specialtypes -->
-        <text tid="prebuilttag">Prebuilt page</text>
-      </textgroup>
-    </textgroup>
-  </textgroup>
   <textgroup gid="site">   <!-- site -->
     <textgroup gid="authormode" limitlanguages="en nl">   <!-- site.authormode -->
       <text tid="aboutdompointer">Point to the element you want give feedback about</text>
