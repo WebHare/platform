@@ -100,13 +100,6 @@ async function generateWRDDefs(modulename: string, modules: string[]): Promise<s
           for (const type of schemadef.types) {
             const typename = `${modprefix}${generateTypeName(tag)}_${generateTypeName(type.tag)}`;
             const attrdefs: Record<string, { generated: boolean; required: boolean; defstr: string }> = {};
-            attrdefs.wrd_id = { generated: false, required: false, defstr: `IsNonUpdatable<WRDBaseAttributeType.Base_Integer>` };
-            attrdefs.wrd_guid = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_Guid` };
-            attrdefs.wrd_type = { generated: true, required: false, defstr: `IsGenerated<WRDBaseAttributeType.Base_Integer>` };
-            attrdefs.wrd_tag = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_Tag` };
-            attrdefs.wrd_creationdate = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_CreationLimitDate` };
-            attrdefs.wrd_limitdate = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_CreationLimitDate` };
-            attrdefs.wrd_modificationdate = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_ModificationDate` };
 
             if (type.type !== "OBJECT") {
               if (type.type === "DOMAIN") {
@@ -160,16 +153,19 @@ async function generateWRDDefs(modulename: string, modules: string[]): Promise<s
               }
             }
 
-            def += `export type ${typename} = {\n`;
-            for (const [name, attrdef] of Object.entries(attrdefs)) {
-              if (attrdef.required) {
-                used_isrequired = true;
-                attrdef.defstr = `IsRequired<${attrdef.defstr}>`;
+            def += `export type ${typename} = WRDTypeBaseSettings`;
+            if (Object.entries(attrdefs).length) {
+              def += ` & {\n`;
+              for (const [name, attrdef] of Object.entries(attrdefs)) {
+                if (attrdef.required) {
+                  used_isrequired = true;
+                  attrdef.defstr = `IsRequired<${attrdef.defstr}>`;
+                }
+                def += `  ${name}: ${attrdef.defstr};\n`;
               }
-              def += `  ${name}: ${attrdef.defstr};\n`;
+              def += normalattrdefs + "}";
             }
-            def += normalattrdefs;
-            def += `};\n\n`;
+            def += `;\n\n`;
             fulldef += `  ${type.tag.toLowerCase()}: ${typename};\n`;
           }
           fulldef += `};\n\n`;
@@ -186,12 +182,15 @@ async function generateWRDDefs(modulename: string, modules: string[]): Promise<s
   }
 
   if (fullfile) {
-    fullfile = `import type { WRDBaseAttributeType, WRDAttributeType, ${used_isrequired ? `IsRequired, ` : ""}IsGenerated, IsNonUpdatable${used_wrdattr ? `, WRDAttr` : ``} } from "@mod-wrd/js/internal/types";
+    const needtypes = ['WRDTypeBaseSettings', 'WRDBaseAttributeType', 'WRDAttributeType', 'IsGenerated'];
+    if (used_isrequired)
+      needtypes.push('IsRequired');
+    if (used_wrdattr)
+      needtypes.push('WRDAttr');
+    fullfile = `import { ${needtypes.join(", ")} } from "@mod-wrd/js/internal/types";
 import { WRDSchema } from "@mod-wrd/js/internal/schema";
 
 ` + fullfile;
-
-    //console.log(fullfile);
   }
   return fullfile;
 }

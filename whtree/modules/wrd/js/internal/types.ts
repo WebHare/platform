@@ -171,6 +171,17 @@ export type SchemaTypeDefinition = Record<string, TypeDefinition>;
 /** All allowed filter conditions */
 export type AllowedFilterConditions = "=" | ">=" | ">" | "!=" | "<" | "<=" | "mentions" | "mentionsany" | "in" | "like" | "contains" | "intersects";
 
+/** Base WRD type */
+export type WRDTypeBaseSettings = {
+  wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
+  wrd_guid: WRDBaseAttributeType.Base_Guid;
+  wrd_type: IsGenerated<WRDBaseAttributeType.Base_Integer>;
+  wrd_tag: WRDBaseAttributeType.Base_Tag;
+  wrd_creationdate: WRDBaseAttributeType.Base_CreationLimitDate;
+  wrd_limitdate: WRDBaseAttributeType.Base_CreationLimitDate;
+  wrd_modificationdate: WRDBaseAttributeType.Base_ModificationDate;
+};
+
 /** Extracts the select result type for an attribute type */
 type GetResultType<T extends SimpleWRDAttributeType | WRDAttrBase> = ReturnType<AccessorType<ToWRDAttr<T>>["getValue"]>;
 
