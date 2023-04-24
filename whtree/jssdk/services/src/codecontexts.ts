@@ -4,7 +4,7 @@
 */
 
 import { StackTraceItem, getCallStack } from "@mod-system/js/internal/util/stacktrace";
-import { flags } from "@webhare/env/src/env";
+import { flags } from "@webhare/env";
 import { AsyncLocalStorage } from "async_hooks";
 import EventSource from "@mod-system/js/internal/eventsource";
 import { pick } from "@mod-system/js/internal/util/algorithms";

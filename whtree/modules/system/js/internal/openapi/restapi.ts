@@ -268,7 +268,6 @@ export class RestAPI {
       // Validate the incoming request body (TODO cache validators, prevent parallel compilation when a lot of requests come in before we finished compilation)
       const validator = this.getValidator(bodyschema);
       if (!validator(body)) {
-        console.log(validator.errors);
         /* The error looks like this:
         >   {
               instancePath: '',
