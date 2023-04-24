@@ -1,4 +1,4 @@
-import { createWRDTestSchema, getWRDSchema, prepareTestFramework } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { createJSONResponse, HTTPErrorCode, HTTPSuccessCode, RestRequest, RestSuccessfulAuthorization, WebResponse } from "@webhare/router";
 import * as services from "@webhare/services";
 import * as test from "@webhare/test";
@@ -23,7 +23,6 @@ export async function allowAll(req: RestRequest): Promise<RestSuccessfulAuthoriz
 }
 
 export async function reset() {
-  await prepareTestFramework({ wrdauth: false });
   await createWRDTestSchema();
   return createJSONResponse(HTTPSuccessCode.NoContent, {});
 }

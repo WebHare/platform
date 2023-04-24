@@ -1,10 +1,10 @@
-// import { WRDSchema } from "@webhare/wrd";
+import { WRDSchema } from "@webhare/wrd";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { prepareTestFramework, createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 
 async function testCommitAndRollback() { //test the Co-HSVM
-  const wrdschema = await getWRDSchema();
+  const wrdschema: WRDSchema = await getWRDSchema();
 
   await whdb.beginWork();
   const persontype = wrdschema.types.wrd_person;
@@ -272,7 +272,6 @@ whtree/modules/webhare_testsuite/tests/wrd/nodejs/testinfo.xml    //TestEq([[ful
 }
 
 test.run([
-  () => prepareTestFramework({ wrdauth: false }),
   createWRDTestSchema,
   testCommitAndRollback,
   testWRDQuery
