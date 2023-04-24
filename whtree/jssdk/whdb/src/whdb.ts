@@ -20,7 +20,7 @@ import { flags } from '@webhare/env/src/envbackend';
 import { checkPromiseErrorsHandled } from '@mod-system/js/internal/util/devhelpers';
 
 import { createPGBlob, uploadBlobToConnection, WHDBBlob, ValidBlobSources } from './blobs';
-import { emplaceInCodeContext } from '@webhare/services/src/codecontexts';
+import { ensureScopedResource } from '@webhare/services/src/codecontexts';
 export { WHDBBlob } from "./blobs";
 
 let configuration: { bloboid: number } | null = null;
@@ -321,7 +321,14 @@ type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork"
 const connsymbol = Symbol("WHDBConnection");
 
 function getConnection() {
-  return emplaceInCodeContext(connsymbol, { insert: () => new WHDBConnectionImpl() });
+  return ensureScopedResource(connsymbol, (context) => {
+    const retval = new WHDBConnectionImpl();
+    const cbid = context.on("close", () => {
+      context.off(cbid);
+      retval.close();
+    });
+    return retval;
+  });
 }
 
 /* db<T> is defined as a function so a call is made every time it is accessed.

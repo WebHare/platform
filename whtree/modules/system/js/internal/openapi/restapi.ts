@@ -3,7 +3,7 @@ import { createJSONResponse, HTTPErrorCode, WebRequest, DefaultRestParams, RestR
 import Ajv2020, { ValidateFunction } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import { OpenAPIV3 } from "openapi-types";
-import { resolveResource, toFSPath } from "@webhare/services";
+import { CodeContext, resolveResource, toFSPath } from "@webhare/services";
 import { loadJSFunction } from "../resourcetools";
 import { config } from "@mod-system/js/internal/configuration";
 
@@ -159,7 +159,7 @@ export class RestAPI {
     }
   }
 
-  #getValidator(schema: object): ValidateFunction {
+  private getValidator(schema: object): ValidateFunction {
     let res = this._validators.get(schema);
     if (res)
       return res;
@@ -210,7 +210,7 @@ export class RestAPI {
           responseschema = this.def.components.schemas.defaulterror;
         }
         if (responseschema) {
-          const validator = this.#getValidator(responseschema);
+          const validator = this.getValidator(responseschema);
           if (!validator(await response.json())) {
             throw new Error(`Validation of the response (code ${response.status}) for ${JSON.stringify(`${req.method} ${relurl}`)} returned error: ${validator.errors?.[0]?.message || `Invalid request body`}`);
           }
@@ -266,8 +266,9 @@ export class RestAPI {
       }
 
       // Validate the incoming request body (TODO cache validators, prevent parallel compilation when a lot of requests come in before we finished compilation)
-      const validator = this.#getValidator(bodyschema);
+      const validator = this.getValidator(bodyschema);
       if (!validator(body)) {
+        console.log(validator.errors);
         /* The error looks like this:
         >   {
               instancePath: '',
@@ -286,22 +287,60 @@ export class RestAPI {
     // Create the request object
     const restreq = new RestRequest(req, relurl, params, body);
 
-    // Run the authorizer first
-    const authorizer = (await loadJSFunction(endpoint.authorization)) as RestAuthorizationFunction;
-    const authresult = await authorizer(restreq);
-    if (!authresult.authorized)
-      return authresult.response || createErrorResponse(HTTPErrorCode.Unauthorized, { error: "Authorization is required for this endpoint" });
+    let authresult;
+    {
+      const authcontext = new CodeContext("openapi", {
+        fase: "authorization",
+        url: req.url.toString(),
+        path: match.route.path.join("/"),
+        relurl,
+      });
+
+      try {
+        // Load the authorizer outside of the code context, so the loaded library won't inherit the context of the first caller
+        const authorizationfunction = endpoint.authorization;
+        const authorizer = (await loadJSFunction(authorizationfunction)) as RestAuthorizationFunction;
+
+        authresult = await authcontext.run(async () => {
+          // Run the authorizer first
+          return authorizer(restreq);
+        });
+        if (!authresult.authorized)
+          return authresult.response || createErrorResponse(HTTPErrorCode.Unauthorized, { error: "Authorization is required for this endpoint" });
+      } finally {
+        authcontext.close();
+      }
+    }
 
     restreq.authorization = authresult.authorization;
     if (!endpoint.handler)
       return createErrorResponse(HTTPErrorCode.NotImplemented, { error: `Method ${req.method.toUpperCase()} for route '${relurl}' not yet implemented` });
 
-    // FIXME should we cache the resolved handler or will that break auto reloading?
-    const resthandler = (await loadJSFunction(endpoint.handler)) as RestImplementationFunction;
+    {
+      const handlercontext = new CodeContext("openapi", {
+        fase: "handler",
+        url: req.url.toString(),
+        path: match.route.path.join("/"),
+        relurl,
+      });
 
-    // FIXME vm/shadowrealms? and timeouts
-    // Handle it!
-    return await resthandler(restreq);
+      try {
+        // Load the handler outside of the code context, so the loaded library won't inherit the context of the first caller
+        const handler = endpoint.handler;
+
+        // FIXME should we cache the resolved handler or will that break auto reloading?
+        const resthandler = (await loadJSFunction(handler)) as RestImplementationFunction;
+
+        // Need to await here, otherwise handlercontext.close will run immediately
+        return await handlercontext.run(async () => {
+          // FIXME timeouts
+          // Handle it!
+          return resthandler(restreq);
+        });
+      } finally {
+        handlercontext.close();
+      }
+    }
   }
 
   renderOpenAPIJSON(baseurl: string, options: { filterxwebhare: boolean; indent?: boolean }): WebResponse {

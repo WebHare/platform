@@ -26,6 +26,10 @@ class DebuggerHandler extends EventSource<HandlerEvents>{
     this.debugport.activate();
   }
 
+  isResponseToForwardedMessage(message: DebugIPCLinkType["AcceptEndPointPacket"]["message"]): message is typeof message & { type: (typeof directforwards)[keyof typeof directforwards]["responsetype"] } {
+    return message.type in directforwards && Object.hasOwn(directforwards, message.type);
+  }
+
   gotLink(link: DebugIPCLinkType["AcceptEndPoint"]): void {
     const reg = {
       processcode: 0,
@@ -37,6 +41,10 @@ class DebuggerHandler extends EventSource<HandlerEvents>{
   }
 
   gotLinkMessage(reg: ProcessRegistration, packet: DebugIPCLinkType["AcceptEndPointPacket"]) {
+    if (this.isResponseToForwardedMessage(packet.message)) {
+      return;
+    }
+
     switch (packet.message.type) {
       case DebugResponseType.register: {
         reg.processcode = packet.message.processcode;
@@ -44,8 +52,6 @@ class DebuggerHandler extends EventSource<HandlerEvents>{
         this.emit("processlist", void (0));
       } break;
       case DebugResponseType.enableInspectorResult: break; // only response type
-      case DebugResponseType.getRecentLoggedItemsResult: break; // only response type
-      case DebugResponseType.getHMRStateResult: break; // only response type
       default: {
         checkAllMessageTypesHandled(packet.message, "type");
       }
@@ -150,6 +156,10 @@ class DebugMgrClient {
     }
   }
 
+  isForwarded(message: DebugMgrClientLink["AcceptEndPointPacket"]["message"]): message is typeof message & { type: keyof typeof directforwards } {
+    return message.type in directforwards && Object.hasOwn(directforwards, message.type);
+  }
+
   async forwardRequest<K extends keyof typeof directforwards
   >(message: ForwardByRequestType<K>["Request"], msgid: bigint) {
     try {
@@ -160,7 +170,7 @@ class DebugMgrClient {
       const res = await reg.link.doRequest({ ...message, type: directforwards[message.type].requesttype });
       this.link.send({
         ...res,
-        type: directforwards[message.type].responsetype,
+        type: directforwards[message.type].clientresponsetype,
       } as unknown as DebugMgrClientLink["ConnectEndPointPacket"]["message"], msgid);
     } catch (e) {
       this.link.sendException(e as Error, msgid);
@@ -168,6 +178,11 @@ class DebugMgrClient {
   }
 
   async _gotMessage(packet: DebugMgrClientLink["AcceptEndPointPacket"]) {
+    if (this.isForwarded(packet.message)) {
+      await this.forwardRequest(packet.message, packet.msgid);
+      return;
+    }
+
     switch (packet.message.type) {
       case DebugMgrClientLinkRequestType.subscribeProcessList: {
         if (this.subscribedprocesslist !== packet.message.enable) {
@@ -212,12 +227,9 @@ class DebugMgrClient {
           this.link.sendException(e as Error, packet.msgid);
         }
       } break;
-      case DebugMgrClientLinkRequestType.getRecentlyLoggedItems:
-      case DebugMgrClientLinkRequestType.getHMRState: {
-        await this.forwardRequest(packet.message, packet.msgid);
-      } break;
-      default:
+      default: {
         checkAllMessageTypesHandled(packet.message, "type");
+      }
     }
   }
 
