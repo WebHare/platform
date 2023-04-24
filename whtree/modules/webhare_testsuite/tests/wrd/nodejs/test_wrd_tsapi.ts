@@ -201,6 +201,8 @@ async function testNewAPI() {
     "id",
     { wrd_firstname: "wrd_firstname", lastname: "wrd_lastname" }));
 
+  test.eq({ wrd_firstname: "first", lastname: "lastname" }, await schema.getFields("wrd_person", selectres[0].id, { wrd_firstname: "wrd_firstname", lastname: "wrd_lastname" }));
+
   const f = false;
   if (f) {
     // @ts-expect-error -- Should only allow string

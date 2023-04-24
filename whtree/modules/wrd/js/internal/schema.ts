@@ -52,6 +52,11 @@ export class WRDSchema<S extends SchemaTypeDefinition> {
     return checkPromiseErrorsHandled(this.#getType(type).search(field, value, options));
   }
 
+  async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M) {
+    const rows = await this.selectFrom(type).select(mapping).where("WRD_ID", "=", id).execute();
+    return rows[0] || null;
+  }
+
   enrich<T extends keyof S & string, F extends keyof D, M extends EnrichOutputMap<S[T]>, D extends { [K in F]: number | null }>(type: T, data: D[], field: F, mapping: M, options: { rightouterjoin?: boolean } = {}): Promise<Array<D & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>> {
     return checkPromiseErrorsHandled(this.#getType(type).enrich(data, field, mapping, options));
   }
