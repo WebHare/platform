@@ -1,13 +1,18 @@
 import { BackendEvent, BackendEventSubscription, subscribe, CodeContext } from "@webhare/services";
 import * as test from "@webhare/test";
-import { sleep } from "@webhare/std";
+import { DeferredPromise, createDeferred, sleep } from "@webhare/std";
 import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen, uploadBlob } from "@webhare/whdb";
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
 import * as contexttests from "./data/context-tests";
 
-async function testQueries() {
+async function cleanup() {
   await beginWork();
   await db<WebHareTestsuiteDB>().deleteFrom("webhare_testsuite.exporttest").execute();
+  await commitWork();
+}
+
+async function testQueries() {
+  await beginWork();
   test.eq(null, await uploadBlob(""));
 
   const newblob = await uploadBlob("This is a blob");
@@ -38,9 +43,10 @@ async function testQueries() {
   await test.throws(/already been closed/, () => rollbackWork());
 }
 
+
 async function testCodeContexts() {
-  const context1 = new CodeContext;
-  const context2 = new CodeContext;
+  const context1 = new CodeContext("test_whdb: testCodeContexts: parallel", { context: 1 });
+  const context2 = new CodeContext("test_whdb: testCodeContexts: parallel", { context: 2 });
 
   const c1 = context1.runGenerator(() => contexttests.inContextWHDB(40));
   const c2 = context2.runGenerator(() => contexttests.inContextWHDB(41));
@@ -56,6 +62,45 @@ async function testCodeContexts() {
   test.eq("committed", (await c2.next()).value);
   test.eqProps([{ id: 40 }, { id: 41 }], (await c1.next()).value, [], "context1 sees both now");
   test.eqProps([{ id: 40 }, { id: 41 }], (await c2.next()).value, [], "context2 sees both now");
+  context1.close();
+  context2.close();
+}
+
+// Test that code contexts are kept when referencable and released when done
+async function testCodeContexts2() {
+  let weak: WeakRef<CodeContext> | undefined;
+
+  // eslint-disable-next-line no-inner-declarations
+  async function testContextGC(d: DeferredPromise<void>) {
+    const gccontext = new CodeContext("test_whdb: testCodeContexts: gc test", {});
+    weak = new WeakRef(gccontext);
+
+    await gccontext.run(async () => {
+      const itr = contexttests.inContextWHDB(20);
+      for await (const i of itr) {
+        void (i); // ignore data
+      }
+
+      await d.promise;
+    });
+
+    gccontext.close();
+  }
+
+  await (async () => {
+    const d = createDeferred<void>();
+    const p = testContextGC(d);
+    test.assert(Boolean(weak!.deref()), "Should exist while the async function is running");
+    await test.triggerGarbageCollection();
+    test.assert(Boolean(weak!.deref()), "Should exist while the async function is running");
+    d.resolve();
+    await p;
+  })();
+
+  await test.wait(async () => {
+    await test.triggerGarbageCollection();
+    return !weak!.deref();
+  }, "The context should have been collected after the function finished");
 }
 
 async function testFinishHandlers() {
@@ -157,7 +202,9 @@ async function testFinishHandlers() {
 }
 
 test.run([
+  cleanup,
   testQueries,
   testCodeContexts,
+  testCodeContexts2,
   testFinishHandlers,
 ]);

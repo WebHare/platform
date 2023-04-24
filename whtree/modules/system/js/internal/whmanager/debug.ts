@@ -1,6 +1,7 @@
 import type { IPCLinkType } from "./ipc";
 import type { WHMProcessType as ProcessType } from "./whmanager_rpcdefs";
 import type { State as HMRState } from "../hmrinternal";
+import type { StackTraceItem } from "../util/stacktrace";
 export { WHMProcessType as ProcessType } from "./whmanager_rpcdefs";
 
 export type ProcessList = Array<{
@@ -16,6 +17,7 @@ export enum DebugRequestType {
   enableInspector,
   getRecentLoggedItems,
   getHMRState,
+  getCodeContexts,
 }
 
 type DebugRequest = {
@@ -28,13 +30,17 @@ type DebugRequest = {
 } | {
   type: DebugRequestType.getHMRState;
   __responseKey: { type: DebugResponseType.getHMRStateResult };
+} | {
+  type: DebugRequestType.getCodeContexts;
+  __responseKey: { type: DebugResponseType.getCodeContextsResult };
 };
 
 export enum DebugResponseType {
   register,
   enableInspectorResult,
   getRecentLoggedItemsResult,
-  getHMRStateResult
+  getHMRStateResult,
+  getCodeContextsResult,
 }
 
 export type ConsoleLogItem = {
@@ -59,7 +65,13 @@ type DebugResponse = {
   items: ConsoleLogItem[];
 } | {
   type: DebugResponseType.getHMRStateResult;
-} & HMRState;
+} & HMRState | {
+  type: DebugResponseType.getCodeContextsResult;
+  codecontexts: Array<{
+    id: string;
+    trace: StackTraceItem[];
+  }>;
+};
 
 /** Request and response are swapped here, because conceptually the
  * debugmanager makes requests, even though the individual processes
@@ -73,6 +85,7 @@ export enum DebugMgrClientLinkRequestType {
   enableInspector,
   getRecentlyLoggedItems,
   getHMRState,
+  getCodeContexts,
 }
 
 export enum DebugMgrClientLinkResponseType {
@@ -82,12 +95,14 @@ export enum DebugMgrClientLinkResponseType {
   enableInspectorResult,
   getRecentlyLoggedItemsResult,
   getHMRStateResult,
+  getCodeContextsResult,
 }
 
 /** List of directly forwarded calls */
 export const directforwards = {
-  [DebugMgrClientLinkRequestType.getRecentlyLoggedItems]: { requesttype: DebugRequestType.getRecentLoggedItems, responsetype: DebugMgrClientLinkResponseType.getRecentlyLoggedItemsResult },
-  [DebugMgrClientLinkRequestType.getHMRState]: { requesttype: DebugRequestType.getHMRState, responsetype: DebugMgrClientLinkResponseType.getHMRStateResult }
+  [DebugMgrClientLinkRequestType.getRecentlyLoggedItems]: { requesttype: DebugRequestType.getRecentLoggedItems, responsetype: DebugResponseType.getRecentLoggedItemsResult, clientresponsetype: DebugMgrClientLinkResponseType.getRecentlyLoggedItemsResult },
+  [DebugMgrClientLinkRequestType.getHMRState]: { requesttype: DebugRequestType.getHMRState, responsetype: DebugResponseType.getHMRStateResult, clientresponsetype: DebugMgrClientLinkResponseType.getHMRStateResult },
+  [DebugMgrClientLinkRequestType.getCodeContexts]: { requesttype: DebugRequestType.getCodeContexts, responsetype: DebugResponseType.getCodeContextsResult, clientresponsetype: DebugMgrClientLinkResponseType.getCodeContextsResult },
 } as const;
 
 /// Returns the matching objects in a union whose "type" property extends from T
@@ -104,7 +119,7 @@ type Forward<ClientRequestType extends DebugMgrClientLinkRequestType, RequestTyp
 };
 
 /** Get the forward data given a forwarded client request type */
-export type ForwardByRequestType<K extends keyof typeof directforwards> = Forward<K, typeof directforwards[K]["requesttype"], typeof directforwards[K]["responsetype"]>;
+export type ForwardByRequestType<K extends keyof typeof directforwards> = Forward<K, typeof directforwards[K]["requesttype"], typeof directforwards[K]["clientresponsetype"]>;
 
 type ForwardLinkSpecs<K extends keyof typeof directforwards = keyof typeof directforwards> = K extends unknown ? ForwardByRequestType<K> : never;
 

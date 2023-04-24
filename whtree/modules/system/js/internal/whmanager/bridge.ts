@@ -15,6 +15,8 @@ import * as inspector from "node:inspector";
 import * as envbackend from "@webhare/env/src/envbackend";
 import { getCallerLocation } from "../util/stacktrace";
 import { updateConfig } from "../configuration";
+import { getActiveCodeContexts } from "@webhare/services/src/codecontexts";
+import { pick } from "../util/algorithms";
 
 export { IPCMessagePacket, IPCLinkType } from "./ipc";
 export { SimpleMarshallableData, SimpleMarshallableRecord, IPCMarshallableData, IPCMarshallableRecord } from "./hsmarshalling";
@@ -999,6 +1001,13 @@ class MainBridge extends EventSource<BridgeEvents> {
         this.debuglink?.send({
           type: DebugResponseType.getHMRStateResult,
           ...getHMRState()
+        }, packet.msgid);
+      } break;
+      case DebugRequestType.getCodeContexts: {
+        const codecontexts = getActiveCodeContexts();
+        this.debuglink?.send({
+          type: DebugResponseType.getCodeContextsResult,
+          codecontexts: codecontexts.map(c => pick(c, ["id", "trace"]))
         }, packet.msgid);
       } break;
       default:

@@ -1,13 +1,13 @@
 import { getCodeContext, CodeContext } from "@webhare/services";
 import * as test from "@webhare/test";
 import * as contexttests from "./data/context-tests";
-import { emplaceInCodeContext } from "@webhare/services/src/codecontexts";
+import { ensureScopedResource } from "@webhare/services/src/codecontexts";
 
 async function testContextSetup() {
   test.throws(/Not running inside a CodeContext/, getCodeContext);
 
-  const context1 = new CodeContext;
-  const context2 = new CodeContext;
+  const context1 = new CodeContext("test_codecontext:context setup", { context: 1 });
+  const context2 = new CodeContext("test_codecontext:context setup", { context: 2 });
   test.eqMatch(/^whcontext-.*/, context1.id);
   test.eqMatch(/^whcontext-.*/, context2.id);
   test.assert(context1.id !== context2.id, "Assert we have two different contexts");
@@ -38,17 +38,16 @@ async function testContextSetup() {
 }
 
 async function testContextStorage() {
-  const context1 = new CodeContext;
-  const context2 = new CodeContext;
-  test.throws(/Key not found and no insert handler provided/, () => emplaceInCodeContext("webhare_testsuite:mykey"));
+  const context1 = new CodeContext("test_codecontext:context storage", { context: 1 });
+  const context2 = new CodeContext("test_codecontext:context storage", { context: 2 });
 
-  emplaceInCodeContext("webhare_testsuite:mykey", { insert: () => 77 });
-  context1.emplaceInStorage("webhare_testsuite:mykey", { insert: () => 88 });
-  context2.run(() => emplaceInCodeContext("webhare_testsuite:mykey", { insert: () => 99 }));
+  ensureScopedResource("webhare_testsuite:mykey", () => 77);
+  context1.ensureScopedResource("webhare_testsuite:mykey", () => 88);
+  context2.run(() => ensureScopedResource("webhare_testsuite:mykey", () => 99));
 
-  test.eq(77, emplaceInCodeContext("webhare_testsuite:mykey"));
-  test.eq(88, context1.emplaceInStorage("webhare_testsuite:mykey"));
-  test.eq(99, context2.emplaceInStorage("webhare_testsuite:mykey"));
+  test.eq(77, ensureScopedResource("webhare_testsuite:mykey", () => { throw new Error("should not happen"); }));
+  test.eq(88, context1.ensureScopedResource("webhare_testsuite:mykey", () => { throw new Error("should not happen"); }));
+  test.eq(99, context2.ensureScopedResource("webhare_testsuite:mykey", () => { throw new Error("should not happen"); }));
 }
 
 test.run([
