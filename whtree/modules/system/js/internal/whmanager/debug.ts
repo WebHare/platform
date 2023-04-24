@@ -15,9 +15,10 @@ export type ProcessList = Array<{
 
 export enum DebugRequestType {
   enableInspector,
-  getRecentLoggedItems,
+  getRecentlyLoggedItems,
   getHMRState,
   getCodeContexts,
+  getWorkers,
 }
 
 type DebugRequest = {
@@ -25,22 +26,26 @@ type DebugRequest = {
   port: number;
   __responseKey: { type: DebugResponseType.enableInspectorResult };
 } | {
-  type: DebugRequestType.getRecentLoggedItems;
-  __responseKey: { type: DebugResponseType.getRecentLoggedItemsResult };
+  type: DebugRequestType.getRecentlyLoggedItems;
+  __responseKey: { type: DebugResponseType.getRecentlyLoggedItemsResult };
 } | {
   type: DebugRequestType.getHMRState;
   __responseKey: { type: DebugResponseType.getHMRStateResult };
 } | {
   type: DebugRequestType.getCodeContexts;
   __responseKey: { type: DebugResponseType.getCodeContextsResult };
+} | {
+  type: DebugRequestType.getWorkers;
+  __responseKey: { type: DebugResponseType.getWorkersResult };
 };
 
 export enum DebugResponseType {
   register,
   enableInspectorResult,
-  getRecentLoggedItemsResult,
+  getRecentlyLoggedItemsResult,
   getHMRStateResult,
   getCodeContextsResult,
+  getWorkersResult,
 }
 
 export type ConsoleLogItem = {
@@ -61,7 +66,7 @@ type DebugResponse = {
   type: DebugResponseType.enableInspectorResult;
   url: string;
 } | {
-  type: DebugResponseType.getRecentLoggedItemsResult;
+  type: DebugResponseType.getRecentlyLoggedItemsResult;
   items: ConsoleLogItem[];
 } | {
   type: DebugResponseType.getHMRStateResult;
@@ -69,8 +74,13 @@ type DebugResponse = {
   type: DebugResponseType.getCodeContextsResult;
   codecontexts: Array<{
     id: string;
+    title: string;
+    metadata: unknown;
     trace: StackTraceItem[];
   }>;
+} | {
+  type: DebugResponseType.getWorkersResult;
+  workers: Array<{ id: string }>;
 };
 
 /** Request and response are swapped here, because conceptually the
@@ -86,6 +96,7 @@ export enum DebugMgrClientLinkRequestType {
   getRecentlyLoggedItems,
   getHMRState,
   getCodeContexts,
+  getWorkers,
 }
 
 export enum DebugMgrClientLinkResponseType {
@@ -96,13 +107,15 @@ export enum DebugMgrClientLinkResponseType {
   getRecentlyLoggedItemsResult,
   getHMRStateResult,
   getCodeContextsResult,
+  getWorkersResult,
 }
 
 /** List of directly forwarded calls */
 export const directforwards = {
-  [DebugMgrClientLinkRequestType.getRecentlyLoggedItems]: { requesttype: DebugRequestType.getRecentLoggedItems, responsetype: DebugResponseType.getRecentLoggedItemsResult, clientresponsetype: DebugMgrClientLinkResponseType.getRecentlyLoggedItemsResult },
+  [DebugMgrClientLinkRequestType.getRecentlyLoggedItems]: { requesttype: DebugRequestType.getRecentlyLoggedItems, responsetype: DebugResponseType.getRecentlyLoggedItemsResult, clientresponsetype: DebugMgrClientLinkResponseType.getRecentlyLoggedItemsResult },
   [DebugMgrClientLinkRequestType.getHMRState]: { requesttype: DebugRequestType.getHMRState, responsetype: DebugResponseType.getHMRStateResult, clientresponsetype: DebugMgrClientLinkResponseType.getHMRStateResult },
   [DebugMgrClientLinkRequestType.getCodeContexts]: { requesttype: DebugRequestType.getCodeContexts, responsetype: DebugResponseType.getCodeContextsResult, clientresponsetype: DebugMgrClientLinkResponseType.getCodeContextsResult },
+  [DebugMgrClientLinkRequestType.getWorkers]: { requesttype: DebugRequestType.getWorkers, responsetype: DebugResponseType.getWorkersResult, clientresponsetype: DebugMgrClientLinkResponseType.getWorkersResult },
 } as const;
 
 /// Returns the matching objects in a union whose "type" property extends from T
