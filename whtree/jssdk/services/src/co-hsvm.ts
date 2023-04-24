@@ -1,5 +1,6 @@
 import { HSVM, HSVMObject, openHSVM } from '@webhare/services/src/hsvm';
 import { isWorkOpen, onFinishWork } from '@webhare/whdb';
+import { ensureScopedResource } from './codecontexts';
 
 class CoVM {
   vm: HSVM;
@@ -27,10 +28,11 @@ class CoVM {
     else
       await this.primary.rollbackWork();
   }
-}
 
-//TODO myvm should be in AsyncStorage?
-let myvm: Promise<CoVM> | null = null;
+  close() {
+    this.vm.close();
+  }
+}
 
 async function promiseVM() {
   const vm = await openHSVM();
@@ -38,12 +40,17 @@ async function promiseVM() {
   const primary = await database.openPrimary() as HSVMObject;
   return new CoVM(vm, primary);
 }
+const covmsymbol = Symbol("WHCoVM");
 
 async function getCurrentCoVM() {
-  if (!myvm) //launch it
-    myvm = promiseVM();
-
-  return myvm;
+  return ensureScopedResource(covmsymbol, (context) => {
+    const retval = promiseVM();
+    const cbid = context.on("close", () => {
+      context.off(cbid);
+      retval.then(vm => vm.close());
+    });
+    return retval;
+  });
 }
 
 /** Get the co HSVM - boot if needed */

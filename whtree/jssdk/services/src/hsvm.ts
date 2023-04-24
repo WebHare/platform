@@ -1,7 +1,7 @@
 //Not yet a public API, so moving this into a separate lib first
 
 import { BridgeService, getBridgeService } from "@webhare/services/src/bridgeservice";
-import { openBackendService } from "./backendservice";
+import { openBackendService, ServiceBase } from "./backendservice";
 
 export interface JobService {
   //TODO if backendservice becomes a proxy, we can use mixed case here
@@ -27,11 +27,12 @@ export type HSVMObject = HSCallsProxy;
 
 export class HSVM {
   bridge: BridgeService;
-  job: JobService;
+  job: JobService & ServiceBase;
   unmarshallables: Map<number, WeakRef<HSVMUnmarshallable>> = new Map;
   finalizer: FinalizationRegistry<number> | null = null;
+  closed = false;
 
-  constructor(bridge: BridgeService, job: JobService) {
+  constructor(bridge: BridgeService, job: JobService & ServiceBase) {
     this.bridge = bridge;
     this.job = job;
   }
@@ -74,13 +75,29 @@ export class HSVM {
     //Set up a registry to detect object being garbage collected on our side, so we can forward it to HS
     if (!this.finalizer) {
       this.finalizer = new FinalizationRegistry((cleanedupobjid: number) => {
-        this.job.objCleanup(cleanedupobjid).catch(() => false); //don't care if this sending fails..
+        if (!this.closed)
+          this.job.objCleanup(cleanedupobjid).catch(() => false); //don't care if this sending fails..
       });
     }
 
     this.finalizer.register(unmarshallable, id);
     this.unmarshallables.set(id, new WeakRef(unmarshallable));
     return unmarshallable;
+  }
+
+  mapToBridge(arg: unknown) {
+    if (arg instanceof HSVMUnmarshallable) {
+      if (arg.vm !== this)
+        throw new Error(`Unmarshallable used on wrong VM`);
+      return { __unmarshallable_type: arg.bridgetype, id: arg.id };
+    }
+
+    return arg;
+  }
+
+  close() {
+    this.closed = true;
+    this.job.close();
   }
 }
 
@@ -110,8 +127,8 @@ export class HSVMObjectProxy extends HSVMUnmarshallable {
   }
 
   async invoke(name: string, args: unknown[]) {
-    args = args.map(mapToBridge);
-    return this.vm.unmapFromBridge(await this.vm.job.objInvoke(mapToBridge(this), name, args));
+    args = args.map(arg => this.vm.mapToBridge(arg));
+    return this.vm.unmapFromBridge(await this.vm.job.objInvoke(this.vm.mapToBridge(this), name, args));
   }
 }
 
@@ -132,7 +149,7 @@ export class HSVMLibraryProxy {
   }
 
   async invoke(name: string, args: unknown[]) {
-    args = args.map(mapToBridge);
+    args = args.map(arg => this.vm.mapToBridge(arg));
     return this.vm.unmapFromBridge(await this.vm.job.invoke(this.lib, name, args));
   }
 }
@@ -153,12 +170,4 @@ export async function openHSVM(options?: HSVMOptions) {
   }
 
   return hsvm;
-}
-
-function mapToBridge(arg: unknown) {
-  if (arg instanceof HSVMUnmarshallable) {
-    return { __unmarshallable_type: arg.bridgetype, id: arg.id };
-  }
-
-  return arg;
 }
