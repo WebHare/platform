@@ -1,10 +1,13 @@
 import { HSVMObject } from "@webhare/services/src/hsvm";
-import { AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps } from "./types";
+import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps } from "./types";
 import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
 import { checkPromiseErrorsHandled } from "@mod-system/js/internal/util/devhelpers";
 
+interface WRDEntitySettings { //TODO this will go away as soon as createAttribute/updateAttribute are redefined
+  [key: string]: number | number[] | boolean | string | string[] | Date | WRDEntitySettings | WRDEntitySettings[] | null;
+}
 
-export class WRDSchema<S extends SchemaTypeDefinition> {
+export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
   #id: number | string;
   #types: { [K in keyof S & string]?: WRDType<S, K> } = {};
   #wrdschema: HSVMObject | undefined;
@@ -13,16 +16,16 @@ export class WRDSchema<S extends SchemaTypeDefinition> {
     this.#id = id;
   }
 
-  #getType<T extends keyof S & string>(type: T): WRDType<S, T> {
+  getType<T extends keyof S & string>(type: T): WRDType<S, T> {
     let retval = this.#types[type];
     if (!retval) {
-      retval = new WRDType<S, T>(this, type, () => this.#getWRDSchema());
+      retval = new WRDType<S, T>(this, type, () => this.getWRDSchema());
       this.#types[type] = retval;
     }
     return retval;
   }
 
-  async #getWRDSchema(): Promise<HSVMObject> {
+  private async getWRDSchema(): Promise<HSVMObject> {
     if (!this.#wrdschema) {
       const hsvm = await getCoHSVM();
       const wrd_api = hsvm.loadlib("mod::wrd/lib/api.whlib");
@@ -36,20 +39,20 @@ export class WRDSchema<S extends SchemaTypeDefinition> {
 
   // eslint-disable-next-line @typescript-eslint/ban-types
   selectFrom<T extends keyof S & string>(type: T): WRDSingleQueryBuilder<S, T, null> {
-    const wrdtype = this.#getType(type);
+    const wrdtype = this.getType(type);
     return new WRDSingleQueryBuilder(wrdtype, null, [], null);
   }
 
   insert<T extends keyof S & string>(type: T, value: Insertable<S[T]>) {
-    return checkPromiseErrorsHandled(this.#getType(type).createEntity(value));
+    return checkPromiseErrorsHandled(this.getType(type).createEntity(value));
   }
 
   update<T extends keyof S & string>(type: T, wrd_id: number, value: Updatable<S[T]>) {
-    return checkPromiseErrorsHandled(this.#getType(type).updateEntity(wrd_id, value));
+    return checkPromiseErrorsHandled(this.getType(type).updateEntity(wrd_id, value));
   }
 
   search<T extends keyof S & string, F extends AttrRef<S[T]>>(type: T, field: F, value: (GetCVPairs<S[T][F]> & { condition: "=" })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }>): Promise<number | null> {
-    return checkPromiseErrorsHandled(this.#getType(type).search(field, value, options));
+    return checkPromiseErrorsHandled(this.getType(type).search(field, value, options));
   }
 
   async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M) {
@@ -58,11 +61,11 @@ export class WRDSchema<S extends SchemaTypeDefinition> {
   }
 
   enrich<T extends keyof S & string, F extends keyof D, M extends EnrichOutputMap<S[T]>, D extends { [K in F]: number | null }>(type: T, data: D[], field: F, mapping: M, options: { rightouterjoin?: boolean } = {}): Promise<Array<D & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>> {
-    return checkPromiseErrorsHandled(this.#getType(type).enrich(data, field, mapping, options));
+    return checkPromiseErrorsHandled(this.getType(type).enrich(data, field, mapping, options));
   }
 
   delete<T extends keyof S & string>(type: T, ids: number | number[]): Promise<void> {
-    return checkPromiseErrorsHandled(this.#getType(type).delete(ids));
+    return checkPromiseErrorsHandled(this.getType(type).delete(ids));
   }
 
   extendWith<T extends SchemaTypeDefinition>(): WRDSchema<CombineSchemas<S, T>> {
@@ -124,8 +127,18 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     }
   }
 
-  async runQuery(query: object): Promise<unknown[]> {
-    return (await (await this._getType()).runQuery({ ...query, jsmode: true })) as unknown[];
+  async createAttribute(tag: string, type: string, settings: WRDEntitySettings) {
+    await extendWorkToCoHSVM();
+    const typeobj = await this._getType();
+    await typeobj.CreateAttribute(tag, type, settings);
+    return;
+  }
+
+  async updateAttribute(tag: string, settings: WRDEntitySettings) {
+    await extendWorkToCoHSVM();
+    const typeobj = await this._getType();
+    await typeobj.UpdateAttribute(tag, settings);
+    return;
   }
 }
 type HistoryModeData = { historymode: "now" | "all" | "__getfields" } | { historymode: "at"; when: Date } | { historymode: "range"; when_start: Date; when_limit: Date } | null;

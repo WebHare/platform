@@ -358,3 +358,10 @@ export type CombineSchemas<A extends SchemaTypeDefinition, B extends SchemaTypeD
 
 /** Combines an array with multiple schema types. Also accepts a simple schema, passes it through directly */
 export type Combine<S extends SchemaTypeDefinition | SchemaTypeDefinition[]> = S extends [infer A extends SchemaTypeDefinition, infer B extends SchemaTypeDefinition, ...infer C extends SchemaTypeDefinition[]] ? CombineSchemas<A, Combine<[B, ...C]>> : S extends [SchemaTypeDefinition] ? S[0] : S extends SchemaTypeDefinition ? S : never;
+
+export type AnyType = WRDTypeBaseSettings & {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 'unknown' might be closer but is not accepted by the rest of the WRD definitions
+  [key: string]: any;
+};
+
+export type AnySchemaTypeDefinition = Record<string, AnyType>;

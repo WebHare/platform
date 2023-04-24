@@ -1,6 +1,5 @@
 import { WRDSchema } from "@webhare/wrd";
 import { HSVM, HSVMObject, openHSVM } from '@webhare/services/src/hsvm';
-import { openSchema } from "@webhare/wrd";
 import { getTypedArray, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
@@ -15,13 +14,13 @@ async function promiseVM() {
 }
 
 async function getSchemaHSVMTypeObject(schemaobj: WRDSchema, typename: string): Promise<HSVMObject> {
-  const type = schemaobj.types[typename];
-  await type.search("wrd_tag", "");
-  return type.typeobj!;
+  const type = schemaobj.getType(typename);
+  /// @ts-ignore -- this is a hack that can go away as soon as we update the createType APIs to not require an id
+  return await type._getType();
 }
 
 export async function getWRDSchema() {
-  const wrdschema = await openSchema("wrd:testschema");
+  const wrdschema = new WRDSchema("wrd:testschema");
   if (!wrdschema)
     throw new Error(`wrd:testschema not found. wrd not enabled for this test run?`);
   return wrdschema;
@@ -44,7 +43,7 @@ export async function prepareTestFramework(options?: { wrdauth?: boolean }) {
 async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { keephistorydays?: number; withrichdoc?: boolean } = {}) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- will need options in the future
   options = { withrichdoc: true, keephistorydays: 0, ...options };
-  const persontype = schemaobj.types.wrd_person;
+  const persontype = schemaobj.getType("wrd_person");
   await persontype.updateAttribute("WRD_CONTACT_EMAIL", { isrequired: false }); //for compatibility with all existing WRD tests
 
 
@@ -132,8 +131,12 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { keephistor
     TestThrowsLike("*badbadvalue*not*valid*", PTR persontype -> CreateEntity([wrd_guid := "badbadvalue"]));
     TestThrowsLike("*conflict*", PTR persontype -> CreateEntity([wrd_guid := "wrd:0123456789ABCDEF0123456789ABCDEF"]));
   */
+
+  ///@ts-ignore -- temp hack neded until we've added the createType API to wrdschema
+  const rawschema = await schemaobj.getWRDSchema();
+
   // Create a domain with some values
-  const domain1_obj = await schemaobj.schema.CreateDomain("TEST_DOMAIN_1", { title: "Domain 1" }) as HSVMObject;
+  const domain1_obj = await rawschema.CreateDomain("TEST_DOMAIN_1", { title: "Domain 1" }) as HSVMObject;
   //TestEq(TRUE, ObjectExists(domain1_obj));
 
   /*domain1value1:= */await domain1_obj.CreateEntity({ wrd_tag: "TEST_DOMAINVALUE_1_1", wrd_title: "Domain value 1.1", wrd_ordering: 3 });
@@ -141,7 +144,7 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { keephistor
   /*domain1value3:= */await domain1_obj.CreateEntity({ wrd_tag: "TEST_DOMAINVALUE_1_3", wrd_title: "Domain value 1.3", wrd_ordering: 1 });
 
   // Create another domain with some values
-  /*const domain2_obj = */await schemaobj.schema.CreateDomain("TEST_DOMAIN_2", { title: "Domain 2" }) as HSVMObject;
+  /*const domain2_obj = */await rawschema.CreateDomain("TEST_DOMAIN_2", { title: "Domain 2" }) as HSVMObject;
   //TestEq(TRUE, ObjectExists(domain2_obj));
 
   //domain2value1:= domain2_obj -> CreateEntity([wrd_tag := "TEST_DOMAINVALUE_2_1", wrd_title := "Domain value 2.1", wrd_guid := "wrd:00000000002010000002010000002010"]);
@@ -178,27 +181,28 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { keephistor
   await persontype.createAttribute("TEST_FREE_NOCOPY", "FREE", { title: "Uncopyable free attribute", isunsafetocopy: true });
   await persontype.createAttribute("RICHIE", "RICHDOCUMENT", { title: "Rich document" });
 
+  const person = await getSchemaHSVMTypeObject(schemaobj, "wrd_person");
   const organization = await getSchemaHSVMTypeObject(schemaobj, "wrd_organization");
 
-  const personattachment = await schemaobj.schema.CreateType("PERSONATTACHMENT", { title: "Test person attachments", linkfrom: await persontype.typeobj!.get("id"), keephistorydays: options.keephistorydays }) as HSVMObject;
+  const personattachment = await rawschema.CreateType("PERSONATTACHMENT", { title: "Test person attachments", linkfrom: await person.get("id"), keephistorydays: options.keephistorydays }) as HSVMObject;
   personattachment.createAttribute("ATTACHFREE", "FREE", { title: "Free text attribute" });
 
 
 
   //OBJECT org: schemaobj ->^ wrd_organization -> CreateEntity([wrd_orgname : "The Org"]);
 
-  const personorglink = await schemaobj.schema.createType("PERSONORGLINK", { title: "Test person/org link", linkfrom: await persontype.typeobj!.get("id"), linkto: await organization.get("id") }) as HSVMObject;
+  const personorglink = await rawschema.createType("PERSONORGLINK", { title: "Test person/org link", linkfrom: await person.get("id"), linkto: await organization.get("id") }) as HSVMObject;
   await personorglink.CreateAttribute("TEXT", "FREE");
   await personorglink.CreateEntity({ text: "Some text" }, { temp: true });
 
-  const payprov = await schemaobj.schema.createDomain("PAYPROV", { keephistorydays: options.keephistorydays }) as HSVMObject;
+  const payprov = await rawschema.createDomain("PAYPROV", { keephistorydays: options.keephistorydays }) as HSVMObject;
   await payprov.CreateAttribute("METHOD", "PAYMENTPROVIDER", { isrequired: true });
 
-  const paydata = await schemaobj.schema.createType("PAYDATA") as HSVMObject;
+  const paydata = await rawschema.createType("PAYDATA") as HSVMObject;
   await paydata.CreateAttribute("DATA", "PAYMENT", { domain: await payprov.get("id") });
   await paydata.CreateAttribute("LOG", "RECORD");
 
-  const paydata2 = await schemaobj.schema.createType("PAYDATA2") as HSVMObject;
+  const paydata2 = await rawschema.createType("PAYDATA2") as HSVMObject;
   await paydata2.CreateAttribute("DATA", "PAYMENT", { domain: await payprov.get("id") });
   await paydata2.CreateAttribute("LOG", "RECORD");
 
