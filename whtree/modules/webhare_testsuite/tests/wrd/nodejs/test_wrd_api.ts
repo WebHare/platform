@@ -272,7 +272,6 @@ whtree/modules/webhare_testsuite/tests/wrd/nodejs/testinfo.xml    //TestEq([[ful
 }
 
 test.run([
-  () => prepareTestFramework({ wrdauth: false }),
   createWRDTestSchema,
   testCommitAndRollback,
   testWRDQuery
