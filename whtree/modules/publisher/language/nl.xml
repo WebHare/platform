@@ -1401,13 +1401,6 @@
     <text tid="worklist_resolve">Werklijstonderdelen afhandelen</text>
     <text tid="worklists">Werklijsten</text>
   </textgroup>
-  <textgroup gid="screens">   <!-- screens -->
-    <textgroup gid="objectprops">   <!-- screens.objectprops -->
-      <textgroup gid="specialtypes">   <!-- screens.objectprops.specialtypes -->
-        <text tid="prebuilttag">Voorgebouwde pagina</text>
-      </textgroup>
-    </textgroup>
-  </textgroup>
   <textgroup gid="site">   <!-- site -->
     <textgroup gid="authormode">   <!-- site.authormode -->
       <text tid="aboutdompointer">Wijs het element aan waarover je feedback wil geven</text>

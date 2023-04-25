@@ -511,26 +511,6 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
         RETURN CELL[ acceptableindex := FALSE, canedit ];
     }
 
-    IF (RecordExists(this->contexts->applytester->__GetAppliesForcell("WEBDESIGN"))) // webdesign?
-    {
-      IF(this->curtype.id = 39) //prebuiltpage
-      {
-        STRING prebuilttag;
-
-        OBJECT comp :=
-            SELECT AS OBJECT instance
-              FROM this->extendprops
-             WHERE contenttype = "http://www.webhare.net/xmlns/publisher/prebuiltpage";
-
-        IF (ObjectExists(comp) AND comp->value.prebuilttag != "")
-        {
-          RECORD settings := this->contexts->applytester->GetPrebuiltPageSettings(comp->value.prebuilttag);
-          IF (settings.capturesubpaths)
-            RETURN CELL[ acceptableindex := FALSE, canedit ];
-        }
-      }
-    }
-
     RETURN CELL[ acceptableindex := TRUE, canedit ];
   }
 

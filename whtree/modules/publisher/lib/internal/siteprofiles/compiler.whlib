@@ -58,8 +58,6 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
                     , applies              := RECORD[]
                     , webrules             := RECORD[]
                     , addtocatalogs        := RECORD[]
-                    , prebuilttag_typeid   := 0
-                    , prebuilttag_memberid := 0
                     , hiddenfoldertypes    := INTEGER[]
                     ];
   }
@@ -535,18 +533,6 @@ PUBLIC STATIC OBJECTTYPE RecompileContext
     }
     //Sort apply rules. Note that sorts on record arrays are stable.
     this->result.applies := SELECT * FROM this->result.applies ORDER BY priority;
-
-
-    //Global stuff
-    this->result.prebuilttag_typeid := SELECT AS INTEGER id
-                                   FROM system.fs_types
-                                  WHERE fs_types.namespace = "http://www.webhare.net/xmlns/publisher/prebuiltpage";
-
-    this->result.prebuilttag_memberid := SELECT AS INTEGER id
-                                     FROM system.fs_members
-                                    WHERE fs_members.name = "prebuilttag"
-                                          AND fs_members.fs_type = this->result.prebuilttag_typeid;
-
 
     RETURN [ result := this->result  //FIXME state leak
            , compiledsiteprofiles := compiledsiteprofiles
