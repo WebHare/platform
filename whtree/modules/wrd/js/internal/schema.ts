@@ -3,6 +3,7 @@ import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, Sche
 import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
 import { checkPromiseErrorsHandled } from "@mod-system/js/internal/util/devhelpers";
 import { ensureScopedResource } from "@webhare/services/src/codecontexts";
+import { tagToHS } from "@webhare/wrd/src/wrdsupport";
 
 interface WRDTypeConfigurationBase {
   metatype: WRDMetaType;
@@ -64,15 +65,17 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     if (!tag)
       return 0;
 
+    const hstag = tagToHS(tag);
     const schemaobj = await this.getWRDSchema();
     const typelist = await schemaobj.ListTypes() as Array<{ id: number; tag: string }>;
-    const match = typelist.find(t => t.tag === tag);
+    const match = typelist.find(t => t.tag === hstag);
     if (!match)
       throw new Error(`No such type '${tag}' in schema '${this.id}'`);
     return match.id;
   }
 
   async createType(tag: string, config: WRDTypeConfiguration): Promise<WRDType<S, string>> {
+    const hstag = tagToHS(tag);
     const schemaobj = await this.getWRDSchema();
     const left = await this.__toWRDTypeId((config as WRDLinkTypeConfiguration)?.left);
     const right = await this.__toWRDTypeId((config as WRDLinkTypeConfiguration)?.right);
@@ -82,7 +85,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     const createrequest = {
       title: "",
       description: "",
-      tag,
+      tag: hstag,
       requiretype_left: left,
       requiretype_right: right,
       metatype: config.metatype,
@@ -120,7 +123,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   private async getWRDSchemaType(type: string): Promise<HSVMObject> {
     const cache: CoVMSchemaCache = this.getWRDSchemaCache();
     if (!cache.types[type]) {
-      cache.types[type] = (await cache.schemaobj).getType(type) as Promise<HSVMObject>;
+      cache.types[type] = (await cache.schemaobj).getType(tagToHS(type)) as Promise<HSVMObject>;
     }
     const typeobj = await cache.types[type];
     if (!typeobj)
