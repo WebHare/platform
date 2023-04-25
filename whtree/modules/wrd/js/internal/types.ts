@@ -36,10 +36,10 @@ export enum WRDBaseAttributeType {
 
 export enum WRDAttributeType {
   Domain = 1,
-  Free = 2,
+  Free = 2, //TODO why not 'text'
   Address = 3,
   Email = 4,
-  Telephone = 5,
+  Telephone = 5, //TODO why not 'phone'
   Date = 6,
   Password = 7,
   DomainArray = 8,
@@ -65,6 +65,15 @@ export enum WRDAttributeType {
   AuthenticationSettings = 28,
   WHFSLink = 29,
 }
+
+export const WRDAttributeTypeNames = [
+  "DOMAIN", /*2*/"FREE", "ADDRESS", "EMAIL", "TELEPHONE", "DATE", "PASSWORD",
+  "DOMAINARRAY", /*9*/"IMAGE", "FILE", "TIME", "DATETIME",/*13*/  "ARRAY", "MONEY",
+  "INTEGER", "BOOLEAN", "RICHDOCUMENT", "INTEGER64", /*19*/"WHFSINSTANCE", "WHFSINTEXTLINK",
+   /*21*/"URL", /*22*/"RECORD", /*23*/"ENUM", /*24*/"ENUMARRAY", /*25*/"PAYMENTPROVIDER", /*26*/"PAYMENT",
+   /*27*/"STATUSRECORD", /*28*/"AUTHENTICATIONSETTINGS", /*29*/ "WHFSLINK"
+];
+
 
 /** List of simple attribute types, that have no associated options
 */
@@ -105,6 +114,8 @@ export type SimpleWRDAttributeType =
   WRDAttributeType.StatusRecord |
   WRDAttributeType.AuthenticationSettings |
   WRDAttributeType.WHFSLink;
+
+
 
 /** Extended form for declaring an attribute, also supports enums and arrays properties
  * @typeParam T - WRDAttributeType for this attribute

@@ -3,7 +3,7 @@ import { HSVM, HSVMObject, openHSVM } from '@webhare/services/src/hsvm';
 import { getTypedArray, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
-import { WRDMetaType } from "@mod-wrd/js/internal/types"; //FIXME shouldn't need an internal API for WRDMetaType
+import { WRDAttributeType, WRDMetaType } from "@mod-wrd/js/internal/types"; //FIXME shouldn't need an internal API for WRDMetaType
 
 let myvm: Promise<HSVM> | null = null;
 
@@ -45,16 +45,15 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { keephistor
   // Initialize the schema, and test the attribute name function
   //if (options.keephistorydays != 0)
   //  persontype.UpdateMetadata(CELL[options.keephistorydays]);
-  await persontype.updateAttribute("WRD_CONTACT_EMAIL", { isrequired: false }); //for compatibility with all existing tests
-  await persontype.createAttribute("WRD_CONTACT_PHONE_XX", "TELEPHONE", { title: "Phone" });
-  await persontype.createAttribute("PERSONLINK", "DOMAIN", { title: "Person", domaintag: "WRD_PERSON" });
-  await persontype.createAttribute("RELATIONLINK", "DOMAIN", { title: "Relation", domaintag: "WRD_RELATION" });
-  await persontype.createAttribute("WRD_CONTACT_PHONE", "TELEPHONE", { title: "Testphone" });
-  await persontype.createAttribute("TESTINSTANCE", "WHFSINSTANCE", { title: "Testinstance" });
-  await persontype.createAttribute("TESTINTEXTLINK", "WHFSINTEXTLINK", { title: "Testintextlink" });
-  await persontype.createAttribute("TESTINTEXTLINK_NOCHECK", "WHFSINTEXTLINK", { title: "Testintextlink with checklinks=false", checklinks: false });
-  await persontype.createAttribute("TESTLINK", "WHFSLINK", { title: "testlink" });
-  await persontype.createAttribute("URL", "URL", { title: "URL" });
+  await persontype.createAttribute("WRD_CONTACT_PHONE_XX", { attributetype: WRDAttributeType.Telephone, title: "Phone" });
+  await persontype.createAttribute("PERSONLINK", { attributetype: WRDAttributeType.Domain, title: "Person", domain: "WRD_PERSON" });
+  await persontype.createAttribute("RELATIONLINK", { attributetype: WRDAttributeType.Domain, title: "Relation", domain: "WRD_RELATION" });
+  await persontype.createAttribute("WRD_CONTACT_PHONE", { attributetype: WRDAttributeType.Telephone, title: "Testphone" });
+  await persontype.createAttribute("TESTINSTANCE", { attributetype: WRDAttributeType.WHFSInstance, title: "Testinstance" });
+  await persontype.createAttribute("TESTINTEXTLINK", { attributetype: WRDAttributeType.WHFSIntextlink, title: "Testintextlink" });
+  await persontype.createAttribute("TESTINTEXTLINK_NOCHECK", { attributetype: WRDAttributeType.WHFSIntextlink, title: "Testintextlink with checklinks=false", checklinks: false });
+  await persontype.createAttribute("TESTLINK", { attributetype: WRDAttributeType.WHFSLink, title: "testlink" });
+  await persontype.createAttribute("URL", { attributetype: WRDAttributeType.Url, title: "URL" });
 
   //persontype.CreateEntity({wrd_contact_email : "temp@beta.webhare.net"}, {temp : TRUE});
   //TestEq(TRUE, persontype -> GetAttribute("TESTINTEXTLINK").checklinks); //should default to 'true'
@@ -144,69 +143,69 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { keephistor
   //domain2value3:= domain2_obj -> CreateEntity([wrd_tag := "TEST_DOMAINVALUE_2_3", wrd_title := "Domain value 2.3", wrd_guid := "wrd:00000000002030000002030000002030"]);
 
   // Add attributes of every type to the Person type
-  await persontype.createAttribute("TEST_SINGLE_DOMAIN", "DOMAIN", { title: "Single attribute", domaintag: "TEST_DOMAIN_1" });
-  await persontype.createAttribute("TEST_SINGLE_DOMAIN2", "DOMAIN", { title: "Single attribute", domaintag: "TEST_DOMAIN_1" }); // for <wrd:selectentity> test
-  await persontype.createAttribute("TEST_SINGLE_DOMAIN3", "DOMAIN", { title: "Single attribute", domaintag: "TEST_DOMAIN_1" }); // for <wrd:selectentity> test
-  await persontype.createAttribute("TEST_FREE", "FREE", { title: "Free attribute" });
-  await persontype.createAttribute("TEST_ADDRESS", "ADDRESS", { title: "Address attribute" });
-  await persontype.createAttribute("TEST_EMAIL", "EMAIL", { title: "E-mail attribute" });
-  await persontype.createAttribute("TEST_PHONE", "TELEPHONE", { title: "Phone attribute" });
-  await persontype.createAttribute("TEST_DATE", "DATE", { title: "Date attribute" });
-  await persontype.createAttribute("TEST_PASSWORD", "PASSWORD", { title: "Password attribute" });
-  await persontype.createAttribute("TEST_MULTIPLE_DOMAIN", "DOMAINARRAY", { title: "Multiple attribute", domaintag: "TEST_DOMAIN_2" });
-  await persontype.createAttribute("TEST_MULTIPLE_DOMAIN2", "DOMAINARRAY", { title: "Multiple attribute", domaintag: "TEST_DOMAIN_2" });
-  await persontype.createAttribute("TEST_MULTIPLE_DOMAIN3", "DOMAINARRAY", { title: "Multiple attribute", domaintag: "TEST_DOMAIN_2" });
-  await persontype.createAttribute("TEST_IMAGE", "IMAGE", { title: "Image attribute" });
-  await persontype.createAttribute("TEST_FILE", "FILE", { title: "File attribute" });
-  await persontype.createAttribute("TEST_TIME", "TIME", { title: "Time attribute" });
-  await persontype.createAttribute("TEST_DATETIME", "DATETIME", { title: "Datetime attribute" });
-  await persontype.createAttribute("TEST_ARRAY", "ARRAY", { title: "Array attribute" });
-  await persontype.createAttribute("TEST_MONEY", "MONEY", { title: "Money attribute" });
-  await persontype.createAttribute("TEST_INTEGER", "INTEGER", { title: "Integer attribute" });
-  await persontype.createAttribute("TEST_BOOLEAN", "BOOLEAN", { title: "Boolean attribute" });
-  await persontype.createAttribute("TEST_ENUM", "ENUM", { title: "Emum attribute", allowedvalues: ["enum1", "enum2"] });
-  await persontype.createAttribute("TEST_ENUMARRAY", "ENUMARRAY", { title: "Emum attribute", allowedvalues: ["enumarray1", "enumarray2"] });
-  await persontype.createAttribute("TEST_EMPTYENUM", "ENUM", { title: "Emum attribute", allowedvalues: getTypedArray(VariableType.StringArray, []) });
-  await persontype.createAttribute("TEST_EMPTYENUMARRAY", "ENUMARRAY", { title: "Emum attribute", allowedvalues: getTypedArray(VariableType.StringArray, []) });
-  await persontype.createAttribute("TEST_RECORD", "RECORD", { title: "Record attribute", allowedvalues: getTypedArray(VariableType.StringArray, []) });
-  await persontype.createAttribute("TEST_STATUSRECORD", "STATUSRECORD", { title: "Status record", allowedvalues: ["warning", "error", "ok"] });
-  await persontype.createAttribute("TEST_FREE_NOCOPY", "FREE", { title: "Uncopyable free attribute", isunsafetocopy: true });
-  await persontype.createAttribute("RICHIE", "RICHDOCUMENT", { title: "Rich document" });
+  await persontype.createAttribute("TEST_SINGLE_DOMAIN", { attributetype: WRDAttributeType.Domain, title: "Single attribute", domain: "TEST_DOMAIN_1" });
+  await persontype.createAttribute("TEST_SINGLE_DOMAIN2", { attributetype: WRDAttributeType.Domain, title: "Single attribute", domain: "TEST_DOMAIN_1" }); // for <wrd:selectentity> test
+  await persontype.createAttribute("TEST_SINGLE_DOMAIN3", { attributetype: WRDAttributeType.Domain, title: "Single attribute", domain: "TEST_DOMAIN_1" }); // for <wrd:selectentity> test
+  await persontype.createAttribute("TEST_FREE", { attributetype: WRDAttributeType.Free, title: "Free attribute" });
+  await persontype.createAttribute("TEST_ADDRESS", { attributetype: WRDAttributeType.Address, title: "Address attribute" });
+  await persontype.createAttribute("TEST_EMAIL", { attributetype: WRDAttributeType.Email, title: "E-mail attribute" });
+  await persontype.createAttribute("TEST_PHONE", { attributetype: WRDAttributeType.Telephone, title: "Phone attribute" });
+  await persontype.createAttribute("TEST_DATE", { attributetype: WRDAttributeType.Date, title: "Date attribute" });
+  await persontype.createAttribute("TEST_PASSWORD", { attributetype: WRDAttributeType.Password, title: "Password attribute" });
+  await persontype.createAttribute("TEST_MULTIPLE_DOMAIN", { attributetype: WRDAttributeType.DomainArray, title: "Multiple attribute", domain: "TEST_DOMAIN_2" });
+  await persontype.createAttribute("TEST_MULTIPLE_DOMAIN2", { attributetype: WRDAttributeType.DomainArray, title: "Multiple attribute", domain: "TEST_DOMAIN_2" });
+  await persontype.createAttribute("TEST_MULTIPLE_DOMAIN3", { attributetype: WRDAttributeType.DomainArray, title: "Multiple attribute", domain: "TEST_DOMAIN_2" });
+  await persontype.createAttribute("TEST_IMAGE", { attributetype: WRDAttributeType.Image, title: "Image attribute" });
+  await persontype.createAttribute("TEST_FILE", { attributetype: WRDAttributeType.File, title: "File attribute" });
+  await persontype.createAttribute("TEST_TIME", { attributetype: WRDAttributeType.Time, title: "Time attribute" });
+  await persontype.createAttribute("TEST_DATETIME", { attributetype: WRDAttributeType.DateTime, title: "Datetime attribute" });
+  await persontype.createAttribute("TEST_ARRAY", { attributetype: WRDAttributeType.Array, title: "Array attribute" });
+  await persontype.createAttribute("TEST_MONEY", { attributetype: WRDAttributeType.Money, title: "Money attribute" });
+  await persontype.createAttribute("TEST_INTEGER", { attributetype: WRDAttributeType.Integer, title: "Integer attribute" });
+  await persontype.createAttribute("TEST_BOOLEAN", { attributetype: WRDAttributeType.Boolean, title: "Boolean attribute" });
+  await persontype.createAttribute("TEST_ENUM", { attributetype: WRDAttributeType.Enum, title: "Emum attribute", allowedvalues: ["enum1", "enum2"] });
+  await persontype.createAttribute("TEST_ENUMARRAY", { attributetype: WRDAttributeType.EnumArray, title: "Emum attribute", allowedvalues: ["enumarray1", "enumarray2"] });
+  await persontype.createAttribute("TEST_EMPTYENUM", { attributetype: WRDAttributeType.Enum, title: "Emum attribute", allowedvalues: getTypedArray(VariableType.StringArray, []) });
+  await persontype.createAttribute("TEST_EMPTYENUMARRAY", { attributetype: WRDAttributeType.EnumArray, title: "Emum attribute", allowedvalues: getTypedArray(VariableType.StringArray, []) });
+  await persontype.createAttribute("TEST_RECORD", { attributetype: WRDAttributeType.Record, title: "Record attribute", allowedvalues: getTypedArray(VariableType.StringArray, []) });
+  await persontype.createAttribute("TEST_STATUSRECORD", { attributetype: WRDAttributeType.StatusRecord, title: "Status record", allowedvalues: ["warning", "error", "ok"] });
+  await persontype.createAttribute("TEST_FREE_NOCOPY", { attributetype: WRDAttributeType.Free, title: "Uncopyable free attribute", isunsafetocopy: true });
+  await persontype.createAttribute("RICHIE", { attributetype: WRDAttributeType.RichDocument, title: "Rich document" });
 
   const personattachment = await schemaobj.createType("PERSONATTACHMENT", { metatype: WRDMetaType.Attachment, title: "Test person attachments", left: "WRD_PERSON", keephistorydays: options.keephistorydays });
-  personattachment.createAttribute("ATTACHFREE", "FREE", { title: "Free text attribute" });
+  personattachment.createAttribute("ATTACHFREE", { attributetype: WRDAttributeType.Free, title: "Free text attribute" });
 
 
 
   //OBJECT org: schemaobj ->^ wrd_organization -> CreateEntity([wrd_orgname : "The Org"]);
 
   const personorglink = await schemaobj.createType("PERSONORGLINK", { metatype: WRDMetaType.Link, title: "Test person/org link", left: "WRD_PERSON", right: "WRD_ORGANIZATION" });
-  await personorglink.createAttribute("TEXT", "FREE");
+  await personorglink.createAttribute("TEXT", { attributetype: WRDAttributeType.Free });
   //FIXME temp support in insert? await personorglink.CreateEntity({ text: "Some text" }, { temp: true });
 
   const payprov = await schemaobj.createType("PAYPROV", { metatype: WRDMetaType.Domain, keephistorydays: options.keephistorydays });
-  await payprov.createAttribute("METHOD", "PAYMENTPROVIDER", { isrequired: true });
+  await payprov.createAttribute("METHOD", { attributetype: WRDAttributeType.PaymentProvider, isrequired: true });
 
   const paydata = await schemaobj.createType("PAYDATA", { metatype: WRDMetaType.Object });
-  await paydata.createAttribute("DATA", "PAYMENT", { domaintag: "PAYPROV" });
-  await paydata.createAttribute("LOG", "RECORD");
+  await paydata.createAttribute("DATA", { attributetype: WRDAttributeType.Payment, domain: "PAYPROV" });
+  await paydata.createAttribute("LOG", { attributetype: WRDAttributeType.Record });
 
   const paydata2 = await schemaobj.createType("PAYDATA2", { metatype: WRDMetaType.Object });
-  await paydata2.createAttribute("DATA", "PAYMENT", { domaintag: "PAYPROV" });
-  await paydata2.createAttribute("LOG", "RECORD");
+  await paydata2.createAttribute("DATA", { attributetype: WRDAttributeType.Payment, domain: "PAYPROV" });
+  await paydata2.createAttribute("LOG", { attributetype: WRDAttributeType.Record });
 
   //Testeq(FALSE, persontype -> GetAttribute("TEST_ENUM").checklinks);
   //Testeq(TRUE, persontype -> GetAttribute("RICHIE").checklinks); //should default to 'true'
 
-  await persontype.createAttribute("TEST_ARRAY.TEST_INT", "INTEGER", { title: "Array integer attribute" });
-  await persontype.createAttribute("TEST_ARRAY.TEST_FREE", "FREE", { title: "Array free attribute" });
-  await persontype.createAttribute("TEST_ARRAY.TEST_ARRAY2", "ARRAY", { title: "Array array attribute" });
-  await persontype.createAttribute("TEST_ARRAY.TEST_ARRAY2.TEST_INT2", "INTEGER", { title: "Array array integer attribute" });
-  await persontype.createAttribute("TEST_ARRAY.TEST_SINGLE", "DOMAIN", { title: "Array domain attribute", domaintag: "TEST_DOMAIN_1" });
-  await persontype.createAttribute("TEST_ARRAY.TEST_IMAGE", "IMAGE", { title: "Array image attribute" });
-  await persontype.createAttribute("TEST_ARRAY.TEST_SINGLE_OTHER", "DOMAIN", { title: "Array domain attribute", domaintag: "TEST_DOMAIN_1" });
-  await persontype.createAttribute("TEST_ARRAY.TEST_MULTIPLE", "DOMAINARRAY", { title: "Array multiple domain attribute", domaintag: "TEST_DOMAIN_1" });
-  await persontype.createAttribute("TEST_ARRAY.TEST_EMAIL", "EMAIL", { title: "Array email attribute" });
+  await persontype.createAttribute("TEST_ARRAY.TEST_INT", { attributetype: WRDAttributeType.Integer, title: "Array integer attribute" });
+  await persontype.createAttribute("TEST_ARRAY.TEST_FREE", { attributetype: WRDAttributeType.Free, title: "Array free attribute" });
+  await persontype.createAttribute("TEST_ARRAY.TEST_ARRAY2", { attributetype: WRDAttributeType.Array, title: "Array array attribute" });
+  await persontype.createAttribute("TEST_ARRAY.TEST_ARRAY2.TEST_INT2", { attributetype: WRDAttributeType.Integer, title: "Array array integer attribute" });
+  await persontype.createAttribute("TEST_ARRAY.TEST_SINGLE", { attributetype: WRDAttributeType.Domain, title: "Array domain aibute", domain: "TEST_DOMAIN_1" });
+  await persontype.createAttribute("TEST_ARRAY.TEST_IMAGE", { attributetype: WRDAttributeType.Image, title: "Array image attribute" });
+  await persontype.createAttribute("TEST_ARRAY.TEST_SINGLE_OTHER", { attributetype: WRDAttributeType.Domain, title: "Array domain aibute", domain: "TEST_DOMAIN_1" });
+  await persontype.createAttribute("TEST_ARRAY.TEST_MULTIPLE", { attributetype: WRDAttributeType.DomainArray, title: "Array multiple domain attribute", domain: "TEST_DOMAIN_1" });
+  await persontype.createAttribute("TEST_ARRAY.TEST_EMAIL", { attributetype: WRDAttributeType.Email, title: "Array email attribute" });
 
   /*
   BLOB testimage_blob:= GetWebHareResource("mod::system/web/tests/goudvis.png");

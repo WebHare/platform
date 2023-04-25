@@ -1,12 +1,8 @@
 import { HSVMObject } from "@webhare/services/src/hsvm";
-import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType } from "./types";
+import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeType, WRDAttributeTypeNames } from "./types";
 import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
 import { checkPromiseErrorsHandled } from "@mod-system/js/internal/util/devhelpers";
 import { ensureScopedResource } from "@webhare/services/src/codecontexts";
-
-interface WRDEntitySettings { //TODO this will go away as soon as createAttribute/updateAttribute are redefined
-  [key: string]: number | number[] | boolean | string | string[] | Date | WRDEntitySettings | WRDEntitySettings[] | null;
-}
 
 interface WRDTypeConfigurationBase {
   metatype: WRDMetaType;
@@ -37,6 +33,19 @@ interface WRDDomainTypeConfiguration extends WRDTypeConfigurationBase {
 
 type WRDTypeConfiguration = WRDObjectTypeConfiguration | WRDAttachmentTypeConfiguration | WRDLinkTypeConfiguration | WRDDomainTypeConfiguration;
 
+interface WRDAttributeConfiguration {
+  attributetype: WRDAttributeType;
+  title?: string;
+  description?: string;
+  checklinks?: boolean;
+  domain?: string;
+  multiline?: boolean; //FIXME remove?
+  isunsafetocopy?: boolean;
+  isrequired?: boolean;
+  isordered?: boolean;
+  allowedvalues?: string[];
+}
+
 type CoVMSchemaCache = {
   schemaobj: Promise<HSVMObject>;
   types: Record<string, Promise<HSVMObject>>;
@@ -51,7 +60,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     this.coVMSchemaCacheSymbol = Symbol("WHCoVMSchemaCache " + this.id);
   }
 
-  private async toWRDTypeId(tag: string | undefined): Promise<number> {
+  /*private*/ async __toWRDTypeId(tag: string | undefined): Promise<number> {
     if (!tag)
       return 0;
 
@@ -65,8 +74,8 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
 
   async createType(tag: string, config: WRDTypeConfiguration): Promise<WRDType<S, string>> {
     const schemaobj = await this.getWRDSchema();
-    const left = await this.toWRDTypeId((config as WRDLinkTypeConfiguration)?.left);
-    const right = await this.toWRDTypeId((config as WRDLinkTypeConfiguration)?.right);
+    const left = await this.__toWRDTypeId((config as WRDLinkTypeConfiguration)?.left);
+    const right = await this.__toWRDTypeId((config as WRDLinkTypeConfiguration)?.right);
 
     await extendWorkToCoHSVM();
 
@@ -198,20 +207,29 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     }
   }
 
-  async createAttribute(tag: string, type: string, settings: WRDEntitySettings = {}) {
+  async createAttribute(tag: string, configuration: WRDAttributeConfiguration) {
     await extendWorkToCoHSVM();
     const typeobj = await this._getType();
-    await typeobj.CreateAttribute(tag, type, settings);
+    const typetag = WRDAttributeTypeNames[configuration.attributetype - 1];
+
+    const configclone: Omit<Partial<WRDAttributeConfiguration>, 'domain'> & { domain?: string | number } = configuration;
+    delete configclone.attributetype;
+
+    if (configuration.domain)
+      configclone.domain = await this.schema.__toWRDTypeId(configuration.domain);
+
+    await typeobj.CreateAttribute(tag, typetag, configclone);
     return;
   }
 
-  async updateAttribute(tag: string, settings: WRDEntitySettings) {
+  async updateAttribute(tag: string, configuration: Partial<WRDAttributeConfiguration>) {
     await extendWorkToCoHSVM();
     const typeobj = await this._getType();
-    await typeobj.UpdateAttribute(tag, settings);
+    await typeobj.UpdateAttribute(tag, configuration);
     return;
   }
 }
+
 type HistoryModeData = { historymode: "now" | "all" | "__getfields" } | { historymode: "at"; when: Date } | { historymode: "range"; when_start: Date; when_limit: Date } | null;
 type GetOptionsIfExists<T> = T extends { options: unknown } ? T["options"] : undefined;
 type HSWRDQuery = {
