@@ -56,7 +56,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   }
 
   async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M) {
-    const rows = await this.selectFrom(type).select(mapping).where("WRD_ID", "=", id).execute();
+    const rows = await this.selectFrom(type).select(mapping).where("WRD_ID", "=", id).historyMode("__getfields").execute();
     return rows[0] || null;
   }
 

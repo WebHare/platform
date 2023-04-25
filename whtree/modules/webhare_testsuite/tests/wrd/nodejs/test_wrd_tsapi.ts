@@ -169,8 +169,6 @@ function cmp(a: unknown, condition: string, b: unknown) {
   return false;
 }
 
-
-
 async function testNewAPI() {
   type Combined = Combine<[TestSchema, SchemaUserAPIExtension, CustomExtensions]>;
   const schema = new newWRDschema<Combined>("wrd:testschema");//extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>();
@@ -237,7 +235,7 @@ async function testNewAPI() {
 
   const domain1value1 = await schema.search("test_domain_1", "wrd_tag", "TEST_DOMAINVALUE_1_1");
   await test.throws(/not.*0/, schema.insert("wrd_person", { whuser_unit: unit_id, test_single_domain: 0 }));
-  const newperson = await schema.insert("wrd_person", { whuser_unit: unit_id, test_single_domain: null });
+  const newperson = await schema.insert("wrd_person", { whuser_unit: unit_id, test_single_domain: null, test_email: "test_wrd_tsapi@beta.webhare.net" });
   await test.throws(/Not.*0/, schema.selectFrom("wrd_person").select("wrd_id").where("test_single_domain", "=", 0).execute());
   await test.throws(/Not.*0/, schema.selectFrom("wrd_person").select("wrd_id").where("test_single_domain", "in", [0]).execute());
   test.eq([{ wrd_id: newperson, test_single_domain: null }], await schema.selectFrom("wrd_person").select(["wrd_id", "test_single_domain"]).where("test_single_domain", "=", null).execute());
@@ -252,7 +250,25 @@ async function testNewAPI() {
   test.eq(newperson, await schema.search("wrd_person", "test_single_domain", domain1value1));
   test.eq([{ wrd_id: newperson, test_single_domain: domain1value1 }], await schema.enrich("wrd_person", [{ wrd_id: newperson }], "wrd_id", ["test_single_domain"]));
 
+  const nottrue = false;
+  if (nottrue) {
+    // @ts-expect-error -- wrd_leftentity and wrd_rightentity must be numbers
+    await schema.insert("personorglink", { wrd_leftentity: null, wrd_rightentity: null });
+  }
+
+  await whdb.commitWork();
+}
+
+async function testComparisons() {
+  type Combined = Combine<[TestSchema, SchemaUserAPIExtension, CustomExtensions]>;
+  const schema = new newWRDschema<Combined>("wrd:testschema");
+
+  const newperson = await schema.search("wrd_person", "test_email", "test_wrd_tsapi@beta.webhare.net");
+  test.assert(newperson);
+  await whdb.beginWork();
+
   await schema.update("wrd_person", newperson, { wrd_creationdate: null, wrd_limitdate: null });
+  test.eq([], await schema.selectFrom("wrd_person").select(["wrd_creationdate", "wrd_limitdate"]).where("wrd_id", "=", newperson).execute());
   test.eq([{ wrd_creationdate: null, wrd_limitdate: null }], await schema.selectFrom("wrd_person").select(["wrd_creationdate", "wrd_limitdate"]).where("wrd_id", "=", newperson).historyMode("__getfields").execute());
 
   test.eq([{ wrd_creationdate: null, wrd_limitdate: null }], await schema
@@ -262,11 +278,8 @@ async function testNewAPI() {
     .$call(qb => qb.historyMode("__getfields"))
     .execute());
 
-  const nottrue = false;
-  if (nottrue) {
-    // @ts-expect-error -- wrd_leftentity and wrd_rightentity must be numbers
-    await schema.insert("personorglink", { wrd_leftentity: null, wrd_rightentity: null });
-  }
+  //getFields must ignore lifetime and temporaryness
+  test.eq({ email: "test_wrd_tsapi@beta.webhare.net" }, await schema.getFields("wrd_person", newperson, { email: "test_email" }));
 
   await schema.update("wrd_person", newperson, {
     wrd_creationdate: null,
@@ -315,5 +328,6 @@ async function testNewAPI() {
 
 test.run([
   createWRDTestSchema,
-  testNewAPI
+  testNewAPI,
+  testComparisons
 ], { wrdauth: true });
