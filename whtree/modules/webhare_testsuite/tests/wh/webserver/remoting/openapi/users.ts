@@ -74,5 +74,15 @@ export async function validateOutput(req: MyRestRequest): Promise<WebResponse> {
     case "illegalData": return createJSONResponse(HTTPSuccessCode.Ok, { structure: "wrong" });
   }
 
-  return createJSONResponse(HTTPErrorCode.BadRequest, { error: `Illegal type` });
+  return createJSONResponse(HTTPErrorCode.BadRequest, { error: `Illegal type: ${JSON.stringify(req.params.test)}`, p: req.params });
+}
+
+export async function validatePathOutput(req: MyRestRequest): Promise<WebResponse> {
+  switch (req.params.test) {
+    case "ok": return createJSONResponse(HTTPSuccessCode.Ok, "ok");
+    case "unknownStatusCode": return createJSONResponse(HTTPSuccessCode.SeeOther, { error: `See other people` });
+    case "illegalData": return createJSONResponse(HTTPSuccessCode.Ok, { structure: "wrong" });
+  }
+
+  return createJSONResponse(HTTPErrorCode.BadRequest, { error: `Illegal path type: ${JSON.stringify(req.params.test)}`, p: req.params });
 }

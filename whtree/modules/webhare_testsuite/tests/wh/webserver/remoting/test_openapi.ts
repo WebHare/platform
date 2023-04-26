@@ -65,6 +65,14 @@ async function testService() {
 
   res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/validateoutput?test=illegalData", body: "", headers: jsonheader }, "validateoutput");
   test.eq(HTTPErrorCode.InternalServerError, res.status);
+
+  res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/validateoutput?test=with%2F", body: "", headers: jsonheader }, "validateoutput");
+  test.eq(HTTPErrorCode.BadRequest, res.status);
+  test.eq(`Illegal type: "with/"`, JSON.parse(res.body).error);
+
+  res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/validateoutput/with%2F", body: "", headers: jsonheader }, "validateoutput/with%2F");
+  test.eq(HTTPErrorCode.BadRequest, res.status);
+  test.eq(`Illegal path type: "with/"`, JSON.parse(res.body).error);
 }
 
 function enumRefs(obj: unknown, result: string[] = []): string[] {
@@ -162,6 +170,15 @@ async function verifyPublicParts() {
   test.eq(HTTPErrorCode.Unauthorized, deniedcall.status);
   test.eq("X-Key", deniedcall.headers.get("www-authenticate"));
   test.eq({ error: "Dude where's my key?" }, await deniedcall.json());
+
+  // Test decoding of encoded variables
+  const validatecall = await fetch(userapiroot + "validateoutput?test=with%2F");
+  test.eq(HTTPErrorCode.BadRequest, validatecall.status);
+  test.eq(`Illegal type: "with/"`, (await validatecall.json()).error);
+
+  const validatepathcall = await fetch(userapiroot + "validateoutput/with%2F");
+  test.eq(HTTPErrorCode.BadRequest, validatepathcall.status);
+  test.eq(`Illegal path type: "with/"`, (await validatepathcall.json()).error);
 }
 
 function testInternalTypes() {
