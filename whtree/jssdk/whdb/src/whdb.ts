@@ -263,7 +263,7 @@ class WHDBConnectionImpl implements WHDBConnection, PostgresPool, PostgresPoolCl
     if (!this.pgclient)
       throw new Error(`Connection was already closed`);
     if (expectwork !== undefined && Boolean(this.openwork) !== expectwork) {
-      throw new Error(expectwork ? `Work has already been closed` : `Work has already been opened`, { cause: this.lastopen });
+      throw new Error(`Work has already been ${expectwork ? 'closed' : 'opened'}${flags.async ? "" : " - WEBHARE_DEBUG=async may help locating this"}`, { cause: this.lastopen });
     }
     return this.openwork || null;
   }
