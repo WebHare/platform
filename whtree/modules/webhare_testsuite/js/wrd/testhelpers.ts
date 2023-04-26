@@ -14,10 +14,12 @@ async function promiseVM() {
   return vm;
 }
 
-export async function getWRDSchema() {
-  const wrdschema = new WRDSchema("wrd:testschema");
+export const testSchemaTag = "wrd:testschema";
+
+export function getWRDSchema() {
+  const wrdschema = new WRDSchema(testSchemaTag);
   if (!wrdschema)
-    throw new Error(`wrd:testschema not found. wrd not enabled for this test run?`);
+    throw new Error(`${testSchemaTag} not found. wrd not enabled for this test run?`);
   return wrdschema;
 }
 
