@@ -104,7 +104,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     }));
   }
 
-  private async getWRDSchema(): Promise< HSVMObject > {
+  private async getWRDSchema(): Promise<HSVMObject> {
     return this.getWRDSchemaCache().schemaobj;
   }
 
