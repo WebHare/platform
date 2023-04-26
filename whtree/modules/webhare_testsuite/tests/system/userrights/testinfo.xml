@@ -4,4 +4,5 @@
   <test script="testuserrightsapp.whscr" />
   <test script="test_problemrights.whscr" />
   <test script="test_authenticationsettings.whscr" />
+  <test script="test_autolockout.whscr" />
 </group>

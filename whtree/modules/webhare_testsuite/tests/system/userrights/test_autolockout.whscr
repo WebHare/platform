@@ -1,0 +1,57 @@
+<?wh
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internal/any.whlib";
+
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/otp.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/internal/userrights/cleanup.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+
+ASYNC MACRO TestExpiration()
+{
+  OBJECT userapi :=GetTestController()->userapi;
+  INTEGER unitid := userapi->CreateUnit( [wrd_title := "Lisa's unit" ]);
+  INTEGER alreadylockeduser := userapi->CreateUser( [ whuser_unit := unitid, wrd_contact_email := "alreadylocked@beta.webhare.net", wrd_creationdate := AddDaysToDate(-6, GetCurrentDatetime()), whuser_disable_type := "manual" ]);
+  INTEGER olduser := userapi->CreateUser( [ whuser_unit := unitid, wrd_contact_email := "olduser@beta.webhare.net", wrd_creationdate := AddDaysToDate(-6, GetCurrentDatetime()) ]);
+  INTEGER loggedinuser := userapi->CreateUser( [ whuser_unit := unitid, wrd_contact_email := "loggedin@beta.webhare.net", wrd_creationdate := AddDaysToDate(-6, GetCurrentDatetime()), whuser_lastlogin := AddDaysToDate(-4, GetCurrentDatetime()) ]);
+
+  testfw->BeginWork();
+  userapi->wrd_unit->UpdateEntity(unitid, [ override_expiration := TRUE, expiration := [ locknologin := "P5D" ]]);
+  testfw->CommitWork();
+
+  WaitForPromise(CallAsync("mod::system/js/internal/userrights/accountexpiration.ts#runAccountExpiration", VARIANT[ userapi->wrdschema->tag ]));
+
+  TestEq([ WHUSER_DISABLED := TRUE, WHUSER_DISABLE_TYPE := "inactive" ], userapi->accounttype->GetEntityFields(olduser, ["whuser_disabled","whuser_disable_type"] ));
+  TestEq([ WHUSER_DISABLED := FALSE, WHUSER_DISABLE_TYPE := "" ], userapi->accounttype->GetEntityFields(loggedinuser, ["whuser_disabled","whuser_disable_type"] ));
+  TestEq([ WHUSER_DISABLE_TYPE := "manual" ], userapi->accounttype->GetEntityFields(alreadylockeduser, ["whuser_disable_type"] ));
+
+  //'unlock' user olduser@beta.webhare.net so he can relogin
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:userrights"));
+  TTFillByTitle("unittree->unitlist", "Lisa's unit");
+  topscreen->frame->focused := TT("unitcontents->userandrolelist");
+  TTFillByTitle("unitcontents->userandrolelist", "olduser@beta.webhare.net");
+
+  AWAIT ExpectScreenChange(+1, PTR TTClick("edit"));
+  TestEq("inactive", TT("whuser_disable_type")->value);
+  TT("whuser_disable_type")->value := "";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+  AWAIT ExpectScreenChange(-1, PTR TTEscape); //close usermgmt app
+
+  WaitForPromise(CallAsync("mod::system/js/internal/userrights/accountexpiration.ts#runAccountExpiration", VARIANT[ userapi->wrdschema->tag ]));
+
+  TestEq([ WHUSER_DISABLED := FALSE, WHUSER_DISABLE_TYPE := "" ], userapi->accounttype->GetEntityFields(olduser, ["whuser_disabled","whuser_disable_type"]), "old user should not be immediately relocked");
+}
+
+RunTestframework( [ PTR TestExpiration
+                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                    ]
+                  ]);

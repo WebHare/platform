@@ -1,4 +1,20 @@
+import { decodeHSON } from "@mod-system/js/internal/whmanager/hsmarshalling";
 export { encodeHSON, decodeHSON } from "@mod-system/js/internal/whmanager/hsmarshalling";
 export { isLike, isNotLike } from "./strings";
 export { recordLowerBound, recordUpperBound } from "./algorithms";
 export { makeDateFromParts, defaultDateTime, maxDateTime } from "./datetime";
+
+/** API to prepare for transitional period where we have both HSON and JSON records in the database. */
+export function decodeHSONorJSONRecord(input: string | null): object | null {
+  if (!input)
+    return null;
+  if (input.startsWith("hson:")) {
+    const hson = decodeHSON(input);
+    if (hson !== null && typeof hson !== "object")
+      throw new Error(`Expected a record encoded in HSON, but got a ${typeof hson}`);
+    return JSON.parse(JSON.stringify(hson)); //ensure flattening of Money etc values
+  }
+  if (input.startsWith("{"))
+    return JSON.parse(input);
+  throw new Error(`Decoding input that was expected to be HSON or JSON, but is neither (starts with: '${input.substring(0, 10)})')`);
+}
