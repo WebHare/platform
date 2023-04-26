@@ -9,24 +9,24 @@ function testTypes() {
     wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
     wrd_guid: WRDBaseAttributeType.Base_Guid;
     wrd_type: IsGenerated<WRDBaseAttributeType.Base_Integer>;
-    wrd_tag: WRDBaseAttributeType.Base_Tag;
-    wrd_creationdate: WRDBaseAttributeType.Base_CreationLimitDate;
-    wrd_limitdate: WRDBaseAttributeType.Base_CreationLimitDate;
-    wrd_modificationdate: WRDBaseAttributeType.Base_ModificationDate;
+    wrdTag: WRDBaseAttributeType.Base_Tag;
+    wrdCreationDate: WRDBaseAttributeType.Base_CreationLimitDate;
+    wrdLimitDate: WRDBaseAttributeType.Base_CreationLimitDate;
+    wrdModificationDate: WRDBaseAttributeType.Base_ModificationDate;
     wrd_gender: WRDBaseAttributeType.Base_Gender;
-    wrd_salute_formal: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
-    wrd_address_formal: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
-    wrd_fullname: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
+    wrdSaluteFormal: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
+    wrdAddressFormal: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
+    wrdFullName: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
     wrd_titles: WRDBaseAttributeType.Base_NameString;
     wrd_initials: WRDBaseAttributeType.Base_NameString;
-    wrd_firstname: WRDBaseAttributeType.Base_NameString;
-    wrd_firstnames: WRDBaseAttributeType.Base_NameString;
+    wrdFirstName: WRDBaseAttributeType.Base_NameString;
+    wrdFirstNames: WRDBaseAttributeType.Base_NameString;
     wrd_infix: WRDBaseAttributeType.Base_NameString;
-    wrd_lastname: WRDBaseAttributeType.Base_NameString;
-    wrd_titles_suffix: WRDBaseAttributeType.Base_NameString;
-    wrd_dateofbirth: WRDBaseAttributeType.Base_Date;
-    wrd_dateofdeath: WRDBaseAttributeType.Base_Date;
-    wrd_title: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
+    wrdLastName: WRDBaseAttributeType.Base_NameString;
+    wrdTitlesSuffix: WRDBaseAttributeType.Base_NameString;
+    wrdDateOfBirth: WRDBaseAttributeType.Base_Date;
+    wrdDateOfDeath: WRDBaseAttributeType.Base_Date;
+    wrdTitle: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
     whuser_disabled: WRDAttributeType.Boolean;
     whuser_disablereason: WRDAttributeType.Free;
     whuser_comment: WRDAttributeType.Free;
@@ -51,11 +51,11 @@ function testTypes() {
   test.throws(/Cannot combine selects, trying to combine a single field with a map/, () => combineRecordOutputMaps("a", { a: "a" }));
   test.throws(/Cannot combine selects, trying to combine a map with another single field/, () => combineRecordOutputMaps({ a: "a" }, "a"));
 
-  const stringselect = ["wrd_id", "wrd_title", "whuser_disabled", "whuser_comment", "whuser_unit", "invented_domain", "whuser_hiddenannouncements"] as const;
+  const stringselect = ["wrd_id", "wrdTitle", "whuser_disabled", "whuser_comment", "whuser_unit", "invented_domain", "whuser_hiddenannouncements"] as const;
 
   test.typeAssert<test.Equals<{
     wrd_id: number;
-    wrd_title: string;
+    wrdTitle: string;
     whuser_disabled: boolean;
     whuser_comment: string;
     invented_domain: number | null;
@@ -64,12 +64,12 @@ function testTypes() {
   }, MapOutput<System_Usermgmt_WRDPerson, typeof stringselect>>>();
 
 
-  const recordselect = { wrd_id: "wrd_id", rec: { wrd_title: "wrd_title" }, arr: ["whuser_disabled", "whuser_comment", "whuser_unit", "invented_domain", "whuser_hiddenannouncements"] } as const;
+  const recordselect = { wrd_id: "wrd_id", rec: { wrdTitle: "wrdTitle" }, arr: ["whuser_disabled", "whuser_comment", "whuser_unit", "invented_domain", "whuser_hiddenannouncements"] } as const;
 
   test.typeAssert<test.Equals<{
     wrd_id: number;
     rec: {
-      wrd_title: string;
+      wrdTitle: string;
     };
     arr: {
       whuser_disabled: boolean;
@@ -107,21 +107,21 @@ function testTypes() {
     whuser_hiddenannouncements?: number[];
     whuser_lastlogin?: Date;
     whuser_unit: number;
-    wrd_creationdate?: Date;
-    wrd_dateofbirth?: Date;
-    wrd_dateofdeath?: Date;
-    wrd_firstname?: string;
-    wrd_firstnames?: string;
+    wrdCreationDate?: Date;
+    wrdDateOfBirth?: Date;
+    wrdDateOfDeath?: Date;
+    wrdFirstName?: string;
+    wrdFirstNames?: string;
     wrd_gender?: WRDGender;
     wrd_guid?: string;
     wrd_id?: number;
     wrd_infix?: string;
     wrd_initials?: string;
-    wrd_lastname?: string;
-    wrd_limitdate?: Date;
-    wrd_modificationdate?: Date;
-    wrd_tag?: string;
-    wrd_titles_suffix?: string;
+    wrdLastName?: string;
+    wrdLimitDate?: Date;
+    wrdModificationDate?: Date;
+    wrdTag?: string;
+    wrdTitlesSuffix?: string;
     wrd_titles?: string;
   }, Insertable<System_Usermgmt_WRDPerson>>>();
 */
@@ -134,21 +134,21 @@ function testTypes() {
     whuser_hiddenannouncements?: number[];
     whuser_lastlogin?: Date | null;
     whuser_unit: number;
-    wrd_creationdate?: Date | null;
-    wrd_dateofbirth?: Date | null;
-    wrd_dateofdeath?: Date | null;
-    wrd_firstname?: string;
-    wrd_firstnames?: string;
+    wrdCreationDate?: Date | null;
+    wrdDateOfBirth?: Date | null;
+    wrdDateOfDeath?: Date | null;
+    wrdFirstName?: string;
+    wrdFirstNames?: string;
     wrd_gender?: WRDGender;
     wrd_guid?: string;
     wrd_id?: number;
     wrd_infix?: string;
     wrd_initials?: string;
-    wrd_lastname?: string;
-    wrd_limitdate?: Date | null;
-    wrd_modificationdate?: Date;
-    wrd_tag?: string;
-    wrd_titles_suffix?: string;
+    wrdLastName?: string;
+    wrdLimitDate?: Date | null;
+    wrdModificationDate?: Date;
+    wrdTag?: string;
+    wrdTitlesSuffix?: string;
     wrd_titles?: string;
   }>, Required<Insertable<System_Usermgmt_WRDPerson>>>>();
 }

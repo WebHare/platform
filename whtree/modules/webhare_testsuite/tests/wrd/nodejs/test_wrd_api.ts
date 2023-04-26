@@ -7,37 +7,37 @@ async function testCommitAndRollback() { //test the Co-HSVM
   const wrdschema: WRDSchema = await getWRDSchema();
 
   await whdb.beginWork();
-  test.eq(null, await wrdschema.search("wrd_person", "wrd_lastname", "CoVMTHSVMtest"), "shouldn't exist yet");
-  const personid = await wrdschema.insert("wrd_person", { wrd_lastname: "CoVMTtest" });
+  test.eq(null, await wrdschema.search("wrdPerson", "wrdLastName", "CoVMTHSVMtest"), "shouldn't exist yet");
+  const personid = await wrdschema.insert("wrdPerson", { wrdLastName: "CoVMTtest" });
   test.assert(personid);
   await whdb.rollbackWork();
 
-  test.eq(null, await wrdschema.search("wrd_person", "wrd_lastname", "CoVMTHSVMtest"), "shouldn't exist yet");
-  test.eq(null, await wrdschema.getFields("wrd_person", personid, { ln: "WRD_LASTNAME" }));
+  test.eq(null, await wrdschema.search("wrdPerson", "wrdLastName", "CoVMTHSVMtest"), "shouldn't exist yet");
+  test.eq(null, await wrdschema.getFields("wrdPerson", personid, { ln: "wrdLastName" }));
 
   await whdb.beginWork();
-  const personid2 = (await wrdschema.insert("wrd_person", { wrd_lastname: "CoVMTtest" }));
+  const personid2 = (await wrdschema.insert("wrdPerson", { wrdLastName: "CoVMTtest" }));
   await whdb.commitWork();
 
-  test.eq(personid2, await wrdschema.search("wrd_person", "wrd_lastname", "CoVMTtest"), "should exist!");
+  test.eq(personid2, await wrdschema.search("wrdPerson", "wrdLastName", "CoVMTtest"), "should exist!");
 
   await whdb.beginWork();
-  await wrdschema.delete("wrd_person", personid2);
+  await wrdschema.delete("wrdPerson", personid2);
   await whdb.rollbackWork();
 
-  test.eq(personid2, await wrdschema.search("wrd_person", "wrd_lastname", "CoVMTtest"), "should still exist!");
+  test.eq(personid2, await wrdschema.search("wrdPerson", "wrdLastName", "CoVMTtest"), "should still exist!");
 }
 
 async function testWRDQuery() { // wrd api.whscr TestWRDQuery()
   const wrdschema = await getWRDSchema();
 
   await whdb.beginWork();
-  const personid: number = (await wrdschema.insert("wrd_person", { wrd_lastname: "QueryTest" }));
+  const personid: number = (await wrdschema.insert("wrdPerson", { wrdLastName: "QueryTest" }));
   test.assert(personid);
 
-  await wrdschema.update("wrd_person", personid, { wrd_contact_email: "Test123@example.com" });
+  await wrdschema.update("wrdPerson", personid, { wrdContactEmail: "Test123@example.com" });
   //TODO Do we want to copy the big wrdschmea->RunQuery API too? or just tell people to enrich?
-  test.eq([{ n: "QueryTest" }], await wrdschema.selectFrom("wrd_person").select({ n: "WRD_LASTNAME" }).where("WRD_CONTACT_EMAIL", "=", "test123@example.com").execute());
+  test.eq([{ n: "QueryTest" }], await wrdschema.selectFrom("wrdPerson").select({ n: "wrdLastName" }).where("wrdContactEmail", "=", "test123@example.com").execute());
   /*
     TestEq([ [ n := "QueryTest" ] ], testfw->GetWRDSchema()->RunQuery(
         [ sources :=      [ [ type :=     wrdperson
@@ -253,7 +253,7 @@ async function testWRDQuery() { // wrd api.whscr TestWRDQuery()
     TestEq([[fullname := "QueryTest", id := personid]], wrdperson->RunQuery(cacheablequery), "If we see Bladiebla, we weren't caching");
 
     testfw->BeginWork();
-    wrdperson->UpdateEntity(personid, [ wrd_lastname := "Blobdieblob" ]);
+    wrdperson->UpdateEntity(personid, [ wrdLastName := "Blobdieblob" ]);
 whtree/modules/webhare_testsuite/tests/wrd/nodejs/testinfo.xml    //TestEq([[fullname := "Blobdieblob", id := personid]], wrdperson->RunQuery(cacheablequery)); //ADDME? should we perhaps directly invalidate caches so we can see new info here?
     testfw->CommitWork();
 
