@@ -661,8 +661,8 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
         ];
   }
 
-  // This function handles the 4 Create<type>Type functions below
-  OBJECT FUNCTION __DoCreateType(RECORD typerecord)
+  // This function handles the 4 Create<type>Type functions below. Public for JS
+  PUBLIC OBJECT FUNCTION __DoCreateType(RECORD typerecord)
   {
     typerecord := MakeUpdatedRecord([ title := "", description := "", tag := ""
                                     , requiretype_left := 0, requiretype_right := 0, metatype := 1

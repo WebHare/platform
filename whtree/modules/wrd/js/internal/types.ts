@@ -1,6 +1,8 @@
 import { mapObject } from "@mod-system/js/internal/util/algorithms";
 import type { AccessorType } from "./accessors";
 
+//FIXME Shouldn't we stringify WRDMetaType, WRDGender and WRDAttributeType to also have prettier names at runtime?
+
 /** WRD entity metatypes.
 */
 export enum WRDMetaType {
@@ -170,6 +172,17 @@ export type SchemaTypeDefinition = Record<string, TypeDefinition>;
 
 /** All allowed filter conditions */
 export type AllowedFilterConditions = "=" | ">=" | ">" | "!=" | "<" | "<=" | "mentions" | "mentionsany" | "in" | "like" | "contains" | "intersects";
+
+/** Base WRD type */
+export type WRDTypeBaseSettings = {
+  wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
+  wrd_guid: WRDBaseAttributeType.Base_Guid;
+  wrd_type: IsGenerated<WRDBaseAttributeType.Base_Integer>;
+  wrd_tag: WRDBaseAttributeType.Base_Tag;
+  wrd_creationdate: WRDBaseAttributeType.Base_CreationLimitDate;
+  wrd_limitdate: WRDBaseAttributeType.Base_CreationLimitDate;
+  wrd_modificationdate: WRDBaseAttributeType.Base_ModificationDate;
+};
 
 /** Extracts the select result type for an attribute type */
 type GetResultType<T extends SimpleWRDAttributeType | WRDAttrBase> = ReturnType<AccessorType<ToWRDAttr<T>>["getValue"]>;
@@ -347,3 +360,10 @@ export type CombineSchemas<A extends SchemaTypeDefinition, B extends SchemaTypeD
 
 /** Combines an array with multiple schema types. Also accepts a simple schema, passes it through directly */
 export type Combine<S extends SchemaTypeDefinition | SchemaTypeDefinition[]> = S extends [infer A extends SchemaTypeDefinition, infer B extends SchemaTypeDefinition, ...infer C extends SchemaTypeDefinition[]] ? CombineSchemas<A, Combine<[B, ...C]>> : S extends [SchemaTypeDefinition] ? S[0] : S extends SchemaTypeDefinition ? S : never;
+
+export type AnyType = WRDTypeBaseSettings & {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- 'unknown' might be closer but is not accepted by the rest of the WRD definitions
+  [key: string]: any;
+};
+
+export type AnySchemaTypeDefinition = Record<string, AnyType>;

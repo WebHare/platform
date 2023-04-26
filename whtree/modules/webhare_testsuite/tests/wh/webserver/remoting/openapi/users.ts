@@ -54,8 +54,7 @@ export async function createUser(req: MyRestRequest): Promise<WebResponse> {
   await whdb.beginWork(); //we need to get the transaction *before* we lock the mutex for testOverlappingCalls to make sense
   const lockadduser = await services.lockMutex("webhare_testsuite:adduser");
 
-  const persontype = wrdschema.types.wrd_person;
-  const personid: number = (await persontype.createEntity({ wrd_contact_email: addperson.email, wrd_firstname: addperson.firstName })).id;
+  const personid: number = await wrdschema.insert("wrd_person", { wrd_contact_email: addperson.email, wrd_firstname: addperson.firstName });
   await whdb.commitWork();
 
   lockadduser.release(); //TODO it would be even cooler if WebHare could autorelease (or at least detect failure to release)

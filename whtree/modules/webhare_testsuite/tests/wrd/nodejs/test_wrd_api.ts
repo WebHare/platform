@@ -1,52 +1,43 @@
 import { WRDSchema } from "@webhare/wrd";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
-import { prepareTestFramework, createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 
 async function testCommitAndRollback() { //test the Co-HSVM
   const wrdschema: WRDSchema = await getWRDSchema();
 
   await whdb.beginWork();
-  const persontype = wrdschema.types.wrd_person;
-  test.eq(null, await persontype.search("wrd_lastname", "CoVMTHSVMtest"), "shouldn't exist yet");
-  const personid = (await persontype.createEntity({ wrd_lastname: "CoVMTtest" })).id;
+  test.eq(null, await wrdschema.search("wrd_person", "wrd_lastname", "CoVMTHSVMtest"), "shouldn't exist yet");
+  const personid = await wrdschema.insert("wrd_person", { wrd_lastname: "CoVMTtest" });
   test.assert(personid);
   await whdb.rollbackWork();
 
-  test.eq(null, await persontype.search("wrd_lastname", "CoVMTHSVMtest"), "shouldn't exist yet");
-  test.eq(null, await persontype.getEntity(personid));
+  test.eq(null, await wrdschema.search("wrd_person", "wrd_lastname", "CoVMTHSVMtest"), "shouldn't exist yet");
+  test.eq(null, await wrdschema.getFields("wrd_person", personid, { ln: "WRD_LASTNAME" }));
 
   await whdb.beginWork();
-  const personid2 = (await persontype.createEntity({ wrd_lastname: "CoVMTtest" })).id;
+  const personid2 = (await wrdschema.insert("wrd_person", { wrd_lastname: "CoVMTtest" }));
   await whdb.commitWork();
 
-  test.eq(personid2, await persontype.search("wrd_lastname", "CoVMTtest"), "should exist!");
+  test.eq(personid2, await wrdschema.search("wrd_person", "wrd_lastname", "CoVMTtest"), "should exist!");
 
   await whdb.beginWork();
-  await persontype.deleteEntity(personid2);
+  await wrdschema.delete("wrd_person", personid2);
   await whdb.rollbackWork();
 
-  test.eq(personid2, await persontype.search("wrd_lastname", "CoVMTtest"), "should still exist!");
+  test.eq(personid2, await wrdschema.search("wrd_person", "wrd_lastname", "CoVMTtest"), "should still exist!");
 }
 
 async function testWRDQuery() { // wrd api.whscr TestWRDQuery()
   const wrdschema = await getWRDSchema();
 
   await whdb.beginWork();
-  const persontype = wrdschema.types.wrd_person;
-  const personid: number = (await persontype.createEntity({ wrd_lastname: "QueryTest" })).id;
+  const personid: number = (await wrdschema.insert("wrd_person", { wrd_lastname: "QueryTest" }));
   test.assert(personid);
 
-  const person = await persontype.getEntity(personid);
-  test.assert(person);
-
-  await person.updateEntity({ wrd_contact_email: "Test123@example.com" });
+  await wrdschema.update("wrd_person", personid, { wrd_contact_email: "Test123@example.com" });
   //TODO Do we want to copy the big wrdschmea->RunQuery API too? or just tell people to enrich?
-  test.eq([{ n: "QueryTest" }], await persontype.runQuery(
-    {
-      outputcolumns: { n: "WRD_LASTNAME" },
-      filters: [{ field: "WRD_CONTACT_EMAIL", value: "test123@example.com", matchcase: false }]
-    }));
+  test.eq([{ n: "QueryTest" }], await wrdschema.selectFrom("wrd_person").select({ n: "WRD_LASTNAME" }).where("WRD_CONTACT_EMAIL", "=", "test123@example.com").execute());
   /*
     TestEq([ [ n := "QueryTest" ] ], testfw->GetWRDSchema()->RunQuery(
         [ sources :=      [ [ type :=     wrdperson
