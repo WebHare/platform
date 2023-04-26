@@ -3,7 +3,7 @@ import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, Sche
 import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
 import { checkPromiseErrorsHandled } from "@mod-system/js/internal/util/devhelpers";
 import { ensureScopedResource } from "@webhare/services/src/codecontexts";
-import { tagToHS } from "@webhare/wrd/src/wrdsupport";
+import { fieldsToHS, tagToHS, outputmapToHS, repairResultSet } from "@webhare/wrd/src/wrdsupport";
 
 interface WRDTypeConfigurationBase {
   metatype: WRDMetaType;
@@ -150,7 +150,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   }
 
   async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M) {
-    const rows = await this.selectFrom(type).select(mapping).where("WRD_ID", "=", id).historyMode("__getfields").execute();
+    const rows = await this.selectFrom(type).select(mapping).where("wrdId", "=", id).historyMode("__getfields").execute();
     return rows[0] || null;
   }
 
@@ -184,22 +184,33 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
 
   async createEntity(value: Updatable<S[T]>): Promise<number> {
     await extendWorkToCoHSVM();
-    const entityobj = await (await this._getType()).createEntity(value, { jsmode: true });
+    const entityobj = await (await this._getType()).createEntity(fieldsToHS(value), { jsmode: true });
     return await (entityobj as HSVMObject).get("id") as number;
   }
 
   async updateEntity(wrd_id: number, value: Updatable<S[T]>): Promise<void> {
     await extendWorkToCoHSVM();
-    await (await this._getType()).updateEntity(wrd_id, value, { jsmode: true });
+    await (await this._getType()).updateEntity(wrd_id, fieldsToHS(value), { jsmode: true });
   }
 
   async search<F extends AttrRef<S[T]>>(field: F, value: (GetCVPairs<S[T][F]> & { condition: "=" })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }>): Promise<number | null> {
-    const res = await (await this._getType()).search(field, value, { ...(options || {}), jsmode: true }) as number;
+    const res = await (await this._getType()).search(tagToHS(field), value, { ...(options || {}), jsmode: true }) as number;
     return res || null;
   }
 
-  async enrich<F extends keyof D, M extends EnrichOutputMap<S[T]>, D extends { [K in F]: number | null }>(data: D[], field: F, mapping: M, options: { rightouterjoin?: boolean } = {}): Promise<Array<D & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>> {
-    return (await this._getType()).enrich(data, field, recordizeOutputMap(mapping), { ...options, jsmode: true }) as Promise<Array<D & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>>;
+  async enrich<EnrichKey extends keyof DataRow, M extends EnrichOutputMap<S[T]>, DataRow extends { [K in EnrichKey]: number | null }>(data: DataRow[], field: EnrichKey, mapping: M, options: { rightouterjoin?: boolean } = {}): Promise<Array<DataRow & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>> {
+    //avoid sending the original array through the API (and having to repair it!)
+    const outputmap = recordizeOutputMap(mapping);
+    const enrichabledata = new Map<DataRow[EnrichKey], DataRow>(data.map(row => [row[field], row]));
+    const result = await (await this._getType()).enrich(data.map(row => ({ __js_enrichon: row[field] })), "__js_enrichon", outputmapToHS(outputmap), { ...options, jsmode: true }) as Array<{ __js_enrichon?: DataRow[EnrichKey] } & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>;
+    const resultrows: Array<Record<string, unknown>> = [];
+    for (const row of result) {
+      const remergedrow = { ...enrichabledata.get(row.__js_enrichon!), ...row };
+      delete remergedrow.__js_enrichon;
+      resultrows.push(remergedrow);
+    }
+
+    return repairResultSet(resultrows, outputmap) as unknown as ReturnType<typeof this.enrich<EnrichKey, M, DataRow>>;
   }
 
   async delete(ids: number | number[]): Promise<void> {
@@ -221,14 +232,14 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     if (configuration.domain)
       configclone.domain = await this.schema.__toWRDTypeId(configuration.domain);
 
-    await typeobj.CreateAttribute(tag, typetag, configclone);
+    await typeobj.CreateAttribute(tagToHS(tag), typetag, configclone);
     return;
   }
 
   async updateAttribute(tag: string, configuration: Partial<WRDAttributeConfiguration>) {
     await extendWorkToCoHSVM();
     const typeobj = await this._getType();
-    await typeobj.UpdateAttribute(tag, configuration);
+    await typeobj.UpdateAttribute(tagToHS(tag), configuration);
     return;
   }
 }
@@ -246,6 +257,8 @@ type HSWRDQuery = {
   jsmode: true;
 };
 
+/* The query object. We are initially created by selectFrom() with an O === null - select() then recreates us with a set O
+*/
 export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> {
   #type: WRDType<S, T>;
   #selects: O;
@@ -292,24 +305,28 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
     }
   }
 
-  async #executeInternal(): Promise<O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never> {
+  private async executeInternal(): Promise<O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never> {
     if (!this.#selects)
       throw new Error(`A select is required`);
     const type = await this.#type._getType();
     let query: HSWRDQuery = { jsmode: true };
     if (typeof this.#selects === "string")
-      query.outputcolumn = this.#selects;
+      query.outputcolumn = tagToHS(this.#selects);
     else
-      query.outputcolumns = this.#selects;
+      query.outputcolumns = outputmapToHS(this.#selects);
     if (this.#historymode)
       query = { ...query, ...this.#historymode };
     if (this.#wheres.length)
-      query.filters = this.#wheres.map(({ field, condition, value }) => ({ field, matchtype: condition.toUpperCase(), value }));
+      query.filters = this.#wheres.map(({ field, condition, value }) => ({ field: tagToHS(field), matchtype: condition.toUpperCase(), value }));
     const retval = await type.runQuery(query);
     return retval as unknown as (O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never);
   }
 
-  execute(): Promise<O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never> {
-    return checkPromiseErrorsHandled(this.#executeInternal());
+  async execute(): Promise<O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never> {
+    const result = await checkPromiseErrorsHandled(this.executeInternal());
+    if (typeof this.#selects === "string") //no need for translation
+      return result;
+
+    return repairResultSet(result as Array<Record<string, unknown>>, this.#selects!) as unknown as ReturnType<typeof this.executeInternal>;
   }
 }

@@ -25,12 +25,12 @@ export enum WRDBaseAttributeType {
   Base_Integer = -1, // wrd_id, wrd_type
   Base_Guid = -2, // wrd_guid
   Base_Tag = -3, // tag
-  Base_CreationLimitDate = -4, // wrd_creationdate, wrd_limitdate
-  Base_ModificationDate = -10, // wrd_modificationdate
-  Base_Date = -5, // wrd_dateofbirth, wrd_dateofdeath
-  Base_GeneratedString = -6, // wrd_salute_formal, wrd_address_formal, wrd_fullname
-  Base_NameString = -7, // wrd_titles, wrd_initials, wrd_firstname, wrd_firstnames, wrd_infix, wrd_lastname, wrd_titles_suffix
-  Base_Domain = -8, // wrd_leftentity, wrd_rightentity
+  Base_CreationLimitDate = -4, // wrdCreationDate, wrdLimitDate
+  Base_ModificationDate = -10, // wrdModificationDate
+  Base_Date = -5, // wrdDateOfBirth, wrdDateOfDeath
+  Base_GeneratedString = -6, // wrdSaluteFormal, wrd_address_formal, wrdFullName
+  Base_NameString = -7, // wrd_titles, wrd_initials, wrdFirstName, wrdFirstNames, wrd_infix, wrdLastName, wrdTitlesSuffix
+  Base_Domain = -8, // wrdLeftEntity, wrdRightEntity
   Base_Gender = -9, // wrd_gender
 }
 
@@ -189,10 +189,10 @@ export type WRDTypeBaseSettings = {
   wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
   wrd_guid: WRDBaseAttributeType.Base_Guid;
   wrd_type: IsGenerated<WRDBaseAttributeType.Base_Integer>;
-  wrd_tag: WRDBaseAttributeType.Base_Tag;
-  wrd_creationdate: WRDBaseAttributeType.Base_CreationLimitDate;
-  wrd_limitdate: WRDBaseAttributeType.Base_CreationLimitDate;
-  wrd_modificationdate: WRDBaseAttributeType.Base_ModificationDate;
+  wrdTag: WRDBaseAttributeType.Base_Tag;
+  wrdCreationDate: WRDBaseAttributeType.Base_CreationLimitDate;
+  wrdLimitDate: WRDBaseAttributeType.Base_CreationLimitDate;
+  wrdModificationDate: WRDBaseAttributeType.Base_ModificationDate;
 };
 
 /** Extracts the select result type for an attribute type */

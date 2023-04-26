@@ -8,134 +8,134 @@ import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 
 type TestSchema = {
   wrdPerson: {
-    wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
-    wrd_guid: WRDBaseAttributeType.Base_Guid;
-    wrd_type: IsGenerated<WRDBaseAttributeType.Base_Integer>;
-    wrd_tag: WRDBaseAttributeType.Base_Tag;
-    wrd_creationdate: WRDBaseAttributeType.Base_CreationLimitDate;
-    wrd_limitdate: WRDBaseAttributeType.Base_CreationLimitDate;
-    wrd_modificationdate: WRDBaseAttributeType.Base_ModificationDate;
-    wrd_gender: WRDBaseAttributeType.Base_Gender;
-    wrd_salute_formal: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
-    wrd_address_formal: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
-    wrd_fullname: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
-    wrd_titles: WRDBaseAttributeType.Base_NameString;
-    wrd_initials: WRDBaseAttributeType.Base_NameString;
-    wrd_firstname: WRDBaseAttributeType.Base_NameString;
-    wrd_firstnames: WRDBaseAttributeType.Base_NameString;
-    wrd_infix: WRDBaseAttributeType.Base_NameString;
-    wrd_lastname: WRDBaseAttributeType.Base_NameString;
-    wrd_titles_suffix: WRDBaseAttributeType.Base_NameString;
-    wrd_dateofbirth: WRDBaseAttributeType.Base_Date;
-    wrd_dateofdeath: WRDBaseAttributeType.Base_Date;
-    wrd_title: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
-    whuser_disabled: WRDAttributeType.Boolean;
-    whuser_disablereason: WRDAttributeType.Free;
-    whuser_comment: WRDAttributeType.Free;
-    whuser_lastlogin: WRDAttributeType.DateTime;
-    whuser_hiddenannouncements: WRDAttributeType.DomainArray;
+    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
+    wrdGuid: WRDBaseAttributeType.Base_Guid;
+    wrdType: IsGenerated<WRDBaseAttributeType.Base_Integer>;
+    wrdTag: WRDBaseAttributeType.Base_Tag;
+    wrdCreationDate: WRDBaseAttributeType.Base_CreationLimitDate;
+    wrdLimitDate: WRDBaseAttributeType.Base_CreationLimitDate;
+    wrdModificationDate: WRDBaseAttributeType.Base_ModificationDate;
+    wrdGender: WRDBaseAttributeType.Base_Gender;
+    wrdSaluteFormal: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
+    wrdAddressFormal: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
+    wrdFullName: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
+    wrdTitles: WRDBaseAttributeType.Base_NameString;
+    wrdInitials: WRDBaseAttributeType.Base_NameString;
+    wrdFirstName: WRDBaseAttributeType.Base_NameString;
+    wrdFirstNames: WRDBaseAttributeType.Base_NameString;
+    wrdInfix: WRDBaseAttributeType.Base_NameString;
+    wrdLastName: WRDBaseAttributeType.Base_NameString;
+    wrdTitlesSuffix: WRDBaseAttributeType.Base_NameString;
+    wrdDateOfBirth: WRDBaseAttributeType.Base_Date;
+    wrdDateOfDeath: WRDBaseAttributeType.Base_Date;
+    wrdTitle: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
+    whuserDisabled: WRDAttributeType.Boolean;
+    whuserDisablereason: WRDAttributeType.Free;
+    whuserComment: WRDAttributeType.Free;
+    whuserLastlogin: WRDAttributeType.DateTime;
+    whuserHiddenannouncements: WRDAttributeType.DomainArray;
     invented_domain: WRDAttributeType.Domain;
   };
 };
 
 type SchemaUserAPIExtension = {
   wrdPerson: {
-    whuser_unit: IsRequired<WRDAttributeType.Domain>;
+    whuserUnit: IsRequired<WRDAttributeType.Domain>;
   };
   whuserUnit: {
-    wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
-    wrd_guid: WRDBaseAttributeType.Base_Guid;
-    wrd_type: IsGenerated<WRDBaseAttributeType.Base_Integer>;
-    wrd_tag: WRDBaseAttributeType.Base_Tag;
-    wrd_creationdate: WRDBaseAttributeType.Base_CreationLimitDate;
-    wrd_limitdate: WRDBaseAttributeType.Base_CreationLimitDate;
-    wrd_modificationdate: WRDBaseAttributeType.Base_ModificationDate;
-    wrd_leftentity: WRDBaseAttributeType.Base_Domain;
-    wrd_title: WRDAttributeType.Free;
-    whuser_comment: WRDAttributeType.Free;
+    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
+    wrdGuid: WRDBaseAttributeType.Base_Guid;
+    wrdType: IsGenerated<WRDBaseAttributeType.Base_Integer>;
+    wrdTag: WRDBaseAttributeType.Base_Tag;
+    wrdCreationDate: WRDBaseAttributeType.Base_CreationLimitDate;
+    wrdLimitDate: WRDBaseAttributeType.Base_CreationLimitDate;
+    wrdModificationDate: WRDBaseAttributeType.Base_ModificationDate;
+    wrdLeftEntity: WRDBaseAttributeType.Base_Domain;
+    wrdTitle: WRDAttributeType.Free;
+    whuserComment: WRDAttributeType.Free;
   };
 };
 
 type CustomExtensions = {
   wrdPerson: {
-    test_single_domain: WRDAttributeType.Domain;//", { title: "Single attribute", domaintag: "testDomain1" });
-    test_single_domain2: WRDAttributeType.Domain;//", { title: "Single attribute", domaintag: "testDomain1" }); // for <wrd:selectentity> test
-    test_single_domain3: WRDAttributeType.Domain;//", { title: "Single attribute", domaintag: "testDomain1" }); // for <wrd:selectentity> test
-    test_free: WRDAttributeType.Free;//", { title: "Free attribute" });
-    test_address: WRDAttributeType.Address;//", { title: "Address attribute" });
-    test_email: WRDAttributeType.Email;//", { title: "E-mail attribute" });
-    test_phone: WRDAttributeType.Telephone;//", { title: "Phone attribute" });
-    test_date: WRDAttributeType.Date;//", { title: "Date attribute" });
-    test_password: WRDAttributeType.Password;//", { title: "Password attribute" });
-    test_multiple_domain: WRDAttributeType.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
-    test_multiple_domain2: WRDAttributeType.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
-    test_multiple_domain3: WRDAttributeType.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
-    test_image: WRDAttributeType.Image;//", { title: "Image attribute" });
-    test_file: WRDAttributeType.File;//", { title: "File attribute" });
-    test_time: WRDAttributeType.Time;//", { title: "Time attribute" });
-    test_datetime: WRDAttributeType.DateTime;//", { title: "Datetime attribute" });
-    test_array: WRDAttr<WRDAttributeType.Array, {
+    testSingleDomain: WRDAttributeType.Domain;//", { title: "Single attribute", domaintag: "testDomain1" });
+    testSingleDomain2: WRDAttributeType.Domain;//", { title: "Single attribute", domaintag: "testDomain1" }); // for <wrd:selectentity> test
+    testSingleDomain3: WRDAttributeType.Domain;//", { title: "Single attribute", domaintag: "testDomain1" }); // for <wrd:selectentity> test
+    testFree: WRDAttributeType.Free;//", { title: "Free attribute" });
+    testAddress: WRDAttributeType.Address;//", { title: "Address attribute" });
+    testEmail: WRDAttributeType.Email;//", { title: "E-mail attribute" });
+    testPhone: WRDAttributeType.Telephone;//", { title: "Phone attribute" });
+    testDate: WRDAttributeType.Date;//", { title: "Date attribute" });
+    testPassword: WRDAttributeType.Password;//", { title: "Password attribute" });
+    testMultiple_domain: WRDAttributeType.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
+    testMultiple_domain2: WRDAttributeType.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
+    testMultiple_domain3: WRDAttributeType.DomainArray;//", { title: "Multiple attribute", domaintag: "testDomain2" });
+    testImage: WRDAttributeType.Image;//", { title: "Image attribute" });
+    testFile: WRDAttributeType.File;//", { title: "File attribute" });
+    testTime: WRDAttributeType.Time;//", { title: "Time attribute" });
+    testDatetime: WRDAttributeType.DateTime;//", { title: "Datetime attribute" });
+    testArray: WRDAttr<WRDAttributeType.Array, {
       members: {
-        test_int: WRDAttributeType.Integer;
-        test_free: WRDAttributeType.Free;
-        test_array2: WRDAttr<WRDAttributeType.Array, {
+        testInt: WRDAttributeType.Integer;
+        testFree: WRDAttributeType.Free;
+        testArray2: WRDAttr<WRDAttributeType.Array, {
           members: {
-            test_int2: WRDAttributeType.Integer;
+            testInt2: WRDAttributeType.Integer;
           };
         }>;
-        test_single: WRDAttributeType.Domain;
-        test_image: WRDAttributeType.Image;
-        test_single_other: WRDAttributeType.Domain;
-        test_multiple: WRDAttributeType.DomainArray;
-        test_email: WRDAttributeType.Email;
+        testSingle: WRDAttributeType.Domain;
+        testImage: WRDAttributeType.Image;
+        testSingle_other: WRDAttributeType.Domain;
+        testMultiple: WRDAttributeType.DomainArray;
+        testEmail: WRDAttributeType.Email;
       };
     }>;
-    test_money: WRDAttributeType.Money;//", { title: "Money attribute" });
-    test_integer: WRDAttributeType.Integer;//", { title: "Integer attribute" });
-    test_boolean: WRDAttributeType.Boolean;//", { title: "Boolean attribute" });
-    test_enum: WRDAttr<WRDAttributeType.Enum, { allowedvalues: "enum1" | "enum2" }>;//", { title: "Emum attribute", allowedvalues: ["enum1", "enum2"] });
-    test_enumarray: WRDAttr<WRDAttributeType.EnumArray, { allowedvalues: "enumarray1" | "enumarray2" }>;//", { title: "Emum attribute", allowedvalues: ["enumarray1", "enumarray2"] });
-    test_emptyenum: WRDAttr<WRDAttributeType.Enum, { allowedvalues: never }>;//", { title: "Emum attribute", allowedvalues: getTypedArray(VariableType.StringArray, []) });
-    test_emptyenumarray: WRDAttr<WRDAttributeType.EnumArray, { allowedvalues: never }>;//", { title: "Emum attribute", allowedvalues: getTypedArray(VariableType.StringArray, []) });
-    test_record: WRDAttributeType.Record;//", { title: "Record attribute", allowedvalues: getTypedArray(VariableType.StringArray, []) });
-    test_statusrecord: WRDAttributeType.StatusRecord;//", { title: "Status record", allowedvalues: ["warning", "error", "ok"] });
-    test_free_nocopy: WRDAttributeType.Free;//", { title: "Uncopyable free attribute", isunsafetocopy: true });
+    testMoney: WRDAttributeType.Money;//", { title: "Money attribute" });
+    testInteger: WRDAttributeType.Integer;//", { title: "Integer attribute" });
+    testBoolean: WRDAttributeType.Boolean;//", { title: "Boolean attribute" });
+    testEnum: WRDAttr<WRDAttributeType.Enum, { allowedvalues: "enum1" | "enum2" }>;//", { title: "Emum attribute", allowedvalues: ["enum1", "enum2"] });
+    testEnumarray: WRDAttr<WRDAttributeType.EnumArray, { allowedvalues: "enumarray1" | "enumarray2" }>;//", { title: "Emum attribute", allowedvalues: ["enumarray1", "enumarray2"] });
+    testEmptyenum: WRDAttr<WRDAttributeType.Enum, { allowedvalues: never }>;//", { title: "Emum attribute", allowedvalues: getTypedArray(VariableType.StringArray, []) });
+    testEmptyenumarray: WRDAttr<WRDAttributeType.EnumArray, { allowedvalues: never }>;//", { title: "Emum attribute", allowedvalues: getTypedArray(VariableType.StringArray, []) });
+    testRecord: WRDAttributeType.Record;//", { title: "Record attribute", allowedvalues: getTypedArray(VariableType.StringArray, []) });
+    testStatusrecord: WRDAttributeType.StatusRecord;//", { title: "Status record", allowedvalues: ["warning", "error", "ok"] });
+    testFree_nocopy: WRDAttributeType.Free;//", { title: "Uncopyable free attribute", isunsafetocopy: true });
     richie: WRDAttributeType.RichDocument;//", { title: "Rich document" });
   };
   testDomain_1: {
-    wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
-    wrd_tag: WRDBaseAttributeType.Base_Tag;
-    wrd_leftentity: WRDBaseAttributeType.Base_Domain;
-    wrd_ordering: WRDBaseAttributeType.Base_Integer;
+    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
+    wrdTag: WRDBaseAttributeType.Base_Tag;
+    wrdLeftEntity: WRDBaseAttributeType.Base_Domain;
+    wrdOrdering: WRDBaseAttributeType.Base_Integer;
   };
   testDomain_2: {
-    wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
-    wrd_tag: WRDBaseAttributeType.Base_Tag;
-    wrd_leftentity: WRDBaseAttributeType.Base_Domain;
-    wrd_ordering: WRDBaseAttributeType.Base_Integer;
+    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
+    wrdTag: WRDBaseAttributeType.Base_Tag;
+    wrdLeftEntity: WRDBaseAttributeType.Base_Domain;
+    wrdOrdering: WRDBaseAttributeType.Base_Integer;
   };
   personattachment: {
-    wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
-    wrd_leftentity: IsRequired<WRDBaseAttributeType.Base_Domain>;
+    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
+    wrdLeftEntity: IsRequired<WRDBaseAttributeType.Base_Domain>;
     attachfree: WRDAttributeType.Free;
   };
   personorglink: {
-    wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
-    wrd_leftentity: IsRequired<WRDBaseAttributeType.Base_Domain>;
-    wrd_rightentity: IsRequired<WRDBaseAttributeType.Base_Domain>;
+    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
+    wrdLeftEntity: IsRequired<WRDBaseAttributeType.Base_Domain>;
+    wrdRightEntity: IsRequired<WRDBaseAttributeType.Base_Domain>;
     text: WRDAttributeType.Free;
   };
   payprov: {
-    wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
+    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
     method: IsRequired<WRDAttributeType.PaymentProvider>;
   };
   paydata: {
-    wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
+    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
     data: WRDAttributeType.Payment;
     log: WRDAttributeType.Record;
   };
   paydata2: {
-    wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
+    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
     data: WRDAttributeType.Payment;
     log: WRDAttributeType.Record;
   };
@@ -176,10 +176,35 @@ function testSupportAPI() {
     test.eq(hs, wrdsupport.tagToHS(js));
   }
 
+  function testFields(hs: Record<string, unknown>, js: Record<string, unknown>) {
+    test.eq(js, wrdsupport.fieldsToJS(hs));
+    test.eq(hs, wrdsupport.fieldsToHS(js));
+  }
+
   testTag("WRD_PERSON", "wrdPerson");
   testTag("TEST_DOMAIN_1", "testDomain_1"); //cannot safely convert _<nonalpha> so keep the snake
+  testFields({ WRD_TITLE: "Root unit", WRD_TAG: "TAG" }, { wrdTitle: "Root unit", wrdTag: "TAG" });
+  test.eq({ fn: "WRD_FIRSTNAME" }, wrdsupport.outputmapToHS({ fn: "wrdFirstName" }));
+  test.eq([{ wrdFirstName: "first", ln: "last" }], wrdsupport.repairResultSet([{ wrdfirstname: "first", ln: "last" }], { wrdFirstName: "wrdFirstName", ln: "wrdLastName" }));
   test.throws(/may not start with an uppercase/, () => wrdsupport.tagToHS("Type"));
   test.throws(/Invalid JS WRD name/, () => wrdsupport.tagToHS("wrd_person")); //this looks likes a HS name passed where a JS name was expected
+
+  //exceptions for standard wrd fields
+  testTag("WRD_CREATIONDATE", "wrdCreationDate");
+  testTag("WRD_LIMITDATE", "wrdLimitDate");
+  testTag("WRD_MODIFICATIONDATE", "wrdModificationDate");
+  testTag("WRD_DATEOFBIRTH", "wrdDateOfBirth");
+  testTag("WRD_DATEOFDEATH", "wrdDateOfDeath");
+  testTag("WRD_FIRSTNAME", "wrdFirstName");
+  testTag("WRD_FIRSTNAMES", "wrdFirstNames");
+  testTag("WRD_LASTNAME", "wrdLastName");
+  testTag("WRD_FULLNAME", "wrdFullName");
+  testTag("WRD_ORGNAME", "wrdOrgName");
+  testTag("WRD_SALUTE_FORMAL", "wrdSaluteFormal");
+  testTag("WRD_ADDRESS_FORMAL", "wrdAddressFormal");
+  testTag("WRD_TITLES_SUFFIX", "wrdTitlesSuffix");
+  testTag("WRD_LEFTENTITY", "wrdLeftEntity");
+  testTag("WRD_RIGHTENTITY", "wrdRightEntity");
 }
 
 async function testNewAPI() {
@@ -187,86 +212,86 @@ async function testNewAPI() {
   const schema = new newWRDschema<Combined>("wrd:testschema");//extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>();
 
   await whdb.beginWork();
-  const unit_id = await schema.insert("whuserUnit", { wrd_title: "Root unit", wrd_tag: "TAG" });
+  const unit_id = await schema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TAG" });
 
-  test.eq(unit_id, await schema.search("whuserUnit", "wrd_id", unit_id));
-  test.eq(null, await schema.search("whuserUnit", "wrd_id", -1));
+  test.eq(unit_id, await schema.search("whuserUnit", "wrdId", unit_id));
+  test.eq(null, await schema.search("whuserUnit", "wrdId", -1));
 
-  const firstperson = await schema.insert("wrdPerson", { wrd_firstname: "first", wrd_lastname: "lastname", whuser_unit: unit_id });
-  const secondperson = await schema.insert("wrdPerson", { wrd_firstname: "second", wrd_lastname: "lastname2", whuser_unit: unit_id });
+  const firstperson = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", whuserUnit: unit_id });
+  const secondperson = await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", whuserUnit: unit_id });
 
   await whdb.commitWork();
 
   const selectres = await schema
     .selectFrom("wrdPerson")
-    .select(["wrd_firstname"])
-    .select({ lastname: "wrd_lastname", id: "wrd_id" })
-    .where("wrd_firstname", "=", "first")
+    .select(["wrdFirstName"])
+    .select({ lastname: "wrdLastName", id: "wrdId" })
+    .where("wrdFirstName", "=", "first")
     .execute();
 
-  test.eq([{ wrd_firstname: "first", lastname: "lastname", id: firstperson }], selectres);
+  test.eq([{ wrdFirstName: "first", lastname: "lastname", id: firstperson }], selectres);
 
-  test.eq([{ wrd_firstname: "first", lastname: "lastname", id: firstperson }], await schema.enrich(
+  test.eq([{ wrdFirstName: "first", lastname: "lastname", id: firstperson }], await schema.enrich(
     "wrdPerson",
     selectres.map(e => ({ id: e.id })),
     "id",
-    { wrd_firstname: "wrd_firstname", lastname: "wrd_lastname" }));
+    { wrdFirstName: "wrdFirstName", lastname: "wrdLastName" }));
 
-  test.eq({ wrd_firstname: "first", lastname: "lastname" }, await schema.getFields("wrdPerson", selectres[0].id, { wrd_firstname: "wrd_firstname", lastname: "wrd_lastname" }));
+  test.eq({ wrdFirstName: "first", lastname: "lastname" }, await schema.getFields("wrdPerson", selectres[0].id, { wrdFirstName: "wrdFirstName", lastname: "wrdLastName" }));
 
   const f = false;
   if (f) {
     // @ts-expect-error -- Should only allow string
-    test.eq([secondperson], await schema.selectFrom("wrdPerson").select("wrd_id").where("wrd_firstname", "=", ["a"]).execute());
+    test.eq([secondperson], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", ["a"]).execute());
 
     // @ts-expect-error -- Should only allow number array
-    test.eq([secondperson], await schema.selectFrom("wrdPerson").select("wrd_id").where("wrd_id", "in", 6).execute());
+    test.eq([secondperson], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdId", "in", 6).execute());
   }
 
   await whdb.beginWork();
   await schema.delete("wrdPerson", firstperson);
   await whdb.commitWork();
 
-  test.eq(null, await schema.search("wrdPerson", "wrd_firstname", "first"));
+  test.eq(null, await schema.search("wrdPerson", "wrdFirstName", "first"));
 
   const now = new Date();
   await whdb.beginWork();
-  await schema.update("wrdPerson", secondperson, { wrd_limitdate: now });
+  await schema.update("wrdPerson", secondperson, { wrdLimitDate: now });
   await whdb.commitWork();
 
   // wait 1 millisecond
   await new Promise(r => setTimeout(r, 1));
-  test.eq([], await schema.selectFrom("wrdPerson").select("wrd_id").where("wrd_firstname", "=", "second").execute());
-  test.eq([secondperson], await schema.selectFrom("wrdPerson").select("wrd_id").where("wrd_firstname", "=", "second").historyMode("all").execute());
-  test.eq([secondperson], await schema.selectFrom("wrdPerson").select("wrd_id").where("wrd_firstname", "=", "second").historyMode("__getfields").execute());
-  test.eq([secondperson], await schema.selectFrom("wrdPerson").select("wrd_id").where("wrd_firstname", "=", "second").historyMode("at", new Date(now.valueOf() - 1)).execute());
-  test.eq([], await schema.selectFrom("wrdPerson").select("wrd_id").where("wrd_firstname", "=", "second").historyMode("at", now).execute());
-  test.eq([], await schema.selectFrom("wrdPerson").select("wrd_id").where("wrd_firstname", "=", "second").historyMode("range", now, new Date(now.valueOf() + 1)).execute());
-  test.eq([secondperson], await schema.selectFrom("wrdPerson").select("wrd_id").where("wrd_firstname", "=", "second").historyMode("range", new Date(now.valueOf() - 1), now).execute());
+  test.eq([], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").execute());
+  test.eq([secondperson], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("all").execute());
+  test.eq([secondperson], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("__getfields").execute());
+  test.eq([secondperson], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("at", new Date(now.valueOf() - 1)).execute());
+  test.eq([], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("at", now).execute());
+  test.eq([], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("range", now, new Date(now.valueOf() + 1)).execute());
+  test.eq([secondperson], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", "second").historyMode("range", new Date(now.valueOf() - 1), now).execute());
 
   await whdb.beginWork();
 
-  const domain1value1 = await schema.search("testDomain_1", "wrd_tag", "TEST_DOMAINVALUE_1_1");
-  await test.throws(/not.*0/, schema.insert("wrdPerson", { whuser_unit: unit_id, test_single_domain: 0 }));
-  const newperson = await schema.insert("wrdPerson", { whuser_unit: unit_id, test_single_domain: null, test_email: "test_wrd_tsapi@beta.webhare.net" });
-  await test.throws(/Not.*0/, schema.selectFrom("wrdPerson").select("wrd_id").where("test_single_domain", "=", 0).execute());
-  await test.throws(/Not.*0/, schema.selectFrom("wrdPerson").select("wrd_id").where("test_single_domain", "in", [0]).execute());
-  test.eq([{ wrd_id: newperson, test_single_domain: null }], await schema.selectFrom("wrdPerson").select(["wrd_id", "test_single_domain"]).where("test_single_domain", "=", null).execute());
-  test.eq([{ wrd_id: newperson, test_single_domain: null }], await schema.selectFrom("wrdPerson").select(["wrd_id", "test_single_domain"]).where("test_single_domain", "in", [null]).execute());
-  test.eq(newperson, await schema.search("wrdPerson", "test_single_domain", null));
-  test.eq([{ wrd_id: newperson, test_single_domain: null }], await schema.enrich("wrdPerson", [{ wrd_id: newperson }], "wrd_id", ["test_single_domain"]));
+  const domain1value1 = await schema.search("testDomain_1", "wrdTag", "TEST_DOMAINVALUE_1_1");
+  await test.throws(/not.*0/, schema.insert("wrdPerson", { whuserUnit: unit_id, testSingleDomain: 0 }));
+  const newperson = await schema.insert("wrdPerson", { whuserUnit: unit_id, testSingleDomain: null, testEmail: "testWrdTsapi@beta.webhare.net" });
+  await test.throws(/Not.*0/, schema.selectFrom("wrdPerson").select("wrdId").where("testSingleDomain", "=", 0).execute());
+  await test.throws(/Not.*0/, schema.selectFrom("wrdPerson").select("wrdId").where("testSingleDomain", "in", [0]).execute());
+  test.eq([{ wrdId: newperson, testSingleDomain: null }], await schema.selectFrom("wrdPerson").select(["wrdId", "testSingleDomain"]).where("testSingleDomain", "=", null).execute());
+  test.eq([{ wrdId: newperson, testSingleDomain: null }], await schema.selectFrom("wrdPerson").select(["wrdId", "testSingleDomain"]).where("testSingleDomain", "in", [null]).execute());
+  test.eq(newperson, await schema.search("wrdPerson", "testSingleDomain", null));
+  test.eq([{ wrdId: newperson, testSingleDomain: null }], await schema.enrich("wrdPerson", [{ wrdId: newperson }], "wrdId", ["testSingleDomain"]));
 
-  await schema.update("wrdPerson", newperson, { whuser_unit: unit_id, test_single_domain: domain1value1 });
+  await schema.update("wrdPerson", newperson, { whuserUnit: unit_id, testSingleDomain: domain1value1 });
 
-  test.eq([{ wrd_id: newperson, test_single_domain: domain1value1 }], await schema.selectFrom("wrdPerson").select(["wrd_id", "test_single_domain"]).where("test_single_domain", "=", domain1value1).execute());
-  test.eq([{ wrd_id: newperson, test_single_domain: domain1value1 }], await schema.selectFrom("wrdPerson").select(["wrd_id", "test_single_domain"]).where("test_single_domain", "in", [null, domain1value1]).execute());
-  test.eq(newperson, await schema.search("wrdPerson", "test_single_domain", domain1value1));
-  test.eq([{ wrd_id: newperson, test_single_domain: domain1value1 }], await schema.enrich("wrdPerson", [{ wrd_id: newperson }], "wrd_id", ["test_single_domain"]));
+  test.eq([{ wrdId: newperson, testSingleDomain: domain1value1 }], await schema.selectFrom("wrdPerson").select(["wrdId", "testSingleDomain"]).where("testSingleDomain", "=", domain1value1).execute());
+  test.eq([{ wrdId: newperson, testSingleDomain: domain1value1 }], await schema.selectFrom("wrdPerson").select(["wrdId", "testSingleDomain"]).where("testSingleDomain", "in", [null, domain1value1]).execute());
+  test.eq(newperson, await schema.search("wrdPerson", "testSingleDomain", domain1value1));
+  test.eq([{ wrdId: newperson, testSingleDomain: domain1value1 }], await schema.enrich("wrdPerson", [{ wrdId: newperson }], "wrdId", ["testSingleDomain"]));
 
   const nottrue = false;
   if (nottrue) {
-    // @ts-expect-error -- wrd_leftentity and wrd_rightentity must be numbers
-    await schema.insert("personorglink", { wrd_leftentity: null, wrd_rightentity: null });
+    // @ts-expect-error -- wrdLeftEntity and wrdRightEntity must be numbers
+    await schema.insert("personorglink", { wrdLeftEntity: null, wrdRightEntity: null });
   }
 
   await whdb.commitWork();
@@ -276,45 +301,45 @@ async function testComparisons() {
   type Combined = Combine<[TestSchema, SchemaUserAPIExtension, CustomExtensions]>;
   const schema = new newWRDschema<Combined>("wrd:testschema");
 
-  const newperson = await schema.search("wrdPerson", "test_email", "test_wrd_tsapi@beta.webhare.net");
+  const newperson = await schema.search("wrdPerson", "testEmail", "testWrdTsapi@beta.webhare.net");
   test.assert(newperson);
   await whdb.beginWork();
 
-  await schema.update("wrdPerson", newperson, { wrd_creationdate: null, wrd_limitdate: null });
-  test.eq([], await schema.selectFrom("wrdPerson").select(["wrd_creationdate", "wrd_limitdate"]).where("wrd_id", "=", newperson).execute());
-  test.eq([{ wrd_creationdate: null, wrd_limitdate: null }], await schema.selectFrom("wrdPerson").select(["wrd_creationdate", "wrd_limitdate"]).where("wrd_id", "=", newperson).historyMode("__getfields").execute());
+  await schema.update("wrdPerson", newperson, { wrdCreationDate: null, wrdLimitDate: null });
+  test.eq([], await schema.selectFrom("wrdPerson").select(["wrdCreationDate", "wrdLimitDate"]).where("wrdId", "=", newperson).execute());
+  test.eq([{ wrdCreationDate: null, wrdLimitDate: null }], await schema.selectFrom("wrdPerson").select(["wrdCreationDate", "wrdLimitDate"]).where("wrdId", "=", newperson).historyMode("__getfields").execute());
 
-  test.eq([{ wrd_creationdate: null, wrd_limitdate: null }], await schema
+  test.eq([{ wrdCreationDate: null, wrdLimitDate: null }], await schema
     .selectFrom("wrdPerson")
-    .$call(qb => qb.select(["wrd_creationdate", "wrd_limitdate"]))
-    .$call(qb => qb.where("wrd_id", "=", newperson))
+    .$call(qb => qb.select(["wrdCreationDate", "wrdLimitDate"]))
+    .$call(qb => qb.where("wrdId", "=", newperson))
     .$call(qb => qb.historyMode("__getfields"))
     .execute());
 
   //getFields must ignore lifetime and temporaryness
-  test.eq({ email: "test_wrd_tsapi@beta.webhare.net" }, await schema.getFields("wrdPerson", newperson, { email: "test_email" }));
+  test.eq({ email: "testWrdTsapi@beta.webhare.net" }, await schema.getFields("wrdPerson", newperson, { email: "testEmail" }));
 
   await schema.update("wrdPerson", newperson, {
-    wrd_creationdate: null,
-    wrd_limitdate: null,
-    wrd_dateofbirth: null,
-    wrd_dateofdeath: null
+    wrdCreationDate: null,
+    wrdLimitDate: null,
+    wrdDateOfBirth: null,
+    wrdDateOfDeath: null
   });
   test.eq([
     {
-      wrd_creationdate: null,
-      wrd_limitdate: null,
-      wrd_dateofbirth: null,
-      wrd_dateofdeath: null
+      wrdCreationDate: null,
+      wrdLimitDate: null,
+      wrdDateOfBirth: null,
+      wrdDateOfDeath: null
     }
-  ], await schema.selectFrom("wrdPerson").select(["wrd_creationdate", "wrd_limitdate", "wrd_dateofbirth", "wrd_dateofdeath"]).where("wrd_id", "=", newperson).historyMode("__getfields").execute());
+  ], await schema.selectFrom("wrdPerson").select(["wrdCreationDate", "wrdLimitDate", "wrdDateOfBirth", "wrdDateOfDeath"]).where("wrdId", "=", newperson).historyMode("__getfields").execute());
 
   const tests = {
-    wrd_creationdate: { values: [null, new Date(-1), new Date(0), new Date(1)] },
-    wrd_limitdate: { values: [null, new Date(-1), new Date(0), new Date(1)] },
-    wrd_dateofbirth: { values: [null, new Date(-86400000), new Date(0), new Date(86400000)] },
-    test_date: { values: [null, new Date(-86400000), new Date(0), new Date(86400000)] },
-    test_datetime: { values: [null, new Date(-1), new Date(0), new Date(1)] },
+    wrdCreationDate: { values: [null, new Date(-1), new Date(0), new Date(1)] },
+    wrdLimitDate: { values: [null, new Date(-1), new Date(0), new Date(1)] },
+    wrdDateOfBirth: { values: [null, new Date(-86400000), new Date(0), new Date(86400000)] },
+    testDate: { values: [null, new Date(-86400000), new Date(0), new Date(86400000)] },
+    testDatetime: { values: [null, new Date(-1), new Date(0), new Date(1)] },
   };
 
   const comparetypes = ["=", "!=", "<", "<=", ">", ">=", "in"] as const;
@@ -328,7 +353,7 @@ async function testComparisons() {
         for (const comparetype of comparetypes) {
           if (comparetype == "in")
             othervalue = [othervalue];
-          const select = await schema.selectFrom("wrdPerson").select(attr as any).where(attr as any, comparetype, othervalue).where("wrd_id", "=", newperson).historyMode("__getfields").execute();
+          const select = await schema.selectFrom("wrdPerson").select(attr as any).where(attr as any, comparetype, othervalue).where("wrdId", "=", newperson).historyMode("__getfields").execute();
           const expect = cmp(value, comparetype, othervalue);
           console.log(`Testing ${JSON.stringify(value)} ${comparetype} ${othervalue}, expect: ${expect}, entityval: ${JSON.stringify(entityval)}, selectresult: ${JSON.stringify(select)}`);
           test.eq(expect, select.length === 1, `Testing ${JSON.stringify(value)} ${comparetype} ${othervalue}`);
