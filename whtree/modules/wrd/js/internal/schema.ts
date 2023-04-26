@@ -2,6 +2,7 @@ import { HSVMObject } from "@webhare/services/src/hsvm";
 import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType } from "./types";
 import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
 import { checkPromiseErrorsHandled } from "@mod-system/js/internal/util/devhelpers";
+import { ensureScopedResource } from "@webhare/services/src/codecontexts";
 
 interface WRDEntitySettings { //TODO this will go away as soon as createAttribute/updateAttribute are redefined
   [key: string]: number | number[] | boolean | string | string[] | Date | WRDEntitySettings | WRDEntitySettings[] | null;
@@ -36,22 +37,18 @@ interface WRDDomainTypeConfiguration extends WRDTypeConfigurationBase {
 
 type WRDTypeConfiguration = WRDObjectTypeConfiguration | WRDAttachmentTypeConfiguration | WRDLinkTypeConfiguration | WRDDomainTypeConfiguration;
 
+type CoVMSchemaCache = {
+  schemaobj: Promise<HSVMObject>;
+  types: Record<string, Promise<HSVMObject>>;
+};
+
 export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
-  #id: number | string;
-  #types: { [K in keyof S & string]?: WRDType<S, K> } = {};
-  #wrdschema: HSVMObject | undefined;
+  private id: number | string;
+  coVMSchemaCacheSymbol: symbol;
 
   constructor(id: number | string) {
-    this.#id = id;
-  }
-
-  getType<T extends keyof S & string>(type: T): WRDType<S, T> {
-    let retval = this.#types[type];
-    if (!retval) {
-      retval = new WRDType<S, T>(this, type, () => this.getWRDSchema());
-      this.#types[type] = retval;
-    }
-    return retval;
+    this.id = id;
+    this.coVMSchemaCacheSymbol = Symbol("WHCoVMSchemaCache " + this.id);
   }
 
   private async toWRDTypeId(tag: string | undefined): Promise<number> {
@@ -62,7 +59,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     const typelist = await schemaobj.ListTypes() as Array<{ id: number; tag: string }>;
     const match = typelist.find(t => t.tag === tag);
     if (!match)
-      throw new Error(`No such type '${tag}' in schema '${this.#id}'`);
+      throw new Error(`No such type '${tag}' in schema '${this.id}'`);
     return match.id;
   }
 
@@ -89,17 +86,37 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return this.getType(tag);
   }
 
+  getType<T extends keyof S & string>(type: T): WRDType<S, T> {
+    return new WRDType<S, T>(this, type, () => this.getWRDSchemaType(type));
+  }
+
+  private getWRDSchemaCache(): CoVMSchemaCache {
+    return ensureScopedResource(this.coVMSchemaCacheSymbol, (context) => ({
+      schemaobj: (async () => {
+        const hsvm = await getCoHSVM();
+        const wrd_api = hsvm.loadlib("mod::wrd/lib/api.whlib");
+        const wrdschema = (typeof this.id === "number" ? await wrd_api.OpenWRDSchemaById(this.id) : await wrd_api.OpenWRDSchema(this.id)) as HSVMObject | null;
+        if (!wrdschema)
+          throw new Error(`No such WRD schema ${this.id}`);
+        return wrdschema;
+      })(),
+      types: {}
+    }));
+  }
 
   private async getWRDSchema(): Promise<HSVMObject> {
-    if (!this.#wrdschema) {
-      const hsvm = await getCoHSVM();
-      const wrd_api = hsvm.loadlib("mod::wrd/lib/api.whlib");
-      const wrdschema = (typeof this.#id === "number" ? await wrd_api.OpenWRDSchemaById(this.#id) : await wrd_api.OpenWRDSchema(this.#id)) as HSVMObject | null;
-      if (!wrdschema)
-        throw new Error(`No such WRD schema ${this.#id}`);
-      this.#wrdschema = wrdschema;
+    return this.getWRDSchemaCache().schemaobj;
+  }
+
+  private async getWRDSchemaType(type: string): Promise<HSVMObject> {
+    const cache: CoVMSchemaCache = this.getWRDSchemaCache();
+    if (!cache.types[type]) {
+      cache.types[type] = (await cache.schemaobj).getType(type) as Promise<HSVMObject>;
     }
-    return this.#wrdschema;
+    const typeobj = await cache.types[type];
+    if (!typeobj)
+      throw new Error(`No such type ${JSON.stringify(type)}`);
+    return typeobj;
   }
 
   // eslint-disable-next-line @typescript-eslint/ban-types
@@ -138,30 +155,19 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   }
 }
 
-
 export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string> {
   schema: WRDSchema<S>;
   tag: T;
-  _getSchemaObj: () => Promise<HSVMObject>;
-  _schemaobj: HSVMObject | undefined;
-  _type: HSVMObject | undefined;
+  _getWRDSchemaTypeObj: (typetag: string) => Promise<HSVMObject>;
 
-  constructor(schema: WRDSchema<S>, tag: T, getSchemaObj: () => Promise<HSVMObject>) {
+  constructor(schema: WRDSchema<S>, tag: T, getWRDSchemaTypeObj: () => Promise<HSVMObject>) {
     this.schema = schema;
     this.tag = tag;
-    this._getSchemaObj = getSchemaObj;
+    this._getWRDSchemaTypeObj = getWRDSchemaTypeObj;
   }
 
   async _getType() {
-    if (!this._type) {
-      if (!this._schemaobj) {
-        this._schemaobj = await this._getSchemaObj();
-      }
-      this._type = await this._schemaobj.getType(this.tag) as HSVMObject;
-      if (!this._type)
-        throw new Error(`No such type ${JSON.stringify(this.tag)}`);
-    }
-    return this._type;
+    return this._getWRDSchemaTypeObj(this.tag);
   }
 
   async createEntity(value: Updatable<S[T]>): Promise<number> {

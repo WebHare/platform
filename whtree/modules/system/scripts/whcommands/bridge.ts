@@ -148,4 +148,67 @@ program.command('getcodecontexts')
     }
   });
 
+program.command('getworkers')
+  .description('Get the currently active workers of an instance')
+  .argument('<instance>', 'Instance to connect to')
+  .action(async (instance: string) => {
+    const link = bridge.connect<DebugMgrClientLink>("ts:debugmgr", { global: true });
+    try {
+      await link.activate();
+
+      const searchprocesscode = await getProcessCodeFromInstance(link, instance);
+      const result = await link.doRequest({
+        type: DebugMgrClientLinkRequestType.getWorkers,
+        processcode: searchprocesscode
+      });
+      link.close();
+      console.log(JSON.stringify(result.workers, null, 2));
+    } catch (e) {
+      console.error(`Error: ${(e as Error).message}`);
+      process.exitCode = 1;
+      link.close();
+    }
+  });
+
+program.command('findworker')
+  .description('Find matching workers')
+  .option('--json', 'output as JSON')
+  .argument('<instance>', 'Instance to connect to')
+  .action(async (workerid: string, options) => {
+    const link = bridge.connect<DebugMgrClientLink>("ts:debugmgr", { global: true });
+    try {
+      await link.activate();
+      const processlistresponse = (await link.doRequest({ type: DebugMgrClientLinkRequestType.getProcessList }));
+      const processes = processlistresponse.processlist.filter(p => p.type === ProcessType.TypeScript && p.debuggerconnected);
+
+      const processwithworkers = await Promise.all(processes.map(async (p) => {
+        try {
+          const workerresponse = await link.doRequest({ type: DebugMgrClientLinkRequestType.getWorkers, processcode: p.processcode });
+          const matchingworkers = workerresponse.workers.filter(w => w.id.startsWith(workerid));//.map(w => w.id).join(", ");
+          return { ...p, matchingworkers };
+        } catch (e) {
+          console.log(p, e);
+          return { ...p, matchingworkers: [] };
+        }
+      }));
+
+      const list = processwithworkers.filter(p => p.matchingworkers.length);
+      if (options.json)
+        console.log(JSON.stringify(list));
+      else {
+        if (list.length)
+          console.table(list.map(l => ({ ...l, matchingworkers: l.matchingworkers.map(w => w.id).join(", ") })), ["pid", "name", "processcode", "matchingworkers"]);
+        else
+          console.log(`No workers found with an id starting with ${JSON.stringify(workerid)}`);
+      }
+    } catch (e) {
+      console.error(`Error: ${(e as Error).message}`);
+      process.exitCode = 1;
+      return;
+    } finally {
+      link.close();
+    }
+  });
+
+
 program.parse();

@@ -7,7 +7,6 @@ import { StackTraceItem, getCallStack } from "@mod-system/js/internal/util/stack
 import { flags } from "@webhare/env";
 import { AsyncLocalStorage } from "async_hooks";
 import EventSource from "@mod-system/js/internal/eventsource";
-import { pick } from "@mod-system/js/internal/util/algorithms";
 
 let contextcounter = 0;
 
@@ -132,12 +131,23 @@ export function getCodeContext(): CodeContext {
   return store;
 }
 
-export function getActiveCodeContexts(): Array<{ id: string; title: string; metadata: CodeContextMetadata; trace: StackTraceItem[]; codecontext: CodeContext }> {
+type ActiveCodeContext = {
+  /// Stack trace where this context was allocated (only filled when debug flag 'async' is enabled)
+  trace: StackTraceItem[];
+
+  /// Code context
+  codecontext: CodeContext;
+};
+
+/** Returns the list of currently active code contexts
+ *
+ */
+export function getActiveCodeContexts(): ActiveCodeContext[] {
   const retval = [];
   for (const data of activecontexts.values()) {
     const codecontext = data.context.deref();
     if (codecontext) {
-      retval.push({ trace: data.trace, codecontext, ...pick(codecontext, ["id", "title", "metadata"]) });
+      retval.push({ trace: data.trace, codecontext });
     }
   }
   return retval;

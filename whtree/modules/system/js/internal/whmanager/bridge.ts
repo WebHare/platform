@@ -991,9 +991,9 @@ class MainBridge extends EventSource<BridgeEvents> {
           url: url ?? ""
         }, packet.msgid);
       } break;
-      case DebugRequestType.getRecentLoggedItems: {
+      case DebugRequestType.getRecentlyLoggedItems: {
         this.debuglink?.send({
-          type: DebugResponseType.getRecentLoggedItemsResult,
+          type: DebugResponseType.getRecentlyLoggedItemsResult,
           items: consoledata
         }, packet.msgid);
       } break;
@@ -1007,7 +1007,13 @@ class MainBridge extends EventSource<BridgeEvents> {
         const codecontexts = getActiveCodeContexts();
         this.debuglink?.send({
           type: DebugResponseType.getCodeContextsResult,
-          codecontexts: codecontexts.map(c => pick(c, ["id", "trace"]))
+          codecontexts: codecontexts.map(c => ({ trace: c.trace, ...pick(c.codecontext, ["id", "title", "metadata"]) }))
+        }, packet.msgid);
+      } break;
+      case DebugRequestType.getWorkers: {
+        this.debuglink?.send({
+          type: DebugResponseType.getWorkersResult,
+          workers: Array.from(this.localbridges.values()).map(({ id }) => ({ id }))
         }, packet.msgid);
       } break;
       default:

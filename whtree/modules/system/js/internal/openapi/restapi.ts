@@ -1,6 +1,6 @@
 import SwaggerParser from "@apidevtools/swagger-parser";
 import { createJSONResponse, HTTPErrorCode, WebRequest, DefaultRestParams, RestRequest, WebResponse, HTTPMethod, RestAuthorizationFunction, RestImplementationFunction, HTTPSuccessCode } from "@webhare/router";
-import Ajv2020, { ValidateFunction } from "ajv/dist/2020";
+import Ajv2020, { ValidateFunction, ErrorObject, SchemaObject } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import { OpenAPIV3 } from "openapi-types";
 import { CodeContext, resolveResource, toFSPath } from "@webhare/services";
@@ -80,6 +80,22 @@ function matchesPath(path: string[], routePath: string[], req: WebRequest): Reco
 
 function createErrorResponse(status: HTTPErrorCode, json: { error: string; status?: never }, options?: { headers?: Record<string, string> }) {
   return createJSONResponse(status, { status, ...json }, options);
+}
+
+function formatAjvError(errors: ErrorObject[]): string {
+  /* The error looks like this:
+  >   {
+        instancePath: '',
+        schemaPath: '#/required',
+        keyword: 'required',
+        params: { missingProperty: 'email' },
+        message: "must have required property 'email'"
+      }
+      so we might be able to use it to generate a more useful error message ?
+  */
+  const error = errors?.[0];
+  const params = Object.entries(error.params).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(", ");
+  return `${error.message ?? "invalid value"}}${params ? ` (${params})` : ``}${(error?.instancePath ? ` (at ${JSON.stringify(error?.instancePath)})` : "")}`;
 }
 
 // An OpenAPI handler
@@ -212,7 +228,7 @@ export class RestAPI {
         if (responseschema) {
           const validator = this.getValidator(responseschema);
           if (!validator(await response.json())) {
-            throw new Error(`Validation of the response (code ${response.status}) for ${JSON.stringify(`${req.method} ${relurl}`)} returned error: ${validator.errors?.[0]?.message || `Invalid request body`}`);
+            throw new Error(`Validation of the response (code ${response.status}) for ${JSON.stringify(`${req.method} ${relurl}`)} returned error: ${formatAjvError(validator.errors ?? [])}`);
           }
         }
       } else if (!(response.status in HTTPErrorCode)) {
@@ -232,11 +248,14 @@ export class RestAPI {
     const params: DefaultRestParams = {};
     if (endpoint.params)
       for (const param of endpoint.params) {
-        let paramvalue: null | string = null;
+        let paramvalue: string | number | null = null;
         if (param.in === "path") { //we already extracted path parameters during matching:
-          paramvalue = match.params[param.name];
+          paramvalue = decodeURIComponent(match.params[param.name]);
         } else if (param.in === "query") {
-          paramvalue = req.url.searchParams.get(param.name);
+          if (req.url.searchParams.has(param.name))
+            paramvalue = req.url.searchParams.get(param.name);
+          else if (param.required)
+            return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Missing required parameter ${param.name}}` });
         } else {
           throw new Error(`Unsupported parameter location '${param.in}'`);
         }
@@ -244,11 +263,21 @@ export class RestAPI {
         if (paramvalue === null)
           continue; //Unspecified parameter (TODO do we need to support default values?)
 
-        // We'll only convert 'number' parameters, other parameters will be supplied as strings
-        if ((param.schema as OpenAPIV3.SchemaObject)?.type === "number")
-          params[param.name] = parseInt(paramvalue) ?? 0;
-        else
-          params[param.name] = paramvalue;
+        if (param.schema) {
+          if ("type" in param.schema) {
+            // We'll only convert 'number' parameters, other parameters will be supplied as strings
+            if (param.schema.type === "number" && !isNaN(Number(paramvalue)))
+              paramvalue = Number(paramvalue);
+          }
+
+          const validator = this.getValidator(param.schema as SchemaObject);
+          if (!validator(paramvalue)) {
+            return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Invalid parameter ${param.name}: ${formatAjvError(validator.errors ?? [])}` });
+          }
+        }
+
+
+        params[param.name] = paramvalue;
       }
 
     let body = null;
@@ -268,18 +297,7 @@ export class RestAPI {
       // Validate the incoming request body (TODO cache validators, prevent parallel compilation when a lot of requests come in before we finished compilation)
       const validator = this.getValidator(bodyschema);
       if (!validator(body)) {
-        /* The error looks like this:
-        >   {
-              instancePath: '',
-              schemaPath: '#/required',
-              keyword: 'required',
-              params: { missingProperty: 'email' },
-              message: "must have required property 'email'"
-            }
-            so we might be able to use it to generate a more useful error message ?
-        */
-        const error = validator.errors?.[0];
-        return createErrorResponse(HTTPErrorCode.BadRequest, { error: (error?.message || `Invalid request body`) + (error?.instancePath ? ` (at ${JSON.stringify(error?.instancePath)})` : "") });
+        return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Invalid request body: ${formatAjvError(validator.errors ?? [])}` });
       }
     }
 

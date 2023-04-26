@@ -38,6 +38,7 @@ paths:
           name: searchFor
           schema:
             type: string
+            maxLength: 100
       x-webhare-implementation: users.ts#getUsers
     post:
       description: Add a new user
@@ -146,6 +147,31 @@ paths:
         "500":
           "$ref": "#/components/responses/default500"
       x-webhare-implementation: users.ts#validateOutput
+
+  "/validateoutput/{test}":
+    parameters:
+    - in: path
+      name: test
+      required: true
+      schema:
+        type: string
+    get:
+      responses:
+        "200":
+          description: Response
+          content:
+            application/json:
+              schema:
+                type: string
+        "400":
+          "$ref": "#/components/responses/default400"
+        "401":
+          "$ref": "#/components/responses/default400"
+        "403":
+          "$ref": "#/components/responses/default400"
+        "500":
+          "$ref": "#/components/responses/default500"
+      x-webhare-implementation: users.ts#validatePathOutput
 
 components:
   responses:
