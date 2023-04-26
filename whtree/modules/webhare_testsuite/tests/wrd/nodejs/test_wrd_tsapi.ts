@@ -1,8 +1,8 @@
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
-import { createWRDTestSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { createWRDTestSchema, testSchemaTag } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import { Combine, IsGenerated, IsNonUpdatable, IsRequired, WRDAttr, WRDAttributeType, WRDBaseAttributeType, SelectionResultRow } from "@mod-wrd/js/internal/types";
-import { WRDSchema as newWRDschema } from "@mod-wrd/js/internal/schema";
+import { WRDSchema, listSchemas } from "@webhare/wrd";
 import { ComparableType, compare } from "@webhare/hscompat/algorithms";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 
@@ -211,7 +211,9 @@ function testSupportAPI() {
 
 async function testNewAPI() {
   type Combined = Combine<[TestSchema, SchemaUserAPIExtension, CustomExtensions]>;
-  const schema = new newWRDschema<Combined>("wrd:testschema");//extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>();
+  const schema = new WRDSchema<Combined>(testSchemaTag);//extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>();
+
+  test.eqProps([{ tag: "wrd:testschema", usermgmt: false }], (await listSchemas()).filter(_ => _.tag == testSchemaTag));
 
   await whdb.beginWork();
   const unit_id = await schema.insert("whuserUnit", { wrdTitle: "Root unit", wrdTag: "TAG" });
@@ -301,7 +303,7 @@ async function testNewAPI() {
 
 async function testComparisons() {
   type Combined = Combine<[TestSchema, SchemaUserAPIExtension, CustomExtensions]>;
-  const schema = new newWRDschema<Combined>("wrd:testschema");
+  const schema = new WRDSchema<Combined>("wrd:testschema");
 
   const newperson = await schema.search("wrdPerson", "testEmail", "testWrdTsapi@beta.webhare.net");
   test.assert(newperson);
