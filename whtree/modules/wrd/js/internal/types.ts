@@ -355,6 +355,9 @@ export type Updatable<T extends TypeDefinition> = {
   [K in keyof T as ToWRDAttr<T[K]>["__updatable"] extends true ? K : never]?: GetInputType<T[K]>
 };
 
+/** Single row selection result */
+export type SelectionResultRow<T extends TypeDefinition, O extends OutputMap<T>> = MapRecordOutputMap<T, RecordizeOutputMap<T, O>>;
+
 /** Combines two attributes of a type definition. Two incompatible attributes resolve to never. FIXME: recurse into arrays
 */
 export type CombineAttrs<A extends WRDAttrBase, B extends WRDAttrBase> = A extends B ? B extends A ? A : never : never;

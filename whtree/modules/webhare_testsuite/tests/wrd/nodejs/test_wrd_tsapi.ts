@@ -1,10 +1,12 @@
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { Combine, IsGenerated, IsNonUpdatable, IsRequired, WRDAttr, WRDAttributeType, WRDBaseAttributeType } from "@mod-wrd/js/internal/types";
+import { Combine, IsGenerated, IsNonUpdatable, IsRequired, WRDAttr, WRDAttributeType, WRDBaseAttributeType, SelectionResultRow } from "@mod-wrd/js/internal/types";
 import { WRDSchema as newWRDschema } from "@mod-wrd/js/internal/schema";
 import { ComparableType, compare } from "@webhare/hscompat/algorithms";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
+
+import { System_Usermgmt_WRDAuthdomainSamlIdp } from "@mod-system/js/internal/generated/wrd/webhare";
 
 type TestSchema = {
   wrdPerson: {
@@ -364,9 +366,16 @@ async function testComparisons() {
   await whdb.commitWork();
 }
 
+function testGeneratedWebHareWRDAPI() {
+  // System_Usermgmt_WRDAuthdomainSamlIdp should have organizationName, inherited from base type
+  test.typeAssert<test.Assignable<{ organizationName: unknown }, System_Usermgmt_WRDAuthdomainSamlIdp>>();
+  test.typeAssert<test.Equals<string, SelectionResultRow<System_Usermgmt_WRDAuthdomainSamlIdp, "organizationName">>>();
+}
+
 test.run([
   testSupportAPI,
   createWRDTestSchema,
   testNewAPI,
-  testComparisons
+  testComparisons,
+  testGeneratedWebHareWRDAPI
 ], { wrdauth: true });

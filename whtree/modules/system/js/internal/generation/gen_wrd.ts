@@ -143,10 +143,12 @@ export async function generateWRDDefs(modulename: string, modules: string[]): Pr
             for (const attr of type.allattrs) {
               const ltag = tagToJS(attr.tag);
               if (attrdefs[ltag]) {
+                // base attribute: make required if the update is required
                 if (attr.isrequired && !attrdefs[ltag].required) {
                   attrdefs[ltag].required = true;
                 }
               } else {
+                // custom attribute: generate type definition
                 // eslint-disable-next-line @typescript-eslint/no-loop-func
                 const typedef = createTypeDef(attr, "  ", () => { used_isrequired = true; }, () => { used_wrdattr = true; });
                 if (typedef)
@@ -155,7 +157,7 @@ export async function generateWRDDefs(modulename: string, modules: string[]): Pr
             }
 
             def += `export type ${typename} = WRDTypeBaseSettings`;
-            if (Object.entries(attrdefs).length) {
+            if (Object.entries(attrdefs).length || normalattrdefs) {
               def += ` & {\n`;
               for (const [name, attrdef] of Object.entries(attrdefs)) {
                 if (attrdef.required) {
