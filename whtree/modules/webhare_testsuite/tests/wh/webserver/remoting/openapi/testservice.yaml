@@ -38,6 +38,7 @@ paths:
           name: searchFor
           schema:
             type: string
+            maxLength: 100
       x-webhare-implementation: users.ts#getUsers
     post:
       description: Add a new user

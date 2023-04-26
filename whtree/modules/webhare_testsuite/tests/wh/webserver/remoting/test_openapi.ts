@@ -154,6 +154,10 @@ async function verifyPublicParts() {
   test.eq([{ id: 55, firstName: "Bravo", email: "bravo@beta.webhare.net" }],
     await filteredcall.json());
 
+  const invalidparametercall = await fetch(userapiroot + `users?searchFor=${"a".repeat(101)}`);
+  test.eq(HTTPErrorCode.BadRequest, invalidparametercall.status);
+  test.eq({ status: HTTPErrorCode.BadRequest, error: "Invalid parameter searchFor: must NOT have more than 100 characters} (limit=100)" }, await invalidparametercall.json());
+
   const deniedcall = await fetch(authtestsroot + "dummy");
   test.eq(HTTPErrorCode.Unauthorized, deniedcall.status);
   test.eq("X-Key", deniedcall.headers.get("www-authenticate"));
