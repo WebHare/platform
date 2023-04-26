@@ -6,6 +6,7 @@ import { resolveResource } from "@webhare/services";
 import { openHSVM } from "@webhare/services/src/hsvm";
 import { WRDBaseAttributeType, WRDAttributeType } from "@mod-wrd/js/internal/types";
 import { updateDir } from "./shared";
+import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 
 
 function elements<T extends Element>(collection: HTMLCollectionOf<T>): T[] {
@@ -57,7 +58,7 @@ type SchemaDef = {
   }>;
 };
 
-async function generateWRDDefs(modulename: string, modules: string[]): Promise<string> {
+export async function generateWRDDefs(modulename: string, modules: string[]): Promise<string> {
   let fullfile = "";
   let used_isrequired = false;
   let used_wrdattr = false;
@@ -103,14 +104,14 @@ async function generateWRDDefs(modulename: string, modules: string[]): Promise<s
 
             if (type.type !== "OBJECT") {
               if (type.type === "DOMAIN") {
-                attrdefs.wrd_leftentity = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_Domain` };
+                attrdefs.wrdLeftEntity = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_Domain` };
               } else {
-                attrdefs.wrd_leftentity = { generated: false, required: true, defstr: `WRDBaseAttributeType.Base_Domain` };
+                attrdefs.wrdLeftEntity = { generated: false, required: true, defstr: `WRDBaseAttributeType.Base_Domain` };
                 used_isrequired = true;
               }
             }
             if (type.type === "LINK") {
-              attrdefs.wrd_rightentity = { generated: false, required: true, defstr: `WRDBaseAttributeType.Base_Domain` };
+              attrdefs.wrdRightEntity = { generated: false, required: true, defstr: `WRDBaseAttributeType.Base_Domain` };
               used_isrequired = true;
             }
 
@@ -119,28 +120,28 @@ async function generateWRDDefs(modulename: string, modules: string[]): Promise<s
               parentpath.push(ptype.tag);
 
             if (parentpath.includes("WRD_PERSON")) {
-              attrdefs.wrd_gender = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_Gender` };
-              attrdefs.wrd_salute_formal = { generated: true, required: false, defstr: `IsGenerated<WRDBaseAttributeType.Base_GeneratedString>` };
-              attrdefs.wrd_address_formal = { generated: true, required: false, defstr: `IsGenerated<WRDBaseAttributeType.Base_GeneratedString>` };
-              attrdefs.wrd_fullname = { generated: true, required: false, defstr: `IsGenerated<WRDBaseAttributeType.Base_GeneratedString>` };
-              attrdefs.wrd_titles = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_NameString` };
-              attrdefs.wrd_initials = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_NameString` };
-              attrdefs.wrd_firstname = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_NameString` };
-              attrdefs.wrd_firstnames = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_NameString` };
-              attrdefs.wrd_infix = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_NameString` };
-              attrdefs.wrd_lastname = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_NameString` };
-              attrdefs.wrd_titles_suffix = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_NameString` };
-              attrdefs.wrd_dateofbirth = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_Date` };
-              attrdefs.wrd_dateofdeath = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_Date` };
+              attrdefs.wrdGender = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_Gender` };
+              attrdefs.wrdSaluteFormal = { generated: true, required: false, defstr: `IsGenerated<WRDBaseAttributeType.Base_GeneratedString>` };
+              attrdefs.wrdAddressFormal = { generated: true, required: false, defstr: `IsGenerated<WRDBaseAttributeType.Base_GeneratedString>` };
+              attrdefs.wrdFullName = { generated: true, required: false, defstr: `IsGenerated<WRDBaseAttributeType.Base_GeneratedString>` };
+              attrdefs.wrdTitles = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_NameString` };
+              attrdefs.wrdInitials = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_NameString` };
+              attrdefs.wrdFirstName = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_NameString` };
+              attrdefs.wrdFirstNames = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_NameString` };
+              attrdefs.wrdInfix = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_NameString` };
+              attrdefs.wrdLastName = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_NameString` };
+              attrdefs.wrdTitlesSuffix = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_NameString` };
+              attrdefs.wrdDateOfBirth = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_Date` };
+              attrdefs.wrdDateOfDeath = { generated: false, required: false, defstr: `WRDBaseAttributeType.Base_Date` };
             }
             if (parentpath.includes("WRD_PERSON") || parentpath.includes("WRD_RELATION") || parentpath.includes("WRD_ORGANIZATION"))
-              attrdefs.wrd_title = { generated: true, required: false, defstr: `IsGenerated<WRDBaseAttributeType.Base_GeneratedString>` };
+              attrdefs.wrdTitle = { generated: true, required: false, defstr: `IsGenerated<WRDBaseAttributeType.Base_GeneratedString>` };
             if (parentpath.includes("WRD_PERSON") || parentpath.includes("WRD_RELATION") || parentpath.includes("WRD_ORGANIZATION"))
-              attrdefs.wrd_orgname = { generated: false, required: false, defstr: `WRDAttributeType.Free` };
+              attrdefs.wrdOrgName = { generated: false, required: false, defstr: `WRDAttributeType.Free` };
 
             let normalattrdefs = ``;
             for (const attr of type.allattrs) {
-              const ltag = attr.tag.toLowerCase();
+              const ltag = tagToJS(attr.tag);
               if (attrdefs[ltag]) {
                 if (attr.isrequired && !attrdefs[ltag].required) {
                   attrdefs[ltag].required = true;
@@ -149,7 +150,7 @@ async function generateWRDDefs(modulename: string, modules: string[]): Promise<s
                 // eslint-disable-next-line @typescript-eslint/no-loop-func
                 const typedef = createTypeDef(attr, "  ", () => { used_isrequired = true; }, () => { used_wrdattr = true; });
                 if (typedef)
-                  normalattrdefs += `  ${attr.tag.toLowerCase()}: ${typedef};\n`;
+                  normalattrdefs += `  ${tagToJS(attr.tag)}: ${typedef};\n`;
               }
             }
 
@@ -166,7 +167,7 @@ async function generateWRDDefs(modulename: string, modules: string[]): Promise<s
               def += normalattrdefs + "}";
             }
             def += `;\n\n`;
-            fulldef += `  ${type.tag.toLowerCase()}: ${typename};\n`;
+            fulldef += `  ${tagToJS(type.tag)}: ${typename};\n`;
           }
           fulldef += `};\n\n`;
           const schemaprop = (modules.length > 1 ? `${mod[0]}_` : ``) + tag + "_schema";
@@ -208,7 +209,7 @@ function createTypeDef(attr: SchemaDef["types"][number]["allattrs"][number], ind
     for (const subattr of attr.attrs) {
       const subdef = createTypeDef(subattr, indent + "    ", gotrequired, gotwrdattr);
       if (subdef)
-        typedef += `${indent}    ${subattr.tag.toLowerCase()}: ${subdef};\n`;
+        typedef += `${indent}    ${tagToJS(subattr.tag)}: ${subdef};\n`;
     }
     typedef += `${indent}  };\n${indent}}>`;
   } else {

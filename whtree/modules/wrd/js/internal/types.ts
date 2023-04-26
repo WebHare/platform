@@ -186,9 +186,9 @@ export type AllowedFilterConditions = "=" | ">=" | ">" | "!=" | "<" | "<=" | "me
 
 /** Base WRD type */
 export type WRDTypeBaseSettings = {
-  wrd_id: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
-  wrd_guid: WRDBaseAttributeType.Base_Guid;
-  wrd_type: IsGenerated<WRDBaseAttributeType.Base_Integer>;
+  wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
+  wrdGuid: WRDBaseAttributeType.Base_Guid;
+  wrdType: IsGenerated<WRDBaseAttributeType.Base_Integer>;
   wrdTag: WRDBaseAttributeType.Base_Tag;
   wrdCreationDate: WRDBaseAttributeType.Base_CreationLimitDate;
   wrdLimitDate: WRDBaseAttributeType.Base_CreationLimitDate;
