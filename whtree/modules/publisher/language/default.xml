@@ -2515,7 +2515,7 @@
       <text tid="duration">Duration</text>
       <text tid="error_maxresults">Your query returned more than <param p="1"/> results. Try narrowing your search.</text>
       <text tid="error_noresults">Your query returned no results.</text>
-      <text tid="infotext">You can search videos using:<br/><br/>- search terms (keywords)<br/>- a Vimeo / YouTube videocode (for example: “BAf7lcYEXag”)<br/>- a direct Vimeo / YouTube URL (for example: "http://vimeo.com/37695028")<br/><br/>Click "Search" to display the results. Select one of the results and click "OK" to insert the video.</text>
+      <text tid="infotext">You can search videos using:<br/><br/>- search terms (keywords)<br/>- a Vimeo / YouTube videocode (for example: “BAf7lcYEXag”)<br/>- a direct Vimeo / YouTube URL (for example: "http://vimeo.com/37695028")<br/><br/>Click "Search" to display the results. Select one of the results and click "OK" to insert the video.<br/><br/>This feature uses a third party service. <html:a href="https://www.webhare.com/terms-and-conditions/webhare-services/">Terms, conditions and privacy policy</html:a> apply.</text>
       <text tid="network">Search</text>
       <text tid="no_video">No video set</text>
       <text tid="novideoselected">You have not selected a video to insert.</text>

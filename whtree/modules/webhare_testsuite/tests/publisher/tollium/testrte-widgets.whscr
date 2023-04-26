@@ -70,7 +70,7 @@ ASYNC MACRO TestVideoWidget()
   AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("buttonclick", [ button := "object-video" ]));
   TestEq([ "YouTube" ], SELECT AS STRING ARRAY title FROM TT("network")->options);
   TT("movietext")->value := "BAf7lcYEXag";
-  TTClick("searchbutton");
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("searchbutton")); //dismiss T&C
   TestEq(TRUE, ObjectExists(TT("searchresults")->selection)); //first hit should be selected
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));

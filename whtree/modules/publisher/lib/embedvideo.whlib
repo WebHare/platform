@@ -20,6 +20,10 @@ RECORD FUNCTION FixupLocation(RECORD loc)
 /** Base class for video providers for the built-in video widget */
 PUBLIC OBJECTTYPE EmbedVideoProviderBase
 <
+  PUBLIC BOOLEAN FUNCTION IsAllowedToUse(OBJECT context)
+  {
+    RETURN TRUE;
+  }
   PUBLIC RECORD ARRAY FUNCTION Search(STRING keywords, INTEGER maxresults)
   {
     THROW NEW Exception("Search not implemented");

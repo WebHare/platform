@@ -151,6 +151,9 @@
       <text tid="vimeo">Vimeo</text>
       <text tid="youtube">YouTube</text>
     </textgroup>
+    <textgroup gid="youtube">   <!-- embedvideo.youtube -->
+      <text tid="terms">Voordat je gebruikt kunt maken van de YouTubediensten in dit videocomponent vereist YouTube dat je akkoord gaat met met de <html:a href="https://www.youtube.com/t/terms">YouTube Terms of Service</html:a>. <br/><br/>Voor meer informatie over hoe jouw en YouTube's data wordt verwerkt, zie de relevante <html:a href="https://www.webhare.nl/voorwaarden-privacy/webhare-services/">[Voorwaarden en Privacy Statements]</html:a>.<br/><br/>Ga je hiermee akkoord?</text>
+    </textgroup>
   </textgroup>
   <textgroup gid="feeds">   <!-- feeds -->
     <text tid="confirmdeletefeed">Weet u zeker dat u deze feed wil verwijderen? Let erop dat een feed opnieuw zal worden aangemaakt indien opnieuw aangevraagd.</text>

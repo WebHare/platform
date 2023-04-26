@@ -1,11 +1,17 @@
 ﻿<?wh
 LOADLIB "mod::publisher/lib/embedvideo.whlib";
 LOADLIB "mod::system/lib/remoting/whservice.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
 
 
 PUBLIC OBJECTTYPE YoutubeProvider EXTEND EmbedVideoProviderBase
 <
   //ADDME implement describevideo using videolist - less api costs
+
+  UPDATE PUBLIC BOOLEAN FUNCTION IsAllowedToUse(OBJECT contexts)
+  {
+    RETURN contexts->screen->RunSimpleScreen("confirm", GetHTMLTid("socialite:embedvideo.youtube.terms"), [ html := TRUE, dontshowkey := "publisher.embedvideo.youtube.terms", dontshowbuttons := ["yes"] ]) = "yes";
+  }
 
   /** @short Returns YouTube movies found by a custom query
       @param query The query to use for YouTube. Can be keyword, or an entire YouTube URL
