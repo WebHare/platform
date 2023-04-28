@@ -64,17 +64,13 @@ STRING FUNCTION GetGrantor(RECORD ARRAY allobjs, RECORD grant, RECORD grantordat
   RETURN "#" || grant.grantor;
 }
 
+//NOTE: userapi should now only be enabled for schemas depending on usermgmt
 PUBLIC RECORD ARRAY FUNCTION ListRightsAndRolesForExport(OBJECT userapi)
 {
-  RECORD dynamiccols;
-  IF (RecordExists(userapi->accounttype->GetAttribute("WHUSER_DISABLED")))
-    dynamiccols := CELL[ "WHUSER_DISABLED" ];
-
   RECORD ARRAY allusers :=
-      SELECT TEMPORARY dyn := CELL[ whuser_disabled := FALSE, ...row ]
-           , *
-           , active :=    NOT dyn.whuser_disabled
-           , DELETE whuser_disabled
+      SELECT *
+           , active :=    whuser_disable_type != ""
+           , DELETE whuser_disable_type
         FROM userapi->accounttype->RunQuery(
                   [ outputcolumns :=
                         [ id :=         "WRD_ID"
@@ -82,7 +78,7 @@ PUBLIC RECORD ARRAY FUNCTION ListRightsAndRolesForExport(OBJECT userapi)
                         , login :=      userapi->wrdschema->accountlogintag
                         , email :=      userapi->wrdschema->accountemailtag
                         , guid  :=      "WRD_GUID"
-                        , ...dynamiccols
+                        , whuser_disable_type := "WHUSER_DISABLE_TYPE"
                         ]
                   ]) AS row
     ORDER BY guid;

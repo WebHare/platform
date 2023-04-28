@@ -362,6 +362,8 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
                                 , email := this->contexts->userapi->wrdschema->accountemailtag
                                 , password := this->contexts->userapi->wrdschema->accountpasswordtag
                                 , unit := "whuser_unit"
+                                , lastlogin := "WHUSER_LASTLOGIN"
+                                , "whuser_disable_type"
                                 ];
 
     RECORD ARRAY columns := [ [ name := "username",   title := GetTid("system:userrights.exports.csvcolumns.username"),   type := "text" ]
@@ -369,19 +371,9 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
                             , [ name := "email",      title := GetTid("~email"),                                          type := "text" ]
                             , [ name := "unit",       title := GetTid("system:userrights.columns.unit"),                  type := "text" ]
                             , [ name := "created",    title := GetTid("system:userrights.exports.csvcolumns.created"),    type := "datetime", storeutc := TRUE ]
+                            , [ name := "lastlogin",  title := GetTid("system:userrights.exports.csvcolumns.lastlogin"),  type := "datetime", storeutc := TRUE ]
+                            , [ name := "active",  title := GetTid("system:userrights.exports.csvcolumns.active"), type := "boolean" ]
                             ];
-
-    IF(RecordExists(this->contexts->userapi->accounttype->GetAttribute("WHUSER_LASTLOGIN")))
-    {
-      INSERT CELL lastlogin := "WHUSER_LASTLOGIN" INTO outputcolumns;
-      INSERT [ name := "lastlogin",  title := GetTid("system:userrights.exports.csvcolumns.lastlogin"),  type := "datetime", storeutc := TRUE ] INTO columns AT END;
-    }
-
-    IF(RecordExists(this->contexts->userapi->accounttype->GetAttribute("WHUSER_DISABLED")))
-    {
-      INSERT CELL whuser_disabled := "WHUSER_DISABLED" INTO outputcolumns;
-      INSERT [ name := "active",  title := GetTid("system:userrights.exports.csvcolumns.active"), type := "boolean" ] INTO columns AT END;
-    }
 
     columns := RECORD
         [ ...columns
@@ -401,7 +393,7 @@ PUBLIC OBJECTTYPE UnitTree EXTEND TolliumFragmentBase
         SELECT *
              , twofactorenabled :=    RecordExists(password) AND RecordExists(password.totp) ? "TRUE" : "FALSE"
              , lastpasswordchange :=  RecordExists(password) AND RecordExists(password.passwords) ? password.passwords[END-1].validfrom : DEFAULT DATETIME
-             , active :=              NOT CellExists(users, "WHUSER_DISABLED") OR NOT whuser_disabled
+             , active :=              whuser_disable_type = ""
           FROM users
       ORDER BY username, wrd_id;
 

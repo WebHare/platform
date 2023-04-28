@@ -221,7 +221,7 @@ PUBLIC RECORD ARRAY FUNCTION EnrichWithOpenAs(RECORD ARRAY usersroles, OBJECT to
 PUBLIC RECORD ARRAY FUNCTION GetUsersByFilter(OBJECT controller, RECORD ARRAY filters, OBJECT tolliumuser)
 {
   RECORD outcols := [ wrd_id :=       "WRD_ID"
-                    , disabled :=     "WHUSER_DISABLED"
+                    , disabletype :=  "WHUSER_DISABLE_TYPE"
                     , realname :=     "WRD_TITLE"
                     , email :=        controller->userapi->wrdschema->accountemailtag
                     , login :=        controller->userapi->wrdschema->accountlogintag
@@ -255,14 +255,14 @@ PUBLIC RECORD ARRAY FUNCTION GetUsersByFilter(OBJECT controller, RECORD ARRAY fi
                    , unit
                    , authobjectid
                    , authobjectparentid
-                   , disabled :=        disabled
+                   , disabled :=        disabletype != ""
                    , lastlogin
                    , fullname :=        realname
                    , comment :=         comment
                    , name :=            login
                    , email
                    , type :=            1 // user
-                   , icon :=            disabled ? "tollium:objects/lock" : issysop ? "tollium:users/manager" : "tollium:users/user"
+                   , icon :=            disabletype != "" ? "tollium:objects/lock" : issysop ? "tollium:users/manager" : "tollium:users/user"
                    , isrole :=          FALSE
                    , canedit :=         canedit
                    , candelete :=       candelete

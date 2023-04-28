@@ -18,6 +18,9 @@
     <!-- late cleanups that shouldn't block startup -->
     <runonce tag="poststartcleanup_2023_01_27" script="scripts/runonce/poststartcleanup.whscr" when="poststart" />
 
+    <!-- migrate whuser_disabled to whuser_disable_type -->
+    <runonce tag="fix_whuser_disabled" script="scripts/runonce/fix_whuser_disabled.ts" when="poststart" />
+
     <task runat="13  0 * * *"  runtz="maintenance" tag="system_maintenance_task" script="scripts/tasks/executemaintenance.whscr" />
     <task runat=" 9  1 * * *"  runtz="maintenance" tag="archivemodules" script="scripts/tasks/archivemodules.whscr"  />
     <task runat="19  2 * * *"  runtz="maintenance" tag="updategeoip" script="scripts/tasks/updategeoip.whscr" description="Update the GEOIP database" unlessenvironset="WEBHARE_CI WEBHARE_NOUPDATEGEOIP"/>

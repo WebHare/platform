@@ -2270,6 +2270,10 @@
     </textgroup>
     <textgroup gid="edituser">   <!-- userrights.edituser -->
       <text tid="account">Account</text>
+      <text tid="accountstatus">Account status</text>
+      <text tid="accountstatus-active">Active</text>
+      <text tid="accountstatus-inactive">Disabled for inactivity</text>
+      <text tid="accountstatus-manual">Manually locked</text>
       <text tid="advanced">Advanced</text>
       <text tid="apostrophe">Apostrophe (')</text>
       <text tid="app">Application</text>

@@ -73,8 +73,8 @@ PUBLIC STATIC OBJECTTYPE TolliumWRDAuthSupport EXTEND WRDAuthSupportBase
 <
   UPDATE PUBLIC RECORD FUNCTION IsLoginDenied(INTEGER userid, RECORD options)
   {
-    RECORD userinfo := this->plugin->accounttype->GetEntityFields(userid, ["WHUSER_DISABLED"]);
-    IF(userinfo.whuser_disabled)
+    RECORD userinfo := this->plugin->accounttype->GetEntityFields(userid, ["WHUSER_DISABLE_TYPE"]);
+    IF(userinfo.whuser_disable_type != "")
       RETURN [ code := "DISABLED" ];
 
     RETURN DEFAULT RECORD;
