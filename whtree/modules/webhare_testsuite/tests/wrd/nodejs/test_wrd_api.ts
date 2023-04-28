@@ -2,6 +2,7 @@ import { WRDSchema } from "@webhare/wrd";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, getWRDSchema } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import { WRDAttributeType } from "@mod-wrd/js/internal/types";
 
 async function testCommitAndRollback() { //test the Co-HSVM
   const wrdschema: WRDSchema = await getWRDSchema();
@@ -37,6 +38,13 @@ async function testWRDUntypedApi() { //  tests
   test.assert(await wrdschema.exists());
   test.assert(await wrdschema.getType("wrdPerson").exists());
   test.assert(!await wrdschema.getType("noSuchType").exists());
+
+  const persontype = wrdschema.getType("wrdPerson");
+  test.eq(null, await persontype.getAttribute("noSuchAttribute"));
+  await test.throws(/may not start/, () => persontype.getAttribute("WRD_CONTACT_EMAIL"));
+  test.eqProps({ attributeType: WRDAttributeType.Email }, await persontype.getAttribute("wrdContactEmail"));
+  test.eqProps({ attributeType: WRDAttributeType.Domain, domain: "testDomain_1" }, await persontype.getAttribute("testSingleDomain"));
+
 
   await whdb.beginWork();
   const personid: number = (await wrdschema.insert("wrdPerson", { wrdLastName: "QueryTest" }));
