@@ -139,6 +139,7 @@ async function testOverlappingCalls() {
 }
 
 async function verifyPublicParts() {
+  test.assert(services.config.backendurl, "backendurl not set in configuration");
   userapiroot = services.config.backendurl + ".webhare_testsuite/openapi/testservice/";
   authtestsroot = services.config.backendurl + ".webhare_testsuite/openapi/authtests/";
 
