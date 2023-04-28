@@ -404,6 +404,7 @@ async function runBackendServiceTest_HS() {
 async function testLogs() {
   services.log("webhare_testsuite:test", { drNick: "Hi everybody!", patientsLost: BigInt("123456678901234567890123456678901234567890") });
   services.log("webhare_testsuite:test", { val: "1234567890".repeat(4000) });
+  await services.callHareScript("mod::system/lib/logging.whlib#LogToJSONLog", ["webhare_testsuite:test", { hareScript: "I can speak JSON too!" }]);
   await services.flushLog("webhare_testsuite:test");
 
   const logreader = services.readLogLines("webhare_testsuite:test", { start: test.startTime, limit: new Date(Date.now() + 1) });
@@ -411,6 +412,11 @@ async function testLogs() {
   test.eqProps({ drNick: "Hi everybody!", patientsLost: "123456678901234567890123456678901234567890" }, logline.value);
   test.assert(logline.value["@timestamp"] instanceof Date);
   test.eqMatch(/1234567890… \(40000 chars\)/, (await logreader.next()).value.val);
+
+  const hsline = await logreader.next();
+  test.assert(hsline.value["@timestamp"] instanceof Date);
+  test.eq("I can speak JSON too!", hsline.value.harescript);
+
   test.assert((await logreader.next()).done);
 }
 
