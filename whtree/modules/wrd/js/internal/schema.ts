@@ -3,49 +3,50 @@ import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, Sche
 import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
 import { checkPromiseErrorsHandled } from "@mod-system/js/internal/util/devhelpers";
 import { ensureScopedResource } from "@webhare/services/src/codecontexts";
-import { fieldsToHS, tagToHS, outputmapToHS, repairResultSet } from "@webhare/wrd/src/wrdsupport";
+import { fieldsToHS, tagToHS, outputmapToHS, repairResultSet, tagToJS } from "@webhare/wrd/src/wrdsupport";
+
+const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 
 interface WRDTypeConfigurationBase {
-  metatype: WRDMetaType;
+  metaType: WRDMetaType;
   title?: string;
-  description?: string;
-  keephistorydays?: number;
-  haspersonaldata?: boolean;
+  keepHistoryDays?: number;
+  hasPersonalData?: boolean;
 }
 
 interface WRDObjectTypeConfiguration extends WRDTypeConfigurationBase {
-  metatype: WRDMetaType.Object;
+  metaType: WRDMetaType.Object;
 }
 
 interface WRDAttachmentTypeConfiguration extends WRDTypeConfigurationBase {
-  metatype: WRDMetaType.Attachment;
+  metaType: WRDMetaType.Attachment;
   left?: string;
 }
 
 interface WRDLinkTypeConfiguration extends WRDTypeConfigurationBase {
-  metatype: WRDMetaType.Link;
+  metaType: WRDMetaType.Link;
   left?: string;
   right?: string;
 }
 
 interface WRDDomainTypeConfiguration extends WRDTypeConfigurationBase {
-  metatype: WRDMetaType.Domain;
+  metaType: WRDMetaType.Domain;
 }
 
 type WRDTypeConfiguration = WRDObjectTypeConfiguration | WRDAttachmentTypeConfiguration | WRDLinkTypeConfiguration | WRDDomainTypeConfiguration;
 
 interface WRDAttributeConfiguration {
-  attributetype: WRDAttributeType;
-  title?: string;
-  description?: string;
-  checklinks?: boolean;
-  domain?: string;
-  multiline?: boolean; //FIXME remove?
-  isunsafetocopy?: boolean;
-  isrequired?: boolean;
-  isordered?: boolean;
-  allowedvalues?: string[];
+  attributeType: WRDAttributeType;
+  title: string;
+  checkLinks: boolean;
+  domain: string | null;
+  isUnsafeToCopy: boolean;
+  isRequired: boolean;
+  isOrdered: boolean;
+  allowedValues: string[] | null;
 }
+
+type WRDAttributeCreateConfiguration = Pick<WRDAttributeConfiguration, 'attributeType'> & Partial<Omit<WRDAttributeConfiguration, 'attributeType'>>;
 
 type CoVMSchemaCache = {
   schemaobj: Promise<HSVMObject>;
@@ -88,10 +89,10 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
       tag: hstag,
       requiretype_left: left,
       requiretype_right: right,
-      metatype: config.metatype,
+      metatype: config.metaType,
       //TODO parenttype, abstract, hasperonaldata defaulting to TRUE for WRD_PERSON (but shouldn't the base schema do that?)
-      keephistorydays: config.keephistorydays || 0,
-      haspersonaldata: config.haspersonaldata || false
+      keephistorydays: config.keepHistoryDays || 0,
+      haspersonaldata: config.hasPersonalData || false
     };
 
     await schemaobj.__DoCreateType(createrequest);
@@ -99,7 +100,14 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   }
 
   getType<T extends keyof S & string>(type: T): WRDType<S, T> {
-    return new WRDType<S, T>(this, type, () => this.getWRDSchemaType(type));
+    return new WRDType<S, T>(this, type);
+  }
+
+  async __getTypeTag(type: number): Promise<string | null> {
+    const schemaobj = await this.getWRDSchema();
+    const typelist = await schemaobj.ListTypes() as Array<{ id: number; tag: string }>;
+    const match = typelist.find(t => t.id === type);
+    return match ? tagToJS(match.tag) : null;
   }
 
   private getWRDSchemaCache(): CoVMSchemaCache {
@@ -120,14 +128,30 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return this.getWRDSchemaCache().schemaobj;
   }
 
-  private async getWRDSchemaType(type: string): Promise<HSVMObject> {
+  /** Test whether this schema actually exists in the database */
+  async exists(): Promise<boolean> {
+    try {
+      await this.getWRDSchema();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async[getWRDSchemaType](type: string, allowmissingtype: true): Promise<HSVMObject | null>;
+  async[getWRDSchemaType](type: string, allowmissingtype: false): Promise<HSVMObject>;
+
+  async[getWRDSchemaType](type: string, allowmissingtype: boolean): Promise<HSVMObject | null> {
     const cache: CoVMSchemaCache = this.getWRDSchemaCache();
     if (!cache.types[type]) {
       cache.types[type] = (await cache.schemaobj).getType(tagToHS(type)) as Promise<HSVMObject>;
     }
     const typeobj = await cache.types[type];
     if (!typeobj)
-      throw new Error(`No such type ${JSON.stringify(type)}`);
+      if (allowmissingtype)
+        return null;
+      else
+        throw new Error(`No such type ${JSON.stringify(type)}`);
     return typeobj;
   }
 
@@ -170,16 +194,19 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
 export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string> {
   schema: WRDSchema<S>;
   tag: T;
-  _getWRDSchemaTypeObj: (typetag: string) => Promise<HSVMObject>;
 
-  constructor(schema: WRDSchema<S>, tag: T, getWRDSchemaTypeObj: () => Promise<HSVMObject>) {
+  constructor(schema: WRDSchema<S>, tag: T) {
     this.schema = schema;
     this.tag = tag;
-    this._getWRDSchemaTypeObj = getWRDSchemaTypeObj;
+  }
+
+  /** Test whether this type actually exists in the database */
+  async exists() {
+    return Boolean(await this.schema[getWRDSchemaType](this.tag, true));
   }
 
   async _getType() {
-    return this._getWRDSchemaTypeObj(this.tag);
+    return this.schema[getWRDSchemaType](this.tag, false);
   }
 
   async createEntity(value: Updatable<S[T]>): Promise<number> {
@@ -221,13 +248,32 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     }
   }
 
-  async createAttribute(tag: string, configuration: WRDAttributeConfiguration) {
+  async getAttribute(tag: string): Promise<WRDAttributeConfiguration | null> {
+    const typeobj = await this._getType();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const result = await typeobj.GetAttribute(tagToHS(tag)) as any;
+    if (!result)
+      return null;
+
+    return {
+      attributeType: result.attributetype,
+      title: result.title || "",
+      checkLinks: result.checklinks,
+      domain: result.domain ? await this.schema.__getTypeTag(result.domain) : null,
+      isUnsafeToCopy: result.isunsafetocopy,
+      isRequired: result.isrequired,
+      isOrdered: result.isordered,
+      allowedValues: result.allowedvalues.length ? result.allowedvalues : []
+    };
+  }
+
+  async createAttribute(tag: string, configuration: WRDAttributeCreateConfiguration) {
     await extendWorkToCoHSVM();
     const typeobj = await this._getType();
-    const typetag = WRDAttributeTypeNames[configuration.attributetype - 1];
+    const typetag = WRDAttributeTypeNames[configuration.attributeType - 1];
 
-    const configclone: Omit<Partial<WRDAttributeConfiguration>, 'domain'> & { domain?: string | number } = configuration;
-    delete configclone.attributetype;
+    const configclone: Omit<Partial<WRDAttributeConfiguration>, 'domain'> & { domain?: string | number | null } = configuration;
+    delete configclone.attributeType;
 
     if (configuration.domain)
       configclone.domain = await this.schema.__toWRDTypeId(configuration.domain);
