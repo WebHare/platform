@@ -83,9 +83,9 @@ export class RestService {
 
     if (env.flags.openapi) {
       services.log("system:debug", {
-        request: req,
+        request: { method: req.method, headers: Object.fromEntries(req.headers.entries()), url: req.url.toString() },
         response: { status: result.status, body: await result.text(), headers: Object.fromEntries(result.getHeaders()) },
-        trace: result.trace
+        trace: result.trace || null
       });
     }
 

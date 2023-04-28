@@ -4,7 +4,7 @@
  *  @param name - Name to split
  *  @returns [module, name] or null if not a valid module scoped name
 */
-export function splitModuleScopedName(name: string) {
+export function splitModuleScopedName(name: string): string[] | null {
   const match = name.match(/^([a-z][a-z0-9_]+):(.+)$/);
   if (!match || match[1].startsWith("wh_") || match[1].startsWith("system_"))
     return null;
@@ -12,9 +12,21 @@ export function splitModuleScopedName(name: string) {
 }
 
 /** Is a valid module scoped name (eg module:seomthing). */
-export function isValidModuleScopedName(eventname: string) {
+export function isValidModuleScopedName(eventname: string): boolean {
   const split = splitModuleScopedName(eventname);
   return Boolean(split);
+}
+
+/** Check and split a module scoped name. Throws if invalid
+ *  @param name - Name to split
+ *  @returns [module, name] or null if not a valid module scoped name
+*/
+export function checkModuleScopedName(name: string): string[] {
+  const split = splitModuleScopedName(name);
+  if (!split)
+    throw new Error(`Invalid name for module-scoped resourced '${name}'`);
+
+  return split;
 }
 
 /** Backend event names must be of format <modulename>:<eventname> - eventnames are alphanumeric and may contain dots */

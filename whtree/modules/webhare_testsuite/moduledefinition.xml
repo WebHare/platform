@@ -206,8 +206,8 @@
       </webrule>
     </webruleset>
     <restapi apispec="tests/wh/webserver/remoting/restapi/restapi.xml" path="root:/.webhare_testsuite/restapi/" />
-    <openapi service="testservice" path="root:/.webhare_testsuite/openapi/testservice/" />
-    <openapi service="webhare_testsuite:authtests" path="root:/.webhare_testsuite/openapi/authtests/" />
+    <openapi path="root:/.webhare_testsuite/openapi/testservice/" service="testservice" />
+    <openapi path="root:/.webhare_testsuite/openapi/authtests/" service="webhare_testsuite:authtests" />
     <webrule path="root:/.webhare_testsuite/datastorage/" match="initial">
       <tryfolder path="storage::webhare_testsuite/tmp/folderdirect/" />
       <tryfolder path="storage::webhare_testsuite/tmp/foldersha/" resolver="sha256b16" />
@@ -250,7 +250,7 @@
   </databaseschema>
 
   <logging>
-    <log name="test" filename="betatest" mseconds="true" rotates="4" />
+    <log name="test" filename="betatest" mseconds="true" rotates="4" timestamps="false" />
   </logging>
 
   <moduleregistry>
@@ -456,8 +456,13 @@
         </nested>
       </nested>
     </fieldgroup>
-    <catalog tag="testindex" fieldgroups="testindexfields" lang="nl" managed="false" dynamicproperties="fieldgroups lang" />
-    <catalog tag="testindex_suffixed" fieldgroups="testindexfields" lang="nl" managed="false" suffixed="true" dynamicproperties="fieldgroups" />
+    <catalog tag="testindex" dynamicproperties="fieldgroups lang" fieldgroups="testindexfields" lang="nl" managed="false" />
+    <catalog tag="testindex_suffixed"
+             dynamicproperties="fieldgroups"
+             fieldgroups="testindexfields"
+             lang="nl"
+             managed="false"
+             suffixed="true" />
     <fieldgroup tag="testindexfields">
       <datetime name="@timestamp" />
       <text name="title" />
