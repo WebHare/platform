@@ -17,6 +17,8 @@
       <free tag="WHUSER_COMMENT" title="Usermanagement app comment"/>
       <boolean tag="OVERRIDE_PASSWORDCHECKS" title="Override password checks" />
       <free tag="PASSWORDCHECKS" title="Password check overrides for users in this unit" />
+      <boolean tag="OVERRIDE_EXPIRATION" title="Override expiration settings" />
+      <record tag="EXPIRATION" title="Expiration settings" />
       <free tag="USEREDITPOLICY" title="User edit policy" />
     </attributes>
   </domain>
@@ -29,6 +31,7 @@
       <datetime tag="WHUSER_LASTLOGIN" title="Last login time" />
       <domainsingle tag="WHUSER_UNIT" title="Unit" domain="WHUSER_UNIT" required="true" />
       <domainmultiple tag="WHUSER_HIDDENANNOUNCEMENTS" title="Hidden desktop announcements" domain="WHUSER_ANNOUNCEMENT" />
+      <enum tag="whuser_disable_type" allowedvalues="manual inactive" title="Why are we currently disabled" />
     </attributes>
   </object>
 
