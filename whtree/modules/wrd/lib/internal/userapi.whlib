@@ -260,8 +260,8 @@ STATIC OBJECTTYPE WHUserApi
   PUBLIC RECORD FUNCTION LookupUserByLogin(STRING loginname)
   {
     RECORD ARRAY filters := [[ field := this->wrdschema->accountlogintag, value := loginname, matchcase := FALSE ]];
-    IF(RecordExists(this->wrdschema->accounttype->GetAttribute("WHUSER_DISABLED")))
-      INSERT [ field := "WHUSER_DISABLED", value := FALSE ] INTO filters AT END;
+    IF(RecordExists(this->wrdschema->accounttype->GetAttribute("WHUSER_DISABLE_TYPE")))
+      INSERT [ field := "WHUSER_DISABLE_TYPE", value := "" ] INTO filters AT END;
 
     RECORD ARRAY res := this->wrdschema->accounttype->RunQuery(
           [ outputcolumns := [ entityid := "WRD_ID", guid := "WRD_GUID", authenticationsettings := this->wrdschema->accountpasswordtag ]
@@ -1209,12 +1209,12 @@ STATIC OBJECTTYPE WHUserApi
         RETURN CELL[ ...retval, error := "No such entity #" || entityid ];
 
       RECORD getfields := CELL["WRD_GUID","WRD_CREATIONDATE","WRD_LIMITDATE","WRD_TITLE", login := this->wrdschema->accountlogintag ];
-      IF(RecordExists(this->wrdschema->accounttype->GetAttribute("WHUSER_DISABLED")))
-        INSERT CELL whuser_disabled := "WHUSER_DISABLED" INTO getfields;
+      IF(RecordExists(this->wrdschema->accounttype->GetAttribute("WHUSER_DISABLE_TYPE")))
+        INSERT CELL whuser_disable_type := "WHUSER_DISABLE_TYPE" INTO getfields;
 
       userinfo := userentity->GetFields(getfields);
       DATETIME now := GetCurrentDatetime();
-      IF(Cellexists(getfields, "WHUSER_DISABLED") AND userinfo.whuser_disabled)
+      IF(Cellexists(getfields, "WHUSER_DISABLE_TYPE") AND userinfo.whuser_disable_type != "")
         RETURN CELL[ ...retval, error := "User is disabled" ];
       IF(now < userinfo.wrd_creationdate)
         RETURN CELL[ ...retval, error := "User is not yet active" ];

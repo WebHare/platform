@@ -25,7 +25,7 @@
 
   <object tag="WRD_PERSON" title="Person">
     <attributes>
-      <boolean tag="WHUSER_DISABLED" title="Disabled"/>
+      <boolean tag="WHUSER_DISABLED" title="Disabled (deprecated!)"/>
       <free tag="WHUSER_DISABLEREASON" title="Reason for disabling"/>
       <free tag="WHUSER_COMMENT" title="Usermanagement app comment"/>
       <datetime tag="WHUSER_LASTLOGIN" title="Last login time" />
