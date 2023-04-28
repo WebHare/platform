@@ -3,9 +3,7 @@
 
 const EventEmitter = require('events');
 
-function escapeRegExp(xx) {
-  return xx.replace(/([-.*+?^${}()|[\]\/\\])/g, '\\$1');
-}
+import { escapeRegExp } from '@webhare/std';
 
 //based on mootools cookie
 class Cookie {

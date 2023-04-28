@@ -1,9 +1,17 @@
+/** Encode string for use in a regexp
+ * @param text - Text to encode
+ * @returns Encoded for safe use in a RegExp
+*/
+export function escapeRegExp(text: string) {
+  return text.replaceAll(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&'); // $& means the whole matched string
+}
+
 /** Create a regular expression from a string with DOS-like wildcards (? and *)
  * @param mask - Mask with '?' and/or '*' wildcards
  * @returns Regular expression string which can be passed to new RegExp
 */
 export function wildcardsToRegExp(mask: string): string {
-  mask = mask.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
+  mask = escapeRegExp(mask);
   mask = mask.replaceAll("\\*", ".*");
   mask = mask.replaceAll("\\?", ".");
   return mask;
