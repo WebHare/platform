@@ -27,6 +27,7 @@ PUBLIC RECORD FUNCTION EncodeWebRequestForJS() //returns a WebRequestInfo
              , headers := FoldHeaders(GetAllWebHeaders())
              , method := ToLowercase(GetRequestMethod())
              , body := BlobToString(GetRequestBody()) //TODO non-utf8 safe bodies won't survive this
+             , sourceip := GetClientRemoteIP()
              ];
 }
 

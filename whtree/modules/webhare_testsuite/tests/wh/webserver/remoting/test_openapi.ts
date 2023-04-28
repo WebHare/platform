@@ -8,14 +8,15 @@ let userapiroot = '', authtestsroot = '';
 
 const pietje = { email: "openapi@beta.webhare.net", firstName: "pietje" };
 const jsonheader = { "Content-Type": "application/json" };
+const basecall = { sourceip: "127.0.0.1", method: HTTPMethod.GET, body: "", headers: {} };
 
 async function testService() {
   //whitebox try the service directly for more useful traces etc
   const instance = await getServiceInstance("webhare_testsuite:testservice");
-  let res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/unknownapi", body: "", headers: {} }, "unknownapi");
+  let res = await instance.APICall({ ...basecall, url: "http://localhost/unknownapi" }, "unknownapi");
   test.eq(HTTPErrorCode.NotFound, res.status);
 
-  res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/users", body: "", headers: {} }, "users");
+  res = await instance.APICall({ ...basecall, url: "http://localhost/users" }, "users");
   test.eq(HTTPSuccessCode.Ok, res.status);
   test.eq([
     { id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" },
@@ -23,54 +24,54 @@ async function testService() {
   ], JSON.parse(res.body));
   test.eq("application/json", res.headers["content-type"]);
 
-  res = await instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/reset", body: "", headers: {} }, "reset");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/reset" }, "reset");
   test.eq(HTTPSuccessCode.NoContent, res.status);
 
-  res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/users/1", body: "", headers: {} }, "users/1");
+  res = await instance.APICall({ ...basecall, url: "http://localhost/users/1" }, "users/1");
   test.eq(HTTPSuccessCode.Ok, res.status);
   test.eq({ id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" }, JSON.parse(res.body));
 
-  res = await instance.APICall({ method: HTTPMethod.DELETE, url: "http://localhost/users", body: "", headers: {} }, "users");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.DELETE, url: "http://localhost/users" }, "users");
   test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
 
-  res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/users?searchFor=Br", body: "", headers: {} }, "users");
+  res = await instance.APICall({ ...basecall, url: "http://localhost/users?searchFor=Br" }, "users");
   test.eq(HTTPSuccessCode.Ok, res.status);
   test.eq([{ id: 55, firstName: "Bravo", email: "bravo@beta.webhare.net" }],
     JSON.parse(res.body));
 
-  res = await instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/users", body: "hi!", headers: {} }, "users");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: "hi!" }, "users");
   test.eq(HTTPErrorCode.BadRequest, res.status);
 
-  res = await instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/users", body: "hi!", headers: {} }, "users");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: "hi!" }, "users");
   test.eq(HTTPErrorCode.BadRequest, res.status);
 
-  res = await instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/users", body: JSON.stringify(pietje), headers: {} }, "users");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: JSON.stringify(pietje) }, "users");
   test.eq(HTTPErrorCode.BadRequest, res.status, "should fail: no contenttype set");
 
-  res = await instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/users", body: JSON.stringify(pietje), headers: jsonheader }, "users");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: JSON.stringify(pietje), headers: jsonheader }, "users");
   test.eq(HTTPSuccessCode.Created, res.status);
 
   const resbody = JSON.parse(res.body);
   test.eqProps({ "email": "openapi@beta.webhare.net", "firstName": "pietje" }, resbody);
   test.assert(resbody.id > 0);
 
-  res = await instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/users", body: JSON.stringify({ firstName: "Klaasje" }), headers: jsonheader }, "users");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: JSON.stringify({ firstName: "Klaasje" }), headers: jsonheader }, "users");
   test.eq(HTTPErrorCode.BadRequest, res.status);
 
-  res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/validateoutput?test=ok", body: "", headers: jsonheader }, "validateoutput");
+  res = await instance.APICall({ ...basecall, url: "http://localhost/validateoutput?test=ok", body: "", headers: jsonheader }, "validateoutput");
   test.eq(HTTPSuccessCode.Ok, res.status);
 
-  res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/validateoutput?test=unknownStatusCode", body: "", headers: jsonheader }, "validateoutput");
+  res = await instance.APICall({ ...basecall, url: "http://localhost/validateoutput?test=unknownStatusCode", body: "", headers: jsonheader }, "validateoutput");
   test.eq(HTTPErrorCode.InternalServerError, res.status);
 
-  res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/validateoutput?test=illegalData", body: "", headers: jsonheader }, "validateoutput");
+  res = await instance.APICall({ ...basecall, url: "http://localhost/validateoutput?test=illegalData", body: "", headers: jsonheader }, "validateoutput");
   test.eq(HTTPErrorCode.InternalServerError, res.status);
 
-  res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/validateoutput?test=with%2F", body: "", headers: jsonheader }, "validateoutput");
+  res = await instance.APICall({ ...basecall, url: "http://localhost/validateoutput?test=with%2F", body: "", headers: jsonheader }, "validateoutput");
   test.eq(HTTPErrorCode.BadRequest, res.status);
   test.eq(`Illegal type: "with/"`, JSON.parse(res.body).error);
 
-  res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/validateoutput/with%2F", body: "", headers: jsonheader }, "validateoutput/with%2F");
+  res = await instance.APICall({ ...basecall, url: "http://localhost/validateoutput/with%2F", body: "", headers: jsonheader }, "validateoutput/with%2F");
   test.eq(HTTPErrorCode.BadRequest, res.status);
   test.eq(`Illegal path type: "with/"`, JSON.parse(res.body).error);
 }
@@ -94,18 +95,18 @@ function enumRefs(obj: unknown, result: string[] = []): string[] {
 async function testAuthorization() {
   //whitebox try the service directly for more useful traces etc
   const instance = await getServiceInstance("webhare_testsuite:authtests");
-  let res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/other", body: "", headers: {} }, "other");
+  let res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/other" }, "other");
   test.eq(HTTPErrorCode.Forbidden, res.status); //Blocked because the route lacks an authorizer
 
-  res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/dummy", body: "", headers: {} }, "dummy");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy" }, "dummy");
   test.eq(HTTPErrorCode.Unauthorized, res.status); //No key!
   test.eq({ error: "Dude where's my key?" }, JSON.parse(res.body));
 
-  res = await instance.APICall({ method: HTTPMethod.GET, url: "http://localhost/dummy", body: "", headers: { "x-key": "secret" } }, "dummy");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", body: "", headers: { "x-key": "secret" } }, "dummy");
   test.eq(HTTPSuccessCode.Ok, res.status);
   test.eq('"secret"', res.body);
 
-  res = await instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/dummy", body: "", headers: { "x-key": "secret" } }, "dummy");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/dummy", body: "", headers: { "x-key": "secret" } }, "dummy");
   test.eq(HTTPErrorCode.Unauthorized, res.status, "Should not be getting NotImplemented - access checks go first!");
   test.eq({ status: HTTPErrorCode.Unauthorized, error: "Authorization is required for this endpoint" }, JSON.parse(res.body));
 }
@@ -116,8 +117,8 @@ async function testOverlappingCalls() {
   //TODO also test overlapping authorization calls so they can write to the database too (eg. audit)
   const lockadduser = await services.lockMutex("webhare_testsuite:adduser");
 
-  const respromise1 = instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/users", body: JSON.stringify({ ...pietje, email: "user1@beta.webare.net" }), headers: jsonheader }, "users");
-  const respromise2 = instance.APICall({ method: HTTPMethod.POST, url: "http://localhost/users", body: JSON.stringify({ ...pietje, email: "user2@beta.webare.net" }), headers: jsonheader }, "users");
+  const respromise1 = instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: JSON.stringify({ ...pietje, email: "user1@beta.webare.net" }), headers: jsonheader }, "users");
+  const respromise2 = instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: JSON.stringify({ ...pietje, email: "user2@beta.webare.net" }), headers: jsonheader }, "users");
 
   test.eq("still waiting", await Promise.race([
     test.sleep(200).then(() => "still waiting"),
@@ -244,10 +245,22 @@ function testInternalTypes() {
   }
 }
 
+async function testLogFile() {
+  await services.flushLog("system:apicalls");
+
+  const loglines = [];
+  for await (const line of services.readLogLines("system:apicalls", { start: test.startTime, limit: new Date }))
+    loglines.push(line);
+
+  const usercalls = loglines.filter(_ => _.route === '/users/{userid}');
+  test.eq(2, usercalls.length);
+}
+
 test.run([
   testService,
   testAuthorization,
   testOverlappingCalls,
   verifyPublicParts,
-  testInternalTypes
+  testInternalTypes,
+  testLogFile
 ]);

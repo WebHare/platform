@@ -6,6 +6,7 @@ import { HTTPMethod } from '@webhare/router';
 async function testRPCCaller() {
   const servicedef = { service: "mod::webhare_testsuite/js/jsonrpc/service.ts#TestNoAuthJS" };
   const request = {
+    sourceip: "127.0.0.1",
     url: "",
     headers: {},
     body: JSON.stringify({ id: 5, method: "validateEmail", params: ["nl", "pietje@webhare.net"] }),
