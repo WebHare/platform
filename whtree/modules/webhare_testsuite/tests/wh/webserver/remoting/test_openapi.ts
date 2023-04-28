@@ -106,6 +106,14 @@ async function testAuthorization() {
   test.eq(HTTPSuccessCode.Ok, res.status);
   test.eq('"secret"', res.body);
 
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", body: "", headers: { "x-key": "secret" } }, "dummy");
+  test.eq(HTTPSuccessCode.Ok, res.status);
+  test.eq('"secret"', res.body);
+
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", body: "", headers: { "x-key": "secret2" } }, "dummy");
+  test.eq(HTTPSuccessCode.Ok, res.status);
+  test.eq('"secret2"', res.body);
+
   res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/dummy", body: "", headers: { "x-key": "secret" } }, "dummy");
   test.eq(HTTPErrorCode.Unauthorized, res.status, "Should not be getting NotImplemented - access checks go first!");
   test.eq({ status: HTTPErrorCode.Unauthorized, error: "Authorization is required for this endpoint" }, JSON.parse(res.body));
@@ -249,11 +257,19 @@ async function testLogFile() {
   await services.flushLog("system:apicalls");
 
   const loglines = [];
-  for await (const line of services.readLogLines("system:apicalls", { start: test.startTime, limit: new Date }))
+  for await (const line of services.readLogLines<{ service: string; route: string; status: number; authorized?: { lastchar: string } }>("system:apicalls", { start: test.startTime, limit: new Date }))
     loglines.push(line);
 
   const usercalls = loglines.filter(_ => _.route === '/users/{userid}');
   test.eq(2, usercalls.length);
+
+  const authtestcalls = loglines.filter(_ => _.service === 'webhare_testsuite:authtests' && _.status >= 200 && _.status < 300);
+  test.eq(3, authtestcalls.length);
+  test.eqProps([
+    { authorized: { lastchar: 't' } },
+    { authorized: { lastchar: 't' } },
+    { authorized: { lastchar: '2' } }
+  ], authtestcalls, [], "Ensure all 3 calls had an authorized (even if we cache in the future!");
 }
 
 test.run([

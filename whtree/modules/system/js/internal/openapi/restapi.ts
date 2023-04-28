@@ -3,7 +3,7 @@ import { createJSONResponse, HTTPErrorCode, WebRequest, DefaultRestParams, RestR
 import Ajv2020, { ValidateFunction, ErrorObject, SchemaObject } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import { OpenAPIV3 } from "openapi-types";
-import { CodeContext, resolveResource, toFSPath } from "@webhare/services";
+import { CodeContext, LoggableRecord, resolveResource, toFSPath } from "@webhare/services";
 import { loadJSFunction } from "../resourcetools";
 import { config } from "@mod-system/js/internal/configuration";
 
@@ -104,6 +104,7 @@ export class LogInfo {
   method: string;
   sourceip: string;
   timings: Record<string, number> = {};
+  authorized?: LoggableRecord;
 
   constructor(sourceip: string, method: string) {
     this.sourceip = sourceip;
@@ -353,6 +354,9 @@ export class RestAPI {
         });
         if (!authresult.authorized)
           return authresult.response || createErrorResponse(HTTPErrorCode.Unauthorized, { error: "Authorization is required for this endpoint" });
+        else if (authresult.loginfo)
+          // eslint-disable-next-line require-atomic-updates
+          logger.authorized = authresult.loginfo;
       } finally {
         authcontext.close();
         // eslint-disable-next-line require-atomic-updates

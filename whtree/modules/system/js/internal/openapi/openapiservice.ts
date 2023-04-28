@@ -39,7 +39,11 @@ export class RestService {
   logRequest(logger: LogInfo, status: number, response: number) {
     const totaltime = performance.now() - logger.start;
     const timings = { ...logger.timings, total: totaltime };
-    log("system:apicalls", { service: this.servicename, method: logger.method, route: logger.route, status, sourceip: logger.sourceip, response, timings });
+    const logrec: services.LoggableRecord = { service: this.servicename, method: logger.method, route: logger.route, status, sourceip: logger.sourceip, response, timings };
+    if (logger.authorized)
+      logrec.authorized = logger.authorized;
+
+    log("system:apicalls", logrec);
   }
 
   async #handleMetaPage(req: WebRequest, relurl: string): Promise<WebResponse> {
