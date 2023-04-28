@@ -5,6 +5,8 @@ import { checkPromiseErrorsHandled } from "@mod-system/js/internal/util/devhelpe
 import { ensureScopedResource } from "@webhare/services/src/codecontexts";
 import { fieldsToHS, tagToHS, outputmapToHS, repairResultSet } from "@webhare/wrd/src/wrdsupport";
 
+const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
+
 interface WRDTypeConfigurationBase {
   metatype: WRDMetaType;
   title?: string;
@@ -99,7 +101,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   }
 
   getType<T extends keyof S & string>(type: T): WRDType<S, T> {
-    return new WRDType<S, T>(this, type, () => this.getWRDSchemaType(type));
+    return new WRDType<S, T>(this, type);
   }
 
   private getWRDSchemaCache(): CoVMSchemaCache {
@@ -120,14 +122,30 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return this.getWRDSchemaCache().schemaobj;
   }
 
-  private async getWRDSchemaType(type: string): Promise<HSVMObject> {
+  /** Test whether this schema actually exists in the database */
+  async exists(): Promise<boolean> {
+    try {
+      await this.getWRDSchema();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  async [getWRDSchemaType](type: string, allowmissingtype: true): Promise<HSVMObject | null>;
+  async [getWRDSchemaType](type: string, allowmissingtype: false): Promise<HSVMObject>;
+
+  async [getWRDSchemaType](type: string, allowmissingtype: boolean): Promise<HSVMObject | null> {
     const cache: CoVMSchemaCache = this.getWRDSchemaCache();
     if (!cache.types[type]) {
       cache.types[type] = (await cache.schemaobj).getType(tagToHS(type)) as Promise<HSVMObject>;
     }
     const typeobj = await cache.types[type];
     if (!typeobj)
-      throw new Error(`No such type ${JSON.stringify(type)}`);
+      if (allowmissingtype)
+        return null;
+      else
+        throw new Error(`No such type ${JSON.stringify(type)}`);
     return typeobj;
   }
 
@@ -170,16 +188,19 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
 export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string> {
   schema: WRDSchema<S>;
   tag: T;
-  _getWRDSchemaTypeObj: (typetag: string) => Promise<HSVMObject>;
 
-  constructor(schema: WRDSchema<S>, tag: T, getWRDSchemaTypeObj: () => Promise<HSVMObject>) {
+  constructor(schema: WRDSchema<S>, tag: T) {
     this.schema = schema;
     this.tag = tag;
-    this._getWRDSchemaTypeObj = getWRDSchemaTypeObj;
+  }
+
+  /** Test whether this type actually exists in the database */
+  async exists() {
+    return Boolean(await this.schema[getWRDSchemaType](this.tag, true));
   }
 
   async _getType() {
-    return this._getWRDSchemaTypeObj(this.tag);
+    return this.schema[getWRDSchemaType](this.tag, false);
   }
 
   async createEntity(value: Updatable<S[T]>): Promise<number> {

@@ -28,8 +28,15 @@ async function testCommitAndRollback() { //test the Co-HSVM
   test.eq(personid2, await wrdschema.search("wrdPerson", "wrdLastName", "CoVMTtest"), "should still exist!");
 }
 
-async function testWRDQuery() { // wrd api.whscr TestWRDQuery()
+async function testWRDUntypedApi() { //  tests
+  const nosuchschema = new WRDSchema("wrd:nosuchschema");
+  await test.throws(/No such WRD schema.*nosuchschema/, () => nosuchschema.getType("wrdPerson").exists());
+  test.assert(! await nosuchschema.exists());
+
   const wrdschema = await getWRDSchema();
+  test.assert(await wrdschema.exists());
+  test.assert(await wrdschema.getType("wrdPerson").exists());
+  test.assert(!await wrdschema.getType("noSuchType").exists());
 
   await whdb.beginWork();
   const personid: number = (await wrdschema.insert("wrdPerson", { wrdLastName: "QueryTest" }));
@@ -265,5 +272,5 @@ whtree/modules/webhare_testsuite/tests/wrd/nodejs/testinfo.xml    //TestEq([[ful
 test.run([
   createWRDTestSchema,
   testCommitAndRollback,
-  testWRDQuery
+  testWRDUntypedApi
 ], { wrdauth: false });
