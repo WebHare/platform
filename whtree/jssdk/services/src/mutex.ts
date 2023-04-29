@@ -2,6 +2,7 @@ import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { IPCLinkType } from "@mod-system/js/internal/whmanager/ipc";
 import * as std from "@webhare/std";
 import { maxDateTime } from "@webhare/hscompat";
+import { checkModuleScopedName } from "./naming";
 
 interface InitTask {
   task: "init";
@@ -77,6 +78,8 @@ export async function lockMutex(name: string): Promise<Mutex>;
 export async function lockMutex(name: string, options: { timeout: std.WaitPeriod }): Promise<Mutex | null>;
 
 export async function lockMutex(name: string, options?: { timeout: std.WaitPeriod }): Promise<Mutex | null> {
+  checkModuleScopedName(name);
+
   //convert any non-infinite relative timeout to an absolute one
   const timeout = options?.timeout && options?.timeout !== Infinity ? std.convertWaitPeriodToDate(options.timeout) : Infinity;
 
