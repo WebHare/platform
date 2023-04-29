@@ -43,7 +43,7 @@ export function logError(error: Error, options?: LogErrorOptions): void {
 
 /** Flushes a log file. Returns when the flushing has been done, throws when the log did not exist
 */
-export function flushLog(logname: string | "*"): Promise<void> {
+function flushLog(logname: string | "*"): Promise<void> {
   return bridge.flushLog(logname);
 }
 
@@ -65,6 +65,8 @@ export async function* readLogLines<LogFields = { [key: string]: LogReadField }>
     throw new Error(`No such logfile '${logfile}' in module '${module}'`);
   if (fileinfo.timestamps !== false)
     throw new Error(`Logfile '${logname}' must set timestamps to 'false' for readLogLienes to be able to process it`);
+
+  await flushLog(logname);
 
   //TODO optimize. and do we need checkpoints or should callers just re-insert the last timestamp into 'start' ?
   const basedir = config.dataroot + "log";

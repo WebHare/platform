@@ -254,8 +254,6 @@ function testInternalTypes() {
 }
 
 async function testLogFile() {
-  await services.flushLog("system:apicalls");
-
   const loglines = [];
   for await (const line of services.readLogLines<{ service: string; route: string; status: number; authorized?: { lastchar: string } }>("system:apicalls", { start: test.startTime, limit: new Date }))
     loglines.push(line);
