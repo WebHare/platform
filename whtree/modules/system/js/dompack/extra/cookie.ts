@@ -2,6 +2,7 @@
 /* eslint no-useless-escape: off */
 
 import { isIsolated } from './storage';
+import { escapeRegExp } from '@webhare/std';
 const isolatedcookies: Record<string, string> = {};
 
 export type CookieOptions =
@@ -14,10 +15,6 @@ export type CookieOptions =
     httponly?: boolean;
     samesite?: string;
   };
-
-function escapeRegExp(xx: string) {
-  return xx.replace(/([-.*+?^${}()|[\]\/\\])/g, '\\$1');
-}
 
 //based on mootools cookie
 class Cookie {

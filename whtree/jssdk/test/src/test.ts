@@ -4,6 +4,8 @@ export { triggerGarbageCollection } from './testsupport';
 // Want more than the default 10 stack frames in errors
 Error.stackTraceLimit = 25;
 
+const startTime = new Date;
+
 export {
   assert,
   eq,
@@ -18,10 +20,12 @@ export {
   RevEquals,
   Assignable,
   Extends,
-  typeAssert
+  typeAssert,
 } from './checks';
 
 export { sleep } from "@webhare/std";
+
+export { startTime };
 
 let testscompleted = false;
 

@@ -4,10 +4,7 @@
 /// @ts-nocheck -- TODO ... TestFramework is a LOT to port ... for now we're just providing types
 import * as dompack from 'dompack';
 import * as test from "@mod-system/js/wh/testframework";
-
-function escapeRegExp(str) {
-  return str.replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
-}
+import { escapeRegExp } from '@webhare/std';
 
 function isStringOrRegexpMatch(intext, pattern) {
   if (typeof pattern == 'string')

@@ -77,6 +77,7 @@ export interface BridgeClientLink {
 
 ///Internal data structure used to marshall requests between languages. Proper routers would use WebRequest
 export interface WebRequestInfo {
+  sourceip: string;
   method: HTTPMethod;
   url: string;
   headers: Record<string, string>;

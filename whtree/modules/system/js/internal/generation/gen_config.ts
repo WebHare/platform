@@ -33,10 +33,13 @@ type BackendConfiguration = {
     branch: string;
     origin: string;
   };
+  /** The data path, ending with a slash. Usually /opt/whdata/. */
   dataroot: string;
   dtapstage: DTAPStage;
+  /** The installation (source) path, ending with a slash. Usually /opt/wh/whtree/. */
   installationroot: string;
   module: ModuleMap;
+  /** The URL to the backend interface (if configured), eg https://my.webhare.dev/ */
   backendurl: string;
   servername: string;
 };
@@ -94,7 +97,8 @@ function generateNoDBConfig(): NoDBConfig {
     origin: ""
   };
 
-  const buildinfo_keys = ["comitttag", "version", "branch", "origin"]satisfies Array<keyof typeof buildinfo>;
+  //weird.. we had to wrap the array int spaces to prevent autoformat from stripping the space before satisfies (which VScode then readds...)
+  const buildinfo_keys = (["comitttag", "version", "branch", "origin"]) satisfies Array<keyof typeof buildinfo>;
 
   try {
     const buildinfo_lines = fs.readFileSync(installationroot + "modules/system/whres/buildinfo").toString().split("\n");

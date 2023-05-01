@@ -2,8 +2,8 @@ import * as fs from "node:fs";
 import YAML from "yaml";
 import * as env from "@webhare/env";
 import * as services from "@webhare/services";
-import { loadWittyResource, toFSPath } from "@webhare/services";
-import { RestAPI } from "./restapi";
+import { loadWittyResource, log, toFSPath } from "@webhare/services";
+import { LogInfo, RestAPI } from "./restapi";
 import { createJSONResponse, WebRequest, WebResponse, HTTPErrorCode, createWebResponse } from "@webhare/router";
 import { WebRequestInfo, WebResponseInfo } from "../types";
 import { getOpenAPIService } from "@webhare/services/src/moduledefparser";
@@ -11,17 +11,39 @@ import { registerLoadedResource } from "../hmrinternal";
 
 // A REST service supporting an OpenAPI definition
 export class RestService {
+  readonly servicename: string;
   readonly restapi: RestAPI;
 
-  constructor(restapi: RestAPI) {
+  constructor(servicename: string, restapi: RestAPI) {
+    this.servicename = servicename;
     this.restapi = restapi;
   }
 
   async APICall(req: WebRequestInfo, relurl: string): Promise<WebResponseInfo> {
     //WebRequestInfo is an internal type used by openapiservice.shtml until we can be directly connected to the WebHareRouter
-    const webreq = new WebRequest(req.url, { method: req.method, headers: req.headers, body: req.body });
-    const response = await this.#runRestRouter(webreq, relurl);
-    return { status: response.status, headers: Object.fromEntries(response.getHeaders()), body: await response.text() };
+    const logger = new LogInfo(req.sourceip, req.method.toLowerCase());
+
+    try {
+      const webreq = new WebRequest(req.url, { method: req.method, headers: req.headers, body: req.body });
+      const response = await this.#runRestRouter(webreq, relurl, logger);
+      const headers = response.getHeaders();
+      const body = await response.text();
+      this.logRequest(logger, response.status, body.length);
+      return { status: response.status, headers: Object.fromEntries(headers), body: body };
+    } catch (e) {
+      this.logRequest(logger, 500, 0);
+      throw e;
+    }
+  }
+
+  logRequest(logger: LogInfo, status: number, response: number) {
+    const totaltime = performance.now() - logger.start;
+    const timings = { ...logger.timings, total: totaltime };
+    const logrec: services.LoggableRecord = { service: this.servicename, method: logger.method, route: logger.route, status, sourceip: logger.sourceip, response, timings };
+    if (logger.authorized)
+      logrec.authorized = logger.authorized;
+
+    log("system:apicalls", logrec);
   }
 
   async #handleMetaPage(req: WebRequest, relurl: string): Promise<WebResponse> {
@@ -55,7 +77,7 @@ export class RestService {
     return createWebResponse("Not found", { status: HTTPErrorCode.NotFound }); //TODO or should we fallback to a global 404 handler... although that probably isn't useful inside a namespace intended for robots
   }
 
-  async #runRestRouter(req: WebRequest, relurl: string): Promise<WebResponse> {
+  async #runRestRouter(req: WebRequest, relurl: string, logger: LogInfo): Promise<WebResponse> {
     if (!this.restapi)
       throw new Error("RestService not initialized");
 
@@ -63,13 +85,14 @@ export class RestService {
 
     /* Builtin metapages. We use `openapi/` as we heope that is less likely to be used by an openapi server's routes
        than eg `meta/` */
-    if (!relurl || relurl.startsWith("openapi/"))
+    if (!relurl || relurl.startsWith("openapi/")) {
       return this.#handleMetaPage(req, relurl);
+    }
 
     // Handle the request
     let result: WebResponse;
     try {
-      result = await this.restapi.handleRequest(req, "/" + relurl);
+      result = await this.restapi.handleRequest(req, "/" + relurl, logger);
     } catch (e) {
       services.logError(e as Error);
 
@@ -83,9 +106,9 @@ export class RestService {
 
     if (env.flags.openapi) {
       services.log("system:debug", {
-        request: req,
+        request: { method: req.method, headers: Object.fromEntries(req.headers.entries()), url: req.url.toString() },
         response: { status: result.status, body: await result.text(), headers: Object.fromEntries(result.getHeaders()) },
-        trace: result.trace
+        trace: result.trace || null
       });
     }
 
@@ -98,13 +121,13 @@ const cache: Record<string, RestService> = {};
 /** Initialize service
  * @param apispec - The openapi yaml spec resource
  * */
-export async function getServiceInstance(apispec: string) {
-  if (cache[apispec])
-    return cache[apispec];
+export async function getServiceInstance(servicename: string) {
+  if (cache[servicename])
+    return cache[servicename];
 
-  const serviceinfo = getOpenAPIService(apispec);
+  const serviceinfo = getOpenAPIService(servicename);
   if (!serviceinfo)
-    throw new Error(`Invalid OpenAPI service name: ${apispec}`);
+    throw new Error(`Invalid OpenAPI service name: ${servicename}`);
 
   const apispec_fs = toFSPath(serviceinfo.spec);
   registerLoadedResource(module, apispec_fs);
@@ -115,8 +138,8 @@ export async function getServiceInstance(apispec: string) {
   const restapi = new RestAPI();
   await restapi.init(def, serviceinfo.spec);
 
-  const service = new RestService(restapi);
-  if (!cache[apispec])
-    cache[apispec] = service;
+  const service = new RestService(servicename, restapi);
+  if (!cache[servicename])
+    cache[servicename] = service;
   return service;
 }

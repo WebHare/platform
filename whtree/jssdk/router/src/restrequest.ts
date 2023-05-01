@@ -1,3 +1,4 @@
+import { LoggableRecord } from "@webhare/services";
 import { WebRequest } from "./request";
 import { createJSONResponse, createWebResponse, HTTPErrorCode, HTTPSuccessCode, WebResponse } from "./response";
 
@@ -138,11 +139,13 @@ type ResponsesOfRequest<Request extends RestRequest> = Request extends RestReque
 export type RestResponseType<Request extends RestRequest<any, any, any, any, any>, Status extends ResponsesOfRequest<Request>["status"] = ResponsesOfRequest<Request>["status"] & HTTPSuccessCode> = (ResponsesOfRequest<Request> & { status: Status })["response"];
 
 /** Returned upon a succesful authorization. May be extended to store authorization details */
-export interface RestSuccessfulAuthorization<T = unknown> {
+export interface RestSuccessfulAuthorization<AuthInternal = unknown, LogInfo = LoggableRecord> {
   //TODO expire/cache/validity info? the handler should explain us which headers it looked at (like 'Vary'?)
   authorized: true;
   /** This authorization will be set as the request's authorization */
-  authorization: T;
+  authorization: AuthInternal;
+  /** Information to log about this user with any context information (apicalls, errors) */
+  loginfo?: LogInfo;
 }
 
 /** Returned upon a failed autorization. May optionally contain a WebResponse to send to the user (if not set, a 401 Unauthorized error is returned) */
@@ -152,7 +155,7 @@ export interface RestFailedAuthorization {
 }
 
 /** Return type for a RestAuthorizationFunction */
-export type RestAuthorizationResult<T = unknown> = RestSuccessfulAuthorization<T> | RestFailedAuthorization;
+export type RestAuthorizationResult<AuthInternal = unknown, LogInfo = LoggableRecord> = RestSuccessfulAuthorization<AuthInternal, LogInfo> | RestFailedAuthorization;
 
 /** Signature for a x-webhare-authorization function */
 export type RestImplementationFunction = (request: RestRequest) => Promise<WebResponse>;

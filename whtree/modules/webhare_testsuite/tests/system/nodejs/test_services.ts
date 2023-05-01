@@ -2,7 +2,6 @@
 
 import * as test from "@webhare/test";
 import * as services from "@webhare/services";
-import { formatLogObject } from "@webhare/services/src/logging";
 import { HSVM, HSVMObject, openHSVM } from "@webhare/services/src/hsvm";
 
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
@@ -402,9 +401,22 @@ async function runBackendServiceTest_HS() {
   //TestEq([ value := 42 ], testdata); */
 }
 
-function testLogs() {
-  test.eqMatch(/"val":"123456678901234567890123456678901234567890"/, formatLogObject({ val: BigInt("123456678901234567890123456678901234567890") }));
-  test.eqMatch(/1234567890… \(40000 chars\)/, formatLogObject({ val: "1234567890".repeat(4000) }));
+async function testLogs() {
+  services.log("webhare_testsuite:test", { drNick: "Hi everybody!", patientsLost: BigInt("123456678901234567890123456678901234567890") });
+  services.log("webhare_testsuite:test", { val: "1234567890".repeat(4000) });
+  await services.callHareScript("mod::system/lib/logging.whlib#LogToJSONLog", ["webhare_testsuite:test", { hareScript: "I can speak JSON too!" }]);
+
+  const logreader = services.readLogLines("webhare_testsuite:test", { start: test.startTime, limit: new Date(Date.now() + 1) });
+  const logline = await logreader.next();
+  test.eqProps({ drNick: "Hi everybody!", patientsLost: "123456678901234567890123456678901234567890" }, logline.value);
+  test.assert(logline.value["@timestamp"] instanceof Date);
+  test.eqMatch(/1234567890… \(40000 chars\)/, (await logreader.next()).value.val);
+
+  const hsline = await logreader.next();
+  test.assert(hsline.value["@timestamp"] instanceof Date);
+  test.eq("I can speak JSON too!", hsline.value.harescript);
+
+  test.assert((await logreader.next()).done);
 }
 
 test.run(

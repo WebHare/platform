@@ -3,7 +3,7 @@ import { createJSONResponse, HTTPErrorCode, WebRequest, DefaultRestParams, RestR
 import Ajv2020, { ValidateFunction, ErrorObject, SchemaObject } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import { OpenAPIV3 } from "openapi-types";
-import { CodeContext, resolveResource, toFSPath } from "@webhare/services";
+import { CodeContext, LoggableRecord, resolveResource, toFSPath } from "@webhare/services";
 import { loadJSFunction } from "../resourcetools";
 import { config } from "@mod-system/js/internal/configuration";
 
@@ -96,6 +96,20 @@ function formatAjvError(errors: ErrorObject[]): string {
   const error = errors?.[0];
   const params = Object.entries(error.params).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(", ");
   return `${error.message ?? "invalid value"}}${params ? ` (${params})` : ``}${(error?.instancePath ? ` (at ${JSON.stringify(error?.instancePath)})` : "")}`;
+}
+
+export class LogInfo {
+  start = performance.now();
+  route: string = '';
+  method: string;
+  sourceip: string;
+  timings: Record<string, number> = {};
+  authorized?: LoggableRecord;
+
+  constructor(sourceip: string, method: string) {
+    this.sourceip = sourceip;
+    this.method = method;
+  }
 }
 
 // An OpenAPI handler
@@ -194,7 +208,7 @@ export class RestAPI {
     return null;
   }
 
-  async handleRequest(req: WebRequest, relurl: string): Promise<WebResponse> {
+  async handleRequest(req: WebRequest, relurl: string, logger: LogInfo): Promise<WebResponse> {
     if (!this.def) //TODO with 'etr' return validation issues
       return createErrorResponse(HTTPErrorCode.InternalServerError, { error: `Service not configured` });
 
@@ -203,13 +217,15 @@ export class RestAPI {
     if (!match)
       return createErrorResponse(HTTPErrorCode.NotFound, { error: `No route for '${relurl}'` });
 
+    logger.route = match.route.path.join("/");
+
     const endpoint = match.route.methods[req.method];
     if (!endpoint)
       return createErrorResponse(HTTPErrorCode.MethodNotAllowed, { error: `Method ${req.method.toUpperCase()} not allowed for path '${relurl}'` });
     if (!endpoint.authorization) //TODO with 'etr' return more about 'why'
       return createErrorResponse(HTTPErrorCode.Forbidden, { error: `Not authorized` });
 
-    const response = await this.handleEndpointRequest(req, relurl, match, endpoint);
+    const response = await this.handleEndpointRequest(req, relurl, match, endpoint, logger);
 
     if (["development", "test"].includes(config.dtapstage)) {
       // ADDME: add flag to disable for performance testing
@@ -226,8 +242,13 @@ export class RestAPI {
           responseschema = this.def.components.schemas.defaulterror;
         }
         if (responseschema) {
+          const start = performance.now();
           const validator = this.getValidator(responseschema);
-          if (!validator(await response.json())) {
+          const success = validator(await response.json());
+          // eslint-disable-next-line require-atomic-updates
+          logger.timings.responsevalidation = performance.now() - start;
+
+          if (!success) {
             throw new Error(`Validation of the response (code ${response.status}) for ${JSON.stringify(`${req.method} ${relurl}`)} returned error: ${formatAjvError(validator.errors ?? [])}`);
           }
         }
@@ -240,12 +261,14 @@ export class RestAPI {
     return response;
   }
 
-  async handleEndpointRequest(req: WebRequest, relurl: string, match: Match, endpoint: Operation): Promise<WebResponse> {
+  async handleEndpointRequest(req: WebRequest, relurl: string, match: Match, endpoint: Operation, logger: LogInfo): Promise<WebResponse> {
     if (!endpoint.authorization)
       throw new Error(`Got an endpoint without authoriration settings`); // should be filtered out before this function
 
     // Build parameters (eg. from the path or from the query)
     const params: DefaultRestParams = {};
+    logger.timings.validation = 0;
+
     if (endpoint.params)
       for (const param of endpoint.params) {
         let paramvalue: string | number | null = null;
@@ -270,12 +293,14 @@ export class RestAPI {
               paramvalue = Number(paramvalue);
           }
 
+          const start = performance.now();
           const validator = this.getValidator(param.schema as SchemaObject);
-          if (!validator(paramvalue)) {
-            return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Invalid parameter ${param.name}: ${formatAjvError(validator.errors ?? [])}` });
-          }
-        }
+          const success = validator(paramvalue);
+          logger.timings.validation += performance.now() - start;
 
+          if (!success)
+            return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Invalid parameter ${param.name}: ${formatAjvError(validator.errors ?? [])}` });
+        }
 
         params[param.name] = paramvalue;
       }
@@ -295,8 +320,12 @@ export class RestAPI {
       }
 
       // Validate the incoming request body (TODO cache validators, prevent parallel compilation when a lot of requests come in before we finished compilation)
+      const start = performance.now();
       const validator = this.getValidator(bodyschema);
-      if (!validator(body)) {
+      const success = validator(body);
+      logger.timings.validation += performance.now() - start;
+
+      if (!success) {
         return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Invalid request body: ${formatAjvError(validator.errors ?? [])}` });
       }
     }
@@ -306,6 +335,7 @@ export class RestAPI {
 
     let authresult;
     {
+      const start = performance.now();
       const authcontext = new CodeContext("openapi", {
         fase: "authorization",
         url: req.url.toString(),
@@ -324,16 +354,22 @@ export class RestAPI {
         });
         if (!authresult.authorized)
           return authresult.response || createErrorResponse(HTTPErrorCode.Unauthorized, { error: "Authorization is required for this endpoint" });
+        else if (authresult.loginfo)
+          // eslint-disable-next-line require-atomic-updates
+          logger.authorized = authresult.loginfo;
       } finally {
         authcontext.close();
+        // eslint-disable-next-line require-atomic-updates
+        logger.timings.authorization = performance.now() - start;
       }
     }
-
+    //FIXME merge autohrization info into loginfo
     restreq.authorization = authresult.authorization;
     if (!endpoint.handler)
       return createErrorResponse(HTTPErrorCode.NotImplemented, { error: `Method ${req.method.toUpperCase()} for route '${relurl}' not yet implemented` });
 
     {
+      const start = performance.now();
       const handlercontext = new CodeContext("openapi", {
         fase: "handler",
         url: req.url.toString(),
@@ -356,6 +392,8 @@ export class RestAPI {
         });
       } finally {
         handlercontext.close();
+        // eslint-disable-next-line require-atomic-updates
+        logger.timings.handling = performance.now() - start;
       }
     }
   }

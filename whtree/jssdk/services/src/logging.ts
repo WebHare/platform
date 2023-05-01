@@ -1,4 +1,16 @@
 import bridge, { LogErrorOptions } from "@mod-system/js/internal/whmanager/bridge";
+import { config } from "./services";
+import fs from "fs/promises";
+import { checkModuleScopedName } from "./naming";
+import { getModuleDefinition } from "./moduledefinitions";
+import { escapeRegExp } from "@webhare/std";
+import { readFileSync } from "fs";
+
+export type LoggableData = string | number | boolean | null | bigint | Date | LoggableData[] | LoggableRecord;
+export type LoggableRecord = { [key: string]: LoggableData };
+
+type LogReadField = string | number | boolean | null | LogReadField[] | { [key: string]: LogReadField };
+type LogLineBase = { "@timestamp": Date };
 
 function replaceLogParts(key: string, value: unknown) {
   if (typeof value === "bigint") //is 'value' a BigInt?
@@ -10,8 +22,7 @@ function replaceLogParts(key: string, value: unknown) {
   return value;
 }
 
-//exported for tests
-export function formatLogObject(logline: object): string {
+function formatLogObject(logline: LoggableRecord): string {
   return JSON.stringify({ "@timestamp": (new Date).toISOString(), ...logline }, replaceLogParts);
 }
 
@@ -19,11 +30,8 @@ export function formatLogObject(logline: object): string {
     @param logname - Name of the log file
     @param logline - Line to log - as string or as object (will have a \@timestamp added and be converted to JSON)
 */
-export function log(logname: string, logline: string | object): void {
-  if (typeof logline === "object")
-    logline = formatLogObject(logline);
-
-  bridge.log(logname, logline);
+export function log(logname: string, logline: LoggableRecord): void {
+  bridge.log(logname, formatLogObject(logline));
 }
 
 /** Log an error to the notice log
@@ -35,6 +43,64 @@ export function logError(error: Error, options?: LogErrorOptions): void {
 
 /** Flushes a log file. Returns when the flushing has been done, throws when the log did not exist
 */
-export function flushLog(logname: string | "*"): Promise<void> {
+function flushLog(logname: string | "*"): Promise<void> {
   return bridge.flushLog(logname);
+}
+
+export interface ReadLogOptions {
+  start?: Date | null;
+  limit?: Date | null;
+}
+
+function getDateFromLogFilename(filename: string) {
+  const datetok = filename.split('.').at(-2)!; //! as we've already ensured the file ends in .YYYYMMDD.log
+  return new Date(datetok.substring(0, 4) + "-" + datetok.substring(4, 6) + "-" + datetok.substring(6, 8));
+}
+
+/** Read log lines from a specified log between the two given dates. Note that we ONLY support JSON encoded log lines */
+export async function* readLogLines<LogFields = { [key: string]: LogReadField }>(logname: string, options?: ReadLogOptions): AsyncGenerator<LogFields & LogLineBase> {
+  const [module, logfile] = checkModuleScopedName(logname);
+  const fileinfo = getModuleDefinition(module).logs[logfile];
+  if (!fileinfo)
+    throw new Error(`No such logfile '${logfile}' in module '${module}'`);
+  if (fileinfo.timestamps !== false)
+    throw new Error(`Logfile '${logname}' must set timestamps to 'false' for readLogLienes to be able to process it`);
+
+  await flushLog(logname);
+
+  //TODO optimize. and do we need checkpoints or should callers just re-insert the last timestamp into 'start' ?
+  const basedir = config.dataroot + "log";
+  const filter = new RegExp("^" + escapeRegExp(fileinfo.filename + ".") + "[0-9]{8}\\.log$");
+  const logfilenames = (await fs.readdir(basedir)).filter(_ => _.match(filter)).sort();
+
+  for (const name of logfilenames) {
+    const logfiledate = getDateFromLogFilename(name); //this is basically the time of the 'first' log entry
+    //if the 'last' possible entry is before the start, skip this file
+    if (options?.start && (logfiledate.getTime() + (86400 * 1000)) <= options.start.getTime())
+      continue;
+
+    //if the 'first' possible entry is past the limit, skip the file
+    if (options?.limit && (logfiledate.getTime() > options.limit.getTime()))
+      continue;
+
+    //Okay, this one is in range. Start parsing
+    const loglines = readFileSync(basedir + "/" + name, "utf8").split("\n");
+    for (const line of loglines) {
+      try {
+        if (!(line.startsWith('{') && line.endsWith('}'))) //this won't be a valid logline, avoid the exception/parse attempt overhead
+          continue;
+
+        const parsedline = JSON.parse(line);
+        parsedline["@timestamp"] = new Date(parsedline["@timestamp"]);
+        if (!parsedline["@timestamp"] ||
+          (options?.start && parsedline["@timestamp"].getTime() < options.start) ||
+          (options?.limit && parsedline["@timestamp"].getTime() >= options.limit))
+          continue;
+
+        yield parsedline;
+      } catch (e) {
+        continue; //ignore unparseable lines
+      }
+    }
+  }
 }
