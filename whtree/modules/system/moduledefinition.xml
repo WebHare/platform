@@ -2160,6 +2160,7 @@ The full base URL on which this site will be published, calculated by combining 
     <log name="notice" filename="notice" mseconds="true" />
     <log name="audit" filename="audit" mseconds="true" />
     <log name="accounting" filename="accounting" mseconds="true" />
+    <log name="apicalls" filename="apicalls" timestamps="false" />
   </logging>
 
   <development>
