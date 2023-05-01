@@ -606,8 +606,8 @@
       <text tid="func">Function</text>
       <text tid="getvalue">Get value</text>
       <text tid="getvalueas">Get as</text>
-      <text tid="getvalueas-decodehson">DecodeHSON</text>
       <text tid="getvalueas-hson">HSON</text>
+      <text tid="getvalueas-json">JSON</text>
       <text tid="getvalueas-none">None</text>
       <text tid="line">Line</text>
       <text tid="openindebugger">Debug</text>
