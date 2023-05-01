@@ -274,7 +274,10 @@ PUBLIC OBJECTTYPE SearchVideo EXTEND TolliumScreenBase
     RECORD ARRAY results;
     TRY
     {
-      results := GetVideoEmbedProvider(this->network->value)->Search(text, resultsperpage+1);
+      OBJECT provider := GetVideoEmbedProvider(^network->value);
+      IF(NOT provider->IsAllowedToUse(this->contexts))
+        RETURN;
+      results := provider->Search(text, resultsperpage+1);
     }
     CATCH(OBJECT e)
     {

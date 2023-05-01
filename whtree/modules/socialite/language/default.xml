@@ -151,6 +151,9 @@
       <text tid="vimeo">Vimeo</text>
       <text tid="youtube">YouTube</text>
     </textgroup>
+    <textgroup gid="youtube">   <!-- embedvideo.youtube -->
+      <text tid="terms">YouTube requires you to agree to the <html:a href="https://www.youtube.com/t/terms">YouTube Terms of Service</html:a> before using this component. <br/><br/>For more information on how your or YouTube's data is processed please see the <html:a href="https://www.webhare.com/terms-and-conditions/webhare-services/#youtube-search">Terms and Conditions and Privacy Policy</html:a> for WebHare services.<br/><br/>Do you agree with these conditions?</text>
+    </textgroup>
   </textgroup>
   <textgroup gid="feeds">   <!-- feeds -->
     <text tid="confirmdeletefeed">Are you sure you want to delete the feed? Note that it will be automatically recreated if it is requested again.</text>
