@@ -50,8 +50,8 @@ RUN --mount=type=bind,source=/setup-opensearch.sh,target=/setup-opensearch.sh \
     /bin/bash /setup-opensearch.sh
 
 # Let's do the NPM work first, for better caching
-RUN --mount=type=tmpfs,target=/tmp/,readwrite \
-    --mount=type=tmpfs,target=/root/,readwrite \
+RUN --mount=type=tmpfs,target=/tmp/ \
+    --mount=type=tmpfs,target=/root/ \
     --mount=type=cache,id=npmcache,target=/tmp/npmcache \
     --mount=type=bind,source=/whtree/package.json,target=/opt/wh/whtree/package.json \
     --mount=type=bind,source=/whtree/package-lock.json,target=/opt/wh/whtree/package-lock.json \
@@ -63,8 +63,8 @@ COPY tocompile/ /opt/wh/
 
 # Build those parts.
 RUN --mount=type=bind,source=/compile-source.sh,target=/compile-source.sh \
-    --mount=type=tmpfs,target=/opt/whbuild,readwrite \
-    --mount=type=tmpfs,target=/tmp,readwrite \
+    --mount=type=tmpfs,target=/opt/whbuild \
+    --mount=type=tmpfs,target=/tmp \
     --mount=type=cache,id=compile,target=/tmp/compile  \
     /bin/bash /compile-source.sh
 
@@ -72,13 +72,13 @@ RUN --mount=type=bind,source=/compile-source.sh,target=/compile-source.sh \
 COPY whtree /opt/wh/whtree
 
 # Postinstall fixups
-RUN --mount=type=tmpfs,target=/opt/whdata,readwrite /opt/wh/whtree/modules/system/scripts/internal/fixup_modules.sh
+RUN --mount=type=tmpfs,target=/opt/whdata /opt/wh/whtree/modules/system/scripts/internal/fixup_modules.sh
 
 # Add other dropins
 ADD dropins /
 
 # Create the shrinkwrap
-RUN --mount=type=tmpfs,target=/opt/whdata,readwrite /opt/wh/whtree/modules/system/scripts/internal/create_shrinkwrap.sh
+RUN --mount=type=tmpfs,target=/opt/whdata /opt/wh/whtree/modules/system/scripts/internal/create_shrinkwrap.sh
 
 # Add a label with the commit SHA
 ARG CI_COMMIT_SHA

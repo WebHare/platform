@@ -59,11 +59,14 @@ adduser opensearch whdata
 # postgres has 20003
 adduser postgres whdata
 
-# Verify recent CVEs are fixed
-if ! ( apt-get changelog openssl | grep -q CVE-2021-3449 ) ; then
+# Verify recent CVEs are fixed. Sending through temp file to fix a 'E: Sub-process pager received signal 13.'
+TEMPCHANGELOG="/tmp/changelog-$$.txt"
+apt-get changelog openssl > $TEMPCHANGELOG
+if ! ( grep -q CVE-2021-3449 < $TEMPCHANGELOG ) ; then
   echo CVE fixes not applied
   exit 1
 fi
+echo Updates are verified
 
 # 2023-04-02: Added 'libaio1' - it's a dependency for oracle instantclient
 # 2021-12-22: Added 'zip' for shrinkwrap (building history/source.zips)
