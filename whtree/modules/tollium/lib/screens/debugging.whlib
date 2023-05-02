@@ -163,9 +163,9 @@ PUBLIC STATIC OBJECTTYPE ReflectDialog EXTEND TolliumScreenBase
       {
         ^data->value := EncodeHSON(this->keepref.data);
       }
-      CASE "decodehson"
+      CASE "json"
       {
-        ^data->value := `DecodeHSON('${EncodeJava(EncodeHSON(this->keepref.data))}')`;
+        ^data->value := EncodeJSON(this->keepref.data, DEFAULT RECORD, [ formatted := TRUE ]);
       }
       DEFAULT
       {

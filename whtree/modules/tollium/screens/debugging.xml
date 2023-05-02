@@ -55,8 +55,8 @@
         <tab name="getvalue">
           <select name="getvalueas" type="radio" onchange="ongetvalueaschange">
             <option rowkey="none" selected="true" />
+            <option rowkey="json" />
             <option rowkey="hson" />
-            <option rowkey="decodehson" />
           </select>
           <textarea name="data" width="1pr" height="1pr" />
         </tab>

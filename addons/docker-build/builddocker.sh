@@ -9,6 +9,7 @@ export DOCKER_BUILDKIT=1  # needed for cache mounts (ccache, npm cache)
 
 DOCKERBUILDARGS=()
 DESTDIR="`pwd`"
+USEPODMAN=""
 cd `dirname $0`
 
 source $WEBHARE_DIR/lib/wh-functions.sh
@@ -22,6 +23,8 @@ while [[ $1 =~ ^-.* ]]; do
     DOCKERBUILDARGS+=(DEBUG=1)
   elif [ "$1" == "--nopull" ]; then
     DOCKERPULLARG=""
+  elif [ "$1" == "--podman" ]; then
+    USEPODMAN="1"
   elif [ "$1" == "--nocache" -o "$1" == "--no-cache"  ]; then
     DOCKERBUILDARGS+=(--no-cache)
   elif [ "$1" == "--dockerfile" ]; then
@@ -34,6 +37,10 @@ while [[ $1 =~ ^-.* ]]; do
   fi
   shift
 done
+
+if [ -n "$USEPODMAN" ] && [[ $(type -t whhook_prepare_podman) == function ]]; then
+  whhook_prepare_podman # Allow wh script hooks to prepare the build machine
+fi
 
 if [ -n "$CI_COMMIT_SHA" ]; then
   # validate CI environment
@@ -125,7 +132,7 @@ fi
 #############################################################################
 
 cd "$WORKDIR"
-echo "builddocker work directory: $WORKDIR"
+echo "Work directory: $WORKDIR"
 if ! cp -a $SOURCEDIR/addons/docker-build/* $WORKDIR/ ; then
   echo "Copy failed"
   exit 1
@@ -159,7 +166,7 @@ fi
 # (ADDME: improve separation, consider moving whlibs/whres back to buildtree, to have a clean 'build this (ap,harescript,...)' and 'run this (whtree)' dir.)
 
 [ -d whtree ] && rm -rf whtree # remove old build data
-if ! (cd $SOURCEDIR ; git ls-files -co --exclude-standard whtree | tar -c -T -) | $TAR x ; then
+if ! (cd $SOURCEDIR ; git ls-files -co --exclude-standard whtree | tar -c -T -) | $TAR --warning=no-unknown-keyword -x ; then
   echo "tar failed"
   exit 1
 fi
@@ -211,20 +218,41 @@ branch="$CI_COMMIT_REF_NAME"
 version="$WEBHARE_VERSION"
 HERE
 
+function RunBuilder()
+{
+  local retval
+  if [ -z "$USEPODMAN" ]; then
+    echo "$(date) docker" "$@" >&2
+    $SUDO docker "$@" ; retval="$?"
+    if [ "$retval" != "0" ]; then
+      echo "$(date) docker returned errorcode $retval" >&2
+    fi
+    return $retval
+  else
+    echo "$(date) podman" "$@" >&2
+    $SUDO podman "$@" ; retval="$?"
+    if [ "$retval" != "0" ]; then
+      echo "$(date) podman returned errorcode $retval" >&2
+    fi
+    return $retval
+  fi
+}
+
+
 # Fix permissions (crontab files cannot be world-writable)
 chmod 600 dropins/etc/cron.d/* 2>/dev/null
 
-echo "Docker build args: ${DOCKERBUILDARGS[@]}"
+echo "Build args: ${DOCKERBUILDARGS[@]}"
 
 # Build webhare image
-if ! $SUDO docker build $DOCKERPULLARG "${DOCKERBUILDARGS[@]}" -t "$BUILD_IMAGE" . ; then
+if ! RunBuilder build $DOCKERPULLARG "${DOCKERBUILDARGS[@]}" -t "$BUILD_IMAGE" . ; then
   echo "Build of webhare image ($BUILD_IMAGE) failed."
   exit 1
 fi
 
 # If requested, push to CI
 if [ -n "$PUSH_BUILD_IMAGES" ]; then
-  if ! $SUDO docker push "$BUILD_IMAGE" ; then
+  if ! RunBuilder push "$BUILD_IMAGE" ; then
     echo Push of $BUILD_IMAGE failed
     exit 1
   fi
