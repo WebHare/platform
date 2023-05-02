@@ -28,7 +28,9 @@ MACRO Mainloop()
 
       RETURN; //lost connection
     }
-    IF(IsScriptOutOfDate())
+
+    BOOLEAN isjstask := taskinfo.taskrunner != "";
+    IF(NOT isjstask AND IsScriptOutOfDate())
     {
       IF(debug)
         Print("Out of date, exiting\n");
@@ -40,20 +42,23 @@ MACRO Mainloop()
       Print(`Starting task ${taskinfo.queueid}\n`);
 
     STRING ARRAY objecttoks := Tokenize(taskinfo.objectname,'#');
-    RECORD libstatus := GetHarescriptLibraryInfo(objecttoks[0]);
+    RECORD libstatus := isjstask ? DEFAULT RECORD : GetHarescriptLibraryInfo(objecttoks[0]);
     TRY
     {
-      IF(NOT libstatus.valid)
-        THROW NEW Exception(`Library for tasks of type '${taskinfo.tasktype}' is unavailable (error: ${libstatus.errors[0].message})`);
-
-      IF(libstatus.outofdate)
+      IF(NOT isjstask)
       {
-        IF(debug)
-          Print("Out of date, requesting restart\n");
+        IF(NOT libstatus.valid)
+          THROW NEW Exception(`Library for tasks of type '${taskinfo.tasktype}' is unavailable (error: ${libstatus.errors[0].message})`);
 
-        // Anounce we're out of date, won't be processing the current item
-        WaitForPromise(managedqueuemgr->AnnounceOutOfDate());
-        RETURN; //we'll need to recompile to handle this task
+        IF(libstatus.outofdate)
+        {
+          IF(debug)
+            Print("Out of date, requesting restart\n");
+
+          // Anounce we're out of date, won't be processing the current item
+          WaitForPromise(managedqueuemgr->AnnounceOutOfDate());
+          RETURN; //we'll need to recompile to handle this task
+        }
       }
 
       IF(taskinfo.profile)

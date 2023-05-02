@@ -64,7 +64,7 @@ RECORD FUNCTION ParseTaskNode(STRING resourcename, OBJECT tasknode, STRING mod, 
   }
 
   RETURN CELL[ library :=      objectname = "" ? libname : ""
-             , objectname :=   objectname LIKE "*#*" ? objectname : libname || "#" || objectname
+             , objectname :=   objectname = "" ? "" : objectname LIKE "*#*" ? objectname : libname || "#" || objectname
              , tasktype :=     mod || ":" || type
              , isnode :=       isnode
              , workertype :=   isnode ? 1 : 0
@@ -77,6 +77,7 @@ RECORD FUNCTION ParseTaskNode(STRING resourcename, OBJECT tasknode, STRING mod, 
              , linenum := tasknode->linenum
              , timeout
              , allowifrestore
+             , taskrunner := MakeAbsoluteResourcePath(resourcename, tasknode->GetAttribute("taskrunner"))
              ];
 }
 
@@ -148,6 +149,7 @@ PUBLIC RECORD FUNCTION GetTaskExecuteInfo(RECORD taskdata, RECORD taskinfo)
                         , tasktype :=       taskdata.tasktype
                         , objectname :=     taskinfo.objectname
                         , profile :=        taskinfo.profile
+                        , taskrunner :=     taskinfo.taskrunner
                         ];
 
   IF(taskdata.isephemeral)
@@ -235,4 +237,3 @@ PUBLIC OBJECT FUNCTION GetTaskFinishHandler()
   }
   RETURN handler;
 }
-

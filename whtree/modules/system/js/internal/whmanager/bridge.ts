@@ -1121,6 +1121,8 @@ export default bridge;
 
 registerAsNonReloadableLibrary(module);
 
+const process_exit_backup = process.exit; // compatibility with taskrunner.ts taking over process.exit (TODO properly manage process.exit in contexts without breaking bridge)
+
 process.on('uncaughtExceptionMonitor', (error, origin) => {
   console.error(origin == "unhandledRejection" ? "Uncaught rejection" : "Uncaught exception", error);
   bridge.logError(error, { errortype: origin == "unhandledRejection" ? origin : "exception" });
@@ -1128,10 +1130,10 @@ process.on('uncaughtExceptionMonitor', (error, origin) => {
 
 process.on('uncaughtException', async (error) => {
   await bridge.ensureDataSent();
-  process.exit(1);
+  process_exit_backup.call(process, 1);
 });
 
 process.on('unhandleRejection', async (reason, promise) => {
   await bridge.ensureDataSent();
-  process.exit(1);
+  process_exit_backup.call(process, 1);
 });

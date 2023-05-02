@@ -510,3 +510,19 @@ PUBLIC BOOLEAN FUNCTION CompareSettingValues(VARIANT oldvalue, VARIANT updateval
     }
   }
 }
+
+PUBLIC RECORD FUNCTION DecodeHSONorJSONRecord(VARIANT indata)
+{
+  IF(TYPEID(indata) NOT IN [TYPEID(BLOB), TYPEID(STRING)])
+    THROW NEW Exception(`Expecting either a BLOB or a STRING to decode`);
+
+  STRING data := TYPEID(indata) = TYPEID(BLOB) ? BlobToString(indata) : indata;
+  IF(data = "")
+    RETURN DEFAULT RECORD;
+  IF(data LIKE "hson:*")
+    RETURN DecodeHSON(data);
+  IF(data LIKE "{*")
+    RETURN DecodeJSON(data);
+
+  THROW NEW Exception(`Decoding input that was expected to be HSON or JSON, but is neither (starts with: '${Left(data, 10)})')`);
+}

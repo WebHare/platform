@@ -10,6 +10,7 @@ LOADLIB "wh::promise.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/tasks.whlib";
 LOADLIB "mod::system/lib/internal/tasks/finishhandler.whlib";
 LOADLIB "mod::system/lib/internal/tasks/callasync.whlib" EXPORT CallAsync;
@@ -313,7 +314,7 @@ PUBLIC RECORD FUNCTION DescribeManagedTask(INTEGER taskid)
          , lasterrors := taskinfo.lasterrors
          , stacktrace := taskinfo.stacktrace
          , failures := taskinfo.failures
-         , retval := taskinfo.shortretval = "" ? DEFAULT RECORD : taskinfo.shortretval="long" ? DecodeHSONBlob(taskinfo.longretval) : DecodeHSON(taskinfo.shortretval)
+         , retval := taskinfo.shortretval = "" ? DEFAULT RECORD : DecodeHSONorJSONRecord(taskinfo.shortretval="long" ? taskinfo.longretval : taskinfo.shortretval)
          , data := data
          , metadata := RepackRecord(SELECT name := metakey
                                          , value := DecodeHSON(metavalue)
@@ -407,7 +408,7 @@ PUBLIC RECORD FUNCTION RetrieveManagedTaskResult(INTEGER taskid, DATETIME maxwai
       }
 
       IF(taskdone) //it's done
-        RETURN taskinfo.shortretval = "" ? DEFAULT RECORD : taskinfo.shortretval="long" ? DecodeHSONBlob(taskinfo.longretval) : DecodeHSON(taskinfo.shortretval);
+        RETURN taskinfo.shortretval = "" ? DEFAULT RECORD : DecodeHSONorJSONRecord(taskinfo.shortretval="long" ? taskinfo.longretval : taskinfo.shortretval);
 
       IF(GetCurrentDatetime() > maxwait)
       {

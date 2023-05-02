@@ -49,19 +49,21 @@ ASYNC MACRO TestEphemeralTasks()
   TestEq([nodepong := 42],val);
 }
 
-ASYNC MACRO TestWaitableAction()
+ASYNC MACRO TestWaitableAction(BOOLEAN javascript)
 {
   INTEGER taskid;
+  STRING taskname := javascript ? "webhare_testsuite:ping_js" : "webhare_testsuite:ping";
+  STRING taskretryname := javascript ? "webhare_testsuite:pingretry2_js" : "webhare_testsuite:pingretry2";
 
   TestThrowsLike("No such managed task type *webhare_testsuite:nosuchtask*", PTR ScheduleManagedTask("webhare_testsuite:nosuchtask", DEFAULT RECORD));
 
-  TestEq(0, Length(LookupManagedTasks("webhare_testsuite:ping", [ createdafter := testfw->starttime ])));
+  TestEq(0, Length(LookupManagedTasks(taskname, [ createdafter := testfw->starttime ])));
 
   testfw->BeginWork();
-  taskid := ScheduleManagedTask("webhare_testsuite:ping", [ ping := 42 ]);
+  taskid := ScheduleManagedTask(taskname, [ ping := 42 ]);
 
-  TestEq(1, Length(LookupManagedTasks("webhare_testsuite:ping", [ createdafter := testfw->starttime ])));
-  TestEq(1, Length(LookupManagedTasks("webhare_testsuite:ping", [ createdafter := testfw->starttime, unfinished := TRUE ])));
+  TestEq(1, Length(LookupManagedTasks(taskname, [ createdafter := testfw->starttime ])));
+  TestEq(1, Length(LookupManagedTasks(taskname, [ createdafter := testfw->starttime, unfinished := TRUE ])));
   testfw->CommitWork();
 
   TestEq([pong := 42, managedtaskid := taskid ], RetrieveManagedTaskResult(taskid, MAX_DATETIME));
@@ -69,16 +71,16 @@ ASYNC MACRO TestWaitableAction()
   TestEq(TRUE, taskinfo.finished <= GetCurrentDatetime(), 'task should be marked as finished');
 
   testfw->BeginWork();
-  taskid := ScheduleManagedTask("webhare_testsuite:pingretry2", [ ping := "CANCEL" ]);
+  taskid := ScheduleManagedTask(taskretryname, [ ping := "CANCEL" ]);
   testfw->CommitWork();
 
   TestThrowsLike("*ping=CANCEL*", PTR RetrieveManagedTaskResult(taskid, MAX_DATETIME)); //cancels because we told it to
 
   testfw->BeginWork();
-  taskid := ScheduleManagedTask("webhare_testsuite:pingretry2", [ ping := "ABORT" ]);
+  taskid := ScheduleManagedTask(taskretryname, [ ping := "ABORT" ]);
   testfw->CommitWork();
 
-  TestThrowsLike("*PING-TASK-Abort*", PTR RetrieveManagedTaskResult(taskid, MAX_DATETIME)); //crashes because we told it to
+  TestThrowsLike(javascript ? "*Task attempted to abort*" : "*PING-TASK-Abort*", PTR RetrieveManagedTaskResult(taskid, MAX_DATETIME)); //crashes because we told it to
   TestEq(DEFAULT RECORD, RetrieveManagedTaskResult(taskid, DEFAULT DATETIME, [ accepttempfailure := TRUE, accepttimeout := TRUE ])); //if we probe for temporay failures we won't get a throw
   taskinfo := DescribeManagedTask(taskid);
   TestEq(1, taskinfo.failures);
@@ -89,21 +91,21 @@ ASYNC MACRO TestWaitableAction()
   RetryPendingManagedTasksByIds([taskid]);
   testfw->CommitWork();
 
-  TestThrowsLike("*PING-TASK-Abort*", PTR RetrieveManagedTaskResult(taskid, MAX_DATETIME, [accepttempfailure := TRUE]));
+  TestThrowsLike(javascript ? "*Task attempted to abort*" : "*PING-TASK-Abort*", PTR RetrieveManagedTaskResult(taskid, MAX_DATETIME, [accepttempfailure := TRUE]));
   taskinfo := DescribeManagedTask(taskid);
   TestEq(2, taskinfo.failures);
   TestEq(TRUE, taskinfo.finished < GetCurrentDatetime(), "task should now be ignored for further requeueing");
 
-  TestEq(0, Length(LookupManagedTasks("webhare_testsuite:ping", [ createdafter := testfw->starttime, unfinished := TRUE ])));
-  TestEq(1, Length(LookupManagedTasks("webhare_testsuite:ping", [ createdafter := testfw->starttime, unfinished := FALSE ])));
+  TestEq(0, Length(LookupManagedTasks(taskname, [ createdafter := testfw->starttime, unfinished := TRUE ])));
+  TestEq(1, Length(LookupManagedTasks(taskname, [ createdafter := testfw->starttime, unfinished := FALSE ])));
   testfw->BeginWork();
-  taskid := ScheduleManagedTask("webhare_testsuite:ping", [ ping := 1 ], [ auxdata := [ ping := RepeatText("X",10000) ] ] );
+  taskid := ScheduleManagedTask(taskname, [ ping := 1 ], [ auxdata := [ ping := RepeatText("X",10000) ] ] );
   testfw->CommitWork();
   TestEq([pong := RepeatText("X",10000), managedtaskid := taskid ],RetrieveManagedTaskResult(taskid, MAX_DATETIME));
 
   testfw->BeginWork();
   WriteRegistryKey("webhare_testsuite.tests.taskthrownow", TRUE);
-  taskid := ScheduleManagedTask("webhare_testsuite:ping", [ ping := "THROWNOW" ]);
+  taskid := ScheduleManagedTask(taskname, [ ping := "THROWNOW" ]);
   testfw->CommitWork();
 
   RECORD info;
@@ -123,12 +125,12 @@ ASYNC MACRO TestWaitableAction()
   WriteRegistryKey("webhare_testsuite.tests.taskthrownow", FALSE);
   testfw->CommitWork();
 
-
-  OBJECT port := CreateGlobalIPCPort("webhare_testsuite:cancellable_connectport");
+  STRING cancellable_task := "webhare_testsuite:cancellable" || (javascript ? "_js" : "");
+  OBJECT port := CreateGlobalIPCPort("webhare_testsuite:cancellable_connectport" || (javascript ? "_js" : ""));
 
 
   testfw->BeginWork();
-  taskid := ScheduleManagedTask("webhare_testsuite:cancellable", DEFAULT RECORD);
+  taskid := ScheduleManagedTask(cancellable_task, DEFAULT RECORD);
   testfw->CommitWork();
 
   // cancellable will connect to our global port
@@ -146,10 +148,11 @@ ASYNC MACRO TestWaitableAction()
   TestEQ("gone", msg.status, "Task should have been killed by the cancel");
 
   // test timeout handling
+  STRING timelimitedtask := "webhare_testsuite:timelimitedtask" || (javascript ? "_js" : "");
   testfw->BeginWork();
-  taskid := ScheduleManagedTask("webhare_testsuite:cancellable", DEFAULT RECORD, [ timeout := 100 ]);
-  INTEGER taskid3 := ScheduleManagedTask("webhare_testsuite:timelimitedtask", [ sleep := 200 ], [ timeout := 100 ]);
-  INTEGER taskid4 := ScheduleManagedTask("webhare_testsuite:timelimitedtask", [ sleep := 400 ]);
+  taskid := ScheduleManagedTask(cancellable_task, DEFAULT RECORD, [ timeout := 100 ]);
+  INTEGER taskid3 := ScheduleManagedTask(timelimitedtask, [ sleep := 200 ], [ timeout := 100 ]);
+  INTEGER taskid4 := ScheduleManagedTask(timelimitedtask, [ sleep := 400 ]);
   testfw->CommitWork();
 
   TestThrowsLike("Task * #* has failed: Task has timed out after 100ms", PTR RetrieveManagedTaskResult(taskid, MAX_DATETIME));
@@ -160,7 +163,7 @@ ASYNC MACRO TestWaitableAction()
   {
     //it may take an extra attempt to get the sleep-200ms task to win from its timeout, as a sleep(200) isn't guaratneed to finish immediately after 200ms
     testfw->BeginWork();
-    INTEGER taskid2 := ScheduleManagedTask("webhare_testsuite:timelimitedtask", [ sleep := 200 ]);
+    INTEGER taskid2 := ScheduleManagedTask(timelimitedtask, [ sleep := 200 ]);
     testfw->CommitWork();
 
     TRY
@@ -331,8 +334,19 @@ MACRO TestDoubleSchedule()
   port->Close();
 }
 
+ASYNC MACRO TestWaitableAction_HS()
+{
+  AWAIT TestWaitableAction(FALSE);
+}
+
+ASYNC MACRO TestWaitableAction_JS()
+{
+  AWAIT TestWaitableAction(TRUE);
+}
+
 RunTestframework([ PTR TestEphemeralTasks
-                 , PTR TestWaitableAction
+                 , PTR TestWaitableAction_HS
+                 , PTR TestWaitableAction_JS
                  , PTR TestMarkAsTemporaryFailure
                  , PTR TestNotBeforeTasks
                  , PTR TestDoubleSchedule()
