@@ -403,14 +403,32 @@ async function runBackendServiceTest_HS() {
 
 async function testLogs() {
   services.log("webhare_testsuite:test", { drNick: "Hi everybody!", patientsLost: BigInt("123456678901234567890123456678901234567890") });
-  services.log("webhare_testsuite:test", { val: "1234567890".repeat(4000) });
+  services.log("webhare_testsuite:test", {
+    val: "1234567890".repeat(4000),
+    f: function () { console.error("Cant log this"); },
+    g: function g2() { console.error("Cant log this"); },
+    u: undefined,
+    s: Symbol(),
+    [Symbol("artist")]: "Prince", //ignored in logs currently
+    tafkap: Symbol("Prince")
+  });
   await services.callHareScript("mod::system/lib/logging.whlib#LogToJSONLog", ["webhare_testsuite:test", { hareScript: "I can speak JSON too!" }]);
 
   const logreader = services.readLogLines("webhare_testsuite:test", { start: test.startTime, limit: new Date(Date.now() + 1) });
   const logline = await logreader.next();
   test.eqProps({ drNick: "Hi everybody!", patientsLost: "123456678901234567890123456678901234567890" }, logline.value);
   test.assert(logline.value["@timestamp"] instanceof Date);
-  test.eqMatch(/1234567890… \(40000 chars\)/, (await logreader.next()).value.val);
+
+  const hardlogline = await logreader.next();
+  test.assert(hardlogline.value["@timestamp"] instanceof Date);
+  test.eqMatch(/1234567890… \(40000 chars\)/, hardlogline.value.val);
+  // console.log(hardlogline);
+
+  test.eq("[function f]", hardlogline.value.f);
+  test.eq("[function g2]", hardlogline.value.g);
+  test.eq("[undefined]", hardlogline.value.u);
+  test.eq("[Symbol()]", hardlogline.value.s);
+  test.eq("[Symbol(Prince)]", hardlogline.value.tafkap);
 
   const hsline = await logreader.next();
   test.assert(hsline.value["@timestamp"] instanceof Date);
