@@ -6,19 +6,28 @@ import { getModuleDefinition } from "./moduledefinitions";
 import { escapeRegExp } from "@webhare/std";
 import { readFileSync } from "fs";
 
-export type LoggableData = string | number | boolean | null | bigint | Date | LoggableData[] | LoggableRecord;
-export type LoggableRecord = { [key: string]: LoggableData };
+/// Expected format for log lines. We can't really specify types, some loggers might not know it either (eg. if they're logging external RPC responses)
+export type LoggableRecord = { [key: string]: unknown };
 
 type LogReadField = string | number | boolean | null | LogReadField[] | { [key: string]: LogReadField };
 type LogLineBase = { "@timestamp": Date };
 
 function replaceLogParts(key: string, value: unknown) {
-  if (typeof value === "bigint") //is 'value' a BigInt?
-    return value.toString();
-
-  if (typeof value === "string" && value.length > 3000) //truncate too long strings
-    return value.substring(0, 3000) + "… (" + value.length + " chars)";
-
+  //Keep logs readable, try not to miss anything. But make sure we still output valid JSON
+  switch (typeof value) {
+    case "bigint":
+      return value.toString();
+    case "symbol":
+      return `[${value.toString()}]`;
+    case "function":
+      return value.name ? `[function ${value.name}]` : "[function]";
+    case "undefined":
+      return "[undefined]"; //can't print 'undefined' as that wouldn't be JSON
+    case "string":
+      if (value.length > 3000) //truncate too long strings
+        return value.substring(0, 3000) + "… (" + value.length + " chars)";
+    //fallthrough
+  }
   return value;
 }
 
