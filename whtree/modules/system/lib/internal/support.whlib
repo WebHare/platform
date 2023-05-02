@@ -237,7 +237,7 @@ PUBLIC RECORD ARRAY FUNCTION GetSystemAppRunnerConfig()
         , cmdline :=  "wh run mod::system/scripts/internal/nodeservices.ts"
         ]
       , [ name :=     "system:thebridge"
-        , cmdline :=  "runscript mod::system/scripts/internal/thebridge.whscr"
+        , cmdline :=  "runscript --workerthreads 16 mod::system/scripts/internal/thebridge.whscr"
         ]
       ];
 
