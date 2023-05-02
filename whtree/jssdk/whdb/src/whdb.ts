@@ -12,7 +12,7 @@ import {
   Insertable as KInsertable,
   Updateable as KUpdateable,
 } from 'kysely';
-import { Client, Connection, types } from 'pg';
+import { Client, Connection, types, defaults as pg_defaults } from 'pg';
 import { RefTracker, checkIsRefCounted } from '@mod-system/js/internal/whmanager/refs';
 import { BackendEventData, broadcast } from '@webhare/services/src/backendevents';
 import { BackendEvent } from '../../services/src/services';
@@ -57,6 +57,10 @@ async function configureWHDBClient(pg: Client) {
           JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
           JOIN pg_catalog.pg_proc p ON t.typinput = p.oid
     WHERE nspname = 'webhare_internal' AND t.typname = 'webhare_blob' AND proname = 'record_in'`);
+
+  //Fix timezone translation - see https://github.com/brianc/node-postgres/issues/2141
+  types.setTypeParser(1114, stringValue => new Date(Date.parse(stringValue + '+0000')));
+  (pg_defaults as { parseInputDatesAsUTC: boolean }).parseInputDatesAsUTC = true;
 
   if (bloboidquery.rowCount) {
     configuration = { bloboid: bloboidquery.rows[0].oid };
@@ -227,7 +231,7 @@ class WHDBConnectionImpl implements WHDBConnection, PostgresPool, PostgresPoolCl
   }
 
   query<R>(cursor: PostgresCursor<R>): PostgresCursor<R>;
-  query<R>(sqlquery: string, parameters: readonly unknown[]): Promise<PostgresQueryResult<R>>;
+  query<R>(sqlquery: string, parameters?: readonly unknown[]): Promise<PostgresQueryResult<R>>;
 
   query<R>(sqlquery: string | PostgresCursor<R>, parameters?: readonly unknown[]): Promise<PostgresQueryResult<R>> | PostgresCursor<R> {
     if (typeof sqlquery === "string") {
@@ -361,6 +365,14 @@ export function beginWork() {
 */
 export function commitWork() {
   return checkPromiseErrorsHandled(getConnection().commitWork());
+}
+
+export function query<R>(cursor: PostgresCursor<R>): PostgresCursor<R>;
+export function query<R>(sqlquery: string, parameters?: readonly unknown[]): Promise<PostgresQueryResult<R>>;
+
+export function query<R>(sqlquery: string | PostgresCursor<R>, parameters?: readonly unknown[]): Promise<PostgresQueryResult<R>> | PostgresCursor<R> {
+  ///@ts-ignore -- We don't really care about the arguments, just delegating it to the actual implementation
+  return checkPromiseErrorsHandled(getConnection().query<R>(sqlquery, parameters));
 }
 
 /** Rollbacks the transaction

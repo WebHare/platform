@@ -1,13 +1,14 @@
 import { BackendEvent, BackendEventSubscription, subscribe, CodeContext } from "@webhare/services";
 import * as test from "@webhare/test";
 import { DeferredPromise, createDeferred, sleep } from "@webhare/std";
-import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen, uploadBlob } from "@webhare/whdb";
+import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen, uploadBlob, query } from "@webhare/whdb";
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
 import * as contexttests from "./data/context-tests";
 
 async function cleanup() {
   await beginWork();
   await db<WebHareTestsuiteDB>().deleteFrom("webhare_testsuite.exporttest").execute();
+  await db<WebHareTestsuiteDB>().deleteFrom("webhare_testsuite.consilio_index").execute();
   await commitWork();
 }
 
@@ -31,6 +32,9 @@ async function testQueries() {
   test.eq("This is a blob", await tablecontents[0].datablob.text());
   test.eq(null, tablecontents[1].datablob);
 
+  const tablecontents2 = (await query("select * from webhare_testsuite.exporttest order by id")).rows;
+  test.eq(tablecontents, tablecontents2);
+
   await beginWork();
   await test.throws(/already been opened/, () => beginWork());
   await rollbackWork();
@@ -41,6 +45,22 @@ async function testQueries() {
   await commitWork();
   await test.throws(/already been closed/, () => commitWork());
   await test.throws(/already been closed/, () => rollbackWork());
+}
+
+async function testTypes() {
+  // Test types using the consilio_index table
+  await beginWork();
+  const baserec = { groupid: "", objectid: "", grouprequiredindexdate: new Date, objectrequiredindexdate: new Date, indexdate: new Date, extradata: "" };
+  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.consilio_index").values({ ...baserec, text: "row1", adate: new Date("2022-05-02T19:07:45Z") }).execute();
+  await commitWork();
+
+  const rows = await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.consilio_index").select(["text", "adate"]).where("text", "=", "row1").execute();
+  test.eq(new Date("2022-05-02T19:07:45Z"), rows[0].adate);
+
+  //read directly through postgres, converting it serverside to a string (as node-postgres could 'lie' to us on both paths)
+  //TODO perhaps we should have used timestamp-with-tz columns?
+  const rawrows = (await query<{ adate: string }>("select adate::varchar(32) from webhare_testsuite.consilio_index where text='row1'")).rows;
+  test.eq("2022-05-02 19:07:45", rawrows[0].adate);
 }
 
 
@@ -204,6 +224,7 @@ async function testFinishHandlers() {
 test.run([
   cleanup,
   testQueries,
+  testTypes,
   testCodeContexts,
   testCodeContexts2,
   testFinishHandlers,
