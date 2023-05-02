@@ -16,16 +16,10 @@ MACRO StoreValue(RECORD v)
   val := v;
 }
 
-ASYNC MACRO TestWaitableAction()
+ASYNC MACRO TestEphemeralTasks()
 {
-  INTEGER taskid;
   OBJECT ephtask;
-  DATETIME teststart := GetCurrentDatetime();
-
-  TestThrowsLike("No such managed task type *webhare_testsuite:nosuchtask*", PTR ScheduleManagedTask("webhare_testsuite:nosuchtask", DEFAULT RECORD));
   TestThrowsLike("No such ephemeral task type *webhare_testsuite:nosuchtask*", PTR ScheduleEphemeralTask("webhare_testsuite:nosuchtask", DEFAULT RECORD));
-
-  TestEq(0, Length(LookupManagedTasks("webhare_testsuite:ping", [ createdafter := teststart ])));
 
   testfw->BeginWork();
   ephtask := ScheduleEphemeralTask("webhare_testsuite:ping", [ ping := 43 ]);
@@ -33,11 +27,41 @@ ASYNC MACRO TestWaitableAction()
   TestThrowsLike("*was queued did not commit*", PTR WaitForPromise(ephtask)); //this task can never run because the transaction rolled back
 
   testfw->BeginWork();
-  taskid := ScheduleManagedTask("webhare_testsuite:ping", [ ping := 42 ]);
   ephtask := ScheduleEphemeralTask("webhare_testsuite:ping", [ ping := 43 ])->Then(PTR StoreValue);
+  testfw->CommitWork();
 
-  TestEq(1, Length(LookupManagedTasks("webhare_testsuite:ping", [ createdafter := teststart ])));
-  TestEq(1, Length(LookupManagedTasks("webhare_testsuite:ping", [ createdafter := teststart, unfinished := TRUE ])));
+  TestEq(TRUE, ObjectExists(ephtask));
+  WaitForPromise(ephtask);
+  TestEq([ephpong := 43, managedtaskid := 0], val);
+
+  ephtask := ScheduleEphemeralTask("webhare_testsuite:ping", [ ping := 1 ], [ auxdata := [ ping := RepeatText("Y",10000) ] ] )->Then(PTR StoreValue);
+
+  WaitForPromise(ephtask);
+  TestEq([ephpong := RepeatText("Y",10000), managedtaskid := 0 ],val);
+
+  ephtask := ScheduleEphemeralTask("webhare_testsuite:ping", [ ping := "ABORT" ]);
+  TestThrowsLike('*PING-TASK-Abort*', PTR WaitForPromise(ephtask));
+  ephtask := ScheduleEphemeralTask("webhare_testsuite:ping", [ ping := "THROW" ]);
+  TestThrowsLike('*PING-TASK-Throw*', PTR WaitForPromise(ephtask));
+
+  ephtask := ScheduleEphemeralTask("webhare_testsuite:nodetask", [ nodeping := 42 ]);
+  val := WaitForPromise(ephtask);
+  TestEq([nodepong := 42],val);
+}
+
+ASYNC MACRO TestWaitableAction()
+{
+  INTEGER taskid;
+
+  TestThrowsLike("No such managed task type *webhare_testsuite:nosuchtask*", PTR ScheduleManagedTask("webhare_testsuite:nosuchtask", DEFAULT RECORD));
+
+  TestEq(0, Length(LookupManagedTasks("webhare_testsuite:ping", [ createdafter := testfw->starttime ])));
+
+  testfw->BeginWork();
+  taskid := ScheduleManagedTask("webhare_testsuite:ping", [ ping := 42 ]);
+
+  TestEq(1, Length(LookupManagedTasks("webhare_testsuite:ping", [ createdafter := testfw->starttime ])));
+  TestEq(1, Length(LookupManagedTasks("webhare_testsuite:ping", [ createdafter := testfw->starttime, unfinished := TRUE ])));
   testfw->CommitWork();
 
   TestEq([pong := 42, managedtaskid := taskid ], RetrieveManagedTaskResult(taskid, MAX_DATETIME));
@@ -70,25 +94,12 @@ ASYNC MACRO TestWaitableAction()
   TestEq(2, taskinfo.failures);
   TestEq(TRUE, taskinfo.finished < GetCurrentDatetime(), "task should now be ignored for further requeueing");
 
-  TestEq(TRUE, ObjectExists(ephtask));
-  TestEq(0, Length(LookupManagedTasks("webhare_testsuite:ping", [ createdafter := teststart, unfinished := TRUE ])));
-  TestEq(1, Length(LookupManagedTasks("webhare_testsuite:ping", [ createdafter := teststart, unfinished := FALSE ])));
-  WaitForPromise(ephtask);
-  TestEq([ephpong := 43, managedtaskid := 0], val);
-
+  TestEq(0, Length(LookupManagedTasks("webhare_testsuite:ping", [ createdafter := testfw->starttime, unfinished := TRUE ])));
+  TestEq(1, Length(LookupManagedTasks("webhare_testsuite:ping", [ createdafter := testfw->starttime, unfinished := FALSE ])));
   testfw->BeginWork();
   taskid := ScheduleManagedTask("webhare_testsuite:ping", [ ping := 1 ], [ auxdata := [ ping := RepeatText("X",10000) ] ] );
   testfw->CommitWork();
-  ephtask := ScheduleEphemeralTask("webhare_testsuite:ping", [ ping := 1 ], [ auxdata := [ ping := RepeatText("Y",10000) ] ] )->Then(PTR StoreValue);
-
   TestEq([pong := RepeatText("X",10000), managedtaskid := taskid ],RetrieveManagedTaskResult(taskid, MAX_DATETIME));
-  WaitForPromise(ephtask);
-  TestEq([ephpong := RepeatText("Y",10000), managedtaskid := 0 ],val);
-
-  ephtask := ScheduleEphemeralTask("webhare_testsuite:ping", [ ping := "ABORT" ]);
-  TestThrowsLike('*PING-TASK-Abort*', PTR WaitForPromise(ephtask));
-  ephtask := ScheduleEphemeralTask("webhare_testsuite:ping", [ ping := "THROW" ]);
-  TestThrowsLike('*PING-TASK-Throw*', PTR WaitForPromise(ephtask));
 
   testfw->BeginWork();
   WriteRegistryKey("webhare_testsuite.tests.taskthrownow", TRUE);
@@ -112,9 +123,6 @@ ASYNC MACRO TestWaitableAction()
   WriteRegistryKey("webhare_testsuite.tests.taskthrownow", FALSE);
   testfw->CommitWork();
 
-  ephtask := ScheduleEphemeralTask("webhare_testsuite:nodetask", [ nodeping := 42 ]);
-  val := WaitForPromise(ephtask);
-  TestEq([nodepong := 42],val);
 
   OBJECT port := CreateGlobalIPCPort("webhare_testsuite:cancellable_connectport");
 
@@ -323,7 +331,8 @@ MACRO TestDoubleSchedule()
   port->Close();
 }
 
-RunTestframework([ PTR TestWaitableAction
+RunTestframework([ PTR TestEphemeralTasks
+                 , PTR TestWaitableAction
                  , PTR TestMarkAsTemporaryFailure
                  , PTR TestNotBeforeTasks
                  , PTR TestDoubleSchedule()
