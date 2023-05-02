@@ -13,6 +13,7 @@ export { ConvertBackendServiceInterfaceToClientInterface } from "@mod-system/js/
 export type { RichBlob } from "./richblob";
 export { lockMutex } from "./mutex";
 export { getCodeContext, CodeContext } from "./codecontexts";
+export { readRegistryKey } from "./registry";
 
 /** Promise that resolves as soon as the WebHare configuration is available
  * @deprecated The configuration is now always available

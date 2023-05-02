@@ -71,7 +71,7 @@ async function testServices() {
   await test.throws(/Custom.*Try to kill the bridge/, services.callHareScript("wh::system.whlib#ABORT", ["Try to kill the bridge through abort"]));
   test.eq(1452, await services.callHareScript("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib#MultiplyPromise", [22, 66]), "Verify promises work AND that the bridge is still there");
 
-  const runoncekey = await services.callHareScript("mod::system/lib/configure.whlib#ReadRegistryKey", ["webhare_testsuite.tests.runoncetest"], { openPrimary: true }) as string;
+  const runoncekey = await services.readRegistryKey<string>("webhare_testsuite.tests.runoncetest");
   test.eq("TS RUNONCE!", runoncekey);
 
   //get WebHare configuration
