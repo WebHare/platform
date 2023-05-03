@@ -295,7 +295,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
     }
   }
 
-  async sendEvent(name: string, data: unknown): Promise<void> {
+  sendEvent(name: string, data: unknown): void {
     this.port.postMessage({
       type: ToMainBridgeMessageType.SendEvent,
       name,

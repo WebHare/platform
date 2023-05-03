@@ -58,6 +58,10 @@ export async function subscribe(masks: BackendEventMasks, callback: BackendEvent
   return subscr;
 }
 
+/** Broadcast an event to all WebHare processes (the bridge connection may linger a while to ensure the event is sent)
+    @param event - Name of the event
+    @param data - Event data
+*/
 export function broadcast(event: string, data?: BackendEventData) {
   whbridge.sendEvent(event, data ?? null);
 }
