@@ -2,7 +2,7 @@
 #
 NEED_MAKE_VERSION=3.81
 ifneq ($(firstword $(sort $(MAKE_VERSION) $(NEED_MAKE_VERSION))),$(NEED_MAKE_VERSION))
-	$(error This makefile requires version $(NEED_MAKE_VERSION), you have $(MAKE_VERSION)))
+  $(error This makefile requires version $(NEED_MAKE_VERSION), you have $(MAKE_VERSION)))
 endif
 
 ################################################
@@ -157,7 +157,7 @@ GLOBALLDFLAGS += -rdynamic
 
 ifeq ($(WHBUILD_PLATFORM),darwin)
 	# Use current MacOS version, no need for binaries to be portable between machines
-	MACOSVERSION := $(shell sw_vers | grep ProductVersion | tr -d '\t' | cut -d: -f2 | cut -d "." -f 1-2)
+	MACOSVERSION := $(shell sw_vers | grep ProductVersion: | tr -d '\t' | cut -d: -f2 | cut -d "." -f 1-2)
 	CXXFLAGS += -mmacosx-version-min=$(MACOSVERSION)
 	GLOBALLDFLAGS += -mmacosx-version-min=$(MACOSVERSION)
 else
@@ -194,7 +194,7 @@ else
 		CXX?=clang++
 		LD_APP?=clang++
 	else
-		$(error Unsupported build system $(BUILDSYSTEM))
+    $(error Unsupported build system $(BUILDSYSTEM))
 	endif
 endif
 
