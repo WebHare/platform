@@ -127,5 +127,9 @@ export function getCallStack(depth: number): StackTraceItem[] {
 }
 
 export function getCallStackAsText(depth: number): string {
-  return getRawStackTrace().slice(2 + depth).map(f => mapCallSite(f)).map(i => `${i.filename}:${i.line}:${i.col} (${i.func})`).join('\n');
+  return callStackToText(getRawStackTrace().slice(2 + depth).map(f => mapCallSite(f)));
+}
+
+export function callStackToText(callstack: StackTraceItem[]): string {
+  return callstack.map(i => `${i.filename}:${i.line}:${i.col} (${i.func})`).join('\n');
 }

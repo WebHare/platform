@@ -2,11 +2,13 @@ import EventSource from "../eventsource";
 import { createDeferred, DeferredPromise } from "@webhare/std";
 import bridge, { checkAllMessageTypesHandled } from "./bridge";
 import { DebugIPCLinkType, DebugRequestType, DebugResponseType, DebugMgrClientLink, DebugMgrClientLinkRequestType, DebugMgrClientLinkResponseType, directforwards, ForwardByRequestType } from "./debug";
+import { isTruthy } from "../util/algorithms";
 
 
 type ProcessRegistration = {
   processcode: number;
   link: DebugIPCLinkType["AcceptEndPoint"];
+  inspectorport: number | undefined;
 };
 
 type HandlerEvents = {
@@ -33,7 +35,8 @@ class DebuggerHandler extends EventSource<HandlerEvents>{
   gotLink(link: DebugIPCLinkType["AcceptEndPoint"]): void {
     const reg = {
       processcode: 0,
-      link
+      link,
+      inspectorport: undefined
     };
     link.on("message", (packet) => this.gotLinkMessage(reg, packet));
     link.on("close", () => this.gotLinkClose(reg));
@@ -65,6 +68,18 @@ class DebuggerHandler extends EventSource<HandlerEvents>{
     }
   }
 
+  allocateInspectorPort(reg: ProcessRegistration) {
+    if (reg.inspectorport)
+      return reg.inspectorport;
+    const allports = new Set(Array.from(this.processes.values()).map(otherReg => otherReg.inspectorport).filter(isTruthy));
+    for (let port = inspectorportbase; ; ++port) {
+      if (!allports.has(port)) {
+        reg.inspectorport = port;
+        return port;
+      }
+    }
+  }
+
   close() {
     this.debugport.close();
   }
@@ -73,25 +88,13 @@ class DebuggerHandler extends EventSource<HandlerEvents>{
 let activeclients = 0;
 let globalhandler: DebuggerHandler | undefined;
 
-/*
-function arrayPick<T extends object, K extends string & keyof T>(arr: T[], keys: K[]): Array<Pick<T,K>> {
-  return arr.map((elt: T) => {
-    const ret = {} as Pick<T, K>;
-    keys.forEach((key: K) => {
-      if (key in elt)
-        ret[key] = elt[key];
-    });
-    return ret;
-  });
-}
-*/
 async function start() {
   const port = bridge.createPort<DebugMgrClientLink>("ts:debugmgr", { global: true });
   port.on("accept", (link) => new DebugMgrClient(link));
   await port.activate();
 }
 
-let inspectorport = 15000;
+const inspectorportbase = 15001;
 start();
 
 class DebugMgrClient {
@@ -217,8 +220,9 @@ class DebugMgrClient {
             return;
           }
 
-          ++inspectorport;
-          const res = await reg.link.doRequest({ type: DebugRequestType.enableInspector, port: inspectorport });
+          const port = this.handler.allocateInspectorPort(reg);
+
+          const res = await reg.link.doRequest({ type: DebugRequestType.enableInspector, port });
           this.link.send({
             type: DebugMgrClientLinkResponseType.enableInspectorResult,
             url: res.url

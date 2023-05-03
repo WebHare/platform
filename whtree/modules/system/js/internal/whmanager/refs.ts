@@ -1,18 +1,19 @@
 import { Socket } from "net";
 import EventSource from "../eventsource";
+import { StackTraceItem, callStackToText, getCallStack } from "@mod-system/js/internal/util/stacktrace";
+import { flags } from "@webhare/env";
 
 const reftrackersymbol = Symbol("refTracker");
 
 export class RefLock {
   tracker: RefTracker;
   title: string;
-  trace: string;
+  stack: StackTraceItem[];
 
   constructor(tracker: RefTracker, title = "") {
     this.tracker = tracker;
     this.title = title;
-    const stack = (new Error().stack || "");
-    this.trace = stack.substring(stack.indexOf("\n") + 1);
+    this.stack = flags.async ? getCallStack(1) : [];
   }
 
   release() {
@@ -120,7 +121,7 @@ export function dumpRefs(obj: Referencable) {
   const tracker = obj[reftrackersymbol];
   if (tracker) {
     for (const ref of tracker._getLocks())
-      console.log(`Ref: ${ref.title}\n${ref.trace}`);
+      console.log(`Ref: ${ref.title}\n${callStackToText(ref.stack)}`);
   }
 }
 

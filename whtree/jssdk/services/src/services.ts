@@ -1,4 +1,4 @@
-export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR } from "@mod-system/js/internal/hmr";
+export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR, registerLoadedResource } from "@mod-system/js/internal/hmr";
 import { toFSPath } from "./resources";
 export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource } from "./resources";
 import * as fs from "node:fs";
