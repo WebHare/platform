@@ -100,7 +100,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
     RECORD taskinfo := ParseModuleTasks(this->modulename, this->respath, this->xml);
     FOREVERY(RECORD task FROM taskinfo.tasktypes)
     {
-      IF(NOT task.isnode AND task.applyerror = "")
+      IF(NOT task.isnode AND task.applyerror = "" AND task.objectname != "")
       {
         this->VerifyObjectExistence(task.linenum, task.objectname);
       }
@@ -201,4 +201,3 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
       this->AddError(legacywrdschemas, `<wrdschemas xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"> have been deprecated, drop the xmlns`);
   }
 >;
-

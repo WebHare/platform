@@ -674,14 +674,15 @@
         <xs:documentation>Tag for this task type. Is combined with the module name (eg `mymodule:mytag)`</xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="library">
-      <xs:annotation>
-        <xs:documentation>Library containing code for JavaScript tasks (name must end in '.js' or '.es')</xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
+    <xs:attribute name="library" /> <!-- deprecated ... library running was used for ephemeral tasks -->
     <xs:attribute name="objectname">
       <xs:annotation>
         <xs:documentation>Object implementing HareScript task</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="taskrunner">
+      <xs:annotation>
+        <xs:documentation>Path to task runner function to invoke for JavaScript tasks</xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="cluster" type="sc:OptionallyQualifiedName">

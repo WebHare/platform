@@ -69,6 +69,9 @@ PUBLIC RECORD FUNCTION ExecuteEphemeralTask(RECORD taskinfo, BOOLEAN debug)
 
 PUBLIC RECORD FUNCTION ExecuteManagedTask(RECORD taskinfo, BOOLEAN debug)
 {
+  IF(taskinfo.taskrunner != "") //this is a JavaScript task
+    RETURN WaitForPromise(CallAsync("@mod-system/js/internal/tasks/taskrunner.ts#executeManagedTask",VARIANT[taskinfo, debug]));
+
   OBJECT trans := GetPrimary();
   OBJECT taskrunner := PrepareTask(taskinfo, debug, [ taskid := taskinfo.dbid ]);
 
@@ -174,4 +177,3 @@ PUBLIC RECORD FUNCTION ExecuteManagedTask(RECORD taskinfo, BOOLEAN debug)
              , resolution
              ];
 }
-
