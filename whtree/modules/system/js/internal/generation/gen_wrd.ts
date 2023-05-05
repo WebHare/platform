@@ -3,7 +3,7 @@ import { DOMParser } from '@xmldom/xmldom';
 import { config } from "../configuration";
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { resolveResource } from "@webhare/services";
-import { openHSVM } from "@webhare/services/src/hsvm";
+import { HSVM, openHSVM } from "@webhare/services/src/hsvm";
 import { WRDBaseAttributeType, WRDAttributeType } from "@mod-wrd/js/internal/types";
 import { updateDir } from "./shared";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
@@ -58,7 +58,7 @@ type SchemaDef = {
   }>;
 };
 
-export async function generateWRDDefs(modulename: string, modules: string[]): Promise<string> {
+export async function generateWRDDefs(hsvm: HSVM, modulename: string, modules: string[]): Promise<string> {
   let fullfile = "";
   let used_isrequired = false;
   let used_wrdattr = false;
@@ -73,10 +73,6 @@ export async function generateWRDDefs(modulename: string, modules: string[]): Pr
       continue;
 
     const doc = new DOMParser().parseFromString(buffer.toString("utf-8"), 'text/xml');
-
-
-    const hsvm = await openHSVM();
-
 
     for (const wrdschemas of elements(doc.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "wrdschemas"))) {
       for (const wrdschema of elements(wrdschemas.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "schema"))) {
@@ -224,26 +220,31 @@ function createTypeDef(attr: SchemaDef["types"][number]["allattrs"][number], ind
   return typedef;
 }
 
-function generateFile(file: string, { defname, modules }: { defname: string; modules: string[] }) {
-  return generateWRDDefs(defname, modules);
+function generateFile(hsvm: HSVM, file: string, { defname, modules }: { defname: string; modules: string[] }) {
+  return generateWRDDefs(hsvm, defname, modules);
 }
 
 export async function updateAllModuleWRDDefs() {
   const storagedir = config.dataroot + "storage/system/generated/wrd/";
   const localdir = config.installationroot + "modules/system/js/internal/generated/wrd/";
-
+  const hsvm = await openHSVM();
 
   const noncoremodules = Object.keys(config.module).filter(m => !whconstant_builtinmodules.includes(m));
-  await updateDir(storagedir, Object.fromEntries(noncoremodules.map(m => [m + ".ts", { defname: m, modules: [m] }])), true, generateFile);
-  await updateDir(localdir, { "webhare.ts": { defname: "webhare", modules: whconstant_builtinmodules } }, true, generateFile);
+  await updateDir(storagedir, Object.fromEntries(noncoremodules.map(m => [m + ".ts", { defname: m, modules: [m] }])), true, generateFile.bind(null, hsvm));
+  await updateDir(localdir, { "webhare.ts": { defname: "webhare", modules: whconstant_builtinmodules } }, true, generateFile.bind(null, hsvm));
+
+  hsvm.close();
 }
 
 export async function updateSingleModuleWRDDefs(name: string) {
+  const hsvm = await openHSVM();
   if (whconstant_builtinmodules.includes(name)) {
     const localdir = config.installationroot + "modules/system/js/internal/generated/wrd/";
-    await updateDir(localdir, { "webhare.ts": { defname: "webhare", modules: whconstant_builtinmodules } }, true, generateFile);
+    await updateDir(localdir, { "webhare.ts": { defname: "webhare", modules: whconstant_builtinmodules } }, true, generateFile.bind(null, hsvm));
   } else {
     const storagedir = config.dataroot + "storage/system/generated/wrd/";
-    await updateDir(storagedir, { [name + ".ts"]: { defname: name, modules: [name] } }, true, generateFile);
+    await updateDir(storagedir, { [name + ".ts"]: { defname: name, modules: [name] } }, true, generateFile.bind(null, hsvm));
   }
+
+  hsvm.close();
 }
