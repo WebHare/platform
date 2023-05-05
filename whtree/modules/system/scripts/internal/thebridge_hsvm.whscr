@@ -8,7 +8,7 @@ LOADLIB "wh::internal/interface.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
 RECORD ARRAY untransferred_table;
-INTEGER next_untransferred_id := 24000;
+INTEGER next_untransferred_id := 1000 * Random(0, 100);
 BOOLEAN debug := "--debug" IN GetConsoleArguments();
 
 VARIANT FUNCTION MapToBridgeRecursive(VARIANT input)
@@ -25,15 +25,20 @@ VARIANT FUNCTION MapToBridgeRecursive(VARIANT input)
     IF(NOT IsValueSet(input))
       RETURN DEFAULT RECORD;
 
-    INTEGER handleid := SELECT AS INTEGER id FROM untransferred_table WHERE TYPEID(val) = TYPEID(input) ? val = input : FALSE;
-    IF(handleid != 0)
-      RETURN [ __unmarshallable_type := GetTypeName(TYPEID(input)), id := handleid ];
+    INTEGER handlepos := (SELECT AS INTEGER #untransferred_table + 1 FROM untransferred_table WHERE TYPEID(val) = TYPEID(input) ? val = input : FALSE) - 1;
+    IF(handlepos != -1)
+    {
+      // Up the generation, so we can detect when JavaScripts sends a cleanup call for an id when a newer generation
+      // is already in transit.
+      untransferred_table[handlepos].generation := untransferred_table[handlepos].generation + 1;
+      RETURN CELL[ __unmarshallable_type := GetTypeName(TYPEID(input)), untransferred_table[handlepos].id, untransferred_table[handlepos].generation ];
+    }
 
     next_untransferred_id := next_untransferred_id + 1;
     IF(debug)
       Print(`[bridge_hsvm:${GetCurrentGroupId()}] MapToBridgeRecursive: #${next_untransferred_id}\n`);
-    INSERT [ id := next_untransferred_id, val := input ] INTO untransferred_table AT END;
-    RETURN [ __unmarshallable_type := GetTypeName(TYPEID(input)), id := next_untransferred_id ];
+    INSERT [ id := next_untransferred_id, val := input, generation := 1 ] INTO untransferred_table AT END;
+    RETURN [ __unmarshallable_type := GetTypeName(TYPEID(input)), id := next_untransferred_id, generation := 1 ];
   }
 
   RETURN input;
@@ -51,7 +56,7 @@ VARIANT FUNCTION MapFromBridgeRecursive(VARIANT input)
 {
   IF(TYPEID(input) = TYPEID(RECORD) AND CellExists(input, "__unmarshallable_type"))
   {
-    RECORD match := SELECT * FROM untransferred_table WHERE id = input.id;
+    RECORD match := SELECT *, pos := #untransferred_table FROM untransferred_table WHERE id = input.id;
     IF(NOT RecordExists(match))
     {
       IF(debug)
@@ -138,12 +143,13 @@ OBJECTTYPE Controller
 
     RETURN Length(untransferred_table);
   }
-  PUBLIC MACRO ObjCleanup(INTEGER objid)
+  PUBLIC MACRO ObjCleanup(INTEGER objid, INTEGER generation)
   {
     IF(debug)
-      Print(`[bridge_hsvm:${GetCurrentGroupId()}] ObjCleanup(${objid})\n`);
+      Print(`[bridge_hsvm:${GetCurrentGroupId()}] ObjCleanup(${objid}, ${generation})\n`);
 
-    DELETE FROM untransferred_table WHERE id = objid;
+    // Delete only if we didn't resend it since the last time JS saw the id
+    DELETE FROM untransferred_table WHERE id = objid AND COLUMN generation <= VAR generation;
   }
 
   // Called when service link is closed

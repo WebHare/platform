@@ -1,5 +1,7 @@
 import { MessageChannel, MessagePort, TransferListItem } from 'node:worker_threads';
 import { dumpRefs } from './refs';
+import { getCallStackAsText } from "@mod-system/js/internal/util/stacktrace";
+import { flags } from "@webhare/env";
 
 const titlesymbol = Symbol("whRefTracker");
 
@@ -10,7 +12,7 @@ interface Trackable {
 const ports = new Array<WeakRef<MessagePort>>();
 
 function setTrackingSymbol(obj: unknown, title = "unknown") {
-  (obj as Trackable)[titlesymbol] = `MessagePort: '${title}'\n${new Error(`MessagePort created`).stack || ""}`;
+  (obj as Trackable)[titlesymbol] = `MessagePort: '${title}'\n${flags.async ? getCallStackAsText(1) : ""}`;
 }
 
 export interface TypedMessagePort<SendType extends object, ReceiveType extends object> {

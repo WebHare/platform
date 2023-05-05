@@ -9,12 +9,13 @@ export interface JobService {
   objInvoke(objid: unknown, callname: string, args: unknown[]): Promise<unknown>;
   getNumObjects(): Promise<number>;
   createPrintCallback(text: string): Promise<number>;
-  objCleanup(objid: number): Promise<never>;
+  objCleanup(objid: number, generation: number): Promise<never>;
 }
 
 interface MappedUnmarshallable {
   __unmarshallable_type: string;
   id: number;
+  generation: number;
 }
 
 interface HSCallsProxy {
@@ -28,8 +29,8 @@ export type HSVMObject = HSCallsProxy;
 export class HSVM {
   bridge: BridgeService;
   job: JobService & ServiceBase;
-  unmarshallables: Map<number, WeakRef<HSVMUnmarshallable>> = new Map;
-  finalizer: FinalizationRegistry<number> | null = null;
+  unmarshallables: Map<number, { gendata: { generation: number }; weakref: WeakRef<object> }> = new Map;
+  finalizer: FinalizationRegistry<{ id: number; gendata: { generation: number } }> | null = null;
   closed = false;
 
   constructor(bridge: BridgeService, job: JobService & ServiceBase) {
@@ -63,26 +64,51 @@ export class HSVM {
       return undefined;
 
     const id = (data as MappedUnmarshallable).id;
-    const existing = this.unmarshallables.get(id)?.deref();
-    if (existing)
-      return existing;
+    const generation = (data as MappedUnmarshallable).generation;
+    const entry = this.unmarshallables.get(id);
+    if (entry) {
+      const existing = entry.weakref.deref();
+      if (existing) {
+        if (entry.gendata.generation < generation) {
+          // newer generation sent by HareScript, update our generation
+          entry.gendata.generation = generation;
+        }
+        return existing;
+      }
+    }
 
-    let unmarshallable = new HSVMUnmarshallable(this, bridgetype, id);
+    let unmarshallable: object;
+    const gendata = { generation };
     if (bridgetype === "OBJECT") {
-      unmarshallable = new Proxy<HSVMUnmarshallable>(unmarshallable, new HSVMObjectProxy(this, id));
+      const proxy = new HSVMObjectProxy(this, id, gendata);
+      unmarshallable = new Proxy({}, proxy);
+    } else {
+      unmarshallable = new HSVMUnmarshallable(this, bridgetype, id, gendata);
     }
 
     //Set up a registry to detect object being garbage collected on our side, so we can forward it to HS
     if (!this.finalizer) {
-      this.finalizer = new FinalizationRegistry((cleanedupobjid: number) => {
-        if (!this.closed)
-          this.job.objCleanup(cleanedupobjid).catch(() => false); //don't care if this sending fails..
-      });
+      this.finalizer = new FinalizationRegistry((finalizedata) => this.cleanupObject(finalizedata));
     }
 
-    this.finalizer.register(unmarshallable, id);
-    this.unmarshallables.set(id, new WeakRef(unmarshallable));
+    this.finalizer.register(unmarshallable, { id, gendata });
+    this.unmarshallables.set(id, { gendata, weakref: new WeakRef(unmarshallable) });
     return unmarshallable;
+  }
+
+  cleanupObject({ id, gendata }: { id: number; gendata: { generation: number } }) {
+    if (!this.closed) {
+      /* Send the last unmapped generation, a new generation may already be in transit. If the cleanup was
+         processed in that case, we would create a new unmarshallable object when the new generation was received,
+         but its corresponding mapping on the HareScript side would be gone.
+      */
+      this.job.objCleanup(id, gendata.generation).catch(() => false); //don't care if this sending fails.
+
+      // also remove entry from unmarshallables, but only if the gendata matches
+      const entry = this.unmarshallables.get(id);
+      if (entry && entry.gendata === gendata)
+        this.unmarshallables.delete(id);
+    }
   }
 
   mapToBridge(arg: unknown) {
@@ -105,18 +131,20 @@ export class HSVMUnmarshallable {
   readonly vm: HSVM;
   readonly id: number;
   readonly bridgetype: string;
+  readonly gendata: { generation: number };
 
-  constructor(vm: HSVM, bridgetype: string, id: number) {
+  constructor(vm: HSVM, bridgetype: string, id: number, gendata: { generation: number }) {
     this.vm = vm;
     this.id = id;
     this.bridgetype = bridgetype;
+    this.gendata = gendata;
   }
 
 }
 
 export class HSVMObjectProxy extends HSVMUnmarshallable {
-  constructor(vm: HSVM, objid: number) {
-    super(vm, "OBJECT", objid);
+  constructor(vm: HSVM, objid: number, gendata: { generation: number }) {
+    super(vm, "OBJECT", objid, gendata);
   }
 
   get(target: object, prop: string, receiver: unknown) {

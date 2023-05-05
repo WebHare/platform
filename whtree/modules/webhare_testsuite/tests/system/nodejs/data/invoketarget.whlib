@@ -10,3 +10,21 @@ PUBLIC ASYNC FUNCTION MultiplyPromise(INTEGER lhs, INTEGER rhs)
   AWAIT CreateSleepPromise(20);
   RETURN lhs * rhs;
 }
+
+OBJECTTYPE ObjType
+<
+  PUBLIC STRING FUNCTION Test()
+  {
+    RETURN "ok";
+  }
+>;
+
+OBJECT obj;
+
+PUBLIC OBJECT FUNCTION GetObject(INTEGER sleepmsecs)
+{
+  IF (NOT ObjectExists(obj))
+    obj := NEW ObjType;
+  Sleep(sleepmsecs);
+  RETURN obj;
+}

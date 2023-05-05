@@ -4,6 +4,7 @@
   <jstest file="test_std_frontend.ts" />
   <test script="test_hscompat.ts" />
   <test script="test_codecontext.ts" />
+  <test script="test_covm.ts" />
   <test script="test_services.ts" />
   <test script="test_bridge_from_harescript.whscr" />
   <test script="test_tests.ts" />
