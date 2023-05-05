@@ -1,5 +1,17 @@
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
 
+  <object tag="wrd_relation" title="Relation">
+  </object>
+
+  <object tag="wrd_person" parent="wrd_relation" haspersonaldata="true" title="Person">
+  </object>
+
+  <object tag="wrd_organization" parent="wrd_relation" title="Organization">
+    <attributes>
+      <free tag="wrd_orgname" title="Organization name" />
+    </attributes>
+  </object>
+
   <object tag="wrd_settings">
     <attributes />
     <values matchattribute="wrd_guid" overwriteattributes="wrd_tag">

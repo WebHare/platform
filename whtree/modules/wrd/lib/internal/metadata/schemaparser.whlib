@@ -149,9 +149,20 @@ STATIC OBJECTTYPE ParsedSchemaDef
       IF(which != "extend" AND type.type != ToUppercase(which))
         THROW NEW Exception("Metatype '" || ToLowercase(this->types[existingtypepos].type) || "' cannot be changed to '" || which || "' at the second declaration of type '" || typetag || "'");
 
-      FOREVERY(STRING attrname FROM ["title","parent","description"])
-        IF(typenode->HasAttribute(attrname))
-          THROW NEW Exception("'" || attrname || "' cannot be redefined at the second declaration of type '" || typetag || "' at " || this->currentfile || ":" || typenode->linenum);
+      IF(typenode->HasAttribute("parent"))
+        type.parenttype_tag := typenode->GetAttribute("parent");
+
+      IF(typenode->HasAttribute("title"))
+        type.title := typenode->GetAttribute("title");
+
+      IF(typenode->HasAttribute("description"))
+        type.description := typenode->GetAttribute("description");
+
+      IF(typenode->HasAttribute("haspersonaldata"))
+        type.haspersonaldata := ParseXSBoolean(typenode->GetAttribute("haspersonaldata"));
+
+      IF(typenode->HasAttribute("keephistorydays"))
+        type.keephistorydays := ParseXSInt(typenode->GetAttribute("keephistorydays"));
     }
 
     OBJECT attributesnode := typenode->GetChildElementsByTagNameNS(ns_schemadef, "attributes")->Item(0);

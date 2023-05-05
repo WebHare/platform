@@ -147,7 +147,7 @@ MACRO ExportXMLMetadata()
   wrdschema := CreateWRDSchema(wrdschema->tag);
   TestEq(RECORD[], ValidateSingleFile("mod::webhare_testsuite/dummy.wrdschema.xml", [ overridedata := structurexml->GetDocumentBlob(FALSE) ]).errors);
 
-  wrdschema->ApplySchemaDefinition([ __schemadefinition := structuredoc ]);
+  wrdschema->ApplySchemaDefinition([ __schemadefinition := structuredoc, fromexternal := TRUE ]);
   testfw->CommitWork();
 
   TestEq(TRUE, RecordExists(wrdschema->^wrd_relation->GetAttribute("KARMA")));

@@ -330,7 +330,7 @@ MACRO CreateType(OBJECT local_schema, RECORD data, RECORD ARRAY remote_types, RE
   {
     CASE wrd_metatype_object
     {
-      local_schema->CreateType(data.tag, [ title := data.title, description := data.description ]);
+      local_schema->CreateType(data.tag, [ title := data.title, description := data.description, abstract := ToUppercase(data.tag) = "WRD_RELATION" ]);
     }
     CASE wrd_metatype_link
     {
@@ -491,7 +491,7 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
       }
     }
 
-    IF(r.left.parenttype != req_parent AND r.left.tag NOT IN ["WRD_PERSON","WRD_ORGANIZATION","WRD_RELATION"])
+    IF(r.left.parenttype != req_parent)
     {
       //FIXME always safe to do this ?!?
       local_type->UpdateMetadata([parenttype := req_parent]);
