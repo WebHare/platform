@@ -12,8 +12,14 @@
     </attributes>
   </object>
 
-  <object tag="wrd_settings">
-    <attributes />
+  <object tag="wrd_settings" title="Schema settings">
+    <attributes>
+      <array tag="migrations">
+        <free tag="tag" required="true" />
+        <datetime tag="finished" required="true" description="When the migration completed" />
+        <record tag="result" description="Result returned by the migration script" />
+      </array>
+    </attributes>
     <values matchattribute="wrd_guid" overwriteattributes="wrd_tag">
       <value>
         <field tag="wrd_guid">wrd:BEA61EF00D0000000000000000000000</field>

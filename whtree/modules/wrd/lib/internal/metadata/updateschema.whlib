@@ -75,13 +75,6 @@ STRING ARRAY wrdattr_allowed :=
     , "TYPE", "DOMAINTAG", "PARENT", "ISORDERED", "ATTRS", "HASVALUES", "MULTILINE", "ALLOWEDVALUES"
     ];
 
-PUBLIC STRING FUNCTION GetMigrationKeyName(STRING migrationtag)
-{
-  IF(migrationtag = "" OR migrationtag LIKE "* *")
-    THROW NEW Exception(`Invalid migration tag '${migrationtag}'`);
-  RETURN "wrd:migrations." || EncodeBase16(ToLowercase(migrationtag));
-}
-
 RECORD FUNCTION InsertDefaultFields(RECORD val, RECORD defaults, STRING ARRAY allowed)
 {
   RECORD base := MakeUpdatedRecord(defaults, val);
@@ -405,25 +398,43 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
                                 , keyvaluestore := RECORD[]
                                 ], schemadef);
 
+  RECORD ARRAY runmigrations;
+  RECORD ARRAY completedmigrations;
+  BOOLEAN updatemigrations;
+  IF(NOT options.skipmigrations)
+  {
+    IF(ObjectExists(local_schema->GetType("wrd_settings")) AND RecordExists(local_schema->GetType("wrd_settings")->GetAttribute("migrations")))
+    {
+      INTEGER mysettings := local_schema->^wrd_settings->Search("wrd_guid", wrd_settings_guid);
+      completedmigrations := local_schema->^wrd_settings->GetEntityField(mysettings, "migrations");
+    }
+    ELSE
+    {
+      //process classic migrations
+      completedmigrations := SELECT tag := DecodeBase16(Substring(name,15))
+                                  , finished := value.finished
+                                  , result := value.result
+                               FROM ListWRDSchemaSettings(local_schema->id)
+                              WHERE name LIKE "wrd:migrations.*";
+      updatemigrations := TRUE;
+    }
+
+    //remove completed migrations. to rerun an existing migration, just update its tag
+    runmigrations := SELECT * FROM schemadef.migrations WHERE tag NOT IN (SELECT AS STRING ARRAY tag FROM completedmigrations);
+  }
+
   IF (NOT options.fromexternal)
   {
     local_schema->SetSchemaSetting("wrd:schemaresources", schemadef.schemaresources);
-    IF(NOT options.skipmigrations)
+    FOREVERY(RECORD migration FROM runmigrations)
     {
-      FOREVERY(RECORD migration FROM schemadef.migrations)
-      {
-        STRING migrationkey := GetMigrationKeyName(migration.tag);
-        IF(NOT RecordExists(local_schema->GetSchemaSetting(migrationkey, [fallback := DEFAULT RECORD])))
-        {
-          RECORD result := MakeFunctionPtr(migration.updatefunction)(local_schema);
-          local_schema->SetSchemaSetting(migrationkey, CELL[ finished := GetCurrentDateTime(), result ]);
-        }
-      }
+      RECORD result := MakeFunctionPtr(migration.updatefunction)(local_schema);
+      INSERT CELL [ migration.tag, finished := GetCurrentDateTime(), result ] INTO completedmigrations AT END;
+      updatemigrations := TRUE;
     }
   }
 
   RECORD ARRAY local_types := local_schema->ListTypes();
-
   RECORD ARRAY remote_types :=
       SELECT *
         FROM schemadef.types
@@ -606,6 +617,13 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
     VARIANT value := AnyTypeFromBlobString(setting.keyvalue.data, setting.keyvalue.blobdata, setting.keyvalue.type);
     local_schema->SetSchemaSetting(setting.name, value);
   }
+
+  IF(updatemigrations)
+  {
+    INTEGER mysettings := local_schema->^wrd_settings->Search("wrd_guid", wrd_settings_guid);
+    local_schema->^wrd_settings->UpdateEntity(mysettings, [ migrations := completedmigrations ]);
+  }
+
   local_schema->__SignalMetadataChanged();
 }
 

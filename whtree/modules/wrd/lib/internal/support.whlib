@@ -11,6 +11,7 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
 
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/consilio.whlib";
@@ -1197,3 +1198,20 @@ PUBLIC STRING ARRAY FUNCTION GetTypeReferences(OBJECT wrdschema, STRING ARRAY re
   }
   RETURN references;
 }
+
+/** Returns all schema settings for a specific WRD schema
+    @param wrdschemaid Id of the schema
+    @return List of all schema settings
+    @cell return.name Name of the key
+    @cell return.value Name of the value
+*/
+PUBLIC RECORD ARRAY FUNCTION ListWRDSchemaSettings(INTEGER wrdschemaid)
+{
+  RETURN
+      SELECT name :=      ToLowercase(name)
+           , value :=     ReadAnyFromDatabase(data, blobdata)
+        FROM wrd.keyvaluestore
+       WHERE wrd_schema = wrdschemaid
+    ORDER BY ToLowercase(name);
+}
+

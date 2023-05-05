@@ -318,22 +318,6 @@ PUBLIC MACRO RemoveWRDSchemaSetting(INTEGER wrdschemaid, STRING keyname)
   GetWRDCommitHandler()->SettingsChanged(wrdschemaid);
 }
 
-/** Returns all schema settings for a specific WRD schema
-    @param wrdschemaid Id of the schema
-    @return List of all schema settings
-    @cell return.name Name of the key
-    @cell return.value Name of the value
-*/
-RECORD ARRAY FUNCTION ListWRDSchemaSettings(INTEGER wrdschemaid)
-{
-  RETURN
-      SELECT name :=      ToLowercase(name)
-           , value :=     ReadAnyFromDatabase(data, blobdata)
-        FROM wrd.keyvaluestore
-       WHERE wrd_schema = wrdschemaid
-    ORDER BY ToLowercase(name);
-}
-
 PUBLIC STATIC OBJECTTYPE WRDSchemaBase
 <
   RECORD schemarec;
@@ -817,7 +801,9 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
   */
   PUBLIC RECORD FUNCTION GetMigrationStatus(STRING migrationtag)
   {
-    RETURN this->GetSchemaSetting(GetMigrationKeyName(migrationtag), [ fallback := DEFAULT RECORD ]);
+    INTEGER mysettings := this->^wrd_settings->Search("wrd_guid", wrd_settings_guid);
+    RECORD ARRAY completedmigrations := this->^wrd_settings->GetEntityField(mysettings, "migrations");
+    RETURN SELECT result, finished FROM completedmigrations WHERE tag = migrationtag;
   }
 
   //////////////////////////////////////////
