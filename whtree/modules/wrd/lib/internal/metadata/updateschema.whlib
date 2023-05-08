@@ -523,12 +523,6 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
 
   FOREVERY (RECORD r FROM (SELECT * FROM diff.shared WHERE CellExists(shared.right,'hasvalues') AND shared.right.hasvalues ORDER BY shared.right.valslinenum)) //HACK: process them in source order, giving more chance to resolve dependencies
   {
-    IF (r.left.metatype NOT IN [1,3,4])
-      CONTINUE;
-
-    IF (NOT CellExists(r.right,'hasvalues') OR NOT r.right.hasvalues)
-      CONTINUE;
-
     STRING syncattr := r.right.domvalsyncattr;
 
     OBJECT local_type := local_schema->GetType(r.left.tag);
