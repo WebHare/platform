@@ -107,18 +107,6 @@ MACRO TestApplyRuleTester()
   TestEq(FALSE, tester->IsIndexDoc());
   TestEq("http://www.webhare.net/xmlns/publisher/contentlink", tester->objtypens);
 
-  OBJECT prebuiltshtml := GetTestsuiteTempFolder()->CreateFile([name:="prebuiltshtml", typens := "http://www.webhare.net/xmlns/webhare_testsuite/prebuiltshtml", publish := TRUE ]);
-  OBJECT prebuilthtml := GetTestsuiteTempFolder()->CreateFile([name:="prebuilthtml", typens := "http://www.webhare.net/xmlns/webhare_testsuite/prebuilthtml", publish := TRUE ]);
-
-  //Test apply rules that apply to only specific prebuilts
-  TestEq('en', GetSiteLanguage(prebuilthtml->id));
-  TestEq('nl', GetSiteLanguage(prebuiltshtml->id));
-
-  tester := GetApplyTesterForObject(prebuiltshtml->id);
-  TestEq(FALSE, tester->IsNew());
-  TestEq(FALSE, tester->IsIndexDoc());
-  TestEq(FALSE, tester->IsSiteRoot());
-
   OBJECT testindexfolder := GetTestsuiteTempFolder()->CreateFolder([name:="testindexfolder" ]);
   OBJECT testindex := testindexfolder->CreateFile([name := "index.html"]);
 

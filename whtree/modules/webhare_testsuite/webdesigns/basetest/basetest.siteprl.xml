@@ -48,30 +48,6 @@
   </filetype>
 
 
-  <!-- Special pages -->
-  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/prebuiltshtml"
-            kind="virtualfile">
-    <dynamicexecution webpageobjectname="pages/basetestpages.whlib#PrebuiltSHTML" />
-    <sitelanguage lang="nl" />
-  </filetype>
-  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/prebuilthtml"
-            kind="virtualfile">
-    <bodyrenderer objectname="pages/basetestpages.whlib#WebStaticPage" />
-  </filetype>
-  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/prebuiltshtml_csp"
-            kind="virtualfile"
-            capturesubpaths="true">
-    <dynamicexecution webpageobjectname="pages/basetestpages.whlib#PrebuiltSHTML" />
-  </filetype>
-  <filetype namespace="http://www.webhare.net/xmlns/webhare_testsuite/prebuilthtml_csp"
-            kind="virtualfile"
-            capturesubpaths="true">
-    <bodyrenderer objectname="pages/basetestpages.whlib#WebStaticPage" />
-  </filetype>
-
-
-
-
   <!-- Global site settings -->
   <apply>
     <to type="all" />
