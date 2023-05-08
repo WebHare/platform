@@ -401,7 +401,7 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
   RECORD ARRAY runmigrations;
   RECORD ARRAY completedmigrations;
   BOOLEAN updatemigrations;
-  IF(NOT options.skipmigrations)
+  IF(NOT options.skipmigrations AND NOT options.fromexternal)
   {
     IF(ObjectExists(local_schema->GetType("wrd_settings")) AND RecordExists(local_schema->GetType("wrd_settings")->GetAttribute("migrations")))
     {
@@ -424,14 +424,13 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
   }
 
   IF (NOT options.fromexternal)
-  {
     local_schema->SetSchemaSetting("wrd:schemaresources", schemadef.schemaresources);
-    FOREVERY(RECORD migration FROM runmigrations)
-    {
-      RECORD result := MakeFunctionPtr(migration.updatefunction)(local_schema);
-      INSERT CELL [ migration.tag, finished := GetCurrentDateTime(), result ] INTO completedmigrations AT END;
-      updatemigrations := TRUE;
-    }
+
+  FOREVERY(RECORD migration FROM SELECT * FROM runmigrations)
+  {
+    RECORD result := MakeFunctionPtr(migration.updatefunction)(local_schema);
+    INSERT CELL [ migration.tag, finished := GetCurrentDateTime(), result ] INTO completedmigrations AT END;
+    updatemigrations := TRUE;
   }
 
   RECORD ARRAY local_types := local_schema->ListTypes();
@@ -466,7 +465,8 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
 
   diff := GetDiff(local_types, remote_types, "TAG");
 
-  FOREVERY (RECORD r FROM diff.shared) //please note: we already creatd missing types above, so diff.right_added is empty here
+  //Create/update types and their attributes
+  FOREVERY (RECORD r FROM diff.shared) //please note: we already created missing types above, so diff.right_added is empty here
   {
     OBJECT local_type := local_schema->GetType(r.left.tag);
     IF(NOT ObjectExists(local_type)) //no longer exists. must have been recursively deleted by its parent disappearing
@@ -521,6 +521,47 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
   local_types := local_schema->ListTypes();
   diff := GetDiff(local_types, remote_types, "TAG");
 
+  IF (RecordExists(schemadef.metadata)) //This is still a metadata update so it should run before entity creation/update
+  {
+    IF (CellExists(schemadef.metadata, "ACCOUNTTYPE"))
+    {
+      IF ((ObjectExists(local_schema->accounttype) ? local_schema->accounttype->tag : "") != ToUppercase(schemadef.metadata.accounttype))
+      {
+        OBJECT type;
+        IF (schemadef.metadata.accounttype != "")
+        {
+          type := local_schema->GetType(schemadef.metadata.accounttype);
+          IF (NOT ObjectExists(type))
+            THROW NEW Exception("No such accounttype '" || schemadef.metadata.accounttype || "'");
+
+        }
+        local_schema->UpdateMetadata([ accounttype := ObjectExists(type) ? type->id : 0 ]);
+      }
+    }
+
+    FOREVERY (STRING field FROM [ "accountloginfield", "accountpasswordfield", "accountemailfield" ])
+    {
+      IF (CellExists(schemadef.metadata, field))
+      {
+        STRING value := GetCell(schemadef.metadata, field);
+        IF (value != "" AND NOT ObjectExists(local_schema->accounttype))
+          THROW NEW Exception("Can't set a accountfield without setting the accounttype");
+
+        STRING namebase := Left(field, LENGTH(field) - 5);
+
+        IF (ToUppercase(GetMember(local_schema, namebase || "TAG")) = ToUppercase(value))
+          CONTINUE;
+
+        RECORD attr := local_schema->accounttype->GetAttribute(value);
+        IF (value != "" AND NOT RecordExists(attr))
+          THROW NEW Exception("Could not find " || field || " '" || value || "' in accounttype '" || local_schema->accounttype->tag || "'");
+
+        local_schema->UpdateMetadata(CellInsert(DEFAULT RECORD, namebase, RecordExists(attr) ? attr.id : 0));
+      }
+    }
+  }
+
+  //Create/update entities
   FOREVERY (RECORD r FROM (SELECT * FROM diff.shared WHERE CellExists(shared.right,'hasvalues') AND shared.right.hasvalues ORDER BY shared.right.valslinenum)) //HACK: process them in source order, giving more chance to resolve dependencies
   {
     STRING syncattr := r.right.domvalsyncattr;
@@ -564,46 +605,6 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
       THROW NEW Exception("Multiple values found for type '" || r.left.title || "' (" || r.left.tag || ") with the same value for '" || syncattr || "': " || FormatValueList(doubles));
 
     UpdateValuesRecursive(local_type, all_local_domvals, r.right.vals, r.left.metatype = 4 ? 0 : -1, syncattr, r.right);
-  }
-
-  IF (RecordExists(schemadef.metadata))
-  {
-    IF (CellExists(schemadef.metadata, "ACCOUNTTYPE"))
-    {
-      IF ((ObjectExists(local_schema->accounttype) ? local_schema->accounttype->tag : "") != ToUppercase(schemadef.metadata.accounttype))
-      {
-        OBJECT type;
-        IF (schemadef.metadata.accounttype != "")
-        {
-          type := local_schema->GetType(schemadef.metadata.accounttype);
-          IF (NOT ObjectExists(type))
-            THROW NEW Exception("No such accounttype '" || schemadef.metadata.accounttype || "'");
-
-        }
-        local_schema->UpdateMetadata([ accounttype := ObjectExists(type) ? type->id : 0 ]);
-      }
-    }
-
-    FOREVERY (STRING field FROM [ "accountloginfield", "accountpasswordfield", "accountemailfield" ])
-    {
-      IF (CellExists(schemadef.metadata, field))
-      {
-        STRING value := GetCell(schemadef.metadata, field);
-        IF (value != "" AND NOT ObjectExists(local_schema->accounttype))
-          THROW NEW Exception("Can't set a accountfield without setting the accounttype");
-
-        STRING namebase := Left(field, LENGTH(field) - 5);
-
-        IF (ToUppercase(GetMember(local_schema, namebase || "TAG")) = ToUppercase(value))
-          CONTINUE;
-
-        RECORD attr := local_schema->accounttype->GetAttribute(value);
-        IF (value != "" AND NOT RecordExists(attr))
-          THROW NEW Exception("Could not find " || field || " '" || value || "' in accounttype '" || local_schema->accounttype->tag || "'");
-
-        local_schema->UpdateMetadata(CellInsert(DEFAULT RECORD, namebase, RecordExists(attr) ? attr.id : 0));
-      }
-    }
   }
 
   FOREVERY (RECORD setting FROM schemadef.keyvaluestore)
