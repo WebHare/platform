@@ -98,7 +98,7 @@ IF (LENGTH(test_suite_blob) != 0)
   FOREVERY (RECORD file FROM files)
   {
     STRING fullpath := MergePath(file.path, file.name);
-    CreateDiskFileFromBlob(MergePath(file.path, file.name), TRUE, TRUE, file.data);
+    StoreDiskFile(MergePath(file.path, file.name), file.data, [ overwrite := TRUE ]);
   }
   input_basedir := MergePath(tempdir, "DOM-Test-Suite/tests");
 }
@@ -835,24 +835,13 @@ MACRO GenerateTests()
         STRING outfilename := output_basedir || outputdir || "files/" || ToLowercase(file.name);
         IF (NOT silent)
           Print("Copying file " || outfilename || "\n");
-        IF (NOT CreateDiskFileFromBlob(outfilename, FALSE, TRUE, MakeBlobFromDiskFile(infilename)))
-        {
-          Print("Could not copy file '" || infilename || "' to '" || outfilename || "'\n");
-          SetConsoleExitCode(1);
-          RETURN;
-        }
+        StoreDiskFile(outfilename, GetDiskResource(infilename), [ overwrite := TRUE ]);
       }
     }
 
     // Open alltests.xml file
     STRING testdefname := inputdir || "alltests.xml";
-    BLOB testdefblob := MakeBlobFromDiskFile(testdefname);
-    IF (Length(testdefblob) = 0)
-    {
-      Print("Could not read file '" || testdefname || "'\n");
-      SetConsoleExitCode(1);
-      RETURN;
-    }
+    BLOB testdefblob := GetDiskResource(testdefname);
 
     // Parse alltests.xml file
     OBJECT testdef := MakeXMLDocument(testdefblob, "", TRUE);
@@ -894,13 +883,7 @@ MACRO GenerateTests()
     {
       // Open XML file
       STRING inputname := inputdir || tests->Item(t)->GetAttribute("href");
-      BLOB inputblob := MakeBlobFromDiskFile(inputname);
-      IF (Length(inputblob) = 0)
-      {
-        Print("Could not read file '" || inputname || "'\n");
-        SetConsoleExitCode(1);
-        RETURN;
-      }
+      BLOB inputblob := GetDiskResource(inputname);
 
       // Parse XML file
       OBJECT test := MakeXMLDocument(inputblob, "", TRUE);
@@ -979,12 +962,7 @@ MACRO GenerateTests()
   STRING alltestsname := output_basedir || "testinfo.xml";
   IF (NOT silent)
     Print("Writing '" || alltestsname || "'\n");
-  IF (NOT CreateDiskFileFromBlob(alltestsname, FALSE, TRUE, alltests->GetDocumentBlob(TRUE)))
-  {
-    Print("Could not create output file '" || alltestsname || "'\n");
-    SetConsoleExitCode(1);
-    RETURN;
-  }
+  StoreDiskFile(alltestsname, alltests->GetDocumentBlob(TRUE), [ overwrite := TRUE ]);
 }
 GenerateTests();
 CollectGarbage();

@@ -238,7 +238,7 @@ PUBLIC OBJECTTYPE TableTest EXTEND TolliumScreenBase
 
         // Set columns
         STRING ARRAY txts := [ "Beschikbaar", "Bezet", "In optie" ];
-        OBJECT textobj := this->CreateTolliumComponent("text");
+        textobj := this->CreateTolliumComponent("text");
         textobj->value := "Zaal " || i || ": " || txts[i%LENGTH(txts)];
         this->mytable->GetCell(i, 0)->panel->InsertComponentAfter(textobj, DEFAULT OBJECT, FALSE);
 
@@ -818,7 +818,7 @@ PUBLIC OBJECTTYPE ListEditTest EXTEND TolliumScreenBase
       IF (NOT RecordExists(row))
       {
         INTEGER new_rowkey := (SELECT AS INTEGER Max(rowkey) FROM this->rows) + 1;
-        RECORD row := dialog->GetUpdatedRow();
+        row := dialog->GetUpdatedRow();
         INSERT CELL rowkey := new_rowkey INTO row;
         INSERT row INTO this->rows AT END;
       }

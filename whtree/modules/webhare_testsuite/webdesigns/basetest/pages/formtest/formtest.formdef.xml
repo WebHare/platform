@@ -131,7 +131,7 @@
 
   <form name="multipagetest" gid=".multipagetest" objectname="formtest.whlib#MultipageTestForm" prevlabel="&lt;--" nextlabeltid=".nextlabeltid" jshandler="multipageform">
     <page pagetitle="firstpage" fieldsrenderer="formtest.whlib#RenderMultipageTestFirstPage">
-      <richtext name="text1">
+      <richtext title="" name="text1">
         <body xmlns="http://www.w3.org/1999/xhtml">
           <h2>Page 1</h2>
         </body>
@@ -146,7 +146,7 @@
         <option rowkey="notaquest" title="I'm on no quest" />
         <option rowkey="holygrail" title="I seek the holy grail" />
       </select>
-      <richtext name="vertspacetext">
+      <richtext title="" name="vertspacetext">
         <body xmlns="http://www.w3.org/1999/xhtml">
           <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
           <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
@@ -162,7 +162,7 @@
       </richtext>
     </page>
     <page name="conditional" pagetid=".nextpage">
-      <richtext name="maybetext">
+      <richtext title="" name="maybetext">
         <body xmlns="http://www.w3.org/1999/xhtml">
           <h2>Maybe Page</h2>
         </body>
@@ -188,22 +188,22 @@
       </select>
       <imgedit name="img" title="Image" />
     </page>
-    <page name="bonuspage">
-      <richtext name="bonuspagetext">
+    <page name="bonuspage" pagetitle="BonusPage">
+      <richtext title="" name="bonuspagetext">
         <body xmlns="http://www.w3.org/1999/xhtml">
           <p>Well...I don't know...AAAAARRRRRRRRRRRRRRRGGGGGHHHH!!!</p>
         </body>
       </richtext>
     </page>
     <page name="lastpage">
-      <richtext name="text2">
+      <richtext title="" name="text2">
         <body xmlns="http://www.w3.org/1999/xhtml">
           <h2>Page 2</h2>
           <p>Come on <span data-merge="textContent:form.firstname" />, just one more page!</p>
         </body>
       </richtext>
       <textedit name="text" title="Text" required="true" />
-      <richtext name="vertspacetext2">
+      <richtext title="" name="vertspacetext2">
         <body xmlns="http://www.w3.org/1999/xhtml">
           <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
           <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
@@ -219,13 +219,13 @@
       </richtext>
     </page>
     <page role="thankyou">
-      <richtext name="text3">
+      <richtext title="" name="text3">
         <body xmlns="http://www.w3.org/1999/xhtml">
           <h2>Done!</h2>
           <p>Thank you for filling this form, we will contact you at <span data-merge="textContent:form.email" /></p>
         </body>
       </richtext>
-      <richtext name="vertspacetext3">
+      <richtext title="" name="vertspacetext3">
         <body xmlns="http://www.w3.org/1999/xhtml">
           <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
           <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
@@ -239,7 +239,7 @@
           <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
         </body>
       </richtext>
-      <richtext name="text4">
+      <richtext title="" name="text4">
         <body xmlns="http://www.w3.org/1999/xhtml">
           <p>We will <span data-merge="textContent:form.maybe" /> contact you</p>
         </body>
@@ -258,15 +258,15 @@
           <fieldtitle tag="nr_detail" title="Number and Addition" />
           <fieldtitle tag="zip" /><!-- Use tid derived from field tid and fieldtitle tag, i.e. "site.addressform.address-zip" -->
         </address>
-        <textedit name="neighbourhood" />
-        <richtext name="address2heading"><body xmlns="http://www.w3.org/1999/xhtml"><h2>Adddress 2</h2><p>countrylist=NL BE DE, options=nl-zip-suggest</p></body></richtext>
-        <address name="address2" countrylist="NL BE DE - WORLD" options="nl-zip-suggest">
+        <textedit name="neighbourhood"  title=""/>
+        <richtext title="" name="address2heading"><body xmlns="http://www.w3.org/1999/xhtml"><h2>Adddress 2</h2><p>countrylist=NL BE DE, options=nl-zip-suggest</p></body></richtext>
+        <address name="address2" countrylist="NL BE DE - WORLD" options="nl-zip-suggest" title="">
           <fieldtitle tag="country" title="Address2" />
           <fieldtitle tag="nr_detail" title="Number and Addition2" />
         </address>
       </group>
-      <group title="Address 3" name="address3group">
-        <address name="address3" options="!nl-zip-suggest" />
+      <group title="Address 3" name="address3group" >
+        <address name="address3" options="!nl-zip-suggest" title="" />
       </group>
     </page>
   </form>

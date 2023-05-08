@@ -6,6 +6,7 @@
     <validation>
       <exclude mask="tests/*" why="Tests (and their helper data) often violates validation rules" />
       <exclude mask="tolliumapps/demo/*" why="the demos appear broken but not sure yet if we need to keep or remove them. some are used in tests" />
+      <exclude mask="screens/tests/*" why="Many missing tids" />
 
       <!-- <exclude mask="tests/*/data/*" why="don't validate test data, its often broke" /> -->
       <exclude mask="*testdata_loadlib_circ_?.whlib" why="These libraries are supposed to fail to compile" />
