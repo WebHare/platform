@@ -1,8 +1,10 @@
 import * as test from "@webhare/test";
 import { generateWRDDefs } from "@mod-system/js/internal/generation/gen_wrd";
+import { openHSVM } from "@webhare/services/src/hsvm";
 
 async function testFileGeneration() {
-  let result = await generateWRDDefs("webhare", ["system"]);
+  const hsvm = await openHSVM();
+  let result = await generateWRDDefs(hsvm, "webhare", ["system"]);
 
   //Basic sanity checks - we don't want to set up a full TS parser (yet?)
   result = result.replaceAll("\n", " ");
