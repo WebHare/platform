@@ -242,7 +242,7 @@
             extensions=".shtml"
             isacceptableindex="true"
             isdevelopertype="true">
-    <dynamicexecution webpageobjectname="lib/basetest.whlib#WebPage" />
+    <dynamicexecution webpageobjectname="mod::webhare_testsuite/lib/publisher/testsitedesign.whlib#WebPage" />
   </filetype>
 
   <!-- SEO tab -->
