@@ -36,7 +36,7 @@ type TestSchema = {
     whuserComment: WRDAttributeType.Free;
     whuserLastlogin: WRDAttributeType.DateTime;
     whuserHiddenannouncements: WRDAttributeType.DomainArray;
-    invented_domain: WRDAttributeType.Domain;
+    inventedDomain: WRDAttributeType.Domain;
   };
 };
 
@@ -87,7 +87,7 @@ type CustomExtensions = {
         }>;
         testSingle: WRDAttributeType.Domain;
         testImage: WRDAttributeType.Image;
-        testSingle_other: WRDAttributeType.Domain;
+        testSingleOther: WRDAttributeType.Domain;
         testMultiple: WRDAttributeType.DomainArray;
         testEmail: WRDAttributeType.Email;
       };
@@ -291,6 +291,53 @@ async function testNewAPI() {
   test.eq([{ wrdId: newperson, testSingleDomain: domain1value1 }], await schema.selectFrom("wrdPerson").select(["wrdId", "testSingleDomain"]).where("testSingleDomain", "in", [null, domain1value1]).execute());
   test.eq(newperson, await schema.search("wrdPerson", "testSingleDomain", domain1value1));
   test.eq([{ wrdId: newperson, testSingleDomain: domain1value1 }], await schema.enrich("wrdPerson", [{ wrdId: newperson }], "wrdId", ["testSingleDomain"]));
+
+  // test array & nested record selectors
+  {
+    await schema.update("wrdPerson", newperson, {
+      testArray: [
+        {
+          testArray2: [{ testInt2: 2, wrdSettingId: -2n }],
+          wrdSettingId: -1n
+        }
+      ]
+    });
+
+    const arrayselectres = await schema
+      .selectFrom("wrdPerson")
+      .select({ a: ["wrdId", "testArray"], b: "wrdId", c: "testArray" })
+      .where("wrdId", "=", newperson).execute();
+
+    const expectArray = [
+      {
+        testArray2: [
+          {
+            testInt2: 2,
+            wrdSettingId: arrayselectres[0]?.a.testArray[0]?.testArray2[0]?.wrdSettingId ?? -2
+          }
+        ],
+        testEmail: "",
+        testFree: "",
+        testImage: null,
+        testInt: 0,
+        testMultiple: [],
+        testSingle: null,
+        testSingleOther: null,
+        wrdSettingId: arrayselectres[0]?.a.testArray[0]?.wrdSettingId ?? -1
+      }
+    ];
+
+    test.eq([
+      {
+        a: {
+          wrdId: newperson,
+          testArray: expectArray
+        },
+        b: newperson,
+        c: expectArray
+      }
+    ], arrayselectres);
+  }
 
   const nottrue = false;
   if (nottrue) {
