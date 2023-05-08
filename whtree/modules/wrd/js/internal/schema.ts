@@ -228,11 +228,14 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   async enrich<EnrichKey extends keyof DataRow, M extends EnrichOutputMap<S[T]>, DataRow extends { [K in EnrichKey]: number | null }>(data: DataRow[], field: EnrichKey, mapping: M, options: { rightouterjoin?: boolean } = {}): Promise<Array<DataRow & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>> {
     //avoid sending the original array through the API (and having to repair it!)
     const outputmap = recordizeOutputMap(mapping);
-    const enrichabledata = new Map<DataRow[EnrichKey], DataRow>(data.map(row => [row[field], row]));
-    const result = await (await this._getType()).enrich(data.map(row => ({ __js_enrichon: row[field] })), "__js_enrichon", outputmapToHS(outputmap), { ...options, jsmode: true }) as Array<{ __js_enrichon?: DataRow[EnrichKey] } & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>;
+    const lookupkeys = new Set(data.map(row => row[field]));
+    //HS wants an array to look up, so convert the uniquefied keys to {__js_enricon: lookup key }
+    const lookuparray = [...lookupkeys.values()].map(key => ({ __js_enrichon: key }));
+    const result = await (await this._getType()).enrich(lookuparray, "__js_enrichon", outputmapToHS(outputmap), { ...options, jsmode: true }) as Array<{ __js_enrichon?: DataRow[EnrichKey] } & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>;
+    const resultlookup = new Map(result.map(row => [row.__js_enrichon, row]));
     const resultrows: Array<Record<string, unknown>> = [];
-    for (const row of result) {
-      const remergedrow = { ...enrichabledata.get(row.__js_enrichon!), ...row };
+    for (const row of data) {
+      const remergedrow = { ...resultlookup.get(row[field]), ...row };
       delete remergedrow.__js_enrichon;
       resultrows.push(remergedrow);
     }
