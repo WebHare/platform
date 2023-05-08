@@ -107,7 +107,7 @@ FOREVERY(STRING modname FROM checklist)
   }
 
   IF (NOT args.silent)
-    Print(`Checking module ${modname}...\n`);
+    Print(`Checking module ${modname}...${args.nowarnings ? " (no warnings)" : ""}${args.hidehints ? " (hide hints)" : ""}${args.nochecktypescript ? " (no typescript checking)" : ""}${args.onlytids ? " (only tids)":""}\n`);
   OBJECT promise := AsyncCallFunctionFromJob(
               "mod::system/lib/internal/modules/checkmodule.whlib#CheckModule",
               modname, CELL

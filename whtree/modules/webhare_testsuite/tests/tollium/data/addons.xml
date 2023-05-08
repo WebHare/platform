@@ -1,6 +1,5 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
-         lib="screens/tests/addons.whlib"
          gid="addons">
 
   <screen name="block_multilinecomponent" implementation="none">
