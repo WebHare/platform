@@ -147,7 +147,7 @@ MACRO ExportXMLMetadata()
   wrdschema := CreateWRDSchema(wrdschema->tag);
   TestEq(RECORD[], ValidateSingleFile("mod::webhare_testsuite/dummy.wrdschema.xml", [ overridedata := structurexml->GetDocumentBlob(FALSE) ]).errors);
 
-  wrdschema->ApplySchemaDefinition([ __schemadefinition := structuredoc ]);
+  wrdschema->ApplySchemaDefinition([ __schemadefinition := structuredoc, fromexternal := TRUE ]);
   testfw->CommitWork();
 
   TestEq(TRUE, RecordExists(wrdschema->^wrd_relation->GetAttribute("KARMA")));
@@ -672,8 +672,11 @@ MACRO TestConversion()
   TestEq(TRUE, RecordExists(status));
   TestEq(TRUE, status.finished > testfw->starttime);
   TestEq(FALSE, status.result.person_has_add_datetime);
+  TestEq(-1, status.result.postupdaterevision);
 
   TestEq(FALSE, RecordExists(testfw->GetWRDSchema()->GetMigrationStatus("testfw:update2")));
+
+  TestEqMembers([ revision := 0, result := [ postupdaterevision := -1, person_has_add_datetime := TRUE ]], testfw->GetWRDSchema()->GetMigrationStatus("testfw:update_post"), "*");
 
   TestEq("DATE", testfw->GetWRDSchema()->^wrd_person->GetAttribute("TEST_DATETIME").attributetypename);
 
@@ -720,6 +723,9 @@ MACRO TestConversion()
   TestEq(MakeDateFromParts(0x7FFFFFFF, 0), testperson6->GetField("TEST_DATETIME"));
   TestEq(MakeDatetime(2017,5,4,3,2,1), testperson7->GetField("TEST_DATETIME")); //we kept the original data. we might change that at some point..
 
+  testfw->GetWRDSchema()->ApplySchemaDefinition([ schemaresource := Resolve("data/testconversion-1.wrdschema.xml") ]);
+  TestEqMembers([ revision := 0, result := [ postupdaterevision := -1 ]], testfw->GetWRDSchema()->GetMigrationStatus("testfw:update_post"), "*", "postupdaterevision should still be -1 as the script hasn't rerun");
+
   testfw->GetWRDSchema()->ApplySchemaDefinition([ schemaresource := Resolve("data/testconversion-2.wrdschema.xml"), skipmigrations := TRUE ]);
   TestEq(FALSE, RecordExists(testfw->GetWRDSchema()->GetMigrationStatus("testfw:update3")));
 
@@ -727,6 +733,10 @@ MACRO TestConversion()
   TestEq(FALSE, RecordExists(testfw->GetWRDSchema()->GetMigrationStatus("testfw:update3")));
 
   testfw->GetWRDSchema()->ApplySchemaDefinition([ schemaresource := Resolve("data/testconversion-2.wrdschema.xml")]);
+  TestEqMembers([ revision := 2, result := [ postupdaterevision := 0 ]], testfw->GetWRDSchema()->GetMigrationStatus("testfw:update_post"), "*", "postupdaterevision sees itself as 0");
+
+  testfw->GetWRDSchema()->ApplySchemaDefinition([ schemaresource := Resolve("data/testconversion-2.wrdschema.xml")]);
+  TestEqMembers([ revision := 2, result := [ postupdaterevision := 0 ]], testfw->GetWRDSchema()->GetMigrationStatus("testfw:update_post"), "*", "this shouldn't change anything");
 
   RECORD status2 := testfw->GetWRDSchema()->GetMigrationStatus("testfw:update1");
   TestEq(status.finished, status2.finished); //shouldn't have run again
@@ -734,6 +744,12 @@ MACRO TestConversion()
   TestEq(TRUE, RecordExists(status3), "Migration update3 should have run!");
   TestEq(TRUE, status3.finished > testfw->starttime);
   TestEq(TRUE, status3.result.person_has_add_datetime);
+
+  testfw->GetWRDSchema()->ApplySchemaDefinition([ schemaresource := Resolve("data/testconversion-1.wrdschema.xml")]);
+  TestEqMembers([ revision := 2, result := [ postupdaterevision := 0 ]], testfw->GetWRDSchema()->GetMigrationStatus("testfw:update_post"), "*", "rerunning testconversion-1 should not retrigger update_post");
+
+  testfw->GetWRDSchema()->ApplySchemaDefinition([ schemaresource := Resolve("data/testconversion-3.wrdschema.xml")]);
+  TestEqMembers([ revision := 3, result := [ postupdaterevision := 2 ]], testfw->GetWRDSchema()->GetMigrationStatus("testfw:update_post"), "*");
 
   testfw->RollbackWork();
 }

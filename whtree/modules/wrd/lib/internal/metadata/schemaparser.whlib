@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::money.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::xml/xsd.whlib";
@@ -66,7 +67,26 @@ RECORD ARRAY FUNCTION GetXMLAttributes(OBJECT parent)
   RETURN attrs;
 }
 
-OBJECTTYPE ParsedSchemaDef
+CONSTANT RECORD basetype :=
+  [ tag := ""
+  , type := ""
+  , title := ""
+  , parenttype_tag := ""
+  , description := ""
+  , keephistorydays := 0
+  , haspersonaldata := FALSE
+  , attrs := RECORD[]
+  , allattrs := RECORD[]
+  , hasvalues := FALSE
+  , vals := RECORD[]
+  , valslinenum := -1
+  , linkfrom_tag := ""
+  , linkto_tag   := ""
+  , domvalsyncattr := ""
+  , domvalsoverwritefields := STRING[]
+  ];
+
+STATIC OBJECTTYPE ParsedSchemaDef
 <
   RECORD ARRAY types;
   RECORD ARRAY keyvaluestore;
@@ -74,10 +94,7 @@ OBJECTTYPE ParsedSchemaDef
   STRING currentfile;
   STRING ARRAY importedfiles;
   RECORD ARRAY migrations;
-  BOOLEAN withoverride;
-  STRING schemaresource;
   RECORD ARRAY resources;
-
 
   MACRO AddKeyValue(OBJECT keyvaluenode)
   {
@@ -98,7 +115,7 @@ OBJECTTYPE ParsedSchemaDef
     IF(which = "classification")
       which := "attachment";
 
-    IF(which NOT IN ["object","attachment","link","domain"])
+    IF(which NOT IN ["object","attachment","link","domain","extend"])
       THROW NEW Exception("Unrecognized object type '" || which || "'");
 
     STRING typetag := ToUppercase(typenode->GetAttribute("tag"));
@@ -109,18 +126,15 @@ OBJECTTYPE ParsedSchemaDef
     RECORD type;
     IF(existingtypepos = -1) //ADDING
     {
-      type := [ tag := ToUppercase(typenode->GetAttribute("tag"))
+      type :=
+          CELL[ ...basetype
+              , tag := ToUppercase(typenode->GetAttribute("tag"))
               , type := ToUppercase(which)
               , title := typenode->GetAttribute("title")
               , parenttype_tag := ToUppercase(typenode->GetAttribute("parent"))
               , description := typenode->GetAttribute("description")
               , keephistorydays := ParseXSInt(typenode->GetAttribute("keephistorydays"))
               , haspersonaldata := ParseXSBoolean(typenode->GetAttribute("haspersonaldata"))
-              , attrs := DEFAULT RECORD ARRAY
-              , allattrs := DEFAULT RECORD ARRAY
-              , hasvalues := FALSE
-              , vals :=  DEFAULT RECORD ARRAY
-              , valslinenum := -1
               , linkfrom_tag := which IN ["attachment","link"] ? ToUppercase(typenode->GetAttribute("linkfrom")) : ""
               , linkto_tag   := which = "link" ? ToUppercase(typenode->GetAttribute("linkto")) : ""
               ];
@@ -132,12 +146,23 @@ OBJECTTYPE ParsedSchemaDef
     {
       type := this->types[existingtypepos];
 
-      IF(type.type != ToUppercase(which))
+      IF(which != "extend" AND type.type != ToUppercase(which))
         THROW NEW Exception("Metatype '" || ToLowercase(this->types[existingtypepos].type) || "' cannot be changed to '" || which || "' at the second declaration of type '" || typetag || "'");
 
-      FOREVERY(STRING attrname FROM ["title","parent","description"])
-        IF(typenode->HasAttribute(attrname))
-          THROW NEW Exception("'" || attrname || "' cannot be redefined at the second declaration of type '" || typetag || "' at " || this->currentfile || ":" || typenode->linenum);
+      IF(typenode->HasAttribute("parent"))
+        type.parenttype_tag := typenode->GetAttribute("parent");
+
+      IF(typenode->HasAttribute("title"))
+        type.title := typenode->GetAttribute("title");
+
+      IF(typenode->HasAttribute("description"))
+        type.description := typenode->GetAttribute("description");
+
+      IF(typenode->HasAttribute("haspersonaldata"))
+        type.haspersonaldata := ParseXSBoolean(typenode->GetAttribute("haspersonaldata"));
+
+      IF(typenode->HasAttribute("keephistorydays"))
+        type.keephistorydays := ParseXSInt(typenode->GetAttribute("keephistorydays"));
     }
 
     OBJECT attributesnode := typenode->GetChildElementsByTagNameNS(ns_schemadef, "attributes")->Item(0);
@@ -166,8 +191,8 @@ OBJECTTYPE ParsedSchemaDef
       type.hasvalues := TRUE;
       type.valslinenum := valuesnode->linenum;
 
-      INSERT CELL domvalsyncattr := ToUppercase(valuesnode->GetAttribute("matchattribute")) INTO type;
-      INSERT CELL domvalsoverwritefields := ParseXSList(ToUppercase(valuesnode->GetAttribute("overwriteattributes"))) INTO type;
+      type.domvalsyncattr := ToUppercase(valuesnode->GetAttribute("matchattribute"));
+      type.domvalsoverwritefields := ParseXSList(ToUppercase(valuesnode->GetAttribute("overwriteattributes")));
 
       // Overwrite WRD_TAG if it is the match attribute - fixes case sensitivity differences
       IF (type.domvalsyncattr = "WRD_TAG" AND "WRD_TAG" NOT IN type.domvalsoverwritefields)
@@ -294,25 +319,24 @@ OBJECTTYPE ParsedSchemaDef
     RETURN val;
   }
 
+  PUBLIC MACRO ImportFile(STRING filetoimport)
+  {
+    IF (filetoimport IN this->importedfiles)
+      RETURN;
+
+    INSERT filetoimport INTO this->importedfiles AT END;
+
+    RECORD rec := RetrieveWebHareResource(filetoimport);
+    this->ReadSchemaDef(filetoimport, rec.data, rec.modified);
+  }
+
   PUBLIC MACRO ReadSchemaDef(STRING filename, BLOB data, DATETIME modtime)
   {
     RECORD validateres := ValidateSingleFile(filename, [ overridedata := data ]);
     IF(Length(validateres.errors) > 0)
       THROW NEW Exception(`Cannot apply schemadefinition: ${FormatValidationError(validateres.errors[0])}`);
 
-    IF(modtime = DEFAULT DATETIME)
-    {
-      this->withoverride := TRUE;
-      this->schemaresource := "";
-    }
-    ELSE
-    {
-      INSERT CELL[ resourcename := filename, modified := modtime ] INTO this->resources AT END;
-      IF (NOT this->withoverride AND this->schemaresource = "")
-        this->schemaresource := filename;
-    }
-
-
+    INSERT CELL[ resourcename := filename, modified := modtime ] INTO this->resources AT END;
     STRING oldcurrent := this->currentfile;
     this->currentfile := filename;
 
@@ -324,13 +348,7 @@ OBJECTTYPE ParsedSchemaDef
         // Import a file only once
         STRING filetoimport := node->GetAttribute("definitionfile");
         filetoimport := MakeAbsoluteResourcePath(this->currentfile, filetoimport);
-        IF (filetoimport NOT IN this->importedfiles)
-        {
-          INSERT filetoimport INTO this->importedfiles AT END;
-
-          RECORD rec := RetrieveWebHareResource(filetoimport);
-          this->ReadSchemaDef(filetoimport, rec.data, rec.modified);
-        }
+        this->ImportFile(filetoimport);
       }
       ELSE IF(node->localname="migration")
       {
@@ -339,6 +357,8 @@ OBJECTTYPE ParsedSchemaDef
 
         INSERT CELL [ tag := node->GetAttribute("tag")
                     , updatefunction := MakeAbsoluteResourcePath(this->currentfile, node->GetAttribute("updatefunction"))
+                    , stage := node->GetAttribute("stage") ?? "beforeTypes"
+                    , revision := ParseXSInt(node->GetAttribute("revision"))
                     ] INTO this->migrations AT END;
       }
       ELSE IF(node->localname="keyvalues")
@@ -362,14 +382,18 @@ OBJECTTYPE ParsedSchemaDef
             , this->metadata
             , this->keyvaluestore
             , this->migrations
-            , schemaresources := CELL[ this->withoverride, this->schemaresource, this->resources, version := current_schema_version ]
+            , schemaresources := CELL[ resources := (SELECT * FROM this->resources ORDER BY resourcename)
+                                     , version := current_schema_version
+                                     ]
             ];
   }
 >;
 
 PUBLIC RECORD FUNCTION OpenWRDSchemaDefFile(STRING resourcepath, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions([ overridedata := DEFAULT BLOB ], options, [ optional := ["overridedata"]]);
+  options := ValidateOptions([ overridedata := DEFAULT BLOB
+                             , addbaseschema := TRUE
+                             ], options, [ optional := ["overridedata"]]);
 
   BLOB contents;
   DATETIME modtime;
@@ -385,6 +409,13 @@ PUBLIC RECORD FUNCTION OpenWRDSchemaDefFile(STRING resourcepath, RECORD options 
   }
 
   OBJECT parser := NEW ParsedSchemaDef;
+  IF(options.addbaseschema AND resourcepath != wrd_baseschemaresource)
+    parser->ImportFile(wrd_baseschemaresource);
   parser->ReadSchemaDef(resourcepath, contents, modtime);
-  RETURN parser->GetResult();
+
+  RECORD res := parser->GetResult();
+  //only associate with the schemaresource if it was actually used
+  IF(NOT CellExists(options,'overridedata'))
+    INSERT CELL schemaresource := resourcepath INTO res.schemaresources;
+  RETURN res;
 }

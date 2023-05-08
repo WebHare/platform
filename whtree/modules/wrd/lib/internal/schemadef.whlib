@@ -53,20 +53,24 @@ MACRO AddXMLAttribute(OBJECT type, RECORD attr, OBJECT parentnode)
 
 MACRO AddXMLType(OBJECT wrdschema, RECORD typeinfo, OBJECT parentnode)
 {
-  STRING typename := ["object","link","attachment","domain"][typeinfo.metatype-1];
+  //We hardcode WRD_SETTINGS to be output as an <extend> (ADDME and should probably do that for other WRD_ base types too)
+  STRING typename := typeinfo.tag = "WRD_SETTINGS" ? "extend" : ["object","link","attachment","domain"][typeinfo.metatype-1];
   OBJECT basenode := parentnode->ownerdocument->CreateElementNS(ns_schemadef, typename);
   parentnode->AppendChild(basenode);
 
   basenode->SetAttribute("tag", typeinfo.tag);
-  basenode->SetAttribute("title", typeinfo.title);
-  IF(typeinfo.description!="")
-    basenode->SetAttribute("description", typeinfo.description);
-  IF(typeinfo.requiretype_left!="")
-    basenode->SetAttribute("linkfrom", typeinfo.requiretype_left);
-  IF(typeinfo.requiretype_right!="")
-    basenode->SetAttribute("linkto", typeinfo.requiretype_right);
-  IF(typeinfo.parenttype!="")
-    basenode->SetAttribute("parent", typeinfo.parenttype);
+  IF(typename != "extend")
+  {
+    basenode->SetAttribute("title", typeinfo.title);
+    IF(typeinfo.description!="")
+      basenode->SetAttribute("description", typeinfo.description);
+    IF(typeinfo.requiretype_left!="")
+      basenode->SetAttribute("linkfrom", typeinfo.requiretype_left);
+    IF(typeinfo.requiretype_right!="")
+      basenode->SetAttribute("linkto", typeinfo.requiretype_right);
+    IF(typeinfo.parenttype!="")
+      basenode->SetAttribute("parent", typeinfo.parenttype);
+  }
 
   OBJECT attributesnode := parentnode->ownerdocument->CreateElementNS(ns_schemadef, "attributes");
   basenode->AppendChild(attributesnode);

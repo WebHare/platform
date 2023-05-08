@@ -75,13 +75,6 @@ STRING ARRAY wrdattr_allowed :=
     , "TYPE", "DOMAINTAG", "PARENT", "ISORDERED", "ATTRS", "HASVALUES", "MULTILINE", "ALLOWEDVALUES"
     ];
 
-PUBLIC STRING FUNCTION GetMigrationKeyName(STRING migrationtag)
-{
-  IF(migrationtag = "" OR migrationtag LIKE "* *")
-    THROW NEW Exception(`Invalid migration tag '${migrationtag}'`);
-  RETURN "wrd:migrations." || EncodeBase16(ToLowercase(migrationtag));
-}
-
 RECORD FUNCTION InsertDefaultFields(RECORD val, RECORD defaults, STRING ARRAY allowed)
 {
   RECORD base := MakeUpdatedRecord(defaults, val);
@@ -143,7 +136,9 @@ RECORD ARRAY FUNCTION SetDefinitionDefaults(RECORD ARRAY types, RECORD ARRAY tag
   FOREVERY (RECORD rec FROM types)
   {
     rec := InsertDefaultFields(rec, wrdtype_default, wrdtype_allowed);
-    IF (CellExists(rec, "TYPE"))
+    IF (CellExists(rec, "TYPE") AND ToUppercase(rec.type) = "EXTEND") //obtain the metatype from existing info
+      rec.metatype := SELECT AS INTEGER metatype fROM tagidmapping WHERE tagidmapping.tag = rec.tag;
+    IF (CellExists(rec, "TYPE") AND ToUppercase(rec.type) != "EXTEND")
     {
       rec.metatype := SearchElement([ "", "OBJECT", "LINK", "ATTACHMENT", "DOMAIN" ], ToUppercase(rec.type));
     }
@@ -326,11 +321,11 @@ MACRO CreateType(OBJECT local_schema, RECORD data, RECORD ARRAY remote_types, RE
 
   SWITCH (data.metatype)
   {
-  CASE 1
+    CASE wrd_metatype_object
     {
-      local_schema->CreateType(data.tag, [ title := data.title, description := data.description ]);
+      local_schema->CreateType(data.tag, [ title := data.title, description := data.description, abstract := ToUppercase(data.tag) = "WRD_RELATION" ]);
     }
-  CASE 2
+    CASE wrd_metatype_link
     {
       IF (type_left = 0)
         THROW NEW Exception(`Could not resolve link to '${type_left_tag}' for type '${data.tag}'`);
@@ -340,14 +335,14 @@ MACRO CreateType(OBJECT local_schema, RECORD data, RECORD ARRAY remote_types, RE
 
       local_schema->CreateType(data.tag, [ title := data.title, description := data.description, linkfrom := type_left, linkto := type_right ]);
     }
-  CASE 3
+    CASE wrd_metatype_attachment
     {
       IF (type_left = 0)
         THROW NEW Exception(`Could not resolve link to '${type_left_tag}' for type '${data.tag}'`);
 
       local_schema->CreateType(data.tag, [ title := data.title, description := data.description, linkfrom := type_left ]);
     }
-  CASE 4
+    CASE wrd_metatype_domain
     {
       local_schema->CreateDomain(data.tag, [ title := data.title, description := data.description ]);
     }
@@ -403,25 +398,43 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
                                 , keyvaluestore := RECORD[]
                                 ], schemadef);
 
-  IF (NOT options.fromexternal)
+  RECORD ARRAY runmigrations;
+  RECORD ARRAY completedmigrations;
+  BOOLEAN updatemigrations;
+  IF(NOT options.skipmigrations AND NOT options.fromexternal)
   {
-    local_schema->SetSchemaSetting("wrd:schemaresources", schemadef.schemaresources);
-    IF(NOT options.skipmigrations)
+    IF(ObjectExists(local_schema->GetType("wrd_settings")) AND RecordExists(local_schema->GetType("wrd_settings")->GetAttribute("migrations")))
     {
-      FOREVERY(RECORD migration FROM schemadef.migrations)
-      {
-        STRING migrationkey := GetMigrationKeyName(migration.tag);
-        IF(NOT RecordExists(local_schema->GetSchemaSetting(migrationkey, [fallback := DEFAULT RECORD])))
-        {
-          RECORD result := MakeFunctionPtr(migration.updatefunction)(local_schema);
-          local_schema->SetSchemaSetting(migrationkey, CELL[ finished := GetCurrentDateTime(), result ]);
-        }
-      }
+      INTEGER mysettings := local_schema->^wrd_settings->Search("wrd_guid", wrd_settings_guid);
+      completedmigrations := local_schema->^wrd_settings->GetEntityField(mysettings, "migrations");
     }
+    ELSE
+    {
+      //process classic migrations
+      completedmigrations := SELECT tag := DecodeBase16(Substring(name,15))
+                                  , finished := value.finished
+                                  , result := value.result
+                               FROM ListWRDSchemaSettings(local_schema->id)
+                              WHERE name LIKE "wrd:migrations.*";
+      updatemigrations := TRUE;
+    }
+
+    //remove completed migrations from the runlist
+    runmigrations := SELECT * FROM schemadef.migrations WHERE NOT RecordExists(SELECT FROM completedmigrations WHERE completedmigrations.tag = migrations.tag AND completedmigrations.revision >= migrations.revision);
+  }
+
+  IF (NOT options.fromexternal)
+    local_schema->SetSchemaSetting("wrd:schemaresources", schemadef.schemaresources);
+
+  FOREVERY(RECORD migration FROM SELECT * FROM runmigrations WHERE stage = "beforeTypes")
+  {
+    RECORD result := MakeFunctionPtr(migration.updatefunction)(local_schema);
+    DELETE FROM completedmigrations WHERE tag = migration.tag;
+    INSERT CELL [ migration.tag, finished := GetCurrentDateTime(), result, migration.revision ] INTO completedmigrations AT END;
+    updatemigrations := TRUE;
   }
 
   RECORD ARRAY local_types := local_schema->ListTypes();
-
   RECORD ARRAY remote_types :=
       SELECT *
         FROM schemadef.types
@@ -453,7 +466,8 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
 
   diff := GetDiff(local_types, remote_types, "TAG");
 
-  FOREVERY (RECORD r FROM diff.shared) //please note: we already creatd missing types above, so diff.right_added is empty here
+  //Create/update types and their attributes
+  FOREVERY (RECORD r FROM diff.shared) //please note: we already created missing types above, so diff.right_added is empty here
   {
     OBJECT local_type := local_schema->GetType(r.left.tag);
     IF(NOT ObjectExists(local_type)) //no longer exists. must have been recursively deleted by its parent disappearing
@@ -489,7 +503,7 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
       }
     }
 
-    IF(r.left.parenttype != req_parent AND r.left.tag NOT IN ["WRD_PERSON","WRD_ORGANIZATION","WRD_RELATION"])
+    IF(r.left.parenttype != req_parent)
     {
       //FIXME always safe to do this ?!?
       local_type->UpdateMetadata([parenttype := req_parent]);
@@ -508,58 +522,7 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
   local_types := local_schema->ListTypes();
   diff := GetDiff(local_types, remote_types, "TAG");
 
-  FOREVERY (RECORD r FROM (SELECT * FROM diff.shared WHERE CellExists(shared.right,'hasvalues') AND shared.right.hasvalues ORDER BY shared.right.valslinenum)) //HACK: process them in source order, giving more chance to resolve dependencies
-  {
-    IF (r.left.metatype NOT IN [1,3,4])
-      CONTINUE;
-
-    IF (NOT CellExists(r.right,'hasvalues') OR NOT r.right.hasvalues)
-      CONTINUE;
-
-    STRING syncattr := r.right.domvalsyncattr;
-
-    OBJECT local_type := local_schema->GetType(r.left.tag);
-    RECORD ARRAY remote_attrs := CellExists(r.right, "ATTRS") ? r.right.attrs : DEFAULT RECORD ARRAY;
-
-    RECORD outputcolumns;
-    FOREVERY (RECORD o FROM remote_attrs)
-      IF(o.attributetype != 0)
-        outputcolumns := CellInsert(outputcolumns, o.tag, o.tag);
-
-    outputcolumns := CELL[ wrd_tag := "WRD_TAG"
-                         , wrd_guid := "WRD_GUID"
-                         , wrd_id := "WRD_ID"
-                         , ...outputcolumns
-                         ];
-
-    IF (r.left.metatype = 4 AND NOT CellExists(outputcolumns, "WRD_LEFTENTITY"))
-      INSERT CELL wrd_leftentity := "WRD_LEFTENTITY" INTO outputcolumns;
-
-   IF (CellExists(r.right, "DOMVALSOVERWRITEFIELDS"))
-      FOREVERY(STRING tooverwrite FROM r.right.domvalsoverwritefields)
-        IF(NOT CellExists(outputcolumns, tooverwrite))
-          outputcolumns := CellInsert(outputcolumns, tooverwrite, tooverwrite);
-
-    IF (NOT CellExists(outputcolumns, syncattr))
-      THROW NEW Exception("Domain values sync attribute '"||syncattr||"' is not valid for type '"||r.left.tag||"'");
-
-    RECORD ARRAY all_local_domvals := local_type->RunQuery([ outputcolumns := outputcolumns ]);
-
-    VARIANT ARRAY allsyncattrvalues := GetSyncAttrValuesrecursive(r.right.vals, syncattr);
-    VARIANT ARRAY doubles :=
-       SELECT AS VARIANT ARRAY val
-         FROM ToRecordArray(allsyncattrvalues, "VAL")
-     GROUP BY val
-       HAVING Count(*) > 1
-     ORDER BY val;
-
-    IF (LENGTH(doubles) > 0)
-      THROW NEW Exception("Multiple values found for type '" || r.left.title || "' (" || r.left.tag || ") with the same value for '" || syncattr || "': " || FormatValueList(doubles));
-
-    UpdateValuesRecursive(local_type, all_local_domvals, r.right.vals, r.left.metatype = 4 ? 0 : -1, syncattr, r.right);
-  }
-
-  IF (RecordExists(schemadef.metadata))
+  IF (RecordExists(schemadef.metadata)) //This is still a metadata update so it should run before entity creation/update
   {
     IF (CellExists(schemadef.metadata, "ACCOUNTTYPE"))
     {
@@ -599,11 +562,72 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
     }
   }
 
+  FOREVERY(RECORD migration FROM SELECT * FROM runmigrations WHERE stage = "beforeEntities")
+  {
+    RECORD result := MakeFunctionPtr(migration.updatefunction)(local_schema);
+    DELETE FROM completedmigrations WHERE tag = migration.tag;
+    INSERT CELL [ migration.tag, finished := GetCurrentDateTime(), result, migration.revision ] INTO completedmigrations AT END;
+    updatemigrations := TRUE;
+  }
+
+  //Create/update entities
+  FOREVERY (RECORD r FROM (SELECT * FROM diff.shared WHERE CellExists(shared.right,'hasvalues') AND shared.right.hasvalues ORDER BY shared.right.valslinenum)) //HACK: process them in source order, giving more chance to resolve dependencies
+  {
+    STRING syncattr := r.right.domvalsyncattr;
+
+    OBJECT local_type := local_schema->GetType(r.left.tag);
+    RECORD ARRAY remote_attrs := CellExists(r.right, "ATTRS") ? r.right.attrs : DEFAULT RECORD ARRAY;
+
+    RECORD outputcolumns;
+    FOREVERY (RECORD o FROM remote_attrs)
+      IF(o.attributetype != 0)
+        outputcolumns := CellInsert(outputcolumns, o.tag, o.tag);
+
+    outputcolumns := CELL[ wrd_tag := "WRD_TAG"
+                         , wrd_guid := "WRD_GUID"
+                         , wrd_id := "WRD_ID"
+                         , ...outputcolumns
+                         ];
+
+    IF (r.left.metatype = 4 AND NOT CellExists(outputcolumns, "WRD_LEFTENTITY"))
+      INSERT CELL wrd_leftentity := "WRD_LEFTENTITY" INTO outputcolumns;
+
+    IF (CellExists(r.right, "DOMVALSOVERWRITEFIELDS"))
+      FOREVERY(STRING tooverwrite FROM r.right.domvalsoverwritefields)
+        IF(NOT CellExists(outputcolumns, tooverwrite))
+          outputcolumns := CellInsert(outputcolumns, tooverwrite, tooverwrite);
+
+    IF (NOT CellExists(outputcolumns, syncattr))
+      THROW NEW Exception("Domain values sync attribute '"||syncattr||"' is not valid for type '"||r.left.tag||"'");
+
+    RECORD ARRAY all_local_domvals := local_type->RunQuery([ outputcolumns := outputcolumns ]);
+
+    VARIANT ARRAY allsyncattrvalues := GetSyncAttrValuesrecursive(r.right.vals, syncattr);
+    VARIANT ARRAY doubles :=
+       SELECT AS VARIANT ARRAY val
+         FROM ToRecordArray(allsyncattrvalues, "VAL")
+     GROUP BY val
+       HAVING Count(*) > 1
+     ORDER BY val;
+
+    IF (LENGTH(doubles) > 0)
+      THROW NEW Exception("Multiple values found for type '" || r.left.title || "' (" || r.left.tag || ") with the same value for '" || syncattr || "': " || FormatValueList(doubles));
+
+    UpdateValuesRecursive(local_type, all_local_domvals, r.right.vals, r.left.metatype = 4 ? 0 : -1, syncattr, r.right);
+  }
+
   FOREVERY (RECORD setting FROM schemadef.keyvaluestore)
   {
     VARIANT value := AnyTypeFromBlobString(setting.keyvalue.data, setting.keyvalue.blobdata, setting.keyvalue.type);
     local_schema->SetSchemaSetting(setting.name, value);
   }
+
+  IF(updatemigrations)
+  {
+    INTEGER mysettings := local_schema->^wrd_settings->Search("wrd_guid", wrd_settings_guid);
+    local_schema->^wrd_settings->UpdateEntity(mysettings, [ migrations := completedmigrations ]);
+  }
+
   local_schema->__SignalMetadataChanged();
 }
 

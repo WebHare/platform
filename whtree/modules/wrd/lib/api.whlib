@@ -116,9 +116,10 @@ PUBLIC OBJECT FUNCTION CreateWRDSchema(STRING tag, RECORD metadata DEFAULTSTO DE
     THROW NEW Exception(`A schema with tag '${tag}' already exists`);
 
   RECORD schemadef;
+  STRING deffile;
   IF(metadata.initialize)
   {
-    STRING deffile := metadata.schemaresource;
+    deffile := metadata.schemaresource;
     IF(deffile = "")
     {
       RECORD def := GetModuleWRDSchemaDefinition(tag);
@@ -130,9 +131,13 @@ PUBLIC OBJECT FUNCTION CreateWRDSchema(STRING tag, RECORD metadata DEFAULTSTO DE
 
       deffile := def.definitionfile;
     }
-    IF(deffile != "")
-      schemadef := OpenWRDSchemaDefFile(deffile);
   }
+  ELSE
+  {
+    deffile := wrd_baseschemaresource;
+  }
+  IF(deffile != "")
+    schemadef := OpenWRDSchemaDefFile(deffile);
 
   INTEGER schemaid := MakeAutonumber(wrd.schemas,"id");
   INSERT CELL[ id := schemaid
@@ -144,10 +149,7 @@ PUBLIC OBJECT FUNCTION CreateWRDSchema(STRING tag, RECORD metadata DEFAULTSTO DE
 
   OBJECT wrdschema := OpenWRDSchemaById(schemaid);
   wrdschema->SetSchemaSetting("wrd:auth.domainsecret", GenerateUFS128BitId() || GenerateUFS128BitId());
-  wrdschema->__InstallCoreTypes();
-
-  IF(RecordExists(schemadef))
-    UpdateSchema(wrdschema, schemadef);
+  UpdateSchema(wrdschema, schemadef);
 
   IF(metadata.usermgmt)
     wrdschema->UpdateMetadata( CELL[ usermgmt := metadata.usermgmt ]);

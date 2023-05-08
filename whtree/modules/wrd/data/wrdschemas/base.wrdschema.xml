@@ -1,0 +1,32 @@
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+
+  <object tag="wrd_relation" title="Relation">
+  </object>
+
+  <object tag="wrd_person" parent="wrd_relation" haspersonaldata="true" title="Person">
+  </object>
+
+  <object tag="wrd_organization" parent="wrd_relation" title="Organization">
+    <attributes>
+      <free tag="wrd_orgname" title="Organization name" />
+    </attributes>
+  </object>
+
+  <object tag="wrd_settings" title="Schema settings">
+    <attributes>
+      <array tag="migrations">
+        <free tag="tag" required="true" />
+        <datetime tag="finished" required="true" description="When the migration completed" />
+        <record tag="result" description="Result returned by the migration script" />
+        <integer tag="revision" description="Update revision. Script is rerun if last update had a lower number than us" />
+      </array>
+    </attributes>
+    <values matchattribute="wrd_guid" overwriteattributes="wrd_tag">
+      <value>
+        <field tag="wrd_guid">wrd:BEA61EF00D0000000000000000000000</field>
+        <field tag="wrd_tag">WRD_SETTINGS</field>
+      </value>
+    </values>
+  </object>
+
+</schemadefinition>

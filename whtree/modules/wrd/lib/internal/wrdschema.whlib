@@ -318,22 +318,6 @@ PUBLIC MACRO RemoveWRDSchemaSetting(INTEGER wrdschemaid, STRING keyname)
   GetWRDCommitHandler()->SettingsChanged(wrdschemaid);
 }
 
-/** Returns all schema settings for a specific WRD schema
-    @param wrdschemaid Id of the schema
-    @return List of all schema settings
-    @cell return.name Name of the key
-    @cell return.value Name of the value
-*/
-RECORD ARRAY FUNCTION ListWRDSchemaSettings(INTEGER wrdschemaid)
-{
-  RETURN
-      SELECT name :=      ToLowercase(name)
-           , value :=     ReadAnyFromDatabase(data, blobdata)
-        FROM wrd.keyvaluestore
-       WHERE wrd_schema = wrdschemaid
-    ORDER BY ToLowercase(name);
-}
-
 PUBLIC STATIC OBJECTTYPE WRDSchemaBase
 <
   RECORD schemarec;
@@ -667,11 +651,9 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
     typerecord := MakeUpdatedRecord([ title := "", description := "", tag := ""
                                     , requiretype_left := 0, requiretype_right := 0, metatype := 1
                                     , parenttype := 0, abstract := FALSE, keephistorydays := 0
-                                    , haspersonaldata := CellExists(typerecord, "tag") AND ToUpperCase(typerecord.tag) = "WRD_PERSON"
+                                    , haspersonaldata := FALSE
                                     ], typerecord);
     typerecord.tag := ToUppercase(typerecord.tag);
-
-    BOOLEAN builtintype := typerecord.tag IN ["WRD_PERSON","WRD_ORGANIZATION"];
 
     IF (typerecord.tag = "")
       THROW NEW Exception("The tag was not filled in");
@@ -693,40 +675,17 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
 
     this->__SignalMetadataChanged();
 
-    IF(typerecord.tag="WRD_RELATION")
-    {
-      FOREVERY(STRING attachtype FROM ["WRD_PERSON","WRD_ORGANIZATION"])
-      {
-        OBJECT typeobj := this->__GetTypeByTag(attachtype);
-        IF(ObjectExists(typeobj))
-          typeobj->UpdateMetadata( [ parenttype := newtypeid ] );
-      }
-    }
-
     OBJECT thetype := this->GetTypeById(newtypeid);
     IF(NOT ObjectExists(thetype))
       THROW NEW Exception("Internal error, creation of type #" || newtypeid || " (" || typerecord.tag || ") failed");
 
-    IF(typerecord.metatype=4)
-    {
+    IF(typerecord.metatype = wrd_metatype_domain)
       thetype->__DoCreateAttribute("FREE", "Title", "", "WRD_TITLE", 0);
-    }
-    ELSE IF(typerecord.tag="WRD_ORGANIZATION")
-    {
-      thetype->__DoCreateAttribute("FREE", "Organization name", "", "WRD_ORGNAME", 0);
-    }
 
     IF(parent != 0)
       this->GetTypeById(parent)->__ReloadTypeAndChildren();
 
     RETURN thetype;
-  }
-
-  PUBLIC MACRO __InstallCoreTypes() //FIXME we've done this since 2014. we can probably get rid of it now
-  {
-    OBJECT reltag := this->__DoCreateType( [ abstract := TRUE, tag := "WRD_RELATION", metatype := 1, title := GetLangTexts(this->__GetCurrentLanguageCode()).attrlabels.wrd_relation ]);
-    this->__DoCreateType( [ tag := "WRD_PERSON", parenttype := reltag->id, metatype := 1, title := GetLangTexts(this->__GetCurrentLanguageCode()).attrlabels.wrd_person ]);
-    this->__DoCreateType( [ tag := "WRD_ORGANIZATION", parenttype := reltag->id, metatype := 1, title := GetLangTexts(this->__GetCurrentLanguageCode()).attrlabels.wrd_organization ]);
   }
 
   /** Create a complete copy of a schema
@@ -751,7 +710,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
   */
   PUBLIC OBJECT FUNCTION CreateType (STRING tag, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions( [ title := "", description := "", linkfrom := 0, linkto := 0, keephistorydays := 0, haspersonaldata := FALSE ], options, [ optional := [ "haspersonaldata" ] ]);
+    options := ValidateOptions( [ title := "", description := "", linkfrom := 0, linkto := 0, keephistorydays := 0, haspersonaldata := FALSE, abstract := FALSE ], options);
     IF(options.linkfrom = 0 AND options.linkto != 0)
       THROW NEW Exception("Cannot set 'linkto' without setting 'linkfrom'");
     IF (options.keephistorydays < 0)
@@ -773,7 +732,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
   */
   PUBLIC OBJECT FUNCTION CreateDomain (STRING tag, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions( [ title := "", description := "", keephistorydays := 0, haspersonaldata := FALSE ], options, [ optional := [ "haspersonaldata" ] ]);
+    options := ValidateOptions( [ title := "", description := "", keephistorydays := 0, haspersonaldata := FALSE ], options);
     IF (options.keephistorydays < 0)
       THROW NEW Exception(`Cannot keep changes for a negative time period`);
 
@@ -842,7 +801,9 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
   */
   PUBLIC RECORD FUNCTION GetMigrationStatus(STRING migrationtag)
   {
-    RETURN this->GetSchemaSetting(GetMigrationKeyName(migrationtag), [ fallback := DEFAULT RECORD ]);
+    INTEGER mysettings := this->^wrd_settings->Search("wrd_guid", wrd_settings_guid);
+    RECORD ARRAY completedmigrations := this->^wrd_settings->GetEntityField(mysettings, "migrations");
+    RETURN SELECT result, finished, revision FROM completedmigrations WHERE tag = migrationtag;
   }
 
   //////////////////////////////////////////
@@ -1019,7 +980,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
 
     RECORD schemadef;
     IF(Length(options.__schemadefinition) > 0)//backdoor used by WRD sync. could switch to inline? and/or merge with 'fromexternal' option?
-      schemadef := OpenWRDSchemaDefFile("mod::wrd/dummyresource.xml", [ overridedata := options.__schemadefinition]);  //TODO apparently we parse twice..once for validate and once for ourselves
+      schemadef := OpenWRDSchemaDefFile("mod::wrd/dummyresource.xml", [ overridedata := options.__schemadefinition, addbaseschema := NOT options.fromexternal ]);  //TODO apparently we parse twice..once for validate and once for ourselves
 
     IF(NOT RecordExists(schemadef))
     {
@@ -1027,13 +988,16 @@ PUBLIC STATIC OBJECTTYPE WRDSchema2017 EXTEND WRDSchemaBase
       IF(schemaresource = "")
       {
         schemadef := GetModuleWRDSchemaDefinition(this->tag);
-        IF(NOT RecordExists(schemadef))
-          THROW NEW Exception(`No WRD schema definition for schema '${this->tag}'`);
-
-        schemaresource := schemadef.definitionfile;
-
-        IF(schemadef.title != "" AND this->title != schemadef.title)
-          this->UpdateMetadata([ title := schemadef.title ]);
+        IF(RecordExists(schemadef))
+        {
+          schemaresource := schemadef.definitionfile ?? wrd_baseschemaresource;
+          IF(schemadef.title != "" AND this->title != schemadef.title)
+            this->UpdateMetadata([ title := schemadef.title ]);
+        }
+        ELSE
+        {
+          schemaresource := wrd_baseschemaresource;
+        }
       }
 
       IF(schemaresource = "")

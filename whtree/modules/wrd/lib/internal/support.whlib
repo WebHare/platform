@@ -11,6 +11,7 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/internal/typecoder.whlib";
 
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/consilio.whlib";
@@ -18,6 +19,10 @@ LOADLIB "mod::wrd/lib/internal/consilio.whlib";
 
 PUBLIC CONSTANT INTEGER current_schema_version := 1;
 PUBLIC INTEGER ttl_wrdschemacache := 5 * 60 * 1000;
+
+PUBLIC CONSTANT STRING wrd_baseschemaresource := "mod::wrd/data/wrdschemas/base.wrdschema.xml";
+PUBLIC CONSTANT STRING wrd_settings_guid :=      "wrd:BEA61EF00D0000000000000000000000";
+PUBLIC CONSTANT STRING wrd_settings_tag :=       "WRD_SETTINGS";
 
 PUBLIC STRING worldinfo_ns := "http://www.webhare.net/xmlns/wrd/worldinfo";
 PUBLIC STRING ARRAY builtin_wrdtypes := ["WRD_RELATION","WRD_PERSON","WRD_ORGANIZATION"];
@@ -1193,3 +1198,20 @@ PUBLIC STRING ARRAY FUNCTION GetTypeReferences(OBJECT wrdschema, STRING ARRAY re
   }
   RETURN references;
 }
+
+/** Returns all schema settings for a specific WRD schema
+    @param wrdschemaid Id of the schema
+    @return List of all schema settings
+    @cell return.name Name of the key
+    @cell return.value Name of the value
+*/
+PUBLIC RECORD ARRAY FUNCTION ListWRDSchemaSettings(INTEGER wrdschemaid)
+{
+  RETURN
+      SELECT name :=      ToLowercase(name)
+           , value :=     ReadAnyFromDatabase(data, blobdata)
+        FROM wrd.keyvaluestore
+       WHERE wrd_schema = wrdschemaid
+    ORDER BY ToLowercase(name);
+}
+
