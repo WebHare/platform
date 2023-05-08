@@ -90,7 +90,7 @@ type CustomEventParams =
     @param params - Event options
     @returns true if the default wasn't prevented
  */
-export function dispatchCustomEvent(node: EventTarget, event: string, params?: CustomEventParams) {
+export function dispatchCustomEvent(node: EventTarget, event: string, params: CustomEventParams) {
   if (!params)
     throw new Error(`Missing dispatchCustomEvent params`);
   ['bubbles', 'cancelable'].forEach(prop => {
