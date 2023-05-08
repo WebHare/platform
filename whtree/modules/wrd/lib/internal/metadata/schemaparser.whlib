@@ -67,7 +67,7 @@ RECORD ARRAY FUNCTION GetXMLAttributes(OBJECT parent)
   RETURN attrs;
 }
 
-CONSTANt RECORD basetype :=
+CONSTANT RECORD basetype :=
   [ tag := ""
   , type := ""
   , title := ""

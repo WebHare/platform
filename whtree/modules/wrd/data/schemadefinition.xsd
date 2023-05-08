@@ -50,7 +50,7 @@
           <xs:attribute name="revision" type="xs:nonNegativeInteger" />
           <xs:attribute name="stage">
             <xs:annotation>
-              <xs:documentation>When do we run this migration? Stages are considered for all importe schemas together (eg if schema B imports schema A, A's beforeEntities migration runs after both A and B's metadata changes have been applied)</xs:documentation>
+              <xs:documentation>When do we run this migration? Stages are considered for all imported schemas together (eg if schema B imports schema A, A's beforeEntities migration runs after both A and B's metadata changes have been applied)</xs:documentation>
             </xs:annotation>
             <xs:simpleType>
               <xs:restriction base="xs:string">
