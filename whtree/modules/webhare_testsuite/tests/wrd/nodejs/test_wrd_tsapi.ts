@@ -235,11 +235,12 @@ async function testNewAPI() {
 
   test.eq([{ wrdFirstName: "first", lastname: "lastname", id: firstperson }], selectres);
 
-  test.eq([{ wrdFirstName: "first", lastname: "lastname", id: firstperson }], await schema.enrich(
-    "wrdPerson",
-    selectres.map(e => ({ id: e.id })),
-    "id",
-    { wrdFirstName: "wrdFirstName", lastname: "wrdLastName" }));
+  test.eq([{ wrdFirstName: "first", lastname: "lastname", id: firstperson, x1: 5 }, { wrdFirstName: "first", lastname: "lastname", id: firstperson, x1: 15 }],
+    await schema.enrich(
+      "wrdPerson",
+      [{ id: selectres[0].id, x1: 5 }, { id: selectres[0].id, x1: 15 }],
+      "id",
+      { wrdFirstName: "wrdFirstName", lastname: "wrdLastName" }));
 
   test.eq({ wrdFirstName: "first", lastname: "lastname" }, await schema.getFields("wrdPerson", selectres[0].id, { wrdFirstName: "wrdFirstName", lastname: "wrdLastName" }));
 
