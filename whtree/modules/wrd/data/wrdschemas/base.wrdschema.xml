@@ -18,6 +18,7 @@
         <free tag="tag" required="true" />
         <datetime tag="finished" required="true" description="When the migration completed" />
         <record tag="result" description="Result returned by the migration script" />
+        <integer tag="revision" description="Update revision. Script is rerun if last update had a lower number than us" />
       </array>
     </attributes>
     <values matchattribute="wrd_guid" overwriteattributes="wrd_tag">

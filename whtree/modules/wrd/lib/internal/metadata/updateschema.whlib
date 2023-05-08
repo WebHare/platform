@@ -419,8 +419,8 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
       updatemigrations := TRUE;
     }
 
-    //remove completed migrations. to rerun an existing migration, just update its tag
-    runmigrations := SELECT * FROM schemadef.migrations WHERE tag NOT IN (SELECT AS STRING ARRAY tag FROM completedmigrations);
+    //remove completed migrations from the runlist
+    runmigrations := SELECT * FROM schemadef.migrations WHERE NOT RecordExists(SELECT FROM completedmigrations WHERE completedmigrations.tag = migrations.tag AND completedmigrations.revision >= migrations.revision);
   }
 
   IF (NOT options.fromexternal)
@@ -429,7 +429,8 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
   FOREVERY(RECORD migration FROM SELECT * FROM runmigrations WHERE stage = "beforeTypes")
   {
     RECORD result := MakeFunctionPtr(migration.updatefunction)(local_schema);
-    INSERT CELL [ migration.tag, finished := GetCurrentDateTime(), result ] INTO completedmigrations AT END;
+    DELETE FROM completedmigrations WHERE tag = migration.tag;
+    INSERT CELL [ migration.tag, finished := GetCurrentDateTime(), result, migration.revision ] INTO completedmigrations AT END;
     updatemigrations := TRUE;
   }
 
@@ -564,7 +565,8 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
   FOREVERY(RECORD migration FROM SELECT * FROM runmigrations WHERE stage = "beforeEntities")
   {
     RECORD result := MakeFunctionPtr(migration.updatefunction)(local_schema);
-    INSERT CELL [ migration.tag, finished := GetCurrentDateTime(), result ] INTO completedmigrations AT END;
+    DELETE FROM completedmigrations WHERE tag = migration.tag;
+    INSERT CELL [ migration.tag, finished := GetCurrentDateTime(), result, migration.revision ] INTO completedmigrations AT END;
     updatemigrations := TRUE;
   }
 

@@ -803,7 +803,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
   {
     INTEGER mysettings := this->^wrd_settings->Search("wrd_guid", wrd_settings_guid);
     RECORD ARRAY completedmigrations := this->^wrd_settings->GetEntityField(mysettings, "migrations");
-    RETURN SELECT result, finished FROM completedmigrations WHERE tag = migrationtag;
+    RETURN SELECT result, finished, revision FROM completedmigrations WHERE tag = migrationtag;
   }
 
   //////////////////////////////////////////

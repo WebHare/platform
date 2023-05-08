@@ -1,5 +1,9 @@
 <?wh
+
 PUBLIC RECORD FUNCTION DoUpdate(OBJECT wrdschema)
 {
-  RETURN CELL[ person_has_add_datetime := RecordExists(wrdschema->^wrd_person->GetAttribute("ADD_DATETIME")) ];
+  RECORD postupdaterevision := wrdschema->GetMigrationStatus("testfw:update_post");
+  RETURN CELL[ person_has_add_datetime := RecordExists(wrdschema->^wrd_person->GetAttribute("ADD_DATETIME"))
+             , postupdaterevision := RecordExists(postupdaterevision) ? postupdaterevision.revision : -1
+             ];
 }

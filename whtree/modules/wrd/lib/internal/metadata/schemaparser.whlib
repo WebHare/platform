@@ -358,6 +358,7 @@ STATIC OBJECTTYPE ParsedSchemaDef
         INSERT CELL [ tag := node->GetAttribute("tag")
                     , updatefunction := MakeAbsoluteResourcePath(this->currentfile, node->GetAttribute("updatefunction"))
                     , stage := node->GetAttribute("stage") ?? "beforeTypes"
+                    , revision := ParseXSInt(node->GetAttribute("revision"))
                     ] INTO this->migrations AT END;
       }
       ELSE IF(node->localname="keyvalues")
