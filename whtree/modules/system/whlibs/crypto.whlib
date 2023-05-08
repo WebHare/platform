@@ -172,15 +172,25 @@ PUBLIC STRING FUNCTION GeneratePassword(STRING base, INTEGER len, BOOLEAN mixed_
   RETURN base || GenerateRandomText(len, allowed_chars);
 }
 
+PUBLIC STRING FUNCTION __GetRandomUUIDv4Bits()
+{
+  //we can't patch GenerateUFS128BitId to generate v4 UUIDs as it would break uniform distribution code could trust in
+  STRING bytes := DecodeUFS(GenerateUFS128BitId());
+  //set version and variant bits for a v4 uuid with variant 1
+  bytes := Left(bytes,6)
+           || ByteToString((GetByteValue(Substring(bytes, 6, 1)) BITAND 0xF) BITOR 0x40)
+           || Substring(bytes, 7, 1)
+           || ByteToString((GetByteValue(Substring(bytes, 8, 1)) BITAND 0x3F) BITOR 0x80)
+           || Substring(bytes, 9);
+  RETURN bytes;
+}
 
 /** @short Generate a V4 UUID (or GUID in Microsoft-speak)
     @return The V4 UUID in xxxxxxxx-xxxx-4xxx-xxxx-xxxxxxxxxxxx format */
 PUBLIC STRING FUNCTION GenerateUUID()
 {
-  STRING uuid := ToLowercase(EncodeBase16(DecodeUFS(GenerateUFS128BitId())));
-  INTEGER clock_seq_hi_and_reserved := (ToInteger(Substring(uuid, 16, 1),16) BITAND 0x3) BITOR 0x8;
-  STRING cshir_hex := ToLowercase(ToString(clock_seq_hi_and_reserved,16));
-  uuid := `${Left(uuid,8)}-${Substring(uuid, 8, 4)}-4${Substring(uuid, 13, 3)}-${cshir_hex}${Substring(uuid, 17, 3)}-${Substring(uuid, 20)}`;
+  STRING uuid := ToLowercase(EncodeBase16(__GetRandomUUIDv4Bits()));
+  uuid := `${Left(uuid,8)}-${Substring(uuid, 8, 4)}-${Substring(uuid, 12, 4)}-${Substring(uuid, 16, 4)}-${Substring(uuid, 20)}`;
   RETURN uuid;
 }
 

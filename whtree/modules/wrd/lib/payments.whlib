@@ -374,7 +374,7 @@ STATIC OBJECTTYPE PaymentAPI
       handler := InstantiatePaymentHandler(paymententity, options.paymenthandler);
 
     IF(psp->needspaymentref AND psp->pvt_paymentref="")
-      psp->pvt_paymentref := GenerateUFS128bitid();
+      psp->pvt_paymentref := EncodeUFS(__GetRandomUUIDv4Bits());
 
     GetPrimary()->BeginLockedWork("wrd:payments.payment:" || entity);
     TRY

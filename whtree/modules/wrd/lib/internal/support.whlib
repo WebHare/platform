@@ -623,13 +623,6 @@ PUBLIC VARIANT FUNCTION DecodeWRDAttribute(STRING rawdata, INTEGER attributetype
     }
   }
 }
-/** @short Create a unique GUID
-    @long This function creates a GUID to offer a unique key for relations. */
-PUBLIC STRING FUNCTION CreateGUID()
-{
-  STRING hash := GetMD5Hash(GenerateUFS128BitId() || GenerateUFS128BitId());
-  RETURN hash;
-}
 
 PUBLIC STRING FUNCTION EncodeWRDGUID(STRING rawguid)
 {

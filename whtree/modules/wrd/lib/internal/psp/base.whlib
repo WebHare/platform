@@ -261,7 +261,7 @@ PUBLIC STATIC OBJECTTYPE WRDPaymentProviderBase
     this->pvt_status := "pending";
     this->pvt_paymentoptiontag := paymentmethod.paymentoptiontag;
     this->paymenthandler := paymentmethod.paymenthandler;
-    this->__paymentuuid := GenerateUFS128BitId();
+    this->__paymentuuid := EncodeUFS(__GetRandomUUIDv4Bits());
     this->__orderid := paymentmethod.orderid ?? paymentmethod.orderdescription;
     this->__issuer := paymentmethod.issuer;
   }

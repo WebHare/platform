@@ -3259,7 +3259,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       {
         STRING tag  := CellExists(entitydata, "WRD_TAG") ? entitydata.wrd_tag : "";
         IF(setguid="")
-          setguid := CreateGUID();
+          setguid := __GetRandomUUIDv4Bits();
 
         splitdata.entityrec := CELL
             [ id :=                 result.entityid
@@ -3770,7 +3770,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   /** Generate and reserve a new GUID in the current transaction*/
   PUBLIC STRING FUNCTION GetNewEntityGUID()
   {
-    RETURN EncodeWRDGUID(CreateGUID());
+    RETURN EncodeWRDGUID(__GetRandomUUIDv4Bits());
   }
 
   /** Delete an entity if not referred, close it otherwise
