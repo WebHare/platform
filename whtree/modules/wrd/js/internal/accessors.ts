@@ -1,4 +1,4 @@
-import { WRDBaseAttributeType, WRDAttributeType, AllowedFilterConditions, WRDAttrBase, WRDGender } from "./types";
+import { WRDBaseAttributeType, WRDAttributeType, AllowedFilterConditions, WRDAttrBase, WRDGender, Insertable, GetResultType, SimpleWRDAttributeType } from "./types";
 import type { AttrRec, EntityPartialRec, EntitySettingsRec } from "./db";
 import { sql, SelectQueryBuilder, ExpressionBuilder } from "kysely";
 import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
@@ -585,6 +585,74 @@ class WRDDBDateTimeValue<Required extends boolean> extends WRDAttributeValueBase
   }
 }
 
+type ArraySelectable<Members extends Record<string, SimpleWRDAttributeType | WRDAttrBase>> = {
+  [K in keyof Members]: GetResultType<Members[K]>;
+};
+
+class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WRDAttrBase>> extends WRDAttributeValueBase<
+  Array<Insertable<Members> & { wrdSettingId?: bigint }>,
+  Array<ArraySelectable<Members> & { wrdSettingId: bigint }>,
+  Array<ArraySelectable<Members> & { wrdSettingId: bigint }>,
+  never> {
+
+  getDefaultValue(): Array<ArraySelectable<Members> & { wrdSettingId: bigint }> { return []; }
+
+  checkFilter({ condition, value }: never) {
+    throw new Error(`Filters not allowed on arrays`);
+  }
+
+  matchesValue(value: Array<ArraySelectable<Members>>, cv: never): boolean {
+    throw new Error(`Filters not allowed on arrays`);
+  }
+
+  /** Try to add wheres to the database query on wrd.entities to filter out non-matches for this filter
+   * @typeParam O - Output map for the database query
+   * @param query - Database query
+   * @param cv - Condition and value to compare with
+   * @returns Whether after-filtering is necessary and updated query
+   */
+  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: never): AddToQueryResponse<O> {
+    throw new Error(`Filters not allowed on arrays`);
+  }
+
+  /** Returns true all the values in a filter match the default value
+   * @param cv - Condition+value to check
+   * @returns true if all values match the default value
+   */
+  containsOnlyDefaultValues<CE extends never>(cv: CE): boolean {
+    throw new Error(`Filters not allowed on arrays`);
+  }
+
+  /** Given a list of entity settings, extract the return value for a field
+   * @param entity_settings - List of entity settings
+   * @param settings_start - Position where settings for this attribute start
+   * @param settings_limit - Limit of setting for this attribute, is always greater than settings_start
+   */
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): Array<ArraySelectable<Members> & { wrdSettingId: bigint }> {
+    throw new Error(`Not implemented yet`);
+  }
+
+  /** Given a list of entity settings, extract the return value for a field
+   * @param entity_settings - List of entity settings
+   * @param settings_start - Position where settings for this attribute start
+   * @param settings_limit - Limit of setting for this attribute, may be the same as settings_start)
+   * @returns The parsed value. The return type of this function is used to determine the selection output type for a attribute.
+   */
+  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, row: EntityPartialRec): Array<ArraySelectable<Members> & { wrdSettingId: bigint }> {
+    if (settings_limit <= settings_start)
+      return this.getDefaultValue() as Array<ArraySelectable<Members> & { wrdSettingId: bigint }>; // Cast is needed because for required fields, Out may not extend Default.
+    else
+      return this.getFromRecord(entity_settings, settings_start, settings_limit);
+  }
+
+  /** Check the contents of a value used to insert or update a value
+   * @param value - The value to check. The type of this value is used to determine which type is accepted in an insert or update.
+   */
+  validateInput(value: Array<Insertable<Members> & { wrdSettingId?: bigint }>) {
+    throw new Error(`Not implemented yet`);
+  }
+}
+
 export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default, C extends { condition: AllowedFilterConditions; value: unknown } = { condition: AllowedFilterConditions; value: unknown }> extends WRDAttributeValueBase<In, Default, Out, C> {
 
   throwError(): never {
@@ -705,4 +773,6 @@ export type AccessorType<T extends WRDAttrBase> = T["__attrtype"] extends keyof 
         ? WRDDBDateValue<T["__required"]>
         : (T extends { __attrtype: WRDAttributeType.DateTime }
           ? WRDDBDateTimeValue<T["__required"]>
-          : never))));
+          : (T extends { __attrtype: WRDAttributeType.Array }
+            ? WRDDBArrayValue<T["__options"]["members"]>
+            : never)))));
