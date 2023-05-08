@@ -801,6 +801,9 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
   */
   PUBLIC RECORD FUNCTION GetMigrationStatus(STRING migrationtag)
   {
+    IF(NOT ObjectExists(this->__GetTypeByTag("wrd_settings", TRUE))) //migrations not even set up yet..
+      RETURN DEFAULT RECORD;
+
     INTEGER mysettings := this->^wrd_settings->Search("wrd_guid", wrd_settings_guid);
     RECORD ARRAY completedmigrations := this->^wrd_settings->GetEntityField(mysettings, "migrations");
     RETURN SELECT result, finished, revision FROM completedmigrations WHERE tag = migrationtag;

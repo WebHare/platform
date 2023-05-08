@@ -622,6 +622,14 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
     local_schema->SetSchemaSetting(setting.name, value);
   }
 
+  FOREVERY(RECORD migration FROM SELECT * FROM runmigrations WHERE stage = "afterEntities")
+  {
+    RECORD result := MakeFunctionPtr(migration.updatefunction)(local_schema);
+    DELETE FROM completedmigrations WHERE tag = migration.tag;
+    INSERT CELL [ migration.tag, finished := GetCurrentDateTime(), result, migration.revision ] INTO completedmigrations AT END;
+    updatemigrations := TRUE;
+  }
+
   IF(updatemigrations)
   {
     INTEGER mysettings := local_schema->^wrd_settings->Search("wrd_guid", wrd_settings_guid);

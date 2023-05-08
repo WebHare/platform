@@ -1,0 +1,8 @@
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+
+  <import definitionfile="mod::system/data/wrdschemas/default.wrdschema.xml" />
+
+  <migration tag="testfw:update_post" stage="beforeEntities" updatefunction="update.whlib#doupdate" />
+  <migration tag="testfw:update_postentities" stage="afterEntities" updatefunction="update.whlib#doupdate" />
+
+</schemadefinition>

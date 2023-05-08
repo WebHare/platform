@@ -946,6 +946,7 @@ STATIC OBJECTTYPE TestFramework
          [ description := "The webhare_testsuite WRD schema"
          , usermgmt := this->wrdauth
          , initialize := TRUE
+         , schemaresource := this->options.schemaresource
          ]);
 
       IF(this->wrdauth)
@@ -2053,6 +2054,7 @@ PUBLIC MACRO RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTST
                               , relativeoutputfolders := FALSE
                               , testroles := RECORD[]
                               , wrdschema := TRUE
+                              , schemaresource := ""
                               , wrdauth := FALSE
                               , usedatabase := TRUE
                               , addinterfacealiases := STRING[]
