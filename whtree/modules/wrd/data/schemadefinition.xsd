@@ -47,6 +47,26 @@
         <xs:complexType>
           <xs:attribute name="tag" type="xs:string" use="required" />
           <xs:attribute name="updatefunction" type="xs:string" use="required" />
+          <xs:attribute name="stage">
+            <xs:annotation>
+              <xs:documentation>When do we run this migration? Stages are considered for all importe schemas together (eg if schema B imports schema A, A's beforeEntities migration runs after both A and B's metadata changes have been applied)</xs:documentation>
+            </xs:annotation>
+            <xs:simpleType>
+              <xs:restriction base="xs:string">
+                <!-- NOTE we're leaving room for eg. beforeCreation (eg if you want to rename an existing schema?) and beforeCommit -->
+                <xs:enumeration value="beforeTypes">
+                  <xs:annotation>
+                    <xs:documentation>stage=beforeTypes migrations are invoked before any metadata changes. (default)</xs:documentation>
+                  </xs:annotation>
+                </xs:enumeration>
+                <xs:enumeration value="beforeEntities">
+                  <xs:annotation>
+                    <xs:documentation>stage=beforeEntities migrations are invoked after metadata changes but before entitites are created/updated</xs:documentation>
+                  </xs:annotation>
+                </xs:enumeration>
+              </xs:restriction>
+            </xs:simpleType>
+          </xs:attribute>
           <xs:attributeGroup ref="sc:ApplicabletoWebHare" />
         </xs:complexType>
       </xs:element>

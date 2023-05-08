@@ -426,7 +426,7 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
   IF (NOT options.fromexternal)
     local_schema->SetSchemaSetting("wrd:schemaresources", schemadef.schemaresources);
 
-  FOREVERY(RECORD migration FROM SELECT * FROM runmigrations)
+  FOREVERY(RECORD migration FROM SELECT * FROM runmigrations WHERE stage = "beforeTypes")
   {
     RECORD result := MakeFunctionPtr(migration.updatefunction)(local_schema);
     INSERT CELL [ migration.tag, finished := GetCurrentDateTime(), result ] INTO completedmigrations AT END;
@@ -560,6 +560,14 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
       }
     }
   }
+
+  FOREVERY(RECORD migration FROM SELECT * FROM runmigrations WHERE stage = "beforeEntities")
+  {
+    RECORD result := MakeFunctionPtr(migration.updatefunction)(local_schema);
+    INSERT CELL [ migration.tag, finished := GetCurrentDateTime(), result ] INTO completedmigrations AT END;
+    updatemigrations := TRUE;
+  }
+
 
   //Create/update entities
   FOREVERY (RECORD r FROM (SELECT * FROM diff.shared WHERE CellExists(shared.right,'hasvalues') AND shared.right.hasvalues ORDER BY shared.right.valslinenum)) //HACK: process them in source order, giving more chance to resolve dependencies

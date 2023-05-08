@@ -674,6 +674,7 @@ MACRO TestConversion()
   TestEq(FALSE, status.result.person_has_add_datetime);
 
   TestEq(FALSE, RecordExists(testfw->GetWRDSchema()->GetMigrationStatus("testfw:update2")));
+  Testeq(TRUE, testfw->GetWRDSchema()->GetMigrationStatus("testfw:update_post").result.person_has_add_datetime);
 
   TestEq("DATE", testfw->GetWRDSchema()->^wrd_person->GetAttribute("TEST_DATETIME").attributetypename);
 
