@@ -35,6 +35,7 @@ LOADLIB "mod::system/lib/internal/typecoder.whlib";
 
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
 
 RECORD wrdtype_default :=
@@ -405,8 +406,7 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
   {
     IF(ObjectExists(local_schema->GetType("wrd_settings")) AND RecordExists(local_schema->GetType("wrd_settings")->GetAttribute("migrations")))
     {
-      INTEGER mysettings := local_schema->^wrd_settings->Search("wrd_guid", wrd_settings_guid);
-      completedmigrations := local_schema->^wrd_settings->GetEntityField(mysettings, "migrations");
+      completedmigrations := GetWRDSetting(local_schema, "migrations");
     }
     ELSE
     {
@@ -632,10 +632,7 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
   }
 
   IF(updatemigrations)
-  {
-    INTEGER mysettings := local_schema->^wrd_settings->Search("wrd_guid", wrd_settings_guid);
-    local_schema->^wrd_settings->UpdateEntity(mysettings, [ migrations := completedmigrations ]);
-  }
+    SetWRDSetting(local_schema, "migrations", completedmigrations);
 
   local_schema->__SignalMetadataChanged();
 }
