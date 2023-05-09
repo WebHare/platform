@@ -1,11 +1,14 @@
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+
   <migration tag="testfw:update1" updatefunction="update.whlib#doupdate" webhareversion=">= 4.30.0" />
-  <migration tag="testfw:update2" updatefunction="neverruns.whlib#doupdate" webhareversion="= 1.0.0"/>
-  <migration tag="testfw:update_post" updatefunction="update.whlib#doupdate" stage="beforeEntities"/>
-  <object tag="WRD_PERSON">
+  <migration tag="testfw:update2" updatefunction="neverruns.whlib#doupdate" webhareversion="= 1.0.0" />
+  <migration tag="testfw:update_post" revision="1" stage="beforeEntities" updatefunction="update.whlib#doupdate" />
+
+  <object tag="wrd_person">
     <attributes>
-      <date tag="TEST_DATETIME" />
-      <datetime tag="ADD_DATETIME" />
+      <date tag="test_datetime" />
+      <datetime tag="add_datetime" />
     </attributes>
   </object>
+
 </schemadefinition>

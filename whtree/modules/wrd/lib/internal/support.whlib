@@ -21,8 +21,6 @@ PUBLIC CONSTANT INTEGER current_schema_version := 1;
 PUBLIC INTEGER ttl_wrdschemacache := 5 * 60 * 1000;
 
 PUBLIC CONSTANT STRING wrd_baseschemaresource := "mod::wrd/data/wrdschemas/base.wrdschema.xml";
-PUBLIC CONSTANT STRING wrd_settings_guid :=      "wrd:BEA61EF00D0000000000000000000000";
-PUBLIC CONSTANT STRING wrd_settings_tag :=       "WRD_SETTINGS";
 
 PUBLIC STRING worldinfo_ns := "http://www.webhare.net/xmlns/wrd/worldinfo";
 PUBLIC STRING ARRAY builtin_wrdtypes := ["WRD_RELATION","WRD_PERSON","WRD_ORGANIZATION"];
@@ -622,13 +620,6 @@ PUBLIC VARIANT FUNCTION DecodeWRDAttribute(STRING rawdata, INTEGER attributetype
       ABORT("Unsupported attribute type " || attributetype);
     }
   }
-}
-/** @short Create a unique GUID
-    @long This function creates a GUID to offer a unique key for relations. */
-PUBLIC STRING FUNCTION CreateGUID()
-{
-  STRING hash := GetMD5Hash(GenerateUFS128BitId() || GenerateUFS128BitId());
-  RETURN hash;
 }
 
 PUBLIC STRING FUNCTION EncodeWRDGUID(STRING rawguid)

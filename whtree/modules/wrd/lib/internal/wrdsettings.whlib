@@ -1,0 +1,15 @@
+<?wh
+
+PUBLIC CONSTANT STRING wrd_settings_guid :=      "wrd:BEA61EF00D0000000000000000000000";
+PUBLIC CONSTANT STRING wrd_settings_tag :=       "WRD_SETTINGS";
+
+PUBLIC VARIANT FUNCTION GetWRDSetting(OBJECT wrdschema, STRING field)
+{
+  INTEGER mysettings := wrdschema->^wrd_settings->Search("wrd_guid", wrd_settings_guid);
+  RETURN wrdschema->^wrd_settings->GetEntityField(mysettings, field);
+}
+PUBLIC MACRO SetWRDSetting(OBJECT wrdschema, STRING field, VARIANT newdata)
+{
+  INTEGER mysettings := wrdschema->^wrd_settings->Search("wrd_guid", wrd_settings_guid);
+  wrdschema->^wrd_settings->UpdateEntity(mysettings, CellInsert(CELL[], field, newdata));
+}

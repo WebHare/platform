@@ -132,12 +132,8 @@ PUBLIC OBJECT FUNCTION CreateWRDSchema(STRING tag, RECORD metadata DEFAULTSTO DE
       deffile := def.definitionfile;
     }
   }
-  ELSE
-  {
-    deffile := wrd_baseschemaresource;
-  }
-  IF(deffile != "")
-    schemadef := OpenWRDSchemaDefFile(deffile);
+
+  schemadef := OpenWRDSchemaDefFile(deffile ?? wrd_baseschemaresource);
 
   INTEGER schemaid := MakeAutonumber(wrd.schemas,"id");
   INSERT CELL[ id := schemaid

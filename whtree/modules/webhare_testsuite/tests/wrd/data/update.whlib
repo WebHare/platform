@@ -1,9 +1,15 @@
 <?wh
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
 PUBLIC RECORD FUNCTION DoUpdate(OBJECT wrdschema)
 {
   RECORD postupdaterevision := wrdschema->GetMigrationStatus("testfw:update_post");
-  RETURN CELL[ person_has_add_datetime := RecordExists(wrdschema->^wrd_person->GetAttribute("ADD_DATETIME"))
+  RECORD postentitiesrevision := wrdschema->GetMigrationStatus("testfw:update_postentities");
+
+  RETURN CELL[ person_has_add_datetime := ObjectExists(wrdschema->GetType("WRD_PERSON")) AND RecordExists(wrdschema->^wrd_person->GetAttribute("ADD_DATETIME"))
+             , has_settings_entity := ObjectExists(wrdschema->GetType("WRD_SETTINGS")) AND wrdschema->^wrd_settings->Search("WRD_TAG", wrd_settings_tag) != 0
              , postupdaterevision := RecordExists(postupdaterevision) ? postupdaterevision.revision : -1
+             , postentitiesrevision := RecordExists(postentitiesrevision) ? postentitiesrevision.revision : -1
              ];
 }

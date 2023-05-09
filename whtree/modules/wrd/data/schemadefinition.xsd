@@ -65,6 +65,11 @@
                     <xs:documentation>stage=beforeEntities migrations are invoked after metadata changes but before entitites are created/updated</xs:documentation>
                   </xs:annotation>
                 </xs:enumeration>
+                <xs:enumeration value="afterEntities">
+                  <xs:annotation>
+                    <xs:documentation>stage=afterEntities migrations are invoked after entitites are created/updated</xs:documentation>
+                  </xs:annotation>
+                </xs:enumeration>
               </xs:restriction>
             </xs:simpleType>
           </xs:attribute>
