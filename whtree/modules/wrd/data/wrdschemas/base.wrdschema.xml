@@ -21,9 +21,9 @@
         <integer tag="revision" description="Update revision. Script is rerun if last update had a lower number than us" />
       </array>
     </attributes>
-    <values matchattribute="wrd_guid" overwriteattributes="wrd_tag">
+    <values matchattribute="wrd_tag" overwriteattributes="wrd_guid">
       <value>
-        <field tag="wrd_guid">wrd:BEA61EF00D0000000000000000000000</field>
+        <field tag="wrd_guid">wrd:0700400000004000A00000BEA61EF00D</field>
         <field tag="wrd_tag">WRD_SETTINGS</field>
       </value>
     </values>
