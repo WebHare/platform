@@ -1,5 +1,7 @@
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
 
+  <migration tag="wrd:migratesettings" updatefunction="mod::wrd/lib/internal/metadata/migrations.whlib#MigrateSettings" stage="beforeEntities" />
+
   <object tag="wrd_relation" title="Relation">
   </object>
 
@@ -19,6 +21,10 @@
         <datetime tag="finished" required="true" description="When the migration completed" />
         <record tag="result" description="Result returned by the migration script" />
         <integer tag="revision" description="Update revision. Script is rerun if last update had a lower number than us" />
+      </array>
+      <array tag="syncpoints" unsafetocopy="true"> <!-- syncpoints peers are installation specific -->
+        <free tag="peer" required="true" />
+        <free tag="remotewrdschema" required="true" />
       </array>
     </attributes>
     <values matchattribute="wrd_tag" overwriteattributes="wrd_guid">

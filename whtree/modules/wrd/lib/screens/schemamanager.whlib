@@ -15,6 +15,7 @@ LOADLIB "mod::wrd/lib/address.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/tolliumfuncs.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/moduledefs.whlib";
 
 
@@ -319,16 +320,12 @@ PUBLIC STATIC OBJECTTYPE SynchronizeSchema EXTEND TolliumScreenBase
 
   RECORD ARRAY FUNCTION OnGetSyncpoints()
   {
-    RECORD data := this->contexts->wrdschema->GetSchemaSetting("wrd:syncpoints", [ fallback := DEFAULT RECORD ]);
-
-    data := CELL[ syncpoints := RECORD[], ...data ];
-
     RETURN
-        SELECT rowkey  :=             id
+        SELECT rowkey  :=             #syncpoints + 1
              , peer
-             , remotewrdschema :=     syncpoints.remotewrdschematag
-             , data :=                syncpoints
-          FROM data.syncpoints;
+             , remotewrdschema
+             , wrd_settingid
+          FROM GetWRDSetting(this->contexts->wrdschema, "syncpoints") AS syncpoints;
   }
 
   MACRO DoSynchronize()
@@ -381,11 +378,9 @@ PUBLIC STATIC OBJECTTYPE SynchronizeSchema EXTEND TolliumScreenBase
       RETURN;
 
     OBJECT work := this->BeginWork();
-
-    RECORD data := this->contexts->wrdschema->GetSchemaSetting("wrd:syncpoints", [ fallback := DEFAULT RECORD ]);
-    data := CELL[ syncpoints := RECORD[], ...data ];
-    DELETE FROM data.syncpoints WHERE id = ^syncpoints->value;
-    this->contexts->wrdschema->SetSchemaSetting("wrd:syncpoints", data);
+    RECORD ARRAY syncpoints := GetWRDSetting(this->contexts->wrdschema, "syncpoints");
+    DELETE FROM syncpoints AT row.rowkey - 1;
+    SetWRDSetting(this->contexts->wrdschema, "syncpoints", syncpoints);
 
     work->Finish();
   }
@@ -410,7 +405,7 @@ PUBLIC STATIC OBJECTTYPE EditSchemaSyncPoint EXTEND TolliumScreenBase
     }
   }
 
-  STRING FUNCTION Submit()
+  INTEGER FUNCTION Submit()
   {
     OBJECT work := this->BeginWork();
     IF (^peer->value = "")
@@ -418,24 +413,29 @@ PUBLIC STATIC OBJECTTYPE EditSchemaSyncPoint EXTEND TolliumScreenBase
     IF (work->HasFailed())
     {
       work->Finish();
-      RETURN "";
+      RETURN 0;
     }
 
-    RECORD data := this->contexts->wrdschema->GetSchemaSetting("wrd:syncpoints", [ fallback := DEFAULT RECORD ]);
-    data := CELL[ syncpoints := RECORD[], ...data ];
+    RECORD ARRAY syncpoints := GetWRDSetting(this->contexts->wrdschema, "syncpoints");
+    RECORD data := CELL [ peer := ^peer->value, remotewrdschema := ^remotewrdschema->value ];
 
+    INTEGER editpos;
     IF (RecordExists(this->initdata)) //editing
-      DELETE FROM data.syncpoints WHERE id = this->initdata.rowkey;
+       editpos := SELECT AS INTEGER #syncpoints + 1 FROM syncpoints WHERE syncpoints.wrd_settingid = this->initdata.wrd_settingid;
 
-    STRING newid := RecordExists(this->initdata) ? this->initdata.rowkey : GenerateUFS128BitId();
-    INSERT
-        [ id :=                 newid
-        , peer :=               ^peer->value
-        , remotewrdschematag := ^remotewrdschema->value
-        ] INTO data.syncpoints AT END;
-    this->contexts->wrdschema->SetSchemaSetting("wrd:syncpoints", data);
+    IF(editpos > 0)
+    {
+      syncpoints[editpos-1] := CELL[...syncpoints[editpos-1], ...data];
+    }
+    ELSE
+    {
+      INSERT data INTO syncpoints AT END;
+      editpos := Length(syncpoints);
+    }
 
-    RETURN work->Finish() ? `${this->contexts->wrdschema->id}-${newid}` : "";
+    SetWRDSetting(this->contexts->wrdschema, "syncpoints", syncpoints);
+
+    RETURN work->Finish() ? editpos : 0;
   }
 
   MACRO DoSelectPeer()

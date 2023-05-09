@@ -1,0 +1,15 @@
+<?wh
+LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
+
+PUBLIC RECORD FUNCTION MigrateSettings(OBJECT wrdschema)
+{
+  RECORD data := wrdschema->GetSchemaSetting("wrd:syncpoints", [ fallback := DEFAULT RECORD ]);
+  IF(RecordExists(data))
+  {
+    SetWRDSetting(wrdschema, "syncpoints", SELECT peer, remotewrdschema := remotewrdschematag FROM data.syncpoints);
+    wrdschema->SetSchemaSetting("wrd:syncpoints", DEFAULT RECORD);
+  }
+  RETURN DEFAULT RECORD;
+}
