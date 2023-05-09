@@ -4,13 +4,9 @@
     <description>Alpha and beta testing of WebHare, Tollium and add-on modules</description>
     <version excludefromfeedbackversions="true">4.31.0</version>
     <validation>
-      <exclude mask="tests/tollium/language/gettid.whscr"
-               why="gettid.whscr tries to test invalid GetTid, don't blame the file for that" />
-      <exclude mask="tests/publisher/siteprofile/data/test*.siteprl.xml" why="these testfiles contain errors on purpose" />
-      <exclude mask="tests/system/modules/data/brokenscreen.xml" why="these testfiles contain errors on purpose" />
-      <exclude mask="tests/tollium/language/test_gettid.ts" why="these testfiles contain errors on purpose" />
-      <exclude mask="tolliumapps/demo/*" why="the demos appear broken but not sure yet if we need to keep or remove them" />
-      <exclude mask="screens/tests/addons.xml" why="these testfiles contain errors on purpose" />
+      <exclude mask="tests/*" why="Tests (and their helper data) often violates validation rules" />
+      <exclude mask="tolliumapps/demo/*" why="the demos appear broken but not sure yet if we need to keep or remove them. some are used in tests" />
+      <exclude mask="screens/tests/*" why="Many missing tids" />
 
       <!-- <exclude mask="tests/*/data/*" why="don't validate test data, its often broke" /> -->
       <exclude mask="*testdata_loadlib_circ_?.whlib" why="These libraries are supposed to fail to compile" />

@@ -34,6 +34,7 @@
     <!-- we need to checkmodule the webhare_testsuite to help find API breakage especially for typescript.
          any files that can't pass validation should simply be excluded in webhare_testsuite/moduledefinition.xml -->
     <test name="checktestsuite" script="mod::system/scripts/whcommands/checkmodule.whscr">
+      <arg value="--hidehints" />
       <arg value="webhare_testsuite" />
     </test>
   </group>

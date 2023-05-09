@@ -114,19 +114,6 @@ MACRO TestSimplePages()
 
   STRING result := BlobToString(testfw->browser->content,-1);
   TestEq("<!-- LOADING IT -->", Left(result,19));
-
-  testfw->browser->GotoWebPage(siteroot->url || "prebuiltshtml");
-  TestEq(200, testfw->browser->GetHTTPStatusCode(), "Trying " || siteroot->url || "prebuiltshtml");
-  TestEq(siteroot->OpenByPath("prebuiltshtml")->id, ToInteger(testfw->browser->document->GetElementById('wcsresult')->textcontent,0));
-
-  testfw->browser->GotoWebPage(siteroot->url || "prebuilthtml");
-  TestEq(200, testfw->browser->GetHTTPStatusCode(), "Trying " || siteroot->url || "prebuilthtml");
-  TestEq("WebStaticPage", testfw->browser->document->GetElementById('webstaticpage')->textcontent);
-
-  publishres := RunFilePublish(siteroot->OpenByPath("prebuilthtml")->id, FALSE);
-  IF(NOT publishres.success)
-    dumpvalue(publishres,'tree');
-  TestEq(TRUE, publishres.success);
 }
 
 MACRO TestDynPage()
@@ -276,18 +263,6 @@ MACRO TestCaptureSubPaths()
         , publish := TRUE
         ], [ setindex := TRUE ]);
 
-  OBJECT file_prebuilt_static := captures->CreateFile(
-        [ name := "prebuilt_static"
-        , typens := "http://www.webhare.net/xmlns/webhare_testsuite/prebuilthtml_csp"
-        , publish := TRUE
-        ]);
-
-  OBJECT file_prebuilt_dynamic := captures->CreateFile(
-        [ name := "prebuilt_dynamic"
-        , typens := "http://www.webhare.net/xmlns/webhare_testsuite/prebuiltshtml_csp"
-        , publish := TRUE
-        ]);
-
   OBJECT capture_in_capturedir := captureindexdir->CreateFolder([name := "indexdir"]);
   OBJECT capture_in_captureindex := capture_in_capturedir->CreateFile(
         [ name := "capture_in_captureindex"
@@ -310,12 +285,6 @@ MACRO TestCaptureSubPaths()
   TestEQ("", testfw->browser->document->GetElementById("subpath")->textcontent);
   TestEQ(TRUE, testfw->browser->GotoWebPage(file_capture_dynamic->url || "with_subpath"));
   TestEQ("with_subpath", testfw->browser->document->GetElementById("subpath")->textcontent);
-
-  TestEQ(TRUE, testfw->browser->GotoWebPage(file_prebuilt_static->url));
-  TestEQ(TRUE, testfw->browser->GotoWebPage(file_prebuilt_static->url || "with_subpath"));
-
-  TestEQ(TRUE, testfw->browser->GotoWebPage(file_prebuilt_dynamic->url));
-  TestEQ(TRUE, testfw->browser->GotoWebPage(file_prebuilt_dynamic->url || "with_subpath"));
 
   ScanSingleFolder(captureindexdir->id);
 

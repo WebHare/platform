@@ -6,11 +6,6 @@ LOADLIB "mod::publisher/lib/webdesign.whlib";
 
 LOADLIB "mod::system/lib/webserver.whlib";
 
-LOADLIB "mod::webhare_testsuite/webdesigns/basetest/lib/basetest.whlib";
-
-PUBLIC OBJECTTYPE PrebuiltSHTML EXTEND WebPage
-<
->;
 PUBLIC OBJECTTYPE WebStaticPage EXTEND StaticPageBase
 <
   UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)

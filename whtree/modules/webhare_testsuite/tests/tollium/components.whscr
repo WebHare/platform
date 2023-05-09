@@ -5,10 +5,10 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 ASYNC MACRO MultilineComponent()
 {
   //attempt to insert a block container into a <select><option>. currently throws immediately. should either throw or generate lastloaderrors
-  TestThrowsLike('*block*inline context*', PTR GetTestController()->LoadScreen("webhare_testsuite:tests/addons.block_multilinecomponent"));
+  TestThrowsLike('*block*inline context*', PTR GetTestController()->LoadScreen(Resolve("data/addons.xml#block_multilinecomponent")));
 
   //attempt to insert a inline container into a <select><option> which actually contains multiple lines
-  AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen("webhare_testsuite:tests/addons.inline_multilinecomponent"));
+  AWAIT ExpectScreenChange(+1, PTR GetTestController()->LoadScreen(Resolve("data/addons.xml#inline_multilinecomponent")));
   TestEq("Fragment \'mod::webhare_testsuite/screens/tests/components.xml#multilinecomponent\' was expected to be inline, but expanded to multiple lines", TT("errors")->rows[0].message);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
@@ -16,7 +16,7 @@ ASYNC MACRO MultilineComponent()
 /* Test add-on components */
 OBJECT ASYNC FUNCTION YoutubeComponent()
 {
-  OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/addons.youtubecomponent");
+  OBJECT scr := GetTestController()->LoadScreen(Resolve("data/addons.xml#youtubecomponent"));
   TestEq(TRUE, ObjectExists(scr));
   /* this caused a: The component \'youtubecomponent$textedit\' you are trying to insert as a child of tollium_s$1 has already been inserted into selectcomponent */
   AWAIT ExpectScreenChange(+1, PTR scr->RunModal);
