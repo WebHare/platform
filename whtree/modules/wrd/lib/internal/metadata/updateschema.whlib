@@ -414,6 +414,7 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
       completedmigrations := SELECT tag := DecodeBase16(Substring(name,15))
                                   , finished := value.finished
                                   , result := value.result
+                                  , revision := 0
                                FROM ListWRDSchemaSettings(local_schema->id)
                               WHERE name LIKE "wrd:migrations.*";
       updatemigrations := TRUE;
