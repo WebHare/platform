@@ -1,15 +1,21 @@
 <?wh
 
-PUBLIC CONSTANT STRING wrd_settings_guid :=      "wrd:BEA61EF00D0000000000000000000000";
+PUBLIC CONSTANT STRING wrd_settings_guid :=      "wrd:0700400000004000A00000BEA61EF00D";
 PUBLIC CONSTANT STRING wrd_settings_tag :=       "WRD_SETTINGS";
 
 PUBLIC VARIANT FUNCTION GetWRDSetting(OBJECT wrdschema, STRING field)
 {
-  INTEGER mysettings := wrdschema->^wrd_settings->Search("wrd_guid", wrd_settings_guid);
+  //The wrd_tag fallback can be removed in 5.4 .. we only needed it because some 5.3 dev releases used a different guid for a while
+  INTEGER mysettings := wrdschema->^wrd_settings->Search("wrd_guid", wrd_settings_guid) ?? wrdschema->^wrd_settings->Search("wrd_tag", wrd_settings_tag);
+  IF(mysettings = 0)
+    THROW NEW Exception(`Unable to find WRD_SETTINGS in schema ${wrdschema->tag}`);
   RETURN wrdschema->^wrd_settings->GetEntityField(mysettings, field);
 }
 PUBLIC MACRO SetWRDSetting(OBJECT wrdschema, STRING field, VARIANT newdata)
 {
-  INTEGER mysettings := wrdschema->^wrd_settings->Search("wrd_guid", wrd_settings_guid);
+  //The wrd_tag fallback can be removed in 5.4 .. we only needed it because some 5.3 dev releases used a different guid for a while
+  INTEGER mysettings := wrdschema->^wrd_settings->Search("wrd_guid", wrd_settings_guid) ?? wrdschema->^wrd_settings->Search("wrd_tag", wrd_settings_tag);
+  IF(mysettings = 0)
+    THROW NEW Exception(`Unable to find WRD_SETTINGS in schema ${wrdschema->tag}`);
   wrdschema->^wrd_settings->UpdateEntity(mysettings, CellInsert(CELL[], field, newdata));
 }
