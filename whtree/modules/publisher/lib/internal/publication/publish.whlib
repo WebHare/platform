@@ -238,8 +238,8 @@ PUBLIC STATIC OBJECTTYPE Reader
        SET RECORD fileupdate
      WHERE id = fileid AND publish;
 
-    //After update, we can check if the publish flag is still there - we now see commited writes from other transcations
-    BOOLEAN parallel_depublish := NOT (SELECT AS BOOLEAN publish FROM system.fs_objects WHERE id = fileid);
+    //After update, we can check if the publish flag is still there - we now see commited writes from other transcations. Also verify the file is still 'live' (has a link and thus an output location)
+    BOOLEAN parallel_depublish := NOT RecordExists(SELECT FROM system.fs_objects WHERE id = fileid AND publish AND link != "");
 
     //ADDME if parallel_depublish, we could inform outputanalyzer to remove the output faster, or do it ourselves
 
@@ -253,7 +253,7 @@ PUBLIC STATIC OBJECTTYPE Reader
 
       OBJECT gatheredlinkstype := OpenWHFSType("http://www.webhare.net/xmlns/consilio/gatheredlinks");
       IF(ObjectExists(gatheredlinkstype))
-        gatheredlinkstype->SetInstanceData(fileid, [ links := checkablelinks ]);
+        gatheredlinkstype->SetInstanceData(fileid, [ links := checkablelinks ], [ isvisibleedit := FALSE ]); //isvisibleedit FALSE was the default because gatheredlinkstype is not cloneoncopy, but just to clarify...
     }
 
     GetPrimary()->CommitWork();
