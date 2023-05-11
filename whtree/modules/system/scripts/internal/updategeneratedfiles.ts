@@ -9,6 +9,7 @@ import { program } from 'commander';
 import { updateWebHareConfigFile } from "@mod-system/js/internal/generation/gen_config";
 import { updateAllModuleTableDefs } from "@mod-system/js/internal/generation/gen_whdb";
 import { updateAllModuleWRDDefs } from "@mod-system/js/internal/generation/gen_wrd";
+import { updateAllModuleOpenAPIDefs } from "@mod-system/js/internal/generation/gen_openapi";
 
 async function runUpdate(verbose: boolean) {
   if (verbose)
@@ -22,6 +23,10 @@ async function runUpdate(verbose: boolean) {
   if (verbose)
     console.log("Updating WRD definitions");
   await updateAllModuleWRDDefs();
+
+  if (verbose)
+    console.log("Updating OpenAPI definitions");
+  await updateAllModuleOpenAPIDefs();
 }
 
 program
