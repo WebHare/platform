@@ -121,7 +121,7 @@ export async function createOpenAPITypeDocuments(openapifilepath: string, servic
   /* openapi-typescript doesn't handle references to schemas of a parameter
      correctly, and also miscompiles imports from other files. Using
      .validate will resolve all references (but result in a massive file though)
-     ADDME: try to work wtith typescript-openapi to resolve these issues
+     ADDME: try to work with typescript-openapi to resolve these issues
      (validate mutates in-place, so use a structured clone)
   */
   const parsed = await SwaggerParser.validate(structuredClone(bundled)) as OpenAPIV3.Document;
