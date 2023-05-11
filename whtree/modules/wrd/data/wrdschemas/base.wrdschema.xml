@@ -1,6 +1,6 @@
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
 
-  <migration tag="wrd:migratesettings" updatefunction="mod::wrd/lib/internal/metadata/migrations.whlib#MigrateSettings" stage="beforeEntities" />
+  <migration tag="wrd:migratesettings" updatefunction="mod::wrd/lib/internal/metadata/migrations.whlib#MigrateSettings" stage="afterEntities" />
 
   <object tag="wrd_relation" title="Relation">
   </object>
