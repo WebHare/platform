@@ -292,7 +292,7 @@ export async function updateWebHareConfigFile(withdb: boolean) {
   }
 
   const newconfig = await updateWebHareConfig(oldconfig, withdb);
-  if (await updateDir(dir, { "config.json": [] }, true, () => JSON.stringify(newconfig))) {
+  if (await updateDir(dir, [{ type: "file", name: "config.json", data: [] }], true, () => JSON.stringify(newconfig))) {
     for (const cb of [...updateCallbacks])
       cb();
   }
