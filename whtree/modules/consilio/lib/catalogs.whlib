@@ -673,7 +673,7 @@ STATIC OBJECTTYPE ConsilioCatalog
   PUBLIC STRING ARRAY FUNCTION __GetSuggestedFields() //FIXME - Not sure if we need to keep this API - AddIndexManagerObjects can probably just walk the mapping
   {
     RECORD _sug := SELECT * FROM this->GetExpectedMapping() WHERE name = "_suggested";
-    RETURN RecordExists(_sug) ? _sug.__suggestedfields : STRING[];
+    RETURN RecordExists(_sug) AND CellExists(_sug,'__suggestedfields') ? _sug.__suggestedfields : STRING[];
   }
 
   BOOLEAN FUNCTION GetManaged()
