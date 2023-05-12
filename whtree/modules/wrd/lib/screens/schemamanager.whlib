@@ -344,7 +344,7 @@ PUBLIC STATIC OBJECTTYPE SynchronizeSchema EXTEND TolliumScreenBase
       RECORD syncdata := CELL
           [ wrdschema :=        this->contexts->wrdschema->id
           , peerinfo :=         peer->GetMarshallableInfo()
-          , syncpoint :=        tosync.data
+          , remotewrdschema :=  tosync.remotewrdschema
           , syncoptions.includetypes
           ];
       OBJECT screen := CreateProgressDialog(this,
