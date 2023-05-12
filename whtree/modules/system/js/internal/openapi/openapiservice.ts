@@ -4,7 +4,7 @@ import * as env from "@webhare/env";
 import * as services from "@webhare/services";
 import { loadWittyResource, log, toFSPath } from "@webhare/services";
 import { LogInfo, RestAPI } from "./restapi";
-import { createJSONResponse, WebRequest, WebResponse, HTTPErrorCode, createWebResponse } from "@webhare/router";
+import { createJSONResponse, WebRequest, WebResponse, HTTPErrorCode, createWebResponse, HTTPSuccessCode } from "@webhare/router";
 import { WebRequestInfo, WebResponseInfo } from "../types";
 import { getOpenAPIService } from "@webhare/services/src/moduledefparser";
 import { registerLoadedResource } from "../hmrinternal";
@@ -50,7 +50,7 @@ export class RestService {
     //TODO it would be safer for the router to provide us with the absolutebaseurl of the current spec (and we can figure out relurl ourselves too then)
     let apibaseurl = req.url.toString();
     apibaseurl = apibaseurl.substring(0, apibaseurl.length - relurl.length);
-    const relurl_spec = "openapi/openapi.json";
+    const relurl_spec = "openapi.json";
     const relurl_swaggerui = "openapi/swagger-ui";
     const apidata = {
       apibaseurl: apibaseurl,
@@ -69,10 +69,16 @@ export class RestService {
       return createWebResponse(await witty.runComponent(comp, apidata), { headers: metapageheaders });
     }
 
+    /* https://publicatie.centrumvoorstandaarden.nl/api/adr/#documentation API-51: Publish OAS document at a standard location in JSON-format
+        Publish it at /openapi.json (we used /openapi/openapi.json before) */
     if (relurl == relurl_spec) {
       const indent = ["1", "true"].includes(new URL(req.url).searchParams.get("indent") || "");
       return this.restapi!.renderOpenAPIJSON(apibaseurl, { filterxwebhare: true, indent });
     }
+
+    // Temporary redirect for old url. Remove eg. after 2023-06-13
+    if (relurl == "openapi/openapi.json")
+      return createWebResponse("Moved permanently", { status: HTTPSuccessCode.MovedPermanently, headers: { location: apibaseurl + relurl_spec } });
 
     return createWebResponse("Not found", { status: HTTPErrorCode.NotFound }); //TODO or should we fallback to a global 404 handler... although that probably isn't useful inside a namespace intended for robots
   }
@@ -85,7 +91,7 @@ export class RestService {
 
     /* Builtin metapages. We use `openapi/` as we heope that is less likely to be used by an openapi server's routes
        than eg `meta/` */
-    if (!relurl || relurl.startsWith("openapi/")) {
+    if (!relurl || relurl === "openapi.json" || relurl.startsWith("openapi/")) {
       return this.#handleMetaPage(req, relurl);
     }
 
