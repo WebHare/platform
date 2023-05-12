@@ -115,7 +115,7 @@ export async function createOpenAPITypeDocuments(openapifilepath: string, servic
 
   const tag = service.name.replaceAll(/^[a-z]|_[a-z]/g, c => c.replace("_", "").toUpperCase());
 
-  // Add __internal_format_tag optional keys before resolving every
+  // Add __internal_format_tag optional keys before validation resolves every $ref reference
   addInternalFormatTags(bundled, bundled, "#");
 
   /* openapi-typescript doesn't handle references to schemas of a parameter
