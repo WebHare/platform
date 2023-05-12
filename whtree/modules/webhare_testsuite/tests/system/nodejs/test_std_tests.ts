@@ -10,6 +10,7 @@ import * as test from "@webhare/test";
 import * as std from "@webhare/std";
 import { Money } from "@webhare/std";
 
+export const uuid4regex = new RegExp(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 
 //Test helpers for building APIs
 async function testAPI() {
@@ -273,7 +274,14 @@ async function testStrings() {
   }
 
   test.eqMatch(/^[0-9a-f]{8}$/, std.generateRandomId("hex", 4));
-  test.eqMatch(/^[-_0-9A-Za-z]{4}$/, std.generateRandomId("base64url", 3));
+
+  for (let i = 0; i < 100; ++i) {
+    const id = std.generateRandomId("uuidv4", 16);
+    test.eqMatch(uuid4regex, id, `Failed: ${id}`);
+  }
+
+  test.throws(/16 bytes/, () => std.generateRandomId("uuidv4", 15));
+  test.throws(/16 bytes/, () => std.generateRandomId("uuidv4", 17));
 
   testUFS("Aladdin:open sesame", "QWxhZGRpbjpvcGVuIHNlc2FtZQ");
   testUFS("sysop:secret", "c3lzb3A6c2VjcmV0");
