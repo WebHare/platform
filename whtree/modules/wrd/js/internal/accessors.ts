@@ -715,6 +715,7 @@ class WRDDBRichDocumentValue extends WRDAttributeUnImplementedValueBase<unknown,
 class WRDDBWHFSInstanceValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBWHFSIntextlinkValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBRecordValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
+class WRDDBJSONValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBPaymentProviderValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBPaymentValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBStatusRecordValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
@@ -752,6 +753,7 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDAttributeType.WHFSInstance]: WRDDBWHFSInstanceValue;
   [WRDAttributeType.WHFSIntextlink]: WRDDBWHFSIntextlinkValue;
   [WRDAttributeType.Record]: WRDDBRecordValue;
+  [WRDAttributeType.JSON]: WRDDBJSONValue;
   [WRDAttributeType.PaymentProvider]: WRDDBPaymentProviderValue;
   [WRDAttributeType.Payment]: WRDDBPaymentValue;
   [WRDAttributeType.StatusRecord]: WRDDBStatusRecordValue;

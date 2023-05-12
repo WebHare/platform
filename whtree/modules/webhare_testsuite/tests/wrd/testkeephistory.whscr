@@ -307,7 +307,7 @@ MACRO TestChanges()
         , "test_multiple_domain", "test_multiple_domain2", "test_multiple_domain3", "test_image"
         , "test_file", "test_time", "test_datetime", "test_array", "test_money", "test_integer"
         , "test_boolean", "test_enum", "test_enumarray", "test_emptyenum", "test_emptyenumarray"
-        , "test_record", "richie", "wrd_modificationdate", "testinstance"
+        , "test_record", "richie", "wrd_modificationdate", "testinstance", "test_json"
         ];
 
     // fields we are updating

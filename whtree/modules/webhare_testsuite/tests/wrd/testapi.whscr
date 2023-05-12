@@ -73,7 +73,7 @@ STRING FUNCTION WRDGuidToUUId(STRING inguid)
 
 MACRO TestSchema()
 {
-  BLOB testimage_blob := GetWebhareResource("mod::system/web/tests/goudvis.png");
+  BLOB testimage_blob := GetWebHareResource("mod::system/web/tests/goudvis.png");
   RECORD testimage := WrapBlob(testimage_blob,"goudvis.png");
 
   testfw->BeginWork();
@@ -293,7 +293,7 @@ MACRO TestSchema()
   TestImageFileField(persontype, testpersonid, FALSE);
 
   //verify we can add a svg
-  persontype->UpdateEntity(testpersonid, [ test_image := WrapBlob(GetWebhareResource("mod::tollium/web/ui/img/broken.svg"), "broken.svg") ]);
+  persontype->UpdateEntity(testpersonid, [ test_image := WrapBlob(GetWebHareResource("mod::tollium/web/ui/img/broken.svg"), "broken.svg") ]);
   TestEq("image/svg+xml", persontype->GetEntityField(testpersonid, "test_image").mimetype);
 
   testpersonobj->DeleteEntity();
@@ -330,7 +330,7 @@ MACRO ImageCache()
   OBJECT wrdperson := schemaobj->^wrd_person;
   STRING baseurl := OpenTestsuitesite()->webroot;
 
-  BLOB testimage_blob := GetWebhareResource("mod::system/web/tests/goudvis.png");
+  BLOB testimage_blob := GetWebHareResource("mod::system/web/tests/goudvis.png");
   INTEGER entityid1 := wrdperson->CreateEntity([ test_image := WrapBlob(testimage_blob,"")
                                                ] )->id;
   INTEGER entityid2 := wrdperson->CreateEntity([ test_array := [ [ test_image := WrapBlob(testimage_blob,"") ], DEFAULT RECORD ]
@@ -370,7 +370,7 @@ MACRO ImageCache()
 
   //Test images with a WHFS source
   testfw->BeginWork();
-  BLOB toupload2 := GetWebhareResource("mod::webhare_testsuite/tests/system/testdata/homersbrain.bmp");
+  BLOB toupload2 := GetWebHareResource("mod::webhare_testsuite/tests/system/testdata/homersbrain.bmp");
   OBJECT homer := GetTestsuiteTempFolder()->CreateFile( [ data := toupload2, publish := FALSE, name := "homersbrain.bmp" ]);
   wrdperson->UpdateEntity(entityid1, [ test_image := CELL[...WrapBlob(toupload2, "homersbrain.bmp"), source_fsobject := homer->id ]]);
   testfw->CommitWork();
@@ -511,7 +511,46 @@ MACRO TestHSONAttr()
   //verify that it's cleared in the database
   TestEq(0, Length(SELECT FROM wrd.entity_settings WHERE entity = testperson->id AND attribute = extradata_attributeid));
 
-  BLOB goudvis := GetWebhareResource("mod::system/web/tests/goudvis.png");
+  BLOB goudvis := GetWebHareResource("mod::system/web/tests/goudvis.png");
+  testperson->UpdateEntity([ extradata := [ goudvis := goudvis ]]); //overlong data
+  TestEq([ goudvis := goudvis ], testperson->GetField("extradata"));
+
+  testfw->CommitWork();
+}
+
+MACRO TestJSONAttr()
+{
+  testfw->BeginWork();
+
+  OBJECT persontype := testfw->GetWRDSchema()->^wrd_person;
+  persontype->CreateAttribute("jsondata", "JSON");
+  INTEGER jsondata_attributeid := persontype->GetAttribute("jsondata").id;
+  TestEq("JSON", persontype->GetAttribute("jsondata").attributetypename);
+
+  OBJECT  testperson := persontype->CreateEntity([ wrd_contact_email := "jsonattr@example.com" ]);
+
+  TestEq([ jsondata := DEFAULT RECORD ], testperson->GetFields(["jsondata"]));
+
+  /* We only accept records. Arrays will have to be wrapped, scalars should just use the right type. This fixes ambiguity about not storing default values (as they would lose type) and we can always relax this.. */
+  TestThrowsLike("*must be of type RECORD*", PTR testperson->UpdateEntity([ jsondata := 45 ])); //only records!
+
+  testperson->UpdateEntity([ jsondata := [ x := 42 ]]);
+  TestEq([ jsondata := [ x := 42 ] ], testperson->GetFields(["jsondata"]));
+  testperson->UpdateEntity([ jsondata := [ myarray := integer[] ]]);
+  TestEq([ jsondata := [ myarray := variant[] ] ], testperson->GetFields(["jsondata"]));
+
+  //verify that a single record exists in the database
+  TestEq(1, Length(SELECT FROM wrd.entity_settings WHERE entity = testperson->id AND attribute = jsondata_attributeid));
+
+  testperson->UpdateEntity([ jsondata := CELL[] ]);
+  TestEq([ jsondata := CELL[] ], testperson->GetFields(["jsondata"]));
+  testperson->UpdateEntity([ jsondata := DEFAULT RECORD ]);
+  TestEq([ jsondata := DEFAULT RECORD ], testperson->GetFields(["jsondata"]));
+
+  //verify that it's cleared in the database
+  TestEq(0, Length(SELECT FROM wrd.entity_settings WHERE entity = testperson->id AND attribute = jsondata_attributeid));
+
+  BLOB goudvis := GetWebHareResource("mod::system/web/tests/goudvis.png");
   testperson->UpdateEntity([ extradata := [ goudvis := goudvis ]]); //overlong data
   TestEq([ goudvis := goudvis ], testperson->GetField("extradata"));
 
@@ -1442,7 +1481,7 @@ MACRO TestEnrichBulk()
   OBJECT schemaobj:=  testfw->GetWRDSchema();
   OBJECT wrdperson := schemaobj->^wrd_person;
 
-  RECORD testimage := WrapBlob(GetWebhareResource("mod::system/web/tests/goudvis.png"),"goudvis.png");
+  RECORD testimage := WrapBlob(GetWebHareResource("mod::system/web/tests/goudvis.png"),"goudvis.png");
 
   INTEGER p2 := wrdperson->CreateEntity( [ test_email := "bulk_p2@example.com", wrd_firstname := "Person 2", test_single_domain := "TEST_DOMAINVALUE_1_2", test_image := testimage ])->id;
   INTEGER p1 := wrdperson->CreateEntity( [ test_email := "bulk_p1@example.com", wrd_firstname := "Person 1", test_single_domain := 0 ])->id;
@@ -2652,7 +2691,7 @@ MACRO TestUpdateFiltering()
   myrichdoc->ImportFromMHTML(testfw->GetModuleTestBlob("webhare_testsuite","system/testdata/b-lex.mht"));
   RECORD myrichexp := myrichdoc->ExportAsRecord();
 
-  BLOB testimage_blob := GetWebhareResource("mod::system/web/tests/goudvis.png");
+  BLOB testimage_blob := GetWebHareResource("mod::system/web/tests/goudvis.png");
   RECORD testimage := WrapBlob(testimage_blob,"goudvis.png", [ extractdominantcolor := TRUE ]);
 
   OBJECT schemaobj := testfw->GetWRDSchema();
@@ -3256,5 +3295,6 @@ RunTestframework([ PTR CreateWRDTestSchema
                  , PTR TestEvents
                  , PTR TestTemporary
                  , PTR TestQueryParameters
+                 , PTR TestJSONAttr
                  //, PTR TestStoredQuery  - not sure if we're bringing back storedqueries
                  ], [ wrdauth := FALSE ]);

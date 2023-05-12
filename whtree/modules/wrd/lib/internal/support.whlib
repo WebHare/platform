@@ -29,7 +29,7 @@ PUBLIC STRING ARRAY attrtypes := [ "DOMAIN", /*2*/"FREE", "ADDRESS", "EMAIL", "T
                                  , "DOMAINARRAY", /*9*/"IMAGE", "FILE", "TIME", "DATETIME",/*13*/  "ARRAY", "MONEY"
                                  , "INTEGER", "BOOLEAN", "RICHDOCUMENT", "INTEGER64", /*19*/"WHFSINSTANCE", "WHFSINTEXTLINK"
                                  , /*21*/"URL", /*22*/"RECORD", /*23*/"ENUM", /*24*/"ENUMARRAY", /*25*/"PAYMENTPROVIDER", /*26*/"PAYMENT"
-                                 , /*27*/"STATUSRECORD", /*28*/"AUTHENTICATIONSETTINGS", /*29*/ "WHFSLINK"
+                                 , /*27*/"STATUSRECORD", /*28*/"AUTHENTICATIONSETTINGS", /*29*/ "WHFSLINK", /*30*/ "JSON"
                                  ];
 
 PUBLIC CONSTANT INTEGER wrd_metatype_object := 1;
@@ -66,6 +66,7 @@ PUBLIC CONSTANT INTEGER wrd_attributetype_payment := 26;
 PUBLIC CONSTANT INTEGER wrd_attributetype_statusrecord := 27;
 PUBLIC CONSTANT INTEGER wrd_attributetype_authenticationsettings := 28;
 PUBLIC CONSTANT INTEGER wrd_attributetype_whfslink := 29;
+PUBLIC CONSTANT INTEGER wrd_attributetype_json := 30;
 
 
 PUBLIC BOOLEAN FUNCTION IsDomainAttributeType(INTEGER attributetype)
@@ -203,6 +204,10 @@ RECORD wrdattributes :=
                                 , canchangeto := ["PASSWORD"]
                                 ]
  , "whfslink" :=                [ attributetype := wrd_attributetype_whfslink
+                                , image := "dummy.gif"
+                                , options := STRING[]
+                                ]
+ , "json" :=                    [ attributetype := wrd_attributetype_json
                                 , image := "dummy.gif"
                                 , options := STRING[]
                                 ]

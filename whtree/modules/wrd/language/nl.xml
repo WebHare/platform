@@ -1163,6 +1163,7 @@
         <text tid="image">Afbeelding</text>
         <text tid="integer">Integer (Geheel getal)</text>
         <text tid="integer64">Integer (Lang)</text>
+        <text tid="json">JSON Object</text>
         <text tid="money">Money (Getal met 5 decimalen)</text>
         <text tid="password">Wachtwoord</text>
         <text tid="payment">Betaling</text>

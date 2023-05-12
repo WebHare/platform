@@ -1163,6 +1163,7 @@
         <text tid="image">Image</text>
         <text tid="integer">Integer</text>
         <text tid="integer64">Integer (64bit)</text>
+        <text tid="json">JSON Object</text>
         <text tid="money">Money</text>
         <text tid="password">Password</text>
         <text tid="payment">Payment</text>

@@ -100,6 +100,7 @@ type CustomExtensions = {
     testEmptyenum: WRDAttr<WRDAttributeType.Enum, { allowedvalues: never }>;//", { title: "Emum attribute", allowedvalues: getTypedArray(VariableType.StringArray, []) });
     testEmptyenumarray: WRDAttr<WRDAttributeType.EnumArray, { allowedvalues: never }>;//", { title: "Emum attribute", allowedvalues: getTypedArray(VariableType.StringArray, []) });
     testRecord: WRDAttributeType.Record;//", { title: "Record attribute", allowedvalues: getTypedArray(VariableType.StringArray, []) });
+    testJson: WRDAttributeType.JSON;//", { title: "Json attribute" });
     testStatusrecord: WRDAttributeType.StatusRecord;//", { title: "Status record", allowedvalues: ["warning", "error", "ok"] });
     testFree_nocopy: WRDAttributeType.Free;//", { title: "Uncopyable free attribute", isunsafetocopy: true });
     richie: WRDAttributeType.RichDocument;//", { title: "Rich document" });
@@ -221,19 +222,20 @@ async function testNewAPI() {
   test.eq(unit_id, await schema.search("whuserUnit", "wrdId", unit_id));
   test.eq(null, await schema.search("whuserUnit", "wrdId", -1));
 
-  const firstperson = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", whuserUnit: unit_id });
+  const firstperson = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", whuserUnit: unit_id, testJson: { mixedCase: [1, "yes!"] } });
   const secondperson = await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", whuserUnit: unit_id });
 
   await whdb.commitWork();
 
   const selectres = await schema
     .selectFrom("wrdPerson")
-    .select(["wrdFirstName"])
+    .select(["wrdFirstName", "testJson"])
     .select({ lastname: "wrdLastName", id: "wrdId" })
     .where("wrdFirstName", "=", "first")
     .execute();
 
-  test.eq([{ wrdFirstName: "first", lastname: "lastname", id: firstperson }], selectres);
+  //FIXME I want to see 'mixedCase' but until the WRD TS engine is done... no case-rentention for us
+  test.eq([{ wrdFirstName: "first", lastname: "lastname", id: firstperson, testJson: { mixedcase: [1, "yes!"] } }], selectres);
 
   test.eq([{ wrdFirstName: "first", lastname: "lastname", id: firstperson, x1: 5 }, { wrdFirstName: "first", lastname: "lastname", id: firstperson, x1: 15 }],
     await schema.enrich(
