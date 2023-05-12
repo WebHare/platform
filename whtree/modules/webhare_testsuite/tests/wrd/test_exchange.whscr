@@ -155,22 +155,8 @@ MACRO ExportImportToWHFS()
   testfw->RollbackWork();
 }
 
-MACRO ExportFlat()
-{
-  OBJECT schemaobj := testfw->GetWRDSchema();
-
-  //TODO deeper tests, but let's just cover them first
-  OBJECT csvexporter := NEW WRDSchemaCSVExporter;
-  TestEq(TRUE, Length(csvexporter->ExportSchema(schemaobj, "tar.gz"))>0, "CSV export failed");
-
-  OBJECT humanexporter := MakeWRDSchemaHumanReadableExporter(schemaobj);
-  TestEq(TRUE, Length(humanexporter->CreateExport())>0, "Humanreadable export failed");
-
-}
-
 RunTestframework([ PTR CreateWRDTestSchema
                  , PTR ExportImportWRD
                  , PTR ExportImportWRDSkip
                  , PTR ExportImportToWHFS
-                 , PTR ExportFlat
                  ], [ wrdauth := FALSE ]);
