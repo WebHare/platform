@@ -1,12 +1,12 @@
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
 
-  <migration tag="wrd:migratesettings" updatefunction="mod::wrd/lib/internal/metadata/migrations.whlib#MigrateSettings" stage="afterEntities" />
+  <migration tag="wrd:migratesettings"
+             stage="afterEntities"
+             updatefunction="mod::wrd/lib/internal/metadata/migrations.whlib#MigrateSettings" />
 
-  <object tag="wrd_relation" title="Relation">
-  </object>
+  <object tag="wrd_relation" title="Relation" />
 
-  <object tag="wrd_person" parent="wrd_relation" haspersonaldata="true" title="Person">
-  </object>
+  <object tag="wrd_person" haspersonaldata="true" parent="wrd_relation" title="Person" />
 
   <object tag="wrd_organization" parent="wrd_relation" title="Organization">
     <attributes>
@@ -18,11 +18,12 @@
     <attributes>
       <array tag="migrations">
         <free tag="tag" required="true" />
-        <datetime tag="finished" required="true" description="When the migration completed" />
+        <datetime tag="finished" description="When the migration completed" required="true" />
         <record tag="result" description="Result returned by the migration script" />
         <integer tag="revision" description="Update revision. Script is rerun if last update had a lower number than us" />
       </array>
-      <array tag="syncpoints" unsafetocopy="true"> <!-- syncpoints peers are installation specific -->
+      <array tag="syncpoints" unsafetocopy="true">
+        <!-- syncpoints peers are installation specific -->
         <free tag="peer" required="true" />
         <free tag="remotewrdschema" required="true" />
       </array>

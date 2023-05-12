@@ -1,3 +1,5 @@
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
-  <migration tag="testfw:update_post" updatefunction="update.whlib#doupdate" stage="beforeEntities" revision="3" />
+
+  <migration tag="testfw:update_post" revision="3" stage="beforeEntities" updatefunction="update.whlib#doupdate" />
+
 </schemadefinition>

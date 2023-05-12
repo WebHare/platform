@@ -1,16 +1,15 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition"
-                  accounttype="WRD_PERSON"
-                  accountemailfield="WRD_CONTACT_EMAIL"
-                  accountloginfield="WRD_CONTACT_EMAIL"
-                  accountpasswordfield="WHUSER_PASSWORD">
+                  accountemailfield="wrd_contact_email"
+                  accountloginfield="wrd_contact_email"
+                  accountpasswordfield="whuser_password"
+                  accounttype="wrd_person">
 
-  <import definitionfile="mod::system/data/wrdschemas/usermgmt.wrdschema.xml" />
+  <import definitionfile="/data/wrdschemas/usermgmt.wrdschema.xml" />
 
-  <object tag="WRD_PERSON">
+  <object tag="wrd_person">
     <attributes>
-      <email tag="WRD_CONTACT_EMAIL" title="Email address" unique="1" required="1" />
-      <authenticationsettings tag="WHUSER_PASSWORD" title="User password hash" />
+      <email tag="wrd_contact_email" required="1" title="Email address" unique="1" />
+      <authenticationsettings tag="whuser_password" title="User password hash" />
     </attributes>
   </object>
 

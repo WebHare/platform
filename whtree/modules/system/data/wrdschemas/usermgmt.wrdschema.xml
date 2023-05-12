@@ -1,85 +1,84 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+
   <import definitionfile="mod::wrd/data/wrdschemas/authschema.xml" />
   <import definitionfile="mod::wrd/data/wrdschemas/authschema_saml.xml" />
   <import definitionfile="mod::wrd/data/wrdschemas/authschema_oidc.xml" />
 
-  <attachment tag="WHUSER_ROLE" title="WebHare usermanagement role" linkfrom="WHUSER_UNIT">
+  <attachment tag="whuser_role" linkfrom="whuser_unit" title="WebHare usermanagement role">
     <attributes>
-      <free tag="WRD_TITLE" title="Role title"/>
-      <free tag="WHUSER_COMMENT" title="Usermanagement app comment"/>
+      <free tag="wrd_title" title="Role title" />
+      <free tag="whuser_comment" title="Usermanagement app comment" />
     </attributes>
   </attachment>
 
-  <domain tag="WHUSER_UNIT" title="WebHare usermanagement unit">
+  <domain tag="whuser_unit" title="WebHare usermanagement unit">
     <attributes>
-      <free tag="WRD_TITLE" title="Unit title"/>
-      <free tag="WHUSER_COMMENT" title="Usermanagement app comment"/>
-      <boolean tag="OVERRIDE_PASSWORDCHECKS" title="Override password checks" />
-      <free tag="PASSWORDCHECKS" title="Password check overrides for users in this unit" />
-      <boolean tag="OVERRIDE_EXPIRATION" title="Override expiration settings" />
-      <record tag="EXPIRATION" title="Expiration settings" />
-      <free tag="USEREDITPOLICY" title="User edit policy" />
+      <free tag="wrd_title" title="Unit title" />
+      <free tag="whuser_comment" title="Usermanagement app comment" />
+      <boolean tag="override_passwordchecks" title="Override password checks" />
+      <free tag="passwordchecks" title="Password check overrides for users in this unit" />
+      <boolean tag="override_expiration" title="Override expiration settings" />
+      <record tag="expiration" title="Expiration settings" />
+      <free tag="usereditpolicy" title="User edit policy" />
     </attributes>
   </domain>
 
-  <object tag="WRD_PERSON" title="Person">
+  <object tag="wrd_person" title="Person">
     <attributes>
-      <boolean tag="WHUSER_DISABLED" title="Disabled (deprecated!)"/>
-      <free tag="WHUSER_DISABLEREASON" title="Reason for disabling"/>
-      <free tag="WHUSER_COMMENT" title="Usermanagement app comment"/>
-      <datetime tag="WHUSER_LASTLOGIN" title="Last login time" />
-      <domainsingle tag="WHUSER_UNIT" title="Unit" domain="WHUSER_UNIT" required="true" />
-      <domainmultiple tag="WHUSER_HIDDENANNOUNCEMENTS" title="Hidden desktop announcements" domain="WHUSER_ANNOUNCEMENT" />
+      <boolean tag="whuser_disabled" title="Disabled (deprecated!)" />
+      <free tag="whuser_disablereason" title="Reason for disabling" />
+      <free tag="whuser_comment" title="Usermanagement app comment" />
+      <datetime tag="whuser_lastlogin" title="Last login time" />
+      <domainsingle tag="whuser_unit" domain="whuser_unit" required="true" title="Unit" />
+      <domainmultiple tag="whuser_hiddenannouncements" domain="whuser_announcement" title="Hidden desktop announcements" />
       <enum tag="whuser_disable_type" allowedvalues="manual inactive" title="Why are we currently disabled" />
     </attributes>
   </object>
 
-  <attachment tag="WHUSER_APPACCOUNT" title="WebHare app account" linkfrom="WRD_RELATION">
+  <attachment tag="whuser_appaccount" linkfrom="wrd_relation" title="WebHare app account">
     <attributes>
-      <free tag="DEVICE" title="Device"/>
-      <datetime tag="LASTUSE" title="Last usage"/>
-      <integer tag="TYPE" title="Account type" />
-      <free tag="PASSWORDID" title="Password identifier" />
-      <password tag="PASSWORD" title="Actual password" />
-      <free tag="SCOPE" title="Account scope" />
+      <free tag="device" title="Device" />
+      <datetime tag="lastuse" title="Last usage" />
+      <integer tag="type" title="Account type" />
+      <free tag="passwordid" title="Password identifier" />
+      <password tag="password" title="Actual password" />
+      <free tag="scope" title="Account scope" />
     </attributes>
   </attachment>
 
-  <attachment tag="WHUSER_PEERSERVER" title="WebHare peer server" linkfrom="WRD_RELATION">
+  <attachment tag="whuser_peerserver" linkfrom="wrd_relation" title="WebHare peer server">
     <attributes>
-      <free tag="WRD_TITLE" title="Title"/>
-      <free tag="SERVERURL" title="Server URL"/>
-      <obsolete tag="USERNAME" />
-      <obsolete tag="PASSWORD" />
-      <datetime tag="LASTUSE" title="Last usage"/>
-      <record tag="VERSIONINFO" />
-      <record tag="CURRENTTOKEN" />
+      <free tag="wrd_title" title="Title" />
+      <free tag="serverurl" title="Server URL" />
+      <obsolete tag="username" />
+      <obsolete tag="password" />
+      <datetime tag="lastuse" title="Last usage" />
+      <record tag="versioninfo" />
+      <record tag="currenttoken" />
     </attributes>
   </attachment>
 
-  <object tag="WHUSER_ANNOUNCEMENT" title="Desktop announcement">
+  <object tag="whuser_announcement" title="Desktop announcement">
     <attributes>
-      <free tag="ANNOUNCEMENT_TITLE" title="Announcement title" />
-      <richdocument tag="ANNOUNCEMENT_TEXT" title="Announcement text" />
-      <domainmultiple tag="ANNOUNCEMENT_UNIT" title="Unit" domain="WHUSER_UNIT" />
-      <domainsingle tag="ANNOUNCEMENT_AUTHOR" title="Author" domain="WRD_PERSON" />
-      <datetime tag="PUBLISH_FROM" title="Start publication" />
-      <datetime tag="PUBLISH_UNTIL" title="End publication" />
-      <integer tag="TARGET_LANGUAGE" title="Target language" required="false" />
+      <free tag="announcement_title" title="Announcement title" />
+      <richdocument tag="announcement_text" title="Announcement text" />
+      <domainmultiple tag="announcement_unit" domain="whuser_unit" title="Unit" />
+      <domainsingle tag="announcement_author" domain="wrd_person" title="Author" />
+      <datetime tag="publish_from" title="Start publication" />
+      <datetime tag="publish_until" title="End publication" />
+      <integer tag="target_language" required="false" title="Target language" />
     </attributes>
   </object>
 
-  <object tag="WHUSER_SYSTEMMESSAGE_SNOOZES" title="System message snoozes">
+  <object tag="whuser_systemmessage_snoozes" title="System message snoozes">
     <attributes>
-      <domainsingle tag="SNOOZER" title="Snoozer" domain="WRD_PERSON" description="User that created this snooze" />
-      <datetime tag="UNTIL" title="Snooze until" />
-      <free tag="MESSAGETAGHASH" title="Base16-encoded SHA1 hash of the message tag record" />
-      <file tag="MESSAGETAG" title="HSON-encoded message tag" />
-      <free tag="MESSAGETIDATSNOOZE" title="System message text when it was snoozed" />
-      <free tag="COMMENT" title="Comment" />
+      <domainsingle tag="snoozer" description="User that created this snooze" domain="wrd_person" title="Snoozer" />
+      <datetime tag="until" title="Snooze until" />
+      <free tag="messagetaghash" title="Base16-encoded SHA1 hash of the message tag record" />
+      <file tag="messagetag" title="HSON-encoded message tag" />
+      <free tag="messagetidatsnooze" title="System message text when it was snoozed" />
+      <free tag="comment" title="Comment" />
     </attributes>
   </object>
-
 
 </schemadefinition>
