@@ -91,7 +91,7 @@ RECORD FUNCTION GetCacheableUIFilesKey()
          ];
 }
 
-PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
+PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
 <
   PUBLIC STRING title;
   PUBLIC STRING toddroot;
@@ -171,10 +171,10 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     RETURN data;
   }
 
-  MACRO SetupPortal(OBJECT webdesign)
+  MACRO SetupPortal()
   {
     //TODO switch to proper plugin so settings can cache etc and just keep most boring settings inside a config record
-    FOREVERY(RECORD setting FROM GetCustomSiteProfileSettings("http://www.webhare.net/xmlns/tollium", "portal", webdesign->targetobject->id))
+    FOREVERY(RECORD setting FROM GetCustomSiteProfileSettings("http://www.webhare.net/xmlns/tollium", "portal", this->webdesign->targetobject->id))
     {
       STRING resourcename := setting.siteprofile->name;
       IF(setting.node->HasAttribute("allowinframe"))
@@ -191,8 +191,8 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
         INSERT MakeAbsoluteResourcePath(resourcename, setting.node->GetAttribute("dashboardmenuupdater")) INTO this->dashboardmenuupdaters AT END;
       IF(setting.node->HasAttribute("applicationmasks"))
         this->applicationmasks := ParseXSList(setting.node->GetAttribute("applicationmasks"));
-      IF(setting.node->HasAttribute("__insert") AND webdesign EXTENDSFROM WebdesignBase) //temporary hack for testsuite TODO a real <inserthtml> siteprofile node might be useful ?
-        webdesign->InsertHTML(setting.node->GetAttribute("__insert"), "dependencies-bottom");
+      IF(setting.node->HasAttribute("__insert") AND this->webdesign EXTENDSFROM WebdesignBase) //temporary hack for testsuite TODO a real <inserthtml> siteprofile node might be useful ?
+        this->webdesign->InsertHTML(setting.node->GetAttribute("__insert"), "dependencies-bottom");
 
       FOREVERY(OBJECT forceapp FROM setting.node->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/tollium", "forceapp")->GetCurrentElements())
         INSERT forceapp->GetAttribute("name") INTO this->apps AT END;
@@ -264,7 +264,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     }
     ELSE
     {
-      this->wrdauthplugin := webdesign->GetWRDAuthPlugin();
+      this->wrdauthplugin := this->webdesign->GetWRDAuthPlugin();
       IF(ObjectExists(this->wrdauthplugin) AND this->wrdauthplugin->HasFailed())
         this->wrdauthplugin := DEFAULT OBJECT;
       IF(ObjectExists(this->wrdauthplugin))
@@ -335,13 +335,13 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
         , forceprimaryuserapi
         ];
 
-    STRING lang := language ?? ObjectExists(this->currentuser) ? this->currentuser->language : GetSiteLanguage(webdesign->targetobject->id);
+    STRING lang := language ?? ObjectExists(this->currentuser) ? this->currentuser->language : GetSiteLanguage(this->webdesign->targetobject->id);
 
     SetTidLanguage(lang);
-    webdesign->languagecode := lang;
+    this->webdesign->languagecode := lang;
   }
 
-  RECORD ARRAY FUNCTION CalculateInitialInstructions(OBJECT webcontext)
+  RECORD ARRAY FUNCTION CalculateInitialInstructions()
   {
     RECORD ARRAY initialinstructions;
 
@@ -374,19 +374,19 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     RETURN initialinstructions;
   }
 
-  UPDATE PUBLIC MACRO PrepareForRendering(OBJECT webdesign)
+  UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
   {
     // Handle logincontrol when already logged in
     STRING logincontrol := GetWebVariable("wrdauth_logincontrol");
     IF (logincontrol != "")
-      webdesign->GetWRDAuthPlugin()->ProcessReturnTo(logincontrol);
+      this->webdesign->GetWRDAuthPlugin()->ProcessReturnTo(logincontrol);
 
     IF(GetWebVariable("wrdauth_proof") != "" ) //Eg. UT login triggers this, wrdauth_proof isn't cleared because we're logging in on same host. wrdauth should be suppressing this, not us!
       Redirect(UpdateURLVariables(GetRequestURL(), [ wrdauth_proof := "" ]));
 
     //make sure people can't see "old" tollium interfaces after a recompile;
-    webdesign->assetcachebuster := this->jsversion;
-    webdesign->InsertHTML('<meta name="google" value="notranslate" />', 'dependencies-top');
+    this->webdesign->assetcachebuster := this->jsversion;
+    this->webdesign->InsertHTML('<meta name="google" value="notranslate" />', 'dependencies-top');
 
     STRING ARRAY profiletoks := Tokenize(GetWebVariable("profile"),",");
     this->profiling := GetWebVariable("profile") IN ["1","true"] OR IsWHDebugOptionSet("apr");
@@ -416,10 +416,10 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
       SendWebFile(StringToBlob("Wrong proxy verification code"));
     }
 
-    this->SetupPortal(webdesign);
+    this->SetupPortal();
 
     IF (GetWebVariable("language") != "")
-      webdesign->languagecode := GetWebVariable("language");
+      this->webdesign->languagecode := GetWebVariable("language");
 
     // Starting with single ?app=manualname? Then redirect to that manual
     STRING ARRAY apps := SELECT AS STRING ARRAY value FROM GetAllWebVariables() WHERE ToUppercase(name) = "APP";
@@ -432,14 +432,14 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
         {
           Redirect(app.apprec.iswindowopen
               ? app.apprec.link
-              : GenerateProtectedManualURL(app.apprec.manual, app.apprec.accesstoken, webdesign->languagecode, app.apprec.supportedlanguages));
+              : GenerateProtectedManualURL(app.apprec.manual, app.apprec.accesstoken, this->webdesign->languagecode, app.apprec.supportedlanguages));
         }
       }
     }
 
     this->appserviceparams := [ overridetoken := ""
                               , openas := ""
-                              , language := webdesign->languagecode
+                              , language := this->webdesign->languagecode
                               , debug := IsWHDebugOptionSet("tol")
                               ];
 
@@ -451,9 +451,9 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     this->toddroot := this->toddstaticroot;
 
     this->rundata := this->GetRunData();
-    webdesign->jsobjconfig := this->rundata.config;
+    this->webdesign->jsobjconfig := this->rundata.config;
 
-    INSERT "wh-shell" INTO webdesign->htmlclasses AT END; //this is a trigger for templates who need to do extra work for our interface (TODO should indyshell apply it after succesful startup, and should that hide the 'webhare starting' root witty?)
+    INSERT "wh-shell" INTO this->webdesign->htmlclasses AT END; //this is a trigger for templates who need to do extra work for our interface (TODO should indyshell apply it after succesful startup, and should that hide the 'webhare starting' root witty?)
 
     //do not allow us to be embedded into iframes
     IF(NOT this->allowinframe)
@@ -477,11 +477,8 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     AddHTTPHeader("Content-Security-Policy", `default-src 'self'; img-src 'self' data: blob: https:; style-src * 'unsafe-inline' ; connect-src ${connectsrc}; frame-src *; font-src *`, FALSE);
 
     AddHTTPHeader("X-Robots-Tag", "noindex, nofollow", FALSE);
-  }
 
-  UPDATE PUBLIC MACRO RunBody(OBJECT webdesign)
-  {
-    EmbedWittyComponent("mod::tollium/lib/todd/internal/webpage.witty:main", this->rundata);
+    RETURN PTR EmbedWittyComponent("mod::tollium/lib/todd/internal/webpage.witty:main", this->rundata);
   }
 
   STRING ARRAY FUNCTION ParseInAppPath(STRING apppath)
@@ -617,9 +614,10 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     RETURN menuitems;
   }
 
-  RECORD ARRAY FUNCTION GetAppMenu(OBJECT webcontext)
+  RECORD ARRAY FUNCTION GetAppMenu()
   {
-    STRING addvars := this->appserviceparams.openas != "" ? "&openas=" || EncodeURL(this->appserviceparams.openas) : "";
+    STRING openas := GetWebVariable("openas");
+    STRING addvars := openas != "" ? "&openas=" || EncodeURL(GetWebVariable("openas")) : "";
     RECORD ARRAY allapps := SELECT *
                                  , apps := (SELECT *, link := "?app=" || EncodeURL(name) || addvars FROM apps)
                               FROM this->GetApplications();
@@ -683,13 +681,13 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     RETURN "";
   }
 
-  STRING FUNCTION RenderNewsItem(OBJECT webdesign, RECORD input)
+  STRING FUNCTION RenderNewsItem(RECORD input)
   {
-    OBJECT renderer := webdesign->OpenRTD(input);
+    OBJECT renderer := this->webdesign->OpenRTD(input);
     RETURN renderer->RenderAllToString();
   }
 
-  RECORD ARRAY FUNCTION GetNewsItems(OBJECT webdesign)
+  RECORD ARRAY FUNCTION GetNewsItems()
   {
     //Don't gather newsitems if not logged in or if there may be config issues (we don't want to harden newsapi against all possible failures)
     IF (NOT ObjectExists(this->currentuser) OR NOT ObjectExists(this->wrdauthplugin) OR this->isoverriding)
@@ -701,7 +699,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     newsitems := FilterHiddenNewsItems(this->wrdauthplugin->userapi, this->currentuser->entityid, newsitems);
 
     newsitems := SELECT title
-                      , html := this->RenderNewsItem(webdesign, text)
+                      , html := this->RenderNewsItem(text)
                       , creationdate := this->currentuser->FormatDateTime(creationdate, "minutes", TRUE, FALSE)
                       , publicationdate := this->currentuser->FormatDateTime(publish_from, "minutes", TRUE, FALSE)
                       , id
@@ -711,7 +709,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     RETURN newsitems;
   }
 
-  RECORD FUNCTION GetCurrentShellSettings(OBJECT webcontext)
+  RECORD FUNCTION GetCurrentShellSettings()
   {
     BOOLEAN issysop := ObjectExists(this->currentuser) AND this->currentuser->HasRight("system:sysop");
     BOOLEAN issupervisor := issysop OR (ObjectExists(this->currentuser) AND this->currentuser->HasRight("system:supervisor"));
@@ -723,8 +721,8 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
             , now := FormatISO8601Datetime(GetCurrentDatetime(), "day", "milliseconds")
             , version := GetWebhareVersionInfo()
             , servername := GetServerName()
-            , apps := this->GetAppMenu(webcontext)
-            , newsitems := this->GetNewsItems(webcontext)
+            , apps := this->GetAppMenu()
+            , newsitems := this->GetNewsItems()
 
             , dashboard := this->dashboard AND GetWebVariable("appmode") != "singleapp" //TODO singleapp should hide entire menubar
             , dashboardbg := this->GetDashboardBackground()
@@ -743,7 +741,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
                                        : GetWebVariable("notifications") = "browser" ? "browser"
                                        : ObjectExists(this->currentuser) ? this->currentuser->GetRegistryKey("system.prefs.shownotifications", "desktop") : "desktop"
             , feedbackscope := ReadRegistryKey("system.backend.features.feedback") ? tollium_feedback_scope : ""
-            , initialinstructions := this->CalculateInitialInstructions(webcontext)
+            , initialinstructions := this->CalculateInitialInstructions()
             ];
 
     IF(this->impersonatedentity != 0) //no images, no layout title
@@ -761,20 +759,20 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     RETURN portalsettings;
   }
 
-  PUBLIC RECORD FUNCTION WCS_GetCurrentVersion(OBJECT webcontext)
+  PUBLIC RECORD FUNCTION WCS_GetCurrentVersion()
   {
     RETURN CELL[ jsversion := this->jsversion ];
   }
 
-  PUBLIC RECORD FUNCTION WDS_GetCurrentShellSettings(OBJECT webcontext, RECORD options)
+  PUBLIC RECORD FUNCTION WDS_GetCurrentShellSettings(RECORD options)
   {
-    //this->SetupPortal(webcontext); //no need to SetupPortal in a WDS_ ... PrepareForRendering has done it
-    RETURN this->GetCurrentShellSettings(webcontext);
+    this->SetupPortal();
+    RETURN this->GetCurrentShellSettings();
   }
 
-  PUBLIC RECORD FUNCTION WDS_StartPortal(OBJECT webcontext, RECORD options)
+  PUBLIC RECORD FUNCTION WDS_StartPortal(RECORD options)
   {
-    //this->SetupPortal(webcontext);  //no need to SetupPortal in a WDS_ ... PrepareForRendering has done it
+    this->SetupPortal();
 
     //FIXME Get the actual loginmethod and restrictions from the specified appservice
 
@@ -812,7 +810,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
 */
 
       RETURN [ isloggedin := FALSE
-             , settings := this->GetCurrentShellSettings(webcontext)
+             , settings := this->GetCurrentShellSettings()
              , loginconfig := [ methods   := methods
                               , infotext  := ReadRegistryKey("system.backend.layout.infotext")
                               , infotitle := ReadRegistryKey("system.backend.layout.infotitle")
@@ -821,19 +819,19 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     }
 
     RETURN [ isloggedin := TRUE
-           , settings := this->GetCurrentShellSettings(webcontext)
+           , settings := this->GetCurrentShellSettings()
            ];
   }
 
   //marking params as unused as dropping them can give JS errors when updating, and webhareconnect doesn't make a material difference for anyone
-  PUBLIC RECORD FUNCTION WCS_StartApp(OBJECT webcontext, STRING appname, RECORD options DEFAULTSTO DEFAULT RECORD)
+  PUBLIC RECORD FUNCTION WCS_StartApp(STRING appname, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     options := ValidateOptions(appstartoptions, EnforceStructure([webvars := RECORD[]], options));
 
     IF(options.protocolversion != expecttoddprotocolversion)
       RETURN [ error := "unexpectedprotocolversion", errormessage := GetTid("tollium:shell.login.unexpectedprotocolversion") ];
 
-    this->SetupPortal(webcontext);
+    this->SetupPortal();
     STRING toddbase := ResolveToAbsoluteURL(GetRequestURL(), "/tollium_todd/");
 
     IF(ReadRegistryKey("system.webserver.global.locking.sysoponly") AND (NOT ObjectExists(this->currentuser) OR NOT this->currentuser->HasRight("system:supervisor")))
@@ -900,9 +898,9 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     RETURN rec.msg;
   }
 
-  PUBLIC RECORD FUNCTION WCS_CompleteLogin(OBJECT webcontext, STRING data)
+  PUBLIC RECORD FUNCTION WCS_CompleteLogin(STRING data)
   {
-    this->SetupPortal(webcontext);
+    this->SetupPortal();
     RECORD logindata := DecryptForThisServer("tollium:applicationportal", data);
     RECORD result := this->wrdauthplugin->__CompleteLogin(logindata);
     IF(result.success)
@@ -910,9 +908,9 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
     THROW NEW Exception("Login failed: " || anytostring(result,'tree'));
   }
 
-  PUBLIC RECORD FUNCTION WCS_GetCheckResult(OBJECT webcontext)
+  PUBLIC RECORD FUNCTION WCS_GetCheckResult()
   {
-    this->SetupPortal(webcontext);
+    this->SetupPortal();
     BOOLEAN issupervisor := ObjectExists(this->currentuser) AND this->currentuser->HasRight("system:supervisor");
     IF(NOT issupervisor)
       RETURN [ privileged := FALSE ];
@@ -926,9 +924,9 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
   }
 
   ///Execute an action through the portal
-  PUBLIC RECORD FUNCTION WCS_ExecuteAction(OBJECT webcontext, RECORD action)
+  PUBLIC RECORD FUNCTION WCS_ExecuteAction(RECORD action)
   {
-    this->SetupPortal(webcontext);
+    this->SetupPortal();
     IF(NOT ObjectExists(this->currentuser))
       THROW NEW Exception("Unknown user");
 
