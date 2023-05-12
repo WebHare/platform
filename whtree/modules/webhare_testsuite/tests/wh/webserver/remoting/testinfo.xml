@@ -4,6 +4,7 @@
   <test script="test_jsonrpc2.ts" />
   <test script="test_restapi.whscr" />
   <test script="test_openapi.ts" />
+  <test script="test_openapi_types.ts" />
   <test script="test_whremoting.whscr" />
   <jstest file="test_whrpc.ts" />
   <jstest file="test_whrpc2.ts" />

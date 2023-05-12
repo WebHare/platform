@@ -3,6 +3,7 @@ import * as services from "@webhare/services";
 import { getServiceInstance } from "@mod-system/js/internal/openapi/openapiservice";
 import { HTTPMethod, HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
 import * as restrequest from "@webhare/router/src/restrequest";
+import { OpenAPITestserviceClient } from "wh:openapi/webhare_testsuite/testservice";
 
 let userapiroot = '', authtestsroot = '';
 
@@ -271,11 +272,29 @@ async function testLogFile() {
   ], authtestcalls, [], "Ensure all 3 calls had an authorized (even if we cache in the future!");
 }
 
+async function testGeneratedClient() {
+  const client = new OpenAPITestserviceClient(userapiroot);
+
+  {
+    const res = await client.get("/users");
+    test.eq([
+      { id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" },
+      { id: 55, firstName: "Bravo", email: "bravo@beta.webhare.net" }
+    ], res.body);
+    test.eq("application/json", res.headers.get("content-type"));
+  }
+  {
+    const res = await client.get("/users/{userid}", { params: { userid: 1 } });
+    test.eq({ id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" }, res.body);
+  }
+}
+
 test.run([
   testService,
   testAuthorization,
   testOverlappingCalls,
   verifyPublicParts,
   testInternalTypes,
-  testLogFile
+  testLogFile,
+  testGeneratedClient
 ]);

@@ -31,6 +31,7 @@
     "markdown-it": "^13.0.1",
     "node-getopt": "^0.3.2",
     "openapi-types": "^12.1.0",
+    "openapi-typescript": "^6.2.4",
     "pg": "^8.8.0",
     "rimraf": "^3.0.2",
     "sass": "^1.40.1",

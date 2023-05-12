@@ -42,6 +42,32 @@ function presentDomNode(node: Node) {
   return nodedescr;
 }
 
+function wrapColor(change: diff.Change) {
+  if (change.added)
+    return `\u001b[${37}m\u001b[${41}m${change.value}\u001b[${39}m\u001b[${49}m`;
+  else if (change.removed)
+    return `\u001b[${37}m\u001b[${42}m${change.value}\u001b[${39}m\u001b[${49}m`;
+  return change.value;
+}
+
+function printColoredTextDiff(expected: string, actual: string) {
+  const enc_expected = JSON.stringify(expected).slice(1, -1).replaceAll("\\n", "\\n\n");
+  const enc_actual = JSON.stringify(actual).slice(1, -1).replaceAll("\\n", "\\n\n");
+
+  let str = "diff: ";
+  const colors = [];
+  const isnode = Boolean(globalThis.process);
+  for (const change of diff.diffChars(enc_actual, enc_expected)) {
+    if (isnode)
+      str += wrapColor(change);
+    else {
+      str += `%c${change.value}`;
+      colors.push(change.added ? "background-color:red; color: white" : change.removed ? "background-color:green; color: white" : "");
+    }
+  }
+  console.log(str, ...colors);
+}
+
 function testDeepEq(expected: unknown, actual: unknown, path: string) {
   if (expected === actual)
     return;
@@ -62,9 +88,13 @@ function testDeepEq(expected: unknown, actual: unknown, path: string) {
   if (t_expected != t_actual)
     throw new Error("Expected type: " + t_expected + " actual type: " + t_actual + (path != "" ? " at " + path : ""));
 
-  if (typeof expected !== "object") //simple value mismatch
-    throw new Error("Expected: " + expected + " actual: " + actual + (path != "" ? " at " + path : ""));
+  if (typeof expected !== "object") {//simple value mismatch
+    if (typeof expected == "string" && typeof actual == "string") {
+      printColoredTextDiff(expected, actual);
+    }
 
+    throw new Error("Expected: " + expected + " actual: " + actual + (path != "" ? " at " + path : ""));
+  }
   // Deeper type comparison
   const type_expected = myTypeOf(expected);
   const type_actual = myTypeOf(actual);
@@ -169,13 +199,7 @@ export function eq<T>(expected: T, actual: T, annotation?: Annotation): void {
     onLog("E: " + encodeURIComponent(expected));
     onLog("A: " + encodeURIComponent(actual));
 
-    let str = "diff: ";
-    const colors = [];
-    for (const change of diff.diffChars(actual, expected)) {
-      str += `%c${change.value}`;
-      colors.push(change.added ? "background-color:red; color: white" : change.removed ? "background-color:green; color: white" : "");
-    }
-    console.log(str, ...colors);
+    printColoredTextDiff(expected, actual);
   }
 
   testDeepEq(expected, actual, '');
