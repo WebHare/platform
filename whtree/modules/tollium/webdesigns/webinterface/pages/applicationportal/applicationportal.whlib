@@ -376,6 +376,9 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
 
   UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
   {
+    IF(this->subpath != "")
+      AbortWithHTTPError(404);
+
     // Handle logincontrol when already logged in
     STRING logincontrol := GetWebVariable("wrdauth_logincontrol");
     IF (logincontrol != "")
