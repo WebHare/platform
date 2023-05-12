@@ -92,7 +92,7 @@ test.registerTests(
 
     {
       name: "open sp-enabled portal",
-      loadpage: webroot + 'test-saml/portal-sp&language=en',
+      loadpage: webroot + 'test-saml/portal-sp/?language=en',
       waits: ["ui", 'ui']
     },
 
@@ -138,7 +138,7 @@ test.registerTests(
 
     {
       name: "open sp-enabled nologout portal",
-      loadpage: webroot + 'test-saml/portal-sp/portal-sp-nologout&language=en',
+      loadpage: webroot + 'test-saml/portal-sp/portal-sp-nologout/?language=en',
       waits: ["ui"]
     },
 
