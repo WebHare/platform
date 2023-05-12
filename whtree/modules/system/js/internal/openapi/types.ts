@@ -85,12 +85,12 @@ export type JSONResponseTypesFromResponses<Responses extends object, ResponseCod
   : never;
 
 /** Calculates the response types for a (union of) operation(s)
- * @typeParam O - Operation object
+ * @typeParam Operation - Operation object
  */
 export type JSONResponseTypes<Operation extends object> = JSONResponseTypesFromResponses<GetOperationResponses<Operation>>;
 
 /** Calculates the body types for a (union of) operation(s)
- * @typeParam O - Operation object
+ * @typeParam Operation - Operation object
  */
 export type GetBodyType<Operation extends object> = Operation extends { "requestBody": { "content": { "application/json": infer B } } }
   ? B
@@ -99,7 +99,7 @@ export type GetBodyType<Operation extends object> = Operation extends { "request
     : unknown | undefined);
 
 /** Calculates the parameter types for a (union of) operation(s). ADDME: support per-operation parameters too.
- * @typeParam O - Operation object
+ * @typeParam Operation - Operation object
  */
 export type GetParametersType<Operation extends { _path: object }> = Operation["_path"] extends { "parameters": object } ? MergeParameters<Operation["_path"]["parameters"]> : object;
 
@@ -124,4 +124,4 @@ export type OpenApiTypedRestRequest<Auth, Paths extends object, Components exten
  * @typeParam Paths - Paths from generated openapi ts file
  * @typeParam Components - Components from generated openapi ts file
  */
-export type OpenApiTypedRestAuthorizationRequest<P extends object, C extends object> = RestRequest<never, object, unknown, JSONResponseTypes<GetOperation<P, keyof P & string>>, DefaultErrorType<C>>;
+export type OpenApiTypedRestAuthorizationRequest<Paths extends object, Components extends object> = RestRequest<never, object, unknown, JSONResponseTypes<GetOperation<Paths, keyof Paths & string>>, DefaultErrorType<Components>>;
