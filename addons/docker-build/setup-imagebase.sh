@@ -34,7 +34,7 @@ echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/
 
 # Chrome headless sometimes crashes if fonts are missing. Not sure why, but see https://bugs.chromium.org/p/chromium/issues/detail?id=695212
 # Note that in the end, this still didn't seem to fix it, so perhaps fonts-open-sans can go away again
-( curl -sL https://deb.nodesource.com/setup_18.x | bash - )
+( curl -sL https://deb.nodesource.com/setup_20.x | bash - )
 apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 7FCC7D46ACCC4CF8 #Postgres key
 add-apt-repository 'deb http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main'
 ( curl -sL https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add )

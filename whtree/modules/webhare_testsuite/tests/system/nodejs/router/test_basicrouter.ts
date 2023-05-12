@@ -1,4 +1,3 @@
-import crypto from 'node:crypto'; //node18 compat
 import * as test from "@webhare/test";
 import * as services from "@webhare/services";
 import { HTTPMethod, WebRequest } from "@webhare/router";

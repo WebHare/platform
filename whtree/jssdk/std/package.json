@@ -10,5 +10,8 @@
   "license": "MIT",
   "browser": {
     "platformbased": "./platformbased-browser.ts"
+  },
+  "engines": {
+    "node": ">=20.0.0"
   }
 }
