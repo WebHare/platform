@@ -145,7 +145,7 @@ async function verifyPublicParts() {
   authtestsroot = services.config.backendurl + ".webhare_testsuite/openapi/authtests/";
 
   //Verify we get the openapi.json (not available through direct APICalls)
-  const useropenapi = await (await fetch(userapiroot + "openapi/openapi.json")).json();
+  const useropenapi = await (await fetch(userapiroot + "openapi.json", { redirect: "manual" })).json();
   test.eq("3.1.0", useropenapi.openapi);
   test.assert(!JSON.stringify(useropenapi).includes("x-webhare"));
   test.eq(userapiroot, useropenapi.servers[0].url, "Verify full URL (it was '.' in the source file)");
