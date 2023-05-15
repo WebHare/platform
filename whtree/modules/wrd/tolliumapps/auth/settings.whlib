@@ -3,6 +3,7 @@
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
 MACRO SetTimeUnit(OBJECT textedit, OBJECT unitpulldown, INTEGER64 setvalue)
 {
@@ -54,7 +55,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSettings EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     //get settings, coerce them to the proper types
-    RECORD settings := EnforceStructure(wrdauth_defaultconfiguration, this->contexts->wrdschema->GetSchemaSetting("wrd:auth.localsettings", [ fallback := DEFAULT RECORD ]));
+    RECORD settings := EnforceStructure(wrdauth_defaultconfiguration, GetWRDSetting(this->contexts->wrdschema, "login_settings"));
     SetTimeUnit(^expire_login, ^expire_login_unit, settings.expire_login);
     SetTimeUnit(^expire_persistentlogin, ^expire_persistentlogin_unit, settings.expire_persistentlogin);
 
@@ -77,8 +78,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuthSettings EXTEND TolliumScreenBase
   BOOLEAN FUNCTION Submit()
   {
     OBJECT work := this->BeginWork();
-    this->contexts->wrdschema->SetSchemaSetting("wrd:auth.localsettings",
-      CELL[ ...this->contexts->wrdschema->GetSchemaSetting("wrd:auth.localsettings", [ fallback := DEFAULT RECORD ])
+    SetWRDSetting(this->contexts->wrdschema, "login_settings",
+      CELL[ ...GetWRDSetting(this->contexts->wrdschema, "login_settings")
           , expire_login := GetTimeUnit(^expire_login, ^expire_login_unit)
           , expire_persistentlogin := GetTimeUnit(^expire_persistentlogin, ^expire_persistentlogin_unit)
           , round_minduration := GetTimeUnit(^round_minduration, ^round_minduration_unit)

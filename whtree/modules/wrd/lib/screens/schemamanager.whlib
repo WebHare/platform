@@ -314,7 +314,7 @@ PUBLIC STATIC OBJECTTYPE SynchronizeSchema EXTEND TolliumScreenBase
       RETURN;
     }
 
-    ^syncpoints->eventmasks := this->contexts->wrdschema->GetSettingsEventMasks();
+    ^syncpoints->eventmasks := this->contexts->wrdschema->^wrd_settings->GetEventMasks();
     ^syncpoints->AddAction(this->GetTid(".synchronize"), PTR this->DoSynchronize);
   }
 

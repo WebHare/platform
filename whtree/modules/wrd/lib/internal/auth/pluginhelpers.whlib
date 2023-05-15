@@ -6,6 +6,7 @@ LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
 PUBLIC CONSTANT INTEGER cookietype_session := 0;    //direct login (usually username+password)
 PUBLIC CONSTANT INTEGER cookietype_thirdparty := 1; //session cookie authorized by a third party
@@ -45,12 +46,13 @@ RECORD FUNCTION GetCacheableWRDAuthConfig(STRING wrdschemaname)
   }
 
   STRING ARRAY acceptable_configcells := SELECT AS STRING ARRAY name FROM UnpackRecord(wrdauth_defaultconfiguration);
+  RECORD settings := GetWRDSettings(wrdschema, ["domain_secret","login_settings"]);
   RECORD wrdauthconfig :=
       CELL[ ...wrdauth_defaultconfiguration
-          , ...PickCells(wrdschema->GetSchemaSetting("wrd:auth.localsettings", [ fallback := DEFAULT RECORD ]), acceptable_configcells)
+          , ...PickCells(settings.login_settings, acceptable_configcells)
           , schemaid := wrdschema->id
           , loginemail := wrdschema->accountemailtag = wrdschema->accountlogintag
-          , domainsecret := wrdschema->GetSchemaSetting("wrd:auth.domainsecret", [ fallback := "" ])
+          , domainsecret := settings.domain_secret
           , wrdschema->accountpasswordtag
           , wrdschema->accountpasswordisauthsettings
           , fallback_lastloginfield := ""
@@ -59,7 +61,7 @@ RECORD FUNCTION GetCacheableWRDAuthConfig(STRING wrdschemaname)
   IF(wrdauthconfig.domainsecret = "") // all should have a domainsecret now, otherwise you're using wrdauth without applying its schemadef?
     THROW NEW Exception(`wrd:auth.domainsecret has not been set on schema '${wrdschema->tag}'`);
 
-  STRING ARRAY eventmasks := wrdschema->GetEventMasks() CONCAT wrdschema->GetSettingsEventMasks();
+  STRING ARRAY eventmasks := wrdschema->GetEventMasks() CONCAT wrdschema->^wrd_settings->GetEventMasks();
 
   // temporary fallback so users can migrate to lastloginfield= setting
   OBJECT authdomaintype := wrdschema->GetType("WRD_AUTHDOMAIN");

@@ -13,6 +13,7 @@ LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/pluginhelpers.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
 CONSTANT INTEGER cookie_version := 2;
 CONSTANT INTEGER max_totp_attempts := 6;
@@ -106,9 +107,9 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
 
     DATETIME now := GetCurrentDatetime();
     DATETIME creationdate := options.setcreationdate ?? now;
-    INTEGER64 expirytime := cookietype = cookietype_thirdparty ? this->wrdauthconfig.expire_thirdpartylogin
-                            : cookietype = cookietype_persistent ? this->wrdauthconfig.expire_persistentlogin
-                            : this->wrdauthconfig.expire_login;
+    INTEGER64 expirytime := cookietype = cookietype_thirdparty ? INTEGER64(this->wrdauthconfig.expire_thirdpartylogin)
+                            : cookietype = cookietype_persistent ? INTEGER64(this->wrdauthconfig.expire_persistentlogin)
+                            : INTEGER64(this->wrdauthconfig.expire_login);
     IF(expirytime <= 0)
       THROW NEW Exception(`Invalid expiry time configured`);
 
@@ -256,7 +257,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     IF(NOT RecordExists(indata))
       THROW NEW Exception("Trying to encrypt a default record");
 
-    STRING ds := this->wrdschema->GetSchemaSetting("wrd:auth.domainsecret", [ fallback := "" ]);
+    STRING ds := GetWRDSetting(this->wrdschema, "domain_secret");
     IF(ds = "") // all should have a domainsecret now, otherwise you're using wrdauth without applying its schemadef
       THROW NEW Exception(`wrd:auth.domainsecret has not been set`);
 
@@ -272,10 +273,11 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
   PUBLIC RECORD FUNCTION DecryptData(STRING encrypteddata, STRING type DEFAULTSTO "")
   {
     STRING data;
-    STRING ds := this->wrdschema->GetSchemaSetting("wrd:auth.domainsecret", [ fallback := "" ]);
-    IF(ds != "") //new wrdauth_domain-less secrets
-      data := DecryptSignedData(encrypteddata, "SHA-1,BLOWFISH+CBC,8", ds || type);
+    STRING ds := GetWRDSetting(this->wrdschema, "domain_secret");
+    IF(ds = "") // all should have a domainsecret now, otherwise you're using wrdauth without applying its schemadef
+      THROW NEW Exception(`wrd:auth.domainsecret has not been set`);
 
+    data  := DecryptSignedData(encrypteddata, "SHA-1,BLOWFISH+CBC,8", ds || type);
     RETURN data != "" ? DecodeHSON(data) : DEFAULT RECORD;
   }
 
