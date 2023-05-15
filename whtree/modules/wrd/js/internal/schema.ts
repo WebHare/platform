@@ -99,6 +99,20 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return this.getType(tag);
   }
 
+  async describeType(tag: string) {
+    const type = await this[getWRDSchemaType](tag, true);
+    if (!type)
+      return null;
+
+    const linkfrom = await type.get("linkfrom") as number;
+    const linkto = await type.get("linkto") as number;
+
+    return {
+      left: linkfrom ? await this.__getTypeTag(linkfrom) : null,
+      right: linkto ? await this.__getTypeTag(linkto) : null
+    };
+  }
+
   getType<T extends keyof S & string>(type: T): WRDType<S, T> {
     return new WRDType<S, T>(this, type);
   }

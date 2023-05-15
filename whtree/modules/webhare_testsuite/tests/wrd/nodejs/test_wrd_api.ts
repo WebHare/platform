@@ -45,6 +45,9 @@ async function testWRDUntypedApi() { //  tests
   test.eqProps({ attributeType: WRDAttributeType.Email }, await persontype.describeAttribute("wrdContactEmail"));
   test.eqProps({ attributeType: WRDAttributeType.Domain, domain: "testDomain_1" }, await persontype.describeAttribute("testSingleDomain"));
 
+  test.eq(null, await wrdschema.describeType("noSuchType"));
+  test.eqProps({ left: "wrdPerson", right: null }, await wrdschema.describeType("personattachment"));
+
 
   await whdb.beginWork();
   const personid: number = (await wrdschema.insert("wrdPerson", { wrdLastName: "QueryTest" }));
