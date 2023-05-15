@@ -3986,7 +3986,7 @@ RECORD ARRAY FUNCTION ProcessParameters(RECORD ARRAY parameters, BOOLEAN strict)
 
     SWITCH (type)
     {
-    CASE 11, 14, 15, 18 // integer(64) + money
+    CASE wrd_attributetype_time, 14, 15, 18 // integer(64) + money
       {
         IF (CellExists(param, "VALUESTART"))
           INSERT CELL valuestart := param.valuestart INTO p;

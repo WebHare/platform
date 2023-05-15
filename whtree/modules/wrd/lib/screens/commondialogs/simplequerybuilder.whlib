@@ -5,6 +5,7 @@ LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
 
 
 
@@ -1297,7 +1298,7 @@ RECORD FUNCTION GetFilterOptions(RECORD attr)
       valuetype := "string";
       allowed_conditions := equal;
     }
-  CASE 11 // Time
+  CASE wrd_attributetype_time
      , 15 // Integer
     {
       valuetype := "integer";

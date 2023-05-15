@@ -11,6 +11,7 @@ LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::wrd/lib/address.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/internal/queries.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
 
 /////////////////////////////////////////////////////////////////////
 //
@@ -561,10 +562,13 @@ PUBLIC STATIC OBJECTTYPE QueryBuilder EXTEND TolliumScreenBase
 
           SWITCH (selattr.attr.attributetype)
           {
-          CASE 1, 11, 15  { col.type := "integer"; }
-          CASE 18         { col.type := "integer64"; }
-          CASE 6          { col.type := "date"; }
-          CASE 12         { col.type := "datetime"; INSERT CELL storeutc := TRUE INTO col; }
+            CASE 1, wrd_attributetype_time, 15
+            {
+               col.type := "integer";
+             }
+            CASE 18         { col.type := "integer64"; }
+            CASE 6          { col.type := "date"; }
+            CASE 12         { col.type := "datetime"; INSERT CELL storeutc := TRUE INTO col; }
           }
 
           INSERT col INTO columns AT END;
@@ -883,7 +887,10 @@ PUBLIC STATIC OBJECTTYPE QueryBuilder EXTEND TolliumScreenBase
 
         SWITCH (selattr.attr.attributetype)
         {
-          CASE 1, 11, 15  { col.type := "integer"; }
+          CASE 1, wrd_attributetype_time, 15
+          {
+            col.type := "integer";
+          }
           CASE 18         { col.type := "integer64"; }
           CASE 6          { col.type := "date"; }
           CASE 12         { col.type := "datetime"; INSERT CELL storeutc := TRUE INTO col; }
@@ -1057,7 +1064,10 @@ PUBLIC OBJECTTYPE EditFilter EXTEND TolliumScreenBase
     CASE 7        { allowed_conditions := equal; }
   //  CASE 8        { allowed_conditions := anyof; }
     CASE 9, 10    {  }
-    CASE 11,12,14,15,18 { allowed_conditions := equal CONCAT compare; }
+    CASE wrd_attributetype_time,12,14,15,18
+    {
+      allowed_conditions := equal CONCAT compare;
+    }
     CASE 16        { allowed_conditions := equal; }
     CASE 23        { allowed_conditions := equal; }
     }
@@ -1436,7 +1446,7 @@ VARIANT FUNCTION ConvertToNiceType(OBJECT tolliumuser, OBJECT wrdschema, INTEGER
       RETURN tolliumuser->FormatDate(value, TRUE, TRUE);
     }
 
-  CASE 11 /* Time */
+  CASE wrd_attributetype_time
     { RETURN tolliumuser->FormatTimestamp(value, "milliseconds"); }
 
   CASE 12 /* datetime */

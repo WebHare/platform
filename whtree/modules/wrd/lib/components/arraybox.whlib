@@ -7,6 +7,7 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::publisher/lib/publisher.whlib";
 
 LOADLIB "mod::wrd/lib/commondialogs.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
 
 /////////////////////////////////////////////////////////////////////
 //
@@ -171,7 +172,7 @@ PUBLIC OBJECTTYPE ArrayBox EXTEND TolliumFragmentBase
         {
           val := [ data := value ];
         }
-        CASE 11 /* Time */
+        CASE wrd_attributetype_time
         {
           //FIXME: precision?
           val := [ data := this->owner->tolliumuser->FormatTimestamp(value, "minutes") ];

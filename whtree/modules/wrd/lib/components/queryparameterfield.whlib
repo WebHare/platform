@@ -1,6 +1,7 @@
 ﻿<?wh
 LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
 
 PUBLIC OBJECTTYPE TolliumWRDQueryParameterField EXTEND TolliumComponentBase
 < PRIVATE VARIANT FUNCTION GetValue()
@@ -104,7 +105,7 @@ PUBLIC OBJECTTYPE TolliumWRDQueryParameterField EXTEND TolliumComponentBase
           OBJECT comp := this->CreateSubComponent("datetime");
           comp->title := this->title;
           comp->storeutc := this->attrtype = 12; //ADDME: wanneer precies ? misschien 2 WRD types toevoegen, een voor UTC Tijd en een voor Unconverted tijd ?
-          comp->type := this->attrtype=6?"date":this->attrtype=11?"time":"datetime";
+          comp->type := this->attrtype=6?"date":this->attrtype=wrd_attributetype_time?"time":"datetime";
           comp->readonly := this->readonly;
           IF (CellExists(this->descr, "VALUEDEFAULT"))
             comp->value := this->descr.valuedefault;
@@ -113,7 +114,7 @@ PUBLIC OBJECTTYPE TolliumWRDQueryParameterField EXTEND TolliumComponentBase
           RETURN;
         }
       }
-      CASE 15 /* Integer */, 18 /* Integer64 */, 11 /* time */
+      CASE 15 /* Integer */, 18 /* Integer64 */, wrd_attributetype_time
       {
         //FIXME! Geen cellexists geklooi! Velden bestaan (en dus in je definitie), of niet, en niets ertussenin!
         IF (CellExists(this->descr, "VALUESTART") AND CellExists(this->descr, "VALUELIMIT"))

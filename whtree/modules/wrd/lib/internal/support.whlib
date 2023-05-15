@@ -458,7 +458,7 @@ PUBLIC INTEGER FUNCTION GetAttributeHSType(INTEGER attrtype)
 {
   SWITCH(attrtype)
   {
-    CASE 1,11,15 { RETURN TypeID(INTEGER); }
+    CASE 1,wrd_attributetype_time,15 { RETURN TypeID(INTEGER); }
     CASE 6,12 { RETURN TypeID(DATETIME); }
     CASE 8 { RETURN TypeID(INTEGER ARRAY); }
     CASE 9,10,17,19,20 { RETURN TypeID(RECORD); }
@@ -532,11 +532,11 @@ PUBLIC VARIANT FUNCTION DecodeWRDAttribute(STRING rawdata, INTEGER attributetype
     {
       RETURN rawdata="1";
     }
-    CASE 15,11  /* Integer, time */
+    CASE wrd_attributetype_time, wrd_attributetype_integer
     {
       RETURN ToInteger(rawdata,0);
     }
-    CASE 18  /* Integer64 */
+    CASE wrd_attributetype_integer64
     {
       RETURN ToInteger64(rawdata,0);
     }
