@@ -31,7 +31,7 @@ export async function prepareTestFramework(options?: { wrdauth?: boolean }) {
   const vm = await myvm;
   await vm.loadlib("mod::system/lib/database.whlib").SetPrimaryWebhareTransaction(0);
   //for convenience we'll reuse RunTestframework's various cleanups/resets as much as possible
-  await vm.loadlib("mod::system/lib/testframework.whlib").RunTestframework([], options);
+  await vm.loadlib("mod::system/lib/testframework.whlib").RunTestframework([], options || {});
   //testfw will insist on opening one, so close it immediately
   const primary = await vm.loadlib("mod::system/lib/database.whlib").GetPrimary() as HSVMObject;
   await primary.close();

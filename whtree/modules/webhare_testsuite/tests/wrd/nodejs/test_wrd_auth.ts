@@ -1,6 +1,9 @@
+import { prepareTestFramework } from "@mod-webhare_testsuite/js/wrd/testhelpers";
+import * as whdb from "@webhare/whdb";
 import * as test from "@webhare/test";
-import { createSigningKey, createJWT, verifyJWT } from "@webhare/wrd/src/auth";
+import { createSigningKey, createJWT, verifyJWT, AuthProvider } from "@webhare/wrd/src/auth";
 import { addDuration } from "@webhare/std";
+import { wrdTestschemaSchema } from "@mod-system/js/internal/generated/wrd/webhare";
 
 async function testLowLevelAuthAPIs() {
   const key = await createSigningKey();
@@ -27,5 +30,24 @@ async function testLowLevelAuthAPIs() {
   test.assert(Math.abs(addDuration(new Date, "P90D").getTime() / 1000 - decoded.exp) < 2000);
 }
 
-test.run([testLowLevelAuthAPIs]);
+async function setupKeys() {
+  await prepareTestFramework();
 
+  //Setup test keys. even if WRD learns to do this automatically for new schemas we'd still want to overwrite them for proper tests
+  await whdb.beginWork();
+  const provider = new AuthProvider(wrdTestschemaSchema);
+  await provider.initializeIssuer("https://my.webhare.dev/testfw/issuer");
+
+  await whdb.commitWork();
+
+  const jwks = await provider.getPublicJWKS();
+  test.eq(jwks.keys.length, 1);
+  test.eqProps({ "use": "sig", "issuer": "https://my.webhare.dev/testfw/issuer" }, jwks.keys[0]);
+  test.assert("kid" in jwks.keys[0]);
+  test.assert(!("d" in jwks.keys[0]), "no private key info!");
+}
+
+test.run([
+  testLowLevelAuthAPIs,
+  setupKeys
+]);

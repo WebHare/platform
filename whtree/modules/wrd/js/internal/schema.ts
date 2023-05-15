@@ -1,5 +1,6 @@
 import { HSVMObject } from "@webhare/services/src/hsvm";
 import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeType, WRDAttributeTypeNames } from "./types";
+export { SchemaTypeDefinition } from "./types";
 import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
 import { checkPromiseErrorsHandled } from "@mod-system/js/internal/util/devhelpers";
 import { ensureScopedResource } from "@webhare/services/src/codecontexts";
@@ -54,7 +55,7 @@ type CoVMSchemaCache = {
 };
 
 export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
-  private id: number | string;
+  readonly id: number | string;
   coVMSchemaCacheSymbol: symbol;
 
   constructor(id: number | string) {

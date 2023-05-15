@@ -30,6 +30,13 @@
       </array>
       <free tag="domain_secret" description="Shared secret for WRDAuth tokens" unsafetocopy="true" />
       <json tag="login_settings" description="Login configuration (see wrdauth_defaultconfiguration)" />
+      <free tag="issuer" description="JWT issuer" unsafetocopy="true" />  <!-- attempting to sync an existing issuer will only genaret confusing tokens. it's better to maintain this per server -->
+      <array tag="signing_keys" description="JWT keys" unsafetocopy="true">
+        <!-- mark as unsafe... syncing keys should be an explicit action -->
+        <datetime tag="available_since" required="true" />
+        <free tag="key_id" required="true" />
+        <json tag="private_key" required="true" />
+      </array>
     </attributes>
     <values matchattribute="wrd_tag" overwriteattributes="wrd_guid">
       <value>

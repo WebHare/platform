@@ -1,6 +1,8 @@
 import jwt, { JwtPayload } from "jsonwebtoken";
+import { WRDSchema } from "@mod-wrd/js/internal/schema";
 import { convertWaitPeriodToDate, generateRandomId, WaitPeriod } from "@webhare/std";
 import { generateKeyPair, KeyObject, JsonWebKey, createPrivateKey, createPublicKey } from "node:crypto";
+import { System_UsermgmtSchemaType } from "@mod-system/js/internal/generated/wrd/webhare";
 
 export async function createSigningKey(): Promise<JsonWebKey> {
   const pvtkey = await new Promise((resolve, reject) =>
@@ -11,6 +13,10 @@ export async function createSigningKey(): Promise<JsonWebKey> {
       resolve(privateKey);
     })) as KeyObject;
   return pvtkey.export({ format: 'jwk' });
+}
+
+export interface JWKS {
+  keys: JsonWebKey[];
 }
 
 interface JWTCreationOptions {
@@ -65,3 +71,53 @@ export async function verifyJWT(key: JsonWebKey, issuer: string, token: string):
   return data;
 }
 
+/** Manage JWT tokens associated with a schema
+ * @param wrdschema - The schema to create the token for
+*/
+export class AuthProvider<WRDSchemaType> {
+  readonly wrdschema: WRDSchema<System_UsermgmtSchemaType>;
+
+  constructor(wrdschema: WRDSchemaType) {
+    //TODO can we cast to a 'real' base type instead of abusing System_UsermgmtSchemaType for the wrdSettings type?
+    this.wrdschema = wrdschema as unknown as WRDSchema<System_UsermgmtSchemaType>;
+  }
+
+  async initializeIssuer(issuer: string): Promise<void> {
+    const settingid = await this.wrdschema.search("wrdSettings", "wrdTag", "WRD_SETTINGS");
+    if (!settingid)
+      throw new Error("WRD_SETTINGS not found");
+
+    //TODO keyIds aren't sensitive, we can use much smaller keyIds if we check for dupes ourselves to avoid collisons
+    const primarykeyid = generateRandomId("uuidv4");
+
+    await this.wrdschema.update("wrdSettings", settingid, {
+      issuer: issuer,
+      signingKeys: [{ availableSince: new Date, keyId: primarykeyid, privateKey: await createSigningKey() }]
+    });
+  }
+
+  private async getKeyConfig() {
+    const schema = this.wrdschema as unknown as WRDSchema<System_UsermgmtSchemaType>;
+    const settingid = await schema.search("wrdSettings", "wrdTag", "WRD_SETTINGS");
+    if (!settingid)
+      throw new Error("WRD_SETTINGS not found");
+
+    const settings = await schema.getFields("wrdSettings", settingid, { issuer: "issuer", signingKeys: "signingKeys" });
+    if (!settings)
+      throw new Error("WRD_SETTINGS not found");
+
+    // @ts-ignore the cast are needed because TS thinks setting can be '{}' ?
+    return { issuer: settings.issuer as string, signingKeys: settings.signingKeys as Array<{ privateKey: JsonWebKey; keyId: string }> };
+  }
+
+  async getPublicJWKS(): Promise<JWKS> {
+    const config = await this.getKeyConfig();
+    const keys: JsonWebKey[] = [];
+    for (const key of config.signingKeys) {
+      //Load the key
+      const jwk = createPublicKey({ key: key.privateKey, format: 'jwk' }).export({ format: 'jwk' });
+      keys.push({ ...jwk, issuer: config.issuer, use: "sig", kid: key.keyId });
+    }
+    return { keys };
+  }
+}
