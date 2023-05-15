@@ -233,8 +233,10 @@ function testDateTime() {
   test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(-1));
   test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(7 * 86400 * 1000 + 1));
   test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(Date.now()));
-}
 
+  const later = std.convertWaitPeriodToDate("P1DT5H"), estimate_later = Date.now() + 29 * 60 * 60 * 1000; //29 hours
+  test.assert(estimate_later - 1000 <= later.getTime() && later.getTime() <= estimate_later + 1000);
+}
 
 function testUFS(decoded: string, encoded: string) {
   test.eq(encoded, std.encodeString(decoded, 'base64url'));

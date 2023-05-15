@@ -1,5 +1,5 @@
-/** A relative (up to a week) or absolute wait period. Use 0 for 'polling' and Infinity to indicate anendless waits */
-export type WaitPeriod = 0 | number | Date;
+/** A relative (up to a week) or absolute wait period. Use 0 for 'polling' and Infinity to indicate an endless waits. Numbers are interpreted to be in milliseconds, a string is interpreted as a ISO8601 duration */
+export type WaitPeriod = 0 | number | string | Date;
 
 export interface Duration {
   sign: "+" | "-";
@@ -73,6 +73,8 @@ export function addDuration(startingdate: Date, duration: Partial<Duration> | st
 export function convertWaitPeriodToDate(wait: WaitPeriod): Date {
   if (wait instanceof Date) {
     return wait;
+  } else if (typeof wait === "string") {
+    return addDuration(new Date(), wait);
   } else if (typeof wait === "number") {
     if (wait === 0)
       return new Date(-864000 * 1000 * 10000000);
