@@ -1,4 +1,4 @@
-/** Generate a configurable random id (the default settings, base64url and 16 byes, match HareScript's GenerateUFS128BitId)
+/** Generate a configurable random id (the default settings, base64url and 16 bytes, match HareScript's GenerateUFS128BitId)
  * @param encoding - Encoding to use, base64url, hex or uuidv4. Default is base64url
  * @param bytes - Number of bytes to generate. Default is 16
  * @returns An encoded ID. With the default settings it will be a url (and filename) safe string of 22 characters in length

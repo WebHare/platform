@@ -2123,7 +2123,7 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
          to 'set back' the expected value. eg <time> supports 32 and 64 bit values when setting, but will be sent into a
          INTEGER or INTEGER64 field so you still need to match that type */
       IF (TypeID(subcell->value) != TypeID(GetCell(contents, subcell->cellname)))
-        THROW NEW TolliumException(subcell, `Composite member is of type '${GetTypeName(TypeID(GetCell(contents, subcell->cellname)))}' but expects '${GetTypeName(TypeID(subcell->value))}'`);
+        THROW NEW TolliumException(subcell, `Composite member '${subcell->cellname}' is of type '${GetTypeName(TypeID(GetCell(contents, subcell->cellname)))}' but expects '${GetTypeName(TypeID(subcell->value))}'`);
 
       subcell->value := GetCell(contents, subcell->cellname);
     }

@@ -64,6 +64,7 @@ export enum WRDAttributeType {
   StatusRecord = 27,
   AuthenticationSettings = 28,
   WHFSLink = 29,
+  JSON = 30
 }
 
 export const WRDAttributeTypeNames = [
@@ -71,7 +72,7 @@ export const WRDAttributeTypeNames = [
   "DOMAINARRAY", /*9*/"IMAGE", "FILE", "TIME", "DATETIME",/*13*/  "ARRAY", "MONEY",
   "INTEGER", "BOOLEAN", "RICHDOCUMENT", "INTEGER64", /*19*/"WHFSINSTANCE", "WHFSINTEXTLINK",
    /*21*/"URL", /*22*/"RECORD", /*23*/"ENUM", /*24*/"ENUMARRAY", /*25*/"PAYMENTPROVIDER", /*26*/"PAYMENT",
-   /*27*/"STATUSRECORD", /*28*/"AUTHENTICATIONSETTINGS", /*29*/ "WHFSLINK"
+   /*27*/"STATUSRECORD", /*28*/"AUTHENTICATIONSETTINGS", /*29*/ "WHFSLINK", /*30*/ "JSON"
 ];
 
 
@@ -109,6 +110,7 @@ export type SimpleWRDAttributeType =
   WRDAttributeType.WHFSIntextlink |
   WRDAttributeType.Url |
   WRDAttributeType.Record |
+  WRDAttributeType.JSON |
   WRDAttributeType.PaymentProvider |
   WRDAttributeType.Payment |
   WRDAttributeType.StatusRecord |

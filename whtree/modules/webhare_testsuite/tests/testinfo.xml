@@ -18,6 +18,7 @@
 
   <group name="checkmodules">
     <test name="checktestlists" script="mod::system/scripts/whcommands/checkmodule.whscr">
+      <arg value="--hidehints" />
       <arg value="--nowarnings" />
       <arg value="--nochecktypescript" />
       <arg value="--filemask" />

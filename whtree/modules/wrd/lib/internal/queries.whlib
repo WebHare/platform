@@ -3461,6 +3461,29 @@ STATIC OBJECTTYPE WRDDBRecordValue EXTEND WRDDBIncomparableValue
   }
 >;
 
+STATIC OBJECTTYPE WRDDBJSONValue EXTEND WRDDBIncomparableValue
+< PUBLIC UPDATE VARIANT FUNCTION GetDefaultValue()
+  {
+    RETURN DEFAULT RECORD;
+  }
+
+  PUBLIC UPDATE VARIANT FUNCTION GetFromRecord(RECORD ARRAY entity_settings, INTEGER settings_start, INTEGER settings_limit)
+  {
+    IF(settings_start = settings_limit)
+      RETURN DEFAULT RECORD;
+
+    VARIANT data := entity_settings[settings_start].rawdata != "" ? DecodeJSON(entity_settings[settings_start].rawdata) : DecodeJSONBlob(entity_settings[settings_start].blobdata);
+    IF(TypeID(data) != TypeID(RECORD))
+      THROW NEW Exception(`Entity setting #${entity_settings[settings_start].id} incorrectly contains a non-record value`);
+    RETURN data;
+  }
+
+  PUBLIC UPDATE MACRO RequestNeededColumns(OBJECT query, STRING settings_source)
+  {
+    query->RequestAdditionalColumns(settings_source, [ "id", "rawdata", "blobdata" ]);
+  }
+>;
+
 STATIC OBJECTTYPE WRDDBStatusRecordValue EXTEND WRDDBValue
 < PUBLIC UPDATE VARIANT FUNCTION GetDefaultValue()
   {
@@ -3925,6 +3948,9 @@ PUBLIC OBJECT FUNCTION GetAccessorForAttributeType(RECORD attrinfo, OBJECT wrd_t
 
   CASE wrd_attributetype_whfslink
     { RETURN NEW WRDDBWHFSLinkValue(wrd_type, attrinfo, options); }
+
+  CASE wrd_attributetype_json
+    { RETURN NEW WRDDBJSONValue(wrd_type, attrinfo); }
 
   DEFAULT
     { THROW NEW Exception(`Type ${GetAttributeTypeNameByTypeId(attributetype)} has not been implemented in the query interface yet`); }

@@ -2,6 +2,8 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+
 
 PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
 <
@@ -64,7 +66,17 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
       {
         RETURN this->currentobjects[3]->value ? MAX_DATETIME : this->currentobjects[2]->value;
       }
-      CASE 19,17,22,25,26,27,28 /* Instance, richdoc, HSON, paymentprovider, payment, statusrecord, authenticationsettings */
+      CASE wrd_attributetype_json
+      {
+        RETURN this->currentobjects[0]->value = "" ? DEFAULT RECORD : DecodeJSON(this->currentobjects[0]->value);
+      }
+      CASE wrd_attributetype_whfsinstance,
+           wrd_attributetype_richdocument,
+           wrd_attributetype_record,
+           wrd_attributetype_paymentprovider,
+           wrd_attributetype_payment,
+           wrd_attributetype_statusrecord,
+           wrd_attributetype_authenticationsettings
       {
         RETURN this->currentobjects[0]->value = "" ? DEFAULT RECORD : DecodeHSON(this->currentobjects[0]->value);
       }
@@ -118,7 +130,17 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
           this->currentobjects[4]->visible := this->visible AND val = MAX_DATETIME;
         }
       }
-      CASE 19,17,22,25,26,27,28 /* Instance, richdoc, HSON, paymentprovider, payment, statusrecord, authenticationsettings */
+      CASE wrd_attributetype_json
+      {
+        this->currentobjects[0]->value := EncodeJSON(val);
+      }
+      CASE wrd_attributetype_whfsinstance,
+           wrd_attributetype_richdocument,
+           wrd_attributetype_record,
+           wrd_attributetype_paymentprovider,
+           wrd_attributetype_payment,
+           wrd_attributetype_statusrecord,
+           wrd_attributetype_authenticationsettings
       {
         //show hson-encoded data
         this->currentobjects[0]->value := EncodeHSON(val);
@@ -439,7 +461,14 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
         comp->readonly := this->fieldreadonly;
         this->currentobjects := [comp];
       }
-      CASE 17, 19, 22, 25, 26, 27, 28 // richdoc, instance, hson, paymentprovider, payment (readonly), statusrecord, authenticationsettings
+      CASE wrd_attributetype_whfsinstance,
+           wrd_attributetype_richdocument,
+           wrd_attributetype_record,
+           wrd_attributetype_json,
+           wrd_attributetype_paymentprovider,
+           wrd_attributetype_payment,
+           wrd_attributetype_statusrecord,
+           wrd_attributetype_authenticationsettings
       {
         OBJECT comp := this->CreateSubComponent("textedit");
         comp->width := "1pr";
@@ -621,7 +650,13 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
 
     SWITCH (this->attrinfo.attributetype)
     {
-      CASE 19,17,22,25,26,27 /* Instance, richdoc, HSON, paymentprovider, payment */
+      CASE wrd_attributetype_whfsinstance,
+           wrd_attributetype_richdocument,
+           wrd_attributetype_record,
+           wrd_attributetype_paymentprovider,
+           wrd_attributetype_payment,
+           wrd_attributetype_statusrecord,
+           wrd_attributetype_authenticationsettings
       {
         IF(this->currentobjects[0]->value="")
           RETURN;

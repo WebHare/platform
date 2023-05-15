@@ -20,7 +20,10 @@ MACRO AddXMLAttribute(OBJECT type, RECORD attr, OBJECT parentnode)
   parentnode->AppendChild(attrnode);
 
   attrnode->SetAttribute("tag", Substring(attr.tag, SearchLastSubstring(attr.tag,'.')+1));
-  attrnode->SetAttribute("title", attr.title);
+  IF(attr.title != "")
+    attrnode->SetAttribute("title", attr.title);
+  IF(attr.description != "")
+    attrnode->SetAttribute("description", attr.description);
 
   RECORD attrinfo := DescribeAttributeType(attr.attributetypename);
 

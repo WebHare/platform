@@ -9,14 +9,14 @@ LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 ASYNC FUNCTION TestQueryBuilder()
 {
   testfw->BeginWork();
-  testfw->GetUserObject("sysop")->entity->UpdateEntity([ test_record := [ x := 42 ]]);
+  testfw->GetUserObject("sysop")->entity->UpdateEntity([ test_record := [ x := 42 ], test_json := [ y := 43 ]]);
   testfw->CommitWork();
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("wrd:querybuilder", [ params := STRING[OpenTestsuiteWRDSchema()->tag]] ));
   TT("types")->selection := SELECT * FROM TT("types")->rows WHERE tag="WRD_PERSON";
   TT("types")->selection[0].expanded := TRUE;
 
-  TT("types")->selection := SELECT * FROM TT("types")->GetChildRows(TT("types")->value[0]) WHERE tag in ["WRD_CONTACT_EMAIL","WHUSER_PASSWORD","TEST_RECORD"];
+  TT("types")->selection := SELECT * FROM TT("types")->GetChildRows(TT("types")->value[0]) WHERE tag in ["WRD_CONTACT_EMAIL","WHUSER_PASSWORD","TEST_RECORD","TEST_JSON"];
 
   TestEq(0,Length(TT("resultselect")->rows));
   TT("resultselect")->SimulateDrop("move", TT("types")->SimulateDrag());

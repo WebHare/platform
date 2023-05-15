@@ -5,6 +5,7 @@
       <free tag="wrd_title" title="Title" />
       <free tag="wrd_tag" required="true" title="Tag" />
       <integer tag="wrd_ordering" title="Ordering" />
+
       <!-- FIXME These should become required but we should probably configure existing installations properly fist -->
       <domain tag="default_priority" domain="priority" title="Default priority" />
       <domain tag="default_role" domain="role" title="Default role" />
@@ -99,6 +100,7 @@
       <domain tag="newtopic" domain="topic" />
       <enum tag="statuschange" allowedvalues="new assigned escalated closed resolved" gid="tolliumapps.feedback.types" />
       <free tag="text" />
+
       <!-- TODO at some point we can't require this anymore? eg if we do automatic closing/system messages -->
       <record tag="webhareuser" required="true" />
     </attributes>

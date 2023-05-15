@@ -1,40 +1,44 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+
   <!-- The system:config schema stores various structured settings which would be quite complex in the registry but don't
        warrant their own tables -->
-
-  <domain tag="CONFIGAPP">
+  <domain tag="configapp">
     <!-- Domain for configuration apps. Used to attach rights -->
     <attributes>
-      <free tag="APPTAG" title="Application tag, eg system:dashboard" required="true" unique="true" />
-      <free tag="TID" title="TID to use" />
+      <free tag="apptag" required="true" title="Application tag, eg system:dashboard" unique="true" />
+      <free tag="tid" title="TID to use" />
     </attributes>
   </domain>
 
-  <object tag="TASKCLUSTER" keephistorydays="2600"> <!-- overrides for module task clusters -->
+  <object tag="taskcluster" keephistorydays="2600">
+    <!-- overrides for module task clusters -->
     <attributes>
-      <free tag="CLUSTER" unique="true" required="true"/> <!-- must match the module:cluster tag -->
-      <integer tag="HARESCRIPTWORKERS" /> <!-- if set, overrides harescriptworkers value for this cluster (if the cluster actually requires harescript workers) -->
+      <free tag="cluster" required="true" unique="true" />  <!-- must match the module:cluster tag -->
+      <integer tag="harescriptworkers" />  <!-- if set, overrides harescriptworkers value for this cluster (if the cluster actually requires harescript workers) -->
     </attributes>
   </object>
 
-  <object tag="TASKTYPE" keephistorydays="2600"> <!-- overrides for module task types -->
+  <object tag="tasktype" keephistorydays="2600">
+    <!-- overrides for module task types -->
     <attributes>
-      <free tag="TYPE" unique="true" required="true"/> <!-- must match the module:cluster tag -->
-      <boolean tag="PROFILE" />
+      <free tag="type" required="true" unique="true" />  <!-- must match the module:cluster tag -->
+      <boolean tag="profile" />
     </attributes>
   </object>
 
-  <object tag="EXTERNALSERVICE" keephistorydays="2600"> <!-- list services we are allowed to connect with -->
+  <object tag="externalservice" keephistorydays="2600">
+    <!-- list services we are allowed to connect with -->
     <attributes>
       <free tag="url" required="true" />
       <free tag="servicetype" required="true" />
+
       <!-- TODO: once the 'tika' users are switched, <obsolete tag="type" /> .. we introduced servicetype in 4.34 -->
       <integer tag="priority" />
     </attributes>
   </object>
 
-  <object tag="STATUSUPLOAD" keephistorydays="2600"> <!-- list URLs to which we report our status -->
+  <object tag="statusupload" keephistorydays="2600">
+    <!-- list URLs to which we report our status -->
     <attributes>
       <free tag="wrd_title" required="true" />
       <free tag="url" required="true" />
@@ -42,7 +46,8 @@
     </attributes>
   </object>
 
-  <object tag="MAILROUTE" keephistorydays="2600"> <!-- list URLs to which we report our status -->
+  <object tag="mailroute" keephistorydays="2600">
+    <!-- list URLs to which we report our status -->
     <attributes>
       <free tag="wrd_title" />
       <integer tag="wrd_ordering" />
@@ -54,30 +59,31 @@
         <free tag="mask" />
       </array>
       <free tag="serverurl" />
-      <free tag="rewritemailaddress"/>
-      <boolean tag="includeoriginaladdress"/>
+      <free tag="rewritemailaddress" />
+      <boolean tag="includeoriginaladdress" />
     </attributes>
   </object>
 
-  <object tag="MAILSENDER" keephistorydays="2600"> <!-- sender whitelist -->
+  <object tag="mailsender" keephistorydays="2600">
+    <!-- sender whitelist -->
     <attributes>
       <free tag="wrd_title" />
       <free tag="mask" />
     </attributes>
   </object>
 
-  <object tag="MAILRECIPIENT" keephistorydays="2600"> <!-- recipients (receivers) whitelist -->
+  <object tag="mailrecipient" keephistorydays="2600">
+    <!-- recipients (receivers) whitelist -->
     <attributes>
       <free tag="wrd_title" />
       <free tag="mask" />
     </attributes>
   </object>
 
-  <object tag="MAILCORRECTION">
+  <object tag="mailcorrection">
     <attributes>
       <free tag="wrd_title" />
       <integer tag="wrd_ordering" />
-
       <array tag="masks">
         <free tag="mask" />
       </array>
