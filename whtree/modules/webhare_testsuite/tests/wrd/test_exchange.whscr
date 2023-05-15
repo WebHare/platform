@@ -7,7 +7,6 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 LOADLIB "mod::wrd/lib/internal/whfs-service.whlib";
 LOADLIB "mod::wrd/lib/imexport.whlib";
-LOADLIB "mod::wrd/lib/internal/csvexport.whlib";
 LOADLIB "mod::wrd/lib/internal/exchange.whlib";
 
 STRING FUNCTION StringifyMultiDomain(OBJECT wrdtype, STRING field, INTEGER ARRAY vals)

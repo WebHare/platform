@@ -670,36 +670,6 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
           work->AddErrorFor(this->currentobjects[0], GetTid("wrd:components.wrdfield.illegalhson"));
       }
     }
-
-   /*
-
-    SWITCH (this->attrinfo.attributetype)
-    {
-      CASE 1 //Single
-      {
-        IF (((this->enabled AND this->required) OR this->attrinfo.isrequired) AND this->GetValue() = 0)
-        {
-          work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title));
-        }
-      }
-      CASE 2 // Free form * /
-         , 3 // Postal address * /
-         , 4 // E-mail address * /
-         , 5 // Telephone * /
-         , 6 // date * /, 11 // time * /, 12 // datetime * /
-         , 7 // Password * /
-         , 10 // File * /
-         , 15 // Integer * /, 18 // Integer64 * /
-         , 16 // Boolean * /
-         , 17 // Richdoc * /
-         , 9//imageedit* /
-         , 21 // URL * /
-      {
-        //IF (this->required)
-          this->currentobjects[0]->ValidateValue(work);
-      }
-      //FIXME implement 8 (multiple) and the rest! Not sure why even _have_ custom implementaitions here..
-    }*/
   }
   PRIVATE UPDATE MACRO SetVisibility(BOOLEAN visible)
   {

@@ -1070,14 +1070,6 @@ PUBLIC OBJECTTYPE EditFilter EXTEND TolliumScreenBase
       {
         STRING prettyvalue := ConvertToNiceType(this->tolliumuser, this->contexts->wrdschema, attr.attributetype, this->wrdfield->value, TRUE);
 
-  /*      VARIANT prettyvalue := this->wrdfield->value;
-        IF (attr.attributetype = 6 OR attr.attributetype = 11 OR attr.attributetype = 12)
-          prettyvalue := this->tolliumuser->FormatDateTime(prettyvalue);
-        IF (attr.attributetype = 16)
-          prettyvalue := this->wrdfield->value ? "TRUE" : "FALSE";
-        IF (attr.attributetype IN [6,11,12]
-          prettyvalue := FormatDateTime(*/
-
         RETURN [ filtertype  := this->filtertype->value
                , filtervalue := this->wrdfield->value
                , filterprettyvalue := prettyvalue
