@@ -40,10 +40,10 @@ async function testWRDUntypedApi() { //  tests
   test.assert(!await wrdschema.getType("noSuchType").exists());
 
   const persontype = wrdschema.getType("wrdPerson");
-  test.eq(null, await persontype.getAttribute("noSuchAttribute"));
-  await test.throws(/may not start/, () => persontype.getAttribute("WRD_CONTACT_EMAIL"));
-  test.eqProps({ attributeType: WRDAttributeType.Email }, await persontype.getAttribute("wrdContactEmail"));
-  test.eqProps({ attributeType: WRDAttributeType.Domain, domain: "testDomain_1" }, await persontype.getAttribute("testSingleDomain"));
+  test.eq(null, await persontype.describeAttribute("noSuchAttribute"));
+  await test.throws(/may not start/, () => persontype.describeAttribute("WRD_CONTACT_EMAIL"));
+  test.eqProps({ attributeType: WRDAttributeType.Email }, await persontype.describeAttribute("wrdContactEmail"));
+  test.eqProps({ attributeType: WRDAttributeType.Domain, domain: "testDomain_1" }, await persontype.describeAttribute("testSingleDomain"));
 
 
   await whdb.beginWork();

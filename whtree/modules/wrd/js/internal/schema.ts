@@ -251,7 +251,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     }
   }
 
-  async getAttribute(tag: string): Promise<WRDAttributeConfiguration | null> {
+  async describeAttribute(tag: string): Promise<WRDAttributeConfiguration | null> {
     const typeobj = await this._getType();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const result = await typeobj.GetAttribute(tagToHS(tag)) as any;
