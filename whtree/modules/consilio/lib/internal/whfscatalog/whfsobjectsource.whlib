@@ -454,7 +454,7 @@ PUBLIC VARIANT FUNCTION GetItemField(STRING fieldname, INTEGER objectid)
                 INSERT CELL[ qname ] INTO allcomps AT pos.position;
             }
       }
-      RETURN Detokenize((SELECT AS STRING ARRAY qname FROM allcomps), " ");
+      RETURN SELECT AS STRING ARRAY qname FROM allcomps;
     }
 
     CASE "storeresults"
