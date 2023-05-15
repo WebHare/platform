@@ -1,5 +1,7 @@
 <?wh
 
+LOADLIB "wh::util/algorithms.whlib";
+
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whfs/events.whlib";
@@ -44,6 +46,26 @@ PUBLIC MACRO BuildForms()
 
   RECORD emptyfile := SELECT * FROM result.results WHERE whfsid = emptyform->id;
   TestEq(TRUE, RecordExists(emptyfile));
+
+  // Search by form component
+  // All forms contain a plain, single-line text field
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd(
+      [ CQMatch("whfstree", "CONTAINS", webtoolsfolder->id)
+      , CQMatch("mod_publisher.formfields", "CONTAINS", "http://www.webhare.net/xmlns/publisher/forms#textedit")
+      ]), [ summary_length := 0, mapping := [ whfsid := 0 ] ]);
+  TestEq(GetSortedSet(INTEGER[ formplain.id, formwidget.id, forminfotexts.id, formcustom.id ]), SELECT AS INTEGER ARRAY whfsid FROM result.results ORDER BY whfsid);
+  // All forms contain the custom testsuite handler
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd(
+      [ CQMatch("whfstree", "CONTAINS", webtoolsfolder->id)
+      , CQMatch("mod_publisher.formfields", "CONTAINS", "http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents#testsuitehandler")
+      ]), [ summary_length := 0, mapping := [ whfsid := 0 ] ]);
+  TestEq(GetSortedSet(INTEGER[ formplain.id, formwidget.id, forminfotexts.id, formcustom.id ]), SELECT AS INTEGER ARRAY whfsid FROM result.results ORDER BY whfsid);
+  // Only the plain and widget forms contain a number field
+  result := RunConsilioSearch(whconstant_consilio_catalog_whfs, CQAnd(
+      [ CQMatch("whfstree", "CONTAINS", webtoolsfolder->id)
+      , CQMatch("mod_publisher.formfields", "CONTAINS", "http://www.webhare.net/xmlns/publisher/forms#textedit?valuetype=integer|money|float")
+      ]), [ summary_length := 0, mapping := [ whfsid := 0 ] ]);
+  TestEq(GetSortedSet(INTEGER[ formplain.id, formwidget.id ]), SELECT AS INTEGER ARRAY whfsid FROM result.results ORDER BY whfsid);
 }
 
 
