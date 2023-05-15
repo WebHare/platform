@@ -132,7 +132,10 @@ OBJECTTYPE Controller
 
     VARIANT retval;
     IF(ToUppercase(name) = "GET")
-      RETURN MapToBridge(GetMember(obj, args[0]));
+      IF(MemberExists(obj, args[0]))
+        RETURN MapToBridge(GetMember(obj, args[0]));
+      ELSE
+        THROW NEW Exception(`No such member '${args[0]}'`); //'nice' exception as a HS Error will terminate the bridge without explanation
     ELSE
       RETURN InvokeFPTR(GetObjectMethodPtr(obj, name), args);
   }
