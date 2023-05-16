@@ -13,5 +13,10 @@
   },
   "engines": {
     "node": ">=20.0.0"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./std.ts"
+    ]
   }
 }

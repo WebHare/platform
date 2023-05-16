@@ -10,5 +10,10 @@
   "license": "MIT",
   "browser": {
     "src/testsupport": "./src/testsupport-browser.ts"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/test.ts"
+    ]
   }
 }

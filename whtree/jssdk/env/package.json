@@ -11,5 +11,10 @@
   "browser": {
     "src/envsupport": "./src/envsupport-browser.ts",
     "src/envstartup": "./src/envstartup-browser.ts"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/env.ts"
+    ]
   }
 }

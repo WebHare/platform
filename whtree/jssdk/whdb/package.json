@@ -7,5 +7,10 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "WebHare bv",
-  "license": "MIT"
+  "license": "MIT",
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/whdb.ts"
+    ]
+  }
 }
