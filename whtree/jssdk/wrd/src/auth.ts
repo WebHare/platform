@@ -1,4 +1,4 @@
-import jwt, { JwtPayload } from "jsonwebtoken";
+import jwt, { JwtPayload, VerifyOptions } from "jsonwebtoken";
 import { WRDSchema } from "@mod-wrd/js/internal/schema";
 import { convertWaitPeriodToDate, generateRandomId, WaitPeriod } from "@webhare/std";
 import { generateKeyPair, KeyObject, JsonWebKey, createPrivateKey, createPublicKey } from "node:crypto";
@@ -19,9 +19,44 @@ export interface JWKS {
   keys: JsonWebKey[];
 }
 
-interface JWTCreationOptions {
+export interface JWTCreationOptions {
   scopes?: string[];
   audiences?: string[];
+}
+
+export interface JWTVerificationOptions {
+  audience?: string | RegExp | Array<string | RegExp>;
+}
+
+export interface SessionCreationOptions extends JWTCreationOptions {
+  expires?: WaitPeriod;
+  settings?: Record<string, unknown>;
+}
+
+export interface CreateSessionResult {
+  ///wrdId of newly inserted session entity
+  sessionWrdId: number;
+  ///the JWT token to return
+  token: string;
+}
+
+export interface VerifySessionResult {
+  ///wrdId of the found subject
+  subjectWrdId: number;
+  ///the decooded and validated payload
+  payload: JwtPayload;
+  ///decoded scopes
+  scopes: string[];
+}
+
+/** Configuring the WRDAuth provider */
+export interface AuthProviderConfiguration {
+  /** The type storing tokens. Must implement the AccessToken interface */
+  tokenType?: string;
+  /** JWT expiry. */
+  expires?: WaitPeriod;
+  /** Our audience */
+  audience?: string;
 }
 
 /** Create a WRDAuth JWT token.
@@ -59,11 +94,15 @@ export async function createJWT(key: JsonWebKey, keyid: string, issuer: string, 
   return jwt.sign(payload, signingkey, { keyid, algorithm: "ES256" });
 }
 
-export async function verifyJWT(key: JsonWebKey, issuer: string, token: string): Promise<JwtPayload> {
+export async function verifyJWT(key: JsonWebKey, issuer: string, token: string, options?: JWTVerificationOptions): Promise<JwtPayload> {
   // const data = jwt.decode(token, { complete: true });
   // console.log(data);
   const jwk = createPublicKey({ key: key, format: 'jwk' });
-  const data = jwt.verify(token, jwk, { issuer }); //TODO use async variant
+  const verifyoptions: VerifyOptions = { issuer };
+  if (options?.audience)
+    verifyoptions.audience = options.audience;
+
+  const data = jwt.verify(token, jwk, verifyoptions); //TODO use async variant
 
   if (typeof data !== "object")
     throw new Error("Invalid JWT token");
@@ -76,10 +115,12 @@ export async function verifyJWT(key: JsonWebKey, issuer: string, token: string):
 */
 export class AuthProvider<WRDSchemaType> {
   readonly wrdschema: WRDSchema<System_UsermgmtSchemaType>;
+  readonly config: AuthProviderConfiguration;
 
-  constructor(wrdschema: WRDSchemaType) {
+  constructor(wrdschema: WRDSchemaType, config?: AuthProviderConfiguration) {
     //TODO can we cast to a 'real' base type instead of abusing System_UsermgmtSchemaType for the wrdSettings type?
     this.wrdschema = wrdschema as unknown as WRDSchema<System_UsermgmtSchemaType>;
+    this.config = config || {};
   }
 
   async initializeIssuer(issuer: string): Promise<void> {
@@ -119,5 +160,81 @@ export class AuthProvider<WRDSchemaType> {
       keys.push({ ...jwk, issuer: config.issuer, use: "sig", kid: key.keyId });
     }
     return { keys };
+  }
+
+  /* TODO:
+     - do we need an intermediate 'createJWT' that uses the schema's configuration but doesn't create the tokens in the database?
+     - do we need to support an 'ephemeral' mode where we don't actually commit the tokens to the database? (more like current wrdauth which only has
+       password reset as a way to clear tokens)
+  */
+
+  /** Lookup the accounttype for the specified token type */
+  private async getAccountType() {
+    if (!this.config.tokenType)
+      throw new Error(`No tokentype configured for this authentication provider`);
+
+    const tokentypeinfo = await this.wrdschema.describeType(this.config.tokenType);
+    if (!tokentypeinfo)
+      throw new Error(`Tokentype ${this.config.tokenType} does not exist`);
+    if (!tokentypeinfo.left)
+      throw new Error(`Tokentype ${this.config.tokenType} does not have a left-side type`);
+
+    return tokentypeinfo.left;
+  }
+
+  /** Create a session
+   * @param subject - The subject of the session. Must be the left entity of the config.tokentype
+  */
+  async createSession(subject: number, options?: SessionCreationOptions): Promise<CreateSessionResult> {
+    const config = await this.getKeyConfig();
+    if (!config || !config.issuer || !config.signingKeys?.length)
+      throw new Error(`Schema ${this.wrdschema.id} is not configured properly. Missing issuer or signingKeys`);
+
+    // @ts-ignore Need to fix the any issue above first
+    const bestsigningkey = config.signingKeys.sort((a, b) => b.availableSince.getTime() - a.availableSince.getTime())[0];
+    if (!this.config.tokenType)
+      throw new Error(`No tokentype configured for this authentication provider`);
+
+    const accounttype = await this.getAccountType();
+
+    // @ts-ignore FIXME Not sure how to properly satisfy this check - there's no way to statically verify tokentypeinfo.left is valid
+    const subjectguid = (await this.wrdschema.getFields(accounttype, subject, ["wrdGuid"]))?.wrdGuid;
+    if (!subjectguid)
+      throw new Error(`Unable to find the wrdGuid for subject #${subject}`);
+
+    const audiences = options?.audiences || (this.config.audience ? [this.config.audience] : []);
+    const expires: WaitPeriod = options?.expires || this.config.expires || "P1D";
+    const validuntil = convertWaitPeriodToDate(expires); //TODO round to second precision for consistency between WRD and Token values
+
+    const token = await createJWT(bestsigningkey.privateKey, bestsigningkey.keyId, config.issuer, subjectguid, validuntil, { scopes: options?.scopes, audiences });
+    // @ts-ignore FIXME Not sure how to properly satisfy this check - there's no way to statically verify accounttype is valid
+    const sessionWrdId = await this.wrdschema.insert(this.config.tokenType, { wrdLeftEntity: subject, token: token, wrdLimitDate: validuntil, ...options?.settings });
+    return { token, sessionWrdId };
+  }
+
+  /** Verify a session */
+  async verifySession(token: string): Promise<VerifySessionResult> {
+    const decoced = jwt.decode(token, { complete: true });
+    const keys = await this.getKeyConfig();
+    const matchkey = keys.signingKeys.find(k => k.keyId === decoced?.header.kid);
+    if (!matchkey)
+      throw new Error(`Unable to find key '${decoced?.header.kid}'`);
+
+    const verifyoptions: JWTVerificationOptions = {};
+    if (this.config.audience)
+      verifyoptions.audience = this.config.audience;
+
+    const payload = await verifyJWT(matchkey.privateKey, keys.issuer, token, verifyoptions);
+    const accounttype = await this.getAccountType();
+    // @ts-ignore FIXME Not sure how to properly satisfy this check - there's no way to statically verify accounttype is valid
+    const matchuser = await this.wrdschema.search(accounttype, "wrdGuid", payload.sub);
+    if (!matchuser)
+      throw new Error(`Unable to find subject '${payload.sub}'`);
+
+    return {
+      subjectWrdId: matchuser,
+      payload,
+      scopes: payload.scope?.split(" ") ?? []
+    };
   }
 }
