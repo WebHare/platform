@@ -225,9 +225,9 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
     OBJECT server := NEW AdHocServer(/*[ logdebug := TRUE ]*/);
     server->PrecacheFiles(filelist);
 
-    BLOB pdf := AWAIT this->GeneratePDFFromURL(server->baseurl || "/.contents", options);
+    RECORD result := AWAIT this->GeneratePDFFromURL(server->baseurl || "/.contents", options);
     server->Close();
-    RETURN pdf;
+    RETURN result;
   }
 
   PUBLIC ASYNC FUNCTION GeneratePDF(RECORD options DEFAULTSTO DEFAULT RECORD)
@@ -286,6 +286,28 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
     }
   }
 
+  ASYNC FUNCTION InvokeIfDone(STRING ifdone)
+  {
+    IF(ifdone = "")
+      RETURN DEFAULT RECORD;
+
+    //We can't truly wait for a promise (and it might be easier to just rewrite ourselves to JS as we'll do that at some point anwyway first) so poll
+    AWAIT this->page->Evaluate(`window.__invokeifdoneresult = null; Promise.resolve(window["${EncodeJava(ifdone)}"]()).then( function(result) { window.__invokeifdoneresult = { result } });`);
+
+    DATETIME deadline := AddTimeToDate(15000, GetCurrentDatetime()); //TODO honor page delay or separate delay for invoke
+    WHILE(TRUE)
+    {
+      RECORD res := AWAIT this->page->Evaluate(`window.__invokeifdoneresult`);
+      IF(RecordExists(res))
+        RETURN res.result;
+
+      IF(GetCurrentDatetime() > deadline)
+        THROW NEW Exception(`The InvokeIfDone callback did not complete in time`);
+
+      Sleep(100);
+    }
+  }
+
   PUBLIC ASYNC FUNCTION GeneratePDFFromURL(STRING url, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     INTEGER logpos := Length(this->logevents);
@@ -300,10 +322,15 @@ PUBLIC STATIC OBJECTTYPE ChromePDFAPI EXTEND ComposerBase
                                  , margin := CELL[ ...pageoptions.margin
                                                  , ...options.margin
                                                  ]
+                                 , DELETE invokeifdone
                                  ];
 
       //https://devdocs.io/puppeteer/index#pagepdfoptions
-      RETURN AWAIT this->page->PDF(finaloptions);
+      BLOB pdf := AWAIT this->page->PDF(finaloptions);
+      RETURN CELL[ pdf
+                 , log := ArraySlice(this->logevents, logpos)
+                 , ifdoneresult := AWAIT this->InvokeIfDone(options.invokeifdone)
+                 ];
     }
     FINALLY
     {
