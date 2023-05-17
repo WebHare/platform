@@ -13,7 +13,7 @@ LOADLIB "wh::filetypes/css.whlib";
 LOADLIB "wh::filetypes/html.whlib";
 LOADLIB "wh::formatter/html.whlib";
 LOADLIB "wh::internet/mime.whlib";
-LOADLIB "wh::internet/smtp.whlib" EXPORT IsValidEmailAddress, TokenizeEmailAddresses;
+LOADLIB "wh::internet/smtp.whlib" EXPORT IsValidEmailAddress, IsValidModernEmailAddress, TokenizeEmailAddresses;
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::parser/msword.whlib";
 LOADLIB "wh::parser/objects.whlib";

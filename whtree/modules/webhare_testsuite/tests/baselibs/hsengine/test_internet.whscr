@@ -764,6 +764,8 @@ MACRO TestEmailAddresses()
   OpenTest("TestInternet: Email addresses");
   FOREVERY(RECORD test FROM testdata.internet.testemail)
     TestEq(test.valid, IsValidEmailAddress(test.email), test.email);
+  FOREVERY(RECORD test FROM testdata.internet.testemail)
+    TestEq(test.valid_modern, IsValidModernEmailAddress(test.email), "Address #" || #test || " " || (test.valid_modern ? "unexpectedly rejected: " : "unexpectedly accepted: ") || test.email);
 
   TestEq(1,Length(TokenizeEmailAddresses('"Example, M." <marge@example.nl>')));
   TestEq('"Example, M." <marge@example.nl>',TokenizeEmailAddresses('"Example, M." <marge@example.nl>')[0]);
