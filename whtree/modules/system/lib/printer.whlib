@@ -150,12 +150,14 @@ PUBLIC RECORD FUNCTION GenerateBrowserScreenshot(STRING url, RECORD options DEFA
     @cell(boolean) options.displayheaderfooter Display header and footer. Defaults to FALSE
     @cell(string) options.headertemplate Header template HTML code
     @cell(string) options.footertemplate Header template HTML code
+    @cell(string) options.invokeifdone Function to invoke when rendering is done
     @cell(integer) options.timeout Timeout (in milliseconds) for PDF generation. Defaults to 30 seconds
-    @return Wrapped file containing the PDF (or ZIP, if getsource is used)
+    @return Wrapped file containing the PDF (or ZIP, if getsource is used). if 'getlog' is used, the wrapped file wil be in the "PDF" member
 */
 PUBLIC RECORD FUNCTION GeneratePDF(RECORD data, RECORD options DEFAULTSTO CELL[])
 {
   options := ValidateOptions([ filename := ""
+                             , getlog := FALSE
                              , pdfengine := "chrome"
                              , wittypath := ""
                              , debug := FALSE
@@ -170,6 +172,7 @@ PUBLIC RECORD FUNCTION GeneratePDF(RECORD data, RECORD options DEFAULTSTO CELL[]
                              , margin := DEFAULT RECORD
                              , timeout := 30 * 1000
                              , devtoolsurl := ""
+                             , invokeifdone := ""
                              ], options, [ enums := [ pdfengine := ["chrome"]
                                                     , media := ["print","screen"]
                                                     ]
@@ -200,22 +203,36 @@ PUBLIC RECORD FUNCTION GeneratePDF(RECORD data, RECORD options DEFAULTSTO CELL[]
     pdfgenerator->lookupresource := options.lookupresource;
 
     BLOB filedata;
+    RECORD ARRAY log;
+    VARIANT ifdoneresult := DEFAULT RECORD;
     IF(options.getsource)
     {
       filedata := pdfgenerator->GenerateSource();
     }
     ELSE
     {
-      filedata := WaitForPromise(
+      RECORD result := WaitForPromise(
                     WrapPromiseInTimeout(
                       pdfgenerator->GeneratePDF(CELL[ options.displayheaderfooter
                                                     , options.headertemplate
                                                     , options.footertemplate
                                                     , options.margin
                                                     , options.delay
+                                                    , options.invokeifdone
                                                     ]), options.timeout));
+      filedata := result.pdf;
+      log := result.log;
+      ifdoneresult := result.ifdoneresult;
     }
-    RETURN WrapBlob(filedata, options.filename);
+
+    RECORD pdf := WrapBlob(filedata, options.filename);
+    IF(NOT options.getlog)
+      RETURN pdf;
+
+    RETURN CELL[ pdf
+               , log
+               , ifdoneresult
+               ];
   }
 
   THROW NEW Exception("GeneratePDF failed");
@@ -231,14 +248,22 @@ RECORD FUNCTION __GeneratePDFFrom(STRING link, RECORD wrappedfile, RECORD option
                                  , timeout := 30 * 1000
                                  , cookies := RECORD[]
                                  , embeddedfiles := RECORD[]
+                                 , getlog := FALSE
+                                 , invokeifdone := ""
                                  ], options, [ enums := [ pdfengine := ["chrome"]
                                                         , media := ["print","screen"]
                                                         ]
                                              ]);
 
   OBJECT pdfgen := NEW ChromePDFAPI();
-  BLOB pdfdata := WaitForPromise(WrapPromiseInTimeout(pdfgen->GeneratePDFFrom(link, wrappedfile, CELL[ options.media, options.margin, options.cookies, options.embeddedfiles, options.format, options.width, options.height, options.pageranges ]), options.timeout));
-  RETURN WrapBlob(pdfdata, options.filename);
+  RECORD result := WaitForPromise(WrapPromiseInTimeout(pdfgen->GeneratePDFFrom(link, wrappedfile, CELL[ options.media, options.margin, options.cookies, options.embeddedfiles, options.format, options.width, options.height, options.pageranges, options.invokeifdone ]), options.timeout));
+  RECORD pdf := WrapBlob(result.pdf, options.filename);
+  IF(NOT options.getlog)
+    RETURN pdf;
+
+  RETURN CELL[ pdf
+             , result.log
+             ];
 }
 
 /** @short Generate a PDF from a URL
