@@ -144,7 +144,6 @@ PUBLIC OBJECT FUNCTION CreateWRDSchema(STRING tag, RECORD metadata DEFAULTSTO DE
              ] INTO wrd.schemas;
 
   OBJECT wrdschema := OpenWRDSchemaById(schemaid);
-  wrdschema->SetSchemaSetting("wrd:auth.domainsecret", GenerateUFS128BitId() || GenerateUFS128BitId());
   UpdateSchema(wrdschema, schemadef);
 
   IF(metadata.usermgmt)

@@ -58,7 +58,7 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
       {
         ABORT("GetValue was invoked for read-only field " || this->attrinfo.tag);
       }
-      CASE 11 /* Time */
+      CASE wrd_attributetype_time
       {
         RETURN GetMsecondCount(this->currentobjects[0]->value);
       }
@@ -114,7 +114,7 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
       {
         this->currentobjects[0]->value := val;
       }
-      CASE 11 /* Time */
+      CASE wrd_attributetype_time
       {
         this->currentobjects[0]->value := MakeDateFromParts(0,val);
       }
@@ -268,15 +268,15 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
 
         this->currentobjects := [comp];
       }
-      CASE 11 /* time */
+      CASE wrd_attributetype_time
       {
         OBJECT comp := this->CreateSubComponent("datetime");
         comp->title := this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title;
-        comp->storeutc := this->attrinfo.attributetype = 12; //ADDME: wanneer precies ? misschien 2 WRD types toevoegen, een voor UTC Tijd en een voor Unconverted tijd ?
+        comp->storeutc := FALSE;
         IF(this->datetimetype!="")
           comp->type := this->datetimetype;
         ELSE
-          comp->type := this->attrinfo.attributetype = 6 ? "date" : this->attrinfo.attributetype = 11 ? "time" : "datetime";
+          comp->type := "time";
 
         IF (this->precision != "")
           comp->precision := this->precision;
@@ -302,7 +302,7 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
         IF(this->datetimetype!="")
           comp_datevalue->type := this->datetimetype;
         ELSE
-          comp_datevalue->type := this->attrinfo.attributetype = 6 ? "date" : this->attrinfo.attributetype = 11 ? "time" : "datetime";
+          comp_datevalue->type := this->attrinfo.attributetype = 6 ? "date" : "datetime";
 
         IF (this->precision != "")
           comp_datevalue->precision := this->precision;
@@ -670,36 +670,6 @@ PUBLIC OBJECTTYPE TolliumWRDField EXTEND TolliumComponentBase
           work->AddErrorFor(this->currentobjects[0], GetTid("wrd:components.wrdfield.illegalhson"));
       }
     }
-
-   /*
-
-    SWITCH (this->attrinfo.attributetype)
-    {
-      CASE 1 //Single
-      {
-        IF (((this->enabled AND this->required) OR this->attrinfo.isrequired) AND this->GetValue() = 0)
-        {
-          work->AddErrorFor(this, GetTid("tollium:common.errors.field_required", this->autotitle ? this->attrinfo.title ?? this->attrinfo.tag : this->title));
-        }
-      }
-      CASE 2 // Free form * /
-         , 3 // Postal address * /
-         , 4 // E-mail address * /
-         , 5 // Telephone * /
-         , 6 // date * /, 11 // time * /, 12 // datetime * /
-         , 7 // Password * /
-         , 10 // File * /
-         , 15 // Integer * /, 18 // Integer64 * /
-         , 16 // Boolean * /
-         , 17 // Richdoc * /
-         , 9//imageedit* /
-         , 21 // URL * /
-      {
-        //IF (this->required)
-          this->currentobjects[0]->ValidateValue(work);
-      }
-      //FIXME implement 8 (multiple) and the rest! Not sure why even _have_ custom implementaitions here..
-    }*/
   }
   PRIVATE UPDATE MACRO SetVisibility(BOOLEAN visible)
   {

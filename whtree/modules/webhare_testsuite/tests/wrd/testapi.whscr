@@ -101,7 +101,7 @@ MACRO TestSchema()
   TestEq(TRUE, IsValidWRDGuid(persontype->GetNewEntityGUID()));
   TestEq(FALSE, IsValidWRDGuid(persontype->GetNewEntityGUID()||'a'));
 
-  TestEq(TRUE, schemaobj->GetSchemaSetting("wrd:auth.domainsecret", [ fallback := "" ]) != "", "wrd:auth.domainsecret should be auto-set on schema generation");
+  TestEq(TRUE, GetWRDSetting(schemaobj, "domain_secret") != "", "wrd:auth.domainsecret should be auto-set on schema generation");
   TestEq("WRD_CONTACT_EMAIL_1", persontype->GenerateUniqueAttributeTag("", "WRD Contact Email"));
   TestEq("TEST_INT", persontype->GenerateUniqueAttributeTag("", "Test int"));
   TestEq("TEST_INT_1", persontype->GenerateUniqueAttributeTag("TEST_ARRAY", "Test int"));

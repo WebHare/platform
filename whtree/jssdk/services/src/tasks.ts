@@ -1,4 +1,4 @@
-import { convertWaitPeriodToDate, WaitPeriod } from "@webhare/std/api";
+import { convertWaitPeriodToDate, WaitPeriod } from "@webhare/std";
 import { extendWorkToCoHSVM, getCoHSVM } from "./co-hsvm";
 
 interface TaskResponseFinished {

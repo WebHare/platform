@@ -98,37 +98,6 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
     THROW NEW Exception(`Legacy WRDType attribute manipulation is no longer supported. GetNewAttributeTag is no longer available`);
   }
 
-  /* the attribute types for attributes
-     1  = DOMAIN_SINGLE   - domain (single select)
-     2  = FREE
-     3  = ADDRESS
-     4  = EMAIL
-     5  = TELEPHONE
-     6  = DATE
-     7  = PASSWORD
-     8  = DOMAIN_MULTIPLE - domain (multiple select)
-     9  = IMAGE
-     10 = FILE
-     11 = TIME
-     12 = DATETIME
-     13 = ARRAY
-     14 = MONEY
-     15 = INTEGER
-     16 = BOOLEAN
-     17 = RICHDOCUMENT
-     18 = INTEGER64
-     19 = WHFSINSTANCE
-     20 = WHFSINTEXTLINK
-     21 = URL
-
-     FIXME: Better (e.g. a lot of) documentation
-
-     To create an array, with one child attribute:
-
-     RECORD arrayattribute := typeobj->CreateAttribute("ARRAY", "Some array attribute", "Descr", "ARRAY_ATTRIBUTE_TAG", "");
-     RECORD arraychildattribute := typeobj->CreateAttribute("FREE", "Some child element", "Descr", "ARRAY_ATTRIBUTE_TAG.CHILD_ATTRIBUTE_TAG", "");
-
-  */
   PUBLIC RECORD FUNCTION CreateAttribute (STRING attributetype, STRING attributetitle, STRING description, STRING attributetag, STRING domaintag)
   {
     THROW NEW Exception(`Legacy WRDType attribute manipulation is no longer supported. You need to use the WRD2017 APIs from mod::wrd/lib/api.whlib`);
@@ -138,21 +107,6 @@ PUBLIC OBJECTTYPE LegacyWRDType EXTEND WRDTypeBase
   {
     THROW NEW Exception(`Legacy WRDType attribute manipulation is no longer supported. You need to use UpdateAttribute`);
   }
-
-  /*
-  OBJECT FUNCTION WRDType::GetAttribute (INTEGER find_id)
-  {
-    RECORD attr := SELECT *
-                     FROM wrd.attrs
-                    WHERE id = find_id
-                      AND type = this->typerec.id;
-
-    IF(NOT RecordExists(attr))
-      RETURN DEFAULT OBJECT;
-
-    RETURN NEW WRDAttribute(this, attr);
-  }
-  */
 
   PUBLIC INTEGER FUNCTION LookupEntity(STRING tagname, VARIANT tagval, BOOLEAN match_case DEFAULTSTO TRUE)
   {

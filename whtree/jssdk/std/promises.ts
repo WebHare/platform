@@ -1,4 +1,4 @@
-import { WaitPeriod, convertWaitPeriodToDate } from "./api";
+import { WaitPeriod, convertWaitPeriodToDate } from "./datetime";
 
 /// A deferred promise with typed result value
 export type DeferredPromise<T> = {

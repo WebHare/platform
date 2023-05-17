@@ -1,3 +1,6 @@
+/** A relative (up to a week) or absolute wait period. Use 0 for 'polling' and Infinity to indicate an endless waits. Numbers are interpreted to be in milliseconds, a string is interpreted as a ISO8601 duration */
+export type WaitPeriod = 0 | number | string | Date;
+
 export interface Duration {
   sign: "+" | "-";
   years: number;
@@ -62,4 +65,26 @@ export function addDuration(startingdate: Date, duration: Partial<Duration> | st
   date.setTime(date.getTime() + direction * timeoffset);
 
   return date;
+}
+
+/** Convert a WaitPeriod parameter to a Date
+ *  @param wait - Wait time as milliseconds or a Date
+*/
+export function convertWaitPeriodToDate(wait: WaitPeriod): Date {
+  if (wait instanceof Date) {
+    return wait;
+  } else if (typeof wait === "string") {
+    return addDuration(new Date(), wait);
+  } else if (typeof wait === "number") {
+    if (wait === 0)
+      return new Date(-864000 * 1000 * 10000000);
+    if (wait === Infinity)
+      return new Date(864000 * 1000 * 10000000);
+    if (wait > 7 * 86400 * 1000)
+      throw new Error("Invalid wait duration - a wait may not be longer than a week"); //prevents you from passing in Date.now() based values
+    if (wait > 0)
+      return new Date(Date.now() + wait);
+  }
+
+  throw new Error("Invalid wait duration - it must either be an absolute date, 0, a number of milliseconds or Infinity");
 }

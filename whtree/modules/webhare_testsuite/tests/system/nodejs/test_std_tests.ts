@@ -12,20 +12,6 @@ import { Money } from "@webhare/std";
 
 export const uuid4regex = new RegExp(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 
-//Test helpers for building APIs
-async function testAPI() {
-  //convertWaitPeriodToDate
-  test.eq(-864000 * 1000 * 10000000, std.convertWaitPeriodToDate(0).getTime(), "minimum date");
-  test.eq(864000 * 1000 * 10000000, std.convertWaitPeriodToDate(Infinity).getTime(), "maximum date");
-
-  const now = Date.now(), soon = std.convertWaitPeriodToDate(100);
-  test.assert(now <= soon.getTime() && soon.getTime() <= now + 1000);
-
-  test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(-1));
-  test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(7 * 86400 * 1000 + 1));
-  test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(Date.now()));
-}
-
 function testRoundingCall(base: number, mode: std.MoneyRoundingMode, expect: number[]) {
   const mgot = [], mexpect = [];
 
@@ -236,8 +222,21 @@ function testDateTime() {
   test.eq(new Date("1918-01-02T20:00:00Z"), std.addDuration(globalstamp, "P365DT55H25M4S"));
   test.eq(new Date("1926-11-09T12:34:56Z"), std.addDuration(globalstamp, "P3600D"));
   test.eq(new Date("1916-12-31T12:34:56.789Z"), std.addDuration(globalstamp, "PT0.789S"));
-}
 
+  //convertWaitPeriodToDate
+  test.eq(-864000 * 1000 * 10000000, std.convertWaitPeriodToDate(0).getTime(), "minimum date");
+  test.eq(864000 * 1000 * 10000000, std.convertWaitPeriodToDate(Infinity).getTime(), "maximum date");
+
+  const now = Date.now(), soon = std.convertWaitPeriodToDate(100);
+  test.assert(now <= soon.getTime() && soon.getTime() <= now + 1000);
+
+  test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(-1));
+  test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(7 * 86400 * 1000 + 1));
+  test.throws(/Invalid wait duration/, () => std.convertWaitPeriodToDate(Date.now()));
+
+  const later = std.convertWaitPeriodToDate("P1DT5H"), estimate_later = Date.now() + 29 * 60 * 60 * 1000; //29 hours
+  test.assert(estimate_later - 1000 <= later.getTime() && later.getTime() <= estimate_later + 1000);
+}
 
 function testUFS(decoded: string, encoded: string) {
   test.eq(encoded, std.encodeString(decoded, 'base64url'));
@@ -342,8 +341,6 @@ async function testPromises() {
 }
 
 const testlist = [
-  "Basic API tests",
-  testAPI,
   "Money",
   testMoney,
   "Datetime",

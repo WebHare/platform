@@ -4,6 +4,7 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
+LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/tolliumfuncs.whlib";
 
 PUBLIC OBJECTTYPE QuickFilter EXTEND TolliumFragmentBase
@@ -55,7 +56,7 @@ PUBLIC OBJECTTYPE QuickFilter EXTEND TolliumFragmentBase
                                , attrinfo := attrinfo
                                , autowildcards := FALSE
                             FROM this->wrdtype->ListAttributes(0) AS attrinfo
-                           WHERE attributetype IN [ 2, 4, 5, 6, 11, 12, 15, 18, 21, 23 ] OR tag="WRD_GUID"
+                           WHERE attributetype IN [ 2, 4, 5, 6, wrd_attributetype_time, 12, 15, 18, 21, 23 ] OR tag="WRD_GUID"
                         ORDER BY tag="WRD_ID" DESC, NormalizeText(title ?? ToUppercase(tag), this->owner->tolliumuser->language);
 
     IF(this->wrdtype->tag="WRD_RELATION")
@@ -135,10 +136,10 @@ PUBLIC OBJECTTYPE QuickFilter EXTEND TolliumFragmentBase
         {
           this->freevalue := this->CreateSubComponent("textedit");
         }
-        CASE 6, 11, 12
+        CASE 6, wrd_attributetype_time, 12
         {
           this->freevalue := this->CreateSubComponent("datetime");
-          this->freevalue->type := attrtype = 6 ? "date" : (attrtype = 11 ? "time" : "datetime");
+          this->freevalue->type := attrtype = 6 ? "date" : (attrtype = wrd_attributetype_time ? "time" : "datetime");
         }
         CASE 15, 18
         {
@@ -176,7 +177,7 @@ PUBLIC OBJECTTYPE QuickFilter EXTEND TolliumFragmentBase
 
         filters := [ [ field := this->freeattr->value, match_type := "LIKE", value := value ] ];
       }
-      CASE 0, 15, 18, 6, 11, 12
+      CASE 0, 15, 18, 6, wrd_attributetype_time, 12
       {
         filters := [ [ field := this->freeattr->value, match_type := "=", value := this->freevalue->value ] ];
       }
