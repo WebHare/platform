@@ -9,7 +9,7 @@ function byDateId(lhs: { wrdCreationDate: Date | null; wrdId: number }, rhs: { w
 
 async function listTestChecks() {
   const rows = await systemConfigSchema.selectFrom("serverCheck").historyMode("all").select(
-    ["type", "wrdId", "wrdCreationDate", "wrdModificationDate", "messageText", "messageTid", "metadata", "wrdLimitDate"]).
+    ["type", "wrdId", "wrdCreationDate", "wrdModificationDate", "messageText", "messageTid", "metadata", "wrdLimitDate", "snoozedUntil"]).
     where("checkTask", "=", "webhare_testsuite:checks").execute();
 
   const history = await systemConfigSchema.selectFrom("serverCheckHistory").
@@ -124,12 +124,37 @@ async function testCheckAPI() {
           { event: "start", messageText: "Test #0 failed" },
           { event: "stop" },
           { event: "start", messageText: "Test #0 refailed" }
-        ], wrdCreationDate: checks1[0].wrdCreationDate, wrdLimitDate: null
+        ], wrdCreationDate: checks1[0].wrdCreationDate, wrdLimitDate: null, snoozedUntil: null
     },
     { type: "webhare_testsuite:check1", metadata: null, messageText: "Test #1 failed" },
     { type: "webhare_testsuite:check2", metadata: null, messageText: "Test #2 changed" },
     { type: "webhare_testsuite:check2", metadata: { sub: 1 }, messageText: "Test #2.1 now failing" }
   ], checks4);
+
+  //snooze that first issue
+  const snoozeuntil = new Date(Date.now() + 10000);
+  await callHareScript("mod::system/lib/internal/checks/checker.whlib#SnoozeIssue", [
+    checks4[0].wrdId,
+    snoozeuntil,
+    { comment: "Stop bothering us" }
+  ], { openPrimary: true, autoCommit: true });
+
+  const checks5 = await listTestChecks();
+  test.eqProps([
+    {
+      type: "webhare_testsuite:check0", metadata: null, messageText: "Test #0 refailed", history:
+        [
+          { event: "start", messageText: "Test #0 failed" },
+          { event: "stop" },
+          { event: "start", messageText: "Test #0 refailed" },
+          { event: "snooze", comment: "Stop bothering us", snoozedUntil: snoozeuntil }
+        ], wrdCreationDate: checks1[0].wrdCreationDate, wrdLimitDate: null, snoozedUntil: snoozeuntil
+    }, ...checks4.slice(1)
+  ], checks5);
+
+  //cancel snooze
+  await callHareScript("mod::system/lib/internal/checks/checker.whlib#UnsnoozeIssue", [checks4[0].wrdId], { openPrimary: true, autoCommit: true });
+  test.eqProps(checks4, await listTestChecks(), ["wrdModificationDate"]);
 }
 
 test.run([testCheckAPI]);

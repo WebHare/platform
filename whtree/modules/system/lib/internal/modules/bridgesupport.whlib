@@ -10,7 +10,14 @@ PUBLIC VARIANT FUNCTION InvokeInsideJob(STRING func, VARIANT ARRAY args, RECORD 
 {
   IF(CellExists(options,'openprimary') AND options.openprimary)
     OpenPrimary();
-  RETURN CallAnyPtrVA(MakeFunctionPtr(func), args);
+  IF(CellExists(options,'autocommit') AND options.autocommit)
+    GetPrimary()->BeginWork();
+
+  VARIANT retval := CallAnyPtrVA(MakeFunctionPtr(func), args);
+  IF(CellExists(options,'autocommit') AND options.autocommit)
+    GetPrimary()->CommitWork();
+
+  RETURN retval;
 }
 
 PUBLIC RECORD FUNCTION FoldHeaders(RECORD ARRAY webheaders)

@@ -230,7 +230,8 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentCheckIssues()
         ]);
   }
 
-  issues := RECORD[ ...issues, ...(SELECT ...baseissue, ismanageable := TRUE, *, snoozed := snoozed_until != DEFAULT DATETIME FROM dbissues) ];
+  DATETIME now := GetCurrentDatetime();
+  issues := RECORD[ ...issues, ...(SELECT ...baseissue, rowkey := wrd_id, ismanageable := TRUE, *, snoozed := snoozed_until > now FROM dbissues) ];
   RETURN issues;
 }
 
@@ -527,4 +528,59 @@ PUBLIC MACRO UpdateCheckStatus(STRING task, RECORD ARRAY checks)
   }
 
   GetPrimary()->CommitWork();
+}
+
+MACRO AuditIssue(INTEGER issueid, RECORD data)
+{
+  OBJECT wrdschema := OpenWRDSchema("system:config");
+  RECORD issueinfo := wrdschema->^server_check->GetEntityFields(issueid, CELL["message_text","type","metadata","snoozed_until"]);
+
+  LogAuditEvent("system:systemmessages",
+      CELL[ id :=                 issueid
+          , until :=              issueinfo.snoozed_until
+          , message_text :=       issueinfo.message_text
+          , issuetype :=          issueinfo.type
+          , issuemetadata :=      issueinfo.metadata
+          ]);
+}
+
+PUBLIC MACRO SnoozeIssue(INTEGER issueid, DATETIME snoozed_until, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions(CELL[ comment := "", whuser := DEFAULT RECORD] , options);
+
+  OBJECT wrdschema := OpenWRDSchema("system:config");
+  RECORD issueinfo := wrdschema->^server_check->GetEntityFields(issueid, CELL["snoozed_until","message_text","type","metadata"]);
+  IF(issueinfo.snoozed_until > snoozed_until)
+    THROW NEW Exception(`A longer snooze is already active for check issue #${issueid}`);
+
+  wrdschema->^server_check->UpdateEntity(issueid, CELL[ snoozed_until ]);
+
+  wrdschema->^server_check_history->CreateEntity(
+    CELL[ wrd_leftentity := issueid
+        , event := "snooze"
+        , options.comment
+        , snoozed_until
+        , wh_user := options.whuser
+        ]);
+
+  AuditIssue(issueid, [ type := "snooze" , comment := options.comment ]);
+}
+
+PUBLIC MACRO UnsnoozeIssue(INTEGER issueid)
+{
+  //We don't really bother to log 'unsnoozing' as a history event
+  OBJECT wrdschema := OpenWRDSchema("system:config");
+  RECORD ARRAY activesnoozes := wrdschema->^server_check_history->RunQuery(
+      [ outputcolumns := CELL[ "wrd_id" ]
+      , filters := [ [ field := "wrd_leftentity", value := issueid ]
+                   , [ field := "event", value := "snooze" ]
+                   , [ field := "snoozed_until", matchtype := ">=", value := GetCurrentDatetime() ]
+                   ]
+      ]);
+
+  FOREVERY(RECORD activesnooze FROM activesnoozes)
+    wrdschema->^server_check_history->CloseEntity(activesnooze.wrd_id);
+
+  AuditIssue(issueid, [ type := "unsnooze" ]);
+  wrdschema->^server_check->UpdateEntity(issueid, [ snoozed_until := DEFAULT DATETIME ]);
 }
