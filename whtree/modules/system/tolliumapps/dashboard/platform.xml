@@ -39,6 +39,8 @@
         </cell>
         <cell borders="left" spacers="left right">
           <checkbox name="withhistory" labeltid=".withhistory" onchange="onwithhistorychange" title="" />
+          <button width="1pr" action="gototask" />
+          <spacer height="1gr" />
           <button width="1pr" action="snooze" />
           <button width="1pr" action="unsnooze" />
         </cell>
