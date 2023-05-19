@@ -1,5 +1,6 @@
 ﻿<?wh
 LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/checks.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/checks/checker.whlib";

@@ -32,13 +32,13 @@ async function testCheckAPI() {
   await whdb.commitWork();
 
   //Run some checks
-  await callHareScript("mod::system/lib/internal/checks/checker.whlib#UpdateCheckStatus", [
+  await callHareScript("mod::system/lib/checks.whlib#UpdateCheckStatus", [
     "webhare_testsuite:checks",
     [
       { type: "webhare_testsuite:check0", message_text: "Test #0 failed" },
       { type: "webhare_testsuite:check1", message_text: "Test #1 failed" },
       { type: "webhare_testsuite:check2", message_text: "Test #2 failed" },
-      { type: "webhare_testsuite:check2", message_text: "should be ignored", metadata: null} //verify dupe elimination
+      { type: "webhare_testsuite:check2", message_text: "should be ignored", metadata: null } //verify dupe elimination
     ]
   ], { openPrimary: true });
 
@@ -51,7 +51,7 @@ async function testCheckAPI() {
   test.eq(checks1[0].wrdCreationDate, checks1[0].history[0].wrdCreationDate);
   test.eq(checks1[0].wrdCreationDate, checks1[1].wrdCreationDate);
 
-  await callHareScript("mod::system/lib/internal/checks/checker.whlib#UpdateCheckStatus", [
+  await callHareScript("mod::system/lib/checks.whlib#UpdateCheckStatus", [
     "webhare_testsuite:checks",
     [
       { type: "webhare_testsuite:check1", message_text: "Test #1 failed" },
@@ -83,7 +83,7 @@ async function testCheckAPI() {
   test.assert(checks2[0].wrdLimitDate, "should now have a set limitdate on check[0]");
   test.eq(checks2[0].wrdLimitDate, checks2[0].history[1].wrdCreationDate);
 
-  await callHareScript("mod::system/lib/internal/checks/checker.whlib#UpdateCheckStatus", [
+  await callHareScript("mod::system/lib/checks.whlib#UpdateCheckStatus", [
     "webhare_testsuite:checks",
     [
       { type: "webhare_testsuite:check2", message_text: "Test #2 changed" },
@@ -109,7 +109,7 @@ async function testCheckAPI() {
   test.assert(checks3[1].wrdLimitDate, "should now have a set limitdate on check[1]");
   test.eq(checks3[0].wrdLimitDate, checks3[0].history[1].wrdCreationDate);
 
-  await callHareScript("mod::system/lib/internal/checks/checker.whlib#UpdateCheckStatus", [
+  await callHareScript("mod::system/lib/checks.whlib#UpdateCheckStatus", [
     "webhare_testsuite:checks",
     [
       { type: "webhare_testsuite:check0", message_text: "Test #0 refailed" },
@@ -135,7 +135,7 @@ async function testCheckAPI() {
 
   //snooze that first issue
   const snoozeuntil = new Date(Date.now() + 10000);
-  await callHareScript("mod::system/lib/internal/checks/checker.whlib#SnoozeIssue", [
+  await callHareScript("mod::system/lib/checks.whlib#SnoozeIssue", [
     checks4[0].wrdId,
     snoozeuntil,
     { comment: "Stop bothering us" }
@@ -155,7 +155,7 @@ async function testCheckAPI() {
   ], checks5);
 
   //cancel snooze
-  await callHareScript("mod::system/lib/internal/checks/checker.whlib#UnsnoozeIssue", [checks4[0].wrdId], { openPrimary: true, autoCommit: true });
+  await callHareScript("mod::system/lib/checks.whlib#UnsnoozeIssue", [checks4[0].wrdId], { openPrimary: true, autoCommit: true });
   test.eqProps(checks4, await listTestChecks(), ["wrdModificationDate"]);
 }
 
