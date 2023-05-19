@@ -93,4 +93,29 @@
     </attributes>
   </object>
 
+  <!-- server checks -->
+  <object tag="server_check">
+    <attributes>
+      <enum tag="type" allowedvalues="?*:?*" description="Check's type, in module:tag format" required="true" />
+      <free tag="check_task" description="Timed task responsible for managing this check" />
+      <json tag="metadata" description="Additional metadata to identify unique instances of this check" />
+      <free tag="message_text" description="Message text" required="true" />
+      <json tag="message_tid" description="Translatable message text (of the form: {tid,params})" />
+      <json tag="jump_to" description="Jump instruction to application which can provide more information" />
+      <datetime tag="snoozed_until" description="Time until we start actively reporting this error again" />
+    </attributes>
+  </object>
+
+  <!-- history of this check -->
+  <attachment tag="server_check_history" linkfrom="server_check">
+    <attributes>
+      <enum tag="event" allowedvalues="start change stop snooze dismiss" required="true" />
+      <free tag="message_text" description="Message text (start and change events)" />
+      <json tag="message_tid" description="Message tid (start and change events)" />
+      <free tag="comment" description="Comment (snooze and dismiss)" />
+      <json tag="wh_user" description="User who snoozed or dismissed this message" />
+      <datetime tag="snoozed_until" description="Until when we were snoozed" />
+    </attributes>
+  </attachment>
+
 </schemadefinition>

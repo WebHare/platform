@@ -26,6 +26,9 @@ LOADLIB "mod::system/lib/internal/checks/webserver.whlib";
 LOADLIB "mod::system/lib/internal/modules/node.whlib";
 LOADLIB "mod::system/lib/internal/userrights/rightsparser.whlib";
 
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
 
 RECORD FUNCTION GetGitRepoInfo(STRING repo, BOOLEAN query_remote) __ATTRIBUTES__(EXTERNAL "wh_git");
 
@@ -399,4 +402,79 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
         FROM messages;
 
   RETURN messages;
+}
+
+PUBLIC MACRO UpdateCheckStatus(STRING task, RECORD ARRAY checks)
+{
+  OBJECT wrdschema := OpenWRDSchema("system:config");
+  GetPrimary()->BeginLockedWork("system:updatechecks." || task);
+
+  checks := EnforceStructure([[ type := "", metadata := DEFAULT RECORD, message_text := "", message_tid := [ tid := "", params := STRING[] ], jump_to := DEFAULT RECORD ]], checks);
+  UPDATE checks SET message_text := CallFunctionPtrVA(PTR GetTidForLanguage, VARIANT["en", message_tid.tid, ...message_tid.params]) WHERE message_text = "" AND RecordExists(message_tid);
+
+  DATETIME now := GetCurrentDatetime();
+  RECORD ARRAY current := wrdschema->^server_check->RunQuery(
+    CELL [ outputcolumns := ["wrd_id","type","metadata","message_text","wrd_limitdate"]
+         , filters := [[ field := "check_task", value := task ]]
+         , historymode := "all"
+         ]);
+
+  FOREVERY(RECORD check FROM checks)
+  {
+    IF(check.message_text = "")
+      THROW NEW Exception(`Check #${#check} is missing a message_text`);
+
+    INTEGER match := (SELECT AS INTEGER #current + 1 FROM current WHERE current.type = check.type AND EncodeJSON(current.metadata) = EncodeJSON(check.metadata)) - 1; //*our* encodejson is stable!
+    RECORD baserecord :=
+      CELL[ check_task := task
+          , check.type
+          , check.metadata
+          , check.message_text
+          , check.message_tid
+          , wrd_limitdate := MAX_DATETIME
+          , check.jump_to
+          ];
+
+    IF(match = -1) //it's new
+    {
+      OBJECT newcheck := wrdschema->^server_check->CreateEntity(
+        CELL[ ...baserecord
+            , wrd_creationdate := now
+            ]);
+      wrdschema->^server_check_history->CreateEntity(
+        CELL[ wrd_leftentity := newcheck->id
+            , event := "start"
+            , check.message_text
+            , check.message_tid
+            , wrd_creationdate := now
+            ]);
+      CONTINUE;
+    }
+
+    //We assume something like jumpto won't change without the message changing
+    IF(current[match].message_text != check.message_text OR current[match].wrd_limitdate != MAX_DATETIME) //update it!
+    {
+      wrdschema->^server_check->UpdateEntity(current[match].wrd_id, baserecord);
+      wrdschema->^server_check_history->CreateEntity(
+        CELL[ wrd_leftentity := current[match].wrd_id
+            , event := current[match].wrd_limitdate != MAX_DATETIME ? "start" : "change"
+            , check.message_text
+            , check.message_tid
+            , wrd_creationdate := now
+            ]);
+    }
+    DELETE FROM current AT match;
+  }
+
+  FOREVERY(RECORD cur FROM SELECT * FROM current WHERE wrd_limitdate = MAX_DATETIME)
+  {
+    wrdschema->^server_check->UpdateEntity(cur.wrd_id, CELL[ wrd_limitdate := now ]);
+    wrdschema->^server_check_history->CreateEntity(
+      CELL[ wrd_leftentity := cur.wrd_id
+          , event := "stop"
+          , wrd_creationdate := now
+          ]);
+  }
+
+  GetPrimary()->CommitWork();
 }

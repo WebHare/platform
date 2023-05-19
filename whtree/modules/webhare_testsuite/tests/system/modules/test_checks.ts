@@ -1,0 +1,135 @@
+import { systemConfigSchema } from "@mod-system/js/internal/generated/wrd/webhare";
+import { callHareScript } from "@webhare/services";
+import * as test from "@webhare/test";
+import * as whdb from "@webhare/whdb";
+
+function byDateId(lhs: { wrdCreationDate: Date | null; wrdId: number }, rhs: { wrdCreationDate: Date | null; wrdId: number }) {
+  return (lhs.wrdCreationDate!.getTime() - rhs.wrdCreationDate!.getTime()) || (lhs.wrdId - rhs.wrdId);
+}
+
+async function listTestChecks() {
+  const rows = await systemConfigSchema.selectFrom("serverCheck").historyMode("all").select(
+    ["type", "wrdId", "wrdCreationDate", "wrdModificationDate", "messageText", "messageTid", "metadata", "wrdLimitDate"]).
+    where("checkTask", "=", "webhare_testsuite:checks").execute();
+
+  const history = await systemConfigSchema.selectFrom("serverCheckHistory").
+    select(["comment", "wrdLeftEntity", "messageText", "messageTid", "snoozedUntil", "event", "wrdCreationDate", "wrdId"]).
+    where("wrdLeftEntity", "in", rows.map((row) => row.wrdId)).
+    execute();
+
+  const retval = rows.map(row => ({ ...row, history: history.filter(hist => hist.wrdLeftEntity == row.wrdId).sort(byDateId) })).sort(byDateId);
+  //TODO workaround for TS giving us incorrect definitions for enum with wildcard patterns. should be just 'return retval'
+  return retval as Array<Omit<typeof retval[0], "type"> & { type: string }>;
+}
+
+async function testCheckAPI() {
+  //Cleanup curent checks
+  await whdb.beginWork();
+
+  for (const row of await listTestChecks())
+    await systemConfigSchema.delete("serverCheck", row.wrdId);
+
+  await whdb.commitWork();
+
+  //Run some checks
+  await callHareScript("mod::system/lib/internal/checks/checker.whlib#UpdateCheckStatus", [
+    "webhare_testsuite:checks",
+    [
+      { type: "webhare_testsuite:check0", message_text: "Test #0 failed" },
+      { type: "webhare_testsuite:check1", message_text: "Test #1 failed" },
+      { type: "webhare_testsuite:check2", message_text: "Test #2 failed" }
+    ]
+  ], { openPrimary: true });
+
+  const checks1 = await listTestChecks();
+  test.eqProps([
+    { type: "webhare_testsuite:check0", metadata: null, messageText: "Test #0 failed", history: [{ event: "start", messageText: "Test #0 failed" }], wrdLimitDate: null },
+    { type: "webhare_testsuite:check1", metadata: null, messageText: "Test #1 failed", history: [{ event: "start", messageText: "Test #1 failed" }], wrdLimitDate: null },
+    { type: "webhare_testsuite:check2", metadata: null, messageText: "Test #2 failed", history: [{ event: "start", messageText: "Test #2 failed" }], wrdLimitDate: null }
+  ], checks1);
+  test.eq(checks1[0].wrdCreationDate, checks1[0].history[0].wrdCreationDate);
+  test.eq(checks1[0].wrdCreationDate, checks1[1].wrdCreationDate);
+
+  await callHareScript("mod::system/lib/internal/checks/checker.whlib#UpdateCheckStatus", [
+    "webhare_testsuite:checks",
+    [
+      { type: "webhare_testsuite:check1", message_text: "Test #1 failed" },
+      { type: "webhare_testsuite:check2", message_text: "Test #2 changed" },
+      { type: "webhare_testsuite:check2", metadata: { sub: 1 }, message_text: "Test #2.1 now failing" }
+    ]
+  ], { openPrimary: true });
+
+  const checks2 = await listTestChecks();
+  test.eqProps([
+    {
+      type: "webhare_testsuite:check0", metadata: null, messageText: "Test #0 failed", history:
+        [
+          { event: "start", messageText: "Test #0 failed" },
+          { event: "stop" }
+        ]
+    },
+    { type: "webhare_testsuite:check1", metadata: null, messageText: "Test #1 failed", history: [{ event: "start", messageText: "Test #1 failed" }], wrdLimitDate: null },
+    {
+      type: "webhare_testsuite:check2", metadata: null, messageText: "Test #2 changed", wrdCreationDate: checks1[1].wrdCreationDate, history: [
+        { event: "start", messageText: "Test #2 failed", wrdCreationDate: checks1[1].wrdCreationDate },
+        { event: "change", messageText: "Test #2 changed" }
+      ], wrdLimitDate: null
+    },
+    { type: "webhare_testsuite:check2", metadata: { sub: 1 }, messageText: "Test #2.1 now failing", history: [{ event: "start", messageText: "Test #2.1 now failing" }], wrdLimitDate: null }
+  ], checks2);
+
+  test.assert(checks2[0].wrdLimitDate, "should now have a set limitdate on check[0]");
+  test.eq(checks2[0].wrdLimitDate, checks2[0].history[1].wrdCreationDate);
+
+  await callHareScript("mod::system/lib/internal/checks/checker.whlib#UpdateCheckStatus", [
+    "webhare_testsuite:checks",
+    [
+      { type: "webhare_testsuite:check2", message_text: "Test #2 changed" },
+      { type: "webhare_testsuite:check2", metadata: { sub: 1 }, message_text: "Test #2.1 now failing" }
+    ]
+  ], { openPrimary: true });
+
+  const checks3 = await listTestChecks();
+  test.eqProps([
+    { type: "webhare_testsuite:check0", metadata: null, messageText: "Test #0 failed" },
+    {
+      type: "webhare_testsuite:check1", metadata: null, messageText: "Test #1 failed", history:
+        [
+          { event: "start", messageText: "Test #1 failed" },
+          { event: "stop" }
+        ]
+    },
+    { type: "webhare_testsuite:check2", metadata: null, messageText: "Test #2 changed", wrdLimitDate: null },
+    { type: "webhare_testsuite:check2", metadata: { sub: 1 }, messageText: "Test #2.1 now failing", wrdLimitDate: null }
+  ], checks3);
+
+  test.eq(checks3[0].wrdLimitDate, checks2[0].wrdLimitDate, "test failure #0 should be untouched");
+  test.assert(checks3[1].wrdLimitDate, "should now have a set limitdate on check[1]");
+  test.eq(checks3[0].wrdLimitDate, checks3[0].history[1].wrdCreationDate);
+
+  await callHareScript("mod::system/lib/internal/checks/checker.whlib#UpdateCheckStatus", [
+    "webhare_testsuite:checks",
+    [
+      { type: "webhare_testsuite:check0", message_text: "Test #0 refailed" },
+      { type: "webhare_testsuite:check2", message_text: "Test #2 changed" },
+      { type: "webhare_testsuite:check2", metadata: { sub: 1 }, message_text: "Test #2.1 now failing" }
+    ]
+  ], { openPrimary: true });
+
+  const checks4 = await listTestChecks();
+  test.eqProps([
+    {
+      type: "webhare_testsuite:check0", metadata: null, messageText: "Test #0 refailed", history:
+        [
+          { event: "start", messageText: "Test #0 failed" },
+          { event: "stop" },
+          { event: "start", messageText: "Test #0 refailed" }
+        ], wrdCreationDate: checks1[0].wrdCreationDate, wrdLimitDate: null
+    },
+    { type: "webhare_testsuite:check1", metadata: null, messageText: "Test #1 failed" },
+    { type: "webhare_testsuite:check2", metadata: null, messageText: "Test #2 changed" },
+    { type: "webhare_testsuite:check2", metadata: { sub: 1 }, messageText: "Test #2.1 now failing" }
+  ], checks4);
+}
+
+test.run([testCheckAPI]);
