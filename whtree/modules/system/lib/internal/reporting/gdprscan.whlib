@@ -54,7 +54,7 @@ PUBLIC MACRO PrintGDPRScanReport(RECORD report)
   IF(Length(report.gdprchecks) > 0)
   {
     FOREVERY(RECORD msg FROM report.gdprchecks)
-      Print(GetTid(msg.msg) || "\n");
+      Print((CellExists(msg,'message_text') ? msg.message_text : GetTid(msg.msg)) || "\n");
     Print("\n");
   }
 }
@@ -202,6 +202,6 @@ PUBLIC RECORD FUNCTION GetGDPRScanReport()
              , allowemailmasks
              , dbaseschemas
              , wrdschemas
-             , gdprchecks := (SELECT * FROM RunChecks() WHERE "gdpr" IN checktypes)
+             , gdprchecks := (SELECT * FROM GetCurrentCheckIssues() WHERE "gdpr" IN scopes)
              ];
 }

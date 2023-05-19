@@ -179,18 +179,67 @@ ASYNC FUNCTION GetPersistentQueueStatusInternal(STRING serviceport)
   RETURN "";
 }
 
+PUBLIC RECORD ARRAY FUNCTION GetCurrentCheckIssues()
+{
+  //Some issues cannot be reported through the WRD mechanisms
+  RECORD ARRAY issues;
+  CONSTANT RECORD baseissue :=
+    [ ismanageable := FALSE
+    , message_tid := DEFAULT RECORD
+    , snoozed := FALSE
+    , scopes := STRING[]
+    ];
+
+  IF (NOT IsDatabaseWritable())
+  {
+    INSERT CELL[ ...baseissue
+               , message_text := ":The WebHare database is in readonly mode!"
+               ] INTO issues AT END;
+  }
+
+  RECORD lastintervalrun := SELECT * FROM system_internal.tasks WHERE tag = "system.intervalchecks";
+  IF(NOT RecordExists(lastintervalrun) OR lastintervalrun.lastrun = DEFAULT DATETIME)
+  {
+    INSERT CELL[ ...baseissue
+               , message_text := ":The periodic status checks are not running - not all checks are available"
+               ] INTO issues AT END;
+  }
+  ELSE IF(lastintervalrun.error != "")
+  {
+    INSERT CELL[ ...baseissue
+               , message_text := `:The periodic status checks are failing: ${lastintervalrun.error}`
+               ] INTO issues AT END;
+  }
+  ELSE
+  {
+    INTEGER64 lastrun := GetDatetimeDifference(lastintervalrun.lastrun, GetCurrentDatetime()).totalmsecs;
+    IF(lastrun > 10 * 60000) //it's scheduled every 5 minutes, so warn after 10
+    {
+      INSERT CELL[ ...baseissue
+                 , message_text := `:The periodic status checks have not been executed for more than ${lastrun / 60000} minutes`
+                 ] INTO issues AT END;
+
+    }
+  }
+
+  RECORD ARRAY dbissues;
+  IF(ObjectExists(OpenWRDSchema("system:config")->GetType('server_check')))
+  {
+    dbissues := OpenWRDSchema("system:config")->^server_check->RunQuery(
+        [ outputcolumns := CELL[ "type", "check_task", "metadata", "message_text", "message_tid", "jump_to", "snoozed_until", "wrd_id", "wrd_creationdate", "scopes" ]
+        ]);
+  }
+
+  issues := RECORD[ ...issues, ...(SELECT ...baseissue, ismanageable := TRUE, *, snoozed := snoozed_until != DEFAULT DATETIME FROM dbissues) ];
+  RETURN issues;
+}
+
 PUBLIC RECORD ARRAY FUNCTION RunChecks()
 {
   RECORD ARRAY messages;
 
   OBJECT validationpromise := AsyncCallFunctionFromJob("mod::system/lib/internal/restart_reset.whlib", "ValidateModules");
   OBJECT asynccheckspromise := RunAsyncChecks();
-
-  IF (NOT IsDatabaseWritable())
-  {
-    INSERT [ msg := ":The WebHare database is in readonly mode!"
-           ] INTO messages AT END;
-  }
 
   IF(RecordExists(__debugconfig) AND NOT IsDefaultValue(__debugconfig.tags))
   {
@@ -409,7 +458,7 @@ PUBLIC MACRO UpdateCheckStatus(STRING task, RECORD ARRAY checks)
   OBJECT wrdschema := OpenWRDSchema("system:config");
   GetPrimary()->BeginLockedWork("system:updatechecks." || task);
 
-  checks := EnforceStructure([[ type := "", metadata := DEFAULT RECORD, message_text := "", message_tid := [ tid := "", params := STRING[] ], jump_to := DEFAULT RECORD ]], checks);
+  checks := EnforceStructure([[ type := "", metadata := DEFAULT RECORD, message_text := "", message_tid := [ tid := "", params := STRING[] ], jump_to := DEFAULT RECORD, scopes := STRING[] ]], checks);
   UPDATE checks SET message_text := CallFunctionPtrVA(PTR GetTidForLanguage, VARIANT["en", message_tid.tid, ...message_tid.params]) WHERE message_text = "" AND RecordExists(message_tid);
 
   DATETIME now := GetCurrentDatetime();
@@ -433,6 +482,7 @@ PUBLIC MACRO UpdateCheckStatus(STRING task, RECORD ARRAY checks)
           , check.message_tid
           , wrd_limitdate := MAX_DATETIME
           , check.jump_to
+          , check.scopes
           ];
 
     IF(match = -1) //it's new
