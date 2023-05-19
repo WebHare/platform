@@ -61,11 +61,12 @@ export interface AuthProviderConfiguration {
 
 /** Create a WRDAuth JWT token.
  * @param key - JWK key to sign the token with
- * @param keyid - The id for htis key
- * @param issuer - Toknen issuer
+ * @param keyid - The id for this key
+ * @param issuer - Token issuer
  * @param subject - The subject of the token
  * @param expires - The expiration date of the token, or Infinity
- * @param options - scopes: List of scopes this key is valid for.
+ * @param options - scopes: List of scopes this token is valid for (Note: scopes cannot contain spaces)
+ *                  audiences: The intended audiences for this token
  * @returns The JWT token
 */
 export async function createJWT(key: JsonWebKey, keyid: string, issuer: string, subject: string, expires: WaitPeriod, options?: JWTCreationOptions): Promise<string> {
@@ -95,8 +96,6 @@ export async function createJWT(key: JsonWebKey, keyid: string, issuer: string, 
 }
 
 export async function verifyJWT(key: JsonWebKey, issuer: string, token: string, options?: JWTVerificationOptions): Promise<JwtPayload> {
-  // const data = jwt.decode(token, { complete: true });
-  // console.log(data);
   const jwk = createPublicKey({ key: key, format: 'jwk' });
   const verifyoptions: VerifyOptions = { issuer };
   if (options?.audience)
