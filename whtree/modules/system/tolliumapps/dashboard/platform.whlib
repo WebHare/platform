@@ -154,16 +154,10 @@ PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase
     {
       RECORD jumpto := ^results->selection[0].jumpto;
       STRING reusemode := CellExists(jumpto,'reusemode') ? jumpto.reusemode : "whennotbusy";
-      this->tolliumcontroller->StartApplication(jumpto.app, DEFAULT RECORD, jumpto, CELL[ reusemode ]);
-    }
-    ELSE IF (CellExists(sel, "FILENAME"))
-    {
-      RECORD target := MakeReplacedRecord([ rowkey := 1, line := 0, col := 0, filename := "", func := "" ], sel);
-      OBJECT screen := this->LoadScreen("monitor/processlist.codeview",
-          [ rows :=   [ target ]
-          , value :=  target.rowkey
-          ]);
-      screen->RunModal();
+      IF(CellExists(jumpto,'target'))
+        this->tolliumcontroller->StartApplication(jumpto.app, jumpto.target, DEFAULT RECORD, CELL[ reusemode ]);
+      ELSE //legacy approach... using target is safer!
+        this->tolliumcontroller->StartApplication(jumpto.app, DEFAULT RECORD, jumpto, CELL[ reusemode ]);
     }
   }
 

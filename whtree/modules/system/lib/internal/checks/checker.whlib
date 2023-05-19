@@ -408,7 +408,11 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
   messages := messages CONCAT RunWebserverChecks();
   messages := messages CONCAT RunConsilioChecks();
   messages := messages CONCAT GetHotFixCheckResult();
-  messages := messages CONCAT SELECT *, msg := ":" || msg FROM WaitForPromise(validationpromise);
+  messages := messages CONCAT SELECT msg := ":" || msg
+                                   , messagetag := CELL[ type := "system:validation", resourcename, line ]
+                                   , jumpto := CELL[ app := "system:codeview", target := CELL[ resourcename, line, col ]]
+                                FROM WaitForPromise(validationpromise);
+
   messages := messages CONCAT WaitForPromise(asynccheckspromise);
 
   IF (GetDTAPStage() = "development")

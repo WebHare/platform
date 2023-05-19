@@ -98,6 +98,12 @@
       </accesscheck>
     </application>
 
+    <application name="codeview" screen="screens/monitor/processlist.xml#codeview" isdeveloperapp="true" supportedlanguages="en">
+      <accesscheck>
+        <requireright right="system:sysop" />
+      </accesscheck>
+    </application>
+
     <application name="profiles" screen="debugger/profiles.main" group="development" tid="portal.apps.profilingmonitor" isdeveloperapp="true" supportedlanguages="en">
       <accesscheck>
         <requireright right="system:sysop" />

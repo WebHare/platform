@@ -540,8 +540,16 @@ PUBLIC OBJECTTYPE CodeView EXTEND TolliumScreenBase
 <
   MACRO Init(RECORD data)
   {
-    this->trace->rows := data.rows;
-    this->trace->value := data.value;
+    IF(CellExists(data,'target'))
+    {
+      this->trace->rows := [CELL[ rowkey := 1, data.target.line, data.target.col, filename := data.target.resourcename, func := "" ]];
+      this->trace->value := 1;
+    }
+    ELSE
+    {
+      this->trace->rows := data.rows;
+      this->trace->value := data.value;
+    }
 
     this->OnSelectTraceRow();
   }
