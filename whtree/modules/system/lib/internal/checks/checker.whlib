@@ -469,10 +469,14 @@ PUBLIC MACRO UpdateCheckStatus(STRING task, RECORD ARRAY checks)
          , historymode := "all"
          ]);
 
+  RECORD ARRAY seen;
   FOREVERY(RECORD check FROM checks)
   {
     IF(check.message_text = "")
       THROW NEW Exception(`Check #${#check} is missing a message_text`);
+    IF(RecordExists(SELECT FROM seen WHERE seen.type = check.type AND EncodeJSON(seen.metadata) = EncodeJSON(check.metadata)))
+      CONTINUE;
+    INSERT check INTO seen AT END;
 
     INTEGER match := (SELECT AS INTEGER #current + 1 FROM current WHERE current.type = check.type AND EncodeJSON(current.metadata) = EncodeJSON(check.metadata)) - 1; //*our* encodejson is stable!
     RECORD baserecord :=

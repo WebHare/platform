@@ -37,7 +37,8 @@ async function testCheckAPI() {
     [
       { type: "webhare_testsuite:check0", message_text: "Test #0 failed" },
       { type: "webhare_testsuite:check1", message_text: "Test #1 failed" },
-      { type: "webhare_testsuite:check2", message_text: "Test #2 failed" }
+      { type: "webhare_testsuite:check2", message_text: "Test #2 failed" },
+      { type: "webhare_testsuite:check2", message_text: "should be ignored", metadata: null} //verify dupe elimination
     ]
   ], { openPrimary: true });
 
@@ -55,7 +56,8 @@ async function testCheckAPI() {
     [
       { type: "webhare_testsuite:check1", message_text: "Test #1 failed" },
       { type: "webhare_testsuite:check2", message_text: "Test #2 changed" },
-      { type: "webhare_testsuite:check2", metadata: { sub: 1 }, message_text: "Test #2.1 now failing" }
+      { type: "webhare_testsuite:check2", metadata: { sub: 1 }, message_text: "Test #2.1 now failing" },
+      { type: "webhare_testsuite:check2", metadata: { sub: 1 }, message_text: "should be ignored" } //verifies dupe elimination
     ]
   ], { openPrimary: true });
 
