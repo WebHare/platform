@@ -1,0 +1,31 @@
+<?wh
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/reporting/deprecationscan.whlib";
+LOADLIB "mod::system/lib/internal/checks/checker.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
+
+OBJECT trans := OpenPrimary();
+RECORD scanresult := GetDeprecationScanReport();
+
+RECORD ARRAY issues;
+IF(scanresult.numissues > 0)
+{
+  trans->BeginWork();
+  BLOB report := GetPrintedAsBlob(PTR PrintDeprecationScanReport(scanresult));
+  OBJECT reportfile := OpenWHFSPrivateFolder("system")->EnsureFolder([name := "reports"])->EnsureFile([name := "deprecations"]);
+  reportfile->UpdateData(report);
+  reportfile->SetInstanceData("http://www.webhare.net/xmlns/publisher/lifecycle", [ deletion := AddDaystoDate(30, GetCurrentDatetime()) ]);
+  trans->CommitWork();
+
+  issues := [[ type := "system:deprecation"
+             , message_text := `There are ${scanresult.numissues} issues involving deprecated features (wh deprecationscan)`
+             //TODO a report viewer might be nice?
+             , jump_to := CELL[ app := "system:codeview", target := CELL[ resourcename := "whfs::" || reportfile->whfspath, line := 1, col := 0 ]]
+            ]];
+}
+
+UpdateCheckStatus("system:autodeprecationscan", issues);
