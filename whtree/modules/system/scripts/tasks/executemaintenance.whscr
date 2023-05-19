@@ -136,14 +136,17 @@ MACRO CleanupSocialite()
   trans->CommitWork();
 }
 
-MACRO DeleteOldSnoozes()
+MACRO DeleteOldIssues()
 {
+  //TODO should this be configurable?
+  DATETIME cutoff := AddDaysToDate(-400, GetCurrentDatetime());
   trans->BeginWork();
 
-  OBJECT wrd_type := GetPrimaryWebhareUserAPI()->wrdschema->GetType("WHUSER_SYSTEMMESSAGE_SNOOZES");
+  OBJECT wrd_type := OpenWRDSchema("system:config")->GetType("server_check");
   RECORD ARRAY todelete := wrd_type->RunQuery(
       [ outputcolumns := [ "WRD_ID" ]
-      , filters := [ [ field := "UNTIL", matchtype := "<", value := AddDaysToDate(-7, GetCurrentDatetime()) ] ]
+      , filters := [ [ field := "WRD_LIMITDATE", matchtype := "<", value := cutoff ] ]
+      , historymode := "all"
       ]);
 
   wrd_type->DeleteEntities(SELECT AS INTEGER ARRAY wrd_id FROM todelete);
@@ -163,7 +166,7 @@ MACRO RunExecuteMaintenance()
     CleanupWebharePrivate();
     CleanupSocialite();
     EnsureModuleStorageFolders(TRUE); //cleanup obsolete existing ones too
-    DeleteOldSnoozes();
+    DeleteOldIssues();
   }
   FixupUserMgmt();
 }

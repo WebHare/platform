@@ -70,15 +70,4 @@
     </attributes>
   </object>
 
-  <object tag="whuser_systemmessage_snoozes" title="System message snoozes">
-    <attributes>
-      <domainsingle tag="snoozer" description="User that created this snooze" domain="wrd_person" title="Snoozer" />
-      <datetime tag="until" title="Snooze until" />
-      <free tag="messagetaghash" title="Base16-encoded SHA1 hash of the message tag record" />
-      <file tag="messagetag" title="HSON-encoded message tag" />
-      <free tag="messagetidatsnooze" title="System message text when it was snoozed" />
-      <free tag="comment" title="Comment" />
-    </attributes>
-  </object>
-
 </schemadefinition>

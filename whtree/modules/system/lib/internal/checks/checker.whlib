@@ -429,39 +429,12 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
   IF (GetDTAPStage() = "development")
     messages := messages CONCAT RunDevelopmentChecks();
 
-  RECORD ARRAY snoozes;
-  TRY
-  {
-    snoozes :=
-      SELECT *
-        FROM GetPrimaryWebhareUserAPI()->wrdschema->GetType("WHUSER_SYSTEMMESSAGE_SNOOZES")->RunQuery(
-              [ outputcolumns :=
-                    [ "MESSAGETAGHASH"
-                    , "WRD_ID"
-                    , "SNOOZER"
-                    , "UNTIL"
-                    , "COMMENT"
-                    ]
-              , filters := [ [ field := "UNTIL", matchtype := ">=", value := GetCurrentDatetime() ]]
-              ])
-    ORDER BY messagetaghash;
-  }
-  CATCH(OBJECT e) //Usually triggered by 'Unable to retrieve the WebHare backend wrdauthplugin.'
-  {
-    LogHarescriptException(e);
-    INSERT [ msg := `:Failed to apply snoozes: ${e->what}`
-           ]
-           INTO messages AT END;
-  }
   messages := EnforceStructure([[ checktypes := STRING[] ]], messages);
 
   messages :=
       SELECT TEMPORARY messagetag :=  CellExists(messages, "MESSAGETAG") ? COLUMN messagetag : [ type := "tag-from-text", msg := msg ]
            , TEMPORARY messagetaghash := EncodeBase16(GetSHA1Hash(EncodeHSON(messagetag)))
-           , TEMPORARY snooze_pos :=  RecordLowerBound(snoozes, [ messagetaghash := messagetaghash ], [ "MESSAGETAGHASH"])
            , *
-           , snoozed :=         snooze_pos.found
-           , snooze_data :=     snooze_pos.found ? snoozes[snooze_pos.position] : DEFAULT RECORD
            , messagetag :=      messagetag
            , messagetaghash :=  messagetaghash
         FROM messages;
