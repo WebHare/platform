@@ -130,7 +130,6 @@ PUBLIC STATIC OBJECTTYPE taskproperties EXTEND TolliumScreenBase
           commandline := commandline || ' "' || EncodeJava(arg) || '"';
     }
 
-    ^scriptname->value := taskinfo.script;
     ^description->value := taskinfo.description;
     ^commandline->value := commandline;
     ^tag->value := taskinfo.tag;

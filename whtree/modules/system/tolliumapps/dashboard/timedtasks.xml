@@ -47,25 +47,20 @@
     </body>
   </screen>
 
-  <screen name="taskproperties" allowresize="true" footerbuttons="ok cancel" savestate="size">
-    <body layout="left">
-      <box layout="form" tid=".properties">
-        <text name="scriptname" />
-        <textedit name="commandline" width="1pr" enabled="false" />
-        <text name="description" tid="~description" />
-        <text name="tag" tid="~tag" />
-        <text name="timeout" />
-      </box>
-      <box name="enabled" checkbox="true" enablecomponents="nexttime">
-        <text name="inapplicable" />
-        <datetime name="nexttime" type="datetime" storeutc="true" />
-      </box>
-
-      <!-- <box tid=".lastmessages" height="1pr" layout="left"> -->
-      <text tid=".lastmessages" />
-      <textarea name="lastmessages" width="1pr" height="1pr" minheight="15x" enabled="false" title="" />
-
-      <!-- </box> -->
+  <screen name="taskproperties" width="80x" height="20gr" allowresize="true" footerbuttons="ok cancel">
+    <body>
+      <heading tid=".properties" />
+      <text name="tag" tid="~tag" />
+      <textedit name="commandline" width="1pr" enabled="false" />
+      <text name="description" tid="~description" wordwrap="true" />
+      <text name="timeout" />
+      <heading name="enabled" checkbox="true" enablecomponents="nexttime" />
+      <text name="inapplicable" wordwrap="true" />
+      <datetime name="nexttime" type="datetime" storeutc="true" />
+      <heading tid=".lastmessages" />
+      <line layout="left">
+        <textarea name="lastmessages" width="1pr" height="1pr" minheight="3gr" title="" />
+      </line>
     </body>
   </screen>
 

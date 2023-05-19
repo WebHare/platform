@@ -401,7 +401,7 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
     }
   }
   // Stuck tasks
-  RECORD ARRAY stucktasks := SELECT tag := tag ?? script, error, id, script
+  RECORD ARRAY stucktasks := SELECT tag := Substitute(tag, '.', ':') ?? script, error, id, script
                                FROM system_internal.tasks
                                WHERE enabled
                                      AND error != ""
@@ -411,6 +411,7 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
   {
     INSERT [ msg := ":Task '" || stucktask.tag || "' has errors: " || UCLeft(Tokenize(stucktask.error,"\n")[0],120)
            , jumpto := [ app := "system:dashboard", panel := "system:timedtasks", taskid := stucktask.id ]
+           , messagetag := [ type := "system:failedtimedtask", task := stucktask.tag ]
            ]
            INTO messages AT END;
   }
