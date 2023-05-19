@@ -179,8 +179,10 @@ ASYNC FUNCTION GetPersistentQueueStatusInternal(STRING serviceport)
   RETURN "";
 }
 
-PUBLIC RECORD ARRAY FUNCTION GetCurrentCheckIssues()
+PUBLIC RECORD ARRAY FUNCTION GetCurrentCheckIssues(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions(CELL[ withhistory := FALSE ], options);
+
   //Some issues cannot be reported through the WRD mechanisms
   RECORD ARRAY issues;
   CONSTANT RECORD baseissue :=
@@ -188,12 +190,16 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentCheckIssues()
     , message_tid := DEFAULT RECORD
     , snoozed := FALSE
     , scopes := STRING[]
+    , since := DEFAULT DATETIME
+    , closed := DEFAULT DATETIME
+    , jump_to := DEFAULT RECORD
     ];
 
   IF (NOT IsDatabaseWritable())
   {
     INSERT CELL[ ...baseissue
-               , message_text := ":The WebHare database is in readonly mode!"
+               , message_text := "The WebHare database is in readonly mode!"
+               , rowkey := -1
                ] INTO issues AT END;
   }
 
@@ -201,13 +207,15 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentCheckIssues()
   IF(NOT RecordExists(lastintervalrun) OR lastintervalrun.lastrun = DEFAULT DATETIME)
   {
     INSERT CELL[ ...baseissue
-               , message_text := ":The periodic status checks are not running - not all checks are available"
+               , message_text := "The periodic status checks are not running - not all checks are available"
+               , rowkey := -1
                ] INTO issues AT END;
   }
   ELSE IF(lastintervalrun.error != "")
   {
     INSERT CELL[ ...baseissue
-               , message_text := `:The periodic status checks are failing: ${lastintervalrun.error}`
+               , message_text := `The periodic status checks are failing: ${NormalizeWhitespace(lastintervalrun.error)}`
+               , rowkey := -1
                ] INTO issues AT END;
   }
   ELSE
@@ -216,7 +224,8 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentCheckIssues()
     IF(lastrun > 10 * 60000) //it's scheduled every 5 minutes, so warn after 10
     {
       INSERT CELL[ ...baseissue
-                 , message_text := `:The periodic status checks have not been executed for more than ${lastrun / 60000} minutes`
+                 , message_text := `The periodic status checks have not been executed for more than ${lastrun / 60000} minutes`
+                 , rowkey := -2
                  ] INTO issues AT END;
 
     }
@@ -226,7 +235,8 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentCheckIssues()
   IF(ObjectExists(OpenWRDSchema("system:config")->GetType('server_check')))
   {
     dbissues := OpenWRDSchema("system:config")->^server_check->RunQuery(
-        [ outputcolumns := CELL[ "type", "check_task", "metadata", "message_text", "message_tid", "jump_to", "snoozed_until", "wrd_id", "wrd_creationdate", "scopes" ]
+        [ outputcolumns := CELL[ "type", "check_task", "metadata", "message_text", "message_tid", "jump_to", "snoozed_until", "wrd_id", since := "wrd_creationdate", "scopes", closed := "wrd_limitdate" ]
+        , historymode := options.withhistory ? "all" : "now"
         ]);
   }
 

@@ -915,10 +915,10 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
     IF(NOT issupervisor)
       RETURN [ privileged := FALSE ];
 
-    RECORD ARRAY messages := RunChecks();
+    RECORD ARRAY messages := GetCurrentCheckIssues();
     DELETE FROM messages WHERE snoozed;
     IF(Length(messages)>0)
-      RETURN [ privileged := TRUE, numleft := Length(messages) - 1, firstmessage := GetTid(messages[0].msg) ];
+      RETURN [ privileged := TRUE, numleft := Length(messages) - 1, firstmessage := messages[0].message_text ];
     ELSE
       RETURN [ privileged := TRUE, numleft := 0, firstmessage := "" ];
   }

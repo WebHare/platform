@@ -14,27 +14,12 @@ LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/checks/checker.whlib";
 
-PUBLIC RECORD ARRAY FUNCTION RunAsyncChecks()
-{
-  OpenPrimary();
-  RETURN RunChecks();
-}
+LOADLIB "mod::wrd/lib/api.whlib";
 
 PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase
 <
-  OBJECT wrd_systemmessages_snoozes;
-  OBJECT errorpromise;
-  RECORD ARRAY currenterrors;
-
   MACRO Init()
   {
-    IF(ObjectExists(this->contexts->wrdschema))
-    {
-      this->wrd_systemmessages_snoozes := this->contexts->wrdschema->^whuser_systemmessage_snoozes;
-
-      ^results->eventmasks := this->wrd_systemmessages_snoozes->GetEventMasks();
-      ^snoozes->eventmasks := this->wrd_systemmessages_snoozes->GetEventMasks();
-    }
   }
 
   UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
@@ -44,7 +29,19 @@ PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase
 
   UPDATE PUBLIC MACRO RefreshDashboardPanel()
   {
+    ^results->Invalidate();
     this->RefreshPlatformInfo();
+  }
+
+  /** @short This monitor has been activated, start refreshing */
+  UPDATE PUBLIC MACRO EnableRefresh()
+  {
+    ^results->eventmasks := OpenWRDSchema("system:config")->^server_check->GetEventMasks();
+  }
+  /** @short This monitor has been deactivated, stop refreshing */
+  UPDATE PUBLIC MACRO DisableRefresh()
+  {
+    ^results->eventmasks := RECORD[];
   }
 
   MACRO RefreshPlatformInfo()
@@ -87,267 +84,92 @@ PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase
                                   this->tolliumuser->FormatTimespan(numwebdays, numwebmsecs, "minutes"),
                                   this->tolliumuser->FormatDateTime(webserverboottime, "minutes", TRUE, FALSE));
 
-    this->RefreshErrors();
     ^results->Invalidate();
-    ^snoozes->Invalidate();
   }
 
-  ASYNC MACRO RefreshErrors()
+  MACRO OnWithHistoryChange()
   {
-    IF(ObjectExists(this->errorpromise))
-      RETURN;
-
-    ^results->empty := this->GetTid(".loadingerrors");
-    this->errorpromise := AsyncCallFunctionFromJob(Resolve("#RunAsyncChecks"));
-    this->currenterrors := AWAIT this->errorpromise;
-    this->errorpromise := DEFAULT OBJECT;
-
-    ^results->empty := this->GetTid(".noerrors");
     ^results->Invalidate();
   }
 
   RECORD ARRAY FUNCTION OnGetErrors()
   {
-    IF(ObjectExists(this->errorpromise))
-      RETURN RECORD[];
-
     RECORD ARRAY messages :=
          SELECT *
-              , message :=      GetTid(msg)
-                                    || (CellExists(checks, "FILENAME") ? ` (${this->GetTid(".infile", filename)})` : "")
-                                    || (snoozed ? " (" || this->GetTid(".snoozed_until", this->tolliumuser->FormatDateTime(snooze_data.until, "minutes", TRUE, TRUE)) || ")": "")
-              , canjumpto :=    CellExists(checks, "JUMPTO") OR CellExists(checks, "FILENAME")
-              , style :=        snoozed ? "snoozed" : ""
-              , rowkey := messagetaghash
-           FROM this->currenterrors AS checks;
+              , message :=      message_text  || (snoozed ? " (" || this->GetTid(".snoozed_until", this->tolliumuser->FormatDateTime(snoozed_until, "minutes", TRUE, TRUE)) || ")": "")
+              , canjumpto :=    RecordExists(jump_to)
+              , cansnooze :=    ismanageable AND NOT snoozed
+              , canunsnooze :=  ismanageable AND snoozed
+              , style :=        snoozed OR closed != MAX_DATETIME ? "snoozed" : ""
+           FROM GetCurrentCheckIssues( [ withhistory := ^withhistory->value ]);
 
     RETURN messages;
   }
 
-  RECORD ARRAY FUNCTION OnGetSnoozes()
-  {
-    IF(NOT ObjectExists(this->wrd_systemmessages_snoozes))
-      RETURN RECORD[];
-
-    RECORD ARRAY rows :=
-        SELECT *
-             , rowkey :=    wrd_id
-             , message :=   GetTid(messagetidatsnooze)
-          FROM this->wrd_systemmessages_snoozes->RunQuery(
-                  [ outputcolumns :=
-                        [ "WRD_ID"
-                        , "MESSAGETIDATSNOOZE"
-                        , "SNOOZER"
-                        , "UNTIL"
-                        , "COMMENT"
-                        ]
-                  ]);
-
-    rows := this->contexts->userapi->EnrichUsers("SNOOZER", rows, [ celltype := "entityid" ]);
-    RETURN rows;
-  }
-
   MACRO DoGotoTask()
   {
-    RECORD sel := ^results->selection[0];
-    IF (CellExists(sel, "JUMPTO") AND RecordExists(sel.jumpto))
-    {
-      RECORD jumpto := ^results->selection[0].jumpto;
-      STRING reusemode := CellExists(jumpto,'reusemode') ? jumpto.reusemode : "whennotbusy";
-      IF(CellExists(jumpto,'target'))
-        this->tolliumcontroller->StartApplication(jumpto.app, jumpto.target, DEFAULT RECORD, CELL[ reusemode ]);
-      ELSE //legacy approach... using target is safer!
-        this->tolliumcontroller->StartApplication(jumpto.app, DEFAULT RECORD, jumpto, CELL[ reusemode ]);
-    }
+    RECORD jumpto := ^results->selection[0].jump_to;
+    STRING reusemode := CellExists(jumpto,'reusemode') ? jumpto.reusemode : "whennotbusy";
+    IF(CellExists(jumpto,'target'))
+      this->tolliumcontroller->StartApplication(jumpto.app, jumpto.target, DEFAULT RECORD, CELL[ reusemode ]);
+    ELSE //legacy approach... using target is safer!
+      this->tolliumcontroller->StartApplication(jumpto.app, DEFAULT RECORD, jumpto, CELL[ reusemode ]);
   }
 
-  MACRO DoEditMessageSnooze()
+  MACRO DoSnooze()
   {
-    RECORD ARRAY sel := ^results->selection;
-    RECORD ARRAY data :=
-        SELECT messagetid :=    msg
-             , messagetag
-             , messagetaghash
-             , until :=         snoozed ? snooze_data.until : DEFAULT DATETIME
-             , comment :=       snoozed ? snooze_data.comment : ""
-          FROM sel;
-
-    this->RunScreen("#editsnooze", [ data := data, isdirectedit := FALSE ]);
+    this->RunScreen("#snooze", [ tosnooze := ^results->selection ]);
   }
-
-  MACRO DoEditSnooze()
+  MACRO DoUnSnooze()
   {
-    RECORD data := this->wrd_systemmessages_snoozes->GetEntityFields(^snoozes->value[0],
-        [ "MESSAGETAGHASH"
-        ]);
+    IF(this->RunSimpleScreen("confirm", this->GetTid(".confirm-unsnooze")) != "yes")
+      RETURN;
 
-    this->RunScreen("#editsnooze", [ data := [ data ], isdirectedit := TRUE ]);
-  }
-
-  MACRO DoDeleteSnooze()
-  {
     OBJECT work := this->BeginUnvalidatedWork();
-    FOREVERY (INTEGER id FROM ^snoozes->value)
-    {
-      this->wrd_systemmessages_snoozes->DeleteEntity(id);
-      LogAuditEvent("system:systemmessages",
-          [ id :=                 id
-          , type :=               "delete"
-          ]);
-    }
+    FOREVERY (INTEGER id FROM ^results->value)
+      UnsnoozeIssue(id);
+
     work->Finish();
   }
-
 >;
 
-PUBLIC STATIC OBJECTTYPE EditSnooze EXTEND DashboardPanelBase
-< OBJECT wrd_systemmessages_snoozes;
-
+PUBLIC STATIC OBJECTTYPE Snooze EXTEND DashboardPanelBase
+<
   RECORD ARRAY items;
 
   MACRO Init(RECORD data)
   {
-    this->wrd_systemmessages_snoozes := this->contexts->wrdschema->^whuser_systemmessage_snoozes;
-    this->items :=
-        SELECT *
-          FROM data.data
-      ORDER BY messagetaghash;
+    this->items := data.tosnooze;
 
-    RECORD ARRAY existing := this->GetExistingSnoozes();
-    IF (LENGTH(this->items) = 1 AND LENGTH(existing) = 1) // edit single existing snooze
-    {
-      RECORD userdata := this->contexts->userapi->EnrichUsers("userid", [ [ userid := existing[0].snoozer ] ]);
+    // After 9:00 local time, place next at the next day
+    DATETIME next := AddTimeToDate(15 * 60 * 60 * 1000, UTCToLocal(GetCurrentDateTime(), "CET"));
+    next := GetRoundedDateTime(next, 86400 * 1000);
 
-      ^messagetidatsnooze->value := GetTid(existing[0].messagetidatsnooze);
-      ^until->value := existing[0].until;
-      ^comment->value := existing[0].comment;
-      ^snoozer->value := userdata.displayname;
-      ^created->value := existing[0].wrd_creationdate;
-      ^snoozer->visible := TRUE;
-      ^created->visible := TRUE;
-    }
+    // Always at 10:00, on workdays
+    next := AddTimeToDate(10 * 60 * 60 * 1000, next);
+    IF (UnpackDateTime(next).dayofweek >= 6) // saturday or sunday
+      next := AddDaysToDate(8 - UnpackDateTime(next).dayofweek, next);
+    next := LocalToUTC(next, "CET");
+
+    ^until->value := next;
+
+    IF (LENGTH(this->items) = 1)
+      ^messagetidatsnooze->value := this->items[0].message_text;
     ELSE
-    {
-      IF (data.isdirectedit)
-      {
-        this->tolliumresult := "cancel";
-        RETURN;
-      }
-
-      // After 9:00 local time, place next at the next day
-      DATETIME next := AddTimeToDate(15 * 60 * 60 * 1000, UTCToLocal(GetCurrentDateTime(), "CET"));
-      next := GetRoundedDateTime(next, 86400 * 1000);
-
-      // Always at 10:00, on workdays
-      next := AddTimeToDate(10 * 60 * 60 * 1000, next);
-      IF (UnpackDateTime(next).dayofweek >= 6) // saturday or sunday
-        next := AddDaysToDate(8 - UnpackDateTime(next).dayofweek, next);
-      next := LocalToUTC(next, "CET");
-
-      ^until->value := next;
-      IF (LENGTH(this->items) = 1) // add new single snooze
-        ^messagetidatsnooze->value := GetTid(this->items[0].messagetid);
-      ELSE // add/override multple messages
-        ^messagetidatsnooze->value := this->GetTid(".multiplemessages");
-    }
-    ^remove->enabled := LENGTH(existing) > 0;
-  }
-
-  RECORD ARRAY FUNCTION GetExistingSnoozes()
-  {
-    RETURN
-      SELECT *
-        FROM this->wrd_systemmessages_snoozes->RunQuery(
-              [ outputcolumns :=
-                    [ "MESSAGETAGHASH"
-                    , "MESSAGETAG"
-                    , "WRD_ID"
-                    , "MESSAGETIDATSNOOZE"
-                    , "UNTIL"
-                    , "COMMENT"
-                    , "SNOOZER"
-                    , "WRD_CREATIONDATE"
-                    ]
-              ]) AS rec
-       WHERE RecordLowerBound(this->items, rec, [ "MESSAGETAGHASH" ]).found
-    ORDER BY messagetaghash;
+      ^messagetidatsnooze->value := this->GetTid(".multiplemessages");
   }
 
   BOOLEAN FUNCTION Submit()
   {
     OBJECT work := this->BeginWork();
-    IF (work->HasFailed())
-      RETURN work->Finish();
-
     IF (^until->value < GetCurrentDateTime())
-      work->AddError(this->GetTid(".untilinpast"));
+      work->AddErrorFor(^until, this->GetTid(".untilinpast"));
     IF (work->HasFailed())
       RETURN work->Finish();
-
-    RECORD ARRAY existing := this->GetExistingSnoozes();
 
     FOREVERY (RECORD rec FROM this->items)
-    {
-      RECORD pos := RecordLowerBound(existing, rec, [ "MESSAGETAGHASH" ]);
-      IF (pos.found)
-      {
-        RECORD ex := existing[pos.position];
-        IF (LENGTH(this->items) = 1 OR ex.until <= ^until->value)
-        {
-          // Only update snooze when prolonging it, or editing only one message
-          this->wrd_systemmessages_snoozes->GetEntity(ex.wrd_id)->UpdateEntity(
-              [ snoozer :=            this->tolliumuser->entityid
-              , until :=              ^until->value
-              , messagetidatsnooze := ex.messagetidatsnooze
-              , comment :=            ^comment->value
-              ]);
+      SnoozeIssue(rec.rowkey, ^until->value, [ comment := ^comment->value, whuser := this->contexts->user->GetUserDataForLogging() ]);
 
-          LogAuditEvent("system:systemmessages",
-              [ id :=                 ex.wrd_id
-              , type :=               "update"
-              , until :=              ^until->value
-              , messagetidatsnooze := ex.MESSAGETIDATSNOOZE
-              , comment :=            ^comment->value
-              , messagetag :=         RecordExists(ex.messagetag) ? DecodeHSONBlob(ex.messagetag.data) : DEFAULT RECORD
-              ]);
-        }
-      }
-      ELSE
-      {
-        OBJECT obj := this->wrd_systemmessages_snoozes->CreateEntity(
-          [ snoozer :=            this->tolliumuser->entityid
-          , until :=              ^until->value
-          , messagetaghash :=     rec.messagetaghash
-          , messagetag :=         WrapBlob(EncodeHSONBlob(rec.messagetag), "messagetag.hson")
-          , messagetidatsnooze := rec.messagetid
-          , comment :=            ^comment->value
-          ]);
-
-        LogAuditEvent("system:systemmessages",
-            [ id :=                 obj->id
-            , type :=               "create"
-            , until :=              ^until->value
-            , messagetidatsnooze := rec.messagetid
-            , comment :=            ^comment->value
-            , messagetag :=         rec.messagetag
-            ]);
-      }
-    }
     RETURN work->Finish();
-  }
-
-  MACRO DoRemove()
-  {
-    OBJECT work := this->BeginUnvalidatedWork();
-    FOREVERY (RECORD rec FROM this->GetExistingSnoozes())
-    {
-      LogAuditEvent("system:systemmessages",
-          [ id :=                 rec.wrd_id
-          , type :=               "delete"
-          ]);
-    }
-    this->wrd_systemmessages_snoozes->DeleteEntities(SELECT AS INTEGER ARRAY wrd_id FROM this->GetExistingSnoozes());
-    work->Finish();
-    this->tolliumresult := "remove";
   }
 >;

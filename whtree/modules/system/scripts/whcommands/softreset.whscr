@@ -90,6 +90,7 @@ ELSE
   BroadcastEvent("system:clearcaches", DEFAULT RECORD); // for now, let manual softresets imply a cachereset
 
   //Do a 'wh check' like thing after softreset, as a convenience
+  //TODO maybe introduce a 'developer' scope and 'know' how to rerun exactly those checks?
   RECORD ARRAY messages := RunChecks();
   FOREVERY(RECORD msg FROM messages)
     IF(NOT msg.snoozed)
