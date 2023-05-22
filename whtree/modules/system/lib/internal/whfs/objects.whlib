@@ -650,10 +650,12 @@ OBJECTTYPE WHFSObject
       newmetadata := FixupDataAndType(newmetadata, oldversion);
 
     IF(IsReadonlyWHFSSpace(this->whfspath))
+    {
       IF(options.ifreadonly = "fail")
         THROW NEW Exception(`Attempting to update readonly object ${this->whfspath}`);
       ELSE IF(options.ifreadonly = "skip")
         RETURN;
+    }
 
     STRING ARRAY canupdate := GetUpdatableMetadataFields(this->pvt_isfolder);
     FOREVERY(RECORD cellrec FROM UnpackRecord(newmetadata))
