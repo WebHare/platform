@@ -533,12 +533,13 @@ MACRO AuditIssue(INTEGER issueid, RECORD data)
           , message_text :=       issueinfo.message_text
           , issuetype :=          issueinfo.type
           , issuemetadata :=      issueinfo.metadata
+          , ...data
           ]);
 }
 
 PUBLIC MACRO SnoozeIssue(INTEGER issueid, DATETIME snoozed_until, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  options := ValidateOptions(CELL[ comment := "", whuser := DEFAULT RECORD] , options);
+  options := ValidateOptions(CELL[ comment := "", whuser := DEFAULT RECORD ], options);
 
   OBJECT wrdschema := OpenWRDSchema("system:config");
   RECORD issueinfo := wrdschema->^server_check->GetEntityFields(issueid, CELL["snoozed_until","message_text","type","metadata"]);
