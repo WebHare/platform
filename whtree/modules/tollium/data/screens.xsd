@@ -2986,7 +2986,6 @@ To change a <xs:attribute /> for adding descriptions
             </xs:appinfo>
           </xs:annotation>
         </xs:attribute>
-        <xs:attribute name="interceptbuttons" type="StringList" />
         <xs:attribute name="offercustomhyperlink" type="xs:boolean" /> <!-- FIXME obsolete -->
         <xs:attribute name="htmlclass" type="xs:string" />
         <xs:attribute name="bodyclass" type="xs:string" />

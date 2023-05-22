@@ -41,7 +41,6 @@ export default class ObjRTE extends ComponentBase {
     this.borders = null;
     this.hint = '';
     this.required = false;
-    this.interceptbuttons = [];
     this.valueid = '';
 
     /// Selection for enabled actions ()
@@ -64,7 +63,6 @@ export default class ObjRTE extends ComponentBase {
 
     this.hint = data.hint;
     this.required = data.required;
-    this.interceptbuttons = data.interceptbuttons;
     this.isemaileditor = data.areatype == 'email'; //FIXME gaat dit nbu wel via 'type' of 'areatype' ?
     this.borders = data.borders;
     this._showcounter = data.showcounter;
