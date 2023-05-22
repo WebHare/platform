@@ -1,24 +1,23 @@
 ﻿<?wh
 LOADLIB "wh::os.whlib";
+LOADLIB "mod::system/lib/checks.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/checks/checker.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 Print(GetWHVersionInfo().versionname);
 
-RECORD ARRAY messages;
-
 OBJECT db;
 TRY db := OpenPrimary();
 CATCH(OBJECT e)
 {
-  Print(" - The database is unavailable: " || e->what||"\n");
+  PrintTo(2," - The database is unavailable: " || e->what||"\n");
   SetConsoleExitCode(2);
   RETURN;
 }
 
-IF(ObjectExists(db))
-  messages := messages CONCAT RunChecks();
+RECORD ARRAY messages := GetCurrentCheckIssues();
 
 INTEGER num_snoozed := LENGTH(SELECT FROM messages WHERE snoozed);
 DELETE FROM messages WHERE snoozed;
@@ -34,7 +33,7 @@ IF(Length(messages)>1)
   ELSE
     PRINT("\n");
   FOREVERY(RECORD msg FROM messages)
-    Print(GetTid(msg.msg) || "\n");
+    Print(msg.message_text || "\n");
 }
 ELSE IF(Length(messages)=1)
 {

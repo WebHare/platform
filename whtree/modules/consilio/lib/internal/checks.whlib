@@ -53,7 +53,7 @@ MACRO CheckIndexManager(RECORD indexmgr, MACRO PTR onresolve, MACRO PTR onreject
   }
   CATCH (OBJECT e)
   {
-    LogHarescriptException(e);
+    //not logging this as a HareScriptException. we're prepared for the indexmanager to be offline in this codepath and it will only trigger noticelog errors by intervalchecks
     INSERT CELL [ msg := `:Could not connect to index manager #${indexmgr.id}: ${e->what}` ] INTO messages AT END;
   }
 

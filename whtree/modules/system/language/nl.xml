@@ -103,9 +103,6 @@
         <text tid="usercount_desc">Aantal gebruikers die de applicatie een of meerdere keren heeft openstaan</text>
       </textgroup>
     </textgroup>
-    <textgroup gid="checks">   <!-- monitor.checks -->
-      <text tid="title">Systeemmeldingen</text>
-    </textgroup>
     <textgroup gid="clusterservices">   <!-- monitor.clusterservices -->
       <text tid="title">Cluster services</text>
     </textgroup>
@@ -1304,29 +1301,24 @@
       <textgroup gid="platform">   <!-- tolliumapps.dashboard.platform -->
         <text tid="buildinfo">Build</text>
         <text tid="comment">Commentaar</text>
-        <text tid="created">Aangemaakt</text>
+        <text tid="confirm-unsnooze">Weet je zeker dat je de geselecteerde snoozes wil verwijderen?</text>
         <text tid="datetime">Datum &amp; tijd</text>
-        <text tid="displayname">Gebruiker</text>
-        <text tid="editsnooze">Snooze bewerken</text>
-        <text tid="errors">Foutmeldingen</text>
         <text tid="general">Algemeen</text>
         <text tid="gototask">Ga naar</text>
-        <text tid="infile">in bestand '<param p="1"/>'</text>
-        <text tid="loadingerrors">Controleer op fouten…</text>
         <text tid="message">Foutmelding</text>
         <text tid="messagetidatsnooze">Foutmelding</text>
         <text tid="multiplemessages">(meerdere foutmeldingen)</text>
         <text tid="noerrors">Er zijn geen problemen bekend</text>
         <text tid="platform">Platform</text>
-        <text tid="remove">Verwijderen</text>
         <text tid="server">Serverversie</text>
+        <text tid="snooze">Snooze</text>
         <text tid="snoozed_until">gesnoozed tot <param p="1"/></text>
-        <text tid="snoozer">Snoozer</text>
-        <text tid="snoozes">Snoozes</text>
+        <text tid="unsnooze">Annuleer snooze</text>
         <text tid="until">Tot</text>
         <text tid="untilinpast">De 'tot' datum moet in de toekomst liggen.</text>
         <text tid="uptime">Uptime</text>
         <text tid="uptimedata"><param p="1"/> (gestart op <param p="2"/>), webserver uptime: <param p="3"/> (gestart op <param p="4"/>)</text>
+        <text tid="withhistory">Toon geschiedenis</text>
       </textgroup>
       <textgroup gid="registry">   <!-- tolliumapps.dashboard.registry -->
         <text tid="deletekey">Weet je zeker dat je de registersleutel '<param p="1"/>' wilt verwijderen?</text>

@@ -5,6 +5,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/userrights.whlib";
 
 
 // Reset for 5.0 as 4.35 is a required update, but I'm sure there will be new poststart cleanup updates so we'll keep this script
@@ -64,5 +65,15 @@ IF(GetPrimary()->ColumnExists("webhare_internal" ,"postgresql_migration_issues",
 {
   GetPrimary()->BeginWork();
   GetPrimary()->DropTable("webhare_internal" ,"postgresql_migration_issues");
+  GetPrimary()->CommitWork();
+}
+
+//5.3 - whuser_systemmessage_snoozes is obsolete
+OBJECT usermgmtschema := GetPrimaryWebHareAuthPlugin()->wrdschema;
+OBJECT snoozestype := usermgmtschema->GetType("whuser_systemmessage_snoozes");
+IF(ObjectExists(snoozestype))
+{
+  GetPrimary()->BeginWork();
+  snoozestype->DeleteSelf();
   GetPrimary()->CommitWork();
 }

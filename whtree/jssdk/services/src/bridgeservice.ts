@@ -2,6 +2,7 @@ import { openBackendService } from "./backendservice";
 
 export interface InvokeOptions {
   openPrimary?: boolean;
+  autoCommit?: boolean;
 }
 
 export interface BridgeService {

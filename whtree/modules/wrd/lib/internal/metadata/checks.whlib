@@ -25,6 +25,7 @@ PUBLIC OBJECTTYPE WRDCheck EXTEND CustomCheckBase
         FOREVERY(RECORD wrdschema FROM permodule.schemas)
           INSERT CELL[ msg := `:WRD Schema '${wrdschema.name}' does not have a module:tag name so we cannot verify whether it's supposed to exist here`
                      , checktypes := ["gdpr"]
+                     , messagetag := [ type := "wrd:unexpectedschema", wrdschema := wrdschema.name ]
                      , jumpto := [ app := "wrd", task := "selectschema", id := wrdschema.id ]
                      ] INTO msgs AT END;
         CONTINUE;
@@ -35,6 +36,7 @@ PUBLIC OBJECTTYPE WRDCheck EXTEND CustomCheckBase
         FOREVERY(RECORD wrdschema FROM permodule.schemas)
           INSERT CELL[ msg := `:WRD Schema '${wrdschema.name}' does not have its corresponding module installed and should be deleted`
                      , checktypes := ["gdpr"]
+                     , messagetag := [ type := "wrd:unexpectedschema", wrdschema := wrdschema.name ]
                      , jumpto := [ app := "wrd", task := "selectschema", id := wrdschema.id ]
                      ] INTO msgs AT END;
         CONTINUE;
@@ -54,6 +56,7 @@ PUBLIC OBJECTTYPE WRDCheck EXTEND CustomCheckBase
       {
         INSERT CELL[ msg := `:WRD Schema '${wrdschema.name}' is not claimed by module '${Tokenize(wrdschema.name,':')[0]}' and should be deleted`
                    , checktypes := ["gdpr"]
+                   , messagetag := [ type := "wrd:unexpectedschema", wrdschema := wrdschema.name ]
                    , jumpto := [ app := "wrd", task := "selectschema", id := wrdschema.id ]
                    ] INTO msgs AT END;
         CONTINUE;
@@ -64,6 +67,7 @@ PUBLIC OBJECTTYPE WRDCheck EXTEND CustomCheckBase
     FOREVERY(RECORD defschema FROM SELECT * FROM definedschemas WHERE NOT seen AND autocreate AND tag LIKE "*:*")
     {
       INSERT CELL[ msg := `:Missing WRD Schema '${defschema.tag}' which should have been autocreated by module '${Tokenize(defschema.tag,':')[0]}'`
+                 , messagetag := [ type := "wrd:missingschema", wrdschema := defschema.tag ]
                  ] INTO msgs AT END;
     }
 

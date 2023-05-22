@@ -5,72 +5,47 @@
       <action name="gototask" onexecute="dogototask">
         <enableon source="results" min="1" max="1" checkflags="canjumpto" />
       </action>
-      <action name="editsnooze" tid="~edit">
-        <enableon source="results" min="1" onexecute="doeditmessagesnooze" />
-        <enableon source="snoozes" min="1" max="1" onexecute="doeditsnooze" />
+      <action name="snooze">
+        <enableon source="results" min="1" checkflags="cansnooze" onexecute="dosnooze" />
       </action>
-      <action name="deletesnooze" tid="~delete">
-        <enableon source="snoozes" min="1" onexecute="dodeletesnooze" />
+      <action name="unsnooze">
+        <enableon source="results" min="1" checkflags="canunsnooze" onexecute="dounsnooze" />
       </action>
     </actions>
 
     <menus>
-      <menu name="snoozecontextmenu">
-        <item action="editsnooze" disablemode="hidden" />
-        <item action="deletesnooze" disablemode="hidden" />
-      </menu>
       <menu name="contextmenu">
         <item action="gototask" disablemode="hidden" />
-        <item action="editsnooze" disablemode="hidden" tid=".editsnooze" />
+        <item action="snooze" tid=".snooze" />
+        <item action="unsnooze" tid=".unsnooze" />
       </menu>
     </menus>
 
     <body spacers="none">
-      <tabs height="1pr">
-        <tab tid=".errors">
-          <grid height="1pr">
-            <cell width="1pr">
-              <list name="results"
-                    height="1pr"
-                    emptytid=".noerrors"
-                    flags="canjumpto"
-                    ongetrows="ongeterrors"
-                    openaction="gototask"
-                    selectcontextmenu="contextmenu"
-                    selectmode="multiple">
-                <column name="message" type="text" width="2pr" />
-                <style name="snoozed" textcolor="#CCCCCC" />
-              </list>
-            </cell>
-            <cell>
-              <button action="editsnooze" />
-            </cell>
-          </grid>
-        </tab>
-        <tab tid=".snoozes">
-          <grid height="1pr">
-            <cell width="1pr">
-              <list name="snoozes"
-                    height="1pr"
-                    ongetrows="ongetsnoozes"
-                    openaction="editsnooze"
-                    selectcontextmenu="snoozecontextmenu"
-                    selectmode="multiple">
-                <column name="message" type="text" />
-                <column name="displayname" type="text" />
-                <column name="until" type="datetime" precision="minutes" storeutc="true" />
-                <column name="comment" type="text" />
-              </list>
-            </cell>
-            <cell>
-              <button width="1pr" action="editsnooze" />
-              <button width="1pr" action="deletesnooze" />
-            </cell>
-          </grid>
-        </tab>
-      </tabs>
-      <hr />
-      <panel name="mainpanel" spacers="left bottom">
+      <grid height="1pr">
+        <cell width="1pr">
+          <list name="results"
+                height="1pr"
+                borders="none"
+                emptytid=".noerrors"
+                flags="canjumpto cansnooze canunsnooze"
+                ongetrows="ongeterrors"
+                openaction="gototask"
+                selectcontextmenu="contextmenu"
+                selectmode="multiple">
+            <column name="message" type="text" width="2pr" />
+            <style name="snoozed" textcolor="#CCCCCC" />
+          </list>
+        </cell>
+        <cell borders="left" spacers="left right">
+          <checkbox name="withhistory" labeltid=".withhistory" onchange="onwithhistorychange" title="" />
+          <button width="1pr" action="gototask" />
+          <spacer height="1gr" />
+          <button width="1pr" action="snooze" />
+          <button width="1pr" action="unsnooze" />
+        </cell>
+      </grid>
+      <panel name="mainpanel" borders="top" spacers="left bottom">
         <heading tid=".general" />
         <text name="txtServer" selectable="true" tid=".server" />
         <text name="buildinfo" selectable="true" />
@@ -81,27 +56,12 @@
     </body>
   </screen>
 
-  <screen name="editsnooze" width="100x">
-    <actions>
-      <action name="ok" onexecute="submit" tid="~ok" />
-      <action name="remove" onexecute="doremove" />
-    </actions>
-
+  <screen name="snooze" width="100x" footerbuttons="ok cancel">
     <body>
       <text name="messagetidatsnooze" width="1pr" wordwrap="true" />
-      <text name="snoozer" visible="false" />
-      <datetime name="created" type="datetime" precision="minutes" readonly="true" storeutc="true" visible="false" />
       <datetime name="until" type="datetime" precision="minutes" required="true" storeutc="true" />
       <textarea name="comment" width="1pr" height="8x" required="true" />
     </body>
-
-    <footer>
-      <line layout="right">
-        <button action="ok" />
-        <button name="removebutton" action="remove" tid=".remove" />
-        <button tid="~cancel" tolliumresult="cancel" />
-      </line>
-    </footer>
   </screen>
 
 </screens>
