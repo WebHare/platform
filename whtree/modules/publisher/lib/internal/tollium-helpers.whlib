@@ -263,13 +263,13 @@ PUBLIC STRING FUNCTION UpdateMetadataForPolicy(OBJECT sitepolicy, OBJECT file, R
     DELETE CELL name, parent FROM draft_updates;
     changed_draftmetadata := TRUE;
 
-    publicdraft->fsobject->UpdateMetadata(MakeMergedRecord(draft_updates, global_updates), [ __allowreadonlyupdate := TRUE ]);
+    publicdraft->fsobject->UpdateMetadata(MakeMergedRecord(draft_updates, global_updates), [ ifreadonly := "update" ]);
 
     FOREVERY (RECORD rec FROM draft_contenttype_updates)
     {
       OBJECT type := OpenWHFSType(rec.whfstype);
       DELETE CELL whfstype FROM rec;
-      type->SetInstanceData(publicdraft->fsobject->id, rec, [ __allowreadonlyupdate := TRUE ]);
+      type->SetInstanceData(publicdraft->fsobject->id, rec, [ ifreadonly := "update" ]);
     }
 
     mode := "draft";
@@ -306,7 +306,7 @@ PUBLIC STRING FUNCTION UpdateMetadataForPolicy(OBJECT sitepolicy, OBJECT file, R
   }
 
   IF (changed_draftmetadata)
-    publicdraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", draftmetadata, [ __allowreadonlyupdate := TRUE ]);
+    publicdraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", draftmetadata, [ ifreadonly := "update" ]);
 
   RETURN mode;
 }

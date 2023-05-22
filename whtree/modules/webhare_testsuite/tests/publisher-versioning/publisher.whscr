@@ -380,7 +380,7 @@ OBJECT ASYNC FUNCTION PublisherVersionedFileProperties()
   // Want to publish the draft
   RECORD testdraft_draftdata := testdraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
   testdraft_draftdata.flags := DraftFlag_Publish;
-  testdraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", testdraft_draftdata, [ __allowreadonlyupdate := TRUE ]);
+  testdraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", testdraft_draftdata, [ ifreadonly := "update" ]);
 
   SubmitApprovalRequestForDraft(testdraft, [ userobject := testfw->GetUserObject("sysop"), message := "request approval to test readonlyness" ]);
   testfw->CommitWork();
@@ -413,7 +413,7 @@ OBJECT ASYNC FUNCTION PublisherVersionedFileProperties()
   // Want to publish the draft
   testdraft_draftdata := testdraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
   testdraft_draftdata.flags := testdraft_draftdata.flags - DraftFlag_Publish;
-  testdraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", testdraft_draftdata, [ __allowreadonlyupdate := TRUE ]);
+  testdraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", testdraft_draftdata, [ ifreadonly := "update" ]);
 
   SubmitApprovalRequestForDraft(testdraft, [ userobject := testfw->GetUserObject("sysop"), message := "request approval to test readonlyness" ]);
   testfw->CommitWork();
@@ -1722,10 +1722,10 @@ OBJECT ASYNC FUNCTION PublisherActions()
 
   testfw->BeginWork();
   testfiledraft := CreateDraftFromFile(testfile);
-  testfiledraft->fsobject->UpdateMetadata([ data := StringToBlob("overwritten") ], [ __allowreadonlyupdate := TRUE ]);
+  testfiledraft->fsobject->UpdateMetadata([ data := StringToBlob("overwritten") ], [ ifreadonly := "update" ]);
   RECORD testdraft_draftdata := testfiledraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
   testdraft_draftdata.name := "versioned-modified.txt";
-  testfiledraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", testdraft_draftdata, [ __allowreadonlyupdate := TRUE ]);
+  testfiledraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", testdraft_draftdata, [ ifreadonly := "update" ]);
   testfw->CommitWork();
 
   RECORD download := (AWAIT ExpectSentWebFile(PTR TTClick("download"))).file;

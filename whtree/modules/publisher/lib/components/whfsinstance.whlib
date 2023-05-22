@@ -116,7 +116,7 @@ PUBLIC STATIC OBJECTTYPE WHFSInstance EXTEND TolliumCompositionBase
 
   PUBLIC MACRO WriteInstanceToFSObject(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions(CELL[ __allowreadonlyupdate := FALSE ], options);
+    options := ValidateOptions(CELL[ ifreadonly := "fail" ], options, [ enums := [ ifreadonly := [ "fail", "skip", "update" ]]]);
     OBJECT loc := this->pvt_basefsobject;
     IF(ObjectExists(this->type) AND ObjectExists(loc))
       loc->SetInstanceDataByType(this->type, this->GetUpdateValue(), options);

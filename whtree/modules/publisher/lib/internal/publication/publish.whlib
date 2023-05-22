@@ -249,11 +249,11 @@ PUBLIC STATIC OBJECTTYPE Reader
         StoreURLHistoryIfNeeded(fileid, CalculateFSObjectFullPathAndURL(fileid, [followlinks := FALSE]).url);
 
       FOREVERY(RECORD toset FROM setonpublish)
-        OpenWHFSType(toset.ns)->SetInstanceData(fileid, toset.data, [ isvisibleedit := FALSE ]);
+        OpenWHFSType(toset.ns)->SetInstanceData(fileid, toset.data, [ isvisibleedit := FALSE, ifreadonly := "skip" ]);
 
       OBJECT gatheredlinkstype := OpenWHFSType("http://www.webhare.net/xmlns/consilio/gatheredlinks");
       IF(ObjectExists(gatheredlinkstype))
-        gatheredlinkstype->SetInstanceData(fileid, [ links := checkablelinks ], [ isvisibleedit := FALSE ]); //isvisibleedit FALSE was the default because gatheredlinkstype is not cloneoncopy, but just to clarify...
+        gatheredlinkstype->SetInstanceData(fileid, [ links := checkablelinks ], [ isvisibleedit := FALSE, ifreadonly := "skip" ]); //isvisibleedit FALSE was the default because gatheredlinkstype is not cloneoncopy, but just to clarify...
     }
 
     GetPrimary()->CommitWork();
