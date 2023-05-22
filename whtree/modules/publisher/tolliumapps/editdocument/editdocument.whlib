@@ -844,7 +844,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
           // Set the 'published' flag of the draft (in the draftmetadata) to published.
           RECORD testdraft_draftdata := this->currentdraft->fsobject->GetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata");
           testdraft_draftdata.flags := testdraft_draftdata.flags BITOR DraftFlag_Publish;
-          this->currentdraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", testdraft_draftdata, [ __allowreadonlyupdate := TRUE ]);
+          this->currentdraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", testdraft_draftdata, [ ifreadonly := "update" ]);
 
           // Submit for approval
           SubmitApprovalRequestFromMetadata(work, fsobj, approval_metadata);

@@ -1557,14 +1557,20 @@ STATIC OBJECTTYPE WHFSType
     //TODO Gather all changes and UPDATE/INSERT/DELETE in one pass, so we won't be throwing any validation exceptions halfway a SetInstanceData
     options := ValidateOptions(
         [ isvisibleedit :=    this->cloneoncopy
-        , __allowreadonlyupdate := FALSE
-        ], options);
+        , ifreadonly := "fail"
+        ], options, [ enums := [ ifreadonly := [ "fail", "skip", "update" ]]]);
 
     RECORD file := SELECT parentsite, parent, type, whfspath FROM system.fs_objects WHERE id = objectid;
     IF(NOT RecordExists(file))
       THROW NEW Exception(`Attempting to update instance data on non existing file #${objectid}`);
-    IF(NOT options.__allowreadonlyupdate AND IsReadonlyWHFSSpace(file.whfspath)) //we still allow invisible edits so (old?) Draft code can do its job
+
+    IF(options.ifreadonly != "update" AND IsReadonlyWHFSSpace(file.whfspath)) //we still allow invisible edits so (old?) Draft code can do its job
+    {
+      IF(options.ifreadonly = "skip")
+        RETURN 0;
+
       THROW NEW Exception(`Attempting to update readonly object ${file.whfspath}`);
+    }
 
     IF(NOT this->pvt_members_valid)
       this->__LoadMembers();
@@ -1638,8 +1644,8 @@ STATIC OBJECTTYPE WHFSType
     options := ValidateOptions(
         [ isvisibleedit := this->cloneoncopy
         , orphans       := FALSE
-        , __allowreadonlyupdate := FALSE
-        ], options);
+        , ifreadonly := "fail"
+        ], options, [ enums := [ ifreadonly := [ "fail", "skip", "update" ]]]);
 
     BOOLEAN orphans := options.orphans;
     DELETE CELL orphans FROM options;

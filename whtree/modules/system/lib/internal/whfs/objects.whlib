@@ -634,8 +634,8 @@ OBJECTTYPE WHFSObject
   {
     options := ValidateOptions( [ runhooks := TRUE
                                 , setindex := FALSE
-                                , __allowreadonlyupdate := FALSE
-                                ], options);
+                                , ifreadonly := "fail"
+                                ], options, [ enums := [ ifreadonly := [ "fail", "skip", "update" ]]]);
 
     BOOLEAN republish_file := FALSE;
 
@@ -649,8 +649,11 @@ OBJECTTYPE WHFSObject
     IF(NOT this->isfolder)
       newmetadata := FixupDataAndType(newmetadata, oldversion);
 
-    IF(IsReadonlyWHFSSpace(this->whfspath) AND NOT options.__allowreadonlyupdate)
-      THROW NEW Exception(`Attempting to update readonly object ${this->whfspath}`);
+    IF(IsReadonlyWHFSSpace(this->whfspath))
+      IF(options.ifreadonly = "fail")
+        THROW NEW Exception(`Attempting to update readonly object ${this->whfspath}`);
+      ELSE IF(options.ifreadonly = "skip")
+        RETURN;
 
     STRING ARRAY canupdate := GetUpdatableMetadataFields(this->pvt_isfolder);
     FOREVERY(RECORD cellrec FROM UnpackRecord(newmetadata))

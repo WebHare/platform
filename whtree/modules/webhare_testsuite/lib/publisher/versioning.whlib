@@ -160,7 +160,7 @@ PUBLIC OBJECT FUNCTION UpdateDraftPublish(OBJECT testfile, BOOLEAN newpublish)
   testdraft_draftdata.flags := newpublish
       ? testdraft_draftdata.flags BITOR DraftFlag_Publish
       : testdraft_draftdata.flags BITAND BITNEG DraftFlag_Publish;
-  testdraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", testdraft_draftdata, [ __allowreadonlyupdate := TRUE ]);
+  testdraft->fsobject->SetInstanceData("http://www.webhare.net/xmlns/publisher/draftmetadata", testdraft_draftdata, [ ifreadonly := "update" ]);
   RETURN testdraft;
 }
 
