@@ -150,8 +150,8 @@ export default class ObjRTE extends ComponentBase {
     this.valuedirtycount = newvalue.valuedirtycount;
   }
 
-  getSubmitValue() {
-    const suggestedreturnvalue = this.rte.getValue();
+  async getSubmitValue() {
+    const suggestedreturnvalue = await this.rte.getValue();
     if (suggestedreturnvalue == this.restructuredcontent) //no material change ( FIXME Let the RTD implement this)
     {
       console.log("Returning untouched value");
