@@ -3,6 +3,10 @@ LOADLIB "wh::datetime.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/mailer.whlib";
+
+LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
 
 PUBLIC RECORD FUNCTION GetDeprecationScanReport()
 {
@@ -17,20 +21,41 @@ PUBLIC RECORD FUNCTION GetDeprecationScanReport()
                                FROM date_fs_members, fs_maxdatetime_settings
                               WHERE fs_maxdatetime_settings.fs_member = date_fs_members.id;
 
+  RECORD ARRAY emailmembers := SELECT id, type, tag
+                                 FROM wrd.attrs
+                                WHERE attributetype = wrd_attributetype_email;
+
+  RECORD ARRAY wrd_brokenemails := SELECT rawdata, attribute, num := COUNT(*)
+                                     FROM wrd.entity_settings
+                                    WHERE attribute IN (SELECT AS INTEGER ARRAY id FROM emailmembers)
+                                          AND NOT IsValidModernEmailAddress(rawdata)
+                                 GROUP BY rawdata, attribute;
+  wrd_brokenemails := SELECT *, attributetag := (SELECT AS STRING tag FROM emailmembers WHERE emailmembers.id = wrd_brokenemails.attribute)
+                        FROM wrd_brokenemails;
+
   RETURN CELL[ creationdate := now
              , versioninfo := GetWebHareVersionInfo()
              , name :=        GetServerName()
              , fs_maxdatetime_settings
-             , numissues := Length(fs_maxdatetime_settings)
+             , wrd_brokenemails
+             , numissues := Length(fs_maxdatetime_settings) + Length(wrd_brokenemails)
              ];
 }
 
 PUBLIC MACRO PrintDeprecationScanReport(RECORD report)
 {
   Print(`Deprecation scan generated ${EncodeJSON(report.creationdate)} on ${report.name} (${report.versioninfo.version}). ${report.numissues > 0 ? report.numissues || " issues found." : "No known deprecation issues"}\n`);
+
   IF(Length(report.fs_maxdatetime_settings) > 0)
     FOREVERY(RECORD toreport FROM report.fs_maxdatetime_settings)
       Print(`* ${toreport.namespace}#${toreport.name} has ${toreport.num} instances of MAX_DATETIME - this will not be supported in JavaScript\n`);
   ELSE
     Print(`- Good! No fs_settings with a MAX_DATETIME value\n`);
+
+  IF(Length(report.wrd_brokenemails) > 0)
+    FOREVERY(RECORD wrd_brokenemail FROM report.wrd_brokenemails)
+      Print(`* WRD Attribute #${wrd_brokenemail.attribute} (${wrd_brokenemail.attributetag}) contains ${wrd_brokenemail.num} instance(s) of a future unacceptable email address '${wrd_brokenemail.rawdata}'\n`);
+  ELSE
+    Print(`- Good! No WRD Email attributes with an unacceptable email address\n`);
+
 }

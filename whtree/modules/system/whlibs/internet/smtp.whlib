@@ -9,6 +9,7 @@ LOADLIB "wh::internet/mime.whlib" EXPORT TokenizeEmailAddresses, SplitEmailName;
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::util/stringparser.whlib";
+LOADLIB "wh::regex.whlib";
 
 STRING set_qtext, set_text, set_atext, set_fws, set_ctext;
 
@@ -256,6 +257,26 @@ PUBLIC BOOLEAN FUNCTION IsValidEmailAddress(STRING emailaddress)
 
   RETURN TRUE;
 }
+
+/** @short Check if an email address is valid in modern times
+    @long An emailcheck must closer to what a browser would do, with additional sanity checks. No attempt to allow all legacy styles supported by the RFCs but 99.9%+ sure to be an error if seen submitted in a form
+    @return True if the email address would appears to be a well-formed email address to a non-greybeard
+*/
+PUBLIC BOOLEAN FUNCTION IsValidModernEmailAddress(STRING emailaddress)
+{
+  //offical browser version according to MDN
+  //  RETURN NEW RegEx("^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$")->Test(emailaddress);
+
+  //update: two components in the domain name, the last component at least 2 charafters long (we don't want "...@webhare.n")
+  //  RETURN NEW RegEx("^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*(?:\\.[a-zA-Z0-9-]{2,})$")->Test(emailaddress);
+
+  //update: RFC3696 length restrictions
+  IF(Length(emailaddress) > 254)
+    RETURN FALSE;
+
+  RETURN NEW RegEx("^[a-zA-Z0-9.!#$%&’*+/=?^_`{|}~-]{1,64}@[a-zA-Z0-9-]+(?:\\.[a-zA-Z0-9-]+)*(?:\\.[a-zA-Z0-9-]{2,})$")->Test(emailaddress);
+}
+
 
 
 ///////////////////////////////////////////////////////////////////////////////
