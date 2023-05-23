@@ -2658,78 +2658,7 @@ export default class StructuredEditor extends EditorBase {
   //
 
   _createEmbeddedObjectNode(data) {
-    const isinline = data.embedtype == 'inline';
-    const basenode = isinline ? 'span' : 'div';
-
-    const has_inlinepreview = /wh-rtd__inlinepreview/.exec(data.htmltext);
-
-    const node = document.createElement(basenode); //the basenode is also used to show selection status
-    node.className = "wh-rtd-embeddedobject"
-      + (data.canedit ? " wh-rtd-embeddedobject--editable" : "")
-      + (data.wide ? " wh-rtd-embeddedobject--wide" : "")
-      + (isinline ? " wh-rtd-embeddedobject--inline" : " wh-rtd-embeddedobject--block")
-      + (has_inlinepreview ? " wh-rtd-embeddedobject--hasinlinepreview" : "");
-    node.dataset.instanceref = data.instanceref;
-    node.contentEditable = false;
-
-    const box = document.createElement(basenode); //the box is the 'gray' rounded border area for the widget
-    box.className = "wh-rtd-embeddedobject__box";
-    node.appendChild(box);
-
-    let typebox = null;
-
-    if (data.typetext) {
-      /* if we neeed a todd icon, reuse <img class="wh-rtd__preview__typeboxicon" width="16" height="16" data-toddimg="[icon]|16|16|w"> */
-      typebox = document.createElement(basenode);
-      typebox.className = "wh-rtd-embeddedobject__typebox";
-      typebox.innerHTML = data.typetext;
-    }
-
-    //objectbuttons need to appear first so we can use position:sticky
-    const objectbuttons = document.createElement(basenode);
-    objectbuttons.className = "wh-rtd-objectbuttons";
-
-    const stickyheader = document.createElement(basenode);
-    stickyheader.className = "wh-rtd-embeddedobject__stickyheader";
-    if (typebox)
-      stickyheader.appendChild(typebox);
-    stickyheader.appendChild(objectbuttons);
-    box.appendChild(stickyheader);
-
-    const previewnode = document.createElement(basenode);
-    previewnode.className = "wh-rtd-embeddedobject__preview";
-    previewnode.innerHTML = data.htmltext;
-    box.appendChild(previewnode);
-
-    if (!isinline) {
-      const navabovebutton = document.createElement(basenode);
-      navabovebutton.className = "wh-rtd-navabovebutton";
-      navabovebutton.setAttribute("data-rte-subaction", "navabove");
-
-      objectbuttons.appendChild(navabovebutton);
-
-      const navunderbutton = document.createElement(basenode);
-      navunderbutton.className = "wh-rtd-navunderbutton";
-      navunderbutton.setAttribute("data-rte-subaction", "navunder");
-
-      objectbuttons.appendChild(navunderbutton);
-    }
-
-    if (this.options.editembeddedobjects) {
-      const editbutton = document.createElement(basenode);
-      editbutton.className = "wh-rtd-editbutton";
-      editbutton.setAttribute("data-rte-subaction", "edit");
-
-      objectbuttons.appendChild(editbutton);
-    }
-
-    const deletebutton = document.createElement(basenode);
-    deletebutton.className = "wh-rtd-deletebutton";
-    deletebutton.setAttribute("data-rte-subaction", "delete");
-
-    objectbuttons.appendChild(deletebutton);
-
-    return node;
+    return rtesupport.buildEmbeddedObjectNode(data, this.options);
   }
 
   insertEmbeddedObject(data) {
