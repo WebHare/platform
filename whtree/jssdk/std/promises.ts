@@ -66,8 +66,7 @@ export function serialize<RetVal>(fn: (...args: unknown[]) => Promise<RetVal>, c
   let queue = Promise.resolve() as Promise<unknown>;
   return (...args: unknown[]): Promise<RetVal> => {
     const res = queue.then(() => fn(...args));
-    // eslint-disable-next-line @typescript-eslint/no-empty-function
-    queue = res.catch(() => { });
+    queue = res.catch(() => { /* ignore errors */ });
     return res;
   };
 }
