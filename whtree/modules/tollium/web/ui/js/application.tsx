@@ -715,32 +715,37 @@ export class BackendApplication extends ApplicationBase {
     this._sendQueuedEvents();
   }
 
-  _sendQueuedEvents() {
-    if (this.eventcallbacks.length != 0) {
-      if (this.queuedEvents.length)
-        console.log('Deferring sending queued events, still outstanding sync events');
-      return;
-    }
-
+  async _sendQueuedEvents() {
     if (!this.appcomm) // Not shut down already?
       return;
 
     let sentforms = false;
     while (this.queuedEvents.length) {
+      if (this.eventcallbacks.some(_ => _.synchronous))
+        return; // wait for earlier sync events to finish
+
+      const seqnr = this.appcomm.allocMessageNr(); //we need a seqnr early to be able to lock the synchronous message queue
       const event = this.queuedEvents.shift();
+      this.eventcallbacks.push({ seqnr: seqnr, callback: event.callback, synchronous: event.synchronous });
+
+      const forms = [];
+      // Send forms only once per run of events
+      if (!sentforms) {
+        for (const key of Object.keys(this.screenmap))
+          forms.push({
+            name: key,
+            fields: await this.screenmap[key].getSubmitVariables()
+          });
+
+        sentforms = true;
+      }
 
       var response = {
         action: event.actionname,
         param: event.param || '',
-        forms: [],
+        forms,
         requirereply: true
       };
-
-      // Send forms only once per run of events
-      if (!sentforms) {
-        response.forms = Object.keys(this.screenmap).map(key => ({ name: key, fields: this.screenmap[key].getSubmitVariables() }));
-        sentforms = true;
-      }
 
       if ($todd.IsDebugTypeEnabled('rpc')) {
         console.group("RPC log - outgoing. " + (response.requirereply ? 'sync' : 'async') + ", action: " + (event.actionname || 'n/a') + ', param:', event.param || '');
@@ -752,12 +757,7 @@ export class BackendApplication extends ApplicationBase {
         console.groupEnd();
       }
 
-      const seqnr = this.appcomm.queueMessage(response);
-      this.eventcallbacks.push({ seqnr: seqnr, callback: event.callback });
-
-      // Issue max 1 synchronous event at a time
-      if (event.synchronous)
-        break;
+      this.appcomm.queueMessageWithSeqnr(seqnr, response);
     }
   }
 

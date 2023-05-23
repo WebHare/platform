@@ -203,7 +203,7 @@ ASYNC MACRO TestManageSnippets()
   RECORD insertedobjectinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="InsertEmbeddedObject";
   TestAssert(RecordExists(insertedobjectinstr), "Should have an inserted object on the instructionstream");
 
-  OBJECT inserteddom := MakeXMLDocumentFromHTML(StringToBlob(insertedobjectinstr.messages[0].data.htmltext));
+  OBJECT inserteddom := MakeXMLDocumentFromHTML(StringToBlob(insertedobjectinstr.messages[0].data.widget.htmltext));
   TestEq("/webhare-tests/webhare_testsuite.testsite/tmp/", inserteddom->QuerySelector("div")->GetAttribute("data-libraries-temp"));
 
   AWAIT ExpectScreenChange(-1, PTR TTClick(":OK"));

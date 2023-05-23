@@ -727,7 +727,7 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
     RETURN RECORD[];
   }
 
-  PUBLIC MACRO HandleServersideButton(STRING buttonname, STRING ARRAY params)
+  MACRO HandleServersideButton(STRING buttonname, STRING messagetag)
   {
     // Check if application wants to handle this action
     IF(buttonname IN this->interceptbuttons)
@@ -757,16 +757,24 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
         {
           RECORD insertvalue := DoEditWidget(this->owner, this, widgettype.namespace, DEFAULT RECORD, DEFAULT OBJECT, this->contexts->applytester, FALSE, FALSE, "", DEFAULT RECORD);
           IF(RecordExists(insertvalue))
-            this->InsertEmbeddedObject(insertvalue.instance);
+          {
+            this->InsertEmbeddedObject(insertvalue.instance, messagetag);
+            RETURN;
+          }
         }
       }
       CASE "object-video"
       {
         RECORD insertvalue := DoEditWidget(this->owner, this, "http://www.webhare.net/xmlns/publisher/embedvideo", DEFAULT RECORD, DEFAULT OBJECT, this->contexts->applytester, FALSE, FALSE, "", DEFAULT RECORD);
         IF(RecordExists(insertvalue))
-          this->InsertEmbeddedObject(insertvalue.instance);
+        {
+          this->InsertEmbeddedObject(insertvalue.instance, messagetag);
+          RETURN;
+        }
       }
     }
+    IF(messagetag != "")
+      this->QueueOutboundMessage("Cancel", CELL[messagetag]);
   }
 
   PUBLIC MACRO InsertImage(BLOB data, STRING filename)
@@ -792,7 +800,8 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
     }
     IF(type="buttonclick")
     {
-      this->HandleServersideButton(msgdata.button, CellExists(msgdata, "params") ? msgdata.params : DEFAULT STRING ARRAY);
+      msgdata := EnforceStructure(CELL[ button := "", messagetag := ""], msgdata);
+      this->HandleServersideButton(msgdata.button, msgdata.messagetag);
       RETURN;
     }
     IF(type="dirty")
@@ -985,9 +994,9 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
   //
   // Block component API
   //
-  PUBLIC MACRO InsertEmbeddedObject(RECORD instancerec)
+  PUBLIC MACRO InsertEmbeddedObject(RECORD instancerec, STRING messagetag DEFAULTSTO "")
   {
-    this->QueueOutboundMessage("InsertEmbeddedObject", this->editable->CreateWidget(instancerec));
+    this->QueueOutboundMessage("InsertEmbeddedObject", CELL[ widget := this->editable->CreateWidget(instancerec), messagetag ]);
     this->SetDirty();
   }
 

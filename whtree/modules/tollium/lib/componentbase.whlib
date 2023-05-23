@@ -3247,6 +3247,7 @@ PUBLIC STATIC OBJECTTYPE TolliumEventListenerBase EXTEND TolliumSpecialComponent
 
   MACRO GotEvent(STRING event, RECORD ARRAY data)
   {
+    //NOTE synchronous here is about broadcasted local event, not tollium's _sendQueuedEvents 'synchronous' which should block further messages
     BOOLEAN issync := RecordExists(SELECT FROM data WHERE issynchronous);
     INSERT [ event := event, data := (SELECT AS RECORD ARRAY msg FROM data) ] INTO this->pvt_pending AT END;
 

@@ -84,7 +84,7 @@ OBJECT ASYNC FUNCTION CreateDoc()
 
   RECORD insertedobjectinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="InsertEmbeddedObject";
   TestEq(TRUE, RecordExists(insertedobjectinstr), "Unable to find the InsertEmbeddedObject instruction in the outgoing instruction stream");
-  STRING instanceref := insertedobjectinstr.messages[0].data.instanceref;
+  STRING instanceref := insertedobjectinstr.messages[0].data.widget.instanceref;
 
   STRING newvalue := corevalue || '<div class="wh-rtd-embeddedobject" data-instanceref="' || EncodeValue(instanceref) || '"></div>';
   Rte()->TolliumWeb_FormUpdate('<html><body>' || newvalue || '</body></html>');

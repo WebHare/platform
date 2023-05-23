@@ -99,11 +99,14 @@ export default class LinkEndpoint { // -----------------------------------------
         if (this.queuedmessages[startmsgpos].seqnr > this.lastsentseqnr)
           break;
 
-    this.lastsentseqnr = this.msgcounter;
+    const sendmessages = this.queuedmessages.slice(startmsgpos);
+    if (sendmessages.length)
+      this.lastsentseqnr = sendmessages.at(-1).seqnr;
+
     const wiremsg =
     {
       linkid: this.options.linkid,
-      messages: this.queuedmessages.slice(startmsgpos),
+      messages: sendmessages,
       ack: this.lastreceivedseqnr,
       frontendid: this.options.frontendid,
       needack: this.queuedmessages.length != 0
@@ -133,15 +136,18 @@ export default class LinkEndpoint { // -----------------------------------------
     this.queuedmessages = [];
   }
 
-  /// Queue a new message. Returns the message nr (which is monotonically increasing in time)
-  queueMessage(message) {
+  /// allocate a message number (which is monotonically increasing in time)
+  allocMessageNr() {
+    return ++this.msgcounter;
+  }
+
+  /// Queue a new message with the earlier seqnr
+  queueMessageWithSeqnr(seqnr, message) {
     $todd.DebugTypedLog("rpc", '** QUEUE MESSAGE', message);
-    this.queuedmessages.push({ seqnr: ++this.msgcounter, data: message });
+    this.queuedmessages.push({ seqnr, data: message });
 
     if (!this.stoptransmit && this.transport)
       this.transport.setSignalled(this);
-
-    return this.msgcounter;
   }
 
   /** Indicate that messages have been received through another channel. Pass the seqnr of the last message.
