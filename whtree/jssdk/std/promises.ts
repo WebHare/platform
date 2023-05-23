@@ -60,3 +60,14 @@ export function wrapInTimeout<T>(promise: Promise<T>, timeout: WaitPeriod, rejec
 
   return Promise.race([promise, timeoutpromise]);
 }
+
+/** Wrap a function in a serializer */
+export function serialize<RetVal>(fn: (...args: unknown[]) => Promise<RetVal>, context: unknown) {
+  let queue = Promise.resolve() as Promise<unknown>;
+  return (...args: unknown[]): Promise<RetVal> => {
+    const res = queue.then(() => fn(...args));
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    queue = res.catch(() => { });
+    return res;
+  };
+}
