@@ -5,6 +5,7 @@
     "jsx": "react",
     "jsxFactory": "dompack.jsxcreate",
     "jsxFragmentFactory": "dompack.jsxfragment",
+    "noEmit": true,
     "paths": {
       "dompack": [
         "modules/system/js/dompack"
