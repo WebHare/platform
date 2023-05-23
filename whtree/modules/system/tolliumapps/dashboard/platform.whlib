@@ -42,7 +42,7 @@ PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase
   /** @short This monitor has been deactivated, stop refreshing */
   UPDATE PUBLIC MACRO DisableRefresh()
   {
-    ^results->eventmasks := RECORD[];
+    ^results->eventmasks := STRING[];
   }
 
   MACRO RefreshPlatformInfo()

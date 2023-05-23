@@ -329,6 +329,25 @@ async function testCollections() {
   test.eq("Horse", std.emplace(map2, Symbol(), { insert: () => "Horse" }));
 }
 
+
+class TestClass {
+  counter = 0;
+
+  constructor() {
+    ///@ts-ignore -- manually decorate our toSerialize call
+    this.toSerialize = std.serialize(this.toSerialize.bind(this));
+  }
+
+  /* @serialize */ async toSerialize(delay: number) {
+    const currentcounter = this.counter;
+    await std.sleep(delay >= 0 ? delay : 1);
+    if (delay < 0)
+      throw new Error("Threw at " + currentcounter);
+    test.eq(currentcounter, this.counter, "Only we should increment it");
+    return ++this.counter;
+  }
+}
+
 async function testPromises() {
   const aborter = new AbortController; //to make sure our tests don't hang on the unresolved sleep
   await std.wrapInTimeout(std.sleep(1), 10000, new Error("Should not timeout"));
@@ -338,6 +357,21 @@ async function testPromises() {
   await test.throws(/oepsie/, std.wrapInTimeout(std.sleep(60000, { signal: aborter.signal }), 1, () => "oepsie"));
   await test.throws(/oepsie/, std.wrapInTimeout(std.sleep(60000, { signal: aborter.signal }), 1, () => new Error("oepsie")));
   aborter.abort();
+
+  //test serializer
+  const tester = new TestClass;
+  const call1 = tester.toSerialize(200);
+  const call2 = tester.toSerialize(100);
+  //test a throwing action not disrupting the rest of the queue
+  const shouldthrow = tester.toSerialize(-1);
+  const call3 = tester.toSerialize(0);
+
+  await test.wait(() => tester.counter === 3);
+  test.eq(1, await call1);
+  test.eq(2, await call2);
+  test.eq(3, await call3);
+
+  await test.throws(/Threw at 2/, shouldthrow);
 }
 
 const testlist = [
