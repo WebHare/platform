@@ -156,11 +156,11 @@ OBJECT ASYNC FUNCTION InsertEmbObj()
   RECORD insertedobjectinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="InsertEmbeddedObject";
   TestEq(TRUE, RecordExists(insertedobjectinstr), "Unable to find the InsertEmbeddedObject instruction in the outgoing instruction stream #1");
   RECORD insertdata := insertedobjectinstr.messages[0].data;
-  TestEq(TRUE, insertdata.canedit);
-  RTE()->TolliumWeb_FormUpdate('<html><body><div class="wh-rtd-embeddedobject" data-instanceref="' || EncodeValue(insertdata.instanceref) || '"></div></body></html>');
+  TestEq(TRUE, insertdata.widget.canedit);
+  RTE()->TolliumWeb_FormUpdate('<html><body><div class="wh-rtd-embeddedobject" data-instanceref="' || EncodeValue(insertdata.widget.instanceref) || '"></div></body></html>');
   RTE()->__debug_simulatedirty();
 
-  OBJECT insertedobj := MakeXMLDocumentFromHTML(StringToBLob(insertdata.htmltext),"UTF-8",FALSE,TRUE);
+  OBJECT insertedobj := MakeXMLDocumentFromHTML(StringToBLob(insertdata.widget.htmltext),"UTF-8",FALSE,TRUE);
   TestEq("div", insertedobj->documentelement->nodename);
   TestEq("en", insertedobj->documentelement->GetAttribute("data-lang"));
   TestEq(ToString(GetTestsuiteTempFolder()->parentsite), insertedobj->documentelement->GetAttribute("data-targetsite"));
@@ -291,17 +291,17 @@ OBJECT ASYNC FUNCTION InsertEmbObj_SecondLevel(OBJECT rte)
   RECORD insertedobjectinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="InsertEmbeddedObject";
   TestEq(TRUE, RecordExists(insertedobjectinstr), "Unable to find the InsertEmbeddedObject instruction in the outgoing instruction stream");
   RECORD insertdata := insertedobjectinstr.messages[0].data;
-  TestEqLIke('*level2widget*This is the <a*href*>text</a> entered into a <a*href*>level 2 rtd</a>*', insertdata.htmltext);
+  TestEqLIke('*level2widget*This is the <a*href*>text</a> entered into a <a*href*>level 2 rtd</a>*', insertdata.widget.htmltext);
 
 
-  OBJECT insertedobj := MakeXMLDocumentFromHTML(StringToBLob(insertdata.htmltext),"UTF-8",FALSE,TRUE);
+  OBJECT insertedobj := MakeXMLDocumentFromHTML(StringToBLob(insertdata.widget.htmltext),"UTF-8",FALSE,TRUE);
   TestEq("div", insertedobj->documentelement->nodename);
   TestEq("en", insertedobj->documentelement->GetAttribute("data-lang"));
   TestEq("http://www.webhare.net/xmlns/webhare_testsuite/rtd/embedlvl2", insertedobj->documentelement->GetAttribute("data-mytype"));
   TestEq("http://www.webhare.net/xmlns/webhare_testsuite/rtd/level2", insertedobj->documentelement->GetAttribute("data-rtdtype"));
   TestEq("/.publisher/sd/webhare_testsuite/basetest/img/", insertedobj->documentelement->GetAttribute("data-imgroot"));
 
-  AWAIT ExpectScreenChange(+1, PTR rte->ProcessInboundMessage("properties2", [ action := "action-properties", subaction := "edit", affectednodeinfo := [ type := "embeddedobject", instanceref := insertdata.instanceref ], actionid:= "XX" ]));
+  AWAIT ExpectScreenChange(+1, PTR rte->ProcessInboundMessage("properties2", [ action := "action-properties", subaction := "edit", affectednodeinfo := [ type := "embeddedobject", instanceref := insertdata.widget.instanceref ], actionid:= "XX" ]));
 
   rte := TT("instance")->GetComponent("richdoc");
   TestEQLIke('*This is the *text*', BlobToString(rte->value.htmltext));
@@ -309,7 +309,7 @@ OBJECT ASYNC FUNCTION InsertEmbObj_SecondLevel(OBJECT rte)
 
   //Keep this RTE
   rte := TT("richdoc");
-  rte->TolliumWeb_FormUpdate('<html><body><div class="wh-rtd-embeddedobject" data-instanceref="' || EncodeValue(insertdata.instanceref) || '"></div></body></html>');
+  rte->TolliumWeb_FormUpdate('<html><body><div class="wh-rtd-embeddedobject" data-instanceref="' || EncodeValue(insertdata.widget.instanceref) || '"></div></body></html>');
   rte->__debug_simulatedirty();
 
   STRING clientvalue := rte->GetRenderValue();

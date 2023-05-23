@@ -21,7 +21,7 @@ RECORD FUNCTION SimulateClientSideInsertWidget()
   RECORD insertedobjectinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="InsertEmbeddedObject";
   TestEq(TRUE, RecordExists(insertedobjectinstr), "Unable to find the InsertEmbeddedObject instruction in the outgoing instruction stream #1");
   RECORD insertdata := insertedobjectinstr.messages[0].data;
-  RTE()->TolliumWeb_FormUpdate('<html><body><div class="wh-rtd-embeddedobject" data-instanceref="' || EncodeValue(insertdata.instanceref) || '"></div></body></html>');
+  RTE()->TolliumWeb_FormUpdate('<html><body><div class="wh-rtd-embeddedobject" data-instanceref="' || EncodeValue(insertdata.widget.instanceref) || '"></div></body></html>');
   RTE()->__debug_simulatedirty();
 
   RETURN insertdata;
@@ -44,7 +44,7 @@ ASYNC MACRO TestEmptyWidget()
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
   RECORD insertdata := SimulateClientSideInsertWidget();
-  TestEq(FALSE, insertdata.canedit);
+  TestEq(FALSE, insertdata.widget.canedit);
 
   AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("publishbutton")); //answer to dialog: are you sure you want to publish?
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
@@ -77,7 +77,7 @@ ASYNC MACRO TestVideoWidget()
 
   RECORD insertdata := SimulateClientSideInsertWidget();
 
-  AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("properties2", [ action := "action-properties", subaction := "edit", affectednodeinfo := [ type := "embeddedobject", instanceref := insertdata.instanceref ], actionid:= "XX" ]));
+  AWAIT ExpectScreenChange(+1, PTR RTE()->ProcessInboundMessage("properties2", [ action := "action-properties", subaction := "edit", affectednodeinfo := [ type := "embeddedobject", instanceref := insertdata.widget.instanceref ], actionid:= "XX" ]));
   TestEq(0, TT("starttime")->value);
   TT("starttime")->value := 5000;
   TT("endtime")->value :=   10000;

@@ -32,6 +32,8 @@ require("@mod-tollium/web/ui/components/richeditor/richeditor.lang.json"); //TOD
 */
 
 export default class ObjRTE extends ComponentBase {
+  callbacks = new Map<number, (result: unknown) => void>;
+
   constructor(parentcomp, data, replacingcomp) {
     super(parentcomp, data, replacingcomp);
     this.componenttype = "rte";
@@ -224,13 +226,18 @@ export default class ObjRTE extends ComponentBase {
   /****************************************************************************************************************************
   * Events
   */
-  _doExecuteAction(event) {
+  _doExecuteAction(event: any) {
     const action = event.detail.action;
+    let messagetag = '';
+    if (event.detail.callback) {
+      messagetag = 'cb' + ++this._pendingactiontargetseq;
+      this.callbacks.set(messagetag, event.detail.callback);
+    }
 
     if (["a-href", "object-insert", "object-video"].includes(action)) {
       event.stopPropagation();
       event.preventDefault();
-      this.doButtonClick(action);
+      this.doButtonClick(action, messagetag);
     }
     if (["action-properties", "webhare-inspect"].includes(action)) {
       //FIXME RTE should always send us getTargetInfo reslt...
@@ -250,11 +257,8 @@ export default class ObjRTE extends ComponentBase {
     }
   }
 
-  doButtonClick(buttonname, params) {
-    const data = { button: buttonname };
-    if (params)
-      data.params = params;
-    this.queueMessage('buttonclick', data, true);
+  doButtonClick(button: string, messagetag: string) {
+    this.queueMessage('buttonclick', { button, messagetag }, true);
   }
 
   _onRTEStateChange() {
@@ -339,12 +343,30 @@ export default class ObjRTE extends ComponentBase {
     this.queueMessage("dirty", { valuedirtycount: this.valuedirtycount, valuegeneration: this.valuegeneration });
   }
 
+  private resolveCallback(messagetag: string, result: object | null) {
+    const cb = this.callbacks.get(messagetag);
+    if (!cb)
+      throw new Error(`Callback for message ${messagetag} not found`);
+    this.callbacks.delete(messagetag);
+    cb(result);
+  }
+
+  /** This callback is invoked by rte.whlib if an action associated with a tagged message was cancelled (ie cancelling insert widget) */
+  onMsgCancel(data: { messagetag: string }) {
+    this.resolveCallback(data.messagetag, null);
+  }
+
   onMsgInsertHyperlink(data) {
     this.rte.getEditor().insertHyperlink(data.url, { target: data.target });
   }
 
-  onMsgInsertEmbeddedObject(data) {
-    this.rte.getEditor().insertEmbeddedObject(data);
+  onMsgInsertEmbeddedObject(data: { messagetag?: string; widget: object }) {
+    if (data.messagetag) {
+      this.resolveCallback(data.messagetag, data.widget);
+      return;
+    }
+
+    this.rte.getEditor().insertEmbeddedObject(data.widget);
   }
 
   onMsgInsertImage(data) {

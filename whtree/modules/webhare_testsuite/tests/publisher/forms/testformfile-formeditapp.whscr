@@ -232,10 +232,10 @@ PUBLIC ASYNC MACRO TestBuildCustomForm()
   RECORD insertedobjectinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE instr="update" AND type="messages" AND messages[0].type="InsertEmbeddedObject";
   TestEq(TRUE, RecordExists(insertedobjectinstr), "Unable to find the InsertEmbeddedObject instruction in the outgoing instruction stream #1");
   RECORD insertdata := insertedobjectinstr.messages[0].data;
-  TestEq(TRUE, insertdata.canedit);
-  TestEqLike("*&#203;mail pretty plz*", insertdata.htmltext);
+  TestEq(TRUE, insertdata.widget.canedit);
+  TestEqLike("*&#203;mail pretty plz*", insertdata.widget.htmltext);
 
-  TT(":Email contents")->TolliumWeb_FormUpdate('<html><body><p class="normal">Your email is: <span class="wh-rtd-embeddedobject" data-instanceref="' || EncodeValue(insertdata.instanceref) || '"></span></p></body></html>');
+  TT(":Email contents")->TolliumWeb_FormUpdate('<html><body><p class="normal">Your email is: <span class="wh-rtd-embeddedobject" data-instanceref="' || EncodeValue(insertdata.widget.instanceref) || '"></span></p></body></html>');
   TT(":Email contents")->__debug_simulatedirty();
   TT(":Sender name")->value := "testformfile-formeditapp";
   TT(":Sender address")->value := "testformfile-formeditapp@beta.webhare.net";

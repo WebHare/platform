@@ -33,7 +33,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->structured->ondirty := PTR this->GotDirty;
     this->structured->value := GetTestRTD( [ bigstructure := "bigstructure" IN data.params ]);
 
-    IF("bigstructure" IN data.params)
+    IF("structure" IN data.params OR "bigstructure" IN data.params)
     {
       this->rteholder->selectedtab := this->othertab;
     }
