@@ -103,7 +103,7 @@ PUBLIC RECORD ARRAY FUNCTION GetNoticeErrors(RECORD options DEFAULTSTO DEFAULT R
       ELSE
         firstlinepart := "";
 
-      allerrors := allerrors CONCAT AddErrors(lines);
+      allerrors := AddErrors(lines) CONCAT allerrors;
     }
 
     IF (LENGTH(allerrors) > count)
