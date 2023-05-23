@@ -273,8 +273,8 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
 
   /** Set CSS files
       @param files
-      @cell data Data of CSS (optional)
-      @cell path Resource path to CSS file. If DATA is not provided, used to get the data. If present, used to resolve and
+      @cell files.data Data of CSS (optional)
+      @cell files.path Resource path to CSS file. If DATA is not provided, used to get the data. If present, used to resolve and
         host linked CSS images inline
   */
   MACRO SetCSSFiles(RECORD ARRAY files)
