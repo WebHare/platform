@@ -1465,7 +1465,7 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
             }
             ELSE
             {
-              // can't view/walk through types: VMRef, Schema
+              // can't view/walk through types: Schema
               fail := TRUE;
               failreason := 'Cant read elements of "<b>' || encodeHTML(prevpropname) || '</b>" because its datatype is unsupported at the moment.';
             }

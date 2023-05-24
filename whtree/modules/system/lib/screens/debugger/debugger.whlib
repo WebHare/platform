@@ -71,18 +71,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
   /// Action in progress ('', 'continue', 'pause', 'pausefordelayedactions', 'runningdelayedactions')
   STRING pendingaction;
 
-  /** List of vms, and libraries per vm
-      @cell(integer) vm VM id
-      @cell(record array) libraries
-      @cell(string) libraries.liburi URI of the library
-      @cell(integer) libraries.globalvarlocation Position of the global variable section of this library on the heap
-      @cell(datetime) libraries.sourcetime Source modificationdate of this library
-      @cell(datetime) libraries.compile_id Compile-id of the compiled library
-  */
-  RECORD ARRAY job_vms;
-
   /** List of all libraries in all vms
-      @cell(integer) vm VM id
       @cell(string) liburi URI of the library
       @cell(integer) globalvarlocation Position of the global variable section of this library on the heap
       @cell(datetime) sourcetime Source modificationdate of this library
@@ -96,7 +85,6 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       @cell(integer) minstacksize Stop when stacksize falls below this value (0 for don't stop). Relative to currstatus.stacksize
       @cell(integer) maxstacksize Stop when stacksize gets above this value (-1 for don't stop). Relative to currstatus.stacksize
       @cell(record array) breakpoints Extra breakpoints to add to user breakpoints
-      @cell(integer) breakpoints.vm VM id
       @cell(string) breakpoints.liburi URI of the library
       @cell(string) breakpoints.compile_id Compile-id of the compiled library
       @cell(integer) breakpoints.codeptr Codeptr in library where to stop
@@ -742,8 +730,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       INTEGER ARRAY codeptrs := lib.clib->GetLineStarts(rec.line);
 
       result := result CONCAT
-          SELECT vm :=          lib.vm
-               , liburi :=      lib.liburi
+          SELECT liburi :=      lib.liburi
                , compile_id :=  lib.compile_id
                , codeptr
                , stacksize :=   -1
@@ -897,7 +884,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
     // Locate the right clib for this filename&vm
     STRING filename := this->ResolveFile(sel.filename);
-    RECORD pos := RecordLowerBound(this->loadedlibraries, [ filename := filename, vm := sel.vm ], [ "FILENAME", "VM" ]);
+    RECORD pos := RecordLowerBound(this->loadedlibraries, [ filename := filename ], [ "FILENAME" ]);
     IF (NOT pos.found)
     {
       ABORT([sel := sel, ll := this->loadedlibraries ], "tree:3");
@@ -959,15 +946,14 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       this->pendingaction := "";
       this->currstatus := DEFAULT RECORD;
       this->variablerequest := DEFAULT OBJECT;
-      this->job_vms := DEFAULT RECORD ARRAY;
       this->step_config := DEFAULT RECORD;
 
       PRINT("Pausing job\n");
       RECORD pausedstatus := AWAIT job->Pause();
       PRINT("Pausing job: done, gettting libraries\n");
-      this->job_vms := (AWAIT job->GetLibraries()).vms;
+      RECORD ARRAY libraries := (AWAIT job->GetLibraries()).libraries;
       PRINT("Starting library processing\n");
-      this->ProcessLibraries(job, pausedstatus);
+      this->ProcessLibraries(job, pausedstatus, libraries);
       PRINT("Libraries have been processed\n");
 
       this->job := job;
@@ -1009,42 +995,40 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   OBJECT ASYNC FUNCTION ReloadLibraries()
   {
-    this->job_vms := (AWAIT this->job->GetLibraries()).vms;
+    RECORD ARRAY libraries := (AWAIT this->job->GetLibraries()).libraries;
     PRINT("Starting library processing\n");
-    this->ProcessLibraries(this->job, this->currstatus);
+    this->ProcessLibraries(this->job, this->currstatus, libraries);
     AWAIT this->SendBreakpoints();
     RETURN DEFAULT RECORD;
   }
 
-  RECORD FUNCTION ProcessLibraries(OBJECT job, RECORD pausedstatus)
+  RECORD FUNCTION ProcessLibraries(OBJECT job, RECORD pausedstatus, RECORD ARRAY libraries)
   {
     BOOLEAN loaded_new;
 
-    FOREVERY (RECORD vm FROM this->job_vms)
-      FOREVERY (RECORD lib FROM vm.libraries)
-      {
-        STRING filename := this->ResolveFile(lib.liburi);
+    FOREVERY (RECORD lib FROM libraries)
+    {
+      STRING filename := this->ResolveFile(lib.liburi);
 
-        // Already loaded?
-        RECORD pos := RecordLowerBound(this->loadedlibraries, [ filename := filename, vm := vm.vm ], [ "FILENAME", "VM" ]);
-        IF (pos.found)
-          CONTINUE;
+      // Already loaded?
+      RECORD pos := RecordLowerBound(this->loadedlibraries, [ filename := filename ], [ "FILENAME" ]);
+      IF (pos.found)
+        CONTINUE;
 
-        OBJECT clib := this->GetLibrary(lib.liburi, lib.compile_id);
+      OBJECT clib := this->GetLibrary(lib.liburi, lib.compile_id);
 
-        RECORD rec :=
-            [ vm :=                 vm.vm
-            , compile_id :=         lib.compile_id
-            , globalvarlocation :=  lib.globalvarlocation
-            , liburi :=             lib.liburi
-            , sourcetime :=         lib.sourcetime
-            , filename :=           filename
-            , clib :=               clib
-            ];
+      RECORD rec :=
+          [ compile_id :=         lib.compile_id
+          , globalvarlocation :=  lib.globalvarlocation
+          , liburi :=             lib.liburi
+          , sourcetime :=         lib.sourcetime
+          , filename :=           filename
+          , clib :=               clib
+          ];
 
-        INSERT rec INTO this->loadedlibraries AT pos.position;
-        loaded_new := TRUE;
-      }
+      INSERT rec INTO this->loadedlibraries AT pos.position;
+      loaded_new := TRUE;
+    }
 
     IF (loaded_new)
     {
@@ -1303,7 +1287,6 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->RunScreen("mod::system/tolliumapps/debugger/variableinspector.xml",
         [ job :=    this->job
         , id :=     result.id
-        , vm :=     result.vm
         , path :=   sel.name
         ]);
   }
@@ -1343,7 +1326,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
     IF (item.codeptr != -1)
     {
-      RECORD pos := RecordLowerBound(this->loadedlibraries, [ filename := filename, vm := item.vm ], [ "FILENAME", "VM" ]);
+      RECORD pos := RecordLowerBound(this->loadedlibraries, [ filename := filename ], [ "FILENAME" ]);
       IF (pos.found)
       {
         RECORD lib := this->loadedlibraries[pos.position];
@@ -1358,8 +1341,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
           starts := lib.clib->GetNextLineStarts(item.codeptr);
 
         this->step_config.breakpoints :=
-            SELECT vm :=          lib.vm
-                 , liburi :=      lib.liburi
+            SELECT liburi :=      lib.liburi
                  , compile_id :=  lib.compile_id
                  , codeptr
                  , stacksize :=   breakpoint_stacksize

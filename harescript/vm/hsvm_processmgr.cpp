@@ -3301,9 +3301,8 @@ void GetJobCancellable(VarId id_set, VirtualMachine *vm)
         HSVM_BooleanSet(*vm, id_set, jobmgr->GetCancellable(vm->GetVMGroup()));
 }
 
-void GetVMStackTraceFromElements(VirtualMachine *vm, HSVM_VariableId var_stacktrace, std::vector< StackTraceElement > const &elements, VirtualMachine *testvm, bool full)
+void GetVMStackTraceFromElements(VirtualMachine *vm, HSVM_VariableId var_stacktrace, std::vector< StackTraceElement > const &elements, bool full)
 {
-        assert(!full || testvm);
         HSVM_SetDefault(*vm, var_stacktrace, HSVM_VAR_RecordArray);
 
         for (auto it2 = elements.begin(); it2 != elements.end(); ++it2)
@@ -3318,7 +3317,6 @@ void GetVMStackTraceFromElements(VirtualMachine *vm, HSVM_VariableId var_stacktr
                 {
                         HSVM_IntegerSet(*vm, HSVM_RecordCreate(*vm, var_elt, vm->cn_cache.col_codeptr), it2->codeptr);
                         HSVM_IntegerSet(*vm, HSVM_RecordCreate(*vm, var_elt, vm->cn_cache.col_baseptr), it2->baseptr);
-                        HSVM_IntegerSet(*vm, HSVM_RecordCreate(*vm, var_elt, vm->cn_cache.col_vm), testvm->GetVMGroup()->GetVMId(it2->vm));
                 }
         }
 }
@@ -3328,7 +3326,7 @@ void GetVMStackTrace(VirtualMachine *vm, HSVM_VariableId var_stacktrace, Virtual
         std::vector< StackTraceElement > elements;
         testvm->GetStackTrace(&elements, true, full);
 
-        GetVMStackTraceFromElements(vm, var_stacktrace, elements, testvm, full);
+        GetVMStackTraceFromElements(vm, var_stacktrace, elements, full);
 }
 
 void GetVMLibraries(VirtualMachine *vm, HSVM_VariableId var_resultlibs, VirtualMachine *testvm)

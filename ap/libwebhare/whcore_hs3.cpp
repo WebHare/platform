@@ -849,7 +849,7 @@ void ListAdhocCacheItems(HSVM *vm, HSVM_VariableId id_set)
                 {
                         std::vector< HareScript::StackTraceElement > elements;
                         HareScript::GetVirtualMachine(vm)->BuildAsyncStackTrace(*itr.stacktrace, &elements);
-                        GetVMStackTraceFromElements(HareScript::GetVirtualMachine(vm), stacktrace, elements, 0, false);
+                        GetVMStackTraceFromElements(HareScript::GetVirtualMachine(vm), stacktrace, elements, false);
                 }
                 else
                     HSVM_SetDefault(vm, stacktrace, HSVM_VAR_RecordArray);

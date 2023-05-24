@@ -114,7 +114,6 @@ PUBLIC STATIC OBJECTTYPE CompiledLibrary
     RETURN
         SELECT name
              , id :=      st_item.baseptr + value.position
-             , vm :=      st_item.vm
           FROM UnpackRecord(vars);
   }
 

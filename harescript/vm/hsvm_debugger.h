@@ -196,7 +196,7 @@ class Debugger
         void StoreVMStatus(JobManager::LockedJobData::WriteRef &jobmgrlock, LockedData::WriteRef &lock, HSVM_VariableId status, VMGroup *vmgroup, bool extended, bool islocked, bool usestatereq, Blex::DateTime const &now);
 
         std::pair< int64_t, int64_t > GetMinMax(StackMachine &stackm, ColumnNameCache const &cn_cache, VarId id_set, VarId req, int64_t defaultmax, int64_t len);
-        void RetrieveVariable(VirtualMachine *vm, VarId id_set, int32_t vm_id, VirtualMachine *source_vm, VarId source_id, VarId req, unsigned depth);
+        void RetrieveVariable(VirtualMachine *vm, VarId id_set, VirtualMachine *source_vm, VarId source_id, VarId req, unsigned depth);
         void ApplyBreakpoints(VMGroup &vmgroup);
 
         void HandleMessage(std::string const &type);

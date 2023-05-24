@@ -1491,8 +1491,7 @@ void Debugger::RPC_GetVariables()
                   HSVM_VariableId var_var = stackm.ArrayElementGet(var_variables, i);
                   HSVM_VariableId var_result = HSVM_ArrayAppend(vm, var_resultvars);
 
-                  int32_t vm_id = HSVM_IntegerGet(vm, stackm.RecordCellTypedGetByName(var_var, cn_cache.col_vm, VariableTypes::Integer, true));
-                  VirtualMachine *target_vm = it->second.vmgroup->GetVMById(vm_id);
+                  VirtualMachine *target_vm = it->second.vmgroup->currentvm;
 
                   uint32_t id = HSVM_IntegerGet(vm, stackm.RecordCellTypedGetByName(var_var, cn_cache.col_id, VariableTypes::Integer, true));
 
@@ -1501,7 +1500,6 @@ void Debugger::RPC_GetVariables()
                           DBG_PRINT("DBG:  invalid");
                           HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, var_result, cn_cache.col_type), -1);
                           HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, var_result, cn_cache.col_id), id);
-                          HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, var_result, cn_cache.col_vm), vm_id);
                           continue;
                   }
 
@@ -1518,13 +1516,12 @@ void Debugger::RPC_GetVariables()
                           DBG_PRINT("DBG:  invalid");
                           HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, var_result, cn_cache.col_type), -1);
                           HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, var_result, cn_cache.col_id), id);
-                          HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, var_result, cn_cache.col_vm), vm_id);
                           continue;
                   }
 
                   DBG_PRINT("DBG:  Req var " << id << " = " << toget);
 
-                  RetrieveVariable(&lock->comm.vm, var_result, vm_id, target_vm, toget, var_var, 1);
+                  RetrieveVariable(&lock->comm.vm, var_result, target_vm, toget, var_var, 1);
         }
 
         DBG_PRINT("DBG: Send variables, replyto " << lock->comm.msgid);
@@ -1561,7 +1558,7 @@ std::pair< int64_t, int64_t > Debugger::GetMinMax(StackMachine &stackm, ColumnNa
         return std::make_pair(min, max);
 }
 
-void Debugger::RetrieveVariable(VirtualMachine *vm, VarId id_set, int32_t vm_id, VirtualMachine *source_vm, VarId source_id, VarId req, unsigned depth)
+void Debugger::RetrieveVariable(VirtualMachine *vm, VarId id_set, VirtualMachine *source_vm, VarId source_id, VarId req, unsigned depth)
 {
         ColumnNameCache const &cn_cache = vm->cn_cache;
         StackMachine &stackm = vm->GetStackMachine();
@@ -1569,8 +1566,6 @@ void Debugger::RetrieveVariable(VirtualMachine *vm, VarId id_set, int32_t vm_id,
         StackMachine &source_stackm = source_vm->GetStackMachine();
 
         stackm.InitVariable(id_set, VariableTypes::Record);
-
-        stackm.SetInteger(stackm.RecordCellCreate(id_set, cn_cache.col_vm), vm_id);
 
         VariableTypes::Type type = source_stackm.GetType(source_id);
         stackm.SetInteger(stackm.RecordCellCreate(id_set, cn_cache.col_type), type);
@@ -1593,7 +1588,7 @@ void Debugger::RetrieveVariable(VirtualMachine *vm, VarId id_set, int32_t vm_id,
                 stackm.InitVariable(var_value, VariableTypes::RecordArray);
 
                 for (int32_t idx = minmax.first; idx < minmax.second; ++idx)
-                    RetrieveVariable(vm, stackm.ArrayElementAppend(var_value), vm_id, source_vm, source_stackm.ArrayElementGet(source_id, idx), 0, depth - 1);
+                    RetrieveVariable(vm, stackm.ArrayElementAppend(var_value), source_vm, source_stackm.ArrayElementGet(source_id, idx), 0, depth - 1);
 
                 return;
         }
@@ -1643,7 +1638,7 @@ void Debugger::RetrieveVariable(VirtualMachine *vm, VarId id_set, int32_t vm_id,
                             Blex::StringPair name = source_stackm.columnnamemapper.GetReverseMapping(nameid);
 
                             stackm.SetString(stackm.RecordCellCreate(cell, cn_cache.col_name), name);
-                            RetrieveVariable(vm, stackm.RecordCellCreate(cell, cn_cache.col_value), vm_id, source_vm, source_stackm.RecordCellGetByName(source_id, nameid), 0, depth - 1);
+                            RetrieveVariable(vm, stackm.RecordCellCreate(cell, cn_cache.col_value), source_vm, source_stackm.RecordCellGetByName(source_id, nameid), 0, depth - 1);
                     }
             } break;
 
@@ -1689,7 +1684,7 @@ void Debugger::RetrieveVariable(VirtualMachine *vm, VarId id_set, int32_t vm_id,
                             Blex::StringPair name = source_stackm.columnnamemapper.GetReverseMapping(nameid);
 
                             stackm.SetString(stackm.RecordCellCreate(cell, cn_cache.col_name), name);
-                            RetrieveVariable(vm, stackm.RecordCellCreate(cell, cn_cache.col_value), vm_id, source_vm, source_stackm.ObjectMemberGet(source_id, nameid, true), 0, depth - 1);
+                            RetrieveVariable(vm, stackm.RecordCellCreate(cell, cn_cache.col_value), source_vm, source_stackm.ObjectMemberGet(source_id, nameid, true), 0, depth - 1);
                     }
             } break;
 
@@ -1724,7 +1719,6 @@ void Debugger::RetrieveVariable(VirtualMachine *vm, VarId id_set, int32_t vm_id,
 
         // TODO
         case VariableTypes::FunctionRecord:
-        case VariableTypes::VMRef:
         default: ; // not handled;
         }
 }
@@ -1755,29 +1749,18 @@ void Debugger::RPC_GetLibraries()
         }
 
         HSVM_ColumnId col_libraries = HSVM_GetColumnId(vm, "LIBRARIES");
-        HSVM_ColumnId col_vms = HSVM_GetColumnId(vm, "VMS");
-
-        unsigned vmcount = it->second.vmgroup->GetVMCount();
 
         HSVM_SetDefault(vm, composevar, HSVM_VAR_Record);
 
         HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, composevar, cn_cache.col_type), "job-libraries");
         HSVM_StringSetSTD(vm, HSVM_RecordCreate(vm, composevar, cn_cache.col_groupid), groupid);
 
-        HSVM_VariableId var_vms = HSVM_RecordCreate(vm, composevar, col_vms);
-        HSVM_SetDefault(vm, var_vms, HSVM_VAR_RecordArray);
+        HSVM_VariableId var_resultlibs = HSVM_RecordCreate(vm, composevar, col_libraries);
+        HSVM_SetDefault(vm, var_resultlibs, HSVM_VAR_RecordArray);
 
-        for (unsigned vid = 0; vid < vmcount; ++vid)
-        {
-                VirtualMachine *target_vm = it->second.vmgroup->GetVMById(vid);
-
-                VarId var_vm = HSVM_ArrayAppend(vm, var_vms);
-
-                HSVM_IntegerSet(vm, HSVM_RecordCreate(vm, var_vm, cn_cache.col_vm), vid);
-
-                HSVM_VariableId var_resultlibs = HSVM_RecordCreate(vm, var_vm, col_libraries);
-                GetVMLibraries(&lock->comm.vm, var_resultlibs, target_vm);
-        }
+        VirtualMachine *target_vm = it->second.vmgroup->currentvm;
+        if (target_vm)
+            GetVMLibraries(&lock->comm.vm, var_resultlibs, target_vm);
 
         DBG_PRINT("DBG: Send libraries, replyto " << lock->comm.msgid);
 
@@ -1824,7 +1807,6 @@ void Debugger::RPC_SetBreakpoints()
 
                         VarId var_breakpoint = stackm.ArrayElementGet(var_breakpoints, i);
 
-                        bp.vm_id = HSVM_IntegerGet(vm, stackm.RecordCellTypedGetByName(var_breakpoint, cn_cache.col_vm, VariableTypes::Integer, true));
                         bp.liburi = HSVM_StringGetSTD(vm, stackm.RecordCellTypedGetByName(var_breakpoint, cn_cache.col_liburi, VariableTypes::String, true));
                         bp.compile_id = stackm.GetDateTime(stackm.RecordCellTypedGetByName(var_breakpoint, cn_cache.col_compile_id, VariableTypes::DateTime, true));
                         bp.codeptr = HSVM_IntegerGet(vm, stackm.RecordCellTypedGetByName(var_breakpoint, cn_cache.col_codeptr, VariableTypes::Integer, true));
@@ -1871,7 +1853,7 @@ void Debugger::ApplyBreakpoints(VMGroup &vmgroup)
 
         for (auto &itr: vmgroup.dbg_async.breakpoints)
         {
-                VirtualMachine *target_vm = vmgroup.GetVMById(itr.vm_id);
+                VirtualMachine *target_vm = vmgroup.currentvm;
                 if (!target_vm)
                     continue;
 
@@ -2367,4 +2349,3 @@ void Debugger::JobData::reset()
 
 } // End of namespace HareScript
 //---------------------------------------------------------------------------
-

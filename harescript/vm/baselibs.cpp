@@ -2050,7 +2050,6 @@ void RebindFunctionPtr2(VarId id_set, VirtualMachine *vm)
         ColumnNameId col_type = HSVM_GetColumnId(*vm, "TYPE");
 //        ColumnNameId col_rettype = columnnamemapper.GetMapping("RETURNTYPE");
 //        ColumnNameId col_excessargstype = HSVM_GetColumnId(*vm, "EXCESSARGSTYPE");
-//        ColumnNameId col_vm = HSVM_GetColumnId(*vm, "VM");
 
         unsigned argcount = HSVM_ArrayLength(*vm, HSVM_Arg(1));
         unsigned vectorlen = argcount ? argcount : 1;
@@ -2207,7 +2206,7 @@ void GetAsyncStackTrace(VarId id_set, VirtualMachine *vm)
         vm->GetRawAsyncStackTrace(&trace, 0, nullptr);
         vm->BuildAsyncStackTrace(trace, &elements);
 
-        GetVMStackTraceFromElements(vm, id_set, elements, 0, false);
+        GetVMStackTraceFromElements(vm, id_set, elements, false);
 }
 
 void StringParser_Next(VarId id_set, VirtualMachine *vm)
@@ -2993,7 +2992,7 @@ void EncodeHandleList(VirtualMachine *source_vm, VirtualMachine *vm, VarId id_se
                 {
                         std::vector< StackTraceElement > elements;
                         vm->BuildAsyncStackTrace(*itr->stacktrace, &elements);
-                        GetVMStackTraceFromElements(vm, var_stacktrace, elements, 0, false);
+                        GetVMStackTraceFromElements(vm, var_stacktrace, elements, false);
                 }
                 else
                     stackm.InitVariable(var_stacktrace, VariableTypes::RecordArray);

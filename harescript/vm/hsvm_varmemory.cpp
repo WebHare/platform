@@ -266,9 +266,6 @@ void VarMemory::InitVariable(VarId id, VariableTypes::Type type)
         case VariableTypes::Blob:
                 SetBlob(id, BlobRefPtr(NULL));
                 break;
-        case VariableTypes::VMRef:
-                SetVMRef(id, nullptr);
-                break;
         case VariableTypes::Object:
                 ObjectInitializeDefault(id);
                 break;
@@ -1827,26 +1824,6 @@ BlobRefPtr VarMemory::GetBlob (VarId id) const
 
 //---------------------------------------------------------------------------
 //
-// VarMemory VMRef functions
-//
-//---------------------------------------------------------------------------
-void VarMemory::SetVMRef (VarId id, VirtualMachine *vm)
-{
-        //We must be careful not to destroy the vmrefptr in case of a self-assignment!
-        VarVMRef *var = &RecycleVariable(id,VariableTypes::VMRef,0)->data.vmref;
-        var->vm = vm;
-}
-
-VirtualMachine * VarMemory::GetVMRef (VarId id) const
-{
-        assert(GetType(id)==VariableTypes::VMRef);
-
-        const VarVMRef *var=&GetVarReadPtr(id)->data.vmref;
-        return var->vm;
-}
-
-//---------------------------------------------------------------------------
-//
 // VarMemory String & Password functions
 //
 //---------------------------------------------------------------------------
@@ -2131,10 +2108,6 @@ void VarMemory::CopySimpleVariableFromOtherVarMem(VarId dest, VarMemory &other, 
         else if (type == VariableTypes::Blob)
         {
                 SetBlob(dest, other.GetBlob(source));
-        }
-        else if (type == VariableTypes::VMRef)
-        {
-                SetVMRef(dest, other.GetVMRef(source));
         }
         else
         {
