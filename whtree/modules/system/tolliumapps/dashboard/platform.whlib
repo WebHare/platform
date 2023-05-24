@@ -6,6 +6,7 @@ LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
@@ -19,8 +20,12 @@ LOADLIB "mod::wrd/lib/api.whlib";
 
 PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase
 <
+  RECORD ARRAY columns;
+
   MACRO Init()
   {
+    this->columns := ^results->columns;
+    this->OnWithHistoryChange();
   }
 
   UPDATE PUBLIC INTEGER FUNCTION GetSuggestedRefreshFrequency()
@@ -90,6 +95,7 @@ PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase
 
   MACRO OnWithHistoryChange()
   {
+    ^results->columns := SELECT * FROM this->columns WHERE (name != "stopped" OR ^withhistory->value);
     ^results->Invalidate();
   }
 
@@ -97,11 +103,11 @@ PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase
   {
     RECORD ARRAY messages :=
          SELECT *
-              , message :=      message_text  || (snoozed ? " (" || this->GetTid(".snoozed_until", this->tolliumuser->FormatDateTime(snoozed_until, "minutes", TRUE, TRUE)) || ")": "")
+              , message :=      message_text
               , canjumpto :=    RecordExists(jump_to)
               , cansnooze :=    ismanageable AND NOT snoozed
               , canunsnooze :=  ismanageable AND snoozed
-              , style :=        snoozed OR closed != MAX_DATETIME ? "snoozed" : ""
+              , rowicon :=      snoozed ? 2 : stopped = MAX_DATETIME ? 1 : 0
            FROM GetCurrentCheckIssues( [ withhistory := ^withhistory->value ]);
 
     RETURN messages;
@@ -115,6 +121,11 @@ PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase
       this->tolliumcontroller->StartApplication(jumpto.app, jumpto.target, DEFAULT RECORD, CELL[ reusemode ]);
     ELSE //legacy approach... using target is safer!
       this->tolliumcontroller->StartApplication(jumpto.app, DEFAULT RECORD, jumpto, CELL[ reusemode ]);
+  }
+
+  MACRO DoDetails()
+  {
+    this->RunScreen("#details", [ id := ^results->value[0] ]);
   }
 
   MACRO DoSnooze()
@@ -138,6 +149,10 @@ PUBLIC STATIC OBJECTTYPE Snooze EXTEND DashboardPanelBase
 <
   RECORD ARRAY items;
 
+  MACRO NEW()
+  {
+    this->contexts->wrdschema := OpenWRDSchema("system:config");
+  }
   MACRO Init(RECORD data)
   {
     this->items := data.tosnooze;
@@ -155,9 +170,25 @@ PUBLIC STATIC OBJECTTYPE Snooze EXTEND DashboardPanelBase
     ^until->value := next;
 
     IF (LENGTH(this->items) = 1)
+    {
       ^messagetidatsnooze->value := this->items[0].message_text;
+
+       //offer last snooze message as a prefill
+      RECORD lastsnoozemessage := SELECT * FROM this->contexts->wrdschema->^server_check_history->RunQuery(
+          [ outputcolumns := CELL[ "comment","wrd_creationdate"]
+          , filters := [ [ field := "wrd_leftentity", value := data.tosnooze[0].rowkey ]
+                       , [ field := "event", value := "snooze" ]
+                       ]
+          , historymode := "all"
+          ]) ORDER BY wrd_creationdate DESC;
+
+      IF(RecordExists(lastsnoozemessage))
+        ^comment->value := lastsnoozemessage.comment;
+    }
     ELSE
+    {
       ^messagetidatsnooze->value := this->GetTid(".multiplemessages");
+    }
   }
 
   BOOLEAN FUNCTION Submit()
@@ -172,5 +203,52 @@ PUBLIC STATIC OBJECTTYPE Snooze EXTEND DashboardPanelBase
       SnoozeIssue(rec.rowkey, ^until->value, [ comment := ^comment->value, whuser := this->contexts->user->GetUserDataForLogging() ]);
 
     RETURN work->Finish();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE Details EXTEND TolliumScreenBase
+<
+  MACRO NEW()
+  {
+    this->contexts->wrdschema := OpenWRDSchema("system:config");
+  }
+  MACRO Init(RECORD data)
+  {
+    ^entity->Load(data.id);
+    RECORD ARRAY history := this->contexts->wrdschema->^server_check_history->RunQuery(
+        [ outputcolumns := CELL[ "wrd_id", "event","message_text","comment","wh_user","wrd_creationdate"]
+        , filters := [ [ field := "wrd_leftentity", value := data.id ]
+                     ]
+        ]);
+    ^history->rows := SELECT rowkey := wrd_id
+                           , event := GetTid("system:tolliumapps.dashboard.platform.eventtypes." || event)
+                           , message := event="snooze" ? comment : message_text
+                           , wh_user := CellExists(wh_user,"login") ? wh_user.login : ""
+                           , when := wrd_creationdate
+                        FROM history;
+    ^entity->^wrd_limitdate->visible := ^entity->^wrd_limitdate->value != MAX_DATETIME;
+
+    IF(this->contexts->user->ShowDeveloperOptions())
+    {
+      RECORD metafields := ^entity->wrdentity->Getfields(CELL["metadata","type","check_task"]);
+      ^metadata->value := EncodeJSON(metafields);
+    }
+    ELSE
+    {
+      ^metadata->visible := FALSE;
+    }
+
+    RECORD lastsnooze := SELECT * FROM history WHERE event="snooze" ORDER BY wrd_creationdate DESC;
+    IF(RecordExists(lastsnooze))
+    {
+      ^lastsnoozedby->value := CellExists(lastsnooze.wh_user,"login") ? lastsnooze.wh_user.login : "";
+      ^lastsnoozemessage->value := lastsnooze.comment;
+    }
+    ELSE
+    {
+      ^entity->^snoozed_until->visible := FALSE;
+      ^lastsnoozedby->visible := FALSE;
+      ^lastsnoozemessage->visible := FALSE;
+    }
   }
 >;

@@ -191,7 +191,7 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentCheckIssues(RECORD options DEFAULTSTO DEF
     , snoozed := FALSE
     , scopes := STRING[]
     , since := DEFAULT DATETIME
-    , closed := DEFAULT DATETIME
+    , stopped := DEFAULT DATETIME
     , jump_to := DEFAULT RECORD
     ];
 
@@ -235,7 +235,7 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentCheckIssues(RECORD options DEFAULTSTO DEF
   IF(ObjectExists(OpenWRDSchema("system:config")->GetType('server_check')))
   {
     dbissues := OpenWRDSchema("system:config")->^server_check->RunQuery(
-        [ outputcolumns := CELL[ "type", "check_task", "metadata", "message_text", "message_tid", "jump_to", "snoozed_until", "wrd_id", since := "wrd_creationdate", "scopes", closed := "wrd_limitdate" ]
+        [ outputcolumns := CELL[ "type", "check_task", "metadata", "message_text", "message_tid", "jump_to", "snoozed_until", "wrd_id", since := "wrd_creationdate", "scopes", stopped := "wrd_limitdate" ]
         , historymode := options.withhistory ? "all" : "now"
         ]);
   }

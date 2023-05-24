@@ -1303,22 +1303,39 @@
         <text tid="comment">Commentaar</text>
         <text tid="confirm-unsnooze">Weet je zeker dat je de geselecteerde snoozes wil verwijderen?</text>
         <text tid="datetime">Datum &amp; tijd</text>
+        <text tid="details">Details</text>
+        <text tid="event">Gebeurtenis</text>
         <text tid="general">Algemeen</text>
         <text tid="gototask">Ga naar</text>
+        <text tid="history">Geschiedenis</text>
+        <text tid="lastsnoozedby">Gesnoozed door</text>
+        <text tid="lastsnoozemessage">Snooze reden</text>
         <text tid="message">Foutmelding</text>
         <text tid="messagetidatsnooze">Foutmelding</text>
+        <text tid="metadata">Metadata</text>
         <text tid="multiplemessages">(meerdere foutmeldingen)</text>
         <text tid="noerrors">Er zijn geen problemen bekend</text>
         <text tid="platform">Platform</text>
         <text tid="server">Serverversie</text>
+        <text tid="since">Sinds</text>
         <text tid="snooze">Snooze</text>
-        <text tid="snoozed_until">gesnoozed tot <param p="1"/></text>
+        <text tid="snoozed_until">Gesnoozed tot <param p="1"/></text>
+        <text tid="stopped">Gestopt</text>
         <text tid="unsnooze">Annuleer snooze</text>
         <text tid="until">Tot</text>
         <text tid="untilinpast">De 'tot' datum moet in de toekomst liggen.</text>
         <text tid="uptime">Uptime</text>
         <text tid="uptimedata"><param p="1"/> (gestart op <param p="2"/>), webserver uptime: <param p="3"/> (gestart op <param p="4"/>)</text>
+        <text tid="wh_user">Gebruiker</text>
+        <text tid="when">Wanneer</text>
         <text tid="withhistory">Toon geschiedenis</text>
+        <textgroup gid="eventtypes">   <!-- tolliumapps.dashboard.platform.eventtypes -->
+          <text tid="change">Wijziging</text>
+          <text tid="dismiss">Verworpen</text>
+          <text tid="snooze">Gesnoozed</text>
+          <text tid="start">Gestart</text>
+          <text tid="stop">Gestopt</text>
+        </textgroup>
       </textgroup>
       <textgroup gid="registry">   <!-- tolliumapps.dashboard.registry -->
         <text tid="deletekey">Weet je zeker dat je de registersleutel '<param p="1"/>' wilt verwijderen?</text>
