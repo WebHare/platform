@@ -17,6 +17,7 @@ LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/webtools/poll.whlib";
 
 LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/checks.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
@@ -395,6 +396,9 @@ WaitForPublishCompletion(testsite_hs->id);
 WaitForPublishCompletion(testsite_js->id);
 IF(ObjectExists(alttestsite))
   WaitForPublishCompletion(alttestsite->id);
+
+//clear state left by old check.ts
+UpdateCheckStatus("webhare_testsuite:checks", RECORD[]);
 
 IF(RecordExists(PollWHServiceState("poststartdone"))) //we've already started webhare, so this was not the first runonce
   Runtestframework(MACRO PTR[]); //cleanup any pending testframework state
