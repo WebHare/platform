@@ -110,7 +110,7 @@
   <!-- history of this check -->
   <attachment tag="server_check_history" linkfrom="server_check">
     <attributes>
-      <enum tag="event" allowedvalues="start change stop snooze dismiss" required="true" />
+      <enum tag="event" allowedvalues="start change stop snooze dismiss" required="true" gid="tolliumapps.dashboard.platform.eventtypes" />
       <free tag="message_text" description="Message text (start and change events)" />
       <json tag="message_tid" description="Message tid (start and change events)" />
       <free tag="comment" description="Comment (snooze and dismiss)" />

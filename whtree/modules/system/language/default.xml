@@ -1489,22 +1489,39 @@
         <text tid="comment">Comment</text>
         <text tid="confirm-unsnooze">Are you sure you want to remove the selected snoozes?</text>
         <text tid="datetime">Date &amp; time</text>
+        <text tid="details">Details</text>
+        <text tid="event">Event</text>
         <text tid="general">General</text>
         <text tid="gototask">Go to</text>
+        <text tid="history">History</text>
+        <text tid="lastsnoozedby">Snoozed by</text>
+        <text tid="lastsnoozemessage">Snooze message</text>
         <text tid="message">Error message</text>
         <text tid="messagetidatsnooze">Error message</text>
+        <text tid="metadata">Metadata</text>
         <text tid="multiplemessages">(multiple error messages)</text>
         <text tid="noerrors">There are no known issues</text>
         <text tid="platform">Platform</text>
         <text tid="server">Server version</text>
+        <text tid="since">Since</text>
         <text tid="snooze">Snooze</text>
-        <text tid="snoozed_until">snoozed until <param p="1"/></text>
+        <text tid="snoozed_until">Snoozed until</text>
+        <text tid="stopped">Stopped</text>
         <text tid="unsnooze">Cancel snooze</text>
         <text tid="until">Until</text>
         <text tid="untilinpast">Until date must be in the future.</text>
         <text tid="uptime">Uptime</text>
         <text tid="uptimedata"><param p="1"/> (started <param p="2"/>), webserver uptime: <param p="3"/> (started <param p="4"/>)</text>
+        <text tid="wh_user">User</text>
+        <text tid="when">When</text>
         <text tid="withhistory">Show history</text>
+        <textgroup gid="eventtypes">   <!-- tolliumapps.dashboard.platform.eventtypes -->
+          <text tid="change">Change</text>
+          <text tid="dismiss">Dismissed</text>
+          <text tid="snooze">Snoozed</text>
+          <text tid="start">Started</text>
+          <text tid="stop">Stopped</text>
+        </textgroup>
       </textgroup>
       <textgroup gid="registry">   <!-- tolliumapps.dashboard.registry -->
         <text tid="deletekey">Are you sure you want to delete key '<param p="1"/>'?</text>
