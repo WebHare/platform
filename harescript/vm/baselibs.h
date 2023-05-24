@@ -301,7 +301,7 @@ struct OSContext
             @return Whether the process could be launched
         */
         bool RunProcess(int processid, std::string const &processname, std::vector<std::string> const &args, std::string const &set_cwd, bool share_stdin, bool share_stdout, bool share_stderr);
-        void SetProcessEnvironment(int processid, Blex::Process::Environment const &env);
+        void SetProcessEnvironment(int processid, Blex::Environment const &env);
 
         int WaitForProcessOutput(int processid, int maxwait);
         std::string ReadProcessOutput(int processid);
@@ -389,7 +389,7 @@ struct OSContext
                 bool write_unblocked;
 
                 bool Run(std::string const &processname, std::vector<std::string> const &args, std::string const &set_cwd,bool share_stdin, bool share_stdout, bool share_stderr);
-                void SetEnvironment(Blex::Process::Environment const &env);
+                void SetEnvironment(Blex::Environment const &env);
                 std::pair< Blex::SocketError::Errors, unsigned > Write(unsigned numbytes, const void *data, bool allow_partial);
                 int WaitForProcessOutput(int waittime);
                 int32_t GetOutputHandle(bool for_errors);

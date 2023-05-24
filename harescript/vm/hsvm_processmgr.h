@@ -629,7 +629,7 @@ class BLEXLIB_PUBLIC JobManager
 
         /** Get the environment override for a vmgroup
         */
-        std::shared_ptr< const Blex::Process::Environment > GetGroupEnvironmentOverride(VMGroup const *group) const;
+        std::shared_ptr< const Blex::Environment > GetGroupEnvironmentOverride(VMGroup const *group) const;
 
         /** Set whether a vmgroup is running (for the running timeout)
         */
@@ -667,7 +667,7 @@ class BLEXLIB_PUBLIC JobManager
         void SetGroupExternalSessionData(VMGroup &group, std::string const &sessiondata);
 
         /// Overwrite the environment override for a vmgroup
-        void SetGroupEnvironmentOverride(VMGroup &group, std::shared_ptr< const Blex::Process::Environment > environment);
+        void SetGroupEnvironmentOverride(VMGroup &group, std::shared_ptr< const Blex::Environment > environment);
 
         /// Returns whether the jobmanager is still running (if not, it is shutting down)
         bool IsRunning();
@@ -1032,7 +1032,7 @@ struct JobManagerGroupData
         std::string externalsessiondata;
 
         /// Environment override
-        std::shared_ptr< const Blex::Process::Environment > environment;
+        std::shared_ptr< const Blex::Environment > environment;
 };
 
 void InitIPC(Blex::ContextRegistrator &creg, BuiltinFunctionsRegistrator &bifreg);

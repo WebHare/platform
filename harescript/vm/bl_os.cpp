@@ -128,7 +128,7 @@ OutputObject::SignalledStatus OSContext::Process::IsWriteSignalled(Blex::PipeWai
         return Unknown;
 }
 
-void OSContext::Process::SetEnvironment(Blex::Process::Environment const &env)
+void OSContext::Process::SetEnvironment(Blex::Environment const &env)
 {
         if (started)
             HSVM_ThrowException(vm, "Process environment cannot be modified after the process has been started");
@@ -436,7 +436,7 @@ bool OSContext::RunProcess(int processid, std::string const &processname, std::v
         return proc->Run(processname, args, set_cwd, share_stdin, share_stdout, share_stderr);
 }
 
-void OSContext::SetProcessEnvironment(int processid, Blex::Process::Environment const &env)
+void OSContext::SetProcessEnvironment(int processid, Blex::Environment const &env)
 {
         Process *proc = GetProcess(processid);
         if (!proc)
@@ -814,7 +814,7 @@ void HS_SetProcessEnvironment(VirtualMachine *vm)
         ColumnNameId col_name = vm->columnnamemapper.GetMapping("NAME");
         ColumnNameId col_value = vm->columnnamemapper.GetMapping("VALUE");
 
-        Blex::Process::Environment env;
+        Blex::Environment env;
 
         unsigned len = HSVM_ArrayLength(*vm, HSVM_Arg(1));
         for (unsigned i=0; i < len; ++i)
@@ -1546,7 +1546,7 @@ void HS_GetEnvironmentVariable(VarId id_set, VirtualMachine *vm)
         std::string name = HSVM_StringGetSTD(*vm, HSVM_Arg(0)), value;
 
         JobManager *jobmgr = vm->GetVMGroup()->GetJobManager();
-        std::shared_ptr< const Blex::Process::Environment > override;
+        std::shared_ptr< const Blex::Environment > override;
         if (jobmgr)
             override = jobmgr->GetGroupEnvironmentOverride(vm->GetVMGroup());
 
@@ -1566,12 +1566,12 @@ void HS_GetEnvironment(VarId id_set, VirtualMachine *vm)
 {
         JobManager *jobmgr = vm->GetVMGroup()->GetJobManager();
 
-        Blex::Process::Environment env;
-        std::shared_ptr< const Blex::Process::Environment > override;
+        Blex::Environment env;
+        std::shared_ptr< const Blex::Environment > override;
         if (jobmgr)
             override = jobmgr->GetGroupEnvironmentOverride(vm->GetVMGroup());
 
-        Blex::Process::Environment const *useenv;
+        Blex::Environment const *useenv;
         if (override)
             useenv = override.get();
         else

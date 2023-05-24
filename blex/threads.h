@@ -10,6 +10,8 @@
 
 namespace Blex
 {
+
+typedef std::map<std::string,std::string> Environment;
 class Thread;
 class TriggerableSingleSocketWaiter;
 class PipeReadStream;
@@ -684,8 +686,6 @@ BLEXLIB_PUBLIC void SleepThread(unsigned msecs);// throw();
 class BLEXLIB_PUBLIC Process
 {
         public:
-        typedef std::map<std::string,std::string> Environment;
-
         /** Construct a process (doesn't start it yet) */
         Process();// throw();
 

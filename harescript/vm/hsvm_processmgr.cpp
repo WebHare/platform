@@ -1032,7 +1032,7 @@ std::string JobManager::GetGroupExternalSessionData(VMGroup const *group) const
         return group->jmdata.externalsessiondata;
 }
 
-std::shared_ptr< const Blex::Process::Environment > JobManager::GetGroupEnvironmentOverride(VMGroup const *group) const
+std::shared_ptr< const Blex::Environment > JobManager::GetGroupEnvironmentOverride(VMGroup const *group) const
 {
         LockedJobData::ReadRef lock(jobdata);
         return group->jmdata.environment;
@@ -1290,7 +1290,7 @@ void JobManager::SetGroupExternalSessionData(VMGroup &group, std::string const &
         group.jmdata.externalsessiondata = sessiondata;
 }
 
-void JobManager::SetGroupEnvironmentOverride(VMGroup &group, std::shared_ptr< const Blex::Process::Environment > env)
+void JobManager::SetGroupEnvironmentOverride(VMGroup &group, std::shared_ptr< const Blex::Environment > env)
 {
         LockedJobData::ReadRef lock(jobdata);
         group.jmdata.environment = env;
@@ -2974,10 +2974,10 @@ void GetJobEnvironment(VarId id_set, VirtualMachine *vm)
         if (it == jmcontext->jobs.end())
             throw VMRuntimeError(Error::InternalError, "Job with this id does not exist");
 
-        Blex::Process::Environment env;
-        std::shared_ptr< const Blex::Process::Environment > override = jobmgr->GetGroupEnvironmentOverride(it->second->GetVMGroup());
+        Blex::Environment env;
+        std::shared_ptr< const Blex::Environment > override = jobmgr->GetGroupEnvironmentOverride(it->second->GetVMGroup());
 
-        Blex::Process::Environment const *useenv;
+        Blex::Environment const *useenv;
         if (override)
             useenv = override.get();
         else
@@ -3017,7 +3017,7 @@ void SetJobEnvironment(VirtualMachine *vm)
         HSVM_ColumnId col_name =   HSVM_GetColumnId(*vm, "NAME");
         HSVM_ColumnId col_value =  HSVM_GetColumnId(*vm, "VALUE");
 
-        auto override = std::make_shared< Blex::Process::Environment >();
+        auto override = std::make_shared< Blex::Environment >();
         unsigned numvars = HSVM_ArrayLength(*vm, HSVM_Arg(1));
         for (unsigned i = 0; i < numvars; ++i)
         {
