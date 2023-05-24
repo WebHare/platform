@@ -8,6 +8,29 @@ LOADLIB "mod::system/lib/mailer.whlib";
 LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 
+CONSTANT STRING ARRAY badalgorithms := [ "MD5", "NETASP-SHA1", "LCR"];
+
+STRING FUNCTION GetBadPWDAlgorithm(STRING rawdata)
+{
+  IF(rawdata LIKE "hson:*") //authsetting
+  {
+    RECORD authdata := EnforceStructure([ passwords := [[passwordhash := ""]]], DecodeHSON(rawdata));
+    RETURN SELECT AS STRING Tokenize(passwordhash,':')[0] FROM authdata.passwords WHERE Tokenize(passwordhash,':')[0] IN badalgorithms;
+  }
+  STRING alg := Tokenize(rawdata,':')[0];
+  RETURN alg IN badalgorithms ? alg : "";
+}
+
+STRING FUNCTION DescribeAttribute(INTEGER attributeid)
+{
+  RECORD info := SELECT attributetag := attrs.tag, typetag := types.tag, schematag := schemas.name
+                   FROM wrd.schemas, wrd.attrs, wrd.types
+                  WHERE attrs.id = attributeid
+                        AND attrs.type = types.id
+                        AND types.wrd_schema = schemas.id;
+  RETURN RecordExists(info) ? Tolowercase(`${info.schematag}.${info.typetag}.${info.attributetag}`) : `attr #${attributeid}`;
+}
+
 PUBLIC RECORD FUNCTION GetDeprecationScanReport()
 {
   DATETIME now := GetCurrentDatetime();
@@ -21,7 +44,7 @@ PUBLIC RECORD FUNCTION GetDeprecationScanReport()
                                FROM date_fs_members, fs_maxdatetime_settings
                               WHERE fs_maxdatetime_settings.fs_member = date_fs_members.id;
 
-  RECORD ARRAY emailmembers := SELECT id, type, tag
+  RECORD ARRAY emailmembers := SELECT attrs.id
                                  FROM wrd.attrs
                                 WHERE attributetype = wrd_attributetype_email;
 
@@ -30,15 +53,28 @@ PUBLIC RECORD FUNCTION GetDeprecationScanReport()
                                     WHERE attribute IN (SELECT AS INTEGER ARRAY id FROM emailmembers)
                                           AND NOT IsValidModernEmailAddress(rawdata)
                                  GROUP BY rawdata, attribute;
-  wrd_brokenemails := SELECT *, attributetag := (SELECT AS STRING tag FROM emailmembers WHERE emailmembers.id = wrd_brokenemails.attribute)
-                        FROM wrd_brokenemails;
+
+  wrd_brokenemails := SELECT *, attributetag := DescribeAttribute(attribute) FROM wrd_brokenemails;
+
+  RECORD ARRAY passwordmembers := SELECT id
+                                    FROM wrd.attrs
+                                   WHERE attributetype IN [ wrd_attributetype_password, wrd_attributetype_authenticationsettings ];
+
+  RECORD ARRAY wrd_brokenpasswords := SELECT alg := GetBadPWDAlgorithm(ANY(rawdata)), attribute, num := COUNT(*)
+                                        FROM wrd.entity_settings
+                                       WHERE attribute IN (SELECT AS INTEGER ARRAY id FROM passwordmembers)
+                                             AND GetBadPWDAlgorithm(rawdata) != ""
+                                    GROUP BY GetBadPWDAlgorithm(rawdata), attribute;
+
+  wrd_brokenpasswords := SELECT *, attributetag := DescribeAttribute(attribute) FROM wrd_brokenpasswords;
 
   RETURN CELL[ creationdate := now
              , versioninfo := GetWebHareVersionInfo()
              , name :=        GetServerName()
              , fs_maxdatetime_settings
              , wrd_brokenemails
-             , numissues := Length(fs_maxdatetime_settings) + Length(wrd_brokenemails)
+             , wrd_brokenpasswords
+             , numissues := Length(fs_maxdatetime_settings) + Length(wrd_brokenemails) + Length(wrd_brokenpasswords)
              ];
 }
 
@@ -58,4 +94,9 @@ PUBLIC MACRO PrintDeprecationScanReport(RECORD report)
   ELSE
     Print(`- Good! No WRD Email attributes with an unacceptable email address\n`);
 
+  IF(Length(report.wrd_brokenpasswords) > 0)
+    FOREVERY(RECORD wrd_brokenpassword FROM report.wrd_brokenpasswords)
+      Print(`* WRD Attribute #${wrd_brokenpassword.attribute} (${wrd_brokenpassword.attributetag}) contains ${wrd_brokenpassword.num} instance(s) of a future unacceptable password algorithm '${wrd_brokenpassword.alg}'\n`);
+  ELSE
+    Print(`- Good! No WRD Email attributes with an unacceptable email address\n`);
 }
