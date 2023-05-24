@@ -143,7 +143,7 @@ class BLEXLIB_PUBLIC BlobRefPtr
         friend class VarMemory;
 };
 
-
+#if !defined(__EMSCRIPTEN__)
 /** Blob stored in the global blob manager.
 */
 class BLEXLIB_PUBLIC GlobalBlob
@@ -263,6 +263,7 @@ class BLEXLIB_PUBLIC ReferencedGlobalBlob : public BlobBase
         friend class GlobalBlobManager;
 };
 
+#endif
 
 } // End of namespace HareScript
 

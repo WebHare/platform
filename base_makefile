@@ -381,8 +381,15 @@ ap_SRCDIRS = addons addons/system_geoip libwebhare utils webserver whmanager
 ALLSRCDIRS=$(SRCDIR)/blex $(foreach sub,$(SUBPROJECTS),$(addprefix $(SRCDIR)/$(sub)/,$($(sub)_SRCDIRS)))
 ALLOBJDIRS=$(addprefix ,$(subst $(SRCDIR)/,,$(ALLSRCDIRS)))
 ALLCPPSRCS_IN=$(foreach sub,$(ALLSRCDIRS),$(wildcard $(sub)/*.cpp))
-ALLSRCS_IN=$(ALLCPPSRCS_IN)
-ALLOBJS=$(addprefix ,$(subst .cpp,.o,$(subst $(SRCDIR)/,,$(ALLCPPSRCS_IN))))
+
+ifeq ($(BUILDSYSTEM),emscripten)
+  # We need to blacklist some files from the Deps generation as the above code is a bit too gready when matching wildcards and some files crash the Dep process
+  DEPS_BLACKLIST=blex/xml harescript/vm/bl_tcpip
+  DEPS_FULLPATHS=$(addsuffix .cpp,$(addprefix $(SRCDIR)/,$(DEPS_BLACKLIST)))
+  ALLCPPSRCS_IN:=$(filter-out $(DEPS_FULLPATHS),$(ALLCPPSRCS_IN))
+endif
+
+ALLOBJS:=$(addprefix ,$(subst .cpp,.o,$(subst $(SRCDIR)/,,$(ALLCPPSRCS_IN))))
 HSENGINE_DEPLOYABLES = $(foreach sub,$(HSENGINE_SUBPROJECTS),$($(sub)_DEPLOYABLES_HSENGINE))
 WHAP_DEPLOYABLES = $(foreach sub,$(WHAP_SUBPROJECTS),$($(sub)_DEPLOYABLES_WHAP))
 

@@ -12,6 +12,7 @@ namespace HareScript
 {
 
 class GlobalBlobManager;
+class GlobalBlob;
 
 namespace Interface
 {
