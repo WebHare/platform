@@ -37,7 +37,7 @@ int UTF8Main(std::vector<std::string> const &args)
                 }
 
                 std::string runtype = args[1];
-
+#if !defined(__EMSCRIPTEN__)
                 if (runtype=="breaktest")
                 {
                         Blex::SetInterruptHandler(&OnInterrupt, false);
@@ -46,6 +46,7 @@ int UTF8Main(std::vector<std::string> const &args)
                             Blex::SleepThread(1000);
                         return 0;
                 }
+#endif
                 if (runtype=="echo")
                 {
                         for (unsigned i=1;i<args.size();++i)

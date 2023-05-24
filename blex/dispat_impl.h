@@ -1,4 +1,4 @@
-#ifndef blex_lib_dispat_impl
+#if !defined(blex_lib_dispat_impl) && !defined(__EMSCRIPTEN__)
 #define blex_lib_dispat_impl
 
 //#define DISPATCHER_DEBUGDISPATCH        //Define to enable debugging

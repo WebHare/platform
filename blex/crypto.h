@@ -7,9 +7,13 @@
 
 #include <map>
 #include <vector>
+
+#if !defined(__EMSCRIPTEN__)
 #include <openssl/blowfish.h>
 #include <openssl/evp.h>
 #include <openssl/sha.h>
+#endif
+
 #include <blex/crc.h>
 
 #undef uint64_t // sha.h defines it.
@@ -101,6 +105,8 @@ std::string BLEXLIB_PUBLIC GetLastSSLErrors();
 
 typedef std::vector<std::pair<std::string, std::string> > SubjectNameParts;
 
+#if !defined(__EMSCRIPTEN__)
+
 /** Hold a key */
 class BLEXLIB_PUBLIC EVPKey
 {
@@ -191,6 +197,8 @@ class BLEXLIB_PUBLIC Certificate
         friend class SSLContext;
 };
 
+#endif // !defined(__EMSCRIPTEN__)
+
 /** Digest calculation class base */
 class BLEXLIB_PUBLIC Hasher
 {
@@ -258,6 +266,7 @@ class BLEXLIB_PUBLIC SHA1 : public Hasher
         uint32_t data[16];
 };
 
+#if !defined(__EMSCRIPTEN__)
 /** SHA256 calculation class */
 class BLEXLIB_PUBLIC SHA256: public Hasher
 {
@@ -290,6 +299,7 @@ class BLEXLIB_PUBLIC MultiHasher: public Hasher
         /** Finalize the result and return the resulting hash. May be called only once */
         Blex::StringPair FinalizeHash();
 };
+#endif
 
 class BLEXLIB_PUBLIC CRC32Hasher: public Hasher
 {
@@ -368,6 +378,7 @@ void BLEXLIB_PUBLIC GetDESCrypt(const void *key, unsigned keylen, const void *sa
     already have the correct size */
 void BLEXLIB_PUBLIC FillPseudoRandomVector(uint8_t *to_fill, unsigned to_fill_bytes);
 
+#if !defined(__EMSCRIPTEN__)
 
 class BLEXLIB_PUBLIC SSLContext
 {
@@ -469,6 +480,8 @@ class SSLConnection
         void *BIO_write_buffer;
         std::string remotehostname;
 };
+
+#endif // !defined(__EMSCRIPTEN__)
 
 } //end namespace Blex
 

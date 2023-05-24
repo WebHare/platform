@@ -1,4 +1,4 @@
-#ifndef blex_socket
+#if !defined(blex_socket) && !defined(__EMSCRIPTEN__)
 #define blex_socket
 
 #ifndef blex_stream

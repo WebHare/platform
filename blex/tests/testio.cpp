@@ -178,6 +178,8 @@ BLEX_TEST_FUNCTION(TestFileModDate)
         BLEX_TEST_CHECKEQUAL(toset, Blex::PathStatus(filename).ModTime());
 }
 
+#if !defined(__EMSCRIPTEN__)
+
 BLEX_TEST_FUNCTION(TestZlib)
 {
         Blex::MemoryRWStream filestore;
@@ -232,6 +234,8 @@ BLEX_TEST_FUNCTION(TestZlibFla)
 
         BLEX_TEST_CHECKEQUAL(82,entries.size());
 }
+
+#endif
 
 BLEX_TEST_FUNCTION(TestMmap)
 {

@@ -31,8 +31,12 @@
 #include <ctime>
 #include <iostream>
 #include <iomanip>
+
+#if !defined(__EMSCRIPTEN__)
 #include <openssl/bio.h>
 #include <openssl/ssl.h>
+#endif
+
 #include <cerrno>
 
 //#define SOCKETERRORDEBUG //log last socket errors

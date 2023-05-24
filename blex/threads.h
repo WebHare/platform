@@ -12,6 +12,31 @@ namespace Blex
 {
 
 typedef std::map<std::string,std::string> Environment;
+
+typedef pthread_t ThreadId;
+
+class ContextKeeper;
+class ContextRegistrator;
+
+/** Get context registrator for thread contexts
+    Context id's below 256 are reserved
+*/
+BLEXLIB_PUBLIC ContextRegistrator & GetThreadContextRegistrator();
+
+/** Get current thread context.
+*/
+BLEXLIB_PUBLIC ContextKeeper & CurrentThreadContext();
+
+/** Return the ThreadId of the thread that called it */
+ThreadId CurrentThread();// throw();
+
+inline void* GetThreadPointer(ThreadId const &in_thread_id)
+{
+        return (void*)in_thread_id;
+}
+
+
+#if !defined(__EMSCRIPTEN__)
 class Thread;
 class TriggerableSingleSocketWaiter;
 class PipeReadStream;
@@ -31,32 +56,12 @@ BLEXLIB_PUBLIC void SetThrowOnDeadlock(bool dothrow);
 
 } //end namespace Detail
 
-typedef pthread_t ThreadId;
-
-inline void* GetThreadPointer(ThreadId const &in_thread_id)
-{
-        return (void*)in_thread_id;
-}
-
-class ContextKeeper;
-class ContextRegistrator;
-
-/** Return the ThreadId of the thread that called it */
-ThreadId CurrentThread();// throw();
-
-/** Get context registrator for thread contexts
-    Context id's below 256 are reserved
-*/
-BLEXLIB_PUBLIC ContextRegistrator & GetThreadContextRegistrator();
-
-/** Get current thread context.
-*/
-BLEXLIB_PUBLIC ContextKeeper & CurrentThreadContext();
-
 /** Get an environment variable */
 BLEXLIB_PUBLIC std::string GetEnvironVariable(std::string const &envname);
 /** Set an environment variable */
 BLEXLIB_PUBLIC void SetEnvironVariable(std::string const &envname, std::string const &envvalue);
+
+#endif //!defined(__EMSCRIPTEN__)
 
 /** The CoreMutex is an abstract class that hides the underlying pthreads/msthreads
     implementation of lockable mutexes. A mutex can be "locked" or "unlocked".
@@ -637,6 +642,8 @@ template <class Data, class ProtectMutex> class InterlockedData : public Protect
         friend class WriteRef;
 };
 
+#if !defined(__EMSCRIPTEN__)
+
 /** A thread encapsulates a different thread of execution.
 
     Please note that the class has now been designed differently from previous
@@ -795,6 +802,8 @@ class BLEXLIB_PUBLIC Process
         /** Max virtual memory size */
         int64_t rlimit_virtualmemory;
 };
+
+#endif //!defined(__EMSCRIPTEN__)
 
 } //end namespace Blex
 

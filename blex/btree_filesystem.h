@@ -1,4 +1,4 @@
-#ifndef blex_btree_filesystem
+#if !defined(blex_btree_filesystem) && !defined(__EMSCRIPTEN__)
 #define blex_btree_filesystem
 
 #include "mmapfile.h"

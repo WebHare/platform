@@ -82,6 +82,7 @@ BLEX_TEST_FUNCTION(TestSHA1)
         BLEX_TEST_CHECK(std::equal(dig3, dig3 + Blex::SHA1HashLen, test3.Finalize()));
 }
 
+#if !defined(__EMSCRIPTEN__)
 BLEX_TEST_FUNCTION(TestSHA256)
 {
         char const *msg1 = "abc";
@@ -108,6 +109,7 @@ BLEX_TEST_FUNCTION(TestSHA256)
             test3.Process(big,sizeof big);
         BLEX_TEST_CHECK(std::equal(dig3, dig3 + Blex::SHA256HashLen, test3.Finalize()));
 }
+#endif //!defined(__EMSCRIPTEN__)
 
 namespace
 {
@@ -119,6 +121,7 @@ std::string EncodeStrBase16(Blex::StringPair in)
 }
 } // End of anonymous namespace
 
+#if !defined(__EMSCRIPTEN__)
 BLEX_TEST_FUNCTION(TestMD4)
 {
         char const *msg0 = "";
@@ -173,7 +176,6 @@ BLEX_TEST_FUNCTION(TestMoreSHA)
         sha224_2.Process(msg896, strlen(msg896));
         BLEX_TEST_CHECKEQUAL(dig224_2, EncodeStrBase16(sha224_2.FinalizeHash()));
 }
-
 
 /*
  * ARC4 tests vectors from OpenSSL (crypto/rc4/rc4test.c)
@@ -246,18 +248,13 @@ std::string QuickDESCrypt(std::string const &key, std::string const &salt)
         return std::string(&result[0], &result[result.size()]);
 }
 
-
-BLEX_TEST_FUNCTION(TestCrypto)
+BLEX_TEST_FUNCTION(TestSomeDeprecatedAlgorithms)
 {
         BLEX_TEST_CHECKEQUAL("$1$uqt1kv0G$ZAATThBN0JWJ9N156teSV0", QuickMD5Crypt("hiningo", "$1$uqt1kv0G"));
         BLEX_TEST_CHECKEQUAL("$1$uqt1kv0G$ZAATThBN0JWJ9N156teSV0", QuickMD5Crypt("hiningo", "$1$uqt1kv0G$ZAATThBN0JWJ9N156teSV0"));
         BLEX_TEST_CHECKEQUAL("$1$uqt1kv0G$ZAATThBN0JWJ9N156teSV0", QuickMD5Crypt("hiningo", "uqt1kv0G"));
 
         BLEX_TEST_CHECKEQUAL("nyfVcZo/9Cj1U", QuickDESCrypt("hiningo", "ny"));
-
-        const char *bf_secret="WHBF:$2y$08$YUXsZzGuZxLSZUHIXCTqJOvFX0MFMbyTzEVM6.xYseVP7xwe7Jfs6";
-        BLEX_TEST_CHECK(Blex::CheckWebHarePassword(strlen(bf_secret), bf_secret, 6, "secret"));
-        BLEX_TEST_CHECK(!Blex::CheckWebHarePassword(strlen(bf_secret), bf_secret, 6, "konijn"));
 
         const char basepassword[] = "NETASP-SHA1:twr/aETzvfbBztNCM2hGQg==:vX5EWhI+GNhKdb5jckVZM4MxEuI=";
         const char pwd1[] = "secret";
@@ -266,6 +263,17 @@ BLEX_TEST_FUNCTION(TestCrypto)
         BLEX_TEST_CHECKEQUAL(true, Blex::CheckWebHarePassword(std::strlen(basepassword), basepassword, strlen(pwd2), pwd2));
 
         BLEX_TEST_CHECK(!Blex::IsWebHarePasswordStillSecure(std::strlen(basepassword), basepassword));
+}
+
+#endif
+
+BLEX_TEST_FUNCTION(TestCrypto)
+{
+
+        const char *bf_secret="WHBF:$2y$08$YUXsZzGuZxLSZUHIXCTqJOvFX0MFMbyTzEVM6.xYseVP7xwe7Jfs6";
+        BLEX_TEST_CHECK(Blex::CheckWebHarePassword(strlen(bf_secret), bf_secret, 6, "secret"));
+        BLEX_TEST_CHECK(!Blex::CheckWebHarePassword(strlen(bf_secret), bf_secret, 6, "konijn"));
+
         BLEX_TEST_CHECK(!Blex::IsWebHarePasswordStillSecure(std::strlen(bf_secret), bf_secret));
 
         //test specifically around the 72-byte limit
@@ -372,6 +380,7 @@ BLEX_TEST_FUNCTION(TestCrypto)
         BLEX_TEST_CHECK(Blex::IsWebHarePasswordStillSecure(Blex::BlowfishPasswordLen, bf_buffer));
 }
 
+#if !defined(__EMSCRIPTEN__)
 BLEX_TEST_FUNCTION(TestEVP)
 {
         Blex::EVPKey mykey;
@@ -389,3 +398,4 @@ BLEX_TEST_FUNCTION(TestEVP)
 
 //        std::cout << std::string(reinterpret_cast<const char*>(&req[0]),reinterpret_cast<const char*>(&req[req.size()])) << "\n";
 }
+#endif // !defined(__EMSCRIPTEN__)
