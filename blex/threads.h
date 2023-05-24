@@ -568,44 +568,6 @@ class BLEXLIB_PUBLIC DebugConditionMutex : public DebugMutex
         friend class PipeWaiter;
 };
 
-/** A thread encapsulates a different thread of execution.
-
-    Please note that the class has now been designed differently from previous
-    versions. Previous versions expected you to derive from Blex::Thread to
-    implement a thread - but this caused nasty race conditions (the destructor
-    called WaitFinish(), but this wouldn't prevent your derived destructor from
-    being invoked, so your code had to insert its own WaitFinish() call - in
-    other words, the destructor was worthless and actually caused races) */
-class BLEXLIB_PUBLIC Thread
-{
-        public:
-        /** Construct a thread (doesn't start it yet) */
-        explicit Thread(std::function< void() > const &threadfunction);
-
-        /** Wait for thread finish, and then destroy the thread object */
-        ~Thread();
-
-        /** Start the thread
-            @return false if the thread couldn't be started*/
-        bool Start();
-
-        /** Wait for the thread to finish */
-        void WaitFinish();// throw();
-
-        private:
-        Thread(Thread const&); //not implemented
-        Thread& operator=(Thread const*); //not implemented
-
-        std::function< void() > threadfunction;
-
-        /** True if the handle is valid (can be joined) */
-        bool joinhandle;
-        /** The running thread's handle */
-        pthread_t handle;
-
-        friend void *::Blex::Detail::ThreadStarter(void *object);// throw();
-};
-
 /** A template class that can be wrapped around a structure to ensure
     that no members will be accessed without proper locking. The owner
     of the object can only access the members by creating a lock object,
@@ -673,6 +635,44 @@ template <class Data, class ProtectMutex> class InterlockedData : public Protect
 
         friend class ReadRef;
         friend class WriteRef;
+};
+
+/** A thread encapsulates a different thread of execution.
+
+    Please note that the class has now been designed differently from previous
+    versions. Previous versions expected you to derive from Blex::Thread to
+    implement a thread - but this caused nasty race conditions (the destructor
+    called WaitFinish(), but this wouldn't prevent your derived destructor from
+    being invoked, so your code had to insert its own WaitFinish() call - in
+    other words, the destructor was worthless and actually caused races) */
+class BLEXLIB_PUBLIC Thread
+{
+        public:
+        /** Construct a thread (doesn't start it yet) */
+        explicit Thread(std::function< void() > const &threadfunction);
+
+        /** Wait for thread finish, and then destroy the thread object */
+        ~Thread();
+
+        /** Start the thread
+            @return false if the thread couldn't be started*/
+        bool Start();
+
+        /** Wait for the thread to finish */
+        void WaitFinish();// throw();
+
+        private:
+        Thread(Thread const&); //not implemented
+        Thread& operator=(Thread const*); //not implemented
+
+        std::function< void() > threadfunction;
+
+        /** True if the handle is valid (can be joined) */
+        bool joinhandle;
+        /** The running thread's handle */
+        pthread_t handle;
+
+        friend void *::Blex::Detail::ThreadStarter(void *object);// throw();
 };
 
 /** Yield the remaining timeslice back to the OS */
