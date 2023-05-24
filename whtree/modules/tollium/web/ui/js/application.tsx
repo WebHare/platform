@@ -700,7 +700,7 @@ export class BackendApplication extends ApplicationBase {
     this.queueEventNoLock(actionname, param, synchronous, finalcallback);
   }
 
-  queueEventNoLock(actionname, param, synchronous, callback) {
+  queueEventNoLock(actionname, param, synchronous, callback, skipStateTransfer) {
     if (!this.appcomm)
       console.error("Trying to send event after the application link closed: ", actionname, param);
 
@@ -709,7 +709,8 @@ export class BackendApplication extends ApplicationBase {
         actionname: actionname,
         param: param,
         synchronous: synchronous,
-        callback: callback
+        callback: callback,
+        skipStateTransfer
       });
 
     this._sendQueuedEvents();
@@ -730,7 +731,7 @@ export class BackendApplication extends ApplicationBase {
 
       const forms = [];
       // Send forms only once per run of events
-      if (!sentforms) {
+      if (!sentforms && !event.skipStateTransfer) {
         for (const key of Object.keys(this.screenmap))
           forms.push({
             name: key,
@@ -1086,7 +1087,9 @@ export class BackendApplication extends ApplicationBase {
   queueUnloadMessage() {
     //no point in marking us synchronous, we may yet be reloaded
     //FIXME more robust unload mechanism - use a centrale queue and beacon ?
-    this.queueEvent('$terminate', '', false, null);
+    /* skipStateTransfer: we don't want our message to be held up by awaits, that might cause a navigateaway (or refresh) to not send the termination at all
+       causing eg a RTD editor to collide against itself ('Tab already open') */
+    this.queueEventNoLock('$terminate', '', false, null, true);
   }
 }
 
