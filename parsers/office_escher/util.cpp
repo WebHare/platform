@@ -384,7 +384,7 @@ void TextPart::Draw(ShapeDrawParameters const &pars) const
         text_renderer.RenderText(canvas, final_text_bounding_box,
                                  drawlib_text_direction, true, 0.0);
 
-        #ifdef DEBUG
+        #ifdef WHBUILD_DEBUG
         #ifdef DEBUG_DRAW_TEXT_BOXES
         // test code :
         DrawLib::DrawObject drawobj(&canvas);

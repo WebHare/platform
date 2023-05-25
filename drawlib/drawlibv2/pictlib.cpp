@@ -247,7 +247,7 @@ uint32_t PictConvert::ExecuteOpcode(uint32_t offset_into_buffer)
         case 0x004:
                 {
                 DEBUGPRINT("TxFace");
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
                 uint8_t style = ReadU8(offset_into_buffer+2);
                 DEBUGPRINT("  Face style  = " << style);
                 if ((style & 1)>0)

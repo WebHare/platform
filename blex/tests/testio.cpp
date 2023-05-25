@@ -95,12 +95,6 @@ BLEX_TEST_FUNCTION(TestFileStream)
         //And make sure that all stays okay after closing the file
         filestr.reset();
         BLEX_TEST_CHECKEQUAL(50u, Blex::PathStatus(filename).FileLength());
-
-        //Test whether auto-delete temp files really auto-delete
-        filestr.reset(Blex::FileStream::OpenWriteTemp(Blex::MergePath(Blex::Test::GetTempDir(),"filestreamtest"),Blex::FilePermissions::PublicRead));
-        BLEX_TEST_CHECK(filestr.get() != NULL);
-
-        //ADDME: SCan the temp dir to see hwether the file is gone
 }
 
 BLEX_TEST_FUNCTION(TestMemoryRWStream)

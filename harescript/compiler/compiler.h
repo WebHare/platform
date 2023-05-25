@@ -168,7 +168,7 @@ inline CCostream & operator<<(CCostream &out, std::ostream& (*f)( std::ostream& 
         return out;
 }
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
   #define CONTEXT_DEBUGPRINT(x) do { ::HareScript::Compiler::CCostream s(context); s << x ; } while (0)
 #else
   #define CONTEXT_DEBUGPRINT(x) BLEX_NOOP_STATEMENT

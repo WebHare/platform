@@ -16,13 +16,13 @@
 //#define SHOW_PACKET
 //#define SHOW_GENERATORS
 
-#if defined(SHOW_PACKET) && defined(DEBUG)
+#if defined(SHOW_PACKET) && defined(WHBUILD_DEBUG)
  #define PACKET_PRINT(x) DEBUGPRINT(x)
 #else
  #define PACKET_PRINT(x)
 #endif
 
-#if defined(SHOW_GENERATORS) && defined(DEBUG)
+#if defined(SHOW_GENERATORS) && defined(WHBUILD_DEBUG)
  #define GEN_PRINT(x) DEBUGPRINT(x)
  #define GEN_ONLY(a) DEBUGONLY(a)
 #else

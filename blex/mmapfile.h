@@ -148,7 +148,7 @@ class BLEXLIB_PUBLIC MmapFile
                 Mappings mappings;
         };
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         typedef InterlockedData< Data, Blex::DebugMutex > LockedData;
 #else
         typedef InterlockedData< Data, Blex::Mutex > LockedData;

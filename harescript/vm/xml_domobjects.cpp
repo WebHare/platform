@@ -2523,77 +2523,77 @@ static void DestroyXMLNodeCreateContext(void*, void *context_ptr)
 
 int RegisterDomObjectFunctions(HSVM_RegData *regdata)
 {
-        HSVM_RegisterFunction(regdata, "XMLDOMIMPLEMENTATION#CREATEDOCUMENT:WH_XML:O:OSSO", HareScript::Xml::XMLDOMImplementation_CreateDocument);
-        HSVM_RegisterFunction(regdata, "__MAKEXMLDOCUMENT:WH_XML:O:XSB", HareScript::Xml::XMLDOMImplementation_MakeDocument);
-        HSVM_RegisterFunction(regdata, "XMLDOMIMPLEMENTATION#__MAKEXMLSCHEMA:WH_XML:O:OXSB", HareScript::Xml::XMLDOMImplementation_MakeXMLSchema);
-        HSVM_RegisterFunction(regdata, "__MAKEXMLDOCUMENTFROMHTML:WH_XML:O:XSBB", HareScript::Xml::XMLDOMImplementation_MakeHTMLDocument);
-        HSVM_RegisterFunction(regdata, "XMLDOMIMPLEMENTATION#__MAKESCHEMATRONSCHEMA:WH_XML:O:OXSB", HareScript::Xml::XMLDOMImplementation_MakeSchematronSchema);
+        HSVM_RegisterFunction(regdata, "XMLDOMIMPLEMENTATION#CREATEDOCUMENT::O:OSSO", HareScript::Xml::XMLDOMImplementation_CreateDocument);
+        HSVM_RegisterFunction(regdata, "__MAKEXMLDOCUMENT::O:XSB", HareScript::Xml::XMLDOMImplementation_MakeDocument);
+        HSVM_RegisterFunction(regdata, "XMLDOMIMPLEMENTATION#__MAKEXMLSCHEMA::O:OXSB", HareScript::Xml::XMLDOMImplementation_MakeXMLSchema);
+        HSVM_RegisterFunction(regdata, "__MAKEXMLDOCUMENTFROMHTML::O:XSBB", HareScript::Xml::XMLDOMImplementation_MakeHTMLDocument);
+        HSVM_RegisterFunction(regdata, "XMLDOMIMPLEMENTATION#__MAKESCHEMATRONSCHEMA::O:OXSB", HareScript::Xml::XMLDOMImplementation_MakeSchematronSchema);
 
-        HSVM_RegisterFunction(regdata, "XMLSCHEMA#FINDELEMENTBYNAME:WH_XML:O:OS", HareScript::Xml::XMLSchema_FindElementByName);
-        HSVM_RegisterFunction(regdata, "XMLSCHEMA#FINDTYPEBYNAME:WH_XML:O:OS", HareScript::Xml::XMLSchema_FindTypeByName);
-        HSVM_RegisterFunction(regdata, "XMLSCHEMA#__VALIDATEDOCUMENT:WH_XML:RA:OO", HareScript::Xml::XMLSchema_ValidateDocument);
+        HSVM_RegisterFunction(regdata, "XMLSCHEMA#FINDELEMENTBYNAME::O:OS", HareScript::Xml::XMLSchema_FindElementByName);
+        HSVM_RegisterFunction(regdata, "XMLSCHEMA#FINDTYPEBYNAME::O:OS", HareScript::Xml::XMLSchema_FindTypeByName);
+        HSVM_RegisterFunction(regdata, "XMLSCHEMA#__VALIDATEDOCUMENT::RA:OO", HareScript::Xml::XMLSchema_ValidateDocument);
 
-        HSVM_RegisterFunction(regdata, "SCHEMATRONSCHEMA#__VALIDATEDOCUMENT:WH_XML:RA:OO", HareScript::Xml::SchematronSchema_ValidateDocument);
+        HSVM_RegisterFunction(regdata, "SCHEMATRONSCHEMA#__VALIDATEDOCUMENT::RA:OO", HareScript::Xml::SchematronSchema_ValidateDocument);
 
-        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#GETDOCUMENTELEMENT:WH_XML:O:O", HareScript::Xml::XMLDoc_GetDocumentElement);
-        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#GETREADONLY:WH_XML:B:O", HareScript::Xml::XMLDoc_GetReadOnly);
-        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#GETDOCUMENTBLOB:WH_XML:X:OBS", HareScript::Xml::XMLDoc_GetDocumentBlob);
-        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#__GETPARSEERRORS:WH_XML:RA:O", HareScript::Xml::XMLDoc_GetParseErrors);
-        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#CREATECDATASECTION:WH_XML:O:OS", HareScript::Xml::XMLDoc_CreateCDATASection);
-        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#CREATECOMMENT:WH_XML:O:OS", HareScript::Xml::XMLDoc_CreateComment);
-        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#CREATEDOCUMENTFRAGMENT:WH_XML:O:O", HareScript::Xml::XMLDoc_CreateDocumentFragment);
-        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#CREATEELEMENT:WH_XML:O:OS", HareScript::Xml::XMLDoc_CreateElement);
-        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#CREATEELEMENTNS:WH_XML:O:OSS", HareScript::Xml::XMLDoc_CreateElementNS);
-        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#CREATEPROCESSINGINSTRUCTION:WH_XML:O:OSS", HareScript::Xml::XMLDoc_CreateProcessingInstruction);
-        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#CREATETEXTNODE:WH_XML:O:OS", HareScript::Xml::XMLDoc_CreateTextNode);
-        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#__C14N2:WH_XML:S:OISABR", HareScript::Xml::XMLDoc___C14N2);
+        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#GETDOCUMENTELEMENT::O:O", HareScript::Xml::XMLDoc_GetDocumentElement);
+        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#GETREADONLY::B:O", HareScript::Xml::XMLDoc_GetReadOnly);
+        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#GETDOCUMENTBLOB::X:OBS", HareScript::Xml::XMLDoc_GetDocumentBlob);
+        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#__GETPARSEERRORS::RA:O", HareScript::Xml::XMLDoc_GetParseErrors);
+        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#CREATECDATASECTION::O:OS", HareScript::Xml::XMLDoc_CreateCDATASection);
+        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#CREATECOMMENT::O:OS", HareScript::Xml::XMLDoc_CreateComment);
+        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#CREATEDOCUMENTFRAGMENT::O:O", HareScript::Xml::XMLDoc_CreateDocumentFragment);
+        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#CREATEELEMENT::O:OS", HareScript::Xml::XMLDoc_CreateElement);
+        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#CREATEELEMENTNS::O:OSS", HareScript::Xml::XMLDoc_CreateElementNS);
+        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#CREATEPROCESSINGINSTRUCTION::O:OSS", HareScript::Xml::XMLDoc_CreateProcessingInstruction);
+        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#CREATETEXTNODE::O:OS", HareScript::Xml::XMLDoc_CreateTextNode);
+        HSVM_RegisterFunction(regdata, "XMLDOCUMENT#__C14N2::S:OISABR", HareScript::Xml::XMLDoc___C14N2);
 
-        HSVM_RegisterFunction(regdata, "XMLNODE#GETLINENUM:WH_XML:I:O", HareScript::Xml::XMLNode_GetLinenum);
-        HSVM_RegisterFunction(regdata, "XMLNODE#__GETNUMCHILDREN:WH_XML:I:O", HareScript::Xml::XMLNode___GetNumChildren);
-        HSVM_RegisterFunction(regdata, "XMLNODE#__GETCHILD:WH_XML:O:OI", HareScript::Xml::XMLNode___GetChild);
-        HSVM_RegisterFunction(regdata, "XMLNODE#__GETCHILDREN:WH_XML:OA:OB", HareScript::Xml::XMLNode___GetChildren);
-        HSVM_RegisterFunction(regdata, "XMLNODE#LISTATTRIBUTES:WH_XML:RA:O", HareScript::Xml::XMLNode_ListAttributes);
-        HSVM_RegisterFunction(regdata, "XMLNODE#GETFIRSTCHILD:WH_XML:O:O", HareScript::Xml::XMLNode_GetFirstChild);
-        HSVM_RegisterFunction(regdata, "XMLNODE#GETFIRSTELEMENTCHILD:WH_XML:O:O", HareScript::Xml::XMLNode_GetFirstElementChild);
-        HSVM_RegisterFunction(regdata, "XMLNODE#GETLASTCHILD:WH_XML:O:O", HareScript::Xml::XMLNode_GetLastChild);
-        HSVM_RegisterFunction(regdata, "XMLNODE#GETLASTELEMENTCHILD:WH_XML:O:O", HareScript::Xml::XMLNode_GetLastElementChild);
-        HSVM_RegisterFunction(regdata, "XMLNODE#GETLOCALNAME:WH_XML:S:O", HareScript::Xml::XMLNode_GetLocalName);
-        HSVM_RegisterFunction(regdata, "XMLNODE#GETNAMESPACEURI:WH_XML:S:O", HareScript::Xml::XMLNode_GetNamespaceURI);
-        HSVM_RegisterFunction(regdata, "XMLNODE#GETNEXTSIBLING:WH_XML:O:O", HareScript::Xml::XMLNode_GetNextSibling);
-        HSVM_RegisterFunction(regdata, "XMLNODE#GETNEXTELEMENTSIBLING:WH_XML:O:O", HareScript::Xml::XMLNode_GetNextElementSibling);
-        HSVM_RegisterFunction(regdata, "XMLNODE#GETNODENAME:WH_XML:S:O", HareScript::Xml::XMLNode_GetNodeName);
-        HSVM_RegisterFunction(regdata, "XMLNODE#GETNODETYPE:WH_XML:I:O", HareScript::Xml::XMLNode_GetNodeType);
-        HSVM_RegisterFunction(regdata, "XMLNODE#GETNODEVALUE:WH_XML:S:O", HareScript::Xml::XMLNode_GetNodeValue);
-        HSVM_RegisterMacro   (regdata, "XMLNODE#SETNODEVALUE:WH_XML::OS", HareScript::Xml::XMLNode_SetNodeValue);
-        HSVM_RegisterFunction(regdata, "XMLNODE#GETOWNERDOCUMENT:WH_XML:O:O", HareScript::Xml::XMLNode_GetOwnerDocument);
-        HSVM_RegisterFunction(regdata, "XMLNODE#GETPARENTNODE:WH_XML:O:O", HareScript::Xml::XMLNode_GetParentNode);
-        HSVM_RegisterFunction(regdata, "XMLNODE#GETPREFIX:WH_XML:S:O", HareScript::Xml::XMLNode_GetPrefix);
-        HSVM_RegisterMacro   (regdata, "XMLNODE#SETPREFIX:WH_XML::OS", HareScript::Xml::XMLNode_SetPrefix);
-        HSVM_RegisterFunction(regdata, "XMLNODE#GETPREVIOUSSIBLING:WH_XML:O:O", HareScript::Xml::XMLNode_GetPreviousSibling);
-        HSVM_RegisterFunction(regdata, "XMLNODE#GETPREVIOUSELEMENTSIBLING:WH_XML:O:O", HareScript::Xml::XMLNode_GetPreviousElementSibling);
-        HSVM_RegisterFunction(regdata, "XMLNODE#APPENDCHILD:WH_XML:O:OO", HareScript::Xml::XMLNode_AppendChild);
-        // HSVM_RegisterFunction(regdata, "XMLNODE#CLONENODE:WH_XML:O:OB", HareScript::Xml::XMLNode_CloneNode); //disabling broken function
-        HSVM_RegisterFunction(regdata, "XMLNODE#HASATTRIBUTES:WH_XML:B:O", HareScript::Xml::XMLNode_HasAttributes);
-        HSVM_RegisterFunction(regdata, "XMLNODE#INSERTBEFORE:WH_XML:O:OOO", HareScript::Xml::XMLNode_InsertBefore);
-        HSVM_RegisterMacro   (regdata, "XMLNODE#NORMALIZE:WH_XML::O", HareScript::Xml::XMLNode_Normalize);
-        HSVM_RegisterFunction(regdata, "XMLNODE#REMOVECHILD:WH_XML:O:OO", HareScript::Xml::XMLNode_RemoveChild);
-        HSVM_RegisterFunction(regdata, "XMLNODE#REPLACECHILD:WH_XML:O:OOO", HareScript::Xml::XMLNode_ReplaceChild);
-        HSVM_RegisterFunction(regdata, "XMLNODE#ISSAMENODE:WH_XML:B:OO", HareScript::Xml::XMLNode_IsSameNode);
-        HSVM_RegisterFunction(regdata, "XMLNODE#GETNODEID:WH_XML:6:O", HareScript::Xml::XMLNode_GetNodeId);
+        HSVM_RegisterFunction(regdata, "XMLNODE#GETLINENUM::I:O", HareScript::Xml::XMLNode_GetLinenum);
+        HSVM_RegisterFunction(regdata, "XMLNODE#__GETNUMCHILDREN::I:O", HareScript::Xml::XMLNode___GetNumChildren);
+        HSVM_RegisterFunction(regdata, "XMLNODE#__GETCHILD::O:OI", HareScript::Xml::XMLNode___GetChild);
+        HSVM_RegisterFunction(regdata, "XMLNODE#__GETCHILDREN::OA:OB", HareScript::Xml::XMLNode___GetChildren);
+        HSVM_RegisterFunction(regdata, "XMLNODE#LISTATTRIBUTES::RA:O", HareScript::Xml::XMLNode_ListAttributes);
+        HSVM_RegisterFunction(regdata, "XMLNODE#GETFIRSTCHILD::O:O", HareScript::Xml::XMLNode_GetFirstChild);
+        HSVM_RegisterFunction(regdata, "XMLNODE#GETFIRSTELEMENTCHILD::O:O", HareScript::Xml::XMLNode_GetFirstElementChild);
+        HSVM_RegisterFunction(regdata, "XMLNODE#GETLASTCHILD::O:O", HareScript::Xml::XMLNode_GetLastChild);
+        HSVM_RegisterFunction(regdata, "XMLNODE#GETLASTELEMENTCHILD::O:O", HareScript::Xml::XMLNode_GetLastElementChild);
+        HSVM_RegisterFunction(regdata, "XMLNODE#GETLOCALNAME::S:O", HareScript::Xml::XMLNode_GetLocalName);
+        HSVM_RegisterFunction(regdata, "XMLNODE#GETNAMESPACEURI::S:O", HareScript::Xml::XMLNode_GetNamespaceURI);
+        HSVM_RegisterFunction(regdata, "XMLNODE#GETNEXTSIBLING::O:O", HareScript::Xml::XMLNode_GetNextSibling);
+        HSVM_RegisterFunction(regdata, "XMLNODE#GETNEXTELEMENTSIBLING::O:O", HareScript::Xml::XMLNode_GetNextElementSibling);
+        HSVM_RegisterFunction(regdata, "XMLNODE#GETNODENAME::S:O", HareScript::Xml::XMLNode_GetNodeName);
+        HSVM_RegisterFunction(regdata, "XMLNODE#GETNODETYPE::I:O", HareScript::Xml::XMLNode_GetNodeType);
+        HSVM_RegisterFunction(regdata, "XMLNODE#GETNODEVALUE::S:O", HareScript::Xml::XMLNode_GetNodeValue);
+        HSVM_RegisterMacro   (regdata, "XMLNODE#SETNODEVALUE:::OS", HareScript::Xml::XMLNode_SetNodeValue);
+        HSVM_RegisterFunction(regdata, "XMLNODE#GETOWNERDOCUMENT::O:O", HareScript::Xml::XMLNode_GetOwnerDocument);
+        HSVM_RegisterFunction(regdata, "XMLNODE#GETPARENTNODE::O:O", HareScript::Xml::XMLNode_GetParentNode);
+        HSVM_RegisterFunction(regdata, "XMLNODE#GETPREFIX::S:O", HareScript::Xml::XMLNode_GetPrefix);
+        HSVM_RegisterMacro   (regdata, "XMLNODE#SETPREFIX:::OS", HareScript::Xml::XMLNode_SetPrefix);
+        HSVM_RegisterFunction(regdata, "XMLNODE#GETPREVIOUSSIBLING::O:O", HareScript::Xml::XMLNode_GetPreviousSibling);
+        HSVM_RegisterFunction(regdata, "XMLNODE#GETPREVIOUSELEMENTSIBLING::O:O", HareScript::Xml::XMLNode_GetPreviousElementSibling);
+        HSVM_RegisterFunction(regdata, "XMLNODE#APPENDCHILD::O:OO", HareScript::Xml::XMLNode_AppendChild);
+        // HSVM_RegisterFunction(regdata, "XMLNODE#CLONENODE::O:OB", HareScript::Xml::XMLNode_CloneNode); //disabling broken function
+        HSVM_RegisterFunction(regdata, "XMLNODE#HASATTRIBUTES::B:O", HareScript::Xml::XMLNode_HasAttributes);
+        HSVM_RegisterFunction(regdata, "XMLNODE#INSERTBEFORE::O:OOO", HareScript::Xml::XMLNode_InsertBefore);
+        HSVM_RegisterMacro   (regdata, "XMLNODE#NORMALIZE:::O", HareScript::Xml::XMLNode_Normalize);
+        HSVM_RegisterFunction(regdata, "XMLNODE#REMOVECHILD::O:OO", HareScript::Xml::XMLNode_RemoveChild);
+        HSVM_RegisterFunction(regdata, "XMLNODE#REPLACECHILD::O:OOO", HareScript::Xml::XMLNode_ReplaceChild);
+        HSVM_RegisterFunction(regdata, "XMLNODE#ISSAMENODE::B:OO", HareScript::Xml::XMLNode_IsSameNode);
+        HSVM_RegisterFunction(regdata, "XMLNODE#GETNODEID::6:O", HareScript::Xml::XMLNode_GetNodeId);
 
-        HSVM_RegisterFunction(regdata, "XMLDOCUMENTTYPE#GETNAME:WH_XML:S:O", HareScript::Xml::XMLDocumentType_GetName);
-        HSVM_RegisterFunction(regdata, "XMLDOCUMENTTYPE#GETPUBLICID:WH_XML:S:O", HareScript::Xml::XMLDocumentType_GetPublicId);
-        HSVM_RegisterFunction(regdata, "XMLDOCUMENTTYPE#GETSYSTEMID:WH_XML:S:O", HareScript::Xml::XMLDocumentType_GetSystemId);
+        HSVM_RegisterFunction(regdata, "XMLDOCUMENTTYPE#GETNAME::S:O", HareScript::Xml::XMLDocumentType_GetName);
+        HSVM_RegisterFunction(regdata, "XMLDOCUMENTTYPE#GETPUBLICID::S:O", HareScript::Xml::XMLDocumentType_GetPublicId);
+        HSVM_RegisterFunction(regdata, "XMLDOCUMENTTYPE#GETSYSTEMID::S:O", HareScript::Xml::XMLDocumentType_GetSystemId);
 
-        HSVM_RegisterFunction(regdata, "XMLELEMENT#GETNAME:WH_XML:S:O", HareScript::Xml::XMLElement_GetName);
-        HSVM_RegisterFunction(regdata, "XMLELEMENT#GETATTRIBUTENS:WH_XML:S:OSS", HareScript::Xml::XMLElement_GetAttributeNS);
-        HSVM_RegisterFunction(regdata, "XMLELEMENT#HASATTRIBUTENS:WH_XML:B:OSS", HareScript::Xml::XMLElement_HasAttributeNS);
-        HSVM_RegisterMacro   (regdata, "XMLELEMENT#REMOVEATTRIBUTENS:WH_XML::OSS", HareScript::Xml::XMLElement_RemoveAttributeNS);
-        HSVM_RegisterMacro   (regdata, "XMLELEMENT#SETATTRIBUTENS:WH_XML::OSSS", HareScript::Xml::XMLElement_SetAttributeNS);
+        HSVM_RegisterFunction(regdata, "XMLELEMENT#GETNAME::S:O", HareScript::Xml::XMLElement_GetName);
+        HSVM_RegisterFunction(regdata, "XMLELEMENT#GETATTRIBUTENS::S:OSS", HareScript::Xml::XMLElement_GetAttributeNS);
+        HSVM_RegisterFunction(regdata, "XMLELEMENT#HASATTRIBUTENS::B:OSS", HareScript::Xml::XMLElement_HasAttributeNS);
+        HSVM_RegisterMacro   (regdata, "XMLELEMENT#REMOVEATTRIBUTENS:::OSS", HareScript::Xml::XMLElement_RemoveAttributeNS);
+        HSVM_RegisterMacro   (regdata, "XMLELEMENT#SETATTRIBUTENS:::OSSS", HareScript::Xml::XMLElement_SetAttributeNS);
 
-        HSVM_RegisterFunction(regdata, "__EXECUTEXPATHQUERY:WH_XML:R:OSOORA", HareScript::Xml::ExecuteXpathQuery);
+        HSVM_RegisterFunction(regdata, "__EXECUTEXPATHQUERY::R:OSOORA", HareScript::Xml::ExecuteXpathQuery);
 
-        HSVM_RegisterFunction(regdata, "__EVALUATECSSSELECTORS:WH_XML:RA:RAOOS", HareScript::Xml::EvaluateCSSSelectors);
+        HSVM_RegisterFunction(regdata, "__EVALUATECSSSELECTORS::RA:RAOOS", HareScript::Xml::EvaluateCSSSelectors);
 
 
         HareScript::Xml::XMLNodeContext::Register(regdata);

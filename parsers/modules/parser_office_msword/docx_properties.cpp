@@ -38,7 +38,7 @@ const DocXDoc::ChpParserTable DocXDoc::chpparsertable[]=
 , { "rFonts", &DocXDoc::ChpRFonts }
 , { "rStyle", &DocXDoc::ChpRStyle }
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
 , { "szCs", &DocXDoc::ChpComplexFontSize }
 #endif
 
@@ -141,7 +141,7 @@ void DocXDoc::ChpFontSize(Chp *chp, Blex::XML::Node newnode, bool) const //2.3.2
         int32_t newsize = GetS32Attr(newnode, "val");
         chp->formatted.font_halfpoint_size=newsize;
 }
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
 void DocXDoc::ChpComplexFontSize(Chp */*chp*/, Blex::XML::Node newnode, bool) const //2.3.2.37. attribute 'val
 {
         int32_t newsize = GetS32Attr(newnode, "val");

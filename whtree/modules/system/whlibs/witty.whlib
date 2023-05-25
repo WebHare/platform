@@ -7,14 +7,14 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/interface.whlib";
 
 MACRO PTR ARRAY invocationhooks;
-INTEGER FUNCTION __ParseWittyBlob(BLOB data, STRING encoding, STRING gettidmodule) __ATTRIBUTES__(EXTERNAL "wh_witty");
-INTEGER FUNCTION __ParseWitty(STRING data, STRING encoding, STRING gettidmodule) __ATTRIBUTES__(EXTERNAL "wh_witty");
-BOOLEAN FUNCTION __HasWittyComponent(INTEGER scriptid, STRING compname) __ATTRIBUTES__(EXTERNAL "wh_witty");
-RECORD FUNCTION GetWittyLibraryBlob(STRING name) __ATTRIBUTES__(EXTERNAL "wh_witty");
-RECORD ARRAY FUNCTION __GetWittyParseErrors() __ATTRIBUTES__(EXTERNAL "wh_witty");
-VARIANT FUNCTION __CallWithWittyContext(INTEGER scriptid, FUNCTION PTR func, RECORD data) __ATTRIBUTES__(EXTERNAL "wh_witty", EXECUTESHARESCRIPT);
-PUBLIC MACRO __SETWITTYGETTIDFALLBACK(FUNCTION PTR gettid, FUNCTION PTR gethtmltid) __ATTRIBUTES__(EXTERNAL "wh_witty", EXECUTESHARESCRIPT);
-MACRO __RunWittyComponent(INTEGER script, STRING component, RECORD data, BOOLEAN newwitty) __ATTRIBUTES__(EXTERNAL "wh_witty", EXECUTESHARESCRIPT);
+INTEGER FUNCTION __ParseWittyBlob(BLOB data, STRING encoding, STRING gettidmodule) __ATTRIBUTES__(EXTERNAL);
+INTEGER FUNCTION __ParseWitty(STRING data, STRING encoding, STRING gettidmodule) __ATTRIBUTES__(EXTERNAL);
+BOOLEAN FUNCTION __HasWittyComponent(INTEGER scriptid, STRING compname) __ATTRIBUTES__(EXTERNAL);
+RECORD FUNCTION GetWittyLibraryBlob(STRING name) __ATTRIBUTES__(EXTERNAL);
+RECORD ARRAY FUNCTION __GetWittyParseErrors() __ATTRIBUTES__(EXTERNAL);
+VARIANT FUNCTION __CallWithWittyContext(INTEGER scriptid, FUNCTION PTR func, RECORD data) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC MACRO __SETWITTYGETTIDFALLBACK(FUNCTION PTR gettid, FUNCTION PTR gethtmltid) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+MACRO __RunWittyComponent(INTEGER script, STRING component, RECORD data, BOOLEAN newwitty) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
 /// Ultimpate parent of currently running witty (private this)
 OBJECT rootwitty;
@@ -514,7 +514,7 @@ PUBLIC OBJECT FUNCTION LoadWittyLibrary(STRING name, STRING encoding)
     @param variablename Name of the variable or cell to look up
     @return The requested variable
 */
-PUBLIC VARIANT FUNCTION GetWittyVariable(STRING variablename) __ATTRIBUTES__(EXTERNAL "wh_witty");
+PUBLIC VARIANT FUNCTION GetWittyVariable(STRING variablename) __ATTRIBUTES__(EXTERNAL);
 
 /** @short Runs an embedded component
     @long This macro runs a component, similar to the [embed ..] instruction, but allows you to add additional data to the witty's record stack
@@ -545,4 +545,4 @@ MACRO RunWittyInvocationHooks(OBJECT witty, INTEGER scriptid, STRING component, 
     hook(witty, scriptid, component, data, before);
 }
 
-RECORD ARRAY FUNCTION __GetWittyTidsRawData(INTEGER scriptid) __ATTRIBUTES__(EXTERNAL "wh_witty");
+RECORD ARRAY FUNCTION __GetWittyTidsRawData(INTEGER scriptid) __ATTRIBUTES__(EXTERNAL);

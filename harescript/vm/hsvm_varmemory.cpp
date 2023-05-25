@@ -9,7 +9,7 @@
 
 //#define CONTEXTS
 
-#ifndef DEBUG
+#ifndef WHBUILD_DEBUG
 #undef VARMEMPROFILING
 #endif
 
@@ -37,7 +37,7 @@ struct HareScript::VarMemory::VMProf
 #define VARMEMPROF(x)
 #endif
 
-#if defined(DEBUG) && defined(CONTEXTS)
+#if defined(WHBUILD_DEBUG) && defined(CONTEXTS)
  #define CTX_PRINT(x) DEBUGPRINT(x)
 #else
  #define CTX_PRINT(x) (void)0

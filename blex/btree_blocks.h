@@ -102,7 +102,7 @@ class BLEXLIB_PUBLIC IndexBlockEntry
         {
         };
 
-        //DEBUG STUFF
+        //WHBUILD_DEBUG STUFF
         static void FailDLBTPV();
 
         /** Returns length of entry, calculated from given type value

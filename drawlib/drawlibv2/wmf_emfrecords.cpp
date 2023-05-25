@@ -36,7 +36,7 @@ void EMFHeader::ReadEMF(uint8_t const *data)
         //92: offPixelFormat
         //96: bOpenGL
 
-#ifdef DEBUG //look for surprises
+#ifdef WHBUILD_DEBUG //look for surprises
         if (dSignature != EMFSignature)
             DEBUGPRINT("\aWarning! EMF signature mismatch: " << std::hex << dSignature << std::dec);
         if (getu16lsb(data+38) != 0)

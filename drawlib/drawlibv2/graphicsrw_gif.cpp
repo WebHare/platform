@@ -29,7 +29,7 @@ int GifStreamWriter(GifFileType *gif, const GifByteType *buffer, int buflen)
 GifDecompressor::GifDecompressor(Blex::Stream &instream)
 : instream(instream)
 , gif(0)
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
 , ImageNum(0)
 #endif
 , BackGround(0)

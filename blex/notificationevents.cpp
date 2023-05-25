@@ -5,7 +5,7 @@
 // Show all events debugging stuff
 //#define SHOW_EVENTS
 
-#if defined(SHOW_EVENTS) && defined(DEBUG)
+#if defined(SHOW_EVENTS) && defined(WHBUILD_DEBUG)
  #define EVT_PRINT(x) DEBUGPRINT(x)
  #define EVT_ONLY(x) x
 #else

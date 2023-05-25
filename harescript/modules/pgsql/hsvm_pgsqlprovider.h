@@ -4,7 +4,7 @@
 
 #define PGSQL_DEBUG //enable to define debugprints
 
-#if defined(PGSQL_DEBUG) && defined(DEBUG)
+#if defined(PGSQL_DEBUG) && defined(WHBUILD_DEBUG)
 #define PG_PRINT(x) DEBUGPRINT(x)
 #else
 #define PG_PRINT(x)

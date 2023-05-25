@@ -156,7 +156,7 @@ BiffDoc::BiffDoc(int32_t unique_id,
   , mynullstyle(*this, 4095)
   , fieldsmgr(*this)
 {
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         sprms_total=0;
         sprms_errors=0;
         sprms_unknown=0;
@@ -166,7 +166,7 @@ BiffDoc::BiffDoc(int32_t unique_id,
 
 BiffDoc::~BiffDoc()
 {
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         std::clog << "Got " << sprms_total
                   << " sprms. Converted " << (sprms_total-sprms_unknown)
                   << " (" << (((sprms_total-sprms_unknown)*100)/(sprms_total?sprms_total:1))
@@ -228,7 +228,7 @@ void BiffDoc::ReadHeader ()
         wordfile->DirectRead(0,&header,sizeof(header));
 }
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
 void BiffDoc::DumpHeader (void) const
 {
         DEBUGPRINT("*****************************\n"

@@ -250,7 +250,7 @@ bool WmfDataBuffer::CheckFormat()
 
         if (dwSignature == 0x9AC6CDD7l)
         {
-                #ifdef DEBUG
+                #ifdef WHBUILD_DEBUG
                 DEBUGPRINT("Placeable .WMF");
                 #endif
                 AdvancePointer(22);
@@ -334,7 +334,7 @@ WmfConvert::~WmfConvert()
 
 int32_t WmfConvert::Go(uint8_t const *pcData, uint32_t dDatasize, DrawLib::Bitmap32 &bitmap, DrawLib::FPBoundingBox const &bbox)
 {
-        #ifdef DEBUG
+        #ifdef WHBUILD_DEBUG
         DEBUGPRINT("Converting EMF/WMF... ");
         #endif
         /* Init the wmf buffer. This will also check the type of WMF
@@ -467,7 +467,7 @@ void WmfConvert::ApplyWMFRecordToBoundingBox(DrawLib::FPPoint *windoworg) //Fast
         uint32_t dID = wmfbuffer.GetRecordID();
         DrawLib::Pixel32 color;
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         if (display_records)
             DEBUGPRINT("SCAN " << std::dec << recno << ':' << GetIdName(dID) << " RecSize = " << wmfbuffer.GetRecordSize() << " bytes");
 #endif
@@ -532,7 +532,7 @@ void WmfConvert::ApplyWMFRecordToBoundingBox(DrawLib::FPPoint *windoworg) //Fast
                 {
                 uint32_t Npolygons;
                 Npolygons = wmfbuffer.ReadU16(6);
-                #ifdef DEBUG
+                #ifdef WHBUILD_DEBUG
                         DEBUGPRINT("  Polygons " << Npolygons);
                 #endif
                 // Check the number of polygons...
@@ -540,7 +540,7 @@ void WmfConvert::ApplyWMFRecordToBoundingBox(DrawLib::FPPoint *windoworg) //Fast
                 // Completely abitrary
                 if (Npolygons>8000)
                 {
-                        #ifdef DEBUG
+                        #ifdef WHBUILD_DEBUG
                         DEBUGPRINT("Warning! PolyPolygon bailed because of extraneous amount of polygons");
                         #endif
                         break;
@@ -551,7 +551,7 @@ void WmfConvert::ApplyWMFRecordToBoundingBox(DrawLib::FPPoint *windoworg) //Fast
                 {
                         uint16_t points_in_poly = wmfbuffer.ReadU16(8+(i<<1));
                         Npoints.push_back(points_in_poly);
-                        #ifdef DEBUG
+                        #ifdef WHBUILD_DEBUG
                         DEBUGPRINT("  Points[" << i << "] " << Npoints[i]);
                         #endif
                 }
@@ -560,7 +560,7 @@ void WmfConvert::ApplyWMFRecordToBoundingBox(DrawLib::FPPoint *windoworg) //Fast
                 std::vector<DrawLib::FPPoint> Plist;
                 for(uint32_t i=0; i<Npolygons; i++)
                 {
-                        #ifdef DEBUG
+                        #ifdef WHBUILD_DEBUG
                                 DEBUGPRINT("  Data for polygon [" << i << "]");
                         #endif
                         // build point array for call to GDI.Polygon
@@ -639,7 +639,7 @@ void WmfConvert::ExecuteWMFRecord()
         uint16_t flag  = 0;
         DrawLib::Pixel32 color;
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         if (display_records)
             DEBUGPRINT(std::dec << recno << ':' << GetIdName(dID) << " RecSize = " << recordsize << " bytes");
 #endif
@@ -671,7 +671,7 @@ void WmfConvert::ExecuteWMFRecord()
                         // it seems that when == DIB_RGB_COLORS
                         // the BITMAPINFOHEADER only contains valid
                         // size info. The rest is just bogus info
-                        #ifdef DEBUG
+                        #ifdef WHBUILD_DEBUG
                         uint16_t dibcolors  = wmfbuffer.ReadU16(8);
                         if (dibcolors==DIB_PAL_COLORS) DEBUGPRINT("  Paletted bitmap");
                         if (dibcolors==DIB_RGB_COLORS) DEBUGPRINT("  RGB color bitmap");
@@ -718,7 +718,7 @@ void WmfConvert::ExecuteWMFRecord()
                                wmfbuffer.GetVerifiedBuffer(8,strlen),
                                strlen,
                                NULL);
-                #ifdef DEBUG
+                #ifdef WHBUILD_DEBUG
                 //DEBUGPRINT("String = %s", pcWmfData+8);
                 #endif
                 }
@@ -744,7 +744,7 @@ void WmfConvert::ExecuteWMFRecord()
                                         wmfbuffer.GetVerifiedBuffer(22, count),
                                         count,                                           // char count
                                         lpDx);  // width info
-                #ifdef DEBUG
+                #ifdef WHBUILD_DEBUG
                 //DEBUGPRINT("String = %s", pcWmfData+22);
                 #endif
                 }
@@ -765,7 +765,7 @@ void WmfConvert::ExecuteWMFRecord()
                                        wmfbuffer.GetVerifiedBuffer(14, count),
                                        count,                                           // char count
                                        lpDx);                                           // width info
-                #ifdef DEBUG
+                #ifdef WHBUILD_DEBUG
                 //DEBUGPRINT("String = %s", pcWmfData+14);
                 #endif
 
@@ -841,7 +841,7 @@ void WmfConvert::ExecuteWMFRecord()
                 {
                 uint32_t Npolygons;
                 Npolygons = wmfbuffer.ReadU16(6);
-                #ifdef DEBUG
+                #ifdef WHBUILD_DEBUG
                         DEBUGPRINT("  Polygons " << Npolygons);
                 #endif
                 // Check the number of polygons...
@@ -849,7 +849,7 @@ void WmfConvert::ExecuteWMFRecord()
                 // Completely abitrary
                 if (Npolygons>8000)
                 {
-                        #ifdef DEBUG
+                        #ifdef WHBUILD_DEBUG
                         DEBUGPRINT("Warning! PolyPolygon bailed because of extraneous amount of polygons");
                         #endif
                         break;
@@ -860,7 +860,7 @@ void WmfConvert::ExecuteWMFRecord()
                 {
                         uint16_t points_in_poly = wmfbuffer.ReadU16(8+(i<<1));
                         Npoints.push_back(points_in_poly);
-                        #ifdef DEBUG
+                        #ifdef WHBUILD_DEBUG
                         DEBUGPRINT("  Points[" << i << "] " << Npoints[i]);
                         #endif
                 }
@@ -869,7 +869,7 @@ void WmfConvert::ExecuteWMFRecord()
                 std::vector<DrawLib::FPPoint> Plist;
                 for(uint32_t i=0; i<Npolygons; i++)
                 {
-                        #ifdef DEBUG
+                        #ifdef WHBUILD_DEBUG
                                 DEBUGPRINT("  Data for polygon [" << i << "]");
                         #endif
                         // build point array for call to GDI.Polygon
@@ -1003,7 +1003,7 @@ void WmfConvert::ExecuteWMFRecord()
                 break;
 
         case META_SETTEXTJUSTIFICATION:
-                #ifdef DEBUG
+                #ifdef WHBUILD_DEBUG
                 DEBUGPRINT("[Unimplemented]");
                 #endif
                 break;
@@ -1012,7 +1012,7 @@ void WmfConvert::ExecuteWMFRecord()
                 {
                 uint32_t fm = wmfbuffer.ReadU16(6);
                 GDI.SetPolyFillMode(fm);
-                #ifdef DEBUG
+                #ifdef WHBUILD_DEBUG
                 DEBUGPRINT("[Partially Unimplemented]");
                 switch(fm)
                 {
@@ -1496,7 +1496,7 @@ void WmfConvert::ExecuteEMFRecord()
                         /*
                         Plist[points] = startpoint;
                         */
-                        #ifdef DEBUG
+                        #ifdef WHBUILD_DEBUG
                         DEBUGPRINT("Lekker EMF!");
                         #endif
                         GDI.Polygon(Plist);
@@ -1695,7 +1695,7 @@ void WmfConvert::ExecuteEMFRecord()
                 break;
         case EMR_SETMAPMODE:
                 {
-                        #ifdef DEBUG
+                        #ifdef WHBUILD_DEBUG
                         DEBUGPRINT("Mapmode " <<  wmfbuffer.ReadU32(8));
                         #endif
                         GDI.SetMapMode((MappingModes)wmfbuffer.ReadU32(8));          // get map mode
@@ -1748,7 +1748,7 @@ void WmfConvert::ExecuteEMFRecord()
                 {
                 uint32_t fm = wmfbuffer.ReadU32(8);
                 GDI.SetPolyFillMode(fm);
-                #ifdef DEBUG
+                #ifdef WHBUILD_DEBUG
                 DEBUGPRINT("[Partially Unimplemented]");
                 switch(fm)
                 {
@@ -1776,7 +1776,7 @@ void WmfConvert::ExecuteEMFRecord()
 }
 
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
 /*
 void WmfConvert::DumpRecord(char *filename)
 {
@@ -2003,4 +2003,4 @@ std::string WmfConvert::GetIdName(uint32_t dID)
         }
 }
 
-#endif // DEBUG
+#endif // WHBUILD_DEBUG

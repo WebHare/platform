@@ -14,7 +14,7 @@
 //#define DEBUGFIELDS
 #define DEBUGBOOKMARKS  //Dump all bookmarks
 
-#ifndef DEBUG
+#ifndef WHBUILD_DEBUG
 #undef DEBUGTABLES
 #undef DEBUGPARAS
 #endif

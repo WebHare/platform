@@ -771,7 +771,7 @@ std::ostream& operator<<(std::ostream &lhs, Blex::DateTime towrite)
 {
         std::string str;
         AppendAnyToString(towrite, &str);
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         // Also display format shown in GDB
         str += " (";
         AppendAnyToString( (uint64_t(towrite.GetDays()) << 32) + towrite.GetMsecs(), &str);

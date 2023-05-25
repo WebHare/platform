@@ -144,7 +144,7 @@ void FillBlock(IndexBlock& block, signed firstlen, signed lastlen, signed totall
         std::string s(64, '_');
         const uint8_t* text = reinterpret_cast<const uint8_t*>(&s[0]);
         IndexBlockEntryContainer thing;
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         signed oldtotallen = totallen;
 #endif
 

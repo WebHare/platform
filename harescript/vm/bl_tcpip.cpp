@@ -10,7 +10,7 @@
 // Show all tcp debugging stuff
 //#define SHOW_TCPIP
 
-#if defined(SHOW_TCPIP) && defined(DEBUG)
+#if defined(SHOW_TCPIP) && defined(WHBUILD_DEBUG)
  #define TC_PRINT(x) DEBUGPRINT(x)
  #define TC_ONLY(x) x
 #else

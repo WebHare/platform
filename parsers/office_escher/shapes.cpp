@@ -367,7 +367,7 @@ void MultiPathShape::Draw(ShapeDrawParameters const &pars) const
                         fill_part.ResetNecessaryProperties(&drawobj);
                 }
 
-                #if defined(DEBUG) && defined(DEBUG_DRAW_BOXES)
+                #if defined(WHBUILD_DEBUG) && defined(DEBUG_DRAW_BOXES)
                 // Draw a test rectangle, around the unrotated, but scaled inner bounding box:
                 drawobj.SetOutlineColor(DrawLib::Pixel32(0,0,0));
                 drawobj.SetOutlineWidth(1.0);

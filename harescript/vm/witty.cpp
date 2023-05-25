@@ -9,7 +9,7 @@
 
 //#define WITTY_DEBUG
 
-#if defined(DEBUG) && defined(WITTY_DEBUG)
+#if defined(WHBUILD_DEBUG) && defined(WITTY_DEBUG)
  #define WTE_PRINT(x) DEBUGPRINT(x)
 #else
  #define WTE_PRINT(x) (void)0
@@ -1944,22 +1944,21 @@ static void DestroyContext(void*, void *context_ptr)
         delete static_cast<HareScript::Witty::Context*>(context_ptr);
 }
 
-BLEXLIB_PUBLIC int HSVM_ModuleEntryPoint(HSVM_RegData *regdata,void*)
+BLEXLIB_PUBLIC int WittyEntryPoint(HSVM_RegData *regdata,void*)
 {
         HSVM_RegisterContext (regdata, HareScript::Witty::ContextId, NULL, &CreateContext, &DestroyContext);
 
-        //HSVM_RegisterFunction(regdata, "PARSEWTEDATAFILE:WH_XML:I:X", HareScript::Wte::ParseWTEDataFile);
-        HSVM_RegisterFunction(regdata, "__PARSEWITTY:WH_WITTY:I:SSS", HareScript::Witty::Parse);
-        HSVM_RegisterFunction(regdata, "__PARSEWITTYBLOB:WH_WITTY:I:XSS", HareScript::Witty::ParseBlob);
-        HSVM_RegisterFunction(regdata, "__GETWITTYPARSEERRORS:WH_WITTY:RA:", HareScript::Witty::GetWittyParseErrors);
-        HSVM_RegisterFunction(regdata, "__HASWITTYCOMPONENT:WH_WITTY:B:IS", HareScript::Witty::HasWittyComponent);
-        HSVM_RegisterFunction(regdata, "GETWITTYLIBRARYBLOB:WH_WITTY:R:S", HareScript::Witty::GetWittyLibraryBlob);
-        HSVM_RegisterFunction(regdata, "GETWITTYVARIABLE:WH_WITTY:V:S", HareScript::Witty::GetWittyVariable);
-        HSVM_RegisterFunction(regdata, "__CALLWITHWITTYCONTEXT:WH_WITTY:V:IPR", HareScript::Witty::CallWithWittyContext);
-        HSVM_RegisterFunction(regdata, "__GETWITTYTIDSRAWDATA:WH_WITTY:RA:I", HareScript::Witty::GetWittyTidRawData);
+        HSVM_RegisterFunction(regdata, "__PARSEWITTY::I:SSS", HareScript::Witty::Parse);
+        HSVM_RegisterFunction(regdata, "__PARSEWITTYBLOB::I:XSS", HareScript::Witty::ParseBlob);
+        HSVM_RegisterFunction(regdata, "__GETWITTYPARSEERRORS::RA:", HareScript::Witty::GetWittyParseErrors);
+        HSVM_RegisterFunction(regdata, "__HASWITTYCOMPONENT::B:IS", HareScript::Witty::HasWittyComponent);
+        HSVM_RegisterFunction(regdata, "GETWITTYLIBRARYBLOB::R:S", HareScript::Witty::GetWittyLibraryBlob);
+        HSVM_RegisterFunction(regdata, "GETWITTYVARIABLE::V:S", HareScript::Witty::GetWittyVariable);
+        HSVM_RegisterFunction(regdata, "__CALLWITHWITTYCONTEXT::V:IPR", HareScript::Witty::CallWithWittyContext);
+        HSVM_RegisterFunction(regdata, "__GETWITTYTIDSRAWDATA::RA:I", HareScript::Witty::GetWittyTidRawData);
 
-        HSVM_RegisterMacro(regdata, "__RUNWITTYCOMPONENT:WH_WITTY::ISRB", HareScript::Witty::ExecuteComponent);
-        HSVM_RegisterMacro(regdata, "__SETWITTYGETTIDFALLBACK:WH_WITTY::PP", HareScript::Witty::SetWittyGettidFallback);
+        HSVM_RegisterMacro(regdata, "__RUNWITTYCOMPONENT:::ISRB", HareScript::Witty::ExecuteComponent);
+        HSVM_RegisterMacro(regdata, "__SETWITTYGETTIDFALLBACK:::PP", HareScript::Witty::SetWittyGettidFallback);
         return 1;
 }
 

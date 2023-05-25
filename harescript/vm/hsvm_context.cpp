@@ -34,25 +34,25 @@
 #define ASYNC_STACK_DEPTH 10
 
 
-#if defined(DEBUG) && (defined(SHOWSTACK) || defined(SHOWCALLSTACK) || defined(SHOWBYTECODES))
+#if defined(WHBUILD_DEBUG) && (defined(SHOWSTACK) || defined(SHOWCALLSTACK) || defined(SHOWBYTECODES))
  #define SHOWSTATE ShowStackState(debug);
 #else
  #define SHOWSTATE ;
 #endif
 
-#if defined(DEBUG) && defined(TRACECREATION)
+#if defined(WHBUILD_DEBUG) && defined(TRACECREATION)
  #define TC_PRINT(x) DEBUGPRINT(x)
 #else
  #define TC_PRINT(x) (void)0
 #endif
 
-#if defined(DEBUG) && defined(SHOWSTACKPUSHPOP)
+#if defined(WHBUILD_DEBUG) && defined(SHOWSTACKPUSHPOP)
  #define SPP_PRINT(x) DEBUGPRINT(x)
 #else
  #define SPP_PRINT(x) (void)0
 #endif
 
-#if defined(SHOW_GENERATORS) && defined(DEBUG)
+#if defined(SHOW_GENERATORS) && defined(WHBUILD_DEBUG)
  #define GEN_PRINT(x) DEBUGPRINT(x)
  #define GEN_ONLY(a) DEBUGONLY(a)
 #else

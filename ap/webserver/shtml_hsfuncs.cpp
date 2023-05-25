@@ -12,7 +12,7 @@
 //#define SHOW_WEBSOCKET
 
 // Toggle  implementation
-#if defined(SHOW_WEBSOCKET) && defined(DEBUG)
+#if defined(SHOW_WEBSOCKET) && defined(WHBUILD_DEBUG)
  #define WS_PRINT(x) DEBUGPRINT(x)
  #define WS_ONLY(x) x
 #else

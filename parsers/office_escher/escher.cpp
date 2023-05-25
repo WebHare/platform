@@ -761,7 +761,7 @@ std::unique_ptr<Blex::RandomStream> msoBlip::GetPictureData() const
 {
         std::unique_ptr<Blex::RandomStream> retval;
         retval.reset(new Blex::MemoryReadStream(&temp_datastore[0], temp_datastore.size()));
-#if defined(DEBUG) && defined(DUMPPNG)
+#if defined(WHBUILD_DEBUG) && defined(DUMPPNG)
         DEBUGPRINT("\aDUMPING PNG");
         std::unique_ptr<Blex::FileStream> file;
         file.reset(Blex::FileStream::OpenWrite(Blex::CreateTempName("C:/temp/test-png-") + ".png", true, true, 0));
@@ -787,7 +787,7 @@ void msoBlip::ProcessData(RecordData &record)
            the actual code was:
            datalength = savedsize - 2;
            though one would expect the general case. Using the general case for
-           now, probably wrong, and added a DEBUG to figure out what is going
+           now, probably wrong, and added a WHBUILD_DEBUG to figure out what is going
            on here */
         ReadStreamIntoVector(record.data, &temp_datastore);
 }
@@ -1141,7 +1141,7 @@ DrawLib::FPBoundingBox Interface::GetBoundingBox(int32_t shapeid,DrawLib::FPSize
 
 void Interface::ReadDocument(Blex::RandomStream &escherdata, Blex::RandomStream *delaydata)
 {
-        #ifdef DEBUG
+        #ifdef WHBUILD_DEBUG
         Blex::FileOffset start = escherdata.GetOffset();
         ReadContainer(escherdata, std::bind(&DebugContainerReader,
                 std::placeholders::_1, delaydata, &std::clog, 0));

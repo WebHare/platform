@@ -207,7 +207,7 @@ Canvas32::Canvas32(Bitmap32 *mybitmap)
         if (mybitmap==NULL)
                 throw std::runtime_error("Tried to create Canvas32 with NULL-bitmap");
 
-        #ifdef DEBUG
+        #ifdef WHBUILD_DEBUG
         #ifdef DEBUGINFO
 
         std::cerr << "Canvas32 constructor (" <<bitmap.GetWidth() << "," << bitmap.GetHeight() << ")\n";

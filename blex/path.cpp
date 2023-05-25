@@ -802,30 +802,6 @@ FileStream* FileStream::OpenWrite(std::string const &filename,bool create,bool e
         return InternalOpen(filename,false,true,create,exclusive,false,accessmode);
 }
 
-FileStream* FileStream::OpenWriteTemp(std::string const &start,FilePermissions::AccessFlags accessmode)
-{
-        for (unsigned int attempts=0;attempts<10;++attempts)
-        {
-                std::string path = CreateTempName(start);
-                FileStream *retval=InternalOpen(path,false,true,true,true,true,accessmode);
-                if (retval)
-                    return retval;
-        }
-        return 0;
-}
-
-FileStream* FileStream::OpenRWTemp(std::string const &start,FilePermissions::AccessFlags accessmode)
-{
-        for (unsigned int attempts=0;attempts<10;++attempts)
-        {
-                std::string path = CreateTempName(start);
-                FileStream *retval=InternalOpen(path,true,true,true,true,true,accessmode);
-                if (retval)
-                    return retval;
-        }
-        return 0;
-}
-
 FileStream* FileStream::OpenRW(std::string const &filename,bool create,bool exclusive,FilePermissions::AccessFlags accessmode)
 {
         return InternalOpen(filename,true,true,create,exclusive,false,accessmode);

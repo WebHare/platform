@@ -375,7 +375,7 @@ void ILGenerator::AddInstruction(ILInstruction *ili, bool can_cause_undef, bool 
 //                            ili->uses.insert(flowstate.visibleassignments[(*it)->variable]);
 //                        flowstate.visibleassignments[(*it)->variable] = (*it);
 //                }
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
                 // Check for illegal instructions
                 std::set<SSAVariable*> varlist;
                 ili->InsertDefined(&varlist);

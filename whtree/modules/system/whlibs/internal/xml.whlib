@@ -424,7 +424,7 @@ STRING FUNCTION GetNodeContent(OBJECT node) //this is not the xml_provider.cpp:g
   RETURN str;
 }
 
-RECORD FUNCTION __ExecuteXpathQuery(OBJECT doc, STRING query, OBJECT node, OBJECT here, RECORD ARRAY namespaces) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+RECORD FUNCTION __ExecuteXpathQuery(OBJECT doc, STRING query, OBJECT node, OBJECT here, RECORD ARRAY namespaces) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
 PUBLIC RECORD ARRAY FUNCTION ExecuteXpathQuery(OBJECT doc, STRING query, OBJECT node, OBJECT herenode, RECORD ARRAY namespaces)
 {
