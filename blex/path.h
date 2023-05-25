@@ -464,20 +464,6 @@ class BLEXLIB_PUBLIC FileStream : public RandomStream
                                             bool exclusive,
                                             FilePermissions::AccessFlags  access);
 
-        /** Open a temporary file for R/W. It will be automatically deleted after use
-            @param start Start of the filename to open (create using: Blex::MergePath("your-tmp-path","start-of-tmpfile-name")
-            @param access accessmode for file (eg, FilePermissions::PrivateRead)
-            @return A dynamically allocated filestream
-                    if the file opening was succesful, and NULL otherwise */
-        static FileStream* OpenRWTemp(std::string const &start, FilePermissions::AccessFlags  access);
-
-        /** Open a temporary file for writing only. It will be automatically deleted after use
-            @param start Start of the filename to open (create using: Blex::MergePath("your-tmp-path","start-of-tmpfile-name")
-            @param access accessmode for file (eg, FilePermissions::PrivateRead)
-            @return A dynamically allocated filestream (which the receiver must delete)
-                    if the file opening was succesful, and NULL otherwise */
-        static FileStream* OpenWriteTemp(std::string const &start, FilePermissions::AccessFlags  access);
-
         /** Ask the OS to flush its file buffers
             @return true if the buffers were succesfully flushed */
         virtual bool OSFlush();
