@@ -13,6 +13,7 @@ LOADLIB "mod::publisher/lib/webdesign.whlib";
 LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
 
 LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/checks.whlib";
 LOADLIB "mod::system/lib/commonxml.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
@@ -26,7 +27,6 @@ LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/backend/apps.whlib";
 LOADLIB "mod::system/lib/internal/backend/newsapi.whlib";
 LOADLIB "mod::system/lib/internal/backend/users.whlib";
-LOADLIB "mod::system/lib/internal/checks/checker.whlib";
 LOADLIB "mod::system/lib/webserver/management.whlib";
 LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 
