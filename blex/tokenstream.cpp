@@ -493,7 +493,7 @@ void TokenStream::SetMaxWordLength(uint32_t length)
 /** Remove accents from Latin characters (range: 00C0-017F). This table is derived
     from the Unicode charts. Each accented character is replaced with its unaccented
     letter, if given in the charts. When no single letter is given or if the character
-    is a ligature of multiple characters (for example 'æ'), the character is not
+    is a ligature of multiple characters (for example 'Ã¦'), the character is not
     replaced. */
 const uint32_t RemoveAccentLatin[] =
 //         0     1     2     3     4     5     6     7     8     9     A     B     C     D     E     F
@@ -534,7 +534,7 @@ void NormalizeChar(uint32_t ch, std::string *buffer, Blex::Lang::Language lang)
         }
 
         // General conversions
-        if (ch == 0xDF) // Convert 'ß' (ringel-S)
+        if (ch == 0xDF) // Convert 'ÃŸ' (ringel-S)
         {
                 buffer->append("ss");
                 return;
