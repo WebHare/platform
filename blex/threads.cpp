@@ -29,6 +29,41 @@
  #define DEBUGPOLLONLY(x) BLEX_NOOP_STATEMENT
 #endif
 
+#if defined(__EMSCRIPTEN__)
+
+namespace Blex
+{
+
+//Set up dummy implementations as we don't intend to actually multithread in WASM
+CoreMutex::CoreMutex(bool) //throw (std::bad_alloc)
+{
+}
+CoreMutex::~CoreMutex() //throw()
+{
+}
+void CoreMutex::Lock() //throw()
+{
+}
+void CoreMutex::Unlock() //throw()
+{
+}
+bool CoreMutex::TryLock() //throw()
+{
+  return true;
+}
+
+ThreadId CurrentThread() //throw()
+{
+        return 42;
+}
+
+void InitThreadContext(ContextKeeper *)
+{
+}
+
+} //end namespace Blex (defined __EMSCRIPTEMM)
+
+#else //native, not emscriptem
 
 /* ADDME: Some debugcode to verify proper mutex-sequencing would be nice.
           It would require specifying the required pre-locked mutex for
@@ -495,13 +530,6 @@ void InitThreadContext(ContextKeeper *keeper)
         pthread_setspecific(key, keeper);
 }
 
-ContextRegistrator & GetThreadContextRegistrator()
-{
-        //FIXME may need pthread_once wrapping to be threadsafe!
-        static ContextRegistrator maincontextreg;
-        return maincontextreg;
-}
-
 ContextKeeper & CurrentThreadContext()
 {
         void *ctxt = pthread_getspecific(key);
@@ -660,7 +688,8 @@ void YieldThread() //throw()
 
 void SleepThread(unsigned msecs) //throw()
 {
-        struct timespec wait = {msecs/1000,(msecs%1000)*1000000};
+        //emscripten reported: non-constant-expression cannot be narrowed from type 'unsigned int' to 'long' in initializer list [-Wc++11-narrowing]
+        struct timespec wait = {msecs/1000, static_cast<long>(msecs%1000)*1000000};
 
         //nanosleep may be signal-interrupted, so just keep looping then..
         while (nanosleep(&wait,&wait) == -1 && errno==EINTR) ;
@@ -1586,6 +1615,24 @@ std::string GetEnvironVariable(std::string const &envname)
         if(env)
             return env;
         return std::string();
+}
+
+} // end of namespace Blex
+
+#endif // if defined(__EMSCRIPTEN__)
+
+
+////////////////
+// Here follows threads code that is allowed both inside and outside emscript:
+
+namespace Blex
+{
+
+ContextRegistrator & GetThreadContextRegistrator()
+{
+        //FIXME may need pthread_once wrapping to be threadsafe!
+        static ContextRegistrator maincontextreg;
+        return maincontextreg;
 }
 
 } // end of namespace Blex

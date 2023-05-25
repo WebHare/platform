@@ -1,4 +1,4 @@
-#ifndef blex_pipestream
+#if !defined(blex_pipestream) && !defined(__EMSCRIPTEN__)
 #define blex_pipestream
 
 #include "stream.h"

@@ -782,6 +782,7 @@ bool SectionFile::FlushAll()
         return recordsfile->SyncAll();
 }
 
+#if !defined(__EMSCRIPTEN__) //only used by the disabled btrees now (and I wonder if even then - as we don't flush our complexfs?)
 void SectionFile::GenerationalCleanupUnusedSections(volatile uint32_t *abortflag)
 {
         const unsigned gen_sync_flush = 4;
@@ -894,6 +895,7 @@ void SectionFile::GenerationalCleanupUnusedSections(volatile uint32_t *abortflag
         Blex::ErrStream() << "SectionFile::GCUS " << filename << " actions: async: " << gcsu_stats[0] << ", sync: " << gcsu_stats[1] << ", unmap: " << gcsu_stats[2];
 #endif
 }
+#endif
 
 // -----------------------------------------------------------------------------
 //

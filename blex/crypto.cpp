@@ -9,14 +9,7 @@
 #include <cstring>
 #include "stream.h"
 #include "utils.h"
-#include <openssl/pem.h>
-#include <openssl/rsa.h>
-#include <openssl/sha.h>
-#include <openssl/ssl.h>
-#include <openssl/rand.h>
-#include <openssl/err.h>
-#include <openssl/des.h>
-#include <openssl/x509v3.h>
+
 #include <iostream>
 
 //#define DEBUG_SSL  //noisy SSL debuginfo
@@ -27,6 +20,32 @@
 #define DEBUGSSLPRINT(x) (void)0
 #endif
 
+
+#if defined(__EMSCRIPTEN__)
+
+namespace Blex {
+
+void InitSSL()
+{
+}
+
+void FinishSSL()
+{
+}
+
+} //end namespace Blex - the emscriptem mocked parts
+
+#else
+
+#include <openssl/pem.h>
+#include <openssl/rsa.h>
+#include <openssl/sha.h>
+#include <openssl/ssl.h>
+#include <openssl/rand.h>
+#include <openssl/err.h>
+#include <openssl/des.h>
+#include <openssl/x509v3.h>
+
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 #error openssl < 1.1 is not supported
 #endif
@@ -34,6 +53,8 @@
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
 #include <openssl/provider.h>
 #endif
+
+
 
 //FIXME Where is the code the below copyright message actually applies to ?
 
@@ -1597,6 +1618,8 @@ void GenerateMD5Password(uint8_t *encoded_password, const void *plaintext, unsig
 
 } //end namespace Blex
 
+#endif // if defined(__EMSCRIPTEN__)
+
 ////////////////
 // Here follows crypto code that is allowed both inside and outside emscript:
 
@@ -1616,12 +1639,16 @@ Hasher::~Hasher()
 
 void FillPseudoRandomVector(uint8_t *to_fill, unsigned to_fill_bytes)
 {
+#if defined(__EMSCRIPTEN__) //NOCOMMIT this is not an acceptable placeholder
+        memset(to_fill, 0xf8, to_fill_bytes);
+#else
         if(RAND_pseudo_bytes(to_fill,to_fill_bytes) != 1)
         {
                 Blex::ErrStream() << "Failed to seed the random number generator (RAND_pseudo_bytes failed): " << GetLastSSLErrors();
                 Blex::FatalAbort();
         }
         (void)VALGRIND_MAKE_MEM_DEFINED(to_fill,to_fill_bytes);
+#endif
 }
 
 
@@ -1897,6 +1924,8 @@ bool CheckWebHarePassword(unsigned encoded_size, void const *encoded_data, unsig
 
                 return std::equal(temppassword, temppassword + BlowfishInternalPasswordLen, static_cast<const char*>(encoded_data)+5);
         }
+
+#if !defined(__EMSCRIPTEN__)
         else if (encoded_size == MD5PasswordLen && std::equal(static_cast<const char*>(encoded_data), static_cast<const char*>(encoded_data) + 4, "MD5:"))
         {
                 uint8_t newpass[MD5PasswordLen];
@@ -1973,6 +2002,7 @@ bool CheckWebHarePassword(unsigned encoded_size, void const *encoded_data, unsig
 
                 return store.size() == hash_size && std::equal(store.begin(), store.end(), hash);
         }
+#endif //  !defined(__EMSCRIPTEN__)
         else
         {
                 return false;
@@ -2002,4 +2032,4 @@ std::string GenerateUFS128BitId()
         return sessionid;
 }
 
-} //end namespace Blex
+} //end namespace Blex - the native/emscriptem shared parts

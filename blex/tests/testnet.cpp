@@ -1,3 +1,5 @@
+#if !defined(__EMSCRIPTEN__)
+
 //---------------------------------------------------------------------------
 #include <blex/blexlib.h>
 #include <iostream>
@@ -588,6 +590,7 @@ BLEX_TEST_FUNCTION(TestSecureNonBlockingSockets)
         }
 }
 
+
 BLEX_TEST_FUNCTION(SocketTCPTest)
 {
         Blex::DebugSocket accepting_socket(Blex::Socket::Stream), connecting_socket(Blex::Socket::Stream), connecting_socket_2(Blex::Socket::Stream);
@@ -835,6 +838,7 @@ BLEX_TEST_FUNCTION(DispatTest)
         dispatlock.Unlock();
 }
 
+
 BLEX_TEST_FUNCTION(DispatSSLDataTest)
 {
         Blex::ErrStream() << "DispatSSLDataTest";
@@ -916,3 +920,4 @@ BLEX_TEST_FUNCTION(PipeWaiterManyWaits)
                 BLEX_TEST_CHECKEQUAL(socketpairs[socknr].second->ReadLsb<uint8_t>(), uint8_t(i));
         }
 }
+#endif //!defined(__EMSCRIPTEN__)

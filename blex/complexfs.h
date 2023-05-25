@@ -1,4 +1,4 @@
-#ifndef blex_complexfs
+#if !defined(blex_complexfs) && !defined(__EMSCRIPTEN__)
 #define blex_complexfs
 
 #ifndef blex_stream

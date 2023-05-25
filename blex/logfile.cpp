@@ -1,7 +1,10 @@
 #include <blex/blexlib.h>
 
+#if !defined(__EMSCRIPTEN__)
 #define STACKTRACE_SUPPORT
 #include <execinfo.h>
+#endif
+
 #include <iomanip>
 #include "path.h"
 #include "logfile.h"
@@ -445,10 +448,11 @@ void FatalAbort()
 #endif
 
         SafeErrorPrint("Abnormal program termination, trace:\n");
+#if !defined(__EMSCRIPTEN__)
         void *buffer[30];
         int cnt = backtrace (buffer, 30);
         backtrace_symbols_fd(buffer, cnt, 2/*stderr*/);
-
+#endif
         _exit(13);
 }
 

@@ -1572,7 +1572,7 @@ template <> inline void AppendAnyToString(float const &in, std::string *appended
 {
         return AppendAnyToString<F64>(in,appended_string);
 }
-#ifdef PLATFORM_DARWIN //On Darwin, this conflicts with the unsigned long/signed long version above
+#if defined(PLATFORM_DARWIN) || defined(__EMSCRIPTEN__) //On Darwin native llvm, this conflicts with the unsigned long/signed long version above
 template <> inline void AppendAnyToString(uint64_t const &in, std::string *appended_string)
 {
         EncodeNumber(in, 10, std::back_inserter(*appended_string));
