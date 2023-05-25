@@ -725,20 +725,6 @@ bool Certificate::GetCertificateText(std::string *certificate)
         return success;
 }
 
-void FillPseudoRandomVector(uint8_t *to_fill, unsigned to_fill_bytes)
-{
-        if(RAND_pseudo_bytes(to_fill,to_fill_bytes) != 1)
-        {
-                Blex::ErrStream() << "Failed to seed the random number generator (RAND_pseudo_bytes failed): " << GetLastSSLErrors();
-                Blex::FatalAbort();
-        }
-        (void)VALGRIND_MAKE_MEM_DEFINED(to_fill,to_fill_bytes);
-}
-
-Hasher::~Hasher()
-{
-}
-
 void GetHasher(HashAlgorithm::Type type, std::unique_ptr< Hasher > *hasher)
 {
         switch (type)
@@ -770,173 +756,6 @@ bool CheckHashLength(HashAlgorithm::Type type, unsigned lenbytes)
         }
 }
 
-MD5::MD5()
-{
-        buf[0] = 0x67452301;
-        buf[1] = 0xefcdab89;
-        buf[2] = 0x98badcfe;
-        buf[3] = 0x10325476;
-        totalwritten = 0;
-}
-
-
-/* The four core functions - F1 is optimized somewhat */
-
-// #define F1(x, y, z) ((x & y) | (~x & z))
-#define F1(x, y, z) (z ^ (x & (y ^ z)))
-#define F2(x, y, z) F1(z, x, y)
-#define F3(x, y, z) ((x ^ y) ^ z)
-#define F4(x, y, z) (y ^ (x | ~z))
-
-/* This is the central step in the MD5 algorithm. */
-#define MD5STEP(f, w, x, y, z, data, s) \
-        ( w += (f(x, y, z) + data),  (w = (w<<s) | (w>>(32-s))),  (w += x) )
-
-/*
- * The core of the MD5 algorithm, this alters an existing MD5 hash to
- * reflect the addition of 16 longwords of new data.
- */
-
-
-void MD5::Transform(const uint32_t in[16])
-{
-        uint32_t     a, b, c, d;
-
-        a = buf[0];
-        b = buf[1];
-        c = buf[2];
-        d = buf[3];
-
-        MD5STEP(F1, a, b, c, d, in[ 0]+0xd76aa478,  7);
-        MD5STEP(F1, d, a, b, c, in[ 1]+0xe8c7b756, 12);
-        MD5STEP(F1, c, d, a, b, in[ 2]+0x242070db, 17);
-        MD5STEP(F1, b, c, d, a, in[ 3]+0xc1bdceee, 22);
-        MD5STEP(F1, a, b, c, d, in[ 4]+0xf57c0faf,  7);
-        MD5STEP(F1, d, a, b, c, in[ 5]+0x4787c62a, 12);
-        MD5STEP(F1, c, d, a, b, in[ 6]+0xa8304613, 17);
-        MD5STEP(F1, b, c, d, a, in[ 7]+0xfd469501, 22);
-        MD5STEP(F1, a, b, c, d, in[ 8]+0x698098d8,  7);
-        MD5STEP(F1, d, a, b, c, in[ 9]+0x8b44f7af, 12);
-        MD5STEP(F1, c, d, a, b, in[10]+0xffff5bb1, 17);
-        MD5STEP(F1, b, c, d, a, in[11]+0x895cd7be, 22);
-        MD5STEP(F1, a, b, c, d, in[12]+0x6b901122,  7);
-        MD5STEP(F1, d, a, b, c, in[13]+0xfd987193, 12);
-        MD5STEP(F1, c, d, a, b, in[14]+0xa679438e, 17);
-        MD5STEP(F1, b, c, d, a, in[15]+0x49b40821, 22);
-
-        MD5STEP(F2, a, b, c, d, in[ 1]+0xf61e2562,  5);
-        MD5STEP(F2, d, a, b, c, in[ 6]+0xc040b340,  9);
-        MD5STEP(F2, c, d, a, b, in[11]+0x265e5a51, 14);
-        MD5STEP(F2, b, c, d, a, in[ 0]+0xe9b6c7aa, 20);
-        MD5STEP(F2, a, b, c, d, in[ 5]+0xd62f105d,  5);
-        MD5STEP(F2, d, a, b, c, in[10]+0x02441453,  9);
-        MD5STEP(F2, c, d, a, b, in[15]+0xd8a1e681, 14);
-        MD5STEP(F2, b, c, d, a, in[ 4]+0xe7d3fbc8, 20);
-        MD5STEP(F2, a, b, c, d, in[ 9]+0x21e1cde6,  5);
-        MD5STEP(F2, d, a, b, c, in[14]+0xc33707d6,  9);
-        MD5STEP(F2, c, d, a, b, in[ 3]+0xf4d50d87, 14);
-        MD5STEP(F2, b, c, d, a, in[ 8]+0x455a14ed, 20);
-        MD5STEP(F2, a, b, c, d, in[13]+0xa9e3e905,  5);
-        MD5STEP(F2, d, a, b, c, in[ 2]+0xfcefa3f8,  9);
-        MD5STEP(F2, c, d, a, b, in[ 7]+0x676f02d9, 14);
-        MD5STEP(F2, b, c, d, a, in[12]+0x8d2a4c8a, 20);
-
-        MD5STEP(F3, a, b, c, d, in[ 5]+0xfffa3942,  4);
-        MD5STEP(F3, d, a, b, c, in[ 8]+0x8771f681, 11);
-        MD5STEP(F3, c, d, a, b, in[11]+0x6d9d6122, 16);
-        MD5STEP(F3, b, c, d, a, in[14]+0xfde5380c, 23);
-        MD5STEP(F3, a, b, c, d, in[ 1]+0xa4beea44,  4);
-        MD5STEP(F3, d, a, b, c, in[ 4]+0x4bdecfa9, 11);
-        MD5STEP(F3, c, d, a, b, in[ 7]+0xf6bb4b60, 16);
-        MD5STEP(F3, b, c, d, a, in[10]+0xbebfbc70, 23);
-        MD5STEP(F3, a, b, c, d, in[13]+0x289b7ec6,  4);
-        MD5STEP(F3, d, a, b, c, in[ 0]+0xeaa127fa, 11);
-        MD5STEP(F3, c, d, a, b, in[ 3]+0xd4ef3085, 16);
-        MD5STEP(F3, b, c, d, a, in[ 6]+0x04881d05, 23);
-        MD5STEP(F3, a, b, c, d, in[ 9]+0xd9d4d039,  4);
-        MD5STEP(F3, d, a, b, c, in[12]+0xe6db99e5, 11);
-        MD5STEP(F3, c, d, a, b, in[15]+0x1fa27cf8, 16);
-        MD5STEP(F3, b, c, d, a, in[ 2]+0xc4ac5665, 23);
-
-        MD5STEP(F4, a, b, c, d, in[ 0]+0xf4292244,  6);
-        MD5STEP(F4, d, a, b, c, in[ 7]+0x432aff97, 10);
-        MD5STEP(F4, c, d, a, b, in[14]+0xab9423a7, 15);
-        MD5STEP(F4, b, c, d, a, in[ 5]+0xfc93a039, 21);
-        MD5STEP(F4, a, b, c, d, in[12]+0x655b59c3,  6);
-        MD5STEP(F4, d, a, b, c, in[ 3]+0x8f0ccc92, 10);
-        MD5STEP(F4, c, d, a, b, in[10]+0xffeff47d, 15);
-        MD5STEP(F4, b, c, d, a, in[ 1]+0x85845dd1, 21);
-        MD5STEP(F4, a, b, c, d, in[ 8]+0x6fa87e4f,  6);
-        MD5STEP(F4, d, a, b, c, in[15]+0xfe2ce6e0, 10);
-        MD5STEP(F4, c, d, a, b, in[ 6]+0xa3014314, 15);
-        MD5STEP(F4, b, c, d, a, in[13]+0x4e0811a1, 21);
-        MD5STEP(F4, a, b, c, d, in[ 4]+0xf7537e82,  6);
-        MD5STEP(F4, d, a, b, c, in[11]+0xbd3af235, 10);
-        MD5STEP(F4, c, d, a, b, in[ 2]+0x2ad7d2bb, 15);
-        MD5STEP(F4, b, c, d, a, in[ 9]+0xeb86d391, 21);
-
-        buf[0] += a;
-        buf[1] += b;
-        buf[2] += c;
-        buf[3] += d;
-}
-
-// -- MD5 transformation function that works on buffer, by rob
-void MD5::Process(const void *dataptr,unsigned length)
-{
-        const uint8_t *data=static_cast<const uint8_t*>(dataptr);
-
-        while (length > 0)
-        {
-                unsigned currentpos = static_cast<unsigned>(totalwritten & 63);
-                unsigned room = 64 - currentpos;
-
-                unsigned moveamount = length;
-                if (moveamount > room)
-                    moveamount = room;
-
-                std::memcpy(&databuffer[currentpos], data, moveamount);
-
-                data += moveamount;
-                length -= moveamount;
-                totalwritten += moveamount;
-
-                if (moveamount == room)
-                {
-                        // Transform buffer to list of uint32_t words
-                        uint32_t tmpbuf[16];
-                        for (unsigned i=0;i<16;++i)
-                            tmpbuf[i] = getu32lsb(databuffer + 4*i);
-                        Transform(tmpbuf);
-                }
-        }
-}
-
-// -- MD5 finalization function (call this before asking for hash!)
-Blex::StringPair MD5::FinalizeHash()
-{
-        uint64_t length = totalwritten * 8;
-
-        // Pad to 56 mod 64, minimum 1 padding byte
-        unsigned currentpos = static_cast<unsigned>(totalwritten & 63);
-        unsigned padbytes = ((119 - currentpos) % 64) + 1;
-
-        //Create the padding buffer
-        uint8_t finaldata[128];
-        memset(finaldata, 0, padbytes);
-        finaldata[0]=0x80; //set first bit
-        putu64lsb(finaldata + padbytes, length);
-
-        Process(finaldata, padbytes + sizeof(uint64_t));
-        return Blex::StringPair(reinterpret_cast<char*>(&buf), reinterpret_cast<char*>(&buf) + Blex::MD5HashLen);
-}
-
-void GetMD5Hash(const void *data, unsigned len, void *hashstore)
-{
-        Blex::MD5 retval;
-        retval.Process(data,len);
-        memcpy(hashstore, retval.Finalize(), MD5HashLen);
-}
 
 SHA256::SHA256()
 {
@@ -1603,10 +1422,6 @@ bool SSLConnection::GetPeerCertificateChain(std::string *dest)
 }
 
 
-/** Length of a SSHA1 salt */
-const unsigned SSHA1SaltLen = 8;
-/** Offset of a SSHA1 salt inside an encoded SSHA1 password*/
-const unsigned SSHA1SaltOffset = 6;
 /** LEngth of a MD5 password  */
 const unsigned MD5PasswordLen = 20;
 
@@ -1780,6 +1595,205 @@ void GenerateMD5Password(uint8_t *encoded_password, const void *plaintext, unsig
         Blex::putu32lsb(&encoded_password[16],digest.GetValue()[3]);
 }
 
+} //end namespace Blex
+
+////////////////
+// Here follows crypto code that is allowed both inside and outside emscript:
+
+namespace Blex
+{
+
+/** Length of a SSHA1 salt */
+const unsigned SSHA1SaltLen = 8;
+/** Offset of a SSHA1 salt inside an encoded SSHA1 password*/
+const unsigned SSHA1SaltOffset = 6;
+
+
+Hasher::~Hasher()
+{
+}
+
+
+void FillPseudoRandomVector(uint8_t *to_fill, unsigned to_fill_bytes)
+{
+        if(RAND_pseudo_bytes(to_fill,to_fill_bytes) != 1)
+        {
+                Blex::ErrStream() << "Failed to seed the random number generator (RAND_pseudo_bytes failed): " << GetLastSSLErrors();
+                Blex::FatalAbort();
+        }
+        (void)VALGRIND_MAKE_MEM_DEFINED(to_fill,to_fill_bytes);
+}
+
+
+
+MD5::MD5()
+{
+        buf[0] = 0x67452301;
+        buf[1] = 0xefcdab89;
+        buf[2] = 0x98badcfe;
+        buf[3] = 0x10325476;
+        totalwritten = 0;
+}
+
+
+/* The four core functions - F1 is optimized somewhat */
+
+// #define F1(x, y, z) ((x & y) | (~x & z))
+#define F1(x, y, z) (z ^ (x & (y ^ z)))
+#define F2(x, y, z) F1(z, x, y)
+#define F3(x, y, z) ((x ^ y) ^ z)
+#define F4(x, y, z) (y ^ (x | ~z))
+
+/* This is the central step in the MD5 algorithm. */
+#define MD5STEP(f, w, x, y, z, data, s) \
+        ( w += (f(x, y, z) + data),  (w = (w<<s) | (w>>(32-s))),  (w += x) )
+
+/*
+ * The core of the MD5 algorithm, this alters an existing MD5 hash to
+ * reflect the addition of 16 longwords of new data.
+ */
+
+
+void MD5::Transform(const uint32_t in[16])
+{
+        uint32_t     a, b, c, d;
+
+        a = buf[0];
+        b = buf[1];
+        c = buf[2];
+        d = buf[3];
+
+        MD5STEP(F1, a, b, c, d, in[ 0]+0xd76aa478,  7);
+        MD5STEP(F1, d, a, b, c, in[ 1]+0xe8c7b756, 12);
+        MD5STEP(F1, c, d, a, b, in[ 2]+0x242070db, 17);
+        MD5STEP(F1, b, c, d, a, in[ 3]+0xc1bdceee, 22);
+        MD5STEP(F1, a, b, c, d, in[ 4]+0xf57c0faf,  7);
+        MD5STEP(F1, d, a, b, c, in[ 5]+0x4787c62a, 12);
+        MD5STEP(F1, c, d, a, b, in[ 6]+0xa8304613, 17);
+        MD5STEP(F1, b, c, d, a, in[ 7]+0xfd469501, 22);
+        MD5STEP(F1, a, b, c, d, in[ 8]+0x698098d8,  7);
+        MD5STEP(F1, d, a, b, c, in[ 9]+0x8b44f7af, 12);
+        MD5STEP(F1, c, d, a, b, in[10]+0xffff5bb1, 17);
+        MD5STEP(F1, b, c, d, a, in[11]+0x895cd7be, 22);
+        MD5STEP(F1, a, b, c, d, in[12]+0x6b901122,  7);
+        MD5STEP(F1, d, a, b, c, in[13]+0xfd987193, 12);
+        MD5STEP(F1, c, d, a, b, in[14]+0xa679438e, 17);
+        MD5STEP(F1, b, c, d, a, in[15]+0x49b40821, 22);
+
+        MD5STEP(F2, a, b, c, d, in[ 1]+0xf61e2562,  5);
+        MD5STEP(F2, d, a, b, c, in[ 6]+0xc040b340,  9);
+        MD5STEP(F2, c, d, a, b, in[11]+0x265e5a51, 14);
+        MD5STEP(F2, b, c, d, a, in[ 0]+0xe9b6c7aa, 20);
+        MD5STEP(F2, a, b, c, d, in[ 5]+0xd62f105d,  5);
+        MD5STEP(F2, d, a, b, c, in[10]+0x02441453,  9);
+        MD5STEP(F2, c, d, a, b, in[15]+0xd8a1e681, 14);
+        MD5STEP(F2, b, c, d, a, in[ 4]+0xe7d3fbc8, 20);
+        MD5STEP(F2, a, b, c, d, in[ 9]+0x21e1cde6,  5);
+        MD5STEP(F2, d, a, b, c, in[14]+0xc33707d6,  9);
+        MD5STEP(F2, c, d, a, b, in[ 3]+0xf4d50d87, 14);
+        MD5STEP(F2, b, c, d, a, in[ 8]+0x455a14ed, 20);
+        MD5STEP(F2, a, b, c, d, in[13]+0xa9e3e905,  5);
+        MD5STEP(F2, d, a, b, c, in[ 2]+0xfcefa3f8,  9);
+        MD5STEP(F2, c, d, a, b, in[ 7]+0x676f02d9, 14);
+        MD5STEP(F2, b, c, d, a, in[12]+0x8d2a4c8a, 20);
+
+        MD5STEP(F3, a, b, c, d, in[ 5]+0xfffa3942,  4);
+        MD5STEP(F3, d, a, b, c, in[ 8]+0x8771f681, 11);
+        MD5STEP(F3, c, d, a, b, in[11]+0x6d9d6122, 16);
+        MD5STEP(F3, b, c, d, a, in[14]+0xfde5380c, 23);
+        MD5STEP(F3, a, b, c, d, in[ 1]+0xa4beea44,  4);
+        MD5STEP(F3, d, a, b, c, in[ 4]+0x4bdecfa9, 11);
+        MD5STEP(F3, c, d, a, b, in[ 7]+0xf6bb4b60, 16);
+        MD5STEP(F3, b, c, d, a, in[10]+0xbebfbc70, 23);
+        MD5STEP(F3, a, b, c, d, in[13]+0x289b7ec6,  4);
+        MD5STEP(F3, d, a, b, c, in[ 0]+0xeaa127fa, 11);
+        MD5STEP(F3, c, d, a, b, in[ 3]+0xd4ef3085, 16);
+        MD5STEP(F3, b, c, d, a, in[ 6]+0x04881d05, 23);
+        MD5STEP(F3, a, b, c, d, in[ 9]+0xd9d4d039,  4);
+        MD5STEP(F3, d, a, b, c, in[12]+0xe6db99e5, 11);
+        MD5STEP(F3, c, d, a, b, in[15]+0x1fa27cf8, 16);
+        MD5STEP(F3, b, c, d, a, in[ 2]+0xc4ac5665, 23);
+
+        MD5STEP(F4, a, b, c, d, in[ 0]+0xf4292244,  6);
+        MD5STEP(F4, d, a, b, c, in[ 7]+0x432aff97, 10);
+        MD5STEP(F4, c, d, a, b, in[14]+0xab9423a7, 15);
+        MD5STEP(F4, b, c, d, a, in[ 5]+0xfc93a039, 21);
+        MD5STEP(F4, a, b, c, d, in[12]+0x655b59c3,  6);
+        MD5STEP(F4, d, a, b, c, in[ 3]+0x8f0ccc92, 10);
+        MD5STEP(F4, c, d, a, b, in[10]+0xffeff47d, 15);
+        MD5STEP(F4, b, c, d, a, in[ 1]+0x85845dd1, 21);
+        MD5STEP(F4, a, b, c, d, in[ 8]+0x6fa87e4f,  6);
+        MD5STEP(F4, d, a, b, c, in[15]+0xfe2ce6e0, 10);
+        MD5STEP(F4, c, d, a, b, in[ 6]+0xa3014314, 15);
+        MD5STEP(F4, b, c, d, a, in[13]+0x4e0811a1, 21);
+        MD5STEP(F4, a, b, c, d, in[ 4]+0xf7537e82,  6);
+        MD5STEP(F4, d, a, b, c, in[11]+0xbd3af235, 10);
+        MD5STEP(F4, c, d, a, b, in[ 2]+0x2ad7d2bb, 15);
+        MD5STEP(F4, b, c, d, a, in[ 9]+0xeb86d391, 21);
+
+        buf[0] += a;
+        buf[1] += b;
+        buf[2] += c;
+        buf[3] += d;
+}
+
+// -- MD5 transformation function that works on buffer, by rob
+void MD5::Process(const void *dataptr,unsigned length)
+{
+        const uint8_t *data=static_cast<const uint8_t*>(dataptr);
+
+        while (length > 0)
+        {
+                unsigned currentpos = static_cast<unsigned>(totalwritten & 63);
+                unsigned room = 64 - currentpos;
+
+                unsigned moveamount = length;
+                if (moveamount > room)
+                    moveamount = room;
+
+                std::memcpy(&databuffer[currentpos], data, moveamount);
+
+                data += moveamount;
+                length -= moveamount;
+                totalwritten += moveamount;
+
+                if (moveamount == room)
+                {
+                        // Transform buffer to list of uint32_t words
+                        uint32_t tmpbuf[16];
+                        for (unsigned i=0;i<16;++i)
+                            tmpbuf[i] = getu32lsb(databuffer + 4*i);
+                        Transform(tmpbuf);
+                }
+        }
+}
+
+// -- MD5 finalization function (call this before asking for hash!)
+Blex::StringPair MD5::FinalizeHash()
+{
+        uint64_t length = totalwritten * 8;
+
+        // Pad to 56 mod 64, minimum 1 padding byte
+        unsigned currentpos = static_cast<unsigned>(totalwritten & 63);
+        unsigned padbytes = ((119 - currentpos) % 64) + 1;
+
+        //Create the padding buffer
+        uint8_t finaldata[128];
+        memset(finaldata, 0, padbytes);
+        finaldata[0]=0x80; //set first bit
+        putu64lsb(finaldata + padbytes, length);
+
+        Process(finaldata, padbytes + sizeof(uint64_t));
+        return Blex::StringPair(reinterpret_cast<char*>(&buf), reinterpret_cast<char*>(&buf) + Blex::MD5HashLen);
+}
+
+void GetMD5Hash(const void *data, unsigned len, void *hashstore)
+{
+        Blex::MD5 retval;
+        retval.Process(data,len);
+        memcpy(hashstore, retval.Finalize(), MD5HashLen);
+}
+
 /*
 Dit algorithme voldoet voor alle passwordfields die beginnen met SSHA1:
 
@@ -1859,13 +1873,7 @@ void GenerateWebHareBlowfishPassword(uint8_t *encoded_password, const void *plai
 
 bool CheckWebHarePassword(unsigned encoded_size, void const *encoded_data, unsigned plaintext_size, void const *plaintext_data)
 {
-        if (encoded_size == MD5PasswordLen && std::equal(static_cast<const char*>(encoded_data), static_cast<const char*>(encoded_data) + 4, "MD5:"))
-        {
-                uint8_t newpass[MD5PasswordLen];
-                GenerateMD5Password(newpass, plaintext_data, plaintext_size);
-                return std::equal(newpass,newpass+MD5PasswordLen,static_cast<const uint8_t*>(encoded_data));
-        }
-        else if (encoded_size == plaintext_size + 6 && std::equal(static_cast<const char*>(encoded_data), static_cast<const char*>(encoded_data) + 6, "PLAIN:"))
+        if (encoded_size == plaintext_size + 6 && std::equal(static_cast<const char*>(encoded_data), static_cast<const char*>(encoded_data) + 6, "PLAIN:"))
         {
                 return std::equal(static_cast<const char*>(plaintext_data), static_cast<const char*>(plaintext_data) + plaintext_size, static_cast<const char*>(encoded_data)+6);
         }
@@ -1888,6 +1896,12 @@ bool CheckWebHarePassword(unsigned encoded_size, void const *encoded_data, unsig
                     return false;
 
                 return std::equal(temppassword, temppassword + BlowfishInternalPasswordLen, static_cast<const char*>(encoded_data)+5);
+        }
+        else if (encoded_size == MD5PasswordLen && std::equal(static_cast<const char*>(encoded_data), static_cast<const char*>(encoded_data) + 4, "MD5:"))
+        {
+                uint8_t newpass[MD5PasswordLen];
+                GenerateMD5Password(newpass, plaintext_data, plaintext_size);
+                return std::equal(newpass,newpass+MD5PasswordLen,static_cast<const uint8_t*>(encoded_data));
         }
         else if (encoded_size >= 32 && std::equal(static_cast<const char*>(encoded_data), static_cast<const char*>(encoded_data) + 12, "NETASP-SHA1:")) //.NET ASP SHA1 algorithm
         {
