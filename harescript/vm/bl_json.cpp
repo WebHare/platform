@@ -3,6 +3,7 @@
 #include <harescript/vm/hsvm_dllinterface.h>
 #include <harescript/vm/hs_lexer.h>
 #include <harescript/vm/hsvm_context.h>
+#include <harescript/vm/outputobject.h>
 
 #include <cmath>
 

@@ -8,6 +8,7 @@
 #include "hsvm_blobinterface.h"
 
 #include "hsvm_context.h"
+#include "hsvm_processmgr.h"
 
 namespace HareScript {
 namespace Baselibs {

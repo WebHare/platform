@@ -60,6 +60,7 @@ class VirtualMachine;
 class Environment;
 class Library;
 class JobManager;
+class OutputObject;
 
 inline VirtualMachine* GetVirtualMachine(HSVM *vm_ptr)
 {
