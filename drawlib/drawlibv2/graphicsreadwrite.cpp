@@ -124,7 +124,7 @@ void DIB_GraphicsReader::ProcessHeader(bool has_palette)
         colorsused      = Blex::getu32lsb(&header[32]);
 
         // in DEBUG mode.. tell the console what DIB we have here..
-        #ifdef DEBUG
+        #ifdef WHBUILD_DEBUG
         DEBUGPRINT("----------------------------");
         DEBUGPRINT("  header size = " << headerlength);
         DEBUGPRINT("  height      = " << height);

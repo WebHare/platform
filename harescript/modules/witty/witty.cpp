@@ -9,7 +9,7 @@
 
 //#define WITTY_DEBUG
 
-#if defined(DEBUG) && defined(WITTY_DEBUG)
+#if defined(WHBUILD_DEBUG) && defined(WITTY_DEBUG)
  #define WTE_PRINT(x) DEBUGPRINT(x)
 #else
  #define WTE_PRINT(x) (void)0

@@ -142,7 +142,7 @@ struct TCPIPContext
 
                 TCPIPContext *context;
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
                 Blex::DebugSocket socket;
 #else
                 Blex::Socket socket;

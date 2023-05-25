@@ -162,7 +162,7 @@ int UTF8Main(std::vector<std::string> const &args)
                 worker_count = res.first;
         }
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         Blex::ErrStream::SetTimestamping(true);
         Blex::ErrStream::SetThreadIds(true);
 #endif

@@ -126,7 +126,7 @@ private: //Private data
 
         BiffParaCharStyle mynullstyle;
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         mutable int sprms_total;
         mutable int sprms_errors;
         mutable int sprms_unknown;

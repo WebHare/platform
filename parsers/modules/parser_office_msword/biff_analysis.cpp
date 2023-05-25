@@ -198,7 +198,7 @@ void BiffParaAnalyzer::NextCell()
 
 void BiffTable::PostProcessTable()
 {
-#if defined(DEBUGTABLES) && defined(DEBUG)
+#if defined(DEBUGTABLES) && defined(WHBUILD_DEBUG)
         DEBUGPRINT("--- Table definition, with " << rows.size() << " rows");
         DumpTable();
         DEBUGPRINT("--- End of table definition");
@@ -217,7 +217,7 @@ void BiffTable::PostProcessTable()
         /* normalize close numbers (9 is a Magic Number, they require at leat 36, word docs suggest 3*15 but that is too much for some docs.. */
         CollapseWidths(&margins,9);
 
-#if defined(DEBUGTABLES) && defined(DEBUG)
+#if defined(DEBUGTABLES) && defined(WHBUILD_DEBUG)
         std::stringstream output;
         std::copy(margins.begin(),margins.end(),std::ostream_iterator<int>(output," "));
         DEBUGPRINT("Widths: " << output.str());
@@ -550,7 +550,7 @@ void BiffParaAnalyzer::ParagraphsRead(void)
 
         //Build our list of paragraphs using Table's data
         //and the piece table
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         std::clog << "Paragraph boundaries: (all numers are FC limits in decimal):\n";
         for (unsigned paraptr=0;paraptr<paragraphs.size();++paraptr)
         {

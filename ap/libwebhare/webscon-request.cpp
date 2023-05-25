@@ -10,7 +10,7 @@
 #define SHOW_DISKRESOLUTION
 
 
-#if defined(SHOW_DISKRESOLUTION) && defined(DEBUG)
+#if defined(SHOW_DISKRESOLUTION) && defined(WHBUILD_DEBUG)
  #define DISKRES_PRINT(x) DEBUGPRINT(x)
  #define DISKRES_ONLY(x) x
 #else

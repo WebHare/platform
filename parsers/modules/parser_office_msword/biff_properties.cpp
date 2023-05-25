@@ -1154,7 +1154,7 @@ int Tap::Sprm (BiffDoc const &parent, const SprmData &sprm)
                 wWidthIndent = ParsePercOrTwips(sprm);
                 return 0;
 
-        #ifdef DEBUG
+        #ifdef WHBUILD_DEBUG
 /*            case 0x15:
                 if (sprm.OpSize() == 1)
                     DEBUGPRINT("TAP 15: %x",sprm.Data(0)[0]));

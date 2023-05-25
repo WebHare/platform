@@ -13,7 +13,7 @@
 
 //#define TRACECREATION
 
-#if defined(DEBUG) && defined(TRACECREATION)
+#if defined(WHBUILD_DEBUG) && defined(TRACECREATION)
  #define TC_PRINT(x) DEBUGPRINT(x)
 #else
  #define TC_PRINT(x) (void)0

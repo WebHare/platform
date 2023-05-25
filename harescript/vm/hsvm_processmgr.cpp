@@ -19,7 +19,7 @@
 //#define SHOW_LOCKS
 //#define SHOW_WFM
 
-#if defined(SHOW_JOBMANAGER) && defined(DEBUG)
+#if defined(SHOW_JOBMANAGER) && defined(WHBUILD_DEBUG)
  #define PM_PRINT(x) DEBUGPRINT(x)
  #define PM_ONLY(x) x
 #else
@@ -27,7 +27,7 @@
  #define PM_ONLY(x)
 #endif
 
-#if defined(SHOW_PORTS) && defined(DEBUG)
+#if defined(SHOW_PORTS) && defined(WHBUILD_DEBUG)
  #define PO_PRINT(x) DEBUGPRINT(x)
  #define PO_ONLY(x) x
 #else
@@ -35,7 +35,7 @@
  #define PO_ONLY(x)
 #endif
 
-#if defined(SHOW_PORTS_EVENTS) && defined(DEBUG)
+#if defined(SHOW_PORTS_EVENTS) && defined(WHBUILD_DEBUG)
  #define POE_PRINT(x) DEBUGPRINT(x)
  #define POE_ONLY(x) x
 #else
@@ -43,7 +43,7 @@
  #define POE_ONLY(x)
 #endif
 
-#if defined(SHOW_GROUPREFS) && defined(DEBUG)
+#if defined(SHOW_GROUPREFS) && defined(WHBUILD_DEBUG)
  #define GR_PRINT(x) DEBUGPRINT(x)
  #define GR_ONLY(x) DEBUGONLY(x)
 #else
@@ -51,7 +51,7 @@
  #define GR_ONLY(x)
 #endif
 
-#if defined(SHOW_LOCKS) && defined(DEBUG)
+#if defined(SHOW_LOCKS) && defined(WHBUILD_DEBUG)
  #define LOCK_PRINT(x) DEBUGPRINT(x)
  #define LOCK_ONLY(x) x
 #else
@@ -59,7 +59,7 @@
  #define LOCK_ONLY(x)
 #endif
 
-#if defined(SHOW_WFM) && defined(DEBUG)
+#if defined(SHOW_WFM) && defined(WHBUILD_DEBUG)
  #define WFM_PRINT(x) DEBUGPRINT("WFM: " << x)
  #define WFM_ONLY(x) x
 #else

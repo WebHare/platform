@@ -7,7 +7,7 @@
 //#define RPCCONN_DEBUGDISPATCH           //Define to enable debugging
 
 
-#if defined(RPCCONN_DEBUGDISPATCH) && defined(DEBUG)
+#if defined(RPCCONN_DEBUGDISPATCH) && defined(WHBUILD_DEBUG)
 #define DEBUGRPCPRINT(x) DEBUGPRINT(x)
 #else
 #define DEBUGRPCPRINT(x)

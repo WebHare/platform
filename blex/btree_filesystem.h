@@ -195,7 +195,7 @@ class BLEXLIB_PUBLIC DBIndexFileSystem
                 unsigned highestindex;
         };
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         typedef Blex::InterlockedData<FSData,Blex::DebugMutex> LockedFSData;
 #else
         typedef Blex::InterlockedData<FSData,Blex::Mutex> LockedFSData;

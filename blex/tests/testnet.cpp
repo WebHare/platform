@@ -528,7 +528,7 @@ BLEX_TEST_FUNCTION(TestSecureSockets)
 BLEX_TEST_FUNCTION(TestSecureNonBlockingSockets)
 {
         Blex::DebugSocket lhs(Blex::Socket::Stream), rhs(Blex::Socket::Stream);
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
 //        lhs.SetDebugMode(Blex::DebugSocket::Calls);
   //      rhs.SetDebugMode(Blex::DebugSocket::Calls);
 #endif
@@ -594,7 +594,7 @@ BLEX_TEST_FUNCTION(TestSecureNonBlockingSockets)
 BLEX_TEST_FUNCTION(SocketTCPTest)
 {
         Blex::DebugSocket accepting_socket(Blex::Socket::Stream), connecting_socket(Blex::Socket::Stream), connecting_socket_2(Blex::Socket::Stream);
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         accepting_socket.SetDebugMode(Blex::DebugSocket::Calls);
         connecting_socket.SetDebugMode(Blex::DebugSocket::Calls);
         connecting_socket_2.SetDebugMode(Blex::DebugSocket::Calls);
@@ -763,7 +763,7 @@ void DispatcherThread(Blex::SocketAddress tcplistener, Blex::SocketAddress secur
         dispat.reset();
 }
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
 #define SOCKETTYPE Blex::DebugSocket
 #else
 #define SOCKETTYPE Blex::Socket
@@ -820,7 +820,7 @@ BLEX_TEST_FUNCTION(DispatTest)
         listener.Start();
 
         //Try to connect
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         Blex::DebugSocket tcpsock(Blex::Socket::Stream, Blex::DebugSocket::All);
 #else
         Blex::Socket tcpsock(Blex::Socket::Stream);
@@ -849,7 +849,7 @@ BLEX_TEST_FUNCTION(DispatSSLDataTest)
         Blex::Thread listener(std::bind(&DispatcherThread, socket_addr, secure_socket_addr/*, pipepath*/));
         listener.Start();
 
-#if defined(DEBUG) and 0
+#if defined(WHBUILD_DEBUG) and 0
         Blex::DebugSocket tcpsock(Blex::Socket::Stream, Blex::DebugSocket::All);
 #else
         Blex::Socket tcpsock(Blex::Socket::Stream);

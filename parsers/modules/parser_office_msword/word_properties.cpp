@@ -600,7 +600,7 @@ void SprmIterator::ReadCurrent97()
         cur = SprmData(sprm | (opsize<<16),overrun?localbuf:grpprl+start);
 }
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
 #define DEBUGSPRMPREFIX retvalue=
 #else
 #define DEBUGSPRMPREFIX
@@ -608,7 +608,7 @@ void SprmIterator::ReadCurrent97()
 
 void BiffDoc::ApplySprm(SprmData const &sprmdata, Pap *pap, Sep *sep, Tap *tap) const
 {
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         int retvalue;
 #endif
         DEBUGONLY(retvalue=2);
@@ -633,7 +633,7 @@ void BiffDoc::ApplySprm(SprmData const &sprmdata, Pap *pap, Sep *sep, Tap *tap) 
         }
 
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         ++sprms_total;
         if (retvalue!=0) //nothing wrong
         {
@@ -654,14 +654,14 @@ void BiffDoc::ApplySprm(SprmData const &sprmdata, Pap *pap, Sep *sep, Tap *tap) 
 
 void BiffDoc::ApplyChpSprm(SprmData const &sprmdata, Chp const &style_base, Chp *cur_style_chp, Chp *to_update_chp) const
 {
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         int retvalue;
 #endif
         DEBUGONLY(retvalue=2);
         if(sprmdata.Category()==2)
             DEBUGSPRMPREFIX to_update_chp->Sprm (*this, style_base, cur_style_chp, sprmdata);
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         ++sprms_total;
         if (retvalue!=0) //nothing wrong
         {

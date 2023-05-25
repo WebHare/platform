@@ -20,7 +20,7 @@ class BLEXLIB_PUBLIC GifDecompressor
         private:
         Blex::Stream &instream;
         GifFileType *gif;
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         int ImageNum;
 #endif
         int BackGround;

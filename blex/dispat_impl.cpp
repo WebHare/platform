@@ -172,7 +172,7 @@ int Poller::DoPoll(Blex::DateTime until)
                     break;
         }
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         if (retval<0)
         {
                 int old_errno = errno;
@@ -880,7 +880,7 @@ void Conn::ParseSSLInboundData(StateMutex::ScopedLock *mylock)
             SetTimer(Blex::DateTime::Invalid(), false); //locks: timerdata
 
         DEBUGDISPATCHPRINT("<D:" << socket.GetFd() << "> Offering " << ssl_conn->GetIncomingDataLen() << " decrypted bytes");
-#if defined(DISPATCHER_SOCKETCHECKING_ALL) && defined(DEBUG)
+#if defined(DISPATCHER_SOCKETCHECKING_ALL) && defined(WHBUILD_DEBUG)
         DumpPacket(ssl_conn->GetIncomingDataLen(), ssl_conn->GetIncomingDataPtr());
 #endif
 
@@ -918,7 +918,7 @@ void Conn::DoParse(StateMutex::ScopedLock *mylock) //locks: ~scopedlock > timerd
 
                 DEBUGDISPATCHPRINT("<D:" << socket.GetFd() << "> Offering " << state.inbuflen << " bytes for parse");
 
-#if defined(DISPATCHER_SOCKETCHECKING_ALL) && defined(DEBUG)
+#if defined(DISPATCHER_SOCKETCHECKING_ALL) && defined(WHBUILD_DEBUG)
                 DumpPacket(state.inbuflen, inbuf);
 #endif
                 callbacks.HookIncomingData(inbuf,state.inbuflen);

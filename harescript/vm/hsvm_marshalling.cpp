@@ -833,7 +833,7 @@ void Marshaller::WriteInternal(VarId var, uint8_t *begin, uint8_t *limit, Marsha
             ThrowInternalError("Marshalling: no Analyze called before Write!");
         if (static_cast< size_t >(limit - begin) < data_size)
             ThrowInternalError("Not enough room in data storage to marshal data");
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         Blex::FileOffset oldsize = data_size;
         AnalyzeInternal(var, packet != 0);
         if (data_size != oldsize)

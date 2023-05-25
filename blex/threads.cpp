@@ -21,7 +21,7 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#if defined(DEBUGPOLL) && defined(DEBUG)
+#if defined(DEBUGPOLL) && defined(WHBUILD_DEBUG)
  #define DEBUGPOLLPRINT(x) DEBUGPRINT(x)
  #define DEBUGPOLLONLY(x) x
 #else

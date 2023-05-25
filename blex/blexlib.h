@@ -30,7 +30,7 @@
 
 #define LOGPRINT(x) do { ::Blex::ErrStream() << x ; } while (0)
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
   #define DEBUGONLY(x) do { x; } while (0)
   #define DEBUGONLYARG(x) x
   #define DEBUGPRINT(x) LOGPRINT(x)

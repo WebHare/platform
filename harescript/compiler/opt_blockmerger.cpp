@@ -32,7 +32,7 @@ namespace Compiler
 {
 using namespace IL;
 
-#if defined(DEBUG) && defined(BM_STRONG_CHECKS)
+#if defined(WHBUILD_DEBUG) && defined(BM_STRONG_CHECKS)
 void Opt_BlockMerger::CheckStructure(BasicBlock *block)
 {
         // Find the start block
@@ -149,7 +149,7 @@ void Opt_BlockMerger::MergeBlocks (IL::CodedFunction* func, BasicBlock *block1, 
 {
         // PRE: (all links from block 1 point to block2), and ((all links to block2 point to block1) or (block1 is empty))
 
-#if defined(DEBUG) && defined(BM_PRINTS)
+#if defined(WHBUILD_DEBUG) && defined(BM_PRINTS)
         BMPRINT("****************************");
         BMPRINT("Merging " << *block1 << std::endl << "to " << *block2);
 
@@ -175,7 +175,7 @@ void Opt_BlockMerger::MergeBlocks (IL::CodedFunction* func, BasicBlock *block1, 
         assert(block2->predecessors.empty() || block1->instructions.empty());
 
         // Store if this is a simple concatenation
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         bool concatenation = block2->predecessors.empty();
 #endif
 
@@ -229,7 +229,7 @@ void Opt_BlockMerger::MergeBlocks (IL::CodedFunction* func, BasicBlock *block1, 
 
                 if (!done)
                 {
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
                         /** This MUST be a concatenation; we cannot find out the variable versions that come
                             from another predecessor */
                         assert(concatenation);
@@ -264,7 +264,7 @@ void Opt_BlockMerger::MergeBlocks (IL::CodedFunction* func, BasicBlock *block1, 
         // block1 will be removed, so remove it from the dominees list of its dominator.
         if (block1->dominator)
         {
-#if defined(DEBUG) && defined(BM_PRINTS)
+#if defined(WHBUILD_DEBUG) && defined(BM_PRINTS)
                 BMPRINT("Dominator of from");
                 BMPRINT(*block1->dominator);
 #endif
@@ -300,7 +300,7 @@ void Opt_BlockMerger::MergeBlocks (IL::CodedFunction* func, BasicBlock *block1, 
         if (block1 == func->block)
             func->block = block2;
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         // invariant: all params from the phifunction come from the successors
         for (std::vector<PhiFunction *>::iterator it = block2->phifunctions.begin(); it != block2->phifunctions.end(); ++it)
             for (std::vector<std::pair<AssignSSAVariable *, BasicBlock *> >::iterator it2 = (*it)->params.begin(); it2 != (*it)->params.end(); ++it2)
@@ -312,14 +312,14 @@ void Opt_BlockMerger::MergeBlocks (IL::CodedFunction* func, BasicBlock *block1, 
                 }
 #endif
 
-#if defined(DEBUG) && defined(BM_PRINTS)
+#if defined(WHBUILD_DEBUG) && defined(BM_PRINTS)
         BMPRINT("Result: " << *block2);
         BMPRINT("Predecessors: ");
         for (std::vector<BasicBlock *>::iterator it = block2->predecessors.begin(); it !=  block2->predecessors.end(); ++it)
             BMPRINT(**it);
 #endif
 
-#if defined(DEBUG) && defined(BM_STRONG_CHECKS)
+#if defined(WHBUILD_DEBUG) && defined(BM_STRONG_CHECKS)
         CheckStructure(block2);
 #endif
 }

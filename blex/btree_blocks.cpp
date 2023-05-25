@@ -308,7 +308,7 @@ void IndexBlock::PrimitiveAppend(IndexBlockEntry const &entry)
 /* namespace {
 bool CompareBlock(IndexBlock const & left, IndexBlock const & right)
 {
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         if (left.FillSize() != right.FillSize())
             return false;
 

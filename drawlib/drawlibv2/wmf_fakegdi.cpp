@@ -770,7 +770,7 @@ int32_t FakeGDI::CreatePen(uint32_t objectindex, uint32_t style, uint32_t width,
         std::unique_ptr<GO_Pen> obj (new GO_Pen());
         obj->ObjectType = isPen;
         obj->color = color;
-        #ifdef DEBUG
+        #ifdef WHBUILD_DEBUG
           DEBUGPRINT("  Red   " << static_cast<int>(color.GetR()));
           DEBUGPRINT("  Green " << static_cast<int>(color.GetG()));
           DEBUGPRINT("  Blue  " << static_cast<int>(color.GetB()));
@@ -788,7 +788,7 @@ int32_t FakeGDI::CreatePenIndirect(uint32_t style, uint32_t width, const DrawLib
         std::unique_ptr<GO_Pen> obj (new GO_Pen());
         obj->ObjectType = isPen;
         obj->color = color;
-        #ifdef DEBUG
+        #ifdef WHBUILD_DEBUG
           DEBUGPRINT("  Red   " << static_cast<int>(color.GetR()));
           DEBUGPRINT("  Green " << static_cast<int>(color.GetG()));
           DEBUGPRINT("  Blue  " << static_cast<int>(color.GetB()));
@@ -883,12 +883,12 @@ int32_t FakeGDI::DIBCreatePatternBrush(uint32_t index, const uint8_t *DIBdata, l
 
 int32_t FakeGDI::DeleteObject(uint32_t dwObjectNo)
 {
-        #ifdef DEBUG
+        #ifdef WHBUILD_DEBUG
         DEBUGPRINT("  Object number " <<dwObjectNo);
         #endif
         if (ObjectList->DeleteObject(dwObjectNo) !=0)
         {
-                #ifdef DEBUG
+                #ifdef WHBUILD_DEBUG
                 DEBUGPRINT("  ERROR - failed to delete object [obj not found]");
                 #endif
         }
@@ -1074,7 +1074,7 @@ int32_t FakeGDI::ExtTextOutW(int32_t x, int32_t y, uint32_t flags, fRECT *lpRect
                 }
         }
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         std::string printversion;
         Blex::UTF8Encode(ustring.begin(), std::min(ustring.begin()+60,ustring.end()), std::back_inserter(printversion));
         DEBUGPRINT("  ExtTextOutW at " << p1 << " original logical point should be " << (p1*logical_to_local.Invert()));
@@ -1673,7 +1673,7 @@ int32_t FakeGDI::SetTextAlign(uint32_t alignflag)
 
         GDI_DCItem::Valign va = GDI_DCItem::BOTTOM;
 
-        #ifdef DEBUG
+        #ifdef WHBUILD_DEBUG
 
         // test left/right/center
         if ((lr & alignflag) == TA_LEFT) DEBUGPRINT("  align == LEFT");
@@ -1727,7 +1727,7 @@ int32_t FakeGDI::SetBKColor(const DrawLib::Pixel32 &color)
 
 int32_t FakeGDI::SetBKMode(uint32_t bkmode)
 {
-        #ifdef DEBUG
+        #ifdef WHBUILD_DEBUG
         switch(bkmode)
         {
         case TRANSPARENT:       DEBUGPRINT("  BKmode = transparent");

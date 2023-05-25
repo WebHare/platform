@@ -119,7 +119,7 @@ else
 endif
 
 ifeq ($(WHBUILD_DEBUG),1)
-	CPPFLAGS += -DDEBUG -fno-omit-frame-pointer
+	CPPFLAGS += -DWHBUILD_DEBUG -fno-omit-frame-pointer
 	CXXFLAGS += -O0
 else
 	CXXFLAGS += -DNDEBUG -O3

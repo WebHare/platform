@@ -420,7 +420,7 @@ void CompileServer::HandleCompileRequest(WebServer::Connection *webcon, std::str
                 }
         }
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         bool success = compile_engine.GetErrorHandler().AnyErrors();
 #endif
 
@@ -527,7 +527,7 @@ int UTF8Main(std::vector<std::string> const &args)
         //
 
         dopts.show_timings = options.Exists("d");
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         dopts.show_files = options.Exists("d");
         dopts.show_compilecontrol = options.Exists("d");
         dopts.generate_dots = options.Exists("d");

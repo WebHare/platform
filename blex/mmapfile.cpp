@@ -92,7 +92,7 @@ MmapFile::MmapFile() //throw()
 /** Destroy a memory-mapped file */
 MmapFile::~MmapFile() //throw()
 {
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         {
             // Lock within own scope, UnmapAll also locks.
             LockedData::ReadRef lock(data);

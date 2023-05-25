@@ -816,7 +816,7 @@ void BiffDoc::ReadTableStream ()
                          header.OffsetComplexTable()+header.LengthComplexTable(),
                          *tablefile,
                          *this);
-#if defined(DEBUGPIECES) && defined(DEBUG)
+#if defined(DEBUGPIECES) && defined(WHBUILD_DEBUG)
         DEBUGPRINT("* Complex pieces table");
         DEBUGPRINT("Piece [CP Range]  Val [FC Range]  BPC Size  SPRM");
         for (unsigned a=0;a<piecetable.piecetable.size();++a)
@@ -841,7 +841,7 @@ void BiffDoc::ReadTableStream ()
         //static int read_plcf(uint32_t data_lcb,uint32_t data_fc,int structsize,uint32_t *entries,void **data)
         //returns -3 on memerror, -2 on readerror, -1 on weird datasize
         CharactersRead();
-#if defined(DEBUGCHARS) && defined(DEBUG)
+#if defined(DEBUGCHARS) && defined(WHBUILD_DEBUG)
         std::clog << "Character exception runs (all numbers are FC limits in decimal)\n";
         std::clog << header.OffsetFirstCharacter();
         for (unsigned i=0;i<chars.size();++i)
@@ -909,7 +909,7 @@ void BiffDoc::ReadTextBoxes()
                 textboxes.push_back(newbox);
 
                 //Debug the textbox
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
                 std::ostringstream debugdata;
                 debugdata << "Textbox " << i << " cp " << newbox.startcp << '-' << newbox.limitcp << std::hex;
                 for (unsigned i=0; i < sizeof newbox.oddbytes;++i)
@@ -935,7 +935,7 @@ const FileShape * BiffDoc::GetShapeCp(uint32_t cp) const
         return 0;
 }
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
 void BiffDoc::DumpTableStream (void)
 {
         DEBUGPRINT("\n*****************************\n*   Document table stream   *\n*****************************\n");

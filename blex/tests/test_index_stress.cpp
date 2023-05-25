@@ -37,7 +37,7 @@ const unsigned NumThreads = 1;
 
 
 
-// END DEBUG CODE
+// END WHBUILD_DEBUG CODE
 
 // 30000/20000/10000
 
@@ -612,7 +612,7 @@ void Index_Splice2Test()
         superblock->InsertAtWithID(superblock->begin(), entry, left_block.GetBlockId());
         FillBlock(*right_block, right_fill, orderno, max_entry_size);
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         unsigned totalsize = left_block->FillSize() + superblock->FillSize() + right_block->FillSize();
 #endif
 
@@ -676,7 +676,7 @@ void Index_Average3Test()
         superblock->InsertAtWithID(superblock->begin()+1, entry, middle_block.GetBlockId());
         FillBlock(*right_block, right_fill, orderno, max_entry_size);
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         unsigned totalsize = left_block->FillSize() + superblock->FillSize() + right_block->FillSize();
 #endif
 
@@ -685,7 +685,7 @@ void Index_Average3Test()
         DEBUGPRINT(" ("<<totalsize<<") " <<left_block->FillSize()  << " - " << middle_block->FillSize() << " - " << right_block->FillSize() << " - " << superblock->FillSize());
 //        RawDisplayTree(r.filesession, superblock.GetBlockId());
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         bool retval = true;
         retval = r.Average3(*superblock, superblock->begin());
 #else

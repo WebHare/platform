@@ -17,7 +17,7 @@
 
 #define SHTML_DEBUG    //Define to enable debugging
 
-#if defined(SHTML_DEBUG) && defined(DEBUG)
+#if defined(SHTML_DEBUG) && defined(WHBUILD_DEBUG)
  #define SHTML_PRINT(x) DEBUGPRINT(x)
  #define SHTML_ONLY(x) x
  #define SHTML_PARAMONLY(x) x

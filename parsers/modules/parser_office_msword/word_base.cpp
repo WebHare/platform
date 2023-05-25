@@ -371,7 +371,7 @@ std::pair<unsigned, std::string> DocBase::Scan(bool emptydocobjects, Parsers::Pu
         DEBUGPRINT("DocBase::Scan: CreateAnchors");
         CreateAnchors();
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         DumpParts();
 #endif
 

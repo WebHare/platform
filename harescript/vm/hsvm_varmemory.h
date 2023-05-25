@@ -397,7 +397,7 @@ class BLEXLIB_PUBLIC VarMemory
         /** ID of next free heap block, or -1 if no more free blocks are avaialble */
         HeapId freeheapid;
 /*
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
         struct VMProf;
         VMProf *prof;
 #endif

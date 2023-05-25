@@ -6,7 +6,7 @@
 
 //#define WEBSCONDEBUG    //Define to enable debugging
 
-#if defined(WEBSCONDEBUG) && defined(DEBUG)
+#if defined(WEBSCONDEBUG) && defined(WHBUILD_DEBUG)
  #define WS_PRINT(x) DEBUGPRINT(x)
  #define WS_ONLY(x) x
 #else

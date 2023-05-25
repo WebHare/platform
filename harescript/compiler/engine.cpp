@@ -370,7 +370,7 @@ void EngineImpl::Compile(Blex::ContextKeeper &keeper, std::string const &library
                 opt_il_recordoptimizer.Execute(module);
                 FASEEND;
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
                 if (debugoptions.generate_dots)
                 {
                         std::unique_ptr< Blex::FileStream > file;
@@ -388,7 +388,7 @@ void EngineImpl::Compile(Blex::ContextKeeper &keeper, std::string const &library
                 opt_il_deadcodeeliminator.Execute(module);
                 FASEEND;
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
                 if (debugoptions.generate_dots)
                 {
                         std::unique_ptr< Blex::FileStream > file;
@@ -410,7 +410,7 @@ void EngineImpl::Compile(Blex::ContextKeeper &keeper, std::string const &library
                 liveanalyser.Execute(module);
                 FASEEND;
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
                 if (debugoptions.generate_dots)
                 {
                         std::unique_ptr< Blex::FileStream > file;
@@ -440,7 +440,7 @@ void EngineImpl::Compile(Blex::ContextKeeper &keeper, std::string const &library
                 //ildotprinter.RegisterCodeGenerator(&generator);
                 FASEEND;
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
                 if (debugoptions.generate_dots)
                 {
                         std::unique_ptr< Blex::FileStream > file;
@@ -460,7 +460,7 @@ void EngineImpl::Compile(Blex::ContextKeeper &keeper, std::string const &library
                 //ildotprinter.RegisterRegisterAllocator(&callocator);
                 FASEEND;
 
-                #ifdef DEBUG
+                #ifdef WHBUILD_DEBUG
                 if (debugoptions.generate_dots)
                 {
                         std::unique_ptr< Blex::FileStream > file;
@@ -480,7 +480,7 @@ void EngineImpl::Compile(Blex::ContextKeeper &keeper, std::string const &library
                 //ildotprinter.RegisterRegisterAllocator(&callocator);
                 FASEEND;
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
                 if (debugoptions.generate_dots)
                 {
                         std::unique_ptr< Blex::FileStream > file;
@@ -507,7 +507,7 @@ void EngineImpl::Compile(Blex::ContextKeeper &keeper, std::string const &library
                 cblinker.Execute(module, &generator, &callocator);
                 FASEEND;
 
-#ifdef DEBUG
+#ifdef WHBUILD_DEBUG
                 if (debugoptions.generate_dots)
                 {
                         std::unique_ptr< Blex::FileStream > file;
