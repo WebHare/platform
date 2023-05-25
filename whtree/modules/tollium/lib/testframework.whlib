@@ -1369,7 +1369,7 @@ OBJECT FUNCTION LookupByTitle(OBJECT screen, STRING text, BOOLEAN islast, STRING
         INSERT comp->elementtype INTO alltypes AT END;
 
       IF(comp->elementtype = matchelementtype)
-        INSERT comp INTo comps AT END;
+        INSERT comp INTO comps AT END;
     }
 
     IF(Length(comps) = 0)
