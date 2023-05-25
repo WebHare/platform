@@ -15,6 +15,13 @@ ASYNC MACRO TestApp()
   TT("webserverlist")->selection := TT("webserverlist")->rows[0];
   AWAIT ExpectScreenChange(+1, PTR TTClick("open"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  TestEQ(TRUE, TTIsActionEnabled(":Delete"));
+
+  // Filling fields
+  // Set the value of the select with title 'Selection' to the option with title 'Second option'
+  TTFillByTitle(":Selection", "Second option");
+  // Set the selection of the first of two lists (with any title) to the row with "First text column value" in the first text column.
+  TTFillByTitle("{list}:*[1/2]", "First text column value");
 
   // Close app
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
