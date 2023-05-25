@@ -121,7 +121,6 @@ static void DestroyContext(void*, void *context_ptr)
 
 BLEXLIB_PUBLIC int HSVM_ModuleEntryPoint(HSVM_RegData *regdata,void*)
 {
-        //HSVM_RegisterFunction(regdata, "PARSEWTEDATAFILE:WH_XML:I:X", HareScript::Wte::ParseWTEDataFile);
         HSVM_RegisterFunction(regdata, "DOCOMPILE:WH_SELFCOMPILE:RA:S", HareScript::Selfcompile::DoCompile);
         HSVM_RegisterFunction(regdata, "DORUN:WH_SELFCOMPILE:R:SSA", HareScript::Selfcompile::DoRun);
         HSVM_RegisterContext (regdata, HareScript::Selfcompile::ContextId, NULL, &CreateContext, &DestroyContext);

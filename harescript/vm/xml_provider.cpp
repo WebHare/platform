@@ -980,12 +980,12 @@ int xmlCharCopyFunc(unsigned char *out, int *outlen,
 // in xml_domobjects.cpp)
 int RegisterDomObjectFunctions(HSVM_RegData *regdata);
 
-BLEXLIB_PUBLIC int HSVM_ModuleEntryPoint(HSVM_RegData *regdata,void*)
+BLEXLIB_PUBLIC int XMLEntryPoint(HSVM_RegData *regdata,void*)
 {
         Blex::XML::SetCatalogBase( Blex::MergePath(HSVM_GetResourcesPath(regdata),"xml") );
 
-        HSVM_RegisterMacro   (regdata, "__PARSEXMLWITHCALLBACKS:WH_XML::XRS", HareScript::Xml::ParseXMLWithCallbacks);
-        HSVM_RegisterMacro   (regdata, "__PARSEHTMLASXMLWITHCALLBACKS:WH_XML::XRS", HareScript::Xml::ParseHTMLAsXMLWithCallbacks);
+        HSVM_RegisterMacro   (regdata, "__PARSEXMLWITHCALLBACKS:::XRS", HareScript::Xml::ParseXMLWithCallbacks);
+        HSVM_RegisterMacro   (regdata, "__PARSEHTMLASXMLWITHCALLBACKS:::XRS", HareScript::Xml::ParseHTMLAsXMLWithCallbacks);
 
         // Register contexts
         HSVM_RegisterContext (regdata, HareScript::Xml::ContextId, NULL, &CreateContext, &DestroyContext);

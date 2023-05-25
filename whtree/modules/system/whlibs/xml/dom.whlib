@@ -11,8 +11,8 @@ LOADLIB "wh::float.whlib";
 LOADLIB "wh::files.whlib";
 
 
-OBJECT FUNCTION __MakeXMLDocument(BLOB xmlfile, STRING encoding, BOOLEAN readonly) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
-OBJECT FUNCTION __MakeXMLDocumentFromHTML(BLOB xmlfile, STRING encoding, BOOLEAN readonly, BOOLEAN noimplied) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+OBJECT FUNCTION __MakeXMLDocument(BLOB xmlfile, STRING encoding, BOOLEAN readonly) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+OBJECT FUNCTION __MakeXMLDocumentFromHTML(BLOB xmlfile, STRING encoding, BOOLEAN readonly, BOOLEAN noimplied) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
 /// FIXME: move to realdoc
 RECORD ARRAY userdatastorage;
@@ -284,7 +284,7 @@ OBJECTTYPE ChildNodeList EXTEND XmlNodeList
 PUBLIC STATIC OBJECTTYPE XmlNode
 <
   // Getters and setters
-  PRIVATE INTEGER FUNCTION GetLinenum() __ATTRIBUTES__(EXTERNAL "wh_xml");
+  PRIVATE INTEGER FUNCTION GetLinenum() __ATTRIBUTES__(EXTERNAL);
   PRIVATE OBJECT FUNCTION GetAttributes()
   {
     RETURN this->nodetype = 1 ? NEW AttributeNamedNodeMap(this) : DEFAULT OBJECT;
@@ -295,29 +295,29 @@ PUBLIC STATIC OBJECTTYPE XmlNode
     RETURN NEW ChildNodeList(PRIVATE this);
   }
 
-  INTEGER FUNCTION __GetNumChildren() __ATTRIBUTES__(EXTERNAL "wh_xml");
-  OBJECT FUNCTION __GetChild(INTEGER idx) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
-  OBJECT ARRAY FUNCTION __GetChildren(BOOLEAN onlyelements) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  INTEGER FUNCTION __GetNumChildren() __ATTRIBUTES__(EXTERNAL);
+  OBJECT FUNCTION __GetChild(INTEGER idx) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+  OBJECT ARRAY FUNCTION __GetChildren(BOOLEAN onlyelements) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
-  PRIVATE OBJECT FUNCTION GetFirstChild() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
-  PRIVATE OBJECT FUNCTION GetFirstElementChild() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
-  PRIVATE OBJECT FUNCTION GetLastChild() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
-  PRIVATE OBJECT FUNCTION GetLastElementChild() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
-  PRIVATE STRING FUNCTION GetLocalName() __ATTRIBUTES__(EXTERNAL "wh_xml");
-  PRIVATE STRING FUNCTION GetNamespaceURI() __ATTRIBUTES__(EXTERNAL "wh_xml");
-  PRIVATE OBJECT FUNCTION GetNextElementSibling() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
-  PRIVATE OBJECT FUNCTION GetNextSibling() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
-  PRIVATE STRING FUNCTION GetNodeName() __ATTRIBUTES__(EXTERNAL "wh_xml");
-  PRIVATE INTEGER FUNCTION GetNodeType() __ATTRIBUTES__(EXTERNAL "wh_xml");
-  PRIVATE STRING FUNCTION GetNodeValue() __ATTRIBUTES__(EXTERNAL "wh_xml");
-  PRIVATE MACRO SetNodeValue(STRING value) __ATTRIBUTES__(EXTERNAL "wh_xml");
-  PRIVATE OBJECT FUNCTION GetOwnerDocument() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
-  PRIVATE OBJECT FUNCTION GetParentNode() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
-  PRIVATE STRING FUNCTION GetPrefix() __ATTRIBUTES__(EXTERNAL "wh_xml");
-  PRIVATE MACRO SetPrefix(STRING prefix) __ATTRIBUTES__(EXTERNAL "wh_xml");
-  PRIVATE OBJECT FUNCTION GetPreviousElementSibling() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
-  PRIVATE OBJECT FUNCTION GetPreviousSibling() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
-  PRIVATE INTEGER64 FUNCTION GetNodeId() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  PRIVATE OBJECT FUNCTION GetFirstChild() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+  PRIVATE OBJECT FUNCTION GetFirstElementChild() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+  PRIVATE OBJECT FUNCTION GetLastChild() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+  PRIVATE OBJECT FUNCTION GetLastElementChild() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+  PRIVATE STRING FUNCTION GetLocalName() __ATTRIBUTES__(EXTERNAL);
+  PRIVATE STRING FUNCTION GetNamespaceURI() __ATTRIBUTES__(EXTERNAL);
+  PRIVATE OBJECT FUNCTION GetNextElementSibling() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+  PRIVATE OBJECT FUNCTION GetNextSibling() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+  PRIVATE STRING FUNCTION GetNodeName() __ATTRIBUTES__(EXTERNAL);
+  PRIVATE INTEGER FUNCTION GetNodeType() __ATTRIBUTES__(EXTERNAL);
+  PRIVATE STRING FUNCTION GetNodeValue() __ATTRIBUTES__(EXTERNAL);
+  PRIVATE MACRO SetNodeValue(STRING value) __ATTRIBUTES__(EXTERNAL);
+  PRIVATE OBJECT FUNCTION GetOwnerDocument() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+  PRIVATE OBJECT FUNCTION GetParentNode() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+  PRIVATE STRING FUNCTION GetPrefix() __ATTRIBUTES__(EXTERNAL);
+  PRIVATE MACRO SetPrefix(STRING prefix) __ATTRIBUTES__(EXTERNAL);
+  PRIVATE OBJECT FUNCTION GetPreviousElementSibling() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+  PRIVATE OBJECT FUNCTION GetPreviousSibling() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+  PRIVATE INTEGER64 FUNCTION GetNodeId() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
   PRIVATE STRING FUNCTION GetInnerXML()
   {
     STRING result;
@@ -494,7 +494,7 @@ PUBLIC STATIC OBJECTTYPE XmlNode
   // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-184E7107
   // @param newchild XmlNode
   // @return XmlNode
-  PUBLIC OBJECT FUNCTION AppendChild(OBJECT newchild) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  PUBLIC OBJECT FUNCTION AppendChild(OBJECT newchild) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
   // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-3A0ED0A4
   PUBLIC OBJECT FUNCTION CloneNode(BOOLEAN deep)
@@ -503,7 +503,7 @@ PUBLIC STATIC OBJECTTYPE XmlNode
   }
 
   // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-NodeHasAttrs
-  PUBLIC BOOLEAN FUNCTION HasAttributes() __ATTRIBUTES__(EXTERNAL "wh_xml");
+  PUBLIC BOOLEAN FUNCTION HasAttributes() __ATTRIBUTES__(EXTERNAL);
 
   // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-810594187
   PUBLIC BOOLEAN FUNCTION HasChildNodes()
@@ -516,25 +516,25 @@ PUBLIC STATIC OBJECTTYPE XmlNode
   // @param newchild XmlNode
   // @param refchild XmlNode
   // @return XmlNode
-  PUBLIC OBJECT FUNCTION InsertBefore(OBJECT newchild, OBJECT refchild) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  PUBLIC OBJECT FUNCTION InsertBefore(OBJECT newchild, OBJECT refchild) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
   // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-normalize
-  PUBLIC MACRO Normalize() __ATTRIBUTES__(EXTERNAL "wh_xml");
+  PUBLIC MACRO Normalize() __ATTRIBUTES__(EXTERNAL);
 
   // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-1734834066
   // @param oldchild XmlNode
   // @return XmlNode
-  PUBLIC OBJECT FUNCTION RemoveChild(OBJECT oldchild) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  PUBLIC OBJECT FUNCTION RemoveChild(OBJECT oldchild) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
   // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-785887307
   // @param newchild XmlNode
   // @param oldchild XmlNode
   // @return XmlNode
-  PUBLIC OBJECT FUNCTION ReplaceChild(OBJECT newchild, OBJECT oldchild) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  PUBLIC OBJECT FUNCTION ReplaceChild(OBJECT newchild, OBJECT oldchild) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
   // http://www.w3.org/TR/DOM-Level-3-Core/core.html#Node3-isSameNode
   // @param other XmlNode
-  PUBLIC BOOLEAN FUNCTION IsSameNode(OBJECT other) __ATTRIBUTES__(EXTERNAL "wh_xml");
+  PUBLIC BOOLEAN FUNCTION IsSameNode(OBJECT other) __ATTRIBUTES__(EXTERNAL);
 
   /** @short List attributes on a node
       @return The node's attributes in unspecified order, including any xmlns attributes
@@ -543,7 +543,7 @@ PUBLIC STATIC OBJECTTYPE XmlNode
       @cell(string) return.localname Attribute local name
       @cell(string) return.nodename Attribute node name, may include prefix
       @cell(string) return.nodevalue Attribute value */
-  PUBLIC RECORD ARRAY FUNCTION ListAttributes() __ATTRIBUTES__(EXTERNAL "wh_xml");
+  PUBLIC RECORD ARRAY FUNCTION ListAttributes() __ATTRIBUTES__(EXTERNAL);
 
   /** @short Get a list of visible namespaces
       @long This function returns all prefixes that are active on the specific element, ie it will process the
@@ -823,10 +823,10 @@ OBJECT ARRAY FUNCTION ListEls(OBJECT parent, STRING namespaceuri, STRING localna
 PUBLIC OBJECTTYPE XmlDocument EXTEND XmlNode //can't make this static, as we can't make it a HTMLDocument then
 <
   // Getters and setters
-  PRIVATE OBJECT FUNCTION GetDocumentElement() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
-  PRIVATE BOOLEAN FUNCTION GetReadOnly() __ATTRIBUTES__(EXTERNAL "wh_xml");
+  PRIVATE OBJECT FUNCTION GetDocumentElement() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+  PRIVATE BOOLEAN FUNCTION GetReadOnly() __ATTRIBUTES__(EXTERNAL);
 
-  STRING FUNCTION __C14N2(INTEGER mode, STRING ARRAY inclusive_ns_prefixes, BOOLEAN with_comments, RECORD query) __ATTRIBUTES__(EXTERNAL "wh_xml");
+  STRING FUNCTION __C14N2(INTEGER mode, STRING ARRAY inclusive_ns_prefixes, BOOLEAN with_comments, RECORD query) __ATTRIBUTES__(EXTERNAL);
 
   // HareScript
   PUBLIC OBJECT FUNCTION CreateXPathQuery()
@@ -895,9 +895,9 @@ PUBLIC OBJECTTYPE XmlDocument EXTEND XmlNode //can't make this static, as we can
     RETURN StringToBlob(this->__C14N2(mappedmode, options.inclusive_ns_prefixes, options.keepcomments, options.nodelist));
   }
 
-  PUBLIC BLOB FUNCTION GetDocumentBlob(BOOLEAN formatted, STRING encoding DEFAULTSTO "UTF-8") __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  PUBLIC BLOB FUNCTION GetDocumentBlob(BOOLEAN formatted, STRING encoding DEFAULTSTO "UTF-8") __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
-  RECORD ARRAY FUNCTION __GetParseErrors() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  RECORD ARRAY FUNCTION __GetParseErrors() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
   PUBLIC RECORD ARRAY FUNCTION GetParseErrors()
   {
@@ -926,31 +926,31 @@ PUBLIC OBJECTTYPE XmlDocument EXTEND XmlNode //can't make this static, as we can
 
   // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-D26C0AF8
   // @return XmlCDATASection
-  PUBLIC OBJECT FUNCTION CreateCDATASection(STRING data) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  PUBLIC OBJECT FUNCTION CreateCDATASection(STRING data) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
   // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-1334481328
   // @return XmlComment
-  PUBLIC OBJECT FUNCTION CreateComment(STRING data) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  PUBLIC OBJECT FUNCTION CreateComment(STRING data) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
   // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-35CB04B5
   // @return XmlDocumentFragment
-  PUBLIC OBJECT FUNCTION CreateDocumentFragment() __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  PUBLIC OBJECT FUNCTION CreateDocumentFragment() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
   // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-2141741547
   // @return XmlElement
-  PUBLIC OBJECT FUNCTION CreateElement(STRING tagname) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  PUBLIC OBJECT FUNCTION CreateElement(STRING tagname) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
   // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-DocCrElNS
   // @return XmlElement
-  PUBLIC OBJECT FUNCTION CreateElementNS(STRING namespaceuri, STRING qualifiedname) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  PUBLIC OBJECT FUNCTION CreateElementNS(STRING namespaceuri, STRING qualifiedname) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
   // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-135944439
   // @return XmlProcessingInstruction
-  PUBLIC OBJECT FUNCTION CreateProcessingInstruction(STRING target, STRING data) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  PUBLIC OBJECT FUNCTION CreateProcessingInstruction(STRING target, STRING data) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
   // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-1975348127
   // @return XmlText
-  PUBLIC OBJECT FUNCTION CreateTextNode(STRING data) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  PUBLIC OBJECT FUNCTION CreateTextNode(STRING data) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
   // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-getElBId
   // @return XmlElement
@@ -1163,11 +1163,11 @@ PUBLIC STATIC OBJECTTYPE XmlSchema EXTEND XmlDocument
 
   PUBLIC PROPERTY referencedfiles(pvt_referencedfiles, -);
 
-  //re-ADDME ? PUBLIC OBJECT FUNCTION FindElementByName(STRING typename) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  //re-ADDME ? PUBLIC OBJECT FUNCTION FindElementByName(STRING typename) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
-  //re-ADDME ? PUBLIC OBJECT FUNCTION FindTypeByName(STRING typename) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  //re-ADDME ? PUBLIC OBJECT FUNCTION FindTypeByName(STRING typename) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
-  RECORD ARRAY FUNCTION __ValidateDocument(OBJECT document) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  RECORD ARRAY FUNCTION __ValidateDocument(OBJECT document) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
   /** Validates a document
       @param(object %XmlDocument) document Document to validate
@@ -1204,7 +1204,7 @@ PUBLIC STATIC OBJECTTYPE XmlSchema EXTEND XmlDocument
 PUBLIC STATIC OBJECTTYPE SchematronSchema EXTEND XmlDocument
 <
   // HareScript
-  RECORD ARRAY FUNCTION __ValidateDocument(OBJECT document) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  RECORD ARRAY FUNCTION __ValidateDocument(OBJECT document) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
   /** Validates a document
       @param(object %XmlDocument) document Document to validate
@@ -1324,10 +1324,10 @@ PUBLIC STATIC OBJECTTYPE XmlDOMImplementation
       @param doctype The type of document to be created (not used yet, set to DEFAULT
              OBJECT)
       @return A new Document object. */
-  PUBLIC OBJECT FUNCTION CreateDocument(STRING namespaceuri, STRING qualifiedname, OBJECT doctype) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  PUBLIC OBJECT FUNCTION CreateDocument(STRING namespaceuri, STRING qualifiedname, OBJECT doctype) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
-  OBJECT FUNCTION __MakeXMLSchema(BLOB xmlfile, STRING encoding, BOOLEAN readonly) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
-  OBJECT FUNCTION __MakeSchematronSchema(BLOB xmlfile, STRING encoding, BOOLEAN readonly) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+  OBJECT FUNCTION __MakeXMLSchema(BLOB xmlfile, STRING encoding, BOOLEAN readonly) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+  OBJECT FUNCTION __MakeSchematronSchema(BLOB xmlfile, STRING encoding, BOOLEAN readonly) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
   /** @short Register an extra entity loader
       @param loader Loader function, which will receive URL and ID as parameters, and must return a record [ success := TRUE, data := <blob> ] on success */
@@ -1613,7 +1613,7 @@ PUBLIC STATIC OBJECTTYPE XmlCharacterData EXTEND XmlNode
 PUBLIC STATIC OBJECTTYPE XmlElement EXTEND XmlNode
 <
   // Getters and setters
-  PRIVATE STRING FUNCTION GetName() __ATTRIBUTES__(EXTERNAL "wh_xml");
+  PRIVATE STRING FUNCTION GetName() __ATTRIBUTES__(EXTERNAL);
 
   STRING FUNCTION GetOuterXMLOpeningTag()
   {
@@ -1669,7 +1669,7 @@ PUBLIC STATIC OBJECTTYPE XmlElement EXTEND XmlNode
       @param namespaceuri Namespace URI ofthe attribute
       @param localname Local name of attribute to get
       @return Attribute value, empty string if attribute does not exist */
-  PUBLIC STRING FUNCTION GetAttributeNS(STRING namespaceuri, STRING localname) __ATTRIBUTES__(EXTERNAL "wh_xml");
+  PUBLIC STRING FUNCTION GetAttributeNS(STRING namespaceuri, STRING localname) __ATTRIBUTES__(EXTERNAL);
 
   // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-217A91B8
   // @return XmlAttr
@@ -1748,7 +1748,7 @@ PUBLIC STATIC OBJECTTYPE XmlElement EXTEND XmlNode
   }
 
   // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-ElHasAttrNS
-  PUBLIC BOOLEAN FUNCTION HasAttributeNS(STRING namespaceuri, STRING localname) __ATTRIBUTES__(EXTERNAL "wh_xml");
+  PUBLIC BOOLEAN FUNCTION HasAttributeNS(STRING namespaceuri, STRING localname) __ATTRIBUTES__(EXTERNAL);
 
   // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-6D6AC0F9
   PUBLIC MACRO RemoveAttribute(STRING name)
@@ -1758,7 +1758,7 @@ PUBLIC STATIC OBJECTTYPE XmlElement EXTEND XmlNode
   }
 
   // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-ElRemAtNS
-  PUBLIC MACRO RemoveAttributeNS(STRING namespaceuri, STRING localname) __ATTRIBUTES__(EXTERNAL "wh_xml");
+  PUBLIC MACRO RemoveAttributeNS(STRING namespaceuri, STRING localname) __ATTRIBUTES__(EXTERNAL);
 
   // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-D589198
   // @param oldattr XmlAttr
@@ -1796,7 +1796,7 @@ PUBLIC STATIC OBJECTTYPE XmlElement EXTEND XmlNode
   }
 
   // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-ElSetAttrNS
-  PUBLIC MACRO SetAttributeNS(STRING namespaceuri, STRING qualifiedname, STRING value) __ATTRIBUTES__(EXTERNAL "wh_xml");
+  PUBLIC MACRO SetAttributeNS(STRING namespaceuri, STRING qualifiedname, STRING value) __ATTRIBUTES__(EXTERNAL);
 
   // http://www.w3.org/TR/2000/REC-DOM-Level-2-Core-20001113/core.html#ID-887236154
   // @param newattr XmlAttr
@@ -2222,9 +2222,9 @@ PUBLIC STATIC OBJECTTYPE XmlDocumentType EXTEND XmlText
   {
     RETURN this->GetOuterXML();
   }
-  PRIVATE STRING FUNCTION GetPublicId() __ATTRIBUTES__(EXTERNAL "wh_xml");
-  PRIVATE STRING FUNCTION GetSystemId() __ATTRIBUTES__(EXTERNAL "wh_xml");
-  PRIVATE STRING FUNCTION GetName() __ATTRIBUTES__(EXTERNAL "wh_xml");
+  PRIVATE STRING FUNCTION GetPublicId() __ATTRIBUTES__(EXTERNAL);
+  PRIVATE STRING FUNCTION GetSystemId() __ATTRIBUTES__(EXTERNAL);
+  PRIVATE STRING FUNCTION GetName() __ATTRIBUTES__(EXTERNAL);
 >;
 
 

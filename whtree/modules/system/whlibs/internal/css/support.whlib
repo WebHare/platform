@@ -10,7 +10,7 @@ LOADLIB "wh::internal/css/tokenizer.whlib";
 /// Maximum number of cached parsed CSS selectors (cache is cleared after reaching this size)
 CONSTANT INTEGER parsed_selector_cache_size := 1024;
 
-RECORD ARRAY FUNCTION __EvaluateCSSSelectors(RECORD ARRAY parts, OBJECT root, OBJECT scope, STRING mode) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+RECORD ARRAY FUNCTION __EvaluateCSSSelectors(RECORD ARRAY parts, OBJECT root, OBJECT scope, STRING mode) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
 
 PUBLIC RECORD ARRAY FUNCTION SplitPrelude(RECORD ARRAY prelude)

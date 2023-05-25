@@ -333,7 +333,7 @@ HS_SUBPROJECTS = compiler vm
 
 ifneq ($(BUILDSYSTEM),emscripten)
   # Not bothering with dynamic loading in emcripten. Might be a good reason to just explicitly include the witty module in core?
-  HS_HS_MODULES = witty xml icu selfcompile git pgsql
+  HS_HS_MODULES = icu selfcompile git pgsql
 endif
 
 HS_LIBS=blex_hscompiler blex_hsvm $(BLEX_LIBS)
@@ -861,7 +861,7 @@ endif # end darwin check
 
 #ADDME autogenerate lists below
 BIN_ALIASES = webserver webhare runscript $(RUNTEST) whmanager vmtest whcompile hsrun
-MOD_ALIASES = libblex_draw libblex_hscompiler libblex_hsvm libblex_parser_office_escher libblex_webhare hsm_parser hsm_parser_office_msword hsm_parser_adobe_pdf hsm_wh_xml hsm_wh_odbc hsm_wh_pgsql hsm_parser_format_hsxml hsm_parser_format_html hsm_wh_oci
+MOD_ALIASES = libblex_draw libblex_hscompiler libblex_hsvm libblex_parser_office_escher libblex_webhare hsm_parser hsm_parser_office_msword hsm_parser_adobe_pdf hsm_wh_pgsql hsm_parser_format_hsxml hsm_parser_format_html
 
 showtargets:
 	@echo $(BIN_ALIASES)

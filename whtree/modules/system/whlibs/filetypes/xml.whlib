@@ -167,8 +167,8 @@ PUBLIC RECORD ARRAY FUNCTION SelectXML(INTEGER xmldoc, STRING path)
   RETURN opendocs[xmldoc-1].xpathobj->__InnerSelectXML(path, DEFAULT OBJECT, TRUE);
 }
 
-MACRO __ParseXMLWithCallbacks(BLOB xmlfile, RECORD callbacks, STRING encoding) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
-MACRO __ParseHTMLAsXMLWithCallbacks(BLOB xmlfile, RECORD callbacks, STRING encoding) __ATTRIBUTES__(EXTERNAL "wh_xml", EXECUTESHARESCRIPT);
+MACRO __ParseXMLWithCallbacks(BLOB xmlfile, RECORD callbacks, STRING encoding) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+MACRO __ParseHTMLAsXMLWithCallbacks(BLOB xmlfile, RECORD callbacks, STRING encoding) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
 MACRO FixStartElement(MACRO PTR origfunction, STRING node, RECORD ARRAY attrs)
 {

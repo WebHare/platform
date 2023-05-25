@@ -9,6 +9,14 @@
 #include "hsvm_recorddbprovider.h"
 #include "hsvm_loopbackdbprovider.h"
 
+
+extern "C" {
+
+int XMLEntryPoint(HSVM_RegData *regdata,void*);
+int WittyEntryPoint(HSVM_RegData *regdata,void*);
+
+}
+
 namespace HareScript
 {
 
@@ -231,6 +239,8 @@ Externals::Externals(FileSystem &filesystem)
 {
         filesystem.Register(creg);
         linkmanager.InvokeModuleRegistration(&BaselibsEntryPoint, (void*)0);
+        linkmanager.InvokeModuleRegistration(&XMLEntryPoint, (void*)0);
+        linkmanager.InvokeModuleRegistration(&WittyEntryPoint, (void*)0);
 
 
         //ADDME: We might want to separate this code from the function registrator,
