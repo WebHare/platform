@@ -51,14 +51,13 @@ bool CoreMutex::TryLock() //throw()
 {
   return true;
 }
-
-ThreadId CurrentThread() //throw()
+void DebugMutex::Lock(void)
 {
-        return 42;
+
 }
-
-void InitThreadContext(ContextKeeper *)
+void DebugMutex::Unlock(void)
 {
+
 }
 
 } //end namespace Blex (defined __EMSCRIPTEMM)
@@ -506,46 +505,14 @@ bool CoreConditionMutex::TimedWait(Blex::DateTime until) //throw()
         return signalled;
 }
 
-//-----------------------------------------------------------------------------
-//
-// Thread local context implementation
-//
-//-----------------------------------------------------------------------------
-
-pthread_key_t key = 0;
-
-void DestroyContextKeeper(void *ctxt)
-{
-        delete static_cast< ContextKeeper * >(ctxt);
-}
-
-void SetThreadContextKeeper(ContextKeeper *keeper)
-{
-        pthread_setspecific(key, keeper);
-}
-
-void InitThreadContext(ContextKeeper *keeper)
-{
-        pthread_key_create(&key, NULL);
-        pthread_setspecific(key, keeper);
-}
-
-ContextKeeper & CurrentThreadContext()
-{
-        void *ctxt = pthread_getspecific(key);
-        if (!ctxt)
-            throw new std::runtime_error("Blex thread context not initialized");
-
-        return *static_cast< ContextKeeper * >(ctxt);
-}
-
-
 
 //-----------------------------------------------------------------------------
 //
 // Thread object
 //
 //-----------------------------------------------------------------------------
+
+void SetThreadContextKeeper(ContextKeeper *keeper);
 
 namespace Detail
 {
@@ -611,11 +578,6 @@ extern "C" void *ThreadStarter(void *object)
 }
 
 } //end namespace Detail
-
-ThreadId CurrentThread() //throw()
-{
-        return pthread_self();
-}
 
 Thread::Thread(std::function< void() > const &threadfunction)
  : threadfunction(threadfunction)
@@ -1633,6 +1595,45 @@ ContextRegistrator & GetThreadContextRegistrator()
         //FIXME may need pthread_once wrapping to be threadsafe!
         static ContextRegistrator maincontextreg;
         return maincontextreg;
+}
+
+ThreadId CurrentThread() //throw()
+{
+        return pthread_self();
+}
+
+
+//-----------------------------------------------------------------------------
+//
+// Thread local context implementation
+//
+//-----------------------------------------------------------------------------
+
+pthread_key_t key = 0;
+
+void DestroyContextKeeper(void *ctxt)
+{
+        delete static_cast< ContextKeeper * >(ctxt);
+}
+
+void SetThreadContextKeeper(ContextKeeper *keeper)
+{
+        pthread_setspecific(key, keeper);
+}
+
+void InitThreadContext(ContextKeeper *keeper)
+{
+        pthread_key_create(&key, NULL);
+        pthread_setspecific(key, keeper);
+}
+
+ContextKeeper & CurrentThreadContext()
+{
+        void *ctxt = pthread_getspecific(key);
+        if (!ctxt)
+            throw new std::runtime_error("Blex thread context not initialized");
+
+        return *static_cast< ContextKeeper * >(ctxt);
 }
 
 } // end of namespace Blex
