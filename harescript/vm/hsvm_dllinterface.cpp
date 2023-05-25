@@ -1688,17 +1688,14 @@ HSVM_VariableId HSVM_CallFunctionPtrInternal(HSVM *vm, HSVM_VariableId fptr, int
            stackm.PopDeepVariables(param_count, 2);
 
         // Call function pointer
-        VirtualMachine *remote = VM.PrepareCallFunctionPtr(false, allow_macro);
+        VM.PrepareCallFunctionPtr(false, allow_macro);
 
         if (TestMustAbort(vm))
             return 0;
 
         if (schedule)
         {
-                if (remote)
-                    VM.PushSwitchToOtherVMFrame(remote);
-                else
-                    VM.PushDummyFrame(); // Must push a frame, to catch automatic popframe()
+                VM.PushDummyFrame(); // Must push a frame, to catch automatic popframe()
                 return rec - param_count;
         }
 
@@ -1931,7 +1928,6 @@ int HSVM_MakeFunctionPtrInternal(struct HSVM *vm, HSVM_VariableId id_set, std::s
 
         stackm.SetInteger(stackm.RecordCellCreate(id_set, VM.columnnamemapper.GetMapping("LIBID")), def->lib->GetId());
         stackm.SetInteger(stackm.RecordCellCreate(id_set, VM.columnnamemapper.GetMapping("FUNCTIONID")), def->id);
-        stackm.SetVMRef  (stackm.RecordCellCreate(id_set, VM.columnnamemapper.GetMapping("VM")), &VM);
         stackm.SetInteger(stackm.RecordCellCreate(id_set, VM.columnnamemapper.GetMapping("RETURNTYPE")), def->def->resulttype);
         stackm.SetInteger(stackm.RecordCellCreate(id_set, VM.columnnamemapper.GetMapping("EXCESSARGSTYPE")), is_vararg ? ToNonArray(def->def->parameters.back().type) : 0);
         stackm.SetInteger(stackm.RecordCellCreate(id_set, VM.columnnamemapper.GetMapping("FIRSTUNUSEDSOURCE")), def->def->parameters.size() + 1 - is_vararg);
@@ -2015,7 +2011,6 @@ void HSVM_RebindFunctionPtr(struct HSVM *vm, HSVM_VariableId id_set, HSVM_Variab
 //        ColumnNameId col_rettype = columnnamemapper.GetMapping("RETURNTYPE");
         ColumnNameId col_excessargstype = columnnamemapper.GetMapping("EXCESSARGSTYPE");
         ColumnNameId col_firstunusedsource = columnnamemapper.GetMapping("FIRSTUNUSEDSOURCE");
-        ColumnNameId col_vm = columnnamemapper.GetMapping("VM");
 */
         stackm.CopyFrom(id_set, functionptr);
 
@@ -2026,13 +2021,10 @@ void HSVM_RebindFunctionPtr(struct HSVM *vm, HSVM_VariableId id_set, HSVM_Variab
         if (excessargstype == VariableTypes::Uninitialized)
             keep_vararg = false;
 
-        // Get the function definition
-        VirtualMachine *remote_vm = stackm.GetVMRef(stackm.RecordCellGetByName(functionptr, cn_cache.col_vm));
+        LibraryId libid = VM.GetStackMachine().GetInteger(VM.GetStackMachine().RecordCellGetByName(id_set, cn_cache.col_libid));
+        int32_t functionid = VM.GetStackMachine().GetInteger(VM.GetStackMachine().RecordCellGetByName(id_set, cn_cache.col_functionid));
 
-        LibraryId libid = remote_vm->GetStackMachine().GetInteger(remote_vm->GetStackMachine().RecordCellGetByName(id_set, cn_cache.col_libid));
-        int32_t functionid = remote_vm->GetStackMachine().GetInteger(remote_vm->GetStackMachine().RecordCellGetByName(id_set, cn_cache.col_functionid));
-
-        Library const *lib = remote_vm->GetLibraryLoader().GetWHLibraryById(libid);
+        Library const *lib = VM.GetLibraryLoader().GetWHLibraryById(libid);
         if (!lib)
             throw VMRuntimeError (Error::InternalError, "Function called in already unloaded library");
 

@@ -1549,7 +1549,12 @@ PUBLIC OBJECT FUNCTION __LookupComponentByTestReference(OBJECT screen, STRING co
     THROW;
   }
 }
-//Click/execute an action or component
+/* Click/execute an action or component.
+    @param compname @includecelldef #TT.compname
+    @param options @includecelldef #TT.options
+    @cell options.allowfailure If TRUE, just returns FALSE when the action was disabled instead of throwing an error.
+    @return TRUE if the action was executed
+*/
 PUBLIC BOOLEAN FUNCTION TTClick(STRING compname, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   OBJECT comp := TT(compname, [ chaseaction := TRUE, ...options, DELETE allowfailure ]);
@@ -1577,6 +1582,20 @@ PUBLIC BOOLEAN FUNCTION TTClick(STRING compname, RECORD options DEFAULTSTO DEFAU
   }
   FINALLY
     allownoactionhandlerfound := old_allownoactionhandlerfound;
+}
+
+/** Test is an action is enabled wrt current selection and flags
+    @param compname @includecelldef #TT.compname
+    @param options @includecelldef #TT.options
+    @return TRUE if the action is enabled
+*/
+PUBLIC BOOLEAN FUNCTION TTIsActionEnabled(STRING compname, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  OBJECT comp := TT(compname, [ chaseaction := TRUE, ...options ]);
+  IF(comp EXTENDSFROM TolliumText AND ObjectExists(comp->action))
+    comp := comp->action; //manually chase to fix texts pointing to download actions (see testformcustomfile)
+
+  RETURN IsValueSet(__HS_INTERNAL_MakeObjectReferencePrivileged(comp)->ResolveActionHandler(DEFAULT OBJECT));
 }
 
 PUBLIC MACRO TTEscape()

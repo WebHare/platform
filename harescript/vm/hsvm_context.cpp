@@ -10,7 +10,6 @@
 #include "errors.h"
 #include <blex/decimalfloat.h>
 #include <iostream>
-#include <iomanip>
 #include "mangling.h"
 #include "hsvm_debugger.h"
 #include "hsvm_processmgr.h"
@@ -387,7 +386,7 @@ void VirtualMachine::PopFrame()
             PopFrameRaw();
 }
 
-bool VirtualMachine::PopFrameEx(VirtualMachine **vm)
+bool VirtualMachine::PopFrameEx()
 {
         if (callstack.empty())
             ThrowInternalError("Stack underflow");
@@ -398,53 +397,8 @@ bool VirtualMachine::PopFrameEx(VirtualMachine **vm)
         case StackElementType::StopExecute:
                 {
                         // No VM switch
-                        if (vm)
-                            *vm = 0;
                         PopFrameRaw();
                         return false;
-                }
-        case StackElementType::SwitchToOtherVM:
-                {
-                        bool switch_vm = el.vm != this;
-                        if (switch_vm && vm)
-                            *vm = el.vm;
-
-                        PopFrameRaw();
-                        return !switch_vm;
-                }
-        case StackElementType::ReturnToOtherVM:
-                {
-                        if (el.vm == this)
-                        {
-                                // Request to switch to own vm, ignore,
-                                PopFrameRaw();
-                                return true;
-                        }
-                        else
-                        {
-                                // Return VM to return to
-                                if (vm)
-                                    *vm = el.vm;
-
-                                /* Don't pop frame if requesting to switch to other VM,
-                                   it must be popped in target VM (popped executionstate is
-                                   local to target VM)
-                                */
-
-                                // Pop function ptr parameters from target VM
-                                el.vm->stackmachine.PopVariablesN(2);
-
-                                // Other VM wants our return value; copy it and pop it here
-                                el.vm->stackmachine.CopyFromOtherVM(
-                                        el.vm,
-                                        el.vm->stackmachine.PushVariables(1),
-                                        this,
-                                        stackmachine.StackPointer() - 1,
-                                        true);
-                                stackmachine.PopVariablesN(1);
-
-                                return false;
-                        }
                 }
         case StackElementType::Dummy:
                 {
@@ -464,9 +418,6 @@ bool VirtualMachine::PopFrameEx(VirtualMachine **vm)
                 }
         case StackElementType::TailCall:
                 {
-                        if (vm)
-                            *vm = 0;
-
                         PopFrameRaw();
                         std::function< void(bool) > tailcall;
                         std::swap(tailcall, tailcalls.back());
@@ -481,7 +432,7 @@ bool VirtualMachine::PopFrameEx(VirtualMachine **vm)
         return false;
 }
 
-bool VirtualMachine::FillStackTraceElement(CallStackElement const &callstackelt, StackTraceElement *element, bool atinstr, bool full, VirtualMachine **currentvm)
+bool VirtualMachine::FillStackTraceElement(CallStackElement const &callstackelt, StackTraceElement *element, bool atinstr, bool full)
 {
         // Ignore types that have meaning in user-visible stack traces
         if (callstackelt.type == StackElementType::TailCall || callstackelt.codeptr < 0)
@@ -519,15 +470,6 @@ bool VirtualMachine::FillStackTraceElement(CallStackElement const &callstackelt,
                 element->codeptr = callstackelt.codeptr - !atinstr;
                 element->baseptr = callstackelt.baseptr.GetId();
 
-                if (currentvm)
-                {
-                        element->vm = *currentvm;
-                        if (callstackelt.type == StackElementType::SwitchToOtherVM)
-                            *currentvm = callstackelt.vm;
-                }
-                else
-                    element->vm = 0;
-
                 if (!(fdef.flags & FunctionFlags::SkipTrace) || full)
                     return true;
         }
@@ -548,13 +490,10 @@ void VirtualMachine::GetStackTrace(std::vector< StackTraceElement > *elements, b
 
         // Add the stack positions
         StackTraceElement spos;
-        VirtualMachine *currentvm = 0;
-        if (full)
-            currentvm = vmgroup->currentvm;
 
         for (CallStack::reverse_iterator it = callstack.rbegin(); it != callstack.rend(); ++it)
         {
-                if (FillStackTraceElement(*it, &spos, atinstr && it == callstack.rbegin(), full, full ? &currentvm : 0))
+                if (FillStackTraceElement(*it, &spos, atinstr && it == callstack.rbegin(), full))
                     elements->push_back(spos);
         }
 
@@ -1106,38 +1045,13 @@ std::string VirtualMachine::GenerateFunctionPTRSignature(HSVM_VariableId functio
 
 
 
-VirtualMachine * VirtualMachine::PrepareCallFunctionPtr(bool /*suspendable*/, bool allow_macro)
+void VirtualMachine::PrepareCallFunctionPtr(bool /*suspendable*/, bool allow_macro)
 {
         VarId functionptr = stackmachine.StackPointer() - 1;
         VarId args = stackmachine.StackPointer() - 2;
 
         if (stackmachine.RecordSize(functionptr) == 0)
             throw VMRuntimeError(Error::CallingDefaultFunctionPtr);
-
-//        ColumnNameId col_vm = columnnamemapper.GetMapping("VM");
-
-        VirtualMachine *remote = stackmachine.GetVMRef(stackmachine.RecordCellGetByName(functionptr, cn_cache.col_vm));
-        if (remote != this)
-        {
-                if (!remote) // Shouldn't happen, but defensive programming.
-                    throw VMRuntimeError (Error::InternalError, "Trying to call a function with an invalid VM ptr");
-
-                StackMachine &remote_stackm = remote->stackmachine;
-
-                VarId own_args = remote_stackm.PushVariables(2);
-                VarId other_values = stackmachine.StackPointer() - 2;
-
-                remote_stackm.CopyFromOtherVM(remote, own_args, this, other_values, true);
-                remote_stackm.CopyFromOtherVM(remote, own_args + 1, this, other_values + 1, true);
-
-                // Setup the stack frame that will return execution to this VM
-                PushReturnToOtherVMFrame(this);
-
-                // make sure when the remote VM returns from the called function, it will try to pop the return stack frame
-                remote->executionstate.codeptr = SignalCodeptr;
-                remote->PrepareCallFunctionPtr(false, allow_macro);
-                return remote;
-        }
 
         // FIXME: precalculate
 //        ColumnNameId col_functionid = columnnamemapper.GetMapping("FUNCTIONID");
@@ -1317,7 +1231,6 @@ VirtualMachine * VirtualMachine::PrepareCallFunctionPtr(bool /*suspendable*/, bo
 
         stackmachine.PopDeepVariables(2, 1);
         */
-        return 0;
 }
 
 uint8_t inline VirtualMachine::ReadByteFromCode()
@@ -1381,10 +1294,7 @@ void VirtualMachine::ShowStackState(bool debugmode)
                 }
                 else
                     std::cerr << " (NONE)";
-                if ((it->type == StackElementType::ReturnToOtherVM || it->type == StackElementType::SwitchToOtherVM) && it->vm != 0)
-                    std::cerr << " type: " << it->type << " (" << it->vm << ")";
-                else
-                    std::cerr << " type: " << it->type;
+                std::cerr << " type: " << it->type;
                 std::cerr << "\n";
         }
 #endif
@@ -1516,7 +1426,7 @@ bool VirtualMachine::HandleAbortFlag()
 }
 
 template< bool debug >
-  VirtualMachine * VirtualMachine::RunInternal(bool allow_deinit)
+  void VirtualMachine::RunInternal(bool allow_deinit)
 {
         assert(executionstate.codeptr >= -2);
         is_suspended = false;
@@ -1537,19 +1447,16 @@ template< bool debug >
                         {
                                 // Frame pop may place another tailcall on top of the stack, must check if there are errors to avoid endless loops
                                 if (vm_errorhandler.AnyErrors() || (vmgroup->TestMustYield() && HandleAbortFlag()))
-                                    return 0;
+                                    return;
 
                                 if (debug)
                                     first_item = false;
 
                                 SHOWSTATE;
 
-                                VirtualMachine *switch_to;
-                                if (!PopFrameEx(&switch_to))
+                                if (!PopFrameEx())
                                 {
                                         SHOWSTATE;
-                                        if (switch_to)
-                                            return switch_to;
                                         if (vmgroup->TestMustYield() && HandleAbortFlag())
                                             break;
 
@@ -1572,7 +1479,7 @@ template< bool debug >
                                 else if (is_unwinding) // tailcall may have caused exception
                                 {
                                         if (vm_errorhandler.AnyErrors() || (vmgroup->TestMustYield() && HandleAbortFlag()))
-                                            return 0;
+                                            return;
 
                                         UnwindToNextCatch(false);
                                 }
@@ -1610,7 +1517,7 @@ template< bool debug >
                                 {
                                         vmgroup->jobmanager->GetDebugger().OnScriptBreakpointHit(*vmgroup, manualbreakpoint);
                                         if (vmgroup->TestMustYield() && HandleAbortFlag())
-                                            return 0;
+                                            return;
                                 }
                                 first_item = false;
                         }
@@ -1623,38 +1530,38 @@ template< bool debug >
                         case InstructionSet::CALL:
                                 PrepareCall(*executionstate.library, ReadIdFromCode());
                                 if (vmgroup->TestMustYield() && HandleAbortFlag())
-                                    return 0;
+                                    return;
                                 break;
 
                         case InstructionSet::RET:
                                 //DoRet();
                                 executionstate.codeptr = SignalCodeptr;
                                 if (vmgroup->TestMustYield() && HandleAbortFlag())
-                                    return 0;
+                                    return;
                                 break;
 
                         case InstructionSet::JUMP:
                                 MoveCodePtr(ReadIdFromCode());
                                 if (vmgroup->TestMustYield() && HandleAbortFlag())
-                                    return 0;
+                                    return;
                                 break;
 
                         case InstructionSet::JUMPC:
                                 DoJumpC(ReadIdFromCode());
                                 if (vmgroup->TestMustYield() && HandleAbortFlag())
-                                    return 0;
+                                    return;
                                 break;
 
                         case InstructionSet::JUMPC2:
                                 DoJumpC2(ReadIdFromCode());
                                 if (vmgroup->TestMustYield() && HandleAbortFlag())
-                                    return 0;
+                                    return;
                                 break;
 
                         case InstructionSet::JUMPC2F:
                                 DoJumpC2F(ReadIdFromCode());
                                 if (vmgroup->TestMustYield() && HandleAbortFlag())
-                                    return 0;
+                                    return;
                                 break;
 
                         case InstructionSet::DUP:               DoDup(); break;
@@ -1744,15 +1651,11 @@ template< bool debug >
                         case InstructionSet::INITFUNCTIONPTR :  DoInitFunctionPtr(); break;
                         case InstructionSet::INVOKEFPTR:
                                 {
-                                        VirtualMachine *remote = DoInvokeFptr(true);
-                                        if (remote) // Need to switch to another VM
-                                            return remote;
+                                        DoInvokeFptr(true);
                                 } break;
                         case InstructionSet::INVOKEFPTRNM:
                                 {
-                                        VirtualMachine *remote = DoInvokeFptr(false);
-                                        if (remote) // Need to switch to another VM
-                                            return remote;
+                                        DoInvokeFptr(false);
                                 } break;
 
                         case InstructionSet::YIELD:             DoYield(); break;
@@ -1762,25 +1665,25 @@ template< bool debug >
                                 {
                                         DoObjMemberGet(ReadIdFromCode(), false);
                                         if (vmgroup->TestMustYield() && HandleAbortFlag())
-                                            return 0;
+                                            return;
                                 } break;
                         case InstructionSet::OBJMEMBERGETTHIS:
                                 {
                                         DoObjMemberGet(ReadIdFromCode(), true);
                                         if (vmgroup->TestMustYield() && HandleAbortFlag())
-                                            return 0;
+                                            return;
                                 } break;
                         case InstructionSet::OBJMEMBERSET:
                                 {
                                         DoObjMemberSet(ReadIdFromCode(), false);
                                         if (vmgroup->TestMustYield() && HandleAbortFlag())
-                                            return 0;
+                                            return;
                                 } break;
                         case InstructionSet::OBJMEMBERSETTHIS:
                                 {
                                         DoObjMemberSet(ReadIdFromCode(), true);
                                         if (vmgroup->TestMustYield() && HandleAbortFlag())
-                                            return 0;
+                                            return;
                                 } break;
                         case InstructionSet::OBJMEMBERINSERT:
                                 {
@@ -1802,7 +1705,7 @@ template< bool debug >
                                         int32_t id2 = ReadIdFromCode();
                                         DoObjMethodCall(id1, id2, false, true);
                                         if (vmgroup->TestMustYield() && HandleAbortFlag())
-                                            return 0;
+                                            return;
                                 } break;
                         case InstructionSet::OBJMETHODCALLTHIS:
                                 {
@@ -1810,7 +1713,7 @@ template< bool debug >
                                         int32_t id2 = ReadIdFromCode();
                                         DoObjMethodCall(id1, id2, true, true);
                                         if (vmgroup->TestMustYield() && HandleAbortFlag())
-                                            return 0;
+                                            return;
                                 } break;
                         case InstructionSet::OBJMETHODCALLNM:
                                 {
@@ -1818,7 +1721,7 @@ template< bool debug >
                                         int32_t id2 = ReadIdFromCode();
                                         DoObjMethodCall(id1, id2, false, false);
                                         if (vmgroup->TestMustYield() && HandleAbortFlag())
-                                            return 0;
+                                            return;
                                 } break;
                         case InstructionSet::OBJMETHODCALLTHISNM:
                                 {
@@ -1826,7 +1729,7 @@ template< bool debug >
                                         int32_t id2 = ReadIdFromCode();
                                         DoObjMethodCall(id1, id2, true, false);
                                         if (vmgroup->TestMustYield() && HandleAbortFlag())
-                                            return 0;
+                                            return;
                                 } break;
                         case InstructionSet::OBJSETTYPE:        DoObjSetType(); break;
                         case InstructionSet::OBJMAKEREFPRIV:    DoObjMakeRefPrivileged(); break;
@@ -1846,7 +1749,6 @@ template< bool debug >
                 PrepareStackTrace(&e);
                 throw;
         }
-        return 0;
 }
 
 void VirtualMachine::UnwindToNextCatch(bool push_frame)
@@ -1890,10 +1792,6 @@ void VirtualMachine::UnwindToNextCatch(bool push_frame)
         {
                 CallStackElement &el = callstack.back();
 
-                // Exception cannot pass VM boundaries
-                if (el.type == StackElementType::ReturnToOtherVM || el.type == StackElementType::SwitchToOtherVM)
-                    AbortForUncaughtException();
-
                 if (el.type == StackElementType::StopExecute)
                 {
                         // Must return to calling function.
@@ -1903,7 +1801,7 @@ void VirtualMachine::UnwindToNextCatch(bool push_frame)
 
                 if (!skip_first_traceitem)
                 {
-                        if (tracevar && FillStackTraceElement(el, &spos, false, false, 0))
+                        if (tracevar && FillStackTraceElement(el, &spos, false, false))
                         {
                                 VarId elt = stackmachine.ArrayElementAppend(tracevar);
                                 stackmachine.RecordInitializeEmpty(elt);
@@ -1940,7 +1838,7 @@ void VirtualMachine::UnwindToNextCatch(bool push_frame)
                 }
 
                 // Ignore suspend frames: function that wanted to suspend is broken off by the exception
-                PopFrameEx(0);
+                PopFrameEx();
         }
 
         if (callstack.empty())
@@ -2019,9 +1917,9 @@ void VirtualMachine::AbortForUncaughtException()
         }
 }
 
-VirtualMachine * VirtualMachine::DoInvokeFptr(bool allow_macro)
+void VirtualMachine::DoInvokeFptr(bool allow_macro)
 {
-        return PrepareCallFunctionPtr(is_suspendable, allow_macro);
+        PrepareCallFunctionPtr(is_suspendable, allow_macro);
 }
 
 void VirtualMachine::DoInitFunctionPtr()
@@ -2035,7 +1933,6 @@ void VirtualMachine::DoInitFunctionPtr()
 
         ColumnNameId libid = columnnamemapper.GetMapping("LIBID");
         ColumnNameId functionid = columnnamemapper.GetMapping("FUNCTIONID");
-        ColumnNameId vm = columnnamemapper.GetMapping("VM");
 
         Library const *lib = libraryloader.GetWHLibrary(uri.empty() ? executionstate.library->GetLibURI() : uri);
         if (!lib)
@@ -2063,7 +1960,6 @@ void VirtualMachine::DoInitFunctionPtr()
         stackmachine.ConvertRecordToFunctionRecord(arg3);
         stackmachine.SetInteger(stackmachine.RecordCellCreate(arg3, libid), def->lib->GetId());
         stackmachine.SetInteger(stackmachine.RecordCellCreate(arg3, functionid), def->id);
-        stackmachine.SetVMRef(stackmachine.RecordCellCreate(arg3, vm), this);
         stackmachine.PopVariablesN(2);
 }
 
@@ -3918,18 +3814,11 @@ void VirtualMachine::EnableFunctionProfiling()
         profiledata.profile_functions = true;
 
         // Initialize all stack frames of this VM
-        VirtualMachine *current = this;
         uint64_t now = Blex::GetSystemCurrentTicks();
         for (CallStack::reverse_iterator it = callstack.rbegin(); it != callstack.rend(); ++it)
         {
-                if (it->type == StackElementType::ReturnToOtherVM || it->type == StackElementType::SwitchToOtherVM)
-                    current = it->vm;
-
-                if (current == this)
-                {
-                        it->createtime = now;
-                        it->childtime = 0;
-                }
+                it->createtime = now;
+                it->childtime = 0;
         }
 }
 
@@ -4197,49 +4086,17 @@ void VirtualMachine::Run(bool suspendable, bool allow_deinit)
 
 void VMGroup::Run(bool suspendable, bool allow_deinit)
 {
-        while (true)
-        {
-                // Save suspendable state around vm invocation
-                bool old_suspendable = currentvm->is_suspendable;
-                currentvm->is_suspendable = suspendable;
+        // Save suspendable state around vm invocation
+        bool old_suspendable = currentvm->is_suspendable;
+        currentvm->is_suspendable = suspendable;
 
-                VirtualMachine *switchto;
+        if (dbg.IsDebugging() || currentvm->profiledata.profile_coverage)
+            currentvm->RunInternal< true >(allow_deinit);
+        else
+            currentvm->RunInternal< false >(allow_deinit);
 
-                if (dbg.IsDebugging() || currentvm->profiledata.profile_coverage)
-                    switchto = currentvm->RunInternal< true >(allow_deinit);
-                else
-                    switchto = currentvm->RunInternal< false >(allow_deinit);
-
-                // And restore it
-                currentvm->is_suspendable = old_suspendable;
-
-                if (!switchto)
-                    break;
-
-                currentvm = switchto;
-        }
-}
-
-void VMGroup::GetListOfVMs(std::vector< VirtualMachine * > *_vms)
-{
-        for (Blex::ObjectOwner< VirtualMachine >::iterator it = vms.begin(); it != vms.end(); ++it)
-            _vms->push_back(&**it);
-}
-
-int32_t VMGroup::GetVMId(VirtualMachine *vm) const
-{
-        for (auto it = vms.begin(); it != vms.end(); ++it)
-            if (&**it == vm)
-                return std::distance(vms.begin(), it);
-        return -1;
-}
-
-VirtualMachine * VMGroup::GetVMById(int32_t id)
-{
-        if (id < 0 || static_cast< unsigned >(id) >= vms.size())
-            return 0;
-
-        return vms[id];
+        // And restore it
+        currentvm->is_suspendable = old_suspendable;
 }
 
 void VMGroup::SetMainScript(std::string const &script)
@@ -4331,20 +4188,6 @@ void GetMessageList(HSVM *vm, HSVM_VariableId errorstore, HareScript::ErrorHandl
 void VirtualMachine::PushStopExecuteFrame()
 {
         PushFrameRaw(StackElementType::StopExecute);
-        executionstate.codeptr = SignalCodeptr;
-}
-
-void VirtualMachine::PushReturnToOtherVMFrame(VirtualMachine *vm)
-{
-        CallStackElement &elt = PushFrameRaw(StackElementType::ReturnToOtherVM);
-        elt.vm = vm;
-        executionstate.codeptr = SignalCodeptr;
-}
-
-void VirtualMachine::PushSwitchToOtherVMFrame(VirtualMachine *vm)
-{
-        CallStackElement &elt = PushFrameRaw(StackElementType::SwitchToOtherVM);
-        elt.vm = vm;
         executionstate.codeptr = SignalCodeptr;
 }
 
@@ -4480,7 +4323,6 @@ ColumnNameCache::ColumnNameCache(ColumnNames::LocalMapper &columnnamemapper)
         col_updatecolumnlist = columnnamemapper.GetMapping("UPDATECOLUMNLIST");
         col_value = columnnamemapper.GetMapping("VALUE");
         col_variables = columnnamemapper.GetMapping("VARIABLES");
-        col_vm = columnnamemapper.GetMapping("VM");
         col_week = columnnamemapper.GetMapping("WEEK");
         col_wrapobjects = columnnamemapper.GetMapping("WRAPOBJECTS");
         col_write = columnnamemapper.GetMapping("WRITE");

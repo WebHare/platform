@@ -66,9 +66,6 @@ std::string GetTypeName(VariableTypes::Type type)
         case VariableTypes::Schema:
                 x = "SCHEMA";
                 break;
-        case VariableTypes::VMRef:
-                x = "VMREF";
-                break;
         case VariableTypes::Object:
                 x = "OBJECT";
                 break;
@@ -337,8 +334,6 @@ std::ostream & operator <<(std::ostream &out, StackElementType::Type type)
         case StackElementType::TailCall:        out << "TailCall"; break;
         case StackElementType::Dummy:           out << "Dummy"; break;
         case StackElementType::PopVariable:     out << "PopVariable"; break;
-        case StackElementType::ReturnToOtherVM: out << "ReturnToOtherVM"; break;
-        case StackElementType::SwitchToOtherVM: out << "SwitchToOtherVM"; break;
         default: out << "???";
         }
         return out;

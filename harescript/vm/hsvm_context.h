@@ -4,7 +4,6 @@
 #include <signal.h>
 
 #include <blex/context.h>
-#include <blex/pipestream.h>
 #include <blex/objectowner.h>
 
 #include "hsvm_dllinterface.h"
@@ -162,9 +161,6 @@ struct CallStackElement
         /// Old base pointer
         BasePointer baseptr;
 
-        /// VM to switch back to
-        VirtualMachine *vm;
-
         /// Old Library
         Library const *library;
 
@@ -188,7 +184,6 @@ typedef Blex::PodVector< CallStackElement > CallStack;
 
 struct VMBreakPoint
 {
-        unsigned vm_id;
         std::string liburi;
         Blex::DateTime compile_id;
         unsigned codeptr;
@@ -412,14 +407,6 @@ class BLEXLIB_PUBLIC VMGroup
 
         void Run(bool suspendable, bool allow_deinit);
 
-        void GetListOfVMs(std::vector< VirtualMachine * > *vms);
-
-        inline unsigned GetVMCount() const { return vms.size(); }
-
-        int32_t GetVMId(VirtualMachine *vm) const;
-
-        VirtualMachine * GetVMById(int32_t id);
-
         VirtualMachine * GetCurrentVM() { return currentvm; }
 
         /// Closes all handles of VMs in this group (after termination)
@@ -562,7 +549,6 @@ class ColumnNameCache
         ColumnNameId col_updatecolumnlist;
         ColumnNameId col_value;
         ColumnNameId col_variables;
-        ColumnNameId col_vm;
         ColumnNameId col_week;
         ColumnNameId col_wrapobjects;
         ColumnNameId col_write;
@@ -731,8 +717,6 @@ class BLEXLIB_PUBLIC VirtualMachine
 
         void PushStopExecuteFrame();
 
-        void PushReturnToOtherVMFrame(VirtualMachine *vm);
-
         /** Pops a stack frame, and sets state back based on info found in top callstack element. */
         void PopFrameRaw();
 
@@ -743,7 +727,7 @@ class BLEXLIB_PUBLIC VirtualMachine
         /** Pops a frame, returns whether execution should be stopped (encountered a StopExecute frame)
             @param vm Filled with VM to switch to (0 of no switch needed)
         */
-        bool PopFrameEx(VirtualMachine **vm);
+        bool PopFrameEx();
 
         /** Currently loaded execution library */
         std::string executelibrary;
@@ -860,7 +844,7 @@ class BLEXLIB_PUBLIC VirtualMachine
         void DoThrow2();
 
         void DoInitFunctionPtr();
-        VirtualMachine * DoInvokeFptr(bool allow_macro);
+        void DoInvokeFptr(bool allow_macro);
 
         void DoObjNew();
         void DoObjMemberGet(int32_t id, bool this_access);
@@ -876,7 +860,7 @@ class BLEXLIB_PUBLIC VirtualMachine
         void DoYield();
 
         bool HandleAbortFlag();
-        bool FillStackTraceElement(CallStackElement const &callstackelt, StackTraceElement *element, bool atinstr, bool full, VirtualMachine **currentvm);
+        bool FillStackTraceElement(CallStackElement const &callstackelt, StackTraceElement *element, bool atinstr, bool full);
 
     public:
         /** Fills the stack trace of the error handler with the current state
@@ -998,9 +982,6 @@ class BLEXLIB_PUBLIC VirtualMachine
         /// cancel the stack frame and parameters set up by setupreturnstackframe
         void CancelReturnStackframe();
 
-        /// Push a frame that switches execution to another VM in the same VM group
-        void PushSwitchToOtherVMFrame(VirtualMachine *vm);
-
         void PushDummyFrame();
         void PushTailcallFrame(std::function< void(bool) > const &tailcall);
 
@@ -1009,7 +990,7 @@ class BLEXLIB_PUBLIC VirtualMachine
         /** Prepare a function ptr call. Put first values then functionptr on stack, leaves return value
             @return Virtual machine to switch to (only filled when @a suspendable is true)
         */
-        VirtualMachine * PrepareCallFunctionPtr(bool suspendable, bool allow_macro);
+        void PrepareCallFunctionPtr(bool suspendable, bool allow_macro);
 
         /** Prepare a function ptr call. Put first values then functionptr on stack, leaves return value */
         void PrepareObjMethodCall(ColumnNameId nameid, unsigned parameters, bool this_access, bool allow_macro);
@@ -1020,7 +1001,7 @@ class BLEXLIB_PUBLIC VirtualMachine
              Throws upon encountered errors or abort
         */
         template< bool debug >
-          VirtualMachine * RunInternal(bool allow_deinit);
+          void RunInternal(bool allow_deinit);
 
         void Run(bool suspendable, bool allow_deinit);
 

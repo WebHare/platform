@@ -6,14 +6,31 @@ LOADLIB "mod::tollium/lib/components/radiobutton.whlib";
 ASYNC MACRO TestTTLookup()
 {
   AWAIT ExpectScreenChange(+1, PTR GetTestController()->RunScreen(InlineScreens(`
-  <screen name="test" implementation="none">
+  <screen name="test" implementation="none" menubar="menu">
+    <actions>
+      <action name="done" onexecute="submit">
+        <enableon source="select1" checkflags="flag1" />
+      </action>
+    </actions>
+    <menus>
+      <menu name="menu">
+        <item name="menuitem" action="done" />
+      </menu>
+    </menus>
     <body>
-      <select name="select1" type="radio">
-        <option rowkey="option1" title="Option 1" />
+      <select name="select1" type="radio" flags="flag1" >
+        <option rowkey="option1" title="Option 1"/>
+        <option rowkey="option2" title="Option 2" flags="flag1" />
       </select>
+      <select name="select2" type="radio" >
+        <option rowkey="option3" title="Option 3"/>
+      </select>
+      <textedit name="text" />
       <image name="img1" value="tollium:status/sending" width="16px" height="16px" hint="I have a hint" title="I have a title" />
+      <button name="button" action="done" />
     </body>
-  </screen>`)));
+  </screen>
+`)));
 
   OBJECT radiooption1 := TT(":Option 1");
   TestEq(TRUE, ObjectExists(radiooption1));
@@ -24,7 +41,15 @@ ASYNC MACRO TestTTLookup()
   img := TT(":I have a hint");
   TestEq("img1", img->name);
 
-  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  // Test TTIsActionEnabled
+  TestEQ(FALSE, TTIsActionEnabled("done"));
+  TTFillByTitle("select1", "Option 2");
+  TestEQ(TRUE, TTIsActionEnabled("done"));
+
+  // Test select with type, wildcard title and counter
+  TTFillByTitle("{select}:*[2/2]", "Option 3");
+
+  AWAIT ExpectScreenChange(-1, PTR TTClick("button"));
 }
 
 RunTestFramework( [ PTR TestTTLookup

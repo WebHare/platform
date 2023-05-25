@@ -17,8 +17,6 @@ LOADLIB "mod::system/lib/internal/debugger/externvariable.whlib";
 
   INTEGER id;
 
-  INTEGER vm;
-
   STRING path;
 
   OBJECT tree;
@@ -32,7 +30,6 @@ LOADLIB "mod::system/lib/internal/debugger/externvariable.whlib";
   {
     this->job := data.job;
     this->id := data.id;
-    this->vm := data.vm;
     this->path := data.path;
 
     this->tree := NEW ExternVariable(PRIVATE this, this->path, this->path);
@@ -84,4 +81,3 @@ LOADLIB "mod::system/lib/internal/debugger/externvariable.whlib";
     handler->SendWrappedFile(wrapped);
   }
 >;
-

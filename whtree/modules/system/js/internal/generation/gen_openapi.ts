@@ -388,7 +388,7 @@ export async function updateAllModuleOpenAPIDefs() {
   await updateDir(localdir, getFilesForModules(whconstant_builtinmodules), true, generateFile);
 }
 
-export async function updateSingleModuleWRDDefs(name: string) {
+export async function updateSingleModuleOpenAPIDefs(name: string) {
   if (whconstant_builtinmodules.includes(name)) {
     const localdir = config.installationroot + "modules/system/js/internal/generated/openapi/";
     await updateDir(localdir, getFilesForModules([name]), false, generateFile);

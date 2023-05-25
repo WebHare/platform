@@ -122,10 +122,6 @@ class BLEXLIB_PUBLIC VarMemory
         {
                 BlobBase *blob;
         };
-        struct VarVMRef
-        {
-                VirtualMachine *vm;
-        };
         struct VarObject
         {
                 // Must be first element, to be compatible with anybackedtype in VarData union
@@ -161,7 +157,6 @@ class BLEXLIB_PUBLIC VarMemory
                 VarMoney money;
                 VarFloat floatvar;
                 VarBlob blob;
-                VarVMRef vmref;
                 VarArray array;
                 VarDatetime datetime;
                 VarFreeHeap freeheap;
@@ -289,7 +284,7 @@ class BLEXLIB_PUBLIC VarMemory
 
         inline VarStore* RecycleVariableInternal2(VarStore *store, VariableTypes::Type type,unsigned bufsize)
         {
-                if (bufsize != 0 || !IsPrimitive(*store)) // IsBacked(*store) || store->type== VariableTypes::Blob || store->type== VariableTypes::VMRef)
+                if (bufsize != 0 || !IsPrimitive(*store)) // IsBacked(*store) || store->type== VariableTypes::Blob)
                     return RecycleVariableInternal(store, type, bufsize);
                 else
                 {
@@ -474,7 +469,6 @@ class BLEXLIB_PUBLIC VarMemory
         }
 
         void SetBlob            (VarId id, BlobRefPtr blob);
-        void SetVMRef           (VarId id, VirtualMachine *vm);
         void SetInteger         (VarId id, int32_t s);
         void SetMoney           (VarId id, int64_t s);
         void SetInteger64       (VarId id, int64_t s);
@@ -489,7 +483,6 @@ class BLEXLIB_PUBLIC VarMemory
         VariableTypes::Type GetType                    (VarId id) const;
 
         BlobRefPtr           GetBlob                   (VarId id) const;
-        VirtualMachine *     GetVMRef                  (VarId id) const;
 //        VMObjectPtr          GetObject                 (VarId id) const;
 
         int32_t                  GetInteger                (VarId id) const;
@@ -818,7 +811,7 @@ inline VariableTypes::Type VarMemory::GetType (VarId id) const
 inline VarMemory::VarStore* VarMemory::RecycleVariable (VarId dest_id,VariableTypes::Type type,unsigned bufsize)
 {
         VarStore *store = GetVarWritePtr(dest_id);
-        if (bufsize != 0 || !IsPrimitive(*store)) // || IsBacked(*store) || store->type== VariableTypes::Blob || store->type== VariableTypes::VMRef)
+        if (bufsize != 0 || !IsPrimitive(*store)) // || IsBacked(*store) || store->type== VariableTypes::Blob)
             return RecycleVariableInternal(store, type, bufsize);
         else
         {

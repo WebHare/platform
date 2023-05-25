@@ -1421,8 +1421,7 @@ STATIC OBJECTTYPE DebugJob
         , minstacksize := config.minstacksize
         , maxstacksize := config.maxstacksize
         , breakonexception := config.breakonexception
-        , breakpoints :=  SELECT vm
-                               , liburi
+        , breakpoints :=  SELECT liburi
                                , compile_id
                                , codeptr
                                , stacksize

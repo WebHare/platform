@@ -669,9 +669,6 @@ uint8_t* Marshaller::MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket
                         }
                 }
 
-        case VariableTypes::VMRef:
-                ThrowInternalError("Found a VM reference in a non-default function ptr; please remove those");
-
         case VariableTypes::Object:
                 {
                         if (packet)
@@ -790,7 +787,7 @@ uint8_t* Marshaller::MarshalWriteInternal(VarId var, uint8_t *ptr, MarshalPacket
                         return ptr;
                 }
         default:
-                // Blob, Table, VMRef, FunctionPtr
+                // Blob, Table, FunctionPtr
                 ThrowInternalError("Cannot marshal variables of type " + GetTypeName(stackm.GetType(var)));
         }
         return 0;
@@ -1080,10 +1077,6 @@ uint8_t const * Marshaller::MarshalReadInternal(VarId var, VariableTypes::Type t
                                 ptr += size;
                                 return ptr;
                         }
-                }
-        case VariableTypes::VMRef:
-                {
-                        ThrowInternalError("Can only marshal live function pointers between a VM and a weblet");
                 }
 
         case VariableTypes::FunctionRecord:

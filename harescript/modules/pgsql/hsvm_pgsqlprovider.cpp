@@ -2529,7 +2529,7 @@ PGPtr< PGresult > PGSQLTransactionDriver::ExecQuery(Query &query, bool asyncresu
                 HSVM_VariableId var_query = HSVM_RecordCreate(*vm, lastcommand, HSVM_GetColumnId(*vm, "QUERY"));
                 HSVM_StringSetSTD(*vm, var_query, query.querystr);
                 HSVM_VariableId var_stacktrace = HSVM_RecordCreate(*vm, lastcommand, HSVM_GetColumnId(*vm, "STACKTRACE"));
-                GetVMStackTraceFromElements(vm, var_stacktrace, elements, vm, fullstacktrace);
+                GetVMStackTraceFromElements(vm, var_stacktrace, elements, fullstacktrace);
 
                 const HSVM_VariableType args[2] = { HSVM_VAR_Integer, HSVM_VAR_Record };
                 int obj = HSVM_CallFunction(*vm, "wh::dbase/postgresql.whlib", "__HandleRunCommand", 0, 2, args);

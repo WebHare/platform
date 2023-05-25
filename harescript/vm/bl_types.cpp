@@ -1069,11 +1069,6 @@ void DebugFunctionPTRToRecord(VarId id_set, VirtualMachine *vm)
 
         HSVM_ColumnId col_functionid = HSVM_GetColumnId(*vm, "FUNCTIONID");
         HSVM_ColumnId col_libid = HSVM_GetColumnId(*vm, "LIBID");
-        HSVM_ColumnId col_vm = HSVM_GetColumnId(*vm, "VM");
-
-        VirtualMachine *remote_vm = varmem.GetVMRef(HSVM_RecordGetRef(*vm, id_set, col_vm));
-        if (remote_vm != vm)
-            return;
 
         LibraryId libid = HSVM_IntegerGet(*vm, HSVM_RecordGetRef(*vm, id_set, col_libid));
         int32_t functionid = HSVM_IntegerGet(*vm, HSVM_RecordGetRef(*vm, id_set, col_functionid));
@@ -1154,7 +1149,6 @@ void GetObjectMethodPtr(VarId id_set, VirtualMachine *vm)
 
         stackm.SetInteger(stackm.RecordCellCreate(id_set, vm->cn_cache.col_libid), entry->method->lib->GetId());
         stackm.SetInteger(stackm.RecordCellCreate(id_set, vm->cn_cache.col_functionid), entry->method->id);
-        stackm.SetVMRef  (stackm.RecordCellCreate(id_set, vm->cn_cache.col_vm), vm);
         stackm.SetInteger(stackm.RecordCellCreate(id_set, vm->cn_cache.col_returntype), funcdef->resulttype);
         stackm.SetInteger(stackm.RecordCellCreate(id_set, vm->cn_cache.col_excessargstype), is_vararg ? ToNonArray(funcdef->parameters.back().type) : 0);
         stackm.SetInteger(stackm.RecordCellCreate(id_set, vm->cn_cache.col_firstunusedsource), funcdef->parameters.size() - is_vararg); // first parameter is bound immediately
@@ -1588,4 +1582,3 @@ void InitTypes(BuiltinFunctionsRegistrator &bifreg)
 
 } // End of namespace Baselibs
 } // End of namespace HareScript
-

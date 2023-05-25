@@ -48,7 +48,6 @@ namespace VariableTypes
         SerializedObject = 0x2F, // internal for marshalling
 
         Blob            = HSVM_VAR_Blob,        //0x40
-        VMRef           = 0x41,                 ///< Reference to another VM
 
         Array           = HSVM_VAR_Array,       //< 0x80: Bit flag to indicate array (not used as variable type!)
         VariantArray    = HSVM_VAR_VariantArray,
@@ -548,8 +547,6 @@ enum Type
         TailCall,       ///< C-call to execute
         Dummy,          ///< Frame that will be popped without any effects
         PopVariable,    ///< Frame that will be popped, and a variable will be popped
-        ReturnToOtherVM,///< Return from other VM in the same group (copy retval, pop fptr data)
-        SwitchToOtherVM ///< Switch execution to other VM in the same group (direct switch)
 };
 } // End of namespace StackElementType
 std::ostream & operator <<(std::ostream &out, StackElementType::Type type);

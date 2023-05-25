@@ -37,7 +37,6 @@ PUBLIC STATIC OBJECTTYPE ExternVariable
 
     RECORD request :=
         [ id := this->result.id
-        , vm := this->inspector->vm
         ];
 
     IF (CellExists(options, "GETALL") AND options.getall)
@@ -282,4 +281,3 @@ PUBLIC STATIC OBJECTTYPE ExternVariable
     RETURN retval;
   }
 >;
-
