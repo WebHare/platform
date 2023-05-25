@@ -272,7 +272,7 @@ ifneq ($(BUILDSYSTEM),emscripten)
 	WHAP_SUBPROJECTS+=drawlib parsers
 endif
 
-SUBPROJECTS=blex $(sort $(HSENGINE_SUBPROJECTS) $(WHAP_SUBPROJECTS))
+SUBPROJECTS=$(sort $(HSENGINE_SUBPROJECTS) $(WHAP_SUBPROJECTS))
 GetSrcFiles=$(subst $(SRCDIR)/,,$(wildcard $(SRCDIR)/$1))
 Src2ObjFiles=$(addprefix ,$(subst .cpp,.o,$1))
 GetObjFiles=$(call Src2ObjFiles,$(call GetSrcFiles,$1))
