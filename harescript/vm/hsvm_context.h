@@ -413,7 +413,7 @@ class BLEXLIB_PUBLIC VMGroup
         void CloseHandles();
 
         /// process environment for jobs
-        std::unique_ptr< Blex::Process::Environment > env;
+        std::unique_ptr< Blex::Environment > env;
 
         ///If >= 0, the pipe that will receive signals
         volatile sig_atomic_t fd_signal_pipe;

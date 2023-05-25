@@ -202,7 +202,7 @@ inline void ResetInterruptHandler()
 BLEXLIB_PUBLIC bool InitiateShutdownWithInterrupt();
 
 /** Parse the current enviornmenvironment */
-BLEXLIB_PUBLIC void ParseEnvironment(Blex::Process::Environment *destenv); //note: implemented in threads.cpp
+BLEXLIB_PUBLIC void ParseEnvironment(Blex::Environment *destenv); //note: implemented in threads.cpp
 
 /** Retrieve the number of ticks per second GetTickFrequency uses (this
     may not be the actual accuracy of the measurements) */

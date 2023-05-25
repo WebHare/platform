@@ -304,7 +304,7 @@ unsigned GetSystemCPUs(bool /*physical_cpus_only*/) /*FIXME PHYSICAL COUNT*/
 }
 
 //Parse the current environment (note, exported by processes.h because we don't have a common processes.cpp file)
-void ParseEnvironment(Blex::Process::Environment *destenv)
+void ParseEnvironment(Blex::Environment *destenv)
 {
         for (char **ptr=environ;*ptr;++ptr)
         {

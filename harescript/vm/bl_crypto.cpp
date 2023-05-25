@@ -5,8 +5,11 @@
 #include "baselibs.h"
 #include "hsvm_context.h"
 #include "hsvm_dllinterface.h"
+
+#if !defined(__EMSCRIPTEN__)
 #include <openssl/evp.h>
 #include <openssl/err.h>
+#endif
 
 //---------------------------------------------------------------------------
 //
