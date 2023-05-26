@@ -1354,16 +1354,35 @@ OBJECT FUNCTION LookupByCellname(OBJECT screen, STRING name, RECORD options)
 OBJECT FUNCTION LookupByTitle(OBJECT screen, STRING text, BOOLEAN islast, STRING pathstr, RECORD options)
 {
   OBJECT ARRAY matches;
-  OBJECT ARRAY comps := GetAllVisibleComponents(screen);
+  OBJECT ARRAY comps;
 
   STRING matchelementtype;
   IF(text LIKE "{?*}:?*")
   {
     matchelementtype := Substring(text, 1, SearchSubstring(text,'}:')-1);
     text := Substring(text,SearchSubstring(text,'}:')+2);
+
+    STRING ARRAY alltypes;
+    FOREVERY(OBJECT comp FROM GetAllVisibleComponents(screen))
+    {
+      IF(comp->elementtype NOT IN alltypes)
+        INSERT comp->elementtype INTO alltypes AT END;
+
+      IF(comp->elementtype = matchelementtype)
+        INSERT comp INTO comps AT END;
+    }
+
+    IF(Length(comps) = 0)
+    {
+      IF (options.allowmissing)
+        RETURN DEFAULT OBJECT;
+
+      THROW NEW Exception(`No objects of type '${matchelementtype}' - we only have: ${Detokenize(alltypes,', ')})`);
+    }
   }
   ELSE
   {
+    comps := GetAllVisibleComponents(screen);
     text := Substring(text,1);
   }
 
@@ -1390,7 +1409,7 @@ OBJECT FUNCTION LookupByTitle(OBJECT screen, STRING text, BOOLEAN islast, STRING
 
     IF(matchelementtype != "")
     {
-      IF(obj->elementtype != matchelementtype OR NOT titlematch)
+      IF(NOT titlematch)
         CONTINUE;
     }
     ELSE
@@ -1453,7 +1472,7 @@ OBJECT FUNCTION LookupByTitle(OBJECT screen, STRING text, BOOLEAN islast, STRING
   IF(Length(matches) != expectmatches)
   {
     STRING ARRAY matchnames := SELECT AS STRING ARRAY obj->toddname FROM ToRecordArray(matches,'obj');
-    THROW NEW Exception(`Expected ${expectmatches}, got ${Length(matches)} objects with title '${text}' in '${pathstr}': ${Detokenize(matchnames,', ')}`);
+    THROW NEW Exception(`Expected ${expectmatches}, got ${Length(matches)} objects with title '${text}' in '${pathstr}': ${Detokenize(matchnames,', ')}. Select a specific instance by adding [<1-based subscript>/${Length(matches)}]`);
   }
 
   RETURN matches[selectmatch - 1];
