@@ -204,16 +204,6 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
     THROW NEW Exception("FetchObject function not updated");
   }
 
-  /** @short Group completion callback
-      @long This function is called when all objects within a group have been indexed and outdated objects have been cleaned.
-            It is not called when an error occurred while indexing an object or while cleaning outdated objects.
-      @param commanddate Date when the indexing command was issued
-      @param groupid Id of the group that was completed, as returned by ListGroups
-  */
-  PUBLIC MACRO OnGroupDone(DATETIME commanddate, STRING groupid)
-  {
-  }
-
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
   //
