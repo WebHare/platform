@@ -10,6 +10,7 @@ LOADLIB "mod::consilio/lib/internal/queuemgmt.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/whfs.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
@@ -49,11 +50,12 @@ STRING FUNCTION DescribeConsilioTask(RECORD worker, RECORD ARRAY contentprovider
         contentsource := SELECT AS STRING tag FROM consilio.contentsources WHERE id=VAR data.contentsourceid;
 
       STRING groupname := CellExists(data, "groupid") ? data.groupid : "";
-      RECORD file := SELECT name, fullpath, parentsite FROM system.fs_objects WHERE id = ToInteger(groupname, 0);
-      IF (RecordExists(file))
+      INTEGER groupid_int := ToInteger(groupname, 0);
+      IF(groupid_int != 0)
       {
-        STRING sitename := SELECT AS STRING name FROM system.sites WHERE id = file.parentsite;
-        groupname := (sitename != "" ? sitename || ":" : "") || file.fullpath;
+        OBJECT obj := OpenWHFSObject(groupid_int);
+        IF(ObjectExists(obj))
+          groupname := obj->GetResourceName();
       }
 
       STRING objectname := CellExists(data, "objectid") ? data.objectid : "";
