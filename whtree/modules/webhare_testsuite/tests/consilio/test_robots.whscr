@@ -13,7 +13,7 @@ MACRO TestHTMLIndexing()
 {
   // The testfile has two pages, with the first page linking to the second page
 
-  // First page has robots "index, follow" -> both pages should be indexed
+  // First page has robots "index" -> it should be indexed
   testfw->BeginWork();
   OBJECT catalog := CreateConsilioCatalog("consilio:testfw_robots", [ priority := 9 ]);
   TestEq(TRUE, catalog->managed);
@@ -33,44 +33,19 @@ MACRO TestHTMLIndexing()
   newsource->ReindexGroup(ToString(testfile->id), [ rebuild := TRUE, foreground := TRUE ]); //run in foreground, we're not testing queues
 
   RECORD res := RunConsilioSearch("consilio:testfw_robots", CQParseUserQuery("page"));
-  TestEQ(2, res.totalcount);
-  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = testfile->url));
-  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = `${testfile->url}?page=1`));
-
-
-  testfw->BeginWork();
-  testfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/consilio/robottest", [ noindex := TRUE ]);
-  // First page now has robots "noindex, follow" -> only second page should be indexed
-  testfw->CommitWork();
-
-  newsource->ReindexGroup(ToString(testfile->id), [ rebuild := TRUE, foreground := TRUE ]);
-
-  res := RunConsilioSearch("consilio:testfw_robots", CQParseUserQuery("page"));
-  TestEq(1, res.totalcount);
-  TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = `${testfile->url}?page=1`));
-
-
-  testfw->BeginWork();
-  testfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/consilio/robottest", [ noindex := FALSE, nofollow := TRUE ]);
-  // First page has robots "index, nofollow" -> only first page should be indexed
-  testfw->CommitWork();
-
-  newsource->ReindexGroup(ToString(testfile->id), [ rebuild := TRUE, foreground := TRUE ]);
-
-  res := RunConsilioSearch("consilio:testfw_robots", CQParseUserQuery("page"));
   TestEQ(1, res.totalcount);
   TestEq(TRUE, RecordExists(SELECT FROM res.results WHERE objectid = testfile->url));
 
 
-  // First page has robots "noindex, nofollow" -> both pages should not be indexed
   testfw->BeginWork();
-  testfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/consilio/robottest", [ noindex := TRUE, nofollow := TRUE ]);
+  testfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/consilio/robottest", [ noindex := TRUE ]);
+  // First page now has robots "noindex", follow" -> nothing should be indexed as we no longer spider since webhare 5.3
   testfw->CommitWork();
 
   newsource->ReindexGroup(ToString(testfile->id), [ rebuild := TRUE, foreground := TRUE ]);
 
   res := RunConsilioSearch("consilio:testfw_robots", CQParseUserQuery("page"));
-  TestEQ(0, res.totalcount);
+  TestEq(0, res.totalcount);
 }
 
 RunTestframework(

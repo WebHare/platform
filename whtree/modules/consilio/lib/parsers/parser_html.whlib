@@ -162,12 +162,10 @@ MACRO ElementStart(STRING elementname, RECORD ARRAY attrs)
           CASE "ALL"
           {
             parsed_page.index_page := TRUE;
-            parsed_page.follow_links := TRUE;
           }
           CASE "NONE"
           {
             parsed_page.index_page := FALSE;
-            parsed_page.follow_links := FALSE;
           }
           CASE "INDEX"
           {
@@ -176,14 +174,6 @@ MACRO ElementStart(STRING elementname, RECORD ARRAY attrs)
           CASE "NOINDEX"
           {
             parsed_page.index_page := FALSE;
-          }
-          CASE "FOLLOW"
-          {
-            parsed_page.follow_links := TRUE;
-          }
-          CASE "NOFOLLOW"
-          {
-            parsed_page.follow_links := FALSE;
           }
         }
       }

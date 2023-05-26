@@ -26,9 +26,7 @@ MACRO TestThesaurus()
   OBJECT testcatalog := CreateConsilioCatalog("consilio:testfw_thesaurus", [ priority := 9 ]);
 
 
-  OBJECT contentsource := testcatalog->AddCustomContentSource("webhare_testsuite:thesaurus", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
-      [ maxgroupobjects :=      1000
-      ]);
+  OBJECT contentsource := testcatalog->AddCustomContentSource("webhare_testsuite:thesaurus", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent");
 
   testfw->CommitWork();
   TestEq(TRUE, testcatalog->WaitReady(MAX_DATETIME, [ forconfiguration := TRUE ]));

@@ -51,11 +51,6 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
   INTEGER pvt_indexid;
   PUBLIC PROPERTY indexid(pvt_indexid, -);
 
-  /** @short The maximum number of objects per group
-  */
-  PUBLIC INTEGER pvt_maxgroupobjects;
-  PUBLIC PROPERTY maxgroupobjects(GetMaxGroupObjects, SetMaxGroupObjects);
-
   PUBLIC BOOLEAN contentlinksonly;
 
   ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -71,14 +66,12 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
       @param contentsource The content source record which contains the configuration for the content provider
       @cell contentsource.id Content source id
       @cell contentsource.indexid Index id this content source belongs to
-      @cell contentsource.maxgroupobjects Maximum number of objects per group for this content source
       @throw If the content provider was not successfully initialized
   */
   PUBLIC MACRO Init(RECORD contentsource)
   {
     this->pvt_contentsourceid := contentsource.id;
     this->pvt_indexid := CellExists(contentsource, "catalogid") ? contentsource.catalogid : 0;
-    this->pvt_maxgroupobjects := CellExists(contentsource, "maxgroupobjects") ? contentsource.maxgroupobjects : 0;
     this->contentlinksonly := CellExists(contentsource, "contentlinksonly") ? contentsource.contentlinksonly : FALSE;
   }
 
@@ -262,7 +255,6 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
       @cell return.errormsg If not successful, contains error message
       @cell return.type_ext Page type (file extension, e.g. "html", "pdf", etc.)
       @cell return.index_page Should this page be indexed?
-      @cell return.follow_links Index links on this page?
       @cell return.title Page title
       @cell return.keywords Keywords to indentify this page
       @cell return.description Description
@@ -379,67 +371,6 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
            ];
   }
 
-  /** @short Filter out non-document links
-  */
-  RECORD ARRAY FUNCTION FilterObjects(RECORD ARRAY links, STRING baseurl, STRING objecturl, STRING filterurl)
-  {
-    STRING pattern := this->MayFollow(baseurl);
-    IF (pattern != "")
-    {
-      this->DebugLog(ConsilioDebugSkipped, "all links from " || baseurl || ", blacklisted by pattern '" || pattern || "'");
-      RETURN DEFAULT RECORD ARRAY;
-    }
-
-    // Make a list of links in the page which point to other pages within the same document
-    RECORD ARRAY filteredlinks;
-    FOREVERY (RECORD link FROM links)
-    {
-      // If the url only refers to an anchor within the current page, skip it
-      IF (link.url = baseurl)
-      {
-        this->DebugLog(ConsilioDebugSkipped, "link to self " || link.link);
-        CONTINUE;
-      }
-
-      // Delete any variables before checking
-      STRING cleanurl := link.url;
-      INTEGER i := SearchSubstring(cleanurl, "?");
-      IF (i > 0)
-        cleanurl := Left(cleanurl, i);
-
-      // Handle optional parts and captured suburls
-      i := SearchSubstring(cleanurl, "/!");
-      WHILE (i > 0)
-      {
-        INTEGER e := SearchSubstring(cleanurl, "/", i + 2);
-        IF (e = i + 2)
-        {
-          // "/!/": delete everything after
-          cleanurl := Left(cleanurl, i + 1);
-          BREAK;
-        }
-        ELSE IF (e > i)
-        {
-          // "/!ignorethis/": delete "!ignorethis" part
-          cleanurl := Left(cleanurl, i) || Substring(cleanurl, e);
-        }
-        ELSE
-          BREAK; // "/!" without matching "/"
-        i := SearchSubstring(cleanurl, "/!", i);
-      }
-
-      // Check if the url belongs to our document
-      IF (cleanurl = objecturl OR cleanurl LIKE filterurl)
-      {
-        this->DebugLog(ConsilioDebugInfo, "Returning link: " || link.url);
-        INSERT [ id := link.url ] INTO filteredlinks AT END;
-      }
-      ELSE
-        this->DebugLog(ConsilioDebugSkipped, "link " || link.link || " not equal to " || objecturl || " or like " || filterurl);
-    }
-    RETURN filteredlinks;
-  }
-
   /** @short Clean a URL
       @long This function make a possible URL absolute using a base URL and strips anchor links (hash part). If the URL is
             not valid, an empty string is returned.
@@ -512,15 +443,6 @@ PUBLIC OBJECTTYPE ConsilioContentProvider
   //
   // Internal functions
   //
-
-  INTEGER FUNCTION GetMaxGroupObjects()
-  {
-    RETURN this->pvt_maxgroupobjects > 0 ? this->pvt_maxgroupobjects : default_maxgroupobjects;
-  }
-  MACRO SetMaxGroupObjects(INTEGER newmax)
-  {
-    this->pvt_maxgroupobjects := newmax;
-  }
 
   PUBLIC MACRO Close()
   {

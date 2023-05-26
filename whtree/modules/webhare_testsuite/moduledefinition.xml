@@ -236,7 +236,7 @@
       <d:datetime name="grouprequiredindexdate" />  <!-- ignored when default -->
       <d:datetime name="objectrequiredindexdate" />  <!-- ignored when default -->
       <d:datetime name="indexdate" />
-      <d:integer name="spiderfrom" ondelete="cascade" references=".consilio_index" />
+      <d:obsoletecolumn name="spiderfrom" />
       <d:varchar name="extradata" maxlength="4096" />
     </d:table>
 

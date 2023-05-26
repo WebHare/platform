@@ -48,7 +48,6 @@ MACRO RunCleanupTest()
 
   OBJECT contentsource_1 := catalog->AddCustomContentSource("webhare_testsuite:contentsource_1", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
       [ title :=            "BETA_CUSTOMSOURCE"
-      , maxgroupobjects :=  1000
       ]);
 
   testfw->CommitWork();
@@ -67,7 +66,6 @@ MACRO RunCleanupTest()
 
   OBJECT contentsource_2 := catalog->AddCustomContentSource("webhare_testsuite:contentsource_1", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
       [ title :=            "BETA_CUSTOMSOURCE"
-      , maxgroupobjects :=  1000
       ]);
 
   DELETE FROM webhare_testsuite.consilio_index;

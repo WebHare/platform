@@ -474,24 +474,6 @@ PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT
               INSERT cmdresult INTO toadd AT END;
             ELSE IF (cmdresult.action = "delete")
               INSERT cmdresult INTO todelete AT END;
-
-            // Add new found objects to the list, if they're not already listed
-            FOREVERY (RECORD newobjectrec FROM cmdresult.objects)
-            {
-              RECORD list_pos := LowerBound(in_list, newobjectrec.id);
-              IF (NOT list_pos.found)
-              {
-                FetcherDebug(ConsilioDebugAll, "Adding new found object \"" || EncodeJava(newobjectrec.id) || "\"", source.loglevel);
-                INSERT newobjectrec.id INTO in_list AT list_pos.position;
-
-                // Insert new object (with default requiredindexdate, so it won't be skipped)
-                INSERT
-                    [ id :=                 newobjectrec.id
-                    , existing_pos :=       RecordLowerBound(existing_objects, [ id := newobjectrec.id ], [ "ID" ])
-                    , data :=               CellExists(newobjectrec, "DATA") ? newobjectrec.data : DEFAULT RECORD
-                    ] INTO objects AT END;
-              }
-            }
           }
           ELSE
           {
@@ -694,7 +676,6 @@ PUBLIC RECORD FUNCTION CheckObject(RECORD data, RECORD options DEFAULTSTO DEFAUL
 
   RECORD result :=
       [ error := DEFAULT RECORD
-      , tocheck := DEFAULT RECORD ARRAY
       ];
 
   FetcherDebug(ConsilioDebugInfo, "Processing " || GetCommandFromQueueData(data));
@@ -782,9 +763,6 @@ PUBLIC RECORD FUNCTION CheckObject(RECORD data, RECORD options DEFAULTSTO DEFAUL
         }
         FetcherDebug(ConsilioDebugAll, "Upload indexed took "|| GetMsecsDifference(uploadstart, GetCurrentDatetime()) || "ms", source.loglevel);
       }
-
-      // Send 'CheckObject' commands for all newly-found objects
-      result.tocheck := cmdresult.objects;
     }
     CASE "delete"
     {
@@ -804,8 +782,6 @@ PUBLIC RECORD FUNCTION CheckObject(RECORD data, RECORD options DEFAULTSTO DEFAUL
     }
     DEFAULT
     {
-      // Send 'CheckObject' commands for all newly-found objects
-      result.tocheck := cmdresult.objects;
     }
   }
   RETURN result;
@@ -1313,7 +1289,6 @@ RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING
           , error := ""
           , action := ""
           , fields := DEFAULT RECORD
-          , objects := CellExists(objectrec, "objects") ? objectrec.objects : DEFAULT RECORD ARRAY
           ];
     }
 
@@ -1376,7 +1351,6 @@ RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING
           , fields := document
           , suggestfields := Length(suggestfields) > 0 ? (SELECT AS STRING ARRAY field FROM suggestfields) : DEFAULT STRING ARRAY
           , suggestprefixes := Length(suggestfields) > 0 ? (SELECT AS STRING ARRAY prefix FROM suggestfields) : DEFAULT STRING ARRAY
-          , objects := CellExists(objectrec, "objects") ? objectrec.objects : DEFAULT RECORD ARRAY
           ];
     }
     ELSE
@@ -1389,7 +1363,6 @@ RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING
           , error := ""
           , action := "delete"
           , fields := DEFAULT RECORD
-          , objects := CellExists(objectrec, "objects") ? objectrec.objects : DEFAULT RECORD ARRAY
           ];
     }
   }

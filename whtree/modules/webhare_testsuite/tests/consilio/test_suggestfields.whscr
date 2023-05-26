@@ -33,7 +33,6 @@ MACRO TestSuggestFields()
 
   OBJECT csource := catalog->AddCustomContentSource("webhare_testsuite:customsource", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
       [ title :=            "BETA_CUSTOMSOURCE"
-      , maxgroupobjects :=  1000
       ]);
 
   testfw->CommitWork();

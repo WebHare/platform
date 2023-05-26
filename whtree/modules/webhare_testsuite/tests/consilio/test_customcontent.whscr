@@ -97,7 +97,6 @@ MACRO TestCustomContent()
 
   contentsource := catalog->AddCustomContentSource("webhare_testsuite:beta_customsource", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
       [ title :=            "BETA_CUSTOMSOURCE"
-      , maxgroupobjects :=  1000
       ]);
   TestEq(0, __GetNumSubJobs());
 
@@ -108,7 +107,6 @@ MACRO TestCustomContent()
 
   TestThrowsLike(`*contentsource with tag '${"webhare_testsuite:beta_customsource"}' already exists*`, PTR catalog->AddCustomContentSource("webhare_testsuite:beta_customsource", "mod::webhare_testsuite/lib/consilio/dbindex.whlib#DBContent",
       [ title :=            "BETA_CUSTOMSOURCE"
-      , maxgroupobjects :=  1000
       ]));
 
   testfw->CommitWork();
@@ -362,14 +360,12 @@ MACRO TestCustomContent()
       VALUES(idprefix||"e", idprefix||"e1", MakeDate(1970, 1, 10));
   INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate)
       VALUES(idprefix||"f", idprefix||"f1", MakeDate(1970, 1, 10));
-  INSERT INTO webhare_testsuite.consilio_index(groupid, objectid, indexdate, spiderfrom)
-      VALUES(idprefix||"f", idprefix||"f2", MakeDate(1970, 1, 10), (SELECT AS INTEGER id FROM webhare_testsuite.consilio_index WHERE objectid = idprefix||"f1"));
   testfw->CommitWork();
 
   contentsource->UpdateMultiple([[ action := "delete", groupid := idprefix||"a" ]
                                 ,[ action := "delete", objectid := idprefix||"d1" ]
                                 ,[ action := "reindex", groupid := idprefix||"e" ]
-                                ,[ action := "reindex", groupid := idprefix||"f", objectid :=  idprefix||"f1" ] // Must spider to f2
+                                ,[ action := "reindex", groupid := idprefix||"f", objectid :=  idprefix||"f1" ]
                                 ]);
   TestCompleteSyncAfterCommand();
 
@@ -406,7 +402,6 @@ MACRO TestCustomContent()
       , [ groupid := idprefix||"c",   objectid := idprefix||"c2" ]
       , [ groupid := idprefix||"c",   objectid := idprefix||"c3" ]
       , [ groupid := idprefix||"f",   objectid := idprefix||"f1" ]
-      , [ groupid := idprefix||"f",   objectid := idprefix||"f2" ]
       ], SearchAll(""));
 
   // Prepare for data in list tests
@@ -418,8 +413,6 @@ MACRO TestCustomContent()
     FOREVERY (RECORD rec FROM
         [ [ groupid := idprefix||"a",   objectid := idprefix||"a1_withdata" ]
         , [ groupid := idprefix||"b",   objectid := idprefix||"b1_withdata", id := b1_id ]
-        , [ groupid := idprefix||"b",   objectid := idprefix||"b2_withdata", spiderfrom := b1_id ]
-        , [ groupid := idprefix||"b",   objectid := idprefix||"b3", spiderfrom := b1_id ]
         , [ groupid := idprefix||"c",   objectid := idprefix||"c1" ]
         , [ groupid := idprefix||"d",   objectid := idprefix||"d1_withdata_fromlist" ]
         ])
@@ -435,22 +428,17 @@ MACRO TestCustomContent()
   TestEQ(
       [ [ groupid := idprefix||"a",   objectid := idprefix||"a1_withdata",          datafrom := "list" ]
       , [ groupid := idprefix||"b",   objectid := idprefix||"b1_withdata",          datafrom := "list" ]
-      , [ groupid := idprefix||"b",   objectid := idprefix||"b2_withdata",          datafrom := "fetch-list" ]
-      , [ groupid := idprefix||"b",   objectid := idprefix||"b3",                   datafrom := "fetch" ]
       , [ groupid := idprefix||"c",   objectid := idprefix||"c1",                   datafrom := "fetch" ]
       , [ groupid := idprefix||"d",   objectid := idprefix||"d1_withdata_fromlist", datafrom := "list" ]
       ], SearchAll("", [ extrafields := [ datafrom := "" ] ]));
 
   contentsource->ReindexObject(idprefix||"a", idprefix||"a1_withdata");
-  contentsource->ReindexObject(idprefix||"b", idprefix||"b2_withdata");
   contentsource->ReindexObject(idprefix||"d", idprefix||"d1_withdata_fromlist");
   contentsource->WaitForIndexingDone();
 
   TestEQ(
       [ [ groupid := idprefix||"a",   objectid := idprefix||"a1_withdata",          datafrom := "fetch" ]
       , [ groupid := idprefix||"b",   objectid := idprefix||"b1_withdata",          datafrom := "list" ]
-      , [ groupid := idprefix||"b",   objectid := idprefix||"b2_withdata",          datafrom := "fetch" ]
-      , [ groupid := idprefix||"b",   objectid := idprefix||"b3",                   datafrom := "fetch" ]
       , [ groupid := idprefix||"c",   objectid := idprefix||"c1",                   datafrom := "fetch" ]
       , [ groupid := idprefix||"d",   objectid := idprefix||"d1_withdata_fromlist", datafrom := "fetchfromlist-list" ]
       ], SearchAll("", [ extrafields := [ datafrom := "" ] ]));

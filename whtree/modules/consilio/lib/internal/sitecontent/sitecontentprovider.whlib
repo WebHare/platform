@@ -341,11 +341,6 @@ PUBLIC STATIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
       this->DebugLog(ConsilioDebugSkipped, "FetchObject: File " || groupid || ": already fetched URL '" || objectid || "'");
       THROW NEW ConsilioIgnoredException(ConsilioDebugInfo, "Not fetching '" || objectid || "': already fetched");
     }
-    ELSE IF (Length(cachedfile.objects) >= this->maxgroupobjects)
-    {
-      this->DebugLog(ConsilioDebugSkipped, "FetchObject: File " || groupid || ": not fetching URL '" || objectid || "', too many pages in file (" || Length(cachedfile.objects) || " >= " || this->maxgroupobjects || ")");
-      THROW NEW Exception("Not fetching '" || objectid || "': too many pages in file");
-    }
 
     // Don't index files we cannot parse
     IF (cachedfile.file.type IN this->nofetch_types)
@@ -444,14 +439,8 @@ PUBLIC STATIC OBJECTTYPE WebHareContentProvider EXTEND ConsilioContentProvider
 
     this->UpdateCachedFile(groupid, cachedfile);
 
-    IF (NOT page.parsed_page.follow_links)
-      page.parsed_page.links := DEFAULT RECORD ARRAY;
-
     RETURN [ document_fields := fields
            , document_body := body
-           , objects := cachedfile.havesetsubfiles ? RECORD[]
-                                                   : this->FilterObjects(page.parsed_page.links, objectid, cachedfile.file.id, cachedfile.filterurl)
-           , links := page.parsed_page.links //TODO probably obsolete? the linkchecker should be using RTD links directly says Kris
            ];
   }
 >;

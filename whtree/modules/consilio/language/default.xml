@@ -109,8 +109,6 @@
       <text tid="folder">Folder to index</text>
       <text tid="generalsettings">Advanced Settings</text>
       <text tid="lastcontentscheck">Last automatic update of dynamic pages</text>
-      <text tid="maxgroupobjects">Maximum objects per group</text>
-      <text tid="maxgroupobjects-description">(Leave empty for default value)</text>
       <text tid="minutes">minutes (Leave empty for default value)</text>
       <text tid="title-edit">Edit Content Source</text>
       <text tid="title-new">New Content Source</text>
@@ -166,7 +164,6 @@
       <text tid="debuglevel_queuemanager-2">General information</text>
       <text tid="debuglevel_queuemanager-3">All debugging information</text>
       <text tid="enablelinkchecker">Enable link checking</text>
-      <text tid="maxgroupobjects">Maximum objects per group</text>
       <text tid="maxtasktime">Fetcher task timeout</text>
       <text tid="numworkers">Number of fetcher processes</text>
       <text tid="options">Consilio Settings</text>

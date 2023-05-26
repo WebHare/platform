@@ -43,7 +43,6 @@ SCHEMA
     , STRING "data"
     , INTEGER "indexid" NULL := 0 // obsoleted in moduledefinition
     , INTEGER "catalogid" NULL := 0
-    , INTEGER "maxgroupobjects"
     , STRING "tag"
     , STRING "title"
     , INTEGER "status"

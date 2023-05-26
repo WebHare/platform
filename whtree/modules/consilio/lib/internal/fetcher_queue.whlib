@@ -397,17 +397,6 @@ PUBLIC RECORD FUNCTION GetQueueDataFromCommand(STRING command)
               DELETE FROM arguments AT 0;
             }
           }
-          CASE "maxgroupobjects"
-          {
-            IF (Length(arguments) >= 2)
-            {
-              INTEGER maxgroupobjects := ToInteger(arguments[1], -1);
-              IF (maxgroupobjects >= 0)
-                INSERT CELL maxgroupobjects := maxgroupobjects INTO data.configuration;
-              DELETE FROM arguments AT 0;
-              DELETE FROM arguments AT 0;
-            }
-          }
           CASE "numworkers"
           {
             IF (Length(arguments) >= 2)
@@ -545,10 +534,6 @@ PUBLIC STRING FUNCTION GetCommandFromQueueData(RECORD data, BOOLEAN queueid DEFA
           CASE "MAXTASKTIME"
           {
             command := command || " maxtasktime " || field.value;
-          }
-          CASE "MAXGROUPOBJECTS"
-          {
-            command := command || " maxgroupobjects " || field.value;
           }
           CASE "NUMWORKERS"
           {

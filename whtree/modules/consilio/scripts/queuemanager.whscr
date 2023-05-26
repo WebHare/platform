@@ -2050,12 +2050,6 @@ OBJECTTYPE ConsilioQueueManager EXTEND QueueManagerBase
     {
       this->AddToQueue(data);
     }
-    ELSE IF (CellExists(data.configuration, "maxgroupobjects"))
-    {
-      this->DebugLog("Setting maximum group objects to " || data.configuration.maxgroupobjects, ConsilioDebugInfo);
-      this->AddToQueue(data);
-      //FIXME is this actually broadcast to all fetchers ? I'd think it just get sto one
-    }
 
     IF (CellExists(data.configuration, "debuglevel") AND data.configuration.debuglevel != this->debuglevel)
     {

@@ -71,28 +71,13 @@ PUBLIC STATIC OBJECTTYPE DBContent EXTEND CustomContentBase
           WHERE COLUMN groupid = VAR groupid;
 
     RECORD result;
-    IF (RecordExists(SELECT FROM objects WHERE spiderfrom != 0))
-    {
-      // Group with spidering: no requiredindexdates!
-      result :=
-          [ status := "result"
-          , objects :=
-                SELECT id :=                  objectid
-                     , ...(objectid LIKE "*withdata*" ? [ data := this->GetObjectData(objects, "list") ] : CELL[])
-                  FROM objects
-                 WHERE spiderfrom = 0
-          ];
-    }
-    ELSE
-    {
-      result :=
-          [ status := "result"
-          , objects :=
-                SELECT id :=                  objectid
-                     , ...(objectid LIKE "*withdata*" ? [ data := this->GetObjectData(objects, "list") ] : CELL[])
-                  FROM objects
-          ];
-    }
+    result :=
+        [ status := "result"
+        , objects :=
+              SELECT id :=                  objectid
+                   , ...(objectid LIKE "*withdata*" ? [ data := this->GetObjectData(objects, "list") ] : CELL[])
+                FROM objects
+        ];
 
     LogDebug("DBContent", "ListObjects", indexdate, groupid, result);
     RETURN result;
@@ -164,10 +149,6 @@ PUBLIC STATIC OBJECTTYPE DBContent EXTEND CustomContentBase
               , datafrom :=      datafrom
               , ...extradata
               ]
-        , objects :=             (SELECT id := consilio_index.objectid
-                                       , ...(objectid LIKE "*withdata*" ? [ data := this->GetObjectData(consilio_index, "fetch-list") ] : CELL[])
-                                    FROM webhare_testsuite.consilio_index
-                                   WHERE spiderfrom = rec.id)
         ];
   }
 >;

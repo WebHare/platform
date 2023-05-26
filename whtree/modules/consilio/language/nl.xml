@@ -109,8 +109,6 @@
       <text tid="folder">Te indexeren map</text>
       <text tid="generalsettings">Geavanceerde instellingen</text>
       <text tid="lastcontentscheck">Laatste automatische update van dynamische pagina's</text>
-      <text tid="maxgroupobjects">Maximum objecten per groep</text>
-      <text tid="maxgroupobjects-description">(Laat leeg voor standaardwaarde)</text>
       <text tid="minutes">minuten (Laat leeg voor standaardwaarde)</text>
       <text tid="title-edit">Contentbron bewerken</text>
       <text tid="title-new">Nieuwe contentbron</text>
@@ -166,7 +164,6 @@
       <text tid="debuglevel_queuemanager-2">Algemene informatie</text>
       <text tid="debuglevel_queuemanager-3">Alle debuginformatie</text>
       <text tid="enablelinkchecker">Linkcontrole ingeschakeld</text>
-      <text tid="maxgroupobjects">Maximum objecten per groep</text>
       <text tid="maxtasktime">Timeout voor fetcher-taken</text>
       <text tid="numworkers">Aantal fetcher-processen</text>
       <text tid="options">Consilio-instellingen</text>
