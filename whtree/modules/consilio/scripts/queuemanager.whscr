@@ -1647,6 +1647,10 @@ OBJECTTYPE ConsilioQueueManager EXTEND QueueManagerBase
       output := Right(output, Length(output) - 9);
       this->DebugLog("Worker #" || worker.idx || ": " || output, -2);
     }
+    ELSE
+    {
+      this->DebugLog("Worker #" || worker.idx || "? " || output, -2);
+    }
   }
 
   UPDATE MACRO ProcessWorkerCrash(RECORD worker, STRING errormessage, STRING ARRAY trace)
