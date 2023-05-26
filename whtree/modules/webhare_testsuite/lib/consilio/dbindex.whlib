@@ -8,8 +8,6 @@ LOADLIB "mod::consilio/lib/contentproviders/customcontent.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/database.whlib";
 
-BOOLEAN showdebuglog;// := TRUE;
-
 PUBLIC STATIC OBJECTTYPE DBContent EXTEND CustomContentBase
 < // ---------------------------------------------------------------------------
   //
@@ -49,8 +47,7 @@ PUBLIC STATIC OBJECTTYPE DBContent EXTEND CustomContentBase
   UPDATE PUBLIC MACRO PrepareForIndexing()
   {
     OpenPrimary();
-    IF (showdebuglog)
-      LogDebug("DBContent", "PrepareForIndexing");
+    LogDebug("DBContent", "PrepareForIndexing");
   }
 
   UPDATE PUBLIC RECORD FUNCTION ListGroups(DATETIME indexdate)
@@ -61,8 +58,8 @@ PUBLIC STATIC OBJECTTYPE DBContent EXTEND CustomContentBase
               SELECT DISTINCT id := groupid
                 FROM webhare_testsuite.consilio_index
         ];
-    IF (showdebuglog)
-      LogDebug("DBContent", "ListGroups", indexdate, result);
+
+    LogDebug("DBContent", "ListGroups", indexdate, result);
     RETURN result;
   }
 
@@ -96,8 +93,8 @@ PUBLIC STATIC OBJECTTYPE DBContent EXTEND CustomContentBase
                   FROM objects
           ];
     }
-    IF (showdebuglog)
-      LogDebug("DBContent", "ListObjects", indexdate, groupid, result);
+
+    LogDebug("DBContent", "ListObjects", indexdate, groupid, result);
     RETURN result;
   }
 
@@ -124,8 +121,8 @@ PUBLIC STATIC OBJECTTYPE DBContent EXTEND CustomContentBase
           [ status := "notfound"
           , error := "beta object " || EncodeJava(groupid) || ":" || EncodeJava(objectid) || " not found"
           ];
-      IF (showdebuglog)
-        LogDebug("DBContent", "FetchObject", indexdate, groupid, objectid, result);
+
+      LogDebug("DBContent", "FetchObject", indexdate, groupid, objectid, result);
       RETURN result;
     }
 
@@ -151,8 +148,7 @@ PUBLIC STATIC OBJECTTYPE DBContent EXTEND CustomContentBase
         , ...this->GetObjectData(rec, "fetch")
         ];
 
-    IF (showdebuglog)
-      LogDebug("DBContent", "FetchObject", indexdate, groupid, objectid, result);
+    LogDebug("DBContent", "FetchObject", indexdate, groupid, objectid, result);
     RETURN result;
   }
 
