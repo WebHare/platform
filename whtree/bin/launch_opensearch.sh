@@ -23,7 +23,7 @@ if [ -d "$WEBHARE_DATAROOT/elasticsearch" ] && [ ! -d "$OPENSEARCHROOT" ]; then
   mv "$WEBHARE_DATAROOT/elasticsearch" "$OPENSEARCHROOT"
 fi
 
-ADDOPTIONS=""
+ADDOPTIONS="--quiet"
 
 if [ -z "$WEBHARE_OPENSEARCH_BINDHOST" ]; then
   WEBHARE_OPENSEARCH_BINDHOST=127.0.0.1
