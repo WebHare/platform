@@ -1251,81 +1251,36 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
     @param objectid Delete outdated objects for this object only ("" for all objects)
     @param deletebefore Delete all objects that have been indexed before this date
     @cell options.refresh Refresh all shards involved in the delete by query once the request completes (opensearch only)
-    @return The deletion result
-    @cell(integer) return.deleted The number of deleted objects
-    @cell(string array) return.active The id's of the objects that were matched,
-        but not deleted, because they were indexed on or after the given date
 */
-PUBLIC RECORD FUNCTION DeleteIndexManagerOutdated(INTEGER indexid,
-                                                  INTEGER contentsourceid,
-                                                  STRING groupid,
-                                                  STRING objectid,
-                                                  DATETIME deletebefore,
-                                                  RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC MACRO DeleteIndexManagerOutdated(INTEGER indexid, INTEGER contentsourceid, DATETIME deletebefore)
 {
-  options := ValidateOptions(
-      [ refresh := FALSE
-      ], options);
+  IF (indexid = 0 OR deletebefore = DEFAULT DATETIME)
+    THROW NEW Exception(`Invalid arguments`);
 
-  RECORD result := [ status := SearchInvalidArgument
-                   , deleted := 0
-                   , active := DEFAULT STRING ARRAY
-                   ];
-  IF (indexid != 0 AND deletebefore != DEFAULT DATETIME)
+  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid, [ excludereadonly := TRUE ]);
+  FOREVERY (RECORD indexmanager FROM indexmanagers)
   {
-    RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid, [ excludereadonly := TRUE ]);
-    result.status := IsValueSet(indexmanagers) ? SearchOk : SearchIndexNotFound;
-    FOREVERY (RECORD indexmanager FROM indexmanagers)
-    {
-      // No support for outdated documents in unmanaged indices
-      IF (indexmanager.indextype = whconstant_consilio_catalogtype_unmanaged)
-        result.status := SearchCommandUnsupported;
+    // No support for outdated documents in unmanaged indices
+    IF (indexmanager.indextype = whconstant_consilio_catalogtype_unmanaged)
+      THROW NEW Exception(`DeleteIndexManagerOutdated not supported on unmanaged catalogs`);
 
-      // delete all documents having '_indexed' before 'deletebefore'
-      RECORD query :=
-          [ query :=
-              [ bool :=
-                  [ must := DEFAULT RECORD ARRAY
-                  , filter :=
-                      [ [ range := [ _indexed := [ lt := FormatISO8601DateTime(deletebefore, "day", "milliseconds") ] ] ]
-                      ]
-                  ]
-              ]
-          ];
-      IF (contentsourceid != 0)
-        INSERT [ match := [ _contentsource := contentsourceid ] ] INTO query.query.bool.must AT END;
-      IF (groupid != "")
-        INSERT [ match := [ groupid := groupid ] ] INTO query.query.bool.must AT END;
-      IF (objectid != "")
-        INSERT [ match := [ objectid := objectid ] ] INTO query.query.bool.must AT END;
+    // delete all documents having '_indexed' before 'deletebefore'
+    RECORD query :=
+        [ query :=
+            [ bool :=
+                [ must := DEFAULT RECORD ARRAY
+                , filter :=
+                    [ [ range := [ _indexed := [ lt := FormatISO8601DateTime(deletebefore, "day", "milliseconds") ] ] ]
+                    ]
+                ]
+            ]
+        ];
+    IF (contentsourceid != 0)
+      INSERT [ match := [ _contentsource := contentsourceid ] ] INTO query.query.bool.must AT END;
 
-      /* Refresh the index beforoe we start deletion. Works around "version conflict, required seqNo [...]" we noticed
-         when running wh consilio:manualindex publisher:whfs - suspecting the delete is trying to delete older versions
-
-         maybe we can set conflicts=proceed but I'm not sure if that will then fail to delete or delete the most recent version*/
-      SendRawJSONToElasticsearch(indexmanager.id, "GET", indexmanager.indexname || "/_refresh", DEFAULT RECORD);
-
-      RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "POST", indexmanager.indexname || `/_delete_by_query${ options.refresh ? "?refresh" : ""}`, query);
-      result.status := result.status ?? response.status;
-      IF (result.status = SearchOk)
-      {
-        result.deleted := response.result.deleted;
-
-        // Find documents that aren't deleted
-        DELETE CELL filter FROM query.query.bool;
-        INSERT CELL _source := [ "objectid" ] INTO query;
-        response := SendRawJSONToElasticsearch(indexmanager.id, "POST", indexmanager.indexname || "/_search", query);
-        IF (response.status = SearchOk AND Length(response.result.hits.hits) > 0)
-        {
-          result.active :=
-              SELECT AS STRING ARRAY _source.objectid
-                FROM response.result.hits.hits;
-        }
-      }
-    }
+    /* If a conflict occurs it's a parallel insert/update, so the doc isn't oudated. We can skip thos, thus conflicts=proceed */
+    SendRawJSONToElasticsearch(indexmanager.id, "POST", indexmanager.indexname || `/_delete_by_query?conflicts=proceed`, query);
   }
-
-  RETURN result;
 }
 
 /** Refreshes all attached indices of a catalog, so all pendinging updates

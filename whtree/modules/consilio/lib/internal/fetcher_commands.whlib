@@ -863,16 +863,7 @@ PUBLIC RECORD FUNCTION CleanupIndex(RECORD data, RECORD options DEFAULTSTO DEFAU
     IF (NOT options.noindexmodify)
     {
       // All objects in the index with an index date before this task's index date can be removed from the index.
-      RECORD deleteresult := DeleteIndexManagerOutdated(data.indexid, data.contentsourceid, "", "", data.commanddate, [ refresh := TRUE ]);
-
-      // -1: error, -2: connection error or consilio unavailable
-      IF (deleteresult.deleted < 0)
-      {
-        FetcherDebug(ConsilioDebugInfo, "Could not clean up index " || data.indexid);
-        IF (deleteresult.deleted = -2)
-          RETURN result;
-      }
-      FetcherDebug(ConsilioDebugInfo, "Cleaned up index, deleted " || deleteresult.deleted || " documents", loglevel);
+      DeleteIndexManagerOutdated(data.indexid, data.contentsourceid, data.commanddate);
     }
   }
 
