@@ -28,8 +28,7 @@ LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 
 
-CONSTANT RECORD default_contentsource_options := CELL[ maxgroupobjects := 0
-                                                     , enabled := TRUE
+CONSTANT RECORD default_contentsource_options := CELL[ enabled := TRUE
                                                      ];
 
 CONSTANT STRING default_suffix_mask := "-*";
@@ -1156,7 +1155,6 @@ STATIC OBJECTTYPE ConsilioCatalog
     INTEGER srcid := MakeAutonumber(consilio.contentsources, "id");
     csourcesettings := CELL[ id := srcid
                            , catalogid := this->catalog.id
-                           , csourcesettings.maxgroupobjects
                            , csourcesettings.definedby
                            , ...csourcesettings
                            , data := EncodeHSON(CellExists(csourcesettings,'data') ? csourcesettings.data : DEFAULT RECORD)
@@ -1182,7 +1180,6 @@ STATIC OBJECTTYPE ConsilioCatalog
 
   /** Add a publisher content source
       @param targetfolder Folder to index
-      @cell options.maxgroupobjects Maximum number of objects within a group that will be indexed
       @cell options.definedby Use to describe who added this custom content source was added
       @rreutn Newly created content source
   */
@@ -1223,7 +1220,6 @@ STATIC OBJECTTYPE ConsilioCatalog
   /** Add a new custom content source to a index
       @param tag Tag of the new content source
       @param contentsourceobject Library and name of object that handles indexing (lib#name)
-      @cell options.maxgroupobjects Maximum number of objects within a group that will be indexed
       @cell options.definedby Use to describe who added this custom content source was added
       @cell options.contentcheckinterval Interval between rechecks (defaults to -1, no recheck)
       @cell options.folder Associated folder

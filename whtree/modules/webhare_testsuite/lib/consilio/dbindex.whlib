@@ -8,8 +8,6 @@ LOADLIB "mod::consilio/lib/contentproviders/customcontent.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/database.whlib";
 
-BOOLEAN showdebuglog;// := TRUE;
-
 PUBLIC STATIC OBJECTTYPE DBContent EXTEND CustomContentBase
 < // ---------------------------------------------------------------------------
   //
@@ -49,8 +47,7 @@ PUBLIC STATIC OBJECTTYPE DBContent EXTEND CustomContentBase
   UPDATE PUBLIC MACRO PrepareForIndexing()
   {
     OpenPrimary();
-    IF (showdebuglog)
-      LogDebug("DBContent", "PrepareForIndexing");
+    LogDebug("DBContent", "PrepareForIndexing");
   }
 
   UPDATE PUBLIC RECORD FUNCTION ListGroups(DATETIME indexdate)
@@ -61,8 +58,8 @@ PUBLIC STATIC OBJECTTYPE DBContent EXTEND CustomContentBase
               SELECT DISTINCT id := groupid
                 FROM webhare_testsuite.consilio_index
         ];
-    IF (showdebuglog)
-      LogDebug("DBContent", "ListGroups", indexdate, result);
+
+    LogDebug("DBContent", "ListGroups", indexdate, result);
     RETURN result;
   }
 
@@ -74,30 +71,15 @@ PUBLIC STATIC OBJECTTYPE DBContent EXTEND CustomContentBase
           WHERE COLUMN groupid = VAR groupid;
 
     RECORD result;
-    IF (RecordExists(SELECT FROM objects WHERE spiderfrom != 0))
-    {
-      // Group with spidering: no requiredindexdates!
-      result :=
-          [ status := "result"
-          , objects :=
-                SELECT id :=                  objectid
-                     , ...(objectid LIKE "*withdata*" ? [ data := this->GetObjectData(objects, "list") ] : CELL[])
-                  FROM objects
-                 WHERE spiderfrom = 0
-          ];
-    }
-    ELSE
-    {
-      result :=
-          [ status := "result"
-          , objects :=
-                SELECT id :=                  objectid
-                     , ...(objectid LIKE "*withdata*" ? [ data := this->GetObjectData(objects, "list") ] : CELL[])
-                  FROM objects
-          ];
-    }
-    IF (showdebuglog)
-      LogDebug("DBContent", "ListObjects", indexdate, groupid, result);
+    result :=
+        [ status := "result"
+        , objects :=
+              SELECT id :=                  objectid
+                   , ...(objectid LIKE "*withdata*" ? [ data := this->GetObjectData(objects, "list") ] : CELL[])
+                FROM objects
+        ];
+
+    LogDebug("DBContent", "ListObjects", indexdate, groupid, result);
     RETURN result;
   }
 
@@ -124,8 +106,8 @@ PUBLIC STATIC OBJECTTYPE DBContent EXTEND CustomContentBase
           [ status := "notfound"
           , error := "beta object " || EncodeJava(groupid) || ":" || EncodeJava(objectid) || " not found"
           ];
-      IF (showdebuglog)
-        LogDebug("DBContent", "FetchObject", indexdate, groupid, objectid, result);
+
+      LogDebug("DBContent", "FetchObject", indexdate, groupid, objectid, result);
       RETURN result;
     }
 
@@ -151,8 +133,7 @@ PUBLIC STATIC OBJECTTYPE DBContent EXTEND CustomContentBase
         , ...this->GetObjectData(rec, "fetch")
         ];
 
-    IF (showdebuglog)
-      LogDebug("DBContent", "FetchObject", indexdate, groupid, objectid, result);
+    LogDebug("DBContent", "FetchObject", indexdate, groupid, objectid, result);
     RETURN result;
   }
 
@@ -168,10 +149,6 @@ PUBLIC STATIC OBJECTTYPE DBContent EXTEND CustomContentBase
               , datafrom :=      datafrom
               , ...extradata
               ]
-        , objects :=             (SELECT id := consilio_index.objectid
-                                       , ...(objectid LIKE "*withdata*" ? [ data := this->GetObjectData(consilio_index, "fetch-list") ] : CELL[])
-                                    FROM webhare_testsuite.consilio_index
-                                   WHERE spiderfrom = rec.id)
         ];
   }
 >;

@@ -1341,15 +1341,6 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       FOREVERY(OBJECT addtocatalog FROM addtocatalogs)
       {
         RECORD theindex := [ catalog := QualifyName(this->module, addtocatalog->GetAttribute("catalog"))
-                           /* FIXME
-                              Are these two parameters actually used?
-
-                              and do we *want* usernames and passwords in a site profile? We ought to accept a callback or
-                              look in a registry key. (and then probably do it when we need the password, not when caching
-                              a siteprofile)
-
-                           , maxgroupobjects := ParseXSInt(addtocatalog->GetAttribute("maxgroupobjects"))
-                           */
                            , module := this->module
                            , siteprofile := this->siteprof->name
                            , line := addtocatalog->linenum

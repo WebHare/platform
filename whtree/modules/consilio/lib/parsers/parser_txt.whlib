@@ -23,7 +23,6 @@ PUBLIC RECORD FUNCTION ParsePlainTextDoc(BLOB data, BOOLEAN contentlinksonly)
   // Default parsed page
   RECORD parsed_page := CreateParsedPage();
   parsed_page.type_ext := "txt";
-  parsed_page.follow_links := FALSE;
   // Insert body text. TODO configurable or at least a limit we've put more thought in ?
   parsed_page.text := CleanWhitespace(BlobToString(data, 65536));
 

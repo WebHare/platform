@@ -55,10 +55,6 @@ PUBLIC CONSTANT INTEGER default_consilio_search_count := 100;
 
 PUBLIC CONSTANT INTEGER default_contentcheckinterval:= 1440;
 
-/** @short Default maximum number of group objects
-*/
-PUBLIC CONSTANT INTEGER default_maxgroupobjects := 500;
-
 PUBLIC CONSTANT RECORD default_opensearch_configuration :=
     [ initialmemorypool := 128
     , maximummemorypool := 350

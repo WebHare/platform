@@ -35,7 +35,6 @@ PUBLIC SCHEMA
     , STRING "contentprovider"
     , STRING "data"
     , INTEGER "catalogid" NULL := 0
-    , INTEGER "maxgroupobjects"
     , STRING "tag"
     , STRING "title"
     , INTEGER "status"

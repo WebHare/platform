@@ -9,7 +9,6 @@ PUBLIC RECORD FUNCTION CreateParsedPage()
          , errormsg := ""                       // If not successful, contains error message
          , type_ext := ""                       // Page type (file extension, e.g. "html", "pdf", etc.)
          , index_page := TRUE                   // Should this page be indexed?
-         , follow_links := TRUE                 // Index links on this page?
          , title := ""                          // Page title
          , keywords := ""                       // Keywords to indentify this page
          , description := ""                    // Description

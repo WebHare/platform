@@ -87,11 +87,11 @@ PUBLIC MACRO DoWaitForContentSourceDone(INTEGER contentsourceid, RECORD options 
   INTEGER contentsourcestatus  := SELECT AS INTEGER status FROM consilio.contentsources WHERE id = contentsourceid;
   IF(contentsourcestatus != contentsourcestatus_idle)
   {
-    STRING status := contentsource.status >= -1 AND contentsource.status <= 4
-                          ? ["disabled","idle","being updated","being rebuild","unavailable","error"][contentsource.status + 1]
+    STRING status := contentsourcestatus >= -1 AND contentsourcestatus <= 4
+                          ? ["disabled","idle","being updated","being rebuild","unavailable","error"][contentsourcestatus + 1]
                           : "unknown";
 
-    STRING err := `Unexpected status '${status}' (${contentsource.status}) after waiting for ${describesource}`;
+    STRING err := `Unexpected status '${status}' (${contentsourcestatus}) after waiting for ${describesource}`;
     RECORD ARRAY relevanterrors := SELECT * FROM __ConsilioGetErrors().errors WHERE errors.contentsourceid = VAR contentsourceid;
 
     Print(err||"\n");

@@ -316,10 +316,6 @@ MACRO ExecuteDecodedCommand(RECORD data)
 
       IF (RecordExists(result.error))
         SendError(result.error.message, result.error.level);
-
-      // The fetcher command queue ignores CHECKOBJECTs it has already executed.
-      FOREVERY (RECORD newobjectrec FROM result.tocheck)
-        AddToCommandQueue("CHECKOBJECT " || data.indexid || " " || data.contentsourceid || " \"" || EncodeJava(data.groupid) || "\" \"" || EncodeJava(newobjectrec.id) || "\" " || DateTimeToString(data.commanddate));
     }
     CASE "DELETEOBJECT"
     {

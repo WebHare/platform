@@ -371,7 +371,6 @@
       <text name="tag" tid="~tag" />
       <heading tid=".generalsettings" />
       <textedit name="contentcheckinterval" maxlength="5" emptyvalue="0" suffixtid="~units.minutes" valuetype="integer" />
-      <textedit name="maxgroupobjects" maxlength="7" emptyvalue="0" valuetype="integer" />
       <lines layout="left">
         <checkbox name="disablesource" labeltid=".disablesource-description" title="" />
       </lines>

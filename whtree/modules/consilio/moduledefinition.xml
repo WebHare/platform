@@ -201,7 +201,7 @@
       <d:integer name="catalogid" nullable="0" ondelete="cascade" references=".catalogs">
         <d:documentation>The catalog this content source belongs to</d:documentation>
       </d:integer>
-      <d:integer name="maxgroupobjects" />
+      <d:obsoletecolumn name="maxgroupobjects" /> <!-- Obsoleted 2023-05-26 (5.3) -->
       <d:integer name="fsobject" ondelete="set default" references="system.fs_objects">
         <d:documentation>Associated WHFS object. For consilio:site content sources, the publisher folder where indexing starts</d:documentation>
       </d:integer>

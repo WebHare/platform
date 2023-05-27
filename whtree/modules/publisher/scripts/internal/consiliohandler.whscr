@@ -125,6 +125,7 @@ RECORD ARRAY FUNCTION GetIndexedFolderGroups(INTEGER folderid)
   }
   CATCH (OBJECT e)
   {
+    LogHarescriptException(e);
   }
   RETURN DEFAULT RECORD ARRAY;
 }
