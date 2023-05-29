@@ -6,6 +6,7 @@ LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 
 LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_commands.whlib";
@@ -27,7 +28,6 @@ RECORD ARRAY cmdqueue;         // Command queue for "exec" call
 OBJECT ipclink;                // Link to the QueueManager
 STRING workerid;               // Our worker id, supplied by QueueManager
 BOOLEAN noqueuemgr;
-BOOLEAN nocleaning;            // Set to TRUE to prevent the Fetcher from sending any delete requests
 BOOLEAN noindexmodify;         // Set to TRUE to prevent the Fetcher from modifying the index
 INTEGER forceddebuglevel := -1;
 INTEGER execlimit := -1;
@@ -62,7 +62,6 @@ running_in_fetcher := TRUE;
 RECORD args := ParseArguments(GetConsoleArguments(),
                               [ [ name := "exec", type := "stringopt" ]
                               , [ name := "workerid", type := "stringopt" ]
-                              , [ name := "nocleaning", type := "switch" ]
                               , [ name := "debuglevel", type := "stringopt" ]
                               , [ name := "execlimit", type := "stringopt" ]
                               , [ name := "dryrun", type := "switch" ]
@@ -91,7 +90,6 @@ IF(args.checkgroupbytag != "")
 }
 
 workerid := args.workerid;
-nocleaning := nocleaning OR args.nocleaning;
 forceddebuglevel := ToInteger(args.debuglevel,-1);
 execlimit := ToInteger(args.execlimit,-1);
 noindexmodify := args.dryrun;
@@ -185,9 +183,24 @@ MACRO ExecuteCommand(STRING cmd)
   // Got a command, decode and dispatch it
   RECORD data := GetQueueDataFromCommand(cmd);
   IF(data.success)
-    ExecuteDecodedCommand(data);
+  {
+    TRY
+    {
+      ExecuteDecodedCommand(data);
+    }
+    CATCH(OBJECT e)
+    {
+      LogHarescriptException(e, [ info :=
+                                  [ context :=          "consilio:fetcher"
+                                  , command :=          data
+                                  ]
+                            ]);
+    }
+  }
   ELSE
+  {
     SendError(data.error, 0);
+  }
   Print("Done\n");
 }
 
@@ -276,28 +289,15 @@ MACRO ExecuteDecodedCommand(RECORD data)
     }
     CASE "FASTCHECKGROUP", "CHECKGROUP"
     {
-      RECORD result := CheckGroup(data,
+      CheckGroup(data,
           [ printprogress := TRUE
           , debugobjects := fetcherdebuglevel >= 9
           , noindexmodify := noindexmodify
-          , nocleaning := nocleaning
           ]);
-
-      FOREVERY (RECORD error FROM result.errors)
-        SendError(error.message, error.level);
     }
     CASE "DEACTIVATEGROUP"
     {
-      RECORD result := CheckGroup(data,
-          [ deactivate := TRUE
-          , printprogress := TRUE
-          , debugobjects := fetcherdebuglevel >= 9
-          , noindexmodify := noindexmodify
-          , nocleaning := nocleaning
-          ]);
-
-      FOREVERY (RECORD error FROM result.errors)
-        SendError(error.message, error.level);
+      DeactivateGroup(data.groupid);
     }
     CASE "DELETEGROUP"
     {
@@ -310,12 +310,9 @@ MACRO ExecuteDecodedCommand(RECORD data)
     }
     CASE "CHECKOBJECT"
     {
-      RECORD result := CheckObject(data,
+      CheckObject(data,
           [ noindexmodify := noindexmodify
           ]);
-
-      IF (RecordExists(result.error))
-        SendError(result.error.message, result.error.level);
     }
     CASE "DELETEOBJECT"
     {
@@ -330,7 +327,6 @@ MACRO ExecuteDecodedCommand(RECORD data)
     {
       RECORD result := CleanupIndex(data,
           [ noindexmodify := noindexmodify
-          , nocleaning := nocleaning
           ]);
 
       IF (RecordExists(result.error))

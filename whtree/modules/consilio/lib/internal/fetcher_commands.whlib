@@ -9,6 +9,7 @@ LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
+LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
@@ -333,7 +334,6 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
     @cell(boolean) options.rebuild If rebuilding the index (or just checking)
     @cell(boolean) options.refresh Wait for index refresh after indexing (Elasticsearch only)
     @cell(boolean) options.noindexmodify Don't actually modify the index
-    @cell(boolean) options.nocleaning Don't cleanup afterwards
     @cell(boolean) options.printprogress Print progress information (for Fetcher/QueueManager)
     @cell(boolean) options.debugobjects Debug print the existing objects
     @return The result
@@ -342,284 +342,115 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
     @cell(integer) return.errors.level The error level (0: no further action necessary, 1: indexing error, cleanup index
         permitted, 2: indexing error, don't cleanup index)
 */
-PUBLIC RECORD FUNCTION CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC MACRO CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
-      [ deactivate := FALSE
-      , refresh := FALSE
+      [ refresh := FALSE
       , noindexmodify := FALSE
-      , nocleaning := FALSE
       , printprogress := FALSE
       , debugobjects := FALSE
       ], options);
 
-  RECORD result :=
-      [ errors := DEFAULT RECORD ARRAY
-      ];
-
   FetcherDebug(ConsilioDebugInfo, "Processing " || GetCommandFromQueueData(data));
 
-  BOOLEAN is_publisher_document := ToInteger(data.groupid, 0) > 0;
+  IF(data.contentsourceid = 0)
+    THROW NEW Exception(`A contentsourceid is required for CheckGroup`);
 
-  // Create a list of content sources which have indexed this group before
-  RECORD ARRAY old_sources;
-  IF (is_publisher_document)
+  RECORD source := GetContentSource(data.contentsourceid);
+  // Instantiatie a content provider for the source
+  OBJECT provider  := GetContentProviderForSource(source);
+
+  //Check which versions currently exist.
+  RECORD query :=
+    CELL[ query := [ bool := [ must := [[ term :=  [ "groupid" := data.groupid ]]
+                                       ,[ term :=  [ "_contentsource" := source.id ]]
+                                       ,[ range := [ "_indexed" := [ lt := data.commanddate ]]]
+                                       ]
+                   ]         ]
+        , _source := FALSE
+        , version := TRUE
+        , size := 10000 //TODO maybe we should reintroduce a hardcoded limit to objects in a group again, but much higher than the default 500 we once had
+        ];
+
+  //TODO should foreground index actions pass the current version during indexing so they can retry if they collide with a background update for the same group?
+
+  RECORD ARRAY current, indexmanagers := GetIndexManagersForIndex(source.catalogid);
+  IF(Length(indexmanagers) = 0)
+    RETURN; //no index cares
+
+  FOREVERY (RECORD indexmanager FROM indexmanagers)
   {
-    old_sources := GetContentSourcesWithGroup(data.indexid, data.groupid);
-    FetcherDebug(ConsilioDebugAll, "Seen content sources: " || AnyToString((SELECT AS INTEGER ARRAY contentsourceid FROM old_sources), "tree"));
+    RECORD result := SendRawJSONToElasticsearch(indexmanager.id, "POST", indexmanager.indexname || "/_search", query);
+    current := current CONCAT SELECT _version, _id FROM result.result.hits.hits;
+    BREAK; //FIXME as soon as we actually support multiple indices, we should track documents/version per index
   }
 
-  // Get a list of current content sources to add the group to
-  RECORD candidateresult := GetCandidateContentSources(data.indexid, data.contentsourceid, data.groupid, is_publisher_document);
-  IF (RecordExists(candidateresult.error))
-    INSERT candidateresult.error INTO result.errors AT END;
-  RECORD ARRAY contentsources := candidateresult.sources;
+  OBJECT catalog := OpenConsilioCatalogById(source.indexid);
+  OBJECT bulk := GetIndexManagerBulkKeeper();
 
-  // No candidates: return (if there was an error it has already been issued)
-  IF (Length(contentsources) = 0)
-    RETURN result;
+  // Get a list of object ids from the provider within the group
+  // This is the initial list of objects to fetch; new objects will be added as they are encountered while fetching
+  RECORD ARRAY objects := EnforceStructure([[ data := DEFAULT RECORD ]], provider->ListObjects3(data.commanddate, data.groupid));
 
-  INTEGER ARRAY new_sources;
+  RECORD ARRAY toadd;
 
-  // Add the group to the content sources, store the list of content sources which actually indexed the group
-  FOREVERY (RECORD source FROM contentsources)
+  FOREVERY(RECORD obj FROM objects)
   {
-    IF (data.indexid = 0 AND data.contentsourceid = 0 AND NOT options.deactivate)
-    {
-      data.indexid := source.indexid;
-      data.contentsourceid := source.id;
-    }
+    IF(options.debugobjects)
+      Print(`Fetching object, group: ${data.groupid}, object: ${obj.id} (${#obj}/${Length(objects)})\n`);
 
-    // Instantiatie a content provider for the source
-    OBJECT provider;
-    TRY
-    {
-      provider := GetContentProviderForSource(source);
-    }
-    CATCH (OBJECT e)
-    {
-      IF (data.contentsourceid = 0 AND is_publisher_document)
-        CONTINUE;
-      INSERT
-          [ message := e->what
-          , level := 2
-          ] INTO result.errors AT END;
-      RETURN result;
-    }
-
-    OBJECT catalog := OpenConsilioCatalogById(provider->indexid);
-
-    TRY
-    {
-      // Did we get an exception (if so, no cleaning for this group)
-      BOOLEAN got_crash;
-
-      // Get fields to provided to objectfields
-      STRING ARRAY objectfields := provider->GetObjectListFields();
-
-      /* Current objects (not needed for deactivation, but we'll provided them to ListObjects3/ListObjects2)
-         @cell id Object id
-         @cell _indexed Commanddate of command that added this object
-      */
-      RECORD ARRAY existing_objects := GetExistingGroupObjects(source.id, data.groupid, objectfields, CELL[ options.refresh ]);
-
-      // Get a list of object ids from the provider within the group
-      // This is the initial list of objects to fetch; new objects will be added as they are encountered while fetching
-      RECORD ARRAY objects :=
-          SELECT *
-               , existing_pos :=           RecordLowerBound(existing_objects, [ id := id ], [ "ID" ])
-               , data :=                   CellExists(obj, "DATA") ? obj.data : DEFAULT RECORD
-            FROM provider->ListObjects3(data.commanddate, data.groupid) AS obj;
-
-      // For deactivation, we only need to know if ListObjects throws, no more action needed (or wanted)
-      IF (NOT options.deactivate)
-      {
-        // Add bookkeeping
-        existing_objects :=
-            SELECT *
-                 , referenced :=    FALSE
-              FROM existing_objects;
-
-        // List of ids that are in the list
-        STRING ARRAY in_list := SELECT AS STRING ARRAY id FROM objects;
-
-        RECORD ARRAY toadd, todelete;
-
-        INTEGER cur := 0; // Index within the objectids array of the object currently being fetched
-        WHILE (cur < Length(objects))
-        {
-          RECORD obj := objects[cur];
-
-          DATETIME existing_indexdate;
-          DATETIME existing_commanddate;
-          IF (obj.existing_pos.found)
-          {
-            // Mark the existing object as referenced (it may not be deleted)
-            existing_objects[obj.existing_pos.position].referenced := TRUE;
-            existing_commanddate := existing_objects[obj.existing_pos.position].commanddate;
-          }
-
-          IF(options.debugobjects)
-            Print(`Fetching object, group: ${data.groupid}, object: ${objects[cur].id} (${cur}/${Length(objects)})\n`);
-
-          // Fetch and index the object, new objects within the group are returned
-          RECORD cmdresult := FetchObject(source, provider, data.groupid, objects[cur].id, objects[cur].data, data.commanddate, existing_indexdate, existing_commanddate);
-
-          IF (cmdresult.success)
-          {
-            // Don't care if the document was unchanged; still need to check the linked objects.
-
-            INSERT CELL objectid := objects[cur].id INTO cmdresult;
-            IF (cmdresult.action = "add")
-              INSERT cmdresult INTO toadd AT END;
-            ELSE IF (cmdresult.action = "delete")
-              INSERT cmdresult INTO todelete AT END;
-          }
-          ELSE
-          {
-            SWITCH (cmdresult.error)
-            {
-              CASE "sleep"
-              {
-                Sleep(3000);
-                RETURN result;
-              }
-              CASE "exception", "abort"
-              {
-                // Got exception or abort, don't clean any of the objects in this group
-                got_crash := TRUE;
-                INSERT
-                    [ message := cmdresult.message
-                    , level := 2
-                    ] INTO result.errors AT END;
-              }
-              CASE "ignored"
-              {
-                // Undo the referenced marking, so the object will be deleted afterwards
-                IF (obj.existing_pos.found)
-                  existing_objects[obj.existing_pos.position].referenced := FALSE;
-              }
-              DEFAULT
-              {
-                THROW NEW Exception(cmdresult.error);
-              }
-            }
-          }
-          IF (options.printprogress)
-          {
-            // Send sign of life to UrlManager
-            Print("PageDone\n");
-          }
-          cur := cur + 1;
-        }
-
-        //ADDME: Combine the objects to delete, the objects to index and the deletion of outdated objects into one bulk action?
-        OBJECT bulk := GetIndexManagerBulkKeeper();
-
-        FOREVERY (RECORD req FROM todelete)
-        {
-          FetcherDebug(ConsilioDebugSkipped, "Object \"" || EncodeJava(req.objectid) || "\" from group \"" || EncodeJava(data.groupid) || "\" could not be found, deleting it", source.loglevel);
-
-          STRING delresult := DeleteObjectFromIndex(provider->indexid, source.id, data.groupid, req.objectid, options.noindexmodify, options.refresh, CELL[ bulk ]);
-          IF (delresult = SearchSleep)
-            RETURN result;
-          ELSE IF (delresult != SearchOk)
-            THROW NEW Exception(delresult);
-        }
-
-        IF (RecordExists(toadd))
-        {
-          IF (NOT options.noindexmodify)
-          {
-            // Send page to the IndexManager for each index
-            DATETIME uploadstart := GetCurrentDatetime();
-            FetcherDebug(ConsilioDebugAll, "Sending indexed documents to IndexManager", source.loglevel);
-            STRING addresult := AddIndexManagerObjects(catalog,
-                                                       source,
-                                                       data.groupid,
-                                                       (SELECT objectid
-                                                             , documentfields := fields
-                                                             , suggestfields
-                                                             , suggestprefixes
-                                                          FROM toadd), CELL
-                                                       [ refresh := options.refresh
-                                                       , bulk
-                                                       ]);
-
-            IF (addresult != SearchOk)
-              THROW NEW Exception(addresult);
-            FetcherDebug(ConsilioDebugAll, "Upload indexed took "|| GetMsecsDifference(uploadstart, GetCurrentDatetime()) || "ms", source.loglevel);
-          }
-        }
-
-        // The queue is all done, so all objects within the group that should be indexed have been indexed by now. All objects
-        // still in the index belonging to the group with an index date before our task's index date can be removed from the
-        // index.
-        IF(NOT options.nocleaning AND NOT got_crash AND NOT options.noindexmodify)
-        {
-          INTEGER to_delete := LENGTH(SELECT FROM existing_objects WHERE NOT referenced);
-          FetcherDebug(ConsilioDebugInfo, "Incrementally checking done for cs " || source.id || " group \"" || EncodeJava(data.groupid) || "\", now deleting " || to_delete || " of " || LENGTH(existing_objects) || " pre-existing objects", source.loglevel);
-
-          // Remove all objects that are kept, updated or deleted
-          DELETE FROM existing_objects WHERE referenced;
-
-          IF (LENGTH(existing_objects) != 0)
-          {
-            // Remove them!
-            STRING deleteres := DeleteIndexManagerObjects(source.indexid, source.id, (SELECT AS STRING ARRAY id FROM existing_objects), CELL[ options.refresh ]);
-            IF (deleteres != SearchOk)
-              THROW NEW Exception(deleteres);
-          }
-        }
-
-        bulk->Execute(CELL[ options.refresh ]);
-      }
-
-      FetcherDebug(ConsilioDebugInfo, "Adding content source " || source.id || " for group \"" || EncodeJava(data.groupid) || "\" to existing sources list", source.loglevel);
-      INSERT source.id INTO new_sources AT END;
-    }
-    CATCH (OBJECT<ConsilioIgnoredException> e)
-    {
-      // Not an error we need to store
-      FetcherDebug(e->loglevel, e->what, source.loglevel);
-    }
-    CATCH (OBJECT e)
-    {
-      LogHarescriptException(e, [ info :=
-                                      [ context :=          "consilio:fetcher"
-                                      , contentsourceid :=  source.id
-                                      , indexid :=          source.indexid
-                                      , groupid :=          data.groupid
-                                      ]
-                                ]);
-
-      INSERT
-          [ message := e->what
-          , level := 2
-          ] INTO result.errors AT END;
+    // Fetch and index the object, new objects within the group are returned
+    RECORD cmdresult := FetchObject(source, provider, data.groupid, obj.id, obj.data, data.commanddate);
+    IF(NOT RecordExists(cmdresult))
       CONTINUE;
-    }
-  }
 
-  // Delete the group from the index for each content source which had indexed the group before, but is no longer indexing
-  // this group
-  FOREVERY (RECORD source FROM old_sources)
-  {
-    IF (source.contentsourceid > 0 AND source.contentsourceid NOT IN new_sources)
+    INSERT CELL objectid := obj.id INTO cmdresult;
+    INSERT cmdresult INTO toadd AT END;
+
+    IF (options.printprogress)
     {
-      FetcherDebug(ConsilioDebugInfo, "Content source " || source.contentsourceid || " is no longer responsible for group, deleting it from the index");
-      STRING deleteresult := DeleteGroupFromContentSource(source.contentsourceid, data.groupid, options.noindexmodify, options.refresh);
-
-      IF (deleteresult != SearchOk)
-      {
-        FetcherDebug(ConsilioDebugAll, "Could not delete group \"" || EncodeJava(data.groupid) || "\": " || deleteresult);
-        IF (deleteresult = SearchSleep)
-          RETURN result;
-      }
+      // Send sign of life to UrlManager
+      Print("PageDone\n");
     }
   }
 
-  RETURN result;
+  IF (NOT options.noindexmodify)
+  {
+    // Send page to the IndexManager for each index
+    DATETIME uploadstart := GetCurrentDatetime();
+    FetcherDebug(ConsilioDebugAll, "Sending indexed documents to IndexManager", source.loglevel);
+    AddIndexManagerObjects(catalog,
+                           source,
+                           data.groupid,
+                           (SELECT objectid
+                                 , documentfields := fields
+                                 , suggestfields
+                                 , suggestprefixes
+                                 , _id := toadd.documentid
+                              FROM toadd), CELL
+                           [ bulk
+                           ]);
+
+    RECORD ARRAY bulkrequests := SELECT "delete" := [ _id := _id ] FROM current WHERE _id NOT IN (SELECT AS STRING ARRAY documentid FROM toadd);
+    bulk->AddOpenSearchRequests(indexmanagers[0].id, indexmanagers[0].indexname, bulkrequests);
+    bulk->Execute(CELL[options.refresh]);
+  }
+}
+
+PUBLIC MACRO DeactivateGroup(STRING groupid)
+{
+  BOOLEAN is_publisher_document := ToInteger(groupid, 0) > 0;
+  IF(NOT is_publisher_document)
+    THROW NEW Exception(`DeactivateGroup is only supported for publisher documents (ie consilio:site contentsources)`);
+
+  // Now delete any earlier versions
+  RECORD query := CELL[ query := [ term := [ "groupid" := groupid
+                                           ]
+                                 ]
+                      ];
+
+  FOREVERY (RECORD indexmanager FROM ListIndexManagers())
+    SendRawJSONToElasticsearch(indexmanager.id, "POST", "/_all/_delete_by_query", query);
 }
 
 // Delete an entire group from the index
@@ -658,16 +489,13 @@ PUBLIC RECORD FUNCTION DeleteGroup(RECORD data, RECORD options DEFAULTSTO DEFAUL
 
   // If no indexid is given, delete the group from all indexes
   IF (NOT options.noindexmodify)
-  {
-    STRING cmdresult := DeleteIndexManagerGroup(data.indexid, data.contentsourceid, data.groupid, [ refresh := options.refresh ]);
-    IF (cmdresult != SearchOk)
-      FetcherDebug(ConsilioDebugInfo, "Could not fully delete group \"" || EncodeJava(data.groupid) || "\": " || cmdresult);
-  }
+    DeleteIndexManagerGroup(data.indexid, data.contentsourceid, data.groupid, [ refresh := options.refresh ]);
+
   RETURN result;
 }
 
 // Explicitly add a single object to the index
-PUBLIC RECORD FUNCTION CheckObject(RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC MACRO CheckObject(RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
       [ noindexmodify := FALSE
@@ -682,109 +510,42 @@ PUBLIC RECORD FUNCTION CheckObject(RECORD data, RECORD options DEFAULTSTO DEFAUL
 
   // Check for a valid content source
   IF (data.contentsourceid = 0)
-  {
-    result.error :=
-        [ message := "Content source unknown for groupid \"" || EncodeJava(data.groupid) || "\""
-        , level := 2
-        ];
-    RETURN result;
-  }
+    THROW NEW Exception(`Content source unknown for groupid \"" || EncodeJava(data.groupid) || "\"`);
+
   RECORD source := GetContentSource(data.contentsourceid);
   IF (NOT RecordExists(source))
-  {
-    result.error :=
-        [ message := "No valid content source to add object"
-        , level := 2
-        ];
-    RETURN result;
-  }
+    THROW NEW Exception("No valid content source to add object");
+
 
   // Get the provider for the source
-  OBJECT provider;
-  TRY
-  {
-    provider := GetContentProviderForSource(source);
-  }
-  CATCH (OBJECT e)
-  {
-    result.error :=
-        [ message := e->what
-        , level := 2
-        ];
-    RETURN result;
-  }
+  OBJECT provider := GetContentProviderForSource(source);
 
   // Fetch and index the object unconditionally
-  RECORD cmdresult := FetchObject(source, provider, data.groupid, data.objectid, DEFAULT RECORD, data.commanddate, DEFAULT DATETIME, DEFAULT DATETIME);
-  IF (NOT cmdresult.success)
-  {
-    IF (cmdresult.error IN [ "exception", "abort" ])
-      result.error :=
-          [ message := cmdresult.message
-          , level := 2
-          ];
-    ELSE IF (cmdresult.error NOT IN [ "", "sleep", "ignored" ])
-      result.error :=
-          [ message := cmdresult.error
-          , level := 1
-          ];
-    RETURN result;
-  }
-  SWITCH (cmdresult.action)
-  {
-    CASE "add"
-    {
-      IF (NOT options.noindexmodify)
-      {
-        // Send page to the IndexManager for each index
-        DATETIME uploadstart := GetCurrentDatetime();
-        FetcherDebug(ConsilioDebugAll, "Sending indexed document to IndexManager", source.loglevel);
-        OBJECT catalog := OpenConsilioCatalogById(provider->indexid);
-        STRING addresult := AddIndexManagerObjects(catalog,
-                                                   source,
-                                                   data.groupid,
-                                                   [ [ objectid := data.objectid
-                                                     , documentfields := cmdresult.fields
-                                                     , suggestfields := cmdresult.suggestfields
-                                                     , suggestprefixes := cmdresult.suggestprefixes
-                                                     ]
-                                                   ],
-                                                   [ refresh := options.refresh
-                                                   ]);
+  RECORD cmdresult := FetchObject(source, provider, data.groupid, data.objectid, DEFAULT RECORD, data.commanddate);
+  IF (NOT RecordExists(cmdresult))
+    RETURN; //nothing to do
 
-        IF (addresult != SearchOk)
-        {
-          FetcherDebug(ConsilioDebugAll, "Upload indexed failed after "|| GetMsecsDifference(uploadstart, GetCurrentDatetime()) || "ms", source.loglevel);
-          result.error :=
-              [ message := addresult
-              , level := 1
-              ];
-          RETURN result;
-        }
-        FetcherDebug(ConsilioDebugAll, "Upload indexed took "|| GetMsecsDifference(uploadstart, GetCurrentDatetime()) || "ms", source.loglevel);
-      }
-    }
-    CASE "delete"
-    {
-      FetcherDebug(ConsilioDebugSkipped, "Object \"" || EncodeJava(data.objectid) || "\" from group \"" || EncodeJava(data.groupid) || "\" could not be found, deleting it", source.loglevel);
+  IF (options.noindexmodify)
+    RETURN; //nothing to do
 
-      STRING delresult := DeleteObjectFromIndex(provider->indexid, source.id, data.groupid, data.objectid, options.noindexmodify, options.refresh);
-      IF (delresult = SearchSleep)
-        RETURN result;
-      ELSE IF (delresult != SearchOk)
-      {
-        result.error :=
-            [ message := delresult
-            , level := 1
-            ];
-        RETURN result;
-      }
-    }
-    DEFAULT
-    {
-    }
-  }
-  RETURN result;
+  // Send page to the IndexManager for each index
+  DATETIME uploadstart := GetCurrentDatetime();
+  FetcherDebug(ConsilioDebugAll, "Sending indexed document to IndexManager", source.loglevel);
+  OBJECT catalog := OpenConsilioCatalogById(provider->indexid);
+  AddIndexManagerObjects(catalog,
+                         source,
+                         data.groupid,
+                         [ [ objectid := data.objectid
+                           , documentfields := cmdresult.fields
+                           , _id := cmdresult.documentid
+                           , suggestfields := cmdresult.suggestfields
+                           , suggestprefixes := cmdresult.suggestprefixes
+                           ]
+                         ],
+                         [ refresh := options.refresh
+                         ]);
+
+  FetcherDebug(ConsilioDebugAll, "Upload indexed took "|| GetMsecsDifference(uploadstart, GetCurrentDatetime()) || "ms", source.loglevel);
 }
 
 
@@ -833,7 +594,6 @@ PUBLIC RECORD FUNCTION CleanupIndex(RECORD data, RECORD options DEFAULTSTO DEFAU
 {
   options := ValidateOptions(
       [ noindexmodify := FALSE
-      , nocleaning := FALSE
       ], options);
 
   RECORD result :=
@@ -857,7 +617,7 @@ PUBLIC RECORD FUNCTION CleanupIndex(RECORD data, RECORD options DEFAULTSTO DEFAU
   RefreshAttachedIndices(data.indexid);
 
   INTEGER loglevel := (SELECT AS INTEGER catalogs.loglevel + 1 FROM consilio.catalogs WHERE id = data.indexid) - 1;
-  IF(NOT options.nocleaning AND data.active AND NOT data.dontdelete)
+  IF(data.active AND NOT data.dontdelete)
   {
     FetcherDebug(ConsilioDebugInfo, "Removing orphan index " || data.indexid || ", deleting all documents", loglevel);
     IF (NOT options.noindexmodify)
@@ -1002,30 +762,23 @@ OBJECT FUNCTION GetContentProviderForSource(RECORD source)
     @param groupid Group to search
     @return List of content sources that contain this group
 */
-RECORD ARRAY FUNCTION GetContentSourcesWithGroup(INTEGER indexid, STRING groupid)
+INTEGER ARRAY FUNCTION GetContentSourcesWithGroup(STRING groupid)
 {
-  RECORD ARRAY queries;
-  INSERT CQMatch("groupid", "=", groupid) INTO queries AT END;
-  IF (indexid != 0)
-    INSERT CQMatch("indexid", "=", ToString(indexid)) INTO queries AT END;
+  RECORD query := CELL[ query := [ term := [ "groupid" := groupid ] ]
+                      , fields := [ "_contentsource" ]
+                      , _source := FALSE
+                      ];
 
-  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
-
-  RECORD ARRAY results;
-  FOREVERY (RECORD indexmanager FROM indexmanagers)
+  INTEGER ARRAY contentsourceids;
+  FOREVERY(RECORD indexmanager FROM ListIndexManagers())
   {
-    // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
-    RECORD result := QueryIndexManager(indexid, CQAnd(queries), [ count := fetcher_search_window, mapping := [ _contentsource := 0 ], managedonly := TRUE, indexmanager := indexmanager.id, acceptmissingindex := TRUE  ]);
-    IF (result.totalcount > fetcher_search_window)
-      result := QueryIndexManager(indexid, CQAnd(queries), [ count := -1, mapping := [ _contentsource := 0 ], managedonly := TRUE, indexmanager := indexmanager.id ]);
-
-    results := results CONCAT result.results;
+    RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "POST", "/_all/_search", query);
+    FOREVERY(RECORD hit FROM response.result.hits.hits)
+      FOREVERY(INTEGER csource FROM EnforceStructure([ _contentsource := INTEGER[] ], hit.fields)._contentsource)
+        IF(csource > 0 AND csource NOT IN contentsourceids)
+          INSERT csource INTO contentsourceids AT END;
   }
-
-  RETURN
-      SELECT DISTINCT contentsourceid := _contentsource
-        FROM results
-       WHERE _contentsource != 0;
+  RETURN contentsourceids;
 }
 
 
@@ -1086,7 +839,7 @@ RECORD FUNCTION GetCandidateContentSources(INTEGER indexid, INTEGER contentsourc
     }
 
     // Also include the contentsources that already have this group
-    INTEGER ARRAY mustinclude := SELECT AS INTEGER ARRAY COLUMN contentsourceid FROM GetContentSourcesWithGroup(0, groupid);
+    INTEGER ARRAY mustinclude := GetContentSourcesWithGroup(groupid);
 
     FOREVERY (RECORD rec FROM candidates)
     {
@@ -1149,74 +902,6 @@ RECORD ARRAY FUNCTION GetExistingContentSourceGroups(INTEGER contentsourceid)
         FROM results;
 }
 
-/** Get the list of objects for a group in a content source
-    @param contentsourceid ID of the content source
-    @param groupid Id of the group
-    @param extrafields List of other fields to return
-    @cell(boolean) options.refresh Refresh index before querying
-    @return Group objects
-    @cell return.id Object id
-    @cell return.modificationdate Recorded modificationdate (from FetchObject)
-    @cell return.commanddate Date of command that added the object
-*/
-RECORD ARRAY FUNCTION GetExistingGroupObjects(INTEGER contentsourceid, STRING groupid, STRING ARRAY extrafields, RECORD options)
-{
-  options := ValidateOptions(
-      [ refresh :=      FALSE
-      ], options,
-      [ notypecheck := [ "refresh" ]
-      ]);
-
-  RECORD mapping :=
-      [ _indexed := DEFAULT DATETIME
-      ];
-  FOREVERY (STRING field FROM extrafields)
-    mapping := CellInsert(mapping, field, "");
-
-  RECORD ARRAY queries;
-  INSERT CQMatch("_contentsource", "=", ToString(contentsourceid)) INTO queries AT END;
-  INSERT CQMatch("groupid", "=", groupid) INTO queries AT END;
-
-  // Get all available groups (might take some time if the source has millions of objects)
-  INTEGER indexid := SELECT AS INTEGER COLUMN catalogid FROM consilio.contentsources WHERE id = contentsourceid;
-
-  // A refresh is needed when modifications of a queued command haven't been picked up yet
-  IF (options.refresh)
-    RefreshAttachedIndices(indexid);
-
-  RECORD ARRAY results;
-  RECORD ARRAY indexmanagers := GetIndexManagersForIndex(indexid);
-  FOREVERY (RECORD indexmanager FROM indexmanagers)
-  {
-    // Don't retrieve all results first (using count := -1), to avoid creating unneccessary scrolling contexts
-    RECORD result := QueryIndexManager(indexid, CQAnd(queries), [ count := fetcher_search_window, mapping := mapping, indexmanager := indexmanager.id, acceptmissingindex := TRUE ]);
-    IF (result.totalcount > fetcher_search_window)
-      result := QueryIndexManager(indexid, CQAnd(queries), [ count := -1, mapping := mapping, indexmanager := indexmanager.id ]);
-
-    results := results CONCAT
-        SELECT id :=            objectid
-             , commanddate :=   Min(_indexed)
-          FROM result.results
-      GROUP BY objectid;
-  }
-
-  // Group over all indexmanagers, set indexdate and commanddate to DEFAULT DATETIME
-  // for objects that don't exist in all indexmanagers
-  INTEGER indexmgr_cnt := LENGTH(indexmanagers);
-  IF (LENGTH(indexmanagers) > 1)
-  {
-    results :=
-        SELECT TEMPORARY in_all_indexmgrs := Count(*) = LENGTH(indexmanagers)
-             , id
-             // If two attached indices disagree about commanddate we need the highest 'old' commanddate
-             , commanddate :=   Max(commanddate)
-          FROM results
-      GROUP BY id;
-  }
-
-  RETURN results;
-}
-
 /** Removes all documents in an index that are not from one of the valid contentsources
     @param indexid ID of the index
     @param validcontentsourceids Ids of the contentsources that are valid for this index
@@ -1242,48 +927,17 @@ MACRO RemoveUnknownContentSourceObjects(INTEGER indexid, INTEGER ARRAY validcont
     DeleteIndexManagerContentSource(0, indexid, contentsource);
 }
 
-
-/** Fetch the given object and index it
-    @param existing_indexdate Indexdate of current object in index (DEFAULT DATETIME for unconditional add)
-    @param existing_commanddate Commanddate of current object in index (DEFAULT DATETIME for unconditional add), otherwise added only when older than commanddate
-*/
-RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING groupid, STRING objectid, RECORD objectdata, DATETIME commanddate, DATETIME existing_indexdate, DATETIME existing_commanddate)
+/** @return Returns the indexed document or a DEFAULT RECORD if we had no content to index */
+RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING groupid, STRING objectid, RECORD objectdata, DATETIME commanddate)
 {
   TRY
   {
     // Let the content provider fetch the object. Errors will be thrown, not found returns an empty record.
     RECORD objectrec := objectdata ?? contentprovider->FetchObject(commanddate, groupid, objectid);
-
     IF (NOT RecordExists(objectrec))
-    {
-      RETURN
-          [ success := TRUE
-          , error := ""
-          , action := "delete"
-          , fields := DEFAULT RECORD
-          , objects := DEFAULT RECORD ARRAY
-          ];
-    }
+      THROW NEW Exception(`FetchObject did not return data - it should have returned a ConsilioIgnoredException`);
 
-    // Check if document hasn't been modified, or that the current command has already been run on this object
-    IF (existing_commanddate != DEFAULT DATETIME AND commanddate = existing_commanddate)
-    {
-      // Don't want to modify the data in the index.
-      FetcherDebug(ConsilioDebugInfo,
-          "Not replacing unmodified object \"" || EncodeJava(objectid) || "\": " ||
-          "current indexdate " || FormatISO8601DateTime(existing_indexdate) ||
-          ", existing commanddate: " || FormatISO8601DateTime(existing_commanddate) ||
-          ", current commanddate: " || FormatISO8601DateTime(commanddate), contentsource.loglevel);
-
-      RETURN
-          [ success := TRUE
-          , error := ""
-          , action := ""
-          , fields := DEFAULT RECORD
-          ];
-    }
-
-    FetcherDebug(ConsilioDebugInfo, "Replacing object \"" || EncodeJava(objectid) || "\", current indexdate: " || FormatISO8601DateTime(existing_indexdate), contentsource.loglevel);
+    FetcherDebug(ConsilioDebugInfo, "Replacing object \"" || EncodeJava(objectid) || "\"", contentsource.loglevel);
 
     RECORD document_fields := CellExists(objectrec, "document_fields") ? objectrec.document_fields : DEFAULT RECORD;
     STRING body := CellExists(objectrec, "document_body") ? objectrec.document_body : "";
@@ -1306,123 +960,48 @@ RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING
         document_fields := CellDelete(document_fields, field);
 
     STRING result;
-    IF (RecordExists(document_fields) OR body != "")
+    IF (NOT RecordExists(document_fields) AND body = "")
+      RETURN DEFAULT RECORD;
+
+    RECORD document :=
+        [ _indexed := commanddate
+        ];
+
+    // Add special field "body"
+    IF (body != "")
+      INSERT CELL body := objectrec.document_body INTO document;
+
+    // Add the document fields to the IndexManager variables
+    FOREVERY (RECORD field FROM UnpackRecord(document_fields))
+      document := CellInsert(document, field.name, field.value);
+
+    // Add suggest parameters
+    RECORD ARRAY suggestfields :=
+        SELECT field := name LIKE "_*" ? Substring(name, 1) : name
+             , prefix := CellExists(mapping, "suggestprefix") ? suggestprefix : ""
+          FROM contentprovider->GetMapping() AS mapping
+         WHERE CellExists(mapping, "suggested") ? suggested : FALSE;
+    IF (NOT RecordExists(suggestfields))
     {
-      RECORD document :=
-          [ _indexed := commanddate
-          ];
-
-      // Add special field "body"
-      IF (body != "")
-        INSERT CELL body := objectrec.document_body INTO document;
-
-      // Add the document fields to the IndexManager variables
-      FOREVERY (RECORD field FROM UnpackRecord(document_fields))
-        document := CellInsert(document, field.name, field.value);
-
-      // Add suggest parameters
-      RECORD ARRAY suggestfields :=
+      INTEGER numprefixes := Length(doc_suggestprefix);
+      suggestfields :=
           SELECT field := name LIKE "_*" ? Substring(name, 1) : name
-               , prefix := CellExists(mapping, "suggestprefix") ? suggestprefix : ""
-            FROM contentprovider->GetMapping() AS mapping
-           WHERE CellExists(mapping, "suggested") ? suggested : FALSE;
-      IF (NOT RecordExists(suggestfields))
-      {
-        INTEGER numprefixes := Length(doc_suggestprefix);
-        suggestfields :=
-            SELECT field := name LIKE "_*" ? Substring(name, 1) : name
-                 , prefix := numprefixes > 0 ? (doc_suggestprefix[#fields % numprefixes]) : ""
-              FROM ToRecordArray(doc_suggestfields, "name") AS fields;
-      }
-
-      RETURN
-          [ success := TRUE
-          , error := ""
-          , action := "add"
-          , fields := document
-          , suggestfields := Length(suggestfields) > 0 ? (SELECT AS STRING ARRAY field FROM suggestfields) : DEFAULT STRING ARRAY
-          , suggestprefixes := Length(suggestfields) > 0 ? (SELECT AS STRING ARRAY prefix FROM suggestfields) : DEFAULT STRING ARRAY
-          ];
+               , prefix := numprefixes > 0 ? (doc_suggestprefix[#fields % numprefixes]) : ""
+            FROM ToRecordArray(doc_suggestfields, "name") AS fields;
     }
-    ELSE
-    {
-      // This object should not be indexed, remove it from the index
-      FetcherDebug(ConsilioDebugSkipped, "Deleting empty document \"" || EncodeJava(objectid) || "\" from the index", contentsource.loglevel);
 
-      RETURN
-          [ success := TRUE
-          , error := ""
-          , action := "delete"
-          , fields := DEFAULT RECORD
-          ];
-    }
+    RETURN
+        [ fields := document
+        , suggestfields := Length(suggestfields) > 0 ? (SELECT AS STRING ARRAY field FROM suggestfields) : DEFAULT STRING ARRAY
+        , suggestprefixes := Length(suggestfields) > 0 ? (SELECT AS STRING ARRAY prefix FROM suggestfields) : DEFAULT STRING ARRAY
+        , documentid := GetElasticsearchDocumentId(contentsource.indexid, objectid)
+        ];
   }
   CATCH (OBJECT< ConsilioIgnoredException > e)
   {
     // Not an error we need to store
     FetcherDebug(e->loglevel, e->what, contentsource.loglevel);
-    RETURN [ success := FALSE, error := "ignored" ];
+    RETURN DEFAULT RECORD;
   }
-  CATCH (OBJECT<HareScriptErrorException> e)
-  {
-    LogHarescriptException(e, [ info :=
-                                    [ context :=          "consilio:fetcher"
-                                    , contentsourceid :=  contentsource.id
-                                    , indexid :=          contentprovider->indexid
-                                    , groupid :=          groupid
-                                    , objectid :=         objectid
-                                    ]
-                              ]);
 
-    RETURN [ success := FALSE, error := "abort", message := `HareScript error while getting object "${EncodeJava(objectid)}", group "${EncodeJava(groupid)}": ${e->what}` ];
-  }
-  CATCH (OBJECT e)
-  {
-    // Crash code for beta tests
-    IF (e->what = "BETATEST-CRASH")
-    {
-      SetConsoleExitCode(1);
-      TerminateScript();
-    }
-
-    LogHarescriptException(e, [ info :=
-                                    [ context :=          "consilio:fetcher"
-                                    , contentsourceid :=  contentsource.id
-                                    , indexid :=          contentprovider->indexid
-                                    , groupid :=          groupid
-                                    , objectid :=         objectid
-                                    ]
-                              ]);
-
-    RETURN [ success := FALSE, error := "exception", message := `Error while getting object "${EncodeJava(objectid)}", group "${EncodeJava(groupid)}": ${e->what}` ];
-  }
 }
-
-STRING FUNCTION DeleteObjectFromIndex(INTEGER indexid, INTEGER contentsource, STRING groupid, STRING objectid, BOOLEAN noindexmodify, BOOLEAN refresh, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := ValidateOptions(
-      [ bulk := DEFAULT OBJECT
-      ], options);
-
-  IF (noindexmodify)
-    RETURN SearchOk;
-
-  RECORD source := GetContentSource(contentsource);
-  INTEGER loglevel := RecordExists(source) ? source.loglevel : -1;
-
-  FetcherDebug(ConsilioDebugInfo, `Deleting object '${EncodeJava(objectid)}'${ groupid != "" ? `, group '${EncodeJava(groupid)}'` : "" } from contentsource ${contentsource}`, loglevel);
-  RETURN DeleteIndexManagerObject(indexid, contentsource, objectid, CELL[ refresh, options.bulk ]);
-}
-
-STRING FUNCTION DeleteGroupFromContentSource(INTEGER contentsource, STRING groupid, BOOLEAN noindexmodify, BOOLEAN refresh)
-{
-  IF (noindexmodify)
-    RETURN SearchOk;
-
-  RECORD source := GetContentSource(contentsource);
-  INTEGER loglevel := RecordExists(source) ? source.loglevel : -1;
-
-  FetcherDebug(ConsilioDebugInfo, "Deleting group \"" || EncodeJava(groupid) || "\" from contentsource " || contentsource, loglevel);
-  RETURN DeleteIndexManagerGroup(0, contentsource, groupid, [ refresh := refresh ]);
-}
-

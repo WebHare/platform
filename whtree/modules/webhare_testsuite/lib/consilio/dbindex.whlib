@@ -113,8 +113,6 @@ PUBLIC STATIC OBJECTTYPE DBContent EXTEND CustomContentBase
 
     IF (rec.text = "THROW")
       THROW NEW Exception("THROWN");
-    IF (rec.text = "CRASH")
-      THROW NEW Exception("BETATEST-CRASH");
     IF (rec.text = "ABORT")
       ABORT("ABORT");
     IF (rec.text = "JUMBOTEXT")
