@@ -106,6 +106,7 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
                               , enforce := ""
                               , expectstatus := [ 200 ]
                               , explain := FALSE
+                              , refresh := FALSE
                               ], options,
                               [ enums := [ enforce := [ "", "_search_get" ] ]
                               ]);
@@ -128,6 +129,8 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
     indexmanager.address := GetBuiltinOpensearchAddress();
 
   STRING url := ResolveToAbsoluteURL(indexmanager.address, (suburl LIKE "/*" ? "" : "/") || suburl);
+  IF(options.refresh)
+    url := UpdateURLVariables(url, [ refresh := "true" ]);
 
   STRING body;
   IF (options.ndjson)

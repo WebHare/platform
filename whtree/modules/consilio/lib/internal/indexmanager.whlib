@@ -965,8 +965,8 @@ STATIC OBJECTTYPE IndexManagerBulkKeeper
     RECORD ARRAY errors;
     FOREVERY (RECORD rec FROM this->_requests)
     {
-      STRING url := rec.finalindexname || "/_bulk" || (options.refresh ? "?refresh=true" : "");
-      RECORD response := SendRawJSONToElasticsearch(rec.indexmanagerid, "POST", url, [ bulkrequests := rec.requests ], [ ndjson := TRUE ]);
+      STRING url := rec.finalindexname || "/_bulk";
+      RECORD response := SendRawJSONToElasticsearch(rec.indexmanagerid, "POST", url, [ bulkrequests := rec.requests ], CELL[ ndjson := TRUE, options.refresh ]);
       IF(response.result.errors)
       {
         RECORD ARRAY itemresponses := SELECT *, operation := CellExists(items,"index") ? items."index" : items."delete"
@@ -1231,7 +1231,7 @@ PUBLIC STRING FUNCTION DeleteIndexManagerObjects(INTEGER indexid, INTEGER conten
       IF (contentsourceid != 0)
         INSERT [ match := [ _contentsource := contentsourceid ] ] INTO query.query.bool.must AT END;
 
-      RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "POST", (indexid != 0 ? indexmanager.indexname : "_all") || `/_delete_by_query${ options.refresh ? "?refresh" : ""}`, query);
+      RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "POST", `${(indexid != 0 ? indexmanager.indexname : "_all")}/_delete_by_query`, query, CELL[ options.refresh ]);
       IF (response.status != SearchOk)
         result := response.status;
     }
