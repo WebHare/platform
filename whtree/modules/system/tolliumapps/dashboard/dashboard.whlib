@@ -23,6 +23,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   RECORD ARRAY allgroups;
   RECORD ARRAY allpanels;
   RECORD originalspacers;
+  STRING originaltitle;
 
   MACRO NEW()
   {
@@ -40,6 +41,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     this->originalspacers := ^currentmonitor->spacers;
+    this->originaltitle := this->frame->title;
     this->frame->flags.issysop := this->contexts->user->HasRight("system:sysop");
 
     this->frame->flags.refreshcontents := FALSE;
@@ -140,6 +142,11 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
         ^currentmonitor->contents->RefreshDashboardPanel();
       }
     }
+
+    IF(RecordExists(sel) AND sel.rowkey != ^monitorpanels->rows[0].rowkey) //we don't want the app to open as "WebHare Platform - Dashboard"
+      this->frame->title := sel.title || " - " || this->originaltitle;
+    ELSE
+      this->frame->title := this->originaltitle;
 
     this->UpdateIntervalSetting();
   }
