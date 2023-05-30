@@ -10,6 +10,9 @@ image: docker:19.03.1-dind
 services:
   - docker:dind
 
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
 stages:
   - build
   - test

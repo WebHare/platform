@@ -71,8 +71,11 @@ echo Updates are verified
 # 2023-04-02: Added 'libaio1' - it's a dependency for oracle instantclient
 # 2021-12-22: Added 'zip' for shrinkwrap (building history/source.zips)
 # 2022-08-05: Added 'jq' to parse webhare.version
+# 2023-5-30: Removed libxml2 but adding automake,autoconf,libtool to build it from source
 
-PACKAGES="ccache
+PACKAGES="automake
+    autoconf
+    ccache
     certbot
     cron
     fontconfig
@@ -82,6 +85,7 @@ PACKAGES="ccache
     g++
     gettext-base
     libgif-dev
+    libtool
     git
     inotify-tools
     jq
@@ -102,7 +106,6 @@ PACKAGES="ccache
     libpq-dev
     libssl-dev
     libtiff-dev
-    libxml2-dev
     locales-all
     make
     nodejs
@@ -148,6 +151,12 @@ if ! pstree ; then
   exit 1
 fi
 
+# ubuntu 20.04 ships with outdated automake, libxml2 doesn't like it. download a better one
+cd /tmp
+curl http://ftp.gnu.org/gnu/automake/automake-1.16.5.tar.gz | tar zxf -
+cd automake-1.16.5/
+./configure
+make install
 
 # Install chrome
 curl --output /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb

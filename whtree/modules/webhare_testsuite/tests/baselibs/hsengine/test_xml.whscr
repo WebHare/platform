@@ -1695,7 +1695,7 @@ MACRO TestXXE()
  <!ENTITY lol8 "&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;&lol7;">
  <!ENTITY lol9 "&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;&lol8;">
 ]>
-<root><attack1>&lol1;</attack1><attack9>&lol3;</attack9></root>`;
+<root><attack1>&lol1;</attack1><attack9>&lol5;</attack9></root>`; //note: libxml2 2.11 moved its filtering up... it used to block at lol3 but now blocks at lol5 (30K chars). we can live with that
 
   OBJECT dom := MakeXMLDocument(StringToBlob(billionlaughs));
 
