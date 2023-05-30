@@ -21,6 +21,7 @@
     <task runat="41  3 * * *" runtz="maintenance" tag="maintenancetask" script="scripts/tasks/executemaintenance.whscr" />
     <task runat="*/6 * * * *" runtz="maintenance" tag="pollpaymentstatus" script="scripts/tasks/pollpaymentstatus.whscr" />
     <task runat="22 */3 * * *" runtz="maintenance" tag="checkpaymentmethods" script="scripts/tasks/checkpaymentmethods.whscr" runatstartup="true" />
+    <task runat="22 0 * * *" runtz="maintenance" tag="scanforissues" script="scripts/tasks/scanforissues.whscr" runatstartup="true" />
     <managedtask type="deletetask" objectname="lib/internal/tasks.whlib#deletetask" priority="background" />
   </servicemanager>
 
@@ -38,8 +39,6 @@
     <webservice name="sync" transports="whremoting" library="lib/internal/sync/service.whlib" primarytrans="auto" prefix="rpc_" requirewhaccount="true">
       <accesscheck />
     </webservice>
-
-    <check objectname="lib/internal/metadata/checks.whlib#WRDCheck" />
   </services>
 
   <rights>
