@@ -390,6 +390,7 @@
     <debugflag name="searches" description="Log searches" />
     <debugflag name="traffic" description="RPClog indexmanager traffic" />
     <debugflag name="whfscatalog" description="Log timings/actions around the WHFS catalog" />
+    <debugflag name="queuemanager" description="Enable queuemanager debug output" />
   </development>
 
 </module>
