@@ -1,11 +1,14 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.dashboard.platform" library="platform.whlib" xmlns:wrd="http://www.webhare.net/xmlns/wrd/components">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:wrd="http://www.webhare.net/xmlns/wrd/components"
+         gid="tolliumapps.dashboard.platform"
+         library="platform.whlib">
 
   <screen name="platformpanel" allowresize="true" title="">
     <actions>
       <action name="gototask" onexecute="dogototask">
         <enableon source="results" min="1" max="1" checkflags="canjumpto" />
       </action>
-      <action name="snooze">
+      <action name="snooze" ellipsis="true">
         <enableon source="results" min="1" checkflags="cansnooze" onexecute="dosnooze" />
       </action>
       <action name="details">
@@ -19,9 +22,10 @@
     <menus>
       <menu name="contextmenu">
         <item action="details" />
-        <item action="gototask" disablemode="hidden" />
         <item action="snooze" />
         <item action="unsnooze" />
+        <divider />
+        <item action="gototask" disablemode="hidden" />
       </menu>
     </menus>
 
@@ -34,23 +38,23 @@
                 defaultbutton="gototaskbutton"
                 emptytid=".noerrors"
                 flags="canjumpto cansnooze canunsnooze"
+                icons="tollium:status/warning tollium:status/schedule"
                 ongetrows="ongeterrors"
-                openaction="gototask"
+                openaction="details"
+                rowiconname="rowicon"
                 selectcontextmenu="contextmenu"
                 selectmode="multiple"
-                sortcolumn="message"
-                rowiconname="rowicon"
-                icons="tollium:status/warning tollium:status/schedule">
-            <column name="since" type="datetime" storeutc="true" width="18x" />
-            <column name="stopped" type="datetime" storeutc="true" width="18x" />
+                sortcolumn="message">
+            <column name="since" type="datetime" width="18x" storeutc="true" />
+            <column name="stopped" type="datetime" width="18x" storeutc="true" />
             <column name="message" type="text" width="2pr" />
-            <column name="snoozed_until" type="datetime" storeutc="true" width="18x" />
+            <column name="snoozed_until" type="datetime" width="18x" storeutc="true" />
           </list>
         </cell>
         <cell borders="left" spacers="left right">
           <checkbox name="withhistory" labeltid=".withhistory" onchange="onwithhistorychange" title="" />
+          <button width="1pr" action="details" tid=".details" />
           <button name="gototaskbutton" width="1pr" action="gototask" tid=".gototask" />
-          <button width="1pr" action="details" tid=".details"/>
           <spacer height="1gr" />
           <button width="1pr" action="snooze" />
           <button width="1pr" action="unsnooze" />
@@ -75,26 +79,33 @@
     </body>
   </screen>
 
-  <screen name="details" footerbuttons="close" allowresize="true">
+  <screen name="details" allowresize="true" footerbuttons="close">
     <compositions>
       <wrd:entity name="entity" wrdtype="server_check" />
     </compositions>
+
     <body>
-      <datetime composition="entity" cellname="wrd_creationdate" tid=".since" storeutc="true" type="datetime" readonly="true"/>
-      <datetime composition="entity" cellname="wrd_limitdate" tid=".stopped" storeutc="true" type="datetime" emptyvalue="max_datetime" readonly="true"/>
-      <text composition="entity" cellname="message_text" wordwrap="true" width="1pr" minwidth="40x" tid=".message"/>
-      <datetime composition="entity" cellname="snoozed_until" storeutc="true" type="datetime" readonly="true"/>
+      <datetime composition="entity" cellname="wrd_creationdate" type="datetime" readonly="true" storeutc="true" tid=".since" />
+      <datetime composition="entity"
+                cellname="wrd_limitdate"
+                type="datetime"
+                emptyvalue="max_datetime"
+                readonly="true"
+                storeutc="true"
+                tid=".stopped" />
+      <text composition="entity" cellname="message_text" width="1pr" minwidth="40x" tid=".message" wordwrap="true" />
+      <datetime composition="entity" cellname="snoozed_until" type="datetime" readonly="true" storeutc="true" />
       <text name="lastsnoozedby" />
-      <text name="lastsnoozemessage" wordwrap="true" width="1pr" />
+      <text name="lastsnoozemessage" width="1pr" wordwrap="true" />
       <textarea name="metadata" width="1pr" height="3gr" enabled="false" />
-      <heading tid=".history"/>
-      <list name="history" height="1pr" minheight="6gr" minwidth="70x">
-        <column name="when" width="18x" storeutc="true" type="datetime" />
-        <column name="event" width="10x" type="text" />
-        <column name="message" width="1pr" type="text"/>
-        <column name="wh_user" width="20x" type="text"/>
+      <heading tid=".history" />
+      <list name="history" height="1pr" minwidth="70x" minheight="6gr">
+        <column name="when" type="datetime" width="18x" storeutc="true" />
+        <column name="event" type="text" width="10x" />
+        <column name="message" type="text" width="1pr" />
+        <column name="wh_user" type="text" width="20x" />
       </list>
     </body>
-</screen>
+  </screen>
 
 </screens>
