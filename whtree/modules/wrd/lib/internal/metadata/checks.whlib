@@ -1,6 +1,8 @@
 <?wh
 
+LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/moduledefs.whlib";
 
@@ -15,23 +17,25 @@ PUBLIC RECORD ARRAY FUNCTION GetWRDIssueList()
 
   RECORD ARRAY definedschemas;
   RECORD ARRAY moduleschemas;
-  FOREVERY(RECORD permodule FROM SELECT module, schemas := GroupedValues(CELL[name,id]) FROM wrdschemas GROUP BY module)
-  {
-    IF(permodule.module = "")
-    {
-      FOREVERY(RECORD wrdschema FROM permodule.schemas)
-        INSERT CELL[ message_text := `WRD Schema '${wrdschema.name}' does not have a module:tag name so we cannot verify whether it's supposed to exist here`
-                   , scopes := ["gdpr"]
-                   , type := "wrd:unexpectedschema"
-                   , metadata := [ wrdschema := wrdschema.name ]
-                   , jump_to := [ app := "wrd", task := "selectschema", id := wrdschema.id ]
-                   ] INTO msgs AT END;
-      CONTINUE;
-    }
 
-    IF(NOT IsModuleInstalled(permodule.module))
+  FOREVERY(RECORD wrdschema FROM SELECT * FROM wrdschemas WHERE module = "")
+  {
+    INSERT CELL[ message_text := `WRD Schema '${wrdschema.name}' does not have a module:tag name so we cannot verify whether it's supposed to exist here`
+               , scopes := ["gdpr"]
+               , type := "wrd:unexpectedschema"
+               , metadata := [ wrdschema := wrdschema.name ]
+               , jump_to := [ app := "wrd", task := "selectschema", id := wrdschema.id ]
+               ] INTO msgs AT END;
+  }
+
+  //We also need to pick up modules which have no active WRD schemas at all
+  STRING ARRAY allmodulenames := GetSortedSet(GetInstalledModuleNames() CONCAT SELECT AS STRING ARRAY module FROM wrdschemas WHERE module != "");
+  FOREVERY(STRING module FROM allmodulenames)
+  {
+    RECORD ARRAY schemas := SELECT * FROM wrdschemas WHERE wrdschemas.module = VAR module;
+    IF(NOT IsModuleInstalled(module))
     {
-      FOREVERY(RECORD wrdschema FROM permodule.schemas)
+      FOREVERY(RECORD wrdschema FROM schemas)
         INSERT CELL[ message_text := `WRD Schema '${wrdschema.name}' does not have its corresponding module installed and should be deleted`
                    , scopes := ["gdpr"]
                    , type := "wrd:unexpectedschema"
@@ -40,9 +44,12 @@ PUBLIC RECORD ARRAY FUNCTION GetWRDIssueList()
                    ] INTO msgs AT END;
       CONTINUE;
     }
+    ELSE
+    {
+      definedschemas := definedschemas CONCAT GetModuleDefinedWRDSchemas(module);
+    }
 
-    definedschemas := definedschemas CONCAT GetModuleDefinedWRDSchemas(permodule.module);
-    moduleschemas := moduleschemas CONCAT permodule.schemas;
+    moduleschemas := moduleschemas CONCAT schemas;
   }
 
   definedschemas := SELECT *, seen := FALSE FROM definedschemas;
