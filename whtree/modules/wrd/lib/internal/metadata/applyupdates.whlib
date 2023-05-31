@@ -54,7 +54,7 @@ PUBLIC BOOLEAN FUNCTION UpdateACandidateSchema(STRING candidate, RECORD options 
   CATCH(OBJECT e)
   {
     LogHarescriptException(e);
-    Print(`Failed to apply metadata updates to WRD schema '${candidate}': ${e->what}\n`);
+    PrintTo(2, `Failed to apply metadata updates to WRD schema '${candidate}': ${e->what}\n`);
     IF(GetPrimary()->IsWorkOpen()) //if commit throws, no work is open!
       GetPrimary()->RollbackWork();
     RETURN FALSE;

@@ -441,6 +441,7 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
                        WHERE id = this->schemarec.id;
 
     ScheduleManagedTask("wrd:deletetask", [ id := this->schemarec.id ]);
+    ScheduleTimedTask("wrd:scanforissues"); //clear out any associated errors
     this->__SignalMetadataChanged();
     GetWRDCommitHandler()->SchemaNameChanged(this->schemarec.id);
     RETURN;

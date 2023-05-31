@@ -4,6 +4,7 @@
 
 LOADLIB "wh::os.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/applyupdates.whlib";
 
 
@@ -23,3 +24,8 @@ OpenPrimary();
 
 IF(NOT UpdateAllModuleSchemas(CELL[ schemamasks := args.schemamasks, reportupdates := TRUE, reportskips := args.v, args.force ]))
   SetConsoleExitCode(1);
+
+GetPrimary()->BeginWork();
+ScheduleTimedTask("wrd:scanforissues");
+GetPrimary()->CommitWork();
+
