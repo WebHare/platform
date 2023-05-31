@@ -32,6 +32,7 @@ LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/support2.whlib";
 LOADLIB "mod::wrd/lib/internal/setentity.whlib";
 LOADLIB "mod::wrd/lib/internal/wrdentity.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 LOADLIB "mod::wrd/lib/internal/whfs-service.whlib";
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
 LOADLIB "mod::wrd/lib/internal/payments/support.whlib";
@@ -3084,6 +3085,14 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       }
 
       entitydata.wrd_guid := setguid;
+    } // IF(CellExists(entitydata, "WRD_GUID"))
+
+    IF(CellExists(entitydata,"WRD_LIMITDATE") AND this->tag = "WRD_SETTINGS" AND entitydata.wrd_limitdate NOT IN [ DEFAULT DATETIME, MAX_DATETIME ])
+    {
+      //Protect WRD_SETTINGS from being closed using the API
+      STRING targetguid := CellExists(entitydata,"wrd_guid") ? entitydata.wrd_guid : (SELECT AS STRING guid FROM wrd.entities WHERE entities.id=entityid);
+      IF(EncodeWRDGUID(targetguid) = wrd_settings_guid)
+        THROW NEW Exception(`The primary WRD_SETTINGS entity may never be closed`);
     }
 
     RECORD splitdata := this->DoSplitEntityData(entitydata, this->__typerec.tag, this->__final_attrs, isv2api, options);

@@ -497,7 +497,10 @@ PUBLIC OBJECT FUNCTION *SyncFromExternalSchemaBatch(OBJECT wrdschema, OBJECT rem
         {
           // Disable updated records, so we won't get unique conflicts
           DELETE CELL wrd_guid FROM entityrec;
-          type->UpdateEntity(existing[pos.position].wrd_id, CELL[ ...entityrec, wrd_limitdate := limitinpast ], CELL[ importmode := TRUE, whfsmapper ]);
+          RECORD applyupdate := entityrec;
+          IF(typerec.tag != "WRD_SETTINGS") //not allowed to close this one
+            applyupdate := CELL[ ...applyupdate, wrd_limitdate := limitinpast ];
+          type->UpdateEntity(existing[pos.position].wrd_id, applyupdate, CELL[ importmode := TRUE, whfsmapper ]);
         }
       }
     }
@@ -829,7 +832,7 @@ OBJECT FUNCTION *ProcessSourceTargetEntityLists(OBJECT wrdtype, RECORD ARRAY sou
           INSERT CELL[ sourceid := sdata.wrd_id, sdata.wrd_guid, wrd_id := tdata.wrd_id ] INTO toupdate AT END;
           updated := updated + 1;
 
-          IF (tdata.wrd_limitdate >= now AND tdata.wrd_creationdate != MAX_DATETIME)
+          IF (tdata.wrd_limitdate >= now AND tdata.wrd_creationdate != MAX_DATETIME AND wrdtype->tag != "WRD_SETTINGS") //never close WRD_SETTINGS, it breaks the WRD API
           {
             // close the entity to release constraints on its unique attributes
             wrdtype->UpdateEntity(tdata.wrd_id, CELL[ wrd_limitdate := now, tdata.wrd_modificationdate ]);
