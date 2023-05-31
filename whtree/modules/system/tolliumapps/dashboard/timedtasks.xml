@@ -59,7 +59,7 @@
       <datetime name="nexttime" type="datetime" storeutc="true" />
       <heading tid=".lastmessages" />
       <line layout="left">
-        <textarea name="lastmessages" width="1pr" height="1pr" minheight="3gr" title="" />
+        <textarea name="lastmessages" width="1pr" height="1pr" minheight="3gr" enabled="false" title="" />
       </line>
     </body>
   </screen>
