@@ -336,11 +336,6 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
     @cell(boolean) options.noindexmodify Don't actually modify the index
     @cell(boolean) options.printprogress Print progress information (for Fetcher/QueueManager)
     @cell(boolean) options.debugobjects Debug print the existing objects
-    @return The result
-    @cell(record array) return.errors Errors that occurred
-    @cell(string) return.errors.message The error message
-    @cell(integer) return.errors.level The error level (0: no further action necessary, 1: indexing error, cleanup index
-        permitted, 2: indexing error, don't cleanup index)
 */
 PUBLIC MACRO CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD)
 {

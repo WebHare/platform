@@ -933,7 +933,7 @@ STATIC OBJECTTYPE IndexManagerBulkKeeper
   PUBLIC MACRO AddOpenSearchRequests(INTEGER indexmanagerid, STRING indexname, RECORD ARRAY requests, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     IF(Length(requests) = 0)
-      RETURN; //a caller was probably gropuing and sending us an empty group
+      RETURN; //a caller was probably grouping and sending us an empty group
 
     options := ValidateOptions(
         [ suffix :=       ""
@@ -1262,7 +1262,7 @@ PUBLIC MACRO DeleteIndexManagerOutdated(INTEGER indexid, INTEGER contentsourceid
     IF (contentsourceid != 0)
       INSERT [ match := [ _contentsource := contentsourceid ] ] INTO query.query.bool.must AT END;
 
-    /* If a conflict occurs it's a parallel insert/update, so the doc isn't oudated. We can skip thos, thus conflicts=proceed */
+    /* If a conflict occurs it's a parallel insert/update, so the doc isn't outdated. We can skip those, thus conflicts=proceed */
     SendRawJSONToElasticsearch(indexmanager.id, "POST", indexmanager.indexname || `/_delete_by_query?conflicts=proceed`, query);
   }
 }
