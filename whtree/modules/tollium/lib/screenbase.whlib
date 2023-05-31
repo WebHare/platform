@@ -1185,6 +1185,7 @@ PUBLIC STATIC OBJECTTYPE TolliumRowEditScreenBase EXTEND TolliumScreenBase
                             , contextrequestfallback := DEFAULT OBJECT
                             , row := DEFAULT RECORD
                             , openingcomponent := DEFAULT OBJECT
+                            , userdata := DEFAULT RECORD
                             ], data, [ required := ["contextrequestfallback"] ]);
 
     //FIXME Should've caught this while parsing
