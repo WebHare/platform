@@ -72,10 +72,18 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentCheckIssues(RECORD options DEFAULTSTO DEF
         [ outputcolumns := CELL[ "type", "check_task", "metadata", "message_text", "message_tid", "jump_to", "snoozed_until", "wrd_id", since := "wrd_creationdate", "scopes", stopped := "wrd_limitdate" ]
         , historymode := options.withhistory ? "all" : "now"
         ]);
+
+    DATETIME now := GetCurrentDatetime();
+    dbissues := SELECT ...baseissue
+                     , rowkey := wrd_id
+                     , ismanageable := TRUE
+                     , *
+                     , snoozed := snoozed_until > now
+                     , stopped := stopped = MAX_DATETIME ? DEFAULT DATETIME : stopped
+                 FROM dbissues;
   }
 
-  DATETIME now := GetCurrentDatetime();
-  issues := RECORD[ ...issues, ...(SELECT ...baseissue, rowkey := wrd_id, ismanageable := TRUE, *, snoozed := snoozed_until > now FROM dbissues) ];
+  issues := RECORD[ ...issues, ...dbissues ];
   RETURN issues;
 }
 

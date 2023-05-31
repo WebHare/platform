@@ -107,7 +107,7 @@ PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase
               , canjumpto :=    RecordExists(jump_to)
               , cansnooze :=    ismanageable AND NOT snoozed
               , canunsnooze :=  ismanageable AND snoozed
-              , rowicon :=      snoozed ? 2 : stopped = MAX_DATETIME ? 1 : 0
+              , rowicon :=      snoozed ? 2 : stopped = DEFAULT DATETIME ? 1 : 0
            FROM GetCurrentCheckIssues( [ withhistory := ^withhistory->value ]);
 
     RETURN messages;
