@@ -468,7 +468,7 @@ MACRO TestCustomContent()
 
   RECORD ARRAY relevanterrors;
   relevanterrors := SELECT * FROM GetNoticeErrors([fromend := TRUE]) WHERE channel='ERROR' AND when >= starttest;
-  relevanterrors := SELECT * FROM relevanterrors WHERE CellExists(data,'info') AND data.info.context='consilio:fetcher' AND data.info.contentsourceid = VAR contentsource->id;
+  relevanterrors := SELECT * FROM relevanterrors WHERE CellExists(data,'info') AND data.info.context='consilio:fetcher';
   TestEq(1,Length(relevanterrors), "Cannot find my error - may also imply a backwards-incompatible notice.log error format change!");
   TestEq("Exception: THROWN", relevanterrors[0].data.errors[0].message);
   TestEQ(
@@ -488,38 +488,15 @@ MACRO TestCustomContent()
   contentsource->WaitForIndexingDone();
 
   relevanterrors := SELECT * FROM GetNoticeErrors([fromend := TRUE]) WHERE channel='ERROR' AND when >= starttest;
-  relevanterrors := SELECT * FROM relevanterrors WHERE CellExists(data,'info') AND data.info.context='consilio:fetcher' AND data.info.contentsourceid = VAR contentsource->id;
+  relevanterrors := SELECT * FROM relevanterrors WHERE CellExists(data,'info') AND data.info.context='consilio:fetcher';
   TestEq(1,Length(relevanterrors));
   TestEq("Custom error message: 'ABORT'.", relevanterrors[0].data.errors[0].message);
   TestEQ(
       [ [ groupid := idprefix||"b",   objectid := idprefix||"b1" ]
       ], SearchAll(""));
 
-  // Abort in fetchobject; old content must remain & error must be reported
-  starttest := GetCurrentDatetime();
-  testfw->BeginWork();
-  UPDATE webhare_testsuite.consilio_index
-     SET indexdate := MakeDate(1970, 1, 11)
-       , text:=       "CRASH";
-  testfw->CommitWork();
-
-  __ConsilioClearErrors(contentsource->id);
-  catalog->ReindexCatalog();
-  contentsource->WaitForIndexingDone();
-
-  TestEQ(TRUE, (SELECT AS STRING what FROM __ConsilioGetErrors().errors WHERE COLUMN contentsourceid = VAR contentsource->id) LIKE "*process exited with exit code 1*");
-  TestEQ(
-      [ [ groupid := idprefix||"b",   objectid := idprefix||"b1" ]
-      ], SearchAll(""));
-
-  testfw->BeginWork();
-  UPDATE webhare_testsuite.consilio_index
-     SET indexdate := MakeDate(1970, 1, 11)
-       , text:=       "";
-  testfw->CommitWork();
-
-  __ConsilioClearErrors(contentsource->id);
-  contentsource->ReindexGroup(idprefix||"b", [ foreground := TRUE ]);
+  // Also test the foreground version
+  TestThrowsLike("*ABORT*", PTR contentsource->ReindexGroup(idprefix||"b", [ foreground := TRUE ]));
 
   TestEQ(
       [ [ groupid := idprefix||"b",   objectid := idprefix||"b1" ]

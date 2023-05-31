@@ -301,11 +301,9 @@ STATIC OBJECTTYPE ContentSource
               ];
 
       //TODO have a lowerlevel call 'checkgroup' thatis invoked on the content source and directly does listgroups3... as CheckGroup is reexecuting api.whlib to get the catalog
-      RECORD result := MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#CheckGroup")(data,
-                                        [ refresh := refresh
-                                        ]);
-      IF (Length(result.errors) > 0)
-        THROW NEW Exception(result.errors[0].message);
+      MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#CheckGroup")(data,
+                      [ refresh := refresh
+                      ]);
     }
     ELSE
     {
@@ -379,9 +377,7 @@ STATIC OBJECTTYPE ContentSource
               ];
 
       //TODO have a lowerlevel call 'checkgroup' thatis invoked on the content source and directly does listgroups3... as CheckGroup is reexecuting api.whlib to get the catalog
-      RECORD result := MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#CheckObject")(data, [ refresh := refresh ]);
-      IF (RecordExists(result.error))
-        THROW NEW Exception(result.error.message);
+      MakeFunctionPtr("mod::consilio/lib/internal/fetcher_commands.whlib#CheckObject")(data, [ refresh := refresh ]);
     }
     ELSE
     {

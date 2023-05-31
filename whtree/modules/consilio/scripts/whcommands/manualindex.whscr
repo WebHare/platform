@@ -50,23 +50,21 @@ MACRO ProcessContentSource(OBJECT catalog, RECORD csource, STRING groupmask)
   {
     Print((csource.tag ?? "#" || csource.id) || ": " || #grouptocheck || "/" || Length(groups) || (args.debug ? "\n" : "\r"));
 
-    res := CheckGroup([ groupid := grouptocheck.id, contentsourceid := contentsource->id, indexid := catalog->id, commanddate := commanddate],
+    TRY
+    {
+      CheckGroup([ groupid := grouptocheck.id, contentsourceid := contentsource->id, indexid := catalog->id, commanddate := commanddate],
           [ printprogress := FALSE
           , debugobjects := args.debug
           , noindexmodify := FALSE
-          , nocleaning := FALSE
           ]);
-
-    IF(Length(res.errors)>0)
+    }
+    CATCH(OBJECT e)
     {
-      Print(`Errors indexing '${grouptocheck.id}'\n`);
-      FOREVERY(RECORD err FROM res.errors)
-        Print(`- ${NormalizeWhitespace(err.message)}\n`);
-      Print("\n");
-
       SetConsoleExitCode(1);
       IF(args.breakonerror)
-        TerminateScriptWithError("Failed to index " || grouptocheck.id);
+        THROW;
+
+      Print(`Errors indexing '${grouptocheck.id}': ${e->what}\n`);
     }
 
     numdone := numdone + 1;

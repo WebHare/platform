@@ -106,6 +106,7 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
                               , enforce := ""
                               , expectstatus := [ 200 ]
                               , explain := FALSE
+                              , refresh := FALSE
                               ], options,
                               [ enums := [ enforce := [ "", "_search_get" ] ]
                               ]);
@@ -128,6 +129,8 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
     indexmanager.address := GetBuiltinOpensearchAddress();
 
   STRING url := ResolveToAbsoluteURL(indexmanager.address, (suburl LIKE "/*" ? "" : "/") || suburl);
+  IF(options.refresh)
+    url := UpdateURLVariables(url, [ refresh := "true" ]);
 
   STRING body;
   IF (options.ndjson)
@@ -378,9 +381,9 @@ PUBLIC BOOLEAN FUNCTION IsOpenSearchIndexPresent(INTEGER indexmgrid, STRING inde
   RETURN stats.code = 200 AND stats.result._shards.successful >= 1;
 }
 
-PUBLIC STRING FUNCTION GetElasticsearchDocumentId(INTEGER indexid, STRING objectid, STRING suffix DEFAULTSTO "")
+PUBLIC STRING FUNCTION GetElasticsearchDocumentId(INTEGER catalogid, STRING objectid, STRING suffix DEFAULTSTO "")
 {
-  RETURN EncodeUFS(GetMD5Hash(indexid || (suffix != "" ? "-" || suffix : "") || "/" || objectid));
+  RETURN EncodeUFS(GetMD5Hash(catalogid || (suffix != "" ? "-" || suffix : "") || "/" || objectid));
 }
 
 // recursively walk through the query, return the 'userquery' values from all 'user' queries
