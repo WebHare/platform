@@ -2,7 +2,7 @@
 
 # Updating this file should trigger reconfiguration of libxml2
 cd "${BASH_SOURCE%/*}/libxml2" || exit 1
-rm config.h # Ensure it's updated by autogen.sh or we may reloop on building libxml2
+rm -f -- config.h # Ensure it's updated by autogen.sh or we may reloop on building libxml2
 if [ "$(uname)" != "Darwin" ]; then
   export ACLOCAL_PATH=/usr/share/aclocal
 fi

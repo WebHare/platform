@@ -477,9 +477,21 @@ endif
 
 #################################################
 ##
+## Build it all. This *MUST* be the first target in the makefile to make it the default for 'wh make'
+##
+# GLOBAL
+all: $(addsuffix -all,$(SUBPROJECTS))
+
+
+#################################################
+##
 ## Setup libxml2 dependencies
 ##
-vendor/libxml2/config.h: $(SRCDIR)/vendor/setup-libxml2.sh
+
+$(SRCDIR)/vendor/libxml2/autogen.sh:
+	git -C $(SRCDIR) submodule update --init --recursive
+
+vendor/libxml2/config.h: $(SRCDIR)/vendor/setup-libxml2.sh $(SRCDIR)/vendor/libxml2/autogen.sh
 	${HIDE}$(SRCDIR)/vendor/setup-libxml2.sh
 
 blex/xml.o harescript/vm/xml_cssengine.o harescript/vm/xml_domobjects.o harescript/vm/xml_provider.o: vendor/libxml2/config.h
@@ -491,9 +503,6 @@ $(LIBBLEX_LIBXML2_OBJS): vendor/libxml2/config.h
 ## Build instructions
 ##
 
-
-# GLOBAL
-all: $(addsuffix -all,$(SUBPROJECTS))
 
 clean-libxml2:
 	rm -f -- $(LIBBLEX_LIBXML2_OBJS)
