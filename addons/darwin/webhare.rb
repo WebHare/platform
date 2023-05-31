@@ -8,6 +8,8 @@ class Webhare < Formula
   version "1"
   sha256 :no_check
 
+  depends_on "autoconf"
+  depends_on "automake"
   depends_on "ccache"
   depends_on "freetype"
   depends_on "fswatch"
