@@ -10,6 +10,7 @@
 #include "../utils.h"
 #include "../mapvector.h"
 #include "../testing.h"
+#include "../xml.h"
 
 BLEX_TEST_FUNCTION(TestBound)
 {
@@ -195,4 +196,16 @@ BLEX_TEST_FUNCTION(TestSearchUncontained)
         BLEX_TEST_CHECKEQUAL(Blex::SearchUncontained(sin.begin(),sin.end(),sfor3.begin(),sfor3.end()) - sin.begin(), 18);
         BLEX_TEST_CHECKEQUAL(Blex::SearchUncontained(sin.begin(),sin.end(),sfor4.begin(),sfor4.end()) - sin.begin(), 18);
         BLEX_TEST_CHECKEQUAL(Blex::SearchUncontained(sin.begin(),sin.end(),sfor5.begin(),sfor5.end()) - sin.begin(), 21);
+}
+
+BLEX_TEST_FUNCTION(TestXML)
+{
+        //Get settings from this XML file
+        Blex::MemoryRWStream str;
+        str.WriteString("<xml/>");
+        str.SetOffset(0);
+
+        Blex::XML::Document test;
+        test.ReadFromStream(str);
+        BLEX_TEST_CHECKEQUAL("xml", test.GetRoot().GetNodeName());
 }

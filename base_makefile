@@ -26,6 +26,9 @@ else
 	HIDE=@
 endif
 
+# Setup vendored libxml2 compilation
+CPPFLAGS += -I$(SRCDIR)/vendor/libxml2/include
+
 ifeq ($(WHBUILD_PLATFORM),darwin)
 	BUILDSYSTEM ?= llvm
 	BREWPREFIX ?= $(shell brew --prefix)
@@ -35,7 +38,7 @@ ifeq ($(WHBUILD_PLATFORM),darwin)
 	BREWPREFIX := $(BREWPREFIX)
 	POSTGRESQLPACKAGE := $(POSTGRESQLPACKAGE)
 	# The pkgconfig dirs of postgresql@13 and postgresql@14 differ. Include both patterns
-	PKGCONFIGPATHS = $(BREWPREFIX)/opt/openssl/lib/pkgconfig:$(BREWPREFIX)/opt/icu4c/lib/pkgconfig/:$(BREWPREFIX)/opt/libxml2/lib/pkgconfig/:$(BREWPREFIX)/opt/$(POSTGRESQLPACKAGE)/lib/pkgconfig/:$(BREWPREFIX)/opt/$(POSTGRESQLPACKAGE)/lib/$(POSTGRESQLPACKAGE)/pkgconfig/
+	PKGCONFIGPATHS = $(BREWPREFIX)/opt/openssl/lib/pkgconfig:$(BREWPREFIX)/opt/icu4c/lib/pkgconfig/:$(BREWPREFIX)/opt/$(POSTGRESQLPACKAGE)/lib/pkgconfig/:$(BREWPREFIX)/opt/$(POSTGRESQLPACKAGE)/lib/$(POSTGRESQLPACKAGE)/pkgconfig/
 	CPPFLAGS += -I$(BREWPREFIX)/include -I$(BREWPREFIX)/include/pixman-1
 	GLOBALLDFLAGS += -L$(BREWPREFIX)/lib
 
@@ -84,7 +87,7 @@ ifneq ($(DISABLE_PCH),1)
 endif
 
 ifneq ($(BUILDSYSTEM),emscripten)
-  PKGCONFIG_PACKAGES = openssl freetype2 pixman-1 icu-i18n libxml-2.0 libpq
+	PKGCONFIG_PACKAGES = openssl freetype2 pixman-1 icu-i18n libpq
 	PKGCONFIGCFLAGS := $(shell $(PKGCONFIG) --cflags $(PKGCONFIG_PACKAGES))
 	PKGCONFIGLDFLAGS := $(shell $(PKGCONFIG) --libs $(PKGCONFIG_PACKAGES))
 endif
@@ -189,6 +192,7 @@ DRAWLIB_STATIC_LIBS=
 DRAWLIB_BASE_LIBS+=jpeg
 
 ifeq ($(BUILDSYSTEM),emscripten)
+  CC=emcc
   CXX=emcc
   LD_APP=emcc
 else ifeq ($(BUILDSYSTEM),gcc)
@@ -197,6 +201,7 @@ else ifeq ($(BUILDSYSTEM),gcc)
 		CXX=g++
 	endif
 	CXX?=g++
+	CC?=gcc
 	LD_APP?=g++
 else ifeq ($(BUILDSYSTEM),llvm)
 	ifeq ($(CXX),g++)
@@ -204,12 +209,14 @@ else ifeq ($(BUILDSYSTEM),llvm)
 		CXX=clang++
 	endif
 	CXX?=clang++
+	CC?=clang
 	LD_APP?=clang++
 else
   $(error Unsupported build system $(BUILDSYSTEM))
 endif
 
 ifeq ($(WHBUILD_NOCCACHE),)
+	CC:=ccache ${CC}
 	CXX:=ccache ${CXX}
 endif
 
@@ -229,7 +236,8 @@ ifneq ($(BUILDSYSTEM),emscripten)
 endif
 
 # CPP_PCH_FLAGS_XXX MUST be first in list, gcc bug or so.
-Compile = $(HIDE)echo "- Compiling $1" && $(CXX) $(CPP_PCH_FLAGS) $(CPPFLAGS) $(CXXFLAGS) $(CXXFLAGS_COMPILE) $3 -o$2 -c $1
+Compile = $(HIDE)echo "- Compiling C++ file $1" && $(CXX) $(CPP_PCH_FLAGS) $(CPPFLAGS) $(CXXFLAGS) $(CXXFLAGS_COMPILE) $3 -o$2 -c $1
+CompileC = $(HIDE)echo "- Compiling C file $1" && $(CC) $(CPPFLAGS) $(CCFLAGS_COMPILE) $3 -o$2 -c $1
 GenerateDeps = $(HIDE)echo "- Generate deps for $1" && $(CXX) $(CPP_PCH_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -M -MP -MT "$2 $(subst .d,.o,$2)" $3 -o $2 -c $1
 GeneratePCHDeps = $(HIDE)echo "- Generate deps for header $1" && $(CXX) $(CPP_PCH_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -x c++-header -M -MP -MT "$2 $(subst .d,.gch,$2)" $3 -o $2 -c $1
 
@@ -269,10 +277,10 @@ GetSrcFiles=$(subst $(SRCDIR)/,,$(wildcard $(SRCDIR)/$1))
 Src2ObjFiles=$(addprefix ,$(subst .cpp,.o,$1))
 GetObjFiles=$(call Src2ObjFiles,$(call GetSrcFiles,$1))
 
-ALLBUILDDIRS=$(ALLOBJDIRS) bin lib
+ALLBUILDDIRS=$(ALLOBJDIRS) bin lib vendor/libxml2
 
 ifneq ($(DISABLE_PCH),1)
-ALLBUILDDIRS += $(ALLPCHDIRS)
+  ALLBUILDDIRS += $(ALLPCHDIRS)
 endif
 
 EXTRAINSTALLDIR=dbase log output tmp var lib
@@ -286,13 +294,13 @@ ALLDIRS=$(ALLBUILDDIRS) $(ALLINSTALLDIRS)
 ##
 
 # BLEX
-LIBBLEX_SOURCEFILES=api bitmanip context crc crypt_blowfish crypto crypto_sha1 datetime decimalfloat docfile getopt lexer logfile mime mmapfile path podvector stem_UTF_8_danish stem_UTF_8_english stem_UTF_8_french stem_UTF_8_german stem_UTF_8_italian stem_UTF_8_kraaijpohlmann stem_UTF_8_portuguese stem_UTF_8_spanish stemmer stream stringmanip testing threads tokenstream unicode utilities utils
+LIBBLEX_SOURCEFILES=api bitmanip context crc crypt_blowfish crypto crypto_sha1 datetime decimalfloat docfile getopt lexer logfile mime mmapfile path podvector stem_UTF_8_danish stem_UTF_8_english stem_UTF_8_french stem_UTF_8_german stem_UTF_8_italian stem_UTF_8_kraaijpohlmann stem_UTF_8_portuguese stem_UTF_8_spanish stemmer stream stringmanip testing threads tokenstream unicode utilities utils xml
 LIBBLEX_TESTFILES=testbitmanip testcontext testcrypto testdocfile testgetopt testio testmime testnet testpath teststring testtypes testutils
 
 
 ifneq ($(BUILDSYSTEM),emscripten)
 
-LIBBLEX_SOURCEFILES+=binarylogfile btree_blocks btree_filesystem complexfs dispat dispat_impl notificationevents socket xml zstream
+LIBBLEX_SOURCEFILES+=binarylogfile btree_blocks btree_filesystem complexfs dispat dispat_impl notificationevents socket zstream
 LIBBLEX_TESTFILES+=test_btree_blocks test_btree_filesystem testdynamic test_index_stress testbinarylogfile testcomplexfs testthreads indexdumping
 
 # with emscriptem we shouln't refer to dynamic libraries at all
@@ -301,7 +309,7 @@ blex_DEPLOYABLES_HSENGINE=lib/libblex_base$(DLL_SUFFIX)
 blex_DEPLOYABLES_WHAP=$(blex_DEPLOYABLES_HSENGINE) bin/dumpcomplexfslog
 blex_DEPLOYABLES=$(blex_DEPLOYABLES_WHAP)
 
-BLEX_BASE_LIBS=xml2 z dl $(ICU_LIBS) $(BLEX_SSL_LIBS)
+BLEX_BASE_LIBS=z dl $(ICU_LIBS) $(BLEX_SSL_LIBS)
 BLEX_HSVM_LIBS=$(ICU_LIBS)
 
 BLEX_LIBS=blex_base $(BLEX_BASE_LIBS)
@@ -440,7 +448,13 @@ ALL_DEPLOYABLES_SETUP = $(foreach sub,$(SUBPROJECTS),$($(sub)_DEPLOYABLES_SETUP)
 ##
 
 # Build up the output lists
-LIBBLEX_OBJS = $(addprefix ,$(LIBBLEX_FILES:.cpp=.o))
+
+## libxml2 parts we need (we now embed this directly to simplify emscripten builds)
+LIBBLEX_LIBXML2_FILES = tree xmlstring HTMLparser xmlmemory xmlschemas xpath globals pattern xmlschemastypes xmlregexp parser valid xmlunicode parserInternals SAX2 xmlreader uri encoding error relaxng xmlIO xmlsave threads hash dict entities buf HTMLtree list chvalid debugXML c14n schematron
+LIBBLEX_LIBXML2_SRCFILES = $(addsuffix .c,$(addprefix vendor/libxml2/,$(LIBBLEX_LIBXML2_FILES)))
+LIBBLEX_LIBXML2_OBJS = $(LIBBLEX_LIBXML2_SRCFILES:.c=.o)
+
+LIBBLEX_OBJS = $(addprefix ,$(LIBBLEX_FILES:.cpp=.o)) $(LIBBLEX_LIBXML2_OBJS)
 BLEXTEST_OBJS = $(addprefix ,$(BLEXTEST_FILES:.cpp=.o))
 
 LIBHSCOMPILER_OBJS = $(addprefix ,$(LIBHSCOMPILER_FILES:.cpp=.o))
@@ -463,12 +477,26 @@ endif
 
 #################################################
 ##
+## Setup libxml2 dependencies
+##
+vendor/libxml2/config.h: $(SRCDIR)/vendor/setup-libxml2.sh
+	${HIDE}$(SRCDIR)/vendor/setup-libxml2.sh
+
+blex/xml.o harescript/vm/xml_cssengine.o harescript/vm/xml_domobjects.o harescript/vm/xml_provider.o: vendor/libxml2/config.h
+$(LIBBLEX_LIBXML2_OBJS): vendor/libxml2/config.h
+
+
+#################################################
+##
 ## Build instructions
 ##
 
 
 # GLOBAL
 all: $(addsuffix -all,$(SUBPROJECTS))
+
+clean-libxml2:
+	rm -f -- $(LIBBLEX_LIBXML2_OBJS)
 
 clean-libs:
 	rm -f -- $(ALL_DEPLOYABLES) $(BUILDDIRPREFIX)blex/tests/dynamic$(DLL_SUFFIX)
@@ -481,6 +509,9 @@ clean-pch:
 
 %.o: %.cpp | $(ALLPCHS)
 	$(call Compile,$<,$@)
+
+%.o: %.c | $(ALLPCHS)
+	$(call CompileC,$<,$@)
 
 $(ALLPCHS) : gch/%.gch : % | dirs
 	$(call GeneratePrecompiledHeader,,$<,$@,)
@@ -838,6 +869,7 @@ deps: dirs $(ALLPCHS:%.gch=%.d) $(ALLOBJS:%.o=%.d)
 clean-deps:
 	rm -f -- $(ALLPCHS:%.gch=%.d) $(ALLOBJS:%.o=%.d)
 
+
 ####################################################################
 #
 # Homebrew explicit dependencies
@@ -851,7 +883,6 @@ ifeq ($(WHBUILD_PLATFORM),darwin)
 harescript/modules/git/git.o: $(BREWPREFIX)/lib/libgit2.dylib
 $(blex_DEPLOYABLES_HSENGINE) blex/tests/dynamic$(DLL_SUFFIX) harescript/modules/icu/icu_provider.o: $(BREWPREFIX)/opt/icu4c/INSTALL_RECEIPT.json
 $(blex_DEPLOYABLES_HSENGINE) harescript/vm/bl_crypto.o: $(BREWPREFIX)/opt/openssl/INSTALL_RECEIPT.json
-$(blex_DEPLOYABLES_HSENGINE) blex/xml.o: $(BREWPREFIX)/opt/libxml2/INSTALL_RECEIPT.json
 
 endif # end darwin check
 
