@@ -179,3 +179,12 @@ WHBUILD_DEBUG=1 wh execbuilt whcompile -f -d /tmp/debugout/ test.whscr
 ```
 
 This command will output a list of .txt and .dot (GraphViz) files.
+
+## Building container images
+```bash
+# Build using docker
+wh builddocker
+
+# Build using podman
+wh builddocker --podman
+```
