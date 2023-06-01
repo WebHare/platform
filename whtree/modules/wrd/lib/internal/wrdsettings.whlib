@@ -6,7 +6,7 @@ PUBLIC CONSTANT STRING wrd_settings_tag :=       "WRD_SETTINGS";
 PUBLIC VARIANT FUNCTION GetWRDSetting(OBJECT wrdschema, STRING field)
 {
   //The wrd_tag fallback can be removed in 5.4 .. we only needed it because some 5.3 dev releases used a different guid for a while
-  INTEGER mysettings := wrdschema->^wrd_settings->Search("wrd_guid", wrd_settings_guid) ?? wrdschema->^wrd_settings->Search("wrd_tag", wrd_settings_tag);
+  INTEGER mysettings := wrdschema->^wrd_settings->Search("wrd_guid", wrd_settings_guid, [ historymode := "all" ]) ?? wrdschema->^wrd_settings->Search("wrd_tag", wrd_settings_tag, [ historymode := "all" ]);
   IF(mysettings = 0)
     THROW NEW Exception(`Unable to find WRD_SETTINGS in schema ${wrdschema->tag}`);
   RETURN wrdschema->^wrd_settings->GetEntityField(mysettings, field);
@@ -14,7 +14,7 @@ PUBLIC VARIANT FUNCTION GetWRDSetting(OBJECT wrdschema, STRING field)
 PUBLIC RECORD FUNCTION GetWRDSettings(OBJECT wrdschema, STRING ARRAY fields)
 {
   //The wrd_tag fallback can be removed in 5.4 .. we only needed it because some 5.3 dev releases used a different guid for a while
-  INTEGER mysettings := wrdschema->^wrd_settings->Search("wrd_guid", wrd_settings_guid) ?? wrdschema->^wrd_settings->Search("wrd_tag", wrd_settings_tag);
+  INTEGER mysettings := wrdschema->^wrd_settings->Search("wrd_guid", wrd_settings_guid, [ historymode := "all" ]) ?? wrdschema->^wrd_settings->Search("wrd_tag", wrd_settings_tag, [ historymode := "all" ]);
   IF(mysettings = 0)
     THROW NEW Exception(`Unable to find WRD_SETTINGS in schema ${wrdschema->tag}`);
   RETURN wrdschema->^wrd_settings->GetEntityFields(mysettings, fields);
@@ -22,7 +22,7 @@ PUBLIC RECORD FUNCTION GetWRDSettings(OBJECT wrdschema, STRING ARRAY fields)
 PUBLIC MACRO SetWRDSettings(OBJECT wrdschema, RECORD newsettings)
 {
   //The wrd_tag fallback can be removed in 5.4 .. we only needed it because some 5.3 dev releases used a different guid for a while
-  INTEGER mysettings := wrdschema->^wrd_settings->Search("wrd_guid", wrd_settings_guid) ?? wrdschema->^wrd_settings->Search("wrd_tag", wrd_settings_tag);
+  INTEGER mysettings := wrdschema->^wrd_settings->Search("wrd_guid", wrd_settings_guid, [ historymode := "all" ]) ?? wrdschema->^wrd_settings->Search("wrd_tag", wrd_settings_tag, [ historymode := "all" ]);
   IF(mysettings = 0)
     THROW NEW Exception(`Unable to find WRD_SETTINGS in schema ${wrdschema->tag}`);
   wrdschema->^wrd_settings->UpdateEntity(mysettings, newsettings);

@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::money.whlib";
 LOADLIB "wh::xml/dom.whlib";
@@ -270,6 +271,13 @@ STATIC OBJECTTYPE ParsedSchemaDef
           THROW NEW Exception(`Found whitespace in the value for a WRD_TAG field for type ${ type.tag }: '${ fieldnode->childrentext }'`);
         IF (cellname = "WRD_TAG" AND (ToUppercase(fieldnode->childrentext) != fieldnode->childrentext))
           THROW NEW Exception(`Found a non-uppercase value for a WRD_TAG field for type ${ type.tag }: '${ fieldnode->childrentext }'`);
+      }
+      ELSE IF(cellname = "WRD_LIMITDATE")
+      {
+        IF(fieldnode->childrentext = "MAX_DATETIME")
+          val := CellInsert(val, cellname, MAX_DATETIME);
+        ELSE
+          THROW NEW Exception(`Unsupported MAX_DATETIME value '${fieldnode->childrentext}'`);
       }
       ELSE IF(celltype IN ["INTEGER"] OR cellname IN ["WRD_ORDERING"])
       {
