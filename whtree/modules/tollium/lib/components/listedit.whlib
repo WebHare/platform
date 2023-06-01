@@ -1123,11 +1123,12 @@ PUBLIC OBJECTTYPE ArrayEdit EXTEND ArrayListEditBase
 
     RECORD screenopts := [ parent := this->owner
                          , screen := roweditscreen
-                         , params := [ row := row
-                                     , viewmode := this->InViewMode()
-                                     , contextrequestfallback := this->composition
-                                     , openingcomponent := this
-                                     ]
+                         , params := CELL[ row
+                                         , viewmode := this->InViewMode()
+                                         , contextrequestfallback := this->composition
+                                         , openingcomponent := this
+                                         , options.userdata
+                                         ]
                          ];
 
     TRY
