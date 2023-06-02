@@ -796,9 +796,6 @@ const int JobManagerContextId = 16;
 
 typedef Blex::Context< JobManagerContextData, JobManagerContextId, void> JobManagerContext;
 
-void BLEXLIB_PUBLIC GetVMStackTrace(VirtualMachine *vm, HSVM_VariableId var_stacktrace, VirtualMachine *testvm, bool full);
-void BLEXLIB_PUBLIC GetVMStackTraceFromElements(VirtualMachine *vm, HSVM_VariableId var_stacktrace, std::vector< StackTraceElement > const &elements, bool full);
-
 } // End of namespace HareScript
 
 #endif

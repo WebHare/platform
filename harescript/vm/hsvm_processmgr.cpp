@@ -2683,53 +2683,6 @@ void GetJobCancellable(VarId id_set, VirtualMachine *vm)
         HSVM_BooleanSet(*vm, id_set, jobmgr->GetCancellable(vm->GetVMGroup()));
 }
 
-void GetVMStackTraceFromElements(VirtualMachine *vm, HSVM_VariableId var_stacktrace, std::vector< StackTraceElement > const &elements, bool full)
-{
-        HSVM_SetDefault(*vm, var_stacktrace, HSVM_VAR_RecordArray);
-
-        for (auto it2 = elements.begin(); it2 != elements.end(); ++it2)
-        {
-                HSVM_VariableId var_elt = HSVM_ArrayAppend(*vm, var_stacktrace);
-                HSVM_SetDefault(*vm, var_elt, HSVM_VAR_Record);
-                HSVM_StringSetSTD(*vm, HSVM_RecordCreate(*vm, var_elt, vm->cn_cache.col_filename), it2->filename);
-                HSVM_StringSetSTD(*vm, HSVM_RecordCreate(*vm, var_elt, vm->cn_cache.col_func), it2->func);
-                HSVM_IntegerSet(*vm, HSVM_RecordCreate(*vm, var_elt, vm->cn_cache.col_line), it2->position.line);
-                HSVM_IntegerSet(*vm, HSVM_RecordCreate(*vm, var_elt, vm->cn_cache.col_col), it2->position.column);
-                if (full)
-                {
-                        HSVM_IntegerSet(*vm, HSVM_RecordCreate(*vm, var_elt, vm->cn_cache.col_codeptr), it2->codeptr);
-                        HSVM_IntegerSet(*vm, HSVM_RecordCreate(*vm, var_elt, vm->cn_cache.col_baseptr), it2->baseptr);
-                }
-        }
-}
-
-void GetVMStackTrace(VirtualMachine *vm, HSVM_VariableId var_stacktrace, VirtualMachine *testvm, bool full)
-{
-        std::vector< StackTraceElement > elements;
-        testvm->GetStackTrace(&elements, true, full);
-
-        GetVMStackTraceFromElements(vm, var_stacktrace, elements, full);
-}
-
-void GetVMLibraries(VirtualMachine *vm, HSVM_VariableId var_resultlibs, VirtualMachine *testvm)
-{
-        HSVM_ColumnId col_globalvarlocation = HSVM_GetColumnId(*vm, "GLOBALVARLOCATION");
-        StackMachine &target_stackm = testvm->GetStackMachine();
-
-        HSVM_SetDefault(*vm, var_resultlibs, HSVM_VAR_RecordArray);
-        LibraryConstPtrs libs = testvm->libraryloader.GetAllLibraries();
-        for (auto itr: libs)
-        {
-                HSVM_VariableId var_lib = HSVM_ArrayAppend(*vm, var_resultlibs);
-                LibraryCompileIds const &clib_ids = itr->GetLibraryCompileIds();
-
-                HSVM_StringSetSTD(*vm, HSVM_RecordCreate(*vm, var_lib, vm->cn_cache.col_liburi), itr->GetLibURI());
-                HSVM_DateTimeSet(*vm, HSVM_RecordCreate(*vm, var_lib, vm->cn_cache.col_compile_id), clib_ids.clib_id.GetDays(), clib_ids.clib_id.GetMsecs());
-                HSVM_DateTimeSet(*vm, HSVM_RecordCreate(*vm, var_lib, vm->cn_cache.col_sourcetime), clib_ids.sourcetime.GetDays(), clib_ids.sourcetime.GetMsecs());
-                HSVM_IntegerSet(*vm, HSVM_RecordCreate(*vm, var_lib, col_globalvarlocation), target_stackm.GetMappingAddress(itr->GetId()));
-        }
-}
-
 void GetSingleJobStatus(JobManager *jobmgr, VirtualMachine *vm, HSVM_VariableId var_job, VMGroup &vmgroup, Blex::DateTime const &now, Blex::DateTime const &max_datetime)
 {
         HSVM_SetDefault(*vm, var_job, HSVM_VAR_Record);
