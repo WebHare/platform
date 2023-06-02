@@ -229,8 +229,6 @@ BLEX_TEST_FUNCTION(TestZlibFla)
         BLEX_TEST_CHECKEQUAL(82,entries.size());
 }
 
-#endif
-
 BLEX_TEST_FUNCTION(TestMmap)
 {
         static const char test_string[]={"This is a test!"};
@@ -292,3 +290,6 @@ BLEX_TEST_FUNCTION(TestMmap)
         BLEX_TEST_CHECK(mmapfile->SetModificationDate(now));
         BLEX_TEST_CHECK(Blex::PathStatus(filename).ModTime() >= now);
 }
+
+//FIXME actually remove blex mmap support from emscripten - it's unreliable!
+#endif
