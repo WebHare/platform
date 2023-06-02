@@ -599,6 +599,9 @@ void InitRegex(Blex::ContextRegistrator &creg, BuiltinFunctionsRegistrator &bifr
 
 } // End of namespace Baselibs
 
+void InitJobManager(Blex::ContextRegistrator &creg, BuiltinFunctionsRegistrator &bifreg);
+void InitIPC(Blex::ContextRegistrator &creg, BuiltinFunctionsRegistrator &bifreg);
+
 HSVM_PUBLIC void JHSONEncode(HSVM *vm, HSVM_VariableId input, HSVM_VariableId output, bool hson);
 
 /** Register base libraries, functions and context*/
