@@ -13,21 +13,6 @@
 #include <harescript/vm/hsvm_marshalling.h>
 #include <harescript/vm/hsvm_stackmachine.h>
 
-namespace CompilationPriority
-{
-///Compilation priority classes
-enum Class
-{
-        ///Highest priority (unused)
-        ClassHighest,
-        ///Interactive applications
-        ClassInteractive,
-        ///Background applications
-        ClassBackground,
-        ///Idle compilations (not directly required, but compile them just in  case)
-        ClassIdle
-};
-} //end namespace CompilationPriority
 
 namespace WHCore
 {

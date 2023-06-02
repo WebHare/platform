@@ -421,7 +421,7 @@ void CompileServer::HandleCompileRequest(WebServer::Connection *webcon, std::str
         }
 
 #ifdef WHBUILD_DEBUG
-        bool success = compile_engine.GetErrorHandler().AnyErrors();
+        bool success = !compile_engine.GetErrorHandler().AnyErrors();
 #endif
 
 //        if (!success)

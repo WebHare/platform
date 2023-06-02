@@ -186,10 +186,9 @@ void MarshalPacket::Read(uint8_t const *start, uint8_t const *end, GlobalBlobMan
                             ThrowInternalError("Not enough blob data available");
                         blobdataremainlen -= length;
 
-                        std::unique_ptr< Blex::ComplexFileStream > file;
                         std::string blobfilename;
 
-                        file = blobmgr->CreateTempStream(&blobfilename);
+                        auto file = blobmgr->CreateTempStream(&blobfilename);
 
                         Blex::FileOffset towrite = length;
                         while (towrite != 0)

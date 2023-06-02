@@ -7,6 +7,22 @@
 
 const unsigned WHFileSystemContextId = 258;
 
+namespace CompilationPriority
+{
+///Compilation priority classes
+enum Class
+{
+        ///Highest priority (unused)
+        ClassHighest,
+        ///Interactive applications
+        ClassInteractive,
+        ///Background applications
+        ClassBackground,
+        ///Idle compilations (not directly required, but compile them just in  case)
+        ClassIdle
+};
+} //end namespace CompilationPriority
+
 /** Filesystem class that handles file access for libraries for the VM and the
     compiler.
 
