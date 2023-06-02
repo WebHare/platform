@@ -222,7 +222,15 @@ endif
 
 WHLDFLAGS+=$(GLOBALLDFLAGS)
 ifeq ($(BUILDSYSTEM),emscripten)
-  #...
+	WHLDFLAGS_IMPORTABLE += -s MODULARIZE=1
+	WHLDFLAGS_IMPORTABLE += -s EXPORT_NAME="createModule"
+	WHLDFLAGS_IMPORTABLE += -s EXPORTED_RUNTIME_METHODS=ccall,cwrap,stringToUTF8,lengthBytesUTF8,stringToNewUTF8,UTF8ToString,getValue,setValue
+	WHLDFLAGS_IMPORTABLE += -s EXPORTED_FUNCTIONS=_malloc,_free
+
+	WHLDFLAGS += -s ALLOW_MEMORY_GROWTH=1
+	WHLDFLAGS += -s IMPORTED_MEMORY
+	WHLDFLAGS += -s STACK_SIZE=8MB
+	WHLDFLAGS += -s INITIAL_MEMORY=128MB
 else ifeq ($(WHBUILD_PLATFORM),darwin)
 	WHLDFLAGS += -Wl,-rpath '-Wl,@loader_path/../lib'
 else
@@ -236,24 +244,27 @@ ifneq ($(BUILDSYSTEM),emscripten)
 endif
 
 # CPP_PCH_FLAGS_XXX MUST be first in list, gcc bug or so.
-Compile = $(HIDE)echo "- Compiling C++ file $1" && $(CXX) $(CPP_PCH_FLAGS) $(CPPFLAGS) $(CXXFLAGS) $(CXXFLAGS_COMPILE) $3 -o$2 -c $1
-CompileC = $(HIDE)echo "- Compiling C file $1" && $(CC) $(CPPFLAGS) $(CCFLAGS_COMPILE) $3 -o$2 -c $1
-GenerateDeps = $(HIDE)echo "- Generate deps for $1" && $(CXX) $(CPP_PCH_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -M -MP -MT "$2 $(subst .d,.o,$2)" $3 -o $2 -c $1
-GeneratePCHDeps = $(HIDE)echo "- Generate deps for header $1" && $(CXX) $(CPP_PCH_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -x c++-header -M -MP -MT "$2 $(subst .d,.gch,$2)" $3 -o $2 -c $1
+Compile = $(HIDE)echo "- Compiling $(BUILDSYSTEM) C++ file $1" && $(CXX) $(CPP_PCH_FLAGS) $(CPPFLAGS) $(CXXFLAGS) $(CXXFLAGS_COMPILE) $3 -o$2 -c $1
+CompileC = $(HIDE)echo "- Compiling $(BUILDSYSTEM) C file $1" && $(CC) $(CPPFLAGS) $(CCFLAGS_COMPILE) $3 -o$2 -c $1
+GenerateDeps = $(HIDE)echo "- Generate $(BUILDSYSTEM) deps for $1" && $(CXX) $(CPP_PCH_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -M -MP -MT "$2 $(subst .d,.o,$2)" $3 -o $2 -c $1
+GeneratePCHDeps = $(HIDE)echo "- Generate $(BUILDSYSTEM) deps for header $1" && $(CXX) $(CPP_PCH_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -x c++-header -M -MP -MT "$2 $(subst .d,.gch,$2)" $3 -o $2 -c $1
 
 define GeneratePrecompiledHeader
 		  $(HIDE)echo "- Precompiling $2"
 		  $(HIDE)$(CXX) $(CPPFLAGS) $(CXXFLAGS) -x c++-header $4 -o$3 -c $2
 endef #end define GeneratePrecompiledHeader
 
-ifeq ($(WHBUILD_PLATFORM),darwin)
- 	LinkShared       = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) -shared -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
- 	LinkModule       = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) -shared -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
- 	LinkExecutable   = $(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) -o $2 $1 $(addprefix -l,$3)
+ifeq ($(BUILDSYSTEM),emscripten)
+ 	LinkImportable   = $(HIDE)echo "- Linking importable $2" && $(LD_APP) $(WHLDFLAGS) $(WHLDFLAGS_IMPORTABLE) -o $2 $1 $(addprefix -l,$3)
+ 	LinkExecutable   = $(HIDE)echo "- Linking executable $2" && $(LD_APP) $(WHLDFLAGS) -o $2 $1 $(addprefix -l,$3)
+else ifeq ($(WHBUILD_PLATFORM),darwin)
+ 	LinkShared       = $(HIDE)echo "- Linking $(BUILDSYSTEM) $2" && $(LD_APP) $(WHLDFLAGS) -shared -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
+ 	LinkModule       = $(HIDE)echo "- Linking $(BUILDSYSTEM) $2" && $(LD_APP) $(WHLDFLAGS) -shared -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
+ 	LinkExecutable   = $(HIDE)echo "- Linking $(BUILDSYSTEM) $2" && $(LD_APP) $(WHLDFLAGS) -o $2 $1 $(addprefix -l,$3)
 else
-	LinkShared       = +$(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) -shared -o $2 $1 $(addprefix -l,$3)
-	LinkModule       = +$(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) -shared -o $2 $1 $(addprefix -l,$3)
-	LinkExecutable   = +$(HIDE)echo "- Linking $2" && $(LD_APP) $(WHLDFLAGS) -o $2 $1 $(addprefix -l,$3)
+	LinkShared       = +$(HIDE)echo "- Linking $(BUILDSYSTEM) $2" && $(LD_APP) $(WHLDFLAGS) -shared -o $2 $1 $(addprefix -l,$3)
+	LinkModule       = +$(HIDE)echo "- Linking $(BUILDSYSTEM) $2" && $(LD_APP) $(WHLDFLAGS) -shared -o $2 $1 $(addprefix -l,$3)
+	LinkExecutable   = +$(HIDE)echo "- Linking $(BUILDSYSTEM) $2" && $(LD_APP) $(WHLDFLAGS) -o $2 $1 $(addprefix -l,$3)
 endif
 
 harescript_HsMod_pgsql_AddLibs = pq
@@ -294,13 +305,13 @@ ALLDIRS=$(ALLBUILDDIRS) $(ALLINSTALLDIRS)
 ##
 
 # BLEX
-LIBBLEX_SOURCEFILES=api bitmanip context crc crypt_blowfish crypto crypto_sha1 datetime decimalfloat docfile getopt lexer logfile mime mmapfile path podvector stem_UTF_8_danish stem_UTF_8_english stem_UTF_8_french stem_UTF_8_german stem_UTF_8_italian stem_UTF_8_kraaijpohlmann stem_UTF_8_portuguese stem_UTF_8_spanish stemmer stream stringmanip testing threads tokenstream unicode utilities utils xml
+LIBBLEX_SOURCEFILES=api bitmanip context crc crypt_blowfish crypto crypto_sha1 datetime decimalfloat docfile getopt lexer logfile mime mmapfile notificationevents path podvector stem_UTF_8_danish stem_UTF_8_english stem_UTF_8_french stem_UTF_8_german stem_UTF_8_italian stem_UTF_8_kraaijpohlmann stem_UTF_8_portuguese stem_UTF_8_spanish stemmer stream stringmanip testing threads tokenstream unicode utilities utils xml
 LIBBLEX_TESTFILES=testbitmanip testcontext testcrypto testdocfile testgetopt testio testmime testnet testpath teststring testtypes testutils
 
 
 ifneq ($(BUILDSYSTEM),emscripten)
 
-LIBBLEX_SOURCEFILES+=binarylogfile btree_blocks btree_filesystem complexfs dispat dispat_impl notificationevents socket zstream
+LIBBLEX_SOURCEFILES+=binarylogfile btree_blocks btree_filesystem complexfs dispat dispat_impl socket zstream
 LIBBLEX_TESTFILES+=test_btree_blocks test_btree_filesystem testdynamic test_index_stress testbinarylogfile testcomplexfs testthreads indexdumping
 
 # with emscriptem we shouln't refer to dynamic libraries at all
@@ -421,6 +432,9 @@ PCH_HEADERS+=ap/libwebhare/allincludes.h
 
 ap_SRCDIRS = addons addons/system_geoip libwebhare utils webserver whmanager
 
+# WASM
+wasm_SRCDIRS = .
+
 # Global stuff
 # forevery project, take project_SRCDIRS, create $(SRCDIR)/project/$(SUBDIR) entries
 ALLSRCDIRS=$(SRCDIR)/blex $(foreach sub,$(SUBPROJECTS),$(addprefix $(SRCDIR)/$(sub)/,$($(sub)_SRCDIRS)))
@@ -479,8 +493,7 @@ endif
 ## Build it all. This *MUST* be the first target in the makefile to make it the default for 'wh make'
 ##
 # GLOBAL
-all: $(addsuffix -all,$(SUBPROJECTS))
-
+all: $(addsuffix -all,$(SUBPROJECTS)) wasm
 
 #################################################
 ##
@@ -509,7 +522,7 @@ clean-libxml2:
 clean-libs:
 	rm -f -- $(ALL_DEPLOYABLES) $(BUILDDIRPREFIX)blex/tests/dynamic$(DLL_SUFFIX)
 
-clean: clean-libs
+clean: clean-libs wasm-clean
 	rm -f -- $(ALL_INSTALLABLES_CLEAN) $(ALLOBJS) $(ALLPCHS) $(ALL_DEPLOYABLES_SETUP) $(ALL_TESTFILES) $(EXTRA_DIRS_TARGET) success.* build.*
 
 clean-pch:
@@ -539,7 +552,7 @@ build.blex: $(blex_DEPLOYABLES)
 ifeq ($(BUILDSYSTEM),emscripten)
 
 success.blex blex-test: bin/$(RUNTEST) build.blex
-	ulimit -n 1024 && $(TESTRUNNER) bin/$(RUNTEST) test bin/$(RUNTEST) blex/tests/dynamic$(DLL_SUFFIX) $(SRCDIR)/blex/tests/data $(BLEXTESTOPTS) 1
+	ulimit -n 1024 && $(TESTRUNNER) bin/$(RUNTEST) test bin/$(RUNTEST) blex/tests/dynamic$(DLL_SUFFIX) $(SRCDIR)/blex/tests/data $(BLEXTESTOPTS) 1 ; test "$$?" = 242
 ifeq ($(BLEXTEST),)
 	>success.blex
 
@@ -551,7 +564,7 @@ endif
 else # Native builds
 
 success.blex blex-test: bin/$(RUNTEST) blex/tests/dynamic$(DLL_SUFFIX) build.blex
-	ulimit -n 1024 && $(TESTRUNNER) bin/$(RUNTEST) test bin/$(RUNTEST) blex/tests/dynamic$(DLL_SUFFIX) $(SRCDIR)/blex/tests/data $(BLEXTESTOPTS) 1
+	ulimit -n 1024 && $(TESTRUNNER) bin/$(RUNTEST) test bin/$(RUNTEST) blex/tests/dynamic$(DLL_SUFFIX) $(SRCDIR)/blex/tests/data $(BLEXTESTOPTS) 1 ; test "$$?" = 241
 ifeq ($(BLEXTEST),)
 	>success.blex
 endif
@@ -752,6 +765,32 @@ $(foreach mod,$(AP_DEPLOYABLES_SERVERS),$(eval $(call ApServerTarget,$(mod))))
 $(foreach mod,$(AP_DEPLOYABLES_UTILS),$(eval $(call ApUtilTarget,$(mod))))
 
 
+#
+# WASM
+#
+
+# Only allow the following instructions for in emscripten mode
+ifeq ($(BUILDSYSTEM),emscripten)
+
+wasm: $(call BuildAndTest,blex)
+WASM_DEP_OBJS := \
+	$(LIBBLEX_LIBXML2_OBJS) \
+
+wasm-clean:
+	rm -rf -- wasm $(wasm_DEPLOYABLES_WHAP)
+
+else
+
+wasm $(call BuildAndTest,wasm):
+	mkdir -p $(WEBHARE_BUILDDIR)/wasmbuild
+	+cd $(WEBHARE_BUILDDIR)/wasmbuild; make -f $(WHBUILD_SRCDIR)/base_makefile BUILDSYSTEM=emscripten wasm
+	> $(call BuildAndTest,wasm)
+
+wasm-clean:
+	mkdir -p $(WEBHARE_BUILDDIR)/wasmbuild
+	+cd $(WEBHARE_BUILDDIR)/wasmbuild; make -f $(WHBUILD_SRCDIR)/base_makefile BUILDSYSTEM=emscripten clean wasm-clean
+
+endif
 #################################################
 ##
 ## Installation
@@ -816,7 +855,9 @@ install: $(addprefix $(PREFIX)/,$(EXTRAINSTALLDIR)) postinstall | \
 	$(call BuildAndTest,drawlib) \
 	$(PREFIX)/include/hsvm_dllinterface.h \
 	$(addprefix $(PREFIX)/,$(WHAP_INSTALLABLES)) \
-	$(call BuildAndTest,ap) $(ALLINSTALLDIRS)
+	$(call BuildAndTest,ap) \
+	$(call BuildAndTest,wasm) \
+	$(ALLINSTALLDIRS)
 	${HIDE}rm $(PREFIX)/bin/{appserver,backup,consilio,dbserver,dumprawtable} 2>/dev/null || true #cleanup old bins
 	${HIDE}rm $(PREFIX)/lib/{hsm_parser_office_excel,hsm_parser_office_powerpoint}.* 2>/dev/null || true #cleanup old bins
 

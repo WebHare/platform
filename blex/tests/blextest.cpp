@@ -90,7 +90,13 @@ int UTF8Main(std::vector<std::string> const &args)
                         if (args.size()>6)
                                 mask = args[6].c_str();
 
-                        return Blex::Test::Run(options, mask) ? EXIT_SUCCESS : EXIT_FAILURE;
+                        if(!Blex::Test::Run(options, mask))
+                                return EXIT_FAILURE; //testrunner expects this exact returncode to detect no-op binaries
+#ifdef __EMSCRIPTEN__
+                        return 242;
+#else
+                        return 241;
+#endif
                 }
                 std::cerr << "Unknown test-type parameter\n";
                 return EXIT_FAILURE;
