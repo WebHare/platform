@@ -9,6 +9,11 @@ if [ -z "$WHBUILD_BUILDDIR" ]; then
   exit 1;
 fi
 
+if [ -f "${WHBUILD_SRCDIR}/vendor/libxml2/config.h" ]; then
+  #oops, someone configured it already
+  ( cd ${WHBUILD_SRCDIR}/vendor/libxml2 && make distclean )
+fi
+
 # Updating this file should trigger reconfiguration of libxml2
 EXPECTCONFIGFILE="${WHBUILD_BUILDDIR}/vendor/libxml2/config.h"
 echo Generating "$EXPECTCONFIGFILE" "(and libxml2/include/xmlversion.h)"
