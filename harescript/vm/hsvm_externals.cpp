@@ -14,6 +14,7 @@ extern "C" {
 
 int XMLEntryPoint(HSVM_RegData *regdata,void*);
 int WittyEntryPoint(HSVM_RegData *regdata,void*);
+int ICUEntryPoint(HSVM_RegData *regdata, void *);
 
 }
 
@@ -242,6 +243,7 @@ Externals::Externals(FileSystem &filesystem)
         linkmanager.InvokeModuleRegistration(&XMLEntryPoint, (void*)0);
         linkmanager.InvokeModuleRegistration(&WittyEntryPoint, (void*)0);
 
+        linkmanager.InvokeModuleRegistration(&ICUEntryPoint, (void*)0);
 
         //ADDME: We might want to separate this code from the function registrator,
         //       but then we should first create a better Facade around the
