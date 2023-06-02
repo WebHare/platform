@@ -496,8 +496,7 @@ $(SRCDIR)/vendor/libxml2/autogen.sh:
 $(LIBXML2_GENERATED_CONFIG): $(SRCDIR)/vendor/setup-libxml2.sh $(SRCDIR)/vendor/libxml2/autogen.sh
 	${HIDE}$(SRCDIR)/vendor/setup-libxml2.sh
 
-blex/xml.o harescript/vm/xml_cssengine.o harescript/vm/xml_domobjects.o harescript/vm/xml_provider.o: $(LIBXML2_GENERATED_CONFIG)
-$(LIBBLEX_LIBXML2_OBJS): $(LIBXML2_GENERATED_CONFIG)
+blex/xml.o $(LIBHSVM_OBJS) $(LIBBLEX_LIBXML2_OBJS): $(LIBXML2_GENERATED_CONFIG)
 
 #################################################
 ##
