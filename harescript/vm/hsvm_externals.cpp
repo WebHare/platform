@@ -39,8 +39,7 @@ DynamicLinkManager::~DynamicLinkManager()
         LockedManagerList::WriteRef(managerlist)->managers.erase(this);
 
         LockedState::WriteRef lock(state);
-        if(!lock->no_hsmod_unload)
-          for (DataMap::iterator it = lock->data.begin(); it != lock->data.end(); ++it)
+        for (DataMap::iterator it = lock->data.begin(); it != lock->data.end(); ++it)
             Blex::ReleaseDynamicLib(it->second);
 }
 
@@ -190,11 +189,6 @@ void DynamicLinkManager::AddReferences(std::vector<std::string> const &requested
                 if (!retval.first && retval.second) //load failure
                     throw VMRuntimeError(retval.second, *it, error);
         }
-}
-
-void DynamicLinkManager::NoHSModUnload()
-{
-        LockedState::WriteRef (state)->no_hsmod_unload=true;
 }
 
 // -----------------------------------------------------------------------------

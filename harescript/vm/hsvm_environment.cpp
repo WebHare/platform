@@ -868,11 +868,6 @@ void Environment::OnNewVM(HSVM *vm)
             (*it)(vm);
 }
 
-void Environment::NoHSModUnload()
-{
-        externals.linkmanager.NoHSModUnload();
-}
-
 void Environment::RegisterDebugStatFunction(std::string const &name, std::function< void(HSVM *, HSVM_VariableId) > const &func, std::function< void(HSVM *vm, std::vector< std::string > const &tags) > const &setdebugtags)
 {
         LockedDebugStatFunctions::WriteRef lock(debugstatfunctions);

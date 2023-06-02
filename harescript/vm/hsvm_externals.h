@@ -116,12 +116,10 @@ class DynamicLinkManager
         struct State
         {
                 State()
-                : no_hsmod_unload(false)
                 {
                 }
 
                 DataMap data;
-                bool no_hsmod_unload;
         };
         typedef Blex::InterlockedData<State,Blex::Mutex> LockedState;
         LockedState state;
@@ -163,9 +161,6 @@ class DynamicLinkManager
         static void ExecuteSoftResetCallbacks();
 
         static void ExecuteGarbageCollectionCallbacks(HSVM *hsvm);
-
-
-        void NoHSModUnload();
 };
 
 /** Class holding couplings to our 'external' data, such as registered functions

@@ -357,12 +357,11 @@ harescript_SRCDIRS=compiler modules $(addprefix modules/,$(HS_HS_MODULES)) tests
 
 harescript_DEPLOYABLES_BASE=lib/libblex_hsvm$(DLL_SUFFIX) lib/libblex_hscompiler$(DLL_SUFFIX) $(HS_DEPLOYABLES_PREP)
 
-harescript_DEPLOYABLES_HSENGINE_EXTRAS=bin/hsrun
 harescript_DEPLOYABLES_WHAP_EXTRAS=bin/libdumper
 
-harescript_DEPLOYABLES_HSENGINE=$(harescript_DEPLOYABLES_BASE) $(harescript_DEPLOYABLES_HSENGINE_EXTRAS)
+harescript_DEPLOYABLES_HSENGINE=$(harescript_DEPLOYABLES_BASE)
 harescript_DEPLOYABLES_WHAP=$(harescript_DEPLOYABLES_BASE) $(harescript_DEPLOYABLES_WHAP_EXTRAS)
-harescript_DEPLOYABLES=$(harescript_DEPLOYABLES_BASE) $(harescript_DEPLOYABLES_HSENGINE_EXTRAS) $(harescript_DEPLOYABLES_WHAP_EXTRAS)
+harescript_DEPLOYABLES=$(harescript_DEPLOYABLES_BASE) $(harescript_DEPLOYABLES_WHAP_EXTRAS)
 
 LIBHSVM_FILES = $(call GetSrcFiles,harescript/vm/*.cpp)
 LIBHSCOMPILER_FILES = $(call GetSrcFiles,harescript/compiler/*.cpp)
@@ -600,10 +599,6 @@ success.harescript: build.drawlib build.harescript build.parsers
 
 endif
 
-# harescript-test allows you to run HareScript tests without requiring `wh runtest`. but we might be able to remove this in the future?
-harescript-test: build.drawlib build.harescript build.parsers bin/hsrun
-	$(SRCDIR)/whtree/modules/webhare_testsuite/tests/baselibs/hsengine/runtests.sh $(abspath $(SRCDIR)) $(abspath .)
-
 build.harescriptvm: build.blex lib/libblex_hsvm$(DLL_SUFFIX) lib/libblex_hscompiler$(DLL_SUFFIX) $(HS_DEPLOYABLES_PREP)
 	>build.harescriptvm
 
@@ -618,9 +613,6 @@ lib/libblex_hsvm$(DLL_SUFFIX): $(call BuildAndTest,blex) $(LIBHSVM_OBJS)
 
 lib/libblex_hscompiler$(DLL_SUFFIX): $(LIBHSCOMPILER_OBJS) lib/libblex_hsvm$(DLL_SUFFIX)
 	$(call LinkShared,$(LIBHSCOMPILER_OBJS),$@,blex_hsvm $(BLEX_LIBS))
-
-bin/hsrun: harescript/utils/hsrun.o lib/libblex_hscompiler$(DLL_SUFFIX) $(call BuildAndTest,harescriptvm)
-	$(call LinkExecutable,$<,$@,blex_hscompiler blex_hsvm $(BLEX_LIBS))
 
 bin/vmtest: $(HARESCRIPTVMTEST_OBJS) lib/libblex_hsvm$(DLL_SUFFIX) lib/libblex_hscompiler$(DLL_SUFFIX)
 	$(call LinkExecutable,$(HARESCRIPTVMTEST_OBJS),$@,blex_hscompiler blex_hsvm $(BLEX_LIBS))
@@ -900,7 +892,7 @@ endif # end darwin check
 #
 
 #ADDME autogenerate lists below
-BIN_ALIASES = webserver webhare runscript $(RUNTEST) whmanager vmtest whcompile hsrun
+BIN_ALIASES = webserver webhare runscript $(RUNTEST) whmanager vmtest whcompile
 MOD_ALIASES = libblex_draw libblex_hscompiler libblex_hsvm libblex_parser_office_escher libblex_webhare hsm_parser hsm_parser_office_msword hsm_parser_adobe_pdf hsm_wh_pgsql hsm_parser_format_hsxml hsm_parser_format_html
 
 showtargets:

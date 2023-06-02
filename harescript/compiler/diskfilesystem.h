@@ -1,7 +1,6 @@
 #ifndef blex_harescript_compiler_diskfilesystem
 #define blex_harescript_compiler_diskfilesystem
 
-#include <blex/getopt.h>
 #include <harescript/vm/filesystem.h>
 #include "compilecontrol.h"
 
@@ -49,7 +48,6 @@ class BLEXLIB_PUBLIC DiskFileSystem : public FileSystem
             @param _precompilecache Directory where precompiled files are stored
             @param _hsresdir HareScript resources directory */
         DiskFileSystem(std::string const &_compilecache,std::string const &_tempdir, std::string const &_precompilecache, std::string const &_hsresdir);
-        DiskFileSystem(Blex::OptionParser const &options);
         ~DiskFileSystem();
 
         Compiler::Engine compile_engine;
