@@ -1628,7 +1628,7 @@ PUBLIC STATIC OBJECTTYPE SoapClient
           ];
     }
 
-    IF (schemalocation LIKE "whres::*")
+    IF (schemalocation LIKE "mod::system/whres/xml/*")
       RETURN [ success := TRUE, data := GetHarescriptResource(schemalocation), filename := schemalocation ];
 
     THROW NEW Exception(`Could not locate XSD schema at ${schemalocation}`);

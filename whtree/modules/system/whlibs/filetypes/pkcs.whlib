@@ -64,8 +64,8 @@ RECORD FUNCTION GetCachedASN1Description()
   IF (NOT RecordExists(cached_asn1_description))
   {
     OBJECT parser := GetASN1Parser();
-    parser->ParseDocument(BlobToString(GetHarescriptResource("whres::asn1/x509.asn1"), -1));
-    parser->ParseDocument(BlobToString(GetHarescriptResource("whres::asn1/certsupport.asn1"), -1));
+    parser->ParseDocument(BlobToString(GetHarescriptResource("mod::system/whres/asn1/x509.asn1"), -1));
+    parser->ParseDocument(BlobToString(GetHarescriptResource("mod::system/whres/asn1/certsupport.asn1"), -1));
 
     cached_asn1_description := parser->GetDescription();
   }

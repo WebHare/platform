@@ -261,7 +261,7 @@ MACRO TestTidsForInconsistentScreen(RECORD validateres)
 MACRO TestValidationValidates()
 {
   //Test whether our core schemas and resources actually validate, or other tests may prematurely fail
-  TestEq(RECORD[], ValidateSingleFile("whres::xml/xmlschema.xsd").errors);
+  TestEq(RECORD[], ValidateSingleFile("mod::system/whres/xml/xmlschema.xsd").errors);
   TestEq(RECORD[], ValidateSingleFile("mod::tollium/data/tolliumcomponents.xsd.xsd").errors);
   TestEq(RECORD[], ValidateSingleFile("mod::system/moduledefinition.xml").errors);
 }
@@ -278,11 +278,12 @@ MACRO TestBasicValidate()
 
   //may have to change if we ever error on the columns. or if permissions= goes away, we do need to check webrules are validated!
   res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml", [ overridedata := moduledefissues ]);
-  TestEq([[ line := 10, message := "Cannot find authscript \'mod::webhare_testsuite/missing-authscript\'" ]
-         ,[ line := 19, message := "Cannot find \'PDFMailFlowTask\': No such library \'mod::webhare_testsuite/formcomponents/pdfmailflow.whlib\'" ]
-         ,[ line := 22, message := 'Can\'t find \'screen\' target \'mod::webhare_testsuite/yyy/filemanager/main.xml\': Failed to retrieve \'mod::webhare_testsuite/yyy/filemanager/main.xml\': No such resource' ]
-         ,[ line := 25, message := 'Invalid function reference \'mod::webhare_testsuite/xxx/objectprops/objectprops.whlibrunpropertydialog\')' ]
-         ], (SELECT line, message FROM res.errors));
+  TestEqMembers([[ line := 10, message := "Cannot find authscript \'mod::webhare_testsuite/missing-authscript\'" ]
+                ,[ line := 19, message := "Cannot find \'PDFMailFlowTask\': No such library \'mod::webhare_testsuite/formcomponents/pdfmailflow.whlib\'" ]
+                ,[ line := 22 ]
+                ,[ line := 25, message := 'Invalid function reference \'mod::webhare_testsuite/xxx/objectprops/objectprops.whlibrunpropertydialog\')' ]
+                ], res.errors, "*");
+  TestEqLike('Can\'t find \'screen\' target \'mod::webhare_testsuite/yyy/filemanager/main.xml\': Failed to retrieve \'mod::webhare_testsuite/yyy/filemanager/main.xml\': No such resource*', res.errors[2].message);
 
   TestEq([[ line := 3, message := "Module should have a (semantic) version number, please add a <version>...</version>" ]
          ,[ line := 9, message := "This path triggered a warning" ]

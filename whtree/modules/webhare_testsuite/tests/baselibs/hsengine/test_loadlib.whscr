@@ -140,7 +140,6 @@ MACRO TranslateLibraryPath()
   STRING whrespath := GetWebHareResourceDiskPath("mod::system/whres/");
 
   TestEq("wh::internal/formatter.whlib", __HS_INTERNAL_TRANSLATELIBRARYPATH(whpath || "/internal/formatter.whlib"));
-  TestEq("whres::asn1/ldap.asn1", __HS_INTERNAL_TRANSLATELIBRARYPATH(whrespath || "/asn1/ldap.asn1"));
 }
 
 MACRO ObjectStructures()

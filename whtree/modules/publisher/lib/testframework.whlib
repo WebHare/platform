@@ -56,7 +56,7 @@ MACRO CreateContent(OBJECT siteroot, BOOLEAN with_errors)
           ]);
 
   OBJECT image := siteroot->CreateFile([name:="bob.jpg", data := GetWebhareResource("mod::system/web/tests/snowbeagle.jpg"), publish := TRUE ]);
-  OBJECT simplexlsx := siteroot->CreateFile([name:="simple.xlsx", data := GetWebhareResource("whres::ooxml/template.xlsx"), publish := TRUE ]);
+  OBJECT simplexlsx := siteroot->CreateFile([name:="simple.xlsx", data := GetWebhareResource("mod::system/whres/ooxml/template.xlsx"), publish := TRUE ]);
 
   IF(with_errors)
   {

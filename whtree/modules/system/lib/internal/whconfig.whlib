@@ -29,7 +29,7 @@ PUBLIC RECORD FUNCTION GetWebhareBuildInfo()
     buildinfo := CELL[];
     TRY
     {
-      BLOB buildinfofile := GetHarescriptResource("whres::buildinfo");
+      BLOB buildinfofile := GetDiskResource(GetModuleInstallationRoot("system") || "whres/buildinfo");
       IF(Length(buildinfofile) > 0)
       {
         FOREVERY(STRING line FROM Tokenize(BlobToString(buildinfofile),'\n'))

@@ -329,7 +329,7 @@ PUBLIC BOOLEAN FUNCTION IsAbsoluteResourcePath(STRING base)
 
   RETURN base LIKE "?*::?*"
          AND Tokenize(base,'::')[0] IN ["mod","module","moduleroot","moduledata","modulescript","storage"
-                                       ,"inline","inline-base64","site","whfs","direct","wh","test","whres"
+                                       ,"inline","inline-base64","site","whfs","direct","wh","test"
                                        ];
 }
 
@@ -379,7 +379,7 @@ PUBLIC STRING FUNCTION MakeAbsoluteResourcePath(STRING base, STRING subpath)
 
   // Get the base part we want to protect ("wh::"" or "mod::<modulename>/")
   STRING basepart;
-  IF (base LIKE "wh::*" OR base LIKE "whres::*")
+  IF (base LIKE "wh::*")
     basepart := Left(base, SearchSubstring(base, ":") + 2);
   ELSE
     basepart := Left(base || "/", SearchSubstring(base || "/", "/") + 1);
