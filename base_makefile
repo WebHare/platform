@@ -26,8 +26,8 @@ else
 	HIDE=@
 endif
 
-# Setup vendored libxml2 compilation
-CPPFLAGS += -I$(SRCDIR)/vendor/libxml2/include
+# Setup vendored libxml2 compilation. We add the builddir includes for generated config.h and xmlversion.h
+CPPFLAGS += -I$(WHBUILD_BUILDDIR)/vendor/libxml2 -I$(WHBUILD_BUILDDIR)/vendor/libxml2/include -I$(SRCDIR)/vendor/libxml2/include/
 
 ifeq ($(WHBUILD_PLATFORM),darwin)
 	BUILDSYSTEM ?= llvm
@@ -488,15 +488,16 @@ all: $(addsuffix -all,$(SUBPROJECTS))
 ## Setup libxml2 dependencies
 ##
 
+LIBXML2_GENERATED_CONFIG=vendor/libxml2/config.h
+
 $(SRCDIR)/vendor/libxml2/autogen.sh:
 	git -C $(SRCDIR) submodule update --init --recursive
 
-vendor/libxml2/config.h: $(SRCDIR)/vendor/setup-libxml2.sh $(SRCDIR)/vendor/libxml2/autogen.sh
+$(LIBXML2_GENERATED_CONFIG): $(SRCDIR)/vendor/setup-libxml2.sh $(SRCDIR)/vendor/libxml2/autogen.sh
 	${HIDE}$(SRCDIR)/vendor/setup-libxml2.sh
 
-blex/xml.o harescript/vm/xml_cssengine.o harescript/vm/xml_domobjects.o harescript/vm/xml_provider.o: vendor/libxml2/config.h
-$(LIBBLEX_LIBXML2_OBJS): vendor/libxml2/config.h
-
+blex/xml.o harescript/vm/xml_cssengine.o harescript/vm/xml_domobjects.o harescript/vm/xml_provider.o: $(LIBXML2_GENERATED_CONFIG)
+$(LIBBLEX_LIBXML2_OBJS): $(LIBXML2_GENERATED_CONFIG)
 
 #################################################
 ##
@@ -801,10 +802,10 @@ ALL_INSTALLABLES_CLEAN = $(HSENGINE_INSTALLABLES_DEBUG) $(WHAP_INSTALLABLES_DEBU
 
 # Rule to generate dependencies for object files
 ifneq ($(WHBUILD_NODEPS),1)
-  $(subst .o,.d,$(ALLOBJS)): %.d: %.cpp | dirs
+  $(subst .o,.d,$(ALLOBJS)): %.d: %.cpp $(LIBXML2_GENERATED_CONFIG) | dirs
 		$(call GenerateDeps,$<,$@,)
 
-  $(subst .gch,.d,$(ALLPCHS)) : gch/%.d : % | dirs
+  $(subst .gch,.d,$(ALLPCHS)): gch/%.d : % $(LIBXML2_GENERATED_CONFIG) | dirs
 		$(call GeneratePCHDeps,$<,$@,)
 endif
 
