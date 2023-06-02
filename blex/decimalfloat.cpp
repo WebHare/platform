@@ -165,7 +165,7 @@ int64_t MoneyDivide(int64_t val1, int64_t val2)
                                 a -= v2;
                                 ++retval;
                         }
-                        a = (a << 1) | ((b >> (31-bits)) & 0x1);
+                        a = (a << 1) | (bits < 32 ? ((b >> (31-bits)) & 0x1) : 0);
                 }
                 // Round to nearest integer (when fraction >= .5 add 1)
                 if (a >= v2)
