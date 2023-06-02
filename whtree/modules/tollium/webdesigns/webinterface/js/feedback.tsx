@@ -22,6 +22,7 @@ export default class TolliumFeedbackAPI {
       this.trigger.classList.remove("wh-tollium__feedback--active");
     });
     document.body.append(this.trigger);
+
   }
 
   remove() {
@@ -30,7 +31,7 @@ export default class TolliumFeedbackAPI {
   }
 
   async run(event) {
-    return run(event, { scope: this.scope });
+    return run(event, { token: this.token });
   }
 }
 
@@ -84,6 +85,5 @@ function filterDOM(node) {
 
 // Initialize the feedback options - we always init, as backend apps can trigger feedback too
 feedback.initFeedback({
-  scope: "tollium:webharebackend",
   domFilterCallback: filterDOM
 });

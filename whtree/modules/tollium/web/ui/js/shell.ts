@@ -451,12 +451,12 @@ class IndyShell extends TolliumShell {
     return wasjustupdated;
   }
 
-  _updateFeedbackHandler(scope: string) {
-    if (scope) {
+  _updateFeedbackHandler(token: string) {
+    if (token) {
       if (!this.feedbackhandler)
         this.feedbackhandler = new TolliumFeedbackAPI;
-      this.feedbackhandler.scope = scope;
-    } else if (!scope && this.feedbackhandler) {
+      this.feedbackhandler.token = token;
+    } else if (!token && this.feedbackhandler) {
       this.feedbackhandler.remove();
       this.feedbackhandler = null;
     }
@@ -464,7 +464,7 @@ class IndyShell extends TolliumShell {
 
   applyShellSettings(settings: ShellSettings) {
     this.settings = settings;
-    this._updateFeedbackHandler(settings.feedbackscope);
+    this._updateFeedbackHandler(settings.feedbacktoken);
 
     this.eventsconnection.setGroups(settings.eventgroups);
     this.broadcaststart = Date.parse(settings.now);
