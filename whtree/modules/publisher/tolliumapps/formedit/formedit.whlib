@@ -1512,9 +1512,8 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
 
     this->readonly := readonly;
 
-    this->RefreshStoreResultsUI();
-
     this->frame->flags.canedit := NOT this->readonly;
+    this->RefreshStoreResultsUI();
 
     ^additem->visible := this->frame->flags.canedit;
     ^deletemenu->visible := this->frame->flags.canedit;
