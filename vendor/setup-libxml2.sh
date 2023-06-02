@@ -25,7 +25,14 @@ if [ "$(uname)" != "Darwin" ]; then
   export ACLOCAL_PATH=/usr/share/aclocal
 fi
 
-if ! "${WHBUILD_SRCDIR}/vendor/libxml2/autogen.sh" --with-threads --without-http --without-catalog --without-iconv --without-debug --without-xinclude --without-zlib --without-lzma --without-python --without-icu ;  then
+# Prevent parallel configure runs - setup-libxml2 can run twice but autogen writes to libxml2 $srcdir/m4 - and can overwrite its own work
+if hash -r flock 2>/dev/null ; then
+  FLOCK=flock
+else
+  FLOCK="$WHBUILD_SRCDIR/addons/flock.pl"
+fi
+
+if ! $FLOCK "$WHBUILD_SRCDIR/vendor/.setup-libxml2.lock" "${WHBUILD_SRCDIR}/vendor/libxml2/autogen.sh" --with-threads --without-http --without-catalog --without-iconv --without-debug --without-xinclude --without-zlib --without-lzma --without-python --without-icu ;  then
   echo autogen/configure failed
   exit 1
 fi
