@@ -12,7 +12,7 @@
 #include "hsvm_sqllib.h"
 #include "hsvm_environment.h"
 #include "hsvm_idmapstorage.h"
-#include "hsvm_processmgr.h"
+#include "groupdata.h"
 #include "hsvm_functioncalltree.h"
 #include <blex/utils.h>
 #include <unordered_map>

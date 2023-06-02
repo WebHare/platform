@@ -2,6 +2,7 @@
 #define blex_webhare_harescript_hsvm_debugger
 
 #include "hsvm_context.h"
+#include "hsvm_processmgr.h"
 
 namespace HareScript
 {
