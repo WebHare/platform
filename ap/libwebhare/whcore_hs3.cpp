@@ -1232,7 +1232,7 @@ int WHCore_ModuleEntryPoint(HSVM_RegData *regdata, void *context_ptr)
         HSVM_RegisterFunction(regdata, "__SYSTEM_RECOMPILELIBRARY::R:SB", SYSTEM_RecompileLibrary);
 
         HSVM_RegisterFunction(regdata, "__SYSTEM_GETINSTALLEDMODULENAMES::SA:",SYSTEM_GetIntalledModuleNames);
-        HSVM_RegisterFunction(regdata, "GETMODULEINSTALLATIONROOT::S:S",SYSTEM_GetModuleInstallationRoot);
+        HSVM_RegisterFunction(regdata, "__SYSTEM_GETMODULEINSTALLATIONROOT::S:S",SYSTEM_GetModuleInstallationRoot);
 
         HSVM_RegisterFunction(regdata,"__SYSTEM_WHCOREPARAMETERS::R:", GetWHCoreParameters);
         HSVM_RegisterFunction(regdata,"__SYSTEM_GETPROCESSINFO::R:", GetProcessInfo);

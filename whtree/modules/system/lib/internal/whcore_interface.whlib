@@ -46,6 +46,8 @@ PUBLIC CONSTANT RECORD __whs_basedatastoragerecord  :=
     , tag :=            ""
     ];
 
+STRING FUNCTION __SYSTEM_GetModuleInstallationRoot(STRING modulename) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
 /** @short Get the directory a module is installed in
     @long Retrieve the WebHare installation directory for the specified module, if the module was installed to disk
     @public
@@ -54,8 +56,10 @@ PUBLIC CONSTANT RECORD __whs_basedatastoragerecord  :=
     @param modulename Name of the module
     @return The module's installation directory (eg "/opt/webhare/modules/system")
 */
-PUBLIC STRING FUNCTION GetModuleInstallationRoot(STRING modulename) __ATTRIBUTES__(EXTERNAL, CONSTANT);
-
+PUBLIC STRING FUNCTION GetModuleInstallationRoot(STRING modulename)
+{
+  RETURN __SYSTEM_GetModuleInstallationRoot(modulename);
+}
 
 /** @short Get the names of all installed modules
     @return List of names of all installed modules
