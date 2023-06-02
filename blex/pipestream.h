@@ -1,4 +1,4 @@
-#if !defined(blex_pipestream) && !defined(__EMSCRIPTEN__)
+#ifndef blex_pipestream
 #define blex_pipestream
 
 #include "stream.h"
@@ -117,7 +117,6 @@ struct BLEXLIB_PUBLIC StatefulEvent : public Event
         virtual void StateChanged();
 };
 
-
 /** Create a unidirectional pipe */
 struct BLEXLIB_PUBLIC PipeSet
 {
@@ -214,9 +213,10 @@ class BLEXLIB_PUBLIC PipeWaiter : public Detail::EventWaiterBase
         ///Add a new pipe to wait for writability
         void AddWritePipe(PipeWriteStream &pipe);
 
+#ifndef __EMSCRIPTEN__
         ///Add a new socket to wait for
         void AddSocket(Socket &sock, bool read, bool write);
-
+#endif
         ///Add a new event to wait for
         void AddEvent(Event &cond);
 
@@ -228,9 +228,11 @@ class BLEXLIB_PUBLIC PipeWaiter : public Detail::EventWaiterBase
             @return False if pipe was not on the list */
         bool RemoveWritePipe(PipeWriteStream &pipe);
 
+#ifndef __EMSCRIPTEN__
         /** Remove a pipe from the socket waiting list
             @return False if pipe was not on the list */
         bool RemoveSocket(Socket &sock);
+#endif
 
         /** Remove a event from the socket waiting list
             @return False if event was not on the list */
@@ -287,12 +289,14 @@ class BLEXLIB_PUBLIC PipeWaiter : public Detail::EventWaiterBase
         void SetEventSignalled(Event &event, bool signalled);
         void ClearSelfFromEventWaiters();
 
+#ifndef __EMSCRIPTEN__
         struct SocketInfo
         {
                 bool want_read, got_read;
                 bool want_write, got_write;
                 Socket *socket;
         };
+#endif
 
         struct PipeReadInfo
         {
@@ -317,7 +321,9 @@ class BLEXLIB_PUBLIC PipeWaiter : public Detail::EventWaiterBase
         std::vector<PipeReadInfo> waitreadpipes;
         std::vector<PipeWriteInfo> waitwritepipes;
         std::vector<EventInfo> waitevents;
+#ifndef __EMSCRIPTEN__
         std::map<Socket::SocketFd, SocketInfo> waitsockets;
+#endif
         bool events_active;
 
         struct EventData

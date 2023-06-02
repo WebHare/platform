@@ -41,6 +41,7 @@ CoreMutex::CoreMutex(bool) //throw (std::bad_alloc)
 CoreMutex::~CoreMutex() //throw()
 {
 }
+
 void CoreMutex::Lock() //throw()
 {
 }
@@ -51,14 +52,50 @@ bool CoreMutex::TryLock() //throw()
 {
   return true;
 }
+CoreConditionMutex::CoreConditionMutex(CoreMutex &associated_mutex) //throw (std::bad_alloc,std::runtime_error)
+ : associated_mutex(associated_mutex)
+{
+}
+CoreConditionMutex::~CoreConditionMutex() //throw (std::logic_error)
+{
+}
+void CoreConditionMutex::SignalAll() //throw()
+{
+}
+void CoreConditionMutex::Wait() //throw()
+{
+}
 void DebugMutex::Lock(void)
 {
 
 }
 void DebugMutex::Unlock(void)
 {
-
 }
+void ReadWriteMutex::LockRead()
+{
+}
+void ReadWriteMutex::Unlock()
+{
+}
+
+void PipeWaiter::AddEvent(Event &event)
+{
+        unsigned pos, size;
+        for (pos=0, size = waitevents.size();pos<size; ++pos)
+          if (waitevents[pos].event == &event)
+            return;
+
+        waitevents.resize(size + 1);
+        EventInfo &info(waitevents[size]);
+        info.event = &event;
+        info.got_signalled = false;
+        events_active = true;
+
+        Event::LockedData::WriteRef lock(event.data);
+        lock->waiters.push_back(this);
+}
+
 
 } //end namespace Blex (defined __EMSCRIPTEMM)
 
@@ -655,59 +692,6 @@ void SleepThread(unsigned msecs) //throw()
 
         //nanosleep may be signal-interrupted, so just keep looping then..
         while (nanosleep(&wait,&wait) == -1 && errno==EINTR) ;
-}
-
-Event::~Event()
-{
-        LockedData::ReadRef lock(data);
-        if (!lock->waiters.empty())
-        {
-                ErrStream() << "Event " << this << " destroyed with active waiters";
-                for (std::vector< Detail::EventWaiterBase * >::const_iterator it = lock->waiters.begin(); it != lock->waiters.end(); ++it)
-                    Blex::ErrStream() << "Waiter: " << *it;
-                FatalAbort();
-        }
-}
-
-bool Event::IsSignalled()
-{
-        return true;
-}
-
-void Event::InternalStateChanged(LockedData::WriteRef &lock, bool is_signalled)
-{
-        for (std::vector< Detail::EventWaiterBase * >::iterator it = lock->waiters.begin(); it != lock->waiters.end(); ++it)
-            (*it)->SetEventSignalled(*this, is_signalled);
-}
-
-
-void Event::StateChanged()
-{
-        LockedData::WriteRef lock(data);
-
-        bool is_signalled = IsSignalled();
-        InternalStateChanged(lock, is_signalled);
-}
-
-
-
-bool StatefulEvent::IsSignalled()
-{
-        LockedData::WriteRef lock(data);
-        return lock->signalled;
-}
-
-void StatefulEvent::SetSignalled(bool signalled)
-{
-        LockedData::WriteRef lock(data);
-        lock->signalled = signalled;
-        InternalStateChanged(lock, signalled);
-}
-
-void StatefulEvent::StateChanged()
-{
-        LockedData::WriteRef lock(data);
-        InternalStateChanged(lock, lock->signalled);
 }
 
 PipeWaiter::~PipeWaiter()
@@ -1602,6 +1586,63 @@ ThreadId CurrentThread() //throw()
         return pthread_self();
 }
 
+//-----------------------------------------------------------------------------
+//
+// Events
+//
+//-----------------------------------------------------------------------------
+
+Event::~Event()
+{
+        LockedData::ReadRef lock(data);
+        if (!lock->waiters.empty())
+        {
+                ErrStream() << "Event " << this << " destroyed with active waiters";
+                for (std::vector< Detail::EventWaiterBase * >::const_iterator it = lock->waiters.begin(); it != lock->waiters.end(); ++it)
+                    Blex::ErrStream() << "Waiter: " << *it;
+                FatalAbort();
+        }
+}
+
+void Event::InternalStateChanged(LockedData::WriteRef &lock, bool is_signalled)
+{
+        for (std::vector< Detail::EventWaiterBase * >::iterator it = lock->waiters.begin(); it != lock->waiters.end(); ++it)
+            (*it)->SetEventSignalled(*this, is_signalled);
+}
+
+void Event::StateChanged()
+{
+        LockedData::WriteRef lock(data);
+
+        bool is_signalled = IsSignalled();
+        InternalStateChanged(lock, is_signalled);
+}
+
+
+bool Event::IsSignalled()
+{
+        return true;
+}
+
+
+bool StatefulEvent::IsSignalled()
+{
+        LockedData::WriteRef lock(data);
+        return lock->signalled;
+}
+
+void StatefulEvent::SetSignalled(bool signalled)
+{
+        LockedData::WriteRef lock(data);
+        lock->signalled = signalled;
+        InternalStateChanged(lock, signalled);
+}
+
+void StatefulEvent::StateChanged()
+{
+        LockedData::WriteRef lock(data);
+        InternalStateChanged(lock, lock->signalled);
+}
 
 //-----------------------------------------------------------------------------
 //
