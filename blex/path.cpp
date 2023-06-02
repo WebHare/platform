@@ -536,7 +536,13 @@ void PathStatus::ParseStatbuf(void const *__statbuf, const char *)
         else
             flags = Other;
 
-#if defined(PLATFORM_LINUX)
+#if defined(__EMSCRIPTEN__)
+        Blex::ErrStream() << statbuf.st_mtime << " " << statbuf.st_mtim.tv_nsec;
+        modtime=Blex::DateTime::FromTimeT(statbuf.st_mtime, statbuf.st_mtim.tv_nsec / 1000);
+        accesstime=Blex::DateTime::FromTimeT(statbuf.st_atime, statbuf.st_atim.tv_nsec / 1000);
+        createtime=Blex::DateTime::FromTimeT(statbuf.st_ctime, statbuf.st_ctim.tv_nsec / 1000);
+        Blex::ErrStream() << modtime;
+#elif defined(PLATFORM_LINUX)
         modtime=Blex::DateTime::FromTimeT(statbuf.st_mtime, statbuf.st_mtim.tv_nsec / 1000000);
         accesstime=Blex::DateTime::FromTimeT(statbuf.st_atime, statbuf.st_atim.tv_nsec / 1000000);
         createtime=Blex::DateTime::FromTimeT(statbuf.st_ctime, statbuf.st_ctim.tv_nsec / 1000000);

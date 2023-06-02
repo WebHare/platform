@@ -6,8 +6,10 @@ export WHBUILD_NODEPS=1
 export WHBUILD_ALLOW=1
 export WHBUILD_LTO=1
 
+source /opt/emsdk/emsdk_env.sh
+
 if ! /opt/wh/whtree/bin/wh make install ; then
-  echo BUILD FAILED
+  echo C++ BUILD FAILED
   exit 1
 fi
 

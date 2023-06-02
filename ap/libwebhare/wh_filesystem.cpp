@@ -534,7 +534,6 @@ HareScript::FileSystem::FilePtr const &WHFileSystem::GetDirectFile(Blex::Context
 enum Type
 {
         FSWH,
-        FSWHRes,
         FSMod,
         FSModule,
         FSModuleData,
@@ -566,8 +565,6 @@ Type GetPrefix(std::string const &liburi)
         Blex::StringPair prefix(liburi.begin(), it);
         if (prefix == Blex::StringPair::FromStringConstant("wh"))
             return FSWH;
-        else if (prefix == Blex::StringPair::FromStringConstant("whres"))
-            return FSWHRes;
         else if (prefix == Blex::StringPair::FromStringConstant("moduledata") && !IgnoreOldNamespaces())
             return FSModuleData;
         else if (prefix == Blex::StringPair::FromStringConstant("storage"))
@@ -603,7 +600,6 @@ const char * GetPrefixString(Type type)
         switch (type)
         {
         case FSWH:              return "wh";
-        case FSWHRes:           return "whres";
         case FSModule:          return "module";
         case FSStorage:         return "storage";
         case FSModuleData:      return "moduledata";
@@ -671,14 +667,6 @@ std::string WHFileSystem::TranslateLibraryURI(Blex::ContextKeeper &keeper, std::
                                                                   (whfolder.begin(),whfolder.end()
                                                                   ,directuri.begin()+8,directuri.begin()+8+whfolder.size()) == 0)
                                             return "wh::" + std::string(directuri.begin() + 8 + whfolder.size(), directuri.end());
-
-                                        std::string whresfolder = folder + "whres/";
-
-                                        if (directuri.size() >= folder.size()+8
-                                            && Blex::StrCaseCompare<std::string::const_iterator>
-                                                                  (whresfolder.begin(),whresfolder.end()
-                                                                  ,directuri.begin()+8,directuri.begin()+8+whresfolder.size()) == 0)
-                                            return "whres::" + std::string(directuri.begin() + 8 + whresfolder.size(), directuri.end());
                                 }
 
                                 // Folders ends with '/'
@@ -724,7 +712,6 @@ void WHFileSystem::ResolveAbsoluteLibrary(Blex::ContextKeeper &keeper, std::stri
                     allowreset = true;
                     break;
 
-                case FSWHRes:
                 case FSDirect:
                 case FSDirectClib:
                     throw HareScript::VMRuntimeError(HareScript::Error::PrefixDoesNotAllowRelativeAddressing, GetPrefixString(loaderprefix));
@@ -813,8 +800,6 @@ void WHFileSystem::ResolveAbsoluteLibrary(Blex::ContextKeeper &keeper, std::stri
 
         if (Blex::StrStartsWith(*libname, "mod::system/whlibs/"))
             *libname = "wh::" + std::string(libname->begin() + 19, libname->end());
-        else if (Blex::StrStartsWith(*libname, "mod::system/whres/"))
-            *libname = "whres::" + std::string(libname->begin() + 18, libname->end());
 }
 
 HareScript::FileSystem::FilePtr WHFileSystem::OpenLibrary(Blex::ContextKeeper &keeper, std::string const &_liburi) const
@@ -851,15 +836,6 @@ HareScript::FileSystem::FilePtr WHFileSystem::OpenLibrary(Blex::ContextKeeper &k
                             return FilePtr();
 
                         templatepath = Blex::MergePath(templatepath + "whlibs", liburi);
-                        file = GetDirectFile(keeper, templatepath);
-                } break;
-        case FSWHRes:
-                {
-                        std::string templatepath = context->whconn->GetModuleFolder("system");
-                        if(templatepath.empty())
-                            return FilePtr();
-
-                        templatepath = Blex::MergePath(templatepath + "whres", liburi);
                         file = GetDirectFile(keeper, templatepath);
                 } break;
         case FSTest:

@@ -1407,7 +1407,7 @@ RECORD FUNCTION SAMLXSDLoader(STRING url, STRING id)
 
   IF (url NOT LIKE "*/*" AND url LIKE "*.xsd")
   {
-    BLOB data  := GetHarescriptResource("whres::xml/" || url);
+    BLOB data  := GetHarescriptResource("mod::system/whres/xml/" || url);
     IF (LENGTH(data) != 0)
       RETURN [ success := TRUE, data := data ];
   }
@@ -1424,7 +1424,7 @@ PUBLIC RECORD ARRAY FUNCTION VerifySAMLProtocolDocument(OBJECT doc)
   OBJECT domimpl := NEW XmlDOMImplementation;
   domimpl->RegisterEntityLoader(PTR SAMLXSDLoader);
 
-  BLOB protocol_xsd := GetHarescriptResource("whres::xml/saml-schema-protocol-2.0.xsd");
+  BLOB protocol_xsd := GetHarescriptResource("mod::system/whres/xml/saml-schema-protocol-2.0.xsd");
   OBJECT protocol_schema := domimpl->MakeXMLSchema(protocol_xsd);
   RETURN protocol_schema->ValidateDocument(doc);
 }
@@ -1438,7 +1438,7 @@ PUBLIC RECORD ARRAY FUNCTION VerifySAMLMetadataDocument(OBJECT doc)
   OBJECT domimpl := NEW XmlDOMImplementation;
   domimpl->RegisterEntityLoader(PTR SAMLXSDLoader);
 
-  BLOB metadata_xsd := GetHarescriptResource("whres::xml/saml-schema-metadata-collection.xsd");
+  BLOB metadata_xsd := GetHarescriptResource("mod::system/whres/xml/saml-schema-metadata-collection.xsd");
   OBJECT metadata_schema := domimpl->MakeXMLSchema(metadata_xsd);
   RETURN metadata_schema->ValidateDocument(doc);
 }

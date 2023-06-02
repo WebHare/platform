@@ -265,13 +265,13 @@ PUBLIC BLOB FUNCTION GetDiskResource(STRING path, RECORD options DEFAULTSTO DEFA
 }
 
 /** @short Open a HareScript resource file as a blob
-    @param path Path to resource to open (eg wh::... or whres::...)
+    @param path Path to resource to open (eg wh::...)
     @return A blob with the file. If the file cannot be found OR you are not allowed to get the file you'll get an 'No such HareScript resource' exception.
 */
 PUBLIC BLOB FUNCTION GetHarescriptResource(STRING path)
 {
   STRING namespace := ToLowercase(Left(path, SearchSubstring(path, '::')));
-  IF(namespace IN ["wh","whres","direct","test"])
+  IF(namespace IN ["wh","direct","test"])
   {
     RECORD res := __GetHSResource(path);
 

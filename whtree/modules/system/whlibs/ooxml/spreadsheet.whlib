@@ -1434,7 +1434,7 @@ PUBLIC RECORD ARRAY FUNCTION GetOOXMLSpreadsheetRows(BLOB xlsxdoc, RECORD option
 
 PUBLIC OBJECT FUNCTION MakeNewOOXMLSpreadSheetFile()
 {
-  RETURN OpenOOXMLSpreadSheetFile(GetHarescriptResource("whres::ooxml/template.xlsx"));
+  RETURN OpenOOXMLSpreadSheetFile(GetHarescriptResource("mod::system/whres/ooxml/template.xlsx"));
 }
 
 /** Validate XLSX options (shared with common dialog and lowlevel %GenerateXLSXFile)

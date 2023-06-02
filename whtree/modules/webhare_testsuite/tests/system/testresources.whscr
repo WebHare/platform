@@ -99,7 +99,6 @@ MACRO TranslateLibraryPath()
 
   TestEq("mod::system/lib/tests/cluster.whlib", __HS_INTERNAL_TRANSLATELIBRARYPATH(systempath || "lib/tests/cluster.whlib"));
   TestEq("wh::internal/formatter.whlib", __HS_INTERNAL_TRANSLATELIBRARYPATH(systempath || "whlibs/internal/formatter.whlib"));
-  TestEq("whres::asn1/ldap.asn1", __HS_INTERNAL_TRANSLATELIBRARYPATH(systempath || "whres/asn1/ldap.asn1"));
   TestEq("direct::/etc", __HS_INTERNAL_TRANSLATELIBRARYPATH("/etc"));
 }
 
@@ -109,7 +108,6 @@ MACRO TestGetResourceNameFromDiskPath()
 
   TestEq("mod::system/lib/tests/cluster.whlib", GetResourceNameFromDiskPath(systempath || "lib/tests/cluster.whlib"));
   TestEq("wh::internal/formatter.whlib", GetResourceNameFromDiskPath(systempath || "whlibs/internal/formatter.whlib"));
-  TestEq("whres::asn1/ldap.asn1", GetResourceNameFromDiskPath(systempath || "whres/asn1/ldap.asn1"));
   TestEq("", GetResourceNameFromDiskPath("/etc"));
   TestEq("direct::/etc", GetResourceNameFromDiskPath("/etc", [ allowdiskpath := TRUE ]));
   TestEq("mod::system/lib/tests/cluster.whlib", GetResourceNameFromDiskPath("mod::system/lib/tests/cluster.whlib"));
@@ -119,7 +117,6 @@ MACRO TestGetResourceNameFromDiskPath()
     TestEq("mod::system/lib/tests/cluster.whlib", GetResourceNameFromDiskPath("moduleroot::system/lib/tests/cluster.whlib"));
   }
   TestEq("wh::asn1/ldap.asn1", GetResourceNameFromDiskPath("mod::system/whlibs/asn1/ldap.asn1"));
-  TestEq("whres::asn1/ldap.asn1", GetResourceNameFromDiskPath("mod::system/whres/asn1/ldap.asn1"));
   TestEq("site::a/b/test.whscr", GetResourceNameFromDiskPath("site::a/b/test.whscr"));
 }
 
@@ -146,7 +143,7 @@ MACRO TestBase()
   IF(has_legacy_namspace_support)
     TestEq(TRUE, IsAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/"));
   TestEq(TRUE, IsAbsoluteResourcePath("mod::publisher/designs/emptydesign/"));
-  TestEq(TRUE, IsAbsoluteResourcePath("whres::xml/xmlschema.xsd"));
+  TestEq(TRUE, IsAbsoluteResourcePath("mod::system/whres/xml/xmlschema.xsd"));
   TestEq(FALSE, IsAbsoluteResourcePath("unknown-future-resource-path::xx"));
 
   IF(has_legacy_namspace_support)
@@ -330,7 +327,6 @@ MACRO SupportLIbrary()
   TestEq("mod::publisher/screens/a/b.xml", GetResourceNameFromDiskPath(GEtModuleInstallationRoot("publisher") || "screens/a/b.xml"));
   TestEq("mod::publisher/screens/a/b.xml", GetResourceNameFromDiskPath("mod::publisher/screens/a/b.xml"));
   TestEq("wh::files.whlib", GetResourceNameFromDiskPath(GEtModuleInstallationRoot("system") || "whlibs/files.whlib"));
-  TestEq("whres::test.xml", GetResourceNameFromDiskPath(GEtModuleInstallationRoot("system") || "whres/test.xml"));
 
   TestEq("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", MakeAbsoluteScreenReference("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.siteprl", './registrationform.xml#editor'));
   TestEq("mod::wrd/screens/types.xml#managetypes", MakeAbsoluteScreenReference("mod::wrd/screens/browser.xml", "types.xml#managetypes"));

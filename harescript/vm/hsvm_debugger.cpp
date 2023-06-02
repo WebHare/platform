@@ -4,6 +4,7 @@
 //---------------------------------------------------------------------------
 
 #include "hsvm_debugger.h"
+#include "hsvm_processmgr.h"
 #include "baselibs.h"
 
 // Print communication with whmanager process

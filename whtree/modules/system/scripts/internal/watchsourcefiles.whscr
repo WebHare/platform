@@ -345,12 +345,9 @@ OBJECT ASYNC FUNCTION HandleWatchProcess(OBJECT proc, BOOLEAN is_inotifywait)
 
           // Calcaultate
           STRING consiliogroupname := "mod::" || toks[0] || "/" || Detokenize(ArraySlice(toks, 1), "/");
-          IF (toks[0] = "system" AND toks[1] IN [ "whlibs", "whres"])
+          IF (toks[0] = "system" AND toks[1] IN [ "whlibs" ])
           {
-            IF (toks[1] = "whlibs")
-              consiliogroupname := "wh::" || Detokenize(ArraySlice(toks, 2), "/");
-            ELSE
-              consiliogroupname := "whres::" || Detokenize(ArraySlice(toks, 2), "/");
+            consiliogroupname := "wh::" || Detokenize(ArraySlice(toks, 2), "/");
           }
 
           IF (args.o)

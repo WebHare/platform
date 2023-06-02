@@ -582,12 +582,6 @@ PUBLIC STRING FUNCTION GetDiskPathForAsset(STRING inpath, STRING reportpath, BOO
       RETURN "wh::" || restpath;
     RETURN MergePath(GetModuleInstallationRoot('system') || 'whlibs', restpath) || (terminatewithslash ? "/" : "");
   }
-  IF(namespace="whres")
-  {
-    IF (usemoduleroot)
-      RETURN "whres::" || restpath;
-    RETURN MergePath(GetModuleInstallationRoot('system') || 'whres', restpath) || (terminatewithslash ? "/" : "");
-  }
   IF(namespace="test")
   {
     IF (usemoduleroot)
@@ -653,7 +647,7 @@ PUBLIC RECORD FUNCTION LookupGlobalResourceByPath(INTEGER startfolder, STRING fi
     //ADDME we need a RetrieveDiskResource or RetrieveHarescriptResource
     RECORD pathinfo := GetDiskFileProperties(diskresult);
     IF(NOT RecordExists(pathinfo))
-      THROW NEW RetrieveResourceException(reportpath, "No such resource", DEFAULT RECORD ARRAY);
+      THROW NEW RetrieveResourceException(reportpath, "No such resource on disk: " || diskresult, DEFAULT RECORD ARRAY);
     IF(pathinfo.type=1)
       THROW NEW RetrieveResourceException(reportpath, "The resource is a directory", DEFAULT RECORD ARRAY);
     RETURN [ data :=     GetDiskResource(diskresult)
@@ -666,7 +660,7 @@ PUBLIC RECORD FUNCTION LookupGlobalResourceByPath(INTEGER startfolder, STRING fi
 
   INTEGER tryid := LookupWHFSObject(startfolder, findpath);
   IF(tryid <= 0)
-    THROW NEW RetrieveResourceException(reportpath, "No such resource", DEFAULT RECORD ARRAY);
+    THROW NEW RetrieveResourceException(reportpath, "No such resource in WHFS: " || findpath || " starting at: " || startfolder || ")", DEFAULT RECORD ARRAY);
 
   RECORD info := SELECT id, data, isfolder, modificationdate, parent, whfspath FROM system.fs_objects WHERE id = tryid;
   IF(NOT RecordExists(info) OR IsRecycleOrHistoryWHFSPath(info.whfspath))

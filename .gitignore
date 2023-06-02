@@ -16,8 +16,10 @@ coverage.tar.gz
 !/whtree/etc/webhare-default-config.xml
 /whtree/include
 /whtree/lib/*.dylib
+/whtree/lib/*.js
 /whtree/lib/*.so
 /whtree/lib/*.so.*
+/whtree/lib/*.wasm
 /whtree/lib/sqlplus
 /whtree/lib/*.la
 /whtree/log

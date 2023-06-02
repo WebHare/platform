@@ -1174,46 +1174,46 @@ static void DestroyContext(void *, void *context_ptr)
         delete static_cast<HareScript::ICU::ICUContextData *>(context_ptr);
 }
 
-BLEXLIB_PUBLIC int HSVM_ModuleEntryPoint(HSVM_RegData *regdata, void *)
+BLEXLIB_PUBLIC int ICUEntryPoint(HSVM_RegData *regdata, void *)
 {
-        HSVM_RegisterFunction(regdata, "__ICU_GETICUVERSION:WH_ICU:S:", HareScript::ICU::GetICUVersion);
-        HSVM_RegisterFunction(regdata, "__ICU_GETTZDATAVERSION:WH_ICU:S:", HareScript::ICU::GetTZDataVersion);
+        HSVM_RegisterFunction(regdata, "__ICU_GETICUVERSION::S:", HareScript::ICU::GetICUVersion);
+        HSVM_RegisterFunction(regdata, "__ICU_GETTZDATAVERSION::S:", HareScript::ICU::GetTZDataVersion);
 
-        HSVM_RegisterFunction(regdata, "__ICU_GETLOCALEFORLANGTAG:WH_ICU:S:S", HareScript::ICU::GetLocaleForLangTag);
-        HSVM_RegisterFunction(regdata, "__ICU_GETLOCALEHOUR12:WH_ICU:B:S", HareScript::ICU::GetLocaleHour12);
-        HSVM_RegisterFunction(regdata, "__ICU_GETBESTPATTERN:WH_ICU:S:SS", HareScript::ICU::GetBestPattern);
-        HSVM_RegisterFunction(regdata, "__ICU_FORMATDATETIME:WH_ICU:S:SDSS", HareScript::ICU::FormatDateTime);
-        HSVM_RegisterFunction(regdata, "__ICU_GETLANGUAGEDATETIMESTRINGS:WH_ICU:SA:S", HareScript::ICU::GetFormatDateTimeString);
-        HSVM_RegisterFunction(regdata, "__ICU_FORMATDURATION:WH_ICU:S:6S", HareScript::ICU::FormatDuration);
+        HSVM_RegisterFunction(regdata, "__ICU_GETLOCALEFORLANGTAG::S:S", HareScript::ICU::GetLocaleForLangTag);
+        HSVM_RegisterFunction(regdata, "__ICU_GETLOCALEHOUR12::B:S", HareScript::ICU::GetLocaleHour12);
+        HSVM_RegisterFunction(regdata, "__ICU_GETBESTPATTERN::S:SS", HareScript::ICU::GetBestPattern);
+        HSVM_RegisterFunction(regdata, "__ICU_FORMATDATETIME::S:SDSS", HareScript::ICU::FormatDateTime);
+        HSVM_RegisterFunction(regdata, "__ICU_GETLANGUAGEDATETIMESTRINGS::SA:S", HareScript::ICU::GetFormatDateTimeString);
+        HSVM_RegisterFunction(regdata, "__ICU_FORMATDURATION::S:6S", HareScript::ICU::FormatDuration);
 
-        HSVM_RegisterFunction(regdata, "__ICU_GETCURRENCYFRACTIONDIGITS:WH_ICU:I:S", HareScript::ICU::GetCurrencyFractionDigits);
-        HSVM_RegisterFunction(regdata, "__ICU_FORMATNUMBER:WH_ICU:S:ISBIIIBVS", HareScript::ICU::FormatNumber);
-        HSVM_RegisterFunction(regdata, "__ICU_FORMATSPELLOUT:WH_ICU:S:6S", HareScript::ICU::FormatSpellout);
-        HSVM_RegisterFunction(regdata, "__ICU_FORMATORDINAL:WH_ICU:S:6SB", HareScript::ICU::FormatOrdinal);
+        HSVM_RegisterFunction(regdata, "__ICU_GETCURRENCYFRACTIONDIGITS::I:S", HareScript::ICU::GetCurrencyFractionDigits);
+        HSVM_RegisterFunction(regdata, "__ICU_FORMATNUMBER::S:ISBIIIBVS", HareScript::ICU::FormatNumber);
+        HSVM_RegisterFunction(regdata, "__ICU_FORMATSPELLOUT::S:6S", HareScript::ICU::FormatSpellout);
+        HSVM_RegisterFunction(regdata, "__ICU_FORMATORDINAL::S:6SB", HareScript::ICU::FormatOrdinal);
 
-        HSVM_RegisterFunction(regdata, "__ICU_COLLATEDCOMPARE:WH_ICU:I:IBBISSS", HareScript::ICU::CollatedCompare);
+        HSVM_RegisterFunction(regdata, "__ICU_COLLATEDCOMPARE::I:IBBISSS", HareScript::ICU::CollatedCompare);
 
-        HSVM_RegisterFunction(regdata, "__ICU_GETCOUNTRYLIST:WH_ICU:RA:SA", HareScript::ICU::GetCountryList);
-        HSVM_RegisterFunction(regdata, "__ICU_GETLANGUAGELIST:WH_ICU:RA:SA", HareScript::ICU::GetLanguageList);
+        HSVM_RegisterFunction(regdata, "__ICU_GETCOUNTRYLIST::RA:SA", HareScript::ICU::GetCountryList);
+        HSVM_RegisterFunction(regdata, "__ICU_GETLANGUAGELIST::RA:SA", HareScript::ICU::GetLanguageList);
 
-        HSVM_RegisterFunction(regdata, "__ICU_TOUPPERCASE:WH_ICU:S:SS", HareScript::ICU::ToUppercase);
-        HSVM_RegisterFunction(regdata, "__ICU_TOLOWERCASE:WH_ICU:S:SS", HareScript::ICU::ToLowercase);
-        HSVM_RegisterFunction(regdata, "__ICU_NORMALIZETEXT:WH_ICU:S:SS", HareScript::ICU::NormalizeText);
-        HSVM_RegisterFunction(regdata, "__ICU_TRANSLITERATETEXT:WH_ICU:S:SS", HareScript::ICU::TransliterateText);
+        HSVM_RegisterFunction(regdata, "__ICU_TOUPPERCASE::S:SS", HareScript::ICU::ToUppercase);
+        HSVM_RegisterFunction(regdata, "__ICU_TOLOWERCASE::S:SS", HareScript::ICU::ToLowercase);
+        HSVM_RegisterFunction(regdata, "__ICU_NORMALIZETEXT::S:SS", HareScript::ICU::NormalizeText);
+        HSVM_RegisterFunction(regdata, "__ICU_TRANSLITERATETEXT::S:SS", HareScript::ICU::TransliterateText);
 
-        HSVM_RegisterFunction(regdata, "__ICU_GETTIMEZONEIDS:WH_ICU:SA:", HareScript::ICU::GetTimeZoneIDs);
-        HSVM_RegisterFunction(regdata, "__ICU_GETALLTIMEZONES:WH_ICU:RA:S", HareScript::ICU::GetAllTimeZones);
-        HSVM_RegisterFunction(regdata, "__ICU_GETCANONICALTIMEZONEID:WH_ICU:S:S", HareScript::ICU::GetCanonicalTimeZoneID);
-        HSVM_RegisterFunction(regdata, "__ICU_GETTIMEZONEDISPLAY:WH_ICU:S:SBIS", HareScript::ICU::GetTimeZoneDisplay);
-        HSVM_RegisterFunction(regdata, "__ICU_GETVTIMEZONE:WH_ICU:S:SD", HareScript::ICU::GetVTimeZone);
-        HSVM_RegisterFunction(regdata, "__ICU_UTCTOLOCAL:WH_ICU:D:DS", HareScript::ICU::UTCToLocal);
-        HSVM_RegisterFunction(regdata, "__ICU_LOCALTOUTC:WH_ICU:D:DS", HareScript::ICU::LocalToUTC);
-        HSVM_RegisterFunction(regdata, "__ICU_GETUTCOFFSET:WH_ICU:I:DS", HareScript::ICU::GetUTCOffset);
-        HSVM_RegisterFunction(regdata, "__ICU_TIMEZONEUSESDST:WH_ICU:B:DS", HareScript::ICU::TimeZoneUsesDST);
-        HSVM_RegisterFunction(regdata, "__ICU_ISLOCALTIMEDST:WH_ICU:B:DS", HareScript::ICU::IsLocalTimeDST);
-        HSVM_RegisterFunction(regdata, "__ICU_ISWEEKEND:WH_ICU:B:DS", HareScript::ICU::IsWeekend);
-        HSVM_RegisterFunction(regdata, "__ICU_GETSYSTEMTIMEZONE:WH_ICU:S:", HareScript::ICU::GetSystemTimeZone);
-        HSVM_RegisterFunction(regdata, "__ICU_GETTIMEZONEIDFORWINDOWSID:WH_ICU:S:SS", HareScript::ICU::GetIDForWindowsID);
+        HSVM_RegisterFunction(regdata, "__ICU_GETTIMEZONEIDS::SA:", HareScript::ICU::GetTimeZoneIDs);
+        HSVM_RegisterFunction(regdata, "__ICU_GETALLTIMEZONES::RA:S", HareScript::ICU::GetAllTimeZones);
+        HSVM_RegisterFunction(regdata, "__ICU_GETCANONICALTIMEZONEID::S:S", HareScript::ICU::GetCanonicalTimeZoneID);
+        HSVM_RegisterFunction(regdata, "__ICU_GETTIMEZONEDISPLAY::S:SBIS", HareScript::ICU::GetTimeZoneDisplay);
+        HSVM_RegisterFunction(regdata, "__ICU_GETVTIMEZONE::S:SD", HareScript::ICU::GetVTimeZone);
+        HSVM_RegisterFunction(regdata, "__ICU_UTCTOLOCAL::D:DS", HareScript::ICU::UTCToLocal);
+        HSVM_RegisterFunction(regdata, "__ICU_LOCALTOUTC::D:DS", HareScript::ICU::LocalToUTC);
+        HSVM_RegisterFunction(regdata, "__ICU_GETUTCOFFSET::I:DS", HareScript::ICU::GetUTCOffset);
+        HSVM_RegisterFunction(regdata, "__ICU_TIMEZONEUSESDST::B:DS", HareScript::ICU::TimeZoneUsesDST);
+        HSVM_RegisterFunction(regdata, "__ICU_ISLOCALTIMEDST::B:DS", HareScript::ICU::IsLocalTimeDST);
+        HSVM_RegisterFunction(regdata, "__ICU_ISWEEKEND::B:DS", HareScript::ICU::IsWeekend);
+        HSVM_RegisterFunction(regdata, "__ICU_GETSYSTEMTIMEZONE::S:", HareScript::ICU::GetSystemTimeZone);
+        HSVM_RegisterFunction(regdata, "__ICU_GETTIMEZONEIDFORWINDOWSID::S:SS", HareScript::ICU::GetIDForWindowsID);
 
         // Register contexts
         HSVM_RegisterContext (regdata, HareScript::ICU::ContextId, NULL, &CreateContext, &DestroyContext);

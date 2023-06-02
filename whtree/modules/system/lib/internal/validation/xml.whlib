@@ -159,7 +159,7 @@ PUBLIC RECORD FUNCTION RunXMLValidator(BLOB doc_blob, STRING resourcename, RECOR
     {
       STRING useschema := srec.schemalocation;
 
-      IF(useschema = "whres::xml/xmlschema.xsd") //we might need a specialized parser for tollium or form component XSDs, and we can't detect that just by looking at the root element
+      IF(useschema = "mod::system/whres/xml/xmlschema.xsd") //we might need a specialized parser for tollium or form component XSDs, and we can't detect that just by looking at the root element
       {
         STRING targetns := doc->documentelement->GetAttribute("targetNamespace");
         RECORD matchingcomponentsource := SELECT * FROM GetComponentSources("") WHERE namespace = targetns;

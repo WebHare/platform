@@ -164,6 +164,13 @@ apt-get install -y /tmp/chrome.deb
 rm /tmp/chrome.deb
 # apt-get -qy --fix-broken install
 
+#install emscripten
+cd /opt
+git clone https://github.com/emscripten-core/emsdk.git
+cd /opt/emsdk
+./emsdk install latest
+./emsdk activate latest
+
 CHROMEVERSION="$(/usr/bin/google-chrome --version |cut -d' ' -f3)"
 CHROMEMAJOR="$(echo "$CHROMEVERSION" | cut -d. -f1)"
 REQUIRECHROMEMAJOR=108

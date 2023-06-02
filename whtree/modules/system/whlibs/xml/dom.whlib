@@ -1240,7 +1240,7 @@ PUBLIC STATIC OBJECTTYPE XmlDOMImplementation
   RECORD FUNCTION HSResourceLoader(STRING url, STRING id)
   {
     IF(url="http://www.w3.org/2001/xml.xsd")
-      url:="whres::xml/xml.xsd";
+      url:="mod::system/whres/xml/xml.xsd";
 
      IF(url LIKE "*::*" OR url LIKE "x-webhare-builtin-xsd:*")
      {
@@ -1257,15 +1257,15 @@ PUBLIC STATIC OBJECTTYPE XmlDOMImplementation
   STRING FUNCTION HSSchemaLookup(STRING namespace) //ADDME Parse xml/catalog.xml
   {
     IF (namespace="http://schemas.xmlsoap.org/soap/encoding/")
-      RETURN "whres::xml/soapencoding.xsd";
+      RETURN "mod::system/whres/xml/soapencoding.xsd";
     IF (namespace="http://schemas.xmlsoap.org/wsdl/")
-      RETURN "whres::xml/wsdl.xsd";
+      RETURN "mod::system/whres/xml/wsdl.xsd";
     IF (namespace="http://www.w3.org/2000/09/xmldsig#")
-      RETURN "whres::xml/xmldsig-core-schema.xsd";
+      RETURN "mod::system/whres/xml/xmldsig-core-schema.xsd";
     IF (namespace="http://www.w3.org/2001/04/xmlenc#")
-      RETURN "whres::xml/xenc-schema.xsd";
+      RETURN "mod::system/whres/xml/xenc-schema.xsd";
     IF (namespace="http://xml.apache.org/xml-soap")
-      RETURN "whres::xml/apache-soap.xsd";
+      RETURN "mod::system/whres/xml/apache-soap.xsd";
     RETURN "";
   }
 

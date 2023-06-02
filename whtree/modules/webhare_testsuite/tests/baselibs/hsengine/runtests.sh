@@ -21,7 +21,6 @@ cat > ${TESTDIR}/hsengine.xml << HERE
   -->
 
   <namespace name="wh" path="$WHTREE/modules/system/whlibs" />
-  <namespace name="whres" path="$WHTREE/modules/system/whres" />
   <namespace name="test" path="$WHTREE/modules/webhare_testsuite/tests/baselibs/hsengine" />
   <resources path="$WHTREE/modules/system/whres" />
   <compilecache path="$TESTDIR" />

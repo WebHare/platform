@@ -1022,9 +1022,9 @@ PUBLIC MACRO TestRegressions()
   //verify old style paths
   TestThrowsLike("*'xml/xml.xsd'*", PTR GetHarescriptResource("xml/xml.xsd"));
 
-  TestThrowsLike("No such HareScript resource whres::xml/xml.xs", PTR GetHarescriptResource("whres::xml/xml.xs"));
-  TestEq(5829, Length(GetHarescriptResource("whres::xml/xml.xsd")));
-  TestEq("E8E6289942E65F613753BDFAEF2FC8DC", EncodeBase16(GetHashForBlob(GetHarescriptResource("whres::xml/xml.xsd"),"MD5")));
+  TestThrowsLike("Failed to retrieve*", PTR GetHarescriptResource("mod::system/whres/xml/xml.xs"));
+  TestEq(5829, Length(GetHarescriptResource("mod::system/whres/xml/xml.xsd")));
+  TestEq("E8E6289942E65F613753BDFAEF2FC8DC", EncodeBase16(GetHashForBlob(GetHarescriptResource("mod::system/whres/xml/xml.xsd"),"MD5")));
 
   // Test node moving
   STRING whconstant_xmlns_screens := "http://www.webhare.net/xmlns/tollium/screens";

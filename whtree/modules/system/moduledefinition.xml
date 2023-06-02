@@ -2181,8 +2181,8 @@ The full base URL on which this site will be published, calculated by combining 
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/restapi" rootnodes="restapi" schemalocation="data/restapi.xsd" validator="lib/internal/remoting/restapisupport.whlib#RestAPIDefinitionFile" />
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/moduledefinition" rootnodes="module" schemalocation="data/moduledefinition.xsd" validator="lib/internal/validation/moduledefinition.whlib#ModuleDefinitionValidator" />
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/webhare/apconfig" rootnodes="apconfig" schemalocation="data/apconfig.xsd" />
-    <xmlfiletype namespaceuri="http://www.w3.org/2001/XMLSchema" rootnodes="schema" schemalocation="whres::xml/xmlschema.xsd" validator="lib/internal/validation/xsd.whlib#XSDValidator" />
-    <xmlfiletype namespaceuri="http://schemas.xmlsoap.org/wsdl/" rootnodes="definitions" schemalocation="whres::xml/wsdl.xsd" />
+    <xmlfiletype namespaceuri="http://www.w3.org/2001/XMLSchema" rootnodes="schema" schemalocation="mod::system/whres/xml/xmlschema.xsd" validator="lib/internal/validation/xsd.whlib#XSDValidator" />
+    <xmlfiletype namespaceuri="http://schemas.xmlsoap.org/wsdl/" rootnodes="definitions" schemalocation="mod::system/whres/xml/wsdl.xsd" />
     <xmlfiletype namespaceuri="" rootnodes="group"  validator="lib/internal/validation/xml.whlib#LegacyTestInfoValidator" />
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/testinfo" rootnodes="group" schemalocation="data/testinfo.xsd" validator="lib/internal/validation/xml.whlib#TestInfoValidator" />
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/dev/topic" rootnodes="topic" schemalocation="data/topic.xsd" validator="lib/internal/validation/xml.whlib#TopicValidator" />

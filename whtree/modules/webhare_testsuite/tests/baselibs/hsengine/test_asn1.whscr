@@ -113,8 +113,8 @@ STRING FUNCTION SkipComments(BLOB certblob)
 MACRO TestCertificateDecoding()
 {
   OBJECT parser := GetASN1Parser();
-  parser->ParseDocument(SkipComments(GetHarescriptResource("whres::asn1/x509.asn1")));
-  parser->ParseDocument(SkipComments(GetHarescriptResource("whres::asn1/certsupport.asn1")));
+  parser->ParseDocument(SkipComments(GetHarescriptResource("mod::system/whres/asn1/x509.asn1")));
+  parser->ParseDocument(SkipComments(GetHarescriptResource("mod::system/whres/asn1/certsupport.asn1")));
 
   OBJECT utcertroot := GetCertificateBERDecoder(OpenTestFile("asn1_cert-utwente.crt"));
 
@@ -249,8 +249,8 @@ MACRO TestCertificateEncoding()
       ];
 
   OBJECT parser := GetASN1Parser();
-  parser->ParseDocument(BlobToString(GetHarescriptResource("whres::asn1/x509.asn1"), -1));
-  parser->ParseDocument(BlobToString(GetHarescriptResource("whres::asn1/certsupport.asn1"), -1));
+  parser->ParseDocument(BlobToString(GetHarescriptResource("mod::system/whres/asn1/x509.asn1"), -1));
+  parser->ParseDocument(BlobToString(GetHarescriptResource("mod::system/whres/asn1/certsupport.asn1"), -1));
 
   OBJECT decoder := GetASN1BERDecoder(parser->GetDescription());
   decoder->permissive := TRUE;
@@ -294,7 +294,7 @@ MACRO TestChoiceInSequence()
 {
   // Problem was that CHOICE fields in a sequence had their tags overwritten, in this case
   // the [APPLICATION 19] tag of searchResRef was replaced by [APPLICATION 0] (bindRequest)
-  BLOB asn1_ldap := GetHarescriptResource("whres::asn1/ldap.asn1");
+  BLOB asn1_ldap := GetHarescriptResource("mod::system/whres/asn1/ldap.asn1");
   OBJECT asn1_parser := GetASN1Parser();
   asn1_parser->ParseDocument(BlobToString(asn1_ldap));
   OBJECT asn1_codec := GetASN1BERDecoder(asn1_parser->GetDescription());
@@ -320,7 +320,7 @@ MACRO TestChoiceInSequence()
 MACRO TestEnDecoding()
 {
   OBJECT parser := GetASN1Parser();
-  parser->ParseDocument(BlobToString(GetHarescriptResource("whres::asn1/x509.asn1"), -1));
+  parser->ParseDocument(BlobToString(GetHarescriptResource("mod::system/whres/asn1/x509.asn1"), -1));
 
   OBJECT asndescription := GetASN1BERDecoder(parser->GetDescription());
   asndescription->permissive := TRUE;

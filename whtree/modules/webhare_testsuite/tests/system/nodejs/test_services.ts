@@ -24,7 +24,6 @@ async function testResolve() {
   test.throws(/tries to escape/, () => services.resolveResource("mod::a/b/c/d", "../../../e"));
 
   test.eq(true, services.isAbsoluteResource("mod::publisher/designs/emptydesign/"));
-  // test.eq(true, services.isAbsoluteResource("whres::xml/xmlschema.xsd")); //TODO if we re-add support for whres::..
 
   test.eq("mod::publisher/designs/emptydesign/lib/emptydesign.whlib", services.resolveResource("mod::publisher/designs/emptydesign/", "lib/emptydesign.whlib"));
   test.eq("mod::publisher/designs/emptydesign/lib/", services.resolveResource("mod::publisher/designs/emptydesign/", "lib/"));
@@ -256,13 +255,6 @@ async function testResources() {
   /* TODO do we really want to support resource paths as input ?
   test.eq("mod::system/lib/tests/cluster.whlib", services.toResourcePath("mod::system/lib/tests/cluster.whlib"));
   test.eq("site::a/b/test.whscr", services.toResourcePath("site::a/b/test.whscr"));
-  */
-
-  /* TODO does JS have a wh:: / whres:: usecase ?
-  test.eq("wh::internal/formatter.whlib", services.toResourcePath(systempath || "whlibs/internal/formatter.whlib"));
-  test.eq("whres::asn1/ldap.asn1", services.toResourcePath(systempath || "whres/asn1/ldap.asn1"));
-  test.eq("whres::asn1/ldap.asn1", services.toResourcePath("mod::system/whres/asn1/ldap.asn1"));
-  test.eq("wh::asn1/ldap.asn1", services.toResourcePath("mod::system/whlibs/asn1/ldap.asn1"));
   */
 }
 

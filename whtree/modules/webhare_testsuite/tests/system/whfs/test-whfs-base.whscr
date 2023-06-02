@@ -80,7 +80,7 @@ MACRO SimpleTest()
   TestThrowsLike("*No such resource*", PTR GetHareScriptResource("filebyid::" || testfile->id));
 
   TestEq(45081, Length(subfolder2->Getresource("mod::system/web/tests/snowbeagle.jpg")));
-  TestEq(5829, Length(subfolder2->Getresource("whres::xml/xml.xsd")));
+  TestEq(5829, Length(subfolder2->Getresource("mod::system/whres/xml/xml.xsd")));
 
   //Upload an empty file with a .witty extension - now gets no filetype
   OBJECT wittyfile := firstfolder->CreateFile([name := "test.witty", data := DEFAULT BLOB]);

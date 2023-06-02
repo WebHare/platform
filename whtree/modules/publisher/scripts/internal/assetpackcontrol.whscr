@@ -59,7 +59,7 @@ STATIC OBJECTTYPE TimestampCache
   }
 >;
 
-/** Translates paths to mod::, wh::, whres:: paths
+/** Translates paths to mod::, wh:: paths
 */
 STATIC OBJECTTYPE FilePathTranslator
 <
@@ -98,11 +98,6 @@ STATIC OBJECTTYPE FilePathTranslator
           , path :=       MergePath(systemmodulepath, "whlibs") || "/"
           , assetpath :=  "wh::"
           , eventmask :=  "system:modulefolder.wh::"
-          ]
-        , [ module :=     "__whres"
-          , path :=       MergePath(systemmodulepath, "whres") || "/"
-          , assetpath :=  "whres::"
-          , eventmask :=  "system:modulefolder.whres::"
           ]
         , [ module :=     "__installed-nodejs"
           , path :=       installed_nodejs

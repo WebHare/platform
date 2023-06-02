@@ -13,6 +13,7 @@
 #include "hsvm_marshalling.h"
 #include "hsvm_events.h"
 
+#include "outputobject.h"
 #include "hsvm_idmapstorage.h"
 #include "hsvm_dllinterface.h"
 #include "bufferedpipes.h"

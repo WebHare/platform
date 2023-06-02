@@ -26,8 +26,8 @@ else
 	HIDE=@
 endif
 
-# Setup vendored libxml2 compilation
-CPPFLAGS += -I$(SRCDIR)/vendor/libxml2/include
+# Setup vendored libxml2 compilation. We add the builddir includes for generated config.h and xmlversion.h
+CPPFLAGS += -I$(WHBUILD_BUILDDIR)/vendor/libxml2 -I$(WHBUILD_BUILDDIR)/vendor/libxml2/include -I$(SRCDIR)/vendor/libxml2/include/
 
 ifeq ($(WHBUILD_PLATFORM),darwin)
 	BUILDSYSTEM ?= llvm
@@ -272,7 +272,7 @@ ifneq ($(BUILDSYSTEM),emscripten)
 	WHAP_SUBPROJECTS+=drawlib parsers
 endif
 
-SUBPROJECTS=blex $(sort $(HSENGINE_SUBPROJECTS) $(WHAP_SUBPROJECTS))
+SUBPROJECTS=$(sort $(HSENGINE_SUBPROJECTS) $(WHAP_SUBPROJECTS))
 GetSrcFiles=$(subst $(SRCDIR)/,,$(wildcard $(SRCDIR)/$1))
 Src2ObjFiles=$(addprefix ,$(subst .cpp,.o,$1))
 GetObjFiles=$(call Src2ObjFiles,$(call GetSrcFiles,$1))
@@ -341,7 +341,7 @@ HS_SUBPROJECTS = compiler vm
 
 ifneq ($(BUILDSYSTEM),emscripten)
   # Not bothering with dynamic loading in emcripten. Might be a good reason to just explicitly include the witty module in core?
-  HS_HS_MODULES = icu selfcompile git pgsql
+  HS_HS_MODULES = selfcompile git pgsql
 endif
 
 HS_LIBS=blex_hscompiler blex_hsvm $(BLEX_LIBS)
@@ -488,15 +488,16 @@ all: $(addsuffix -all,$(SUBPROJECTS))
 ## Setup libxml2 dependencies
 ##
 
+LIBXML2_GENERATED_CONFIG=vendor/libxml2/config.h
+
 $(SRCDIR)/vendor/libxml2/autogen.sh:
 	git -C $(SRCDIR) submodule update --init --recursive
 
-vendor/libxml2/config.h: $(SRCDIR)/vendor/setup-libxml2.sh $(SRCDIR)/vendor/libxml2/autogen.sh
+$(LIBXML2_GENERATED_CONFIG): $(SRCDIR)/vendor/setup-libxml2.sh $(SRCDIR)/vendor/libxml2/autogen.sh
 	${HIDE}$(SRCDIR)/vendor/setup-libxml2.sh
 
-blex/xml.o harescript/vm/xml_cssengine.o harescript/vm/xml_domobjects.o harescript/vm/xml_provider.o: vendor/libxml2/config.h
-$(LIBBLEX_LIBXML2_OBJS): vendor/libxml2/config.h
-
+blex/xml.o harescript/vm/xml_cssengine.o harescript/vm/xml_domobjects.o harescript/vm/xml_provider.o: $(LIBXML2_GENERATED_CONFIG)
+$(LIBBLEX_LIBXML2_OBJS): $(LIBXML2_GENERATED_CONFIG)
 
 #################################################
 ##
@@ -648,7 +649,7 @@ harescript_HsMod_AddLibs = $(HS_LIBS)
 $(foreach mod,$(HS_HS_MODULES),$(eval $(call HsModTarget,$(mod),wh_,harescript)))
 
 clean-icu-provider:
-	rm harescript/modules/icu/icu_provider.o
+	rm harescript/vm/icu_provider.o
 
 #
 # DRAWLIB
@@ -801,10 +802,10 @@ ALL_INSTALLABLES_CLEAN = $(HSENGINE_INSTALLABLES_DEBUG) $(WHAP_INSTALLABLES_DEBU
 
 # Rule to generate dependencies for object files
 ifneq ($(WHBUILD_NODEPS),1)
-  $(subst .o,.d,$(ALLOBJS)): %.d: %.cpp | dirs
+  $(subst .o,.d,$(ALLOBJS)): %.d: %.cpp $(LIBXML2_GENERATED_CONFIG) | dirs
 		$(call GenerateDeps,$<,$@,)
 
-  $(subst .gch,.d,$(ALLPCHS)) : gch/%.d : % | dirs
+  $(subst .gch,.d,$(ALLPCHS)): gch/%.d : % $(LIBXML2_GENERATED_CONFIG) | dirs
 		$(call GeneratePCHDeps,$<,$@,)
 endif
 
@@ -890,7 +891,7 @@ ifeq ($(WHBUILD_PLATFORM),darwin)
 # Unfortunately this does generate some harmless linker warnings 'ld: warning: ignoring file .../INSTALL_RECEIPT.json, ... unknown-unsupported file format'
 
 harescript/modules/git/git.o: $(BREWPREFIX)/lib/libgit2.dylib
-$(blex_DEPLOYABLES_HSENGINE) blex/tests/dynamic$(DLL_SUFFIX) harescript/modules/icu/icu_provider.o: $(BREWPREFIX)/opt/icu4c/INSTALL_RECEIPT.json
+$(blex_DEPLOYABLES_HSENGINE) blex/tests/dynamic$(DLL_SUFFIX) harescript/vm/icu_provider.o: $(BREWPREFIX)/opt/icu4c/INSTALL_RECEIPT.json
 $(blex_DEPLOYABLES_HSENGINE) harescript/vm/bl_crypto.o: $(BREWPREFIX)/opt/openssl/INSTALL_RECEIPT.json
 
 endif # end darwin check

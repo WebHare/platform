@@ -1,4 +1,4 @@
-#if !defined(blex_socket) && !defined(__EMSCRIPTEN__)
+#ifndef blex_socket
 #define blex_socket
 
 #ifndef blex_stream
@@ -175,6 +175,7 @@ struct BLEXLIB_PUBLIC SocketAddress
     //    uint16_t port;
 };
 
+#ifndef __EMSCRIPTEN__
 
 /** BSD-style wrapper around the system's TCP/IP interface.
     ADDME: The underlying TCP/IP interface is generally thread-safe, even when
@@ -511,6 +512,7 @@ BLEXLIB_PUBLIC std::ostream& operator <<(std::ostream &str,SocketAddress const &
 ///Parse an IPv4 address. Returns Blex::NoIPAddress if the parsing fails
 //IPAddress IPAddressFromString(std::string const &ip_addr);
 
+#endif // __EMSCRIPTEN__
 
 } //end of namespace Blex
 
