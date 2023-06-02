@@ -35,7 +35,7 @@ MACRO WaitForMultipleTest()
 
 MACRO ProcessTest()
 {
-  STRING whroot := GetEnvironmentVariable("WEBHARE_DIR");;
+  STRING whroot := GetEnvironmentVariable("WEBHARE_DIR");
   IF(whroot = "")
     THROW NEW Exception(`Tests require WEBHARE_DIR to be set (wh runtest would...)`);
 
