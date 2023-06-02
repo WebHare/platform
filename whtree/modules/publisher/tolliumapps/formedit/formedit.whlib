@@ -581,7 +581,8 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
   {
     RECORD formsettings := this->contexts->editdocumentapi->GetInstanceData("http://www.webhare.net/xmlns/publisher/formwebtool");
     INTEGER storedays := GetFormResultsExpirationDaysByInstance(this->contexts->applytester, formsettings).storeresults;
-    this->frame->flags.canviewresults := storedays > 0;
+    //We also want to hide results to users with only view rights... admins don't expect for 'read only' rights to give access to form results
+    this->frame->flags.canviewresults := storedays > 0 AND this->frame->flags.canedit;
 
     ^showresultsbutton->visible := this->frame->flags.canviewresults;
     ^resultsbuttons->visible := this->frame->flags.canviewresults;
