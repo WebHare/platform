@@ -601,7 +601,8 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
     IF (NOT CellExists(outputcolumns, syncattr))
       THROW NEW Exception("Domain values sync attribute '"||syncattr||"' is not valid for type '"||r.left.tag||"'");
 
-    RECORD ARRAY all_local_domvals := local_type->RunQuery([ outputcolumns := outputcolumns ]);
+    //TODO a hack to restore closed WRD_SETTINGS, but instead of generalizing this consider switching to a syntax more like EnsureEntity calls?
+    RECORD ARRAY all_local_domvals := local_type->RunQuery([ outputcolumns := outputcolumns, historymode := r.left.tag = "WRD_SETTINGS" ? "all" : "now" ]);
 
     VARIANT ARRAY allsyncattrvalues := GetSyncAttrValuesrecursive(r.right.vals, syncattr);
     VARIANT ARRAY doubles :=

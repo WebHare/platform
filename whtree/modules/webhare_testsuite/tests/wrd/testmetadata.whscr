@@ -222,6 +222,21 @@ MACRO ApplyDomMetadata(RECORD ARRAY vals)
   TestEq("RECORD", wrdschema->^domain->GetAttribute("MYRECORD").attributetypename);
 }
 
+MACRO VerifyWRDSettingsRecovery()
+{
+  OBJECT wrdschema := testfw->GetWRDSchema();
+  INTEGER settings := wrdschema->^wrd_settings->Search("WRD_TAG", "WRD_SETTINGS");
+  TestAssert(settings != 0);
+
+  testfw->BeginWork();
+  UPDATE wrd.entities SET limitdate := GetCurrentDatetime() WHERE id = settings; //lowlevel change as the API won't allow this
+  TestEq(0, wrdschema->^wrd_settings->Search("WRD_TAG", "WRD_SETTINGS"));
+  wrdschema->ApplySchemaDefinition();
+  testfw->CommitWork();
+
+  TestEq(settings, wrdschema->^wrd_settings->Search("WRD_TAG", "WRD_SETTINGS"));
+}
+
 STRING attrwitty :=
     '<?xml version="1.0" encoding="UTF-8"?>\n' ||
     '    <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">\n' ||
@@ -772,6 +787,7 @@ RunTestFramework([ PTR CreateWRDTestSchema
                  , PTR TestMerge
                  , PTR TestConversion
                  , PTR ExportXMLMetadata
+                 , PTR VerifyWRDSettingsRecovery
                  ], [ wrdauth := FALSE
                     , schemaresource := Resolve("data/testconversion-0.wrdschema.xml")
                     ]);

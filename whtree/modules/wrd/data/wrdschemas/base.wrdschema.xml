@@ -38,10 +38,11 @@
         <json tag="private_key" required="true" />
       </array>
     </attributes>
-    <values matchattribute="wrd_tag" overwriteattributes="wrd_guid">
+    <values matchattribute="wrd_tag" overwriteattributes="wrd_guid wrd_limitdate">
       <value>
         <field tag="wrd_guid">wrd:0700400000004000A00000BEA61EF00D</field>
         <field tag="wrd_tag">WRD_SETTINGS</field>
+        <field tag="wrd_limitdate">MAX_DATETIME</field>
       </value>
     </values>
   </object>
