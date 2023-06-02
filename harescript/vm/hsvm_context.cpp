@@ -1953,6 +1953,8 @@ void VirtualMachine::PrepareCallInternal(LinkedLibrary::ResolvedFunctionDefList:
                                 //stackmachine.PopVariablesN(stackmachine.StackPointer() - retvalptr - 1);
                         }
                         break;
+                case BuiltinFunctionDefinition::NotFound:
+                        throw VMRuntimeError(Error::InternalError, "External function " + resolvedfunc.def->builtindef->name + " has not been registered");
                 }
                 /* Make sure the Run() loop calls popframe immediately after returning,
                    so all different frame types can be handled in one location

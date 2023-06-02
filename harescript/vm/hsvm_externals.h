@@ -2,6 +2,7 @@
 #define blex_webhare_harescript_hsvm_externals
 
 #include <blex/context.h>
+#include "errors.h"
 #include "hsvm_constants.h"
 #include "hsvm_columnnamemapper.h"
 #include "hsvm_dllinterface.h"
@@ -30,7 +31,8 @@ struct BuiltinFunctionDefinition
         Macro,
         Function,
         CMacro,
-        CFunction
+        CFunction,
+        NotFound
         } type;
 
         /// function that must be called when this function is called from the VM
@@ -50,6 +52,7 @@ struct BuiltinFunctionDefinition
         BuiltinFunctionDefinition(std::string const &name, BuiltinFunctionPtr ptr) : name(name), type(Function), function(ptr) {}
         BuiltinFunctionDefinition(std::string const &name, HSVM_MacroPtr ptr, char) : name(name), type(CMacro), macro_c(ptr) {}
         BuiltinFunctionDefinition(std::string const &name, HSVM_FunctionPtr ptr, char) : name(name), type(CFunction), function_c(ptr) {}
+        BuiltinFunctionDefinition(std::string const &name) : name(name), type(NotFound) {}
 };
 
 /** This class keeps all registred builtin functions.
@@ -74,7 +77,7 @@ class BLEXLIB_PUBLIC BuiltinFunctionsRegistrator
 
         /** Returns pointer to builtin function with given definition
             @param funcname Function name */
-        BuiltinFunctionDefinition const * GetBuiltinFunction(std::string const &funcname) const;
+        BuiltinFunctionDefinition const * GetBuiltinFunction(std::string const &funcname);
 };
 
 /** Manages loaded modules. Because registrations are permanent, and modules
