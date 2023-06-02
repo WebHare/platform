@@ -244,10 +244,6 @@ int UTF8Main(std::vector<std::string> const &args)
                 bool allow_direct_compilations = Blex::GetEnvironVariable("WEBHARE_NOMANUALCOMPILE") != "1";
                 scriptenv.reset(new WHCore::ScriptEnvironment(*connection, pri, allow_direct_compilations, true));
 
-                bool nohsmodunload = Blex::GetEnvironVariable("WEBHARE_NOHSMODUNLOAD") == "1";
-                if (nohsmodunload)
-                    scriptenv->GetEnvironment().NoHSModUnload();
-
                 jobmgr.reset(new HareScript::JobManager(scriptenv->GetEnvironment()));
                 jobmgr->Start(worker_count, 0); // Start with 2 worker threads
 

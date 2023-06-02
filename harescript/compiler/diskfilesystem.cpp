@@ -1,7 +1,6 @@
 #include <harescript/compiler/allincludes.h>
 
 #include "diskfilesystem.h"
-#include <blex/xml.h>
 #include <blex/threads.h>
 
 namespace HareScript
@@ -19,21 +18,6 @@ struct DiskFileSystem::Data
 };
 
 
-std::string ParseConfigPath(std::string const &configfilepath, std::string const &inpath, bool expectdir)
-{
-        std::string path = inpath;
-        if(path.empty())
-            return path;
-
-        if(!Blex::PathIsAbsolute(path))
-            path = Blex::MergePath(Blex::GetDirectoryFromPath(configfilepath), path);
-
-        if(expectdir && !path.empty() && path.end()[-1]!='/')
-            path.push_back('/');
-
-        return path;
-}
-
 //used only for tests now:
 DiskFileSystem::DiskFileSystem(std::string const &_compilecache,std::string const &_tempdir, std::string const &_precompilecache, std::string const &_hsresdir)
 : FileSystem(_tempdir, _hsresdir)
@@ -43,97 +27,6 @@ DiskFileSystem::DiskFileSystem(std::string const &_compilecache,std::string cons
 , compile_engine(*this, "")
 , control(compile_engine, *this)
 {
-        Blex::CreateDirRecursive(compilecache,true);
-}
-
-DiskFileSystem::DiskFileSystem(Blex::OptionParser const &options)
-: FileSystem(Blex::GetSystemTempDir(), "")
-, lockwaitsecs(60)
-, compile_engine(*this, "")
-, control(compile_engine, *this)
-{
-        if(options.Exists("p"))
-        {
-                precompilecache = options.StringOpt("p");
-                precompilecache = Blex::FixupToAbsolutePath(precompilecache);
-        }
-
-        std::string configfilepath = options.StringOpt("config");
-        if(configfilepath.empty())
-            configfilepath = Blex::GetEnvironVariable("HSENGINE_CONFIG");
-
-        if(configfilepath.empty())
-        {
-                std::string exename = Blex::GetExecutablePath();
-                if(!exename.empty())
-                    configfilepath = Blex::MergePath(Blex::GetDirectoryFromPath(exename) + "/../etc","hsengine.xml");
-        }
-
-        if(!configfilepath.empty() && Blex::PathStatus(configfilepath).IsFile())
-        {
-                //Get settings from this XML file
-                Blex::XML::Document config;
-                if(!config.ReadFromFile(configfilepath))
-                    throw std::runtime_error("Cannot read the hsengine configuration file " + configfilepath);
-
-                static const Blex::XML::Namespace hsengine("hsengine", "http://www.webhare.net/xmlns/harescript/hsengine");
-                Blex::XML::Node docelement = config.GetRoot();
-                if(!docelement || !docelement.IsInNamespace(hsengine) || !docelement.LocalNameIs("hsengine") || docelement.GetAttr(0, "version")!="1")
-                    throw std::runtime_error("Unrecognized hsengine configuration file " + configfilepath);
-
-                for(Blex::XML::Node confignode = docelement.GetFirstChild(); confignode; confignode = confignode.GetNextSibling())
-                {
-                        if(confignode.LocalNameIs("namespace"))
-                        {
-                                std::string prefix = confignode.GetAttr(0,"name");
-                                std::string path = ParseConfigPath(configfilepath, confignode.GetAttr(0,"path"), true);
-                                SetupNamespace(prefix,path);
-                        }
-                        else if(confignode.LocalNameIs("resources"))
-                        {
-                                whresdir = ParseConfigPath(configfilepath, confignode.GetAttr(0,"path"), true);
-                        }
-                        else if(confignode.LocalNameIs("compilecache"))
-                        {
-                                compilecache = ParseConfigPath(configfilepath, confignode.GetAttr(0,"path"), true);
-                        }
-                        else if(confignode.LocalNameIs("dynamiclibrarydir"))
-                        {
-                                SetupDynamicModulePath(ParseConfigPath(configfilepath, confignode.GetAttr(0,"path"), true));
-                        }
-                }
-        }
-
-        if(options.Exists("c"))
-            compilecache = Blex::FixupToAbsolutePath(options.StringOpt("c"));
-        if(options.Exists("d"))
-            SetupDynamicModulePath(Blex::FixupToAbsolutePath(options.StringOpt("d")));
-
-        if(compilecache.empty()) //FIXME Use safe compile cache dir (eg /tmp is unsafe because of shares!)
-        {
-                std::string home = Blex::GetEnvironVariable("HOME");
-                if (home.empty())
-                    compilecache = Blex::MergePath(Blex::GetSystemTempDir(), "hsengine-compilecache");
-                else
-                    compilecache = Blex::MergePath(home, ".hsengine/compilecache");
-        }
-
-        if(compilecache.empty())
-           throw std::runtime_error("Compile cache unspecified");
-
-        std::vector<std::string> const &namespaces = options.StringList("n");
-        for (unsigned i=0;i<namespaces.size();++i)
-        {
-                std::string::const_iterator separator = std::find(namespaces[i].begin(),namespaces[i].end(),'=');
-                if (separator == namespaces[i].end())
-                    throw std::runtime_error("Invalid namespace specification: " + namespaces[i]);
-
-                std::string prefix(namespaces[i].begin(),separator);
-                std::string path(separator+1,namespaces[i].end());
-
-                SetupNamespace(prefix,Blex::FixupToAbsolutePath(path));
-        }
-
         Blex::CreateDirRecursive(compilecache,true);
 }
 

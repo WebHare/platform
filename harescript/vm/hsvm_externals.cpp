@@ -39,8 +39,7 @@ DynamicLinkManager::~DynamicLinkManager()
         LockedManagerList::WriteRef(managerlist)->managers.erase(this);
 
         LockedState::WriteRef lock(state);
-        if(!lock->no_hsmod_unload)
-          for (DataMap::iterator it = lock->data.begin(); it != lock->data.end(); ++it)
+        for (DataMap::iterator it = lock->data.begin(); it != lock->data.end(); ++it)
             Blex::ReleaseDynamicLib(it->second);
 }
 
@@ -142,7 +141,13 @@ std::pair<void*,Error::Codes> DynamicLinkManager::LoadHarescriptModule(std::stri
 
         std::string path = filesystem.GetDynamicModuleFullPath(name);
         if (!Blex::PathStatus(path).Exists())
-            return std::make_pair((void*)0, Error::CantFindModule);
+        {
+#ifndef __EMSCRIPTEN__
+                return std::make_pair((void*)0, Error::CantFindModule);
+#else
+                return std::make_pair(nullptr, (Error::Codes)0);
+#endif
+        }
 
         void *lib = Blex::LoadDynamicLib(path, error);
         if (!lib) //dependent DLL load failure ?
@@ -181,14 +186,9 @@ void DynamicLinkManager::AddReferences(std::vector<std::string> const &requested
         {
                 std::string error;
                 std::pair<void*,Error::Codes> retval = LoadHarescriptModule(*it, &error);
-                if (!retval.first) //load failure
+                if (!retval.first && retval.second) //load failure
                     throw VMRuntimeError(retval.second, *it, error);
         }
-}
-
-void DynamicLinkManager::NoHSModUnload()
-{
-        LockedState::WriteRef (state)->no_hsmod_unload=true;
 }
 
 // -----------------------------------------------------------------------------
@@ -218,14 +218,21 @@ void BuiltinFunctionsRegistrator::RegisterBuiltinFunction(const BuiltinFunctionD
         ref->insert(std::make_pair(name, definition));
 }
 
-BuiltinFunctionDefinition const * BuiltinFunctionsRegistrator::GetBuiltinFunction(std::string const &name) const
+BuiltinFunctionDefinition const * BuiltinFunctionsRegistrator::GetBuiltinFunction(std::string const &name)
 {
-        LockedData::ReadRef ref(lockeddata);
+        LockedData::WriteRef ref(lockeddata);
 
         //ADDME: MapVectors supporting direct StringPair compare might be faster?
         BuiltinFunctions::const_iterator it = ref->find(name);
         if (it == ref->end())
-            throw VMRuntimeError (Error::BuiltinSymbolNotFound, name, std::string());
+        {
+#ifndef __EMSCRIPTEN__
+                throw VMRuntimeError (Error::BuiltinSymbolNotFound, name, std::string());
+#else
+        BuiltinFunctionDefinition def(name);
+        it = ref->insert(std::make_pair(name, BuiltinFunctionDefinition(name))).first;
+#endif
+        }
 
         return &it->second;
 }
@@ -242,8 +249,9 @@ Externals::Externals(FileSystem &filesystem)
         linkmanager.InvokeModuleRegistration(&BaselibsEntryPoint, (void*)0);
         linkmanager.InvokeModuleRegistration(&XMLEntryPoint, (void*)0);
         linkmanager.InvokeModuleRegistration(&WittyEntryPoint, (void*)0);
-
+#ifndef __EMSCRIPTEN__
         linkmanager.InvokeModuleRegistration(&ICUEntryPoint, (void*)0);
+#endif // __EMSCRIPTEN__
 
         //ADDME: We might want to separate this code from the function registrator,
         //       but then we should first create a better Facade around the

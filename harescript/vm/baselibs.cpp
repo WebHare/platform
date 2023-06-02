@@ -8,7 +8,6 @@
 #include "hsvm_context.h"
 #include "hsvm_dllinterface.h"
 #include "hsvm_dllinterface_blex.h"
-#include "hsvm_processmgr.h"
 #include "mangling.h"
 #include <blex/mime.h>
 #include "hsvm_debug.h"
@@ -3060,6 +3059,7 @@ void RegisterDeprecatedBaseLibs(BuiltinFunctionsRegistrator &bifreg, Blex::Conte
         InitLibdumper(bifreg);
         InitProcess(bifreg);
         InitTCPIP(bifreg);
+        InitJobManager(creg, bifreg);
         InitIPC(creg, bifreg);
         InitJSON(creg, bifreg);
         InitRegex(creg, bifreg);

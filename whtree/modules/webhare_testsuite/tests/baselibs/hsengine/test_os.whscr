@@ -35,27 +35,12 @@ MACRO WaitForMultipleTest()
 
 MACRO ProcessTest()
 {
-  STRING executable := GetEnvironmentVariable("WEBHARE_HS_TEST_EXECUTABLE");
-  STRING ARRAY extraparams;
+  STRING whroot := GetEnvironmentVariable("WEBHARE_DIR");
+  IF(whroot = "")
+    THROW NEW Exception(`Tests require WEBHARE_DIR to be set (wh runtest would...)`);
 
-  IF(executable="")
-  {
-    STRING whroot := GetEnvironmentVariable("WEBHARE_DIR") ?? GetEnvironmentVariable("WHTREE");
-    IF(whroot != "")
-    {
-      executable := MergePath(whroot, "bin/wh");
-      extraparams := ["run"];
-    }
-  }
-  ELSE
-  {
-    STRING config := GetEnvironmentVariable("WEBHARE_HS_TEST_CONFIG");
-    IF (config = "")
-      THROW NEW Exception("WEBHARE_HS_TEST_CONFIG must be set for this test, and point to the hsrun configuration");
-    extraparams := ["--config",config];
-  }
-  IF (executable = "")
-    THROW NEW Exception("WEBHARE_HS_TEST_EXECUTABLE must be set for this test, and point to the hsrun executable");
+  STRING executable := MergePath(whroot, "bin/wh");
+  STRING ARRAY extraparams := ["run"];
 
   OBJECT process := CreateProcess(executable, extraparams CONCAT [ "test::testdata_os_a.whscr", "0", "1", "2" ], TRUE, TRUE, TRUE, FALSE);
   process->Start();

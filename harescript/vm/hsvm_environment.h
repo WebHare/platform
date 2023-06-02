@@ -451,8 +451,6 @@ class BLEXLIB_PUBLIC Environment
         */
         void BroadcastMessageLocally(std::string const &eventname, uint8_t const *data, size_t datalen);
 
-        void NoHSModUnload();
-
         bool AllowStdStreamSharing() const
         {
                 return allow_std_sharing;

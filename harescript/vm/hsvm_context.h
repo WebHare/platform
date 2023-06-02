@@ -12,7 +12,7 @@
 #include "hsvm_sqllib.h"
 #include "hsvm_environment.h"
 #include "hsvm_idmapstorage.h"
-#include "hsvm_processmgr.h"
+#include "groupdata.h"
 #include "hsvm_functioncalltree.h"
 #include <blex/utils.h>
 #include <unordered_map>
@@ -1113,6 +1113,9 @@ struct VirtualMachine::AsyncCallContext
         /// Reference to keep previous segment alive
         std::shared_ptr< AsyncStackTrace > prev_segment;
 };
+
+void BLEXLIB_PUBLIC GetVMStackTrace(VirtualMachine *vm, HSVM_VariableId var_stacktrace, VirtualMachine *testvm, bool full);
+void BLEXLIB_PUBLIC GetVMStackTraceFromElements(VirtualMachine *vm, HSVM_VariableId var_stacktrace, std::vector< StackTraceElement > const &elements, bool full);
 
 } // End of namespace HareScript
 

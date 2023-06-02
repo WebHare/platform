@@ -248,10 +248,6 @@ std::pair<Library *, bool> Environment::GetUptodateRef(Blex::ContextKeeper &keep
 
 void Environment::LoadLibraryData(Blex::ContextKeeper &/*keeper*/, Library *lib, FileSystem::FilePtr const &file)
 {
-//        FileSystem::File *file = filesystem.OpenLibrary(keeper, lib->liburi);
-//        if (!file)
-//            throw VMRuntimeError(Error::CannotFindCompiledLibrary, lib->GetLibURI());
-
         // Load the stream with the source
         std::unique_ptr< Blex::RandomStream > indata;
         file->GetClibData(&indata, &lib->clibtime);
@@ -584,6 +580,13 @@ void Environment::LinkLibrary(Library *lib)
         }
 }
 
+bool TimeStampsRoughlyEqual(Blex::DateTime left, Blex::DateTime right)
+{
+        uint64_t left_msecs = left.GetDays() * 86400000 + left.GetMsecs();
+        uint64_t right_msecs = right.GetDays() * 86400000 + right.GetMsecs();
+        return left_msecs == right_msecs || left_msecs + 1 == right_msecs || left_msecs == right_msecs + 1;
+}
+
 Library::Library(const std::string &_liburi)
 : cm_isloaded(false)
 , cm_refcount(0)
@@ -623,7 +626,7 @@ bool Library::IsLocalUpTodate(FileSystem &filesystem, Blex::ContextKeeper &keepe
                 sourcetime = file->GetSourceModTime();
                 currentclibpath = file->GetClibPath();
 
-                if (wrappedlibrary.resident.sourcetime != sourcetime || clibpath != currentclibpath)
+                if (!TimeStampsRoughlyEqual(wrappedlibrary.resident.sourcetime, sourcetime) || clibpath != currentclibpath)
                     return false;
         }
 
@@ -866,11 +869,6 @@ void Environment::OnNewVM(HSVM *vm)
 {
         for (std::vector< std::function< void(HSVM *) > >::iterator it = creation_handlers.begin(); it != creation_handlers.end(); ++it)
             (*it)(vm);
-}
-
-void Environment::NoHSModUnload()
-{
-        externals.linkmanager.NoHSModUnload();
 }
 
 void Environment::RegisterDebugStatFunction(std::string const &name, std::function< void(HSVM *, HSVM_VariableId) > const &func, std::function< void(HSVM *vm, std::vector< std::string > const &tags) > const &setdebugtags)
