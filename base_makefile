@@ -307,13 +307,13 @@ ALLDIRS=$(ALLBUILDDIRS) $(ALLINSTALLDIRS)
 ##
 
 # BLEX
-LIBBLEX_SOURCEFILES=api bitmanip context crc crypt_blowfish crypto crypto_sha1 datetime decimalfloat docfile getopt lexer logfile mime mmapfile notificationevents path podvector stem_UTF_8_danish stem_UTF_8_english stem_UTF_8_french stem_UTF_8_german stem_UTF_8_italian stem_UTF_8_kraaijpohlmann stem_UTF_8_portuguese stem_UTF_8_spanish stemmer stream stringmanip testing threads tokenstream unicode utilities utils xml
+LIBBLEX_SOURCEFILES=api bitmanip context crc crypt_blowfish crypto crypto_sha1 datetime decimalfloat docfile getopt lexer logfile mime notificationevents path podvector stem_UTF_8_danish stem_UTF_8_english stem_UTF_8_french stem_UTF_8_german stem_UTF_8_italian stem_UTF_8_kraaijpohlmann stem_UTF_8_portuguese stem_UTF_8_spanish stemmer stream stringmanip testing threads tokenstream unicode utilities utils xml
 LIBBLEX_TESTFILES=testbitmanip testcontext testcrypto testdocfile testgetopt testio testmime testnet testpath teststring testtypes testutils
 
 
 ifneq ($(BUILDSYSTEM),emscripten)
 
-LIBBLEX_SOURCEFILES+=binarylogfile btree_blocks btree_filesystem complexfs dispat dispat_impl socket zstream
+LIBBLEX_SOURCEFILES+=binarylogfile btree_blocks btree_filesystem complexfs dispat dispat_impl socket zstream mmapfile
 LIBBLEX_TESTFILES+=test_btree_blocks test_btree_filesystem testdynamic test_index_stress testbinarylogfile testcomplexfs testthreads indexdumping
 
 # with emscriptem we shouln't refer to dynamic libraries at all
