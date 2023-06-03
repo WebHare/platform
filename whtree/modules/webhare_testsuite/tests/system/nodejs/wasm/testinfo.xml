@@ -3,4 +3,5 @@
   <!-- TODO: Learn testrunner to launch tests under WASM. But even then we'll still also want to verify the command line version
   <test script="test_wasm_basics.whscr" engine="wasm" />
   -->
+  <test script="test_wasm_vmcalls.ts" />
 </group>

@@ -19,6 +19,9 @@ function getPrefix(uri: string): AllowedPrefixes {
   return prefix;
 }
 
+const dispatchlibrary = "mod::system/js/internal/wasm/dispatch.whlib";
+const dispatchname = "DISPATCH";
+
 type MessageList = Array<{
   iserror: boolean;
   iswarning: boolean;
@@ -81,6 +84,8 @@ class HarescriptVM {
   module: Module;
   hsvm: HSVM;
   errorlist: HSVM_VariableId;
+  dispatchfptr: HSVM_VariableId;
+  havedispatchfptr = false;
   columnnamebuf: StringPtr;
   /// 8-bute array for 2 ptrs for getstring
   stringptrs: Ptr;
@@ -88,6 +93,7 @@ class HarescriptVM {
   constructor(module: Module, hsvm: HSVM) {
     this.module = module;
     this.hsvm = hsvm;
+    this.dispatchfptr = module._HSVM_AllocateVariable(hsvm);
     this.errorlist = module._HSVM_AllocateVariable(hsvm);
     this.columnnamebuf = module._malloc(65);
     this.stringptrs = module._malloc(8); // 2 string pointers
@@ -183,10 +189,100 @@ class HarescriptVM {
       throw new Error(`Error executing script`);
   }
 
+  async makeFunctionPtr(fptr: HSVM_VariableId, lib: string, name: string): Promise<boolean> {
+    const lib_str = this.module.stringToNewUTF8(lib);
+    const name_str = this.module.stringToNewUTF8(name);
+    try {
+      const maxTries = 5;
+      for (let tryCounter = 0; tryCounter < maxTries; ++tryCounter) {
+        this.module._HSVM_SetDefault(this.hsvm, this.errorlist, VariableType.RecordArray as HSVM_VariableType);
+        const fptrresult = this.module._HSVM_MakeFunctionPtrAutoDetect(this.hsvm, fptr, lib_str, name_str, this.errorlist);
+        switch (fptrresult) {
+          case 0:
+          case -2: {
+            let parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
+            if (parsederrors.length === 0) { //runtime errors are in the VM's mesage list
+              this.module._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
+              parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
+            }
+            if (tryCounter < maxTries - 1 && parsederrors.length === 1 && [2, 139, 157].includes(parsederrors[0].code)) {
+              const recompileres = await recompileHarescriptLibrary(this.module, lib);
+              if (recompileres.length)
+                throw new Error(`Error during compilation of ${lib}: ` + recompileres[0].message);
+            } else {
+              throw new Error(`Error loading library ${lib}: ${parsederrors[0].message || "Unknown error"}`);
+            }
+          } break;
+          case -1: throw new Error(`No such function ${lib}#${name}`);
+          case 1: return true;
+        }
+      }
+
+      // Should be unreachable, in last tries the returned error is thrown
+      throw new Error(`Could not compile library after ${maxTries} tries`);
+    } finally {
+      this.module._free(lib_str);
+      this.module._free(name_str);
+    }
+  }
+
   async run(library: string): Promise<void> {
     await this.loadScript(library);
     await this.executeScript();
     return;
+  }
+
+  async call(functionref: string, ...params: IPCMarshallableData[]): Promise<IPCMarshallableData> {
+    const parts = functionref.split("#");
+    if (parts.length !== 2)
+      throw new Error(`Illegal function reference ${JSON.stringify(functionref)}`);
+
+    const marshaldata = {
+      functionref,
+      params
+    };
+
+    if (!this.havedispatchfptr) {
+      await this.makeFunctionPtr(this.dispatchfptr, dispatchlibrary, dispatchname);
+      this.havedispatchfptr = true;
+    }
+
+    const callfuncptr = this.module._HSVM_AllocateVariable(this.hsvm);
+    try {
+      await this.makeFunctionPtr(callfuncptr, parts[0], parts[1]);
+
+      // console.log(`clear errorlist`);
+      this.module._HSVM_SetDefault(this.hsvm, this.errorlist, VariableType.RecordArray as HSVM_VariableType);
+
+      const hson = encodeHSON(marshaldata);
+      const len = this.module.lengthBytesUTF8(hson);
+      const hsondata = this.module._malloc(len + 1);
+      this.module.stringToUTF8(hson, hsondata, len + 1);
+
+      // console.log(`open call`);
+      this.module._HSVM_OpenFunctionCall(this.hsvm, 2);
+      this.module._HSVM_CopyFrom(this.hsvm, this.module._HSVM_CallParam(this.hsvm, 0), callfuncptr);
+      this.module._HSVM_StringSet(this.hsvm, this.module._HSVM_CallParam(this.hsvm, 1), hsondata, hsondata + len);
+      this.module._free(hsondata);
+      // console.log(`call functionptr`, this.dispatchfptr, VariableType[this.module._HSVM_GetType(this.hsvm, this.dispatchfptr)]);
+      // console.log(`call functionptr`, this.module._HSVM_GetType(this.hsvm, this.dispatchfptr));
+      const retvalid = this.module._HSVM_CallFunctionPtr(this.hsvm, this.dispatchfptr, 0);
+      // console.log({ retvalid });
+      if (!retvalid) {
+        this.module._HSVM_CloseFunctionCall(this.hsvm);
+        this.module._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
+        const parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
+        throw new Error(parsederrors[0].message ?? "Unknown error");
+      } else {
+        const retval = this.quickParseVariable(retvalid);
+        this.module._HSVM_CloseFunctionCall(this.hsvm);
+
+        const plainvalue = decodeHSON(retval as string) as { value: IPCMarshallableData };
+        return plainvalue.value;
+      }
+    } finally {
+      this.module._HSVM_DeallocateVariable(this.hsvm, callfuncptr);
+    }
   }
 }
 
