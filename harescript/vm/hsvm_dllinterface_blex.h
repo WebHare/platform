@@ -3,16 +3,8 @@
 
 #include "hsvm_constants.h"
 
-namespace Blex
-{
-        class ComplexFileStream;
-}
-
 namespace HareScript
 {
-
-class GlobalBlobManager;
-class GlobalBlob;
 
 namespace Interface
 {

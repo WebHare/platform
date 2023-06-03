@@ -8,12 +8,14 @@
 #include "hsvm_dllinterface_blex.h"
 #include "hsvm_context.h"
 #include "baselibs.h"
-#include "hsvm_processmgr.h"
-#include "hsvm_debugger.h"
 #include "mangling.h"
 #include <blex/datetime.h>
 #include <blex/path.h>
 #include <iostream>
+#ifndef __EMSCRIPTEN__
+#include "hsvm_processmgr.h"
+#include "hsvm_debugger.h"
+#endif
 
 /* ADDMEs: - Functions should be exception-safe
            - Add type checking so that we don't have to fear an exception
@@ -125,7 +127,7 @@ struct DllInterfaceContextData
         struct TempFile
         {
                 std::string name;
-                std::unique_ptr< Blex::ComplexFileStream > file;
+                std::unique_ptr< BlobStorageStream > file;
 
                 unsigned Write(void const *buffer, unsigned bufferlen);
         };
@@ -1211,7 +1213,9 @@ long long HSVM_GetStreamLength (struct HSVM *vm, int streamid)
         if (tempfile == dll->tempfiles.end())
             throw VMRuntimeError(Error::IllegalBlobStream);
 
+#ifndef __EMSCRIPTEN__
         tempfile->second->file->Flush(); // FIXME: shouldn't be needed, fix randomstreambuffer::GetFileLength
+#endif
         return tempfile->second->file->GetFileLength();
 //        VM.GetLocalBlobHandler().GetStreamLength(tempfile->second->streamid) + tempfile->second->GetNumBufferedBytes());
 
@@ -1658,6 +1662,27 @@ HSVM_VariableId HSVM_CallFunction(struct HSVM *vm, const char *libraryuri, const
         return 0;
 }
 
+HSVM_VariableId HSVM_CallFunctionAutoDetect(struct HSVM *vm, const char *libraryuri, const char *function_name)
+{
+        START_CATCH_VMEXCEPTIONS
+
+        HSVM_VariableId temp = HSVM_AllocateVariable(vm);
+        int result = HSVM_MakeFunctionPtrAutoDetect(vm, temp, libraryuri, function_name, 0);
+
+        if(!result)
+            return 0; //fatal error..
+        else if (result < 0)
+            throw HareScript::VMRuntimeError(HareScript::Error::UnknownFunction, function_name);
+
+        HSVM_VariableId retval = HSVM_CallFunctionPtr(vm, temp, true);
+        HSVM_DeallocateVariable(vm, temp);
+
+        return retval;
+
+        END_CATCH_VMEXCEPTIONS
+        return 0;
+}
+
 HSVM_VariableId HSVM_CallFunctionPtrInternal(HSVM *vm, HSVM_VariableId fptr, int schedule, int allow_macro)
 {
         START_CATCH_VMEXCEPTIONS
@@ -1773,7 +1798,7 @@ int HSVM_ScheduleLibraryLoad(struct HSVM *vm, HSVM_VariableId libraryuri, HSVM_V
                     throw; // Throw it into the exception-catcher of this function
 
                 VM.GetErrorHandler().AddMessage(e);
-                HSVM_GetMessageList(vm, errors);
+                HSVM_GetMessageList(vm, errors, 0);
 
                 VM.GetErrorHandler().Reset();
                 return -2;
@@ -1792,16 +1817,18 @@ int HSVM_ScheduleLibraryLoad(struct HSVM *vm, HSVM_VariableId libraryuri, HSVM_V
                             throw; // Throw it into the exception-catcher of this function
 
                         VM.GetErrorHandler().AddMessage(e);
-                        HSVM_GetMessageList(vm, errors);
+                        HSVM_GetMessageList(vm, errors, 0);
 
                         VM.GetErrorHandler().Reset();
 
                         return -2; //library has errors (but not fatal for this vm)
                 }
 
+#ifndef __EMSCRIPTEN__
                 // Running of libs isn't suspendable FIXME: make loading a lib a separate instruction, and
                 // let make functionptr only work on loaded libs
                 VM.GetVMGroup()->GetJobManager()->GetDebugger().OnScriptNewLibrariesLoaded(*VM.GetVMGroup());
+#endif
 
                 VM.PushDummyFrame(); // Must push a frame, to catch automatic popframe()
         }
@@ -1837,7 +1864,7 @@ int HSVM_MakeFunctionPtrInternal(struct HSVM *vm, HSVM_VariableId id_set, std::s
                     throw; // Throw it into the exception-catcher of this function
 
                 VM.GetErrorHandler().AddMessage(e);
-                HSVM_GetMessageList(vm, errors);
+                HSVM_GetMessageList(vm, errors, 0);
 
                 VM.GetErrorHandler().Reset();
                 return -2;
@@ -1859,7 +1886,7 @@ int HSVM_MakeFunctionPtrInternal(struct HSVM *vm, HSVM_VariableId id_set, std::s
                             throw; // Throw it into the exception-catcher of this function
 
                         VM.GetErrorHandler().AddMessage(e);
-                        HSVM_GetMessageList(vm, errors);
+                        HSVM_GetMessageList(vm, errors, 0);
 
                         VM.GetErrorHandler().Reset();
 
@@ -1874,9 +1901,11 @@ int HSVM_MakeFunctionPtrInternal(struct HSVM *vm, HSVM_VariableId id_set, std::s
                 if (TestMustAbort(vm))
                     return 0;
 
+#ifndef __EMSCRIPTEN__
                 // Running of libs isn't suspendable FIXME: make loading a lib a separate instruction, and
                 // let make functionptr only work on loaded libs
                 VM.GetVMGroup()->GetJobManager()->GetDebugger().OnScriptNewLibrariesLoaded(*VM.GetVMGroup());
+#endif
         }
 
         // Construct the function name (FIXME: Allow loading of exported external functions - can't do that now because of modulename mangling)
@@ -1971,6 +2000,11 @@ int HSVM_MakeFunctionPtrInternal(struct HSVM *vm, HSVM_VariableId id_set, std::s
 int HSVM_MakeFunctionPtr(struct HSVM *vm, HSVM_VariableId id_set, const char* libraryuri, const char* function_name, HSVM_VariableType returntype, int numargs, HSVM_VariableType const *args, HSVM_VariableId errors)
 {
         return HSVM_MakeFunctionPtrInternal(vm, id_set, libraryuri, function_name, true, returntype, numargs, args, errors);
+}
+
+int HSVM_MakeFunctionPtrAutoDetect(struct HSVM *vm, HSVM_VariableId id_set, const char* libraryuri, const char* function_name, HSVM_VariableId errors)
+{
+        return HSVM_MakeFunctionPtrInternal(vm, id_set, libraryuri, function_name, false, 0, 0, 0, errors);
 }
 
 int HSVM_MakeFunctionPtrWithVars(struct HSVM *vm, HSVM_VariableId id_set, HSVM_VariableId libraryuri, HSVM_VariableId function_name, HSVM_VariableType returntype, int numargs, HSVM_VariableType const *args, HSVM_VariableId errors)
@@ -2373,6 +2407,7 @@ void HSVM_StopProfileTimer(struct HSVM *vm)
 int HSVM_LoadScript(struct HSVM *vm, const char *scriptname)
 {
         START_CATCH_VMEXCEPTIONS
+        GetVirtualMachine(vm)->GetErrorHandler().Reset(); //don't require us to toss the VM just because an earlier LoadScript needed recompilation
         GetVirtualMachine(vm)->SetExecuteLibrary(scriptname);
         return 1;
         END_CATCH_VMEXCEPTIONS
@@ -2422,17 +2457,16 @@ int HSVM_SuspendVM(struct HSVM *vm)
         return 0; //ADDME: should we ever get here?
 }
 
-/* FIXME: Redelijk zinloze functie, want je VM is toch dood, dus het lijkt in de praktijk toch
-          geen zin hebben om errors te reflecteren naar dezelfde VM's varmemory */
-int HSVM_GetMessageList(struct HSVM *vm, HSVM_VariableId errorstore)
+int HSVM_GetMessageList(struct HSVM *vm, HSVM_VariableId errorstore, int with_trace)
 {
-        GetMessageList(vm, errorstore, GetVirtualMachine(vm)->GetErrorHandler(), false);
+        GetMessageList(vm, errorstore, GetVirtualMachine(vm)->GetErrorHandler(), with_trace == 1);
         return 0;
 }
 
 int32_t HSVM_CreateJob(struct HSVM *vm, const char *scriptname, HSVM_VariableId errorstore)
 {
         START_CATCH_VMEXCEPTIONS
+#ifndef __EMSCRIPTEN__
         if (errorstore != 0)
             STACKMACHINE.InitVariable(errorstore, VariableTypes::RecordArray);
 
@@ -2474,6 +2508,11 @@ int32_t HSVM_CreateJob(struct HSVM *vm, const char *scriptname, HSVM_VariableId 
         }
 
         return data.second;
+#else
+        (void)scriptname;
+        (void)errorstore;
+        return 0;
+#endif
         END_CATCH_VMEXCEPTIONS
         return 0;
 }
@@ -2481,6 +2520,7 @@ int32_t HSVM_CreateJob(struct HSVM *vm, const char *scriptname, HSVM_VariableId 
 int HSVM_StartJob(struct HSVM *vm, int jobid)
 {
         START_CATCH_VMEXCEPTIONS
+#ifndef __EMSCRIPTEN__
         HSVM *jobvm = HSVM_GetVMFromJobId(vm, jobid);
         if (jobvm)
             throw VMRuntimeError(Error::InternalError, "No job with id #" + Blex::AnyToString(jobid) + " exists");
@@ -2488,18 +2528,29 @@ int HSVM_StartJob(struct HSVM *vm, int jobid)
         VMGroup *group = GetVirtualMachine(jobvm)->GetVMGroup();
         group->GetJobManager()->StartVMGroup(group);
         return 1;
+#else
+        (void)jobid;
+        return 0;
+#endif
         END_CATCH_VMEXCEPTIONS
         return 0;
+
 }
 
 int HSVM_TryLockVM(struct HSVM *vm, void (*callback)(struct HSVM *, int, void *), void *context)
 {
         START_CATCH_VMEXCEPTIONS
+#ifndef __EMSCRIPTEN__
         VMGroup *group = GetVirtualMachine(vm)->GetVMGroup();
         if (callback)
             return group->GetJobManager()->TryLockVMGroup(group, std::bind(callback, vm, std::placeholders::_1, context)) ? 1 : 0;
         else
             return group->GetJobManager()->TryLockVMGroup(group, 0) ? 1 : 0;
+#else
+        (void)callback;
+        (void)context;
+        return 1;
+#endif
         END_CATCH_VMEXCEPTIONS
         return 0;
 }
@@ -2507,32 +2558,44 @@ int HSVM_TryLockVM(struct HSVM *vm, void (*callback)(struct HSVM *, int, void *)
 void HSVM_UnlockVM(struct HSVM *vm)
 {
         START_CATCH_VMEXCEPTIONS
+#ifndef __EMSCRIPTEN__
         VMGroup *group = GetVirtualMachine(vm)->GetVMGroup();
         group->GetJobManager()->UnlockVMGroup(group);
+#endif
         END_CATCH_VMEXCEPTIONS
 }
 
 void HSVM_AbortVM(struct HSVM *vm)
 {
         START_CATCH_VMEXCEPTIONS
+#ifndef __EMSCRIPTEN__
         VMGroup *group = GetVirtualMachine(vm)->GetVMGroup();
         group->GetJobManager()->AbortVMGroup(group);
+#endif
         END_CATCH_VMEXCEPTIONS
 }
 
 void HSVM_ReleaseJob(struct HSVM *vm, int jobid)
 {
         START_CATCH_VMEXCEPTIONS
+#ifndef __EMSCRIPTEN__
         VMGroup *group = GetVirtualMachine(vm)->GetVMGroup();
         group->GetJobManager()->EraseJobById(vm, jobid);
+#else
+        (void)jobid;
+#endif
         END_CATCH_VMEXCEPTIONS
 }
 
 HSVM * HSVM_GetVMFromJobId(struct HSVM *vm, int jobid)
 {
         START_CATCH_VMEXCEPTIONS
+#ifndef __EMSCRIPTEN__
         VMGroup *group = GetVirtualMachine(vm)->GetVMGroup();
         return group->GetJobManager()->GetJobFromId(vm, jobid);
+#else
+        (void)jobid;
+#endif
         END_CATCH_VMEXCEPTIONS
         return NULL;
 }
@@ -2540,6 +2603,7 @@ HSVM * HSVM_GetVMFromJobId(struct HSVM *vm, int jobid)
 unsigned HSVM_GetVMGroupId(struct HSVM *vm, char *dest, unsigned room)
 {
         START_CATCH_VMEXCEPTIONS
+#ifndef __EMSCRIPTEN__
         VMGroup *group = GetVirtualMachine(vm)->GetVMGroup();
         std::string const &groupid = group->GetJobManager()->GetGroupId(group);
         if (room > groupid.size())
@@ -2548,6 +2612,13 @@ unsigned HSVM_GetVMGroupId(struct HSVM *vm, char *dest, unsigned room)
                 dest[groupid.size()] = '\0';
         }
         return groupid.size();
+#else
+        // TODO: implement
+        const char name[] = "VMid";
+        if (room >= sizeof name)
+            std::copy(name, name + sizeof(name), dest);
+        return sizeof(name) - 1;
+#endif
         END_CATCH_VMEXCEPTIONS
         return 0;
 }
@@ -2586,7 +2657,9 @@ void HSVM_SetAuthenticationRecord(struct HSVM *vm, HSVM_VariableId var)
                 lock->authenticationrecord.reset(copy.release());
         }
 
+#ifndef __EMSCRIPTEN__
         hsvm->GetVMGroup()->GetJobManager()->GetDebugger().OnScriptAuthenticationRecordChanged(*hsvm->GetVMGroup());
+#endif
 
         END_CATCH_VMEXCEPTIONS
 }
@@ -2622,7 +2695,9 @@ int HSVM_ClearCaches()
 {
         try
         {
+#ifndef __EMSCRIPTEN__
                 Baselibs::TCPIPContext::ClearCache();
+#endif
                 DynamicLinkManager::ExecuteSoftResetCallbacks();
         }
         catch (std::exception &e)

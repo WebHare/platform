@@ -1,7 +1,9 @@
 #ifndef blex_webhare_shared_whfilesystem
 #define blex_webhare_shared_whfilesystem
 
+#ifndef __EMSCRIPTEN__
 #include "whcore.h"
+#endif // __EMSCRIPTEN__
 #include <harescript/vm/filesystem.h>
 #include <blex/threads.h>
 
@@ -35,8 +37,14 @@ class BLEXLIB_PUBLIC WHFileSystem : public HareScript::FileSystem
 {
     private:
         class ContextData;
+
+#ifndef __EMSCRIPTEN__
         /** Context data for webhare file system */
         typedef Blex::Context<ContextData, WHFileSystemContextId, WHCore::Connection> Context;
+#else
+        /** Context data for webhare file system */
+        typedef Blex::Context<ContextData, WHFileSystemContextId, void> Context;
+#endif
 
         /// Path for the data root
         std::string const dataroot;
@@ -50,7 +58,9 @@ class BLEXLIB_PUBLIC WHFileSystem : public HareScript::FileSystem
         /// Priority
         CompilationPriority::Class const priorityclass;
 
+#ifndef __EMSCRIPTEN__
         WHCore::Connection *conn;
+#endif
 
         class DirectFile;
 
@@ -76,9 +86,19 @@ class BLEXLIB_PUBLIC WHFileSystem : public HareScript::FileSystem
 
     public:
 
+#ifndef __EMSCRIPTEN__
         /** Constructs this filesystem
             @param priorityclass Priority class for our compilations */
         WHFileSystem(WHCore::Connection &conn, CompilationPriority::Class priorityclass, bool allow_direct_compilations);
+#else
+        WHFileSystem(
+            std::string const &tmproot,
+            std::string const &whres,
+            std::string const &_installationroot,
+            std::string const &_compilecache,
+            CompilationPriority::Class priorityclass,
+            bool allow_direct_compilations);
+#endif
 
         /** Returns a file object for a file
             @param keeper ContextKeeper with the current context

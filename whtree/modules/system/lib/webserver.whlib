@@ -12,6 +12,7 @@ LOADLIB "wh::witty.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internet/http.whlib" EXPORT FormatHttpDateTime;
 LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/webserver/support.whlib" EXPORT NotAShtmlContextException;
@@ -24,6 +25,9 @@ LOADLIB "mod::system/lib/internal/cluster/secrets.whlib";
     @return True if we're running in a webserver context*/
 PUBLIC BOOLEAN FUNCTION IsRequest()
 {
+  IF(IsWASM())
+    RETURN FALSE; //Assuming the node webserver isn't invoking us yet...
+
   //ADDME nicer implementation
   TRY
   {

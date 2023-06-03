@@ -26,13 +26,20 @@ struct BuiltinFunctionDefinition
         /// Name of this function
         std::string name;
 
+        /// External id
+        unsigned externalid;
+
         enum Type
         {
         Macro,
         Function,
         CMacro,
         CFunction,
-        NotFound
+#ifdef __EMSCRIPTEN__
+        JSMacro,
+        JSFunction,
+        NotFound,
+#endif // __EMSCRIPTEN__
         } type;
 
         /// function that must be called when this function is called from the VM
@@ -48,11 +55,13 @@ struct BuiltinFunctionDefinition
         HSVM_MacroPtr macro_c;
 
         BuiltinFunctionDefinition() {}
-        BuiltinFunctionDefinition(std::string const &name, BuiltinMacroPtr ptr) : name(name), type(Macro), macro(ptr) {}
-        BuiltinFunctionDefinition(std::string const &name, BuiltinFunctionPtr ptr) : name(name), type(Function), function(ptr) {}
-        BuiltinFunctionDefinition(std::string const &name, HSVM_MacroPtr ptr, char) : name(name), type(CMacro), macro_c(ptr) {}
-        BuiltinFunctionDefinition(std::string const &name, HSVM_FunctionPtr ptr, char) : name(name), type(CFunction), function_c(ptr) {}
-        BuiltinFunctionDefinition(std::string const &name) : name(name), type(NotFound) {}
+        BuiltinFunctionDefinition(std::string const &name, BuiltinMacroPtr ptr) : name(name), externalid(0), type(Macro), macro(ptr) {}
+        BuiltinFunctionDefinition(std::string const &name, BuiltinFunctionPtr ptr) : name(name), externalid(0), type(Function), function(ptr) {}
+        BuiltinFunctionDefinition(std::string const &name, HSVM_MacroPtr ptr, char) : name(name), externalid(0), type(CMacro), macro_c(ptr) {}
+        BuiltinFunctionDefinition(std::string const &name, HSVM_FunctionPtr ptr, char) : name(name), externalid(0), type(CFunction), function_c(ptr) {}
+#ifdef __EMSCRIPTEN__
+        BuiltinFunctionDefinition(std::string const &name, Type _type, unsigned _externalid) : name(name), externalid(_externalid), type(_type) {}
+#endif // __EMSCRIPTEN__
 };
 
 /** This class keeps all registred builtin functions.

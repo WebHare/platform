@@ -11,10 +11,15 @@
 #include <blex/decimalfloat.h>
 #include <iostream>
 #include "mangling.h"
-#include "hsvm_debugger.h"
-#include "hsvm_processmgr.h"
 #include "outputobject.h"
 #include "hsvm_dllinterface_blex.h"
+#ifndef __EMSCRIPTEN__
+#include "hsvm_processmgr.h"
+#include "hsvm_debugger.h"
+#else
+#include <emscripten.h>
+#endif // __EMSCRIPTEN__
+#include <iomanip>
 
 //#define SHOWBYTECODES
 //#define SHOWSTACK
@@ -1349,7 +1354,11 @@ bool VirtualMachine::HandleAbortFlag()
         {
                 if (!is_suspendable)
                     return false;
+#ifndef __EMSCRIPTEN__
                 vmgroup->GetJobManager()->YieldVMWithoutSuspend(this);
+#else
+                Blex::ErrStream() << "TODO: YieldVMWithoutSuspend";
+#endif // __EMSCRIPTEN__
                 *flag = HSVM_ABORT_DONT_STOP;
         }
         return true;
@@ -1445,7 +1454,9 @@ template< bool debug >
 
                                 if (stop)
                                 {
+#ifndef __EMSCRIPTEN__
                                         vmgroup->jobmanager->GetDebugger().OnScriptBreakpointHit(*vmgroup, manualbreakpoint);
+#endif // __EMSCRIPTEN__
                                         if (vmgroup->TestMustYield() && HandleAbortFlag())
                                             return;
                                 }
@@ -1779,8 +1790,10 @@ void VirtualMachine::ThrowException(VarId exception, bool _skip_first_traceitem)
 {
         DEBUGPRINT("Exception, should dbg-break: " << vmgroup->dbg.break_on_exception);
 
+#ifndef __EMSCRIPTEN__
         if (vmgroup->dbg.break_on_exception)
             vmgroup->jobmanager->GetDebugger().OnScriptExceptionThrown(*vmgroup);
+#endif // __EMSCRIPTEN__
 
         stackmachine.MoveFrom(throwvar, exception);
         is_unwinding = true;
@@ -1904,6 +1917,18 @@ void VirtualMachine::PrepareCall(Library const &lib, FunctionId func)
         PrepareCallInternal(resolvedfunc);
 }
 
+#ifdef __EMSCRIPTEN__
+
+EM_JS(void, supportExecuteJSMacro, (void *hsvm, const char *name, unsigned externalid), {
+  return Module.executeJSMacro(hsvm, name, externalid);
+});
+
+EM_JS(void, supportExecuteJSFunction, (void *hsvm, const char *name, unsigned externalid, unsigned id_set), {
+  return Module.executeJSFunction(hsvm, name, externalid, id_set);
+});
+
+#endif // __EMSCRIPTEN
+
 void VirtualMachine::PrepareCallInternal(LinkedLibrary::ResolvedFunctionDefList::value_type const &resolvedfunc)
 {
         // Make sure the 'this' ptr isn't privileged
@@ -1953,8 +1978,23 @@ void VirtualMachine::PrepareCallInternal(LinkedLibrary::ResolvedFunctionDefList:
                                 //stackmachine.PopVariablesN(stackmachine.StackPointer() - retvalptr - 1);
                         }
                         break;
+#ifdef __EMSCRIPTEN__
+                case BuiltinFunctionDefinition::JSMacro:
+                        {
+                                struct HSVM* hsvm = *this;
+                                supportExecuteJSMacro(hsvm, resolvedfunc.def->builtindef->name.c_str(), resolvedfunc.def->builtindef->externalid);
+                        }
+                        break;
+                case BuiltinFunctionDefinition::JSFunction:
+                        {
+                                struct HSVM* hsvm = *this;
+                                VarId retvalptr = stackmachine.PushVariables(1);
+                                supportExecuteJSFunction(hsvm, resolvedfunc.def->builtindef->name.c_str(), resolvedfunc.def->builtindef->externalid, retvalptr);
+                        }
+                        break;
                 case BuiltinFunctionDefinition::NotFound:
                         throw VMRuntimeError(Error::InternalError, "External function " + resolvedfunc.def->builtindef->name + " has not been registered");
+#endif // __EMSCRIPTEN__
                 }
                 /* Make sure the Run() loop calls popframe immediately after returning,
                    so all different frame types can be handled in one location
@@ -4035,7 +4075,9 @@ void VMGroup::SetMainScript(std::string const &script)
 {
         if (jobmanager)
         {
+#ifndef __EMSCRIPTEN__
                 JobManager::LockedJobData::ReadRef lock(jobmanager->jobdata);
+#endif // __EMSCRIPTEN__
                 mainscript = script;
         }
         else
@@ -4053,11 +4095,13 @@ void VMGroup::CloseHandles()
                 Baselibs::SystemContext systemcontext((*itr)->GetContextKeeper());
                 systemcontext->CloseHandles();
 
+#ifndef __EMSCRIPTEN__
                 JobManagerContext jmcontext((*itr)->GetContextKeeper());
                 jmcontext->namedports.clear();
                 jmcontext->linkendpoints.clear();
                 jmcontext->jobs.clear();
                 jmcontext->locks.clear();
+#endif
 
                 (*itr)->sqlsupport.Cleanup();
         }

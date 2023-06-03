@@ -281,6 +281,8 @@ WHAP_SUBPROJECTS=blex harescript ap
 ifneq ($(BUILDSYSTEM),emscripten)
 	HSENGINE_SUBPROJECTS+=drawlib parsers
 	WHAP_SUBPROJECTS+=drawlib parsers
+else
+	HSENGINE_SUBPROJECTS+=wasm
 endif
 
 SUBPROJECTS=$(sort $(HSENGINE_SUBPROJECTS) $(WHAP_SUBPROJECTS))
@@ -435,6 +437,8 @@ ap_SRCDIRS = addons addons/system_geoip libwebhare utils webserver whmanager
 # WASM
 wasm_SRCDIRS = .
 
+wasm_DEPLOYABLES_WHAP = lib/harescript.js lib/harescript.wasm
+
 # Global stuff
 # forevery project, take project_SRCDIRS, create $(SRCDIR)/project/$(SUBDIR) entries
 ALLSRCDIRS=$(SRCDIR)/blex $(foreach sub,$(SUBPROJECTS),$(addprefix $(SRCDIR)/$(sub)/,$($(sub)_SRCDIRS)))
@@ -443,14 +447,14 @@ ALLCPPSRCS_IN=$(foreach sub,$(ALLSRCDIRS),$(wildcard $(sub)/*.cpp))
 
 ifeq ($(BUILDSYSTEM),emscripten)
   # We need to blacklist some files from the Deps generation as the above code is a bit too gready when matching wildcards and some files crash the Dep process
-  DEPS_BLACKLIST=blex/xml harescript/vm/bl_tcpip
+  DEPS_BLACKLIST=blex/xml harescript/vm/bl_tcpip harescript/vm/icu_%
   DEPS_FULLPATHS=$(addsuffix .cpp,$(addprefix $(SRCDIR)/,$(DEPS_BLACKLIST)))
   ALLCPPSRCS_IN:=$(filter-out $(DEPS_FULLPATHS),$(ALLCPPSRCS_IN))
 endif
 
 ALLOBJS:=$(addprefix ,$(subst .cpp,.o,$(subst $(SRCDIR)/,,$(ALLCPPSRCS_IN))))
 HSENGINE_DEPLOYABLES = $(foreach sub,$(HSENGINE_SUBPROJECTS),$($(sub)_DEPLOYABLES_HSENGINE))
-WHAP_DEPLOYABLES = $(foreach sub,$(WHAP_SUBPROJECTS),$($(sub)_DEPLOYABLES_WHAP))
+WHAP_DEPLOYABLES = $(foreach sub,$(WHAP_SUBPROJECTS),$($(sub)_DEPLOYABLES_WHAP)) $(wasm_DEPLOYABLES_WHAP)
 
 ALL_DEPLOYABLES = $(sort $(HSENGINE_DEPLOYABLES) $(WHAP_DEPLOYABLES))
 ALL_DEPLOYABLES_SETUP = $(foreach sub,$(SUBPROJECTS),$($(sub)_DEPLOYABLES_SETUP))
@@ -494,6 +498,7 @@ endif
 ##
 # GLOBAL
 all: $(addsuffix -all,$(SUBPROJECTS)) wasm
+.PHONY: wasm
 
 #################################################
 ##
@@ -772,25 +777,61 @@ $(foreach mod,$(AP_DEPLOYABLES_UTILS),$(eval $(call ApUtilTarget,$(mod))))
 # Only allow the following instructions for in emscripten mode
 ifeq ($(BUILDSYSTEM),emscripten)
 
-wasm: $(call BuildAndTest,blex)
+build.wasm: $(call BuildAndTest,blex) $(wasm_DEPLOYABLES_WHAP)
+	> build.wasm
+
+success.wasm: build.wasm
+	> success.wasm
+
+WASM_blacklist := harescript/vm/bl_tcpip% harescript/vm/bl_crypto% harescript/vm/hsvm_processmgr% harescript/vm/hsvm_debugger% harescript/vm/ipc% harescript/vm/icu_%
 WASM_DEP_OBJS := \
+	wasm/harescript.o wasm/tools.o \
 	$(LIBBLEX_LIBXML2_OBJS) \
+	$(filter-out $(WASM_blacklist),$(blex_OBJFILES)) \
+	$(call Src2ObjFiles,$(filter-out $(WASM_blacklist),$(LIBHSVM_FILES))) \
+	$(call Src2ObjFiles,ap/libwebhare/wh_filesystem.cpp)
 
 wasm-clean:
 	rm -rf -- wasm $(wasm_DEPLOYABLES_WHAP)
 
+lib/harescript.js: $(WASM_DEP_OBJS)
+	$(call LinkImportable,$(WASM_DEP_OBJS),$@,$(BLEX_LIBS))
+lib/harescript.wasm: lib/harescript.js
+
+wasm_CPPFILES=wasm/harescript.cpp
+wasm_OBJFILES=$(call Src2ObjFiles,$(wasm_CPPFILES))
+
 else
 
-wasm $(call BuildAndTest,wasm):
+WASM_DEEPERMAKE_DEPLOYABLES_WHAP=$(addprefix wasmbuild/,$(wasm_DEPLOYABLES_WHAP))
+
+define InstallWasmDepoyable
+$(1): wasmbuild/$(1)
+	rm -f $$@; cp -af $$< $$@  #cp define InstallWasmDepoyable
+endef
+
+$(foreach dep,$(wasm_DEPLOYABLES_WHAP), $(eval $(call InstallWasmDepoyable,$(dep))))
+
+$(WASM_DEEPERMAKE_DEPLOYABLES_WHAP): wasm
+
+wasm:
 	mkdir -p $(WEBHARE_BUILDDIR)/wasmbuild
-	+cd $(WEBHARE_BUILDDIR)/wasmbuild; make -f $(WHBUILD_SRCDIR)/base_makefile BUILDSYSTEM=emscripten wasm
-	> $(call BuildAndTest,wasm)
+	+cd $(WEBHARE_BUILDDIR)/wasmbuild; make -f $(WHBUILD_SRCDIR)/base_makefile BUILDSYSTEM=emscripten $(wasm_DEPLOYABLES_WHAP)
+
+build.wasm: $(wasm_DEPLOYABLES_WHAP)
+	> build.wasm
+
+success.wasm: build.wasm
+	# TODO test?
+	> success.wasm
 
 wasm-clean:
 	mkdir -p $(WEBHARE_BUILDDIR)/wasmbuild
 	+cd $(WEBHARE_BUILDDIR)/wasmbuild; make -f $(WHBUILD_SRCDIR)/base_makefile BUILDSYSTEM=emscripten clean wasm-clean
+	-rm -f $(wasm_DEPLOYABLES_WHAP)
 
 endif
+
 #################################################
 ##
 ## Installation
@@ -848,7 +889,7 @@ sandwich:
 ##
 
 # install also cleans up old targets. we didn't really use to care, but it can put people on the wrong track ("appserver is crashing! no, it was removed")
-
+# we invoke 'wasm' (a PHONY) explicitly to ensure it's always rechecked as the toplevel make cannot check the wasm's sub-make dependencies
 install: $(addprefix $(PREFIX)/,$(EXTRAINSTALLDIR)) postinstall | \
 	$(call BuildAndTest,blex) \
 	$(call BuildAndTest,harescript) \
@@ -856,6 +897,7 @@ install: $(addprefix $(PREFIX)/,$(EXTRAINSTALLDIR)) postinstall | \
 	$(PREFIX)/include/hsvm_dllinterface.h \
 	$(addprefix $(PREFIX)/,$(WHAP_INSTALLABLES)) \
 	$(call BuildAndTest,ap) \
+	wasm \
 	$(call BuildAndTest,wasm) \
 	$(ALLINSTALLDIRS)
 	${HIDE}rm $(PREFIX)/bin/{appserver,backup,consilio,dbserver,dumprawtable} 2>/dev/null || true #cleanup old bins
@@ -935,6 +977,7 @@ endif # end darwin check
 #ADDME autogenerate lists below
 BIN_ALIASES = webserver webhare runscript $(RUNTEST) whmanager vmtest whcompile
 MOD_ALIASES = libblex_draw libblex_hscompiler libblex_hsvm libblex_parser_office_escher libblex_webhare hsm_parser hsm_parser_office_msword hsm_parser_adobe_pdf hsm_wh_pgsql hsm_parser_format_hsxml hsm_parser_format_html
+WASM_ALIASES = harescript
 
 showtargets:
 	@echo $(BIN_ALIASES)
@@ -966,5 +1009,15 @@ $1-overwrite: lib/$1$(DLL_SUFFIX)
 	cp $$< $(PREFIX)/lib/$1$(DLL_SUFFIX) #cp 9
 endef
 
+define GenerateWasmAlias
+$1-install: $(PREFIX)/lib/$1.js $(PREFIX)/lib/$1.wasm
+$1-uninstall:
+	rm $(PREFIX)/lib/$1.js $(PREFIX)/lib/$1.wasm
+
+$1-overwrite: lib/$1.js
+	cp lib/$1.js lib/$1.wasm $(PREFIX)/lib/ #cp 10
+endef
+
 $(foreach bin,$(BIN_ALIASES),$(eval $(call GenerateBinAlias,$(bin))))
 $(foreach mod,$(MOD_ALIASES),$(eval $(call GenerateModAlias,$(mod))))
+$(foreach mod,$(WASM_ALIASES),$(eval $(call GenerateWasmAlias,$(mod))))

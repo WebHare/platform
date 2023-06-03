@@ -229,8 +229,7 @@ BuiltinFunctionDefinition const * BuiltinFunctionsRegistrator::GetBuiltinFunctio
 #ifndef __EMSCRIPTEN__
                 throw VMRuntimeError (Error::BuiltinSymbolNotFound, name, std::string());
 #else
-        BuiltinFunctionDefinition def(name);
-        it = ref->insert(std::make_pair(name, BuiltinFunctionDefinition(name))).first;
+        it = ref->insert(std::make_pair(name, BuiltinFunctionDefinition(name, BuiltinFunctionDefinition::NotFound, 0))).first;
 #endif
         }
 

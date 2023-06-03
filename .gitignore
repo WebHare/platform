@@ -40,3 +40,4 @@ coverage.tar.gz
 /whtree/tmp
 /whtree/var
 /whtree/whdata
+/vendor/.*.lock

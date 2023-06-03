@@ -31,27 +31,6 @@ struct ContextData
 };
 typedef Blex::Context<ContextData, 1, void> Context;
 
-/** Tries to parse input from the std input, updates todo list
-    @return FALSE if error whie parsing input */
-std::string GetNextFileToCompile(bool *force)
-{
-        std::string nextline;
-
-        if (!Blex::ReadConsoleLine(&nextline) || nextline.empty())
-            return std::string(); //abort request
-
-        if (nextline[0] == 'C' || nextline[0] == 'F')
-        {
-                if (force)
-                    *force = nextline[0] == 'F';
-                return std::string(nextline.begin() + 1, nextline.end());
-        }
-
-        throw std::runtime_error("Unrecognized input '" + nextline + "'");
-}
-
-std::string publisher_root;
-
 void DisplayMessage(Blex::ContextKeeper *keeper, Message const &m)
 {
         if (!parseable) //human readable errors
@@ -65,20 +44,13 @@ void DisplayMessage(Blex::ContextKeeper *keeper, Message const &m)
                         Context context(*keeper);
                         std::string orgname;
 
-                        if (m.filename.substr(0, 6) == "site::" && !publisher_root.empty())
+                        try
                         {
-                                orgname = publisher_root + m.filename.substr(6, m.filename.size());
+                                orgname = context->filesystemptr->ReturnPath(*keeper, m.filename);
                         }
-                        else
+                        catch (VMRuntimeError &)
                         {
-                                try
-                                {
-                                        orgname = context->filesystemptr->ReturnPath(*keeper, m.filename);
-                                }
-                                catch (VMRuntimeError &)
-                                {
-                                        // Don't care about exceptions here
-                                }
+                                // Don't care about exceptions here
                         }
 
                         msg += " (" + orgname + ")";
@@ -115,6 +87,10 @@ void DisplayWebMessage(Blex::ContextKeeper *, Message const &m, WebServer::Conne
         Blex::EncodeValue(m.msg1.begin(), m.msg1.end(), std::back_inserter(message));
         message += '\t';
         Blex::EncodeValue(m.msg2.begin(), m.msg2.end(), std::back_inserter(message));
+        message += '\t';
+
+        std::string inenglish = HareScript::GetMessageString(m);
+        Blex::EncodeValue(inenglish.begin(), inenglish.end(), std::back_inserter(message));
         message += "\n";
 
         webcon->GetAsyncInterface()->StoreData(message.data(), message.size());

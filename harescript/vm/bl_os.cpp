@@ -8,7 +8,9 @@
 #include "hsvm_blobinterface.h"
 
 #include "hsvm_context.h"
+#ifndef __EMSCRIPTEN__
 #include "hsvm_processmgr.h"
+#endif
 
 namespace HareScript {
 namespace Baselibs {
@@ -67,6 +69,8 @@ OutputObject::SignalledStatus OSContext::Console::IsReadSignalled(Blex::PipeWait
 //
 // OSContext::Process
 //
+
+#ifndef __EMSCRIPTEN__
 
 OSContext::Process::~Process()
 {
@@ -304,6 +308,8 @@ OutputObject::SignalledStatus OSContext::ProcessOutputPipe::IsReadSignalled(Blex
         return waiter->GotRead(*output) ? Signalled : NotSignalled;
 }
 
+#endif // __EMSCRIPTEN__
+
 // -----------------------------------------------------------------------------
 //
 // OSContext
@@ -334,6 +340,9 @@ OSContext::FileInfo* OSContext::GetFile(int fileid)
 
         return itr->second.get();
 }
+
+#ifndef __EMSCRIPTEN__
+
 OSContext::Process* OSContext::GetProcess(int processid)
 {
         std::map<int, ProcessPtr>::iterator itr=processes.find(processid);
@@ -490,6 +499,8 @@ void OSContext::ResetProcessInput(int processid)
         proc->input.reset(NULL);
 }
 
+#endif // __EMSCRIPTEN__
+
 int OSContext::OpenDiskFile(HSVM *vm, std::string const &path, bool writeaccess, bool create, bool failifexists, bool publicfile)
 {
 
@@ -513,6 +524,7 @@ int OSContext::OpenDiskFile(HSVM *vm, std::string const &path, bool writeaccess,
         filelist[fileid]=newfile;
         return fileid;
 }
+#ifndef __EMSCRIPTEN__
 bool OSContext::IsProcessRunning(int processid)
 {
         Process *proc = GetProcess(processid);
@@ -523,7 +535,7 @@ int OSContext::GetProcessExitCode(int processid)
         Process *proc = GetProcess(processid);
         return proc && proc->proc.get() && proc->proc->IsFinished() ? proc->proc->GetReturnValue() : -1;
 }
-
+#endif
 bool OSContext::DeleteDiskDirectory(std::string const &path, bool recurse)
 {
         return recurse ? Blex::RemoveDirRecursive(path) : Blex::RemoveDir(path) ;
@@ -629,11 +641,13 @@ void OSContext::SetConsoleExitcode(int  _exitcode)
 
 OSContext::PipeEnd::~PipeEnd()
 {
+#ifndef __EMSCRIPTEN__
         if (owner_job)
         {
                 owner_job->capture_handles.erase(GetId());
                 owner_job = 0;
         }
+#endif
 }
 
 std::pair< Blex::SocketError::Errors, unsigned > OSContext::PipeEnd::Read(unsigned numbytes, void *data)
@@ -713,11 +727,13 @@ void OSContext::PipeEnd::BreakPipe()
         if (write_stream.get())
             write_stream->BreakPipe();
 
+#ifndef __EMSCRIPTEN__
         if (owner_job)
         {
                 owner_job->capture_handles.erase(GetId());
                 owner_job = 0;
         }
+#endif
 }
 
 std::pair< int32_t, int32_t > OSContext::CreatePipeSet(HSVM *vm, bool bidi)
@@ -754,12 +770,17 @@ void OSContext::DeletePipe(int32_t pipeid)
 
 void OSContext::SetPipeJob(int32_t pipeid, Job *job)
 {
+#ifndef __EMSCRIPTEN__
         std::map< int32_t, std::shared_ptr< PipeEnd > >::iterator it = pipes.find(pipeid);
         if (it == pipes.end() || !it->second->read_stream.get())
             throw VMRuntimeError(Error::InternalError, "Can only set the job on the read end of a pipe");
 
         it->second->owner_job = job;
         job->capture_handles.insert(std::make_pair(pipeid, std::bind(&OSContext::BreakPipe, this, pipeid)));
+#else
+        (void)pipeid;
+        (void)job;
+#endif
 }
 
 void OSContext::BreakPipe(int32_t pipeid)
@@ -791,11 +812,26 @@ void OSContext::SetPipeYieldThreshold(int32_t pipeid, signed threshold)
 
 void OSContext::CloseHandles()
 {
+#ifndef __EMSCRIPTEN__
         processes.clear();
+#endif // __EMSCRIPTEN__
         pipes.clear();
         filelist.clear();
 }
 
+#ifdef __EMSCRIPTEN__
+
+void HS_EmscriptenNotSupportedFunc(VarId, VirtualMachine *vm)
+{
+        HSVM_ThrowException(*vm, "This function is not supported in WASM");
+}
+
+void HS_EmscriptenNotSupportedMacro(VirtualMachine *vm)
+{
+        HSVM_ThrowException(*vm, "This function is not supported in WASM");
+}
+
+#else
 
 void HS_CreateProcess(VarId id_set, VirtualMachine *vm)
 {
@@ -923,6 +959,20 @@ void HS_GetProcessOutputHandle(VarId id_set, VirtualMachine *vm)
                 HSVM_IntegerGet(*vm, HSVM_Arg(0)),
                 HSVM_BooleanGet(*vm, HSVM_Arg(1))));
 }
+
+void HS_GetProcessExitCode(VarId id_set,VirtualMachine *vm)
+{
+        Baselibs::SystemContext context(vm->GetContextKeeper());
+        HSVM_IntegerSet(*vm, id_set, context->os.GetProcessExitCode(HSVM_IntegerGet(*vm, HSVM_Arg(0))));
+}
+
+void HS_IsProcessRunning(VarId id_set, VirtualMachine *vm)
+{
+        Baselibs::SystemContext context(vm->GetContextKeeper());
+        HSVM_BooleanSet(*vm, id_set, context->os.IsProcessRunning(HSVM_IntegerGet(*vm, HSVM_Arg(0))));
+}
+
+#endif // __EMSCRIPTEN__
 
 void HS_GenerateTemporaryPathname(VarId id_set, VirtualMachine *vm)
 {
@@ -1209,11 +1259,6 @@ void HS_GetRealPath(VarId id_set, VirtualMachine *vm)
 
         HSVM_StringSetSTD(*vm, id_set, context->os.GetRealPath(HSVM_StringGetSTD(*vm, HSVM_Arg(0))));
 }
-void HS_IsProcessRunning(VarId id_set, VirtualMachine *vm)
-{
-        Baselibs::SystemContext context(vm->GetContextKeeper());
-        HSVM_BooleanSet(*vm, id_set, context->os.IsProcessRunning(HSVM_IntegerGet(*vm, HSVM_Arg(0))));
-}
 void HS_SetConsoleExitValue(VirtualMachine *vm)
 {
         Baselibs::SystemContext context(vm->GetContextKeeper());
@@ -1253,11 +1298,6 @@ void HS_GetFilePointer(VarId id_set,VirtualMachine *vm)
 {
         Baselibs::SystemContext context(vm->GetContextKeeper());
         HSVM_Integer64Set(*vm, id_set, context->os.GetFilePointer(*vm, HSVM_IntegerGet(*vm, HSVM_Arg(0))));
-}
-void HS_GetProcessExitCode(VarId id_set,VirtualMachine *vm)
-{
-        Baselibs::SystemContext context(vm->GetContextKeeper());
-        HSVM_IntegerSet(*vm, id_set, context->os.GetProcessExitCode(HSVM_IntegerGet(*vm, HSVM_Arg(0))));
 }
 void HS_GetFileLength(VarId id_set,VirtualMachine *vm)
 {
@@ -1546,10 +1586,12 @@ void HS_GetEnvironmentVariable(VarId id_set, VirtualMachine *vm)
 {
         std::string name = HSVM_StringGetSTD(*vm, HSVM_Arg(0)), value;
 
-        JobManager *jobmgr = vm->GetVMGroup()->GetJobManager();
         std::shared_ptr< const Blex::Environment > override;
+#ifndef __EMSCRIPTEN__
+        JobManager *jobmgr = vm->GetVMGroup()->GetJobManager();
         if (jobmgr)
             override = jobmgr->GetGroupEnvironmentOverride(vm->GetVMGroup());
+#endif
 
         if (override)
         {
@@ -1558,19 +1600,28 @@ void HS_GetEnvironmentVariable(VarId id_set, VirtualMachine *vm)
                         value = itr.second;
         }
         else
-            value = Blex::GetEnvironVariable(name);
+        {
+#ifndef __EMSCRIPTEN__
+                value = Blex::GetEnvironVariable(name);
+#else
+                value = "TODO: environment";
+#endif
+        }
 
         HSVM_StringSetSTD(*vm, id_set, value);
 }
 
 void HS_GetEnvironment(VarId id_set, VirtualMachine *vm)
 {
-        JobManager *jobmgr = vm->GetVMGroup()->GetJobManager();
 
         Blex::Environment env;
         std::shared_ptr< const Blex::Environment > override;
+
+#ifndef __EMSCRIPTEN__
+        JobManager *jobmgr = vm->GetVMGroup()->GetJobManager();
         if (jobmgr)
             override = jobmgr->GetGroupEnvironmentOverride(vm->GetVMGroup());
+#endif
 
         Blex::Environment const *useenv;
         if (override)
@@ -1606,15 +1657,43 @@ void InitProcess(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_CLOSEFILE::B:I",HS_CloseFile));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__PIPEMARSHALLER#SETMARSHALLER:::O",HS_SetPipeMarshaller));
 
-        //KEEP THIS LIST ALPHABETICALLY SORTED!
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CLOSEPIPE:::I", HS_ClosePipe));
+#ifndef __EMSCRIPTEN__
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CLOSEPROCESS:::I",HS_CloseProcess));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CLOSEPROCESSINPUT:::I",HS_CloseProcessInput));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CREATEPROCESSINTERNAL::I:BBBBB6",HS_CreateProcess));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ISPROCESSRUNNING::B:I",HS_IsProcessRunning));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETPROCESSEXITCODE::I:I",HS_GetProcessExitCode));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("READPROCESSOUTPUT::S:I",HS_ReadProcessOutput));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("READPROCESSERRORS::S:I",HS_ReadProcessErrors));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("SETPROCESSENVIRONMENT:::IRA", HS_SetProcessEnvironment));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("RUNPROCESS::B:ISSASBBB",HS_RunProcess));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("INTERRUPTPROCESS:::I",HS_InterruptProcess));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("TERMINATEPROCESS:::I",HS_TerminateProcess));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("DETACHPROCESS:::I",HS_DetachProcess));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("WAITFORPROCESSOUTPUT::I:II",HS_WaitForProcessOutput));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETPROCESSOUTPUTHANDLE::I:IB",HS_GetProcessOutputHandle));
+#else
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CLOSEPROCESS:::I",HS_EmscriptenNotSupportedMacro));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CLOSEPROCESSINPUT:::I",HS_EmscriptenNotSupportedMacro));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CREATEPROCESSINTERNAL::I:BBBBB6",HS_EmscriptenNotSupportedFunc));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETPROCESSEXITCODE::I:I",HS_EmscriptenNotSupportedFunc));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ISPROCESSRUNNING::B:I",HS_EmscriptenNotSupportedFunc));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("READPROCESSOUTPUT::S:I",HS_EmscriptenNotSupportedFunc));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("READPROCESSERRORS::S:I",HS_EmscriptenNotSupportedFunc));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("SETPROCESSENVIRONMENT:::IRA", HS_EmscriptenNotSupportedMacro));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("RUNPROCESS::B:ISSASBBB",HS_EmscriptenNotSupportedFunc));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("INTERRUPTPROCESS:::I",HS_EmscriptenNotSupportedMacro));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("TERMINATEPROCESS:::I",HS_EmscriptenNotSupportedMacro));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("DETACHPROCESS:::I",HS_EmscriptenNotSupportedMacro));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("WAITFORPROCESSOUTPUT::I:II",HS_EmscriptenNotSupportedFunc));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETPROCESSOUTPUTHANDLE::I:IB",HS_EmscriptenNotSupportedFunc));
+#endif
+
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CLOSEPIPE:::I", HS_ClosePipe));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__COLLAPSEPATH::S:S",HS_CollapsePath));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CREATEDISKDIRECTORY::B:SB",HS_CreateDiskDirectory));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CREATEDISKDIRECTORYRECURSIVE::B:SB",HS_CreateDiskDirectoryRecursive));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CREATEPIPESET::R:",HS_CreatePipeSet));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CREATEPROCESSINTERNAL::I:BBBBB6",HS_CreateProcess));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CREATESOFTLINK::B:SS",HS_CreateSoftLink));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CREATEHARDLINK::B:SS",HS_CreateHardLink));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("DELETEDISKDIRECTORY::B:S",HS_DeleteDiskDirectory));
@@ -1624,7 +1703,6 @@ void InitProcess(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("FLUSHOUTPUTBUFFER:::",HS_FlushOutputBuffer));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ISCONSOLEATERMINAL::B:",HS_IsConsoleATerminal));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ISCONSOLESUPPORTAVAILABLE::B:",HS_IsConsoleSupportAvailable));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ISPROCESSRUNNING::B:I",HS_IsProcessRunning));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ISPATHABSOLUTE::B:S",HS_IsPathAbsolute));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ISSAFEFILEPATH::B:SB",HS_IsSafeFilePath));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GENERATETEMPORARYPATHNAME::S:",HS_GenerateTemporaryPathname));
@@ -1638,7 +1716,6 @@ void InitProcess(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETFILEPOINTER::6:I",HS_GetFilePointer));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETHOSTINGPROCESSSTARTTIME::D:", HS_GetHostingProcessStartTime));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETLASTOSERROR::S:", HS_GetLastOSError));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETPROCESSEXITCODE::I:I",HS_GetProcessExitCode));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETSYSTEMNUMPROCESSORS::I:",HS_GetSystemNumProcessors));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETSYSTEMNUMVIRTUALPROCESSORS::I:",HS_GetSystemNumVirtualProcessors));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETSYSTEMOSNAME::S:",HS_GetSystemOsName));
@@ -1651,8 +1728,6 @@ void InitProcess(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("READDISKDIRECTORY::RA:SS",HS_ReadDiskDirectory));
 //        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("READFROMFILE::S:II",HS_ReadFromFile));
         //ADDME: Replace these two functions with a 'GetPRocessOutputHandle' and then just readfrom file on that
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("READPROCESSOUTPUT::S:I",HS_ReadProcessOutput));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("READPROCESSERRORS::S:I",HS_ReadProcessErrors));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("READSOFTLINK::S:S",HS_ReadSoftLink));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETCONSOLEECHO::B:",HS_GetConsoleEcho));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("SETCONSOLEECHO:::B",HS_SetConsoleEcho));
@@ -1666,13 +1741,6 @@ void InitProcess(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("SETFILEPOINTER:::I6",HS_SetFilePointer));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("SETPIPEREADSIGNALTHRESHOLD:::II", HS_SetPipeReadSignalThreshold));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("SETPIPEYIELDTHRESHOLD:::II", HS_SetPipeYieldThreshold));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("SETPROCESSENVIRONMENT:::IRA", HS_SetProcessEnvironment));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("RUNPROCESS::B:ISSASBBB",HS_RunProcess));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("INTERRUPTPROCESS:::I",HS_InterruptProcess));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("TERMINATEPROCESS:::I",HS_TerminateProcess));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("DETACHPROCESS:::I",HS_DetachProcess));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("WAITFORPROCESSOUTPUT::I:II",HS_WaitForProcessOutput));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETPROCESSOUTPUTHANDLE::I:IB",HS_GetProcessOutputHandle));
 }
 
 } // End of namespace Baselibs

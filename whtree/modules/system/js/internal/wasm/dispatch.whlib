@@ -1,0 +1,21 @@
+<?wh
+
+
+PUBLIC STRING FUNCTION Dispatch(FUNCTION PTR tocall, STRING hsondata)
+{
+  TRY
+  {
+    RECORD data := DecodeHSON(hsondata);
+    RETURN EncodeHSON(
+        [ type := "result"
+        , value := CallFunctionPtrVA(tocall, data.params)
+        ]);
+  }
+  CATCH (OBJECT e)
+  {
+    RETURN EncodeHSON(
+        [ type := "exception"
+        , __exception := e->EncodeForIPC()
+        ]);
+  }
+}

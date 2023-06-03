@@ -498,7 +498,9 @@ Library const * Environment::GetLibRef(Blex::ContextKeeper &keeper, std::string 
 
                                         // Add the new error
                                         handler.AddMessage(e);
+#ifndef __EMSCRIPTEN__
                                         Blex::SleepThread(1000); //wait one second
+#endif
                                 }
                         }
                     case FileSystem::RecompileError:

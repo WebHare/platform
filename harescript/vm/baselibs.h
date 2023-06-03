@@ -31,6 +31,8 @@ namespace Baselibs
 const unsigned SystemContextId = 2;
 struct SystemContextData;
 
+#ifndef __EMSCRIPTEN__
+
 /** TCP/IP context data */
 struct TCPIPContext
 {
@@ -183,6 +185,8 @@ struct TCPIPContext
         friend class SocketMarshallerData;
 };
 
+#endif // __EMSCRIPTEN__
+
 struct MimeDecodeStore : public Blex::Mime::DecodeReceiver
 {
         MimeDecodeStore(HSVM *vm,
@@ -221,6 +225,8 @@ struct MimeDecodeStore : public Blex::Mime::DecodeReceiver
 
 typedef std::shared_ptr<MimeDecodeStore> MimeDecodeStorePtr;
 
+#ifndef __EMSCRIPTEN__
+
 /** Crypto context data*/
 struct CryptoContext
 {
@@ -248,6 +254,8 @@ struct CryptoContext
         typedef IdMapStorage<EVPKeyPtr> EvpKeys;
         EvpKeys evpkeys;
 };
+
+#endif // __EMSCRIPTEN__
 
 /** OS context data */
 struct OSContext
@@ -282,7 +290,7 @@ struct OSContext
 
         /** Setup console support */
         void SetupConsole();
-
+#ifndef __EMSCRIPTEN__
         /** @short Create an OS subprocess
             @long Have the OS start a process, under our direct control. Specify
                   what input and output streams we want to process
@@ -313,9 +321,11 @@ struct OSContext
         void TerminateProcess(int processid);
         void DetachProcess(int processid);
         void ResetProcessInput(int processid);
+        bool IsProcessRunning(int processid);
+        int GetProcessExitCode(int processid);
+#endif // __EMSCRIPTEN__
         std::string GetConsoleLine();
         int OpenDiskFile(HSVM *vm, std::string const &path, bool writeaccess, bool create, bool failifexists, bool publicfile);
-        bool IsProcessRunning(int processid);
         bool DeleteDiskFile(std::string const &path);
         bool DeleteDiskDirectory(std::string const &path, bool recurse);
         std::string GetRealPath(std::string const &path);
@@ -325,7 +335,6 @@ struct OSContext
         void SetFilePointer(HSVM *vm, int filehandle, Blex::FileOffset filesize);
         bool CloseFile(HSVM *vm, int filehandle);
         void SetConsoleExitcode(int exitcode);
-        int GetProcessExitCode(int processid);
         std::pair< int32_t, int32_t > CreatePipeSet(HSVM *vm, bool bidi);
         void DeletePipe(int32_t pipeid);
         void SetPipeJob(int32_t pipeid, Job *job);
@@ -377,6 +386,7 @@ struct OSContext
                 virtual SignalledStatus IsReadSignalled(Blex::PipeWaiter *waiter);
         };
 
+#ifndef __EMSCRIPTEN__
         struct Process : public HareScript::OutputObject
         {
                 Process(HSVM *_vm) : OutputObject(_vm, "Process"), vm(_vm), started(false), write_unblocked(false)
@@ -406,6 +416,7 @@ struct OSContext
                 virtual bool AddToWaiterWrite(Blex::PipeWaiter &waiter);
                 virtual SignalledStatus IsWriteSignalled(Blex::PipeWaiter *waiter);
         };
+#endif
 
         struct PipeEnd : public HareScript::OutputObject
         {
@@ -442,17 +453,19 @@ struct OSContext
                 std::unique_ptr< Blex::BufferedPipeWriteStream > write_stream;
         };
 
-        typedef std::shared_ptr<Process> ProcessPtr;
-
         /** @short Get a file
             @return NULL if the file doesn't xist*/
         FileInfo* GetFile(int fileid);
+
+#ifndef __EMSCRIPTEN__
+        typedef std::shared_ptr<Process> ProcessPtr;
+
         /** @short Get a process
             @return NULL if the process doesn't xist*/
         Process* GetProcess(int processid );
 
         std::map< int, ProcessPtr > processes;
-
+#endif // __EMSCRIPTEN__
 
         std::map< int32_t, std::shared_ptr< PipeEnd > > pipes;
 
@@ -527,8 +540,11 @@ struct SystemContextData
 
         std::map<int, MimeDecodeStorePtr> decoders;
 
+#ifndef __EMSCRIPTEN__
         TCPIPContext tcpip;
+#endif // __EMSCRIPTEN__
         OSContext os;
+#ifndef __EMSCRIPTEN__
         CryptoContext crypto;
 
         struct CompressingStream
@@ -546,17 +562,20 @@ struct SystemContextData
                 std::unique_ptr<Blex::Stream> inputdata;
                 std::unique_ptr<Blex::ZlibDecompressStream> outputdata;
         };
+#endif // __EMSCRIPTEN__
 
         struct Log;
 
         typedef RegisteredIdMapStorage<std::shared_ptr<Log> > Logs;
         Logs logs;
 
+#ifndef __EMSCRIPTEN__
         typedef std::shared_ptr<CompressingStream> CompressingStreamPtr;
         typedef std::shared_ptr<DecompressingStream> DecompressingStreamPtr;
-
         std::map<int, CompressingStreamPtr> compressingstreams;
         std::map<int, DecompressingStreamPtr> decompressingstreams;
+#endif
+
         std::map< int32_t, std::shared_ptr< EventStream > > eventstreams;
         std::map< int32_t, std::shared_ptr< EventCollector > > eventcollectors;
 
@@ -583,6 +602,7 @@ struct SystemContextData
 };
 
 typedef Blex::Context<SystemContextData, SystemContextId, void> SystemContext;
+
 
 void InitMime(struct HSVM_RegData *regdata);
 void InitCrypto(struct HSVM_RegData *regdata);

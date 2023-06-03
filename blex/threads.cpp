@@ -1650,6 +1650,24 @@ void StatefulEvent::StateChanged()
 //
 //-----------------------------------------------------------------------------
 
+#ifdef __EMSCRIPTEN__
+/* TLS appears broken ? https://github.com/emscripten-core/emscripten/issues/8740 might be relevant
+   pthread_getspecific isn't returning what we put in. we're not threading in emscripten anyway so stub this */
+void DestroyContextKeeper(void *)
+{
+}
+void SetThreadContextKeeper(ContextKeeper *)
+{
+}
+void InitThreadContext(ContextKeeper *)
+{
+}
+ContextKeeper & CurrentThreadContext()
+{
+        static ContextKeeper threadcontextkeeper(GetThreadContextRegistrator());
+        return threadcontextkeeper;
+}
+#else
 pthread_key_t key = 0;
 
 void DestroyContextKeeper(void *ctxt)
@@ -1676,5 +1694,6 @@ ContextKeeper & CurrentThreadContext()
 
         return *static_cast< ContextKeeper * >(ctxt);
 }
+#endif
 
 } // end of namespace Blex
