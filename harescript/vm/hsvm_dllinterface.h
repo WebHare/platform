@@ -13,8 +13,17 @@ or expect planned API changes will affect your applications
 #ifndef HSVM_dllinterface_sentry
 #define HSVM_dllinterface_sentry
 
-#define HSVM_PUBLIC __attribute__((visibility("default")))
-#define HSVM_LOCAL  __attribute__((visibility("hidden")))
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
+
+#ifndef __EMSCRIPTEN__
+ #define HSVM_PUBLIC __attribute__((visibility("default")))
+ #define HSVM_LOCAL  __attribute__((visibility("hidden")))
+#else
+ #define HSVM_PUBLIC EMSCRIPTEN_KEEPALIVE
+ #define HSVM_LOCAL  __attribute__((visibility("hidden")))
+#endif
 
 #define HSVM_DLLINTERFACE_REVISION 2
 
@@ -1008,6 +1017,15 @@ HSVM_PUBLIC void*  HSVM_BlobContext(struct HSVM *vm, HSVM_VariableId blobid, uns
     @return 1: The function pointer was found. -1: The function pointer was not found. 0: An unhandled VM exception occured, return to VM asap */
  HSVM_PUBLIC int HSVM_MakeFunctionPtr(struct HSVM *vm, HSVM_VariableId id_set, const char* libraryuri, const char* function_name, HSVM_VariableType returntype, int numargs, HSVM_VariableType const *args, HSVM_VariableId errors);
 
+/** Create a function/macro ptr, no check on returnvalue or parameters
+    @param vm Virtual Machine
+    @param id_set Variable to set to function pointer destination. Set to the default function pointer on failure
+    @param libraryuri URI of library in which the function can be found
+    @param function_name Name of function to call (unmangled name)
+    @param errors Optional variable to place any errors in. If not present, the script is aborted on error.
+    @return 1: The function pointer was found. -1: The function pointer was not found. 0: An unhandled VM exception occured, return to VM asap */
+ HSVM_PUBLIC int HSVM_MakeFunctionPtrAutoDetect(struct HSVM *vm, HSVM_VariableId id_set, const char* libraryuri, const char* function_name, HSVM_VariableId errors);
+
 /** Create a function/macro ptr
     @param vm Virtual Machine
     @param id_set Variable to set to function pointer destination. Set to the default function pointer on failure
@@ -1080,6 +1098,13 @@ HSVM_PUBLIC HSVM_VariableId  HSVM_ScheduleFunctionPtrCall(struct HSVM *vm, HSVM_
     @param args Array of type ids of the arguments
     @return Returns return variable, 0 if function failed (or threw an error) */
 HSVM_PUBLIC HSVM_VariableId  HSVM_CallFunction(struct HSVM *vm, const char* libraryuri, const char* function_name, HSVM_VariableType returntype, int numargs, HSVM_VariableType const *args) ;
+
+/** Call a function/macro by name. This function wraps HSVM_MakeFunctionPtrAutoDetect and HSVM_CallFunctionPtr
+    @param vm Virtual Machine
+    @param libraryuri URI of library in which the function can be found
+    @param function_name Name of function to call (unmangled name)
+    @return Returns return variable, 0 if function failed (or threw an error) */
+HSVM_PUBLIC HSVM_VariableId  HSVM_CallFunctionAutoDetect(struct HSVM *vm, const char *libraryuri, const char *function_name) ;
 
 /** Calls an object method. PrepareFunctionCall needs to be called before, and
     parameters initialized.
@@ -1299,6 +1324,8 @@ inline void HSVM_StringSetSTD(struct HSVM *vm, HSVM_VariableId id, const char *v
             HSVM_SetDefault(vm,id,HSVM_VAR_String);
 }
 
+#ifndef __EMSCRIPTEN__
+
 /** Set a variable of type HSVM_VAR_Datetime from a Blex::DateTime
     @param vm Virtual machine
     @param id ID of the variable
@@ -1317,6 +1344,8 @@ inline Blex::DateTime HSVM_DateTimeGetBlex(struct HSVM *vm, HSVM_VariableId id)
         HSVM_DateTimeGet(vm, id, &high, &low);
         return Blex::DateTime(high, low);
 }
+
+#endif // __EMSCRIPTEN__
 
 inline std::string HSVM_GetVMGroupIdSTD(struct HSVM *vm)
 {

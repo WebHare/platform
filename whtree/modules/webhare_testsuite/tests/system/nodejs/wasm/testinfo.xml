@@ -1,0 +1,6 @@
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="test_wasm_basics.whscr">
+  <test script="test_wh_run_wasm.sh" />
+  <!-- TODO: Learn testrunner to launch tests under WASM. But even then we'll still also want to verify the command line version
+  <test script="test_wasm_basics.whscr" engine="wasm" />
+  -->
+</group>

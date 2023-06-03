@@ -143,7 +143,12 @@ class BLEXLIB_PUBLIC BlobRefPtr
         friend class VarMemory;
 };
 
-#if !defined(__EMSCRIPTEN__)
+#ifndef __EMSCRIPTEN__
+typedef Blex::ComplexFileStream BlobStorageStream;
+#else
+typedef Blex::MemoryRWStream BlobStorageStream;
+#endif
+
 /** Blob stored in the global blob manager.
 */
 class BLEXLIB_PUBLIC GlobalBlob
@@ -151,11 +156,11 @@ class BLEXLIB_PUBLIC GlobalBlob
     private:
         GlobalBlobManager &manager;
 
-        std::unique_ptr< Blex::ComplexFileStream > stream;
+        std::unique_ptr< BlobStorageStream > stream;
 
         std::string name;
 
-        GlobalBlob(GlobalBlobManager &_manager, std::unique_ptr< Blex::ComplexFileStream > _stream, std::string_view _name);
+        GlobalBlob(GlobalBlobManager &_manager, std::unique_ptr< BlobStorageStream > _stream, std::string_view _name);
 
     public:
         ~GlobalBlob();
@@ -182,7 +187,9 @@ class BLEXLIB_PUBLIC GlobalBlobManager
 {
     private:
         /// File system for storage
+#ifndef __EMSCRIPTEN__
         std::unique_ptr< Blex::ComplexFileSystem > fs;
+#endif
 
         struct Data
         {
@@ -210,10 +217,10 @@ class BLEXLIB_PUBLIC GlobalBlobManager
         ~GlobalBlobManager();
 
         /// Create a new stream, with a single reference on the name
-        std::unique_ptr< Blex::ComplexFileStream > CreateTempStream(std::string *name);
+        std::unique_ptr< BlobStorageStream > CreateTempStream(std::string *name);
 
         /// Convert an existing stream into a blob. Does not add a reference to the name
-        std::shared_ptr< GlobalBlob > BuildBlobFromTempStream(std::unique_ptr< Blex::ComplexFileStream > file, std::string const &name);
+        std::shared_ptr< GlobalBlob > BuildBlobFromTempStream(std::unique_ptr< BlobStorageStream > file, std::string const &name);
 
         // Create a blob reference ptr from a global blob
         BlobRefPtr BuildBlobFromGlobalBlob(VirtualMachine *vm, std::shared_ptr< GlobalBlob > const &globalblob);
@@ -262,8 +269,6 @@ class BLEXLIB_PUBLIC ReferencedGlobalBlob : public BlobBase
         friend class OpenedBlob;
         friend class GlobalBlobManager;
 };
-
-#endif
 
 } // End of namespace HareScript
 

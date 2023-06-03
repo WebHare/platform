@@ -175,9 +175,9 @@ template <class StoredClass>
         return id;
 }
 
-#define HSVM_PUBLIC __attribute__((visibility("default")))
+#define HSVM_PUBLIC_VISIBLE __attribute__((visibility("default")))
 
-class HSVM_PUBLIC IdMapStorageRapporter
+class HSVM_PUBLIC_VISIBLE IdMapStorageRapporter
 {
     protected:
         VirtualMachine *vm;

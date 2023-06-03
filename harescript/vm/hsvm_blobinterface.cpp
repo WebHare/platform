@@ -89,19 +89,25 @@ Blex::FileOffset BlobBase::GetLength()
 GlobalBlobManager::GlobalBlobManager(std::string const &tmpdir)
 {
         std::string str = Blex::CreateTempName(Blex::MergePath(tmpdir, "blobs-"));
+#ifndef __EMSCRIPTEN__
         fs.reset(new Blex::ComplexFileSystem(str, true));
+#endif
 }
 
 GlobalBlobManager::~GlobalBlobManager()
 {
 }
 
-std::unique_ptr< Blex::ComplexFileStream > GlobalBlobManager::CreateTempStream(std::string *name)
+std::unique_ptr< BlobStorageStream > GlobalBlobManager::CreateTempStream(std::string *name)
 {
         LockedData::WriteRef lock(data);
+#ifndef __EMSCRIPTEN__
         std::unique_ptr< Blex::ComplexFileStream > file(fs->CreateTempFile(name));
         if(!file)
             return std::unique_ptr< Blex::ComplexFileStream >();
+#else
+        std::unique_ptr< Blex::MemoryRWStream > file(new Blex::MemoryRWStream);
+#endif
 
         unsigned &ref = lock->refcounts[*name];
         ++ref;
@@ -110,7 +116,7 @@ std::unique_ptr< Blex::ComplexFileStream > GlobalBlobManager::CreateTempStream(s
         return file;
 }
 
-std::shared_ptr< GlobalBlob > GlobalBlobManager::BuildBlobFromTempStream(std::unique_ptr< Blex::ComplexFileStream > file, std::string const &name)
+std::shared_ptr< GlobalBlob > GlobalBlobManager::BuildBlobFromTempStream(std::unique_ptr< BlobStorageStream > file, std::string const &name)
 {
         return std::shared_ptr< GlobalBlob >(new GlobalBlob(*this, std::move(file), name));
 }
@@ -144,7 +150,11 @@ void GlobalBlobManager::RemoveReference(std::string const &name)
                 }
         }
         if (need_delete)
-            fs->DeletePath(name);
+        {
+#ifndef __EMSCRIPTEN__
+                fs->DeletePath(name);
+#endif
+        }
 }
 
 void GlobalBlobManager::AddUsage(VirtualMachine *vm, Blex::FileOffset length)
@@ -243,7 +253,7 @@ BlobRefPtr::~BlobRefPtr()
 //
 //---------------------------------------------------------------------------
 
-GlobalBlob::GlobalBlob(GlobalBlobManager &_manager, std::unique_ptr< Blex::ComplexFileStream > _stream, std::string_view _name)
+GlobalBlob::GlobalBlob(GlobalBlobManager &_manager, std::unique_ptr< BlobStorageStream > _stream, std::string_view _name)
 : manager(_manager)
 , stream(std::move(_stream))
 , name(_name)

@@ -1,0 +1,11 @@
+<?wh
+LOADLIB "wh::internal/wasm.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+PUBLIC MACRO RunWasmtest()
+{
+  TestEq(TRUE, IsWASM(), "We should be tested under wasm!");
+  TestThrowsLike("*no such *syscall*notthere*", PTR EM_Syscall("notthere"));
+}
+
+RunWasmTest(); //TODO RunTestFramework isn't supported yet

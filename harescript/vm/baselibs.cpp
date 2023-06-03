@@ -11,6 +11,7 @@
 #include "mangling.h"
 #include <blex/mime.h>
 #include "hsvm_debug.h"
+#include <wasm/tools.h>
 
 //#define SHOW_PACKET
 //#define SHOW_GENERATORS
@@ -64,7 +65,9 @@ void SystemContextData::CloseHandles()
         decoders.clear();
 
         os.CloseHandles();
+#ifndef __EMSCRIPTEN__
         tcpip.CloseHandles();
+#endif // __EMSCRIPTEN__
 }
 
 void HS_FatalError(VirtualMachine *vm)
@@ -3038,12 +3041,41 @@ void SetDebuggingTags(VirtualMachine *vm)
         vm->GetEnvironment().SetDebuggingTags(*vm, tags);
 }
 
+void EM_HS_TCPIP_GetSocketTimeout(HareScript::VarId id_set, HareScript::VirtualMachine *vm)
+{
+        HSVM_IntegerSet(*vm, id_set, 0);
+}
+
+#ifdef __EMSCRIPTEN__
+
+EM_JS(char*, supportSyscall, (const char *data), {
+  return stringToNewUTF8(Module.emSyscall(data));
+});
+
+void EM_Syscall(HareScript::VarId id_set, HareScript::VirtualMachine *vm)
+{
+        using namespace WebHare::WASM;
+
+        std::string result = ConvertCharPtrAndDelete(supportSyscall(HSVM_StringGetSTD(*vm, HSVM_Arg(0)).c_str()));
+        HSVM_StringSetSTD(*vm, id_set, result);
+}
+
+#else
+
+void EM_Syscall(HareScript::VarId id_set, HareScript::VirtualMachine *vm)
+{
+        HSVM_SetDefault(*vm, id_set, HSVM_VAR_String);
+}
+
+#endif //__EMSCRIPTEN__
 
 } // End of namespace Baselibs
 
 int BaselibsEntryPoint(struct HSVM_RegData *regdata, void * /*context_ptr*/)
 {
+#ifndef __EMSCRIPTEN__
         Baselibs::InitCrypto(regdata);
+#endif
         Baselibs::InitMime(regdata);
         Baselibs::InitTokenStream(regdata);
         return 0;
@@ -3058,9 +3090,11 @@ void RegisterDeprecatedBaseLibs(BuiltinFunctionsRegistrator &bifreg, Blex::Conte
         InitBlob(bifreg);
         InitLibdumper(bifreg);
         InitProcess(bifreg);
+#ifndef __EMSCRIPTEN__
         InitTCPIP(bifreg);
         InitJobManager(creg, bifreg);
         InitIPC(creg, bifreg);
+#endif
         InitJSON(creg, bifreg);
         InitRegex(creg, bifreg);
         InitStrings(bifreg);
@@ -3178,6 +3212,11 @@ void RegisterDeprecatedBaseLibs(BuiltinFunctionsRegistrator &bifreg, Blex::Conte
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_INTERNAL_GETASYNCSTACKTRACE::RA:", GetAsyncStackTrace));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_INTERNAL_LISTHANDLES::R:", ListHandles));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_INTERNAL_SETDEBUGGINGTAGS:::SA", SetDebuggingTags));
+
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__EM_SYSCALL::S:S", EM_Syscall));
+#ifdef __EMSCRIPTEN__
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_TCPIP_GETSOCKETTIMEOUT::I:I",EM_HS_TCPIP_GetSocketTimeout));
+#endif // __EMSCRIPTEN__
 }
 
 void SetupConsole(VirtualMachine &vm)

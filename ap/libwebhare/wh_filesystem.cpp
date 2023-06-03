@@ -2,16 +2,24 @@
 
 #include "wh_filesystem.h"
 
+#ifndef __EMSCRIPTEN__
 #include "whcore.h"
+#endif
+
 #include <blex/path.h>
 #include <blex/pipestream.h>
 #include <blex/utils.h>
+#include <wasm/tools.h>
 
 /*ADDME: Unused?
 const unsigned CacheTime = 2;   // Time between re-checks in seconds
 */
 
+#ifdef __EMSCRIPTEN__
+using namespace WebHare::WASM;
+#endif
 
+#ifndef __EMSCRIPTEN__
 
 //////////////////////////////////////////////////////////////////////////
 //
@@ -375,6 +383,7 @@ Blex::FileOffset HTTPConnection::SendAllTo(Blex::Stream &outstream)
         return total;
 }
 
+#endif // __EMSCRIPTEN__
 
 int32_t DecodeNumber(std::string const &src)
 {
@@ -425,11 +434,15 @@ class WHFileSystem::DirectFile : public HareScript::FileSystem::File
 class WHFileSystem::ContextData
 {
     public:
+#ifndef __EMSCRIPTEN__
         ContextData(WHCore::Connection *whconn);
+#endif
         ~ContextData();
 
+#ifndef __EMSCRIPTEN__
         /// WHCore connection
         WHCore::Connection *whconn;
+#endif
 
         /// Cache of all direct files in this context
         std::map<std::string, FilePtr> directfiles;
@@ -439,6 +452,8 @@ class WHFileSystem::ContextData
 //
 //      WHFileSystem
 //
+
+#ifndef __EMSCRIPTEN__
 WHFileSystem::WHFileSystem(WHCore::Connection &_conn, CompilationPriority::Class priorityclass, bool allow_direct_compilations)
 : HareScript::FileSystem(_conn.GetTmpRoot(), _conn.GetModuleFolder("system") + "whres")
 , dataroot(_conn.GetWebHareRoot())
@@ -449,10 +464,32 @@ WHFileSystem::WHFileSystem(WHCore::Connection &_conn, CompilationPriority::Class
 , allow_direct_compilations(allow_direct_compilations)
 {
 }
+#else
+WHFileSystem::WHFileSystem(
+        std::string const &tmproot,
+        std::string const &whres,
+        std::string const &_installationroot,
+        std::string const &_compilecache,
+        CompilationPriority::Class priorityclass,
+        bool allow_direct_compilations)
+: HareScript::FileSystem(tmproot, whres)
+, dataroot(_installationroot)
+, compilecache(_compilecache)
+, dynamicmodulepath("")
+, priorityclass(priorityclass)
+, allow_direct_compilations(allow_direct_compilations)
+{
+}
+
+#endif
 
 void WHFileSystem::Register(Blex::ContextRegistrator &reg)
 {
+#ifndef __EMSCRIPTEN__
         Context::Register(reg, conn);
+#else
+        Context::Register(reg);
+#endif
 }
 
 std::string WHFileSystem::GetLibraryCompiledName(Blex::ContextKeeper &, std::string const &prefix, std::string const &uri) const
@@ -530,6 +567,8 @@ HareScript::FileSystem::FilePtr const &WHFileSystem::GetDirectFile(Blex::Context
 
         return res.first->second;
 }
+
+#ifndef __EMSCRIPTEN__
 
 enum Type
 {
@@ -1064,6 +1103,48 @@ WHFileSystem::RecompileResult WHFileSystem::RecompileInternal(Blex::ContextKeepe
         return RecompileError;
 }
 
+#else // __EMSCRIPTEN__
+
+EM_JS(char*, supportGetOpenLibraryPath, (const char *uri), {
+  return Module.getOpenLibraryPath(uri);
+});
+
+EM_JS(char*, supportTranslateLibraryURI, (const char *uri), {
+  return Module.translateLibraryURI(uri);
+});
+
+EM_JS(char*, supportResolveAbsoluteLibrary, (const char *rawloader, const char *libname), {
+  return Module.resolveAbsoluteLibrary(rawloader, libname);
+});
+
+HareScript::FileSystem::FilePtr WHFileSystem::OpenLibrary(Blex::ContextKeeper &keeper, std::string const &_liburi) const
+{
+        auto path = ConvertCharPtrAndDelete(supportGetOpenLibraryPath(_liburi.c_str()));
+        if (path.rfind("clib:", 0) == 0)
+            return GetDirectClibFile(keeper, path.substr(5));
+        else
+            return GetDirectFile(keeper, path);
+}
+
+std::string WHFileSystem::TranslateLibraryURI([[maybe_unused]]Blex::ContextKeeper &keeper, std::string const &directuri) const
+{
+        auto retval = ConvertCharPtrAndDelete(supportTranslateLibraryURI(directuri.c_str()));
+        return retval;
+
+}
+
+void WHFileSystem::ResolveAbsoluteLibrary([[maybe_unused]]Blex::ContextKeeper &keeper, std::string const &rawloader, std::string *libname) const
+{
+        *libname = ConvertCharPtrAndDelete(supportResolveAbsoluteLibrary(rawloader.c_str(), libname->c_str()));
+}
+
+WHFileSystem::RecompileResult WHFileSystem::Recompile([[maybe_unused]]Blex::ContextKeeper &keeper, [[maybe_unused]]std::string const &_liburi, [[maybe_unused]]bool isloadlib, [[maybe_unused]]HareScript::ErrorHandler *errorhandler)
+{
+        return RecompileNotSupported;
+}
+
+#endif // __EMSCRIPTEN__
+
 std::string WHFileSystem::ReturnPath(Blex::ContextKeeper &keeper, std::string const &filename)
 {
         if (filename.substr(0, 1) == "/")
@@ -1101,10 +1182,13 @@ void WHFileSystem::ReleaseResources(Blex::ContextKeeper &keeper)
 //
 //      WHFileSystem::ContextData
 //
+
+#ifndef __EMSCRIPTEN__
 WHFileSystem::ContextData::ContextData(WHCore::Connection *_whconn)
 : whconn(_whconn)
 {
 }
+#endif // __EMSCRIPTEN__
 
 WHFileSystem::ContextData::~ContextData()
 {
