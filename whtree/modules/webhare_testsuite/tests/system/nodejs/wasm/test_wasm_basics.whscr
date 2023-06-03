@@ -8,6 +8,7 @@ PUBLIC MACRO RunWasmtest()
   TestEq(TRUE, IsWASM(), "We should be tested under wasm!");
   TestThrowsLike("*no such *syscall*notthere*", PTR EM_Syscall("notthere"));
   TestEqLike("*/modules/system/", GetModuleInstallationRoot("system"));
+  TestEq("", GetModuleInstallationRoot("__nosuchmodule__"), "should NOT throw");
 }
 
 RunWasmTest(); //TODO RunTestFramework isn't supported yet

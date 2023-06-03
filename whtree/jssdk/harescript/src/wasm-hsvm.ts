@@ -584,7 +584,7 @@ async function createHarescriptModule(): Promise<Module> {
   module.registerExternalFunction("__SYSTEM_GETMODULEINSTALLATIONROOT::S:S", (vm, id_set, modulename) => {
     const mod = config.module[modulename.getString()];
     if (!mod) {
-      module.throwException(vm, `No such module ${JSON.stringify(modulename.getString())}`);
+      id_set.setString("");
     } else
       id_set.setString(mod.root);
   });
