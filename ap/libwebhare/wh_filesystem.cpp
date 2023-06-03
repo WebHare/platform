@@ -899,7 +899,7 @@ bool WHFileSystem::ParseError(const char *start, const char *limit, HareScript::
         std::vector<std::string> errorparts;
         Blex::TokenizeString(std::string(start, limit), '\t', &errorparts);
 
-        if (errorparts.size() != 7)
+        if (errorparts.size() < 7)
             throw HareScript::VMRuntimeError(HareScript::Error::InternalError, "Unrecognized error string");
 
         HareScript::VMRuntimeError m(HareScript::Error::InternalError);
