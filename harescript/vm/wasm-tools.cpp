@@ -1,4 +1,4 @@
-#include "tools.h"
+#include "wasm-tools.h"
 
 namespace WebHare {
 namespace WASM {

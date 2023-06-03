@@ -4,8 +4,8 @@ if [ -z "$WHBUILD_SRCDIR" ]; then
   echo WHBUILD_SRCDIR not set. Invoke us through wh make!
   exit 1;
 fi
-if [ -z "$WHBUILD_BUILDDIR" ]; then
-  echo WHBUILD_BUILDDIR not set. Invoke us through wh make!
+if [ -z "$TARGETDIR" ]; then
+  echo TARGETDIR not set. Invoke us through wh make!
   exit 1;
 fi
 
@@ -15,10 +15,10 @@ if [ -f "${WHBUILD_SRCDIR}/vendor/libxml2/config.h" ]; then
 fi
 
 # Updating this file should trigger reconfiguration of libxml2
-EXPECTCONFIGFILE="${WHBUILD_BUILDDIR}/vendor/libxml2/config.h"
+EXPECTCONFIGFILE="${TARGETDIR}/config.h"
 echo Generating "$EXPECTCONFIGFILE" "(and libxml2/include/xmlversion.h)"
-mkdir -p "${WHBUILD_BUILDDIR}/vendor/libxml2"
-cd "${WHBUILD_BUILDDIR}/vendor/libxml2" || exit 1
+mkdir -p "${TARGETDIR}"
+cd "${TARGETDIR}" || exit 1
 
 rm -f -- "$EXPECTCONFIGFILE" # Ensure it's updated by autogen.sh or we may reloop on building libxml2
 if [ "$(uname)" != "Darwin" ]; then

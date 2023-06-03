@@ -11,7 +11,7 @@
 #include "mangling.h"
 #include <blex/mime.h>
 #include "hsvm_debug.h"
-#include <wasm/tools.h>
+#include <harescript/vm/wasm-tools.h>
 
 //#define SHOW_PACKET
 //#define SHOW_GENERATORS
