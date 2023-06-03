@@ -1229,9 +1229,10 @@ HSVM_PUBLIC unsigned  HSVM_GetVMGroupId(struct HSVM *vm, char *dest, unsigned ro
 
 /** Get the current message list (note that all VMs currently share the error list of their group - ADDME: Not sure if that resource should be global (simplifies error handling) or local (simplifies try-and-load) )
     @param vm Virtual machine
-    @param errorstore Variable which will store the warning/errorlist (it will be initailzied to RECORD ARRAY)
+    @param errorstore Variable which will store the warning/errorlist (it will be initialized to RECORD ARRAY)
+    @param trace If 1, get stacktrace messages too
     @return 2 if there were errors, 1 if there were warnings, 0 if nothing */
- HSVM_PUBLIC int HSVM_GetMessageList(struct HSVM *vm, HSVM_VariableId errorstore) ;
+ HSVM_PUBLIC int HSVM_GetMessageList(struct HSVM *vm, HSVM_VariableId errorstore, int trace) ;
 
 /** Returns contents the authentication record variable.
     @param vm Virtual machine

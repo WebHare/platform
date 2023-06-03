@@ -1967,7 +1967,7 @@ void GetLibraryInfo(VarId id_set, VirtualMachine *vm)
                 valid = false;
 
                 vm->GetErrorHandler().AddMessage(e);
-                HSVM_GetMessageList(*vm, errors);
+                HSVM_GetMessageList(*vm, errors, 0);
 
                 vm->GetErrorHandler().Reset();
         }
@@ -2001,7 +2001,7 @@ void GetLoadedLibrariesInfo(VarId id_set, VirtualMachine *vm)
         catch (VMRuntimeError &e)
         {
                 vm->GetErrorHandler().AddMessage(e);
-                HSVM_GetMessageList(*vm, var_errors);
+                HSVM_GetMessageList(*vm, var_errors, 0);
 
                 vm->GetErrorHandler().Reset();
         }

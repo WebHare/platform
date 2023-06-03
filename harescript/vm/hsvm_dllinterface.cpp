@@ -1773,7 +1773,7 @@ int HSVM_ScheduleLibraryLoad(struct HSVM *vm, HSVM_VariableId libraryuri, HSVM_V
                     throw; // Throw it into the exception-catcher of this function
 
                 VM.GetErrorHandler().AddMessage(e);
-                HSVM_GetMessageList(vm, errors);
+                HSVM_GetMessageList(vm, errors, 0);
 
                 VM.GetErrorHandler().Reset();
                 return -2;
@@ -1792,7 +1792,7 @@ int HSVM_ScheduleLibraryLoad(struct HSVM *vm, HSVM_VariableId libraryuri, HSVM_V
                             throw; // Throw it into the exception-catcher of this function
 
                         VM.GetErrorHandler().AddMessage(e);
-                        HSVM_GetMessageList(vm, errors);
+                        HSVM_GetMessageList(vm, errors, 0);
 
                         VM.GetErrorHandler().Reset();
 
@@ -1837,7 +1837,7 @@ int HSVM_MakeFunctionPtrInternal(struct HSVM *vm, HSVM_VariableId id_set, std::s
                     throw; // Throw it into the exception-catcher of this function
 
                 VM.GetErrorHandler().AddMessage(e);
-                HSVM_GetMessageList(vm, errors);
+                HSVM_GetMessageList(vm, errors, 0);
 
                 VM.GetErrorHandler().Reset();
                 return -2;
@@ -1859,7 +1859,7 @@ int HSVM_MakeFunctionPtrInternal(struct HSVM *vm, HSVM_VariableId id_set, std::s
                             throw; // Throw it into the exception-catcher of this function
 
                         VM.GetErrorHandler().AddMessage(e);
-                        HSVM_GetMessageList(vm, errors);
+                        HSVM_GetMessageList(vm, errors, 0);
 
                         VM.GetErrorHandler().Reset();
 
@@ -2422,11 +2422,9 @@ int HSVM_SuspendVM(struct HSVM *vm)
         return 0; //ADDME: should we ever get here?
 }
 
-/* FIXME: Redelijk zinloze functie, want je VM is toch dood, dus het lijkt in de praktijk toch
-          geen zin hebben om errors te reflecteren naar dezelfde VM's varmemory */
-int HSVM_GetMessageList(struct HSVM *vm, HSVM_VariableId errorstore)
+int HSVM_GetMessageList(struct HSVM *vm, HSVM_VariableId errorstore, int with_trace)
 {
-        GetMessageList(vm, errorstore, GetVirtualMachine(vm)->GetErrorHandler(), false);
+        GetMessageList(vm, errorstore, GetVirtualMachine(vm)->GetErrorHandler(), with_trace == 1);
         return 0;
 }
 
