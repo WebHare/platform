@@ -16,6 +16,8 @@
 #ifndef __EMSCRIPTEN__
 #include "hsvm_processmgr.h"
 #include "hsvm_debugger.h"
+#else
+#include <emscripten.h>
 #endif // __EMSCRIPTEN__
 #include <iomanip>
 
@@ -1915,6 +1917,18 @@ void VirtualMachine::PrepareCall(Library const &lib, FunctionId func)
         PrepareCallInternal(resolvedfunc);
 }
 
+#ifdef __EMSCRIPTEN__
+
+EM_JS(void, supportExecuteJSMacro, (void *hsvm, const char *name, unsigned externalid), {
+  return Module.executeJSMacro(hsvm, name, externalid);
+});
+
+EM_JS(void, supportExecuteJSFunction, (void *hsvm, const char *name, unsigned externalid, unsigned id_set), {
+  return Module.executeJSFunction(hsvm, name, externalid, id_set);
+});
+
+#endif // __EMSCRIPTEN
+
 void VirtualMachine::PrepareCallInternal(LinkedLibrary::ResolvedFunctionDefList::value_type const &resolvedfunc)
 {
         // Make sure the 'this' ptr isn't privileged
@@ -1964,8 +1978,23 @@ void VirtualMachine::PrepareCallInternal(LinkedLibrary::ResolvedFunctionDefList:
                                 //stackmachine.PopVariablesN(stackmachine.StackPointer() - retvalptr - 1);
                         }
                         break;
+#ifdef __EMSCRIPTEN__
+                case BuiltinFunctionDefinition::JSMacro:
+                        {
+                                struct HSVM* hsvm = *this;
+                                supportExecuteJSMacro(hsvm, resolvedfunc.def->builtindef->name.c_str(), resolvedfunc.def->builtindef->externalid);
+                        }
+                        break;
+                case BuiltinFunctionDefinition::JSFunction:
+                        {
+                                struct HSVM* hsvm = *this;
+                                VarId retvalptr = stackmachine.PushVariables(1);
+                                supportExecuteJSFunction(hsvm, resolvedfunc.def->builtindef->name.c_str(), resolvedfunc.def->builtindef->externalid, retvalptr);
+                        }
+                        break;
                 case BuiltinFunctionDefinition::NotFound:
                         throw VMRuntimeError(Error::InternalError, "External function " + resolvedfunc.def->builtindef->name + " has not been registered");
+#endif // __EMSCRIPTEN__
                 }
                 /* Make sure the Run() loop calls popframe immediately after returning,
                    so all different frame types can be handled in one location

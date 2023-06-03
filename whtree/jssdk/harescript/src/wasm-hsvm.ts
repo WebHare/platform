@@ -9,6 +9,107 @@ import { decodeString } from "@webhare/std";
 // @ts-ignore -- test file doesn't exist usually
 import createModule from "../../../lib/harescript";
 
+export class HSVMVar {
+  module: Module;
+  vm: HSVM;
+  id: HSVM_VariableId;
+
+  constructor(module: Module, vm: HSVM, id: HSVM_VariableId) {
+    this.module = module;
+    this.vm = vm;
+    this.id = id;
+  }
+
+  checkType(type: VariableType) {
+    const gottype = this.module._HSVM_GetType(this.vm, this.id);
+    if (gottype !== type)
+      throw new Error(`Variable doesn't have expected type ${VariableType[type]}, but got ${VariableType[gottype]}`);
+  }
+  getInteger(): number {
+    this.checkType(VariableType.Integer);
+    return this.module._HSVM_IntegerGet(this.vm, this.id);
+  }
+  setInteger(value: number) {
+    // this.checkType(VariableType.Integer);
+    this.module._HSVM_IntegerSet(this.vm, this.id, value);
+  }
+  getString(): string {
+    this.checkType(VariableType.String);
+    this.module._HSVM_StringGet(this.vm, this.id, this.module.stringptrs, this.module.stringptrs + 4);
+    const begin = this.module.getValue(this.module.stringptrs, "*") as number;
+    const end = this.module.getValue(this.module.stringptrs + 4, "*") as number;
+    // TODO: can we useuffer and its utf-8 decoder? strings can also contain \0
+    return this.module.UTF8ToString(begin, end - begin);
+  }
+  setString(value: string) {
+    // this.checkType(VariableType.String);
+    const len = this.module.lengthBytesUTF8(value);
+    const alloced = this.module._malloc(len + 1);
+    this.module.stringToUTF8(value, alloced, len + 1);
+    this.module._HSVM_StringSet(this.vm, this.id, alloced, alloced + len);
+    this.module._free(alloced);
+  }
+}
+
+function parseMangledParameters(params: string): VariableType[] {
+  const retval: VariableType[] = [];
+  for (let idx = 0; idx < params.length; ++idx) {
+    let type: VariableType;
+    switch (params[idx]) {
+      case "V": type = VariableType.Variant; break;
+      case "I": type = VariableType.Integer; break;
+      case "6": type = VariableType.Integer64; break;
+      case "M": type = VariableType.HSMoney; break;
+      case "F": type = VariableType.Float; break;
+      case "B": type = VariableType.Boolean; break;
+      case "S": type = VariableType.String; break;
+      case "R": type = VariableType.Record; break;
+      case "D": type = VariableType.DateTime; break;
+      case "T": type = VariableType.Table; break;
+      case "C": type = VariableType.Schema; break;
+      case "P": type = VariableType.FunctionPtr; break;
+      case "O": type = VariableType.Object; break;
+      case "W": type = VariableType.WeakObject; break;
+      default:
+        throw new Error(`Illegal character ${JSON.stringify(params[idx])} in mangled function name`);
+    }
+    if (params[idx + 1] === "A") {
+      type = type | 0x80;
+    }
+    retval.push(type);
+  }
+  return retval;
+}
+
+function unmangleFunctionName(name: string) {
+  const retval = {
+    name: "",
+    modulename: "",
+    returntype: VariableType.Variant,
+    parameters: new Array<VariableType>
+  };
+
+  let start = 0;
+  let idx = name.indexOf(":");
+  if (idx === -1)
+    throw new Error(`Error in mangled function name ${JSON.stringify(name)}: missing first ':'`);
+  retval.name = name.substring(start, idx);
+  start = idx + 1;
+  idx = name.indexOf(":", start);
+  if (idx === -1)
+    throw new Error(`Error in mangled function name ${JSON.stringify(name)}: missing second ':'`);
+  retval.modulename = name.substring(start, idx);
+  start = idx + 1;
+  idx = name.indexOf(":", start);
+  if (idx === -1)
+    throw new Error(`Error in mangled function name ${JSON.stringify(name)}: missing third ':'`);
+  retval.returntype = parseMangledParameters(name.substring(start, idx))[0] ?? VariableType.Uninitialized;
+  retval.parameters = parseMangledParameters(name.substring(idx + 1));
+  return retval;
+}
+
+
+
 const allowedPrefixes = ["wh", "moduledata", "storage", "mod", "moduleroot", "module", "modulescript", "whfs", "site", "currentsite", "direct", "directclib", "relative", "test"] as const;
 type AllowedPrefixes = typeof allowedPrefixes[number];
 
@@ -435,8 +536,58 @@ async function createHarescriptModule(): Promise<Module> {
       if (libname.startsWith("mod::system/whlibs/"))
         libname = "wh::" + libname.substring(19);
       return module.stringToNewUTF8(libname);
+    },
+
+    throwException(vm: HSVM, text: string): void {
+      const alloced = module.stringToNewUTF8(text);
+      module._HSVM_ThrowException(vm, alloced);
+      module._free(alloced);
+    },
+
+    executeJSMacro(vm: HSVM, nameptr: StringPtr, id: number): void {
+      const reg = module.externals[id];
+      const params = new Array<HSVMVar>;
+      for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
+        params.push(new HSVMVar(module, vm, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
+      reg.macro!(vm, ...params);
+    },
+
+    executeJSFunction(vm: HSVM, nameptr: StringPtr, id: number, id_set: HSVM_VariableId): void {
+      const reg = module.externals[id];
+      const params = new Array<HSVMVar>;
+      for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
+        params.push(new HSVMVar(module, vm, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
+      reg.func!(vm, new HSVMVar(module, vm, id_set), ...params);
+    },
+
+    registerExternalMacro(signature: string, func: (vm: HSVM, ...params: HSVMVar[]) => void): void {
+      const unmangled = unmangleFunctionName(signature);
+      const id = module.externals.length;
+      module.externals.push({ name: signature, parameters: unmangled.parameters.length, func });
+      const signatureptr = module.stringToNewUTF8(signature);
+      module._RegisterHarescriptMacro(signatureptr, id);
+      module._free(signatureptr);
+    },
+
+    registerExternalFunction(signature: string, func: (vm: HSVM, id_set: HSVMVar, ...params: HSVMVar[]) => void): void {
+      const unmangled = unmangleFunctionName(signature);
+      const id = module.externals.length;
+      module.externals.push({ name: signature, parameters: unmangled.parameters.length, func });
+      const signatureptr = module.stringToNewUTF8(signature);
+      module._RegisterHarescriptFunction(signatureptr, id);
+      module._free(signatureptr);
     }
   }) as Module;
+
+  module.stringptrs = module._malloc(8);
+  module.externals = [];
+  module.registerExternalFunction("__SYSTEM_GETMODULEINSTALLATIONROOT::S:S", (vm, id_set, modulename) => {
+    const mod = config.module[modulename.getString()];
+    if (!mod) {
+      module.throwException(vm, `No such module ${JSON.stringify(modulename.getString())}`);
+    } else
+      id_set.setString(mod.root);
+  });
 
   return module;
 }

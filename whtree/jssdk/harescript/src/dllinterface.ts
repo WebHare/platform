@@ -1,5 +1,5 @@
 import { VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
-
+import { HSVMVar } from "./wasm-hsvm";
 export type Ptr = number;
 export type StringPtr = Ptr;
 export type HSVM = number & { type: "hsvm" };
@@ -7,8 +7,20 @@ export type HSVM_VariableId = number & { type: "variableid" };
 export type HSVM_VariableType = VariableType & { type: "variabletype" };
 export type HSVM_ColumnId = number & { type: "columnnameid" };
 
+type RegisteredExternal = {
+  name: string;
+  parameters: number;
+  func?: ((vm: HSVM, id_set: HSVMVar, ...params: HSVMVar[]) => void);
+  macro?: ((vm: HSVM, ...params: HSVMVar[]) => void);
+};
+
+
 export interface Module {
   _CreateHSVM(): HSVM;
+
+  _RegisterHarescriptMacro(name: StringPtr, id: number): void;
+  _RegisterHarescriptFunction(name: StringPtr, id: number): void;
+
   _HSVM_TestMustAbort(vm: HSVM): number;
   _HSVM_IsUnwinding(vm: HSVM): number;
 
@@ -41,6 +53,8 @@ export interface Module {
   _HSVM_CloseFunctionCall(vm: HSVM): void;
   _HSVM_CancelFunctionCall(vm: HSVM): void;
 
+  _HSVM_ThrowException(vm: HSVM, text: StringPtr): void;
+
   _HSVM_CopyFrom(vm: HSVM, dest: HSVM_VariableId, source: HSVM_VariableId): void;
   _HSVM_GetType(vm: HSVM, id: HSVM_VariableId): HSVM_VariableType;
 
@@ -58,4 +72,12 @@ export interface Module {
   _HSVM_RecordColumnIdAtPos(vm: HSVM, id: HSVM_VariableId, num: number): HSVM_ColumnId;
   _HSVM_GetColumnName(vm: HSVM, id: HSVM_ColumnId, columnname: Ptr): number;
   _HSVM_RecordExists(vm: HSVM, id: HSVM_VariableId): number;
+
+
+  // 8-byte malloc for storing 2 stringptrs for _HSVMStringGet
+  stringptrs: Ptr;
+  externals: RegisteredExternal[];
+
+  registerExternalFunction(signature: string, func: (vm: HSVM, id_set: HSVMVar, ...params: HSVMVar[]) => void): void;
+  throwException(vm: HSVM, text: string): void;
 }

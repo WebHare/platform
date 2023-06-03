@@ -5,6 +5,7 @@
 
 #include <iostream>
 
+#include <blex/utils.h>
 #include <blex/path.h>
 #include <blex/getopt.h>
 #include <harescript/compiler/diskfilesystem.h>
@@ -12,6 +13,8 @@
 #include <harescript/vm/hsvm_dllinterface.h>
 #include <ap/libwebhare/wh_filesystem.h>
 #include <wasm/tools.h>
+
+using namespace WebHare::WASM;
 
 EM_JS(char*, supportGetTempDir, (), {
   return stringToNewUTF8(Module.getTempDir());
@@ -57,16 +60,11 @@ Context::Context(std::string const &tmpdir, std::string const &whresdir, std::st
         filesystem.Register(creg);
 }
 
-std::unique_ptr< Context > context;
+std::unique_ptr< Context > storedcontext;
 
-extern "C"
+Context & EnsureContext()
 {
-
-HSVM* EMSCRIPTEN_KEEPALIVE CreateHSVM()
-{
-        using namespace WebHare::WASM;
-
-        if (!context.get())
+        if (!storedcontext.get())
         {
                 std::string tempdir = ConvertCharPtrAndDelete(supportGetTempDir());
                 std::string whresdir = ConvertCharPtrAndDelete(supportGetWHResourceDir());
@@ -74,13 +72,36 @@ HSVM* EMSCRIPTEN_KEEPALIVE CreateHSVM()
                 std::string installationroot = ConvertCharPtrAndDelete(supportGetInstallationRoot());
                 std::string compilecache = ConvertCharPtrAndDelete(supportGetCompileCache());
 
-                context.reset(new Context(tempdir, whresdir, installationroot, compilecache));
+                storedcontext.reset(new Context(tempdir, whresdir, installationroot, compilecache));
         }
+        return *storedcontext;
+}
 
-        HareScript::VMGroup * group = context->environment.ConstructVMGroup(false);
+extern "C"
+{
+
+HSVM* EMSCRIPTEN_KEEPALIVE CreateHSVM()
+{
+        Context &context = EnsureContext();
+
+        HareScript::VMGroup * group = context.environment.ConstructVMGroup(false);
         //HSVM_SetErrorCallback(myvm, 0, &StandardErrorWriter);
         //cif->SetupConsole(myvm, args);
         return group->CreateVirtualMachine();
+}
+
+void EMSCRIPTEN_KEEPALIVE RegisterHarescriptMacro(const char *name, unsigned id)
+{
+        HareScript::BuiltinFunctionDefinition reg(name, HareScript::BuiltinFunctionDefinition::JSMacro, id);
+        Context &context = EnsureContext();
+        context.environment.GetBifReg().RegisterBuiltinFunction(reg);
+}
+
+void EMSCRIPTEN_KEEPALIVE RegisterHarescriptFunction(const char *name, unsigned id)
+{
+        HareScript::BuiltinFunctionDefinition reg(name, HareScript::BuiltinFunctionDefinition::JSFunction, id);
+        Context &context = EnsureContext();
+        context.environment.GetBifReg().RegisterBuiltinFunction(reg);
 }
 
 }
