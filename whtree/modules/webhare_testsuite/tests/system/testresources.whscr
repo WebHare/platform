@@ -367,14 +367,14 @@ MACRO TestInline()
   TestEq(STRING[], GetResourceEventMasks(["inline::"]));
 }
 
-RunTestFramework([PTR TestParseAPIs
-                 ,PTR TestResolve
-                 ,PTR ResolveAbsoluteLibrary
-                 ,PTR TranslateLibraryPath
-                 ,PTR TestGetResourceNameFromDiskPath
-                 ,PTR TestBase
-                 ,PTR VariousPaths
-                 ,PTR SupportLIbrary
-                 ,PTR ModuleMgr
-                 ,PTR TestInline
-                 ]);
+//We're not accessing the database anymore so we won't need RunTestFramework anymore
+TestParseAPIs();
+TestResolve();
+ResolveAbsoluteLibrary();
+TranslateLibraryPath();
+TestGetResourceNameFromDiskPath();
+TestBase();
+VariousPaths();
+SupportLIbrary();
+ModuleMgr();
+TestInline();

@@ -1,14 +1,20 @@
 <?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/wasm.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 PUBLIC MACRO RunWasmtest()
 {
-  TestEq(TRUE, IsWASM(), "We should be tested under wasm!");
-  TestThrowsLike("*no such *syscall*notthere*", PTR EM_Syscall("notthere"));
+  TestEq("81DC9BDB52D04DC20036DBD8313ED055", EncodeBase16(GetHashForBlob(StringToBlob("1234"),"MD5")));
+
   TestEqLike("*/modules/system/", GetModuleInstallationRoot("system"));
   TestEq("", GetModuleInstallationRoot("__nosuchmodule__"), "should NOT throw");
+
+  //Do wasm-specific tests *last* so it's easier to manually test us under native
+  TestEq(TRUE, IsWASM(), "We should be tested under wasm!");
+  TestThrowsLike("*no such *syscall*notthere*", PTR EM_Syscall("notthere"));
 }
 
 RunWasmTest(); //TODO RunTestFramework isn't supported yet

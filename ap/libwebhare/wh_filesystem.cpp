@@ -1114,7 +1114,11 @@ EM_JS(char*, supportTranslateLibraryURI, (const char *uri), {
 });
 
 EM_JS(char*, supportResolveAbsoluteLibrary, (const char *rawloader, const char *libname), {
-  return Module.resolveAbsoluteLibrary(rawloader, libname);
+  try {
+    return Module.resolveAbsoluteLibrary(rawloader, libname);
+  } catch(e) {
+    return Module.stringToNewUTF8("///exception:" + e.message);
+  }
 });
 
 HareScript::FileSystem::FilePtr WHFileSystem::OpenLibrary(Blex::ContextKeeper &keeper, std::string const &_liburi) const
@@ -1135,7 +1139,11 @@ std::string WHFileSystem::TranslateLibraryURI([[maybe_unused]]Blex::ContextKeepe
 
 void WHFileSystem::ResolveAbsoluteLibrary([[maybe_unused]]Blex::ContextKeeper &keeper, std::string const &rawloader, std::string *libname) const
 {
-        *libname = ConvertCharPtrAndDelete(supportResolveAbsoluteLibrary(rawloader.c_str(), libname->c_str()));
+        std::string response = ConvertCharPtrAndDelete(supportResolveAbsoluteLibrary(rawloader.c_str(), libname->c_str()));;
+        if (Blex::StrStartsWith(response, "///exception:"))
+            throw HareScript::VMRuntimeError(HareScript::Error::IllegalLibraryName, response.substr(13));
+        else
+            *libname = response;
 }
 
 WHFileSystem::RecompileResult WHFileSystem::Recompile([[maybe_unused]]Blex::ContextKeeper &keeper, [[maybe_unused]]std::string const &_liburi, [[maybe_unused]]bool isloadlib, [[maybe_unused]]HareScript::ErrorHandler *errorhandler)

@@ -5,7 +5,7 @@ ifneq ($(firstword $(sort $(MAKE_VERSION) $(NEED_MAKE_VERSION))),$(NEED_MAKE_VER
   $(error This makefile requires version $(NEED_MAKE_VERSION), you have $(MAKE_VERSION)))
 endif
 
-MAKEFLAGS=--warn-undefined-variables
+MAKEFLAGS=--warn-undefined-variables --output-sync=target
 
 ################################################
 #
@@ -824,6 +824,8 @@ wasm-clean:
 	mkdir -p $(WEBHARE_BUILDDIR)/wasmbuild
 	+cd $(WEBHARE_BUILDDIR)/wasmbuild; make -f $(WHBUILD_SRCDIR)/base_makefile BUILDSYSTEM=emscripten clean wasm-clean
 	-rm -f $(wasm_DEPLOYABLES_WHAP)
+
+wasm: lib/harescript.js lib/harescript.wasm $(call BuildAndTest,wasm)
 
 #################################################
 ##
