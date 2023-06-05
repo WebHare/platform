@@ -220,6 +220,7 @@ export class HarescriptVM {
   columnnamebuf: StringPtr;
   /// 8-bute array for 2 ptrs for getstring
   stringptrs: Ptr;
+  consoleArguments: string[];
   columnNameIdMap: Record<string, HSVM_ColumnId> = {};
 
   constructor(module: Module, hsvm: HSVM) {
@@ -635,6 +636,24 @@ async function createHarescriptModule(): Promise<Module> {
       id_set.setString("");
     } else
       id_set.setString(mod.root);
+  });
+  module.registerExternalFunction("GETCONSOLEARGUMENTS::SA:", (vm, id_set) => {
+    ensureItfSet(module);
+    id_set.setDefault(VariableType.StringArray);
+    for (const arg of module.itf.consoleArguments)
+      id_set.arrayAppend().setString(arg);
+  });
+  module.registerExternalFunction("__SYSTEM_WHCOREPARAMETERS::R:", (vm, id_set) => {
+    id_set.setDefault(VariableType.Record);
+    id_set.ensureCell("INSTALLATIONROOT").setString(config.installationroot);
+    id_set.ensureCell("BASEDATAROOT").setString(config.dataroot);
+    id_set.ensureCell("VARROOT").setString(config.dataroot);
+    id_set.ensureCell("EPHEMERALROOT").setString(config.dataroot + "ephemeral/");
+    id_set.ensureCell("LOGROOT").setString(config.dataroot + "log/");
+    const moduledirs = id_set.ensureCell("MODULEDIRS").setDefault(VariableType.StringArray);
+    for (const moduledir of getFullConfigFile().modulescandirs)
+      moduledirs.arrayAppend().setString(moduledir);
+    moduledirs.arrayAppend().setString(config.installationroot + "modules/");
   });
 
   return module;
