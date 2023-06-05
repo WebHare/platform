@@ -22,6 +22,7 @@
   <test script="logfile.whscr" />
   <test script="testwebhareservice.whscr" />
   <test script="testresources.whscr" />
+  <test name="testresources-wasm" script="testresources.whscr" engine="wasm" />
   <test name="modules" path="modules/" />
   <test name="nodejs" path="nodejs/" />
   <test name="setup" path="setup/" />

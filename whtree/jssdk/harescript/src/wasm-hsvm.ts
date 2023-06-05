@@ -9,6 +9,18 @@ import { decodeString } from "@webhare/std";
 // @ts-ignore: implicitly has an `any` type
 import createModule from "../../../lib/harescript";
 
+const wh_namespace_location = "mod::system/whlibs/";
+function translateDirectToModURI(directuri: string) {
+  if (directuri.startsWith("direct::")) { //it's actually a direct::
+    const directpath = directuri.substring(8);
+    for (const [modulename, modconfig] of Object.entries(config.module))
+      if (directpath.startsWith(modconfig.root))
+        return `mod::${modulename}/${directpath.substring(modconfig.root.length)}`;
+  }
+
+  return directuri; //no replacement found
+}
+
 export class HSVMVar {
   vm: HarescriptVM;
   id: HSVM_VariableId;
@@ -139,9 +151,9 @@ const allowedPrefixes = ["wh", "moduledata", "storage", "mod", "moduleroot", "mo
 type AllowedPrefixes = typeof allowedPrefixes[number];
 
 function getPrefix(uri: string): AllowedPrefixes {
-  const prefix = uri.substring(0, uri.indexOf(":")) as AllowedPrefixes;
+  const prefix = uri.substring(0, uri.indexOf("::")) as AllowedPrefixes;
   if (!allowedPrefixes.includes(prefix))
-    throw new Error(`Unknown file prefix: ${JSON.stringify(prefix)} for uri ${JSON.stringify(uri)}`);
+    throw new Error(`Unknown file prefix '${JSON.stringify(prefix)}' for uri ${JSON.stringify(uri)}`);
   return prefix;
 }
 
@@ -472,8 +484,16 @@ async function createHarescriptModule(): Promise<Module> {
       return cache;
     },
 
-    translateLibraryURI(uri: string) {
-      throw new Error(`translateLibraryURI not implemented (${uri})`);
+    doTranslateLibraryURI(directuri: string) {
+      const moduri = translateDirectToModURI(directuri);
+      if (moduri.startsWith(wh_namespace_location)) //wh:: lives in mod::system...
+        return `wh::${moduri.substring(wh_namespace_location.length)}`;
+      return moduri;
+    },
+
+    translateLibraryURI(directuri_ptr: Ptr) {
+      const directuri = module.UTF8ToString(directuri_ptr);
+      return module.stringToNewUTF8(this.doTranslateLibraryURI(directuri));
     },
 
     getOpenLibraryPath(uri_ptr: Ptr) {
@@ -489,65 +509,29 @@ async function createHarescriptModule(): Promise<Module> {
       return module.stringToNewUTF8(retval);
     },
 
-    resolveAbsoluteLibrary(rawloader_ptr: Ptr, libname_ptr: Ptr) {
-      const rawloader = module.UTF8ToString(rawloader_ptr);
+    resolveAbsoluteLibrary(loader_ptr: Ptr, libname_ptr: Ptr) {
+      let loader = module.UTF8ToString(loader_ptr);
       let libname = module.UTF8ToString(libname_ptr);
-      let type = getPrefix(libname);
+
+      loader = this.doTranslateLibraryURI(loader); //get rid of any direct:: paths
+      if (libname.startsWith('relative::')) {
+        // Grab the prefixed root. For mod/site we also want the first path component
+        const split = loader.match(/^((?:wh::|(?:mod|site)::[^/]+\/))(.*)$/);
+        if (!split)
+          throw new Error(`Base path '${loader}' doesn't allow for relative adressing`);
+
+        if (libname.startsWith('relative::/')) //module-root reference
+          return module.stringToNewUTF8(split[1] + path.normalize(libname.substring(10)).substring(1));
+
+        const targetpath = path.normalize("canary/" + path.dirname(split[2]) + "/" + libname.substring(10));
+        if (!targetpath.startsWith("canary/"))
+          throw new Error(`Relative path '${libname}' may not escape its context '${split[1]}'`);
+
+        return module.stringToNewUTF8(split[1] + targetpath.substring(7));
+      }
+
+      const type = getPrefix(libname);
       libname = libname.substring(type.length + 2);
-      if (type !== "relative") {
-        while (libname.startsWith("/"))
-          libname = libname.substring(1);
-      }
-
-      if (type === "relative") {
-        const loader = this.translateLibraryURI(rawloader);
-        let savefirstpart = false;
-        let allowreset = false;
-
-        const loaderprefix = getPrefix(loader);
-
-        switch (loaderprefix) {
-          case "module":
-          case "site":
-          case "moduledata":
-          case "storage":
-          case "modulescript":
-          case "moduleroot":
-          case "mod":
-            savefirstpart = true;
-          //fallthrough
-          case "wh":
-          case "test":
-            allowreset = true;
-            break;
-
-          default: {
-            throw new Error(`Prefix ${JSON.stringify(loaderprefix)} doesn't allow relative adressing`);
-          }
-        }
-
-        // Get the prefix path (and maybe the first string part for sites & modules), that needs to be fixed
-        let prefixend = loaderprefix.length + 1;
-        if (savefirstpart)
-          prefixend = type.indexOf("/", prefixend);
-        if (type[prefixend] === ":" || type[prefixend] === "/")
-          ++prefixend;
-
-        let oldpath = path.dirname(type.substring(prefixend));
-        const stripped = loader.substring(type + 2);
-        if (allowreset && stripped && stripped[0] === "/")
-          oldpath = "";
-
-        const merged = path.join(oldpath, libname);
-        if (path.join("/canary/", merged) != path.join("/canary/" + oldpath, libname))
-          throw new Error(`Relative paths may not escape their context (${JSON.stringify(libname)}`);
-
-        type = loaderprefix;
-        libname = merged;
-        while (libname.startsWith("/"))
-          libname = libname.substring(1);
-      }
-
       libname = path.normalize(libname);
 
       if (type == "module" || type == "moduledata" || type == "modulescript" || type == "moduleroot") { //module:: should be rewritten to mod:: /lib/
