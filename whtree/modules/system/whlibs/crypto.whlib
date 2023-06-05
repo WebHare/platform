@@ -4,6 +4,7 @@
 LOADLIB "wh::internal/ber.whlib";
 LOADLIB "wh::internal/interface.whlib" EXPORT GenerateUFS128BitId;
 LOADLIB "wh::internal/libz.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 LOADLIB "wh::files.whlib";
 
 /** @short Cryptography APIs
@@ -83,6 +84,12 @@ PUBLIC STRING FUNCTION GetHashForBlob(BLOB data, STRING algorithm, STRING key_sa
     RETURN GetHashForString(pads[0] || FinalizeHasher(hasher), algorithm);
   }
 
+  IF(IsWasm())
+  {
+    IF(Length(data) > 1 * 1024 * 1024)
+      THROW NEW Exception("HareScript WASM does not support hashing blobs > 1MB yet"); //FIXME but do it streaming
+    RETURN DecodeBase64(EM_SYSCALL("getHash", CELL[ data := EncodeBase64(BlobToString(data)), algorithm, key_salt ]).base64);
+  }
   INTEGER hasher := CreateStreamingHasher(algorithm, key_salt);
   SendBlobTo(hasher, data);
   RETURN FinalizeHasher(hasher);

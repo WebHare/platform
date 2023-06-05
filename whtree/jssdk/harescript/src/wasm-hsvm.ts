@@ -8,6 +8,9 @@ import { decodeString } from "@webhare/std";
 
 // @ts-ignore: implicitly has an `any` type
 import createModule from "../../../lib/harescript";
+import * as syscalls from "./syscalls";
+
+type SysCallsModule = { [key: string]: (data: unknown) => unknown };
 
 const wh_namespace_location = "mod::system/whlibs/";
 function translateDirectToModURI(directuri: string) {
@@ -451,11 +454,12 @@ async function createHarescriptModule(): Promise<Module> {
   const module = await createModule({
     emSyscall(jsondata_ptr: number): string {
       const jsondata = module.UTF8ToString(jsondata_ptr);
-      const { call /*, data */ } = JSON.parse(jsondata);
-      if (call == "init")
-        return JSON.stringify({ iswasm: true });
+      const { call, data } = JSON.parse(jsondata);
+      if (!(syscalls as SysCallsModule)[call])
+        return "unknown";
 
-      return "unknown";
+      const result = (syscalls as SysCallsModule)[call](data);
+      return JSON.stringify(result);
     },
 
     getTempDir() {
