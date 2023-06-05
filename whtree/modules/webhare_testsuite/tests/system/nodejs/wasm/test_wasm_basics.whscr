@@ -4,6 +4,7 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/wasm.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
 
 PUBLIC MACRO RunWasmtest()
 {
@@ -11,6 +12,7 @@ PUBLIC MACRO RunWasmtest()
 
   TestEqLike("*/modules/system/", GetModuleInstallationRoot("system"));
   TestEq("", GetModuleInstallationRoot("__nosuchmodule__"), "should NOT throw");
+  TestEq("Cancel", GetTid("~cancel"));
 
   TestAssert(GetWebHareVersionNumber() >= 50300);
 
