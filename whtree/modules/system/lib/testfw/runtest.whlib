@@ -219,6 +219,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
           STRING script := elt->GetAttribute("script");
           STRING path := elt->GetAttribute("path");
           STRING name := elt->GetAttribute("name");
+          STRING engine := elt->GetAttribute("engine") ?? "native";
           params := this->UpdateParams(testfile, params, this->cmdparams);
           IF (path != "")
           {
@@ -254,21 +255,22 @@ PUBLIC STATIC OBJECTTYPE RunTests
               type := "fail";
             }
 
-            INSERT MakeMergedRecord(ApplyTestSettings(testsettings, elt),
-                [ type := type
-                , errormsg := errormsg
+            INSERT MakeMergedRecord(ApplyTestSettings(testsettings, elt), CELL
+                [ type
+                , errormsg
                 , testname := (testname = "" ? "" : testname || ".") || (name ?? GetbasenameFromPath(script))
                 , skipauto := skipauto OR elt->GetAttribute("skipautotests") IN [ "1", "true" ]
-                , script := script
-                , params := params
-                , xfail := xfail
+                , script
+                , engine
+                , params
+                , xfail
                 , runscriptarguments := RecordExists(arginfo) ? arginfo.runscriptargs : DEFAULT STRING ARRAY
                 , arguments := RecordExists(arginfo) ? arginfo.args : DEFAULT STRING ARRAY
                 , baseurl := url
-                , sitename := sitename
+                , sitename
                 , flaky := ParseXSBoolean(elt->GetAttribute("flaky"))
                 , runmode := elt->GetAttribute("runmode")
-                , validationconfig := validationconfig
+                , validationconfig
                 , env := RECORD[]
                 ]) INTO tests AT END;
           }

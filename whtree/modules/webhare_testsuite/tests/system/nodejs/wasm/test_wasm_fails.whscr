@@ -1,0 +1,12 @@
+<?wh
+LOADLIB "wh::internal/wasm.whlib";
+LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+// this test is x-failed, should fail under WASM only
+PUBLIC MACRO FailIfWASM()
+{
+  TestEq(FALSE, IsWASM(), "Must fail when run under wasm, not otherwise");
+}
+
+FailIfWASM(); //TODO RunTestFramework isn't supported yet

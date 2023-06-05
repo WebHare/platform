@@ -173,6 +173,11 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
           runner := GetInstallationRoot() || "bin/wh";
           arguments := [ "run", GetWebHareResourceDiskPath(script), ...testinfo.arguments ];
         }
+        ELSE IF (testinfo.engine = "wasm")
+        {
+          runner := GetInstallationRoot() || "bin/wh";
+          arguments := [ "runwasm", GetWebHareResourceDiskPath(script), ...testinfo.arguments ];
+        }
         ELSE
         {
           runner := GetInstallationRoot() || "bin/runscript";
