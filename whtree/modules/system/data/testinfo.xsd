@@ -18,6 +18,14 @@
       </xs:simpleType>
     </xs:attribute>
     <xs:attribute name="skipautotests" type="xs:boolean" />
+    <xs:attribute name="engine">
+      <xs:simpleType>
+        <xs:restriction base="xs:string">
+          <xs:enumeration value="native" />
+          <xs:enumeration value="wasm" />
+        </xs:restriction>
+      </xs:simpleType>
+    </xs:attribute>
     <xs:attributeGroup ref="m:ApplicabletoWebHare" />
   </xs:attributeGroup>
 

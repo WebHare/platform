@@ -6,48 +6,72 @@ import * as fs from "node:fs";
 import { config, toFSPath } from "@webhare/services";
 import { decodeString } from "@webhare/std";
 
-// @ts-ignore -- test file doesn't exist usually
+// @ts-ignore: implicitly has an `any` type
 import createModule from "../../../lib/harescript";
 
 export class HSVMVar {
-  module: Module;
-  vm: HSVM;
+  vm: HarescriptVM;
   id: HSVM_VariableId;
+  type: VariableType | undefined;
 
-  constructor(module: Module, vm: HSVM, id: HSVM_VariableId) {
-    this.module = module;
+  constructor(vm: HarescriptVM, id: HSVM_VariableId) {
     this.vm = vm;
     this.id = id;
   }
 
   checkType(type: VariableType) {
-    const gottype = this.module._HSVM_GetType(this.vm, this.id);
-    if (gottype !== type)
-      throw new Error(`Variable doesn't have expected type ${VariableType[type]}, but got ${VariableType[gottype]}`);
+    this.type ??= this.vm.module._HSVM_GetType(this.vm.hsvm, this.id);
+    if (this.type !== type)
+      throw new Error(`Variable doesn't have expected type ${VariableType[type]}, but got ${VariableType[this.type]}`);
   }
   getInteger(): number {
     this.checkType(VariableType.Integer);
-    return this.module._HSVM_IntegerGet(this.vm, this.id);
+    return this.vm.module._HSVM_IntegerGet(this.vm.hsvm, this.id);
   }
   setInteger(value: number) {
     // this.checkType(VariableType.Integer);
-    this.module._HSVM_IntegerSet(this.vm, this.id, value);
+    this.vm.module._HSVM_IntegerSet(this.vm.hsvm, this.id, value);
+    this.type = VariableType.Integer;
   }
   getString(): string {
     this.checkType(VariableType.String);
-    this.module._HSVM_StringGet(this.vm, this.id, this.module.stringptrs, this.module.stringptrs + 4);
-    const begin = this.module.getValue(this.module.stringptrs, "*") as number;
-    const end = this.module.getValue(this.module.stringptrs + 4, "*") as number;
+    this.vm.module._HSVM_StringGet(this.vm.hsvm, this.id, this.vm.module.stringptrs, this.vm.module.stringptrs + 4);
+    const begin = this.vm.module.getValue(this.vm.module.stringptrs, "*") as number;
+    const end = this.vm.module.getValue(this.vm.module.stringptrs + 4, "*") as number;
     // TODO: can we useuffer and its utf-8 decoder? strings can also contain \0
-    return this.module.UTF8ToString(begin, end - begin);
+    return this.vm.module.UTF8ToString(begin, end - begin);
   }
   setString(value: string) {
     // this.checkType(VariableType.String);
-    const len = this.module.lengthBytesUTF8(value);
-    const alloced = this.module._malloc(len + 1);
-    this.module.stringToUTF8(value, alloced, len + 1);
-    this.module._HSVM_StringSet(this.vm, this.id, alloced, alloced + len);
-    this.module._free(alloced);
+    const len = this.vm.module.lengthBytesUTF8(value);
+    const alloced = this.vm.module._malloc(len + 1);
+    this.vm.module.stringToUTF8(value, alloced, len + 1);
+    this.vm.module._HSVM_StringSet(this.vm.hsvm, this.id, alloced, alloced + len);
+    this.vm.module._free(alloced);
+    this.type = VariableType.String;
+  }
+  setDefault(type: VariableType): HSVMVar {
+    if (type === VariableType.Array)
+      throw new Error(`Illegal variable type ${VariableType[type] ?? type}`);
+    this.vm.module._HSVM_SetDefault(this.vm.hsvm, this.id, type as HSVM_VariableType);
+    this.type = type;
+    return this;
+  }
+  arrayAppend() {
+    this.type ??= this.vm.module._HSVM_GetType(this.vm.hsvm, this.id);
+    if (!(this.type & 0x80))
+      throw new Error(`Variable is not an ARRAY`);
+    const eltid = this.vm.module._HSVM_ArrayAppend(this.vm.hsvm, this.id);
+    return new HSVMVar(this.vm, eltid);
+  }
+  ensureCell(name: string) {
+    this.type ??= this.vm.module._HSVM_GetType(this.vm.hsvm, this.id);
+    if (this.type !== VariableType.Record)
+      throw new Error(`Variable is not an RECORD`);
+
+    const columnid = this.vm.getColumnId(name);
+    const newid = this.vm.module._HSVM_RecordCreate(this.vm.hsvm, this.id, columnid);
+    return new HSVMVar(this.vm, newid);
   }
 }
 
@@ -75,6 +99,7 @@ function parseMangledParameters(params: string): VariableType[] {
     }
     if (params[idx + 1] === "A") {
       type = type | 0x80;
+      ++idx;
     }
     retval.push(type);
   }
@@ -181,7 +206,12 @@ async function recompileHarescriptLibrary(module: Module, uri: string, options?:
   }
 }
 
-class HarescriptVM {
+function ensureItfSet(module: Module): asserts module is Module & { itf: HarescriptVM } {
+  if (!module.itf)
+    throw new Error(`Initialization of Harescript module not complete`);
+}
+
+export class HarescriptVM {
   module: Module;
   hsvm: HSVM;
   errorlist: HSVM_VariableId;
@@ -190,19 +220,31 @@ class HarescriptVM {
   columnnamebuf: StringPtr;
   /// 8-bute array for 2 ptrs for getstring
   stringptrs: Ptr;
+  consoleArguments: string[];
+  columnNameIdMap: Record<string, HSVM_ColumnId> = {};
 
   constructor(module: Module, hsvm: HSVM) {
     this.module = module;
+    module.itf = this;
     this.hsvm = hsvm;
     this.dispatchfptr = module._HSVM_AllocateVariable(hsvm);
     this.errorlist = module._HSVM_AllocateVariable(hsvm);
     this.columnnamebuf = module._malloc(65);
     this.stringptrs = module._malloc(8); // 2 string pointers
+    this.consoleArguments = [];
   }
 
-  getColumnName(columnid: HSVM_ColumnId) {
+  getColumnName(columnid: HSVM_ColumnId): string {
     this.module._HSVM_GetColumnName(this.hsvm, columnid, this.columnnamebuf);
     return this.module.UTF8ToString(this.columnnamebuf).toLowerCase();
+  }
+
+  getColumnId(name: string): HSVM_ColumnId {
+    const id = this.columnNameIdMap[name];
+    if (id)
+      return id;
+    this.module.stringToUTF8(name, this.columnnamebuf, 64);
+    return this.columnNameIdMap[name] = this.module._HSVM_GetColumnId(this.hsvm, this.columnnamebuf);
   }
 
   quickParseVariable(variable: HSVM_VariableId): IPCMarshallableData {
@@ -261,9 +303,9 @@ class HarescriptVM {
 
         this.module._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
         const parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
-
         if (tryCounter < maxTries - 1 && parsederrors.length === 1 && [2, 139, 157].includes(parsederrors[0].code)) {
-          const recompileres = await recompileHarescriptLibrary(this.module, lib);
+          let recompileres = await recompileHarescriptLibrary(this.module, lib);
+          recompileres = recompileres.filter(msg => msg.iserror);
           if (recompileres.length)
             throw new Error(`Error during compilation of ${lib}: ` + recompileres[0].message);
         } else {
@@ -284,9 +326,11 @@ class HarescriptVM {
 
     this.module._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
     const parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
-    if (parsederrors.length)
-      throw new Error(`Error executing script: ${parsederrors[0].message}`);
-    else
+    if (parsederrors.length) {
+      const trace = parsederrors.filter(e => e.istrace).map(e =>
+        `\n    at ${e.func} (${e.filename}:${e.line}:${e.col})}`).join("");
+      throw new Error(`Error executing script: ${parsederrors[0].message + trace}`);
+    } else
       throw new Error(`Error executing script`);
   }
 
@@ -307,7 +351,8 @@ class HarescriptVM {
               parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
             }
             if (tryCounter < maxTries - 1 && parsederrors.length === 1 && [2, 139, 157].includes(parsederrors[0].code)) {
-              const recompileres = await recompileHarescriptLibrary(this.module, lib);
+              let recompileres = await recompileHarescriptLibrary(this.module, lib);
+              recompileres = recompileres.filter(msg => msg.iserror);
               if (recompileres.length)
                 throw new Error(`Error during compilation of ${lib}: ` + recompileres[0].message);
             } else {
@@ -373,7 +418,9 @@ class HarescriptVM {
         this.module._HSVM_CloseFunctionCall(this.hsvm);
         this.module._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
         const parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
-        throw new Error(parsederrors[0].message ?? "Unknown error");
+        const trace = parsederrors.filter(e => e.istrace).map(e =>
+          `\n    at ${e.func} (${e.filename}:${e.line}:${e.col})}`).join("");
+        throw new Error((parsederrors[0].message ?? "Unknown error") + trace);
       } else {
         const retval = this.quickParseVariable(retvalid);
         this.module._HSVM_CloseFunctionCall(this.hsvm);
@@ -548,7 +595,7 @@ async function createHarescriptModule(): Promise<Module> {
       const reg = module.externals[id];
       const params = new Array<HSVMVar>;
       for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
-        params.push(new HSVMVar(module, vm, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
+        params.push(new HSVMVar(module.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
       reg.macro!(vm, ...params);
     },
 
@@ -556,8 +603,8 @@ async function createHarescriptModule(): Promise<Module> {
       const reg = module.externals[id];
       const params = new Array<HSVMVar>;
       for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
-        params.push(new HSVMVar(module, vm, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
-      reg.func!(vm, new HSVMVar(module, vm, id_set), ...params);
+        params.push(new HSVMVar(module.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
+      reg.func!(vm, new HSVMVar(module.itf!, id_set), ...params);
     },
 
     registerExternalMacro(signature: string, func: (vm: HSVM, ...params: HSVMVar[]) => void): void {
@@ -576,7 +623,9 @@ async function createHarescriptModule(): Promise<Module> {
       const signatureptr = module.stringToNewUTF8(signature);
       module._RegisterHarescriptFunction(signatureptr, id);
       module._free(signatureptr);
-    }
+    },
+
+    itf: undefined as HarescriptVM | undefined,
   }) as Module;
 
   module.stringptrs = module._malloc(8);
@@ -587,6 +636,24 @@ async function createHarescriptModule(): Promise<Module> {
       id_set.setString("");
     } else
       id_set.setString(mod.root);
+  });
+  module.registerExternalFunction("GETCONSOLEARGUMENTS::SA:", (vm, id_set) => {
+    ensureItfSet(module);
+    id_set.setDefault(VariableType.StringArray);
+    for (const arg of module.itf.consoleArguments)
+      id_set.arrayAppend().setString(arg);
+  });
+  module.registerExternalFunction("__SYSTEM_WHCOREPARAMETERS::R:", (vm, id_set) => {
+    id_set.setDefault(VariableType.Record);
+    id_set.ensureCell("INSTALLATIONROOT").setString(config.installationroot);
+    id_set.ensureCell("BASEDATAROOT").setString(config.dataroot);
+    id_set.ensureCell("VARROOT").setString(config.dataroot);
+    id_set.ensureCell("EPHEMERALROOT").setString(config.dataroot + "ephemeral/");
+    id_set.ensureCell("LOGROOT").setString(config.dataroot + "log/");
+    const moduledirs = id_set.ensureCell("MODULEDIRS").setDefault(VariableType.StringArray);
+    for (const moduledir of getFullConfigFile().modulescandirs)
+      moduledirs.arrayAppend().setString(moduledir);
+    moduledirs.arrayAppend().setString(config.installationroot + "modules/");
   });
 
   return module;
