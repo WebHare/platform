@@ -2,8 +2,13 @@
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/wasm.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
 
 PUBLIC MACRO RunWasmtest()
 {
@@ -11,6 +16,17 @@ PUBLIC MACRO RunWasmtest()
 
   TestEqLike("*/modules/system/", GetModuleInstallationRoot("system"));
   TestEq("", GetModuleInstallationRoot("__nosuchmodule__"), "should NOT throw");
+  TestEq("Cancel", GetTid("~cancel"));
+
+  TestAssert(GetWebHareVersionNumber() >= 50300);
+
+  STRING ARRAY mods := GetInstalledModuleNames();
+  TestEq(TRUE, "system" IN mods);
+  TestEq(TRUE, "webhare_testsuite" IN mods);
+
+  RECORD config := GetWebHareConfiguration();
+  TestEqLike("/?*", config.basedataroot);
+  TestEqLike("/?*", config.ephemeralroot);
 
   //Do wasm-specific tests *last* so it's easier to manually test us under native
   TestEq(TRUE, IsWASM(), "We should be tested under wasm!");

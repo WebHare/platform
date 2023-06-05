@@ -11,6 +11,7 @@
 #include "mangling.h"
 #include <blex/mime.h>
 #include "hsvm_debug.h"
+#include <blex/branding.h>
 #include <harescript/vm/wasm-tools.h>
 
 //#define SHOW_PACKET
@@ -3041,6 +3042,13 @@ void SetDebuggingTags(VirtualMachine *vm)
         vm->GetEnvironment().SetDebuggingTags(*vm, tags);
 }
 
+void SYS_WebHareVersion(HSVM_VariableId id_set, VirtualMachine *vm)
+{
+        auto &stackm = vm->GetStackMachine();
+        stackm.InitVariable(id_set, VariableTypes::Record);
+        stackm.SetInteger(stackm.RecordCellCreate(id_set, stackm.columnnamemapper.GetMapping("VERSIONNUM")), BLEX_BRANDING_PRODUCT_VERSION_NUMBER);
+}
+
 void EM_HS_TCPIP_GetSocketTimeout(HareScript::VarId id_set, HareScript::VirtualMachine *vm)
 {
         HSVM_IntegerSet(*vm, id_set, 0);
@@ -3212,6 +3220,8 @@ void RegisterDeprecatedBaseLibs(BuiltinFunctionsRegistrator &bifreg, Blex::Conte
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_INTERNAL_GETASYNCSTACKTRACE::RA:", GetAsyncStackTrace));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_INTERNAL_LISTHANDLES::R:", ListHandles));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_INTERNAL_SETDEBUGGINGTAGS:::SA", SetDebuggingTags));
+
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__SYSTEM_WEBHAREVERSION::R:", SYS_WebHareVersion));
 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__EM_SYSCALL::S:S", EM_Syscall));
 #ifdef __EMSCRIPTEN__

@@ -232,7 +232,7 @@ WHLDFLAGS_IMPORTABLE += -s EXPORTED_FUNCTIONS=_malloc,_free
 WHLDFLAGS_WASM += -s ALLOW_MEMORY_GROWTH=1
 WHLDFLAGS_WASM += -s IMPORTED_MEMORY
 WHLDFLAGS_WASM += -s STACK_SIZE=8MB
-WHLDFLAGS_WASM += -s INITIAL_MEMORY=128MB
+WHLDFLAGS_WASM += -s INITIAL_MEMORY=512MB
 
 ifeq ($(WHBUILD_PLATFORM),darwin)
 	WHLDFLAGS += -Wl,-rpath '-Wl,@loader_path/../lib'
@@ -821,9 +821,7 @@ success.wasm: build.wasm
 	> success.wasm
 
 wasm-clean:
-	mkdir -p $(WEBHARE_BUILDDIR)/wasmbuild
-	+cd $(WEBHARE_BUILDDIR)/wasmbuild; make -f $(WHBUILD_SRCDIR)/base_makefile BUILDSYSTEM=emscripten clean wasm-clean
-	-rm -f $(wasm_DEPLOYABLES_WHAP)
+	rm -f $(wasm_DEPLOYABLES_WHAP) $(WASM_ALL_OBJS)
 
 wasm: lib/harescript.js lib/harescript.wasm $(call BuildAndTest,wasm)
 

@@ -2,7 +2,6 @@
 
 #include <blex/path.h>
 #include <blex/utils.h>
-#include <blex/branding.h>
 #include <harescript/vm/hsvm_dllinterface.h>
 #include "whcore_hs3.h"
 #include "wh_filesystem.h"
@@ -566,12 +565,6 @@ std::string ScriptContextData::GetLibaryPath(std::string const &uri)
         std::string path = env.GetFileSystem().ReturnPath(keeper, uri);
         env.GetFileSystem().ReleaseResources(keeper);
         return path;
-}
-
-void SYS_WebHareVersion(HSVM *vm, HSVM_VariableId id_set)
-{
-        HSVM_SetDefault(vm, id_set, HSVM_VAR_Record);
-        HSVM_IntegerSet(vm,   HSVM_RecordCreate(vm, id_set, HSVM_GetColumnId(vm, "VERSIONNUM")), BLEX_BRANDING_PRODUCT_VERSION_NUMBER);
 }
 
 void PUB_ValidName(HSVM *vm, HSVM_VariableId id_set)
@@ -1224,8 +1217,6 @@ int WHCore_ModuleEntryPoint(HSVM_RegData *regdata, void *context_ptr)
 {
         HSVM_RegisterContext (regdata, ScriptContextId, context_ptr, &CreateWHCoreContext, &DestroyWHCoreContext);
         HSVM_RegisterContext (regdata, ScriptGroupContextId, context_ptr, &CreateWHCoreGroupContext, &DestroyWHCoreGroupContext);
-
-        HSVM_RegisterFunction(regdata, "__SYSTEM_WEBHAREVERSION::R:", SYS_WebHareVersion);
 
         HSVM_RegisterFunction(regdata, "ISVALIDWHFSNAME::B:SB", PUB_ValidName);
 
