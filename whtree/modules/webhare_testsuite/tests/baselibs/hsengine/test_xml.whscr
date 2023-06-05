@@ -1,6 +1,7 @@
 <?wh
 LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/xml.whlib";
@@ -2019,7 +2020,8 @@ TestCorruptOutput();
 TestRegression();
 TestExtensions();
 TestUserData();
-TestDOMRemoveChildCrash();
+IF(NOT IsWASM()) //TODO implement (but we need TestCompile support..)
+  TestDOMRemoveChildCrash();
 TestDOMNormalize();
 TestXXE();
 TestHSValue();
