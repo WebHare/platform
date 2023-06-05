@@ -12,7 +12,7 @@
 #include <harescript/vm/hsvm_context.h>
 #include <harescript/vm/hsvm_dllinterface.h>
 #include <ap/libwebhare/wh_filesystem.h>
-#include <wasm/tools.h>
+#include <harescript/vm/wasm-tools.h>
 
 using namespace WebHare::WASM;
 

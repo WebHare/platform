@@ -177,7 +177,7 @@ fi
 
 [ -d tocompile ] && rm -rf tocompile
 mkdir -p tocompile/whtree/lib tocompile/whtree/bin tocompile/whtree/modules/system/
-cp -a $SOURCEDIR/{ap,base_makefile,blex,drawlib,harescript,parsers,vendor,wasm} tocompile/
+cp -a $SOURCEDIR/{ap,base_makefile,blex,drawlib,harescript,parsers,vendor} tocompile/
 # We need whlibs+whres to run the C++ harescript tests
 mv whtree/modules/system/whlibs tocompile/whtree/modules/system/
 mv whtree/modules/system/whres tocompile/whtree/modules/system/

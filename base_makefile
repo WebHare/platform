@@ -5,6 +5,8 @@ ifneq ($(firstword $(sort $(MAKE_VERSION) $(NEED_MAKE_VERSION))),$(NEED_MAKE_VER
   $(error This makefile requires version $(NEED_MAKE_VERSION), you have $(MAKE_VERSION)))
 endif
 
+MAKEFLAGS=--warn-undefined-variables
+
 ################################################
 #
 # Extensions & paths
@@ -27,7 +29,8 @@ else
 endif
 
 # Setup vendored libxml2 compilation. We add the builddir includes for generated config.h and xmlversion.h
-CPPFLAGS += -I$(WHBUILD_BUILDDIR)/vendor/libxml2 -I$(WHBUILD_BUILDDIR)/vendor/libxml2/include -I$(SRCDIR)/vendor/libxml2/include/
+CPPFLAGS += -I$(WHBUILD_BUILDDIR)/vendor-native/libxml2 -I$(WHBUILD_BUILDDIR)/vendor-native/libxml2/include -I$(SRCDIR)/vendor/libxml2/include/
+CPPFLAGS_WASM += -I$(WHBUILD_BUILDDIR)/vendor-wasm/libxml2 -I$(WHBUILD_BUILDDIR)/vendor-wasm/libxml2/include -I$(SRCDIR)/vendor/libxml2/include/
 
 ifeq ($(WHBUILD_PLATFORM),darwin)
 	BUILDSYSTEM ?= llvm
@@ -82,20 +85,23 @@ export LD_LIBRARY_PATH
 # Compiler/linker configuration
 #
 
-ifneq ($(DISABLE_PCH),1)
-	CPP_PCH_FLAGS=-Igch -Winvalid-pch
-endif
-
-ifneq ($(BUILDSYSTEM),emscripten)
-	PKGCONFIG_PACKAGES = openssl freetype2 pixman-1 icu-i18n libpq
-	PKGCONFIGCFLAGS := $(shell $(PKGCONFIG) --cflags $(PKGCONFIG_PACKAGES))
-	PKGCONFIGLDFLAGS := $(shell $(PKGCONFIG) --libs $(PKGCONFIG_PACKAGES))
-endif
+PKGCONFIG_PACKAGES = openssl freetype2 pixman-1 icu-i18n libpq
+PKGCONFIGCFLAGS := $(shell $(PKGCONFIG) --cflags $(PKGCONFIG_PACKAGES))
+PKGCONFIGLDFLAGS := $(shell $(PKGCONFIG) --libs $(PKGCONFIG_PACKAGES))
 
 CPPFLAGS += -I$(SRCDIR)
+CPPFLAGS_WASM += -I$(SRCDIR)
 
 # AWS SDK disables exceptions via pkgconfig cflags, put in extra -fexceptions to re-enable
-CXXFLAGS += $(PKGCONFIGCFLAGS) -fexceptions -g -Wall -Wextra -W -Werror -Wno-unused-result -Wno-long-long -fno-strict-aliasing -pthread -fPIC -pedantic -fvisibility=hidden
+CXXFLAGS += $(PKGCONFIGCFLAGS) -fexceptions -g -Wall -Wextra -W -Werror -Wno-unused-result -Wno-long-long -fno-strict-aliasing -pthread -fPIC -pedantic -fvisibility=hidden  -Wno-switch
+# lots of #ifdefs make unused function checking a bit pointless for now
+CXXFLAGS_WASM += -g -Wall -Wextra -W -Werror -Wno-unused-result -Wno-long-long -fno-strict-aliasing -pthread -fPIC -pedantic -fvisibility=hidden -Wno-unused-function -Wno-deprecated-declarations
+
+ifneq ($(DISABLE_PCH),1)
+	CXXFLAGS+=-Igch-native/
+	CXXFLAGS_WASM+=-Igch-wasm/
+endif
+
 
 GLOBALLDFLAGS += $(PKGCONFIGLDFLAGS)
 ifeq ($(WHBUILD_PLATFORM),linux)
@@ -107,7 +113,7 @@ ifeq ($(WHBUILD_PLATFORM),linux)
    endif
 endif
 
-GLOBALLDFLAGS += -Llib $(CROSSLIBDIR)
+GLOBALLDFLAGS += -Llib
 
 ifeq ($(BUILDSYSTEM),gcc)
   CXXFLAGS+=-std=c++17 -Wno-deprecated-declarations
@@ -123,9 +129,12 @@ endif
 
 ifeq ($(WHBUILD_DEBUG),1)
 	CPPFLAGS += -DWHBUILD_DEBUG -fno-omit-frame-pointer
+	CPPFLAGS_WASM += -DWHBUILD_DEBUG -fno-omit-frame-pointer
 	CXXFLAGS += -O0
+	CXXFLAGS_WASM += -O0
 else
 	CXXFLAGS += -DNDEBUG -O3
+	CXXFLAGS_WASM += -DNDEBUG -O3
 	ifeq ($(BUILDSYSTEM),gcc)
 		CXXFLAGS += -fno-implement-inlines -ffast-math -finline-functions
 	else
@@ -160,16 +169,13 @@ endif
 
 GLOBALLDFLAGS += -rdynamic
 
-ifeq ($(BUILDSYSTEM),emscripten)
-	#webhare/blex/datetime.h:176:32: error: unknown warning group '-Wmissing-attributes', ignored [-Werror,-Wunknown-warning-option]
-	#webhare/blex/tests/teststring.cpp:517:102: error: array subscript is of type 'char' [-Werror,-Wchar-subscripts]
-	#ES_ASM seems to need -Wno-gnu-zero-variadic-macro-arguments
-  CXXFLAGS += -Wno-unknown-warning-option -Wno-char-subscripts -fwasm-exceptions -Wno-gnu-zero-variadic-macro-arguments
-  WHLDFLAGS += -fwasm-exceptions -sNODERAWFS=1
+#webhare/blex/datetime.h:176:32: error: unknown warning group '-Wmissing-attributes', ignored [-Werror,-Wunknown-warning-option]
+#webhare/blex/tests/teststring.cpp:517:102: error: array subscript is of type 'char' [-Werror,-Wchar-subscripts]
+#ES_ASM seems to need -Wno-gnu-zero-variadic-macro-arguments
+CXXFLAGS_WASM += -Wno-unknown-warning-option -Wno-char-subscripts -fwasm-exceptions -Wno-gnu-zero-variadic-macro-arguments
+WHLDFLAGS_WASM += -fwasm-exceptions -sNODERAWFS=1
 
-  TESTRUNNER=node
-
-else ifeq ($(WHBUILD_PLATFORM),darwin)
+ifeq ($(WHBUILD_PLATFORM),darwin)
 	# Use current MacOS version, no need for binaries to be portable between machines
 	MACOSVERSION := $(shell sw_vers | grep ProductVersion: | tr -d '\t' | cut -d: -f2 | cut -d "." -f 1-2)
 	CXXFLAGS += -mmacosx-version-min=$(MACOSVERSION)
@@ -191,11 +197,7 @@ DRAWLIB_STATIC_LIBS=
 
 DRAWLIB_BASE_LIBS+=jpeg
 
-ifeq ($(BUILDSYSTEM),emscripten)
-  CC=emcc
-  CXX=emcc
-  LD_APP=emcc
-else ifeq ($(BUILDSYSTEM),gcc)
+ifeq ($(BUILDSYSTEM),gcc)
 	ifeq ($(CXX),clang++)
 		# Allow override - CXX is always set to system C++ compiler
 		CXX=g++
@@ -221,50 +223,53 @@ ifeq ($(WHBUILD_NOCCACHE),)
 endif
 
 WHLDFLAGS+=$(GLOBALLDFLAGS)
-ifeq ($(BUILDSYSTEM),emscripten)
-	WHLDFLAGS_IMPORTABLE += -s MODULARIZE=1
-	WHLDFLAGS_IMPORTABLE += -s EXPORT_NAME="createModule"
-	WHLDFLAGS_IMPORTABLE += -s EXPORTED_RUNTIME_METHODS=ccall,cwrap,stringToUTF8,lengthBytesUTF8,stringToNewUTF8,UTF8ToString,getValue,setValue
-	WHLDFLAGS_IMPORTABLE += -s EXPORTED_FUNCTIONS=_malloc,_free
 
-	WHLDFLAGS += -s ALLOW_MEMORY_GROWTH=1
-	WHLDFLAGS += -s IMPORTED_MEMORY
-	WHLDFLAGS += -s STACK_SIZE=8MB
-	WHLDFLAGS += -s INITIAL_MEMORY=128MB
-else ifeq ($(WHBUILD_PLATFORM),darwin)
+WHLDFLAGS_IMPORTABLE += -s MODULARIZE=1
+WHLDFLAGS_IMPORTABLE += -s EXPORT_NAME="createModule"
+WHLDFLAGS_IMPORTABLE += -s EXPORTED_RUNTIME_METHODS=ccall,cwrap,stringToUTF8,lengthBytesUTF8,stringToNewUTF8,UTF8ToString,getValue,setValue
+WHLDFLAGS_IMPORTABLE += -s EXPORTED_FUNCTIONS=_malloc,_free
+
+WHLDFLAGS_WASM += -s ALLOW_MEMORY_GROWTH=1
+WHLDFLAGS_WASM += -s IMPORTED_MEMORY
+WHLDFLAGS_WASM += -s STACK_SIZE=8MB
+WHLDFLAGS_WASM += -s INITIAL_MEMORY=128MB
+
+ifeq ($(WHBUILD_PLATFORM),darwin)
 	WHLDFLAGS += -Wl,-rpath '-Wl,@loader_path/../lib'
 else
 	WHLDFLAGS += -Wl,-rpath '-Wl,/usr/local/lib' -Wl,-rpath '-Wl,/usr/local/lib64'   -Wl,-rpath '-Wl,$$ORIGIN/../lib'
 	CPPFLAGS += -DUSE_VALGRIND=1 # not supported on darwin
 endif
 
-ifneq ($(BUILDSYSTEM),emscripten)
-	CPPFLAGS += -DHAVE_LIBGIT=1
-	harescript_HsMod_git_AddLibs = git2
-endif
+CPPFLAGS += -DHAVE_LIBGIT=1
+harescript_HsMod_git_AddLibs = git2
 
-# CPP_PCH_FLAGS_XXX MUST be first in list, gcc bug or so.
-Compile = $(HIDE)echo "- Compiling $(BUILDSYSTEM) C++ file $1" && $(CXX) $(CPP_PCH_FLAGS) $(CPPFLAGS) $(CXXFLAGS) $(CXXFLAGS_COMPILE) $3 -o$2 -c $1
-CompileC = $(HIDE)echo "- Compiling $(BUILDSYSTEM) C file $1" && $(CC) $(CPPFLAGS) $(CCFLAGS_COMPILE) $3 -o$2 -c $1
-GenerateDeps = $(HIDE)echo "- Generate $(BUILDSYSTEM) deps for $1" && $(CXX) $(CPP_PCH_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -M -MP -MT "$2 $(subst .d,.o,$2)" $3 -o $2 -c $1
-GeneratePCHDeps = $(HIDE)echo "- Generate $(BUILDSYSTEM) deps for header $1" && $(CXX) $(CPP_PCH_FLAGS) $(CPPFLAGS) $(CXXFLAGS) -x c++-header -M -MP -MT "$2 $(subst .d,.gch,$2)" $3 -o $2 -c $1
+CompileCNative = $(HIDE)echo "- CompileCNative $1" && $(CC) $(CPPFLAGS) -o$2 -c $1
+CompileCWasm   = $(HIDE)echo "- CompileCWasm $1"   && emcc $(CPPFLAGS_WASM) -o$2 -c $1
 
-define GeneratePrecompiledHeader
-		  $(HIDE)echo "- Precompiling $2"
-		  $(HIDE)$(CXX) $(CPPFLAGS) $(CXXFLAGS) -x c++-header $4 -o$3 -c $2
-endef #end define GeneratePrecompiledHeader
+CompileCPPNative = $(HIDE)echo "- CompileCPPNative $1" && $(CXX) $(CPPFLAGS) $(CXXFLAGS) -o$2 -c $1
+CompileCPPWasm = $(HIDE)echo "- CompileCPPWasm $1" && emcc $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -o$2 -c $1
 
-ifeq ($(BUILDSYSTEM),emscripten)
- 	LinkImportable   = $(HIDE)echo "- Linking importable $2" && $(LD_APP) $(WHLDFLAGS) $(WHLDFLAGS_IMPORTABLE) -o $2 $1 $(addprefix -l,$3)
- 	LinkExecutable   = $(HIDE)echo "- Linking executable $2" && $(LD_APP) $(WHLDFLAGS) -o $2 $1 $(addprefix -l,$3)
-else ifeq ($(WHBUILD_PLATFORM),darwin)
- 	LinkShared       = $(HIDE)echo "- Linking $(BUILDSYSTEM) $2" && $(LD_APP) $(WHLDFLAGS) -shared -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
+GenerateDepsNative = $(HIDE)echo "- GenerateDepsNative $1" && $(CXX) $(CPPFLAGS) $(CXXFLAGS) -M -MP -MT "$2 $(subst .native-d,.native-obj,$2)" $3 -o $2 -c $1
+GenerateDepsWasm   = $(HIDE)echo "- GenerateDepsWasm $1" && emcc $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -M -MP -MT "$2 $(subst .wasm-d,.wasm-obj,$2)" $3 -o $2 -c $1
+
+GeneratePCHDepsNative = $(HIDE)echo "- GeneratePCHDepsNative $1" && $(CXX) $(CPPFLAGS) $(CXXFLAGS) -x c++-header -M -MP -MT "$2 $(subst .native-d,.gch,$2)" $3 -o $2 -c $1
+GeneratePCHDepsWasm = $(HIDE)echo "- GeneratePCHDepsWasm $1" && emcc $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -x c++-header -M -MP -MT "$2 $(subst .wasm-d,.gch,$2)" $3 -o $2 -c $1
+
+GeneratePCHNative = $(HIDE)echo "- GeneratePCHNative $2" && $(CXX) $(CPPFLAGS) $(CXXFLAGS) -x c++-header $4 -o$3 -c $2
+GeneratePCHWasm = $(HIDE)echo "- GeneratePCHWasm $2" && emcc $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -x c++-header $4 -o$3 -c $2
+
+LinkWASMImportable  = $(HIDE)echo "- LinkWASMImportable $2" && emcc $(WHLDFLAGS_WASM) $(WHLDFLAGS_IMPORTABLE) -o $2 $1
+LinkWASMExecutable  = $(HIDE)echo "- LinkWASMExecutable $2" && emcc $(WHLDFLAGS_WASM) -o $2 $1
+
+ifeq ($(WHBUILD_PLATFORM),darwin)
+ 	LinkShared       = $(HIDE)echo "- LinkShared $2" && $(LD_APP) $(WHLDFLAGS) -shared -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
  	LinkModule       = $(HIDE)echo "- Linking $(BUILDSYSTEM) $2" && $(LD_APP) $(WHLDFLAGS) -shared -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
- 	LinkExecutable   = $(HIDE)echo "- Linking $(BUILDSYSTEM) $2" && $(LD_APP) $(WHLDFLAGS) -o $2 $1 $(addprefix -l,$3)
+ 	LinkExecutable   = $(HIDE)echo "- LinkExecutable $2" && $(LD_APP) $(WHLDFLAGS) -o $2 $1 $(addprefix -l,$3)
 else
-	LinkShared       = +$(HIDE)echo "- Linking $(BUILDSYSTEM) $2" && $(LD_APP) $(WHLDFLAGS) -shared -o $2 $1 $(addprefix -l,$3)
+	LinkShared       = +$(HIDE)echo "- LinkShared $2" && $(LD_APP) $(WHLDFLAGS) -shared -o $2 $1 $(addprefix -l,$3)
 	LinkModule       = +$(HIDE)echo "- Linking $(BUILDSYSTEM) $2" && $(LD_APP) $(WHLDFLAGS) -shared -o $2 $1 $(addprefix -l,$3)
-	LinkExecutable   = +$(HIDE)echo "- Linking $(BUILDSYSTEM) $2" && $(LD_APP) $(WHLDFLAGS) -o $2 $1 $(addprefix -l,$3)
+	LinkExecutable   = +$(HIDE)echo "- LinkExecutable $2" && $(LD_APP) $(WHLDFLAGS) -o $2 $1 $(addprefix -l,$3)
 endif
 
 harescript_HsMod_pgsql_AddLibs = pq
@@ -277,17 +282,12 @@ FullPath=$(if $(filter /%,$(1)),$(1),$(abspath $(WHBUILD_BUILDDIR)/$(1)))
 
 HSENGINE_SUBPROJECTS=blex harescript
 WHAP_SUBPROJECTS=blex harescript ap
-
-ifneq ($(BUILDSYSTEM),emscripten)
-	HSENGINE_SUBPROJECTS+=drawlib parsers
-	WHAP_SUBPROJECTS+=drawlib parsers
-else
-	HSENGINE_SUBPROJECTS+=wasm
-endif
+HSENGINE_SUBPROJECTS+=drawlib parsers
+WHAP_SUBPROJECTS+=drawlib parsers
 
 SUBPROJECTS=$(sort $(HSENGINE_SUBPROJECTS) $(WHAP_SUBPROJECTS))
 GetSrcFiles=$(subst $(SRCDIR)/,,$(wildcard $(SRCDIR)/$1))
-Src2ObjFiles=$(addprefix ,$(subst .cpp,.o,$1))
+Src2ObjFiles=$(addprefix ,$(subst .cpp,.native-obj,$1))
 GetObjFiles=$(call Src2ObjFiles,$(call GetSrcFiles,$1))
 
 ALLBUILDDIRS=$(ALLOBJDIRS) bin lib vendor/libxml2
@@ -306,20 +306,64 @@ ALLDIRS=$(ALLBUILDDIRS) $(ALLINSTALLDIRS)
 ## File listings
 ##
 
-# BLEX
-LIBBLEX_SOURCEFILES=api bitmanip context crc crypt_blowfish crypto crypto_sha1 datetime decimalfloat docfile getopt lexer logfile mime mmapfile notificationevents path podvector stem_UTF_8_danish stem_UTF_8_english stem_UTF_8_french stem_UTF_8_german stem_UTF_8_italian stem_UTF_8_kraaijpohlmann stem_UTF_8_portuguese stem_UTF_8_spanish stemmer stream stringmanip testing threads tokenstream unicode utilities utils xml
-LIBBLEX_TESTFILES=testbitmanip testcontext testcrypto testdocfile testgetopt testio testmime testnet testpath teststring testtypes testutils
+## Configuration
 
 
-ifneq ($(BUILDSYSTEM),emscripten)
+# BLEX - Configuration
+LIBBLEX_LIBXML2_NAMES=tree xmlstring HTMLparser xmlmemory xmlschemas xpath globals pattern xmlschemastypes xmlregexp parser valid xmlunicode parserInternals SAX2 xmlreader uri encoding error relaxng xmlIO xmlsave threads hash dict entities buf HTMLtree list chvalid debugXML c14n schematron
 
-LIBBLEX_SOURCEFILES+=binarylogfile btree_blocks btree_filesystem complexfs dispat dispat_impl socket zstream
-LIBBLEX_TESTFILES+=test_btree_blocks test_btree_filesystem testdynamic test_index_stress testbinarylogfile testcomplexfs testthreads indexdumping
+LIBBLEX_SHARED_SOURCENAMES=api bitmanip context crc crypt_blowfish crypto crypto_sha1 datetime decimalfloat docfile getopt lexer logfile mime notificationevents path podvector stem_UTF_8_danish stem_UTF_8_english stem_UTF_8_french stem_UTF_8_german stem_UTF_8_italian stem_UTF_8_kraaijpohlmann stem_UTF_8_portuguese stem_UTF_8_spanish stemmer stream stringmanip testing threads tokenstream unicode utilities utils xml
+LIBBLEX_NATIVE_ADDSOURCENAMES=binarylogfile btree_blocks btree_filesystem complexfs dispat dispat_impl socket zstream mmapfile
+LIBBLEX_WASM_ADDSOURCENAMES=
 
-# with emscriptem we shouln't refer to dynamic libraries at all
+LIBBLEX_SHARED_TESTNAMES=blextest testbitmanip testcontext testcrypto testdocfile testgetopt testio testmime testnet testpath teststring testtypes testutils
+LIBBLEX_NATIVE_ADDTESTNAMES=test_btree_blocks test_btree_filesystem testdynamic test_index_stress testbinarylogfile testcomplexfs testthreads indexdumping
+LIBBLEX_WASM_ADDTESTNAMES=
+
+# HARESCRIPT - Configuartion
+LIBHSVM_SHARED_SOURCENAMES=baselibs bl_blobs bl_docgen bl_json bl_libdumper bl_mime bl_os bl_regex bl_strings bl_tokenstream bl_types bufferedpipes errors filesystem groupdata hs_lexer hsvm_blobinterface hsvm_columnnamemapper hsvm_constants hsvm_context hsvm_dllinterface hsvm_environment hsvm_events hsvm_externals hsvm_functioncalltree hsvm_idmapstorage hsvm_librarywrapper hsvm_loopbackdbprovider hsvm_marshalling hsvm_recorddbprovider hsvm_sqlinterface hsvm_sqllib hsvm_sqlqueries hsvm_stackmachine hsvm_varmemory mangling outputobject sharedpool witty xml_cssengine xml_domobjects xml_provider
+LIBHSVM_NATIVE_ADDSOURCENAMES=bl_tcpip bl_crypto hsvm_processmgr hsvm_debugger icu_provider ipc
+LIBHSVM_WASM_ADDSOURCENAMES=wasm-harescript wasm-tools
+
+## Expansions. Old defines may also use these..
+## libxml2 parts we need (we now embed this directly to simplify emscripten builds)
+LIBBLEX_LIBXML2_SRCFILES = $(addsuffix .c,$(addprefix vendor/libxml2/,$(LIBBLEX_LIBXML2_NAMES)))
+
+LIBBLEX_LIBXML2_NATIVE_OBJS = $(LIBBLEX_LIBXML2_SRCFILES:.c=.native-obj)
+LIBBLEX_LIBXML2_WASM_OBJS = $(LIBBLEX_LIBXML2_SRCFILES:.c=.wasm-obj)
+
+LIBBLEX_NATIVE_SOURCENAMES=$(LIBBLEX_SHARED_SOURCENAMES) $(LIBBLEX_NATIVE_ADDSOURCENAMES)
+LIBBLEX_NATIVE_TESTNAMES=$(LIBBLEX_SHARED_TESTNAMES) $(LIBBLEX_NATIVE_ADDTESTNAMES)
+LIBHSVM_NATIVE_SOURCENAMES=$(LIBHSVM_SHARED_SOURCENAMES) $(LIBHSVM_NATIVE_ADDSOURCENAMES)
+
+LIBBLEX_WASM_SOURCENAMES=$(LIBBLEX_SHARED_SOURCENAMES) $(LIBBLEX_WASM_ADDSOURCENAMES)
+LIBBLEX_WASM_TESTNAMES=$(LIBBLEX_SHARED_TESTNAMES) $(LIBBLEX_WASM_ADDTESTNAMES)
+LIBHSVM_WASM_SOURCENAMES=$(LIBHSVM_SHARED_SOURCENAMES) $(LIBHSVM_WASM_ADDSOURCENAMES)
+
+LIBBLEX_NATIVE_SOURCEOBJS=$(LIBBLEX_LIBXML2_NATIVE_OBJS) $(addsuffix .native-obj,$(addprefix blex/,$(LIBBLEX_NATIVE_SOURCENAMES)))
+LIBBLEX_NATIVE_TESTOBJS=$(addsuffix .native-obj,$(addprefix blex/tests/,$(LIBBLEX_NATIVE_TESTNAMES)))
+LIBHSVM_NATIVE_SOURCEOBJS=$(addsuffix .native-obj,$(addprefix harescript/vm/,$(LIBHSVM_NATIVE_SOURCENAMES)))
+
+LIBBLEX_WASM_SOURCEOBJS=$(LIBBLEX_LIBXML2_WASM_OBJS) $(addsuffix .wasm-obj,$(addprefix blex/,$(LIBBLEX_WASM_SOURCENAMES)))
+LIBBLEX_WASM_TESTOBJS=$(addsuffix .wasm-obj,$(addprefix blex/tests/,$(LIBBLEX_WASM_TESTNAMES)))
+# TODO wh_filesystem here is a bit of a hack...
+LIBHSVM_WASM_SOURCEOBJS=$(LIBBLEX_WASM_SOURCEOBJS) $(addsuffix .wasm-obj,$(addprefix harescript/vm/,$(LIBHSVM_WASM_SOURCENAMES))) ap/libwebhare/wh_filesystem.wasm-obj
+
+LIBBLEX_WASM_TESTOBJS_ALL=$(LIBBLEX_WASM_SOURCEOBJS) $(LIBBLEX_WASM_TESTOBJS)
+
+#NATIVE_ALL_OBJS=  #todo and not a deeply recursive wildcard!
+NATIVE_ALL_OBJS_DEPFILES=$(subst .native-obj,.native-d,$(ALLOBJS))
+
+WASM_ALL_OBJS=$(LIBHSVM_WASM_SOURCEOBJS) $(LIBBLEX_WASM_TESTOBJS)
+# TODO do we want to set up dep files for libxml2 ? it requires some wrangling with the implicit rules and them having .c extensions
+WASM_ALL_OBJS_DEPFILES=$(subst .wasm-obj,.wasm-d,$(filter-out $(LIBBLEX_LIBXML2_WASM_OBJS),$(WASM_ALL_OBJS)))
+
+# BLEX - rest..
+
+
 
 blex_DEPLOYABLES_HSENGINE=lib/libblex_base$(DLL_SUFFIX)
-blex_DEPLOYABLES_WHAP=$(blex_DEPLOYABLES_HSENGINE) bin/dumpcomplexfslog
+blex_DEPLOYABLES_WHAP=$(blex_DEPLOYABLES_HSENGINE)
 blex_DEPLOYABLES=$(blex_DEPLOYABLES_WHAP)
 
 BLEX_BASE_LIBS=z dl $(ICU_LIBS) $(BLEX_SSL_LIBS)
@@ -327,14 +371,11 @@ BLEX_HSVM_LIBS=$(ICU_LIBS)
 
 BLEX_LIBS=blex_base $(BLEX_BASE_LIBS)
 
-
-endif
-
 LIBBLEX_FILES=$(addsuffix .cpp,$(addprefix blex/,$(LIBBLEX_SOURCEFILES)))
 
 blex_SRCDIRS=tests tools
 
-PCH_HEADERS+=blex/blexlib.h
+PCH_HEADERS_SHARED+=blex/blexlib.h
 
 ifeq ($(BLEXTEST),)
 	BLEXTESTS=$(addprefix blex/tests/,$(addsuffix .cpp,$(LIBBLEX_TESTFILES)))
@@ -351,17 +392,21 @@ blex_OBJFILES=$(call Src2ObjFiles, $(blex_CPPFILES))
 # HARESCRIPT
 
 HS_SUBPROJECTS = compiler vm
+HS_HS_MODULES = selfcompile git pgsql
 
-ifneq ($(BUILDSYSTEM),emscripten)
-  # Not bothering with dynamic loading in emcripten. Might be a good reason to just explicitly include the witty module in core?
-  HS_HS_MODULES = selfcompile git pgsql
-endif
+LIBHSCOMPILER_OBJS = $(addprefix ,$(LIBHSCOMPILER_FILES:.cpp=.native-obj))
+LIBHSVM_OBJS = $(addprefix ,$(LIBHSVM_FILES:.cpp=.native-obj))
+HARESCRIPTVMTEST_OBJS = $(addprefix ,$(HARESCRIPTVMTEST_FILES:.cpp=.native-obj))
+
+DRAWLIB_OBJS = $(addprefix ,$(DRAWLIB_FILES:.cpp=.native-obj))
+DRAWLIBTEST_OBJS = $(addprefix ,$(DRAWLIBTEST_FILES:.cpp=.native-obj))
+DRAWLIBHSINTERFACE_OBJS = $(addprefix ,$(DRAWLIBHSINTERFACE_FILES:.cpp=.native-obj))
 
 HS_LIBS=blex_hscompiler blex_hsvm $(BLEX_LIBS)
 
-PCH_HEADERS+=harescript/vm/allincludes.h
+PCH_HEADERS_SHARED+=harescript/vm/allincludes.h
 
-PCH_HEADERS+=harescript/compiler/allincludes.h
+PCH_HEADERS_NATIVE+=harescript/compiler/allincludes.h
 
 HS_DEPLOYABLES_PREP=\
 	$(addprefix lib/hsm_wh_,$(addsuffix $(DLL_SUFFIX),$(HS_HS_MODULES)))
@@ -399,7 +444,7 @@ endif
 
 DRAWLIBHSINTERFACE_FILES = $(call GetSrcFiles,drawlib/harescript/*.cpp)
 
-PCH_HEADERS+=drawlib/drawlibv2/allincludes.h
+PCH_HEADERS_NATIVE+=drawlib/drawlibv2/allincludes.h
 
 DRAWLIB_LIBS = blex_draw pixman-1
 
@@ -421,7 +466,7 @@ parsers_DEPLOYABLES = $(parsers_DEPLOYABLES_WHAP)
 
 # AP
 AP_DEPLOYABLES_SERVERS = webserver whmanager
-AP_DEPLOYABLES_UTILS = runscript whcompile webhare # oleexplode
+AP_DEPLOYABLES_UTILS = runscript whcompile webhare
 ap_DEPLOYABLES_WHAP = \
 	$(AP_libwebhare) \
 	lib/hsm_system_geoip$(DLL_SUFFIX) \
@@ -430,7 +475,7 @@ ap_DEPLOYABLES_WHAP = \
 ap_DEPLOYABLES = $(ap_DEPLOYABLES_WHAP)
 AP_libwebhare = lib/libblex_webhare$(DLL_SUFFIX)
 
-PCH_HEADERS+=ap/libwebhare/allincludes.h
+PCH_HEADERS_NATIVE+=ap/libwebhare/allincludes.h
 
 ap_SRCDIRS = addons addons/system_geoip libwebhare utils webserver whmanager
 
@@ -445,19 +490,18 @@ ALLSRCDIRS=$(SRCDIR)/blex $(foreach sub,$(SUBPROJECTS),$(addprefix $(SRCDIR)/$(s
 ALLOBJDIRS=$(addprefix ,$(subst $(SRCDIR)/,,$(ALLSRCDIRS)))
 ALLCPPSRCS_IN=$(foreach sub,$(ALLSRCDIRS),$(wildcard $(sub)/*.cpp))
 
-ifeq ($(BUILDSYSTEM),emscripten)
-  # We need to blacklist some files from the Deps generation as the above code is a bit too gready when matching wildcards and some files crash the Dep process
-  DEPS_BLACKLIST=blex/xml harescript/vm/bl_tcpip harescript/vm/icu_%
-  DEPS_FULLPATHS=$(addsuffix .cpp,$(addprefix $(SRCDIR)/,$(DEPS_BLACKLIST)))
-  ALLCPPSRCS_IN:=$(filter-out $(DEPS_FULLPATHS),$(ALLCPPSRCS_IN))
-endif
+# We need to blacklist some files from the Deps generation as the above code is a bit too gready when matching wildcards and some files crash the Dep process
+DEPS_BLACKLIST=harescript/vm/wasm-harescript
+DEPS_FULLPATHS=$(addsuffix .cpp,$(addprefix $(SRCDIR)/,$(DEPS_BLACKLIST)))
+ALLCPPSRCS_IN:=$(filter-out $(DEPS_FULLPATHS),$(ALLCPPSRCS_IN))
 
-ALLOBJS:=$(addprefix ,$(subst .cpp,.o,$(subst $(SRCDIR)/,,$(ALLCPPSRCS_IN))))
+ALLOBJS:=$(addprefix ,$(subst .cpp,.native-obj,$(subst $(SRCDIR)/,,$(ALLCPPSRCS_IN))))
 HSENGINE_DEPLOYABLES = $(foreach sub,$(HSENGINE_SUBPROJECTS),$($(sub)_DEPLOYABLES_HSENGINE))
 WHAP_DEPLOYABLES = $(foreach sub,$(WHAP_SUBPROJECTS),$($(sub)_DEPLOYABLES_WHAP)) $(wasm_DEPLOYABLES_WHAP)
 
 ALL_DEPLOYABLES = $(sort $(HSENGINE_DEPLOYABLES) $(WHAP_DEPLOYABLES))
 ALL_DEPLOYABLES_SETUP = $(foreach sub,$(SUBPROJECTS),$($(sub)_DEPLOYABLES_SETUP))
+
 
 #################################################
 ##
@@ -466,21 +510,7 @@ ALL_DEPLOYABLES_SETUP = $(foreach sub,$(SUBPROJECTS),$($(sub)_DEPLOYABLES_SETUP)
 
 # Build up the output lists
 
-## libxml2 parts we need (we now embed this directly to simplify emscripten builds)
-LIBBLEX_LIBXML2_FILES = tree xmlstring HTMLparser xmlmemory xmlschemas xpath globals pattern xmlschemastypes xmlregexp parser valid xmlunicode parserInternals SAX2 xmlreader uri encoding error relaxng xmlIO xmlsave threads hash dict entities buf HTMLtree list chvalid debugXML c14n schematron
-LIBBLEX_LIBXML2_SRCFILES = $(addsuffix .c,$(addprefix vendor/libxml2/,$(LIBBLEX_LIBXML2_FILES)))
-LIBBLEX_LIBXML2_OBJS = $(LIBBLEX_LIBXML2_SRCFILES:.c=.o)
 
-LIBBLEX_OBJS = $(addprefix ,$(LIBBLEX_FILES:.cpp=.o)) $(LIBBLEX_LIBXML2_OBJS)
-BLEXTEST_OBJS = $(addprefix ,$(BLEXTEST_FILES:.cpp=.o))
-
-LIBHSCOMPILER_OBJS = $(addprefix ,$(LIBHSCOMPILER_FILES:.cpp=.o))
-LIBHSVM_OBJS = $(addprefix ,$(LIBHSVM_FILES:.cpp=.o))
-HARESCRIPTVMTEST_OBJS = $(addprefix ,$(HARESCRIPTVMTEST_FILES:.cpp=.o))
-
-DRAWLIB_OBJS = $(addprefix ,$(DRAWLIB_FILES:.cpp=.o))
-DRAWLIBTEST_OBJS = $(addprefix ,$(DRAWLIBTEST_FILES:.cpp=.o))
-DRAWLIBHSINTERFACE_OBJS = $(addprefix ,$(DRAWLIBHSINTERFACE_FILES:.cpp=.o))
 
 #################################################
 ##
@@ -488,9 +518,16 @@ DRAWLIBHSINTERFACE_OBJS = $(addprefix ,$(DRAWLIBHSINTERFACE_FILES:.cpp=.o))
 ##
 
 ifneq ($(DISABLE_PCH),1)
-ALLPCHDIRS=$(addprefix gch/,$(foreach hdr,$(PCH_HEADERS),$(dir $(hdr))))
-ALLPCHS=$(addsuffix .gch,$(addprefix gch/,$(PCH_HEADERS)))
+ALLPCHDIRS+=$(addprefix gch-wasm/,$(foreach hdr,$(PCH_HEADERS_SHARED) $(PCH_HEADERS_WASM),$(dir $(hdr))))
+ALLPCHDIRS+=$(addprefix gch-native/,$(foreach hdr,$(PCH_HEADERS_SHARED) $(PCH_HEADERS_NATIVE),$(dir $(hdr))))
+ALLPCHS_NATIVE=$(addsuffix .gch,$(addprefix gch-native/,$(PCH_HEADERS_SHARED) $(PCH_HEADERS_NATIVE)))
+ALLPCHS_WASM=$(addsuffix .gch,$(addprefix gch-wasm/,$(PCH_HEADERS_SHARED) $(PCH_HEADERS_WASM)))
+
+ALLPCHS_NATIVE_DEPFILES=$(subst .gch,.native-d,$(ALLPCHS_NATIVE))
+ALLPCHS_WASM_DEPFILES=$(subst .gch,.wasm-d,$(ALLPCHS_WASM))
+
 endif
+
 
 #################################################
 ##
@@ -498,22 +535,29 @@ endif
 ##
 # GLOBAL
 all: $(addsuffix -all,$(SUBPROJECTS)) wasm
-.PHONY: wasm
+.PHONY: wasm wasm-test
 
 #################################################
 ##
 ## Setup libxml2 dependencies
 ##
+LIBXML2_GENERATEDFILE=config.h
+LIBXML2_NATIVE_GENERATEDFILE=$(addprefix vendor-native/libxml2/,$(LIBXML2_GENERATEDFILE))
+LIBXML2_WASM_GENERATEDFILE=$(addprefix vendor-wasm/libxml2/,$(LIBXML2_GENERATEDFILE))
 
-LIBXML2_GENERATED_CONFIG=vendor/libxml2/config.h
+$(LIBBLEX_NATIVE_TESTOBJS) $(LIBBLEX_LIBXML2_NATIVE_OBJS) $(LIBHSVM_NATIVE_SOURCEOBJS): $(LIBXML2_NATIVE_GENERATEDFILE)
+$(LIBBLEX_WASM_TESTOBJS_ALL) $(LIBBLEX_LIBXML2_WASM_OBJS) $(LIBHSVM_WASM_SOURCEOBJS): $(LIBXML2_WASM_GENERATEDFILE)
 
+# Checkout submodule if still needed
 $(SRCDIR)/vendor/libxml2/autogen.sh:
 	git -C $(SRCDIR) submodule update --init --recursive
 
-$(LIBXML2_GENERATED_CONFIG): $(SRCDIR)/vendor/setup-libxml2.sh $(SRCDIR)/vendor/libxml2/autogen.sh
-	${HIDE}$(SRCDIR)/vendor/setup-libxml2.sh
+$(LIBXML2_NATIVE_GENERATEDFILE): $(SRCDIR)/vendor/setup-libxml2.sh $(SRCDIR)/vendor/libxml2/autogen.sh
+	TARGETDIR=${WHBUILD_BUILDDIR}/vendor-native/libxml2 $(SRCDIR)/vendor/setup-libxml2.sh
 
-blex/xml.o $(LIBHSVM_OBJS) $(LIBBLEX_LIBXML2_OBJS): $(LIBXML2_GENERATED_CONFIG)
+$(LIBXML2_WASM_GENERATEDFILE): $(SRCDIR)/vendor/setup-libxml2.sh $(SRCDIR)/vendor/libxml2/autogen.sh
+	TARGETDIR=${WHBUILD_BUILDDIR}/vendor-wasm/libxml2 CC=emcc $(SRCDIR)/vendor/setup-libxml2.sh
+
 
 #################################################
 ##
@@ -527,72 +571,75 @@ clean-libxml2:
 clean-libs:
 	rm -f -- $(ALL_DEPLOYABLES) $(BUILDDIRPREFIX)blex/tests/dynamic$(DLL_SUFFIX)
 
-clean: clean-libs wasm-clean
-	rm -f -- $(ALL_INSTALLABLES_CLEAN) $(ALLOBJS) $(ALLPCHS) $(ALL_DEPLOYABLES_SETUP) $(ALL_TESTFILES) $(EXTRA_DIRS_TARGET) success.* build.*
+clean-install:
+	@rm -f $(addprefix $(PREFIX)/,$(ALL_INSTALLABLES_CLEAN))
+
+clean:
+	rm -rf -- $(WEBHARE_BUILDDIR)/*
 
 clean-pch:
-	rm -f -- $(ALLPCHS)
+	rm -f -- $(ALLPCHS_NATIVE) $(ALLPCHS_WASM)
 
-%.o: %.cpp | $(ALLPCHS)
-	$(call Compile,$<,$@)
+%.wasm-obj: %.cpp | $(ALLPCHS_WASM)
+	$(call CompileCPPWasm,$<,$@)
 
-%.o: %.c | $(ALLPCHS)
-	$(call CompileC,$<,$@)
+%.wasm-obj: %.c | $(ALLPCHS_WASM)
+	$(call CompileCWasm,$<,$@)
 
-$(ALLPCHS) : gch/%.gch : % | dirs
-	$(call GeneratePrecompiledHeader,,$<,$@,)
+%.native-obj: %.cpp | $(ALLPCHS_NATIVE)
+	$(call CompileCPPNative,$<,$@)
 
+%.native-obj: %.c | $(ALLPCHS_NATIVE)
+	$(call CompileCNative,$<,$@)
+
+$(ALLPCHS_NATIVE): gch-native/%.gch : % | dirs
+	$(call GeneratePCHNative,,$<,$@,)
+
+$(ALLPCHS_WASM): gch-wasm/%.gch : % | dirs
+	$(call GeneratePCHWasm,,$<,$@,)
+
+######
 #
 # BLEX
 #
 
-blex-all: $(call BuildAndTest,blex)
+## build the various lists
+blex-all: lib/libblex_base$(DLL_SUFFIX)
 
 blex-clean:
-	rm -rf -- blex $(blex_DEPLOYABLES) blex/tests/dynamiclib.o
+	rm -rf -- blex $(blex_DEPLOYABLES) blex/tests/dynamiclib.native-obj
 
-build.blex: $(blex_DEPLOYABLES)
-	>build.blex
+lib/libblex_base$(DLL_SUFFIX): $(LIBBLEX_NATIVE_SOURCEOBJS)
+	$(call LinkShared,$^,$@,$(BLEX_BASE_LIBS))
 
-ifeq ($(BUILDSYSTEM),emscripten)
+blex/tests/dynamic$(DLL_SUFFIX): blex/tests/dynamiclib.native-obj
+	$(call LinkModule,$^,$@)
 
-success.blex blex-test: bin/$(RUNTEST) build.blex
-	ulimit -n 1024 && $(TESTRUNNER) bin/$(RUNTEST) test bin/$(RUNTEST) blex/tests/dynamic$(DLL_SUFFIX) $(SRCDIR)/blex/tests/data $(BLEXTESTOPTS) 1 ; test "$$?" = 242
-ifeq ($(BLEXTEST),)
-	>success.blex
+bin/blex-test-native: $(LIBBLEX_NATIVE_TESTOBJS) lib/libblex_base${DLL_SUFFIX}
+	$(call LinkExecutable,$(LIBBLEX_NATIVE_TESTOBJS),$@,$(BLEX_LIBS))
 
-bin/$(RUNTEST): $(BLEXTEST_OBJS) $(LIBBLEX_OBJS)
-	$(call LinkExecutable,$(BLEXTEST_OBJS) $(LIBBLEX_OBJS),$@,$(BLEX_LIBS))
+success.blex blex-test-native: bin/blex-test-native blex/tests/dynamic$(DLL_SUFFIX)
+	ulimit -n 1024 && bin/blex-test-native test bin/blex-test-native blex/tests/dynamic$(DLL_SUFFIX) $(SRCDIR)/blex/tests/data 1 ; test "$$?" = 241
+	> success.blex
 
-endif
 
-else # Native builds
+bin/blex-test-wasm.wasm: $(LIBBLEX_WASM_TESTOBJS_ALL)
+	$(call LinkWASMExecutable,$(LIBBLEX_WASM_TESTOBJS_ALL),bin/blex-test-wasm)
 
-success.blex blex-test: bin/$(RUNTEST) blex/tests/dynamic$(DLL_SUFFIX) build.blex
-	ulimit -n 1024 && $(TESTRUNNER) bin/$(RUNTEST) test bin/$(RUNTEST) blex/tests/dynamic$(DLL_SUFFIX) $(SRCDIR)/blex/tests/data $(BLEXTESTOPTS) 1 ; test "$$?" = 241
-ifeq ($(BLEXTEST),)
-	>success.blex
-endif
+success.blex-wasm blex-test-wasm: bin/blex-test-wasm.wasm bin/blex-test-wasm.wasm
+	ulimit -n 1024 && node bin/blex-test-wasm test bin/blex-test-wasm blex/tests/dynamic$(DLL_SUFFIX) $(SRCDIR)/blex/tests/data 1 ; test "$$?" = 242
+	> success.blex-wasm
 
-bin/$(RUNTEST): $(BLEXTEST_OBJS) lib/libblex_base$(DLL_SUFFIX)
-	$(call LinkExecutable,$(BLEXTEST_OBJS),$@,$(BLEX_LIBS))
-endif
 
+build.wasm-blextest:
+
+wasm-test success.wasm-blextest: build.wasm-blextest
+	> success.wasm
 
 # Link a shared library
 
-lib/libblex_base$(DLL_SUFFIX): $(LIBBLEX_OBJS)
-	$(call LinkShared,$^,$@,$(BLEX_BASE_LIBS) $(BLEX_STATIC_LIBS))
-
-blex/tests/dynamic$(DLL_SUFFIX): blex/tests/dynamiclib.o
-	$(call LinkModule,$^,$@)
-
 
 ALL_TESTFILES+=bin/$(RUNTEST)
-
-bin/dumpcomplexfslog: blex/tools/dumpcomplexfslog.o lib/libblex_base$(DLL_SUFFIX)
-	$(call LinkExecutable,$<,$@,$(BLEX_LIBS))
-
 #
 # HARESCRIPT
 #
@@ -604,18 +651,8 @@ harescript-clean:
 build.harescript: $(harescript_DEPLOYABLES)
 	>build.harescript
 
-ifeq ($(BUILDSYSTEM),emscripten)
-
-
-success.harescript: build.harescript
-	> success.harescript
-
-else
-
 success.harescript: build.drawlib build.harescript build.parsers
 	> success.harescript
-
-endif
 
 build.harescriptvm: build.blex lib/libblex_hsvm$(DLL_SUFFIX) lib/libblex_hscompiler$(DLL_SUFFIX) $(HS_DEPLOYABLES_PREP)
 	>build.harescriptvm
@@ -626,8 +663,8 @@ success.harescriptvm harescript-testvm: bin/vmtest build.harescriptvm
 
 ALL_TESTFILES+=bin/vmtest
 
-lib/libblex_hsvm$(DLL_SUFFIX): $(call BuildAndTest,blex) $(LIBHSVM_OBJS)
-	$(call LinkShared,$(LIBHSVM_OBJS),$@,blex_base $(BLEX_HSVM_LIBS))
+lib/libblex_hsvm$(DLL_SUFFIX): $(call BuildAndTest,blex) $(LIBHSVM_NATIVE_SOURCEOBJS)
+	$(call LinkShared,$(LIBHSVM_NATIVE_SOURCEOBJS),$@,blex_base $(BLEX_HSVM_LIBS))
 
 lib/libblex_hscompiler$(DLL_SUFFIX): $(LIBHSCOMPILER_OBJS) lib/libblex_hsvm$(DLL_SUFFIX)
 	$(call LinkShared,$(LIBHSCOMPILER_OBJS),$@,blex_hsvm $(BLEX_LIBS))
@@ -635,7 +672,7 @@ lib/libblex_hscompiler$(DLL_SUFFIX): $(LIBHSCOMPILER_OBJS) lib/libblex_hsvm$(DLL
 bin/vmtest: $(HARESCRIPTVMTEST_OBJS) lib/libblex_hsvm$(DLL_SUFFIX) lib/libblex_hscompiler$(DLL_SUFFIX)
 	$(call LinkExecutable,$(HARESCRIPTVMTEST_OBJS),$@,blex_hscompiler blex_hsvm $(BLEX_LIBS))
 
-bin/libdumper: harescript/utils/LibDumper.o lib/libblex_hscompiler$(DLL_SUFFIX) lib/libblex_hsvm$(DLL_SUFFIX)
+bin/libdumper: harescript/utils/LibDumper.native-obj lib/libblex_hscompiler$(DLL_SUFFIX) lib/libblex_hsvm$(DLL_SUFFIX)
 	$(call LinkExecutable,$<,$@,blex_hsvm $(BLEX_LIBS))
 
 # Create module compilation target.
@@ -658,7 +695,7 @@ harescript_HsMod_AddLibs = $(HS_LIBS)
 $(foreach mod,$(HS_HS_MODULES),$(eval $(call HsModTarget,$(mod),wh_,harescript)))
 
 clean-icu-provider:
-	rm harescript/vm/icu_provider.o
+	rm harescript/vm/icu_provider.native-obj
 
 #
 # DRAWLIB
@@ -742,8 +779,8 @@ success.ap ap-test: build.ap
 ap_libwebhare_CPPFILES = $(call GetSrcFiles,ap/libwebhare/*.cpp)
 ap_libwebhare_OBJFILES = $(call Src2ObjFiles, $(ap_libwebhare_CPPFILES))
 
-HSM_SYSTEM_GEOIP_OBJS = $(HSM_SYSTEM_GEOIP_CPP_OBJS) $(HSM_SYSTEM_GEOIP_C_OBJS)
-HSM_SYSTEM_GEOIP_CPP_OBJS = ap/addons/system_geoip/geoipdriver.o
+HSM_SYSTEM_GEOIP_OBJS = $(HSM_SYSTEM_GEOIP_CPP_OBJS)
+HSM_SYSTEM_GEOIP_CPP_OBJS = ap/addons/system_geoip/geoipdriver.native-obj
 
 $(AP_libwebhare): $(ap_libwebhare_OBJFILES) $(call BuildAndTest,harescript)
 	$(call LinkShared,$(ap_libwebhare_OBJFILES),$@,$(HS_LIBS) $(BLEX_LIBS))
@@ -757,66 +794,24 @@ bin/$(1): $(call GetObjFiles,ap/$1/*.cpp) $(AP_libwebhare)
 endef
 
 define ApUtilTarget
-ifneq ($(STATIC_LIBWEBHARE)-$(WHBUILD_DEBUG),1-1)
-bin/$(1): ap/utils/$1.o $($(1)_EXTRALINKFILES) $(AP_libwebhare)
+bin/$(1): ap/utils/$1.native-obj $($(1)_EXTRALINKFILES) $(AP_libwebhare)
 	$$(call LinkExecutable,$$< $($(1)_EXTRALINKFILES),$$@,blex_webhare $(HS_LIBS))
-else
-bin/$(1): ap/utils/$1.o $($(1)_EXTRALINKFILES) $(ap_libwebhare_OBJFILES) lib/libblex_hsvm$(DLL_SUFFIX)
-	$$(call LinkExecutable,$$< $(ap_libwebhare_OBJFILES) $($(1)_EXTRALINKFILES),$$@,$(HS_LIBS))
-endif
 endef
 
 $(foreach mod,$(AP_DEPLOYABLES_SERVERS),$(eval $(call ApServerTarget,$(mod))))
 $(foreach mod,$(AP_DEPLOYABLES_UTILS),$(eval $(call ApUtilTarget,$(mod))))
 
-
+########################
 #
 # WASM
 #
 
-# Only allow the following instructions for in emscripten mode
-ifeq ($(BUILDSYSTEM),emscripten)
-
-build.wasm: $(call BuildAndTest,blex) $(wasm_DEPLOYABLES_WHAP)
-	> build.wasm
-
-success.wasm: build.wasm
-	> success.wasm
-
-WASM_blacklist := harescript/vm/bl_tcpip% harescript/vm/bl_crypto% harescript/vm/hsvm_processmgr% harescript/vm/hsvm_debugger% harescript/vm/ipc% harescript/vm/icu_%
-WASM_DEP_OBJS := \
-	wasm/harescript.o wasm/tools.o \
-	$(LIBBLEX_LIBXML2_OBJS) \
-	$(filter-out $(WASM_blacklist),$(blex_OBJFILES)) \
-	$(call Src2ObjFiles,$(filter-out $(WASM_blacklist),$(LIBHSVM_FILES))) \
-	$(call Src2ObjFiles,ap/libwebhare/wh_filesystem.cpp)
-
-wasm-clean:
-	rm -rf -- wasm $(wasm_DEPLOYABLES_WHAP)
-
-lib/harescript.js: $(WASM_DEP_OBJS)
-	$(call LinkImportable,$(WASM_DEP_OBJS),$@,$(BLEX_LIBS))
+# Note that wasm targets are easier as we don't bother with dynamic linking.
+lib/harescript.js: $(LIBHSVM_WASM_SOURCEOBJS)
+	$(call LinkWASMImportable,$(LIBHSVM_WASM_SOURCEOBJS),$@)
 lib/harescript.wasm: lib/harescript.js
 
-wasm_CPPFILES=wasm/harescript.cpp
-wasm_OBJFILES=$(call Src2ObjFiles,$(wasm_CPPFILES))
-
-else
-
-WASM_DEEPERMAKE_DEPLOYABLES_WHAP=$(addprefix wasmbuild/,$(wasm_DEPLOYABLES_WHAP))
-
-define InstallWasmDepoyable
-$(1): wasmbuild/$(1)
-	rm -f $$@; cp -af $$< $$@  #cp define InstallWasmDepoyable
-endef
-
 $(foreach dep,$(wasm_DEPLOYABLES_WHAP), $(eval $(call InstallWasmDepoyable,$(dep))))
-
-$(WASM_DEEPERMAKE_DEPLOYABLES_WHAP): wasm
-
-wasm:
-	mkdir -p $(WEBHARE_BUILDDIR)/wasmbuild
-	+cd $(WEBHARE_BUILDDIR)/wasmbuild; make -f $(WHBUILD_SRCDIR)/base_makefile BUILDSYSTEM=emscripten $(wasm_DEPLOYABLES_WHAP)
 
 build.wasm: $(wasm_DEPLOYABLES_WHAP)
 	> build.wasm
@@ -830,16 +825,10 @@ wasm-clean:
 	+cd $(WEBHARE_BUILDDIR)/wasmbuild; make -f $(WHBUILD_SRCDIR)/base_makefile BUILDSYSTEM=emscripten clean wasm-clean
 	-rm -f $(wasm_DEPLOYABLES_WHAP)
 
-endif
-
 #################################################
 ##
 ## Installation
 ##
-
-$(PREFIX)/include/hsvm_dllinterface.h: $(SRCDIR)/harescript/vm/hsvm_dllinterface.h
-	[ -h $@ ] || mkdir -p $(dir $@)
-	cp -f $< $@  #cp 1
 
 uninstall:
 	-rm -f -- $(addprefix $(PREFIX)/,$(ALL_DEPLOYABLES))
@@ -872,13 +861,18 @@ WHAP_INSTALLABLES = $(WHAP_DEPLOYABLES)
 ALL_INSTALLABLES_CLEAN = $(HSENGINE_INSTALLABLES_DEBUG) $(WHAP_INSTALLABLES_DEBUG)
 
 # Rule to generate dependencies for object files
-ifneq ($(WHBUILD_NODEPS),1)
-  $(subst .o,.d,$(ALLOBJS)): %.d: %.cpp $(LIBXML2_GENERATED_CONFIG) | dirs
-		$(call GenerateDeps,$<,$@,)
+# TODO don't use the wildcards but create exactly the gchs we want
+$(NATIVE_ALL_OBJS_DEPFILES): %.native-d: %.cpp $(LIBXML2_NATIVE_GENERATEDFILE) | dirs
+	$(call GenerateDepsNative,$<,$@,)
 
-  $(subst .gch,.d,$(ALLPCHS)): gch/%.d : % $(LIBXML2_GENERATED_CONFIG) | dirs
-		$(call GeneratePCHDeps,$<,$@,)
-endif
+$(WASM_ALL_OBJS_DEPFILES): %.wasm-d: %.cpp $(LIBXML2_WASM_GENERATEDFILE) | dirs
+	$(call GenerateDepsWasm,$<,$@,)
+
+$(ALLPCHS_NATIVE_DEPFILES): gch-native/%.native-d : % $(LIBXML2_NATIVE_GENERATEDFILE) | dirs
+	$(call GeneratePCHDepsNative,$<,$@,)
+
+$(ALLPCHS_WASM_DEPFILES): gch-wasm/%.wasm-d : % $(LIBXML2_WASM_GENERATEDFILE) | dirs
+	$(call GeneratePCHDepsWasm,$<,$@,)
 
 sandwich:
 	@if [ "`id -u`" != "0" ]; then echo "What? Make it yourself."; else echo "Nice try. It's open source, make it yourself."; fi
@@ -891,14 +885,13 @@ sandwich:
 # install also cleans up old targets. we didn't really use to care, but it can put people on the wrong track ("appserver is crashing! no, it was removed")
 # we invoke 'wasm' (a PHONY) explicitly to ensure it's always rechecked as the toplevel make cannot check the wasm's sub-make dependencies
 install: $(addprefix $(PREFIX)/,$(EXTRAINSTALLDIR)) postinstall | \
-	$(call BuildAndTest,blex) \
-	$(call BuildAndTest,harescript) \
-	$(call BuildAndTest,drawlib) \
-	$(PREFIX)/include/hsvm_dllinterface.h \
-	$(addprefix $(PREFIX)/,$(WHAP_INSTALLABLES)) \
-	$(call BuildAndTest,ap) \
-	wasm \
-	$(call BuildAndTest,wasm) \
+					$(call BuildAndTest,blex) \
+					$(call BuildAndTest,blex-wasm) \
+					$(call BuildAndTest,harescript) \
+					$(call BuildAndTest,drawlib) \
+					$(addprefix $(PREFIX)/,$(WHAP_INSTALLABLES)) \
+					$(call BuildAndTest,ap) \
+					$(call BuildAndTest,wasm) \
 	$(ALLINSTALLDIRS)
 	${HIDE}rm $(PREFIX)/bin/{appserver,backup,consilio,dbserver,dumprawtable} 2>/dev/null || true #cleanup old bins
 	${HIDE}rm $(PREFIX)/lib/{hsm_parser_office_excel,hsm_parser_office_powerpoint}.* 2>/dev/null || true #cleanup old bins
@@ -931,15 +924,14 @@ success.node: \
 
 endif #WEBHARE_IN_DOCKER
 
-clean-install:
-	@rm -f $(addprefix $(PREFIX)/,$(ALL_INSTALLABLES_CLEAN))
 
 #####################################################################
 #
 # Dependencies
 #
 
--include $(ALLPCHS:%.gch=%.d) $(ALLOBJS:%.o=%.d)
+DEPENDENCY_INCLUDES=$(ALLPCHS_NATIVE_DEPFILES) $(ALLPCHS_WASM_DEPFILES) $(NATIVE_ALL_OBJS_DEPFILES) $(WASM_ALL_OBJS_DEPFILES)
+-include $(DEPENDENCY_INCLUDES)
 
 # Directories dependency - but if a symlink exists(docker build) don't create it
 $(sort $(ALLDIRS)):
@@ -947,11 +939,10 @@ $(sort $(ALLDIRS)):
 
 # Make all directories in one
 dirs: $(ALLDIRS)
-
-deps: dirs $(ALLPCHS:%.gch=%.d) $(ALLOBJS:%.o=%.d)
+deps: dirs $(DEPENDENCY_INCLUDES)
 
 clean-deps:
-	rm -f -- $(ALLPCHS:%.gch=%.d) $(ALLOBJS:%.o=%.d)
+	rm -f -- $(DEPENDENCY_INCLUDES)
 
 
 ####################################################################
@@ -964,9 +955,9 @@ ifeq ($(WHBUILD_PLATFORM),darwin)
 # Brew extracts files with dates in the past, except for the INSTALL_RECEIPT.json. So explicitly depend on that to trigger the neded rebuilds
 # Unfortunately this does generate some harmless linker warnings 'ld: warning: ignoring file .../INSTALL_RECEIPT.json, ... unknown-unsupported file format'
 
-harescript/modules/git/git.o: $(BREWPREFIX)/lib/libgit2.dylib
-$(blex_DEPLOYABLES_HSENGINE) blex/tests/dynamic$(DLL_SUFFIX) harescript/vm/icu_provider.o: $(BREWPREFIX)/opt/icu4c/INSTALL_RECEIPT.json
-$(blex_DEPLOYABLES_HSENGINE) harescript/vm/bl_crypto.o: $(BREWPREFIX)/opt/openssl/INSTALL_RECEIPT.json
+harescript/modules/git/git.native-obj: $(BREWPREFIX)/lib/libgit2.dylib
+$(blex_DEPLOYABLES_HSENGINE) blex/tests/dynamic$(DLL_SUFFIX) harescript/vm/icu_provider.native-obj: $(BREWPREFIX)/opt/icu4c/INSTALL_RECEIPT.json
+$(blex_DEPLOYABLES_HSENGINE) harescript/vm/bl_crypto.native-obj: $(BREWPREFIX)/opt/openssl/INSTALL_RECEIPT.json
 
 endif # end darwin check
 

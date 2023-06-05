@@ -9,7 +9,7 @@
 #include <blex/path.h>
 #include <blex/pipestream.h>
 #include <blex/utils.h>
-#include <wasm/tools.h>
+#include <harescript/vm/wasm-tools.h>
 
 /*ADDME: Unused?
 const unsigned CacheTime = 2;   // Time between re-checks in seconds
