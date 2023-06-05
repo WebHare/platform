@@ -156,7 +156,7 @@ type AllowedPrefixes = typeof allowedPrefixes[number];
 function getPrefix(uri: string): AllowedPrefixes {
   const prefix = uri.substring(0, uri.indexOf("::")) as AllowedPrefixes;
   if (!allowedPrefixes.includes(prefix))
-    throw new Error(`Unknown file prefix '${JSON.stringify(prefix)}' for uri ${JSON.stringify(uri)}`);
+    throw new Error(`Unknown file prefix ${JSON.stringify(prefix)} for uri ${JSON.stringify(uri)}`);
   return prefix;
 }
 
