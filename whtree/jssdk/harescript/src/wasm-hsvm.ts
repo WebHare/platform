@@ -1,5 +1,5 @@
 import { HSVM, HSVM_ColumnId, HSVM_VariableId, HSVM_VariableType, Module, Ptr, StringPtr } from "./dllinterface";
-import { IPCMarshallableData, VariableType, decodeHSON, encodeHSON } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { IPCMarshallableData, IPCMarshallableRecord, VariableType, decodeHSON, determineType, encodeHSON, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import * as path from "node:path";
 import * as fs from "node:fs";
@@ -39,12 +39,19 @@ export class HSVMVar {
     if (this.type !== type)
       throw new Error(`Variable doesn't have expected type ${VariableType[type]}, but got ${VariableType[this.type]}`);
   }
+  getBoolean(): number {
+    this.checkType(VariableType.Boolean);
+    return this.vm.module._HSVM_BooleanGet(this.vm.hsvm, this.id);
+  }
+  setBoolean(value: boolean) {
+    this.vm.module._HSVM_BooleanSet(this.vm.hsvm, this.id, value);
+    this.type = VariableType.Boolean;
+  }
   getInteger(): number {
     this.checkType(VariableType.Integer);
     return this.vm.module._HSVM_IntegerGet(this.vm.hsvm, this.id);
   }
   setInteger(value: number) {
-    // this.checkType(VariableType.Integer);
     this.vm.module._HSVM_IntegerSet(this.vm.hsvm, this.id, value);
     this.type = VariableType.Integer;
   }
@@ -84,9 +91,57 @@ export class HSVMVar {
     if (this.type !== VariableType.Record)
       throw new Error(`Variable is not an RECORD`);
 
-    const columnid = this.vm.getColumnId(name);
+    const columnid = this.vm.getColumnId(name.toString());
     const newid = this.vm.module._HSVM_RecordCreate(this.vm.hsvm, this.id, columnid);
     return new HSVMVar(this.vm, newid);
+  }
+  setJSValue(value: unknown) {
+    this.setJSValueInternal(value, VariableType.Variant);
+  }
+  private setJSValueInternal(value: unknown, forcetype: VariableType): void {
+    const type = determineType(value);
+    if (forcetype !== VariableType.Variant && type !== forcetype)
+      throw new Error(`Cannot use a ${VariableType[type]} here, a ${VariableType[forcetype]} is required`);
+    switch (type) {
+      case VariableType.VariantArray: break;
+      case VariableType.BooleanArray: break;
+      case VariableType.DateTimeArray: break;
+      case VariableType.MoneyArray: break;
+      case VariableType.FloatArray: break;
+      case VariableType.StringArray: break;
+      case VariableType.BlobArray: break;
+      case VariableType.Integer64Array: break;
+      case VariableType.IntegerArray: break;
+      case VariableType.RecordArray: break;
+      case VariableType.ObjectArray: break;
+
+      case VariableType.Integer: {
+        this.setInteger(value as number);
+      } break;
+      case VariableType.Boolean: {
+        this.setBoolean(Boolean(value));
+      } break;
+      case VariableType.String: {
+        this.setString(value as string);
+      } break;
+      case VariableType.Record: {
+        const recval = value as IPCMarshallableRecord;
+        if (!recval)
+          this.setDefault(VariableType.Record);
+        else {
+          this.vm.module._HSVM_RecordSetEmpty(this.vm.hsvm, this.id);
+          for (const [key, propval] of Object.entries(recval)) {
+            this.ensureCell(key).setJSValue(propval);
+          }
+        }
+      } break;
+    }
+    if (type & VariableType.Array) {
+      const itemtype = type !== VariableType.VariantArray ? type & ~VariableType.Array : VariableType.Variant;
+      this.setDefault(type);
+      for (const item of value as unknown[])
+        this.arrayAppend().setJSValueInternal(item, itemtype);
+    }
   }
 }
 
@@ -632,16 +687,17 @@ async function createHarescriptModule(): Promise<Module> {
       id_set.arrayAppend().setString(arg);
   });
   module.registerExternalFunction("__SYSTEM_WHCOREPARAMETERS::R:", (vm, id_set) => {
-    id_set.setDefault(VariableType.Record);
-    id_set.ensureCell("INSTALLATIONROOT").setString(config.installationroot);
-    id_set.ensureCell("BASEDATAROOT").setString(config.dataroot);
-    id_set.ensureCell("VARROOT").setString(config.dataroot);
-    id_set.ensureCell("EPHEMERALROOT").setString(config.dataroot + "ephemeral/");
-    id_set.ensureCell("LOGROOT").setString(config.dataroot + "log/");
-    const moduledirs = id_set.ensureCell("MODULEDIRS").setDefault(VariableType.StringArray);
-    for (const moduledir of getFullConfigFile().modulescandirs)
-      moduledirs.arrayAppend().setString(moduledir);
-    moduledirs.arrayAppend().setString(config.installationroot + "modules/");
+    id_set.setJSValue({
+      installationroot: config.installationroot,
+      basedataroot: config.dataroot,
+      varroot: config.dataroot,
+      ephemeralroot: config.dataroot + "ephemeral/",
+      logroot: config.dataroot + "log/",
+      moduledirs: [...getFullConfigFile().modulescandirs, config.installationroot + "modules/"] // always filled, no need to cast
+    });
+  });
+  module.registerExternalFunction("__SYSTEM_GETINSTALLEDMODULENAMES::SA:", (vm, id_set) => {
+    id_set.setJSValue(getTypedArray(VariableType.StringArray, Object.keys(config.module).sort()));
   });
 
   return module;

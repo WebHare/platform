@@ -71,6 +71,7 @@ export interface Module {
   _HSVM_ArrayLength(vm: HSVM, id: HSVM_VariableId): number;
   _HSVM_ArrayGetRef(vm: HSVM, id: HSVM_VariableId, index: number): HSVM_VariableId;
   _HSVM_ArrayAppend(HSVM: HSVM, id: HSVM_VariableId): HSVM_VariableId;
+  _HSVM_RecordSetEmpty(vm: HSVM, id: HSVM_VariableId): void;
   _HSVM_RecordLength(vm: HSVM, id: HSVM_VariableId): number;
   _HSVM_RecordColumnIdAtPos(vm: HSVM, id: HSVM_VariableId, num: number): HSVM_ColumnId;
   _HSVM_RecordGetRef(vm: HSVM, id: HSVM_VariableId, columnid: HSVM_ColumnId): HSVM_VariableId;
