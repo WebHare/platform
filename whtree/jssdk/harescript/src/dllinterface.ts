@@ -1,5 +1,5 @@
 import { VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { HSVMVar } from "./wasm-hsvm";
+import type { HSVMVar, HarescriptVM } from "./wasm-hsvm";
 export type Ptr = number;
 export type StringPtr = Ptr;
 export type HSVM = number & { type: "hsvm" };
@@ -58,6 +58,9 @@ export interface Module {
   _HSVM_CopyFrom(vm: HSVM, dest: HSVM_VariableId, source: HSVM_VariableId): void;
   _HSVM_GetType(vm: HSVM, id: HSVM_VariableId): HSVM_VariableType;
 
+  _HSVM_GetColumnId(vm: HSVM, name: StringPtr): HSVM_ColumnId;
+  _HSVM_GetColumnName(vm: HSVM, id: HSVM_ColumnId, columnname: Ptr): number;
+
   _HSVM_SetDefault(vm: HSVM, id: HSVM_VariableId, type: HSVM_VariableType): void;
   _HSVM_BooleanGet(vm: HSVM, id: HSVM_VariableId): number;
   _HSVM_BooleanSet(vm: HSVM, id: HSVM_VariableId, value: boolean): void;
@@ -67,16 +70,17 @@ export interface Module {
   _HSVM_StringGet(hsvm: HSVM, id: HSVM_VariableId, begin: Ptr, end: Ptr): void;
   _HSVM_ArrayLength(vm: HSVM, id: HSVM_VariableId): number;
   _HSVM_ArrayGetRef(vm: HSVM, id: HSVM_VariableId, index: number): HSVM_VariableId;
+  _HSVM_ArrayAppend(HSVM: HSVM, id: HSVM_VariableId): HSVM_VariableId;
   _HSVM_RecordLength(vm: HSVM, id: HSVM_VariableId): number;
-  _HSVM_RecordGetRef(vm: HSVM, id: HSVM_VariableId, columnid: HSVM_ColumnId): HSVM_VariableId;
   _HSVM_RecordColumnIdAtPos(vm: HSVM, id: HSVM_VariableId, num: number): HSVM_ColumnId;
-  _HSVM_GetColumnName(vm: HSVM, id: HSVM_ColumnId, columnname: Ptr): number;
+  _HSVM_RecordGetRef(vm: HSVM, id: HSVM_VariableId, columnid: HSVM_ColumnId): HSVM_VariableId;
+  _HSVM_RecordCreate(vm: HSVM, id: HSVM_VariableId, columnid: HSVM_ColumnId): HSVM_VariableId;
   _HSVM_RecordExists(vm: HSVM, id: HSVM_VariableId): number;
-
 
   // 8-byte malloc for storing 2 stringptrs for _HSVMStringGet
   stringptrs: Ptr;
   externals: RegisteredExternal[];
+  itf: HarescriptVM | undefined;
 
   registerExternalFunction(signature: string, func: (vm: HSVM, id_set: HSVMVar, ...params: HSVMVar[]) => void): void;
   throwException(vm: HSVM, text: string): void;
