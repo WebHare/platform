@@ -1293,7 +1293,6 @@ int WHCore_ModuleEntryPoint(HSVM_RegData *regdata, void *context_ptr)
         HSVM_RegisterMacro(regdata, "REVOKEWEBSESSIONAUTHENTICATION:::S",WHS_RevokeWebSessionAuthentication);
         HSVM_RegisterMacro(regdata, "__WHS_LOGWEBSERVERERROR:::S",WHS_LogWebserverError);
 
-        HSVM_RegisterFunction(regdata, "GETWEBSESSIONUSERID::I:SS",WHS_GetWebSessionUser);
         HSVM_RegisterFunction(regdata, "GETWEBHAREACCESSRULEID::I:",WHS_GetWebhareAccessRuleId);
         HSVM_RegisterFunction(regdata, "GETWEBHAREACCESSRULES::RA:",WHS_GetWebhareAccessRules);
         HSVM_RegisterFunction(regdata, "GETAUTHENTICATEDWEBHAREUSER::I:",WHS_GetAuthenticatedWebhareUser);

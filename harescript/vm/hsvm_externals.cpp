@@ -215,7 +215,19 @@ void BuiltinFunctionsRegistrator::RegisterBuiltinFunction(const BuiltinFunctionD
         Blex::ToUppercase(name.begin(), name.end());
 
         LockedData::WriteRef ref(lockeddata);
-        ref->insert(std::make_pair(name, definition));
+        auto res = ref->insert(std::make_pair(name, definition));
+#ifndef __EMSCRIPTEN__
+        if (!res.second)
+            throw VMRuntimeError(Error::InternalError, std::string("Double registration of builtin ") + definition.name);
+#else
+        if (!res.second)
+        {
+                // Allow overwriting of native functions WASM mode, but no double registrations
+                if (res.first->second.type == BuiltinFunctionDefinition::JSMacro || res.first->second.type == BuiltinFunctionDefinition::JSFunction)
+                    throw VMRuntimeError(Error::InternalError, std::string("Double registration of builtin ") + definition.name);
+                res.first->second = definition;
+        }
+#endif
 }
 
 BuiltinFunctionDefinition const * BuiltinFunctionsRegistrator::GetBuiltinFunction(std::string const &name)
