@@ -18,11 +18,13 @@ inline size_t round_to_page(size_t size)
 
 } // End of anonymous namespace
 
+#if !defined(__EMSCRIPTEN__)
 static const uint64_t large_alloc_threshold = 2048 * 1024;
+#endif
 
 void *PodVectorRealloc(void *buffer, void *staticbuffer, size_t oldsize, size_t newsize)
 {
-        // Only use mmap code on linux & darwin
+#if !defined(__EMSCRIPTEN__)  // Only use mmap code on linux & darwin
         if (newsize >= large_alloc_threshold)
         {
                 // resize over big alloc limit
@@ -79,7 +81,7 @@ void *PodVectorRealloc(void *buffer, void *staticbuffer, size_t oldsize, size_t 
                 munmap(buffer, round_to_page(oldsize));
                 return newbuffer;
         }
-
+#endif
         if (!newsize)
         {
 //                Blex::ErrStream() << "Free small buffer " << oldsize << " to small " << newsize;
