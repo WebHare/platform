@@ -821,9 +821,7 @@ success.wasm: build.wasm
 	> success.wasm
 
 wasm-clean:
-	mkdir -p $(WEBHARE_BUILDDIR)/wasmbuild
-	+cd $(WEBHARE_BUILDDIR)/wasmbuild; make -f $(WHBUILD_SRCDIR)/base_makefile BUILDSYSTEM=emscripten clean wasm-clean
-	-rm -f $(wasm_DEPLOYABLES_WHAP)
+	rm -f $(wasm_DEPLOYABLES_WHAP) $(WASM_ALL_OBJS)
 
 wasm: lib/harescript.js lib/harescript.wasm $(call BuildAndTest,wasm)
 
