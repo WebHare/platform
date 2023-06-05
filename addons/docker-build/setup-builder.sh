@@ -73,44 +73,49 @@ echo Updates are verified
 # 2022-08-05: Added 'jq' to parse webhare.version
 # 2023-5-30: Removed libxml2 but adding automake,autoconf,libtool to build it from source
 
-PACKAGES="certbot
+PACKAGES="automake
+    autoconf
+    ccache
+    certbot
     cron
     fontconfig
     fonts-open-sans
     libfreetype6
+    libfreetype6-dev
+    g++
     gettext-base
-    libgif7
+    libgif-dev
     libtool
     git
     inotify-tools
     jq
     openjdk-17-jre-headless
-    fonts-liberation
-    less
     libaio1
     lftp
-    libcurl4
-    libmaxminddb0
-    libgit2-28
-    libicu66
+    libcurl4-openssl-dev
+    libmaxminddb-dev
+    libgit2-dev
+    libicu-dev
     libjpeg-turbo8
+    libjpeg-turbo8-dev
     libpdfbox2-java
     libpng16-16
-    libpq5
-    libssl1.1
-    libtiff5
+    libpng-dev
+    libpq-dev
+    libssl-dev
+    libtiff-dev
     locales-all
+    make
     nodejs
     openssl
-    libpixman-1-0
-    postgresql-11
+    libpixman-1-dev
+    pkg-config
     postgresql-client-11
     procps
     psmisc
-    runit
-    rsync
+    python
+    rapidjson-dev
     software-properties-common
-    stunnel4
     tar
     unzip
     valgrind
@@ -123,32 +128,17 @@ if ! ( apt-get -q update && apt-get -qy install --no-install-recommends $PACKAGE
   exit 1
 fi
 
-# Remove /etc/java-8-openjdk/accessibility.properties to fix PDFBOX. see https://askubuntu.com/questions/695560/assistive-technology-not-found-error-while-building-aprof-plot
-rm /etc/java-17-openjdk/accessibility.properties
+# ubuntu 20.04 ships with outdated automake, libxml2 doesn't like it. download a better one
+cd /tmp
+curl http://ftp.gnu.org/gnu/automake/automake-1.16.5.tar.gz | tar zxf -
+cd automake-1.16.5/
+./configure
+make install
 
-ln -sf /usr/share/zoneinfo/Europe/Amsterdam /etc/localtime
-mkdir -p /opt/wh/whtree /opt/whdata /opt/whmodules /opt/wh/whtree/currentinstall/compilecache
+#install emscripten
+cd /opt
+git clone https://github.com/emscripten-core/emsdk.git
+cd /opt/emsdk
+./emsdk install latest
+./emsdk activate latest
 
-# TODO - remove certbot as soon as we have fully integrated it and WH1 no longer needs to host it
-if ! certbot --version; then
-  echo "Certbot failed!"
-  exit 1
-fi
-
-if ! pstree ; then
-  echo "Missing pstree"
-  exit 1
-fi
-
-# Install chrome
-curl --output /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
-apt-get install -y /tmp/chrome.deb
-rm /tmp/chrome.deb
-
-CHROMEVERSION="$(/usr/bin/google-chrome --version |cut -d' ' -f3)"
-CHROMEMAJOR="$(echo "$CHROMEVERSION" | cut -d. -f1)"
-REQUIRECHROMEMAJOR=108
-if (( CHROMEMAJOR < REQUIRECHROMEMAJOR )) ; then
-  echo "We picked up a too old Chrome version. Required $REQUIRECHROMEMAJOR got $CHROMEMAJOR ($CHROMEVERSION)"
-  exit 1
-fi

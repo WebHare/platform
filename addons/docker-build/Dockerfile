@@ -1,11 +1,45 @@
 # syntax=docker/dockerfile:experimental
 # https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/experimental.md
 
-# See https://github.com/phusion/baseimage-docker
-FROM       ubuntu:20.04
+################# STAGE 1 - builder image
+FROM       ubuntu:20.04 AS builder
 MAINTAINER WebHare bv <info@webhare.com>
 
-# Environment variables
+# Environment variables (TODO figure out which ones are for build and which for runtime)
+ENV LC_ALL=C \
+  WEBHARE_IN_DOCKER=1 \
+  WEBHARE_DATAROOT=/opt/whdata/ \
+  WEBHARE_BUILDDIR=/opt/whbuild/ \
+  WEBHARE_DIR=/opt/wh/whtree \
+  WEBHARE_CHECKEDOUT_TO=/opt/wh \
+  WEBHARE_COMPILECACHE=/opt/wh/whtree/currentinstall/compilecache/ \
+  WEBHARE_MODULEPATHS=/opt/whmodules \
+  WEBHARE_SECUREPORT_BINDIP=0.0.0.0 \
+  WHBUILD_DOWNLOADCACHE=/tmp/downloads \
+  JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64/ \
+  PATH=/opt/wh/whtree/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/jvm/java-17-openjdk-amd64/bin
+
+# Base image setup
+RUN --mount=type=bind,source=/setup-builder.sh,target=/setup-builder.sh \
+    --mount=type=cache,id=baseimage1,sharing=locked,target=/var/cache/apt \
+    --mount=type=cache,id=baseimage2,sharing=locked,target=/var/lib/apt \
+    /bin/bash /setup-builder.sh # 2023-06-05
+
+# Add base source code and stuff needed to compile it
+COPY tocompile/ /opt/wh/
+
+# Build those parts.
+RUN --mount=type=bind,source=/compile-source.sh,target=/compile-source.sh \
+    --mount=type=tmpfs,target=/opt/whbuild \
+    --mount=type=tmpfs,target=/tmp \
+    --mount=type=cache,id=compile,target=/tmp/compile  \
+    /bin/bash /compile-source.sh
+
+################# STAGE 2 - application image
+
+FROM       ubuntu:20.04
+
+# Environment variables (TODO figure out which ones are for build and which for runtime)
 ENV LC_ALL=C \
   WEBHARE_IN_DOCKER=1 \
   WEBHARE_DATAROOT=/opt/whdata/ \
@@ -28,11 +62,10 @@ CMD [ "/opt/container/launch.sh" ]
 # We no longer mark /opt/whdata as a volume so we can do our sanity check whether it really lives on a persistent volume
 # VOLUME /opt/whdata
 
-# Base image setup
 RUN --mount=type=bind,source=/setup-imagebase.sh,target=/setup-imagebase.sh \
-    --mount=type=cache,id=baseimage1,target=/var/cache/apt \
-    --mount=type=cache,id=baseimage2,target=/var/lib/apt \
-    /bin/bash /setup-imagebase.sh # 20191211
+    --mount=type=cache,id=baseimage1,sharing=locked,target=/var/cache/apt \
+    --mount=type=cache,id=baseimage2,sharing=locked,target=/var/lib/apt \
+    /bin/bash /setup-imagebase.sh # 2023-06-05
 
 # Install pdfbox
 RUN --mount=type=bind,source=/setup-pdfbox.sh,target=/setup-pdfbox.sh \
@@ -58,15 +91,9 @@ RUN --mount=type=tmpfs,target=/tmp/ \
     --mount=type=bind,source=/whtree/modules/system/scripts/internal/install_whtree_nodemodules.sh,target=/opt/wh/whtree/modules/system/scripts/internal/install_whtree_nodemodules.sh \
    npm_config_cache=/tmp/npmcache /opt/wh/whtree/modules/system/scripts/internal/install_whtree_nodemodules.sh
 
-# Add base source code and stuff needed to compile it
-COPY tocompile/ /opt/wh/
-
-# Build those parts.
-RUN --mount=type=bind,source=/compile-source.sh,target=/compile-source.sh \
-    --mount=type=tmpfs,target=/opt/whbuild \
-    --mount=type=tmpfs,target=/tmp \
-    --mount=type=cache,id=compile,target=/tmp/compile  \
-    /bin/bash /compile-source.sh
+# Add built WebHare
+RUN --mount=type=bind,from=builder,target=/builder \
+   cp -av /builder/opt/wh/whtree/bin /builder/opt/wh/whtree/lib /builder/opt/wh/whtree/fonts /opt/wh/whtree/
 
 # Throw in the whtree and addons - note: builds will always stop caching after this step
 COPY whtree /opt/wh/whtree
