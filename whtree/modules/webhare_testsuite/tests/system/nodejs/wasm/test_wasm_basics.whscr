@@ -12,6 +12,8 @@ PUBLIC MACRO RunWasmtest()
   TestEqLike("*/modules/system/", GetModuleInstallationRoot("system"));
   TestEq("", GetModuleInstallationRoot("__nosuchmodule__"), "should NOT throw");
 
+  TestAssert(GetWebHareVersionNumber() >= 50300);
+
   //Do wasm-specific tests *last* so it's easier to manually test us under native
   TestEq(TRUE, IsWASM(), "We should be tested under wasm!");
   TestThrowsLike("*no such *syscall*notthere*", PTR EM_Syscall("notthere"));
