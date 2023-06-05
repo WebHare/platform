@@ -90,8 +90,7 @@ export async function generateWRDDefs(hsvm: HarescriptVM, modulename: string, mo
 
         let def = "\n";
         try {
-          const schemadef = await hsvm.call("mod::wrd/lib/internal/metadata/schemaparser.whlib#OpenWRDSchemaDefFile", resolved_definitionfile) as SchemaDef;
-
+          const schemadef = await hsvm.callFunction("mod::wrd/lib/internal/metadata/schemaparser.whlib#OpenWRDSchemaDefFile", resolved_definitionfile) as SchemaDef;
           let fulldef = `export type ${modprefix}${generateTypeName(tag)}SchemaType = {\n`;
 
           for (const type of schemadef.types) {

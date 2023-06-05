@@ -448,7 +448,7 @@ export class HarescriptVM {
     return;
   }
 
-  async call(functionref: string, ...params: IPCMarshallableData[]): Promise<IPCMarshallableData> {
+  private async doCall(functionref: string, isfunction: boolean, params: IPCMarshallableData[]): Promise<IPCMarshallableData> {
     const parts = functionref.split("#");
     if (parts.length !== 2)
       throw new Error(`Illegal function reference ${JSON.stringify(functionref)}`);
@@ -476,9 +476,10 @@ export class HarescriptVM {
       this.module.stringToUTF8(hson, hsondata, len + 1);
 
       // console.log(`open call`);
-      this.module._HSVM_OpenFunctionCall(this.hsvm, 2);
+      this.module._HSVM_OpenFunctionCall(this.hsvm, 3);
       this.module._HSVM_CopyFrom(this.hsvm, this.module._HSVM_CallParam(this.hsvm, 0), callfuncptr);
       this.module._HSVM_StringSet(this.hsvm, this.module._HSVM_CallParam(this.hsvm, 1), hsondata, hsondata + len);
+      this.module._HSVM_BooleanSet(this.hsvm, this.module._HSVM_CallParam(this.hsvm, 2), isfunction);
       this.module._free(hsondata);
       // console.log(`call functionptr`, this.dispatchfptr, VariableType[this.module._HSVM_GetType(this.hsvm, this.dispatchfptr)]);
       // console.log(`call functionptr`, this.module._HSVM_GetType(this.hsvm, this.dispatchfptr));
@@ -495,12 +496,21 @@ export class HarescriptVM {
         const retval = this.quickParseVariable(retvalid);
         this.module._HSVM_CloseFunctionCall(this.hsvm);
 
-        const plainvalue = decodeHSON(retval as string) as { value: IPCMarshallableData };
+        const plainvalue = decodeHSON(retval as string) as { value: IPCMarshallableData; __exception?: { what: string } };
+        if (plainvalue.__exception)
+          throw new Error(plainvalue.__exception.what);
         return plainvalue.value;
       }
     } finally {
       this.module._HSVM_DeallocateVariable(this.hsvm, callfuncptr);
     }
+  }
+
+  async callFunction(functionref: string, ...params: IPCMarshallableData[]): Promise<IPCMarshallableData> {
+    return this.doCall(functionref, true, params);
+  }
+  async callMacro(functionref: string, ...params: IPCMarshallableData[]): Promise<void> {
+    await this.doCall(functionref, false, params);
   }
 }
 
