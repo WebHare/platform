@@ -46,8 +46,6 @@
     <task runat="54 */4 * * *" tag="check_hotfixes" script="scripts/tasks/check_hotfixes.whscr" runatstartup="true" />
     <task runat="35 0,3,6 * * *" tag="cleanpgsqlblobs" script="scripts/tasks/cleanpostgresqlblobs.whscr" ifenvironset="WEBHARE_DBASENAME" />
 
-    <task tag="update_generated_files" script="scripts/internal/updategeneratedfiles.ts" runatstartup="true" />
-
     <managedtask type="outgoingmail" objectname="lib/internal/mail/tasks.whlib#outgoingmailtask" />
     <managedtask type="mailstatuscallback" objectname="lib/internal/mail/tasks.whlib#mailstatuscallbacktask" />
 
