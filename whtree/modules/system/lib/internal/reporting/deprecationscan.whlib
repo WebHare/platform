@@ -14,8 +14,13 @@ STRING FUNCTION GetBadPWDAlgorithm(STRING rawdata)
 {
   IF(rawdata LIKE "hson:*") //authsetting
   {
+    //we only need to validate the last password (that's what VerifyPassword checked)
     RECORD authdata := EnforceStructure([ passwords := [[passwordhash := ""]]], DecodeHSON(rawdata));
-    RETURN SELECT AS STRING Tokenize(passwordhash,':')[0] FROM authdata.passwords WHERE Tokenize(passwordhash,':')[0] IN badalgorithms;
+    IF(Length(authdata.passwords) = 0)
+      RETURN "";
+
+    STRING alg := Tokenize(authdata.passwords[END-1].passwordhash, ':')[0];
+    RETURN alg IN badalgorithms ? alg : "";
   }
   STRING alg := Tokenize(rawdata,':')[0];
   RETURN alg IN badalgorithms ? alg : "";
