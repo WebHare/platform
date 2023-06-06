@@ -14,6 +14,7 @@ LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
@@ -119,6 +120,17 @@ STATIC OBJECTTYPE EditDocumentAPI
     //DumpValue(GetStackTrace(), [ name := "BE DIRTY!"]);
     this->editscreen->frame->flags.isdirty := TRUE;
     this->editscreen->RefreshState();
+  }
+
+  PUBLIC RECORD FUNCTION GetMetadata()
+  {
+    RETURN SELECT data FROM system.fs_objects WHERE id = this->editobject;
+  }
+
+  PUBLIC MACRO UpdateMetadata(RECORD fields)
+  {
+    fields := ValidateOptions(CELL[ data := DEFAULT BLOB], fields, [ optional := ["data"]]);
+    this->editscreen->GetInstanceObject()->UpdateMetadata(fields);
   }
 
   /// Get instance data of a given type from the object being edited (containing last changes)
@@ -254,6 +266,8 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
   /// Type of the file being edited
   INTEGER filetype;
 
+  RECORD filetypeinfo;
+
   /// If the user only has read-only access to this file (fs_browse)
   BOOLEAN readonly;
 
@@ -302,6 +316,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
 
     this->filedata := [ name := fsobject->name, modificationdate := fsobject->modificationdate ];
     this->filetype := fsobject->type;
+    this->filetypeinfo := DescribeContentTypeById(fsobject->type, [ isfolder := FALSE, mockifmissing := TRUE ]);
 
     this->publicationlistener->masks := [ "system:whfs.folder." || fsobject->parent, "publisher:publish.folder." || fsobject->parent ];
     this->frame->title := this->filedata.name;
@@ -518,7 +533,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     OBJECT fsobj := OpenWHFSObject(this->fileid);
     IF (ObjectExists(fsobj))
     {
-      BOOLEAN canpublish := fsobj->parentsite != 0 AND OpenSite(fsobj->parentsite)->outputweb != 0;
+      BOOLEAN canpublish := fsobj->parentsite != 0 AND OpenSite(fsobj->parentsite)->outputweb != 0 AND this->filetypeinfo.ispublishable;
       IF (this->contexts->editdocumentapi->oncanpreview != DEFAULT MACRO PTR)
         this->frame->flags.canpreview := this->contexts->editdocumentapi->oncanpreview(fsobj);
       ELSE
@@ -592,7 +607,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     {
       this->contexts->editdocumentapi->onsetenabled(NOT this->readonly);
       this->frame->flags.canedit := NOT this->readonly;
-      this->frame->flags.canpublish := NOT this->readonly AND this->contexts->editdocumentapi->canpublish;
+      this->frame->flags.canpublish := NOT this->readonly AND this->filetypeinfo.ispublishable AND this->contexts->editdocumentapi->canpublish;
 
       IF (savemode IN [ "versioned-editdraft", "versioned-editlive" ])
       {

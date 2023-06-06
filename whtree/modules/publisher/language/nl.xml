@@ -1576,42 +1576,6 @@
       <text tid="unknownfile">Onbekend type</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="texteditor">   <!-- texteditor -->
-    <textgroup gid="main">   <!-- texteditor.main -->
-      <text tid="col">Kolom</text>
-      <text tid="error">Fout</text>
-      <text tid="filename">Bestandsnaam</text>
-      <text tid="func">Functie</text>
-      <text tid="line">Regel</text>
-      <text tid="messagestab">Meldingen</text>
-      <text tid="nostacktrace">Een stacktrace is alleen beschikbaar als er een fout optreedt tijdens het uitvoeren van een script.</text>
-      <text tid="openfile">Open bestand</text>
-      <text tid="stacktracetab">Stacktrace</text>
-      <text tid="syntax">Syntax</text>
-      <text tid="syntax_c">C</text>
-      <text tid="syntax_cpp">C++</text>
-      <text tid="syntax_css">CSS</text>
-      <text tid="syntax_harescript">Harescript</text>
-      <text tid="syntax_html">HTML</text>
-      <text tid="syntax_java">Java</text>
-      <text tid="syntax_javascript">Javascript</text>
-      <text tid="syntax_php">PHP</text>
-      <text tid="syntax_sql">SQL</text>
-      <text tid="syntax_text">platte text</text>
-      <text tid="syntax_xml">XML</text>
-    </textgroup>
-    <textgroup gid="messageboxes">   <!-- texteditor.messageboxes -->
-      <text tid="cannotopenerroredfile">Het is niet gelukt het bestand te openen</text>
-      <text tid="failedtosave">Het is niet gelukt het bestand op te slaan</text>
-      <text tid="saveignoreconflict">Het bestand lijkt door iemand anders bewerkt te zijn terwijl u ermee werkte. Wilt u nog steeds uw wijzigingen opslaan?</text>
-      <text tid="siteprofileerrors">Het siteprofiel bevat de volgende fouten:<br/><br/><param p="1"/><br/><br/>Wilt u dit bestand nog steeds opslaan?</text>
-      <text tid="succesfullysaved">Het bestand is succesvol opgeslagen</text>
-      <text tid="unsavedchanges">Het bestand is gewijzigd. Wilt u de wijzigingen opslaan?</text>
-    </textgroup>
-    <textgroup gid="status">   <!-- texteditor.status -->
-      <text tid="savedat">Laatst opgeslagen op <param p="1"/></text>
-    </textgroup>
-  </textgroup>
   <textgroup gid="tolliumapps">   <!-- tolliumapps -->
     <textgroup gid="common">   <!-- tolliumapps.common -->
       <textgroup gid="actions">   <!-- tolliumapps.common.actions -->
