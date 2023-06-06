@@ -109,6 +109,7 @@ ASYNC MACRO HandleModuleDefinitionChange()
       [ AsyncRecompileSiteProfiles()
       , CallAsync("@mod-system/js/internal/generation/gen_whdb.ts#updateAllModuleTableDefs", VARIANT[])
       , CallAsync("@mod-system/js/internal/generation/gen_wrd.ts#updateAllModuleWRDDefs", VARIANT[])
+      , CallAsync("@mod-system/js/internal/generation/gen_openapi.ts#updateAllModuleOpenAPIDefs", VARIANT[])
       ]);
 }
 

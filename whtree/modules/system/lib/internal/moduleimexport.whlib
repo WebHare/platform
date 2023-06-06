@@ -15,6 +15,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/logging/logfiles.whlib";
@@ -423,7 +424,10 @@ RECORD FUNCTION __ActivateInstalledModule(STRING modulename, STRING installpath)
   //__FlushCaches();
 
   FixModuleSymlinks([modulename], FALSE); //put nodejs folder in place
-  OBJECT create_gen_promise := CallAsync("mod::system/js/internal/generation/gen_whdb.ts#updateAllModuleTableDefs", VARIANT[]);
+  UpdateWebHareConfigJSONFile();
+  OBJECT create_gen_whdb_promise := CallAsync("mod::system/js/internal/generation/gen_whdb.ts#updateAllModuleTableDefs", VARIANT[]);
+  OBJECT create_gen_wrd_promise := CallAsync("@mod-system/js/internal/generation/gen_wrd.ts#updateAllModuleWRDDefs", VARIANT[]);
+  OBJECT create_gen_openapi_promise := CallAsync("@mod-system/js/internal/generation/gen_openapi.ts#updateAllModuleOpenAPIDefs", VARIANT[]);
 
   GetPrimary()->BeginWork();
   EnsureModulePrivateFolders();
@@ -438,8 +442,8 @@ RECORD FUNCTION __ActivateInstalledModule(STRING modulename, STRING installpath)
   OBJECT validator := GetModuleXMLValidator(modulename);
   INSERT CELL runoncescripts := ParseModuleDefRunonce(validator) INTO moduleinfo;
 
-  // Make sure the generated database files are ready before running scripts
-  WaitForPromise(create_gen_promise);
+  // Make sure the generated database files are ready before running upgrade scripts
+  WaitForPromise(create_gen_whdb_promise);
 
   ClearAllSchemaCaches();
   RECORD sch := GetModuleDatabaseSchema(modulename);
@@ -503,6 +507,10 @@ RECORD FUNCTION __ActivateInstalledModule(STRING modulename, STRING installpath)
 
   // Recompile siteprofiles and refresh the webserver configuration in-line.
   RecompileSiteProfiles();
+
+  // Wait for the remaining generated files
+  WaitForPromise(create_gen_wrd_promise);
+  WaitForPromise(create_gen_openapi_promise);
 
   // Softreset (used to clear all caches, now only linked to specific cache keys) restart needed scripts
   BroadcastEvent("system:softreset", [ toreload := DEFAULT STRING ARRAY ]);
