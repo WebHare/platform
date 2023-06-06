@@ -167,6 +167,9 @@ export class ApplicationBase {
   async resetApp() {
     const shutdownlock = this.getBusyLock();
 
+    if (this.appcomm) // Send a termination for the app. this flushes the contentsof any screens (ie dirty RTDs) to the server
+      await this.queueEventAsync('$terminate', '');
+
     Object.keys(this.screenmap).forEach(screenname => this.screenmap[screenname].terminateScreen());
 
     if (this.appcomm) {
@@ -175,9 +178,6 @@ export class ApplicationBase {
       this.eventcallbacks = [];
       this.queuedEvents = [];
 
-      // Terminate the app
-      if (this.appcomm)
-        await this.queueEventAsync('$terminate', '');
       if (this.appcomm)
         this.appcomm.close();
       this.appcomm = null;
@@ -716,7 +716,7 @@ export class BackendApplication extends ApplicationBase {
     this._sendQueuedEvents();
   }
 
-  async _sendQueuedEvents() {
+  _sendQueuedEvents() {
     if (!this.appcomm) // Not shut down already?
       return;
 
@@ -735,7 +735,7 @@ export class BackendApplication extends ApplicationBase {
         for (const key of Object.keys(this.screenmap))
           forms.push({
             name: key,
-            fields: await this.screenmap[key].getSubmitVariables()
+            fields: this.screenmap[key].getSubmitVariables()
           });
 
         sentforms = true;
@@ -1087,9 +1087,13 @@ export class BackendApplication extends ApplicationBase {
   queueUnloadMessage() {
     //no point in marking us synchronous, we may yet be reloaded
     //FIXME more robust unload mechanism - use a centrale queue and beacon ?
-    /* skipStateTransfer: we don't want our message to be held up by awaits, that might cause a navigateaway (or refresh) to not send the termination at all
-       causing eg a RTD editor to collide against itself ('Tab already open') */
-    this.queueEventNoLock('$terminate', '', false, null, true);
+
+    /* skipStateTransfer: we don't want our message to be held up by awaits, that might cause a navigate away (or refresh) to not send the termination at all
+       causing eg a RTD editor to collide against itself ('Tab already open')
+
+       But this also restores RTE autosave. We need to come up with a better solution
+       */
+    this.queueEventNoLock('$terminate', '', false, null);
   }
 }
 
