@@ -314,8 +314,15 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     IF(NOT ObjectExists(the_entity))
       RETURN [ success := FALSE, code := "UNKNOWNLOGIN" ];
 
-    IF(NOT skippasswordcheck AND NOT the_entity->VerifyPassword(this->wrdschema->accountpasswordtag, password))
-      RETURN [ success := FALSE, code := "INCORRECTPASSWORD" ];
+    BOOLEAN updatepassword;
+    IF(NOT skippasswordcheck)
+    {
+      STRING pwdstatus := the_entity->CheckPassword(this->wrdschema->accountpasswordtag, password); //TODO we need to load it anyway for the checks below, might as well combine
+      IF(pwdstatus = "rehash")
+        updatepassword := TRUE;
+      ELSE IF (pwdstatus != "ok")
+        RETURN [ success := FALSE, code := "INCORRECTPASSWORD" ];
+    }
 
     VARIANT authenticationsettings := "";
     IF (this->wrdschema->accountpasswordisauthsettings OR CellExists(options, "checkpassword"))
@@ -369,7 +376,10 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       }
     }
 
-    RETURN this->FinalizeLogin(the_entity, FALSE, cookietype, login, ip, TRUE, PickCells(options, [ "firstloginfield", "lastloginfield" ]));
+    RECORD finalizeoptions := PickCells(options, [ "firstloginfield", "lastloginfield" ]);
+    IF(updatepassword)
+      INSERT CELL updatepassword := password INTO finalizeoptions;
+    RETURN this->FinalizeLogin(the_entity, FALSE, cookietype, login, ip, TRUE, finalizeoptions);
   }
 
   /** Returns second factor state
@@ -747,6 +757,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
   {
     IF(NOT isimpersonation AND updatelogindata)
       this->UpdateLastLoginAndIp(the_entity, ip, options);
+    IF(NOT isimpersonation AND CellExists(options,'updatepassword'))
+      the_entity->UpdatePassword(this->wrdschema->accountpasswordtag, options.updatepassword, [ inplace := TRUE ]); //TODO combine in one update with above
 
     RECORD cookies := this->__CreateLoginCookies(the_entity->id, cookietype, PickCells(options, ["SETCREATIONDATE"]));
     IF(NOT RecordExists(cookies))
