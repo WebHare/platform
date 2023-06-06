@@ -7,6 +7,8 @@ LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/history.whlib";
 
@@ -267,7 +269,7 @@ MACRO DraftingTest()
   testfw->CommitWork();
 }
 
-MACRO UnpublishedSavesTest()
+ASYNC MACRO UnpublishedSavesTest()
 {
   testfw->BeginWork();
 
@@ -304,6 +306,13 @@ MACRO UnpublishedSavesTest()
                 ], history, "*");
 
   testfw->CommitWork();
+
+  //Verify that even sysop cannot edit this a history item
+  testfw->SetTestUser("sysop");
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:edit", [ params := [ToString(history[3].snapshot)]]));
+  BOOLEAN clicked := AWAIT ExpectNoScreenChange(PTR TTClick("publish", [ allowfailure := TRUE ]));
+  TestEq(FALSE, clicked);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
 RunTestframework([ PTR Prep

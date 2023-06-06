@@ -17,6 +17,7 @@ LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/cache.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/versioning/support.whlib";
+LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 
 
@@ -291,7 +292,10 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
 
     this->contexts->editdocumentapi->internallinkroots := data.internallinkroots;
     this->fileid := data.id;
-    this->readonly := NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->fileid);
+
+    OBJECT fsobject := OpenWHFSObject(this->fileid);
+    this->RefreshReadonly(fsobject);
+
     IF(this->readonly AND NOT this->tolliumuser->HasRightOn("system:fs_browse", this->fileid)) //not even browse access?
     {
       this->tolliumresult := "cancel";
@@ -307,7 +311,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
 
     //ADDME deal with cases where users already make other modifications while we're stil opening ?
 
-    OBJECT fsobject := OpenWHFSObject(this->fileid);
     IF(NOT ObjectExists(fsobject))
     {
       this->tolliumresult := "cancel";
@@ -378,7 +381,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     }
 
     BOOLEAN mustloadrte := TRUE;
-    IF (savemode != "versioned-locked")
+    IF (savemode != "versioned-locked" AND NOT this->readonly)
     {
       RECORD myautosave := SELECT * FROM drafts WHERE mine AND NOT ispublic ORDER BY creationdate DESC LIMIT 1;
       IF(RecordExists(myautosave))
@@ -426,7 +429,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     */
     IF (this->assumewriteaccess)
       ^openinpublisher->enabled := FALSE;
-
 
     this->RefreshState();
 
@@ -527,10 +529,18 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     this->RefreshState();
   }
 
+  MACRO RefreshReadonly(OBJECT fsobj)
+  {
+    this->readonly := (ObjectExists(fsobj) AND IsReadonlyWHFSSpace(fsobj->whfspath))
+                      OR (NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->fileid));
+
+  }
+
   MACRO RefreshState()
   {
     // Do we have a published version?
     OBJECT fsobj := OpenWHFSObject(this->fileid);
+    this->RefreshReadonly(fsobj);
     IF (ObjectExists(fsobj))
     {
       BOOLEAN canpublish := fsobj->parentsite != 0 AND OpenSite(fsobj->parentsite)->outputweb != 0 AND this->filetypeinfo.ispublishable;
@@ -548,8 +558,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
       this->frame->flags.canpreview := FALSE;
       this->frame->flags.canview := FALSE;
     }
-    this->readonly := NOT this->assumewriteaccess AND NOT this->tolliumuser->HasRightOn("system:fs_fullaccess", this->fileid);
-
     this->frame->flags.canrevertdraft := ObjectExists(this->currentautosave ?? this->currentdraft) AND this->frame->flags.canedit AND NOT this->readonly;
     this->frame->flags.cancancelrequest := ObjectExists(this->currentautosave ?? this->currentdraft) AND NOT this->frame->flags.canedit AND NOT this->readonly;
 
@@ -611,7 +619,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
 
       IF (savemode IN [ "versioned-editdraft", "versioned-editlive" ])
       {
-        STRING warntype := GetVersioningDraftWarning(OpenWHFSObject(this->fileid));
+        STRING warntype := GetVersioningDraftWarning(fsobj);
         SWITCH (warntype)
         {
           CASE "normal" // Keep usual texts
