@@ -642,5 +642,37 @@ setup_buildsystem()
   fi
 }
 
+bootstrap_whdata()
+{
+  # Setup basic symlinks for @mod- and @webhare- helpers so we can refer to them from JS (wh node sets NODE_PATH to "$WEBHARE_DATAROOT/node_modules")
+  if [ -z "$WEBHARE_DATAROOT" ]; then
+    echo WEBHARE_DATAROOT not configured!
+    exit 1
+  fi
+
+  mkdir -p "$WEBHARE_DATAROOT"/lib "$WEBHARE_DATAROOT"/home "$WEBHARE_DATAROOT"/tmp >/dev/null 2>&1
+
+  mkdir -p "$WEBHARE_DATAROOT/node_modules"
+  for mod in publisher system tollium wrd; do
+    [ -L "$WEBHARE_DATAROOT/node_modules/@mod-${mod}" ] || ln -sf "${WEBHARE_DIR}/modules/${mod}" "$WEBHARE_DATAROOT/node_modules/@mod-${mod}"
+  done
+  [ -L "$WEBHARE_DATAROOT/node_modules/@webhare" ] || ln -sf "${WEBHARE_DIR}/jssdk" "$WEBHARE_DATAROOT/node_modules/@webhare"
+
+  # When running from source, rebuild buildinfo
+  if [ -z "$WEBHARE_IN_DOCKER" ]; then
+    getbaseversioninfo
+    if [ -z "$WEBHARE_VERSION" ]; then
+      die Cannot determine WebHare version
+    fi
+
+    cat > "$WEBHARE_DIR/modules/system/whres/buildinfo.tmp" << HERE
+committag="$(git -C "$WEBHARE_DIR" rev-parse HEAD)"
+version="${WEBHARE_VERSION}-dev"
+branch="$(git -C "$WEBHARE_DIR" rev-parse --abbrev-ref HEAD)"
+origin=$(git -C "$WEBHARE_DIR" config --get remote.origin.url)
+HERE
+    mv "$WEBHARE_DIR/modules/system/whres/buildinfo.tmp" "$WEBHARE_DIR/modules/system/whres/buildinfo"
+  fi
+}
 
 export -f estimate_buildj die setup_buildsystem setup_base_buildsystem

@@ -46,8 +46,6 @@
     <task runat="54 */4 * * *" tag="check_hotfixes" script="scripts/tasks/check_hotfixes.whscr" runatstartup="true" />
     <task runat="35 0,3,6 * * *" tag="cleanpgsqlblobs" script="scripts/tasks/cleanpostgresqlblobs.whscr" ifenvironset="WEBHARE_DBASENAME" />
 
-    <task tag="update_generated_files" script="scripts/internal/updategeneratedfiles.ts" runatstartup="true" />
-
     <managedtask type="outgoingmail" objectname="lib/internal/mail/tasks.whlib#outgoingmailtask" />
     <managedtask type="mailstatuscallback" objectname="lib/internal/mail/tasks.whlib#mailstatuscallbacktask" />
 
@@ -2197,6 +2195,7 @@ The full base URL on which this site will be published, calculated by combining 
     <debugflag name="hmr" description="Log hot module reloading actions" />
     <debugflag name="asprod" description="As production - used to trigger some production-only dialogs/workflows (%IsProductionOrAsIf will evaluate to TRUE)" />
     <debugflag name="handles" description="Record stack traces when handles are created (currently only outputobjects)" />
+    <debugflag name="startup" description="Log startup processes and timing" />
     <debugflag name="traceadhoccache" description="Record stack traces when new items are inserted in the adhoc cache" />
     <debugflag name="postgresql:auto_explain" description="Activate the PostgreSQL auto_explain module on new transactions and log its output to the debug log" />
     <debugflag name="postgresql:logcommands" description="Log all SQL queries sent to the PostgreSQL database to the debug log "/>

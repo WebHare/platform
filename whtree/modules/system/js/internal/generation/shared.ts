@@ -1,5 +1,9 @@
 import fs, { Dirent } from "node:fs";
 
+export interface GenerateOptions {
+  verbose?: boolean;
+}
+
 export type DirItem<O> = {
   type: "file";
   name: string;

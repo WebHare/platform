@@ -1,6 +1,5 @@
 import { WHConfigScriptData } from '@mod-publisher/js/internal/sharedtypes';
-import * as dompack from 'dompack';
-import * as storage from 'dompack/extra/storage';
+import * as dompack from '@webhare/dompack';
 
 type FormValueList = Array<{ name: string; value: string }>;
 
@@ -138,7 +137,7 @@ function checkAuthorMode() {
     const token = url.searchParams.get("wh-feedback-token");
     if (token) {
       if (token && token.match(/^[^.]*\.[^.]*\.[^.]*$/)) { // Check if the string has the general JWT header.payload.signature format
-        storage.setLocal("wh-feedback:accesstoken", token);
+        dompack.setLocal("wh-feedback:accesstoken", token);
         url.searchParams.delete("wh-feedback-token");
         history.replaceState(null, "", url);
       }
@@ -147,7 +146,7 @@ function checkAuthorMode() {
 
   if (document.documentElement.classList.contains("wh-optin-authormode") //for now, you need to explicitly opt-in. this will go away at some point
     && !document.documentElement.classList.contains("wh-noauthormode") //explicit opt-out
-    && storage.getLocal<string>("wh-feedback:accesstoken")?.match(/^[^.]*\.[^.]*\.[^.]*$/)) {
+    && dompack.getLocal<string>("wh-feedback:accesstoken")?.match(/^[^.]*\.[^.]*\.[^.]*$/)) {
     activeAuthorMode();
   }
 }

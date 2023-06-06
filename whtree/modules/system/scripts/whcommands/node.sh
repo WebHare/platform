@@ -26,8 +26,6 @@ fi
 
 export NODE_PATH="$WEBHARE_DATAROOT/node_modules"
 export NODE_OPTIONS="--enable-source-maps -r \"${BASH_SOURCE%/*}/../../js/internal/generated/resolveplugin.js\" $NODE_OPTIONS"
-# TODO is this still used? or is the esbuild plugin just looking up in the tree?
-export TS_NODE_PROJECT="$WEBHARE_DATAROOT/tsconfig.json"
 
 # is the 'heavy' node profiler enabled?
 if [ -n "$WEBHARE_NODEPROFILE" ]; then

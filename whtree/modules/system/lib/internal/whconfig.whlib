@@ -13,6 +13,7 @@ LOADLIB "mod::system/lib/internal/registry.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/cluster/logging.whlib";
+LOADLIB "mod::system/lib/internal/tasks/callasync.whlib";
 
 PUBLIC CONSTANT STRING ARRAY systemservertypes := ["production","acceptance","test","development"];
 
@@ -363,18 +364,7 @@ ASYNC FUNCTION ReadWholeProcessOutput(OBJECT process)
   RETURN retval;
 }
 
-
 PUBLIC MACRO UpdateWebHareConfigJSONFile()
 {
-  STRING installationroot := __SYSTEM_WHCOREPARAMETERS().installationroot;
-
-  OBJECT proc := CreateProcess(`${installationroot}/modules/system/scripts/whcommands/node.sh`,
-        [ `${installationroot}/modules/system/scripts/internal/updateconfigfile.ts`
-        , "--nodb"
-        ], [ take_output := FALSE, take_errors := FALSE ]);
-  proc->Start();
-  RECORD result := WaitForPromise(ReadWholeProcessOutput(proc));
-  proc->Close();
-  IF (result.exitcode != 0)
-    ABORT(result);
+  WaitForPromise(CallAsync("@mod-system/js/internal/generation/gen_config.ts#updateWebHareConfigFile", VARIANT[]));
 }

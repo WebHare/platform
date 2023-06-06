@@ -244,7 +244,7 @@ setup_for_console() #setup_for_console is invoked when we're starting a major su
     exit 1
   fi
 
-  mkdir -p "$WEBHARE_DATAROOT"/lib "$WEBHARE_DATAROOT"/home "$WEBHARE_DATAROOT"/tmp >/dev/null 2>&1
+  bootstrap_whdata
 
   # WH 5.0 - move the unified cache (image cache) into the right place. To avoid races we *have* to do this before we start WebHare - it should normally be done in a sec...
   if [ -d "$WEBHARE_DATAROOT"/ephemeral/system.uc2 ]; then
@@ -255,22 +255,6 @@ setup_for_console() #setup_for_console is invoked when we're starting a major su
       # If this failed.. cross disk partition? we'll delete it in the background and have it regenerated.
       rm -rf -- "$WEBHARE_DATAROOT"/ephemeral/system.uc2 > /dev/null 2>&1 &
     fi
-  fi
-
-  # When running from source, rebuild buildinfo
-  if [ -z "$WEBHARE_IN_DOCKER" ]; then
-    getbaseversioninfo
-    if [ -z "$WEBHARE_VERSION" ]; then
-      die Cannot determine WebHare version
-    fi
-
-    cat > "$WEBHARE_DIR/modules/system/whres/buildinfo.tmp" << HERE
-committag="$(git -C "$WEBHARE_DIR" rev-parse HEAD)"
-version="${WEBHARE_VERSION}-dev"
-branch="$(git -C "$WEBHARE_DIR" rev-parse --abbrev-ref HEAD)"
-origin=$(git -C "$WEBHARE_DIR" config --get remote.origin.url)
-HERE
-    mv $WEBHARE_DIR/modules/system/whres/buildinfo.tmp $WEBHARE_DIR/modules/system/whres/buildinfo
   fi
 }
 
@@ -342,6 +326,10 @@ case $INSTR in
     fi
 
     [ -n "$DEBUGTAGS" ] && WEBHARE_DEBUG="$WEBHARE_DEBUG,$DEBUGTAGS"
+    STARTUPOPTIONS=()
+    if [[ $WEBHARE_DEBUG =~ ((^|[,])startup([,]|$))+ ]] ; then
+      STARTUPOPTIONS+=(--verbose)
+    fi
 
     check_webhare_not_running
     setup_for_console
@@ -368,13 +356,13 @@ case $INSTR in
     fi
 
     if [ -z "$WEBHARE_IN_DOCKER" ]; then #In Dockers it's the buildscripts (shrinkwrap) responsibility to set these up
-      if ! "$WEBHARE_DIR/modules/system/scripts/whcommands/rebuild-platform-helpers.sh" ; then
+      if ! wh rebuild-platform-helpers "${STARTUPOPTIONS[@]}"; then
         echo "Failed to rebuild platform helpers, aborting"
         exit 1
       fi
     fi
 
-    if ! "$WEBHARE_DIR/modules/system/scripts/whcommands/update-generated-files.sh" "--onlyconfig" "--nodb"; then
+    if ! wh update-generated-files --update=config --nodb "${STARTUPOPTIONS[@]}"; then
       echo "Failed to update the configuration file, aborting"
       exit 1
     fi

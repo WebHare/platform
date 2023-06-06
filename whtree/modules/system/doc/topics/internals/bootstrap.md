@@ -39,7 +39,7 @@ If webhare_testsuite is installed, poststart is responsible for setting up the t
 
 Use `wh waitfor poststartdone` if you need to wait for initialization tasks (and the creation of the test sites) to complete.
 
-You can set `WEBHARE_DEBUGSTARTUP=1` in the environment to set the startup process into debugging mode
+You can set `WEBHARE_DEBUG=startup` in the environment to set the startup process into debugging mode
 
 ### The RestartReset procedure
 See `restart_reset.whlib`.

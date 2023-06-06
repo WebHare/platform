@@ -12,7 +12,7 @@ LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 
 
-BOOLEAN debugstartup := GetEnvironmentVariable("WEBHARE_DEBUGSTARTUP") != "";
+BOOLEAN debugstartup := IsDebugTagEnabled("startup");
 
 MACRO LogStartup(STRING text)
 {

@@ -10,7 +10,6 @@ LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internal/jobs.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
@@ -50,7 +49,7 @@ ASYNC MACRO StartIPCNodeProcess()
         [ `${webhareconfig.installationroot}/modules/system/scripts/internal/callrunnerts.ts`
         , portname
         ], [ take_output := FALSE, take_errors := FALSE ]);
-    IF(GetProcessInfo().clientname NOT IN ["webserver"] AND NOT nostdoutintercept) //TODO how can we tell beforehand whether we're allowed to share streams? at least webserver won't allow us
+    IF(processinfo.clientname NOT IN ["webserver"] AND NOT nostdoutintercept) //TODO how can we tell beforehand whether we're allowed to share streams? at least webserver won't allow us
     {
       proc->share_stdout := TRUE;
       proc->share_stderr := TRUE;

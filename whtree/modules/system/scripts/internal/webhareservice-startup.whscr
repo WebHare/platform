@@ -29,7 +29,7 @@ IF(NOT RecordExists(settings))
 }
 
 BOOLEAN showinfo;
-IF(settings.debug OR GetEnvironmentVariable("WEBHARE_DEBUGSTARTUP") != "")
+IF(settings.debug OR IsDebugTagEnabled("startup"))
   showinfo := TRUE;
 
 IF(showinfo)
