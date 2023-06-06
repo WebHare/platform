@@ -1,4 +1,4 @@
-import * as domdebug from "dompack/src/debug";
+import { flags } from "@webhare/env";
 // @ts-ignore Not converted to TypeScript yet
 import * as wh from "@mod-system/js/wh/integration";
 import { encodeString } from "@webhare/std";
@@ -103,25 +103,25 @@ function resolveTid(tid: string, params: Array<TidParam | undefined>, options?: 
   const strparams: string[] = params.map(param => typeof param == "number" ? String(param) : param || "");
 
   // Initialize text with the 'cannot find text' message
-  const text = domdebug.debugflags.sut ? "." + tid.split(".").pop() : "(cannot find text:" + tid + ")";
+  const text = flags.sut ? "." + tid.split(".").pop() : "(cannot find text:" + tid + ")";
 
   // Check if the module is defined
   const module = tid.substring(0, tid.indexOf(":"));
   if (!module || !(module in allTids)) {
-    if (!wh.config.islive || domdebug.debugflags.gtd)
+    if (!wh.config.islive || flags.gtd)
       console.warn("No language texts found for module '" + module + "'");
     return /*cannot find*/ text;
   }
 
   const language = options?.overridelanguage || getTidLanguage();
   if (!(language in allTids[module])) {
-    if (!wh.config.islive || domdebug.debugflags.gtd)
+    if (!wh.config.islive || flags.gtd)
       console.warn("No language texts found for language '" + language + "'");
     return /*cannot find*/ text;
   }
 
   try {
-    if (domdebug.debugflags.gtd) {
+    if (flags.gtd) {
       console.group(`Resolving tid '${tid}'`);
       console.info({ tid, strparams, options, language, context: allTids[module][language] });
     }
@@ -142,16 +142,16 @@ function resolveTid(tid: string, params: Array<TidParam | undefined>, options?: 
 
     const executed = executeCompiledTidText(context, strparams, options?.html ?? false);
     if (executed == null) {
-      if (domdebug.debugflags.gtd)
+      if (flags.gtd)
         console.warn(`Tid '${module}:${tid}'' is a group node`);
       return /*cannot find*/ text;
     }
-    if (domdebug.debugflags.gtd)
+    if (flags.gtd)
       console.info("getTid", `${module}:${tid}`, strparams, executed);
 
     return executed;
   } finally {
-    if (domdebug.debugflags.gtd)
+    if (flags.gtd)
       console.groupEnd();
   }
 }
