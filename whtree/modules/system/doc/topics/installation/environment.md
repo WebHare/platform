@@ -106,9 +106,6 @@ See also [profiling](https://www.webhare.dev/reference/internals/profiling) for 
 ### WEBHARE_DEBUGCHROME
 Set to 1 to enable the debugflag for the Chrome headless runner
 
-### WEBHARE_DEBUGSTARTUP
-Set to 1 to enable debug for various potential startup issues
-
 ### WEBHARE_ALLOWEPHEMERAL
 Set to 1 to allow the WebHare docker to run on ephemeral storage such as overlayfs.
 

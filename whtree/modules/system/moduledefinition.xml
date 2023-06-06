@@ -2197,6 +2197,7 @@ The full base URL on which this site will be published, calculated by combining 
     <debugflag name="hmr" description="Log hot module reloading actions" />
     <debugflag name="asprod" description="As production - used to trigger some production-only dialogs/workflows (%IsProductionOrAsIf will evaluate to TRUE)" />
     <debugflag name="handles" description="Record stack traces when handles are created (currently only outputobjects)" />
+    <debugflag name="startup" description="Log startup processes and timing" />
     <debugflag name="traceadhoccache" description="Record stack traces when new items are inserted in the adhoc cache" />
     <debugflag name="postgresql:auto_explain" description="Activate the PostgreSQL auto_explain module on new transactions and log its output to the debug log" />
     <debugflag name="postgresql:logcommands" description="Log all SQL queries sent to the PostgreSQL database to the debug log "/>

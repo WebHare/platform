@@ -99,7 +99,7 @@ MACRO RunPostStartRunOnceScripts()
   }
 }
 
-debug := GetEnvironmentVariable("WEBHARE_DEBUGSTARTUP") != "";
+debug := IsDebugTagEnabled("startup");
 DATETIME start := GetCurrentDatetime();
 
 IF (IsDatabaseWritable())
