@@ -135,7 +135,7 @@ IF (IsDatabaseWritable())
   UpdateSystemBackendSite();
   trans->CommitWork();
 
-  // Rebuild various webhare pregenerated files so they are available before poststart complets (TODO we may need to generate non type-info stubs for missing files so scripts have something to import)
+  // Rebuild various webhare pregenerated files so they are available before poststart completes (TODO we may need to generate non type-info stubs for missing files so scripts have something to import)
   WaitForPromise(CreatePromiseAll([ CallAsync("@mod-system/js/internal/generation/gen_config.ts#updateWebHareConfigFile", [[ verbose := IsDebugTagEnabled("startup") ]])
                                   , CallAsync("@mod-system/js/internal/generation/gen_whdb.ts#updateAllModuleTableDefs", [[ verbose := IsDebugTagEnabled("startup") ]])
                                   , CallAsync("@mod-system/js/internal/generation/gen_wrd.ts#updateAllModuleWRDDefs", [[ verbose := IsDebugTagEnabled("startup") ]])
