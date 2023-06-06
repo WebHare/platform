@@ -981,7 +981,7 @@
     <objecteditor name="editmarkdown" documenteditor="tolliumapps/editmarkdown/editmarkdown.xml" supportsreadonly="true" />
     <objecteditor name="propertydialog" startmacro="tolliumapps/objectprops/objectprops.whlib#runpropertydialog" />
     <objecteditor name="embedded" screen="embeddededitor.editor" />
-    <objecteditor name="texteditor" screen="texteditor.main" />
+    <objecteditor name="texteditor" documenteditor="tolliumapps/texteditor/texteditor.xml" supportsreadonly="true" />
     <objecteditor name="adaptivecontent_beacon" screen="/tolliumapps/filemanager/adaptivecontent.xml#beaconprops" />
 
     <siteprofile path="data/publisher.siteprl.xml"/>

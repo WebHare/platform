@@ -390,21 +390,19 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
   /** Update the password for this entity
       @param attrtag Name of the password field (must be of type PASSWORD or AUTHENTICATIONSETTINGS)
       @param newpassword The new password */
-  PUBLIC MACRO UpdatePassword(STRING attrtag, STRING newpassword)
+  PUBLIC MACRO UpdatePassword(STRING attrtag, STRING newpassword, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    options := ValidateOptions([ inplace := FALSE ], options);
     RECORD attr := this->wrdtype->GetAttribute(attrtag);
     IF(NOT RecordExists(attr))
       THROW NEW Exception(`No such attribute ${EncodeJSON(attrtag)} in type ${EncodeJSON(this->wrdtype->tag)}`);
 
+    STRING pwdhash := newpassword != "" ? CreateWebHarePasswordHash(newpassword) : "";
     SWITCH (attr.attributetype)
     {
-      CASE wrd_attributetype_free
-      {
-        this->UpdateEntity(CellInsert(CELL[], attrtag, newpassword));
-      }
       CASE wrd_attributetype_password
       {
-        this->UpdateEntity(CellInsert(CELL[], attrtag, newpassword != "" ? CreateWebharePasswordHash(newpassword) : ""));
+        this->UpdateEntity(CellInsert(CELL[], attrtag, pwdhash));
       }
       CASE wrd_attributetype_authenticationsettings
       {
@@ -416,10 +414,16 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
 
           value := GetDefaultAuthenticationSettings();
         }
-        INSERT CELL [ validfrom := GetCurrentDatetime()
-                    , passwordhash := newpassword != "" ? CreateWebharePasswordHash(newpassword) : ""
-                    ] INTO value.passwords AT END;
-
+        IF(Length(value.passwords) > 0 AND options.inplace)
+        {
+          value.passwords[END-1].passwordhash := pwdhash;
+        }
+        ELSE
+        {
+          INSERT CELL [ validfrom := GetCurrentDatetime()
+                      , passwordhash := pwdhash
+                      ] INTO value.passwords AT END;
+        }
         this->UpdateEntity(CellInsert(CELL[], attrtag, value));
       }
       DEFAULT
@@ -432,12 +436,12 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
   /** Tests if a password is correct, can be used on password and authenticationsettings attributes
       @param attrtag Tag of the attribute with the password
       @param testvalue Password to test
-      @return TRUE if 'testvalue' is the correct password; can be used on password, free and authenticationsettings attributes.
+      @return 'ok' if 'testvalue' is the correct password, 'rehash' if its correct but needs to be rehashed, "fail" otherwise
   */
-  PUBLIC BOOLEAN FUNCTION VerifyPassword(STRING attrtag, STRING testvalue)
+  PUBLIC STRING FUNCTION CheckPassword(STRING attrtag, STRING testvalue)
   {
     IF(testvalue = "")
-      RETURN FALSE;
+      RETURN "fail";
 
     // Find the current password of this entity, based on the attribute
     RECORD attr := this->wrdtype->GetAttribute(attrtag);
@@ -445,18 +449,40 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
       THROW NEW Exception(`No such attribute ${EncodeJSON(attrtag)} in type ${EncodeJSON(this->wrdtype->tag)}`);
 
     VARIANT data := this->GetField(attrtag);
+    STRING hash;
     SWITCH (attr.attributetype)
     {
-      CASE wrd_attributetype_password                 { RETURN VerifyWebHarePasswordHash(testvalue, data); }
+      CASE wrd_attributetype_password
+      {
+        hash := data;
+      }
       CASE wrd_attributetype_authenticationsettings
       {
-        RETURN RecordExists(data) AND RecordExists(data.passwords) AND VerifyWebHarePasswordHash(testvalue, data.passwords[END-1].passwordhash);
+        IF(RecordExists(data) AND RecordExists(data.passwords))
+          hash := data.passwords[END-1].passwordhash;
+        ELSE
+          RETURN "fail";
       }
       DEFAULT
       {
         THROW NEW Exception(`Attribute '${attrtag}' is of type '${attr.attributetypename}' and cannot store a password`);
       }
     }
+
+    IF(NOT VerifyWebHarePasswordHash(testvalue, hash))
+      RETURN "fail";
+
+    RETURN IsWebHarePasswordHashStillSecure(hash) ? "ok" : "rehash";
+  }
+
+  /** Tests if a password is correct, can be used on password and authenticationsettings attributes
+      @param attrtag Tag of the attribute with the password
+      @param testvalue Password to test
+      @return TRUE if 'testvalue' is the correct password
+  */
+  PUBLIC BOOLEAN FUNCTION VerifyPassword(STRING attrtag, STRING testvalue)
+  {
+    RETURN this->CheckPassword(attrtag, testvalue) IN [ "ok", "rehash"];
   }
 
   /** Filters out attribute cells that have the same value as the currently stored entity has.

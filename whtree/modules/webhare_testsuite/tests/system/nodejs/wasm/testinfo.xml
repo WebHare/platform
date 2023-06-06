@@ -1,4 +1,4 @@
-<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="test_wasm_basics.whscr">
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="test_wasm_basics.whscr testwasmlib.whlib">
   <test script="test_wh_run_wasm.sh" />
   <test script="test_wasm_basics.whscr" engine="wasm" />
   <test script="test_wasm_fails.whscr" engine="wasm" xfail="true" />

@@ -1577,42 +1577,6 @@
       <text tid="unknownfile">Unknown file type</text>
     </textgroup>
   </textgroup>
-  <textgroup gid="texteditor" limitlanguages="en nl">   <!-- texteditor -->
-    <textgroup gid="main">   <!-- texteditor.main -->
-      <text tid="col">Column</text>
-      <text tid="error">Error</text>
-      <text tid="filename">File name</text>
-      <text tid="func">Function</text>
-      <text tid="line">Line</text>
-      <text tid="messagestab">Messages</text>
-      <text tid="nostacktrace">A stacktrace is only available when an error occurred while running a script.</text>
-      <text tid="openfile">Open file</text>
-      <text tid="stacktracetab">Stack trace</text>
-      <text tid="syntax">Syntax</text>
-      <text tid="syntax_c">C</text>
-      <text tid="syntax_cpp">C++</text>
-      <text tid="syntax_css">CSS</text>
-      <text tid="syntax_harescript">Harescript</text>
-      <text tid="syntax_html">HTML</text>
-      <text tid="syntax_java">Java</text>
-      <text tid="syntax_javascript">Javascript</text>
-      <text tid="syntax_php">PHP</text>
-      <text tid="syntax_sql">SQL</text>
-      <text tid="syntax_text">plain text</text>
-      <text tid="syntax_xml">XML</text>
-    </textgroup>
-    <textgroup gid="messageboxes">   <!-- texteditor.messageboxes -->
-      <text tid="cannotopenerroredfile">Unable to open file</text>
-      <text tid="failedtosave">Failed to save</text>
-      <text tid="saveignoreconflict">The file appears to have been updated by someone else while you were working on it. Do you still want to save this file?</text>
-      <text tid="siteprofileerrors">This site profile contains the following errors:<br/><br/><param p="1"/><br/><br/>Do you still want to save this site profile?</text>
-      <text tid="succesfullysaved">File succesfully saved</text>
-      <text tid="unsavedchanges">There are unsaved changes. Do you want to save this file?</text>
-    </textgroup>
-    <textgroup gid="status">   <!-- texteditor.status -->
-      <text tid="savedat">Last saved at <param p="1"/></text>
-    </textgroup>
-  </textgroup>
   <textgroup gid="tolliumapps" limitlanguages="en nl">   <!-- tolliumapps -->
     <textgroup gid="common">   <!-- tolliumapps.common -->
       <textgroup gid="actions">   <!-- tolliumapps.common.actions -->

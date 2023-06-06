@@ -646,7 +646,7 @@ export default class Frame extends ComponentBase {
    * Communications
    */
 
-  async getSubmitVariables() {
+  getSubmitVariables() {
     const focused = this.getActiveComponent();
 
     const allvars = { frame: { focused: focused ? focused.name : "" } };
@@ -667,9 +667,7 @@ export default class Frame extends ComponentBase {
     // Get variables from all objects
     for (const i in this.objectmap)
       if (i != "frame" && this.objectmap[i] && this.objectmap[i].shouldSubmitValue()) {
-        let val = this.objectmap[i].getSubmitValue();
-        if (val?.then)
-          val = await val; //RTE is dynamic with editorjs
+        const val = this.objectmap[i].getSubmitValue();
         if (val !== null)
           allvars[i] = val;
       }

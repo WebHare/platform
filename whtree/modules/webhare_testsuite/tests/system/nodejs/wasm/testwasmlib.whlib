@@ -1,0 +1,6 @@
+<?wh
+
+PUBLIC MACRO ThrowIt()
+{
+  THROW NEW Exception("We're throwing it");
+}

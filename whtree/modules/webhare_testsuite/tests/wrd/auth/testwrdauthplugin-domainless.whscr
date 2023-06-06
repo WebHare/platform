@@ -111,7 +111,7 @@ MACRO CreateMyTestSchema()
 
   OBJECT entity := persontype->CreateEntity(
       [ wrd_contact_email := "testaccount@test.invalid"
-      , whuser_password := CreateAuthenticationSettingsFromPasswordHash(testfw->hashedpasswords.secret)
+      , whuser_password := CreateAuthenticationSettingsFromPasswordHash("PLAIN:secret")
       , whuser_unit := testfw->testunit
       ]);
 
@@ -160,7 +160,13 @@ MACRO CreateMyTestSchema()
   TestEq("", result.loginname);
   TestEq(0, result.entityid);
 
+  TestEq("PLAIN:secret", entity->GetField("whuser_password").passwords[0].passwordhash);
+  TestEq(FALSE, IsWebHarePasswordHashStillSecure(entity->GetField("whuser_password").passwords[0].passwordhash));
+
   result := DoReq( [ action := "login", username := "testaccount@test.invalid", pwd := "secret", browsertriplet := "mac-chrome-01"]);
+  TestEq(TRUE, IsWebHarePasswordHashStillSecure(entity->GetField("whuser_password").passwords[0].passwordhash));
+  TestEqLike("WHBF:*", entity->GetField("whuser_password").passwords[0].passwordhash);
+  TestEq(1,length(entity->GetField("whuser_password").passwords));
   TestEq(TRUE, result.success);
   TestAuditEvent(
       [ entity := entityid

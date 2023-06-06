@@ -213,7 +213,7 @@
             searchcontentprovider="publisher:contentblob"
             tid="publisher:filetypes.html"
             webhare_builtintypeid="5">
-    <setobjecteditor name="publisher:texteditor" />
+    <setobjecteditor name="publisher:texteditor" supportsversioning="true" />
     <bodyrenderer objectname="mod::publisher/lib/internal/renderers/htmlfile.whlib#StaticHTMLFile" />
   </filetype>
 
