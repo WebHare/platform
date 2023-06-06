@@ -3,7 +3,6 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::ipc.whlib";
-LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internal/interface.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -21,8 +20,6 @@ DATETIME nexttask := MAX_DATETIME;
 RECORD ARRAY processes;
 RECORD ARRAY module_startup_scripts;
 INTEGER resetcount;
-FUNCTION PTR module_init_resolve;
-OBJECT module_init_promise;
 OBJECT port;
 RECORD args;
 
@@ -30,13 +27,6 @@ RECORD ARRAY cachedtaskmetadata;
 
 OBJECT trans;
 INTEGER maximum_process_count;
-
-MACRO IndicatePostStartBusy()
-{
-  RECORD defer := CreateDeferredPromise();
-  module_init_promise := defer.promise;
-  module_init_resolve := defer.resolve;
-}
 
 MACRO Debug(STRING text)
 {
@@ -114,22 +104,6 @@ DATETIME FUNCTION GetTaskNextExecution(RECORD task)
   RETURN AddInterval(task.nexttime, task.repeatinterval, task.repeatintervaltype);
 }
 
-// Check if module init is complete (call only when a module init/startup task has finished)
-MACRO CheckModuleInitComplete()
-{
-  IF (LENGTH(module_startup_scripts) = 0 AND LENGTH(uncompleted_startup_scripts) = 0)
-  {
-    IF (module_init_resolve != DEFAULT FUNCTION PTR)
-    {
-      module_init_resolve(DEFAULT RECORD);
-
-      module_init_promise := DEFAULT OBJECT;
-      module_init_resolve := DEFAULT FUNCTION PTR;
-    }
-  }
-}
-
-
 MACRO HandleTaskCompletion(RECORD task, STRING allerrors, DATETIME starttime)
 {
   Debug("Task '" || task.tag || "' has finished, id: " || task.id || (allerrors!=""?", " || allerrors:""));
@@ -141,8 +115,6 @@ MACRO HandleTaskCompletion(RECORD task, STRING allerrors, DATETIME starttime)
       FROM module_startup_scripts
      WHERE tag = task.tag
        AND iteration = task.iteration;
-
-    CheckModuleInitComplete();
   }
   ELSE
   {
@@ -163,8 +135,6 @@ MACRO HandleTaskCompletion(RECORD task, STRING allerrors, DATETIME starttime)
     INTEGER onexecutelist := Searchelement(uncompleted_startup_scripts, task.tag);
     IF(onexecutelist>=0)
       DELETE FROM uncompleted_startup_scripts AT onexecutelist;
-
-    CheckModuleInitComplete();
   }
 }
 
@@ -275,9 +245,6 @@ MACRO RunStartupScripts(STRING modulename)
     Print("Scheduled startup scripts\n");
     DumpValue(module_startup_scripts,'boxed');
   }
- IF (LENGTH(module_startup_scripts) != 0 AND NOT ObjectExists(module_init_promise))
-    IndicatePostStartBusy();
-
   LogDebug("system:executetasks", "rescan", module_startup_scripts);
 }
 
@@ -776,7 +743,6 @@ IF (NOT RecordExists(args))
 }
 
 trans := OpenPrimary();
-IndicatePostStartBusy();
 
 port := CreateIPCPort("system:executetasks");
 __INTERNAL_KeepPortGlobal(port);
