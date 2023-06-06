@@ -436,7 +436,7 @@ PUBLIC STATIC OBJECTTYPE WRDEntityBase
   /** Tests if a password is correct, can be used on password and authenticationsettings attributes
       @param attrtag Tag of the attribute with the password
       @param testvalue Password to test
-      @return 'ok' if 'testvalue' is the correct password, 'rehash' if its correct but needsto be rehashed, "fail" otherwise
+      @return 'ok' if 'testvalue' is the correct password, 'rehash' if its correct but needs to be rehashed, "fail" otherwise
   */
   PUBLIC STRING FUNCTION CheckPassword(STRING attrtag, STRING testvalue)
   {
