@@ -228,9 +228,7 @@ function generateFile(file: string, { defname, modules }: { defname: string; mod
     return "";
   }
 
-  const retval = generateKyselyDefs(defname, modules);
-  console.log(`gen: ${retval.length} chars`);
-  return retval;
+  return generateKyselyDefs(defname, modules);
 }
 
 export async function updateAllModuleTableDefs() {
