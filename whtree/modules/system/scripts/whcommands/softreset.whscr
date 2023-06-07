@@ -94,7 +94,7 @@ ELSE
   trans->BeginWork();
   ScheduleTimedTask("system:intervalchecks");
   trans->CommitWork();
-  Print("Waiting for checks to uodate\n");
+  Print("Waiting for checks to update\n");
   WaitForTimedTask("system:intervalchecks", AddTimeToDate(60 * 1000, GetCurrentDateTime()));
 
   //TODO maybe introduce a 'developer' scope and 'know' how to rerun exactly those checks?
