@@ -47,8 +47,14 @@ RECORD FUNCTION LoadConfig(RECORD configuration, BOOLEAN isuptodate)
   IF(GetEnvironmentVariable("WEBHARE_WEBSERVER") = "node") //Get out of node's way
     DELETE FROM useconfiguration.ports WHERE id != whwebserverconfig_hstrustedportid;
 
-
   RECORD reloadstatus := ConfigureWebserver(useconfiguration);
+  //count entries to give an impression how 'complete' this configuration set was
+  reloadstatus := CELL[ ...reloadstatus
+                      , numports := Length(useconfiguration.ports)
+                      , numhosts := Length(useconfiguration.hosts)
+                      , numrules := Length(useconfiguration.rules)
+                      , numtypes := Length(useconfiguration.types)
+                      ];
 
   FlushAuthentication();
 

@@ -197,6 +197,8 @@ DRAWLIB_STATIC_LIBS=
 
 DRAWLIB_BASE_LIBS+=jpeg
 
+EMCC?=emcc
+
 ifeq ($(BUILDSYSTEM),gcc)
 	ifeq ($(CXX),clang++)
 		# Allow override - CXX is always set to system C++ compiler
@@ -220,6 +222,7 @@ endif
 ifeq ($(WHBUILD_NOCCACHE),)
 	CC:=ccache ${CC}
 	CXX:=ccache ${CXX}
+	EMCC:=ccache ${EMCC}
 endif
 
 WHLDFLAGS+=$(GLOBALLDFLAGS)
@@ -245,22 +248,22 @@ CPPFLAGS += -DHAVE_LIBGIT=1
 harescript_HsMod_git_AddLibs = git2
 
 CompileCNative = $(HIDE)echo "- CompileCNative $1" && $(CC) $(CPPFLAGS) -o$2 -c $1
-CompileCWasm   = $(HIDE)echo "- CompileCWasm $1"   && emcc $(CPPFLAGS_WASM) -o$2 -c $1
+CompileCWasm   = $(HIDE)echo "- CompileCWasm $1"   && $(EMCC) $(CPPFLAGS_WASM) -o$2 -c $1
 
 CompileCPPNative = $(HIDE)echo "- CompileCPPNative $1" && $(CXX) $(CPPFLAGS) $(CXXFLAGS) -o$2 -c $1
-CompileCPPWasm = $(HIDE)echo "- CompileCPPWasm $1" && emcc $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -o$2 -c $1
+CompileCPPWasm = $(HIDE)echo "- CompileCPPWasm $1" && $(EMCC) $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -o$2 -c $1
 
 GenerateDepsNative = $(HIDE)echo "- GenerateDepsNative $1" && $(CXX) $(CPPFLAGS) $(CXXFLAGS) -M -MP -MT "$2 $(subst .native-d,.native-obj,$2)" $3 -o $2 -c $1
-GenerateDepsWasm   = $(HIDE)echo "- GenerateDepsWasm $1" && emcc $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -M -MP -MT "$2 $(subst .wasm-d,.wasm-obj,$2)" $3 -o $2 -c $1
+GenerateDepsWasm   = $(HIDE)echo "- GenerateDepsWasm $1" && $(EMCC) $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -M -MP -MT "$2 $(subst .wasm-d,.wasm-obj,$2)" $3 -o $2 -c $1
 
 GeneratePCHDepsNative = $(HIDE)echo "- GeneratePCHDepsNative $1" && $(CXX) $(CPPFLAGS) $(CXXFLAGS) -x c++-header -M -MP -MT "$2 $(subst .native-d,.gch,$2)" $3 -o $2 -c $1
-GeneratePCHDepsWasm = $(HIDE)echo "- GeneratePCHDepsWasm $1" && emcc $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -x c++-header -M -MP -MT "$2 $(subst .wasm-d,.gch,$2)" $3 -o $2 -c $1
+GeneratePCHDepsWasm = $(HIDE)echo "- GeneratePCHDepsWasm $1" && $(EMCC) $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -x c++-header -M -MP -MT "$2 $(subst .wasm-d,.gch,$2)" $3 -o $2 -c $1
 
 GeneratePCHNative = $(HIDE)echo "- GeneratePCHNative $2" && $(CXX) $(CPPFLAGS) $(CXXFLAGS) -x c++-header $4 -o$3 -c $2
-GeneratePCHWasm = $(HIDE)echo "- GeneratePCHWasm $2" && emcc $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -x c++-header $4 -o$3 -c $2
+GeneratePCHWasm = $(HIDE)echo "- GeneratePCHWasm $2" && $(EMCC) $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -x c++-header $4 -o$3 -c $2
 
-LinkWASMImportable  = $(HIDE)echo "- LinkWASMImportable $2" && emcc $(WHLDFLAGS_WASM) $(WHLDFLAGS_IMPORTABLE) -o $2 $1
-LinkWASMExecutable  = $(HIDE)echo "- LinkWASMExecutable $2" && emcc $(WHLDFLAGS_WASM) -o $2 $1
+LinkWASMImportable  = $(HIDE)echo "- LinkWASMImportable $2" && $(EMCC) $(WHLDFLAGS_WASM) $(WHLDFLAGS_IMPORTABLE) -o $2 $1
+LinkWASMExecutable  = $(HIDE)echo "- LinkWASMExecutable $2" && $(EMCC) $(WHLDFLAGS_WASM) -o $2 $1
 
 ifeq ($(WHBUILD_PLATFORM),darwin)
  	LinkShared       = $(HIDE)echo "- LinkShared $2" && $(LD_APP) $(WHLDFLAGS) -shared -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)

@@ -1,6 +1,7 @@
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { DebugMgrClientLink, DebugMgrClientLinkRequestType, ProcessType } from "@mod-system/js/internal/whmanager/debug";
+import * as child_process from "node:child_process";
 
 /// short: Control WebHare bridge connections (ie. javascript processes)
 
@@ -52,30 +53,51 @@ program.command('connections')
       console.table(list, ["pid", "name", "processcode"]);
   });
 
+async function getInspectorURL(process: string) {
+  const link = bridge.connect<DebugMgrClientLink>("ts:debugmgr", { global: true });
+  try {
+    await link.activate();
+    const searchprocesscode = await getProcessCodeFromInstance(link, process);
+    const inspectorinfo = await link.doRequest({
+      type: DebugMgrClientLinkRequestType.enableInspector,
+      processcode: searchprocesscode
+    });
+    return inspectorinfo?.url || null;
+  } catch (e) {
+    console.error(`Could not connect to debug manager`);
+    return null;
+  } finally {
+    link.close();
+  }
+}
+
 program.command('inspect')
   .description('Enable inspector and return settings')
-  .argument('<instance>', 'Instance to connect to')
+  .argument('<process>', 'Process to connect to')
   .action(async (instance: string) => {
-    const link = bridge.connect<DebugMgrClientLink>("ts:debugmgr", { global: true });
-    try {
-      await link.activate();
-
-      const searchprocesscode = await getProcessCodeFromInstance(link, instance);
-      const inspectorinfo = await link.doRequest({
-        type: DebugMgrClientLinkRequestType.enableInspector,
-        processcode: searchprocesscode
-      });
-      link.close();
-      if (inspectorinfo.url) {
-        console.log("Inspector URL: " + inspectorinfo.url);
-        console.log("Locally you should see the session on chrome://inspect/#devices");
-      } else {
-        console.log(`Could not enable inspector, process is gone`);
-      }
-    } catch (e) {
-      console.error(`Could not connect to debug manager`);
+    const url = await getInspectorURL(instance);
+    if (url) {
+      console.log("Inspector URL: " + url);
+      console.log("Locally you should see the session on chrome://inspect/#devices");
+    } else {
+      console.error("Could not enable inspector");
       process.exitCode = 1;
-      link.close();
+    }
+  });
+
+program.command('inspect-in-chrome')
+  .description('Inspect the process in Chrome devtools')
+  .argument('<process>', 'Process to connect to')
+  .action(async (instance: string) => {
+    const url = await getInspectorURL(instance);
+    if (url) {
+      const devtoolsurl = `devtools://devtools/bundled/js_app.html?experiments=true&v8only=true&ws=${encodeURIComponent(url.substring(5))}`;
+      console.log("Opening " + devtoolsurl);
+      const subprocess = child_process.spawn("/usr/bin/open", ["-a", "/Applications/Google Chrome.app", devtoolsurl], { detached: true, stdio: ['inherit', 'inherit', 'inherit'] });
+      subprocess.unref();
+    } else {
+      console.error("Could not enable inspector");
+      process.exitCode = 1;
     }
   });
 
