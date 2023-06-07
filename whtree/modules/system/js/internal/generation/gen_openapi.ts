@@ -9,7 +9,6 @@ import type { OpenAPI3, OpenAPITSOptions } from "openapi-typescript";
 import { OpenAPIV3 } from "openapi-types";
 import { HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
 import { splitFileReference } from "@webhare/services/src/naming";
-import { formatFile } from "../validation/javascript";
 import { XMLParser } from "fast-xml-parser";
 
 
@@ -132,9 +131,7 @@ export async function createOpenAPITypeDocuments(openapifilepath: string, servic
   const openapiTSfunc = (await import("openapi-typescript")).default as OpenAPITS;
   const output = await openapiTSfunc(parsed as OpenAPI3);
 
-  const formatted = await formatFile(output, "help.ts");
-
-  let result = convertStatusCodes(formatted.output);
+  let result = convertStatusCodes(output);
 
   const sourcefiles = new Map<string, { symbols: Set<string>; defs: string }>;
 
@@ -260,6 +257,7 @@ type APIAuthInfo = null;
 
   result = `/* eslint-disable tsdoc/syntax -- openapi-typescript emits jsdoc, not tsdoc */
 /* eslint-disable @typescript-eslint/no-explicit-any -- used in helper functions emitted by openapi-typescript */
+/* eslint-disable @typescript-eslint/array-type -- openapi-typescript doesn't follow the WebHare convention */
 
 ${service.isservice ? `import { OperationIds, OpenApiTypedRestAuthorizationRequest, OpenApiTypedRestRequest } from "@mod-system/js/internal/openapi/types";
 ` : ``}import { HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
