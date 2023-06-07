@@ -44,19 +44,27 @@ PUBLIC RECORD FUNCTION RefreshGlobalWebserverConfig(RECORD options DEFAULTSTO DE
 
   OBJECT getconfig := ConnectToManagedPort("system:webserver.getconfig", "webserver");
   IF (NOT ObjectExists(getconfig))
+  {
+    LogDebug("system:refreshglobalwebserverconfig", CELL[ options.nowait, error := "Webserver configuration port not yet available!" ]);
     RETURN [ error := "Webserver configuration port not yet available!" ];
+  }
 
   RECORD reloadstatus;
   IF(options.nowait)
   {
     getconfig->SendMessage([ task := "rescan" ]);
+    LogDebug("system:refreshglobalwebserverconfig", CELL[ options.nowait ]);
   }
   ELSE
   {
     RECORD res := getconfig->DoRequest([ task := "rescan" ]);
     IF (res.status != "ok" OR res.msg.status != "ok")
+    {
+      LogDebug("system:refreshglobalwebserverconfig", CELL[ options.nowait, error := "Failed", res ]);
       THROW NEW Exception("Reloading webserver configuration failed" || AnyToString(res, "tree"));
+    }
     reloadstatus := res.msg.reloadstatus;
+    LogDebug("system:refreshglobalwebserverconfig", CELL[ options.nowait, reloadstatus ]);
   }
   getconfig->Close();
   RETURN reloadstatus;
