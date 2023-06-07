@@ -366,5 +366,5 @@ ASYNC FUNCTION ReadWholeProcessOutput(OBJECT process)
 
 PUBLIC MACRO UpdateWebHareConfigJSONFile()
 {
-  WaitForPromise(CallAsync("@mod-system/js/internal/generation/gen_config.ts#updateWebHareConfigFile", VARIANT[]));
+  WaitForPromise(CallAsync("@mod-system/js/internal/generation/gen_config.ts#updateWebHareConfigFile", VARIANT[[ verbose := IsDebugTagEnabled("startup") ]]));
 }

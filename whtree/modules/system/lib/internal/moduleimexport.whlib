@@ -6,6 +6,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::promise.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::util/algorithms.whlib";
@@ -15,6 +16,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/logging/logfiles.whlib";
@@ -184,7 +186,16 @@ PUBLIC BOOLEAN FUNCTION DeleteModule(STRING module)
   }
   ReloadWebhareConfig(TRUE, TRUE, [ isdelete := TRUE ]);
 
+  OBJECT remove_generated_files := CreatePromiseAll(
+      [ CallAsync("mod::system/js/internal/generation/gen_whdb.ts#updateSingleModuleTableDefs", VARIANT[ module, [ verbose := IsDebugTagEnabled("startup") ]])
+      , CallAsync("mod::system/js/internal/generation/gen_wrd.ts#updateSingleModuleWRDDefs", VARIANT[ module, [ verbose := IsDebugTagEnabled("startup") ]])
+      , CallAsync("mod::system/js/internal/generation/gen_openapi.ts#updateSingleModuleOpenAPIDefs", VARIANT[ module, [ verbose := IsDebugTagEnabled("startup") ]])
+      ]);
+
   RecompileSiteProfiles();
+
+  WaitForPromise(remove_generated_files);
+
   BroadcastEvent("system:modulesupdate", [ modulename := module  ]);
 
   GetPrimary()->BeginWork();
@@ -423,7 +434,12 @@ RECORD FUNCTION __ActivateInstalledModule(STRING modulename, STRING installpath)
   //__FlushCaches();
 
   FixModuleSymlinks([modulename], FALSE); //put nodejs folder in place
-  OBJECT create_gen_promise := CallAsync("mod::system/js/internal/generation/gen_whdb.ts#updateAllModuleTableDefs", VARIANT[]);
+  UpdateWebHareConfigJSONFile();
+  OBJECT create_gen_whdb_promise := CallAsync("mod::system/js/internal/generation/gen_whdb.ts#updateAllModuleTableDefs", VARIANT[[ verbose := IsDebugTagEnabled("startup") ]]);
+  OBJECT wait_other_generated_files := CreatePromiseAll(
+      [ CallAsync("mod::system/js/internal/generation/gen_wrd.ts#updateAllModuleWRDDefs", VARIANT[[ verbose := IsDebugTagEnabled("startup") ]])
+      , CallAsync("mod::system/js/internal/generation/gen_openapi.ts#updateAllModuleOpenAPIDefs", VARIANT[[ verbose := IsDebugTagEnabled("startup") ]])
+      ]);
 
   GetPrimary()->BeginWork();
   EnsureModulePrivateFolders();
@@ -438,8 +454,8 @@ RECORD FUNCTION __ActivateInstalledModule(STRING modulename, STRING installpath)
   OBJECT validator := GetModuleXMLValidator(modulename);
   INSERT CELL runoncescripts := ParseModuleDefRunonce(validator) INTO moduleinfo;
 
-  // Make sure the generated database files are ready before running scripts
-  WaitForPromise(create_gen_promise);
+  // Make sure the generated database files are ready before running upgrade scripts
+  WaitForPromise(create_gen_whdb_promise);
 
   ClearAllSchemaCaches();
   RECORD sch := GetModuleDatabaseSchema(modulename);
@@ -503,6 +519,9 @@ RECORD FUNCTION __ActivateInstalledModule(STRING modulename, STRING installpath)
 
   // Recompile siteprofiles and refresh the webserver configuration in-line.
   RecompileSiteProfiles();
+
+  // Wait for the remaining generated files
+  WaitForPromise(wait_other_generated_files);
 
   // Softreset (used to clear all caches, now only linked to specific cache keys) restart needed scripts
   BroadcastEvent("system:softreset", [ toreload := DEFAULT STRING ARRAY ]);
