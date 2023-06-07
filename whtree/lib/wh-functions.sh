@@ -540,15 +540,13 @@ setup_base_buildsystem()
   fi
   mkdir -p "$WEBHARE_BUILDDIR"
 
-  if [ -z "$WEBHARE_IN_DOCKER" ]; then # Not a docker build, configure for local building
-    # don't set relative paths, not all tools can handle relative paths
-    export CCACHE_DIR=$WEBHARE_BUILDHOLDERS/ccache
+  export WHBUILD_CCACHE_DIR="$WHBUILD_BUILDROOT/ccache" #for ccache only
+  export WHBUILD_BUILDCACHE_DIR="$WHBUILD_BUILDROOT/buildcache" #for other build artifcates
 
-    mkdir -p $CCACHE_DIR
+  mkdir -p "$WHBUILD_CCACHE_DIR" "$WHBUILD_BUILDCACHE_DIR"
 
-    # Colors are nice
-    export GCC_COLORS=1
-  fi
+  # Colors are nice
+  export GCC_COLORS=1
 
   export SRCDIR=$WEBHARE_CHECKEDOUT_TO
   export WHBUILD_PLATFORM

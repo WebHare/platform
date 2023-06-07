@@ -1,8 +1,8 @@
 #!/bin/bash
 # We can't mark this script as executable as it shouldn't be run on a build host. But we still need the she-bang for shellcheck
 
-export CCACHE_DIR=/tmp/compile/ccache
-export WHBUILD_NODEPS=1
+export WHBUILD_BUILDROOT=/tmp/compile
+export WHBUILD_NODEPS=1 # do not bother building dependency info, we'll only build once
 export WHBUILD_ALLOW=1
 export WHBUILD_LTO=1
 
