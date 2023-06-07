@@ -7,12 +7,13 @@ LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
+LOADLIB "mod::system/lib/checks.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/restart_reset.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/compiler.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/validator.whlib";
-LOADLIB "mod::system/lib/internal/checks/checker.whlib";
 LOADLIB "mod::system/lib/validation.whlib";
 
 RECORD args := ParseArguments(GetConsoleArguments(),
@@ -90,14 +91,22 @@ ELSE
   BroadcastEvent("system:clearcaches", DEFAULT RECORD); // for now, let manual softresets imply a cachereset
 
   //Do a 'wh check' like thing after softreset, as a convenience
+  trans->BeginWork();
+  ScheduleTimedTask("system:intervalchecks");
+  trans->CommitWork();
+  Print("Waiting for checks to uodate\n");
+  WaitForTimedTask("system:intervalchecks", AddTimeToDate(60 * 1000, GetCurrentDateTime()));
+
   //TODO maybe introduce a 'developer' scope and 'know' how to rerun exactly those checks?
-  RECORD ARRAY messages := RunChecks();
+  RECORD ARRAY messages := GetCurrentCheckIssues();
+
+  DumpValue(messages, "boxed");
+
   FOREVERY(RECORD msg FROM messages)
     IF(NOT msg.snoozed)
-      Print(GetTid(msg.msg) || "\n");
+      Print(`${msg.message_text}\n`);
 
   INTEGER numsnoozed := Length(SELECT FROM messages WHERE snoozed);
   IF(numsnoozed>0)
     Print(`Additionally, ${numsnoozed} message${numsnoozed > 1 ? "s" : ""} have been snoozed\n`);
 }
-
