@@ -304,9 +304,6 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     IF (NOT this->GetExclusiveAccess([ id := this->fileid ], [ onbeforesteal := PTR this->GotScreenStolen ]))
       RETURN;
 
-    //Loads the extensions for the file type and invokes additional editor hooks
-    this->SetupForFileEdit(this->fileid, data.objeditor);
-
     this->showdraftbar := TRUE;
 
     //ADDME deal with cases where users already make other modifications while we're stil opening ?
@@ -320,6 +317,9 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     this->filedata := [ name := fsobject->name, modificationdate := fsobject->modificationdate ];
     this->filetype := fsobject->type;
     this->filetypeinfo := DescribeContentTypeById(fsobject->type, [ isfolder := FALSE, mockifmissing := TRUE ]);
+
+    //Loads the extensions for the file type and invokes additional editor hooks
+    this->SetupForFileEdit(this->fileid, data.objeditor);
 
     this->publicationlistener->masks := [ "system:whfs.folder." || fsobject->parent, "publisher:publish.folder." || fsobject->parent ];
     this->frame->title := this->filedata.name;
