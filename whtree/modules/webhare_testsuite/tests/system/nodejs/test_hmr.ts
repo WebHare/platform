@@ -103,6 +103,10 @@ async function createModule(hsvm: HSVM, name: string, files: Record<string, stri
   }
   const modulearchive = await archive.MakeBlob();
   const res = await hsvm.loadlib("mod::system/lib/internal/moduleimexport.whlib").ImportModule(modulearchive);
+
+  // Wait for the module to show up in the local configuration
+  test.wait(() => Boolean(config.module[name]));
+
   console.log(`installed ${name} to ${(res as { path: string }).path}`);
 }
 

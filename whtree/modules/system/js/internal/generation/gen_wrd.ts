@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { DOMParser } from '@xmldom/xmldom';
-import { config } from "../configuration";
+import { config, updateConfig } from "../configuration";
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { resolveResource } from "@webhare/services";
 import { WRDBaseAttributeType, WRDAttributeType } from "@mod-wrd/js/internal/types";
@@ -226,11 +226,20 @@ function createTypeDef(attr: SchemaDef["types"][number]["allattrs"][number], ind
 }
 
 function generateFile(hsvm: HarescriptVM, options: GenerateOptions, file: string, { defname, modules }: { defname: string; modules: string[] }) {
+  // Only process existing modules
+  modules = modules.filter(module => config.module[module]);
+  if (!modules.length) {
+    return "";
+  }
+
   return generateWRDDefs(hsvm, options, defname, modules);
 }
 
 const storagedir = config.dataroot + "storage/system/generated/wrd/";
 export async function updateAllModuleWRDDefs(options: GenerateOptions = { verbose: false }) {
+  // Make sure the configuration is uptodate
+  updateConfig();
+
   const localdir = config.installationroot + "modules/system/js/internal/generated/wrd/";
   const hsvm = await allocateHSVM();
 
@@ -240,6 +249,9 @@ export async function updateAllModuleWRDDefs(options: GenerateOptions = { verbos
 }
 
 export async function updateSingleModuleWRDDefs(name: string, options: GenerateOptions = { verbose: false }) {
+  // Make sure the configuration is uptodate
+  updateConfig();
+
   const hsvm = await allocateHSVM();
   if (whconstant_builtinmodules.includes(name)) {
     const localdir = config.installationroot + "modules/system/js/internal/generated/wrd/";

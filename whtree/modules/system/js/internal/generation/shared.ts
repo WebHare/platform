@@ -11,7 +11,7 @@ export type DirItem<O> = {
 } | {
   type: "folder";
   name: string;
-  items: Array<DirItem<O>>;
+  items: Array<DirItem<O>> | null;
   removeother?: boolean;
 };
 
@@ -40,12 +40,19 @@ function updateFile(filename: string, defs: string): boolean {
 }
 
 
-export async function updateDir<O>(dir: string, items: Array<DirItem<O>>, removeother: boolean, generatecb: (file: string, data: O) => string | Promise<string>) {
+export async function updateDir<O>(dir: string, items: Array<DirItem<O>> | null, removeother: boolean, generatecb: (file: string, data: O) => string | Promise<string>) {
   return updateDirInternal<O>(dir, items, "", removeother, generatecb);
 }
 
-async function updateDirInternal<O>(dir: string, items: Array<DirItem<O>>, path: string, removeother: boolean, generatecb: (file: string, data: O) => string | Promise<string>) {
+async function updateDirInternal<O>(dir: string, items: Array<DirItem<O>> | null, path: string, removeother: boolean, generatecb: (file: string, data: O) => string | Promise<string>) {
   let anyupdate = false;
+  if (!items) {
+    if (fs.existsSync(dir)) {
+      fs.rmSync(dir, { recursive: true, force: true });
+    }
+    return;
+  }
+
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
   }
