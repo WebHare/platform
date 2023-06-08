@@ -9,6 +9,7 @@ import { decodeString } from "@webhare/std";
 // @ts-ignore: implicitly has an `any` type
 import createModule from "../../../lib/harescript";
 import * as syscalls from "./syscalls";
+import bridge from "@mod-system/js/internal/whmanager/bridge";
 
 type SysCallsModule = { [key: string]: (data: unknown) => unknown };
 
@@ -713,7 +714,9 @@ async function createHarescriptModule(): Promise<Module> {
   module.registerExternalFunction("__SYSTEM_GETINSTALLEDMODULENAMES::SA:", (vm, id_set) => {
     id_set.setJSValue(getTypedArray(VariableType.StringArray, Object.keys(config.module).sort()));
   });
-
+  module.registerExternalFunction("__SYSTEM_GETSYSTEMCONFIG::R:", (vm, id_set) => {
+    id_set.setJSValue(bridge.systemconfig);
+  });
   return module;
 }
 
