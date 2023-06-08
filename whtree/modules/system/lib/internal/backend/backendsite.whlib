@@ -7,6 +7,13 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
+
+MACRO GotBackendSiteChanged(BOOLEAN committed)
+{
+  IF (committed)
+    UpdateWebHareConfigJSONFile();
+}
 
 PUBLIC OBJECT FUNCTION EnsureSystemBackendSite()
 {
@@ -17,7 +24,10 @@ PUBLIC OBJECT FUNCTION EnsureSystemBackendSite()
     target->UpdateMetadata( [ name := "WebHare backend" ]);
 
   IF(NOT RecordExists(SELECT FROM system.sites WHERE id=whconstant_whfsid_webharebackend))
+  {
+    GetPrimary()->RegisterCommitHandler("system:updatewebhareconfigjsonfile", PTR GotBackendSiteChanged);
     CreateSiteFromFolder(whconstant_whfsid_webharebackend);
+  }
 
   RETURN OpenSite(whconstant_whfsid_webharebackend);
 }
