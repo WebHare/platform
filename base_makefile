@@ -173,7 +173,7 @@ GLOBALLDFLAGS += -rdynamic
 #webhare/blex/tests/teststring.cpp:517:102: error: array subscript is of type 'char' [-Werror,-Wchar-subscripts]
 #ES_ASM seems to need -Wno-gnu-zero-variadic-macro-arguments
 CXXFLAGS_WASM += -Wno-unknown-warning-option -Wno-char-subscripts -fwasm-exceptions -Wno-gnu-zero-variadic-macro-arguments
-WHLDFLAGS_WASM += -fwasm-exceptions -sNODERAWFS=1
+WHLDFLAGS_WASM += -fwasm-exceptions -sNODERAWFS=1 --profiling-funcs
 
 ifeq ($(WHBUILD_PLATFORM),darwin)
 	# Use current MacOS version, no need for binaries to be portable between machines
