@@ -219,7 +219,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
           STRING script := elt->GetAttribute("script");
           STRING path := elt->GetAttribute("path");
           STRING name := elt->GetAttribute("name");
-          STRING engine := elt->GetAttribute("engine") ?? "native";
+          STRING engine := elt->GetAttribute("engine");
           params := this->UpdateParams(testfile, params, this->cmdparams);
           IF (path != "")
           {
