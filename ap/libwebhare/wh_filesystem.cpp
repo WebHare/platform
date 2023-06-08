@@ -588,14 +588,6 @@ enum Type
         FSTest
 };
 
-bool IgnoreOldNamespaces()
-{
-        /* Drop support for old namespaces? still intend to do so eventually, but it'll take a few rounds of trying it and
-           seeing what more dev-rewrites we will be needing...
-        */
-        return !Blex::GetEnvironVariable("WEBHARE_IGNORE_OLD_NAMESPACES").empty();
-}
-
 Type GetPrefix(std::string const &liburi)
 {
         // Determine the prefix
@@ -604,17 +596,17 @@ Type GetPrefix(std::string const &liburi)
         Blex::StringPair prefix(liburi.begin(), it);
         if (prefix == Blex::StringPair::FromStringConstant("wh"))
             return FSWH;
-        else if (prefix == Blex::StringPair::FromStringConstant("moduledata") && !IgnoreOldNamespaces())
+        else if (prefix == Blex::StringPair::FromStringConstant("moduledata"))
             return FSModuleData;
         else if (prefix == Blex::StringPair::FromStringConstant("storage"))
             return FSStorage;
         else if (prefix == Blex::StringPair::FromStringConstant("mod"))
             return FSMod;
-        else if (prefix == Blex::StringPair::FromStringConstant("moduleroot") && !IgnoreOldNamespaces())
+        else if (prefix == Blex::StringPair::FromStringConstant("moduleroot"))
             return FSModuleRoot;
-        else if (prefix == Blex::StringPair::FromStringConstant("module") && !IgnoreOldNamespaces())
+        else if (prefix == Blex::StringPair::FromStringConstant("module"))
             return FSModule;
-        else if (prefix == Blex::StringPair::FromStringConstant("modulescript") && !IgnoreOldNamespaces())
+        else if (prefix == Blex::StringPair::FromStringConstant("modulescript"))
             return FSModuleScript;
         else if (prefix == Blex::StringPair::FromStringConstant("whfs"))
             return FSWHFS;
