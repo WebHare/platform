@@ -773,7 +773,6 @@ Database::RPCResponse::Type Connection::RemoteConfigureLogs(Database::IOBuffer *
                 config.logextension = iobuf->Read< std::string >();
                 config.autoflush = iobuf->Read< bool >();
                 config.rotates = iobuf->Read< uint32_t >();
-                config.with_mseconds = iobuf->Read< bool >();
                 config.timestamps = iobuf->Read< bool >();
         }
 
@@ -1128,7 +1127,7 @@ void WHManager::SetNewLogConfiguration(std::vector< WHCore::LogConfig > const &n
                         LogFileData &data = lock->logs[it->tag];
                         data.config = *it;
                         data.logfile.reset(new Blex::Logfile);
-                        result = data.logfile->OpenLogfile(it->logroot, it->logname, it->logextension, it->autoflush, it->rotates, it->with_mseconds, it->timestamps);
+                        result = data.logfile->OpenLogfile(it->logroot, it->logname, it->logextension, it->autoflush, it->rotates, it->timestamps);
                         if (result)
                             opened.insert(keyname);
                 }
@@ -1138,11 +1137,11 @@ void WHManager::SetNewLogConfiguration(std::vector< WHCore::LogConfig > const &n
                 }
                 if (result)
                 {
-                        DEBUGPRINT("Opened log file, tag:'" << it->tag << "', root:'" << it->logroot << "', logname:'" << it->logname << "', ext:'" << it->logextension << "', flush:" << it->autoflush << ", rotates:" << it->rotates << ", msecs:" << it->with_mseconds);
+                        DEBUGPRINT("Opened log file, tag:'" << it->tag << "', root:'" << it->logroot << "', logname:'" << it->logname << "', ext:'" << it->logextension << "', flush:" << it->autoflush << ", rotates:" << it->rotates);
                 }
                 else
                 {
-                        Blex::ErrStream() << "Could not open log file '" << it->tag << "', root:'" << it->logroot << "', logname:'" << it->logname << "', ext:'" << it->logextension << "', flush:" << it->autoflush << ", rotates:" << it->rotates << ", msecs:" << it->with_mseconds;
+                        Blex::ErrStream() << "Could not open log file '" << it->tag << "', root:'" << it->logroot << "', logname:'" << it->logname << "', ext:'" << it->logextension << "', flush:" << it->autoflush << ", rotates:" << it->rotates;
                 }
 
                 opened.insert(it->logroot + "#" + it->logname + "#" + it->logextension);
@@ -1232,7 +1231,6 @@ int WHManager::Execute (std::vector<std::string> const &args)
                 log.logextension = ".log";
                 log.autoflush = false;
                 log.timestamps = true;
-                log.with_mseconds = true;
                 log.rotates = 9999; //unconfigured, allow up to about 30 years of logs.
                 logs.push_back(log);
         }

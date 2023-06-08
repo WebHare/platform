@@ -250,7 +250,7 @@
   </databaseschema>
 
   <logging>
-    <log name="test" filename="betatest" mseconds="true" rotates="4" timestamps="false" />
+    <log name="test" filename="betatest" rotates="4" timestamps="false" />
   </logging>
 
   <moduleregistry>

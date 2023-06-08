@@ -1206,7 +1206,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                     [ name :=             ToLowercase(ParseXMLModuleNamed(modulename, subchild, "name"))
                     , filename :=         subchild->GetAttribute("filename")
                     , rotates :=          ToInteger(subchild->GetAttribute("rotates"), 99)
-                    , with_mseconds :=    subchild->GetAttribute("mseconds") IN [ "true", "1" ]
                     , timestamps :=       ParseXSBoolean(subchild->GetAttribute("timestamps") ?? "true")
                     ];
 

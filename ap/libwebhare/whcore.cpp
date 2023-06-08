@@ -1660,7 +1660,6 @@ bool ManagerConnection::ConfigureLogs(std::vector< LogConfig > const &config, st
                 iobuf->Write< std::string >(it->logextension);
                 iobuf->Write< bool >(it->autoflush);
                 iobuf->Write< uint32_t >(it->rotates);
-                iobuf->Write< bool >(it->with_mseconds);
                 iobuf->Write< bool >(it->timestamps);
         }
         iobuf->FinishForRequesting(WHMRequestOpcode::ConfigureLogs);

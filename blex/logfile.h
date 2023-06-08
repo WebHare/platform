@@ -18,11 +18,10 @@ const unsigned int LogDateMaxSize = 30;
 
 /** Create a date for a log entry
     @param datetime Date/time to put into the log entry
-    @param with_mseconds Include milliseconds in the date (outputs 26 bytes without, 30 bytes with milliseconds)
     @param outptr Pointer to which the date/time will be sent, which must have at least 26/30 bytes available (depending on the
         inclusion of milliseconds)
     @return Returns pointer to the first character after the logged date */
-BLEXLIB_PUBLIC char * InsertLogDate(Blex::DateTime datetime, bool with_mseconds, char *outptr);
+BLEXLIB_PUBLIC char * InsertLogDate(Blex::DateTime datetime, char *outptr);
 
 /** Implement basic logfile functionality, with optional automatic flushing
     and file rotation. WriteLogfile is implemented MT-safe. */
@@ -43,7 +42,7 @@ class BLEXLIB_PUBLIC Logfile
             @param rotates Maximum number of rotates to keep
             @param timestamps Stamp all log entries with a timestamp. Not useful for eg JSON logs
             @return True if the logfile was succesfully opened */
-        bool OpenLogfile(const std::string &logroot, const std::string &logfile, const std::string &logextension, bool autoflush, unsigned rotates, bool with_mseconds, bool timestamps);
+        bool OpenLogfile(const std::string &logroot, const std::string &logfile, const std::string &logextension, bool autoflush, unsigned rotates, bool timestamps);
 
         /** Close a log file */
         void CloseLogfile();
@@ -97,8 +96,6 @@ class BLEXLIB_PUBLIC Logfile
                 bool autoflush;
                 /** Timestamp lines */
                 bool timestamps;
-                /** Include milliseconds setting */
-                bool with_mseconds;
                 /** Auto-rotate setting */
                 unsigned rotates;
         };

@@ -35,7 +35,7 @@ inline char GetDigit(unsigned num)
 
 }
 
-char * InsertLogDate(Blex::DateTime datetime, bool with_mseconds, char *outptr)
+char * InsertLogDate(Blex::DateTime datetime, char *outptr)
 {
         static const char TZ[]=" +0000";
 
@@ -62,23 +62,14 @@ char * InsertLogDate(Blex::DateTime datetime, bool with_mseconds, char *outptr)
         outptr[18] = GetDigit(time.tm_sec / 10);
         outptr[19] = GetDigit(time.tm_sec % 10);
 
-        if (with_mseconds)
-        {
-                outptr[20] = '.';
-                unsigned long msecs = datetime.GetMsecs() % 1000;
-                outptr[21] = GetDigit(msecs / 100);
-                outptr[22] = GetDigit((msecs / 10) % 10);
-                outptr[23] = GetDigit(msecs % 10);
-                std::copy(TZ,TZ+sizeof(TZ)-1,outptr+24);
+        outptr[20] = '.';
+        unsigned long msecs = datetime.GetMsecs() % 1000;
+        outptr[21] = GetDigit(msecs / 100);
+        outptr[22] = GetDigit((msecs / 10) % 10);
+        outptr[23] = GetDigit(msecs % 10);
+        std::copy(TZ,TZ+sizeof(TZ)-1,outptr+24);
 
-                return outptr + 30;
-        }
-        else
-        {
-                std::copy(TZ,TZ+sizeof(TZ)-1,outptr+20);
-
-                return outptr + 26;
-        }
+        return outptr + 30;
 }
 
 
@@ -90,7 +81,7 @@ Logfile::~Logfile()
 {
 }
 
-bool Logfile::OpenLogfile(const std::string &logroot, const std::string &logfile, const std::string &logextension, bool autoflush, unsigned rotates, bool with_mseconds, bool timestamps)
+bool Logfile::OpenLogfile(const std::string &logroot, const std::string &logfile, const std::string &logextension, bool autoflush, unsigned rotates, bool timestamps)
 {
         {
                 Log::WriteRef loglock(log);
@@ -103,7 +94,6 @@ bool Logfile::OpenLogfile(const std::string &logroot, const std::string &logfile
                 loglock->logfilename=logfile;
                 loglock->logextension=logextension;
                 loglock->autoflush=autoflush;
-                loglock->with_mseconds=with_mseconds;
                 loglock->timestamps=timestamps;
 
                 std::string filepath;
@@ -189,7 +179,7 @@ void Logfile::StampedLog (const char *textstart, const char *textlimit)
         if (loglock->timestamps)
         {
                 curtime[0]='[';
-                char *stamp_end = InsertLogDate(now, loglock->with_mseconds, curtime+1); //fills bytes 1 to 26/30
+                char *stamp_end = InsertLogDate(now, curtime+1); //fills bytes 1 to 26/30
                 *stamp_end++ = ']';
                 *stamp_end++ = ' ';
 
