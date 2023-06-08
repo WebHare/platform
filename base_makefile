@@ -929,8 +929,10 @@ endif #WEBHARE_IN_DOCKER
 # Dependencies
 #
 
-DEPENDENCY_INCLUDES=$(ALLPCHS_NATIVE_DEPFILES) $(ALLPCHS_WASM_DEPFILES) $(NATIVE_ALL_OBJS_DEPFILES) $(WASM_ALL_OBJS_DEPFILES)
--include $(DEPENDENCY_INCLUDES)
+ifneq ($(WHBUILD_NODEPS),1) # Dependencies not needed in docker builds (no recompilation needed there)
+  DEPENDENCY_INCLUDES=$(ALLPCHS_NATIVE_DEPFILES) $(ALLPCHS_WASM_DEPFILES) $(NATIVE_ALL_OBJS_DEPFILES) $(WASM_ALL_OBJS_DEPFILES)
+  -include $(DEPENDENCY_INCLUDES)
+endif
 
 # Directories dependency - but if a symlink exists(docker build) don't create it
 $(sort $(ALLDIRS)):
