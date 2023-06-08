@@ -9,6 +9,7 @@ import { decodeString } from "@webhare/std";
 // @ts-ignore: implicitly has an `any` type
 import createModule from "../../../lib/harescript";
 import * as syscalls from "./syscalls";
+import bridge from "@mod-system/js/internal/whmanager/bridge";
 
 type SysCallsModule = { [key: string]: (data: unknown) => unknown };
 
@@ -516,7 +517,9 @@ export class HarescriptVM {
 
 async function createHarescriptModule(): Promise<Module> {
   // Store into variable 'module' so functions can refer to it
-  const module = await createModule({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- initialization & typing is ugly, need to refactor
+  let moduletemplate: any;
+  const module = await createModule((moduletemplate = {
     emSyscall(jsondata_ptr: number): string {
       const jsondata = module.UTF8ToString(jsondata_ptr);
       const { call, data } = JSON.parse(jsondata);
@@ -676,8 +679,12 @@ async function createHarescriptModule(): Promise<Module> {
       module._free(signatureptr);
     },
 
+    preRun: function () {
+      Object.assign(moduletemplate.ENV, process.env);
+    },
+
     itf: undefined as HarescriptVM | undefined,
-  }) as Module;
+  })) as Module;
 
   module.stringptrs = module._malloc(8);
   module.externals = [];
@@ -707,7 +714,9 @@ async function createHarescriptModule(): Promise<Module> {
   module.registerExternalFunction("__SYSTEM_GETINSTALLEDMODULENAMES::SA:", (vm, id_set) => {
     id_set.setJSValue(getTypedArray(VariableType.StringArray, Object.keys(config.module).sort()));
   });
-
+  module.registerExternalFunction("__SYSTEM_GETSYSTEMCONFIG::R:", (vm, id_set) => {
+    id_set.setJSValue(bridge.systemconfig);
+  });
   return module;
 }
 

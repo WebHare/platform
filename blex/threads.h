@@ -56,12 +56,12 @@ BLEXLIB_PUBLIC void SetThrowOnDeadlock(bool dothrow);
 
 } //end namespace Detail
 
+#endif //!defined(__EMSCRIPTEN__)
+
 /** Get an environment variable */
 BLEXLIB_PUBLIC std::string GetEnvironVariable(std::string const &envname);
 /** Set an environment variable */
 BLEXLIB_PUBLIC void SetEnvironVariable(std::string const &envname, std::string const &envvalue);
-
-#endif //!defined(__EMSCRIPTEN__)
 
 /** The CoreMutex is an abstract class that hides the underlying pthreads/msthreads
     implementation of lockable mutexes. A mutex can be "locked" or "unlocked".

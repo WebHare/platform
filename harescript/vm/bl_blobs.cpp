@@ -495,11 +495,8 @@ int DecompressStream_IOEndOfStream(void *opaque_ptr)
         delete static_cast<SystemContextData::DecompressingStream*>(opaque_ptr);
 }*/
 
-#endif
-
 void CreateZlibCompressor(VarId id_set, VirtualMachine *vm)
 {
-#ifndef __EMSCRIPTEN__
         HSVM_SetDefault(*vm, id_set, HSVM_VAR_Integer);
         int32_t outputstreamid = HSVM_IntegerGet(*vm, HSVM_Arg(0));
 
@@ -549,14 +546,9 @@ void CreateZlibCompressor(VarId id_set, VirtualMachine *vm)
                                              "ZLIB Compressor");
         context->compressingstreams[outputid] = newblob;
         HSVM_IntegerSet(*vm, id_set, outputid);
-#else
-        (void)id_set;
-        HSVM_ReportCustomError(*vm, "TODO: not supported in emscripten");
-#endif // __EMSCRIPTEN__
 }
 void CloseZlibCompressor(VarId id_set, VirtualMachine *vm)
 {
-#ifndef __EMSCRIPTEN__
         HSVM_SetDefault(*vm, id_set, HSVM_VAR_Record);
 
         SystemContext context(vm->GetContextKeeper());
@@ -577,14 +569,9 @@ void CloseZlibCompressor(VarId id_set, VirtualMachine *vm)
                 HSVM_StringSet(*vm, HSVM_RecordCreate(*vm, id_set, HSVM_GetColumnId(*vm, "CRC32")), hash, hash + Blex::CRC32HashLen);
         }
         context->compressingstreams[id].reset();
-#else
-        (void)id_set;
-        HSVM_ReportCustomError(*vm, "TODO: not supported in emscripten");
-#endif // __EMSCRIPTEN__
 }
 void OpenBlobAsDecompressingStream(VarId id_set, VirtualMachine *vm)
 {
-#ifndef __EMSCRIPTEN__
         HSVM_SetDefault(*vm, id_set, HSVM_VAR_Integer);
 
         SystemContextData::DecompressingStreamPtr newblob(new SystemContextData::DecompressingStream);
@@ -635,14 +622,9 @@ void OpenBlobAsDecompressingStream(VarId id_set, VirtualMachine *vm)
         SystemContext context(vm->GetContextKeeper());
         context->decompressingstreams[outputid] = newblob;
         HSVM_IntegerSet(*vm, id_set, outputid);
-#else
-        (void)id_set;
-        HSVM_ReportCustomError(*vm, "TODO: not supported in emscripten");
-#endif // __EMSCRIPTEN__
 }
 void CloseZlibDecompressor(VirtualMachine *vm)
 {
-#ifndef __EMSCRIPTEN__
         SystemContext context(vm->GetContextKeeper());
         int32_t id = HSVM_IntegerGet(*vm, HSVM_Arg(0));
 
@@ -653,20 +635,21 @@ void CloseZlibDecompressor(VirtualMachine *vm)
         }
         HSVM_UnregisterIOObject(*vm, id);
         context->decompressingstreams[id].reset();
-#else
-        HSVM_ReportCustomError(*vm, "TODO: not supported in emscripten");
-#endif // __EMSCRIPTEN__
 }
+#endif // __EMSCRIPTEN__
 
 void InitBlob(BuiltinFunctionsRegistrator &bifreg)
 {
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_UNPACKOLEPROPS::R:X",HS_UnpackOleProps));
 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("SENDBLOBTO::B:IX",SendBlobTo));
+
+#ifndef __EMSCRIPTEN__
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CREATEZLIBCOMPRESSOR::I:ISI",CreateZlibCompressor));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CLOSEZLIBCOMPRESSOR::R:I",CloseZlibCompressor));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("OPENBLOBASDECOMPRESSINGSTREAM::I:XS",OpenBlobAsDecompressingStream));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CLOSEZLIBDECOMPRESSOR:::I",CloseZlibDecompressor));
+#endif // __EMSCRIPTEN__
 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_CREATESTREAM::I:",MakeBlob));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETSTREAMLENGTH::6:I",GetStreamLength));

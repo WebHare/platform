@@ -201,7 +201,7 @@ export async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: 
         finalconfig.public.servername = servername;
 
       const webrootres = await pgclient.query<{ webroot: string }>("SELECT webhare_proc_sites_webroot(outputweb, outputfolder) AS webroot FROM system.sites WHERE id = $1", [whconstant_whfsid_webharebackend]);
-      if (typeof webrootres.rows?.[0].webroot === "string")
+      if (typeof webrootres.rows?.[0]?.webroot === "string")
         finalconfig.public.backendurl = webrootres.rows?.[0].webroot;
 
       finalconfig.secrets.cookie = await rawReadRegistryKey<string>(pgclient, "system.webserver.security.cookiesecret") ?? finalconfig.secrets.cookie ?? "";

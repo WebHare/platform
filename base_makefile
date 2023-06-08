@@ -173,7 +173,7 @@ GLOBALLDFLAGS += -rdynamic
 #webhare/blex/tests/teststring.cpp:517:102: error: array subscript is of type 'char' [-Werror,-Wchar-subscripts]
 #ES_ASM seems to need -Wno-gnu-zero-variadic-macro-arguments
 CXXFLAGS_WASM += -Wno-unknown-warning-option -Wno-char-subscripts -fwasm-exceptions -Wno-gnu-zero-variadic-macro-arguments
-WHLDFLAGS_WASM += -fwasm-exceptions -sNODERAWFS=1
+WHLDFLAGS_WASM += -fwasm-exceptions -sNODERAWFS=1 --profiling-funcs
 
 ifeq ($(WHBUILD_PLATFORM),darwin)
 	# Use current MacOS version, no need for binaries to be portable between machines
@@ -229,7 +229,7 @@ WHLDFLAGS+=$(GLOBALLDFLAGS)
 
 WHLDFLAGS_IMPORTABLE += -s MODULARIZE=1
 WHLDFLAGS_IMPORTABLE += -s EXPORT_NAME="createModule"
-WHLDFLAGS_IMPORTABLE += -s EXPORTED_RUNTIME_METHODS=ccall,cwrap,stringToUTF8,lengthBytesUTF8,stringToNewUTF8,UTF8ToString,getValue,setValue
+WHLDFLAGS_IMPORTABLE += -s EXPORTED_RUNTIME_METHODS=ccall,cwrap,stringToUTF8,lengthBytesUTF8,stringToNewUTF8,UTF8ToString,getValue,setValue,ENV
 WHLDFLAGS_IMPORTABLE += -s EXPORTED_FUNCTIONS=_malloc,_free
 
 WHLDFLAGS_WASM += -s ALLOW_MEMORY_GROWTH=1
@@ -275,7 +275,6 @@ else
 	LinkExecutable   = +$(HIDE)echo "- LinkExecutable $2" && $(LD_APP) $(WHLDFLAGS) -o $2 $1 $(addprefix -l,$3)
 endif
 
-harescript_HsMod_pgsql_AddLibs = pq
 
 FullPath=$(if $(filter /%,$(1)),$(1),$(abspath $(WHBUILD_BUILDDIR)/$(1)))
 
@@ -325,7 +324,7 @@ LIBBLEX_WASM_ADDTESTNAMES=
 
 # HARESCRIPT - Configuartion
 LIBHSVM_SHARED_SOURCENAMES=baselibs bl_blobs bl_docgen bl_json bl_libdumper bl_mime bl_os bl_regex bl_strings bl_tokenstream bl_types bufferedpipes errors filesystem groupdata hs_lexer hsvm_blobinterface hsvm_columnnamemapper hsvm_constants hsvm_context hsvm_dllinterface hsvm_environment hsvm_events hsvm_externals hsvm_functioncalltree hsvm_idmapstorage hsvm_librarywrapper hsvm_loopbackdbprovider hsvm_marshalling hsvm_recorddbprovider hsvm_sqlinterface hsvm_sqllib hsvm_sqlqueries hsvm_stackmachine hsvm_varmemory mangling outputobject sharedpool witty xml_cssengine xml_domobjects xml_provider
-LIBHSVM_NATIVE_ADDSOURCENAMES=bl_tcpip bl_crypto hsvm_processmgr hsvm_debugger icu_provider ipc
+LIBHSVM_NATIVE_ADDSOURCENAMES=bl_tcpip bl_crypto hsvm_processmgr hsvm_debugger icu_provider ipc hsvm_pgsqlprovider
 LIBHSVM_WASM_ADDSOURCENAMES=wasm-harescript wasm-tools
 
 ## Expansions. Old defines may also use these..
@@ -370,7 +369,7 @@ blex_DEPLOYABLES_WHAP=$(blex_DEPLOYABLES_HSENGINE)
 blex_DEPLOYABLES=$(blex_DEPLOYABLES_WHAP)
 
 BLEX_BASE_LIBS=z dl $(ICU_LIBS) $(BLEX_SSL_LIBS)
-BLEX_HSVM_LIBS=$(ICU_LIBS)
+BLEX_HSVM_LIBS=$(ICU_LIBS) pq
 
 BLEX_LIBS=blex_base $(BLEX_BASE_LIBS)
 
@@ -395,7 +394,7 @@ blex_OBJFILES=$(call Src2ObjFiles, $(blex_CPPFILES))
 # HARESCRIPT
 
 HS_SUBPROJECTS = compiler vm
-HS_HS_MODULES = selfcompile git pgsql
+HS_HS_MODULES = selfcompile git
 
 LIBHSCOMPILER_OBJS = $(addprefix ,$(LIBHSCOMPILER_FILES:.cpp=.native-obj))
 LIBHSVM_OBJS = $(addprefix ,$(LIBHSVM_FILES:.cpp=.native-obj))
@@ -930,8 +929,10 @@ endif #WEBHARE_IN_DOCKER
 # Dependencies
 #
 
-DEPENDENCY_INCLUDES=$(ALLPCHS_NATIVE_DEPFILES) $(ALLPCHS_WASM_DEPFILES) $(NATIVE_ALL_OBJS_DEPFILES) $(WASM_ALL_OBJS_DEPFILES)
--include $(DEPENDENCY_INCLUDES)
+ifneq ($(WHBUILD_NODEPS),1) # Dependencies not needed in docker builds (no recompilation needed there)
+  DEPENDENCY_INCLUDES=$(ALLPCHS_NATIVE_DEPFILES) $(ALLPCHS_WASM_DEPFILES) $(NATIVE_ALL_OBJS_DEPFILES) $(WASM_ALL_OBJS_DEPFILES)
+  -include $(DEPENDENCY_INCLUDES)
+endif
 
 # Directories dependency - but if a symlink exists(docker build) don't create it
 $(sort $(ALLDIRS)):
@@ -967,7 +968,7 @@ endif # end darwin check
 
 #ADDME autogenerate lists below
 BIN_ALIASES = webserver webhare runscript $(RUNTEST) whmanager vmtest whcompile
-MOD_ALIASES = libblex_draw libblex_hscompiler libblex_hsvm libblex_parser_office_escher libblex_webhare hsm_parser hsm_parser_office_msword hsm_parser_adobe_pdf hsm_wh_pgsql hsm_parser_format_hsxml hsm_parser_format_html
+MOD_ALIASES = libblex_draw libblex_hscompiler libblex_hsvm libblex_parser_office_escher libblex_webhare hsm_parser hsm_parser_office_msword hsm_parser_adobe_pdf hsm_parser_format_hsxml hsm_parser_format_html
 WASM_ALIASES = harescript
 
 showtargets:
