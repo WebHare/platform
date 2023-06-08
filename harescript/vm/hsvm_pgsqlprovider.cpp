@@ -3167,23 +3167,23 @@ static void DestroyBlobContext(void*, void *context_ptr)
         delete static_cast< HareScript::SQLLib::PGSQL::PostgreSQLWHBlobData * >(context_ptr);
 }
 
-BLEXLIB_PUBLIC int HSVM_ModuleEntryPoint(HSVM_RegData *regdata,void*)
+BLEXLIB_PUBLIC int PGSQLEntryPoint(HSVM_RegData *regdata,void*)
 {
         using namespace HareScript::SQLLib::PGSQL;
 
-        HSVM_RegisterFunction(regdata, "__PGSQL_CONNECT:WH_PGSQL:R:RA", PGSQL_Connect);
-        HSVM_RegisterMacro(regdata, "__PGSQL_CLOSE:WH_PGSQL::I", PGSQL_Close);
-        HSVM_RegisterFunction(regdata, "__PGSQL_GETSTATUS:WH_PGSQL:R:I", PGSQL_GetStatus);
-        HSVM_RegisterFunction(regdata, "__PGSQL_EXEC:WH_PGSQL:RA:ISVAIAB", PGSQL_Exec);
-        HSVM_RegisterMacro(regdata, "__PGSQL_SETWORKOPEN:WH_PGSQL::IB", PGSQL_SetWorkOpen);
-        HSVM_RegisterMacro(regdata, "__PGSQL_SETALLOWWRITEERRRORDELAY:WH_PGSQL::IB", PGSQL_SetAllowWriteErrorDelay);
-        HSVM_RegisterFunction(regdata, "__PGSQL_GETWORKOPEN:WH_PGSQL:B:I", PGSQL_GetWorkOpen);
-        HSVM_RegisterMacro(regdata, "__PGSQL_SETUPLOADEDBLOBINTERNALID:WH_PGSQL::IXS", PGSQL_SetUploadedBlobId);
-        HSVM_RegisterFunction(regdata, "__PGSQL_GETBLOBINTERNALID:WH_PGSQL:S:IX", PGSQL_GetUploadedBlobId);
-        HSVM_RegisterFunction(regdata, "__PGSQL_GETDEBUGSETTINGS:WH_PGSQL:R:I", PGSQL_GetDebugSettings);
-        HSVM_RegisterMacro(regdata, "__PGSQL_UPDATEDEBUGSETTINGS:WH_PGSQL::IIII", PGSQL_UpdateDebugSettings);
-        HSVM_RegisterFunction(regdata, "POSTGRESQLESCAPELITERAL:WH_PGSQL:S:S", PGSQL_EscapeLiteral);
-        HSVM_RegisterFunction(regdata, "POSTGRESQLESCAPEIDENTIFIER:WH_PGSQL:S:S", PGSQL_EscapeIdentifier);
+        HSVM_RegisterFunction(regdata, "__PGSQL_CONNECT::R:RA", PGSQL_Connect);
+        HSVM_RegisterMacro(regdata, "__PGSQL_CLOSE:::I", PGSQL_Close);
+        HSVM_RegisterFunction(regdata, "__PGSQL_GETSTATUS::R:I", PGSQL_GetStatus);
+        HSVM_RegisterFunction(regdata, "__PGSQL_EXEC::RA:ISVAIAB", PGSQL_Exec);
+        HSVM_RegisterMacro(regdata, "__PGSQL_SETWORKOPEN:::IB", PGSQL_SetWorkOpen);
+        HSVM_RegisterMacro(regdata, "__PGSQL_SETALLOWWRITEERRRORDELAY:::IB", PGSQL_SetAllowWriteErrorDelay);
+        HSVM_RegisterFunction(regdata, "__PGSQL_GETWORKOPEN::B:I", PGSQL_GetWorkOpen);
+        HSVM_RegisterMacro(regdata, "__PGSQL_SETUPLOADEDBLOBINTERNALID:::IXS", PGSQL_SetUploadedBlobId);
+        HSVM_RegisterFunction(regdata, "__PGSQL_GETBLOBINTERNALID::S:IX", PGSQL_GetUploadedBlobId);
+        HSVM_RegisterFunction(regdata, "__PGSQL_GETDEBUGSETTINGS::R:I", PGSQL_GetDebugSettings);
+        HSVM_RegisterMacro(regdata, "__PGSQL_UPDATEDEBUGSETTINGS:::IIII", PGSQL_UpdateDebugSettings);
+        HSVM_RegisterFunction(regdata, "POSTGRESQLESCAPELITERAL::S:S", PGSQL_EscapeLiteral);
+        HSVM_RegisterFunction(regdata, "POSTGRESQLESCAPEIDENTIFIER::S:S", PGSQL_EscapeIdentifier);
 
 
         HSVM_RegisterContext(regdata, PostgreSQLWHBlobContextId, NULL, &CreateBlobContext, &DestroyBlobContext);

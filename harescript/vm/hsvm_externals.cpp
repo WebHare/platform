@@ -15,7 +15,7 @@ extern "C" {
 int XMLEntryPoint(HSVM_RegData *regdata,void*);
 int WittyEntryPoint(HSVM_RegData *regdata,void*);
 int ICUEntryPoint(HSVM_RegData *regdata, void *);
-
+int PGSQLEntryPoint(HSVM_RegData *regdata,void*);
 }
 
 namespace HareScript
@@ -261,6 +261,7 @@ Externals::Externals(FileSystem &filesystem)
         linkmanager.InvokeModuleRegistration(&XMLEntryPoint, (void*)0);
         linkmanager.InvokeModuleRegistration(&WittyEntryPoint, (void*)0);
 #ifndef __EMSCRIPTEN__
+        linkmanager.InvokeModuleRegistration(&PGSQLEntryPoint, (void*)0);
         linkmanager.InvokeModuleRegistration(&ICUEntryPoint, (void*)0);
 #endif // __EMSCRIPTEN__
 
