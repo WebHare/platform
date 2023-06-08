@@ -2662,13 +2662,7 @@
               </xs:documentation>
             </xs:annotation>
           </xs:attribute>
-          <xs:attribute name="mseconds" type="xs:boolean" use="optional">
-            <xs:annotation>
-              <xs:documentation>
-                Whether to include milliseconds in the log time stamp.
-              </xs:documentation>
-            </xs:annotation>
-          </xs:attribute>
+          <xs:attribute name="mseconds" type="xs:boolean" use="optional" /> <!-- no longer settable. always true -->
           <xs:attribute name="timestamps" type="xs:boolean" use="optional" default="true">
             <xs:annotation>
               <xs:documentation>Enable timestamps in log files. Defaults to true, set to false for eg JSON lines</xs:documentation>

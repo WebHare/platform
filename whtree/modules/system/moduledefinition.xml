@@ -2167,11 +2167,11 @@ The full base URL on which this site will be published, calculated by combining 
   </documentation>
 
   <logging>
-    <log name="rpc" filename="rpc" mseconds="true" />
-    <log name="debug" filename="debug" mseconds="true" />
-    <log name="notice" filename="notice" mseconds="true" />
-    <log name="audit" filename="audit" mseconds="true" />
-    <log name="accounting" filename="accounting" mseconds="true" />
+    <log name="rpc" filename="rpc" />
+    <log name="debug" filename="debug" />
+    <log name="notice" filename="notice" />
+    <log name="audit" filename="audit" />
+    <log name="accounting" filename="accounting" />
     <log name="apicalls" filename="apicalls" timestamps="false" />
   </logging>
 

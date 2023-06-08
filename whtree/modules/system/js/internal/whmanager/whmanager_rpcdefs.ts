@@ -102,7 +102,6 @@ export type WHMRequest_ConfigureLogs = {
     logextension: string;
     autoflush: boolean;
     rotates: number;
-    with_mseconds: boolean;
     timestamps: boolean;
   }>;
 };

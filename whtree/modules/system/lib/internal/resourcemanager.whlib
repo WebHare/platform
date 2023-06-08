@@ -40,7 +40,9 @@ PUBLIC MACRO SetSystemServerType(STRING newservertype)
     @return The configuration load status as reported by ConfigureWebserver. */
 PUBLIC RECORD FUNCTION RefreshGlobalWebserverConfig(RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  DATETIME now := GetCurrentDatetime();
   options := ValidateOptions( [ nowait := FALSE ], options);
+  LogDebug("system:refreshglobalwebserverconfig-start", CELL[ options.nowait ], GetstackTrace());
 
   OBJECT getconfig := ConnectToManagedPort("system:webserver.getconfig", "webserver");
   IF (NOT ObjectExists(getconfig))
@@ -60,11 +62,11 @@ PUBLIC RECORD FUNCTION RefreshGlobalWebserverConfig(RECORD options DEFAULTSTO DE
     RECORD res := getconfig->DoRequest([ task := "rescan" ]);
     IF (res.status != "ok" OR res.msg.status != "ok")
     {
-      LogDebug("system:refreshglobalwebserverconfig", CELL[ options.nowait, error := "Failed", res ]);
+      LogDebug("system:refreshglobalwebserverconfig-error", CELL[ options.nowait, error := res ]);
       THROW NEW Exception("Reloading webserver configuration failed" || AnyToString(res, "tree"));
     }
     reloadstatus := res.msg.reloadstatus;
-    LogDebug("system:refreshglobalwebserverconfig", CELL[ options.nowait, reloadstatus ]);
+    LogDebug("system:refreshglobalwebserverconfig-done", CELL[ options.nowait, reloadstatus, time := GetDatetimeDifference(now, GetCurrentDatetime()).totalmsecs ]);
   }
   getconfig->Close();
   RETURN reloadstatus;

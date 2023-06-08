@@ -39,7 +39,6 @@ class LogConfig
         std::string logextension;
         bool autoflush;
         unsigned rotates;
-        bool with_mseconds;
         bool timestamps;
 };
 

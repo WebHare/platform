@@ -21,7 +21,6 @@ PUBLIC RECORD FUNCTION GetLogFiles()
            , autoflush :=             false
            , timestamps
            , rotates
-           , with_mseconds
         FROM logfiles;
 
   // Filter out duplicated names & filenames
