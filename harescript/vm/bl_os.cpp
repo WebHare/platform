@@ -1601,11 +1601,7 @@ void HS_GetEnvironmentVariable(VarId id_set, VirtualMachine *vm)
         }
         else
         {
-#ifndef __EMSCRIPTEN__
                 value = Blex::GetEnvironVariable(name);
-#else
-                value = "TODO: environment";
-#endif
         }
 
         HSVM_StringSetSTD(*vm, id_set, value);

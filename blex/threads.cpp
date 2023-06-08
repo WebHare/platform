@@ -1555,13 +1555,6 @@ void SetEnvironVariable(std::string const &envname, std::string const &envvalue)
 {
         setenv(envname.c_str(), envvalue.c_str(), 1);
 }
-std::string GetEnvironVariable(std::string const &envname)
-{
-        const char *env = getenv(envname.c_str());
-        if(env)
-            return env;
-        return std::string();
-}
 
 } // end of namespace Blex
 
@@ -1573,6 +1566,14 @@ std::string GetEnvironVariable(std::string const &envname)
 
 namespace Blex
 {
+
+std::string GetEnvironVariable(std::string const &envname)
+{
+        const char *env = getenv(envname.c_str());
+        if(env)
+            return env;
+        return std::string();
+}
 
 ContextRegistrator & GetThreadContextRegistrator()
 {
