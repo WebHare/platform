@@ -537,7 +537,7 @@ endif
 ## Build it all. This *MUST* be the first target in the makefile to make it the default for 'wh make'
 ##
 # GLOBAL
-all: $(addsuffix -all,$(SUBPROJECTS)) wasm
+all: $(ALLBUILDANDTEST) $(addsuffix -all,$(SUBPROJECTS)) wasm
 .PHONY: wasm wasm-test
 
 #################################################
@@ -620,20 +620,18 @@ blex/tests/dynamic$(DLL_SUFFIX): blex/tests/dynamiclib.native-obj
 bin/blex-test-native: $(LIBBLEX_NATIVE_TESTOBJS) lib/libblex_base${DLL_SUFFIX}
 	$(call LinkExecutable,$(LIBBLEX_NATIVE_TESTOBJS),$@,$(BLEX_LIBS))
 
-success.blex blex-test-native: bin/blex-test-native blex/tests/dynamic$(DLL_SUFFIX)
+success.blex-native: bin/blex-test-native blex/tests/dynamic$(DLL_SUFFIX)
 	ulimit -n 1024 && bin/blex-test-native test bin/blex-test-native blex/tests/dynamic$(DLL_SUFFIX) $(SRCDIR)/blex/tests/data 1 ; test "$$?" = 241
-	> success.blex
-
+	> success.blex-native
 
 bin/blex-test-wasm.wasm: $(LIBBLEX_WASM_TESTOBJS_ALL)
 	$(call LinkWASMExecutable,$(LIBBLEX_WASM_TESTOBJS_ALL),bin/blex-test-wasm)
 
-success.blex-wasm blex-test-wasm: bin/blex-test-wasm.wasm bin/blex-test-wasm.wasm
+success.blex-wasm: bin/blex-test-wasm.wasm bin/blex-test-wasm.wasm
 	ulimit -n 1024 && node bin/blex-test-wasm test bin/blex-test-wasm blex/tests/dynamic$(DLL_SUFFIX) $(SRCDIR)/blex/tests/data 1 ; test "$$?" = 242
 	> success.blex-wasm
 
-
-build.wasm-blextest:
+success.blex: success.blex-native success.blex-wasm
 
 wasm-test success.wasm-blextest: build.wasm-blextest
 	> success.wasm
@@ -809,7 +807,8 @@ $(foreach mod,$(AP_DEPLOYABLES_UTILS),$(eval $(call ApUtilTarget,$(mod))))
 #
 
 # Note that wasm targets are easier as we don't bother with dynamic linking.
-lib/harescript.js: $(LIBHSVM_WASM_SOURCEOBJS)
+# Make 4.4 allows to define grouped targets (lib/harescript.js lib/harescript.wasm &: ...) but ubuntu 20.4 is still on 4.3
+lib/harescript.js: $(LIBHSVM_WASM_SOURCEOBJS) $(call BuildAndTest,blex)
 	$(call LinkWASMImportable,$(LIBHSVM_WASM_SOURCEOBJS),$@)
 lib/harescript.wasm: lib/harescript.js
 
@@ -839,7 +838,7 @@ ALLBUILDANDTEST=$(foreach file,$(SUBPROJECTS),$(call BuildAndTest,${file}))
 
 define InstallOurDeployable
 $(PREFIX)/$(1): $(1) | $(ALLBUILDANDTEST)
-	rm -f $$@; cp -af $$< $$(dir $$@)  #cp 2
+	$(HIDE)echo "- Installing $$<" && rm -f $$@; cp -af $$< $$(dir $$@)  #cp 2
 endef
 
 $(foreach dep,$(ALL_DEPLOYABLES), $(eval $(call InstallOurDeployable,$(dep))))
@@ -887,15 +886,14 @@ sandwich:
 # install also cleans up old targets. we didn't really use to care, but it can put people on the wrong track ("appserver is crashing! no, it was removed")
 # we invoke 'wasm' (a PHONY) explicitly to ensure it's always rechecked as the toplevel make cannot check the wasm's sub-make dependencies
 install: $(addprefix $(PREFIX)/,$(EXTRAINSTALLDIR)) postinstall | \
-					$(call BuildAndTest,blex) \
-					$(call BuildAndTest,blex-wasm) \
-					$(call BuildAndTest,harescript) \
-					$(call BuildAndTest,drawlib) \
-					$(addprefix $(PREFIX)/,$(WHAP_INSTALLABLES)) \
-					$(call BuildAndTest,ap) \
-					$(call BuildAndTest,wasm) \
-	$(ALLINSTALLDIRS)
-	${HIDE}rm $(PREFIX)/bin/{appserver,backup,consilio,dbserver,dumprawtable} 2>/dev/null || true #cleanup old bins
+         $(call BuildAndTest,blex) \
+         $(call BuildAndTest,harescript) \
+         $(call BuildAndTest,drawlib) \
+         $(addprefix $(PREFIX)/,$(WHAP_INSTALLABLES)) \
+         $(call BuildAndTest,ap) \
+         $(call BuildAndTest,wasm) \
+         $(ALLINSTALLDIRS)
+	${HIDE}rm $(PREFIX)/bin/{appserver,backup,consilio,dbserver,dumpcomplexfslog,dumprawtable} 2>/dev/null || true #cleanup old bins
 	${HIDE}rm $(PREFIX)/lib/{hsm_parser_office_excel,hsm_parser_office_powerpoint}.* 2>/dev/null || true #cleanup old bins
 
 ifeq ($(WEBHARE_IN_DOCKER),1)
