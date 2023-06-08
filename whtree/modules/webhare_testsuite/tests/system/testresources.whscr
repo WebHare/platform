@@ -9,8 +9,6 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
-BOOLEAN has_legacy_namspace_support := GetEnvironmentVariable("WEBHARE_IGNORE_OLD_NAMESPACES") = "";
-
 MACRO TestParseAPIs()
 {
   TestEq(TRUE, MatchCommonXMLWildcardMasks("webhare_testsuite:test", ["webhare_testsuite:*"]));
@@ -57,8 +55,7 @@ MACRO TestResolve()
   TestEq("mod::webhare_testsuite/tests/system/y/z.whlib", Resolve("y/z.whlib"));
   TestEq("mod::webhare_testsuite/tests/system/*.whlib", Resolve("*.whlib"));
   TestEq("site::x.whlib", Resolve("site::x.whlib"));
-  IF(has_legacy_namspace_support)
-    TestEq("mod::publisher/lib/publisher.whlib", Resolve("module::publisher/publisher.whlib"));
+  TestEq("mod::publisher/lib/publisher.whlib", Resolve("module::publisher/publisher.whlib"));
 }
 
 MACRO ResolveAbsoluteLibrary()
@@ -89,8 +86,7 @@ MACRO ResolveAbsoluteLibrary()
   TestEq("wh::ipc.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("direct::" || systempath || "whlibs/internal/formatter.whlib", "relative::/ipc.whlib"));
   TestEq("wh::internal/formatter.whlib", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("direct::" || systempath || "whlibs/internal/formatter.whlib", "relative::./formatter.whlib"));
 
-  IF(has_legacy_namspace_support)
-    TestEq("mod::publisher/designs/emptydesign/", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("", "moduleroot::publisher/designs/emptydesign/"));
+  TestEq("mod::publisher/designs/emptydesign/", __HS_INTERNAL_RESOLVEABSOLUTELIBRARY("", "moduleroot::publisher/designs/emptydesign/"));
 }
 
 MACRO TranslateLibraryPath()
@@ -111,11 +107,8 @@ MACRO TestGetResourceNameFromDiskPath()
   TestEq("", GetResourceNameFromDiskPath("/etc"));
   TestEq("direct::/etc", GetResourceNameFromDiskPath("/etc", [ allowdiskpath := TRUE ]));
   TestEq("mod::system/lib/tests/cluster.whlib", GetResourceNameFromDiskPath("mod::system/lib/tests/cluster.whlib"));
-  IF(has_legacy_namspace_support)
-  {
-    TestEq("mod::system/lib/tests/cluster.whlib", GetResourceNameFromDiskPath("module::system/tests/cluster.whlib"));
-    TestEq("mod::system/lib/tests/cluster.whlib", GetResourceNameFromDiskPath("moduleroot::system/lib/tests/cluster.whlib"));
-  }
+  TestEq("mod::system/lib/tests/cluster.whlib", GetResourceNameFromDiskPath("module::system/tests/cluster.whlib"));
+  TestEq("mod::system/lib/tests/cluster.whlib", GetResourceNameFromDiskPath("moduleroot::system/lib/tests/cluster.whlib"));
   TestEq("wh::asn1/ldap.asn1", GetResourceNameFromDiskPath("mod::system/whlibs/asn1/ldap.asn1"));
   TestEq("site::a/b/test.whscr", GetResourceNameFromDiskPath("site::a/b/test.whscr"));
 }
@@ -124,65 +117,34 @@ MACRO TestBase()
 {
   TestThrowsLike('*without a base path*',PTR MakeAbsoluteResourcePath("", "lib/emtpydesign.whlib"));
 
-  IF(has_legacy_namspace_support)
-  {
-    TestEq("",MakeAbsoluteResourcePath("moduleroot::a/b/c/d",""));
-    TestEq("mod::a/e",MakeAbsoluteResourcePath("moduleroot::a/b/c/d","/e"));
-    TestEq("mod::a/b/c/e",MakeAbsoluteResourcePath("moduleroot::a/b/c/d","./e"));
-    TestEq("mod::a/b/e",MakeAbsoluteResourcePath("moduleroot::a/b/c/d","../e"));
-    TestEq("mod::a/e",MakeAbsoluteResourcePath("moduleroot::a/b/c/d","../../e"));
-    TestThrowsLike('*tries to escape*',PTR MakeAbsoluteResourcePath("moduleroot::a/b/c/d","../../../e"));
-  }
-  TestEq("",MakeAbsoluteResourcePath("mod::a/b/c/d",""));
-  TestEq("mod::a/e",MakeAbsoluteResourcePath("mod::a/b/c/d","/e"));
-  TestEq("mod::a/b/c/e",MakeAbsoluteResourcePath("mod::a/b/c/d","./e"));
-  TestEq("mod::a/b/e",MakeAbsoluteResourcePath("mod::a/b/c/d","../e"));
-  TestEq("mod::a/e",MakeAbsoluteResourcePath("mod::a/b/c/d","../../e"));
-  TestThrowsLike('*tries to escape*',PTR MakeAbsoluteResourcePath("mod::a/b/c/d","../../../e"));
+  TestEQ("",MakeAbsoluteResourcePath("moduleroot::a/b/c/d",""));
+  TestEQ("mod::a/e",MakeAbsoluteResourcePath("moduleroot::a/b/c/d","/e"));
+  TestEQ("mod::a/b/c/e",MakeAbsoluteResourcePath("moduleroot::a/b/c/d","./e"));
+  TestEQ("mod::a/b/e",MakeAbsoluteResourcePath("moduleroot::a/b/c/d","../e"));
+  TestEQ("mod::a/e",MakeAbsoluteResourcePath("moduleroot::a/b/c/d","../../e"));
+  TestThrowsLike('*tries to escape*',PTR MakeAbsoluteResourcePath("moduleroot::a/b/c/d","../../../e"));
 
-  IF(has_legacy_namspace_support)
-    TestEq(TRUE, IsAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/"));
+  TestEq(TRUE, IsAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/"));
   TestEq(TRUE, IsAbsoluteResourcePath("mod::publisher/designs/emptydesign/"));
   TestEq(TRUE, IsAbsoluteResourcePath("mod::system/whres/xml/xmlschema.xsd"));
   TestEq(FALSE, IsAbsoluteResourcePath("unknown-future-resource-path::xx"));
 
-  IF(has_legacy_namspace_support)
-  {
-    TestEq("mod::publisher/designs/emptydesign/lib/emptydesign.whlib",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "lib/emptydesign.whlib"));
-    TestEq("mod::publisher/designs/emptydesign/lib/",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "lib/"));
-    TestEq("mod::publisher/api.whlib",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "/api.whlib"));
-    TestEq("mod::system/lib/go.whlib",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "module::system/go.whlib")); //it doesn't exist so we assume lib
-    TestEq("mod::system/lib/database.whlib",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "module::system/database.whlib")); //it actually exists
-    TestEq("site::webhare backend/design/lib/webharebackend.whlib",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "site::webhare backend/design/lib/webharebackend.whlib"));
-    TestEq("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml", MakeAbsoluteResourcePath("moduleroot::example/webdesigns/ws2016/src/pages/registrationform/registrationform.siteprl", './registrationform.xml'));
-    TestEq("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", MakeAbsoluteResourcePath("moduleroot::example/webdesigns/ws2016/src/pages/registrationform/registrationform.siteprl", './registrationform.xml#editor'));
+  TestEQ("mod::publisher/designs/emptydesign/lib/emptydesign.whlib",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "lib/emptydesign.whlib"));
+  TestEQ("mod::publisher/designs/emptydesign/lib/",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "lib/"));
+  TestEQ("mod::publisher/api.whlib",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "/api.whlib"));
+  TestEQ("mod::system/lib/go.whlib",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "module::system/go.whlib")); //it doesn't exist so we assume lib
+  TestEQ("mod::system/lib/database.whlib",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "module::system/database.whlib")); //it actually exists
+  TestEQ("site::webhare backend/design/lib/webharebackend.whlib",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "site::webhare backend/design/lib/webharebackend.whlib"));
+  TestEq("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml", MakeAbsoluteResourcePath("moduleroot::example/webdesigns/ws2016/src/pages/registrationform/registrationform.siteprl", './registrationform.xml'));
+  TestEq("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", MakeAbsoluteResourcePath("moduleroot::example/webdesigns/ws2016/src/pages/registrationform/registrationform.siteprl", './registrationform.xml#editor'));
 
-    TestEq("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", MakeAbsoluteResourcePath("", 'moduleroot::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor'));
+  TestEq("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", MakeAbsoluteResourcePath("", 'moduleroot::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor'));
 
-    TestEq("mod::webhare_testsuite/lib/testfallbac.whlib", MakeAbsoluteResourcePath("", "module::webhare_testsuite/testfallbac.whlib"));
-    TestEq("mod::webhare_testsuite/include/testfallback.whlib", MakeAbsoluteResourcePath("", "module::webhare_testsuite/testfallback.whlib")); //this one is actually in /include/ !
-  }
-  TestEq("mod::publisher/designs/emptydesign/lib/emptydesign.whlib",MakeAbsoluteResourcePath("mod::publisher/designs/emptydesign/", "lib/emptydesign.whlib"));
-  TestEq("mod::publisher/designs/emptydesign/lib/",MakeAbsoluteResourcePath("mod::publisher/designs/emptydesign/", "lib/"));
-  TestEq("mod::publisher/api.whlib",MakeAbsoluteResourcePath("mod::publisher/designs/emptydesign/", "/api.whlib"));
-  IF(has_legacy_namspace_support)
-  {
-    TestEq("mod::system/lib/go.whlib",MakeAbsoluteResourcePath("mod::publisher/designs/emptydesign/", "module::system/go.whlib")); //it doesn't exist so we assume lib
-    TestEq("mod::system/lib/database.whlib",MakeAbsoluteResourcePath("mod::publisher/designs/emptydesign/", "module::system/database.whlib")); //it actually exists
-  }
-  TestEq("site::webhare backend/design/lib/webharebackend.whlib",MakeAbsoluteResourcePath("mod::publisher/designs/emptydesign/", "site::webhare backend/design/lib/webharebackend.whlib"));
-  TestEq("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml", MakeAbsoluteResourcePath("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.siteprl", './registrationform.xml'));
-  TestEq("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", MakeAbsoluteResourcePath("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.siteprl", './registrationform.xml#editor'));
+  TestEq("mod::webhare_testsuite/lib/testfallbac.whlib", MakeAbsoluteResourcePath("", "module::webhare_testsuite/testfallbac.whlib"));
+  TestEq("mod::webhare_testsuite/include/testfallback.whlib", MakeAbsoluteResourcePath("", "module::webhare_testsuite/testfallback.whlib")); //this one is actually in /include/ !
 
-  TestEq("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", MakeAbsoluteResourcePath("", 'mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor'));
-
-  IF(has_legacy_namspace_support)
-  {
-    TestEq("mod::publisher/designs/emptydesign/lib/emptydesign.witty",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/lib/emptydesign.whlib", "emptydesign.witty"));
-    TestEq("mod::publisher/designs/emptydesign/",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/siteprl.prl", "."));
-  }
-  TestEq("mod::publisher/designs/emptydesign/lib/emptydesign.witty",MakeAbsoluteResourcePath("mod::publisher/designs/emptydesign/lib/emptydesign.whlib", "emptydesign.witty"));
-  TestEq("mod::publisher/designs/emptydesign/",MakeAbsoluteResourcePath("mod::publisher/designs/emptydesign/siteprl.prl", "."));
+  TestEQ("mod::publisher/designs/emptydesign/lib/emptydesign.witty",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/lib/emptydesign.whlib", "emptydesign.witty"));
+  TestEQ("mod::publisher/designs/emptydesign/",MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/siteprl.prl", "."));
 
   TestEQ("site::lelibel/design/customleft.siteprl", MakeAbsoluteResourcePath("site::lelibel/design/", "/design/customleft.siteprl"));
 
@@ -197,19 +159,14 @@ MACRO TestBase()
   //TODO drop support for test:: - just use mod::webhare_testsuite/tests/baselibs/hsengine/
   //Testeq(TRUE, Length(GetWebhareResource("test::runtests.sh"))>0);
   //TestEq(TRUE, Length(GetWebhareResource("direct::" || GetWebHareResourceDiskPath("test::runtests.sh")))>0);
-  IF(has_legacy_namspace_support)
-  {
-    TestEq(GetModuleInstallationRoot("webhare_testsuite") || "include/testfallback.whlib", GetWebHareResourceDiskPath("module::webhare_testsuite/testfallback.whlib"));
-    TestEq(GetModuleInstallationRoot("webhare_testsuite") || "lib/database.whlib", GetWebHareResourceDiskPath("module::webhare_testsuite/database.whlib"));
-  }
+  TestEq(GetModuleInstallationRoot("webhare_testsuite") || "include/testfallback.whlib", GetWebHareResourceDiskPath("module::webhare_testsuite/testfallback.whlib"));
+  TestEq(GetModuleInstallationRoot("webhare_testsuite") || "lib/database.whlib", GetWebHareResourceDiskPath("module::webhare_testsuite/database.whlib"));
   TestEq(GetModuleInstallationRoot("webhare_testsuite") || "lib/database.whlib", GetWebHareResourceDiskPath("mod::webhare_testsuite/lib/database.whlib"));
   TestEq(GetModuleInstallationRoot("webhare_testsuite") || "scripts/whcommands/reset.whscr", GetWebHareResourceDiskPath("mod::webhare_testsuite/scripts/whcommands/reset.whscr"));
-  IF(has_legacy_namspace_support)
-    TestEq(GetModuleInstallationRoot("webhare_testsuite") || "scripts/whcommands/reset.whscr", GetWebHareResourceDiskPath("modulescript::webhare_testsuite/whcommands/reset.whscr"));
+  TestEq(GetModuleInstallationRoot("webhare_testsuite") || "scripts/whcommands/reset.whscr", GetWebHareResourceDiskPath("modulescript::webhare_testsuite/whcommands/reset.whscr"));
 
   TestEq(GetModuleInstallationRoot("webhare_testsuite"), GetWebHareResourceDiskPath("mod::webhare_testsuite"));
-  IF(has_legacy_namspace_support)
-    TestEq(GetModuleInstallationRoot("webhare_testsuite") || "data/xyz", GetWebHareResourceDiskPath("moduledata::webhare_testsuite/xyz"));
+  TestEq(GetModuleInstallationRoot("webhare_testsuite") || "data/xyz", GetWebHareResourceDiskPath("moduledata::webhare_testsuite/xyz"));
   TestEq(GetWebHareConfiguration().varroot || "storage/webhare_testsuite/xyz", GetWebHareResourceDiskPath("storage::webhare_testsuite/xyz"));
   TestEq(GetWebHareConfiguration().varroot || "storage/webhare_testsuite/", GetWebHareResourceDiskPath("storage::webhare_testsuite"));
 
@@ -219,13 +176,7 @@ MACRO TestBase()
   TestEqMembers([[ name := "moduledefinition.xml", resourcepath := "mod::system/moduledefinition.xml" ]], SELECT * FROM ReadWebhareResourceFolder("mod::system") WHERE name = "moduledefinition.xml", "*");
   TestEqMembers([[ name := "moduledefinition.xml", resourcepath := "mod::system/moduledefinition.xml" ]], SELECT * FROM ReadWebhareResourceFolder("mod::system/") WHERE name = "moduledefinition.xml", "*");
 
-  IF(has_legacy_namspace_support)
-  {
-    BLOB smallbob := GetWebHareResource("moduleroot::webhare_testsuite/webdesigns/basetest/web/img/smallbob.jpg");
-    TestEq(TRUE, Length(smallbob) > 0);
-    TestEq(smallbob, GetWebHareResource("direct::" || GetModuleInstallationRoot("webhare_testsuite") || "webdesigns/basetest/web/img/smallbob.jpg"));
-  }
-  BLOB smallbob := GetWebHareResource("mod::webhare_testsuite/webdesigns/basetest/web/img/smallbob.jpg");
+  BLOB smallbob := GetWebHareResource("moduleroot::webhare_testsuite/webdesigns/basetest/web/img/smallbob.jpg");
   TestEq(TRUE, Length(smallbob) > 0);
   TestEq(smallbob, GetWebHareResource("direct::" || GetModuleInstallationRoot("webhare_testsuite") || "webdesigns/basetest/web/img/smallbob.jpg"));
 
@@ -236,9 +187,7 @@ MACRO TestBase()
   TestEQ("wh::c.whlib", MakeAbsoluteResourcePath("wh::a/b.whlib", "../c.whlib"));
   TestThrowsLike('*tries to escape*',PTR MakeAbsoluteResourcePath("wh::a/b.whlib", "../../c.whlib"));
   TestThrowsLike('*tries to escape*',PTR MakeAbsoluteResourcePath("wh::a.whlib", "../../c.whlib"));
-  IF(has_legacy_namspace_support)
-    TestThrowsLike('*tries to escape*',PTR MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "../../../bla.whlib"));
-  TestThrowsLike('*tries to escape*',PTR MakeAbsoluteResourcePath("mod::publisher/designs/emptydesign/", "../../../bla.whlib"));
+  TestThrowsLike('*tries to escape*',PTR MakeAbsoluteResourcePath("moduleroot::publisher/designs/emptydesign/", "../../../bla.whlib"));
   TestThrowsLike('*tries to escape*',PTR MakeAbsoluteResourcePath("site::mysite/folder/test.html", "../../bla.html"));
 }
 
@@ -254,9 +203,6 @@ MACRO VariousPaths()
                             , "mod::webhare_testsuite//lib//system//resources.whlib"
                             ])
   {
-    IF(NOT has_legacy_namspace_support AND path NOT LIKE "mod::*")
-      CONTINUE;
-
     FUNCTION PTR getcounter := MakeFunctionPtr(path, "GetCounter", TYPEID(INTEGER), DEFAULT INTEGER ARRAY);
     TestEq(trackcounter, getcounter(), "getcounter is off at " || path);
 
@@ -274,25 +220,20 @@ MACRO VariousPaths()
 MACRO SupportLIbrary()
 {
   TestEq('publisher', GetModuleNameFromResourcePath('mod::publisher/screens/a/b/c.xml'));
-  IF(has_legacy_namspace_support)
-  {
-    TestEq('publisher', GetModuleNameFromResourcePath('moduleroot::publisher/screens/a/b/c.xml'));
-    TestEq('publisher', GetModuleNameFromResourcePath('moduleroot::publisher/screens/a/b/c.xml#screeb1'));
-    TestEq('webhare_testsuite', GetModuleNameFromResourcePath('moduledata::webhare_testsuite/testcomponents.xsd'));
-  }
+  TestEq('publisher', GetModuleNameFromResourcePath('moduleroot::publisher/screens/a/b/c.xml'));
+  TestEq('publisher', GetModuleNameFromResourcePath('moduleroot::publisher/screens/a/b/c.xml#screeb1'));
+  TestEq('webhare_testsuite', GetModuleNameFromResourcePath('moduledata::webhare_testsuite/testcomponents.xsd'));
   TestEq("webhare_testsuite", GetModuleNameFromResourcePath("storage::webhare_testsuite/xyz"));
 
   TestThrowsLike('*Invalid screen*',PTR GetResourceNameFromScreenPath('publisher:a/b.c'));
   TestEq(TRUE, IsOldStyleScreenReference('publisher:a/b.c'));
   TestEq("mod::publisher/screens/a/b.xml#c", MakeAbsoluteScreenReference("", 'publisher:a/b.c'));
 
-  IF(has_legacy_namspace_support)
-    TestThrowsLike('*Invalid screen*',PTR GetResourceNameFromScreenPath('moduleroot::publisher/screens/a/b.xml'));
+  TestThrowsLike('*Invalid screen*',PTR GetResourceNameFromScreenPath('moduleroot::publisher/screens/a/b.xml'));
   TestEq('mod::publisher/screens/a/b.xml', GetResourceNameFromScreenPath('mod::publisher/screens/a/b.xml'));
   TestEq(FALSE, IsOldStyleScreenReference('mod::publisher/screens/a/b.xml'));
   TestThrowsLike('*Invalid screen*',PTR GetScreenNameFromScreenPath('publisher:a/b.c'));
-  IF(has_legacy_namspace_support)
-    TestEq('screeb1', GetScreenNameFromScreenPath('moduleroot::publisher/screens/a/b/c.xml#screeb1'));
+  TestEq('screeb1', GetScreenNameFromScreenPath('moduleroot::publisher/screens/a/b/c.xml#screeb1'));
   TestThrowsLike('*Invalid screen*',PTR GetScreenNameFromScreenPath('moduleroot::publisher/screens/a/b/c.xml'));
   TestEq('', GetScreenNameFromScreenPath('mod::publisher/screens/a/b/c.xml'));
   TestEq('', GetScreenNameFromScreenPath('mod::publisher/screens/a/b/c.xml#'));
@@ -314,13 +255,8 @@ MACRO SupportLIbrary()
   TestEq("mod::publisher/screens/a/b.xml#screen1", MakeAbsoluteScreenReference("mod::tollium/screens/components/listedit.xml#def", "publisher:a/b.screen1"));
 
   TestEq("mod::publisher/screens/a/b.xml#screen1", MakeAbsoluteScreenReference("", "publisher:a/b.screen1"));
-  IF(has_legacy_namspace_support)
-  {
-    TestEq("mod::example/screens/eventsignup.xml#signupform", MakeAbsoluteScreenReference("", "moduleroot::example/screens/eventsignup.xml#signupform"));
-    TestEq("mod::example/data/eventsignup.xml#signupform", MakeAbsoluteScreenReference("", "moduledata::example/eventsignup.xml#signupform"));
-  }
-  TestEq("mod::example/screens/eventsignup.xml#signupform", MakeAbsoluteScreenReference("", "mod::example/screens/eventsignup.xml#signupform"));
-  TestEq("mod::example/data/eventsignup.xml#signupform", MakeAbsoluteScreenReference("", "mod::example/data/eventsignup.xml#signupform"));
+  TestEq("mod::example/screens/eventsignup.xml#signupform", MakeAbsoluteScreenReference("", "moduleroot::example/screens/eventsignup.xml#signupform"));
+  TestEq("mod::example/data/eventsignup.xml#signupform", MakeAbsoluteScreenReference("", "moduledata::example/eventsignup.xml#signupform"));
 
   TestThrowsLike('*Invalid prefix*',PTR MakeAbsoluteScreenReference("moduledata::webhare_testsuite/testcomponents.xsd", "components/media.vimeo_rec"));
 
@@ -335,9 +271,7 @@ MACRO SupportLIbrary()
 MACRO ModuleMgr()
 {
   RetrieveCachedXMLResource(GetResourceNameFromScreenPath(MakeAbsoluteScreenReference("","tollium:commondialogs.messagebox")));
-  IF(has_legacy_namspace_support)
-    TestEq(TRUE, RecordExists(__RETRIEVECACHEDXMLSCHEMA("moduledata::system/moduledefinition.xsd")));
-  TestEq(TRUE, RecordExists(__RETRIEVECACHEDXMLSCHEMA("mod::system/data/moduledefinition.xsd")));
+  TestEq(TRUE, RecordExists(__RETRIEVECACHEDXMLSCHEMA("moduledata::system/moduledefinition.xsd")));
 }
 
 MACRO TestInline()
