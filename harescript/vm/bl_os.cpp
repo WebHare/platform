@@ -819,19 +819,7 @@ void OSContext::CloseHandles()
         filelist.clear();
 }
 
-#ifdef __EMSCRIPTEN__
-
-void HS_EmscriptenNotSupportedFunc(VarId, VirtualMachine *vm)
-{
-        HSVM_ThrowException(*vm, "This function is not supported in WASM");
-}
-
-void HS_EmscriptenNotSupportedMacro(VirtualMachine *vm)
-{
-        HSVM_ThrowException(*vm, "This function is not supported in WASM");
-}
-
-#else
+#ifndef __EMSCRIPTEN__
 
 void HS_CreateProcess(VarId id_set, VirtualMachine *vm)
 {
@@ -1668,21 +1656,6 @@ void InitProcess(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("DETACHPROCESS:::I",HS_DetachProcess));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("WAITFORPROCESSOUTPUT::I:II",HS_WaitForProcessOutput));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETPROCESSOUTPUTHANDLE::I:IB",HS_GetProcessOutputHandle));
-#else
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CLOSEPROCESS:::I",HS_EmscriptenNotSupportedMacro));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CLOSEPROCESSINPUT:::I",HS_EmscriptenNotSupportedMacro));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CREATEPROCESSINTERNAL::I:BBBBB6",HS_EmscriptenNotSupportedFunc));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETPROCESSEXITCODE::I:I",HS_EmscriptenNotSupportedFunc));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("ISPROCESSRUNNING::B:I",HS_EmscriptenNotSupportedFunc));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("READPROCESSOUTPUT::S:I",HS_EmscriptenNotSupportedFunc));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("READPROCESSERRORS::S:I",HS_EmscriptenNotSupportedFunc));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("SETPROCESSENVIRONMENT:::IRA", HS_EmscriptenNotSupportedMacro));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("RUNPROCESS::B:ISSASBBB",HS_EmscriptenNotSupportedFunc));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("INTERRUPTPROCESS:::I",HS_EmscriptenNotSupportedMacro));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("TERMINATEPROCESS:::I",HS_EmscriptenNotSupportedMacro));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("DETACHPROCESS:::I",HS_EmscriptenNotSupportedMacro));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("WAITFORPROCESSOUTPUT::I:II",HS_EmscriptenNotSupportedFunc));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETPROCESSOUTPUTHANDLE::I:IB",HS_EmscriptenNotSupportedFunc));
 #endif
 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CLOSEPIPE:::I", HS_ClosePipe));
