@@ -604,10 +604,8 @@ async function createHarescriptModule(): Promise<Module> {
       libname = path.normalize(libname);
 
       if (type == "module" || type == "moduledata" || type == "modulescript" || type == "moduleroot") { //module:: should be rewritten to mod:: /lib/
-        const firstslash = libname.indexOf(":");
-        if (firstslash === -1)
-          return libname;
-
+        // Grab the prefixed root. For mod/site we also want the first path component
+        const firstslash = libname.indexOf("/");
         const modulename = libname.substring(0, firstslash);
         let subpart = "";
 
@@ -621,7 +619,7 @@ async function createHarescriptModule(): Promise<Module> {
           //See if /include/ exists, otherwise we'll go for lib (lib is considered default)
           let useinclude = false;
 
-          const modroot = config.module["modulename"];
+          const modroot = config.module[modulename]?.root;
           if (modroot) {
             const trylib = modroot + "include/" + libname.substring(firstslash + 1);
             useinclude = fs.existsSync(trylib);
