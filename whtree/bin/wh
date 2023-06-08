@@ -103,7 +103,9 @@ if [ -n "$WEBHARE_CHECKEDOUT_TO" ]; then
   if [ -z "$WEBHARE_BUILDDIR" ]; then
     WEBHARE_BUILDDIR="`cd $WEBHARE_CHECKEDOUT_TO; DIRNAME="${PWD##*/}" ; cd ..; echo $PWD/whbuild/${WHBUILD_DIPREFIX}${DIRNAME}`"
   fi
-  WEBHARE_BUILDHOLDERS="`cd $WEBHARE_CHECKEDOUT_TO; cd ..; echo $PWD/whbuild`"
+  if [ -z "$WHBUILD_BUILDROOT" ]; then
+    WHBUILD_BUILDROOT="`cd $WEBHARE_CHECKEDOUT_TO; cd ..; echo $PWD/whbuild`"
+  fi
 
   if [ -z "$WHBUILD_DOWNLOADCACHE" ]; then
     WHBUILD_DOWNLOADCACHE="$WEBHARE_BUILDDIR/downloadcache"
@@ -117,7 +119,7 @@ export WEBHARE_BASEPORT
 export WEBHARE_DATAROOT
 export WHBUILD_DOWNLOADCACHE
 export WEBHARE_TEMP
-export WEBHARE_BUILDHOLDERS
+export WHBUILD_BUILDROOT
 
 # Ensures npm stable ordering - https://github.com/npm/npm/issues/17048
 # Minimum debian/ubuntu install ships only with C.UTF-8, not en_US.UTF-8

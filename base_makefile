@@ -556,11 +556,10 @@ $(SRCDIR)/vendor/libxml2/autogen.sh:
 	git -C $(SRCDIR) submodule update --init --recursive
 
 $(LIBXML2_NATIVE_GENERATEDFILE): $(SRCDIR)/vendor/setup-libxml2.sh $(SRCDIR)/vendor/libxml2/autogen.sh
-	TARGETDIR=${WHBUILD_BUILDDIR}/vendor-native/libxml2 $(SRCDIR)/vendor/setup-libxml2.sh
+	$(SRCDIR)/vendor/setup-libxml2.sh native "${WHBUILD_BUILDDIR}/vendor-native/libxml2"
 
 $(LIBXML2_WASM_GENERATEDFILE): $(SRCDIR)/vendor/setup-libxml2.sh $(SRCDIR)/vendor/libxml2/autogen.sh
-	TARGETDIR=${WHBUILD_BUILDDIR}/vendor-wasm/libxml2 CC=emcc $(SRCDIR)/vendor/setup-libxml2.sh
-
+	CC="$(EMCC)" $(SRCDIR)/vendor/setup-libxml2.sh wasm "${WHBUILD_BUILDDIR}/vendor-wasm/libxml2"
 
 #################################################
 ##
