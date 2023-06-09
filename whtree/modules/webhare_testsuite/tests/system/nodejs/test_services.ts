@@ -3,6 +3,7 @@
 import * as test from "@webhare/test";
 import * as services from "@webhare/services";
 import { HSVM, HSVMObject, openHSVM } from "@webhare/services/src/hsvm";
+import { GenericLogLine } from "@webhare/services/src/logging";
 
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
 import { DemoServiceInterface } from "@mod-webhare_testsuite/js/demoservice";
@@ -393,6 +394,15 @@ async function runBackendServiceTest_HS() {
   //TestEq([ value := 42 ], testdata); */
 }
 
+/* Needed in the future when we test more log files here
+async function readLog(name: string): Promise<GenericLogLine[]> {
+  const lines = [];
+  for await (const val of services.readLogLines(name, { start: test.startTime, limit: new Date(Date.now() + 1) })) {
+    lines.push(val);
+  }
+  return lines;
+} */
+
 async function testLogs() {
   services.log("webhare_testsuite:test", { drNick: "Hi everybody!", patientsLost: BigInt("123456678901234567890123456678901234567890") });
   services.log("webhare_testsuite:test", {
@@ -427,6 +437,19 @@ async function testLogs() {
   test.eq("I can speak JSON too!", hsline.value.harescript);
 
   test.assert((await logreader.next()).done);
+
+  test.throws(/Invalid/, () => services.logDebug("services_test", { x: 42 }));
+  services.logDebug("webhare_testsuite:services_test", { test: 42 });
+  services.logNotice("warning", new Error);
+  ///@ts-ignore we explicitly want to test for the exception when passing an incorrect name
+  test.throws(/Invalid log type/, () => services.logNotice("debug", new Error));
+  services.logNotice("error", "Foutmelding", { data: { extra: 43 } });
+  services.logNotice("info", "Ter info");
+
+  /* TODO auto parse them but switch to flat JSON first
+  const noticeloglines = await readLog("system:notice");
+  console.log(noticeloglines);
+  */
 }
 
 test.run(

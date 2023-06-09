@@ -1,4 +1,4 @@
-import bridge, { LogErrorOptions } from "@mod-system/js/internal/whmanager/bridge";
+import bridge, { LogNoticeOptions } from "@mod-system/js/internal/whmanager/bridge";
 import { config } from "./services";
 import fs from "fs/promises";
 import { checkModuleScopedName } from "./naming";
@@ -46,8 +46,17 @@ export function log(logname: string, logline: LoggableRecord): void {
 /** Log an error to the notice log
  * @param error - Error to log
  */
-export function logError(error: Error, options?: LogErrorOptions): void {
-  bridge.logError(error, options);
+export function logNotice(type: "error" | "warning" | "info", error: Error | string, options?: LogNoticeOptions): void {
+  if (!["error", "warning", "info"].includes(type))
+    throw new Error(`Invalid log type '${type}'. Must be one of 'error', 'warning' or 'info'`);
+  bridge.logNotice(type, error, options);
+}
+
+/** Log debug information
+*/
+export function logDebug(source: string, data: LoggableRecord): void {
+  checkModuleScopedName(source);
+  bridge.logDebug(source, data);
 }
 
 /** Flushes a log file. Returns when the flushing has been done, throws when the log did not exist
@@ -66,14 +75,17 @@ function getDateFromLogFilename(filename: string) {
   return new Date(datetok.substring(0, 4) + "-" + datetok.substring(4, 6) + "-" + datetok.substring(6, 8));
 }
 
+type GenericLogFields = { [key: string]: LogReadField };
+export type GenericLogLine = GenericLogFields & LogLineBase;
+
 /** Read log lines from a specified log between the two given dates. Note that we ONLY support JSON encoded log lines */
-export async function* readLogLines<LogFields = { [key: string]: LogReadField }>(logname: string, options?: ReadLogOptions): AsyncGenerator<LogFields & LogLineBase> {
+export async function* readLogLines<LogFields = GenericLogFields>(logname: string, options?: ReadLogOptions): AsyncGenerator<LogFields & LogLineBase> {
   const [module, logfile] = checkModuleScopedName(logname);
   const fileinfo = getModuleDefinition(module).logs[logfile];
   if (!fileinfo)
     throw new Error(`No such logfile '${logfile}' in module '${module}'`);
   if (fileinfo.timestamps !== false)
-    throw new Error(`Logfile '${logname}' must set timestamps to 'false' for readLogLienes to be able to process it`);
+    throw new Error(`Logfile '${logname}' must set timestamps to 'false' for readLogLines to be able to process it`);
 
   await flushLog(logname);
 

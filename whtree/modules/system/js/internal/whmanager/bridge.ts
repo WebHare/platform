@@ -50,10 +50,11 @@ type ConnectOptions = {
   global?: boolean;
 };
 
-export interface LogErrorOptions {
+export interface LogNoticeOptions {
   groupid?: string;
   script?: string;
-  info?: string;
+  ///Error specific data, 'free form'
+  data?: unknown;
   contextinfo?: hsmarshalling.IPCMarshallableRecord;
   errortype?: "exception" | "unhandledRejection";
 }
@@ -96,6 +97,10 @@ interface Bridge extends EventSource<BridgeEvents> {
   */
   log(logname: string, logline: string): void;
 
+  /** Write a line to the debug log file
+  */
+  logDebug(logsource: string, logline: unknown): void;
+
   /** Flushes a log file. Returns when the flushing has been done, throws when the log did not exist
   */
   flushLog(logname: string | "*"): Promise<void>;
@@ -103,7 +108,7 @@ interface Bridge extends EventSource<BridgeEvents> {
   /** Log an error to the notice log
       @param e - Error to log
   */
-  logError(e: Error, options?: LogErrorOptions): void;
+  logNotice(t: "error" | "warning" | "info", e: Error | string, options?: LogNoticeOptions): void;
 
   /** Ensure events and logs have been delivered to the whmanager */
   ensureDataSent(): Promise<void>;
@@ -325,13 +330,13 @@ class LocalBridge extends EventSource<BridgeEvents> {
     };
   }
 
-  private encodeJavaScriptException(e: Error, options: {
+  private encodeJavaScriptException(e: Error | string, options: {
     script?: string;
     contextinfo?: hsmarshalling.IPCMarshallableRecord;
     errortype?: "exception" | "unhandledRejection";
   }) {
     const data = {
-      ...this.encodeJavaScriptExceptionData(e),
+      ...(typeof e === "string" ? { error: e } : this.encodeJavaScriptExceptionData(e)),
       script: options.script ?? require.main?.filename ?? "",
       browser: { name: "nodejs" },
       contextinfo: options.contextinfo ? hsmarshalling.encodeHSON(options.contextinfo) : "",
@@ -340,9 +345,15 @@ class LocalBridge extends EventSource<BridgeEvents> {
     return hsmarshalling.encodeHSON(data);
   }
 
-  logError(e: Error, options: LogErrorOptions = {}) {
+  logNotice(type: string, e: Error | string, options: LogNoticeOptions = {}) {
     const groupid = options.groupid ?? this.getGroupId();
-    this.log("system:notice", `ts-node\tERROR\t${groupid}\t\tjavascript-error\t${this.encodeJavaScriptException(e, options)}`);
+    this.log("system:notice", `ts-node\t${type.toUpperCase()}\t${groupid}\t\tjavascript-error\t${this.encodeJavaScriptException(e, options)}`);
+  }
+
+  logDebug(source: string, data: unknown) {
+    const arg = JSON.stringify(data);
+    //data must fit in 128KB
+    this.log("system:debug", `${source}\t${this.getGroupId()}\t\t${arg.length > 127 * 1024 ? "-" : arg}`);
   }
 
   async flushLog(logname: string | "*"): Promise<void> {
@@ -1125,7 +1136,7 @@ const process_exit_backup = process.exit; // compatibility with taskrunner.ts ta
 
 process.on('uncaughtExceptionMonitor', (error, origin) => {
   console.error(origin == "unhandledRejection" ? "Uncaught rejection" : "Uncaught exception", error);
-  bridge.logError(error, { errortype: origin == "unhandledRejection" ? origin : "exception" });
+  bridge.logNotice("error", error, { errortype: origin == "unhandledRejection" ? origin : "exception" });
 });
 
 process.on('uncaughtException', async (error) => {
