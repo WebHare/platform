@@ -11,17 +11,18 @@ function sanitizeBody(body: unknown) {
   return body;
 }
 
-function getLength(response: Response) {
-  const ce = response.headers.get("Content-Encoding");
-  const cl = response.headers.get("Content-Length");
-  if (cl)
-    return "(" + cl + " bytes" + (ce ? ", " + ce : "") + ")";
+function getResponseSummary(response: Response) {
+  const toks = [];
+  if (response.headers.get("Content-Type"))
+    toks.push(response.headers.get("Content-Type"));
+  if (response.headers.get("Content-Length"))
+    toks.push(response.headers.get("Content-Length") + " bytes");
+  if (response.headers.get("Transfer-Encoding"))
+    toks.push(response.headers.get("Transfer-Encoding"));
+  if (response.headers.get("Content-Encoding"))
+    toks.push(response.headers.get("Content-Encoding"));
 
-  const te = response.headers.get("Transfer-Encoding");
-  if (te)
-    return "(" + te + (ce ? ", " + ce : "") + ")"; //eg "chunked, gzip"
-
-  return "";
+  return toks.length ? `(${toks.join(", ")})` : "";
 }
 
 async function debuggableFetch(originalfetch: typeof fetch, input: RequestInfo | URL, init?: RequestInit) {
@@ -39,7 +40,7 @@ async function debuggableFetch(originalfetch: typeof fetch, input: RequestInfo |
     console.log(`[wrq] ${debugrequestid} body    ${sanitizeBody(init.body)}`);
 
   const fetchresult = await originalfetch(input, init); //TODO log responses as well (if safe/applicable, eg not binary or Very Long... and we probably should wait for the first json()/text()/body() call? but at least log the status and time!)
-  console.log(`[wrq] ${debugrequestid} result  ${fetchresult.status} ${fetchresult.statusText} ${getLength(fetchresult)}`);
+  console.log(`[wrq] ${debugrequestid} result  ${fetchresult.status} ${fetchresult.statusText} ${getResponseSummary(fetchresult)}`);
   console.log(`[wrq] ${debugrequestid} headers ${JSON.stringify(fetchresult.headers)}`);
 
   const ct = fetchresult.headers.get("Content-Type");

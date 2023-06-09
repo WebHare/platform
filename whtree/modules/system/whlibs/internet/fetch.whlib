@@ -88,6 +88,24 @@ STATIC OBJECTTYPE SyncFetchResponse
   }
 >;
 
+
+STRING FUNCTION GetResponseSummary(OBJECT response)
+{
+  STRING ARRAY toks;
+  IF(response->headers->Get("Content-Type") != "")
+    INSERT response->headers->Get("Content-Type") INTO toks AT END;
+  IF(response->headers->Get("Content-Length") != "")
+    INSERT response->headers->Get("Content-Length") || " bytes" INTO toks AT END;
+  IF(response->headers->Get("Transfer-Encoding") != "")
+    INSERT response->headers->Get("Transfer-Encoding") INTO toks AT END;
+  IF(response->headers->Get("Content-Encoding") != "")
+    INSERT response->headers->Get("Content-Encoding") INTO toks AT END;
+
+  RETURN Length(toks) > 0 ? `(${Detokenize(toks,", ")})` : "";
+}
+
+
+
 /** Fetch a HTTP resource
     @param uri URI of the resource
     @param options Fetch options
@@ -164,15 +182,16 @@ PUBLIC ASYNC FUNCTION Fetch(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD
     }
   }
 
+  OBJECT response := NEW FetchResponse(fetchresult);
   IF(debug)
   {
-    Print(`[wrq] ${debugrequestid} result  ${fetchresult.status} ${fetchresult.statustext} (${Length(fetchresult.body)} bytes)\n`);
+    Print(`[wrq] ${debugrequestid} result  ${fetchresult.status} ${fetchresult.statustext} ${GetResponseSummary(response)}\n`);
     Print(`[wrq] ${debugrequestid} headers ${EncodeJSON(fetchresult.headers)}\n`);
     IF(Length(fetchresult.body) > 0)
       Print(`[wrq] ${debugrequestid} body    ${SanitizeBody(fetchresult.body)}\n`);
   }
 
-  RETURN NEW FetchResponse(fetchresult);
+  RETURN response;
 }
 
 /** Synchronous fetch implementation */
