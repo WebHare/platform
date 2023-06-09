@@ -47,6 +47,7 @@ BOOLEAN keepsessions;
 STRING profiling; // "", "cov", "apr"
 BOOLEAN jscoverage;
 INTEGER testtimeout := 15 * 60 * 1000;
+RECORD parsedargs;
 
 BOOLEAN interrupted;
 RECORD interruptdefer := CreateDeferredPromise();
@@ -146,6 +147,7 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
       STRING script;
       BOOLEAN run_in_job;
 
+      STRING engine;
       IF (testinfo.type = "test")
       {
         IF (IsAbsoluteResourcePath(testinfo.script))
@@ -160,9 +162,6 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
                WHERE name = "scriptpath";
         }
 
-        IF (testrunner->print_debug)
-          Print("; Running test: " || testinfo.testname || "\n");
-
         IF(script LIKE "*.sh")
         {
           runner := GetWebHareResourceDiskPath(script);
@@ -173,24 +172,27 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
           runner := GetInstallationRoot() || "bin/wh";
           arguments := [ "run", GetWebHareResourceDiskPath(script), ...testinfo.arguments ];
         }
-        ELSE IF (testinfo.engine = "wasm")
-        {
-          runner := GetInstallationRoot() || "bin/wh";
-          arguments := [ "runwasm", GetWebHareResourceDiskPath(script), ...testinfo.arguments ];
-        }
         ELSE
         {
-          runner := GetInstallationRoot() || "bin/runscript";
-          arguments := testinfo.runscriptarguments CONCAT [ script ] CONCAT testinfo.arguments;
-
-          run_in_job := testinfo.runmode = "process" ? FALSE
-              : testinfo.runmode = "job"
-                    ? TRUE
-                    : use_jobs;
+          engine := testinfo.engine ?? (parsedargs.wasm ? "wasm" : "native");
+          IF (engine = "wasm")
+          {
+            runner := GetInstallationRoot() || "bin/wh";
+            arguments := [ "runwasm", GetWebHareResourceDiskPath(script), ...testinfo.arguments ];
+          }
+          ELSE
+          {
+            runner := GetInstallationRoot() || "bin/runscript";
+            arguments := testinfo.runscriptarguments CONCAT [ script ] CONCAT testinfo.arguments;
+            run_in_job := testinfo.runmode = "process" ? FALSE
+                : testinfo.runmode = "job"
+                      ? TRUE
+                      : use_jobs;
+          }
         }
       }
 
-      MyPrint(FormatDateTime("[%H:%M:%S.%Q]", GetCurrentDateTime()) || " Test " || testinfo.testname || (testinfo.xfail? " (xfailed)" : "") || "\n");
+      MyPrint(FormatDateTime("[%H:%M:%S.%Q]", GetCurrentDateTime()) || " Test " || (engine != "" ? engine || " " : "") || testinfo.testname || (testinfo.xfail? " (xfailed)" : "") || "\n");
       WriteLogMarker("Test " || testinfo.testname || (testinfo.xfail ? " (xfailed)" : ""));
 
       INSERT testinfo.testname INTO result.executed AT END;
@@ -645,6 +647,7 @@ MACRO PrintSyntax()
   Print("  --chromeurl=...  URL on which chrome debugger is listening, for frontend tests\n");
   Print("  --timeout=...    Set timeout in msecs. Defaults to 15 minutes\n");
   Print("  --keepsessions   Do not close Chrome sessions\n");
+  Print("  --wasm           Default to the wasm engine for tests that do not declare their engine\n");
   Print("  all              Run the group 'all' in all known tests\n");
   Print("  testname         Run the test with this name (may be a comma separated list)\n");
   Print("  group            Run only the given group within a test. If this parameter is\n");
@@ -683,7 +686,7 @@ BOOLEAN FUNCTION CheckAgainstTags(STRING ARRAY testtags, STRING ARRAY requiretag
 // Main code
 //
 
-RECORD parsedargs := ParseArguments(GetConsoleArguments(),
+parsedargs := ParseArguments(GetConsoleArguments(),
                                     [ [name := "o", type := "switch", defaultvalue := TRUE]
                                     , [name := "e", type := "switch", defaultvalue := TRUE]
                                     , [name := "d", type := "switch", defaultvalue := FALSE]
@@ -704,6 +707,7 @@ RECORD parsedargs := ParseArguments(GetConsoleArguments(),
                                     , [name := "autotests", type := "switch"]
                                     , [name := "keepsessions", type := "switch"]
                                     , [name := "terse", type := "switch"]
+                                    , [name := "wasm", type := "switch"]
                                     , [name := "testname", type := "param" ]
                                     ]);
 

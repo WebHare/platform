@@ -1,5 +1,6 @@
 import * as env from "@webhare/env";
 import { getCallStackAsText } from "@mod-system/js/internal/util/stacktrace";
+import { WebResponseInfo } from "@mod-system/js/internal/types";
 
 export enum HTTPErrorCode {
   BadRequest = 400,
@@ -129,6 +130,13 @@ export class WebResponse {
 
   setStatus(status: HTTPStatusCode) {
     this._status = status;
+  }
+
+  /// Convert result to WebResponseInfo often used when marshalling. API will be removed when JS webserver has replaced the C++ webserver
+  async asWebResponseInfo(): Promise<WebResponseInfo> {
+    const headers = this.getHeaders();
+    const body = await this.text();
+    return { status: this.status, headers: Object.fromEntries(headers), body: body };
   }
 }
 

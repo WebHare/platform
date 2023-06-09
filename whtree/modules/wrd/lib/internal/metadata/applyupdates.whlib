@@ -46,7 +46,11 @@ PUBLIC BOOLEAN FUNCTION UpdateACandidateSchema(STRING candidate, RECORD options 
     IF(ObjectExists(wrdschema))
       wrdschema->ApplySchemaDefinition(options);
     ELSE
+    {
+      IF(options.reportupdates)
+        Print(`Creating schema '${candidate}'\n`);
       CreateWRDSchema(candidate, [ initialize := TRUE ]);
+    }
 
     GetPrimary()->CommitWork();
     RETURN TRUE;

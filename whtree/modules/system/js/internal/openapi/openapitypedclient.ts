@@ -1,5 +1,4 @@
 import { HTTPErrorCode, HTTPMethod, HTTPStatusCode, RestDefaultErrorBody } from "@webhare/router";
-import * as env from "@webhare/env";
 import { ComponentsBase, DefaultErrorType, GetBodyType, GetOperation, GetOperationByPathAndMethod, GetParametersType, JSONResponseTypes } from "./types";
 import { JSONResponseCodes, JSONResponseForCode, RestResponsesBase } from "@webhare/router/src/restrequest";
 import { getServiceInstance, RestService } from "@mod-system/js/internal/openapi/openapiservice";
@@ -111,9 +110,6 @@ export class TypedOpenAPIClient<Paths extends object, Components extends Compone
       const responsebody = contenttype == "application/json" ? await call.json() : await call.text();
       retval = { status: call.status, headers: call.headers, contenttype, body: responsebody };
     }
-
-    if (env.flags.wrq) //WRQ itself doesn't print responses yet..
-      console.log("[wrq] openapi result: ", retval);
 
     return retval as OpResponseTypes<Paths, Components, Path, Method>;
   }
