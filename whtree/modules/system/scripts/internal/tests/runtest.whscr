@@ -174,7 +174,7 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
         }
         ELSE
         {
-          engine := testinfo.engine ?? (parsedargs.wasm ? "wasm" : "native");;
+          engine := testinfo.engine ?? (parsedargs.wasm ? "wasm" : "native");
           IF (engine = "wasm")
           {
             runner := GetInstallationRoot() || "bin/wh";
