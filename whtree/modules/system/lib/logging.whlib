@@ -36,18 +36,13 @@ MACRO LogNotice(STRING logsource, STRING channel, STRING message, RECORD data)
   message := Left(message,4096);
 
   STRING logline := EncodeJava(logsource) || "\t" || EncodeJava(channel) || "\t" || GetCurrentGroupId() || "\t" || EncodeJava(GetExternalSessionData()) || "\t" || EncodeJava(message);
-  IF(RecordExists(data))
-  {
-    STRING encodeddata := EncodeHSON(data);
-    IF(Length(message)+Length(encodeddata)>127*1024)
-      encodeddata := "-";
+  STRING encodeddata := EncodeHSON(data);
 
-    logline := logline || "\t" || encodeddata;
-  }
-
-  ModuleLog("system:notice", logline);
+  IF(Length(encodeddata) > 127*1024)
+    LogToJSONLog("system:notice", CELL[ source := logsource, groupid := GetCurrentGroupId(), type := channel, message, session := GetExternalSessionData(), overflow := Length(encodeddata) ]);
+  ELSE
+    LogToJSONLog("system:notice", CELL[ source := logsource, groupid := GetCurrentGroupId(), type := channel, message, session := GetExternalSessionData(), data ]);
 }
-
 
 
 /** @short Log an error to the 'notice' log
@@ -57,7 +52,7 @@ MACRO LogNotice(STRING logsource, STRING channel, STRING message, RECORD data)
     @param data System-parseable error context */
 PUBLIC MACRO LogError(STRING logsource, STRING message, RECORD data DEFAULTSTO DEFAULT RECORD)
 {
-  LogNotice(logsource, "ERROR", message, data);
+  LogNotice(logsource, "error", message, data);
 }
 
 /** @short Log a warning to the 'notice' log
@@ -67,7 +62,7 @@ PUBLIC MACRO LogError(STRING logsource, STRING message, RECORD data DEFAULTSTO D
     @param data System-parseable error context */
 PUBLIC MACRO LogWarning(STRING logsource, STRING message, RECORD data DEFAULTSTO DEFAULT RECORD)
 {
-  LogNotice(logsource, "WARNING", message, data);
+  LogNotice(logsource, "warning", message, data);
 }
 
 /** @short Log an informational message to the 'notice' log
@@ -77,7 +72,7 @@ PUBLIC MACRO LogWarning(STRING logsource, STRING message, RECORD data DEFAULTSTO
     @param data System-parseable error context */
 PUBLIC MACRO LogInfo(STRING logsource, STRING message, RECORD data DEFAULTSTO DEFAULT RECORD)
 {
-  LogNotice(logsource, "INFO", message, data);
+  LogNotice(logsource, "info", message, data);
 }
 
 /** @short Log a list of Harescript errors to the notice log (via a HarescriptErrorException)

@@ -128,7 +128,7 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
     IF(Length(encodeddata)>126*1024)
       encodeddata := "-";
 
-    ModuleLog("system:notice", "tollium\tERROR\t" || appid || "\t"||EncodeJava(externalsessiondata)||"\tharescript-error\t" || encodeddata);
+    LogToJSONLog("system:notice", [ source := "tollium-harescript-error", groupid := appid, session := externalsessiondata, error := data ]);
   }
 
   STRING ARRAY FUNCTION ReloadDebuggerConfig()

@@ -1000,35 +1000,33 @@ void ThrowNoShtmlException(HSVM *hsvm)
 
 void LogHarescriptError(Connection &conn, std::string const &source, std::string const &groupid, std::string const &externalsessiondata, HareScript::ErrorHandler const &errorhandler, std::map< std::string, std::string > const &params)
 {
-        std::string encoded_sessiondata;
-        Blex::EncodeJava(externalsessiondata.begin(), externalsessiondata.end(), std::back_inserter(encoded_sessiondata));
+        using Blex::AnyToJSON;
 
-        std::string header = source + "\t" + "ERROR\t" + groupid + "\t" + encoded_sessiondata + "\tharescript-error\t";
+        //Build ISO ms precision timestamp
+        char out[80]; // Is a lot more than the 26 characters needed
+        Blex::DateTime now = Blex::DateTime::Now();
+        struct std::tm time = now.GetTM();
+        std::sprintf(out ,"%04d-%02d-%02dT%02d:%02d:%02d.%03dZ",
+                time.tm_year+1900,
+                time.tm_mon + 1,
+                time.tm_mday,
+                time.tm_hour,
+                time.tm_min,
+                time.tm_sec,
+                int(now.GetMsecs() % 1000));
 
-        std::string info = "hson:{";
+        std::string info = "{\"@timestamp\":\"";
+        info.append(out);
+        info += "\",\"type\":\"harescript-error\",\"groupid\":" + AnyToJSON(groupid) + ",";
+        if(!externalsessiondata.empty())
+            info += "\"session\":" + AnyToJSON(externalsessiondata) + ",";
+        if(!source.empty())
+            info += "\"source\":" + AnyToJSON(source) + ",";
 
         for (auto itr: params)
-            info += Blex::AnyToJSON(itr.first) + ":" + itr.second + ",";
+            info += AnyToJSON(itr.first) + ":" + itr.second + ",";
 
-        info += "\"warnings\":ra[";
-
-        for (auto it = errorhandler.GetWarnings().begin(); it != errorhandler.GetWarnings().end(); ++it)
-        {
-                if (info.size() > 127 * 1024)
-                    break;
-
-                std::string msg = HareScript::GetMessageString(*it);
-                if (info.size() + msg.size() > 100*1024)
-                  msg = msg.substr(0, 100*1024 - info.size()) + "...";
-
-                if (it != errorhandler.GetWarnings().begin())
-                    info += ",";
-                info += "{\"filename\":" + Blex::AnyToJSON(it->filename);
-                info += ",\"line\":" + Blex::AnyToJSON(it->position.line);
-                info += ",\"col\":" + Blex::AnyToJSON(it->position.column);
-                info += ",\"message\":" + Blex::AnyToJSON(msg) + "}";
-        }
-        info += "],\"errors\":ra[";
+        info += "\"errors\":[";
         for (auto it = errorhandler.GetErrors().begin(); it != errorhandler.GetErrors().end(); ++it)
         {
                 if (info.size() > 127 * 1024)
@@ -1040,12 +1038,12 @@ void LogHarescriptError(Connection &conn, std::string const &source, std::string
 
                 if (it != errorhandler.GetErrors().begin())
                     info += ",";
-                info += "{\"filename\":" + Blex::AnyToJSON(it->filename);
-                info += ",\"line\":" + Blex::AnyToJSON(it->position.line);
-                info += ",\"col\":" + Blex::AnyToJSON(it->position.column);
-                info += ",\"message\":" + Blex::AnyToJSON(msg) + "}";
+                info += "{\"filename\":" + AnyToJSON(it->filename);
+                info += ",\"line\":" + AnyToJSON(it->position.line);
+                info += ",\"col\":" + AnyToJSON(it->position.column);
+                info += ",\"message\":" + AnyToJSON(msg) + "}";
         }
-        info += "],\"trace\":ra[";
+        info += "],\"trace\":[";
         for (auto it = errorhandler.GetStackTrace().begin(); it!=errorhandler.GetStackTrace().end();++it)
         {
                 if (info.size() > 127 * 1024)
@@ -1053,14 +1051,14 @@ void LogHarescriptError(Connection &conn, std::string const &source, std::string
 
                 if (it != errorhandler.GetStackTrace().begin())
                     info += ",";
-                info += "{\"filename\":" + Blex::AnyToJSON(it->filename);
-                info += ",\"line\":" + Blex::AnyToJSON(it->position.line);
-                info += ",\"col\":" + Blex::AnyToJSON(it->position.column);
-                info += ",\"func\":" + Blex::AnyToJSON(it->func) + "}";
+                info += "{\"filename\":" + AnyToJSON(it->filename);
+                info += ",\"line\":" + AnyToJSON(it->position.line);
+                info += ",\"col\":" + AnyToJSON(it->position.column);
+                info += ",\"func\":" + AnyToJSON(it->func) + "}";
         }
         info += "]}";
 
-        conn.RemoteLog("system:notice", header + info + "\t");
+        conn.RemoteLog("system:notice", info);
 }
 
 

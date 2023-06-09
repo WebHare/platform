@@ -81,15 +81,10 @@ RECORD FUNCTION DecodeHTTPLogLine(RECORD inline)
   RETURN inline;
 }
 
-STRING FUNCTION ParseContextInfo(STRING contextinfo)
+STRING FUNCTION ParseContextInfo(RECORD data)
 {
-  IF (contextinfo = "")
-    RETURN "";
-  RECORD data := DecodeHSON(contextinfo);
-  IF (NOT RecordExists(data))
-    RETURN "raw: " || EncodeJSON(contextinfo);
   IF (NOT CellExists(data, "SOURCE"))
-    RETURN "raw: " || EncodeJSON(contextinfo);
+    RETURN "raw: " || EncodeJSON(data);
   SWITCH (data.source)
   {
     CASE "publisher:publishing" { RETURN `Publishing file #${data.id}`; }
@@ -300,8 +295,7 @@ WHILE(TRUE)
       }
       CASE "debug"
       {
-        lastlines[END-1] := lastlines[END-1] || FormatDateTime("[%H:%M:%S.%Q]", line.when) || " " || line.srhid || " " || line.source || " " ||
-            Substitute(line.message, "\n", "\n  > ") || "\n";
+        lastlines[END-1] := lastlines[END-1] || FormatDateTime("[%H:%M:%S.%Q]", line."@timestamp") || " " || line.groupid || " " || line.source || " " || EncodeJSON(line.data) || "\n";
 
         IF (filtersources)
         {
@@ -321,7 +315,7 @@ WHILE(TRUE)
         {
           BOOLEAN have_match;
           FOREVERY (STRING mask FROM info.g)
-            have_match := have_match OR line.srhid LIKE mask;
+            have_match := have_match OR line.groupid LIKE mask;
           IF (NOT have_match)
           {
             IF (info.d)
@@ -331,50 +325,41 @@ WHILE(TRUE)
             CONTINUE;
           }
         }
-
-        FOREVERY (VARIANT part FROM line.params)
-        {
-          STRING data := TrimWhitespace(TypeID(part) != TypeID(STRING) ? AnyToString(part, "tree") : part);
-          FOREVERY (STRING partline FROM Tokenize(data, "\n"))
-            lastlines[END-1] := lastlines[END-1] || #part || " > " || partline || "\n";
-        }
       }
       CASE "notice"
       {
-        lastlines[END-1] := lastlines[END-1] || FormatDateTime("[%H:%M:%S.%Q]", line.when) || " " || line.srhid || " " || line.source || " " || line.type || "\n";
+        lastlines[END-1] := lastlines[END-1] || FormatDateTime("[%H:%M:%S.%Q]", line."@timestamp") || " " || line.groupid || " " || line.source || " " || line.type || "\n";
         //lastlines[END-1] := lastlines[END-1] || AnyToString(line.message, "tree");
-
-        IF (CellExists(line.message, "SCRIPT"))
-          lastlines[END-1] := lastlines[END-1] || "Script: " || line.message.script || "\n";
-        IF (CellExists(line.message, "CONTEXTINFO") AND TypeID(line.message.contextinfo) = TypeID(STRING))
+        IF (line.script != "")
+          lastlines[END-1] := lastlines[END-1] || "Script: " || line.script || "\n";
+        IF (RecordExists(line.contextinfo))
         {
           STRING parsed := ParseContextInfo(line.message.contextinfo);
           IF (parsed != "")
             lastlines[END-1] := lastlines[END-1] || "Context: " || parsed || "\n";
         }
 
-        IF (CellExists(line.message, "ERRORS"))
-          FOREVERY (RECORD t FROM line.message.errors)
+        FOREVERY (RECORD t FROM line.errors)
+        {
+          lastlines[END-1] := lastlines[END-1] || "Error: " || t.message || "\n";
+          IF (LENGTH(line.trace) = 0)
           {
-            lastlines[END-1] := lastlines[END-1] || "Error: " || t.message || "\n";
-            IF (NOT CellExists(line.message, "TRACE") OR LENGTH(line.message.trace) = 0)
-            {
-              STRING file := CellExists(t, "FILENAME") ? t.filename : CellExists(t, "FILE") ? t.file : "";
-              INTEGER linenum := CellExists(t, "LINENUM") ? t.linenum : CellExists(t, "LINE") ? t.line : 1;
-              INTEGER col := CellExists(t, "COLNUM") ? t.colnum : CellExists(t, "COL") ? t.col : 1;
-              STRING func := CellExists(t, "FUNCTION") ? t."function" : CellExists(t, "FUNC") ? t.func : "";
-              lastlines[END-1] := lastlines[END-1] || "At " || file || "(" || linenum || "," || col || ")" || (func = "" ? "" : " (" || func || ")") || "\n";
-            }
+            STRING file := CellExists(t, "FILENAME") ? t.filename : CellExists(t, "FILE") ? t.file : "";
+            INTEGER linenum := CellExists(t, "LINENUM") ? t.linenum : CellExists(t, "LINE") ? t.line : 1;
+            INTEGER col := CellExists(t, "COLNUM") ? t.colnum : CellExists(t, "COL") ? t.col : 1;
+            STRING func := CellExists(t, "FUNCTION") ? t."function" : CellExists(t, "FUNC") ? t.func : "";
+            lastlines[END-1] := lastlines[END-1] || "At " || file || "(" || linenum || "," || col || ")" || (func = "" ? "" : " (" || func || ")") || "\n";
           }
+        }
 
-        IF (CellExists(line.message, "BROWSER") AND TypeID(line.message.browser) = TypeID(RECORD) AND CellExists(line.message.browser, "LOCATION"))
-          lastlines[END-1] := lastlines[END-1] || "URL: " || line.message.browser.location || "\n";
-        ELSE IF (CellExists(line.message, "LOCATION"))
-          lastlines[END-1] := lastlines[END-1] || "URL: " || line.message.location || "\n";
+        IF (RecordExists(line.browser) AND line.browser.location != "")
+          lastlines[END-1] := lastlines[END-1] || "URL: " || line.browser.location || "\n";
+        ELSE IF (line.location != "")
+          lastlines[END-1] := lastlines[END-1] || "URL: " || line.location || "\n";
 
         IF (line.type = "javascript-error")
         {
-          RECORD entry := AnalyzeJavascriptNoticeLogEntry(line.message);
+          RECORD entry := AnalyzeJavascriptNoticeLogEntry(line);
           IF (RecordExists(entry))
           {
             FOREVERY (RECORD t FROM entry.errors)
@@ -393,20 +378,17 @@ WHILE(TRUE)
           }
         }
 
-        IF (CellExists(line.message, "TRACE"))
+        FOREVERY (RECORD t FROM line.trace)
         {
-          FOREVERY (RECORD t FROM line.message.trace)
-          {
-            STRING func := CellExists(t, "FUNCTION") ? t."function" : CellExists(t, "FUNC") ? t.func : "";
-            lastlines[END-1] := lastlines[END-1] || "At " || t.filename || "(" || (CellExists(t, "LINE") ? t.line : 1) || "," || (CellExists(t, "COL") ? t.col : 1) || ")" || (func = "" ? "" : " (" || func || ")") || "\n";
-          }
+          STRING func := CellExists(t, "FUNCTION") ? t."function" : CellExists(t, "FUNC") ? t.func : "";
+          lastlines[END-1] := lastlines[END-1] || "At " || t.filename || "(" || (CellExists(t, "LINE") ? t.line : 1) || "," || (CellExists(t, "COL") ? t.col : 1) || ")" || (func = "" ? "" : " (" || func || ")") || "\n";
         }
 
-        IF (CellExists(line.message, "TESTSCRIPT"))
-          lastlines[END-1] := lastlines[END-1] || "Test script: " || line.message.testscript || "\n";
+        IF (line.testscript != "")
+          lastlines[END-1] := lastlines[END-1] || "Test script: " || line.testscript || "\n";
 
-        IF (line.type NOT IN [ "javascript-error", "harescript-error", "siteprofilecompilation-error" ] AND RecordExists(line.message))
-          lastlines[END-1] := lastlines[END-1] || "log entry type: " || line.type || "\n" || AnyToString(line.message, "tree");
+        IF (line.type NOT IN [ "javascript-error", "harescript-error", "siteprofilecompilation-error" ] AND RecordExists(line.data))
+          lastlines[END-1] := lastlines[END-1] || "log entry type: " || line.type || "\n" || EncodeJSON(line.data);
       }
       CASE "audit"
       {

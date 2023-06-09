@@ -40,7 +40,7 @@ async function testBridge() {
 
   // Logging
   {
-    bridge.log("system:debug", "js bridge test");
+    bridge.log("system:debug", { text: "js bridge test" });
     await bridge.flushLog("system:debug");
     // FIXME: test if log item was correctly delivered
   }
@@ -105,7 +105,7 @@ async function testBridge() {
     test.throws(/Could not connect to global port "a:a"/, bridge.connect("a:a", { global: true }).activate());
   }
 
-  bridge.log("system:debug", "js bridge final message");
+  bridge.log("system:debug", { text: "js bridge final message" });
 }
 
 test.run([testBridge]);

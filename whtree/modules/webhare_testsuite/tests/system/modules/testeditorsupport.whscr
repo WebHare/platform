@@ -9,6 +9,7 @@ LOADLIB "wh::internet/webdav.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/validation/harescript.whlib";
 LOADLIB "mod::system/lib/internal/logging/noticelog.whlib";
@@ -76,13 +77,11 @@ MACRO TestNoticeLog()
   {
     LogHareScriptException(e, [ info := [ context := "webhare_testsuite:testeditorsupport" ]]);
   }
-  RECORD ARRAY errors := GetNoticeErrors([fromend := TRUE]);
-  errors := SELECT * FROM errors WHERE channel='ERROR' AND when >= starttest;
-  errors := SELECT * FROM errors WHERE CellExists(data,'info') AND data.info.context='webhare_testsuite:testeditorsupport';
+  RECORD ARRAY errors := WaitForPromise(CallAsync("@mod-system/js/internal/testtools.ts#readRecentLogLines", VARIANT[ "system:notice", starttest ]));
+  errors := SELECT * FROM errors WHERE source='harescript-error' AND CellExists(data,'info') AND data.info.context='webhare_testsuite:testeditorsupport';
 
   TestEq(1,Length(errors));
-  TestEq("harescript-error", errors[0].message);
-  TestEq("Exception: test-notice-log", errors[0].data.errors[0].message);
+  TestEq("Exception: test-notice-log", errors[0].errors[0].message);
 }
 
 RunTestFramework([ PTR TestAdminService

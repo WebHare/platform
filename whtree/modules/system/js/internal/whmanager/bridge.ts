@@ -54,10 +54,37 @@ export interface LogNoticeOptions {
   groupid?: string;
   script?: string;
   ///Error specific data, 'free form'
-  data?: unknown;
+  data?: LoggableRecord;
   contextinfo?: hsmarshalling.IPCMarshallableRecord;
   errortype?: "exception" | "unhandledRejection";
 }
+
+/// Expected format for log lines. We can't really specify types, some loggers might not know it either (eg. if they're logging external RPC responses)
+export type LoggableRecord = { [key: string]: unknown };
+
+function replaceLogParts(key: string, value: unknown) {
+  //Keep logs readable, try not to miss anything. But make sure we still output valid JSON
+  switch (typeof value) {
+    case "bigint":
+      return value.toString();
+    case "symbol":
+      return `[${value.toString()}]`;
+    case "function":
+      return value.name ? `[function ${value.name}]` : "[function]";
+    case "undefined":
+      return "[undefined]"; //can't print 'undefined' as that wouldn't be JSON
+    case "string":
+      if (value.length > 3000) //truncate too long strings
+        return value.substring(0, 3000) + "… (" + value.length + " chars)";
+    //fallthrough
+  }
+  return value;
+}
+
+function formatLogObject(logline: LoggableRecord): string {
+  return JSON.stringify({ "@timestamp": (new Date).toISOString(), ...logline }, replaceLogParts);
+}
+
 
 interface Bridge extends EventSource<BridgeEvents> {
   get connected(): boolean;
@@ -95,11 +122,11 @@ interface Bridge extends EventSource<BridgeEvents> {
       @param logname - Name of the log file
       @param logline - Line to log
   */
-  log(logname: string, logline: string): void;
+  log(logname: string, logline: LoggableRecord): void;
 
   /** Write a line to the debug log file
   */
-  logDebug(logsource: string, logline: unknown): void;
+  logDebug(logsource: string, logline: LoggableRecord): void;
 
   /** Flushes a log file. Returns when the flushing has been done, throws when the log did not exist
   */
@@ -308,7 +335,8 @@ class LocalBridge extends EventSource<BridgeEvents> {
     });
   }
 
-  log(logname: string, logline: string): void {
+  log(logname: string, logrecord: LoggableRecord): void {
+    const logline = formatLogObject(logrecord);
     this.port.postMessage({
       type: ToMainBridgeMessageType.Log,
       logname,
@@ -339,21 +367,18 @@ class LocalBridge extends EventSource<BridgeEvents> {
       ...(typeof e === "string" ? { error: e } : this.encodeJavaScriptExceptionData(e)),
       script: options.script ?? require.main?.filename ?? "",
       browser: { name: "nodejs" },
-      contextinfo: options.contextinfo ? hsmarshalling.encodeHSON(options.contextinfo) : "",
-      type: options.errortype === "unhandledRejection" ? "javascript-unhandled-rejection" : "javascript-error",
+      ...(options.contextinfo ? { contextinfo: options.contextinfo } : {}),
     };
-    return hsmarshalling.encodeHSON(data);
+    return data;
   }
 
   logNotice(type: string, e: Error | string, options: LogNoticeOptions = {}) {
     const groupid = options.groupid ?? this.getGroupId();
-    this.log("system:notice", `ts-node\t${type.toUpperCase()}\t${groupid}\t\tjavascript-error\t${this.encodeJavaScriptException(e, options)}`);
+    this.log("system:notice", { type, groupid, ...("data" in options ? { data: options.data } : {}), ...this.encodeJavaScriptException(e, options) });
   }
 
-  logDebug(source: string, data: unknown) {
-    const arg = JSON.stringify(data);
-    //data must fit in 128KB
-    this.log("system:debug", `${source}\t${this.getGroupId()}\t\t${arg.length > 127 * 1024 ? "-" : arg}`);
+  logDebug(source: string, data: LoggableRecord) {
+    this.log("system:debug", { source, groupid: this.getGroupId(), data });
   }
 
   async flushLog(logname: string | "*"): Promise<void> {

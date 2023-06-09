@@ -25,8 +25,7 @@ MACRO __HS_INTERNAL_SETDEBUGGINGTAGS(STRING ARRAY tags) __ATTRIBUTES__(EXTERNAL)
 
 PUBLIC RECORD __debugconfig;
 
-//Callback to ModuleLog(STRING type, STRING message) implementation
-PUBLIC MACRO PTR __onmodulelog; //used for testframework to record the log
+PUBLIC MACRO PTR __ondebuglog; //installed by preload
 
 /** @short Log debugging data
     @param logsource Source or call of the debug message.
@@ -39,19 +38,16 @@ PUBLIC MACRO LogDebug(STRING logsource, VARIANT message, VARIANT ARRAY args) __A
   IF(logsource = "")
     logsource := GetStackTrace()[1].filename;
 
-  STRING msg := EncodeJava(logsource) || "\t" || __HS_GetCurrentGroupID() || "\t" || EncodeJava(GetExternalSessionData());
-  FOREVERY(VARIANT arg FROM VARIANT[message] CONCAT args)
-  {
-    STRING encodedarg := TypeID(arg)=TypeID(STRING) ? EncodeJava(arg) : EncodeHSON(arg);
-    IF(Length(msg) + Length(encodedarg) > 127*1024) //risking passing the log line limit
-      encodedarg := "-";
-    msg := msg || '\t' || encodedarg;
-  }
+  IF(Length(args) > 0)
+    message := VARIANT[message, ...args];
 
-  IF(__onmodulelog != DEFAULT MACRO PTR) //This should normally be set up by the preload
-    __onmodulelog("system:debug", msg);
+  IF(__ondebuglog != DEFAULT MACRO PTR) //This should normally be set up by the preload
+    __ondebuglog(logsource, message);
   ELSE
-    PrintTo(2, `[system:debug] ${msg}\n`);
+  {
+    STRING msg := TYPEID(message) = TYPEID(STRING) ? EncodeJava(message) : EncodeHSON(message);
+    PrintTo(2, `[system:debug] ${logsource} ${Length(msg) > 127*1024 ? "-" : msg}\n`);
+  }
 }
 
 /** Returns whether a tag is currently enabled in the current debugging configuration
