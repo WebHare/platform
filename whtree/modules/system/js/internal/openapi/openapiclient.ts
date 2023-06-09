@@ -33,8 +33,6 @@ export class OpenAPIClient {
     const contenttype = call.headers.get("Content-Type") || "";
     const responsebody = contenttype == "application/json" ? await call.json() : await call.text();
     const retval = { status: call.status, headers: call.headers, contenttype, body: responsebody };
-    if (env.flags.wrq) //WRQ itself doesn't print responses yet..
-      console.log("[wrq] openapi result: ", retval);
 
     return retval;
   }

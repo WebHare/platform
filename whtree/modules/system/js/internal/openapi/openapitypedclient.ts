@@ -112,9 +112,6 @@ export class TypedOpenAPIClient<Paths extends object, Components extends Compone
       retval = { status: call.status, headers: call.headers, contenttype, body: responsebody };
     }
 
-    if (env.flags.wrq) //WRQ itself doesn't print responses yet..
-      console.log("[wrq] openapi result: ", retval);
-
     return retval as OpResponseTypes<Paths, Components, Path, Method>;
   }
 
