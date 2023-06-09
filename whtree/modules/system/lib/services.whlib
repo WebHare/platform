@@ -13,6 +13,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/services.whlib" EXPORT OpenWebHareService, WebHareServiceProxyBase, ServiceDisconnectException, ServiceUnavailableException, ScheduleCallbackOnServiceClose;
 LOADLIB "mod::system/lib/internal/cluster/secrets.whlib" EXPORT EncryptForThisServer, DecryptForThisServer;
 LOADLIB "mod::system/lib/internal/cluster/logging.whlib" EXPORT OpenWebHareLogStream, LogHarescriptException, ModuleLog;
+LOADLIB "mod::system/lib/internal/cluster/logwriter.whlib";
 LOADLIB "mod::system/lib/internal/cluster/lockmanager.whlib" EXPORT OpenLockManager;
 LOADLIB "mod::system/lib/internal/registry.whlib";
 
@@ -226,21 +227,10 @@ PUBLIC MACRO LogAccountingHit(STRING hittype, RECORD hitdata)
   IF(hitdata.count < 1)
     THROW NEW Exception(`Invalid count '${hittype}'`);
 
-  RECORD logextra;
-  IF(hitdata.error != "")
-    INSERT CELL error := hitdata.error INTO logextra;
-  IF(RecordExists(hitdata.extra))
-    INSERT CELL extra := hitdata.extra INTO logextra;
-  IF(hitdata.cached)
-    INSERT CELL cached := TRUE INTO logextra;
   IF(logsettings.logtraces)
-    INSERt CELL trace := GetStackTrace() INTO logextra;
+    INSERt CELL trace := GetStackTrace() INTO hitdata;
 
-  STRING logtail;
-  IF(RecordExists(logextra))
-    logtail := "\t" || EncodeHSON(logextra);
-
-  ModuleLog("system:accounting", hittype || "\t" || hitdata.account || "\t" || hitdata.source || "\t" || hitdata.requestid || "\t" || hitdata.count || logtail);
+  LogToJSONLog("system:accounting", CELL[ hittype, ...hitdata ]);
 }
 
 /** @short Implements rate limiting

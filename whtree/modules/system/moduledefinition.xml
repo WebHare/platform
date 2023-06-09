@@ -2171,7 +2171,7 @@ The full base URL on which this site will be published, calculated by combining 
     <log name="debug" filename="debug" />
     <log name="notice" filename="notice" />
     <log name="audit" filename="audit" />
-    <log name="accounting" filename="accounting" />
+    <log name="accounting" filename="accounting" timestamps="false" />
     <log name="apicalls" filename="apicalls" timestamps="false" />
   </logging>
 

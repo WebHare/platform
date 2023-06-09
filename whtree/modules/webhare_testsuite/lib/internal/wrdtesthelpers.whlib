@@ -7,7 +7,9 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
@@ -318,10 +320,18 @@ PUBLIC MACRO TestWRDAttributeValuesEqual(VARIANT expect, VARIANT got)
   TestEq(expect, got);
 }
 
+RECORD ARRAY seenentries;
+RECORD ARRAY FUNCTION GetNewAccountingLogEntries()
+{
+  FlushModuleLog("system:accounting"); //flush entries in *our* vm..
+  RECORD ARRAY allentries := WaitForPromise(CallAsync("@mod-system/js/internal/testtools.ts#readRecentLogLines", VARIANT[ "system:accounting", testfw->starttime ]));
+  RECORD ARRAY newentries := SELECT * FROM allentries WHERE allentries."@timestamp" NOT IN (SELECT AS STRING ARRAY seenentries."@timestamp" FROM seenentries);
+  seenentries := seenentries CONCAT newentries;
+  RETURN newentries;
+}
+
 PUBLIC MACRO TestCoreAddressAPI(OBJECT api, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  testfw->GetModuleLog();
-
   options := ValidateOptions([ loopback := FALSE
                              , uppercasenlcity := FALSE
                              , postbus := TRUE
@@ -334,7 +344,7 @@ PUBLIC MACRO TestCoreAddressAPI(OBJECT api, RECORD options DEFAULTSTO DEFAULT RE
   TestEq(TRUE, ObjectExists(api), "API must exist");
   RECORD checkres := api->CheckAddress([ zip := "12345", nr_detail:="296" ,country := "DE"]);
   TestEq('ok', checkres.status); //cannot validate, so it just returns what it has
-  TestEq(RECORD[], SELECT * FROM testfw->GetModuleLog() WHERE log = "system:accounting"); //should have no entries yet
+  TestEq(RECORD[], SELECT * FROM GetNewAccountingLogEntries()); //should have no entries yet
 
   checkres := api->CheckAddress([ zip := "7500OO", nr_detail:="296",country := "NL"]);
   TestEq('incomplete', checkres.status);
@@ -349,14 +359,14 @@ PUBLIC MACRO TestCoreAddressAPI(OBJECT api, RECORD options DEFAULTSTO DEFAULT RE
   TestEq('incomplete', checkres.status);
   TestEq([ city := enschede, country := "NL", nr_detail := "296abc", zip := "7521 AM", street := "Hengelosestraat" ], checkres.data);
 
-  TestEq(RECORD[], SELECT * FROM testfw->GetModuleLog() WHERE log = "system:accounting"); //should have no entries yet
+  TestEq(RECORD[], SELECT * FROM GetNewAccountingLogEntries()); //should have no entries yet
 
   checkres := api->CheckAddress([ zip := "7521 AM", nr_detail:="296abc", country := "NL", street := "HengeloseStraat", city := enschede]);
   TestEq('ok', checkres.status);
   TestEq([ city := enschede, country := "NL", nr_detail := "296abc", zip := "7521 AM", street := "HengeloseStraat" ], checkres.data);
   TestEq(FALSE, RecordExists(checkres.looked_up));
 
-  TestEq(RECORD[], SELECT * FROM testfw->GetModuleLog() WHERE log = "system:accounting"); //should have no entries yet - this is a cached address
+  TestEq(RECORD[], SELECT * FROM GetNewAccountingLogEntries()); //should have no entries yet - this is a cached address
 
   checkres := api->CheckAddress([ zip := "7521 AM", nr_detail:="296abc", country := "NL", street := "HengeloseStraat", city := enschede], [ alwaysverify := TRUE ]);
   TestEq('ok', checkres.status);
@@ -382,12 +392,12 @@ PUBLIC MACRO TestCoreAddressAPI(OBJECT api, RECORD options DEFAULTSTO DEFAULT RE
     checkres := api->CheckAddress([ zip := "7522nb", nr_detail:="5" ,country := "NL"]);
 
     TestEq([ city := enschede, country := "NL", nr_detail := "5", zip := "7522 NB", street := "Drienerlolaan" ], checkres.data);
-    TestEq(options.expectlookupcalls, Length(SELECT * FROM testfw->GetModuleLog() WHERE log = "system:accounting")); //should have logged a hit for this!
+    TestEq(options.expectlookupcalls, Length(SELECT * FROM GetNewAccountingLogEntries())); //should have logged a hit for this!
 
     checkres := api->CheckAddress([ zip := "7522 Nb", nr_detail:="5 " ,country := "NL"]);
 
     TestEq([ city := enschede, country := "NL", nr_detail := "5", zip := "7522 NB", street := "Drienerlolaan" ], checkres.data);
-    TestEq(RECORD[], SELECT * FROM testfw->GetModuleLog() WHERE log = "system:accounting"); //should have cached this
+    TestEq(RECORD[], SELECT * FROM GetNewAccountingLogEntries()); //should have cached this
 
     IF(options.postbus)
     {

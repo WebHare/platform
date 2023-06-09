@@ -1,0 +1,17 @@
+<?wh
+(*ISSYSTEMLIBRARY*)
+
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "wh::system.whlib";
+
+/** @short Log to a JSON log file
+    @param logname Target log. Ensure it's configured with timestamps=false!
+    @param data Data to log. The `@timestamp` will be added automatically */
+PUBLIC MACRO LogToJSONLog(STRING logname, RECORD data)
+{
+  __SYSTEM_REMOTELOG(logname, EncodeJSON(CELL["@timestamp" := GetCurrentDatetime(), ...data]));
+}
+
+

@@ -7,6 +7,7 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/cluster/logging.whlib" EXPORT OpenWebHareLogStream, OpenWebHareLogStreamFromFiles, LogHarescriptException, ModuleLog, UpdateAuditContext;
 LOADLIB "mod::system/lib/internal/cluster/logsettings.whlib";
+LOADLIB "mod::system/lib/internal/cluster/logwriter.whlib" EXPORT LogToJSONLog;
 
 /** Flushes a specific module log
     @param name Name of the log (module:logname) to flush, or "*" to flush all log files
@@ -157,12 +158,4 @@ PUBLIC MACRO WriteLogMarker(STRING text)
   LogInfo("system:debug", mark, DEFAULT RECORD);
   ModuleLog("system:rpc", EncodeJava("system:debug") || "\t" || GetCurrentGroupId() || "\t" || EncodeJava(mark));
   ModuleLog("system:servicemanager", EncodeJava("system:debug") || "\t" || GetCurrentGroupId() || "\t" || EncodeJava(mark));
-}
-
-/** @short Log to a JSON log file
-    @param logname Target log. Ensure it's configured with timestamps=false!
-    @param data Data to log. The `@timestamp` will be added automatically */
-PUBLIC MACRO LogToJSONLog(STRING logname, RECORD data)
-{
-  ModuleLog(logname, EncodeJSON(["@timestamp" := GetCurrentDatetime(), ...data]));
 }
