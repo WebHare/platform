@@ -25,11 +25,9 @@ export class RestService {
 
     try {
       const webreq = new WebRequest(req.url, { method: req.method, headers: req.headers, body: req.body });
-      const response = await this.#runRestRouter(webreq, relurl, logger);
-      const headers = response.getHeaders();
-      const body = await response.text();
-      this.logRequest(logger, response.status, body.length);
-      return { status: response.status, headers: Object.fromEntries(headers), body: body };
+      const response = await (await this.#runRestRouter(webreq, relurl, logger)).asWebResponseInfo();
+      this.logRequest(logger, response.status, response.body.length);
+      return response;
     } catch (e) {
       this.logRequest(logger, 500, 0);
       throw e;

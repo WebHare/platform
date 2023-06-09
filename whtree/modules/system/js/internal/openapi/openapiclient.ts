@@ -1,5 +1,4 @@
 import { HTTPErrorCode, HTTPStatusCode } from "@webhare/router";
-import * as env from "@webhare/env";
 
 export type OpenAPIResponse<BodyType> = {
   status: HTTPErrorCode | HTTPStatusCode;

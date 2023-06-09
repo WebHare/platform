@@ -1,5 +1,4 @@
 import { HTTPErrorCode, HTTPMethod, HTTPStatusCode, RestDefaultErrorBody } from "@webhare/router";
-import * as env from "@webhare/env";
 import { ComponentsBase, DefaultErrorType, GetBodyType, GetOperation, GetOperationByPathAndMethod, GetParametersType, JSONResponseTypes } from "./types";
 import { JSONResponseCodes, JSONResponseForCode, RestResponsesBase } from "@webhare/router/src/restrequest";
 import { getServiceInstance, RestService } from "@mod-system/js/internal/openapi/openapiservice";
