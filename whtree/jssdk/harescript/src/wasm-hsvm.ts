@@ -1,4 +1,4 @@
-import { HSVM, HSVM_ColumnId, HSVM_VariableId, HSVM_VariableType, Module, Ptr, StringPtr } from "./dllinterface";
+import type { HSVM, HSVM_ColumnId, HSVM_VariableId, HSVM_VariableType, WASMModuleInterface, Ptr, StringPtr } from "../../../lib/harescript-interface";
 import { IPCMarshallableData, IPCMarshallableRecord, VariableType, decodeHSON, determineType, encodeHSON, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import * as path from "node:path";
@@ -9,7 +9,7 @@ import { decodeString } from "@webhare/std";
 // @ts-ignore: implicitly has an `any` type
 import createModule from "../../../lib/harescript";
 import * as syscalls from "./syscalls";
-import bridge from "@mod-system/js/internal/whmanager/bridge";
+import { registerBaseFunctions } from "./wasm-hsfunctions";
 
 type SysCallsModule = { [key: string]: (data: unknown) => unknown };
 
@@ -36,64 +36,64 @@ export class HSVMVar {
   }
 
   checkType(type: VariableType) {
-    this.type ??= this.vm.module._HSVM_GetType(this.vm.hsvm, this.id);
+    this.type ??= this.vm.wasmmodule._HSVM_GetType(this.vm.hsvm, this.id);
     if (this.type !== type)
       throw new Error(`Variable doesn't have expected type ${VariableType[type]}, but got ${VariableType[this.type]}`);
   }
   getBoolean(): number {
     this.checkType(VariableType.Boolean);
-    return this.vm.module._HSVM_BooleanGet(this.vm.hsvm, this.id);
+    return this.vm.wasmmodule._HSVM_BooleanGet(this.vm.hsvm, this.id);
   }
   setBoolean(value: boolean) {
-    this.vm.module._HSVM_BooleanSet(this.vm.hsvm, this.id, value);
+    this.vm.wasmmodule._HSVM_BooleanSet(this.vm.hsvm, this.id, value ? 1 : 0);
     this.type = VariableType.Boolean;
   }
   getInteger(): number {
     this.checkType(VariableType.Integer);
-    return this.vm.module._HSVM_IntegerGet(this.vm.hsvm, this.id);
+    return this.vm.wasmmodule._HSVM_IntegerGet(this.vm.hsvm, this.id);
   }
   setInteger(value: number) {
-    this.vm.module._HSVM_IntegerSet(this.vm.hsvm, this.id, value);
+    this.vm.wasmmodule._HSVM_IntegerSet(this.vm.hsvm, this.id, value);
     this.type = VariableType.Integer;
   }
   getString(): string {
     this.checkType(VariableType.String);
-    this.vm.module._HSVM_StringGet(this.vm.hsvm, this.id, this.vm.module.stringptrs, this.vm.module.stringptrs + 4);
-    const begin = this.vm.module.getValue(this.vm.module.stringptrs, "*") as number;
-    const end = this.vm.module.getValue(this.vm.module.stringptrs + 4, "*") as number;
+    this.vm.wasmmodule._HSVM_StringGet(this.vm.hsvm, this.id, this.vm.wasmmodule.stringptrs, this.vm.wasmmodule.stringptrs + 4);
+    const begin = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs, "*") as number;
+    const end = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs + 4, "*") as number;
     // TODO: can we useuffer and its utf-8 decoder? strings can also contain \0
-    return this.vm.module.UTF8ToString(begin, end - begin);
+    return this.vm.wasmmodule.UTF8ToString(begin, end - begin);
   }
   setString(value: string) {
     // this.checkType(VariableType.String);
-    const len = this.vm.module.lengthBytesUTF8(value);
-    const alloced = this.vm.module._malloc(len + 1);
-    this.vm.module.stringToUTF8(value, alloced, len + 1);
-    this.vm.module._HSVM_StringSet(this.vm.hsvm, this.id, alloced, alloced + len);
-    this.vm.module._free(alloced);
+    const len = this.vm.wasmmodule.lengthBytesUTF8(value);
+    const alloced = this.vm.wasmmodule._malloc(len + 1);
+    this.vm.wasmmodule.stringToUTF8(value, alloced, len + 1);
+    this.vm.wasmmodule._HSVM_StringSet(this.vm.hsvm, this.id, alloced, alloced + len);
+    this.vm.wasmmodule._free(alloced);
     this.type = VariableType.String;
   }
   setDefault(type: VariableType): HSVMVar {
     if (type === VariableType.Array)
       throw new Error(`Illegal variable type ${VariableType[type] ?? type}`);
-    this.vm.module._HSVM_SetDefault(this.vm.hsvm, this.id, type as HSVM_VariableType);
+    this.vm.wasmmodule._HSVM_SetDefault(this.vm.hsvm, this.id, type as HSVM_VariableType);
     this.type = type;
     return this;
   }
   arrayAppend() {
-    this.type ??= this.vm.module._HSVM_GetType(this.vm.hsvm, this.id);
+    this.type ??= this.vm.wasmmodule._HSVM_GetType(this.vm.hsvm, this.id);
     if (!(this.type & 0x80))
       throw new Error(`Variable is not an ARRAY`);
-    const eltid = this.vm.module._HSVM_ArrayAppend(this.vm.hsvm, this.id);
+    const eltid = this.vm.wasmmodule._HSVM_ArrayAppend(this.vm.hsvm, this.id);
     return new HSVMVar(this.vm, eltid);
   }
   ensureCell(name: string) {
-    this.type ??= this.vm.module._HSVM_GetType(this.vm.hsvm, this.id);
+    this.type ??= this.vm.wasmmodule._HSVM_GetType(this.vm.hsvm, this.id);
     if (this.type !== VariableType.Record)
       throw new Error(`Variable is not an RECORD`);
 
     const columnid = this.vm.getColumnId(name.toString());
-    const newid = this.vm.module._HSVM_RecordCreate(this.vm.hsvm, this.id, columnid);
+    const newid = this.vm.wasmmodule._HSVM_RecordCreate(this.vm.hsvm, this.id, columnid);
     return new HSVMVar(this.vm, newid);
   }
   setJSValue(value: unknown) {
@@ -133,7 +133,7 @@ export class HSVMVar {
         if (!recval)
           this.setDefault(VariableType.Record);
         else {
-          this.vm.module._HSVM_RecordSetEmpty(this.vm.hsvm, this.id);
+          this.vm.wasmmodule._HSVM_RecordSetEmpty(this.vm.hsvm, this.id);
           for (const [key, propval] of Object.entries(recval)) {
             this.ensureCell(key).setJSValue(propval);
           }
@@ -151,7 +151,7 @@ export class HSVMVar {
     throw new Error(`Encoding ${VariableType[type]} not supported yet`);
   }
   getJSValue(): unknown {
-    const type = this.vm.module._HSVM_GetType(this.vm.hsvm, this.id) as VariableType;
+    const type = this.vm.wasmmodule._HSVM_GetType(this.vm.hsvm, this.id) as VariableType;
     switch (type) {
       case VariableType.VariantArray: break;
       case VariableType.BooleanArray: break;
@@ -166,22 +166,22 @@ export class HSVMVar {
       case VariableType.ObjectArray: break;
 
       case VariableType.Integer: {
-        return this.vm.module._HSVM_IntegerGet(this.vm.hsvm, this.id);
+        return this.vm.wasmmodule._HSVM_IntegerGet(this.vm.hsvm, this.id);
       } break;
       case VariableType.Boolean: {
-        return Boolean(this.vm.module._HSVM_BooleanGet(this.vm.hsvm, this.id));
+        return Boolean(this.vm.wasmmodule._HSVM_BooleanGet(this.vm.hsvm, this.id));
       } break;
       case VariableType.String: {
         return this.getString();
       } break;
       case VariableType.Record: {
-        if (!this.vm.module._HSVM_RecordExists(this.vm.hsvm, this.id))
+        if (!this.vm.wasmmodule._HSVM_RecordExists(this.vm.hsvm, this.id))
           return null;
-        const cellcount = this.vm.module._HSVM_RecordLength(this.vm.hsvm, this.id);
+        const cellcount = this.vm.wasmmodule._HSVM_RecordLength(this.vm.hsvm, this.id);
         const value: Record<string, unknown> = {};
         for (let pos = 0; pos < cellcount; ++pos) {
-          const columnid = this.vm.module._HSVM_RecordColumnIdAtPos(this.vm.hsvm, this.id, pos);
-          const cell = this.vm.module._HSVM_RecordGetRef(this.vm.hsvm, this.id, columnid);
+          const columnid = this.vm.wasmmodule._HSVM_RecordColumnIdAtPos(this.vm.hsvm, this.id, pos);
+          const cell = this.vm.wasmmodule._HSVM_RecordGetRef(this.vm.hsvm, this.id, columnid);
           value[this.vm.getColumnName(columnid)] = (new HSVMVar(this.vm, cell)).getJSValue();
         }
         return value;
@@ -192,9 +192,9 @@ export class HSVMVar {
     }
     if (type & VariableType.Array) {
       const value: unknown[] = getTypedArray(type, []);
-      const eltcount = this.vm.module._HSVM_ArrayLength(this.vm.hsvm, this.id);
+      const eltcount = this.vm.wasmmodule._HSVM_ArrayLength(this.vm.hsvm, this.id);
       for (let i = 0; i < eltcount; ++i) {
-        const elt = this.vm.module._HSVM_ArrayGetRef(this.vm.hsvm, this.id, i);
+        const elt = this.vm.wasmmodule._HSVM_ArrayGetRef(this.vm.hsvm, this.id, i);
         value.push((new HSVMVar(this.vm, elt)).getJSValue());
       }
       return value;
@@ -298,7 +298,7 @@ function parseError(line: string) {
   return {
     iserror: !errorparts[0] || !errorparts[0].startsWith("W"),
     line: parseInt(errorparts[1]),
-    column: parseInt(errorparts[2]),
+    col: parseInt(errorparts[2]),
     filename: errorparts[3],
     code: parseInt(errorparts[4]),
     msg1: errorparts[5],
@@ -307,7 +307,7 @@ function parseError(line: string) {
   };
 }
 
-async function recompileHarescriptLibrary(uri: string, options?: { force: boolean }) {
+export async function recompileHarescriptLibrary(uri: string, options?: { force: boolean }) {
   try {
     // console.log(`recompileHarescriptLibrary`, uri);
 
@@ -333,13 +333,8 @@ async function recompileHarescriptLibrary(uri: string, options?: { force: boolea
   }
 }
 
-function ensureItfSet(module: Module): asserts module is Module & { itf: HarescriptVM } {
-  if (!module.itf)
-    throw new Error(`Initialization of Harescript module not complete`);
-}
-
 export class HarescriptVM {
-  module: Module;
+  wasmmodule: WASMModule;
   hsvm: HSVM;
   errorlist: HSVM_VariableId;
   dispatchfptr: HSVM_VariableId;
@@ -350,8 +345,8 @@ export class HarescriptVM {
   consoleArguments: string[];
   columnNameIdMap: Record<string, HSVM_ColumnId> = {};
 
-  constructor(module: Module, hsvm: HSVM) {
-    this.module = module;
+  constructor(module: WASMModule, hsvm: HSVM) {
+    this.wasmmodule = module;
     module.itf = this;
     this.hsvm = hsvm;
     this.dispatchfptr = module._HSVM_AllocateVariable(hsvm);
@@ -362,51 +357,51 @@ export class HarescriptVM {
   }
 
   getColumnName(columnid: HSVM_ColumnId): string {
-    this.module._HSVM_GetColumnName(this.hsvm, columnid, this.columnnamebuf);
-    return this.module.UTF8ToString(this.columnnamebuf).toLowerCase();
+    this.wasmmodule._HSVM_GetColumnName(this.hsvm, columnid, this.columnnamebuf);
+    return this.wasmmodule.UTF8ToString(this.columnnamebuf).toLowerCase();
   }
 
   getColumnId(name: string): HSVM_ColumnId {
     const id = this.columnNameIdMap[name];
     if (id)
       return id;
-    this.module.stringToUTF8(name, this.columnnamebuf, 64);
-    return this.columnNameIdMap[name] = this.module._HSVM_GetColumnId(this.hsvm, this.columnnamebuf);
+    this.wasmmodule.stringToUTF8(name, this.columnnamebuf, 64);
+    return this.columnNameIdMap[name] = this.wasmmodule._HSVM_GetColumnId(this.hsvm, this.columnnamebuf);
   }
 
   quickParseVariable(variable: HSVM_VariableId): IPCMarshallableData {
     let value;
-    const type = this.module._HSVM_GetType(this.hsvm, variable);
+    const type = this.wasmmodule._HSVM_GetType(this.hsvm, variable);
     switch (type) {
       case VariableType.Integer: {
-        value = this.module._HSVM_IntegerGet(this.hsvm, variable);
+        value = this.wasmmodule._HSVM_IntegerGet(this.hsvm, variable);
       } break;
       case VariableType.Boolean: {
-        value = Boolean(this.module._HSVM_BooleanGet(this.hsvm, variable));
+        value = Boolean(this.wasmmodule._HSVM_BooleanGet(this.hsvm, variable));
       } break;
       case VariableType.String: {
-        this.module._HSVM_StringGet(this.hsvm, variable, this.stringptrs, this.stringptrs + 4);
-        const begin = this.module.getValue(this.stringptrs, "*") as number;
-        const end = this.module.getValue(this.stringptrs + 4, "*") as number;
-        value = this.module.UTF8ToString(begin, end - begin);
+        this.wasmmodule._HSVM_StringGet(this.hsvm, variable, this.stringptrs, this.stringptrs + 4);
+        const begin = this.wasmmodule.getValue(this.stringptrs, "*") as number;
+        const end = this.wasmmodule.getValue(this.stringptrs + 4, "*") as number;
+        value = this.wasmmodule.UTF8ToString(begin, end - begin);
       } break;
       case VariableType.RecordArray: {
         value = [];
-        const eltcount = this.module._HSVM_ArrayLength(this.hsvm, variable);
+        const eltcount = this.wasmmodule._HSVM_ArrayLength(this.hsvm, variable);
         for (let i = 0; i < eltcount; ++i) {
-          const elt = this.module._HSVM_ArrayGetRef(this.hsvm, variable, i);
+          const elt = this.wasmmodule._HSVM_ArrayGetRef(this.hsvm, variable, i);
           value.push(this.quickParseVariable(elt));
         }
       } break;
       case VariableType.Record: {
-        if (!this.module._HSVM_RecordExists(this.hsvm, variable))
+        if (!this.wasmmodule._HSVM_RecordExists(this.hsvm, variable))
           value = null;
         else {
-          const cellcount = this.module._HSVM_RecordLength(this.hsvm, variable);
+          const cellcount = this.wasmmodule._HSVM_RecordLength(this.hsvm, variable);
           value = {};
           for (let pos = 0; pos < cellcount; ++pos) {
-            const columnid = this.module._HSVM_RecordColumnIdAtPos(this.hsvm, variable, pos);
-            const cell = this.module._HSVM_RecordGetRef(this.hsvm, variable, columnid);
+            const columnid = this.wasmmodule._HSVM_RecordColumnIdAtPos(this.hsvm, variable, pos);
+            const cell = this.wasmmodule._HSVM_RecordGetRef(this.hsvm, variable, columnid);
             (value as Record<string, unknown>)[this.getColumnName(columnid)] = this.quickParseVariable(cell);
           }
         }
@@ -419,16 +414,16 @@ export class HarescriptVM {
   }
 
   async loadScript(lib: string): Promise<void> {
-    const lib_str = this.module.stringToNewUTF8(lib);
+    const lib_str = this.wasmmodule.stringToNewUTF8(lib);
     try {
       const maxTries = 5;
       for (let tryCounter = 0; tryCounter < maxTries; ++tryCounter) {
-        this.module._HSVM_SetDefault(this.hsvm, this.errorlist, VariableType.RecordArray as HSVM_VariableType);
-        const fptrresult = this.module._HSVM_LoadScript(this.hsvm, lib_str);
+        this.wasmmodule._HSVM_SetDefault(this.hsvm, this.errorlist, VariableType.RecordArray as HSVM_VariableType);
+        const fptrresult = this.wasmmodule._HSVM_LoadScript(this.hsvm, lib_str);
         if (fptrresult)
           return; //Success!
 
-        this.module._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
+        this.wasmmodule._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
         const parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
         if (tryCounter < maxTries - 1 && parsederrors.length === 1 && [2, 139, 157].includes(parsederrors[0].code)) {
           let recompileres = await recompileHarescriptLibrary(lib);
@@ -443,39 +438,39 @@ export class HarescriptVM {
       // Should be unreachable, in last tries the returned error is thrown
       throw new Error(`Could not compile library after ${maxTries} tries`);
     } finally {
-      this.module._free(lib_str);
+      this.wasmmodule._free(lib_str);
     }
   }
 
   async executeScript(): Promise<void> {
-    const executeresult = await this.module._HSVM_ExecuteScript(this.hsvm, 1, 0);
+    const executeresult = await this.wasmmodule._HSVM_ExecuteScript(this.hsvm, 1, 0);
     if (executeresult === 1)
       return;
 
-    this.module._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
+    this.wasmmodule._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
     const parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
     if (parsederrors.length) {
       const trace = parsederrors.filter(e => e.istrace).map(e =>
-        `\n    at ${e.func} (${e.filename}:${e.line}:${e.col})}`).join("");
+        `\n    at ${e.func} (${e.filename}:${e.line}:${e.col})`).join("");
       throw new Error(`Error executing script: ${parsederrors[0].message + trace}`);
     } else
       throw new Error(`Error executing script`);
   }
 
   async makeFunctionPtr(fptr: HSVM_VariableId, lib: string, name: string): Promise<boolean> {
-    const lib_str = this.module.stringToNewUTF8(lib);
-    const name_str = this.module.stringToNewUTF8(name);
+    const lib_str = this.wasmmodule.stringToNewUTF8(lib);
+    const name_str = this.wasmmodule.stringToNewUTF8(name);
     try {
       const maxTries = 5;
       for (let tryCounter = 0; tryCounter < maxTries; ++tryCounter) {
-        this.module._HSVM_SetDefault(this.hsvm, this.errorlist, VariableType.RecordArray as HSVM_VariableType);
-        const fptrresult = this.module._HSVM_MakeFunctionPtrAutoDetect(this.hsvm, fptr, lib_str, name_str, this.errorlist);
+        this.wasmmodule._HSVM_SetDefault(this.hsvm, this.errorlist, VariableType.RecordArray as HSVM_VariableType);
+        const fptrresult = this.wasmmodule._HSVM_MakeFunctionPtrAutoDetect(this.hsvm, fptr, lib_str, name_str, this.errorlist);
         switch (fptrresult) {
           case 0:
           case -2: {
             let parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
             if (parsederrors.length === 0) { //runtime errors are in the VM's mesage list
-              this.module._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
+              this.wasmmodule._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
               parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
             }
             if (tryCounter < maxTries - 1 && parsederrors.length === 1 && [2, 139, 157].includes(parsederrors[0].code)) {
@@ -495,8 +490,8 @@ export class HarescriptVM {
       // Should be unreachable, in last tries the returned error is thrown
       throw new Error(`Could not compile library after ${maxTries} tries`);
     } finally {
-      this.module._free(lib_str);
-      this.module._free(name_str);
+      this.wasmmodule._free(lib_str);
+      this.wasmmodule._free(name_str);
     }
   }
 
@@ -521,38 +516,38 @@ export class HarescriptVM {
       this.havedispatchfptr = true;
     }
 
-    const callfuncptr = this.module._HSVM_AllocateVariable(this.hsvm);
+    const callfuncptr = this.wasmmodule._HSVM_AllocateVariable(this.hsvm);
     try {
       await this.makeFunctionPtr(callfuncptr, parts[0], parts[1]);
 
       // console.log(`clear errorlist`);
-      this.module._HSVM_SetDefault(this.hsvm, this.errorlist, VariableType.RecordArray as HSVM_VariableType);
+      this.wasmmodule._HSVM_SetDefault(this.hsvm, this.errorlist, VariableType.RecordArray as HSVM_VariableType);
 
       const hson = encodeHSON(marshaldata);
-      const len = this.module.lengthBytesUTF8(hson);
-      const hsondata = this.module._malloc(len + 1);
-      this.module.stringToUTF8(hson, hsondata, len + 1);
+      const len = this.wasmmodule.lengthBytesUTF8(hson);
+      const hsondata = this.wasmmodule._malloc(len + 1);
+      this.wasmmodule.stringToUTF8(hson, hsondata, len + 1);
 
       // console.log(`open call`);
-      this.module._HSVM_OpenFunctionCall(this.hsvm, 3);
-      this.module._HSVM_CopyFrom(this.hsvm, this.module._HSVM_CallParam(this.hsvm, 0), callfuncptr);
-      this.module._HSVM_StringSet(this.hsvm, this.module._HSVM_CallParam(this.hsvm, 1), hsondata, hsondata + len);
-      this.module._HSVM_BooleanSet(this.hsvm, this.module._HSVM_CallParam(this.hsvm, 2), isfunction);
-      this.module._free(hsondata);
+      this.wasmmodule._HSVM_OpenFunctionCall(this.hsvm, 3);
+      this.wasmmodule._HSVM_CopyFrom(this.hsvm, this.wasmmodule._HSVM_CallParam(this.hsvm, 0), callfuncptr);
+      this.wasmmodule._HSVM_StringSet(this.hsvm, this.wasmmodule._HSVM_CallParam(this.hsvm, 1), hsondata, hsondata + len);
+      this.wasmmodule._HSVM_BooleanSet(this.hsvm, this.wasmmodule._HSVM_CallParam(this.hsvm, 2), isfunction ? 1 : 0);
+      this.wasmmodule._free(hsondata);
       // console.log(`call functionptr`, this.dispatchfptr, VariableType[this.module._HSVM_GetType(this.hsvm, this.dispatchfptr)]);
       // console.log(`call functionptr`, this.module._HSVM_GetType(this.hsvm, this.dispatchfptr));
-      const retvalid = await this.module._HSVM_CallFunctionPtr(this.hsvm, this.dispatchfptr, 0);
+      const retvalid = await this.wasmmodule._HSVM_CallFunctionPtr(this.hsvm, this.dispatchfptr, 0);
       // console.log({ retvalid });
       if (!retvalid) {
-        this.module._HSVM_CloseFunctionCall(this.hsvm);
-        this.module._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
+        this.wasmmodule._HSVM_CloseFunctionCall(this.hsvm);
+        this.wasmmodule._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
         const parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
         const trace = parsederrors.filter(e => e.istrace).map(e =>
-          `\n    at ${e.func} (${e.filename}:${e.line}:${e.col})}`).join("");
+          `\n    at ${e.func} (${e.filename}:${e.line}:${e.col})`).join("");
         throw new Error((parsederrors[0].message ?? "Unknown error") + trace);
       } else {
         const retval = this.quickParseVariable(retvalid);
-        this.module._HSVM_CloseFunctionCall(this.hsvm);
+        this.wasmmodule._HSVM_CloseFunctionCall(this.hsvm);
 
         const plainvalue = decodeHSON(retval as string) as { value: IPCMarshallableData; __exception?: { what: string } };
         if (plainvalue.__exception)
@@ -560,7 +555,7 @@ export class HarescriptVM {
         return plainvalue.value;
       }
     } finally {
-      this.module._HSVM_DeallocateVariable(this.hsvm, callfuncptr);
+      this.wasmmodule._HSVM_DeallocateVariable(this.hsvm, callfuncptr);
     }
   }
 
@@ -572,271 +567,252 @@ export class HarescriptVM {
   }
 }
 
-async function createHarescriptModule(modulestuff = {}): Promise<Module> {
-  // Store into variable 'module' so functions can refer to it
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- initialization & typing is ugly, need to refactor
-  let moduletemplate: any;
-  const module = await createModule((moduletemplate = {
-    ...modulestuff,
+type RegisteredExternal = {
+  name: string;
+  parameters: number;
+  func?: ((vm: HSVM, id_set: HSVMVar, ...params: HSVMVar[]) => void);
+  macro?: ((vm: HSVM, ...params: HSVMVar[]) => void);
+  asyncfunc?: ((vm: HSVM, id_set: HSVMVar, ...params: HSVMVar[]) => Promise<void>);
+  asyncmacro?: ((vm: HSVM, ...params: HSVMVar[]) => Promise<void>);
+};
 
-    emSyscall(jsondata_ptr: number): string {
-      const jsondata = module.UTF8ToString(jsondata_ptr);
-      const { call, data } = JSON.parse(jsondata);
-      if (!(syscalls as SysCallsModule)[call])
-        return "unknown";
+/** WASMModuleBase is an empty class we override to look like it contains all the properties the Emscripten
+ * WASM module harescript.js provides.
+ */
+const WASMModuleBase = (class { }) as { new(): WASMModuleInterface };
 
-      const result = (syscalls as SysCallsModule)[call](data);
-      return JSON.stringify(result);
-    },
+export class WASMModule extends WASMModuleBase {
 
-    getTempDir() {
-      return process.env.WEBHARE_TEMP || path.join(config.dataroot || "tmp/");
-    },
+  stringptrs: Ptr = 0;
+  externals = new Array<RegisteredExternal>;
+  itf: HarescriptVM;
 
-    getWHResourceDir() {
-      return path.join(config.installationroot, "modules/system/whres/");
-    },
+  constructor() {
+    super();
+    // this.itf is always set when running functions of this class, so make it look like it is
+    this.itf = undefined as unknown as HarescriptVM;
+  }
 
-    getDataRoot() {
-      return config.dataroot;
-    },
+  prepare() {
+    // emscripten doesn't call preRun with class syntax, so bind it
+    this["preRun"] = this["preRun"].bind(this);
+  }
 
-    getInstallationRoot() {
-      return config.installationroot;
-    },
+  init() {
+    this.stringptrs = this._malloc(8);
+  }
 
-    getCompileCache() {
-      let cache = process.env.WEBHARE_COMPILECACHE;
-      if (cache && !cache.endsWith("/"))
-        cache += "/";
-      else if (!cache) {
-        cache = config.dataroot + "ephemeral/compilecache/";
-      }
-      return cache;
-    },
+  emSyscall(jsondata_ptr: number): string {
+    const jsondata = this.UTF8ToString(jsondata_ptr);
+    const { call, data } = JSON.parse(jsondata);
+    if (!(syscalls as SysCallsModule)[call])
+      return "unknown";
 
-    doTranslateLibraryURI(directuri: string) {
-      const moduri = translateDirectToModURI(directuri);
-      if (moduri.startsWith(wh_namespace_location)) //wh:: lives in mod::system...
-        return `wh::${moduri.substring(wh_namespace_location.length)}`;
-      return moduri;
-    },
+    const result = (syscalls as SysCallsModule)[call](data);
+    return JSON.stringify(result);
+  }
 
-    translateLibraryURI(directuri_ptr: Ptr) {
-      const directuri = module.UTF8ToString(directuri_ptr);
-      return module.stringToNewUTF8(this.doTranslateLibraryURI(directuri));
-    },
+  getTempDir() {
+    return process.env.WEBHARE_TEMP || path.join(config.dataroot || "tmp/");
+  }
 
-    getOpenLibraryPath(uri_ptr: Ptr) {
-      const uri = module.UTF8ToString(uri_ptr);
-      let retval;
-      //Legacy HareScript namespaces we may not want to retain in JS
-      if (uri.startsWith("direct::"))
-        retval = uri.substring(8);
-      else if (uri.startsWith("wh::"))
-        retval = toFSPath("mod::system/whlibs/" + uri.substring(4));
-      else
-        retval = toFSPath(uri);
-      return module.stringToNewUTF8(retval);
-    },
+  getWHResourceDir() {
+    return path.join(config.installationroot, "modules/system/whres/");
+  }
 
-    resolveAbsoluteLibrary(loader_ptr: Ptr, libname_ptr: Ptr) {
-      let loader = module.UTF8ToString(loader_ptr);
-      let libname = module.UTF8ToString(libname_ptr);
+  getDataRoot() {
+    return config.dataroot;
+  }
 
-      loader = this.doTranslateLibraryURI(loader); //get rid of any direct:: paths
-      if (libname.startsWith('relative::')) {
-        // Grab the prefixed root. For mod/site we also want the first path component
-        const split = loader.match(/^((?:wh::|(?:mod|site)::[^/]+\/))(.*)$/);
-        if (!split)
-          throw new Error(`Base path '${loader}' doesn't allow for relative adressing`);
+  getInstallationRoot() {
+    return config.installationroot;
+  }
 
-        if (libname.startsWith('relative::/')) //module-root reference
-          return module.stringToNewUTF8(split[1] + path.normalize(libname.substring(10)).substring(1));
+  getCompileCache() {
+    let cache = process.env.WEBHARE_COMPILECACHE;
+    if (cache && !cache.endsWith("/"))
+      cache += "/";
+    else if (!cache) {
+      cache = config.dataroot + "ephemeral/compilecache/";
+    }
+    return cache;
+  }
 
-        const targetpath = path.normalize("canary/" + path.dirname(split[2]) + "/" + libname.substring(10));
-        if (!targetpath.startsWith("canary/"))
-          throw new Error(`Relative path '${libname}' may not escape its context '${split[1]}'`);
+  doTranslateLibraryURI(directuri: string) {
+    const moduri = translateDirectToModURI(directuri);
+    if (moduri.startsWith(wh_namespace_location)) //wh:: lives in mod::system...
+      return `wh::${moduri.substring(wh_namespace_location.length)}`;
+    return moduri;
+  }
 
-        return module.stringToNewUTF8(split[1] + targetpath.substring(7));
-      }
+  translateLibraryURI(directuri_ptr: Ptr) {
+    const directuri = this.UTF8ToString(directuri_ptr);
+    return this.stringToNewUTF8(this.doTranslateLibraryURI(directuri));
+  }
 
-      const type = getPrefix(libname);
-      libname = libname.substring(type.length + 2);
-      libname = path.normalize(libname);
+  getOpenLibraryPath(uri_ptr: Ptr) {
+    const uri = this.UTF8ToString(uri_ptr);
+    let retval;
+    //Legacy HareScript namespaces we may not want to retain in JS
+    if (uri.startsWith("direct::"))
+      retval = uri.substring(8);
+    else if (uri.startsWith("wh::"))
+      retval = toFSPath("mod::system/whlibs/" + uri.substring(4));
+    else
+      retval = toFSPath(uri);
+    return this.stringToNewUTF8(retval);
+  }
 
-      if (type == "module" || type == "moduledata" || type == "modulescript" || type == "moduleroot") { //module:: should be rewritten to mod:: /lib/
-        // Grab the prefixed root. For mod/site we also want the first path component
-        const firstslash = libname.indexOf("/");
-        const modulename = libname.substring(0, firstslash);
-        let subpart = "";
+  resolveAbsoluteLibrary(loader_ptr: Ptr, libname_ptr: Ptr) {
+    let loader = this.UTF8ToString(loader_ptr);
+    let libname = this.UTF8ToString(libname_ptr);
 
-        if (type == "moduledata") {
-          subpart = "/data/";
-        } else if (type == "modulescript") {
-          subpart = "/scripts/";
-        } else if (type == "moduleroot") {
-          subpart = "/";
-        } else {
-          //See if /include/ exists, otherwise we'll go for lib (lib is considered default)
-          let useinclude = false;
+    loader = this.doTranslateLibraryURI(loader); //get rid of any direct:: paths
+    if (libname.startsWith('relative::')) {
+      // Grab the prefixed root. For mod/site we also want the first path component
+      const split = loader.match(/^((?:wh::|(?:mod|site)::[^/]+\/))(.*)$/);
+      if (!split)
+        throw new Error(`Base path '${loader}' doesn't allow for relative adressing`);
 
-          const modroot = config.module[modulename]?.root;
-          if (modroot) {
-            const trylib = modroot + "include/" + libname.substring(firstslash + 1);
-            useinclude = fs.existsSync(trylib);
-          }
-          subpart = useinclude ? "/include/" : "/lib/";
-        }
-        libname = "mod::" + modulename + subpart + libname.substring(firstslash + 1);
+      if (libname.startsWith('relative::/')) //module-root reference
+        return this.stringToNewUTF8(split[1] + path.normalize(libname.substring(10)).substring(1));
+
+      const targetpath = path.normalize("canary/" + path.dirname(split[2]) + "/" + libname.substring(10));
+      if (!targetpath.startsWith("canary/"))
+        throw new Error(`Relative path '${libname}' may not escape its context '${split[1]}'`);
+
+      return this.stringToNewUTF8(split[1] + targetpath.substring(7));
+    }
+
+    const type = getPrefix(libname);
+    libname = libname.substring(type.length + 2);
+    libname = path.normalize(libname);
+
+    if (type == "module" || type == "moduledata" || type == "modulescript" || type == "moduleroot") { //module:: should be rewritten to mod:: /lib/
+      // Grab the prefixed root. For mod/site we also want the first path component
+      const firstslash = libname.indexOf("/");
+      const modulename = libname.substring(0, firstslash);
+      let subpart = "";
+
+      if (type == "moduledata") {
+        subpart = "/data/";
+      } else if (type == "modulescript") {
+        subpart = "/scripts/";
+      } else if (type == "moduleroot") {
+        subpart = "/";
       } else {
-        libname = type + (type == "direct" || type == "directclib" ? "::/" : "::") + libname;
+        //See if /include/ exists, otherwise we'll go for lib (lib is considered default)
+        let useinclude = false;
+
+        const modroot = config.module[modulename]?.root;
+        if (modroot) {
+          const trylib = modroot + "include/" + libname.substring(firstslash + 1);
+          useinclude = fs.existsSync(trylib);
+        }
+        subpart = useinclude ? "/include/" : "/lib/";
       }
+      libname = "mod::" + modulename + subpart + libname.substring(firstslash + 1);
+    } else {
+      libname = type + (type == "direct" || type == "directclib" ? "::/" : "::") + libname;
+    }
 
-      if (libname.startsWith("mod::system/whlibs/"))
-        libname = "wh::" + libname.substring(19);
-      return module.stringToNewUTF8(libname);
-    },
+    if (libname.startsWith("mod::system/whlibs/"))
+      libname = "wh::" + libname.substring(19);
+    return this.stringToNewUTF8(libname);
+  }
 
-    throwException(vm: HSVM, text: string): void {
-      const alloced = module.stringToNewUTF8(text);
-      module._HSVM_ThrowException(vm, alloced);
-      module._free(alloced);
-    },
+  throwException(vm: HSVM, text: string): void {
+    const alloced = this.stringToNewUTF8(text);
+    this._HSVM_ThrowException(vm, alloced);
+    this._free(alloced);
+  }
 
-    executeJSMacro(vm: HSVM, nameptr: StringPtr, id: number): void {
-      const reg = module.externals[id];
-      const params = new Array<HSVMVar>;
-      for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
-        params.push(new HSVMVar(module.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
-      reg.macro!(vm, ...params);
-    },
+  executeJSMacro(vm: HSVM, nameptr: StringPtr, id: number): void {
+    const reg = this.externals[id];
+    const params = new Array<HSVMVar>;
+    for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
+      params.push(new HSVMVar(this.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
+    reg.macro!(vm, ...params);
+  }
 
-    executeJSFunction(vm: HSVM, nameptr: StringPtr, id: number, id_set: HSVM_VariableId): void {
-      const reg = module.externals[id];
-      const params = new Array<HSVMVar>;
-      for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
-        params.push(new HSVMVar(module.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
-      reg.func!(vm, new HSVMVar(module.itf!, id_set), ...params);
-    },
+  executeJSFunction(vm: HSVM, nameptr: StringPtr, id: number, id_set: HSVM_VariableId): void {
+    const reg = this.externals[id];
+    const params = new Array<HSVMVar>;
+    for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
+      params.push(new HSVMVar(this.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
+    reg.func!(vm, new HSVMVar(this.itf!, id_set), ...params);
+  }
 
-    async executeAsyncJSMacro(vm: HSVM, nameptr: StringPtr, id: number): Promise<void> {
-      const reg = module.externals[id];
-      const params = new Array<HSVMVar>;
-      for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
-        params.push(new HSVMVar(module.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
-      await reg.asyncmacro!(vm, ...params);
-    },
+  async executeAsyncJSMacro(vm: HSVM, nameptr: StringPtr, id: number): Promise<void> {
+    const reg = this.externals[id];
+    const params = new Array<HSVMVar>;
+    for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
+      params.push(new HSVMVar(this.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
+    await reg.asyncmacro!(vm, ...params);
+  }
 
-    async executeAsyncJSFunction(vm: HSVM, nameptr: StringPtr, id: number, id_set: HSVM_VariableId): Promise<void> {
-      const reg = module.externals[id];
-      const params = new Array<HSVMVar>;
-      for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
-        params.push(new HSVMVar(module.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
-      await reg.asyncfunc!(vm, new HSVMVar(module.itf!, id_set), ...params);
-    },
+  async executeAsyncJSFunction(vm: HSVM, nameptr: StringPtr, id: number, id_set: HSVM_VariableId): Promise<void> {
+    const reg = this.externals[id];
+    const params = new Array<HSVMVar>;
+    for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
+      params.push(new HSVMVar(this.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
+    await reg.asyncfunc!(vm, new HSVMVar(this.itf!, id_set), ...params);
+  }
 
-    registerExternalMacro(signature: string, macro: (vm: HSVM, ...params: HSVMVar[]) => void): void {
-      const unmangled = unmangleFunctionName(signature);
-      const id = module.externals.length;
-      module.externals.push({ name: signature, parameters: unmangled.parameters.length, macro });
-      const signatureptr = module.stringToNewUTF8(signature);
-      module._RegisterHarescriptMacro(signatureptr, id, false);
-      module._free(signatureptr);
-    },
+  registerExternalMacro(signature: string, macro: (vm: HSVM, ...params: HSVMVar[]) => void): void {
+    const unmangled = unmangleFunctionName(signature);
+    const id = this.externals.length;
+    this.externals.push({ name: signature, parameters: unmangled.parameters.length, macro });
+    const signatureptr = this.stringToNewUTF8(signature);
+    this._RegisterHarescriptMacro(signatureptr, id, 0);
+    this._free(signatureptr);
+  }
 
-    registerExternalFunction(signature: string, func: (vm: HSVM, id_set: HSVMVar, ...params: HSVMVar[]) => void): void {
-      const unmangled = unmangleFunctionName(signature);
-      const id = module.externals.length;
-      module.externals.push({ name: signature, parameters: unmangled.parameters.length, func });
-      const signatureptr = module.stringToNewUTF8(signature);
-      module._RegisterHarescriptFunction(signatureptr, id, false);
-      module._free(signatureptr);
-    },
+  registerExternalFunction(signature: string, func: (vm: HSVM, id_set: HSVMVar, ...params: HSVMVar[]) => void): void {
+    const unmangled = unmangleFunctionName(signature);
+    const id = this.externals.length;
+    this.externals.push({ name: signature, parameters: unmangled.parameters.length, func });
+    const signatureptr = this.stringToNewUTF8(signature);
+    this._RegisterHarescriptFunction(signatureptr, id, 0);
+    this._free(signatureptr);
+  }
 
-    registerAsyncExternalMacro(signature: string, asyncmacro: (vm: HSVM, ...params: HSVMVar[]) => Promise<void>): void {
-      const unmangled = unmangleFunctionName(signature);
-      const id = module.externals.length;
-      module.externals.push({ name: signature, parameters: unmangled.parameters.length, asyncmacro });
-      const signatureptr = module.stringToNewUTF8(signature);
-      module._RegisterHarescriptMacro(signatureptr, id, true);
-      module._free(signatureptr);
-    },
+  registerAsyncExternalMacro(signature: string, asyncmacro: (vm: HSVM, ...params: HSVMVar[]) => Promise<void>): void {
+    const unmangled = unmangleFunctionName(signature);
+    const id = this.externals.length;
+    this.externals.push({ name: signature, parameters: unmangled.parameters.length, asyncmacro });
+    const signatureptr = this.stringToNewUTF8(signature);
+    this._RegisterHarescriptMacro(signatureptr, id, 1);
+    this._free(signatureptr);
+  }
 
-    registerAsyncExternalFunction(signature: string, asyncfunc: (vm: HSVM, id_set: HSVMVar, ...params: HSVMVar[]) => Promise<void>): void {
-      const unmangled = unmangleFunctionName(signature);
-      const id = module.externals.length;
-      module.externals.push({ name: signature, parameters: unmangled.parameters.length, asyncfunc });
-      const signatureptr = module.stringToNewUTF8(signature);
-      module._RegisterHarescriptFunction(signatureptr, id, true);
-      module._free(signatureptr);
-    },
+  registerAsyncExternalFunction(signature: string, asyncfunc: (vm: HSVM, id_set: HSVMVar, ...params: HSVMVar[]) => Promise<void>): void {
+    const unmangled = unmangleFunctionName(signature);
+    const id = this.externals.length;
+    this.externals.push({ name: signature, parameters: unmangled.parameters.length, asyncfunc });
+    const signatureptr = this.stringToNewUTF8(signature);
+    this._RegisterHarescriptFunction(signatureptr, id, 1);
+    this._free(signatureptr);
+  }
 
-    preRun: function () {
-      Object.assign(moduletemplate.ENV, process.env);
-    },
+  preRun() {
+    Object.assign(this.ENV, process.env);
+  }
+}
 
-    itf: undefined as HarescriptVM | undefined,
-  })) as Module;
+export async function createHarescriptModule<T extends WASMModule>(modulefunctions: T): Promise<T> {
 
-  module.stringptrs = module._malloc(8);
-  module.externals = [];
-  module.registerExternalFunction("__SYSTEM_GETMODULEINSTALLATIONROOT::S:S", (vm, id_set, modulename) => {
-    const mod = config.module[modulename.getString()];
-    if (!mod) {
-      id_set.setString("");
-    } else
-      id_set.setString(mod.root);
-  });
-  module.registerExternalFunction("GETCONSOLEARGUMENTS::SA:", (vm, id_set) => {
-    ensureItfSet(module);
-    id_set.setDefault(VariableType.StringArray);
-    for (const arg of module.itf.consoleArguments)
-      id_set.arrayAppend().setString(arg);
-  });
-  module.registerExternalFunction("__SYSTEM_WHCOREPARAMETERS::R:", (vm, id_set) => {
-    id_set.setJSValue({
-      installationroot: config.installationroot,
-      basedataroot: config.dataroot,
-      varroot: config.dataroot,
-      ephemeralroot: config.dataroot + "ephemeral/",
-      logroot: config.dataroot + "log/",
-      moduledirs: [...getFullConfigFile().modulescandirs, config.installationroot + "modules/"] // always filled, no need to cast
-    });
-  });
-  module.registerExternalFunction("__SYSTEM_GETINSTALLEDMODULENAMES::SA:", (vm, id_set) => {
-    id_set.setJSValue(getTypedArray(VariableType.StringArray, Object.keys(config.module).sort()));
-  });
-  module.registerExternalFunction("__SYSTEM_GETSYSTEMCONFIG::R:", (vm, id_set) => {
-    id_set.setJSValue(bridge.systemconfig);
-  });
-  module.registerAsyncExternalFunction("DOCOMPILE:WH_SELFCOMPILE:RA:S", async (vm, id_set, uri) => {
-    const uri_str = uri.getString();
-    const compileresult = await recompileHarescriptLibrary(uri_str, { force: true });
-    id_set.setJSValue(getTypedArray(VariableType.RecordArray, compileresult));
-  });
-  module.registerAsyncExternalFunction("DORUN:WH_SELFCOMPILE:R:SSA", async (vm, id_set, filename, args) => {
-    let stdout = "";
-    const newmodule = await createHarescriptModule({
-      print: (data: string) => { stdout += data; },
-    });
-    const newhsvm = newmodule._CreateHSVM();
-    const newvm = new HarescriptVM(newmodule, newhsvm);
-    newvm.consoleArguments = args.getJSValue() as string[];
-    await newvm.run(filename.getString());
-    newmodule._HSVM_GetMessageList(newhsvm, newvm.errorlist, 1);
+  modulefunctions.prepare();
+  const wasmmodule = await createModule(modulefunctions) as T;
+  wasmmodule.init();
 
-    id_set.setJSValue({
-      errors: new HSVMVar(newvm, newvm.errorlist).getJSValue(),
-      output: stdout
-    });
-  });
+  registerBaseFunctions(wasmmodule);
 
-  return module;
+  return wasmmodule;
 }
 
 export async function allocateHSVM(): Promise<HarescriptVM> {
-  const module = await createHarescriptModule();
+  const module = await createHarescriptModule(new WASMModule);
   const hsvm = module._CreateHSVM();
 
   return new HarescriptVM(module, hsvm);
