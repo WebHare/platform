@@ -12,6 +12,10 @@
 
 #include <iostream>
 
+#ifdef __EMSCRIPTEN__
+#include "emscripten.h"
+#endif // __EMSCRIPTEN__
+
 //#define DEBUG_SSL  //noisy SSL debuginfo
 
 #ifdef DEBUG_SSL
@@ -1636,11 +1640,18 @@ Hasher::~Hasher()
 {
 }
 
+#ifdef __EMSCRIPTEN__
+EM_JS(void, supportFillPseudoRandomVector, (uint8_t *to_fill, unsigned to_fill_bytes), {
+        const u8array = new Uint8Array(to_fill_bytes);
+        crypto.getRandomValues(u8array);
+        Module.HEAP8.set(u8array, to_fill);
+});
+#endif // __EMSCRIPTEN__
 
 void FillPseudoRandomVector(uint8_t *to_fill, unsigned to_fill_bytes)
 {
 #if defined(__EMSCRIPTEN__) //NOCOMMIT this is not an acceptable placeholder
-        memset(to_fill, 0xf8, to_fill_bytes);
+        supportFillPseudoRandomVector(to_fill, to_fill_bytes);
 #else
         if(RAND_pseudo_bytes(to_fill,to_fill_bytes) != 1)
         {
