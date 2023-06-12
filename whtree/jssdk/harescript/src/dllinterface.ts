@@ -12,14 +12,16 @@ type RegisteredExternal = {
   parameters: number;
   func?: ((vm: HSVM, id_set: HSVMVar, ...params: HSVMVar[]) => void);
   macro?: ((vm: HSVM, ...params: HSVMVar[]) => void);
+  asyncfunc?: ((vm: HSVM, id_set: HSVMVar, ...params: HSVMVar[]) => Promise<void>);
+  asyncmacro?: ((vm: HSVM, ...params: HSVMVar[]) => Promise<void>);
 };
 
 
-export interface Module {
+export interface DLLInterface {
   _CreateHSVM(): HSVM;
 
-  _RegisterHarescriptMacro(name: StringPtr, id: number): void;
-  _RegisterHarescriptFunction(name: StringPtr, id: number): void;
+  _RegisterHarescriptMacro(name: StringPtr, id: number, async: boolean): void;
+  _RegisterHarescriptFunction(name: StringPtr, id: number, async: boolean): void;
 
   _HSVM_TestMustAbort(vm: HSVM): number;
   _HSVM_IsUnwinding(vm: HSVM): number;
@@ -32,28 +34,17 @@ export interface Module {
   _HSVM_MakeFunctionPtr(hsvm: HSVM, id_set: HSVM_VariableId, libraryuri: StringPtr, function_name: StringPtr, returntype: HSVM_VariableType, numargs: number, args: Ptr, errors: HSVM_VariableId): number;
   _HSVM_LoadScript(hsvm: HSVM, scriptname: StringPtr): number;
   _HSVM_ExecuteScript(hsvm: HSVM, deinitialize_when_finished: number, allow_suspension: number): number;
-  _malloc(size: number): Ptr;
-  _free(ptr: Ptr): void;
-
-  stringToUTF8(str: string, outptr: Ptr, maxBytesToWrite: number): number;
-  lengthBytesUTF8(str: string): number;
-  stringToNewUTF8(str: string): Ptr;
-  UTF8ToString(str: Ptr, maxlength?: number): string;
-  getExceptionMessage(ex: unknown): string;
-
-  getValue(ptr: number, type: string): number;
-  setValue(ptr: number, value: unknown, type: string): void;
 
   _HSVM_OpenFunctionCall(vm: HSVM, param_count: number): void;
   _HSVM_CallParam(vm: HSVM, param: number): HSVM_VariableId;
-  _HSVM_CallFunctionPtr(vm: HSVM, fptr: HSVM_VariableId, allow_macro: number): HSVM_VariableId;
-  _HSVM_CallFunction(vm: HSVM, libraryuri: StringPtr, function_name: StringPtr, returntype: HSVM_VariableType, numargs: number, args: Ptr): HSVM_VariableId;
-  _HSVM_CallFunctionAutoDetect(vm: HSVM, libraryuri: StringPtr, function_name: StringPtr): HSVM_VariableId;
+  _HSVM_CallFunctionPtr(vm: HSVM, fptr: HSVM_VariableId, allow_macro: number): Promise<HSVM_VariableId>;
+  _HSVM_CallFunction(vm: HSVM, libraryuri: StringPtr, function_name: StringPtr, returntype: HSVM_VariableType, numargs: number, args: Ptr): Promise<HSVM_VariableId>;
+  _HSVM_CallFunctionAutoDetect(vm: HSVM, libraryuri: StringPtr, function_name: StringPtr): Promise<HSVM_VariableId>;
   _HSVM_MakeFunctionPtrAutoDetect(vm: HSVM, id_set: HSVM_VariableId, libraryuri: StringPtr, function_name: StringPtr, errors: HSVM_VariableId): number;
   _HSVM_CloseFunctionCall(vm: HSVM): void;
   _HSVM_CancelFunctionCall(vm: HSVM): void;
 
-  _HSVM_ThrowException(vm: HSVM, text: StringPtr): void;
+  _HSVM_ThrowException(vm: HSVM, text: StringPtr): Promise<void>;
 
   _HSVM_CopyFrom(vm: HSVM, dest: HSVM_VariableId, source: HSVM_VariableId): void;
   _HSVM_GetType(vm: HSVM, id: HSVM_VariableId): HSVM_VariableType;
@@ -77,12 +68,32 @@ export interface Module {
   _HSVM_RecordGetRef(vm: HSVM, id: HSVM_VariableId, columnid: HSVM_ColumnId): HSVM_VariableId;
   _HSVM_RecordCreate(vm: HSVM, id: HSVM_VariableId, columnid: HSVM_ColumnId): HSVM_VariableId;
   _HSVM_RecordExists(vm: HSVM, id: HSVM_VariableId): number;
+}
+
+export interface Module extends DLLInterface {
+  _malloc(size: number): Ptr;
+  _free(ptr: Ptr): void;
+
+  stringToUTF8(str: string, outptr: Ptr, maxBytesToWrite: number): number;
+  lengthBytesUTF8(str: string): number;
+  stringToNewUTF8(str: string): Ptr;
+  UTF8ToString(str: Ptr, maxlength?: number): string;
+  getExceptionMessage(ex: unknown): string;
+
+  getValue(ptr: number, type: string): number;
+  setValue(ptr: number, value: unknown, type: string): void;
+
+  HEAP8: Int8Array;
 
   // 8-byte malloc for storing 2 stringptrs for _HSVMStringGet
   stringptrs: Ptr;
   externals: RegisteredExternal[];
   itf: HarescriptVM | undefined;
 
+  registerExternalMacro(signature: string, func: (vm: HSVM, ...params: HSVMVar[]) => void): void;
   registerExternalFunction(signature: string, func: (vm: HSVM, id_set: HSVMVar, ...params: HSVMVar[]) => void): void;
+  registerAsyncExternalMacro(signature: string, func: (vm: HSVM, ...params: HSVMVar[]) => Promise<void>): void;
+  registerAsyncExternalFunction(signature: string, func: (vm: HSVM, id_set: HSVMVar, ...params: HSVMVar[]) => Promise<void>): void;
+
   throwException(vm: HSVM, text: string): void;
 }

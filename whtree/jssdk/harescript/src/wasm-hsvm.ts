@@ -118,12 +118,15 @@ export class HSVMVar {
 
       case VariableType.Integer: {
         this.setInteger(value as number);
+        return;
       } break;
       case VariableType.Boolean: {
         this.setBoolean(Boolean(value));
+        return;
       } break;
       case VariableType.String: {
         this.setString(value as string);
+        return;
       } break;
       case VariableType.Record: {
         const recval = value as IPCMarshallableRecord;
@@ -135,13 +138,66 @@ export class HSVMVar {
             this.ensureCell(key).setJSValue(propval);
           }
         }
-      } break;
+        return;
+      }
     }
     if (type & VariableType.Array) {
       const itemtype = type !== VariableType.VariantArray ? type & ~VariableType.Array : VariableType.Variant;
       this.setDefault(type);
       for (const item of value as unknown[])
         this.arrayAppend().setJSValueInternal(item, itemtype);
+      return;
+    }
+    throw new Error(`Encoding ${VariableType[type]} not supported yet`);
+  }
+  getJSValue(): unknown {
+    const type = this.vm.module._HSVM_GetType(this.vm.hsvm, this.id) as VariableType;
+    switch (type) {
+      case VariableType.VariantArray: break;
+      case VariableType.BooleanArray: break;
+      case VariableType.DateTimeArray: break;
+      case VariableType.MoneyArray: break;
+      case VariableType.FloatArray: break;
+      case VariableType.StringArray: break;
+      case VariableType.BlobArray: break;
+      case VariableType.Integer64Array: break;
+      case VariableType.IntegerArray: break;
+      case VariableType.RecordArray: break;
+      case VariableType.ObjectArray: break;
+
+      case VariableType.Integer: {
+        return this.vm.module._HSVM_IntegerGet(this.vm.hsvm, this.id);
+      } break;
+      case VariableType.Boolean: {
+        return Boolean(this.vm.module._HSVM_BooleanGet(this.vm.hsvm, this.id));
+      } break;
+      case VariableType.String: {
+        return this.getString();
+      } break;
+      case VariableType.Record: {
+        if (!this.vm.module._HSVM_RecordExists(this.vm.hsvm, this.id))
+          return null;
+        const cellcount = this.vm.module._HSVM_RecordLength(this.vm.hsvm, this.id);
+        const value: Record<string, unknown> = {};
+        for (let pos = 0; pos < cellcount; ++pos) {
+          const columnid = this.vm.module._HSVM_RecordColumnIdAtPos(this.vm.hsvm, this.id, pos);
+          const cell = this.vm.module._HSVM_RecordGetRef(this.vm.hsvm, this.id, columnid);
+          value[this.vm.getColumnName(columnid)] = (new HSVMVar(this.vm, cell)).getJSValue();
+        }
+        return value;
+      }
+      default: {
+        throw new Error(`Decoding ${VariableType[type]} not supported yet`);
+      }
+    }
+    if (type & VariableType.Array) {
+      const value: unknown[] = getTypedArray(type, []);
+      const eltcount = this.vm.module._HSVM_ArrayLength(this.vm.hsvm, this.id);
+      for (let i = 0; i < eltcount; ++i) {
+        const elt = this.vm.module._HSVM_ArrayGetRef(this.vm.hsvm, this.id, i);
+        value.push((new HSVMVar(this.vm, elt)).getJSValue());
+      }
+      return value;
     }
   }
 }
@@ -233,7 +289,7 @@ type MessageList = Array<{
   message: string;
 }>;
 
-function parseError(module: Module, line: string) {
+function parseError(line: string) {
 
   const errorparts = line.split("\t");
   if (errorparts.length < 8)
@@ -251,7 +307,7 @@ function parseError(module: Module, line: string) {
   };
 }
 
-async function recompileHarescriptLibrary(module: Module, uri: string, options?: { force: boolean }) {
+async function recompileHarescriptLibrary(uri: string, options?: { force: boolean }) {
   try {
     // console.log(`recompileHarescriptLibrary`, uri);
 
@@ -268,7 +324,7 @@ async function recompileHarescriptLibrary(module: Module, uri: string, options?:
       // console.log({ text });
       const lines = text.split("\n").filter(line => line);
       // console.log('recompileresult:', res.status, lines);
-      return lines.map(line => parseError(module, line));
+      return lines.map(line => parseError(line));
     }
     throw new Error(`Could not contact HareScript compiler, status code ${res.status}`);
   } catch (e) {
@@ -375,7 +431,7 @@ export class HarescriptVM {
         this.module._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
         const parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
         if (tryCounter < maxTries - 1 && parsederrors.length === 1 && [2, 139, 157].includes(parsederrors[0].code)) {
-          let recompileres = await recompileHarescriptLibrary(this.module, lib);
+          let recompileres = await recompileHarescriptLibrary(lib);
           recompileres = recompileres.filter(msg => msg.iserror);
           if (recompileres.length)
             throw new Error(`Error during compilation of ${lib}: ` + recompileres[0].message);
@@ -392,7 +448,8 @@ export class HarescriptVM {
   }
 
   async executeScript(): Promise<void> {
-    if (this.module._HSVM_ExecuteScript(this.hsvm, 1, 0) === 1)
+    const executeresult = await this.module._HSVM_ExecuteScript(this.hsvm, 1, 0);
+    if (executeresult === 1)
       return;
 
     this.module._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
@@ -422,7 +479,7 @@ export class HarescriptVM {
               parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
             }
             if (tryCounter < maxTries - 1 && parsederrors.length === 1 && [2, 139, 157].includes(parsederrors[0].code)) {
-              let recompileres = await recompileHarescriptLibrary(this.module, lib);
+              let recompileres = await recompileHarescriptLibrary(lib);
               recompileres = recompileres.filter(msg => msg.iserror);
               if (recompileres.length)
                 throw new Error(`Error during compilation of ${lib}: ` + recompileres[0].message);
@@ -484,7 +541,7 @@ export class HarescriptVM {
       this.module._free(hsondata);
       // console.log(`call functionptr`, this.dispatchfptr, VariableType[this.module._HSVM_GetType(this.hsvm, this.dispatchfptr)]);
       // console.log(`call functionptr`, this.module._HSVM_GetType(this.hsvm, this.dispatchfptr));
-      const retvalid = this.module._HSVM_CallFunctionPtr(this.hsvm, this.dispatchfptr, 0);
+      const retvalid = await this.module._HSVM_CallFunctionPtr(this.hsvm, this.dispatchfptr, 0);
       // console.log({ retvalid });
       if (!retvalid) {
         this.module._HSVM_CloseFunctionCall(this.hsvm);
@@ -515,11 +572,13 @@ export class HarescriptVM {
   }
 }
 
-async function createHarescriptModule(): Promise<Module> {
+async function createHarescriptModule(modulestuff = {}): Promise<Module> {
   // Store into variable 'module' so functions can refer to it
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- initialization & typing is ugly, need to refactor
   let moduletemplate: any;
   const module = await createModule((moduletemplate = {
+    ...modulestuff,
+
     emSyscall(jsondata_ptr: number): string {
       const jsondata = module.UTF8ToString(jsondata_ptr);
       const { call, data } = JSON.parse(jsondata);
@@ -661,12 +720,28 @@ async function createHarescriptModule(): Promise<Module> {
       reg.func!(vm, new HSVMVar(module.itf!, id_set), ...params);
     },
 
-    registerExternalMacro(signature: string, func: (vm: HSVM, ...params: HSVMVar[]) => void): void {
+    async executeAsyncJSMacro(vm: HSVM, nameptr: StringPtr, id: number): Promise<void> {
+      const reg = module.externals[id];
+      const params = new Array<HSVMVar>;
+      for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
+        params.push(new HSVMVar(module.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
+      await reg.asyncmacro!(vm, ...params);
+    },
+
+    async executeAsyncJSFunction(vm: HSVM, nameptr: StringPtr, id: number, id_set: HSVM_VariableId): Promise<void> {
+      const reg = module.externals[id];
+      const params = new Array<HSVMVar>;
+      for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
+        params.push(new HSVMVar(module.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
+      await reg.asyncfunc!(vm, new HSVMVar(module.itf!, id_set), ...params);
+    },
+
+    registerExternalMacro(signature: string, macro: (vm: HSVM, ...params: HSVMVar[]) => void): void {
       const unmangled = unmangleFunctionName(signature);
       const id = module.externals.length;
-      module.externals.push({ name: signature, parameters: unmangled.parameters.length, func });
+      module.externals.push({ name: signature, parameters: unmangled.parameters.length, macro });
       const signatureptr = module.stringToNewUTF8(signature);
-      module._RegisterHarescriptMacro(signatureptr, id);
+      module._RegisterHarescriptMacro(signatureptr, id, false);
       module._free(signatureptr);
     },
 
@@ -675,7 +750,25 @@ async function createHarescriptModule(): Promise<Module> {
       const id = module.externals.length;
       module.externals.push({ name: signature, parameters: unmangled.parameters.length, func });
       const signatureptr = module.stringToNewUTF8(signature);
-      module._RegisterHarescriptFunction(signatureptr, id);
+      module._RegisterHarescriptFunction(signatureptr, id, false);
+      module._free(signatureptr);
+    },
+
+    registerAsyncExternalMacro(signature: string, asyncmacro: (vm: HSVM, ...params: HSVMVar[]) => Promise<void>): void {
+      const unmangled = unmangleFunctionName(signature);
+      const id = module.externals.length;
+      module.externals.push({ name: signature, parameters: unmangled.parameters.length, asyncmacro });
+      const signatureptr = module.stringToNewUTF8(signature);
+      module._RegisterHarescriptMacro(signatureptr, id, true);
+      module._free(signatureptr);
+    },
+
+    registerAsyncExternalFunction(signature: string, asyncfunc: (vm: HSVM, id_set: HSVMVar, ...params: HSVMVar[]) => Promise<void>): void {
+      const unmangled = unmangleFunctionName(signature);
+      const id = module.externals.length;
+      module.externals.push({ name: signature, parameters: unmangled.parameters.length, asyncfunc });
+      const signatureptr = module.stringToNewUTF8(signature);
+      module._RegisterHarescriptFunction(signatureptr, id, true);
       module._free(signatureptr);
     },
 
@@ -717,6 +810,28 @@ async function createHarescriptModule(): Promise<Module> {
   module.registerExternalFunction("__SYSTEM_GETSYSTEMCONFIG::R:", (vm, id_set) => {
     id_set.setJSValue(bridge.systemconfig);
   });
+  module.registerAsyncExternalFunction("DOCOMPILE:WH_SELFCOMPILE:RA:S", async (vm, id_set, uri) => {
+    const uri_str = uri.getString();
+    const compileresult = await recompileHarescriptLibrary(uri_str, { force: true });
+    id_set.setJSValue(getTypedArray(VariableType.RecordArray, compileresult));
+  });
+  module.registerAsyncExternalFunction("DORUN:WH_SELFCOMPILE:R:SSA", async (vm, id_set, filename, args) => {
+    let stdout = "";
+    const newmodule = await createHarescriptModule({
+      print: (data: string) => { stdout += data; },
+    });
+    const newhsvm = newmodule._CreateHSVM();
+    const newvm = new HarescriptVM(newmodule, newhsvm);
+    newvm.consoleArguments = args.getJSValue() as string[];
+    await newvm.run(filename.getString());
+    newmodule._HSVM_GetMessageList(newhsvm, newvm.errorlist, 1);
+
+    id_set.setJSValue({
+      errors: new HSVMVar(newvm, newvm.errorlist).getJSValue(),
+      output: stdout
+    });
+  });
+
   return module;
 }
 

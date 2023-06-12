@@ -30,7 +30,7 @@ export NODE_OPTIONS="--enable-source-maps -r \"${BASH_SOURCE%/*}/../../js/intern
 # is the 'heavy' node profiler enabled?
 if [ -n "$WEBHARE_NODEPROFILE" ]; then
   WORKDIR="$(mktemp -d)"
-  node --logfile="$WORKDIR/log" --prof $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
+  node --experimental-wasm-stack-switching --logfile="$WORKDIR/log" --prof $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
   RETVAL="$?"
   OUTPUTFILES=()
   for P in "$WORKDIR"/* ; do
@@ -45,6 +45,6 @@ if [ -n "$WEBHARE_NODEPROFILE" ]; then
   exit $RETVAL
 fi
 
-exec node $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
+exec node --experimental-wasm-stack-switching $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
 echo "wh node: the actual node binary was not found" 1>&2
 exit 255

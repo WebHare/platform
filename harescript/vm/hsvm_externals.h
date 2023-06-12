@@ -38,6 +38,8 @@ struct BuiltinFunctionDefinition
 #ifdef __EMSCRIPTEN__
         JSMacro,
         JSFunction,
+        JSAsyncMacro,
+        JSAsyncFunction,
         NotFound,
 #endif // __EMSCRIPTEN__
         } type;

@@ -236,6 +236,8 @@ WHLDFLAGS_WASM += -s ALLOW_MEMORY_GROWTH=1
 WHLDFLAGS_WASM += -s IMPORTED_MEMORY
 WHLDFLAGS_WASM += -s STACK_SIZE=8MB
 WHLDFLAGS_WASM += -s INITIAL_MEMORY=512MB
+WHLDFLAGS_WASM += -s ASYNCIFY=2
+WHLDFLAGS_WASM += -s ASYNCIFY_EXPORTS=HSVM_ObjectMemberCopy,HSVM_ObjectMemberSet,HSVM_CallFunctionPtr,HSVM_CallFunction,HSVM_CallFunctionAutoDetect,HSVM_CallObjectMethod,HSVM_ThrowException,HSVM_ThrowExceptionObject,HSVM_ExecuteScript
 
 ifeq ($(WHBUILD_PLATFORM),darwin)
 	WHLDFLAGS += -Wl,-rpath '-Wl,@loader_path/../lib'
@@ -627,7 +629,7 @@ bin/blex-test-wasm.wasm: $(LIBBLEX_WASM_TESTOBJS_ALL)
 	$(call LinkWASMExecutable,$(LIBBLEX_WASM_TESTOBJS_ALL),bin/blex-test-wasm)
 
 success.blex-wasm: bin/blex-test-wasm.wasm bin/blex-test-wasm.wasm
-	ulimit -n 1024 && node bin/blex-test-wasm test bin/blex-test-wasm blex/tests/dynamic$(DLL_SUFFIX) $(SRCDIR)/blex/tests/data 1 ; test "$$?" = 242
+	ulimit -n 1024 && node --experimental-wasm-stack-switching bin/blex-test-wasm test bin/blex-test-wasm blex/tests/dynamic$(DLL_SUFFIX) $(SRCDIR)/blex/tests/data 1 ; test "$$?" = 242
 	> success.blex-wasm
 
 success.blex: success.blex-native success.blex-wasm

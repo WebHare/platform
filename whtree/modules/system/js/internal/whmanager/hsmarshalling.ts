@@ -89,7 +89,7 @@ export function getDefaultValue<T extends VariableType>(type: T): HSType<T> {
   }
 }
 
-type ArrayVariableType = VariableType.VariantArray | VariableType.IntegerArray | VariableType.MoneyArray | VariableType.FloatArray | VariableType.BooleanArray | VariableType.DateTimeArray | VariableType.Integer64Array | VariableType.FunctionPtrArray | VariableType.RecordArray | VariableType.StringArray | VariableType.BlobArray;
+type ArrayVariableType = VariableType.VariantArray | VariableType.IntegerArray | VariableType.MoneyArray | VariableType.FloatArray | VariableType.BooleanArray | VariableType.DateTimeArray | VariableType.Integer64Array | VariableType.FunctionPtrArray | VariableType.RecordArray | VariableType.StringArray | VariableType.BlobArray | VariableType.ObjectArray;
 
 /** Add a HareScript type annotation to an array, makes sure empty arrays are sent correctly over IPC */
 export function getTypedArray<V extends ArrayVariableType, T extends HSType<V>>(type: V, array: T): T {

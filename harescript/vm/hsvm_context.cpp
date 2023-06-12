@@ -1920,11 +1920,19 @@ void VirtualMachine::PrepareCall(Library const &lib, FunctionId func)
 #ifdef __EMSCRIPTEN__
 
 EM_JS(void, supportExecuteJSMacro, (void *hsvm, const char *name, unsigned externalid), {
-  return Module.executeJSMacro(hsvm, name, externalid);
+  Module.executeJSMacro(hsvm, name, externalid);
 });
 
 EM_JS(void, supportExecuteJSFunction, (void *hsvm, const char *name, unsigned externalid, unsigned id_set), {
-  return Module.executeJSFunction(hsvm, name, externalid, id_set);
+  Module.executeJSFunction(hsvm, name, externalid, id_set);
+});
+
+EM_ASYNC_JS(void, supportExecuteAsyncJSMacro, (void *hsvm, const char *name, unsigned externalid), {
+  await Module.executeAsyncJSMacro(hsvm, name, externalid);
+});
+
+EM_ASYNC_JS(void, supportExecuteAsyncJSFunction, (void *hsvm, const char *name, unsigned externalid, unsigned id_set), {
+  await Module.executeAsyncJSFunction(hsvm, name, externalid, id_set);
 });
 
 #endif // __EMSCRIPTEN
@@ -1990,6 +1998,19 @@ void VirtualMachine::PrepareCallInternal(LinkedLibrary::ResolvedFunctionDefList:
                                 struct HSVM* hsvm = *this;
                                 VarId retvalptr = stackmachine.PushVariables(1);
                                 supportExecuteJSFunction(hsvm, resolvedfunc.def->builtindef->name.c_str(), resolvedfunc.def->builtindef->externalid, retvalptr);
+                        }
+                        break;
+                case BuiltinFunctionDefinition::JSAsyncMacro:
+                        {
+                                struct HSVM* hsvm = *this;
+                                supportExecuteAsyncJSMacro(hsvm, resolvedfunc.def->builtindef->name.c_str(), resolvedfunc.def->builtindef->externalid);
+                        }
+                        break;
+                case BuiltinFunctionDefinition::JSAsyncFunction:
+                        {
+                                struct HSVM* hsvm = *this;
+                                VarId retvalptr = stackmachine.PushVariables(1);
+                                supportExecuteAsyncJSFunction(hsvm, resolvedfunc.def->builtindef->name.c_str(), resolvedfunc.def->builtindef->externalid, retvalptr);
                         }
                         break;
                 case BuiltinFunctionDefinition::NotFound:
