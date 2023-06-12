@@ -35,8 +35,10 @@ CPPFLAGS_WASM += -I$(WHBUILD_BUILDDIR)/vendor-wasm/libxml2 -I$(WHBUILD_BUILDDIR)
 ifeq ($(WHBUILD_PLATFORM),darwin)
 	BUILDSYSTEM ?= llvm
 	BREWPREFIX ?= $(shell brew --prefix)
+	BREWPREFIX := $(BREWPREFIX)
 	# brew has multiple independent postgresql@version packages. Get the newest one
 	POSTGRESQLPACKAGE ?= $(shell brew list | grep "^postgresql@" | sort -r --human-numeric-sort | head -n 1)
+	POSTGRESQLPACKAGE := $(POSTGRESQLPACKAGE)
 	# Convert BREWPREFIX and POSTGRESQLPACKAGE to a static value, so the shell command will be evaluated only once.
 	BREWPREFIX := $(BREWPREFIX)
 	POSTGRESQLPACKAGE := $(POSTGRESQLPACKAGE)
@@ -229,15 +231,18 @@ WHLDFLAGS+=$(GLOBALLDFLAGS)
 
 WHLDFLAGS_IMPORTABLE += -s MODULARIZE=1
 WHLDFLAGS_IMPORTABLE += -s EXPORT_NAME="createModule"
-WHLDFLAGS_IMPORTABLE += -s EXPORTED_RUNTIME_METHODS=ccall,cwrap,stringToUTF8,lengthBytesUTF8,stringToNewUTF8,UTF8ToString,getValue,setValue,ENV
+WHLDFLAGS_IMPORTABLE += -s EXPORTED_RUNTIME_METHODS=stringToUTF8,lengthBytesUTF8,stringToNewUTF8,UTF8ToString,getValue,setValue,ENV
 WHLDFLAGS_IMPORTABLE += -s EXPORTED_FUNCTIONS=_malloc,_free
+
+# Get all normal lines from wasm-suspending-functions.txt, seperated by commas
+ASYNCIFY_EXPORTS = $(shell cat $(SRCDIR)/harescript/vm/wasm-suspending-functions.txt | grep -oe "^[^ \#]\+" | tr '\n' ','  | sed "s/,$$//" )
 
 WHLDFLAGS_WASM += -s ALLOW_MEMORY_GROWTH=1
 WHLDFLAGS_WASM += -s IMPORTED_MEMORY
 WHLDFLAGS_WASM += -s STACK_SIZE=8MB
 WHLDFLAGS_WASM += -s INITIAL_MEMORY=512MB
 WHLDFLAGS_WASM += -s ASYNCIFY=2
-WHLDFLAGS_WASM += -s ASYNCIFY_EXPORTS=HSVM_ObjectMemberCopy,HSVM_ObjectMemberSet,HSVM_CallFunctionPtr,HSVM_CallFunction,HSVM_CallFunctionAutoDetect,HSVM_CallObjectMethod,HSVM_ThrowException,HSVM_ThrowExceptionObject,HSVM_ExecuteScript
+WHLDFLAGS_WASM += -s ASYNCIFY_EXPORTS=$(ASYNCIFY_EXPORTS)
 
 ifeq ($(WHBUILD_PLATFORM),darwin)
 	WHLDFLAGS += -Wl,-rpath '-Wl,@loader_path/../lib'
@@ -486,7 +491,7 @@ ap_SRCDIRS = addons addons/system_geoip libwebhare utils webserver whmanager
 # WASM
 wasm_SRCDIRS = .
 
-wasm_DEPLOYABLES_WHAP = lib/harescript.js lib/harescript.wasm
+wasm_DEPLOYABLES_WHAP = lib/harescript.js lib/harescript.wasm lib/harescript-interface.ts
 
 # Global stuff
 # forevery project, take project_SRCDIRS, create $(SRCDIR)/project/$(SUBDIR) entries
@@ -495,7 +500,7 @@ ALLOBJDIRS=$(addprefix ,$(subst $(SRCDIR)/,,$(ALLSRCDIRS)))
 ALLCPPSRCS_IN=$(foreach sub,$(ALLSRCDIRS),$(wildcard $(sub)/*.cpp))
 
 # We need to blacklist some files from the Deps generation as the above code is a bit too gready when matching wildcards and some files crash the Dep process
-DEPS_BLACKLIST=harescript/vm/wasm-harescript
+DEPS_BLACKLIST=harescript/vm/wasm-harescript harescript/vm/libpq_wasm_emul
 DEPS_FULLPATHS=$(addsuffix .cpp,$(addprefix $(SRCDIR)/,$(DEPS_BLACKLIST)))
 ALLCPPSRCS_IN:=$(filter-out $(DEPS_FULLPATHS),$(ALLCPPSRCS_IN))
 
@@ -809,9 +814,15 @@ $(foreach mod,$(AP_DEPLOYABLES_UTILS),$(eval $(call ApUtilTarget,$(mod))))
 
 # Note that wasm targets are easier as we don't bother with dynamic linking.
 # Make 4.4 allows to define grouped targets (lib/harescript.js lib/harescript.wasm &: ...) but ubuntu 20.4 is still on 4.3
-lib/harescript.js: $(LIBHSVM_WASM_SOURCEOBJS) $(call BuildAndTest,blex)
+lib/harescript.js: $(LIBHSVM_WASM_SOURCEOBJS) $(call BuildAndTest,blex) $(SRCDIR)/harescript/vm/wasm-suspending-functions.txt
 	$(call LinkWASMImportable,$(LIBHSVM_WASM_SOURCEOBJS),$@)
 lib/harescript.wasm: lib/harescript.js
+
+lib/harescript-interface.ts: harescript/vm/hsvm_dllinterface.wasm-obj harescript/vm/wasm-harescript.wasm-obj $(SRCDIR)/harescript/vm/generate-wasm-interface.js $(SRCDIR)/harescript/vm/wasm-suspending-functions.txt
+	$(HIDE)echo "- Generating lib/harescript-interface.ts"
+	$(HIDE)$(EMCC) -E -C -x c++-header -D__EMSCRIPTEN__=1 $(SRCDIR)/harescript/vm/hsvm_dllinterface.h > harescript/vm/hsvm_dllinterface.processed.h
+	$(HIDE)$(EMCC) -E -C -x c++-header -D__EMSCRIPTEN__=1 $(SRCDIR)/harescript/vm/wasm-harescript.h > harescript/vm/wasm-harescript.processed.h
+	$(HIDE)node $(SRCDIR)/harescript/vm/generate-wasm-interface.js harescript/vm/hsvm_dllinterface.processed.h harescript/vm/wasm-harescript.processed.h > lib/harescript-interface.ts
 
 $(foreach dep,$(wasm_DEPLOYABLES_WHAP), $(eval $(call InstallWasmDepoyable,$(dep))))
 
@@ -1008,8 +1019,8 @@ $1-install: $(PREFIX)/lib/$1.js $(PREFIX)/lib/$1.wasm
 $1-uninstall:
 	rm $(PREFIX)/lib/$1.js $(PREFIX)/lib/$1.wasm
 
-$1-overwrite: lib/$1.js
-	cp lib/$1.js lib/$1.wasm $(PREFIX)/lib/ #cp 10
+$1-overwrite: lib/$1.js lib/$1-interface.ts
+	cp lib/$1.js lib/$1.wasm lib/$1-interface.ts $(PREFIX)/lib/ #cp 10
 endef
 
 $(foreach bin,$(BIN_ALIASES),$(eval $(call GenerateBinAlias,$(bin))))

@@ -17,6 +17,7 @@ coverage.tar.gz
 /whtree/include
 /whtree/lib/*.dylib
 /whtree/lib/*.js
+/whtree/lib/*.ts
 /whtree/lib/*.so
 /whtree/lib/*.so.*
 /whtree/lib/*.wasm

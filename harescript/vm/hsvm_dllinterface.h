@@ -734,7 +734,7 @@ HSVM_PUBLIC HSVM_ColumnId  HSVM_GetColumnIdRange(struct HSVM *vm, const char *be
     @param vm Virtual machine
     @param left
     @param right
-    @return Whether the name of column id left < the name of columnid right
+    @return Whether the name of column id left &lt; the name of columnid right
 */
 HSVM_PUBLIC bool  HSVM_ColumnNameLess(HSVM *vm, HSVM_ColumnId left, HSVM_ColumnId right);
 
@@ -867,7 +867,7 @@ HSVM_PUBLIC HSVM_VariableId  HSVM_RecordCreate (struct HSVM *vm, HSVM_VariableId
     @param vm Virtual machine
     @param storeid Variable in which the Blob should be stored
     @param filepath Path to the file on disk
-    @parma filesize Disk file size */
+    @param filesize Disk file size */
  HSVM_PUBLIC void HSVM_MakeBlobFromDiskPath(struct HSVM *vm, HSVM_VariableId storeid, const char *filepath, long long int filesize);
 
 /** Create a blob file from a data file in the WebHare file system
@@ -1128,7 +1128,7 @@ HSVM_PUBLIC HSVM_VariableId  HSVM_CallObjectMethod(struct HSVM *vm, HSVM_Variabl
 
 /** Throws an exception
     @param vm Virtual Machine
-    @param text Text of exception to throw, \0 terminated
+    @param text Text of exception to throw, `\0` terminated
 */
  HSVM_PUBLIC void HSVM_ThrowException(struct HSVM *vm, const char *text) ;
 
@@ -1211,7 +1211,7 @@ extern "C"
 HSVM_PUBLIC struct HSVM *  HSVM_GetVMFromJobId(struct HSVM *vm, int jobid) ;
 
 /** Return the VM group id for a specific vm
-    @return Size of group string. If room >= size + 1 (0-byte) the group id has been copied to dest
+    @return Size of group string. If room &gt;= size + 1 (0-byte) the group id has been copied to dest
 */
 HSVM_PUBLIC unsigned  HSVM_GetVMGroupId(struct HSVM *vm, char *dest, unsigned room);
 
