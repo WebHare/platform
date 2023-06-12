@@ -15,28 +15,30 @@ STRING FUNCTION MergeURL(STRING url, STRING append)
   RETURN url || append;
 }
 
+CONSTANT RECORD noticelogstructure :=
+    [ "@timestamp" := DEFAULT DATETIME
+    , groupid := ""
+    , source := ""
+    , type := ""
+    , session := ""
+    , data := DEFAULT RECORD
+    , message := ""
+    , script := ""
+    , contextinfo := DEFAULT RECORD
+    , errors := RECORD[]
+    , trace := RECORD[]
+    , browser       := [ name := "", location := ""  ]
+    , location      := ""
+    , testscript := ""
+    ];
+
 PUBLIC RECORD FUNCTION ParseNoticeLogLine(STRING line)
 {
-  STRING ARRAY linetoks := Tokenize(line,"\t");
-  IF (linetoks[0] NOT LIKE "[*] *") //corrupted linetoks
-    RETURN DEFAULT RECORD;
-  IF (Length(linetoks) < 5)
+  RECORD fields := DecodeJSON(line);
+  IF(NOT RecordExists(fields))
     RETURN DEFAULT RECORD;
 
-  STRING whentext := Substring(linetoks[0], 1, SearchSubstring(linetoks[0], "]") - 1);
-  STRING source := Substring(linetoks[0], Length(whentext)+3);
-  STRING encodeddata_raw := Length(linetoks) > 5 ? linetoks[5] : "";
-
-  RETURN
-      [ when :=            MakeDateFromText(whentext)
-      , source :=          source
-      , channel :=         linetoks[1]
-      , srhid :=           linetoks[2]
-      , externalsource :=  DecodeJava(linetoks[3])
-      , message :=         DecodeJava(linetoks[4])
-      , encodeddata_raw := encodeddata_raw
-      , data :=            encodeddata_raw IN [ "", "-" ] ? DEFAULT RECORD : DecodeHSON(linetoks[5])
-      ];
+  RETURN EnforceStructure(noticelogstructure, fields);
 }
 
 RECORD ARRAY FUNCTION AddErrors(STRING ARRAY lines)
@@ -46,7 +48,7 @@ RECORD ARRAY FUNCTION AddErrors(STRING ARRAY lines)
   FOREVERY (STRING line FROM lines)
   {
     RECORD linedata := ParseNoticeLogLine(line);
-    IF (RecordExists(linedata) AND linedata.message IN [ "harescript-error", "javascript-error" ])
+    IF (RecordExists(linedata) AND linedata.type IN [ "harescript-error", "javascript-error" ])
       INSERT linedata INTO parterrors AT END;
   }
 

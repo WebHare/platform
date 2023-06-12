@@ -1,4 +1,5 @@
-import bridge, { LogNoticeOptions } from "@mod-system/js/internal/whmanager/bridge";
+import bridge, { LogNoticeOptions, LoggableRecord } from "@mod-system/js/internal/whmanager/bridge";
+export { LoggableRecord } from "@mod-system/js/internal/whmanager/bridge";
 import { config } from "./services";
 import fs from "fs/promises";
 import { checkModuleScopedName } from "./naming";
@@ -6,41 +7,15 @@ import { getModuleDefinition } from "./moduledefinitions";
 import { escapeRegExp } from "@webhare/std";
 import { readFileSync } from "fs";
 
-/// Expected format for log lines. We can't really specify types, some loggers might not know it either (eg. if they're logging external RPC responses)
-export type LoggableRecord = { [key: string]: unknown };
 
 type LogReadField = string | number | boolean | null | LogReadField[] | { [key: string]: LogReadField };
 type LogLineBase = { "@timestamp": Date };
-
-function replaceLogParts(key: string, value: unknown) {
-  //Keep logs readable, try not to miss anything. But make sure we still output valid JSON
-  switch (typeof value) {
-    case "bigint":
-      return value.toString();
-    case "symbol":
-      return `[${value.toString()}]`;
-    case "function":
-      return value.name ? `[function ${value.name}]` : "[function]";
-    case "undefined":
-      return "[undefined]"; //can't print 'undefined' as that wouldn't be JSON
-    case "string":
-      if (value.length > 3000) //truncate too long strings
-        return value.substring(0, 3000) + "… (" + value.length + " chars)";
-    //fallthrough
-  }
-  return value;
-}
-
-function formatLogObject(logline: LoggableRecord): string {
-  return JSON.stringify({ "@timestamp": (new Date).toISOString(), ...logline }, replaceLogParts);
-}
-
 /** Write a line to a log file
     @param logname - Name of the log file
     @param logline - Line to log - as string or as object (will have a \@timestamp added and be converted to JSON)
 */
 export function log(logname: string, logline: LoggableRecord): void {
-  bridge.log(logname, formatLogObject(logline));
+  bridge.log(logname, logline);
 }
 
 /** Log an error to the notice log

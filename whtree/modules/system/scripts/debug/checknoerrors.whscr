@@ -1,13 +1,15 @@
 <?wh
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
-LOADLIB "mod::system/lib/internal/logging/noticelog.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 
 /* wh run mod::system/scripts/debug/checknoerrors.whscr
 */
 
-RECORD ARRAY errors := GetNoticeErrors([count := 999  ]);
-
+DATETIME boottime := CELL[ start := GetCurrentDateTime(), ...PollWHServiceState("startup") ].start;
+RECORD ARRAY errors := WaitForPromise(CallAsync("@mod-system/js/internal/testtools.ts#readRecentLogLines", VARIANT[ "system:notice", boottime ]));
 IF(Length(errors) > 0)
 {
   SetConsoleExitCode(1);
@@ -15,11 +17,11 @@ IF(Length(errors) > 0)
   {
     //buildlogs filter out empty lines somewhere... so prefixing every error also makes it easier to see where the next one starts
     Print(`*** There are errors in the notice log. ${#err+1}/${Length(errors)}\n`);
-    IF(err.message = "harescript-error")
+    IF(CellExists(err,'type') AND err.type = "harescript-error")
     {
-      FOREVERY(RECORD error FROM err.data.errors)
+      FOREVERY(RECORD error FROM err.errors)
         Print(`${error.filename}:${error.line}:${error.col}: ${error.message}\n`);
-      Print(FormatHarescriptStackTrace(err.data.trace));
+      Print(FormatHarescriptStackTrace(err.trace));
     }
     ELSE
     {

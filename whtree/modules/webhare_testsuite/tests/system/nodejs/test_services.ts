@@ -4,7 +4,7 @@ import * as test from "@webhare/test";
 import * as services from "@webhare/services";
 import { HSVM, HSVMObject, openHSVM } from "@webhare/services/src/hsvm";
 import { GenericLogLine } from "@webhare/services/src/logging";
-
+import { readRecentLogLines } from "@mod-system/js/internal/testtools";
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
 import { DemoServiceInterface } from "@mod-webhare_testsuite/js/demoservice";
 import runBackendService from "@mod-system/js/internal/webhareservice";
@@ -394,14 +394,9 @@ async function runBackendServiceTest_HS() {
   //TestEq([ value := 42 ], testdata); */
 }
 
-/* Needed in the future when we test more log files here
 async function readLog(name: string): Promise<GenericLogLine[]> {
-  const lines = [];
-  for await (const val of services.readLogLines(name, { start: test.startTime, limit: new Date(Date.now() + 1) })) {
-    lines.push(val);
-  }
-  return lines;
-} */
+  return readRecentLogLines(name, test.startTime);
+}
 
 async function testLogs() {
   services.log("webhare_testsuite:test", { drNick: "Hi everybody!", patientsLost: BigInt("123456678901234567890123456678901234567890") });
@@ -440,16 +435,33 @@ async function testLogs() {
 
   test.throws(/Invalid/, () => services.logDebug("services_test", { x: 42 }));
   services.logDebug("webhare_testsuite:services_test", { test: 42 });
-  services.logNotice("warning", new Error);
+  services.logNotice("warning", new Error("Broken"));
   ///@ts-ignore we explicitly want to test for the exception when passing an incorrect name
   test.throws(/Invalid log type/, () => services.logNotice("debug", new Error));
   services.logNotice("error", "Foutmelding", { data: { extra: 43 } });
   services.logNotice("info", "Ter info");
 
-  /* TODO auto parse them but switch to flat JSON first
-  const noticeloglines = await readLog("system:notice");
-  console.log(noticeloglines);
-  */
+  const mydebug = (await readLog("system:debug")).filter(_ => _.source == 'webhare_testsuite:services_test');
+  test.eqProps([{ data: { test: 42 } }], mydebug);
+
+  const mygroupid = mydebug[0].groupid;
+
+  const mynotices = (await readLog("system:notice")).filter(_ => _.groupid == mygroupid);
+  test.eqProps([
+    {
+      error: 'Broken',
+      browser: { name: 'nodejs' },
+      type: 'warning'
+    },
+    {
+      data: { extra: 43 },
+      error: 'Foutmelding',
+      type: 'error'
+    },
+    {
+      error: 'Ter info',
+    }
+  ], mynotices);
 }
 
 test.run(

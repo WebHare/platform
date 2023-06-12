@@ -3822,10 +3822,7 @@ PUBLIC MACRO SetAuthenticationRecord(RECORD rec)
 */
 PUBLIC MACRO SetErrorContextInfo(RECORD contextinfo)
 {
-  RECORD rec := GetAuthenticationRecord();
-  DELETE CELL contextinfo FROM rec;
-  INSERT CELL contextinfo := EncodeHSON(contextinfo) INTO rec;
-  SetAuthenticationRecord(rec);
+  SetAuthenticationRecord(CELL[ ...GetAuthenticationRecord(), contextinfo := EncodeJSON(contextinfo) ]);
 }
 
 //////////////////////////////////////////////////////////////////////////////

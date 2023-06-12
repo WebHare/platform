@@ -2,7 +2,6 @@
 (*ISSYSTEMLIBRARY*)
 
 LOADLIB "wh::internal/interface.whlib";
-LOADLIB "wh::internal/hssupport.whlib";
 LOADLIB "wh::internal/transbase.whlib";
 LOADLIB "wh::internal/transservices.whlib";
 LOADLIB "wh::internal/debug.whlib";
@@ -10,6 +9,7 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::system.whlib";
 
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/cluster/logwriter.whlib";
 
 MACRO EnableFunctionProfile() __ATTRIBUTES__(EXTERNAL);
 MACRO DisableFunctionProfile() __ATTRIBUTES__(EXTERNAL);
@@ -22,7 +22,7 @@ MACRO __HS_INTERNAL_SETDEBUGGINGTAGS(STRING ARRAY tags) __ATTRIBUTES__(EXTERNAL)
 PUBLIC STRING __forcecurrentsite; //used by publishjob.whscr to set the proper resolution base for currentsite::
 PUBLIC INTEGER __currentwhfsscriptid; //we need our storedscriptproperty FILEID to support currentsite:: witty loads from SHTML files. see basetest-moduledesign test
 
-__onmodulelog := PTR __SYSTEM_REMOTELOG;
+__ondebuglog := PTR OnDebugLog;
 
 BLOB FUNCTION GetWebhareResource(STRING path)
 {
@@ -55,25 +55,28 @@ STRING FUNCTION LibraryLoadRemapper(STRING inlibrary)
   RETURN inlibrary;
 }
 
+MACRO OnDebugLog(STRING source, VARIANT msg)
+{
+  INTEGER msglen := Length(EncodEJSON(msg));
+  IF(msglen > 127*1024)
+    LogToJSONLog("system:debug", CELL[ source, groupid := GetCurrentGroupId(), session := GetExternalSessionData(), overflow := msglen ]);
+  ELSE
+    LogToJSONLog("system:debug", CELL[ source, groupid := GetCurrentGroupId(), session := GetExternalSessionData(), data := msg ]);
+}
+
 MACRO GotUnhandledRejection(RECORD data)
 {
-  __SYSTEM_REMOTELOG("system:notice", "script\tERROR\t" || GetCurrentGroupId() || "\t" || EncodeJava(GetExternalSessionData()) || "\tunhandled-rejection\t" || EncodeHarescriptException(data.e));
-
-  //TODO I'm leaving the other debugfunctions for now, but wondering if there's any point to them - did anyone recently fix anything using them?
-  STRING msg := "harescript\t" || GetCurrentGroupId() || "\t" || EncodeJava(GetExternalSessionData()) || "\tunhandled_rejection\t" || EncodeHSON([ promise_id := data.promise_id, e := data.e->EncodeForIPC() ]);
-  __SYSTEM_REMOTELOG("system:debug", msg);
+  LogNoticeException("unhandled_rejection", "", data.e, CELL[promise_id := data.promise_id ]);
 }
 
 MACRO GotRejectionHandled(RECORD data)
 {
-  STRING msg := "harescript\t" || GetCurrentGroupId() || "\t" || EncodeJava(GetExternalSessionData()) || "\trejection_handled\t" || EncodeHSON([ promise_id := data.promise_id ]);
-  __SYSTEM_REMOTELOG("system:debug", msg);
+  LogToJSONLog("system:notice", [ source := "rejection_handled", groupid := GetCurrentGroupId(), session := GetExternalSessionData(), promise_id := data.promise_id ]);
 }
 
 MACRO GotTooManyUnhandledRejections()
 {
-  STRING msg := "harescript\t" || GetCurrentGroupId() || "\t" || EncodeJava(GetExternalSessionData()) || "\ttoo_many_unhandled_rejections";
-  __SYSTEM_REMOTELOG("system:debug", msg);
+  LogToJSONLog("system:notice", [ source := "too_many_unhandled_rejections", groupid := GetCurrentGroupId(), session := GetExternalSessionData() ]);
 }
 
 MACRO ReadDebugConfig()

@@ -1,6 +1,19 @@
-<?wh (* ISSYSTEMLIBRARY *)
+<?wh
+(*ISSYSTEMLIBRARY*)
 
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::internal/interface.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "wh::system.whlib";
+
+/** @short Log to a JSON log file
+    @param logname Target log. Ensure it's configured with timestamps=false!
+    @param data Data to log. The `@timestamp` will be added automatically */
+PUBLIC MACRO LogToJSONLog(STRING logname, RECORD data)
+{
+  __SYSTEM_REMOTELOG(logname, EncodeJSON(CELL["@timestamp" := GetCurrentDatetime(), ...data]));
+}
+
 
 
 /** Encodes an harescript exception for logging to the notice log. It logs the exception text, stack trace and the error context info set by SetErrorContextInfo.
@@ -11,7 +24,7 @@ LOADLIB "wh::system.whlib";
     @cell options.info Extra info to log (will be hson encoded)
     @cell options.contextinfo If present, overrides the contextinfo set by SetErrorContextInfo.
 */
-PUBLIC STRING FUNCTION EncodeHarescriptException(OBJECT e, RECORD options DEFAULTSTO DEFAULT RECORD)
+RECORD FUNCTION EncodeHarescriptException(OBJECT e, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   RECORD ARRAY errors;
   IF (e EXTENDSFROM HarescriptErrorException)
@@ -43,12 +56,12 @@ PUBLIC STRING FUNCTION EncodeHarescriptException(OBJECT e, RECORD options DEFAUL
   IF (CellExists(options, "INFO"))
     INSERT CELL info := options.info INTO data;
 
-  STRING contextinfo;
+  RECORD contextinfo;
   IF (NOT CellExists(options, "CONTEXTINFO"))
-    contextinfo := CellExists(GetAuthenticationRecord(), "CONTEXTINFO") ? GetAuthenticationRecord().contextinfo : "";
+    contextinfo := CellExists(GetAuthenticationRecord(), "CONTEXTINFO") ? DecodeJSON(GetAuthenticationRecord().contextinfo) : DEFAULT RECORD;
   ELSE
-    contextinfo := EncodeHSON(options.contextinfo);
-  IF (contextinfo != "")
+    contextinfo := options.contextinfo;
+  IF (RecordExists(contextinfo))
     INSERT CELL contextinfo := contextinfo INTO data;
 
   // Keep error notices a bit small
@@ -62,7 +75,14 @@ PUBLIC STRING FUNCTION EncodeHarescriptException(OBJECT e, RECORD options DEFAUL
 
   STRING encodeddata := EncodeHSON(data);
   IF(Length(encodeddata)>126*1024)
-    encodeddata := "-";
+    RETURN DEFAULT RECORD;
 
-  RETURN encodeddata;
+  RETURN data;
 }
+
+PUBLIC MACRO LogNoticeException(STRING source, STRING groupid, OBJECT exc, RECORD restdata)
+{
+  LogToJSONLog("system:notice", CELL[ source, groupid := groupid ?? __HS_GetCurrentGroupID(), session := GetExternalSessionData(), ...EncodeHarescriptException(exc), ...restdata ]);
+}
+
+

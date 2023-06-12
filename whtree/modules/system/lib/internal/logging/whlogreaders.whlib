@@ -36,7 +36,7 @@ OBJECTTYPE LogReaderBase
 
   RECORD FUNCTION ProcessLine(STRING line)
   {
-    RETURN DEFAULT RECORD;
+    ABORT("ProcessLine must be overridden");
   }
 >;
 
@@ -75,59 +75,16 @@ PUBLIC OBJECTTYPE RPCLogReader EXTEND LogReaderBase
 
 PUBLIC OBJECTTYPE DebugLogReader EXTEND LogReaderBase
 <
-  VARIANT FUNCTION DecodeHSONParam(STRING param)
-  {
-    TRY
-    {
-      IF (param = "-")
-        RETURN "(omitted)";
-      IF (param NOT LIKE "hson:*")
-        RETURN param;
-      RETURN DecodeHSON(param);
-    }
-    CATCH (OBJECT e)
-    {
-      RETURN "HSON decode error: " || e->what;
-    }
-  }
-
-
   UPDATE RECORD FUNCTION ProcessLine(STRING line)
   {
-    STRING ARRAY linetoks := Tokenize(line,"\t");
-    IF (linetoks[0] NOT LIKE "[*] *") //corrupted linetoks
-      RETURN DEFAULT RECORD;
-    IF (Length(linetoks) = 1)
-    {
-      RECORD decoded := DecodeJSON(SubString(linetoks[0], SearchSubstring(linetoks[0], "] ") + 2));
-      RETURN
-         [ raw           := line
-         , when          := MakeDateFromText(decoded."@timestamp")
-         , source        := ""
-         , srhid         := ""
-         , externalsource:= ""
-         , sourcetracker := ""
-         , rawdata       := decoded
-         , message       := ""
-          , params        := [ CellDelete(decoded, "@timestamp") ]
-         ];
-    }
-    IF (Length(linetoks) < 4)
-      RETURN DEFAULT RECORD;
-
-    STRING whentext := Substring(linetoks[0], 1, SearchSubstring(linetoks[0], "]") - 1);
-    STRING source := Substring(linetoks[0], Length(whentext)+3);
-
-    BOOLEAN hasmessage := linetoks[3] NOT LIKE "hson:*";
-    RECORD retval := [ raw :=             line
-                     , when :=            MakeDateFromText(whentext)
-                     , source :=          source
-                     , srhid :=           linetoks[1]
-                     , externalsource :=  linetoks[2]
-                     , message :=         hasmessage ? DecodeJava(linetoks[3]) : ""
-                     , params :=          SELECT AS VARIANT ARRAY this->DecodeHSONParam(part) FROM ToRecordArray(ArraySlice(linetoks, hasmessage ? 4 : 3), "PART")
-                     ];
-    RETURN retval;
+    RECORD rec := DecodeJSON(line);
+    IF(CellExists(rec,'data')) //data is required, otherwise just ignore the line
+      rec := EnforceStructure(CELL[ "@timestamp" := DEFAULT DATETIME
+                                  , groupid := ""
+                                  , session := ""
+                                  , source := ""
+                                  ], rec);
+    RETURN rec;
   }
 >;
 
@@ -135,20 +92,7 @@ PUBLIC OBJECTTYPE NoticeLogReader EXTEND LogReaderBase
 <
   UPDATE RECORD FUNCTION ProcessLine(STRING line)
   {
-    RECORD parsedline := ParseNoticeLogLine(line);
-    IF(NOT RecordExists(parsedline))
-      RETURN DEFAULT RECORD;
-
-    //translate. we should probably align the record structure of both readers
-    RETURN CELL[ raw :=             parsedline
-               , parsedline.when
-               , parsedline.source
-               , code :=            parsedline.channel
-               , parsedline.srhid
-               , parsedline.externalsource
-               , type :=            parsedline.message
-               , message :=         parsedline.data
-               ];
+    RETURN ParseNoticeLogLine(line);
   }
 >;
 

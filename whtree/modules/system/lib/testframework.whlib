@@ -371,7 +371,6 @@ STATIC OBJECTTYPE TestFramework
   RECORD ARRAY tests;
   RECORD ARRAY credentials;
   RECORD ARRAY roles;
-  RECORD ARRAY modulelog;
 
   OBJECT pvt_controller;
 
@@ -1322,27 +1321,12 @@ STATIC OBJECTTYPE TestFramework
     IF(this->debug)
       Print(`RunTestframework ${GetBaseNameFrompath(GetHarescriptLoadedLibraries()[0].liburi)} job: ${GetCurrentGroupID()}\n`);
 
-    __onmodulelog := PTR this->RecordModuleLogEntry(__onmodulelog, #1, #2);
-
     TRY
     {
       this->RunGenerator(this->RunSerie(this->tests));
       this->PrepareForTermination();
     }
     FINALLY lock->Close();
-  }
-
-  MACRO RecordModuleLogEntry(MACRO PTR currentlogger, STRING log, STRING line)
-  {
-    IF(IsValueSet(currentlogger))
-      currentlogger(log,line);
-
-    INSERT CELL[ log
-               , when := GetCurrentDatetime()
-               , source := "local"
-               , line
-               , tokens := Tokenize(line,'\t')
-               ] INTO this->modulelog AT END;
   }
 
   PUBLIC BOOLEAN FUNCTION IsMailqueueEmptyFor(STRING emailmask)
@@ -1847,17 +1831,6 @@ STATIC OBJECTTYPE TestFramework
                                      , ...options
                                      ]);
     TestEq(testfw_testmodule, result.modulename);
-  }
-
-  /** @short Get any logged module log entries (error, accounting, etc). Clears the log so far
-      @cell(string) return.log Name of the log, eg system:accounting
-      @cell(datetime) return.when When the log entry was generated
-  */
-  PUBLIC RECORD ARRAY FUNCTION GetModuleLog()
-  {
-    RECORD ARRAY retval := this->modulelog;
-    this->modulelog := RECORD[];
-    RETURN retval;
   }
 
   /** Returns TRUE if a test has failed

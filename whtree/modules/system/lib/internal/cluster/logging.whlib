@@ -6,10 +6,10 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::internal/interface.whlib";
-LOADLIB "wh::internal/hssupport.whlib";
 LOADLIB "wh::internal/debug.whlib";
 
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/cluster/logwriter.whlib";
 
 
 STRING FUNCTION GetClientRemoteIp() __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
@@ -627,12 +627,8 @@ PUBLIC OBJECTTYPE MultiFileLogReader
 */
 PUBLIC MACRO ModuleLog(STRING name, STRING line)
 {
-  IF(__onmodulelog != DEFAULT MACRO PTR) //This should normally be set up by the preload
-    __onmodulelog(name, line);
-  ELSE
-    PrintTo(2, `[${name}] ${line}\n`);
+  __SYSTEM_REMOTELOG(name, line);
 }
-
 
 /** Opens archived log files for reading
     @param files  Files to parse, sorted in date order
@@ -706,7 +702,7 @@ PUBLIC MACRO LogHarescriptException(OBJECT exc, RECORD options DEFAULTSTO DEFAUL
       [ passthroughin := "rest"
       ]);
 
-  ModuleLog("system:notice", "script\tERROR\t" || (options.groupid ?? GetCurrentGroupId()) || "\t" || EncodeJava(GetExternalSessionData()) || "\tharescript-error\t" || EncodeHarescriptException(exc, options.rest));
+  LogNoticeException("harescript-error", options.groupid, exc, CELL[data := options.rest ]);
 }
 
 
