@@ -1,8 +1,10 @@
-import { WASMModule, createHarescriptModule, recompileHarescriptLibrary, HarescriptVM, HSVMVar } from "./wasm-hsvm";
+import { createHarescriptModule, recompileHarescriptLibrary, HarescriptVM } from "./wasm-hsvm";
 import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { config } from "@webhare/services";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
+import { HSVMVar } from "./wasm-hsvmvar";
+import { WASMModule } from "./wasm-modulesupport";
 
 
 class OutputCapturingModule extends WASMModule {
@@ -61,6 +63,4 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       output: extfunctions.stdout
     });
   });
-
-
 }
