@@ -1650,7 +1650,7 @@ EM_JS(void, supportFillPseudoRandomVector, (uint8_t *to_fill, unsigned to_fill_b
 
 void FillPseudoRandomVector(uint8_t *to_fill, unsigned to_fill_bytes)
 {
-#if defined(__EMSCRIPTEN__) //NOCOMMIT this is not an acceptable placeholder
+#if defined(__EMSCRIPTEN__) 
         supportFillPseudoRandomVector(to_fill, to_fill_bytes);
 #else
         if(RAND_pseudo_bytes(to_fill,to_fill_bytes) != 1)
