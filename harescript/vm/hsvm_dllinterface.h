@@ -988,8 +988,7 @@ HSVM_PUBLIC void*  HSVM_BlobContext(struct HSVM *vm, HSVM_VariableId blobid, uns
  HSVM_PUBLIC void HSVM_SetOutputBuffering(struct HSVM *vm, int do_buffer) ;
 
 /** Flush the output buffer
-    @param vm Virtual machine
-    @param do_buffer Non-zero to enable buffering, zero to disable (default, also flushes current buffer) */
+    @param vm Virtual machine */
  HSVM_PUBLIC void HSVM_FlushOutputBuffer(struct HSVM *vm) ;
 
 /*****************************************************************************

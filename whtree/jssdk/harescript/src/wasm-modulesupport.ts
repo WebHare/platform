@@ -126,6 +126,10 @@ export class WASMModule extends WASMModuleBase {
     this.stringptrs = this._malloc(8);
   }
 
+  initVM(hsvm: HSVM) {
+    // can be overridden
+  }
+
   emSyscall(jsondata_ptr: number): string {
     const jsondata = this.UTF8ToString(jsondata_ptr);
     const { call, data } = JSON.parse(jsondata);

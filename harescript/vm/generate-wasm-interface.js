@@ -45,6 +45,8 @@ export interface WASMModuleInterface {
   getExceptionMessage(ex: unknown): string;
   getValue(ptr: number, type: string): number;
   setValue(ptr: number, value: unknown, type: string): void;
+  addFunction(func: Function, signature: string): number;
+  removeFunction(idx: number): void;
 
   // Exports from source
 `;
@@ -141,6 +143,11 @@ function parseType(parts) {
     case "char * *":
     case "char * []":
       return "StringPtrPtr";
+    case "HSVM_IOReader":
+    case "HSVM_IOWriter":
+    case "HSVM_IOEndOfStream":
+    case "HSVM_IOClose":
+      return "number";
     case "HSVM_VariableType": return "HSVM_VariableType";
     case "HSVM_VariableId": return "HSVM_VariableId";
     case "HSVM_ColumnId": return "HSVM_ColumnId";
@@ -149,8 +156,6 @@ function parseType(parts) {
     case "HSVM *": return "HSVM";
     case "HSVM_DynamicFunction":
     case "HSVM_RegData *":
-    case "HSVM_IOReader":
-    case "HSVM_IOWriter":
     case "HSVM_ObjectMarshallerPtr":
     case "tm *":
     case "std::string *":
