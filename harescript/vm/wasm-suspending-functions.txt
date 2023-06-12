@@ -1,0 +1,18 @@
+# This is the list of the HareScript WASM exports that can (indirectly) call
+# a EM_ASYNC_JS function (like registered async functions). Thse functions
+# all return Promises. If a EM_ASYNC_JS call returns an 'invalid suspender'
+# error, it needs to be added here.
+# This is the list of the HareScript WASM exports that can (indirectly) call
+# an EM_ASYNC_JS function (like registered async functions). These functions
+# all return Promises. If an EM_ASYNC_JS call returns an 'invalid suspender'
+# error, it needs to be added here.
+
+HSVM_ObjectMemberCopy
+HSVM_ObjectMemberSet
+HSVM_CallFunctionPtr
+HSVM_CallFunction
+HSVM_CallFunctionAutoDetect
+HSVM_CallObjectMethod
+HSVM_ThrowException
+HSVM_ThrowExceptionObject
+HSVM_ExecuteScript
