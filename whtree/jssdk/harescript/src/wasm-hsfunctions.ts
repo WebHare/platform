@@ -6,6 +6,7 @@ import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { HSVMVar } from "./wasm-hsvmvar";
 import { WASMModule } from "./wasm-modulesupport";
 import { HSVM, Ptr, StringPtr } from "wh:internal/whtree/lib/harescript-interface";
+import { generateRandomId } from "@webhare/std/std";
 
 
 
@@ -82,5 +83,8 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       errors: new HSVMVar(newvm, newvm.errorlist).getJSValue(),
       output: extfunctions.getOutput()
     });
+  });
+  wasmmodule.registerExternalFunction("GENERATEUFS128BITID::S:", (vm, id_set) => {
+    id_set.setString(generateRandomId("base64url"));
   });
 }

@@ -15,10 +15,17 @@ export function init() {
     RETURN DecodeBase64(EM_SYSCALL("getHash", CELL[ data := EncodeBase64(BlobToString(data)), algorithm, key_salt ]).base64);
 */
 export function getHash(params: { data: string; algorithm: string; key_salt: string }): { base64: string } {
-  if (params.algorithm == "MD5") {
-    const hasher = crypto.createHash("md5");
-    hasher.update(params.data, "base64");
-    return { base64: hasher.digest("base64") };
+  switch (params.algorithm) {
+    case "MD5": {
+      const hasher = crypto.createHash("md5");
+      hasher.update(params.data, "base64");
+      return { base64: hasher.digest("base64") };
+    }
+    case "SHA-1": {
+      const hasher = crypto.createHash("sha1");
+      hasher.update(params.data, "base64");
+      return { base64: hasher.digest("base64") };
+    }
   }
   throw new Error("Unsupported algorithm: " + params.algorithm);
 }
