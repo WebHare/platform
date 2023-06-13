@@ -127,8 +127,6 @@ PUBLIC STATIC OBJECTTYPE RunTests
     STRING url := webroot != "" ? UpdateURLVariables(ResolveToAbsoluteURL(webroot, "/.system/jstests/"), [ site := sitename ]) : "";
     RECORD ARRAY tests;
 
-    groupengine := groupengine ?? node->GetAttribute("engine");
-
     FOREVERY (OBJECT elt FROM node->childnodes->GetCurrentElements())
     {
       IF(NOT IsNodeApplicableToThisWebHare(elt))
@@ -320,13 +318,11 @@ PUBLIC STATIC OBJECTTYPE RunTests
         RETURN DEFAULT RECORD ARRAY;
       THROW;
     }
-    OBJECT root := dom->documentelement;
-
     RECORD ARRAY root_parameters :=
       [ [ name := "scriptpath", value := GetDirectoryFromPath(testfile) ]
       ];
 
-    tests := this->ParseXMLNode(testsettings, testfile, root, rootpath, root_parameters, localskipauto, webroot, sitename, validationconfig, groupengine);
+    tests := this->ParseXMLNode(testsettings, testfile, dom, rootpath, root_parameters, localskipauto, webroot, sitename, validationconfig, groupengine);
     RETURN tests;
   }
 
