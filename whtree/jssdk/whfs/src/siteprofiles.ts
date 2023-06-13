@@ -2,8 +2,6 @@
 import * as services from '@webhare/services';
 import * as fs from 'node:fs';
 
-export const CSPMemberTypeNames = [null, null, "string", null, "datetime", "file", "boolean", "integer", "float", "money", null, "whfsref", "array", "whfsrefarray", "stringarray", "richdocument", "intextlink", null, "instance", "url", "composeddocument", "record", "formcondition"];
-
 export enum CSPMemberType {
   String = 2,
   DateTime = 4,
