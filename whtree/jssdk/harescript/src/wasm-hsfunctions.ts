@@ -5,12 +5,31 @@ import { config } from "@webhare/services";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { HSVMVar } from "./wasm-hsvmvar";
 import { WASMModule } from "./wasm-modulesupport";
+import { HSVM, Ptr, StringPtr } from "wh:internal/whtree/lib/harescript-interface";
+import { generateRandomId } from "@webhare/std";
+
 
 
 class OutputCapturingModule extends WASMModule {
-  stdout = "";
-  print(data: string) {
-    this.stdout += data;
+  stdout_bytes: number[] = [];
+  outputfunction: number = 0;
+
+  init() {
+    super.init();
+    const out = (opaqueptr: number, numbytes: number, data: StringPtr, allow_partial: number, error_result: Ptr): number => {
+      this.stdout_bytes.push(...Array.from(this.HEAP8.slice(data, data + numbytes)));
+      return numbytes;
+    };
+    this.outputfunction = this.addFunction(out, "iiiiii");
+  }
+
+  initVM(hsvm: HSVM) {
+    super.initVM(hsvm);
+    this._HSVM_SetOutputCallback(hsvm, 0, this.outputfunction);
+  }
+
+  getOutput() {
+    return Buffer.from(this.stdout_bytes).toString();
   }
 }
 
@@ -54,13 +73,18 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     const extfunctions = new OutputCapturingModule;
     const newmodule = await createHarescriptModule(extfunctions);
     const newhsvm = newmodule._CreateHSVM();
+    newmodule.initVM(newhsvm);
     const newvm = new HarescriptVM(newmodule, newhsvm);
     newvm.consoleArguments = args.getJSValue() as string[];
-    await newvm.run(filename.getString());
+    await newvm.loadScript(filename.getString());
+    await newmodule._HSVM_ExecuteScript(newhsvm, 1, 0);
     newmodule._HSVM_GetMessageList(newhsvm, newvm.errorlist, 1);
     id_set.setJSValue({
       errors: new HSVMVar(newvm, newvm.errorlist).getJSValue(),
-      output: extfunctions.stdout
+      output: extfunctions.getOutput()
     });
+  });
+  wasmmodule.registerExternalFunction("GENERATEUFS128BITID::S:", (vm, id_set) => {
+    id_set.setString(generateRandomId("base64url"));
   });
 }

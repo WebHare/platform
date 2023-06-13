@@ -318,6 +318,7 @@ export async function createHarescriptModule<T extends WASMModule>(modulefunctio
 export async function allocateHSVM(): Promise<HarescriptVM> {
   const module = await createHarescriptModule(new WASMModule);
   const hsvm = module._CreateHSVM();
+  module.initVM(hsvm);
 
   return new HarescriptVM(module, hsvm);
 }
