@@ -7,13 +7,7 @@ import { Client } from 'pg';
 import { whconstant_whfsid_webharebackend } from "../webhareconstants";
 import { updateDir } from "./shared";
 import { decodeHSON } from "../whmanager/hsmarshalling";
-
-export enum DTAPStage {
-  Development = "development",
-  Test = "test",
-  Acceptance = "acceptance",
-  Production = "production"
-}
+import { DTAPStage } from "@webhare/env/src/concepts";
 
 interface ModuleData {
   /** Module's version */

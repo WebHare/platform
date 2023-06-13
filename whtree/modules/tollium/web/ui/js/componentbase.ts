@@ -5,6 +5,7 @@ import * as whintegration from '@mod-system/js/wh/integration';
 import * as dompack from 'dompack';
 import * as domfocus from 'dompack/browserfix/focus';
 import $todd from "@mod-tollium/web/ui/js/support";
+import { islive } from "@webhare/env";
 
 // Mutators should be defined first, so they can be used inside the ObjLayout Class!
 
@@ -418,7 +419,7 @@ class ToddCompBase {
   // Return the principal DOM node of this component (returns this.node by default, if defined)
   // (This is what GetDOMNode used to be, but by using toElement, one can simply call $(component) to get the DOM node)
   toElement() {
-    if (!whintegration.config.islive)
+    if (!islive)
       throw new Error("Avoid toElement, especially implicit calls! - replace with an explicit getNode call");
     // Placeholder for non-implemented component types
     return this.node ? this.node : dompack.create("span", { textContent: "(not implemented: " + this.componenttype + ")" });

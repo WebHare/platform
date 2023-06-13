@@ -1,5 +1,5 @@
-import { WHConfigScriptData } from '@mod-publisher/js/internal/sharedtypes';
 import * as dompack from '@webhare/dompack';
+export { config } from "@webhare/frontend";
 
 type FormValueList = Array<{ name: string; value: string }>;
 
@@ -151,28 +151,5 @@ function checkAuthorMode() {
   }
 }
 
-function getIntegrationConfig(): WHConfigScriptData {
-  let config;
-  if (typeof window !== 'undefined') { //check we're in a browser window, ie not serverside or some form of worker
-    const whconfigel = typeof document != "undefined" ? document.querySelector('script#wh-config') : null;
-    if (whconfigel?.textContent) {
-      config = JSON.parse(whconfigel.textContent) as Partial<WHConfigScriptData>;
-    }
-  }
-
-  // Make sure we have obj/site as some sort of object, to prevent crashes on naive 'if ($wh.config.obj.x)' tests'
-  return {
-    islive: true,
-    dtapstage: "production",
-    server: 0,
-    ...config,
-    obj: config?.obj || {},
-    site: config?.site || {},
-    siteroot: config?.siteroot || ""
-  };
-}
-
 if (typeof window !== "undefined") //in a browser
   setTimeout(checkAuthorMode, 0); //async startup.. also allows it to throw exceptions without breaking anything
-
-export const config = getIntegrationConfig();

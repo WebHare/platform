@@ -4,7 +4,7 @@
 /** @require: var JSONRPC = require('@mod-system/js/net/jsonrpc')
 */
 const InternetRequester = require('./requester');
-import * as whintegration from '@mod-system/js/wh/integration';
+import { islive } from "@webhare/env";
 import * as dompack from 'dompack';
 
 const rpcscriptid = Math.floor(Math.random() * 1000);
@@ -117,7 +117,7 @@ class JSONRPC extends InternetRequester {
       console.log("JSONRPC request", method, params, options, 'timeout:', timeout, 'waitTimeout:', waittimeout);
 
     const request = new Request(this, id, method, params, url, timeout, waittimeout, onsuccess, onfailure, synchronous, errortrace);
-    if (this.options.log || !whintegration.config || !whintegration.config.islive)
+    if (this.options.log || !islive)
       request.stack = new Error().stack;
 
     this.requestqueue.push(request);

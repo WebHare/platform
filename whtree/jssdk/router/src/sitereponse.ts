@@ -1,4 +1,4 @@
-import { WHConfigScriptData } from "@mod-publisher/js/internal/sharedtypes";
+import { WHConfigScriptData } from "@webhare/env/src/frontend-config";
 import { createWebResponse, WebResponse } from "./response";
 import type { SiteRequest } from "./siterequest";
 import * as services from "@webhare/services";
@@ -51,14 +51,14 @@ export class SiteResponse<T extends object = object> {
   pageconfig: T;
 
   /** JS configuration data */
-  private jsconfig: WHConfigScriptData;
+  private frontendconfig: WHConfigScriptData;
 
   constructor(pageconfig: T, siterequest: SiteRequest, settings: SiteResponseSettings) {
     this.siterequest = siterequest;
     this.pageconfig = pageconfig;
     this.settings = settings;
 
-    this.jsconfig = {
+    this.frontendconfig = {
       siteroot: "",
       site: {},
       obj: {},
@@ -83,9 +83,9 @@ export class SiteResponse<T extends object = object> {
   /** Set data associated with a plugin */
   setPluginConfig(pluginname: string, data: object | null) { //HareScript: WebDesignBase::SetJSPluginConfig
     if (data)
-      this.jsconfig[pluginname] = data;
+      this.frontendconfig[pluginname] = data;
     else
-      delete this.jsconfig[pluginname];
+      delete this.frontendconfig[pluginname];
   }
 
   private async generatePage(head: string, body: string, urlpointers: { designroot: string; designcdnroot: string; imgroot: string; siteroot: string }) {
@@ -105,12 +105,12 @@ export class SiteResponse<T extends object = object> {
     page += head;
 
     //TODO do we (still) need all these roots?
-    this.jsconfig.siteroot = urlpointers.siteroot;
+    this.frontendconfig.siteroot = urlpointers.siteroot;
 
     if (this.insertions[InsertPoints.DependenciesTop])
       page += await this.renderInserts(InsertPoints.DependenciesTop);
 
-    page += `<script type="application/json" id="wh-config">${JSON.stringify(this.jsconfig)}</script>`;
+    page += `<script type="application/json" id="wh-config">${JSON.stringify(this.frontendconfig)}</script>`;
 
     //FIXME adhoc bundle support
     const bundlebaseurl = "/.ap/" + this.settings.assetpack.replace(":", ".") + "/";

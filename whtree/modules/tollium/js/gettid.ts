@@ -1,6 +1,4 @@
-import { flags } from "@webhare/env";
-// @ts-ignore Not converted to TypeScript yet
-import * as wh from "@mod-system/js/wh/integration";
+import { islive, flags } from "@webhare/env";
 import { encodeString } from "@webhare/std";
 
 /*
@@ -108,14 +106,14 @@ function resolveTid(tid: string, params: Array<TidParam | undefined>, options?: 
   // Check if the module is defined
   const module = tid.substring(0, tid.indexOf(":"));
   if (!module || !(module in allTids)) {
-    if (!wh.config.islive || flags.gtd)
+    if (!islive || flags.gtd)
       console.warn("No language texts found for module '" + module + "'");
     return /*cannot find*/ text;
   }
 
   const language = options?.overridelanguage || getTidLanguage();
   if (!(language in allTids[module])) {
-    if (!wh.config.islive || flags.gtd)
+    if (!islive || flags.gtd)
       console.warn("No language texts found for language '" + language + "'");
     return /*cannot find*/ text;
   }

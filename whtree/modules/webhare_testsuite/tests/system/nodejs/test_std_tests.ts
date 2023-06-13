@@ -7,10 +7,16 @@ wh runtest system.nodejs.test_std_frontend
 */
 
 import * as test from "@webhare/test";
+import * as env from "@webhare/env";
 import * as std from "@webhare/std";
 import { Money } from "@webhare/std";
 
 export const uuid4regex = new RegExp(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+
+function testEnv() {
+  test.eq(false, env.islive);
+  test.eq("development", env.dtapstage);
+}
 
 function testRoundingCall(base: number, mode: std.MoneyRoundingMode, expect: number[]) {
   const mgot = [], mexpect = [];
@@ -375,6 +381,8 @@ async function testPromises() {
 }
 
 const testlist = [
+  "@webhare/env",
+  testEnv,
   "Money",
   testMoney,
   "Datetime",

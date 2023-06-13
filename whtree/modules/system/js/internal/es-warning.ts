@@ -1,9 +1,10 @@
 /// script to warn you about use of *.es imports which can be replaced (remove the extension)
-import { config } from "@mod-system/js/wh/integration";
+import { islive } from "@webhare/env";
+
 const warnings = new Set;
 
 function flushESWarnings() {
-  if (config.islive)
+  if (islive)
     return;
 
   console.warn("[WH Deprecation warning] You should update the import for the following libraries to remove the '.es' extension:\n- " + [...warnings.values()].join("\n- "));
