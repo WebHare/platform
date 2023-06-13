@@ -6,7 +6,7 @@ import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { HSVMVar } from "./wasm-hsvmvar";
 import { WASMModule } from "./wasm-modulesupport";
 import { HSVM, Ptr, StringPtr } from "wh:internal/whtree/lib/harescript-interface";
-import { generateRandomId } from "@webhare/std/std";
+import { generateRandomId } from "@webhare/std";
 
 
 
