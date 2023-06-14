@@ -380,7 +380,7 @@ test.registerTests([
     //backspace AGAIN should move to DAY field.. BUT set the cursor to the end
     await test.pressKey('Backspace');
     test.eq(dayfield, test.getDoc().activeElement);
-    test.eq('2', test.getDoc().activeElement.value);
+    test.eq('2', (test.getDoc().activeElement as HTMLInputElement)?.value);
 
     //ArrowRight brings us to the month field again
     await test.pressKey('ArrowRight');
@@ -397,8 +397,8 @@ test.registerTests([
     test.eq('', monthfield.value);
 
     //test 'pasting' a date!
-    test.getDoc().activeElement.value = '13-5-2011';
-    dompack.dispatchDomEvent(test.getDoc().activeElement, 'input');
+    (test.getDoc().activeElement! as HTMLInputElement).value = '13-5-2011';
+    dompack.dispatchDomEvent(test.getDoc().activeElement!, 'input');
     test.eq('2011-05-13', test.qR("[name=dateofbirth]").value);
     test.eq('13', dayfield.value);
     test.eq('05', monthfield.value);
@@ -463,8 +463,8 @@ test.registerTests([
 
     //backspace AGAIN should move to DAY field.. BUT set the cursor to the end
     await test.pressKey('Backspace');
-    test.assert(hourfield, test.getDoc().activeElement);
-    test.eq('2', test.getDoc().activeElement.value);
+    test.assert(hourfield === test.getDoc().activeElement);
+    test.eq('2', hourfield.value);
 
     // TODO add suport for pasting time
     // test.getDoc().activeElement.value = '13-5-2011';
