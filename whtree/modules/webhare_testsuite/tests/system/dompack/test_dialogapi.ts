@@ -1,4 +1,5 @@
 import * as test from "@mod-system/js/wh/testframework";
+import type { DompackExampleGlobalAPI } from "@mod-webhare_testsuite/web/tests/pages/dompack/dompackexample";
 
 test.registerTests(
   [
@@ -61,5 +62,19 @@ test.registerTests(
       await test.wait(() => test.qR("#dialoglog").childNodes.length == 4);
 
       test.eq('Dialog 3: null', test.qR("#dialoglog > :last-child").textContent);
+    },
+
+    "test busymodal",
+    async function () {
+      await test.load('/.webhare_testsuite/tests/pages/dompack/?testpage=dialog');
+
+      const api = test.getWin() as unknown as DompackExampleGlobalAPI;
+      api.setupBusyModal("Please wait...");
+
+      const lock = api.flagUIBusy({ modal: true });
+      const dialog = await test.waitForElement(['dialog', /Please wait/]);
+      lock.release();
+      await test.wait(() => dialog.parentNode === null);
+
     }
   ]);

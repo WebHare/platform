@@ -10,6 +10,9 @@ interface LockManagerWindow extends Window {
   __dompack_busylockmanager: LockManager;
 }
 
+let currentbusymodaldialog: HTMLDialogElement | null = null;
+let busymodalcontent: string | undefined;
+
 export type BusyModalEvent = CustomEvent<{ show: boolean }>;
 
 export interface Lock {
@@ -41,8 +44,37 @@ function checkUIFree() {
 
   if (modallocked && !anyModalLocks()) { //did the last frame-level *modal* lock just get released?
     modallocked = false;
-    if (domevents.dispatchCustomEvent(window, 'dompack:busymodal', { bubbles: true, cancelable: true, detail: { islock: false, show: false } }))
-      document.documentElement.classList.remove("dompack--busymodal");
+    toggleBusyModal(false);
+  }
+}
+
+function toggleBusyModal(show: boolean) {
+  //'islock' is legacy non-camel version. TypeScript typing should help us transition (since 5.3)
+  if (!domevents.dispatchCustomEvent(window, 'dompack:busymodal', { bubbles: true, cancelable: true, detail: { show: show, islock: show } }))
+    return; //cancelled!
+
+  if (show) {
+    if (busymodalcontent) {
+      const dialog = document.createElement('dialog');
+      const toembed = document.createTextNode(busymodalcontent);
+      dialog.className = "dompack-busydialog";
+      dialog.append(toembed);
+      document.body.appendChild(dialog);
+      currentbusymodaldialog = dialog;
+      dialog.showModal();
+      return;
+    }
+
+    document.documentElement.classList.add("dompack--busymodal");
+    return;
+  }
+
+  //hiding
+  document.documentElement.classList.remove("dompack--busymodal");
+  if (currentbusymodaldialog) { //we added a dialog to the dom
+    currentbusymodaldialog.close();
+    document.body.removeChild(currentbusymodaldialog);
+    currentbusymodaldialog = null;
   }
 }
 
@@ -108,6 +140,13 @@ class LockManager {
 
 let lockmgr: LockManager = getParentLockManager() || new LockManager;
 
+/** Configure an (accessible) modal dialog
+ * @param bmc - The text to show in the dialog
+ */
+export function setupBusyModal(bmc: NonNullable<typeof busymodalcontent>) {
+  busymodalcontent = bmc;
+}
+
 interface LockOptions {
   modal: boolean;
 }
@@ -127,10 +166,7 @@ class BusyLock implements Lock {
 
     if (this.modal && !modallocked) {
       modallocked = true;
-
-      //'islock' is legacy non-camel version. TypeScript typing should help us transition
-      if (domevents.dispatchCustomEvent(window, 'dompack:busymodal', { bubbles: true, cancelable: true, detail: { show: true, islock: true } }))
-        document.documentElement.classList.add("dompack--busymodal");
+      toggleBusyModal(true);
     }
 
     if (flags.bus) {
