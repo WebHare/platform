@@ -1021,29 +1021,6 @@ STATIC OBJECTTYPE AssetPackController
     }
   }
 
-  MACRO TryLogBuildError(STRING bundleid)
-  {
-    RECORD bundle := SELECT * FROM this->bundles WHERE outputtag = bundleid;
-
-    IF (CellExists(bundle.info, "ERRORS") AND TypeID(bundle.info.errors) = TypeID(RECORD ARRAY))
-    {
-      FOREVERY (RECORD rec FROM bundle.info.errors)
-      {
-        IF (CellExists(rec, "MESSAGE"))
-          CONTINUE;
-
-        RECORD details := CELL
-            [ script :=     rec.source
-            , browser :=    [ name := "nodejs" ]
-            , source :=     "publisher:assetpack-builderror"
-            , bundle :=     bundle.outputtag
-            ];
-
-        LogError("system:assetpackcontrol", rec.message, details);
-      }
-    }
-  }
-
   /** Mark a bundle as uncompileable (because pre-compile checks failed)
   */
   MACRO ProcessUncompilable(RECORD bundle, STRING ARRAY depfiles, STRING ARRAY missing, STRING error, DATETIME startofcompile)
@@ -1138,8 +1115,6 @@ STATIC OBJECTTYPE AssetPackController
        SET forcecompile :=  FALSE
      WHERE outputtag = message.bundle
        AND NOT requirecompile;
-
-    this->TryLogBuildError(message.bundle);
 
     // Just modified the event masks, so we need to update our global listening set
     this->UpdateAllWatchMasks();
