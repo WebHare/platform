@@ -468,7 +468,8 @@ MACRO TestCustomContent()
   contentsource->WaitForIndexingDone();
 
   RECORD ARRAY relevanterrors  := WaitForPromise(CallAsync("@mod-system/js/internal/testtools.ts#readRecentLogLines", VARIANT[ "system:notice", starttest ]));
-  relevanterrors := SELECT * FROM relevanterrors WHERE source='script-error' AND CellExists(relevanterrors,'info') AND info.context='consilio:fetcher';
+  relevanterrors := SELECT * FROM relevanterrors WHERE type='script-error' AND CellExists(relevanterrors,'info') AND info.context='consilio:fetcher';
+
   TestEq(1,Length(relevanterrors), "Cannot find my error - may also imply a backwards-incompatible notice.log error format change!");
   TestEq("Exception: THROWN", relevanterrors[0].errors[0].message);
   TestEQ(
@@ -488,7 +489,7 @@ MACRO TestCustomContent()
   contentsource->WaitForIndexingDone();
 
   relevanterrors := WaitForPromise(CallAsync("@mod-system/js/internal/testtools.ts#readRecentLogLines", VARIANT[ "system:notice", starttest ]));
-  relevanterrors := SELECT * FROM relevanterrors WHERE source='script-error' AND CellExists(relevanterrors,'info') AND info.context='consilio:fetcher';
+  relevanterrors := SELECT * FROM relevanterrors WHERE type='script-error' AND CellExists(relevanterrors,'info') AND info.context='consilio:fetcher';
   TestEq(1,Length(relevanterrors));
   TestEq("Custom error message: 'ABORT'.", relevanterrors[0].errors[0].message);
   TestEQ(
