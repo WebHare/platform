@@ -34,13 +34,16 @@ const jsappconstructors = {};
 
 /** Busy lock (while taken, the tollium app is busy
 */
-class ApplicationBusyLock extends dombusy.Lock {
-  constructor(app) {
-    super();
+class ApplicationBusyLock {
+  private readonly lock: dombusy.Lock;
+  private readonly app: ApplicationBase;
+
+  constructor(app: ApplicationBase) {
+    this.lock = dombusy.flagUIBusy();
     this.app = app;
   }
   release() {
-    super.release();
+    this.lock.release();
     this.app.removeBusyLock(this);
   }
 }
@@ -53,6 +56,7 @@ export class ApplicationBase {
   //
   // Initialization
   //
+  busylocks: ApplicationBusyLock[] = [];
 
   constructor(shell, appname, apptarget, parentapp, options) {
     this.container = null;
@@ -92,7 +96,6 @@ export class ApplicationBase {
     this.isdebugpaused = false;
     this.appmenu = [];
 
-    this.busylocks = [];
     this.busysuppressors = {};
 
     /// Busy lock for application initialization
@@ -201,7 +204,7 @@ export class ApplicationBase {
     return this.appnodes.screens;
   }
 
-  removeBusyLock(lock) {
+  removeBusyLock(lock: ApplicationBusyLock) {
     const pos = this.busylocks.indexOf(lock);
     this.busylocks.splice(pos, 1);
 

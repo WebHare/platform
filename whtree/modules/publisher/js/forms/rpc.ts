@@ -96,7 +96,7 @@ export default class RPCFormBase extends FormBase {
     if (!background)
       this.onRPC(waiter.promise);
 
-    const lock = dompack.flagUIBusy({ ismodal: !background, component: this.node });
+    const lock = dompack.flagUIBusy({ modal: !background, component: this.node });
     try {
       let options;
       if (typeof invokeargs[0] == 'object') //receiving optiions first

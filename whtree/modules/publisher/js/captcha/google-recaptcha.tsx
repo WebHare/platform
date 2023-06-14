@@ -23,7 +23,7 @@ function makeRecaptchaLoadPromise() {
 
 export async function runRecaptchaDialog(sitekey, options) {
   options = { busycomponent: null, ...options };
-  const lock = dompack.flagUIBusy({ component: options.busycomponent, ismodal: true });
+  const lock = dompack.flagUIBusy({ component: options.busycomponent, modal: true });
 
   let diag = null;
   try {

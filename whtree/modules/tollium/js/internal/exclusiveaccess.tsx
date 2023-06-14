@@ -164,7 +164,7 @@ export async function getExclusiveAccess(identifier, userinfo, { onAlreadyLocked
 
   userinfo = { entityid: userinfo.entityid ?? 0, login: userinfo.login ?? "", realname: userinfo.realname ?? "" };
 
-  let busylock = dompack.flagUIBusy({ ismodal: true });
+  let busylock = dompack.flagUIBusy({ modal: true });
 
   const socket = new WebSocket(`${location.origin.replace(/^http/, "ws")}/.tollium/exclusiveaccess/exclusiveaccess.whsock`);
   const fifo = new FIFO<{ type: string; allow?: boolean }>;
