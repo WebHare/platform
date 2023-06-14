@@ -91,14 +91,6 @@ class TestFramework {
     if (params.get("waittimeout"))
       this.waittimeout = parseInt(params.get("waittimeout"));
 
-    window.addEventListener("dompack:busymodal", evt => {
-      const roots = getTestRoots();
-      evt.preventDefault();
-      //simulate setting --busymodal on the subwindow
-      if (roots.html && dompack.dispatchCustomEvent(roots.win, 'dompack:busymodal', { bubbles: true, cancelable: true, detail: evt.detail }))
-        roots.html.classList.toggle('dompack--busymodal', evt.detail.show);
-    });
-
     document.getElementById('stoptests').addEventListener('click', function (e) { this.stop = true; this.stoppromise.reject(Error("test was cancelled")); e.target.disabled = "disabled"; }.bind(this));
     qS('#logmoreinfo').addEventListener('click', () => document.documentElement.classList.add('testframework--showfullerror'));
     qS('#testframetabs').addEventListener(`click`, evt => {

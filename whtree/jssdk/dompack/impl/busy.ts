@@ -3,7 +3,9 @@ import * as domevents from '../../../modules/system/js/dompack/src/events';
 import { createDeferred, DeferredPromise } from "@webhare/std";
 
 let locallocks: BusyLock[] = [];
-let ischild = false;
+let modallocked = false;
+let uiwatcher: NodeJS.Timeout | null = null;
+
 interface LockManagerWindow extends Window {
   __dompack_busylockmanager: LockManager;
 }
@@ -20,38 +22,44 @@ declare global {
   }
 }
 
+function anyModalLocks() {
+  return locallocks.some(l => l.modal);
+}
+
+/* scheduleCheckUIFree is invoked by release() or when waitUIFree is explicitly called. the call from release() should
+   be a 'fast' path. We schedule a full check for the next tick if there's a chance it might actually find a free UI */
+function scheduleCheckUIFree() {
+  if (!uiwatcher && locallocks.length == 0)
+    uiwatcher = setTimeout(() => checkUIFree(), 0);
+}
+
+/* check if the UI is actually free. if so, remove busymodals and resolve waitUIFrees for the benefit of testfw  */
+function checkUIFree() {
+  uiwatcher = null;
+  if (locallocks.length === 0)
+    lockmgr.checkUIFree(); //to resolve any waitUIFrees. runs in the top-level frame. note that lockmgr cares about ALL ui locks
+
+  if (modallocked && !anyModalLocks()) { //did the last frame-level *modal* lock just get released?
+    modallocked = false;
+    if (domevents.dispatchCustomEvent(window, 'dompack:busymodal', { bubbles: true, cancelable: true, detail: { islock: false, show: false } }))
+      document.documentElement.classList.remove("dompack--busymodal");
+  }
+}
+
 class LockManager {
   locks: BusyLock[];
   busycounter: number;
   deferreduipromise: DeferredPromise<boolean> | null;
-  uiwatcher: NodeJS.Timeout | null;
-  modallocked: boolean;
 
   //this object is not for external consumption
   constructor() {
     this.locks = [];
     this.busycounter = 0;
     this.deferreduipromise = null;
-    this.uiwatcher = null;
-    this.modallocked = false;
-  }
-  anyModalLocks() {
-    for (const lock of this.locks)
-      if (lock.modal)
-        return true;
-    return false;
   }
   add(lock: BusyLock) {
     this.locks.push(lock);
     const returnvalue = this.busycounter++;
-
-    if (lock.modal && !this.modallocked) {
-      this.modallocked = true;
-
-      //'islock' is legacy non-camel version. TypeScript typing should help us transition
-      if (domevents.dispatchCustomEvent(window, 'dompack:busymodal', { bubbles: true, cancelable: true, detail: { show: true, islock: true } }))
-        document.documentElement.classList.add("dompack--busymodal");
-    }
     return returnvalue;
   }
   release(lock: BusyLock) {
@@ -68,34 +76,25 @@ class LockManager {
     }
 
     this.locks.splice(pos, 1);
-    this.prepWatcher();
-  }
-  prepWatcher() {
-    if (!this.uiwatcher && this.locks.length == 0 && (this.deferreduipromise || this.modallocked)) {
-      this.uiwatcher = setTimeout(() => this.checkUIFree(), 0);
-    }
   }
   getNumLocks() {
     return this.locks.length;
   }
+  //used by child windows to schedule a check in *our* frame (eg before they themselves are unloaded)
+  scheduleCheckUIFree() {
+    scheduleCheckUIFree();
+  }
   checkUIFree() {
-    this.uiwatcher = null;
-    if (this.locks.length == 0) {
-      if (this.deferreduipromise) {
-        this.deferreduipromise.resolve(true);
-        this.deferreduipromise = null;
-      }
-      if (this.modallocked && !this.anyModalLocks()) {
-        this.modallocked = false;
-        if (domevents.dispatchCustomEvent(window, 'dompack:busymodal', { bubbles: true, cancelable: true, detail: { islock: false, show: false } }))
-          document.documentElement.classList.remove("dompack--busymodal");
-      }
+    if (this.locks.length == 0 && this.deferreduipromise) {
+      this.deferreduipromise.resolve(true);
+      this.deferreduipromise = null;
     }
   }
   waitUIFree() {
     if (!this.deferreduipromise)
       this.deferreduipromise = createDeferred();
-    this.prepWatcher();
+
+    scheduleCheckUIFree(); //ensures uiwait is released at next tick if no locks are present at all
     return this.deferreduipromise.promise;
   }
   logLocks() {
@@ -124,8 +123,15 @@ class BusyLock implements Lock {
     this.modal = options?.modal ?? (options as { ismodal?: boolean })?.ismodal ?? false;
 
     this.locknum = lockmgr.add(this);
-    if (ischild)
-      locallocks.push(this);
+    locallocks.push(this);
+
+    if (this.modal && !modallocked) {
+      modallocked = true;
+
+      //'islock' is legacy non-camel version. TypeScript typing should help us transition
+      if (domevents.dispatchCustomEvent(window, 'dompack:busymodal', { bubbles: true, cancelable: true, detail: { show: true, islock: true } }))
+        document.documentElement.classList.add("dompack--busymodal");
+    }
 
     if (flags.bus) {
       this.acquirestack = (new Error).stack;
@@ -137,18 +143,18 @@ class BusyLock implements Lock {
       this.releasestack = (new Error).stack;
 
     lockmgr.release(this);
-    if (ischild) {
-      const lockpos = locallocks.indexOf(this);
-      locallocks.splice(lockpos, 1);
-    }
+    const lockpos = locallocks.indexOf(this);
+    locallocks.splice(lockpos, 1);
 
     if (flags.bus) {
       console.trace('[bus] Busy lock #' + this.locknum + ' released. ' + lockmgr.getNumLocks() + " locks active now: " + lockmgr.getLockIds());
     }
+
+    scheduleCheckUIFree();
   }
 }
 
-/** Return a promise resolving as soon as the UI is free for at least one tick */
+/** Return a promise resolving as soon as the UI (any accessible frame) is free for at least one tick */
 export function waitUIFree() {
   return lockmgr.waitUIFree();
 }
@@ -173,17 +179,17 @@ function getParentLockManager(): LockManager | null {
     if (!(parent && parent.__dompack_busylockmanager))
       return null;
 
-    ischild = true;
-
     //if we connected to a parent...  deregister our locks, eg. if parent navigated our frame away
     window.addEventListener("unload", () => {
       if (flags.bus)
         console.log("[bus] Frame unloading, " + locallocks.length + " locks pending.", locallocks.map(l => "#" + l.locknum).join(", "), locallocks);
 
-      //switch to local instance as we'll be unable to auto-release
+      //switch to local instance in case anyone still tries to touch these locks during unload
       const locallockmgr = new LockManager;
       locallocks.forEach(lock => { lockmgr.release(lock); locallockmgr.add(lock); });
       locallocks = [];
+
+      lockmgr.scheduleCheckUIFree();
       lockmgr = locallockmgr;
     });
 
