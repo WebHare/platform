@@ -222,6 +222,7 @@ else
 endif
 
 ifeq ($(WHBUILD_NOCCACHE),)
+	export CCACHE_DIR:=${WHBUILD_CCACHE_DIR}
 	CC:=ccache ${CC}
 	CXX:=ccache ${CXX}
 	EMCC:=ccache ${EMCC}
