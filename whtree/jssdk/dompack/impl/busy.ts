@@ -1,5 +1,5 @@
 import { flags } from '@webhare/env';
-import * as domevents from './events';
+import * as domevents from '../../../modules/system/js/dompack/src/events';
 import { createDeferred, DeferredPromise } from "@webhare/std";
 
 let locallocks: BusyLock[] = [];

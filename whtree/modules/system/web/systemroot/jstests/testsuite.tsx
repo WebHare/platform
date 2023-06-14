@@ -3,7 +3,7 @@
 
 import * as dompack from 'dompack';
 import { qS, qSA } from 'dompack';
-import * as dombusy from 'dompack/src/busy';
+import * as dombusy from '@webhare/dompack/impl/busy';
 import * as browser from 'dompack/extra/browser';
 import * as domfocus from "dompack/browserfix/focus";
 import { reportException, waitForReports } from "@mod-system/js/wh/errorreporting";

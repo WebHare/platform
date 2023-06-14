@@ -2,7 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from 'dompack';
-import * as dombusy from '../src/busy';
+import * as dombusy from '@webhare/dompack/impl/busy';
 
 import { _resolveToSingleElement, _getFocusableElement } from './pointer';
 export { testEq as eq, testThrows as throws, testTrue as true, testFalse as false } from './expect';
