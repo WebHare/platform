@@ -1017,7 +1017,7 @@ void LogHarescriptError(Connection &conn, std::string const &source, std::string
 
         std::string info = "{\"@timestamp\":\"";
         info.append(out);
-        info += "\",\"type\":\"harescript-error\",\"groupid\":" + AnyToJSON(groupid) + ",";
+        info += "\",\"type\":\"script-error\",\"groupid\":" + AnyToJSON(groupid) + ",";
         if(!externalsessiondata.empty())
             info += "\"session\":" + AnyToJSON(externalsessiondata) + ",";
         if(!source.empty())
@@ -1026,8 +1026,17 @@ void LogHarescriptError(Connection &conn, std::string const &source, std::string
         for (auto itr: params)
             info += AnyToJSON(itr.first) + ":" + itr.second + ",";
 
+        auto errors = errorhandler.GetErrors();
+        if (errors.size())
+        {
+                std::string msg = HareScript::GetMessageString(*errors.begin());
+                if (info.size() + msg.size() > 100*1024)
+                  msg = msg.substr(0, 100*1024 + 100 - info.size()) + "...";
+                info += "\"message\":" + AnyToJSON(msg) + ",";
+        }
+
         info += "\"errors\":[";
-        for (auto it = errorhandler.GetErrors().begin(); it != errorhandler.GetErrors().end(); ++it)
+        for (auto it = errors.begin(); it != errors.end(); ++it)
         {
                 if (info.size() > 127 * 1024)
                     break;
@@ -1036,11 +1045,11 @@ void LogHarescriptError(Connection &conn, std::string const &source, std::string
                 if (info.size() + msg.size() > 100*1024)
                   msg = msg.substr(0, 100*1024 - info.size()) + "...";
 
-                if (it != errorhandler.GetErrors().begin())
+                if (it != errors.begin())
                     info += ",";
                 info += "{\"filename\":" + AnyToJSON(it->filename);
                 info += ",\"line\":" + AnyToJSON(it->position.line);
-                info += ",\"col\":" + AnyToJSON(it->position.column);
+                info += ",\"column\":" + AnyToJSON(it->position.column);
                 info += ",\"message\":" + AnyToJSON(msg) + "}";
         }
         info += "],\"trace\":[";
@@ -1053,8 +1062,8 @@ void LogHarescriptError(Connection &conn, std::string const &source, std::string
                     info += ",";
                 info += "{\"filename\":" + AnyToJSON(it->filename);
                 info += ",\"line\":" + AnyToJSON(it->position.line);
-                info += ",\"col\":" + AnyToJSON(it->position.column);
-                info += ",\"func\":" + AnyToJSON(it->func) + "}";
+                info += ",\"column\":" + AnyToJSON(it->position.column);
+                info += ",\"functionname\":" + AnyToJSON(it->func) + "}";
         }
         info += "]}";
 

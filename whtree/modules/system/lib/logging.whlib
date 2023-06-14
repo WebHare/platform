@@ -48,7 +48,7 @@ MACRO LogNotice(STRING logsource, STRING channel, STRING message, RECORD data)
 /** @short Log an error to the 'notice' log
     @long Log an important message indicating trouble that should be handled as soon as possible ("ACT NOW")
     @param logsource Source or call of the error message
-    @param message Error mesage in text, should be understandable by sysop users
+    @param message Error message in text, should be understandable by sysop users
     @param data System-parseable error context */
 PUBLIC MACRO LogError(STRING logsource, STRING message, RECORD data DEFAULTSTO DEFAULT RECORD)
 {

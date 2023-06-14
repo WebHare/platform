@@ -1,4 +1,6 @@
 <?wh
+(*ISSYSTEMLIBRARY*)
+
 /* This library should be used for all global settings/tunables in WebHare, so we find relevant constants more easily.
    This library should do no calculation that we can't const-optimize at some point
    All settings should be prefixed with whconstant_

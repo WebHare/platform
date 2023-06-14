@@ -17,11 +17,11 @@ IF(Length(errors) > 0)
   {
     //buildlogs filter out empty lines somewhere... so prefixing every error also makes it easier to see where the next one starts
     Print(`*** There are errors in the notice log. ${#err+1}/${Length(errors)}\n`);
-    IF(CellExists(err,'type') AND err.type = "harescript-error")
+    IF(CellExists(err,'type') AND err.type IN [ "script-error", "script-unhandledrejection" ])
     {
       FOREVERY(RECORD error FROM err.errors)
-        Print(`${error.filename}:${error.line}:${error.col}: ${error.message}\n`);
-      Print(FormatHarescriptStackTrace(err.trace));
+        Print(`${error.filename}:${error.line}:${error."column"}: ${error.message}\n`);
+      Print(FormatHarescriptStackTrace(SELECT filename, line, col := COLUMN "column", func := functionname FROM err.trace));
     }
     ELSE
     {

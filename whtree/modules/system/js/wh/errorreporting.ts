@@ -112,9 +112,9 @@ async function reportException(errorobj, options) {
         stackframes = stackframes.map(frame => (
           {
             line: frame.lineNumber,
-            func: frame.functionName,
+            functionname: frame.functionName,
             filename: frame.fileName.replace("/@whpath/", ""),
-            col: frame.columnNumber
+            column: frame.columnNumber
           }));
       }
     } catch (e) {
@@ -127,16 +127,14 @@ async function reportException(errorobj, options) {
     const data =
     {
       v: 1,
-      browser: browser.getTriplet(),
+      browser: { name: browser.getTriplet() },
       location: location.href,
       error: exception_text,
       trace: stackframes
     };
 
     if (options && options.extradata) {
-      for (const name in options.extradata)
-        if (options.extradata.hasOwnProperty(name))
-          data[name] = options.extradata[name];
+      data.data = Object.fromEntries(Object.entries(options.extradata));
     }
 
     if (typeof (root.location) == 'undefined')

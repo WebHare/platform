@@ -98,7 +98,7 @@ export class RestService {
     try {
       result = await this.restapi.handleRequest(req, "/" + relurl, logger);
     } catch (e) {
-      services.logNotice("error", e as Error);
+      services.logError(e as Error);
 
       if (env.flags.etr)
         result = createJSONResponse(HTTPErrorCode.InternalServerError, { error: (e as Error).message, stack: (e as Error).stack });

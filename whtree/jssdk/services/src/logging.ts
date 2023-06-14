@@ -1,4 +1,4 @@
-import bridge, { LogNoticeOptions, LoggableRecord } from "@mod-system/js/internal/whmanager/bridge";
+import bridge, { LogErrorOptions, LogNoticeOptions, LoggableRecord } from "@mod-system/js/internal/whmanager/bridge";
 export { LoggableRecord } from "@mod-system/js/internal/whmanager/bridge";
 import { config } from "./services";
 import fs from "fs/promises";
@@ -18,13 +18,21 @@ export function log(logname: string, logline: LoggableRecord): void {
   bridge.log(logname, logline);
 }
 
+/** Log a message to the notice log
+ * @param type - Message type
+ * @param message - Message to log
+ */
+export function logNotice(type: "error" | "warning" | "info", message: string, options?: LogNoticeOptions): void {
+  if (!["error", "warning", "info"].includes(type))
+    throw new Error(`Invalid log type '${type}'. Must be one of 'error', 'warning' or 'info'`);
+  bridge.logNotice(type, message, options);
+}
+
 /** Log an error to the notice log
  * @param error - Error to log
  */
-export function logNotice(type: "error" | "warning" | "info", error: Error | string, options?: LogNoticeOptions): void {
-  if (!["error", "warning", "info"].includes(type))
-    throw new Error(`Invalid log type '${type}'. Must be one of 'error', 'warning' or 'info'`);
-  bridge.logNotice(type, error, options);
+export function logError(error: Error, options?: LogErrorOptions): void {
+  bridge.logError(error, options);
 }
 
 /** Log debug information

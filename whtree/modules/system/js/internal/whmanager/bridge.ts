@@ -55,7 +55,11 @@ export interface LogNoticeOptions {
   script?: string;
   ///Error specific data, 'free form'
   data?: LoggableRecord;
+  info?: hsmarshalling.IPCMarshallableRecord;
   contextinfo?: hsmarshalling.IPCMarshallableRecord;
+}
+
+export interface LogErrorOptions extends LogNoticeOptions {
   errortype?: "exception" | "unhandledRejection";
 }
 
@@ -132,10 +136,16 @@ interface Bridge extends EventSource<BridgeEvents> {
   */
   flushLog(logname: string | "*"): Promise<void>;
 
-  /** Log an error to the notice log
-      @param e - Error to log
+  /** Log an error message to the notice log
+      @param type - Message type
+      @param message - Message to log
   */
-  logNotice(t: "error" | "warning" | "info", e: Error | string, options?: LogNoticeOptions): void;
+  logNotice(type: "error" | "warning" | "info", message: string, options?: LogNoticeOptions): void;
+
+  /** Log an error to the notice log
+    @param e - Error to log
+  */
+  logError(e: Error | string, options?: LogErrorOptions): void;
 
   /** Ensure events and logs have been delivered to the whmanager */
   ensureDataSent(): Promise<void>;
@@ -228,14 +238,22 @@ export function checkAllMessageTypesHandled<T extends never>(message: T, key: st
 }
 
 type JavaScriptExceptionData = {
-  error: string;
+  message: string;
   trace: Array<{
     filename: string;
     line: number;
-    col: number;
+    column: number;
     functionname: string;
   }>;
-  cause?: JavaScriptExceptionData;
+  causes?: Array<{
+    message: string;
+    trace: Array<{
+      filename: string;
+      line: number;
+      column: number;
+      functionname: string;
+    }>;
+  }>;
 };
 
 class LocalBridge extends EventSource<BridgeEvents> {
@@ -344,37 +362,63 @@ class LocalBridge extends EventSource<BridgeEvents> {
     });
   }
 
-  private encodeJavaScriptExceptionData(e: Error, depth: number = 0): JavaScriptExceptionData {
-    const trace = stacktrace_parser.parse(e?.stack ?? "");
+  private encodeSingleJavaScriptExceptionData(e: Error): JavaScriptExceptionData {
+    const trace = stacktrace_parser.parse(e?.stack ?? "").map(entry => ({
+      filename: entry.file || "",
+      line: entry.lineNumber || 0,
+      column: entry.column || 0,
+      functionname: entry.methodName || ""
+    }));
     return {
-      trace: trace.map(entry => ({
-        filename: entry.file || "",
-        line: entry.lineNumber || 0,
-        col: entry.column || 0,
-        functionname: entry.methodName || ""
-      })),
-      error: e.message || "",
-      ...(e.cause && typeof e.cause === "object" && ("message" in e.cause) && depth < 4 ? { cause: this.encodeJavaScriptExceptionData(e.cause as Error, depth + 1) } : {})
+      trace,
+      message: e.message || "",
+      ...(trace.length ? {
+        errors: [{ ...pick(trace[0], ["filename", "line", "column"]), message: e.message }]
+      } : {})
     };
   }
 
-  private encodeJavaScriptException(e: Error | string, options: {
-    script?: string;
-    contextinfo?: hsmarshalling.IPCMarshallableRecord;
-    errortype?: "exception" | "unhandledRejection";
-  }) {
+  private encodeJavaScriptExceptionData(e: Error, depth: number = 0): JavaScriptExceptionData {
+    const mainerror = this.encodeSingleJavaScriptExceptionData(e);
+    const causes = new Array<JavaScriptExceptionData>;
+    for (let cause = e.cause as Error | undefined; cause && typeof cause === "object" && ("message in cause"); cause = cause.cause as Error) {
+      mainerror.causes ??= [];
+      mainerror.causes.push(this.encodeSingleJavaScriptExceptionData(cause));
+      if (causes.length === 4)
+        break;
+    }
+    return mainerror;
+  }
+
+  private encodeJavaScriptException(e: Error | string, options: LogErrorOptions) {
     const data = {
-      ...(typeof e === "string" ? { error: e } : this.encodeJavaScriptExceptionData(e)),
+      ...(typeof e === "string" ? { message: e } : this.encodeJavaScriptExceptionData(e)),
       script: options.script ?? require.main?.filename ?? "",
       browser: { name: "nodejs" },
+      ...(options.info ? { info: options.info } : {}),
       ...(options.contextinfo ? { contextinfo: options.contextinfo } : {}),
     };
     return data;
   }
 
-  logNotice(type: string, e: Error | string, options: LogNoticeOptions = {}) {
+  logNotice(type: string, message: string, options: LogNoticeOptions = {}) {
     const groupid = options.groupid ?? this.getGroupId();
-    this.log("system:notice", { type, groupid, ...("data" in options ? { data: options.data } : {}), ...this.encodeJavaScriptException(e, options) });
+    this.log("system:notice", {
+      type,
+      groupid,
+      ...("data" in options ? { data: options.data } : {}),
+      ...this.encodeJavaScriptException(message, options)
+    });
+  }
+
+  logError(e: Error, options: LogErrorOptions = {}) {
+    const groupid = options.groupid ?? this.getGroupId();
+    this.log("system:notice", {
+      type: options.errortype === "unhandledRejection" ? "script-unhandledrejection" : "script-error",
+      groupid,
+      ...("data" in options ? { data: options.data } : {}),
+      ...this.encodeJavaScriptException(e, options)
+    });
   }
 
   logDebug(source: string, data: LoggableRecord) {
@@ -1161,7 +1205,7 @@ const process_exit_backup = process.exit; // compatibility with taskrunner.ts ta
 
 process.on('uncaughtExceptionMonitor', (error, origin) => {
   console.error(origin == "unhandledRejection" ? "Uncaught rejection" : "Uncaught exception", error);
-  bridge.logNotice("error", error, { errortype: origin == "unhandledRejection" ? origin : "exception" });
+  bridge.logError(error, { errortype: origin == "unhandledRejection" ? origin : "exception" });
 });
 
 process.on('uncaughtException', async (error) => {

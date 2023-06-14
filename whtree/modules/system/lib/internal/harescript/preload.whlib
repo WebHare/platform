@@ -66,17 +66,17 @@ MACRO OnDebugLog(STRING source, VARIANT msg)
 
 MACRO GotUnhandledRejection(RECORD data)
 {
-  LogNoticeException("unhandled_rejection", "", data.e, CELL[promise_id := data.promise_id ]);
+  LogNoticeException("script-unhandledrejection", "", data.e, CELL[ data := CELL[ data.promise_id ] ]);
 }
 
 MACRO GotRejectionHandled(RECORD data)
 {
-  LogToJSONLog("system:notice", [ source := "rejection_handled", groupid := GetCurrentGroupId(), session := GetExternalSessionData(), promise_id := data.promise_id ]);
+  LogToJSONLog("system:notice", [ type := "script-rejectionhandled", groupid := GetCurrentGroupId(), session := GetExternalSessionData(), promise_id := data.promise_id ]);
 }
 
 MACRO GotTooManyUnhandledRejections()
 {
-  LogToJSONLog("system:notice", [ source := "too_many_unhandled_rejections", groupid := GetCurrentGroupId(), session := GetExternalSessionData() ]);
+  LogToJSONLog("system:notice", [ type := "script-toomanyunhandledrejections", groupid := GetCurrentGroupId(), session := GetExternalSessionData() ]);
 }
 
 MACRO ReadDebugConfig()
@@ -288,4 +288,3 @@ __UnhandledRejection := PTR GotUnhandledRejection;
 __RejectionHandled := PTR GotRejectionHandled;
 __TooManyUnhandledRejections := PTR GotTooManyUnhandledRejections;
 __GetDatabaseRuntimeConfig := PTR GetDatabaseRuntimeConfig;
-

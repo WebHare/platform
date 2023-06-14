@@ -8,7 +8,7 @@ export { config, WebHareBackendConfiguration } from "./config";
 import * as witty from '@webhare/witty';
 import { config, WebHareBackendConfiguration } from "./config";
 export { broadcast, subscribe, BackendEvent, BackendEventSubscription } from "./backendevents";
-export { log, logNotice, logDebug, readLogLines, LoggableRecord } from "./logging";
+export { log, logNotice, logError, logDebug, readLogLines, LoggableRecord } from "./logging";
 export { ConvertBackendServiceInterfaceToClientInterface } from "@mod-system/js/internal/webhareservice";
 export type { RichBlob } from "./richblob";
 export { lockMutex } from "./mutex";

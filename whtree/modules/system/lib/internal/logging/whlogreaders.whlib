@@ -2,7 +2,7 @@
 
 LOADLIB "wh::datetime.whlib";
 
-LOADLIB "relative::noticelog.whlib";
+//LOADLIB "relative::noticelog.whlib";
 
 OBJECTTYPE LogReaderBase
 <
@@ -88,11 +88,37 @@ PUBLIC OBJECTTYPE DebugLogReader EXTEND LogReaderBase
   }
 >;
 
+CONSTANT RECORD noticelogstructure :=
+    [ "@timestamp" := DEFAULT DATETIME
+    , groupid := ""
+    , source := ""
+    , type := ""
+    , session := ""
+    , data := DEFAULT RECORD
+    , message := ""
+    , script := ""
+    , contextinfo := DEFAULT RECORD
+    , errors := [ [ filename := "", line := 1, "column" := 1, message := "" ] ]
+    , trace := [ [ filename := "", line := 1, "column" := 1, functionname := "" ] ]
+    , causes := [ [ message := ""
+                  , errors := [ [ filename := "", line := 1, "column" := 1, message := "" ] ]
+                  , trace := [ [ filename := "", line := 1, "column" := 1, functionname := "" ] ]
+                  ]
+                ]
+    , browser       := [ name := "", location := ""  ]
+    , location      := ""
+    , testscript := ""
+    ];
+
 PUBLIC OBJECTTYPE NoticeLogReader EXTEND LogReaderBase
 <
   UPDATE RECORD FUNCTION ProcessLine(STRING line)
   {
-    RETURN ParseNoticeLogLine(line);
+    RECORD fields := DecodeJSON(line);
+    IF(NOT RecordExists(fields))
+      RETURN DEFAULT RECORD;
+
+    RETURN EnforceStructure(noticelogstructure, fields);
   }
 >;
 
