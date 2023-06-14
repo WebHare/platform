@@ -20,4 +20,4 @@ openLinksInNewWindow();
 
 */
 
-console.log("Frontend configuratio nobject", frontend.config);
+console.log("Frontend configuration object", frontend.config);
