@@ -54,26 +54,6 @@ MACRO TestCompleteSyncAfterCommand()
   TestEq((SELECT groupid, objectid FROM webhare_testsuite.consilio_index ORDER BY groupid, objectid), SearchAll(""));
 }
 
-RECORD ARRAY FUNCTION GetLogItems(DATETIME fromtime, DATETIME totime)
-{
-  Sleep(5000); // give log time to be written
-
-  OBJECT stream := OpenWebHareLogStream("consilio_queries", fromtime, totime);
-
-  RECORD ARRAY items;
-  WHILE (TRUE)
-  {
-    RECORD rec := stream->ReadRecord();
-    IF (NOT RecordExists(rec))
-      BREAK;
-
-    INSERT CELL[ rec.time, ...DecodeHSON(rec.parts[0]) ] INTO items AT END;
-  }
-  stream->Close();
-
-  RETURN items;
-}
-
 MACRO TestCustomContent()
 {
   TestEq(0, __GetNumSubJobs());
@@ -152,13 +132,13 @@ MACRO TestCustomContent()
   TestCompleteSyncAfterCommand();
 
   // Test logged user queries
-  RECORD ARRAY items := GetLogItems(start, GetCurrentDateTime());
+  RECORD ARRAY items := ReadJSONLogLines("consilio:queries", start);
   TestEq(0, Length(SELECT FROM items WHERE catalogid = catalog->id));
   start := GetCurrentDatetime();
   RECORD ARRAY results := SearchAll("a", [ storequery := TRUE ]);
   TestEQ((SELECT groupid, objectid FROM webhare_testsuite.consilio_index WHERE groupid = idprefix||"a" ORDER BY groupid, objectid), results);
   DATETIME stop := GetCurrentDateTime();
-  items := GetLogItems(start, stop);
+  items := ReadJSONLogLines("consilio:queries", start, stop);
 
   RECORD ARRAY queries := SELECT * FROM items WHERE catalogid = catalog->id;
   TestEq(1, Length(queries));
