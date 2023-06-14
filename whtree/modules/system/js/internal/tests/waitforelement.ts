@@ -1,16 +1,16 @@
 import * as dompack from "@webhare/dompack";
 import * as test from '@mod-system/js/wh/testframework';
 
-export type SelectorPart = string | Element | RegExp | number;
+export type SelectorPart = string | HTMLElement | RegExp | number;
 export type Selector = SelectorPart[] | string;
 
-function evaluateSelectSingle(start: Element | Document, selector: Selector): Element | null {
-  let currentmatch: Document | Element | Element[] = start;
+function evaluateSelectSingle(start: HTMLElement | Document, selector: Selector): HTMLElement | null {
+  let currentmatch: Document | HTMLElement | HTMLElement[] = start;
   if (typeof selector == "string")
     selector = [selector];
 
-  if (typeof selector[0] == 'object' && (selector[0] as Element).ownerDocument) {
-    currentmatch = selector[0] as Element;
+  if (typeof selector[0] == 'object' && (selector[0] as HTMLElement).ownerDocument) {
+    currentmatch = selector[0] as HTMLElement;
     selector = selector.slice(1); //don't edit the original selector list ... repeated waits always need the full list
   }
 
@@ -67,19 +67,29 @@ function evaluateSelectSingle(start: Element | Document, selector: Selector): El
     console.error(`Matched a non-element: %o`, currentmatch); //TODO or outside the DOM ?
     throw new Error("Matched a non-element");
   }
-  return currentmatch as Element;
+  return currentmatch as HTMLElement;
 }
 
-//wairForElement: wait for the selector to appear in the DOM and be clickable
-//selector: either a direct string or an array of [selector,index,selector,index,...]
-export async function waitForElement(selector: Selector) {
+/** Lookup an element in the DOM using our testfw selectors
+ * @param selector - either a direct string or an array of [selector,index,selector,index,...]
+ * @returns The requested element or null if not found
+*/
+export function findElement(selector: Selector): HTMLElement | null {
+  return evaluateSelectSingle(test.getDoc(), selector);
+}
+
+/** Wait for an element in the DOM to appear and become clickable. Scroll into view where needed
+ * @param selector - either a direct string or an array of [selector,index,selector,index,...]
+ * @returns The requested element (will throw on timeout)
+*/
+export async function waitForElement(selector: Selector): Promise<HTMLElement> {
   let logstate = Date.now() + 5000;
   return await test.wait(() => {
     const lognow = Date.now() > logstate;
     if (lognow)
       logstate = Date.now() + 5000; //wait 5sec again for new reports
 
-    const node = evaluateSelectSingle(test.getDoc(), selector);
+    const node = findElement(selector);
     if (!node) {
       if (lognow)
         console.warn("waitForElement: no match for selector", selector);

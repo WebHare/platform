@@ -37,6 +37,7 @@ export {
 } from 'dompack/testframework/pointer';
 
 export {
+  findElement,
   waitForElement
 } from "../internal/tests/waitforelement";
 
