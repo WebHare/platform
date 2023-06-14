@@ -255,17 +255,17 @@ endif
 CPPFLAGS += -DHAVE_LIBGIT=1
 harescript_HsMod_git_AddLibs = git2
 
-CompileCNative = $(HIDE)echo "- CompileCNative $1" && $(CC) $(CPPFLAGS) -o$2 -c $1
-CompileCWasm   = $(HIDE)echo "- CompileCWasm $1"   && $(EMCC) $(CPPFLAGS_WASM) -o$2 -c $1
+CompileCNative = $(HIDE)echo "- CompileCNative $1 -> $2" && $(CC) $(CPPFLAGS) -o$2 -c $1
+CompileCWasm   = $(HIDE)echo "- CompileCWasm $1 -> $2"   && $(EMCC) $(CPPFLAGS_WASM) -o$2 -c $1
 
-CompileCPPNative = $(HIDE)echo "- CompileCPPNative $1" && $(CXX) $(CPPFLAGS) $(CXXFLAGS) -o$2 -c $1
-CompileCPPWasm = $(HIDE)echo "- CompileCPPWasm $1" && $(EMCC) $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -o$2 -c $1
+CompileCPPNative = $(HIDE)echo "- CompileCPPNative $1 -> $2" && $(CXX) $(CPPFLAGS) $(CXXFLAGS) -o$2 -c $1
+CompileCPPWasm = $(HIDE)echo "- CompileCPPWasm $1 -> $2" && $(EMCC) $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -o$2 -c $1
 
-GenerateDepsNative = $(HIDE)echo "- GenerateDepsNative $1" && $(CXX) $(CPPFLAGS) $(CXXFLAGS) -M -MP -MT "$2 $(subst .native-d,.native-obj,$2)" $3 -o $2 -c $1
-GenerateDepsWasm   = $(HIDE)echo "- GenerateDepsWasm $1" && $(EMCC) $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -M -MP -MT "$2 $(subst .wasm-d,.wasm-obj,$2)" $3 -o $2 -c $1
+GenerateDepsNative = $(HIDE)echo "- GenerateDepsNative $1 -> $2" && $(CXX) $(CPPFLAGS) $(CXXFLAGS) -M -MP -MT "$2 $(subst .native-d,.native-obj,$2)" $3 -o $2 -c $1
+GenerateDepsWasm   = $(HIDE)echo "- GenerateDepsWasm $1 -> $2" && $(EMCC) $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -M -MP -MT "$2 $(subst .wasm-d,.wasm-obj,$2)" $3 -o $2 -c $1
 
-GeneratePCHDepsNative = $(HIDE)echo "- GeneratePCHDepsNative $1" && $(CXX) $(CPPFLAGS) $(CXXFLAGS) -x c++-header -M -MP -MT "$2 $(subst .native-d,.gch,$2)" $3 -o $2 -c $1
-GeneratePCHDepsWasm = $(HIDE)echo "- GeneratePCHDepsWasm $1" && $(EMCC) $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -x c++-header -M -MP -MT "$2 $(subst .wasm-d,.gch,$2)" $3 -o $2 -c $1
+GeneratePCHDepsNative = $(HIDE)echo "- GeneratePCHDepsNative $1 -> $2" && $(CXX) $(CPPFLAGS) $(CXXFLAGS) -x c++-header -M -MP -MT "$2 $(subst .native-d,.gch,$2)" $3 -o $2 -c $1
+GeneratePCHDepsWasm = $(HIDE)echo "- GeneratePCHDepsWasm $1 -> $2" && $(EMCC) $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -x c++-header -M -MP -MT "$2 $(subst .wasm-d,.gch,$2)" $3 -o $2 -c $1
 
 GeneratePCHNative = $(HIDE)echo "- GeneratePCHNative $2" && $(CXX) $(CPPFLAGS) $(CXXFLAGS) -x c++-header $4 -o$3 -c $2
 GeneratePCHWasm = $(HIDE)echo "- GeneratePCHWasm $2" && $(EMCC) $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -x c++-header $4 -o$3 -c $2
@@ -358,8 +358,6 @@ LIBBLEX_WASM_SOURCEOBJS=$(LIBBLEX_LIBXML2_WASM_OBJS) $(addsuffix .wasm-obj,$(add
 LIBBLEX_WASM_TESTOBJS=$(addsuffix .wasm-obj,$(addprefix blex/tests/,$(LIBBLEX_WASM_TESTNAMES)))
 # TODO wh_filesystem here is a bit of a hack...
 LIBHSVM_WASM_SOURCEOBJS=$(LIBBLEX_WASM_SOURCEOBJS) $(addsuffix .wasm-obj,$(addprefix harescript/vm/,$(LIBHSVM_WASM_SOURCENAMES))) ap/libwebhare/wh_filesystem.wasm-obj
-
-LIBBLEX_WASM_TESTOBJS_ALL=$(LIBBLEX_WASM_SOURCEOBJS) $(LIBBLEX_WASM_TESTOBJS)
 
 #NATIVE_ALL_OBJS=  #todo and not a deeply recursive wildcard!
 NATIVE_ALL_OBJS_DEPFILES=$(subst .native-obj,.native-d,$(ALLOBJS))
@@ -555,8 +553,9 @@ LIBXML2_GENERATEDFILE=config.h
 LIBXML2_NATIVE_GENERATEDFILE=$(addprefix vendor-native/libxml2/,$(LIBXML2_GENERATEDFILE))
 LIBXML2_WASM_GENERATEDFILE=$(addprefix vendor-wasm/libxml2/,$(LIBXML2_GENERATEDFILE))
 
-$(LIBBLEX_NATIVE_TESTOBJS) $(LIBBLEX_LIBXML2_NATIVE_OBJS) $(LIBHSVM_NATIVE_SOURCEOBJS): $(LIBXML2_NATIVE_GENERATEDFILE)
-$(LIBBLEX_WASM_TESTOBJS_ALL) $(LIBBLEX_LIBXML2_WASM_OBJS) $(LIBHSVM_WASM_SOURCEOBJS): $(LIBXML2_WASM_GENERATEDFILE)
+# cannot build blex tests or hsvm without libxml
+$(LIBBLEX_NATIVE_TESTOBJS) $(LIBBLEX_NATIVE_SOURCEOBJS) $(LIBBLEX_LIBXML2_NATIVE_OBJS) $(LIBHSVM_NATIVE_SOURCEOBJS): $(LIBXML2_NATIVE_GENERATEDFILE)
+$(LIBBLEX_WASM_SOURCEOBJS) $(LIBBLEX_WASM_SOURCEOBJS)   $(LIBBLEX_LIBXML2_WASM_OBJS)   $(LIBHSVM_WASM_SOURCEOBJS):   $(LIBXML2_WASM_GENERATEDFILE)
 
 # Checkout submodule if still needed
 $(SRCDIR)/vendor/libxml2/autogen.sh:
@@ -631,8 +630,8 @@ success.blex-native: bin/blex-test-native blex/tests/dynamic$(DLL_SUFFIX)
 	ulimit -n 1024 && bin/blex-test-native test bin/blex-test-native blex/tests/dynamic$(DLL_SUFFIX) $(SRCDIR)/blex/tests/data 1 ; test "$$?" = 241
 	> success.blex-native
 
-bin/blex-test-wasm.wasm: $(LIBBLEX_WASM_TESTOBJS_ALL)
-	$(call LinkWASMExecutable,$(LIBBLEX_WASM_TESTOBJS_ALL),bin/blex-test-wasm)
+bin/blex-test-wasm.wasm: $(LIBBLEX_WASM_SOURCEOBJS) $(LIBBLEX_WASM_TESTOBJS)
+	$(call LinkWASMExecutable,$^,bin/blex-test-wasm)
 
 success.blex-wasm: bin/blex-test-wasm.wasm bin/blex-test-wasm.wasm
 	ulimit -n 1024 && node --experimental-wasm-stack-switching bin/blex-test-wasm test bin/blex-test-wasm blex/tests/dynamic$(DLL_SUFFIX) $(SRCDIR)/blex/tests/data 1 ; test "$$?" = 242

@@ -2,7 +2,7 @@ import * as fs from "node:fs";
 import { registerUpdateConfigCallback, WebHareBackendConfiguration, ConfigFile, updateWebHareConfigWithoutDB } from "./generation/gen_config";
 import { RecursiveReadOnly, freezeRecursive } from "./util/algorithms";
 
-export type { DTAPStage, WebHareBackendConfiguration, WebHareConfigFile } from "./generation/gen_config";
+export type { WebHareBackendConfiguration, WebHareConfigFile } from "./generation/gen_config";
 
 let loggederror = false;
 

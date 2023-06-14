@@ -11,7 +11,7 @@ LOADLIB "wh::system.whlib";
     @param data Data to log. The `@timestamp` will be added automatically */
 PUBLIC MACRO LogToJSONLog(STRING logname, RECORD data)
 {
-  __SYSTEM_REMOTELOG(logname, EncodeJSON(CELL["@timestamp" := GetCurrentDatetime(), ...data]));
+  __SYSTEM_REMOTELOG(logname, EncodeJSON(CELL[ ...data, "@timestamp" := GetCurrentDatetime() ])); //avoid overwriting timestamp
 }
 
 

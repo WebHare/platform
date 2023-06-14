@@ -1,6 +1,6 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
+import * as frontend from "@webhare/frontend";
 import './css/webinterface.scss';
 import 'typeface-roboto';
 import 'typeface-roboto-mono';
@@ -9,7 +9,6 @@ import './pages/manual';
 
 import 'font-awesome/css/font-awesome.css';
 import '@mod-wrd/js/auth';
-import * as whintegration from '@mod-system/js/wh/integration';
 import startTolliumShell from '@mod-tollium/shell';
 
 //we manually manage the polyfills as we don't want the interface to recompile when the set of webservers changes. our assetpack has webharepolyfills="false"
@@ -20,7 +19,7 @@ if (document.documentElement.classList.contains('wh-shell')) {
 } else if (window.parent && document.documentElement.classList.contains("wh-tollium--manual")) {
   document.documentElement.addEventListener("click", event => {
     // Open external links in new window
-    if (event.target.nodeName == "A" && !event.target.href.startsWith(whintegration.config.siteroot))
+    if (event.target.nodeName == "A" && !event.target.href.startsWith(frontend.config.siteroot))
       window.open(event.target.href);
   });
 }

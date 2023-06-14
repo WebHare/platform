@@ -5,8 +5,8 @@ import * as dompack from "dompack";
 import * as domdebug from "dompack/src/debug";
 import { browser } from "@webhare/dompack";
 import * as cookie from "dompack/extra/cookie";
-import * as whintegration from "@mod-system/js/wh/integration";
 import { generateRandomId } from "@webhare/std";
+import { islive } from "@webhare/env";
 
 const eventname_regex = /^[\w:]+$/;
 const datakey_regex = /^(ds_[0-9a-z_]+)|(dn_[0-9a-z_]+)|(db_[0-9a-z_]+)$/;
@@ -54,7 +54,7 @@ export function setPxlOptions(options) {
 
 function pxlFailed(errormessage, ...params) {
   console.error('[pxl] ' + errormessage, ...params);
-  if (!whintegration.config.islive)
+  if (!islive)
     throw new Error(errormessage); //big errors on test servers
   return null;
 }

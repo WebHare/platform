@@ -3,7 +3,7 @@
 
 import * as dompack from 'dompack';
 import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
-import * as whintegration from '@mod-system/js/wh/integration';
+import { dtapstage } from "@webhare/env";
 import $todd from '@mod-tollium/web/ui/js/support';
 
 let magicmenuactive;
@@ -11,7 +11,7 @@ let clicks = [];
 
 ///Is the magic menu active? (Always on development but we'll still let you play the animation on Dev)
 function isActive() {
-  return whintegration.config.dtapstage == 'development' || magicmenuactive;
+  return dtapstage == 'development' || magicmenuactive;
 }
 
 function onTopbarClick(event) {

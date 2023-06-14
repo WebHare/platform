@@ -1,0 +1,16 @@
+:where(html, body, p, h1, h2, h3, h4, h5, h6, form) {
+  padding: 0;
+  margin: 0;
+}
+
+:where(*, *::before, *::after) {
+  box-sizing: border-box;
+}
+
+:where(body) {
+  /* Firefox for Android */
+  -moz-text-size-adjust: none;
+  /* iOS Safari */
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+}
