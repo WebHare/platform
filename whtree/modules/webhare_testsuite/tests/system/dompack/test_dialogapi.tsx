@@ -1,4 +1,5 @@
 import * as test from "@mod-system/js/wh/testframework";
+import * as dompack from "@webhare/dompack";
 import type { DompackExampleGlobalAPI } from "@mod-webhare_testsuite/web/tests/pages/dompack/dompackexample";
 
 test.registerTests(
@@ -71,10 +72,36 @@ test.registerTests(
       const api = test.getWin() as unknown as DompackExampleGlobalAPI;
       api.setupBusyModal("Please wait...");
 
-      const lock = api.flagUIBusy({ modal: true });
-      const dialog = await test.waitForElement(['dialog', /Please wait/]);
-      lock.release();
-      await test.wait(() => dialog.parentNode === null);
+      {
+        const lock = api.flagUIBusy({ modal: true });
+        const dialog = await test.waitForElement(['dialog', /Please wait.../]);
+        lock.release();
+        await test.wait(() => dialog.parentNode === null);
+      }
 
+      //Give the API a DOM. verify it only appears once even after reuse
+      api.setupBusyModal(<u><b class="waiternode">Please wait!</b></u>);
+      for (let repeat = 0; repeat < 2; ++repeat) {
+        const lock = api.flagUIBusy({ modal: true });
+        const dialog = await test.waitForElement(['dialog', /Please wait!/]);
+        test.eq(1, test.qSA("dialog.dompack-busydialog").length);
+        lock.release();
+        await test.wait(() => dialog.parentNode === null);
+      }
+      test.eq(null, test.findElement(['dialog', /Please wait!/]));
+
+      //Give the API *our* dialog element
+      api.setupBusyModal(test.qR("#mywaiter") as HTMLDialogElement);
+      test.eq(false, test.canClick("#mywaiter"));
+      for (let repeat = 0; repeat < 2; ++repeat) {
+        const lock = api.flagUIBusy({ modal: true });
+        await test.waitForElement("#mywaiter");
+        test.eq(true, test.canClick("#mywaiter"));
+        lock.release();
+        await test.wait(() => !test.canClick("#mywaiter"));
+      }
+
+      test.eq(false, test.canClick("#mywaiter"));
+      test.eq(true, test.qR("#mywaiter").parentNode === test.qR("body"));
     }
   ]);

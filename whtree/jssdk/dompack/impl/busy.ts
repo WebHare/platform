@@ -11,7 +11,8 @@ interface LockManagerWindow extends Window {
 }
 
 let currentbusymodaldialog: HTMLDialogElement | null = null;
-let busymodalcontent: string | undefined;
+let currentbusymodaluserdialog: HTMLDialogElement | null = null;
+let busymodalcontent: string | HTMLElement | HTMLDialogElement | undefined;
 
 export type BusyModalEvent = CustomEvent<{ show: boolean }>;
 
@@ -48,16 +49,25 @@ function checkUIFree() {
   }
 }
 
+function isDialogElement(el: unknown): boolean {
+  return typeof el === "object" && (el as HTMLElement).matches?.("dialog") || false;
+}
+
 function toggleBusyModal(show: boolean) {
   //'islock' is legacy non-camel version. TypeScript typing should help us transition (since 5.3)
   if (!domevents.dispatchCustomEvent(window, 'dompack:busymodal', { bubbles: true, cancelable: true, detail: { show: show, islock: show } }))
     return; //cancelled!
 
   if (show) {
-    if (busymodalcontent) {
+    if (isDialogElement(busymodalcontent)) { //the user provided us with an element
+      currentbusymodaluserdialog = busymodalcontent as HTMLDialogElement;
+      currentbusymodaluserdialog.showModal();
+    } else if (busymodalcontent) { //we'll create our own dialog
       const dialog = document.createElement('dialog');
-      const toembed = document.createTextNode(busymodalcontent);
+      const toembed = typeof busymodalcontent === "string" ? document.createTextNode(busymodalcontent) : busymodalcontent.cloneNode(true);
       dialog.className = "dompack-busydialog";
+      dialog.role = "status";
+      dialog.ariaLive = "off";
       dialog.append(toembed);
       document.body.appendChild(dialog);
       currentbusymodaldialog = dialog;
@@ -71,6 +81,8 @@ function toggleBusyModal(show: boolean) {
 
   //hiding
   document.documentElement.classList.remove("dompack--busymodal");
+  if (currentbusymodaluserdialog)
+    currentbusymodaluserdialog.close();
   if (currentbusymodaldialog) { //we added a dialog to the dom
     currentbusymodaldialog.close();
     document.body.removeChild(currentbusymodaldialog);
@@ -141,7 +153,8 @@ class LockManager {
 let lockmgr: LockManager = getParentLockManager() || new LockManager;
 
 /** Configure an (accessible) modal dialog
- * @param bmc - The text to show in the dialog
+ * @param bmc - What to show in the dialog: either a text or DOM fragment to clone.
+ *              If a <dialog> element is passed, this dialog will be used instead of creating a new one.
  */
 export function setupBusyModal(bmc: NonNullable<typeof busymodalcontent>) {
   busymodalcontent = bmc;
