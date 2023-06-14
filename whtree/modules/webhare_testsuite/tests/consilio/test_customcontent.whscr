@@ -11,7 +11,6 @@ LOADLIB "mod::consilio/lib/internal/queuemgmt.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/services.whlib";
-LOADLIB "mod::system/lib/internal/logging/noticelog.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/database.whlib";
 

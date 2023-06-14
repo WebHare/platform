@@ -329,7 +329,7 @@ function getOpenAPIServicesOfModule(module: string) {
         });
       } catch (e) {
         console.error(`Error resolving spec of openapi service ${module}:${service["@name"]}:`, e);
-        services.logNotice("error", e as Error);
+        services.logError(e as Error);
       }
     }
     for (const service of parsedmodule.module.services?.openapiclient ?? []) {
@@ -344,12 +344,12 @@ function getOpenAPIServicesOfModule(module: string) {
         });
       } catch (e) {
         console.error(`Error resolving spec of openapi service ${module}:${service["@name"]}:`, e);
-        services.logNotice("error", e as Error);
+        services.logError(e as Error);
       }
     }
   } catch (e) {
     console.error(`Error parsing moduledefinition of ${module}`, e);
-    services.logNotice("error", e as Error);
+    services.logError(e as Error);
   }
   return retval;
 }

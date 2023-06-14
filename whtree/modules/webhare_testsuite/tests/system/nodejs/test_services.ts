@@ -435,9 +435,9 @@ async function testLogs() {
 
   test.throws(/Invalid/, () => services.logDebug("services_test", { x: 42 }));
   services.logDebug("webhare_testsuite:services_test", { test: 42 });
-  services.logNotice("warning", new Error("Broken"));
+  services.logError(new Error("Broken"));
   ///@ts-ignore we explicitly want to test for the exception when passing an incorrect name
-  test.throws(/Invalid log type/, () => services.logNotice("debug", new Error));
+  test.throws(/Invalid log type/, () => services.logNotice("debug", "message"));
   services.logNotice("error", "Foutmelding", { data: { extra: 43 } });
   services.logNotice("info", "Ter info");
 
@@ -449,17 +449,18 @@ async function testLogs() {
   const mynotices = (await readLog("system:notice")).filter(_ => _.groupid == mygroupid);
   test.eqProps([
     {
-      error: 'Broken',
+      message: 'Broken',
       browser: { name: 'nodejs' },
-      type: 'warning'
+      type: 'script-error'
     },
     {
       data: { extra: 43 },
-      error: 'Foutmelding',
+      message: 'Foutmelding',
       type: 'error'
     },
     {
-      error: 'Ter info',
+      message: 'Ter info',
+      type: 'info'
     }
   ], mynotices);
 }

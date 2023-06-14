@@ -137,9 +137,10 @@ interface Bridge extends EventSource<BridgeEvents> {
   flushLog(logname: string | "*"): Promise<void>;
 
   /** Log an error message to the notice log
+      @param type - Message type
       @param message - Message to log
   */
-  logNotice(t: "error" | "warning" | "info", e: Error | string, options?: LogNoticeOptions): void;
+  logNotice(type: "error" | "warning" | "info", message: string, options?: LogNoticeOptions): void;
 
   /** Log an error to the notice log
     @param e - Error to log
@@ -400,13 +401,13 @@ class LocalBridge extends EventSource<BridgeEvents> {
     return data;
   }
 
-  logNotice(type: string, e: string, options: LogNoticeOptions = {}) {
+  logNotice(type: string, message: string, options: LogNoticeOptions = {}) {
     const groupid = options.groupid ?? this.getGroupId();
     this.log("system:notice", {
       type,
       groupid,
       ...("data" in options ? { data: options.data } : {}),
-      ...this.encodeJavaScriptException(e, options)
+      ...this.encodeJavaScriptException(message, options)
     });
   }
 
