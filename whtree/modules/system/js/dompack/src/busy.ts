@@ -1,4 +1,4 @@
-import * as domdebug from './debug';
+import { flags } from '@webhare/env';
 import * as domevents from './events';
 import { createDeferred, DeferredPromise } from "@webhare/std";
 
@@ -57,7 +57,7 @@ class LockManager {
   release(lock: BusyLock) {
     const pos = this.locks.indexOf(lock);
     if (pos == -1) {
-      if (domdebug.debugflags.bus) {
+      if (flags.bus) {
         console.error("Duplicate release of busy lock #" + lock.locknum);
         console.log("Lock allocated:");
         console.log(lock.acquirestack);
@@ -127,13 +127,13 @@ class BusyLock implements Lock {
     if (ischild)
       locallocks.push(this);
 
-    if (domdebug.debugflags.bus) {
+    if (flags.bus) {
       this.acquirestack = (new Error).stack;
       console.trace('[bus] Busy lock #' + this.locknum + ' taken. ' + lockmgr.getNumLocks() + " locks active now: " + lockmgr.getLockIds());
     }
   }
   release() {
-    if (domdebug.debugflags.bus)
+    if (flags.bus)
       this.releasestack = (new Error).stack;
 
     lockmgr.release(this);
@@ -142,7 +142,7 @@ class BusyLock implements Lock {
       locallocks.splice(lockpos, 1);
     }
 
-    if (domdebug.debugflags.bus) {
+    if (flags.bus) {
       console.trace('[bus] Busy lock #' + this.locknum + ' released. ' + lockmgr.getNumLocks() + " locks active now: " + lockmgr.getLockIds());
     }
   }
@@ -177,7 +177,7 @@ function getParentLockManager(): LockManager | null {
 
     //if we connected to a parent...  deregister our locks, eg. if parent navigated our frame away
     window.addEventListener("unload", () => {
-      if (domdebug.debugflags.bus)
+      if (flags.bus)
         console.log("[bus] Frame unloading, " + locallocks.length + " locks pending.", locallocks.map(l => "#" + l.locknum).join(", "), locallocks);
 
       //switch to local instance as we'll be unable to auto-release
