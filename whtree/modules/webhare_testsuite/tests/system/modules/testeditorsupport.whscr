@@ -73,7 +73,7 @@ ASYNC MACRO TestNoticeLog()
 
   AWAIT CallAsync(Resolve("testeditorsupport_helper.ts#testLogError"), VARIANT[]);
 
-  RECORD ARRAY errors := WaitForPromise(CallAsync("@mod-system/js/internal/testtools.ts#readRecentLogLines", VARIANT[ "system:notice", starttest ]));
+  RECORD ARRAY errors := ReadJSONLogLines("system:notice", starttest);
   errors := SELECT * FROM errors WHERE type='script-error' AND CellExists(errors,'info') AND info.context='webhare_testsuite:testeditorsupport';
 
   TestEQMembers(

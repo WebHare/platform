@@ -7,7 +7,6 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 
@@ -323,8 +322,7 @@ PUBLIC MACRO TestWRDAttributeValuesEqual(VARIANT expect, VARIANT got)
 RECORD ARRAY seenentries;
 RECORD ARRAY FUNCTION GetNewAccountingLogEntries()
 {
-  FlushModuleLog("system:accounting"); //flush entries in *our* vm..
-  RECORD ARRAY allentries := WaitForPromise(CallAsync("@mod-system/js/internal/testtools.ts#readRecentLogLines", VARIANT[ "system:accounting", testfw->starttime ]));
+  RECORD ARRAY allentries := ReadJSONLogLines("system:accounting", testfw->starttime);
   RECORD ARRAY newentries := SELECT * FROM allentries WHERE allentries."@timestamp" NOT IN (SELECT AS STRING ARRAY seenentries."@timestamp" FROM seenentries);
   seenentries := seenentries CONCAT newentries;
   RETURN newentries;
