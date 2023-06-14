@@ -1,4 +1,4 @@
-<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="testeditorsupport_helper.ts">
   <test script="test_modules_misc.whscr" />
   <test script="testeditorsupport.whscr" />
   <test script="testcheckmodule.whscr" />

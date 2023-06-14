@@ -3,19 +3,12 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
-LOADLIB "wh::internet/webbrowser.whlib";
-LOADLIB "wh::internet/webdav.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
-LOADLIB "mod::system/lib/internal/validation/harescript.whlib";
-LOADLIB "mod::system/lib/internal/logging/noticelog.whlib";
-LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::system/lib/remoting/client.whlib";
-LOADLIB "mod::system/lib/internal/editorsupport.whlib";
 
 RECORD FUNCTION AuthHandler(STRING realm, STRING url)
 {
@@ -66,22 +59,36 @@ MACRO TestAdminService()
   Testeq(SearchSourceElementLine("mod::system/screens/userrights/userrights.xml", [ '<screen name="main"', '>']), searchres.data.line);
 }
 
-MACRO TestNoticeLog()
+ASYNC MACRO TestNoticeLog()
 {
   DATETIME starttest := GetCurrentDatetime();
   TRY
   {
-    THROW NEW Exception("test-notice-log");
+    THROW NEW Exception("test-notice-log-hs");
   }
   CATCH(OBJECT e)
   {
     LogHareScriptException(e, [ info := [ context := "webhare_testsuite:testeditorsupport" ]]);
   }
-  RECORD ARRAY errors := WaitForPromise(CallAsync("@mod-system/js/internal/testtools.ts#readRecentLogLines", VARIANT[ "system:notice", starttest ]));
-  errors := SELECT * FROM errors WHERE source='harescript-error' AND CellExists(data,'info') AND data.info.context='webhare_testsuite:testeditorsupport';
 
-  TestEq(1,Length(errors));
-  TestEq("Exception: test-notice-log", errors[0].errors[0].message);
+  AWAIT CallAsync(Resolve("testeditorsupport_helper.ts#testLogError"), VARIANT[]);
+
+  RECORD ARRAY errors := WaitForPromise(CallAsync("@mod-system/js/internal/testtools.ts#readRecentLogLines", VARIANT[ "system:notice", starttest ]));
+  errors := SELECT * FROM errors WHERE type='script-error' AND CellExists(errors,'info') AND info.context='webhare_testsuite:testeditorsupport';
+
+  TestEQMembers(
+      [ [ message := "Exception: test-notice-log-hs"
+        , errors := [ [ message := "Exception: test-notice-log-hs" ] ]
+        ]
+      , [ message := "test-notice-log-js"
+        , errors := [ [ message := "test-notice-log-js" ] ]
+        , causes := [ [ message := "cause1"
+                      ]
+                    , [ message := "cause2"
+                      ]
+                    ]
+        ]
+      ], errors, "*");
 }
 
 RunTestFramework([ PTR TestAdminService

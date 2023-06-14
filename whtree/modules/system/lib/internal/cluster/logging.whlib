@@ -702,7 +702,7 @@ PUBLIC MACRO LogHarescriptException(OBJECT exc, RECORD options DEFAULTSTO DEFAUL
       [ passthroughin := "rest"
       ]);
 
-  LogNoticeException("harescript-error", options.groupid, exc, CELL[data := options.rest ]);
+  LogNoticeException("script-error", options.groupid, exc, options.rest);
 }
 
 

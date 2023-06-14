@@ -6,8 +6,8 @@ LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
-LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver/management.whlib";
+LOADLIB "mod::system/lib/internal/cluster/logwriter.whlib";
 
 LOADLIB "mod::tollium/lib/todd/internal/communication.whlib";
 
@@ -109,26 +109,15 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
   MACRO LogApplicationErrors(STRING appname, STRING appid, STRING externalsessiondata, RECORD ARRAY errors)
   {
     RECORD data :=
-        [ app :=        appname
+        [ message :=    (SELECT AS STRING message FROM errors)
         , warnings :=   DEFAULT RECORD ARRAY
-        , errors :=     SELECT filename, line, col, message FROM errors where code >= 0
-        , trace :=      SELECT filename, line, col, func FROM errors WHERE code < 0 LIMIT 100
+        , errors :=     SELECT filename, line, "column" := col, message FROM errors where code >= 0
+        , trace :=      SELECT filename, line, "column" := col, functionname := func FROM errors WHERE code < 0 LIMIT 100
+        , groupid :=    appid
+        , session :=    externalsessiondata
         ];
 
-    // Keep error notices a bit small
-    INTEGER budget := 100*1024;
-    FOREVERY (RECORD rec FROM data.errors)
-    {
-      IF (LENGTH(data.errors[#rec].message) > budget)
-        data.errors[#rec].message := Left(data.errors[#rec].message, budget) || "…";
-      budget := budget - LENGTH(data.errors[#rec].message);
-    }
-
-    STRING encodeddata := EncodeHSON(data);
-    IF(Length(encodeddata)>126*1024)
-      encodeddata := "-";
-
-    LogToJSONLog("system:notice", [ source := "tollium-harescript-error", groupid := appid, session := externalsessiondata, error := data ]);
+    LogNoticeScriptErrorFromRecord(appname, data);
   }
 
   STRING ARRAY FUNCTION ReloadDebuggerConfig()

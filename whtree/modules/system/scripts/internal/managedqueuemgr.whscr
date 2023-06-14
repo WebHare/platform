@@ -17,6 +17,7 @@ LOADLIB "mod::system/lib/internal/taskqueue.whlib";
 LOADLIB "mod::system/lib/internal/tasks.whlib";
 LOADLIB "mod::system/lib/internal/tasks/queuemgr.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+LOADLIB "mod::system/lib/internal/cluster/logwriter.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
 INTEGER restart_workers_after := 15 * 60 * 1000; //restart workers after
@@ -103,15 +104,20 @@ MACRO FailTask(OBJECT item, STRING error, RECORD ARRAY trace, BOOLEAN isfatal)
         [ script :=     mainscript
         , trace :=     (SELECT filename
                              , line :=          line
-                             , col :=           col
+                             , "column" :=      col
                              , functionname :=  func
                           FROM trace)
-        , error :=      error
+        , message :=    error
         , browser :=    [ name := "nodejs" ]
-        , type :=       "javascript-error"
+        , info :=       CELL
+                        [ item->tasktype
+                        , item->queueid
+                        , item->isephemeral
+                        , item->id
+                        ]
         ];
 
-    LogError("managedqueuemgr", "javascript-error", details);
+    LogNoticeScriptErrorFromRecord("system:managedqueuemgr", details);
   }
 
   IF (item->stage = "finished")

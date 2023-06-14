@@ -1,9 +1,9 @@
 ﻿<?wh
 
-LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/internal/cluster/logwriter.whlib";
 
 PUBLIC RECORD FUNCTION RPC_ReportJavascriptError(RECORD details)
 {
-  LogError("designfiles", "javascript-error", details);
+  LogNoticeScriptErrorFromRecord("publisher:webdesign", details);
   RETURN [ success := TRUE ];
 }

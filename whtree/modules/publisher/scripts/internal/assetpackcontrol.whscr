@@ -1032,15 +1032,14 @@ STATIC OBJECTTYPE AssetPackController
         IF (CellExists(rec, "MESSAGE"))
           CONTINUE;
 
-        RECORD details :=
+        RECORD details := CELL
             [ script :=     rec.source
-            , error :=      rec.message
-            , browser :=    "nodejs"
-            , type :=       "javascript-error"
+            , browser :=    [ name := "nodejs" ]
+            , source :=     "publisher:assetpack-builderror"
             , bundle :=     bundle.outputtag
             ];
 
-        LogError("assetpackcontrol", "javascript-error", details);
+        LogError("system:assetpackcontrol", rec.message, details);
       }
     }
   }
