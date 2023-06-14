@@ -465,7 +465,7 @@ export default class FormBase {
     if (evt)
       evt.preventDefault();
 
-    const lock = dompack.flagUIBusy({ ismodal: true, component: this.node });
+    const lock = dompack.flagUIBusy({ modal: true, component: this.node });
     this._submitstart = Date.now();
     if (this._formhandling && this._formhandling.warnslow)
       this._submittimeout = setTimeout(() => this._submitHasTimedOut(), this._formhandling.warnslow);

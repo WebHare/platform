@@ -46,7 +46,7 @@ export function executeSubmitInstruction(instr: SubmitInstruction, options?: {
 
   options = { ismodal: true, ...options };
   //Are there any cirumstances where you would want to reelase this lock?
-  dompack.flagUIBusy({ ismodal: options.ismodal || false });
+  dompack.flagUIBusy({ modal: options.ismodal || false });
 
   if (options.iframe) {
     switch (instr.type) {

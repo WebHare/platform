@@ -2,14 +2,26 @@ import * as domdebug from './debug';
 import * as domevents from './events';
 import { createDeferred, DeferredPromise } from "@webhare/std";
 
-let locallocks: Lock[] = [];
+let locallocks: BusyLock[] = [];
 let ischild = false;
 interface LockManagerWindow extends Window {
   __dompack_busylockmanager: LockManager;
 }
 
+export type BusyModalEvent = CustomEvent<{ show: boolean }>;
+
+export interface Lock {
+  release(): void;
+}
+
+declare global {
+  interface GlobalEventHandlersEventMap {
+    "dompack:busymodal": BusyModalEvent;
+  }
+}
+
 class LockManager {
-  locks: Lock[];
+  locks: BusyLock[];
   busycounter: number;
   deferreduipromise: DeferredPromise<boolean> | null;
   uiwatcher: NodeJS.Timeout | null;
@@ -25,23 +37,24 @@ class LockManager {
   }
   anyModalLocks() {
     for (const lock of this.locks)
-      if (lock.ismodal)
+      if (lock.modal)
         return true;
     return false;
   }
-  add(lock: Lock) {
+  add(lock: BusyLock) {
     this.locks.push(lock);
     const returnvalue = this.busycounter++;
 
-    if (lock.ismodal && !this.modallocked) {
+    if (lock.modal && !this.modallocked) {
       this.modallocked = true;
 
-      if (domevents.dispatchCustomEvent(window, 'dompack:busymodal', { bubbles: true, cancelable: true, detail: { islock: true } }))
+      //'islock' is legacy non-camel version. TypeScript typing should help us transition
+      if (domevents.dispatchCustomEvent(window, 'dompack:busymodal', { bubbles: true, cancelable: true, detail: { show: true, islock: true } }))
         document.documentElement.classList.add("dompack--busymodal");
     }
     return returnvalue;
   }
-  release(lock: Lock) {
+  release(lock: BusyLock) {
     const pos = this.locks.indexOf(lock);
     if (pos == -1) {
       if (domdebug.debugflags.bus) {
@@ -74,7 +87,7 @@ class LockManager {
       }
       if (this.modallocked && !this.anyModalLocks()) {
         this.modallocked = false;
-        if (domevents.dispatchCustomEvent(window, 'dompack:busymodal', { bubbles: true, cancelable: true, detail: { islock: false } }))
+        if (domevents.dispatchCustomEvent(window, 'dompack:busymodal', { bubbles: true, cancelable: true, detail: { islock: false, show: false } }))
           document.documentElement.classList.remove("dompack--busymodal");
       }
     }
@@ -96,19 +109,19 @@ class LockManager {
 
 let lockmgr: LockManager = getParentLockManager() || new LockManager;
 
-type LockOptions =
-  {
-    ismodal: boolean;
-  };
+interface LockOptions {
+  modal: boolean;
+}
 
-export class Lock {
-  ismodal: boolean;
+class BusyLock implements Lock {
+  modal: boolean;
   locknum: number;
   acquirestack: string | undefined;
   releasestack: string | undefined;
 
   constructor(options?: LockOptions) {
-    this.ismodal = options?.ismodal || false;
+    //legacy non-camel name is 'ismodal'
+    this.modal = options?.modal ?? (options as { ismodal?: boolean })?.ismodal ?? false;
 
     this.locknum = lockmgr.add(this);
     if (ischild)
@@ -144,10 +157,10 @@ export function waitUIFree() {
      flag userinterface as busy. tests then know not to interact with the UI until the busy flag is released
  *
     @param options - Options.<br>
-                   - ismodal: true/false - Whether the lock is a modal lock
+                   - modal: true/false - Whether the lock is a modal lock
  */
-export function flagUIBusy(options?: LockOptions) {
-  return new Lock(options);
+export function flagUIBusy(options?: LockOptions): Lock {
+  return new BusyLock(options);
 }
 
 export function getUIBusyCounter() {

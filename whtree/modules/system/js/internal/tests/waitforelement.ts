@@ -2,7 +2,7 @@ import * as dompack from "@webhare/dompack";
 import * as test from '@mod-system/js/wh/testframework';
 
 export type SelectorPart = string | Element | RegExp | number;
-export type Selector = SelectorPart[];
+export type Selector = SelectorPart[] | string;
 
 function evaluateSelectSingle(start: Element | Document, selector: Selector): Element | null {
   let currentmatch: Document | Element | Element[] = start;
