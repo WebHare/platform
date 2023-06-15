@@ -103,7 +103,7 @@ PUBLIC RECORD ARRAY FUNCTION GetCurrentNewsItemsForUnits(OBJECT userapi, INTEGER
            FROM newsentries
           WHERE (ArraysIntersect(unitids, announcement_unit) OR Length(announcement_unit) = 0)// If no units are set, we'll call it a global announcement
             AND (publish_until >= now OR publish_until = DEFAULT DATETIME)
-       ORDER BY wrd_creationdate DESC;
+       ORDER BY publish_from DESC, wrd_creationdate DESC; // sort by most recent publication date
 }
 
 /** @short Retrieves all newsitems, including unpublished ones
