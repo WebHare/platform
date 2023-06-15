@@ -6,11 +6,12 @@ interface InvokeTask {
   cmd: "invoke";
   func: string;
   args: unknown[];
+  options?: { wrapobjects: boolean };
 }
 
 interface InvokeResponse {
   cmd: "response";
-  value: string;
+  value: unknown;
 }
 
 type CallRunnerLinkType = IPCLinkType<InvokeResponse, InvokeTask>;
@@ -31,7 +32,7 @@ function connectIPC(name: string) {
               value = false;
             link.send({
               cmd: "response",
-              value: JSON.stringify(value)
+              value: msg.message.options?.wrapobjects ? JSON.stringify(value) : value
             }, msg.msgid);
           } catch (e: unknown) {
             link.sendException(e as Error, msg.msgid);

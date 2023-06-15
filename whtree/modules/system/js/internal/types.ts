@@ -81,12 +81,12 @@ export interface WebRequestInfo {
   method: HTTPMethod;
   url: string;
   headers: Record<string, string>;
-  body: string;
+  body: Buffer;
 }
 
 ///Internal data structure used to marshall respones between languages. Proper routers would use WebResponse
 export interface WebResponseInfo {
   status: number;
   headers: Record<string, string>;
-  body: string;
+  body: Buffer;
 }

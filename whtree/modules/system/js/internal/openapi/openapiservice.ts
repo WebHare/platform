@@ -24,7 +24,7 @@ export class RestService {
     const logger = new LogInfo(req.sourceip, req.method.toLowerCase());
 
     try {
-      const webreq = new WebRequest(req.url, { method: req.method, headers: req.headers, body: req.body });
+      const webreq = new WebRequest(req.url, { method: req.method, headers: req.headers, body: req.body.toString() });
       const response = await (await this.#runRestRouter(webreq, relurl, logger)).asWebResponseInfo();
       this.logRequest(logger, response.status, response.body.length);
       return response;

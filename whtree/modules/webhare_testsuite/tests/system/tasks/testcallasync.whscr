@@ -1,12 +1,13 @@
 <?wh
 
+LOADLIB "wh::files.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 
 
 ASYNC FUNCTION Do(STRING ext, INTEGER action)
 {
-  STRING func := Resolve(`mod::webhare_testsuite/tests/system/tasks/asynctask.${ext}#callAsyncTest${action = -1 ? "NotFound" : ""}`);
+  STRING func := Resolve(`asynctask.${ext}#callAsyncTest${action = -1 ? "NotFound" : ""}`);
   RETURN AWAIT CallAsync(func, [ action ]);
 }
 
@@ -31,6 +32,10 @@ ASYNC MACRO TestCallAsync()
 
   TestRejectedLike("*terminated without giving a response", Do("ts", 1));
   TestRejectedLike("js-error", Do("ts", 2));
+
+  // Verify roundtrips
+  FOREVERY(STRING ext FROM [".ts",".whlib"])
+    TestEq(StringToBlob("Hi everybody"), AWAIT CallAsync(Resolve(`asynctask${ext}#ping`), [ StringToBlob("Hi everybody") ]));
 
   // Ensure warmup so timing-based stuff works
   TestEQ([ action := 0, source := "hs", other := [ action := 0, source := "js" ] ], AWAIT Do("whlib", 0));

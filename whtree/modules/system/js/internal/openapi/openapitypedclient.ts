@@ -99,10 +99,10 @@ export class TypedOpenAPIClient<Paths extends object, Components extends Compone
     let retval;
     if (this.viaservice) {
       this.serviceinstance ??= await getServiceInstance(this.viaservice);
-      const res = await this.serviceinstance.APICall({ sourceip: "127.0.0.1", method: method.toLowerCase() as HTTPMethod, url: url.toString(), body: requestbody, headers: fetchoptions.headers }, url.toString().slice(this.baseurl.length));
+      const res = await this.serviceinstance.APICall({ sourceip: "127.0.0.1", method: method.toLowerCase() as HTTPMethod, url: url.toString(), body: Buffer.from(requestbody), headers: fetchoptions.headers }, url.toString().slice(this.baseurl.length));
       const headers = new Headers(res.headers);
       const contenttype = headers.get("Content-Type") || "";
-      const responsebody = contenttype == "application/json" ? JSON.parse(res.body) : res.body;
+      const responsebody = contenttype == "application/json" ? JSON.parse(res.body.toString()) : res.body;
       retval = { status: res.status, headers, contenttype, body: responsebody };
     } else {
       const call = await fetch(url.toString(), fetchoptions);

@@ -1,3 +1,6 @@
+export async function ping(arg: unknown) {
+  return arg;
+}
 
 export async function callAsyncTest(action: number) {
   if (action == 1)

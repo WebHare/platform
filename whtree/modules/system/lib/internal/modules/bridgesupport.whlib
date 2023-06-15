@@ -33,7 +33,7 @@ PUBLIC RECORD FUNCTION EncodeWebRequestForJS() //returns a WebRequestInfo
   RETURN CELL[ url := GetRequestURL()
              , headers := FoldHeaders(GetAllWebHeaders())
              , method := ToLowercase(GetRequestMethod())
-             , body := BlobToString(GetRequestBody()) //TODO non-utf8 safe bodies won't survive this
+             , body := GetRequestBody()
              , sourceip := GetClientRemoteIP()
              ];
 }
@@ -49,5 +49,5 @@ PUBLIC MACRO ExecuteWebResponse(RECORD webresponse) //expects a WebResponseInfo
     INSERT ToUppercase(header.name) INTO added AT END;
     AddHTTPHeader(ToLowercase(header.name), header.value, add);
   }
-  SendWebFile(StringToBlob(webresponse.body));
+  SendWebFile(webresponse.body);
 }

@@ -135,8 +135,7 @@ export class WebResponse {
   /// Convert result to WebResponseInfo often used when marshalling. API will be removed when JS webserver has replaced the C++ webserver
   async asWebResponseInfo(): Promise<WebResponseInfo> {
     const headers = this.getHeaders();
-    const body = await this.text();
-    return { status: this.status, headers: Object.fromEntries(headers), body: body };
+    return { status: this.status, headers: Object.fromEntries(headers), body: Buffer.from(await this.arrayBuffer()) };
   }
 }
 
