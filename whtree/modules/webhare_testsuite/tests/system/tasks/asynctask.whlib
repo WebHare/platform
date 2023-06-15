@@ -2,6 +2,11 @@
 
 LOADLIB "mod::system/lib/tasks.whlib";
 
+PUBLIC VARIANT FUNCTION Ping(VARIANT arg)
+{
+  RETURN arg;
+}
+
 PUBLIC ASYNC FUNCTION CallAsyncTest(INTEGER action)
 {
   IF (action = 3)

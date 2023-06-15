@@ -233,8 +233,10 @@ MACRO HandleMessage(OBJECT link, RECORD msg, INTEGER64 msgid, INTEGER64 replyto)
           // JavaScript responses are always JSON-encoded
           IF (call.type = "js")
           {
-            IF (CellExists(msg, "VALUE"))
-              call.defer.resolve(DecodeJSON(msg.value, DEFAULT RECORD, CELL[ call.options.wrapobjects ]));
+            IF (CellExists(msg, "VALUE") AND call.options.wrapobjects)
+              call.defer.resolve(DecodeJSON(msg.value, DEFAULT RECORD, CELL[ wrapobjects := TRUE ]));
+            ELSE IF (CellExists(msg, "VALUE"))
+              call.defer.resolve(msg.value);
             ELSE
               call.defer.resolve(FALSE); // return FALSE for void-returning function
           }
