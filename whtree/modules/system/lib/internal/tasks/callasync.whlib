@@ -230,7 +230,7 @@ MACRO HandleMessage(OBJECT link, RECORD msg, INTEGER64 msgid, INTEGER64 replyto)
         }
         ELSE
         {
-          // JavaScript responses are always JSON-encoded
+          // JavaScript responses are JSON-encoded when wrapobjects = TRUE
           IF (call.type = "js")
           {
             IF (CellExists(msg, "VALUE") AND call.options.wrapobjects)
