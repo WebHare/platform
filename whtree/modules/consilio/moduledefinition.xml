@@ -383,7 +383,7 @@
   </hooking>
 
   <logging>
-    <log name="queries" filename="consilio_queries" />
+    <log name="queries" filename="consilio_queries" timestamps="false" />
   </logging>
 
   <development>

@@ -8,7 +8,7 @@ LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 LOADLIB "mod::consilio/lib/internal/queuemgmt.whlib";
 
-LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
@@ -52,26 +52,6 @@ MACRO TestCompleteSyncAfterCommand()
 {
   contentsource->WaitForIndexingDone();
   TestEq((SELECT groupid, objectid FROM webhare_testsuite.consilio_index ORDER BY groupid, objectid), SearchAll(""));
-}
-
-RECORD ARRAY FUNCTION GetLogItems(DATETIME fromtime, DATETIME totime)
-{
-  Sleep(5000); // give log time to be written
-
-  OBJECT stream := OpenWebHareLogStream("consilio_queries", fromtime, totime);
-
-  RECORD ARRAY items;
-  WHILE (TRUE)
-  {
-    RECORD rec := stream->ReadRecord();
-    IF (NOT RecordExists(rec))
-      BREAK;
-
-    INSERT CELL[ rec.time, ...DecodeHSON(rec.parts[0]) ] INTO items AT END;
-  }
-  stream->Close();
-
-  RETURN items;
 }
 
 MACRO TestCustomContent()
@@ -152,13 +132,13 @@ MACRO TestCustomContent()
   TestCompleteSyncAfterCommand();
 
   // Test logged user queries
-  RECORD ARRAY items := GetLogItems(start, GetCurrentDateTime());
+  RECORD ARRAY items := ReadJSONLogLines("consilio:queries", start);
   TestEq(0, Length(SELECT FROM items WHERE catalogid = catalog->id));
   start := GetCurrentDatetime();
   RECORD ARRAY results := SearchAll("a", [ storequery := TRUE ]);
   TestEQ((SELECT groupid, objectid FROM webhare_testsuite.consilio_index WHERE groupid = idprefix||"a" ORDER BY groupid, objectid), results);
   DATETIME stop := GetCurrentDateTime();
-  items := GetLogItems(start, stop);
+  items := ReadJSONLogLines("consilio:queries", start, stop);
 
   RECORD ARRAY queries := SELECT * FROM items WHERE catalogid = catalog->id;
   TestEq(1, Length(queries));
@@ -467,7 +447,7 @@ MACRO TestCustomContent()
   catalog->ReindexCatalog();
   contentsource->WaitForIndexingDone();
 
-  RECORD ARRAY relevanterrors  := WaitForPromise(CallAsync("@mod-system/js/internal/testtools.ts#readRecentLogLines", VARIANT[ "system:notice", starttest ]));
+  RECORD ARRAY relevanterrors  := ReadJSONLogLines("system:notice", starttest);
   relevanterrors := SELECT * FROM relevanterrors WHERE type='script-error' AND CellExists(relevanterrors,'info') AND info.context='consilio:fetcher';
 
   TestEq(1,Length(relevanterrors), "Cannot find my error - may also imply a backwards-incompatible notice.log error format change!");
@@ -488,7 +468,7 @@ MACRO TestCustomContent()
   catalog->ReindexCatalog();
   contentsource->WaitForIndexingDone();
 
-  relevanterrors := WaitForPromise(CallAsync("@mod-system/js/internal/testtools.ts#readRecentLogLines", VARIANT[ "system:notice", starttest ]));
+  relevanterrors := ReadJSONLogLines("system:notice", starttest);
   relevanterrors := SELECT * FROM relevanterrors WHERE type='script-error' AND CellExists(relevanterrors,'info') AND info.context='consilio:fetcher';
   TestEq(1,Length(relevanterrors));
   TestEq("Custom error message: 'ABORT'.", relevanterrors[0].errors[0].message);

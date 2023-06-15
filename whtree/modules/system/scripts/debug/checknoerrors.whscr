@@ -1,7 +1,7 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
-LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
 
@@ -9,7 +9,7 @@ LOADLIB "mod::system/lib/internal/resources.whlib";
 */
 
 DATETIME boottime := CELL[ start := GetCurrentDateTime(), ...PollWHServiceState("startup") ].start;
-RECORD ARRAY errors := WaitForPromise(CallAsync("@mod-system/js/internal/testtools.ts#readRecentLogLines", VARIANT[ "system:notice", boottime ]));
+RECORD ARRAY errors := ReadJSONLogLines("system:notice", boottime);
 IF(Length(errors) > 0)
 {
   SetConsoleExitCode(1);

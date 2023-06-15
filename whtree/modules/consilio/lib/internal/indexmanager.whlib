@@ -12,6 +12,7 @@ LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib" EXPORT running_in_
 LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT SearchOk, SearchError, SearchIndexNotFound, SearchCommandUnsupported, SearchNoAccess, SearchConnectError, SearchSendError, SearchHTTPError, SearchNoTotalError, SearchUnavailable, SearchTimeOutError, SearchInvalidArgument, SearchSleep, SearchRebuildCatalog;
 LOADLIB "mod::consilio/lib/internal/elasticsearch/analysis.whlib";
 
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
@@ -500,7 +501,7 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       }
 
       IF (RecordExists(result.session))
-        ModuleLog("consilio:queries", EncodeHSON(CELL[ catalogid := indexid, query, options.restrict_to, result := CELL[ ...result, results := Length(result.results) ], uuid := queryuuid ]));
+        LogToJSONLog("consilio:queries", CELL[ catalogid := indexid, query, options.restrict_to, result := CELL[ ...result, results := Length(result.results) ], uuid := queryuuid ]);
 
       BroadcastEvent("consilio:executedquery", [ isstart := FALSE
                                                , uuid := queryuuid

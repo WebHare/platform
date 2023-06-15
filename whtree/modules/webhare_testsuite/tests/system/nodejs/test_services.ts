@@ -4,7 +4,7 @@ import * as test from "@webhare/test";
 import * as services from "@webhare/services";
 import { HSVM, HSVMObject, openHSVM } from "@webhare/services/src/hsvm";
 import { GenericLogLine } from "@webhare/services/src/logging";
-import { readRecentLogLines } from "@mod-system/js/internal/testtools";
+import { readJSONLogLines } from "@mod-system/js/internal/logging";
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
 import { DemoServiceInterface } from "@mod-webhare_testsuite/js/demoservice";
 import runBackendService from "@mod-system/js/internal/webhareservice";
@@ -395,7 +395,7 @@ async function runBackendServiceTest_HS() {
 }
 
 async function readLog(name: string): Promise<GenericLogLine[]> {
-  return readRecentLogLines(name, test.startTime);
+  return readJSONLogLines(name, test.startTime, null);
 }
 
 async function testLogs() {

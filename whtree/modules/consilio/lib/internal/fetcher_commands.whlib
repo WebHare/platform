@@ -444,8 +444,11 @@ PUBLIC MACRO DeactivateGroup(STRING groupid)
                                  ]
                       ];
 
+  /* We may conflict if a file is moved/deleted whilst there is still a publication or indexing of that publication running.
+     in that case, we'll just hope that a later recheck will pick it up until we better sort out publisher queues.
+     see also https://gitlab.webhare.com/webharebv/codekloppers/-/issues/814 */
   FOREVERY (RECORD indexmanager FROM ListIndexManagers())
-    SendRawJSONToElasticsearch(indexmanager.id, "POST", "/_all/_delete_by_query", query);
+    SendRawJSONToElasticsearch(indexmanager.id, "POST", "/_all/_delete_by_query?conflicts=proceed", query);
 }
 
 // Delete an entire group from the index
