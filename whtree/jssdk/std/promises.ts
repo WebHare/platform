@@ -17,7 +17,7 @@ export async function sleep(duration: WaitPeriod, options?: { signal?: AbortSign
 
   const until = convertWaitPeriodToDate(duration);
   return new Promise(resolve => {
-    const timeoutid = setTimeout(resolve, until.getTime() - Date.now());
+    const timeoutid = setTimeout(resolve, Math.max(0, until.getTime() - Date.now()));
     if (options?.signal)
       options.signal.addEventListener("abort", () => clearTimeout(timeoutid));
   });
