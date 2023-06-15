@@ -9,5 +9,5 @@ LOADLIB "mod::publisher/lib/internal/outputmgmt.whlib";
 RECORD capturedpage := WaitForPromise(CallAsync("mod::publisher/js/internal/capturejsdesign.ts#captureJSPage", VARIANT[ file.id ]));
 
 INTEGER redirectoutputid := OpenOutputFile(FindPage(1).name, FALSE);
-PrintTo(redirectoutputid, capturedpage.body);
+SendBlobTo(redirectoutputid, capturedpage.body);
 PUBLISHER_CloseOutput(redirectoutputid);
