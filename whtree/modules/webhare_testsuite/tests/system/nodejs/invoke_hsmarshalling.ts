@@ -43,3 +43,15 @@ export function arrayEncodeTest() {
   };
   return { marshal: writeMarshalData(toEncode).toString("hex"), hson: encodeHSON(toEncode) };
 }
+
+export function reusingStructureTest() {
+  const reused = { line: 1, col: 0 };
+  const toEncode = { a: reused, b: reused };
+  return { marshal: writeMarshalPacket(toEncode).toString("hex"), hson: encodeHSON(toEncode) };
+}
+
+export function cycleStructureTest() {
+  const toEncode = { a: {} };
+  toEncode.a = toEncode;
+  return { marshal: writeMarshalPacket(toEncode).toString("hex"), hson: encodeHSON(toEncode) };
+}

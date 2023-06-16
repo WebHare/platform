@@ -192,6 +192,11 @@ ASYNC MACRO TestMarshalling()
   TestEQ(expect_arrays, __HS_MarshalReadFromBlob(StringToBlob(DecodeBase16(vres.marshal))));
   TestEQ(expect_arrays, DecodeHSON(vres.hson));
 
+  RECORD reusingstructure := AWAIT CallAsync(Resolve("invoke_hsmarshalling.ts#reusingStructureTest"), VARIANT[]);
+  TestEq([a := [ col := 0, line := 1], b := [ col := 0, line := 1]], DecodeHSON(reusingstructure.hson));
+
+  TestRejectedLike('Detected a circular reference', CallAsync(Resolve("invoke_hsmarshalling.ts#cycleStructureTest"), VARIANT[]));
+
   FUNCTION PTR org_OnDecodeObjectMarshalData := __OnDecodeObjectMarshalData;
   __OnDecodeObjectMarshalData := PTR DoDecodeMarshalDataObject;
 

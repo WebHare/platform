@@ -269,9 +269,9 @@ export function writeMarshalData(value: unknown, { onlySimple }: { onlySimple?: 
   const columns = new Map<string, number>();
 
   const datawriter = new LinearBufferWriter();
-  const visited = new Set<object>;
+  const path: object[] = [];
   const blobs = onlySimple ? [] : null;
-  writeMarshalDataInternal(value, datawriter, columns, blobs, null, visited);
+  writeMarshalDataInternal(value, datawriter, columns, blobs, null, path);
   if (blobs && blobs.length)
     throw new Error(`Cannot include Buffers or types arrays in in this mode`);
 
@@ -295,10 +295,10 @@ export function writeMarshalPacket(value: unknown): Buffer {
   const columns = new Map<string, number>();
 
   const datawriter = new LinearBufferWriter();
-  const visited = new Set<object>;
+  const path: object[] = [];
   const blobs: Uint8Array[] = [];
   datawriter.writeU8(MarshalPacketFormatType);
-  writeMarshalDataInternal(value, datawriter, columns, blobs, null, visited);
+  writeMarshalDataInternal(value, datawriter, columns, blobs, null, path);
 
   const columnwriter = new LinearBufferWriter();
   columnwriter.writeU32(columns.size);
@@ -404,7 +404,7 @@ export function determineType(value: unknown): VariableType {
   }
 }
 
-function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, columns: Map<string, number>, blobs: Uint8Array[] | null, type: VariableType | null, visited: Set<object>) {
+function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, columns: Map<string, number>, blobs: Uint8Array[] | null, type: VariableType | null, path: object[]) {
   const determinedtype = determineType(value);
   if (type === null) {
     type = determinedtype;
@@ -415,16 +415,18 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
   }
 
   if (type & VariableType.Array) {
-    if (visited.has(value as unknown[]))
+    if (path.includes(value as object)) //already seen this value
       throw new Error(`Detected a circular reference`);
-    visited.add(value as unknown[]);
+    path.push(value as object);
 
     const len = (value as unknown[]).length;
     writer.writeU32(len);
     const subtype = type == VariableType.VariantArray ? null : type & ~VariableType.Array;
     for (let i = 0; i < len; ++i) {
-      writeMarshalDataInternal((value as unknown[])[i], writer, columns, blobs, subtype, visited);
+      writeMarshalDataInternal((value as unknown[])[i], writer, columns, blobs, subtype, path);
     }
+
+    path.pop();
     return;
   }
   switch (type) {
@@ -482,9 +484,9 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
       if (value === null)
         writer.writeS32(-1);
       else {
-        if (visited.has(value as object))
+        if (path.includes(value as object))
           throw new Error(`Detected a circular reference`);
-        visited.add(value as object);
+        path.push(value as object);
 
         const entries = Object.entries(value as object);
         writer.writeS32(entries.length);
@@ -498,8 +500,9 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
             columns.set(key.toUpperCase(), columnid);
           }
           writer.writeU32(columnid);
-          writeMarshalDataInternal(subvalue, writer, columns, blobs, null, visited);
+          writeMarshalDataInternal(subvalue, writer, columns, blobs, null, path);
         }
+        path.pop();
       }
     } break;
     case VariableType.Blob: {
