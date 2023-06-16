@@ -316,6 +316,8 @@ export function writeMarshalPacket(value: unknown): Buffer {
     blobwriter.writeU32(blobs.length);
     for (const blob of blobs) {
       blobwriter.writeU64(BigInt(blob.byteLength));
+    }
+    for (const blob of blobs) {
       blobwriter.writeRaw(blob);
     }
   }
