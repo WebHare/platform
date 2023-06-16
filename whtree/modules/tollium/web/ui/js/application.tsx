@@ -6,7 +6,7 @@ import * as browser from 'dompack/extra/browser';
 import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
 import $todd from "@mod-tollium/web/ui/js/support";
-import * as dombusy from 'dompack/src/busy';
+import { Lock, flagUIBusy } from '@webhare/dompack';
 import { getTid } from "@mod-tollium/js/gettid";
 import * as focusZones from '../components/focuszones';
 import { loadScript } from '@webhare/dompack';
@@ -35,11 +35,11 @@ const jsappconstructors = {};
 /** Busy lock (while taken, the tollium app is busy
 */
 class ApplicationBusyLock {
-  private readonly lock: dombusy.Lock;
+  private readonly lock: Lock;
   private readonly app: ApplicationBase;
 
   constructor(app: ApplicationBase) {
-    this.lock = dombusy.flagUIBusy();
+    this.lock = flagUIBusy();
     this.app = app;
   }
   release() {

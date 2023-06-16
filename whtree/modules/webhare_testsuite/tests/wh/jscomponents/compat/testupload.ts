@@ -21,6 +21,7 @@ test.registerTests(
       (blob2 as { name: string }).name = 'file2.txt';
 
       const group: any = await new Promise(resolve => {
+        ///@ts-ignore -- Yes it exists
         const uploadgroup: any = test.getWin().test.runUpload([blob1, blob2], () => resolve(uploadgroup));
 
         const items = uploadgroup.getItems();
@@ -76,6 +77,7 @@ test.registerTests(
       (blob2 as { name: string }).name = 'file2.txt';
 
       const group: any = await new Promise(resolve => {
+        ///@ts-ignore -- Yes it exists
         const uploadgroup: any = test.getWin().test.runUpload([blob1, blob2], () => resolve(uploadgroup));
 
         const items = uploadgroup.getItems();

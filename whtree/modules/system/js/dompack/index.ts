@@ -2,7 +2,7 @@
 */
 
 export { createDeferred } from '@webhare/std';
-export { flagUIBusy } from './src/busy';
+export { flagUIBusy } from '@webhare/dompack';
 export {
   dispatchCustomEvent, dispatchDomEvent, fireModifiedEvents, changeValue, normalizeKeyboardEventData,
   stop

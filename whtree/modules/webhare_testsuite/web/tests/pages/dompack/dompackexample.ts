@@ -10,15 +10,32 @@ import StaticSuggestionList from "dompack/components/autosuggest/staticlist";
 import * as dialog from 'dompack/components/dialog/index';
 import * as dialogapi from 'dompack/api/dialog';
 
-window.storageSetLocal = dompack.setLocal;
-window.storageGetLocal = dompack.getLocal;
-window.storageSetSession = dompack.setSession;
-window.storageGetSession = dompack.getSession;
-window.storageIsIsolated = dompack.isStorageIsolated;
-window.cookieRead = dompack.getCookie;
-window.cookieWrite = dompack.setCookie;
-window.cookieRemove = dompack.deleteCookie;
-window.cookieList = dompack.listCookies;
+export interface DompackExampleGlobalAPI {
+  storageSetLocal: typeof dompack.setLocal;
+  storageGetLocal: typeof dompack.getLocal;
+  storageSetSession: typeof dompack.setSession;
+  storageGetSession: typeof dompack.getSession;
+  storageIsIsolated: typeof dompack.isStorageIsolated;
+  cookieRead: typeof dompack.getCookie;
+  cookieWrite: typeof dompack.setCookie;
+  cookieRemove: typeof dompack.deleteCookie;
+  cookieList: typeof dompack.listCookies;
+  flagUIBusy: typeof dompack.flagUIBusy;
+  setupBusyModal: typeof dompack.setupBusyModal;
+}
+
+const updatewindow = window as typeof window & DompackExampleGlobalAPI;
+updatewindow.storageSetLocal = dompack.setLocal;
+updatewindow.storageGetLocal = dompack.getLocal;
+updatewindow.storageSetSession = dompack.setSession;
+updatewindow.storageGetSession = dompack.getSession;
+updatewindow.storageIsIsolated = dompack.isStorageIsolated;
+updatewindow.cookieRead = dompack.getCookie;
+updatewindow.cookieWrite = dompack.setCookie;
+updatewindow.cookieRemove = dompack.deleteCookie;
+updatewindow.cookieList = dompack.listCookies;
+updatewindow.flagUIBusy = dompack.flagUIBusy;
+updatewindow.setupBusyModal = dompack.setupBusyModal;
 
 function fillRidiculous() {
   dompack.qR('#ridiculous').replaceChildren(dompack.create("option", { selected: true, disabled: true, textContent: 'Many' }));

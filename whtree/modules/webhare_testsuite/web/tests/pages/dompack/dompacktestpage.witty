@@ -226,6 +226,7 @@
     <button class="opendialognocancel">without cancel</button>
   </div>
   <div id="dialoglog"></div>
+  <dialog id="mywaiter">My waiter</dialog>
 [/component]
 
 [component empty]

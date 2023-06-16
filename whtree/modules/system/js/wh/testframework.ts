@@ -37,6 +37,7 @@ export {
 } from 'dompack/testframework/pointer';
 
 export {
+  findElement,
   waitForElement
 } from "../internal/tests/waitforelement";
 
@@ -341,10 +342,10 @@ export function getOpenMenuItem(containstext) {
     throw new Error("Multiple items contain the text '" + containstext + "'");
   return item[0] || null;
 }
-export function getWin() {
+export function getWin(): WindowProxy {
   return testfw.getFrameRecord().win;
 }
-export function getDoc() {
+export function getDoc(): Document {
   return testfw.getFrameRecord().doc;
 }
 export function setFormsapiFileElement(el, filedata, filename) {

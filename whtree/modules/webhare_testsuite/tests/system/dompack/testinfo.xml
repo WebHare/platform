@@ -6,6 +6,6 @@
   <jstest file="test_autosuggest.ts" />
   <jstest file="test_merge.ts" />
   <jstest file="test_datatransfer.ts" />
-  <jstest file="test_dialogapi.ts" />
+  <jstest file="test_dialogapi.tsx" />
   <jstest file="test_storage.ts" />
 </group>
