@@ -330,7 +330,12 @@ class TestFramework {
 
     // Create a script - THEN add events. Might fail if not done in this order
     // No removing of events, this iframe will be thrown away on the next test
-    this.scriptframe = dompack.create("iframe", { src: test.url });
+    const testurl = new URL(test.url);
+    const whdebug = new URL(location.href).searchParams.get("wh-testscript-debug") ?? new URL(location.href).searchParams.get("wh-debug");
+    if (whdebug !== null)
+      testurl.searchParams.set("wh-debug", whdebug);
+
+    this.scriptframe = dompack.create("iframe", { src: testurl.toString() });
     this.scriptframe.addEventListener("load", deferred.resolve);
     this.scriptframe.addEventListener("error", deferred.reject);
     document.getElementById('testscriptholder').appendChild(this.scriptframe);

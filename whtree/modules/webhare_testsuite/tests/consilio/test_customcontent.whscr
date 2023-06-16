@@ -137,8 +137,7 @@ MACRO TestCustomContent()
   start := GetCurrentDatetime();
   RECORD ARRAY results := SearchAll("a", [ storequery := TRUE ]);
   TestEQ((SELECT groupid, objectid FROM webhare_testsuite.consilio_index WHERE groupid = idprefix||"a" ORDER BY groupid, objectid), results);
-  DATETIME stop := GetCurrentDateTime();
-  items := ReadJSONLogLines("consilio:queries", start, stop);
+  items := ReadJSONLogLines("consilio:queries", start);
 
   RECORD ARRAY queries := SELECT * FROM items WHERE catalogid = catalog->id;
   TestEq(1, Length(queries));
