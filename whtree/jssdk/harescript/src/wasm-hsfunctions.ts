@@ -72,13 +72,11 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerAsyncExternalFunction("DORUN:WH_SELFCOMPILE:R:SSA", async (vm, id_set, filename, args) => {
     const extfunctions = new OutputCapturingModule;
     const newmodule = await createHarescriptModule(extfunctions);
-    const newhsvm = newmodule._CreateHSVM();
-    newmodule.initVM(newhsvm);
-    const newvm = new HarescriptVM(newmodule, newhsvm);
+    const newvm = new HarescriptVM(newmodule);
     newvm.consoleArguments = args.getJSValue() as string[];
     await newvm.loadScript(filename.getString());
-    await newmodule._HSVM_ExecuteScript(newhsvm, 1, 0);
-    newmodule._HSVM_GetMessageList(newhsvm, newvm.errorlist, 1);
+    await newmodule._HSVM_ExecuteScript(newvm.hsvm, 1, 0);
+    newmodule._HSVM_GetMessageList(newvm.hsvm, newvm.errorlist, 1);
     id_set.setJSValue({
       errors: new HSVMVar(newvm, newvm.errorlist).getJSValue(),
       output: extfunctions.getOutput()

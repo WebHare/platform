@@ -7,6 +7,7 @@ import { decodeString } from "@webhare/std";
 import createModule from "../../../lib/harescript";
 import { registerBaseFunctions } from "./wasm-hsfunctions";
 import { WASMModule } from "./wasm-modulesupport";
+import { HSVMVar } from "./wasm-hsvmvar";
 
 
 const dispatchlibrary = "mod::system/js/internal/wasm/dispatch.whlib";
@@ -82,12 +83,13 @@ export class HarescriptVM {
   consoleArguments: string[];
   columnNameIdMap: Record<string, HSVM_ColumnId> = {};
 
-  constructor(module: WASMModule, hsvm: HSVM) {
+  constructor(module: WASMModule) {
     this.wasmmodule = module;
     module.itf = this;
-    this.hsvm = hsvm;
-    this.dispatchfptr = module._HSVM_AllocateVariable(hsvm);
-    this.errorlist = module._HSVM_AllocateVariable(hsvm);
+    this.hsvm = module._CreateHSVM();
+    module.initVM(this.hsvm);
+    this.dispatchfptr = module._HSVM_AllocateVariable(this.hsvm);
+    this.errorlist = module._HSVM_AllocateVariable(this.hsvm);
     this.columnnamebuf = module._malloc(65);
     this.stringptrs = module._malloc(8); // 2 string pointers
     this.consoleArguments = [];
@@ -238,6 +240,14 @@ export class HarescriptVM {
     return;
   }
 
+  openFunctionCall(paramcount: number): HSVMVar[] {
+    const params: HSVMVar[] = [];
+    this.wasmmodule._HSVM_OpenFunctionCall(this.hsvm, paramcount);
+    for (let i = 0; i < paramcount; ++i)
+      params.push(new HSVMVar(this, this.wasmmodule._HSVM_CallParam(this.hsvm, i)));
+    return params;
+  }
+
   private async doCall(functionref: string, isfunction: boolean, params: IPCMarshallableData[]): Promise<IPCMarshallableData> {
     const parts = functionref.split("#");
     if (parts.length !== 2)
@@ -317,8 +327,5 @@ export async function createHarescriptModule<T extends WASMModule>(modulefunctio
 
 export async function allocateHSVM(): Promise<HarescriptVM> {
   const module = await createHarescriptModule(new WASMModule);
-  const hsvm = module._CreateHSVM();
-  module.initVM(hsvm);
-
-  return new HarescriptVM(module, hsvm);
+  return new HarescriptVM(module);
 }
