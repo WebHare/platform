@@ -7,7 +7,9 @@ import { HSVMVar } from "./wasm-hsvmvar";
 import { WASMModule } from "./wasm-modulesupport";
 import { HSVM, Ptr, StringPtr } from "wh:internal/whtree/lib/harescript-interface";
 import { generateRandomId } from "@webhare/std";
+import * as syscalls from "./syscalls";
 
+type SysCallsModule = { [key: string]: (data: unknown) => unknown };
 
 
 class OutputCapturingModule extends WASMModule {
@@ -84,5 +86,33 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   });
   wasmmodule.registerExternalFunction("GENERATEUFS128BITID::S:", (vm, id_set) => {
     id_set.setString(generateRandomId("base64url"));
+  });
+  let last_syscall_promise: Promise<unknown> | undefined;
+  wasmmodule.registerExternalFunction("__EM_SYSCALL::R:SV", (vm, id_set, var_func, var_data) => {
+    const func = var_func.getString();
+    const data = var_data.getJSValue();
+    if (!(syscalls as SysCallsModule)[func]) {
+      id_set.setJSValue({ result: "unknown" });
+      return;
+    }
+
+    const value = (syscalls as SysCallsModule)[func](data);
+    if (value && typeof value === "object" && "then" in value && typeof value.then === "function") {
+      // This assumes that __EM_SYSCALL_WAITLASTPROMISE is called immediately after __EM_SYSCALL returns!
+      last_syscall_promise = value as Promise<unknown>;
+      id_set.setJSValue({
+        result: "promise"
+      });
+    } else {
+      id_set.setJSValue({
+        result: "ok",
+        value
+      });
+    }
+  });
+  wasmmodule.registerAsyncExternalFunction("__EM_SYSCALL_WAITLASTPROMISE::V:", async (vm, id_set) => {
+    const toawait = last_syscall_promise;
+    last_syscall_promise = undefined;
+    id_set.setJSValue({ value: await toawait });
   });
 }

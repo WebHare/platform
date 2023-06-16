@@ -1,22 +1,12 @@
 <?wh
 (*ISSYSTEMLIBRARY*)
 
+LOADLIB "wh::system.whlib";
 LOADLIB "wh::internal/interface.whlib";
 
-//Borrowed from system.whlib:
-VARIANT FUNCTION DecodeJSON(STRING indata, RECORD translations DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  RETURN JSONDECODERQUICK(indata, FALSE, options, translations).value;
-}
-STRING FUNCTION EncodeJSON(VARIANT arg, RECORD translations DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  RETURN JSONENCODETOSTRING(arg, FALSE, translations, options);
-}
-BOOLEAN FUNCTION RecordExists(RECORD rec) __ATTRIBUTES__(EXTERNAL, CONSTANT);
-
-
 //This API in baselibs.cpp invokes Module.emSyscall and acts as a (slow) generic bridge to javascript.
-STRING FUNCTION __EM_SYSCALL(STRING call) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
+RECORD FUNCTION __EM_SYSCALL(STRING call, VARIANT data) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
+VARIANT FUNCTION __EM_SYSCALL_WAITLASTPROMISE() __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
 
 ///We can't base off system.whlibs Exception (At least not without a whole lot of refactoring around ValidateOptions)
 PUBLIC STATIC OBJECTTYPE WasmInvalidSyscallException
@@ -41,15 +31,17 @@ PUBLIC STATIC OBJECTTYPE WasmInvalidSyscallException
 
 
 //The 'low level' API to use, but with JSON wrapping so we can hopefully optimize a JSON/STRING pass away someday
-PUBLIC RECORD FUNCTION EM_Syscall(STRING call, RECORD data DEFAULTSTO DEFAULT RECORD)
+PUBLIC VARIANT FUNCTION EM_Syscall(STRING call, RECORD data DEFAULTSTO DEFAULT RECORD)
 {
-  STRING res := __EM_SYSCALL(EncodeJSON(CELL[call,data]));
-  IF(res = "")
+  RECORD res := __EM_SYSCALL(call, data);
+  IF(NOT RecordExists(res))
     RETURN DEFAULT RECORD; //signals no WASM
-  IF(res = "unknown")
+  IF(res.result = "unknown")
     THROW NEW WasmInvalidSyscallException(`No such EM Syscall '${call}'`);
+  IF(res.result = "promise")
+    res := __EM_SYSCALL_WAITLASTPROMISE();
 
-  RETURN DecodeJSON(res);
+  RETURN res.value;
 }
 
 RECORD emstate;

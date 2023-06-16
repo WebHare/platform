@@ -2,12 +2,9 @@ import type { HSVM, HSVM_VariableId, WASMModuleInterface, Ptr, StringPtr } from 
 import * as path from "node:path";
 import * as fs from "node:fs";
 import { config, toFSPath } from "@webhare/services";
-import * as syscalls from "./syscalls";
 import { HSVMVar } from "./wasm-hsvmvar";
 import type { HarescriptVM } from "./wasm-hsvm";
 import { VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
-
-type SysCallsModule = { [key: string]: (data: unknown) => unknown };
 
 const wh_namespace_location = "mod::system/whlibs/";
 function translateDirectToModURI(directuri: string) {
@@ -128,16 +125,6 @@ export class WASMModule extends WASMModuleBase {
 
   initVM(hsvm: HSVM) {
     // can be overridden
-  }
-
-  emSyscall(jsondata_ptr: number): string {
-    const jsondata = this.UTF8ToString(jsondata_ptr);
-    const { call, data } = JSON.parse(jsondata);
-    if (!(syscalls as SysCallsModule)[call])
-      return "unknown";
-
-    const result = (syscalls as SysCallsModule)[call](data);
-    return JSON.stringify(result);
   }
 
   getTempDir() {
