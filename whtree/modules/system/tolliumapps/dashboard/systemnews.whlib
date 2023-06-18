@@ -46,11 +46,12 @@ PUBLIC OBJECTTYPE Overview EXTEND DashboardPanelBase
     newsentries := this->wrdschema->^wrd_person->Enrich(newsentries, "announcement_author", [ createdby_string := "wrd_title" ], [ rightouterjoin := TRUE, historymode := "all" ]);
 
     this->newslist->rows := SELECT title := announcement_title
-                                 , creationdate := wrd_creationdate
+                                 , publish_from
                                  , createdby_string
                                  , rowkey := wrd_id
                                  , id := wrd_id
                                  , listrowclasses := this->GetNewsStyle(now, publish_from, publish_until)
+                                 , publishdate_creationdate := publish_from ?? creationdate
                               FROM newsentries;
 
     // If we've added/edited/deleted some newsitem, broadcast this to all interested clients
@@ -112,7 +113,6 @@ PUBLIC OBJECTTYPE UpdateNewsItem EXTEND TolliumScreenBase
     IF (params.id = 0) // Add
     {
       this->frame->title := GetTid("system:sysmgmt.systemnews.update.window_add");
-      this->creationdate->value := GetCurrentDateTime();
       this->publish_date_from->value := GetCurrentDatetime();
       this->usepublishdate->value := TRUE;
       this->userid->value := this->tolliumuser->entityid;

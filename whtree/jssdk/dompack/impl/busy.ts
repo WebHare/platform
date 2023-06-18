@@ -5,6 +5,7 @@ import { createDeferred, DeferredPromise } from "@webhare/std";
 let locallocks: BusyLock[] = [];
 let modallocked = false;
 let uiwatcher: NodeJS.Timeout | null = null;
+let installedanticancelhandler = false;
 
 interface LockManagerWindow extends Window {
   __dompack_busylockmanager: LockManager;
@@ -53,10 +54,21 @@ function isDialogElement(el: unknown): boolean {
   return typeof el === "object" && (el as HTMLElement).matches?.("dialog") || false;
 }
 
+function checkCancelEvent(evt: Event) {
+  if (modallocked)
+    evt.preventDefault();
+}
+
 function toggleBusyModal(show: boolean) {
   //'islock' is legacy non-camel version. TypeScript typing should help us transition (since 5.3)
   if (!domevents.dispatchCustomEvent(window, 'dompack:busymodal', { bubbles: true, cancelable: true, detail: { show: show, islock: show } }))
     return; //cancelled!
+
+  if (!installedanticancelhandler) {
+    //capture cancel, as it doesn't bubble up
+    addEventListener("cancel", evt => checkCancelEvent(evt), { capture: true });
+    installedanticancelhandler = true;
+  }
 
   if (show) {
     if (isDialogElement(busymodalcontent)) { //the user provided us with an element
