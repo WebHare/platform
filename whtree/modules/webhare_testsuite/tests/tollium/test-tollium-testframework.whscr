@@ -17,6 +17,9 @@ ASYNC MACRO TestTTLookup()
         <item name="menuitem" action="done" />
       </menu>
     </menus>
+    <compositions>
+      <record name="rec" />
+    </compositions>
     <body>
       <select name="select1" type="radio" flags="flag1" >
         <option rowkey="option1" title="Option 1"/>
@@ -25,7 +28,7 @@ ASYNC MACRO TestTTLookup()
       <select name="select2" type="radio" >
         <option rowkey="option3" title="Option 3"/>
       </select>
-      <textedit name="text" />
+      <textedit name="text" composition="rec" cellname="rectext" />
       <image name="img1" value="tollium:status/sending" width="16px" height="16px" hint="I have a hint" title="I have a title" />
       <button name="button" action="done" />
     </body>
@@ -48,6 +51,8 @@ ASYNC MACRO TestTTLookup()
 
   // Test select with type, wildcard title and counter
   TTFillByTitle("{select}:*[2/2]", "Option 3");
+
+  TestEq(TT("text"), TT("rec->rectext"));
 
   AWAIT ExpectScreenChange(-1, PTR TTClick("button"));
 }
