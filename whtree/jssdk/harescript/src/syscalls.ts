@@ -43,21 +43,29 @@ export function webHareConfig() {
   };
 }
 
+/** Run JavaScript code directly (no TypeScript!) */
 export function executeInline({ func, param }: { func: string; param?: unknown }): Promise<unknown> {
+  const compileOptions = {
+    contextExtensions: [{ require }]
+  };
+
+  /* When the keyword "await" is present in the function code, it needs to be run in an async function. For false
+     positives, this might result in a somewhat slower execution, but no correctness problems.
+  */
   if (func.indexOf("await") !== -1) {
     if (param !== undefined) {
-      const tocall = vm.compileFunction(`async function wrapper(param) { ${func} }; return wrapper($param);`, ["$param"], { contextExtensions: [{ require }] });
+      const tocall = vm.compileFunction(`async function wrapper(param) { ${func} }; return wrapper($param);`, ["$param"], compileOptions);
       return tocall(param);
     } else {
-      const tocall = vm.compileFunction(`async function wrapper() { ${func} }; return wrapper();`, [], { contextExtensions: [{ require }] });
+      const tocall = vm.compileFunction(`async function wrapper() { ${func} }; return wrapper();`, [], compileOptions);
       return tocall();
     }
   } else {
     if (param !== undefined) {
-      const tocall = vm.compileFunction(func, ["param"]);
+      const tocall = vm.compileFunction(func, ["param"], compileOptions);
       return tocall(param);
     } else {
-      const tocall = vm.compileFunction(func, []);
+      const tocall = vm.compileFunction(func, [], compileOptions);
       return tocall();
     }
   }
