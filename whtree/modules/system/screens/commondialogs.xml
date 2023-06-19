@@ -11,10 +11,10 @@
 
     <body>
       <panel layout="form" spacers="bottom">
-        <textedit name="mailerfrom" required="true" width="1pr" validationchecks="email-maysendfrom" />
-        <textedit name="mailerto" required="true" width="1pr" validationchecks="emails-maysendto" />
-        <textedit name="mailercc" width="1pr" validationchecks="emails-maysendto" />
-        <textedit name="mailerbcc" width="1pr" validationchecks="emails-maysendto" />
+        <textedit name="mailerfrom" required="true" width="1pr" validationchecks="name-email-maysendfrom" />
+        <textedit name="mailerto" required="true" width="1pr" validationchecks="name-emails-maysendto" />
+        <textedit name="mailercc" width="1pr" validationchecks="name-emails-maysendto" />
+        <textedit name="mailerbcc" width="1pr" validationchecks="name-emails-maysendto" />
         <textedit name="mailersubject" required="true" width="1pr" />
       </panel>
       <richarea type="email" name="textareahtml" height="1pr" />

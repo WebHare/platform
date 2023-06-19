@@ -9,14 +9,19 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::publisher/lib/forms/api.whlib";
 LOADLIB "mod::system/lib/internal/mail/routemgr.whlib";
+LOADLIB "mod::tollium/lib/internal/inputvalidation.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
 
+BOOLEAN FUNCTION IsAccepted(STRING ARRAY checks, STRING value)
+{
+  RETURN ValidateInput(value, "", checks) = "";
+}
 
 MACRO TestMailWhitelists()
 {
   //Sanity checks to prevent you from wasting time on these tests if your system is wide open anyway...
-  TestEq(0, IsAllowedEmailSender("anyone@nowhere.invalid"), "If *anyone* is a valid sender, we can't properly run whitelist tests. Disable the offending mailrules first!");
+  TestEq(0, IsAllowedEmailSender("anyone@nowhere.invalid"), "If *anyone* is a valid sender, we can't properly run whitelist tests. Disable 'Use if sender is not whitelisted' in Email routing > Sender configuration");
   TestEq(FALSE, IsAllowedEmailReceiver("anyone@nowhere.invalid"), "If *anyone* is a valid recipient, we can't properly run whitelist tests. Disable the offending mailrules first!");
 
   //Create a email field to test stuff with
@@ -26,7 +31,10 @@ MACRO TestMailWhitelists()
                                                    , settings := DEFAULT RECORD
                                                    ]);
 
-  screen->comp->validationchecks := ["email-maysendfrom"];
+  TestAssert(NOT IsAccepted(["email-maysendfrom"], "Arnold <any@sender.beta.webhare.net>"));
+  TestAssert(IsAccepted(["name-email-maysendfrom"], "Arnold <any@sender.beta.webhare.net>"));
+
+  screen->comp->validationchecks := ["name-email-maysendfrom"];
 
   FOREVERY(RECORD test FROM [[ address := "any@receiver.beta.webhare.net", fail := TRUE ]
                             ,[ address := "Arnold <any@receiver.beta.webhare.net>", fail := TRUE ]
@@ -47,7 +55,10 @@ MACRO TestMailWhitelists()
     work->Cancel();
   }
 
-  screen->comp->validationchecks := ["email-maysendto"];
+  TestAssert(NOT IsAccepted(["email-maysendto"], "Arnold <any@receiver.beta.webhare.net>"));
+  TestAssert(IsAccepted(["name-email-maysendto"], "Arnold <any@receiver.beta.webhare.net>"));
+
+  screen->comp->validationchecks := ["name-email-maysendto"];
 
   FOREVERY(RECORD test FROM [[ address := "any@sender.beta.webhare.net", fail := TRUE ]
                             ,[ address := "Arnold <any@sender.beta.webhare.net>", fail := TRUE ]
@@ -66,7 +77,11 @@ MACRO TestMailWhitelists()
     work->Cancel();
   }
 
-  screen->comp->validationchecks := ["emails-maysendto"];
+  TestAssert(NOT IsAccepted(["emails-maysendto"], "Arnold <any@receiver.beta.webhare.net>, Other <other@receiver.beta.webhare.net>"));
+  TestAssert(IsAccepted(["name-emails-maysendto"], "Arnold <any@receiver.beta.webhare.net>, Other <other@receiver.beta.webhare.net>"));
+  TestAssert(NOT IsAccepted(["name-emails-maysendto"], "Arnold <any@receiver.beta.webhare.net>, any@sender.beta.webhare.net"));
+
+  screen->comp->validationchecks := ["name-emails-maysendto"];
 
   FOREVERY(RECORD test FROM [[ address := "any@sender.beta.webhare.net, any@receiver.beta.webhare.net", fail := TRUE ]
                             ,[ address := "Arnold <any@sender.beta.webhare.net>, Arnold <any@receiver.beta.webhare.net>", fail := TRUE ]

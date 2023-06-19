@@ -34,11 +34,18 @@ PUBLIC STRING FUNCTION ValidateInput(STRING input, STRING fieldtitle, STRING ARR
 {
   FOREVERY (STRING check FROM checks)
   {
+    BOOLEAN isnameemail;
+    IF(check LIKE "name-email*")
+    {
+      isnameemail := TRUE;
+      check := Substring(check,5);
+    }
+
     SWITCH (check)
     {
       CASE "email","email-maysendfrom","email-maysendto"
       {
-        IF (NOT IsValidEmailAddress(input))
+        IF (isnameemail ? NOT IsValidEmailAddress(input) : NOT IsValidModernEmailAddress(input))
           RETURN GetTid("tollium:validation.errors.invalid_email", fieldtitle);
 
         IF(check = "email-maysendfrom")
@@ -58,13 +65,29 @@ PUBLIC STRING FUNCTION ValidateInput(STRING input, STRING fieldtitle, STRING ARR
 
       CASE "emails","emails-maysendto"
       {
-        RECORD ARRAY data := TokenizeEmailAddressList(input, FALSE);
-        FOREVERY (RECORD rec FROM data)
+        IF(isnameemail)
         {
-          IF(NOT IsValidEmailAddress(rec.original))
-            RETURN GetTid("tollium:validation.errors.invalid_emails", fieldtitle, rec.original);
-          IF(check = "emails-maysendto" AND NOT IsAllowedEmailReceiver(rec.email))
-            RETURN GetTid("tollium:validation.errors.receiver_not_whitelisted", fieldtitle, rec.email);
+          RECORD ARRAY data := TokenizeEmailAddressList(input, FALSE);
+          FOREVERY (RECORD rec FROM data)
+          {
+            IF(NOT IsValidEmailAddress(rec.original))
+              RETURN GetTid("tollium:validation.errors.invalid_emails", fieldtitle, rec.original);
+            IF(check = "emails-maysendto" AND NOT IsAllowedEmailReceiver(rec.email))
+              RETURN GetTid("tollium:validation.errors.receiver_not_whitelisted", fieldtitle, rec.email);
+          }
+        }
+        ELSE
+        {
+          STRING ARRAY data := Tokenize(Substitute(input, ";", ","), ",");
+          FOREVERY (STRING rec FROM data)
+          {
+            rec := TrimWhitespace(rec);
+
+            IF(NOT IsValidModernEmailAddress(rec))
+              RETURN GetTid("tollium:validation.errors.invalid_emails", fieldtitle, rec);
+            IF(check = "emails-maysendto" AND NOT IsAllowedEmailReceiver(rec))
+              RETURN GetTid("tollium:validation.errors.receiver_not_whitelisted", fieldtitle, rec);
+          }
         }
       }
 
