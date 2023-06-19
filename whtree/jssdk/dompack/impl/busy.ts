@@ -41,12 +41,15 @@ function scheduleCheckUIFree() {
 /* check if the UI is actually free. if so, remove busymodals and resolve waitUIFrees for the benefit of testfw  */
 function checkUIFree() {
   uiwatcher = null;
-  if (locallocks.length === 0)
-    lockmgr.checkUIFree(); //to resolve any waitUIFrees. runs in the top-level frame. note that lockmgr cares about ALL ui locks
 
   if (modallocked && !anyModalLocks()) { //did the last frame-level *modal* lock just get released?
     modallocked = false;
     toggleBusyModal(false);
+  }
+
+  if (locallocks.length === 0) {
+    lockmgr.busyframes.delete(window); //we won't release our block in the lockmanager until we've had a chance to remove our modal layer
+    lockmgr.checkUIFree(); //to resolve any waitUIFrees. runs in the top-level frame. note that lockmgr cares about ALL ui locks, not just modals
   }
 }
 
@@ -104,6 +107,7 @@ function toggleBusyModal(show: boolean) {
 
 class LockManager {
   locks: BusyLock[];
+  busyframes: Set<Window> = new Set;
   busycounter: number;
   deferreduipromise: DeferredPromise<boolean> | null;
 
@@ -141,7 +145,7 @@ class LockManager {
     scheduleCheckUIFree();
   }
   checkUIFree() {
-    if (this.locks.length == 0 && this.deferreduipromise) {
+    if (this.locks.length == 0 && this.busyframes.size == 0 && this.deferreduipromise) {
       this.deferreduipromise.resolve(true);
       this.deferreduipromise = null;
     }
@@ -187,6 +191,7 @@ class BusyLock implements Lock {
     this.modal = options?.modal ?? (options as { ismodal?: boolean })?.ismodal ?? false;
 
     this.locknum = lockmgr.add(this);
+    lockmgr.busyframes.add(window);
     locallocks.push(this);
 
     if (this.modal && !modallocked) {
@@ -250,6 +255,7 @@ function getParentLockManager(): LockManager | null {
       locallocks.forEach(lock => { lockmgr.release(lock); locallockmgr.add(lock); });
       locallocks = [];
 
+      lockmgr.busyframes.delete(window); //explicitly remove us so we won't be waited upon
       lockmgr.scheduleCheckUIFree();
       lockmgr = locallockmgr;
     });

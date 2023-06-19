@@ -86,6 +86,7 @@ test.registerTests(
         const dialog = await test.waitForElement(['dialog', /Please wait!/]);
         test.eq(1, test.qSA("dialog.dompack-busydialog").length);
         lock.release();
+        await test.wait('ui'); //ensure ui-wait works - we did just flag busy...
         await test.wait(() => dialog.parentNode === null);
       }
       test.eq(null, test.findElement(['dialog', /Please wait!/]));
