@@ -1,5 +1,6 @@
 <?wh
 LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internal/wasm.whlib";
 LOADLIB "wh::util/algorithms.whlib";
@@ -31,6 +32,24 @@ PUBLIC MACRO RunWasmtest()
   //Do wasm-specific tests *last* so it's easier to manually test us under native
   TestEq(TRUE, IsWASM(), "We should be tested under wasm!");
   TestThrowsLike("*no such *syscall*notthere*", PTR EM_Syscall("notthere"));
+
+  DATETIME now := GetCurrentDateTime();
+  RECORD testrec :=
+      [ i := 1
+      , i64 := 1i64
+      , d := now
+      , ia := [ 2 ]
+      , i64a := [ 2i64 ]
+      , da := [ now ]
+      , r := [ i := 1 ]
+      , ra := [ [ i := 1 ] ]
+      ];
+
+  TestEQ(CELL[ ...testrec, called := TRUE ], EM_Syscall("executeInline", [ func := "return { ...param, called: true };", param := testrec ]));
+  TestEQ(CELL[ ...testrec, called := TRUE ], EM_Syscall("executeInline",
+      [ func := "return await new Promise(r => setTimeout(() => r({ ...param, called: true }), 1));"
+      , param := testrec
+      ]));
 }
 
 RunWasmTest(); //TODO RunTestFramework isn't supported yet

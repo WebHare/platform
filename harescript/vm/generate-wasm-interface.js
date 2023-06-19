@@ -131,12 +131,13 @@ function parseType(parts) {
     case "bool":
     case "double":
     case "int":
-    case "long long int":
     case "size_t":
     case "time_t":
     case "unsigned int":
     case "unsigned":
       return "number";
+    case "long long int":
+      return "bigint";
     case "int *":
     case "unsigned *":
       return "Ptr";

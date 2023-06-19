@@ -1,6 +1,7 @@
 import { IPCMarshallableRecord, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import type { HSVM_VariableId, HSVM_VariableType, } from "../../../lib/harescript-interface";
 import type { HarescriptVM } from "./wasm-hsvm";
+import { maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 
 export class HSVMVar {
   vm: HarescriptVM;
@@ -33,6 +34,14 @@ export class HSVMVar {
     this.vm.wasmmodule._HSVM_IntegerSet(this.vm.hsvm, this.id, value);
     this.type = VariableType.Integer;
   }
+  getInteger64(): bigint {
+    this.checkType(VariableType.Integer64);
+    return this.vm.wasmmodule._HSVM_Integer64Get(this.vm.hsvm, this.id);
+  }
+  setInteger64(value: bigint) {
+    this.vm.wasmmodule._HSVM_Integer64Set(this.vm.hsvm, this.id, value);
+    this.type = VariableType.Integer64;
+  }
   getString(): string {
     this.checkType(VariableType.String);
     this.vm.wasmmodule._HSVM_StringGet(this.vm.hsvm, this.id, this.vm.wasmmodule.stringptrs, this.vm.wasmmodule.stringptrs + 4);
@@ -49,6 +58,35 @@ export class HSVMVar {
     this.vm.wasmmodule._HSVM_StringSet(this.vm.hsvm, this.id, alloced, alloced + len);
     this.vm.wasmmodule._free(alloced);
     this.type = VariableType.String;
+  }
+  getDateTime(): Date {
+    this.checkType(VariableType.DateTime);
+    this.vm.wasmmodule._HSVM_DateTimeGet(this.vm.hsvm, this.id, this.vm.wasmmodule.stringptrs, this.vm.wasmmodule.stringptrs + 4);
+    const days_raw = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs, "i32") as number;
+    const msecs = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs + 4, "i32") as number;
+    const days = days_raw - 719163;
+    const totalmsecs = days * 86400000 + msecs;
+    if (totalmsecs >= maxDateTimeTotalMsecs)
+      return maxDateTime;
+    return new Date(totalmsecs);
+  }
+  setDateTime(value: Date) {
+    const totalmsecs = Number(value as Date);
+    let days, msecs;
+    if (totalmsecs >= maxDateTimeTotalMsecs) {
+      days = 2147483647;
+      msecs = 86400000 - 1;
+    } else {
+      days = Math.floor(totalmsecs / 86400000);
+      msecs = totalmsecs - days * 86400000;
+      days += 719163; // 1970-1-1
+      if (days < 0 || msecs < 0) {
+        days = 0;
+        msecs = 0;
+      }
+    }
+    this.vm.wasmmodule._HSVM_DateTimeSet(this.vm.hsvm, this.id, days, msecs);
+    this.type = VariableType.DateTime;
   }
   setDefault(type: VariableType): HSVMVar {
     if (type === VariableType.Array)
@@ -97,6 +135,10 @@ export class HSVMVar {
         this.setInteger(value as number);
         return;
       } break;
+      case VariableType.Integer64: {
+        this.setInteger64(value as bigint);
+        return;
+      } break;
       case VariableType.Boolean: {
         this.setBoolean(Boolean(value));
         return;
@@ -105,12 +147,17 @@ export class HSVMVar {
         this.setString(value as string);
         return;
       } break;
+      case VariableType.DateTime: {
+        this.setDateTime(value as Date);
+        return;
+      } break;
       case VariableType.Record: {
         const recval = value as IPCMarshallableRecord;
         if (!recval)
           this.setDefault(VariableType.Record);
         else {
           this.vm.wasmmodule._HSVM_RecordSetEmpty(this.vm.hsvm, this.id);
+          this.type = VariableType.Record;
           for (const [key, propval] of Object.entries(recval)) {
             this.ensureCell(key).setJSValue(propval);
           }
@@ -144,13 +191,19 @@ export class HSVMVar {
 
       case VariableType.Integer: {
         return this.vm.wasmmodule._HSVM_IntegerGet(this.vm.hsvm, this.id);
-      } break;
+      }
+      case VariableType.Integer64: {
+        return this.vm.wasmmodule._HSVM_Integer64Get(this.vm.hsvm, this.id);
+      }
       case VariableType.Boolean: {
         return Boolean(this.vm.wasmmodule._HSVM_BooleanGet(this.vm.hsvm, this.id));
-      } break;
+      }
       case VariableType.String: {
         return this.getString();
-      } break;
+      }
+      case VariableType.DateTime: {
+        return this.getDateTime();
+      }
       case VariableType.Record: {
         if (!this.vm.wasmmodule._HSVM_RecordExists(this.vm.hsvm, this.id))
           return null;
@@ -176,5 +229,11 @@ export class HSVMVar {
       }
       return value;
     }
+  }
+  copyFrom(variable: HSVMVar): void {
+    if (variable.vm != this.vm)
+      throw new Error(`cross-vm copy not supported`);
+    this.vm.wasmmodule._HSVM_CopyFrom(this.vm.hsvm, this.id, variable.id);
+    this.type = variable.type;
   }
 }

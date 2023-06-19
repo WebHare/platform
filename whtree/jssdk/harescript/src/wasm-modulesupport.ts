@@ -2,12 +2,9 @@ import type { HSVM, HSVM_VariableId, WASMModuleInterface, Ptr, StringPtr } from 
 import * as path from "node:path";
 import * as fs from "node:fs";
 import { config, toFSPath } from "@webhare/services";
-import * as syscalls from "./syscalls";
 import { HSVMVar } from "./wasm-hsvmvar";
 import type { HarescriptVM } from "./wasm-hsvm";
 import { VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
-
-type SysCallsModule = { [key: string]: (data: unknown) => unknown };
 
 const wh_namespace_location = "mod::system/whlibs/";
 function translateDirectToModURI(directuri: string) {
@@ -94,10 +91,10 @@ function getPrefix(uri: string): AllowedPrefixes {
 type RegisteredExternal = {
   name: string;
   parameters: number;
-  func?: ((vm: HSVM, id_set: HSVMVar, ...params: HSVMVar[]) => void);
-  macro?: ((vm: HSVM, ...params: HSVMVar[]) => void);
-  asyncfunc?: ((vm: HSVM, id_set: HSVMVar, ...params: HSVMVar[]) => Promise<void>);
-  asyncmacro?: ((vm: HSVM, ...params: HSVMVar[]) => Promise<void>);
+  func?: ((vm: HarescriptVM, id_set: HSVMVar, ...params: HSVMVar[]) => void);
+  macro?: ((vm: HarescriptVM, ...params: HSVMVar[]) => void);
+  asyncfunc?: ((vm: HarescriptVM, id_set: HSVMVar, ...params: HSVMVar[]) => Promise<void>);
+  asyncmacro?: ((vm: HarescriptVM, ...params: HSVMVar[]) => Promise<void>);
 };
 
 /** WASMModuleBase is an empty class we override to look like it contains all the properties the Emscripten
@@ -109,7 +106,7 @@ export class WASMModule extends WASMModuleBase {
 
   stringptrs: Ptr = 0;
   externals = new Array<RegisteredExternal>;
-  itf: HarescriptVM;
+  itf: HarescriptVM; // only one VM per module!
 
   constructor() {
     super();
@@ -128,16 +125,6 @@ export class WASMModule extends WASMModuleBase {
 
   initVM(hsvm: HSVM) {
     // can be overridden
-  }
-
-  emSyscall(jsondata_ptr: number): string {
-    const jsondata = this.UTF8ToString(jsondata_ptr);
-    const { call, data } = JSON.parse(jsondata);
-    if (!(syscalls as SysCallsModule)[call])
-      return "unknown";
-
-    const result = (syscalls as SysCallsModule)[call](data);
-    return JSON.stringify(result);
   }
 
   getTempDir() {
@@ -260,7 +247,8 @@ export class WASMModule extends WASMModuleBase {
     const params = new Array<HSVMVar>;
     for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
       params.push(new HSVMVar(this.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
-    reg.macro!(vm, ...params);
+    // ignoring vm, using itf: only one VM per module!
+    reg.macro!(this.itf, ...params);
   }
 
   executeJSFunction(vm: HSVM, nameptr: StringPtr, id: number, id_set: HSVM_VariableId): void {
@@ -268,7 +256,8 @@ export class WASMModule extends WASMModuleBase {
     const params = new Array<HSVMVar>;
     for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
       params.push(new HSVMVar(this.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
-    reg.func!(vm, new HSVMVar(this.itf!, id_set), ...params);
+    // ignoring vm, using itf: only one VM per module!
+    reg.func!(this.itf, new HSVMVar(this.itf!, id_set), ...params);
   }
 
   async executeAsyncJSMacro(vm: HSVM, nameptr: StringPtr, id: number): Promise<void> {
@@ -276,7 +265,8 @@ export class WASMModule extends WASMModuleBase {
     const params = new Array<HSVMVar>;
     for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
       params.push(new HSVMVar(this.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
-    await reg.asyncmacro!(vm, ...params);
+    // ignoring vm, using itf: only one VM per module!
+    await reg.asyncmacro!(this.itf, ...params);
   }
 
   async executeAsyncJSFunction(vm: HSVM, nameptr: StringPtr, id: number, id_set: HSVM_VariableId): Promise<void> {
@@ -284,10 +274,11 @@ export class WASMModule extends WASMModuleBase {
     const params = new Array<HSVMVar>;
     for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
       params.push(new HSVMVar(this.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
-    await reg.asyncfunc!(vm, new HSVMVar(this.itf!, id_set), ...params);
+    // ignoring vm, using itf: only one VM per module!
+    await reg.asyncfunc!(this.itf, new HSVMVar(this.itf!, id_set), ...params);
   }
 
-  registerExternalMacro(signature: string, macro: (vm: HSVM, ...params: HSVMVar[]) => void): void {
+  registerExternalMacro(signature: string, macro: (vm: HarescriptVM, ...params: HSVMVar[]) => void): void {
     const unmangled = unmangleFunctionName(signature);
     const id = this.externals.length;
     this.externals.push({ name: signature, parameters: unmangled.parameters.length, macro });
@@ -296,7 +287,7 @@ export class WASMModule extends WASMModuleBase {
     this._free(signatureptr);
   }
 
-  registerExternalFunction(signature: string, func: (vm: HSVM, id_set: HSVMVar, ...params: HSVMVar[]) => void): void {
+  registerExternalFunction(signature: string, func: (vm: HarescriptVM, id_set: HSVMVar, ...params: HSVMVar[]) => void): void {
     const unmangled = unmangleFunctionName(signature);
     const id = this.externals.length;
     this.externals.push({ name: signature, parameters: unmangled.parameters.length, func });
@@ -305,7 +296,7 @@ export class WASMModule extends WASMModuleBase {
     this._free(signatureptr);
   }
 
-  registerAsyncExternalMacro(signature: string, asyncmacro: (vm: HSVM, ...params: HSVMVar[]) => Promise<void>): void {
+  registerAsyncExternalMacro(signature: string, asyncmacro: (vm: HarescriptVM, ...params: HSVMVar[]) => Promise<void>): void {
     const unmangled = unmangleFunctionName(signature);
     const id = this.externals.length;
     this.externals.push({ name: signature, parameters: unmangled.parameters.length, asyncmacro });
@@ -314,7 +305,7 @@ export class WASMModule extends WASMModuleBase {
     this._free(signatureptr);
   }
 
-  registerAsyncExternalFunction(signature: string, asyncfunc: (vm: HSVM, id_set: HSVMVar, ...params: HSVMVar[]) => Promise<void>): void {
+  registerAsyncExternalFunction(signature: string, asyncfunc: (vm: HarescriptVM, id_set: HSVMVar, ...params: HSVMVar[]) => Promise<void>): void {
     const unmangled = unmangleFunctionName(signature);
     const id = this.externals.length;
     this.externals.push({ name: signature, parameters: unmangled.parameters.length, asyncfunc });

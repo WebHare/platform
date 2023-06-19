@@ -3054,28 +3054,15 @@ void EM_HS_TCPIP_GetSocketTimeout(HareScript::VarId id_set, HareScript::VirtualM
         HSVM_IntegerSet(*vm, id_set, 0);
 }
 
-#ifdef __EMSCRIPTEN__
-
-EM_JS(char*, supportSyscall, (const char *data), {
-  return stringToNewUTF8(Module.emSyscall(data));
-});
-
 void EM_Syscall(HareScript::VarId id_set, HareScript::VirtualMachine *vm)
 {
-        using namespace WebHare::WASM;
-
-        std::string result = ConvertCharPtrAndDelete(supportSyscall(HSVM_StringGetSTD(*vm, HSVM_Arg(0)).c_str()));
-        HSVM_StringSetSTD(*vm, id_set, result);
+        HSVM_SetDefault(*vm, id_set, HSVM_VAR_Record);
 }
 
-#else
-
-void EM_Syscall(HareScript::VarId id_set, HareScript::VirtualMachine *vm)
+void EM_SyscallWaitLastPromise(HareScript::VarId id_set, HareScript::VirtualMachine *vm)
 {
-        HSVM_SetDefault(*vm, id_set, HSVM_VAR_String);
+        HSVM_SetDefault(*vm, id_set, HSVM_VAR_Record);
 }
-
-#endif //__EMSCRIPTEN__
 
 } // End of namespace Baselibs
 
@@ -3223,7 +3210,8 @@ void RegisterDeprecatedBaseLibs(BuiltinFunctionsRegistrator &bifreg, Blex::Conte
 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__SYSTEM_WEBHAREVERSION::R:", SYS_WebHareVersion));
 
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__EM_SYSCALL::S:S", EM_Syscall));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__EM_SYSCALL::R:SV", EM_Syscall));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__EM_SYSCALL_WAITLASTPROMISE::V:", EM_SyscallWaitLastPromise));
 #ifdef __EMSCRIPTEN__
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_TCPIP_GETSOCKETTIMEOUT::I:I",EM_HS_TCPIP_GetSocketTimeout));
 #endif // __EMSCRIPTEN__
