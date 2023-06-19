@@ -622,7 +622,7 @@ lib/libblex_base$(DLL_SUFFIX): $(LIBBLEX_NATIVE_SOURCEOBJS)
 	$(call LinkShared,$^,$@,$(BLEX_BASE_LIBS))
 
 blex/tests/dynamic$(DLL_SUFFIX): blex/tests/dynamiclib.native-obj
-	$(call LinkModule,$^,$@)
+	$(call LinkModule,$^,$@,)
 
 bin/blex-test-native: $(LIBBLEX_NATIVE_TESTOBJS) lib/libblex_base${DLL_SUFFIX}
 	$(call LinkExecutable,$(LIBBLEX_NATIVE_TESTOBJS),$@,$(BLEX_LIBS))
