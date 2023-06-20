@@ -103,5 +103,5 @@ PUBLIC MACRO PrintDeprecationScanReport(RECORD report)
     FOREVERY(RECORD wrd_brokenpassword FROM report.wrd_brokenpasswords)
       Print(`* WRD Attribute #${wrd_brokenpassword.attribute} (${wrd_brokenpassword.attributetag}) contains ${wrd_brokenpassword.num} instance(s) of a future unacceptable password algorithm '${wrd_brokenpassword.alg}'\n`);
   ELSE
-    Print(`- Good! No WRD Email attributes with an unacceptable email address\n`);
+    Print(`- Good! No WRD Password attributes with a broken hash algorithm\n`);
 }
