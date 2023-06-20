@@ -240,6 +240,41 @@
               </xs:documentation>
             </xs:annotation>
           </xs:enumeration>
+          <xs:enumeration value="name-email">
+            <xs:annotation>
+              <xs:documentation>
+                Accept a single valid name + email adress.
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="name-email-maysendfrom">
+            <xs:annotation>
+              <xs:documentation>
+                Accept a single valid name + email adress which must be whitelisted for sending.
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="name-email-maysendto">
+            <xs:annotation>
+              <xs:documentation>
+                Accept a single valid name + email adress which must be whitelisted for receiving.
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="name-emails">
+            <xs:annotation>
+              <xs:documentation>
+                Accept a list of valid name + email adresses (use TokenizeEmailAddressList to tokenize them).
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
+          <xs:enumeration value="name-emails-maysendto">
+            <xs:annotation>
+              <xs:documentation>
+                Accept a list of valid name + email adresses which must be whitelisted for receiving.
+              </xs:documentation>
+            </xs:annotation>
+          </xs:enumeration>
           <xs:enumeration value="url">
             <xs:annotation>
               <xs:documentation>
