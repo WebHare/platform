@@ -1294,13 +1294,15 @@ PUBLIC ASYNC MACRO TTLaunchStartedApp()
   AWAIT TTLaunchApp(applaunchinstructions[END-1].app, CELL[applaunchinstructions[END-1].target]);
 }
 
-OBJECT ARRAY FUNCTION GetAllVisibleComponents(OBJECT screen)
+OBJECT ARRAY FUNCTION GetAllVisibleComponents(OBJECT screen_or_comp)
 {
   OBJECT ARRAY allcomps;
-  IF (screen EXTENDSFROM TolliumScreenBase)
-    allcomps := screen->frame->GetTopDownAllComponents();
+  IF (screen_or_comp EXTENDSFROM TolliumScreenBase)
+    allcomps := screen_or_comp->frame->GetTopDownAllComponents();
+  ELSE IF (screen_or_comp EXTENDSFROM TolliumCompositionBase)
+    allcomps := screen_or_comp->cells;
   ELSE
-    allcomps := screen->GetSubcomponentsRecursive() CONCAT screen->GetTopDownAllComponents();
+    allcomps := screen_or_comp->GetSubcomponentsRecursive() CONCAT screen_or_comp->GetTopDownAllComponents();
 
   OBJECT ARRAY visible;
   FOREVERY (OBJECT comp FROM allcomps)
