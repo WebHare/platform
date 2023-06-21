@@ -38,7 +38,8 @@ export {
 
 export {
   findElement,
-  waitForElement
+  waitForElement,
+  Selector
 } from "../internal/tests/waitforelement";
 
 export {
