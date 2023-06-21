@@ -40,7 +40,7 @@ MACRO AddUser(STRING ARRAY params)
   newuser := CellInsert(newuser, userapi->wrdschema->accountlogintag, subargs.username);
   IF(subargs.password != "")
     newuser := CellInsert(newuser, userapi->wrdschema->accountpasswordtag, CreateAuthenticationSettingsFromPasswordHash(CreateWebharePasswordHash(subargs.password)));
-  IF(IsValidEmailAddress(subargs.username) AND userapi->wrdschema->accountlogintag != userapi->wrdschema->accountemailtag)
+  IF(IsValidModernEmailAddress(subargs.username) AND userapi->wrdschema->accountlogintag != userapi->wrdschema->accountemailtag)
     newuser := CellInsert(newuser, userapi->wrdschema->accountemailtag, subargs.username);
 
   INTEGER newuserid := userapi->CreateUser(newuser);

@@ -2467,11 +2467,20 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       IF(Length(toset.newsets)>1 AND toset.attr.attributetype NOT IN [wrd_attributetype_domainarray, wrd_attributetype_array, wrd_attributetype_richdocument, wrd_attributetype_payment])
         THROW NEW Exception("Internal error, attribute " || toset.attr.tag || " of type #" || toset.attr.attributetype || " may not have " ||Length(toset.newsets) || " settings");
 
-      IF (((toset.attr.attributetype = wrd_attributetype_email AND NOT IsValidEmailAddress(toset.newsets[0].rawdata))
-          OR (toset.attr.attributetype = wrd_attributetype_url AND NOT IsValidURL(toset.newsets[0].rawdata))) AND NOT options.importmode)
+      IF(NOT options.importmode)
       {
-        options.errorcallback([tag := toset.attr.tag, code := "INVALIDVALUE", setvalue := toset.newsets[0].rawdata ]);
-        anyerror := TRUE;
+        /* WH 5.3 started with 'stricter' email checks to improve uniqueness of emails but 5.3 is also the first version
+                  to offer deprecation reports. So we cannot block this yet in prod, but at least we can start warning on test
+                  (and have deprecation complain loudly on prod) */
+        BOOLEAN isbademail := toset.attr.attributetype = wrd_attributetype_email AND (IsDtapLive()
+                                                                                     ? NOT IsValidEmailAddress(toset.newsets[0].rawdata)
+                                                                                     : NOT IsValidModernEmailAddress(toset.newsets[0].rawdata));
+        BOOLEAN isbadurl := toset.attr.attributetype = wrd_attributetype_url AND NOT IsValidURL(toset.newsets[0].rawdata);
+        IF (isbademail OR isbadurl) //lumping these together is mostly a pre-wrd-2017 decision
+        {
+          options.errorcallback([tag := toset.attr.tag, code := "INVALIDVALUE", setvalue := toset.newsets[0].rawdata ]);
+          anyerror := TRUE;
+        }
       }
 
       BOOLEAN size_error := toset.attr.maxlength != 0 AND Length(toset.newsets[0].rawdata) > toset.attr.maxlength;

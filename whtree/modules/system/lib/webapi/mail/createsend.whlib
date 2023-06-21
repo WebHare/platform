@@ -92,7 +92,7 @@ PUBLIC STATIC OBJECTTYPE CreateSendAPI
       @cell(record array) options.customfields Custom fields to add   */
   PUBLIC RECORD FUNCTION AddSubscriber(STRING listid, STRING name, STRING email, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(NOT IsValidEmailAddress(email))
+    IF(NOT IsValidModernEmailAddress(email))
       THROW NEW Exception(`Invalid email address '${email}'`);
 
     options := ValidateOptions([ resubscribe := FALSE
