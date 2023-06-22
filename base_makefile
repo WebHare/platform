@@ -112,7 +112,12 @@ ifeq ($(WHBUILD_PLATFORM),linux)
   ifeq ($(WHBUILD_LTO),1)
     CPPFLAGS += -flto=jobserver
     GLOBALLDFLAGS += -flto=jobserver
-   endif
+  endif
+endif
+
+ifeq ($(WHBUILD_WASMLTO),1)
+  CPPFLAGS_WASM += -flto
+  WHLDFLAGS_WASM += -flto
 endif
 
 GLOBALLDFLAGS += -Llib
@@ -175,7 +180,7 @@ GLOBALLDFLAGS += -rdynamic
 #webhare/blex/tests/teststring.cpp:517:102: error: array subscript is of type 'char' [-Werror,-Wchar-subscripts]
 #ES_ASM seems to need -Wno-gnu-zero-variadic-macro-arguments
 CXXFLAGS_WASM += -Wno-unknown-warning-option -Wno-char-subscripts -fwasm-exceptions -Wno-gnu-zero-variadic-macro-arguments
-WHLDFLAGS_WASM += -fwasm-exceptions -sNODERAWFS=1 --profiling-funcs
+WHLDFLAGS_WASM += -fwasm-exceptions -sNODERAWFS=1 --profiling-funcs -O3
 
 ifeq ($(WHBUILD_PLATFORM),darwin)
 	# Use current MacOS version, no need for binaries to be portable between machines
@@ -236,7 +241,7 @@ WHLDFLAGS_IMPORTABLE += -s EXPORTED_RUNTIME_METHODS=stringToUTF8,lengthBytesUTF8
 WHLDFLAGS_IMPORTABLE += -s EXPORTED_FUNCTIONS=_malloc,_free
 
 # Get all normal lines from wasm-suspending-functions.txt, seperated by commas
-ASYNCIFY_EXPORTS = $(shell cat $(SRCDIR)/harescript/vm/wasm-suspending-functions.txt | grep -oe "^[^ \#]\+" | tr '\n' ','  | sed "s/,$$//" )
+ASYNCIFY_EXPORTS := $(shell cat $(SRCDIR)/harescript/vm/wasm-suspending-functions.txt | grep -oe "^[^ \#]\+" | tr '\n' ','  | sed "s/,$$//" )
 
 WHLDFLAGS_WASM += -s ALLOW_MEMORY_GROWTH=1
 WHLDFLAGS_WASM += -s IMPORTED_MEMORY
@@ -276,13 +281,13 @@ LinkWASMImportable  = $(HIDE)echo "- LinkWASMImportable $2" && $(EMCC) $(WHLDFLA
 LinkWASMExecutable  = $(HIDE)echo "- LinkWASMExecutable $2" && $(EMCC) $(WHLDFLAGS_WASM) -o $2 $1
 
 ifeq ($(WHBUILD_PLATFORM),darwin)
- 	LinkShared       = $(HIDE)echo "- LinkShared $2" && $(LD_APP) $(WHLDFLAGS) -shared -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
- 	LinkModule       = $(HIDE)echo "- Linking $(BUILDSYSTEM) $2" && $(LD_APP) $(WHLDFLAGS) -shared -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
- 	LinkExecutable   = $(HIDE)echo "- LinkExecutable $2" && $(LD_APP) $(WHLDFLAGS) -o $2 $1 $(addprefix -l,$3)
+ 	LinkShared       = $(HIDE)echo "- LinkSharedNative $2" && $(LD_APP) $(WHLDFLAGS) -shared -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
+ 	LinkModule       = $(HIDE)echo "- LinkModuleNative $2" && $(LD_APP) $(WHLDFLAGS) -shared -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
+ 	LinkExecutable   = $(HIDE)echo "- LinkExecutableNative $2" && $(LD_APP) $(WHLDFLAGS) -o $2 $1 $(addprefix -l,$3)
 else
-	LinkShared       = +$(HIDE)echo "- LinkShared $2" && $(LD_APP) $(WHLDFLAGS) -shared -o $2 $1 $(addprefix -l,$3)
-	LinkModule       = +$(HIDE)echo "- Linking $(BUILDSYSTEM) $2" && $(LD_APP) $(WHLDFLAGS) -shared -o $2 $1 $(addprefix -l,$3)
-	LinkExecutable   = +$(HIDE)echo "- LinkExecutable $2" && $(LD_APP) $(WHLDFLAGS) -o $2 $1 $(addprefix -l,$3)
+	LinkShared       = +$(HIDE)echo "- LinkSharedNative $2" && $(LD_APP) $(WHLDFLAGS) -shared -o $2 $1 $(addprefix -l,$3)
+	LinkModule       = +$(HIDE)echo "- LinkModuleNative $2" && $(LD_APP) $(WHLDFLAGS) -shared -o $2 $1 $(addprefix -l,$3)
+	LinkExecutable   = +$(HIDE)echo "- LinkExecutableNative $2" && $(LD_APP) $(WHLDFLAGS) -o $2 $1 $(addprefix -l,$3)
 endif
 
 

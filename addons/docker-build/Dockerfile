@@ -15,7 +15,6 @@ ENV LC_ALL=C \
   WEBHARE_COMPILECACHE=/opt/wh/whtree/currentinstall/compilecache/ \
   WEBHARE_MODULEPATHS=/opt/whmodules \
   WEBHARE_SECUREPORT_BINDIP=0.0.0.0 \
-  WHBUILD_DOWNLOADCACHE=/tmp/downloads \
   JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64/ \
   PATH=/opt/wh/whtree/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/lib/jvm/java-17-openjdk-amd64/bin
 
@@ -28,12 +27,20 @@ RUN --mount=type=bind,source=/setup-builder.sh,target=/setup-builder.sh \
 # Add base source code and stuff needed to compile it
 COPY tocompile/ /opt/wh/
 
+# Build environment variables
+ENV \
+  WHBUILD_ALLOW=1 \
+  WHBUILD_BUILDROOT=/tmp/compile \
+  WHBUILD_DOWNLOADCACHE=/tmp/downloads \
+  WHBUILD_NODEPS=1 \
+  WHBUILD_LTO=1 \
+  WHBUILD_WASMLTO=1
+
 # Build those parts.
-RUN --mount=type=bind,source=/compile-source.sh,target=/compile-source.sh \
-    --mount=type=tmpfs,target=/opt/whbuild \
+RUN --mount=type=tmpfs,target=/opt/whbuild \
     --mount=type=tmpfs,target=/tmp \
     --mount=type=cache,id=compile,target=/tmp/compile  \
-    /bin/bash /compile-source.sh
+    /bin/bash -c ". /opt/emsdk/emsdk_env.sh && /opt/wh/whtree/bin/wh make install"
 
 ################# STAGE 2 - application image
 
