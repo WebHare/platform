@@ -21,6 +21,18 @@ MACRO TestInputValidation()
   TestAssert(IsAccepted(["name-email"], "arnold@example.net"));
   TestAssert(NOT IsAccepted(["email"], "<arnold@example.net>"));
   TestAssert(IsAccepted(["name-email"], "arnold@example.net"));
+
+  TestAssert(IsAccepted(["url-plus-relative"], "https://www.webhare.dev/"));
+  TestAssert(IsAccepted(["url-plus-relative"], "/abc"));
+  TestAssert(IsAccepted(["url-plus-relative"], "#def"));
+  TestAssert(IsAccepted(["url-plus-relative"], "./ghi"));
+
+  TestAssert(NOT IsAccepted(["url-plus-relative"], "//www.webhare.dev"));
+  TestAssert(IsAccepted(["url-plus-relative"], "file:/autoexec.bat"));
+  TestAssert(IsAccepted(["url-plus-relative"], "file://rootserver/config.sys"));
+  TestAssert(IsAccepted(["url-plus-relative"], "file:///command.com"));
+  TestAssert(NOT IsAccepted(["url-plus-relative"], "mysite:/index"));
+  TestAssert(IsAccepted(["url-plus-relative"], "mysite://index")); //now it looks like a scheme.. sufficently different to not be a straight 'internal link reference' copy paste
 }
 
 RunTestFramework( [ PTR TestUser
