@@ -272,6 +272,8 @@ MACRO DoWriteAuditEvent(OBJECT accounttype, STRING type, INTEGER affecteduser_en
                              ];
   IF(wrdschema != "")
     INSERT CELL wrdschema := wrdschema INTO auditcontext;
+  ELSE IF (NOT ObjectExists(GetEffectiveUser()) OR NOT ObjectExists(GetEffectiveUser()->wrdschema))
+    INSERT CELL wrdschema := accounttype->wrdschema->tag INTO auditcontext;
 
   RECORD logged := LogAuditEventBy("wrd:auth", auditcontext, message);
 

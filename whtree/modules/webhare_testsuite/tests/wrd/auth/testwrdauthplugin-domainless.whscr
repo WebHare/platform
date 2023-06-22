@@ -504,6 +504,8 @@ MACRO TestRequireExternalLoggedinUser()
       , byentity := testfw->GetUserWRDId("mysysop")
       , bylogin := "mysysop@beta.webhare.net"
       ]);
+
+  // FIXME: when the disk audit log is converted to JSON, test if the WRD schema is set in this log entry
 }
 
 MACRO TestCrossDomainLogin()
