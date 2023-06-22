@@ -1,5 +1,5 @@
-export function qS<E extends Element = Element>(startnode: ParentNode, selector: string): E | null;
-export function qS<E extends Element = Element>(selector: string): E | null;
+export function qS<E extends Element = HTMLElement>(startnode: ParentNode, selector: string): E | null;
+export function qS<E extends Element = HTMLElement>(selector: string): E | null;
 
 /** Match the first element using a CSS selector
  * @param node_or_selector - The starting node or selector
@@ -15,8 +15,8 @@ export function qS<E extends Element>(node_or_selector: ParentNode | string, sel
 }
 
 
-export function qR<E extends Element = Element>(startnode: ParentNode, selector: string): E;
-export function qR<E extends Element = Element>(selector: string): E;
+export function qR<E extends Element = HTMLElement>(startnode: ParentNode, selector: string): E;
+export function qR<E extends Element = HTMLElement>(selector: string): E;
 
 /** Match a specific element using a CSS selector, requiring it to exist and be unique
  * @param node_or_selector - The starting node or selector
@@ -37,8 +37,8 @@ export function qR<E extends Element>(node_or_selector: ParentNode | string, sel
   }
 }
 
-export function qSA<E extends Element = Element>(startnode: ParentNode, selector: string): E[];
-export function qSA<E extends Element = Element>(selector: string): E[];
+export function qSA<E extends Element = HTMLElement>(startnode: ParentNode, selector: string): E[];
+export function qSA<E extends Element = HTMLElement>(selector: string): E[];
 
 /** Find multiple elements using a CSS selector
  * @param node_or_selector - The starting node or selector

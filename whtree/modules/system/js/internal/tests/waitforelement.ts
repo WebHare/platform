@@ -74,15 +74,15 @@ function evaluateSelectSingle(start: HTMLElement | Document, selector: Selector)
  * @param selector - either a direct string or an array of [selector,index,selector,index,...]
  * @returns The requested element or null if not found
 */
-export function findElement(selector: Selector): HTMLElement | null {
-  return evaluateSelectSingle(test.getDoc(), selector);
+export function findElement<E extends Element = HTMLElement>(selector: Selector): E | null {
+  return evaluateSelectSingle(test.getDoc(), selector) as E | null;
 }
 
 /** Wait for an element in the DOM to appear and become clickable. Scroll into view where needed
  * @param selector - either a direct string or an array of [selector,index,selector,index,...]
  * @returns The requested element (will throw on timeout)
 */
-export async function waitForElement(selector: Selector): Promise<HTMLElement> {
+export async function waitForElement<E extends Element = HTMLElement>(selector: Selector): Promise<E> {
   let logstate = Date.now() + 5000;
   return await test.wait(() => {
     const lognow = Date.now() > logstate;
