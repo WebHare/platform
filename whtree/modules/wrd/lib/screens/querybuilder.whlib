@@ -1467,9 +1467,6 @@ VARIANT FUNCTION ConvertToNiceType(OBJECT tolliumuser, OBJECT wrdschema, INTEGER
       RETURN ToString(value, 10);
     }
 
-  CASE 16 /* Boolean */
-    { RETURN value ? "TRUE" : "FALSE"; }
-
   CASE 14 /* Money */
     { RETURN FormatMoney(value, 0, ".", ",", FALSE); }
 
@@ -1477,12 +1474,8 @@ VARIANT FUNCTION ConvertToNiceType(OBJECT tolliumuser, OBJECT wrdschema, INTEGER
     { RETURN FormatAddress(value); }
   CASE 10 /* File */
     { RETURN RecordExists(value) ? value.filename || " (" || Length(value.data) || " bytes)" : ""; }
-  CASE 13 /* Array */
-    { RETURN "ARRAY"; }
   CASE 24 /* Enumarray*/
     { RETURN DeTokenize(value, ", "); }
-  CASE 22 //Record
-    { RETURN RecordExists(value) ? EncodeHSON(value) : ""; }
   CASE 28 //Authentication settings
     { RETURN RecordExists(value) ? "WEBHARE-AUTHENTICATIONSETTINGS:" || EncodeUFS(EncodeHSON(value)) : ""; }
   DEFAULT { RETURN EncodeJSON(value); }
