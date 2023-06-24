@@ -212,7 +212,7 @@ MACRO UpdateAttrs(RECORD ARRAY local_types, OBJECT local_type, INTEGER local_par
     IF(is_type_mismatch)
       THROW NEW Exception(`Type for attribute '${local_type->tag || "." || a.left.tag}' has changed from ${GetAttributeTypeNameByTypeId(attrdef.attributetype)} to ${GetAttributeTypeNameByTypeId(a.right.attributetype)}`);
     IF(is_domain_mismatch)
-      THROW NEW Exception(`Domain for attribute '${local_type->tag || "." || a.left.tag}' has changed from #${attrdef.domain} to #${type_left}`);
+      THROW NEW Exception(`Domain for attribute '${local_type->tag || "." || a.left.tag}' (#${attrdef.id}) has changed from #${attrdef.domain} to #${type_left}`);
 
     IF (attrdef.attributetype != a.right.attributetype)
     {
