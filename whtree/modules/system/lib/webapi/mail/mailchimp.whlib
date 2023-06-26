@@ -93,21 +93,28 @@ PUBLIC STATIC OBJECTTYPE MailchimpAPI
     RETURN SELECT listid := id, name FROM EnforceStructure([ lists := [[ id := "", name := "" ]]], result).lists;
   }
 
+  PUBLIC RECORD ARRAY FUNCTION ListMergeFields(STRING listid)
+  {
+    RECORD result := this->RawAPICall("GET", `lists/${listid}/merge-fields`);
+    RECORD ARRAY fields := EnforceStructure([ merge_fields := [[ tag := "", name := "", type := "", display_order := 0 ]]], result).merge_fields;
+    RETURN SELECT field := tag, name, type FROM fields ORDER BY display_order;
+  }
+
   /** Subscribe a user
       @long Optionally supplies custom data.
 
             Note that you must create custom fields through the webinterface before you can use them (and you will not
             get an error when setting a nonexisting custom field)
 
+      @cell(boolean) options.resubscribe Update the status to 'subscribed', even if not new
       @cell(record array) options.customfields Custom fields to add   */
   PUBLIC RECORD FUNCTION AddSubscriber(STRING listid, STRING email, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     IF(NOT IsValidModernEmailAddress(email))
       THROW NEW Exception(`Invalid email address '${email}'`);
 
-    options := ValidateOptions(/*[ resubscribe := FALSE
-                               , */
-                               [customfields := [[ field := "", value := "" ]]
+    options := ValidateOptions([ resubscribe := FALSE
+                               , customfields := [[ field := "", value := "" ]]
                                /*, consenttotrack := FALSE
                                */], options);
 
@@ -115,6 +122,8 @@ PUBLIC STATIC OBJECTTYPE MailchimpAPI
                   , status_if_new := "subscribed"
                   , merge_fields := RepackRecord(SELECT name := "mergefield_" || #customfields, value FROM options.customfields)
                   ];
+    IF (options.resubscribe)
+      INSERT CELL status := "subscribed" INTO req;
 
     RECORD res := this->RawAPICall("PUT", `lists/${listid}/members/${HashMail(email)}`,
       [ jsonbody := req

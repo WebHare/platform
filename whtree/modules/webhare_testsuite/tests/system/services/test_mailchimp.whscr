@@ -19,6 +19,10 @@ MACRO Test_MailchimpAPI()
   RECORD testlist := SELECT * FROM lists WHERE name = "WebHare bv";
   TestEq(TRUE, RecordExists(testlist));
 
+  RECORD ARRAY mergefields := chimpapi->ListMergeFields(testlist.listid);
+  TestEq(TRUE, RecordExists(SELECT FROM mergefields WHERE field = "FNAME"));
+  TestEq(TRUE, RecordExists(SELECT FROM mergefields WHERE field = "LNAME"));
+
   //mailchimp freaks out about example.net
   STRING randomuser := "sub" || GenerateUFS128BitId() || "@beta.webhare.net";
 
@@ -27,7 +31,7 @@ MACRO Test_MailchimpAPI()
   TestEq(DEFAULT RECORD, describeuser);
 
   TestThrowsLike("*Invalid email*", PTR chimpapi->AddSubscriber(testlist.listid, "bestaatniet@example"));
-  TestEq(TRUE, chimpapi->AddSubscriber(testlist.listid, randomuser, [ customfields := [[ field := "FNAME", value := "First" ], [ field := "LNAME", value := "Name" ]]]).success);
+  TestEq(TRUE, chimpapi->AddSubscriber(testlist.listid, randomuser, [ customfields := [[ field := "FNAME", value := "First" ], [ field := "LNAME", value := "Name" ]] ]).success);
 
   describeuser := chimpapi->GetSubscriber(testlist.listid, randomuser);
   TestEq(TRUE, RecordExists(describeuser));
@@ -42,6 +46,15 @@ MACRO Test_MailchimpAPI()
   describeuser := chimpapi->GetSubscriber(testlist.listid, randomuser);
   TestEq("unsubscribed", describeuser.status);
   TestEq(FALSE, describeuser.issubscribed);
+
+  // resubscribe again and change the last name (the first name should be unchanged)
+  TestEq(TRUE, chimpapi->AddSubscriber(testlist.listid, randomuser, [ resubscribe := TRUE, customfields := [[ field := "LNAME", value := "Last" ]] ]).success);
+
+  describeuser := chimpapi->GetSubscriber(testlist.listid, randomuser);
+  TestEq("subscribed", describeuser.status);
+  TestEq(TRUE, describeuser.issubscribed);
+  TestEq("First", SELECT AS STRING value FROM describeuser.customfields WHERE field = "FNAME");
+  TestEq("Last", SELECT AS STRING value FROM describeuser.customfields WHERE field = "LNAME");
 
   chimpapi->RemoveSubscriber(testlist.listid, randomuser);
 

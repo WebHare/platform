@@ -832,9 +832,13 @@ PUBLIC RECORD FUNCTION ParseDataURL(STRING inurl)
     {
       TRY
       {
-        STRING converted := DecodeCharset(data, Substring(param,8));
-        IF(converted!="")
-          data := converted;
+        STRING charset := Substring(param,8);
+        IF (ToUppercase(charset) != "UTF-8")
+        {
+          STRING converted := DecodeCharset(data, charset);
+          IF(converted!="")
+            data := converted;
+        }
       }
       CATCH
       {
