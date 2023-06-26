@@ -2,5 +2,8 @@
     /* Need to use a path starting with ./ to avoid prefixing with eslint-config-
        In installed modules, just use "@webhare/defaultconfig"
     */
-    "extends": "./jssdk/eslint-config-strictconfig/"
+    "extends": "./jssdk/eslint-config-strictconfig/",
+    "ignorePatterns": [
+        "**/dist/*.js"
+    ]
 }

@@ -1,6 +1,4 @@
-/* Based on  https://github.com/folke/esbuild-runner/commit/d69bd4e6e99e775ec05b3b6b209b4d1f0d53e43c
-
-   Changes to resolvehook don't take effect immediately. Run `wh rebuild-platform-helpers` to apply any changes
+/* Based on https://github.com/folke/esbuild-runner/commit/d69bd4e6e99e775ec05b3b6b209b4d1f0d53e43c
 */
 
 import InternalModule from "module";
