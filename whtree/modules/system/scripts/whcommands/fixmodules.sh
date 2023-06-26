@@ -68,7 +68,7 @@ else
   MODULESLIST=($(wh run mod::system/scripts/internal/listbrokenmodules.whscr $LISTBROKENOPTS))
 fi
 
-for MODULENAME in ${MODULESLIST[@]}; do
+for MODULENAME in "${MODULESLIST[@]}"; do
   if [ "$MODULENAME" == "webhare" ]; then
     echo "Updating WebHare Platform"
     cd "$WEBHARE_DIR" || exit 1
@@ -78,6 +78,8 @@ for MODULENAME in ${MODULESLIST[@]}; do
       echo NPM FAILED with errorcode $RETVAL
       FAILED=1
     fi
+
+    MODULEDIR="$WEBHARE_DIR/modules/system"
   else # MODULENAME != webhare
     getmoduledir MODULEDIR $MODULENAME
     cd "$MODULEDIR" || exit 1
@@ -86,8 +88,8 @@ for MODULENAME in ${MODULESLIST[@]}; do
       $DRYRUNPREFIX npm install $NPMOPTIONS
     fi
 
-    for Q in $MODULEDIR/webdesigns/?* ; do
-      if cd $Q 2>/dev/null ; then
+    for Q in "$MODULEDIR/webdesigns"/?* ; do
+      if cd "$Q" 2>/dev/null ; then
         echo "Installing npm modules for webdesign '$MODULENAME:$(basename "$Q")'"
 
         if [ -f package.json ]; then
@@ -100,18 +102,18 @@ for MODULENAME in ${MODULESLIST[@]}; do
         fi
       fi
     done
-
-    if [ -x $MODULEDIR/scripts/fixmodules-plugin.sh ]; then
-      cd "$MODULEDIR" || exit 1
-      $DRYRUNPREFIX $MODULEDIR/scripts/fixmodules-plugin.sh
-      RETVAL=$?
-      if [ "$RETVAL" != "0" ]; then
-        echo "Module plugin for module '$MODULEDIR' failed with errorcode $RETVAL"
-        FAILED=1
-      fi
-    fi
-
   fi # ends MODULENAME != webhare
+
+  if [ -x "$MODULEDIR/scripts/fixmodules-plugin.sh" ]; then
+    cd "${MODULEDIR}" || exit 1
+    $DRYRUNPREFIX "$MODULEDIR/scripts/fixmodules-plugin.sh"
+    RETVAL=$?
+    if [ "$RETVAL" != "0" ]; then
+      echo "Module plugin for module '$MODULENAME' failed with errorcode $RETVAL"
+      FAILED=1
+    fi
+  fi
+
 done
 
 # Now recompile all modules that we updated
