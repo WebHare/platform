@@ -6,6 +6,11 @@
       <free tag="WRDAUTH_LANGUAGE" /> <!-- ignored but we'll leave it in the wrdschema at least until we complete AUTHDOMAIN phaseout -->
       <free tag="WRDAUTH_LASTIPFIELD" title="Last login from IP" />
       <free tag="WRDAUTH_LASTLOGINFIELD" title="Last login field" />
+      <obsolete tag="wrdauth_emailbcc" />
+      <obsolete tag="wrdauth_emailsender" />
+      <obsolete tag="wrdauth_emailsubjectprefix" />
+      <obsolete tag="wrdauth_emailtemplate" />
+      <obsolete tag="wrdauth_loginpage" />
     </attributes>
   </object>
 
