@@ -111,7 +111,7 @@ PUBLIC STATIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
   {
     IF (CellExists(message, "opentab"))
     {
-      OBJECT tab := GetMember(this, message.opentab);
+      OBJECT tab := GetMember(this, `^${message.opentab}`);
       IF (ObjectExists(tab))
         ^usertabs->selectedtab := tab;
     }
