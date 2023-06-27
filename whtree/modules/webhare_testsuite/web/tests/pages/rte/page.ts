@@ -78,18 +78,19 @@ window.showrendered = function () {
 
 function getStructure(type) {
   const alltextstyles = ["i", "u", "b", "sub", "sup", "a-href", "strike", "img"];
+  const alllinks = type === "structured-all-links" ? ["a-href"] : [];
   const structure = {
     blockstyles: [
       {
         tag: "CONTENTTAB", /* put this before p.normal to test scoring */
-        textstyles: [],
+        textstyles: alllinks,
         containertag: "P",
         importfrom: ["h2.tab"]
       },
       {
         tag: "HEADING1",
         title: "Kop 1",
-        textstyles: ["i", "u"],
+        textstyles: ["i", "u", ...alllinks],
         //ADDME textclasses, objects
         toolbarcss: "font:bold 16px Verdana; color:#000000;",
         containertag: "H1",
@@ -98,7 +99,7 @@ function getStructure(type) {
       {
         tag: "HEADING2",
         title: "Kop 2",
-        textstyles: ["i", "u"],
+        textstyles: ["i", "u", ...alllinks],
         //ADDME textclasses, objects
         toolbarcss: "font:bold 14px Verdana; color:#000000;",
         containertag: "H2",
@@ -107,7 +108,7 @@ function getStructure(type) {
       {
         tag: "HEADING2B",
         title: "Kop 2B",
-        textstyles: ["b", "i"],
+        textstyles: ["b", "i", ...alllinks],
         //ADDME textclasses, objects
         toolbarcss: "font:bold 14px Verdana; color:#000000;",
         containertag: "H2",
@@ -140,7 +141,7 @@ function getStructure(type) {
       {
         tag: 'UNORDERED',
         title: 'Ongenummerde lijst',
-        textstyles: ["i", "u"],
+        textstyles: ["i", "u", ...alllinks],
         containertag: 'UL'
       },
       {
@@ -154,7 +155,7 @@ function getStructure(type) {
       {
         tag: 'language-harescript',
         title: 'HareScript',
-        textstyles: [],
+        textstyles: alllinks,
         containertag: 'CODE'
       }
     ],
