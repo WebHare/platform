@@ -18,3 +18,7 @@ Your project will need a tsconfig.json in its root, eg
 }
 ```
 
+You can setup the cache's location by setting the `WEBHARE_TSBUILDCACHE` variable.
+It will default to `.ts-esbuild-runner-cache` in your home directory.
+
+Set `WEBHARE_DEBUG=runner` to get debug information from the plugin

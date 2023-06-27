@@ -9,9 +9,9 @@ npm install --no-save --ignore-scripts --omit=peer
 node node_modules/esbuild/install.js
 
 # Clear the esbuild cache so the new plugin has fresh data to work with
-if [ -d "${WEBHARE_COMPILECACHE}/typescript" ] ; then
-  echo "Clearing ts-esbuild-runner compile cache"
-  rm -rf -- "${WEBHARE_COMPILECACHE}/typescript"
+if [ -d "${WEBHARE_TSBUILDCACHE}" ] ; then
+  echo "Clearing ts-esbuild-runner compile cache in ${WEBHARE_TSBUILDCACHE}"
+  rm -rf -- "${WEBHARE_TSBUILDCACHE}"
 fi
 
 # Manually run the install script for @webhare/ts-esbuild-runner

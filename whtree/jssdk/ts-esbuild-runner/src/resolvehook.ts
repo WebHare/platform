@@ -2,7 +2,7 @@
 */
 
 import InternalModule from "module";
-import { Loader, transformSync } from "esbuild";
+import { Loader, transformSync, version as esbuildversion } from "esbuild";
 
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -23,6 +23,7 @@ function getCachePathForFile(filename: string): string {
     .createHash("md5")
     .update(path.resolve(filename)) //ensures its absolute
     .update(process.version) //also keys on node version
+    .update(esbuildversion) //and esbuild's version
     .digest("hex");
 
   return path.resolve(cachepath, `${hash}.js`);
@@ -101,9 +102,11 @@ function transpile(code: string, filename: string): string {
 
 export function installResolveHook(setdebug: boolean) {
   debug = setdebug;
-  cachepath = path.resolve(process.env.WEBHARE_COMPILECACHE || os.tmpdir(), "typescript");
-  if (!fs.existsSync(cachepath))
+  cachepath = process.env.WEBHARE_TSBUILDCACHE ?? path.join(os.homedir(), ".ts-esbuild-runner-cache");
+  if (!fs.existsSync(cachepath)) {
     fs.mkdirSync(cachepath, { recursive: true });
+    fs.writeFile(path.join(cachepath, "CACHEDIR.TAG"), "Signature: 8a477f597d28d172789f06886806bc55\n", () => { return; }); //ignoring errors
+  }
 
   const defaultJSLoader = Module._extensions[".js"];
   // eslint-disable-next-line guard-for-in -- (as copied frrom esbuild-runner)
