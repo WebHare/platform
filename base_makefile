@@ -921,7 +921,7 @@ postuninstall:
 
 postinstall:
 
-else #WEBHARE_IN_DOCKER
+else #so, not WEBHARE_IN_DOCKER
 
 # FIXME nativedeps mode should just not bother with a local node install and use the system's main node
 
@@ -935,10 +935,11 @@ postinstall: success.node
 success.node: \
 			$(PREFIX)/package.json \
 			$(PREFIX)/package-lock.json \
+			$(PREFIX)/modules/system/scripts/fixmodules-plugin.sh \
 			$(PREFIX)/modules/tollium/webdesigns/webinterface/package.json \
 			$(PREFIX)/modules/tollium/webdesigns/webinterface/package-lock.json \
 			$(addprefix $(PREFIX)/,$(WHAP_INSTALLABLES))
-	$(HIDE)LDFLAGS="$(GLOBALLDFLAGS)" CFLAGS="$(CPPFLAGS) $(PKGCONFIGCFLAGS)" PATH=$(abspath $(PREFIX))/lib:$$PATH $(PREFIX)/modules/system/scripts/internal/fixup_modules.sh
+	$(PREFIX)/modules/system/scripts/fixmodules-plugin.sh
 	touch $@
 
 endif #WEBHARE_IN_DOCKER
