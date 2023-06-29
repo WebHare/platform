@@ -232,8 +232,8 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
                   , icon :=       loginmethod->GetAttribute("icon")
                   , allowlogout := NOT loginmethod->HasAttribute("allowlogout") OR ParseXSBoolean(loginmethod->GetAttribute("allowlogout"))
                   , loginprompt := loginmethod->GetAttribute("loginprompt")
+                  , revealtag := loginmethod->GetAttribute("revealtag")
                   ] INTO this->loginmethods AT END;
-
             }
           }
         }
@@ -789,6 +789,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
           [ [ type :=         "password"
             , ordering :=     -1
             , tid :=          ":"
+            , loginprompt :=  "" //has to match StartPortal structure
             ]
           ];
 

@@ -12,10 +12,46 @@ import $todd from "@mod-tollium/web/ui/js/support";
 const getTid = require("@mod-tollium/js/gettid").getTid;
 const utilerror = require('@mod-system/js/wh/errorreporting');
 
+interface LoginMethodPassword {
+  type: "password";
+  ordering: -1;
+  loginprompt?: string; //'?' as WDS_StartPortal doesn't set it in its fallabck path?
+}
+
+interface LoginMethodSSO {
+  type: "saml" | "oidc";
+  tag: string;
+  ordering: number;
+  autologin: boolean;
+  title: string;
+  icon: string;
+  allowlogout: boolean;
+  loginprompt: string;
+  revealtag: string;
+}
+type LoginMethod = LoginMethodPassword | LoginMethodSSO;
+
+interface LoginConfig {
+  methods: LoginMethod[];
+  infotext: string;
+  infotitle: string;
+}
+
+function shouldReveal(tag: string) {
+  const urlreveal = new URL(location.href).searchParams.get("revealsso");
+  if (urlreveal && urlreveal.split(",").includes(tag))
+    return true;
+
+  return false;
+}
+
 class LoginApp {
+  private readonly loginconfig: LoginConfig;
+
   constructor(appinterface, callback) {
     this.app = appinterface;
     this.app.promiseComponentTypes(['panel', 'button', 'action', 'textedit', 'table', 'hr']).then(this.setupScreen.bind(this)).then(callback).catch(utilerror.reportException); //If catch fails, use _catch
+    this.loginconfig = this.app.apptarget;
     this.app.updateApplicationProperties({
       title: getTid("tollium:shell.login.apptitle"),
       appicon: 'tollium:objects/webhare',
@@ -162,7 +198,7 @@ class LoginApp {
     }
 
     // Have an infotext? Create a panel with the heading and (html) texts
-    if (this.app.apptarget.infotext) {
+    if (this.loginconfig.infotext) {
       screencomponents =
       {
         ...screencomponents,
@@ -176,12 +212,12 @@ class LoginApp {
           spacers: { left: true, right: true }
         },
 
-        infotitle: { type: "text", isheading: true, title: "", value: this.app.apptarget.infotitle || getTid("tollium:shell.login.infotitle") },
+        infotitle: { type: "text", isheading: true, title: "", value: this.loginconfig.infotitle || getTid("tollium:shell.login.infotitle") },
 
         infotext: {
           type: "text",
           title: "",
-          value: this.app.apptarget.infotext,
+          value: this.loginconfig.infotext,
           ishtml: true,
           wordwrap: true,
           width: "1pr"
@@ -194,11 +230,14 @@ class LoginApp {
       passwordresetlines = [{ layout: "right", items: [{ item: "forgotpassword" }] }];
     }
 
-    this.app.apptarget.methods.forEach(item => {
+    this.loginconfig.methods.forEach(item => {
       switch (item.type) {
         case "saml":
         case "oidc":
           {
+            if (item.revealtag && !shouldReveal(item.revealtag))
+              return;
+
             if (!screencomponents.samlpanel) {
               screencomponents =
               {
@@ -265,7 +304,7 @@ class LoginApp {
 
         case "password":
           {
-            const is_only_method = this.app.apptarget.methods.length == 1;
+            const is_only_method = this.loginconfig.methods.length == 1;
             screencomponents =
             {
               ...screencomponents,
