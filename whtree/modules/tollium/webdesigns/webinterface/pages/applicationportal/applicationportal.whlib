@@ -648,7 +648,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
       // For editing favorites, open the personal settings app if it's not opened yet and send a message to open the 'startmenu' tab
       RECORD editinstr := CELL[ ...GetRawAppLaunchInstruction(this->personalsettingsapp)
                               , reuse_instance := "always"
-                              , opentab := "startmenu"
+                              , message := [ opentab := "startmenu" ]
                               ];
 
       INSERT [ title := GetTid("tollium:shell.personalmenu")
