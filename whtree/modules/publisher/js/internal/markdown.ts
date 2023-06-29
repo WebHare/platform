@@ -11,7 +11,7 @@ export async function renderMarkdown(request: SiteRequest): Promise<WebResponse>
 
   const markdowntext = markdowninfo?.data?.text.toString();
   //FIXME prevent any HTML from leaking through!  maybe some in the future but we still need to Sanitize(Dompurify?) it and/or make it conform to the rtdtype ?
-  const md = new MarkdownIt;
+  const md = new MarkdownIt({ linkify: true });
   md.validateLink = (url: string) => true;
   md.renderer.rules["heading_open"] = (tokens, idx, options, env, self) => {
     return `<${tokens[0].tag} class="heading${tokens[0].tag.substring(1)}">`;

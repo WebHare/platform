@@ -29,15 +29,21 @@ async function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: We
   test.eq("Markdown file", contentdiv?.getElementsByTagName("h2")[0]?.textContent);
   test.eq("heading2", contentdiv?.getElementsByTagName("h2")[0]?.getAttribute("class"));
   const firstpara = contentdiv?.getElementsByTagName("p")[0];
-  test.eq("This is a commonmark marked down file with a JS link.", firstpara?.textContent);
+  test.assert(firstpara);
+  test.eq("This is a commonmark marked down file with a JS link.", firstpara.textContent);
   const firstlink = firstpara.getElementsByTagName("a")[0];
   test.eq('javascript:alert(%22HI%22)', firstlink.getAttribute("href"));
   test.eq('JS link', firstlink.textContent);
-  test.eq("commonmark", firstpara?.getElementsByTagName("code")[0]?.textContent);
-  test.eq("normal", firstpara?.getAttribute("class"));
+  test.eq("commonmark", firstpara.getElementsByTagName("code")[0]?.textContent);
+  test.eq("normal", firstpara.getAttribute("class"));
   //FIXME also ensure proper classes on table and tr/td!
   test.eq("baz", contentdiv?.getElementsByTagName("td")[0]?.textContent);
   test.eq("bim", contentdiv?.getElementsByTagName("td")[1]?.textContent);
+
+  const nextpara = contentdiv?.getElementsByTagName("p")[1];
+  const nextlink = nextpara.getElementsByTagName("a")[0];
+  test.eq('http://example.net/linkify', nextlink.getAttribute("href"));
+  test.eq('http://example.net/linkify', nextlink.textContent);
 }
 
 //Test SiteResponse. we look a lot like testRouter except that we're not really using the file we open but just need it to bootstrap SiteRequest
