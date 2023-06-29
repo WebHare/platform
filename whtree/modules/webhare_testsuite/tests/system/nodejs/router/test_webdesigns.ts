@@ -29,7 +29,10 @@ async function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: We
   test.eq("Markdown file", contentdiv?.getElementsByTagName("h2")[0]?.textContent);
   test.eq("heading2", contentdiv?.getElementsByTagName("h2")[0]?.getAttribute("class"));
   const firstpara = contentdiv?.getElementsByTagName("p")[0];
-  test.eq("This is a commonmark marked down file", firstpara?.textContent);
+  test.eq("This is a commonmark marked down file with a JS link.", firstpara?.textContent);
+  const firstlink = firstpara.getElementsByTagName("a")[0];
+  test.eq('javascript:alert(%22HI%22)', firstlink.getAttribute("href"));
+  test.eq('JS link', firstlink.textContent);
   test.eq("commonmark", firstpara?.getElementsByTagName("code")[0]?.textContent);
   test.eq("normal", firstpara?.getAttribute("class"));
   //FIXME also ensure proper classes on table and tr/td!
