@@ -202,6 +202,9 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
 
       FOREVERY(OBJECT loginmethod FROM setting.node->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/tollium", "loginmethod")->GetCurrentElements())
       {
+        IF(NOT IsNodeApplicableToThisWebHare(loginmethod))
+          CONTINUE;
+
         STRING gid := DetermineNodeGid(setting.siteprofile->name, loginmethod);
         STRING type := loginmethod->GetAttribute("type");
 
@@ -222,18 +225,32 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
             STRING tag := loginmethod->GetAttribute("tag");
             IF(tag != "")
             {
-              DELETE FROM this->loginmethods WHERE loginmethods.type = VAR type AND loginmethods.tag = VAR tag;
-              INSERT
-                  [ type :=       type
-                  , tag :=        tag
-                  , ordering :=   ToInteger(loginmethod->GetAttribute("ordering"), 99999)
-                  , autologin :=  loginmethod->GetAttribute("autologin") IN [ "true", "1" ]
-                  , tid :=        ParseXMLTIDPtr(resourcename, gid, loginmethod, "title")
-                  , icon :=       loginmethod->GetAttribute("icon")
-                  , allowlogout := NOT loginmethod->HasAttribute("allowlogout") OR ParseXSBoolean(loginmethod->GetAttribute("allowlogout"))
-                  , loginprompt := loginmethod->GetAttribute("loginprompt")
-                  ] INTO this->loginmethods AT END;
+              BOOLEAN isupdate;
+              RECORD cursettings := SELECT * FROM this->loginmethods WHERE loginmethods.type = VAR type AND loginmethods.tag = VAR tag;
+              IF(NOT RecordExists(cursettings))
+                cursettings := CELL[ type, tag, ordering := 0, autologin := FALSE, tid := "", icon := "", allowlogout := TRUE, loginprompt := "", visibility := "always" ];
+              ELSE
+                isupdate := TRUE;
 
+              IF(loginmethod->HasAttribute("ordering"))
+                cursettings.ordering := ToInteger(loginmethod->GetAttribute("ordering"), 99999);
+              IF(loginmethod->HasAttribute("autologin"))
+                cursettings.autologin := loginmethod->GetAttribute("autologin") IN [ "true", "1" ];
+              IF(loginmethod->HasAttribute("title") OR loginmethod->HasAttribute("tid"))
+                cursettings.tid := ParseXMLTIDPtr(resourcename, gid, loginmethod, "title");
+              IF(loginmethod->HasAttribute("icon"))
+                cursettings.icon := loginmethod->GetAttribute("icon");
+              IF(loginmethod->HasAttribute("allowlogout"))
+                cursettings.allowlogout := NOT loginmethod->HasAttribute("allowlogout") OR ParseXSBoolean(loginmethod->GetAttribute("allowlogout"));
+              IF(loginmethod->HasAttribute("loginprompt"))
+                cursettings.loginprompt := loginmethod->GetAttribute("loginprompt");
+              IF(loginmethod->HasAttribute("visibility"))
+                cursettings.visibility := loginmethod->GetAttribute("visibility");
+
+              IF(isupdate)
+                UPDATE this->loginmethods SET RECORD cursettings WHERE loginmethods.type = VAR type AND loginmethods.tag = VAR tag;
+              ELSE
+                INSERT cursettings INTO this->loginmethods AT END;
             }
           }
         }
@@ -788,6 +805,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND DynamicPageBase
           [ [ type :=         "password"
             , ordering :=     -1
             , tid :=          ":"
+            , loginprompt :=  "" //has to match StartPortal structure
             ]
           ];
 
