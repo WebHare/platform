@@ -12,15 +12,60 @@ import $todd from "@mod-tollium/web/ui/js/support";
 const getTid = require("@mod-tollium/js/gettid").getTid;
 const utilerror = require('@mod-system/js/wh/errorreporting');
 
+interface LoginMethodPassword {
+  type: "password";
+  ordering: -1;
+  loginprompt?: string; //'?' as WDS_StartPortal doesn't set it in its fallabck path?
+}
+
+interface LoginMethodSSO {
+  type: "saml" | "oidc";
+  tag: string;
+  ordering: number;
+  autologin: boolean;
+  title: string;
+  icon: string;
+  allowlogout: boolean;
+  loginprompt: string;
+  visibility: "always" | "revealsso";
+}
+type LoginMethod = LoginMethodPassword | LoginMethodSSO;
+
+interface LoginConfig {
+  methods: LoginMethod[];
+  infotext: string;
+  infotitle: string;
+}
+
+function shouldReveal(tag: string) {
+  const urlreveal = new URL(location.href).searchParams.get("revealsso")?.toLowerCase();
+  if (urlreveal && urlreveal.split(",").includes(tag.toLowerCase()))
+    return true;
+
+  return false;
+}
+
 class LoginApp {
+  private readonly loginconfig: LoginConfig;
+
   constructor(appinterface, callback) {
     this.app = appinterface;
     this.app.promiseComponentTypes(['panel', 'button', 'action', 'textedit', 'table', 'hr']).then(this.setupScreen.bind(this)).then(callback).catch(utilerror.reportException); //If catch fails, use _catch
+    this.loginconfig = this.app.apptarget;
     this.app.updateApplicationProperties({
       title: getTid("tollium:shell.login.apptitle"),
       appicon: 'tollium:objects/webhare',
       background: $shell.settings.loginbg
     });
+  }
+
+  triggerWebHareSSO(tag: string) { //NOTE: exposing this API also recognized us as the login app
+    const matchmethod = this.loginconfig.methods.find(item => (item as LoginMethodSSO).tag?.toLowerCase() == tag.toLowerCase());
+    if (!matchmethod)
+      return false;
+
+    this.runSSOLogin(matchmethod);
+    return true;
   }
   setupScreen() {
     let screencomponents =
@@ -162,7 +207,7 @@ class LoginApp {
     }
 
     // Have an infotext? Create a panel with the heading and (html) texts
-    if (this.app.apptarget.infotext) {
+    if (this.loginconfig.infotext) {
       screencomponents =
       {
         ...screencomponents,
@@ -176,12 +221,12 @@ class LoginApp {
           spacers: { left: true, right: true }
         },
 
-        infotitle: { type: "text", isheading: true, title: "", value: this.app.apptarget.infotitle || getTid("tollium:shell.login.infotitle") },
+        infotitle: { type: "text", isheading: true, title: "", value: this.loginconfig.infotitle || getTid("tollium:shell.login.infotitle") },
 
         infotext: {
           type: "text",
           title: "",
-          value: this.app.apptarget.infotext,
+          value: this.loginconfig.infotext,
           ishtml: true,
           wordwrap: true,
           width: "1pr"
@@ -194,11 +239,14 @@ class LoginApp {
       passwordresetlines = [{ layout: "right", items: [{ item: "forgotpassword" }] }];
     }
 
-    this.app.apptarget.methods.forEach(item => {
+    this.loginconfig.methods.forEach(item => {
       switch (item.type) {
         case "saml":
         case "oidc":
           {
+            if (item.visibility === "revealsso" && !shouldReveal(item.tag))
+              return;
+
             if (!screencomponents.samlpanel) {
               screencomponents =
               {
@@ -265,7 +313,7 @@ class LoginApp {
 
         case "password":
           {
-            const is_only_method = this.app.apptarget.methods.length == 1;
+            const is_only_method = this.loginconfig.methods.length == 1;
             screencomponents =
             {
               ...screencomponents,
@@ -494,13 +542,20 @@ class LoginApp {
     callback();
   }
 
-  async executeSAMLLogin(item, data, callback) {
+  executeSAMLLogin(item, data, callback) {
+    const matchmethod = (this.loginconfig.methods as LoginMethodSSO[]).find(method => method.tag == item.tag);
+    if (matchmethod)
+      this.runSSOLogin(matchmethod);
+    callback();
+  }
+
+  async runSSOLogin(method: LoginMethodSSO) {
+    const lock = this.app.getBusyLock(); //NOTE we're not going to ever release it
     try {
-      const result = await $shell.wrdauth.startLogin(item.type, item.tag, { action: 'redirect', allowlogout: item.allowlogout });
+      const result = await $shell.wrdauth.startLogin(method.type, method.tag, { action: 'redirect', allowlogout: method.allowlogout });
       whintegration.executeSubmitInstruction(result);
-      return;
     } catch (error) {
-      callback();
+      lock.release(); //we only release the lock on the error path so we can keep the app locked while redirecting
       this.app.showExceptionDialog(error);
     }
   }
@@ -620,5 +675,11 @@ class LoginApp {
     }
   }
 }
+
+window.triggerWebHareSSO = function (tag: string): boolean {
+  //Find the login app
+  const loginapp = $todd.applications.find(app => app.app?.triggerWebHareSSO);
+  return loginapp?.app.triggerWebHareSSO(tag) || false;
+};
 
 registerJSApp('tollium:builtin.login', LoginApp);
