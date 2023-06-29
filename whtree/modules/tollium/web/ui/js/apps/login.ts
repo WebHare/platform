@@ -96,7 +96,7 @@ class LoginApp {
         spacers: { left: true, right: true, bottom: true }
       },
 
-      totpcode: { type: "textedit", autocomplete: "one-time-code", enabled: false, required: true, width: "20x", defaultbutton: "secondfactorloginbutton" },
+      totpcode: { type: "textedit", autocomplete: "one-time-code", required: true, width: "20x", defaultbutton: "secondfactorloginbutton" },
 
       secondfactorlogincancelbutton:
         { type: "button", title: getTid("tollium:shell.login.cancel"), action: "secondfactorlogincancelaction" },
@@ -441,8 +441,6 @@ class LoginApp {
         const selecttab = this.topscreen.getComponent('secondfactor');
         this.topscreen.getComponent('tabs').setSelected(selecttab.name, true);
         this.topscreen.getComponent('frame').setFocusTo('totpcode');
-        // it was not initially enabled as password managers would try to focus it, triggering the wrong default button
-        this.topscreen.getComponent('totpcode').setEnabled(true);
 
         this.secondfactordata = result.secondfactordata;
         this._updateSecondFactorText();
@@ -542,13 +540,17 @@ class LoginApp {
   executeCancelSecondFactorLogin(data, callback) {
     const selecttab = this.topscreen.getComponent('body');
     this.topscreen.getComponent('tabs').setSelected(selecttab.name, true);
-    this.topscreen.getComponent('totpcode').setEnabled(false);
 
     this.secondfactordata = null;
     callback();
   }
 
   async executeSecondFactorLogin(data, callback) {
+    // If a password manager focused the totp field while we don't have second factor data yet, execute the first login button's action
+    if (!this.secondfactordata) {
+      this.executePasswordLogin(data, callback);
+      return;
+    }
     const code = this.topscreen.getComponent('totpcode').getSubmitValue();
     const persistent = this.topscreen.getComponent('savelogin').getSubmitValue().value;
 
