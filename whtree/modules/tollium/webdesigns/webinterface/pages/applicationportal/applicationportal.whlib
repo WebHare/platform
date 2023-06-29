@@ -228,7 +228,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
               BOOLEAN isupdate;
               RECORD cursettings := SELECT * FROM this->loginmethods WHERE loginmethods.type = VAR type AND loginmethods.tag = VAR tag;
               IF(NOT RecordExists(cursettings))
-                cursettings := CELL[ type, tag, ordering := 0, autologin := FALSE, tid := "", icon := "", allowlogout := TRUE, loginprompt := "", revealtag := "" ];
+                cursettings := CELL[ type, tag, ordering := 0, autologin := FALSE, tid := "", icon := "", allowlogout := TRUE, loginprompt := "", visibility := "always" ];
               ELSE
                 isupdate := TRUE;
 
@@ -244,8 +244,8 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
                 cursettings.allowlogout := NOT loginmethod->HasAttribute("allowlogout") OR ParseXSBoolean(loginmethod->GetAttribute("allowlogout"));
               IF(loginmethod->HasAttribute("loginprompt"))
                 cursettings.loginprompt := loginmethod->GetAttribute("loginprompt");
-              IF(loginmethod->HasAttribute("revealtag"))
-                cursettings.revealtag := loginmethod->GetAttribute("revealtag");
+              IF(loginmethod->HasAttribute("visibility"))
+                cursettings.visibility := loginmethod->GetAttribute("visibility");
 
               IF(isupdate)
                 UPDATE this->loginmethods SET RECORD cursettings WHERE loginmethods.type = VAR type AND loginmethods.tag = VAR tag;

@@ -27,7 +27,7 @@ interface LoginMethodSSO {
   icon: string;
   allowlogout: boolean;
   loginprompt: string;
-  revealtag: string;
+  visibility: "always" | "revealsso";
 }
 type LoginMethod = LoginMethodPassword | LoginMethodSSO;
 
@@ -38,8 +38,8 @@ interface LoginConfig {
 }
 
 function shouldReveal(tag: string) {
-  const urlreveal = new URL(location.href).searchParams.get("revealsso");
-  if (urlreveal && urlreveal.split(",").includes(tag))
+  const urlreveal = new URL(location.href).searchParams.get("revealsso")?.toLowerCase();
+  if (urlreveal && urlreveal.split(",").includes(tag.toLowerCase()))
     return true;
 
   return false;
@@ -57,6 +57,15 @@ class LoginApp {
       appicon: 'tollium:objects/webhare',
       background: $shell.settings.loginbg
     });
+  }
+
+  triggerWebHareSSO(tag: string) { //NOTE: exposing this API also recognized us as the login app
+    const matchmethod = this.loginconfig.methods.find(item => (item as LoginMethodSSO).tag?.toLowerCase() == tag.toLowerCase());
+    if (!matchmethod)
+      return false;
+
+    this.runSSOLogin(matchmethod);
+    return true;
   }
   setupScreen() {
     let screencomponents =
@@ -235,7 +244,7 @@ class LoginApp {
         case "saml":
         case "oidc":
           {
-            if (item.revealtag && !shouldReveal(item.revealtag))
+            if (item.visibility === "revealsso" && !shouldReveal(item.tag))
               return;
 
             if (!screencomponents.samlpanel) {
@@ -533,13 +542,20 @@ class LoginApp {
     callback();
   }
 
-  async executeSAMLLogin(item, data, callback) {
+  executeSAMLLogin(item, data, callback) {
+    const matchmethod = (this.loginconfig.methods as LoginMethodSSO[]).find(method => method.tag == item.tag);
+    if (matchmethod)
+      this.runSSOLogin(matchmethod);
+    callback();
+  }
+
+  async runSSOLogin(method: LoginMethodSSO) {
+    const lock = this.app.getBusyLock(); //NOTE we're not going to ever release it
     try {
-      const result = await $shell.wrdauth.startLogin(item.type, item.tag, { action: 'redirect', allowlogout: item.allowlogout });
+      const result = await $shell.wrdauth.startLogin(method.type, method.tag, { action: 'redirect', allowlogout: method.allowlogout });
       whintegration.executeSubmitInstruction(result);
-      return;
     } catch (error) {
-      callback();
+      lock.release(); //we only release the lock on the error path so we can keep the app locked while redirecting
       this.app.showExceptionDialog(error);
     }
   }
@@ -659,5 +675,11 @@ class LoginApp {
     }
   }
 }
+
+window.triggerWebHareSSO = function (tag: string): boolean {
+  //Find the login app
+  const loginapp = $todd.applications.find(app => app.app?.triggerWebHareSSO);
+  return loginapp?.app.triggerWebHareSSO(tag) || false;
+};
 
 registerJSApp('tollium:builtin.login', LoginApp);
