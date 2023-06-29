@@ -252,10 +252,13 @@ MACRO SetupTestSite(OBJECT testsite)
     [ data := [ type := "publisher:markdown"
               , text := StringToBlob(`
 ## Markdown file
-This is a \`commonmark\` marked down file
+This is a \`commonmark\` marked down file with a [JS link](javascript:alert("HI")).
 | foo | bar |
 | --- | --- |
-| baz | bim |`)
+| baz | bim |
+
+Test http://example.net/linkify.`
+)
               ]
     ]);
 
