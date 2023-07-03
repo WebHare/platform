@@ -17,7 +17,7 @@ MACRO RunBody(OBJECT testcontext)
   STRING editor := GetWebVariable("editor");
   IF(editor="")
     editor := "free";
-  IF(editor NOT IN ["free","structured","structured-contentarea"])
+  IF(editor NOT IN ["free","structured","structured-contentarea","structured-all-links"])
     THROW NEW Exception("Unrecognized editor type '" || editor || "'");
 
   OBJECT css := MakeCSSStyleSheet(GetDiskResource(GetModuleInstallationRoot("webhare_testsuite") || "web/tests/pages/rte/editor.css"));

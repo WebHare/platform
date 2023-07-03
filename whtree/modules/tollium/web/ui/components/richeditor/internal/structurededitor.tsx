@@ -2,6 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 require('./editorbase');
+import { flags } from "@webhare/env";
 import * as rtesupport from "./support";
 import * as richdebug from "./richdebug";
 import * as formservice from '@mod-publisher/js/forms/internal/form.rpc.json';
@@ -16,7 +17,7 @@ import EditorBase from './editorbase';
 import PasteCleanup from './pastecleanup';
 
 //debug flags
-const debugicc = false; //debug insert container contents. needed to figure out rewriting errors eg on fill
+const debugicc = flags["rte-icc"]; //debug insert container contents. needed to figure out rewriting errors eg on fill
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //
@@ -1658,10 +1659,22 @@ export default class StructuredEditor extends EditorBase {
     }
   }
 
-  _insertParsed(locator, nodes, inblock, inlist, intable, preservelocators, undoitem) {
+  exitTextStyles(locator: domlevel.Locator) {
+    locator = locator.clone();
+    const nearestnode: Node = locator.getNearestNode();
+    const block = this.getBlockAtNode(nearestnode);
+    if (block.contentnode !== nearestnode)
+      locator.ascend(block.contentnode, true);
+    return locator;
+  }
+
+  _insertParsed(locator: domlevel.Locator, nodes, inblock: boolean, inlist: boolean, intable: boolean, preservelocators, undoitem) {
     preservelocators = preservelocators || [];
     for (const line of explainIntoLines(nodes)) {
       if (line.block) {
+        // Exit any textstyles
+        locator.assign(this.exitTextStyles(locator));
+
         const node = line.block;
         switch (node.type) {
           case 'block':
@@ -1767,6 +1780,8 @@ export default class StructuredEditor extends EditorBase {
 
             case 'embeddedobject':
               {
+                locator.assign(this.exitTextStyles(locator));
+
                 const embobjnode = this._createEmbeddedObjectNode(node);
                 locator = this._insertEmbeddedObjectNode(locator, embobjnode, preservelocators, undoitem).afternodelocator;
                 break;

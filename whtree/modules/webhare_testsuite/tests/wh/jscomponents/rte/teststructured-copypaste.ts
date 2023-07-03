@@ -120,5 +120,28 @@ test.registerTests(
         rtetest.testEqSelHTMLEx(test.getWin(),
           `<p class="normal">"1"</p><ul class="unordered"><li>"a"</li><li>"aaa"<br data-wh-rte="bogus"></li><li>(*0*)(*1*)<br data-wh-rte="bogus"></li><li>"bbb"</li></ul>`);
       }
+    },
+    "Paste lists",
+    async function () {
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured-all-links');
+      const rte = test.getWin().rte.getEditor();
+      const body = rte.getBody();
+      body.focus();
+
+      // Paste a list full of hyperlinks
+      {
+        rtetest.setStructuredContent(test.getWin(),
+          `<p class="normal">(*0*)(*1*)<br data-wh-rte="bogus"></p>`);
+
+        await rtetest.runWithUndo(rte, () => rtetest.paste(rte,
+          {
+            typesdata: { "text/html": `<ul><li><a href="https://www.example.nl">Studentenstatuut</a><ul class="unordered"><li>test</li></ul></li></ul>` },
+            files: [],
+            items: []
+          }), { waits: 1 });
+
+        rtetest.testEqSelHTMLEx(test.getWin(),
+          `<ul class="unordered"><li><a href="https://www.example.nl">"Studentenstatuut"</a><ul class="unordered"><li>"test(*0*)(*1*)"</li></ul></li></ul>`);
+      }
     }
   ]);
