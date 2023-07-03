@@ -45,27 +45,21 @@
         empty-cells: show;
       }
 
-      .resultheader
+      h2
       {
-        font-weight: bold;
+        font: bold 13pt Helvetica, Arial;
+        margin: 10px 0;
       }
 
-      @media only screen and (max-device-width: 619px),
-       screen and (max-width: 619px)
+      h3
       {
-        .resulttable
-        {
-          width: 100%;
-        }
-        .resultheader, .resultvalue, .groupheader
-        {
-          display: block;
-          padding: 3px 0;
-        }
-        .resultheader
-        {
-          padding-top: 5px;
-        }
+        font: bold 11pt Helvetica, Arial;
+        margin: 0 0 5px;
+      }
+
+      .defaultmail__results__line
+      {
+        margin-bottom: 10px;
       }
 
     </style>

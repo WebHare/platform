@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <body>
-    <div>
+    <div class="defaultmail__richcontent">
       [richcontent]
     </div>
     [if addresults]
@@ -11,33 +11,27 @@
 </html>
 
 [component resultstable]
-  <table class="resulttable">
-    <tbody>
-      [forevery pages]
-        [forevery groups]
-          [if anysubmitted]
+  <div class="defaultmail__results">
+    [forevery pages]
+      [forevery groups]
+        [if anysubmitted]
+          <div class="defaultmail__results__group">
             [if title] [! group title !]
-              <tr>
-                <th class="groupheader" colspan="2">
-                  <br><b>[title]</b>
-                </th>
-              </tr>
+              <h2 class="defaultmail__results__group__header">[title]</h2>
             [/if]
             [forevery fields]
               [if issubmitted]
-                <tr>
-                  <th class="resultheader">
-                    [title]
-                  </th>
-                  <td class="resultvalue">
+                <div class="defaultmail__results__line">
+                  <h3 class="defaultmail__results__fieldline__title">[title]</h3>
+                  <div class="defaultmail__results__fieldline__value">
                     [if link]<a href="[link]">[text]</a>[else][text][/if]
-                  </td>
-                </tr>
+                  </div>
+                </div>
               [/if]
             [/forevery]
-          [/if]
-         [/forevery]
-      [/forevery]
-    </tbody>
-  </table>
+          </div>
+        [/if]
+       [/forevery]
+    [/forevery]
+  </div>
 [/component]
