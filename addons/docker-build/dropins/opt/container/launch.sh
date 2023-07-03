@@ -1,6 +1,10 @@
 #!/bin/bash
 eval `/opt/wh/whtree/bin/wh setupmyshell`
 
+# Ensure /tmp/ exists with sticky permissions. our podman builds showed up without /tmp. ?
+mkdir -p /tmp 2>/dev/null
+chmod 1777 /tmp 2>/dev/null
+
 # Ensure root has /opt/whdata/home/root/
 mkdir -p /opt/whdata/home/root
 chown root /opt/whdata/home/root
