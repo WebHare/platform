@@ -12,6 +12,7 @@ LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
+LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
 PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
@@ -65,7 +66,7 @@ PUBLIC STATIC OBJECTTYPE AssetPackControlPanel EXTEND DashboardPanelBase
                            , watchcount
                            , dev := (outputtag NOT LIKE "*:*" OR settings.dev) ? 1 : 0
                            , dummy := ""
-                           , compatibility := compatibility ?? whconstant_default_compatibility
+                           , compatibility := compatibility ?? VAR whconstant_default_compatibility
                        FROM bundles;
 
     this->LoadConfig();
