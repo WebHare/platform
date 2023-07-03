@@ -59,7 +59,7 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then #Only do this when building docker images, 
   fi
 
   # cleanup caches and build stuff
-  rm -rf /root/.node-gyp /root/.npm /tmp/* /opt/whdata/tmp/
+  rm -rf /root/.node-gyp /root/.npm /tmp/* /opt/whdata/tmp/*
 fi
 
 exit $FAIL
