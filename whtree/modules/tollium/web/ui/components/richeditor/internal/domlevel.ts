@@ -1,6 +1,4 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
+/// @ts-ignore -- Rangy does not have typescript annotations
 import rangy from '@mod-system/js/frameworks/rangy/rangy13';
 import * as browser from "dompack/extra/browser";
 import * as dompack from "dompack";
@@ -39,31 +37,28 @@ export function testType<T extends NodeType>(node: Node, nodetype: T | readonly 
 
 rangy.config.alertOnFail = false; //prevent Rangy frmo complaining about missing document.body - that actually happens when location.href early redirects and we don't want that alert..
 
-function getAttributes(node, attrlist) {
-  const result = {};
+export function getAttributes(node: HTMLElement, attrlist: string[]) {
+  const result: Record<string, string> = {};
   for (let i = 0; i < attrlist.length; ++i)
     if (node.hasAttribute(attrlist[i])) {
-      const value = node.getAttribute(attrlist[i], 2); //FIXME '2' was added for IE , still needed?
-      result[attrlist[i]] = value;
+      const value = node.getAttribute(attrlist[i]);
+      result[attrlist[i]] = value || "";
     }
   return result;
 }
 
-function getAllAttributes(node) {
-  const res = {};
+export function getAllAttributes(node: HTMLElement): Record<string, string> {
+  const res: Record<string, string> = {};
   for (let i = 0, end = node.attributes.length; i < end; ++i) {
-    if (node.attributes[i].specified === false) // IE7  returns all attributes, set specified on present values
-      continue;
-
     const name = node.attributes[i].name;
-    const value = node.getAttribute(name, 2); // Return value as string, do not interpolate (or make links absolute)
+    const value = node.getAttribute(name);
 
-    res[name] = value;
+    res[name] = value || "";
   }
   return res;
 }
 
-function setAttributes(node, attrs) {
+export function setAttributes(node: HTMLElement, attrs: Record<string, string>) {
   // Insert sorted on attributes name
   let keys = Object.keys(attrs).sort();
 
@@ -80,6 +75,8 @@ function setAttributes(node, attrs) {
 // Helper functions
 //
 
+type NodeFilterFunction = string | string[] | ((node: Node) => boolean);
+
 /** Returns whether a node matches a filter
     @param node - Node to test
     @param filter - Filter to execute. True is returned for the different types of filter when:
@@ -87,7 +84,7 @@ function setAttributes(node, attrs) {
               array: contains lowercase nodeName
               function: filter(node) returns TRUE
 */
-function isNodeFilterMatch(node, filter) {
+function isNodeFilterMatch(node: Node, filter: NodeFilterFunction) {
   if (!node)
     throw new Error("No node in isNodeFilterMatch");
   if (Array.isArray(filter))
@@ -97,8 +94,9 @@ function isNodeFilterMatch(node, filter) {
   return filter(node);
 }
 
-function applyPreserveFunc(preserve, func) {
-  const list = [];
+
+function applyPreserveFunc(preserve: PreservedLocatorList | undefined, func: (loc: Locator, idx: number, list: Locator[]) => void) {
+  const list: Locator[] = [];
   if (!preserve)
     return list;
 
@@ -135,8 +133,8 @@ function applyPreserveFunc(preserve, func) {
 /** Returns the number of childnodes/characters in a node (that's the locator offset that points past
     all contained content
 */
-function getNodeChildCount(element) {
-  if (element.nodeType == 1 || element.nodeType == 11)
+function getNodeChildCount(element: Node) {
+  if (testType(element, [NodeType.element, NodeType.documentFragment]))
     return element.childNodes.length; // for element nodes, document fragments, etc
   else
     return element.nodeValue ? element.nodeValue.length : 0; // for text nodes
@@ -148,8 +146,8 @@ function getNodeChildCount(element) {
     @param filter - Filter to use (see isNodeFilterMatch for types of filters)
     @param maxancestor - Node to stop at (no parent of the ancestor will be given back,
 */
-function findParent(node, filter, maxancestor) {
-  for (; node; node = node.parentNode) {
+export function findParent(node: Node, filter: NodeFilterFunction, maxancestor: Node) {
+  for (; node; node = node.parentNode as Node) {
     if (isNodeFilterMatch(node, filter))
       return node;
     if (node === maxancestor)
@@ -159,7 +157,7 @@ function findParent(node, filter, maxancestor) {
 }
 
 /// Is the node transparent for content (must we iterate through them while scanning)
-function isTransparentNode(node) {
+function isTransparentNode(node: Node) {
   const uname = node.nodeName.toUpperCase();
 
   const isIgnorable =
@@ -169,7 +167,7 @@ function isTransparentNode(node) {
 }
 
 /// Returns whether a node is a block element
-function isNodeBlockElement(node: Element) {
+export function isNodeBlockElement(node: Node) {
   const uname = node.nodeName.toUpperCase();
 
   const isBlockElement =
@@ -184,7 +182,7 @@ function isNodeBlockElement(node: Element) {
 }
 
 /// Returns whether a node is a block element that's always visible
-function isNodeAlwaysVisibleBlockElement(node) {
+function isNodeAlwaysVisibleBlockElement(node: Node) {
   const uname = node.nodeName.toUpperCase();
 
   // Look out, in FF LI is visible when empty, but not editable!
@@ -200,13 +198,13 @@ function isNodeAlwaysVisibleBlockElement(node) {
 }
 
 /// Returns whether a node required a br when empty to make it visible (and editable for Firefox)
-function doesNodeRequireFillingWhenEmpty(node) {
+function doesNodeRequireFillingWhenEmpty(node: Node) {
   return doesNodeRequireInterchangeFillingWhenEmpty(node);
 }
 
 
 /// Returns whether a node is a block element that's always visible
-function doesNodeRequireInterchangeFillingWhenEmpty(node) {
+function doesNodeRequireInterchangeFillingWhenEmpty(node: Node) {
   // LI is visible, but not editable in firefox when empty.
   const list =
     ['CENTER', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'HR', 'P', 'LI'];
@@ -215,17 +213,17 @@ function doesNodeRequireInterchangeFillingWhenEmpty(node) {
   return list.indexOf(uname) != -1;
 }
 
-export function isEmbeddedObject(node) {
-  return node.nodeType == 1
+export function isEmbeddedObject(node: Node) {
+  return testType(node, NodeType.element)
     && node.classList
     && node.classList.contains('wh-rtd-embeddedobject');
 }
 
-export function queryEmbeddedObjects(node) {
+export function queryEmbeddedObjects(node: HTMLElement) {
   return dompack.qSA(node, '.wh-rtd-embeddedobject');
 }
 
-function isNodeSplittable(node) {
+export function isNodeSplittable(node: Node) {
   if (node.nodeType != 1)
     return true;
   //non-html nodes may not have a classList (IE11 SVG nodes)
@@ -248,12 +246,12 @@ function isNodeSplittable(node) {
     is a block boundary. If so, the break isn't visible (except on IE8 and lower)
     Assumes locator points at a real segment boundary.
 */
-function getInvisibleSegmentBreakRange(locator, maxancestor) {
+export function getInvisibleSegmentBreakRange(locator: Locator, maxancestor: Node) {
   const orglocator = locator;
   locator = locator.clone();
 
   // Might be a '\r\n' in white-space: pre (ADDME test if "\r""\n" would also work)
-  if (!locator.parentIsElementOrFragmentNode && locator.element.nodeValue.substr(locator.offset, 2) == '\r\n')
+  if (!locator.parentIsElementOrFragmentNode && (locator.element.nodeValue || "").substring(locator.offset, locator.offset + 2) == '\r\n')
     locator.offset += 2;
   else
     ++locator.offset;
@@ -275,7 +273,7 @@ function getInvisibleSegmentBreakRange(locator, maxancestor) {
     \@cell return.up Upstream locator position
     \@cell return.upres scanForward result for the upstream position
 */
-function getVisualEquivalenceRangeInBlock(maxancestor, locator, correctpastlastbr) {
+export function getVisualEquivalenceRangeInBlock(maxancestor: Node, locator: Locator, correctpastlastbr?: boolean) {
   /* Whitespace handling table: (inv: invalid, norm: normal, ign: ignore whitespace)
      inv* Invalid, ignore whitespace handling on IE
 
@@ -368,24 +366,22 @@ function getVisualEquivalenceRangeInBlock(maxancestor, locator, correctpastlastb
   return { valid: valid, down: down, downres: downres, up: up, upres: upres, range: new Range(down, up) };
 }
 
-function getVisualEquivalenceRange(maxancestor, locator) {
+function getVisualEquivalenceRange(maxancestor: Node, locator: Locator) {
   //console.log('gver pre', richdebug.getStructuredOuterHTML(maxancestor, { locator: locator }));
 
-  let elt = locator.element;
-  while (elt != maxancestor) {
+  let elt: Node | null = locator.element;
+  while (elt && elt != maxancestor) {
     if (!isNodeSplittable(elt)) {
       const down = Locator.newPointingTo(elt);
       const up = Locator.newPointingAfter(elt);
 
-      const res =
-      {
-        down: down,
+      const res = {
+        down,
         downres: down.scanBackward(maxancestor, { whitespace: true, blocks: true, li: true }),
-        up: up,
-        upres: up.scanForward(maxancestor, { whitespace: true, blocks: true, li: true })
+        up,
+        upres: up.scanForward(maxancestor, { whitespace: true, blocks: true, li: true }),
+        range: new Range(down, up)
       };
-
-      res.range = new Range(res.down, res.up);
       //console.log('gver unsplit res', richdebug.getStructuredOuterHTML(maxancestor, { locator: locator, locator: locator, down: res.down, up: res.up }));
       return res;
     }
@@ -458,7 +454,7 @@ function getVisualEquivalenceRange(maxancestor, locator) {
     @param preservetoward - 'start' or 'end' (default: 'end') Direction to move preserved locators at the splitpoint
     @returns Locator pointing to new element
 */
-function splitDataNode(locator: Locator, preservelocators, preservetoward?: "start" | "end") {
+export function splitDataNode(locator: Locator, preservelocators: PreservedLocatorList, preservetoward?: "start" | "end") {
   if (preservetoward && !['start', 'end'].includes(preservetoward))
     throw new Error("Illegal preservetoward value '" + preservetoward + "'");
 
@@ -479,7 +475,7 @@ function splitDataNode(locator: Locator, preservelocators, preservetoward?: "sta
     @param preservetoward - 'start' or 'end' (default: 'end') Direction to move preserved locators at the splitpoint
     @returns Locator pointing to new element
 */
-function splitElement(locator, preservelocators, preservetoward) {
+export function splitElement(locator: Locator, preservelocators: PreservedLocatorList, preservetoward: "start" | "end") {
   if (preservetoward && !['start', 'end'].includes(preservetoward))
     throw new Error("Illegal preservetoward value '" + preservetoward + "'");
 
@@ -492,7 +488,7 @@ function splitElement(locator, preservelocators, preservetoward) {
 
   // Create the new node, and insert it in the dom
   const newnode = locator.element.cloneNode(false);
-  result.insertNode(newnode, null);
+  result.insertNode(newnode);
 
   // Move all nodes past locator to the new node
   const tocopy = Array.from(locator.element.childNodes).slice(locator.offset);
@@ -508,7 +504,7 @@ function splitElement(locator, preservelocators, preservetoward) {
     @param splitlocator - Position where the split was made
     @param newnode - New node, that received the contents of the parent node after the split position.
 */
-function _correctForNodeSplit(splitlocator, newnode, towardstart, tocorrect) {
+function _correctForNodeSplit(splitlocator: Locator, newnode: Node, towardstart: boolean, tocorrect: Locator) {
 
   //    console.log(' cfns', '$'+locator.id, locator.element, locator.offset, '$'+splitlocator.id, splitlocator.element, splitlocator.offset);
   if (tocorrect.element == splitlocator.element && (towardstart ? tocorrect.offset > splitlocator.offset : tocorrect.offset >= splitlocator.offset)) {
@@ -532,7 +528,7 @@ function _correctForNodeSplit(splitlocator, newnode, towardstart, tocorrect) {
     @param preservelocators - Optional list of locators/ranges to preserve
     @returns Array of Range objects, describing the space betweent the splitpoints (all with parent = ancestor)
 */
-function splitDom(ancestor, splitpoints, preservelocators) {
+export function splitDom(ancestor: Node, splitpoints: Array<{ locator: Locator; toward: "start" | "end"; preservetoward?: "start" | "end" }>, preservelocators: PreservedLocatorList) {
   if (!ancestor)
     throw new Error("No ancestor in splitdom!");
 
@@ -544,7 +540,7 @@ function splitDom(ancestor, splitpoints, preservelocators) {
 
   // Copy the preservelocators array, we have some extra locators to preserve
   preservelocators = (preservelocators || []).slice();
-  const resultlocators = [];
+  const resultlocators: Locator[] = [];
 
   // Move the splitpoints as far up to their ancestor as possible, to avoid unnecessary splits. Done in 2
   // steps because the initial ascend step influences the preservelocators.
@@ -590,7 +586,7 @@ function splitDom(ancestor, splitpoints, preservelocators) {
       locator = splitDataNode(locator, preservelocators, splitpoints[i].preservetoward);
 
     while (locator.element != ancestor)
-      locator = splitElement(locator, preservelocators, splitpoints[i].preservetoward);
+      locator = splitElement(locator, preservelocators, splitpoints[i].preservetoward as "start" | "end");
 
     // Add to beginning to keep in correct order
     resultlocators.splice(0, 0, locator);
@@ -618,7 +614,7 @@ function splitDom(ancestor, splitpoints, preservelocators) {
     @param orglocator - Original splitting locator
     @param locator -
 */
-function _correctForSplitLocatorMove(rangestart, rangeend, includebounds, newlocator, tocorrect) {
+function _correctForSplitLocatorMove(rangestart: Locator, rangeend: Locator, includebounds: boolean, newlocator: Locator, tocorrect: Locator) {
   if (tocorrect.compare(rangestart) > (includebounds ? -1 : 0) && tocorrect.compare(rangeend) < (includebounds ? 1 : 0))
     tocorrect.assign(newlocator);
 }
@@ -629,7 +625,7 @@ function _correctForSplitLocatorMove(rangestart, rangeend, includebounds, newloc
     @param preservelocators -
     @returns Place where stuff was inserted
 */
-function combineNodeWithPreviousNode(node, preservelocators) {
+export function combineNodeWithPreviousNode(node: Node, preservelocators: PreservedLocatorList) {
   if (!node)
     throw new Error("Illegal parameter");
 
@@ -652,7 +648,7 @@ function combineNodeWithPreviousNode(node, preservelocators) {
     @param preservelocators -
     @returns Node & locator where stuff was inserted & locator after place where stuff was inserted
 */
-function combineNodes(insertlocator, right, preservelocators) {
+export function combineNodes(insertlocator: Locator, right: Node, preservelocators: PreservedLocatorList) {
   insertlocator = insertlocator.clone();
   const left = insertlocator.element;
 
@@ -700,8 +696,8 @@ function combineNodes(insertlocator, right, preservelocators) {
     insertNodesAtLocator(nodes, insertlocator);
     afterlocator.offset += nodes.length;
   } else {
-    left.nodeValue = left.nodeValue.substr(0, insertlocator.offset) + right.nodeValue + left.nodeValue.substr(insertlocator.offset);
-    afterlocator.offset += right.nodeValue.length;
+    left.nodeValue = (left.nodeValue || "").substring(0, insertlocator.offset) + right.nodeValue + (left.nodeValue || "").substring(insertlocator.offset);
+    afterlocator.offset += (right.nodeValue || "").length;
   }
 
   rightptr = Locator.newPointingTo(right);
@@ -714,7 +710,7 @@ function combineNodes(insertlocator, right, preservelocators) {
     @param appendlocator - Place where childnodes of the removed node were placed
     @param newnode - New node, that received the contents of the parent node after the split position.
 */
-function _correctForNodeCombine(insertlocator, removednode, removedlocator, afterremovedlocator, moveforward, tocorrect) {
+function _correctForNodeCombine(insertlocator: Locator, removednode: Node, removedlocator: Locator, afterremovedlocator: Locator, moveforward: boolean, tocorrect: Locator) {
   // Correct the insert locator for removed node
   let corr_insertlocator = insertlocator;
   if (insertlocator.element == removedlocator.element && insertlocator.offset > removedlocator.offset) {
@@ -759,7 +755,7 @@ function _correctForNodeCombine(insertlocator, removednode, removedlocator, afte
   }
 }
 
-function moveSimpleRangeTo(range, insertlocator, preservelocators) {
+export function moveSimpleRangeTo(range: Range, insertlocator: Locator, preservelocators: PreservedLocatorList) {
   if (range.start.element != range.end.element)
     throw new Error("moveRangeTo can only move a range with the start and end element the same");
 
@@ -815,18 +811,18 @@ function moveSimpleRangeTo(range, insertlocator, preservelocators) {
     const newnode = insertlocator.element; // may be the same as oldnode!
 
     // First get the data to move, and remove it. Only after that, insertlocator is valid.
-    const tomove = oldnode.nodeValue.substring(startlocator.offset, endlocator.offset);
-    oldnode.nodeValue = oldnode.nodeValue.substr(0, startlocator.offset) + oldnode.nodeValue.substr(endlocator.offset);
+    const tomove = (oldnode.nodeValue || "").substring(startlocator.offset, endlocator.offset);
+    oldnode.nodeValue = (oldnode.nodeValue || "").substring(0, startlocator.offset) + (oldnode.nodeValue || "").substring(endlocator.offset);
 
     // insertlocator is now valid. Insert the data, adjust the afterlocator
-    newnode.nodeValue = newnode.nodeValue.substr(0, insertlocator.offset) + tomove + newnode.nodeValue.substr(insertlocator.offset);
+    newnode.nodeValue = (newnode.nodeValue || "").substring(0, insertlocator.offset) + tomove + (newnode.nodeValue || "").substring(insertlocator.offset);
     afterlocator.offset += tomove.length;
   }
 
   return { insertlocator: insertlocator, afterlocator: afterlocator, movedforward: moveforward };
 }
 
-function _correctForNodeMove(startlocator, endlocator, insertlocator, corr_insertlocator, moveforward, tocorrect) {
+function _correctForNodeMove(startlocator: Locator, endlocator: Locator, insertlocator: Locator, corr_insertlocator: Locator, moveforward: boolean, tocorrect: Locator) {
   if (tocorrect.element == startlocator.element) {
     // Between any of the moved nodes? Move to (corrected) insertlocator
     if (tocorrect.offset > startlocator.offset && tocorrect.offset < endlocator.offset) {
@@ -883,7 +879,7 @@ function _correctForNodeMove(startlocator, endlocator, insertlocator, corr_inser
   //console.log(' no correction needed');
 }
 
-function removeSimpleRange(range, preservelocators) {
+export function removeSimpleRange(range: Range, preservelocators: PreservedLocatorList) {
   if (range.start.element != range.end.element)
     throw new Error("removeRange can only remove a range with the start and end element the same");
 
@@ -903,15 +899,15 @@ function removeSimpleRange(range, preservelocators) {
   } else {
     // Just remove the data
     const oldnode = range.start.element;
-    const tomove = oldnode.nodeValue.substring(range.start.offset, range.end.offset);
-    oldnode.nodeValue = oldnode.nodeValue.substr(0, range.start.offset) + oldnode.nodeValue.substr(range.end.offset);
+    const tomove = (oldnode.nodeValue || "").substring(range.start.offset, range.end.offset);
+    oldnode.nodeValue = (oldnode.nodeValue || "").substr(0, range.start.offset) + (oldnode.nodeValue || "").substr(range.end.offset);
     fragment.appendChild(document.createTextNode(tomove));
   }
 
   return { fragment: fragment };
 }
 
-function _correctForRangeRemove(range, tocorrect) {
+function _correctForRangeRemove(range: Range, tocorrect: Locator) {
   if (tocorrect.element == range.end.element && tocorrect.offset >= range.end.offset)
     tocorrect.offset -= range.end.offset - range.start.offset;
   else if (tocorrect.compare(range.start) > 0 && tocorrect.compare(range.end) < 0)
@@ -920,7 +916,7 @@ function _correctForRangeRemove(range, tocorrect) {
 
 /** Replaces a node with its contents
 */
-function replaceSingleNodeWithItsContents(node, preservelocators) {
+export function replaceSingleNodeWithItsContents(node: Node, preservelocators: PreservedLocatorList) {
   //var parent = node.parentNode;
 
   //    console.log('RNWIC pre ', richdebug.getStructuredOuterHTML(parent, preservelocators));
@@ -930,7 +926,7 @@ function replaceSingleNodeWithItsContents(node, preservelocators) {
   insertNodesAtLocator(nodes, locator);
 
   const nodelocator = Locator.newPointingTo(node);
-  nodelocator.removeNode(null);
+  nodelocator.removeNode();
 
   // Correct preservelocators for the node combine
   applyPreserveFunc(preservelocators, (tocorrect) => _correctForReplaceWithChildren(locator, node, nodes.length, tocorrect));
@@ -942,9 +938,8 @@ function replaceSingleNodeWithItsContents(node, preservelocators) {
     @param endlocator - Locator of the end of inserted children (locator.element == endlocator.element)
     @param removednode - Removed node
 */
-function _correctForReplaceWithChildren(locator, removednode, childcount, tocorrect) {
-  if (tocorrect.element == removednode) // Within the removed element? Adjust to new place within old element
-  {
+function _correctForReplaceWithChildren(locator: Locator, removednode: Node, childcount: number, tocorrect: Locator) {
+  if (tocorrect.element == removednode) { // Within the removed element? Adjust to new place within old element
     tocorrect.element = locator.element;
     tocorrect.offset += locator.offset;
   } else if (tocorrect.element == locator.element && tocorrect.offset > locator.offset) {
@@ -960,7 +955,7 @@ function _correctForReplaceWithChildren(locator, removednode, childcount, tocorr
     @param newnode - Node to replace the nodes with
     @param preservelocators - Locators/ranges to preserve
 */
-function wrapSimpleRangeInNewNode(range, newnode, preservelocators) {
+export function wrapSimpleRangeInNewNode(range: Range, newnode: Node, preservelocators: PreservedLocatorList) {
   if (range.start.element != range.end.element)
     throw new Error("wrapSimpleRangeInNewNode only works with ranges where start element is equal to end element");
 
@@ -977,7 +972,7 @@ function wrapSimpleRangeInNewNode(range, newnode, preservelocators) {
     @param newnode - Node to replace the nodes with
     @param preservelocators - Locators/ranges to preserver
 */
-function wrapNodesInNewNode(locator, nodecount, newnode, preservelocators) {
+export function wrapNodesInNewNode(locator: Locator, nodecount: number, newnode: Node, preservelocators: PreservedLocatorList) {
   //console.log('WNINN pre', richdebug.getStructuredOuterHTML(locator.element, preservelocators, true), newnode);
 
   // Clone locator, so its presence in preservelocators won't mess up stuff during the applyPreserveFunc
@@ -986,7 +981,7 @@ function wrapNodesInNewNode(locator, nodecount, newnode, preservelocators) {
   const nodes = Array.from(locator.element.childNodes).slice(locator.offset, locator.offset + nodecount);
   appendNodes(nodes, newnode);
 
-  locator.insertNode(newnode, null);
+  locator.insertNode(newnode);
 
   // Correct preservelocators for the node split
   applyPreserveFunc(preservelocators, (tocorrect) => _correctForNodeWrap(locator, nodecount, newnode, tocorrect));
@@ -997,7 +992,7 @@ function wrapNodesInNewNode(locator, nodecount, newnode, preservelocators) {
   return locator;
 }
 
-function _correctForNodeWrap(locator, childcount, newnode, tocorrect) {
+function _correctForNodeWrap(locator: Locator, childcount: number, newnode: Node, tocorrect: Locator) {
   if (tocorrect.element == locator.element) {
     if (tocorrect.offset >= locator.offset) {
       if (tocorrect.offset <= locator.offset + childcount) {
@@ -1011,7 +1006,7 @@ function _correctForNodeWrap(locator, childcount, newnode, tocorrect) {
 
 /** Removes all nodes in a tree that match a filter
 */
-function removeNodesFromTree(node, filter, preservelocators) {
+export function removeNodesFromTree(node: Node, filter: NodeFilterFunction, preservelocators: PreservedLocatorList) {
   // FIXME: combine adjacesnt same (text)nodes
   for (let i = 0; i < node.childNodes.length;) {
     const child = node.childNodes[i];
@@ -1031,7 +1026,7 @@ function removeNodesFromTree(node, filter, preservelocators) {
     @param filter - Filter function to test the nodes on, or nodename
     @param preservelocators - Locators/ranges to preserver
 */
-function removeNodesFromRangeRecursiveInternal(ancestor, range, filter, preservelocators) {
+function removeNodesFromRangeRecursiveInternal(ancestor: Node, range: Range, filter: NodeFilterFunction, preservelocators: PreservedLocatorList) {
   // FIXME: combine adjacesnt same (text)nodes
 
   const xstart = range.start.clone();
@@ -1047,6 +1042,8 @@ function removeNodesFromRangeRecursiveInternal(ancestor, range, filter, preserve
   while (!xstart.equals(xend)) {
     // console.log(xstart.element, xstart.offset, xend.element, xend.offset);
     const node = xstart.getPointedNode();
+    if (!node)
+      throw new Error(`Could not find pointed to node`);
 
     // Skip data nodes
     if ([3, 4].includes(node.nodeType)) {
@@ -1078,7 +1075,7 @@ function removeNodesFromRangeRecursiveInternal(ancestor, range, filter, preserve
     @param filter - Filter for nodes to remove (either string for nodename match or function)
     @param preservelocators - Additional locators/ranges to preserve
 */
-function removeNodesFromRange(range, maxancestor, filter, preservelocators) {
+export function removeNodesFromRange(range: Range, maxancestor: Node, filter: NodeFilterFunction, preservelocators: PreservedLocatorList) {
   preservelocators = (preservelocators || []).slice();
   preservelocators.push(range);
 
@@ -1091,7 +1088,7 @@ function removeNodesFromRange(range, maxancestor, filter, preservelocators) {
     ancestor = range.getAncestorElement();
     const typeparent = findParent(ancestor, filter, maxancestor);
 
-    if (!typeparent || typeparent == maxancestor)
+    if (!typeparent || typeparent == maxancestor || !typeparent.parentNode)
       break;
 
     //      console.log('splitdom for ancestor! ' + xcount);
@@ -1108,6 +1105,8 @@ function removeNodesFromRange(range, maxancestor, filter, preservelocators) {
 
     while (!locator.equals(parts[1].end)) {
       const node = locator.getPointedNode();
+      if (!node)
+        throw new Error(`Could not find pointed to node`);
       //        console.log('A replace pre', richdebug.getStructuredOuterHTML(typeparent.parentNode, {node:node, locator:locator}));
       ++locator.offset;
       replaceSingleNodeWithItsContents(node, localpreserve);
@@ -1128,7 +1127,7 @@ function removeNodesFromRange(range, maxancestor, filter, preservelocators) {
       break;
 
     //      console.log('L split pre ', richdebug.getStructuredOuterHTML(typeparent.parentNode, orglocators));
-    const parts = splitDom(typeparent.parentNode, [{ locator: range.start, toward: 'start' }], preservelocators);
+    const parts = splitDom(typeparent.parentNode as Node, [{ locator: range.start, toward: 'start' }], preservelocators);
     //      console.log('L split post', richdebug.getStructuredOuterHTML(typeparent.parentNode, orglocators));
     range.start.assign(parts[1].start);
   }
@@ -1139,7 +1138,7 @@ function removeNodesFromRange(range, maxancestor, filter, preservelocators) {
       break;
 
     //      console.log('R split pre ', richdebug.getStructuredOuterHTML(typeparent.parentNode, orglocators));
-    const parts = splitDom(typeparent.parentNode, [{ locator: range.end, toward: 'end' }], preservelocators);
+    const parts = splitDom(typeparent.parentNode as Node, [{ locator: range.end, toward: 'end' }], preservelocators);
     //      console.log('R split post', richdebug.getStructuredOuterHTML(typeparent.parentNode, orglocators));
     range.end.assign(parts[0].end);
   }
@@ -1149,20 +1148,20 @@ function removeNodesFromRange(range, maxancestor, filter, preservelocators) {
   // console.log('RNFR done', richdebug.getStructuredOuterHTML(maxancestor, range));
 }
 
-function canWrapNode(node, canwrapnodefunc, mustwrapnodefunc) {
+function canWrapNode(node: Node, canwrapnodefunc: (node: Node) => boolean, mustwrapnodefunc: (node: Node) => boolean) {
   return (mustwrapnodefunc && mustwrapnodefunc(node)) || (!canwrapnodefunc || canwrapnodefunc(node));
 }
 
-function getWrappingSplitRoot(locator, ancestor, canwrapnodefunc, mustwrapnodefunc) {
+function getWrappingSplitRoot(locator: Locator, ancestor: Node, canwrapnodefunc: (node: Node) => boolean, mustwrapnodefunc: (node: Node) => boolean) {
   let node = locator.element;
   if ([3, 4].includes(node.nodeType))
-    node = node.parentNode;
+    node = node.parentNode as Node;
   while (node != ancestor && canWrapNode(node, canwrapnodefunc, mustwrapnodefunc))
-    node = node.parentNode;
+    node = node.parentNode as Node;
   return node;
 }
 
-function wrapRangeRecursiveInternal(range, ancestor, createnodefunc, canwrapnodefunc, mustwrapnodefunc, preservelocators) {
+function wrapRangeRecursiveInternal(range: Range, ancestor: Node, createnodefunc: () => Node, canwrapnodefunc: (node: Node) => boolean, mustwrapnodefunc: (node: Node) => boolean, preservelocators: PreservedLocatorList) {
   //    console.log('WRRI start', richdebug.getStructuredOuterHTML(ancestor, range));
 
   // Get the range of nodes we need to visit in the current ancestor
@@ -1183,6 +1182,8 @@ function wrapRangeRecursiveInternal(range, ancestor, createnodefunc, canwrapnode
   while (!localrange.start.equals(localrange.end)) {
     // Text node or wrappable: goto next sibling
     const node = localrange.start.getPointedNode();
+    if (!node)
+      throw new Error(`Could not find pointed to node`);
     if ([3, 4].includes(node.nodeType) || canWrapNode(node, canwrapnodefunc, mustwrapnodefunc)) {
       ++localrange.start.offset;
       continue;
@@ -1218,7 +1219,7 @@ function wrapRangeRecursiveInternal(range, ancestor, createnodefunc, canwrapnode
   //    console.log('WRRI end', richdebug.getStructuredOuterHTML(ancestor));
 }
 
-function wrapRange(range, createnodefunc, canwrapnodefunc, mustwrapnodefunc, preservelocators) {
+export function wrapRange(range: Range, createnodefunc: () => Node, canwrapnodefunc: (node: Node) => boolean, mustwrapnodefunc: (node: Node) => boolean, preservelocators: PreservedLocatorList) {
   //    console.log('wrapRange', range, createnodefunc, canwrapnodefunc, mustwrapnodefunc, preservelocators);
 
   // Make sure range is preserved too
@@ -1269,7 +1270,7 @@ function wrapRange(range, createnodefunc, canwrapnodefunc, mustwrapnodefunc, pre
         only text nodes will be combined.
     @param preservelocators - Locators/ranges to preserve the location of
  */
-function combineWithPreviousNodesAtLocator(locator, ancestor, towardsend, combinetest, preservelocators) {
+export function combineWithPreviousNodesAtLocator(locator: Locator, ancestor: Node, towardsend: boolean, combinetest: string | string[] | ((left: Node, right: Node) => boolean), preservelocators: PreservedLocatorList) {
   if (!ancestor.contains(locator.element))
     throw new Error("Locator position problem");
 
@@ -1286,7 +1287,9 @@ function combineWithPreviousNodesAtLocator(locator, ancestor, towardsend, combin
     //      console.log(locator.element, locator.offset);
 
     const right = locator.getPointedNode();
-    const left = right.previousSibling;
+    if (!right)
+      throw new Error(`Could not find pointed to node`);
+    const left = right.previousSibling as Node;
 
     if (right.nodeType != left.nodeType)
       break;
@@ -1319,7 +1322,7 @@ function combineWithPreviousNodesAtLocator(locator, ancestor, towardsend, combin
   }
 }
 
-function hasNodeVisibleContent(node) {
+export function hasNodeVisibleContent(node: Node) {
   if (isNodeAlwaysVisibleBlockElement(node))
     return true;
 
@@ -1331,7 +1334,7 @@ function hasNodeVisibleContent(node) {
 /** Make sure the content before the locator (and the block itself) is visible. If the next item is
     a superfluous block filler, it is removed
 */
-function correctBlockFillerUse(locator, block, preservelocators) {
+function correctBlockFillerUse(locator: Locator, block: Node, preservelocators: PreservedLocatorList) {
   const down = locator.clone();
   let downres = down.scanBackward(block, { whitespace: true });
 
@@ -1405,7 +1408,7 @@ function correctBlockFillerUse(locator, block, preservelocators) {
     @param maxancestor - Block node
     @param preservelocators - Locators to preserver
 */
-function requireVisibleContentInBlockAfterLocator(locator, maxancestor, preservelocators) {
+export function requireVisibleContentInBlockAfterLocator(locator: Locator, maxancestor: Node, preservelocators: PreservedLocatorList) {
   return correctBlockFillerUse(locator, maxancestor, preservelocators);
 }
 
@@ -1413,7 +1416,7 @@ function requireVisibleContentInBlockAfterLocator(locator, maxancestor, preserve
     @param node - Node to test the children of
     @param preservelocators - Locators to preserver
 */
-function cleanupBogusBreaks(node, preservelocators) {
+export function cleanupBogusBreaks(node: HTMLElement, preservelocators: PreservedLocatorList) {
   const breaks = node.querySelectorAll(`br[data-wh-rte="bogus"]`);
   for (const breaknode of breaks) {
     const brlocator = Locator.newPointingTo(breaknode);
@@ -1426,14 +1429,16 @@ function cleanupBogusBreaks(node, preservelocators) {
 }
 
 /// Removes nodes from the DOM
-function removeNodes(nodes) {
-  for (let i = 0; i < nodes.length; ++i)
-    if (nodes[i].parentNode)
-      nodes[i].parentNode.removeChild(nodes[i]);
+function removeNodes(nodes: Node[]) {
+  for (let i = 0; i < nodes.length; ++i) {
+    const parentNode = nodes[i].parentNode;
+    if (parentNode)
+      parentNode.removeChild(nodes[i]);
+  }
 }
 
 /// Removes all nodes from the dom, then inserts them at locator. Make sure locator is valid after removal of the nodes!
-function removeAndInsertNodesAtLocator(nodes, locator) {
+function removeAndInsertNodesAtLocator(nodes: Node[], locator: Locator) {
   removeNodes(nodes);
   return insertNodesAtLocator(nodes, locator);
 }
@@ -1441,7 +1446,7 @@ function removeAndInsertNodesAtLocator(nodes, locator) {
 /** Inserts nodes at a new location. undo only works if the items don't need to be restored to their
     original position!
 */
-function insertNodesAtLocator(nodes, locator, preservelocators) {
+export function insertNodesAtLocator(nodes: Node[], locator: Locator, preservelocators?: PreservedLocatorList) {
   let insertpos = locator.clone();
   for (let i = 0; i < nodes.length; ++i)
     insertpos = insertpos.insertNode(nodes[i], preservelocators);
@@ -1449,22 +1454,22 @@ function insertNodesAtLocator(nodes, locator, preservelocators) {
   return insertpos;
 }
 
-function appendNodes(nodes, dest) {
+export function appendNodes(nodes: Node[], dest: Node) {
   for (let i = 0; i < nodes.length; ++i)
     dest.appendChild(nodes[i]);
 }
 
-function removeNodeContents(node) {
+export function removeNodeContents(node: Node) {
   /* Copy childNodes, then remove those from the dom. Must do it that way,
      because FF invents <br _moz_editor_bogus_node="TRUE"> when removing them one by one
   */
-  const nodes = Array.from(node.childNodes);
+  const nodes: Node[] = Array.from(node.childNodes);
   nodes.forEach(child => node.removeChild(child));
 
   return nodes;
 }
 
-function combineAdjacentTextNodes(locator, preservelocators) {
+export function combineAdjacentTextNodes(locator: Locator, preservelocators: PreservedLocatorList) {
   const xlocator = locator;
   const orglocator = locator.clone();
   preservelocators = (preservelocators || []).concat([orglocator]);
@@ -1479,7 +1484,7 @@ function combineAdjacentTextNodes(locator, preservelocators) {
   }
 
   for (; ;) {
-    const prev = pointednode.previousSibling;
+    const prev: Node | null = pointednode.previousSibling;
     if (!prev || ![3, 4].includes(prev.nodeType))
       break;
     pointednode = prev;
@@ -1500,7 +1505,7 @@ function combineAdjacentTextNodes(locator, preservelocators) {
 /** Given a locator that points inside a text node, the whitespaces/nbsps after the locator are rewritten
     to prevent whitespace collapsing and superfluous nbsps
 */
-function rewriteWhitespace(maxancestor, locator, preservelocators) {
+export function rewriteWhitespace(maxancestor: Node, locator: Locator, preservelocators: PreservedLocatorList) {
   const orglocator = locator.clone();
   preservelocators = (preservelocators || []).concat(orglocator);
 
@@ -1510,7 +1515,7 @@ function rewriteWhitespace(maxancestor, locator, preservelocators) {
   if (![3, 4].includes(elt.nodeType))
     throw new Error("Locator does not point inside a text node");
 
-  let newvalue = elt.nodeValue;
+  let newvalue = elt.nodeValue || "";
 
   // Determine whether the last character was whitespace. Treat start of parent as whitespace (want <b>"\u00a0content"</b>)
   let prev_whitespace = locator.offset === 0 || ' \t\r\n'.indexOf(newvalue.substr(locator.offset - 1, 1)) !== -1;
@@ -1568,11 +1573,47 @@ function rewriteWhitespace(maxancestor, locator, preservelocators) {
 // Locator (points to a specific place in the DOM)
 //
 
-class Locator {
-  element: Element;
+interface ScanIgnoreOptions {
+  whitespace?: boolean;
+  li?: boolean;
+  blocks?: boolean;
+  alwaysvisibleblocks?: boolean;
+}
+
+type ScanResult = ({
+  type: "whitespace" | "char";
+  data: string;
+  visiblecontent: boolean;
+} | {
+  type: "outerblock";
+  data: Node;
+  blockboundary: boolean;
+  segmentbreak: boolean;
+  alwaysvisible: boolean;
+} | {
+  type: "innerblock";
+  data: Node;
+  blockboundary: boolean;
+  segmentbreak: boolean;
+} | {
+  type: "br";
+  data: Node;
+  segmentbreak: boolean;
+  bogussegmentbreak: boolean;
+} | {
+  type: "node";
+  data: HTMLElement;
+  visiblecontent: boolean;
+}) & {
+  blockboundary?: boolean;
+  visiblecontent?: boolean;
+};
+
+export class Locator {
+  element: Node;
   offset: number;
 
-  constructor(element, offset?: "end" | number) {
+  constructor(element: Node, offset?: "end" | number) {
     if (!element)
       throw new Error("No valid element in locator initialize");
 
@@ -1587,8 +1628,8 @@ class Locator {
   // Helper functions
   //
 
-  getMaxChildOffset(element) {
-    if (element.nodeType == 1 || element.nodeType == 11)
+  getMaxChildOffset(element: Node) {
+    if (testType(element, [NodeType.element, NodeType.documentFragment]))
       return element.childNodes.length; // for element nodes, document fragments, etc
     else
       return element.nodeValue ? element.nodeValue.length : 0; // for text nodes
@@ -1600,7 +1641,7 @@ class Locator {
   //
 
   /// Set the locator object
-  set(element, offset) {
+  set(element: Node, offset: number | "end") {
     if (!element) throw new Error("No valid element in locator set");
     this.element = element;
     if (offset === 'end')
@@ -1615,7 +1656,7 @@ class Locator {
   }
 
   /// Assigns a the position of another locator to this locator
-  assign(rhs) {
+  assign(rhs: Locator) {
     this.element = rhs.element;
     this.offset = rhs.offset;
     return this;
@@ -1624,7 +1665,7 @@ class Locator {
   /// Get the node this locator points to (element.childNodes[offset]) if applicable
   getPointedNode() {
     return this.parentIsElementOrFragmentNode() && this.offset < this.element.childNodes.length
-      ? this.element.childNodes[this.offset]
+      ? this.element.childNodes[this.offset] as Node
       : null;
   }
 
@@ -1648,17 +1689,18 @@ class Locator {
   /** Get the path through the dom tree from the ancestor to an element, not including the ancestor
       @param ancestor -
   */
-  getPathFromAncestor(ancestor) {
-    let treenodes = [], element = this.element;
-    for (; element != ancestor; element = element.parentNode)
+  getPathFromAncestor(ancestor: Node) {
+    const treenodes = [];
+    let element = this.element;
+    for (; element != ancestor; element = element.parentNode as Node)
       treenodes.push(element);
     return treenodes.reverse();
   }
 
-  getRelativePath(ancestor) {
+  getRelativePath(ancestor: Node) {
     const path = [this.offset];
     let node = this.element;
-    for (; node && node != ancestor; node = node.parentNode)
+    for (; node && node != ancestor; node = node.parentNode as Node)
       path.unshift(rangy.dom.getNodeIndex(node));
     return path;
   }
@@ -1666,10 +1708,10 @@ class Locator {
   /** Returns whether the locator points to an element within a specific parent node
       @param parentNode -
   */
-  isWithinNode(parentNode) {
+  isWithinNode(parentNode: Node) {
     let current = this.element;
     while (current && current != parentNode)
-      current = current.parentNode;
+      current = current.parentNode as Node;
     return current == parentNode;
   }
 
@@ -1699,7 +1741,7 @@ class Locator {
     }
 
     this.offset = rangy.dom.getNodeIndex(this.element) + (towardend ? 1 : 0);
-    this.element = this.element.parentNode;
+    this.element = this.element.parentNode as Node;
 
     return true;
   }
@@ -1767,7 +1809,7 @@ class Locator {
     return this;
   }
 
-  insertNode(node, preservelocators) {
+  insertNode(node: Node, preservelocators?: PreservedLocatorList) {
     if (!this.parentIsElementOrFragmentNode())
       throw new Error("Inserting only allowed when parent is a node");
 
@@ -1779,7 +1821,7 @@ class Locator {
     let newbr = null;
     if (this.offset) {
       const prev = this.element.childNodes[this.offset - 1];
-      if (prev.nodeType == 1 && prev.nodeName.toLowerCase() == 'br' && prev.getAttribute('_moz_editor_bogus_node')) {
+      if (testType(prev, NodeType.element) && prev.nodeName.toLowerCase() == 'br' && prev.getAttribute('_moz_editor_bogus_node')) {
         newbr = document.createElement('br');
         this.element.insertBefore(newbr, this.getPointedNode());
         if (prev.parentNode) // Just to be sure.
@@ -1798,15 +1840,15 @@ class Locator {
     return next;
   }
 
-  _undoInsertNode(element, node, bogusbr, replacebr, insertbefore) {
-    node.parentNode.removeChild(node);
+  _undoInsertNode(element: Node, node: Node, bogusbr: Node, replacebr: Node, insertbefore: Node) {
+    (node.parentNode as Node).removeChild(node);
     if (replacebr) {
       element.insertBefore(bogusbr, insertbefore);
       element.removeChild(replacebr);
     }
   }
 
-  _redoInsertNode(element, node, bogusbr, replacebr, insertbefore) {
+  _redoInsertNode(element: Node, node: Node, bogusbr: Node, replacebr: Node, insertbefore: Node) {
     if (replacebr) {
       element.insertBefore(replacebr, insertbefore);
       if (bogusbr.parentNode)
@@ -1815,12 +1857,12 @@ class Locator {
     element.insertBefore(node, insertbefore);
   }
 
-  _correctForNodeInsert(locator, tocorrect) {
+  _correctForNodeInsert(locator: Locator, tocorrect: Locator) {
     if (tocorrect.element == locator.element && tocorrect.offset >= locator.offset)
       ++tocorrect.offset;
   }
 
-  removeNode(preservelocators) {
+  removeNode(preservelocators?: PreservedLocatorList) {
     if (!this.parentIsElementOrFragmentNode())
       throw new Error("Removing a node only allowed when parent is a node");
     if (this.offset >= this.getMaxChildOffset(this.element))
@@ -1833,7 +1875,7 @@ class Locator {
     applyPreserveFunc(preservelocators, (tocorrect) => this._correctForNodeRemove(locator, removed, tocorrect));
   }
 
-  _correctForNodeRemove(locator, removed, tocorrect) {
+  _correctForNodeRemove(locator: Locator, removed: Node, tocorrect: Locator) {
     if (tocorrect.element == locator.element && tocorrect.offset > locator.offset)
       --tocorrect.offset;
     else if (tocorrect.element == removed || (removed.contains && removed.contains(tocorrect.element))) //contains doesn't always exist on IE11? is this a textnode issue or just a bug?
@@ -1841,7 +1883,7 @@ class Locator {
   }
 
   // Replace the node this locator points to (not named replaceNode because ClamAV detects CVE 2015-1623 in combination with .createDocumentFragment (and some more code))
-  replacePointedNode(newnode, preservelocators) {
+  replacePointedNode(newnode: Node, preservelocators: PreservedLocatorList) {
     if (!this.parentIsElementOrFragmentNode())
       throw new Error("Removing a node only allowed when parent is a node");
     if (this.offset >= this.getMaxChildOffset(this.element))
@@ -1855,20 +1897,20 @@ class Locator {
     applyPreserveFunc(preservelocators, (tocorrect) => this._correctForNodeReplace(oldnode, newnode, tocorrect));
   }
 
-  _correctForNodeReplace(oldnode, newnode, tocorrect) {
+  _correctForNodeReplace(oldnode: Node, newnode: Node, tocorrect: Locator) {
     if (tocorrect.element == oldnode)
       tocorrect.element = newnode;
   }
 
-  equals(rhs) {
+  equals(rhs: Locator) {
     return this.element === rhs.element && this.offset == rhs.offset;
   }
 
-  compare(rhs) {
+  compare(rhs: Locator) {
     return rangy.dom.comparePoints(this.element, this.offset, rhs.element, rhs.offset);
   }
 
-  check(maxancestor) {
+  check(maxancestor: Node) {
     if (!this.element) throw new Error("Element not valid");
     if (maxancestor && !maxancestor.contains(this.element)) throw new Error("Element is not child of maxancestor");
     if (this.offset < 0) throw new Error("Negative offset");
@@ -1897,7 +1939,7 @@ class Locator {
       \@cell return.segmentbreak
       \@cell return.whitespace
   */
-  scanBackward(maxancestor, ignore) {
+  scanBackward(maxancestor: Node, ignore: ScanIgnoreOptions): ScanResult {
     if (!maxancestor)
       throw new Error("Missing ancestor");
 
@@ -1914,25 +1956,21 @@ class Locator {
         if (isblock || this.element == maxancestor) {
           const isalwaysvisible = isNodeAlwaysVisibleBlockElement(this.element);
           if (!ignore.blocks || (isalwaysvisible && !ignore.alwaysvisibleblocks) || this.element == maxancestor) {
-            const retval = { type: 'outerblock', data: this.element, blockboundary: true, segmentbreak: true, alwaysvisible: isalwaysvisible };
-            return retval;
+            return { type: 'outerblock', data: this.element, blockboundary: true, segmentbreak: true, alwaysvisible: isalwaysvisible };
           }
         }
 
         this.moveToParent(false);
       } else {
         if ([3, 4].includes(this.element.nodeType)) {
-          const data = this.element.nodeValue.substr(this.offset - 1, 1);
+          const data = (this.element.nodeValue || "").substr(this.offset - 1, 1);
           const whitespace = ' \t\r\n'.indexOf(data) != -1;
           if (!whitespace || !ignore.whitespace) {
-            const res =
-            {
+            return {
               type: whitespace ? 'whitespace' : 'char',
               data: data,
               visiblecontent: !whitespace
             };
-
-            return res;
           }
 
           --this.offset;
@@ -1943,10 +1981,12 @@ class Locator {
         --this.offset;
 
         const node = this.getPointedNode();
-        if (![1, 3, 4].includes(node.nodeType)) // Skip unknown nodetypes
+        if (!node)
+          continue;
+        if (!testType(node, [NodeType.element, NodeType.text, NodeType.cDATASection]))// Skip unknown nodetypes
           continue;
 
-        if (node.nodeType == 1 && !isTransparentNode(node)) {
+        if (testType(node, NodeType.element) && !isTransparentNode(node)) {
           // Always return unsplittable nodes
           if (!isNodeSplittable(node)) {
             ++this.offset;
@@ -1960,7 +2000,7 @@ class Locator {
 
                 for (let i = this.offset, e = this.element.childNodes.length; i < e; ++i) {
                   const itrnode = this.element.childNodes[i];
-                  if (!([3, 4].includes(itrnode.nodeType)) || itrnode.nodeValue.trim()) {
+                  if (!([3, 4].includes(itrnode.nodeType)) || (itrnode.nodeValue || "").trim()) {
                     bogussegmentbreak = false;
                     break;
                   }
@@ -1976,22 +2016,20 @@ class Locator {
           const isblock = isNodeBlockElement(node);
           const isli = node.nodeName.toLowerCase() == 'li';
 
-          if ((isli && !ignore.li) || (!isli && isblock && !ignore.blocks))
-          //          if (isblock && !ignore.blocks)
-          {
+          if ((isli && !ignore.li) || (!isli && isblock && !ignore.blocks)) {
             ++this.offset;
             return { type: 'innerblock', data: node, blockboundary: true, segmentbreak: true };
           }
         }
 
         // Move to end of contents of previous node
-        this.set(this.getPointedNode(), "end");
+        this.set(this.getPointedNode() as Node, "end");
       }
     }
   }
 
   // Old name, remove when not referenced anymore
-  scanUpStream(maxancestor, ignore) { return this.scanForward(maxancestor, ignore); }
+  scanUpStream(maxancestor: Node, ignore: ScanIgnoreOptions): ScanResult { return this.scanForward(maxancestor, ignore); }
 
   /** Scan upstream to the next visible element
       @param maxancestor -
@@ -2004,7 +2042,7 @@ class Locator {
       \@cell return.segmentbreak
       \@cell return.whitespace
   */
-  scanForward(maxancestor, ignore) {
+  scanForward(maxancestor: Node, ignore: ScanIgnoreOptions): ScanResult {
     if (!maxancestor.contains(this.element)) {
       console.log(maxancestor, this.element);
       throw new Error("Maxancestor is not ancestor of locator");
@@ -2022,17 +2060,15 @@ class Locator {
         this.moveToParent(true);
       } else {
         if ([3, 4].includes(this.element.nodeType)) {
-          const data = this.element.nodeValue.substr(this.offset, 1);
+          const data = (this.element.nodeValue || "").substring(this.offset, this.offset + 1);
           const whitespace = ' \t\r\n'.indexOf(data) != -1;
 
           if (!whitespace || !ignore.whitespace) {
-            const res =
-            {
+            return {
               type: whitespace ? 'whitespace' : 'char',
               data: data,
               visiblecontent: !whitespace
             };
-            return res;
           }
 
           ++this.offset;
@@ -2040,12 +2076,14 @@ class Locator {
         }
 
         const node = this.getPointedNode();
+        if (!node)
+          throw new Error(`Could not get pointed to node`);
         if (![1, 3, 4].includes(node.nodeType)) {
           ++this.offset;
           continue;
         }
 
-        if (node.nodeType == 1 && !isTransparentNode(node)) {
+        if (testType(node, NodeType.element) && !isTransparentNode(node)) {
           // Return unsplittable nodes
           if (!isNodeSplittable(node)) {
             const segmentbreak = node.nodeName.toLowerCase() == 'br';
@@ -2070,7 +2108,7 @@ class Locator {
   }
 
   //walks left to the last visible node or character, and puts the locator right from it.
-  movePastLastVisible(maxancestor, stopatblock, placeintext) {
+  movePastLastVisible(maxancestor: Node, stopatblock?: unknown, placeintext?: boolean) {
     if (!maxancestor.contains(this.element))
       throw new Error("Ancestor is not ancestor of this locator");
     if (stopatblock)
@@ -2089,7 +2127,7 @@ class Locator {
     return range.downres;
   }
 
-  moveToFirstVisible(maxancestor, stopatblock, placeintext) {
+  moveToFirstVisible(maxancestor: Node, stopatblock?: unknown, placeintext?: boolean) {
     if (!maxancestor.contains(this.element))
       throw new Error("Ancestor is not ancestor of this locator");
     if (stopatblock)
@@ -2109,7 +2147,7 @@ class Locator {
     return range.upres;
   }
 
-  moveLeft(maxancestor, options = {}) {
+  moveLeft(maxancestor: Node, options: { checkblock?: (node: Node) => boolean } = {}) {
     const original = this.clone();
     let res = this.movePastLastVisible(maxancestor);
     switch (res.type) {
@@ -2135,7 +2173,7 @@ class Locator {
       case 'char':
         {
           --this.offset;
-          const codechar = this.element.nodeValue.charCodeAt(this.offset);
+          const codechar = (this.element.nodeValue || "").charCodeAt(this.offset);
           if (this.offset && codechar >= 0xdc00 && codechar < 0xe000) // UTF-16 surrogate pair second codepoint?
             --this.offset;
           break;
@@ -2159,7 +2197,7 @@ class Locator {
     return true;
   }
 
-  moveRight(maxancestor, options = {}) {
+  moveRight(maxancestor: Node, options: { checkblock?: (node: Node) => boolean } = {}) {
     const original = this.clone();
     let res = this.moveToFirstVisible(maxancestor);
     if (res.type == 'br') {
@@ -2194,11 +2232,11 @@ class Locator {
       case 'whitespace':
       case 'char':
         {
-          let codechar = this.element.nodeValue.charCodeAt(this.offset);
+          let codechar = (this.element.nodeValue || "").charCodeAt(this.offset);
           const is_multiword = codechar >= 0xd800 && codechar < 0xdc00;
           ++this.offset;
           if (is_multiword) {
-            codechar = this.element.nodeValue.charCodeAt(this.offset);
+            codechar = (this.element.nodeValue || "").charCodeAt(this.offset);
             if (codechar >= 0xdc00 && codechar < 0xe000)
               ++this.offset;
           }
@@ -2228,7 +2266,7 @@ class Locator {
       \@cell return.type 'innerblock', 'outerblock'
       \@cell return.node Relevant block
   */
-  moveToPreviousBlockBoundary(maxancestor, ignoreinnerblock) {
+  moveToPreviousBlockBoundary(maxancestor: Node, ignoreinnerblock: boolean) {
     for (; ;) {
       //console.log('mtnbb iter', richdebug.getStructuredOuterHTML(this.element.parentNode, { locator: this }));
 
@@ -2243,6 +2281,8 @@ class Locator {
       } else {
         --this.offset;
         const node = this.getPointedNode();
+        if (!node)
+          throw new Error(`Could not find pointed to node`);
 
         if (node.nodeType != 1 || !isNodeSplittable(node) || ignoreinnerblock)
           continue;
@@ -2265,7 +2305,7 @@ class Locator {
       \@cell return.type 'innerblock', 'outerblock'
       \@cell return.node Relevant block
   */
-  moveToNextBlockBoundary(maxancestor, ignoreinnerblock) {
+  moveToNextBlockBoundary(maxancestor: Node, ignoreinnerblock: boolean) {
     for (; ;) {
       //console.log('mtnbb iter', richdebug.getStructuredOuterHTML(this.element.parentNode, { locator: this }));
 
@@ -2279,6 +2319,8 @@ class Locator {
         this.moveToParent(true);
       } else {
         const node = this.getPointedNode();
+        if (!node)
+          throw new Error(`No pointed node found`);
 
         if (node.nodeType != 1 || !isNodeSplittable(node) || ignoreinnerblock) {
           ++this.offset;
@@ -2293,8 +2335,8 @@ class Locator {
     }
   }
 
-  isLegal(maxancestor) {
-    let node = this.element;
+  isLegal(maxancestor: Node) {
+    let node: Node | null = this.element;
     while (node) {
       // Locator may not be inside an unsplittable node
       if (!isNodeSplittable(node))
@@ -2308,32 +2350,32 @@ class Locator {
     return false;
   }
 
-  getParentContentEditable(maxancestor) {
+  getParentContentEditable(maxancestor: Node) {
     // Return the highest parent that is still contenteditable (limited by maxancestor
     let node = this.element;
     for (; node && node !== maxancestor; node = node.parentNode) {
-      if (!node.parentNode || !node.parentNode.isContentEditable)
+      if (!node.parentNode || !(node.parentNode as HTMLElement).isContentEditable)
         return node;
     }
     return maxancestor;
   }
 
-  legalize(maxancestor, towardend) {
+  legalize(maxancestor: Node, towardend: boolean) {
     let node = this.element;
     while (node && node !== maxancestor) {
       // If parent isn't splittable, ascend to its parent. Assuming the maxancestor is splittable!!!
       if (!isNodeSplittable(node) && node)
-        this.ascend(node.parentNode, towardend, true);
+        this.ascend(node.parentNode as Node, towardend, true);
 
-      node = node.parentNode;
+      node = node.parentNode as Node;
     }
   }
 
-  static findCommonAncestor(locator_a, locator_b) {
+  static findCommonAncestor(locator_a: Locator, locator_b: Locator) {
     return rangy.dom.getCommonAncestor(locator_a.element, locator_b.element);
   }
 
-  static findCommonAncestorElement(locator_a, locator_b) {
+  static findCommonAncestorElement(locator_a: Locator, locator_b: Locator) {
     let ancestor = this.findCommonAncestor(locator_a, locator_b);
     if (ancestor && ![1, 9, 11].includes(ancestor.nodeType) && ancestor.nodeType) // allow element, document(fragement)
       ancestor = ancestor.parentNode;
@@ -2341,7 +2383,7 @@ class Locator {
   }
 
   /// Get start and end locator from a range
-  static getFromRange(range) {
+  static getFromRange(range: AbstractRange) {
     if (!range)
       return null;
 
@@ -2353,17 +2395,17 @@ class Locator {
     return result;
   }
 
-  static newPointingTo(node) {
-    return new Locator(node.parentNode, rangy.dom.getNodeIndex(node));
+  static newPointingTo(node: Node) {
+    return new Locator(node.parentNode as Node, rangy.dom.getNodeIndex(node));
   }
 
-  static newPointingAfter(node) {
+  static newPointingAfter(node: Node) {
     const locator = Locator.newPointingTo(node);
     ++locator.offset;
     return locator;
   }
 
-  static fromRelativePath(ancestor, path) {
+  static fromRelativePath(ancestor: Node, path: number[]) {
     const lastoffset = path.pop();
     let elt = ancestor;
     for (let i = 0; i < path.length; ++i)
@@ -2372,45 +2414,9 @@ class Locator {
   }
 }
 
-function GetNodeEndOffset(element) {
+function GetNodeEndOffset(element: Node) {
   if (element.nodeType == 1 || element.nodeType == 11)
     return element.childNodes.length; // for element nodes, document fragments, etc
   else
     return element.nodeValue ? element.nodeValue.length : 0; // for text nodes
 }
-
-
-export {
-  setAttributes
-  , getAllAttributes
-  , Locator
-  , getAttributes
-
-  , splitDataNode
-  , splitElement
-  , moveSimpleRangeTo
-  , findParent
-  , isNodeBlockElement
-  , isNodeSplittable
-  , removeSimpleRange
-  , combineNodeWithPreviousNode
-  , combineNodes
-  , combineAdjacentTextNodes
-  , appendNodes
-  , replaceSingleNodeWithItsContents
-  , wrapNodesInNewNode
-  , wrapSimpleRangeInNewNode
-  , removeNodesFromTree
-  , removeNodeContents
-  , splitDom
-  , removeNodesFromRange
-  , insertNodesAtLocator
-  , wrapRange
-  , combineWithPreviousNodesAtLocator
-  , requireVisibleContentInBlockAfterLocator
-  , hasNodeVisibleContent
-  , getInvisibleSegmentBreakRange
-  , getVisualEquivalenceRange
-  , rewriteWhitespace
-  , cleanupBogusBreaks
-};
