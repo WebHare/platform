@@ -383,8 +383,7 @@ MACRO CustomForm_NL()
   testfw->FlushTasks(["publisher:mailresults", "publisher:mailfeedback"], [ acceptcancel := TRUE ]);
   RECORD mail := testfw->ExtractAllMailFor("mailresult+jstest@beta.webhare.net", [ timeout := 0, count := 1 ]);
   OBJECT maildoc := MakeXMLDocumentFromHTML(mail.toppart.subparts[1].subparts[0].data);
-  OBJECT checkboxrow := maildoc->GetElementsByTagName("tr")->Item(9);
-
+  OBJECT checkboxrow := maildoc->GetElements("div.defaultmail__results__line")[8];
   TestEqLike("*Checkbox* *Nee*", checkboxrow->textcontent);
 
   //now that we have mixed the language results... let's see how that worked out
