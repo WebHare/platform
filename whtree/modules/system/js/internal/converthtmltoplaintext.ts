@@ -1,26 +1,46 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-
 const blocklevel_elements = [
   "P", "H1", "H2", "H3", "H4", "H5", "H6", "PRE", "OL", "UL", "DL", "DIV",
   "NOSCRIPT", "BLOCKQUOTE", "FORM", "HR", "TABLE", "FIELDSET", "ADDRESS"
 ];
 
-function convertHtmlToPlainText(doc, options = {}) {
+export function convertHtmlToPlainText(doc: HTMLElement, options: HTMLToPlainTextConverterOptions | number = {}, linkresolver?: (link: string) => string) {
   if (typeof options == "number") {
     // fallback for legacy arguments
     options = { imagehandling: options };
-    if (arguments.length > 2)
-      options.linkresolver = arguments[2];
+    if (linkresolver !== undefined)
+      options.linkresolver = linkresolver;
   }
-  options = { imagehandling: 0, linkresolver: null, suppress_urls: false, unix_newlines: false, ...options };
+  options = { imagehandling: 0, linkresolver: undefined, suppress_urls: false, unix_newlines: false, ...options };
   const c = new HTMLToPlainTextConverter(doc, options);
   return c.plain_text;
 }
 
+type HTMLToPlainTextConverterOptions = {
+  unix_newlines?: boolean;
+  imagehandling?: number;
+  linkresolver?: (link: string) => string;
+  suppress_urls?: boolean;
+};
+
+type SAXCallbacks = {
+  start_element: (name: string, attrs: Attr[]) => void;
+  end_element: (name: string) => void;
+  text_node: (data: string) => void;
+};
+
 class HTMLToPlainTextConverter {
-  constructor(doc, options) {
+  plain_text: string;
+  ol: number;
+  dont_break: boolean;
+  hyperlink: string;
+  hyperlink_text: string;
+  first_cell: boolean;
+  parsing_text: boolean;
+  in_style_tag: boolean;
+  in_title_tag: boolean;
+  options: HTMLToPlainTextConverterOptions;
+
+  constructor(doc: HTMLElement, options: HTMLToPlainTextConverterOptions) {
     this.plain_text = "";
     this.ol = -1;
     this.dont_break = false;
@@ -59,12 +79,12 @@ class HTMLToPlainTextConverter {
       this.plain_text = this.plain_text.split("\n").join("\r\n");
   }
 
-  saxparse(node, callbacks) {
+  saxparse(node: Node, callbacks: SAXCallbacks) {
     switch (node.nodeType) {
       case 1:
         {
           if (callbacks.start_element) {
-            const attrs = Array.from(node.attributes);
+            const attrs = Array.from((node as Element).attributes);
             callbacks.start_element(node.nodeName, attrs);
           }
 
@@ -80,7 +100,7 @@ class HTMLToPlainTextConverter {
       case 3:
         {
           if (callbacks.text_node)
-            callbacks.text_node(node.nodeValue);
+            callbacks.text_node((node as Text).nodeValue || "");
         } break;
       case 9:
       case 11:
@@ -94,17 +114,16 @@ class HTMLToPlainTextConverter {
     }
   }
 
-  getAttr(attrs, field) {
+  getAttr(attrs: Attr[], field: string) {
     for (let idx = 0; idx < attrs.length; ++idx)
       if (attrs[idx].name.toUpperCase() == field)
         return attrs[idx].value;
     return "";
   }
 
-  plainElementStart(name, attrs) {
+  plainElementStart(name: string, attrs: Attr[]) {
     const tag = name.toUpperCase();
-    if (blocklevel_elements.includes(tag)) // Insert a newline for every content separating HTML node
-    {
+    if (blocklevel_elements.includes(tag)) { // Insert a newline for every content separating HTML node
       if (!this.dont_break)
         this.plain_text = this.plain_text + "\r\n";
       else
@@ -177,7 +196,7 @@ class HTMLToPlainTextConverter {
     }
   }
 
-  textEqualsHyperlink(text, hyperlink) {
+  textEqualsHyperlink(text: string, hyperlink: string) {
     if (this.options.linkresolver)
       hyperlink = this.options.linkresolver(hyperlink);
 
@@ -191,7 +210,7 @@ class HTMLToPlainTextConverter {
     return false;
   }
 
-  plainElementEnd(name) {
+  plainElementEnd(name: string) {
     // Print hyperlink href, if we have any
     if (!this.options.suppress_urls && name.toUpperCase() == "A" && this.hyperlink != "") {
       if (!this.textEqualsHyperlink(this.hyperlink_text, this.hyperlink))
@@ -206,7 +225,7 @@ class HTMLToPlainTextConverter {
       this.plain_text = this.plain_text + "\r\n";
   }
 
-  plainText(text) {
+  plainText(text: string) {
     if (this.in_style_tag || this.in_title_tag)
       return;
     if (this.hyperlink != "")
@@ -222,5 +241,3 @@ class HTMLToPlainTextConverter {
     this.plain_text = this.plain_text + text;
   }
 }
-
-exports.convertHtmlToPlainText = convertHtmlToPlainText;
