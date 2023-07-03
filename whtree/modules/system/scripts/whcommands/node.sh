@@ -25,7 +25,7 @@ if [[ $WEBHARE_DEBUG =~ ((^|[,])apr([,]|$))+ ]] ; then
 fi
 
 export NODE_PATH="$WEBHARE_DATAROOT/node_modules"
-export NODE_OPTIONS="--enable-source-maps -r \"${BASH_SOURCE%/*}/../../js/internal/generated/resolveplugin.js\" $NODE_OPTIONS"
+export NODE_OPTIONS="--enable-source-maps --require \"$WEBHARE_DIR/jssdk/ts-esbuild-runner/dist/resolveplugin.js\" $NODE_OPTIONS"
 
 # is the 'heavy' node profiler enabled?
 if [ -n "$WEBHARE_NODEPROFILE" ]; then

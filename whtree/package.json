@@ -47,7 +47,6 @@
     "yaml": "^2.2.1"
   },
   "private": true,
-  "false": {},
   "overrides": {
     "typescript-json-schema": {
       "typescript": "$typescript"

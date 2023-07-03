@@ -6,12 +6,6 @@
 cd "${BASH_SOURCE%/*}/../../../.." || exit 1
 WHTREE="$(pwd)"
 
-if [ -z "$WEBHARE_IN_DOCKER" ]; then #when in local build dir
-  if ! modules/system/scripts/internal/install_whtree_nodemodules.sh ; then
-    FAIL=1
-  fi
-fi
-
 FAIL=0
 
 if [ -n "$WEBHARE_IN_DOCKER" ]; then #Only do this when building docker images, not for rpmbuild and not for manual 'wh make' builds

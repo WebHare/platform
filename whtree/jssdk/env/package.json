@@ -1,6 +1,6 @@
 {
   "name": "@webhare/env",
-  "version": "1.0.0",
+  "version": "0.503.0",
   "description": "",
   "main": "src/env.ts",
   "scripts": {

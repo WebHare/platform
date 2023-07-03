@@ -95,8 +95,8 @@ RUN --mount=type=tmpfs,target=/tmp/ \
     --mount=type=cache,id=npmcache,target=/tmp/npmcache \
     --mount=type=bind,source=/whtree/package.json,target=/opt/wh/whtree/package.json \
     --mount=type=bind,source=/whtree/package-lock.json,target=/opt/wh/whtree/package-lock.json \
-    --mount=type=bind,source=/whtree/modules/system/scripts/internal/install_whtree_nodemodules.sh,target=/opt/wh/whtree/modules/system/scripts/internal/install_whtree_nodemodules.sh \
-   npm_config_cache=/tmp/npmcache /opt/wh/whtree/modules/system/scripts/internal/install_whtree_nodemodules.sh
+    --mount=type=bind,source=/whtree/modules/system/scripts/fixmodules-plugin.sh,target=/opt/wh/whtree/modules/system/scripts/fixmodules-plugin.sh \
+   npm_config_cache=/tmp/npmcache /opt/wh/whtree/modules/system/scripts/fixmodules-plugin.sh
 
 # Add built WebHare
 RUN --mount=type=bind,from=builder,target=/builder \

@@ -357,13 +357,6 @@ case $INSTR in
       echo ""
     fi
 
-    if [ -z "$WEBHARE_IN_DOCKER" ]; then #In Dockers it's the buildscripts (shrinkwrap) responsibility to set these up
-      if ! wh rebuild-platform-helpers "${STARTUPOPTIONS[@]}"; then
-        echo "Failed to rebuild platform helpers, aborting"
-        exit 1
-      fi
-    fi
-
     if ! wh update-generated-files --update=config --nodb "${STARTUPOPTIONS[@]}"; then
       echo "Failed to update the configuration file, aborting"
       exit 1

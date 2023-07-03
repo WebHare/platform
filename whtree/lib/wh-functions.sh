@@ -86,6 +86,7 @@ getwhparameters()
   fi
 
   [ -n "$WEBHARE_COMPILECACHE" ] || export WEBHARE_COMPILECACHE="${WEBHARE_DATAROOT}/ephemeral/compilecache/"
+  export WEBHARE_TSBUILDCACHE="${WEBHARE_COMPILECACHE}/typescript"
   export WEBHARE_DATABASEPATH="${WEBHARE_DATAROOT}/postgresql"
 
   if [ -f "$WEBHARE_DATAROOT/webhare.restoremode" ]; then
