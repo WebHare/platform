@@ -78,7 +78,7 @@ PUBLIC OBJECTTYPE DebugLogReader EXTEND LogReaderBase
   UPDATE RECORD FUNCTION ProcessLine(STRING line)
   {
     RECORD rec := DecodeJSON(line);
-    IF(CellExists(rec,'data')) //data is required, otherwise just ignore the line
+    IF(RecordExists(rec)) //data is required, otherwise just ignore the line
       rec := EnforceStructure(CELL[ "@timestamp" := DEFAULT DATETIME
                                   , groupid := ""
                                   , session := ""
