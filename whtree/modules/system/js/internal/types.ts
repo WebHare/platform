@@ -1,6 +1,7 @@
 import type { HTTPMethod } from "@webhare/router";
 import type { IPCMarshallableData, VariableType } from "./whmanager/hsmarshalling";
-import type { IPCLinkType } from "./whmanager/ipc";
+import type { IPCExceptionMessage, IPCLinkType } from "./whmanager/ipc";
+import type { TypedMessagePort } from "./whmanager/transport";
 
 /// Primitive values (string, number or boolean)
 export type PlainValue = string | number | boolean;
@@ -90,3 +91,39 @@ export interface WebResponseInfo {
   headers: Record<string, string>;
   body: Buffer;
 }
+
+
+export type WorkerControlLinkRequest = {
+  type: "instantiateServiceRequest";
+  func: string;
+  params: unknown[];
+  id: number;
+} | WorkerServiceLinkRequest;
+
+export type WorkerControlLinkResponse = {
+  type: "instantiateServiceResponse";
+  id: number;
+  port: TypedMessagePort<WorkerServiceLinkRequest, WorkerServiceLinkResponse>;
+  description: WebHareServiceDescription;
+} | {
+  type: "instantiateServiceError";
+  id: number;
+  error: IPCExceptionMessage;
+} | WorkerServiceLinkResponse;
+
+export type WorkerServiceLinkRequest = {
+  type: "callRequest";
+  id: number;
+  func: string;
+  params: unknown[];
+};
+
+export type WorkerServiceLinkResponse = {
+  type: "callResponse";
+  id: number;
+  result: unknown;
+} | {
+  type: "callError";
+  id: number;
+  error: IPCExceptionMessage;
+};

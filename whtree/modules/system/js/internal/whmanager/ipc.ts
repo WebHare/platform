@@ -283,14 +283,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
   }
 
   sendException(e: Error, replyto: bigint): void {
-    const message: IPCExceptionMessage = {
-      __exception: {
-        type: "exception",
-        what: e.message,
-        trace: getStructuredTrace(e)
-      }
-    };
-    this.sendInternal(message, replyto);
+    this.sendInternal(encodeIPCException(e), replyto);
   }
 
   async doRequest<T extends OmitResponseKey<SendType>>(message: T): Promise<CalcResponseType<SendType, ReceiveType, T>> {
@@ -455,6 +448,25 @@ export function createIPCEndPointPair<LinkType extends IPCLinkType<any, any> = I
   const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>();
   const id = generateRandomId();
   return [new IPCEndPointImpl(`${id} - port1`, port1, "direct"), new IPCEndPointImpl(`${id} - port2`, port2, "direct")];
+}
+
+export function encodeIPCException(error: Error): IPCExceptionMessage {
+  return {
+    __exception: {
+      type: "exception",
+      what: error.message,
+      trace: getStructuredTrace(error)
+    }
+  };
+}
+
+export function parseIPCException(message: IPCExceptionMessage): Error {
+  const exceptionmessage = message;
+  const error = new Error(exceptionmessage.__exception.what);
+  const trace = exceptionmessage.__exception.trace?.map(item =>
+    `\n    at ${item.func ?? "unknown"} (${item.filename}:${item.line}:${item.col})`) ?? [];
+  error.stack = exceptionmessage.__exception.what + trace;
+  return error;
 }
 
 /** Describes an IPC link configuration, contains all needed type. Use as
