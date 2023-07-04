@@ -3,6 +3,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 
+LOADLIB "mod::system/lib/checks.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
@@ -327,4 +328,40 @@ PUBLIC MACRO RunSoftReset(BOOLEAN debug)
   IF (debug)
     Print("Broadcast dashboard refresh\n");
   BroadcastToAllSessions( [ type := "tollium:shell.refreshdashboard" ]);
+}
+
+PUBLIC BOOLEAN FUNCTION PrintIssueOverview()
+{
+  RECORD ARRAY messages := GetCurrentCheckIssues();
+
+  INTEGER num_snoozed := LENGTH(SELECT FROM messages WHERE snoozed);
+  DELETE FROM messages WHERE snoozed;
+
+  IF(Length(messages)>1)
+  {
+    Print(" - " || Length(messages) || " issues!");
+    IF (num_snoozed != 0)
+      PRINT(` (and ${num_snoozed} snoozed ${num_snoozed=1?"message":"messages"})\n`);
+    ELSE
+      PRINT("\n");
+    FOREVERY(RECORD msg FROM messages)
+      Print(msg.message_text || "\n");
+  }
+  ELSE IF(Length(messages)=1)
+  {
+    Print(" - " || messages[0].message_text);
+    IF (num_snoozed != 0)
+      PRINT(` (and ${num_snoozed} snoozed ${num_snoozed=1?"message":"messages"})\n`);
+    ELSE
+      PRINT("\n");
+  }
+  ELSE
+  {
+    Print(" - all ok!");
+    IF (num_snoozed != 0)
+      PRINT(` (${num_snoozed} snoozed ${num_snoozed=1?"message":"messages"})\n`);
+    ELSE
+      PRINT("\n");
+  }
+  RETURN Length(messages) = 0;
 }

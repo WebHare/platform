@@ -15,7 +15,7 @@ PUBLIC STATIC OBJECTTYPE EditUnit EXTEND TolliumScreenBase
   MACRO Init(RECORD data)
   {
     ^usereditpolicy->options := RECORD
-        [ [ rowkey := "", title :=    "" ]
+        [ [ rowkey := "", title := this->GetTid(".nospecificpolicy") ]
         , ...(SELECT TEMPORARY title := GetTid/*nocheck*/(tid)
                    , rowkey := name
                    , title := title

@@ -369,4 +369,3 @@ PUBLIC RECORD ARRAY FUNCTION RunChecks()
 
   RETURN messages;
 }
-

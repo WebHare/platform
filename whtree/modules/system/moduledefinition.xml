@@ -24,6 +24,7 @@
     <task runat="*/5 * * * *" tag="intervalchecks" script="scripts/tasks/intervalchecks.whscr" description="Periodic status checks" runatstartup="true" />
     <task runat="13  0 * * *"  runtz="maintenance" tag="system_maintenance_task" script="scripts/tasks/executemaintenance.whscr" />
     <task runat="13  1 * * *"  runtz="maintenance" script="scripts/tasks/executemaintenance.ts" tag="system_maintenance_task_ts" />
+    <task runat="13  1 * * *"  runtz="maintenance" script="scripts/tasks/poststartchecks.ts" tag="system_poststartchecks" runatstartup="true" />
     <task runat=" 9  1 * * *"  runtz="maintenance" tag="archivemodules" script="scripts/tasks/archivemodules.whscr"  />
     <task runat="19  2 * * *"  runtz="maintenance" tag="updategeoip" script="scripts/tasks/updategeoip.whscr" description="Update the GEOIP database" unlessenvironset="WEBHARE_CI WEBHARE_NOUPDATEGEOIP"/>
     <task runat="26  2 * * *"  runtz="maintenance" tag="unifiedcache_cleanup" script="scripts/tasks/unifiedcache_cleanup.whscr"  />
