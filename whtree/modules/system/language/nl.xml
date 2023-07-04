@@ -2085,6 +2085,7 @@
     <textgroup gid="editunit">   <!-- userrights.editunit -->
       <text tid="editunit">Eenheid aanpassen</text>
       <text tid="locknologin">Blokkeer niet actieve gebruikers na</text>
+      <text tid="nospecificpolicy">Geen specifiek beleid</text>
       <text tid="override_expiration">Overschrijf account verloop</text>
       <text tid="override_passwordchecks">Overschrijf wachtwoordeisen</text>
       <text tid="policy">Beleid</text>
