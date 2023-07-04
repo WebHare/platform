@@ -94,19 +94,9 @@ ELSE
   trans->BeginWork();
   ScheduleTimedTask("system:intervalchecks");
   trans->CommitWork();
-  Print("Waiting for checks to update\n");
+  Print("Waiting for checks to update..."); //no linefeed.. PrintIssueOverview likes to continue this line
   WaitForTimedTask("system:intervalchecks", AddTimeToDate(60 * 1000, GetCurrentDateTime()));
 
   //TODO maybe introduce a 'developer' scope and 'know' how to rerun exactly those checks?
-  RECORD ARRAY messages := GetCurrentCheckIssues();
-
-  DumpValue(messages, "boxed");
-
-  FOREVERY(RECORD msg FROM messages)
-    IF(NOT msg.snoozed)
-      Print(`${msg.message_text}\n`);
-
-  INTEGER numsnoozed := Length(SELECT FROM messages WHERE snoozed);
-  IF(numsnoozed>0)
-    Print(`Additionally, ${numsnoozed} message${numsnoozed > 1 ? "s" : ""} have been snoozed\n`);
+  PrintIssueOverview();
 }
