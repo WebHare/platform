@@ -47,6 +47,7 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
                           ,[ name := "webroot",     type := "string", title := this->GetTid(".sitecolumns.url") ]
                           ,[ name := "webfeatures", type := "string", title := GetTid("publisher:commondialogs.siteprops.webfeatures") ]
                           ,[ name := "cdnbaseurl",  type := "string", title := GetTid("publisher:commondialogs.siteprops.cdnbaseurl") ]
+                          ,[ name := "comments",    type := "string", title := GetTid("~comments") ]
                           ]
             ]);
   }
@@ -75,7 +76,7 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
           ORDER BY NormalizeText(name, this->tolliumuser->language);
 
     OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
-    sites := sitesettingstype->Enrich(sites, "id", ["sitedesign", "webfeatures"]);
+    sites := sitesettingstype->Enrich(sites, "id", ["sitedesign", "webfeatures", "comments"]);
 
     this->sites := sites;
 
@@ -136,11 +137,12 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
              , activefeatures := DeTokenize(webfeatures, ", ")
              , url := webroot
              , canview := webroot != "" // not locked, has output, ...
+             , comments
           FROM this->sites
          WHERE (this->weboutput->value = 0  ? TRUE : outputweb  = this->weboutput->value)
            AND (this->linkedtotype->value != "webdesign"  OR this->webdesign->value = ""   ? TRUE : this->webdesign->value   =  sitedesign)
            AND (this->linkedtotype->value != "webfeature" OR this->webfeature->value = ""  ? TRUE : this->webfeature->value  IN webfeatures)
-           AND (this->query->value = ""     ? TRUE : (ToUpperCase(name) LIKE querylike));
+           AND (this->query->value = ""     ? TRUE : (ToUpperCase(name || " " || sitedesign || " " || webroot || " " || comments) LIKE querylike));
 
     this->siteslist->rows := rows;
 
