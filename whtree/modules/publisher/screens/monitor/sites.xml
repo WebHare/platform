@@ -97,6 +97,7 @@
             <column name="webdesign" type="text" width="25x" tid="commondialogs.siteprops.sitedesign" />
             <column name="hasactivefeatures" type="icon" width="10x" align="center" hintname="activefeatures" />
             <column name="url" type="url" />
+            <column name="comments" type="text" tid="~comments" />
           </list>
         </cell>
         <cell spacers="left right">
