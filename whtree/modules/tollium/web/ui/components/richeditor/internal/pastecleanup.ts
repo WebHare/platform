@@ -2,18 +2,9 @@ import * as domlevel from "./domlevel";
 
 export default class PasteCleanup {
   data: HTMLElement | null;
-  options: { mode: "" | "clipboarddata" | "framepaste" };
 
-  constructor(options?: { mode?: "" | "clipboarddata" | "framepaste" }) {
+  constructor() {
     this.data = null;
-    this.options =
-    {
-      mode: '', // 'clipboarddata', 'framepaste'
-      ...options
-    };
-
-    if (!['clipboarddata', 'framepaste', ''].includes(this.options.mode))
-      throw new Error("Illegal paste cleanup mode '" + this.options.mode + "'");
   }
 
   applyCleanup(data: HTMLElement): { breakafter: null | boolean } {
@@ -24,9 +15,6 @@ export default class PasteCleanup {
     } = {
       breakafter: null // not yet known
     };
-
-    if (this.options.mode == 'framepaste')
-      result.breakafter = true;
 
     const todelete: Element[] = [];
 
