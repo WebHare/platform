@@ -123,7 +123,7 @@ function logExplanation(explanation) {
   testfw.log("* " + explanation + "\n");
 }
 
-export function eqHTML(expected, actual, explanation) {
+export function eqHTML(expected, actual, explanation?: Annotation) {
   const fixer = document.createElement("div");
 
   // Normalize stuff by parsing into DOM and then extracing again
@@ -157,7 +157,7 @@ export function eqHTML(expected, actual, explanation) {
   test.eq(expected, actual, explanation);
 }
 
-export function eqIn(expected_in, actual, explanation) {
+export function eqIn(expected_in, actual, explanation?: Annotation) {
   for (let i = 0; i < expected_in.length; ++i)
     if (isequal(expected_in[i], actual))
       return;
@@ -177,7 +177,7 @@ export function eqIn(expected_in, actual, explanation) {
   throw new Error("testEqIn failed");
 }
 
-export function eqFloat(expected, actual, delta, explanation) {
+export function eqFloat(expected, actual, delta, explanation?: Annotation) {
   if (Math.abs(expected - actual) <= delta)
     return;
 
@@ -204,11 +204,13 @@ export function eqFloat(expected, actual, delta, explanation) {
   test.eq(expected, actual);
 }
 
-function testTrue(actual, explanation) {
+/** @deprecated Use test.assert(condition) */
+function testTrue(actual, explanation?: Annotation) {
   test.eq(true, Boolean(actual), explanation);
 }
 
-function testFalse(actual, explanation) {
+/** @deprecated Use test.assert(!condition) */
+function testFalse(actual, explanation?: Annotation) {
   test.eq(false, Boolean(actual), explanation);
 }
 
