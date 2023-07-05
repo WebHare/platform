@@ -245,7 +245,7 @@ export default class StructuredEditor extends EditorBase {
     throw new Error(`Paste detected, but no usable clipboardData (${JSON.stringify(Array.from(clipboardData?.types ?? ["no clipboardData"]))})`);
   }
 
-  async _pasteContent(pastecontent) {
+  async _pasteContent(pastecontent: HTMLDivElement) {
     const undolock = this.getUndoLock();
 
     //console.log('pasteContent preremove', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
@@ -842,7 +842,7 @@ export default class StructuredEditor extends EditorBase {
   }
 
   /// Pastes the content of a node at a specific locator
-  async _pasteContentAt(pastecontent, insertlocator) {
+  async _pasteContentAt(pastecontent: HTMLDivElement, insertlocator: domlevel.Locator) {
     const undolock = this.getUndoLock();
 
     if (dompack.debugflags.rte)
