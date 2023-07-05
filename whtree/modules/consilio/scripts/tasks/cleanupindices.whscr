@@ -23,7 +23,18 @@ BOOLEAN debug := "--debug" IN GetConsoleArguments();
 FOREVERY(RECORD indexmanager FROM SELECT * FROM ListIndexManagers() WHERE isbuiltin)
 {
   //We garbage collect indexmanagers we fully control ourselves
-  RECORD ARRAY indices := GetIndexmanagerIndexList(indexmanager.id);
+  RECORD ARRAY indices;
+  TRY
+  {
+    indices := GetIndexmanagerIndexList(indexmanager.id);
+  }
+  CATCH(OBJECT<SearchUnavailableException> e)
+  {
+    //we got unlucky in timing or this WebHare is catching up delayed tasks but still booting
+    Print(`Indexmanager #${indexmanager.id} unavailable, skipping cleanup\n`);
+    CONTINUE;
+  }
+
   IF (debug)
     Print(`Checking index manager ${indexmanager.id}: ${Length(indices)} indices\n`);
 
