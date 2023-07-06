@@ -32,6 +32,15 @@ PUBLIC OBJECTTYPE HSValue EXTEND TolliumFragmentBase
     this->valueholder := [ val := DEFAULT RECORD ];
   }
 
+  UPDATE PUBLIC MACRO StaticInit(RECORD data)
+  {
+    TolliumFragmentBase::StaticInit(data);
+    ^valuedisplay->width := data.width ?? ^valuedisplay->width;
+    ^valuedisplay->height := data.height ?? ^valuedisplay->height;
+    ^valuedisplay->minwidth := data.minwidth ?? ^valuedisplay->minwidth;
+    ^valuedisplay->minheight := data.minheight ?? ^valuedisplay->minheight;
+  }
+
   PUBLIC MACRO SetValue(VARIANT newval)
   {
     this->valueholder := [ val := newval ];
