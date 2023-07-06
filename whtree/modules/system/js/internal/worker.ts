@@ -166,23 +166,20 @@ export class AsyncWorker {
     // Make sure the port doesn't hold strong references to this object
     const requests = this.requests;
     const handlerWeakRef = new WeakRef(this);
-    this.worker.on("error", (error) => {
+
+    function rejectRequests(error: Error) {
       const handler = handlerWeakRef.deref();
       error = handler ? handler.error ??= error : error;
       for (const [key, value] of Object.entries(requests)) {
         value.reject(error);
         delete requests[key];
       }
-    });
+    }
+
+    this.worker.on("error", (error) => rejectRequests(error));
     this.worker.on("exit", (code) => {
-      console.log(`worker exit`);
-      let error = new Error(`Worker exited with code ${code}`);
-      const handler = handlerWeakRef.deref();
-      error = handler ? handler.error ??= error : error;
-      for (const [key, value] of Object.entries(requests)) {
-        value.reject(error);
-        delete requests[key];
-      }
+      const error = new Error(`Worker exited with code ${code}`);
+      rejectRequests(error);
     });
     this.port.on("message", (message) => {
       requests[message.id]?.resolve(message);
@@ -201,7 +198,7 @@ export class AsyncWorker {
       throw this.error;
   }
 
-  async newRemoteObject<T extends object>(func: FunctionRef, ...params: unknown[]): Promise<ConvertWorkerServiceInterfaceToClientInterface<T>> {
+  private async newReturningObject<T extends object>(isfactory: boolean, func: FunctionRef, ...params: unknown[]): Promise<ConvertWorkerServiceInterfaceToClientInterface<T>> {
     this.checkClosed();
     const options = typeof func === "string" ? { ref: func } : func;
     const id = ++counter;
@@ -213,7 +210,8 @@ export class AsyncWorker {
         type: "instantiateServiceRequest",
         id,
         func: options.ref,
-        params
+        params,
+        isfactory
       }, options.transferList ?? []);
       const result = await deferred.promise;
       if (result.type === "instantiateServiceError")
@@ -232,6 +230,14 @@ export class AsyncWorker {
     } finally {
       lock.release();
     }
+  }
+
+  async newRemoteObject<T extends object>(func: FunctionRef, ...params: unknown[]): Promise<ConvertWorkerServiceInterfaceToClientInterface<T>> {
+    return this.newReturningObject(false, func, ...params);
+  }
+
+  async callFactory<T extends object>(func: FunctionRef, ...params: unknown[]): Promise<ConvertWorkerServiceInterfaceToClientInterface<T>> {
+    return this.newReturningObject(true, func, ...params);
   }
 
   async callRemote<T = unknown>(func: FunctionRef, ...params: unknown[]): Promise<T> {

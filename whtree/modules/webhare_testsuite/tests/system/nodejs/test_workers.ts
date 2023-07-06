@@ -31,6 +31,10 @@ export class myTestClass {
   }
 }
 
+export function myFactory(a: number) {
+  return new myTestClass(a);
+}
+
 export function myTestFunc(a: number, b: number) {
   return a + b;
 }
@@ -52,6 +56,8 @@ async function runWorkerTest() {
   test.eq(18, await worker.callRemote(`${__filename}#myTestFunc`, 11, 7));
   test.eq(20, await worker.callRemote(`${__filename}#myTestFuncAsync`, 12, 8));
 
+  const r2 = await worker.callFactory<myTestClass>(`${__filename}#myFactory`, 16);
+  test.eq(21, await r2.returnAplusB(5));
 
   const channel = new MessageChannel;
   // Call portTest, transfer port2 to it

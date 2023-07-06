@@ -20,7 +20,11 @@ export class WorkerHandler {
       case "instantiateServiceRequest": {
         try {
           const channel = createTypedMessageChannel<WorkerServiceLinkRequest, WorkerServiceLinkResponse>();
-          const serviceclass = new (await loadJSFunction(message.func) as unknown as { new(...args: unknown[]): object })(...message.params) as object;
+          const serviceclass = message.isfactory ?
+            (await loadJSFunction(message.func))(...message.params) as object :
+            new (await loadJSFunction(message.func) as unknown as { new(...args: unknown[]): object })(...message.params) as object;
+          if (!serviceclass || typeof serviceclass !== "object")
+            throw new Error(`Factory did not return an object`);
           const description = describePublicInterface(serviceclass);
           this.port.postMessage({
             type: "instantiateServiceResponse",
@@ -97,5 +101,5 @@ class ServicePortHandler {
   }
 }
 
-new WorkerHandler(workerData.port);
 activateHMR();
+new WorkerHandler(workerData.port);
