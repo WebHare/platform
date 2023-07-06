@@ -35,6 +35,10 @@ export function myFactory(a: number) {
   return new myTestClass(a);
 }
 
+export async function myAsyncFactory(a: number) {
+  return new myTestClass(a);
+}
+
 export function myTestFunc(a: number, b: number) {
   return a + b;
 }
@@ -58,6 +62,9 @@ async function runWorkerTest() {
 
   const r2 = await worker.callFactory<myTestClass>(`${__filename}#myFactory`, 16);
   test.eq(21, await r2.returnAplusB(5));
+
+  const r3 = await worker.callFactory<myTestClass>(`${__filename}#myAsyncFactory`, 17);
+  test.eq(23, await r3.returnAplusB(6));
 
   const channel = new MessageChannel;
   // Call portTest, transfer port2 to it

@@ -21,7 +21,7 @@ export class WorkerHandler {
         try {
           const channel = createTypedMessageChannel<WorkerServiceLinkRequest, WorkerServiceLinkResponse>();
           const serviceclass = message.isfactory ?
-            (await loadJSFunction(message.func))(...message.params) as object :
+            await (await loadJSFunction(message.func))(...message.params) as object :
             new (await loadJSFunction(message.func) as unknown as { new(...args: unknown[]): object })(...message.params) as object;
           if (!serviceclass || typeof serviceclass !== "object")
             throw new Error(`Factory did not return an object`);
