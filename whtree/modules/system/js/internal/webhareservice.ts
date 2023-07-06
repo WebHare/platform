@@ -26,7 +26,7 @@ export type ConvertBackendServiceInterfaceToClientInterface<BackendHandlerType e
 } & ServiceBase;
 
 //Describe a JS public interface in a HS compatible way
-function describePublicInterface(inobj: object): WebHareServiceDescription {
+export function describePublicInterface(inobj: object): WebHareServiceDescription {
   const methods = [];
 
   //iterate to top and discover all methods

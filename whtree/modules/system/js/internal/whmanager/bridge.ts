@@ -17,6 +17,7 @@ import { getCallerLocation } from "../util/stacktrace";
 import { updateConfig } from "../configuration";
 import { getActiveCodeContexts } from "@webhare/services/src/codecontexts";
 import { pick } from "../util/algorithms";
+import { isMainThread, workerData } from "node:worker_threads";
 
 export { IPCMessagePacket, IPCLinkType } from "./ipc";
 export { SimpleMarshallableData, SimpleMarshallableRecord, IPCMarshallableData, IPCMarshallableRecord } from "./hsmarshalling";
@@ -227,6 +228,7 @@ type ToMainBridgeMessage = {
 type LocalBridgeInitData = {
   id: string;
   port: TypedMessagePort<ToMainBridgeMessage, ToLocalBridgeMessage>;
+  consoleLogData: Uint32Array;
 };
 
 /** Check if all messages types have been handled in a switch. Put this function in the
@@ -1119,7 +1121,7 @@ class MainBridge extends EventSource<BridgeEvents> {
     // Do not want these ports to keep the event loop running.
     port1.unref();
     port2.unref();
-    return { id, port: port2 };
+    return { id, port: port2, consoleLogData };
   }
 }
 
@@ -1137,6 +1139,17 @@ const old_std_writes = {
   stderr: process.stderr.write
 };
 
+/** Buffer for console logging administration (0: log counter, 1: whether workers have been used)
+ * Worker console log messages are written to the main console log via the event loop, so they
+ * can be issued out-of-order. Using atomics to get aR global ordering.
+*/
+const consoleLogData = !isMainThread && workerData && "localHandlerInitData" in workerData
+  ? workerData.localHandlerInitData.consoleLogData
+  : new Uint32Array(new SharedArrayBuffer(8));
+
+// eslint-disable-next-line prefer-const -- eslint doesn't see that console log can be called before bridgeimpl has been set
+let bridgeimpl: LocalBridge | undefined;
+
 function hookConsoleLog() {
   const source: { func: string; location: { filename: string; line: number; col: number; func: string } | null; when: Date; loggedlocation: boolean } = {
     func: "",
@@ -1145,7 +1158,7 @@ function hookConsoleLog() {
     loggedlocation: false
   };
   for (const [key, func] of Object.entries(old_console_funcs)) {
-    if (key != "Console") {
+    if (key != "Console" && key != "trace") {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (console as any)[key] = (...args: unknown[]) => {
         if (source.func) {
@@ -1158,6 +1171,7 @@ function hookConsoleLog() {
             return (func as (...args: unknown[]) => unknown).apply(console, args);
           } finally {
             source.func = "";
+            source.location = null;
           }
         }
       };
@@ -1166,8 +1180,11 @@ function hookConsoleLog() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   process.stdout.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
-    if (envbackend.flags.conloc && source.location)
-      old_std_writes.stdout.call(process.stdout, `${(new Date).toISOString()} ${source.location.filename.split("/").at(-1)}:${source.location.line}:${source.func === "table" ? "\n" : " "}`, "utf-8");
+    if (envbackend.flags.conloc && source.location) {
+      const workerid = consoleLogData[1] ? ` (${Atomics.add(consoleLogData, 0, 1) + 1}:${bridgeimpl?.id})` : ``;
+      old_std_writes.stdout.call(process.stdout, `${(new Date).toISOString()}${workerid} ${source.location.filename.split("/").at(-1)}:${source.location.line}:${source.func === "table" ? "\n" : " "}`, "utf-8");
+      source.location = null;
+    }
     const retval = old_std_writes.stdout.call(process.stdout, data, encoding, cb);
     const tolog: string = typeof data == "string" ? data : Buffer.from(data).toString("utf-8");
     consoledata.push({ func: source.func, data: tolog, when: source.when, location: source.location });
@@ -1177,8 +1194,11 @@ function hookConsoleLog() {
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   process.stderr.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
-    if (envbackend.flags.conloc && source.location)
-      old_std_writes.stderr.call(process.stderr, `${(new Date).toISOString()} ${source.location.filename.split("/").at(-1)}:${source.location.line}: `, "utf-8");
+    if (envbackend.flags.conloc && source.location) {
+      const workerid = consoleLogData[1] ? ` (${Atomics.add(consoleLogData, 0, 1) + 1}:${bridgeimpl?.id})` : ``;
+      old_std_writes.stderr.call(process.stderr, `${(new Date).toISOString()}${workerid} ${source.location.filename.split("/").at(-1)}:${source.location.line}: `, "utf-8");
+      source.location = null;
+    }
     const retval = old_std_writes.stderr.call(process.stderr, data, encoding, cb);
     const tolog: string = typeof data == "string" ? data : Buffer.from(data).toString("utf-8");
     consoledata.push({ func: source.func, data: tolog, when: source.when, location: source.location });
@@ -1188,16 +1208,32 @@ function hookConsoleLog() {
   };
 }
 
+// Hook the console log before initializing the main bridge or the local bridge (so console.log works there too)
 hookConsoleLog();
 
 
-const mainbridge = new MainBridge;
+let mainbridge: MainBridge | undefined;
 
-const bridgeimpl = new LocalBridge(mainbridge.getLocalHandlerInitData());
+export function getLocalHandlerInitData(): LocalBridgeInitData {
+  // If this is a worker, use the localHandlerInitData sent to the worker if present
+  if (!isMainThread && workerData && "localHandlerInitData" in workerData) {
+    return workerData.localHandlerInitData;
+  }
+  // No main bridge to contact, initialize one
+  mainbridge ??= new MainBridge;
+  return mainbridge.getLocalHandlerInitData();
+}
+
+const localHandlerInitData = getLocalHandlerInitData();
+bridgeimpl = new LocalBridge(localHandlerInitData);
 
 const bridge: Bridge = bridgeimpl;
 export default bridge;
 
+/** Called when a worker has been added, triggers printing of counter and bridge id when flag "conloc" has been enabled */
+export function initializedWorker() {
+  consoleLogData[1] = 1;
+}
 
 registerAsNonReloadableLibrary(module);
 

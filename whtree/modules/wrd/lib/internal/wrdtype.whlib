@@ -1014,8 +1014,9 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
                                    , description := ""
                                    , allowedvalues := DEFAULT STRING ARRAY
                                    , attributetypename := ""
+                                   , domain := 0
                                    ], newsettings
-                                    , [ optional := ["CHECKLINKS","MULTILINE","ISUNIQUE","ISREQUIRED","ISORDERED","ISUNSAFETOCOPY","TAG","TITLE","ALLOWEDVALUES"]
+                                    , [ optional := ["CHECKLINKS","MULTILINE","ISUNIQUE","ISREQUIRED","ISORDERED","ISUNSAFETOCOPY","TAG","TITLE","ALLOWEDVALUES", "DOMAIN"]
                                       , title := "attribute settings"
                                       ]);
 
@@ -1081,6 +1082,27 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     {
       INSERT CELL ordered := toset.isordered INTO toset;
       DELETE CELL isordered FROM toset;
+    }
+    IF (CellExists(newsettings, "DOMAIN"))
+    {
+      IF ("domain" IN attrinfo.options)
+      {
+        IF (attr.domain = 0)
+          THROW NEW Exception("The domain tag may not be zero when updating a domain attribute");
+      }
+      ELSE IF (attr.domain != 0)
+        THROW NEW Exception("The domain tag must be zero when updating a non-domain attribute");
+
+      INTEGER testtype := attr.domain;
+      WHILE (TRUE)
+      {
+        IF (testtype = newsettings.domain)
+          BREAK;
+        testtype := SELECT AS INTEGER parenttype FROM wrd.types WHERE id = testtype;
+        IF (testtype = 0)
+          THROW NEW Exception("The domain of a domain attribute can only be changed to a parent type of the current domain");
+      }
+      INSERT CELL domain := newsettings.domain INTO toset;
     }
 
     // See if the updated values differ from their current values. If so, ignore the update (reloading isn't cheap)

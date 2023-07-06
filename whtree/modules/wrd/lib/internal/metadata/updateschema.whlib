@@ -192,12 +192,25 @@ MACRO UpdateAttrs(RECORD ARRAY local_types, OBJECT local_type, INTEGER local_par
       CONTINUE;
     }
 
-    INTEGER type_left := SELECT AS INTEGER id FROM local_types WHERE ToUppercase(tag) = ToUppercase(a.right.domaintag);
-
     RECORD attrdef := local_type->GetAttribute(a.left.tag);
+
+    // Allow a domain to change to a parent type of the current type
+    INTEGER type_right := SELECT AS INTEGER id FROM local_types WHERE ToUppercase(tag) = ToUppercase(a.right.domaintag);
+    STRING type_left_tag := SELECT AS STRING tag FROM local_types WHERE id = attrdef.domain;
+    INTEGER ARRAY type_left_parents;
+    FOR (INTEGER lefttype := attrdef.domain; lefttype != 0;)
+    {
+      RECORD rec := SELECT * FROM local_types WHERE id = lefttype;
+      IF (NOT RecordExists(rec))
+        BREAK;
+      lefttype := rec.parenttype;
+      INSERT rec.id INTO type_left_parents AT END;
+    }
+
+
     BOOLEAN is_type_mismatch := attrdef.attributetypename != a.right.attributetypename
                                 AND a.right.attributetypename NOT IN DescribeAttributeType(attrdef.attributetypename).canchangeto;
-    BOOLEAN is_domain_mismatch := attrdef.domain != type_left;
+    BOOLEAN is_domain_mismatch := attrdef.domain != type_right AND attrdef.domain NOT IN type_left_parents;
 
     IF(is_type_mismatch OR is_domain_mismatch)
     {
@@ -212,7 +225,7 @@ MACRO UpdateAttrs(RECORD ARRAY local_types, OBJECT local_type, INTEGER local_par
     IF(is_type_mismatch)
       THROW NEW Exception(`Type for attribute '${local_type->tag || "." || a.left.tag}' has changed from ${GetAttributeTypeNameByTypeId(attrdef.attributetype)} to ${GetAttributeTypeNameByTypeId(a.right.attributetype)}`);
     IF(is_domain_mismatch)
-      THROW NEW Exception(`Domain for attribute '${local_type->tag || "." || a.left.tag}' (#${attrdef.id}) has changed from #${attrdef.domain} to #${type_left}`);
+      THROW NEW Exception(`Domain for attribute '${local_type->tag || "." || a.left.tag}' (#${attrdef.id}) has changed from #${attrdef.domain} (${type_left_tag}) to #${type_right} (${a.right.domaintag})`);
 
     IF (attrdef.attributetype != a.right.attributetype)
     {
@@ -237,6 +250,8 @@ MACRO UpdateAttrs(RECORD ARRAY local_types, OBJECT local_type, INTEGER local_par
 
     RECORD metadata := a.right;
     DELETE CELL attributetype, localtag, domaintag, parent, hasvalues, attrs FROM metadata;
+    IF (attrdef.domain != type_right)
+      INSERT CELL domain := type_right INTO metadata;
     local_type->UpdateAttribute(a.left.tag, metadata);
 
     IF (attrdef.attributetype = 13 AND CellExists(a.right, "ATTRS"))
@@ -351,7 +366,6 @@ MACRO CreateType(OBJECT local_schema, RECORD data, RECORD ARRAY remote_types, RE
 }
 
 /** Updates a schema
-    @param work Tollium work object
     @param local_schema WRD schema to update
     @param schemadef Schema definition
     @cell(record array) schemadef.types List of types
@@ -435,7 +449,11 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
     updatemigrations := TRUE;
   }
 
-  RECORD ARRAY local_types := local_schema->ListTypes();
+  RECORD ARRAY local_types :=
+      SELECT *
+           , typeobj := local_schema->GetTypeById(id)
+        FROM local_schema->ListTypes();
+
   RECORD ARRAY remote_types :=
       SELECT *
         FROM schemadef.types
@@ -882,4 +900,3 @@ RECORD FUNCTION GetDiff(RECORD ARRAY left, RECORD ARRAY right, STRING cellname)
 
   RETURN retval;
 }
-

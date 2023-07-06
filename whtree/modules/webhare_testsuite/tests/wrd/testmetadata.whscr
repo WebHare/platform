@@ -594,6 +594,49 @@ MACRO TestParent()
   testfw->RollbackWork();
 }
 
+MACRO TestDomainTypeToParent()
+{
+  STRING schemawithparent := `<?xml version="1.0" encoding="UTF-8"?>
+<schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
+
+  <object tag="WEBSHOP_PRODUCTMIXIN" title="Product mixin">
+    <attributes>
+      <free tag="WRD_TITLE" title="Title"/>
+    </attributes>
+  </object>
+
+  <object tag="WEBSHOP_PRODUCT" title="Webshop product" parent="WEBSHOP_PRODUCTMIXIN">
+    <attributes>
+    </attributes>
+  </object>
+
+  <object tag="WEBSHOP_REF">
+    <attributes>
+      <domain tag="REFERENCE" domain="WEBSHOP_PRODUCT" />
+    </attributes>
+  </object>
+</schemadefinition>`;
+
+  testfw->BeginWork();
+
+  OBJECT wrdschema := CreateWRDSchema(testfw->GetWRDSchema()->tag || '.temp'); //note: we won't be commiting it
+  wrdschema->ApplySchemaDefinition([ __schemadefinition := StringToBlob(schemawithparent) ]);
+
+  TestEq(wrdschema->^webshop_product->id, wrdschema->^webshop_ref->GetAttribute("REFERENCE").domain);
+
+  // Make sure the attribute is used so updating it will fail
+  INTEGER product := wrdschema->^webshop_product->CreateEntity([ wrd_title := "product" ])->id;
+  wrdschema->^webshop_ref->CreateEntity([ reference := product ]);
+
+  schemawithparent := Substitute(schemawithparent, `domain="WEBSHOP_PRODUCT"`, `domain="WEBSHOP_PRODUCTMIXIN"`);
+  wrdschema->ApplySchemaDefinition([ __schemadefinition := StringToBlob(schemawithparent) ]);
+
+
+  TestEq(wrdschema->^webshop_productmixin->id, wrdschema->^webshop_ref->GetAttribute("REFERENCE").domain);
+
+  testfw->RollbackWork();
+}
+
 MACRO TestAccountSettings()
 {
   //apply account settings to a schema which never had it
@@ -782,6 +825,7 @@ RunTestFramework([ PTR CreateWRDTestSchema
                  , PTR TestAsyncMetaTypeChange
                  , PTR TestRename
                  , PTR TestAttributePromotion
+                 , PTR TestDomainTypeToParent
                  , PTR TestParent
                  , PTR TestAccountSettings
                  , PTR TestMerge
@@ -791,4 +835,3 @@ RunTestFramework([ PTR CreateWRDTestSchema
                  ], [ wrdauth := FALSE
                     , schemaresource := Resolve("data/testconversion-0.wrdschema.xml")
                     ]);
-
