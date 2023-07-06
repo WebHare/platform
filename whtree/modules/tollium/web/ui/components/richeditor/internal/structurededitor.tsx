@@ -168,7 +168,7 @@ export default class StructuredEditor extends EditorBase {
         const pastecontent = document.createElement('div');
         pastecontent.innerHTML = htmltext;
 
-        this._pasteContent(pastecontent, 'clipboarddata');
+        this._pasteContent(pastecontent);
         return;
       } else if (types.includes("Files")) {
         for (let idx = 0; idx < clipboardData.items.length; ++idx) {
@@ -187,7 +187,7 @@ export default class StructuredEditor extends EditorBase {
             if (promise) // Upload didn't fail early?
             {
               promise.then(function () {
-                this._pasteContent(pastecontent, 'clipboarddata');
+                this._pasteContent(pastecontent);
               }.bind(this));
 
               event.preventDefault();
@@ -206,7 +206,7 @@ export default class StructuredEditor extends EditorBase {
 
         const pastecontent = document.createElement('div');
         pastecontent.appendChild(dompack.create("img", { src: url }));
-        this._pasteContent(pastecontent, 'clipboarddata');
+        this._pasteContent(pastecontent);
 
         event.preventDefault();
         return;
@@ -236,7 +236,7 @@ export default class StructuredEditor extends EditorBase {
           console.log(pastecontent.innerHTML);
         }
 
-        this._pasteContent(pastecontent, 'clipboarddata');
+        this._pasteContent(pastecontent);
         return;
       }
     }
@@ -245,7 +245,7 @@ export default class StructuredEditor extends EditorBase {
     throw new Error(`Paste detected, but no usable clipboardData (${JSON.stringify(Array.from(clipboardData?.types ?? ["no clipboardData"]))})`);
   }
 
-  async _pasteContent(pastecontent, mode) {
+  async _pasteContent(pastecontent: HTMLDivElement) {
     const undolock = this.getUndoLock();
 
     //console.log('pasteContent preremove', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
@@ -254,7 +254,7 @@ export default class StructuredEditor extends EditorBase {
 
     //console.log('pasteContent postremove', richdebug.getStructuredOuterHTML(this.getBody(), { locator: locator }));
 
-    await this._pasteContentAt(pastecontent, locator, mode);
+    await this._pasteContentAt(pastecontent, locator);
 
     undolock.close();
   }
@@ -842,11 +842,11 @@ export default class StructuredEditor extends EditorBase {
   }
 
   /// Pastes the content of a node at a specific locator
-  async _pasteContentAt(pastecontent, insertlocator, mode) {
+  async _pasteContentAt(pastecontent: HTMLDivElement, insertlocator: domlevel.Locator) {
     const undolock = this.getUndoLock();
 
     if (dompack.debugflags.rte)
-      console.log('[rte] parseContentAt, raw', pastecontent.innerHTML, 'mode:', mode);
+      console.log('[rte] parseContentAt, raw', pastecontent.innerHTML);
 
     // If we're at the start of a block, don't pass inblock so the first pasted block will replace the current block
     const down = insertlocator.clone();
@@ -856,7 +856,7 @@ export default class StructuredEditor extends EditorBase {
     if (dompack.debugflags.rte)
       console.log('[rte] paste at block start: ', atblockstart ? 'yes' : 'no', downres, richdebug.getStructuredOuterHTML(this.getBody(), { down: down, insertlocator: insertlocator }));
 
-    const cleanupper = new PasteCleanup({ mode: mode || '' });
+    const cleanupper = new PasteCleanup;
     const res = cleanupper.applyCleanup(pastecontent);
 
     if (dompack.debugflags.rte)
