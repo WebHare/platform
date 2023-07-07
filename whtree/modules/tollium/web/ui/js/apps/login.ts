@@ -302,13 +302,14 @@ class LoginApp {
                 handler: this.executeSAMLLogin.bind(this, item)
               });
 
+            /* autologin is disabled for now - we have no test coverage and probably won't even have users for it.
             if (item.autologin && item.type == "saml") //cant autologin with OIDC yet, that requires some sort of hint that is safe to try the redirect-loop
             {
               $shell.wrdauth.startLogin(item.type, { action: 'postmessage', passive: true, allowlogout: item.allowlogout })
                 .then(this.handlePassiveSAMLLogin)
                 .catch(utilerror.reportException);
             }
-
+            */
           } break;
 
         case "password":
@@ -560,6 +561,7 @@ class LoginApp {
     }
   }
 
+  /* autologin is disabled for now - we have no test coverage and probably won't even have users for it.
   handlePassiveSAMLLogin(instr) {
     // Create off-screen iframe
     const iframe = dompack.create("iframe",
@@ -590,7 +592,7 @@ class LoginApp {
         }
       }
     });
-  }
+  }*/
 
   executeCancelSecondFactorLogin(data, callback) {
     const selecttab = this.topscreen.getComponent('body');
