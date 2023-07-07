@@ -24,7 +24,7 @@ PUBLIC STATIC OBJECTTYPE SubmitFeedback EXTEND TolliumScreenBase
     this->guid := data.target.guid;
 
     RECORD ARRAY types := this->contexts->wrdschema->^topic->RunQuery(
-        [ outputcolumns := CELL[ "wrd_guid", "WRD_ORDERING","WRD_TITLE" ]
+        [ outputcolumns := CELL[ "wrd_guid", "wrd_ordering","wrd_title" ]
         ]);
 
     ^type->options := SELECT rowkey := wrd_guid
