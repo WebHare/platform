@@ -2,14 +2,14 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 /* globals $shell */
-import * as dompack from 'dompack';
 import * as frontend from '@webhare/frontend';
 import * as whintegration from '@mod-system/js/wh/integration';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
-import { registerJSApp } from "../application";
+import { FrontendEmbeddedApplication, registerJSApp } from "../application";
 import "../../common.lang.json";
 
 import $todd from "@mod-tollium/web/ui/js/support";
+import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 const getTid = require("@mod-tollium/js/gettid").getTid;
 const utilerror = require('@mod-system/js/wh/errorreporting');
 
@@ -48,8 +48,11 @@ function shouldReveal(tag: string) {
 
 class LoginApp {
   private readonly loginconfig: LoginConfig;
+  private app: FrontendEmbeddedApplication;
+  private topscreen: Frame | undefined;
+  private secondfactordata;
 
-  constructor(appinterface, callback) {
+  constructor(appinterface: FrontendEmbeddedApplication, callback) {
     this.app = appinterface;
     this.app.promiseComponentTypes(['panel', 'button', 'action', 'textedit', 'table', 'hr']).then(this.setupScreen.bind(this)).then(callback).catch(utilerror.reportException); //If catch fails, use _catch
     this.loginconfig = this.app.apptarget;
