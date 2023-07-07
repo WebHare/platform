@@ -121,7 +121,7 @@ export async function runFeedbackReport(event: MouseEvent, addElement: boolean) 
         <label for="topic">{getTid("publisher:site.authormode.topic")}:</label><br />
         <select name="topic" required>
           <option value="" selected disabled>{getTid("publisher:site.authormode.topic-placeholder")}</option>
-          {result.topics?.map(topic => <option value={topic.tag}>{topic.title}</option>)}
+          {result.topics?.map(topic => <option value={topic.guid}>{topic.title}</option>)}
         </select>
       </p>
       <p>

@@ -1,19 +1,10 @@
 <?wh
-
-LOADLIB "wh::crypto.whlib";
-LOADLIB "wh::files.whlib";
-LOADLIB "wh::internet/urls.whlib";
-
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::tollium/lib/testframework.whlib";
-LOADLIB "mod::tollium/lib/internal/embeddeddocs.whlib";
 
-LOADLIB "mod::publisher/lib/testfw/sites.whlib";
 LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
 
-LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
 
 RECORD testsetup;
@@ -26,9 +17,9 @@ MACRO PrepFeedbackAppTests()
 
   OBJECT feedbackschema := OpenWRDSchema("publisher:feedback");
   RECORD feedback1 := StoreFeedback([ browser := testfw_mockbrowser, userdata := testfw->GetUserObject("sysop")->GetUserDataForLogging() ]);
-  //dumpvalue(feedback1,'tree');
+  RECORD topic_testtopic := SELECT * FROM feedback1.topics WHERE title = "Test Topic";
 
-  STRING feedback1id := StoreFeedbackExtraData(feedback1.guid, CELL[ topic := "TESTFW_TOPIC1", remarks := testfw_mockremark ]);
+  STRING feedback1id := StoreFeedbackExtraData(feedback1.guid, CELL[ topic := topic_testtopic.guid, remarks := testfw_mockremark ]);
   //dumpvalue(feedback1id,'tree');
 
   INTEGER feedback1wrdid := feedbackschema->^feedback->Search("FEEDBACKID", feedback1id);

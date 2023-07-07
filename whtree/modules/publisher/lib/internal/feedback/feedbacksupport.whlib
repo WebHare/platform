@@ -147,9 +147,9 @@ PUBLIC RECORD FUNCTION StoreFeedback(RECORD data)
       [ entity->guid
         //TODO: For now we'll just return all available topics, these may be restricted by webdesign and/or reporting rights
       , topics :=
-          (SELECT tag := wrd_tag ?? wrd_guid
+          (SELECT guid := wrd_guid
                 , title
-             FROM wrdschema->^topic->RunQuery([ outputcolumns := CELL[ "wrd_tag", "wrd_guid", title := "wrd_title", "wrd_ordering","wrd_id" ] ])
+             FROM wrdschema->^topic->RunQuery([ outputcolumns := CELL[ "wrd_guid", title := "wrd_title", "wrd_ordering","wrd_id" ] ])
             ORDER BY wrd_ordering
                    , ToUppercase(title)
                    , wrd_id)
@@ -175,7 +175,7 @@ PUBLIC STRING FUNCTION StoreFeedbackExtraData(STRING guid, RECORD settings)
   IF (feedbackid = 0)
     THROW NEW Exception(`No feedback with guid '${guid}'`);
 
-  INTEGER topicid := wrdschema->^topic->Search("wrd_tag", ToUppercase(settings.topic));
+  INTEGER topicid := wrdschema->^topic->Search("wrd_guid", settings.topic);
   IF (topicid = 0) //Don't permit topic-less feedback, we can't route it any further
     THROW NEW Exception(`No such topic '${settings.topic}'`);
 
