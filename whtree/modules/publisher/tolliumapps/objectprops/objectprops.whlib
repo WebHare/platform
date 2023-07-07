@@ -696,7 +696,8 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
     }
     ELSE
     {
-      ^restrictions->visible := FALSE;
+      IF(NOT this->sidetabs)
+        ^restrictions->visible := FALSE;
     }
 
     IF(this->showdeveloperoptions)
