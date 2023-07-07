@@ -91,6 +91,129 @@ RECORD FUNCTION GetCacheableUIFilesKey()
          ];
 }
 
+
+PUBLIC RECORD FUNCTION GetCacheableApplicationPortalConfigForApplyTester(OBJECT applytester)
+{
+  RECORD config := CELL
+    [ allowinframe := FALSE
+    , dashboard := TRUE
+      ///Use RequireLoggedinWebHareUser - use the user set by access rules
+    , useexternalwebharelogin := FALSE
+    , personalsettingsapp := "system:personalsettings"
+    ///Use wrdauth's login mechanism instead of a login app (will usually redirect you to a wrdauth configured login page)
+    , usewrdauthloginpage := FALSE
+    , dashboardmenuupdaters := STRING[]
+    , applicationmasks := STRING[]
+    // temporary hack for testsuite TODO a real <inserthtml> siteprofile node might be useful ?
+    , __inserts := STRING[]
+    , forceapps := STRING[]
+    , forceappfuncs := STRING[]
+    , loginmethods := RECORD[]
+    ];
+
+  //TODO switch to proper plugin so settings can cache etc and just keep most boring settings inside a config record
+  FOREVERY(RECORD setting FROM applytester->GetCustomSettings("http://www.webhare.net/xmlns/tollium", "portal"))
+  {
+    STRING resourcename := setting.siteprofile->name;
+    IF(setting.node->HasAttribute("allowinframe"))
+      config.allowinframe := ParseXSBoolean(setting.node->GetAttribute("allowinframe"));
+    IF(setting.node->HasAttribute("dashboard"))
+      config.dashboard := ParseXSBoolean(setting.node->GetAttribute("dashboard"));
+    IF(setting.node->HasAttribute("useexternalwebharelogin"))
+      config.useexternalwebharelogin := ParseXSBoolean(setting.node->GetAttribute("useexternalwebharelogin"));
+    IF(setting.node->HasAttribute("usewrdauthloginpage"))
+      config.usewrdauthloginpage := ParseXSBoolean(setting.node->GetAttribute("usewrdauthloginpage"));
+    IF(setting.node->HasAttribute("personalsettingsapp"))
+      config.personalsettingsapp := setting.node->GetAttribute("personalsettingsapp");
+    IF(setting.node->HasAttribute("dashboardmenuupdater"))
+      INSERT MakeAbsoluteResourcePath(resourcename, setting.node->GetAttribute("dashboardmenuupdater")) INTO config.dashboardmenuupdaters AT END;
+    IF(setting.node->HasAttribute("applicationmasks"))
+      config.applicationmasks := ParseXSList(setting.node->GetAttribute("applicationmasks"));
+    IF(setting.node->HasAttribute("__insert"))
+      INSERT setting.node->GetAttribute("__insert") INTO config.__inserts AT END;
+
+    FOREVERY(OBJECT forceapp FROM setting.node->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/tollium", "forceapp")->GetCurrentElements())
+      INSERT forceapp->GetAttribute("name") INTO config.forceapps AT END;
+
+    IF (setting.node->GetAttribute("forceappfunction") != "")
+      INSERT MakeAbsoluteResourcePath(resourcename, setting.node->GetAttribute("forceappfunction")) INTO config.forceappfuncs AT END;
+
+    FOREVERY(OBJECT loginmethod FROM setting.node->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/tollium", "loginmethod")->GetCurrentElements())
+    {
+      IF(NOT IsNodeApplicableToThisWebHare(loginmethod))
+        CONTINUE;
+
+      STRING gid := DetermineNodeGid(setting.siteprofile->name, loginmethod);
+      STRING type := loginmethod->GetAttribute("type");
+
+      SWITCH (type)
+      {
+        CASE "password"
+        {
+          DELETE FROM config.loginmethods WHERE loginmethods.type = "password";
+          INSERT
+              [ type :=       "password"
+              , ordering :=   -1
+              , tid :=        ":"
+              , loginprompt := loginmethod->GetAttribute("loginprompt")
+              ] INTO config.loginmethods AT END;
+        }
+        CASE "oidc", "saml"
+        {
+          STRING tag := loginmethod->GetAttribute("tag");
+          IF(tag != "")
+          {
+            BOOLEAN isupdate;
+            RECORD cursettings := SELECT * FROM config.loginmethods WHERE loginmethods.type = VAR type AND loginmethods.tag = VAR tag;
+            IF(NOT RecordExists(cursettings))
+              cursettings := CELL[ type, tag, ordering := 0, autologin := FALSE, tid := "", icon := "", allowlogout := TRUE, loginprompt := "", visibility := "always" ];
+            ELSE
+              isupdate := TRUE;
+
+            IF(loginmethod->HasAttribute("ordering"))
+              cursettings.ordering := ToInteger(loginmethod->GetAttribute("ordering"), 99999);
+            IF(loginmethod->HasAttribute("autologin"))
+              cursettings.autologin := loginmethod->GetAttribute("autologin") IN [ "true", "1" ];
+            IF(loginmethod->HasAttribute("title") OR loginmethod->HasAttribute("tid"))
+              cursettings.tid := ParseXMLTIDPtr(resourcename, gid, loginmethod, "title");
+            IF(loginmethod->HasAttribute("icon"))
+              cursettings.icon := loginmethod->GetAttribute("icon");
+            IF(loginmethod->HasAttribute("allowlogout"))
+              cursettings.allowlogout := NOT loginmethod->HasAttribute("allowlogout") OR ParseXSBoolean(loginmethod->GetAttribute("allowlogout"));
+            IF(loginmethod->HasAttribute("loginprompt"))
+              cursettings.loginprompt := loginmethod->GetAttribute("loginprompt");
+            IF(loginmethod->HasAttribute("visibility"))
+              cursettings.visibility := loginmethod->GetAttribute("visibility");
+
+            IF(isupdate)
+              UPDATE config.loginmethods SET RECORD cursettings WHERE loginmethods.type = VAR type AND loginmethods.tag = VAR tag;
+            ELSE
+              INSERT cursettings INTO config.loginmethods AT END;
+          }
+        }
+      }
+    }
+  }
+
+  config.loginmethods := SELECT * FROM config.loginmethods ORDER BY type != "saml", ordering;
+
+  RETURN [ ttl := 30 * 60 * 1000
+         , value := config
+         , eventmasks := [ "publisher:internal.siteprofiles.recompiled" ]
+         ];
+}
+
+RECORD FUNCTION GetCacheableApplicationPortalConfig(INTEGER fileid)
+{
+  RETURN GetCacheableApplicationPortalConfigForApplyTester(GetApplyTesterForObject(fileid));
+}
+
+PUBLIC RECORD FUNCTION GetApplicationPortalConfig(INTEGER fileid)
+{
+  RETURN GetAdhocCached(CELL[ applicationportalconfig := fileid ], PTR GetCacheableApplicationPortalConfig(fileid));
+}
+
+
 PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
 <
   PUBLIC STRING title;
@@ -112,39 +235,28 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
   OBJECT wrdauthplugin;
   OBJECT currentuser;
   RECORD launchuserinfo;
-  ///Use RequireLoggedinWebHareUser - use the user set by access rules
-  BOOLEAN useexternalwebharelogin;
-  ///Use wrdauth's login mechanism instead of a login app (will usually redirect you to a wrdauth configured login page)
-  BOOLEAN usewrdauthloginpage;
   ///Are we overriding? Don't run unimportant paths (eg newsitems) if we're apparently doing tricky/lowlevel stuff
   BOOLEAN isoverriding;
 
-  BOOLEAN allowinframe;
-  STRING personalsettingsapp;
-  BOOLEAN dashboard;
   BOOLEAN disablenotifications;
 
-  RECORD ARRAY loginmethods;
-  STRING ARRAY forceappfuncs;
   STRING ARRAY apps;
   RECORD rundata;
-  STRING ARRAY applicationmasks;
-  STRING ARRAY dashboardmenuupdaters;
   STRING jsversion;
+
+  RECORD config;
 
   MACRO NEW()
   {
-    this->dashboard := TRUE;
     this->title := "WebHare Platform";
     this->frontendid := GenerateUFS128BitId();
 
-    this->personalsettingsapp := "system:personalsettings";
     this->jsversion := GetAssetPackBuildVersion("tollium:webinterface");
   }
 
   RECORD FUNCTION GetRunData()
   {
-    RECORD config :=
+    RECORD config := CELL
       [ toddroot         := this->toddroot
       , toddservice      := "/wh_services/tollium/todd"
       , appserviceparams := this->appserviceparams
@@ -154,7 +266,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
       , frontendmode     := this->frontendmode
       , frontendid       := this->frontendid
       , checkered_background := checkered_background
-      , allowinframe     := this->allowinframe
+      , this->config.allowinframe
       , jsversion        := this->jsversion
       ];
 
@@ -173,107 +285,25 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
 
   MACRO SetupPortal()
   {
-    //TODO switch to proper plugin so settings can cache etc and just keep most boring settings inside a config record
-    FOREVERY(RECORD setting FROM GetCustomSiteProfileSettings("http://www.webhare.net/xmlns/tollium", "portal", this->webdesign->targetobject->id))
-    {
-      STRING resourcename := setting.siteprofile->name;
-      IF(setting.node->HasAttribute("allowinframe"))
-        this->allowinframe := ParseXSBoolean(setting.node->GetAttribute("allowinframe"));
-      IF(setting.node->HasAttribute("dashboard"))
-        this->dashboard := ParseXSBoolean(setting.node->GetAttribute("dashboard"));
-      IF(setting.node->HasAttribute("useexternalwebharelogin"))
-        this->useexternalwebharelogin := ParseXSBoolean(setting.node->GetAttribute("useexternalwebharelogin"));
-      IF(setting.node->HasAttribute("usewrdauthloginpage"))
-        this->usewrdauthloginpage := ParseXSBoolean(setting.node->GetAttribute("usewrdauthloginpage"));
-      IF(setting.node->HasAttribute("personalsettingsapp"))
-        this->personalsettingsapp := setting.node->GetAttribute("personalsettingsapp");
-      IF(setting.node->HasAttribute("dashboardmenuupdater"))
-        INSERT MakeAbsoluteResourcePath(resourcename, setting.node->GetAttribute("dashboardmenuupdater")) INTO this->dashboardmenuupdaters AT END;
-      IF(setting.node->HasAttribute("applicationmasks"))
-        this->applicationmasks := ParseXSList(setting.node->GetAttribute("applicationmasks"));
-      IF(setting.node->HasAttribute("__insert") AND this->webdesign EXTENDSFROM WebdesignBase) //temporary hack for testsuite TODO a real <inserthtml> siteprofile node might be useful ?
-        this->webdesign->InsertHTML(setting.node->GetAttribute("__insert"), "dependencies-bottom");
+    this->config := GetApplicationPortalConfig(this->webdesign->targetobject->id);
+    this->apps := this->apps CONCAT this->config.forceapps;
 
-      FOREVERY(OBJECT forceapp FROM setting.node->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/tollium", "forceapp")->GetCurrentElements())
-        INSERT forceapp->GetAttribute("name") INTO this->apps AT END;
-
-      IF (setting.node->GetAttribute("forceappfunction") != "")
-        INSERT MakeAbsoluteResourcePath(resourcename, setting.node->GetAttribute("forceappfunction")) INTO this->forceappfuncs AT END;
-
-      FOREVERY(OBJECT loginmethod FROM setting.node->GetChildElementsByTagNameNS("http://www.webhare.net/xmlns/tollium", "loginmethod")->GetCurrentElements())
-      {
-        IF(NOT IsNodeApplicableToThisWebHare(loginmethod))
-          CONTINUE;
-
-        STRING gid := DetermineNodeGid(setting.siteprofile->name, loginmethod);
-        STRING type := loginmethod->GetAttribute("type");
-
-        SWITCH (type)
-        {
-          CASE "password"
-          {
-            DELETE FROM this->loginmethods WHERE loginmethods.type = "password";
-            INSERT
-                [ type :=       "password"
-                , ordering :=   -1
-                , tid :=        ":"
-                , loginprompt := loginmethod->GetAttribute("loginprompt")
-                ] INTO this->loginmethods AT END;
-          }
-          CASE "oidc", "saml"
-          {
-            STRING tag := loginmethod->GetAttribute("tag");
-            IF(tag != "")
-            {
-              BOOLEAN isupdate;
-              RECORD cursettings := SELECT * FROM this->loginmethods WHERE loginmethods.type = VAR type AND loginmethods.tag = VAR tag;
-              IF(NOT RecordExists(cursettings))
-                cursettings := CELL[ type, tag, ordering := 0, autologin := FALSE, tid := "", icon := "", allowlogout := TRUE, loginprompt := "", visibility := "always" ];
-              ELSE
-                isupdate := TRUE;
-
-              IF(loginmethod->HasAttribute("ordering"))
-                cursettings.ordering := ToInteger(loginmethod->GetAttribute("ordering"), 99999);
-              IF(loginmethod->HasAttribute("autologin"))
-                cursettings.autologin := loginmethod->GetAttribute("autologin") IN [ "true", "1" ];
-              IF(loginmethod->HasAttribute("title") OR loginmethod->HasAttribute("tid"))
-                cursettings.tid := ParseXMLTIDPtr(resourcename, gid, loginmethod, "title");
-              IF(loginmethod->HasAttribute("icon"))
-                cursettings.icon := loginmethod->GetAttribute("icon");
-              IF(loginmethod->HasAttribute("allowlogout"))
-                cursettings.allowlogout := NOT loginmethod->HasAttribute("allowlogout") OR ParseXSBoolean(loginmethod->GetAttribute("allowlogout"));
-              IF(loginmethod->HasAttribute("loginprompt"))
-                cursettings.loginprompt := loginmethod->GetAttribute("loginprompt");
-              IF(loginmethod->HasAttribute("visibility"))
-                cursettings.visibility := loginmethod->GetAttribute("visibility");
-
-              IF(isupdate)
-                UPDATE this->loginmethods SET RECORD cursettings WHERE loginmethods.type = VAR type AND loginmethods.tag = VAR tag;
-              ELSE
-                INSERT cursettings INTO this->loginmethods AT END;
-            }
-          }
-        }
-      }
-    }
-
-    this->loginmethods :=
-       SELECT *
-         FROM this->loginmethods
-     ORDER BY type != "saml", ordering;
+    IF(this->webdesign EXTENDSFROM WebdesignBase)
+      FOREVERY(STRING insertion FROM this->config.__inserts)
+        this->webdesign->InsertHTML(insertion, "dependencies-bottom");
 
     STRING overridetoken := GetWebVariable('overridetoken');
     IF(overridetoken != "")
     {
-      this->useexternalwebharelogin := FALSE; //an override token doesn't need to follow such redirect flows
-      this->usewrdauthloginpage := FALSE; //and may ignore any wrd page
+      this->config.useexternalwebharelogin := FALSE; //an override token doesn't need to follow such redirect flows
+      this->config.usewrdauthloginpage := FALSE; //and may ignore any wrd page
     }
 
     STRING openas := GetWebVariable("openas");
     STRING language := GetWebVariable("language");
 
     DATETIME sessionexpires;
-    IF(this->useexternalwebharelogin)
+    IF(this->config.useexternalwebharelogin)
     {
       // FIXME: this will return a user from the primary user API!
       this->currentuser := RequireLoggedinWebHareUser();
@@ -286,7 +316,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
         this->wrdauthplugin := DEFAULT OBJECT;
       IF(ObjectExists(this->wrdauthplugin))
       {
-        IF(this->usewrdauthloginpage)
+        IF(this->config.usewrdauthloginpage)
           this->currentuser := this->wrdauthplugin->RequireLoggedinUser();
         ELSE
           this->currentuser := this->wrdauthplugin->GetCurrentWebhareUser();
@@ -297,7 +327,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
     BOOLEAN forceprimaryuserapi;
     INTEGER loggedin;
     STRING loggedin_name;
-    IF(this->useexternalwebharelogin)
+    IF(this->config.useexternalwebharelogin)
     {
       loggedin := this->currentuser->entityid;
       loggedin_name := this->currentuser->login;
@@ -364,7 +394,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
 
     RECORD ARRAY appinstructions;
 
-    FOREVERY (STRING forceappfunc FROM this->forceappfuncs)
+    FOREVERY (STRING forceappfunc FROM this->config.forceappfuncs)
     {
       FUNCTION PTR fptr := MakeFunctionPTR(forceappfunc);
       TRY
@@ -476,7 +506,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
     INSERT "wh-shell" INTO this->webdesign->htmlclasses AT END; //this is a trigger for templates who need to do extra work for our interface (TODO should indyshell apply it after succesful startup, and should that hide the 'webhare starting' root witty?)
 
     //do not allow us to be embedded into iframes
-    IF(NOT this->allowinframe)
+    IF(NOT this->config.allowinframe)
     {
       AddHTTPHeader("X-Frame-Options", "DENY", FALSE);
       AddHTTPHeader("X-WebharePreview-Frame-Options", "DENY", FALSE);
@@ -652,7 +682,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
                                                  , shortcut
                                               FROM appgroups.apps
                                              WHERE title != ""
-                                                   AND (Length(this->applicationmasks) = 0 OR MatchCommonXMLWildcardMasks(name,this->applicationmasks))
+                                                   AND (Length(this->config.applicationmasks) = 0 OR MatchCommonXMLWildcardMasks(name,this->config.applicationmasks))
                                           ORDER BY ToUppercase(translatedtitle))
                                  , groupname := name
                               FROM allapps AS appgroups
@@ -663,7 +693,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
     IF(Length(personalmenu) > 0)
     {
       // For editing favorites, open the personal settings app if it's not opened yet and send a message to open the 'startmenu' tab
-      RECORD editinstr := CELL[ ...GetRawAppLaunchInstruction(this->personalsettingsapp)
+      RECORD editinstr := CELL[ ...GetRawAppLaunchInstruction(this->config.personalsettingsapp)
                               , reuse_instance := "always"
                               , message := [ opentab := "startmenu" ]
                               ];
@@ -676,7 +706,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
              ] INTO appmenu AT 0;
     }
 
-    FOREVERY(STRING updater FROM this->dashboardmenuupdaters)
+    FOREVERY(STRING updater FROM this->config.dashboardmenuupdaters)
       appmenu := MakeFunctionPtr(updater)(appmenu, [ user := this->currentuser ]);
 
     RETURN SELECT *, DELETE groupname FROM appmenu;
@@ -744,13 +774,13 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
             , apps := this->GetAppMenu()
             , newsitems := this->GetNewsItems()
 
-            , dashboard := this->dashboard AND GetWebVariable("appmode") != "singleapp" //TODO singleapp should hide entire menubar
+            , dashboard := this->config.dashboard AND GetWebVariable("appmode") != "singleapp" //TODO singleapp should hide entire menubar
             , dashboardbg := this->GetDashboardBackground()
             , loginbg := this->GetLoginBackground()
             , allowpasswordreset := ReadRegistryKey("system.backend.security.allowpasswordreset")
             , displayimage := ""
             , displayname := ""
-            , personalsettings := CELL[...GetRawAppLaunchInstruction(this->personalsettingsapp), reuse_instance := "always" ]
+            , personalsettings := CELL[...GetRawAppLaunchInstruction(this->config.personalsettingsapp), reuse_instance := "always" ]
             , userdisplayname :=    ObjectExists(this->currentuser) ? this->currentuser->realname ?? this->currentuser->login : ""
             , browsertitleprefix := ObjectExists(this->currentuser) ? this->currentuser->GetRegistryKey("system.prefs.browsertitleprefix", "") : ""
             , allowlogout :=        ObjectExists(this->wrdauthplugin) AND this->wrdauthplugin->IsLogoutAllowed()
@@ -802,7 +832,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
 
     IF(ObjectExists(this->wrdauthplugin) AND ObjectExists(this->wrdauthplugin->userapi) AND NOT ObjectExists(this->currentuser))
     {
-      RECORD ARRAY methods := this->loginmethods ??
+      RECORD ARRAY methods := this->config.loginmethods ??
           [ [ type :=         "password"
             , ordering :=     -1
             , tid :=          ":"
@@ -861,7 +891,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
     IF(ObjectExists(this->wrdauthplugin) AND NOT ObjectExists(this->currentuser) AND appname NOT IN loginapps)
       RETURN [ error := "notloggedin" ];
 
-    IF(appname NOT IN loginapps AND Length(this->applicationmasks) > 0 AND NOT MatchCommonXMLWildcardMasks(appname, this->applicationmasks))
+    IF(appname NOT IN loginapps AND Length(this->config.applicationmasks) > 0 AND NOT MatchCommonXMLWildcardMasks(appname, this->config.applicationmasks))
       THROW NEW Exception(`Application '${appname}' is not permitted by this portal's applicationmasks`);
 
     RECORD parsedappname := this->ParseAppName(appname);
