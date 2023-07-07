@@ -24,13 +24,13 @@ PUBLIC STATIC OBJECTTYPE SubmitFeedback EXTEND TolliumScreenBase
     this->guid := data.target.guid;
 
     RECORD ARRAY types := this->contexts->wrdschema->^topic->RunQuery(
-        [ outputcolumns := CELL[ "WRD_TAG", "WRD_ORDERING","WRD_TITLE" ]
+        [ outputcolumns := CELL[ "wrd_guid", "wrd_ordering","wrd_title" ]
         ]);
 
-    ^type->options := SELECT rowkey := wrd_tag
+    ^type->options := SELECT rowkey := wrd_guid
                            , title := wrd_title
                         FROM types
-                    ORDER BY wrd_ordering;
+                    ORDER BY wrd_ordering, ToUppercase(wrd_title);
   }
 
   RECORD FUNCTION Submit()

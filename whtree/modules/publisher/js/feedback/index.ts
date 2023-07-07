@@ -43,8 +43,8 @@ export interface FeedbackSuccessResult {
 
   /** If successful, an array of available topics */
   topics: Array<{
-    /** The topic tag */
-    tag: string;
+    /** The topic guid */
+    guid: string;
     /** The topic title */
     title: string;
   }>;

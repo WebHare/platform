@@ -67,7 +67,7 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     ^topic->options := ^topic->options CONCAT
         SELECT *
              , DELETE wrd_ordering
-          FROM this->contexts->wrdschema->^topic->RunQuery([ outputcolumns := CELL[ rowkey := "wrd_tag", title := "wrd_title", "wrd_ordering" ] ])
+          FROM this->contexts->wrdschema->^topic->RunQuery([ outputcolumns := CELL[ rowkey := "wrd_guid", title := "wrd_title", "wrd_ordering" ] ])
          ORDER BY wrd_ordering
                 , ToUppercase(title)
                 , rowkey;
