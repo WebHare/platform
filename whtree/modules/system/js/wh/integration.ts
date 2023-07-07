@@ -1,4 +1,5 @@
 import * as dompack from '@webhare/dompack';
+import { navigateTo, NavigateInstruction } from "@webhare/frontend";
 export { config } from "@webhare/frontend";
 
 type FormValueList = Array<{ name: string; value: string }>;
@@ -76,44 +77,10 @@ export function executeSubmitInstruction(instr: SubmitInstruction, options?: {
     return;
   }
 
-  switch (instr.type) {
-    case "redirect":
-      {
-        location.href = instr.url;
-      } break;
+  if (instr.type === "refresh")
+    instr = { ...instr, type: "reload" };
 
-    case "form":
-      {
-        submitForm(instr.form.action, instr.form.vars, instr.form.method);
-      } break;
-
-    case "refresh":
-    case "reload":
-      {
-        window.location.reload();
-      } break;
-
-    case "postmessage":
-      {
-        if (!instr.target || instr.target === "parent")
-          parent.postMessage(instr.message, "*");
-        else if (instr.target === "opener") {
-          opener.postMessage(instr.message, "*");
-          window.close();
-        } else
-          throw Error("Unknown postmessage target '" + instr.target + "' received");
-      } break;
-
-    case "close":
-      {
-        window.close();
-      } break;
-
-    default:
-      {
-        throw new Error("Unknown submit instruction '" + (instr as { type: string }).type + "' received");
-      }
-  }
+  navigateTo(instr as NavigateInstruction);
 }
 
 function activeAuthorMode() {
