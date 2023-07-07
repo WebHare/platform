@@ -3,6 +3,7 @@
 
 /* globals $shell */
 import * as dompack from 'dompack';
+import * as frontend from '@webhare/frontend';
 import * as whintegration from '@mod-system/js/wh/integration';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 import { registerJSApp } from "../application";
@@ -64,7 +65,7 @@ class LoginApp {
     if (!matchmethod)
       return false;
 
-    this.runSSOLogin(matchmethod);
+    this.runSSOLogin(matchmethod.tag);
     return true;
   }
   setupScreen() {
@@ -299,7 +300,10 @@ class LoginApp {
               {
                 component: "action" + postfix,
                 msgtype: "execute",
-                handler: this.executeSAMLLogin.bind(this, item)
+                handler: (data, callback) => {
+                  this.runSSOLogin(item.tag);
+                  callback();
+                }
               });
 
             /* autologin is disabled for now - we have no test coverage and probably won't even have users for it.
@@ -543,18 +547,10 @@ class LoginApp {
     callback();
   }
 
-  executeSAMLLogin(item, data, callback) {
-    const matchmethod = (this.loginconfig.methods as LoginMethodSSO[]).find(method => method.tag == item.tag);
-    if (matchmethod)
-      this.runSSOLogin(matchmethod);
-    callback();
-  }
-
-  async runSSOLogin(method: LoginMethodSSO) {
-    const lock = this.app.getBusyLock(); //NOTE we're not going to ever release it
+  async runSSOLogin(tag: string) {
+    const lock = this.app.getBusyLock(); //NOTE we're not going to ever release it on the success path, as we're going to redirect away
     try {
-      const result = await $shell.wrdauth.startLogin(method.type, method.tag, { action: 'redirect', allowlogout: method.allowlogout });
-      whintegration.executeSubmitInstruction(result);
+      await frontend.startSSOLogin(tag);
     } catch (error) {
       lock.release(); //we only release the lock on the error path so we can keep the app locked while redirecting
       this.app.showExceptionDialog(error);
