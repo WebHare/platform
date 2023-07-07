@@ -7,6 +7,7 @@ LOADLIB "mod::tollium/lib/componentbase.whlib";
 
 LOADLIB "mod::publisher/lib/webdesign.whlib";
 
+LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
@@ -35,10 +36,16 @@ PUBLIC STATIC OBJECTTYPE WebInterfaceDesign EXTEND WebDesignBase
         AND this->targetfolder->typens = "http://www.webhare.net/xmlns/tollium/manual")
       INSERT "wh-tollium--manual" INTO this->htmlclasses AT END;
 
-    STRING banner;
-    STRING restoreinfo := GetEnvironmentVariable("WEBHARE_ISRESTORED");
-    IF(restoreinfo != "")
-      banner := GetTid("tollium:shell.isrestoredwebhare") || (restoreinfo != "1" ? ": " || restoreinfo : "");
+    STRING banner; //Allow to set a banner using ?banner= for testing purposes
+    IF(GetDtapStage() = "development")
+      banner := GetWebvariable("banner");
+
+    IF(banner = "")
+    {
+      STRING restoreinfo := GetEnvironmentVariable("WEBHARE_ISRESTORED");
+      IF(restoreinfo != "")
+        banner := GetTid("tollium:shell.isrestoredwebhare") || (restoreinfo != "1" ? ": " || restoreinfo : "");
+    }
 
     RETURN CELL
         [ favicon :=
