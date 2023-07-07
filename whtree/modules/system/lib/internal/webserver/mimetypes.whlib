@@ -24,7 +24,7 @@ CONSTANT RECORD ARRAY standard_mimetypes :=
 , [ mimetype := "application/java-archive", extensions := "jar", parsetype := 0 ]
 , [ mimetype := "application/java-serialized-object", extensions := "ser", parsetype := 0 ]
 , [ mimetype := "application/java-vm", extensions := "class", parsetype := 0 ]
-, [ mimetype := "application/javascript", extensions := "js", parsetype := 0 ]
+, [ mimetype := "application/javascript", extensions := "js mjs", parsetype := 0 ]
 , [ mimetype := "application/json", extensions := "json map", parsetype := 0 ]
 , [ mimetype := "application/lost+xml", extensions := "lostxml", parsetype := 0 ]
 , [ mimetype := "application/mac-binhex40", extensions := "hqx", parsetype := 0 ]
