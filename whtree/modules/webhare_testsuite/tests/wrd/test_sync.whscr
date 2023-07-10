@@ -27,11 +27,9 @@ MACRO PrintStatusLine(STRING line)
   PRINT(`${line}${diff > 0 ? RepeatText(" ", diff) : ""}\r`);
 }
 
-STRING syncmode;
-
 RECORD FUNCTION RunSync(OBJECT synctarget, OBJECT peer, STRING remotetag, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  OBJECT itr := SyncFromExternalSchema(synctarget, peer, remotetag, CELL[ syncmode, ...options ]);
+  OBJECT itr := SyncFromExternalSchema(synctarget, peer, remotetag, options);
   RECORD rec;
   WHILE (TRUE)
   {
@@ -54,9 +52,8 @@ RECORD FUNCTION RunSync(OBJECT synctarget, OBJECT peer, STRING remotetag, RECORD
 
 OBJECT syncpeer;
 
-MACRO PrepareSchemaContent(STRING mode)
+MACRO PrepareSchemaContent()
 {
-  syncmode := mode;
   OBJECT paymentapi := GetWRDTestPaymentAPI();
 
   testfw->BeginWork();
@@ -404,16 +401,9 @@ MACRO TestLocalBlobUsage()
   TestEQ(DEFAULT RECORD, entity->FilterFieldUpdates(syncedfields));
 }
 
-RECORD args := ParseArguments(GetConsoleArguments(),
-    [ [ name := "mode", type := "param" ]
-    ]);
-
-IF (args.mode NOT IN [ "batch", "incremental", "" ])
-  TerminateScriptWithError(`Unknown mode ${args.mode}`);
-
 RunTestframework(
     [ PTR CreateWRDTestSchema
-    , PTR PrepareSchemaContent(args.mode ?? "batch")
+    , PTR PrepareSchemaContent
     , PTR TestSync
     , PTR TestRenamedTypeBreaks
     , PTR TestCopyTo
