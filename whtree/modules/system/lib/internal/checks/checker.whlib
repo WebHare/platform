@@ -58,7 +58,7 @@ PUBLIC RECORD FUNCTION GetWHVersionInfo()
 RECORD ARRAY FUNCTION RunDevelopmentChecks()
 {
   RECORD ARRAY node_issues := SELECT msg := `:Node module issue in WebHare Platform: ${error}`
-                                FROM CheckNodeModulesInModule(GetWebhareConfiguration().installationroot);
+                                FROM CheckNodeModulesInModule(GetWebHareConfiguration().installationroot, [ skipmodtimecheck := TRUE ]);
   FOREVERY (STRING module FROM __SYSTEM_GetInstalledModuleNames())
   {
     STRING path := GetModuleInstallationRoot(module);
