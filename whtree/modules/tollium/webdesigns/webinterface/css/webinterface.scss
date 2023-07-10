@@ -12,14 +12,19 @@ html
 
 body
 {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: [desktop] 1fr [tools] 0;
+  grid-template-rows: [banner] min-content [topbar] 12px [desktop] 1fr [footerbar] 12px;
+
   min-height: 100vh;
 }
 
 // "Restore info" etc banner. Only in the DOM if set
 .wh-backend__banner
 {
+  grid-column: desktop / -1;
+  grid-row: banner;
+
   background-color: #fefedd;
   padding: 5px;
   text-align: center;
@@ -28,7 +33,9 @@ body
 // Top bar, also trigger for debug mode
 .wh-backend__topbar
 {
-  flex: 0 0 12px;
+  grid-column: desktop / -1;
+  grid-row: topbar;
+
   background-color: #000000;
   transition: background-color 300ms;
 
@@ -41,12 +48,15 @@ body
 
 .wh-backend__bottombar
 {
-  flex: 0 0 12px;
+  grid-column: desktop / -1;
+  grid-row: footerbar;
+
   background-color: #000000;
 }
 .wh-backend__main
 {
-  flex: 1 0 0;
+  grid-column: desktop;
+  grid-row: desktop;
 }
 
 .hserror__body

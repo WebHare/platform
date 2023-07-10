@@ -1,41 +1,47 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:p="http://www.webhare.net/xmlns/publisher/components"
-         lib="screens/commondialogs/siteprops.whlib"
-         gid="commondialogs">
+         gid="commondialogs"
+         library="/lib/screens/commondialogs/siteprops.whlib">
 
-  <screen name="siteprops" gid=".siteprops" allowresize="true" savestate="size" minwidth="70x" width="100x" height="40x" flags="ispinned">
+  <screen name="siteprops"
+          width="100x"
+          height="40x"
+          minwidth="70x"
+          allowresize="true"
+          flags="ispinned"
+          footerbuttons="ok cancel"
+          gid=".siteprops"
+          savestate="size">
     <compositions>
       <p:whfsinstance name="sitesettings" typedef="http://www.webhare.net/xmlns/publisher/sitesettings" />
     </compositions>
-    <body layout="form" height="1pr" spacers="none">
+
+    <body height="1pr" layout="form" spacers="none">
       <tabs name="maintabs" height="1pr">
         <tab tid=".sitesettingstab">
-          <textedit name="name" tid="~name" required="true" width="1pr" maxlength="256" validationchecks="whfsname" />
-          <textarea composition="sitesettings" cellname="comments" tid="~comments" width="1pr" height="4gr" maxlength="4096" />
+          <textedit name="name" width="1pr" maxlength="256" required="true" tid="~name" validationchecks="whfsname" />
+          <textarea composition="sitesettings" cellname="comments" width="1pr" height="4gr" maxlength="4096" tid="~comments" />
           <heading tid=".output" />
-          <select name="outputweb" type="pulldown" rowkeytype="integer" onchange="OutputWebSelected" />
-          <combobox name="outputfolder" value="/" maxlength="256" width="1pr" />
-          <textedit name="cdnbaseurl" validationchecks="http-url" maxlength="1024" width="1pr" />
-          <textedit composition="sitesettings" cellname="productionurl" width="1pr" validationchecks="http-url"/>
+          <select name="outputweb" type="pulldown" onchange="OutputWebSelected" rowkeytype="integer" />
+          <combobox name="outputfolder" width="1pr" maxlength="256" value="/" />
+          <textedit name="cdnbaseurl" width="1pr" maxlength="1024" validationchecks="http-url" />
+          <textedit composition="sitesettings" cellname="productionurl" width="1pr" validationchecks="http-url" />
           <heading name="locksite" checkbox="true" enablecomponents="lockreason" />
           <line layout="left">
-            <textarea name="lockreason" title="" height="2x" width="1pr" maxlength="1024"/>
+            <textarea name="lockreason" width="1pr" height="2x" maxlength="1024" title="" />
           </line>
         </tab>
         <tab tid=".sitedesigntab">
           <heading tid=".sitedesignbox" />
           <select name="sitedesign" type="pulldown" onchange="onsitedesignchange" />
           <heading tid=".webfeatures" />
-          <list name="webfeatures" emptytid=".nowebfeatures" width="1pr" height="1pr" rowkeytype="string">
+          <list name="webfeatures" width="1pr" height="1pr" emptytid=".nowebfeatures" rowkeytype="string">
             <column name="feature" type="text" checkboxname="featurechecked" />
             <column name="module" type="text" />
           </list>
         </tab>
       </tabs>
     </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
   </screen>
 
 </screens>

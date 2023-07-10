@@ -16,7 +16,8 @@ let urlgencounter = 0;
  *  COMPONENT BASE                                                                                                          *
  *                                                                                                                          *
  ****************************************************************************************************************************/
-class ToddCompBase {
+export class ToddCompBase {
+  name: string;
 
   /****************************************************************************************************************************
   * Initialization
@@ -890,7 +891,7 @@ export function distributeSizes(available, sizeobjs, horizontal, leftoverobj, op
   return remaining;
 }
 
-class ActionableComponent extends ToddCompBase {
+export class ActionableComponent extends ToddCompBase {
   constructor(parentcomp, data, replacingcomp) {
     super(parentcomp, data, replacingcomp);
   }
@@ -924,8 +925,3 @@ class ActionableComponent extends ToddCompBase {
     this.onActionUpdated();
   }
 }
-
-export {
-  ToddCompBase
-  , ActionableComponent
-};

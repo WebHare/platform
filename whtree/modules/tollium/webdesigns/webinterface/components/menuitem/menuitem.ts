@@ -92,6 +92,7 @@ export default class ObjMenuItem extends ComponentBase {
     const enabled = this.isEnabled();
     const node = dompack.create('li', {
       textContent: this.title,
+      propTodd: this,
       dataset: {
         menuitem: this.name //TODO this should go away? frame.es used it to dispatch the click event...  but tests stil rely on it!...
       },

@@ -57,6 +57,7 @@ export class ApplicationBase {
   // Initialization
   //
   busylocks: ApplicationBusyLock[] = [];
+  apptarget;
 
   constructor(shell, appname, apptarget, parentapp, options) {
     this.container = null;
