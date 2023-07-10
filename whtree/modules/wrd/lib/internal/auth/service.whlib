@@ -2,9 +2,14 @@
 
 LOADLIB "wh::internet/urls.whlib";
 
+LOADLIB "mod::publisher/lib/siteprofiles.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 
+LOADLIB "mod::tollium/webdesigns/webinterface/pages/applicationportal/applicationportal.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
 
 
@@ -105,4 +110,27 @@ PUBLIC RECORD FUNCTION RPC_StartLogin(STRING type, STRING tag, STRING url, RECOR
   // Remove wrdauth_returned variable from url we return to, it isn't reset in the return path
   STRING redirectto := DeleteVariableFromURL(url, "wrdauth_returned");
   RETURN wrdauthplugin->GenerateLoginRequest(type, tag, redirectto, PickCells(options, [ "action", "passive", "forcelogin", "allowlogout" ]));
+}
+
+PUBLIC RECORD FUNCTION RPC_StartLogin2(STRING pathname, STRING methodtag, RECORD options) //new version with a more direct API to support frontends too
+{
+  STRING url := GetWebOriginURL(pathname);
+  STRING cacheurl := Tokenize(Tokenize(url,'?')[0],'#')[0];
+  OBJECT webcontext := GetWebContextForURL(cacheurl, [ clientwebserver := GetClientWebserver() ] );
+  OBJECT wrdauthplugin := webcontext->GetWRDAuthPlugin();
+  RECORD appportalsettings := GetAdhocCached(CELL[ applicationportalconfig := cacheurl ], PTR GetCacheableApplicationPortalConfigForApplyTester(webcontext->targetapplytester));
+
+  RECORD method := SELECT * FROM appportalsettings.loginmethods WHERE tag = VAR methodtag;
+  IF(NOT RecordExists(method))
+    THROW NEW Exception(`No such method '${methodtag}' defined`);
+
+  IF(method.type NOT IN ["saml","oidc"])
+    THROW NEW Exception(`Method of type '${method.type}' is not supported`);
+
+  // Remove wrdauth_returned variable from url we return to, it isn't reset in the return path
+  STRING redirectto := DeleteVariableFromURL(url, "wrdauth_returned");
+  RECORD loginoptions := CELL[ ...PickCells(options, [ "action", "passive", "forcelogin" ])
+                             , allowlogout := method.allowlogout
+                             ];
+  RETURN wrdauthplugin->GenerateLoginRequest(method.type, method.tag, redirectto, loginoptions);
 }
