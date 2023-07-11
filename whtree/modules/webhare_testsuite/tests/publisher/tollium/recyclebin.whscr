@@ -171,6 +171,24 @@ OBJECT ASYNC FUNCTION TestRecycleBin()
   TestEq(0, Length(rows), "List did not update to reflect undeleted item");
 */
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  testfw->BeginWork();
+  OBJECT rootdeletetest := OpenWHFSRootObject()->EnsureFile( [ name := "filemanager-root-recycletest.dat" ]);
+  rootdeletetest->RecycleSelf();
+  testfw->CommitWork();
+
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ calltype := "direct", params := ["Trash"] ]));
+  rows := TT("filelist")->rows;
+
+  TestEq(["filemanager-root-recycletest.dat"], (SELECT AS STRING ARRAY name FROM rows WHERE name LIKE "*.dat" ORDER BY name), "List did not update to reflect undeleted item");
+  TT("filelist")->selection := SELECT * FROM TT("filelist")->rows WHERE name = "filemanager-root-recycletest.dat";
+  TT("frame")->focused := TT("filelist");
+  AWAIT ExpectAndAnswerMessageBox("ok", PTR TTClick("restore"), [ messagemask := "Restored item to /" ]);
+
+  TestEq(TRUE, ObjectExists(OpenWHFSRootObject()->OpenByPath("filemanager-root-recycletest.dat")));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
   RETURN TRUE;
 }
 

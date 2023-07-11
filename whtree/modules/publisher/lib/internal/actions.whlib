@@ -672,12 +672,11 @@ PUBLIC RECORD FUNCTION RestoreWHFSObjects(INTEGER ARRAY objids)
                               AND fs_history.type=0
                               AND fs_objects.isactive = FALSE
                               AND fs_objects.id IN objids
-                     GROUP BY currentparent
-                       HAVING currentparent != 0;
+                     GROUP BY currentparent;
 
   FOREVERY(RECORD objgroup FROM objs)
   {
-    OBJECT dest := OpenWHFSObject(objgroup.currentparent);
+    OBJECT dest := objgroup.currentparent != 0 ? OpenWHFSObject(objgroup.currentparent) : OpenWHFSRootObject();
     IF(IsRecycleOrHistoryWHFSPath(dest->whfspath))
     {
       retval.restoringtodeletedfolder := retval.restoringtodeletedfolder CONCAT SELECT AS INTEGER ARRAY id FROM objgroup.torestore;
