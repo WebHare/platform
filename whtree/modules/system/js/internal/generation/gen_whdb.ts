@@ -79,7 +79,7 @@ function formatDocumentation(node: Element, indent: string): string {
 }
 
 
-function generateKyselyDefs(modulename: string, modules: string[]): string {
+export function generateKyselyDefs(modulename: string, modules: string[]): string {
   const interfacename = modulename === "webhare" ? "WebHareDB" : `${generateTableTypeName(modulename)}DB`;
   const kyselyimportlib = modulename === "webhare" ? "kysely" : "wh:internal/whtree/node_modules/kysely";
   let tabledefs = "";
@@ -107,6 +107,7 @@ function generateKyselyDefs(modulename: string, modules: string[]): string {
         for (const col of Array.from(dbtable.childNodes).filter(elt => elt.nodeType === elt.ELEMENT_NODE) as Element[]) {
           const name = col.getAttribute("name");
           const isprimarykey = name === primarykey;
+          const isInternalColumn = Boolean(col.getAttribute("internalcolumnname"));
           //Read nullable and noupdate settings. These default to true resp. false
           const col_nullable: boolean = ["1", "true"].includes(col.getAttribute("nullable") || "true");
           const col_noupdate: boolean = (["1", "true"].includes(col.getAttribute("noupdate") || "false"));
@@ -173,7 +174,7 @@ function generateKyselyDefs(modulename: string, modules: string[]): string {
           }
           if (nullable)
             tstype = `${tstype} | null`;
-          if (isprimarykey || col_noupdate)
+          if (isprimarykey || col_noupdate || isInternalColumn)
             tstype = `IsGenerated<${tstype}>`;
 
           if (documentation) {
