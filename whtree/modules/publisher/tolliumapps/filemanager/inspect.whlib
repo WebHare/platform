@@ -404,6 +404,22 @@ PUBLIC RECORD ARRAY FUNCTION UnpackCTYPEToDBInfoRows(OBJECT whfstype, INTEGER cu
                                                , original := subnodes
                                                ] FROM subnodes;
       }
+      CASE 13 //whfsrefarray
+      {
+        val := Detokenize(SELECT AS STRING ARRAY ToString(arrayval) FROM ToRecordArray(cellrec.value,"arrayval") LIMIT 10, ", ");
+        IF(Length(cellrec.value)>10)
+           val := val || "...";
+        val := val || (val != "" ? " " : "") || "(" || Length(cellrec.value) || " items)";
+
+        subnodes := SELECT AS RECORD ARRAY CELL[ ...dbinfo_baserow
+                                               , name     := "#" || #rows
+                                               , rowkey   := basename || cellrec.name || "." || #rows
+                                               , type     := "whfsref"
+                                               , data     := (SELECT AS STRING whfspath FROM system.fs_objects WHERE id = rows.arrayval)
+                                               , listrowclasses := orphanmember ? ["grayedout"] : STRING[]
+                                               , original := rows.arrayval
+                                               ] FROM ToRecordArray(cellrec.value,"arrayval") AS rows;
+      }
       CASE 15 //richdoc
       {
         IF (RecordExists(cellrec.value))

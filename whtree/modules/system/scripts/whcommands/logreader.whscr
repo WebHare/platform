@@ -295,7 +295,7 @@ WHILE(TRUE)
       }
       CASE "debug"
       {
-        lastlines[END-1] := lastlines[END-1] || FormatDateTime("[%H:%M:%S.%Q]", line."@timestamp") || " " || line.groupid || " " || line.source || " " || EncodeJSON(line.data) || "\n";
+        lastlines[END-1] := lastlines[END-1] || FormatDateTime("[%H:%M:%S.%Q]", line."@timestamp") || " " || line.groupid || " " || line.source || " " || (CellExists(line, "data") ? EncodeJSON(line.data) : CellExists(line, "overflow") ? `<Line too long: ${line.overflow} bytes>` : "") || "\n";
 
         IF (filtersources)
         {
