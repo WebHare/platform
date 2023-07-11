@@ -539,7 +539,7 @@ export default class EditorBase {
   }
 
   _constructorTail() {
-    if (this.options.enabled)
+    if (this.options.enabled && !this.options.readonly)
       this.editareaconnect();
 
     this.toolbar = new RTEToolbar(this, this.toolbarnode, this.toolbaropts);
