@@ -45,7 +45,8 @@ export interface WASMModuleInterface {
   getExceptionMessage(ex: unknown): string;
   getValue(ptr: number, type: string): number;
   setValue(ptr: number, value: unknown, type: string): void;
-  addFunction(func: Function, signature: string): number;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  addFunction(func: (...args: any[]) => any, signature: string): number;
   removeFunction(idx: number): void;
 
   // Exports from source
@@ -190,6 +191,7 @@ function parseSignature(line) {
   });
 
   const name = startparts.pop() || "";
+
   let returntype = parseType(startparts);
   if (async_exports.includes(name))
     returntype = `Promise<${returntype}>`;
@@ -197,7 +199,7 @@ function parseSignature(line) {
   return {
     name,
     startparts,
-    returntype: parseType(startparts),
+    returntype,
     params
   };
 }
