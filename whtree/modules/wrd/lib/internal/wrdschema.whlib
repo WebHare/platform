@@ -505,8 +505,13 @@ PUBLIC STATIC OBJECTTYPE WRDSchemaBase
     UPDATE wrd.schemas SET RECORD toset WHERE id = this->id;
     this->__RefreshFromDB();
     this->__SignalMetadataChanged();
+
     IF (CellExists(toset, "name"))
+    {
       GetWRDCommitHandler()->SchemaNameChanged(this->id);
+      ScheduleTimedTask("wrd:scanforissues"); //clear out any associated errors (eg if you rename .bak back to normal name)
+    }
+
     //ADDME schedule a fixusers
   }
 
