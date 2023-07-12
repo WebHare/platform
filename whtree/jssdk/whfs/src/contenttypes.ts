@@ -2,6 +2,8 @@ import { CSPContentType, CSPMember, CSPMemberType, getCachedSiteProfiles } from 
 
 export type MemberType = "string" | "datetime" | "file" | "boolean" | "integer" | "float" | "money" | "whfsref" | "array" | "whfsrefarray" | "stringarray" | "richdocument" | "intextlink" | "instance" | "url" | "composeddocument" | "record" | "formcondition";
 export type ContentTypeKinds = "contenttype" | "filetype" | "foldertype";
+export const unknownfiletype = "http://www.webhare.net/xmlns/publisher/unknownfile";
+export const normalfoldertype = "http://www.webhare.net/xmlns/publisher/normalfolder";
 
 //positioned list to convert database ids:
 const membertypenames: Array<MemberType | null> =
@@ -33,7 +35,8 @@ export interface FileTypeInfo extends ContentTypeInfo {
 export interface FolderTypeInfo extends ContentTypeInfo {
   kind: "foldertype";
 }
-function getType(typens: string | number, kind?: "filetype" | "foldertype"): CSPContentType | undefined {
+
+export function getType(typens: string | number, kind?: "filetype" | "foldertype"): CSPContentType | undefined {
   const types = getCachedSiteProfiles().contenttypes;
   if (typeof typens === "string")
     return types.find(_ => _.namespace === typens);
@@ -42,7 +45,7 @@ function getType(typens: string | number, kind?: "filetype" | "foldertype"): CSP
     if (!kind)
       return undefined;
 
-    const fallbackns = kind === "filetype" ? "http://www.webhare.net/xmlns/publisher/unknownfile" : "http://www.webhare.net/xmlns/publisher/normalfolder";
+    const fallbackns = kind === "filetype" ? unknownfiletype : normalfoldertype;
     return types.find(_ => _.namespace === fallbackns);
   }
 
@@ -90,7 +93,7 @@ export function describeContentType(typens: string | number, options?: { allowMi
     if (!options?.kind || !['filetype', 'foldertype'].includes(options?.kind))
       return null;
 
-    const fallbackns = options.kind === "filetype" ? "http://www.webhare.net/xmlns/publisher/unknownfile" : "http://www.webhare.net/xmlns/publisher/normalfolder";
+    const fallbackns = options.kind === "filetype" ? unknownfiletype : normalfoldertype;
     const fallbacktype = describeContentType(fallbackns);
     const usenamespace = typeof typens === "string" ? typens : "#" + typens;
     return {

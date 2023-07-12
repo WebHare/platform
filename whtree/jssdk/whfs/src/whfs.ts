@@ -1,8 +1,11 @@
-import { db, sql, Selectable, WHDBBlob } from "@webhare/whdb";
+import { db, sql, Selectable, WHDBBlob, Updateable } from "@webhare/whdb";
 import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { RichBlob } from "@webhare/services/src/richblob";
-import { FileTypeInfo, describeContentType } from "./contenttypes";
+import { getType, FileTypeInfo, describeContentType, unknownfiletype, normalfoldertype } from "./contenttypes";
+import { defaultDateTime } from "@webhare/hscompat/datetime";
+import { CSPContentType } from "./siteprofiles";
 export { describeContentType } from "./contenttypes";
+export { Tag, TagManager, openTagManager } from "./tagmanager";
 
 /// Adds the custom generated columns
 interface FsObjectRow extends Selectable<WebHareDB, "system.fs_objects"> {
@@ -17,23 +20,25 @@ interface SiteRow extends Selectable<WebHareDB, "system.sites"> {
   webroot: string;
 }
 
-class WHFSObject {
-  protected readonly dbrecord: FsObjectRow;
+export interface CreateFSObjectMetadata {
+  type?: string;
+  title?: string;
+  description?: string;
+  ispinned?: boolean;
+}
 
-  constructor(dbrecord: FsObjectRow) {
-    this.dbrecord = dbrecord;
-  }
+export interface CreateFileMetadata extends CreateFSObjectMetadata {
+  keywords?: string;
+}
 
-  get id() { return this.dbrecord.id; }
-  get name() { return this.dbrecord.name; }
-  get title() { return this.dbrecord.title; }
-  get parent() { return this.dbrecord.parent; }
-  get isfile() { return !this.dbrecord.isfolder; }
-  get isfolder() { return !this.dbrecord.isfolder; }
-  get link() { return this.dbrecord.link; }
-  get fullpath() { return this.dbrecord.fullpath; }
-  get whfspath() { return this.dbrecord.whfspath; }
-  get parentsite() { return this.dbrecord.parentsite; }
+export type CreateFolderMetadata = CreateFSObjectMetadata;
+
+export interface UpdateFileMetadata extends CreateFileMetadata {
+  name?: string;
+}
+
+export interface UpdateFolderMetadata extends CreateFolderMetadata {
+  name?: string;
 }
 
 function isNotExcluded<T extends string, K extends string>(t: T, excludes: K[]): t is Exclude<T, K> {
@@ -54,6 +59,49 @@ class WHFSRichBlob extends RichBlob {
   }
 }
 
+class WHFSObject {
+  protected readonly dbrecord: FsObjectRow;
+
+  constructor(dbrecord: FsObjectRow) {
+    this.dbrecord = dbrecord;
+  }
+
+  get id() { return this.dbrecord.id; }
+  get name() { return this.dbrecord.name; }
+  get title() { return this.dbrecord.title; }
+  get parent() { return this.dbrecord.parent; }
+  get isfile() { return !this.dbrecord.isfolder; }
+  get isfolder() { return !this.dbrecord.isfolder; }
+  get link() { return this.dbrecord.link; }
+  get fullpath() { return this.dbrecord.fullpath; }
+  get whfspath() { return this.dbrecord.whfspath; }
+  get parentsite() { return this.dbrecord.parentsite; }
+
+  async delete(): Promise<void> {
+    //TODO implement side effects that the HS variants do
+    await db<WebHareDB>().deleteFrom("system.fs_objects").where("id", "=", this.id).execute();
+  }
+
+  protected async _doUpdate(metadata: UpdateFileMetadata | UpdateFolderMetadata) {
+    let storedata: Updateable<WebHareDB, "system.fs_objects">;
+    if (metadata.type) {
+      const type = getType(metadata.type, this.isfile ? "filetype" : "foldertype");
+      if (!type)
+        throw new Error(`No such type: ${metadata.type}`);
+
+      storedata = { ...metadata, type: metadata.type || null } as Updateable<WebHareDB, "system.fs_objects">; //#0 can't be stored so convert to null
+    } else {
+      storedata = metadata as Updateable<WebHareDB, "system.fs_objects">;
+    }
+
+    await db<WebHareDB>()
+      .updateTable("system.fs_objects")
+      .where("parent", "=", this.id)
+      .set(storedata)
+      .executeTakeFirstOrThrow();
+  }
+}
+
 class WHFSFile extends WHFSObject {
   constructor(dbrecord: FsObjectRow) {
     super(dbrecord);
@@ -63,6 +111,9 @@ class WHFSFile extends WHFSObject {
   }
   get type(): FileTypeInfo {
     return describeContentType(this.dbrecord.type || 0, { allowMissing: true, kind: "filetype" });
+  }
+  async update(metadata: UpdateFileMetadata) {
+    this._doUpdate(metadata);
   }
 }
 
@@ -94,6 +145,75 @@ class WHFSFolder extends WHFSObject {
        comparision with retval's current type, with `Type instantiation is excessively deep and possibly infinite. (ts2589)`
     */
     return retval as unknown as Array<Pick<FsObjectRow, K | "id" | "name" | "isfolder">>;
+  }
+
+  async update(metadata: UpdateFolderMetadata) {
+    this._doUpdate(metadata);
+  }
+
+  private async doCreate(name: string, type: CSPContentType, metadata: CreateFileMetadata | CreateFolderMetadata) {
+    const creationdate = new Date();
+    const retval = await db<WebHareDB>()
+      .insertInto("system.fs_objects")
+      .values({
+        creationdate: creationdate,
+        modificationdate: creationdate,
+        parent: this.id,
+        name,
+        title: metadata.title || "",
+        description: metadata.description || "",
+        errordata: "",
+        externallink: "",
+        isfolder: Boolean(type.foldertype),
+        keywords: type.foldertype ? "" : (metadata as CreateFileMetadata).keywords || "",
+        firstpublishdate: defaultDateTime,
+        lastpublishdate: defaultDateTime,
+        lastpublishsize: 0,
+        lastpublishtime: 0,
+        scandata: "",
+        ordering: 0,
+        published: 0,
+        type: type.id || null, //#0 can't be stored so convert to null
+        ispinned: metadata.ispinned || false
+      }).returning(['id']).executeTakeFirstOrThrow();
+
+    return retval.id;
+  }
+
+  async createFile(name: string, metadata: CreateFileMetadata): Promise<WHFSFile> {
+    const type = getType(metadata.type ?? unknownfiletype, "filetype");
+    if (!type || !type.filetype)
+      throw new Error(`No such filetype: ${metadata.type}`);
+
+    return await openFile((await this.doCreate(name, type, metadata)));
+  }
+
+  async ensureFile(name: string, requiredmetadata?: UpdateFileMetadata, options?: { ifNew: UpdateFileMetadata }): Promise<WHFSFile> {
+    let existingfile = await this.openFile(name, { allowMissing: true });
+    if (!existingfile)
+      existingfile = await this.createFile(name, { ...requiredmetadata, ...options?.ifNew });
+
+    if (requiredmetadata)
+      await existingfile.update(requiredmetadata);
+    return existingfile;
+  }
+
+  async createFolder(name: string, metadata: CreateFolderMetadata): Promise<WHFSFolder> {
+    const type = getType(metadata.type ?? normalfoldertype, "foldertype");
+    if (!type || !type.foldertype)
+      throw new Error(`No such foldertype: ${metadata.type}`);
+
+    return await openFolder((await this.doCreate(name, type, metadata)));
+  }
+
+  async ensureFolder(name: string, requiredmetadata?: UpdateFolderMetadata, options?: { ifNew: UpdateFolderMetadata }): Promise<WHFSFolder> {
+    let existingfolder = await this.openFolder(name, { allowMissing: true });
+    if (!existingfolder)
+      existingfolder = await this.createFolder(name, { ...requiredmetadata, ...options?.ifNew });
+
+    if (requiredmetadata)
+      await existingfolder.update(requiredmetadata);
+    return existingfolder;
   }
 
   async openFile(path: string, options: { allowMissing: true }): Promise<WHFSFile | null>;

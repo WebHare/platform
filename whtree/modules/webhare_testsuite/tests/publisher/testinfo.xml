@@ -11,6 +11,7 @@
   <test script="recyclebin.whscr"/>
   <test script="test-lifecycle.whscr"/>
   <test script="tagmanager.whscr"/>
+  <test script="test_globaltags.ts"/>
   <test script="ordering.whscr"/>
   <test script="newrights.whscr"/>
   <test script="actions-folderindex.whscr"/>

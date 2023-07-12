@@ -1,4 +1,5 @@
 import * as test from "@webhare/test";
+import * as whdb from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 
@@ -62,6 +63,29 @@ async function testWHFS() {
   const wittytestfile = await testpagesfolder.openFile("wittytest.witty");
   test.eq(11, await wittytestfile.data.size);
   test.eq(`[wittytest]`, await wittytestfile.data.text());
+
+  const tmpfolder = await testsite.openFolder("tmp");
+
+  await whdb.beginWork();
+  const newfile = await tmpfolder.createFile("testfile", { type: "http://www.webhare.net/xmlns/publisher/markdownfile", title: "My MD File" });
+  const newfile2 = await tmpfolder.openFile("testfile");
+  test.eq(newfile.id, newfile2.id);
+  test.eq("testfile", newfile.name);
+  test.eq("My MD File", newfile.title);
+
+  await newfile.delete();
+  test.eq(null, await tmpfolder.openFile("testfile", { allowMissing: true }));
+
+  const ensuredfolder = await tmpfolder.ensureFolder("sub1");
+  test.eq("sub1", ensuredfolder.name);
+  const ensuredfolder2 = await tmpfolder.ensureFolder("sub1");
+  test.eq(ensuredfolder.id, ensuredfolder2.id);
+
+  const ensuredfile = await tmpfolder.ensureFile("file1");
+  const ensuredfile2 = await tmpfolder.ensureFile("file1");
+  test.eq(ensuredfile.id, ensuredfile2.id);
+
+  await whdb.commitWork();
 }
 
 async function testSiteProfiles() {
