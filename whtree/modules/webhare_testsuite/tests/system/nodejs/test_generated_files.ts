@@ -2,7 +2,12 @@ import * as test from "@webhare/test";
 import * as fs from "fs";
 import { config } from "@mod-system/js/internal/configuration";
 import { openHSVM, HSVM, HSVMObject } from "@webhare/services/src/hsvm";
+import { generateKyselyDefs } from "@mod-system/js/internal/generation/gen_whdb";
 
+async function testBasics() {
+  const result = generateKyselyDefs("system", ["system"]);
+  test.eqMatch(/fullpath: IsGenerated<string>/, result, "fullpath & co must be marked as IsGenerated as you can't insert them");
+}
 
 async function createModule(hsvm: HSVM, name: string, files: Record<string, string>) {
   const archive = await hsvm.loadlib("mod::system/whlibs/filetypes/archiving.whlib").CreateNewArchive("application/zip") as HSVMObject;
@@ -153,4 +158,7 @@ export async function getUsers(req: RestRequest): Promise<WebResponse> {
   await test.wait(() => !fs.statSync(file_openapi, { throwIfNoEntry: false }));
 }
 
-test.run([testModule,]);
+test.run([
+  testBasics,
+  testModule
+]);

@@ -323,7 +323,7 @@ RECORD ARRAY seenentries;
 RECORD ARRAY FUNCTION GetNewAccountingLogEntries()
 {
   RECORD ARRAY allentries := ReadJSONLogLines("system:accounting", testfw->starttime);
-  RECORD ARRAY newentries := SELECT * FROM allentries WHERE allentries."@timestamp" NOT IN (SELECT AS STRING ARRAY seenentries."@timestamp" FROM seenentries);
+  RECORD ARRAY newentries := SELECT * FROM allentries WHERE allentries."@timestamp" NOT IN (SELECT AS DATETIME ARRAY seenentries."@timestamp" FROM seenentries);
   seenentries := seenentries CONCAT newentries;
   RETURN newentries;
 }

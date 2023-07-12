@@ -310,8 +310,8 @@ export async function openFile(path: number | string, options?: { allowMissing: 
   return openWHFSObject(0, path, true, options?.allowMissing ?? false, "");
 }
 
-export async function openFolder(path: number | string, options?: { allowMissing: boolean }): Promise<WHFSFolder>;
 export async function openFolder(path: number | string, options: { allowMissing: true }): Promise<WHFSFolder | null>;
+export async function openFolder(path: number | string, options?: { allowMissing: boolean }): Promise<WHFSFolder>;
 
 /** Open a folder */
 export async function openFolder(path: number | string, options?: { allowMissing: boolean }) {

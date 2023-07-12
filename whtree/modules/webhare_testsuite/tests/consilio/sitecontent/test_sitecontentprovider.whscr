@@ -63,7 +63,7 @@ MACRO ConsilioTest()
 
   testfw->WaitForPublishCompletion(siteroot->id);
   catalog_1->WaitReady(MAX_DATETIME);
-  WHILE(RunConsilioSearch("consilio:testfw_frontend_1", CQAll(), [refresh := TRUE ]).totalcount < 5)
+  WHILE(RunConsilioSearch("consilio:testfw_frontend_1", CQAll(), [refresh := TRUE, debug := TRUE ]).totalcount < 5)
     Sleep(50);
   Print(`.. consilio:testfw_frontend_1 reached expected length >= 5\n`);
 
@@ -139,7 +139,7 @@ MACRO ConsilioTest()
   file_4->RecycleSelf();
   testfw->CommitWork();
 
-  WHILE(RunConsilioSearch("consilio:testfw_frontend_1", CQAll(), [refresh := TRUE ]).totalcount != 4)
+  WHILE(RunConsilioSearch("consilio:testfw_frontend_1", CQAll(), [refresh := TRUE, debug := TRUE ]).totalcount != 4)
     Sleep(50);
   Print(`.. consilio:testfw_frontend_1 reached expected length 4 (after recycleself)\n`);
 
