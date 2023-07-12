@@ -1690,6 +1690,15 @@
             </xs:attribute>
           </xs:complexType>
         </xs:element>
+        <xs:element name="tagset" minOccurs="0" maxOccurs="unbounded">
+          <xs:complexType>
+            <xs:attribute name="name" use="required">
+              <xs:annotation>
+                <xs:documentation>Tag set name</xs:documentation>
+              </xs:annotation>
+            </xs:attribute>
+          </xs:complexType>
+        </xs:element>
       </xs:choice>
     </xs:sequence>
   </xs:complexType>

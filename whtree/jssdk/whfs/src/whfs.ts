@@ -5,6 +5,7 @@ import { getType, FileTypeInfo, describeContentType, unknownfiletype, normalfold
 import { defaultDateTime } from "@webhare/hscompat/datetime";
 import { CSPContentType } from "./siteprofiles";
 export { describeContentType } from "./contenttypes";
+export { Tag, TagManager, openTagManager } from "./tagmanager";
 
 /// Adds the custom generated columns
 interface FsObjectRow extends Selectable<WebHareDB, "system.fs_objects"> {

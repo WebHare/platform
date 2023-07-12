@@ -418,6 +418,8 @@
     <webdesign name="basetestjs" title="BasetestJS" siteprofile="webdesigns/basetestjs/basetestjs.siteprl.xml">
       <assetpack entrypoint="webdesigns/basetestjs/frontend/frontend" supportedlanguages="en nl ps" />
     </webdesign>
+
+    <tagset name="testtags" />
   </publisher>
 
   <consilio>
