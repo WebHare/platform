@@ -1,0 +1,13 @@
+<?wh
+LOADLIB "mod::system/lib/tasks.whlib";
+
+PUBLIC VARIANT FUNCTION DecodeYAML(STRING input, RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  options := ValidateOptions([ wrapobjects := FALSE ], options);
+
+  VARIANT result := WaitForPromise(CallAsync("@mod-system/js/internal/validation/yaml.ts#decodeYAML", VARIANT [input, [ json := options.wrapobjects ]]));
+  IF(options.wrapobjects)
+    RETURN DecodeJSON(result, DEFAULT RECORD, [ wrapobjects := TRUE ]);
+  ELSE
+    RETURN result;
+}

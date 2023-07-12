@@ -1,0 +1,43 @@
+<?wh
+LOADLIB "wh::filetypes/yaml.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+STRING testfile1 := `---
+- yaml: "I'm just a test"
+  bool: true
+  notABool: yes
+  jsonObject: { xYz: 42 }
+  someAreBools:
+  - yes
+  - y
+  - true
+  - on`;
+
+STRING brokenfile1 := `---
+}{`;
+
+PUBLIC MACRO TestYamlParser()
+{
+  VARIANT decode := DecodeYAML(testfile1);
+  TestEq([ yaml := "I'm just a test"
+         , bool := TRUE
+         , notabool := "yes"
+         , somearebools := VARIANT["yes","y",TRUE,"on"]
+         , jsonobject := [ xyz := 42 ]
+         ], decode[0]);
+
+  decode := DecodeYAML(testfile1, [ wrapobjects := TRUE ])->GetElt(0);
+  TestEq("I'm just a test", decode->GetProp("yaml"));
+  TestEq(TRUE, decode->GetProp("bool"));
+  TestEq("yes", decode->GetProp("notABool"));
+  TestEq(42, decode->GetProp("jsonObject")->GetProp("xYz"));
+  TestEq(["bool","jsonObject","notABool","someAreBools","yaml"], GetSortedSet(decode->GetKeys()));
+  TestEq(["xYz"], GetSortedSet(decode->GetProp("jsonObject")->GetKeys()));
+
+  //TODO nicer parseable errors, but for now any exception will suffice
+  TestThrowsLike("Unexpected*", PTR DecodeYAML(brokenfile1));
+}
+
+TestYamlParser();
