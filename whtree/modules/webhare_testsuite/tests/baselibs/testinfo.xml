@@ -2,4 +2,5 @@
   <test name="hsengine"   path="hsengine/" />
 
   <test script="test_markdown.whscr" />
+  <test script="test_yaml.whscr" />
 </group>
