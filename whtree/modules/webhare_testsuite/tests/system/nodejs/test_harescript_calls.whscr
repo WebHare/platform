@@ -1,0 +1,14 @@
+<?wh
+LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::javascript.whlib";
+
+OBJECT std := ImportJs("@webhare/std");
+//TestEqLike("????????-????-????-????-????????????", std->GenerateRandomId("uuidv4"));
+
+OBJECT imp := ImportJs(Resolve("data/calls.ts"));
+TestEq(imp, ImportJs(Resolve("data/calls.ts")), "should simply be the same object so callers don't have to bother centrally keeping refs");
+TestEq(42, imp->test42(), "Expect async functions to be automatically awaited (until we can return promises?)");
+
+STRING randomonce := imp->getOnceRandom();
+STRING randomtwice := imp->getOnceRandom();
+TestEq(randomonce, randomtwice, "Should be equal as we expect ImportJS to cache loaded lib instances");
