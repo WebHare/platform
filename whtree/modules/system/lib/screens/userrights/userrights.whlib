@@ -15,7 +15,7 @@ LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::wrd/lib/dialogs.whlib";
-LOADLIB "mod::wrd/lib/internal/auth/exchange.whlib";
+LOADLIB "mod::system/lib/internal/userrights/exports.whlib";
 
 PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 < // ---------------------------------------------------------------------------
