@@ -64,8 +64,7 @@ STRING FUNCTION GetGrantor(RECORD ARRAY allobjs, RECORD grant, RECORD grantordat
   RETURN "#" || grant.grantor;
 }
 
-//NOTE: userapi should now only be enabled for schemas depending on usermgmt
-PUBLIC RECORD ARRAY FUNCTION ListRightsAndRolesForExport(OBJECT userapi)
+PUBLIC RECORD ARRAY FUNCTION EnrichWithGrantorAndGrantee(OBJECT userapi, RECORD ARRAY rightslist)
 {
   RECORD ARRAY allusers :=
       SELECT *
@@ -91,15 +90,6 @@ PUBLIC RECORD ARRAY FUNCTION ListRightsAndRolesForExport(OBJECT userapi)
             ])
     ORDER BY wrd_guid;
 
-/*
-TEMPORARY up := RecordLowerBound(allusers, authobjects, [ "GUID" ])
-                               , realname :=  up.found ? allusers[up.position].realname : "<other schema>"
-                               , email :=     up.found ? allusers[up.position].email : "<other schema>"
-                               ,
-                               , otherschema := NOT up.found
-
-*/
-
   RECORD ARRAY allobjs := SELECT authobjects.id
                                , authobjects.name
                                , authobjects.guid
@@ -109,7 +99,33 @@ TEMPORARY up := RecordLowerBound(allusers, authobjects, [ "GUID" ])
                            WHERE units.id = authobjects.parent
                         ORDER BY authobjects.id;
 
-  //DELETE FROM allobjs WHERE otherschema;
+  RECORD ARRAY finallist;
+  FOREVERY(RECORD grant FROM rightslist)
+  {
+    RECORD granteerec := GetGrantee(allusers, allroles, allobjs, grant.grantee);
+    IF(NOT RecordExists(granteerec))
+      CONTINUE;
+
+    STRING grantor := GetGrantor(allobjs, grant, grant.grantordata);
+
+    INSERT CELL[...grant, ...granteerec, grantor ] INTO finallist AT END;
+  }
+
+  RETURN finallist;
+}
+
+//NOTE: userapi should now only be enabled for schemas depending on usermgmt
+PUBLIC RECORD ARRAY FUNCTION ListRightsAndRolesForExport(OBJECT userapi)
+{
+  RECORD ARRAY allroleobjs := SELECT authobjects.id
+                                   , authobjects.name
+                                   , authobjects.guid
+                                   , unitid := units.id
+                                   , unitname := units.name
+                                FROM system.authobjects, system.authobjects as units
+                               WHERE units.id = authobjects.parent
+                                     AND authobjects.type = 3 //user role
+                            ORDER BY authobjects.id;
 
   RECORD ARRAY allrights := GetListOfRights();
   GetPrimary()->BeginWork();
@@ -124,10 +140,6 @@ TEMPORARY up := RecordLowerBound(allusers, authobjects, [ "GUID" ])
     RECORD ARRAY grants := GetDirectGrantsForRight(r.rightname);
     FOREVERY(RECORD grant FROM grants)
     {
-      RECORD granteerec := GetGrantee(allusers, allroles, allobjs, grant.grantee);
-      IF(NOT RecordExists(granteerec))
-        CONTINUE;
-
       STRING objecttypename;
       INTEGER objectid;
       STRING ARRAY objectpath;
@@ -143,17 +155,12 @@ TEMPORARY up := RecordLowerBound(allusers, authobjects, [ "GUID" ])
         objectpath := SELECT AS STRING ARRAY name FROM pathrec.path WHERE id != 0;
       }
 
-      INSERT CELL[ type := "GRANT"
-                 , ...granteerec
+      INSERT CELL[ ...grant
+                 , type := "GRANT"
                  , r.rightname
-                 , grant.withgrantoption
                  , objecttypename
                  , objectid
                  , objectpath
-                 , grant.comment
-                 , grant.grantordata
-                 , grant.creationdate
-                 , grantor := GetGrantor(allobjs, grant, grant.grantordata)
                  ] INTO allrows AT END;
     }
   }
@@ -161,28 +168,26 @@ TEMPORARY up := RecordLowerBound(allusers, authobjects, [ "GUID" ])
   //Gather the role grants
   RECORD ARRAY rolegrants := SELECT * FROM system.rolegrants;
   rolegrants := userapi->EnrichRoles("role", rolegrants, [ celltype := "authobjectid" ]); //enrich to kick out roles that don't exist in our userapi view
+  rolegrants := SELECT *, grantordata := grantordata != "" ? DecodeHSON(grantordata) : DEFAULT RECORD FROM rolegrants;
 
   FOREVERY(RECORD grant FROM rolegrants)
   {
-    RECORD granteerec := GetGrantee(allusers, allroles, allobjs, grant.grantee);
-    RECORD roleinfo := GetAuthObjectById(allobjs, grant.role);
-    IF(NOT RecordExists(granteerec) OR NOT RecordExists(roleinfo))
+    RECORD roleinfo := GetAuthObjectById(allroleobjs, grant.role);
+    IF(NOT RecordExists(roleinfo))
       CONTINUE;
 
-    RECORD grantordata := grant.grantordata != "" ? DecodeHSON(grant.grantordata) : DEFAULT RECORD;
-    INSERT CELL[ type := "ROLEGRANT"
-               , ...granteerec
+    INSERT CELL[ ...grant
+               , type := "ROLEGRANT"
                , rightname := ""
                , withgrantoption := FALSE
                , objecttypename := "role"
                , objectid := roleinfo.id
                //FIXME show full role path
                , objectpath := STRING[roleinfo.name]
-               , grant.comment
-               , grantordata
-               , grant.creationdate
-               , grantor := GetGrantor(allobjs, grant, grantordata)
                ] INTO allrows AT END;
   }
+
+  allrows := EnrichWithGrantorAndGrantee(userapi, allrows);
+
   RETURN allrows;
 }
