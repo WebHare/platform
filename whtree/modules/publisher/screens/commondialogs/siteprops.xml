@@ -13,7 +13,8 @@
           gid=".siteprops"
           savestate="size">
     <compositions>
-      <p:whfsinstance name="sitesettings" typedef="http://www.webhare.net/xmlns/publisher/sitesettings" />
+      <p:fsobject name="siteroot" />
+      <p:whfsinstance name="sitesettings" typedef="http://www.webhare.net/xmlns/publisher/sitesettings" fsobject="siteroot" />
     </compositions>
 
     <body height="1pr" layout="form" spacers="none">

@@ -109,20 +109,32 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
       RETURN;
     }
 
+    STRING cursitedesign;
     IF(data.why = "edit")
+    {
       this->cursiteobj := OpenSite(data.fsobj);
+      cursitedesign := this->cursiteobj->webdesign;
+    }
+
+    IF(cursitedesign = "")
+      cursitedesign := "publisher:nodesign";
 
     RECORD ARRAY sitedesigns := SELECT rowkey
                                      , title := GetTid(title)
+                                     , tolliumselected := rowkey = cursitedesign
                                   FROM GetAvailableWebDesigns(FALSE)
-                                 WHERE (ObjectExists(this->cursiteobj) ? rowkey = this->cursiteobj->webdesign : TRUE)
-                                       OR NOT hidden;
+                                 WHERE rowkey = VAR cursitedesign OR NOT hidden;
+
+    //If the design doesn't exist now, just add a row for it
+    IF(NOT RecordExists(SELECT FROM sitedesigns WHERE rowkey = cursitedesign))
+      INSERT [ rowkey := cursitedesign, title := cursitedesign, tolliumselected := TRUE ] INTO sitedesigns AT END;
 
     ^sitedesign->options := ^sitedesign->options
-                                  CONCAT
-                                  SELECT * FROM sitedesigns ORDER BY ToUppercase(title);
+                            CONCAT
+                            SELECT * FROM sitedesigns ORDER BY ToUppercase(title);
 
-    ^sitesettings->Load(data.fsobj);
+    this->RefreshWebFeatures(); //now that sitedesign be selected, update the feature list
+    ^siteroot->Load(data.fsobj);
 
     IF(data.why = "newsite")
     {
@@ -170,15 +182,12 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
       IF (sitesettings.sitedesign != "" AND NOT RecordExists(SELECT FROM sitedesigns WHERE rowkey=sitesettings.sitedesign))
         INSERT [ rowkey := sitesettings.sitedesign, title := sitesettings.sitedesign ] INTO ^sitedesign->options AT END;
 
-      ^sitedesign->value := sitesettings.sitedesign ?? "publisher:nodesign";
-
       IF (this->cursite.versioningpolicy != "" AND ^outputweb->value != 0) //not allowed to change the output location of a versioned site, unless it's not published yet
       {
         ^outputweb->enabled := FALSE;
         ^outputfolder->enabled := FALSE;
       }
 
-      this->RefreshWebFeatures();
       UPDATE ^webfeatures->rows SET featurechecked := TRUE WHERE rowkey IN sitesettings.webfeatures;
     }
     ELSE
@@ -316,11 +325,10 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
                                  ]);
 
     // Keep the 'official' URL with the site
-    RECORD extradata;
     IF(GetDtapStage() = "production")
-      INSERT CELL productionurl := siteobj->webroot INTO extradata;
+      ^sitesettings->^productionurl := siteobj->webroot;
 
-    ^sitesettings->Store(work, siteobj->id, [ extradata := extradata ]);
+    ^siteroot->Store(work, [ fsobjectid := siteobj->id ]);
 
     //Invoke any hooks
     IF(this->newsite)
