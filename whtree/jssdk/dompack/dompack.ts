@@ -1,6 +1,6 @@
 /* This is our public api */
 
-export { flagUIBusy, BusyModalEvent, setupBusyModal } from './impl/busy';
+export { flagUIBusy, Lock, BusyModalEvent, setupBusyModal } from './impl/busy';
 export { dispatchCustomEvent, dispatchDomEvent, fireModifiedEvents, changeValue, stop } from '../../modules/system/js/dompack/src/events';
 export { qS, qR, qSA } from './impl/tree';
 export { isDomReady, onDomReady } from '../../modules/system/js/dompack/src/tree';
