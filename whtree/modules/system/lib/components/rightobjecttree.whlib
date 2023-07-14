@@ -118,7 +118,7 @@ PUBLIC OBJECTTYPE RightObjectTreeComponent EXTEND TolliumPanel
 
     this->thelist->columns :=
         [ [ name :=     "title"
-          , title :=    GetTid("system:userrights.columns.objects")
+          , title :=    GetTid("system:tolliumapps.userrights.common.objects")
           , type :=     "text"
           , tree :=     TRUE
           , iconname := "icon"

@@ -212,7 +212,7 @@ STATIC OBJECTTYPE ObjectTreeRightsExport
         RECORD pos := RecordLowerBound(users, [ id := rec.grantee ], [ "ID" ]);
         IF (pos.found)
         {
-          INSERT CELL username := users[pos.position].unitpath || "/" || users[pos.position].login INTO rec;
+          INSERT CELL login := users[pos.position].unitpath || "/" || users[pos.position].login INTO rec;
           INSERT CELL fullname := users[pos.position].fullname INTO rec;
           INSERT rec INTO newrows AT END;
         }
@@ -222,7 +222,7 @@ STATIC OBJECTTYPE ObjectTreeRightsExport
     }
 
     RETURN
-        SELECT username
+        SELECT login
              , fullname
              , right :=       righttitle
              , path
@@ -230,18 +230,18 @@ STATIC OBJECTTYPE ObjectTreeRightsExport
              , viarole
           FROM rows
          WHERE this->objectid = 0 ? TRUE : path != ""
-      ORDER BY username, path;
+      ORDER BY login, path;
   }
 
   PUBLIC MACRO DownloadList(OBJECT parent)
   {
     RunColumnFileExportDialog(parent,
       [ rows := this->GenerateExport()
-      , columns :=  [ [ name := "path",     title := GetTid("system:userrights.exports.csvcolumns.path"),     type := "text" ]
-                    , [ name := "username", title := GetTid("system:userrights.exports.csvcolumns.username"), type := "text" ]
-                    , [ name := "fullname", title := GetTid("system:userrights.exports.csvcolumns.fullname"), type := "text" ]
-                    , [ name := "right",    title := GetTid("system:userrights.exports.csvcolumns.right"),    type := "text" ]
-                    , [ name := "viarole",  title := GetTid("system:userrights.exports.csvcolumns.viarole"),  type := "text" ]
+      , columns :=  [ [ name := "path",     type := "text", title := GetTid("system:tolliumapps.userrights.common.objectpath") ]
+                    , [ name := "login",    type := "text", title := GetTid("~username") ]
+                    , [ name := "fullname", type := "text", title := GetTid("~fullname") ]
+                    , [ name := "right",    type := "text", title := GetTid("system:tolliumapps.userrights.common.right") ]
+                    , [ name := "viarole",  type := "text", title := GetTid("system:tolliumapps.userrights.common.viarole") ]
                     ]
       , exporttitle := GetTid("system:userrights.exports.exportobjectrights")
       ]);

@@ -24,7 +24,7 @@ RECORD FUNCTION GetGrantee(RECORD ARRAY allusers, RECORD ARRAY allroles, RECORD 
     RECORD userrec := allusers[userobjpos.position];
     RETURN CELL[ login := authobject.name
                , userrec.active
-               , userrec.realname
+               , userrec.fullname
                , userrec.email
                , authobject.unitid
                , authobject.unitname
@@ -37,7 +37,7 @@ RECORD FUNCTION GetGrantee(RECORD ARRAY allusers, RECORD ARRAY allroles, RECORD 
     RECORD rolerec := allroles[roleobjpos.position];
     RETURN CELL[ login := rolerec.wrd_title
                , active := TRUE
-               , realname := ""
+               , fullname := ""
                , email := ""
                , authobject.unitid
                , authobject.unitname
@@ -73,7 +73,7 @@ PUBLIC RECORD ARRAY FUNCTION EnrichWithGrantorAndGrantee(OBJECT userapi, RECORD 
         FROM userapi->accounttype->RunQuery(
                   [ outputcolumns :=
                         [ id :=         "WRD_ID"
-                        , realname :=   "WRD_TITLE"
+                        , fullname :=   "WRD_TITLE"
                         , login :=      userapi->wrdschema->accountlogintag
                         , email :=      userapi->wrdschema->accountemailtag
                         , guid  :=      "WRD_GUID"

@@ -38,13 +38,13 @@
               openaction="showobject"
               ongetchildren="showsearchresults"
               rowlayout="tworows"
-              gid="userrights.columns"
+              gid="tolliumapps.userrights.common"
               >
 <!--                  selectcontextmenu="optionsmenu"-->
           <column type="icon" name="icon" title="" sortkeyname="type" />
           <column type="text" name="name" width="3pr" />
           <column type="text" name="unitpath" width="2pr" tid=".unit" />
-          <column type="text" name="description" />
+          <column type="text" name="description" tid="~description" />
 
           <rowlayout name="tworows">
             <col coldef="icon" />

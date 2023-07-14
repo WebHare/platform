@@ -1474,6 +1474,28 @@
       <textgroup gid="actions">   <!-- tolliumapps.userrights.actions -->
         <text tid="revokeright">Rechtentoekenning intrekken</text>
       </textgroup>
+      <textgroup gid="common">   <!-- tolliumapps.userrights.common -->
+        <text tid="active">Account actief</text>
+        <text tid="comment">Toelichting</text>
+        <text tid="created">Aangemaakt</text>
+        <text tid="description">Beschrijving</text>
+        <text tid="fullname">Gebruikersnaam</text>
+        <text tid="grantdate">Toegekend op</text>
+        <text tid="grantor">Toegekend door</text>
+        <text tid="lastlogin">Laatst ingelogd</text>
+        <text tid="lastpasswordchange">Laatste wachtwoordwijziging</text>
+        <text tid="name">Gebruikersnaam</text>
+        <text tid="objectpath">Objectpad</text>
+        <text tid="objects">Objecten</text>
+        <text tid="objecttypename">Objecttype</text>
+        <text tid="right">Recht</text>
+        <text tid="twofactorenabled">Twee-factor-authenticatie ingeschakeld</text>
+        <text tid="type">Type</text>
+        <text tid="unit">Eenheid</text>
+        <text tid="username">Gebruikersnaam</text>
+        <text tid="viarole">Via rol</text>
+        <text tid="withgrantoption">Toekenbaar</text>
+      </textgroup>
       <textgroup gid="messages">   <!-- tolliumapps.userrights.messages -->
         <text tid="confirmmoveunit">Weet u zeker dat u de selectie wil verplaatsen naar eenheid '<param p="1"/>' ?</text>
       </textgroup>
@@ -1824,10 +1846,8 @@
       <text tid="about">Over Gebruikersbeheer</text>
       <text tid="addrighttousers">Recht toekennen</text>
       <text tid="addrighttousers-hint">Ken een recht toe aan de geselecteerde gebruiker of rol</text>
-      <text tid="addrighttousers-list">Recht toekennen</text>
       <text tid="addroletousers">Rol toekennen</text>
       <text tid="addroletousers-hint">Ken een rol toe aan de geselecteerde gebruiker</text>
-      <text tid="addroletousers-list">Rol toekennen</text>
       <text tid="adduserstorole">Toekennen aan</text>
       <text tid="adduserstorole-hint">Ken deze rol toe aan andere gebruikers</text>
       <text tid="copypermissions">Kopieer alle rechten naar ...</text>
@@ -1837,17 +1857,14 @@
       <text tid="edit-hint">Bewerk de eigenschappen van het geselecteerde item</text>
       <text tid="editobject">Bewerken</text>
       <text tid="exportallgrants">Exporteer alle (rol) toekenningen</text>
-      <text tid="exportallusers">Exporteer alle gebruikers</text>
       <text tid="exportobjectrights">Exporteer rechten op objecten</text>
       <text tid="exportusersinunit">Exporteer gebruikers in deze eenheid</text>
       <text tid="getresetlink">Wachtwoord-link genereren</text>
       <text tid="grant">Recht toekennen</text>
       <text tid="grant-hint">Ken een recht toe op het gekozen object of aan de gekozen gebruiker.</text>
       <text tid="grantrightonobject">Recht toekennen</text>
-      <text tid="integration">Integratie</text>
       <text tid="makerolefromrights">Maak rol</text>
       <text tid="makerolefromrights-hint">Maak een rol aan met de geselecteerde rechten.</text>
-      <text tid="managelegacyapps">Beheer rechten voor oudere modules</text>
       <text tid="move">Verplaatsen</text>
       <text tid="move-hint">Verplaats de geselecteerde elementen</text>
       <text tid="newrole">Nieuwe rol</text>
@@ -1856,17 +1873,13 @@
       <text tid="newunit-hint">Maak een nieuwe eenheid aan</text>
       <text tid="newuser">Nieuwe gebruiker</text>
       <text tid="newuser-hint">Maak een nieuwe gebruiker aan</text>
-      <text tid="objectrights">Objectrechten exporteren</text>
       <text tid="openas">Inloggen als</text>
       <text tid="openas-hint">Open de interface als deze gebruiker</text>
       <text tid="properties">Eigenschappen</text>
-      <text tid="properties-hint">Bekijken en aanpassen van eigenschappen van de gekozen element(en)</text>
       <text tid="reload">Opnieuw laden</text>
       <text tid="removeusersfromrole-hint">Trek de toekenning van deze rol aan de geselecteerde gebruiker(s) in</text>
       <text tid="revokefromusers-hint">Trek de geselecteerde rechten-/rollentoekenningen in.</text>
       <text tid="revokefromusers-list">Verwijderen</text>
-      <text tid="revokerightfromlist-hint">Trek het geselecteerde recht in</text>
-      <text tid="revokerightonobject">Verwijderen</text>
       <text tid="search">Gebruikers en rollen zoeken</text>
       <text tid="searchsimple">Zoeken</text>
       <text tid="setuserdefaults">Standaard gebruikersinstellingen</text>
@@ -1891,20 +1904,6 @@
       <text tid="lastlogin">Laatste aanmelding</text>
       <text tid="scope">Scope</text>
       <text tid="windowtitle">Apparaat- en appwachtwoorden</text>
-    </textgroup>
-    <textgroup gid="columns">   <!-- userrights.columns -->
-      <text tid="description">Beschrijving</text>
-      <text tid="email">E-mail</text>
-      <text tid="fullname">Naam</text>
-      <text tid="lastlogin">Laatst ingelogd</text>
-      <text tid="name">Gebruikersnaam</text>
-      <text tid="objectpath">Object</text>
-      <text tid="objects">Objecten</text>
-      <text tid="permission">Recht</text>
-      <text tid="unit">Eenheid</text>
-      <text tid="unitpath">Eenheid</text>
-      <text tid="units">Eenheden</text>
-      <text tid="withgrantoption">Mag toekennen</text>
     </textgroup>
     <textgroup gid="common">   <!-- userrights.common -->
       <text tid="allobjectsoftype">Alle objecten van type '<param p="1"/>'.</text>
@@ -2210,17 +2209,7 @@
       <text tid="userscannotbeinroot">een gebruiker kan niet in de hoofdmap worden geplaatst, maar moet in een eenheid worden geplaatst.</text>
     </textgroup>
     <textgroup gid="export">   <!-- userrights.export -->
-      <text tid="active">Actief</text>
       <text tid="allgrants">Alle toekenningen</text>
-      <text tid="comment">Toelichting</text>
-      <text tid="grantdate">Toegekend op</text>
-      <text tid="grantor">Toegekend door</text>
-      <text tid="objectpath">Objectpad</text>
-      <text tid="objecttypename">Objecttype</text>
-      <text tid="rightname">Recht</text>
-      <text tid="type">Type</text>
-      <text tid="unitname">Eenheid</text>
-      <text tid="withgrantoption">Mag recht verder toekennen</text>
     </textgroup>
     <textgroup gid="exports">   <!-- userrights.exports -->
       <text tid="exportobjectrights">Rechten op objecten</text>
@@ -2228,15 +2217,7 @@
       <text tid="exportusersinunit">Gebruikers in '<param p="1"/>'</text>
       <textgroup gid="csvcolumns">   <!-- userrights.exports.csvcolumns -->
         <text tid="active">Actief</text>
-        <text tid="created">Aangemaakt</text>
-        <text tid="fullname">Gebruikersnaam</text>
-        <text tid="lastlogin">Laatst ingelogd</text>
-        <text tid="lastpasswordchange">Laatste wachtwoordwijziging</text>
         <text tid="path">Pad</text>
-        <text tid="right">Recht</text>
-        <text tid="twofactorenabled">Twee-factor-authenticatie ingeschakeld</text>
-        <text tid="username">Gebruikersnaam</text>
-        <text tid="viarole">Via rol</text>
       </textgroup>
     </textgroup>
     <textgroup gid="getresetlink">   <!-- userrights.getresetlink -->

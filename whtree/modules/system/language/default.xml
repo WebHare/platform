@@ -1661,6 +1661,28 @@
       <textgroup gid="actions">   <!-- tolliumapps.userrights.actions -->
         <text tid="revokeright">Revoke right grant</text>
       </textgroup>
+      <textgroup gid="common">   <!-- tolliumapps.userrights.common -->
+        <text tid="active">Account active</text>
+        <text tid="comment">Explanation</text>
+        <text tid="created">Created</text>
+        <text tid="description">Description</text>
+        <text tid="fullname">Full name</text>
+        <text tid="grantdate">Granted at</text>
+        <text tid="grantor">Granted by</text>
+        <text tid="lastlogin">Last login</text>
+        <text tid="lastpasswordchange">Last password change</text>
+        <text tid="name">Username</text>
+        <text tid="objectpath">Object path</text>
+        <text tid="objects">Objects</text>
+        <text tid="objecttypename">Object type</text>
+        <text tid="right">Right</text>
+        <text tid="twofactorenabled">Two factor authentication enabled</text>
+        <text tid="type">Type</text>
+        <text tid="unit">Unit</text>
+        <text tid="username">Username</text>
+        <text tid="viarole">Via role</text>
+        <text tid="withgrantoption">Grantable</text>
+      </textgroup>
       <textgroup gid="messages">   <!-- tolliumapps.userrights.messages -->
         <text tid="confirmmoveunit">Are you sure you want to move the selection to unit '<param p="1"/>' ?</text>
       </textgroup>
@@ -2011,10 +2033,8 @@
       <text tid="about">About User Management</text>
       <text tid="addrighttousers">Grant right</text>
       <text tid="addrighttousers-hint">Grant a right to the selected user or role</text>
-      <text tid="addrighttousers-list">Grant right</text>
       <text tid="addroletousers">Grant role</text>
       <text tid="addroletousers-hint">Grant a role to the selected user</text>
-      <text tid="addroletousers-list">Grant role</text>
       <text tid="adduserstorole">Grant to</text>
       <text tid="adduserstorole-hint">Grant this role to other users</text>
       <text tid="copypermissions">Copy all grants to ...</text>
@@ -2024,17 +2044,14 @@
       <text tid="edit-hint">Edit the selected item properties</text>
       <text tid="editobject">Edit</text>
       <text tid="exportallgrants">Export all (role) grants</text>
-      <text tid="exportallusers">Export all users</text>
       <text tid="exportobjectrights">Export rights on objects</text>
       <text tid="exportusersinunit">Export users in this unit</text>
       <text tid="getresetlink">Create password reset link</text>
       <text tid="grant">Grant right</text>
       <text tid="grant-hint">Grant a right on the selected object or to the selected user</text>
       <text tid="grantrightonobject">Grant right</text>
-      <text tid="integration">Integration</text>
       <text tid="makerolefromrights">Make role</text>
       <text tid="makerolefromrights-hint">Create a new role using the selected rights.</text>
-      <text tid="managelegacyapps">Manage rights for legacy modules</text>
       <text tid="move">Move</text>
       <text tid="move-hint">Move the selected item(s)</text>
       <text tid="newrole">New role</text>
@@ -2043,17 +2060,13 @@
       <text tid="newunit-hint">Create a new unit</text>
       <text tid="newuser">New user</text>
       <text tid="newuser-hint">Add a new user</text>
-      <text tid="objectrights">Export object rights</text>
       <text tid="openas">Login as</text>
       <text tid="openas-hint">Open the interface as this user</text>
       <text tid="properties">Properties</text>
-      <text tid="properties-hint">View the properties of the selected item</text>
       <text tid="reload">Reload</text>
       <text tid="removeusersfromrole-hint">Revoke the grants of this role to the selected user(s)</text>
       <text tid="revokefromusers-hint">Revoke the selected grant or role from this user</text>
       <text tid="revokefromusers-list">Delete</text>
-      <text tid="revokerightfromlist-hint">Revoke the selected grant</text>
-      <text tid="revokerightonobject">Delete</text>
       <text tid="search">Find users and roles</text>
       <text tid="searchsimple">Search</text>
       <text tid="setuserdefaults">User defaults</text>
@@ -2078,20 +2091,6 @@
       <text tid="lastlogin">Last login</text>
       <text tid="scope">Scope</text>
       <text tid="windowtitle">App and Device passwords</text>
-    </textgroup>
-    <textgroup gid="columns">   <!-- userrights.columns -->
-      <text tid="description">Description</text>
-      <text tid="email">Email</text>
-      <text tid="fullname">Full name</text>
-      <text tid="lastlogin">Last login</text>
-      <text tid="name">Username</text>
-      <text tid="objectpath">Object</text>
-      <text tid="objects">Objects</text>
-      <text tid="permission">Right</text>
-      <text tid="unit">Unit</text>
-      <text tid="unitpath">Unit</text>
-      <text tid="units">Units</text>
-      <text tid="withgrantoption">Grantable</text>
     </textgroup>
     <textgroup gid="common">   <!-- userrights.common -->
       <text tid="allobjectsoftype">All objects of type '<param p="1"/>'.</text>
@@ -2397,17 +2396,7 @@
       <text tid="userscannotbeinroot">users cannot be in the root, they must belong to an unit.</text>
     </textgroup>
     <textgroup gid="export">   <!-- userrights.export -->
-      <text tid="active">Active</text>
       <text tid="allgrants">All grants</text>
-      <text tid="comment">Explanation</text>
-      <text tid="grantdate">Granted at</text>
-      <text tid="grantor">Granted by</text>
-      <text tid="objectpath">Object path</text>
-      <text tid="objecttypename">Object type</text>
-      <text tid="rightname">Right</text>
-      <text tid="type">Type</text>
-      <text tid="unitname">Unit</text>
-      <text tid="withgrantoption">May grant this right</text>
     </textgroup>
     <textgroup gid="exports">   <!-- userrights.exports -->
       <text tid="exportobjectrights">Rights on objects</text>
@@ -2415,15 +2404,7 @@
       <text tid="exportusersinunit">Users in '<param p="1"/>'</text>
       <textgroup gid="csvcolumns">   <!-- userrights.exports.csvcolumns -->
         <text tid="active">Active</text>
-        <text tid="created">Created</text>
-        <text tid="fullname">Full name</text>
-        <text tid="lastlogin">Last login</text>
-        <text tid="lastpasswordchange">Last password change</text>
         <text tid="path">Path</text>
-        <text tid="right">Right</text>
-        <text tid="twofactorenabled">Two factor authentication enabled</text>
-        <text tid="username">Username</text>
-        <text tid="viarole">Via role</text>
       </textgroup>
     </textgroup>
     <textgroup gid="getresetlink">   <!-- userrights.getresetlink -->

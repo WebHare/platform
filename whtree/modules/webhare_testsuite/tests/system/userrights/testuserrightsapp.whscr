@@ -342,19 +342,19 @@ ASYNC MACRO TestExport()
 
   RECORD ARRAY rows := GetOOXMLSpreadsheetRows(rec.file.data);
   TestEQ(
-      [ [ path   :=       "/visiblefolder"
+      [ [ "object path"   :=  "/visiblefolder"
         , username :=     "visibleunit/testuser@beta.webhare.net"
         , "full name" :=  "testuser"
         , right :=        "Browse"
         , "via role" :=   ""
         ]
-      , [ path   :=       "/visiblefolder"
+      , [ "object path"   :=  "/visiblefolder"
         , username :=     "visibleunit/visibleuser1@beta.webhare.net"
         , "full name" :=  "visibleuser1"
         , right :=        "Browse"
         , "via role" :=   ""
         ]
-      , [ path   :=       "/visiblefolder"
+      , [ "object path"   :=  "/visiblefolder"
         , username :=     "visibleunit/visibleuser2@beta.webhare.net"
         , "full name" :=  "visibleuser2"
         , right :=        "Browse"
@@ -373,13 +373,13 @@ ASYNC MACRO TestExport()
 
   rows := GetOOXMLSpreadsheetRows(rec.file.data);
   TestEQ(
-      [ [ path   :=       "/visiblefolder"
+      [ [ "object path"   :=       "/visiblefolder"
         , username :=     "visibleunit/testuser@beta.webhare.net"
         , "full name" :=  "testuser"
         , right :=        "Browse"
         , "via role" :=   ""
         ]
-      , [ path   :=       "/visiblefolder"
+      , [ "object path"   :=       "/visiblefolder"
         , username :=     "visibleunit/visibleuser1@beta.webhare.net"
         , "full name" :=  "visibleuser1"
         , right :=        "Browse"
@@ -420,7 +420,7 @@ ASYNC MACRO TestExportSysop()
   //Test that ROLEGRANTs exist, they were a recent addition
   TestEq(TRUE, RecordExists(SELECT FROM rows WHERE type="ROLEGRANT" AND username="visibleuser2@beta.webhare.net" AND rows."object path" = "visiblerole"));
   //Test that we see the ROLE's grant. and that we properly see the use as active
-  TestEqMembers([[ active := TRUE ]],
+  TestEqMembers([[ "account active" := "TRUE" ]],
                 SELECT * FROM rows WHERE type="GRANT" AND username="visiblerole" AND rows."object path" = "webhare-tests; webhare_testsuite.testfolder; webhare_testsuite.site; visiblefolder", '*');
 
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
