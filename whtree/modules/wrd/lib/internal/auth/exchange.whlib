@@ -68,7 +68,7 @@ PUBLIC RECORD ARRAY FUNCTION EnrichWithGrantorAndGrantee(OBJECT userapi, RECORD 
 {
   RECORD ARRAY allusers :=
       SELECT *
-           , active :=    whuser_disable_type != ""
+           , active :=    whuser_disable_type = ""
            , DELETE whuser_disable_type
         FROM userapi->accounttype->RunQuery(
                   [ outputcolumns :=
