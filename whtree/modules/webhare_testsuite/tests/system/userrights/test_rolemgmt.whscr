@@ -179,7 +179,7 @@ MACRO TestExport()
 
   TestEq(1,Length(grants)); //just one grant. 'role1' should not be shown as having gotten anything granted
   TestEq("Granted by RunTestframework", grants[0].comment);
-  TestEq("", grants[0].grantor);
+  TestEq("", grants[0].grantor); //should be empty as its a self-grant, this makes them stand out
   TestEq(TRUE, grants[0].withgrantoption);
 
   RECORD ARRAY rolegrants := SELECT * FROM userexport WHERE type = "ROLEGRANT";

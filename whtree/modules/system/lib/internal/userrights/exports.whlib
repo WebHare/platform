@@ -12,111 +12,71 @@ LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
+CONSTANT INTEGER authobjecttype_user := 1;
+CONSTANT INTEGER authobjecttype_unit := 2;
+CONSTANT INTEGER authobjecttype_role := 3;
+
+RECORD FUNCTION LookupRecord(RECORD ARRAY list, RECORD find, STRING ARRAY sortorder)
+{
+  RECORD pos := RecordLowerBound(list, find, sortorder);
+  RETURN pos.found ? list[pos.position] : DEFAULT RECORD;
+}
+
 RECORD FUNCTION GetAuthObjectById(RECORD ARRAY allobjs, INTEGER authobjectid)
 {
-  RECORD authobjectpos := RecordLowerBound(allobjs, [ id := authobjectid ], ["ID"]);
-  IF(NOT authobjectpos.found)
-    RETURN DEFAULT RECORD;
-  RETURN allobjs[authobjectpos.position];
-}
-
-RECORD FUNCTION GetGrantee(RECORD ARRAY allusers, RECORD ARRAY allroles, RECORD ARRAY allobjs, INTEGER authobjectid)
-{
-  RECORD authobject := GetAuthObjectById(allobjs, authobjectid);
-  IF(NOT RecordExists(authobject))
-    RETURN DEFAULT RECORD;
-
-  RECORD userobjpos := RecordLowerBound(allusers, [ guid := authobject.guid ], [ "GUID" ]);
-  IF(userobjpos.found)
-  {
-    RECORD userrec := allusers[userobjpos.position];
-    RETURN CELL[ login := authobject.name
-               , userrec.active
-               , userrec.fullname
-               , userrec.email
-               , authobject.unitid
-               , authobject.unitname
-               ];
-  }
-
-  RECORD roleobjpos := RecordLowerBound(allroles, [ wrd_guid := authobject.guid ], [ "WRD_GUID" ]);
-  IF(roleobjpos.found)
-  {
-    RECORD rolerec := allroles[roleobjpos.position];
-    RETURN CELL[ login := rolerec.wrd_title
-               , active := TRUE
-               , fullname := ""
-               , email := ""
-               , authobject.unitid
-               , authobject.unitname
-               ];
-  }
-
-  RETURN DEFAULT RECORD;
-}
-
-STRING FUNCTION GetGrantor(RECORD ARRAY allobjs, RECORD grant, RECORD grantordata)
-{
-  RECORD grantorrec;
-  IF(grant.grantor = grant.grantee) //self grant!
-    RETURN ""; //dont report a user with these, we want them to stand out
-
-  IF(grant.grantor != 0 AND grant.grantor != grant.grantee)
-  {
-    grantorrec := GetAuthObjectById(allobjs, grant.grantor);
-    IF(RecordExists(grantorrec))
-      RETURN grantorrec.name ?? grantorrec.guid;
-  }
-
-  //TODO present data from grantordata, but need testcases
-  RETURN "#" || grant.grantor;
+  RETURN LookupRecord(allobjs, [ id := authobjectid ], ["ID"]);
 }
 
 PUBLIC RECORD ARRAY FUNCTION EnrichWithGrantorAndGrantee(OBJECT userapi, RECORD ARRAY rightslist)
 {
-  RECORD ARRAY allusers :=
-      SELECT *
-           , active :=    whuser_disable_type = ""
-           , DELETE whuser_disable_type
-        FROM userapi->accounttype->RunQuery(
-                  [ outputcolumns :=
-                        [ id :=         "WRD_ID"
-                        , fullname :=   "WRD_TITLE"
-                        , login :=      userapi->wrdschema->accountlogintag
-                        , email :=      userapi->wrdschema->accountemailtag
-                        , guid  :=      "WRD_GUID"
-                        , whuser_disable_type := "WHUSER_DISABLE_TYPE"
-                        ]
-                  ]) AS row
-    ORDER BY guid;
-
-  RECORD ARRAY allroles :=
-      SELECT *
-           , active :=    TRUE
-        FROM userapi->wrdschema->^whuser_role->RunQuery(
-            [ outputcolumns := CELL[ "WRD_GUID", "WRD_TITLE" ]
-            ])
-    ORDER BY wrd_guid;
+  INTEGER ARRAY relevantobjs := GetSortedSet(INTEGER[ ...(SELECT AS INTEGER ARRAY DISTINCT grantee FROM rightslist)
+                                                    , ...(SELECT AS INTEGER ARRAY DISTINCT grantor FROM rightslist)
+                                                    ]);
 
   RECORD ARRAY allobjs := SELECT authobjects.id
-                               , authobjects.name
                                , authobjects.guid
+                               , authobjects.type
                                , unitid := units.id
                                , unitname := units.name
                             FROM system.authobjects, system.authobjects as units
                            WHERE units.id = authobjects.parent
+                                 AND authobjects.id IN relevantobjs
                         ORDER BY authobjects.id;
+
+  RECORD ARRAY allusers := SELECT * FROM allobjs WHERE type = authobjecttype_user;
+  allusers := userapi->EnrichUsers("guid", allusers, [ celltype := "guid", extrafields := CELL[ "whuser_disable_type" ] ] ) ;
+
+  RECORD ARRAY allroles := SELECT * FROM allobjs WHERE type = authobjecttype_role;
+  allroles := userapi->EnrichRoles("guid", allroles, [ celltype := "guid" ] ) ;
+
+  RECORD ARRAY wrdmap := (SELECT * FROM allusers CONCAT allroles ORDER BY id);
 
   RECORD ARRAY finallist;
   FOREVERY(RECORD grant FROM rightslist)
   {
-    RECORD granteerec := GetGrantee(allusers, allroles, allobjs, grant.grantee);
-    IF(NOT RecordExists(granteerec))
-      CONTINUE;
+    RECORD grantee := LookupRecord(wrdmap, [ id := grant.grantee ], [ "id" ]);
+    IF(NOT RecordExists(grantee))
+      CONTINUE; //this grantee is outside this usermgmt wrdschema
 
-    STRING grantor := GetGrantor(allobjs, grant, grant.grantordata);
+    STRING grantor;
+    IF(grant.grantor != grant.grantee) //not a self grant? we don't show the grantor for a self-grant, this makes them stand out better in the list
+    {
+      RECORD grantorrec := LookupRecord(wrdmap, [ id := grant.grantor ], [ "id" ]);
+      IF(RecordExists(grantorrec) AND CellExists(grantorrec,'login')) //TODO present data from grantordata, but need testcases (and businressrules, we can probably only show sysop?)
+        grantor := grantorrec.login ?? grantorrec.guid;
+      ELSE
+        grantor := "authobject #" || grant.grantor;
+    }
 
-    INSERT CELL[...grant, ...granteerec, grantor ] INTO finallist AT END;
+    INSERT CELL[ ...grant
+               , login := (grantee.type = authobjecttype_role ? grantee.title : grantee.login) ?? grantee.guid
+               , active := grantee.type = authobjecttype_role OR grantee.whuser_disable_type = ""
+               , fullname := grantee.type = authobjecttype_role ? "" : grantee.fullname
+               , email := grantee.type = authobjecttype_role ? "" : grantee.email
+               , grantee.unitid
+               , grantee.unitname
+               , grantor
+               ] INTO finallist AT END;
   }
 
   RETURN finallist;
