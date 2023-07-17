@@ -101,13 +101,22 @@ IF (args.color OR IsConsoleATerminal())
 
 TRY
 {
-  assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
+  assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol", [ timeout := 3000]));
 }
 CATCH
 {
-  PRINT("Could not connect to the assetpackcontrol\n");
-  SetConsoleExitCode(1);
-  RETURN;
+  TRY
+  {
+    //Tell user what we're doing so we can tolerably wait a lot more (eg CI starts wh fixmodules pretty fast nowadays and WebHare may not even be running yet)
+    Print("Waiting for assetpack control to be available...\n");
+    assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol", [ timeout := 300000 ]));
+  }
+  CATCH
+  {
+    PRINT("Could not connect to the assetpackcontrol\n");
+    SetConsoleExitCode(1);
+    RETURN;
+  }
 }
 
 STRING ARRAY FUNCTION MatchUUIDs(RECORD ARRAY bundles, STRING mask)
