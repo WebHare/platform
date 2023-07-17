@@ -596,39 +596,42 @@ if [ -n "$ADDMODULES" ]; then
 fi
 
 if [ -n "$TESTINGMODULE" ]; then
-  echo "$(date) Telling containers to start"
+  echo "$(date) Running prestart"
 
   for CONTAINERID in "${CONTAINERS[@]}"; do
     if [ -n "$ADDMODULES" ]; then
       if is_atleast_version 5.2.0-dev ; then
-        DESTCOPYDIR=$CONTAINERID:/webhare-ci-modules/
+        DESTCOPYDIR=/webhare-ci-modules/
       else
-        DESTCOPYDIR=$CONTAINERID:/opt/whmodules/
+        DESTCOPYDIR=/opt/whmodules/
       fi
 
-      RunDocker cp "${TEMPBUILDROOT}/docker-tests/modules/" "$DESTCOPYDIR" || die "Module copy failed!"
+      RunDocker cp "${TEMPBUILDROOT}/docker-tests/modules/" "$CONTAINERID:$DESTCOPYDIR" || exit_failure_sh "Module copy failed!"
     fi
 
     if [ -z "$ISMODULETEST" ] && [ -d "$BUILDDIR/build" ]; then
-      if ! $SUDO docker cp "$BUILDDIR/build" "$CONTAINERID:/" ; then
-        die "Artifact copy failed!"
-      fi
+      $SUDO docker cp "$BUILDDIR/build" "$CONTAINERID:/" || exit_failure_sh "Artifact copy failed!"
     fi
 
-    RunDocker exec "$CONTAINERID" rm /pause-webhare-startup || exit_failure_sh "Failed to unblock container1"
+    # Find prehooks (TODO Move inside webhare image and perhaps have it try to follow the dependency order)
+    for SCRIPT in $(RunDocker exec "$CONTAINERID" find $DESTCOPYDIR -regex "${DESTCOPYDIR}[^/]+/scripts/hooks/ci-prestart.sh" -executable ); do
+      RunDocker exec -i "$CONTAINERID" "$SCRIPT" "$version" "$TESTINGMODULENAME" || exit_failure_sh "ci-prestart failed"
+    done
+
+    RunDocker exec "$CONTAINERID" rm /pause-webhare-startup || exit_failure_sh "Failed to unblock container $CONTAINERID"
   done
 
   # Tell our cleanup script it should now just 'stop' the containers
   TESTENV_KILLCONTAINER1=""
   TESTENV_KILLCONTAINER2=""
-
-  for CONTAINERID in "${CONTAINERS[@]}"; do
-    if ! RunDocker exec "$TESTENV_CONTAINER1" wh fixmodules --onlyinstalledmodules ; then
-      testfail "wh fixmodules failed"
-    fi
-  done
 fi
 
+echo "$(date) Running fixmodules"
+for CONTAINERID in "${CONTAINERS[@]}"; do
+  if ! RunDocker exec "$TESTENV_CONTAINER1" wh fixmodules --onlyinstalledmodules ; then
+    testfail "wh fixmodules failed"
+  fi
+done
 
 echo "$(date) Wait for poststartdone container1"
 if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh waitfor --timeout 600 poststartdone ; then
