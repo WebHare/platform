@@ -40,12 +40,6 @@ fi
 chgrp whdata /opt/whdata
 chmod o-rwx /opt/whdata
 
-if [ -n "$WEBHARE_CI" ]; then # CI specific changes
-  if ls /webhare-ci-modules/* >/dev/null 2>&1 ; then
-    cp -r /webhare-ci-modules/* /opt/whdata/installedmodules/
-  fi
-fi
-
 # Extract embedded webhare_testsuite
 if [ -n "$TESTFW_INSTALLTESTSUITE" ]; then
   echo "$(date) Extracting module webhare_testsuite"

@@ -601,12 +601,13 @@ if [ -n "$TESTINGMODULE" ]; then
   for CONTAINERID in "${CONTAINERS[@]}"; do
     if [ -n "$ADDMODULES" ]; then
       if is_atleast_version 5.2.0-dev ; then
-        DESTCOPYDIR=/webhare-ci-modules/
+        DESTCOPYDIR=/opt/whdata/installedmodules/ # we don't need the intermediate /webhare-ci-modules/ anymore now we can directly access /opt/whdata/
       else
         DESTCOPYDIR=/opt/whmodules/
       fi
 
-      RunDocker cp "${TEMPBUILDROOT}/docker-tests/modules/" "$CONTAINERID:$DESTCOPYDIR" || exit_failure_sh "Module copy failed!"
+      # /. ensures that the contents are copied into the directory whether or not it exists (https://docs.docker.com/engine/reference/commandline/cp/)
+      RunDocker cp "${TEMPBUILDROOT}/docker-tests/modules/." "$CONTAINERID:$DESTCOPYDIR" || exit_failure_sh "Module copy failed!"
     fi
 
     if [ -z "$ISMODULETEST" ] && [ -d "$BUILDDIR/build" ]; then
