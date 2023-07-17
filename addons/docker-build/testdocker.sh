@@ -2,14 +2,6 @@
 
 # This script is also deployed to https://build.webhare.dev/ci/scripts/testdocker.sh
 
-testfail()
-{
-  echo ""
-  echo "$(c red)****** $1 *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
-  echo ""
-  TESTFAIL=1
-}
-
 if [ -f $WEBHARE_DIR/lib/wh-functions.sh ] ; then
   # Running from a whtree
   source $WEBHARE_DIR/lib/wh-functions.sh
@@ -39,6 +31,131 @@ LOCALDEPS=
 NOCHECKMODULE=
 FIXEDCONTAINERNAME=
 TESTINGMODULENAME=""
+
+
+testfail()
+{
+  echo ""
+  echo "$(c red)****** $1 *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
+  echo ""
+  TESTFAIL=1
+}
+
+# Generalized semversion compare. Should return 0 if $2 >= $1
+is_atleast_version()
+{
+  [ -z "$version" ] && die "is_atleast_version is invoked too early"
+  vercomp "$version" "$1"
+  [ "$?" == "2" ] && return 1
+  return 0
+}
+
+mark()
+{
+  echo "$(date) --- MARK: $1 ---"
+  $SUDO docker exec "$TESTENV_CONTAINER1" wh debug mark "$1"
+}
+
+RunDocker()
+{
+  local retval
+  echo "$(date) docker" "$@" >&2
+  $SUDO docker "$@" ; retval="$?"
+  if [ "$retval" != "0" ]; then
+    echo "$(date) docker returned errorcode $retval" >&2
+  fi
+  return $retval
+}
+
+create_container()
+{
+  local CONTAINERID NR CONTAINERDOCKERARGS
+
+  NR=$1
+  CONTAINERDOCKERARGS="$DOCKERARGS"
+
+  echo "`date` Creating container$NR (using image $WEBHAREIMAGE)"
+
+  #######################
+  #
+  # Create the environment file
+  > ${TEMPBUILDROOT}/env-file
+
+  # Switch to DTAP development - most test refuse to run without this option for safety reasons
+  echo "WEBHARE_DTAPSTAGE=development" >> ${TEMPBUILDROOT}/env-file
+
+  # Signal this job is running for a test - we generally try to avoid changing behaviours in testmode, but we want to be nice and eg prevent all CI instances from downloading the geoip database
+  echo "WEBHARE_CI=1" >> "${TEMPBUILDROOT}/env-file"
+  if [ -n "$TESTINGMODULENAME" ]; then
+    echo "WEBHARE_CI_MODULE=$TESTINGMODULENAME" >> "${TEMPBUILDROOT}/env-file"
+  fi
+
+  # Allow whdata to be mounted on ephemeral (overlayfs) storage
+  echo "WEBHARE_ALLOWEPHEMERAL=1" >> ${TEMPBUILDROOT}/env-file
+
+  # Append all our settings. Remap (TESTFW/TESTSECRET)_WEBHARE_ vars to WEBHARE_ - this also allows the testinvoker to override any variable we set so far
+  set | egrep '^(TESTSECRET_|TESTFW_|WEBHARE_DEBUG)' | sed -E 's/^(TESTFW_|TESTSECRET_)WEBHARE_/WEBHARE_/' >> ${TEMPBUILDROOT}/env-file
+
+  # TODO Perhaps /opt/whdata shouldn't require executables... but whlive definitely needs it and we don't noexec it in prod yet either for now.. so enable for now!
+  CONTAINERID="$(RunDocker create -l webharecitype=testdocker -p 80 -p 8000 $DOCKERARGS --env-file "${TEMPBUILDROOT}/env-file" --tmpfs /opt/whdata:exec "$WEBHAREIMAGE")"
+
+  if [ -z "$CONTAINERID" ]; then
+    echo Container creating failed
+    exit 1
+  fi
+
+  echo "$(date) Created container with id: $CONTAINERID"
+  eval TESTENV_CONTAINER$NR=\$CONTAINERID
+
+  if [ -n "$WEBHARE_CI_ACCESS_DOCKERHOST" ]; then # Running on our infra, so predictable paths
+    echo ""
+    echo "To access the runner:    ${WEBHARE_CI_ACCESS_DOCKERHOST}"
+    echo "To access the container: ${WEBHARE_CI_ACCESS_RUNNER} docker exec -ti ${TESTENV_CONTAINER1} /bin/bash"
+    echo ""
+  fi
+
+  if [ "$NR" == "1" ]; then
+    # Get version info from first container
+    # this initializes the'version' variable
+    BUILDINFOFILE="$(mktemp)"
+    RunDocker cp "$TESTENV_CONTAINER1":/opt/wh/whtree/modules/system/whres/buildinfo "$BUILDINFOFILE" || die "Cannot get version information out of container"
+    source "$BUILDINFOFILE"
+    echo "WebHare version info:
+      committag=$committag
+      builddate=$builddate
+      buildtime=$buildtime
+      branch=$branch
+      version=$version"
+    rm "$BUILDINFOFILE"
+
+    # We can now use:
+    # if is_atleast_version 4.35.0-dev ; then  CODE TO APPLY TO 4.35 AND HIGHER
+  fi
+
+  if [ -n "$ADDMODULES" ]; then
+    if is_atleast_version 5.2.0-dev ; then
+      DESTCOPYDIR=$CONTAINERID:/webhare-ci-modules/
+    else
+      DESTCOPYDIR=$CONTAINERID:/opt/whmodules/
+    fi
+
+    RunDocker cp "${TEMPBUILDROOT}/docker-tests/modules/" "$DESTCOPYDIR" || die "Module copy failed!"
+  fi
+
+  if [ -z "$ISMODULETEST" -a -d "$BUILDDIR/build" ]; then
+    if ! $SUDO docker cp "$BUILDDIR/build" $CONTAINERID:/ ; then
+      die "Artifact copy failed!"
+    fi
+  fi
+
+  if ! RunDocker start "$CONTAINERID" ; then
+    die "Container start failed"
+  fi
+
+  if ! RunDocker exec "$CONTAINERID" wh fixmodules --onlyinstalledmodules ; then
+    testfail "wh fixmodules failed"
+  fi
+}
 
 while true; do
   # Add option to the proper array for command line reconstruction
@@ -165,26 +282,6 @@ if [ "$COVERAGE" == "1" ]; then
 elif [ "$PROFILE" == "1" ]; then
   WEBHARE_DEBUG="apr,$WEBHARE_DEBUG"
 fi
-
-# Generalized semversion compare. Should return 0 if $2 >= $1
-is_atleast_version()
-{
-  [ -z "$version" ] && die "is_atleast_version is invoked too early"
-  vercomp "$version" "$1"
-  [ "$?" == "2" ] && return 1
-  return 0
-}
-
-function RunDocker()
-{
-  local retval
-  echo "$(date) docker" "$@" >&2
-  $SUDO docker "$@" ; retval="$?"
-  if [ "$retval" != "0" ]; then
-    echo "$(date) docker returned errorcode $retval" >&2
-  fi
-  return $retval
-}
 
 if docker inspect "${FIXEDCONTAINERNAME}" >/dev/null 2>&1 ; then
   if ! RunDocker rm -f "$FIXEDCONTAINERNAME" ; then
@@ -338,6 +435,7 @@ fi
 
 # Independent tempdir
 TEMPBUILDROOT=$DOCKERBUILDFOLDER/$$$(date | (md5 2>/dev/null || md5sum) | head -c8)
+mkdir -p ${TEMPBUILDROOT}/docker-tests/modules
 
 if [ -n "$ISMODULETEST" ]; then
   TESTINGMODULEDIR="$TESTINGMODULE"
@@ -386,7 +484,6 @@ else
   fi
 fi
 
-mkdir -p ${TEMPBUILDROOT}/docker-tests/modules
 
 # Fetch dependencies
 NUMMODULES=${#EXPLAIN_DEPMODULE[*]}
@@ -468,102 +565,6 @@ if [ -n "$ADDMODULES" ]; then
     fi
   done
 fi
-
-mark()
-{
-  echo "$(date) --- MARK: $1 ---"
-  $SUDO docker exec "$TESTENV_CONTAINER1" wh debug mark "$1"
-}
-
-create_container()
-{
-  local CONTAINERID NR CONTAINERDOCKERARGS
-
-  NR=$1
-  CONTAINERDOCKERARGS="$DOCKERARGS"
-
-  echo "`date` Creating container$NR (using image $WEBHAREIMAGE)"
-
-  #######################
-  #
-  # Create the environment file
-  > ${TEMPBUILDROOT}/env-file
-
-  # Switch to DTAP development - most test refuse to run without this option for safety reasons
-  echo "WEBHARE_DTAPSTAGE=development" >> ${TEMPBUILDROOT}/env-file
-
-  # Signal this job is running for a test - we generally try to avoid changing behaviours in testmode, but we want to be nice and eg prevent all CI instances from downloading the geoip database
-  echo "WEBHARE_CI=1" >> "${TEMPBUILDROOT}/env-file"
-  if [ -n "$TESTINGMODULENAME" ]; then
-    echo "WEBHARE_CI_MODULE=$TESTINGMODULENAME" >> "${TEMPBUILDROOT}/env-file"
-  fi
-
-  # Allow whdata to be mounted on ephemeral (overlayfs) storage
-  echo "WEBHARE_ALLOWEPHEMERAL=1" >> ${TEMPBUILDROOT}/env-file
-
-  # Append all our settings. Remap (TESTFW/TESTSECRET)_WEBHARE_ vars to WEBHARE_ - this also allows the testinvoker to override any variable we set so far
-  set | egrep '^(TESTSECRET_|TESTFW_|WEBHARE_DEBUG)' | sed -E 's/^(TESTFW_|TESTSECRET_)WEBHARE_/WEBHARE_/' >> ${TEMPBUILDROOT}/env-file
-
-  # TODO Perhaps /opt/whdata shouldn't require executables... but whlive definitely needs it and we don't noexec it in prod yet either for now.. so enable for now!
-  CONTAINERID="$(RunDocker create -l webharecitype=testdocker -p 80 -p 8000 $DOCKERARGS --env-file "${TEMPBUILDROOT}/env-file" --tmpfs /opt/whdata:exec "$WEBHAREIMAGE")"
-
-  if [ -z "$CONTAINERID" ]; then
-    echo Container creating failed
-    exit 1
-  fi
-
-  echo "$(date) Created container with id: $CONTAINERID"
-  eval TESTENV_CONTAINER$NR=\$CONTAINERID
-
-  if [ -n "$WEBHARE_CI_ACCESS_DOCKERHOST" ]; then # Running on our infra, so predictable paths
-    echo ""
-    echo "To access the runner:    ${WEBHARE_CI_ACCESS_DOCKERHOST}"
-    echo "To access the container: ${WEBHARE_CI_ACCESS_RUNNER} docker exec -ti ${TESTENV_CONTAINER1} /bin/bash"
-    echo ""
-  fi
-
-  if [ "$NR" == "1" ]; then
-    # Get version info from first container
-    # this initializes the'version' variable
-    BUILDINFOFILE="$(mktemp)"
-    RunDocker cp "$TESTENV_CONTAINER1":/opt/wh/whtree/modules/system/whres/buildinfo "$BUILDINFOFILE" || die "Cannot get version information out of container"
-    source "$BUILDINFOFILE"
-    echo "WebHare version info:
-      committag=$committag
-      builddate=$builddate
-      buildtime=$buildtime
-      branch=$branch
-      version=$version"
-    rm "$BUILDINFOFILE"
-
-    # We can now use:
-    # if is_atleast_version 4.35.0-dev ; then  CODE TO APPLY TO 4.35 AND HIGHER
-  fi
-
-  if [ -n "$ADDMODULES" ]; then
-    if is_atleast_version 5.2.0-dev ; then
-      DESTCOPYDIR=$CONTAINERID:/webhare-ci-modules/
-    else
-      DESTCOPYDIR=$CONTAINERID:/opt/whmodules/
-    fi
-
-    RunDocker cp "${TEMPBUILDROOT}/docker-tests/modules/" "$DESTCOPYDIR" || die "Module copy failed!"
-  fi
-
-  if [ -z "$ISMODULETEST" -a -d "$BUILDDIR/build" ]; then
-    if ! $SUDO docker cp "$BUILDDIR/build" $CONTAINERID:/ ; then
-      die "Artifact copy failed!"
-    fi
-  fi
-
-  if ! RunDocker start "$CONTAINERID" ; then
-    die "Container start failed"
-  fi
-
-  if ! RunDocker exec "$CONTAINERID" wh fixmodules --onlyinstalledmodules ; then
-    testfail "wh fixmodules failed"
-  fi
-}
 
 create_container 1
 echo "Container 1: $TESTENV_CONTAINER1"
