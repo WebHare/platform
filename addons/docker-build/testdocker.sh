@@ -50,6 +50,17 @@ is_atleast_version()
   return 0
 }
 
+exit_failure_sh()
+{
+  echo "Test failed:" "$@"
+
+  if [ "$ENTERSHELL" == "1" ]; then
+    echo "Starting a shell to debug (you are on the host!)"
+    "$SHELL"
+  fi
+  exit 1
+}
+
 mark()
 {
   echo "$(date) --- MARK: $1 ---"
@@ -285,7 +296,7 @@ fi
 
 if docker inspect "${FIXEDCONTAINERNAME}" >/dev/null 2>&1 ; then
   if ! RunDocker rm -f "$FIXEDCONTAINERNAME" ; then
-    exit 1
+    exit_failure_sh Unable to cleanup existing image "$FIXEDCONTAINERNAME"
   fi
 fi
 
@@ -297,8 +308,7 @@ cd `dirname $0`
 if [ -n "$TESTSECRET_SECRETSURL" ]; then
   DOWNLOADPATH=`mktemp`
   if ! curl --fail -o $DOWNLOADPATH "$TESTSECRET_SECRETSURL"; then
-    echo "Cannot retrieve secrets"
-    exit 1
+    exit_failure_sh "Cannot retrieve secrets"
   fi
   source "$DOWNLOADPATH"
   rm "$DOWNLOADPATH"
@@ -315,8 +325,7 @@ fi
 if [ "$WEBHAREIMAGE" == "main" ] || [ "$WEBHAREIMAGE" == "stable" ] || [ "$WEBHAREIMAGE" == "beta" ]; then
   WEBHAREIMAGE=`curl -s https://build.webhare.dev/ci/dockerimage-$WEBHAREIMAGE.txt | grep -v '^#'`
   if [ -z "$WEBHAREIMAGE" ]; then
-    echo "Cannot retrieve actual image to use for image alias $WEBHAREIMAGE"
-    exit 1
+    exit_failure_sh "Cannot retrieve actual image to use for image alias $WEBHAREIMAGE"
   fi
 elif [ "$WEBHAREIMAGE" == "local" ]; then
   WEBHAREIMAGE="webhare/webhare-extern:localbuild${WEBHARE_LOCALBUILDIMAGEPOSTFIX}"
@@ -389,14 +398,12 @@ if [ "$NOPULL" != "1" ]; then
       [ -n "$WH_CI_ALTERNATEREGISTRY_LOGIN" ] && RunDocker logout $WH_CI_ALTERNATEREGISTRY
 
       if ! RunDocker pull "$WEBHAREIMAGE" ; then
-        echo "Failed to pull image"
-        exit 1
+        exit_failure_sh "Failed to pull image"
       fi
     fi
   else
     if ! RunDocker pull "$WEBHAREIMAGE" ; then
-      echo "Failed to pull image"
-      exit 1
+      exit_failure_sh "Failed to pull image"
     fi
   fi
 fi
@@ -444,12 +451,11 @@ if [ -n "$ISMODULETEST" ]; then
     if [ ! -d "$TESTINGMODULEDIR" ]; then
       echo "Cannot find module $TESTINGMODULE - we require the base module to be checked out so we can extract dependency info"
       echo "Alternatively give us the full path to $TESTINGMODULE"
-      exit 1
+      exit_failure_sh "Dependency extraction failed"
     fi
   fi
   if [ ! -f $TESTINGMODULEDIR/moduledefinition.xml ]; then
-    echo Cannot find $TESTINGMODULEDIR/moduledefinition.xml
-    exit 1
+    exit_failure_sh "Cannot find $TESTINGMODULEDIR/moduledefinition.xml"
   fi
   if [ -z "$TESTLIST" ]; then
     TESTLIST="$TESTINGMODULENAME"
@@ -464,8 +470,7 @@ if [ -n "$ISMODULETEST" ]; then
   ERRORCODE="$?"
 
   if [ "$ERRORCODE" != "0" ]; then
-    echo "Failed to get dependency info, error code: $ERRORCODE"
-    exit 1
+    exit_failure_sh "Failed to get dependency info, error code: $ERRORCODE"
   fi
 
   eval $MODSETTINGS
@@ -535,8 +540,7 @@ do
 
   echo "Cloning module '$MODULENAME' from '$CLONEURL' into '$TARGETDIR'$CLONEINFO"
   if ! git clone --recurse-submodules $GITOPTIONS "$CLONEURL" "$TARGETDIR" ; then
-    echo "Failed to clone $CLONEURL"
-    exit 1
+    exit_failure_sh "Failed to clone $CLONEURL"
   fi
 done
 
@@ -545,7 +549,7 @@ if [ -n "$ADDMODULES" ]; then
     if [ ! -d "$MODULE" ]; then
       MODULE="`${PWD}/../../whtree/bin/wh getmoduledir $MODULE`"
       if [ -z "$MODULE" ]; then
-        exit 1
+        exit_failure_sh "Unable to get module dir for $MODULE"
       fi
     fi
     MODULENAME="$(basename $MODULE)"
@@ -555,8 +559,7 @@ if [ -n "$ADDMODULES" ]; then
     mkdir -p "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"
     if [ -d "$MODULE/.git" ]; then
       if ! (cd $MODULE ; git ls-files -co --exclude-standard | tar -c -T -) | tar -x -C "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME" ; then
-        echo "Failed to copy $MODULE"
-        exit 1
+        exit_failure_sh "Failed to copy $MODULE"
       fi
     else
       # non-git module, just copy all
