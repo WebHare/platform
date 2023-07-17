@@ -11,6 +11,7 @@ else
 fi
 
 version=""
+CONTAINERS=()
 ORIGINALOPTIONS=()
 ORIGINALPARAMS=()
 BASEDIR=$(get_absolute_path $(dirname $0)/../..)
@@ -108,11 +109,26 @@ create_container()
   set | egrep '^(TESTSECRET_|TESTFW_|WEBHARE_DEBUG)' | sed -E 's/^(TESTFW_|TESTSECRET_)WEBHARE_/WEBHARE_/' >> ${TEMPBUILDROOT}/env-file
 
   # TODO Perhaps /opt/whdata shouldn't require executables... but whlive definitely needs it and we don't noexec it in prod yet either for now.. so enable for now!
-  CONTAINERID="$(RunDocker create -l webharecitype=testdocker -p 80 -p 8000 $DOCKERARGS --env-file "${TEMPBUILDROOT}/env-file" --tmpfs /opt/whdata:exec "$WEBHAREIMAGE")"
+  CONTAINERID="$(RunDocker create -l webharecitype=testdocker -p 80 -p 8000 $DOCKERARGS --env-file "${TEMPBUILDROOT}/env-file" "$WEBHAREIMAGE")"
 
   if [ -z "$CONTAINERID" ]; then
     echo Container creating failed
     exit 1
+  fi
+
+  if [ -n "$TESTINGMODULE" ]; then
+    # we don't want WebHare to start yet. TOOD We can remove these hooks as soon as 5.3+ is our baseline for module CI
+    true > "${TEMPBUILDROOT}/pause-webhare-startup"
+    RunDocker cp "${TEMPBUILDROOT}/pause-webhare-startup" "$CONTAINERID":/pause-webhare-startup
+
+    echo "#!/bin/bash" > "${TEMPBUILDROOT}/sleep-launch.sh"
+    echo "until [ ! -f /pause-webhare-startup ]; do sleep .2 ; done" >> "${TEMPBUILDROOT}/sleep-launch.sh"
+    echo "exec /opt/container/real-launch.sh" >> "${TEMPBUILDROOT}/sleep-launch.sh"
+    chmod a+x "${TEMPBUILDROOT}/sleep-launch.sh"
+
+    RunDocker cp --archive "$CONTAINERID":/opt/container/launch.sh "${TEMPBUILDROOT}/real-launch.sh"
+    RunDocker cp --archive "${TEMPBUILDROOT}/real-launch.sh" "$CONTAINERID":/opt/container/real-launch.sh
+    RunDocker cp --archive "${TEMPBUILDROOT}/sleep-launch.sh" "$CONTAINERID":/opt/container/launch.sh
   fi
 
   echo "$(date) Created container with id: $CONTAINERID"
@@ -143,29 +159,11 @@ create_container()
     # if is_atleast_version 4.35.0-dev ; then  CODE TO APPLY TO 4.35 AND HIGHER
   fi
 
-  if [ -n "$ADDMODULES" ]; then
-    if is_atleast_version 5.2.0-dev ; then
-      DESTCOPYDIR=$CONTAINERID:/webhare-ci-modules/
-    else
-      DESTCOPYDIR=$CONTAINERID:/opt/whmodules/
-    fi
-
-    RunDocker cp "${TEMPBUILDROOT}/docker-tests/modules/" "$DESTCOPYDIR" || die "Module copy failed!"
-  fi
-
-  if [ -z "$ISMODULETEST" -a -d "$BUILDDIR/build" ]; then
-    if ! $SUDO docker cp "$BUILDDIR/build" $CONTAINERID:/ ; then
-      die "Artifact copy failed!"
-    fi
-  fi
-
   if ! RunDocker start "$CONTAINERID" ; then
     die "Container start failed"
   fi
 
-  if ! RunDocker exec "$CONTAINERID" wh fixmodules --onlyinstalledmodules ; then
-    testfail "wh fixmodules failed"
-  fi
+  CONTAINERS+=("$CONTAINERID")
 }
 
 while true; do
@@ -420,12 +418,22 @@ function cleanup()
   fi
 
   if [ -n "$TESTENV_CONTAINER1" ]; then
-    RunDocker stop "$TESTENV_CONTAINER1"
+    if [ -n "$TESTENV_KILLCONTAINER1" ]; then
+      RunDocker kill "$TESTENV_CONTAINER1"
+    else
+      RunDocker stop "$TESTENV_CONTAINER1"
+    fi
+
     # [ "$TESTFAIL" == "0" ] || $SUDO docker logs $TESTENV_CONTAINER1
     RunDocker rm "$TESTENV_CONTAINER1"
   fi
   if [ -n "$TESTENV_CONTAINER2" ]; then
-    RunDocker stop "$TESTENV_CONTAINER2"
+    if [ -n "$TESTENV_KILLCONTAINER2" ]; then
+      RunDocker kill "$TESTENV_CONTAINER2"
+    else
+      RunDocker stop "$TESTENV_CONTAINER2"
+    fi
+
     # [ "$TESTFAIL" == "0" ] || $SUDO docker logs $TESTENV_CONTAINER2
     RunDocker rm "$TESTENV_CONTAINER2"
   fi
@@ -443,6 +451,23 @@ fi
 # Independent tempdir
 TEMPBUILDROOT=$DOCKERBUILDFOLDER/$$$(date | (md5 2>/dev/null || md5sum) | head -c8)
 mkdir -p ${TEMPBUILDROOT}/docker-tests/modules
+
+if [ -n "$ISMODULETEST" ]; then # Tell the shutdownscript to use 'kill' as sleep won't respond to 'stop'
+  TESTENV_KILLCONTAINER1=1
+  TESTENV_KILLCONTAINER2=1
+fi
+
+create_container 1
+echo "Container 1: $TESTENV_CONTAINER1"
+
+if [ -n "$TESTFW_TWOHARES" ]; then
+  create_container 2
+  echo "Container 2: $TESTENV_CONTAINER2"
+fi
+
+if [ -n "$ISMODULETEST" ] && [ -z "$EXPLAIN_OPTION_NOSTARTUPERRORS" ]; then
+  ALLOWSTARTUPERRORS=1
+fi
 
 if [ -n "$ISMODULETEST" ]; then
   TESTINGMODULEDIR="$TESTINGMODULE"
@@ -464,9 +489,10 @@ if [ -n "$ISMODULETEST" ]; then
   echo "Autoadded module: $TESTINGMODULE"
   ADDMODULES="$ADDMODULES $TESTINGMODULE"
 
-  echo "`date` Pulling dependency information for module $TESTINGMODULE"
+  echo "$(date) Pulling dependency information for module $TESTINGMODULE"
   # TODO: shouldn't harescript just create /opt/whdata/tmp so stuff just works?
-  MODSETTINGS="$(RunDocker run --rm -i -e WEBHARE_TEMP=/tmp/ -e WEBHARE_DTAPSTAGE=development -e WEBHARE_SERVERNAME=moduletest.webhare.net -l webharecitype=testdocker "$WEBHAREIMAGE" wh run mod::system/scripts/internal/tests/explainmodule.whscr < "$TESTINGMODULEDIR"/moduledefinition.xml)"
+  RunDocker exec "$TESTENV_CONTAINER1" mkdir /opt/whdata/tmp/
+  MODSETTINGS="$(RunDocker exec -i "$TESTENV_CONTAINER1" env WEBHARE_DTAPSTAGE=development WEBHARE_SERVERNAME=moduletest.webhare.net wh run mod::system/scripts/internal/tests/explainmodule.whscr < "$TESTINGMODULEDIR"/moduledefinition.xml)"
   ERRORCODE="$?"
 
   if [ "$ERRORCODE" != "0" ]; then
@@ -569,17 +595,40 @@ if [ -n "$ADDMODULES" ]; then
   done
 fi
 
-create_container 1
-echo "Container 1: $TESTENV_CONTAINER1"
+if [ -n "$TESTINGMODULE" ]; then
+  echo "$(date) Telling containers to start"
 
-if [ -n "$TESTFW_TWOHARES" ]; then
-  create_container 2
-  echo "Container 2: $TESTENV_CONTAINER2"
+  for CONTAINERID in "${CONTAINERS[@]}"; do
+    if [ -n "$ADDMODULES" ]; then
+      if is_atleast_version 5.2.0-dev ; then
+        DESTCOPYDIR=$CONTAINERID:/webhare-ci-modules/
+      else
+        DESTCOPYDIR=$CONTAINERID:/opt/whmodules/
+      fi
+
+      RunDocker cp "${TEMPBUILDROOT}/docker-tests/modules/" "$DESTCOPYDIR" || die "Module copy failed!"
+    fi
+
+    if [ -z "$ISMODULETEST" ] && [ -d "$BUILDDIR/build" ]; then
+      if ! $SUDO docker cp "$BUILDDIR/build" "$CONTAINERID:/" ; then
+        die "Artifact copy failed!"
+      fi
+    fi
+
+    RunDocker exec "$CONTAINERID" rm /pause-webhare-startup || exit_failure_sh "Failed to unblock container1"
+  done
+
+  # Tell our cleanup script it should now just 'stop' the containers
+  TESTENV_KILLCONTAINER1=""
+  TESTENV_KILLCONTAINER2=""
+
+  for CONTAINERID in "${CONTAINERS[@]}"; do
+    if ! RunDocker exec "$TESTENV_CONTAINER1" wh fixmodules --onlyinstalledmodules ; then
+      testfail "wh fixmodules failed"
+    fi
+  done
 fi
 
-if [ -n "$ISMODULETEST" ] && [ -z "$EXPLAIN_OPTION_NOSTARTUPERRORS" ]; then
-  ALLOWSTARTUPERRORS=1
-fi
 
 echo "$(date) Wait for poststartdone container1"
 if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh waitfor --timeout 600 poststartdone ; then

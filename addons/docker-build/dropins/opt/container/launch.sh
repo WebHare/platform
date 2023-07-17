@@ -1,4 +1,10 @@
 #!/bin/bash
+
+# A hook to allow CI to pause our actual startup
+until [ ! -f /pause-webhare-startup ]; do
+  sleep .2 ;
+done
+
 eval `/opt/wh/whtree/bin/wh setupmyshell`
 
 # Ensure /tmp/ exists with sticky permissions. our podman builds showed up without /tmp. ?
