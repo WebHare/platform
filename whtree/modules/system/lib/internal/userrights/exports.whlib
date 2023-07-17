@@ -27,7 +27,7 @@ RECORD FUNCTION GetAuthObjectById(RECORD ARRAY allobjs, INTEGER authobjectid)
   RETURN LookupRecord(allobjs, [ id := authobjectid ], ["ID"]);
 }
 
-PUBLIC RECORD ARRAY FUNCTION EnrichWithGrantorAndGrantee(OBJECT userapi, RECORD ARRAY rightslist)
+PUBLIC RECORD ARRAY FUNCTION EnrichWithGrantorAndGrantee(OBJECT userapi, OBJECT foruser, RECORD ARRAY rightslist)
 {
   INTEGER ARRAY relevantobjs := GetSortedSet(INTEGER[ ...(SELECT AS INTEGER ARRAY DISTINCT grantee FROM rightslist)
                                                     , ...(SELECT AS INTEGER ARRAY DISTINCT grantor FROM rightslist)
@@ -36,12 +36,19 @@ PUBLIC RECORD ARRAY FUNCTION EnrichWithGrantorAndGrantee(OBJECT userapi, RECORD 
   RECORD ARRAY allobjs := SELECT authobjects.id
                                , authobjects.guid
                                , authobjects.type
-                               , unitid := units.id
+                               , authobjectparentid := units.id
                                , unitname := units.name
                             FROM system.authobjects, system.authobjects as units
                            WHERE units.id = authobjects.parent
                                  AND authobjects.id IN relevantobjs
                         ORDER BY authobjects.id;
+
+  IF(ObjectExists(foruser) AND NOT foruser->HasRightOn("system:browseunits", 0))
+  {
+    //This user has only a limited view. sanitize the list!
+    INTEGER ARRAY visible_units := GetSortedSet(foruser->HasRightOnMultiple("system:browseunits", SELECT AS INTEGER ARRAY DISTINCT authobjectparentid FROM allobjs));
+    DELETE FROM allobjs WHERE BinaryFind(visible_units, authobjectparentid) = -1;
+  }
 
   RECORD ARRAY allusers := SELECT * FROM allobjs WHERE type = authobjecttype_user;
   allusers := userapi->EnrichUsers("guid", allusers, [ celltype := "guid", extrafields := CELL[ "whuser_disable_type" ] ] ) ;
@@ -73,7 +80,7 @@ PUBLIC RECORD ARRAY FUNCTION EnrichWithGrantorAndGrantee(OBJECT userapi, RECORD 
                , active := grantee.type = authobjecttype_role OR grantee.whuser_disable_type = ""
                , fullname := grantee.type = authobjecttype_role ? "" : grantee.fullname
                , email := grantee.type = authobjecttype_role ? "" : grantee.email
-               , grantee.unitid
+               , grantee.authobjectparentid
                , grantee.unitname
                , grantor
                ] INTO finallist AT END;
@@ -88,7 +95,7 @@ PUBLIC RECORD ARRAY FUNCTION ListRightsAndRolesForExport(OBJECT userapi)
   RECORD ARRAY allroleobjs := SELECT authobjects.id
                                    , authobjects.name
                                    , authobjects.guid
-                                   , unitid := units.id
+                                   , authobjectparentid := units.id
                                    , unitname := units.name
                                 FROM system.authobjects, system.authobjects as units
                                WHERE units.id = authobjects.parent
@@ -155,8 +162,7 @@ PUBLIC RECORD ARRAY FUNCTION ListRightsAndRolesForExport(OBJECT userapi)
                ] INTO allrows AT END;
   }
 
-  allrows := EnrichWithGrantorAndGrantee(userapi, allrows);
-
+  allrows := EnrichWithGrantorAndGrantee(userapi, DEFAULT OBJECT, allrows);
   RETURN allrows;
 }
 
@@ -234,7 +240,7 @@ STATIC OBJECTTYPE ObjectTreeRightsExport
   // Public API
   //
 
-  PUBLIC RECORD ARRAY FUNCTION GenerateExport()
+  RECORD ARRAY FUNCTION GenerateExport()
   {
     RECORD ARRAY rights :=
         SELECT *
@@ -248,6 +254,7 @@ STATIC OBJECTTYPE ObjectTreeRightsExport
     {
       grants := grants CONCAT
           SELECT grantee
+               , grantor
                , objectid :=      COLUMN "object"
                , withgrantoption
                , rightname :=     right.name
@@ -320,14 +327,10 @@ STATIC OBJECTTYPE ObjectTreeRightsExport
       {
         FOREVERY (INTEGER rolegrantee FROM GetAuthobjectsWithWebHareRole(rec.grantee))
           INSERT
-              [ rowkey :=           "role-" || rec.grantee || "-" || rolegrantee || "-" || rec.objectid || "-" || rec.rightname
+              [ ...rec
+              , rowkey :=           "role-" || rec.grantee || "-" || rolegrantee || "-" || rec.objectid || "-" || rec.rightname
               , type :=             "role"
               , grantee :=          rolegrantee
-              , objectid :=         rec.objectid
-              , path :=             rec.path
-              , withgrantoption :=  rec.withgrantoption
-              , rightname :=        rec.rightname
-              , righttitle :=       rec.righttitle
               , viarole :=          GetQualifiedAuthObjectName(rec.grantee) //TODO can't we use the names gathered in 'EnrichRoles' ?
               ] INTO rows AT END;
       }
@@ -335,40 +338,13 @@ STATIC OBJECTTYPE ObjectTreeRightsExport
 
 
     {
-      RECORD ARRAY newrows;
-      INTEGER ARRAY userids := SELECT AS INTEGER ARRAY DISTINCT grantee FROM rows;
-
-      RECORD ARRAY users :=
-          SELECT id
-               , type
-               , unit :=      parent
-               , login :=     name
-               , authobjectparentid := parent
-            FROM system.authobjects
-           WHERE id IN userids
-             AND type = 1
-             AND this->tolliumuser->HasRightOn("system:browseunits", id);
-
-      users := this->tolliumuser->authapi->EnrichUsers("userid", (SELECT id, type, unit, authobjectparentid, userid := id FROM users), [ celltype := "authobjectid" ] );
-      users := EnrichWithUnitPath(users, this->tolliumuser);
-      users := SELECT * FROM users ORDER BY id;
-
-      FOREVERY (RECORD rec FROM rows)
-      {
-        RECORD pos := RecordLowerBound(users, [ id := rec.grantee ], [ "ID" ]);
-        IF (pos.found)
-        {
-          INSERT CELL login := users[pos.position].unitpath || "/" || users[pos.position].login INTO rec;
-          INSERT CELL fullname := users[pos.position].fullname INTO rec;
-          INSERT rec INTO newrows AT END;
-        }
-      }
-
-      rows := newrows;
+      rows := EnrichWithGrantorAndGrantee(this->userapi, this->tolliumuser, rows);
+      rows := EnrichWithUnitPath(rows, this->tolliumuser);
     }
 
     RETURN
-        SELECT login
+        SELECT login := unitpath || "/" || login
+             , email
              , fullname
              , right :=       righttitle
              , path
@@ -383,11 +359,12 @@ STATIC OBJECTTYPE ObjectTreeRightsExport
   {
     RETURN CELL
       [ rows := this->GenerateExport()
-      , columns :=  [ [ name := "path",     type := "text", title := GetTid("system:tolliumapps.userrights.common.objectpath") ]
-                    , [ name := "login",    type := "text", title := GetTid("~username") ]
-                    , [ name := "fullname", type := "text", title := GetTid("~fullname") ]
-                    , [ name := "right",    type := "text", title := GetTid("system:tolliumapps.userrights.common.right") ]
-                    , [ name := "viarole",  type := "text", title := GetTid("system:tolliumapps.userrights.common.viarole") ]
+      , columns :=  [ [ name := "path",            type := "text", title := GetTid("system:tolliumapps.userrights.common.objectpath") ]
+                    , [ name := "login",           type := "text", title := GetTid("~username") ]
+                    , [ name := "fullname",        type := "text", title := GetTid("~fullname") ]
+                    , [ name := "email",           type := "text", title := GetTid("~email") ]
+                    , [ name := "right",           type := "text", title := GetTid("system:tolliumapps.userrights.common.right") ]
+                    , [ name := "viarole",         type := "text", title := GetTid("system:tolliumapps.userrights.common.viarole") ]
                     ]
       , exporttitle := GetTid("system:userrights.exports.exportobjectrights")
       ];

@@ -347,18 +347,21 @@ ASYNC MACRO TestExport()
         , "full name" :=  "testuser"
         , right :=        "Browse"
         , "via role" :=   ""
+        , email :=        "testuser@beta.webhare.net"
         ]
       , [ "object path"   :=  "/visiblefolder"
         , username :=     "visibleunit/visibleuser1@beta.webhare.net"
         , "full name" :=  "visibleuser1"
         , right :=        "Browse"
         , "via role" :=   ""
+        , email :=        "visibleuser1@beta.webhare.net"
         ]
       , [ "object path"   :=  "/visiblefolder"
         , username :=     "visibleunit/visibleuser2@beta.webhare.net"
         , "full name" :=  "visibleuser2"
         , right :=        "Browse"
         , "via role" :=   "visibleunit/visiblerole"
+        , email :=        "visibleuser2@beta.webhare.net"
         ]
       ], SELECT * FROM rows ORDER BY username);
 
@@ -378,12 +381,14 @@ ASYNC MACRO TestExport()
         , "full name" :=  "testuser"
         , right :=        "Browse"
         , "via role" :=   ""
+        , email :=        "testuser@beta.webhare.net"
         ]
       , [ "object path"   :=       "/visiblefolder"
         , username :=     "visibleunit/visibleuser1@beta.webhare.net"
         , "full name" :=  "visibleuser1"
         , right :=        "Browse"
         , "via role" :=   ""
+        , email :=        "visibleuser1@beta.webhare.net"
         ]
       ], SELECT * FROM rows ORDER BY username);
 
