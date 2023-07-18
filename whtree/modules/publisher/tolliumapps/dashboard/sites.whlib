@@ -42,9 +42,9 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
   {
     RunColumnFileExportDialog(this,
         CELL[ rows := this->sites
-            , columns :=  [[ name := "name",        type := "string", title := this->GetTid(".sitecolumns.name") ]
+            , columns :=  [[ name := "name",        type := "string", title := this->GetTid(".name") ]
                           ,[ name := "sitedesign",  type := "string", title := GetTid("publisher:commondialogs.siteprops.sitedesign") ]
-                          ,[ name := "webroot",     type := "string", title := this->GetTid(".sitecolumns.url") ]
+                          ,[ name := "webroot",     type := "string", title := this->GetTid(".url") ]
                           ,[ name := "webfeatures", type := "string", title := GetTid("publisher:commondialogs.siteprops.webfeatures") ]
                           ,[ name := "cdnbaseurl",  type := "string", title := GetTid("publisher:commondialogs.siteprops.cdnbaseurl") ]
                           ,[ name := "comments",    type := "string", title := GetTid("~comments") ]
@@ -167,11 +167,11 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
 
     IF (items > max_publishers_at_once)
     {
-      this->RunMessageBox(".toomanytoopen_publisher", ToString(max_publishers_at_once));
+      this->RunSimpleScreen("info", this->GetTid(".toomanytoopen_publisher", ToString(max_publishers_at_once)));
       RETURN;
     }
 
-    IF (items > 3 AND this->RunMessageBox(".suretoopenmultiple_publisher", ToString(items)) != "yes")
+    IF (items > 3 AND this->RunSimpleScreen("confirm", this->GetTid(".suretoopenmultiple_publisher", ToString(items))) != "yes")
       RETURN;
 
     FOREVERY(RECORD site FROM selection)

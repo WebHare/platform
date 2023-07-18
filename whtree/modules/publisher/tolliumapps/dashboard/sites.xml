@@ -1,12 +1,7 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="monitor.sites" library="sites.whlib">
-
-  <messageboxes gid=".messageboxes">
-    <messagebox name="suretoopenmultiple_publisher" buttons="yes no" />
-    <messagebox name="toomanytoopen_publisher" buttons="ok" />
-  </messageboxes>
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="tolliumapps.dashboard.sites" library="sites.whlib">
 
   <screen name="sites" flags="issysop" title="">
-    <actions gid=".actions">
+    <actions>
       <windowopenaction name="viewbrowser"
                         onwindowopen="onviewbrowserlist"
                         shortcut="ctrl+b"
@@ -87,7 +82,6 @@
                 height="1pr"
                 borders="top bottom right"
                 flags="canview"
-                gid=".sitecolumns"
                 selectcontextmenu="sitescontextmenu"
                 selectmode="multiple"
                 sortcolumn="name">
