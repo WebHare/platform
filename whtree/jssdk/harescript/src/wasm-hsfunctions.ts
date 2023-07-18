@@ -8,6 +8,7 @@ import { WASMModule } from "./wasm-modulesupport";
 import { HSVM, Ptr, StringPtr } from "wh:internal/whtree/lib/harescript-interface";
 import { generateRandomId } from "@webhare/std";
 import * as syscalls from "./syscalls";
+import { localToUTC, utcToLocal } from "@webhare/hscompat/datetime";
 
 type SysCallsModule = { [key: string]: (data: unknown) => unknown };
 
@@ -114,5 +115,28 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     const toawait = last_syscall_promise;
     last_syscall_promise = undefined;
     id_set.setJSValue({ value: await toawait });
+  });
+  wasmmodule.registerAsyncExternalFunction("__ICU_GETTIMEZONEIDS::SA:", async (vm, id_set) => {
+    //@ts-ignore -- MDN says it is supported everywhere we need it to be
+    const list = Intl.supportedValuesOf('timeZone');
+    // Add some missing timezones: https://bugs.chromium.org/p/v8/issues/detail?id=13084
+    for (const toAdd of ["UTC", "GMT", "CET"])
+      if (!list.includes(toAdd))
+        list.push(toAdd);
+    id_set.setJSValue(list.sort());
+  });
+  wasmmodule.registerAsyncExternalFunction("__ICU_LOCALTOUTC::D:DS", async (vm, id_set, var_date, var_timezone) => {
+    try {
+      id_set.setDateTime(localToUTC(var_date.getDateTime(), var_timezone.getString()));
+    } catch (e) {
+      id_set.copyFrom(var_date);
+    }
+  });
+  wasmmodule.registerAsyncExternalFunction("__ICU_UTCTOLOCAL::D:DS", async (vm, id_set, var_date, var_timezone) => {
+    try {
+      id_set.setDateTime(utcToLocal(var_date.getDateTime(), var_timezone.getString()));
+    } catch (e) {
+      id_set.copyFrom(var_date);
+    }
   });
 }

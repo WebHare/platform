@@ -2,6 +2,10 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::util/localization.whlib";
+LOADLIB "wh::internal/wasm.whlib";
+
+LOADLIB "mod::system/lib/tasks.whlib";
+
 
 // We're building using Ubuntu 18.04, which currently (as of 2018-03-22) has ICU4C 60.2:
 // https://launchpad.net/ubuntu/bionic/+source/icu
@@ -395,6 +399,12 @@ MACRO TestBothConversions(DATETIME localtime, DATETIME gmttime, STRING timezone)
 {
   TestEq(gmttime, LocalTOUTC(localtime,timezone));
   TestEq(localtime, UTCToLocal(gmttime,timezone));
+
+  IF (NOT IsWasm())
+  {
+    TestEq(gmttime, WaitForPromise(CallAsync("@webhare/hscompat/datetime.ts#localToUTC", VARIANT [localtime, timezone ])));
+    TestEq(localtime, WaitForPromise(CallAsync("@webhare/hscompat/datetime.ts#utcToLocal", VARIANT [gmttime, timezone ])));
+  }
 }
 
 MACRO TimeZoneTests()
@@ -439,6 +449,9 @@ MACRO TimeZoneTests()
 
   TestBothConversions(MakeDateTime(1960, 04, 24, 20, 00, 00), MakeDateTime(1960, 04, 24, 19, 00, 00), "CET");
   //TestBothConversions(MakeDateTime(1910, 04, 24, 20, 00, 00), MakeDateTime(1910, 04, 24, 19, 40, 28), "EUROPE/AMSTERDAM"); //pre-1970 data is no longer present in the TZ database
+
+  IF (IsWasm())
+    RETURN;
 
   TestEq(FALSE, IsLocalTimeDST(MakeDateTime(2002, 10, 27, 03, 00, 00), "CET"));
   TestEq(TRUE,  IsLocalTimeDST(MakeDateTime(2003, 03, 30, 03, 00, 00), "CET"));
@@ -921,6 +934,12 @@ MACRO NumberFormatTest()
 
 
 Print("\n === Running TestLocalization\n");
+IF (NOT IsWasm())
+{
+  // Time zone support
+  TimeZoneTests();
+  RETURN;
+}
 VersionTest();
 // Formatting functions
 LocalizeDateTimeTest();
