@@ -134,7 +134,7 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
                             CONCAT
                             SELECT * FROM sitedesigns ORDER BY ToUppercase(title);
 
-    this->RefreshWebFeatures(); //now that sitedesign be selected, update the feature list
+    this->RefreshWebFeatures(); //now that sitedesign has been selected, update the feature list
     SetupBackendScreenHooks(PRIVATE this, CELL[ screenname := "platform:siteproperties" ]);
     ^siteroot->Load(data.fsobj);
 
