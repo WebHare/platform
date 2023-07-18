@@ -19,6 +19,9 @@
       "@mod-consilio/*": [
         "modules/consilio/*"
       ],
+      "@mod-platform/*": [
+        "modules/platform/*"
+      ],
       "@mod-publisher/*": [
         "modules/publisher/*"
       ],

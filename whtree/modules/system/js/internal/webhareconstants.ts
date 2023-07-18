@@ -4,7 +4,7 @@
 */
 
 // The basemodule list MUST be in their final dependency ordering. webhare_testsuite is not criticial and not considered a core module
-export const whconstant_builtinmodules = ["system", "wrd", "consilio", "publisher", "tollium", "socialite"];
+export const whconstant_builtinmodules = ["platform", "system", "wrd", "consilio", "publisher", "tollium", "socialite"];
 
 //An oauth token is valid until ${whconstant_oauthtoken_validuntil} ${whconstant_oauthoken_days} days later
 export const whconstant_oauthtoken_validuntil = 5 * 60 * 60 * 1000;
