@@ -1,12 +1,12 @@
 import { WebRequestInfo, WebResponseInfo } from "../types";
 import { loadJSFunction } from "../resourcetools";
-import { WebRequestFromInfo } from "@webhare/router/src/request";
+import { newWebRequestFromInfo } from "@webhare/router/src/request";
 import { WebHareRouter } from "@webhare/router/src/router";
 
 class JSRouter {
   async routerCall(routerfunc: string, req: WebRequestInfo, relurl: string): Promise<WebResponseInfo> {
     const router = await loadJSFunction(routerfunc) as WebHareRouter;
-    const webreq = WebRequestFromInfo(req);
+    const webreq = newWebRequestFromInfo(req);
     const response = await router(webreq);
     return response.asWebResponseInfo();
   }

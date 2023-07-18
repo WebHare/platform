@@ -56,6 +56,6 @@ export class IncomingWebRequest implements WebRequest {
   }
 }
 
-export function WebRequestFromInfo(req: WebRequestInfo): WebRequest {
+export function newWebRequestFromInfo(req: WebRequestInfo): WebRequest {
   return new IncomingWebRequest(req.url, { method: req.method, headers: req.headers, body: req.body.toString() });
 }
