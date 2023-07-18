@@ -99,7 +99,7 @@
       <text name="lastsnoozemessage" width="1pr" wordwrap="true" />
       <textarea name="metadata" width="1pr" height="3gr" enabled="false" />
       <heading tid=".history" />
-      <list name="history" height="1pr" minwidth="70x" minheight="6gr">
+      <list name="history" height="1pr" minwidth="70x" minheight="6gr" sortascending="false">
         <column name="when" type="datetime" width="18x" storeutc="true" />
         <column name="event" type="text" width="10x" />
         <column name="message" type="text" width="1pr" />

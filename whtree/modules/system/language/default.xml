@@ -792,9 +792,6 @@
       <text tid="savelogin">Remember my login</text>
       <text tid="username">Username</text>
     </textgroup>
-    <textgroup gid="messages">   <!-- portal.messages -->
-      <text tid="confirmexittollium">This will exit all WebHare applications.</text>
-    </textgroup>
   </textgroup>
   <textgroup gid="rights">   <!-- rights -->
     <text tid="accessrules">Access rules</text>

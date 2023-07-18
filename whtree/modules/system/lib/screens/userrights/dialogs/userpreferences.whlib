@@ -215,9 +215,6 @@ PUBLIC STATIC OBJECTTYPE UserPreferences EXTEND TolliumScreenBase
 
     this->contexts->user->SetRegistryKey("system.prefs.browsertitleprefix", ^browsertitleprefix->value);
 
-    IF (MemberExists(this->tolliumcontroller, "webunloadtext"))
-      this->tolliumcontroller->webunloadtext := ^showunloadtext->value ? GetTid("system:portal.messages.confirmexittollium") : "";
-
     STRING oldlanguage := this->contexts->user->GetLocale().language;
     this->contexts->user->SetLocale([ language := ^language->value
                                     , timezone := ^timezone->value

@@ -606,9 +606,6 @@
       <text tid="savelogin">Onthoud mijn inloggegevens</text>
       <text tid="username">Gebruikersnaam</text>
     </textgroup>
-    <textgroup gid="messages">   <!-- portal.messages -->
-      <text tid="confirmexittollium">Hiermee worden alle WebHare-applicaties afgesloten.</text>
-    </textgroup>
   </textgroup>
   <textgroup gid="rights">   <!-- rights -->
     <text tid="accessrules">Toegangsregels</text>
