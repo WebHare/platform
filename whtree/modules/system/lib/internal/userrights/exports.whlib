@@ -259,6 +259,8 @@ STATIC OBJECTTYPE ObjectTreeRightsExport
                , withgrantoption
                , rightname :=     right.name
                , righttitle :=    right.title
+               , creationdate
+               , comment
             FROM GetDirectGrantsForRight(right.name);
     }
     // Resolve all paths
@@ -350,6 +352,10 @@ STATIC OBJECTTYPE ObjectTreeRightsExport
              , path
              , direct :=      type = "user" ? 1 : 2
              , viarole
+             , grantor
+             , creationdate
+             , withgrantoption
+             , comment
           FROM rows
          WHERE this->objectid = 0 ? TRUE : path != ""
       ORDER BY login, path;
@@ -365,12 +371,15 @@ STATIC OBJECTTYPE ObjectTreeRightsExport
                     , [ name := "email",           type := "text", title := GetTid("~email") ]
                     , [ name := "right",           type := "text", title := GetTid("system:tolliumapps.userrights.common.right") ]
                     , [ name := "viarole",         type := "text", title := GetTid("system:tolliumapps.userrights.common.viarole") ]
+                    , [ name := "grantor",         type := "text",     title := GetTid("system:tolliumapps.userrights.common.grantor") ]
+                    , [ name := "creationdate",    type := "datetime", title := GetTid("system:tolliumapps.userrights.common.grantdate"), storeutc := TRUE ]
+                    , [ name := "withgrantoption", type := "boolean",  title := GetTid("system:tolliumapps.userrights.common.withgrantoption") ]
+                    , [ name := "comment",         type := "text",     title := GetTid("system:tolliumapps.userrights.common.comment") ]
                     ]
       , exporttitle := GetTid("system:userrights.exports.exportobjectrights")
       ];
   }
 >;
-
 
 PUBLIC RECORD FUNCTION GetObjectTreeRightsExport(OBJECT contexts, STRING objecttypename, INTEGER objectid)
 {

@@ -341,7 +341,7 @@ ASYNC MACRO TestExport()
   AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
 
   RECORD ARRAY rows := GetOOXMLSpreadsheetRows(rec.file.data);
-  TestEQ(
+  TestEqMembers(
       [ [ "object path"   :=  "/visiblefolder"
         , username :=     "visibleunit/testuser@beta.webhare.net"
         , "full name" :=  "testuser"
@@ -363,7 +363,7 @@ ASYNC MACRO TestExport()
         , "via role" :=   "visibleunit/visiblerole"
         , email :=        "visibleuser2@beta.webhare.net"
         ]
-      ], SELECT * FROM rows ORDER BY username);
+      ], (SELECT * FROM rows ORDER BY username), "*");
 
   //Delete 'visiblerole'. This should eliminate it from the exportobjectrights
   testfw->BeginWork();
@@ -375,7 +375,7 @@ ASYNC MACRO TestExport()
   AWAIT ExpectScreenChange(-1, DEFAULT FUNCTION PTR);
 
   rows := GetOOXMLSpreadsheetRows(rec.file.data);
-  TestEQ(
+  TestEqMembers(
       [ [ "object path"   :=       "/visiblefolder"
         , username :=     "visibleunit/testuser@beta.webhare.net"
         , "full name" :=  "testuser"
@@ -390,7 +390,7 @@ ASYNC MACRO TestExport()
         , "via role" :=   ""
         , email :=        "visibleuser1@beta.webhare.net"
         ]
-      ], SELECT * FROM rows ORDER BY username);
+      ], (SELECT * FROM rows ORDER BY username), "*");
 
   TTFillByTitle("unittree->unitlist", "visibleunit");
   AWAIT ExpectScreenChange(+1, PTR TTClick("unittree->exportusersinunit"));
