@@ -11,7 +11,7 @@ import * as envbackend from "@webhare/env/src/envbackend";
 const logmessages = envbackend.flags.ipc;
 
 function getStructuredTrace(e: Error) {
-  if (!e.stack)
+  if (!e?.stack)
     return [];
 
   const trace = stacktrace_parser.parse(e.stack);
@@ -454,7 +454,7 @@ export function encodeIPCException(error: Error): IPCExceptionMessage {
   return {
     __exception: {
       type: "exception",
-      what: error.message,
+      what: error?.message || String(error), //this also deals with non Error objects (eg 'throw 1') or even `throw undefined`
       trace: getStructuredTrace(error)
     }
   };
