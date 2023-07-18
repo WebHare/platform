@@ -157,27 +157,7 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
 
   MACRO OnViewBrowserList(OBJECT openhandler)
   {
-    RECORD ARRAY selectedsites := this->siteslist->selection;
-    INTEGER items := Length(selectedsites);
-
-    // FIXME: messageboxes don't work well together with windowopenactions
-
-    IF (items > max_tabs_at_once)
-    {
-      this->RunMessageBox(".toomanytoopen_newtab", ToString(max_tabs_at_once));
-      RETURN;
-    }
-
-    IF (items > 3 AND this->RunMessageBox(".suretoopenmultiple_newtab", ToString(items)) != "yes")
-      RETURN;
-
-    FOREVERY(RECORD site FROM selectedsites)
-    {
-      IF (#site = 0)
-        openhandler->SendURL(site.url);
-      ELSE // the openhandler can only open a single URL
-        this->frame->OpenBrowserWindow(site.url, "_blank");
-    }
+    openhandler->SendURL(this->sitelist->selection[0].url);
   }
 
   MACRO DoShowInNewPublishers()
