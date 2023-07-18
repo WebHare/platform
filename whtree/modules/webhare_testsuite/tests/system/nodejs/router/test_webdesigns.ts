@@ -1,6 +1,6 @@
 import * as test from "@webhare/test";
 import * as whfs from "@webhare/whfs";
-import { WebRequest, WebResponse } from "@webhare/router";
+import { WebResponse } from "@webhare/router";
 import { coreWebHareRouter } from "@webhare/router/src/corerouter";
 import { BaseTestPageConfig } from "@mod-webhare_testsuite/webdesigns/basetestjs/webdesign/webdesign";
 //TODO why doesn't this work?  Now importing it into testsuite's package.json
@@ -8,6 +8,7 @@ import { BaseTestPageConfig } from "@mod-webhare_testsuite/webdesigns/basetestjs
 import { DOMParser } from "@xmldom/xmldom";
 import { captureJSDesign, captureJSPage } from "@mod-publisher/js/internal/capturejsdesign";
 import { buildSiteRequest } from "@webhare/router/src/siterequest";
+import { IncomingWebRequest } from "@webhare/router/src/request";
 
 function parseHTMLDoc(html: string): Document {
   // eslint-disable-next-line @typescript-eslint/no-empty-function -- we want an empty function!
@@ -50,7 +51,7 @@ async function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: We
 async function testSiteResponse() {
   //Create a SiteRequest so we have context for a SiteResponse
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
-  const sitereq = await buildSiteRequest(new WebRequest(markdowndoc.link), markdowndoc);
+  const sitereq = await buildSiteRequest(new IncomingWebRequest(markdowndoc.link), markdowndoc);
 
   //It should be okay to initialize the composer without knowing its tpye
   const outputpage = await sitereq.createComposer();
@@ -99,14 +100,14 @@ async function testCaptureJSRendered() {
 //Unlike testSiteResponse the testRouter_... tests actually attempt to render the markdown document *and* go through the path lookup motions
 async function testRouter_HSWebDesign() {
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage");
-  const result = await coreWebHareRouter(new WebRequest(markdowndoc.link));
+  const result = await coreWebHareRouter(new IncomingWebRequest(markdowndoc.link));
 
   await verifyMarkdownResponse(markdowndoc, result);
 }
 
 async function testRouter_JSWebDesign() {
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
-  const result = await coreWebHareRouter(new WebRequest(markdowndoc.link));
+  const result = await coreWebHareRouter(new IncomingWebRequest(markdowndoc.link));
 
   await verifyMarkdownResponse(markdowndoc, result);
 }

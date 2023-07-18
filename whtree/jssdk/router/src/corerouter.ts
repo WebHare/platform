@@ -49,7 +49,7 @@ async function routeThroughHSWebserver(request: WebRequest): Promise<WebResponse
     method: fetchmethod
   };
   if (!["GET", "HEAD"].includes(fetchmethod))
-    fetchoptions.body = request.body;
+    fetchoptions.body = await request.text();
 
   const result = await fetch(targeturl, fetchoptions);
   const body = await result.arrayBuffer(); //TODO even better if we can stream blobs

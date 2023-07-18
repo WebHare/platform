@@ -5,13 +5,14 @@ import * as net from 'node:net';
 import * as http from 'node:http';
 import * as https from 'node:https';
 import { Configuration, Port, initialconfig } from "./webconfig";
+import { IncomingWebRequest } from "@webhare/router/src/request";
 
 function buildWebRequest(req: http.IncomingMessage, port: Port, body?: string): WebRequest {
   //FIXME verify whether host makes sense given the incoming port (ie virtualhost or force to IP ?)
   const finalurl = (port.privatekey ? "https://" : "http://") + req.headers.host + req.url;
 
   //Translate nodejs request to our Router stuff
-  const webreq = new WebRequest(finalurl, { method: req.method!.toLowerCase() as HTTPMethod, headers: req.headers as Record<string, string>, body });
+  const webreq = new IncomingWebRequest(finalurl, { method: req.method!.toLowerCase() as HTTPMethod, headers: req.headers as Record<string, string>, body });
   return webreq;
 }
 

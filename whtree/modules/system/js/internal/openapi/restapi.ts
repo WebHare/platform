@@ -314,7 +314,7 @@ export class RestAPI {
         return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Invalid content-type '${ctype}', expected application/json` });
 
       try {
-        body = JSON.parse(req.body);
+        body = await req.json();
       } catch (e) { //parse error. There's no harm in 'leaking' a JSON parse error details
         return createErrorResponse(HTTPErrorCode.BadRequest, { error: `Failed to parse the body: ${(e as Error)?.message}` });
       }

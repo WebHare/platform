@@ -13,11 +13,24 @@ export enum HTTPMethod {
 
 const validmethods = ["get", "put", "post", "delete", "options", "head", "patch", "trace"];
 
-export class WebRequest {
+export interface WebRequest {
+  ///HTTP Method, eg "get", "post"
+  readonly method: HTTPMethod;
+  ///Full original request URL
+  readonly url: URL;
+  ///Request headers
+  readonly headers: Headers;
+  ///Request body as text
+  text(): Promise<string>;
+  ///Request body as JSON
+  json(): Promise<string>;
+}
+
+export class IncomingWebRequest implements WebRequest {
   readonly method: HTTPMethod;
   readonly url: URL;
   readonly headers: Headers;
-  readonly body: string;
+  private readonly __body: string;
 
   constructor(url: string, options?: { method?: HTTPMethod; headers?: Headers | Record<string, string>; body?: string }) {
     this.url = new URL(url);
@@ -32,10 +45,17 @@ export class WebRequest {
 
     this.method = options?.method || HTTPMethod.GET;
     this.headers = options?.headers ? (options.headers instanceof Headers ? options.headers : new Headers(options.headers)) : new Headers;
-    this.body = options?.body || "";
+    this.__body = options?.body || "";
+  }
+
+  async text() {
+    return this.__body;
+  }
+  async json() {
+    return JSON.parse(this.__body);
   }
 }
 
 export function WebRequestFromInfo(req: WebRequestInfo): WebRequest {
-  return new WebRequest(req.url, { method: req.method, headers: req.headers, body: req.body.toString() });
+  return new IncomingWebRequest(req.url, { method: req.method, headers: req.headers, body: req.body.toString() });
 }
