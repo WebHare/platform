@@ -20,10 +20,16 @@ export interface WebRequest {
   readonly url: URL;
   ///Request headers
   readonly headers: Headers;
+
   ///Request body as text
   text(): Promise<string>;
   ///Request body as JSON
-  json(): Promise<string>;
+  json(): Promise<unknown>;
+
+  //Base URL for this route. Usually https://example.net/ but when forwarding to a deeper router this will get updated
+  readonly baseUrl: string;
+  //Local path inside this route (URL decoded, lowercase, no variables, does not start with a slash)
+  readonly localPath: string;
 }
 
 export class IncomingWebRequest implements WebRequest {
@@ -54,8 +60,44 @@ export class IncomingWebRequest implements WebRequest {
   async json() {
     return JSON.parse(this.__body);
   }
+
+  get baseUrl() {
+    return this.url.origin + "/";
+  }
+
+  get localPath() {
+    return decodeURIComponent(this.url.pathname).toLowerCase().substring(1);
+  }
+}
+
+class ForwardedWebRequest implements WebRequest {
+  readonly baseUrl: string;
+  readonly localPath: string;
+  private readonly original: WebRequest;
+
+  constructor(original: WebRequest, newbaseurl: string) {
+    this.baseUrl = newbaseurl;
+    this.localPath = decodeURIComponent(original.url.toString().substring(newbaseurl.length)).toLowerCase().replace(/\?.*$/, "");
+    this.original = original;
+  }
+
+  get method() { return this.original.method; }
+  get url() { return this.original.url; }
+  get headers() { return this.original.headers; }
+  get text() { return this.original.text; }
+  get json() { return this.original.json; }
 }
 
 export function newWebRequestFromInfo(req: WebRequestInfo): WebRequest {
   return new IncomingWebRequest(req.url, { method: req.method, headers: req.headers, body: req.body.toString() });
+}
+
+export function newForwardedWebRequest(req: WebRequest, suburl: string): WebRequest {
+  const newbaseurl = req.baseUrl + suburl;
+  if (!req.url.toString().startsWith(newbaseurl))
+    throw new Error(`The suburl added must be a part of the original base url`);
+  if (newbaseurl.includes("?"))
+    throw new Error(`The suburl added may not add search/query parameters to the URL`);
+
+  return new ForwardedWebRequest(req, newbaseurl);
 }

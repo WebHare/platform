@@ -1,12 +1,18 @@
 import { WebRequestInfo, WebResponseInfo } from "../types";
 import { loadJSFunction } from "../resourcetools";
-import { newWebRequestFromInfo } from "@webhare/router/src/request";
-import { WebHareRouter } from "@webhare/router/src/router";
+import { newForwardedWebRequest, newWebRequestFromInfo } from "@webhare/router/src/request";
+import { WebHareRouter, createWebResponse } from "@webhare/router/src/router";
 
 class JSRouter {
-  async routerCall(routerfunc: string, req: WebRequestInfo, relurl: string): Promise<WebResponseInfo> {
+  async routerCall(routerfunc: string, req: WebRequestInfo, localbaseurl: string): Promise<WebResponseInfo> {
     const router = await loadJSFunction(routerfunc) as WebHareRouter;
-    const webreq = newWebRequestFromInfo(req);
+    let webreq;
+    try {
+      webreq = newForwardedWebRequest(newWebRequestFromInfo(req), localbaseurl.substring(1));
+    } catch (e) {
+      return createWebResponse("Invalid URL", { status: 400 }).asWebResponseInfo();
+    }
+
     const response = await router(webreq);
     return response.asWebResponseInfo();
   }

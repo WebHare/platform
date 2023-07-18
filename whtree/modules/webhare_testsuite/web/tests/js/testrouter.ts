@@ -2,7 +2,7 @@ import { WebHareRouter, WebRequest, WebResponse, createJSONResponse } from "@web
 
 export async function handleJSRequest(req: WebRequest): Promise<WebResponse> {
   if (req.url.searchParams.get("type") == "debug")
-    return createJSONResponse(200, { debug: true, url: req.url.toString() });
+    return createJSONResponse(200, { debug: true, url: req.url.toString(), baseUrl: req.baseUrl, localPath: req.localPath });
 
   return createJSONResponse(400, { error: "Invalid request" });
 }
