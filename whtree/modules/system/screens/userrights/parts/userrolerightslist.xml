@@ -48,13 +48,13 @@
                 borders="none"
                 emptytid="userrights.empty.permissionsfromuser"
                 flags="isrole canmanage"
-                gid="userrights.columns"
+                gid="tolliumapps.userrights.common"
                 icons="tollium:security/key tollium:users/indirect tollium:users/mask"
                 newcontextmenu="newcontext_directpermissions"
                 openaction="edit"
                 selectcontextmenu="context_directpermissions"
                 selectmode="multiple">
-            <column name="name" type="text" width="2pr" iconname="icon" tid=".permission" tree="true" />
+            <column name="name" type="text" width="2pr" iconname="icon" tid=".right" tree="true" />
             <column name="objectpath" type="text" width="4pr" />
             <column name="withgrantoption" type="text" width="1pr" />
           </list>
@@ -64,7 +64,7 @@
                 borders="none"
                 emptytid="userrights.empty.nousersinrole"
                 flags="canmanagerolegrant"
-                gid="userrights.columns"
+                gid="tolliumapps.userrights.common"
                 icons="tollium:users/user
                        tollium:users/users
                        tollium:users/mask
@@ -76,7 +76,7 @@
                 selectmode="multiple">
             <column name="name" type="text" width="30x" iconname="type" />
             <column name="fullname" type="text" width="1pr" />
-            <column name="unitpath" type="text" width="1pr" />
+            <column name="unitpath" type="text" width="1pr" tid=".unit" />
           </list>
         </tab>
       </tabs>

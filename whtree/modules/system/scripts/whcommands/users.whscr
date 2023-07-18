@@ -70,7 +70,7 @@ MACRO GetUser(STRING ARRAY params)
   IF(NOT RecordExists(user))
     TerminateScriptWithError(`No user with login '${subargs.username}' exists`);
 
-  Print(`authobjecti: ${user.authobjectid}\n`);
+  Print(`authobjectid: ${user.authobjectid}\n`);
   Print(`wrd_id: ${user.entityid}\n`);
   Print(`wrd_guid: ${user.guid}\n`);
 }

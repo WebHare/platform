@@ -15,7 +15,7 @@ LOADLIB "mod::tollium/lib/dialogs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::wrd/lib/dialogs.whlib";
-LOADLIB "mod::wrd/lib/internal/auth/exchange.whlib";
+LOADLIB "mod::system/lib/internal/userrights/exports.whlib";
 
 PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 < // ---------------------------------------------------------------------------
@@ -311,19 +311,19 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoExportAllGrants()
   {
-    RECORD ARRAY cols := [[ name := "type",            type := "text",     title := this->GetTid(".export.type") ]
+    RECORD ARRAY cols := [[ name := "type",            type := "text",     title := GetTid("system:tolliumapps.userrights.common.type") ]
                          ,[ name := "login",           type := "text",     title := GetTid("~username") ]
-                         ,[ name := "realname",        type := "text",     title := GetTid("~fullname") ]
+                         ,[ name := "fullname",        type := "text",     title := GetTid("~fullname") ]
                          ,[ name := "email",           type := "text",     title := GetTid("~email") ]
-                         ,[ name := "active",          type := "boolean",  title := this->GetTid(".export.active") ]
-                         ,[ name := "unitname",        type := "text",     title := this->GetTid(".export.unitname") ]
-                         ,[ name := "rightname",       type := "text",     title := this->GetTid(".export.rightname") ]
-                         ,[ name := "objecttypename",  type := "text",     title := this->GetTid(".export.objecttypename") ]
-                         ,[ name := "objectpath",      type := "text",     title := this->GetTid(".export.objectpath") ]
-                         ,[ name := "grantor",         type := "text",     title := this->GetTid(".export.grantor") ]
-                         ,[ name := "creationdate",    type := "datetime", title := this->GetTid(".export.grantdate"), storeutc := TRUE ]
-                         ,[ name := "withgrantoption", type := "boolean",  title := this->GetTid(".export.withgrantoption") ]
-                         ,[ name := "comment",         type := "text",     title := this->GetTid(".export.comment") ]
+                         ,[ name := "active",          type := "boolean",  title := GetTid("system:tolliumapps.userrights.common.active") ]
+                         ,[ name := "unitname",        type := "text",     title := GetTid("system:tolliumapps.userrights.common.unit") ]
+                         ,[ name := "rightname",       type := "text",     title := GetTid("system:tolliumapps.userrights.common.right") ]
+                         ,[ name := "objecttypename",  type := "text",     title := GetTid("system:tolliumapps.userrights.common.objecttypename") ]
+                         ,[ name := "objectpath",      type := "text",     title := GetTid("system:tolliumapps.userrights.common.objectpath") ]
+                         ,[ name := "grantor",         type := "text",     title := GetTid("system:tolliumapps.userrights.common.grantor") ]
+                         ,[ name := "creationdate",    type := "datetime", title := GetTid("system:tolliumapps.userrights.common.grantdate"), storeutc := TRUE ]
+                         ,[ name := "withgrantoption", type := "boolean",  title := GetTid("system:tolliumapps.userrights.common.withgrantoption") ]
+                         ,[ name := "comment",         type := "text",     title := GetTid("system:tolliumapps.userrights.common.comment") ]
                          ];
     RunColumnFileExportDialog(this, [ columns := cols
                                     , rows := ListRightsAndRolesForExport(this->contexts->userapi)

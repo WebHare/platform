@@ -77,7 +77,7 @@
             newcontextmenu="newcontextmenu"
             onselect="onselecthandler"
             openaction="edit"
-            gid="userrights.columns"
+            gid="tolliumapps.userrights.common"
             borders="all"
             emptytid="userrights.empty.usersinunits"
             flags="isrole canedit candelete canopenas">
@@ -91,7 +91,7 @@
         <column name="fullname" type="text" width="1pr" />
         <column name="email" type="text" width="1pr" tid="~email" />
         <column name="lastlogin" type="datetime" width="1pr" storeutc="true" />
-        <column name="unitpath" type="text" width="1pr" />
+        <column name="unitpath" type="text" width="1pr" tid=".unit"/>
         <column name="online" type="icon" title="" width="20px" align="center" sortkeyname="online_login" />
 
       </list>

@@ -1,0 +1,388 @@
+<?wh
+LOADLIB "wh::util/algorithms.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/internal/backend/users.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/screens/userrights/support.whlib";
+LOADLIB "mod::system/lib/internal/rightsmgmt.whlib";
+LOADLIB "mod::system/lib/internal/rightsinfo.whlib";
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+CONSTANT INTEGER authobjecttype_user := 1;
+CONSTANT INTEGER authobjecttype_unit := 2;
+CONSTANT INTEGER authobjecttype_role := 3;
+
+RECORD FUNCTION LookupRecord(RECORD ARRAY list, RECORD find, STRING ARRAY sortorder)
+{
+  RECORD pos := RecordLowerBound(list, find, sortorder);
+  RETURN pos.found ? list[pos.position] : DEFAULT RECORD;
+}
+
+RECORD FUNCTION GetAuthObjectById(RECORD ARRAY allobjs, INTEGER authobjectid)
+{
+  RETURN LookupRecord(allobjs, [ id := authobjectid ], ["ID"]);
+}
+
+PUBLIC RECORD ARRAY FUNCTION EnrichWithGrantorAndGrantee(OBJECT userapi, OBJECT foruser, RECORD ARRAY rightslist)
+{
+  INTEGER ARRAY relevantobjs := GetSortedSet(INTEGER[ ...(SELECT AS INTEGER ARRAY DISTINCT grantee FROM rightslist)
+                                                    , ...(SELECT AS INTEGER ARRAY DISTINCT grantor FROM rightslist)
+                                                    ]);
+
+  RECORD ARRAY allobjs := SELECT authobjects.id
+                               , authobjects.guid
+                               , authobjects.type
+                               , authobjectparentid := units.id
+                               , unitname := units.name
+                            FROM system.authobjects, system.authobjects as units
+                           WHERE units.id = authobjects.parent
+                                 AND authobjects.id IN relevantobjs
+                        ORDER BY authobjects.id;
+
+  IF(ObjectExists(foruser) AND NOT foruser->HasRightOn("system:browseunits", 0))
+  {
+    //This user has only a limited view. sanitize the list!
+    INTEGER ARRAY visible_units := GetSortedSet(foruser->HasRightOnMultiple("system:browseunits", SELECT AS INTEGER ARRAY DISTINCT authobjectparentid FROM allobjs));
+    DELETE FROM allobjs WHERE BinaryFind(visible_units, authobjectparentid) = -1;
+  }
+
+  RECORD ARRAY allusers := SELECT * FROM allobjs WHERE type = authobjecttype_user;
+  allusers := userapi->EnrichUsers("guid", allusers, [ celltype := "guid", extrafields := CELL[ "whuser_disable_type" ] ] ) ;
+
+  RECORD ARRAY allroles := SELECT * FROM allobjs WHERE type = authobjecttype_role;
+  allroles := userapi->EnrichRoles("guid", allroles, [ celltype := "guid" ] ) ;
+
+  RECORD ARRAY wrdmap := (SELECT * FROM allusers CONCAT allroles ORDER BY id);
+
+  RECORD ARRAY finallist;
+  FOREVERY(RECORD grant FROM rightslist)
+  {
+    RECORD grantee := LookupRecord(wrdmap, [ id := grant.grantee ], [ "id" ]);
+    IF(NOT RecordExists(grantee))
+      CONTINUE; //this grantee is outside this usermgmt wrdschema
+
+    STRING grantor;
+    IF(grant.grantor != grant.grantee) //not a self grant? we don't show the grantor for a self-grant, this makes them stand out better in the list
+    {
+      RECORD grantorrec := LookupRecord(wrdmap, [ id := grant.grantor ], [ "id" ]);
+      IF(RecordExists(grantorrec) AND CellExists(grantorrec,'login')) //TODO present data from grantordata, but need testcases (and businressrules, we can probably only show sysop?)
+        grantor := grantorrec.login ?? grantorrec.guid;
+      ELSE
+        grantor := "authobject #" || grant.grantor;
+    }
+
+    INSERT CELL[ ...grant
+               , login := (grantee.type = authobjecttype_role ? grantee.title : grantee.login) ?? grantee.guid
+               , active := grantee.type = authobjecttype_role OR grantee.whuser_disable_type = ""
+               , fullname := grantee.type = authobjecttype_role ? "" : grantee.fullname
+               , email := grantee.type = authobjecttype_role ? "" : grantee.email
+               , grantee.authobjectparentid
+               , grantee.unitname
+               , grantor
+               ] INTO finallist AT END;
+  }
+
+  RETURN finallist;
+}
+
+//NOTE: userapi should now only be enabled for schemas depending on usermgmt
+PUBLIC RECORD ARRAY FUNCTION ListRightsAndRolesForExport(OBJECT userapi)
+{
+  RECORD ARRAY allroleobjs := SELECT authobjects.id
+                                   , authobjects.name
+                                   , authobjects.guid
+                                   , authobjectparentid := units.id
+                                   , unitname := units.name
+                                FROM system.authobjects, system.authobjects as units
+                               WHERE units.id = authobjects.parent
+                                     AND authobjects.type = 3 //user role
+                            ORDER BY authobjects.id;
+
+  RECORD ARRAY allrights := GetListOfRights();
+  GetPrimary()->BeginWork();
+  OBJECT user := EnsureCreatedMagicSysop("<overrideuser>");
+  GetPrimary()->CommitWork();
+
+  RECORD ARRAY allrows;
+
+  //Gather the rights
+  FOREVERY(RECORD r FROM allrights)
+  {
+    RECORD ARRAY grants := GetDirectGrantsForRight(r.rightname);
+    FOREVERY(RECORD grant FROM grants)
+    {
+      STRING objecttypename;
+      INTEGER objectid;
+      STRING ARRAY objectpath;
+
+      IF(NOT r.isglobal)
+      {
+        RECORD pathrec := user->GetObjectPath(r.objecttypename, grant."object");
+        IF (NOT RecordExists(pathrec) OR NOT pathrec.visible)
+          CONTINUE;
+
+        objecttypename := r.objecttypename;
+        objectid := grant."object";
+        objectpath := SELECT AS STRING ARRAY name FROM pathrec.path WHERE id != 0;
+      }
+
+      INSERT CELL[ ...grant
+                 , type := "GRANT"
+                 , r.rightname
+                 , objecttypename
+                 , objectid
+                 , objectpath
+                 ] INTO allrows AT END;
+    }
+  }
+
+  //Gather the role grants
+  RECORD ARRAY rolegrants := SELECT * FROM system.rolegrants;
+  rolegrants := userapi->EnrichRoles("role", rolegrants, [ celltype := "authobjectid" ]); //enrich to kick out roles that don't exist in our userapi view
+  rolegrants := SELECT *, grantordata := grantordata != "" ? DecodeHSON(grantordata) : DEFAULT RECORD FROM rolegrants;
+
+  FOREVERY(RECORD grant FROM rolegrants)
+  {
+    RECORD roleinfo := GetAuthObjectById(allroleobjs, grant.role);
+    IF(NOT RecordExists(roleinfo))
+      CONTINUE;
+
+    INSERT CELL[ ...grant
+               , type := "ROLEGRANT"
+               , rightname := ""
+               , withgrantoption := FALSE
+               , objecttypename := "role"
+               , objectid := roleinfo.id
+               //FIXME show full role path
+               , objectpath := STRING[roleinfo.name]
+               ] INTO allrows AT END;
+  }
+
+  allrows := EnrichWithGrantorAndGrantee(userapi, DEFAULT OBJECT, allrows);
+  RETURN allrows;
+}
+
+
+INTEGER ARRAY FUNCTION GetAuthobjectsWithWebHareRole(INTEGER roleid)
+{
+  RETURN SELECT AS INTEGER ARRAY authobjects.id
+           FROM system.rolegrants
+              , system.authobjects
+          WHERE rolegrants.grantee = authobjects.id
+            AND rolegrants.role = roleid;
+}
+
+STATIC OBJECTTYPE ObjectTreeRightsExport
+< // ---------------------------------------------------------------------------
+  //
+  // Variables
+  //
+  OBJECT userapi;
+
+  OBJECT tolliumuser;
+
+  OBJECT rightsinfo;
+
+  STRING objecttypename;
+
+  INTEGER objectid;
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public properties
+  //
+
+  // ---------------------------------------------------------------------------
+  //
+  // Init
+  //
+
+  MACRO NEW(OBJECT contexts, STRING objecttypename, INTEGER objectid)
+  {
+    this->userapi := contexts->userapi;
+    this->tolliumuser := contexts->user;
+    this->rightsinfo := GetRightsInfoObject(contexts->user);
+
+    this->objecttypename := objecttypename;
+    this->objectid := objectid;
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Helper functions
+  //
+
+  STRING FUNCTION GetObjectPath(INTEGER objectid)
+  {
+    RECORD pathrec := GetPresentationRightsObjectPath(this->objecttypename, objectid, this->tolliumuser->authobject);
+    IF (NOT RecordExists(pathrec) OR NOT pathrec.visible)
+      RETURN "";
+
+    RECORD ARRAY path := pathrec.path;
+    IF (this->objectid != 0)
+    {
+      WHILE (LENGTH(path) != 0 AND path[0].id != this->objectid)
+        DELETE FROM path AT 0;
+
+      // Hide?
+      IF (LENGTH(path) = 0)
+        RETURN "";
+    }
+    RETURN "/" || Detokenize((SELECT AS STRING ARRAY name FROM path WHERE id != 0), "/");
+  }
+
+  // ---------------------------------------------------------------------------
+  //
+  // Public API
+  //
+
+  RECORD ARRAY FUNCTION GenerateExport()
+  {
+    RECORD ARRAY rights :=
+        SELECT *
+          FROM this->rightsinfo->rights
+         WHERE objecttypename = this->objecttypename;
+
+    STRING ARRAY rightnames := SELECT AS STRING ARRAY name FROM rights;
+
+    RECORD ARRAY grants;
+    FOREVERY (RECORD right FROM rights)
+    {
+      grants := grants CONCAT
+          SELECT grantee
+               , grantor
+               , objectid :=      COLUMN "object"
+               , withgrantoption
+               , rightname :=     right.name
+               , righttitle :=    right.title
+               , creationdate
+               , comment
+            FROM GetDirectGrantsForRight(right.name);
+    }
+    // Resolve all paths
+    RECORD ARRAY paths :=
+        SELECT objectid
+             , path :=      this->GetObjectPath(objectid)
+          FROM grants
+      GROUP BY objectid
+      ORDER BY objectid;
+    // Delete the ones that are invisible
+    DELETE FROM paths WHERE path = "";
+
+    // Add the paths, filter out the invisible ones
+    {
+      RECORD ARRAY newgrants;
+      FOREVERY (RECORD rec FROM grants)
+      {
+        RECORD pos := RecordLowerBound(paths, rec, [ "OBJECTID" ]);
+        IF (pos.found)
+        {
+          INSERT CELL path := paths[pos.position].path INTO rec;
+          INSERT rec INTO newgrants AT END;
+        }
+      }
+
+      grants := newgrants;
+    }
+
+    INTEGER ARRAY all_grantees :=
+        SELECT AS INTEGER ARRAY DISTINCT grantee
+          FROM grants;
+
+    RECORD ARRAY all_role_grantees :=
+        SELECT id
+          FROM system.authobjects
+         WHERE id IN all_grantees
+           AND type = 3;
+
+    IF(Length(all_role_grantees) > 0)
+    {
+      INTEGER ARRAY visible_role_grantees := this->tolliumuser->HasRightOnMultiple("system:browseunits", SELECT AS INTEGER ARRAY id FROM all_role_grantees);
+      DELETE FROM all_role_grantees WHERE id NOT IN visible_role_grantees;
+
+      IF(Length(all_role_grantees) > 0) //still present
+        all_role_grantees := this->userapi->EnrichRoles("ID", all_role_grantees, [ celltype := "authobjectid" ]);
+    }
+
+    INTEGER ARRAY all_user_grantees :=
+        SELECT AS INTEGER ARRAY id
+          FROM system.authobjects
+         WHERE id IN all_grantees
+           AND type = 1;
+
+    RECORD ARRAY rows :=
+        SELECT rowkey :=  "user-" || grantee || "-" || objectid || "-" || rightname
+             , type :=    "user"
+             , *
+             , viarole := ""
+          FROM grants
+         WHERE grantee IN all_user_grantees;
+
+    FOREVERY (RECORD rec FROM grants)
+    {
+      RECORD matchrole := SELECT * FROM all_role_grantees WHERE id = rec.grantee;
+      IF (RecordExists(matchrole))
+      {
+        FOREVERY (INTEGER rolegrantee FROM GetAuthobjectsWithWebHareRole(rec.grantee))
+          INSERT
+              [ ...rec
+              , rowkey :=           "role-" || rec.grantee || "-" || rolegrantee || "-" || rec.objectid || "-" || rec.rightname
+              , type :=             "role"
+              , grantee :=          rolegrantee
+              , viarole :=          GetQualifiedAuthObjectName(rec.grantee) //TODO can't we use the names gathered in 'EnrichRoles' ?
+              ] INTO rows AT END;
+      }
+    }
+
+
+    {
+      rows := EnrichWithGrantorAndGrantee(this->userapi, this->tolliumuser, rows);
+      rows := EnrichWithUnitPath(rows, this->tolliumuser);
+    }
+
+    RETURN
+        SELECT login := unitpath || "/" || login
+             , email
+             , fullname
+             , right :=       righttitle
+             , path
+             , direct :=      type = "user" ? 1 : 2
+             , viarole
+             , grantor
+             , creationdate
+             , withgrantoption
+             , comment
+          FROM rows
+         WHERE this->objectid = 0 ? TRUE : path != ""
+      ORDER BY login, path;
+  }
+
+  PUBLIC RECORD FUNCTION GetList()
+  {
+    RETURN CELL
+      [ rows := this->GenerateExport()
+      , columns :=  [ [ name := "path",            type := "text", title := GetTid("system:tolliumapps.userrights.common.objectpath") ]
+                    , [ name := "login",           type := "text", title := GetTid("~username") ]
+                    , [ name := "fullname",        type := "text", title := GetTid("~fullname") ]
+                    , [ name := "email",           type := "text", title := GetTid("~email") ]
+                    , [ name := "right",           type := "text", title := GetTid("system:tolliumapps.userrights.common.right") ]
+                    , [ name := "viarole",         type := "text", title := GetTid("system:tolliumapps.userrights.common.viarole") ]
+                    , [ name := "grantor",         type := "text",     title := GetTid("system:tolliumapps.userrights.common.grantor") ]
+                    , [ name := "creationdate",    type := "datetime", title := GetTid("system:tolliumapps.userrights.common.grantdate"), storeutc := TRUE ]
+                    , [ name := "withgrantoption", type := "boolean",  title := GetTid("system:tolliumapps.userrights.common.withgrantoption") ]
+                    , [ name := "comment",         type := "text",     title := GetTid("system:tolliumapps.userrights.common.comment") ]
+                    ]
+      , exporttitle := GetTid("system:userrights.exports.exportobjectrights")
+      ];
+  }
+>;
+
+PUBLIC RECORD FUNCTION GetObjectTreeRightsExport(OBJECT contexts, STRING objecttypename, INTEGER objectid)
+{
+  OBJECT exporter := NEW ObjectTreeRightsExport(contexts, objecttypename, objectid);
+  RETURN exporter->GetList();
+}

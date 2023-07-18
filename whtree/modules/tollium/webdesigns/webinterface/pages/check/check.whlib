@@ -11,9 +11,9 @@ LOADLIB "mod::system/lib/userrights.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/webserver/stats.whlib";
 LOADLIB "mod::system/lib/internal/moduleimexport.whlib";
+LOADLIB "mod::system/lib/internal/userrights/exports.whlib";
 
 LOADLIB "mod::wrd/lib/auth.whlib";
-LOADLIB "mod::wrd/lib/internal/auth/exchange.whlib";
 
 STRING ARRAY warning_messages;
 STRING ARRAY error_messages;

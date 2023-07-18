@@ -2,11 +2,11 @@
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
+LOADLIB "mod::system/lib/internal/userrights/exports.whlib";
+
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
-
-LOADLIB "mod::wrd/lib/internal/auth/exchange.whlib";
 
 ASYNC MACRO TestAddRoleToUsers()
 {
@@ -179,7 +179,7 @@ MACRO TestExport()
 
   TestEq(1,Length(grants)); //just one grant. 'role1' should not be shown as having gotten anything granted
   TestEq("Granted by RunTestframework", grants[0].comment);
-  TestEq("", grants[0].grantor);
+  TestEq("", grants[0].grantor); //should be empty as its a self-grant, this makes them stand out
   TestEq(TRUE, grants[0].withgrantoption);
 
   RECORD ARRAY rolegrants := SELECT * FROM userexport WHERE type = "ROLEGRANT";
