@@ -1,0 +1,66 @@
+<?wh
+/* This library intends to enables cross engine (eg both native, wasm and native-shared-postgres) JavaScript support and
+   is intended to ease the transition from HareScript to JavaScript by allowing you to start building new code in JS and
+   still interface from existing HareScript applications.
+
+   For now we're simply based on CallAsync but we hope to improve on this in the feature (eg using a JS CoVM inside either
+   the bridge or directly linked to the current HSVM hosting process like CallAsync. And in WASM mode we should be able
+   to directly invoke JS through syscalls without any IPC)
+*/
+
+LOADLIB "mod::system/lib/tasks.whlib";
+
+RECORD ARRAY libcache; //cache opened instances
+
+OBJECTTYPE ImportedLibrary
+<
+  STRING __lib;
+
+  MACRO NEW(STRING lib, RECORD descr)
+  {
+    this->__lib := lib;
+
+    FOREVERY(RECORD exp FROM descr.exports)
+    {
+      IF(MemberExists(this, exp.name))
+        CONTINUE; //ambiguous? ignore
+      IF(exp.name LIKE "_*")
+        CONTINUE; //probably an internal api. don't offer this (but if needed we might add/expose something like __InvokeFunction to resolve ambiguous names?)
+
+      IF(exp.type = "function")
+      {
+        FUNCTION PTR rebound := __HS_REBINDFUNCTIONPTR2(
+            PTR this->__InvokeFunction,
+            [[ source := 0, value := exp.name ]],
+            0,
+            TRUE);
+
+        MemberInsert(this, exp.name, FALSE, rebound);
+      }
+      ELSE
+      {
+        //Ignore things we can't process yet.
+      }
+    }
+  }
+
+  VARIANT FUNCTION __InvokeFunction(STRING name, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+  {
+    RECORD result := WaitForPromise(CallAsync("@mod-system/js/internal/util/jssupport.ts#callExport", VARIANT[this->__lib, name, args]));
+    RETURN result.retval;
+  }
+>;
+
+PUBLIC OBJECT FUNCTION ImportJS(STRING name)
+{
+  OBJECT lib := SELECT AS OBJECT libcache.lib FROM libcache WHERE libcache.name = VAR name;
+  IF(NOT ObjectExists(lib))
+  {
+    //TODO cache descriptions, eventmasks on the file should suffice unless we really need to support 'export' ?
+    RECORD descr := WaitForPromise(CallAsync("@mod-system/js/internal/util/jssupport.ts#describe", [ name ]));
+    lib := NEW ImportedLibrary(name, descr);
+    INSERT CELL [ lib, name ] INTO libcache AT END;
+  }
+
+  RETURN lib;
+}
