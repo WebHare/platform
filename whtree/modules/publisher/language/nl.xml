@@ -1238,31 +1238,6 @@
     <text tid="webruleset-allowcorsall">Volledig open 'Access-Control-Allow-Origin'</text>
     <text tid="webruleset-varycookie">Toevoegen 'Vary: Cookie'</text>
   </textgroup>
-  <textgroup gid="monitor">   <!-- monitor -->
-    <textgroup gid="sites">   <!-- monitor.sites -->
-      <text tid="linkedtotype">Gekoppeld aan</text>
-      <text tid="linkedtotype-webfeature">webfeature</text>
-      <text tid="query">Zoekopdracht</text>
-      <text tid="querymatched">Je zoekopdracht gaf <param p="1"/> resultaten</text>
-      <text tid="querymatched-none">Je zoekopdracht gaf geen resultaten</text>
-      <text tid="querymatched-single">Je zoekopdracht gaf 1 resultaat</text>
-      <text tid="title">Sites</text>
-      <textgroup gid="actions">   <!-- monitor.sites.actions -->
-        <text tid="showinnewpublishers">Toon in de Publisher</text>
-      </textgroup>
-      <textgroup gid="messageboxes">   <!-- monitor.sites.messageboxes -->
-        <text tid="suretoopenmultiple_newtab">Weet je zeker dat je <param p="1"/> sites tegelijk wil openen?</text>
-        <text tid="suretoopenmultiple_publisher">Weet je zeker dat je <param p="1"/> Publisher's tegelijk wil openen?</text>
-        <text tid="toomanytoopen_newtab">Om te voorkomen dat je browser vast komt te staan laten we niet meer dan <param p="1"/> sites/tabs tegelijk openen.</text>
-        <text tid="toomanytoopen_publisher">Om te voorkomen dat je browser vast komt te staan laten we niet meer dan <param p="1"/> Publisher's tegelijk openen.</text>
-      </textgroup>
-      <textgroup gid="sitecolumns">   <!-- monitor.sites.sitecolumns -->
-        <text tid="hasactivefeatures">Webfeatures</text>
-        <text tid="name">Site naam</text>
-        <text tid="url">Website URL</text>
-      </textgroup>
-    </textgroup>
-  </textgroup>
   <textgroup gid="profileeditor">   <!-- profileeditor -->
     <text tid="builtin">Ingebouwd</text>
     <text tid="custom">Eigen</text>
@@ -1647,6 +1622,21 @@
         <text tid="siteprofile">Siteprofiel</text>
         <text tid="siteprofilesrecompiled">De siteprofielen zijn opnieuw gecompileerd.</text>
         <text tid="typename">Type</text>
+      </textgroup>
+      <textgroup gid="sites">   <!-- tolliumapps.dashboard.sites -->
+        <text tid="hasactivefeatures">Webfeatures</text>
+        <text tid="linkedtotype">Gekoppeld aan</text>
+        <text tid="linkedtotype-webfeature">webfeature</text>
+        <text tid="name">Site naam</text>
+        <text tid="query">Zoekopdracht</text>
+        <text tid="querymatched">Je zoekopdracht gaf <param p="1"/> resultaten</text>
+        <text tid="querymatched-none">Je zoekopdracht gaf geen resultaten</text>
+        <text tid="querymatched-single">Je zoekopdracht gaf 1 resultaat</text>
+        <text tid="showinnewpublishers">Toon in de Publisher</text>
+        <text tid="suretoopenmultiple_publisher">Weet je zeker dat je <param p="1"/> Publisher's tegelijk wil openen?</text>
+        <text tid="title">Sites</text>
+        <text tid="toomanytoopen_publisher">Om te voorkomen dat je browser vast komt te staan laten we niet meer dan <param p="1"/> Publisher's tegelijk openen.</text>
+        <text tid="url">Website URL</text>
       </textgroup>
     </textgroup>
     <textgroup gid="dialogs">   <!-- tolliumapps.dialogs -->
