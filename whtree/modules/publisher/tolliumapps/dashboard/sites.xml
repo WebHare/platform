@@ -1,4 +1,4 @@
-<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="monitor.sites" lib="screens/monitor/sites.whlib">
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" gid="monitor.sites" library="sites.whlib">
 
   <messageboxes gid=".messageboxes">
     <messagebox name="suretoopenmultiple_newtab" buttons="yes no" />
