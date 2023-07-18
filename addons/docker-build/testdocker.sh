@@ -2,14 +2,6 @@
 
 # This script is also deployed to https://build.webhare.dev/ci/scripts/testdocker.sh
 
-testfail()
-{
-  echo ""
-  echo "$(c red)****** $1 *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
-  echo ""
-  TESTFAIL=1
-}
-
 if [ -f $WEBHARE_DIR/lib/wh-functions.sh ] ; then
   # Running from a whtree
   source $WEBHARE_DIR/lib/wh-functions.sh
@@ -19,6 +11,7 @@ else
 fi
 
 version=""
+CONTAINERS=()
 ORIGINALOPTIONS=()
 ORIGINALPARAMS=()
 BASEDIR=$(get_absolute_path $(dirname $0)/../..)
@@ -39,6 +32,139 @@ LOCALDEPS=
 NOCHECKMODULE=
 FIXEDCONTAINERNAME=
 TESTINGMODULENAME=""
+
+
+testfail()
+{
+  echo ""
+  echo "$(c red)****** $1 *******$(c reset)" # we may need to reprint this at the end as the tests generate a lot of noise
+  echo ""
+  TESTFAIL=1
+}
+
+# Generalized semversion compare. Should return 0 if $2 >= $1
+is_atleast_version()
+{
+  [ -z "$version" ] && die "is_atleast_version is invoked too early"
+  vercomp "$version" "$1"
+  [ "$?" == "2" ] && return 1
+  return 0
+}
+
+exit_failure_sh()
+{
+  echo "Test failed:" "$@"
+
+  if [ "$ENTERSHELL" == "1" ]; then
+    echo "Starting a shell to debug (you are on the host!)"
+    "$SHELL"
+  fi
+  exit 1
+}
+
+mark()
+{
+  echo "$(date) --- MARK: $1 ---"
+  $SUDO docker exec "$TESTENV_CONTAINER1" wh debug mark "$1"
+}
+
+RunDocker()
+{
+  local retval
+  echo "$(date) docker" "$@" >&2
+  $SUDO docker "$@" ; retval="$?"
+  if [ "$retval" != "0" ]; then
+    echo "$(date) docker returned errorcode $retval" >&2
+  fi
+  return $retval
+}
+
+create_container()
+{
+  local CONTAINERID NR CONTAINERDOCKERARGS
+
+  NR=$1
+  CONTAINERDOCKERARGS="$DOCKERARGS"
+
+  echo "`date` Creating container$NR (using image $WEBHAREIMAGE)"
+
+  #######################
+  #
+  # Create the environment file
+  > ${TEMPBUILDROOT}/env-file
+
+  # Switch to DTAP development - most test refuse to run without this option for safety reasons
+  echo "WEBHARE_DTAPSTAGE=development" >> ${TEMPBUILDROOT}/env-file
+
+  # Signal this job is running for a test - we generally try to avoid changing behaviours in testmode, but we want to be nice and eg prevent all CI instances from downloading the geoip database
+  echo "WEBHARE_CI=1" >> "${TEMPBUILDROOT}/env-file"
+  if [ -n "$TESTINGMODULENAME" ]; then
+    echo "WEBHARE_CI_MODULE=$TESTINGMODULENAME" >> "${TEMPBUILDROOT}/env-file"
+  fi
+
+  # Allow whdata to be mounted on ephemeral (overlayfs) storage
+  echo "WEBHARE_ALLOWEPHEMERAL=1" >> ${TEMPBUILDROOT}/env-file
+
+  # Append all our settings. Remap (TESTFW/TESTSECRET)_WEBHARE_ vars to WEBHARE_ - this also allows the testinvoker to override any variable we set so far
+  set | egrep '^(TESTSECRET_|TESTFW_|WEBHARE_DEBUG)' | sed -E 's/^(TESTFW_|TESTSECRET_)WEBHARE_/WEBHARE_/' >> ${TEMPBUILDROOT}/env-file
+
+  # TODO Perhaps /opt/whdata shouldn't require executables... but whlive definitely needs it and we don't noexec it in prod yet either for now.. so enable for now!
+  CONTAINERID="$(RunDocker create -l webharecitype=testdocker -p 80 -p 8000 $DOCKERARGS --env-file "${TEMPBUILDROOT}/env-file" "$WEBHAREIMAGE")"
+
+  if [ -z "$CONTAINERID" ]; then
+    echo Container creating failed
+    exit 1
+  fi
+
+  if [ -n "$TESTINGMODULE" ]; then
+    # we don't want WebHare to start yet. TOOD We can remove these hooks as soon as 5.3+ is our baseline for module CI
+    true > "${TEMPBUILDROOT}/pause-webhare-startup"
+    RunDocker cp "${TEMPBUILDROOT}/pause-webhare-startup" "$CONTAINERID":/pause-webhare-startup
+
+    echo "#!/bin/bash" > "${TEMPBUILDROOT}/sleep-launch.sh"
+    echo "until [ ! -f /pause-webhare-startup ]; do sleep .2 ; done" >> "${TEMPBUILDROOT}/sleep-launch.sh"
+    echo "exec /opt/container/real-launch.sh" >> "${TEMPBUILDROOT}/sleep-launch.sh"
+    chmod a+x "${TEMPBUILDROOT}/sleep-launch.sh"
+
+    RunDocker cp --archive "$CONTAINERID":/opt/container/launch.sh "${TEMPBUILDROOT}/real-launch.sh"
+    RunDocker cp --archive "${TEMPBUILDROOT}/real-launch.sh" "$CONTAINERID":/opt/container/real-launch.sh
+    RunDocker cp --archive "${TEMPBUILDROOT}/sleep-launch.sh" "$CONTAINERID":/opt/container/launch.sh
+  fi
+
+  echo "$(date) Created container with id: $CONTAINERID"
+  eval TESTENV_CONTAINER$NR=\$CONTAINERID
+
+  if [ -n "$WEBHARE_CI_ACCESS_DOCKERHOST" ]; then # Running on our infra, so predictable paths
+    echo ""
+    echo "To access the runner:    ${WEBHARE_CI_ACCESS_DOCKERHOST}"
+    echo "To access the container: ${WEBHARE_CI_ACCESS_RUNNER} docker exec -ti ${TESTENV_CONTAINER1} /bin/bash"
+    echo ""
+  fi
+
+  if [ "$NR" == "1" ]; then
+    # Get version info from first container
+    # this initializes the'version' variable
+    BUILDINFOFILE="$(mktemp)"
+    RunDocker cp "$TESTENV_CONTAINER1":/opt/wh/whtree/modules/system/whres/buildinfo "$BUILDINFOFILE" || die "Cannot get version information out of container"
+    source "$BUILDINFOFILE"
+    echo "WebHare version info:
+      committag=$committag
+      builddate=$builddate
+      buildtime=$buildtime
+      branch=$branch
+      version=$version"
+    rm "$BUILDINFOFILE"
+
+    # We can now use:
+    # if is_atleast_version 4.35.0-dev ; then  CODE TO APPLY TO 4.35 AND HIGHER
+  fi
+
+  if ! RunDocker start "$CONTAINERID" ; then
+    die "Container start failed"
+  fi
+
+  CONTAINERS+=("$CONTAINERID")
+}
 
 while true; do
   # Add option to the proper array for command line reconstruction
@@ -166,29 +292,9 @@ elif [ "$PROFILE" == "1" ]; then
   WEBHARE_DEBUG="apr,$WEBHARE_DEBUG"
 fi
 
-# Generalized semversion compare. Should return 0 if $2 >= $1
-is_atleast_version()
-{
-  [ -z "$version" ] && die "is_atleast_version is invoked too early"
-  vercomp "$version" "$1"
-  [ "$?" == "2" ] && return 1
-  return 0
-}
-
-function RunDocker()
-{
-  local retval
-  echo "$(date) docker" "$@" >&2
-  $SUDO docker "$@" ; retval="$?"
-  if [ "$retval" != "0" ]; then
-    echo "$(date) docker returned errorcode $retval" >&2
-  fi
-  return $retval
-}
-
 if docker inspect "${FIXEDCONTAINERNAME}" >/dev/null 2>&1 ; then
   if ! RunDocker rm -f "$FIXEDCONTAINERNAME" ; then
-    exit 1
+    exit_failure_sh Unable to cleanup existing image "$FIXEDCONTAINERNAME"
   fi
 fi
 
@@ -200,8 +306,7 @@ cd `dirname $0`
 if [ -n "$TESTSECRET_SECRETSURL" ]; then
   DOWNLOADPATH=`mktemp`
   if ! curl --fail -o $DOWNLOADPATH "$TESTSECRET_SECRETSURL"; then
-    echo "Cannot retrieve secrets"
-    exit 1
+    exit_failure_sh "Cannot retrieve secrets"
   fi
   source "$DOWNLOADPATH"
   rm "$DOWNLOADPATH"
@@ -218,8 +323,7 @@ fi
 if [ "$WEBHAREIMAGE" == "main" ] || [ "$WEBHAREIMAGE" == "stable" ] || [ "$WEBHAREIMAGE" == "beta" ]; then
   WEBHAREIMAGE=`curl -s https://build.webhare.dev/ci/dockerimage-$WEBHAREIMAGE.txt | grep -v '^#'`
   if [ -z "$WEBHAREIMAGE" ]; then
-    echo "Cannot retrieve actual image to use for image alias $WEBHAREIMAGE"
-    exit 1
+    exit_failure_sh "Cannot retrieve actual image to use for image alias $WEBHAREIMAGE"
   fi
 elif [ "$WEBHAREIMAGE" == "local" ]; then
   WEBHAREIMAGE="webhare/webhare-extern:localbuild${WEBHARE_LOCALBUILDIMAGEPOSTFIX}"
@@ -292,14 +396,12 @@ if [ "$NOPULL" != "1" ]; then
       [ -n "$WH_CI_ALTERNATEREGISTRY_LOGIN" ] && RunDocker logout $WH_CI_ALTERNATEREGISTRY
 
       if ! RunDocker pull "$WEBHAREIMAGE" ; then
-        echo "Failed to pull image"
-        exit 1
+        exit_failure_sh "Failed to pull image"
       fi
     fi
   else
     if ! RunDocker pull "$WEBHAREIMAGE" ; then
-      echo "Failed to pull image"
-      exit 1
+      exit_failure_sh "Failed to pull image"
     fi
   fi
 fi
@@ -316,12 +418,22 @@ function cleanup()
   fi
 
   if [ -n "$TESTENV_CONTAINER1" ]; then
-    RunDocker stop "$TESTENV_CONTAINER1"
+    if [ -n "$TESTENV_KILLCONTAINER1" ]; then
+      RunDocker kill "$TESTENV_CONTAINER1"
+    else
+      RunDocker stop "$TESTENV_CONTAINER1"
+    fi
+
     # [ "$TESTFAIL" == "0" ] || $SUDO docker logs $TESTENV_CONTAINER1
     RunDocker rm "$TESTENV_CONTAINER1"
   fi
   if [ -n "$TESTENV_CONTAINER2" ]; then
-    RunDocker stop "$TESTENV_CONTAINER2"
+    if [ -n "$TESTENV_KILLCONTAINER2" ]; then
+      RunDocker kill "$TESTENV_CONTAINER2"
+    else
+      RunDocker stop "$TESTENV_CONTAINER2"
+    fi
+
     # [ "$TESTFAIL" == "0" ] || $SUDO docker logs $TESTENV_CONTAINER2
     RunDocker rm "$TESTENV_CONTAINER2"
   fi
@@ -338,6 +450,24 @@ fi
 
 # Independent tempdir
 TEMPBUILDROOT=$DOCKERBUILDFOLDER/$$$(date | (md5 2>/dev/null || md5sum) | head -c8)
+mkdir -p ${TEMPBUILDROOT}/docker-tests/modules
+
+if [ -n "$ISMODULETEST" ]; then # Tell the shutdownscript to use 'kill' as sleep won't respond to 'stop'
+  TESTENV_KILLCONTAINER1=1
+  TESTENV_KILLCONTAINER2=1
+fi
+
+create_container 1
+echo "Container 1: $TESTENV_CONTAINER1"
+
+if [ -n "$TESTFW_TWOHARES" ]; then
+  create_container 2
+  echo "Container 2: $TESTENV_CONTAINER2"
+fi
+
+if [ -n "$ISMODULETEST" ] && [ -z "$EXPLAIN_OPTION_NOSTARTUPERRORS" ]; then
+  ALLOWSTARTUPERRORS=1
+fi
 
 if [ -n "$ISMODULETEST" ]; then
   TESTINGMODULEDIR="$TESTINGMODULE"
@@ -346,12 +476,11 @@ if [ -n "$ISMODULETEST" ]; then
     if [ ! -d "$TESTINGMODULEDIR" ]; then
       echo "Cannot find module $TESTINGMODULE - we require the base module to be checked out so we can extract dependency info"
       echo "Alternatively give us the full path to $TESTINGMODULE"
-      exit 1
+      exit_failure_sh "Dependency extraction failed"
     fi
   fi
   if [ ! -f $TESTINGMODULEDIR/moduledefinition.xml ]; then
-    echo Cannot find $TESTINGMODULEDIR/moduledefinition.xml
-    exit 1
+    exit_failure_sh "Cannot find $TESTINGMODULEDIR/moduledefinition.xml"
   fi
   if [ -z "$TESTLIST" ]; then
     TESTLIST="$TESTINGMODULENAME"
@@ -360,14 +489,14 @@ if [ -n "$ISMODULETEST" ]; then
   echo "Autoadded module: $TESTINGMODULE"
   ADDMODULES="$ADDMODULES $TESTINGMODULE"
 
-  echo "`date` Pulling dependency information for module $TESTINGMODULE"
+  echo "$(date) Pulling dependency information for module $TESTINGMODULE"
   # TODO: shouldn't harescript just create /opt/whdata/tmp so stuff just works?
-  MODSETTINGS="$(RunDocker run --rm -i -e WEBHARE_TEMP=/tmp/ -e WEBHARE_DTAPSTAGE=development -e WEBHARE_SERVERNAME=moduletest.webhare.net -l webharecitype=testdocker "$WEBHAREIMAGE" wh run mod::system/scripts/internal/tests/explainmodule.whscr < "$TESTINGMODULEDIR"/moduledefinition.xml)"
+  RunDocker exec "$TESTENV_CONTAINER1" mkdir /opt/whdata/tmp/
+  MODSETTINGS="$(RunDocker exec -i "$TESTENV_CONTAINER1" env WEBHARE_DTAPSTAGE=development WEBHARE_SERVERNAME=moduletest.webhare.net wh run mod::system/scripts/internal/tests/explainmodule.whscr < "$TESTINGMODULEDIR"/moduledefinition.xml)"
   ERRORCODE="$?"
 
   if [ "$ERRORCODE" != "0" ]; then
-    echo "Failed to get dependency info, error code: $ERRORCODE"
-    exit 1
+    exit_failure_sh "Failed to get dependency info, error code: $ERRORCODE"
   fi
 
   eval $MODSETTINGS
@@ -386,7 +515,6 @@ else
   fi
 fi
 
-mkdir -p ${TEMPBUILDROOT}/docker-tests/modules
 
 # Fetch dependencies
 NUMMODULES=${#EXPLAIN_DEPMODULE[*]}
@@ -438,8 +566,7 @@ do
 
   echo "Cloning module '$MODULENAME' from '$CLONEURL' into '$TARGETDIR'$CLONEINFO"
   if ! git clone --recurse-submodules $GITOPTIONS "$CLONEURL" "$TARGETDIR" ; then
-    echo "Failed to clone $CLONEURL"
-    exit 1
+    exit_failure_sh "Failed to clone $CLONEURL"
   fi
 done
 
@@ -448,7 +575,7 @@ if [ -n "$ADDMODULES" ]; then
     if [ ! -d "$MODULE" ]; then
       MODULE="`${PWD}/../../whtree/bin/wh getmoduledir $MODULE`"
       if [ -z "$MODULE" ]; then
-        exit 1
+        exit_failure_sh "Unable to get module dir for $MODULE"
       fi
     fi
     MODULENAME="$(basename $MODULE)"
@@ -458,8 +585,7 @@ if [ -n "$ADDMODULES" ]; then
     mkdir -p "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"
     if [ -d "$MODULE/.git" ]; then
       if ! (cd $MODULE ; git ls-files -co --exclude-standard | tar -c -T -) | tar -x -C "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME" ; then
-        echo "Failed to copy $MODULE"
-        exit 1
+        exit_failure_sh "Failed to copy $MODULE"
       fi
     else
       # non-git module, just copy all
@@ -469,113 +595,44 @@ if [ -n "$ADDMODULES" ]; then
   done
 fi
 
-mark()
-{
-  echo "$(date) --- MARK: $1 ---"
-  $SUDO docker exec "$TESTENV_CONTAINER1" wh debug mark "$1"
-}
+if [ -n "$TESTINGMODULE" ]; then
+  echo "$(date) Running prestart"
 
-create_container()
-{
-  local CONTAINERID NR CONTAINERDOCKERARGS
+  for CONTAINERID in "${CONTAINERS[@]}"; do
+    if [ -n "$ADDMODULES" ]; then
+      if is_atleast_version 5.2.0-dev ; then
+        DESTCOPYDIR=/opt/whdata/installedmodules/ # we don't need the intermediate /webhare-ci-modules/ anymore now we can directly access /opt/whdata/
+      else
+        DESTCOPYDIR=/opt/whmodules/
+      fi
 
-  NR=$1
-  CONTAINERDOCKERARGS="$DOCKERARGS"
-
-  echo "`date` Creating container$NR (using image $WEBHAREIMAGE)"
-
-  #######################
-  #
-  # Create the environment file
-  > ${TEMPBUILDROOT}/env-file
-
-  # Switch to DTAP development - most test refuse to run without this option for safety reasons
-  echo "WEBHARE_DTAPSTAGE=development" >> ${TEMPBUILDROOT}/env-file
-
-  # Signal this job is running for a test - we generally try to avoid changing behaviours in testmode, but we want to be nice and eg prevent all CI instances from downloading the geoip database
-  echo "WEBHARE_CI=1" >> "${TEMPBUILDROOT}/env-file"
-  if [ -n "$TESTINGMODULENAME" ]; then
-    echo "WEBHARE_CI_MODULE=$TESTINGMODULENAME" >> "${TEMPBUILDROOT}/env-file"
-  fi
-
-  # Allow whdata to be mounted on ephemeral (overlayfs) storage
-  echo "WEBHARE_ALLOWEPHEMERAL=1" >> ${TEMPBUILDROOT}/env-file
-
-  # Append all our settings. Remap (TESTFW/TESTSECRET)_WEBHARE_ vars to WEBHARE_ - this also allows the testinvoker to override any variable we set so far
-  set | egrep '^(TESTSECRET_|TESTFW_|WEBHARE_DEBUG)' | sed -E 's/^(TESTFW_|TESTSECRET_)WEBHARE_/WEBHARE_/' >> ${TEMPBUILDROOT}/env-file
-
-  # TODO Perhaps /opt/whdata shouldn't require executables... but whlive definitely needs it and we don't noexec it in prod yet either for now.. so enable for now!
-  CONTAINERID="$(RunDocker create -l webharecitype=testdocker -p 80 -p 8000 $DOCKERARGS --env-file "${TEMPBUILDROOT}/env-file" --tmpfs /opt/whdata:exec "$WEBHAREIMAGE")"
-
-  if [ -z "$CONTAINERID" ]; then
-    echo Container creating failed
-    exit 1
-  fi
-
-  echo "$(date) Created container with id: $CONTAINERID"
-  eval TESTENV_CONTAINER$NR=\$CONTAINERID
-
-  if [ -n "$WEBHARE_CI_ACCESS_DOCKERHOST" ]; then # Running on our infra, so predictable paths
-    echo ""
-    echo "To access the runner:    ${WEBHARE_CI_ACCESS_DOCKERHOST}"
-    echo "To access the container: ${WEBHARE_CI_ACCESS_RUNNER} docker exec -ti ${TESTENV_CONTAINER1} /bin/bash"
-    echo ""
-  fi
-
-  if [ "$NR" == "1" ]; then
-    # Get version info from first container
-    # this initializes the'version' variable
-    BUILDINFOFILE="$(mktemp)"
-    RunDocker cp "$TESTENV_CONTAINER1":/opt/wh/whtree/modules/system/whres/buildinfo "$BUILDINFOFILE" || die "Cannot get version information out of container"
-    source "$BUILDINFOFILE"
-    echo "WebHare version info:
-      committag=$committag
-      builddate=$builddate
-      buildtime=$buildtime
-      branch=$branch
-      version=$version"
-    rm "$BUILDINFOFILE"
-
-    # We can now use:
-    # if is_atleast_version 4.35.0-dev ; then  CODE TO APPLY TO 4.35 AND HIGHER
-  fi
-
-  if [ -n "$ADDMODULES" ]; then
-    if is_atleast_version 5.2.0-dev ; then
-      DESTCOPYDIR=$CONTAINERID:/webhare-ci-modules/
-    else
-      DESTCOPYDIR=$CONTAINERID:/opt/whmodules/
+      # /. ensures that the contents are copied into the directory whether or not it exists (https://docs.docker.com/engine/reference/commandline/cp/)
+      RunDocker cp "${TEMPBUILDROOT}/docker-tests/modules/." "$CONTAINERID:$DESTCOPYDIR" || exit_failure_sh "Module copy failed!"
     fi
 
-    RunDocker cp "${TEMPBUILDROOT}/docker-tests/modules/" "$DESTCOPYDIR" || die "Module copy failed!"
-  fi
-
-  if [ -z "$ISMODULETEST" -a -d "$BUILDDIR/build" ]; then
-    if ! $SUDO docker cp "$BUILDDIR/build" $CONTAINERID:/ ; then
-      die "Artifact copy failed!"
+    if [ -z "$ISMODULETEST" ] && [ -d "$BUILDDIR/build" ]; then
+      $SUDO docker cp "$BUILDDIR/build" "$CONTAINERID:/" || exit_failure_sh "Artifact copy failed!"
     fi
-  fi
 
-  if ! RunDocker start "$CONTAINERID" ; then
-    die "Container start failed"
-  fi
+    # Find prehooks (TODO Move inside webhare image and perhaps have it try to follow the dependency order)
+    for SCRIPT in $(RunDocker exec "$CONTAINERID" find $DESTCOPYDIR -regex "${DESTCOPYDIR}[^/]+/scripts/hooks/ci-prestart.sh" -executable ); do
+      RunDocker exec -i "$CONTAINERID" "$SCRIPT" "$version" "$TESTINGMODULENAME" || exit_failure_sh "ci-prestart failed"
+    done
 
-  if ! RunDocker exec "$CONTAINERID" wh fixmodules --onlyinstalledmodules ; then
+    RunDocker exec "$CONTAINERID" rm /pause-webhare-startup || exit_failure_sh "Failed to unblock container $CONTAINERID"
+  done
+
+  # Tell our cleanup script it should now just 'stop' the containers
+  TESTENV_KILLCONTAINER1=""
+  TESTENV_KILLCONTAINER2=""
+fi
+
+echo "$(date) Running fixmodules"
+for CONTAINERID in "${CONTAINERS[@]}"; do
+  if ! RunDocker exec "$TESTENV_CONTAINER1" wh fixmodules --onlyinstalledmodules ; then
     testfail "wh fixmodules failed"
   fi
-}
-
-create_container 1
-echo "Container 1: $TESTENV_CONTAINER1"
-
-if [ -n "$TESTFW_TWOHARES" ]; then
-  create_container 2
-  echo "Container 2: $TESTENV_CONTAINER2"
-fi
-
-if [ -n "$ISMODULETEST" ] && [ -z "$EXPLAIN_OPTION_NOSTARTUPERRORS" ]; then
-  ALLOWSTARTUPERRORS=1
-fi
+done
 
 echo "$(date) Wait for poststartdone container1"
 if ! $SUDO docker exec "$TESTENV_CONTAINER1" wh waitfor --timeout 600 poststartdone ; then

@@ -1,4 +1,10 @@
 #!/bin/bash
+
+# A hook to allow CI to pause our actual startup
+until [ ! -f /pause-webhare-startup ]; do
+  sleep .2 ;
+done
+
 eval `/opt/wh/whtree/bin/wh setupmyshell`
 
 # Ensure /tmp/ exists with sticky permissions. our podman builds showed up without /tmp. ?
@@ -33,12 +39,6 @@ fi
 # Ensure webhare owns /opt/whdata and that it's masked from 'other' users
 chgrp whdata /opt/whdata
 chmod o-rwx /opt/whdata
-
-if [ -n "$WEBHARE_CI" ]; then # CI specific changes
-  if ls /webhare-ci-modules/* >/dev/null 2>&1 ; then
-    cp -r /webhare-ci-modules/* /opt/whdata/installedmodules/
-  fi
-fi
 
 # Extract embedded webhare_testsuite
 if [ -n "$TESTFW_INSTALLTESTSUITE" ]; then
