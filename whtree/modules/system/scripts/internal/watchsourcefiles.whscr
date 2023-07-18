@@ -364,7 +364,7 @@ OBJECT ASYNC FUNCTION HandleWatchProcess(OBJECT proc, BOOLEAN is_inotifywait)
             changedfolder := changedfolder || "/";
           BroadcastEvent("system:modulefolder." || changedfolder, [ resourcename := consiliogroupname ]);
 
-          IF(path LIKE "*/moduledefinition.xml")
+          IF(path LIKE "*/moduledefinition.xml" OR path LIKE "*/moduledefinition.yml")
             BroadcastEvent("system:modulesupdate", DEFAULT RECORD);
 
           // Trigger global actions
