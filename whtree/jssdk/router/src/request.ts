@@ -1,3 +1,5 @@
+import { WebRequestInfo } from "@mod-system/js/internal/types";
+
 export enum HTTPMethod {
   GET = "get",
   PUT = "put",
@@ -32,4 +34,8 @@ export class WebRequest {
     this.headers = options?.headers ? (options.headers instanceof Headers ? options.headers : new Headers(options.headers)) : new Headers;
     this.body = options?.body || "";
   }
+}
+
+export function WebRequestFromInfo(req: WebRequestInfo): WebRequest {
+  return new WebRequest(req.url, { method: req.method, headers: req.headers, body: req.body.toString() });
 }

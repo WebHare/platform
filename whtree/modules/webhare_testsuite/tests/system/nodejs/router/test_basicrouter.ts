@@ -37,4 +37,23 @@ async function testHSWebserver() {
   test.eq("c72d48d291273215ba66fc473a4075de1de02f94", Buffer.from(await crypto.subtle.digest("SHA-1", await result.arrayBuffer())).toString('hex'));
 }
 
-test.run([testHSWebserver]);
+async function testJSBackedURLs() {
+  const baseurl = services.config.backendurl + ".webhare_testsuite/tests/js/";
+  let fetchresult = await fetch(baseurl);
+  let jsonresponse = await fetchresult.json();
+
+  test.eq(400, fetchresult.status);
+  test.eq("Invalid request", jsonresponse.error);
+
+  fetchresult = await fetch(baseurl + "?type=debug");
+  jsonresponse = await fetchresult.json();
+
+  test.eq(200, fetchresult.status);
+  test.eq(true, jsonresponse.debug);
+  test.eq(baseurl + "?type=debug", jsonresponse.url);
+}
+
+test.run([
+  testHSWebserver,
+  testJSBackedURLs
+]);

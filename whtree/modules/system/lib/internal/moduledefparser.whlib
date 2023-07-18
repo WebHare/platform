@@ -231,18 +231,23 @@ PUBLIC RECORD FUNCTION ParseWebRuleData(STRING modulename, RECORD rule, OBJECT r
 
   STRING handlebyscript := rulenode->GetAttribute("handlebyscript");
   STRING handlebydir := rulenode->GetAttribute("handlebydir");
+  STRING router := rulenode->GetAttribute("router");
+  INTEGER numset := (handlebyscript != "" ? 1 : 0) + (handlebydir != "" ? 1 : 0) + (router != "" ? 1 : 0);
 
-  IF(handlebyscript != "" OR handlebydir != "")
+  IF(numset > 0)
   {
-    IF (RecordExists(rule.datastorage))
+    IF (RecordExists(rule.datastorage) OR numset > 1)
       RETURN AddMessage(retval, "error", baseresource, rulenode, `Multiple file lookup rules`);
 
     rule.datastorage :=
       [ [ isfolder :=     handlebydir != ""
-        , resource :=     MakeAbsoluteResourcePath(baseresource, handlebydir ?? handlebyscript)
+        , resource :=     router != "" ? "mod::system/scripts/internal/jsrouter.shtml" : MakeAbsoluteResourcePath(baseresource, handlebydir ?? handlebyscript)
         , method :=       "direct"
         ]
       ];
+
+    IF(router != "")
+      rule.ruledata := [ router := MakeAbsoluteResourcePath(baseresource, router) ];
   }
 
   //Redirect to folder?

@@ -169,6 +169,11 @@
              allowallmethods="true"
              redirecttodir="web:/tests/"
              maxservertype="development" />
+    <webrule path="root:/.webhare_testsuite/tests/js/"
+             match="initial"
+             allowallmethods="true"
+             router="web/tests/js/testrouter.ts#handleJSRequest"
+             maxservertype="development" />
     <webrule path="root:/.webhare_testsuite/tests/csp" match="initial">
       <csp policy="frame-ancestors [webhare];script-src 'self'" />
     </webrule>

@@ -1,0 +1,17 @@
+<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::system/lib/internal/modules/bridgesupport.whlib";
+LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+
+RECORD routerrule := (SELECT * FROM GetWebHareAccessRules() WHERE CellExists(data.ruledata,'router'))[END-1];
+STRING requesturl := GetRequestURL();
+STRING urlpath := UnpackURL(requesturl).urlpath;
+STRING relurl := Substring(urlpath, Length(routerrule.data.path)-1);
+OBJECT service := WaitForPromise(OpenWebHareService("system:jsrouterservice"));
+RECORD response := WaitForPromise(service->routerCall(routerrule.data.ruledata.router, EncodeWebRequestForJS(), relurl));
+ExecuteWebResponse(response);
