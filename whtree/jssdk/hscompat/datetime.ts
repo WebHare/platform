@@ -15,6 +15,7 @@ export function makeDateFromParts(daycount: number, msecs: number): Date {
 export function utcToLocal(utc: Date, timeZone: string) {
   if (utc.getTime() >= maxDateTimeTotalMsecs || utc.getTime() < defaultDateTime.getTime())
     return utc;
+  // Use the Swedish locale, because it formats dates like `YYYY-MM-DD HH:MM:SS,QQQ`, which is very close the the ISO8601 format needed for reliable parsing.
   const raw = Intl.DateTimeFormat("sv-SE", {
     timeZone,
     year: "numeric",
