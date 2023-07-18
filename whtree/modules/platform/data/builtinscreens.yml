@@ -1,0 +1,8 @@
+# This file serves as the hypothetical 'platform' module's list of built in screens
+siteproperties:            # describes platform:siteproperties
+  extendtabs:              # if this exists, you can add a tabsextension to a backendhook (moduledefinition.yml) targeting this screen
+    component: "maintabs"  # The component to extend
+    insertpoints:          # Insert points to offer
+    - extensionpoint
+    extendcomponents:      # The extend components. I can see this becoming an object[] which also explains which interface to expect the components to implement (eg wrd:entity for which wrdtype?)
+    - siteroot             # An fsobject representing the site root folder

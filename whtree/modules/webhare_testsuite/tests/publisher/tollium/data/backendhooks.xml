@@ -1,0 +1,13 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
+         xmlns:p="http://www.webhare.net/xmlns/publisher/components">
+
+  <tabsextension name="extrasitefields">
+    <compositions>
+      <p:whfsinstance name="sitesettings" fsobject="siteroot" typedef="http://www.webhare.net/xmlns/beta/test2" />
+    </compositions>
+    <insert position="extensionpoint">
+      <textedit composition="sitesettings" cellname="stringtest" title="StringTest" />
+    </insert>
+  </tabsextension>
+
+</screens>

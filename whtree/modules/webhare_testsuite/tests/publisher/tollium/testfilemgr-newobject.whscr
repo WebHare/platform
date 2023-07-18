@@ -172,19 +172,9 @@ ASYNC MACRO CreateUsingTemplates()
   AWAIT ExpectScreenChange(-1, PTR TTEscape());
 }
 
-ASYNC MACRO TestCreateSiteDialog()
-{
-  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := STRING[ testfw->GetWHFSTestRoot()->whfspath ]]));
-  AWAIT ExpectScreenChange(+1, PTR TTClick("newsite"));
-  TT(":Name")->value := "testfw - My new site";
-  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
-  AWAIT ExpectScreenChange(-1, PTR TTEscape);
-}
-
 RunTestframework([ PTR DynFolderIndex
                  , PTR TestCreateObjectDialog
                  , PTR CreateUsingTemplates
-                 , PTR TestCreateSiteDialog
                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                    ]]);
 

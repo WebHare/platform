@@ -1,0 +1,4 @@
+backendhooks: # Where this extension hooks into the backend
+- tag: testsitehook
+  screen: "platform:siteproperties"
+  tabsextension: tests/publisher/tollium/data/backendhooks.xml#extrasitefields

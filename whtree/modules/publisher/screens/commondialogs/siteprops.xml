@@ -31,6 +31,7 @@
           <line layout="left">
             <textarea name="lockreason" width="1pr" height="2x" maxlength="1024" title="" />
           </line>
+          <spacer name="extensionpoint" visible="false" />
         </tab>
         <tab tid=".sitedesigntab">
           <heading tid=".sitedesignbox" />

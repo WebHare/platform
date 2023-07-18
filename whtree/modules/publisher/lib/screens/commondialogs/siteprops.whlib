@@ -9,6 +9,7 @@ LOADLIB "mod::system/lib/commonxml.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/internal/modules/backendhooks.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -134,6 +135,7 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
                             SELECT * FROM sitedesigns ORDER BY ToUppercase(title);
 
     this->RefreshWebFeatures(); //now that sitedesign be selected, update the feature list
+    SetupBackendScreenHooks(PRIVATE this, CELL[ screenname := "platform:siteproperties" ]);
     ^siteroot->Load(data.fsobj);
 
     IF(data.why = "newsite")
@@ -196,6 +198,7 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
     }
 
     ^sitesettings->^productionurl->visible := GetDtapStage() != "production";
+    ^maintabs->RunExtensionsPostInit();
   }
 
   MACRO OutputWebSelected()
@@ -335,6 +338,8 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
       RunAddFolderHooks(objid);
     ELSE
       RunEditFolderHooks(oldversion, objid);
+
+    ^maintabs->SubmitExtensions(work);
 
     IF(NOT work->Finish())
       RETURN 0;

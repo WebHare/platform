@@ -1,0 +1,31 @@
+<?wh
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::tollium/lib/testframework.whlib";
+
+ASYNC MACRO TestCreateSiteDialog()
+{
+  AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("publisher:app", [ params := STRING[ testfw->GetWHFSTestRoot()->whfspath ]]));
+  AWAIT ExpectScreenChange(+1, PTR TTClick("newsite"));
+  TT(":Name")->value := "testfw - My new site";
+  TT(":StringTest")->value := "a string test";
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq("testfw - My new site", TT("filelist")->selection.name);
+
+  //test our custom prop persisted
+  AWAIT ExpectScreenChange(+1, PTR TTClick("siteproperties"));
+  TestEq("a string test", TT(":StringTest")->value);
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+}
+
+
+RunTestframework([ PTR TestCreateSiteDialog
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
+                                   ]]);
+
