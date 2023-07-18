@@ -13,7 +13,8 @@
           gid=".siteprops"
           savestate="size">
     <compositions>
-      <p:whfsinstance name="sitesettings" typedef="http://www.webhare.net/xmlns/publisher/sitesettings" />
+      <p:fsobject name="siteroot" />
+      <p:whfsinstance name="sitesettings" typedef="http://www.webhare.net/xmlns/publisher/sitesettings" fsobject="siteroot" />
     </compositions>
 
     <body height="1pr" layout="form" spacers="none">
@@ -30,6 +31,7 @@
           <line layout="left">
             <textarea name="lockreason" width="1pr" height="2x" maxlength="1024" title="" />
           </line>
+          <spacer name="extensionpoint" visible="false" />
         </tab>
         <tab tid=".sitedesigntab">
           <heading tid=".sitedesignbox" />

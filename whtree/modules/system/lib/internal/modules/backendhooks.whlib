@@ -1,0 +1,136 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/yaml.whlib";
+
+LOADLIB "mod::system/lib/cache.whlib";
+LOADLIB "mod::system/lib/cluster.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
+
+
+RECORD FUNCTION LoadScreenDefs(STRING mod)
+{
+  IF(mod != "platform")
+    THROW NEW Exception(`Don't know where to find the builtinscreens.yml for module '${mod}'`); //We need to decide this. Eg a fixed mod::<mod>/(data/)?builtinscreens.yml location or a moduledef pointer
+
+  STRING resname := "mod::platform/data/builtinscreens.yml";
+  RECORD data := DecodeYAML(BlobToString(GetWebHareResource(resname)));
+  RETURN [ value := data, ttl := 30 * 60 * 1000, eventmasks := GetResourceEventMasks([resname]) ];
+}
+
+RECORD FUNCTION GetScreenDef(STRING screenname)
+{
+  STRING mod := Tokenize(screenname,':')[0];
+  RECORD screendefs := GetAdhocCached(CELL[mod], PTR LoadScreenDefs(mod));
+
+  STRING name := Tokenize(screenname,':')[1];
+  IF(NOT CellExists(screendefs, name))
+    THROW NEW Exception(`Screen '${name}' not found in builtinscreens.yml`);
+
+  RECORD screendef := Getcell(screendefs, name);
+  IF(RecordExists(screendef))
+  {
+    screendef := EnforceStructure(
+      [ extendtabs := [ component := ""
+                      , insertpoints := STRING[]
+                      , extendcomponents := STRING[]
+                      ]
+      ], screendef);
+  }
+  RETURN screendef;
+}
+
+RECORD FUNCTION StructureModuleYamlDefSettings(STRING resourcename, RECORD def)
+{
+  def := EnforceStructure(
+    CELL[ backendhooks :=
+        [[ tag := ""
+         , screen := ""
+         , tabsextension := ""
+        ]]
+      ], def);
+
+  UPDATE def.backendhooks
+     SET tabsextension := MakeAbsoluteResourcePath(resourcename, tabsextension);
+
+  RETURN CELL[ def.backendhooks ];
+}
+
+RECORD FUNCTION GetAllHooks()
+{
+  RECORD ARRAY allhooks;
+
+  FOREVERY(STRING modulename FROM GetInstalledModuleNames())
+  {
+    STRING path := `mod::${modulename}/moduledefinition.yml`;
+    RECORD def;
+
+    BLOB moduledef := GetWebHareResource(path, [ allowmissing := TRUE ]);
+    IF(Length(moduledef) != 0)
+    {
+      TRY
+      {
+        def := DecodeYAML(BlobToString(moduledef));
+      }
+      CATCH(OBJECT e) //Throwing on parse failures would cause vital screens to break. Some check/validation needs to pick this up instead
+      {
+        LogHarescriptException(e);
+        CONTINUE;
+      }
+    }
+
+    IF(NOT CellExists(def, 'backendhooks'))
+      CONTINUE;
+
+    def := StructureModuleYamlDefSettings(path, def);
+    allhooks := allhooks CONCAT SELECT *, module := VAR modulename FROM def.backendhooks;
+  }
+
+  RETURN [ ttl := 24 * 60 * 60 * 1000
+         , value := allhooks
+         , eventmasks := ["system:modulesupdate"]
+         ];
+}
+
+RECORD ARRAY FUNCTION GetHooksFor(STRING screenname)
+{
+  RECORD ARRAY allhooks := GetAdhocCached(CELL["allhooks"], PTR GetAllHooks);
+  RETURN SELECT * FROM allhooks WHERE allhooks.screen = VAR screenname;
+}
+
+PUBLIC MACRO SetupBackendScreenHooks(OBJECT screen, RECORD options)
+{
+  options := ValidateOptions(
+    [ screenname := ""
+    ], options, [ required := ["screenname" ]]);
+
+  //Is anyone hooking this screen definition? Otherwise we don't have to set up anything
+  //TODO but we should still do some static validation of hookdefs vs screedefs as not all hooks may be actually tested by the testsuite.
+  RECORD ARRAY hooks := GetHooksFor(options.screenname);
+  IF(Length(hooks) = 0)
+    RETURN;
+
+  RECORD screendef := GetScreenDef(options.screenname); //made an option, we might at some point just derive the screenname straight from builtinscreens
+  IF(RecordExists(screendef.extendtabs) AND RecordExists(SELECT FROM hooks WHERE tabsextension != ""))
+  {
+    OBJECT tabcomp := GetMember(screen, "^" || screendef.extendtabs.component);
+    FOREVERY(STRING insertpoint FROM screendef.extendtabs.insertpoints)
+      INSERT [ name := insertpoint, component := GetMember(screen, "^" || insertpoint) ] INTO tabcomp->insertpoints AT END;
+    FOREVERY(STRING extendcomponent FROM screendef.extendtabs.extendcomponents)
+      INSERT [ name := extendcomponent, component := GetMember(screen, "^" || extendcomponent) ] INTO tabcomp->extendcomponents AT END;
+
+    /* TODO
+    IF(config.insertbefore != DEFAULT OBJECT)
+    {
+      INTEGER pos := SearchElement(tabs->pages, config.insertbefore);
+      IF(pos = -1)
+        THROW NEW Exception(`insertbefore tab is not a page of the tab`);
+
+      tabs->extendposition := pos;
+    }*/
+
+    FOREVERY(RECORD hook FROM hooks)
+      IF(hook.tabsextension != "")
+        tabcomp->LoadTabsExtension(hook.tabsextension);
+  }
+}
