@@ -84,8 +84,8 @@ class ForwardedWebRequest implements WebRequest {
   get method() { return this.original.method; }
   get url() { return this.original.url; }
   get headers() { return this.original.headers; }
-  get text() { return this.original.text; }
-  get json() { return this.original.json; }
+  async text() { return this.original.text(); }
+  async json() { return this.original.json(); }
 }
 
 export function newWebRequestFromInfo(req: WebRequestInfo): WebRequest {

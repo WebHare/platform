@@ -90,6 +90,14 @@ async function testJSBackedURLs() {
   test.eq(baseUrl, jsonresponse.baseUrl);
   test.eq("sub url", jsonresponse.localPath);
 
+  fetchresult = await fetch(baseUrl + "Sub%20Url?type=debug", { method: "post", headers: { "x-test": "42" }, body: "a=1&b=2" });
+  jsonresponse = await fetchresult.json();
+  test.eq(baseUrl + "Sub%20Url?type=debug", jsonresponse.url);
+  test.eq(baseUrl, jsonresponse.baseUrl);
+  test.eq("sub url", jsonresponse.localPath);
+  test.eq("42", jsonresponse.headers["x-test"]);
+  test.eq("a=1&b=2", jsonresponse.text);
+
   const mixedcase_baseUrl = services.config.backendurl + ".webhare_Testsuite/TESTs/js/";
   fetchresult = await fetch(mixedcase_baseUrl + "Sub%20Url?type=debug");
   jsonresponse = await fetchresult.json();
