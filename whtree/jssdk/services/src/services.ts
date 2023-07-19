@@ -1,19 +1,20 @@
-export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR, registerLoadedResource } from "@mod-system/js/internal/hmr";
 import { toFSPath } from "./resources";
-export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource } from "./resources";
 import * as fs from "node:fs";
-export { openBackendService, BackendServiceController } from "./backendservice";
 import { getBridgeService, InvokeOptions } from "./bridgeservice";
-export { config, WebHareBackendConfiguration } from "./config";
 import * as witty from '@webhare/witty';
 import { config, WebHareBackendConfiguration } from "./config";
+
+export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR, registerLoadedResource } from "@mod-system/js/internal/hmr";
+export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource } from "./resources";
+export { openBackendService, BackendServiceController } from "./backendservice";
+export { config, WebHareBackendConfiguration } from "./config";
 export { broadcast, subscribe, BackendEvent, BackendEventSubscription } from "./backendevents";
 export { log, logNotice, logError, logDebug, readLogLines, LoggableRecord } from "./logging";
 export { ConvertBackendServiceInterfaceToClientInterface } from "@mod-system/js/internal/webhareservice";
 export type { RichBlob } from "./richblob";
 export { lockMutex } from "./mutex";
 export { getCodeContext, CodeContext } from "./codecontexts";
-export { TaskRequest, TaskResponse } from "./tasks";
+export { TaskRequest, TaskResponse, scheduleTask, scheduleTimedTask } from "./tasks";
 export { readRegistryKey } from "./registry";
 
 /** Promise that resolves as soon as the WebHare configuration is available
