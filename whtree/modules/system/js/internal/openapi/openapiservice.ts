@@ -8,6 +8,7 @@ import { createJSONResponse, WebRequest, WebResponse, HTTPErrorCode, createWebRe
 import { WebRequestInfo, WebResponseInfo } from "../types";
 import { getOpenAPIService } from "@webhare/services/src/moduledefparser";
 import { registerLoadedResource } from "../hmrinternal";
+import { newWebRequestFromInfo } from "@webhare/router/src/request";
 
 // A REST service supporting an OpenAPI definition
 export class RestService {
@@ -24,7 +25,7 @@ export class RestService {
     const logger = new LogInfo(req.sourceip, req.method.toLowerCase());
 
     try {
-      const webreq = new WebRequest(req.url, { method: req.method, headers: req.headers, body: req.body.toString() });
+      const webreq = newWebRequestFromInfo(req);
       const response = await (await this.#runRestRouter(webreq, relurl, logger)).asWebResponseInfo();
       this.logRequest(logger, response.status, response.body.length);
       return response;

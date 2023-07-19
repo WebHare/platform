@@ -1,0 +1,23 @@
+<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+
+LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+LOADLIB "mod::system/lib/internal/modules/bridgesupport.whlib";
+LOADLIB "mod::system/lib/internal/webserver/auth.whlib";
+
+RECORD routerrule := (SELECT * FROM GetWebHareAccessRules() WHERE CellExists(data.ruledata,'router'))[END-1];
+STRING requesturl := GetRequestURL();
+RECORD unp := UnpackURL(requesturl);
+
+//NOTE: WebHare HS webserver throws away a bit too much info, we need the original URL. Ambiguous routing will be rejected due to URL mismatches in newForwardedWebRequest
+//reextract the mixed-case path using the matched path
+STRING pathstart := Left(unp.urlpath, Length(routerrule.data.path) - 1);
+//encode url hoping this wasn't too ambiguous
+pathstart := "/" ||EncodeURL(pathstart);
+
+OBJECT service := WaitForPromise(OpenWebHareService("system:jsrouterservice"));
+RECORD response := WaitForPromise(service->routerCall(routerrule.data.ruledata.router, EncodeWebRequestForJS(), pathstart));
+ExecuteWebResponse(response);

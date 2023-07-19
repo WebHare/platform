@@ -1243,6 +1243,11 @@
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="router" type="xs:string">
+      <xs:annotation>
+        <xs:documentation>Path to JS router function which will handle all traffic that hits this access rule. If relative, relative to the current file</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
     <xs:attribute name="redirecttodir" type="xs:string" />
     <xs:attribute name="errorpath" type="xs:string" />
     <xs:attribute name="finalerrorpath" type="xs:boolean" />
