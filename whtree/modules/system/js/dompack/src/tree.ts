@@ -29,10 +29,12 @@ function generateInsertList(nodes: Array<string | Node>) {
   return frag;
 }
 
+/** @deprecated Use node.matches() */
 export function matches(node: Element, selector: string): boolean {
   //only invoke 'matches' if it exists. it *should* but past versions of dompack.matches would check for it too (and thus not fail if you passed in a string instead of a Node)
   return node.matches?.(selector);
 }
+/** @deprecated Use node.closest() */
 export function closest(node: Element, selector: string) {
   if (node.closest)
     return node.closest(selector);
@@ -43,6 +45,7 @@ export function closest(node: Element, selector: string) {
   return testNode;
 }
 //implements contains. TODO we only really need this on IE11, which doesn't consider a text node a child, we can probably fall back to native elsewhere ?
+/** @deprecated Use node.contains() */
 export function contains(ancestor: Node, child: Node) {
   if (ancestor.contains)
     return ancestor.contains(child);
@@ -53,6 +56,7 @@ export function contains(ancestor: Node, child: Node) {
   return false;
 }
 //insert a range of nodes before a node: https://dom.spec.whatwg.org/#dom-childnode-before
+/** @deprecated Use node.before() */
 export function before(node: ChildNode, ...nodes: Array<string | Node>) {
   if (node.before) {
     node.before(...nodes);
@@ -63,6 +67,7 @@ export function before(node: ChildNode, ...nodes: Array<string | Node>) {
     node.parentNode.insertBefore(generateInsertList(nodes), node);
 }
 //insert a range of nodes after a node: https://dom.spec.whatwg.org/#dom-childnode-after
+/** @deprecated Use node.after() */
 export function after(node: ChildNode, ...nodes: Array<string | Node>) {
   if (node.after) {
     node.after(...nodes);
@@ -73,6 +78,7 @@ export function after(node: ChildNode, ...nodes: Array<string | Node>) {
     node.parentNode.insertBefore(generateInsertList(nodes), node.nextSibling);
 }
 //replace node with a set of nodes : https://dom.spec.whatwg.org/#dom-childnode-replacewith
+/** @deprecated Use node.replaceWith() */
 export function replaceWith(node: ChildNode, ...nodes: Array<string | Node>) {
   if (node.replaceWith) {
     node.replaceWith(...nodes);
@@ -83,6 +89,7 @@ export function replaceWith(node: ChildNode, ...nodes: Array<string | Node>) {
     node.parentNode.replaceChild(generateInsertList(nodes), node);
 }
 //remove node with a set of nodes : https://dom.spec.whatwg.org/#dom-childnode-remove
+/** @deprecated Use node.remove() */
 export function remove(node: ChildNode) {
   if (node.remove) {
     node.remove();
@@ -93,6 +100,7 @@ export function remove(node: ChildNode) {
     node.parentNode.removeChild(node);
 }
 //insert nodes at start: https://dom.spec.whatwg.org/#dom-parentnode-prepend
+/** @deprecated Use node.prepend() */
 export function prepend(node: ParentNode, ...nodes: Array<string | Node>) {
   if (node.prepend) {
     node.prepend(...nodes);
@@ -102,6 +110,7 @@ export function prepend(node: ParentNode, ...nodes: Array<string | Node>) {
   node.insertBefore(generateInsertList(nodes), node.firstChild);
 }
 //insert nodes at end: https://dom.spec.whatwg.org/#dom-parentnode-append
+/** @deprecated Use node.append() */
 export function append(node: ParentNode, ...nodes: Array<string | Node>) {
   if (node.append) {
     node.append(...nodes);
@@ -119,6 +128,7 @@ export function append(node: ParentNode, ...nodes: Array<string | Node>) {
  * @param settoggle - true to enable, false to disable, undefined to toggle
  * @deprecated Just use classList.toggle on the node itself
  */
+/** @deprecated Use classList.toggle() */
 export function toggleClass(node: Element, classname: string, settoggle?: boolean) {
   if (arguments.length === 2) //in old dompack, 2 argument version toggled and 3 argument version toggled off. match that behavior
     node.classList.toggle(classname);
@@ -139,6 +149,7 @@ export function toggleClasses(node: Element, toggles: { [key: string]: boolean }
 }
 
 /* remove the contents of an existing node */
+/** @deprecated Use node.replaceChildren() */
 export function empty(node: Element) {
   if (node.replaceChildren) {
     node.replaceChildren();
