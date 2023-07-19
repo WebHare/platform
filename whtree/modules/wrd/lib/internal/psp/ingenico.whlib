@@ -412,12 +412,12 @@ PUBLIC STATIC OBJECTTYPE IngenicoPaymentProvider EXTEND WRDPaymentProviderBase
     OBJECT browser := NEW WebBrowser;
     LogRPCForWebbrowser("wrd:payments.ingenico", "RecheckPayment", browser);
 
-    STRING url := this->GetURLBase() || "querydirect.asp?PSPID=" || EncodeURL(this->settings.pspid)
-                                     || "&USERID=" || EncodeURL(this->settings.apiuser)
-                                     || "&PSWD=" || EncodeURL(this->settings.apipassword)
-                                     || "&ORDERID=" || EncodeURL(this->paymentref);
-
-    IF(NOT browser->GotoWebPage(url) OR NOT OBjectExists(browser->document))
+    IF(NOT browser->PostWebPage(this->GetURLBase() || "querydirect.asp"
+      , [ [ name := "PSPID", value := this->settings.pspid ]
+        , [ name := "USERID", value := this->settings.apiuser ]
+        , [ name := "PSWD", value := this->settings.apipassword ]
+        , [ name := "ORDERID", value := this->paymentref ]
+        ], "application/x-www-form-urlencoded") OR NOT ObjectExists(browser->document))
       THROW NEW Exception("Failed to retrieve payment info");
 
     RECORD payupdates := [ result := ""
