@@ -47,6 +47,9 @@ OBJECTTYPE ImportedLibrary
   VARIANT FUNCTION __InvokeFunction(STRING name, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
   {
     RECORD result := WaitForPromise(CallAsync("@mod-system/js/internal/util/jssupport.ts#callExport", VARIANT[this->__lib, name, args]));
+    IF(CellExists(result,'promiseid'))
+      RETURN CallAsync("@mod-system/js/internal/util/jssupport.ts#awaitPromise", VARIANT[ result.promiseid ]);
+
     RETURN result.retval;
   }
 >;
