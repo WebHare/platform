@@ -74,7 +74,7 @@ BRAND="iDEAL"
 CARDNO="NL85TEST0000000004"
 IP="127.0.0.1">
 </ncresponse>`);
-  ADdHTTPHeader("Content-Type","text/xml",FALSE);
+  AddHTTPHeader("Content-Type","text/xml",FALSE);
   RETURN;
 }
 
