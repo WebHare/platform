@@ -258,7 +258,9 @@ class ServiceProxy<T> {
   }
 }
 
-export default function createClient<T>(servicename: string, options?: RPCCallOptions): T & ServiceBase<T> {
+export function createClient<T>(servicename: string, options?: RPCCallOptions): T & ServiceBase<T> {
   const rpcclient = new RPCClient(servicename, options);
   return new Proxy({}, new ServiceProxy<T>(rpcclient)) as T & ServiceBase<T>;
 }
+
+export default createClient; //TODO this breaks @webhare/ lib convention and should start to go away as soon as all are on 5.3+

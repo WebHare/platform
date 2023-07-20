@@ -7,7 +7,9 @@ OBJECT std := ImportJs("@webhare/std");
 
 OBJECT imp := ImportJs(Resolve("data/calls.ts"));
 TestEq(imp, ImportJs(Resolve("data/calls.ts")), "should simply be the same object so callers don't have to bother centrally keeping refs");
-TestEq(42, imp->test42(), "Expect async functions to be automatically awaited (until we can return promises?)");
+
+OBJECT promise42 := imp->test42();
+TestEq(42, WaitForPromise(promise42), "Expect async functions to be automatically awaited (until we can return promises?)");
 
 STRING randomonce := imp->getOnceRandom();
 STRING randomtwice := imp->getOnceRandom();
