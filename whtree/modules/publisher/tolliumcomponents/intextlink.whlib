@@ -1,6 +1,7 @@
 <?wh
 LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/links.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
@@ -143,7 +144,7 @@ PUBLIC OBJECTTYPE IntExtLink EXTEND TolliumFragmentBase
     IF(^linktype->value = 2) //internal link
       RETURN this->GetCurrentInternalLinkValue();
     ELSE IF(^linktype->value = 1) //external link
-      RETURN MakeIntExtExternalLink(^external->value);
+      RETURN MakeIntExtExternalLink(GeneralizeSharedLink(^external->value));
 
     RETURN selected.handler->GetLinkRecord();
   }
