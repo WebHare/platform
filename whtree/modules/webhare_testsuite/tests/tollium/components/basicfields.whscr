@@ -23,9 +23,23 @@ MACRO InputValidations()
       scr->textedit->value := mask.value;
       work := scr->BeginFeedback();
       TestEq(check NOT IN mask.acceptin, work->HasFailed());
+
       work->Cancel();
     }
   }
+
+  STRING testlink := "https://eur02.safelinks.protection.outlook.com/?url=https%3A%2F%2Fyoutu.be%2Fd8dABsc6jEw&data=05%7C01%7Cx.xxxx%40example.nl%7Cc3eee60137244a5c5f1508db417e04f4%7C723246a1c3f543c5acdc43adb404ac4d%7C0%7C0%7C638175781730563834%7CUnknown%7CTWFpbGZsb3d8eyJWIjoiMC4wLjAwMDAiLCJQIjoiV2luMzIiLCJBTiI6Ik1haWwiLCJXVCI6Mn0%3D%7C3000%7C%7C%7C&sdata=TJpJnhP%2FsBbHijbOXUZuF0udVt8O4Qx46G%2BdkXJ1ARs%3D&reserved=0";;
+  scr->textedit->validationchecks := STRING[];
+  scr->textedit->value := testlink;
+  TestEq(testlink, scr->textedit->value);
+  TestEq(testlink, scr->textedit->textvalue);
+  scr->textedit->validationchecks := STRING["url"];
+  TestEq("https://youtu.be/d8dABsc6jEw", scr->textedit->value);
+  TestEq(testlink, scr->textedit->textvalue);
+  scr->textedit->validationchecks := STRING["http-url"];
+  TestEq("https://youtu.be/d8dABsc6jEw",scr->textedit->value);
+  scr->textedit->validationchecks := STRING["email"];
+  TestEq(testlink, scr->textedit->value);
 }
 
 MACRO SetValue(OBJECT prop, VARIANT toset)

@@ -20,6 +20,8 @@ BOOLEAN FUNCTION CheckURL(STRING input)
   RETURN TRUE;
 }
 
+PUBLIC CONSTANT STRING ARRAY url_validationchecks := [ "url", "url-plus-relative", "http-url", "secure-url", "insecure-url"];
+
 /** Run an input value through a range of checks
     @param input Input value to check
     @param fieldtitle Title of field that received the input value (used for feedback)
