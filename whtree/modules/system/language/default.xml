@@ -1662,7 +1662,6 @@
         <text tid="active">Account active</text>
         <text tid="comment">Explanation</text>
         <text tid="created">Created</text>
-        <text tid="description">Description</text>
         <text tid="fullname">Full name</text>
         <text tid="grantdate">Granted at</text>
         <text tid="grantor">Granted by</text>
@@ -1673,9 +1672,11 @@
         <text tid="objects">Objects</text>
         <text tid="objecttypename">Object type</text>
         <text tid="right">Right</text>
+        <text tid="righttitle">Right title</text>
         <text tid="twofactorenabled">Two factor authentication enabled</text>
         <text tid="type">Type</text>
         <text tid="unit">Unit</text>
+        <text tid="unitpath">Unit path</text>
         <text tid="username">Username</text>
         <text tid="viarole">Via role</text>
         <text tid="withgrantoption">Grantable</text>

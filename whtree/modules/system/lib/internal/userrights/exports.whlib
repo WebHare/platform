@@ -27,6 +27,27 @@ RECORD FUNCTION GetAuthObjectById(RECORD ARRAY allobjs, INTEGER authobjectid)
   RETURN LookupRecord(allobjs, [ id := authobjectid ], ["ID"]);
 }
 
+PUBLIC RECORD ARRAY FUNCTION GetUserrightexportColumns()
+{
+   RETURN [[ name := "type",            type := "text",     title := GetTid("system:tolliumapps.userrights.common.type") ]
+          ,[ name := "login",           type := "text",     title := GetTid("~username") ]
+          ,[ name := "fullname",        type := "text",     title := GetTid("~fullname") ]
+          ,[ name := "email",           type := "text",     title := GetTid("~email") ]
+          ,[ name := "active",          type := "boolean",  title := GetTid("system:tolliumapps.userrights.common.active") ]
+          ,[ name := "unitname",        type := "text",     title := GetTid("system:tolliumapps.userrights.common.unit") ]
+          ,[ name := "unitpath",        type := "text",     title := GetTid("system:tolliumapps.userrights.common.unitpath") ]
+          ,[ name := "rightname",       type := "text",     title := GetTid("system:tolliumapps.userrights.common.right") ]
+          ,[ name := "righttitle",      type := "text",     title := GetTid("system:tolliumapps.userrights.common.righttitle") ]
+          ,[ name := "objecttypename",  type := "text",     title := GetTid("system:tolliumapps.userrights.common.objecttypename") ]
+          ,[ name := "objectpath",      type := "text",     title := GetTid("system:tolliumapps.userrights.common.objectpath") ]
+         , [ name := "viarole",         type := "text", title := GetTid("system:tolliumapps.userrights.common.viarole") ]
+          ,[ name := "grantor",         type := "text",     title := GetTid("system:tolliumapps.userrights.common.grantor") ]
+          ,[ name := "creationdate",    type := "datetime", title := GetTid("system:tolliumapps.userrights.common.grantdate"), storeutc := TRUE ]
+          ,[ name := "withgrantoption", type := "boolean",  title := GetTid("system:tolliumapps.userrights.common.withgrantoption") ]
+          ,[ name := "comment",         type := "text",     title := GetTid("system:tolliumapps.userrights.common.comment") ]
+          ];
+}
+
 PUBLIC RECORD ARRAY FUNCTION EnrichWithGrantorAndGrantee(OBJECT userapi, OBJECT foruser, RECORD ARRAY rightslist)
 {
   INTEGER ARRAY relevantobjs := GetSortedSet(INTEGER[ ...(SELECT AS INTEGER ARRAY DISTINCT grantee FROM rightslist)
@@ -345,17 +366,10 @@ STATIC OBJECTTYPE ObjectTreeRightsExport
     }
 
     RETURN
-        SELECT login := unitpath || "/" || login
-             , email
-             , fullname
-             , right :=       righttitle
-             , path
-             , direct :=      type = "user" ? 1 : 2
-             , viarole
-             , grantor
-             , creationdate
-             , withgrantoption
-             , comment
+        SELECT *
+             , DELETE type //"user" | "role"  it's not that meaningful as we expand the  roles anyway
+             , objectpath := path
+             , direct :=     type = "user" ? 1 : 2
           FROM rows
          WHERE this->objectid = 0 ? TRUE : path != ""
       ORDER BY login, path;
@@ -363,19 +377,10 @@ STATIC OBJECTTYPE ObjectTreeRightsExport
 
   PUBLIC RECORD FUNCTION GetList()
   {
+    RECORD ARRAY rows := this->GenerateExport();
     RETURN CELL
-      [ rows := this->GenerateExport()
-      , columns :=  [ [ name := "path",            type := "text", title := GetTid("system:tolliumapps.userrights.common.objectpath") ]
-                    , [ name := "login",           type := "text", title := GetTid("~username") ]
-                    , [ name := "fullname",        type := "text", title := GetTid("~fullname") ]
-                    , [ name := "email",           type := "text", title := GetTid("~email") ]
-                    , [ name := "right",           type := "text", title := GetTid("system:tolliumapps.userrights.common.right") ]
-                    , [ name := "viarole",         type := "text", title := GetTid("system:tolliumapps.userrights.common.viarole") ]
-                    , [ name := "grantor",         type := "text",     title := GetTid("system:tolliumapps.userrights.common.grantor") ]
-                    , [ name := "creationdate",    type := "datetime", title := GetTid("system:tolliumapps.userrights.common.grantdate"), storeutc := TRUE ]
-                    , [ name := "withgrantoption", type := "boolean",  title := GetTid("system:tolliumapps.userrights.common.withgrantoption") ]
-                    , [ name := "comment",         type := "text",     title := GetTid("system:tolliumapps.userrights.common.comment") ]
-                    ]
+      [ rows
+      , columns := Length(rows) > 0 ? (SELECT * FROM GetUserrightexportColumns() WHERE CellExists(rows[0],name)) : RECORD[]
       , exporttitle := GetTid("system:userrights.exports.exportobjectrights")
       ];
   }

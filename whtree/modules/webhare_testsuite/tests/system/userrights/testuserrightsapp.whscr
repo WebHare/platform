@@ -301,11 +301,12 @@ ASYNC MACRO TestExport()
   OBJECT subfolder2 := testfw->GetTestSite()->rootobject->CreateFolder([ name := "invisiblefolder" ]);
 
   OBJECT visibleunit := testfw->userapi->GetUnit(testfw->userapi->CreateUnit([ wrd_title := "visibleunit" ]));
+  OBJECT deeperunit := testfw->userapi->GetUnit(testfw->userapi->CreateUnit([ wrd_title := "deeperunit", wrd_leftentity := visibleunit->entityid ]));
   OBJECT invisibleunit := testfw->userapi->GetUnit(testfw->userapi->CreateUnit([ wrd_title := "invisibleunit" ]));
 
   OBJECT testuser := testfw->userapi->GetUser(testfw->userapi->CreateUser([ whuser_unit := visibleunit->entityid, wrd_contact_email := "testuser@beta.webhare.net", wrd_lastname := "testuser" ]));
   OBJECT visibleuser1 := testfw->userapi->GetUser(testfw->userapi->CreateUser([ whuser_unit := visibleunit->entityid, wrd_contact_email := "visibleuser1@beta.webhare.net", wrd_lastname := "visibleuser1" ]));
-  OBJECT visibleuser2 := testfw->userapi->GetUser(testfw->userapi->CreateUser([ whuser_unit := visibleunit->entityid, wrd_contact_email := "visibleuser2@beta.webhare.net", wrd_lastname := "visibleuser2" ]));
+  OBJECT visibleuser2 := testfw->userapi->GetUser(testfw->userapi->CreateUser([ whuser_unit := deeperunit->entityid, wrd_contact_email := "visibleuser2@beta.webhare.net", wrd_lastname := "visibleuser2" ]));
   OBJECT visibleuser3 := testfw->userapi->GetUser(testfw->userapi->CreateUser([ whuser_unit := visibleunit->entityid, wrd_contact_email := "visibleuser3@beta.webhare.net", wrd_lastname := "visibleuser3" ]));
   OBJECT invisibleuser1 := testfw->userapi->GetUser(testfw->userapi->CreateUser([ whuser_unit := invisibleunit->entityid, wrd_contact_email := "invisibleuser1@beta.webhare.net", wrd_lastname := "invisibleuser1" ]));
   OBJECT invisibleuser2 := testfw->userapi->GetUser(testfw->userapi->CreateUser([ whuser_unit := invisibleunit->entityid, wrd_contact_email := "invisibleuser2@beta.webhare.net", wrd_lastname := "invisibleuser2" ]));
@@ -343,23 +344,29 @@ ASYNC MACRO TestExport()
   RECORD ARRAY rows := GetOOXMLSpreadsheetRows(rec.file.data);
   TestEqMembers(
       [ [ "object path"   :=  "/visiblefolder"
-        , username :=     "visibleunit/testuser@beta.webhare.net"
+        , unit :=         "visibleunit"
+        , username :=     "testuser@beta.webhare.net"
         , "full name" :=  "testuser"
-        , right :=        "Browse"
+        , right :=        "system:fs_browse"
+        , "right title" :=        "Browse"
         , "via role" :=   ""
         , email :=        "testuser@beta.webhare.net"
         ]
       , [ "object path"   :=  "/visiblefolder"
-        , username :=     "visibleunit/visibleuser1@beta.webhare.net"
+        , username :=     "visibleuser1@beta.webhare.net"
         , "full name" :=  "visibleuser1"
-        , right :=        "Browse"
+        , right :=        "system:fs_browse"
+        , "right title" :=        "Browse"
         , "via role" :=   ""
         , email :=        "visibleuser1@beta.webhare.net"
         ]
       , [ "object path"   :=  "/visiblefolder"
-        , username :=     "visibleunit/visibleuser2@beta.webhare.net"
+        , username :=     "visibleuser2@beta.webhare.net"
+        , unit :=         "deeperunit"
+        , "unit path" :=  "visibleunit/deeperunit"
         , "full name" :=  "visibleuser2"
-        , right :=        "Browse"
+        , right :=        "system:fs_browse"
+        , "right title" :=        "Browse"
         , "via role" :=   "visibleunit/visiblerole"
         , email :=        "visibleuser2@beta.webhare.net"
         ]
@@ -377,16 +384,18 @@ ASYNC MACRO TestExport()
   rows := GetOOXMLSpreadsheetRows(rec.file.data);
   TestEqMembers(
       [ [ "object path"   :=       "/visiblefolder"
-        , username :=     "visibleunit/testuser@beta.webhare.net"
+        , username :=     "testuser@beta.webhare.net"
         , "full name" :=  "testuser"
-        , right :=        "Browse"
+        , right :=        "system:fs_browse"
+        , "right title" :="Browse"
         , "via role" :=   ""
         , email :=        "testuser@beta.webhare.net"
         ]
       , [ "object path"   :=       "/visiblefolder"
-        , username :=     "visibleunit/visibleuser1@beta.webhare.net"
+        , username :=     "visibleuser1@beta.webhare.net"
         , "full name" :=  "visibleuser1"
-        , right :=        "Browse"
+        , right :=        "system:fs_browse"
+        , "right title" :="Browse"
         , "via role" :=   ""
         , email :=        "visibleuser1@beta.webhare.net"
         ]
@@ -400,7 +409,7 @@ ASYNC MACRO TestExport()
   rows := GetOOXMLSpreadsheetRows(rec.file.data);
   TestEqMembers([ [ username := 'testuser@beta.webhare.net' , unit := "visibleunit" ]
                 , [ username := 'visibleuser1@beta.webhare.net' , unit := "visibleunit" ]
-                , [ username := 'visibleuser2@beta.webhare.net' , unit := "visibleunit" ]
+                , [ username := 'visibleuser2@beta.webhare.net' , unit := "deeperunit" ]
                 , [ username := 'visibleuser3@beta.webhare.net' , unit := "visibleunit" ]
                 ], rows, "*");
 
