@@ -9,6 +9,7 @@ LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/siteprofiles.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
 
@@ -40,7 +41,7 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
 
   MACRO DoExport()
   {
-    RunColumnFileExportDialog(this,
+    RECORD siteexport :=
         CELL[ rows := this->sites
             , columns :=  [[ name := "name",        type := "string", title := this->GetTid(".name") ]
                           ,[ name := "sitedesign",  type := "string", title := GetTid("publisher:commondialogs.siteprops.sitedesign") ]
@@ -49,7 +50,12 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
                           ,[ name := "cdnbaseurl",  type := "string", title := GetTid("publisher:commondialogs.siteprops.cdnbaseurl") ]
                           ,[ name := "comments",    type := "string", title := GetTid("~comments") ]
                           ]
-            ]);
+            , exporttitle := "Sites"
+            , contexts := this->contexts
+            ];
+
+    siteexport := RunModuleHookTarget("publisher:dashboard_sites_export", siteexport);
+    RunColumnFileExportDialog(this, CELL[...siteexport, DELETE contexts ]);
   }
 
   MACRO OnLinkedToTypeChange()
