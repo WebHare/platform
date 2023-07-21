@@ -17,7 +17,8 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/dbase/support.whlib";
-LOADLIB "mod::system/lib/internal/links.whlib";
+
+LOADLIB "mod::tollium/lib/internal/inputvalidation.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
