@@ -17,6 +17,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/dbase/support.whlib";
+LOADLIB "mod::system/lib/internal/links.whlib";
 
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/widgets.whlib";
@@ -198,7 +199,7 @@ PUBLIC STATIC OBJECTTYPE RichDocumentEditor
   STRING FUNCTION GetDecryptedLink(OBJECT decryptstate, STRING url)
   {
     IF(url NOT LIKE "x-richdoclink-e:*")
-      RETURN url;
+      RETURN GeneralizeSharedLink(url);
 
     RECORD split := SplitIntLink(url);
     RECORD match := SELECT * FROM this->cachedlinkmapping WHERE encrypted=split.link;
