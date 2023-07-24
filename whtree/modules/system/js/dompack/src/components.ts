@@ -1,17 +1,17 @@
 import * as domtree from './tree';
 import * as domevents from './events';
 
-type RegistrationHandler = (node: Element, index?: number) => void;
-type ComponentRegistration =
+type RegistrationHandler<E extends Element = HTMLElement> = (node: E, index?: number) => void;
+type ComponentRegistration<E extends Element = HTMLElement> =
   {
     selector: string;
-    handler: RegistrationHandler;
+    handler: RegistrationHandler<E>;
     index: number;
     num: number;
     afterdomready: boolean;
   };
 
-const components: ComponentRegistration[] = [];
+const components: Array<ComponentRegistration<Element>> = [];
 const map = new WeakMap();
 
 //is a node completely in the dom? if we can find a sibling anywhere, it must be closed
@@ -21,7 +21,7 @@ function isNodeCompletelyInDom(node: Element | null) {
       return true;
   return false;
 }
-function processRegistration(item: Element, reg: ComponentRegistration, domready: boolean) {
+function processRegistration<E extends Element>(item: E, reg: ComponentRegistration<E>, domready: boolean) {
   if (!domready && !isNodeCompletelyInDom(item))
     return; //not safe to register
 
@@ -35,18 +35,18 @@ function processRegistration(item: Element, reg: ComponentRegistration, domready
   }
   reg.handler(item, reg.index++); //note: if an exception is reported from Object.handler,
 }
-function applyRegistration(reg: ComponentRegistration, startnode?: Element) {
+function applyRegistration<E extends Element>(reg: ComponentRegistration<E>, startnode?: Element) {
   const domready = domtree.isDomReady();
   if (reg.afterdomready && !domready)
     return;
 
-  const items = Array.from((startnode || document).querySelectorAll(reg.selector));
-  if (startnode && domtree.matches(startnode, reg.selector))
-    items.unshift(startnode);
+  const items = Array.from((startnode || document).querySelectorAll(reg.selector)) as E[];
+  if (startnode?.matches(reg.selector))
+    items.unshift(startnode as E); //if startnode matches it has to be an E
 
   items.forEach(item => {
     try {
-      processRegistration(item, reg, domready);
+      processRegistration<E>(item, reg, domready);
     } catch (e) {
       console.error("Exception handling registration of", item, "for rule", reg.selector);
       console.log("Registration", reg);
@@ -105,8 +105,8 @@ export function scrollIntoView(node: Element, options?: ScrollIntoViewOptions) {
     - the index of the node (a unique counter for this selector - first is 0)
  */
 
-export function register(selector: string, handler: RegistrationHandler, options?: { afterdomready: boolean }) {
-  const newreg: ComponentRegistration =
+export function register<E extends Element = HTMLElement>(selector: string, handler: RegistrationHandler<E>, options?: { afterdomready: boolean }) {
+  const newreg: ComponentRegistration<E> =
   {
     selector: selector,
     handler: handler,
@@ -117,7 +117,7 @@ export function register(selector: string, handler: RegistrationHandler, options
   if (components.length == 0 && !domtree.isDomReady()) //first component... we'll need a ready handler
     domtree.onDomReady(() => registerMissed());
 
-  components.push(newreg);
+  components.push(newreg as ComponentRegistration<Element>);
   applyRegistration(newreg);
 }
 
