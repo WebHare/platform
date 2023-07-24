@@ -192,9 +192,10 @@ MACRO TestExport()
   TestEq(["role2"], rolegrants[1].objectpath);
 }
 
-RunTestframework( [ PTR TestAddRoleToUsers
+RunTestframework( [ PTR EnsureUserMgmtStateClean(FALSE)
+                  , PTR TestAddRoleToUsers
                   , PTR TestEditDeleteRole
-                  , PTR EnsureUserMgmtStateClean
+                  , PTR EnsureUserMgmtStateClean(TRUE)
                   , PTR TestExport
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                     ,[ login := "user1"]

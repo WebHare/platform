@@ -21,9 +21,7 @@ TABLE
 
 MACRO Prepare()
 {
-  testfw->BeginWork();
-  testfw->userapi->ResyncToSystemTables(); //prevent spurious errors from earlier tests
-  testfw->CommitWork();
+  EnsureUserMgmtStateClean(FALSE); //prevent spurious errors from earlier tests
 }
 
 MACRO CreateProblemRight()
@@ -113,7 +111,7 @@ ASYNC MACRO TestProblemRights()
 
 MACRO TestFixUnconnectedItems()
 {
-  EnsureUserMgmtStateClean(); //make sure all is okay before we start. also verifies no loose ends left above
+  EnsureUserMgmtStateClean(TRUE); //make sure all is okay before we start. also verifies no loose ends left above
   testfw->BeginWork();
 
   OBJECT deletedunit :=      testfw->GetWRDSchema()->^whuser_unit->CreateEntity([ wrd_title := "Deletable unit" ]);
