@@ -38,7 +38,7 @@ fi
 
 # Cache configure results, shaves up to 60 sec of build times (because most of the build is blocked until both wasm and native versions are done)
 CACHEFILE="$WHBUILD_BUILDCACHE_DIR/libxml2-$TARGETPLATFORM"
-ARGS=(--cache-file "$CACHEFILE" --with-threads --without-http --without-catalog --without-iconv --without-debug --without-xinclude --without-zlib --without-lzma --without-python --without-icu)
+ARGS=(--cache-file "$CACHEFILE" --with-threads --without-http --without-catalog --with-iconv --without-debug --without-xinclude --without-zlib --without-lzma --without-python --without-icu)
 echo Configure libxml2 with: "${ARGS[@]}"
 
 if ! $FLOCK "$WHBUILD_SRCDIR/vendor/.setup-libxml2.lock" "${WHBUILD_SRCDIR}/vendor/libxml2/autogen.sh" "${ARGS[@]}" ;  then
