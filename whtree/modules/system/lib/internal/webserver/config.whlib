@@ -26,7 +26,7 @@ LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
 LOADLIB "mod::system/lib/internal/webserver/mimetypes.whlib";
 //webharedev_pwa will attempt to load EnrichWebserversWithOutputFolder from config.whlib, so as long as it exists:
-LOADLIB "mod::system/lib/internal/webserver/output-mapping.whlib" EXPORT GetWebserverBaseOutputFolder, EnrichWebserversWithOutputFolder;
+LOADLIB "mod::system/lib/internal/webserver/output-mapping.whlib" EXPORT GetWebserverBaseOutputFolder, EnrichWebserversWithOutputFolder, GetWebHareBackendServerFolder;
 
 /* ADDME log errors encounted (ie the current RETURN/CONTINUEs) */
 
@@ -112,11 +112,6 @@ RECORD FUNCTION SplitTriplet(STRING inpath)
          ];
 }
 
-
-PUBLIC STRING FUNCTION GetWebhareBackendServerFolder()
-{
-  RETURN MergePath(GetWebhareConfiguration().varroot, "system.webharebackend");
-}
 PUBLIC STRING FUNCTION GetWebserverOutputFolder(INTEGER webserverid)
 {
   RECORD serverinfo := SELECT type, diskfolder FROM system.webservers WHERE id = webserverid;

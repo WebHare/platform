@@ -1,13 +1,17 @@
 <?wh
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::os.whlib";
 
-LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 PUBLIC STRING FUNCTION GetWebserverBaseOutputFolder()
 {
-  RETURN GetWebHareConfiguration().basedataroot || 'output/';
+  RETURN MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "output") || "/";
+}
+PUBLIC STRING FUNCTION GetWebHareBackendServerFolder()
+{
+  RETURN GetWebserverBaseOutputFolder() || "webharebackend";
 }
 
 /** @cell inrows.type Webserver type
@@ -19,7 +23,7 @@ PUBLIC RECORD ARRAY FUNCTION EnrichWebserversWithOutputFolder(RECORD ARRAY inrow
     STRING outputfolder;
     IF(row.type=1)
     {
-      outputfolder := MergePath(GetWebhareConfiguration().varroot, "system.webharebackend");
+      outputfolder := GetWebHareBackendServerFolder();
     }
     ELSE IF(row.diskfolder = "" OR IsPathAbsolute(row.diskfolder))
     {
@@ -47,7 +51,7 @@ PUBLIC RECORD FUNCTION DescribeDiskOutput(INTEGER siteid, STRING subfolder)
   IF(siteid = whconstant_whfsid_webharebackend)
   {
     //Force the backend site to the proper location - this ensures we can still publish the applicationportal file for use by the Rescue port before the primary output is configured
-    webserver_diskroot := MergePath(GetWebhareConfiguration().varroot, "system.webharebackend");
+    webserver_diskroot := GetWebHareBackendServerFolder();
   }
   ELSE
   {
