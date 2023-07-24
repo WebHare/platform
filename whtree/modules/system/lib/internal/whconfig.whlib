@@ -324,16 +324,7 @@ PUBLIC MACRO UpdateSystemConfigurationRecord(RECORD updates DEFAULTSTO DEFAULT R
       , dtapstage
       ];
 
-  // Log to debug log for now. Copied logdebug because of recursive loadlib problems
-  STRING msg := EncodeJava("system:systemconfig") || "\t" || GetCurrentGroupId() || "\t" || EncodeJava(GetExternalSessionData());
-  FOREVERY(VARIANT arg FROM VARIANT["Update systemconfig record", newconfig])
-  {
-    STRING encodedarg := TypeID(arg)=TypeID(STRING) ? EncodeJava(arg) : EncodeHSON(arg);
-    IF(Length(msg) + Length(encodedarg) > 127*1024) //risking passing the log line limit
-      encodedarg := "-";
-    msg := msg || '\t' || encodedarg;
-  }
-  ModuleLog("system:debug", msg);
+  LogDebug("system:systemconfig", newconfig);
 
   // Update the config. Applies immediately to local record, async to rest of processes (and self again)
   __SYSTEM_SETSYSTEMCONFIG(newconfig);
