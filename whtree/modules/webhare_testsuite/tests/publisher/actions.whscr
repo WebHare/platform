@@ -19,6 +19,8 @@ MACRO Setup()
   testfw->BeginWork();
   OBJECT testsite := testfw->SetupTestWebdesignWebsite();
   testfw->CommitWork();
+
+  WaitForPublishCompletion(testsite->id);
 }
 
 MACRO SiteRenameTest()
@@ -490,6 +492,8 @@ MACRO CopyMoveTest()
   TestEq(TRUE, IsBeingPublished(destblabla->id));
   TestEq(TRUE, IsBeingPublished(sourceblabla->id));
   testfw->CommitWork();
+
+  WaitForPublishCompletion(testsite->id, [ accepterrors := TRUE ]);
 }
 
 MACRO SiteProfActionsTest()
