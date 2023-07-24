@@ -544,6 +544,11 @@ PUBLIC OBJECTTYPE TolliumTextEdit EXTEND __TolliumAutoSuggestableBase
 
   VARIANT FUNCTION GetValue()
   {
+    IF(this->valuetype = "string")
+      FOREVERY(STRING validator FROM url_validationchecks)
+        IF(validator IN this->pvt_validationchecks)
+          RETURN GeneralizeSharedLink(this->valstore.val);
+
     RETURN this->valstore.val;
   }
 

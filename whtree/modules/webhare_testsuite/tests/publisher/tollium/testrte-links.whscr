@@ -1,5 +1,7 @@
 <?wh
 
+LOADLIB "wh::files.whlib";
+
 LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/testframework.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -69,6 +71,11 @@ OBJECT ASYNC FUNCTION InsertLink()
   TestEq("#addme", TT("link")->^append->value);
   TestEq(TRUE, TT("openinnewwindow")->value);
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  // Pretend pasting a link
+  myrte->TolliumWeb_FormUpdate('<html><body><p class="normal">This is <a href="https://drive.google.com/drive/u/99/folders/abcdefg-1234567890">link</a>.</p></body></html>');
+  TestEq(`<html><body><p class="normal">This is <a href="https://drive.google.com/drive/folders/abcdefg-1234567890">link</a>.</p></body></html>`, BlobToString(myrte->value.htmltext));
+
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   RETURN TRUE;

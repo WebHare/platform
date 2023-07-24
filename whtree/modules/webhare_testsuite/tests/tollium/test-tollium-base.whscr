@@ -15,6 +15,23 @@ BOOLEAN FUNCTION IsAccepted(STRING ARRAY checks, STRING value)
   RETURN ValidateInput(value, "", checks) = "";
 }
 
+MACRO TestLinkCanonicalizer()
+{
+  TestEq("about:blank", GeneralizeSharedLink("about:blank"));
+  TestEq("https://example.net/subdir", GeneralizeSharedLink("https://example.net/subdir"));
+
+  TestEq("https://youtu.be/d8dABsc6jEw",
+         GeneralizeSharedLink("https://eur02.safelinks.protection.outlook.com/?url=https%3A%2F%2Fyoutu.be%2Fd8dABsc6jEw&data=05%7C01%7Cx.xxxx%40example.nl%7Cc3eee60137244a5c5f1508db417e04f4%7C723246a1c3f543c5acdc43adb404ac4d%7C0%7C0%7C638175781730563834%7CUnknown%7CTWFpbGZsb3d8eyJWIjoiMC4wLjAwMDAiLCJQIjoiV2luMzIiLCJBTiI6Ik1haWwiLCJXVCI6Mn0%3D%7C3000%7C%7C%7C&sdata=TJpJnhP%2FsBbHijbOXUZuF0udVt8O4Qx46G%2BdkXJ1ARs%3D&reserved=0"));
+
+  TestEq("https://us02web.zoom.us/j/12345678",
+         GeneralizeSharedLink("https://www.google.com/url?q=https://us02web.zoom.us/j/12345678?pwd%3Dxxxx&sa=D&source=calendar&ust=1689417590895063&usg=AOvVaw2EoUXIyukNNpLwZ_6YHZdz"));
+
+  TestEq("https://drive.google.com/drive/folders/abcdefg-1234567890",
+         GeneralizeSharedLink("https://drive.google.com/drive/u/0/folders/abcdefg-1234567890"));
+  TestEq("https://drive.google.com/drive/folders/abcdefg-1234567890",
+         GeneralizeSharedLink("https://drive.google.com/drive/u/99/folders/abcdefg-1234567890"));
+}
+
 MACRO TestInputValidation()
 {
   TestAssert(IsAccepted(["email"], "arnold@example.net"));
@@ -36,5 +53,6 @@ MACRO TestInputValidation()
 }
 
 RunTestFramework( [ PTR TestUser
+                  , PTR TestLinkCanonicalizer
                   , PTR TestInputValidation
                   ]);

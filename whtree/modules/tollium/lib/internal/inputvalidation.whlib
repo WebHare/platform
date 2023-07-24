@@ -20,6 +20,47 @@ BOOLEAN FUNCTION CheckURL(STRING input)
   RETURN TRUE;
 }
 
+PUBLIC CONSTANT STRING ARRAY url_validationchecks := [ "url", "url-plus-relative", "http-url", "secure-url", "insecure-url"];
+
+/** Generalize a shared link - remove redirect layers and credentials
+
+    this list necessarily relies on user reporting, there's no "official" list.
+
+    this canonicalization should be done in the WebHare UI where it makes sense, but not so deep in the code that we can never implement an 'off' switch in the future for that specific UI spot */
+PUBLIC STRING FUNCTION GeneralizeSharedLink(STRING inlink)
+{
+  IF(Length(inlink) > 2048)
+    RETURN inlink; //ignore unreasonably long links
+
+  //TODO on disk YML list for easier maintenace
+
+  RECORD unp := UnpackURL(inlink);
+  IF(unp.origin LIKE "*.safelinks.protection.outlook.com") //Office safe links
+  {
+    STRING url := GetVariableFromURL(inlink,"url");
+    IF(urL != "")
+      RETURN url;
+  }
+
+  IF(unp.origin = "https://www.google.com" AND Left(unp.urlpath,4) = "url?") //Google calendar redirects
+  {
+    STRING url := GetVariableFromURL(inlink,"q");
+    IF(url != "")
+      RETURN url;
+  }
+
+  IF(unp.origin = "https://drive.google.com" AND Left(unp.urlpath,8) = "drive/u/") //Google drive links copied from the URL when logged in to multiple acounts
+  {
+    //TODO regex would be more robust and not potentially end up with hundreds of tokens
+    STRING ARRAY toks := Tokenize(unp.urlpath,'/');
+    IF(ToInteger(toks[2],-1) >= 0) //it's indeed a user number
+      RETURN unp.origin || "/drive/" || Detokenize(ArraySlice(toks,3), "/");
+  }
+
+  RETURN inlink;
+}
+
+
 /** Run an input value through a range of checks
     @param input Input value to check
     @param fieldtitle Title of field that received the input value (used for feedback)

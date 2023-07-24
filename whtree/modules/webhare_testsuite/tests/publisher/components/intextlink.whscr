@@ -8,8 +8,6 @@ LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 
-
-
 ASYNC MACRO TestIntExtLink()
 {
   OBJECT screen := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
@@ -79,6 +77,11 @@ ASYNC MACRO TestIntExtLink()
   // NOTE we don't (yet?) support conversion to internal link, unsafe if we're unsure whether the internal link supports any sort of suburl, we might just be throwing noise into the append...
   topscreen->comp->SetLinkType("internal");
   TestEQ([ append := "", externallink := "", internallink := GetTestsuiteTempFolder()->id ], topscreen->comp->value, "Append should be lost now...");
+
+  // Verify canonicalization
+  topscreen->comp->SetLinkType("external");
+  topscreen->comp->^external->value := "https://www.google.com/url?q=https://us02web.zoom.us/j/12345678?pwd%3Dxxxx&sa=D&source=calendar&ust=1689417590895063&usg=AOvVaw2EoUXIyukNNpLwZ_6YHZdz";
+  TestEQ([ append := "", externallink := "https://us02web.zoom.us/j/12345678", internallink := 0 ], topscreen->comp->value);
 
   TestEq(["No link","External link","Internal link"], SELECT AS STRING ARRAY title FROM topscreen->comp->^linktype->options);
   topscreen->comp->required := TRUE;
