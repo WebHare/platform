@@ -5,7 +5,7 @@ import { DTAPStage } from "./concepts";
 
 /** The format of the <script id="wh-config"> object  */
 export interface WHConfigScriptData {
-  ///Plguins may add keys at this level
+  ///Plugins may add keys at this level
   [key: string]: unknown;
 
   //NOTE: existing frontend code doesn't expect site/obj to ever be null. not sure if 'object' provides the best interface or whether we need some sort of 'unknown but an existing object'
@@ -46,4 +46,6 @@ function getIntegrationConfig(): WHConfigScriptData {
   };
 }
 
-export const config = getIntegrationConfig();
+export const frontendconfig = getIntegrationConfig();
+/** @deprecated Use the name 'frontendconfig' for disambiguation with backendconfig */
+export const config = frontendconfig;
