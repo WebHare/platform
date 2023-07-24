@@ -117,13 +117,6 @@ PUBLIC STATIC OBJECTTYPE Reader
     RETURN retval;
   }
 
-  //Write DBFiles to the dbpublication instance
-  MACRO FlushDBFiles(INTEGER fileid, RECORD ARRAY dbfiles)
-  {
-    OBJECT dbpub := OpenWHFSType("http://www.webhare.net/xmlns/publisher/dbpublication");
-    dbpub->SetInstanceData(fileid, [ dbfiles := dbfiles ]);
-  }
-
   PUBLIC INTEGER FUNCTION FinishPublishing(OBJECT outputrun, INTEGER fileid, INTEGER totalsize, RECORD ARRAY dbfiles, BOOLEAN stripextension)
   {
     STRING errordata;
@@ -192,7 +185,9 @@ PUBLIC STATIC OBJECTTYPE Reader
     {
       published := SetFlagsInPublished(published, PublishedFlag_OncePublished, TRUE);
       published := SetFlagsInPublished(published, PublishedFlag_HasWebdesign, has_webdesign);
-      this->FlushDBFiles(fileid, dbfiles);
+
+      OBJECT dbpub := OpenWHFSType("http://www.webhare.net/xmlns/publisher/dbpublication");
+      dbpub->SetInstanceData(fileid, [ dbfiles := dbfiles ], [ isvisibleedit := FALSE, ifreadonly := "skip" ]);
     }
 
     RECORD fileupdate;

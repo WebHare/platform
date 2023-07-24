@@ -122,9 +122,14 @@ STATIC OBJECTTYPE LocalSiteWriter EXTEND OutputPublicationBase
         STRING error := "Cannot create site output root directory " || this->outputroot || " (" || GetLastOSError() || ")";
         //Check if we really failed, the error might be a race caused by another publishing engine
         dirprops := GetDiskFileProperties(this->outputroot);
-        IF (NOT RecordExists(dirprops) OR dirprops.type != 1)
+        IF (NOT RecordExists(dirprops))
         {
-          this->ErrorNotify(1001,error);
+          this->ErrorNotify(1001,error || " - it still doesn't exist");
+          RETURN;
+        }
+        IF (dirprops.type != 1)
+        {
+          this->ErrorNotify(1001,error || " - it has type #" || dirprops.type);
           RETURN;
         }
       }

@@ -12,6 +12,7 @@ LOADLIB "mod::system/lib/internal/restart_reset.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/whfs/compilables.whlib";
+LOADLIB "mod::system/lib/internal/webserver/output-mapping.whlib";
 
 RECORD settings := ParseArguments(GetConsoleArguments()
                                  , [ [ name := "debug", type := "switch" ]
@@ -55,6 +56,11 @@ IF(showinfo)
 
 DATETIME start := GetCurrentDatetime();
 SetWHServiceState("startup", [ start := start ]);
+
+// WH5.3 prestart fix: move system.webharebackend to path under output/
+STRING old_webharebackend_dir := MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "system.webharebackend");
+IF(RecordExists(GetDiskFileProperties(old_webharebackend_dir)))
+  MoveDiskPath(old_webharebackend_dir, GetWebHareBackendServerFolder());
 
 /* Unpack important stuff that shipped with us */
 RECORD shrinkwrapfile := RetrieveWebhareResource("mod::system/data/shrinkwrap-var.tgz", [ allowmissing := TRUE ]);
