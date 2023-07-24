@@ -6,6 +6,14 @@ import * as dompack from 'dompack';
 
 let consentstatus, cookiename, consentoptions;
 
+export type ConsentSettings = {
+  isdefault: true;
+  consent: string[];
+} | {
+  isdefault: false;
+  consent: string[] | undefined; //we've explicitly defined no consent-yet-given as 'undefined' (TODO was this a good idea?)
+};
+
 /** Setup the consent handler
     @param usecookiename Name of the cookie. Should be identical for all sites sharing this consent, set to empty string if you store consent externally
     @param consentrequester Function to invoke if consent is unknown to eg trigger a cookie bar. This function will be immediately registered for invocation through dompack.onDomReady
@@ -96,7 +104,7 @@ export function setConsent(newsetting) {
     @param return.consent list all consents
     @param return.isdefault if TRUE then the consents are implicit/defaults (not consent explicitly given by the user)
 */
-function getConsentDetail() {
+function getConsentDetail(): ConsentSettings | null {
   if (!consentstatus) // setup() did not run yet
     return null;
 
