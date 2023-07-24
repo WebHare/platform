@@ -384,6 +384,10 @@ blex_DEPLOYABLES=$(blex_DEPLOYABLES_WHAP)
 BLEX_BASE_LIBS=z dl $(ICU_LIBS) $(BLEX_SSL_LIBS)
 BLEX_HSVM_LIBS=$(ICU_LIBS) pq
 
+ifeq ($(WHBUILD_PLATFORM),darwin)
+  BLEX_BASE_LIBS+=iconv
+endif
+
 BLEX_LIBS=blex_base $(BLEX_BASE_LIBS)
 
 LIBBLEX_FILES=$(addsuffix .cpp,$(addprefix blex/,$(LIBBLEX_SOURCEFILES)))

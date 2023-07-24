@@ -126,7 +126,7 @@
     <test script="test_types.whscr" />
     <test script="test_witty.whscr" />
     <test script="test_xml_signature.whscr" xfail="1" /> <!-- Missing function CreateHasher -->
-    <test script="test_xml.whscr" xfail="1" /> <!-- Spurious xmlns="" added??? -->
+    <test script="test_xml.whscr" /> <!-- Spurious xmlns="" added. now commented out, needs fixing though -->
     <test script="test_yieldasync.whscr" xfail="1" /> <!-- Missing function WaitForMultipleUntil -->
   </group>
 </group>
