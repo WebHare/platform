@@ -22,7 +22,7 @@ PUBLIC OBJECT FUNCTION GetScreenshotWitty()
 
 PUBLIC STRING FUNCTION GetFeedbackScreenshotURL(INTEGER issueid)
 {
-  RETURN GetPrimaryWebhareInterfaceURL() || ".publisher/common/feedback/screenshot.shtml?ss=" || EncryptForThisServer("tollium:screenshot",CELL[issueid]);
+  RETURN GetPrimaryWebHareInterfaceURL() || ".wh/common/feedback/screenshot.shtml?ss=" || EncryptForThisServer("tollium:screenshot",CELL[issueid]);
 }
 
 PUBLIC RECORD ARRAY FUNCTION GetFeedbackExtraFields(RECORD extradata)

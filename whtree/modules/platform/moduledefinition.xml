@@ -7,4 +7,15 @@
     </validation>
   </meta>
 
+  <backend>
+    <!--
+    All WebHare assets that usually do not require authentication (ie they are well-known, only content-addressable or do their own authentication)
+    must be moved to `/.wh/` so we have a single path to exclude from login checks.
+
+    All under `/.wh/dev/` will be assigned to the standard 'dev' module (mod::dev/web/wh-dev/)
+     `/.wh/common/` is a common location for tools such as Publisher feedback pages. It is managed by the 'platform' module
+     -->
+    <webrule path="allroots:/.wh/common/" match="initial" handlebydir="web/wh-common/" priority="after" />
+  </backend>
+
 </module>
