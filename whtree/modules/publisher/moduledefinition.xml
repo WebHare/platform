@@ -1142,6 +1142,7 @@
     <target name="documenteditor" /> <!-- Siteprofile hooks into the document editor -->
     <target name="whfsindex_priority" /> <!-- Hooks for publisher:whfs index priority -->
     <target name="feedbackupdate" /> <!-- Hooks into feedback system -->
+    <target name="dashboard_sites_export" /> <!-- Allows you to extend the sites export -->
   </hooking>
 
   <documentation>

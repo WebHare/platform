@@ -311,24 +311,12 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoExportAllGrants()
   {
-    RECORD ARRAY cols := [[ name := "type",            type := "text",     title := GetTid("system:tolliumapps.userrights.common.type") ]
-                         ,[ name := "login",           type := "text",     title := GetTid("~username") ]
-                         ,[ name := "fullname",        type := "text",     title := GetTid("~fullname") ]
-                         ,[ name := "email",           type := "text",     title := GetTid("~email") ]
-                         ,[ name := "active",          type := "boolean",  title := GetTid("system:tolliumapps.userrights.common.active") ]
-                         ,[ name := "unitname",        type := "text",     title := GetTid("system:tolliumapps.userrights.common.unit") ]
-                         ,[ name := "rightname",       type := "text",     title := GetTid("system:tolliumapps.userrights.common.right") ]
-                         ,[ name := "objecttypename",  type := "text",     title := GetTid("system:tolliumapps.userrights.common.objecttypename") ]
-                         ,[ name := "objectpath",      type := "text",     title := GetTid("system:tolliumapps.userrights.common.objectpath") ]
-                         ,[ name := "grantor",         type := "text",     title := GetTid("system:tolliumapps.userrights.common.grantor") ]
-                         ,[ name := "creationdate",    type := "datetime", title := GetTid("system:tolliumapps.userrights.common.grantdate"), storeutc := TRUE ]
-                         ,[ name := "withgrantoption", type := "boolean",  title := GetTid("system:tolliumapps.userrights.common.withgrantoption") ]
-                         ,[ name := "comment",         type := "text",     title := GetTid("system:tolliumapps.userrights.common.comment") ]
-                         ];
-    RunColumnFileExportDialog(this, [ columns := cols
-                                    , rows := ListRightsAndRolesForExport(this->contexts->userapi)
-                                    , exporttitle := this->GetTid(".export.allgrants")
-                                    ]);
+    RECORD ARRAY rows := ListRightsAndRolesForExport(this->contexts->userapi);
+    RunColumnFileExportDialog(this,
+          CELL[ columns := (SELECT * FROM GetUserrightexportColumns() WHERE CellExists(rows[0],name))
+                           , rows
+                           , exporttitle := this->GetTid(".export.allgrants")
+                           ]);
   }
   MACRO DoExit()
   {

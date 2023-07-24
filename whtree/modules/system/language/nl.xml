@@ -1475,7 +1475,6 @@
         <text tid="active">Account actief</text>
         <text tid="comment">Toelichting</text>
         <text tid="created">Aangemaakt</text>
-        <text tid="description">Beschrijving</text>
         <text tid="fullname">Gebruikersnaam</text>
         <text tid="grantdate">Toegekend op</text>
         <text tid="grantor">Toegekend door</text>
@@ -1486,9 +1485,11 @@
         <text tid="objects">Objecten</text>
         <text tid="objecttypename">Objecttype</text>
         <text tid="right">Recht</text>
+        <text tid="righttitle">Recht titel</text>
         <text tid="twofactorenabled">Twee-factor-authenticatie ingeschakeld</text>
         <text tid="type">Type</text>
         <text tid="unit">Eenheid</text>
+        <text tid="unitpath">Pad eenheid</text>
         <text tid="username">Gebruikersnaam</text>
         <text tid="viarole">Via rol</text>
         <text tid="withgrantoption">Toekenbaar</text>
