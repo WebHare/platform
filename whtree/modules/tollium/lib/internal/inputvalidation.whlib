@@ -45,7 +45,7 @@ PUBLIC STRING FUNCTION GeneralizeSharedLink(STRING inlink)
   IF(unp.origin = "https://www.google.com" AND Left(unp.urlpath,4) = "url?") //Google calendar redirects
   {
     STRING url := GetVariableFromURL(inlink,"q");
-    IF(urL != "")
+    IF(url != "")
       RETURN url;
   }
 
