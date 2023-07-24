@@ -1,5 +1,6 @@
 <?wh
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 
@@ -52,6 +53,8 @@ PUBLIC STATIC OBJECTTYPE Reader
     TRY
     {
       this->process := NEW PublicationProcess(fileid);
+      IF(GetEnvironmentVariable("WEBHARE_CI") != "")
+        LogDebug("publisher:startpublication", this->process->basedata);
       IF(NOT RecordExists(this->process->basedata))
         retval := 0; //the file can't be published anymore (site locked, webhare-private..). just dequeue it without making any more noise
     }
@@ -114,6 +117,9 @@ PUBLIC STATIC OBJECTTYPE Reader
 
     IF (ObjectExists(outputrun)) // Doesn't exist when there are no outputs
       outputrun->Finish();
+
+    IF(GetEnvironmentVariable("WEBHARE_CI") != "")
+      LogDebug("publisher:endpublication", CELL[fileid, retval]);
     RETURN retval;
   }
 
