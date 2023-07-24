@@ -16,8 +16,8 @@ PUBLIC OBJECTTYPE UserRoleSearch EXTEND TolliumFragmentBase
 
   MACRO DoSearch()
   {
-    STRING term := this->searchfor->value;
-    IF(this->searchfor->value = "")
+    STRING term := ^searchfor->value;
+    IF(^searchfor->value = "")
     {
       this->owner->RunSimpleScreen("error", this->GetTid(".emptysearchvalue"));
       RETURN;

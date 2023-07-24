@@ -1,4 +1,7 @@
 <?wh
+
+LOADLIB "wh::util/algorithms.whlib";
+
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/userrights.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
@@ -119,6 +122,22 @@ ASYNC MACRO TestAddRoleToUsers()
   TestEQ(TRUE, testfw->GetUserObject("user2")->HasRole(testfw->GetRoleObject("role1")));
   TestEQ(FALSE, testfw->userapi->GetUser(testfw->GetUserObject("user1")->entityid)->HasRightOn("system:manageroles", testfw->GetRoleObject("role1")->authobjectid));
   TestEQ(FALSE, testfw->GetUserObject("user2")->HasRightOn("system:manageroles", testfw->GetRoleObject("role1")->authobjectid));
+
+  // Grant to multiple users through adduserstorole and multi search
+  TT("unitcontents->userandrolelist")->selection := SELECT * FROM TT("unitcontents->userandrolelist")->rows WHERE name="role3";
+  AWAIT ExpectScreenChange(+1, PTR TTClick("userrolerightslist->adduserstorole"));
+  TT("selectuserrole->searchfor")->value := "user3";
+  TTClick("selectuserrole->expand");
+  TestEq("user3", TT("selectuserrole->searchforarea")->value);
+  TT("selectuserrole->searchforarea")->value := "user1\nuser2@beta.webhare.net\n\nnosuchuser@bla\n";
+
+  TTClick(":Search");
+  TestEq([ "user1@beta.webhare.net", "user2@beta.webhare.net" ],SELECT AS STRING ARRAY email FROM TT("selectuserrole->unitcontents->userandrolelist")->rows ORDER BY email);
+  TT("selectuserrole->unitcontents->userandrolelist")->selection := TT("selectuserrole->unitcontents->userandrolelist")->rows;
+  AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
+
+  TestEq(INTEGER[testfw->GetUserObject("user1")->entityid,testfw->GetUserObject("user2")->entityid], GetSortedSet(GetTestController()->userapi->GetRoleMembers(testfw->GetRoleObject("role3")->entityid)));
+
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
@@ -182,8 +201,8 @@ MACRO TestExport()
   TestEq("", grants[0].grantor); //should be empty as its a self-grant, this makes them stand out
   TestEq(TRUE, grants[0].withgrantoption);
 
-  RECORD ARRAY rolegrants := SELECT * FROM userexport WHERE type = "ROLEGRANT";
-  TestEq(2,Length(rolegrants)); //just 2 rolegrants, those that match 'role2'. role1-renamed is deleted and should be invisible
+  RECORD ARRAY rolegrants := SELECT * FROM userexport WHERE type = "ROLEGRANT" ORDER BY Detokenize(objectpath,'/');
+  TestEq(5,Length(rolegrants)); //role1-renamed is deleted and should be invisible. we should see role2 twice and role3 thrice (assigned to user1,2 and then copied to user3)
   TestEq(TRUE, RecordExists(rolegrants[0].grantordata));
   TestEq("sysop@beta.webhare.net", rolegrants[0].grantor);
   TestEq(FALSE, rolegrants[0].withgrantoption);
@@ -203,6 +222,7 @@ RunTestframework( [ PTR TestAddRoleToUsers
                                     ]
                      , testroles := [[ role := "role1" ]
                                     ,[ role := "role2" ]
+                                    ,[ role := "role3" ]
                                     ]
                      ]
                   );
