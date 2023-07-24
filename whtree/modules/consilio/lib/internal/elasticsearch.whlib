@@ -125,12 +125,29 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
   }
 
   RECORD indexmanager := DescribeIndexManager(indexmgrid);
-  IF (indexmanager.address = "builtin-opensearch")
-    indexmanager.address := GetBuiltinOpensearchAddress();
+  STRING url := indexmanager.address = "builtin-opensearch" ? GetBuiltinOpensearchAddress() : indexmanager.address;
+  IF(url NOT LIKE "*/")
+    url := url || "/";
+  IF(suburl LIKE "/*")
+    url := url || Substring(suburl,1);
+  ELSE
+    url := url || suburl;
 
-  STRING url := ResolveToAbsoluteURL(indexmanager.address, (suburl LIKE "/*" ? "" : "/") || suburl);
   IF(options.refresh)
     url := UpdateURLVariables(url, [ refresh := "true" ]);
+
+  RECORD fetchoptions := CELL[ headers := CELL[]
+                             , method
+                             ];
+
+  RECORD unpacked := UnpackURL(url);
+  IF(unpacked.user != "") //fetch doesn't support user/pass in URLs
+  {
+    INSERT CELL "Authorization" := "Basic " || EncodeBase64(unpacked.user || ":" || unpacked.password) INTO fetchoptions.headers;
+    unpacked.user := "";
+    unpacked.password := "";
+    url := RepackURL(unpacked);
+  }
 
   STRING body;
   IF (options.ndjson)
@@ -151,10 +168,6 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
   TRY
   {
     //FIXME   IF(IsDebugTagEnabled("consilio:traffic")) ..
-    RECORD fetchoptions := CELL[ headers := CELL[]
-                               , method
-                               ];
-
     IF (Length(body) > 0)
     {
       INSERT CELL "Content-Type" := options.ndjson ? "application/x-ndjson" : "application/json" INTO fetchoptions.headers;

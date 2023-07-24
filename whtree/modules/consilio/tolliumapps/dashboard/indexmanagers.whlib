@@ -35,18 +35,24 @@ PUBLIC STATIC OBJECTTYPE IndexMgrs EXTEND DashboardPanelBase
   MACRO Init(RECORD data)
   {
     this->frame->flags.issysop := this->contexts->user->HasRight("system:sysop");
+    this->RefreshIndexManagers();
+    ^indexmanager->onchange := PTR this->PollIndexmanagerStatus; //not running initally, we'll wait for RefreshDashboardPanel to come in
+  }
+  MACRO RefreshIndexManagers()
+  {
     ^indexmanager->options := SELECT rowkey := id, title := name, address
                                 FROM consilio.indexmanagers
                             ORDER BY ToUppercase(name);
-    ^indexmanager->onchange := PTR this->PollIndexmanagerStatus; //not running initally, we'll wait for RefreshDashboardPanel to come in
   }
   UPDATE PUBLIC MACRO RefreshDashboardPanel() //called whenever a panel should refresh itself (either manually invoked by user, or automatically)
   {
+    this->RefreshIndexManagers();
     this->PollIndexmanagerStatus();
   }
   MACRO DoManageMgrs()
   {
     this->RunScreen(Resolve("managemanagers.xml"));
+    this->RefreshIndexManagers();
   }
   MACRO OnIndexManagerChange()
   {
