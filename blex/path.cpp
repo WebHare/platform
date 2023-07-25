@@ -351,12 +351,18 @@ bool CreateDirRecursive(const std::string &p,bool publicdir)
                 std::string thispath(realpath.begin(),slashindex);
 
                 //std::cerr << "CreateDirRecursive testing " << thispath << " for true path " << realpath << std::endl;
-
-                if (!PathStatus(thispath).IsDir() && !CreateDir(thispath,publicdir))
+                if(!CreateDir(thispath,publicdir)) //we failed to create - conflict or someone else beat us to it
                 {
-                        //std::cerr << "CreateDirRecursive creating " << thispath << " for true path " << realpath << " failed" << std::endl;
-                        return false;
+                        int save_errno = errno; //we want to return the above CreateDir's error, but PathStatus may clobber it
+                        if(!PathStatus(thispath).IsDir()) //no dir appeared, can't contiue or claim it as our own
+                        {
+                                errno = save_errno; //restore CreateDir error
+                                return false;
+                        }
+
+                        //someone else created the dir we needed, ignore and continue. this is probably why `mkdir -p` never fails on EEXISTS either
                 }
+
                 if (slashindex==realpath.end())
                     break;
                 slashindex=std::find(slashindex+1,realpath.end(),'/');
