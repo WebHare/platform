@@ -104,7 +104,8 @@ export function initOnConsent() {
 ///Accepts a pxl.sendPxlEvent compatible event and sends it to the data layer. This is generally done automatically by capturePxlEvent
 export function sendPxlEventToDataLayer(target: EventTarget | null, event: CustomEvent, vars: Record<string, string | boolean | number>) {
   let datalayervars: DataLayerVars = {};
-  const gtmsubmitvars = (target as HTMLElement | null)?.dataset.gtmSubmit;
+  //target may be a window/document instead of a HTMLElement
+  const gtmsubmitvars = (target as HTMLElement | null)?.dataset?.gtmSubmit;
   if (gtmsubmitvars)
     datalayervars = JSON.parse(gtmsubmitvars);
 
