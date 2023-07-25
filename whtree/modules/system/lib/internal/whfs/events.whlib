@@ -255,14 +255,7 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
         eventcompletionlink->SendMessage( CELL[ type := "newcompletions",  data := this->completions, this->checksitesettings ]);
         eventcompletionlink->Close();
       }
-      ELSE //handle the completions locally
-      {
-        /* FIXME Do this, but in a weblet (or perhaps elevated service call?)
-                 because we don't want to corrupt local (transaction) state....
-        WHILE(Length(this->completions)>0)
-          this->completions := HandleCompletions(this->completions);
-          */
-      }
+
     }
 
     IF (Length(this->analyzertasks) > 0)
