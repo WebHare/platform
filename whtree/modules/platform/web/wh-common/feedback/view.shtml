@@ -1,0 +1,14 @@
+<?wh
+LOADLIB "wh::crypto.whlib";
+LOADLIB "wh::witty.whlib";
+LOADLIB "mod::system/lib/webserver.whlib";
+
+AddHTTPHeader("Cache-Control", "no-cache, no-store", FALSE);
+AddHTTPHeader("Pragma", "no-cache", FALSE);
+AddHTTPHeader("Content-Type", "text/html; charset=utf-8", FALSE);
+AddHTTPHeader("Referrer-Policy", "no-referrer", FALSE); //don't leak the feedback token to the page
+
+STRING nonce := EncodeBase64(DecodeUFS(GenerateUFS128BitId()));
+AddHTTPHeader("Content-Security-Policy", `script-src 'unsafe-inline' 'nonce-${nonce}'`, FALSE); //nonce- causes modern browsers to ignore unsafe-inline
+
+LoadWittyLibrary(Resolve("view.html.witty"), "HTML")->Run(CELL[ nonce ]);

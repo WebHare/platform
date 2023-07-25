@@ -10,12 +10,11 @@ LOADLIB "mod::publisher/lib/commondialogs.whlib";
 LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/hooks.whlib";
-
+LOADLIB "mod::publisher/lib/preview.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/versioning.whlib";
 LOADLIB "mod::publisher/lib/internal/actions.whlib";
 LOADLIB "mod::publisher/lib/internal/files.whlib";
-LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
 LOADLIB "mod::publisher/lib/internal/siteprofiles/reader.whlib";
 LOADLIB "mod::publisher/lib/internal/support.whlib";
 LOADLIB "mod::publisher/lib/internal/tollium-helpers.whlib";
@@ -2267,12 +2266,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   MACRO OnViewBrowserList(OBJECT openhandler)
   {
     OBJECT obj := OpenWHFSObject(^filelist->selection.id);
-    STRING target := obj->link;
-    STRING feedbacktoken := GetFeedbackWebToken(this->contexts->user);
-    IF(feedbacktoken != "") //ie not anonymous/override user
-      target := UpdateURLVariables(target, [ "wh-feedback-token" := feedbacktoken ]);
-
-    openhandler->SendURL(target);
+    openhandler->SendURL(GetViewURLWithFeedback(obj->link, this->contexts->user));
   }
 
   MACRO OnViewBrowserLive(OBJECT openhandler)
@@ -2355,3 +2349,4 @@ PUBLIC MACRO RunDirectEdit(OBJECT controller, RECORD data)
     RunExceptionReportDialog(controller, err);
   }
 }
+
