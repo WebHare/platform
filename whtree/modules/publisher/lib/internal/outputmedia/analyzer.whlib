@@ -12,9 +12,12 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
 RECORD ARRAY capturedmessages;
+BOOLEAN debuglog;
 
 MACRO PrintAnalyzerIssue(STRING class, STRING msg)
 {
+  IF(debuglog)
+    LogDebug("publisher:outputanalyzer", CELL[class,msg]);
   IF(class NOT IN ["LOG","QUEUE","DEBUG"])
     THROW NEW Exception(`Invalid msg class '${class}'`);
   Print(`${class}\t${msg}\n`);
@@ -184,6 +187,9 @@ MACRO ValidateFolder(RECORD site, RECORD folder)
   RECORD output := DescribeDiskOutput(site.id, folder.fullpath);
   IF(NOT RecordExists(output))
     RETURN;
+
+  IF(debuglog)
+     LogDebug("publisher:outputanalyzer", CELL[ folder, site, output ]);
 
   STRING outputpath := output.outputfolder;
   IF(NOT IsPathAbsolute(outputpath)) //dangerous to use non absolute paths (it is probably caused by moving databases between Linux and Windows)
@@ -612,8 +618,11 @@ MACRO ValidateFolder(RECORD site, RECORD folder)
   }
 }
 
-PUBLIC MACRO ScanSingleFolder(INTEGER folderid)
+PUBLIC MACRO ScanSingleFolder(INTEGER folderid, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := ValidateOptions([ debug := FALSE ], options);
+  debuglog := options.debug;
+
   RECORD folder := SELECT * FROM system.fs_objects WHERE id = folderid AND isfolder AND isactive;
   IF (NOT RecordExists(folder))
     RETURN;
