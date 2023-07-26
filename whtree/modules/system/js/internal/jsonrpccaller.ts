@@ -65,8 +65,11 @@ async function runJSONAPICall(servicedef: WebServiceDefinition, req: WebRequestI
   } catch (e) {
     if (e instanceof JSONRPCError)
       return createJSONRPCError(id, e.status, e.errorCode, e.message);
-    else //FIXME provide error info and stacktrace if `etr` debugflag is set and verified
+    else {
+      services.logError(e as Error);
+      //FIXME provide error info and stacktrace if `etr` debugflag is set and verified
       return createJSONRPCError(id, HTTPErrorCode.InternalServerError, -32000, "Internal error"); //Do not leak Error object information
+    }
   }
 }
 
