@@ -51,14 +51,14 @@ export class SiteResponse<T extends object = object> {
   pageconfig: T;
 
   /** JS configuration data */
-  private frontendconfig: WHConfigScriptData;
+  private frontendConfig: WHConfigScriptData;
 
   constructor(pageconfig: T, siterequest: SiteRequest, settings: SiteResponseSettings) {
     this.siterequest = siterequest;
     this.pageconfig = pageconfig;
     this.settings = settings;
 
-    this.frontendconfig = {
+    this.frontendConfig = {
       siteroot: "",
       site: {},
       obj: {},
@@ -83,9 +83,9 @@ export class SiteResponse<T extends object = object> {
   /** Set data associated with a plugin */
   setPluginConfig(pluginname: string, data: object | null) { //HareScript: WebDesignBase::SetJSPluginConfig
     if (data)
-      this.frontendconfig[pluginname] = data;
+      this.frontendConfig[pluginname] = data;
     else
-      delete this.frontendconfig[pluginname];
+      delete this.frontendConfig[pluginname];
   }
 
   private async generatePage(head: string, body: string, urlpointers: { designroot: string; designcdnroot: string; imgroot: string; siteroot: string }) {
@@ -105,12 +105,12 @@ export class SiteResponse<T extends object = object> {
     page += head;
 
     //TODO do we (still) need all these roots?
-    this.frontendconfig.siteroot = urlpointers.siteroot;
+    this.frontendConfig.siteroot = urlpointers.siteroot;
 
     if (this.insertions[InsertPoints.DependenciesTop])
       page += await this.renderInserts(InsertPoints.DependenciesTop);
 
-    page += `<script type="application/json" id="wh-config">${JSON.stringify(this.frontendconfig)}</script>`;
+    page += `<script type="application/json" id="wh-config">${JSON.stringify(this.frontendConfig)}</script>`;
 
     //FIXME adhoc bundle support
     const bundlebaseurl = "/.ap/" + this.settings.assetpack.replace(":", ".") + "/";

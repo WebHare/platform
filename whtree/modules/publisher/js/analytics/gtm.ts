@@ -4,7 +4,7 @@ import * as dompack from '@webhare/dompack';
 import { flags } from '@webhare/env';
 import { loadScript } from '@webhare/dompack';
 import { onConsentChange, ConsentSettings } from "./consenthandler";
-import { frontendconfig } from '@webhare/frontend';
+import { frontendConfig } from '@webhare/frontend';
 import { createDeferred } from '@webhare/std';
 
 //TODO Is there an official description of what GTM datalayer accepts?
@@ -18,7 +18,7 @@ declare global {
 }
 
 let seen = 0;
-const gtmsettings = frontendconfig["socialite:gtm"] as { a: string; h?: boolean; m?: boolean } | undefined;
+const gtmsettings = frontendConfig["socialite:gtm"] as { a: string; h?: boolean; m?: boolean } | undefined;
 let didinit: undefined | true;
 let eventname: undefined | string; //event name used for form submission
 

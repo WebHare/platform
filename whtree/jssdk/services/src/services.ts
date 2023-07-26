@@ -2,12 +2,12 @@ import { toFSPath } from "./resources";
 import * as fs from "node:fs";
 import { getBridgeService, InvokeOptions } from "./bridgeservice";
 import * as witty from '@webhare/witty';
-import { config as backendconfig, WebHareBackendConfiguration } from "./config";
+import { config as backendConfig, WebHareBackendConfiguration } from "./config";
 
 export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR, registerLoadedResource } from "@mod-system/js/internal/hmr";
 export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource } from "./resources";
 export { openBackendService, BackendServiceController } from "./backendservice";
-export { config as backendconfig, WebHareBackendConfiguration } from "./config";
+export { config as backendConfig, WebHareBackendConfiguration } from "./config";
 export { broadcast, subscribe, BackendEvent, BackendEventSubscription } from "./backendevents";
 export { log, logNotice, logError, logDebug, readLogLines, LoggableRecord } from "./logging";
 export { ConvertBackendServiceInterfaceToClientInterface } from "@mod-system/js/internal/webhareservice";
@@ -61,5 +61,5 @@ function readWittyResource(resource: string): Promise<string> {
   });
 }
 
-/** @deprecated Use the name 'backendendconfig' for disambiguation with frontendconfig */
-export const config = backendconfig;
+/** @deprecated Use the name 'backendendconfig' for disambiguation with frontendConfig */
+export const config = backendConfig;

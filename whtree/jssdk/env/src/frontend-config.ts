@@ -1,5 +1,5 @@
 /* frontend-config parses the wh-config object in the browser and mocks any missing data. @webhare/env does not actually expose this config, @webhare/frontend does
-   The frontend configuration is built in the SiteResponse's 'frontendconfig' member */
+   The frontend configuration is built in the SiteResponse's 'frontendConfig' member */
 
 import { DTAPStage } from "./concepts";
 
@@ -46,6 +46,6 @@ function getIntegrationConfig(): WHConfigScriptData {
   };
 }
 
-export const frontendconfig = getIntegrationConfig();
-/** @deprecated Use the name 'frontendconfig' for disambiguation with backendconfig */
-export const config = frontendconfig;
+export const frontendConfig = getIntegrationConfig();
+/** @deprecated Use the name 'frontendConfig' for disambiguation with backendConfig */
+export const config = frontendConfig;
