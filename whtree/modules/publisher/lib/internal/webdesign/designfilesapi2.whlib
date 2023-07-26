@@ -4,6 +4,7 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/urls.whlib";
+LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
@@ -138,7 +139,6 @@ STATIC OBJECTTYPE Resolver
 <
   RECORD packinginfo;
   STRING ARRAY addedrequires;
-  STRING bundlebaseurl;
   RECORD requestedbundle;
   STRING assetpack;
 
@@ -174,34 +174,18 @@ STATIC OBJECTTYPE Resolver
         this->packinginfo := GetAdhocCached([ designhash := designhash], getter);
 
       INSERT CELL designhash := designhash INTO this->packinginfo;
-
-      this->bundlebaseurl := "/.ap/" || this->packinginfo.designhash || "/";
-    }
-    ELSE
-    {
-      this->bundlebaseurl := "/.ap/" || Substitute(this->assetpack,':','.') || "/";
+      this->assetpack := this->packinginfo.designhash;
     }
   }
 
   PUBLIC MACRO PrintHeaders(OBJECT webdesign, STRING usedesignroot, STRING cachebuster DEFAULTSTO "")
   {
     this->EnsurePackingInfo();
-
-    STRING jssettings;
-    IF(ObjectExists(webdesign) AND webdesign->asyncbundle)
-      jssettings := jssettings || ' async';
-    IF(ObjectExists(webdesign) AND webdesign->designcdnrooturl != webdesign->designrooturl)
-      jssettings := jssettings || ' crossorigin="anonymous"';
-
-    //FIXME have printbodyfinale and printheaders share this. should probably just merge us completely into webdesign.whlib
-    STRING bundlebaseurl := this->bundlebaseurl;
-    IF(cachebuster != "")
-      bundlebaseurl := "/!" || EncodeURL(cachebuster) || bundlebaseurl;
-    IF(usedesignroot != "")
-      bundlebaseurl := ResolveToAbsoluteURL(usedesignroot, bundlebaseurl);
-
-    Print(`<link rel="stylesheet" href="${EncodeValue(bundlebaseurl)}ap.css">`);
-    Print(`<script src="${EncodeValue(bundlebaseurl)}ap.js"${jssettings}></script>`);
+    Print(GetAssetpackIntegrationCode(this->assetpack, CELL
+      [ asyncbundle := ObjectExists(webdesign) ? webdesign->asyncbundle : FALSE
+      , designroot := usedesignroot
+      , cachebuster
+      ]));
     IF(NOT ObjectExists(webdesign) OR webdesign->wittyencoding NOT LIKE "*-NI")
       Print('\n');
   }
