@@ -21,6 +21,7 @@ import { checkPromiseErrorsHandled } from '@mod-system/js/internal/util/devhelpe
 
 import { createPGBlob, uploadBlobToConnection, WHDBBlob, ValidBlobSources } from './blobs';
 import { ensureScopedResource } from '@webhare/services/src/codecontexts';
+import { defaultDateTime } from '@webhare/hscompat/datetime';
 export { WHDBBlob } from "./blobs";
 
 let configuration: { bloboid: number } | null = null;
@@ -59,7 +60,11 @@ async function configureWHDBClient(pg: Client) {
     WHERE nspname = 'webhare_internal' AND t.typname = 'webhare_blob' AND proname = 'record_in'`);
 
   //Fix timezone translation - see https://github.com/brianc/node-postgres/issues/2141
-  types.setTypeParser(1114, stringValue => new Date(Date.parse(stringValue + '+0000')));
+  types.setTypeParser(1114, stringValue => {
+    if (stringValue === "-infinity")
+      return defaultDateTime;
+    return new Date(Date.parse(stringValue + '+0000'));
+  });
   (pg_defaults as { parseInputDatesAsUTC: boolean }).parseInputDatesAsUTC = true;
 
   if (bloboidquery.rowCount) {
