@@ -94,7 +94,7 @@ PUBLIC STATIC OBJECTTYPE AnalyzerTask EXTEND ManagedTaskBase
       Sleep(25);
     IF (this->debug)
       this->PrintAnalyzerIssue("LOG", `Analyzing folder #${folderid}`);
-    ScanSingleFolder(folderid);
+    ScanSingleFolder(folderid, CELL[ this->debug ]);
     GetPrimary()->CommitWork();
 
     IF (recursive)
