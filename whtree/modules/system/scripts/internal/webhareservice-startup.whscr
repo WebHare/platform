@@ -60,7 +60,10 @@ SetWHServiceState("startup", [ start := start ]);
 // WH5.3 prestart fix: move system.webharebackend to path under output/
 STRING old_webharebackend_dir := MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "system.webharebackend");
 IF(RecordExists(GetDiskFileProperties(old_webharebackend_dir)))
+{
+  DeleteDiskDirectoryRecursive(GetWebHareBackendServerFolder()); //delete any data in place. this may happen on dev servers if they updated WebHare without restarting
   MoveDiskPath(old_webharebackend_dir, GetWebHareBackendServerFolder());
+}
 
 /* Unpack important stuff that shipped with us */
 RECORD shrinkwrapfile := RetrieveWebhareResource("mod::system/data/shrinkwrap-var.tgz", [ allowmissing := TRUE ]);
