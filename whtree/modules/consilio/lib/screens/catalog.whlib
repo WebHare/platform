@@ -907,8 +907,8 @@ PUBLIC STATIC OBJECTTYPE CatalogPreview EXTEND TolliumScreenBase
     RECORD search;
     TRY
     {
-      RECORD query := DecodeJSON(^query->value);
-      IF (RecordExists(query))
+      VARIANT query := DecodeJSON(^query->value);
+      IF (TYPEID(query) = TYPEID(RECORD) AND RecordExists(query))
         query := CQOpenSearch(query);
       ELSE
         query := CQParseUserQuery(^query->value);
