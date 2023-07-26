@@ -239,14 +239,13 @@ class LoginApp {
       passwordresetlines = [{ layout: "right", items: [{ item: "forgotpassword" }] }];
     }
 
-    this.loginconfig.methods.forEach(item => {
+    const visiblemethods = this.loginconfig.methods.filter(item => !(item.visibility === "revealsso" && !shouldReveal(item.tag)));
+
+    visiblemethods.forEach(item => {
       switch (item.type) {
         case "saml":
         case "oidc":
           {
-            if (item.visibility === "revealsso" && !shouldReveal(item.tag))
-              return;
-
             if (!screencomponents.samlpanel) {
               screencomponents =
               {
@@ -313,7 +312,7 @@ class LoginApp {
 
         case "password":
           {
-            const is_only_method = this.loginconfig.methods.length == 1;
+            const is_only_method = visiblemethods.length == 1;
             screencomponents =
             {
               ...screencomponents,
