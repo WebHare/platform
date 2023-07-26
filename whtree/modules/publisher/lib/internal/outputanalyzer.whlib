@@ -1,5 +1,7 @@
 <?wh
 
+LOADLIB "wh::os.whlib";
+
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
@@ -21,7 +23,7 @@ PUBLIC STATIC OBJECTTYPE AnalyzerTask EXTEND ManagedTaskBase
 
   UPDATE PUBLIC MACRO RunTask(RECORD data)
   {
-    this->debug := data.debug;
+    this->debug := data.debug OR GetEnvironmentVariable("WEBHARE_CI") != "";
 
     IF (this->debug)
       LogDebug("publisher:outputanalyzer", "RunTask", data.task);
@@ -32,6 +34,8 @@ PUBLIC STATIC OBJECTTYPE AnalyzerTask EXTEND ManagedTaskBase
         INTEGER64 start := GetTimestamp();
         this->GatherFolders();
         this->ResolveByCompletion([ _runtime := GetTimestamp() - start]);
+        IF (this->debug)
+          LogDebug("publisher:outputanalyzer", "RunTask done", CELL[ ...data.task, _runtime := GetTimestamp() - start ]);
         RETURN;
       }
 
@@ -40,6 +44,8 @@ PUBLIC STATIC OBJECTTYPE AnalyzerTask EXTEND ManagedTaskBase
         INTEGER64 start := GetTimestamp();
         this->ScanFolder(data.task.folderid, data.task.recursive);
         this->ResolveByCompletion([ _runtime := GetTimestamp() - start]);
+        IF (this->debug)
+          LogDebug("publisher:outputanalyzer", "RunTask done", CELL[ ...data.task, _runtime := GetTimestamp() - start ]);
         RETURN;
       }
     }

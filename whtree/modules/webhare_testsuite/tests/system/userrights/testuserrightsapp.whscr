@@ -17,6 +17,8 @@ DATETIME lastcheck;
 
 ASYNC MACRO Setup()
 {
+  EnsureUserMgmtStateClean(FALSE);
+
   INTEGER lisaunit := GetTestController()->userapi->CreateUnit([wrd_title := "Lisa's unit"]);
 
   testfw->SetTestUser("lisa");
@@ -445,7 +447,7 @@ RunTestframework( [ PTR Setup
                   , PTR TestRightRoleGrants
                   , PTR TestExport
                   , PTR TestExportSysop
-                  , PTR EnsureUserMgmtStateClean
+                  , PTR EnsureUserMgmtStateClean(TRUE)
                   ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                     ,[ login := "supervisor", grantrights := ["system:supervisor"] ]
                                     ,[ login := "unitmanager" ]

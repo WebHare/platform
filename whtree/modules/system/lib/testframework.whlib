@@ -837,34 +837,6 @@ STATIC OBJECTTYPE TestFramework
     }
   }
 
-  MACRO DestroyWRDSchema(STRING name)
-  {
-    OBJECT wrdschema := OpenWRDSchema(name);
-    IF(NOT ObjectExists(wrdschema))
-      RETURN;
-
-    //quick-wipe authobjects
-    STRING ARRAY killguids;
-    FOREVERY(STRING wrdauthtype FROM ["WRD_PERSON","WHUSER_ROLE","WHUSER_UNIT"])
-    {
-      OBJECT thetype := wrdschema->GetType(wrdauthtype);
-      IF(NOT ObjectExists(thetype))
-        CONTINUE;
-      killguids := killguids CONCAT SELECT AS STRING ARRAY wrd_guid FROM thetype->RunQuery([ outputcolumns := [ wrd_guid := "WRD_GUID" ], historymode := "all" ]);
-    }
-
-    INTEGER ARRAY killauthobjects;
-    FOREVERY(STRING killit FROM killguids)
-      killauthobjects := killauthobjects CONCAT SELECT AS INTEGER ARRAY id FROM system.authobjects WHERE guid=killit;
-
-    IF(length(killauthobjects)>0)
-    {
-      DELETE FROM system.authobjects WHERE id IN killauthobjects;
-    }
-
-    wrdschema->DeleteSelf();
-  }
-
   PUBLIC MACRO DeleteTestModule()
   {
     IF(IsModuleInstalled(testfw_testmodule) AND NOT DeleteModule(testfw_testmodule))
@@ -937,7 +909,7 @@ STATIC OBJECTTYPE TestFramework
                                       OR COLUMN tag = whconstant_wrd_testschema || ".bak"
                                       OR COLUMN tag LIKE whconstant_wrd_testschema || ".bak (*)"
                                       OR COLUMN tag LIKE "webhare_testsuite:*")
-      this->DestroyWRDSchema(name);
+      OpenWRDSchema(name)->DeleteSelf();
 
     IF(this->options.wrdschema)
     {

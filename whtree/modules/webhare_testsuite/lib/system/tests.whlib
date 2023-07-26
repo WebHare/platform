@@ -23,11 +23,11 @@ PUBLIC OBJECT FUNCTION OpenTestsuiteAltSite()
   RETURN OpenSiteByName("webhare_testsuite.althost");
 }
 
-PUBLIC MACRO EnsureUserMgmtStateClean()
+PUBLIC MACRO EnsureUserMgmtStateClean(BOOLEAN expect_clean)
 {
   testfw->BeginWork();
   RECORD ARRAY resync := testfw->userapi->ResyncToSystemTables();
-  IF(Length(resync)>0)
+  IF(Length(resync)>0 AND expect_clean)
   {
     PRINT("UNEXPECTED RESYNC ACTIONS\n");
     DumpValue(resync,'tree');
@@ -35,7 +35,7 @@ PUBLIC MACRO EnsureUserMgmtStateClean()
   }
 
   RECORD ARRAY reconnects := FixUnconnectedItems(testfw->userapi->wrdschema);
-  IF(Length(reconnects)>0)
+  IF(Length(reconnects)>0 AND expect_clean)
   {
     PRINT("UNEXPECTED RECONNECT ACTIONS\n");
     DumpValue(reconnects,'tree');

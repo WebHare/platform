@@ -35,7 +35,7 @@ INTEGER ARRAY FUNCTION FilterByKnownUsers(INTEGER ARRAY a)
 
 MACRO InitDB()
 {
-  EnsureUserMgmtStateClean();
+  EnsureUserMgmtStateClean(FALSE);
   testfw->BeginWork();
 
   DELETE FROM webhare_testsuite.rights_tree;
@@ -694,7 +694,7 @@ MACRO EnumTest()
 
 MACRO UnitTest()
 {
-  EnsureUserMgmtStateClean();
+  EnsureUserMgmtStateClean(TRUE);
 
   testfw->BeginWork();
 
