@@ -199,7 +199,7 @@ PUBLIC STATIC OBJECTTYPE EventCompletionPortHandler EXTEND IPCPortHandlerBase
       IF(trans->IsWorkOpen())
         trans->RollbackWork();
 
-      //Completions Republish attempts easily deadlock on runnin republishes... :/ If we fail, we'll retry *once*
+      //Completions Republish attempts easily deadlock on running republishes... :/ If we fail, we'll retry *once*
       TRY
       {
         HandleCompletions(this->completions);
@@ -208,7 +208,7 @@ PUBLIC STATIC OBJECTTYPE EventCompletionPortHandler EXTEND IPCPortHandlerBase
       {
         //After a double failure, just discard, as crashing the eventcompletion process is even worse
         LogHarescriptException(e2);
-        LogWarning("system:eventcompletion", "Double completion failure, giving up on this batch", CELL [ what := e2->what, comlpetion := this->completions ]);
+        LogWarning("system:eventcompletion", "Double completion failure, giving up on this batch", CELL [ what := e2->what, completions := this->completions ]);
 
         IF(trans->IsWorkOpen())
           trans->RollbackWork();
