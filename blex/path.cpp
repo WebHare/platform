@@ -354,7 +354,7 @@ bool CreateDirRecursive(const std::string &p,bool publicdir)
                 if(!CreateDir(thispath,publicdir)) //we failed to create - conflict or someone else beat us to it
                 {
                         int save_errno = errno; //we want to return the above CreateDir's error, but PathStatus may clobber it
-                        if(!PathStatus(thispath).IsDir()) //no dir appeared, can't contiue or claim it as our own
+                        if(!PathStatus(thispath).IsDir()) //no dir appeared, can't continue or claim it as our own
                         {
                                 errno = save_errno; //restore CreateDir error
                                 return false;
