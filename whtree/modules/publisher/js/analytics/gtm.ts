@@ -1,13 +1,14 @@
 /* import '@mod-publisher/js/analytics/gtm';
    enables ?wh-debug=anl support for GTM calls and implements non-script integration methods */
-import * as dompack from 'dompack';
+import * as dompack from '@webhare/dompack';
+import { flags } from '@webhare/env';
 import { loadScript } from '@webhare/dompack';
-import * as whintegration from '@mod-system/js/wh/integration';
 import { onConsentChange, ConsentSettings } from "./consenthandler";
+import { frontendConfig } from '@webhare/frontend';
+import { createDeferred } from '@webhare/std';
 
 //TODO Is there an official description of what GTM datalayer accepts?
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type DataLayerVars = Record<string, any>;
+type DataLayerVars = Record<string, unknown>;
 
 declare global {
   interface Window {
@@ -17,7 +18,7 @@ declare global {
 }
 
 let seen = 0;
-const gtmsettings = whintegration.config["socialite:gtm"] as { a: string; h?: boolean; m?: boolean } | undefined;
+const gtmsettings = frontendConfig["socialite:gtm"] as { a: string; h?: boolean; m?: boolean } | undefined;
 let didinit: undefined | true;
 let eventname: undefined | string; //event name used for form submission
 
@@ -46,7 +47,7 @@ export function setVariables(vars: DataLayerVars) {
 
 /* Send an event to the data layer. Returns a promise that will resolve when the event is sent, or after a timeout of 200ms */
 export function sendEvent(event: string, vars: Record<string, string | number | boolean | null> = {}) {
-  const defer = dompack.createDeferred();
+  const defer = createDeferred();
   try {
     window.dataLayer.push({ event: event, eventCallback: () => defer.resolve(false), ...vars });
     showDataLayerChanges();
@@ -73,7 +74,7 @@ export async function init() {
   await new Promise(resolve => window.setTimeout(resolve, 1));
   window.dataLayer.push({ event: 'gtm.js' });
 
-  if (gtmsettings.h && !dompack.debugflags.sne) { //self hosting
+  if (gtmsettings.h && !flags.sne) { //self hosting
     //ADDME taking whintegration.config.designcdnroot would be nice, but it's current format is pretty unusable
     const src = "/.se/gtm." + gtmsettings.a.substr(4).toLowerCase() + ".js";
     try {
@@ -103,7 +104,8 @@ export function initOnConsent() {
 ///Accepts a pxl.sendPxlEvent compatible event and sends it to the data layer. This is generally done automatically by capturePxlEvent
 export function sendPxlEventToDataLayer(target: EventTarget | null, event: CustomEvent, vars: Record<string, string | boolean | number>) {
   let datalayervars: DataLayerVars = {};
-  const gtmsubmitvars = (target as HTMLElement | null)?.dataset.gtmSubmit;
+  //target may be a window/document instead of a HTMLElement
+  const gtmsubmitvars = (target as HTMLElement | null)?.dataset?.gtmSubmit;
   if (gtmsubmitvars)
     datalayervars = JSON.parse(gtmsubmitvars);
 

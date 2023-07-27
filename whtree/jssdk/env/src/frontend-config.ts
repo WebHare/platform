@@ -1,11 +1,11 @@
 /* frontend-config parses the wh-config object in the browser and mocks any missing data. @webhare/env does not actually expose this config, @webhare/frontend does
-   The frontend configuration is built in the SiteResponse's 'frontendconfig' member */
+   The frontend configuration is built in the SiteResponse's 'frontendConfig' member */
 
 import { DTAPStage } from "./concepts";
 
 /** The format of the <script id="wh-config"> object  */
 export interface WHConfigScriptData {
-  ///Plguins may add keys at this level
+  ///Plugins may add keys at this level
   [key: string]: unknown;
 
   //NOTE: existing frontend code doesn't expect site/obj to ever be null. not sure if 'object' provides the best interface or whether we need some sort of 'unknown but an existing object'
@@ -46,4 +46,6 @@ function getIntegrationConfig(): WHConfigScriptData {
   };
 }
 
-export const config = getIntegrationConfig();
+export const frontendConfig = getIntegrationConfig();
+/** @deprecated Use the name 'frontendConfig' for disambiguation with backendConfig */
+export const config = frontendConfig;
