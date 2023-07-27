@@ -2148,25 +2148,20 @@ export default class EditorBase {
     return !(elementinfo.splitprohibits && elementinfo.splitprohibits.includes(node.nodeName.toLowerCase()));
   }
 
-  surroundRange(range, elementinfo, undoitem) {
+  private surroundRange(range, elementinfo) {
     //console.log('surroundrange start', richdebug.getStructuredOuterHTML(this.getBody(), range));
     //var result = domlevel.surroundRange(range, elementinfo);
 
-    domlevel.removeNodesFromRange(range, this.getBody(), elementinfo.element, null, undoitem);
+    domlevel.removeNodesFromRange(range, this.getBody(), elementinfo.element, null);
 
     if (elementinfo.wrapin) {
-      domlevel.wrapRange(
-        range,
-        () => this._createNodeFromElementInfo(elementinfo),
-        node => this._canWrapNode(elementinfo, node),
-        null,
-        undoitem);
+      domlevel.wrapRange(range, () => this._createNodeFromElementInfo(elementinfo), { onCanWrapNode: node => this._canWrapNode(elementinfo, node) });
     }
 
     //console.log('surroundrange end', richdebug.getStructuredOuterHTML(this.getBody(), range));
   }
 
-  _surroundSelection(elementinfo) {
+  private _surroundSelection(elementinfo) {
     const undolock = this.getUndoLock();
 
     const range = this.getSelectionRange();
@@ -2177,7 +2172,7 @@ export default class EditorBase {
       while (range.end.element.nodeType == 3 && range.end.element.textContent[range.end.offset - 1] == ' ' && range.start.compare(range.end) < 0)
         --range.end.offset;
     }
-    this.surroundRange(range, elementinfo, undolock.undoitem);
+    this.surroundRange(range, elementinfo);
     this.selectRange(range);
 
     undolock.close();

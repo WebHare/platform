@@ -854,12 +854,7 @@ test.registerTests(
 
         testEqHTMLEx('<i>"a(*0*)b(*1*)c"</i>', rte.getBody(), [range.start, range.end]);
 
-        domlevel.wrapRange(
-          range,
-          function () { return document.createElement('u'); },
-          null,
-          locators);
-
+        domlevel.wrapRange(range, () => document.createElement('u'), { preserveLocators: locators });
         testEqHTMLEx('<i>(*0*)"(*1*)a"<u>"(*2*)b"</u>"(*3*)c(*4*)"(*5*)</i>', rte.getBody(), locators);
 
         // Test with two ranges
@@ -876,12 +871,7 @@ test.registerTests(
         range = new Range(new domlevel.Locator(firsttextnode, 1), new domlevel.Locator(secondtextnode, 1));
         testEqHTMLEx('<i><b>"a(*0*)b"</b>"c(*1*)d"</i>', rte.getBody(), [range.start, range.end]);
 
-        domlevel.wrapRange(
-          range,
-          function () { return document.createElement('u'); },
-          null,
-          locators);
-
+        domlevel.wrapRange(range, () => document.createElement('u'), { preserveLocators: locators });
         testEqHTMLEx('<i>(*0*)<b>(*1*)"(*2*)a"</b><u><b>"(*3*)b(*4*)"(*5*)</b>(*6*)"(*7*)c"</u>"(*8*)d(*9*)"(*10*)</i>', rte.getBody(), locators);
       }
     },
