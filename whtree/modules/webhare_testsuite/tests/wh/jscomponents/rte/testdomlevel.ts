@@ -6,38 +6,38 @@ import * as richdebug from '@mod-tollium/web/ui/components/richeditor/internal/r
 import * as domlevel from '@mod-tollium/web/ui/components/richeditor/internal/domlevel';
 import Range from '@mod-tollium/web/ui/components/richeditor/internal/dom/range';
 
-function cloneWithLocatorText(node, locators) {
+function cloneWithLocatorText(node: Node, locators: domlevel.Locator[], options?: { textQuote: string }) {
+  options = { textQuote: '"', ...options };
   if (node.nodeType == 3) {
-    let text = '"';
-    for (let i = 0; i <= node.nodeValue.length; ++i) {
+    let text = options.textQuote;
+    for (let i = 0; i <= node.nodeValue!.length; ++i) {
       for (let l = 0; l < locators.length; ++l)
         if (locators[l].element == node && locators[l].offset == i)
           text += '(*' + l + '*)';
-      text += node.nodeValue.substr(i, 1);
+      text += node.nodeValue!.substring(i, i + 1);
     }
-    return node.ownerDocument.createTextNode(text + '"');
+    return document.createTextNode(text + options.textQuote);
   }
 
   //var nodes = [];
-  const copy = node.cloneNode(false);
+  const copy = node.cloneNode(false) as HTMLElement;
 
   for (let i = 0; i <= node.childNodes.length; ++i) {
     for (let l = 0; l < locators.length; ++l)
       if (locators[l].element == node && locators[l].offset == i) {
-        const text = '(*' + l + '*)';
-        const textnode = node.ownerDocument.createTextNode(text);
-        copy.appendChild(textnode);
+        copy.append('(*' + l + '*)');
       }
     const child = node.childNodes[i];
     if (child)
-      copy.appendChild(cloneWithLocatorText(child, locators));
+      copy.appendChild(cloneWithLocatorText(child, locators, options));
   }
 
   return copy;
 }
 
-function testEqHTMLEx(expect, node, locators) {
-  const actual = cloneWithLocatorText(node, locators || []).innerHTML;
+function testEqHTMLEx(expect: string, node: HTMLElement, locators: domlevel.Locator[], options?: { textQuote: string }) {
+  options = { textQuote: '"', ...options };
+  const actual = cloneWithLocatorText(node, locators || [], { textQuote: options.textQuote }).innerHTML;
   test.eqHTML(expect, actual);
 }
 
@@ -685,7 +685,7 @@ test.registerTests(
               locator: new domlevel.Locator(p.firstChild, 2),
               toward: 'end'
             }
-          ], null);
+          ], []);
 
         testEqHTMLEx('(*0*)<p>"1"</p>(*1*)(*2*)<p>"2"</p>(*3*)(*4*)<p>"3"</p>(*5*)', rte.getBody(),
           [
@@ -873,6 +873,19 @@ test.registerTests(
 
         domlevel.wrapRange(range, () => document.createElement('u'), { preserveLocators: locators });
         testEqHTMLEx('<i>(*0*)<b>(*1*)"(*2*)a"</b><u><b>"(*3*)b(*4*)"(*5*)</b>(*6*)"(*7*)c"</u>"(*8*)d(*9*)"(*10*)</i>', rte.getBody(), locators);
+
+        //Test leaving parts alone
+        const testdoc = document.createElement("div");
+        testdoc.innerHTML = `<div><i>dont</i><u>This is a text</u><i>dont</i><u>do</u></div>`
+          + `<div><i>dont</i><u>Another text</u><i>dont</i></div>`;
+
+        range = new Range(new domlevel.Locator(testdoc.querySelectorAll("u")[0].firstChild, 5), new domlevel.Locator(testdoc.querySelectorAll("u")[2].firstChild, 2)); //"is a tet" ... "An"
+        testEqHTMLEx(`<div><i>dont</i><u>This (*0*)is a text</u><i>dont</i><u>do</u></div>`
+          + `<div><i>dont</i><u>An(*1*)other text</u><i>dont</i></div>`, testdoc, [range.start, range.end], { textQuote: "" });
+
+        domlevel.wrapRange(range, () => document.createElement('del'), { onCanWrapNode: () => false, onAllowIn: (node: HTMLElement) => node.matches("div,u") });
+        testEqHTMLEx(`<div><i>dont</i><u>This <del>(*0*)is a text</dle></u><i>dont</i><u><del>do</del></u></div>`
+          + `<div><i>dont</i><u><del>An</del>(*1*)other text</u><i>dont</i></div>`, testdoc, [range.start, range.end], { textQuote: "" });
       }
     },
 

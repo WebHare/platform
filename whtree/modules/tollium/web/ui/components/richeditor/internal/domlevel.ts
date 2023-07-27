@@ -30,6 +30,17 @@ export enum NodeType {
   documentFragment = 11,
 }
 
+interface BaseWrapRangeOptions {
+  ///Override which elements are allowed to appear inside the new node we're applying (never invoked for textnodes)
+  onCanWrapNode?: (element: HTMLElement) => boolean;
+  ///If set allows you to limit which nodes will contain the wrapped element
+  onAllowIn?: (element: HTMLElement) => boolean;
+}
+
+export interface WrapRangeOptions extends BaseWrapRangeOptions {
+  preserveLocators?: PreservedLocatorList;
+}
+
 export function testType<T extends NodeType>(node: Node, nodetype: T | readonly T[]): node is GetNodeType<T> {
   return Array.isArray(nodetype) ? nodetype.includes(node.nodeType) : node.nodeType === nodetype;
 }
@@ -1177,20 +1188,20 @@ export function removeNodesFromRange(range: Range, maxancestor: Node, filter: No
   // console.log('RNFR done', richdebug.getStructuredOuterHTML(maxancestor, range));
 }
 
-function canWrapNode(node: Node, canwrapnodefunc: ((node: Node) => boolean) | undefined) {
+function canWrapNode(node: HTMLElement, canwrapnodefunc: ((node: HTMLElement) => boolean) | undefined) {
   return (!canwrapnodefunc || canwrapnodefunc(node));
 }
 
-function getWrappingSplitRoot(locator: Locator, ancestor: Node, canwrapnodefunc: ((node: Node) => boolean) | undefined) {
+function getWrappingSplitRoot(locator: Locator, ancestor: Node, canwrapnodefunc: ((node: HTMLElement) => boolean) | undefined) {
   let node = locator.element;
   if ([3, 4].includes(node.nodeType)) //3=Text node, 4=CDATA
     node = node.parentNode as Node;
-  while (node != ancestor && canWrapNode(node, canwrapnodefunc))
+  while (node != ancestor && canWrapNode(node as HTMLElement, canwrapnodefunc))
     node = node.parentNode as Node;
   return node;
 }
 
-function wrapRangeRecursiveInternal(range: Range, ancestor: Node, createnodefunc: () => Node, canwrapnodefunc: ((node: Node) => boolean) | undefined, preservelocators: PreservedLocatorList) {
+function wrapRangeRecursiveInternal(range: Range, ancestor: Node, createnodefunc: () => HTMLElement, preservelocators: PreservedLocatorList, options?: BaseWrapRangeOptions) {
   //    console.log('WRRI start', richdebug.getStructuredOuterHTML(ancestor, range));
 
   // Get the range of nodes we need to visit in the current ancestor
@@ -1213,7 +1224,7 @@ function wrapRangeRecursiveInternal(range: Range, ancestor: Node, createnodefunc
     const node = localrange.start.getPointedNode();
     if (!node)
       throw new Error(`Could not find pointed to node`);
-    if ([3, 4].includes(node.nodeType) || canWrapNode(node, canwrapnodefunc)) {
+    if ([3, 4].includes(node.nodeType) || canWrapNode(node as HTMLElement, options?.onCanWrapNode)) {
       ++localrange.start.offset;
       continue;
     }
@@ -1231,8 +1242,10 @@ function wrapRangeRecursiveInternal(range: Range, ancestor: Node, createnodefunc
     const subrange = range.clone();
     subrange.intersect(noderange);
 
-    // Iterate into the node, and reset the start if the first wrappable node
-    wrapRangeRecursiveInternal(subrange, node, createnodefunc, canwrapnodefunc, preservelocators);
+    if (!options?.onAllowIn || options?.onAllowIn(node as HTMLElement)) {
+      // Iterate into the node, and reset the start if the first wrappable node
+      wrapRangeRecursiveInternal(subrange, node, createnodefunc, preservelocators, options);
+    }
 
     ++wrapstart.offset;
     localrange.start.assign(wrapstart);
@@ -1248,12 +1261,7 @@ function wrapRangeRecursiveInternal(range: Range, ancestor: Node, createnodefunc
   //    console.log('WRRI end', richdebug.getStructuredOuterHTML(ancestor));
 }
 
-export interface WrapRangeOptions {
-  onCanWrapNode?: ((node: Node) => boolean);
-  preserveLocators?: PreservedLocatorList;
-}
-
-export function wrapRange(range: Range, createnodefunc: () => Node, options: WrapRangeOptions): void {
+export function wrapRange(range: Range, createnodefunc: () => HTMLElement, options?: WrapRangeOptions): void {
   //    console.log('wrapRange', range, createnodefunc, canwrapnodefunc, mustwrapnodefunc, preservelocators);
 
   // Make sure range is preserved too
@@ -1288,7 +1296,7 @@ export function wrapRange(range: Range, createnodefunc: () => Node, options: Wra
 
   //    console.log('WR after presplits', richdebug.getStructuredOuterHTML(ancestor, range));
 
-  wrapRangeRecursiveInternal(range, ancestor, createnodefunc, options?.onCanWrapNode, preservelocators);
+  wrapRangeRecursiveInternal(range, ancestor, createnodefunc, preservelocators, options);
 }
 
 /** Combines adjacent nodes of with each other at a locator recursively
