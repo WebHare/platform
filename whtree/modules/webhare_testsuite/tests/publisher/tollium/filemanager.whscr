@@ -125,6 +125,10 @@ ASYNC MACRO WalkTheTree()
     TestEqLike(`*The site is unsecure*<a *`, pvs.messages);
   }
 
+  //Verify the view button actually works
+  RECORD urlaction := ExecuteWindowOpenAction(TT("viewbrowser"));
+  TestEq(TRUE, testfw->browser->GotoWebPage(urlaction.url));
+
   //Set headless controller to http
   topscreen->tolliumcontroller->secure := FALSE;
 
