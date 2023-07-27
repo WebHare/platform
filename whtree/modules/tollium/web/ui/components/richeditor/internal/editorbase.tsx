@@ -18,7 +18,6 @@ import * as browser from "dompack/extra/browser";
 import * as KeyboardHandler from "dompack/extra/keyboard";
 import SelectionInterface from './selection';
 import * as tablesupport from "./tableeditor";
-import rangy from "@mod-system/js/frameworks/rangy/rangy13";
 import * as richdebug from "./richdebug";
 import * as domlevel from "./domlevel";
 import * as support from "./support";
@@ -509,8 +508,6 @@ export default class EditorBase {
 
     if (this.undonode)
       options.allowundo = true;
-
-    rangy.init();
 
     //elements that respond to action-properties
     this.properties_selector = "img, a[href]";
