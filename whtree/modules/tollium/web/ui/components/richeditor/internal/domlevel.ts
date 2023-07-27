@@ -521,7 +521,7 @@ export function splitElement(locator: Locator, preservelocators: PreservedLocato
 
   // Move all nodes past locator to the new node
   const tocopy = Array.from(locator.element.childNodes).slice(locator.offset);
-  appendNodes(tocopy, newnode);
+  (newnode as HTMLElement).append(...tocopy);
 
   // Correct preservelocators for the node split
   applyPreserveFunc(preservelocators, (tocorrect) => _correctForNodeSplit(locator, newnode, preservetoward == 'start', tocorrect));
@@ -1008,7 +1008,7 @@ export function wrapNodesInNewNode(locator: Locator, nodecount: number, newnode:
   locator = locator.clone();
 
   const nodes = Array.from(locator.element.childNodes).slice(locator.offset, locator.offset + nodecount);
-  appendNodes(nodes, newnode);
+  (newnode as HTMLElement).append(...nodes);
 
   locator.insertNode(newnode);
 
@@ -1483,11 +1483,6 @@ export function insertNodesAtLocator(nodes: Node[], locator: Locator, preservelo
   return insertpos;
 }
 
-export function appendNodes(nodes: Node[], dest: Node) {
-  for (let i = 0; i < nodes.length; ++i)
-    dest.appendChild(nodes[i]);
-}
-
 export function removeNodeContents(node: Node) {
   /* Copy childNodes, then remove those from the dom. Must do it that way,
      because FF invents <br _moz_editor_bogus_node="TRUE"> when removing them one by one
@@ -1871,24 +1866,7 @@ export class Locator {
     return next;
   }
 
-  _undoInsertNode(element: Node, node: Node, bogusbr: Node, replacebr: Node, insertbefore: Node) {
-    (node.parentNode as Node).removeChild(node);
-    if (replacebr) {
-      element.insertBefore(bogusbr, insertbefore);
-      element.removeChild(replacebr);
-    }
-  }
-
-  _redoInsertNode(element: Node, node: Node, bogusbr: Node, replacebr: Node, insertbefore: Node) {
-    if (replacebr) {
-      element.insertBefore(replacebr, insertbefore);
-      if (bogusbr.parentNode)
-        bogusbr.parentNode.removeChild(bogusbr);
-    }
-    element.insertBefore(node, insertbefore);
-  }
-
-  _correctForNodeInsert(locator: Locator, tocorrect: Locator) {
+  private _correctForNodeInsert(locator: Locator, tocorrect: Locator) {
     if (tocorrect.element == locator.element && tocorrect.offset >= locator.offset)
       ++tocorrect.offset;
   }
@@ -2400,7 +2378,7 @@ export class Locator {
     return maxancestor;
   }
 
-  legalize(maxancestor: Node, towardend: boolean) {
+  private legalize(maxancestor: Node, towardend: boolean) {
     let node = this.element;
     while (node && node !== maxancestor) {
       // If parent isn't splittable, ascend to its parent. Assuming the maxancestor is splittable!!!
