@@ -1,8 +1,7 @@
-/// @ts-ignore -- Rangy does not have typescript annotations
-import rangy from '@mod-system/js/frameworks/rangy/rangy13';
 import * as browser from "dompack/extra/browser";
 import * as dompack from "dompack";
-
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- do not complain about unused richdebug as the calls are usually commented out
+import * as richdebug from "./richdebug";
 import Range from './dom/range';
 
 export type PreservedLocatorList = Array<Locator | Range>;
@@ -34,8 +33,6 @@ export enum NodeType {
 export function testType<T extends NodeType>(node: Node, nodetype: T | readonly T[]): node is GetNodeType<T> {
   return Array.isArray(nodetype) ? nodetype.includes(node.nodeType) : node.nodeType === nodetype;
 }
-
-rangy.config.alertOnFail = false; //prevent Rangy frmo complaining about missing document.body - that actually happens when location.href early redirects and we don't want that alert..
 
 export function getAttributes(node: HTMLElement, attrlist: string[]) {
   const result: Record<string, string> = {};
@@ -76,6 +73,38 @@ export function setAttributes(node: HTMLElement, attrs: Record<string, string>) 
 //
 
 type NodeFilterFunction = string | string[] | ((node: Node) => boolean);
+
+function getNodeIndex(node: Node): number {
+  let i = 0;
+  let countnode: Node | null = node;
+  while ((countnode = countnode.previousSibling))
+    ++i;
+  return i;
+}
+
+function getCommonAncestor(lhs: Node, rhs: Node): Node {
+  const ancestors: Node[] = [];
+  for (let n: Node | null = lhs; n; n = n.parentNode) {
+    ancestors.push(n);
+  }
+
+  for (let n: Node | null = rhs; n; n = n.parentNode)
+    if (ancestors.includes(n))
+      return n;
+
+  throw new Error(`Internal error: no common ancestor found. Nodes are outside the DOM ?`);
+}
+
+function compareContained(container: Locator, contained: Locator) {
+  if (container.offset === 0)
+    return 1; //container is at the front. everything contained in it is behind it
+  if (container.offset === GetNodeEndOffset(container.element))
+    return -1; //container is at the end. everything contained in it is before it
+
+  const ascended = contained.clone();
+  ascended.ascend(container.element, "really", true);
+  return ascended.offset <= container.offset ? -1 : 1;
+}
 
 /** Returns whether a node matches a filter
     @param node - Node to test
@@ -461,7 +490,7 @@ export function splitDataNode(locator: Locator, preservelocators: PreservedLocat
   // Clone locator, so its presence in preservelocators won't mess up stuff during the applyPreserveFunc
   locator = locator.clone();
 
-  const newnode = rangy.dom.splitDataNode(locator.element, locator.offset);
+  const newnode = (locator.element as Text).splitText(locator.offset);
 
   // Correct preservelocators for the node split
   applyPreserveFunc(preservelocators, (tocorrect) => _correctForNodeSplit(locator, newnode, preservetoward == 'start', tocorrect));
@@ -511,7 +540,7 @@ function _correctForNodeSplit(splitlocator: Locator, newnode: Node, towardstart:
     // console.log(' move to new element');
     tocorrect.element = newnode;
     tocorrect.offset -= splitlocator.offset;
-  } else if (tocorrect.element == splitlocator.element.parentNode && tocorrect.offset > rangy.dom.getNodeIndex(splitlocator.element)) {
+  } else if (tocorrect.element == splitlocator.element.parentNode && tocorrect.offset > getNodeIndex(splitlocator.element)) {
     // console.log(' move to nextsibling');
     // Correct for extra inserted node
     ++tocorrect.offset;
@@ -1148,20 +1177,20 @@ export function removeNodesFromRange(range: Range, maxancestor: Node, filter: No
   // console.log('RNFR done', richdebug.getStructuredOuterHTML(maxancestor, range));
 }
 
-function canWrapNode(node: Node, canwrapnodefunc: (node: Node) => boolean, mustwrapnodefunc: (node: Node) => boolean) {
-  return (mustwrapnodefunc && mustwrapnodefunc(node)) || (!canwrapnodefunc || canwrapnodefunc(node));
+function canWrapNode(node: Node, canwrapnodefunc: (node: Node) => boolean) {
+  return (!canwrapnodefunc || canwrapnodefunc(node));
 }
 
-function getWrappingSplitRoot(locator: Locator, ancestor: Node, canwrapnodefunc: (node: Node) => boolean, mustwrapnodefunc: (node: Node) => boolean) {
+function getWrappingSplitRoot(locator: Locator, ancestor: Node, canwrapnodefunc: (node: Node) => boolean) {
   let node = locator.element;
-  if ([3, 4].includes(node.nodeType))
+  if ([3, 4].includes(node.nodeType)) //3=Text node, 4=CDATA
     node = node.parentNode as Node;
-  while (node != ancestor && canWrapNode(node, canwrapnodefunc, mustwrapnodefunc))
+  while (node != ancestor && canWrapNode(node, canwrapnodefunc))
     node = node.parentNode as Node;
   return node;
 }
 
-function wrapRangeRecursiveInternal(range: Range, ancestor: Node, createnodefunc: () => Node, canwrapnodefunc: (node: Node) => boolean, mustwrapnodefunc: (node: Node) => boolean, preservelocators: PreservedLocatorList) {
+function wrapRangeRecursiveInternal(range: Range, ancestor: Node, createnodefunc: () => Node, canwrapnodefunc: (node: Node) => boolean, preservelocators: PreservedLocatorList) {
   //    console.log('WRRI start', richdebug.getStructuredOuterHTML(ancestor, range));
 
   // Get the range of nodes we need to visit in the current ancestor
@@ -1184,7 +1213,7 @@ function wrapRangeRecursiveInternal(range: Range, ancestor: Node, createnodefunc
     const node = localrange.start.getPointedNode();
     if (!node)
       throw new Error(`Could not find pointed to node`);
-    if ([3, 4].includes(node.nodeType) || canWrapNode(node, canwrapnodefunc, mustwrapnodefunc)) {
+    if ([3, 4].includes(node.nodeType) || canWrapNode(node, canwrapnodefunc)) {
       ++localrange.start.offset;
       continue;
     }
@@ -1203,7 +1232,7 @@ function wrapRangeRecursiveInternal(range: Range, ancestor: Node, createnodefunc
     subrange.intersect(noderange);
 
     // Iterate into the node, and reset the start if the first wrappable node
-    wrapRangeRecursiveInternal(subrange, node, createnodefunc, canwrapnodefunc, mustwrapnodefunc, preservelocators);
+    wrapRangeRecursiveInternal(subrange, node, createnodefunc, canwrapnodefunc, preservelocators);
 
     ++wrapstart.offset;
     localrange.start.assign(wrapstart);
@@ -1219,7 +1248,7 @@ function wrapRangeRecursiveInternal(range: Range, ancestor: Node, createnodefunc
   //    console.log('WRRI end', richdebug.getStructuredOuterHTML(ancestor));
 }
 
-export function wrapRange(range: Range, createnodefunc: () => Node, canwrapnodefunc: (node: Node) => boolean, mustwrapnodefunc: (node: Node) => boolean, preservelocators: PreservedLocatorList) {
+export function wrapRange(range: Range, createnodefunc: () => Node, canwrapnodefunc: (node: Node) => boolean, preservelocators: PreservedLocatorList) {
   //    console.log('wrapRange', range, createnodefunc, canwrapnodefunc, mustwrapnodefunc, preservelocators);
 
   // Make sure range is preserved too
@@ -1230,16 +1259,12 @@ export function wrapRange(range: Range, createnodefunc: () => Node, canwrapnodef
   //    range.descendToLeafNodes();
 
   //    console.log('WR going split0', richdebug.getStructuredOuterHTML(range.getAncestor() || range.start.element.ownerDocument, { loc: range.start }));
-  let ancestor = range.getAncestorElement();
-  if (mustwrapnodefunc) {
-    while (mustwrapnodefunc(ancestor))
-      ancestor = ancestor.parentNode;
-  }
+  const ancestor = range.getAncestorElement();
 
   //    console.log('WR before presplits', richdebug.getStructuredOuterHTML(ancestor, range));
 
   //    console.log('WR going split1', richdebug.getStructuredOuterHTML(ancestor, { loc: range.start }));
-  const startroot = getWrappingSplitRoot(range.start, ancestor, canwrapnodefunc, mustwrapnodefunc);
+  const startroot = getWrappingSplitRoot(range.start, ancestor, canwrapnodefunc);
 
   //    console.log('WR startroot', richdebug.getStructuredOuterHTML(ancestor, {startroot:startroot}));
 
@@ -1250,8 +1275,8 @@ export function wrapRange(range: Range, createnodefunc: () => Node, canwrapnodef
 
   range.start.assign(parts[1].start);
 
-  const endroot = getWrappingSplitRoot(range.end, ancestor, canwrapnodefunc, mustwrapnodefunc);
   //    console.log('WR presplit', richdebug.getStructuredOuterHTML(ancestor, {endroot:endroot, range: range}));
+  const endroot = getWrappingSplitRoot(range.end, ancestor, canwrapnodefunc);
 
   parts = splitDom(endroot, [{ locator: range.end, toward: "start" }], preservelocators.concat([range.start]));
 
@@ -1259,7 +1284,7 @@ export function wrapRange(range: Range, createnodefunc: () => Node, canwrapnodef
 
   //    console.log('WR after presplits', richdebug.getStructuredOuterHTML(ancestor, range));
 
-  wrapRangeRecursiveInternal(range, ancestor, createnodefunc, canwrapnodefunc, mustwrapnodefunc, preservelocators);
+  wrapRangeRecursiveInternal(range, ancestor, createnodefunc, canwrapnodefunc, preservelocators);
 }
 
 /** Combines adjacent nodes of with each other at a locator recursively
@@ -1701,7 +1726,7 @@ export class Locator {
     const path = [this.offset];
     let node = this.element;
     for (; node && node != ancestor; node = node.parentNode as Node)
-      path.unshift(rangy.dom.getNodeIndex(node));
+      path.unshift(getNodeIndex(node));
     return path;
   }
 
@@ -1719,7 +1744,8 @@ export class Locator {
     return this.element.nodeType == 1 || this.element.nodeType == 11;
   }
 
-  moveToParent(towardend?: boolean, forced?: boolean) {
+  // TODO: It's unclear why 'towardend' is ignored for offset == 0. we really need it for node comparison so for now i'll just add an extra value for it
+  moveToParent(towardend?: boolean | "really", forced?: boolean) {
     // If node is empty, determine direction by towardend
     // If at start or at end, go to start resp. end
     // If not forced, return false
@@ -1734,13 +1760,14 @@ export class Locator {
     } else {
       // Node not empty
       // eslint-disable-next-line no-lonely-if
-      if (this.offset == 0)
-        towardend = false;
-      else if (!forced)
+      if (this.offset == 0) {
+        if (towardend !== "really")
+          towardend = false;
+      } else if (!forced)
         return false;
     }
 
-    this.offset = rangy.dom.getNodeIndex(this.element) + (towardend ? 1 : 0);
+    this.offset = getNodeIndex(this.element) + (towardend ? 1 : 0);
     this.element = this.element.parentNode as Node;
 
     return true;
@@ -1748,7 +1775,7 @@ export class Locator {
 
   /** Ascends a locator toward the ancestor while the offset == 0/element size
   */
-  ascend(ancestor: Node, towardend?: boolean, forced?: boolean) {
+  ascend(ancestor: Node, towardend?: boolean | "really", forced?: boolean) {
     if (!ancestor)
       throw new Error("Invalid ancestor in Locator.ascend");
     //    console.log('AscendLocator ancestor', ancestor,' towardend: ', towardend, ', html: ', richdebug.getStructuredOuterHTML(ancestor, { toascend: this }));
@@ -1907,7 +1934,16 @@ export class Locator {
   }
 
   compare(rhs: Locator) {
-    return rangy.dom.comparePoints(this.element, this.offset, rhs.element, rhs.offset);
+    if (this.element === rhs.element)
+      return Math.sign(this.offset - rhs.offset);
+
+    const pos = this.element.compareDocumentPosition(rhs.element); //DOCUMENT_POSITION_CONTAINS = 8, DOCUMENT_POSITION_CONTAINED_BY = 16
+    if (pos & Node.DOCUMENT_POSITION_CONTAINS) //our element is inside rhs. find our offset in rhs
+      return compareContained(rhs, this);
+    if (pos & Node.DOCUMENT_POSITION_CONTAINED_BY) //our element is inside rhs. find our offset in rhs
+      return compareContained(this, rhs) * -1;
+
+    return pos & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
   }
 
   check(maxancestor: Node) {
@@ -2372,13 +2408,14 @@ export class Locator {
   }
 
   static findCommonAncestor(locator_a: Locator, locator_b: Locator) {
-    return rangy.dom.getCommonAncestor(locator_a.element, locator_b.element);
+    return getCommonAncestor(locator_a.element, locator_b.element);
   }
 
-  static findCommonAncestorElement(locator_a: Locator, locator_b: Locator) {
-    let ancestor = this.findCommonAncestor(locator_a, locator_b);
-    if (ancestor && ![1, 9, 11].includes(ancestor.nodeType) && ancestor.nodeType) // allow element, document(fragement)
-      ancestor = ancestor.parentNode;
+  static findCommonAncestorElement(locator_a: Locator, locator_b: Locator): Node {
+    let ancestor = getCommonAncestor(locator_a.element, locator_b.element);
+    if ([3, 4].includes(ancestor.nodeType))
+      ancestor = ancestor.parentNode!; //a textnode should alwasys be in an element
+
     return ancestor;
   }
 
@@ -2396,7 +2433,7 @@ export class Locator {
   }
 
   static newPointingTo(node: Node) {
-    return new Locator(node.parentNode as Node, rangy.dom.getNodeIndex(node));
+    return new Locator(node.parentNode as Node, getNodeIndex(node));
   }
 
   static newPointingAfter(node: Node) {

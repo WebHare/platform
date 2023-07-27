@@ -41,7 +41,7 @@ function testEqHTMLEx(expect, node, locators) {
   test.eqHTML(expect, actual);
 }
 
-function getAllLocators(win, node) {
+function getAllLocators(win, node): domlevel.Locator[] {
   return richdebug.getAllLocatorsInNode(node);
 }
 
@@ -59,6 +59,20 @@ test.registerTests(
   [
     {
       loadpage: '/.webhare_testsuite/tests/pages/rte/?editor=free'
+    },
+
+    "Locator comparing", //test first because the RTE init might even fail otherwise
+    function () {
+      const testel = document.createElement("div");
+      testel.innerHTML = '<i><b>abc</b>def<u>ghi</u></i>';
+
+      const locators = getAllLocators(null, testel.firstChild);
+      testEqHTMLEx('<i>(*0*)<b>(*1*)"(*2*)a(*3*)b(*4*)c(*5*)"(*6*)</b>(*7*)"(*8*)d(*9*)e(*10*)f(*11*)"(*12*)<u>(*13*)"(*14*)g(*15*)h(*16*)i(*17*)"(*18*)</u>(*19*)</i>', testel, locators);
+
+      for (let a = 0; a < locators.length; ++a)
+        for (let b = 0; b < locators.length; ++b) {
+          test.eq(a == b ? 0 : a < b ? -1 : 1, locators[a].compare(locators[b]));
+        }
     },
     {
       name: 'firsttest',
@@ -96,17 +110,10 @@ test.registerTests(
         rte.setContentsHTML('<i><b>abc</b>def<u>ghi</u></i>');
         test.eq('<i><b>abc</b>def<u>ghi</u></i>', win.rte.getValue().toLowerCase());
 
-        let locators = getAllLocators(win, rte.getBody().firstChild);
-        testEqHTMLEx('<i>(*0*)<b>(*1*)"(*2*)a(*3*)b(*4*)c(*5*)"(*6*)</b>(*7*)"(*8*)d(*9*)e(*10*)f(*11*)"(*12*)<u>(*13*)"(*14*)g(*15*)h(*16*)i(*17*)"(*18*)</u>(*19*)</i>', rte.getBody(), locators);
-
-        for (let a = 0; a < locators.length; ++a)
-          for (let b = 0; b < locators.length; ++b)
-            test.eq(a == b ? 0 : a < b ? -1 : 1, locators[a].compare(locators[b]));
-
         // Locator ascending
         rte.setContentsHTML('<i><b><br><br></b></i>');
 
-        locators = getAllLocators(win, rte.getBody().firstChild);
+        const locators = getAllLocators(win, rte.getBody().firstChild);
         testEqHTMLEx('<i>(*0*)<b>(*1*)<br>(*2*)<br>(*3*)</b>(*4*)</i>', rte.getBody(), locators);
 
         const italicnode = locators[0].element;
@@ -851,7 +858,6 @@ test.registerTests(
           range,
           function () { return document.createElement('u'); },
           null,
-          null,
           locators);
 
         testEqHTMLEx('<i>(*0*)"(*1*)a"<u>"(*2*)b"</u>"(*3*)c(*4*)"(*5*)</i>', rte.getBody(), locators);
@@ -874,40 +880,9 @@ test.registerTests(
           range,
           function () { return document.createElement('u'); },
           null,
-          null,
           locators);
 
         testEqHTMLEx('<i>(*0*)<b>(*1*)"(*2*)a"</b><u><b>"(*3*)b(*4*)"(*5*)</b>(*6*)"(*7*)c"</u>"(*8*)d(*9*)"(*10*)</i>', rte.getBody(), locators);
-
-        // Test with two ranges and split prohibits
-        rte.setContentsHTML('<i><b>ab</b>c<b>de</b></i>');
-
-        locators = getAllLocators(win, rte.getBody().firstChild);
-        testEqHTMLEx('<i>(*0*)<b>(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</b>(*6*)"(*7*)c(*8*)"(*9*)<b>(*10*)"(*11*)d(*12*)e(*13*)"(*14*)</b>(*15*)</i>', rte.getBody(), locators);
-
-        domlevel.wrapRange(
-          new Range(locators[3], locators[12]),
-          function () { return document.createElement('u'); },
-          function () { return false; }, // may not split at all
-          null,
-          locators);
-
-        testEqHTMLEx('<i>(*0*)<b>(*1*)"(*2*)a"<u>"(*3*)b(*4*)"(*5*)</u></b><u>(*6*)"(*7*)c(*8*)"(*9*)</u><b><u>(*10*)"(*11*)d"</u>"(*12*)e(*13*)"(*14*)</b>(*15*)</i>', rte.getBody(), locators);
-
-        // Test with two ranges and split prohibits
-        rte.setContentsHTML('<i><b>ab</b>c<sub>de</sub></i>');
-
-        locators = getAllLocators(win, rte.getBody().firstChild);
-        testEqHTMLEx('<i>(*0*)<b>(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</b>(*6*)"(*7*)c(*8*)"(*9*)<sub>(*10*)"(*11*)d(*12*)e(*13*)"(*14*)</sub>(*15*)</i>', rte.getBody(), locators);
-
-        domlevel.wrapRange(
-          new Range(locators[3], locators[12]),
-          function () { return document.createElement('u'); },
-          function () { return false; }, // may not split at all
-          function (node) { return ['sub'].includes(node.nodeName.toLowerCase()); }, // but MUST wrap 'u's
-          locators);
-
-        testEqHTMLEx('<i>(*0*)<b>(*1*)"(*2*)a"<u>"(*3*)b(*4*)"(*5*)</u></b><u>(*6*)"(*7*)c(*8*)"(*9*)<sub>(*10*)"(*11*)d"</sub></u><sub>"(*12*)e(*13*)"(*14*)</sub>(*15*)</i>', rte.getBody(), locators);
       }
     },
 

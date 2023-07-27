@@ -18,7 +18,6 @@ import * as browser from "dompack/extra/browser";
 import * as KeyboardHandler from "dompack/extra/keyboard";
 import SelectionInterface from './selection';
 import * as tablesupport from "./tableeditor";
-import rangy from "@mod-system/js/frameworks/rangy/rangy13";
 import * as richdebug from "./richdebug";
 import * as domlevel from "./domlevel";
 import * as support from "./support";
@@ -509,8 +508,6 @@ export default class EditorBase {
 
     if (this.undonode)
       options.allowundo = true;
-
-    rangy.init();
 
     //elements that respond to action-properties
     this.properties_selector = "img, a[href]";
@@ -2151,10 +2148,6 @@ export default class EditorBase {
     return !(elementinfo.splitprohibits && elementinfo.splitprohibits.includes(node.nodeName.toLowerCase()));
   }
 
-  _mustWrapNode(elementinfo, node) {
-    return false;
-  }
-
   surroundRange(range, elementinfo, undoitem) {
     //console.log('surroundrange start', richdebug.getStructuredOuterHTML(this.getBody(), range));
     //var result = domlevel.surroundRange(range, elementinfo);
@@ -2162,12 +2155,10 @@ export default class EditorBase {
     domlevel.removeNodesFromRange(range, this.getBody(), elementinfo.element, null, undoitem);
 
     if (elementinfo.wrapin) {
-      console.log(elementinfo);
       domlevel.wrapRange(
         range,
         () => this._createNodeFromElementInfo(elementinfo),
         node => this._canWrapNode(elementinfo, node),
-        node => this._mustWrapNode(elementinfo, node),
         null,
         undoitem);
     }
