@@ -6,10 +6,14 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
+LOADLIB "mod::publisher/lib/control.whlib";
+LOADLIB "mod::publisher/lib/internal/feedback/feedbacksupport.whlib";
+
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
+LOADLIB "mod::system/lib/webserver/configure.whlib";
 
 
 /** @short Get a preview link for a page
@@ -73,4 +77,21 @@ PUBLIC RECORD FUNCTION DescribePreviewRequest()
              , contentobject := info.content
              , languagecode := info.lang
              ];
+}
+
+PUBLIC STRING FUNCTION GetViewURLWithFeedback(OBJECT file, OBJECT tolliumuser)
+{
+  STRING url := file->link;
+  IF(NOT TestFlagFromPublished(file->published, PublishedFlag_HasWebDesign)) //has no design, so don't route through our viewer (might eg. be a download and you'd never leave the view.shtml)
+    RETURN url;
+
+  STRING feedbacktoken := GetFeedbackWebToken(tolliumuser);
+  IF(feedbacktoken = "") //eg anonymous/override user
+    RETURN url;
+
+  //Do we host this URL ?
+  IF(NOT RecordExists(GetWebserverForURL(url)))
+    RETURN url;
+
+  RETURN ResolveToAbsoluteURL(url, "/.wh/common/feedback/view.shtml?target=" || EncodeURL(UnpackURL(url).urlpath) || "&feedbacktoken=" || EncodeURL(feedbacktoken));
 }

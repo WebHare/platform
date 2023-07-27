@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      p {
+        text-align: center;
+      }
+    </style>
+    <script nonce="[nonce]">[embed code]</script>
+  </head>
+  <body>
+    <p>Opening your site…</p>
+  </body>
+</html>
+
+[rawcomponent code]
+  const url = new URL(location.href);
+  const feedbacktoken = url.searchParams.get("feedbacktoken");
+  const targeturl = url.origin + "/" + url.searchParams.get("target");
+  try {
+    localStorage.setItem("wh-feedback:accesstoken", JSON.stringify(feedbacktoken));
+  } catch(ignore) {
+  }
+  location.href = targeturl;
+[/rawcomponent]

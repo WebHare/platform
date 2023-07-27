@@ -1,7 +1,7 @@
 import { KeyValueObject, PlainValue, Properties } from "@mod-system/js/types";
 import takeScreenshot from "./screenshot";
 import pointAtDOM from "./dompointer";
-import "@mod-publisher/web/common/feedback/styles.css";
+import "@mod-platform/web/wh-common/feedback/styles.css";
 import createRPCClient from "@webhare/jsonrpc-client";
 
 export type HighlightCallback = (node: Element) => Element;

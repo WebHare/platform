@@ -19,7 +19,7 @@ MACRO OnCommitRefreshWebserverConfig(BOOLEAN iscommit)
     RefreshGlobalWebserverConfig();
 }
 
-RECORD FUNCTION GetWebserver(STRING url)
+PUBLIC RECORD FUNCTION GetWebserverForURL(STRING url)
 {
   RECORD unpackedurl := UnpackURL(url);
   RECORD matchwebserver := LookupWebserver(GetCacheableHostedSites().value, unpackedurl.host, unpackedurl.port);
@@ -42,7 +42,7 @@ PUBLIC MACRO __EnsureConfigReloadOnCommit()
 PUBLIC RECORD ARRAY FUNCTION ListAccessRules(STRING url)
 {
   RECORD unpackedurl := UnpackURL(url);
-  RECORD matchwebserver := GetWebserver(url);
+  RECORD matchwebserver := GetWebserverForURL(url);
   STRING pathmask := `/${unpackedurl.urlpath}*`;
 
   RECORD ARRAY rules := SELECT rowkey := "db:" || id
@@ -137,7 +137,7 @@ PUBLIC STRING FUNCTION AddAccessRule(STRING url, RECORD options DEFAULTSTO DEFAU
                                          ]);
 
   RECORD unpackedurl := UnpackURL(url);
-  RECORD matchwebserver := GetWebserver(url);
+  RECORD matchwebserver := GetWebserverForURL(url);
 
   IF(NOT CellExists(options,'matchtype'))
     INSERT CELL matchtype := unpackedurl.urlpath = "" OR unpackedurl.urlpath LIKE "*/" ? "initial" : "exact" INTO options;

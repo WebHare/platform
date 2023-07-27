@@ -98,21 +98,9 @@ function activeAuthorMode() {
 }
 
 function checkAuthorMode() {
-  // Is author mode activated through the Publisher?
-  if (location.search.includes("wh-feedback-token=")) {
-    const url = new URL(location.href);
-    const token = url.searchParams.get("wh-feedback-token");
-    if (token) {
-      if (token && token.match(/^[^.]*\.[^.]*\.[^.]*$/)) { // Check if the string has the general JWT header.payload.signature format
-        dompack.setLocal("wh-feedback:accesstoken", token);
-        url.searchParams.delete("wh-feedback-token");
-        history.replaceState(null, "", url);
-      }
-    }
-  }
-
   if (document.documentElement.classList.contains("wh-optin-authormode") //for now, you need to explicitly opt-in. this will go away at some point
     && !document.documentElement.classList.contains("wh-noauthormode") //explicit opt-out
+    && window.top === window //we're not in an iframe
     && dompack.getLocal<string>("wh-feedback:accesstoken")?.match(/^[^.]*\.[^.]*\.[^.]*$/)) {
     activeAuthorMode();
   }
