@@ -7,6 +7,7 @@
 
     <actions gid="userrights.actions">
       <action name="search" onexecute="dosearch" tid=".searchsimple" />
+      <action name="expand" onexecute="doexpand" title="" />
     </actions>
 
     <contents>
@@ -19,7 +20,10 @@
             <includefragment name="unittree" fragment="userrights/parts/unittree.unittree" />
             <panel name="searchbox" spacers="right">
               <line>
-                <textedit name="searchfor" width="1pr" title="" defaultbutton="searchbutton" />
+                <textedit name="searchfor" width="1pr" title="" defaultbutton="searchbutton">
+                  <button action="expand" type="icon" icon="tollium:forms/textarea" />
+                </textedit>
+                <textarea name="searchforarea" width="1pr" title="" visible="false" minheight="4gr" />
                 <button name="searchbutton" action="search" tid="userrights.actions.searchsimple" />
               </line>
             </panel>

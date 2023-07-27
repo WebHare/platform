@@ -1,6 +1,7 @@
 ﻿<?wh
 
 LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
@@ -160,12 +161,14 @@ STRING FUNCTION GetUnitPath(OBJECT authapi, OBJECT unitobj, OBJECT browseuser)
 
 PUBLIC STRING ARRAY FUNCTION GetFieldsFor(STRING ARRAY setfields, STRING type, OBJECT controller)
 {
-  type := ToLowerCase(type);
-  STRING tag;
   IF(type = "person")
-    tag := "WRD_" || ToUppercase(type);
-  ELSE
-    tag := "WHUSER_" || ToUppercase(type);
+  {
+    //We're used for wildcard searches in ConstructSearchFilters so just limit to the common fields (we used to seek through almost a dozen...)
+    RETURN GetSortedSet([ "wrd_fullname", "wrd_lastname", controller->userapi->wrdschema->accountlogintag, controller->userapi->wrdschema->accountemailtag]);
+  }
+
+  type := ToLowerCase(type);
+  STRING tag := "WHUSER_" || ToUppercase(type); //role | unit  TODO should probably limit the search too
   STRING ARRAY availablefields := SELECT AS STRING ARRAY localtag FROM controller->userapi->wrdschema->GetType(tag)->ListAttributes(0) WHERE attributetype IN [ 2, 4 ];
   STRING ARRAY fields;
   FOREVERY(STRING field FROM setfields)
@@ -526,19 +529,37 @@ PUBLIC MACRO TolliumUpdateGrant(OBJECT work, OBJECT rightsinfo, OBJECT grantor, 
 
 PUBLIC RECORD ARRAY FUNCTION ConstructSearchFilters(STRING term, STRING type, STRING ARRAY fields)
 {
-  STRING ARRAY parts := Tokenize(term, " ");
+  RECORD ARRAY topfilters;
 
-  RECORD ARRAY filters;
-  FOREVERY(STRING part FROM parts)
+  FOREVERY(STRING line FROM Tokenize(term,'\n'))
   {
-    RECORD ARRAY partfilters;
-    FOREVERY(STRING field FROM fields)
-      INSERT [ field := field, matchtype := "LIKE", value := "*" || part || "*" ] INTO partfilters AT END;
+    line := TrimWhitespace(line);
+    IF(line = "")
+      CONTINUE;
 
-    INSERT [ type := "OR", filters := partfilters ] INTO filters AT END;
+    RECORD ARRAY linefilters;
+    FOREVERY(STRING part FROM Tokenize(line,' '))
+    {
+      IF(part = "")
+         CONTINUE;
+
+      RECORD ARRAY partfilters;
+      FOREVERY(STRING field FROM fields)
+        INSERT [ field := field, matchtype := "LIKE", value := "*" || part || "*", matchcase := FALSE ] INTO partfilters AT END;
+
+      IF(Length(partfilters) = 1)
+        INSERT partfilters[0] INTO linefilters AT END;
+      ELSE
+        INSERT [ type := "OR", filters := partfilters ] INTO linefilters AT END;
+    }
+
+    IF(Length(linefilters) = 1)
+      INSERT linefilters[0] INTO topfilters AT END;
+    ELSE
+      INSERT [ type := "AND", filters := linefilters ] INTO topfilters AT END;
   }
 
-  RETURN [ [ type := "AND", filters := filters ] ];
+  RETURN Length(topfilters) = 1 ? [ topfilters[0] ] : [ [ type := "OR", filters := topfilters ] ];
 }
 
 PUBLIC RECORD FUNCTION CollectUserPreferenceOptions(OBJECT tolliumcontroller)

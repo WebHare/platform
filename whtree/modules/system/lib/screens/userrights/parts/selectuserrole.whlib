@@ -193,11 +193,12 @@ PUBLIC OBJECTTYPE SelectUserRole EXTEND TolliumFragmentBase
 
   MACRO DoSearch()
   {
+    STRING searchfor := ^searchforarea->visible ? ^searchforarea->value : ^searchfor->value;
     RECORD searchablefields := GetPolicyForUser(this->contexts, this->tolliumuser->entityid).searchablefields;
-    RECORD ARRAY user_filters := ConstructSearchFilters(this->searchfor->value, "user", GetFieldsFor(searchablefields.person, "person", this->tolliumcontroller));
+    RECORD ARRAY user_filters := ConstructSearchFilters(searchfor, "user", GetFieldsFor(searchablefields.person, "person", this->tolliumcontroller));
     RECORD ARRAY users := GetUsersByFilter(this->owner->tolliumcontroller, user_filters, this->tolliumuser);
 
-    RECORD ARRAY role_filters := ConstructSearchFilters(this->searchfor->value, "role", GetFieldsFor(searchablefields.role, "role", this->tolliumcontroller));
+    RECORD ARRAY role_filters := ConstructSearchFilters(searchfor, "role", GetFieldsFor(searchablefields.role, "role", this->tolliumcontroller));
     RECORD ARRAY roles := GetRolesByFilter(this->owner->tolliumcontroller, role_filters, this->tolliumuser);
 
     INTEGER ARRAY searchresult :=
@@ -205,6 +206,14 @@ PUBLIC OBJECTTYPE SelectUserRole EXTEND TolliumFragmentBase
           FROM users CONCAT roles;
 
     this->unittree->DisplaySearchResults(searchresult);
+  }
+
+  MACRO DoExpand()
+  {
+    ^searchfor->visible := FALSE;
+    ^searchforarea->visible := TRUE;
+    IF(^searchfor->value != "")
+      ^searchforarea->value := ^searchfor->value;
   }
 
   // ---------------------------------------------------------------------------
