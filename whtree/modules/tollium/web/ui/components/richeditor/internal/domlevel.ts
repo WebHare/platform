@@ -1,6 +1,7 @@
 import * as browser from "dompack/extra/browser";
 import * as dompack from "dompack";
-
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- do not complain about unused richdebug as the calls are usually commented out
+import * as richdebug from "./richdebug";
 import Range from './dom/range';
 
 export type PreservedLocatorList = Array<Locator | Range>;
@@ -1176,20 +1177,20 @@ export function removeNodesFromRange(range: Range, maxancestor: Node, filter: No
   // console.log('RNFR done', richdebug.getStructuredOuterHTML(maxancestor, range));
 }
 
-function canWrapNode(node: Node, canwrapnodefunc: (node: Node) => boolean, mustwrapnodefunc: (node: Node) => boolean) {
-  return (mustwrapnodefunc && mustwrapnodefunc(node)) || (!canwrapnodefunc || canwrapnodefunc(node));
+function canWrapNode(node: Node, canwrapnodefunc: (node: Node) => boolean) {
+  return (!canwrapnodefunc || canwrapnodefunc(node));
 }
 
-function getWrappingSplitRoot(locator: Locator, ancestor: Node, canwrapnodefunc: (node: Node) => boolean, mustwrapnodefunc: (node: Node) => boolean) {
+function getWrappingSplitRoot(locator: Locator, ancestor: Node, canwrapnodefunc: (node: Node) => boolean) {
   let node = locator.element;
-  if ([3, 4].includes(node.nodeType))
+  if ([3, 4].includes(node.nodeType)) //3=Text node, 4=CDATA
     node = node.parentNode as Node;
-  while (node != ancestor && canWrapNode(node, canwrapnodefunc, mustwrapnodefunc))
+  while (node != ancestor && canWrapNode(node, canwrapnodefunc))
     node = node.parentNode as Node;
   return node;
 }
 
-function wrapRangeRecursiveInternal(range: Range, ancestor: Node, createnodefunc: () => Node, canwrapnodefunc: (node: Node) => boolean, mustwrapnodefunc: (node: Node) => boolean, preservelocators: PreservedLocatorList) {
+function wrapRangeRecursiveInternal(range: Range, ancestor: Node, createnodefunc: () => Node, canwrapnodefunc: (node: Node) => boolean, preservelocators: PreservedLocatorList) {
   //    console.log('WRRI start', richdebug.getStructuredOuterHTML(ancestor, range));
 
   // Get the range of nodes we need to visit in the current ancestor
@@ -1212,7 +1213,7 @@ function wrapRangeRecursiveInternal(range: Range, ancestor: Node, createnodefunc
     const node = localrange.start.getPointedNode();
     if (!node)
       throw new Error(`Could not find pointed to node`);
-    if ([3, 4].includes(node.nodeType) || canWrapNode(node, canwrapnodefunc, mustwrapnodefunc)) {
+    if ([3, 4].includes(node.nodeType) || canWrapNode(node, canwrapnodefunc)) {
       ++localrange.start.offset;
       continue;
     }
@@ -1231,7 +1232,7 @@ function wrapRangeRecursiveInternal(range: Range, ancestor: Node, createnodefunc
     subrange.intersect(noderange);
 
     // Iterate into the node, and reset the start if the first wrappable node
-    wrapRangeRecursiveInternal(subrange, node, createnodefunc, canwrapnodefunc, mustwrapnodefunc, preservelocators);
+    wrapRangeRecursiveInternal(subrange, node, createnodefunc, canwrapnodefunc, preservelocators);
 
     ++wrapstart.offset;
     localrange.start.assign(wrapstart);
@@ -1247,7 +1248,7 @@ function wrapRangeRecursiveInternal(range: Range, ancestor: Node, createnodefunc
   //    console.log('WRRI end', richdebug.getStructuredOuterHTML(ancestor));
 }
 
-export function wrapRange(range: Range, createnodefunc: () => Node, canwrapnodefunc: (node: Node) => boolean, mustwrapnodefunc: (node: Node) => boolean, preservelocators: PreservedLocatorList) {
+export function wrapRange(range: Range, createnodefunc: () => Node, canwrapnodefunc: (node: Node) => boolean, preservelocators: PreservedLocatorList) {
   //    console.log('wrapRange', range, createnodefunc, canwrapnodefunc, mustwrapnodefunc, preservelocators);
 
   // Make sure range is preserved too
@@ -1258,16 +1259,12 @@ export function wrapRange(range: Range, createnodefunc: () => Node, canwrapnodef
   //    range.descendToLeafNodes();
 
   //    console.log('WR going split0', richdebug.getStructuredOuterHTML(range.getAncestor() || range.start.element.ownerDocument, { loc: range.start }));
-  let ancestor = range.getAncestorElement();
-  if (mustwrapnodefunc) {
-    while (mustwrapnodefunc(ancestor))
-      ancestor = ancestor.parentNode;
-  }
+  const ancestor = range.getAncestorElement();
 
   //    console.log('WR before presplits', richdebug.getStructuredOuterHTML(ancestor, range));
 
   //    console.log('WR going split1', richdebug.getStructuredOuterHTML(ancestor, { loc: range.start }));
-  const startroot = getWrappingSplitRoot(range.start, ancestor, canwrapnodefunc, mustwrapnodefunc);
+  const startroot = getWrappingSplitRoot(range.start, ancestor, canwrapnodefunc);
 
   //    console.log('WR startroot', richdebug.getStructuredOuterHTML(ancestor, {startroot:startroot}));
 
@@ -1278,8 +1275,8 @@ export function wrapRange(range: Range, createnodefunc: () => Node, canwrapnodef
 
   range.start.assign(parts[1].start);
 
-  const endroot = getWrappingSplitRoot(range.end, ancestor, canwrapnodefunc, mustwrapnodefunc);
   //    console.log('WR presplit', richdebug.getStructuredOuterHTML(ancestor, {endroot:endroot, range: range}));
+  const endroot = getWrappingSplitRoot(range.end, ancestor, canwrapnodefunc);
 
   parts = splitDom(endroot, [{ locator: range.end, toward: "start" }], preservelocators.concat([range.start]));
 
@@ -1287,7 +1284,7 @@ export function wrapRange(range: Range, createnodefunc: () => Node, canwrapnodef
 
   //    console.log('WR after presplits', richdebug.getStructuredOuterHTML(ancestor, range));
 
-  wrapRangeRecursiveInternal(range, ancestor, createnodefunc, canwrapnodefunc, mustwrapnodefunc, preservelocators);
+  wrapRangeRecursiveInternal(range, ancestor, createnodefunc, canwrapnodefunc, preservelocators);
 }
 
 /** Combines adjacent nodes of with each other at a locator recursively

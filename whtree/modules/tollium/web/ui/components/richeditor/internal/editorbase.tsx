@@ -2148,10 +2148,6 @@ export default class EditorBase {
     return !(elementinfo.splitprohibits && elementinfo.splitprohibits.includes(node.nodeName.toLowerCase()));
   }
 
-  _mustWrapNode(elementinfo, node) {
-    return false;
-  }
-
   surroundRange(range, elementinfo, undoitem) {
     //console.log('surroundrange start', richdebug.getStructuredOuterHTML(this.getBody(), range));
     //var result = domlevel.surroundRange(range, elementinfo);
@@ -2159,12 +2155,10 @@ export default class EditorBase {
     domlevel.removeNodesFromRange(range, this.getBody(), elementinfo.element, null, undoitem);
 
     if (elementinfo.wrapin) {
-      console.log(elementinfo);
       domlevel.wrapRange(
         range,
         () => this._createNodeFromElementInfo(elementinfo),
         node => this._canWrapNode(elementinfo, node),
-        node => this._mustWrapNode(elementinfo, node),
         null,
         undoitem);
     }

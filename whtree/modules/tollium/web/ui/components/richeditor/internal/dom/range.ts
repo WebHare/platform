@@ -323,6 +323,10 @@ export default class Range {
     return this;
   }
 
+  static fromSelection(selection: Selection) {
+    return new Range(new Locator(selection.anchorNode, selection.anchorOffset), new Locator(selection.focusNode, selection.focusOffset));
+  }
+
   static fromDOMRange(range) {
     return new Range(new Locator(range.startContainer, range.startOffset), new Locator(range.endContainer, range.endOffset));
   }

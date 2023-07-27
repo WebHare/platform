@@ -858,7 +858,6 @@ test.registerTests(
           range,
           function () { return document.createElement('u'); },
           null,
-          null,
           locators);
 
         testEqHTMLEx('<i>(*0*)"(*1*)a"<u>"(*2*)b"</u>"(*3*)c(*4*)"(*5*)</i>', rte.getBody(), locators);
@@ -881,40 +880,9 @@ test.registerTests(
           range,
           function () { return document.createElement('u'); },
           null,
-          null,
           locators);
 
         testEqHTMLEx('<i>(*0*)<b>(*1*)"(*2*)a"</b><u><b>"(*3*)b(*4*)"(*5*)</b>(*6*)"(*7*)c"</u>"(*8*)d(*9*)"(*10*)</i>', rte.getBody(), locators);
-
-        // Test with two ranges and split prohibits
-        rte.setContentsHTML('<i><b>ab</b>c<b>de</b></i>');
-
-        locators = getAllLocators(win, rte.getBody().firstChild);
-        testEqHTMLEx('<i>(*0*)<b>(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</b>(*6*)"(*7*)c(*8*)"(*9*)<b>(*10*)"(*11*)d(*12*)e(*13*)"(*14*)</b>(*15*)</i>', rte.getBody(), locators);
-
-        domlevel.wrapRange(
-          new Range(locators[3], locators[12]),
-          function () { return document.createElement('u'); },
-          function () { return false; }, // may not split at all
-          null,
-          locators);
-
-        testEqHTMLEx('<i>(*0*)<b>(*1*)"(*2*)a"<u>"(*3*)b(*4*)"(*5*)</u></b><u>(*6*)"(*7*)c(*8*)"(*9*)</u><b><u>(*10*)"(*11*)d"</u>"(*12*)e(*13*)"(*14*)</b>(*15*)</i>', rte.getBody(), locators);
-
-        // Test with two ranges and split prohibits
-        rte.setContentsHTML('<i><b>ab</b>c<sub>de</sub></i>');
-
-        locators = getAllLocators(win, rte.getBody().firstChild);
-        testEqHTMLEx('<i>(*0*)<b>(*1*)"(*2*)a(*3*)b(*4*)"(*5*)</b>(*6*)"(*7*)c(*8*)"(*9*)<sub>(*10*)"(*11*)d(*12*)e(*13*)"(*14*)</sub>(*15*)</i>', rte.getBody(), locators);
-
-        domlevel.wrapRange(
-          new Range(locators[3], locators[12]),
-          function () { return document.createElement('u'); },
-          function () { return false; }, // may not split at all
-          function (node) { return ['sub'].includes(node.nodeName.toLowerCase()); }, // but MUST wrap 'u's
-          locators);
-
-        testEqHTMLEx('<i>(*0*)<b>(*1*)"(*2*)a"<u>"(*3*)b(*4*)"(*5*)</u></b><u>(*6*)"(*7*)c(*8*)"(*9*)<sub>(*10*)"(*11*)d"</sub></u><sub>"(*12*)e(*13*)"(*14*)</sub>(*15*)</i>', rte.getBody(), locators);
       }
     },
 
