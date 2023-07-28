@@ -879,7 +879,7 @@ test.registerTests(
         testdoc.innerHTML = `<div><i>dont</i><u>This is a text</u><i>dont</i><u>do</u></div>`
           + `<div><i>dont</i><u>Another text</u><i>dont</i></div>`;
 
-        range = new Range(new domlevel.Locator(testdoc.querySelectorAll("u")[0].firstChild, 5), new domlevel.Locator(testdoc.querySelectorAll("u")[2].firstChild, 2)); //"is a tet" ... "An"
+        range = new Range(new domlevel.Locator(testdoc.querySelectorAll("u")[0].firstChild, 5), new domlevel.Locator(testdoc.querySelectorAll("u")[2].firstChild, 2)); //"is a text" ... "An"
         testEqHTMLEx(`<div><i>dont</i><u>This (*0*)is a text</u><i>dont</i><u>do</u></div>`
           + `<div><i>dont</i><u>An(*1*)other text</u><i>dont</i></div>`, testdoc, [range.start, range.end], { textQuote: "" });
 
