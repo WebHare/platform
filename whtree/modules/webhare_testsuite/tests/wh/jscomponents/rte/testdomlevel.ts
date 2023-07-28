@@ -884,7 +884,7 @@ test.registerTests(
           + `<div><i>dont</i><u>An(*1*)other text</u><i>dont</i></div>`, testdoc, [range.start, range.end], { textQuote: "" });
 
         domlevel.wrapRange(range, () => document.createElement('del'), { onCanWrapNode: () => false, onAllowIn: (node: HTMLElement) => node.matches("div,u") });
-        testEqHTMLEx(`<div><i>dont</i><u>This <del>(*0*)is a text</dle></u><i>dont</i><u><del>do</del></u></div>`
+        testEqHTMLEx(`<div><i>dont</i><u>This <del>(*0*)is a text</del></u><i>dont</i><u><del>do</del></u></div>`
           + `<div><i>dont</i><u><del>An</del>(*1*)other text</u><i>dont</i></div>`, testdoc, [range.start, range.end], { textQuote: "" });
       }
     },
