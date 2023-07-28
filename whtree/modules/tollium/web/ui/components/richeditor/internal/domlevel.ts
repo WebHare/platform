@@ -30,6 +30,17 @@ export enum NodeType {
   documentFragment = 11,
 }
 
+interface BaseWrapRangeOptions {
+  ///Override which elements are allowed to appear inside the new node we're applying (never invoked for textnodes)
+  onCanWrapNode?: (element: HTMLElement) => boolean;
+  ///If set allows you to limit which nodes will contain the wrapped element
+  onAllowIn?: (element: HTMLElement) => boolean;
+}
+
+export interface WrapRangeOptions extends BaseWrapRangeOptions {
+  preserveLocators?: PreservedLocatorList;
+}
+
 export function testType<T extends NodeType>(node: Node, nodetype: T | readonly T[]): node is GetNodeType<T> {
   return Array.isArray(nodetype) ? nodetype.includes(node.nodeType) : node.nodeType === nodetype;
 }
@@ -521,7 +532,7 @@ export function splitElement(locator: Locator, preservelocators: PreservedLocato
 
   // Move all nodes past locator to the new node
   const tocopy = Array.from(locator.element.childNodes).slice(locator.offset);
-  appendNodes(tocopy, newnode);
+  (newnode as HTMLElement).append(...tocopy);
 
   // Correct preservelocators for the node split
   applyPreserveFunc(preservelocators, (tocorrect) => _correctForNodeSplit(locator, newnode, preservetoward == 'start', tocorrect));
@@ -1008,7 +1019,7 @@ export function wrapNodesInNewNode(locator: Locator, nodecount: number, newnode:
   locator = locator.clone();
 
   const nodes = Array.from(locator.element.childNodes).slice(locator.offset, locator.offset + nodecount);
-  appendNodes(nodes, newnode);
+  (newnode as HTMLElement).append(...nodes);
 
   locator.insertNode(newnode);
 
@@ -1177,20 +1188,20 @@ export function removeNodesFromRange(range: Range, maxancestor: Node, filter: No
   // console.log('RNFR done', richdebug.getStructuredOuterHTML(maxancestor, range));
 }
 
-function canWrapNode(node: Node, canwrapnodefunc: (node: Node) => boolean) {
+function canWrapNode(node: HTMLElement, canwrapnodefunc: ((node: HTMLElement) => boolean) | undefined) {
   return (!canwrapnodefunc || canwrapnodefunc(node));
 }
 
-function getWrappingSplitRoot(locator: Locator, ancestor: Node, canwrapnodefunc: (node: Node) => boolean) {
+function getWrappingSplitRoot(locator: Locator, ancestor: Node, canwrapnodefunc: ((node: HTMLElement) => boolean) | undefined) {
   let node = locator.element;
   if ([3, 4].includes(node.nodeType)) //3=Text node, 4=CDATA
     node = node.parentNode as Node;
-  while (node != ancestor && canWrapNode(node, canwrapnodefunc))
+  while (node != ancestor && canWrapNode(node as HTMLElement, canwrapnodefunc))
     node = node.parentNode as Node;
   return node;
 }
 
-function wrapRangeRecursiveInternal(range: Range, ancestor: Node, createnodefunc: () => Node, canwrapnodefunc: (node: Node) => boolean, preservelocators: PreservedLocatorList) {
+function wrapRangeRecursiveInternal(range: Range, ancestor: Node, createnodefunc: () => HTMLElement, preservelocators: PreservedLocatorList, options?: BaseWrapRangeOptions) {
   //    console.log('WRRI start', richdebug.getStructuredOuterHTML(ancestor, range));
 
   // Get the range of nodes we need to visit in the current ancestor
@@ -1213,7 +1224,7 @@ function wrapRangeRecursiveInternal(range: Range, ancestor: Node, createnodefunc
     const node = localrange.start.getPointedNode();
     if (!node)
       throw new Error(`Could not find pointed to node`);
-    if ([3, 4].includes(node.nodeType) || canWrapNode(node, canwrapnodefunc)) {
+    if ([3, 4].includes(node.nodeType) || canWrapNode(node as HTMLElement, options?.onCanWrapNode)) {
       ++localrange.start.offset;
       continue;
     }
@@ -1231,8 +1242,10 @@ function wrapRangeRecursiveInternal(range: Range, ancestor: Node, createnodefunc
     const subrange = range.clone();
     subrange.intersect(noderange);
 
-    // Iterate into the node, and reset the start if the first wrappable node
-    wrapRangeRecursiveInternal(subrange, node, createnodefunc, canwrapnodefunc, preservelocators);
+    if (!options?.onAllowIn || options?.onAllowIn(node as HTMLElement)) {
+      // Iterate into the node, and reset the start if the first wrappable node
+      wrapRangeRecursiveInternal(subrange, node, createnodefunc, preservelocators, options);
+    }
 
     ++wrapstart.offset;
     localrange.start.assign(wrapstart);
@@ -1248,12 +1261,11 @@ function wrapRangeRecursiveInternal(range: Range, ancestor: Node, createnodefunc
   //    console.log('WRRI end', richdebug.getStructuredOuterHTML(ancestor));
 }
 
-export function wrapRange(range: Range, createnodefunc: () => Node, canwrapnodefunc: (node: Node) => boolean, preservelocators: PreservedLocatorList) {
+export function wrapRange(range: Range, createnodefunc: () => HTMLElement, options?: WrapRangeOptions): void {
   //    console.log('wrapRange', range, createnodefunc, canwrapnodefunc, mustwrapnodefunc, preservelocators);
 
   // Make sure range is preserved too
-  preservelocators = (preservelocators || []).slice();
-  preservelocators.push(range);
+  const preservelocators = [...(options?.preserveLocators || []), range];
 
   range = range.clone();
   //    range.descendToLeafNodes();
@@ -1264,7 +1276,7 @@ export function wrapRange(range: Range, createnodefunc: () => Node, canwrapnodef
   //    console.log('WR before presplits', richdebug.getStructuredOuterHTML(ancestor, range));
 
   //    console.log('WR going split1', richdebug.getStructuredOuterHTML(ancestor, { loc: range.start }));
-  const startroot = getWrappingSplitRoot(range.start, ancestor, canwrapnodefunc);
+  const startroot = getWrappingSplitRoot(range.start, ancestor, options?.onCanWrapNode);
 
   //    console.log('WR startroot', richdebug.getStructuredOuterHTML(ancestor, {startroot:startroot}));
 
@@ -1276,7 +1288,7 @@ export function wrapRange(range: Range, createnodefunc: () => Node, canwrapnodef
   range.start.assign(parts[1].start);
 
   //    console.log('WR presplit', richdebug.getStructuredOuterHTML(ancestor, {endroot:endroot, range: range}));
-  const endroot = getWrappingSplitRoot(range.end, ancestor, canwrapnodefunc);
+  const endroot = getWrappingSplitRoot(range.end, ancestor, options?.onCanWrapNode);
 
   parts = splitDom(endroot, [{ locator: range.end, toward: "start" }], preservelocators.concat([range.start]));
 
@@ -1284,7 +1296,7 @@ export function wrapRange(range: Range, createnodefunc: () => Node, canwrapnodef
 
   //    console.log('WR after presplits', richdebug.getStructuredOuterHTML(ancestor, range));
 
-  wrapRangeRecursiveInternal(range, ancestor, createnodefunc, canwrapnodefunc, preservelocators);
+  wrapRangeRecursiveInternal(range, ancestor, createnodefunc, preservelocators, options);
 }
 
 /** Combines adjacent nodes of with each other at a locator recursively
@@ -1477,11 +1489,6 @@ export function insertNodesAtLocator(nodes: Node[], locator: Locator, preservelo
     insertpos = insertpos.insertNode(nodes[i], preservelocators);
 
   return insertpos;
-}
-
-export function appendNodes(nodes: Node[], dest: Node) {
-  for (let i = 0; i < nodes.length; ++i)
-    dest.appendChild(nodes[i]);
 }
 
 export function removeNodeContents(node: Node) {
@@ -1867,24 +1874,7 @@ export class Locator {
     return next;
   }
 
-  _undoInsertNode(element: Node, node: Node, bogusbr: Node, replacebr: Node, insertbefore: Node) {
-    (node.parentNode as Node).removeChild(node);
-    if (replacebr) {
-      element.insertBefore(bogusbr, insertbefore);
-      element.removeChild(replacebr);
-    }
-  }
-
-  _redoInsertNode(element: Node, node: Node, bogusbr: Node, replacebr: Node, insertbefore: Node) {
-    if (replacebr) {
-      element.insertBefore(replacebr, insertbefore);
-      if (bogusbr.parentNode)
-        bogusbr.parentNode.removeChild(bogusbr);
-    }
-    element.insertBefore(node, insertbefore);
-  }
-
-  _correctForNodeInsert(locator: Locator, tocorrect: Locator) {
+  private _correctForNodeInsert(locator: Locator, tocorrect: Locator) {
     if (tocorrect.element == locator.element && tocorrect.offset >= locator.offset)
       ++tocorrect.offset;
   }
@@ -2396,7 +2386,7 @@ export class Locator {
     return maxancestor;
   }
 
-  legalize(maxancestor: Node, towardend: boolean) {
+  private legalize(maxancestor: Node, towardend: boolean) {
     let node = this.element;
     while (node && node !== maxancestor) {
       // If parent isn't splittable, ascend to its parent. Assuming the maxancestor is splittable!!!

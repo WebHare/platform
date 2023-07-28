@@ -324,7 +324,10 @@ export default class Range {
   }
 
   static fromSelection(selection: Selection) {
-    return new Range(new Locator(selection.anchorNode, selection.anchorOffset), new Locator(selection.focusNode, selection.focusOffset));
+    const start = new Locator(selection.anchorNode, selection.anchorOffset);
+    const end = new Locator(selection.focusNode, selection.focusOffset);
+    const reversed = start.compare(end) > 0;
+    return new Range(reversed ? end : start, reversed ? start : end);
   }
 
   static fromDOMRange(range) {
