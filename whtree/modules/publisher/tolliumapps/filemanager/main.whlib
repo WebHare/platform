@@ -2266,7 +2266,7 @@ PUBLIC STATIC OBJECTTYPE App EXTEND TolliumScreenBase
   MACRO OnViewBrowserList(OBJECT openhandler)
   {
     OBJECT obj := OpenWHFSObject(^filelist->selection.id);
-    openhandler->SendURL(GetViewURLWithFeedback(obj->link, this->contexts->user));
+    openhandler->SendURL(GetViewURLWithFeedback(obj, this->contexts->user));
   }
 
   MACRO OnViewBrowserLive(OBJECT openhandler)
