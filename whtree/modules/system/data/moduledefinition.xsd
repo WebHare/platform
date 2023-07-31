@@ -2123,7 +2123,7 @@
 
   <xs:complexType name="Catalog">
     <xs:annotation>
-      <xs:documentation>A consilio catalog (backed by either indexmanager or elasticsearch index)</xs:documentation>
+      <xs:documentation>A consilio catalog</xs:documentation>
     </xs:annotation>
 
     <xs:sequence>
@@ -2207,7 +2207,7 @@
   <xs:complexType name="Index">
     <xs:annotation>
       <xs:documentation>
-        An Elasticsearch index
+        An OpenSearch index
       </xs:documentation>
     </xs:annotation>
 
@@ -2256,7 +2256,7 @@
       <xs:element name="text">
         <xs:annotation>
           <xs:documentation>
-            A field containing analyzed text which will be tokenized for full-text search (type `text` in Elasticsearch)
+            A field containing analyzed text which will be tokenized for full-text search (type `text` in OpenSearch)
           </xs:documentation>
         </xs:annotation>
         <xs:complexType>
@@ -2286,7 +2286,7 @@
       <xs:element name="keyword">
         <xs:annotation>
           <xs:documentation>
-            A field containing a keyword value (type `keyword` in Elasticsearch). Keywords are not tokenized when indexing (can't search for individual words)
+            A field containing a keyword value (type `keyword` in OpenSearch). Keywords are not tokenized when indexing (can't search for individual words)
           </xs:documentation>
         </xs:annotation>
         <xs:complexType>
@@ -2309,7 +2309,7 @@
       <xs:element name="completion">
         <xs:annotation>
           <xs:documentation>
-            A field containing completion values (type `completion` in Elasticsearch)
+            A field containing completion values (type `completion` in OpenSearch)
           </xs:documentation>
         </xs:annotation>
         <xs:complexType>
@@ -2321,7 +2321,7 @@
       <xs:element name="integer">
         <xs:annotation>
           <xs:documentation>
-            A field containing an INTEGER value (type `integer` in Elasticsearch)
+            A field containing an INTEGER value (type `integer` in OpenSearch)
           </xs:documentation>
         </xs:annotation>
         <xs:complexType>
@@ -2332,7 +2332,7 @@
       <xs:element name="integer64">
         <xs:annotation>
           <xs:documentation>
-            A field containing an INTEGER64 value (type `long` in Elasticsearch)
+            A field containing an INTEGER64 value (type `long` in OpenSearch)
           </xs:documentation>
         </xs:annotation>
         <xs:complexType>
@@ -2343,7 +2343,7 @@
       <xs:element name="float">
         <xs:annotation>
           <xs:documentation>
-            A field containing a FLOAT value (type `double` in Elasticsearch)
+            A field containing a FLOAT value (type `double` in OpenSearch)
           </xs:documentation>
         </xs:annotation>
         <xs:complexType>
@@ -2354,7 +2354,7 @@
       <xs:element name="datetime">
         <xs:annotation>
           <xs:documentation>
-            A field containing a DATETIME value (type `date` in Elasticsearch)
+            A field containing a DATETIME value (type `date` in OpenSearch)
           </xs:documentation>
         </xs:annotation>
         <xs:complexType>
@@ -2365,7 +2365,7 @@
       <xs:element name="boolean">
         <xs:annotation>
           <xs:documentation>
-            A field containing a BOOLEAN value (type `boolean` in Elasticsearch)
+            A field containing a BOOLEAN value (type `boolean` in OpenSearch)
           </xs:documentation>
         </xs:annotation>
         <xs:complexType>
@@ -2376,7 +2376,7 @@
       <xs:element name="record">
         <xs:annotation>
           <xs:documentation>
-            A field containing RECORD values (object type with properties in Elasticsearch)
+            A field containing RECORD values (object type with properties in OpenSearch)
           </xs:documentation>
         </xs:annotation>
         <xs:complexType>
@@ -2390,7 +2390,7 @@
       <xs:element name="nested">
         <xs:annotation>
           <xs:documentation>
-            A field containing RECORD values (nested type with properties in Elasticsearch)
+            A field containing RECORD values (nested type with properties in OpenSearch)
           </xs:documentation>
         </xs:annotation>
         <xs:complexType>
@@ -2414,7 +2414,7 @@
       <xs:element name="latlng">
         <xs:annotation>
           <xs:documentation>
-            A field containing a geo location with lat and lng fields (type `geo_point` in Elasticsearch)
+            A field containing a geo location with lat and lng fields (type `geo_point` in OpenSearch)
           </xs:documentation>
         </xs:annotation>
         <xs:complexType>
@@ -2425,7 +2425,7 @@
       <xs:element name="ipaddress">
         <xs:annotation>
           <xs:documentation>
-            A field containing an IPv4 or IPv6 address (type `ip` in Elasticsearch)
+            A field containing an IPv4 or IPv6 address (type `ip` in OpenSearch)
           </xs:documentation>
         </xs:annotation>
         <xs:complexType>

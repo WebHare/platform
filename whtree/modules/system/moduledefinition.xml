@@ -1972,7 +1972,7 @@ The full base URL on which this site will be published, calculated by combining 
         <node name="security">
           <string name="cachesecret" description="Secret key used to sign image cache URLs" />
           <string name="cookiesecret" description="Secret key used to encrypt/sign cookies" />
-          <string name="elasticsecret" description="Secret key used for Elasticsearch" />
+          <string name="elasticsecret" description="Secret key used for OpenSearch" />
           <string name="debugsecret" description="Secret key used to debugging" />
           <boolean name="autodenyipv6" description="Automatically deny IPv6 access to URLs, if a global IPv4 deny exists" initialval="true" />
           <string name="ciphersuite" description="Override OpenSSL ciphersuite list for webserver listening ports" />

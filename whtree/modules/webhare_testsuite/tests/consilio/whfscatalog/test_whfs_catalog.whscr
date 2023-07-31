@@ -7,7 +7,7 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::consilio/lib/internal/whfscatalog/indexfields.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/opensearch.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/customcontent.whlib";
 
 LOADLIB "mod::publisher/lib/dialogs.whlib";

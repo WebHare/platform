@@ -1,8 +1,8 @@
 ﻿<group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <test script="test_tika.whscr" />
 
-  <!-- test ES parsers (and other internal stuff later?) - does not actually require an ES to communicate with, so we can always run this test -->
-  <test script="test_elasticsearch_internal.whscr" />
+  <!-- test OpenSearch parsers (and other internal stuff later?) - does not actually require an index server to communicate with, so we can always run this test -->
+  <test script="test_opensearch_internal.whscr" />
 
   <!-- API tests should go before other tests -->
   <test script="test_moduleindices.whscr" />

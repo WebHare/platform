@@ -17,16 +17,7 @@ MACRO LogStartup(STRING text)
 
 OBJECT trans := OpenPrimary();
 
-INTEGER builtin_indexmanager := SELECT AS INTEGER id FROM consilio.indexmanagers WHERE address = "builtin-elasticsearch";
-IF(builtin_indexmanager != 0) //old name, we need to update it. can go away past 5.02
-{
-  trans->BeginWork();
-  UPDATE consilio.indexmanagers SET address := "builtin-opensearch" WHERE address = "builtin-elasticsearch";
-  GetPrimary()->BroadcastOnCommit("system:apprunner.internal.rescan", DEFAULT RECORD);
-  trans->CommitWork();
-}
-
-builtin_indexmanager := SELECT AS INTEGER id FROM consilio.indexmanagers WHERE address = "builtin-opensearch";
+INTEGER builtin_indexmanager := SELECT AS INTEGER id FROM consilio.indexmanagers WHERE address = "builtin-opensearch";
 IF(builtin_indexmanager = 0)
 {
   LogStartup("There is no local OpenSearch yet, need to create one");

@@ -1,7 +1,7 @@
 <?wh
 
 LOADLIB "mod::consilio/lib/catalogs.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/opensearch.whlib";
 
 LOADLIB "mod::system/lib/services.whlib";
 

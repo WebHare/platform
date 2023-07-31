@@ -6,8 +6,8 @@ LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::consilio/lib/internal/catalogdefparser.whlib";
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/opensearch/mapping.whlib";
+LOADLIB "mod::consilio/lib/internal/opensearch.whlib";
 LOADLIB "mod::consilio/lib/internal/finishhandler.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -117,7 +117,7 @@ BOOLEAN FUNCTION AttemptZap(OBJECT catalog)
   Print(`Deleting attached indices for catalog '${catalog->tag}'\n`);
   FOREVERY(RECORD indexrec FROM catalog->ListAttachedIndices())
     IF(NOT indexrec.readonly)
-      SendRawJSONToElasticSearch(indexrec.indexmanager, "DELETE", indexrec.indexname || catalog->suffixmask, DEFAULT RECORD);
+      SendRawJSONToOpenSearch(indexrec.indexmanager, "DELETE", indexrec.indexname || catalog->suffixmask, DEFAULT RECORD);
 
   TRY
   {

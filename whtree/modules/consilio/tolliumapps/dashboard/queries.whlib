@@ -1,7 +1,7 @@
 <?wh
 
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/opensearch.whlib";
 
 LOADLIB "mod::system/lib/screenbase.whlib";
 LOADLIB "mod::system/lib/internal/modules/json.whlib";
@@ -60,7 +60,6 @@ PUBLIC STATIC OBJECTTYPE Queries EXTEND DashboardPanelBase
     ^queries->rows := SELECT rowkey := uuid
                            , query := CellExists(seenqueries,'query') ? query : EncodeJSON(searchquery) //ES gives us searchquery
                            , searchquery := CellExists(seenqueries,'searchquery') ? searchquery : DEFAULT RECORD
-                           , iselastic := CellExists(seenqueries,'searchquery')
                            , catalog
                            , when := now
                         FROM this->seenqueries;
@@ -99,7 +98,7 @@ PUBLIC STATIC OBJECTTYPE InspectQuery EXTEND TolliumScreenBase
       IF(NOT RecordExists(query))
         THROW NEW Exception("Invalid JSON format");
 
-      RECORD res := SendRawJSONToElasticsearch(^indexmanager->value, query.method, query.path, query.body);
+      RECORD res := SendRawJSONToOpenSearch(^indexmanager->value, query.method, query.path, query.body);
       ^result->value := PrettifyJSON(EncodeJSON(res.result));
     }
     CATCH(OBJECT e)
