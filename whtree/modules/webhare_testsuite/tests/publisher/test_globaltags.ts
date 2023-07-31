@@ -5,9 +5,9 @@ import * as whfs from "@webhare/whfs";
 async function prepareTests() {
   await whdb.beginWork();
 
-  const tagset = await whfs.openFolder("/webhare-private/system/whfs-tags/webhare_testsuite/testtags", { allowMissing: true });
-  if (tagset)
-    await tagset.delete();
+  const tagSet = await whfs.openFolder("/webhare-private/system/whfs-tags/webhare_testsuite/testtags", { allowMissing: true });
+  if (tagSet)
+    await tagSet.delete();
 
   await whdb.commitWork();
 }

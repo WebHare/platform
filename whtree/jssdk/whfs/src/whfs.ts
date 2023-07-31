@@ -7,7 +7,11 @@ import { CSPContentType } from "./siteprofiles";
 export { describeContentType } from "./contenttypes";
 export { Tag, TagManager, openTagManager } from "./tagmanager";
 
-/// Adds the custom generated columns
+// Adds the custom generated columns
+interface SiteRow extends Selectable<WebHareDB, "system.sites"> {
+  webroot: string;
+}
+
 interface FsObjectRow extends Selectable<WebHareDB, "system.fs_objects"> {
   link: string;
   fullpath: string;
@@ -15,16 +19,102 @@ interface FsObjectRow extends Selectable<WebHareDB, "system.fs_objects"> {
   parentsite: number | null;
 }
 
-/// Adds the custom generated columns
-interface SiteRow extends Selectable<WebHareDB, "system.sites"> {
-  webroot: string;
+/// Public version with expected javascript mixed casing
+interface ListableFsObjectRow {
+  /// Unique identification for this file
+  id: number;
+  /// The date and time in UTC when this file was created
+  creationDate: Date;
+  /// The content of the file, for file types which have physical content (all file types except profiles and link files)
+  // data: WHDBBlob | null;
+  /// A description for this file
+  description: string;
+  /// Contains additional error information for some publication status codes
+  // errorData: string;
+  /// If this file is of type 'external link', the URL to which this file points
+  // externalLink: string;
+  /// If this is an internal or content link file, the id of the linked file
+  // fileLink: number | null;
+  /// The path from the site's root folder to this file. Always starts and ends with a slash character ('/')
+  fullPath: string;
+  /// Full path to the file from the root of the WHFS file system - unlike fullpath, this path does not stop at the site root
+  whfsPath: string;
+  /// The id of the hightest parent that is still in the same site. Equivalent to the 'root' field of the folder's parentsite. 0 if this folder is not inside a site.
+  parentSite: number | null;
+  /** This is the id of the index document of the folder.
+                If a file is selected or a folder has no indexdoc, the indexdoc is 0 else the indexdoc is the id of the file.
+  */
+  indexDoc: number | null;
+  /// The indexurl, is the url of the currently selected document.
+  link: string;
+  /// Whether the selected item is a folder
+  isFolder: boolean;
+  /// A list of keywords for this file (no specific format for this column is imposed by the WebHare Publisher itself)
+  keywords: string;
+  /// The date and time in UTC when this file was first published
+  // firstPublishDate: Date;
+  /// The date and time in UTC when this file was last published
+  // lastPublishDate: Date;
+  /// The size of the item since its last publication
+  // lastPublishSize: number;
+  /// The time in milliseconds it took to publish the file, last time we succesfully published it. 0 if no measurement is available.
+  // lastPublishTime: number;
+  /// File scanned data, used to reconstruct a scannedblob record and save some tweakable metadata (such as dominantcolor)
+  // scanData: string;
+  /// The id of the user that modified this item last.
+  // modifiedBy: number | null;
+  /// The date and time in UTC when this file was last modified
+  modificationDate: Date;
+  /// The name for this file, which must be unique inside its parent folder
+  name: string;
+  /// Relative ordering of this file
+  ordering: number;
+  /// Id of the folder containing this file
+  parent: number | null;
+  /// Checks if the document needs to be published or not
+  publish: boolean;
+  /// Status en flags indicating the current publishing, task and error status of the file.
+  // published: number;
+  /// The title of the currently selected item
+  title: string;
+  /// The file's type. See the file type list for more information on the currently supported file ids.
+  type: string;
+  /// The URL to (the first page of) the published file. An empty string if this file will not be published.
+  // url: string;
+  /// Checks if the current selected item is active
+  // isActive: boolean;
+  /// Checks if the current selected item is pinned, if yes; the item cannot be replaced/renamed or deleted.
+  isPinned: boolean;
+}
+
+/// Public version with expected javascript mixed casing
+interface ListableSiteRow {
+  id: number;
+  /// A short description of the contents of the site
+  description: string;
+  /// True if this site is locked (it may not be browsed or modified by its owners, and the site published output will not be modified)
+  locked: boolean;
+  /// The reason specified by the user locking this site
+  lockReason: string;
+  /// The name for this site, as displayed in the site overview
+  name: string;
+  /// The subfolder in which the site should be published inside the specified webserver. This folder's name always ends in a slash
+  outputFolder: string;
+  /// The webserver on which this site is hosted, null if the site is not published
+  outputWeb: number | null;
+  /// The corresponding CDN URL for the webroot
+  cdnBaseUrl: string;
+  /// The full base URL on which this site will be published, calculated by combining and encoding the webserver's base URL and the site's output folder. Empty if this site is not published
+  webRoot: string;
+  /// Whether the site is under version control
+  versioningPolicy: string;
 }
 
 export interface CreateFSObjectMetadata {
   type?: string;
   title?: string;
   description?: string;
-  ispinned?: boolean;
+  isPinned?: boolean;
 }
 
 export interface CreateFileMetadata extends CreateFSObjectMetadata {
@@ -70,12 +160,12 @@ class WHFSObject {
   get name() { return this.dbrecord.name; }
   get title() { return this.dbrecord.title; }
   get parent() { return this.dbrecord.parent; }
-  get isfile() { return !this.dbrecord.isfolder; }
-  get isfolder() { return !this.dbrecord.isfolder; }
+  get isFile() { return !this.dbrecord.isfolder; }
+  get isFolder() { return !this.dbrecord.isfolder; }
   get link() { return this.dbrecord.link; }
-  get fullpath() { return this.dbrecord.fullpath; }
-  get whfspath() { return this.dbrecord.whfspath; }
-  get parentsite() { return this.dbrecord.parentsite; }
+  get fullPath() { return this.dbrecord.fullpath; }
+  get whfsPath() { return this.dbrecord.whfspath; }
+  get parentSite() { return this.dbrecord.parentsite; }
 
   async delete(): Promise<void> {
     //TODO implement side effects that the HS variants do
@@ -85,7 +175,7 @@ class WHFSObject {
   protected async _doUpdate(metadata: UpdateFileMetadata | UpdateFolderMetadata) {
     let storedata: Updateable<WebHareDB, "system.fs_objects">;
     if (metadata.type) {
-      const type = getType(metadata.type, this.isfile ? "filetype" : "foldertype");
+      const type = getType(metadata.type, this.isFile ? "fileType" : "folderType");
       if (!type)
         throw new Error(`No such type: ${metadata.type}`);
 
@@ -110,12 +200,35 @@ class WHFSFile extends WHFSObject {
     return new WHFSRichBlob(this.dbrecord.data);
   }
   get type(): FileTypeInfo {
-    return describeContentType(this.dbrecord.type || 0, { allowMissing: true, kind: "filetype" });
+    return describeContentType(this.dbrecord.type || 0, { allowMissing: true, kind: "fileType" });
   }
   async update(metadata: UpdateFileMetadata) {
     this._doUpdate(metadata);
   }
 }
+
+const fsObjects_js_to_db: Record<keyof ListableFsObjectRow, keyof FsObjectRow> = {
+  "creationDate": "creationdate",
+  "description": "description",
+  "fullPath": "fullpath",
+  "whfsPath": "whfspath",
+  "parentSite": "parentsite",
+  "indexDoc": "indexdoc",
+  "link": "link",
+  "id": "id",
+  "isFolder": "isfolder",
+  "keywords": "keywords",
+  "modificationDate": "modificationdate",
+  "name": "name",
+  "ordering": "ordering",
+  "parent": "parent",
+  "publish": "publish",
+  "title": "title",
+  "type": "type",
+  "isPinned": "ispinned"
+};
+
+// const fsObjects_db_to_js: Partial<Record<keyof FsObjectRow, keyof ListableFsObjectRow>> = Object.fromEntries(Object.entries(fsObjects_js_to_db).map(([k, v]) => [v, k]));
 
 class WHFSFolder extends WHFSObject {
   constructor(dbrecord: FsObjectRow) {
@@ -124,27 +237,45 @@ class WHFSFolder extends WHFSObject {
 
   get indexdoc() { return this.dbrecord.indexdoc; }
 
-  async list<K extends keyof FsObjectRow>(keys: K[]): Promise<Array<Pick<FsObjectRow, K | "id" | "name" | "isfolder">>> {
-    const selectkeys: Array<K | "id" | "name" | "isfolder"> = ["id", "name", "isfolder"];
-    for (const k of keys)
-      if (!selectkeys.includes(k))
-        selectkeys.push(k);
+  async list<K extends keyof ListableFsObjectRow>(keys: K[]): Promise<Array<Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder">>> {
+    const getkeys = new Set<keyof ListableFsObjectRow>(["id", "name", "isFolder", ...keys]);
+    const selectkeys = new Set<keyof FsObjectRow>;
+
+    for (const k of getkeys) {
+      const dbkey = fsObjects_js_to_db[k];
+      if (!dbkey)
+        throw new Error(`No such listable property '${k}'`); //TODO didyoumean
+      selectkeys.add(dbkey);
+    }
 
     const retval = await db<WebHareDB>()
       .selectFrom("system.fs_objects")
       .where("parent", "=", this.id)
       .orderBy("name")
-      .select(excludeKeys(selectkeys, ["link", "fullpath", "whfspath", "parentsite"]))
-      .$if(keys.includes("link" as K), qb => qb.select(sql<string>`webhare_proc_fs_objects_indexurl(id,name,isfolder,parent,published,type,externallink,filelink,indexdoc)`.as("link")))
-      .$if(keys.includes("fullpath" as K), qb => qb.select(sql<string>`webhare_proc_fs_objects_fullpath(id,isfolder)`.as("fullpath")))
-      .$if(keys.includes("whfspath" as K), qb => qb.select(sql<string>`webhare_proc_fs_objects_whfspath(id,isfolder)`.as("whfspath")))
-      .$if(keys.includes("parentsite" as K), qb => qb.select(sql<number>`webhare_proc_fs_objects_highestparent(id, NULL)`.as("parentsite")))
+      .select(excludeKeys([...selectkeys], ["link", "fullpath", "whfspath", "parentsite"]))
+      .$if(getkeys.has("link"), qb => qb.select(sql<string>`webhare_proc_fs_objects_indexurl(id,name,isfolder,parent,published,type,externallink,filelink,indexdoc)`.as("link")))
+      .$if(getkeys.has("fullPath"), qb => qb.select(sql<string>`webhare_proc_fs_objects_fullpath(id,isfolder)`.as("fullpath")))
+      .$if(getkeys.has("whfsPath"), qb => qb.select(sql<string>`webhare_proc_fs_objects_whfspath(id,isfolder)`.as("whfspath")))
+      .$if(getkeys.has("parentSite"), qb => qb.select(sql<number>`webhare_proc_fs_objects_highestparent(id, NULL)`.as("parentsite")))
       .execute();
 
-    /* Need an explicit cast because $if can't be made type-safe. cast to unknown needed because TS 5.0.2 errors out on the
-       comparision with retval's current type, with `Type instantiation is excessively deep and possibly infinite. (ts2589)`
-    */
-    return retval as unknown as Array<Pick<FsObjectRow, K | "id" | "name" | "isfolder">>;
+    const mappedrows = retval.map(row => {
+      const result: Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder" | "type"> = {} as Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder" | "type">;
+      for (const k of getkeys) {
+        if (k === 'type') { //remap to string
+          const type = describeContentType(row.type || 0, { allowMissing: true, kind: row.isfolder ? "folderType" : "fileType" });
+          result.type = type?.namespace ?? "#" + row.type;
+        } else {
+          const dbkey = fsObjects_js_to_db[k];
+          if (dbkey in row)
+            ///@ts-ignore Too complex for typescript to figure out apparently. We'll write a manual test..
+            result[k] = row[dbkey];
+        }
+      }
+      return result;
+    });
+
+    return mappedrows;
   }
 
   async update(metadata: UpdateFolderMetadata) {
@@ -174,16 +305,16 @@ class WHFSFolder extends WHFSObject {
         ordering: 0,
         published: 0,
         type: type.id || null, //#0 can't be stored so convert to null
-        ispinned: metadata.ispinned || false
+        ispinned: metadata.isPinned || false
       }).returning(['id']).executeTakeFirstOrThrow();
 
     return retval.id;
   }
 
   async createFile(name: string, metadata: CreateFileMetadata): Promise<WHFSFile> {
-    const type = getType(metadata.type ?? unknownfiletype, "filetype");
+    const type = getType(metadata.type ?? unknownfiletype, "fileType");
     if (!type || !type.filetype)
-      throw new Error(`No such filetype: ${metadata.type}`);
+      throw new Error(`No such fileType: ${metadata.type}`);
 
     return await openFile((await this.doCreate(name, type, metadata)));
   }
@@ -199,9 +330,9 @@ class WHFSFolder extends WHFSObject {
   }
 
   async createFolder(name: string, metadata: CreateFolderMetadata): Promise<WHFSFolder> {
-    const type = getType(metadata.type ?? normalfoldertype, "foldertype");
+    const type = getType(metadata.type ?? normalfoldertype, "folderType");
     if (!type || !type.foldertype)
-      throw new Error(`No such foldertype: ${metadata.type}`);
+      throw new Error(`No such folderType: ${metadata.type}`);
 
     return await openFolder((await this.doCreate(name, type, metadata)));
   }
@@ -219,13 +350,13 @@ class WHFSFolder extends WHFSObject {
   async openFile(path: string, options: { allowMissing: true }): Promise<WHFSFile | null>;
   async openFile(path: string, options?: { allowMissing: boolean }): Promise<WHFSFile>;
   async openFile(path: string, options?: { allowMissing: boolean }) {
-    return openWHFSObject(this.id, path, true, options?.allowMissing ?? false, `in folder '${this.whfspath}'`);
+    return openWHFSObject(this.id, path, true, options?.allowMissing ?? false, `in folder '${this.whfsPath}'`);
   }
 
   async openFolder(path: string, options: { allowMissing: true }): Promise<WHFSFolder | null>;
   async openFolder(path: string, options?: { allowMissing: boolean }): Promise<WHFSFolder>;
   async openFolder(path: string, options?: { allowMissing: boolean }) {
-    return openWHFSObject(this.id, path, false, options?.allowMissing ?? false, `in folder '${this.whfspath}'`);
+    return openWHFSObject(this.id, path, false, options?.allowMissing ?? false, `in folder '${this.whfsPath}'`);
   }
 }
 
@@ -363,7 +494,7 @@ class Site {
 
   get id() { return this.dbrow.id; }
   get name() { return this.dbrow.name; }
-  get webroot() { return this.dbrow.webroot; }
+  get webRoot() { return this.dbrow.webroot; }
 
   constructor(siterecord: SiteRow) {
     this.dbrow = siterecord;
@@ -381,6 +512,19 @@ class Site {
     return openWHFSObject(this.id, path, false, options?.allowMissing ?? false, `in site '${this.name}'`);
   }
 }
+
+const sites_js_to_db: Record<keyof ListableSiteRow, keyof SiteRow> = {
+  "cdnBaseUrl": "cdnbaseurl",
+  "description": "description",
+  "id": "id",
+  "locked": "locked",
+  "lockReason": "lockreason",
+  "name": "name",
+  "outputFolder": "outputfolder",
+  "outputWeb": "outputweb",
+  "versioningPolicy": "versioningpolicy",
+  "webRoot": "webroot"
+};
 
 export async function openSite(site: number | string, options: { allowMissing: true }): Promise<Site | null>;
 export async function openSite(site: number | string, options?: { allowMissing: boolean }): Promise<Site>;
@@ -409,17 +553,36 @@ export async function openSite(site: number | string, options?: { allowMissing: 
 }
 
 /** List all WebHare sites */
-export async function listSites<K extends keyof SiteRow>(keys: K[] = []): Promise<Array<Pick<SiteRow, K | "id" | "name">>> {
-  const selectkeys: Array<K | "id" | "name"> = ["id", "name"];
-  for (const k of keys)
-    if (!selectkeys.includes(k))
-      selectkeys.push(k);
+export async function listSites<K extends keyof ListableSiteRow>(keys: K[] = []): Promise<Array<Pick<ListableSiteRow, K | "id" | "name">>> {
+  const getkeys = new Set<keyof ListableSiteRow>(["id", "name", ...keys]);
+  const selectkeys = new Set<keyof SiteRow>;
 
-  return await db<WebHareDB>()
+  for (const k of getkeys) {
+    const dbkey = sites_js_to_db[k];
+    if (!dbkey)
+      throw new Error(`No such listable property '${k}'`); //TODO didyoumean
+    selectkeys.add(dbkey);
+  }
+
+  const rows = await db<WebHareDB>()
     .selectFrom("system.sites")
-    .select(excludeKeys(selectkeys, ["webroot"]))
-    .$if(keys.includes("webroot" as K), qb => qb.select(sql<string>`webhare_proc_sites_webroot(outputweb, outputfolder)`.as("webroot")))
-    .execute() as Array<Pick<SiteRow, K | "id" | "name">>;
+    .select(excludeKeys([...selectkeys], ["webroot"]))
+    .$if(selectkeys.has("webroot"), qb => qb.select(sql<string>`webhare_proc_sites_webroot(outputweb, outputfolder)`.as("webroot")))
+    .execute();
+
+  const mappedrows = rows.map(row => {
+
+    const result: Pick<ListableSiteRow, K | "id" | "name"> = {} as Pick<ListableSiteRow, K | "id" | "name">;
+    for (const k of getkeys) {
+      const dbkey = sites_js_to_db[k];
+      if (dbkey in row)
+        ///@ts-ignore Too complex for typescript to figure out apparently. We'll write a manual test..
+        result[k] = row[dbkey];
+    }
+    return result;
+  });
+
+  return mappedrows;
 }
 
 export async function openFile(path: number | string, options: { allowMissing: true }): Promise<WHFSFile | null>;

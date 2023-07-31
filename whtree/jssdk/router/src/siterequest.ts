@@ -79,10 +79,10 @@ class SiteRequest {
 }
 
 export async function buildSiteRequest(webrequest: WebRequest, targetobject: WHFSFile, { contentobject, navobject }: { contentobject?: WHFSObject; navobject?: WHFSObject } = {}): Promise<SiteRequest> {
-  if (!targetobject.parentsite)
-    throw new Error(`Target '${targetobject.whfspath}' (#${targetobject.id}) is not in a site`);
+  if (!targetobject.parentSite)
+    throw new Error(`Target '${targetobject.whfsPath}' (#${targetobject.id}) is not in a site`);
 
-  const targetsite = await openSite(targetobject.parentsite);
+  const targetsite = await openSite(targetobject.parentSite);
   const targetfolder = await openFolder(targetobject.parent!); //parent must exist if we're in a site.
   return new SiteRequest(webrequest, targetsite, targetfolder, targetobject, { contentobject, navobject });
 }

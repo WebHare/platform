@@ -24,7 +24,7 @@ function getWHConfig(parseddoc: Document) {
 
 async function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: WebResponse) {
   const doc = parseHTMLDoc(await response.text());
-  test.eq(markdowndoc.whfspath, doc.getElementById("whfspath")?.textContent, "Expect our whfspath to be in the source");
+  test.eq(markdowndoc.whfsPath, doc.getElementById("whfspath")?.textContent, "Expect our whfspath to be in the source");
 
   const contentdiv = doc.getElementById("content");
   test.eq("Markdown file", contentdiv?.getElementsByTagName("h2")[0]?.textContent);
@@ -67,7 +67,7 @@ async function testSiteResponse() {
   //Verify markdown contents
   const responsetext = await response.text();
   const doc = parseHTMLDoc(responsetext);
-  test.eq(markdowndoc.whfspath, doc.getElementById("whfspath")?.textContent, "Expect our whfspath to be in the source");
+  test.eq(markdowndoc.whfsPath, doc.getElementById("whfspath")?.textContent, "Expect our whfspath to be in the source");
   const contentdiv = doc.getElementById("content");
   test.eq("This is a body!", contentdiv?.getElementsByTagName("p")[0]?.textContent);
   test.eq("text/html; charset=utf-8", response.getHeader("content-type"));

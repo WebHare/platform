@@ -8,11 +8,11 @@ import "../internal/form.lang.json";
 import { getTid } from "@mod-tollium/js/gettid";
 import FormBase from '../formbase';
 
-function isAcceptableType(filetype, masks) {
-  if (masks.includes(filetype))
+function isAcceptableType(fileType, masks) {
+  if (masks.includes(fileType))
     return true;
 
-  const basetype = filetype.split('/')[0];
+  const basetype = fileType.split('/')[0];
   if (['image', 'video', 'audio'].includes(basetype) && masks.includes(basetype + '/*'))
     return true;
 

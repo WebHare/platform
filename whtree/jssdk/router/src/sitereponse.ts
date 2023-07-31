@@ -216,7 +216,7 @@ export class SiteResponse<T extends object = object> {
       designroot,
       designcdnroot: designroot, //FIXME
       imgroot: designroot + "img/",
-      siteroot: this.siterequest.targetsite.webroot
+      siteroot: this.siterequest.targetsite.webRoot
     };
     const wittydata = {
       //FIXME base on the supported languages or just assume we're going to build a cool proxy

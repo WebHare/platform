@@ -14,7 +14,7 @@ export interface BaseTestPageConfig {
 
 export async function BaseTestJSDesign(request: SiteRequest, settings: SiteResponseSettings) {
   const pageconfig: BaseTestPageConfig = {
-    whfspath: request.targetobject.whfspath,
+    whfspath: request.targetobject.whfsPath,
     contentobjectpath: "FIXME", //are we receiving contentobject yet ?
     navigationobjectpath: "FIXME", //are we receiving navigationobject yet ?
     widget: null,

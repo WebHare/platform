@@ -13,7 +13,7 @@ export async function lookupPublishedTarget(url: string) {
     return null;
 
   const targetobject = await whfs.openFile(lookupresult.file);
-  if (!targetobject || !targetobject.parentsite || !targetobject.parent)
+  if (!targetobject || !targetobject.parentSite || !targetobject.parent)
     return null;
 
   //TODO also gather webdesign info

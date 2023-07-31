@@ -9,7 +9,7 @@ async function testWHFS() {
 
   const testsite = await whfs.openSite("webhare_testsuite.testsite");
   test.assert(testsite, "We need the testsite to exist");
-  test.eqMatch(/^https?:.*/, testsite.webroot);
+  test.eqMatch(/^https?:.*/, testsite.webRoot);
   test.eq(testsite.id, (await whfs.openSite(testsite.id)).id);
   test.eq(testsite.id, (await whfs.listSites()).find(_ => _.name == "webhare_testsuite.testsite")?.id);
 
@@ -20,10 +20,10 @@ async function testWHFS() {
 
   const markdownfile = await testsite.openFile("testpages/markdownpage");
   test.assert(markdownfile);
-  test.assert(markdownfile.isfile);
-  test.eq(testsite.webroot + "TestPages/markdownpage/", markdownfile.link);
-  test.eq("/TestPages/markdownpage", markdownfile.fullpath);
-  test.eq(testsite.id, markdownfile.parentsite);
+  test.assert(markdownfile.isFile);
+  test.eq(testsite.webRoot + "TestPages/markdownpage/", markdownfile.link);
+  test.eq("/TestPages/markdownpage", markdownfile.fullPath);
+  test.eq(testsite.id, markdownfile.parentSite);
 
   const rootfolder = await testsite.openFolder(".");
   test.eq(testsite.id, rootfolder.id);
@@ -41,23 +41,26 @@ async function testWHFS() {
     {
       id: markdownfile.id,
       name: markdownfile.name,
-      isfolder: false,
+      isFolder: false,
       parent: testpagesfolder.id,
     }
   ], list.filter(e => e.name == markdownfile.name));
   for (let i = 0; i < list.length - 1; ++i)
     test.assert(list[i].name < list[i + 1].name, "List should be sorted on name");
 
+  const list2 = await testpagesfolder.list(["type"]);
+  test.eq("http://www.webhare.net/xmlns/publisher/richdocumentfile", list2.find(_ => _.name === 'staticpage-ps-af')?.type);
+
   //Compare other opening routes
   test.eq(markdownfile.id, (await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage")).id);
   test.eq(markdownfile.id, (await whfs.openFile(markdownfile.id)).id);
-  test.eq(markdownfile.id, (await whfs.openFile("whfs::" + markdownfile.whfspath)).id);
+  test.eq(markdownfile.id, (await whfs.openFile("whfs::" + markdownfile.whfsPath)).id);
 
   test.eq(testpagesfolder.id, (await testsite.openFolder("testpages")).id);
   test.eq(testpagesfolder.id, (await whfs.openFolder("site::webhare_testsuite.testsite/testpages")).id);
   test.eq(testpagesfolder.id, (await whfs.openFolder("site::webhare_testsuite.testsite/testpages/")).id);
   test.eq(testpagesfolder.id, (await whfs.openFolder(testpagesfolder.id)).id);
-  test.eq(testpagesfolder.id, (await whfs.openFolder("whfs::" + testpagesfolder.whfspath)).id);
+  test.eq(testpagesfolder.id, (await whfs.openFolder("whfs::" + testpagesfolder.whfsPath)).id);
 
   //Read a 'fs_objects.data' cell
   const wittytestfile = await testpagesfolder.openFile("wittytest.witty");
