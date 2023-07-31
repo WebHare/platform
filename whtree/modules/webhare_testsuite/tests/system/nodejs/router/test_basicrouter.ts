@@ -13,13 +13,13 @@ interface GetRequestDataResponse {
 function testWebRequest() {
   let req = new IncomingWebRequest(services.config.backendURL);
   test.eq(services.config.backendURL, req.url.toString());
-  test.eq(services.config.backendURL, req.baseUrl);
+  test.eq(services.config.backendURL, req.baseURL);
   test.eq("", req.localPath);
 
   req = new IncomingWebRequest(services.config.backendURL + "sub%20URL/dir/f?hungry4=Spicy");
   test.eq("Spicy", req.url.searchParams.get("hungry4"));
   test.eq(null, req.url.searchParams.get("Hungry4"), "On the JS side we're case sensitive");
-  test.eq(services.config.backendURL, req.baseUrl);
+  test.eq(services.config.backendURL, req.baseURL);
   test.eq("sub url/dir/f", req.localPath);
 
   test.throws(/original base/, () => newForwardedWebRequest(req, "sub URL/"));
@@ -29,12 +29,12 @@ function testWebRequest() {
 
   const req2 = newForwardedWebRequest(req, "sub%20URL/");
   test.eq("Spicy", req2.url.searchParams.get("hungry4"));
-  test.eq(services.config.backendURL + "sub%20URL/", req2.baseUrl);
+  test.eq(services.config.backendURL + "sub%20URL/", req2.baseURL);
   test.eq("dir/f", req2.localPath);
 
   const req3 = newForwardedWebRequest(req2, "dir/");
   test.eq("Spicy", req3.url.searchParams.get("hungry4"));
-  test.eq(services.config.backendURL + "sub%20URL/dir/", req3.baseUrl);
+  test.eq(services.config.backendURL + "sub%20URL/dir/", req3.baseURL);
   test.eq("f", req3.localPath);
 }
 
@@ -67,33 +67,33 @@ async function testHSWebserver() {
 }
 
 async function testJSBackedURLs() {
-  const baseUrl = services.config.backendURL + ".webhare_testsuite/tests/js/";
-  let fetchresult = await fetch(baseUrl);
+  const baseURL = services.config.backendURL + ".webhare_testsuite/tests/js/";
+  let fetchresult = await fetch(baseURL);
   let jsonresponse = await fetchresult.json();
 
   test.eq(400, fetchresult.status);
   test.eq("Invalid request", jsonresponse.error);
 
-  fetchresult = await fetch(baseUrl + "?type=debug");
+  fetchresult = await fetch(baseURL + "?type=debug");
   jsonresponse = await fetchresult.json();
 
   test.eq(200, fetchresult.status);
   test.eq(true, jsonresponse.debug);
-  test.eq(baseUrl + "?type=debug", jsonresponse.url);
-  test.eq(baseUrl, jsonresponse.baseUrl);
+  test.eq(baseURL + "?type=debug", jsonresponse.url);
+  test.eq(baseURL, jsonresponse.baseURL);
   test.eq("", jsonresponse.localPath);
 
-  fetchresult = await fetch(baseUrl + "Sub%20Url?type=debug");
+  fetchresult = await fetch(baseURL + "Sub%20Url?type=debug");
   jsonresponse = await fetchresult.json();
 
-  test.eq(baseUrl + "Sub%20Url?type=debug", jsonresponse.url);
-  test.eq(baseUrl, jsonresponse.baseUrl);
+  test.eq(baseURL + "Sub%20Url?type=debug", jsonresponse.url);
+  test.eq(baseURL, jsonresponse.baseURL);
   test.eq("sub url", jsonresponse.localPath);
 
-  fetchresult = await fetch(baseUrl + "Sub%20Url?type=debug", { method: "post", headers: { "x-test": "42" }, body: "a=1&b=2" });
+  fetchresult = await fetch(baseURL + "Sub%20Url?type=debug", { method: "post", headers: { "x-test": "42" }, body: "a=1&b=2" });
   jsonresponse = await fetchresult.json();
-  test.eq(baseUrl + "Sub%20Url?type=debug", jsonresponse.url);
-  test.eq(baseUrl, jsonresponse.baseUrl);
+  test.eq(baseURL + "Sub%20Url?type=debug", jsonresponse.url);
+  test.eq(baseURL, jsonresponse.baseURL);
   test.eq("sub url", jsonresponse.localPath);
   test.eq("42", jsonresponse.headers["x-test"]);
   test.eq("a=1&b=2", jsonresponse.text);
@@ -103,7 +103,7 @@ async function testJSBackedURLs() {
   jsonresponse = await fetchresult.json();
 
   test.eq(mixedcase_baseUrl + "Sub%20Url?type=debug", jsonresponse.url);
-  test.eq(mixedcase_baseUrl, jsonresponse.baseUrl);
+  test.eq(mixedcase_baseUrl, jsonresponse.baseURL);
   test.eq("sub url", jsonresponse.localPath);
 
   //Follow an ambiguous URL due to a caller having its own opinion about URL encoding

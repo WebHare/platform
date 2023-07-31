@@ -487,11 +487,11 @@ export async function invoke(libfunc, ...params) {
 
   return result;
 }
-export function getWrdLogoutUrl(returnurl) {
+export function getWrdLogoutURL(returnurl) {
   return new URL('/.wrd/auth/logout.shtml?b=' + encodeURIComponent(returnurl.split('/').slice(3).join('/')), returnurl).toString();
 }
 export function wrdAuthLogout() {
-  const redirectto = getWrdLogoutUrl(getWin().location.href);
+  const redirectto = getWrdLogoutURL(getWin().location.href);
   window.parent.document.querySelector('#testframeholder iframe').src = redirectto;
 }
 export async function writeLogMarker(text) {

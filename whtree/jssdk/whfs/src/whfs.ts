@@ -103,7 +103,7 @@ interface ListableSiteRow {
   /// The webserver on which this site is hosted, null if the site is not published
   outputWeb: number | null;
   /// The corresponding CDN URL for the webroot
-  cdnBaseUrl: string;
+  cdnBaseURL: string;
   /// The full base URL on which this site will be published, calculated by combining and encoding the webserver's base URL and the site's output folder. Empty if this site is not published
   webRoot: string;
   /// Whether the site is under version control
@@ -514,7 +514,7 @@ class Site {
 }
 
 const sites_js_to_db: Record<keyof ListableSiteRow, keyof SiteRow> = {
-  "cdnBaseUrl": "cdnbaseurl",
+  "cdnBaseURL": "cdnbaseurl",
   "description": "description",
   "id": "id",
   "locked": "locked",

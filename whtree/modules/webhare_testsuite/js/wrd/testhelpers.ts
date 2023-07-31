@@ -55,7 +55,7 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { keephistor
   await persontype.createAttribute("testintextlink", { attributeType: WRDAttributeType.WHFSIntextlink, title: "Testintextlink" });
   await persontype.createAttribute("testintextlinkNocheck", { attributeType: WRDAttributeType.WHFSIntextlink, title: "Testintextlink with checklinks=false", checkLinks: false });
   await persontype.createAttribute("testlink", { attributeType: WRDAttributeType.WHFSLink, title: "testlink" });
-  await persontype.createAttribute("url", { attributeType: WRDAttributeType.Url, title: "URL" });
+  await persontype.createAttribute("url", { attributeType: WRDAttributeType.URL, title: "URL" });
 
   //persontype.CreateEntity({wrd_contact_email : "temp@beta.webhare.net"}, {temp : TRUE});
   //TestEq(TRUE, persontype -> GetAttribute("TESTINTEXTLINK").checklinks); //should default to 'true'

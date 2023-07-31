@@ -5,7 +5,7 @@ export async function handleJSRequest(req: WebRequest): Promise<WebResponse> {
     return createJSONResponse(200, {
       debug: true,
       url: req.url.toString(),
-      baseUrl: req.baseUrl,
+      baseURL: req.baseURL,
       localPath: req.localPath,
       headers: Object.fromEntries(req.headers.entries()),
       text: await req.text()

@@ -59,7 +59,7 @@ function pxlFailed(errormessage, ...params) {
   return null;
 }
 
-export function makePxlUrl(baseurl, eventname, data, options) {
+export function makePxlURL(baseurl, eventname, data, options) {
   options = { ...globalOptions, ...options };
 
   if (typeof eventname != "string")
@@ -221,7 +221,7 @@ function pingPxlEvent(evt) {
   const baseurl = isaltsample ? options.altrecordurl : options.recordurl;
 
   // Add the pxl event to the url
-  const url = makePxlUrl(baseurl, event, data, options);
+  const url = makePxlURL(baseurl, event, data, options);
   if (!url)
     return;
 
