@@ -41,21 +41,21 @@ function encodeAttr(s: string): string {
 
 /** SiteResponse implements HTML pages rendered using site configuration from WHFS and site profiles */
 export class SiteResponse<T extends object = object> {
-  siterequest: SiteRequest;
+  siteRequest: SiteRequest;
   settings: SiteResponseSettings;
   protected contents = "";
   private rendering = false;
   private insertions: Partial<Record<InsertPoints, Insertable[]>> = {};
 
-  /** The pageconfig. Not protected because we assume that if you know it's type T, its on you if you access it */
-  pageconfig: T;
+  /** The pageConfig. Not protected because we assume that if you know it's type T, its on you if you access it */
+  pageConfig: T;
 
   /** JS configuration data */
   private frontendConfig: WHConfigScriptData;
 
-  constructor(pageconfig: T, siterequest: SiteRequest, settings: SiteResponseSettings) {
-    this.siterequest = siterequest;
-    this.pageconfig = pageconfig;
+  constructor(pageConfig: T, siteRequest: SiteRequest, settings: SiteResponseSettings) {
+    this.siteRequest = siteRequest;
+    this.pageConfig = pageConfig;
     this.settings = settings;
 
     this.frontendConfig = {
@@ -216,15 +216,15 @@ export class SiteResponse<T extends object = object> {
       designroot,
       designcdnroot: designroot, //FIXME
       imgroot: designroot + "img/",
-      siteroot: this.siterequest.targetsite.webRoot
+      siteroot: this.siteRequest.targetSite.webRoot
     };
     const wittydata = {
       //FIXME base on the supported languages or just assume we're going to build a cool proxy
       sitelanguage: this.getSupportedLanguages(),
       //TODO use from CDN if so configured. or should we move it under /.wh/?
-      ishomepage: this.siterequest.targetobject.id === this.siterequest.targetfolder.indexdoc && this.siterequest.targetfolder.id === this.siterequest.targetsite.id,
+      ishomepage: this.siteRequest.targetObject.id === this.siteRequest.targetFolder.indexDoc && this.siteRequest.targetFolder.id === this.siteRequest.targetSite.id,
       ...urlpointers,
-      ...this.pageconfig,
+      ...this.pageConfig,
       contents: async () => this.getContents()
     };
 

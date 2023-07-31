@@ -27,10 +27,10 @@ export async function captureJSPage(obj: number, usecontent?: number): Promise<W
   if (!target?.renderer)
     throw new Error(`This target does not require a JS renderer`); //can't fallback to HS webserver or we'd risk an infinite loop
 
-  const contentobject = usecontent && usecontent != obj ? await whfs.openFile(usecontent) : target.targetobject;
+  const contentObject = usecontent && usecontent != obj ? await whfs.openFile(usecontent) : target.targetObject;
 
   const renderer: WebHareWHFSRouter = await resourcetools.loadJSFunction(target.renderer) as WebHareWHFSRouter;
-  const whfsreq = await buildSiteRequest(req, target.targetobject, { contentobject });
+  const whfsreq = await buildSiteRequest(req, target.targetObject, { contentObject });
   const response = await renderer(whfsreq);
   return response.asWebResponseInfo();
 }

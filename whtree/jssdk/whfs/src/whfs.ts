@@ -235,7 +235,7 @@ class WHFSFolder extends WHFSObject {
     super(dbrecord);
   }
 
-  get indexdoc() { return this.dbrecord.indexdoc; }
+  get indexDoc() { return this.dbrecord.indexdoc; }
 
   async list<K extends keyof ListableFsObjectRow>(keys: K[]): Promise<Array<Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder">>> {
     const getkeys = new Set<keyof ListableFsObjectRow>(["id", "name", "isFolder", ...keys]);

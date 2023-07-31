@@ -1,5 +1,5 @@
 /* TODO establish the proper/stable approach with WHFSRequest. Eg open questions:
-     - should we always return resolved objects (targetobject/targetfolder/...) or id ?
+     - should we always return resolved objects (targetObject/targetFolder/...) or id ?
      - should we wrap Request objects during routing or should we just immediately create the proper object ?
 */
 
@@ -37,24 +37,24 @@ function buildPluginData(datas: CSPPluginDataRow[]) {
 }
 
 class SiteRequest {
-  readonly webrequest: WebRequest;
-  readonly targetobject: WHFSObject; //we could've gone for "WHFSFile | null" but then you'd *always* have to check for null. pointing to WHFSObject allows you to only check the real type sometimes
-  readonly targetfolder: WHFSFolder;
-  readonly targetsite: Site;
-  readonly contentobject: WHFSObject;
-  readonly navobject: WHFSObject;
+  readonly webRequest: WebRequest;
+  readonly targetObject: WHFSObject; //we could've gone for "WHFSFile | null" but then you'd *always* have to check for null. pointing to WHFSObject allows you to only check the real type sometimes
+  readonly targetFolder: WHFSFolder;
+  readonly targetSite: Site;
+  readonly contentObject: WHFSObject;
+  readonly navObject: WHFSObject;
 
-  constructor(webrequest: WebRequest, targetsite: Site, targetfolder: WHFSFolder, targetobject: WHFSFile, { contentobject, navobject }: { contentobject?: WHFSObject; navobject?: WHFSObject } = {}) {
-    this.webrequest = webrequest;
-    this.targetsite = targetsite;
-    this.targetfolder = targetfolder;
-    this.targetobject = targetobject;
-    this.contentobject = contentobject ?? targetobject;
-    this.navobject = navobject ?? targetobject;
+  constructor(webRequest: WebRequest, targetSite: Site, targetFolder: WHFSFolder, targetObject: WHFSFile, { contentObject, navObject }: { contentObject?: WHFSObject; navObject?: WHFSObject } = {}) {
+    this.webRequest = webRequest;
+    this.targetSite = targetSite;
+    this.targetFolder = targetFolder;
+    this.targetObject = targetObject;
+    this.contentObject = contentObject ?? targetObject;
+    this.navObject = navObject ?? targetObject;
   }
 
   async createComposer<T extends object = object>(): Promise<SiteResponse<T>> { //async because we may delay loading the actual webdesign code until this point
-    const applytester = await getApplyTesterForObject(this.targetobject);
+    const applytester = await getApplyTesterForObject(this.targetObject);
     const publicationsettings = await applytester.getWebDesignInfo();
     if (!publicationsettings.siteresponsefactory)
       return wrapHSWebdesign<T>(this);
@@ -78,13 +78,13 @@ class SiteRequest {
   }
 }
 
-export async function buildSiteRequest(webrequest: WebRequest, targetobject: WHFSFile, { contentobject, navobject }: { contentobject?: WHFSObject; navobject?: WHFSObject } = {}): Promise<SiteRequest> {
-  if (!targetobject.parentSite)
-    throw new Error(`Target '${targetobject.whfsPath}' (#${targetobject.id}) is not in a site`);
+export async function buildSiteRequest(webRequest: WebRequest, targetObject: WHFSFile, { contentObject, navObject }: { contentObject?: WHFSObject; navObject?: WHFSObject } = {}): Promise<SiteRequest> {
+  if (!targetObject.parentSite)
+    throw new Error(`Target '${targetObject.whfsPath}' (#${targetObject.id}) is not in a site`);
 
-  const targetsite = await openSite(targetobject.parentSite);
-  const targetfolder = await openFolder(targetobject.parent!); //parent must exist if we're in a site.
-  return new SiteRequest(webrequest, targetsite, targetfolder, targetobject, { contentobject, navobject });
+  const targetSite = await openSite(targetObject.parentSite);
+  const targetFolder = await openFolder(targetObject.parent!); //parent must exist if we're in a site.
+  return new SiteRequest(webRequest, targetSite, targetFolder, targetObject, { contentObject, navObject });
 }
 
 export type { SiteRequest };

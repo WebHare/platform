@@ -27,13 +27,13 @@ async function testWHFS() {
 
   const rootfolder = await testsite.openFolder(".");
   test.eq(testsite.id, rootfolder.id);
-  test.assert(rootfolder.indexdoc);
-  test.eq("index.rtd", (await whfs.openFile(rootfolder.indexdoc)).name);
+  test.assert(rootfolder.indexDoc);
+  test.eq("index.rtd", (await whfs.openFile(rootfolder.indexDoc)).name);
 
   test.assert(markdownfile.parent);
   const testpagesfolder = await whfs.openFolder(markdownfile.parent);
   test.eq("TestPages", testpagesfolder.name);
-  test.eq(null, testpagesfolder.indexdoc);
+  test.eq(null, testpagesfolder.indexDoc);
 
   const list = await testpagesfolder.list(["parent"]);
   test.assert(list.length > 5, "should be a lot of files/folders in this list");

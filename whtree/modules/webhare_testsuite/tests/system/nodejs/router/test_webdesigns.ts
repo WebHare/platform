@@ -55,11 +55,11 @@ async function testSiteResponse() {
 
   //It should be okay to initialize the composer without knowing its tpye
   const outputpage = await sitereq.createComposer();
-  test.assert(outputpage.pageconfig);
+  test.assert(outputpage.pageConfig);
 
-  //And if we know the type, we can access the pageconfig!
+  //And if we know the type, we can access the pageConfig!
   const typedoutputpage = await sitereq.createComposer<BaseTestPageConfig>();
-  test.eq("/webhare-tests/webhare_testsuite.testsitejs/TestPages/markdownpage", typedoutputpage.pageconfig.whfspath);
+  test.eq("/webhare-tests/webhare_testsuite.testsitejs/TestPages/markdownpage", typedoutputpage.pageConfig.whfspath);
 
   typedoutputpage.appendHTML(`<p>This is a body!</p>`);
   const response = await typedoutputpage.finish();

@@ -13,9 +13,9 @@ export interface BaseTestPageConfig {
 }
 
 export async function BaseTestJSDesign(request: SiteRequest, settings: SiteResponseSettings) {
-  const pageconfig: BaseTestPageConfig = {
-    whfspath: request.targetobject.whfsPath,
-    contentobjectpath: "FIXME", //are we receiving contentobject yet ?
+  const pageConfig: BaseTestPageConfig = {
+    whfspath: request.targetObject.whfsPath,
+    contentobjectpath: "FIXME", //are we receiving contentObject yet ?
     navigationobjectpath: "FIXME", //are we receiving navigationobject yet ?
     widget: null,
     wrdauthplugin: null,
@@ -25,7 +25,7 @@ export async function BaseTestJSDesign(request: SiteRequest, settings: SiteRespo
     // , sharedblocks := (SELECT AS MACRO PTR ARRAY PTR this->RenderSharedBlock(usewidgets) FROM usewidgets)
     bobimagelink: { link: "FIXME" }// := ObjectExists(bobimage) ? WrapCachedImage(bobimage->GetWrapped(), [ method := "none" ]) : DEFAULT RECORD
   };
-  return new SiteResponse(pageconfig, request, settings);
+  return new SiteResponse(pageConfig, request, settings);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars -- validate the signature. for CI purposes, not needed in external modules

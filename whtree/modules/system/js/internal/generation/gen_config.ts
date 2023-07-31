@@ -34,7 +34,7 @@ type BackendConfiguration = {
   installationroot: string;
   module: ModuleMap;
   /** The URL to the backend interface (if configured), eg https://my.webhare.dev/ */
-  backendurl: string;
+  backendURL: string;
   servername: string;
 };
 
@@ -154,7 +154,7 @@ export function updateWebHareConfigWithoutDB(oldconfig: PartialConfigFile): Conf
   const publicdata: BackendConfiguration = {
     dtapstage: DTAPStage.Production,
     servername: "",
-    backendurl: "",
+    backendURL: "",
     ...oldconfig?.public,
     ...nodbconfig.public
   };
@@ -196,7 +196,7 @@ export async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: 
 
       const webrootres = await pgclient.query<{ webroot: string }>("SELECT webhare_proc_sites_webroot(outputweb, outputfolder) AS webroot FROM system.sites WHERE id = $1", [whconstant_whfsid_webharebackend]);
       if (typeof webrootres.rows?.[0]?.webroot === "string")
-        finalconfig.public.backendurl = webrootres.rows?.[0].webroot;
+        finalconfig.public.backendURL = webrootres.rows?.[0].webroot;
 
       finalconfig.secrets.cookie = await rawReadRegistryKey<string>(pgclient, "system.webserver.security.cookiesecret") ?? finalconfig.secrets.cookie ?? "";
       finalconfig.secrets.cache = await rawReadRegistryKey<string>(pgclient, "system.webserver.security.cachesecret") ?? finalconfig.secrets.cache ?? "";

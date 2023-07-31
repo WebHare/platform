@@ -35,7 +35,7 @@ export function webHareConfig() {
   return {
     servertype: config.dtapstage,
     servername: config.servername,
-    primaryinterfaceurl: config.backendurl,
+    primaryinterfaceurl: config.backendURL,
     __eventmasks: [
       "system:registry.system.global",
       "system:whfs.sitemeta.16" //site 16 (WebHare backend) tells us where the primaryinterfaceurl is

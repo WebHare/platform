@@ -152,7 +152,7 @@ export class WHFSApplyTester {
       case "to": {
         if (element.match_file && !this.objinfo.isfile)
           return false;
-        if (element.match_index && (!folder || folder.indexdoc != this.objinfo.obj.id))
+        if (element.match_index && (!folder || folder.indexDoc != this.objinfo.obj.id))
           return false;
         if (element.match_folder && this.objinfo.isfile)
           return false;
