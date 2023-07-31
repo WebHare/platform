@@ -139,5 +139,5 @@ make install
 cd /opt
 git clone https://github.com/emscripten-core/emsdk.git
 cd /opt/emsdk
-./emsdk install latest
-./emsdk activate latest
+./emsdk install "3.1.44"
+./emsdk activate "3.1.44"
