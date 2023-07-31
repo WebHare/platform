@@ -1291,7 +1291,6 @@
         <text tid="displayimage">Logo:</text>
         <text tid="displayname">Title top right:</text>
         <text tid="docroot">from</text>
-        <text tid="elasticsecret">OpenSearch key</text>
         <text tid="embeddeddocs">Embedded documentation</text>
         <text tid="errorlog">Keep error log</text>
         <text tid="fullaccessips">IPs skipping login checks</text>

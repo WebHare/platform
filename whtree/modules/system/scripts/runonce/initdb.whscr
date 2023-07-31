@@ -267,16 +267,6 @@ IF(ReadRegistryKey("system.webserver.security.cachesecret")="")
 IF(ReadRegistryKey("system.webserver.security.cookiesecret")="")
   WriteRegistryKey("system.webserver.security.cookiesecret", GenerateUFS128BitId()||GenerateUFS128BitId());
 
-IF(ReadRegistryKey("system.webserver.security.elasticsecret")="")
-{
-  //create a key, but may not contain a dash..
-  STRING suggestedkey := "-";
-  WHILE(suggestedkey LIKE "*-*")
-    suggestedkey := GenerateUFS128BitId()||GenerateUFS128BitId();;
-
-  WriteRegistryKey("system.webserver.security.elasticsecret", suggestedkey);
-}
-
 IF(GetEnvironmentVariable("WEBHARE_CI") != "")
 {
   IF(NOT RecordExists(SELECT FROM system.webservers)
