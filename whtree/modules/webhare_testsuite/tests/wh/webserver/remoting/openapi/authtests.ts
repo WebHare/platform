@@ -5,7 +5,7 @@ export async function denyAll(req: RestRequest): Promise<RestAuthorizationResult
 }
 
 export async function needSecret(req: RestRequest): Promise<RestAuthorizationResult> {
-  const key = req.webrequest.headers.get("x-key");
+  const key = req.webRequest.headers.get("x-key");
   if (!key)
     return {
       authorized: false,

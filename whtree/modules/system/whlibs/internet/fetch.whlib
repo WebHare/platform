@@ -5,11 +5,7 @@
     @topic internet/webbrowser
 */
 
-LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::filetypes/xml.whlib";
-LOADLIB "wh::internet/mime.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 

@@ -2,14 +2,13 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
-LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/contentproviders/contentprovider.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/opensearch.whlib";
 LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
@@ -332,7 +331,7 @@ PUBLIC RECORD FUNCTION CheckIndex(RECORD data, RECORD options DEFAULTSTO DEFAULT
     @param options Options
     @cell(boolean) options.deactivate If deactivating the group
     @cell(boolean) options.rebuild If rebuilding the index (or just checking)
-    @cell(boolean) options.refresh Wait for index refresh after indexing (Elasticsearch only)
+    @cell(boolean) options.refresh Wait for index refresh after indexing (OpenSearch only)
     @cell(boolean) options.noindexmodify Don't actually modify the index
     @cell(boolean) options.printprogress Print progress information (for Fetcher/QueueManager)
     @cell(boolean) options.debugobjects Debug print the existing objects
@@ -375,7 +374,7 @@ PUBLIC MACRO CheckGroup(RECORD data, RECORD options DEFAULTSTO DEFAULT RECORD)
 
   FOREVERY (RECORD indexmanager FROM indexmanagers)
   {
-    RECORD result := SendRawJSONToElasticsearch(indexmanager.id, "POST", indexmanager.indexname || "/_search", query);
+    RECORD result := SendRawJSONToOpenSearch(indexmanager.id, "POST", indexmanager.indexname || "/_search", query);
     current := current CONCAT SELECT _version, _id FROM result.result.hits.hits;
     BREAK; //FIXME as soon as we actually support multiple indices, we should track documents/version per index
   }
@@ -448,7 +447,7 @@ PUBLIC MACRO DeactivateGroup(STRING groupid)
      in that case, we'll just hope that a later recheck will pick it up until we better sort out publisher queues.
      see also https://gitlab.webhare.com/webharebv/codekloppers/-/issues/814 */
   FOREVERY (RECORD indexmanager FROM ListIndexManagers())
-    SendRawJSONToElasticsearch(indexmanager.id, "POST", "/_all/_delete_by_query?conflicts=proceed", query);
+    SendRawJSONToOpenSearch(indexmanager.id, "POST", "/_all/_delete_by_query?conflicts=proceed", query);
 }
 
 // Delete an entire group from the index
@@ -770,7 +769,7 @@ INTEGER ARRAY FUNCTION GetContentSourcesWithGroup(STRING groupid)
   INTEGER ARRAY contentsourceids;
   FOREVERY(RECORD indexmanager FROM ListIndexManagers())
   {
-    RECORD response := SendRawJSONToElasticsearch(indexmanager.id, "POST", "/_all/_search", query);
+    RECORD response := SendRawJSONToOpenSearch(indexmanager.id, "POST", "/_all/_search", query);
     FOREVERY(RECORD hit FROM response.result.hits.hits)
       FOREVERY(INTEGER csource FROM EnforceStructure([ _contentsource := INTEGER[] ], hit.fields)._contentsource)
         IF(csource > 0 AND csource NOT IN contentsourceids)
@@ -992,7 +991,7 @@ RECORD FUNCTION FetchObject(RECORD contentsource, OBJECT contentprovider, STRING
         [ fields := document
         , suggestfields := Length(suggestfields) > 0 ? (SELECT AS STRING ARRAY field FROM suggestfields) : DEFAULT STRING ARRAY
         , suggestprefixes := Length(suggestfields) > 0 ? (SELECT AS STRING ARRAY prefix FROM suggestfields) : DEFAULT STRING ARRAY
-        , documentid := GetElasticsearchDocumentId(contentsource.indexid, objectid)
+        , documentid := GetOpenSearchDocumentId(contentsource.indexid, objectid)
         ];
   }
   CATCH (OBJECT< ConsilioIgnoredException > e)

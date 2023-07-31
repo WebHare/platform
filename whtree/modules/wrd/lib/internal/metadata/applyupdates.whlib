@@ -6,10 +6,8 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
-LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/moduledefs.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/updateschema.whlib";
-LOADLIB "mod::wrd/lib/internal/metadata/schemaparser.whlib";
 
 PUBLIC STRING ARRAY FUNCTION GetWRDSchemaDefCandidates(RECORD ARRAY schemarule)
 {

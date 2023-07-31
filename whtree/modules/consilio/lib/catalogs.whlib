@@ -17,14 +17,12 @@ LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/finishhandler.whlib";
 LOADLIB "mod::consilio/lib/internal/indexing.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
+LOADLIB "mod::consilio/lib/internal/opensearch.whlib";
+LOADLIB "mod::consilio/lib/internal/opensearch/mapping.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
-LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 
 

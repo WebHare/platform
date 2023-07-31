@@ -8,7 +8,7 @@ LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
 LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/opensearch.whlib";
 
 LOADLIB "mod::tollium/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";

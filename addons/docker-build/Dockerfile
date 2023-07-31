@@ -84,7 +84,7 @@ RUN --mount=type=bind,source=/setup-tika.sh,target=/setup-tika.sh \
     --mount=type=cache,id=pdfbox,target=/tmp/downloads \
     /bin/bash /setup-tika.sh
 
-# Install opensearch (was elasticsearch)
+# Install OpenSearch
 RUN --mount=type=bind,source=/setup-opensearch.sh,target=/setup-opensearch.sh \
     --mount=type=cache,id=opensearch,target=/tmp/downloads \
     /bin/bash /setup-opensearch.sh

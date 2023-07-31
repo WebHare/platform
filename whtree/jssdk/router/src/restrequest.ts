@@ -67,7 +67,7 @@ export class RestRequest<
   DefaultErrorFormat extends RestDefaultErrorBody = RestDefaultErrorBody
 > {
   ///The original WebRequest we received
-  readonly webrequest: WebRequest;
+  readonly webRequest: WebRequest;
   ///The relative request path, starting with '/'
   readonly path: string;
   ///Rest parameters received
@@ -78,8 +78,8 @@ export class RestRequest<
   ///Authorization result
   authorization: Authorization;
 
-  constructor(webrequest: WebRequest, path: string, params: Params, body: Body) {
-    this.webrequest = webrequest;
+  constructor(webRequest: WebRequest, path: string, params: Params, body: Body) {
+    this.webRequest = webRequest;
     this.path = path;
     this.params = params;
     this.body = body;

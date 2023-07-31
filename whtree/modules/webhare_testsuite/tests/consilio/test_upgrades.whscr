@@ -6,7 +6,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/opensearch.whlib";
 LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -26,7 +26,7 @@ MACRO TestNofieldUnmanagedCatalog()
 
   FixConsilioIndices([ catalogmask := "webhare_testsuite:emptycatalog" ]);
   RECORD ARRAY indices := OpenConsilioCatalog("webhare_testsuite:emptycatalog")->ListAttachedIndices();
-  RECORD mapping := SendRawJSONToElasticsearch(indices[0].indexmanager, "GET", `/${indices[0].indexname}/_mapping`, DEFAULT RECORD).result;
+  RECORD mapping := SendRawJSONToOpenSearch(indices[0].indexmanager, "GET", `/${indices[0].indexname}/_mapping`, DEFAULT RECORD).result;
   TestEq("strict", GetCell(mapping,indices[0].indexname).mappings.dynamic);
 }
 
@@ -47,7 +47,7 @@ MACRO TestOldIndexSyntax()
   testfw->CommitWork();
 
   RECORD indexinfo := legacytoolslog->ListAttachedIndices()[0];
-  RECORD mapping := SendRawJSONToElasticsearch(indexinfo.indexmanager, "GET", `/${indexinfo.indexname}-sfx1/_mapping`, DEFAULT RECORD).result;
+  RECORD mapping := SendRawJSONToOpenSearch(indexinfo.indexmanager, "GET", `/${indexinfo.indexname}-sfx1/_mapping`, DEFAULT RECORD).result;
   TestEq("keyword", GetCell(mapping,indexinfo.indexname || "-sfx1").mappings.properties.minfin.properties.theme.type, "Verify that the fieldgroup got applied");
 
   testfw->BeginWork();
@@ -65,7 +65,7 @@ MACRO TestOldIndexSyntax()
 MACRO TestIndexConfiguration(BOOLEAN expect_proper, OBJECT catalog)
 {
   RECORD indexinfo := catalog->ListAttachedIndices()[0];
-  RECORD settings := SendRawJSONToElasticsearch(indexinfo.indexmanager, "GET", `/${indexinfo.indexname}/_settings`, DEFAULT RECORD).result;
+  RECORD settings := SendRawJSONToOpenSearch(indexinfo.indexmanager, "GET", `/${indexinfo.indexname}/_settings`, DEFAULT RECORD).result;
   settings := Getcell(settings, indexinfo.indexname).settings;
   IF(expect_proper)
   {
@@ -77,7 +77,7 @@ MACRO TestIndexConfiguration(BOOLEAN expect_proper, OBJECT catalog)
   }
 
   //TestEq(expect_proper ? cell[x:=42] : CELL[], GetCell(mapping, indexinfo.indexname).mapings);
-  RECORD mapping := SendRawJSONToElasticsearch(indexinfo.indexmanager, "GET", `/${indexinfo.indexname}/_mapping`, DEFAULT RECORD).result;
+  RECORD mapping := SendRawJSONToOpenSearch(indexinfo.indexmanager, "GET", `/${indexinfo.indexname}/_mapping`, DEFAULT RECORD).result;
   IF(expect_proper)
     TestEqMembers([ properties := CELL[] ], GetCell(mapping, indexinfo.indexname).mappings, '*');
   ELSE
@@ -91,7 +91,7 @@ MACRO TestOpeningExternalIndex()
   //A catalog without a consilio_analysis (eg legacy wobcovid19) crashed during adding objects
   RECORD builtin_opensearch := SELECT * FROM ListIndexManagers() WHERE isbuiltin;
   STRING updateindexname := "c_upgradetest_" || ToLowercase(EncodeBase16(Left(DecodeUFS(GenerateUFS128BitId()),8)));
-  TestEq(TRUE, SendRawJSONToElasticsearch(builtin_opensearch.id, "PUT", `/${updateindexname}`, DEFAULT RECORD).result.acknowledged);
+  TestEq(TRUE, SendRawJSONToOpenSearch(builtin_opensearch.id, "PUT", `/${updateindexname}`, DEFAULT RECORD).result.acknowledged);
 
   //Now create catalog on top of this existing index
   OBJECT testcatalog := CreateConsilioCatalog("consilio:testfw_upgradetest", [ managed := FALSE

@@ -90,7 +90,7 @@ an insecure WebHare backend interface. (Pre 5.02, WebHare would us 13688 as its 
 for the database server)
 
 ### WEBHARE_OPENSEARCH_BINDHOST
-Set the host (or IP) for the builtin Elasticsearch, if enabled. If not set it defaults to 127.0.0.1
+Set the host (or IP) for the builtin OpenSearch, if enabled. If not set it defaults to 127.0.0.1
 
 ## Debugging/selftests
 

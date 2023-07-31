@@ -6,11 +6,11 @@ LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/opensearch.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
+LOADLIB "mod::consilio/lib/internal/opensearch/mapping.whlib";
 LOADLIB "mod::consilio/lib/internal/stats.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -228,7 +228,7 @@ MACRO TestMappingUpdates()
   TestEq([ such := CELL[] ], searchres.no, "The mapping should end at 'such'");
 
   //Make sure that we won't crash create a mapping for the ignored fields. Recreate the index
-  SendRawJSONToElasticsearch(testindex.indexmanager, "DELETE", `/${testindex.indexname}*`, DEFAULT RECORD);
+  SendRawJSONToOpenSearch(testindex.indexmanager, "DELETE", `/${testindex.indexname}*`, DEFAULT RECORD);
   TestEq(FALSE, catalog->WaitReady(DEFAULT DATETIME, [forstorage := TRUE ]), "With the index gone, we're no longer ready");
   catalog->ApplyConfiguration();
   TestEq(TRUE, catalog->WaitReady(DEFAULT DATETIME, [forstorage := TRUE ]), "ApplyConfiguration should have fixed it");
@@ -286,11 +286,11 @@ MACRO TestESCreationAPIs()
   RECORD ARRAY indices := catalog->ListAttachedIndices();
   TestEq(TRUE, indices[1].readonly);
 
-  TestEq(TRUE, RecordExists(SendRawJSONToElasticsearch(indices[0].indexmanager, "GET", `/${indices[0].indexname}`, DEFAULT RECORD).result));
-  TestThrowsLike("*404*", PTR SendRawJSONToElasticsearch(indices[1].indexmanager, "GET", `/${indices[1].indexname}`, DEFAULT RECORD));
+  TestEq(TRUE, RecordExists(SendRawJSONToOpenSearch(indices[0].indexmanager, "GET", `/${indices[0].indexname}`, DEFAULT RECORD).result));
+  TestThrowsLike("*404*", PTR SendRawJSONToOpenSearch(indices[1].indexmanager, "GET", `/${indices[1].indexname}`, DEFAULT RECORD));
 
   // Explicitly delete from ES
-  SendRawJSONToElasticsearch(testindex.indexmanager, "DELETE", `/${testindex.indexname}*`, DEFAULT RECORD);
+  SendRawJSONToOpenSearch(testindex.indexmanager, "DELETE", `/${testindex.indexname}*`, DEFAULT RECORD);
   indices := GetIndexManagerIndexList(testindex.indexmanager);
   TestEq(RECORD[], SELECT * FROM indices WHERE indexid = catalog->id);
   TestEq(RECORD[], catalog->ListSuffixes());
@@ -303,7 +303,7 @@ MACRO TestESCreationAPIs()
   TestAssert(IsValueSet(SELECT * FROM indices WHERE indexid = catalog->id));
   TestEq(RECORD[[ suffix := "" ]], catalog->ListSuffixes());
 
-  RECORD checkindex := SendRawJSONToElasticsearch(testindex.indexmanager, "GET", `/${testindex.indexname}/_mapping`, DEFAULT RECORD);
+  RECORD checkindex := SendRawJSONToOpenSearch(testindex.indexmanager, "GET", `/${testindex.indexname}/_mapping`, DEFAULT RECORD);
   //dumpvalue(checkindex,'tree');
   TestEq("keyword", GetCell(checkindex.result, testindex.indexname).mappings.properties.keyword.type);
   TestEq(FALSE, CellExists(GetCell(checkindex.result, testindex.indexname).mappings.properties.group_record_field.properties,"ds_*"), "DONT create the wildcards as a real field!");
@@ -333,7 +333,7 @@ MACRO TestESCreationAPIs()
   catalog->ApplyConfiguration([ suffixes := ["suffix2","suffix"]]);
   TestEq(RECORD[[ suffix := "suffix" ], [ suffix := "suffix2" ]], SELECT * FROM catalog->ListSuffixes() ORDER BY suffix);
 
-  checkindex := SendRawJSONToElasticsearch(testindex_suffixed.indexmanager,  "GET", `/${testindex_suffixed.indexname}-suffix/_mapping`, DEFAULT RECORD);
+  checkindex := SendRawJSONToOpenSearch(testindex_suffixed.indexmanager,  "GET", `/${testindex_suffixed.indexname}-suffix/_mapping`, DEFAULT RECORD);
   //dumpvalue(checkindex,'tree');
   TestEq("keyword", GetCell(checkindex.result, testindex_suffixed.indexname || "-suffix").mappings.properties.keyword.type);
 
@@ -374,7 +374,7 @@ MACRO TestESCreationAPIs()
 MACRO TestESBulkInsertion()
 {
   // Ensure index doesn't exist in ES ... we'll do a raw action
-  SendRawJSONToElasticsearch(testindex_suffixed.indexmanager, "DELETE", `/${testindex_suffixed.indexname}*`, DEFAULT RECORD);
+  SendRawJSONToOpenSearch(testindex_suffixed.indexmanager, "DELETE", `/${testindex_suffixed.indexname}*`, DEFAULT RECORD);
 
   // Make sure it's indeed nonexistent
   OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex_suffixed");
@@ -457,7 +457,7 @@ MACRO TestESBulkInsertion()
   TestEq(1, res.totalcount);
   TestEq([ no := [ such := [ field := [ yet := 42 ] ] ] ], res.results[0]);
 
-  // In Elasticsearch, all fields can contain arrays
+  // In OpenSearch, all fields can contain arrays
   catalog->AddObjects(
       [ [ objectid := "test1"
         , documentfields :=
@@ -602,7 +602,7 @@ MACRO TestESBulkInsertion()
       ], res.results);
 
   // Do a raw search to check if there is a document with _id 'test2'
-  RECORD result := SendRawJSONToElasticsearch(testindex_suffixed.indexmanager, "GET", `/${testindex_suffixed.indexname}*/_search`,
+  RECORD result := SendRawJSONToOpenSearch(testindex_suffixed.indexmanager, "GET", `/${testindex_suffixed.indexname}*/_search`,
       [ query := [ match_all := CELL[] ], _source := FALSE ]);
   TestEq(3, Length(result.result.hits.hits));
   TestEq(TRUE, RecordExists(SELECT FROM result.result.hits.hits WHERE _id = "test2"));
@@ -665,7 +665,7 @@ MACRO TestESBulkInsertion()
       ],[ suffix := "sub1" ]);
 
   //Verify ds_Text's mapping
-  RECORD checkindex := SendRawJSONToElasticsearch(testindex_suffixed.indexmanager, "GET", `${testindex_suffixed.indexname}-sub1/_mapping`, DEFAULT RECORD);
+  RECORD checkindex := SendRawJSONToOpenSearch(testindex_suffixed.indexmanager, "GET", `${testindex_suffixed.indexname}-sub1/_mapping`, DEFAULT RECORD);
   TestEq(FALSE, CellExists(GetCell(checkindex.result, testindex_suffixed.indexname || "-sub1").mappings.properties.group_record_field.properties, "ds_text"));
   TestEq(FALSE, CellExists(GetCell(checkindex.result, testindex_suffixed.indexname || "-sub1").mappings.properties.group_record_field.properties,"ds_*"), "DONT create the wildcards as a real field!");
 
@@ -719,7 +719,7 @@ MACRO TestESBulkInsertion()
                             ]);
 
   //Verify subindex was properly ensured
-  checkindex := SendRawJSONToElasticsearch(testindex_suffixed.indexmanager, "GET", `${testindex_suffixed.indexname}-sub2/_mapping`, DEFAULT RECORD);
+  checkindex := SendRawJSONToOpenSearch(testindex_suffixed.indexmanager, "GET", `${testindex_suffixed.indexname}-sub2/_mapping`, DEFAULT RECORD);
   TestEq("keyword", GetCell(checkindex.result, testindex_suffixed.indexname || "-sub2").mappings.properties.keyword.type);
 
   res := RunConsilioSearch("webhare_testsuite:testindex_suffixed", CQMatch("int_field", "=", docs[END-1].documentfields.int_field));
@@ -745,7 +745,7 @@ MACRO TestESBulkInsertion()
 MACRO TestESLangFeatures()
 {
   // Recreate the index
-  SendRawJSONToElasticsearch(testindex.indexmanager, "DELETE", `/${testindex.indexname}*`, DEFAULT RECORD);
+  SendRawJSONToOpenSearch(testindex.indexmanager, "DELETE", `/${testindex.indexname}*`, DEFAULT RECORD);
   OBJECT catalog := OpenConsilioCatalog("webhare_testsuite:testindex");
   catalog->ApplyConfiguration();
 

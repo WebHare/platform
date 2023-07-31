@@ -4,7 +4,7 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/opensearch.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
@@ -107,7 +107,7 @@ PUBLIC STATIC OBJECTTYPE IndexMgrs EXTEND DashboardPanelBase
 
   MACRO DoGetMapping()
   {
-    RECORD res := SendRawJSONToElasticsearch(^indexmanager->value, "GET", `/${EncodeURL(^indices->selection[0].name)}/_mapping`, DEFAULT RECORD);
+    RECORD res := SendRawJSONToOpenSearch(^indexmanager->value, "GET", `/${EncodeURL(^indices->selection[0].name)}/_mapping`, DEFAULT RECORD);
     Reflect(GetCell(res.result, ^indices->selection[0].name).mappings);
   }
   MACRO DoDelete()
@@ -117,7 +117,7 @@ PUBLIC STATIC OBJECTTYPE IndexMgrs EXTEND DashboardPanelBase
 
     //ADDME combine into one command? possible with commas..
     FOREVERY(RECORD tokill FROM ^indices->selection)
-      SendRawJSONToElasticsearch(^indexmanager->value, "DELETE", `/${EncodeURL(tokill.name)}/`, DEFAULT RECORD);
+      SendRawJSONToOpenSearch(^indexmanager->value, "DELETE", `/${EncodeURL(tokill.name)}/`, DEFAULT RECORD);
 
     this->PollIndexmanagerStatus();
   }

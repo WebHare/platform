@@ -8,7 +8,7 @@ LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/catalogs.whlib";
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/opensearch.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
@@ -58,7 +58,7 @@ FOREVERY(RECORD indexmanager FROM SELECT * FROM ListIndexManagers() WHERE isbuil
       IF(debug)
         Print(msg || "\n");
 
-      SendRawJSONToElasticSearch(indexmanager.id,  "DELETE", toremove.indexname || (suffix != "" ? "-" || suffix : "*"), DEFAULT RECORD);
+      SendRawJSONToOpenSearch(indexmanager.id,  "DELETE", toremove.indexname || (suffix != "" ? "-" || suffix : "*"), DEFAULT RECORD);
     }
   }
 }
@@ -94,7 +94,7 @@ FOREVERY (RECORD cat FROM catalogs)
 
     //Now actually delete them. if we were to crash after the commit before completing, the next cleanupindices will pick it up
     FOREVERY(RECORD indexrec FROM indices)
-      SendRawJSONToElasticSearch(indexrec.indexmanager,  "DELETE", indexrec.indexname || catalog->suffixmask, DEFAULT RECORD);
+      SendRawJSONToOpenSearch(indexrec.indexmanager,  "DELETE", indexrec.indexname || catalog->suffixmask, DEFAULT RECORD);
 
     CONTINUE;
   }

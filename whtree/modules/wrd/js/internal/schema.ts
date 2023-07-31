@@ -153,17 +153,17 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     }
   }
 
-  async[getWRDSchemaType](type: string, allowmissingtype: true): Promise<HSVMObject | null>;
-  async[getWRDSchemaType](type: string, allowmissingtype: false): Promise<HSVMObject>;
+  async[getWRDSchemaType](type: string, allowMissingType: true): Promise<HSVMObject | null>;
+  async[getWRDSchemaType](type: string, allowMissingType: false): Promise<HSVMObject>;
 
-  async[getWRDSchemaType](type: string, allowmissingtype: boolean): Promise<HSVMObject | null> {
+  async[getWRDSchemaType](type: string, allowMissingType: boolean): Promise<HSVMObject | null> {
     const cache: CoVMSchemaCache = this.getWRDSchemaCache();
     if (!cache.types[type]) {
       cache.types[type] = (await cache.schemaobj).getType(tagToHS(type)) as Promise<HSVMObject>;
     }
     const typeobj = await cache.types[type];
     if (!typeobj)
-      if (allowmissingtype)
+      if (allowMissingType)
         return null;
       else
         throw new Error(`No such type ${JSON.stringify(type)}`);

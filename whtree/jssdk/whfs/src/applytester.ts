@@ -64,19 +64,19 @@ export async function getBaseInfoForApplyCheck(obj: WHFSObject): Promise<BaseInf
   // IF(NOT RecordExists(fsobjinfo))
   // RETURN DEFAULT RECORD;
 
-  const siteapply = await getSiteApplicabilityInfo(obj.parentsite);
+  const siteapply = await getSiteApplicabilityInfo(obj.parentSite);
   let site: Selectable<WebHareDB, "system.sites"> | null = null;
-  if (obj.parentsite) {
-    site = await db<WebHareDB>().selectFrom("system.sites").selectAll().where("id", "=", obj.parentsite).executeTakeFirst() ?? null; //TODO why doesn't getSiteApplicabilityInfo give us what we need here
+  if (obj.parentSite) {
+    site = await db<WebHareDB>().selectFrom("system.sites").selectAll().where("id", "=", obj.parentSite).executeTakeFirst() ?? null; //TODO why doesn't getSiteApplicabilityInfo give us what we need here
   }
   //TODO don't actually open the objects if we can avoid it.
   return {
     ...siteapply,
     obj,
     site,
-    parent: obj.parentsite === obj.id ? (obj as WHFSFolder) //a root *has* to be a folder
+    parent: obj.parentSite === obj.id ? (obj as WHFSFolder) //a root *has* to be a folder
       : obj.parent ? (await openFolder(obj.parent)) : null,
-    isfile: obj.isfile,
+    isfile: obj.isFile,
     isfake: false
   };
 }
@@ -152,7 +152,7 @@ export class WHFSApplyTester {
       case "to": {
         if (element.match_file && !this.objinfo.isfile)
           return false;
-        if (element.match_index && (!folder || folder.indexdoc != this.objinfo.obj.id))
+        if (element.match_index && (!folder || folder.indexDoc != this.objinfo.obj.id))
           return false;
         if (element.match_folder && this.objinfo.isfile)
           return false;
@@ -188,9 +188,9 @@ export class WHFSApplyTester {
   }
 
   testPathConstraint(rec: CSPApplyToTo, site: Selectable<WebHareDB, "system.sites"> | null, parentitem: WHFSFolder | null): boolean {
-    if (rec.pathmask && isNotLike(this.objinfo.obj.fullpath.toUpperCase(), rec.pathmask.toUpperCase()))
+    if (rec.pathmask && isNotLike(this.objinfo.obj.fullPath.toUpperCase(), rec.pathmask.toUpperCase()))
       return false;
-    if (rec.parentmask && (!parentitem || isNotLike(parentitem.fullpath.toUpperCase(), rec.parentmask.toUpperCase())))
+    if (rec.parentmask && (!parentitem || isNotLike(parentitem.fullPath.toUpperCase(), rec.parentmask.toUpperCase())))
       return false;
 
     //TODO decide whether the API should still expose numeric types.... or have siteprofiles simply make them irrelevant (do we still support numbers *anywhere*? )
@@ -199,22 +199,22 @@ export class WHFSApplyTester {
       return false;
     if (rec.withintype) //FIXME: && (!parentitem || ! this.matchWithinType(parentitem.type, rec.withintype,true)))
       return false; //Implement this, but we'll need to gather more info during baseobj info OR become async too
-    if (rec.whfspathmask && !isNotLike(this.objinfo.obj.whfspath.toUpperCase(), rec.whfspathmask.toUpperCase()))
+    if (rec.whfspathmask && !isNotLike(this.objinfo.obj.whfsPath.toUpperCase(), rec.whfspathmask.toUpperCase()))
       return false;
     if (rec.sitetype != "" && (!site || !this.matchType(this.objinfo.roottype, rec.sitetype, true)))
       return false;
-    if (rec.pathregex && !matchPathRegex(rec.pathregex, this.objinfo.obj.fullpath))
+    if (rec.pathregex && !matchPathRegex(rec.pathregex, this.objinfo.obj.fullPath))
       return false;
-    if (rec.whfspathregex && !matchPathRegex(rec.whfspathregex, this.objinfo.obj.whfspath))
+    if (rec.whfspathregex && !matchPathRegex(rec.whfspathregex, this.objinfo.obj.whfsPath))
       return false;
-    if (rec.parentregex && (!parentitem || !matchPathRegex(rec.parentregex, parentitem.fullpath)))
+    if (rec.parentregex && (!parentitem || !matchPathRegex(rec.parentregex, parentitem.fullPath)))
       return false;
 
     return true;
   }
 
   isTypeNeedsTemplate() {
-    return this.objinfo.obj.isfile && (this.objinfo.obj as WHFSFile).type.iswebpage;
+    return this.objinfo.obj.isFile && (this.objinfo.obj as WHFSFile).type.iswebpage;
   }
 
   /** Are any of these webfeatures active? ('to webfeatures=') */
@@ -231,13 +231,13 @@ export class WHFSApplyTester {
     return false; //FIXME implement but shouldn't this be in the site applicability cache and thus already available?
   }
 
-  matchType(foldertype: number | null, matchwith: string, isfolder: boolean) {
-    foldertype = foldertype ?? 0; // emulate HareScript behaviour for typeless files/folders
-    if (foldertype && foldertype < 1000 && matchwith == String(foldertype)) //only match by ID for well-knowns
+  matchType(folderType: number | null, matchwith: string, isfolder: boolean) {
+    folderType = folderType ?? 0; // emulate HareScript behaviour for typeless files/folders
+    if (folderType && folderType < 1000 && matchwith == String(folderType)) //only match by ID for well-knowns
       return true;
 
     const types = getCachedSiteProfiles().contenttypes;
-    const matchtype = types.find(_ => (isfolder ? _.foldertype : _.filetype) && _.id == foldertype);
+    const matchtype = types.find(_ => (isfolder ? _.foldertype : _.filetype) && _.id == folderType);
     return matchtype && isLike(matchtype.namespace, matchwith);
   }
 

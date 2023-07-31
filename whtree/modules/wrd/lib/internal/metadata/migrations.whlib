@@ -1,8 +1,6 @@
 <?wh
 LOADLIB "wh::crypto.whlib";
 
-LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
-LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
 PUBLIC RECORD FUNCTION MigrateSettings(OBJECT wrdschema)

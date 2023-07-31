@@ -2,7 +2,6 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::money.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::util/langspecific.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";

@@ -242,7 +242,7 @@ async function testResources() {
   test.eq(services.config.dataroot + "storage/system/xyz/", services.toFSPath("storage::system/xyz/"));
   test.eq(services.config.dataroot + "storage/system/", services.toFSPath("storage::system"));
 
-  test.eqMatch(/^https?:.*/, services.config.backendurl);
+  test.eqMatch(/^https?:.*/, services.config.backendURL);
 
   const systempath = services.config.module.system.root;
   test.eq("mod::system/lib/tests/cluster.whlib", services.toResourcePath(systempath + "lib/tests/cluster.whlib"));

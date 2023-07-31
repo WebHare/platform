@@ -2,7 +2,7 @@
 
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/opensearch.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 
@@ -159,11 +159,11 @@ PUBLIC STATIC OBJECTTYPE RuntimeSettings EXTEND TolliumScreenBase
     ^watermark_high->placeholder := default_watermark_high;
     ^watermark_flood->placeholder := default_watermark_flood;
 
-    // Read Elasticsearch configuration (TODO shouldn't block on this in case it's down - perhaps split off runtime settings into a separate dialog?)
+    // Read OpenSearch configuration (TODO shouldn't block on this in case it's down - perhaps split off runtime settings into a separate dialog?)
     TRY
     {
       this->id := data.id;
-      this->cursettings := GetElasticsearchSettings(data.id, FALSE);
+      this->cursettings := GetOpenSearchSettings(data.id, FALSE);
     }
     CATCH(OBJECT e)
     {
@@ -191,13 +191,13 @@ PUBLIC STATIC OBJECTTYPE RuntimeSettings EXTEND TolliumScreenBase
     IF (num_percent = 0)
     {
       // Check for valid byte values
-      INTEGER64 low_bytes := ParseElasticsearchBytes(^watermark_low->value);
+      INTEGER64 low_bytes := ParseOpenSearchBytes(^watermark_low->value);
       IF (low_bytes < 0)
         work->AddErrorFor(^watermark_low, this->GetTid(".messages.invalidbytevalue", ^watermark_low->errorlabel ?? ^watermark_low->title, ^watermark_low->value));
-      INTEGER64 high_bytes := ParseElasticsearchBytes(^watermark_high->value);
+      INTEGER64 high_bytes := ParseOpenSearchBytes(^watermark_high->value);
       IF (high_bytes < 0)
         work->AddErrorFor(^watermark_high, this->GetTid(".messages.invalidbytevalue", ^watermark_high->errorlabel ?? ^watermark_high->title, ^watermark_high->value));
-      INTEGER64 flood_bytes := ParseElasticsearchBytes(^watermark_flood->value);
+      INTEGER64 flood_bytes := ParseOpenSearchBytes(^watermark_flood->value);
       IF (flood_bytes < 0)
         work->AddErrorFor(^watermark_flood, this->GetTid(".messages.invalidbytevalue", ^watermark_flood->errorlabel ?? ^watermark_flood->title, ^watermark_flood->value));
 
@@ -273,7 +273,7 @@ PUBLIC STATIC OBJECTTYPE RuntimeSettings EXTEND TolliumScreenBase
 
       IF (RecordExists(newsettings))
       {
-        RECORD result := SetElasticsearchSettings(this->id, newsettings);
+        RECORD result := SetOpenSearchSettings(this->id, newsettings);
         IF (result.status != SearchOk)
         {
           STRING error := CellExists(result,"result") AND CellExists(result.result, "error") ? result.result.error.reason : result.status;

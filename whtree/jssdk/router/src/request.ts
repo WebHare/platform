@@ -27,7 +27,7 @@ export interface WebRequest {
   json(): Promise<unknown>;
 
   //Base URL for this route. Usually https://example.net/ but when forwarding to a deeper router this will get updated
-  readonly baseUrl: string;
+  readonly baseURL: string;
   //Local path inside this route (URL decoded, lowercase, no variables, does not start with a slash)
   readonly localPath: string;
 }
@@ -61,7 +61,7 @@ export class IncomingWebRequest implements WebRequest {
     return JSON.parse(this.__body);
   }
 
-  get baseUrl() {
+  get baseURL() {
     return this.url.origin + "/";
   }
 
@@ -71,12 +71,12 @@ export class IncomingWebRequest implements WebRequest {
 }
 
 class ForwardedWebRequest implements WebRequest {
-  readonly baseUrl: string;
+  readonly baseURL: string;
   readonly localPath: string;
   private readonly original: WebRequest;
 
   constructor(original: WebRequest, newbaseurl: string) {
-    this.baseUrl = newbaseurl;
+    this.baseURL = newbaseurl;
     this.localPath = decodeURIComponent(original.url.toString().substring(newbaseurl.length)).toLowerCase().replace(/\?.*$/, "");
     this.original = original;
   }
@@ -93,7 +93,7 @@ export function newWebRequestFromInfo(req: WebRequestInfo): WebRequest {
 }
 
 export function newForwardedWebRequest(req: WebRequest, suburl: string): WebRequest {
-  const newbaseurl = req.baseUrl + suburl;
+  const newbaseurl = req.baseURL + suburl;
   if (!req.url.toString().startsWith(newbaseurl))
     throw new Error(`The suburl added must be a part of the original base url`);
   if (newbaseurl.includes("?"))

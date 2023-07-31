@@ -116,7 +116,6 @@
           <heading tid=".securitykeys"/>
           <textedit composition="security" cellname="cachesecret" width="1pr"/> <!-- title="Secret key used to sign image cache URLs" / -->
           <textedit composition="security" cellname="cookiesecret" width="1pr"/> <!-- title="Secret key used to encrypt/sign cookies" / -->
-          <textedit composition="security" cellname="elasticsecret" width="1pr"/> <!-- title="Secret key used for Elasticsearch" / -->
         </tab>
         <tab tid=".archiving">
           <line>

@@ -738,7 +738,7 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDAttributeType.Free]: WRDDBStringValue;
   [WRDAttributeType.Email]: WRDDBStringValue;
   [WRDAttributeType.Telephone]: WRDDBStringValue;
-  [WRDAttributeType.Url]: WRDDBStringValue;
+  [WRDAttributeType.URL]: WRDDBStringValue;
   [WRDAttributeType.Boolean]: WRDDBBooleanValue;
   [WRDAttributeType.Integer]: WRDDBIntegerValue;
   [WRDAttributeType.Domain]: WRDDBDomainValue<Required>;

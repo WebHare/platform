@@ -1,7 +1,6 @@
 ﻿<?wh
 
 LOADLIB "wh::util/algorithms.whlib";
-LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";

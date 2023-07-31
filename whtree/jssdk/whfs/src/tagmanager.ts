@@ -75,7 +75,7 @@ class TagManager {
       tagfile = await openFile(tag);
     } catch (ignore) { } //cant use allowMisisng, it'll unconditionally fail if id is a folder
 
-    if (!tagfile || !tagfile.whfspath.toLowerCase().startsWith(this._getTagFolderPath().toLowerCase()))
+    if (!tagfile || !tagfile.whfsPath.toLowerCase().startsWith(this._getTagFolderPath().toLowerCase()))
       throw new Error(`Tag #${tag} not found`);
 
     //FIXME recycle it!
@@ -83,8 +83,8 @@ class TagManager {
   }
 }
 
-export function openTagManager(tagset: string) {
-  const [module, name] = checkModuleScopedName(tagset);
+export function openTagManager(tagSet: string) {
+  const [module, name] = checkModuleScopedName(tagSet);
   return new TagManager(module, name);
 }
 

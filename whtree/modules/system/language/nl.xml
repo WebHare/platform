@@ -1105,7 +1105,6 @@
         <text tid="displayimage">Logo:</text>
         <text tid="displayname">Titel rechtsboven:</text>
         <text tid="docroot">vanaf</text>
-        <text tid="elasticsecret">Elasticsearch sleutel</text>
         <text tid="embeddeddocs">Ingebedde documentatie</text>
         <text tid="errorlog">Bewaar errorlog</text>
         <text tid="fullaccessips">IPs die loginchecks overslaan</text>

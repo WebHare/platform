@@ -119,13 +119,6 @@ IF (IsDatabaseWritable())
     WriteRegistryKey("system.webserver.security.cachesecret", GenerateUFS128BitId()||GenerateUFS128BitId());
   IF(ReadRegistryKey("system.webserver.security.cookiesecret")="")
     WriteRegistryKey("system.webserver.security.cookiesecret", GenerateUFS128BitId()||GenerateUFS128BitId());
-  IF(ReadRegistryKey("system.webserver.security.elasticsecret")="")
-  {
-    STRING secret;
-    WHILE(secret = "" OR secret LIKE "*-*")
-      secret := GenerateUFS128BitId()||GenerateUFS128BitId();
-    WriteRegistryKey("system.webserver.security.elasticsecret", secret);
-  }
   IF(ReadRegistryKey("system.webserver.security.debugsecret")="")
     WriteRegistryKey("system.webserver.security.debugsecret", GenerateUFS128BitId()||GenerateUFS128BitId());
   trans->CommitWork();

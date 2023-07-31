@@ -1,10 +1,8 @@
 <?wh
 
 LOADLIB "wh::dbase/transaction.whlib";
-LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 
 

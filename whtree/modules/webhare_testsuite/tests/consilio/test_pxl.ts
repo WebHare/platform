@@ -15,28 +15,28 @@ test.registerTests(
         let baseurl = "https://example.org", url, vars;
 
         // Test valid event names, parameters not specified should not appear on the url
-        url = pxl.makePxlUrl(baseurl, "test");
+        url = pxl.makePxlURL(baseurl, "test");
         vars = new URL(url).searchParams;
         test.assert(vars.has("pe"));
         test.eq("test", vars.get("pe"));
 
-        url = pxl.makePxlUrl(baseurl, "test_event");
+        url = pxl.makePxlURL(baseurl, "test_event");
         vars = new URL(url).searchParams;
         test.assert(vars.has("pe"));
         test.eq("test_event", vars.get("pe"));
 
-        url = pxl.makePxlUrl(baseurl, "test:event");
+        url = pxl.makePxlURL(baseurl, "test:event");
         vars = new URL(url).searchParams;
         test.assert(vars.has("pe"));
         test.eq("test:event", vars.get("pe"));
 
-        url = pxl.makePxlUrl(baseurl, "1");
+        url = pxl.makePxlURL(baseurl, "1");
         vars = new URL(url).searchParams;
         test.assert(vars.has("pe"));
         test.eq("1", vars.get("pe"));
 
         // Test different data types
-        url = pxl.makePxlUrl(baseurl, "test", { ds_1: "test", dn_fun: 42, dn_2: 3.14159265, db_boel: true });
+        url = pxl.makePxlURL(baseurl, "test", { ds_1: "test", dn_fun: 42, dn_2: 3.14159265, db_boel: true });
         vars = new URL(url).searchParams;
         test.assert(vars.has("pe"));
         test.eq("test", vars.get("pe"));
@@ -50,7 +50,7 @@ test.registerTests(
         test.eq("true", vars.get("db_boel"));
 
         // Test different data type default values
-        url = pxl.makePxlUrl(baseurl, "test", { ds_1: "", dn_fun: 0, db_boel: false });
+        url = pxl.makePxlURL(baseurl, "test", { ds_1: "", dn_fun: 0, db_boel: false });
         vars = new URL(url).searchParams;
         test.assert(vars.has("pe"));
         test.eq("test", vars.get("pe"));
@@ -62,31 +62,31 @@ test.registerTests(
         test.eq("false", vars.get("db_boel"));
 
         // Test identifier
-        url = pxl.makePxlUrl(baseurl, "test", null, { donottrack: "1" });
+        url = pxl.makePxlURL(baseurl, "test", null, { donottrack: "1" });
         vars = new URL(url).searchParams;
         test.assert(!vars.has("pi"));
-        url = pxl.makePxlUrl(baseurl, "test", null, { donottrack: "0" });
+        url = pxl.makePxlURL(baseurl, "test", null, { donottrack: "0" });
         vars = new URL(url).searchParams;
         test.assert(vars.has("pi"));
         const id = vars.get("pi");
 
         pxl.setPxlOptions({ donottrack: "1" });
-        url = pxl.makePxlUrl(baseurl, "test");
+        url = pxl.makePxlURL(baseurl, "test");
         vars = new URL(url).searchParams;
         test.assert(!vars.has("pi"));
 
         pxl.setPxlOptions({ donottrack: "0" });
-        url = pxl.makePxlUrl(baseurl, "test", null, { donottrack: "1" });
+        url = pxl.makePxlURL(baseurl, "test", null, { donottrack: "1" });
         vars = new URL(url).searchParams;
         test.assert(!vars.has("pi"));
-        url = pxl.makePxlUrl(baseurl, "test");
+        url = pxl.makePxlURL(baseurl, "test");
         vars = new URL(url).searchParams;
         test.assert(vars.has("pi"));
         test.eq(id, vars.get("pi"));
 
         // Test not overwriting existing url variables
         baseurl = "https://example.org/?test=1&other=some%26thing";
-        url = pxl.makePxlUrl(baseurl, "test", { ds_1: "test", dn_fun: 42, dn_2: 3.14159265, db_boel: true });
+        url = pxl.makePxlURL(baseurl, "test", { ds_1: "test", dn_fun: 42, dn_2: 3.14159265, db_boel: true });
         vars = new URL(url).searchParams;
         test.assert(vars.has("test"));
         test.eq("1", vars.get("test"));
@@ -104,26 +104,26 @@ test.registerTests(
         test.eq("true", vars.get("db_boel"));
 
         // Test invalid event names
-        test.throws(() => pxl.makePxlUrl("https://example.org"));
-        test.throws(() => pxl.makePxlUrl("https://example.org", ""));
-        test.throws(() => pxl.makePxlUrl("https://example.org", "test event"));
-        test.throws(() => pxl.makePxlUrl("https://example.org", "test.event"));
-        test.throws(() => pxl.makePxlUrl("https://example.org", "êvent"));
+        test.throws(() => pxl.makePxlURL("https://example.org"));
+        test.throws(() => pxl.makePxlURL("https://example.org", ""));
+        test.throws(() => pxl.makePxlURL("https://example.org", "test event"));
+        test.throws(() => pxl.makePxlURL("https://example.org", "test.event"));
+        test.throws(() => pxl.makePxlURL("https://example.org", "êvent"));
 
         // Test invalid data field names
-        test.throws(() => pxl.makePxlUrl("https://example.org", "event", { ds: "test" }));
-        test.throws(() => pxl.makePxlUrl("https://example.org", "event", { "1": "test" }));
-        test.throws(() => pxl.makePxlUrl("https://example.org", "event", { "a:b": "test" }));
+        test.throws(() => pxl.makePxlURL("https://example.org", "event", { ds: "test" }));
+        test.throws(() => pxl.makePxlURL("https://example.org", "event", { "1": "test" }));
+        test.throws(() => pxl.makePxlURL("https://example.org", "event", { "a:b": "test" }));
 
         // Test invalid data field values
-        test.throws(() => pxl.makePxlUrl("https://example.org", "event", { ds_1: 42 }));
-        test.throws(() => pxl.makePxlUrl("https://example.org", "event", { ds_1: true }));
-        test.throws(() => pxl.makePxlUrl("https://example.org", "event", { ds_1: { b: "test" } }));
-        test.throws(() => pxl.makePxlUrl("https://example.org", "event", { ds_1: new Date() }));
+        test.throws(() => pxl.makePxlURL("https://example.org", "event", { ds_1: 42 }));
+        test.throws(() => pxl.makePxlURL("https://example.org", "event", { ds_1: true }));
+        test.throws(() => pxl.makePxlURL("https://example.org", "event", { ds_1: { b: "test" } }));
+        test.throws(() => pxl.makePxlURL("https://example.org", "event", { ds_1: new Date() }));
 
         // Test max url length (access log stores 600 bytes of request url)
         /*TODO: Not sure yet what the new maximum URL length will be
-        url = pxl.makePxlUrl(
+        url = pxl.makePxlURL(
             "https://example.org/lorem-ipsum-dolor-sit-amet/consectetur-adipiscing-elit/nam-at-condimentum-nunc/vestibulum-ultrices-lectus-dolor/pellentesque-velit-ligula/ornare-eget-neque-in/porta-interdum-tellus/",
             "lorem:ipsum",
             { "lorem_ipsum_dolor_sit_amet_consectetur_adipiscing_elit_nam_at_condimentum_nunc_vestibulum_ultrices_lectus_dolor_pellentesque_velit_ligula_ornare_eget_neque_in_porta_interdum_tellus": "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Nam at condimentum nunc. Vestibulum ultrices lectus dolor. Pellentesque velit ligula, ornare eget neque in, porta interdum tellus. Sed sapien leo, semper vel augue nec, interdum vehicula metus. Donec et feugiat nulla. Donec pellentesque eget risus eget commodo. Sed a pharetra nisl, tincidunt sollicitudin mauris. Aliquam erat volutpat. Sed nec iaculis magna, at maximus urna. Mauris erat ante, suscipit sed nibh ut, scelerisque vestibulum felis. Nullam efficitur vel mauris ut dapibus. Vestibulum at quam posuere, varius purus a, pharetra magna. Nulla interdum erat tortor, at laoreet est fermentum eget."
@@ -187,7 +187,7 @@ test.registerTests(
         async function () {
           whintegration.config.dtapstage = "live";
           whintegration.config.islive = true;
-          test.eq(null, pxl.makePxlUrl("https://example.org"), "should not throw in development mode (which tests run in");
+          test.eq(null, pxl.makePxlURL("https://example.org"), "should not throw in development mode (which tests run in");
         }
     */
   ]);

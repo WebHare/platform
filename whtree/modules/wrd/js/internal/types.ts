@@ -55,7 +55,7 @@ export enum WRDAttributeType {
   Integer64 = 18,
   WHFSInstance = 19,
   WHFSIntextlink = 20,
-  Url = 21,
+  URL = 21,
   Record = 22,
   Enum = 23,
   EnumArray = 24,
@@ -108,7 +108,7 @@ export type SimpleWRDAttributeType =
   WRDAttributeType.Integer64 |
   WRDAttributeType.WHFSInstance |
   WRDAttributeType.WHFSIntextlink |
-  WRDAttributeType.Url |
+  WRDAttributeType.URL |
   WRDAttributeType.Record |
   WRDAttributeType.JSON |
   WRDAttributeType.PaymentProvider |

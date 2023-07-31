@@ -24,7 +24,7 @@ function getWHConfig(parseddoc: Document) {
 
 async function verifyMarkdownResponse(markdowndoc: whfs.WHFSObject, response: WebResponse) {
   const doc = parseHTMLDoc(await response.text());
-  test.eq(markdowndoc.whfspath, doc.getElementById("whfspath")?.textContent, "Expect our whfspath to be in the source");
+  test.eq(markdowndoc.whfsPath, doc.getElementById("whfspath")?.textContent, "Expect our whfspath to be in the source");
 
   const contentdiv = doc.getElementById("content");
   test.eq("Markdown file", contentdiv?.getElementsByTagName("h2")[0]?.textContent);
@@ -55,11 +55,11 @@ async function testSiteResponse() {
 
   //It should be okay to initialize the composer without knowing its tpye
   const outputpage = await sitereq.createComposer();
-  test.assert(outputpage.pageconfig);
+  test.assert(outputpage.pageConfig);
 
-  //And if we know the type, we can access the pageconfig!
+  //And if we know the type, we can access the pageConfig!
   const typedoutputpage = await sitereq.createComposer<BaseTestPageConfig>();
-  test.eq("/webhare-tests/webhare_testsuite.testsitejs/TestPages/markdownpage", typedoutputpage.pageconfig.whfspath);
+  test.eq("/webhare-tests/webhare_testsuite.testsitejs/TestPages/markdownpage", typedoutputpage.pageConfig.whfspath);
 
   typedoutputpage.appendHTML(`<p>This is a body!</p>`);
   const response = await typedoutputpage.finish();
@@ -67,7 +67,7 @@ async function testSiteResponse() {
   //Verify markdown contents
   const responsetext = await response.text();
   const doc = parseHTMLDoc(responsetext);
-  test.eq(markdowndoc.whfspath, doc.getElementById("whfspath")?.textContent, "Expect our whfspath to be in the source");
+  test.eq(markdowndoc.whfsPath, doc.getElementById("whfspath")?.textContent, "Expect our whfspath to be in the source");
   const contentdiv = doc.getElementById("content");
   test.eq("This is a body!", contentdiv?.getElementsByTagName("p")[0]?.textContent);
   test.eq("text/html; charset=utf-8", response.getHeader("content-type"));

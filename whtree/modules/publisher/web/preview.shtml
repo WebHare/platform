@@ -142,7 +142,7 @@ MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderwidgetpr
   IF(webdesigninfo.renderinfo.renderer != "")
   {
     RECORD capturedpage := WaitForPromise(CallAsync("mod::publisher/js/internal/capturejsdesign.ts#captureJSPage", VARIANT[ source, openobj->id ]));
-    SendWebFile(StringToBlob(capturedpage.body));
+    SendWebFile(capturedpage.body);
   }
   ELSE IF(webdesigninfo.renderinfo.objectname = "")
     THROW NEW Exception("Don't know how to render a type without a rendering object");

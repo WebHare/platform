@@ -2,10 +2,8 @@
 
 LOADLIB "wh::promise.whlib";
 
-LOADLIB "mod::system/lib/services.whlib";
-
 LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
+LOADLIB "mod::consilio/lib/internal/opensearch.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 
 
@@ -59,7 +57,7 @@ MACRO CheckIndexManager(RECORD indexmgr, MACRO PTR onresolve, MACRO PTR onreject
 
   IF(RecordExists(status))
   {
-    // If an Elasticsearch manager has a disk watermark, it returns indexstatus 0
+    // If an OpenSearch manager has a disk watermark, it returns indexstatus 0
     IF (status.indexstatus = 0)
     {
       // Find the watermark

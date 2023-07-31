@@ -1,9 +1,7 @@
 <?wh
-LOADLIB "wh::crypto.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/checks.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/checks.whlib";
-LOADLIB "mod::tollium/lib/gettid.whlib";
 
 OpenPrimary();
 UpdateCheckStatus("wrd:scanforissues", GetWRDIssueList());

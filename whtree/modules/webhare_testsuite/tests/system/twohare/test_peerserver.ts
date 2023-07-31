@@ -19,7 +19,7 @@ test.registerTests(
         , { onpeerserver: true });
       setupdata = await setup1;
       setup2data = await setup2;
-      await test.load(test.getWrdLogoutUrl(setupdata.testportalurl + "?app=publisher(/webhare-tests/webhare_testsuite.testsite/tmp)/managefoldersync/add/selectpeer&notifications=0"));
+      await test.load(test.getWrdLogoutURL(setupdata.testportalurl + "?app=publisher(/webhare-tests/webhare_testsuite.testsite/tmp)/managefoldersync/add/selectpeer&notifications=0"));
       await test.wait("ui");
 
       // Wait for login page to appear

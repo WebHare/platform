@@ -3,7 +3,6 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::files.whlib";
 LOADLIB "wh::float.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/algorithms.whlib";
@@ -13,13 +12,11 @@ LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internet/urls.whlib";
 
 LOADLIB "mod::consilio/lib/database.whlib";
-LOADLIB "mod::consilio/lib/internal/fetcher_queue.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
+LOADLIB "mod::consilio/lib/internal/opensearch/mapping.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
-LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 
@@ -35,7 +32,7 @@ PUBLIC OBJECTTYPE SearchUnavailableException EXTEND Exception
 >;
 
 
-PUBLIC OBJECTTYPE ElasticsearchException EXTEND Exception
+PUBLIC OBJECTTYPE OpenSearchException EXTEND Exception
 <
   PUBLIC RECORD error;
 
@@ -98,7 +95,7 @@ RECORD FUNCTION DescribeIndexManager(INTEGER id)
   RETURN GetAdhocCached(CELL[indexmanager := id], PTR GetCacheableIndexMgrDescription(id));
 }
 
-PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING method, STRING suburl, RECORD requestbody, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC RECORD FUNCTION SendRawJSONToOpenSearch(INTEGER indexmgrid, STRING method, STRING suburl, RECORD requestbody, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions( [ ndjson := FALSE
                               , timeout := ToUppercase(method) IN ["HEAD","GET"] ? opensearch_read_timeout : opensearch_write_timeout
@@ -195,7 +192,7 @@ PUBLIC RECORD FUNCTION SendRawJSONToElasticsearch(INTEGER indexmgrid, STRING met
     IF(response->status IN [502,503]) //still starting up
       THROW NEW SearchUnavailableException(`Search unavailable, status code ${response->status} ${cause}`);
     ELSE
-      THROW NEW ElasticsearchException(`Unexpected response code ${response->status} ${cause}`, response, text);
+      THROW NEW OpenSearchException(`Unexpected response code ${response->status} ${cause}`, response, text);
 
   VARIANT decoded := DEFAULT RECORD;
   IF (response->headers->Get("Content-Type") LIKE "application/json*")
@@ -227,7 +224,7 @@ PUBLIC RECORD FUNCTION GetOpensearchStatus(INTEGER indexmgrid, RECORD options DE
       ];
 
   // Get file system status (containing total and available disk space) and cluster settings (containing disk thresholds). Both calls will throw if no 200 Ok is received
-  RECORD stats := SendRawJSONToElasticsearch(indexmgrid, "GET", "/_nodes/stats", DEFAULT RECORD, options);
+  RECORD stats := SendRawJSONToOpenSearch(indexmgrid, "GET", "/_nodes/stats", DEFAULT RECORD, options);
 
   // The nodes are named; we'll just use the first (and, at least for now, only) node
   stats := UnpackRecord(stats.result.nodes)[0].value;
@@ -256,7 +253,7 @@ PUBLIC RECORD FUNCTION GetOpensearchStatus(INTEGER indexmgrid, RECORD options DE
   STRING watermark;
 
   // Read cluster disk settings
-  RECORD settings := GetElasticsearchSettings(indexmgrid, TRUE, options);
+  RECORD settings := GetOpenSearchSettings(indexmgrid, TRUE, options);
   IF (settings."cluster.routing.allocation.disk.threshold_enabled" != "false")
   {
     INTEGER64 low_bytes := ReadWatermark(settings."cluster.routing.allocation.disk.watermark.low", total_bytes);
@@ -294,7 +291,7 @@ PUBLIC RECORD FUNCTION GetOpensearchStatus(INTEGER indexmgrid, RECORD options DE
               ];
 }
 
-PUBLIC RECORD FUNCTION GetElasticsearchSettings(INTEGER indexmgrid, BOOLEAN include_defaults, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC RECORD FUNCTION GetOpenSearchSettings(INTEGER indexmgrid, BOOLEAN include_defaults, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ timeout := opensearch_read_timeout
                              , firstconnect_timeout := opensearch_read_timeout //let's not be too patient
@@ -303,7 +300,7 @@ PUBLIC RECORD FUNCTION GetElasticsearchSettings(INTEGER indexmgrid, BOOLEAN incl
   IF (include_defaults)
     command := command || "&include_defaults=true";
 
-  RECORD settings := SendRawJSONToElasticsearch(indexmgrid, "GET", command, DEFAULT RECORD, CELL[ options.timeout, options.firstconnect_timeout ]);
+  RECORD settings := SendRawJSONToOpenSearch(indexmgrid, "GET", command, DEFAULT RECORD, CELL[ options.timeout, options.firstconnect_timeout ]);
   IF (settings.status != SearchOk)
     RETURN DEFAULT RECORD;
 
@@ -332,7 +329,7 @@ PUBLIC RECORD FUNCTION GetElasticsearchSettings(INTEGER indexmgrid, BOOLEAN incl
 // [ "cluster.routing.allocation.disk.watermark.low" := "85%" ]
 // To clear low watermark threshold
 // [ "cluster.routing.allocation.disk.watermark.low" := DEFAULT RECORD ] (encoded as "null")
-PUBLIC RECORD FUNCTION SetElasticsearchSettings(INTEGER indexmgrid, RECORD settings, RECORD options DEFAULTSTO DEFAULT RECORD)
+PUBLIC RECORD FUNCTION SetOpenSearchSettings(INTEGER indexmgrid, RECORD settings, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ transient := FALSE ], options);
   RECORD request;
@@ -340,7 +337,7 @@ PUBLIC RECORD FUNCTION SetElasticsearchSettings(INTEGER indexmgrid, RECORD setti
     request := [ transient := settings ];
   ELSE
     request := [ persistent := settings ];
-  RETURN SendRawJSONToElasticsearch(indexmgrid, "PUT", "/_cluster/settings", request);
+  RETURN SendRawJSONToOpenSearch(indexmgrid, "PUT", "/_cluster/settings", request);
 }
 
 INTEGER64 FUNCTION ReadWatermark(STRING input, INTEGER64 total_bytes)
@@ -357,14 +354,14 @@ INTEGER64 FUNCTION ReadWatermark(STRING input, INTEGER64 total_bytes)
   ELSE
   {
     // The absolute number of free bytes
-    INTEGER64 bytes := ParseElasticsearchBytes(input);
+    INTEGER64 bytes := ParseOpenSearchBytes(input);
     IF (bytes < 0)
       RETURN -1;
     RETURN bytes;
   }
 }
 
-PUBLIC INTEGER64 FUNCTION ParseElasticsearchBytes(STRING readable_bytes)
+PUBLIC INTEGER64 FUNCTION ParseOpenSearchBytes(STRING readable_bytes)
 {
   readable_bytes := ToLowercase(readable_bytes);
   INTEGER64 factor := 1;
@@ -390,11 +387,11 @@ PUBLIC INTEGER64 FUNCTION ParseElasticsearchBytes(STRING readable_bytes)
 PUBLIC BOOLEAN FUNCTION IsOpenSearchIndexPresent(INTEGER indexmgrid, STRING indexname)
 {
   //Getting just the index isn't enough. It will already stop 404-ing before you can write..
-  RECORD stats := SendRawJSONToElasticsearch(indexmgrid, "GET", indexname || "/_stats", DEFAULT RECORD, [ expectstatus := [200,404] ]);
+  RECORD stats := SendRawJSONToOpenSearch(indexmgrid, "GET", indexname || "/_stats", DEFAULT RECORD, [ expectstatus := [200,404] ]);
   RETURN stats.code = 200 AND stats.result._shards.successful >= 1;
 }
 
-PUBLIC STRING FUNCTION GetElasticsearchDocumentId(INTEGER catalogid, STRING objectid, STRING suffix DEFAULTSTO "")
+PUBLIC STRING FUNCTION GetOpenSearchDocumentId(INTEGER catalogid, STRING objectid, STRING suffix DEFAULTSTO "")
 {
   RETURN EncodeUFS(GetMD5Hash(catalogid || (suffix != "" ? "-" || suffix : "") || "/" || objectid));
 }
@@ -439,7 +436,7 @@ PUBLIC STRING ARRAY FUNCTION GetRequestedFields(RECORD mapping)
 }
 
 // input is either a single query, or a record containing a query and filters or an aggregation and possibly a query
-PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input, RECORD mapping, RECORD indexoptions)
+PUBLIC RECORD FUNCTION CreateOpenSearchQuery(RECORD input, RECORD mapping, RECORD indexoptions)
 {
   RECORD result :=
       [ query := DEFAULT RECORD
@@ -450,7 +447,7 @@ PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input, RECORD mapping, RE
 
   IF (CellExists(input, "aggregation"))
   {
-    result.aggs := CreateElasticsearchAggregationRecursive(input.aggregation);
+    result.aggs := CreateOpenSearchAggregationRecursive(input.aggregation);
     DELETE CELL aggregation FROM input;
   }
 
@@ -466,7 +463,7 @@ PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input, RECORD mapping, RE
 
   IF (RecordExists(UnpackRecord(query))) // query may be an empty record at this point
   {
-    RECORD created := CreateElasticsearchQueryRecursive(CELL[ ...result, query ], indexoptions);
+    RECORD created := CreateOpenSearchQueryRecursive(CELL[ ...result, query ], indexoptions);
     result.query := created.query;
     result._source := created._source;
 
@@ -494,7 +491,7 @@ PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input, RECORD mapping, RE
         INSERT [ range := CellInsert(DEFAULT RECORD, filter.field, range) ] INTO filters AT END;
       }
       IF (Length(filters) > 0)
-        result.query := AddElasticsearchQueryFilters(result.query, filters, FALSE);
+        result.query := AddOpenSearchQueryFilters(result.query, filters, FALSE);
     }
   }
 
@@ -509,7 +506,7 @@ PUBLIC RECORD FUNCTION CreateElasticsearchQuery(RECORD input, RECORD mapping, RE
   RETURN result;
 }
 
-PUBLIC RECORD FUNCTION AddElasticsearchQueryFilters(RECORD query, RECORD ARRAY filters, BOOLEAN not_filter)
+PUBLIC RECORD FUNCTION AddOpenSearchQueryFilters(RECORD query, RECORD ARRAY filters, BOOLEAN not_filter)
 {
   IF (RecordExists(query) AND NOT CellExists(query, "bool"))
     query := [ bool := [ must := [ RECORD(query) ] ] ];
@@ -573,7 +570,7 @@ RECORD FUNCTION LookupFieldInMapping(RECORD ARRAY expectedmapping, STRING fieldn
 }
 
 //ADDME: Take field mapping into account (e.g. whether to use a match (text) or term (keyword) query)
-RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD result, RECORD indexoptions)
+RECORD FUNCTION CreateOpenSearchQueryRecursive(RECORD result, RECORD indexoptions)
 {
   RECORD query := result.query;
   IF (NOT CellExists(query, "_type"))
@@ -601,7 +598,7 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD result, RECORD indexopt
       FOREVERY (STRING requirement FROM [ "must", "must_not", "should" ])
       {
         RECORD ARRAY queries :=
-            SELECT AS RECORD ARRAY CreateElasticsearchQueryRecursive(CELL[ ...result, subqueries.query ], indexoptions)
+            SELECT AS RECORD ARRAY CreateOpenSearchQueryRecursive(CELL[ ...result, subqueries.query ], indexoptions)
               FROM subqueries
              WHERE GetCell(subqueries, requirement);
         IF (Length(queries) > 0)
@@ -808,7 +805,7 @@ RECORD FUNCTION CreateElasticsearchQueryRecursive(RECORD result, RECORD indexopt
     }
     CASE "nested"
     {
-      result := CreateElasticsearchQueryRecursive(CELL[ ...result, query := query.subquery ], indexoptions);
+      result := CreateOpenSearchQueryRecursive(CELL[ ...result, query := query.subquery ], indexoptions);
       RECORD inner_hits := [ name := query.field ];
       IF (query.returnnonmatching)
       {
@@ -917,7 +914,7 @@ VARIANT ARRAY FUNCTION CreateElastisearchSort(RECORD ARRAY ordering)
   RETURN sort;
 }
 
-RECORD FUNCTION CreateElasticsearchAggregationRecursive(RECORD aggregation)
+RECORD FUNCTION CreateOpenSearchAggregationRecursive(RECORD aggregation)
 {
   IF (NOT CellExists(aggregation, "_type"))
     THROW NEW Exception(`Invalid aggregation record: ${AnyToString(aggregation, "tree")}`);
@@ -968,14 +965,14 @@ RECORD FUNCTION CreateElasticsearchAggregationRecursive(RECORD aggregation)
   {
     INSERT CELL aggs := DEFAULT RECORD INTO result;
     FOREVERY (RECORD agg FROM aggregation.aggregations)
-      result.aggs := CELL[ ...result.aggs, ...CreateElasticsearchAggregationRecursive(agg.aggregation) ];
+      result.aggs := CELL[ ...result.aggs, ...CreateOpenSearchAggregationRecursive(agg.aggregation) ];
   }
 
   RETURN CellInsert(DEFAULT RECORD, aggregation.name, result);
 }
 
 // Encode DEFAULT DATETIMEs as null (DEFAULT RECORD) and MONEYs as INTEGER64s
-PUBLIC RECORD FUNCTION FixupElasticsearchDocumentFields(RECORD document)
+PUBLIC RECORD FUNCTION FixupOpenSearchDocumentFields(RECORD document)
 {
   IF (NOT RecordExists(document))
     RETURN document;
@@ -994,10 +991,10 @@ PUBLIC RECORD FUNCTION FixupElasticsearchDocumentFields(RECORD document)
       document := CellInsert(CellDelete(document, field.name), field.name, SELECT AS INTEGER64 ARRAY __HS_GetRawMoney(value) FROM ToRecordArray(field.value, "value"));
     // Recurse into RECORDs
     ELSE IF (TypeID(field.value) = TypeID(RECORD))
-      document := CellUpdate(document, field.name, FixupElasticsearchDocumentFields(field.value));
+      document := CellUpdate(document, field.name, FixupOpenSearchDocumentFields(field.value));
     // Recurse into RECORD ARRAYs
     ELSE IF (TypeID(field.value) = TypeID(RECORD ARRAY))
-      document := CellUpdate(document, field.name, SELECT AS RECORD ARRAY FixupElasticsearchDocumentFields(value) FROM field.value);
+      document := CellUpdate(document, field.name, SELECT AS RECORD ARRAY FixupOpenSearchDocumentFields(value) FROM field.value);
   }
   RETURN document;
 }
@@ -1014,7 +1011,7 @@ VARIANT ARRAY FUNCTION ConvertDefaultDatetime(DATETIME ARRAY dates)
   RETURN converted;
 }
 
-PUBLIC VARIANT FUNCTION ReadElasticsearchAggregationResult(RECORD query_aggregation, STRING aggregation_name, RECORD result)
+PUBLIC VARIANT FUNCTION ReadOpenSearchAggregationResult(RECORD query_aggregation, STRING aggregation_name, RECORD result)
 {
   // The 'count' is handled separately, as it's not really an aggregation
   IF (query_aggregation._type = "count")
@@ -1049,7 +1046,7 @@ PUBLIC VARIANT FUNCTION ReadElasticsearchAggregationResult(RECORD query_aggregat
           {
             FOREVERY (RECORD agg FROM query_aggregation.aggregations)
             {
-              VARIANT aggresult := ReadElasticsearchAggregationResult(agg.aggregation, agg.aggregation.name, bucket);
+              VARIANT aggresult := ReadOpenSearchAggregationResult(agg.aggregation, agg.aggregation.name, bucket);
               IF (IsTypeIDArray(TypeID(aggresult)))
                 lineresult := CellInsert(lineresult, agg.aggregation.name, aggresult);
               ELSE
@@ -1083,7 +1080,7 @@ PUBLIC VARIANT FUNCTION ReadElasticsearchAggregationResult(RECORD query_aggregat
   THROW NEW Exception("Unknown aggregation type '" || query_aggregation._type || "'");
 }
 
-PUBLIC RECORD ARRAY FUNCTION ReadElasticsearchResults(RECORD ARRAY hits, RECORD searchquery, RECORD mapping, RECORD options)
+PUBLIC RECORD ARRAY FUNCTION ReadOpenSearchResults(RECORD ARRAY hits, RECORD searchquery, RECORD mapping, RECORD options)
 {
   options := ValidateOptions([ highlightfields := STRING[], highlightparts := STRING[] ], options, [ passthrough := TRUE ]);
 
@@ -1142,7 +1139,7 @@ PUBLIC RECORD ARRAY FUNCTION ReadElasticsearchResults(RECORD ARRAY hits, RECORD 
       }
     }
 
-    RECORD singleresult := ParseSingleElasticsearchResult(sourcehit, sourcemapping);
+    RECORD singleresult := ParseSingleOpenSearchResult(sourcehit, sourcemapping);
     INSERT CombineFields(singleresult, internalfields) INTO results AT END;
   }
   RETURN results;
@@ -1244,15 +1241,15 @@ RECORD FUNCTION ReadInnerHits(RECORD hit, RECORD mapping, RECORD options)
   RETURN CELL[ field, value, internalvalue, path, total ];
 }
 
-PUBLIC RECORD FUNCTION ParseSingleElasticsearchResult(RECORD lineresult, RECORD mapping)
+PUBLIC RECORD FUNCTION ParseSingleOpenSearchResult(RECORD lineresult, RECORD mapping)
 {
-  RETURN FixupElasticsearchResultFields(lineresult, mapping);
+  RETURN FixupOpenSearchResultFields(lineresult, mapping);
 }
 
-// Elasticsearch doesn't have an array type, but instead accept multiple values for the same field. If there is only one value,
+// OpenSearch doesn't have an array type, but instead accept multiple values for the same field. If there is only one value,
 // it's not returned as an array, so this function convert single values into arrays where expected.
 // This function also converts INTEGER64s back to MONEYs where necessary
-RECORD FUNCTION FixupElasticsearchResultFields(RECORD lineresult, RECORD mapping)
+RECORD FUNCTION FixupOpenSearchResultFields(RECORD lineresult, RECORD mapping)
 {
   RECORD outputline := CELL[];
   STRING ARRAY seenfields;
@@ -1288,11 +1285,11 @@ RECORD FUNCTION FixupElasticsearchResultFields(RECORD lineresult, RECORD mapping
 
     IF (TypeID(fieldmapping) = TypeID(RECORD))
     {
-      outputfield := FixupElasticsearchResultFields(outputfield, fieldmapping);
+      outputfield := FixupOpenSearchResultFields(outputfield, fieldmapping);
     }
     ELSE IF (TypeID(fieldmapping) = TypeID(RECORD ARRAY))
     {
-      outputfield := SELECT AS RECORD ARRAY FixupElasticsearchResultFields(row, PickFirst(fieldmapping)) FROM outputfield AS row;
+      outputfield := SELECT AS RECORD ARRAY FixupOpenSearchResultFields(row, PickFirst(fieldmapping)) FROM outputfield AS row;
     }
     ELSE
     {
@@ -1365,7 +1362,7 @@ PUBLIC RECORD ARRAY FUNCTION ListOpenSearchIndices(INTEGER indexmanager)
                                             , "pri" := 0
                                             , "index" := ""
                                             , "health" := ""
-                                           ]], SendRawJSONToElasticsearch(indexmanager, "GET", '/_cat/indices?format=json&bytes=b', DEFAULT RECORD).result);
+                                           ]], SendRawJSONToOpenSearch(indexmanager, "GET", '/_cat/indices?format=json&bytes=b', DEFAULT RECORD).result);
   RETURN SELECT uuid
               , docs := indices."docs.count"
               , size := indices."pri.store.size"
@@ -1398,10 +1395,10 @@ PUBLIC RECORD ARRAY FUNCTION ListOpenSearchIndexSuffixes(INTEGER indexmanager, S
 PUBLIC RECORD FUNCTION GetOpenSearchCurrentMapping(INTEGER indexmanagermapping, STRING indexname, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions(
-      [ suffix := "" // Sub-index suffix, for unmanaged indices, Elasticsearch only
+      [ suffix := "" // Sub-index suffix, for unmanaged indices, OpenSearch only
       ], options);
 
-  RECORD response := SendRawJSONToElasticsearch(indexmanagermapping, "GET", indexname || "/_mapping", DEFAULT RECORD);
+  RECORD response := SendRawJSONToOpenSearch(indexmanagermapping, "GET", indexname || "/_mapping", DEFAULT RECORD);
 
   RECORD mappings := GetCell(response.result, indexname).mappings;
   mappings := EnforceStructure([ dynamic_templates := RECORD[]], mappings);

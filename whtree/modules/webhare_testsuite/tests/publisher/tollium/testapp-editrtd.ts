@@ -13,7 +13,7 @@ test.registerTests(
           createsysop: true,
           preprtd: true
         });
-      await test.load(test.getWrdLogoutUrl(setupdata.testportalurl + "?app=publisher(" + setupdata.rtdid + ")"));
+      await test.load(test.getWrdLogoutURL(setupdata.testportalurl + "?app=publisher(" + setupdata.rtdid + ")"));
       // Wait for login page to appear
       await test.wait('ui');
       test.setTodd('loginname', setupdata.sysopuser);

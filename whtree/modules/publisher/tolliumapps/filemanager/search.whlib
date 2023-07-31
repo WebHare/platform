@@ -5,7 +5,6 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::consilio/lib/api.whlib";
 LOADLIB "mod::consilio/lib/search.whlib";
 
-LOADLIB "mod::publisher/lib/dialogs.whlib";
 LOADLIB "mod::publisher/lib/hooks.whlib";
 LOADLIB "mod::publisher/lib/search/searchfilters.whlib";
 

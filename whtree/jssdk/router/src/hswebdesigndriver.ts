@@ -7,8 +7,8 @@ class HSWebdesignDriver<T extends object> extends SiteResponse<T> {
   hsvm: HSVM;
   webdesign: HSVMObject;
 
-  constructor(hsvm: HSVM, webdesign: HSVMObject, pageconfig: T, siterequest: SiteRequest, settings: SiteResponseSettings) {
-    super(pageconfig, siterequest, settings);
+  constructor(hsvm: HSVM, webdesign: HSVMObject, pageConfig: T, siteRequest: SiteRequest, settings: SiteResponseSettings) {
+    super(pageConfig, siteRequest, settings);
     this.hsvm = hsvm;
     this.webdesign = webdesign;
   }
@@ -34,8 +34,8 @@ export async function wrapHSWebdesign<T extends object>(request: SiteRequest): P
   const hsvm = await openHSVM({ openPrimary: true });
 
   const siteprofileslib = hsvm.loadlib("mod::publisher/lib/siteprofiles.whlib");
-  const webdesign = await siteprofileslib.GetWebDesign(request.targetobject.id) as HSVMObject;
-  const pageconfig = await webdesign.get("pageconfig");
+  const webdesign = await siteprofileslib.GetWebDesign(request.targetObject.id) as HSVMObject;
+  const pageConfig = await webdesign.get("pageConfig");
 
-  return new HSWebdesignDriver<T>(hsvm, webdesign, pageconfig as T, request, new SiteResponseSettings);
+  return new HSWebdesignDriver<T>(hsvm, webdesign, pageConfig as T, request, new SiteResponseSettings);
 }

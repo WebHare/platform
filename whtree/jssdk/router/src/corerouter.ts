@@ -12,17 +12,17 @@ export async function lookupPublishedTarget(url: string) {
   if (!lookupresult.file)
     return null;
 
-  const targetobject = await whfs.openFile(lookupresult.file);
-  if (!targetobject || !targetobject.parentsite || !targetobject.parent)
+  const targetObject = await whfs.openFile(lookupresult.file);
+  if (!targetObject || !targetObject.parentSite || !targetObject.parent)
     return null;
 
   //TODO also gather webdesign info
-  const applytester = await getApplyTesterForObject(targetobject);
+  const applytester = await getApplyTesterForObject(targetObject);
   const renderinfo = await applytester.getObjRenderInfo();
 
   return {
     lookupresult,
-    targetobject,
+    targetObject,
     renderer: renderinfo.renderer
   };
 }
@@ -82,6 +82,6 @@ export async function coreWebHareRouter(request: WebRequest): Promise<WebRespons
   //Invoke the render function. TODO seperate VM/ShadowRealm etc
 
   const renderer: WebHareWHFSRouter = await resourcetools.loadJSFunction(target.renderer) as WebHareWHFSRouter;
-  const whfsreq = await buildSiteRequest(request, target.targetobject);
+  const whfsreq = await buildSiteRequest(request, target.targetObject);
   return await renderer(whfsreq);
 }
