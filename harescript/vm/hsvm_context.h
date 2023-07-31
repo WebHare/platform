@@ -468,6 +468,7 @@ class ColumnNameCache
         ColumnNameId col_functionid;
         ColumnNameId col_groupid;
         ColumnNameId col_handled;
+        ColumnNameId col_has_fase1_hscode;
         ColumnNameId col_has_hs_code;
         ColumnNameId col_hat;
         ColumnNameId col_highpriority;

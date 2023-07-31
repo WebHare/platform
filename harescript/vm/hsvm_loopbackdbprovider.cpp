@@ -100,6 +100,7 @@ void LoopbackDBTransactionDriver::TranslateDBQuery(DatabaseQuery const &query, V
 
         HSVM_IntegerSet(*vm, HSVM_RecordCreate(*vm, target, vm->cn_cache.col_query_limit), query.limit);
         HSVM_IntegerSet(*vm, HSVM_RecordCreate(*vm, target, vm->cn_cache.col_max_block_rows), query.maxblockrows);
+        HSVM_BooleanSet(*vm, HSVM_RecordCreate(*vm, target, vm->cn_cache.col_has_fase1_hscode), query.has_fase1_hscode);
 
         VarId table_sources = HSVM_RecordCreate(*vm, target, vm->cn_cache.col_table_sources);
         VarId single_conditions = HSVM_RecordCreate(*vm, target, vm->cn_cache.col_single_conditions);
@@ -256,8 +257,8 @@ unsigned LoopbackDBTransactionDriver::RetrieveNextBlock(CursorId id, VarId recar
         HSVM_CopyFrom(*vm, recarr, block);
 
         int32_t rowcount = HSVM_ArrayLength(*vm, recarr) / cursordata.tablecount;
-        if (rowcount > 1)
-            throw VMRuntimeError (Error::DatabaseException, "Database error: LoopbackDB RetrieveNextBlock returned more than one row");
+//        if (rowcount > 1)
+//            throw VMRuntimeError (Error::DatabaseException, "Database error: LoopbackDB RetrieveNextBlock returned more than one row");
 
         return rowcount;
 }
@@ -397,7 +398,7 @@ void RegisterTransaction(VarId id_set, VirtualMachine *vm)
         description.supports_block_cursors = true;
         description.supports_single = true;
         description.supports_data_modify = true;
-        description.supports_nulls = false;
+        description.supports_nulls = true;
         description.needs_locking_and_recheck = true;
         description.fase2_locks_implicitly = false;
         description.needs_uppercase_names = true;
@@ -439,4 +440,3 @@ void Register(BuiltinFunctionsRegistrator &bifreg, Blex::ContextRegistrator &cre
 } // End of namespace HareScript
 
 //---------------------------------------------------------------------------
-
