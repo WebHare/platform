@@ -3,8 +3,6 @@
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::datetime.whlib";
 
-LOADLIB "mod::system/lib/internal/tasks/callasync.whlib";
-
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 

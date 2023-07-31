@@ -1,7 +1,5 @@
 <?wh
 
-LOADLIB "wh::util/algorithms.whlib";
-
 
 /// Are we running within a fetcher?
 PUBLIC BOOLEAN running_in_fetcher;

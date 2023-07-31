@@ -22,9 +22,7 @@ LOADLIB "mod::consilio/lib/internal/elasticsearch/mapping.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
-LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 
 

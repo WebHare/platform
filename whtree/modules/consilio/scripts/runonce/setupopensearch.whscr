@@ -1,13 +1,7 @@
 <?wh
 //bootstrap the first index manager, wait for it to come online and apply the first index settings
 
-LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::os.whlib";
-
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
-LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
-LOADLIB "mod::consilio/lib/internal/support.whlib";
-LOADLIB "mod::consilio/lib/internal/updateindices.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 

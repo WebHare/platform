@@ -2,8 +2,6 @@
 
 LOADLIB "wh::promise.whlib";
 
-LOADLIB "mod::system/lib/services.whlib";
-
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib";

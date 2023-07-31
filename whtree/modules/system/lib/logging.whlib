@@ -1,7 +1,6 @@
 <?wh
 /** @topic modules/services */
 
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::system/lib/internal/tasks/callasync.whlib";

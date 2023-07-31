@@ -1,5 +1,4 @@
 <?wh
-LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::consilio/lib/internal/dbschema.whlib";
 LOADLIB "mod::consilio/lib/internal/elasticsearch.whlib";

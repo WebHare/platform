@@ -3,7 +3,6 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/semver.whlib";
-LOADLIB "wh::xml/dom.whlib";
 LOADLIB "wh::internal/any.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";

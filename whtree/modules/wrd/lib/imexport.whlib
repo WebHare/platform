@@ -12,9 +12,7 @@ LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/internal/import.whlib";
 LOADLIB "mod::wrd/lib/internal/exchange.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
-LOADLIB "mod::wrd/lib/internal/queries.whlib";
 LOADLIB "mod::wrd/lib/internal/schemadef.whlib";
-LOADLIB "mod::wrd/lib/internal/metadata/schemaparser.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
 
 

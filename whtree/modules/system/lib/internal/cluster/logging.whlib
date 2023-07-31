@@ -6,7 +6,6 @@ LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::internal/interface.whlib";
-LOADLIB "wh::internal/debug.whlib";
 
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/cluster/logwriter.whlib";
