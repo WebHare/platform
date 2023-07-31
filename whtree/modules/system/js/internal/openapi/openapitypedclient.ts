@@ -79,6 +79,7 @@ export class TypedOpenAPIClient<Paths extends object, Components extends Compone
     route = route.split("/").map(pathelt => {
       if (pathelt.startsWith("{")) {
         const name = pathelt.slice(1, -1);
+        used_pathelts.push(name);
         const value = options?.params?.[name];
         if (typeof value !== "number" && typeof value !== "string")
           throw new Error(`Missing parameter ${JSON.stringify(pathelt.slice(1, -1))}`);
