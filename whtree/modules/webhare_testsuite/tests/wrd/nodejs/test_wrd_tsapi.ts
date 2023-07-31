@@ -394,6 +394,7 @@ async function testComparisons() {
     wrdDateOfBirth: { values: [null, new Date(-86400000), new Date(0), new Date(86400000)] },
     testDate: { values: [null, new Date(-86400000), new Date(0), new Date(86400000)] },
     testDatetime: { values: [null, new Date(-1), new Date(0), new Date(1)] },
+    testEnum: { values: [null, "enum1", "enum2"] },
   };
 
   const comparetypes = ["=", "!=", "<", "<=", ">", ">=", "in"] as const;
@@ -405,11 +406,13 @@ async function testComparisons() {
       await schema.update("wrdPerson", newperson, entityval);
       for (let othervalue of values as unknown[])
         for (const comparetype of comparetypes) {
+          if (/Enum/.test(attr) && [">", ">=", "<=", "<"].includes(comparetype))
+            continue;
           if (comparetype == "in")
             othervalue = [othervalue];
           const select = await schema.selectFrom("wrdPerson").select(attr as any).where(attr as any, comparetype, othervalue).where("wrdId", "=", newperson).historyMode("__getfields").execute();
           const expect = cmp(value, comparetype, othervalue);
-          console.log(`Testing ${JSON.stringify(value)} ${comparetype} ${othervalue}, expect: ${expect}, entityval: ${JSON.stringify(entityval)}, selectresult: ${JSON.stringify(select)}`);
+          console.log(`Testing ${JSON.stringify(value)} ${comparetype} ${JSON.stringify(othervalue)}, expect: ${expect}, entityval: ${JSON.stringify(entityval)}, selectresult: ${JSON.stringify(select)}`);
           test.eq(expect, select.length === 1, `Testing ${JSON.stringify(value)} ${comparetype} ${othervalue}`);
         }
     }

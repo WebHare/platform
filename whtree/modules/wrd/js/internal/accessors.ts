@@ -460,9 +460,7 @@ class WRDDBDomainArrayValue extends WRDAttributeValueBase<number[], number[], nu
 }
 
 type WRDDBEnumConditions = {
-  condition: "=" | "!=" | ">=" | "<="; value: string;
-} | {
-  condition: ">" | "<"; value: string;
+  condition: "=" | "!="; value: string | null;
 } | {
   condition: "in"; value: readonly string[];
 } | {
@@ -474,23 +472,23 @@ type WRDDBEnumConditions = {
 };
 
 // FIXME: add wildcard support
-type GetEnumAllowedValues<Options extends { allowedvalues: string }, Required extends boolean> = (Options extends { allowedvalues: infer V } ? V : never) | (Required extends true ? never : "");
+type GetEnumAllowedValues<Options extends { allowedvalues: string }, Required extends boolean> = (Options extends { allowedvalues: infer V } ? V : never) | (Required extends true ? never : null);
 
-class WRDDBEnumValue<Options extends { allowedvalues: string }, Required extends boolean> extends WRDAttributeValueBase<GetEnumAllowedValues<Options, Required>, GetEnumAllowedValues<Options, Required> | "", GetEnumAllowedValues<Options, Required>, WRDDBEnumConditions> {
-  getDefaultValue(): GetEnumAllowedValues<Options, Required> | "" { return ""; }
+class WRDDBEnumValue<Options extends { allowedvalues: string }, Required extends boolean> extends WRDAttributeValueBase<GetEnumAllowedValues<Options, Required>, GetEnumAllowedValues<Options, Required> | null, GetEnumAllowedValues<Options, Required>, WRDDBEnumConditions> {
+  getDefaultValue(): GetEnumAllowedValues<Options, Required> | null { return null; }
   checkFilter({ condition, value }: WRDDBEnumConditions) {
     if (condition === "mentions" && !value)
       throw new Error(`Value may not be empty for condition type ${JSON.stringify(condition)}`);
   }
-  matchesValue(value: string, cv: WRDDBEnumConditions): boolean {
+  matchesValue(value: string | null, cv: WRDDBEnumConditions): boolean {
+    value = value || "";
     if (cv.condition === "in" || cv.condition === "mentionsany") {
       return cv.value.includes(value);
     }
-    const cmpvalue = cv.value;
     if (cv.condition === "like") {
-      return isLike(value, cmpvalue);
+      return isLike(value, cv.value);
     }
-    return cmp(value, cv.condition === "mentions" ? "=" : cv.condition, cmpvalue);
+    return cmp(value, cv.condition === "mentions" ? "=" : cv.condition, cv.value);
   }
 
   addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBEnumConditions): AddToQueryResponse<O> {
@@ -521,8 +519,8 @@ class WRDDBEnumValue<Options extends { allowedvalues: string }, Required extends
     return entity_settings[settings_start].rawdata as GetEnumAllowedValues<Options, Required>;
   }
 
-  validateInput(value: GetEnumAllowedValues<Options, Required>) {
-    if (this.attr.required && !value.length)
+  validateInput(value: GetEnumAllowedValues<Options, Required> | null) {
+    if (this.attr.required && (!value || !value.length))
       throw new Error(`Provided default value for attribute ${this.attr.tag}`);
   }
 }
