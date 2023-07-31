@@ -2206,11 +2206,21 @@ STATIC OBJECTTYPE WRDDBValue
   }
 >;
 
-BOOLEAN FUNCTION CheckEnumUserInput(RECORD attr, VARIANT user_input, OBJECT condition)
+BOOLEAN FUNCTION CheckEnumUserInput(RECORD attr, VARIANT user_input, OBJECT condition, BOOLEAN jsmode)
 {
   STRING match_type := condition->match_type;
   IF (match_type = "IN")
   {
+    IF (jsmode)
+    {
+      user_input := VARIANT ARRAY(user_input);
+      FOREVERY (VARIANT v FROM user_input)
+        IF (TypeID(v) = TypeID(RECORD) AND IsDefaultValue(v))
+          user_input[#v] := "";
+        ELSE IF (TypeID(v) != TypeID(STRING))
+          THROW NEW Exception(`Matchtype 'IN' requires a string array value for enumeration attribute '${attr.tag}'`);
+      user_input := STRING ARRAY(user_input);
+    }
     IF(TypeID(user_input) != TypeID(STRING ARRAY))
       THROW NEW Exception(`Matchtype 'IN' requires a string array value for enumeration attribute '${attr.tag}'`);
     IF(NOT condition->ignoreallowedvalues)
@@ -2221,6 +2231,8 @@ BOOLEAN FUNCTION CheckEnumUserInput(RECORD attr, VARIANT user_input, OBJECT cond
   }
   ELSE IF(match_type IN ['=','!='])
   {
+    IF (jsmode AND TypeID(user_input) = TypeID(RECORD) AND IsDefaultValue(user_input))
+      user_input := "";
     IF(TypeID(user_input) != TypeID(STRING))
       THROW NEW Exception(`Matchtype '${match_type}' requires a string value for enumeration attribute '${attr.tag}'`);
     IF(NOT condition->ignoreallowedvalues)
@@ -2240,21 +2252,85 @@ BOOLEAN FUNCTION CheckEnumUserInput(RECORD attr, VARIANT user_input, OBJECT cond
 }
 
 STATIC OBJECTTYPE WRDDBEnumSingleValue EXTEND WRDDBValue
-<
+< BOOLEAN jsmode;
+
+  MACRO NEW(OBJECT wrdtype, RECORD attr, RECORD options) : WRDDBValue(wrdtype, attr)
+  {
+    this->jsmode := options.jsmode;
+  }
+
+  VARIANT FUNCTION DoJSModeConvert(VARIANT user_input, BOOLEAN pedantic)
+  {
+    IF (this->jsmode)
+    {
+      IF (IsTypeidArray(TypeID(user_input)))
+      {
+        user_input := VARIANT ARRAY(user_input);
+        FOREVERY (VARIANT v FROM user_input)
+          IF (TypeID(v) = TypeID(RECORD) AND IsDefaultValue(v))
+            user_input[#v] := "";
+          ELSE IF (v = "" AND pedantic)
+            THROW NEW Exception(`Not allowed to use "" as value for a condition on enums`);
+        user_input := STRING ARRAY(user_input);
+      }
+      ELSE IF (TypeID(user_input) = TypeID(RECORD) AND IsDefaultValue(user_input))
+        user_input := "";
+      ELSE IF (user_input = "" AND pedantic)
+        THROW NEW Exception(`Not allowed to use "" as value for a condition on link`);
+    }
+    RETURN user_input;
+  }
+
+  PUBLIC UPDATE BOOLEAN FUNCTION Match(VARIANT dbval, STRING match_type, VARIANT match_value, BOOLEAN match_case)
+  {
+    IF (this->jsmode)
+    {
+      dbval := this->DoJSModeConvert(dbval, FALSE);
+      match_value := this->DoJSModeConvert(match_value, FALSE);
+    }
+    RETURN WRDDBValue::Match(dbval, match_type, match_value, match_case);
+  }
+
   UPDATE PUBLIC VARIANT FUNCTION GetFromRecord(RECORD ARRAY entity_settings, INTEGER settings_start, INTEGER settings_limit)
   {
     RETURN entity_settings[settings_start].rawdata;
   }
   UPDATE PUBLIC VARIANT FUNCTION GetDefaultValue()
   {
+    IF (this->jsmode)
+      RETURN DEFAULT RECORD;
     RETURN DEFAULT STRING;
+  }
+  UPDATE PUBLIC BOOLEAN FUNCTION ContainsOnlyDefaultValues(VARIANT value)
+  {
+    IF (IsTypeidArray(TypeID(value)))
+    {
+      FOREVERY (VARIANT v FROM value)
+        IF (IsValueSet(v))
+          RETURN FALSE;
+      RETURN TRUE;
+    }
+    RETURN IsDefaultValue(value);
   }
   UPDATE PUBLIC BOOLEAN FUNCTION CheckUserInput(VARIANT user_input, OBJECT condition)
   {
-    RETURN CheckEnumUserInput(this->attr, user_input, condition);
+    RETURN CheckEnumUserInput(this->attr, user_input, condition, this->jsmode);
   }
+  UPDATE PUBLIC RECORD FUNCTION TryAddToDBQuery(OBJECT query, STRING settings_source, VARIANT value, OBJECT condition, BOOLEAN ignore_default_also_match)
+  {
+    value := this->DoJSModeConvert(value, FALSE);
+    RETURN WRDDBValue::TryAddToDBQuery(query, settings_source, value, condition, ignore_default_also_match);
+  }
+  UPDATE PUBLIC BOOLEAN FUNCTION MatchesDefault(VARIANT value, OBJECT condition)
+  {
+    IF (NOT this->CheckUserInput(value, condition))
+      THROW NEW Exception("Specified value is of the wrong type for this type of attribute");
+    value := this->DoJSModeConvert(value, FALSE);
+    RETURN EvaluateConstraintWithSpecCase("", condition->match_type, value, condition->match_case);
+  }
+
 >;
-STATIC OBJECTTYPE WRDDBEnumMultipleValue EXTEND WRDDBValue
+STATIC OBJECTTYPE WRDDBEnumMultipleValue EXTEND WRDDBvalue
 <
   UPDATE PUBLIC VARIANT FUNCTION GetFromRecord(RECORD ARRAY entity_settings, INTEGER settings_start, INTEGER settings_limit)
   {
@@ -3527,7 +3603,7 @@ STATIC OBJECTTYPE WRDDBStatusRecordValue EXTEND WRDDBValue
 
   UPDATE PUBLIC BOOLEAN FUNCTION CheckUserInput(VARIANT user_input, OBJECT condition)
   {
-    RETURN CheckEnumUserInput(this->attr, user_input, condition);
+    RETURN CheckEnumUserInput(this->attr, user_input, condition, FALSE);
   }
   UPDATE PUBLIC BOOLEAN FUNCTION MatchesDefault(VARIANT value, OBJECT condition)
   {
@@ -3933,7 +4009,7 @@ PUBLIC OBJECT FUNCTION GetAccessorForAttributeType(RECORD attrinfo, OBJECT wrd_t
     { RETURN NEW WRDDBRecordValue(wrd_type, attrinfo); }
 
   CASE wrd_attributetype_enum
-    { RETURN NEW WRDDBEnumSingleValue(wrd_type, attrinfo); }
+    { RETURN NEW WRDDBEnumSingleValue(wrd_type, attrinfo, options); }
   CASE wrd_attributetype_enumarray
     { RETURN NEW WRDDBEnumMultipleValue(wrd_type, attrinfo); }
 

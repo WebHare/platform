@@ -2325,6 +2325,12 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       }
       CASE wrd_attributetype_enum
       {
+        IF (jsmode AND TypeId(val) = TypeId(RECORD))
+        {
+          IF (RecordExists(val))
+            THROW NEW Exception("Value must be of type string or null");
+          val := "";
+        }
         IF(TypeId(val) != TYPEID(STRING))
           THROW NEW Exception(`Value must be of type STRING, got ${GetTypeName(TYPEID(val))}`);
 
