@@ -344,9 +344,9 @@ BOOLEAN FUNCTION WLT_IsWorkOpen(INTEGER transid)
   RETURN GetTransObject(transid)->IsWorkOpen();
 }
 
-MACRO WLT_BeginWork(INTEGER transid)
+MACRO WLT_BeginWork(INTEGER transid, RECORD options)
 {
-  GetTransObject(transid)->BeginWork();
+  GetTransObject(transid)->BeginWork(options);
 }
 
 RECORD ARRAY FUNCTION WLT_CommitWork(INTEGER transid)
@@ -424,9 +424,9 @@ MACRO WLT_CreateSchema(INTEGER transid, STRING schemaname, STRING ownerschema, S
 {
   GetTransObject(transid)->CreateSchema(schemaname, ownerschema, ownerrole);
 }
-MACRO WLT_DropSchema(INTEGER transid, STRING schemaname)
+MACRO WLT_DropSchema(INTEGER transid, STRING schemaname, RECORD options)
 {
-  GetTransObject(transid)->DropSchema(schemaname);
+  GetTransObject(transid)->DropSchema(schemaname, options);
 }
 MACRO WLT_DropTable(INTEGER transid, STRING schemaname, STRING tablename)
 {
@@ -452,7 +452,7 @@ PUBLIC RECORD FUNCTION GetTransactionFLTRecordInterface(OBJECT transaction)
       , opencursor :=           PTR WLT_OpenCursor(id, #1, #2)
       , hasworksupport :=       transaction->HasWorkSupport()
       , isworkopen :=           PTR WLT_IsWorkOpen(id)
-      , beginwork :=            PTR WLT_BeginWork(id)
+      , beginwork :=            PTR WLT_BeginWork(id, #1)
       , commitwork :=           PTR WLT_CommitWork(id)
       , rollbackwork :=         PTR WLT_RollbackWork(id)
       , getschemalisting :=     PTR WLT_GetSchemaListing(id)
@@ -468,7 +468,7 @@ PUBLIC RECORD FUNCTION GetTransactionFLTRecordInterface(OBJECT transaction)
       , createschema :=         PTR WLT_CreateSchema(id, #1, #2, #3)
       , createtable :=          PTR WLT_CreateTable(id, #1, #2, #3)
       , altertable :=           PTR WLT_AlterTable(id, #1, #2, #3)
-      , dropschema :=           PTR WLT_DropSchema(id, #1)
+      , dropschema :=           PTR WLT_DropSchema(id, #1, #2)
       , droptable :=            PTR WLT_DropTable(id, #1, #2)
       ];
 }

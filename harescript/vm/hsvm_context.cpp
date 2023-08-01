@@ -4286,6 +4286,7 @@ ColumnNameCache::ColumnNameCache(ColumnNames::LocalMapper &columnnamemapper)
         col_functionid = columnnamemapper.GetMapping("FUNCTIONID");
         col_groupid = columnnamemapper.GetMapping("GROUPID");
         col_handled = columnnamemapper.GetMapping("HANDLED");
+        col_has_fase1_hscode = columnnamemapper.GetMapping("HAS_FASE1_HSCODE");
         col_has_hs_code = columnnamemapper.GetMapping("HAS_HS_CODE");
         col_hat = columnnamemapper.GetMapping("^");
         col_highpriority = columnnamemapper.GetMapping("HIGHPRIORITY");
