@@ -65,8 +65,7 @@ function attrHasBooleanValue(propname: string) {
   return ['disabled', 'checked', 'selected', 'readonly', 'multiple', 'ismap'].includes(propname);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function createElement(elementname: string, attributes: CreateAttributes, toattrs: boolean) {
+function createElement(elementname: string, attributes?: CreateAttributes, toattrs?: boolean) {
   const node = document.createElement(elementname);
   if (attributes) {
     Object.keys(attributes).forEach(attrname => {
@@ -135,10 +134,10 @@ function createElement(elementname: string, attributes: CreateAttributes, toattr
    domtools.create("input", { type:"file", className: "myupload", style: { display: "none" }));
 
 */
-export function create<K extends keyof HTMLElementTagNameMap>(elementname: K, attributes: CreateAttributes): HTMLElementTagNameMap[K];
-export function create(elementname: string, attributes: CreateAttributes): HTMLElement;
+export function create<K extends keyof HTMLElementTagNameMap>(elementname: K, attributes?: CreateAttributes): HTMLElementTagNameMap[K];
+export function create(elementname: string, attributes?: CreateAttributes): HTMLElement;
 
-export function create(elementname: string, attributes: CreateAttributes) {
+export function create(elementname: string, attributes?: CreateAttributes) {
   return createElement(elementname, attributes, false);
 }
 
