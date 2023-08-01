@@ -54,9 +54,7 @@ export class RestService {
     const apidata = {
       apibaseurl: apibaseurl,
       speclink: apibaseurl + relurl_spec,
-      swaggeruilink: apibaseurl + relurl_swaggerui,
-      //TODO once swagger UI 5 is final, we can remove this check and always use the new version
-      is_31: this.restapi?.def?.openapi.startsWith("3.1") || false
+      swaggeruilink: apibaseurl + relurl_swaggerui
     };
 
     //TODO get rid of unsafe-inline, but where to store our own JS/CSS to initalize openapi?
