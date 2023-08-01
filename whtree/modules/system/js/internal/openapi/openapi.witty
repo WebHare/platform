@@ -22,16 +22,10 @@
       SwaggerUI
     </title>
     [! To get new links, use https://cdnjs.com/libraries/swagger-ui !]
-    [if is_31]
-      [! requires 'next' swagger-ui . using https://cdnjs.com/libraries/swagger-ui/5.0.0-alpha.4 now !]
-      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.0.0-alpha.4/swagger-ui.min.css" integrity="sha512-SKHt0bxw6yOYecxnfPBP/HT3k84Wp6Y+e/6HA3YlbphEUNUJg+/L003NnmtvYyO2IRCHB8tllDoSkwOqqEoq5Q==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.0.0-alpha.4/swagger-ui-bundle.min.js" integrity="sha512-JW9bQNED60h4IRCHvLxNyOe1SWmlJMqjryEYCr80QG0fkMQMgEm0S8oHPOC1pFEe2Cek2VxCoe14AB5SLMk8UA==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.0.0-alpha.4/swagger-ui-standalone-preset.min.js" integrity="sha512-6jEdgqs2+Y8wi7kb76aqyb61/bDxhT0fQFkDclYBV+qEsvB09l/aFOxNGzKnYCNIDjVhOk/If0sQj5pOAKqjZw==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    [else]
-      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.17.1/swagger-ui.min.css" integrity="sha512-Kz2atQ7Smbizub0WvqDX8WAG5Z1YCNtQOsNLez4b5+Es+p+2PA5NX20ClSGz1an2JE+REYa+qmt/E0dBbwzWEw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.17.1/swagger-ui-bundle.js" integrity="sha512-V8RVIFGpGRQuiuKbUdr++Npou6bLsHGb7nHCVI1nO+L7xv6TXXZB05rcOA6JV1uLFtf9BIweU40w06Qbfuo4pg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-      <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.17.1/swagger-ui-standalone-preset.js" integrity="sha512-V5Zdt9ZPs6AWG/eQJp9a27pWGO8iBITXxdCD6/VNbO+XdHD8QnhsifVaUKeAkoYumdQZOFy45hPPLZ5aRolGxQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
-    [/if]
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.2.0/swagger-ui.min.css" integrity="sha512-ACiaHGAf7OAAY0wf7bnPVobNBsqh8oAf9hn5VHFQvbL6f0yfV8jXGEv+PYQZgEQLrrjcM4GSRDNIV3BG1XobfA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    [! safari doesn't work with the minified bundle, so switching to the full version !]
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.2.0/swagger-ui-bundle.js" integrity="sha512-6ZlqqUC9pcWj5nscEGfL1yxDu2tF6JsTO0a7LKZCWIBvAezT/q6pl7+KemRwXKjWYEZLn4B1JYFVr1cPQSVW3w==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/5.2.0/swagger-ui-standalone-preset.min.js" integrity="sha512-x3AkGS1eF0Jm7aCPsIaHZEL64/K0esWlWZtVVEjNdHOudMeBgD5RXu2JoJjsoQY/wiXISPLp2z4M7U/0mGb5lQ==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
   </head>
   <body>
     <div id="swagger-ui"></div>

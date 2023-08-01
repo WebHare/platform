@@ -398,7 +398,9 @@ PUBLIC RECORD FUNCTION SearchIndexManager(INTEGER indexid, RECORD query, RECORD 
       IF(options.debug)
         Print(`OpenSearch query:\nGET ${finalquery.path}\n${EncodeJSON(searchquery)}\n`);
 
-      RECORD response := SendRawJSONToOpenSearch(indexmanager.id, finalquery.method, finalquery.path, finalquery.body, CELL[ enforce := "_search_get", options.explain, options.timeout ]);
+      RECORD response := SendRawJSONToOpenSearch(indexmanager.id, finalquery.method, finalquery.path, finalquery.body, CELL[ enforce := "_search_get", options.explain, options.timeout, expectstatus := [200,404] ]);
+      IF(response.code = 404) //index isn't there yet
+        THROW NEW SearchUnavailableException(`Search unavailable, status code 404`);
       IF(options.debug)
         DumpValue(response, "tree");
 
