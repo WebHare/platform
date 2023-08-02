@@ -11,7 +11,7 @@ LOADLIB "mod::consilio/lib/catalogs.whlib" EXPORT CreateConsilioCatalog, ListCon
 LOADLIB "mod::consilio/lib/database.whlib";
 LOADLIB "mod::consilio/lib/internal/indexmanager.whlib";
 LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT fetcher_trusted_ip;
-
+LOADLIB "mod::consilio/lib/internal/opensearch.whlib" EXPORT SearchUnavailableException;
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
