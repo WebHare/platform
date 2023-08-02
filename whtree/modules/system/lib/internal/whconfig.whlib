@@ -15,6 +15,7 @@ LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/tasks/callasync.whlib";
 
 PUBLIC CONSTANT STRING ARRAY systemservertypes := ["production","acceptance","test","development"];
+CONSTANT STRING ARRAY servicestates := ["startup","started","poststartdone"];
 
 //As changing dtapstage pretty mcuh requires a softreset, but it's often requested, it should be safe to cache on a  VM-level
 STRING cacheddtapstage;
@@ -286,10 +287,16 @@ MACRO WHServiceStatePromise(STRING waitfor, MACRO PTR onresolve, MACRO PTR onrej
 }
 PUBLIC OBJECT FUNCTION CreateWHServiceStatePromise(STRING waitfor)
 {
+  IF(waitfor NOT IN servicestates)
+    THROW NEW Exception(`Unknown service state '${waitfor}'`);
+
   RETURN CreatePromise(PTR WHServiceStatePromise(waitfor, #1, #2));
 }
 PUBLIC MACRO SetWHServiceState(STRING waitingfor, RECORD state)
 {
+  IF(waitingfor NOT IN servicestates)
+    THROW NEW Exception(`Unknown service state '${waitingfor}'`);
+
   StoreDiskFile(__SYSTEM_WHCOREPARAMETERS().ephemeralroot || "system.servicestate/" || waitingfor, EncodeHSONBlob(state), [ overwrite := TRUE ]);
   BroadcastEvent("system:internal.servicestate." || waitingfor, state);
 }
