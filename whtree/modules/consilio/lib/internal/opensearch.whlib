@@ -27,7 +27,7 @@ CONSTANT RECORD ARRAY defaultfields :=
 , [ field := "body",        boost := 1,  stemmed_field := TRUE ]
 ];
 
-PUBLIC OBJECTTYPE SearchUnavailableException EXTEND Exception
+PUBLIC STATIC OBJECTTYPE SearchUnavailableException EXTEND Exception
 <
 >;
 

@@ -35,9 +35,12 @@ RECORD ARRAY FUNCTION GetFreeOutputUrls(INTEGER cursite, INTEGER currentoutputwe
                 , serverurl := baseurl
                 , outputroot := 0
             FROM system.webservers
-           WHERE type = whconstant_webservertype_interface OR id = currentoutputweb;
+           WHERE webservers.type = VAR whconstant_webservertype_interface OR webservers.id = currentoutputweb;
   }
 
+  /* Only testsites should use backend suburls (because it's the only URL sure to exist in CI) but it's actually unsafe to
+     publish real content on the same domain as the interface (cookie/origin sharing with potential 3rd party scripts) so
+     we shouldn't normally offer it */
   RECORD ARRAY outputservers := SELECT url := baseurl
                                      , outputweb := id
                                      , outputfolder := "/"
@@ -46,9 +49,7 @@ RECORD ARRAY FUNCTION GetFreeOutputUrls(INTEGER cursite, INTEGER currentoutputwe
                                   FROM system.webservers
                                  WHERE (webservers.baseurl != ""
                                         AND webservers.diskfolder != ""
-                                        AND type NOT IN [ whconstant_webservertype_interface
-                                                        , whconstant_webservertype_group
-                                                        ]
+                                        AND (webservers.type = VAR whconstant_webservertype_output OR webservers.id = currentoutputweb)
                                             // Check for sites using this output server
                                         AND NOT (RecordExists(SELECT FROM system.sites AS existing
                                                                     WHERE existing.id != VAR cursite
@@ -66,10 +67,11 @@ RECORD ARRAY FUNCTION GetFreeOutputUrls(INTEGER cursite, INTEGER currentoutputwe
                                       , system.sites
                                       , system.webservers
                                   WHERE webservers.baseurl != ""
-                                        AND folders.type = 1//Foreign folder
+                                        AND folders.type = VAR whconstant_whfstype_foreignfolder
                                         AND folders.isfolder = TRUE
                                         AND folders.parentsite = sites.id
                                         AND sites.outputweb = webservers.id
+                                        AND (webservers.type = whconstant_webservertype_output OR webservers.id = currentoutputweb)
                                             // Check for sites published in this foreign folder
                                         AND NOT (RecordExists(SELECT FROM system.sites AS existing
                                                                     WHERE existing.id != VAR cursite
