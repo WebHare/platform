@@ -192,9 +192,10 @@ export class HarescriptVM {
     this.wasmmodule._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
     const parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
     if (parsederrors.length) {
+      const errors = parsederrors.filter(e => e.iserror).map(e => e.message);
       const trace = parsederrors.filter(e => e.istrace).map(e =>
         `\n    at ${e.func} (${e.filename}:${e.line}:${e.col})`).join("");
-      throw new Error(`Error executing script: ${parsederrors[0].message + trace}`);
+      throw new Error(`Error executing script: ${errors.join("\n") + trace}`);
     } else
       throw new Error(`Error executing script`);
   }
