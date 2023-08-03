@@ -66,7 +66,7 @@ export class RefTracker extends EventSource<RefTrackerEvents>{
       (obj as Socket).on("close", () => clearInterval(timer)); // close when the socket closes
       (obj as Socket).on("error", () => clearInterval(timer)); // or has an error
       this.referencedObject = timer;
-      if (initialref) //trackedObject is stillr eferenced
+      if (initialref) //trackedObject is still referenced
         this.trackedObject.unref();
       else
         this.referencedObject.unref();
