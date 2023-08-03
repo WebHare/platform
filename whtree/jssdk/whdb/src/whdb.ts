@@ -12,16 +12,17 @@ import {
   Insertable as KInsertable,
   Updateable as KUpdateable,
 } from 'kysely';
-import { Client, Connection, types, defaults as pg_defaults } from 'pg';
+import { Client, types, defaults as pg_defaults } from 'pg';
 import { RefTracker, checkIsRefCounted } from '@mod-system/js/internal/whmanager/refs';
 import { BackendEventData, broadcast } from '@webhare/services/src/backendevents';
 import { BackendEvent } from '../../services/src/services';
 import { flags } from '@webhare/env/src/envbackend';
 import { checkPromiseErrorsHandled } from '@mod-system/js/internal/util/devhelpers';
-
 import { createPGBlob, uploadBlobToConnection, WHDBBlob, ValidBlobSources } from './blobs';
 import { ensureScopedResource } from '@webhare/services/src/codecontexts';
 import { defaultDateTime } from '@webhare/hscompat/datetime';
+import { WHDBPgClient } from './connection';
+
 export { WHDBBlob } from "./blobs";
 
 let configuration: { bloboid: number } | null = null;
@@ -44,13 +45,9 @@ interface FinishHandler {
   onRollback?: () => unknown | Promise<unknown>;
 }
 
-// Needed to access the postgesql client connection for ref/unref
-interface ClientWithConnection extends Client {
-  connection: Connection;
-}
-
 //Read database connection settings and configure our PG driver. We attempt this at the start of every connection (bootstrap might need to reinvoke us?)
-async function configureWHDBClient(pg: Client) {
+async function configureWHDBClient(conn: WHDBConnectionImpl) {
+  const pg: Client = conn.pgclient!;
   //TODO barrier against multiple parallel configureWHDBClient invocations
   const bloboidquery = await pg.query<{ oid: number }>(
     `SELECT t.oid, t.typname
@@ -185,21 +182,16 @@ class Work {
     script ends, don't want that.
     @typeParam T - Kysely database definition interface
 */
-class WHDBConnectionImpl implements WHDBConnection, PostgresPool, PostgresPoolClient {
+class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, PostgresPool, PostgresPoolClient {
   _db;
-  pgclient?;
   reftracker;
   openwork?: Work;
-  connected = false;
   lastopen?: Error;
 
   constructor() {
-    this.pgclient = new Client({
-      host: process.env.WEBHARE_DATAROOT + "/postgresql",
-      database: process.env.WEBHARE_DBASENAME
-    }) as ClientWithConnection;
+    super();
     this._db = this.buildKyselyClient();
-    this.reftracker = new RefTracker(checkIsRefCounted(this.pgclient.connection.stream), { initialref: true });
+    this.reftracker = new RefTracker(checkIsRefCounted(this.pgclient!.connection.stream), { initialref: true });
     this.reftracker.dropInitialReference();
   }
 
@@ -214,19 +206,16 @@ class WHDBConnectionImpl implements WHDBConnection, PostgresPool, PostgresPoolCl
 
   /// Allocates a PostgresPoolClient
   async connect(): Promise<WHDBConnectionImpl> {
-    if (!this.connected) {
-      if (!this.pgclient)
-        throw new Error(`Connection was already closed`);
-      const lock = this.reftracker.getLock("connect lock");
-      try {
-        await this.pgclient.connect();
-        if (!configuration)
-          await configureWHDBClient(this.pgclient);
-        this.connected = true;
+    if (this.connected)
+      return this;
 
-      } finally {
-        lock.release();
-      }
+    const lock = this.reftracker.getLock("connect lock");
+    try {
+      await super.connect();
+      if (!configuration)
+        await configureWHDBClient(this);
+    } finally {
+      lock.release();
     }
     return this;
   }
@@ -240,13 +229,10 @@ class WHDBConnectionImpl implements WHDBConnection, PostgresPool, PostgresPoolCl
 
   query<R>(sqlquery: string | PostgresCursor<R>, parameters?: readonly unknown[]): Promise<PostgresQueryResult<R>> | PostgresCursor<R> {
     if (typeof sqlquery === "string") {
-      if (!this.pgclient)
-        throw new Error(`Connection was already closed`);
       const lock = this.reftracker.getLock("query lock");
-      return this.pgclient.query(sqlquery, parameters as unknown[]).finally(() => lock.release()) as unknown as Promise<PostgresQueryResult<R>>;
+      return super.query<R>(sqlquery, parameters).finally(() => lock.release());
     }
-    // FIXME: see if our Cursor implementation is correct
-    return sqlquery;
+    return super.query(sqlquery);
   }
 
   /// Releases the PostgresPoolClient
@@ -313,11 +299,6 @@ class WHDBConnectionImpl implements WHDBConnection, PostgresPool, PostgresPoolCl
 
   broadcastOnCommit(event: string, data?: BackendEventData) {
     this.checkState(true).broadcastOnCommit(event, data);
-  }
-
-  close() {
-    this.pgclient?.end();
-    this.pgclient = undefined;
   }
 }
 

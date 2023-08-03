@@ -3,7 +3,7 @@
 
 import * as fs from "node:fs";
 import { omit, RecursivePartial, RecursiveReadOnly } from "../util/algorithms";
-import { Client } from 'pg';
+import { WHDBPgClient } from "@webhare/whdb/src/connection"; //we need a raw client without services/config dependency to bootstrap
 import { whconstant_whfsid_webharebackend } from "../webhareconstants";
 import { updateDir } from "./shared";
 import { decodeHSON } from "../whmanager/hsmarshalling";
@@ -134,7 +134,7 @@ function generateNoDBConfig(): NoDBConfig {
   return retval;
 }
 
-async function rawReadRegistryKey<T>(pgclient: Client, key: string): Promise<T | undefined> {
+async function rawReadRegistryKey<T>(pgclient: WHDBPgClient, key: string): Promise<T | undefined> {
   const res = await pgclient.query<{ data: string }>("SELECT data FROM system.flatregistry WHERE name = $1", [key]);
   if (!res.rows?.[0])
     return undefined;
@@ -173,11 +173,7 @@ export async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: 
     return finalconfig;
 
   try {
-    const pgclient = new Client({
-      host: process.env.WEBHARE_DATAROOT + "/postgresql",
-      database: process.env.WEBHARE_DBASENAME
-    });
-
+    const pgclient = new WHDBPgClient;
     await pgclient.connect();
     try {
       if (!process.env.WEBHARE_DTAPSTAGE || !isValidDTAPStage(process.env.WEBHARE_DTAPSTAGE)) {
@@ -204,7 +200,7 @@ export async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: 
 
       return finalconfig;
     } finally {
-      pgclient.end().catch(_ => { /* ignore error */ });
+      pgclient.close();
     }
   } catch (e) {
     console.log(`Error reading configuration from the database`, e);
