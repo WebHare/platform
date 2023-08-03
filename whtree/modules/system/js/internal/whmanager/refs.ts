@@ -2,6 +2,7 @@ import { Socket } from "net";
 import EventSource from "../eventsource";
 import { StackTraceItem, callStackToText, getCallStack } from "@mod-system/js/internal/util/stacktrace";
 import { flags } from "@webhare/env";
+import { rootstorage } from "@webhare/services/src/codecontexts";
 
 const reftrackersymbol = Symbol("refTracker");
 
@@ -37,12 +38,15 @@ export class RefTracker extends EventSource<RefTrackerEvents>{
   private initialref?: RefLock;
   private hasref: boolean;
   private objhasref: boolean;
-  private obj: Referencable;
-  private refobj: Referencable;
+  ///The object that was passed to us to track
+  private readonly trackedObject: Referencable;
+  ///The object that we are actually referencing if the original object cannot be safely used
+  private readonly referencedObject: Referencable;
 
+  /** @param initialref - Assume we already have an active reference (use dropInitialReference) */
   constructor(obj: Referencable, { initialref }: { initialref?: boolean } = {}) {
     super();
-    this.obj = obj;
+    this.trackedObject = obj;
     obj[reftrackersymbol] = this;
     this.hasref = initialref ?? false;
     this.objhasref = this.hasref;
@@ -50,18 +54,24 @@ export class RefTracker extends EventSource<RefTrackerEvents>{
       this.initialref = new RefLock(this, "initial reference");
       this.locks.add(this.initialref);
     }
-    this.refobj = obj;
+    this.referencedObject = obj;
 
     if ("allowHalfOpen" in obj) {
-      /* object is a Socket. re-referencing a socket sometimes doesn't work in node 19 */
-      const timer = setInterval(() => false, 86400000); // use an interval for references instead, one with few callbacks
+      /* object is a Socket. re-referencing a socket sometimes doesn't work in node 19
+         we use an Interval object simply to have something that supports references
+         we must create the interval in the root context to not interfere with CodeContext cleanup
+      */
+      const timer = rootstorage.run(() => setInterval(function () { return false; }, 86400000));
+      // use an interval for references instead, one with few callbacks
       (obj as Socket).on("close", () => clearInterval(timer)); // close when the socket closes
       (obj as Socket).on("error", () => clearInterval(timer)); // or has an error
-      this.refobj = timer;
-      if (initialref)
-        this.obj.unref();
+      this.referencedObject = timer;
+      if (initialref) //trackedObject is stillr eferenced
+        this.trackedObject.unref();
       else
-        this.refobj.unref();
+        this.referencedObject.unref();
+
+      //post: trackedObject is unreferenced, referencedObject is referenced iff initialRef is set
     }
   }
 
@@ -94,9 +104,9 @@ export class RefTracker extends EventSource<RefTrackerEvents>{
     if (this.objhasref !== newhasref) {
       this.objhasref = newhasref;
       if (newhasref)
-        this.refobj.ref();
+        this.referencedObject.ref();
       else
-        this.refobj.unref();
+        this.referencedObject.unref();
     }
   }
 
