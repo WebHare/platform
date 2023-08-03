@@ -4,6 +4,7 @@
     */
     "extends": "./jssdk/eslint-config-strictconfig/",
     "ignorePatterns": [
-        "**/dist/*.js"
+        "**/dist/*.js",
+        "**/vendor/*"
     ]
 }

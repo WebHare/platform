@@ -63,7 +63,6 @@ async function testTypes() {
   test.eq("2022-05-02 19:07:45", rawrows[0].adate);
 }
 
-
 async function testCodeContexts() {
   const context1 = new CodeContext("test_whdb: testCodeContexts: parallel", { context: 1 });
   const context2 = new CodeContext("test_whdb: testCodeContexts: parallel", { context: 2 });
@@ -117,10 +116,12 @@ async function testCodeContexts2() {
     await p;
   })();
 
+  console.log("Waiting for garbage collection. SmartBuffer's housekeepingtimer may delay this for 5 seconds");
   await test.wait(async () => {
     await test.triggerGarbageCollection();
     return !weak!.deref();
   }, "The context should have been collected after the function finished");
+  console.log("Garbage collection verified");
 }
 
 async function testFinishHandlers() {

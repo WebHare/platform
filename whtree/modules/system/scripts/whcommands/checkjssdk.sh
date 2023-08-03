@@ -19,7 +19,9 @@ if ! node_modules/.bin/eslint $ESLINTOPTIONS --config .eslintrc.json jssdk ; the
   echo "ERR! FATAL: jssdk does not pass eslint"
   RETVAL=1
 fi
-if ! node_modules/.bin/tsfmt $TSFMTOPTIONS --no-tslint --no-editorconfig --no-vscode --useTsfmt tsfmt.json $(find jssdk -name "*.ts" -or -name "*.tsx") ; then
+
+if ! node_modules/.bin/tsfmt $TSFMTOPTIONS --no-tslint --no-editorconfig --no-vscode --useTsfmt tsfmt.json \
+       $(find jssdk  -not -regex '.*/vendor/.*'  -name "*.ts" -or -name "*.tsx") ; then
   echo "ERR! FATAL: jssdk does not pass tsfmt --verify"
   RETVAL=1
 fi

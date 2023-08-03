@@ -1,3 +1,6 @@
 [submodule "vendor/libxml2"]
 	path = vendor/libxml2
 	url = https://github.com/GNOME/libxml2.git
+[submodule "whtree/jssdk/whdb/vendor/postgresql-client"]
+	path = whtree/jssdk/whdb/vendor/postgresql-client
+	url = https://github.com/WebHare/postgresql-client.git

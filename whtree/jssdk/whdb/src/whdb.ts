@@ -12,20 +12,17 @@ import {
   Insertable as KInsertable,
   Updateable as KUpdateable,
 } from 'kysely';
-import { Client, types, defaults as pg_defaults } from 'pg';
+
 import { RefTracker, checkIsRefCounted } from '@mod-system/js/internal/whmanager/refs';
 import { BackendEventData, broadcast } from '@webhare/services/src/backendevents';
 import { BackendEvent } from '../../services/src/services';
 import { flags } from '@webhare/env/src/envbackend';
 import { checkPromiseErrorsHandled } from '@mod-system/js/internal/util/devhelpers';
-import { createPGBlob, uploadBlobToConnection, WHDBBlob, ValidBlobSources } from './blobs';
+import { uploadBlobToConnection, WHDBBlob, ValidBlobSources } from './blobs';
 import { ensureScopedResource } from '@webhare/services/src/codecontexts';
-import { defaultDateTime } from '@webhare/hscompat/datetime';
 import { WHDBPgClient } from './connection';
 
 export { WHDBBlob } from "./blobs";
-
-let configuration: { bloboid: number } | null = null;
 
 // Export kysely helper stuff for use in external modules
 export {
@@ -43,31 +40,6 @@ interface FinishHandler {
   onCommit?: () => unknown | Promise<unknown>;
   /// Callback that is invoked on a rollback
   onRollback?: () => unknown | Promise<unknown>;
-}
-
-//Read database connection settings and configure our PG driver. We attempt this at the start of every connection (bootstrap might need to reinvoke us?)
-async function configureWHDBClient(conn: WHDBConnectionImpl) {
-  const pg: Client = conn.pgclient!;
-  //TODO barrier against multiple parallel configureWHDBClient invocations
-  const bloboidquery = await pg.query<{ oid: number }>(
-    `SELECT t.oid, t.typname
-      FROM pg_catalog.pg_type t
-          JOIN pg_catalog.pg_namespace n ON t.typnamespace = n.oid
-          JOIN pg_catalog.pg_proc p ON t.typinput = p.oid
-    WHERE nspname = 'webhare_internal' AND t.typname = 'webhare_blob' AND proname = 'record_in'`);
-
-  //Fix timezone translation - see https://github.com/brianc/node-postgres/issues/2141
-  types.setTypeParser(1114, stringValue => {
-    if (stringValue === "-infinity")
-      return defaultDateTime;
-    return new Date(Date.parse(stringValue + '+0000'));
-  });
-  (pg_defaults as { parseInputDatesAsUTC: boolean }).parseInputDatesAsUTC = true;
-
-  if (bloboidquery.rowCount) {
-    configuration = { bloboid: bloboidquery.rows[0].oid };
-    types.setTypeParser(configuration.bloboid, (val) => createPGBlob(val));
-  }
 }
 
 class Work {
@@ -191,7 +163,13 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
   constructor() {
     super();
     this._db = this.buildKyselyClient();
-    this.reftracker = new RefTracker(checkIsRefCounted(this.pgclient!.connection.stream), { initialref: true });
+    super.connect();
+
+    type ExposeSocket = {
+      _intlCon: { socket: { _socket: { ref(): void; unref(): void } } };
+    };
+
+    this.reftracker = new RefTracker(checkIsRefCounted((this.pgclient! as unknown as ExposeSocket)._intlCon.socket._socket), { initialref: true });
     this.reftracker.dropInitialReference();
   }
 
@@ -212,8 +190,6 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
     const lock = this.reftracker.getLock("connect lock");
     try {
       await super.connect();
-      if (!configuration)
-        await configureWHDBClient(this);
     } finally {
       lock.release();
     }
