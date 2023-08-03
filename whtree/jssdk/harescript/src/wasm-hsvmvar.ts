@@ -2,6 +2,7 @@ import { BoxedFloat, IPCMarshallableRecord, VariableType, determineType, getType
 import type { HSVM_VariableId, HSVM_VariableType, } from "../../../lib/harescript-interface";
 import type { HarescriptVM } from "./wasm-hsvm";
 import { maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
+import { Money } from "@webhare/std";
 
 export class HSVMVar {
   vm: HarescriptVM;
@@ -88,6 +89,17 @@ export class HSVMVar {
     this.vm.wasmmodule._HSVM_DateTimeSet(this.vm.hsvm, this.id, days, msecs);
     this.type = VariableType.DateTime;
   }
+  getMoney() {
+    const nrvalue = this.vm.wasmmodule._HSVM_MoneyGet(this.vm.hsvm, this.id);
+    const strval = nrvalue.toString().padStart(6, "0");
+    return new Money(`${strval.substring(0, strval.length - 5)}.${strval.substring(strval.length - 5)}`);
+  }
+  setMoney(value: Money) {
+    const strval = value.toString();
+    const parts = (strval + ".").split(".");
+    parts[1] = parts[1].padEnd(5, "0");
+    this.vm.wasmmodule._HSVM_MoneySet(this.vm.hsvm, this.id, BigInt(`${parts[0]}${parts[1]}`));
+  }
   setFloat(value: number | BoxedFloat) {
     if (typeof value === "object")
       this.vm.wasmmodule._HSVM_FloatSet(this.vm.hsvm, this.id, value.value);
@@ -157,6 +169,10 @@ export class HSVMVar {
         this.setDateTime(value as Date);
         return;
       } break;
+      case VariableType.HSMoney: {
+        this.setMoney(value as Money);
+        return;
+      } break;
       case VariableType.Float: {
         this.setFloat(value as number | BoxedFloat);
         return;
@@ -213,6 +229,9 @@ export class HSVMVar {
       }
       case VariableType.DateTime: {
         return this.getDateTime();
+      }
+      case VariableType.HSMoney: {
+        return this.getMoney();
       }
       case VariableType.Record: {
         if (!this.vm.wasmmodule._HSVM_RecordExists(this.vm.hsvm, this.id))
