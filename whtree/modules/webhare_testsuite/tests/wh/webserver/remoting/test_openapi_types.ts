@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unused-vars */
-import { DefaultErrorType, GetBodyType, GetOperation, GetParametersType, IsMediaTypeJSON, JSONResponseTypes, JSONResponseTypesFromResponses, MergeParameters, OpenApiTypedRestAuthorizationRequest, OpenApiTypedRestRequest, OperationIds, UnionToIntersection } from "@mod-system/js/internal/openapi/types";
+import { DefaultErrorType, GetBodyType, GetOperation, GetParametersType, IsMediaTypeJSON, JSONResponseTypes, JSONResponseTypesFromResponses, MergeParameters, OpenApiTypedRestAuthorizationRequest, OpenApiTypedRestRequest, OperationIds, SquashObjectType } from "@mod-system/js/internal/openapi/types";
 import { HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
 import * as test from "@webhare/test";
 
@@ -53,8 +53,9 @@ interface paths {
     };
   };
   "/path/{bla}": {
-    parameters: { query: { bla: string } };
+    parameters: { path: { bla: string } };
     get: {
+      parameters: { path: { bla: string } };
       responses: {
         [HTTPSuccessCode.Ok]: {
           content: {
@@ -68,7 +69,35 @@ interface paths {
         [HTTPErrorCode.Forbidden]: ErrorResponse;
       };
     };
-    delete: object;
+    delete: {
+      parameters: { path: { bla: string } };
+    };
+  };
+  "/path/{bla}/paramtest": {
+    parameters: { path: { bla: string } };
+    get: {
+      parameters: { path: { bla: string }; query: { bla2?: string } };
+      responses: {
+        [HTTPSuccessCode.Ok]: {
+          content: {
+            "application/json": {
+              status: "ok";
+              value: number;
+            };
+          };
+        };
+        [HTTPErrorCode.Unauthorized]: ErrorResponse;
+        [HTTPErrorCode.Forbidden]: ErrorResponse;
+      };
+    };
+    delete: {
+      parameters: { path: { bla: string } };
+      responses: {
+        [HTTPSuccessCode.NoContent]: object;
+        [HTTPErrorCode.Unauthorized]: ErrorResponse;
+        [HTTPErrorCode.Forbidden]: ErrorResponse;
+      };
+    };
   };
 }
 
@@ -91,8 +120,9 @@ interface auth_paths {
     };
   };
   "/path/{bla}": {
-    parameters: { query: { bla: string } };
+    parameters: { path: { bla: string } };
     get: {
+      parameters: { path: { bla: string } };
       responses: {
         [HTTPSuccessCode.Ok]: {
           content: {
@@ -119,22 +149,25 @@ type components_defaulterror = {
   };
 };
 
-export type SimplifyIntersections<T> = T extends object ? { [K in keyof T]: T[K] } : T;
-export type Simplify<T> = { [K in keyof T]: T[K] };
+export type SimplifyIntersections<T> = T extends object ? SquashObjectType<T> : T;
 
 function testOpenAPITypes() {
   // For operations, all `${method} ${path}` are allowed, as well as all `${path}`
-  test.typeAssert<test.Assignable<"/path" | "get /path" | "post /path" | "/path/{bla}" | "get /path/{bla}" | "delete /path/{bla}" | "*", OperationIds<paths>>>();
+  test.typeAssert<test.Assignable<
+    "/path" | "get /path" | "post /path" |
+    "/path/{bla}" | "get /path/{bla}" | "delete /path/{bla}" |
+    "/path/{bla}/paramtest" | "get /path/{bla}/paramtest" | "delete /path/{bla}/paramtest" |
+    "*", OperationIds<paths>>>();
 
   // GetOperation should return the operation and the path, for paths a union of all operations and the path
   test.typeAssert<test.Equals<paths["/path"]["get"] & { _path: paths["/path"] }, GetOperation<paths, "get /path">>>();
   test.typeAssert<test.Equals<(paths["/path"]["get"] | paths["/path"]["post"]) & { _path: paths["/path"] }, GetOperation<paths, "/path">>>();
   test.typeAssert<test.Equals<(paths["/path/{bla}"]["get"] | paths["/path/{bla}"]["delete"]) & { _path: paths["/path/{bla}"] }, GetOperation<paths, "/path/{bla}">>>();
-  test.typeAssert<test.Equals<GetOperation<paths, "/path"> | GetOperation<paths, "/path/{bla}">, GetOperation<paths, "*">>>();
+  test.typeAssert<test.Equals<GetOperation<paths, "/path"> | GetOperation<paths, "/path/{bla}"> | GetOperation<paths, "/path/{bla}/paramtest">, GetOperation<paths, "*">>>();
 
   test.typeAssert<test.Equals<{ a: 1; b: 2 }, SimplifyIntersections<MergeParameters<{ path: { a: 1 }; query: { b: 2 } }>>>>();
   test.typeAssert<test.Equals<{ a: 1; b?: 2 }, SimplifyIntersections<MergeParameters<{ path: { a: 1 }; query?: { b?: 2 } }>>>>();
-  test.typeAssert<test.Equals<{ a: 1 } | { a: 1; b: 2 }, Simplify<MergeParameters<{ path: { a: 1 }; query: { b: 2 } } | { path: { a: 1 } }>>>>();
+  test.typeAssert<test.Equals<{ a: 1 } | { a: 1; b: 2 }, SimplifyIntersections<MergeParameters<{ path: { a: 1 }; query: { b: 2 } } | { path: { a: 1 } }>>>>();
 
   // No responses at all provided: none allowed
   test.typeAssert<test.Equals<never, JSONResponseTypesFromResponses<object>>>;
@@ -211,7 +244,8 @@ function testOpenAPITypes() {
   test.typeAssert<test.Equals<{ bla: string }, SimplifyIntersections<GetParametersType<GetOperation<paths, "get /path/{bla}">>>>>();
   test.typeAssert<test.Equals<{ bla: string }, SimplifyIntersections<GetParametersType<GetOperation<paths, "/path/{bla}">>>>>();
   test.typeAssert<test.Equals<object, GetParametersType<GetOperation<paths, "get /path/{bla}" | "get /path">>>>();
-  // ADDME: implement & test operation that declare the parameters themselves, instead of with the path (when we need it, though)
+  test.typeAssert<test.Equals<{ bla: string; bla2?: string }, GetParametersType<GetOperation<paths, "get /path/{bla}/paramtest">>>>();
+  test.typeAssert<test.Equals<{ bla: string }, GetParametersType<GetOperation<paths, "/path/{bla}/paramtest">>>>();
 
   // Can assert a typed rest request for an operation to a rest request for a path (for calling path-generic checks from operations)
   test.typeAssert<test.Assignable<OpenApiTypedRestRequest<number, paths, object, "/path">, OpenApiTypedRestRequest<number, paths, object, "get /path">>>();
@@ -258,6 +292,9 @@ function testOpenAPITypes() {
 
     const path_errdef: OpenApiTypedRestRequest<number, paths, components_defaulterror, "/path"> = any_value;
     path_errdef.createErrorResponse(HTTPErrorCode.Conflict, { error: "failure", extra: "16" });
+
+    const path_opparams_get: OpenApiTypedRestRequest<number, paths, components_defaulterror, "get /path/{bla}/paramtest"> = any_value;
+    test.typeAssert<test.Equals<{ bla: string; bla2?: string }, SimplifyIntersections<typeof path_opparams_get.params>>>();
   }
 }
 

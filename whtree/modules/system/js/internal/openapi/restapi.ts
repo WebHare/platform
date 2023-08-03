@@ -263,7 +263,7 @@ export class RestAPI {
 
   async handleEndpointRequest(req: WebRequest, relurl: string, match: Match, endpoint: Operation, logger: LogInfo): Promise<WebResponse> {
     if (!endpoint.authorization)
-      throw new Error(`Got an endpoint without authoriration settings`); // should be filtered out before this function
+      throw new Error(`Got an endpoint without authorisation settings`); // should be filtered out before this function
 
     // Build parameters (eg. from the path or from the query)
     const params: DefaultRestParams = {};
@@ -271,7 +271,7 @@ export class RestAPI {
 
     if (endpoint.params)
       for (const param of endpoint.params) {
-        let paramvalue: string | number | null = null;
+        let paramvalue: string | number | boolean | null = null;
         if (param.in === "path") { //we already extracted path parameters during matching:
           paramvalue = decodeURIComponent(match.params[param.name]);
         } else if (param.in === "query") {
@@ -288,9 +288,11 @@ export class RestAPI {
 
         if (param.schema) {
           if ("type" in param.schema) {
-            // We'll only convert 'number' parameters, other parameters will be supplied as strings
+            // We'll only convert 'number' and 'boolean' parameters, other parameters will be supplied as strings
             if (param.schema.type === "number" && !isNaN(Number(paramvalue)))
               paramvalue = Number(paramvalue);
+            if (param.schema.type === "boolean")
+              paramvalue = paramvalue === "1" || paramvalue === "true";
           }
 
           const start = performance.now();

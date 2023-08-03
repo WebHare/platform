@@ -73,6 +73,8 @@ paths:
     parameters:
     - "$ref": "#/components/parameters/userid"
     get:
+      parameters:
+      - "$ref": "#/components/parameters/wait"
       description: Get a single user
       responses:
         "200":
@@ -276,3 +278,9 @@ components:
       required: true
       schema:
         "$ref": "#/components/schemas/user_out/properties/id"
+    wait:
+      description: wait a little before returning
+      in: query
+      name: wait
+      schema:
+        type: boolean
