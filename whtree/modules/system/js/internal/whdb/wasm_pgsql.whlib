@@ -233,7 +233,7 @@ OBJECTTYPE ExtraForwards
   }
 >;
 
-PUBLIC OBJECT FUNCTION CreateWASMPostgreSQLTransaction()
+PUBLIC OBJECT FUNCTION CreateWASMPostgreSQLTransaction(RECORD transinfo)
 {
   OBJECT trans := NEW EMTransaction;
   OBJECT forward := CreateForwardingLoopbackTransactionFromObject(trans, CELL[]);
