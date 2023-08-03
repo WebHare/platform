@@ -105,6 +105,15 @@ export function isDate(value: unknown): value is Date {
 const MarshalFormatType = 2;
 const MarshalPacketFormatType = 3;
 
+/** A boxed float preserves the number being/becoming a HareScript FLOAT */
+export class BoxedFloat {
+  readonly __hstype = VariableType.Float;
+  value: number;
+
+  constructor(value: number) {
+    this.value = value;
+  }
+}
 
 export function readMarshalData(buffer: Buffer | ArrayBuffer): SimpleMarshallableData {
   const buf = new LinearBufferReader(buffer);
@@ -378,6 +387,8 @@ export function determineType(value: unknown): VariableType {
         const rec = value as Record<"__hstype", VariableType>;
         if (rec.__hstype === VariableType.HSMoney)
           return VariableType.HSMoney;
+        else if (rec.__hstype === VariableType.Float)
+          return VariableType.Float;
       }
       return VariableType.Record;
     }

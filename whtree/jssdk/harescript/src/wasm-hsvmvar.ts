@@ -1,4 +1,4 @@
-import { IPCMarshallableRecord, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { BoxedFloat, IPCMarshallableRecord, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import type { HSVM_VariableId, HSVM_VariableType, } from "../../../lib/harescript-interface";
 import type { HarescriptVM } from "./wasm-hsvm";
 import { maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
@@ -88,6 +88,12 @@ export class HSVMVar {
     this.vm.wasmmodule._HSVM_DateTimeSet(this.vm.hsvm, this.id, days, msecs);
     this.type = VariableType.DateTime;
   }
+  setFloat(value: number | BoxedFloat) {
+    if (typeof value === "object")
+      this.vm.wasmmodule._HSVM_FloatSet(this.vm.hsvm, this.id, value.value);
+    else
+      this.vm.wasmmodule._HSVM_FloatSet(this.vm.hsvm, this.id, value);
+  }
   setDefault(type: VariableType): HSVMVar {
     if (type === VariableType.Array)
       throw new Error(`Illegal variable type ${VariableType[type] ?? type}`);
@@ -149,6 +155,10 @@ export class HSVMVar {
       } break;
       case VariableType.DateTime: {
         this.setDateTime(value as Date);
+        return;
+      } break;
+      case VariableType.Float: {
+        this.setFloat(value as number | BoxedFloat);
         return;
       } break;
       case VariableType.Record: {
