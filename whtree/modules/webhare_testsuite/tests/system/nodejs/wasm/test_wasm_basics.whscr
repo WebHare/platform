@@ -50,6 +50,11 @@ PUBLIC MACRO RunWasmtest()
       [ func := "return await new Promise(r => setTimeout(() => r({ ...param, called: true }), 1));"
       , param := testrec
       ]));
+
+  //verify a promise not returning anything doesn't break the VM
+  TestEq(FALSE, EM_Syscall("executeInline",
+      [ func := "return await new Promise(r => setTimeout(() => r(), 1));"
+      ]));
 }
 
 RunWasmTest(); //TODO RunTestFramework isn't supported yet

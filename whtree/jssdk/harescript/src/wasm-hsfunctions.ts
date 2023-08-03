@@ -114,7 +114,8 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerAsyncExternalFunction("__EM_SYSCALL_WAITLASTPROMISE::V:", async (vm, id_set) => {
     const toawait = last_syscall_promise;
     last_syscall_promise = undefined;
-    id_set.setJSValue({ value: await toawait });
+    const result = await toawait;
+    id_set.setJSValue({ value: result === undefined ? false : result });
   });
   wasmmodule.registerAsyncExternalFunction("__ICU_GETTIMEZONEIDS::SA:", async (vm, id_set) => {
     //@ts-ignore -- MDN says it is supported everywhere we need it to be
