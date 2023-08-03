@@ -3,7 +3,7 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 import { config, toFSPath } from "@webhare/services";
 import { HSVMVar } from "./wasm-hsvmvar";
-import type { HarescriptVM } from "./wasm-hsvm";
+import { recompileHarescriptLibraryRaw, type HarescriptVM } from "./wasm-hsvm";
 import { VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 
 const wh_namespace_location = "mod::system/whlibs/";
@@ -176,6 +176,12 @@ export class WASMModule extends WASMModuleBase {
     else
       retval = toFSPath(uri);
     return this.stringToNewUTF8(retval);
+  }
+
+  async recompile(uri_ptr: Ptr) {
+    const uri = this.UTF8ToString(uri_ptr);
+    const result = await recompileHarescriptLibraryRaw(uri);
+    return this.stringToNewUTF8(result);
   }
 
   resolveAbsoluteLibrary(loader_ptr: Ptr, libname_ptr: Ptr) {

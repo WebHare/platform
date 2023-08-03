@@ -19,6 +19,49 @@ const unsigned CacheTime = 2;   // Time between re-checks in seconds
 using namespace WebHare::WASM;
 #endif
 
+int32_t DecodeNumber(std::string const &src)
+{
+        return Blex::DecodeUnsignedNumber<unsigned>(src.begin(),src.end()).first;
+}
+
+bool ParseError(const char *start, const char *limit, HareScript::ErrorHandler *handler)
+{
+        std::vector<std::string> errorparts;
+        Blex::TokenizeString(std::string(start, limit), '\t', &errorparts);
+
+        if (errorparts.size() < 7)
+            throw HareScript::VMRuntimeError(HareScript::Error::InternalError, "Unrecognized error string");
+
+        HareScript::VMRuntimeError m(HareScript::Error::InternalError);
+        m.iserror = errorparts[0].empty() || errorparts[0][0]!='W';
+        m.position.line = DecodeNumber(errorparts[1]);
+        m.position.column = DecodeNumber(errorparts[2]);
+        m.filename = errorparts[3];
+        m.code = DecodeNumber(errorparts[4]);
+        m.msg1 = errorparts[5];
+        m.msg2 = errorparts[6];
+        handler->AddMessage(m);
+
+        return m.iserror;
+}
+
+WHFileSystem::RecompileResult ProcessCompileOutput(const char *begin, const char *end, HareScript::ErrorHandler *errorhandler)
+{
+        bool has_errors = false;
+        while(begin < end)
+        {
+                const char *nextlf = std::find(begin,end,'\n');
+                if(begin != nextlf)
+                {
+                        bool is_error = ParseError(begin, nextlf, errorhandler);
+                        if (is_error)
+                                has_errors = true;
+                }
+                begin = nextlf + 1;
+        }
+        return has_errors ? WHFileSystem::RecompileError : WHFileSystem::RecompileSuccess;
+}
+
 #ifndef __EMSCRIPTEN__
 
 //////////////////////////////////////////////////////////////////////////
@@ -384,12 +427,6 @@ Blex::FileOffset HTTPConnection::SendAllTo(Blex::Stream &outstream)
 }
 
 #endif // __EMSCRIPTEN__
-
-int32_t DecodeNumber(std::string const &src)
-{
-        return Blex::DecodeUnsignedNumber<unsigned>(src.begin(),src.end()).first;
-}
-
 
 /// Base file class that has a cached compiled file
 class WHFileSystem::DirectFile : public HareScript::FileSystem::File
@@ -925,27 +962,6 @@ HareScript::FileSystem::FilePtr WHFileSystem::OpenLibrary(Blex::ContextKeeper &k
         return file;
 }
 
-bool WHFileSystem::ParseError(const char *start, const char *limit, HareScript::ErrorHandler *handler)
-{
-        std::vector<std::string> errorparts;
-        Blex::TokenizeString(std::string(start, limit), '\t', &errorparts);
-
-        if (errorparts.size() < 7)
-            throw HareScript::VMRuntimeError(HareScript::Error::InternalError, "Unrecognized error string");
-
-        HareScript::VMRuntimeError m(HareScript::Error::InternalError);
-        m.iserror = errorparts[0].empty() || errorparts[0][0]!='W';
-        m.position.line = DecodeNumber(errorparts[1]);
-        m.position.column = DecodeNumber(errorparts[2]);
-        m.filename = errorparts[3];
-        m.code = DecodeNumber(errorparts[4]);
-        m.msg1 = errorparts[5];
-        m.msg2 = errorparts[6];
-        handler->AddMessage(m);
-
-        return m.iserror;
-}
-
 bool WHFileSystem::ManualRecompile(std::string const &_liburi, HareScript::ErrorHandler *handler, bool force)
 {
         //Try to manually compile the file
@@ -1065,17 +1081,7 @@ WHFileSystem::RecompileResult WHFileSystem::RecompileInternal(Blex::ContextKeepe
                         return RecompileError;
                 }
 
-                Blex::TokenIterator<std::vector<char> > tokenizer(response.begin(), response.end(), '\n');
-                bool has_errors = false;
-                for (;tokenizer;++tokenizer)
-                    if(tokenizer.begin() != tokenizer.end())
-                    {
-                            bool is_error = ParseError(&*tokenizer.begin(), &*tokenizer.end(), errorhandler);
-                            if (is_error)
-                                has_errors = true;
-                    }
-
-                return has_errors ? RecompileError : RecompileSuccess;
+                return ProcessCompileOutput(&*response.begin(), &*response.end(), errorhandler);
         }
         else if (allow_manual_recompilation)
         {
@@ -1138,9 +1144,14 @@ void WHFileSystem::ResolveAbsoluteLibrary([[maybe_unused]]Blex::ContextKeeper &k
             *libname = response;
 }
 
+EM_ASYNC_JS(char*, supportRecompile, (const char *liburi), {
+  await Module.recompile(liburi);
+});
+
 WHFileSystem::RecompileResult WHFileSystem::Recompile([[maybe_unused]]Blex::ContextKeeper &keeper, [[maybe_unused]]std::string const &_liburi, [[maybe_unused]]bool isloadlib, [[maybe_unused]]HareScript::ErrorHandler *errorhandler)
 {
-        return RecompileNotSupported;
+        std::string response = ConvertCharPtrAndDelete(supportRecompile(_liburi.c_str()));
+        return ProcessCompileOutput(&*response.begin(), &*response.end(), errorhandler);
 }
 
 #endif // __EMSCRIPTEN__

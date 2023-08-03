@@ -45,7 +45,8 @@ function parseError(line: string) {
   };
 }
 
-export async function recompileHarescriptLibrary(uri: string, options?: { force: boolean }) {
+///compile library, return raw fetch result
+export async function recompileHarescriptLibraryRaw(uri: string, options?: { force: boolean }) {
   try {
     // console.log(`recompileHarescriptLibrary`, uri);
 
@@ -58,17 +59,19 @@ export async function recompileHarescriptLibrary(uri: string, options?: { force:
     // console.log({ res });
 
     if (res.status === 200 || res.status === 403) {
-      const text = await res.text();
-      // console.log({ text });
-      const lines = text.split("\n").filter(line => line);
-      // console.log('recompileresult:', res.status, lines);
-      return lines.map(line => parseError(line));
+      return await res.text();
     }
     throw new Error(`Could not contact HareScript compiler, status code ${res.status}`);
   } catch (e) {
     console.log({ recompileerror: e });
     throw e;
   }
+}
+
+export async function recompileHarescriptLibrary(uri: string, options?: { force: boolean }) {
+  const text = await recompileHarescriptLibraryRaw(uri, options);
+  const lines = text.split("\n").filter(line => line);
+  return lines.map(line => parseError(line));
 }
 
 export class HarescriptVM {
@@ -158,7 +161,7 @@ export class HarescriptVM {
       const maxTries = 5;
       for (let tryCounter = 0; tryCounter < maxTries; ++tryCounter) {
         this.wasmmodule._HSVM_SetDefault(this.hsvm, this.errorlist, VariableType.RecordArray as HSVM_VariableType);
-        const fptrresult = this.wasmmodule._HSVM_LoadScript(this.hsvm, lib_str);
+        const fptrresult = await this.wasmmodule._HSVM_LoadScript(this.hsvm, lib_str);
         if (fptrresult)
           return; //Success!
 
@@ -203,7 +206,7 @@ export class HarescriptVM {
       const maxTries = 5;
       for (let tryCounter = 0; tryCounter < maxTries; ++tryCounter) {
         this.wasmmodule._HSVM_SetDefault(this.hsvm, this.errorlist, VariableType.RecordArray as HSVM_VariableType);
-        const fptrresult = this.wasmmodule._HSVM_MakeFunctionPtrAutoDetect(this.hsvm, fptr, lib_str, name_str, this.errorlist);
+        const fptrresult = await this.wasmmodule._HSVM_MakeFunctionPtrAutoDetect(this.hsvm, fptr, lib_str, name_str, this.errorlist);
         switch (fptrresult) {
           case 0:
           case -2: {
