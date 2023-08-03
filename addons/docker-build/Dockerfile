@@ -43,8 +43,7 @@ RUN --mount=type=tmpfs,target=/opt/whbuild \
     /bin/bash -c ". /opt/emsdk/emsdk_env.sh && /opt/wh/whtree/bin/wh make install"
 
 ################# STAGE 2 - application image
-
-FROM       ubuntu:20.04
+FROM       ubuntu:20.04 AS appimage
 
 # Environment variables (TODO figure out which ones are for build and which for runtime)
 ENV LC_ALL=C \
