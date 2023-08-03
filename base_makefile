@@ -637,20 +637,21 @@ blex/tests/dynamic$(DLL_SUFFIX): blex/tests/dynamiclib.native-obj
 bin/blex-test-native: $(LIBBLEX_NATIVE_TESTOBJS) lib/libblex_base${DLL_SUFFIX}
 	$(call LinkExecutable,$(LIBBLEX_NATIVE_TESTOBJS),$@,$(BLEX_LIBS))
 
-success.blex-native: bin/blex-test-native blex/tests/dynamic$(DLL_SUFFIX)
+success.blex: bin/blex-test-native blex/tests/dynamic$(DLL_SUFFIX)
 	ulimit -n 1024 && bin/blex-test-native test bin/blex-test-native blex/tests/dynamic$(DLL_SUFFIX) $(SRCDIR)/blex/tests/data 1 ; test "$$?" = 241
-	> success.blex-native
+	> success.blex
 
 bin/blex-test-wasm.wasm: $(LIBBLEX_WASM_SOURCEOBJS) $(LIBBLEX_WASM_TESTOBJS)
 	$(call LinkWASMExecutable,$^,bin/blex-test-wasm)
 
-success.blex-wasm: bin/blex-test-wasm.wasm bin/blex-test-wasm.wasm
+build.wasm-blextest: bin/blex-test-wasm.wasm bin/blex-test-wasm.wasm
+	> build.wasm-blextest
+
+success.wasm-blextest: build.wasm-blextest
 	ulimit -n 1024 && node --experimental-wasm-stack-switching bin/blex-test-wasm test bin/blex-test-wasm blex/tests/dynamic$(DLL_SUFFIX) $(SRCDIR)/blex/tests/data 1 ; test "$$?" = 242
-	> success.blex-wasm
+	> success.wasm-blextest
 
-success.blex: success.blex-native success.blex-wasm
-
-wasm-test success.wasm-blextest: build.wasm-blextest
+wasm-test: success.wasm-blextest
 	> success.wasm
 
 # Link a shared library

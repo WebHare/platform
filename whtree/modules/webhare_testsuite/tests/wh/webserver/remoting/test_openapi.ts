@@ -287,6 +287,10 @@ async function testGeneratedClient() {
     const res = await client.get("/users/{userid}", { params: { userid: 1 } });
     test.eq({ id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" }, res.body);
   }
+  {
+    const res = await client.get("/users/{userid}", { params: { userid: 1, wait: true } });
+    test.eq({ id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" }, res.body);
+  }
 }
 
 test.run([

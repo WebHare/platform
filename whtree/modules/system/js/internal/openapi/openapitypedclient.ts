@@ -13,8 +13,8 @@ type OpenAPIResponse<BodyType> = {
 };
 
 
-/** Base type for parameter types. Only strings and numbers are allowed as parameters */
-type ParamsBaseType = Record<string, string | number>;
+/** Base type for parameter types. Only strings, numbers and booleans are allowed as parameters */
+type ParamsBaseType = Record<string, string | number | boolean>;
 
 /** List of allowed paths for a method
  */
@@ -81,9 +81,9 @@ export class TypedOpenAPIClient<Paths extends object, Components extends Compone
         const name = pathelt.slice(1, -1);
         used_pathelts.push(name);
         const value = options?.params?.[name];
-        if (typeof value !== "number" && typeof value !== "string")
+        if (typeof value !== "number" && typeof value !== "string" && typeof value !== "boolean")
           throw new Error(`Missing parameter ${JSON.stringify(pathelt.slice(1, -1))}`);
-        return encodeURIComponent(value);
+        return encodeURIComponent(value); // correctly encodes booleans to 'true'/'false'
       }
       return pathelt;
     }).join("/");
