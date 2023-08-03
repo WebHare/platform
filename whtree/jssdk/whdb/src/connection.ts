@@ -10,7 +10,7 @@ import {
 import { Connection, GlobalTypeMap, QueryOptions, BindParam, DataTypeOIDs, QueryResult, FieldInfo } from './../vendor/postgresql-client/src/index';
 import { flags } from '@webhare/env/src/envbackend';
 import { BlobType } from "./blobs";
-import { MoneyType } from "./types";
+import { Float8Type, MoneyType } from "./types";
 
 let configuration: { bloboid: number } | null = null;
 
@@ -33,6 +33,7 @@ async function configureWHDBClient(pg: Connection) {
 
   //For the WHDB a NUMERIC is always a Number. this might not be that future proof..
   GlobalTypeMap.register(MoneyType);
+  GlobalTypeMap.register(Float8Type);
 
   if (bloboidquery.rows) {
     configuration = { bloboid: bloboidquery.rows[0][0] };

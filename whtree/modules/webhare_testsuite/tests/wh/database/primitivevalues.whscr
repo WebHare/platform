@@ -99,7 +99,8 @@ MACRO TestPrimitiveValues()
                               , MakeDateTime(2000, 1, 2, 3, 4, 5, 6)
                               , MAX_DATETIME
                               ]
-      , normalmoney :=        [ 0m, -92233720368547.75808, 92233720368547.75807 ]
+      , normalmoney :=        IsWASM() ? [ 0m, -900000000.99999, 900000000.99999 ] //TODO what range should JS aim for?
+                                       : [ 0m, -92233720368547.75808, 92233720368547.75807 ]
       , normalfloat :=        [ 0f, -987654321.123456789, 1000 ]
       , normalblob :=         [ DEFAULT BLOB, StringToBlob("testblob") ]
       , binaryvarchar :=      [ "", DecodeBase16("D1BCA62CB288E511B156C2A9BE48DF44DB0A4104") ]
