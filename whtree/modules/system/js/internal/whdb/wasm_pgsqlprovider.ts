@@ -1,0 +1,525 @@
+import { beginWork, commitWork, db, __getConnection, rollbackWork } from "@webhare/whdb";
+import { AliasedRawBuilder, RawBuilder, sql } from 'kysely';
+import { BoxedFloat, BoxedDefaultBlob, VariableType, getTypedArray } from "../whmanager/hsmarshalling";
+import { FullPostgresQueryResult } from "@webhare/whdb/src/connection";
+import { defaultDateTime, maxDateTime } from "@webhare/hscompat/datetime";
+
+enum Fases {
+  None = 0,
+  Fase1 = 1,
+  Fase2 = 2,
+  Recheck = 4,
+  Updated = 8,
+}
+
+enum ColumnFlags {
+  None = 0x00000000,
+  InternalFase1 = 0x00000001, ///< Retrieved in fase1; may NOT be used by database providers; other means for this are provided.
+  InternalFase2 = 0x00000002, ///< Retrieved in fase2; may NOT be used by database providers; other means for this are provided.
+  InternalUpdates = 0x00000004, ///< Marked for update; may NOT be used by database providers; other means for this are provided.
+  Key = 0x00000008, ///< Is part of the key for this table
+  TranslateNulls = 0x00000010, ///< Has NULL translation
+  ReadOnly = 0x00000020, ///< Is readonly
+  WarnUnindexed = 0x00000040, ///< This column cannot be indexed by the database
+  MaskExcludeInternal = 0x00000078, ///< mask to mask out internal fields
+  InternalUsedInCondition = 0x00000080, ///< Used within SQLLib handled conditions
+  Binary = 0x00000100, ///< Column contains binary data
+}
+
+enum OID {
+  unknown = 0,
+  BOOL = 16,
+  BYTEA = 17,
+  CHAR = 18,
+  NAME = 19,
+  INT2VECTOR = 22,
+  TEXT = 25,
+  OIDVECTOR = 30,
+  VARCHAR = 1043,
+  INT8 = 20,
+  INT2 = 21,
+  INT4 = 23,
+  REGPROC = 24,
+  OID = 26,
+  TID = 27,
+  XID = 28,
+  CID = 29,
+  CIDR = 650,
+  FLOAT4 = 700,
+  FLOAT8 = 701,
+  INET = 869,
+  BOOLARRAY = 1000,
+  BYTEAARRAY = 1001,
+  CHARARRAY = 1002,
+  INT2ARRAY = 1005,
+  INT4ARRAY = 1007,
+  INT8ARRAY = 1016,
+  TEXTARRAY = 1009,
+  FLOAT8ARRAY = 1022,
+  TIMESTAMPARRAY = 1115,
+  OIDARRAY = 1028,
+  TIDARRAY = 1010,
+  TIMESTAMP = 1114,
+  TIMESTAMPTZ = 1184,
+  NUMERICARRAY = 1231,
+  NUMERIC = 1700,
+  ANY = 2276,
+  ANYARRAY = 2277,
+  RECORD = 2249,
+  RECORDARRAY = 2287,
+}
+
+type Condition = "<" | "<=" | "=" | ">" | ">=" | "!=" | "LIKE" | "IN";
+
+type Query = {
+  type: "SELECT" | "DELETE" | "UPDATE";
+  query_limit: number;
+  maxblockrows: number;
+  has_fase1_hscode: boolean;
+  tablesources: Array<{
+    name: string;
+    columns: Array<{
+      name: string;
+      dbase_name: string;
+      type: VariableType;
+      flags: ColumnFlags;
+      fase: Fases;
+      nulldefault: unknown;
+      nulldefault_valid: boolean;
+    }>;
+  }>;//[ { name: 'SYSTEM.FS_OBJECTS', columns: [Array] } ],
+  singleconditions: Array<{
+    single: true;
+    handled: boolean;
+    tableid: number;
+    columnid: number;
+    condition: Condition;
+    casesensitive: boolean;
+    match_null: boolean;
+    value: unknown;
+  }>;
+  joinconditions: Array<{
+    single: false;
+    handled: boolean;
+    table1_id: number;
+    t1_columnid: number;
+    table2_id: number;
+    t2_columnid: number;
+    condition: Condition;
+    casesensitive: boolean;
+    match_double_null: boolean;
+  }>;
+};
+
+function buildComparison(left: RawBuilder<unknown>, condition: Condition, right: RawBuilder<unknown>) {
+  switch (condition) {
+    case "<": return sql`${left} < ${right}`;
+    case "<=": return sql`${left} <= ${right}`;
+    case "=": return sql`${left} = ${right}`;
+    case ">": return sql`${left} > ${right}`;
+    case ">=": return sql`${left} >= ${right}`;
+    case "!=": return sql`${left} <> ${right}`;
+    case "LIKE": return sql`${left} LIKE ${right}`;
+    case "IN": return sql`${left} = ${right}`;
+  }
+}
+
+function buildSwappedComparison(left: RawBuilder<unknown>, condition: Condition, right: RawBuilder<unknown>) {
+  switch (condition) {
+    case "<": return sql`${left} > ${right}`;
+    case "<=": return sql`${left} >= ${right}`;
+    case "=": return sql`${left} = ${right}`;
+    case ">": return sql`${left} < ${right}`;
+    case ">=": return sql`${left} <= ${right}`;
+    case "!=": return sql`${left} <> ${right}`;
+  }
+  throw new Error(`Cannot swap arguments to ${condition}`);
+}
+
+function encodePattern(mask: string) {
+  return mask.replace(/[_%\\]/, `/$1`).replace(/\?/, "_").replace(/\*/, "%");
+}
+
+export async function cbExecuteQuery(query: Query) {
+
+  //console.log(query);
+  //console.log(query.tablesources[0].columns);
+  const whdb = db();
+
+  for (const cond of query.singleconditions) {
+    const column = query.tablesources[cond.tableid].columns[cond.columnid];
+    cond.handled = column.type !== VariableType.Blob;
+    if (cond.condition === "IN" && ![VariableType.Integer, VariableType.Integer64, VariableType.String, VariableType.DateTime].includes(column.type))
+      cond.handled = false;
+    if ((cond.condition === "LIKE" || !cond.casesensitive) && (column.flags & ColumnFlags.Binary))
+      cond.handled = false;
+    if (!cond.handled)
+      column.fase = Fases.Fase1 | Fases.Recheck;
+    else
+      column.fase = column.fase | Fases.Recheck;
+  }
+
+  for (const cond of query.joinconditions) {
+    const column1 = query.tablesources[cond.table1_id].columns[cond.t1_columnid];
+    const column2 = query.tablesources[cond.table2_id].columns[cond.t2_columnid];
+    cond.handled = cond.casesensitive &&
+      cond.condition !== "LIKE" &&
+      cond.condition !== "IN" &&
+      column1.type !== VariableType.Blob &&
+      column2.type !== VariableType.Blob;
+    if (!cond.handled) {
+      column1.fase = Fases.Fase1 | Fases.Recheck;
+      column2.fase = Fases.Fase1 | Fases.Recheck;
+    } else {
+      column1.fase = column1.fase | Fases.Recheck;
+      column2.fase = column2.fase | Fases.Recheck;
+    }
+  }
+
+  const allhandled = query.singleconditions.every(c => c.handled) && query.joinconditions.every(c => c.handled);
+
+  function getTableAndColumnExpression(tableidx: number, column: Query["tablesources"][number]["columns"][number]) {
+    const tableid = `T${tableidx}`;
+    let expr = sql.ref(`${tableid}.${column.dbase_name}`);
+    switch (`${query.tablesources[tableidx].name.toLowerCase()}-${column.dbase_name.toLowerCase()}`) {
+      case "system.sites-webroot": {
+        expr = sql`webhare_proc_sites_webroot(${sql.table(tableid)}."outputweb", ${sql.table(tableid)}."outputfolder"))`;
+      } break;
+      case "system.fs_objects-fullpath": {
+        expr = sql`webhare_proc_fs_objects_fullpath(${sql.table(tableid)}."id", ${sql.table(tableid)}."isfolder"))`;
+      } break;
+      case "system.fs_objects-highestparent": {
+        expr = sql`webhare_proc_fs_objects_highestparent(${sql.table(tableid)}."id")`;
+      } break;
+      case "system.fs_objects-indexurl": {
+        expr = sql`webhare_proc_fs_objects_indexurl(${sql.table(tableid)}."id", ${sql.table(tableid)}."name", ${sql.table(tableid)}."isfolder", ${sql.table(tableid)}."parent", ${sql.table(tableid)}."published", ${sql.table(tableid)}."type", ${sql.table(tableid)}."externallink", ${sql.table(tableid)}."filelink", ${sql.table(tableid)}."indexdoc")`;
+      } break;
+      case "system.fs_objects-isactive": {
+        expr = sql`webhare_proc_fs_objects_isactive(${sql.table(tableid)}."id")`;
+      } break;
+      case "system.fs_objects-publish": {
+        expr = sql`webhare_proc_fs_objects_publish(${sql.table(tableid)}."isfolder", ${sql.table(tableid)}."published")`;
+      } break;
+      case "system.fs_objects-url": {
+        expr = sql`webhare_proc_fs_objects_url(${sql.table(tableid)}."id", ${sql.table(tableid)}."name", ${sql.table(tableid)}."isfolder", ${sql.table(tableid)}."parent", ${sql.table(tableid)}."published", ${sql.table(tableid)}."type", ${sql.table(tableid)}."externallink", ${sql.table(tableid)}."filelink")`;
+      } break;
+      case "system.fs_objects-whfspath": {
+        expr = sql`webhare_proc_fs_objects_whfspath(${sql.table(tableid)}."id", ${sql.table(tableid)}."isfolder")`;
+      } break;
+    }
+    return expr;
+  }
+
+  const resultcolumns: Array<{ exportName: string; tableid: number; queryName: string; type: VariableType; flags: ColumnFlags; expr: RawBuilder<unknown> | AliasedRawBuilder<unknown, string> }> = [];
+  const resultcolumnsfase2: Array<{ exportName: string; tableid: number; queryName: string; type: VariableType; flags: ColumnFlags; expr: RawBuilder<unknown> | AliasedRawBuilder<unknown, string> }> = [];
+  const updatecolumns: Array<{ colname: string; tableid: number; rename: string }> = [];
+  let fase2keys = new Array<RawBuilder<unknown>>;
+  let keycolumn: number | null = null;
+
+  let usefase2 = false;
+
+
+  if (query.type !== "SELECT") {
+    // For updating queries, get the 'ctid' column as column 0
+    resultcolumns.push({ tableid: -1, queryName: "ctid", exportName: "", type: VariableType.String, flags: 0, expr: sql.ref(`T0.ctid`) });
+    resultcolumnsfase2.push({ tableid: -1, queryName: "ctid", exportName: "", type: VariableType.String, flags: 0, expr: sql.ref(`T0.ctid`) });
+    // in fase2, the row position is returned as column 1
+
+    for (const column of query.tablesources[0].columns) {
+      if (column.flags & ColumnFlags.Key)
+        fase2keys.push(getTableAndColumnExpression(0, column));
+    }
+
+    /* Only need fase2 if some conditions (HareScript code or single/joinconditions)
+       can't be checked by PostgreSQL
+    */
+    const need_fase2 = query.has_fase1_hscode || !allhandled;
+
+    /* Can't get lookups for multiple columns to work, so using fase2 is off in
+       that case. Comparing anonymous records returns a 'comparison not implemented'
+       error
+    */
+    if (fase2keys.length == 1 && need_fase2) {
+      // querydata.keycolumn will be filled during result column building
+      usefase2 = true;
+    } else {
+      fase2keys = [sql`T0.ctid`];
+      keycolumn = 0;
+    }
+    //resultcolumnsfase2[1].expr = fase2keys[0];
+    resultcolumnsfase2.push({ tableid: -1, queryName: "rowpos", exportName: "", type: VariableType.Integer, flags: 0, expr: sql``.as(sql`rowpos`) }); // filled in later!
+  }
+
+  const tables = new Array<AliasedRawBuilder<unknown, `T${number}`>>();
+  //const select = new Array<AliasedRawBuilder<unknown, `c${number}`>>();
+  //const selectfase2cols = new Array<AliasedRawBuilder<unknown, `c${number}`>>();
+
+  let colIdCounter = 0;
+  let updatingkey = false;
+
+  for (const [idx, tbl] of query.tablesources.entries()) {
+    tables.push(sql.table(tbl.name.toLowerCase()).as(`T${idx}`));
+    for (const col of tbl.columns) {
+      if (!usefase2) {
+        // For SELECT or when fase2 isn't used, do everything in fase 1
+        if (col.fase & Fases.Fase2) {
+          col.fase |= Fases.Fase1;
+          col.fase &= ~Fases.Fase2;
+        }
+      } else {
+        if (col.flags & ColumnFlags.Key) {
+          // for update and delete, we need the primary key in fase 1 for the fase2 lookup
+          col.fase |= Fases.Fase1;
+        }
+
+        // We'll return everthing in fase2, registering that is needed for correct null translation
+        if (col.fase & (Fases.Fase1 | Fases.Recheck))
+          col.fase |= Fases.Fase2;
+      }
+
+
+      // Any interaction?
+      if (col.fase & (Fases.Fase1 | Fases.Fase2 | Fases.Recheck)) {
+        const queryName = `c${colIdCounter++}` as const;
+        const expr = getTableAndColumnExpression(idx, col).as(queryName);
+
+        const rcol = {
+          tableid: idx,
+          queryName,
+          exportName: col.name,
+          flags: col.flags,
+          type: col.type,
+          expr,
+        };
+
+        if (col.fase & Fases.Fase1) {
+          if ((col.flags & ColumnFlags.Key) && usefase2) {
+            // INV: exactly one key column present in list, and Fase1 is set for it
+            keycolumn = resultcolumns.length;
+          }
+
+          resultcolumns.push(rcol);
+
+          if (usefase2) {
+            // We're abusing fase2 for re-getting locked rows, so always reget fase1 cols in fase2
+            resultcolumnsfase2.push(rcol);
+          }
+        } else if (usefase2 && (col.fase & (Fases.Fase1 | Fases.Fase2 | Fases.Recheck))) {
+          resultcolumnsfase2.push(rcol);
+        }
+      }
+
+      if (col.fase & Fases.Updated) {
+        const ucol = {
+          colname: col.name,
+          rename: col.dbase_name,
+          tableid: idx,
+        };
+        updatecolumns.push(ucol);
+
+        if (col.flags & ColumnFlags.Key)
+          updatingkey = true;
+      }
+    }
+  }
+
+  const conditions = new Array<RawBuilder<unknown>>();
+
+  for (const cond of query.singleconditions) {
+    if (!cond.handled)
+      continue;
+    const tableid = `T${cond.tableid}`;
+    const column = query.tablesources[cond.tableid].columns[cond.columnid];
+    const colref = sql.ref(`${tableid}.${column.dbase_name}`);
+    let colexpr = colref;
+    if (!cond.casesensitive)
+      colexpr = sql`upper(${colexpr})`;
+
+    let valueexpr = sql.value(cond.condition == "LIKE" ? encodePattern(cond.value as string) : cond.value);
+    if (cond.condition == "IN")
+      valueexpr = sql`Any(${valueexpr})`;
+    if (!cond.casesensitive)
+      valueexpr = sql`upper(${valueexpr})`;
+
+    let expr = buildComparison(colexpr, cond.condition, valueexpr);
+    if (cond.match_null)
+      expr = sql`(${colref} IS NULL) OR (${expr})`;
+    conditions.push(expr);
+  }
+
+  for (const cond of query.joinconditions) {
+    if (!cond.handled)
+      continue;
+    const tableid1 = `T${cond.table1_id}`;
+    const column1 = query.tablesources[cond.table1_id].columns[cond.t1_columnid];
+    const colref1 = sql.ref(`${tableid1}.${column1.dbase_name}`);
+    const tableid2 = `T${cond.table2_id}`;
+    const column2 = query.tablesources[cond.table2_id].columns[cond.t2_columnid];
+    const colref2 = sql.ref(`${tableid2}.${column2.dbase_name}`);
+
+    let expr = sql`${buildComparison(colref1, cond.condition, colref2)}`;
+    if (cond.match_double_null) {
+      // A primary key can't be NULL, so when a key is involved, this comparison isn't necessary
+      if (!(column1.flags & ColumnFlags.Key) && !(column2.flags & ColumnFlags.Key))
+        expr = sql`(${expr}) OR ((${colref1} IS NULL AND ${colref2} IN NULL))`;
+    } else {
+      // One column has no null default, or the defaults differ
+      if (column2.flags & ColumnFlags.TranslateNulls && column2.nulldefault_valid) {
+        expr = sql`(${expr}) OR (${colref2} IS NULL AND ${buildComparison(colref1, cond.condition, sql.value(column2.nulldefault))}`;
+      }
+      if (column1.flags & ColumnFlags.TranslateNulls && column1.nulldefault_valid) {
+        expr = sql`(${expr}) OR (${colref1} IS NULL AND ${buildSwappedComparison(colref2, cond.condition, sql.value(column1.nulldefault))}`;
+      }
+    }
+    conditions.push(expr);
+  }
+
+  let updatedtable = "";
+
+  let modifyend: RawBuilder<unknown> | undefined;
+  if (query.type == "UPDATE" || query.type == "DELETE") {
+    const fornokeyupdate = query.type === "UPDATE" && !updatingkey;
+    updatedtable = query.tablesources[0].name;
+    if (usefase2) {
+      //resultcolumnsfase2[1].expr = sql`array_position($1, ${fase2key})`
+    } else {
+      modifyend = fornokeyupdate ? sql`for no key update` : sql`for update`;
+    }
+  }
+
+  let dbquery = whdb
+
+    .selectFrom(tables)
+    .select(resultcolumns.map(r => r.expr as AliasedRawBuilder<unknown, string>));
+  for (const cond of conditions)
+    dbquery = dbquery.where(cond);
+  if (query.query_limit >= 0 && allhandled)
+    dbquery = dbquery.limit(query.query_limit);
+  if (modifyend)
+    dbquery.modifyEnd(modifyend);
+
+  const res = await dbquery.execute();
+  const retval = [];
+  //TODO Both cbExecuteQuery and cbSendPostgreSQLCommand need to do some return type postprocessing to align with HS types, share!
+  for (const row of res) {
+    const tablerows: Array<Record<string, unknown>> = [];
+    for (let idx = 0; idx < query.tablesources.length; ++idx)
+      tablerows.push({});
+
+    for (const col of resultcolumns) {
+      let value = row[col.queryName];
+      if (col.flags & ColumnFlags.Binary)
+        value = (value as Buffer).toString("base64url");
+      else if (col.type === VariableType.Blob && value === null)
+        value = new BoxedDefaultBlob;
+      else if (col.type === VariableType.Integer64)
+        value = BigInt(value as string);
+      else if (col.type === VariableType.Float)
+        value = new BoxedFloat(value as number);
+      else if (col.type === VariableType.DateTime)
+        value = value === -Infinity ? defaultDateTime : value === Infinity ? maxDateTime : value;
+
+      // else if (col.type === VariableType.HSMoney)
+      //   value = new Money(value as string);
+      // FIXME: how to trigger null translation? The following doesn't work:
+      if (value !== null || !(col.flags & ColumnFlags.TranslateNulls))
+        tablerows[col.tableid][col.exportName] = value;
+    }
+    retval.push(...tablerows);
+  }
+
+  // FIXME: use these columns
+  void (keycolumn);
+  void (updatedtable);
+
+  return retval;
+}
+
+export async function cbDoBeginWork() {
+  await beginWork();
+  return null;
+}
+
+export async function cbDoRollbackWork() {
+  await rollbackWork();
+  return null;
+}
+
+export async function cbDoCommitWork() {
+  await commitWork();
+  return getTypedArray(VariableType.RecordArray, []);
+}
+
+export async function cbSendPostgreSQLCommand(params: { query: string; options: { args?: unknown[] } }) {
+  const connection = __getConnection();
+  type ResultRowType = Record<string, unknown>;
+  const result = await connection.query(params.query, params.options?.args || []) as FullPostgresQueryResult<ResultRowType>;
+
+  //TODO Both cbExecuteQuery and cbSendPostgreSQLCommand need to do some return type postprocessing to align with HS types, share!
+  const retval: ResultRowType[] = [];
+  for (const row of result.rows) {
+    const retvalrow: ResultRowType = {};
+    for (const field of result.fields || []) {
+      let value = row[field.fieldName];
+      switch (field.dataTypeId) {
+        case OID.BOOL:
+          if (value === null)
+            value = false;
+          break;
+        case OID.BYTEA:
+        case OID.CHAR:
+        case OID.NAME:
+        case OID.TEXT:
+        case OID.VARCHAR:
+          if (value === null)
+            value = "";
+          break;
+        case OID.INT2:
+        case OID.CID:
+        case OID.OID:
+        case OID.REGPROC:
+        case OID.XID:
+        case OID.INT4:
+        case OID.FLOAT4:
+        case OID.FLOAT8:
+          if (value === null)
+            value = 0;
+          break;
+        case OID.INT2VECTOR:
+        case OID.OIDVECTOR:
+          if (value === null)
+            value = [];
+          value = getTypedArray(VariableType.IntegerArray, value as number[]);
+          break;
+
+        // FIXME: port the rest too
+      }
+
+      retvalrow[field.fieldName] = value;
+    }
+    retval.push(retvalrow);
+  }
+
+  console.table(retval);
+  return retval;
+}
+
+export async function cbInsertRecord(params: { query: Query; newfields: Record<string, unknown> }) {
+  console.log(params.query);
+  console.log(params.query.tablesources[0].columns);
+  console.log(params.newfields);
+
+  const values: Record<string, unknown> = {};
+  for (const columns of params.query.tablesources[0].columns)
+    if (columns.fase & Fases.Updated)
+      values[columns.dbase_name] = params.newfields[columns.name.toLowerCase()];
+
+  const name = params.query.tablesources[0].name;
+  console.log(name);
+
+
+
+  const whdb = db<Record<string, unknown>>();
+  await whdb.insertInto(name.toLowerCase()).values(values).execute();
+  return null;
+}

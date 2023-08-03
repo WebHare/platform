@@ -186,7 +186,7 @@ export class HSVMVar {
         return;
       } break;
       case VariableType.Blob: {
-        this.setBlob(value as WHDBBlob | BoxedFloat);
+        this.setBlob(value as WHDBBlob | BoxedDefaultBlob | null);
         return;
       } break;
       case VariableType.Record: {

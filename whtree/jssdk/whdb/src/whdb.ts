@@ -297,6 +297,8 @@ function getConnection() {
   });
 }
 
+export const __getConnection = getConnection; //TODO don't export this from `@webhare/whdb`
+
 /* db<T> is defined as a function so a call is made every time it is accessed.
    We're just returning the conn.db (with a typecast, but that is transpiled away),
    so very low cost. With this kind of interface, it is easy to type-cast with the

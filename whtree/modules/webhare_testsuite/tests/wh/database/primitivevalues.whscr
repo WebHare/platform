@@ -3,10 +3,12 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::dbase/postgresql.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/dbase/updatecommands.whlib";
+LOADLIB "mod::system/js/internal/whdb/wasm_pgsql.whlib";
 
 
 MACRO TestReflectValue(VARIANT v, STRING encoding)
@@ -310,5 +312,13 @@ MACRO TestPrimitiveValues()
   }
 }
 
-
-RunTestframework([ PTR TestPrimitiveValues ]);
+IF (IsWasm())
+{
+  OBJECT demotrans := CreateWASMPostgreSQLTransaction();
+  SetPrimaryWebHareTransaction(demotrans->id);
+  TestPrimitiveValues();
+}
+ELSE
+{
+  RunTestframework([ PTR TestPrimitiveValues ]);
+}

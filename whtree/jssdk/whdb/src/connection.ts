@@ -76,7 +76,8 @@ export class WHDBPgClient {
     if (typeof sqlquery === "string") {
       const queryoptions: QueryOptions = {
         params: [],
-        utcDates: true
+        utcDates: true,
+        fetchCount: 4294967295 //TODO we should probably go for cursors instead
       };
 
       if (parameters)
@@ -88,7 +89,7 @@ export class WHDBPgClient {
         }
 
       if (flags["postgresql:logquery"])
-        console.log({ sqlquery, queryoptions });
+        console.log({ sqlquery, ...queryoptions });
 
       return this.pgclient!.query(sqlquery, queryoptions).then((result: QueryResult): FullPostgresQueryResult<R> => {
         const rows = [];
