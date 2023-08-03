@@ -111,6 +111,11 @@ export class HarescriptVM {
     return this.columnNameIdMap[name] = this.wasmmodule._HSVM_GetColumnId(this.hsvm, this.columnnamebuf);
   }
 
+  allocateVariable(): HSVMVar {
+    const id = this.wasmmodule._HSVM_AllocateVariable(this.hsvm);
+    return new HSVMVar(this, id);
+  }
+
   quickParseVariable(variable: HSVM_VariableId): IPCMarshallableData {
     let value;
     const type = this.wasmmodule._HSVM_GetType(this.hsvm, variable);
