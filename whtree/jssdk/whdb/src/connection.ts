@@ -10,6 +10,7 @@ import {
 import { Connection, GlobalTypeMap, QueryOptions, BindParam, DataTypeOIDs, QueryResult, FieldInfo } from './../vendor/postgresql-client/src/index';
 import { flags } from '@webhare/env/src/envbackend';
 import { BlobType } from "./blobs";
+import { MoneyType } from "./types";
 
 let configuration: { bloboid: number } | null = null;
 
@@ -30,13 +31,9 @@ async function configureWHDBClient(pg: Connection) {
           JOIN pg_catalog.pg_proc p ON t.typinput = p.oid
     WHERE nspname = 'webhare_internal' AND t.typname = 'webhare_blob' AND proname = 'record_in'`);
 
-  //Fix timezone translation - see https://github.com/brianc/node-postgres/issues/2141
-  // types.setTypeParser(1114, stringValue => {
-  //   if (stringValue === "-infinity")
-  //     return defaultDateTime;
-  //   return new Date(Date.parse(stringValue + '+0000'));
-  // });
-  // (pg_defaults as { parseInputDatesAsUTC: boolean }).parseInputDatesAsUTC = true;
+  //For the WHDB a NUMERIC is always a Number. this might not be that future proof..
+  GlobalTypeMap.register(MoneyType);
+
   if (bloboidquery.rows) {
     configuration = { bloboid: bloboidquery.rows[0][0] };
     BlobType.oid = configuration.bloboid;
@@ -79,7 +76,8 @@ export class WHDBPgClient {
     if (typeof sqlquery === "string") {
       const queryoptions: QueryOptions = {
         params: [],
-        utcDates: true
+        utcDates: true,
+        fetchCount: 4294967295 //TODO we should probably go for cursors instead
       };
 
       if (parameters)
@@ -91,7 +89,7 @@ export class WHDBPgClient {
         }
 
       if (flags["postgresql:logquery"])
-        console.log({ sqlquery, queryoptions });
+        console.log({ sqlquery, ...queryoptions });
 
       return this.pgclient!.query(sqlquery, queryoptions).then((result: QueryResult): FullPostgresQueryResult<R> => {
         const rows = [];

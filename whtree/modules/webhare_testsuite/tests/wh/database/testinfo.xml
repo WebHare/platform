@@ -1,16 +1,22 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="blob-tests.whscr">
-
   <test script="primitivevalues.whscr" />
   <test script="pg_locking.whscr" />
   <test script="pg_procedures.whscr" />
   <test script="pg_blobcleanup.whscr" />
   <test script="pg_metadataupdates.whscr" />
-
   <test script="test_blobstore.whscr" />
   <test script="test_cascade.whscr" />
   <test script="test_dynquery.whscr" />
   <test script="test_sqlclient.whscr" />
-  <test script="test_work.whscr"/>
-  <test script="test_whtrans.whscr"/>
-  <group name="blobs"><test script="testrunner.whscr"><arg param="scriptpath"/><arg value="blob-tests.whscr"/></test></group>
+  <test script="test_work.whscr" />
+  <test script="test_whtrans.whscr" />
+  <group name="blobs">
+    <test script="testrunner.whscr">
+      <arg param="scriptpath" />
+      <arg value="blob-tests.whscr" />
+    </test>
+  </group>
+  <group name="wasm" engine="wasm">
+    <test script="primitivevalues.whscr" xfail="true" />
+  </group>
 </group>

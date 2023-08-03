@@ -105,6 +105,22 @@ export function isDate(value: unknown): value is Date {
 const MarshalFormatType = 2;
 const MarshalPacketFormatType = 3;
 
+/** A boxed float preserves the number being/becoming a HareScript FLOAT. We might not need this is if the PGSQLProvider returned HS VariableTypes along with the result sets so we could fix it in SetJSValue */
+export class BoxedFloat {
+  readonly __hstype = VariableType.Float;
+  value: number;
+
+  constructor(value: number) {
+    this.value = value;
+  }
+}
+
+/** A boxed default blob - because `null` is the only other way the WHDB can represent it and would be interpreted as a default record.
+ *  We might not need this is if the PGSQLProvider returned HS VariableTypes along with the result sets so we could fix it in SetJSValue
+ * */
+export class BoxedDefaultBlob {
+  readonly __hstype = VariableType.Blob;
+}
 
 export function readMarshalData(buffer: Buffer | ArrayBuffer): SimpleMarshallableData {
   const buf = new LinearBufferReader(buffer);
@@ -375,9 +391,7 @@ export function determineType(value: unknown): VariableType {
       if (isDate(value))
         return VariableType.DateTime;
       if (value && "__hstype" in value) {
-        const rec = value as Record<"__hstype", VariableType>;
-        if (rec.__hstype === VariableType.HSMoney)
-          return VariableType.HSMoney;
+        return value.__hstype as VariableType;
       }
       return VariableType.Record;
     }

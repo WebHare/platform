@@ -8,7 +8,7 @@ import * as test from "@webhare/test";
 import { Money } from "@webhare/std";
 import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime } from "@webhare/hscompat";
 import { compare } from "@webhare/hscompat/algorithms";
-import { getTypedArray, IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { BoxedFloat, determineType, getTypedArray, IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 
 function testStrings() {
   //based on test_operators.whscr LikeTest
@@ -92,6 +92,10 @@ async function testCompare() {
   test.eq(1, compare(new Date(-1), null));
   test.eq(1, compare(new Date(0), null));
   test.eq(1, compare(new Date(1), null));
+}
+
+async function testBoxing() {
+  test.eq(VariableType.Float, determineType(new BoxedFloat(2.5)));
 }
 
 async function testRecordLowerBound() {
@@ -318,6 +322,7 @@ function testHSON() {
 test.run([
   testStrings,
   testCompare,
+  testBoxing,
   testRecordLowerBound,
   testRecordUpperBound,
   testHSON

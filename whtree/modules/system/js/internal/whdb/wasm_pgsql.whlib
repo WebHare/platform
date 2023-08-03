@@ -1,0 +1,243 @@
+<?wh
+
+LOADLIB "wh::dbase/loopback.whlib";
+LOADLIB "wh::dbase/transaction.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/wasm.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "wh::dbase/postgresql.whlib";
+
+VARIANT FUNCTION CallImpl(STRING name, RECORD data)
+{
+  VARIANT retval := EM_Syscall("executeInline",
+      [ func := `
+const impl = require("@mod-system/js/internal/whdb/wasm_pgsqlprovider.ts");
+const func = impl[param.name];
+if (!func)
+  throw new Error(\`No such function \${param.name}\`);
+return await func(param.data);
+`
+      , param := CELL[ name, data ]
+      ]);
+
+  IF(IsDebugTagEnabled("pgsql-debug"))
+    DumpValue(CELL[name, data, retval], 'tree');
+
+  RETURN retval;
+}
+
+/** doc1 */
+
+/** doc2 */
+OBJECTTYPE EMTransactionCursor EXTEND TransactionCursorBase
+<
+  INTEGER ofs;
+  RECORD ARRAY alldata;
+
+  MACRO NEW(OBJECT trans, RECORD query)
+  {
+    this->ofs := 0;
+    this->alldata := CallImpl("cbExecuteQuery", query);
+    DumpValue(this->alldata, "boxed");
+  }
+  UPDATE PUBLIC MACRO RetrieveNextBlock()
+  {
+    this->pvt_currentblock := ArraySlice(this->alldata, this->ofs, 64);
+    this->ofs := this->ofs + LENGTH(this->pvt_currentblock);
+  }
+  UPDATE PUBLIC MACRO Close()
+  {
+
+  }
+  UPDATE PUBLIC STRING ARRAY FUNCTION GetFase2Data(INTEGER ARRAY rowlist)
+  {
+    RETURN STRING[];
+  }
+>;
+
+OBJECTTYPE EMTransaction EXTEND TransactionBase
+<
+  PUBLIC INTEGER forwardtransid;
+
+  UPDATE STRING FUNCTION GetType()
+  {
+    RETURN "emttraansaction";
+  }
+  UPDATE PUBLIC OBJECT FUNCTION OpenCursor(RECORD query, STRING type)
+  {
+//    DumpValue(CELL[ query, type ], "tree");
+    RETURN NEW EMTransactionCursor(PRIVATE this, CELL[ ...query, type ]);
+  }
+  UPDATE MACRO DoBeginWork()
+  {
+    CallImpl("cbDoBeginWork", DEFAULT RECORD);
+  }
+  UPDATE MACRO DoRollbackWork()
+  {
+    CallImpl("cbDoRollbackWork", DEFAULT RECORD);
+    THROW NEW Exception("This transaction type does not support work");
+  }
+  UPDATE RECORD ARRAY FUNCTION DoCommitWork()
+  {
+    CallImpl("cbDoCommitWork", DEFAULT RECORD);
+    RETURN RECORD[];
+  }
+
+  UPDATE PUBLIC MACRO InsertRecord(RECORD query, RECORD newfields)
+  {
+    CallImpl("cbInsertRecord", CELL[ query, newfields ]);
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION __ExecSQL(STRING query, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN CallImpl("cbSendPostgreSQLCommand", CELL[ query, options ]);
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetTableListing(STRING schemaname)
+  {
+    SCHEMA catalog LIKE postgresql_pg_catalog;
+    catalog := BindTransactionToSchema(this->forwardtransid, "pg_catalog");
+
+    INTEGER namespace_oid :=
+       SELECT AS INTEGER oid
+         FROM catalog.pg_namespace
+        WHERE nspname = schemaname;
+
+    IF (namespace_oid = 0)
+      RETURN RECORD[];
+
+    RECORD ARRAY tables :=
+        SELECT object_id :=   oid
+             , table_name :=  relname
+             , isview :=      relkind IN [ "v", "m" ]
+          FROM catalog.pg_class
+         WHERE relkind IN [ "r", "v", "m" ] // table, view, materialized view
+           AND relnamespace = namespace_oid;
+
+    RECORD ARRAY primary_keys :=
+        SELECT conkey
+             , object_id :=   conrelid
+             , _matchkey :=   conrelid || "\t" || conkey[0]
+          FROM catalog.pg_constraint
+         WHERE conrelid IN (SELECT AS INTEGER ARRAY COLUMN object_id FROM tables)
+           AND contype = "p"
+           AND LENGTH(conkey) = 1;
+
+    RECORD ARRAY columns :=
+        SELECT attrelid
+             , attnum
+             , primary_key_name := attname
+             , _matchkey :=   attrelid || "\t" || attnum
+          FROM catalog.pg_attribute
+         WHERE attrelid IN (SELECT AS INTEGER ARRAY COLUMN object_id FROM tables)
+           AND NOT attisdropped;
+
+    primary_keys := JoinArrays(primary_keys, "_matchkey", columns, [ primary_key_name := "" ], [ rightouterjoin := TRUE ]);
+    tables := JoinArrays(tables, "object_id", primary_keys, [ primary_key_name := "" ], [ rightouterjoin := TRUE ]);
+
+    RETURN tables;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetSchemaListing()
+  {
+    SCHEMA catalog LIKE postgresql_pg_catalog;
+    catalog := BindTransactionToSchema(this->forwardtransid, "pg_catalog");
+
+    RETURN SELECT schema_name :=      nspname
+                , is_system_schema := ToUppercase(nspname) IN [ "DEFINITION_SCHEMA", "INFORMATION_SCHEMA" ] OR ToUppercase(nspname) LIKE "PG_*"
+             FROM catalog.pg_namespace;
+  }
+
+  UPDATE PUBLIC MACRO CreateSchema(STRING schemaname, STRING ownerschema, STRING ownerrole)
+  {
+    this->__ExecSQL(`CREATE SCHEMA ${PostgreSQLEscapeIdentifier(schemaname)}`);
+  }
+
+  UPDATE PUBLIC MACRO DropSchema(STRING schemaname, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    options := ValidateOptions([ cascade := FALSE ], options);
+    this->__ExecSQL(`DROP SCHEMA ${PostgreSQLEscapeIdentifier(schemaname)}${options.cascade ? ` CASCADE` : ``}`);
+  }
+
+  UPDATE PUBLIC MACRO CreateTable(STRING schemaname, STRING tablename, RECORD tablestructure)
+  {
+    THROW NEW Exception(`CreateTable yet not supported for PostgreSQL`);
+  }
+
+  UPDATE PUBLIC MACRO AlterTable(STRING schemaname, STRING tablename, RECORD tablemanip)
+  {
+    THROW NEW Exception(`AlterTable yet not supported for PostgreSQL`);
+  }
+
+  UPDATE PUBLIC MACRO DropColumn(STRING schemaname, STRING tablename, STRING columnname)
+  {
+    this->__ExecSQL(`ALTER TABLE ${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(tablename)} DROP COLUMN ${PostgreSQLEscapeIdentifier(columnname)}`);
+  }
+
+  UPDATE PUBLIC MACRO DropTable(STRING schemaname, STRING tablename)
+  {
+    this->__ExecSQL(`DROP TABLE ${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(tablename)}`);
+  }
+
+  UPDATE PUBLIC INTEGER FUNCTION MakeAutoNumber(STRING schemaname, STRING tablename, STRING columnname)
+  {
+    RETURN this->MakeAutoNumbers(schemaname, tablename, columnname, 1)[0];
+  }
+
+  UPDATE PUBLIC INTEGER ARRAY FUNCTION MakeAutoNumbers(STRING schemaname, STRING tablename, STRING columnname, INTEGER amount)
+  {
+    IF (NOT this->IsWorkOpen())
+      THROW NEW Exception(`BeginWork must be called before modifying the database`);
+    IF (amount < 1)
+      RETURN INTEGER[];
+    STRING generator := `(${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(`webhare_autonrs_${tablename}_${ToLowercase(columnname)}`)}(${amount}))`;
+    RECORD result := this->__ExecSQL("SELECT " || generator || " AS value");
+    IF (NOT RecordExists(result) OR LENGTH(result.value) != amount)
+      THROW NEW Exception(`No value returned by MakeAutonumbers generator`);
+    RETURN INTEGER ARRAY(result.value);
+  }
+
+  UPDATE PUBLIC INTEGER64 FUNCTION MakeAutoNumber64(STRING schemaname, STRING tablename, STRING columnname)
+  {
+    RETURN this->MakeAutoNumbers64(schemaname, tablename, columnname, 1)[0];
+  }
+
+  UPDATE PUBLIC INTEGER64 ARRAY FUNCTION MakeAutoNumbers64(STRING schemaname, STRING tablename, STRING columnname, INTEGER amount)
+  {
+    IF (NOT this->IsWorkOpen())
+      THROW NEW Exception(`BeginWork must be called before modifying the database`);
+    IF (amount < 1)
+      RETURN INTEGER64[];
+    STRING generator := `(${PostgreSQLEscapeIdentifier(schemaname)}.${PostgreSQLEscapeIdentifier(`webhare_autonrs_${tablename}_${ToLowercase(columnname)}`)}(${amount}))`;
+    RECORD result := this->__ExecSQL("SELECT " || generator || " AS value");
+    IF (NOT RecordExists(result) OR LENGTH(result.value) != amount)
+      THROW NEW Exception(`No value returned by MakeAutonumber generator`);
+    RETURN INTEGER64 ARRAY(result.value);
+  }
+
+>;
+
+OBJECTTYPE ExtraForwards
+<
+  OBJECT __forwardto;
+
+  MACRO NEW(OBJECT forwardto)
+  {
+    this->__forwardto := forwardto;
+  }
+
+  PUBLIC RECORD ARRAY FUNCTION __ExecSQL(STRING query, RECORD options DEFAULTSTO DEFAULT RECORD)
+  {
+    RETURN this->__forwardto->__ExecSQL(query, options);
+  }
+>;
+
+PUBLIC OBJECT FUNCTION CreateWASMPostgreSQLTransaction()
+{
+  OBJECT trans := NEW EMTransaction;
+  OBJECT forward := CreateForwardingLoopbackTransactionFromObject(trans, CELL[]);
+  trans->forwardtransid := forward->id;
+  EXTEND __HS_INTERNAL_MakeObjectReferencePrivileged(forward) BY ExtraForwards(trans);
+  RETURN forward;
+}

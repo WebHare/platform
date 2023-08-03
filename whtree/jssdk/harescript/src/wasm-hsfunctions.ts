@@ -140,4 +140,82 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       id_set.copyFrom(var_date);
     }
   });
+  wasmmodule.registerAsyncExternalFunction("POSTGRESQLESCAPEIDENTIFIER::S:S", async (vm, id_set, var_str) => {
+    const str = var_str.getString();
+    const is_simple = Boolean(str.match(/^[0-9a-zA-Z_"$]*$/));
+    let retval: string;
+    if (is_simple)
+      retval = `"${str.replace(`"`, `""`)}"`;
+    else {
+      retval = `U&"`;
+      for (const char of str) {
+        const code = char.charCodeAt(0);
+        if (code >= 32 && code < 127) {
+          if (char === "/")
+            retval += char;
+          retval += char;
+        } else {
+          if (code < 65536)
+            retval += `\\${code.toString(16).padStart(4, "0")}`;
+          else
+            retval += `\\+${code.toString(16).padStart(8, "0")}`;
+        }
+      }
+      retval += `"`;
+    }
+    id_set.setString(retval);
+  });
+  wasmmodule.registerAsyncExternalFunction("POSTGRESQLESCAPELITERAL::S:S", async (vm, id_set, var_str) => {
+    // Don't care about UTF-8 encoding problems, the server will catch them anyway
+    let have_backslashes = false;
+    const str = var_str.getString();
+    let result = `'`;
+    for (const char of str) {
+      const code = char.codePointAt(0) ?? 0;
+      if (char == `'`)
+        result += char;
+      else if (code < 32 || code == 127) {
+        switch (code) {
+          case 8:    /* \b */ result += '\\b'; break;
+          case 12:   /* \f */ result += '\\f'; break;
+          case 10:   /* \n */ result += '\\n'; break;
+          case 13:   /* \r */ result += '\\r'; break;
+          case 9:    /* \t */ result += '\\t'; break;
+          default: result += `\\x${code.toString(16).padStart(2, "0")}`;
+        }
+        have_backslashes = true;
+        continue;
+      } else if (char == '\\') {
+        result += char;
+        have_backslashes = true;
+      }
+      result += char;
+    }
+    result += `'`;
+    if (have_backslashes)
+      result = " E" + result;
+    id_set.setString(result);
+  });
 }
+
+
+/*
+let resolve_promise_func: HSVM_VariableId | undefined;
+      if (promiseid !== -1n) {
+        value.then(async (result: unknown) => {
+          console.log(`resolved`);
+          const params = vm.openFunctionCall(2);
+          params[0].setInteger64(promiseid);
+          params[0].setJSValue(result);
+          if (!resolve_promise_func) {
+            resolve_promise_func = vm.wasmmodule._HSVM_AllocateVariable(vm.hsvm);
+            await vm.makeFunctionPtr(resolve_promise_func, "wh::internal/wasm.whlib", "__RESOLVEPROMISE");
+          }
+          const r = vm.wasmmodule._HSVM_CallFunctionPtr(vm.hsvm, resolve_promise_func, 0);
+          console.log(`resolve promise ${promiseid}: ${r}`);
+        });
+        id_set.setJSValue({
+          result: "scheduled"
+        });
+      } else {
+*/
