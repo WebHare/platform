@@ -30,13 +30,6 @@ async function configureWHDBClient(pg: Connection) {
           JOIN pg_catalog.pg_proc p ON t.typinput = p.oid
     WHERE nspname = 'webhare_internal' AND t.typname = 'webhare_blob' AND proname = 'record_in'`);
 
-  //Fix timezone translation - see https://github.com/brianc/node-postgres/issues/2141
-  // types.setTypeParser(1114, stringValue => {
-  //   if (stringValue === "-infinity")
-  //     return defaultDateTime;
-  //   return new Date(Date.parse(stringValue + '+0000'));
-  // });
-  // (pg_defaults as { parseInputDatesAsUTC: boolean }).parseInputDatesAsUTC = true;
   if (bloboidquery.rows) {
     configuration = { bloboid: bloboidquery.rows[0][0] };
     BlobType.oid = configuration.bloboid;

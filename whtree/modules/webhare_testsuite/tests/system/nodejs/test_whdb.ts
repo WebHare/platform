@@ -1,6 +1,7 @@
 import { BackendEvent, BackendEventSubscription, subscribe, CodeContext } from "@webhare/services";
 import * as test from "@webhare/test";
 import { DeferredPromise, createDeferred, sleep } from "@webhare/std";
+import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
 import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen, uploadBlob, query } from "@webhare/whdb";
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
 import * as contexttests from "./data/context-tests";
@@ -48,14 +49,23 @@ async function testQueries() {
 }
 
 async function testTypes() {
+  /* HareScript would store DEFAULT_DATETIME (a C++ Blex::DateTime::Invalid()) in a PG TIMESTAMP as std::numeric_limits< int64_t >::min()
+     HareScript would store MAX_DATETIME in a PG TIMESTAMP as std::numeric_limits< int64_t >::max()
+
+     In JS we want to get rid of MAX_DATETIME and recommend using a null (eg. in WRD Entity settings)
+     But we have to deal with the assumptions above. Maybe we should migrate <d:datetime> to a custom OID with the businness rules
+     and support `null` on true TIMESTAMPZ values? */
+
   // Test types using the consilio_index table
   await beginWork();
-  const baserec = { groupid: "", objectid: "", grouprequiredindexdate: new Date, objectrequiredindexdate: new Date, indexdate: new Date, extradata: "" };
+  const baserec = { groupid: "", objectid: "", grouprequiredindexdate: defaultDateTime, objectrequiredindexdate: maxDateTime, indexdate: new Date, extradata: "" };
   await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.consilio_index").values({ ...baserec, text: "row1", adate: new Date("2022-05-02T19:07:45Z") }).execute();
   await commitWork();
 
-  const rows = await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.consilio_index").select(["text", "adate"]).where("text", "=", "row1").execute();
+  const rows = await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.consilio_index").select(["text", "adate", "objectrequiredindexdate", "indexdate", "grouprequiredindexdate"]).where("text", "=", "row1").execute();
   test.eq(new Date("2022-05-02T19:07:45Z"), rows[0].adate);
+  test.eq(defaultDateTime, rows[0].grouprequiredindexdate);
+  test.eq(maxDateTime, rows[0].objectrequiredindexdate);
 
   //read directly through postgres, converting it serverside to a string (as node-postgres could 'lie' to us on both paths)
   //TODO perhaps we should have used timestamp-with-tz columns?
