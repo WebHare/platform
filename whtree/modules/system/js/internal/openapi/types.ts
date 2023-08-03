@@ -36,17 +36,30 @@ export type GetOperation<Paths extends object, OperationId extends OperationIds<
       ? AllOperationsOfPath<Paths>
       : never));
 
-/* UnionToIntersection, used to infer default method (return value when there is only one possibility, never otherwise when used for simple strings)
+/* ObjectUnionToIntersection, used to infer default method (return value when there is only one possibility, never otherwise when used for simple strings)
    from https://stackoverflow.com/questions/50374908/transform-union-type-to-intersection-type/50375286#50375286
 */
-export type UnionToIntersection<T> = (T extends unknown ? (x: T) => unknown : never) extends (x: infer R) => unknown ? R : never;
+export type ObjectUnionToIntersection<T> = (T extends unknown ? (x: T) => unknown : never) extends (x: infer R extends object) => unknown ? R : never;
 
-/** Given a parameters object (`{ path: { param1: string }; query?: { queryparam: string } }`), returns `{ param1: string, queryparam?: string }`.
+/** SquashObjectType gets rid of toplevel intersections and unions in a type, improves type hinting experience.
+ *  When given a union of objects, it returns an object with intersection of all keys of the individual objects.
+*/
+/* We can't directly use `{ [K in keyof T]: T[K] }`, because that distributes over T when it's a union.
+   Move the union to an inner property so distribution can be avoided.
+*/
+export type SquashObjectType<T extends object> = SquashObjectTypeInner<{ a: T }>;
+
+/* First testing if there are any keys, if not return `object`.
+   `{ [K in keyof T["a"]]: T["a"][K] }` would return `{}` in that case
+*/
+type SquashObjectTypeInner<T extends { a: object }> = keyof T["a"] extends never ? object : { [K in keyof T["a"]]: T["a"][K] };
+
+/** Given a parameters object (`{ path: { param1: string }; query: { queryparam?: string } }`), returns `{ param1: string, queryparam?: string }`.
  * @typeParam MergeParameters - Parameters object
  */
 /* We need UnionToIntersection to merge the { paths: ..., queries: ... } part, but we need a union to keep only the members that are present in all parameter objects. So, distribute over the
-   union of parameter objects (with the first Parameters extends ...), and then make an intersection of all subobjects of the individual parameter objects. */
-export type MergeParameters<Parameters extends object> = Parameters extends object ? UnionToIntersection<Parameters[keyof Parameters] & object> & object : never; // The `& object` is needed to convert `object | undefined` for query parameters to object
+union of parameter objects (with the first Parameters extends ...), and then make an intersection of all subobjects of the individual parameter objects. */
+export type MergeParameters<Parameters extends object> = Parameters extends object ? ObjectUnionToIntersection<Parameters[keyof Parameters] & object> : never; // The `& object` is needed to convert `object | undefined` for query parameters to object
 
 /** Returns the contents responses cell of an operation, if it has one. If not, an empty object
  * @typeParam Operation - Operation object
@@ -98,10 +111,12 @@ export type GetBodyType<Operation extends object> = Operation extends { "request
     ? B | undefined
     : unknown | undefined);
 
-/** Calculates the parameter types for a (union of) operation(s). ADDME: support per-operation parameters too.
+/** Calculates the parameter types for a (union of) operation(s).
  * @typeParam Operation - Operation object
  */
-export type GetParametersType<Operation extends { _path: object }> = Operation["_path"] extends { "parameters": object } ? MergeParameters<Operation["_path"]["parameters"]> : object;
+export type GetParametersType<Operation extends object> = SquashObjectType<Operation extends object ?
+  (Operation extends { parameters: object } ? MergeParameters<Operation["parameters"]> : object) :
+  never>;
 
 /** Extracts the defaulterror type from the components, if it properly extends RestDefaultErrorBody
  * @typeParam Components - Components from generated openapi ts file

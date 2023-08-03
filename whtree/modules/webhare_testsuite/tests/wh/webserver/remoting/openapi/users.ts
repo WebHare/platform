@@ -3,6 +3,7 @@ import { createJSONResponse, HTTPErrorCode, HTTPSuccessCode, RestRequest, RestSu
 import * as services from "@webhare/services";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
+import { TypedRestRequest } from "wh:openapi/webhare_testsuite/testservice";
 
 const persons = [
   { id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" },
@@ -36,9 +37,17 @@ export async function getUsers(req: MyRestRequest): Promise<WebResponse> {
   return createJSONResponse(HTTPSuccessCode.Ok, foundpersons);
 }
 
-export async function getUser(req: MyRestRequest): Promise<WebResponse> {
+export async function getUser(req: TypedRestRequest<unknown, "get /users/{userid}">): Promise<WebResponse> {
   test.eq(`/users/${req.params.userid}`, req.path);
   test.eq("number", typeof req.params.userid);
+
+  // @ts-expect-error -- userX should not exist and that should be validated
+  if (req.params.userX) {
+    return createJSONResponse(HTTPErrorCode.BadRequest, { error: "parameter userX is set" });
+  }
+  if (typeof req.params.wait !== "undefined" && typeof req.params.wait !== "boolean") {
+    return createJSONResponse(HTTPErrorCode.InternalServerError, { error: `Parameter 'wait' has type ${typeof req.params.wait}` });
+  }
   return createJSONResponse(HTTPSuccessCode.Ok, persons.find(_ => _.id == req.params.userid));
 }
 
