@@ -14,6 +14,7 @@ let debug = false, cachepath = '';
 type PatchedModule = InternalModule & {
   _extensions: Record<string, (mod: PatchedModule, filename: string) => void>;
   _compile: (code: string, filename: string) => unknown;
+  _resolveFilename: (request: string, parent: unknown /*Module?*/, isMain: boolean, options?: unknown) => string;
 };
 
 const Module = InternalModule as unknown as PatchedModule;
@@ -107,6 +108,34 @@ export function installResolveHook(setdebug: boolean) {
     fs.mkdirSync(cachepath, { recursive: true });
     fs.writeFile(path.join(cachepath, "CACHEDIR.TAG"), "Signature: 8a477f597d28d172789f06886806bc55\n", () => { return; }); //ignoring errors
   }
+
+  /* TypeScript allows you to 'import "../../xxx.js"' even if only the .ts version exists. The compiler understands this and automatically
+     switches to the ts version and gets the type. The expectation is that a build step will create the js files.
+     esbuild will simply require the .js file, so if such a require fails we'll retry with the .ts extension.
+
+     We won't do this in /node_modules/ as the expectation is that those are built
+
+     TODO should we also try .tsx? or only for .jsx?
+  */
+  const oldresolve = Module._resolveFilename.bind(Module);
+  Module._resolveFilename = function (request: string, parent: unknown, isMain: boolean, options?: unknown): string {
+    try {
+      return oldresolve(request, parent, isMain, options);
+    } catch (e) {
+
+      if (request.endsWith(".js") && !request.includes("/node_modules/")) { //this may be an attempt at including a *.ts file, so retry
+        if (debug)
+          console.log('[runner] retrying', request, 'as', request.slice(0, -3) + ".ts");
+        try {
+          return oldresolve(request.slice(0, -3) + ".ts", parent, isMain, options);
+        } catch (e2) {
+          //ignoring the error on the .ts file, we'll just throw the original exception with the .js path
+        }
+      }
+      throw e;
+    }
+  };
+
 
   const defaultJSLoader = Module._extensions[".js"];
   // eslint-disable-next-line guard-for-in -- (as copied frrom esbuild-runner)
