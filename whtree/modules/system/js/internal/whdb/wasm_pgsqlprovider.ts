@@ -183,10 +183,10 @@ export async function cbExecuteQuery(query: Query) {
     let expr = sql.ref(`${tableid}.${column.dbase_name}`);
     switch (`${query.tablesources[tableidx].name.toLowerCase()}-${column.dbase_name.toLowerCase()}`) {
       case "system.sites-webroot": {
-        expr = sql`webhare_proc_sites_webroot(${sql.table(tableid)}."outputweb", ${sql.table(tableid)}."outputfolder"))`;
+        expr = sql`webhare_proc_sites_webroot(${sql.table(tableid)}."outputweb", ${sql.table(tableid)}."outputfolder")`;
       } break;
       case "system.fs_objects-fullpath": {
-        expr = sql`webhare_proc_fs_objects_fullpath(${sql.table(tableid)}."id", ${sql.table(tableid)}."isfolder"))`;
+        expr = sql`webhare_proc_fs_objects_fullpath(${sql.table(tableid)}."id", ${sql.table(tableid)}."isfolder")`;
       } break;
       case "system.fs_objects-highestparent": {
         expr = sql`webhare_proc_fs_objects_highestparent(${sql.table(tableid)}."id")`;
