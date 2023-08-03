@@ -1,8 +1,10 @@
-import { BoxedFloat, IPCMarshallableRecord, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { BoxedDefaultBlob, BoxedFloat, IPCMarshallableRecord, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import type { HSVM_VariableId, HSVM_VariableType, } from "../../../lib/harescript-interface";
 import type { HarescriptVM } from "./wasm-hsvm";
 import { maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { Money } from "@webhare/std";
+import { WHDBBlob } from "@webhare/whdb";
+import { isWHDBBlob } from "@webhare/whdb/src/blobs";
 
 export class HSVMVar {
   vm: HarescriptVM;
@@ -106,6 +108,12 @@ export class HSVMVar {
     else
       this.vm.wasmmodule._HSVM_FloatSet(this.vm.hsvm, this.id, value);
   }
+  setBlob(value: WHDBBlob | BoxedDefaultBlob | null) {
+    if (typeof value === "object" && isWHDBBlob(value))
+      throw (console.error(value), new Error(`Implement`));
+    else
+      this.setDefault(VariableType.Blob);
+  }
   setDefault(type: VariableType): HSVMVar {
     if (type === VariableType.Array)
       throw new Error(`Illegal variable type ${VariableType[type] ?? type}`);
@@ -175,6 +183,10 @@ export class HSVMVar {
       } break;
       case VariableType.Float: {
         this.setFloat(value as number | BoxedFloat);
+        return;
+      } break;
+      case VariableType.Blob: {
+        this.setBlob(value as WHDBBlob | BoxedFloat);
         return;
       } break;
       case VariableType.Record: {

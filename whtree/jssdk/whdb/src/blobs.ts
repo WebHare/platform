@@ -129,8 +129,13 @@ export const BlobType: DataType = {
   },
 
   isType(v: unknown): boolean {
-    return Boolean(v && typeof v === "object" && "databaseid" in v && "_size" in v && "text" in v);
+    return isWHDBBlob(v);
   },
 };
 
 export type WHDBBlob = Pick<WHDBBlobImplementation, "size" | "text">;
+
+//not sure if we want to expose this as eg static isBlob on WHDBBlob (should it match BoxedDefaultBlob too?) so making it an internal API for now
+export function isWHDBBlob(v: unknown): boolean {
+  return Boolean(v && typeof v === "object" && "databaseid" in v && "_size" in v && "text" in v);
+}
