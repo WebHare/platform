@@ -56,7 +56,12 @@ export async function getJSONSchemaFromTSType(typeref: string, options: LoadTSTy
     // Parse file with the definition
     program = ts.createProgram({ options: tsOptions, rootNames: [file], configFileParsingDiagnostics: errors });
 
-    const diagnostics = ts.getPreEmitDiagnostics(program).concat(errors);
+    let diagnostics = ts.getPreEmitDiagnostics(program).concat(errors);
+
+    // We can't exclude files from validation, so like checkmodules has to, we'll just discard errors about files we don't care about
+    diagnostics = diagnostics.filter(_ => !_.file?.fileName.includes("/vendor/"));
+    console.log(diagnostics);
+
     if (diagnostics.length && !options.ignoreErrors) {
       const host = {
         getCurrentDirectory: () => process.cwd(),
@@ -75,7 +80,8 @@ export async function getJSONSchemaFromTSType(typeref: string, options: LoadTSTy
   const schema = TJS.generateSchema(program, typename, {
     required: true,
     noExtraProps: true,
-    ...options
+    ...options,
+    ignoreErrors: true //we will have thrown them above, now we ignore them
   });
 
   if (!schema) {

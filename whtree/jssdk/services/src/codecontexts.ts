@@ -117,7 +117,7 @@ export class CodeContext extends EventSource<CodeContextEvents>{
   }
 }
 
-const rootstorage = new CodeContext("root", {});
+export const rootstorage = new CodeContext("root", {});
 
 //Not exported through @webhare/services yet. Should we?
 export function ensureScopedResource<ValueType>(key: string | symbol, createcb: (context: CodeContext) => ValueType): ValueType {
