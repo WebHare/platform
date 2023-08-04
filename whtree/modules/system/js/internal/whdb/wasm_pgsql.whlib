@@ -34,7 +34,7 @@ STATIC OBJECTTYPE EMTransactionCursor EXTEND TransactionCursorBase
 < RECORD query;
   INTEGER ofs;
   RECORD ARRAY alldata;
-  RECORD ARRAY rowsdata;
+  RECORD ARRAY rowsdata; // Contains ctid/rowpos for each row
 
   MACRO NEW(OBJECT trans, RECORD query)
   {
