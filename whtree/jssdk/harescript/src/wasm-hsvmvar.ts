@@ -1,10 +1,10 @@
 import { BoxedDefaultBlob, BoxedFloat, IPCMarshallableRecord, VariableType, WebHareBlob, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import type { HSVM_VariableId, HSVM_VariableType, } from "../../../lib/harescript-interface";
-import type { HarescriptVM } from "./wasm-hsvm";
+import type { HarescriptVM, JSBlobTag } from "./wasm-hsvm";
 import { maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { Money } from "@webhare/std";
 import { WHDBBlob } from "@webhare/whdb";
-import { WHDBBlobImplementation, buildBlobFromPGPath } from "@webhare/whdb/src/blobs";
+import { WHDBBlobImplementation } from "@webhare/whdb/src/blobs";
 import { isWHDBBlob } from "@webhare/whdb/src/blobs";
 
 function canCastTo(from: VariableType, to: VariableType): boolean {
@@ -18,19 +18,25 @@ function canCastTo(from: VariableType, to: VariableType): boolean {
 //TODO WeakRefs so the HarescriptVM can be garbage collected ? We should also consider moving the GlobalBlobStorage to JavaScript so we don't need to keep the HSVMs around
 class HSVMBlob implements WebHareBlob {
   readonly vm: HarescriptVM;
-  openblob: number;
   readonly size: number;
+  id: HSVM_VariableId | null;
 
-  constructor(vm: HarescriptVM, openblob: number, size: number) {
+  constructor(vm: HarescriptVM, varid: HSVM_VariableId, size: number) {
     this.vm = vm;
-    this.openblob = openblob;
+    this.id = varid;
     this.size = size;
   }
 
   async arrayBuffer(): Promise<ArrayBuffer> {
+    if (!this.id)
+      throw new Error(`This blob has already been closed`);
+
     const buffer = this.vm.wasmmodule._malloc(this.size);
+    console.error("OPENING", this.id);
+    const openblob = this.vm.wasmmodule._HSVM_BlobOpen(this.vm.hsvm, this.id);
+
     try {
-      const numread = Number(this.vm.wasmmodule._HSVM_BlobDirectRead(this.vm.hsvm, this.openblob, 0n, this.size, buffer));
+      const numread = Number(this.vm.wasmmodule._HSVM_BlobDirectRead(this.vm.hsvm, openblob, 0n, this.size, buffer));
       if (numread !== this.size)
         throw new Error(`Failed to read blob, got ${numread} of ${this.size} bytes`);
 
@@ -38,6 +44,7 @@ class HSVMBlob implements WebHareBlob {
       return new Int8Array(data);
     } finally {
       this.vm.wasmmodule._free(buffer);
+      this.vm.wasmmodule._HSVM_BlobClose(this.vm.hsvm, openblob);
     }
   }
 
@@ -51,10 +58,29 @@ class HSVMBlob implements WebHareBlob {
 
   //You should close a HSVMBlob when you're done with it so the HSVM can garbage collect it (FIXME also use a FinalizerRegistry!)
   close() {
-    if (this.openblob)
-      this.vm.wasmmodule._HSVM_BlobClose(this.vm.hsvm, this.openblob);
+    if (this.id) {
+      this.vm.wasmmodule._HSVM_DeallocateVariable(this.vm.hsvm, this.id);
+      this.id = null;
+    }
+  }
 
-    this.openblob = 0;
+  //Get the JS tag for this blob, used to track its original/current location (eg on disk or uploaded to PG)
+  getJSTag(): JSBlobTag {
+    if (!this.id)
+      throw new Error(`This blob has already been closed`);
+
+    return this.vm.getBlobJSTag(this.id);
+  }
+  setJSTag(tag: JSBlobTag) {
+    if (!this.id)
+      throw new Error(`This blob has already been closed`);
+
+    this.vm.setBlobJSTag(this.id, tag);
+  }
+
+  registerPGUpload(databaseid: string) {
+    if (this.id) //not closed yet
+      this.setJSTag({ pg: databaseid });
   }
 }
 
@@ -73,10 +99,8 @@ export class HSVMVar {
     this.type ??= this.vm.wasmmodule._HSVM_GetType(this.vm.hsvm, this.id);
     return this.type;
   }
-  checkType(type: VariableType) {
-    this.type ??= this.vm.wasmmodule._HSVM_GetType(this.vm.hsvm, this.id);
-    if (this.type !== type)
-      throw new Error(`Variable doesn't have expected type ${VariableType[type]}, but got ${VariableType[this.type]}`);
+  checkType(expectType: VariableType) {
+    this.type ??= this.vm.checkType(this.id, expectType);
   }
   getBoolean(): number {
     this.checkType(VariableType.Boolean);
@@ -178,43 +202,24 @@ export class HSVMVar {
     if (size === 0)
       return new BoxedDefaultBlob;
 
-    const blobinfobuffer = this.vm.wasmmodule._malloc(1024);
-    let openblob = this.vm.wasmmodule._HSVM_BlobOpen(this.vm.hsvm, this.id);
-    const numbytes = this.vm.wasmmodule._HSVM_BlobDescription(this.vm.hsvm, openblob, blobinfobuffer, 1024); //returns written size
+    const tag = this.vm.getBlobJSTag(this.id);
+    if (tag?.pg)
+      return new WHDBBlobImplementation(tag.pg, size);
 
-    try {
-      if (numbytes >= 1024)
-        throw new Error(`Buffer too small to read blob info`);
-
-      const blobinfo = this.vm.wasmmodule.UTF8ToString(blobinfobuffer, numbytes);
-      const matchdiskblob = blobinfo.match(/^DiskBlob \((.*)\)$/);
-      if (matchdiskblob) {
-        const trypgblob = buildBlobFromPGPath(matchdiskblob[1], size);
-        if (trypgblob)
-          return trypgblob;
-      }
-
-      if (blobinfo.startsWith("local blob")) {
-        //TODO we might not need a wrapper around HSVM_BlobRead (with all the issue if the blobs outlive the HSVM!) if we can reach directly into the backing blob storage ?
-        const blob = new HSVMBlob(this.vm, openblob, size);
-        openblob = 0;
-        return blob;
-      }
-
-      throw new Error(`Implement building a wrapper to read blob: ${blobinfo}`);
-    } finally {
-      this.vm.wasmmodule._free(blobinfobuffer);
-      if (openblob)
-        this.vm.wasmmodule._HSVM_BlobClose(this.vm.hsvm, openblob);
-    }
+    //TODO we might not need a wrapper around HSVM_BlobRead (with all the issue if the blobs outlive the HSVM!) if we can reach directly into the backing blob storage ?
+    const cloneblob = this.vm.allocateVariable();
+    this.vm.wasmmodule._HSVM_CopyFrom(this.vm.hsvm, cloneblob.id, this.id);
+    return new HSVMBlob(this.vm, cloneblob.id, size);
   }
   setBlob(value: WHDBBlob | BoxedDefaultBlob | null) {
-    if (typeof value === "object" && isWHDBBlob(value) && value.size) {
-      const fullpath = (value as WHDBBlobImplementation).__getDiskPathinfo().fullpath;
+    if (isWHDBBlob(value)) {
+      const fullpath = value.__getDiskPathinfo().fullpath;
       const fullpath_cstr = this.vm.wasmmodule.stringToNewUTF8(fullpath);
       this.vm.wasmmodule._HSVM_MakeBlobFromDiskPath(this.vm.hsvm, this.id, fullpath_cstr, BigInt(value.size));
       this.vm.wasmmodule._free(fullpath_cstr);
+      this.vm.setBlobJSTag(this.id, { pg: value.databaseid });
       this.type = VariableType.Blob;
+
     } else
       this.setDefault(VariableType.Blob);
   }

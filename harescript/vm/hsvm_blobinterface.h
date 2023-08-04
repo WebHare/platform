@@ -83,6 +83,10 @@ class BLEXLIB_PUBLIC BlobBase : public VarMemRefCounted
         /// Context keeper
         Blex::ContextKeeper keeper;
 
+#ifdef __EMSCRIPTEN__
+        std::string jstag; //only available in esmcripten so we don't need to worry about thread safety
+#endif
+
         friend class BlobRefPtr;
         template< class A > friend class InternalOpenedBlobBase;
 

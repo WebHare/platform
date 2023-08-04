@@ -142,12 +142,22 @@ function encodePattern(mask: string) {
   return mask.replace(/[_%\\]/, `/$1`).replace(/\?/, "_").replace(/\*/, "%");
 }
 
+function fixValue(value: unknown) {
+  if (isWebHareBlob(value) && !isWHDBBlob(value))
+    return uploadBlob(value).then(newblob => {
+      if (isWHDBBlob(newblob))
+        if (value?.registerPGUpload)
+          value.registerPGUpload(newblob.databaseid);
+
+      return newblob;
+    });
+}
+
 async function fixUploadedParams(params: unknown[]): Promise<unknown[]> {
   const newparams = [];
-  for (let value of params) {
-    if (isWebHareBlob(value) && !isWHDBBlob(value))
-      value = await uploadBlob(value);
-    newparams.push(value);
+  for (const value of params) {
+    const fix = fixValue(value);
+    newparams.push(fix?.then ? await fix : value);
   }
   return newparams;
 }
@@ -155,8 +165,9 @@ async function fixUploadedParams(params: unknown[]): Promise<unknown[]> {
 async function fixUploadedFields(row: Record<string, unknown>): Promise<Record<string, unknown>> {
   const newrow = { ...row };
   for (const [key, value] of Object.entries(newrow)) {
-    if (isWebHareBlob(value) && !isWHDBBlob(value))
-      newrow[key] = await uploadBlob(value);
+    const fix = fixValue(value);
+    if (fix?.then)
+      newrow[key] = await fix;
   }
   return newrow;
 }

@@ -5,7 +5,7 @@ import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
 import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen, uploadBlob, query } from "@webhare/whdb";
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
 import * as contexttests from "./data/context-tests";
-import { WHDBBlob, WHDBBlobImplementation, buildBlobFromPGPath } from "@webhare/whdb/src/blobs";
+import { WHDBBlob } from "@webhare/whdb/src/blobs";
 import { BoxedDefaultBlob } from "@mod-system/js/internal/whmanager/hsmarshalling";
 
 async function cleanup() {
@@ -54,14 +54,6 @@ async function testQueries() {
   await beginWork();
   test.assert(newblob.isSameBlob((await uploadBlob(tablecontents[0].datablob))!), "No effect when uploading a downloaded WHDBBlob");
   await rollbackWork();
-
-  //verify we can reconstruct a database blob from a path. The WASM HSVM wants to do this
-  const blobpath = (tablecontents[0].datablob as WHDBBlobImplementation).__getDiskPathinfo().fullpath;
-  const blobfrompath = buildBlobFromPGPath(blobpath, newblob.size);
-  test.assert(blobfrompath);
-  test.assert(newblob.isSameBlob(blobfrompath));
-
-  test.eq(null, buildBlobFromPGPath("/tmp/blob", 14));
 
   const tablecontents2 = (await query("select * from webhare_testsuite.exporttest order by id")).rows;
   test.eq(tablecontents, tablecontents2);

@@ -121,6 +121,7 @@ export interface WebHareBlob {
   isSameBlob(rhs: WebHareBlob): boolean;
   text(): Promise<string>;
   arrayBuffer(): Promise<ArrayBuffer>;
+  registerPGUpload?(databaseid: string): void;
 }
 
 export function isWebHareBlob(v: unknown): v is WebHareBlob {

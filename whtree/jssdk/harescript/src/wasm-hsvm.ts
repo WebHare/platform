@@ -27,6 +27,8 @@ type MessageList = Array<{
   message: string;
 }>;
 
+export type JSBlobTag = { pg: string } | null;
+
 function parseError(line: string) {
 
   const errorparts = line.split("\t");
@@ -96,6 +98,31 @@ export class HarescriptVM {
     this.columnnamebuf = module._malloc(65);
     this.stringptrs = module._malloc(8); // 2 string pointers
     this.consoleArguments = [];
+  }
+
+  checkType(variable: HSVM_VariableId, expectType: VariableType) {
+    const curType = this.wasmmodule._HSVM_GetType(this.hsvm, variable);
+    if (curType !== expectType)
+      throw new Error(`Variable doesn't have expected type ${VariableType[expectType]}, but got ${VariableType[curType]}`);
+
+    return curType;
+  }
+
+  //Get the JS tag for this blob, used to track its original/current location (eg on disk or uploaded to PG)
+  getBlobJSTag(variable: HSVM_VariableId): JSBlobTag {
+    this.checkType(variable, VariableType.Blob);
+    const as_cstr = this.wasmmodule._HSVM_BlobGetTag(this.hsvm, variable);
+    if (!as_cstr)
+      return null;
+
+    const tag = this.wasmmodule.UTF8ToString(as_cstr);
+    return tag ? JSON.parse(tag) : null;
+  }
+  setBlobJSTag(variable: HSVM_VariableId, tag: JSBlobTag) {
+    this.checkType(variable, VariableType.Blob);
+    const as_cstr = this.wasmmodule.stringToNewUTF8(tag ? JSON.stringify(tag) : '');
+    this.wasmmodule._HSVM_BlobSetTag(this.hsvm, variable, as_cstr);
+    this.wasmmodule._free(as_cstr);
   }
 
   getColumnName(columnid: HSVM_ColumnId): string {

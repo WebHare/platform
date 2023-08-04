@@ -828,7 +828,7 @@ $(foreach mod,$(AP_DEPLOYABLES_UTILS),$(eval $(call ApUtilTarget,$(mod))))
 # Make 4.4 allows to define grouped targets (lib/harescript.js lib/harescript.wasm &: ...) but ubuntu 20.4 is still on 4.3
 lib/harescript.js: $(LIBHSVM_WASM_SOURCEOBJS) $(call BuildAndTest,blex) $(SRCDIR)/harescript/vm/wasm-suspending-functions.txt
 	$(call LinkWASMImportable,$(LIBHSVM_WASM_SOURCEOBJS),$@)
-lib/harescript.wasm: lib/harescript.js
+lib/harescript.wasm: lib/harescript.js lib/harescript-interface.ts
 
 lib/harescript-interface.ts: harescript/vm/hsvm_dllinterface.wasm-obj harescript/vm/wasm-harescript.wasm-obj $(SRCDIR)/harescript/vm/generate-wasm-interface.js $(SRCDIR)/harescript/vm/wasm-suspending-functions.txt
 	$(HIDE)echo "- Generating lib/harescript-interface.ts"
@@ -862,7 +862,7 @@ ALLBUILDANDTEST=$(foreach file,$(SUBPROJECTS),$(call BuildAndTest,${file}))
 
 define InstallOurDeployable
 $(PREFIX)/$(1): $(1) | $(ALLBUILDANDTEST)
-	$(HIDE)echo "- Installing $$<" && rm -f $$@; cp -af $$< $$(dir $$@)  #cp 2
+	$(HIDE)echo "- Installing $$< -> $$@" && rm -f $$@; cp -af $$< $$(dir $$@)  #cp 2
 endef
 
 $(foreach dep,$(ALL_DEPLOYABLES), $(eval $(call InstallOurDeployable,$(dep))))
