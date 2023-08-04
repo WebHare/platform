@@ -119,6 +119,7 @@ export class BoxedFloat {
 export interface WebHareBlob {
   readonly size: number;
   isSameBlob(rhs: WebHareBlob): boolean;
+  text(encoding?: BufferEncoding): Promise<string>;
 }
 
 /** A boxed default blob - because `null` is the only other way the WHDB can represent it and would be interpreted as a default record.
@@ -130,6 +131,9 @@ export class BoxedDefaultBlob implements WebHareBlob {
 
   isSameBlob(rhs: WebHareBlob): boolean {
     return rhs.size == 0;
+  }
+  text(encoding: BufferEncoding = "utf8"): Promise<string> {
+    return Promise.resolve("");
   }
 }
 

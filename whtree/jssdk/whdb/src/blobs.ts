@@ -2,12 +2,14 @@ import { generateRandomId } from '@webhare/std';
 import { mkdir, readFile, writeFile, rename, stat } from 'node:fs/promises';
 import * as path from 'node:path';
 import * as process from 'node:process';
-import { Connection, DataType, DataTypeOIDs } from './../vendor/postgresql-client/src/index';
+import { Connection, DataType, DataTypeOIDs, SmartBuffer } from './../vendor/postgresql-client/src/index';
 import { WebHareBlob } from '@mod-system/js/internal/whmanager/hsmarshalling';
 
 export class WHDBBlobImplementation implements WebHareBlob {
   readonly databaseid: string;
   readonly _size: number;
+
+  readonly isWHDBBlob = true; //We need to ensure TypeScript can differentiate between WebHareBlob and WHDBBlob ducks (TODO alternative solution)
 
   constructor(databaseid: string, length: number) {
     this.databaseid = databaseid;
@@ -39,7 +41,7 @@ export class WHDBBlobImplementation implements WebHareBlob {
   }
 }
 
-export type ValidBlobSources = string;
+export type ValidBlobSources = string | WebHareBlob;
 
 //TODO whdb.ts and we should probably get this from services or some other central configuration
 function getBlobStoragepath() {
@@ -63,8 +65,18 @@ async function getFilePaths(blobpartid: string, createdir: boolean) {
   return { fullpath: paths.fullpath, temppath: path.join(paths.baseblobdir, "tmp", blobpartid) };
 }
 
-export async function uploadBlobToConnection(pg: Connection, data: ValidBlobSources): Promise<WHDBBlobImplementation | null> {
-  if (data.length == 0)
+export async function uploadBlobToConnection(pg: Connection, data: ValidBlobSources): Promise<WHDBBlob | null> {
+  if (isWHDBBlob(data)) //reuploading is a no-op
+    return data;
+
+  if (typeof data !== 'string') {
+    if (data.size === 0) //empty blob
+      return null;
+
+    throw new Error(`Cross-blob uploading not implemented yet`);
+  }
+
+  if (!data) //empty string
     return null;
 
   const blobpartid = generateRandomId('hex', 16);
@@ -130,7 +142,6 @@ export const BlobType: DataType = {
     return new WHDBBlobImplementation(col1, col2);
   },
 
-  /// @ts-ignore SmartBuffer isn't exported yet
   encodeBinary(buf: SmartBuffer, v: WHDBBlobImplementation): void {
     // Blex::putu32msb(data, 2); // 2 columns
     buf.writeUInt32BE(2);// 2 columns
@@ -160,9 +171,9 @@ export const BlobType: DataType = {
   },
 };
 
-export type WHDBBlob = Pick<WHDBBlobImplementation, "size" | "text" | "isSameBlob">;
+export type WHDBBlob = Pick<WHDBBlobImplementation, "size" | "text" | "isSameBlob" | "isWHDBBlob">;
 
 //not sure if we want to expose this as eg static isBlob on WHDBBlob (should it match BoxedDefaultBlob too?) so making it an internal API for now
-export function isWHDBBlob(v: unknown): v is WHDBBlob {
+export function isWHDBBlob(v: unknown): v is WHDBBlobImplementation {
   return Boolean(v && typeof v === "object" && "databaseid" in v && "_size" in v && "text" in v);
 }

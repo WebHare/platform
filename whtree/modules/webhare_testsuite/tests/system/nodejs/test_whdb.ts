@@ -5,7 +5,8 @@ import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
 import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen, uploadBlob, query } from "@webhare/whdb";
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
 import * as contexttests from "./data/context-tests";
-import { WHDBBlobImplementation, buildBlobFromPGPath } from "@webhare/whdb/src/blobs";
+import { WHDBBlob, WHDBBlobImplementation, buildBlobFromPGPath } from "@webhare/whdb/src/blobs";
+import { BoxedDefaultBlob } from "@mod-system/js/internal/whmanager/hsmarshalling";
 
 async function cleanup() {
   await beginWork();
@@ -20,10 +21,20 @@ async function testQueries() {
 
   const newblob = await uploadBlob("This is a blob");
   const newblob2 = await uploadBlob("This is another blob");
+  const emptyboxedblob = new BoxedDefaultBlob; //WASM HSVMs expect to be able to insert these, so let's humor them. Not sure if pushing unboxing further back into the HSVM might be a wiser choice..
+
   test.assert(newblob);
   test.assert(newblob2);
+  test.assert(emptyboxedblob);
   test.eq(14, newblob.size);
   test.eq("This is a blob", await newblob.text());
+  test.eq("", await emptyboxedblob.text());
+  test.eq(null, await uploadBlob(emptyboxedblob));
+  test.assert(newblob.isSameBlob((await uploadBlob(newblob))!), "No effect when uploading a WHDBBlob");
+
+  ///@ts-expect-error -- We need to ensure TypeScript can differentiate between WebHareBlob and WHDBBlob ducks (TODO alternative solution) or it can't guard against insert errors
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const dummy_hsvm_blob: WHDBBlob = emptyboxedblob;
 
   await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: 5, text: "This is a text", datablob: newblob }).execute();
   await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: 10, text: "This is another text" }).execute();
@@ -38,6 +49,10 @@ async function testQueries() {
   test.assert(newblob.isSameBlob(tablecontents[0].datablob));
   test.assert(tablecontents[0].datablob.isSameBlob(newblob));
   test.assert(!newblob2.isSameBlob(tablecontents[0].datablob));
+
+  await beginWork();
+  test.assert(newblob.isSameBlob((await uploadBlob(tablecontents[0].datablob))!), "No effect when uploading a downloaded WHDBBlob");
+  await rollbackWork();
 
   //verify we can reconstruct a database blob from a path. The WASM HSVM wants to do this
   const blobpath = (tablecontents[0].datablob as WHDBBlobImplementation).__getDiskPathinfo().fullpath;
