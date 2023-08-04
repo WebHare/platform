@@ -43,12 +43,12 @@ function testMoney() {
   test.throws(/Money cannot be constructed out of a value of type number/, () => new Money(0));
   ///@ts-ignore -- another throw check
   test.throws(/Money cannot be constructed out of a value of type number/, () => new Money(-1));
-  test.throws(/Money value is out of range/, () => new Money("1000000000"));
-  test.throws(/Money value is out of range/, () => new Money("-1000000000"));
+  test.throws(/Money value '1000000000' is out of range/, () => new Money("1000000000"));
+  test.throws(/Money value '-1000000000' is out of range/, () => new Money("-1000000000"));
   //but it's okay to explicitly build from numbers
   test.eq('"15.5"', JSON.stringify(Money.fromNumber(15.5)));
-  test.throws(/Money value is out of range/, () => Money.fromNumber(1_000_000_000));
-  test.throws(/Money value is out of range/, () => Money.fromNumber(-1_000_000_000));
+  test.throws(/Money value '1000000000' is out of range/, () => Money.fromNumber(1_000_000_000));
+  test.throws(/Money value '-1000000000' is out of range/, () => Money.fromNumber(-1_000_000_000));
 
   // testPresentation
   test.eq("0", new Money("0").format(".", 0));

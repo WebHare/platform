@@ -28,7 +28,7 @@ export class Money {
 
     const intvalue = parseInt(this.value);
     if (intvalue < -900_000_000 || intvalue > 900_000_000)
-      throw new TypeError(`Money value is out of range`);
+      throw new TypeError(`Money value '${value}' is out of range`);
 
     /// Marker for safe type detections across realms - TODO we need to define a more stable marshalling interface
     Object.defineProperty(this, "__hstype", { value: 0x11 });

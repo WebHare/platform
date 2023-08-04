@@ -116,6 +116,9 @@ export class HSVMVar {
     parts[1] = parts[1].padEnd(5, "0");
     this.vm.wasmmodule._HSVM_MoneySet(this.vm.hsvm, this.id, BigInt(`${parts[0]}${parts[1]}`));
   }
+  getFloat() {
+    return new BoxedFloat(this.vm.wasmmodule._HSVM_FloatGet(this.vm.hsvm, this.id));
+  }
   setFloat(value: number | BoxedFloat) {
     if (typeof value === "object")
       this.vm.wasmmodule._HSVM_FloatSet(this.vm.hsvm, this.id, value.value);
@@ -264,6 +267,9 @@ export class HSVMVar {
       }
       case VariableType.DateTime: {
         return this.getDateTime();
+      }
+      case VariableType.Float: {
+        return this.getFloat();
       }
       case VariableType.HSMoney: {
         return this.getMoney();

@@ -480,10 +480,21 @@ export async function cbSendPostgreSQLCommand(params: { query: string; options: 
         case OID.REGPROC:
         case OID.XID:
         case OID.INT4:
-        case OID.FLOAT4:
-        case OID.FLOAT8:
           if (value === null)
             value = 0;
+          break;
+        case OID.FLOAT4:
+        case OID.FLOAT8:
+          value = new BoxedFloat(value as number || 0);
+          break;
+        case OID.INT8:
+          if (typeof value !== "bigint")
+            value = BigInt(value as number | null ?? 0);
+          break;
+        case OID.INT8ARRAY:
+          if (value === null)
+            value = [];
+          value = getTypedArray(VariableType.Integer64Array, value as bigint[]);
           break;
         case OID.INT2VECTOR:
         case OID.OIDVECTOR:
