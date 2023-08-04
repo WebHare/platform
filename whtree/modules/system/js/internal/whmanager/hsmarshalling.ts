@@ -115,11 +115,35 @@ export class BoxedFloat {
   }
 }
 
+//TODO: I'm not sure this should live in marshalling but it's a bit too specific for WebHare to be a @webhare/std thing.
+export interface WebHareBlob {
+  readonly size: number;
+  isSameBlob(rhs: WebHareBlob): boolean;
+  text(): Promise<string>;
+  arrayBuffer(): Promise<ArrayBuffer>;
+  registerPGUpload?(databaseid: string): void;
+}
+
+export function isWebHareBlob(v: unknown): v is WebHareBlob {
+  return Boolean(typeof v === "object" && v && "size" in v && "isSameBlob" in v && "text" in v);
+}
+
 /** A boxed default blob - because `null` is the only other way the WHDB can represent it and would be interpreted as a default record.
  *  We might not need this is if the PGSQLProvider returned HS VariableTypes along with the result sets so we could fix it in SetJSValue
  * */
-export class BoxedDefaultBlob {
+export class BoxedDefaultBlob implements WebHareBlob {
   readonly __hstype = VariableType.Blob;
+  readonly size = 0;
+
+  isSameBlob(rhs: WebHareBlob): boolean {
+    return rhs.size == 0;
+  }
+  text(): Promise<string> {
+    return Promise.resolve("");
+  }
+  arrayBuffer(): Promise<ArrayBuffer> {
+    return Promise.resolve(new ArrayBuffer(0));
+  }
 }
 
 export function readMarshalData(buffer: Buffer | ArrayBuffer): SimpleMarshallableData {
@@ -386,7 +410,7 @@ export function determineType(value: unknown): VariableType {
   }
   switch (typeof value) {
     case "object": {
-      if (value instanceof Uint8Array || value instanceof ArrayBuffer)
+      if (value instanceof Uint8Array || value instanceof ArrayBuffer || isWebHareBlob(value))
         return VariableType.Blob;
       if (isDate(value))
         return VariableType.DateTime;

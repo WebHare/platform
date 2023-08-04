@@ -1428,6 +1428,35 @@ long long int HSVM_BlobLength (HSVM *vm, HSVM_VariableId id)
         return 0;
 }
 
+#ifdef __EMSCRIPTEN__
+char const* HSVM_BlobGetTag(struct HSVM *vm, HSVM_VariableId id)
+{
+        START_CATCH_VMEXCEPTIONS
+
+        BlobRefPtr blob = STACKMACHINE.GetBlob(id);
+        BlobBase *ptr = blob.GetPtr();
+        return ptr ? ptr->jstag.c_str() : NULL;
+
+        END_CATCH_VMEXCEPTIONS
+        return NULL;
+}
+void HSVM_BlobSetTag(struct HSVM *vm, HSVM_VariableId id, char const *settag)
+{
+        START_CATCH_VMEXCEPTIONS
+
+        BlobRefPtr blob = STACKMACHINE.GetBlob(id);
+        BlobBase *ptr = blob.GetPtr();
+        if(ptr)
+        {
+                if(settag)
+                    ptr->jstag.assign(settag);
+                else
+                    ptr->jstag.clear();
+        }
+        END_CATCH_VMEXCEPTIONS
+}
+#endif
+
 void *HSVM_BlobContext(HSVM *vm, HSVM_VariableId blobid, unsigned int context_id, unsigned int autoconstruct)
 {
         START_CATCH_VMEXCEPTIONS

@@ -1,6 +1,7 @@
 import { BoxedFloat, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { allocateHSVM } from "@webhare/harescript";
 import * as test from "@webhare/test";
+import { beginWork, uploadBlob } from "@webhare/whdb";
 
 function testTypeAPIs() {
   test.eq(VariableType.Float, determineType(new BoxedFloat(2.5)));
@@ -9,13 +10,37 @@ function testTypeAPIs() {
 }
 
 async function testVarMemory() {
-
   const vm = await allocateHSVM();
   const arrayvar = vm.allocateVariable();
   const js_in64array = [0, -1, 1, -2147483648, -2147483649, -2147483650, -9223372036854775807n, -9223372036854775808n, 9223372036854775807n];
   arrayvar.setJSValue(js_in64array);
   test.eq(VariableType.Integer64Array, arrayvar.getType());
   test.eq(VariableType.Integer64, arrayvar.arrayGetRef(0)?.getType());
+
+  /* Test empty blobs. Currently I'm assuming we will be needing type retention so getBlob should always be returning an object.
+     It might be a better API to only have get(Boxing)JSValue do such trickery and have getFloat/getBlob return 'proper' JS values (ie numbers and null) */
+
+  await beginWork();
+  const blobvar1 = vm.allocateVariable(), blobvar2 = vm.allocateVariable();
+  blobvar1.setDefault(VariableType.Blob);
+  test.eq(0, blobvar1.getBlob().size, `confirm we're not getting nulls back after setting default`);
+  blobvar1.setBlob(null);
+  test.eq(0, blobvar1.getBlob().size, `confirm we're not getting nulls back after an explicit null`);
+
+  const blob1 = await uploadBlob("This is blob 1");
+  const blob2 = await uploadBlob("This is blob 2");
+  test.assert(blob1 && blob2);
+  blobvar1.setBlob(blob1);
+  blobvar2.setJSValue(blob2);
+  test.eq(VariableType.Blob, blobvar2.getType());
+
+  const returnedblob1 = blobvar1.getBlob();
+  test.eq(returnedblob1.size, blob1.size, "first a superficial check...");
+  test.assert(blob1.isSameBlob(returnedblob1));
+
+  const returnedblob2 = blobvar2.getBlob();
+  test.eq(returnedblob2.size, blob2.size, "first a superficial check...");
+  test.assert(blob2.isSameBlob(returnedblob2));
 }
 
 async function testCalls() {

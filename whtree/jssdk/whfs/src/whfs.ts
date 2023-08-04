@@ -1,9 +1,10 @@
-import { db, sql, Selectable, WHDBBlob, Updateable } from "@webhare/whdb";
+import { db, sql, Selectable, Updateable } from "@webhare/whdb";
 import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { RichBlob } from "@webhare/services/src/richblob";
 import { getType, FileTypeInfo, describeContentType, unknownfiletype, normalfoldertype } from "./contenttypes";
 import { defaultDateTime } from "@webhare/hscompat/datetime";
 import { CSPContentType } from "./siteprofiles";
+import { WebHareBlob } from "@mod-system/js/internal/whmanager/hsmarshalling";
 export { describeContentType } from "./contenttypes";
 export { Tag, TagManager, openTagManager } from "./tagmanager";
 
@@ -144,7 +145,7 @@ function excludeKeys<T extends string, K extends string>(t: T[], k: K[]): Array<
 }
 
 class WHFSRichBlob extends RichBlob {
-  constructor(blob: WHDBBlob | null) {
+  constructor(blob: WebHareBlob | null) {
     super(blob);
   }
 }

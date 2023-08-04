@@ -909,7 +909,23 @@ HSVM_PUBLIC HSVM_VariableId  HSVM_RecordCreate (struct HSVM *vm, HSVM_VariableId
 
  HSVM_PUBLIC void HSVM_BlobClose (struct HSVM *vm, int blobhandle) ;
 
-/** Write a desription of the blob into the a buffer
+#ifdef __EMSCRIPTEN__
+/** Get the blob's JSTag. JS tags are only available in WASM builds as they are not thread safe
+    @param vm Virtual machine
+    @param id ID of blob to query the tag from
+    @return The blob's tag, NULL terminated. c_str() livetime considerations apply - just inspect/copy it before invoking/returning more WASM
+*/
+HSVM_PUBLIC char const* HSVM_BlobGetTag(struct HSVM *vm, HSVM_VariableId id);
+
+/** Set the blob's JSTag. JS tags are only available in WASM builds as they are not thread safe
+    @param vm Virtual machine
+    @param id ID of blob to query the tag from
+    @param settag The new tag, null terminated
+*/
+HSVM_PUBLIC void HSVM_BlobSetTag(struct HSVM *vm, HSVM_VariableId id, char const *settag);
+#endif
+
+/** Write a description of the blob into the a buffer
     @param vm Virtual machine
     @param blobhandle Handle of the blob to read from
     @param buffer Number of characters written to the buffer

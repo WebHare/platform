@@ -1,9 +1,9 @@
-import { WHDBBlob } from "@webhare/whdb";
+import { WebHareBlob } from "@mod-system/js/internal/whmanager/hsmarshalling";
 
 export abstract class RichBlob {
-  protected readonly blob: WHDBBlob | null;
+  protected readonly blob: WebHareBlob | null;
 
-  constructor(blob: WHDBBlob | null) {
+  constructor(blob: WebHareBlob | null) {
     this.blob = blob;
   }
 
@@ -11,7 +11,7 @@ export abstract class RichBlob {
     return this.blob?.size ?? 0;
   }
 
-  async text(encoding: BufferEncoding = "utf8"): Promise<string> {
-    return this.blob?.text(encoding) ?? "";
+  async text(): Promise<string> {
+    return this.blob?.text() ?? "";
   }
 }

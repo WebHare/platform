@@ -40,11 +40,12 @@ STATIC OBJECTTYPE EMTransactionCursor EXTEND TransactionCursorBase
   {
     this->query := query;
     this->ofs := 0;
+
     RECORD res := CallImpl("cbExecuteQuery", query);
     this->alldata := res.tabledata;
     this->rowsdata := res.rowsdata;
-    DumpValue(this->alldata, "boxed");
-    DumpValue(this->rowsdata, "boxed");
+    // DumpValue(this->alldata, "boxed");
+    // DumpValue(this->rowsdata, "boxed");
   }
   UPDATE PUBLIC MACRO RetrieveNextBlock()
   {
@@ -77,7 +78,7 @@ STATIC OBJECTTYPE EMTransaction EXTEND TransactionBase
 
   UPDATE STRING FUNCTION GetType()
   {
-    RETURN "emttraansaction";
+    RETURN "wasm-postgresql";
   }
   UPDATE PUBLIC OBJECT FUNCTION OpenCursor(RECORD query, STRING type)
   {
@@ -91,7 +92,6 @@ STATIC OBJECTTYPE EMTransaction EXTEND TransactionBase
   UPDATE MACRO DoRollbackWork()
   {
     CallImpl("cbDoRollbackWork", DEFAULT RECORD);
-    THROW NEW Exception("This transaction type does not support work");
   }
   UPDATE RECORD ARRAY FUNCTION DoCommitWork()
   {

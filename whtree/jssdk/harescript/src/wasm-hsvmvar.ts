@@ -1,9 +1,10 @@
-import { BoxedDefaultBlob, BoxedFloat, IPCMarshallableRecord, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { BoxedDefaultBlob, BoxedFloat, IPCMarshallableRecord, VariableType, WebHareBlob, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import type { HSVM_VariableId, HSVM_VariableType, } from "../../../lib/harescript-interface";
-import type { HarescriptVM } from "./wasm-hsvm";
+import type { HarescriptVM, JSBlobTag } from "./wasm-hsvm";
 import { maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { Money } from "@webhare/std";
 import { WHDBBlob } from "@webhare/whdb";
+import { WHDBBlobImplementation } from "@webhare/whdb/src/blobs";
 import { isWHDBBlob } from "@webhare/whdb/src/blobs";
 
 function canCastTo(from: VariableType, to: VariableType): boolean {
@@ -13,6 +14,76 @@ function canCastTo(from: VariableType, to: VariableType): boolean {
     return true;
   return false;
 }
+
+//TODO WeakRefs so the HarescriptVM can be garbage collected ? We should also consider moving the GlobalBlobStorage to JavaScript so we don't need to keep the HSVMs around
+class HSVMBlob implements WebHareBlob {
+  readonly vm: HarescriptVM;
+  readonly size: number;
+  id: HSVM_VariableId | null;
+
+  constructor(vm: HarescriptVM, varid: HSVM_VariableId, size: number) {
+    this.vm = vm;
+    this.id = varid;
+    this.size = size;
+  }
+
+  async arrayBuffer(): Promise<ArrayBuffer> {
+    if (!this.id)
+      throw new Error(`This blob has already been closed`);
+
+    const buffer = this.vm.wasmmodule._malloc(this.size);
+    console.error("OPENING", this.id);
+    const openblob = this.vm.wasmmodule._HSVM_BlobOpen(this.vm.hsvm, this.id);
+
+    try {
+      const numread = Number(this.vm.wasmmodule._HSVM_BlobDirectRead(this.vm.hsvm, openblob, 0n, this.size, buffer));
+      if (numread !== this.size)
+        throw new Error(`Failed to read blob, got ${numread} of ${this.size} bytes`);
+
+      const data = this.vm.wasmmodule.HEAP8.slice(buffer, buffer + this.size);
+      return new Int8Array(data);
+    } finally {
+      this.vm.wasmmodule._free(buffer);
+      this.vm.wasmmodule._HSVM_BlobClose(this.vm.hsvm, openblob);
+    }
+  }
+
+  async text(): Promise<string> {
+    return new TextDecoder("utf8").decode(await this.arrayBuffer());
+  }
+
+  isSameBlob(rhs: WebHareBlob): boolean {
+    return false; //TODO? but we don't really care as there is currently no useful optimization
+  }
+
+  //You should close a HSVMBlob when you're done with it so the HSVM can garbage collect it (FIXME also use a FinalizerRegistry!)
+  close() {
+    if (this.id) {
+      this.vm.wasmmodule._HSVM_DeallocateVariable(this.vm.hsvm, this.id);
+      this.id = null;
+    }
+  }
+
+  //Get the JS tag for this blob, used to track its original/current location (eg on disk or uploaded to PG)
+  getJSTag(): JSBlobTag {
+    if (!this.id)
+      throw new Error(`This blob has already been closed`);
+
+    return this.vm.getBlobJSTag(this.id);
+  }
+  setJSTag(tag: JSBlobTag) {
+    if (!this.id)
+      throw new Error(`This blob has already been closed`);
+
+    this.vm.setBlobJSTag(this.id, tag);
+  }
+
+  registerPGUpload(databaseid: string) {
+    if (this.id) //not closed yet
+      this.setJSTag({ pg: databaseid });
+  }
+}
+
 
 export class HSVMVar {
   vm: HarescriptVM;
@@ -28,10 +99,8 @@ export class HSVMVar {
     this.type ??= this.vm.wasmmodule._HSVM_GetType(this.vm.hsvm, this.id);
     return this.type;
   }
-  checkType(type: VariableType) {
-    this.type ??= this.vm.wasmmodule._HSVM_GetType(this.vm.hsvm, this.id);
-    if (this.type !== type)
-      throw new Error(`Variable doesn't have expected type ${VariableType[type]}, but got ${VariableType[this.type]}`);
+  checkType(expectType: VariableType) {
+    this.type ??= this.vm.checkType(this.id, expectType);
   }
   getBoolean(): number {
     this.checkType(VariableType.Boolean);
@@ -106,6 +175,7 @@ export class HSVMVar {
     this.type = VariableType.DateTime;
   }
   getMoney() {
+    this.checkType(VariableType.HSMoney);
     const nrvalue = this.vm.wasmmodule._HSVM_MoneyGet(this.vm.hsvm, this.id);
     const strval = nrvalue.toString().padStart(6, "0");
     return new Money(`${strval.substring(0, strval.length - 5)}.${strval.substring(strval.length - 5)}`);
@@ -117,6 +187,7 @@ export class HSVMVar {
     this.vm.wasmmodule._HSVM_MoneySet(this.vm.hsvm, this.id, BigInt(`${parts[0]}${parts[1]}`));
   }
   getFloat() {
+    this.checkType(VariableType.Float);
     return new BoxedFloat(this.vm.wasmmodule._HSVM_FloatGet(this.vm.hsvm, this.id));
   }
   setFloat(value: number | BoxedFloat) {
@@ -125,10 +196,31 @@ export class HSVMVar {
     else
       this.vm.wasmmodule._HSVM_FloatSet(this.vm.hsvm, this.id, value);
   }
+  getBlob(): WebHareBlob {
+    this.checkType(VariableType.Blob);
+    const size = Number(this.vm.wasmmodule._HSVM_BlobLength(this.vm.hsvm, this.id));
+    if (size === 0)
+      return new BoxedDefaultBlob;
+
+    const tag = this.vm.getBlobJSTag(this.id);
+    if (tag?.pg)
+      return new WHDBBlobImplementation(tag.pg, size);
+
+    //TODO we might not need a wrapper around HSVM_BlobRead (with all the issue if the blobs outlive the HSVM!) if we can reach directly into the backing blob storage ?
+    const cloneblob = this.vm.allocateVariable();
+    this.vm.wasmmodule._HSVM_CopyFrom(this.vm.hsvm, cloneblob.id, this.id);
+    return new HSVMBlob(this.vm, cloneblob.id, size);
+  }
   setBlob(value: WHDBBlob | BoxedDefaultBlob | null) {
-    if (typeof value === "object" && isWHDBBlob(value))
-      throw (console.error(value), new Error(`Implement`));
-    else
+    if (isWHDBBlob(value)) {
+      const fullpath = value.__getDiskPathinfo().fullpath;
+      const fullpath_cstr = this.vm.wasmmodule.stringToNewUTF8(fullpath);
+      this.vm.wasmmodule._HSVM_MakeBlobFromDiskPath(this.vm.hsvm, this.id, fullpath_cstr, BigInt(value.size));
+      this.vm.wasmmodule._free(fullpath_cstr);
+      this.vm.setBlobJSTag(this.id, { pg: value.databaseid });
+      this.type = VariableType.Blob;
+
+    } else
       this.setDefault(VariableType.Blob);
   }
   setDefault(type: VariableType): HSVMVar {
@@ -273,6 +365,9 @@ export class HSVMVar {
       }
       case VariableType.HSMoney: {
         return this.getMoney();
+      }
+      case VariableType.Blob: {
+        return this.getBlob();
       }
       case VariableType.Record: {
         if (!this.vm.wasmmodule._HSVM_RecordExists(this.vm.hsvm, this.id))

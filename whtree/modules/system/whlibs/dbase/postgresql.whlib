@@ -2011,7 +2011,7 @@ MACRO BindPostgreSQLMetaTables(INTEGER trans)
   IF(trans != 0)
   {
     OBJECT transobj := GetTransactionObjectById(trans);
-    IF(NOT (transobj EXTENDSFROM WHPostgreSQLTransaction))
+    IF(transobj->type != "postgresql" AND transobj->type != "wasm-postgresql")
       RETURN;
   }
 

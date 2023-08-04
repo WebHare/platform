@@ -1,9 +1,10 @@
-import { beginWork, commitWork, db, __getConnection, rollbackWork } from "@webhare/whdb";
+import { beginWork, commitWork, db, __getConnection, rollbackWork, uploadBlob } from "@webhare/whdb";
 import { AliasedRawBuilder, RawBuilder, sql } from 'kysely';
-import { BoxedFloat, BoxedDefaultBlob, VariableType, getTypedArray } from "../whmanager/hsmarshalling";
+import { BoxedFloat, BoxedDefaultBlob, VariableType, getTypedArray, isWebHareBlob } from "../whmanager/hsmarshalling";
 import { FullPostgresQueryResult } from "@webhare/whdb/src/connection";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat/datetime";
 import { Tid } from "@webhare/whdb/src/types";
+import { isWHDBBlob } from "@webhare/whdb/src/blobs";
 
 enum Fases {
   None = 0,
@@ -139,6 +140,36 @@ function buildSwappedComparison(left: RawBuilder<unknown>, condition: Condition,
 
 function encodePattern(mask: string) {
   return mask.replace(/[_%\\]/, `/$1`).replace(/\?/, "_").replace(/\*/, "%");
+}
+
+function fixValue(value: unknown) {
+  if (isWebHareBlob(value) && !isWHDBBlob(value))
+    return uploadBlob(value).then(newblob => {
+      if (isWHDBBlob(newblob))
+        if (value?.registerPGUpload)
+          value.registerPGUpload(newblob.databaseid);
+
+      return newblob;
+    });
+}
+
+async function fixUploadedParams(params: unknown[]): Promise<unknown[]> {
+  const newparams = [];
+  for (const value of params) {
+    const fix = fixValue(value);
+    newparams.push(fix?.then ? await fix : value);
+  }
+  return newparams;
+}
+
+async function fixUploadedFields(row: Record<string, unknown>): Promise<Record<string, unknown>> {
+  const newrow = { ...row };
+  for (const [key, value] of Object.entries(newrow)) {
+    const fix = fixValue(value);
+    if (fix?.then)
+      newrow[key] = await fix;
+  }
+  return newrow;
 }
 
 export async function cbExecuteQuery(query: Query) {
@@ -414,7 +445,7 @@ export async function cbExecuteQuery(query: Query) {
       else if (col.type === VariableType.Blob && value === null)
         value = new BoxedDefaultBlob;
       else if (col.type === VariableType.Integer64)
-        value = BigInt(value as string);
+        value = BigInt(value as number || 0);
       else if (col.type === VariableType.Float)
         value = new BoxedFloat(value as number);
       else if (col.type === VariableType.DateTime)
@@ -459,7 +490,9 @@ export async function cbDoCommitWork() {
 export async function cbSendPostgreSQLCommand(params: { query: string; options: { args?: unknown[] } }) {
   const connection = __getConnection();
   type ResultRowType = Record<string, unknown>;
-  const result = await connection.query(params.query, params.options?.args || []) as FullPostgresQueryResult<ResultRowType>;
+
+  const args = await fixUploadedParams(params.options?.args || []);
+  const result = await connection.query(params.query, args) as FullPostgresQueryResult<ResultRowType>;
 
   //TODO Both cbExecuteQuery and cbSendPostgreSQLCommand need to do some return type postprocessing to align with HS types, share!
   const retval: ResultRowType[] = [];
@@ -522,26 +555,14 @@ export async function cbSendPostgreSQLCommand(params: { query: string; options: 
 }
 
 export async function cbInsertRecord(params: { query: Query; newfields: Record<string, unknown> }) {
-  console.log(params.query);
-  console.log(params.query.tablesources[0].columns);
-  console.log(params.newfields);
+  const newfields = await fixUploadedFields(params.newfields);
 
   const values: Record<string, unknown> = {};
   for (const columns of params.query.tablesources[0].columns)
-    if (columns.fase & Fases.Updated) {
-      const value = params.newfields[columns.name.toLowerCase()];
-      /*
-            switch (columns.type) {
-              case VariableType.Blob: {
-                console.log(`*** insert blob ${value}`);
-              }
-            }
-      */
-      values[columns.dbase_name] = value;
-    }
-  const name = params.query.tablesources[0].name;
-  console.log(name);
+    if (columns.fase & Fases.Updated)
+      values[columns.dbase_name] = newfields[columns.name.toLowerCase()];
 
+  const name = params.query.tablesources[0].name;
   const whdb = db<Record<string, unknown>>();
   await whdb.insertInto(name.toLowerCase()).values(values).execute();
   return null;
