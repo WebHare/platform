@@ -78,7 +78,7 @@ STATIC OBJECTTYPE EMTransaction EXTEND TransactionBase
 
   UPDATE STRING FUNCTION GetType()
   {
-    RETURN "emttraansaction";
+    RETURN "wasm-postgresql";
   }
   UPDATE PUBLIC OBJECT FUNCTION OpenCursor(RECORD query, STRING type)
   {
@@ -92,7 +92,6 @@ STATIC OBJECTTYPE EMTransaction EXTEND TransactionBase
   UPDATE MACRO DoRollbackWork()
   {
     CallImpl("cbDoRollbackWork", DEFAULT RECORD);
-    THROW NEW Exception("This transaction type does not support work");
   }
   UPDATE RECORD ARRAY FUNCTION DoCommitWork()
   {

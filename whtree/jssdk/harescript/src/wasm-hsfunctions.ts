@@ -146,13 +146,13 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     const is_simple = Boolean(str.match(/^[0-9a-zA-Z_"$]*$/));
     let retval: string;
     if (is_simple)
-      retval = `"${str.replace(`"`, `""`)}"`;
+      retval = `"${str.replaceAll(`"`, `""`)}"`;
     else {
       retval = `U&"`;
       for (const char of str) {
         const code = char.charCodeAt(0);
         if (code >= 32 && code < 127) {
-          if (char === "/")
+          if (char === "\\")
             retval += char;
           retval += char;
         } else {
