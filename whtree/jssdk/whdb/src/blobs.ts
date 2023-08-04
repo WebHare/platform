@@ -12,6 +12,9 @@ export class WHDBBlobImplementation implements WebHareBlob {
   readonly isWHDBBlob = true; //We need to ensure TypeScript can differentiate between WebHareBlob and WHDBBlob ducks (TODO alternative solution)
 
   constructor(databaseid: string, length: number) {
+    if (!length)
+      throw new Error(`A WHDBBlob must have content - use null or even BoxedDefaultBlob to represent empty blobs`);
+
     this.databaseid = databaseid;
     this._size = length;
   }
@@ -29,11 +32,13 @@ export class WHDBBlobImplementation implements WebHareBlob {
 
   // Get the full contents of a database blob
   async text(): Promise<string> {
-    if (this._size === 0)
-      return "";
-
     const pathinfo = this.__getDiskPathinfo();
     return await readFile(pathinfo.fullpath, "utf8");
+  }
+
+  async arrayBuffer(): Promise<ArrayBuffer> {
+    const pathinfo = this.__getDiskPathinfo();
+    return await readFile(pathinfo.fullpath);
   }
 
   isSameBlob(rhs: WebHareBlob): boolean {
@@ -171,7 +176,7 @@ export const BlobType: DataType = {
   },
 };
 
-export type WHDBBlob = Pick<WHDBBlobImplementation, "size" | "text" | "isSameBlob" | "isWHDBBlob">;
+export type WHDBBlob = Pick<WHDBBlobImplementation, "size" | "text" | "isSameBlob" | "isWHDBBlob" | "arrayBuffer">;
 
 //not sure if we want to expose this as eg static isBlob on WHDBBlob (should it match BoxedDefaultBlob too?) so making it an internal API for now
 export function isWHDBBlob(v: unknown): v is WHDBBlobImplementation {

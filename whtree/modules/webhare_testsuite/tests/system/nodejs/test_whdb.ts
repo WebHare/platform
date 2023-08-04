@@ -45,6 +45,7 @@ async function testQueries() {
   test.assert(tablecontents[0].datablob);
   test.eq(14, tablecontents[0].datablob.size);
   test.eq("This is a blob", await tablecontents[0].datablob.text());
+  test.eq("This is a blob", new TextDecoder().decode(await tablecontents[0].datablob.arrayBuffer()));
   test.eq(null, tablecontents[1].datablob);
   test.assert(newblob.isSameBlob(tablecontents[0].datablob));
   test.assert(tablecontents[0].datablob.isSameBlob(newblob));

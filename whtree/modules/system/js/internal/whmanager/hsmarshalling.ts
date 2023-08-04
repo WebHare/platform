@@ -120,6 +120,7 @@ export interface WebHareBlob {
   readonly size: number;
   isSameBlob(rhs: WebHareBlob): boolean;
   text(): Promise<string>;
+  arrayBuffer(): Promise<ArrayBuffer>;
 }
 
 /** A boxed default blob - because `null` is the only other way the WHDB can represent it and would be interpreted as a default record.
@@ -134,6 +135,9 @@ export class BoxedDefaultBlob implements WebHareBlob {
   }
   text(): Promise<string> {
     return Promise.resolve("");
+  }
+  arrayBuffer(): Promise<ArrayBuffer> {
+    return Promise.resolve(new ArrayBuffer(0));
   }
 }
 
