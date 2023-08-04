@@ -3,8 +3,9 @@ import { mkdir, readFile, writeFile, rename, stat } from 'node:fs/promises';
 import * as path from 'node:path';
 import * as process from 'node:process';
 import { Connection, DataType, DataTypeOIDs } from './../vendor/postgresql-client/src/index';
+import { WebHareBlob } from '@mod-system/js/internal/whmanager/hsmarshalling';
 
-class WHDBBlobImplementation {
+class WHDBBlobImplementation implements WebHareBlob {
   readonly databaseid: string;
   readonly _size: number;
 
@@ -27,6 +28,10 @@ class WHDBBlobImplementation {
 
     const paths = await getFilePaths(this.databaseid.substring(4), false);
     return await readFile(paths.fullpath, encoding);
+  }
+
+  isSameBlob(rhs: WebHareBlob): boolean {
+    return rhs instanceof WHDBBlobImplementation && this.databaseid === rhs.databaseid;
   }
 }
 
@@ -133,7 +138,7 @@ export const BlobType: DataType = {
   },
 };
 
-export type WHDBBlob = Pick<WHDBBlobImplementation, "size" | "text">;
+export type WHDBBlob = Pick<WHDBBlobImplementation, "size" | "text" | "isSameBlob">;
 
 //not sure if we want to expose this as eg static isBlob on WHDBBlob (should it match BoxedDefaultBlob too?) so making it an internal API for now
 export function isWHDBBlob(v: unknown): boolean {

@@ -18,7 +18,9 @@ async function testQueries() {
   test.eq(null, await uploadBlob(""));
 
   const newblob = await uploadBlob("This is a blob");
+  const newblob2 = await uploadBlob("This is another blob");
   test.assert(newblob);
+  test.assert(newblob2);
   test.eq(14, newblob.size);
   test.eq("This is a blob", await newblob.text());
 
@@ -32,6 +34,9 @@ async function testQueries() {
   test.eq(14, tablecontents[0].datablob.size);
   test.eq("This is a blob", await tablecontents[0].datablob.text());
   test.eq(null, tablecontents[1].datablob);
+  test.assert(newblob.isSameBlob(tablecontents[0].datablob));
+  test.assert(tablecontents[0].datablob.isSameBlob(newblob));
+  test.assert(!newblob2.isSameBlob(tablecontents[0].datablob));
 
   const tablecontents2 = (await query("select * from webhare_testsuite.exporttest order by id")).rows;
   test.eq(tablecontents, tablecontents2);

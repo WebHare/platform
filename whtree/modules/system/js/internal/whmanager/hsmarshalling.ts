@@ -115,11 +115,22 @@ export class BoxedFloat {
   }
 }
 
+//TODO: I'm not sure this should live in marshalling but it's a bit too specific for WebHare to be a @webhare/std thing.
+export interface WebHareBlob {
+  readonly size: number;
+  isSameBlob(rhs: WebHareBlob): boolean;
+}
+
 /** A boxed default blob - because `null` is the only other way the WHDB can represent it and would be interpreted as a default record.
  *  We might not need this is if the PGSQLProvider returned HS VariableTypes along with the result sets so we could fix it in SetJSValue
  * */
-export class BoxedDefaultBlob {
+export class BoxedDefaultBlob implements WebHareBlob {
   readonly __hstype = VariableType.Blob;
+  readonly size = 0;
+
+  isSameBlob(rhs: WebHareBlob): boolean {
+    return rhs.size == 0;
+  }
 }
 
 export function readMarshalData(buffer: Buffer | ArrayBuffer): SimpleMarshallableData {
