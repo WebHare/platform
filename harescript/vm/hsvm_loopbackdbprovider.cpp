@@ -404,6 +404,41 @@ void RegisterTransaction(VarId id_set, VirtualMachine *vm)
         description.needs_uppercase_names = true;
         description.max_joined_tables = 32;
 
+        ColumnNameId col_supports_block_cursors = vm->stackmachine.columnnamemapper.GetMapping("supports_block_cursors");
+        ColumnNameId col_supports_single = vm->stackmachine.columnnamemapper.GetMapping("supports_single");
+        ColumnNameId col_supports_data_modify = vm->stackmachine.columnnamemapper.GetMapping("supports_data_modify");
+        ColumnNameId col_supports_nulls = vm->stackmachine.columnnamemapper.GetMapping("supports_nulls");
+        ColumnNameId col_supports_limit = vm->stackmachine.columnnamemapper.GetMapping("supports_limit");
+        ColumnNameId col_needs_locking_and_recheck = vm->stackmachine.columnnamemapper.GetMapping("needs_locking_and_recheck");
+        ColumnNameId col_fase2_locks_implicitly = vm->stackmachine.columnnamemapper.GetMapping("fase2_locks_implicitly");
+        ColumnNameId col_needs_uppercase_names = vm->stackmachine.columnnamemapper.GetMapping("needs_uppercase_names");
+        ColumnNameId col_add_missing_default_columns = vm->stackmachine.columnnamemapper.GetMapping("add_missing_default_columns");
+        ColumnNameId col_max_joined_tables = vm->stackmachine.columnnamemapper.GetMapping("max_joined_tables");             ///< Maximum number of joined tables per query (0 for no limit)
+        ColumnNameId col_max_multiinsertrows = vm->stackmachine.columnnamemapper.GetMapping("max_multiinsertrows");           ///< Maximum number of rows in a multinsert (0 for no limit)
+
+        if (vm->stackmachine.RecordCellExists(HSVM_Arg(1), col_supports_block_cursors) && vm->stackmachine.GetType(vm->stackmachine.RecordCellRefByName(HSVM_Arg(1), col_supports_block_cursors)) == VariableTypes::Boolean)
+            description.supports_block_cursors = vm->stackmachine.GetBoolean(vm->stackmachine.RecordCellRefByName(HSVM_Arg(1), col_supports_block_cursors));
+        if (vm->stackmachine.RecordCellExists(HSVM_Arg(1), col_supports_single) && vm->stackmachine.GetType(vm->stackmachine.RecordCellRefByName(HSVM_Arg(1), col_supports_single)) == VariableTypes::Boolean)
+            description.supports_single = vm->stackmachine.GetBoolean(vm->stackmachine.RecordCellRefByName(HSVM_Arg(1), col_supports_single));
+        if (vm->stackmachine.RecordCellExists(HSVM_Arg(1), col_supports_data_modify) && vm->stackmachine.GetType(vm->stackmachine.RecordCellRefByName(HSVM_Arg(1), col_supports_data_modify)) == VariableTypes::Boolean)
+            description.supports_data_modify = vm->stackmachine.GetBoolean(vm->stackmachine.RecordCellRefByName(HSVM_Arg(1), col_supports_data_modify));
+        if (vm->stackmachine.RecordCellExists(HSVM_Arg(1), col_supports_nulls) && vm->stackmachine.GetType(vm->stackmachine.RecordCellRefByName(HSVM_Arg(1), col_supports_nulls)) == VariableTypes::Boolean)
+            description.supports_nulls = vm->stackmachine.GetBoolean(vm->stackmachine.RecordCellRefByName(HSVM_Arg(1), col_supports_nulls));
+        if (vm->stackmachine.RecordCellExists(HSVM_Arg(1), col_supports_limit) && vm->stackmachine.GetType(vm->stackmachine.RecordCellRefByName(HSVM_Arg(1), col_supports_limit)) == VariableTypes::Boolean)
+            description.supports_limit = vm->stackmachine.GetBoolean(vm->stackmachine.RecordCellRefByName(HSVM_Arg(1), col_supports_limit));
+        if (vm->stackmachine.RecordCellExists(HSVM_Arg(1), col_needs_locking_and_recheck) && vm->stackmachine.GetType(vm->stackmachine.RecordCellRefByName(HSVM_Arg(1), col_needs_locking_and_recheck)) == VariableTypes::Boolean)
+            description.needs_locking_and_recheck = vm->stackmachine.GetBoolean(vm->stackmachine.RecordCellRefByName(HSVM_Arg(1), col_needs_locking_and_recheck));
+        if (vm->stackmachine.RecordCellExists(HSVM_Arg(1), col_fase2_locks_implicitly) && vm->stackmachine.GetType(vm->stackmachine.RecordCellRefByName(HSVM_Arg(1), col_fase2_locks_implicitly)) == VariableTypes::Boolean)
+            description.fase2_locks_implicitly = vm->stackmachine.GetBoolean(vm->stackmachine.RecordCellRefByName(HSVM_Arg(1), col_fase2_locks_implicitly));
+        if (vm->stackmachine.RecordCellExists(HSVM_Arg(1), col_needs_uppercase_names) && vm->stackmachine.GetType(vm->stackmachine.RecordCellRefByName(HSVM_Arg(1), col_needs_uppercase_names)) == VariableTypes::Boolean)
+            description.needs_uppercase_names = vm->stackmachine.GetBoolean(vm->stackmachine.RecordCellRefByName(HSVM_Arg(1), col_needs_uppercase_names));
+        if (vm->stackmachine.RecordCellExists(HSVM_Arg(1), col_add_missing_default_columns) && vm->stackmachine.GetType(vm->stackmachine.RecordCellRefByName(HSVM_Arg(1), col_add_missing_default_columns)) == VariableTypes::Boolean)
+            description.add_missing_default_columns = vm->stackmachine.GetBoolean(vm->stackmachine.RecordCellRefByName(HSVM_Arg(1), col_add_missing_default_columns));
+        if (vm->stackmachine.RecordCellExists(HSVM_Arg(1), col_max_joined_tables) && vm->stackmachine.GetType(vm->stackmachine.RecordCellRefByName(HSVM_Arg(1), col_max_joined_tables)) == VariableTypes::Integer)
+            description.max_joined_tables = vm->stackmachine.GetInteger(vm->stackmachine.RecordCellRefByName(HSVM_Arg(1), col_max_joined_tables));
+        if (vm->stackmachine.RecordCellExists(HSVM_Arg(1), col_max_multiinsertrows) && vm->stackmachine.GetType(vm->stackmachine.RecordCellRefByName(HSVM_Arg(1), col_max_multiinsertrows)) == VariableTypes::Integer)
+            description.max_multiinsertrows = vm->stackmachine.GetInteger(vm->stackmachine.RecordCellRefByName(HSVM_Arg(1), col_max_multiinsertrows));
+
         std::unique_ptr< LoopbackDBTransactionDriver >driver(new LoopbackDBTransactionDriver(vm, HSVM_Arg(0), description));
 
         DBProviderContext context(vm->GetContextKeeper());
@@ -431,7 +466,7 @@ void UnregisterTransaction(VirtualMachine *vm)
 
 void Register(BuiltinFunctionsRegistrator &bifreg, Blex::ContextRegistrator &creg)
 {
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_SQL_LBDB_REGISTER::I:O", RegisterTransaction));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_SQL_LBDB_REGISTER::I:OR", RegisterTransaction));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_SQL_LBDB_UNREGISTER:::I", UnregisterTransaction));
         DBProviderContext::Register(creg);
 }

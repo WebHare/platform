@@ -3,6 +3,7 @@ import { AliasedRawBuilder, RawBuilder, sql } from 'kysely';
 import { BoxedFloat, BoxedDefaultBlob, VariableType, getTypedArray } from "../whmanager/hsmarshalling";
 import { FullPostgresQueryResult } from "@webhare/whdb/src/connection";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat/datetime";
+import { Tid } from "@webhare/whdb/src/types";
 
 enum Fases {
   None = 0,
@@ -221,8 +222,8 @@ export async function cbExecuteQuery(query: Query) {
 
   if (query.type !== "SELECT") {
     // For updating queries, get the 'ctid' column as column 0
-    resultcolumns.push({ tableid: -1, queryName: "ctid", exportName: "", type: VariableType.String, flags: 0, expr: sql.ref(`T0.ctid`) });
-    resultcolumnsfase2.push({ tableid: -1, queryName: "ctid", exportName: "", type: VariableType.String, flags: 0, expr: sql.ref(`T0.ctid`) });
+    resultcolumns.push({ tableid: -1, queryName: "ctid", exportName: "ctid", type: VariableType.String, flags: 0, expr: sql.ref(`T0.ctid`) });
+    resultcolumnsfase2.push({ tableid: -1, queryName: "ctid", exportName: "ctid", type: VariableType.String, flags: 0, expr: sql.ref(`T0.ctid`) });
     // in fase2, the row position is returned as column 1
 
     for (const column of query.tablesources[0].columns) {
@@ -247,7 +248,7 @@ export async function cbExecuteQuery(query: Query) {
       keycolumn = 0;
     }
     //resultcolumnsfase2[1].expr = fase2keys[0];
-    resultcolumnsfase2.push({ tableid: -1, queryName: "rowpos", exportName: "", type: VariableType.Integer, flags: 0, expr: sql``.as(sql`rowpos`) }); // filled in later!
+    resultcolumnsfase2.push({ tableid: -1, queryName: "rowpos", exportName: "rowpos", type: VariableType.Integer, flags: 0, expr: sql``.as(sql`rowpos`) }); // filled in later!
   }
 
   const tables = new Array<AliasedRawBuilder<unknown, `T${number}`>>();
@@ -388,7 +389,6 @@ export async function cbExecuteQuery(query: Query) {
   }
 
   let dbquery = whdb
-
     .selectFrom(tables)
     .select(resultcolumns.map(r => r.expr as AliasedRawBuilder<unknown, string>));
   for (const cond of conditions)
@@ -396,15 +396,16 @@ export async function cbExecuteQuery(query: Query) {
   if (query.query_limit >= 0 && allhandled)
     dbquery = dbquery.limit(query.query_limit);
   if (modifyend)
-    dbquery.modifyEnd(modifyend);
+    dbquery = dbquery.modifyEnd(modifyend);
 
   const res = await dbquery.execute();
-  const retval = [];
+  const tabledata = [], rowsdata = [];
   //TODO Both cbExecuteQuery and cbSendPostgreSQLCommand need to do some return type postprocessing to align with HS types, share!
   for (const row of res) {
     const tablerows: Array<Record<string, unknown>> = [];
     for (let idx = 0; idx < query.tablesources.length; ++idx)
       tablerows.push({});
+    const rowdata: Record<string, unknown> = {};
 
     for (const col of resultcolumns) {
       let value = row[col.queryName];
@@ -423,16 +424,21 @@ export async function cbExecuteQuery(query: Query) {
       //   value = new Money(value as string);
       // FIXME: how to trigger null translation? The following doesn't work:
       if (value !== null || !(col.flags & ColumnFlags.TranslateNulls))
-        tablerows[col.tableid][col.exportName] = value;
+        if (col.tableid >= 0)
+          tablerows[col.tableid][col.exportName] = value;
+        else
+          rowdata[col.exportName] = value;
     }
-    retval.push(...tablerows);
+    tabledata.push(...tablerows);
+    rowsdata.push(rowdata);
   }
 
   // FIXME: use these columns
   void (keycolumn);
   void (updatedtable);
 
-  return retval;
+
+  return { tabledata, rowsdata };
 }
 
 export async function cbDoBeginWork() {
@@ -522,15 +528,30 @@ export async function cbInsertRecord(params: { query: Query; newfields: Record<s
 
   const values: Record<string, unknown> = {};
   for (const columns of params.query.tablesources[0].columns)
-    if (columns.fase & Fases.Updated)
-      values[columns.dbase_name] = params.newfields[columns.name.toLowerCase()];
-
+    if (columns.fase & Fases.Updated) {
+      const value = params.newfields[columns.name.toLowerCase()];
+      /*
+            switch (columns.type) {
+              case VariableType.Blob: {
+                console.log(`*** insert blob ${value}`);
+              }
+            }
+      */
+      values[columns.dbase_name] = value;
+    }
   const name = params.query.tablesources[0].name;
   console.log(name);
-
-
 
   const whdb = db<Record<string, unknown>>();
   await whdb.insertInto(name.toLowerCase()).values(values).execute();
   return null;
+}
+
+export async function cbDeleteRecord(params: { query: Query; row: number; rowdata: { ctid: Tid } }) {
+  const whdb = db();
+
+  await whdb
+    .deleteFrom(sql.table(params.query.tablesources[0].name.toLowerCase()).as('T'))
+    .where(sql`ctid`, '=', params.rowdata.ctid)
+    .execute();
 }
