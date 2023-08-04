@@ -11,7 +11,7 @@ export abstract class RichBlob {
     return this.blob?.size ?? 0;
   }
 
-  async text(encoding: BufferEncoding = "utf8"): Promise<string> {
-    return this.blob?.text(encoding) ?? "";
+  async text(): Promise<string> {
+    return this.blob?.text() ?? "";
   }
 }

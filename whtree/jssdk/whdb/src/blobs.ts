@@ -28,12 +28,12 @@ export class WHDBBlobImplementation implements WebHareBlob {
   }
 
   // Get the full contents of a database blob
-  async text(encoding: BufferEncoding = "utf8"): Promise<string> {
+  async text(): Promise<string> {
     if (this._size === 0)
       return "";
 
     const pathinfo = this.__getDiskPathinfo();
-    return await readFile(pathinfo.fullpath, encoding);
+    return await readFile(pathinfo.fullpath, "utf8");
   }
 
   isSameBlob(rhs: WebHareBlob): boolean {
