@@ -40,11 +40,12 @@ STATIC OBJECTTYPE EMTransactionCursor EXTEND TransactionCursorBase
   {
     this->query := query;
     this->ofs := 0;
+
     RECORD res := CallImpl("cbExecuteQuery", query);
     this->alldata := res.tabledata;
     this->rowsdata := res.rowsdata;
-    DumpValue(this->alldata, "boxed");
-    DumpValue(this->rowsdata, "boxed");
+    // DumpValue(this->alldata, "boxed");
+    // DumpValue(this->rowsdata, "boxed");
   }
   UPDATE PUBLIC MACRO RetrieveNextBlock()
   {

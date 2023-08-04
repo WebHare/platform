@@ -123,6 +123,10 @@ export interface WebHareBlob {
   arrayBuffer(): Promise<ArrayBuffer>;
 }
 
+export function isWebHareBlob(v: unknown): v is WebHareBlob {
+  return Boolean(typeof v === "object" && v && "size" in v && "isSameBlob" in v && "text" in v);
+}
+
 /** A boxed default blob - because `null` is the only other way the WHDB can represent it and would be interpreted as a default record.
  *  We might not need this is if the PGSQLProvider returned HS VariableTypes along with the result sets so we could fix it in SetJSValue
  * */
@@ -405,7 +409,7 @@ export function determineType(value: unknown): VariableType {
   }
   switch (typeof value) {
     case "object": {
-      if (value instanceof Uint8Array || value instanceof ArrayBuffer)
+      if (value instanceof Uint8Array || value instanceof ArrayBuffer || isWebHareBlob(value))
         return VariableType.Blob;
       if (isDate(value))
         return VariableType.DateTime;

@@ -71,25 +71,21 @@ async function getFilePaths(blobpartid: string, createdir: boolean) {
 }
 
 export async function uploadBlobToConnection(pg: Connection, data: ValidBlobSources): Promise<WHDBBlob | null> {
+  if (!data || (typeof data !== "string" && data.size === 0))
+    return null;
   if (isWHDBBlob(data)) //reuploading is a no-op
     return data;
-
-  if (typeof data !== 'string') {
-    if (data.size === 0) //empty blob
-      return null;
-
-    throw new Error(`Cross-blob uploading not implemented yet`);
-  }
-
-  if (!data) //empty string
-    return null;
 
   const blobpartid = generateRandomId('hex', 16);
   //EncodeUFS('001') (="AAAB") is our 'storage strategy'. we may support multiple in the future and reserve '000' for 'fully in-database storage'
   const databaseid = "AAAB" + blobpartid;
 
   const paths = await getFilePaths(blobpartid, true);
-  await writeFile(paths.temppath, data);
+  if (typeof data === "string")
+    await writeFile(paths.temppath, data);
+  else //write the arraybuffer to the file
+    await writeFile(paths.temppath, Buffer.from(await data.arrayBuffer()));
+
   await rename(paths.temppath, paths.fullpath);
   const finallength = (await stat(paths.fullpath)).size;
   await pg.query("INSERT INTO webhare_internal.blob(id) VALUES(ROW($1,$2))", { params: [databaseid, finallength] });
