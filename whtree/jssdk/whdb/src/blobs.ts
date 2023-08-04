@@ -5,7 +5,7 @@ import * as process from 'node:process';
 import { Connection, DataType, DataTypeOIDs } from './../vendor/postgresql-client/src/index';
 import { WebHareBlob } from '@mod-system/js/internal/whmanager/hsmarshalling';
 
-class WHDBBlobImplementation implements WebHareBlob {
+export class WHDBBlobImplementation implements WebHareBlob {
   readonly databaseid: string;
   readonly _size: number;
 
@@ -18,16 +18,20 @@ class WHDBBlobImplementation implements WebHareBlob {
     return this._size;
   }
 
+  __getDiskPathinfo() {
+    if (!this.databaseid.startsWith('AAAB'))
+      throw new Error(`Unrecognized storage system for blob '${this.databaseid}'`);
+
+    return getDiskPathinfo(this.databaseid.substring(4));
+  }
+
   // Get the full contents of a database blob
   async text(encoding: BufferEncoding = "utf8"): Promise<string> {
     if (this._size === 0)
       return "";
 
-    if (!this.databaseid.startsWith('AAAB'))
-      throw new Error(`Unrecognized storage system for blob '${this.databaseid}'`);
-
-    const paths = await getFilePaths(this.databaseid.substring(4), false);
-    return await readFile(paths.fullpath, encoding);
+    const pathinfo = this.__getDiskPathinfo();
+    return await readFile(pathinfo.fullpath, encoding);
   }
 
   isSameBlob(rhs: WebHareBlob): boolean {
@@ -45,13 +49,18 @@ function getBlobStoragepath() {
   return path.join(process.env.WEBHARE_DATAROOT || "", "postgresql");
 }
 
-async function getFilePaths(blobpartid: string, createdir: boolean) {
+function getDiskPathinfo(blobpartid: string) {
   const baseblobdir = getBlobStoragepath();
   const dir = path.join(baseblobdir, "blob", blobpartid.substring(0, 2));
-  if (createdir)
-    await mkdir(dir, { recursive: true });
+  return { baseblobdir, dir, fullpath: path.join(dir, blobpartid) };
+}
 
-  return { fullpath: path.join(dir, blobpartid), temppath: path.join(baseblobdir, "tmp", blobpartid) };
+async function getFilePaths(blobpartid: string, createdir: boolean) {
+  const paths = getDiskPathinfo(blobpartid);
+  if (createdir)
+    await mkdir(paths.dir, { recursive: true });
+
+  return { fullpath: paths.fullpath, temppath: path.join(paths.baseblobdir, "tmp", blobpartid) };
 }
 
 export async function uploadBlobToConnection(pg: Connection, data: ValidBlobSources): Promise<WHDBBlobImplementation | null> {
@@ -71,12 +80,25 @@ export async function uploadBlobToConnection(pg: Connection, data: ValidBlobSour
   return new WHDBBlobImplementation(databaseid, finallength);
 }
 
-export function createPGBlob(pgdata: string): WHDBBlobImplementation {
+export function createPGBlob(pgdata: string): WHDBBlob {
   const tokenized = pgdata.match(/^\((.+),([0-9]+)\)$/);
   if (!tokenized)
     throw new Error(`Received invalid blob identifier from database: ${tokenized}`);
 
   return new WHDBBlobImplementation(tokenized[1], parseInt(tokenized[2]));
+}
+
+export function buildBlobFromPGPath(testpath: string, size: number): WHDBBlob | null {
+  const storageroot = path.join(getBlobStoragepath(), "blob");
+  if (!testpath.startsWith(storageroot))
+    return null;
+
+  const subpath = testpath.substring(storageroot.length);
+  const tokenized = subpath.match(/^\/([0-9a-f]{2})\/([0-9a-f]{32})$/);
+  if (!tokenized)
+    return null;
+
+  return new WHDBBlobImplementation("AAAB" + tokenized[2], size);
 }
 
 export const BlobType: DataType = {
@@ -129,7 +151,7 @@ export const BlobType: DataType = {
     return `($v.databaseid}, ${v.size})`;
   },
 
-  parseText(v: string): WHDBBlobImplementation {
+  parseText(v: string): WHDBBlob {
     return createPGBlob(v);
   },
 
@@ -141,6 +163,6 @@ export const BlobType: DataType = {
 export type WHDBBlob = Pick<WHDBBlobImplementation, "size" | "text" | "isSameBlob">;
 
 //not sure if we want to expose this as eg static isBlob on WHDBBlob (should it match BoxedDefaultBlob too?) so making it an internal API for now
-export function isWHDBBlob(v: unknown): boolean {
+export function isWHDBBlob(v: unknown): v is WHDBBlob {
   return Boolean(v && typeof v === "object" && "databaseid" in v && "_size" in v && "text" in v);
 }
