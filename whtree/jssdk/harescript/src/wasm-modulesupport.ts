@@ -38,6 +38,7 @@ function parseMangledParameters(params: string): VariableType[] {
       case "P": type = VariableType.FunctionPtr; break;
       case "O": type = VariableType.Object; break;
       case "W": type = VariableType.WeakObject; break;
+      case "X": type = VariableType.Blob; break;
       default:
         throw new Error(`Illegal character ${JSON.stringify(params[idx])} in mangled function name`);
     }

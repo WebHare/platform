@@ -9,6 +9,7 @@ import { HSVM, Ptr, StringPtr } from "wh:internal/whtree/lib/harescript-interfac
 import { generateRandomId } from "@webhare/std";
 import * as syscalls from "./syscalls";
 import { localToUTC, utcToLocal } from "@webhare/hscompat/datetime";
+import { isWHDBBlob } from "@webhare/whdb/src/blobs";
 
 type SysCallsModule = { [key: string]: (data: unknown) => unknown };
 
@@ -196,26 +197,9 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       result = " E" + result;
     id_set.setString(result);
   });
+
+  wasmmodule.registerAsyncExternalFunction("__PGSQL_GETBLOBINTERNALID::S:IX", async (vm, id_set, transaction, var_blob) => {
+    const blob = var_blob.getBlob();
+    id_set.setString(isWHDBBlob(blob) ? blob.databaseid : "");
+  });
 }
-
-
-/*
-let resolve_promise_func: HSVM_VariableId | undefined;
-      if (promiseid !== -1n) {
-        value.then(async (result: unknown) => {
-          console.log(`resolved`);
-          const params = vm.openFunctionCall(2);
-          params[0].setInteger64(promiseid);
-          params[0].setJSValue(result);
-          if (!resolve_promise_func) {
-            resolve_promise_func = vm.wasmmodule._HSVM_AllocateVariable(vm.hsvm);
-            await vm.makeFunctionPtr(resolve_promise_func, "wh::internal/wasm.whlib", "__RESOLVEPROMISE");
-          }
-          const r = vm.wasmmodule._HSVM_CallFunctionPtr(vm.hsvm, resolve_promise_func, 0);
-          console.log(`resolve promise ${promiseid}: ${r}`);
-        });
-        id_set.setJSValue({
-          result: "scheduled"
-        });
-      } else {
-*/
