@@ -36,6 +36,9 @@ interface WRDDomainTypeConfiguration extends WRDTypeConfigurationBase {
 
 type WRDTypeConfiguration = WRDObjectTypeConfiguration | WRDAttachmentTypeConfiguration | WRDLinkTypeConfiguration | WRDDomainTypeConfiguration;
 
+// Updatable type metadata
+type WRDTypeMetadata = Omit<WRDTypeConfiguration, "metaType">;
+
 interface WRDAttributeConfiguration {
   attributeType: WRDAttributeType;
   title: string;
@@ -222,6 +225,11 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
 
   async _getType() {
     return this.schema[getWRDSchemaType](this.tag, false);
+  }
+
+  async updateMetadata(newmetadata: Partial<WRDTypeMetadata>) {
+    await extendWorkToCoHSVM();
+    await (await this._getType()).updateMetadata(newmetadata);
   }
 
   async createEntity(value: Updatable<S[T]>): Promise<number> {
