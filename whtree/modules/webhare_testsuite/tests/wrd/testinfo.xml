@@ -16,6 +16,7 @@
   <test script="test_jsmode.whscr" />
   <test script="test_sync.whscr" />
   <test script="test_personaldata.whscr" />
+  <test script="testdeleteclosedafter.ts" />
   <test script="testkeephistory.whscr" />
   <test script="testpasswordpolicy.whscr" />
   <test name="api" path="api/" />

@@ -124,10 +124,14 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   }
 
   async __getTypeTag(type: number): Promise<string | null> {
-    const schemaobj = await this.getWRDSchema();
-    const typelist = await schemaobj.ListTypes() as Array<{ id: number; tag: string }>;
+    const typelist = await this.__listTypes();
     const match = typelist.find(t => t.id === type);
     return match ? tagToJS(match.tag) : null;
+  }
+
+  async __listTypes() {
+    const schemaobj = await this.getWRDSchema();
+    return await schemaobj.ListTypes() as Array<{ id: number; tag: string }>;
   }
 
   private getWRDSchemaCache(): CoVMSchemaCache {

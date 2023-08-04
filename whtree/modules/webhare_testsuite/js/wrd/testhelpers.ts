@@ -37,16 +37,18 @@ export async function prepareTestFramework(options?: { wrdauth?: boolean }) {
   await primary.close();
 }
 
-async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { keephistorydays?: number; withrichdoc?: boolean } = {}) {
+async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { deleteClosedAfter?: number; keepHistoryDays?: number; withRichDoc?: boolean } = {}) {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- will need options in the future
-  options = { withrichdoc: true, keephistorydays: 0, ...options };
+  options = { withRichDoc: true, deleteClosedAfter: 0, keepHistoryDays: 0, ...options };
   const persontype = schemaobj.getType("wrdPerson");
   await persontype.updateAttribute("wrdContactEmail", { isRequired: false }); //for compatibility with all existing WRD tests
 
 
   // Initialize the schema, and test the attribute name function
-  //if (options.keephistorydays != 0)
-  //  persontype.UpdateMetadata(CELL[options.keephistorydays]);
+  if (options.deleteClosedAfter != 0)
+    await persontype.updateMetadata({ deleteClosedAfter: options.deleteClosedAfter });
+  if (options.keepHistoryDays != 0)
+    await persontype.updateMetadata({ keepHistoryDays: options.keepHistoryDays });
   await persontype.createAttribute("wrdContactPhoneXX", { attributeType: WRDAttributeType.Telephone, title: "Phone" });
   await persontype.createAttribute("personlink", { attributeType: WRDAttributeType.Domain, title: "Person", domain: "wrdPerson" });
   await persontype.createAttribute("relationlink", { attributeType: WRDAttributeType.Domain, title: "Relation", domain: "wrdRelation" });
@@ -175,7 +177,7 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { keephistor
   await persontype.createAttribute("testFreeNocopy", { attributeType: WRDAttributeType.Free, title: "Uncopyable free attribute", isUnsafeToCopy: true });
   await persontype.createAttribute("richie", { attributeType: WRDAttributeType.RichDocument, title: "Rich document" });
 
-  const personattachment = await schemaobj.createType("personattachment", { metaType: WRDMetaType.Attachment, title: "Test person attachments", left: "wrdPerson", keepHistoryDays: options.keephistorydays });
+  const personattachment = await schemaobj.createType("personattachment", { metaType: WRDMetaType.Attachment, title: "Test person attachments", left: "wrdPerson", deleteClosedAfter: options.deleteClosedAfter, keepHistoryDays: options.keepHistoryDays });
   personattachment.createAttribute("attachfree", { attributeType: WRDAttributeType.Free, title: "Free text attribute" });
 
 
@@ -186,7 +188,7 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { keephistor
   await personorglink.createAttribute("text", { attributeType: WRDAttributeType.Free });
   //FIXME temp support in insert? await personorglink.CreateEntity({ text: "Some text" }, { temp: true });
 
-  const payprov = await schemaobj.createType("payprov", { metaType: WRDMetaType.Domain, keepHistoryDays: options.keephistorydays });
+  const payprov = await schemaobj.createType("payprov", { metaType: WRDMetaType.Domain, deleteClosedAfter: options.deleteClosedAfter, keepHistoryDays: options.keepHistoryDays });
   await payprov.createAttribute("method", { attributeType: WRDAttributeType.PaymentProvider, isRequired: true });
 
   const paydata = await schemaobj.createType("paydata", { metaType: WRDMetaType.Object });
@@ -249,7 +251,7 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { keephistor
 
   testpersonobj -> UpdateEntity(newdata);
 
-  IF(options.withrichdoc)
+  IF(options.withRichDoc)
   {
     OBJECT destlink:= OpenTestsuitesite() -> OpenByPath("tmp") -> EnsureFile([name := "destlink"]);
     INTEGER richdocid:= persontype -> CreateEntity([wrd_contact_email:="richdocembedded@example.com", whuser_unit := testfw -> testunit]) -> id;
@@ -269,14 +271,16 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { keephistor
 }
 
 export async function createWRDTestSchema(options?: {
-  withrichdoc?: boolean;
-  withpayment?: string[];
-  keephistorydays?: number;
+  withRichDoc?: boolean;
+  withPayment?: string[];
+  deleteClosedAfter?: number;
+  keepHistoryDays?: number;
 }) {
   options = {
-    withrichdoc: true,
-    withpayment: [],
-    keephistorydays: 0,
+    withRichDoc: true,
+    withPayment: [],
+    deleteClosedAfter: 0,
+    keepHistoryDays: 0,
     ...options
   };
 
@@ -286,14 +290,14 @@ export async function createWRDTestSchema(options?: {
   const schemaobj = await getWRDSchema();
   test.assert(schemaobj);
   await whdb.beginWork();
-  await setupTheWRDTestSchema(schemaobj, { withrichdoc: options.withrichdoc, keephistorydays: options.keephistorydays });
+  await setupTheWRDTestSchema(schemaobj, { withRichDoc: options.withRichDoc, deleteClosedAfter: options.deleteClosedAfter, keepHistoryDays: options.keepHistoryDays });
   /*
-    IF(Length(options.withpayment) > 0)
+    IF(Length(options.withPayment) > 0)
     {
       OBJECT pm := testfw->wrdschema->^payprov->CreateEntity(
         [ wrdTitle := "TestMethod"
-        , method := MakePaymentProviderValue("wrd:test", [ disablenoissuer := "noissuer" NOT IN options.withpayment
-                                                         , disablewithissuer := "withissuer" NOT IN options.withpayment
+        , method := MakePaymentProviderValue("wrd:test", [ disablenoissuer := "noissuer" NOT IN options.withPayment
+                                                         , disablewithissuer := "withissuer" NOT IN options.withPayment
                                                          ]  )
         ]);
     }
