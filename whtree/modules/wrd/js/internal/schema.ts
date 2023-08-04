@@ -11,6 +11,7 @@ const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible 
 interface WRDTypeConfigurationBase {
   metaType: WRDMetaType;
   title?: string;
+  deleteClosedAfter?: number;
   keepHistoryDays?: number;
   hasPersonalData?: boolean;
 }
@@ -95,6 +96,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
       requiretype_right: right,
       metatype: config.metaType,
       //TODO parenttype, abstract, hasperonaldata defaulting to TRUE for WRD_PERSON (but shouldn't the base schema do that?)
+      deleteclosedafter: config.deleteClosedAfter || 0,
       keephistorydays: config.keepHistoryDays || 0,
       haspersonaldata: config.hasPersonalData || false
     };

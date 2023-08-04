@@ -599,6 +599,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   PUBLIC PROPERTY parent(__GetTyperecParenttype, -);
   PUBLIC PROPERTY metatype(__GetTyperecMetatype, -);
 
+  PUBLIC PROPERTY deleteclosedafter(__GetTyperecDeleteclosedafter, -);
   PUBLIC PROPERTY keephistorydays(__GetTyperecKeephistorydays, -);
   PUBLIC PROPERTY haspersonaldata(GetHasPersonalData, -);
 
@@ -690,6 +691,10 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   INTEGER FUNCTION __GetTyperecMetatype()
   {
     RETURN this->typerec.metatype;
+  }
+  INTEGER FUNCTION __GetTyperecDeleteclosedafter()
+  {
+    RETURN this->typerec.deleteclosedafter;
   }
   INTEGER FUNCTION __GetTyperecKeephistorydays()
   {
@@ -849,10 +854,11 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         , linkfrom :=       0
         , linkto :=         0
         , description :=    ""
-        , keephistorydays :=   0
+        , deleteclosedafter := 0
+        , keephistorydays := 0
         , haspersonaldata := FALSE
         ], newmetadata,
-        [ optional := [ "parenttype", "abstract", "title", "tag", "linkfrom", "linkto", "description", "keephistorydays", "haspersonaldata" ]
+        [ optional := [ "parenttype", "abstract", "title", "tag", "linkfrom", "linkto", "description", "deleteclosedafter", "keephistorydays", "haspersonaldata" ]
         ]);
 
     OBJECT ARRAY typestoreload := [ this ];
@@ -894,6 +900,9 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       INSERT CELL requiretype_right := newmetadata.linkto INTO newmetadata;
       DELETE CELL linkto FROM newmetadata;
     }
+
+    IF (CellExists(newmetadata, "deleteclosedafter") AND newmetadata.deleteclosedafter < 0)
+      THROW NEW Exception(`Cannot delete closed entities after a negative time period`);
 
     IF (CellExists(newmetadata, "keephistorydays") AND newmetadata.keephistorydays < 0)
       THROW NEW Exception(`Cannot keep changes for a negative time period`);
@@ -953,7 +962,6 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       @cell(boolean) return.isrequired Whether this a required attribute
       @cell(boolean) return.isunique Whether values in this attribute must be unique (when present)
       @cell(boolean) return.isinherited
-      @cell(integer) return.keephistorydays
       @cell(string) return.localtag
       @cell(integer) return.maxlength
       @cell(boolean) return.checklinks
