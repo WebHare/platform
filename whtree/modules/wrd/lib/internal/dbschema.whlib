@@ -40,6 +40,7 @@ PUBLIC SCHEMA
     , INTEGER "requiretype_right" NULL := 0
     , INTEGER "parenttype" NULL := 0
     , BOOLEAN "abstract"
+    , INTEGER "deleteclosedafter"
     , INTEGER "keephistorydays"
     , BOOLEAN "haspersonaldata"
     ; KEY id

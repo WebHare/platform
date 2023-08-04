@@ -120,7 +120,7 @@
     <xs:attribute name="title" type="xs:string" />
     <xs:attribute name="description" type="xs:string" />
     <xs:attribute name="parent" type="Name" />
-    <xs:attribute name="deleteclosedafter" /> <!-- reserved for future use -->
+    <xs:attribute name="deleteclosedafter" type="xs:integer" />
     <xs:attribute name="keephistorydays" type="xs:integer" />
     <xs:attribute name="haspersonaldata" type="xs:boolean" />
     <xs:anyAttribute namespace="##other" processContents="lax"/>

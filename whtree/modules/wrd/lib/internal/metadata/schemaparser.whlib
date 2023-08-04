@@ -73,6 +73,7 @@ CONSTANT RECORD basetype :=
   , title := ""
   , parenttype_tag := ""
   , description := ""
+  , deleteclosedafter := 0
   , keephistorydays := 0
   , haspersonaldata := FALSE
   , attrs := RECORD[]
@@ -133,6 +134,7 @@ STATIC OBJECTTYPE ParsedSchemaDef
               , title := typenode->GetAttribute("title")
               , parenttype_tag := ToUppercase(typenode->GetAttribute("parent"))
               , description := typenode->GetAttribute("description")
+              , deleteclosedafter := ParseXSInt(typenode->GetAttribute("deleteclosedafter"))
               , keephistorydays := ParseXSInt(typenode->GetAttribute("keephistorydays"))
               , haspersonaldata := ParseXSBoolean(typenode->GetAttribute("haspersonaldata"))
               , linkfrom_tag := which IN ["attachment","link"] ? ToUppercase(typenode->GetAttribute("linkfrom")) : ""
@@ -160,6 +162,9 @@ STATIC OBJECTTYPE ParsedSchemaDef
 
       IF(typenode->HasAttribute("haspersonaldata"))
         type.haspersonaldata := ParseXSBoolean(typenode->GetAttribute("haspersonaldata"));
+
+      IF(typenode->HasAttribute("deleteclosedafter"))
+        type.deleteclosedafter := ParseXSInt(typenode->GetAttribute("deleteclosedafter"));
 
       IF(typenode->HasAttribute("keephistorydays"))
         type.keephistorydays := ParseXSInt(typenode->GetAttribute("keephistorydays"));

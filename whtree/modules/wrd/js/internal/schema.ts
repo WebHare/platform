@@ -11,6 +11,7 @@ const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible 
 interface WRDTypeConfigurationBase {
   metaType: WRDMetaType;
   title?: string;
+  deleteClosedAfter?: number;
   keepHistoryDays?: number;
   hasPersonalData?: boolean;
 }
@@ -35,6 +36,9 @@ interface WRDDomainTypeConfiguration extends WRDTypeConfigurationBase {
 }
 
 type WRDTypeConfiguration = WRDObjectTypeConfiguration | WRDAttachmentTypeConfiguration | WRDLinkTypeConfiguration | WRDDomainTypeConfiguration;
+
+// Updatable type metadata
+type WRDTypeMetadata = Omit<WRDTypeConfiguration, "metaType">;
 
 interface WRDAttributeConfiguration {
   attributeType: WRDAttributeType;
@@ -92,6 +96,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
       requiretype_right: right,
       metatype: config.metaType,
       //TODO parenttype, abstract, hasperonaldata defaulting to TRUE for WRD_PERSON (but shouldn't the base schema do that?)
+      deleteclosedafter: config.deleteClosedAfter || 0,
       keephistorydays: config.keepHistoryDays || 0,
       haspersonaldata: config.hasPersonalData || false
     };
@@ -119,10 +124,14 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   }
 
   async __getTypeTag(type: number): Promise<string | null> {
-    const schemaobj = await this.getWRDSchema();
-    const typelist = await schemaobj.ListTypes() as Array<{ id: number; tag: string }>;
+    const typelist = await this.__listTypes();
     const match = typelist.find(t => t.id === type);
     return match ? tagToJS(match.tag) : null;
+  }
+
+  async __listTypes() {
+    const schemaobj = await this.getWRDSchema();
+    return await schemaobj.ListTypes() as Array<{ id: number; tag: string }>;
   }
 
   private getWRDSchemaCache(): CoVMSchemaCache {
@@ -222,6 +231,11 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
 
   async _getType() {
     return this.schema[getWRDSchemaType](this.tag, false);
+  }
+
+  async updateMetadata(newmetadata: Partial<WRDTypeMetadata>) {
+    await extendWorkToCoHSVM();
+    await (await this._getType()).updateMetadata(newmetadata);
   }
 
   async createEntity(value: Updatable<S[T]>): Promise<number> {

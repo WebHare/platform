@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -84,6 +85,8 @@ trans->CommitWork();
 trans->BeginWork();
 CleanupAllWRDTemporaries();
 trans->CommitWork();
+
+WaitForPromise(ImportJs("mod::wrd/js/internal/tasks.ts")->cleanupOutdatedEntities());
 
 trans->BeginWork();
 CleanupOutdatedChanges();

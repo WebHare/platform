@@ -484,6 +484,12 @@
         </d:documentation>
       </d:integer>
 
+      <d:integer name="deleteclosedafter">
+        <d:documentation>
+          Delete closed entities of this type after this number of days.
+        </d:documentation>
+      </d:integer>
+
       <d:integer name="keephistorydays">
         <d:documentation>
           Keep changes to entities of this type for this number of days.
