@@ -30,16 +30,21 @@ return await func(param.data);
 /** doc1 */
 
 /** doc2 */
-OBJECTTYPE EMTransactionCursor EXTEND TransactionCursorBase
-<
+STATIC OBJECTTYPE EMTransactionCursor EXTEND TransactionCursorBase
+< RECORD query;
   INTEGER ofs;
   RECORD ARRAY alldata;
+  RECORD ARRAY rowsdata;
 
   MACRO NEW(OBJECT trans, RECORD query)
   {
+    this->query := query;
     this->ofs := 0;
-    this->alldata := CallImpl("cbExecuteQuery", query);
+    RECORD res := CallImpl("cbExecuteQuery", query);
+    this->alldata := res.tabledata;
+    this->rowsdata := res.rowsdata;
     DumpValue(this->alldata, "boxed");
+    DumpValue(this->rowsdata, "boxed");
   }
   UPDATE PUBLIC MACRO RetrieveNextBlock()
   {
@@ -54,9 +59,19 @@ OBJECTTYPE EMTransactionCursor EXTEND TransactionCursorBase
   {
     RETURN STRING[];
   }
+  UPDATE PUBLIC MACRO DeleteRecord(INTEGER row)
+  {
+    CallImpl("cbDeleteRecord", CELL[ this->query, row, rowdata := this->rowsdata[row] ]);
+  }
+
+  UPDATE PUBLIC MACRO UpdateRecord(INTEGER row, RECORD newfields)
+  {
+    DumpValue(CELL[ row, newfields], [ name := "updaterecord" ]);
+    THROW NEW Exception("LowLevelCursor::UpdateRecord not implemented");
+  }
 >;
 
-OBJECTTYPE EMTransaction EXTEND TransactionBase
+STATIC OBJECTTYPE EMTransaction EXTEND TransactionBase
 <
   PUBLIC INTEGER forwardtransid;
 
@@ -236,7 +251,18 @@ OBJECTTYPE ExtraForwards
 PUBLIC OBJECT FUNCTION CreateWASMPostgreSQLTransaction(RECORD transinfo)
 {
   OBJECT trans := NEW EMTransaction;
-  OBJECT forward := CreateForwardingLoopbackTransactionFromObject(trans, CELL[]);
+  OBJECT forward := CreateForwardingLoopbackTransactionFromObject(trans, CELL[],
+      [ supports_block_cursors := false
+      , supports_single := true // unused!!
+      , supports_data_modify := true
+      , supports_nulls := true
+      , supports_limit := true
+      , needs_locking_and_recheck := false
+      , fase2_locks_implicitly := true
+      , needs_uppercase_names := false
+      , max_joined_tables := 0
+      , max_multiinsertrows := 64
+      ]);
   trans->forwardtransid := forward->id;
   EXTEND __HS_INTERNAL_MakeObjectReferencePrivileged(forward) BY ExtraForwards(trans);
   RETURN forward;

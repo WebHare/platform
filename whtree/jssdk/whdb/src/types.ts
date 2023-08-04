@@ -46,6 +46,13 @@ export const MoneyType: DataType = {
   },
 };
 
+export const ArrayMoneyType: DataType = {
+  ...MoneyType,
+  name: "_numeric",
+  oid: DataTypeOIDs._numeric,
+  elementsOID: DataTypeOIDs.numeric,
+};
+
 export const Float8Type: DataType = {
   name: "float8",
   oid: DataTypeOIDs.float8,
@@ -71,4 +78,55 @@ export const ArrayFloat8Type: DataType = {
   name: "_float8",
   oid: DataTypeOIDs._float8,
   elementsOID: DataTypeOIDs.float8,
+};
+
+export interface Tid {
+  block: number;
+  offset: number;
+}
+
+const TID_PATTERN = /^\((\d+),(\d+)\)$/;
+
+export const TidType: DataType = {
+  name: "tid",
+  oid: DataTypeOIDs.tid,
+  jsType: "object",
+
+  parseBinary(v: Buffer): Tid {
+    return {
+      block: v.readUint32BE(0),
+      offset: v.readUint16BE(4),
+    };
+  },
+
+  encodeBinary(buf: SmartBuffer, v: Tid): void {
+    buf.writeUInt32BE(v.block);
+    buf.writeUInt16BE(v.offset);
+  },
+
+  parseText(v: string): Tid | undefined {
+    const m = v.match(TID_PATTERN);
+    if (!m) return undefined;
+    return {
+      block: parseInt(m[1]),
+      offset: parseInt(m[2]),
+    };
+  },
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  isType(v: any): boolean {
+    return (
+      typeof v === "object" &&
+      Object.keys(v).length === 2 &&
+      typeof v.block === "number" &&
+      typeof v.offset === "number"
+    );
+  },
+};
+
+export const ArrayTidType: DataType = {
+  ...TidType,
+  name: "_tid",
+  oid: DataTypeOIDs._tid,
+  elementsOID: DataTypeOIDs.tid,
 };

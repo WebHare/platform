@@ -16,9 +16,9 @@ PUBLIC OBJECTTYPE LoopbackCursor EXTEND TransactionCursorBase
 
 
 PUBLIC OBJECTTYPE LoopbackTransaction EXTEND TransactionBase
-< MACRO NEW()
+< MACRO NEW(RECORD description DEFAULTSTO DEFAULT RECORD)
   {
-    INTEGER id := __HS_SQL_LBDB_REGISTER(this);
+    INTEGER id := __HS_SQL_LBDB_REGISTER(this, description);
     this->RegisterTransaction(id);
   }
 
@@ -102,7 +102,8 @@ OBJECTTYPE ForwardingLoopbackTransaction EXTEND LoopbackTransaction
   RECORD itf;
   PUBLIC RECORD clientdata;
 
-  MACRO NEW(RECORD itf, RECORD clientdata)
+  MACRO NEW(RECORD itf, RECORD clientdata, RECORD description DEFAULTSTO DEFAULT RECORD)
+  : LoopbackTransaction(description)
   {
     this->itf := itf;
     this->clientdata := clientdata;
@@ -473,18 +474,18 @@ PUBLIC RECORD FUNCTION GetTransactionFLTRecordInterface(OBJECT transaction)
       ];
 }
 
-PUBLIC OBJECT FUNCTION CreateForwardingLoopbackTransactionFromObject(OBJECT trans, RECORD clientdata)
+PUBLIC OBJECT FUNCTION CreateForwardingLoopbackTransactionFromObject(OBJECT trans, RECORD clientdata, RECORD description DEFAULTSTO DEFAULT RECORD)
 {
-  RETURN CreateForwardingLoopbackTransactionFromFLTRecordInterface(GetTransactionFLTRecordInterface(trans), clientdata);
+  RETURN CreateForwardingLoopbackTransactionFromFLTRecordInterface(GetTransactionFLTRecordInterface(trans), clientdata, description);
 }
 
-PUBLIC OBJECT FUNCTION CreateForwardingLoopbackTransactionFromFLTRecordInterface(RECORD itf, RECORD clientdata)
+PUBLIC OBJECT FUNCTION CreateForwardingLoopbackTransactionFromFLTRecordInterface(RECORD itf, RECORD clientdata, RECORD description DEFAULTSTO DEFAULT RECORD)
 {
   IF (NOT RecordExists(itf))
     RETURN DEFAULT OBJECT;
 
-  RETURN NEW ForwardingLoopbackTransaction(itf, clientdata);
+  RETURN NEW ForwardingLoopbackTransaction(itf, clientdata, description);
 }
 
-INTEGER FUNCTION __HS_SQL_LBDB_REGISTER(OBJECT trans) __ATTRIBUTES__(EXTERNAL);
+INTEGER FUNCTION __HS_SQL_LBDB_REGISTER(OBJECT trans, RECORD description) __ATTRIBUTES__(EXTERNAL);
 MACRO __HS_SQL_LBDB_UNREGISTER(INTEGER transid) __ATTRIBUTES__(EXTERNAL);
