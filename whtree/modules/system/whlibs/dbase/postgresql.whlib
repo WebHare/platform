@@ -13,6 +13,7 @@ LOADLIB "wh::util/comparisons.whlib";
 LOADLIB "wh::internal/lockingtransbase.whlib";
 LOADLIB "wh::internal/transbase.whlib";
 LOADLIB "wh::internal/transservices.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 
 /*
 
@@ -1834,6 +1835,9 @@ STRING FUNCTION CalculateApplicationName()
 
 PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTSTO DEFAULT RECORD)
 {
+  IF(IsWasm()) //FIXME once stable, get rid of MakeFunctionPtr to reduce out-of-date risk error (but while developing we don't like the recompile)
+    RETURN MakeFunctionPtr("mod::system/js/internal/whdb/wasm_pgsql.whlib#CreateWASMPostgreSQLTransaction")(transinfo);
+
   // Use GetEnvironmentVariable to we don't need to loadlib the system module
   transinfo := ValidateOptions(
       [ dbasefolder :=  MergePath(GetEnvironmentVariable("WEBHARE_DATAROOT"), "postgresql")

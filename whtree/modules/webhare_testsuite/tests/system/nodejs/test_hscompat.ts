@@ -8,7 +8,7 @@ import * as test from "@webhare/test";
 import { Money } from "@webhare/std";
 import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime } from "@webhare/hscompat";
 import { compare } from "@webhare/hscompat/algorithms";
-import { BoxedFloat, determineType, getTypedArray, IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { getTypedArray, IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 
 function testStrings() {
   //based on test_operators.whscr LikeTest
@@ -92,10 +92,6 @@ async function testCompare() {
   test.eq(1, compare(new Date(-1), null));
   test.eq(1, compare(new Date(0), null));
   test.eq(1, compare(new Date(1), null));
-}
-
-async function testBoxing() {
-  test.eq(VariableType.Float, determineType(new BoxedFloat(2.5)));
 }
 
 async function testRecordLowerBound() {
@@ -305,7 +301,7 @@ function testHSON() {
 
   //TODO should we be able to explicitly encode as variant array ? testHSONEnDeCode('hson:va[1,2,3]', [ 1,2,3 ]);
   testHSONEnDeCode('hson:ia[1,2,3]', [1, 2, 3]);
-  testHSONEnDeCode('hson:fa[f 13,f 11111111111111]', [13, 11111111111111]);
+  testHSONEnDeCode('hson:i64a[i64 13,i64 11111111111111]', [13n, 11111111111111n]);
   testHSONEnDeCode('hson:fa[f 1e308,f 1e-308,f -1e308,f -1e-308,f 0.0001]', [1e308, 1e-308, -1e308, -1e-308, 0.0001]);
 
   // Large blob, len not dividable by 3
@@ -322,7 +318,6 @@ function testHSON() {
 test.run([
   testStrings,
   testCompare,
-  testBoxing,
   testRecordLowerBound,
   testRecordUpperBound,
   testHSON

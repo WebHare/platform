@@ -78,8 +78,6 @@ class BLEXLIB_PUBLIC WHFileSystem : public HareScript::FileSystem
         ///Allow us to directly invoke whcompile
         bool allow_direct_compilations;
 
-        static bool ParseError(const char* start, const char* limit, HareScript::ErrorHandler *handler);
-
         bool ManualRecompile(std::string const &_liburi, HareScript::ErrorHandler *handler, bool force);
 
         RecompileResult RecompileInternal(Blex::ContextKeeper &keeper, std::string const &_liburi, bool /*isloadlib*/, CompilationPriority::Class priorityclass, bool allow_manual_recompilation, bool force, HareScript::ErrorHandler *errorhandler);

@@ -12,3 +12,6 @@ HSVM_CallObjectMethod
 HSVM_ThrowException
 HSVM_ThrowExceptionObject
 HSVM_ExecuteScript
+HSVM_LoadScript
+HSVM_MakeFunctionPtrInternal
+HSVM_MakeFunctionPtrAutoDetect

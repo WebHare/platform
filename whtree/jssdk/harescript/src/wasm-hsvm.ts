@@ -45,7 +45,8 @@ function parseError(line: string) {
   };
 }
 
-export async function recompileHarescriptLibrary(uri: string, options?: { force: boolean }) {
+///compile library, return raw fetch result
+export async function recompileHarescriptLibraryRaw(uri: string, options?: { force: boolean }) {
   try {
     // console.log(`recompileHarescriptLibrary`, uri);
 
@@ -58,17 +59,19 @@ export async function recompileHarescriptLibrary(uri: string, options?: { force:
     // console.log({ res });
 
     if (res.status === 200 || res.status === 403) {
-      const text = await res.text();
-      // console.log({ text });
-      const lines = text.split("\n").filter(line => line);
-      // console.log('recompileresult:', res.status, lines);
-      return lines.map(line => parseError(line));
+      return await res.text();
     }
     throw new Error(`Could not contact HareScript compiler, status code ${res.status}`);
   } catch (e) {
     console.log({ recompileerror: e });
     throw e;
   }
+}
+
+export async function recompileHarescriptLibrary(uri: string, options?: { force: boolean }) {
+  const text = await recompileHarescriptLibraryRaw(uri, options);
+  const lines = text.split("\n").filter(line => line);
+  return lines.map(line => parseError(line));
 }
 
 export class HarescriptVM {
@@ -106,6 +109,11 @@ export class HarescriptVM {
       return id;
     this.wasmmodule.stringToUTF8(name, this.columnnamebuf, 64);
     return this.columnNameIdMap[name] = this.wasmmodule._HSVM_GetColumnId(this.hsvm, this.columnnamebuf);
+  }
+
+  allocateVariable(): HSVMVar {
+    const id = this.wasmmodule._HSVM_AllocateVariable(this.hsvm);
+    return new HSVMVar(this, id);
   }
 
   quickParseVariable(variable: HSVM_VariableId): IPCMarshallableData {
@@ -158,7 +166,7 @@ export class HarescriptVM {
       const maxTries = 5;
       for (let tryCounter = 0; tryCounter < maxTries; ++tryCounter) {
         this.wasmmodule._HSVM_SetDefault(this.hsvm, this.errorlist, VariableType.RecordArray as HSVM_VariableType);
-        const fptrresult = this.wasmmodule._HSVM_LoadScript(this.hsvm, lib_str);
+        const fptrresult = await this.wasmmodule._HSVM_LoadScript(this.hsvm, lib_str);
         if (fptrresult)
           return; //Success!
 
@@ -189,9 +197,10 @@ export class HarescriptVM {
     this.wasmmodule._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
     const parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
     if (parsederrors.length) {
+      const errors = parsederrors.filter(e => e.iserror).map(e => e.message);
       const trace = parsederrors.filter(e => e.istrace).map(e =>
         `\n    at ${e.func} (${e.filename}:${e.line}:${e.col})`).join("");
-      throw new Error(`Error executing script: ${parsederrors[0].message + trace}`);
+      throw new Error(`Error executing script: ${errors.join("\n") + trace}`);
     } else
       throw new Error(`Error executing script`);
   }
@@ -203,7 +212,7 @@ export class HarescriptVM {
       const maxTries = 5;
       for (let tryCounter = 0; tryCounter < maxTries; ++tryCounter) {
         this.wasmmodule._HSVM_SetDefault(this.hsvm, this.errorlist, VariableType.RecordArray as HSVM_VariableType);
-        const fptrresult = this.wasmmodule._HSVM_MakeFunctionPtrAutoDetect(this.hsvm, fptr, lib_str, name_str, this.errorlist);
+        const fptrresult = await this.wasmmodule._HSVM_MakeFunctionPtrAutoDetect(this.hsvm, fptr, lib_str, name_str, this.errorlist);
         switch (fptrresult) {
           case 0:
           case -2: {

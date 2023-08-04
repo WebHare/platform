@@ -360,9 +360,9 @@ function unifyEltTypes(a: VariableType, b: VariableType): VariableType {
     return b;
   if ((a === VariableType.Float || a === VariableType.HSMoney || a === VariableType.Integer64) && b === VariableType.Integer)
     return a;
-  if (a === VariableType.Float && b === VariableType.HSMoney)
+  if (a === VariableType.Float && (b === VariableType.HSMoney || b === VariableType.Integer64))
     return a;
-  if (a === VariableType.HSMoney && b === VariableType.Float)
+  if ((a === VariableType.HSMoney || a === VariableType.Integer64) && b === VariableType.Float)
     return b;
   return VariableType.Variant;
 }
@@ -408,7 +408,7 @@ export function determineType(value: unknown): VariableType {
       if (value === Math.floor(value)) {
         if (value >= -2147483648 && value < 2147483648)
           return VariableType.Integer;
-        return VariableType.Float;
+        return VariableType.Integer64;
       }
       return VariableType.Float;
     }

@@ -6,16 +6,28 @@ import { Money } from "@webhare/std";
 import { WHDBBlob } from "@webhare/whdb";
 import { isWHDBBlob } from "@webhare/whdb/src/blobs";
 
+function canCastTo(from: VariableType, to: VariableType): boolean {
+  if (from === to)
+    return true;
+  if (from === VariableType.Integer && to === VariableType.Integer64)
+    return true;
+  return false;
+}
+
 export class HSVMVar {
   vm: HarescriptVM;
   id: HSVM_VariableId;
-  type: VariableType | undefined;
+  private type: VariableType | undefined;
 
   constructor(vm: HarescriptVM, id: HSVM_VariableId) {
     this.vm = vm;
     this.id = id;
   }
 
+  getType() {
+    this.type ??= this.vm.wasmmodule._HSVM_GetType(this.vm.hsvm, this.id);
+    return this.type;
+  }
   checkType(type: VariableType) {
     this.type ??= this.vm.wasmmodule._HSVM_GetType(this.vm.hsvm, this.id);
     if (this.type !== type)
@@ -41,7 +53,9 @@ export class HSVMVar {
     this.checkType(VariableType.Integer64);
     return this.vm.wasmmodule._HSVM_Integer64Get(this.vm.hsvm, this.id);
   }
-  setInteger64(value: bigint) {
+  setInteger64(value: number | bigint) {
+    if (typeof value === "number")
+      value = BigInt(value);
     this.vm.wasmmodule._HSVM_Integer64Set(this.vm.hsvm, this.id, value);
     this.type = VariableType.Integer64;
   }
@@ -128,6 +142,10 @@ export class HSVMVar {
     const eltid = this.vm.wasmmodule._HSVM_ArrayAppend(this.vm.hsvm, this.id);
     return new HSVMVar(this.vm, eltid);
   }
+  arrayGetRef(index: number) {
+    const eltid = this.vm.wasmmodule._HSVM_ArrayGetRef(this.vm.hsvm, this.id, index);
+    return eltid ? new HSVMVar(this.vm, eltid) : null;
+  }
   ensureCell(name: string) {
     this.type ??= this.vm.wasmmodule._HSVM_GetType(this.vm.hsvm, this.id);
     if (this.type !== VariableType.Record)
@@ -141,9 +159,13 @@ export class HSVMVar {
     this.setJSValueInternal(value, VariableType.Variant);
   }
   private setJSValueInternal(value: unknown, forcetype: VariableType): void {
-    const type = determineType(value);
-    if (forcetype !== VariableType.Variant && type !== forcetype)
-      throw new Error(`Cannot use a ${VariableType[type]} here, a ${VariableType[forcetype]} is required`);
+    let type = determineType(value);
+    if (forcetype !== VariableType.Variant) {
+      if (!canCastTo(type, forcetype))
+        throw new Error(`Cannot use a ${VariableType[type]} here, a ${VariableType[forcetype]} is required`);
+      type = forcetype;
+    }
+
     switch (type) {
       case VariableType.VariantArray: break;
       case VariableType.BooleanArray: break;
@@ -162,7 +184,7 @@ export class HSVMVar {
         return;
       } break;
       case VariableType.Integer64: {
-        this.setInteger64(value as bigint);
+        this.setInteger64(value as number | bigint);
         return;
       } break;
       case VariableType.Boolean: {
@@ -206,8 +228,9 @@ export class HSVMVar {
     if (type & VariableType.Array) {
       const itemtype = type !== VariableType.VariantArray ? type & ~VariableType.Array : VariableType.Variant;
       this.setDefault(type);
-      for (const item of value as unknown[])
+      for (const item of value as unknown[]) {
         this.arrayAppend().setJSValueInternal(item, itemtype);
+      }
       return;
     }
     throw new Error(`Encoding ${VariableType[type]} not supported yet`);

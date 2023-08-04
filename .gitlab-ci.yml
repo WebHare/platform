@@ -11,7 +11,7 @@ services:
   - docker:dind
 
 variables:
-  GIT_SUBMODULE_STRATEGY: recursive
+  GIT_SUBMODULE_STRATEGY: normal
 
 stages:
   - build
@@ -27,6 +27,8 @@ default:
     - docker logout $CI_REGISTRY
 
 builddocker:
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
   stage: build
   except:
     - schedules
@@ -35,6 +37,8 @@ builddocker:
   interruptible: true
 
 builddocker-scheduled:
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
   stage: build
   only:
     - schedules
