@@ -200,6 +200,11 @@ STATIC OBJECTTYPE EMTransaction EXTEND TransactionBase
     RETURN this->MakeAutoNumbers(schemaname, tablename, columnname, 1)[0];
   }
 
+  UPDATE PUBLIC BOOLEAN FUNCTION IsWorkOpen()
+  {
+    RETURN CallImpl("cbIsWorkOpen", DEFAULT RECORD);
+  }
+
   UPDATE PUBLIC INTEGER ARRAY FUNCTION MakeAutoNumbers(STRING schemaname, STRING tablename, STRING columnname, INTEGER amount)
   {
     IF (NOT this->IsWorkOpen())

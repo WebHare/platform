@@ -16,8 +16,15 @@ PUBLIC OBJECTTYPE LoopbackCursor EXTEND TransactionCursorBase
 
 
 PUBLIC OBJECTTYPE LoopbackTransaction EXTEND TransactionBase
-< MACRO NEW(RECORD description DEFAULTSTO DEFAULT RECORD)
+<
+  BOOLEAN pvt_allowerrordelay;
+
+  PUBLIC PROPERTY allowerrordelay(pvt_allowerrordelay, pvt_allowerrordelay);
+
+  MACRO NEW(RECORD description DEFAULTSTO DEFAULT RECORD)
   {
+    this->pvt_allowerrordelay := TRUE;
+
     INTEGER id := __HS_SQL_LBDB_REGISTER(this, description);
     this->RegisterTransaction(id);
   }
@@ -32,6 +39,7 @@ PUBLIC OBJECTTYPE LoopbackTransaction EXTEND TransactionBase
     __HS_SQL_LBDB_UNREGISTER(this->id);
     this->UnregisterTransaction();
   }
+
 >;
 
 
@@ -175,6 +183,11 @@ OBJECTTYPE ForwardingLoopbackTransaction EXTEND LoopbackTransaction
   UPDATE PUBLIC INTEGER FUNCTION MakeAutonumber(STRING schemaname, STRING tablename, STRING columnname)
   {
     RETURN this->itf.MakeAutonumber(schemaname, tablename, columnname);
+  }
+
+  UPDATE PUBLIC INTEGER64 FUNCTION MakeAutonumber64(STRING schemaname, STRING tablename, STRING columnname)
+  {
+    RETURN this->itf.MakeAutonumber64(schemaname, tablename, columnname);
   }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION Commit()
@@ -393,6 +406,10 @@ INTEGER FUNCTION WLT_MakeAutonumber(INTEGER transid, STRING s, STRING tablename,
 {
   RETURN GetTransObject(transid)->MakeAutonumber(s, tablename, columnname);
 }
+INTEGER64 FUNCTION WLT_MakeAutonumber64(INTEGER transid, STRING s, STRING tablename, STRING columnname)
+{
+  RETURN GetTransObject(transid)->MakeAutonumber64(s, tablename, columnname);
+}
 
 
 RECORD ARRAY FUNCTION WLT_Commit(INTEGER transid)
@@ -462,6 +479,7 @@ PUBLIC RECORD FUNCTION GetTransactionFLTRecordInterface(OBJECT transaction)
       , columnexists :=         PTR WLT_ColumnExists(id, #1, #2, #3)
       , indexexists :=          PTR WLT_IndexExists(id, #1, #2, #3)
       , makeautonumber :=       PTR WLT_MakeAutonumber(id, #1, #2, #3)
+      , makeautonumber64 :=     PTR WLT_MakeAutonumber64(id, #1, #2, #3)
       , commit :=               PTR WLT_Commit(id)
       , rollback :=             PTR WLT_Rollback(id)
       , close :=                PTR WLT_Close(id)
