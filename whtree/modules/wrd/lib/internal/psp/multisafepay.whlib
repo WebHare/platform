@@ -229,11 +229,13 @@ PUBLIC STATIC OBJECTTYPE MultiSafePayPaymentProvider EXTEND WRDPaymentProviderBa
                                                            FROM paymentmethod.orderlines)
                                              ]
                           , checkout_options := [ "default" := [ "shipping_taxed" := "true"
-                                                               , "rate" := "0.21"
+                                                               , "rate" := 0.21
                                                                ]
                                                 , tax_tables := [[ alternate := SELECT standalone := "true"
                                                                                      , name := "BTW" || FormatMoney(vatpercentage, 0, ".", "", FALSE)
-                                                                                     , rules := [[ rate := FormatMoney(vatpercentage/100m, 0, ".", "", FALSE) ]]
+                                                                                     , rules := [[ rate := vatpercentage/100m
+                                                                                                 ]
+                                                                                                ]
                                                                                   FROM paymentmethod.orderlines
                                                                               GROUP BY vatpercentage
                                                                 ]]
