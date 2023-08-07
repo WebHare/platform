@@ -1386,7 +1386,7 @@
       <text tid="feedbackform">Feedback</text>
       <text tid="feedbacksubmitted">Feedback is submitted</text>
       <text tid="from">From</text>
-      <text tid="hideauthormode">Verberg redactietools</text>
+      <text tid="hideauthormode">Hide authoring tools</text>
       <text tid="openinwebhare">Open in WebHare</text>
       <text tid="remarks">Description</text>
       <text tid="remarks-placeholder">Please describe the problem as clear as possible</text>
