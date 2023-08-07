@@ -528,7 +528,7 @@ PUBLIC MACRO UpdateSchema(OBJECT local_schema, RECORD schemadef, RECORD options 
       local_type->UpdateMetadata([parenttype := req_parent]);
     }
 
-    IF (r.left.deleteclosedafter != r.right.deleteclosedafter)
+    IF (CellExists(r.right, "deleteclosedafter") AND r.left.deleteclosedafter != r.right.deleteclosedafter)
       local_type->UpdateMetadata(CELL[ r.right.deleteclosedafter ]);
 
     IF (r.left.keephistorydays != r.right.keephistorydays)
