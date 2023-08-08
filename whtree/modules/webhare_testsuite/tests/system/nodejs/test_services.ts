@@ -125,18 +125,6 @@ async function testMutex() {
   const mutex2lock = await services.lockMutex("test:mutex2", { timeout: 0 });
   test.assert(mutex2lock);
   mutex2lock.release();
-
-  //Attempt to lock from HareScript and then to get that lock to ensure we're speaking the same namespace
-  const lockingvm = await openHSVM();
-  const hs_lockmgr = await lockingvm.loadlib("mod::system/lib/services.whlib").openLockManager() as HSVMObject;
-  const hs_mutex2lock = await hs_lockmgr.lockMutex("test:mutex2") as HSVMObject;
-  test.assert(hs_mutex2lock);
-
-  test.eq(null, await services.lockMutex("test:mutex2", { timeout: 10 }));
-  const mutex2lock2promise = services.lockMutex("test:mutex2");
-  hs_mutex2lock.release();
-  const mutex2lock2 = await mutex2lock2promise;
-  (await mutex2lock2).release();
 }
 
 async function testEvents() {
@@ -394,6 +382,21 @@ async function runBackendServiceTest_HS() {
   //TestEq([ value := 42 ], testdata); */
 }
 
+async function testMutexVsHareScript() {
+  //Attempt to lock from HareScript and then to get that lock to ensure we're speaking the same namespace
+  //We have to do this through a service to ensure we're not testing against an in-process HSVM
+  const serverinstance: any = await services.openBackendService("webhare_testsuite:webhareservicetest", ["x"]);
+  await serverinstance.lockMutex("test:mutex2");
+
+  test.eq(null, await services.lockMutex("test:mutex2", { timeout: 10 }));
+  const mutex2lock2promise = services.lockMutex("test:mutex2");
+  await serverinstance.lockMutex("");
+
+  const mutex2lock2 = await mutex2lock2promise;
+  (await mutex2lock2).release();
+}
+
+
 async function readLog(name: string): Promise<GenericLogLine[]> {
   return readJSONLogLines(name, test.startTime, null);
 }
@@ -479,5 +482,6 @@ test.run(
     testServiceTimeout,
     runBackendServiceTest_JS,
     runBackendServiceTest_HS,
+    testMutexVsHareScript,
     testLogs
   ], { wrdauth: false });
