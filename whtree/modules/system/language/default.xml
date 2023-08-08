@@ -1580,6 +1580,8 @@
         <text tid="notavailable">Not available</text>
         <text tid="nowrunning">Now active</text>
         <text tid="properties">Properties</text>
+        <text tid="rescheduleallfailed">Reschedule failed</text>
+        <text tid="rescheduledfailedtasks"><param p="1"/> failed task(s) have been rescheduled</text>
         <text tid="running">Running</text>
         <text tid="scheduletasknow">Schedule task now</text>
         <text tid="script">Script</text>

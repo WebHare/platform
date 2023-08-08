@@ -1,4 +1,4 @@
-import { beginWork, commitWork, db, __getConnection, rollbackWork, uploadBlob } from "@webhare/whdb";
+import { beginWork, commitWork, db, __getConnection, rollbackWork, uploadBlob, isWorkOpen } from "@webhare/whdb";
 import { AliasedRawBuilder, RawBuilder, sql } from 'kysely';
 import { BoxedFloat, BoxedDefaultBlob, VariableType, getTypedArray, isWebHareBlob } from "../whmanager/hsmarshalling";
 import { FullPostgresQueryResult } from "@webhare/whdb/src/connection";
@@ -470,6 +470,10 @@ export async function cbExecuteQuery(query: Query) {
 
 
   return { tabledata, rowsdata };
+}
+
+export async function cbIsWorkOpen() {
+  return isWorkOpen();
 }
 
 export async function cbDoBeginWork() {

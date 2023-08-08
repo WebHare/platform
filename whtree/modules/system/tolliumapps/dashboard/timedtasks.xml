@@ -10,6 +10,7 @@
       <action name="scheduletasknow" onexecute="doscheduletasknow">
         <enableon source="tasks" min="1" max="1" checkflags="isenabled" />
       </action>
+      <action name="rescheduleallfailed" onexecute="dorescheduleallfailed" />
     </actions>
 
     <menus>
@@ -22,21 +23,41 @@
     <body spacers="none">
       <split type="vertical">
         <part height="1pr">
-          <list name="tasks"
-                borders="none"
-                flags="isenabled"
-                openaction="taskproperties"
-                selectcontextmenu="taskmenu"
-                selectmode="single">
-            <column name="tag" type="text" width="1pr" iconname="icon" tid="~tag" />
-            <column name="running" type="icon" />
-            <column name="nexttime" type="datetime" width="16x" storeutc="true" />
-            <column name="description" type="text" width="2pr" />
-          </list>
+          <grid height="1pr">
+            <cell width="1pr">
+              <list name="tasks"
+                    borders="right"
+                    defaultbutton="taskpropertiesbutton"
+                    eventmasks="system:internal.scantasks"
+                    flags="isenabled"
+                    ongetrows="ongettasks"
+                    openaction="taskproperties"
+                    selectcontextmenu="taskmenu"
+                    selectmode="single">
+                <column name="tag" type="text" width="1pr" iconname="icon" tid="~tag" />
+                <column name="running" type="icon" />
+                <column name="nexttime" type="datetime" width="16x" storeutc="true" />
+                <column name="description" type="text" width="2pr" />
+              </list>
+            </cell>
+            <cell spacers="left top right">
+              <button width="1pr" action="scheduletasknow" />
+              <button name="taskpropertiesbutton" width="1pr" action="taskproperties" tid="~properties" />
+              <spacer height="1gr" />
+              <button width="1pr" action="rescheduleallfailed" />
+            </cell>
+          </grid>
         </part>
         <part height="10x">
-          <heading tid=".nowrunning" />
-          <list name="runningtasks" borders="top right bottom" selectmode="single" sortcolumn="starttime">
+          <panel spacers="left">
+            <heading tid=".nowrunning" />
+          </panel>
+          <list name="runningtasks"
+                borders="top right bottom"
+                eventmasks="system:internal.scantasks"
+                ongetrows="ongetrunningtasks"
+                selectmode="single"
+                sortcolumn="starttime">
             <column name="script" type="text" />
             <column name="tag" type="text" />
             <column name="starttime" type="datetime" width="18x" precision="seconds" storeutc="true" />

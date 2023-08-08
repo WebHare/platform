@@ -1394,6 +1394,8 @@
         <text tid="notavailable">Niet beschikbaar</text>
         <text tid="nowrunning">Nu actief</text>
         <text tid="properties">Eigenschappen</text>
+        <text tid="rescheduleallfailed">Mislukte taken herinplannen</text>
+        <text tid="rescheduledfailedtasks"><param p="1"/> mislukte taak/taken zijn opnieuw ingepland</text>
         <text tid="running">Draait</text>
         <text tid="scheduletasknow">Plan taak nu in</text>
         <text tid="script">Script</text>

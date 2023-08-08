@@ -15,8 +15,8 @@ PUBLIC STATIC OBJECTTYPE TimedTasks EXTEND DashboardPanelBase
 <
   UPDATE PUBLIC MACRO RefreshDashboardPanel()
   {
-    ^tasks->rows := this->GetTasks();
-    ^runningtasks->rows := this->GetRunningTasks();
+    ^tasks->Invalidate();
+    ^runningtasks->Invalidate();
   }
 
   MACRO OnMessage(RECORD message)
@@ -41,7 +41,7 @@ PUBLIC STATIC OBJECTTYPE TimedTasks EXTEND DashboardPanelBase
     RETURN ^tasks->GetIcon(iconname);
   }
 
-  RECORD ARRAY FUNCTION GetTasks()
+  RECORD ARRAY FUNCTION OnGetTasks()
   {
     RECORD ARRAY newlist := SELECT TEMPORARY isenabled := enabled AND inapplicable = ""
                                  , error
@@ -56,12 +56,14 @@ PUBLIC STATIC OBJECTTYPE TimedTasks EXTEND DashboardPanelBase
                                  , isenabled := isenabled //this one is conditional on 'inapplicable'
                                  , listrowclasses := isenabled ? STRING[] : STRING["grayedout"]
                                  , tag := Substitute(tag, '.', ':') //database records them with a '.' because that's how old WebHares initially stored the tags
+                                 , canreschedulefailed := isenabled AND error != "" AND nexttime > GetCurrentDatetime()
                               FROM system_internal.tasks;
 
+    ^rescheduleallfailed->enabled := RecordExists(SELECT FROM newlist WHERE canreschedulefailed);
     RETURN SELECT *, icon := this->GetTaskIcon(newlist) FROM newlist;
   }
 
-  RECORD ARRAY FUNCTION GetRunningTasks()
+  RECORD ARRAY FUNCTION OnGetRunningTasks()
   {
     RECORD ARRAY newlist;
 
@@ -93,8 +95,7 @@ PUBLIC STATIC OBJECTTYPE TimedTasks EXTEND DashboardPanelBase
 
   MACRO DoTaskProperties()
   {
-    this->LoadScreen(".taskproperties", [ id := ^tasks->value ])->RunModal();
-    this->RefreshDashboardPanel();
+    this->RunScreen("#taskproperties", [ id := ^tasks->value ]);
   }
 
   MACRO DoScheduleTaskNow()
@@ -102,12 +103,19 @@ PUBLIC STATIC OBJECTTYPE TimedTasks EXTEND DashboardPanelBase
     OBJECT work := this->BeginWork();
     UPDATE system_internal.tasks SET nexttime := GetCurrentDatetime() WHERE id = ^tasks->value;
     GetPrimary()->BroadcastOnCommit("system:internal.scantasks", DEFAULT RECORD);
+    work->AddWarning(this->GetTid(".taskscheduled"));
     work->Finish();
-    this->RefreshDashboardPanel();
-
-    this->RunSimpleScreen("info", this->GetTid(".taskscheduled"));
   }
 
+  MACRO DoRescheduleAllFailed()
+  {
+    RECORD ARRAY toreschedule := SELECT * FROM ^tasks->rows WHERE canreschedulefailed;
+    OBJECT work := this->BeginWork();
+    UPDATE system_internal.tasks SET nexttime := GetCurrentDatetime() WHERE id IN (SELECT AS INTEGER ARRAY rowkey FROM toreschedule);
+    work->AddWarning(this->GetTid(".rescheduledfailedtasks", ToString(Length(toreschedule))));
+    GetPrimary()->BroadcastOnCommit("system:internal.scantasks", DEFAULT RECORD);
+    work->Finish();
+  }
 >;
 
 PUBLIC STATIC OBJECTTYPE taskproperties EXTEND TolliumScreenBase
