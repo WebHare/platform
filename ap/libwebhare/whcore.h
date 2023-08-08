@@ -98,7 +98,6 @@ class BLEXLIB_PUBLIC ManagerConnection
         void Thread();
         void RegisterSelf(Database::TCPConnection &conn);
         void HandleInput(Blex::PipeWaiter *waiter, IOBufferPtr *inbuf);
-        void SendConnectedEvent();
         void SendUpdatedSystemConfigEvent();
         std::pair< bool, bool > HandleControlLinkMessage(ControlLinkData &linkdata, HareScript::IPCMessage2 &msg);
         bool HandleExtLinkMessage(Blex::PipeWaiter &waiter, ExtLinkData &linkdata, HareScript::IPCMessage2 &msg);

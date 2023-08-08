@@ -380,13 +380,6 @@ MACRO OnSoftReset(STRING event, RECORD data)
     RunStartupScripts("");
 }
 
-MACRO OnWHManagerRetransected(STRING event, RECORD data)
-{
-  // Configure logfiles when retransected to whmanager
-  ReadConfiguration();
-  ReconfigureLogFiles();
-}
-
 STRING FUNCTION HandleOutput(BOOLEAN iserror, STRING input, RECORD task)
 {
   IF(input NOT LIKE "*\n*")
@@ -749,7 +742,6 @@ __INTERNAL_KeepPortGlobal(port);
 RegisterHandleReadCallback(port->handle, PTR GotIncomingLink);
 
 RegisterEventCallback("system:softreset", PTR OnSoftReset);
-RegisterEventCallback("system:whmanager.transected", PTR OnWHManagerRetransected);
 RegisterEventCallback("system:internal.scantasks", PTR OnScanTasks);
 ReadConfiguration();
 

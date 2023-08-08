@@ -899,20 +899,6 @@ bool ManagerConnection::HandleExtLinkMessage(Blex::PipeWaiter &waiter, ExtLinkDa
         return result;
 }
 
-void ManagerConnection::SendConnectedEvent()
-{
-        DEBUGPRINT("Sending WHManager connected event");
-
-        using namespace HareScript;
-        stackm.RecordInitializeEmpty(composevar);
-
-        auto evt = std::make_shared< Blex::NotificationEvent >("system:whmanager.connected");
-        marshaller.WriteToPodVector(composevar, &evt->payload);
-
-        // Send a local event
-        notificationeventmgr.QueueEventNoExport(evt);
-}
-
 void ManagerConnection::SendUpdatedSystemConfigEvent()
 {
         DEBUGPRINT("Sending systemconfig updated event");
@@ -1525,10 +1511,6 @@ void ManagerConnection::Thread()
                         RPCCOMM_PRINT("Registered self, now fully connected");
                         LockedMgrData::WriteRef(mgrdata)->connected = true;
                         mgrdata.SignalAll();
-
-                        // Notify everybody that the whmanager is there
-                        SendConnectedEvent();
-
 
                         // Go handle communications
                         ConnectedLoop(newconn);
