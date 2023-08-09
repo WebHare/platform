@@ -92,6 +92,7 @@ export class HareScriptVM {
   objectCache;
   mutexes: Array<Mutex | null> = [];
   currentgroup: string | undefined; //set on first use
+  pipeWaiters = new Map<Ptr, object>;
 
   constructor(module: WASMModule) {
     this.wasmmodule = module;
