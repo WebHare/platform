@@ -8,6 +8,7 @@ import createModule from "../../../lib/harescript";
 import { registerBaseFunctions } from "./wasm-hsfunctions";
 import { WASMModule } from "./wasm-modulesupport";
 import { HSVMVar } from "./wasm-hsvmvar";
+import { HSCallsProxy, HSVMLibraryProxy, HSVMObjectCache } from "./wasm-proxies";
 
 
 const dispatchlibrary = "mod::system/js/internal/wasm/dispatch.whlib";
@@ -87,9 +88,11 @@ export class HarescriptVM {
   stringptrs: Ptr;
   consoleArguments: string[];
   columnNameIdMap: Record<string, HSVM_ColumnId> = {};
+  objectCache;
 
   constructor(module: WASMModule) {
     this.wasmmodule = module;
+    this.objectCache = new HSVMObjectCache(this);
     module.itf = this;
     this.hsvm = module._CreateHSVM();
     module.initVM(this.hsvm);
@@ -98,6 +101,11 @@ export class HarescriptVM {
     this.columnnamebuf = module._malloc(65);
     this.stringptrs = module._malloc(8); // 2 string pointers
     this.consoleArguments = [];
+  }
+
+  //Bridge-based HSVM compatibillty. Report the number of Proxies still alive
+  __getNumRemoteUnmarshallables() {
+    return this.objectCache.countObjects();
   }
 
   checkType(variable: HSVM_VariableId, expectType: VariableType) {
@@ -216,6 +224,11 @@ export class HarescriptVM {
     }
   }
 
+  loadlib(name: string): HSCallsProxy {
+    const proxy = new Proxy({}, new HSVMLibraryProxy(this, name)) as HSCallsProxy;
+    return proxy;
+  }
+
   async executeScript(): Promise<void> {
     const executeresult = await this.wasmmodule._HSVM_ExecuteScript(this.hsvm, 1, 0);
     if (executeresult === 1)
@@ -254,6 +267,7 @@ export class HarescriptVM {
               if (recompileres.length)
                 throw new Error(`Error during compilation of ${lib}: ` + recompileres[0].message);
             } else {
+              console.error(parsederrors);
               throw new Error(`Error loading library ${lib}: ${parsederrors[0].message || "Unknown error"}`);
             }
           } break;
@@ -284,6 +298,62 @@ export class HarescriptVM {
     return params;
   }
 
+  /** @param functionref - Function to call
+      @param isfunction - Whether to call a function or macro
+   */
+  async callWithHSVMVars(functionref: string, params: HSVMVar[], object?: HSVM_VariableId): Promise<HSVMVar | void> { //TODO shouldn't we replace doCall ?
+    const parts = functionref.split("#");
+    if (!object && parts.length !== 2)
+      throw new Error(`Illegal function reference ${JSON.stringify(functionref)}`);
+
+    const callfuncptr = this.allocateVariable();
+    try {
+      this.wasmmodule._HSVM_OpenFunctionCall(this.hsvm, params.length);
+      for (const [idx, param] of params.entries())
+        this.wasmmodule._HSVM_CopyFrom(this.hsvm, this.wasmmodule._HSVM_CallParam(this.hsvm, idx), param.id);
+
+      let retvalid, wasfunction;
+      if (object) {
+        const colid = this.getColumnId(functionref);
+        retvalid = await this.wasmmodule._HSVM_CallObjectMethod(this.hsvm, object, colid, 0, /*allow macro=*/1);
+        //HSVM_CallObjectMethod simply returns an uninitialized value when dealing with a macro
+        wasfunction = retvalid !== 0 && this.wasmmodule._HSVM_GetType(this.hsvm, retvalid) !== VariableType.Uninitialized;
+      } else {
+        //HSVM_CAllFucnctionPtr returns FALSE for a MACRO so inspect the actual returntype
+        await this.makeFunctionPtr(callfuncptr.id, parts[0], parts[1]);
+        const returntypecolumn = this.getColumnId("returntype");
+        const returntypecell = this.wasmmodule._HSVM_RecordGetRef(this.hsvm, callfuncptr.id, returntypecolumn);
+        const returntype = this.wasmmodule._HSVM_IntegerGet(this.hsvm, returntypecell);
+        wasfunction = ![0, 2].includes(returntype);
+        retvalid = await this.wasmmodule._HSVM_CallFunctionPtr(this.hsvm, callfuncptr.id, /*allow macro=*/1);
+      }
+
+      if (!retvalid) {
+        this.wasmmodule._HSVM_CloseFunctionCall(this.hsvm);
+        this.throwVMErrors();
+      }
+
+      const retval = wasfunction ? this.allocateVariable() : undefined;
+      if (retval)
+        this.wasmmodule._HSVM_CopyFrom(this.hsvm, retval.id, retvalid);
+      this.wasmmodule._HSVM_CloseFunctionCall(this.hsvm);
+      return wasfunction ? retval : undefined;
+    } finally {
+      this.wasmmodule._HSVM_DeallocateVariable(this.hsvm, callfuncptr.id);
+    }
+  }
+
+  private throwVMErrors(): never {
+    const errorlist = this.wasmmodule._HSVM_AllocateVariable(this.hsvm);
+    this.wasmmodule._HSVM_SetDefault(this.hsvm, errorlist, VariableType.RecordArray as HSVM_VariableType);
+    this.wasmmodule._HSVM_GetMessageList(this.hsvm, errorlist, 1);
+    const parsederrors = this.quickParseVariable(errorlist) as MessageList;
+    console.error(parsederrors);
+    const trace = parsederrors.filter(e => e.istrace).map(e =>
+      `\n    at ${e.func} (${e.filename}:${e.line}:${e.col})`).join("");
+    throw new Error((parsederrors[0].message ?? "Unknown error") + trace);
+  }
+
   private async doCall(functionref: string, isfunction: boolean, params: IPCMarshallableData[]): Promise<IPCMarshallableData> {
     const parts = functionref.split("#");
     if (parts.length !== 2)
@@ -304,7 +374,6 @@ export class HarescriptVM {
       await this.makeFunctionPtr(callfuncptr, parts[0], parts[1]);
 
       // console.log(`clear errorlist`);
-      this.wasmmodule._HSVM_SetDefault(this.hsvm, this.errorlist, VariableType.RecordArray as HSVM_VariableType);
 
       const hson = encodeHSON(marshaldata);
       const len = this.wasmmodule.lengthBytesUTF8(hson);
@@ -323,11 +392,7 @@ export class HarescriptVM {
       // console.log({ retvalid });
       if (!retvalid) {
         this.wasmmodule._HSVM_CloseFunctionCall(this.hsvm);
-        this.wasmmodule._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
-        const parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
-        const trace = parsederrors.filter(e => e.istrace).map(e =>
-          `\n    at ${e.func} (${e.filename}:${e.line}:${e.col})`).join("");
-        throw new Error((parsederrors[0].message ?? "Unknown error") + trace);
+        this.throwVMErrors();
       } else {
         const retval = this.quickParseVariable(retvalid);
         this.wasmmodule._HSVM_CloseFunctionCall(this.hsvm);
@@ -347,6 +412,26 @@ export class HarescriptVM {
   }
   async callMacro(functionref: string, ...params: IPCMarshallableData[]): Promise<void> {
     await this.doCall(functionref, false, params);
+  }
+
+  async createPrintCallback(text: string): Promise<HSVMVar> {
+    const printcallback = this.allocateVariable();
+    const printptr = this.allocateVariable();
+    await this.makeFunctionPtr(printptr.id, "wh::system.whlib", "Print");
+
+    const textholder = this.allocateVariable();
+    textholder.setString(text);
+    const bound = this.wasmmodule._malloc(4); //alllocate 1 ptr
+    const sources = this.wasmmodule._malloc(4); //alllocate 1 ptr
+    this.wasmmodule.setValue(bound, textholder.id, "i32");
+    this.wasmmodule.setValue(sources, 0, "i32");
+    this.wasmmodule._HSVM_RebindFunctionPtr(this.hsvm, printcallback.id, printptr.id, 1, 0, sources, bound, 0, 0);
+    this.wasmmodule._free(bound);
+    this.wasmmodule._free(sources);
+    this.wasmmodule._HSVM_DeallocateVariable(this.hsvm, textholder.id); //FIXME HSVMVar should be able to clean up
+    this.wasmmodule._HSVM_DeallocateVariable(this.hsvm, printptr.id); //FIXME HSVMVar should be able to clean up
+
+    return printcallback;
   }
 }
 
