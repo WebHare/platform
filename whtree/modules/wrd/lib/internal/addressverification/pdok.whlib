@@ -13,12 +13,12 @@ LOADLIB "mod::wrd/lib/components/addressvalidation.whlib";
 
 
 /*
-  Documentation: https://github.com/PDOK/locatieserver/wiki/API-Locatieserver
-  testurls: https://geodata.nationaalgeoregister.nl/locatieserver/v3/suggest?q=%22Sint%20Jac%22%20Utre%20and%20type:adres
-            https://geodata.nationaalgeoregister.nl/locatieserver/v3/suggest?q=postcode:%221645PN%22
+  Documentation: https://api.pdok.nl/bzk/locatieserver/search/v3_1/ui/
+  testurls: https://api.pdok.nl/bzk/locatieserver/search/v3_1/suggest?q=%22Sint%20Jac%22%20Utre%20and%20type:adres
+            https://api.pdok.nl/bzk/locatieserver/search/v3_1/suggest?q=postcode:%221645PN%22
 */
 
-STRING apiurl := "https://geodata.nationaalgeoregister.nl/locatieserver/v3/";
+STRING apiurl := "https://api.pdok.nl/bzk/locatieserver/search/v3_1/";
 
 PUBLIC STATIC OBJECTTYPE PDOKLocationServerAPI EXTEND WRDNLAddressVerificationBase
 <
