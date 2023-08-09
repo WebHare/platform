@@ -1224,7 +1224,7 @@ PUBLIC STATIC OBJECTTYPE QueueManagerBase
   }
 >;
 
-OBJECTTYPE ConsilioQueueManager EXTEND QueueManagerBase
+STATIC OBJECTTYPE ConsilioQueueManager EXTEND QueueManagerBase
 < // ---------------------------------------------------------------------------
   //
   // Variables
@@ -1361,14 +1361,6 @@ OBJECTTYPE ConsilioQueueManager EXTEND QueueManagerBase
           IF (ObjectExists(ipc_conn))
           {
             RECORD status := this->GetStatus(data);
-            ipc_conn->SendReply(status, ipc_msgid);
-          }
-        }
-        CASE "STATUS2"
-        {
-          IF (ObjectExists(ipc_conn))
-          {
-            RECORD status := this->GetStatus2(data);
             ipc_conn->SendReply(status, ipc_msgid);
           }
         }
@@ -2025,11 +2017,6 @@ OBJECTTYPE ConsilioQueueManager EXTEND QueueManagerBase
       this->AddToQueue(data);
     }
 
-    IF (CellExists(data.configuration, "debuglevel") AND data.configuration.debuglevel != this->debuglevel)
-    {
-      //this->debuglevel := data.configuration.debuglevel;
-      //FIXME broadcast like above to all fetchers, but does that work?   TODO just migrate fetchers to use standard debugflags too
-    }
     IF (CellExists(data.configuration, "maxtasktime") AND data.configuration.maxtasktime * 1000 != this->maxwait)
     {
       DebugLog("Setting maximum task time to " || data.configuration.maxtasktime || " seconds");
