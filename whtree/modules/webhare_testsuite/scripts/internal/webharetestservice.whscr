@@ -6,6 +6,7 @@ LOADLIB "wh::promise.whlib";
 
 LOADLIB "mod::system/lib/services.whlib";
 
+OBJECT lock;
 
 PUBLIC OBJECTTYPE ClusterTestLink EXTEND WebHareServiceProxyBase
 <
@@ -49,6 +50,17 @@ PUBLIC OBJECTTYPE ClusterTestLink EXTEND WebHareServiceProxyBase
   {
     AWAIT CreateSleepPromise(50);
     RETURN CELL[ arg1, arg2 ];
+  }
+  PUBLIC MACRO LockMutex(STRING name)
+  {
+    IF(ObjectExists(lock))
+    {
+      lock->Release();
+      lock := DEFAULT OBJECT;
+    }
+
+    IF(name != "")
+      lock := OpenLockManager()->LockMutex(name);
   }
 >;
 

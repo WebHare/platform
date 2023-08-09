@@ -15,16 +15,22 @@ export function init() {
 /* invoked by crypto.whlib:
     RETURN DecodeBase64(EM_SYSCALL("getHash", CELL[ data := EncodeBase64(BlobToString(data)), algorithm, key_salt ]).base64);
 */
-export function getHash(params: { data: string; algorithm: string; key_salt: string }): { base64: string } {
+export function getHash(params: { text?: string; data?: string; algorithm: string; key_salt: string }): { base64: string } {
   switch (params.algorithm) {
     case "MD5": {
       const hasher = crypto.createHash("md5");
-      hasher.update(params.data, "base64");
+      if (params.data)
+        hasher.update(params.data, "base64");
+      else
+        hasher.update(params.text!, "utf8");
       return { base64: hasher.digest("base64") };
     }
     case "SHA-1": {
       const hasher = crypto.createHash("sha1");
-      hasher.update(params.data, "base64");
+      if (params.data)
+        hasher.update(params.data, "base64");
+      else
+        hasher.update(params.text!, "utf8");
       return { base64: hasher.digest("base64") };
     }
   }

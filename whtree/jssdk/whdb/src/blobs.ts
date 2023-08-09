@@ -100,20 +100,6 @@ export function createPGBlob(pgdata: string): WHDBBlob {
 
   return new WHDBBlobImplementation(tokenized[1], parseInt(tokenized[2]));
 }
-
-export function buildBlobFromPGPath(testpath: string, size: number): WHDBBlob | null {
-  const storageroot = path.join(getBlobStoragepath(), "blob");
-  if (!testpath.startsWith(storageroot))
-    return null;
-
-  const subpath = testpath.substring(storageroot.length);
-  const tokenized = subpath.match(/^\/([0-9a-f]{2})\/([0-9a-f]{32})$/);
-  if (!tokenized)
-    return null;
-
-  return new WHDBBlobImplementation("AAAB" + tokenized[2], size);
-}
-
 export const BlobType: DataType = {
   name: "webhare_internal.webhare_blob",
   oid: 0, // we'll lookup after connecting
