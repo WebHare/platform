@@ -1,5 +1,5 @@
 import * as crypto from "node:crypto";
-import { config } from "@webhare/services";
+import { backendConfig } from "@webhare/services";
 import * as vm from 'node:vm';
 
 /* Syscalls are simple APIs for HareScript to reach into JS-native functionality that would otherwise be supplied by
@@ -39,9 +39,9 @@ export function getHash(params: { text?: string; data?: string; algorithm: strin
 
 export function webHareConfig() {
   return {
-    servertype: config.dtapstage,
-    servername: config.servername,
-    primaryinterfaceurl: config.backendURL,
+    servertype: backendConfig.dtapstage,
+    servername: backendConfig.servername,
+    primaryinterfaceurl: backendConfig.backendURL,
     __eventmasks: [
       "system:registry.system.global",
       "system:whfs.sitemeta.16" //site 16 (WebHare backend) tells us where the primaryinterfaceurl is

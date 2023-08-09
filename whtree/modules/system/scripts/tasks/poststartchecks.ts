@@ -2,7 +2,7 @@
 
 import { existsSync, mkdirSync, writeFileSync } from "fs";
 import { join } from "path";
-import { config, toFSPath } from "@webhare/services";
+import { backendConfig, toFSPath } from "@webhare/services";
 
 // TODO tikacache should perhaps be droppable too, but it has little churn and we're not guaranteed to quickly recover opensearch databases right now..
 
@@ -10,7 +10,7 @@ import { config, toFSPath } from "@webhare/services";
 // Ensure cache dirs are tagged
 for (const cachefolder of [
   toFSPath("storage::system/output/uc"),
-  join(config.dataroot, "ephemeral")
+  join(backendConfig.dataroot, "ephemeral")
 ]) {
   mkdirSync(cachefolder, { recursive: true });
 

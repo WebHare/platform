@@ -1,7 +1,7 @@
 import type { HSVM, HSVM_VariableId, WASMModuleInterface, Ptr, StringPtr } from "../../../lib/harescript-interface";
 import * as path from "node:path";
 import * as fs from "node:fs";
-import { config, toFSPath } from "@webhare/services";
+import { backendConfig, toFSPath } from "@webhare/services";
 import { HSVMVar } from "./wasm-hsvmvar";
 import { recompileHarescriptLibraryRaw, type HarescriptVM } from "./wasm-hsvm";
 import { VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
@@ -10,7 +10,7 @@ const wh_namespace_location = "mod::system/whlibs/";
 function translateDirectToModURI(directuri: string) {
   if (directuri.startsWith("direct::")) { //it's actually a direct::
     const directpath = directuri.substring(8);
-    for (const [modulename, modconfig] of Object.entries(config.module))
+    for (const [modulename, modconfig] of Object.entries(backendConfig.module))
       if (directpath.startsWith(modconfig.root))
         return `mod::${modulename}/${directpath.substring(modconfig.root.length)}`;
   }
@@ -129,19 +129,19 @@ export class WASMModule extends WASMModuleBase {
   }
 
   getTempDir() {
-    return process.env.WEBHARE_TEMP || path.join(config.dataroot || "tmp/");
+    return process.env.WEBHARE_TEMP || path.join(backendConfig.dataroot || "tmp/");
   }
 
   getWHResourceDir() {
-    return path.join(config.installationroot, "modules/system/whres/");
+    return path.join(backendConfig.installationroot, "modules/system/whres/");
   }
 
   getDataRoot() {
-    return config.dataroot;
+    return backendConfig.dataroot;
   }
 
   getInstallationRoot() {
-    return config.installationroot;
+    return backendConfig.installationroot;
   }
 
   getCompileCache() {
@@ -149,7 +149,7 @@ export class WASMModule extends WASMModuleBase {
     if (cache && !cache.endsWith("/"))
       cache += "/";
     else if (!cache) {
-      cache = config.dataroot + "ephemeral/compilecache/";
+      cache = backendConfig.dataroot + "ephemeral/compilecache/";
     }
     return cache;
   }
@@ -226,7 +226,7 @@ export class WASMModule extends WASMModuleBase {
         //See if /include/ exists, otherwise we'll go for lib (lib is considered default)
         let useinclude = false;
 
-        const modroot = config.module[modulename]?.root;
+        const modroot = backendConfig.module[modulename]?.root;
         if (modroot) {
           const trylib = modroot + "include/" + libname.substring(firstslash + 1);
           useinclude = fs.existsSync(trylib);
