@@ -29,6 +29,8 @@
       </menu>
       <menu name="noselectionmenu">
         <item name="additem" action="add" tid="~add" />
+
+        <!-- added actions appear here -->
       </menu>
     </menus>
     <contents>
@@ -50,9 +52,9 @@
             <button name="addbutton" width="1pr" action="add" tid="~add" />
             <button name="editbutton" width="1pr" action="edit" tid="~edit" />
             <button name="deletebutton" width="1pr" action="delete" tid="~delete" />
-            <panel spacers="top">
-              <button name="moveupbutton" width="1pr" action="moveup" tid="~up" visible="false" />
-              <button name="movedownbutton" width="1pr" action="movedown" tid="~down" visible="false" />
+            <panel name="movebuttons" spacers="top" visible="false">
+              <button width="1pr" action="moveup" tid="~up" />
+              <button width="1pr" action="movedown" tid="~down" />
             </panel>
             <panel name="extrabuttons" spacers="top" visible="false" />
           </cell>
