@@ -198,7 +198,7 @@ PUBLIC OBJECTTYPE EmbedVideoComponent EXTEND TolliumFragmentBase
       ^preview->enabled := TRUE;
       ^clear->enabled := NOT this->readonly AND NOT this->required;
 
-      ^previewbutton->visible := this->enabled;
+      ^previewbutton->visible := TRUE;
       ^clearbutton->visible := this->enabled AND ^clear->enabled;
     }
     ELSE
