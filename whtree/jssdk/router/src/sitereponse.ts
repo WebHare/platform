@@ -37,7 +37,7 @@ export class SiteResponse<T extends object = object> {
   settings: SiteResponseSettings;
   protected contents = "";
   private rendering = false;
-  private insertions: Partial<Record<InsertPoints, Insertable[]>> = {};
+  protected insertions: Partial<Record<InsertPoints, Insertable[]>> = {};
 
   /** The pageConfig. Not protected because we assume that if you know it's type T, its on you if you access it */
   pageConfig: T;
@@ -167,7 +167,7 @@ export class SiteResponse<T extends object = object> {
     return page;
   }
 
-  private async renderInserts(point: InsertPoints) {
+  protected async renderInserts(point: InsertPoints) {
     let output = '';
     for (const insert of this.insertions[point]!) {
       if (typeof insert === "string")
