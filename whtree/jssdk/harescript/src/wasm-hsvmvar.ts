@@ -32,7 +32,6 @@ class HSVMBlob implements WebHareBlob {
       throw new Error(`This blob has already been closed`);
 
     const buffer = this.vm.wasmmodule._malloc(this.size);
-    console.error("OPENING", this.id);
     const openblob = this.vm.wasmmodule._HSVM_BlobOpen(this.vm.hsvm, this.id);
 
     try {
@@ -254,6 +253,14 @@ export class HSVMVar {
     this.setJSValueInternal(value, VariableType.Variant);
   }
   private setJSValueInternal(value: unknown, forcetype: VariableType): void {
+    if (value instanceof HSVMVar) {
+      if (forcetype !== VariableType.Variant && forcetype !== value.getType())
+        throw new Error(`Cannot use a ${VariableType[value.getType()]} here, a ${VariableType[forcetype]} is required`);
+
+      this.copyFrom(value as HSVMVar);
+      return;
+    }
+
     let type = determineType(value);
     if (forcetype !== VariableType.Variant) {
       if (!canCastTo(type, forcetype))
@@ -380,6 +387,12 @@ export class HSVMVar {
           value[this.vm.getColumnName(columnid)] = (new HSVMVar(this.vm, cell)).getJSValue();
         }
         return value;
+      }
+      case VariableType.Object: {
+        if (!this.vm.wasmmodule._HSVM_ObjectExists(this.vm.hsvm, this.id))
+          return null; //TODO or a boxed default object?
+
+        return this.vm.objectCache.ensureObject(this.id);
       }
       default: {
         throw new Error(`Decoding ${VariableType[type]} not supported yet`);

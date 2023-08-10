@@ -249,7 +249,7 @@ STATIC OBJECTTYPE WHFSCommitHandler EXTEND TransactionFinishHandlerBase
 
     IF(Length(this->completions) > 0 OR this->checksitesettings)
     {
-      OBJECT eventcompletionlink := ConnectToManagedPort("system:eventcompletion", "webserver");
+      OBJECT eventcompletionlink := ConnectToGlobalIPCPort("system:eventcompletion");
       IF(ObjectExists(eventcompletionlink))
       {
         eventcompletionlink->SendMessage( CELL[ type := "newcompletions",  data := this->completions, this->checksitesettings ]);

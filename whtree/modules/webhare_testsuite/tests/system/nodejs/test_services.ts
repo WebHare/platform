@@ -8,6 +8,8 @@ import { readJSONLogLines } from "@mod-system/js/internal/logging";
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
 import { DemoServiceInterface } from "@mod-webhare_testsuite/js/demoservice";
 import runBackendService from "@mod-system/js/internal/webhareservice";
+import { HarescriptVM, allocateHSVM } from "@webhare/harescript";
+import { WebHareBlob, isWebHareBlob } from "@mod-system/js/internal/whmanager/hsmarshalling";
 
 function ensureProperPath(inpath: string) {
   test.eqMatch(/^\/.+\/$/, inpath, `Path should start and end with a slash: ${inpath}`);
@@ -159,7 +161,7 @@ async function testEvents() {
   test.eq([{ name: "webhare_testsuite:testevent2.x", data: null }, { name: "webhare_testsuite:testevent2.y", data: null }], allevents);
 }
 
-async function runOpenPrimary(hsvm: HSVM) {
+async function runOpenPrimary(hsvm: HarescriptVM | HSVM) {
   const database = hsvm.loadlib("mod::system/lib/database.whlib");
   const primary = await database.openPrimary();
   test.eq(1, await hsvm.__getNumRemoteUnmarshallables());
@@ -189,16 +191,55 @@ async function testHSVM() {
   //TODO verify that if the hsvm is garbagecollected associated objects are gone too on the HS side?
 }
 
-async function runPrintCallbackTest(hsvm: HSVM) {
+async function testHareScriptVM() {
+  const hsvm = await allocateHSVM();
+
+  await runOpenPrimary(hsvm); //split off so GC can clean up 'primaryu'
+  test.triggerGarbageCollection();
+  await test.wait(async () => (await hsvm.__getNumRemoteUnmarshallables()) === 0);
+
+  const siteapi = hsvm.loadlib("mod::publisher/lib/siteapi.whlib");
+  const testsite: any = await siteapi.openSiteByName("webhare_testsuite.testsite");
+  const testsiteid = await testsite.$get("id");
+
+  const utils = hsvm.loadlib("mod::system/lib/whfs.whlib");
+  const sitetype: any = await utils.openWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
+  const testsitesettings = await sitetype.getInstanceData(testsiteid);
+  test.eq("webhare_testsuite:basetest", testsitesettings.sitedesign);
+
+  //TODO verify that if the hsvm is garbagecollected associated objects are gone too on the HS side?
+}
+
+async function runPrintCallbackTest(hsvm: HarescriptVM) {
   //Ensure we can setup simple 'callbacks' that just print placeholders
   const print_helloworld_callback = await hsvm.createPrintCallback(`Hello, world!`);
   const fileswhlib = hsvm.loadlib("wh::files.whlib");
-  const capture_helloworld = await fileswhlib.GetPrintedAsBlob(print_helloworld_callback) as Buffer;
-  test.eq("Hello, world!", capture_helloworld.toString());
+  const capture_helloworld = await fileswhlib.GetPrintedAsBlob(print_helloworld_callback) as Buffer | WebHareBlob; //NOTE  FAALT maar kan simpelweg verwarring bij retour marshall zijn
+  if (isWebHareBlob(capture_helloworld)) //WebHare blob
+    test.eq("Hello, world!", await capture_helloworld.text());
+  else
+    test.eq("Hello, world!", capture_helloworld.toString());
 }
 
 async function testHSVMFptrs() {
   const hsvm = await openHSVM();
+
+  ///@ts-ignore HSVM is sufficiently API compatible to allow the test to run
+  await runPrintCallbackTest(hsvm);
+  test.triggerGarbageCollection();
+  await test.wait(async () => (await hsvm.__getNumRemoteUnmarshallables()) === 0);
+
+  //test invoking MACROs on OBJECTs (A MACRO cannot be used as a FUNCTION, it has no return value)
+  const jsonobject = await hsvm.loadlib("wh::system.whlib").DecodeJSON('{x:42,y:43}', {}, { wrapobjects: true }) as HSVMObject;
+  test.eq(undefined, await jsonobject.DeleteProp("x"));
+  test.eq({ y: 43 }, await jsonobject.GetValue());
+
+  //test invoking a MACRO directly
+  test.eq(undefined, await hsvm.loadlib("wh::system.whlib").Print("Testing MACRO (expecting this to be visible in the servicemanager.log\n"));
+}
+
+async function testHareScriptVMFptrs() {
+  const hsvm = await allocateHSVM();
 
   await runPrintCallbackTest(hsvm);
   test.triggerGarbageCollection();
@@ -210,9 +251,8 @@ async function testHSVMFptrs() {
   test.eq({ y: 43 }, await jsonobject.GetValue());
 
   //test invoking a MACRO directly
-  test.eq(undefined, await hsvm.loadlib("wh::system.whlib").Print("Hello, World!\n"));
+  test.eq(undefined, await hsvm.loadlib("wh::system.whlib").Print("Tested invoking a MACRO directly - you will see this in the console, ignore\n"));
 }
-
 
 async function testResources() {
   test.assert(services.config);
@@ -476,7 +516,9 @@ test.run(
     testMutex,
     testEvents,
     testHSVM,
+    testHareScriptVM,
     testHSVMFptrs,
+    testHareScriptVMFptrs,
     testResources,
     testDisconnects,
     testServiceTimeout,

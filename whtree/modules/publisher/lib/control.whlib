@@ -321,7 +321,7 @@ BOOLEAN FUNCTION IsFolderPublishing(OBJECT rootfolder, BOOLEAN accepterrors, INT
 */
 MACRO WaitForEventCompletions(DATETIME deadline)
 {
-  OBJECT eventcompletionlink := ConnectToManagedPort("system:eventcompletion", "webserver");
+  OBJECT eventcompletionlink := ConnectToGlobalIPCPort("system:eventcompletion");
   WHILE (TRUE)
   {
     /* A single request is usually enough for synchronization, because it handles all

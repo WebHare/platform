@@ -110,10 +110,6 @@ OBJECTTYPE LockManager
   OBJECT link;
 
 
-  /// Clientname
-  STRING pvt_clientname;
-
-
   /// List of currently locked mutexes
   STRING ARRAY pvt_lockedmutexes;
 
@@ -125,38 +121,14 @@ OBJECTTYPE LockManager
   // Properties
   //
 
-  /// @type(string) Name to identify this script with
-  PUBLIC PROPERTY clientname(pvt_clientname, SetClientName);
-
   // ---------------------------------------------------------------------------
   //
   // Constructor
   //
 
-  /** @param clientname Name of the client (to identify this script)
-  */
-  MACRO NEW(STRING clientname)
+  MACRO NEW()
   {
-    this->clientname := clientname ?? (SELECT AS STRING liburi FROM GetHarescriptLoadedLibraries());
     this->RequireConnection();
-  }
-
-  // ---------------------------------------------------------------------------
-  //
-  // Getters/setters
-  //
-
-  MACRO SetClientName(STRING clientname)
-  {
-    IF (this->pvt_clientname != clientname)
-    {
-      this->RequireConnection();
-      this->pvt_clientname := clientname;
-
-      RECORD res := this->link->SendMessage([ task := "setclientname", clientname := clientname, groupid := GetCurrentGroupId() ]);
-      IF (res.status != "ok")
-        THROW NEW Exception("Error sending messages to the mutual exclusion manager");
-    }
   }
 
   // ---------------------------------------------------------------------------
@@ -169,7 +141,8 @@ OBJECTTYPE LockManager
     IF (NOT ObjectExists(this->link))
     {
       this->link := ConnectToMutexManager();
-      RECORD rec := this->DoRequest([ task := "init", clientname := this->clientname, groupid := GetCurrentGroupId() ]);
+      STRING clientname := GetHarescriptLoadedLibraries()[0].liburi;
+      RECORD rec := this->DoRequest([ task := "init", clientname := clientname, groupid := GetCurrentGroupId() ]);
       IF (rec.status = "ok")
         this->logtraces := rec.msg.logtraces;
     }
@@ -400,9 +373,7 @@ PUBLIC OBJECT FUNCTION OpenLockManager()
      Deadlock detection is not implemented yet.
   */
   IF (NOT ObjectExists(lockmgr))
-  {
-    STRING clientname := "";//GetClientRemoteIp() || ":" || GetClientRemotePort() || " " || GetClientUsername();
-    lockmgr := NEW LockManager(clientname);
-  }
+    lockmgr := NEW LockManager;
+
   RETURN lockmgr;
 }
