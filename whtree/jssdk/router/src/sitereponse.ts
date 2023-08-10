@@ -18,15 +18,7 @@ export class SiteResponseSettings {
   supportedlanguages: string[] = [];
 }
 
-export enum InsertPoints {
-  DependenciesTop = "dependencies-top",
-  DependenciesBottom = "dependencies-bottom",
-  ContentTop = "content-top",
-  ContentBottom = "content-bottom",
-  BodyTop = "body-top",
-  BodyBottom = "body-bottom",
-  BodyDevBottom = "body-devbottom"
-}
+export type InsertPoints = "dependencies-top" | "dependencies-bottom" | "content-top" | "content-bottom" | "body-top" | "body-bottom" | "body-devbottom";
 
 type Insertable = string | (() => string | Promise<string>);
 
@@ -107,8 +99,8 @@ export class SiteResponse<T extends object = object> {
     //TODO do we (still) need all these roots?
     this.frontendConfig.siteroot = urlpointers.siteroot;
 
-    if (this.insertions[InsertPoints.DependenciesTop])
-      page += await this.renderInserts(InsertPoints.DependenciesTop);
+    if (this.insertions["dependencies-top"])
+      page += await this.renderInserts("dependencies-top");
 
     page += `<script type="application/json" id="wh-config">${JSON.stringify(this.frontendConfig)}</script>`;
 
@@ -122,8 +114,8 @@ export class SiteResponse<T extends object = object> {
     page += `<script src="${encodeAttr(bundlebaseurl)}ap.js" async></script>`;
 
 
-    if (this.insertions[InsertPoints.DependenciesBottom])
-      page += await this.renderInserts(InsertPoints.DependenciesBottom);
+    if (this.insertions["dependencies-bottom"])
+      page += await this.renderInserts("dependencies-bottom");
     //FIXME
     // IF(Length(this->structuredbreadcrumb) > 0)
     //   this->__PrintStructuredData();
@@ -145,8 +137,8 @@ export class SiteResponse<T extends object = object> {
 
     page += "</head><body>";
     //TODO do we still want body classes? html classes are always a better idea in the end..
-    if (this.insertions[InsertPoints.BodyTop])
-      page += await this.renderInserts(InsertPoints.BodyTop);
+    if (this.insertions["body-top"])
+      page += await this.renderInserts("body-top");
     page += body;
     page += await this.renderBodyFinale();
     page += "</body></html>";
@@ -155,8 +147,8 @@ export class SiteResponse<T extends object = object> {
 
   private async renderBodyFinale() {
     let page = '';
-    if (this.insertions[InsertPoints.BodyBottom])
-      page += await this.renderInserts(InsertPoints.BodyBottom);
+    if (this.insertions["body-bottom"])
+      page += await this.renderInserts("body-bottom");
 
     //TODO
     // IF(RecordExists(this->consiliofields))
@@ -169,8 +161,8 @@ export class SiteResponse<T extends object = object> {
     //   PrintInvokedWitties();
     //used by dev plugins to ensure they really run last and can catch any resources loaded by body-bottom
 
-    if (this.insertions[InsertPoints.BodyDevBottom])
-      page += await this.renderInserts(InsertPoints.BodyDevBottom);
+    if (this.insertions["body-devbottom"])
+      page += await this.renderInserts("body-devbottom");
 
     return page;
   }
@@ -201,11 +193,11 @@ export class SiteResponse<T extends object = object> {
 
   private async getContents(): Promise<string> {
     let contents = '';
-    if (this.insertions[InsertPoints.ContentTop])
-      contents += await this.renderInserts(InsertPoints.ContentTop);
+    if (this.insertions["content-top"])
+      contents += await this.renderInserts("content-top");
     contents += this.contents;
-    if (this.insertions[InsertPoints.ContentBottom])
-      contents += await this.renderInserts(InsertPoints.ContentBottom);
+    if (this.insertions["content-bottom"])
+      contents += await this.renderInserts("content-bottom");
     return contents;
   }
 
