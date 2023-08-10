@@ -352,10 +352,12 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     menuitem->action := action;
     IF(options.requireselection)
       action->enableon := [CELL[ min := 1, source := this->list, options.max, options.checkflags ]];
+    ELSE
+      INSERT [ menuitem := menuitem, isdivider := FALSE ] INTO this->noselectionmenu->items AT END;
+    INSERT [ menuitem := menuitem, isdivider := FALSE ] INTO this->selectionmenu->items AT END;
 
     this->extrabuttons->visible := TRUE;
     this->extrabuttons->InsertComponentAfter(button, DEFAULT OBJECT, TRUE);
-    INSERT [ menuitem := menuitem, isdivider := FALSE ] INTO this->selectionmenu->items AT END;
 
     INSERT CELL[ id := newactionid, button ] INTO this->addedactions AT END;
     RETURN newactionid;
@@ -370,8 +372,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
 
     this->moveupitem->visible := newonchangeorder != DEFAULT MACRO PTR;
     this->movedownitem->visible := newonchangeorder != DEFAULT MACRO PTR;
-    this->moveupbutton->visible := newonchangeorder != DEFAULT MACRO PTR;
-    this->movedownbutton->visible := newonchangeorder != DEFAULT MACRO PTR;
+    this->movebuttons->visible := newonchangeorder != DEFAULT MACRO PTR;
     this->flags := this->flags; //make sure flag definitions are updated to include moveup/movedown
     this->list->sortable := this->pvt_sortable AND newonchangeorder = DEFAULT MACRO PTR;
     this->RefreshActions();
