@@ -229,7 +229,7 @@ abstract class MultiInputSubstition {
 }
 
 export class DateField extends MultiInputSubstition {
-  constructor(inpnode, options) {
+  constructor(inpnode, options?) {
     options = {
       datepicker: true,
       resetcontrol: true,
@@ -510,7 +510,7 @@ export class DateField extends MultiInputSubstition {
 }
 
 export class TimeField extends MultiInputSubstition {
-  constructor(inpnode, options) {
+  constructor(inpnode, options?) {
     options = {
       resetcontrol: true,
       ...options
