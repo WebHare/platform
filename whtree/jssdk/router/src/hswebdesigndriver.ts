@@ -1,8 +1,12 @@
 import { HSVM, HSVMObject, openHSVM } from "@webhare/services/src/hsvm";
-import { createWebResponse } from "./response";
-import { SiteResponse, SiteResponseSettings } from "./sitereponse";
+import { WebResponse, createWebResponse } from "./response";
+import { InsertPoints, SiteResponse, SiteResponseSettings } from "./sitereponse";
 import type { SiteRequest } from "./siterequest";
 
+/* The HSWebdesignDriver:
+   - runs the original HareScript design first, with placeholders for insert/body positions
+   - invokes the JS page
+   - replaces the placeholders in the HS output with the JS output */
 class HSWebdesignDriver<T extends object> extends SiteResponse<T> {
   hsvm: HSVM;
   webdesign: HSVMObject;
@@ -13,19 +17,27 @@ class HSWebdesignDriver<T extends object> extends SiteResponse<T> {
     this.webdesign = webdesign;
   }
 
-  async finish() {
+  async finish(): Promise<WebResponse> {
     const fileswhlib = this.hsvm.loadlib("wh::files.whlib");
     const placeholder = "___PRINTME_PRINTME__" + Math.random();
 
     //TODO: use less of HS Webdesign and more of 'our' stuff (eg we should be invoking the design's htmlhead and htmlbody ?)
-    const printplaceholder = await this.hsvm.createPrintCallback(placeholder);
+    const printplaceholder = await this.hsvm.createPrintCallback(placeholder + "__body__");
     const stream = await fileswhlib.createStream();
     const oldoutput = await this.hsvm.loadlib("wh::system.whlib").redirectOutputTo(stream);
+    for (const insertpoint of ["dependencies-top", "dependencies-bottom", "content-top", "content-bottom", "body-top", "body-bottom", "body-devbottom"])
+      this.webdesign.InsertHTML(placeholder + "__" + insertpoint + "__", insertpoint);
+
     await this.webdesign.RunPageWithContents(printplaceholder);
     await this.hsvm.loadlib("wh::system.whlib").redirectOutputTo(oldoutput);
     const page = await fileswhlib.makeBlobFromStream(stream) as Buffer;
 
-    const pagebody = page.toString().replaceAll(placeholder, this.contents);
+    let pagebody = page.toString().replaceAll(placeholder + "__body__", this.contents);
+    for (const insertpoint of ["dependencies-top", "dependencies-bottom", "content-top", "content-bottom", "body-top", "body-bottom", "body-devbottom"]) {
+      const replacement = this.insertions[insertpoint as InsertPoints] ? await this.renderInserts(insertpoint as InsertPoints) : "";
+      pagebody = pagebody.replaceAll(placeholder + "__" + insertpoint + "__", replacement);
+    }
+
     return createWebResponse(pagebody);
   }
 }

@@ -1,4 +1,4 @@
-import { InsertPoints, SiteResponse } from "@webhare/router/src/sitereponse";
+import { SiteResponse } from "@webhare/router/src/sitereponse";
 import { ComposerHookFunction } from "@webhare/router/src/siterequest";
 
 interface GTMPluginData {
@@ -20,7 +20,7 @@ export function hookComposer(hookdata: GTMPluginData, composer: SiteResponse) {
   if (hookdata.integration === 'script' && hookdata.launch === 'pagerender') {
     //adding us as a simple script. our own JS has no control over when we get loaded but we follow the official source integration guide
     //hookdata.account is safe to embed without encoding if the above match passed.
-    composer.insertAt(InsertPoints.DependenciesTop,
+    composer.insertAt("dependencies-top",
       `<script>(function (w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='//www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','${hookdata.account}');</script>`);
   } else {
     composer.setPluginConfig("socialite:gtm", { a: hookdata.account, h: hookdata.integration === 'selfhosted', m: hookdata.launch === 'manual' });
@@ -28,7 +28,7 @@ export function hookComposer(hookdata: GTMPluginData, composer: SiteResponse) {
 
   if (hookdata.launch === 'pagerender') {
     //The noscript code is probably always useful. no need to intercept it
-    composer.insertAt(InsertPoints.BodyBottom, `<noscript><iframe src="//www.googletagmanager.com/ns.html?id=${hookdata.account}" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>`);
+    composer.insertAt("body-bottom", `<noscript><iframe src="//www.googletagmanager.com/ns.html?id=${hookdata.account}" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>`);
   }
 }
 
