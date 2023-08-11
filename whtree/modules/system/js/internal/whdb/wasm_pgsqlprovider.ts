@@ -1,10 +1,11 @@
 import { beginWork, commitWork, db, __getConnection, rollbackWork, uploadBlob, isWorkOpen } from "@webhare/whdb";
 import { AliasedRawBuilder, RawBuilder, sql } from 'kysely';
-import { BoxedFloat, BoxedDefaultBlob, VariableType, getTypedArray, isWebHareBlob } from "../whmanager/hsmarshalling";
+import { BoxedFloat, BoxedDefaultBlob, VariableType, getTypedArray } from "../whmanager/hsmarshalling";
 import { FullPostgresQueryResult } from "@webhare/whdb/src/connection";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat/datetime";
 import { Tid } from "@webhare/whdb/src/types";
 import { isWHDBBlob } from "@webhare/whdb/src/blobs";
+import { isHareScriptBlob } from "@webhare/harescript";
 
 enum Fases {
   None = 0,
@@ -143,7 +144,7 @@ function encodePattern(mask: string) {
 }
 
 function fixValue(value: unknown) {
-  if (isWebHareBlob(value) && !isWHDBBlob(value))
+  if (isHareScriptBlob(value) && !isWHDBBlob(value))
     return uploadBlob(value).then(newblob => {
       if (isWHDBBlob(newblob))
         if (value?.registerPGUpload)

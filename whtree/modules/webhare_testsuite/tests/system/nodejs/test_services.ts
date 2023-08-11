@@ -8,8 +8,7 @@ import { readJSONLogLines } from "@mod-system/js/internal/logging";
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
 import { DemoServiceInterface } from "@mod-webhare_testsuite/js/demoservice";
 import runBackendService from "@mod-system/js/internal/webhareservice";
-import { HareScriptVM, allocateHSVM } from "@webhare/harescript";
-import { WebHareBlob, isWebHareBlob } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { HareScriptVM, allocateHSVM, HareScriptBlob, isHareScriptBlob } from "@webhare/harescript";
 
 function ensureProperPath(inpath: string) {
   test.eq(/^\/.+\/$/, inpath, `Path should start and end with a slash: ${inpath}`);
@@ -214,8 +213,8 @@ async function runPrintCallbackTest(hsvm: HareScriptVM) {
   //Ensure we can setup simple 'callbacks' that just print placeholders
   const print_helloworld_callback = await hsvm.createPrintCallback(`Hello, world!`);
   const fileswhlib = hsvm.loadlib("wh::files.whlib");
-  const capture_helloworld = await fileswhlib.GetPrintedAsBlob(print_helloworld_callback) as Buffer | WebHareBlob; //NOTE  FAALT maar kan simpelweg verwarring bij retour marshall zijn
-  if (isWebHareBlob(capture_helloworld)) //WebHare blob
+  const capture_helloworld = await fileswhlib.GetPrintedAsBlob(print_helloworld_callback) as Buffer | HareScriptBlob; //NOTE  FAALT maar kan simpelweg verwarring bij retour marshall zijn
+  if (isHareScriptBlob(capture_helloworld)) //WebHare blob
     test.eq("Hello, world!", await capture_helloworld.text());
   else
     test.eq("Hello, world!", capture_helloworld.toString());

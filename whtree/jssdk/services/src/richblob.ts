@@ -1,9 +1,9 @@
-import { WebHareBlob } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { HareScriptBlob } from "@webhare/harescript";
 
 export abstract class RichBlob {
-  protected readonly blob: WebHareBlob | null;
+  protected readonly blob: HareScriptBlob | null;
 
-  constructor(blob: WebHareBlob | null) {
+  constructor(blob: HareScriptBlob | null) {
     this.blob = blob;
   }
 

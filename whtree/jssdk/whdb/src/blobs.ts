@@ -3,13 +3,13 @@ import { mkdir, readFile, writeFile, rename, stat } from 'node:fs/promises';
 import * as path from 'node:path';
 import * as process from 'node:process';
 import { Connection, DataType, DataTypeOIDs, SmartBuffer } from './../vendor/postgresql-client/src/index';
-import { WebHareBlob } from '@mod-system/js/internal/whmanager/hsmarshalling';
+import { HareScriptBlob } from '@webhare/harescript';
 
-export class WHDBBlobImplementation implements WebHareBlob {
+export class WHDBBlobImplementation implements HareScriptBlob {
   readonly databaseid: string;
   readonly _size: number;
 
-  readonly isWHDBBlob = true; //We need to ensure TypeScript can differentiate between WebHareBlob and WHDBBlob ducks (TODO alternative solution)
+  readonly isWHDBBlob = true; //We need to ensure TypeScript can differentiate between HareScriptBlob and WHDBBlob ducks (TODO alternative solution)
 
   constructor(databaseid: string, length: number) {
     if (!length)
@@ -41,12 +41,12 @@ export class WHDBBlobImplementation implements WebHareBlob {
     return await readFile(pathinfo.fullpath);
   }
 
-  isSameBlob(rhs: WebHareBlob): boolean {
+  isSameBlob(rhs: HareScriptBlob): boolean {
     return rhs instanceof WHDBBlobImplementation && this.databaseid === rhs.databaseid;
   }
 }
 
-export type ValidBlobSources = string | WebHareBlob;
+export type ValidBlobSources = string | HareScriptBlob;
 
 //TODO whdb.ts and we should probably get this from services or some other central configuration
 function getBlobStoragepath() {
