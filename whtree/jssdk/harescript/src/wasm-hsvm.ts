@@ -77,7 +77,7 @@ export async function recompileHarescriptLibrary(uri: string, options?: { force:
   return lines.map(line => parseError(line));
 }
 
-export class HarescriptVM {
+export class HareScriptVM {
   wasmmodule: WASMModule;
   hsvm: HSVM;
   errorlist: HSVM_VariableId;
@@ -446,7 +446,7 @@ export async function createHarescriptModule<T extends WASMModule>(modulefunctio
   return wasmmodule;
 }
 
-export async function allocateHSVM(): Promise<HarescriptVM> {
+export async function allocateHSVM(): Promise<HareScriptVM> {
   const module = await createHarescriptModule(new WASMModule);
-  return new HarescriptVM(module);
+  return new HareScriptVM(module);
 }

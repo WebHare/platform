@@ -6,7 +6,7 @@ import { resolveResource } from "@webhare/services";
 import { WRDBaseAttributeType, WRDAttributeType } from "@mod-wrd/js/internal/types";
 import { updateDir, GenerateOptions } from "./shared";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
-import { HarescriptVM, allocateHSVM } from "@webhare/harescript/src/wasm-hsvm";
+import { HareScriptVM, allocateHSVM } from "@webhare/harescript/src/wasm-hsvm";
 
 
 function elements<T extends Element>(collection: HTMLCollectionOf<T>): T[] {
@@ -58,7 +58,7 @@ type SchemaDef = {
   }>;
 };
 
-export async function generateWRDDefs(hsvm: HarescriptVM, options: GenerateOptions, modulename: string, modules: string[]): Promise<string> {
+export async function generateWRDDefs(hsvm: HareScriptVM, options: GenerateOptions, modulename: string, modules: string[]): Promise<string> {
   let fullfile = "";
   let used_isrequired = false;
   let used_wrdattr = false;
@@ -225,7 +225,7 @@ function createTypeDef(attr: SchemaDef["types"][number]["allattrs"][number], ind
   return typedef;
 }
 
-function generateFile(hsvm: HarescriptVM, options: GenerateOptions, file: string, { defname, modules }: { defname: string; modules: string[] }) {
+function generateFile(hsvm: HareScriptVM, options: GenerateOptions, file: string, { defname, modules }: { defname: string; modules: string[] }) {
   // Only process existing modules
   modules = modules.filter(module => config.module[module]);
   if (!modules.length) {

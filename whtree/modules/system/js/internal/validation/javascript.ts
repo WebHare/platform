@@ -1,7 +1,7 @@
 import * as path from "node:path";
 import * as typescriptFormat from "typescript-formatter";
 import { ESLint } from "eslint";
-import { config, toFSPath } from "@webhare/services";
+import { backendConfig, toFSPath } from "@webhare/services";
 
 export type ESLintResult = {
   messages: Array<{
@@ -16,10 +16,10 @@ export type ESLintResult = {
 
 export async function lintFile(libdata: string, resourcename: string, { fix, allowInlineConfig = true }: { fix?: boolean; allowInlineConfig: boolean }): Promise<ESLintResult> {
   const filePath = resourcename.includes("::") ? toFSPath(resourcename) : resourcename;
-  const eslintrcpath = path.join(config.installationroot, ".eslintrc.json");
+  const eslintrcpath = path.join(backendConfig.installationroot, ".eslintrc.json");
 
   const options = {
-    cwd: config.installationroot,
+    cwd: backendConfig.installationroot,
     overrideConfigFile: eslintrcpath,
     useEslintrc: false,
     fix,
@@ -78,7 +78,7 @@ async function runTSFormat(libdata: string, resourcepath: string, tsfmtFile: str
 export async function formatFile(data: string, resourcepath: string): Promise<TSFormatResult> {
   const res = await lintFile(data, resourcepath, { fix: true, allowInlineConfig: false });
 
-  const res2 = await runTSFormat(res.output, resourcepath, path.join(config.installationroot, "tsfmt.json"));
+  const res2 = await runTSFormat(res.output, resourcepath, path.join(backendConfig.installationroot, "tsfmt.json"));
   if (res2.output !== res.output && !res2.error) {
     // Re-run eslint to clean up formatting result (which sometimes leaves trailing spaces)
     const res3 = await lintFile(res2.output, resourcepath, { fix: true, allowInlineConfig: false });

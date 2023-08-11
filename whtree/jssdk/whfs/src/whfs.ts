@@ -4,7 +4,7 @@ import { RichBlob } from "@webhare/services/src/richblob";
 import { getType, FileTypeInfo, describeContentType, unknownfiletype, normalfoldertype } from "./contenttypes";
 import { defaultDateTime } from "@webhare/hscompat/datetime";
 import { CSPContentType } from "./siteprofiles";
-import { WebHareBlob } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { HareScriptBlob } from "@webhare/harescript";
 export { describeContentType } from "./contenttypes";
 export { Tag, TagManager, openTagManager } from "./tagmanager";
 
@@ -145,7 +145,7 @@ function excludeKeys<T extends string, K extends string>(t: T[], k: K[]): Array<
 }
 
 class WHFSRichBlob extends RichBlob {
-  constructor(blob: WebHareBlob | null) {
+  constructor(blob: HareScriptBlob | null) {
     super(blob);
   }
 }

@@ -1,11 +1,12 @@
-import { BoxedDefaultBlob, BoxedFloat, IPCMarshallableRecord, VariableType, WebHareBlob, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { BoxedDefaultBlob, BoxedFloat, IPCMarshallableRecord, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import type { HSVM_VariableId, HSVM_VariableType, } from "../../../lib/harescript-interface";
-import type { HarescriptVM, JSBlobTag } from "./wasm-hsvm";
+import type { HareScriptVM, JSBlobTag } from "./wasm-hsvm";
 import { maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { Money } from "@webhare/std";
 import { WHDBBlob } from "@webhare/whdb";
 import { WHDBBlobImplementation } from "@webhare/whdb/src/blobs";
 import { isWHDBBlob } from "@webhare/whdb/src/blobs";
+import { HareScriptBlob } from "./hsblob";
 
 function canCastTo(from: VariableType, to: VariableType): boolean {
   if (from === to)
@@ -15,13 +16,13 @@ function canCastTo(from: VariableType, to: VariableType): boolean {
   return false;
 }
 
-//TODO WeakRefs so the HarescriptVM can be garbage collected ? We should also consider moving the GlobalBlobStorage to JavaScript so we don't need to keep the HSVMs around
-class HSVMBlob implements WebHareBlob {
-  readonly vm: HarescriptVM;
+//TODO WeakRefs so the HareScriptVM can be garbage collected ? We should also consider moving the GlobalBlobStorage to JavaScript so we don't need to keep the HSVMs around
+class HSVMBlob implements HareScriptBlob {
+  readonly vm: HareScriptVM;
   readonly size: number;
   id: HSVM_VariableId | null;
 
-  constructor(vm: HarescriptVM, varid: HSVM_VariableId, size: number) {
+  constructor(vm: HareScriptVM, varid: HSVM_VariableId, size: number) {
     this.vm = vm;
     this.id = varid;
     this.size = size;
@@ -51,7 +52,7 @@ class HSVMBlob implements WebHareBlob {
     return new TextDecoder("utf8").decode(await this.arrayBuffer());
   }
 
-  isSameBlob(rhs: WebHareBlob): boolean {
+  isSameBlob(rhs: HareScriptBlob): boolean {
     return false; //TODO? but we don't really care as there is currently no useful optimization
   }
 
@@ -85,11 +86,11 @@ class HSVMBlob implements WebHareBlob {
 
 
 export class HSVMVar {
-  vm: HarescriptVM;
+  vm: HareScriptVM;
   id: HSVM_VariableId;
   private type: VariableType | undefined;
 
-  constructor(vm: HarescriptVM, id: HSVM_VariableId) {
+  constructor(vm: HareScriptVM, id: HSVM_VariableId) {
     this.vm = vm;
     this.id = id;
   }
@@ -195,7 +196,7 @@ export class HSVMVar {
     else
       this.vm.wasmmodule._HSVM_FloatSet(this.vm.hsvm, this.id, value);
   }
-  getBlob(): WebHareBlob {
+  getBlob(): HareScriptBlob {
     this.checkType(VariableType.Blob);
     const size = Number(this.vm.wasmmodule._HSVM_BlobLength(this.vm.hsvm, this.id));
     if (size === 0)

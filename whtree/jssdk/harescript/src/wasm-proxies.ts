@@ -1,4 +1,4 @@
-import { HarescriptVM } from "./wasm-hsvm";
+import { HareScriptVM } from "./wasm-hsvm";
 import { HSVMVar } from "./wasm-hsvmvar";
 import { HSVM_VariableId } from "wh:internal/whtree/lib/harescript-interface";
 
@@ -10,7 +10,7 @@ export type HSVMObject = HSVMObjectWrapper & HSCallsProxy;
 
 export type HSVMLibrary = HSCallsProxy;
 
-function argsToHSVMVar(vm: HarescriptVM, args: unknown[]): HSVMVar[] {
+function argsToHSVMVar(vm: HareScriptVM, args: unknown[]): HSVMVar[] {
 
   const funcargs: HSVMVar[] = [];
   for (const arg of args) {
@@ -25,7 +25,7 @@ export class HSVMObjectWrapper {
   $vm;
   $objid;
 
-  constructor(vm: HarescriptVM, objid: HSVM_VariableId) {
+  constructor(vm: HareScriptVM, objid: HSVM_VariableId) {
     this.$vm = vm;
     this.$objid = vm.wasmmodule._HSVM_AllocateVariable(vm.hsvm);
     vm.wasmmodule._HSVM_CopyFrom(vm.hsvm, this.$objid, objid);
@@ -64,10 +64,10 @@ export class HSVMObjectProxy {
 
 
 export class HSVMLibraryProxy {
-  private readonly vm: HarescriptVM;
+  private readonly vm: HareScriptVM;
   private readonly lib: string;
 
-  constructor(vm: HarescriptVM, lib: string) {
+  constructor(vm: HareScriptVM, lib: string) {
     this.vm = vm;
     this.lib = lib;
   }
@@ -97,7 +97,7 @@ export class HSVMObjectCache {
   nextcachedobjectid = 53000;
   vm;
 
-  constructor(vm: HarescriptVM) {
+  constructor(vm: HareScriptVM) {
     this.vm = vm;
     this.finalizer = new FinalizationRegistry((finalizedata) => this.cleanupObject(finalizedata));
   }

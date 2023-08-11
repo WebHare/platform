@@ -1,6 +1,6 @@
 import bridge, { LogErrorOptions, LogNoticeOptions, LoggableRecord } from "@mod-system/js/internal/whmanager/bridge";
 export { LoggableRecord } from "@mod-system/js/internal/whmanager/bridge";
-import { config } from "./services";
+import { backendConfig } from "./services";
 import fs from "fs/promises";
 import { checkModuleScopedName } from "./naming";
 import { getModuleDefinition } from "./moduledefinitions";
@@ -73,7 +73,7 @@ export async function* readLogLines<LogFields = GenericLogFields>(logname: strin
   await flushLog(logname);
 
   //TODO optimize. and do we need checkpoints or should callers just re-insert the last timestamp into 'start' ?
-  const basedir = config.dataroot + "log";
+  const basedir = backendConfig.dataroot + "log";
   const filter = new RegExp("^" + escapeRegExp(fileinfo.filename + ".") + "[0-9]{8}\\.log$");
   const logfilenames = (await fs.readdir(basedir)).filter(_ => _.match(filter)).sort();
 

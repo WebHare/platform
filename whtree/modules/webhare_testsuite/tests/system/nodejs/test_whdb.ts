@@ -32,7 +32,7 @@ async function testQueries() {
   test.eq(null, await uploadBlob(emptyboxedblob));
   test.assert(newblob.isSameBlob((await uploadBlob(newblob))!), "No effect when uploading a WHDBBlob");
 
-  ///@ts-expect-error -- We need to ensure TypeScript can differentiate between WebHareBlob and WHDBBlob ducks (TODO alternative solution) or it can't guard against insert errors
+  ///@ts-expect-error -- We need to ensure TypeScript can differentiate between HareScriptBlob and WHDBBlob ducks (TODO alternative solution) or it can't guard against insert errors
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const dummy_hsvm_blob: WHDBBlob = emptyboxedblob;
 
