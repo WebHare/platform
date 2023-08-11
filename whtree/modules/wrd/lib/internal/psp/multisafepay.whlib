@@ -123,6 +123,39 @@ RECORD defaultpaymentdata :=
     , customer := DEFAULT RECORD
     ];
 
+PUBLIC RECORD FUNCTION ConvertOrderLines(RECORD ARRAY orderlines)
+{
+  //https://gitlab.webhare.com/forresult/forresult-home/-/issues/100 - transfer amounts EX VAT
+  UPDATE orderlines SET linetotal := linetotal - vatamount WHERE vatincluded;
+
+  //Note: don't trust both MSP and Klarna to deal with rounding errors, just pass ONE unit where rounding doesn't go right
+  UPDATE orderlines SET amount := 1, title := amount || "x " || title WHERE amount != 1 AND ((linetotal / (amount ?? 1) * 100) != INTEGER(linetotal / (amount ?? 1) * 100));
+  DELETE FROM orderlines WHERE linetotal = 0; //doesn't seem useful to send 0 lines, hopefully it fixes Back-end: een niet nader gespecificeerde fout
+
+  RETURN CELL[
+      shopping_cart := [ items := (SELECT name := title
+                                        , description := title
+                                        , unit_price := FormatMoney(linetotal / (amount ?? 1),2,".","",FALSE)
+                                        , quantity := amount
+                                        , merchant_item_id := (type="shipping" ? "msp-shipping" : type="payment" ? "payment-fee" : sku) ?? "orderline-" || (#orderlines+1)
+                                        , tax_table_selector := "BTW" || FormatMoney(vatpercentage, 0, ".", "", FALSE)
+                                     FROM orderlines)
+                       ]
+    , checkout_options := [ tax_tables := [ "default" := [ "shipping_taxed" := "true"
+                                                         , "rate" := (SELECT AS MONEY MAX(vatpercentage/100) FROM orderlines) ?? 21m
+                                                         ]
+                                          , alternate := SELECT standalone := "true"
+                                                              , name := "BTW" || FormatMoney(vatpercentage, 0, ".", "", FALSE)
+                                                              , rules := [[ rate := vatpercentage/100m
+                                                                          ]
+                                                                         ]
+                                                           FROM orderlines
+                                                       GROUP BY vatpercentage
+                                          ]
+                          ]
+    ];
+}
+
 PUBLIC STATIC OBJECTTYPE MultiSafePayPaymentProvider EXTEND WRDPaymentProviderBase
 <
   RECORD msporderdata;
@@ -213,31 +246,10 @@ PUBLIC STATIC OBJECTTYPE MultiSafePayPaymentProvider EXTEND WRDPaymentProviderBa
       }
     }
 
-    //Note: don't trust both MSP and Klarna to deal with rounding errors, just pass ONE unit where rounding doesnt go right
-    UPDATE paymentmethod.orderlines SET amount := 1, title := amount || "x " || title WHERE amount != 1 AND ((linetotal / (amount ?? 1) * 100) != INTEGER(linetotal / (amount ?? 1) * 100));
-    DELETE FROM paymentmethod.orderlines WHERE linetotal = 0; //doesn't seem useful to send 0 lines, hopefully it fixes Back-end: een niet nader gespecificeerde fout
-
     this->msporderdata := [ ...defaultpaymentdata
                           , language := paymentmethod.language
                           , customer := customer
-                          , shopping_cart := [ items := (SELECT name := title
-                                                              , description := title
-                                                              , unit_price := FormatMoney(linetotal / (amount ?? 1),2,".","",FALSE)
-                                                              , quantity := amount
-                                                              , merchant_item_id := (type="shipping" ? "msp-shipping" : type="payment" ? "payment-fee" : sku) ?? "orderline-" || (#orderlines+1)
-                                                              , tax_table_selector := "BTW" || FormatMoney(vatpercentage, 0, ".", "", FALSE)
-                                                           FROM paymentmethod.orderlines)
-                                             ]
-                          , checkout_options := [ "default" := [ "shipping_taxed" := "true"
-                                                               , "rate" := "0.21"
-                                                               ]
-                                                , tax_tables := [[ alternate := SELECT standalone := "true"
-                                                                                     , name := "BTW" || FormatMoney(vatpercentage, 0, ".", "", FALSE)
-                                                                                     , rules := [[ rate := FormatMoney(vatpercentage/100m, 0, ".", "", FALSE) ]]
-                                                                                  FROM paymentmethod.orderlines
-                                                                              GROUP BY vatpercentage
-                                                                ]]
-                                                ]
+                          , ...ConvertOrderLines(paymentmethod.orderlines)
                           ];
   }
 
