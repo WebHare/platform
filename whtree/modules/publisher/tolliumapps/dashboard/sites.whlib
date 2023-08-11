@@ -1,8 +1,7 @@
 <?wh
-LOADLIB "wh::util/langspecific.whlib";
 
-LOADLIB "mod::tollium/lib/dialogs.whlib";
-LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/langspecific.whlib";
 
 LOADLIB "mod::publisher/lib/control.whlib"; // republish functions
 LOADLIB "mod::publisher/lib/dialogs.whlib";
@@ -13,12 +12,16 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/screenbase.whlib";
 
+LOADLIB "mod::tollium/lib/dialogs.whlib";
+LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "mod::tollium/lib/screenbase.whlib";
+
 
 INTEGER max_publishers_at_once := 10;
 INTEGER max_tabs_at_once := 20;
 
 
-PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
+PUBLIC STATIC OBJECTTYPE Sites EXTEND DashboardPanelBase
 <
   RECORD ARRAY sites;
 
@@ -66,8 +69,8 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
 
   MACRO UpdateVisibleFilters()
   {
-    this->webdesign->visible := this->linkedtotype->value = "webdesign";
-    this->webfeature->visible := this->linkedtotype->value = "webfeature";
+    ^webdesign->visible := ^linkedtotype->value = "webdesign";
+    ^webfeature->visible := ^linkedtotype->value = "webfeature";
   }
 
   MACRO RefreshFilterOptions()
@@ -86,17 +89,10 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
 
     this->sites := sites;
 
-    STRING ARRAY usedsitedesigns := SELECT AS STRING ARRAY DISTINCT sitedesign FROM sites;
-
-    STRING ARRAY usedwebfeatures;
-    FOREVERY(RECORD site FROM sites)
-      usedwebfeatures := usedwebfeatures CONCAT site.webfeatures;
-    usedwebfeatures := SELECT AS STRING ARRAY DISTINCT(webfeature) FROM ToRecordArray(usedwebfeatures, "webfeature");
-
     RECORD ARRAY webdesigns :=
           [ [ rowkey := "", title := "" ] ]
           CONCAT
-          SELECT TEMPORARY _title := GetTid(title) || " (" || Length(SELECT FROM sites WHERE sitedesign = wdesign.rowkey) || ")"
+          SELECT TEMPORARY _title := GetTid(title) || " (" || Length(SELECT FROM sites WHERE sitedesign = wdesign.rowkey OR (wdesign.rowkey = "publisher:nodesign" AND sitedesign = "")) || ")"
                , rowkey
                , title := _title
             FROM GetAvailableWebDesigns(FALSE) AS wdesign
@@ -128,12 +124,12 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
 
   MACRO RefreshSitesList()
   {
-    INTEGER icon_positive := this->siteslist->GetIcon("tollium:status/checked");
-    INTEGER icon_negative := this->siteslist->GetIcon("tollium:status/negative");
+    INTEGER icon_positive := ^siteslist->GetIcon("tollium:status/checked");
+    INTEGER icon_negative := ^siteslist->GetIcon("tollium:status/negative");
 
     STRING querylike;
-    IF (this->query->value != "")
-      querylike := "*" || ToUpperCase(this->query->value) || "*";
+    IF (^query->value != "")
+      querylike := "*" || ToUpperCase(^query->value) || "*";
 
     RECORD ARRAY rows :=
         SELECT rowkey := id
@@ -145,30 +141,30 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
              , canview := webroot != "" // not locked, has output, ...
              , comments
           FROM this->sites
-         WHERE (this->weboutput->value = 0  ? TRUE : outputweb  = this->weboutput->value)
-           AND (this->linkedtotype->value != "webdesign"  OR this->webdesign->value = ""   ? TRUE : this->webdesign->value   =  sitedesign)
-           AND (this->linkedtotype->value != "webfeature" OR this->webfeature->value = ""  ? TRUE : this->webfeature->value  IN webfeatures)
-           AND (this->query->value = ""     ? TRUE : (ToUpperCase(name || " " || sitedesign || " " || webroot || " " || comments) LIKE querylike));
+         WHERE (^weboutput->value = 0  ? TRUE : outputweb  = ^weboutput->value)
+           AND (^linkedtotype->value != "webdesign"  OR ^webdesign->value = ""   ? TRUE : (^webdesign->value  =  sitedesign OR (^webdesign->value = "publisher:nodesign" AND sitedesign = "")))
+           AND (^linkedtotype->value != "webfeature" OR ^webfeature->value = ""  ? TRUE : ^webfeature->value  IN webfeatures)
+           AND (^query->value = ""     ? TRUE : (ToUpperCase(name || " " || sitedesign || " " || webroot || " " || comments) LIKE querylike));
 
-    this->siteslist->rows := rows;
+    ^siteslist->rows := rows;
 
     INTEGER results := Length(rows);
     IF (results = 0)
-      this->queryresultsinfo->value := this->GetTid(".querymatched-none");
+      ^queryresultsinfo->value := this->GetTid(".querymatched-none");
     ELSE IF (results = 1)
-      this->queryresultsinfo->value := this->GetTid(".querymatched-single");
+      ^queryresultsinfo->value := this->GetTid(".querymatched-single");
     ELSE
-      this->queryresultsinfo->value := this->GetTid(".querymatched", ToString(Length(rows)));
+      ^queryresultsinfo->value := this->GetTid(".querymatched", ToString(Length(rows)));
   }
 
   MACRO OnViewBrowserList(OBJECT openhandler)
   {
-    openhandler->SendURL(this->sitelist->selection[0].url);
+    openhandler->SendURL(^sitelist->selection[0].url);
   }
 
   MACRO DoShowInNewPublishers()
   {
-    RECORD ARRAY selection := this->siteslist->selection;
+    RECORD ARRAY selection := ^siteslist->selection;
     INTEGER items := Length(selection);
 
     IF (items > max_publishers_at_once)
@@ -186,12 +182,25 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
 
   MACRO DoOpenSiteProperties()
   {
-    RunFSObjectPropertiesDialog(this, this->siteslist->value[0], [ siteproperties := TRUE ]);
+    // RunFSObjectPropertiesDialog doesn't return if anything has changed, so assume something has changed and update filters and list
+    RunFSObjectPropertiesDialog(this, ^siteslist->value[0], [ siteproperties := TRUE ]);
+    this->RefreshFilterOptions();
+    this->RefreshSitesList();
+  }
+
+  MACRO DoUpdateDesign()
+  {
+    // Update filters and list if anything changed (siteprops return -1 if nothing changed)
+    IF (this->RunScreen("#siteprops", [ sites := ^siteslist->selection ]) > 0)
+    {
+      this->RefreshFilterOptions();
+      this->RefreshSitesList();
+    }
   }
 
   MACRO DoRepublish()
   {
-    RECORD ARRAY selecteditems := this->siteslist->selection;
+    RECORD ARRAY selecteditems := ^siteslist->selection;
 
     OBJECT work := this->BeginUnvalidatedWork();
 
@@ -199,5 +208,65 @@ PUBLIC OBJECTTYPE Sites EXTEND DashboardPanelBase
       ScheduleFolderRepublish(sel.rowkey, TRUE, FALSE);
 
     work->Finish();
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
+<
+  RECORD ARRAY sites;
+
+  MACRO Init(RECORD data)
+  {
+    this->sites := data.sites;
+
+    STRING ARRAY cursitedesigns :=
+        SELECT AS STRING ARRAY webdesign ?? "publisher:nodesign"
+          FROM this->sites;
+
+    RECORD ARRAY sitedesigns :=
+        SELECT rowkey
+             , title := GetTid(title)
+             , tolliumselected := rowkey IN cursitedesigns
+          FROM GetAvailableWebDesigns(FALSE)
+         WHERE rowkey IN VAR cursitedesigns OR NOT hidden;
+
+    // Add rows for designs that don't exist
+    sitedesigns := sitedesigns CONCAT
+        SELECT rowkey := design
+             , title := design
+             , tolliumselected := TRUE
+          FROM ToRecordArray(ArrayDelete(cursitedesigns, SELECT AS STRING ARRAY rowkey FROM sitedesigns), "design");
+
+    // If sites with different designs are selected, add a 'multiple designs' row
+    IF (Length(SELECT FROM sitedesigns WHERE tolliumselected) > 1)
+    {
+      UPDATE sitedesigns SET tolliumselected := FALSE;
+      INSERT [ rowkey := "", title := this->GetTid(".multipledesigns"), tolliumselected := TRUE ] INTO sitedesigns AT END;
+    }
+
+    ^sitedesign->options :=
+        SELECT *
+          FROM sitedesigns
+         ORDER BY rowkey != "" // 'multiple designs' first
+                , ToUppercase(title);
+  }
+
+  INTEGER FUNCTION Submit()
+  {
+    IF (^sitedesign->value = "")
+      RETURN -1; // 'multiple designs' selected, don't update
+
+    RECORD ARRAY toupdate := SELECT * FROM this->sites WHERE webdesign != ^sitedesign->value;
+    IF (Length(toupdate) = 0)
+      RETURN -1; // Nothing changed
+
+    IF (this->RunSimpleScreen("verify", this->GetTid(".confirmupdatedesigns", ToString(Length(toupdate)), toupdate[0].name, ^sitedesign->selection.title)) != "yes")
+      RETURN 0;
+
+    OBJECT work := this->BeginWork();
+    OBJECT sitesettingstype := OpenWHFSType("http://www.webhare.net/xmlns/publisher/sitesettings");
+    FOREVERY (RECORD site FROM toupdate)
+      sitesettingstype->SetInstanceData(site.rowkey, [ sitedesign := ^sitedesign->value ]);
+    RETURN work->Finish() ? 1 : 0;
   }
 >;
