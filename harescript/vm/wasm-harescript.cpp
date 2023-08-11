@@ -90,14 +90,14 @@ HSVM* EMSCRIPTEN_KEEPALIVE CreateHSVM()
         return group->CreateVirtualMachine();
 }
 
-void EMSCRIPTEN_KEEPALIVE RegisterHarescriptMacro(const char *name, unsigned id, bool async)
+void EMSCRIPTEN_KEEPALIVE RegisterHareScriptMacro(const char *name, unsigned id, bool async)
 {
         HareScript::BuiltinFunctionDefinition reg(name, async ? HareScript::BuiltinFunctionDefinition::JSAsyncMacro : HareScript::BuiltinFunctionDefinition::JSMacro, id);
         Context &context = EnsureContext();
         context.environment.GetBifReg().RegisterBuiltinFunction(reg);
 }
 
-void EMSCRIPTEN_KEEPALIVE RegisterHarescriptFunction(const char *name, unsigned id, bool async)
+void EMSCRIPTEN_KEEPALIVE RegisterHareScriptFunction(const char *name, unsigned id, bool async)
 {
         HareScript::BuiltinFunctionDefinition reg(name, async ? HareScript::BuiltinFunctionDefinition::JSAsyncFunction : HareScript::BuiltinFunctionDefinition::JSFunction, id);
         Context &context = EnsureContext();

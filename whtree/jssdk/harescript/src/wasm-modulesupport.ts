@@ -290,7 +290,7 @@ export class WASMModule extends WASMModuleBase {
     const id = this.externals.length;
     this.externals.push({ name: signature, parameters: unmangled.parameters.length, macro });
     const signatureptr = this.stringToNewUTF8(signature);
-    this._RegisterHarescriptMacro(signatureptr, id, 0);
+    this._RegisterHareScriptMacro(signatureptr, id, 0);
     this._free(signatureptr);
   }
 
@@ -299,7 +299,7 @@ export class WASMModule extends WASMModuleBase {
     const id = this.externals.length;
     this.externals.push({ name: signature, parameters: unmangled.parameters.length, func });
     const signatureptr = this.stringToNewUTF8(signature);
-    this._RegisterHarescriptFunction(signatureptr, id, 0);
+    this._RegisterHareScriptFunction(signatureptr, id, 0);
     this._free(signatureptr);
   }
 
@@ -308,7 +308,7 @@ export class WASMModule extends WASMModuleBase {
     const id = this.externals.length;
     this.externals.push({ name: signature, parameters: unmangled.parameters.length, asyncmacro });
     const signatureptr = this.stringToNewUTF8(signature);
-    this._RegisterHarescriptMacro(signatureptr, id, 1);
+    this._RegisterHareScriptMacro(signatureptr, id, 1);
     this._free(signatureptr);
   }
 
@@ -317,7 +317,7 @@ export class WASMModule extends WASMModuleBase {
     const id = this.externals.length;
     this.externals.push({ name: signature, parameters: unmangled.parameters.length, asyncfunc });
     const signatureptr = this.stringToNewUTF8(signature);
-    this._RegisterHarescriptFunction(signatureptr, id, 1);
+    this._RegisterHareScriptFunction(signatureptr, id, 1);
     this._free(signatureptr);
   }
 
