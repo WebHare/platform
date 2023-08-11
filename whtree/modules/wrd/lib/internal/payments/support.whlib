@@ -4,6 +4,16 @@ LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
 
 PUBLIC STRING ARRAY validstatusses := [ "pending", "approved", "failed" ];
 
+PUBLIC RECORD ARRAY FUNCTION NormalizeOrderLines(RECORD ARRAY orderlines)
+{
+  //TODO we should become strict and start validating that all the VAT info is there
+  orderlines := EnforceStructure([[ type := ""
+                                  , vatincluded := TRUE
+                                  , vatamount := 0m
+                                 ]], orderlines);
+  RETURN orderlines;
+}
+
 PUBLIC RECORD FUNCTION ValidatePaymentValue(RECORD val)
 {
   IF(NOT CellExists(val,"payments") OR TypeID(val.payments) != TYPEID(RECORD ARRAY))
