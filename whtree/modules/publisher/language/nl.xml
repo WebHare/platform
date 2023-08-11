@@ -94,26 +94,28 @@
       <text tid="selectsitedialog">Selecteer een website</text>
     </textgroup>
     <textgroup gid="siteprops">   <!-- commondialogs.siteprops -->
-      <text tid="cdnbaseurl">CDN basis URL</text>
+      <text tid="cdnbaseurl">CDN basis-URL</text>
+      <text tid="confirmupdatedesigns">Weet je zeker dat je het sitedesign van <ifparam p="1" value="1">site '<param p="2"/>'<else/><param p="1"/> sites</ifparam> wil wijzigen naar '<param p="3"/>'?</text>
       <text tid="createoutputfolder">Site '<param p="1"/>' gebruikt al een submap van het opgegeven pad en veroorzaakt een conflict. Dit kan opgelost worden door een externe map genaamd '<param p="2"/>' in deze site aan te maken op '<param p="3"/>'</text>
       <text tid="feature">Feature</text>
       <text tid="locksite">Vergrendel de site</text>
       <text tid="module">Module</text>
+      <text tid="multipledesigns">– Meerdere sitedesigns –</text>
       <text tid="newsite-title">Nieuwe website</text>
       <text tid="nowebfeatures">Geen 'webfeatures' beschikbaar</text>
       <text tid="output">Uitvoer</text>
       <text tid="outputfolder">Submap in uitvoer-URL</text>
       <text tid="outputfolderused">Site '<param p="1"/>' gebruikt al (een voorouder van) de nieuwe uitvoermap.</text>
       <text tid="outputweb">Uitvoer-URL</text>
-      <text tid="productionurl">Productie URL</text>
+      <text tid="productionurl">Productie-URL</text>
       <text tid="sitealreadyexists">Er bestaat al een site met de naam '<param p="1"/>'.</text>
       <text tid="sitedesign">Sitedesign</text>
-      <text tid="sitedesignbox">Website design</text>
+      <text tid="sitedesignbox">Websitedesign</text>
       <text tid="sitedesigntab">Design</text>
       <text tid="siteprops">Site-eigenschappen</text>
       <text tid="sitesettings-title">Instellingen van site '<param p="1"/>'</text>
       <text tid="sitesettingstab">Instellingen</text>
-      <text tid="webfeatures">Web features</text>
+      <text tid="webfeatures">Webfeatures</text>
     </textgroup>
   </textgroup>
   <textgroup gid="components">   <!-- components -->
@@ -1627,7 +1629,7 @@
         <text tid="hasactivefeatures">Webfeatures</text>
         <text tid="linkedtotype">Gekoppeld aan</text>
         <text tid="linkedtotype-webfeature">webfeature</text>
-        <text tid="name">Site naam</text>
+        <text tid="name">Sitenaam</text>
         <text tid="query">Zoekopdracht</text>
         <text tid="querymatched">Je zoekopdracht gaf <param p="1"/> resultaten</text>
         <text tid="querymatched-none">Je zoekopdracht gaf geen resultaten</text>

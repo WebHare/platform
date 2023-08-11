@@ -26,10 +26,10 @@
       -->
       <action name="siteproperties"
               frameflags="issysop"
-              onexecute="doopensiteproperties"
               shortcut="ctrl+i"
               tid="publisher:filemanager.main.app.actions.siteproperties">
-        <enableon source="siteslist" min="1" max="1" />
+        <enableon source="siteslist" min="1" max="1" onexecute="doopensiteproperties" />
+        <enableon source="siteslist" min="2" onexecute="doupdatedesign" />
       </action>
       <action name="export" onexecute="doexport" tid="~export" />
     </actions>
@@ -99,6 +99,13 @@
       <panel spacers="left right">
         <text name="queryresultsinfo" title="" />
       </panel>
+    </body>
+  </screen>
+
+  <screen name="siteprops" footerbuttons="ok cancel" gid="commondialogs.siteprops">
+    <body>
+      <heading tid=".sitedesignbox" />
+      <select name="sitedesign" type="pulldown" />
     </body>
   </screen>
 
