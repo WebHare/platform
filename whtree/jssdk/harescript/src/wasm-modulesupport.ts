@@ -3,7 +3,7 @@ import * as path from "node:path";
 import * as fs from "node:fs";
 import { backendConfig, toFSPath } from "@webhare/services";
 import { HSVMVar } from "./wasm-hsvmvar";
-import { recompileHarescriptLibraryRaw, type HarescriptVM } from "./wasm-hsvm";
+import { recompileHarescriptLibraryRaw, type HareScriptVM } from "./wasm-hsvm";
 import { VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 
 const wh_namespace_location = "mod::system/whlibs/";
@@ -92,10 +92,10 @@ function getPrefix(uri: string): AllowedPrefixes {
 type RegisteredExternal = {
   name: string;
   parameters: number;
-  func?: ((vm: HarescriptVM, id_set: HSVMVar, ...params: HSVMVar[]) => void);
-  macro?: ((vm: HarescriptVM, ...params: HSVMVar[]) => void);
-  asyncfunc?: ((vm: HarescriptVM, id_set: HSVMVar, ...params: HSVMVar[]) => Promise<void>);
-  asyncmacro?: ((vm: HarescriptVM, ...params: HSVMVar[]) => Promise<void>);
+  func?: ((vm: HareScriptVM, id_set: HSVMVar, ...params: HSVMVar[]) => void);
+  macro?: ((vm: HareScriptVM, ...params: HSVMVar[]) => void);
+  asyncfunc?: ((vm: HareScriptVM, id_set: HSVMVar, ...params: HSVMVar[]) => Promise<void>);
+  asyncmacro?: ((vm: HareScriptVM, ...params: HSVMVar[]) => Promise<void>);
 };
 
 /** WASMModuleBase is an empty class we override to look like it contains all the properties the Emscripten
@@ -107,12 +107,12 @@ export class WASMModule extends WASMModuleBase {
 
   stringptrs: Ptr = 0;
   externals = new Array<RegisteredExternal>;
-  itf: HarescriptVM; // only one VM per module!
+  itf: HareScriptVM; // only one VM per module!
 
   constructor() {
     super();
     // this.itf is always set when running functions of this class, so make it look like it is
-    this.itf = undefined as unknown as HarescriptVM;
+    this.itf = undefined as unknown as HareScriptVM;
   }
 
   prepare() {
@@ -285,7 +285,7 @@ export class WASMModule extends WASMModuleBase {
     await reg.asyncfunc!(this.itf, new HSVMVar(this.itf!, id_set), ...params);
   }
 
-  registerExternalMacro(signature: string, macro: (vm: HarescriptVM, ...params: HSVMVar[]) => void): void {
+  registerExternalMacro(signature: string, macro: (vm: HareScriptVM, ...params: HSVMVar[]) => void): void {
     const unmangled = unmangleFunctionName(signature);
     const id = this.externals.length;
     this.externals.push({ name: signature, parameters: unmangled.parameters.length, macro });
@@ -294,7 +294,7 @@ export class WASMModule extends WASMModuleBase {
     this._free(signatureptr);
   }
 
-  registerExternalFunction(signature: string, func: (vm: HarescriptVM, id_set: HSVMVar, ...params: HSVMVar[]) => void): void {
+  registerExternalFunction(signature: string, func: (vm: HareScriptVM, id_set: HSVMVar, ...params: HSVMVar[]) => void): void {
     const unmangled = unmangleFunctionName(signature);
     const id = this.externals.length;
     this.externals.push({ name: signature, parameters: unmangled.parameters.length, func });
@@ -303,7 +303,7 @@ export class WASMModule extends WASMModuleBase {
     this._free(signatureptr);
   }
 
-  registerAsyncExternalMacro(signature: string, asyncmacro: (vm: HarescriptVM, ...params: HSVMVar[]) => Promise<void>): void {
+  registerAsyncExternalMacro(signature: string, asyncmacro: (vm: HareScriptVM, ...params: HSVMVar[]) => Promise<void>): void {
     const unmangled = unmangleFunctionName(signature);
     const id = this.externals.length;
     this.externals.push({ name: signature, parameters: unmangled.parameters.length, asyncmacro });
@@ -312,7 +312,7 @@ export class WASMModule extends WASMModuleBase {
     this._free(signatureptr);
   }
 
-  registerAsyncExternalFunction(signature: string, asyncfunc: (vm: HarescriptVM, id_set: HSVMVar, ...params: HSVMVar[]) => Promise<void>): void {
+  registerAsyncExternalFunction(signature: string, asyncfunc: (vm: HareScriptVM, id_set: HSVMVar, ...params: HSVMVar[]) => Promise<void>): void {
     const unmangled = unmangleFunctionName(signature);
     const id = this.externals.length;
     this.externals.push({ name: signature, parameters: unmangled.parameters.length, asyncfunc });

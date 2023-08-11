@@ -1,4 +1,4 @@
-import { createHarescriptModule, recompileHarescriptLibrary, HarescriptVM } from "./wasm-hsvm";
+import { createHarescriptModule, recompileHarescriptLibrary, HareScriptVM } from "./wasm-hsvm";
 import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { backendConfig } from "@webhare/services";
@@ -76,7 +76,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerAsyncExternalFunction("DORUN:WH_SELFCOMPILE:R:SSA", async (vm, id_set, filename, args) => {
     const extfunctions = new OutputCapturingModule;
     const newmodule = await createHarescriptModule(extfunctions);
-    const newvm = new HarescriptVM(newmodule);
+    const newvm = new HareScriptVM(newmodule);
     newvm.consoleArguments = args.getJSValue() as string[];
     await newvm.loadScript(filename.getString());
     await newmodule._HSVM_ExecuteScript(newvm.hsvm, 1, 0);

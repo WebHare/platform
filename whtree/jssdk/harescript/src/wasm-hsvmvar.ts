@@ -1,6 +1,6 @@
 import { BoxedDefaultBlob, BoxedFloat, IPCMarshallableRecord, VariableType, WebHareBlob, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import type { HSVM_VariableId, HSVM_VariableType, } from "../../../lib/harescript-interface";
-import type { HarescriptVM, JSBlobTag } from "./wasm-hsvm";
+import type { HareScriptVM, JSBlobTag } from "./wasm-hsvm";
 import { maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { Money } from "@webhare/std";
 import { WHDBBlob } from "@webhare/whdb";
@@ -15,13 +15,13 @@ function canCastTo(from: VariableType, to: VariableType): boolean {
   return false;
 }
 
-//TODO WeakRefs so the HarescriptVM can be garbage collected ? We should also consider moving the GlobalBlobStorage to JavaScript so we don't need to keep the HSVMs around
+//TODO WeakRefs so the HareScriptVM can be garbage collected ? We should also consider moving the GlobalBlobStorage to JavaScript so we don't need to keep the HSVMs around
 class HSVMBlob implements WebHareBlob {
-  readonly vm: HarescriptVM;
+  readonly vm: HareScriptVM;
   readonly size: number;
   id: HSVM_VariableId | null;
 
-  constructor(vm: HarescriptVM, varid: HSVM_VariableId, size: number) {
+  constructor(vm: HareScriptVM, varid: HSVM_VariableId, size: number) {
     this.vm = vm;
     this.id = varid;
     this.size = size;
@@ -85,11 +85,11 @@ class HSVMBlob implements WebHareBlob {
 
 
 export class HSVMVar {
-  vm: HarescriptVM;
+  vm: HareScriptVM;
   id: HSVM_VariableId;
   private type: VariableType | undefined;
 
-  constructor(vm: HarescriptVM, id: HSVM_VariableId) {
+  constructor(vm: HareScriptVM, id: HSVM_VariableId) {
     this.vm = vm;
     this.id = id;
   }
