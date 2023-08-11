@@ -16,6 +16,9 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
+LOADLIB "mod::wrd/lib/internal/payments/support.whlib";
+LOADLIB "mod::wrd/lib/internal/psp/multisafepay.whlib";
+
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 STRING currenturl;
@@ -29,6 +32,75 @@ MACRO SetPage(RECORD evt)
 {
   PRINT("** RECEIVED URL " || evt.frame.url || " **\n");
   currenturl := evt.frame.url;
+}
+
+MACRO TestMultiSafePaySupport()
+{
+  TestEq( [ "checkout_options" :=
+             [ "tax_tables" :=
+               [ "alternate" :=
+                 [ [ "name":="BTW21", "rules":= [[ "rate" := 0.21]], "standalone":="true" ]
+                 ]
+               , "default" := [ "rate" := 0.21
+                              , "shipping_taxed" := "true"
+                              ]
+               ]
+             ]
+          ,"shopping_cart" :=
+             [ "items":= [ [ "description" := "2x Product title"
+                           , "merchant_item_id" := "SKU 123"
+                           , "name" := "2x Product title"
+                           , "quantity" := 1
+                           , "tax_table_selector" := "BTW21"
+                           , "unit_price" := "129.67"
+                           ]
+                         , [ "description" := "Something else"
+                           , "merchant_item_id" := "orderline-2"
+                           , "name" := "Something else"
+                           , "quantity" := 1
+                           , "tax_table_selector" := "BTW21"
+                           , "unit_price" := "2.00"
+                           ]
+                         ]
+             ]
+          ], ConvertOrderLines(NormalizeOrderLines(
+              [[ title := "Product title", sku := "SKU 123", amount := 2, linetotal := 131.67 - 2m, vatpercentage := 21m ]
+              ,[ title := "Something else", sku := "", amount := 1, linetotal := 2m, vatpercentage := 21m ]
+              ])));
+
+
+  TestEq( [ "checkout_options" :=
+             [ "tax_tables" :=
+               [ "alternate" :=
+                 [ [ "name":="BTW8", "rules":= [[ "rate" := 0.08]], "standalone":="true" ]
+                 , [ "name":="BTW15", "rules":= [[ "rate" := 0.15]], "standalone":="true" ]
+                 ]
+               , "default" := [ "rate" := 0.15
+                              , "shipping_taxed" := "true"
+                              ]
+               ]
+             ]
+          ,"shopping_cart" :=
+             [ "items":= [ [ "description" := "Product title"
+                           , "merchant_item_id" := "SKU 123"
+                           , "name" := "Product title"
+                           , "quantity" := 2
+                           , "tax_table_selector" := "BTW15"
+                           , "unit_price" := "50.00"
+                           ]
+                         , [ "description" := "Something else"
+                           , "merchant_item_id" := "orderline-2"
+                           , "name" := "Something else"
+                           , "quantity" := 1
+                           , "tax_table_selector" := "BTW8"
+                           , "unit_price" := "2.00"
+                           ]
+                         ]
+             ]
+          ], ConvertOrderLines(NormalizeOrderLines(
+              [[ title := "Product title", sku := "SKU 123", amount := 2, linetotal := 115m, vatpercentage := 15m, vatamount := 15m, vatincluded := TRUE ]
+              ,[ title := "Something else", sku := "", amount := 1, linetotal := 2m, vatpercentage := 8m, vatincluded := FALSE, vatamount := 0.16m ]
+              ])));
 }
 
 ASYNC MACRO SetupMultiSafePay()
@@ -149,7 +221,8 @@ ASYNC MACRO TestPaymentMultiSafePay()
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit);
 }
 
-RunTestframework([ PTR CreateWRDTestSchema
+RunTestframework([ PTR TestMultiSafePaySupport
+                 , PTR CreateWRDTestSchema
                  , PTR SetupMultiSafePay
                  , PTR RunStandardPaymentMethodTests
                  , PTR TestPaymentMultiSafePay
