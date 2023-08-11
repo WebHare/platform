@@ -95,10 +95,12 @@
     </textgroup>
     <textgroup gid="siteprops">   <!-- commondialogs.siteprops -->
       <text tid="cdnbaseurl">CDN base URL</text>
+      <text tid="confirmupdatedesigns">Are you sure you want to change the site design for <ifparam p="1" value="1">site '<param p="2"/>'<else/><param p="1"/> sites</ifparam> to '<param p="3"/>'?</text>
       <text tid="createoutputfolder">The site '<param p="1"/>' already uses a subfolder of the specified path and conflicts. This may be resolved by creating a foreign folder named '<param p="2"/>' in this site at '<param p="3"/>'</text>
       <text tid="feature">Feature</text>
       <text tid="locksite">Lock the site</text>
       <text tid="module">Module</text>
+      <text tid="multipledesigns">– Multiple web designs –</text>
       <text tid="newsite-title">New site</text>
       <text tid="nowebfeatures">No 'webfeatures' available</text>
       <text tid="output">Output</text>
@@ -107,7 +109,7 @@
       <text tid="outputweb">Output URL</text>
       <text tid="productionurl">Production URL</text>
       <text tid="sitealreadyexists">A site with the name '<param p="1"/>' already exists.</text>
-      <text tid="sitedesign">Sitedesign</text>
+      <text tid="sitedesign">Site design</text>
       <text tid="sitedesignbox">Website design</text>
       <text tid="sitedesigntab">Design</text>
       <text tid="siteprops">Site-settings</text>
