@@ -133,16 +133,28 @@ export class HSVMVar {
     this.vm.wasmmodule._HSVM_StringGet(this.vm.hsvm, this.id, this.vm.wasmmodule.stringptrs, this.vm.wasmmodule.stringptrs + 4);
     const begin = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs, "*") as number;
     const end = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs + 4, "*") as number;
-    // TODO: can we useuffer and its utf-8 decoder? strings can also contain \0
     return this.vm.wasmmodule.UTF8ToString(begin, end - begin);
   }
-  setString(value: string) {
-    // this.checkType(VariableType.String);
-    const len = this.vm.wasmmodule.lengthBytesUTF8(value);
-    const alloced = this.vm.wasmmodule._malloc(len + 1);
-    this.vm.wasmmodule.stringToUTF8(value, alloced, len + 1);
-    this.vm.wasmmodule._HSVM_StringSet(this.vm.hsvm, this.id, alloced, alloced + len);
-    this.vm.wasmmodule._free(alloced);
+  getStringAsBuffer(): Buffer {
+    this.checkType(VariableType.String);
+    this.vm.wasmmodule._HSVM_StringGet(this.vm.hsvm, this.id, this.vm.wasmmodule.stringptrs, this.vm.wasmmodule.stringptrs + 4);
+    const begin = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs, "*") as number;
+    const end = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs + 4, "*") as number;
+    return Buffer.from(this.vm.wasmmodule.HEAP8.slice(begin, end));
+  }
+  setString(value: string | Buffer) {
+    if (typeof value === "string") {
+      const len = this.vm.wasmmodule.lengthBytesUTF8(value);
+      const alloced = this.vm.wasmmodule._malloc(len + 1);
+      this.vm.wasmmodule.stringToUTF8(value, alloced, len + 1);
+      this.vm.wasmmodule._HSVM_StringSet(this.vm.hsvm, this.id, alloced, alloced + len);
+      this.vm.wasmmodule._free(alloced);
+    } else {
+      const alloced = this.vm.wasmmodule._malloc(value.byteLength);
+      this.vm.wasmmodule.HEAP8.set(value, alloced);
+      this.vm.wasmmodule._HSVM_StringSet(this.vm.hsvm, this.id, alloced, alloced + value.byteLength);
+      this.vm.wasmmodule._free(alloced);
+    }
     this.type = VariableType.String;
   }
   getDateTime(): Date {

@@ -17,6 +17,13 @@ async function testVarMemory() {
   test.eq(VariableType.Integer64Array, arrayvar.getType());
   test.eq(VariableType.Integer64, arrayvar.arrayGetRef(0)?.getType());
 
+  const binaryvar = vm.allocateVariable();
+  binaryvar.setString("€");
+  test.eq([0xE2, 0x82, 0xAC], [...binaryvar.getStringAsBuffer().values()]);
+  binaryvar.setString(Buffer.from([0, 0x80]));
+  // test.throws(/XX/, () => binaryvar.getString()); //not sure if it's worth the overhead to throw instead of ignore invalid UTF8 data, we'd have to continously run IsValidUTF8
+  test.eq([0, 0x80], [...binaryvar.getStringAsBuffer().values()]);
+
   /* Test empty blobs. Currently I'm assuming we will be needing type retention so getBlob should always be returning an object.
      It might be a better API to only have get(Boxing)JSValue do such trickery and have getFloat/getBlob return 'proper' JS values (ie numbers and null) */
 
