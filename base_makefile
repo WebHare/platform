@@ -180,7 +180,7 @@ GLOBALLDFLAGS += -rdynamic
 #webhare/blex/tests/teststring.cpp:517:102: error: array subscript is of type 'char' [-Werror,-Wchar-subscripts]
 #ES_ASM seems to need -Wno-gnu-zero-variadic-macro-arguments
 CXXFLAGS_WASM += -Wno-unknown-warning-option -Wno-char-subscripts -fwasm-exceptions -Wno-gnu-zero-variadic-macro-arguments
-WHLDFLAGS_WASM += -fwasm-exceptions -sNODERAWFS=1 --profiling-funcs -O3
+WHLDFLAGS_WASM += -fwasm-exceptions -sNODERAWFS=1 --profiling-funcs -O3 -lembind
 
 ifeq ($(WHBUILD_PLATFORM),darwin)
 	# Use current MacOS version, no need for binaries to be portable between machines
@@ -237,7 +237,7 @@ WHLDFLAGS+=$(GLOBALLDFLAGS)
 
 WHLDFLAGS_IMPORTABLE += -s MODULARIZE=1
 WHLDFLAGS_IMPORTABLE += -s EXPORT_NAME="createModule"
-WHLDFLAGS_IMPORTABLE += -s EXPORTED_RUNTIME_METHODS=stringToUTF8,lengthBytesUTF8,stringToNewUTF8,UTF8ToString,getValue,setValue,ENV,addFunction,removeFunction
+WHLDFLAGS_IMPORTABLE += -s EXPORTED_RUNTIME_METHODS=stringToUTF8,lengthBytesUTF8,stringToNewUTF8,UTF8ToString,getValue,setValue,ENV,addFunction,removeFunction,Emval
 WHLDFLAGS_IMPORTABLE += -s EXPORTED_FUNCTIONS=_malloc,_free
 
 # Get all normal lines from wasm-suspending-functions.txt, seperated by commas
