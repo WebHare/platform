@@ -128,7 +128,7 @@ PUBLIC RECORD FUNCTION ConvertOrderLines(RECORD ARRAY orderlines)
   //https://gitlab.webhare.com/forresult/forresult-home/-/issues/100 - transfer amounts EX VAT
   UPDATE orderlines SET linetotal := linetotal - vatamount WHERE vatincluded;
 
-  //Note: don't trust both MSP and Klarna to deal with rounding errors, just pass ONE unit where rounding doesnt go right
+  //Note: don't trust both MSP and Klarna to deal with rounding errors, just pass ONE unit where rounding doesn't go right
   UPDATE orderlines SET amount := 1, title := amount || "x " || title WHERE amount != 1 AND ((linetotal / (amount ?? 1) * 100) != INTEGER(linetotal / (amount ?? 1) * 100));
   DELETE FROM orderlines WHERE linetotal = 0; //doesn't seem useful to send 0 lines, hopefully it fixes Back-end: een niet nader gespecificeerde fout
 
