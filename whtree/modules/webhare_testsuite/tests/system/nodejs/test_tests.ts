@@ -141,7 +141,7 @@ async function runWHTest(testname: string): Promise<string> {
 }
 
 async function checkTestFailures() {
-  test.eqMatch(/test\.assert failed.*metatest_shouldfail.ts line 4.*Offending test: test\.assert\(Math\.random\(\) === 42\);/s, await runWHTest("system.nodejs.meta.metatest_shouldfail"));
+  test.eq(/test\.assert failed.*metatest_shouldfail.ts line 4.*Offending test: test\.assert\(Math\.random\(\) === 42\);/s, await runWHTest("system.nodejs.meta.metatest_shouldfail"));
 }
 
 test.run([

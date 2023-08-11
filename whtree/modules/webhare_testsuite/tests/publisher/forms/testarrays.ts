@@ -234,11 +234,11 @@ test.registerTests(
         test.eq(2, result.contacts.length);
         test.eq("First person", result.contacts[0].name);
         test.eq(1, result.contacts[0].gender);
-        test.eqMatch(/^2000-02-02/, result.contacts[0].wrd_dateofbirth);
+        test.eq(/^2000-02-02/, result.contacts[0].wrd_dateofbirth);
         test.assert(!result.contacts[0].photo);
         test.eq("Another person", result.contacts[1].name);
         test.eq(2, result.contacts[1].gender);
-        test.eqMatch(/^2000-03-03/, result.contacts[1].wrd_dateofbirth);
+        test.eq(/^2000-03-03/, result.contacts[1].wrd_dateofbirth);
         test.assert(!result.contacts[1].photo);
         test.click(test.qS("button[type=submit]"));
       }
@@ -465,7 +465,7 @@ test.registerTests(
       // Check if the custom subfield values are returned
       const result = JSON.parse(test.qS("#dynamicformsubmitresponse").textContent);
       test.assert(result.ok);
-      test.eqMatch(/^2000-01-01/, result.value.contacts[0].wrd_dateofbirth);
+      test.eq(/^2000-01-01/, result.value.contacts[0].wrd_dateofbirth);
       test.eq(-1, result.value.contacts[0].color);
       test.eq("Yellow", result.value.contacts[0].other);
     }

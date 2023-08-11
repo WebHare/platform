@@ -77,7 +77,7 @@ async function testSiteResponse() {
   test.eq({ "a": "GTM-TN7QQM", "h": true, "m": false }, config["socialite:gtm"]);
 
   //Verify the GTM noscript is present
-  test.eqMatch(/.*<noscript>.*<iframe.*src=".*googletagmanager.com.*id=GTM-TN7QQM".*<\/noscript>.*/, responsetext.replaceAll("\n", " "));
+  test.eq(/.*<noscript>.*<iframe.*src=".*googletagmanager.com.*id=GTM-TN7QQM".*<\/noscript>.*/, responsetext.replaceAll("\n", " "));
 }
 
 async function testCaptureJSDesign() {
@@ -85,8 +85,8 @@ async function testCaptureJSDesign() {
   const targetpage = await whfs.openFile("site::webhare_testsuite.testsitejs/webtools/pollholder");
   const resultpage = await captureJSDesign(targetpage.id);
   test.eq(2, resultpage.parts.length, "Expect two parts to be generated, for each side of the placeholder");
-  test.eqMatch(/.*<html.*<body.*<div id="content"[^>]+> *$/, resultpage.parts[0].replaceAll("\n", " "));
-  test.eqMatch(/^ *<\/div>.*\/body.*\/html/, resultpage.parts[1].replaceAll("\n", " "));
+  test.eq(/.*<html.*<body.*<div id="content"[^>]+> *$/, resultpage.parts[0].replaceAll("\n", " "));
+  test.eq(/^ *<\/div>.*\/body.*\/html/, resultpage.parts[1].replaceAll("\n", " "));
 }
 
 async function testCaptureJSRendered() {
@@ -94,7 +94,7 @@ async function testCaptureJSRendered() {
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
   const resultpage = await captureJSPage(markdowndoc.id);
   // console.log(resultpage.body);
-  test.eqMatch(/<html.*<body.*<div id="content".*<code>commonmark<\/code>.*<\/div>.*\/body.*\/html/, resultpage.body.toString().replaceAll("\n", " "));
+  test.eq(/<html.*<body.*<div id="content".*<code>commonmark<\/code>.*<\/div>.*\/body.*\/html/, resultpage.body.toString().replaceAll("\n", " "));
 }
 
 //Unlike testSiteResponse the testRouter_... tests actually attempt to render the markdown document *and* go through the path lookup motions

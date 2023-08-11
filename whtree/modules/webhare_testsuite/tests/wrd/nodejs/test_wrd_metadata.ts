@@ -8,8 +8,8 @@ async function testFileGeneration() {
 
   //Basic sanity checks - we don't want to set up a full TS parser (yet?)
   result = result.replaceAll("\n", " ");
-  test.eqMatch(/whuserDisabled/, result, "HS type WHUSER_DISABLED should appear as whuserDisabled in the output");
-  test.eqMatch(/whuserDisableType/, result, "HS type WHUSER_DISABLE_TYPE should appear as whuserDisableType in the output");
+  test.eq(/whuserDisabled/, result, "HS type WHUSER_DISABLED should appear as whuserDisabled in the output");
+  test.eq(/whuserDisableType/, result, "HS type WHUSER_DISABLE_TYPE should appear as whuserDisableType in the output");
 }
 
 test.run([testFileGeneration], { wrdauth: true });

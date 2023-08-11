@@ -36,19 +36,19 @@ test.registerTests(
 
       test.click(`*[data-messagebox-result=yes]`);
       await test.wait(() => test.qS("#status").textContent == "WaitingForOwner");
-      test.eqMatch(/after [0-9]+ seconds/i, test.qS(".mydialog").textContent);
+      test.eq(/after [0-9]+ seconds/i, test.qS(".mydialog").textContent);
 
       await test.selectFrame("main");
       await test.wait(() => test.qS("#status").textContent == "ReleaseRequest");
       console.error(test.qS(".mydialog").textContent);
-      test.eqMatch(/after [0-9]+ seconds/i, test.qS(".mydialog").textContent);
+      test.eq(/after [0-9]+ seconds/i, test.qS(".mydialog").textContent);
 
       test.click(`*[data-messagebox-result=no]`);
       test.eq(null, test.qS(".mydialog"), "Dialog should disappear");
 
       await test.selectFrame("second");
       await test.wait(() => test.qS("#status").textContent == "Failed getting the lock");
-      test.eqMatch(/has been denied/, test.qS(".mydialog").textContent);
+      test.eq(/has been denied/, test.qS(".mydialog").textContent);
       test.click(`*[data-messagebox-result=close]`);
 
       await test.selectFrame("main");
@@ -68,16 +68,16 @@ test.registerTests(
 
       test.click(`*[data-messagebox-result=yes]`);
       await test.wait(() => test.qS("#status").textContent == "WaitingForOwner");
-      test.eqMatch(/after [0-9]+ seconds/i, test.qS(".mydialog").textContent);
+      test.eq(/after [0-9]+ seconds/i, test.qS(".mydialog").textContent);
 
       await test.selectFrame("main");
       await test.wait(() => test.qS("#status").textContent == "ReleaseRequest");
-      test.eqMatch(/after [0-9]+ seconds/i, test.qS(".mydialog").textContent);
+      test.eq(/after [0-9]+ seconds/i, test.qS(".mydialog").textContent);
 
       test.click(`*[data-messagebox-result=yes]`);
       await test.wait(() => test.qS("#status").textContent == "LockStolen");
       test.eq("no", test.qS("#locked").textContent);
-      test.eqMatch(/taken over this/, test.qS(".mydialog").textContent);
+      test.eq(/taken over this/, test.qS(".mydialog").textContent);
       test.click(`*[data-messagebox-result=close]`);
       await test.wait(() => test.qS("#status").textContent == "LockStolenShown");
 
@@ -127,7 +127,7 @@ test.registerTests(
       test.eq("yes", test.qS("#locked").textContent);
       test.click(`*[data-messagebox-result=yes]`);
       await test.wait(() => test.qS("#status").textContent == "LockStolen");
-      test.eqMatch(/has taken over/, test.qS(".mydialog").textContent);
+      test.eq(/has taken over/, test.qS(".mydialog").textContent);
       test.click(`*[data-messagebox-result=close]`);
 
       // first waiter in line (third) gets the lock
@@ -139,21 +139,21 @@ test.registerTests(
       await test.selectFrame("main");
       await test.wait(() => test.qS("#status").textContent == "Failed getting the lock");
       test.eq("no", test.qS("#locked").textContent);
-      test.eqMatch(/has been denied/, test.qS(".mydialog").textContent);
+      test.eq(/has been denied/, test.qS(".mydialog").textContent);
       test.click(`*[data-messagebox-result=close]`);
 
       // STORY: take the lock from same entityid - no waiting for permission
       await test.selectFrame("fourth");
       test.click("#startexclusiveaccesstest");
       await test.wait(() => test.qS("#status").textContent == "AlreadyLocked");
-      test.eqMatch(/another browser tab/, test.qS(".mydialog").textContent);
+      test.eq(/another browser tab/, test.qS(".mydialog").textContent);
       test.click(`*[data-messagebox-result=yes]`);
       await test.wait(() => test.qS("#status").textContent == "Got lock");
       test.click("#releaselock");
 
       await test.selectFrame("third");
       await test.wait(() => test.qS("#status").textContent == "LockStolen");
-      test.eqMatch(/has taken over/, test.qS(".mydialog").textContent);
+      test.eq(/has taken over/, test.qS(".mydialog").textContent);
       test.click(`*[data-messagebox-result=close]`);
 
       // story: cancel takeover request

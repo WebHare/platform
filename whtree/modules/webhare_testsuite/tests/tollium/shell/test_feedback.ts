@@ -45,7 +45,7 @@ test.registerTests([
     test.clickToddButton('OK');
     // The message contains the generated feedback id
     const message = await test.waitForToddComponent("message");
-    test.eqMatch(/id '[^']*'.$/, message.textContent);
+    test.eq(/id '[^']*'.$/, message.textContent);
     const idx = message.textContent.lastIndexOf("'", message.textContent.length - 3);
     feedbackid = message.textContent.substring(idx + 1, message.textContent.length - 2);
     test.clickToddButton('OK');

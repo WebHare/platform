@@ -23,7 +23,7 @@ test.registerTests(
     {
       name: "access rule portal login", //this lands on /porta1l/
       test: function (doc, win) {
-        test.eqMatch(/.*\/portal1\/.*/, win.location.href);
+        test.eq(/.*\/portal1\/.*/, win.location.href);
         test.setTodd('loginname', "test-portal1@example.com");
         test.setTodd('password', "secret");
         test.clickToddButton('Login');
@@ -75,7 +75,7 @@ test.registerTests(
     {
       name: "protected portal login", //we should be on portal1 here!
       test: function (doc, win) {
-        test.eqMatch(/.*\/portal2\/.*/, win.location.href);
+        test.eq(/.*\/portal2\/.*/, win.location.href);
         test.setTodd('loginname', 'test-portal2@example.com');
         test.setTodd('password', "secret");
         test.clickToddButton('Login');

@@ -270,19 +270,19 @@ function testHTML(decoded: string, encoded: string) {
 async function testStrings() {
   for (let i = 0; i < 100; ++i) {
     const id = std.generateRandomId(); //by default this generated 128bit base64url (UFS) encoded strings
-    test.eqMatch(/^[-_0-9A-Za-z]{21}[QAwg]$/, id, `Failed: ${id}`);
+    test.eq(/^[-_0-9A-Za-z]{21}[QAwg]$/, id, `Failed: ${id}`);
   }
 
   for (let i = 0; i < 100; ++i) {
     const id = std.generateRandomId("hex");
-    test.eqMatch(/^[0-9a-f]{32}$/, id, `Failed: ${id}`);
+    test.eq(/^[0-9a-f]{32}$/, id, `Failed: ${id}`);
   }
 
-  test.eqMatch(/^[0-9a-f]{8}$/, std.generateRandomId("hex", 4));
+  test.eq(/^[0-9a-f]{8}$/, std.generateRandomId("hex", 4));
 
   for (let i = 0; i < 100; ++i) {
     const id = std.generateRandomId("uuidv4", 16);
-    test.eqMatch(uuid4regex, id, `Failed: ${id}`);
+    test.eq(uuid4regex, id, `Failed: ${id}`);
   }
 
   test.throws(/16 bytes/, () => std.generateRandomId("uuidv4", 15));

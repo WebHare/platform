@@ -414,6 +414,7 @@ function eqPropsRecurse<T>(expect: RecursivePartialOrRegexp<T>, actual: T, path:
   }
 }
 
+/** @deprecated use test.eq in WebHare 5.4+, it also accepts RegExp */
 export function eqMatch(regexp: RegExp, actual: string, annotation?: Annotation) {
   if (actual.match(regexp))
     return;

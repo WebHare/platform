@@ -133,9 +133,9 @@ test.registerTests(
     async function () {
       const emails = await test.waitForEmails("pietjenieuw@beta.webhare.net", { timeout: 60000 });
       test.eq(1, emails.length, emails.length == 0 ? "No emails!" : "More than expected emails (" + emails.length + ")");
-      test.eqMatch(/^Email reset for '.+'$/, emails[0].subject, `Unexpected subject '${emails[0].subject}'`);
-      test.eqMatch(/pietjetester@beta.webhare.net.*pietjenieuw@beta.webhare.net/, emails[0].plaintext);
-      test.eqMatch(/Crude test of email override/, emails[0].plaintext);
+      test.eq(/^Email reset for '.+'$/, emails[0].subject, `Unexpected subject '${emails[0].subject}'`);
+      test.eq(/pietjetester@beta.webhare.net.*pietjenieuw@beta.webhare.net/, emails[0].plaintext);
+      test.eq(/Crude test of email override/, emails[0].plaintext);
 
       const confirmlink = emails[0].links.filter(link => link.textcontent == "this link")[0];
       test.assert(confirmlink, "Didn't find a confirm link");
@@ -185,8 +185,8 @@ test.registerTests(
     async function () {
       const emails = await test.waitForEmails("jantjetester@beta.webhare.net", { timeout: 60000 });
       test.eq(1, emails.length, emails.length == 0 ? "No emails!" : "More than expected emails (" + emails.length + ")");
-      test.eqMatch(/^Email reset for '.+'$/, emails[0].subject, `Unexpected subject '${emails[0].subject}'`);
-      test.eqMatch(/pietjenieuw@beta.webhare.net.*jantjetester@beta.webhare.net/, emails[0].plaintext);
+      test.eq(/^Email reset for '.+'$/, emails[0].subject, `Unexpected subject '${emails[0].subject}'`);
+      test.eq(/pietjenieuw@beta.webhare.net.*jantjetester@beta.webhare.net/, emails[0].plaintext);
 
       const confirmlink = emails[0].links.filter(link => link.textcontent == "this link")[0];
       test.assert(!confirmlink, "Shouldn't have a confirm link");

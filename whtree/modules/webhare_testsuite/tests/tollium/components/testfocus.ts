@@ -36,27 +36,27 @@ test.registerTests(
         test.assert(test.getDoc().hasFocus(), "This test requires the browser to have focus");
 
         //ADDME also test the Tollium hasFocus() calls
-        test.eqMatch(/:box!heading!cbox$/, getToddFocusedComponent());
+        test.eq(/:box!heading!cbox$/, getToddFocusedComponent());
 
         //test focus moving
         await test.pressKey('Tab');
-        test.eqMatch(/:textedit$/, getToddFocusedComponent());
+        test.eq(/:textedit$/, getToddFocusedComponent());
         await test.pressKey('Tab');
         await test.pressKey('Tab');
-        test.eqMatch(/:list$/, getToddFocusedComponent());
+        test.eq(/:list$/, getToddFocusedComponent());
 
         //test whether clicks properly transfer focus
         const thewin = test.qSA('.t-screen.active')[0];
         test.click(thewin.querySelector('textarea'));
-        test.eqMatch(/:textarea$/, getToddFocusedComponent());
+        test.eq(/:textarea$/, getToddFocusedComponent());
 
         test.click(thewin.querySelector('.wh-ui-listview .listrow'));
         await test.waitUIFree();
-        test.eqMatch(/:list$/, getToddFocusedComponent());
+        test.eq(/:list$/, getToddFocusedComponent());
 
         //test whether setting the focus server-side properly transfers focus
         test.click(thewin.querySelector('textarea'));
-        test.eqMatch(/:textarea$/, getToddFocusedComponent());
+        test.eq(/:textarea$/, getToddFocusedComponent());
         test.click(test.getMenu(['M01', 'A06']));
       },
       waits: ['ui']
@@ -65,7 +65,7 @@ test.registerTests(
     {
       name: 'serverfocus',
       test: function (doc, win) {
-        test.eqMatch(/:list$/, getToddFocusedComponent());
+        test.eq(/:list$/, getToddFocusedComponent());
 
         test.click(test.getMenu(['M01', 'A01']));
       },
@@ -76,12 +76,12 @@ test.registerTests(
     async function (doc, win) {
       test.eq(2, test.qSA('.t-screen').length);
       test.assert(test.getCurrentScreen().getNode().contains(doc.activeElement)); //make sure focus is in the expected window
-      test.eqMatch(/:box!heading!cbox$/, getToddFocusedComponent());
+      test.eq(/:box!heading!cbox$/, getToddFocusedComponent());
 
       await test.pressKey('Tab');
-      test.eqMatch(/:textedit$/, getToddFocusedComponent());
+      test.eq(/:textedit$/, getToddFocusedComponent());
       await test.pressKey('Tab', { shiftKey: true });
-      test.eqMatch(/:box!heading!cbox$/, getToddFocusedComponent());
+      test.eq(/:box!heading!cbox$/, getToddFocusedComponent());
 
       //focus should leave completely..
       await test.pressKey('Tab', { shiftKey: true });
@@ -92,7 +92,7 @@ test.registerTests(
       await test.pressKey('Tab');
       await test.pressKey('Tab');
       await test.pressKey('Tab');
-      test.eqMatch(/:box!heading!cbox$/, getToddFocusedComponent());
+      test.eq(/:box!heading!cbox$/, getToddFocusedComponent());
       //closing this window should restore focus to the list in our parent
       test.getCurrentScreen().clickCloser();
 
@@ -103,7 +103,7 @@ test.registerTests(
       name: 'focusback',
       test: function (doc, win) {
         test.eq(1, test.qSA('.t-screen').length);
-        test.eqMatch(/:list$/, getToddFocusedComponent());
+        test.eq(/:list$/, getToddFocusedComponent());
       }
     },
 
@@ -140,13 +140,13 @@ test.registerTests(
       test: function (doc, win) {
         //the RTE should NOT have focus
         test.eq(2, test.qSA('.t-screen').length);
-        test.eqMatch(/:textedit$/, getToddFocusedComponent());
+        test.eq(/:textedit$/, getToddFocusedComponent());
         //        test.getCurrentScreen().clickCloser();
 
         //let's focus the RTE
         test.click(test.compByName('rte'));
         //verify
-        test.eqMatch(/:rte$/, getToddFocusedComponent());
+        test.eq(/:rte$/, getToddFocusedComponent());
       }
     },
 
@@ -162,7 +162,7 @@ test.registerTests(
     {
       name: 'openrtedialog-testsubwindowfocus',
       test: function (doc, win) {
-        test.eqMatch(/:textedit$/, getToddFocusedComponent());
+        test.eq(/:textedit$/, getToddFocusedComponent());
       }
     },
 
@@ -179,7 +179,7 @@ test.registerTests(
       name: 'openrtedialog-testfocusafterclosesub',
       test: function (doc, win) {
         //verify that the RTE got focus again
-        test.eqMatch(/:rte/, getToddFocusedComponent());
+        test.eq(/:rte/, getToddFocusedComponent());
       }
     },
 
@@ -206,7 +206,7 @@ test.registerTests(
       //the RTE should NOT have focus
       test.eq(2, test.qSA('.t-screen').length);
       test.assert(dompack.matches(doc.activeElement, 'div.wh-rtd-editor[contenteditable]'));
-      test.eqMatch(/:rte$/, getToddFocusedComponent());
+      test.eq(/:rte$/, getToddFocusedComponent());
       test.getCurrentScreen().clickCloser();
       await test.waitUIFree();
     },
@@ -217,6 +217,6 @@ test.registerTests(
       await test.waitUIFree();
       test.eq(2, test.qSA('.t-screen').length);
       test.assert(dompack.matches(doc.activeElement, 'div.wh-rtd-editor[contenteditable]'));
-      test.eqMatch(/:rte$/, getToddFocusedComponent());
+      test.eq(/:rte$/, getToddFocusedComponent());
     }
   ]);

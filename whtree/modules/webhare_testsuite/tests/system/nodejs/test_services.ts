@@ -12,7 +12,7 @@ import { HarescriptVM, allocateHSVM } from "@webhare/harescript";
 import { WebHareBlob, isWebHareBlob } from "@mod-system/js/internal/whmanager/hsmarshalling";
 
 function ensureProperPath(inpath: string) {
-  test.eqMatch(/^\/.+\/$/, inpath, `Path should start and end with a slash: ${inpath}`);
+  test.eq(/^\/.+\/$/, inpath, `Path should start and end with a slash: ${inpath}`);
   test.assert(!inpath.includes("//"), `Path should not contain duplicate slashes: ${inpath}`);
 }
 
@@ -270,7 +270,7 @@ async function testResources() {
   test.eq(services.config.dataroot + "storage/system/xyz/", services.toFSPath("storage::system/xyz/"));
   test.eq(services.config.dataroot + "storage/system/", services.toFSPath("storage::system"));
 
-  test.eqMatch(/^https?:.*/, services.config.backendURL);
+  test.eq(/^https?:.*/, services.config.backendURL);
 
   const systempath = services.config.module.system.root;
   test.eq("mod::system/lib/tests/cluster.whlib", services.toResourcePath(systempath + "lib/tests/cluster.whlib"));
@@ -461,7 +461,7 @@ async function testLogs() {
 
   const hardlogline = await logreader.next();
   test.assert(hardlogline.value["@timestamp"] instanceof Date);
-  test.eqMatch(/1234567890… \(40000 chars\)/, hardlogline.value.val);
+  test.eq(/1234567890… \(40000 chars\)/, hardlogline.value.val);
   // console.log(hardlogline);
 
   test.eq("[function f]", hardlogline.value.f);

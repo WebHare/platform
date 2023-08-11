@@ -64,7 +64,7 @@ test.registerTests(
       await test.wait('ui');
 
       // policy: password must have at least one lowercase character
-      test.eqMatch(/doesn't have/, test.getCurrentScreen().getNode().textContent);
+      test.eq(/doesn't have/, test.getCurrentScreen().getNode().textContent);
       test.clickToddButton('OK');
       await test.wait('ui');
 
@@ -73,7 +73,7 @@ test.registerTests(
       test.clickToddButton('OK');
       await test.wait('ui');
 
-      test.eqMatch(/has been updated/, test.getCurrentScreen().getNode().textContent);
+      test.eq(/has been updated/, test.getCurrentScreen().getNode().textContent);
       test.clickToddButton('OK');
 
       // reloads to login window
@@ -115,7 +115,7 @@ test.registerTests(
       test.click(test.qSA("t-button").filter(e => e.textContent.startsWith("Next"))[0]);
       await test.wait('ui');
 
-      test.eqMatch(/your clock is -[69]0 seconds off/, test.getCurrentScreen().getNode().textContent);
+      test.eq(/your clock is -[69]0 seconds off/, test.getCurrentScreen().getNode().textContent);
       test.clickToddButton('OK');
       await test.wait('ui');
       totpdata = await test.invoke('mod::webhare_testsuite/lib/tollium/login.whlib#GetTOTPCode', { secret: totpsecret, offset: 0 });
@@ -168,7 +168,7 @@ test.registerTests(
       await test.wait('ui');
       test.click(test.compByName("secondfactorloginbutton"));
       await test.wait('ui');
-      test.eqMatch(/This code is not valid/, test.getCurrentScreen().getNode().textContent);
+      test.eq(/This code is not valid/, test.getCurrentScreen().getNode().textContent);
       test.clickToddButton('OK');
 
       // STORY: test an valid code (after using an invalid code)

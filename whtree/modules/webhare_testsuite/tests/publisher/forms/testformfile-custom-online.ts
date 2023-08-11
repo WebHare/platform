@@ -58,7 +58,7 @@ test.registerTests(
       test.assert(!test.canClick('[data-wh-form-group-for="thankyou_cancelled"]'), "Should not see thankyou_cancelled text");
 
       // Check if the first name is merged into the thankyou text
-      test.eqMatch(/Joe/, test.qS('[data-wh-form-group-for="thankyou"]').textContent);
+      test.eq(/Joe/, test.qS('[data-wh-form-group-for="thankyou"]').textContent);
 
       testemail_guid = test.qS('form[data-wh-form-resultguid]').dataset.whFormResultguid;
       const formresult = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#GetWebtoolFormResult', testemail_guid, { which: "custom2" });

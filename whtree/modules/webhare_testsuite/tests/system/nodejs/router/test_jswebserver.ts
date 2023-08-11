@@ -75,7 +75,7 @@ async function testOurWebserver() {
     process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 
   const response = await (await fetch(testorigin + markdowndocurl.pathname, { headers: { host: markdowndocurl.host } })).text();
-  test.eqMatch(/<html.*>.*<h2.*>Markdown file<\/h2>/, response);
+  test.eq(/<html.*>.*<h2.*>Markdown file<\/h2>/, response);
 
   const testsuiteresources = testorigin + "/tollium_todd.res/webhare_testsuite/tests/";
   let fetcher = await fetch(testsuiteresources + "getrequestdata.shtml", { redirect: "manual", headers: { host: markdowndocurl.host, accept: "application/json" } });

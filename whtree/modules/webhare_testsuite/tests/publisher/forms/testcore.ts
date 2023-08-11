@@ -447,7 +447,7 @@ test.registerTests(
       test.fill(test.qS('#coretest-password'), 'globalerror');
       test.click('#submitbutton');
       await test.wait('ui');
-      test.eqMatch(/You broke the form.*Don't do that.*/, test.qS(".mydialog").textContent);
+      test.eq(/You broke the form.*Don't do that.*/, test.qS(".mydialog").textContent);
       test.click('.mydialog button');
     },
     {
