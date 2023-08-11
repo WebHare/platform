@@ -135,7 +135,7 @@ test.registerTests(
       console.info(emails);
       test.eq(1, emails.length, "No emails!");
       test.eq("Two-level field mail", emails[0].subject);
-      test.eqMatch(/Subfield value: Subvalue #2/, emails[0].plaintext);
+      test.eq(/Subfield value: Subvalue #2/, emails[0].plaintext);
     },
 
     { loadpage: function () { return setupdata.url; } },

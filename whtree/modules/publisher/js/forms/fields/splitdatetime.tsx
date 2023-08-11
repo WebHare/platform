@@ -12,7 +12,7 @@ import "./splitdatetime.scss";
 
 
 if (!islive)
-  console.warn("@mod-publisher/js/forms/splitdatetime has some known issues and is no longer being maintained. Please switch to the @mod-publisher/js/forms/datetime version");
+  console.warn("@mod-publisher/js/forms/splitdatetime has some known issues and is no longer being maintained. Please switch to the @mod-publisher/js/forms/fields/datetime version");
 
 let labelcount = 0;
 

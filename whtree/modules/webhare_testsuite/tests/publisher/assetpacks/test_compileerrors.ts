@@ -276,7 +276,7 @@ async function testCompileerrors() {
     // Check if numerical values are collapsed properly
     test.assert(css.match(/.test1b{.*margin:0 1% auto 1px.*}/));
     // Avoid inset: collapse, safari v14 doesn't like this and we're in no rush to deprecate that one
-    test.eqMatch(/.test1c{.*top:.*}/, css);
+    test.eq(/.test1c{.*top:.*}/, css);
     test.assert(!css.match(/.test1c{.*inset:.*}/));
   }
 

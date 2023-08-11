@@ -71,7 +71,7 @@ test.registerTests(
       test.clickToddButton('OK');
       await test.wait('ui');
 
-      test.eqMatch(/password has been updated/, test.qS(".appcanvas--visible .t-screen.active").textContent);
+      test.eq(/password has been updated/, test.qS(".appcanvas--visible .t-screen.active").textContent);
       test.clickToddButton('OK');
 
       // wait for screen to close, the busy lock is released somwehere in between the closing process
@@ -123,7 +123,7 @@ test.registerTests(
       await test.wait('ui');
 
       // message window 'Your password has been updated'
-      test.eqMatch(/password has been updated/, test.qS(".appcanvas--visible .t-screen.active").textContent);
+      test.eq(/password has been updated/, test.qS(".appcanvas--visible .t-screen.active").textContent);
       test.clickToddButton('OK');
 
       // should go back to login window, login with new password
@@ -193,7 +193,7 @@ test.registerTests(
       await test.wait('ui');
 
       // policy: no reuse for 2 days
-      test.eqMatch(/doesn't have/, test.getCurrentScreen().getNode().textContent);
+      test.eq(/doesn't have/, test.getCurrentScreen().getNode().textContent);
       test.clickToddButton('OK');
       await test.wait('ui');
 
@@ -203,7 +203,7 @@ test.registerTests(
       await test.wait('ui');
 
       // policy: no reuse for 2 days
-      test.eqMatch(/doesn't have/, test.getCurrentScreen().getNode().textContent);
+      test.eq(/doesn't have/, test.getCurrentScreen().getNode().textContent);
       test.clickToddButton('OK');
       await test.wait('ui');
 
@@ -212,7 +212,7 @@ test.registerTests(
       test.clickToddButton('OK');
       await test.wait('ui');
 
-      test.eqMatch(/has been updated/, test.getCurrentScreen().getNode().textContent);
+      test.eq(/has been updated/, test.getCurrentScreen().getNode().textContent);
       test.clickToddButton('OK');
       await test.wait('load');
       await test.wait('ui');
@@ -255,7 +255,7 @@ test.registerTests(
       await test.wait('ui');
 
       // message popup? 2FA is required but not configured, sure to close dialog?
-      test.eqMatch(/two.*factor.*need.*configured.*log.*in.*sure.*close/i, test.compByName("message").textContent);
+      test.eq(/two.*factor.*need.*configured.*log.*in.*sure.*close/i, test.compByName("message").textContent);
       test.clickToddButton('No');
       await test.wait('ui');
 

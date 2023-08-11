@@ -41,7 +41,7 @@ async function testLangJsonParser() {
         { tid: "test.group.subgroup.subtext", text: "subsub text" },
         { tid: "test.group.subgroup", text: "subgroup text" }
       ]);
-    test.eq(custom,
+    test.eq(custom as any,
       {
         test:
         {

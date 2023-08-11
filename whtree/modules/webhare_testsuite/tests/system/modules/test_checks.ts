@@ -105,7 +105,7 @@ async function testCheckAPI() {
     { type: "webhare_testsuite:check2", metadata: { sub: 1 }, messageText: "Test #2.1 now failing", wrdLimitDate: null }
   ], checks3);
 
-  test.eq(checks3[0].wrdLimitDate, checks2[0].wrdLimitDate, "test failure #0 should be untouched");
+  test.eq(checks3[0].wrdLimitDate!, checks2[0].wrdLimitDate, "test failure #0 should be untouched");
   test.assert(checks3[1].wrdLimitDate, "should now have a set limitdate on check[1]");
   test.eq(checks3[0].wrdLimitDate, checks3[0].history[1].wrdCreationDate);
 

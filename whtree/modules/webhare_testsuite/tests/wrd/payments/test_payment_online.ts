@@ -40,7 +40,7 @@ test.registerTests(
       test.eq(2, emails.length, "No emails!");
       emails = emails.sort((lhs, rhs) => lhs.subject < rhs.subject ? -1 : lhs.subject > rhs.subject ? 1 : 0);
       test.eq("About Your Submission", emails[0].subject);
-      test.eqMatch(/Too bad you've cancelled Jopie!/, emails[0].plaintext);
+      test.eq(/Too bad you've cancelled Jopie!/, emails[0].plaintext);
       test.eq("Payment has failed", emails[1].subject);
     },
 
@@ -89,7 +89,7 @@ test.registerTests(
       test.eq(2, emails.length, "No emails!");
       emails = emails.sort((lhs, rhs) => lhs.subject < rhs.subject ? -1 : lhs.subject > rhs.subject ? 1 : 0);
       test.eq("About Your Submission", emails[0].subject);
-      test.eqMatch(/Hello Joepie!/, emails[0].plaintext);
+      test.eq(/Hello Joepie!/, emails[0].plaintext);
       test.eq("Payment is confirmed", emails[1].subject);
 
       await test.click("#rejectpayment"); //that doesnt change a thing
@@ -122,7 +122,7 @@ test.registerTests(
       test.eq(2, emails.length, "No emails!");
       emails = emails.sort((lhs, rhs) => lhs.subject < rhs.subject ? -1 : lhs.subject > rhs.subject ? 1 : 0);
       test.eq("About Your Submission", emails[0].subject);
-      test.eqMatch(/Too bad you've cancelled Jippie!/, emails[0].plaintext);
+      test.eq(/Too bad you've cancelled Jippie!/, emails[0].plaintext);
       test.eq("Payment has failed", emails[1].subject);
 
       await test.click("#approvepayment"); //approving it anyway! CCs can do this, rejecting first and then approving ANYWAY
@@ -139,7 +139,7 @@ test.registerTests(
       test.eq(2, emails.length, "No emails!");
       emails = emails.sort((lhs, rhs) => lhs.subject < rhs.subject ? -1 : lhs.subject > rhs.subject ? 1 : 0);
       test.eq("About Your Submission", emails[0].subject);
-      test.eqMatch(/Hello Jippie!/, emails[0].plaintext);
+      test.eq(/Hello Jippie!/, emails[0].plaintext);
       test.eq("Payment is confirmed", emails[1].subject);
     },
 
@@ -163,7 +163,7 @@ test.registerTests(
       test.eq(2, emails.length, "No emails!");
       emails = emails.sort((lhs, rhs) => lhs.subject < rhs.subject ? -1 : lhs.subject > rhs.subject ? 1 : 0);
       test.eq("About Your Submission", emails[0].subject);
-      test.eqMatch(/Too bad you've cancelled Joppie!/, emails[0].plaintext);
+      test.eq(/Too bad you've cancelled Joppie!/, emails[0].plaintext);
       test.eq("Payment has failed", emails[1].subject);
 
       await test.click("#rejectpayment"); //also going through this route
@@ -199,7 +199,7 @@ test.registerTests(
       test.eq(2, emails.length, "No emails!");
       emails = emails.sort((lhs, rhs) => lhs.subject < rhs.subject ? -1 : lhs.subject > rhs.subject ? 1 : 0);
       test.eq("Payment is confirmed", emails[1].subject);
-      test.eqMatch(/TSLinecomp difference: \{40,00\}/, emails[1].plaintext);
+      test.eq(/TSLinecomp difference: \{40,00\}/, emails[1].plaintext);
 
     }
   ]);

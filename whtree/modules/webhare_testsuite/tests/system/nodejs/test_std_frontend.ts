@@ -5,7 +5,7 @@ import { generateRandomId } from "@webhare/std";
 function testUUIDFallback() {
   //@ts-ignore - we explicitly want to break stuff
   crypto.randomUUID = undefined;
-  test.eqMatch(uuid4regex, generateRandomId("uuidv4", 16));
+  test.eq(uuid4regex, generateRandomId("uuidv4", 16));
 }
 
 test.registerTests([

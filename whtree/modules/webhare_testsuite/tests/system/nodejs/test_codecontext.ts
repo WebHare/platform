@@ -8,8 +8,8 @@ async function testContextSetup() {
 
   const context1 = new CodeContext("test_codecontext:context setup", { context: 1 });
   const context2 = new CodeContext("test_codecontext:context setup", { context: 2 });
-  test.eqMatch(/^whcontext-.*/, context1.id);
-  test.eqMatch(/^whcontext-.*/, context2.id);
+  test.eq(/^whcontext-.*/, context1.id);
+  test.eq(/^whcontext-.*/, context2.id);
   test.assert(context1.id !== context2.id, "Assert we have two different contexts");
 
   test.eq(context1.id, context1.run(contexttests.returnContextId));
@@ -45,9 +45,9 @@ async function testContextStorage() {
   context1.ensureScopedResource("webhare_testsuite:mykey", () => 88);
   context2.run(() => ensureScopedResource("webhare_testsuite:mykey", () => 99));
 
-  test.eq(77, ensureScopedResource("webhare_testsuite:mykey", () => { throw new Error("should not happen"); }));
-  test.eq(88, context1.ensureScopedResource("webhare_testsuite:mykey", () => { throw new Error("should not happen"); }));
-  test.eq(99, context2.ensureScopedResource("webhare_testsuite:mykey", () => { throw new Error("should not happen"); }));
+  test.eq(77, ensureScopedResource("webhare_testsuite:mykey", (): number => { throw new Error("should not happen"); }));
+  test.eq(88, context1.ensureScopedResource("webhare_testsuite:mykey", (): number => { throw new Error("should not happen"); }));
+  test.eq(99, context2.ensureScopedResource("webhare_testsuite:mykey", (): number => { throw new Error("should not happen"); }));
 }
 
 test.run([

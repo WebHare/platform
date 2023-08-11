@@ -192,7 +192,7 @@ test.registerTests(
         test.eq(null, lastcustomactioninfo);
         test.click(X11);
         test.assert(lastcustomactioninfo != null);
-        test.eqMatch(/:customaction$/, lastcustomactioninfo.action);
+        test.eq(/:customaction$/, lastcustomactioninfo.action);
         test.eq(test.getCurrentScreen().win, lastcustomactioninfo.screen);
       },
       waits: ['ui'] //the custom action should send message, which removes the screen

@@ -4,13 +4,20 @@ import Ajv from "ajv";
 import Ajv2019 from "ajv/dist/2019";
 import Ajv2020, { SchemaObject, ValidateFunction } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
-import { RecursivePartial } from "@mod-system/js/internal/util/algorithms";
+
 export { LoadTSTypeOptions } from "./testsupport";
 
 /** An Annotation must either be a simple string or a callback returning one */
 export type Annotation = string | (() => string);
 
 type LoggingCallback = (...args: unknown[]) => void;
+
+/** Recursively apply `Partial<>`  on records in a type but also allow Regexps to match strings
+ * @typeParam T - Type to convert
+*/
+type RecursivePartialOrRegexp<T> = T extends Array<infer U> ? Array<RecursivePartialOrRegexp<U>> : T extends string ? string | RegExp : T extends object ? { [K in keyof T]?: RecursivePartialOrRegexp<T[K]> } : T;
+
+type RecursiveOrRegexp<T> = T extends Array<infer U> ? Array<RecursiveOrRegexp<U>> : T extends string ? string | RegExp : T extends object ? { [K in keyof T]: RecursiveOrRegexp<T[K]> } : T;
 
 let onLog: LoggingCallback = console.log.bind(console) as LoggingCallback;
 
@@ -68,6 +75,22 @@ function printColoredTextDiff(expected: string, actual: string) {
   console.log(str, ...colors);
 }
 
+function testRegExp(expect: RegExp, actual: unknown, path: string) {
+  if (typeof actual !== "string") {
+    onLog("regExp fails type: expected", expect);
+    onLog("regExp fails type: actual  ", actual);
+    throw new Error("Expected type: string actual type: " + typeof actual + (path != "" ? " at " + path : ""));
+  }
+
+  if (!expect.test(actual)) {
+    onLog("regExp fails: expected", expect);
+    onLog("regExp fails: actual  ", actual);
+    throw new Error("Expected match: " + String(expect) + " actual: " + actual + (path != "" ? " at " + path : ""));
+  }
+
+  return;
+}
+
 function testDeepEq(expected: unknown, actual: unknown, path: string) {
   if (expected === actual)
     return;
@@ -82,6 +105,9 @@ function testDeepEq(expected: unknown, actual: unknown, path: string) {
     throw new Error("Got a null, but expected " + expected + (path != "" ? " at " + path : ""));
   if (actual === undefined)
     throw new Error("Got undefined, but expected " + expected + (path != "" ? " at " + path : ""));
+
+  if (expected instanceof RegExp)
+    return testRegExp(expected, actual, path);
 
   const t_expected = typeof expected;
   const t_actual = typeof actual;
@@ -177,7 +203,7 @@ function toTestableString(val: unknown): string {
  * @param actual - The actual value
  * @throws If the values are not equal
  */
-export function eq<T>(expected: T, actual: T, annotation?: Annotation): void {
+export function eq<T>(expected: RecursiveOrRegexp<T>, actual: T, annotation?: Annotation): void {
   if (arguments.length < 2)
     throw new Error("Missing argument to test.eq");
 
@@ -311,12 +337,12 @@ export function throws(expect: RegExp, func_or_promise: Promise<unknown> | (() =
     @param actual - Actual value
     @param ignore - List of properties to ignore
     @param annotation - Message to display when the test fails */
-export function eqProps<T>(expect: RecursivePartial<T>, actual: T, ignore: string[] = [], annotation?: Annotation) {
+export function eqProps<T>(expect: RecursivePartialOrRegexp<T>, actual: T, ignore: string[] = [], annotation?: Annotation) {
   eqPropsRecurse(expect, actual, "root", ignore, annotation);
   return actual;
 }
 
-function eqPropsRecurse<T>(expect: RecursivePartial<T>, actual: T, path: string, ignore: string[], annotation?: Annotation) {
+function eqPropsRecurse<T>(expect: RecursivePartialOrRegexp<T>, actual: T, path: string, ignore: string[], annotation?: Annotation) {
   switch (typeof expect) {
     case "undefined": return;
     case "object":
@@ -325,6 +351,9 @@ function eqPropsRecurse<T>(expect: RecursivePartial<T>, actual: T, path: string,
           testDeepEq(expect, actual, path);
           return;
         }
+
+        if (expect instanceof RegExp)
+          return testRegExp(expect, actual, path);
 
         if (expect === null) {
           if (expect !== actual) {
@@ -385,6 +414,7 @@ function eqPropsRecurse<T>(expect: RecursivePartial<T>, actual: T, path: string,
   }
 }
 
+/** @deprecated use test.eq in WebHare 5.4+, it also accepts RegExp */
 export function eqMatch(regexp: RegExp, actual: string, annotation?: Annotation) {
   if (actual.match(regexp))
     return;

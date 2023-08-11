@@ -106,9 +106,9 @@ test.registerTests(
         holder.innerHTML = rtetest.getRawHTMLTextArea(win).value;
         const imgs = holder.querySelectorAll('img');
         test.eq(3, imgs.length); //should be two
-        test.eqMatch(/^cid:/, imgs[0].src);
-        test.eqMatch(/^cid:/, imgs[1].src);
-        test.eqMatch(/^cid:/, imgs[2].src, 'remote img src failed (upload/download failure?)');
+        test.eq(/^cid:/, imgs[0].src);
+        test.eq(/^cid:/, imgs[1].src);
+        test.eq(/^cid:/, imgs[2].src, 'remote img src failed (upload/download failure?)');
         // The CID url's should be the same; they're the same filetransfer.shtml url (should be recognized by $todd.ObjLayout.isMyFileTransferURL)
         test.eq(imgs[0].src, imgs[1].src);
         test.assert(imgs[1].src != imgs[2].src);

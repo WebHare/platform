@@ -50,7 +50,7 @@ async function setupKeys() {
 
   test.assert(testsession.sessionWrdId > 0);
   //fonzie-check the token. because its json.json.sig we'll see at least "ey" twice (encoded {})
-  test.eqMatch(/^ey[^.]+\.ey[^.]+\.[^.]+$/, testsession.token);
+  test.eq(/^ey[^.]+\.ey[^.]+\.[^.]+$/, testsession.token);
 
   let verifyresult = await provider.verifySession(testsession.token);
   test.eqProps({ scopes: ["Bunny"], subjectWrdId: testuser, payload: { iss: "https://my.webhare.dev/testfw/issuer" } }, verifyresult);

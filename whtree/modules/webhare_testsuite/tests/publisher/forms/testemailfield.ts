@@ -26,7 +26,7 @@ test.registerTests(
       const emailgroup = test.qS('#emailform-email').closest('.wh-form__fieldgroup');
       test.assert(emailgroup.classList.contains('wh-form__fieldgroup--error')); //this field is in error
 
-      test.eqMatch(/problemen.*@blocked.beta.webhare.net/, emailgroup.querySelector('.wh-form__error').textContent);
+      test.eq(/problemen.*@blocked.beta.webhare.net/, emailgroup.querySelector('.wh-form__error').textContent);
 
       test.fill("#emailform-email", "acceptable@beta.webhare.net");
       await test.pressKey('Tab');
@@ -53,7 +53,7 @@ test.registerTests(
       await test.wait(() => emailgroup.classList.contains('wh-form__fieldgroup--error')); //wait for group to error out
       test.eq(1, getFormRPCRequests().length);
 
-      test.eqMatch(/problemen.*@blocked.beta.webhare.net/, emailgroup.querySelector('.wh-form__error').textContent);
+      test.eq(/problemen.*@blocked.beta.webhare.net/, emailgroup.querySelector('.wh-form__error').textContent);
     },
     'Check smart email field CORRECTING on focus',
     async function () {

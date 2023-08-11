@@ -9,7 +9,7 @@ async function testWHFS() {
 
   const testsite = await whfs.openSite("webhare_testsuite.testsite");
   test.assert(testsite, "We need the testsite to exist");
-  test.eqMatch(/^https?:.*/, testsite.webRoot);
+  test.eq(/^https?:.*/, testsite.webRoot);
   test.eq(testsite.id, (await whfs.openSite(testsite.id)).id);
   test.eq(testsite.id, (await whfs.listSites()).find(_ => _.name == "webhare_testsuite.testsite")?.id);
 

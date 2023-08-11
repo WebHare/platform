@@ -121,7 +121,7 @@ test.registerTests(
       await test.wait('ui');
 
       // policy: password must have at least one lowercase character
-      test.eqMatch(/doesn't have/, test.getCurrentScreen().getNode().textContent);
+      test.eq(/doesn't have/, test.getCurrentScreen().getNode().textContent);
       test.clickToddButton('OK');
       await test.wait('ui');
 
@@ -130,7 +130,7 @@ test.registerTests(
       test.clickToddButton('OK');
       await test.wait('ui');
 
-      test.eqMatch(/has been updated/, test.getCurrentScreen().getNode().textContent);
+      test.eq(/has been updated/, test.getCurrentScreen().getNode().textContent);
       test.clickToddButton('OK');
       await test.wait('load'); // wait for refresh, don't want it to happen after load of resetlinkk
     },
@@ -141,7 +141,7 @@ test.registerTests(
       await test.load(pietje_resetlink);
       await test.wait('ui');
 
-      test.eqMatch(/reset link.*expired/, test.getCurrentScreen().getNode().textContent);
+      test.eq(/reset link.*expired/, test.getCurrentScreen().getNode().textContent);
     },
 
     "Reset password of Jantje",
@@ -156,7 +156,7 @@ test.registerTests(
       test.clickToddButton('OK');
       await test.wait('ui');
 
-      test.eqMatch(/has been updated/, test.getCurrentScreen().getNode().textContent);
+      test.eq(/has been updated/, test.getCurrentScreen().getNode().textContent);
       test.clickToddButton('OK');
       await test.wait('load'); // wait for refresh, don't want it to happen after load of resetlinkk
     },
