@@ -54,13 +54,6 @@ PUBLIC STRING FUNCTION GetHashForString(STRING text, STRING algorithm, STRING ke
     RETURN GetHashForString(pads[0] || GetHashForString(pads[1] || text, algorithm), algorithm);
   }
 
-  IF(IsWasm())
-  {
-    IF(Length(text) > 1 * 1024 * 1024)
-      THROW NEW Exception("HareScript WASM does not support hashing texts > 1MB yet"); //FIXME but do it streaming
-    RETURN DecodeBase64(EM_SYSCALL("getHash", CELL[ text, algorithm, key_salt ]).base64);
-  }
-
   INTEGER hasher := CreateStreamingHasher(algorithm, key_salt);
   PrintTo(hasher, text);
   RETURN FinalizeHasher(hasher);
@@ -91,12 +84,6 @@ PUBLIC STRING FUNCTION GetHashForBlob(BLOB data, STRING algorithm, STRING key_sa
     RETURN GetHashForString(pads[0] || FinalizeHasher(hasher), algorithm);
   }
 
-  IF(IsWasm())
-  {
-    IF(Length(data) > 1 * 1024 * 1024)
-      THROW NEW Exception("HareScript WASM does not support hashing blobs > 1MB yet"); //FIXME but do it streaming
-    RETURN DecodeBase64(EM_SYSCALL("getHash", CELL[ data := EncodeBase64(BlobToString(data)), algorithm, key_salt ]).base64);
-  }
   INTEGER hasher := CreateStreamingHasher(algorithm, key_salt);
   SendBlobTo(hasher, data);
   RETURN FinalizeHasher(hasher);
