@@ -595,6 +595,9 @@ struct SystemContextData
         HSVM_ColumnId col_pvt_current; //  "PVT_CURRENT"
         HSVM_VariableId var_intcallbacks;
 
+        // Generic outputobject owner
+        std::map< int, std::shared_ptr< OutputObject > > other_outputobjects;
+
         private:
         friend void PrintTo(VarId id_set,VirtualMachine *vm);
         friend void SendBlobTo(VarId id_set,VirtualMachine *vm);
