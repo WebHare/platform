@@ -17,6 +17,15 @@ async function testChecks() {
   test.throws(/Expected date/, () => test.eq({ deep: new Date("2023-01-02") }, { deep: new Date("2023-01-01") }));
   test.throws(/Expected date/, () => test.eqProps({ deep: new Date("2023-01-02") }, { deep: new Date("2023-01-01") }));
 
+  test.eq(/konijntje/, "Heb jij mijn konijntje gezien?");
+  test.eqProps(/konijntje/, "Heb jij mijn konijntje gezien?");
+  test.eq({ text: /konijntje/ }, { text: "Heb jij mijn konijntje gezien?" });
+  test.eqProps({ text: /konijntje/ }, { text: "Heb jij mijn konijntje gezien?" });
+  test.throws(/Expected match/, () => test.eq({ text: /Konijntje/ }, { text: "Heb jij mijn konijntje gezien?" }), "We should be case sensitive");
+  test.throws(/Expected match/, () => test.eqProps({ text: /Konijntje/ }, { text: "Heb jij mijn konijntje gezien?" }));
+  ///@ts-ignore TS also rejects the regexp on the RHS
+  test.throws(/Expected type/, () => test.eq({ text: "Heb jij mijn konijntje gezien?" }, { text: /konijntje/ }), "Only 'expect' is allowed to hold regexes");
+
   const x_ab = { cellA: "A", cellB: "B" };
   const x_abc = { ...x_ab, cellC: "test" };
 

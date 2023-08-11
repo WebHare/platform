@@ -86,7 +86,7 @@ async function testServices() {
 
   test.throws(/The WebHare configuration is read-only/, () => { if (services.config) (services.config as any).dataroot = "I touched it"; });
 
-  test.eq(await services.callHareScript("mod::system/lib/configure.whlib#GetModuleInstallationRoot", ["system"]), services.config.module.system.root);
+  test.eq(await services.callHareScript("mod::system/lib/configure.whlib#GetModuleInstallationRoot", ["system"]) as string, services.config.module.system.root);
   ensureProperPath(services.config.module.system.root);
 }
 
