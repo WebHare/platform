@@ -1,4 +1,4 @@
-import { BoxedDefaultBlob, BoxedFloat, IPCMarshallableRecord, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { BoxedFloat, IPCMarshallableRecord, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import type { HSVM_VariableId, HSVM_VariableType, } from "../../../lib/harescript-interface";
 import type { HareScriptVM, JSBlobTag } from "./wasm-hsvm";
 import { maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
@@ -6,7 +6,7 @@ import { Money } from "@webhare/std";
 import { WHDBBlob } from "@webhare/whdb";
 import { WHDBBlobImplementation } from "@webhare/whdb/src/blobs";
 import { isWHDBBlob } from "@webhare/whdb/src/blobs";
-import { HareScriptBlob } from "./hsblob";
+import { HareScriptMemoryBlob, HareScriptBlob } from "./hsblob";
 
 function canCastTo(from: VariableType, to: VariableType): boolean {
   if (from === to)
@@ -212,7 +212,7 @@ export class HSVMVar {
     this.checkType(VariableType.Blob);
     const size = Number(this.vm.wasmmodule._HSVM_BlobLength(this.vm.hsvm, this.id));
     if (size === 0)
-      return new BoxedDefaultBlob;
+      return new HareScriptMemoryBlob;
 
     const tag = this.vm.getBlobJSTag(this.id);
     if (tag?.pg)
@@ -223,7 +223,7 @@ export class HSVMVar {
     this.vm.wasmmodule._HSVM_CopyFrom(this.vm.hsvm, cloneblob.id, this.id);
     return new HSVMBlob(this.vm, cloneblob.id, size);
   }
-  setBlob(value: WHDBBlob | BoxedDefaultBlob | null) {
+  setBlob(value: WHDBBlob | HareScriptMemoryBlob | null) {
     if (isWHDBBlob(value)) {
       const fullpath = value.__getDiskPathinfo().fullpath;
       const fullpath_cstr = this.vm.wasmmodule.stringToNewUTF8(fullpath);
@@ -231,7 +231,15 @@ export class HSVMVar {
       this.vm.wasmmodule._free(fullpath_cstr);
       this.vm.setBlobJSTag(this.id, { pg: value.databaseid });
       this.type = VariableType.Blob;
-
+    } else if (value?.size) {
+      const stream = this.vm.wasmmodule._HSVM_CreateStream(this.vm.hsvm);
+      //TODO write in blocks to reduce memory peak usage/fragmentation?
+      const tempbuffer = this.vm.wasmmodule._malloc(value.size);
+      this.vm.wasmmodule.HEAP8.set((value as HareScriptMemoryBlob).data!, tempbuffer);
+      //TODO deal with too short return values
+      this.vm.wasmmodule._HSVM_WriteTo(this.vm.hsvm, stream, value.size, tempbuffer);
+      this.vm.wasmmodule._free(tempbuffer);
+      this.vm.wasmmodule._HSVM_MakeBlobFromStream(this.vm.hsvm, this.id, stream);
     } else
       this.setDefault(VariableType.Blob);
   }
@@ -307,7 +315,7 @@ export class HSVMVar {
         return;
       } break;
       case VariableType.String: {
-        this.setString(value as string);
+        this.setString(value as string | Buffer);
         return;
       } break;
       case VariableType.DateTime: {
@@ -323,7 +331,7 @@ export class HSVMVar {
         return;
       } break;
       case VariableType.Blob: {
-        this.setBlob(value as WHDBBlob | BoxedDefaultBlob | null);
+        this.setBlob(value as WHDBBlob | HareScriptMemoryBlob | null);
         return;
       } break;
       case VariableType.Record: {
