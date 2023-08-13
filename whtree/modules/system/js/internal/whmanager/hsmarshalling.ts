@@ -2,7 +2,7 @@ import { LinearBufferReader, LinearBufferWriter } from "./bufs";
 // FIXME - import { Money } from "@webhare/std"; - but this breaks the shrinkwrap (it can't find @webhare/std)
 import { Money } from "../../../../../jssdk/std/money";
 import { defaultDateTime, maxDateTime, maxDateTimeTotalMsecs } from "../../../../../jssdk/hscompat/datetime";
-import { HareScriptBlob, isHareScriptBlob } from "../../../../../jssdk/harescript/src/hsblob"; //we need to directly load is to not break gen_config.ts
+import { HareScriptBlob, HareScriptMemoryBlob, isHareScriptBlob } from "../../../../../jssdk/harescript/src/hsblob"; //we need to directly load is to not break gen_config.ts
 
 export enum VariableType {
   Uninitialized = 0x00,                 ///< Not initialised variable
@@ -47,8 +47,7 @@ export type HSType<T extends VariableType> =
   T extends VariableType.Integer64 ? bigint :
   T extends VariableType.Record ? IPCMarshallableRecord :
   T extends VariableType.String ? string :
-  T extends VariableType.Blob ? Buffer :
-  T extends VariableType.Blob ? Uint8Array :
+  T extends VariableType.Blob ? HareScriptMemoryBlob :
   T extends VariableType.VariantArray ? IPCMarshallableData[] :
   T extends VariableType.IntegerArray ? Array<HSType<VariableType.Integer>> :
   T extends VariableType.MoneyArray ? Array<HSType<VariableType.HSMoney>> :
@@ -72,7 +71,7 @@ export function getDefaultValue<T extends VariableType>(type: T): HSType<T> {
     case VariableType.Integer64: { return BigInt(0) as HSType<T>; }
     case VariableType.Record: { return null as HSType<T>; }
     case VariableType.String: { return "" as HSType<T>; }
-    case VariableType.Blob: { return Buffer.from("") as HSType<T>; }
+    case VariableType.Blob: { return new HareScriptMemoryBlob as HSType<T>; }
     case VariableType.VariantArray:
     case VariableType.IntegerArray:
     case VariableType.MoneyArray:
@@ -113,24 +112,6 @@ export class BoxedFloat {
 
   constructor(value: number) {
     this.value = value;
-  }
-}
-
-/** A boxed default blob - because `null` is the only other way the WHDB can represent it and would be interpreted as a default record.
- *  We might not need this is if the PGSQLProvider returned HS VariableTypes along with the result sets so we could fix it in SetJSValue
- * */
-export class BoxedDefaultBlob implements HareScriptBlob {
-  readonly __hstype = VariableType.Blob;
-  readonly size = 0;
-
-  isSameBlob(rhs: HareScriptBlob): boolean {
-    return rhs.size == 0;
-  }
-  text(): Promise<string> {
-    return Promise.resolve("");
-  }
-  arrayBuffer(): Promise<ArrayBuffer> {
-    return Promise.resolve(new ArrayBuffer(0));
   }
 }
 
@@ -179,7 +160,7 @@ export function readMarshalPacket(buffer: Buffer | ArrayBuffer): IPCMarshallable
   }
 
 
-  const blobs: Uint8Array[] = [];
+  const blobs: Buffer[] = [];
   if (totalblobsize) {
     buf.readpos = 20 + columnsize + datasize;
     const blobcount = buf.readU32();
@@ -206,7 +187,7 @@ export function readMarshalPacket(buffer: Buffer | ArrayBuffer): IPCMarshallable
   return retval;
 }
 
-function marshalReadInternal(buf: LinearBufferReader, type: VariableType, columns: string[], blobs: Uint8Array[] | null): IPCMarshallableData {
+function marshalReadInternal(buf: LinearBufferReader, type: VariableType, columns: string[], blobs: Buffer[] | null): IPCMarshallableData {
   if (type & 0x80) {
     const eltcount = buf.readU32();
     const retval: IPCMarshallableData[] = [];
@@ -258,11 +239,11 @@ function marshalReadInternal(buf: LinearBufferReader, type: VariableType, column
       if (blobs) {
         const blobid = buf.readU32();
         if (!blobid)
-          return new Uint8Array();
+          return new HareScriptMemoryBlob;
         else
-          return blobs[blobid - 1];
+          return new HareScriptMemoryBlob(blobs[blobid - 1]);
       } else
-        return buf.readBinary();
+        return new HareScriptMemoryBlob(buf.readBinary());
     }
     case VariableType.FunctionPtr: {
       throw new Error(`Cannot decode FUNCTIONPTR yet`); // FIXME?
@@ -324,7 +305,7 @@ export function writeMarshalPacket(value: unknown): Buffer {
 
   const datawriter = new LinearBufferWriter();
   const path: object[] = [];
-  const blobs: Uint8Array[] = [];
+  const blobs: Buffer[] = [];
   datawriter.writeU8(MarshalPacketFormatType);
   writeMarshalDataInternal(value, datawriter, columns, blobs, null, path);
 
@@ -398,8 +379,10 @@ export function determineType(value: unknown): VariableType {
   }
   switch (typeof value) {
     case "object": {
-      if (value instanceof Uint8Array || value instanceof ArrayBuffer || isHareScriptBlob(value))
+      if (isHareScriptBlob(value))
         return VariableType.Blob;
+      if (value instanceof Uint8Array || value instanceof ArrayBuffer || value instanceof Buffer)
+        return VariableType.String;
       if (isDate(value))
         return VariableType.DateTime;
       if (value && "__hstype" in value) {
@@ -430,7 +413,7 @@ export function determineType(value: unknown): VariableType {
   }
 }
 
-function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, columns: Map<string, number>, blobs: Uint8Array[] | null, type: VariableType | null, path: object[]) {
+function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, columns: Map<string, number>, blobs: Buffer[] | null, type: VariableType | null, path: object[]) {
   const determinedtype = determineType(value);
   if (type === null) {
     type = determinedtype;
@@ -532,16 +515,19 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
       }
     } break;
     case VariableType.Blob: {
-      const uint8array = new Uint8Array(value as (Uint8Array | ArrayBuffer));
+      if (!(value as HareScriptBlob).size) { //empty blob
+        writer.writeU32(0); //either we write blobid 0 or size 0
+        break;
+      }
+
+      if (!(value instanceof HareScriptMemoryBlob))
+        throw new Error(`encodeHSON only supports HareScriptMemoryBlob for blobs`); //as we can't await
+
       if (blobs) {
-        if (uint8array.byteLength == 0)
-          writer.writeU32(0);
-        else {
-          blobs.push(uint8array);
-          writer.writeU32(blobs.length);
-        }
+        blobs.push(value.data!);
+        writer.writeU32(blobs.length);
       } else {
-        writer.writeBinary(uint8array);
+        writer.writeBinary(value.data!);
       }
     } break;
     default: {
@@ -614,10 +600,23 @@ function encodeHSONInternal(value: IPCMarshallableData, needtype?: VariableType)
       } else
         retval = "f " + (value as number).toString().replace('+', ''); //format 1e+308 as 1e308
     } break;
-    case VariableType.String: retval = JSON.stringify(value); break;
+    case VariableType.String:
+      if (typeof value === "string") { //FIXME this might break if the encodeHSON-ed value is then eg hashed .. as JSON stringify may not have the exact same escaping as HS encodeHSON would do!
+        retval = JSON.stringify(value);
+        break;
+      }
+      //FIXME should definitely use EncodeHSON style - binary is a hint that this data is not UTF8 safe.
+      retval = JSON.stringify((value as Buffer).toString()).replaceAll("\\u0000", "\\x00");
+      break;
     case VariableType.Blob: {
-      const buf = Buffer.from(value as (Uint8Array | ArrayBuffer));
-      retval = `b"` + buf.toString("base64") + `"`;
+      if (!(value as HareScriptBlob).size) {
+        retval = `b""`;
+        break;
+      }
+
+      if (!(value instanceof HareScriptMemoryBlob))
+        throw new Error(`encodeHSON only supports HareScriptMemoryBlob for blobs`); //as we can't await
+      retval = `b"` + value.data!.toString("base64") + `"`;
     } break;
     case VariableType.Integer64: retval = "i64 " + (value as number | bigint).toString(); break;
     case VariableType.Integer: retval = (value as number).toString(); break;
@@ -924,7 +923,7 @@ class JSONParser {
     if (this.state == TokenState.TS_DQString || this.state == TokenState.TS_QString) {
       // End of string?
       if (val == (this.state == TokenState.TS_DQString ? '"' : '\'')) {
-        // FIXME: also try to parse `/x`!!
+        // FIXME: also try to parse `/x`!!  need to use HS compatible decoding
         this.currenttoken = JSON.parse(val + this.currenttoken + val);
         //std::string currentstring;
         //std:: swap(currentstring, currenttoken);
@@ -1532,7 +1531,7 @@ class JSONParser {
           this.parsestate = ParseState.PS_Error;
           return false;
         }
-        parent[key] = Buffer.from(token, "base64");
+        parent[key] = new HareScriptMemoryBlob(Buffer.from(token, "base64"));
         return true;
       }
       case VariableType.DateTime: {
@@ -1608,5 +1607,7 @@ export function decodeHSON(hson: string | Uint8Array | ArrayBuffer | Buffer): IP
 export type SimpleMarshallableData = boolean | null | string | number | bigint | Date | Money | { [key in string]: SimpleMarshallableData } | SimpleMarshallableData[];
 export type SimpleMarshallableRecord = null | { [key in string]: SimpleMarshallableData };
 
-export type IPCMarshallableData = boolean | null | string | number | bigint | Date | Money | ArrayBuffer | Uint8Array | { [key in string]: IPCMarshallableData } | IPCMarshallableData[];
+/* TODO we may need to support WHDBBlob too - encodeHSON and IPC only currently require that they can transfer the data without await */
+export type IPCMarshallableBlob = HareScriptMemoryBlob;
+export type IPCMarshallableData = boolean | null | string | number | bigint | Date | Money | ArrayBuffer | Uint8Array | IPCMarshallableBlob | { [key in string]: IPCMarshallableData } | IPCMarshallableData[];
 export type IPCMarshallableRecord = null | { [key in string]: IPCMarshallableData };

@@ -4,12 +4,13 @@ import { getServiceInstance } from "@mod-system/js/internal/openapi/openapiservi
 import { HTTPMethod, HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
 import * as restrequest from "@webhare/router/src/restrequest";
 import { OpenAPITestserviceClient } from "wh:openapi/webhare_testsuite/testservice";
+import { HareScriptMemoryBlob } from "@webhare/harescript";
 
 let userapiroot = '', authtestsroot = '';
 
 const pietje = { email: "openapi@beta.webhare.net", firstName: "pietje" };
 const jsonheader = { "Content-Type": "application/json" };
-const basecall = { sourceip: "127.0.0.1", method: HTTPMethod.GET, body: Buffer.from(""), headers: {} };
+const basecall = { sourceip: "127.0.0.1", method: HTTPMethod.GET, body: new HareScriptMemoryBlob, headers: {} };
 
 async function testService() {
   //whitebox try the service directly for more useful traces etc
@@ -22,7 +23,7 @@ async function testService() {
   test.eq([
     { id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" },
     { id: 55, firstName: "Bravo", email: "bravo@beta.webhare.net" }
-  ], JSON.parse(res.body.toString()));
+  ], JSON.parse(await res.body.text()));
   test.eq("application/json", res.headers["content-type"]);
 
   res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/reset" }, "reset");
@@ -30,7 +31,7 @@ async function testService() {
 
   res = await instance.APICall({ ...basecall, url: "http://localhost/users/1" }, "users/1");
   test.eq(HTTPSuccessCode.Ok, res.status);
-  test.eq({ id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" }, JSON.parse(res.body.toString()));
+  test.eq({ id: 1, firstName: "Alpha", email: "alpha@beta.webhare.net" }, JSON.parse(await res.body.text()));
 
   res = await instance.APICall({ ...basecall, method: HTTPMethod.DELETE, url: "http://localhost/users" }, "users");
   test.eq(HTTPErrorCode.MethodNotAllowed, res.status);
@@ -38,25 +39,25 @@ async function testService() {
   res = await instance.APICall({ ...basecall, url: "http://localhost/users?searchFor=Br" }, "users");
   test.eq(HTTPSuccessCode.Ok, res.status);
   test.eq([{ id: 55, firstName: "Bravo", email: "bravo@beta.webhare.net" }],
-    JSON.parse(res.body.toString()));
+    JSON.parse(await res.body.text()));
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: Buffer.from("hi!") }, "users");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: new HareScriptMemoryBlob(Buffer.from("hi!")) }, "users");
   test.eq(HTTPErrorCode.BadRequest, res.status);
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: Buffer.from("hi!") }, "users");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: new HareScriptMemoryBlob(Buffer.from("hi!")) }, "users");
   test.eq(HTTPErrorCode.BadRequest, res.status);
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: Buffer.from(JSON.stringify(pietje)) }, "users");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: new HareScriptMemoryBlob(Buffer.from(JSON.stringify(pietje))) }, "users");
   test.eq(HTTPErrorCode.BadRequest, res.status, "should fail: no contenttype set");
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: Buffer.from(JSON.stringify(pietje)), headers: jsonheader }, "users");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: new HareScriptMemoryBlob(Buffer.from(JSON.stringify(pietje))), headers: jsonheader }, "users");
   test.eq(HTTPSuccessCode.Created, res.status);
 
-  const resbody = JSON.parse(res.body.toString());
+  const resbody = JSON.parse(await res.body.text());
   test.eqProps({ "email": "openapi@beta.webhare.net", "firstName": "pietje" }, resbody);
   test.assert(resbody.id > 0);
 
-  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: Buffer.from(JSON.stringify({ firstName: "Klaasje" })), headers: jsonheader }, "users");
+  res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: new HareScriptMemoryBlob(Buffer.from(JSON.stringify({ firstName: "Klaasje" }))), headers: jsonheader }, "users");
   test.eq(HTTPErrorCode.BadRequest, res.status);
 
   res = await instance.APICall({ ...basecall, url: "http://localhost/validateoutput?test=ok", headers: jsonheader }, "validateoutput");
@@ -70,11 +71,11 @@ async function testService() {
 
   res = await instance.APICall({ ...basecall, url: "http://localhost/validateoutput?test=with%2F", headers: jsonheader }, "validateoutput");
   test.eq(HTTPErrorCode.BadRequest, res.status);
-  test.eq(`Illegal type: "with/"`, JSON.parse(res.body.toString()).error);
+  test.eq(`Illegal type: "with/"`, JSON.parse(await res.body.text()).error);
 
   res = await instance.APICall({ ...basecall, url: "http://localhost/validateoutput/with%2F", headers: jsonheader }, "validateoutput/with%2F");
   test.eq(HTTPErrorCode.BadRequest, res.status);
-  test.eq(`Illegal path type: "with/"`, JSON.parse(res.body.toString()).error);
+  test.eq(`Illegal path type: "with/"`, JSON.parse(await res.body.text()).error);
 }
 
 function enumRefs(obj: unknown, result: string[] = []): string[] {
@@ -101,23 +102,23 @@ async function testAuthorization() {
 
   res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy" }, "dummy");
   test.eq(HTTPErrorCode.Unauthorized, res.status); //No key!
-  test.eq({ error: "Dude where's my key?" }, JSON.parse(res.body.toString()));
+  test.eq({ error: "Dude where's my key?" }, JSON.parse(await res.body.text()));
 
   res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", headers: { "x-key": "secret" } }, "dummy");
   test.eq(HTTPSuccessCode.Ok, res.status);
-  test.eq('"secret"', res.body.toString());
+  test.eq('"secret"', await res.body.text());
 
   res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", headers: { "x-key": "secret" } }, "dummy");
   test.eq(HTTPSuccessCode.Ok, res.status);
-  test.eq('"secret"', res.body.toString());
+  test.eq('"secret"', await res.body.text());
 
   res = await instance.APICall({ ...basecall, method: HTTPMethod.GET, url: "http://localhost/dummy", headers: { "x-key": "secret2" } }, "dummy");
   test.eq(HTTPSuccessCode.Ok, res.status);
-  test.eq('"secret2"', res.body.toString());
+  test.eq('"secret2"', await res.body.text());
 
   res = await instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/dummy", headers: { "x-key": "secret" } }, "dummy");
   test.eq(HTTPErrorCode.Unauthorized, res.status, "Should not be getting NotImplemented - access checks go first!");
-  test.eq({ status: HTTPErrorCode.Unauthorized, error: "Authorization is required for this endpoint" }, JSON.parse(res.body.toString()));
+  test.eq({ status: HTTPErrorCode.Unauthorized, error: "Authorization is required for this endpoint" }, JSON.parse(await res.body.text()));
 }
 
 async function testOverlappingCalls() {
@@ -126,8 +127,8 @@ async function testOverlappingCalls() {
   //TODO also test overlapping authorization calls so they can write to the database too (eg. audit)
   const lockadduser = await services.lockMutex("webhare_testsuite:adduser");
 
-  const respromise1 = instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: Buffer.from(JSON.stringify({ ...pietje, email: "user1@beta.webare.net" })), headers: jsonheader }, "users");
-  const respromise2 = instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: Buffer.from(JSON.stringify({ ...pietje, email: "user2@beta.webare.net" })), headers: jsonheader }, "users");
+  const respromise1 = instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: new HareScriptMemoryBlob(Buffer.from(JSON.stringify({ ...pietje, email: "user1@beta.webare.net" }))), headers: jsonheader }, "users");
+  const respromise2 = instance.APICall({ ...basecall, method: HTTPMethod.POST, url: "http://localhost/users", body: new HareScriptMemoryBlob(Buffer.from(JSON.stringify({ ...pietje, email: "user2@beta.webare.net" }))), headers: jsonheader }, "users");
 
   test.eq("still waiting", await Promise.race([
     test.sleep(200).then(() => "still waiting"),

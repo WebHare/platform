@@ -2,6 +2,7 @@ import * as test from "@webhare/test";
 
 import { createDeferred } from "@webhare/std";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
+import { HareScriptMemoryBlob } from "@webhare/harescript";
 
 class FIFO<T> {
   queue: T[] = [];
@@ -94,8 +95,8 @@ async function testBridge() {
       buffer.writeInt32BE(i * 4, i * 4);
     }
     await globallink.activate();
-    const reply = await globallink.doRequest({ type: "reflect", buffer }) as { type: string; buffer: Buffer };
-    test.eq(0, Buffer.compare(buffer, reply.buffer), "Buffer compare should return 0 (==equal)");
+    const reply = await globallink.doRequest({ type: "reflect", buffer: new HareScriptMemoryBlob(buffer) }) as { type: string; buffer: HareScriptMemoryBlob };
+    test.eq(0, Buffer.compare(buffer, reply.buffer.data!), "Buffer compare should return 0 (==equal)");
     globallink.close();
   }
 

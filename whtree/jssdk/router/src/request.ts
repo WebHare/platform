@@ -89,7 +89,8 @@ class ForwardedWebRequest implements WebRequest {
 }
 
 export function newWebRequestFromInfo(req: WebRequestInfo): WebRequest {
-  return new IncomingWebRequest(req.url, { method: req.method, headers: req.headers, body: req.body.toString() });
+  //'req' is from Harescript and thus uses HareScript Blobs, but that should not leak into the JS Router objects
+  return new IncomingWebRequest(req.url, { method: req.method, headers: req.headers, body: req.body.data?.toString() });
 }
 
 export function newForwardedWebRequest(req: WebRequest, suburl: string): WebRequest {

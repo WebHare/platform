@@ -133,7 +133,9 @@ PUBLIC ASYNC FUNCTION Fetch(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD
 
   IF(CellExists(options,'body'))
   {
-    IF(TYPEID(options.body) NOT IN [TYPEID(BLOB),TYPEID(STRING)])
+    IF(TYPEID(options.body) = TYPEID(STRING))
+      options := CELL[ ...options, body := StringToBlob(options.body) ];
+    ELSE IF(TYPEID(options.body) != TYPEID(BLOB))
       THROW NEW Exception(`BODY must be either a BLOB or a STRING`);
   }
 

@@ -9,6 +9,7 @@ import { Money } from "@webhare/std";
 import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime } from "@webhare/hscompat";
 import { compare } from "@webhare/hscompat/algorithms";
 import { getTypedArray, IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { HareScriptMemoryBlob, isHareScriptBlob } from "@webhare/harescript";
 
 function testStrings() {
   //based on test_operators.whscr LikeTest
@@ -199,7 +200,7 @@ function testHSONEnDeCode(encoded: string, toencode: IPCMarshallableData) {
   test.eq(toencode, decoded);
 }
 
-function testHSON() {
+async function testHSON() {
   testHSONEnDeCode('hson:-2147483648', -2147483648);
 
   testHSONEnDeCode('hson:5', 5);
@@ -229,7 +230,12 @@ function testHSON() {
 
   testHSONEnDeCode('hson:d"201100415"', makeDateFromParts(7344766, 0));
 
-  testHSONEnDeCode('hson:b"' + btoa("Ik ben een blob") + '"', Buffer.from("Ik ben een blob"));
+  //  testHSONEnDeCode('hson:b"' + btoa("Ik ben een blob") + '"', Buffer.from("Ik ben een blob"));
+  const encval_blob = encodeHSON(new HareScriptMemoryBlob(Buffer.from("Ik ben een blob")));
+  test.eq('hson:b"' + btoa("Ik ben een blob") + '"', encval_blob);
+  const decoded_blob = decodeHSON(encval_blob);
+  test.assert(isHareScriptBlob(decoded_blob));
+  test.eq("Ik ben een blob", await decoded_blob.text());
 
   testHSONEnDeCode('hson:m -92233720.75808', new Money("-92233720.75808"));
 
@@ -277,7 +283,8 @@ function testHSON() {
 
   testHSONEnDeCode('hson:ia[1,2,3]', [1, 2, 3]);
 
-  testHSONEnDeCode('hson:b""', Buffer.from(''));
+  test.eq('hson:b""', encodeHSON(new HareScriptMemoryBlob(Buffer.from(''))));
+  test.eq('hson:b""', encodeHSON(new HareScriptMemoryBlob));
 
   testHSONEnDeCode('hson:d""', defaultDateTime);
 
@@ -289,7 +296,7 @@ function testHSON() {
 
   //FIXME do we *need* to be able to roundtrip MAX-1 to HS ?testHSONEnDeCode('hson:d"58796110711T235959.998"', new Date(864000 * 1000 * 10000000 - 1));
 
-  testHSONEnDeCode('hson:b"MQ=="', Buffer.from("1"));
+  //FIXME testHSONEnDeCode('hson:"\\x00"', Buffer.from([0]));
 
   testHSONEnDeCode('hson:{"a":0,"b":1,"c":2}', { c: 2, b: 1, a: 0 }); // test ordering
 

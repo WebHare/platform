@@ -25,7 +25,7 @@ export class HareScriptMemoryBlob implements HareScriptBlob {
 
   constructor(source?: Buffer) {
     this.size = source?.byteLength || 0;
-    this.data = source ? Buffer.from(source) : null;
+    this.data = source?.byteLength ? Buffer.from(source) : null;
   }
 
   isSameBlob(rhs: HareScriptBlob): boolean {
@@ -38,5 +38,9 @@ export class HareScriptMemoryBlob implements HareScriptBlob {
 
   arrayBuffer(): Promise<ArrayBuffer> {
     return Promise.resolve(this.data || new ArrayBuffer(0));
+  }
+
+  private toString(): string { //remark us as private to help catch callers that think they're still dealing with a Buffer
+    return "[HareScriptMemoryBlob]";
   }
 }

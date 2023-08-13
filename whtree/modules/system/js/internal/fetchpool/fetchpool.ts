@@ -1,10 +1,16 @@
+import { HareScriptBlob, HareScriptMemoryBlob } from "@webhare/harescript/src/hsblob";
+
+interface IncomingRequestInit extends Omit<RequestInit, "body"> {
+  body?: HareScriptBlob;
+}
+
 export interface FetchPoolOptions {
   timeout?: number;
   debug?: boolean;
 }
 
 export class Fetcher {
-  async goFetch(url: string, options: RequestInit, pooloptions: FetchPoolOptions) {
+  async goFetch(url: string, options: IncomingRequestInit, pooloptions: FetchPoolOptions) {
 
     if (pooloptions?.timeout && pooloptions?.timeout >= 0)
       options.signal = AbortSignal.timeout(pooloptions.timeout);
@@ -13,13 +19,18 @@ export class Fetcher {
       if (pooloptions?.debug)
         console.log(url, options, pooloptions);
 
-      const response = await fetch(url, options);
+      const transmitoptions: RequestInit = {
+        ...options,
+        body: options.body ? await options.body.arrayBuffer() : null
+      };
+
+      const response = await fetch(url, transmitoptions);
       const retval = {
         status: response.status,
         statusText: response.statusText,
         ok: response.ok,
         headers: [...response.headers.entries()],
-        body: await response.arrayBuffer()
+        body: new HareScriptMemoryBlob(Buffer.from(await response.arrayBuffer()))
       };
 
       if (pooloptions?.debug)
