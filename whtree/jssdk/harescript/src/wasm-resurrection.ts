@@ -1,0 +1,22 @@
+import { HSVMVar } from "./wasm-hsvmvar";
+
+export function resurrectBuffer(obj: HSVMVar) {
+  /* resurrects
+  PUBLIC STATIC OBJECTTYPE Buffer
+  <
+    STRING bytes;
+  >; */
+  const bytes_columnid = obj.vm.getColumnId("BYTES");
+  const bytes_column = obj.vm.wasmmodule._HSVM_ObjectMemberRef(obj.vm.hsvm, obj.id, bytes_columnid, /*skipaccess=*/1);
+  return new HSVMVar(obj.vm, bytes_column).getStringAsBuffer();
+}
+
+export function resurrect(type: string, obj: HSVMVar) {
+  const resurrectmap: Record<string, (obj: HSVMVar) => unknown> = {
+    "Buffer": resurrectBuffer
+  };
+
+  if (resurrectmap[type])
+    return resurrectmap[type](obj);
+  throw new Error(`Unrecognized WASM type '${type}'`);
+}

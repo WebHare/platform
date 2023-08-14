@@ -54,3 +54,15 @@ PUBLIC BOOLEAN FUNCTION IsWASM()
   RETURN emstate.iswasm;
 }
 
+/** A simple class to transfer data as a Buffer to JavaScript from a HareScriptVM. You need this when the HS/JS boundary you're using doesn't know to use getStringAsBuffer (eg EM_Syscall) */
+PUBLIC STATIC OBJECTTYPE Buffer
+<
+  STRING bytes;
+  STRING "^$WASMTYPE";
+
+  MACRO NEW(STRING bytes)
+  {
+    this->"^$WASMTYPE" := "Buffer";
+    this->bytes := bytes;
+  }
+>;

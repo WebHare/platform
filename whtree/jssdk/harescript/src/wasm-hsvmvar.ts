@@ -7,6 +7,7 @@ import { WHDBBlob } from "@webhare/whdb";
 import { WHDBBlobImplementation } from "@webhare/whdb/src/blobs";
 import { isWHDBBlob } from "@webhare/whdb/src/blobs";
 import { HareScriptMemoryBlob, HareScriptBlob } from "./hsblob";
+import { resurrect } from "./wasm-resurrection";
 
 function canCastTo(from: VariableType, to: VariableType): boolean {
   if (from === to)
@@ -412,6 +413,14 @@ export class HSVMVar {
       case VariableType.Object: {
         if (!this.vm.wasmmodule._HSVM_ObjectExists(this.vm.hsvm, this.id))
           return null; //TODO or a boxed default object?
+
+        //We map some objects based on their ^$WASMTYPE. We can't use the __GetMarshalData approach as we can't invoke functionptrs here (async)
+        const wasmtype_columnid = this.vm.getColumnId("^$WASMTYPE");
+        if (this.vm.wasmmodule._HSVM_ObjectMemberExists(this.vm.hsvm, this.id, wasmtype_columnid)) {
+          const wasmtype_column = this.vm.wasmmodule._HSVM_ObjectMemberRef(this.vm.hsvm, this.id, wasmtype_columnid, /*skipaccess=*/1);
+          const wasmtype = new HSVMVar(this.vm, wasmtype_column).getString();
+          return resurrect(wasmtype, this);
+        }
 
         return this.vm.objectCache.ensureObject(this.id);
       }
