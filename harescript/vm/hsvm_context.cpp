@@ -2013,9 +2013,9 @@ void VirtualMachine::PrepareCallInternal(LinkedLibrary::ResolvedFunctionDefList:
                                 supportExecuteAsyncJSFunction(hsvm, resolvedfunc.def->builtindef->name.c_str(), resolvedfunc.def->builtindef->externalid, retvalptr);
                         }
                         break;
+#endif // __EMSCRIPTEN__
                 case BuiltinFunctionDefinition::NotFound:
                         throw VMRuntimeError(Error::InternalError, "External function " + resolvedfunc.def->builtindef->name + " has not been registered");
-#endif // __EMSCRIPTEN__
                 }
                 /* Make sure the Run() loop calls popframe immediately after returning,
                    so all different frame types can be handled in one location
