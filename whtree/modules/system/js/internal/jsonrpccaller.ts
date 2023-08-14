@@ -54,7 +54,7 @@ async function runJSONAPICall(servicedef: WebServiceDefinition, req: WebRequestI
       throw new Error(`Cannot find '${objectname}' in '${theapi}'`);
 
     const instance = new theapi[objectname];
-    const jsonrpcreq = JSON.parse(req.body.toString());
+    const jsonrpcreq = JSON.parse(await req.body.text());
     id = jsonrpcreq.id;
 
     if (!instance[jsonrpcreq.method])

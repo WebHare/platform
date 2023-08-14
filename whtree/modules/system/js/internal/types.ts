@@ -1,5 +1,5 @@
 import type { HTTPMethod } from "@webhare/router";
-import type { IPCMarshallableData, VariableType } from "./whmanager/hsmarshalling";
+import type { IPCMarshallableBlob, IPCMarshallableData, VariableType } from "./whmanager/hsmarshalling";
 import type { IPCExceptionMessage, IPCLinkType } from "./whmanager/ipc";
 import type { TypedMessagePort } from "./whmanager/transport";
 
@@ -76,22 +76,21 @@ export interface BridgeClientLink {
   enableInspector(): Promise<InspectorSettings | null>;
 }
 
-///Internal data structure used to marshall requests between languages. Proper routers would use WebRequest
+///Internal data structure used to marshall requests from HareScript to JavaScipt. Proper routers would use WebRequest (and not have to deal with HS blobs)
 export interface WebRequestInfo {
   sourceip: string;
   method: HTTPMethod;
   url: string;
   headers: Record<string, string>;
-  body: Buffer;
+  body: IPCMarshallableBlob;
 }
 
-///Internal data structure used to marshall respones between languages. Proper routers would use WebResponse
+///Internal data structure used to marshall responses from JavaScript to HareScript. Proper routers would use WebResponse (and not have to deal with HS blobs)
 export interface WebResponseInfo {
   status: number;
   headers: Record<string, string>;
-  body: Buffer;
+  body: IPCMarshallableBlob;
 }
-
 
 export type WorkerControlLinkRequest = {
   type: "instantiateServiceRequest";

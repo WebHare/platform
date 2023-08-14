@@ -1,4 +1,4 @@
-import { BoxedDefaultBlob, BoxedFloat, IPCMarshallableRecord, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { BoxedFloat, IPCMarshallableRecord, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import type { HSVM_VariableId, HSVM_VariableType, } from "../../../lib/harescript-interface";
 import type { HareScriptVM, JSBlobTag } from "./wasm-hsvm";
 import { maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
@@ -6,7 +6,7 @@ import { Money } from "@webhare/std";
 import { WHDBBlob } from "@webhare/whdb";
 import { WHDBBlobImplementation } from "@webhare/whdb/src/blobs";
 import { isWHDBBlob } from "@webhare/whdb/src/blobs";
-import { HareScriptBlob } from "./hsblob";
+import { HareScriptMemoryBlob, HareScriptBlob } from "./hsblob";
 
 function canCastTo(from: VariableType, to: VariableType): boolean {
   if (from === to)
@@ -133,16 +133,28 @@ export class HSVMVar {
     this.vm.wasmmodule._HSVM_StringGet(this.vm.hsvm, this.id, this.vm.wasmmodule.stringptrs, this.vm.wasmmodule.stringptrs + 4);
     const begin = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs, "*") as number;
     const end = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs + 4, "*") as number;
-    // TODO: can we useuffer and its utf-8 decoder? strings can also contain \0
     return this.vm.wasmmodule.UTF8ToString(begin, end - begin);
   }
-  setString(value: string) {
-    // this.checkType(VariableType.String);
-    const len = this.vm.wasmmodule.lengthBytesUTF8(value);
-    const alloced = this.vm.wasmmodule._malloc(len + 1);
-    this.vm.wasmmodule.stringToUTF8(value, alloced, len + 1);
-    this.vm.wasmmodule._HSVM_StringSet(this.vm.hsvm, this.id, alloced, alloced + len);
-    this.vm.wasmmodule._free(alloced);
+  getStringAsBuffer(): Buffer {
+    this.checkType(VariableType.String);
+    this.vm.wasmmodule._HSVM_StringGet(this.vm.hsvm, this.id, this.vm.wasmmodule.stringptrs, this.vm.wasmmodule.stringptrs + 4);
+    const begin = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs, "*") as number;
+    const end = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs + 4, "*") as number;
+    return Buffer.from(this.vm.wasmmodule.HEAP8.slice(begin, end));
+  }
+  setString(value: string | Buffer) {
+    if (typeof value === "string") {
+      const len = this.vm.wasmmodule.lengthBytesUTF8(value);
+      const alloced = this.vm.wasmmodule._malloc(len + 1);
+      this.vm.wasmmodule.stringToUTF8(value, alloced, len + 1);
+      this.vm.wasmmodule._HSVM_StringSet(this.vm.hsvm, this.id, alloced, alloced + len);
+      this.vm.wasmmodule._free(alloced);
+    } else {
+      const alloced = this.vm.wasmmodule._malloc(value.byteLength);
+      this.vm.wasmmodule.HEAP8.set(value, alloced);
+      this.vm.wasmmodule._HSVM_StringSet(this.vm.hsvm, this.id, alloced, alloced + value.byteLength);
+      this.vm.wasmmodule._free(alloced);
+    }
     this.type = VariableType.String;
   }
   getDateTime(): Date {
@@ -200,7 +212,7 @@ export class HSVMVar {
     this.checkType(VariableType.Blob);
     const size = Number(this.vm.wasmmodule._HSVM_BlobLength(this.vm.hsvm, this.id));
     if (size === 0)
-      return new BoxedDefaultBlob;
+      return new HareScriptMemoryBlob;
 
     const tag = this.vm.getBlobJSTag(this.id);
     if (tag?.pg)
@@ -211,7 +223,7 @@ export class HSVMVar {
     this.vm.wasmmodule._HSVM_CopyFrom(this.vm.hsvm, cloneblob.id, this.id);
     return new HSVMBlob(this.vm, cloneblob.id, size);
   }
-  setBlob(value: WHDBBlob | BoxedDefaultBlob | null) {
+  setBlob(value: WHDBBlob | HareScriptMemoryBlob | null) {
     if (isWHDBBlob(value)) {
       const fullpath = value.__getDiskPathinfo().fullpath;
       const fullpath_cstr = this.vm.wasmmodule.stringToNewUTF8(fullpath);
@@ -219,7 +231,15 @@ export class HSVMVar {
       this.vm.wasmmodule._free(fullpath_cstr);
       this.vm.setBlobJSTag(this.id, { pg: value.databaseid });
       this.type = VariableType.Blob;
-
+    } else if (value?.size) {
+      const stream = this.vm.wasmmodule._HSVM_CreateStream(this.vm.hsvm);
+      //TODO write in blocks to reduce memory peak usage/fragmentation?
+      const tempbuffer = this.vm.wasmmodule._malloc(value.size);
+      this.vm.wasmmodule.HEAP8.set((value as HareScriptMemoryBlob).data!, tempbuffer);
+      //TODO deal with too short return values
+      this.vm.wasmmodule._HSVM_WriteTo(this.vm.hsvm, stream, value.size, tempbuffer);
+      this.vm.wasmmodule._free(tempbuffer);
+      this.vm.wasmmodule._HSVM_MakeBlobFromStream(this.vm.hsvm, this.id, stream);
     } else
       this.setDefault(VariableType.Blob);
   }
@@ -295,7 +315,7 @@ export class HSVMVar {
         return;
       } break;
       case VariableType.String: {
-        this.setString(value as string);
+        this.setString(value as string | Buffer);
         return;
       } break;
       case VariableType.DateTime: {
@@ -311,7 +331,7 @@ export class HSVMVar {
         return;
       } break;
       case VariableType.Blob: {
-        this.setBlob(value as WHDBBlob | BoxedDefaultBlob | null);
+        this.setBlob(value as WHDBBlob | HareScriptMemoryBlob | null);
         return;
       } break;
       case VariableType.Record: {

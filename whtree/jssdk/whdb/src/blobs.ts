@@ -13,7 +13,7 @@ export class WHDBBlobImplementation implements HareScriptBlob {
 
   constructor(databaseid: string, length: number) {
     if (!length)
-      throw new Error(`A WHDBBlob must have content - use null or even BoxedDefaultBlob to represent empty blobs`);
+      throw new Error(`A WHDBBlob must have content - use null to represent empty blobs`);
 
     this.databaseid = databaseid;
     this._size = length;

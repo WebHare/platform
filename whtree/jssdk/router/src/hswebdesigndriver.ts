@@ -2,6 +2,7 @@ import { HSVM, HSVMObject, openHSVM } from "@webhare/services/src/hsvm";
 import { WebResponse, createWebResponse } from "./response";
 import { InsertPoints, SiteResponse, SiteResponseSettings } from "./sitereponse";
 import type { SiteRequest } from "./siterequest";
+import { HareScriptBlob } from "@webhare/harescript/src/hsblob";
 
 /* The HSWebdesignDriver:
    - runs the original HareScript design first, with placeholders for insert/body positions
@@ -30,9 +31,9 @@ class HSWebdesignDriver<T extends object> extends SiteResponse<T> {
 
     await this.webdesign.RunPageWithContents(printplaceholder);
     await this.hsvm.loadlib("wh::system.whlib").redirectOutputTo(oldoutput);
-    const page = await fileswhlib.makeBlobFromStream(stream) as Buffer;
+    const page = await fileswhlib.makeBlobFromStream(stream) as HareScriptBlob;
 
-    let pagebody = page.toString().replaceAll(placeholder + "__body__", this.contents);
+    let pagebody = (await page.text()).replaceAll(placeholder + "__body__", this.contents);
     for (const insertpoint of ["dependencies-top", "dependencies-bottom", "content-top", "content-bottom", "body-top", "body-bottom", "body-devbottom"]) {
       const replacement = this.insertions[insertpoint as InsertPoints] ? await this.renderInserts(insertpoint as InsertPoints) : "";
       pagebody = pagebody.replaceAll(placeholder + "__" + insertpoint + "__", replacement);

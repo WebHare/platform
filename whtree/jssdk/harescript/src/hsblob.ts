@@ -16,3 +16,31 @@ export interface HareScriptBlob {
 export function isHareScriptBlob(v: unknown): v is HareScriptBlob {
   return Boolean(typeof v === "object" && v && "size" in v && "isSameBlob" in v && "text" in v);
 }
+
+/** An in-memory blob
+ * */
+export class HareScriptMemoryBlob implements HareScriptBlob {
+  readonly size: number;
+  readonly data: Buffer | null;
+
+  constructor(source?: Buffer) {
+    this.size = source?.byteLength || 0;
+    this.data = source?.byteLength ? Buffer.from(source) : null;
+  }
+
+  isSameBlob(rhs: HareScriptBlob): boolean {
+    return this === rhs || (this.size === 0 && rhs.size == 0);
+  }
+
+  text(): Promise<string> {
+    return this.data ? Promise.resolve(this.data.toString("utf8")) : Promise.resolve("");
+  }
+
+  arrayBuffer(): Promise<ArrayBuffer> {
+    return Promise.resolve(this.data || new ArrayBuffer(0));
+  }
+
+  private toString(): string { //remark us as private to help catch callers that think they're still dealing with a Buffer
+    return "[HareScriptMemoryBlob]";
+  }
+}

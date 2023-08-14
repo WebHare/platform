@@ -94,7 +94,9 @@ async function testCaptureJSRendered() {
   const markdowndoc = await whfs.openFile("site::webhare_testsuite.testsitejs/testpages/markdownpage");
   const resultpage = await captureJSPage(markdowndoc.id);
   // console.log(resultpage.body);
-  test.eq(/<html.*<body.*<div id="content".*<code>commonmark<\/code>.*<\/div>.*\/body.*\/html/, resultpage.body.toString().replaceAll("\n", " "));
+
+  // Note that captureJSPage is designed to be invoked from HareScript therefore it returns a HS Blob
+  test.eq(/<html.*<body.*<div id="content".*<code>commonmark<\/code>.*<\/div>.*\/body.*\/html/, (await resultpage.body.text()).replaceAll("\n", " "));
 }
 
 //Unlike testSiteResponse the testRouter_... tests actually attempt to render the markdown document *and* go through the path lookup motions

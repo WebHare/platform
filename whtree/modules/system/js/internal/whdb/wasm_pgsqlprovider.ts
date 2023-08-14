@@ -1,11 +1,11 @@
 import { beginWork, commitWork, db, __getConnection, rollbackWork, uploadBlob, isWorkOpen } from "@webhare/whdb";
 import { AliasedRawBuilder, RawBuilder, sql } from 'kysely';
-import { BoxedFloat, BoxedDefaultBlob, VariableType, getTypedArray } from "../whmanager/hsmarshalling";
+import { BoxedFloat, VariableType, getTypedArray } from "../whmanager/hsmarshalling";
 import { FullPostgresQueryResult } from "@webhare/whdb/src/connection";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat/datetime";
 import { Tid } from "@webhare/whdb/src/types";
 import { isWHDBBlob } from "@webhare/whdb/src/blobs";
-import { isHareScriptBlob } from "@webhare/harescript";
+import { isHareScriptBlob, HareScriptMemoryBlob } from "@webhare/harescript/src/hsblob";
 
 enum Fases {
   None = 0,
@@ -444,7 +444,7 @@ export async function cbExecuteQuery(query: Query) {
       if (col.flags & ColumnFlags.Binary)
         value = (value as Buffer).toString("base64url");
       else if (col.type === VariableType.Blob && value === null)
-        value = new BoxedDefaultBlob;
+        value = new HareScriptMemoryBlob;
       else if (col.type === VariableType.Integer64)
         value = BigInt(value as number || 0);
       else if (col.type === VariableType.Float)

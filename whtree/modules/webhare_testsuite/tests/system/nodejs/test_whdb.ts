@@ -6,7 +6,7 @@ import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommi
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
 import * as contexttests from "./data/context-tests";
 import { WHDBBlob } from "@webhare/whdb/src/blobs";
-import { BoxedDefaultBlob } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { HareScriptMemoryBlob } from "@webhare/harescript";
 
 async function cleanup() {
   await beginWork();
@@ -20,8 +20,8 @@ async function testQueries() {
   test.eq(null, await uploadBlob(""));
 
   const newblob = await uploadBlob("This is a blob");
-  const newblob2 = await uploadBlob("This is another blob");
-  const emptyboxedblob = new BoxedDefaultBlob; //WASM HSVMs expect to be able to insert these, so let's humor them. Not sure if pushing unboxing further back into the HSVM might be a wiser choice..
+  const newblob2 = await uploadBlob(new HareScriptMemoryBlob(Buffer.from("This is another blob")));
+  const emptyboxedblob = new HareScriptMemoryBlob; //Represents a HSVM compatbile empty blob
 
   test.assert(newblob);
   test.assert(newblob2);
