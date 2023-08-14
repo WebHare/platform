@@ -11,6 +11,7 @@ LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
+LOADLIB "mod::webhare_testsuite/lib/publisher/testsupport.whlib";
 
 MACRO ConsilioTest()
 {
@@ -24,6 +25,13 @@ MACRO ConsilioTest()
   OBJECT contentsource_1 := catalog_1->AddFolderToCatalog(siteroot->id);
   OBJECT contentsource_2 := catalog_2->AddFolderToCatalog(subfolder->id);
   testfw->CommitWork();
+
+  /* testfile4 RecycleSelf consilio deletion seems to race against outputanalyzer scanning the 'tmp' folder and also schedule the republish.
+     two publishes for the same file on the queue, both will fire consilio's indexing, one might run concurrently to RecycleSelf's cleanup.
+     See also https://gitlab.webhare.com/webharebv/codekloppers/-/issues/862 for a related issue
+
+     let's wait for the outputanalyzer to get out of our way as it may still have been started by the testframework */
+  WaitForOutputAnalyzer(subfolder->GetWHFSTree(), MAX_DATETIME);
 
   Print(catalog_1->GetStorageInfo() || ", " || catalog_2->GetStorageInfo() || "\n");
 

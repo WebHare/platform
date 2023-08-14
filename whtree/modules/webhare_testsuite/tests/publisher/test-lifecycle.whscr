@@ -14,6 +14,7 @@ LOADLIB "mod::publisher/lib/control.whlib";
 LOADLIB "mod::publisher/lib/database.whlib";
 LOADLIB "mod::publisher/lib/internal/tasks.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/publisher/testsupport.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
 //TODO We only need to a true 'scheduledtask, wait' cycle only once. After that we should be able to trust 'ExecuteAllTasksNow()'
@@ -119,28 +120,6 @@ MACRO WaitForPublisherScheduledTasks(DATETIME timeaftertrigger, DATETIME deadlin
       ABORT("Task isn't completing");
   }
   WaitForTimedTask("publisher:scheduledtasks", deadline, [ debug := TRUE ]);
-}
-
-/** Wait for output analyser scans to finish
-    @param folderids Ids of folders that must be completed
-    @param deadline Error out when the wait hasn't completed after this time
-*/
-MACRO WaitForOutputAnalyzer(INTEGER ARRAY folderids, DATETIME deadline)
-{
-  OBJECT outputanalyzer := WaitForPromise(OpenWebHareService("publisher:outputanalyzer"));
-  WHILE (TRUE)
-  {
-    RECORD state := WaitForPromise(outputanalyzer->GetState());
-    INTEGER ARRAY scheduled := WaitForPromise(outputanalyzer->TestFoldersScheduled(folderids));
-    //DumpValue(CELL[ state, scheduled ], "tree");
-    IF (IsDefaultValue(scheduled))
-      BREAK;
-
-    Sleep(10);
-    IF(GetCurrentDatetime() >= deadline)
-      ABORT("outputanalyzer isn't completing");
-  }
-  outputanalyzer->CloseService();
 }
 
 MACRO ExecuteAllTasksNow()
