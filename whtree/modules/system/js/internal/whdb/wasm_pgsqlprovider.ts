@@ -6,6 +6,9 @@ import { defaultDateTime, maxDateTime } from "@webhare/hscompat/datetime";
 import { Tid } from "@webhare/whdb/src/types";
 import { isWHDBBlob } from "@webhare/whdb/src/blobs";
 import { isHareScriptBlob, HareScriptMemoryBlob } from "@webhare/harescript/src/hsblob";
+import { WASMModule } from "@webhare/harescript/src/wasm-modulesupport";
+import { HareScriptVM } from "@webhare/harescript/src/harescript";
+import { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 
 enum Fases {
   None = 0,
@@ -161,16 +164,6 @@ async function fixUploadedParams(params: unknown[]): Promise<unknown[]> {
     newparams.push(fix?.then ? await fix : value);
   }
   return newparams;
-}
-
-async function fixUploadedFields(row: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const newrow = { ...row };
-  for (const [key, value] of Object.entries(newrow)) {
-    const fix = fixValue(value);
-    if (fix?.then)
-      newrow[key] = await fix;
-  }
-  return newrow;
 }
 
 export async function cbExecuteQuery(query: Query) {
@@ -559,18 +552,25 @@ export async function cbSendPostgreSQLCommand(params: { query: string; options: 
   return retval;
 }
 
-export async function cbInsertRecord(params: { query: Query; newfields: Record<string, unknown> }) {
-  const newfields = await fixUploadedFields(params.newfields);
+async function cbInsertRecord(vm: HareScriptVM, queryparam: HSVMVar, newfields: HSVMVar) {
+  const query = queryparam.getJSValue() as Query;
 
   const values: Record<string, unknown> = {};
-  for (const columns of params.query.tablesources[0].columns)
-    if (columns.fase & Fases.Updated)
-      values[columns.dbase_name] = newfields[columns.name.toLowerCase()];
+  for (const column of query.tablesources[0].columns)
+    if (column.fase & Fases.Updated) {
+      const cell = newfields.getCell(column.name);
+      if (!cell)
+        continue;
 
-  const name = params.query.tablesources[0].name;
+      //We'll manually get the individual cells so we can retrieve binary data where needed
+      const setvalue = column.flags & ColumnFlags.Binary ? cell.getStringAsBuffer() : cell.getJSValue();
+      const fixedvalue = fixValue(setvalue);
+      values[column.dbase_name] = fixedvalue?.then ? await fixedvalue : setvalue;
+    }
+
+  const name = query.tablesources[0].name;
   const whdb = db<Record<string, unknown>>();
   await whdb.insertInto(name.toLowerCase()).values(values).execute();
-  return null;
 }
 
 export async function cbDeleteRecord(params: { query: Query; row: number; rowdata: { ctid: Tid } }) {
@@ -580,4 +580,8 @@ export async function cbDeleteRecord(params: { query: Query; row: number; rowdat
     .deleteFrom(sql.table(params.query.tablesources[0].name.toLowerCase()).as('T'))
     .where(sql`ctid`, '=', params.rowdata.ctid)
     .execute();
+}
+
+export async function registerPGSQLFunctions(wasmmodule: WASMModule) {
+  wasmmodule.registerAsyncExternalMacro("__WASMPG_INSERTRECORD:::RR", cbInsertRecord);
 }

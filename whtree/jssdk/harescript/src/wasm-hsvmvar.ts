@@ -262,10 +262,15 @@ export class HSVMVar {
     const eltid = this.vm.wasmmodule._HSVM_ArrayGetRef(this.vm.hsvm, this.id, index);
     return eltid ? new HSVMVar(this.vm, eltid) : null;
   }
+  getCell(name: string) {
+    this.checkType(VariableType.Record);
+
+    const columnid = this.vm.getColumnId(name.toString());
+    const newid = this.vm.wasmmodule._HSVM_RecordGetRef(this.vm.hsvm, this.id, columnid);
+    return newid ? new HSVMVar(this.vm, newid) : null;
+  }
   ensureCell(name: string) {
-    this.type ??= this.vm.wasmmodule._HSVM_GetType(this.vm.hsvm, this.id);
-    if (this.type !== VariableType.Record)
-      throw new Error(`Variable is not an RECORD`);
+    this.checkType(VariableType.Record);
 
     const columnid = this.vm.getColumnId(name.toString());
     const newid = this.vm.wasmmodule._HSVM_RecordCreate(this.vm.hsvm, this.id, columnid);

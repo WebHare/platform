@@ -8,6 +8,8 @@ LOADLIB "wh::internal/wasm.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "wh::dbase/postgresql.whlib";
 
+MACRO __WASMPG_INSERTRECORD(RECORD query, RECORD newfields) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
+
 VARIANT FUNCTION CallImpl(STRING name, RECORD data)
 {
   VARIANT retval := EM_Syscall("executeInline",
@@ -101,11 +103,30 @@ STATIC OBJECTTYPE EMTransaction EXTEND TransactionBase
 
   UPDATE PUBLIC MACRO InsertRecord(RECORD query, RECORD newfields)
   {
-    CallImpl("cbInsertRecord", CELL[ query, newfields ]);
+    __WASMPG_INSERTRECORD(query, newfields);
   }
 
   PUBLIC RECORD ARRAY FUNCTION __ExecSQL(STRING query, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    IF(CellExists(options,'argencodings'))
+      FOREVERY(STRING enc FROM options.argencodings)
+        IF(enc = "binary")
+          SWITCH(TYPEID(options.args[#enc]))
+          {
+            CASE TYPEID(STRING)
+            {
+              options.args[#enc] := NEW Buffer(options.args[#enc]);
+            }
+            CASE TYPEID(STRING ARRAY )
+            {
+              options.args[#enc] := SELECT AS OBJECT ARRAY NEW Buffer(str) FROM ToRecordArray(options.args[#enc], 'str');;
+            }
+            DEFAULT
+            {
+              THROW NEW Exception(`Cannot do binary transfer of type '${GetTypeName(TYPEID(options.args[#enc]))}`);
+            }
+          }
+
     RETURN CallImpl("cbSendPostgreSQLCommand", CELL[ query, options ]);
   }
 
