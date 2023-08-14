@@ -12,7 +12,7 @@ export { broadcast, subscribe, BackendEvent, BackendEventSubscription } from "./
 export { log, logNotice, logError, logDebug, readLogLines, LoggableRecord } from "./logging";
 export { ConvertBackendServiceInterfaceToClientInterface } from "@mod-system/js/internal/webhareservice";
 export type { RichBlob } from "./richblob";
-export { lockMutex } from "./mutex";
+export { lockMutex, type Mutex } from "./mutex";
 export { getCodeContext, CodeContext } from "./codecontexts";
 export { TaskRequest, TaskResponse, scheduleTask, scheduleTimedTask } from "./tasks";
 export { readRegistryKey } from "./registry";
