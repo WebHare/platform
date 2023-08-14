@@ -167,7 +167,7 @@ function getConditionValue(query: Query, cond: SingleCondition, condidx: number,
 }
 
 function encodePattern(mask: string) {
-  return mask.replace(/[_%\\]/, `/$1`).replace(/\?/, "_").replace(/\*/, "%");
+  return mask.replace(/([_%\\])/g, `\\$1`).replace(/\?/g, "_").replace(/\*/g, "%");
 }
 
 function fixValue(value: unknown) {
