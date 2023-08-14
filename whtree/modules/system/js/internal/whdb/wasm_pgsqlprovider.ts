@@ -300,6 +300,9 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
     resultcolumnsfase2.push({ tableid: -1, queryName: "rowpos", exportName: "rowpos", type: VariableType.Integer, flags: 0, expr: sql``.as(sql`rowpos`) }); // filled in later!
   }
 
+  // FIXME: Rob says: fase2 retrieval is not implemented, see if we really need it anyway
+  usefase2 = false;
+
   const tables = new Array<AliasedRawBuilder<unknown, `T${number}`>>();
   //const select = new Array<AliasedRawBuilder<unknown, `c${number}`>>();
   //const selectfase2cols = new Array<AliasedRawBuilder<unknown, `c${number}`>>();
@@ -572,13 +575,11 @@ export async function cbSendPostgreSQLCommand(params: { query: string; options: 
     retval.push(retvalrow);
   }
 
-  console.table(retval);
+  // console.table(retval);
   return retval;
 }
 
-async function cbInsertRecord(vm: HareScriptVM, queryparam: HSVMVar, newfields: HSVMVar) {
-  const query = queryparam.getJSValue() as Query;
-
+async function decodeNewFields(vm: HareScriptVM, query: Query, newfields: HSVMVar) {
   const values: Record<string, unknown> = {};
   for (const column of query.tablesources[0].columns)
     if (column.fase & Fases.Updated) {
@@ -592,9 +593,29 @@ async function cbInsertRecord(vm: HareScriptVM, queryparam: HSVMVar, newfields: 
       values[column.dbase_name] = fixedvalue?.then ? await fixedvalue : setvalue;
     }
 
+  return values;
+}
+
+async function cbInsertRecord(vm: HareScriptVM, queryparam: HSVMVar, newfields: HSVMVar) {
+  const query = queryparam.getJSValue() as Query;
+  const values = await decodeNewFields(vm, query, newfields);
+
   const name = query.tablesources[0].name;
   const whdb = db<Record<string, unknown>>();
   await whdb.insertInto(name.toLowerCase()).values(values).execute();
+}
+
+export async function cbUpdateRecord(vm: HareScriptVM, queryparam: HSVMVar, rowdataparam: HSVMVar, newfields: HSVMVar) {
+  const query = queryparam.getJSValue() as Query;
+  const rowdata = rowdataparam.getJSValue() as { ctid: Tid };
+  const values = await decodeNewFields(vm, query, newfields);
+
+  const whdb = db();
+  await whdb
+    .updateTable(sql.table(query.tablesources[0].name.toLowerCase()).as('T'))
+    .set(values)
+    .where(sql`ctid`, '=', rowdata.ctid)
+    .execute();
 }
 
 export async function cbDeleteRecord(params: { query: Query; row: number; rowdata: { ctid: Tid } }) {
@@ -608,5 +629,6 @@ export async function cbDeleteRecord(params: { query: Query; row: number; rowdat
 
 export async function registerPGSQLFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerAsyncExternalMacro("__WASMPG_INSERTRECORD:::RR", cbInsertRecord);
+  wasmmodule.registerAsyncExternalMacro("__WASMPG_UPDATERECORD:::RRR", cbUpdateRecord);
   wasmmodule.registerAsyncExternalFunction("__WASMPG_EXECUTEQUERY::R:R", cbExecuteQuery);
 }

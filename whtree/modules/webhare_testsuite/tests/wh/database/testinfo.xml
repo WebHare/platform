@@ -17,6 +17,6 @@
     </test>
   </group>
   <group name="wasm" engine="wasm">
-    <test script="primitivevalues.whscr" xfail="true" />
+    <test script="primitivevalues.whscr" />
   </group>
 </group>

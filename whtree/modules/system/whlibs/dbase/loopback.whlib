@@ -91,8 +91,6 @@ OBJECTTYPE ForwardingLoopbackCursor EXTEND LoopbackCursor
 
   UPDATE PUBLIC MACRO UpdateRecord(INTEGER row, RECORD newfields)
   {
-    IF (row != 0)
-      THROW NEW Exception("Expected UpdateRecord to be for row 0");
     this->itf.UpdateRecord(row, newfields);
   }
 
