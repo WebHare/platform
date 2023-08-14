@@ -81,8 +81,8 @@ PUBLIC RECORD FUNCTION DescribePreviewRequest()
 
 PUBLIC STRING FUNCTION GetViewURLWithFeedback(OBJECT file, OBJECT tolliumuser)
 {
-  STRING url := file->link;
-  IF(NOT TestFlagFromPublished(file->published, PublishedFlag_HasWebDesign)) //has no design, so don't route through our viewer (might eg. be a download and you'd never leave the view.shtml)
+  STRING url := file->link ?? file->url;
+  IF(NOT file->isfolder AND NOT TestFlagFromPublished(file->published, PublishedFlag_HasWebDesign)) //has no design, so don't route through our viewer (might eg. be a download and you'd never leave the view.shtml)
     RETURN url;
 
   STRING feedbacktoken := GetFeedbackWebToken(tolliumuser);
