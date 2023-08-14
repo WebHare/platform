@@ -103,12 +103,22 @@ async function createModule(hsvm: HSVM, name: string, files: Record<string, stri
     await archive.AddFile(name + "/" + path, new HareScriptMemoryBlob(Buffer.from(data)), new Date);
   }
   const modulearchive = await archive.MakeBlob();
-  const res = await hsvm.loadlib("mod::system/lib/internal/moduleimexport.whlib").ImportModule(modulearchive);
+  const res = await hsvm.loadlib("mod::system/lib/internal/moduleimexport.whlib").ImportModule(modulearchive) as {
+    name: string;
+    path: string;
+    fullversion: string;
+    warnings: string[];
+    errors: string[];
+    importmodulename: string;
+    manifestdata: unknown;
+    orgmanifestdata: unknown;
+  };
 
   // Wait for the module to show up in the local configuration
   test.wait(() => Boolean(config.module[name]));
 
   console.log(`installed ${name} to ${(res as { path: string }).path}`);
+  return res;
 }
 
 async function testModuleReplacement() {
@@ -128,7 +138,7 @@ async function testModuleReplacement() {
   }
 
   console.log(`create module webhare_testsuite_hmrtest`);
-  await createModule(hsvm, "webhare_testsuite_hmrtest", {
+  const hmrtestresult = await createModule(hsvm, "webhare_testsuite_hmrtest", {
     "moduledefinition.xml": `<?xml version="1.0"?>
 <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
   <meta>
@@ -140,7 +150,7 @@ async function testModuleReplacement() {
   });
 
   console.log(`create module webhare_testsuite_hmrtest2`);
-  await createModule(hsvm, "webhare_testsuite_hmrtest2", {
+  const hmrtestresult2 = await createModule(hsvm, "webhare_testsuite_hmrtest2", {
     "moduledefinition.xml": `<?xml version="1.0"?>
 <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
   <meta>
@@ -167,6 +177,8 @@ export function func3() { return Number(file.trim()); }
   test.eq(1, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest2/js/file2.ts#func2"))());
   test.eq(1, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest2/js/file3.ts#func3"))());
   const orgpath = config.module["webhare_testsuite_hmrtest"].root;
+  test.eq(hmrtestresult.path + '/', orgpath); //not sure if ImportModule should be returning without slash, but not modifying any APIs right now if we don't have to
+  test.eq(hmrtestresult2.path + '/', config.module["webhare_testsuite_hmrtest2"].root);
 
   test.assert(Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest/js/file.ts")));
   test.assert(Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest2/js/file2.ts")));
@@ -176,7 +188,7 @@ export function func3() { return Number(file.trim()); }
   test.eq(1, require.cache[loaderfilepath]?.children.filter(({ id }) => id === toFSPath("mod::webhare_testsuite_hmrtest2/js/file3.ts")).length);
 
   console.log(`create 2nd version of module webhare_testsuite_hmrtest`);
-  await createModule(hsvm, "webhare_testsuite_hmrtest", {
+  const hmrtestresult_reupload = await createModule(hsvm, "webhare_testsuite_hmrtest", {
     "moduledefinition.xml": `<?xml version="1.0"?>
 <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
   <meta>
@@ -186,6 +198,7 @@ export function func3() { return Number(file.trim()); }
     "js/file.ts": `export function func() { return 2; }; console.log("load file 2");`,
     "js/data.txt": `2`
   });
+  console.log(hmrtestresult_reupload);
 
   // All modules referencing file.ts should be removed from the cache
   test.assert(!Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest/js/file.ts")));
@@ -195,6 +208,7 @@ export function func3() { return Number(file.trim()); }
   test.eq(0, require.cache[loaderfilepath]?.children.filter(({ id }) => id === toFSPath("mod::webhare_testsuite_hmrtest2/js/file2.ts")).length);
   test.eq(0, require.cache[loaderfilepath]?.children.filter(({ id }) => id === toFSPath("mod::webhare_testsuite_hmrtest2/js/file3.ts")).length);
 
+  test.eq(hmrtestresult_reupload.path + '/', config.module["webhare_testsuite_hmrtest"].root, "Path in config object should have been updated");
   test.assert(orgpath !== config.module["webhare_testsuite_hmrtest"].root, `new path ${config.module["webhare_testsuite_hmrtest"].root} should differ from old path ${orgpath}`);
   test.eq(2, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest/js/file.ts#func"))());
   test.eq(2, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest2/js/file2.ts#func2"))(), "Recursive invalidation of modules should work, resolve cache and realpath cache should also be cleared");
