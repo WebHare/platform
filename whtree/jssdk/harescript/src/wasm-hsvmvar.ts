@@ -251,6 +251,12 @@ export class HSVMVar {
     this.type = type;
     return this;
   }
+  arrayLength() {
+    this.type ??= this.vm.wasmmodule._HSVM_GetType(this.vm.hsvm, this.id);
+    if (!(this.type & 0x80))
+      throw new Error(`Variable is not an ARRAY`);
+    return this.vm.wasmmodule._HSVM_ArrayLength(this.vm.hsvm, this.id);
+  }
   arrayAppend() {
     this.type ??= this.vm.wasmmodule._HSVM_GetType(this.vm.hsvm, this.id);
     if (!(this.type & 0x80))

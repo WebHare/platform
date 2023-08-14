@@ -77,6 +77,17 @@ enum OID {
 
 type Condition = "<" | "<=" | "=" | ">" | ">=" | "!=" | "LIKE" | "IN";
 
+interface SingleCondition {
+  single: true;
+  handled: boolean;
+  tableid: number;
+  columnid: number;
+  condition: Condition;
+  casesensitive: boolean;
+  match_null: boolean;
+  value: unknown;
+}
+
 type Query = {
   type: "SELECT" | "DELETE" | "UPDATE";
   query_limit: number;
@@ -94,16 +105,7 @@ type Query = {
       nulldefault_valid: boolean;
     }>;
   }>;//[ { name: 'SYSTEM.FS_OBJECTS', columns: [Array] } ],
-  singleconditions: Array<{
-    single: true;
-    handled: boolean;
-    tableid: number;
-    columnid: number;
-    condition: Condition;
-    casesensitive: boolean;
-    match_null: boolean;
-    value: unknown;
-  }>;
+  singleconditions: SingleCondition[];
   joinconditions: Array<{
     single: false;
     handled: boolean;
@@ -142,6 +144,28 @@ function buildSwappedComparison(left: RawBuilder<unknown>, condition: Condition,
   throw new Error(`Cannot swap arguments to ${condition}`);
 }
 
+function getConditionValue(query: Query, cond: SingleCondition, condidx: number, queryparam: HSVMVar) {
+  const column = query.tablesources[cond.tableid].columns[cond.columnid];
+  if (!(column.flags & ColumnFlags.Binary))
+    return cond.value;
+
+  //get the binary value from the original HS value
+  const originalvalue = queryparam.getCell("singleconditions")!.arrayGetRef(condidx)!.getCell("value")!;
+  if (originalvalue.getType() === VariableType.String)
+    return originalvalue.getStringAsBuffer();
+
+  if (originalvalue.getType() === VariableType.StringArray) {
+    const bufferarray = new Array<Buffer>;
+    const len = originalvalue.arrayLength();
+    for (let idx = 0; idx < len; ++idx)
+      bufferarray.push(originalvalue.arrayGetRef(idx)!.getStringAsBuffer());
+
+    return bufferarray;
+  }
+
+  throw new Error(`Unrecognized input type '${VariableType[originalvalue.getType()]}' for binary value`);
+}
+
 function encodePattern(mask: string) {
   return mask.replace(/[_%\\]/, `/$1`).replace(/\?/, "_").replace(/\*/, "%");
 }
@@ -166,10 +190,10 @@ async function fixUploadedParams(params: unknown[]): Promise<unknown[]> {
   return newparams;
 }
 
-export async function cbExecuteQuery(query: Query) {
-
+async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSVMVar, newfields: HSVMVar) {
   //console.log(query);
   //console.log(query.tablesources[0].columns);
+  const query = queryparam.getJSValue() as Query;
   const whdb = db();
 
   for (const cond of query.singleconditions) {
@@ -351,17 +375,20 @@ export async function cbExecuteQuery(query: Query) {
 
   const conditions = new Array<RawBuilder<unknown>>();
 
-  for (const cond of query.singleconditions) {
+  for (let condidx = 0; condidx < query.singleconditions.length; ++condidx) {
+    const cond = query.singleconditions[condidx];
     if (!cond.handled)
       continue;
     const tableid = `T${cond.tableid}`;
     const column = query.tablesources[cond.tableid].columns[cond.columnid];
+    const value = getConditionValue(query, cond, condidx, queryparam);
+
     const colref = sql.ref(`${tableid}.${column.dbase_name}`);
     let colexpr = colref;
     if (!cond.casesensitive)
       colexpr = sql`upper(${colexpr})`;
 
-    let valueexpr = sql.value(cond.condition == "LIKE" ? encodePattern(cond.value as string) : cond.value);
+    let valueexpr = sql.value(cond.condition == "LIKE" ? encodePattern(value as string) : value);
     if (cond.condition == "IN")
       valueexpr = sql`Any(${valueexpr})`;
     if (!cond.casesensitive)
@@ -434,9 +461,7 @@ export async function cbExecuteQuery(query: Query) {
 
     for (const col of resultcolumns) {
       let value = row[col.queryName];
-      if (col.flags & ColumnFlags.Binary)
-        value = (value as Buffer).toString("base64url");
-      else if (col.type === VariableType.Blob && value === null)
+      if (col.type === VariableType.Blob && value === null)
         value = new HareScriptMemoryBlob;
       else if (col.type === VariableType.Integer64)
         value = BigInt(value as number || 0);
@@ -462,8 +487,7 @@ export async function cbExecuteQuery(query: Query) {
   void (keycolumn);
   void (updatedtable);
 
-
-  return { tabledata, rowsdata };
+  id_set.setJSValue({ tabledata, rowsdata });
 }
 
 export async function cbIsWorkOpen() {
@@ -584,4 +608,5 @@ export async function cbDeleteRecord(params: { query: Query; row: number; rowdat
 
 export async function registerPGSQLFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerAsyncExternalMacro("__WASMPG_INSERTRECORD:::RR", cbInsertRecord);
+  wasmmodule.registerAsyncExternalFunction("__WASMPG_EXECUTEQUERY::R:R", cbExecuteQuery);
 }
