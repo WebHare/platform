@@ -10,7 +10,7 @@ import { WASMModule } from "./wasm-modulesupport";
 import { HSVMVar } from "./wasm-hsvmvar";
 import { HSCallsProxy, HSVMLibraryProxy, HSVMObjectCache } from "./wasm-proxies";
 import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
-
+import { Mutex } from "@webhare/services";
 
 const dispatchlibrary = "mod::system/js/internal/wasm/dispatch.whlib";
 const dispatchname = "DISPATCH";
@@ -90,6 +90,7 @@ export class HareScriptVM {
   consoleArguments: string[];
   columnNameIdMap: Record<string, HSVM_ColumnId> = {};
   objectCache;
+  mutexes: Array<Mutex | null> = [];
 
   constructor(module: WASMModule) {
     this.wasmmodule = module;

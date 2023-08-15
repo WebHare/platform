@@ -98,7 +98,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       return;
     }
 
-    const value = (syscalls as SysCallsModule)[func](data);
+    const value = (syscalls as SysCallsModule)[func].call(vm, data);
     if (value && typeof value === "object" && "then" in value && typeof value.then === "function") {
       // This assumes that __EM_SYSCALL_WAITLASTPROMISE is called immediately after __EM_SYSCALL returns!
       last_syscall_promise = value as Promise<unknown>;

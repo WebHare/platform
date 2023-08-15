@@ -3,6 +3,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 
 /** Connect to the mutex manager, wait for it to come online if needed
     @return(object wh::internal/jobs.whlib#IPCLinkEndPoint) IPC link to the module manager
@@ -41,15 +42,9 @@ OBJECTTYPE MutexLock
   // Variables
   //
 
-  /// Private ptr to mutex manager
-  OBJECT mutexmgr;
-
-
   /// Name of the mutex
   STRING pvt_name;
 
-  /// Local mutex
-  OBJECT pvt_localmutex;
 
   // ---------------------------------------------------------------------------
   //
@@ -64,11 +59,9 @@ OBJECTTYPE MutexLock
   // Constructor
   //
 
-  MACRO NEW(OBJECT mutexmgr, STRING name, OBJECT localmutex)
+  MACRO NEW(STRING name)
   {
-    this->mutexmgr := mutexmgr;
     this->pvt_name := name;
-    this->pvt_localmutex := localmutex;
   }
 
   // ---------------------------------------------------------------------------
@@ -82,8 +75,27 @@ OBJECTTYPE MutexLock
     this->Close();
   }
 
-  /// Close this object (and release the lock)
   PUBLIC MACRO Close()
+  {
+    //override!
+  }
+>;
+
+STATIC OBJECTTYPE NativeMutexLock EXTEND MutexLock
+<
+  /// Private ptr to mutex manager
+  OBJECT mutexmgr;
+
+  /// Local mutex
+  OBJECT pvt_localmutex;
+
+  MACRO NEW(OBJECT mutexmgr, STRING name, OBJECT localmutex) : MutexLock(name)
+  {
+    this->mutexmgr := mutexmgr;
+    this->pvt_localmutex := localmutex;
+  }
+
+  UPDATE PUBLIC MACRO Close()
   {
     IF (ObjectExists(this->pvt_localmutex))
     {
@@ -91,6 +103,21 @@ OBJECTTYPE MutexLock
       this->pvt_localmutex := DEFAULT OBJECT;
     }
     this->mutexmgr->ReleaseMutex(this->name);
+  }
+
+>;
+
+STATIC OBJECTTYPE WasmMutexLock EXTEND MutexLock
+<
+  INTEGER mutexid;
+
+  MACRO NEW(STRING name, INTEGER mutexid) : MutexLock(name)
+  {
+    this->mutexid := mutexid;
+  }
+  UPDATE PUBLIC MACRO Close()
+  {
+    EM_SYSCALL("unlockMutex", CELL[this->mutexid]);
   }
 >;
 
@@ -138,7 +165,7 @@ OBJECTTYPE LockManager
 
   MACRO RequireConnection()
   {
-    IF (NOT ObjectExists(this->link))
+    IF (NOT ObjectExists(this->link) AND NOT IsWasm())
     {
       this->link := ConnectToMutexManager();
       STRING clientname := GetHarescriptLoadedLibraries()[0].liburi;
@@ -234,6 +261,15 @@ OBJECTTYPE LockManager
   */
   PUBLIC OBJECT FUNCTION TryLockMutex(STRING mutexname, DATETIME wait_until)
   {
+    IF(IsWasm())
+    {
+      RECORD lockresult := EM_Syscall("lockMutex", CELL[mutexname, wait_until]);
+      IF (lockresult.status = "ok")
+        RETURN NEW WasmMutexLock(mutexname, lockresult.mutex);
+      ELSE
+        RETURN DEFAULT OBJECT;
+    }
+
     BOOLEAN trylock;
 
     IF (wait_until = DEFAULT DATETIME)
@@ -281,7 +317,7 @@ OBJECTTYPE LockManager
           // New mutex locked
           INSERT mutexname INTO this->pvt_lockedmutexes AT pos.position;
 
-          RETURN NEW MutexLock(PRIVATE this, mutexname, localmutex);
+          RETURN NEW NativeMutexLock(PRIVATE this, mutexname, localmutex);
         }
       CASE "no"
         {
