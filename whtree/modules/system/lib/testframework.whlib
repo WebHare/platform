@@ -10,6 +10,7 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 LOADLIB "wh::graphics/canvas.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::util/comparisons.whlib";
@@ -1995,6 +1996,7 @@ PUBLIC MACRO RunTestframework(FUNCTION PTR ARRAY tests, RECORD options DEFAULTST
   options := ValidateOptions( [ debug := IsRunningInEditor()
                               , testusers := RECORD[]
                               , profile := NOT (IsRequest() AND IsWHDebugOptionSet("apr")) AND NOT IsDebugTagEnabled("apr") //prevent recursive profiling..
+                                           AND NOT IsWASM() //We have no profiling support for WASM yet (it tries to ConnectIPC)
                               , relativeoutputfolders := FALSE
                               , testroles := RECORD[]
                               , wrdschema := TRUE

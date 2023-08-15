@@ -6,6 +6,7 @@
 */
 
 LOADLIB "wh::dbase/transaction.whlib" EXPORT TransactionCursorBase;
+LOADLIB "wh::internal/lockingtransbase.whlib";
 
 /** API for object called by Loopback DB provider
     FIXME: document
@@ -15,7 +16,7 @@ PUBLIC OBJECTTYPE LoopbackCursor EXTEND TransactionCursorBase
 >;
 
 
-PUBLIC OBJECTTYPE LoopbackTransaction EXTEND TransactionBase
+PUBLIC OBJECTTYPE LoopbackTransaction EXTEND LockingTransactionBase
 <
   BOOLEAN pvt_allowerrordelay;
 

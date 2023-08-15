@@ -3,6 +3,7 @@
 LOADLIB "wh::dbase/loopback.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/lockingtransbase.whlib";
 LOADLIB "wh::internal/wasm.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
@@ -75,7 +76,7 @@ STATIC OBJECTTYPE EMTransactionCursor EXTEND TransactionCursorBase
   }
 >;
 
-STATIC OBJECTTYPE EMTransaction EXTEND TransactionBase
+STATIC OBJECTTYPE EMTransaction EXTEND LockingTransactionBase
 <
   PUBLIC INTEGER forwardtransid;
 

@@ -91,6 +91,7 @@ export class HareScriptVM {
   columnNameIdMap: Record<string, HSVM_ColumnId> = {};
   objectCache;
   mutexes: Array<Mutex | null> = [];
+  currentgroup: string | undefined; //set on first use
 
   constructor(module: WASMModule) {
     this.wasmmodule = module;
