@@ -35,7 +35,7 @@
           <list name="results"
                 height="1pr"
                 borders="none"
-                defaultbutton="gototaskbutton"
+                defaultbutton="detailsbutton"
                 emptytid=".noerrors"
                 flags="canjumpto cansnooze canunsnooze"
                 icons="tollium:status/warning tollium:status/schedule"
@@ -53,8 +53,8 @@
         </cell>
         <cell borders="left" spacers="left right">
           <checkbox name="withhistory" labeltid=".withhistory" onchange="onwithhistorychange" title="" />
-          <button width="1pr" action="details" tid=".details" />
-          <button name="gototaskbutton" width="1pr" action="gototask" tid=".gototask" />
+          <button name="detailsbutton" width="1pr" action="details" tid=".details" />
+          <button width="1pr" action="gototask" tid=".gototask" />
           <spacer height="1gr" />
           <button width="1pr" action="snooze" />
           <button width="1pr" action="unsnooze" />
