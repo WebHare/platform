@@ -753,7 +753,7 @@ PUBLIC RECORD ARRAY FUNCTION GetDataRootNodeModules(STRING ARRAY modules, BOOLEA
         ]
       , [ name :=     "@webhare"
         , type :=     "softlink"
-        , target :=   `${installationroot}jssdk`
+        , target :=   `${installationroot}jssdk/`
         ]
         // wh:wrd, wh:db point to generated files for non-core modules (database types, etc.)
       , [ name :=     "wh:db"

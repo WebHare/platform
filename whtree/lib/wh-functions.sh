@@ -641,6 +641,22 @@ setup_buildsystem()
   fi
 }
 
+ensure_link()
+{
+  local currentdest
+  if [ ! -e "$2" ]; then # if it doesn't exist, create it
+    ln -sf "$1" "$2"
+    return
+  fi
+
+  currentdest="$(readlink $2)"
+  if [ "$currentdest" != "$1" ]; then
+    echo "Fixing $2 pointing to $currentdest but it should point to $1"
+    rm "$2" # we need to rm first if we want to ensure a slash at the end
+    ln -sf "$1" "$2"
+  fi
+}
+
 bootstrap_whdata()
 {
   # Setup basic symlinks for @mod- and @webhare- helpers so we can refer to them from JS (wh node sets NODE_PATH to "$WEBHARE_DATAROOT/node_modules")
@@ -651,11 +667,13 @@ bootstrap_whdata()
 
   mkdir -p "$WEBHARE_DATAROOT"/lib "$WEBHARE_DATAROOT"/home "$WEBHARE_DATAROOT"/tmp >/dev/null 2>&1
 
+  # Make sure node_modules and links point to the right plae. A restore or move might have misplaced them and will break bootstrapping various other scripts
+  # node might not actually be functional yet at this point so fix the basic links in the shell
   mkdir -p "$WEBHARE_DATAROOT/node_modules"
-  for mod in publisher system tollium wrd; do
-    [ -L "$WEBHARE_DATAROOT/node_modules/@mod-${mod}" ] || ln -sf "${WEBHARE_DIR}/modules/${mod}" "$WEBHARE_DATAROOT/node_modules/@mod-${mod}"
+  for mod in consilio platform publisher system tollium wrd; do
+    ensure_link "${WEBHARE_DIR}/modules/${mod}/" "$WEBHARE_DATAROOT/node_modules/@mod-${mod}"
   done
-  [ -L "$WEBHARE_DATAROOT/node_modules/@webhare" ] || ln -sf "${WEBHARE_DIR}/jssdk" "$WEBHARE_DATAROOT/node_modules/@webhare"
+  ensure_link "${WEBHARE_DIR}/jssdk/" "$WEBHARE_DATAROOT/node_modules/@webhare"
 
   # When running from source, rebuild buildinfo
   if [ -z "$WEBHARE_IN_DOCKER" ]; then
