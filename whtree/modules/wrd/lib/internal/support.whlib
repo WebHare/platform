@@ -16,7 +16,7 @@ LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/consilio.whlib";
 
 
-PUBLIC CONSTANT INTEGER current_schema_version := 1;
+PUBLIC CONSTANT INTEGER current_schema_version := 2; //v1 doesn't explicitly mention mod::wrd/data/wrdschemas/base.wrdschema.xml as a dependency, causing 5.03 WH upgrades to not apply WRD_SETTINGS
 PUBLIC INTEGER ttl_wrdschemacache := 5 * 60 * 1000;
 
 PUBLIC CONSTANT STRING wrd_baseschemaresource := "mod::wrd/data/wrdschemas/base.wrdschema.xml";
