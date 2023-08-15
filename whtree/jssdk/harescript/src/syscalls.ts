@@ -33,24 +33,16 @@ export async function unlockMutex(this: HareScriptVM, params: { mutexid: number 
     RETURN DecodeBase64(EM_SYSCALL("getHash", CELL[ data := EncodeBase64(BlobToString(data)), algorithm, key_salt ]).base64);
 */
 export function getHash(params: { text?: string; data?: string; algorithm: string; key_salt: string }): { base64: string } {
-  switch (params.algorithm) {
-    case "MD5": {
-      const hasher = crypto.createHash("md5");
-      if (params.data)
-        hasher.update(params.data, "base64");
-      else
-        hasher.update(params.text!, "utf8");
-      return { base64: hasher.digest("base64") };
-    }
-    case "SHA-1": {
-      const hasher = crypto.createHash("sha1");
-      if (params.data)
-        hasher.update(params.data, "base64");
-      else
-        hasher.update(params.text!, "utf8");
-      return { base64: hasher.digest("base64") };
-    }
+  const algomap: Record<string, string> = { "MD5": "md5", "SHA-1": "sha1", "SHA-256": "sha256", "SHA-512": "sha512" };
+  if (algomap[params.algorithm]) {
+    const hasher = crypto.createHash(algomap[params.algorithm]);
+    if (params.data)
+      hasher.update(params.data, "base64");
+    else
+      hasher.update(params.text!, "utf8");
+    return { base64: hasher.digest("base64") };
   }
+
   throw new Error("Unsupported algorithm: " + params.algorithm);
 }
 
