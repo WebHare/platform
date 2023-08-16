@@ -235,7 +235,10 @@ OBJECTTYPE ForwardingLoopbackTransaction EXTEND LoopbackTransaction
   {
     this->itf.DropTable(schemaname, tablename);
   }
-
+  UPDATE PUBLIC RECORD ARRAY FUNCTION __GetTableTypeInfoCols(TABLE tbl, STRING ARRAY cols)
+  {
+    RETURN this->itf.__GetTableTypeInfoCols(tbl, cols);
+  }
 >;
 
 RECORD ARRAY transobjects;
@@ -449,6 +452,10 @@ MACRO WLT_DropTable(INTEGER transid, STRING schemaname, STRING tablename)
 {
   GetTransObject(transid)->DropTable(schemaname, tablename);
 }
+RECORD ARRAY FUNCTION WLT___GetTableTypeInfoCols(INTEGER transid, TABLE tbl, STRING ARRAY cols)
+{
+  RETURN GetTransObject(transid)->__GetTableTypeInfoCols(tbl, cols);
+}
 
 RECORD FUNCTION OpenCursorForRecordInterface(INTEGER trans, RECORD dbquery, STRING type)
 {
@@ -488,6 +495,7 @@ PUBLIC RECORD FUNCTION GetTransactionFLTRecordInterface(OBJECT transaction)
       , altertable :=           PTR WLT_AlterTable(id, #1, #2, #3)
       , dropschema :=           PTR WLT_DropSchema(id, #1, #2)
       , droptable :=            PTR WLT_DropTable(id, #1, #2)
+      , __GetTableTypeInfoCols := PTR WLT___GetTableTypeInfoCols(id, #1, #2)
       ];
 }
 

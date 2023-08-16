@@ -18,5 +18,6 @@
   </group>
   <group name="wasm" engine="wasm">
     <test script="primitivevalues.whscr" />
+    <test script="test_dynquery.whscr" />
   </group>
 </group>

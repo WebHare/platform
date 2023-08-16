@@ -3,6 +3,7 @@
 LOADLIB "wh::dbase/loopback.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::util/comparisons.whlib";
 LOADLIB "wh::internal/lockingtransbase.whlib";
 LOADLIB "wh::internal/wasm.whlib";
 
@@ -31,6 +32,35 @@ return await func(param.data);
 
   RETURN retval;
 }
+
+CONSTANT INTEGER OID_BOOL := 16;
+CONSTANT INTEGER OID_BYTEA := 17;
+CONSTANT INTEGER OID_CHAR := 18;
+CONSTANT INTEGER OID_NAME := 19;
+CONSTANT INTEGER OID_TEXT := 25;
+CONSTANT INTEGER OID_INT8 := 20;
+CONSTANT INTEGER OID_INT2 := 21;
+CONSTANT INTEGER OID_INT4 := 23;
+CONSTANT INTEGER OID_REGPROC := 24;
+CONSTANT INTEGER OID_OID := 26;
+CONSTANT INTEGER OID_TID := 27;
+CONSTANT INTEGER OID_XID := 28;
+CONSTANT INTEGER OID_CID := 29;
+CONSTANT INTEGER OID_FLOAT4 := 700;
+CONSTANT INTEGER OID_FLOAT8 := 701;
+CONSTANT INTEGER OID_INT2ARRAY := 1005;
+CONSTANT INTEGER OID_INT4ARRAY := 1007;
+CONSTANT INTEGER OID_TEXTARRAY := 1009;
+CONSTANT INTEGER OID_OIDARRAY := 1028;
+CONSTANT INTEGER OID_BPCHAR := 1042;
+CONSTANT INTEGER OID_VARCHAR := 1043;
+CONSTANT INTEGER OID_TIMESTAMP := 1114;
+CONSTANT INTEGER OID_TIMESTAMPTZ := 1184;
+CONSTANT INTEGER OID_BIT := 1560;
+CONSTANT INTEGER OID_VARBIT := 1562;
+CONSTANT INTEGER OID_NUMERIC := 1700;
+CONSTANT INTEGER OID_ANY := 2276;
+CONSTANT INTEGER OID_ANYARRAY := 2277;
 
 /** doc1 */
 
@@ -196,6 +226,138 @@ STATIC OBJECTTYPE EMTransaction EXTEND LockingTransactionBase
   {
     options := ValidateOptions([ cascade := FALSE ], options);
     this->__ExecSQL(`DROP SCHEMA ${PostgreSQLEscapeIdentifier(schemaname)}${options.cascade ? ` CASCADE` : ``}`);
+  }
+
+  /* attmissingvall is either null (DEFAULT RECORD) or an array:
+    'This column has a one element array containing the value used when the column is entirely missing from the row, as
+     happens when the column is added with a non-volatile DEFAULT value after the row is created. The value is only used
+     when atthasmissing is true. If there is no value the column is null.' */
+  VARIANT FUNCTION GetDefaultValue(INTEGER atttypid, BOOLEAN atthasdef, VARIANT attmissingval)
+  {
+    IF (atthasdef AND IsTypeidArray(TYPEID(attmissingval)) AND LENGTH(attmissingval) != 0)
+      RETURN attmissingval[0];
+    SWITCH (atttypid)
+    {
+      CASE OID_BOOL       { RETURN FALSE; }
+      CASE OID_BYTEA      { RETURN ""; }
+      CASE OID_CHAR       { RETURN ""; }
+      CASE OID_NAME       { RETURN ""; }
+      CASE OID_TEXT       { RETURN ""; }
+      CASE OID_VARCHAR    { RETURN ""; }
+      CASE OID_INT8       { RETURN 0; }
+      CASE OID_INT2       { RETURN 0; }
+      CASE OID_INT4       { RETURN 0; }
+      CASE OID_REGPROC    { RETURN 0; }
+      CASE OID_OID        { RETURN 0; }
+      CASE OID_TID        { RETURN 0; }
+      CASE OID_XID        { RETURN 0; }
+      CASE OID_CID        { RETURN 0; }
+      CASE OID_FLOAT4     { RETURN 0f; }
+      CASE OID_FLOAT8     { RETURN 0f; }
+      CASE OID_INT2ARRAY  { RETURN INTEGER[]; }
+      CASE OID_INT4ARRAY  { RETURN INTEGER[]; }
+      CASE OID_TEXTARRAY  { RETURN STRING[]; }
+      CASE OID_OIDARRAY   { RETURN INTEGER[]; }
+      CASE OID_TIMESTAMP, OID_TIMESTAMPTZ  { RETURN DEFAULT DATETIME; }
+      CASE OID_NUMERIC    { RETURN 0m; }
+      CASE OID_ANY        { RETURN 0; }
+      CASE OID_ANYARRAY   { RETURN VARIANT[]; }
+      DEFAULT
+      {
+        RECORD rec := this->__ExecSQL(`
+            SELECT t.oid, t.typname, t.typbasetype, n.nspname, a.oid AS arrayeltoid
+              FROM pg_catalog.pg_type t
+                   INNER JOIN pg_catalog.pg_namespace n ON (t.typnamespace = n.oid)
+                   LEFT OUTER JOIN pg_catalog.pg_type a ON (a.typarray = t.oid)
+             WHERE t.oid = $1`, [ args := VARIANT[ atttypid ] ]);
+
+        IF (rec.typbasetype != 0)
+          RETURN this->GetDefaultValue(rec.typbasetype, atthasdef, attmissingval);
+        IF (rec.nspname = "webhare_internal" AND rec.typname = "webhare_blob")
+          RETURN DEFAULT BLOB;
+        IF (rec.arrayeltoid != 0)
+        {
+          VARIANT elt := this->GetDefaultValue(rec.arrayeltoid, atthasdef, attmissingval);
+          RETURN RepeatElement(elt, 0);
+        }
+        RETURN [ error := "values of this type cannot be read yet" ];
+      }
+    }
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION __GetTableTypeInfoCols(TABLE tbl, STRING ARRAY cols)
+  {
+    STRING table_name := GetBindingFromTable(tbl).tablename;
+    STRING schema_name := "PUBLIC";
+    IF (table_name LIKE "*.*")
+    {
+      schema_name := Tokenize(table_name, ".")[0];
+      table_name := Tokenize(table_name, ".")[1];
+    }
+
+    SCHEMA catalog LIKE postgresql_pg_catalog;
+    catalog := BindTransactionToSchema(this->id, "pg_catalog");
+
+    RECORD ARRAY tablecols := this->__ExecSQL(`
+       select attname, atttypid, atthasdef, attmissingval, attnotnull
+       from pg_catalog.pg_attribute, pg_catalog.pg_class, pg_catalog.pg_namespace
+       where pg_class.oid = attrelid
+             and pg_namespace.oid = pg_class.relnamespace
+             and upper(nspname) = upper($1)
+             and upper(relname) = upper($2)
+             and not attisdropped
+             and not (attname in ('cmin', 'cmax', 'ctid', 'tableoid', 'xmax', 'xmin'))`,  [args := VARIANT[schema_name,table_name]]);
+
+    tablecols :=
+        SELECT TEMPORARY value :=   this->GetDefaultValue(atttypid, atthasdef, attmissingval)
+             , name :=        attname
+             , dbase_name :=  attname
+             , type :=        TypeID(value)
+             , flags :=       atttypid = OID_BYTEA ? 256 : 0 // ColumnFlags::Binary
+             , fase :=        0
+             , ...[ attnotnull OR TypeID(value) = TypeID(BLOB) ? CELL[] : [ nulldefault := value ] ]
+          FROM tablecols
+      ORDER BY attname;
+
+    RECORD ARRAY retval;
+    FOREVERY (STRING col FROM cols)
+    {
+      RECORD pos := RecordLowerBound(tablecols, [ name := col ], [ "NAME" ]);
+      IF (NOT pos.found)
+      {
+        // Not found, try builtin columns (internally translated inside driver)
+        INTEGER builtintype;
+        SWITCH (ToLowercase(`${schema_name}.${table_name}(${col})`))
+        {
+          CASE "system.sites(webroot)"            { builtintype := TypeID(STRING); }
+          CASE "system.fs_objects(fullpath)"      { builtintype := TypeID(STRING); }
+          CASE "system.fs_objects(highestparent)" { builtintype := TypeID(INTEGER); }
+          CASE "system.fs_objects(indexurl)"      { builtintype := TypeID(STRING); }
+          CASE "system.fs_objects(isactive)"      { builtintype := TypeID(BOOLEAN); }
+          CASE "system.fs_objects(publish)"       { builtintype := TypeID(BOOLEAN); }
+          CASE "system.fs_objects(url)"           { builtintype := TypeID(STRING); }
+          CASE "system.fs_objects(whfspath)"      { builtintype := TypeID(STRING); }
+          DEFAULT
+          {
+            STRING ARRAY allowed := SELECT AS STRING ARRAY name FROM tablecols;
+            STRING didyoumean := GetBestMatch(col, allowed, [ casesensitive := TRUE ]);
+            THROW NEW Exception(`Could not find column "${EncodeJava(col)}" in table "${schema_name}"."${table_name}"${didyoumean = "" ? "" : `, did you mean "${didyoumean}"?`}`);
+          }
+        }
+
+        INSERT
+            [ name :=         col
+            , dbase_name :=   col
+            , type :=         builtintype
+            , flags :=        0
+            , fase :=         0
+            ] INTO retval AT END;
+      }
+      ELSE
+        INSERT tablecols[pos.position] INTO retval AT END;
+    }
+
+    RETURN retval;
   }
 
   UPDATE PUBLIC MACRO CreateTable(STRING schemaname, STRING tablename, RECORD tablestructure)
