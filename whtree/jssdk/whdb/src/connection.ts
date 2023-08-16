@@ -8,7 +8,7 @@ import {
 } from 'kysely';
 
 import { Connection, GlobalTypeMap, QueryOptions, BindParam, DataTypeOIDs, QueryResult, FieldInfo } from './../vendor/postgresql-client/src/index';
-import { flags } from '@webhare/env/src/envbackend';
+import { debugFlags } from '@webhare/env/src/envbackend';
 import { BlobType } from "./blobs";
 import { ArrayFloat8Type, ArrayMoneyType, ArrayTidType, Float8Type, MoneyType, TidType } from "./types";
 
@@ -58,7 +58,7 @@ export class WHDBPgClient {
       host: process.env.WEBHARE_DATAROOT + "/postgresql/.s.PGSQL.5432",
       database: process.env.WEBHARE_DBASENAME
     });
-    if (flags["postgresql:logcommands"])
+    if (debugFlags["postgresql:logcommands"])
       this.pgclient.on("debug", (evt) => this.onDebug(evt));
 
     this.connectpromise = this.pgclient.connect();
@@ -90,7 +90,7 @@ export class WHDBPgClient {
             queryoptions.params!.push(param);
         }
 
-      if (flags["postgresql:logquery"])
+      if (debugFlags["postgresql:logquery"])
         console.log({ sqlquery, ...queryoptions });
 
       return this.pgclient!.query(sqlquery, queryoptions).then((result: QueryResult): FullPostgresQueryResult<R> => {
@@ -104,7 +104,7 @@ export class WHDBPgClient {
             rows.push(newrow);
           }
 
-        if (flags["postgresql:logquery"])
+        if (debugFlags["postgresql:logquery"])
           console.log("result", result);
 
         return {

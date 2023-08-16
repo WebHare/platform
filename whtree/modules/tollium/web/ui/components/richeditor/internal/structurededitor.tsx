@@ -2,7 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 require('./editorbase');
-import { flags } from "@webhare/env";
+import { debugFlags } from "@webhare/env";
 import * as rtesupport from "./support";
 import * as richdebug from "./richdebug";
 import * as formservice from '@mod-publisher/js/forms/internal/form.rpc.json';
@@ -17,7 +17,7 @@ import EditorBase from './editorbase';
 import PasteCleanup from './pastecleanup';
 
 //debug flags
-const debugicc = flags["rte-icc"]; //debug insert container contents. needed to figure out rewriting errors eg on fill
+const debugicc = debugFlags["rte-icc"]; //debug insert container contents. needed to figure out rewriting errors eg on fill
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //

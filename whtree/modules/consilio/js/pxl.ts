@@ -6,7 +6,7 @@ import * as domdebug from "dompack/src/debug";
 import { browser } from "@webhare/dompack";
 import * as cookie from "dompack/extra/cookie";
 import { generateRandomId } from "@webhare/std";
-import { islive } from "@webhare/env";
+import { isLive } from "@webhare/env";
 
 const eventname_regex = /^[\w:]+$/;
 const datakey_regex = /^(ds_[0-9a-z_]+)|(dn_[0-9a-z_]+)|(db_[0-9a-z_]+)$/;
@@ -54,7 +54,7 @@ export function setPxlOptions(options) {
 
 function pxlFailed(errormessage, ...params) {
   console.error('[pxl] ' + errormessage, ...params);
-  if (!islive)
+  if (!isLive)
     throw new Error(errormessage); //big errors on test servers
   return null;
 }

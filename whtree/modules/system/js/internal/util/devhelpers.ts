@@ -1,10 +1,10 @@
-import { flags } from "@webhare/env/src/envbackend";
+import { debugFlags } from "@webhare/env/src/envbackend";
 
 /** Throws an unhandled rejection if a promise isn't awaited on within a few milliseconds after
  *  its creation if the `async` debug flag is enabled
  */
 export function checkPromiseErrorsHandled<T>(promise: Promise<T>): Promise<T> {
-  if (!flags.async)
+  if (!debugFlags.async)
     return promise;
 
   // Prepare an error to get a stack trace

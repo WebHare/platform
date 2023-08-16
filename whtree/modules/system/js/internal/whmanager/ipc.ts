@@ -8,7 +8,7 @@ import { bufferToArrayBuffer } from "./transport";
 import { generateRandomId } from "@webhare/std";
 import * as envbackend from "@webhare/env/src/envbackend";
 
-const logmessages = envbackend.flags.ipc;
+const logmessages = envbackend.debugFlags.ipc;
 
 function getStructuredTrace(e: Error) {
   if (!e?.stack)

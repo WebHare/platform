@@ -23,8 +23,8 @@ export { IPCMessagePacket, IPCLinkType } from "./ipc";
 export { SimpleMarshallableData, SimpleMarshallableRecord, IPCMarshallableData, IPCMarshallableRecord } from "./hsmarshalling";
 export { dumpActiveIPCMessagePorts } from "./transport";
 
-const logmessages = envbackend.flags.ipc;
-const logpackets = envbackend.flags.ipcpackets;
+const logmessages = envbackend.debugFlags.ipc;
+const logpackets = envbackend.debugFlags.ipcpackets;
 
 /** Number of milliseconds before connection to whmanager times out. At startup, just the connect alone can
     take multiple seconds, so using a very high number here.
@@ -1180,7 +1180,7 @@ function hookConsoleLog() {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   process.stdout.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
-    if (envbackend.flags.conloc && source.location) {
+    if (envbackend.debugFlags.conloc && source.location) {
       const workerid = consoleLogData[1] ? ` (${Atomics.add(consoleLogData, 0, 1) + 1}:${bridgeimpl?.id})` : ``;
       old_std_writes.stdout.call(process.stdout, `${(new Date).toISOString()}${workerid} ${source.location.filename.split("/").at(-1)}:${source.location.line}:${source.func === "table" ? "\n" : " "}`, "utf-8");
       source.location = null;
@@ -1194,7 +1194,7 @@ function hookConsoleLog() {
   };
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   process.stderr.write = (data: string | Uint8Array, encoding?: any, cb?: (err?: Error) => void): any => {
-    if (envbackend.flags.conloc && source.location) {
+    if (envbackend.debugFlags.conloc && source.location) {
       const workerid = consoleLogData[1] ? ` (${Atomics.add(consoleLogData, 0, 1) + 1}:${bridgeimpl?.id})` : ``;
       old_std_writes.stderr.call(process.stderr, `${(new Date).toISOString()}${workerid} ${source.location.filename.split("/").at(-1)}:${source.location.line}: `, "utf-8");
       source.location = null;
