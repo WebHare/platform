@@ -2,6 +2,7 @@ import { TaskRequest, TaskResponse, broadcast } from "@webhare/services";
 import { loadJSFunction } from "../resourcetools";
 import { System_Managedtasks, WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { WHDBBlob, commitWork, db, isWorkOpen, rollbackWork, uploadBlob } from "@webhare/whdb";
+import { getStructuredTrace } from "../whmanager/ipc";
 
 interface TaskInfo {
   queueid: string;
@@ -64,6 +65,6 @@ export async function executeManagedTask(taskinfo: TaskInfo, debug: boolean) {
     if (isWorkOpen())
       await rollbackWork();
 
-    return { type: "taskfailed", error: (e as Error).message, trace: [], isfatal: false };
+    return { type: "taskfailed", error: (e as Error).message, trace: getStructuredTrace(e as Error), isfatal: false };
   }
 }
