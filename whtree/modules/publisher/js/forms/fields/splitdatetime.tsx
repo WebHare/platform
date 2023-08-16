@@ -5,14 +5,14 @@ import * as dompack from "dompack";
 import * as domevents from "dompack/src/events";
 import * as whintegration from "@mod-system/js/wh/integration";
 import { getTid } from "@mod-tollium/js/gettid";
-import { islive } from "@webhare/env";
+import { isLive } from "@webhare/env";
 import "../internal/form.lang.json";
 
 import "./splitdatetime.scss";
 
 
-if (!islive)
-  console.warn("@mod-publisher/js/forms/splitdatetime has some known issues and is no longer being maintained. Please switch to the @mod-publisher/js/forms/datetime version");
+if (!isLive)
+  console.warn("@mod-publisher/js/forms/splitdatetime has some known issues and is no longer being maintained. Please switch to the @mod-publisher/js/forms/fields/datetime version");
 
 let labelcount = 0;
 

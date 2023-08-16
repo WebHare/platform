@@ -8,7 +8,7 @@
 */
 
 import { installResolveHook } from "./resolvehook";
-import { flags } from "@webhare/env/src/envbackend";
+import { debugFlags } from "@webhare/env/src/envbackend";
 
-const debug = Boolean(flags.runner);
+const debug = Boolean(debugFlags.runner);
 installResolveHook(debug);

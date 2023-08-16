@@ -1,7 +1,7 @@
 import { Socket } from "net";
 import EventSource from "../eventsource";
 import { StackTraceItem, callStackToText, getCallStack } from "@mod-system/js/internal/util/stacktrace";
-import { flags } from "@webhare/env";
+import { debugFlags } from "@webhare/env";
 
 const reftrackersymbol = Symbol("refTracker");
 
@@ -13,7 +13,7 @@ export class RefLock {
   constructor(tracker: RefTracker, title = "") {
     this.tracker = tracker;
     this.title = title;
-    this.stack = flags.async ? getCallStack(1) : [];
+    this.stack = debugFlags.async ? getCallStack(1) : [];
   }
 
   release() {

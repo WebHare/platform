@@ -1,7 +1,7 @@
 import * as fs from "node:fs";
 import Module from "node:module";
 import { config, getFullConfigFile } from "./configuration";
-import { flags } from "@webhare/env/src/envbackend"; // don't want services module, included from @webhare/env
+import { debugFlags } from "@webhare/env/src/envbackend"; // don't want services module, included from @webhare/env
 
 export type LibraryData = {
   fixed: boolean;
@@ -84,7 +84,7 @@ export function registerLoadedResource(mod: NodeModule, path: string) {
   } else
     libdata[mod.id] = { fixed: false, dynamicloader: false, directloads: [], resources: [path] };
 
-  if (flags.hmr)
+  if (debugFlags.hmr)
     console.log(`[hmr] register resource ${path} by module ${mod.id}`);
 }
 
@@ -95,12 +95,12 @@ let deferred: Set<string> | null = new Set<string>;
 */
 export function handleModuleInvalidation(path: string) {
   if (deferred) {
-    if (flags.hmr)
+    if (debugFlags.hmr)
       console.log(`[hmr] defer invalidation of ${path} (activateHMR not called yet)`);
     deferred.add(path);
     return;
   }
-  if (flags.hmr)
+  if (debugFlags.hmr)
     console.log(`[hmr] handle invalidation of ${path}`);
   const toinvalidate: string[] = Object.keys(require.cache).filter(key => {
     if (!key.startsWith(path))
@@ -115,7 +115,7 @@ export function handleModuleInvalidation(path: string) {
 
   for (const [key, lib] of Object.entries(libdata)) {
     if (lib?.resources.includes(path) && !toinvalidate.includes(key) && !lib?.fixed) {
-      if (flags.hmr)
+      if (debugFlags.hmr)
         console.log(`[hmr] resource ${path} was loaded as resource by module ${key}`);
       toinvalidate.push(key);
     }
@@ -139,7 +139,7 @@ export function handleModuleInvalidation(path: string) {
 
   // Remove the invalidated libraries from the cache
   for (const key of toinvalidate) {
-    if (flags.hmr)
+    if (debugFlags.hmr)
       console.log(`[hmr] evict module ${key} from the cache`);
     delete require.cache[key];
     delete libdata[key];
@@ -150,7 +150,7 @@ export function handleModuleInvalidation(path: string) {
     if (mod)
       mod.children = mod.children.filter(child => !toinvalidate.includes(child.id));
 
-  if (flags.hmr)
+  if (debugFlags.hmr)
     console.log(`[hmr] Invalidation handled`);
 }
 
@@ -174,7 +174,7 @@ export function handleSoftReset() {
      directly clear the relativeResolveCache, so we need to purge the require.cache from all files from
      old module versions.
   */
-  if (flags.hmr)
+  if (debugFlags.hmr)
     console.log(`[hmr] handle softreset`);
 
   const fullconfig = getFullConfigFile();
@@ -197,7 +197,7 @@ export function handleSoftReset() {
       cache_todelete.push(key);
   }
 
-  if (flags.hmr && cache_todelete.length)
+  if (debugFlags.hmr && cache_todelete.length)
     console.log(`[hmr] to remove from cache: ${cache_todelete.join(", ")}`);
   for (const key of cache_todelete) {
     handleModuleInvalidation(key);
@@ -208,7 +208,7 @@ export function handleSoftReset() {
   */
   type InternalModule = typeof Module & { _pathCache: Record<string, string> };
   const pathcache_todelete = Object.entries((Module as InternalModule)._pathCache).filter(([key, path]) => key.split("\x00").some(isInvalidPath) || isInvalidPath(path));
-  if (flags.hmr && pathcache_todelete.length)
+  if (debugFlags.hmr && pathcache_todelete.length)
     console.log(`[hmr] to remove from pathcache: ${pathcache_todelete.join(", ")}`);
   for (const [key] of pathcache_todelete) {
     delete (Module as InternalModule)._pathCache[key];
@@ -220,7 +220,7 @@ export function handleSoftReset() {
 
   // Remove all entries from the realpathCache that result in an invalid path
   const realpathcache_todelete = [...realpathCache.entries()].filter(([, path]) => isInvalidPath(path));
-  if (flags.hmr && realpathcache_todelete.length)
+  if (debugFlags.hmr && realpathcache_todelete.length)
     console.log(`[hmr] to remove from pathcache: ${realpathcache_todelete.join(", ")}`);
   for (const [key] of realpathcache_todelete) {
     realpathCache.delete(key);
@@ -229,7 +229,7 @@ export function handleSoftReset() {
 
 export function activate() {
   if (deferred) {
-    if (flags.hmr)
+    if (debugFlags.hmr)
       console.log(`[hmr] activated`);
     const toprocess = Array.from(deferred);
     deferred = null;
