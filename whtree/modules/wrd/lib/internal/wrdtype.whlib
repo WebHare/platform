@@ -2207,7 +2207,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         //ADDME: Compensate missing fields
         IF (RecordExists(val))
         {
-          IF (jsmode AND TYPEID(val.data) = TYPEID(STRING))  //this is a Buffer beig transferred, which we supported in 5.3. Just blobify it
+          IF (jsmode AND TYPEID(val.data) = TYPEID(STRING))  //this is a Buffer being transferred, which we supported in 5.3. Just blobify it
             val := CELL[ ...val, data := StringToBlob(val.data) ];
 
           RECORD newinfo := MappedJoinBlobSetting(val, whfsmapper, jsmode);
@@ -2256,7 +2256,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
               DELETE CELL filename FROM embed;
               INSERT CELL filename := embed.contentid INTO embed;
 
-              IF (jsmode AND TYPEID(val.data) = TYPEID(STRING))  //this is a Buffer beig transferred, which we supported in 5.3. Just blobify it
+              IF (jsmode AND TYPEID(val.data) = TYPEID(STRING))  //this is a Buffer being transferred, which we supported in 5.3. Just blobify it
                 val := CELL[ ...val, data := StringToBlob(val.data) ];
 
               RECORD newinfo := MappedJoinBlobSetting(embed, whfsmapper, jsmode);
