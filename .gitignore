@@ -21,6 +21,7 @@ coverage.tar.gz
 /whtree/lib/*.so
 /whtree/lib/*.so.*
 /whtree/lib/*.wasm
+/whtree/lib/*.wasm.map
 /whtree/lib/sqlplus
 /whtree/lib/*.la
 /whtree/log
