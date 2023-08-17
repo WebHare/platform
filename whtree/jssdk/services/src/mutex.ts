@@ -81,7 +81,8 @@ export async function lockMutex(name: string, options?: { timeout: std.WaitPerio
   checkModuleScopedName(name);
 
   //convert any non-infinite relative timeout to an absolute one
-  const timeout = options?.timeout && options?.timeout !== Infinity ? std.convertWaitPeriodToDate(options.timeout) : Infinity;
+  const opt_timeout = options?.timeout ?? Infinity; //this ensures that '0' stays 0
+  const timeout = opt_timeout === Infinity ? Infinity : std.convertWaitPeriodToDate(opt_timeout);
 
   //TODO should we have a shorter timeout if not connected yet? but that will break a tryLock/timeout:0 as they'd disconect immediately
   const mutexmanager = await connectMutexManager();

@@ -115,6 +115,7 @@ async function testMutex() {
   test.assert(lock2);
 
   //Test 'try' lock. Should hit the already locked mutex
+  test.eq(null, await services.lockMutex("test:mutex1", { timeout: 0 }));
   test.eq(null, await services.lockMutex("test:mutex1", { timeout: 10 }));
   lock2.release();
 

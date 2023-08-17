@@ -399,7 +399,7 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
 
     let expr = buildComparison(colexpr, cond.condition, valueexpr);
     if (cond.match_null)
-      expr = sql`(${colref} IS NULL) OR (${expr})`;
+      expr = sql`((${colref} IS NULL) OR (${expr}))`; //extra parentheses as we're normally embedded in x AND y AND z...
     conditions.push(expr);
   }
 
