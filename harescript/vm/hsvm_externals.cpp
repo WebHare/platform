@@ -238,11 +238,8 @@ BuiltinFunctionDefinition const * BuiltinFunctionsRegistrator::GetBuiltinFunctio
         BuiltinFunctions::const_iterator it = ref->find(name);
         if (it == ref->end())
         {
-#ifndef __EMSCRIPTEN__
-                throw VMRuntimeError (Error::BuiltinSymbolNotFound, name, std::string());
-#else
-        it = ref->insert(std::make_pair(name, BuiltinFunctionDefinition(name, BuiltinFunctionDefinition::NotFound, 0))).first;
-#endif
+                //It seems a waste of time to have to C++ define new WASM entrypoints
+                it = ref->insert(std::make_pair(name, BuiltinFunctionDefinition(name, BuiltinFunctionDefinition::NotFound, 0))).first;
         }
 
         return &it->second;

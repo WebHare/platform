@@ -8,6 +8,10 @@ LOADLIB "wh::internal/wasm.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "wh::dbase/postgresql.whlib";
 
+MACRO __WASMPG_INSERTRECORD(RECORD query, RECORD newfields) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
+MACRO __WASMPG_UPDATERECORD(RECORD query, RECORD rowdata, RECORD newfields) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
+RECORD FUNCTION __WASMPG_EXECUTEQUERY(RECORD query) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
+
 VARIANT FUNCTION CallImpl(STRING name, RECORD data)
 {
   VARIANT retval := EM_Syscall("executeInline",
@@ -32,16 +36,15 @@ return await func(param.data);
 /** doc2 */
 STATIC OBJECTTYPE EMTransactionCursor EXTEND TransactionCursorBase
 < RECORD query;
-  INTEGER ofs;
+  INTEGER blockrowstart;
   RECORD ARRAY alldata;
   RECORD ARRAY rowsdata; // Contains ctid/rowpos for each row
 
   MACRO NEW(OBJECT trans, RECORD query)
   {
     this->query := query;
-    this->ofs := 0;
 
-    RECORD res := CallImpl("cbExecuteQuery", query);
+    RECORD res := __WASMPG_EXECUTEQUERY(query);
     this->alldata := res.tabledata;
     this->rowsdata := res.rowsdata;
     // DumpValue(this->alldata, "boxed");
@@ -49,8 +52,9 @@ STATIC OBJECTTYPE EMTransactionCursor EXTEND TransactionCursorBase
   }
   UPDATE PUBLIC MACRO RetrieveNextBlock()
   {
-    this->pvt_currentblock := ArraySlice(this->alldata, this->ofs, 64);
-    this->ofs := this->ofs + LENGTH(this->pvt_currentblock);
+    INTEGER tablecount := LENGTH(this->query.tablesources);
+    this->blockrowstart := this->blockrowstart + LENGTH(this->pvt_currentblock) / tablecount;
+    this->pvt_currentblock := ArraySlice(this->alldata, this->blockrowstart * tablecount, 64 * tablecount);
   }
   UPDATE PUBLIC MACRO Close()
   {
@@ -62,13 +66,12 @@ STATIC OBJECTTYPE EMTransactionCursor EXTEND TransactionCursorBase
   }
   UPDATE PUBLIC MACRO DeleteRecord(INTEGER row)
   {
-    CallImpl("cbDeleteRecord", CELL[ this->query, row, rowdata := this->rowsdata[row] ]);
+    CallImpl("cbDeleteRecord", CELL[ this->query, rowdata := this->rowsdata[this->blockrowstart + row] ]);
   }
 
   UPDATE PUBLIC MACRO UpdateRecord(INTEGER row, RECORD newfields)
   {
-    DumpValue(CELL[ row, newfields], [ name := "updaterecord" ]);
-    THROW NEW Exception("LowLevelCursor::UpdateRecord not implemented");
+    __WASMPG_UPDATERECORD(this->query, this->rowsdata[this->blockrowstart + row], newfields);
   }
 >;
 
@@ -101,11 +104,30 @@ STATIC OBJECTTYPE EMTransaction EXTEND TransactionBase
 
   UPDATE PUBLIC MACRO InsertRecord(RECORD query, RECORD newfields)
   {
-    CallImpl("cbInsertRecord", CELL[ query, newfields ]);
+    __WASMPG_INSERTRECORD(query, newfields);
   }
 
   PUBLIC RECORD ARRAY FUNCTION __ExecSQL(STRING query, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    IF(CellExists(options,'argencodings'))
+      FOREVERY(STRING enc FROM options.argencodings)
+        IF(enc = "binary")
+          SWITCH(TYPEID(options.args[#enc]))
+          {
+            CASE TYPEID(STRING)
+            {
+              options.args[#enc] := NEW Buffer(options.args[#enc]);
+            }
+            CASE TYPEID(STRING ARRAY )
+            {
+              options.args[#enc] := SELECT AS OBJECT ARRAY NEW Buffer(str) FROM ToRecordArray(options.args[#enc], 'str');;
+            }
+            DEFAULT
+            {
+              THROW NEW Exception(`Cannot do binary transfer of type '${GetTypeName(TYPEID(options.args[#enc]))}`);
+            }
+          }
+
     RETURN CallImpl("cbSendPostgreSQLCommand", CELL[ query, options ]);
   }
 

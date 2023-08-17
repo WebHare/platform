@@ -35,12 +35,12 @@ struct BuiltinFunctionDefinition
         Function,
         CMacro,
         CFunction,
+        NotFound,
 #ifdef __EMSCRIPTEN__
         JSMacro,
         JSFunction,
         JSAsyncMacro,
         JSAsyncFunction,
-        NotFound,
 #endif // __EMSCRIPTEN__
         } type;
 
@@ -61,9 +61,7 @@ struct BuiltinFunctionDefinition
         BuiltinFunctionDefinition(std::string const &name, BuiltinFunctionPtr ptr) : name(name), externalid(0), type(Function), function(ptr) {}
         BuiltinFunctionDefinition(std::string const &name, HSVM_MacroPtr ptr, char) : name(name), externalid(0), type(CMacro), macro_c(ptr) {}
         BuiltinFunctionDefinition(std::string const &name, HSVM_FunctionPtr ptr, char) : name(name), externalid(0), type(CFunction), function_c(ptr) {}
-#ifdef __EMSCRIPTEN__
         BuiltinFunctionDefinition(std::string const &name, Type _type, unsigned _externalid) : name(name), externalid(_externalid), type(_type) {}
-#endif // __EMSCRIPTEN__
 };
 
 /** This class keeps all registred builtin functions.

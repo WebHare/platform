@@ -6,6 +6,9 @@ import { defaultDateTime, maxDateTime } from "@webhare/hscompat/datetime";
 import { Tid } from "@webhare/whdb/src/types";
 import { isWHDBBlob } from "@webhare/whdb/src/blobs";
 import { isHareScriptBlob, HareScriptMemoryBlob } from "@webhare/harescript/src/hsblob";
+import { WASMModule } from "@webhare/harescript/src/wasm-modulesupport";
+import { HareScriptVM } from "@webhare/harescript/src/harescript";
+import { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 
 enum Fases {
   None = 0,
@@ -74,6 +77,17 @@ enum OID {
 
 type Condition = "<" | "<=" | "=" | ">" | ">=" | "!=" | "LIKE" | "IN";
 
+interface SingleCondition {
+  single: true;
+  handled: boolean;
+  tableid: number;
+  columnid: number;
+  condition: Condition;
+  casesensitive: boolean;
+  match_null: boolean;
+  value: unknown;
+}
+
 type Query = {
   type: "SELECT" | "DELETE" | "UPDATE";
   query_limit: number;
@@ -91,16 +105,7 @@ type Query = {
       nulldefault_valid: boolean;
     }>;
   }>;//[ { name: 'SYSTEM.FS_OBJECTS', columns: [Array] } ],
-  singleconditions: Array<{
-    single: true;
-    handled: boolean;
-    tableid: number;
-    columnid: number;
-    condition: Condition;
-    casesensitive: boolean;
-    match_null: boolean;
-    value: unknown;
-  }>;
+  singleconditions: SingleCondition[];
   joinconditions: Array<{
     single: false;
     handled: boolean;
@@ -139,8 +144,30 @@ function buildSwappedComparison(left: RawBuilder<unknown>, condition: Condition,
   throw new Error(`Cannot swap arguments to ${condition}`);
 }
 
+function getConditionValue(query: Query, cond: SingleCondition, condidx: number, queryparam: HSVMVar) {
+  const column = query.tablesources[cond.tableid].columns[cond.columnid];
+  if (!(column.flags & ColumnFlags.Binary))
+    return cond.value;
+
+  //get the binary value from the original HS value
+  const originalvalue = queryparam.getCell("singleconditions")!.arrayGetRef(condidx)!.getCell("value")!;
+  if (originalvalue.getType() === VariableType.String)
+    return originalvalue.getStringAsBuffer();
+
+  if (originalvalue.getType() === VariableType.StringArray) {
+    const bufferarray = new Array<Buffer>;
+    const len = originalvalue.arrayLength();
+    for (let idx = 0; idx < len; ++idx)
+      bufferarray.push(originalvalue.arrayGetRef(idx)!.getStringAsBuffer());
+
+    return bufferarray;
+  }
+
+  throw new Error(`Unrecognized input type '${VariableType[originalvalue.getType()]}' for binary value`);
+}
+
 function encodePattern(mask: string) {
-  return mask.replace(/[_%\\]/, `/$1`).replace(/\?/, "_").replace(/\*/, "%");
+  return mask.replace(/([_%\\])/g, `\\$1`).replace(/\?/g, "_").replace(/\*/g, "%");
 }
 
 function fixValue(value: unknown) {
@@ -163,20 +190,10 @@ async function fixUploadedParams(params: unknown[]): Promise<unknown[]> {
   return newparams;
 }
 
-async function fixUploadedFields(row: Record<string, unknown>): Promise<Record<string, unknown>> {
-  const newrow = { ...row };
-  for (const [key, value] of Object.entries(newrow)) {
-    const fix = fixValue(value);
-    if (fix?.then)
-      newrow[key] = await fix;
-  }
-  return newrow;
-}
-
-export async function cbExecuteQuery(query: Query) {
-
+async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSVMVar, newfields: HSVMVar) {
   //console.log(query);
   //console.log(query.tablesources[0].columns);
+  const query = queryparam.getJSValue() as Query;
   const whdb = db();
 
   for (const cond of query.singleconditions) {
@@ -283,6 +300,9 @@ export async function cbExecuteQuery(query: Query) {
     resultcolumnsfase2.push({ tableid: -1, queryName: "rowpos", exportName: "rowpos", type: VariableType.Integer, flags: 0, expr: sql``.as(sql`rowpos`) }); // filled in later!
   }
 
+  // FIXME: Rob says: fase2 retrieval is not implemented, see if we really need it anyway
+  usefase2 = false;
+
   const tables = new Array<AliasedRawBuilder<unknown, `T${number}`>>();
   //const select = new Array<AliasedRawBuilder<unknown, `c${number}`>>();
   //const selectfase2cols = new Array<AliasedRawBuilder<unknown, `c${number}`>>();
@@ -358,17 +378,20 @@ export async function cbExecuteQuery(query: Query) {
 
   const conditions = new Array<RawBuilder<unknown>>();
 
-  for (const cond of query.singleconditions) {
+  for (let condidx = 0; condidx < query.singleconditions.length; ++condidx) {
+    const cond = query.singleconditions[condidx];
     if (!cond.handled)
       continue;
     const tableid = `T${cond.tableid}`;
     const column = query.tablesources[cond.tableid].columns[cond.columnid];
+    const value = getConditionValue(query, cond, condidx, queryparam);
+
     const colref = sql.ref(`${tableid}.${column.dbase_name}`);
     let colexpr = colref;
     if (!cond.casesensitive)
       colexpr = sql`upper(${colexpr})`;
 
-    let valueexpr = sql.value(cond.condition == "LIKE" ? encodePattern(cond.value as string) : cond.value);
+    let valueexpr = sql.value(cond.condition == "LIKE" ? encodePattern(value as string) : value);
     if (cond.condition == "IN")
       valueexpr = sql`Any(${valueexpr})`;
     if (!cond.casesensitive)
@@ -441,9 +464,7 @@ export async function cbExecuteQuery(query: Query) {
 
     for (const col of resultcolumns) {
       let value = row[col.queryName];
-      if (col.flags & ColumnFlags.Binary)
-        value = (value as Buffer).toString("base64url");
-      else if (col.type === VariableType.Blob && value === null)
+      if (col.type === VariableType.Blob && value === null)
         value = new HareScriptMemoryBlob;
       else if (col.type === VariableType.Integer64)
         value = BigInt(value as number || 0);
@@ -469,8 +490,7 @@ export async function cbExecuteQuery(query: Query) {
   void (keycolumn);
   void (updatedtable);
 
-
-  return { tabledata, rowsdata };
+  id_set.setJSValue({ tabledata, rowsdata });
 }
 
 export async function cbIsWorkOpen() {
@@ -555,22 +575,47 @@ export async function cbSendPostgreSQLCommand(params: { query: string; options: 
     retval.push(retvalrow);
   }
 
-  console.table(retval);
+  // console.table(retval);
   return retval;
 }
 
-export async function cbInsertRecord(params: { query: Query; newfields: Record<string, unknown> }) {
-  const newfields = await fixUploadedFields(params.newfields);
-
+async function decodeNewFields(vm: HareScriptVM, query: Query, newfields: HSVMVar) {
   const values: Record<string, unknown> = {};
-  for (const columns of params.query.tablesources[0].columns)
-    if (columns.fase & Fases.Updated)
-      values[columns.dbase_name] = newfields[columns.name.toLowerCase()];
+  for (const column of query.tablesources[0].columns)
+    if (column.fase & Fases.Updated) {
+      const cell = newfields.getCell(column.name);
+      if (!cell)
+        continue;
 
-  const name = params.query.tablesources[0].name;
+      //We'll manually get the individual cells so we can retrieve binary data where needed
+      const setvalue = column.flags & ColumnFlags.Binary ? cell.getStringAsBuffer() : cell.getJSValue();
+      const fixedvalue = fixValue(setvalue);
+      values[column.dbase_name] = fixedvalue?.then ? await fixedvalue : setvalue;
+    }
+
+  return values;
+}
+
+async function cbInsertRecord(vm: HareScriptVM, queryparam: HSVMVar, newfields: HSVMVar) {
+  const query = queryparam.getJSValue() as Query;
+  const values = await decodeNewFields(vm, query, newfields);
+
+  const name = query.tablesources[0].name;
   const whdb = db<Record<string, unknown>>();
   await whdb.insertInto(name.toLowerCase()).values(values).execute();
-  return null;
+}
+
+export async function cbUpdateRecord(vm: HareScriptVM, queryparam: HSVMVar, rowdataparam: HSVMVar, newfields: HSVMVar) {
+  const query = queryparam.getJSValue() as Query;
+  const rowdata = rowdataparam.getJSValue() as { ctid: Tid };
+  const values = await decodeNewFields(vm, query, newfields);
+
+  const whdb = db();
+  await whdb
+    .updateTable(sql.table(query.tablesources[0].name.toLowerCase()).as('T'))
+    .set(values)
+    .where(sql`ctid`, '=', rowdata.ctid)
+    .execute();
 }
 
 export async function cbDeleteRecord(params: { query: Query; row: number; rowdata: { ctid: Tid } }) {
@@ -580,4 +625,10 @@ export async function cbDeleteRecord(params: { query: Query; row: number; rowdat
     .deleteFrom(sql.table(params.query.tablesources[0].name.toLowerCase()).as('T'))
     .where(sql`ctid`, '=', params.rowdata.ctid)
     .execute();
+}
+
+export async function registerPGSQLFunctions(wasmmodule: WASMModule) {
+  wasmmodule.registerAsyncExternalMacro("__WASMPG_INSERTRECORD:::RR", cbInsertRecord);
+  wasmmodule.registerAsyncExternalMacro("__WASMPG_UPDATERECORD:::RRR", cbUpdateRecord);
+  wasmmodule.registerAsyncExternalFunction("__WASMPG_EXECUTEQUERY::R:R", cbExecuteQuery);
 }

@@ -9,6 +9,7 @@ import { registerBaseFunctions } from "./wasm-hsfunctions";
 import { WASMModule } from "./wasm-modulesupport";
 import { HSVMVar } from "./wasm-hsvmvar";
 import { HSCallsProxy, HSVMLibraryProxy, HSVMObjectCache } from "./wasm-proxies";
+import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 
 
 const dispatchlibrary = "mod::system/js/internal/wasm/dispatch.whlib";
@@ -442,6 +443,7 @@ export async function createHarescriptModule<T extends WASMModule>(modulefunctio
   wasmmodule.init();
 
   registerBaseFunctions(wasmmodule);
+  registerPGSQLFunctions(wasmmodule);
 
   return wasmmodule;
 }

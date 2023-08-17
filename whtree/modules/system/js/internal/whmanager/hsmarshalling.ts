@@ -81,6 +81,7 @@ export function getDefaultValue<T extends VariableType>(type: T): HSType<T> {
     case VariableType.Integer64Array:
     case VariableType.RecordArray:
     case VariableType.StringArray:
+    case VariableType.ObjectArray:
     case VariableType.BlobArray: {
       return Object.defineProperty([] as HSType<T>, "__hstype", { value: type });
     }
