@@ -11,7 +11,7 @@ export { config as backendConfig, WebHareBackendConfiguration } from "./config";
 export { broadcast, subscribe, BackendEvent, BackendEventSubscription } from "./backendevents";
 export { log, logNotice, logError, logDebug, readLogLines, LoggableRecord } from "./logging";
 export { ConvertBackendServiceInterfaceToClientInterface } from "@mod-system/js/internal/webhareservice";
-export type { RichBlob } from "./richblob";
+export type { RichFileDescriptor } from "./richfile";
 export { lockMutex, type Mutex } from "./mutex";
 export { getCodeContext, CodeContext } from "./codecontexts";
 export { TaskRequest, TaskResponse, scheduleTask, scheduleTimedTask } from "./tasks";

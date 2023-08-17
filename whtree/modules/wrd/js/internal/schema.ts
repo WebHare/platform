@@ -4,7 +4,7 @@ export { SchemaTypeDefinition } from "./types";
 import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
 import { checkPromiseErrorsHandled } from "@mod-system/js/internal/util/devhelpers";
 import { ensureScopedResource } from "@webhare/services/src/codecontexts";
-import { fieldsToHS, tagToHS, outputmapToHS, repairResultSet, tagToJS } from "@webhare/wrd/src/wrdsupport";
+import { fieldsToHS, tagToHS, outputmapToHS, repairResultSet, tagToJS, repairResultValue } from "@webhare/wrd/src/wrdsupport";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 
@@ -403,7 +403,7 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
   async execute(): Promise<O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never> {
     const result = await checkPromiseErrorsHandled(this.executeInternal());
     if (typeof this.#selects === "string") //no need for translation
-      return result;
+      return result.map(repairResultValue) as typeof result;
 
     return repairResultSet(result as Array<Record<string, unknown>>, this.#selects!) as unknown as ReturnType<typeof this.executeInternal>;
   }

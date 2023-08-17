@@ -1,6 +1,7 @@
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
+import * as crypto from "node:crypto";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 
 async function testWHFS() {
@@ -66,6 +67,23 @@ async function testWHFS() {
   const wittytestfile = await testpagesfolder.openFile("wittytest.witty");
   test.eq(11, await wittytestfile.data.size);
   test.eq(`[wittytest]`, await wittytestfile.data.text());
+
+  const imgfile = await testpagesfolder.openFile("imgeditfile.jpeg");
+  test.eq('0hMX4RpiWulvvNdfeF92ErsUAWebk7Kx59bsflO3BIw', imgfile.data.hash);
+  test.eq('image/jpeg', imgfile.data.mimeType);
+  test.eq('.jpg', imgfile.data.extension);
+  test.eq(1024, imgfile.data.width);
+  test.eq(768, imgfile.data.height);
+  test.eq(0, imgfile.data.rotation);
+  test.eq(false, imgfile.data.mirrored);
+  test.eq(null, imgfile.data.refPoint);
+  test.eq("#EFF0EB", imgfile.data.dominantColor);
+  test.eq(null, imgfile.data.fileName); //TODO not set? should perhaps match the original upload name?
+
+  // Get the sha256 of the file
+  const hashSum = crypto.createHash('sha256');
+  hashSum.update(Buffer.from(await imgfile.data.arrayBuffer()));
+  test.eq('0hMX4RpiWulvvNdfeF92ErsUAWebk7Kx59bsflO3BIw', hashSum.digest('base64url'));
 
   const tmpfolder = await testsite.openFolder("tmp");
 

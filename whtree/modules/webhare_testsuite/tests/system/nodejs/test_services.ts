@@ -8,7 +8,7 @@ import { readJSONLogLines } from "@mod-system/js/internal/logging";
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
 import { DemoServiceInterface } from "@mod-webhare_testsuite/js/demoservice";
 import runBackendService from "@mod-system/js/internal/webhareservice";
-import { HareScriptVM, allocateHSVM, HareScriptBlob, isHareScriptBlob } from "@webhare/harescript";
+import { HareScriptVM, allocateHSVM, HareScriptBlob, isHareScriptBlob, HareScriptMemoryBlob } from "@webhare/harescript";
 
 function ensureProperPath(inpath: string) {
   test.eq(/^\/.+\/$/, inpath, `Path should start and end with a slash: ${inpath}`);
@@ -87,6 +87,11 @@ async function testServices() {
 
   test.eq(await services.callHareScript("mod::system/lib/configure.whlib#GetModuleInstallationRoot", ["system"]) as string, services.config.module.system.root);
   ensureProperPath(services.config.module.system.root);
+
+  //Verify callHareScript supporting the new blobs
+  test.eq("1234", await services.callHareScript("wh::files.whlib#BlobToString", [new HareScriptMemoryBlob(Buffer.from("1234"))]));
+  const returnblob = await services.callHareScript("wh::files.whlib#StringToBlob", ["5678"]) as HareScriptBlob;
+  test.eq("5678", await returnblob.text());
 }
 
 async function testServiceState() {

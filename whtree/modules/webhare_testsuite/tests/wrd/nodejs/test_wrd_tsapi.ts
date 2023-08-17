@@ -7,6 +7,7 @@ import { ComparableType, compare } from "@webhare/hscompat/algorithms";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 
 import { System_Usermgmt_WRDAuthdomainSamlIdp } from "@mod-system/js/internal/generated/wrd/webhare";
+import { RichFileDescriptor } from "@webhare/services";
 
 type TestSchema = {
   wrdPerson: {
@@ -294,6 +295,27 @@ async function testNewAPI() {
   test.eq([{ wrdId: newperson, testSingleDomain: domain1value1 }], await schema.selectFrom("wrdPerson").select(["wrdId", "testSingleDomain"]).where("testSingleDomain", "in", [null, domain1value1]).execute());
   test.eq(newperson, await schema.search("wrdPerson", "testSingleDomain", domain1value1));
   test.eq([{ wrdId: newperson, testSingleDomain: domain1value1 }], await schema.enrich("wrdPerson", [{ wrdId: newperson }], "wrdId", ["testSingleDomain"]));
+
+  // verify File/Image fields (blob). TODO this might go away in the future, but for 5.3 compatibility support `{data:Buffer}` fields
+  await schema.update("wrdPerson", newperson, { testFile: { data: Buffer.from("Hey everybody") } });
+  const file: RichFileDescriptor = (await schema.selectFrom("wrdPerson").select("testFile").where("wrdId", "=", newperson).execute())[0]!;
+  test.eq("Hey everybody", await file.text());
+
+  test.eq('XwMO4BX9CoLbEUXw98kaTSw3Ut4S-HbEvWpHyBtJD1c', file.hash);
+  test.eq('application/octet-stream', file.mimeType);
+  test.eq(null, file.extension);
+  test.eq(null, file.width);
+  test.eq(null, file.height);
+  test.eq(null, file.rotation);
+  test.eq(null, file.mirrored);
+  test.eq(null, file.refPoint);
+  test.eq(null, file.dominantColor); //FIXME not set?
+  test.eq(null, file.fileName); //FIXME not set?
+
+  await schema.update("wrdPerson", newperson, { testFile: { data: Buffer.from("Hey everybody 2") } });
+  const filerec: RichFileDescriptor = (await schema.selectFrom("wrdPerson").select(["testFile"]).where("wrdId", "=", newperson).execute())[0].testFile!;
+  test.eq('Hey everybody 2', await filerec.text());
+  test.eq('5q1Ql8lEa-yynDB7Gow5Oq4tj3aUhW_fUthcW-Fu0YM', filerec.hash);
 
   // test array & nested record selectors
   {

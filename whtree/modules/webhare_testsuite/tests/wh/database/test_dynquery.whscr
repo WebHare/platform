@@ -1,6 +1,7 @@
 <?wh
 
 LOADLIB "wh::dbase/dynquery.whlib";
+LOADLIB "wh::files.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -25,6 +26,7 @@ MACRO TestDynamicInsert()
       , cols :=         [ [ column_name := "id", data_type := "INTEGER", autonumber_start := 111 ]
                         , [ column_name := "normalint", data_type := "INTEGER" ]
                         , [ column_name := "normalvarchar", data_type := "VARCHAR", character_octet_length := 16 ]
+                        , [ column_name := "normalblob", data_type := "BLOB" ]
                         , [ column_name := "nullint", data_type := "INTEGER", referenced_table_schema := "webhare_testsuite_testschema", referenced_table_name := "testtable" ]
                         ]
       ]);
@@ -36,9 +38,10 @@ MACRO TestDynamicInsert()
   , INTEGER normalint
   , STRING normalvarchar
   , INTEGER nullint NULL := 0
+  , BLOB normalblob
   > testtable := BindTransactionToTable(trans->id, "webhare_testsuite_testschema.testtable");
 
-  OBJECT inserter := GetDynamicInserter(GetPrimary(), "webhare_testsuite_testschema.testtable", [ cols := [ "id", "normalint", "normalvarchar", "nullint" ] ]);
+  OBJECT inserter := GetDynamicInserter(GetPrimary(), "webhare_testsuite_testschema.testtable", [ cols := [ "id", "normalint", "normalvarchar", "nullint", "normalblob" ] ]);
 
   trans->BeginWork();
 
@@ -50,18 +53,18 @@ MACRO TestDynamicInsert()
       [ [ id := 2, normalint := 2 ]
       , [ id := 3, normalint := 3 ]
       , [ id := 4, normalint := 4, normalvarchar := "4" ]
-      , [ id := 5, normalint := 5, normalvarchar := "5" ]
+      , [ id := 5, normalint := 5, normalvarchar := "5", normalblob := StringToBlob("BL123") ]
       ]);
 
   trans->CommitWork();
 
   TestEQ(
-      [ [ id := 1, normalint := 1, normalvarchar := "" ]
-      , [ id := 2, normalint := 2, normalvarchar := "" ]
-      , [ id := 3, normalint := 3, normalvarchar := "" ]
-      , [ id := 4, normalint := 4, normalvarchar := "4" ]
-      , [ id := 5, normalint := 5, normalvarchar := "5" ]
-      ], SELECT id, normalint, normalvarchar FROM testtable ORDER BY id);
+      [ [ id := 1, normalint := 1, normalvarchar := "", normalblob := DEFAULT BLOB ]
+      , [ id := 2, normalint := 2, normalvarchar := "", normalblob := DEFAULT BLOB ]
+      , [ id := 3, normalint := 3, normalvarchar := "", normalblob := DEFAULT BLOB ]
+      , [ id := 4, normalint := 4, normalvarchar := "4", normalblob := DEFAULT BLOB ]
+      , [ id := 5, normalint := 5, normalvarchar := "5", normalblob := StringToBlob("BL123") ]
+      ], SELECT id, normalint, normalvarchar, normalblob FROM testtable ORDER BY id);
 }
 
 RunTestframework(
