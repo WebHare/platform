@@ -10,7 +10,7 @@ import * as whintegration from '@mod-system/js/wh/integration';
 import * as emailvalidation from './internal/emailvalidation';
 import { runMessageBox } from 'dompack/api/dialog';
 import * as pxl from '@mod-consilio/js/pxl';
-import { islive } from "@webhare/env";
+import { isLive } from "@webhare/env";
 
 function getServiceSubmitInfo(formtarget) {
   return {
@@ -75,7 +75,7 @@ export default class RPCFormBase extends FormBase {
       if (this.__formhandler.formid) {
         console.error("This page needs to be republished!");
       } else {
-        if (!islive)
+        if (!isLive)
           console.error("Missing data-wh-form-target on form, did your witty apply '[form.formattributes]' to the <form> tag ?", formnode);
         throw new Error("Form does not appear to be a WebHare form");
       }

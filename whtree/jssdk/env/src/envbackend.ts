@@ -37,7 +37,7 @@ function getWHDebugFlags(): DebugFlags {
   return flags;
 }
 
-export const flags: DebugFlags = getWHDebugFlags() as DebugFlags;
+export const debugFlags: DebugFlags = getWHDebugFlags() as DebugFlags;
 
 /** Update the debugconfig as present in the system configuration record
     @param settings - debugconfig cell of the system configuration record
@@ -45,14 +45,14 @@ export const flags: DebugFlags = getWHDebugFlags() as DebugFlags;
 export function updateDebugConfig(settings: DebugConfig | null) {
   debugsettings = settings;
 
-  const oldenabledflags = Object.keys(flags).sort().join(",");
+  const oldenabledflags = Object.keys(debugFlags).sort().join(",");
   const newflags = getWHDebugFlags();
   const newenabledflags = Object.keys(newflags).sort().join(",");
   if (oldenabledflags !== newenabledflags) {
-    Object.assign(flags, newflags);
-    for (const key of Object.keys(flags))
+    Object.assign(debugFlags, newflags);
+    for (const key of Object.keys(debugFlags))
       if (!(key in newflags))
-        delete flags[key];
+        delete debugFlags[key];
     for (const cb of [...settingschangedcallbacks]) {
       // ignore throws here, we can't don anything in this lowlevel code
       try { cb(); } catch (e) { }

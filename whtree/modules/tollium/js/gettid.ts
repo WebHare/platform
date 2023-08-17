@@ -1,4 +1,4 @@
-import { islive, flags } from "@webhare/env";
+import { isLive, debugFlags } from "@webhare/env";
 import { encodeString } from "@webhare/std";
 
 /*
@@ -101,25 +101,25 @@ function resolveTid(tid: string, params: Array<TidParam | undefined>, options?: 
   const strparams: string[] = params.map(param => typeof param == "number" ? String(param) : param || "");
 
   // Initialize text with the 'cannot find text' message
-  const text = flags.sut ? "." + tid.split(".").pop() : "(cannot find text:" + tid + ")";
+  const text = debugFlags.sut ? "." + tid.split(".").pop() : "(cannot find text:" + tid + ")";
 
   // Check if the module is defined
   const module = tid.substring(0, tid.indexOf(":"));
   if (!module || !(module in allTids)) {
-    if (!islive || flags.gtd)
+    if (!isLive || debugFlags.gtd)
       console.warn("No language texts found for module '" + module + "'");
     return /*cannot find*/ text;
   }
 
   const language = options?.overridelanguage || getTidLanguage();
   if (!(language in allTids[module])) {
-    if (!islive || flags.gtd)
+    if (!isLive || debugFlags.gtd)
       console.warn("No language texts found for language '" + language + "'");
     return /*cannot find*/ text;
   }
 
   try {
-    if (flags.gtd) {
+    if (debugFlags.gtd) {
       console.group(`Resolving tid '${tid}'`);
       console.info({ tid, strparams, options, language, context: allTids[module][language] });
     }
@@ -140,16 +140,16 @@ function resolveTid(tid: string, params: Array<TidParam | undefined>, options?: 
 
     const executed = executeCompiledTidText(context, strparams, options?.html ?? false);
     if (executed == null) {
-      if (flags.gtd)
+      if (debugFlags.gtd)
         console.warn(`Tid '${module}:${tid}'' is a group node`);
       return /*cannot find*/ text;
     }
-    if (flags.gtd)
+    if (debugFlags.gtd)
       console.info("getTid", `${module}:${tid}`, strparams, executed);
 
     return executed;
   } finally {
-    if (flags.gtd)
+    if (debugFlags.gtd)
       console.groupEnd();
   }
 }

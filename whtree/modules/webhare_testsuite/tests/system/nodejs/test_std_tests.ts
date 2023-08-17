@@ -14,7 +14,7 @@ import { Money } from "@webhare/std";
 export const uuid4regex = new RegExp(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
 
 function testEnv() {
-  test.eq(false, env.islive);
+  test.eq(false, env.isLive);
   test.eq("development", env.dtapstage);
 }
 

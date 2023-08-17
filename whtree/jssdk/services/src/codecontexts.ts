@@ -4,7 +4,7 @@
 */
 
 import { StackTraceItem, getCallStack } from "@mod-system/js/internal/util/stacktrace";
-import { flags } from "@webhare/env";
+import { debugFlags } from "@webhare/env";
 import { AsyncLocalStorage } from "async_hooks";
 import EventSource from "@mod-system/js/internal/eventsource";
 
@@ -70,7 +70,7 @@ export class CodeContext extends EventSource<CodeContextEvents>{
     this.title = title;
     this.metadata = metadata;
     const data: ActiveContextData = {
-      trace: flags.async ? getCallStack(0) : [],
+      trace: debugFlags.async ? getCallStack(0) : [],
       context: new WeakRef(this)
     };
     activecontexts.set(this.id, data);

@@ -16,7 +16,7 @@ import { Client, Connection, types, defaults as pg_defaults } from 'pg';
 import { RefTracker, checkIsRefCounted } from '@mod-system/js/internal/whmanager/refs';
 import { BackendEventData, broadcast } from '@webhare/services/src/backendevents';
 import { BackendEvent } from '../../services/src/services';
-import { flags } from '@webhare/env/src/envbackend';
+import { debugFlags } from '@webhare/env/src/envbackend';
 import { checkPromiseErrorsHandled } from '@mod-system/js/internal/util/devhelpers';
 
 import { createPGBlob, uploadBlobToConnection, WHDBBlob, ValidBlobSources } from './blobs';
@@ -272,14 +272,14 @@ class WHDBConnectionImpl implements WHDBConnection, PostgresPool, PostgresPoolCl
     if (!this.pgclient)
       throw new Error(`Connection was already closed`);
     if (expectwork !== undefined && Boolean(this.openwork) !== expectwork) {
-      throw new Error(`Work has already been ${expectwork ? 'closed' : 'opened'}${flags.async ? "" : " - WEBHARE_DEBUG=async may help locating this"}`, { cause: this.lastopen });
+      throw new Error(`Work has already been ${expectwork ? 'closed' : 'opened'}${debugFlags.async ? "" : " - WEBHARE_DEBUG=async may help locating this"}`, { cause: this.lastopen });
     }
     return this.openwork || null;
   }
 
   async beginWork(): Promise<void> {
     this.checkState(false);
-    if (flags.async)
+    if (debugFlags.async)
       this.lastopen = new Error(`Work was last opened here`);
 
     const lock = this.reftracker.getLock("work lock");

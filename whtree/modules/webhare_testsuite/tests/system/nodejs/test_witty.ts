@@ -4,7 +4,7 @@ import * as services from "@webhare/services/src/services";
 import { encodeString } from "@webhare/std";
 import { WittyTemplate, EncodingStyles, WittyError, WittyErrorCode, WittyCallContext } from "@webhare/witty";
 import { registerTexts, setTidLanguage } from "@mod-tollium/js/gettid";
-import { flags } from "@webhare/env";
+import { debugFlags } from "@webhare/env";
 
 function testPrintYZ(ctx: WittyCallContext) {
   return (ctx.get("y") as { z: string }).z;
@@ -197,7 +197,7 @@ async function rawComponent() {
 async function getTids() {
   let witty: WittyTemplate;
 
-  flags.gtd = true;
+  debugFlags.gtd = true;
 
   // Register texts directly instead of relying on .lang.json files
   registerTexts("__witty_test_texts", "en", {
