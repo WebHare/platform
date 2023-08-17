@@ -265,7 +265,7 @@ MACRO TestPrimitiveValues()
     FOR (INTEGER i := 1; i <= 128; i := i + 1)
       INSERT [ id := i, normalint := i, normalint64 := i % 4 ] INTO testtable;
 
-    RECORD ARRAY local := SELECT * FROM testtable;
+    RECORD ARRAY local := SELECT * FROM testtable ORDER BY id;
 
     UPDATE testtable SET normalint := normalint + 1, nullint := nullint + 1;
     UPDATE local SET normalint := normalint + 1, nullint := nullint + 1;
@@ -304,7 +304,7 @@ MACRO TestPrimitiveValues()
     FOR (INTEGER i := 1; i <= 128; i := i + 1)
       INSERT [ id := i, normalint := i, normalint64 := i % 4 ] INTO testtable_nopk;
 
-    RECORD ARRAY local := SELECT * FROM testtable_nopk;
+    RECORD ARRAY local := SELECT * FROM testtable_nopk ORDER BY id;
 
     UPDATE testtable_nopk SET normalint := normalint + 1, nullint := nullint + 1;
     UPDATE local SET normalint := normalint + 1, nullint := nullint + 1;
