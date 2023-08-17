@@ -1,7 +1,7 @@
 /* import '@mod-publisher/js/analytics/gtm';
    enables ?wh-debug=anl support for GTM calls and implements non-script integration methods */
 import * as dompack from '@webhare/dompack';
-import { flags } from '@webhare/env';
+import { debugFlags } from '@webhare/env';
 import { loadScript } from '@webhare/dompack';
 import { onConsentChange, ConsentSettings } from "./consenthandler";
 import { frontendConfig } from '@webhare/frontend';
@@ -74,7 +74,7 @@ export async function init() {
   await new Promise(resolve => window.setTimeout(resolve, 1));
   window.dataLayer.push({ event: 'gtm.js' });
 
-  if (gtmsettings.h && !flags.sne) { //self hosting
+  if (gtmsettings.h && !debugFlags.sne) { //self hosting
     //ADDME taking whintegration.config.designcdnroot would be nice, but it's current format is pretty unusable
     const src = "/.se/gtm." + gtmsettings.a.substr(4).toLowerCase() + ".js";
     try {

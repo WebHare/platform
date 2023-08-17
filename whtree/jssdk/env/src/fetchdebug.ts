@@ -1,4 +1,4 @@
-import { flags } from "./envbackend";
+import { debugFlags } from "./envbackend";
 import { generateRandomId } from "@webhare/std";
 
 let hookedfetch = false;
@@ -26,7 +26,7 @@ function getResponseSummary(response: Response) {
 }
 
 async function debuggableFetch(originalfetch: typeof fetch, input: RequestInfo | URL, init?: RequestInit) {
-  if (!flags.wrq)
+  if (!debugFlags.wrq)
     return originalfetch(input, init);
 
   const method = (init?.method || "GET").padEnd(7);
