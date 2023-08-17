@@ -1,7 +1,7 @@
 import { createHarescriptModule, recompileHarescriptLibrary, HareScriptVM } from "./wasm-hsvm";
 import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
-import { backendConfig } from "@webhare/services";
+import { backendConfig, log } from "@webhare/services";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { HSVMVar } from "./wasm-hsvmvar";
 import { WASMModule } from "./wasm-modulesupport";
@@ -98,7 +98,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       return;
     }
 
-    const value = (syscalls as SysCallsModule)[func](data);
+    const value = (syscalls as SysCallsModule)[func].call(vm, data);
     if (value && typeof value === "object" && "then" in value && typeof value.then === "function") {
       // This assumes that __EM_SYSCALL_WAITLASTPROMISE is called immediately after __EM_SYSCALL returns!
       last_syscall_promise = value as Promise<unknown>;
@@ -201,5 +201,19 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerAsyncExternalFunction("__PGSQL_GETBLOBINTERNALID::S:IX", async (vm, id_set, transaction, var_blob) => {
     const blob = var_blob.getBlob();
     id_set.setString(isWHDBBlob(blob) ? blob.databaseid : "");
+  });
+
+  wasmmodule.registerExternalFunction("__HS_GETCURRENTGROUPID::S:", (vm, id_set) => {
+    vm.currentgroup ||= generateRandomId("base64url");
+    id_set.setString(vm.currentgroup);
+  });
+
+  wasmmodule.registerExternalFunction("GETEXTERNALSESSIONDATA::S:", (vm, id_set) => {
+    id_set.setString("");
+  });
+
+  wasmmodule.registerExternalMacro("__SYSTEM_REMOTELOG:::SS", (vm, logfile: HSVMVar, text: HSVMVar) => {
+    //FIXME should bridge log just give us a raw format? or should we convert all WASM logger usage to JSON?
+    log(logfile.getString(), { __system_remotelog_wasm: text.getString() });
   });
 }

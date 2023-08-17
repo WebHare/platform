@@ -10,7 +10,6 @@
 #include <blex/getopt.h>
 #include <harescript/compiler/diskfilesystem.h>
 #include <harescript/vm/hsvm_context.h>
-#include <harescript/vm/hsvm_dllinterface.h>
 #include <ap/libwebhare/wh_filesystem.h>
 #include <harescript/vm/wasm-tools.h>
 
@@ -88,6 +87,11 @@ HSVM* EMSCRIPTEN_KEEPALIVE CreateHSVM()
         //HSVM_SetErrorCallback(myvm, 0, &StandardErrorWriter);
         //cif->SetupConsole(myvm, args);
         return group->CreateVirtualMachine();
+}
+
+void EMSCRIPTEN_KEEPALIVE ReleaseHSVM(HSVM *byebye) //assumes the VM was created by CreateHSVM, it won't be safe to delete random VMs..
+{
+        delete HareScript::GetVirtualMachine(byebye);
 }
 
 void EMSCRIPTEN_KEEPALIVE RegisterHareScriptMacro(const char *name, unsigned id, bool async)

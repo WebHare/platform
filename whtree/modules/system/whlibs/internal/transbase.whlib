@@ -444,11 +444,11 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
   }
   OBJECT FUNCTION __DoLockMutex(STRING mutexname)
   {
-    THROW NEW Exception("Global mutex not supported in wh::, must be explicitly added in system module");
+    THROW NEW Exception("Global mutex not supported in wh::, must be explicitly added in system module (object: " || Detokenize(GetObjectExtendNames(this),',') || ")");
   }
   OBJECT FUNCTION __DoTryLockMutex(STRING mutexname, DATETIME max_wait)
   {
-    THROW NEW Exception("Global mutex not supported in wh::, must be explicitly added in system module");
+    THROW NEW Exception("Global mutex not supported in wh::, must be explicitly added in system module (object: " || Detokenize(GetObjectExtendNames(this),',') || ")");
   }
 
   // ---------------------------------------------------------------------------

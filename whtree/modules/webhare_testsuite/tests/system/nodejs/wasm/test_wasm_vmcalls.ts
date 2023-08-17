@@ -1,7 +1,8 @@
 import { BoxedFloat, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { HareScriptMemoryBlob, allocateHSVM } from "@webhare/harescript";
+import { HSVMObject, HareScriptMemoryBlob, allocateHSVM } from "@webhare/harescript";
 import * as test from "@webhare/test";
 import { beginWork, uploadBlob } from "@webhare/whdb";
+import { lockMutex } from "@webhare/services";
 
 function testTypeAPIs() {
   test.eq(VariableType.Float, determineType(new BoxedFloat(2.5)));
@@ -64,8 +65,35 @@ async function testCalls() {
   test.throws(/We're throwing it/, vm.callMacro("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib#ThrowIt"));
 }
 
+async function testMutex() { //test the shutdown behavior of WASM HSVM mutexes
+  const vm = await allocateHSVM();
+  const hs_lockmgr = await vm.loadlib("mod::system/lib/services.whlib").openLockManager() as HSVMObject;
+  const hs_mutex1lock = await hs_lockmgr.lockMutex("test:mutex1") as HSVMObject;
+  const hs_mutex2lock = await hs_lockmgr.lockMutex("test:mutex2") as HSVMObject;
+  test.assert(hs_mutex1lock);
+  test.assert(hs_mutex2lock);
+
+  //verify them being locked
+  test.eq(null, await lockMutex("test:mutex1", { timeout: 0 }));
+  test.eq(null, await lockMutex("test:mutex2", { timeout: 0 }));
+  await hs_mutex1lock.release();
+
+  let mutex = await test.wait(() => lockMutex("test:mutex1", { timeout: 0 }), "VM isn't actually releasing the lock");
+  mutex.release();
+
+  vm.shutdown();
+
+  mutex = await test.wait(() => lockMutex("test:mutex2", { timeout: 0 }), "VM isn't properly shutting down, mutex is not being freed");
+  mutex.release();
+
+  //TODO ensure autorelease when the HSVM is abandoned and garbage collected
+}
+
+
 test.run([
   testTypeAPIs,
   testVarMemory,
-  testCalls
+  testCalls,
+  testMutex
+
 ]);

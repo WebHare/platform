@@ -25,6 +25,7 @@ MACRO TestDynamicInsert()
       , cols :=         [ [ column_name := "id", data_type := "INTEGER", autonumber_start := 111 ]
                         , [ column_name := "normalint", data_type := "INTEGER" ]
                         , [ column_name := "normalvarchar", data_type := "VARCHAR", character_octet_length := 16 ]
+                        , [ column_name := "nullint", data_type := "INTEGER", referenced_table_schema := "webhare_testsuite_testschema", referenced_table_name := "testtable" ]
                         ]
       ]);
 
@@ -34,14 +35,15 @@ MACRO TestDynamicInsert()
   < INTEGER id
   , INTEGER normalint
   , STRING normalvarchar
+  , INTEGER nullint NULL := 0
   > testtable := BindTransactionToTable(trans->id, "webhare_testsuite_testschema.testtable");
 
-  OBJECT inserter := GetDynamicInserter(GetPrimary(), "webhare_testsuite_testschema.testtable", [ cols := [ "id", "normalint", "normalvarchar" ] ]);
+  OBJECT inserter := GetDynamicInserter(GetPrimary(), "webhare_testsuite_testschema.testtable", [ cols := [ "id", "normalint", "normalvarchar", "nullint" ] ]);
 
   trans->BeginWork();
 
   inserter->InsertRecords(
-      [ [ id := 1, normalint := 1 ]
+      [ [ id := 1, normalint := 1, nullint := 0 ]
       ]);
 
   inserter->InsertRecords(

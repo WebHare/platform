@@ -10,7 +10,7 @@ import { WASMModule } from "./wasm-modulesupport";
 import { HSVMVar } from "./wasm-hsvmvar";
 import { HSCallsProxy, HSVMLibraryProxy, HSVMObjectCache } from "./wasm-proxies";
 import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
-
+import { Mutex } from "@webhare/services";
 
 const dispatchlibrary = "mod::system/js/internal/wasm/dispatch.whlib";
 const dispatchname = "DISPATCH";
@@ -80,7 +80,7 @@ export async function recompileHarescriptLibrary(uri: string, options?: { force:
 
 export class HareScriptVM {
   wasmmodule: WASMModule;
-  hsvm: HSVM;
+  private _hsvm: HSVM | null;
   errorlist: HSVM_VariableId;
   dispatchfptr: HSVM_VariableId;
   havedispatchfptr = false;
@@ -90,18 +90,26 @@ export class HareScriptVM {
   consoleArguments: string[];
   columnNameIdMap: Record<string, HSVM_ColumnId> = {};
   objectCache;
+  mutexes: Array<Mutex | null> = [];
+  currentgroup: string | undefined; //set on first use
 
   constructor(module: WASMModule) {
     this.wasmmodule = module;
     this.objectCache = new HSVMObjectCache(this);
     module.itf = this;
-    this.hsvm = module._CreateHSVM();
+    this._hsvm = module._CreateHSVM();
     module.initVM(this.hsvm);
     this.dispatchfptr = module._HSVM_AllocateVariable(this.hsvm);
     this.errorlist = module._HSVM_AllocateVariable(this.hsvm);
     this.columnnamebuf = module._malloc(65);
     this.stringptrs = module._malloc(8); // 2 string pointers
     this.consoleArguments = [];
+  }
+
+  get hsvm() { //We want callers to not have to check this.hsvm on every use
+    if (this._hsvm)
+      return this._hsvm;
+    throw new Error(`This VM has already shut down`);
   }
 
   //Bridge-based HSVM compatibillty. Report the number of Proxies still alive
@@ -433,6 +441,18 @@ export class HareScriptVM {
     this.wasmmodule._HSVM_DeallocateVariable(this.hsvm, printptr.id); //FIXME HSVMVar should be able to clean up
 
     return printcallback;
+  }
+
+  /// Shutdown the VM. Use this if you know it's no longer needed, it prevents having to wait for garbage collection to free up resources
+  shutdown() {
+    this.wasmmodule._HSVM_AbortVM(this.hsvm);
+
+    for (const mutex of this.mutexes)
+      mutex?.release();
+
+    //TODO what do we need to shutdown in the wasmmodule itself? or can we prepare it for reuse ?
+    this.wasmmodule._ReleaseHSVM(this.hsvm);
+    this._hsvm = null;
   }
 }
 

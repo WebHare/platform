@@ -12,6 +12,8 @@ void EMSCRIPTEN_KEEPALIVE RegisterHareScriptMacro(const char *name, unsigned id,
 
 void EMSCRIPTEN_KEEPALIVE RegisterHareScriptFunction(const char *name, unsigned id, bool async);
 
+void EMSCRIPTEN_KEEPALIVE ReleaseHSVM(HSVM *byebye);
+
 } // extern "C"
 
 #endif

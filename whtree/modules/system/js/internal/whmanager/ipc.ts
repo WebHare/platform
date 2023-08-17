@@ -10,7 +10,7 @@ import * as envbackend from "@webhare/env/src/envbackend";
 
 const logmessages = envbackend.debugFlags.ipc;
 
-function getStructuredTrace(e: Error) {
+export function getStructuredTrace(e: Error) {
   if (!e?.stack)
     return [];
 
