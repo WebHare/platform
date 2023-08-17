@@ -1,4 +1,3 @@
-import * as crypto from "node:crypto";
 import { backendConfig } from "@webhare/services";
 import * as vm from 'node:vm';
 import * as services from '@webhare/services';
@@ -27,23 +26,6 @@ export async function unlockMutex(this: HareScriptVM, params: { mutexid: number 
   this.mutexes[params.mutexid - 1]?.release();
   this.mutexes[params.mutexid - 1] = null;
   return null;
-}
-
-/* invoked by crypto.whlib:
-    RETURN DecodeBase64(EM_SYSCALL("getHash", CELL[ data := EncodeBase64(BlobToString(data)), algorithm, key_salt ]).base64);
-*/
-export function getHash(params: { text?: string; data?: string; algorithm: string; key_salt: string }): { base64: string } {
-  const algomap: Record<string, string> = { "MD5": "md5", "SHA-1": "sha1", "SHA-256": "sha256", "SHA-512": "sha512" };
-  if (algomap[params.algorithm]) {
-    const hasher = crypto.createHash(algomap[params.algorithm]);
-    if (params.data)
-      hasher.update(params.data, "base64");
-    else
-      hasher.update(params.text!, "utf8");
-    return { base64: hasher.digest("base64") };
-  }
-
-  throw new Error("Unsupported algorithm: " + params.algorithm);
 }
 
 export function webHareConfig() {

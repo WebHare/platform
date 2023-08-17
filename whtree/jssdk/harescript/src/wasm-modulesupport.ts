@@ -325,3 +325,133 @@ export class WASMModule extends WASMModuleBase {
     Object.assign(this.ENV, process.env);
   }
 }
+
+export enum SocketError {
+  ///nothing went wrong
+  NoError = 0,
+  ///a not (yet) supported error
+  UnknownError = -1,
+  ///the socket/connection has been gracefully closed
+  Closed = -2,
+  ///there was no connection
+  Unconnected = -3,
+  ///address already in use
+  InUse = -4,
+  ///there is still data left to be sent
+  DataLeft = -5,
+  ///message too big for underlying protocol
+  TooBig = -6,
+  ///destination unreachable
+  Unreachable = -7,
+  ///connection refused
+  Refused = -8,
+  ///a time limited call timed out
+  Timeout = -9,
+  ///the socket was already connected
+  AlreadyConnected = -10,
+  ///invalid argument, or invalid action for this socket state/type
+  InvalidArgument = -11,
+  ///the socket/connection has already been disconnected
+  AlreadyDisconnected = -12,
+  ///The call would block
+  WouldBlock = -13,
+  ///Connecting is already in progress
+  AlreadyInProgress = -14,
+  ///Tis operation requires a nonblocking socket
+  SocketIsBlocking = -15,
+  ///Unable to resolve hostname
+  UnableToResolveHostname = -16,
+  ///The connection has been reset
+  ConnectionReset = -17,
+  ///Address family not supported (eg trying to connect an ipv4 bound socket to a ipv6 port)
+  AddressFamilyNotSupported = -18,
+  ///Address not available
+  AddressNotAvailable = -19,
+  ///Access denied (ie <1024 port)
+  AccessDenied = -20,
+  ///marked to limit the error list: MUST ALWAYS BE LAST - DO NOT ADD ANY ERRORS BELOW SOCKETERRORLIMIT
+  SocketErrorLimit = -21
+}
+
+/** Represents an OutputObject in HareScript */
+export class OutputObjectBase {
+  readonly vm: HareScriptVM;
+  readonly id: number;
+  closed = false;
+  private _readSignalled = true;
+  private _writeSignalled = true;
+
+  constructor(vm: HareScriptVM, type: string) {
+    this.vm = vm;
+    const stralloc = this.vm.wasmmodule.stringToNewUTF8(type);
+    try {
+      this.id = this.vm.wasmmodule._CreateWASMOutputObject(vm.hsvm, this.vm.wasmmodule.Emval.toHandle(this), stralloc);
+    } finally {
+      this.vm.wasmmodule._free(stralloc);
+    }
+  }
+
+  /** Called when read from the outputobject. Wrapper to create nice Buffers and process the signalled status */
+  private _read(numbytes: number, ptr: number): { error?: SocketError; bytes: number; signalled?: boolean } {
+    const res = this.read(Buffer.from(this.vm.wasmmodule.HEAPU8.buffer, ptr, numbytes));
+    if (typeof res.signalled === "boolean")
+      this._readSignalled = res.signalled;
+    return res;
+  }
+
+  /** Called when written to the outputobject. Wrapper to create nice Buffers and process the signalled status */
+  private _write(numbytes: number, ptr: number, allowPartial: boolean): { error?: SocketError; bytes: number; signalled?: boolean } {
+    const res = this.write(Buffer.from(this.vm.wasmmodule.HEAPU8.buffer, ptr, numbytes), allowPartial);
+    if (typeof res.signalled === "boolean")
+      this._writeSignalled = res.signalled;
+    return res;
+  }
+
+  /** Called when the outputobject has been deregistered in HareScript */
+  protected _closed() {
+    this.closed = true;
+  }
+
+  /** Updates the read signalled status */
+  protected setReadSignalled(newsignalled: boolean) {
+    if (this._readSignalled !== newsignalled) {
+      this.vm.wasmmodule._SetWASMOutputObjectReadSignalled(this.vm.hsvm, this.id, newsignalled ? 1 : 0);
+      this._readSignalled = newsignalled;
+    }
+  }
+
+  /** Updates the write signalled status */
+  protected setWriteSignalled(newsignalled: boolean) {
+    if (this._writeSignalled !== newsignalled) {
+      this._writeSignalled = newsignalled;
+      this.vm.wasmmodule._SetWASMOutputObjectWriteSignalled(this.vm.hsvm, this.id, newsignalled ? 1 : 0);
+    }
+  }
+
+  /** Called when read from the outputobject. Place the data in the buffer at position 0, report the
+   * number of bytes placed in the buffer.
+   */
+  read(buffer: Buffer): { error?: SocketError; bytes: number; signalled?: boolean } {
+    return { bytes: 0 };
+  }
+
+  /** Called when written to the outputobject. Process the data in the buffer from position 0, report the
+   * number of bytes processed.
+   */
+  write(buffer: Buffer, allowPartial: boolean): { error?: SocketError; bytes: number; signalled?: boolean } {
+    return { bytes: 0 };
+  }
+
+  /** Returns whether there is potentially more data present. At EOF, no more data will arrive, even
+   * after waiting indefinitely.
+   */
+  isAtEOF() {
+    return true;
+  }
+
+  /** Close the outputobject, unregister its id in HareScript. Will call the `_closed` callback  */
+  close() {
+    if (!this.closed)
+      this.vm.wasmmodule._CloseWASMOutputObject(this.vm.hsvm, this.id);
+  }
+}

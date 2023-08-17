@@ -6,10 +6,12 @@ import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { HSVMVar } from "./wasm-hsvmvar";
 import { WASMModule } from "./wasm-modulesupport";
 import { HSVM, Ptr, StringPtr } from "wh:internal/whtree/lib/harescript-interface";
+import { OutputObjectBase } from "@webhare/harescript/src/wasm-modulesupport";
 import { generateRandomId } from "@webhare/std";
 import * as syscalls from "./syscalls";
 import { localToUTC, utcToLocal } from "@webhare/hscompat/datetime";
 import { isWHDBBlob } from "@webhare/whdb/src/blobs";
+import * as crypto from "node:crypto";
 
 type SysCallsModule = { [key: string]: (data: unknown) => unknown };
 
@@ -37,6 +39,41 @@ class OutputCapturingModule extends WASMModule {
   }
 }
 
+/** Builds a function that returns (or creates when not present yet) a class instance associated with a HareScriptVM */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function contextGetterFactory<T extends new (...args: any) => any>(obj: T): (vm: HareScriptVM) => InstanceType<T> {
+  const map = new WeakMap<HareScriptVM, InstanceType<T>>;
+  return (vm: HareScriptVM): InstanceType<T> => {
+    const res = map.get(vm);
+    if (res)
+      return res;
+    const newobj = new obj;
+    map.set(vm, newobj);
+    return newobj;
+  };
+}
+
+class Hasher extends OutputObjectBase {
+  static context = contextGetterFactory(class { hashers = new Map<number, Hasher>; });
+
+  hasher: crypto.Hash;
+
+  constructor(vm: HareScriptVM, algorithm: string) {
+    super(vm, "Crypto hasher");
+    this.hasher = crypto.createHash(algorithm);
+  }
+
+  write(buffer: Buffer, allowPartial: boolean) {
+    this.hasher.update(buffer);
+    return { bytes: buffer.byteLength };
+  }
+
+  finalize(): Buffer {
+    const result = this.hasher.digest();
+    this.close();
+    return result;
+  }
+}
 
 export function registerBaseFunctions(wasmmodule: WASMModule) {
 
@@ -215,5 +252,28 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerExternalMacro("__SYSTEM_REMOTELOG:::SS", (vm, logfile: HSVMVar, text: HSVMVar) => {
     //FIXME should bridge log just give us a raw format? or should we convert all WASM logger usage to JSON?
     log(logfile.getString(), { __system_remotelog_wasm: text.getString() });
+  });
+
+  wasmmodule.registerExternalFunction("CREATEHASHER::I:S", async (vm, id_set, varAlgorithm) => {
+    let algorithm: "md5" | "sha1" | "sha224" | "sha256" | "sha384" | "sha512" | "crc32";
+    switch (varAlgorithm.getString()) {
+      case "MD5": algorithm = "md5"; break;
+      case "SHA-1": algorithm = "sha1"; break;
+      case "SHA-256": algorithm = "sha256"; break;
+      case "SHA-224": algorithm = "sha224"; break;
+      case "SHA-384": algorithm = "sha384"; break;
+      case "SHA-512": algorithm = "sha512"; break;
+      default: throw new Error(`Unsupported algorithm ${JSON.stringify(varAlgorithm.getString())}`);
+    }
+    const hasher = new Hasher(vm, algorithm);
+    Hasher.context(vm).hashers.set(hasher.id, hasher);
+    id_set.setInteger(hasher.id);
+  });
+
+  wasmmodule.registerExternalFunction("FINALIZEHASHER::S:I", async (vm, id_set, id) => {
+    const hasher = Hasher.context(vm).hashers.get(id.getInteger());
+    if (!hasher)
+      throw new Error(`No such crypto hasher with id ${id.getInteger()}`);
+    id_set.setString(hasher.finalize());
   });
 }

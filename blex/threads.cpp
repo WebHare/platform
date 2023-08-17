@@ -20,6 +20,9 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <unistd.h>
+#if defined(__EMSCRIPTEN__)
+#include "emscripten.h"
+#endif
 
 #if defined(DEBUGPOLL) && defined(WHBUILD_DEBUG)
  #define DEBUGPOLLPRINT(x) DEBUGPRINT(x)
@@ -79,6 +82,42 @@ void ReadWriteMutex::Unlock()
 {
 }
 
+// Modified implementation of pipewaiter
+
+Detail::EventWaiterBase::~EventWaiterBase()
+{
+}
+
+EM_JS(void, pipewaiterSetSignalled, (void *pipewaiter), {
+  const waiter = Module.itf.pipeWaiters.get(pipewaiter);
+  if (waiter)
+    waiter.resolve(1);
+});
+
+EM_JS(void, pipewaiterInitWaiter, (void *pipewaiter), {
+  let defer = {};
+  defer.promise = new Promise((resolve) => defer.resolve = resolve);
+  Module.itf.pipeWaiters.set(pipewaiter, defer);
+});
+
+EM_JS(void, pipewaiterClearWaiter, (void *pipewaiter), {
+  Module.itf.pipeWaiters.delete(pipewaiter);
+});
+
+EM_ASYNC_JS(int, pipewaiterWait, (void *pipewaiter, int wait_ms), {
+  const waiter = Module.itf.pipeWaiters.get(pipewaiter);
+  if (waiter) {
+    setTimeout(() => waiter.resolve(0), wait_ms);
+    return await waiter.promise;
+  }
+  return -1;
+});
+
+PipeWaiter::~PipeWaiter()
+{
+        ClearSelfFromEventWaiters();
+}
+
 void PipeWaiter::AddEvent(Event &event)
 {
         unsigned pos, size;
@@ -94,6 +133,172 @@ void PipeWaiter::AddEvent(Event &event)
 
         Event::LockedData::WriteRef lock(event.data);
         lock->waiters.push_back(this);
+}
+
+bool PipeWaiter::InitEventWait()
+{
+        //DEBUGPRINT("Pipewaiter: InitEventWait, events: " << waitevents.size());
+        if (waitevents.empty())
+            return false;
+
+        // Check if any event is signalled
+        bool retval = false;
+        unsigned pos, size;
+        for (pos=0, size = waitevents.size();pos<size; ++pos)
+        {
+                bool signalled = waitevents[pos].event->IsSignalled();
+                waitevents[pos].got_signalled = signalled;
+                retval = retval || signalled;
+                //DEBUGPRINT(" Event: " << ((void*)waitevents[pos].event) << " signalled: " << (signalled?"yes":"no"));
+        }
+
+        if (retval)
+            return true;
+
+        // No events signalled. Create the pipes
+        {
+                //DEBUGPRINT(" No events signalled, creating pipes");
+                LockedEventData::WriteRef lock(eventdata);
+
+                // If any event is signalled, return
+                if (!lock->signalled.empty())
+                    return true;
+
+                lock->waiting = true;
+                lock->pipe_signalled = false;
+                pipewaiterInitWaiter(this);
+        }
+        return false;
+}
+
+void PipeWaiter::FinishEventWait()
+{
+//        DEBUGPRINT("Pipewaiter: FinishEventWait, events: " << waitevents.size());
+        if (waitevents.empty())
+            return;
+
+        LockedEventData::WriteRef lock(eventdata);
+        lock->waiting = false;
+
+//        DEBUGPRINT(" Signalled event count: " << lock->signalled.size());
+
+        for (std::vector< Event * >::const_iterator it = lock->signalled.begin(); it != lock->signalled.end(); ++it)
+        {
+//                DEBUGPRINT(" Event " << ((void*)*it) << " is signalled");
+                unsigned pos, size;
+                for (pos=0, size = waitevents.size();pos<size; ++pos)
+                    if (waitevents[pos].event == *it)
+                        waitevents[pos].got_signalled = true;
+        }
+        pipewaiterClearWaiter(this);
+}
+
+void PipeWaiter::ClearSelfFromEventWaiters()
+{
+        for (std::vector< EventInfo >::iterator it = waitevents.begin(); it != waitevents.end(); ++it)
+        {
+                Event::LockedData::WriteRef lock(it->event->data);
+                lock->waiters.erase(std::find(lock->waiters.begin(), lock->waiters.end(), this));
+        }
+}
+
+void PipeWaiter::SetEventSignalled(Event &event, bool signalled)
+{
+        LockedEventData::WriteRef lock(eventdata);
+
+        std::vector< Event * >::iterator it = std::find(lock->signalled.begin(), lock->signalled.end(), &event);
+        if (signalled)
+        {
+                if (it == lock->signalled.end())
+                {
+                    bool was_empty = lock->signalled.empty();
+                    lock->signalled.push_back(&event);
+                    if (was_empty && lock->waiting && !lock->pipe_signalled)
+                    {
+                            pipewaiterSetSignalled(this);
+                            lock->pipe_signalled = true;
+                    }
+                }
+        }
+        else
+        {
+                // no way to unresolve the promise
+        }
+}
+
+void PipeWaiter::Reset()
+{
+        ClearSelfFromEventWaiters();
+
+        want_console_read = false;
+        waitreadpipes.clear();
+        waitwritepipes.clear();
+
+        waitevents.clear();
+
+        if (events_active)
+        {
+                LockedEventData::WriteRef lock(eventdata);
+
+                lock->signalled.clear();
+                lock->waiting = false;
+
+                events_active = false;
+        }
+}
+
+bool PipeWaiter::WaitInternal(CoreConditionMutex *, Blex::DateTime until)
+{
+        bool wait_satisfied=false;
+
+        // Removed: sockets
+
+        if (InitEventWait())
+            wait_satisfied = true;
+
+        // Removed: read pipes, write pipes, stdin
+
+        if(wait_satisfied)
+                DEBUGPOLLPRINT("PipeWait: wait condition already satisfied by event");
+
+        int retval = 0;
+        while (!retval)
+        {
+                int delay;
+                bool repeat = false;
+                if (until == Blex::DateTime::Max()) //infinite wait
+                {
+                        delay = 86400*1000;
+                        repeat = true;
+                }
+                else
+                {
+                        Blex::DateTime now = Blex::DateTime::Now();
+                        if (now >= until)
+                        {
+                                delay=0 /*no timeout*/;
+                        }
+                        else
+                        {
+                                Blex::DateTime towait = until-now;
+                                delay = towait.GetDays() ? 86400*1000 : towait.GetMsecs();
+                                if (towait.GetDays())
+                                    repeat = true;
+                        }
+                }
+
+                retval = pipewaiterWait(this, delay);
+                if (retval || !repeat)
+                    break;
+        }
+
+        FinishEventWait();
+
+        if (retval <= 0) //error or timeout
+            return wait_satisfied;
+
+        // Removed: sockets, read pipes, write pipes, stdin
+        return true;
 }
 
 

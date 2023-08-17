@@ -1,7 +1,8 @@
 #include <harescript/vm/allincludes.h>
 
 #include <emscripten.h>
-
+#include <emscripten/val.h>
+#include <emscripten/bind.h>
 
 #include <iostream>
 
@@ -12,6 +13,8 @@
 #include <harescript/vm/hsvm_context.h>
 #include <ap/libwebhare/wh_filesystem.h>
 #include <harescript/vm/wasm-tools.h>
+#include <harescript/vm/baselibs.h>
+#include <harescript/vm/outputobject.h>
 
 using namespace WebHare::WASM;
 
@@ -40,7 +43,6 @@ class Context
     public:
         WHFileSystem filesystem;
         Blex::ContextRegistrator creg;
-        Blex::ContextKeeper keeper;
         Blex::NotificationEventManager eventmgr;
         HareScript::GlobalBlobManager blobmgr;
         HareScript::Environment environment;
@@ -51,7 +53,6 @@ class Context
 Context::Context(std::string const &tmpdir, std::string const &whresdir, std::string const &installationroot, std::string const &compilecache)
 : filesystem(tmpdir, whresdir, installationroot, compilecache, CompilationPriority::ClassInteractive, false)
 , creg()
-, keeper(creg)
 , eventmgr()
 , blobmgr("/tmp/emscripten/tmpdir/")
 , environment(eventmgr, filesystem, blobmgr, true)
@@ -74,6 +75,100 @@ Context & EnsureContext()
                 storedcontext.reset(new Context(tempdir, whresdir, installationroot, compilecache));
         }
         return *storedcontext;
+}
+
+/** WebHare input/output object */
+class BLEXLIB_PUBLIC EMWrappedOutputObject: public HareScript::OutputObject
+{
+    private:
+        Blex::StatefulEvent event_read;
+        Blex::StatefulEvent event_write;
+
+        emscripten::val obj;
+    public:
+        EMWrappedOutputObject(HSVM *vm, const char *type, emscripten::val &&_obj);
+        ~EMWrappedOutputObject();
+        std::pair< Blex::SocketError::Errors, unsigned > Read(unsigned numbytes, void *data);
+        std::pair< Blex::SocketError::Errors, unsigned > Write(unsigned numbytes, const void *data, bool allow_partial);
+        bool IsAtEOF();
+        bool AddToWaiterRead(Blex::PipeWaiter &/*waiter*/);
+        SignalledStatus IsReadSignalled(Blex::PipeWaiter * /*waiter*/);
+        bool AddToWaiterWrite(Blex::PipeWaiter &/*waiter*/);
+        SignalledStatus IsWriteSignalled(Blex::PipeWaiter * /*waiter*/);
+        void SetReadSignalled(bool readsignalled);
+        void SetWriteSignalled(bool writesignalled);
+};
+
+EMWrappedOutputObject::EMWrappedOutputObject(HSVM *vm, const char *type, emscripten::val &&_obj)
+: HareScript::OutputObject(vm, type)
+, obj(_obj)
+{
+        event_read.SetSignalled(true);
+        event_write.SetSignalled(true);
+}
+
+EMWrappedOutputObject::~EMWrappedOutputObject()
+{
+        obj.call<void>("_closed");
+}
+
+std::pair< Blex::SocketError::Errors, unsigned > EMWrappedOutputObject::Read(unsigned numbytes, void *data)
+{
+        auto res = obj.call<emscripten::val>("_read", numbytes, (long)data);
+        if (!res["signalled"].isUndefined())
+            event_read.SetSignalled(res["signalled"].as<bool>());
+        auto error = res["error"].isUndefined() ? Blex::SocketError::NoError : static_cast<Blex::SocketError::Errors>(res["error"].as<int32_t>());
+        return std::make_pair(error, res["bytes"].as<unsigned>());
+}
+
+std::pair< Blex::SocketError::Errors, unsigned > EMWrappedOutputObject::Write(unsigned numbytes, const void *data, bool allow_partial)
+{
+        auto res = obj.call<emscripten::val>("_write", numbytes, (long)data, allow_partial);
+        if (!res["signalled"].isUndefined())
+            event_write.SetSignalled(res["signalled"].as<bool>());
+        auto error = res["error"].isUndefined() ? Blex::SocketError::NoError : static_cast<Blex::SocketError::Errors>(res["error"].as<int32_t>());
+        return std::make_pair(error, res["bytes"].as<unsigned>());
+}
+
+bool EMWrappedOutputObject::IsAtEOF()
+{
+        return obj.call<emscripten::val>("isAtEOF").as<bool>();
+}
+
+bool EMWrappedOutputObject::AddToWaiterRead(Blex::PipeWaiter &waiter)
+{
+        if (event_read.IsSignalled())
+            return true;
+        waiter.AddEvent(event_read);
+        return false;
+}
+
+HareScript::OutputObject::SignalledStatus EMWrappedOutputObject::IsReadSignalled(Blex::PipeWaiter *)
+{
+        return event_read.IsSignalled() ? Signalled : NotSignalled;
+}
+
+bool EMWrappedOutputObject::AddToWaiterWrite(Blex::PipeWaiter &waiter)
+{
+        if (event_write.IsSignalled())
+            return true;
+        waiter.AddEvent(event_write);
+        return false;
+}
+
+HareScript::OutputObject::SignalledStatus EMWrappedOutputObject::IsWriteSignalled(Blex::PipeWaiter *)
+{
+        return event_write.IsSignalled() ? Signalled : NotSignalled;
+}
+
+void EMWrappedOutputObject::SetReadSignalled(bool readsignalled)
+{
+        event_read.SetSignalled(readsignalled);
+}
+
+void EMWrappedOutputObject::SetWriteSignalled(bool writesignalled)
+{
+        event_write.SetSignalled(writesignalled);
 }
 
 extern "C"
@@ -106,6 +201,38 @@ void EMSCRIPTEN_KEEPALIVE RegisterHareScriptFunction(const char *name, unsigned 
         HareScript::BuiltinFunctionDefinition reg(name, async ? HareScript::BuiltinFunctionDefinition::JSAsyncFunction : HareScript::BuiltinFunctionDefinition::JSFunction, id);
         Context &context = EnsureContext();
         context.environment.GetBifReg().RegisterBuiltinFunction(reg);
+}
+
+int EMSCRIPTEN_KEEPALIVE CreateWASMOutputObject(HSVM *vm, emscripten::EM_VAL obj_handle, const char *type)
+{
+        HareScript::Baselibs::SystemContext context(HareScript::GetVirtualMachine(vm)->GetContextKeeper());
+        std::shared_ptr<HareScript::OutputObject> outputobject(new EMWrappedOutputObject(vm, type, emscripten::val::take_ownership(obj_handle)));
+        context->other_outputobjects[outputobject->GetId()] = outputobject;
+        return outputobject->GetId();
+}
+
+void EMSCRIPTEN_KEEPALIVE SetWASMOutputObjectReadSignalled(HSVM *vm, int id, bool readsignalled)
+{
+        HareScript::Baselibs::SystemContext context(HareScript::GetVirtualMachine(vm)->GetContextKeeper());
+        auto obj = dynamic_cast<EMWrappedOutputObject *>(HareScript::GetVirtualMachine(vm)->GetOutputObject(id, false));
+        if (obj)
+            obj->SetReadSignalled(readsignalled);
+}
+
+void EMSCRIPTEN_KEEPALIVE SetWASMOutputObjectWriteSignalled(HSVM *vm, int id, bool writesignalled)
+{
+        HareScript::Baselibs::SystemContext context(HareScript::GetVirtualMachine(vm)->GetContextKeeper());
+        auto obj = dynamic_cast<EMWrappedOutputObject *>(HareScript::GetVirtualMachine(vm)->GetOutputObject(id, false));
+        if (obj)
+            obj->SetWriteSignalled(writesignalled);
+}
+
+void EMSCRIPTEN_KEEPALIVE CloseWASMOutputObject(HSVM *vm, int id)
+{
+        HareScript::Baselibs::SystemContext context(HareScript::GetVirtualMachine(vm)->GetContextKeeper());
+        auto obj = dynamic_cast<EMWrappedOutputObject *>(HareScript::GetVirtualMachine(vm)->GetOutputObject(id, false));
+        if (obj)
+            context->other_outputobjects.erase(id);
 }
 
 } // extern "C"

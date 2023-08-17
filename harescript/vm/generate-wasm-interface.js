@@ -33,8 +33,17 @@ export type HSVM_ColumnId = number & { type: "columnnameid" };
 
 export interface WASMModuleInterface {
   // Emscripten exports
-  HEAP8: Int8Array;
-  _malloc(size: number): Ptr;
+  HEAP8:Int8Array;
+  HEAP16:Int16Array;
+  HEAP32:Int32Array;
+  HEAPU8:Uint8Array;
+  HEAPU16:Uint16Array;
+  HEAPU32:Uint32Array;
+  HEAPF32:Float32Array;
+  HEAPF64:Float64Array;
+  HEAP64:BigInt64Array;
+  HEAPU64:BigUint64Array;
+   _malloc(size: number): Ptr;
   _free(ptr: Ptr): void;
   ENV: Record<string, string>;
 
@@ -48,6 +57,7 @@ export interface WASMModuleInterface {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   addFunction(func: (...args: any[]) => any, signature: string): number;
   removeFunction(idx: number): void;
+  Emval: { toHandle(value: unknown): number; toValue(handle: number): unknown };
 
   // Exports from source
 `;
@@ -163,6 +173,7 @@ function parseType(parts) {
     case "std::string *":
     case "template < class A > int":
       throw new SkipTypeError(`skipping signature with type ${JSON.stringify(partstr)}`);
+    case "emscripten::EM_VAL": return "number";
     default:
       throw new Error(`Unhandled ${JSON.stringify(partstr)}`);
   }

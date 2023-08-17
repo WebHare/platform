@@ -14,8 +14,10 @@
 #include <blex/branding.h>
 #include <harescript/vm/wasm-tools.h>
 
+// Show debug stuff
 //#define SHOW_PACKET
 //#define SHOW_GENERATORS
+#define SHOW_WFM
 
 #if defined(SHOW_PACKET) && defined(WHBUILD_DEBUG)
  #define PACKET_PRINT(x) DEBUGPRINT(x)
@@ -29,6 +31,14 @@
 #else
  #define GEN_PRINT(x)
  #define GEN_ONLY(a)
+#endif
+
+#if defined(SHOW_WFM) && defined(WHBUILD_DEBUG)
+ #define WFM_PRINT(x) DEBUGPRINT("WFM: " << x)
+ #define WFM_ONLY(x) x
+#else
+ #define WFM_PRINT(x)
+ #define WFM_ONLY(x)
 #endif
 
 //ADDME: We should optimize the unicode functions quite a bit, I think, performance of eg. UCLeft with large strings (think fetcher.whscr) is TERRIBLE
@@ -3064,6 +3074,253 @@ void EM_SyscallWaitLastPromise(HareScript::VarId id_set, HareScript::VirtualMach
         HSVM_SetDefault(*vm, id_set, HSVM_VAR_Record);
 }
 
+namespace
+{
+
+struct WaitableOutputObject
+{
+        int32_t handle;
+        OutputObject *obj;
+        bool checklocal;
+};
+
+} // End of anonymous namespace
+
+/** WaitForMultipleUntil copied from hsvm_processmgr.cpp and specialized for emscripten usage */
+void EM_WaitForMultipleUntil(VarId id_set, VirtualMachine *vm)
+{
+        HSVM *hsvm = *vm;
+
+        Blex::DateTime until = vm->GetStackMachine().GetDateTime(HSVM_Arg(2));
+        unsigned num_reads = HSVM_ArrayLength(hsvm, HSVM_Arg(0));
+        unsigned num_writes = HSVM_ArrayLength(hsvm, HSVM_Arg(1));
+
+        HSVM_SetDefault(hsvm, id_set, HSVM_VAR_Record);
+        HSVM_VariableId var_read = HSVM_RecordCreate(hsvm, id_set, vm->cn_cache.col_read);
+        HSVM_VariableId var_timeout = HSVM_RecordCreate(hsvm, id_set, vm->cn_cache.col_timeout);
+        HSVM_VariableId var_write = HSVM_RecordCreate(hsvm, id_set, vm->cn_cache.col_write);
+        HSVM_SetDefault(hsvm, var_read, HSVM_VAR_IntegerArray);
+        HSVM_SetDefault(hsvm, var_write, HSVM_VAR_IntegerArray);
+
+        /* First, we do an immediate signalled check - if the objects are signalled NOW.
+           If any object can't determine that (it needs a select/poll or so), we go into a PipeWaiter loop
+        */
+        bool have_signal = false;
+
+        // List of <handles,OutputObject*> pairs which didn't return a definite immediate result
+        Blex::SemiStaticPodVector< WaitableOutputObject, 8 > waitable_reads;
+        Blex::SemiStaticPodVector< WaitableOutputObject, 8 > waitable_writes;
+
+        Blex::DateTime now = Blex::DateTime::Now();
+
+        // Do we have immediate timeout?
+        bool have_timeout = until <= now;
+        HSVM_BooleanSet(hsvm, var_timeout, have_timeout);
+
+        WFM_PRINT("Start, have timeout: " << have_timeout);
+
+        // If we're not going to wait locally for a longer time, we don't need to check outputobjects that say they're not signalled now.
+        bool local_check_all = !have_timeout;
+
+        bool have_locally_waitables = false;
+
+        // Resolve output object ptrs, check for cheap signalled status
+        for (unsigned i = 0; i < num_reads; ++i)
+        {
+                WaitableOutputObject obj;
+
+                // Get handle and outputobject (throws if not found)
+                obj.handle = HSVM_IntegerGet(hsvm, HSVM_ArrayGetRef(hsvm, HSVM_Arg(0), i));
+                if (!obj.handle)
+                    continue;
+                obj.obj = vm->GetOutputObject(obj.handle, false);
+
+                // Check cheap signalled status, see if we can get a definite result
+                // returns (is_signalled, valid_result)
+                HareScript::OutputObject::SignalledStatus sig_res = obj.obj->IsReadSignalled(0);
+                WFM_PRINT(" Got read handle " << obj.handle << " " << sig_res);
+                if (sig_res == HareScript::OutputObject::Signalled)
+                {
+                        // Is signalled, no need to wait for it
+                        have_signal = true;
+                        HSVM_IntegerSet(hsvm, HSVM_ArrayAppend(hsvm, var_read), obj.handle);
+                        continue;
+                }
+
+                // Only need to check in the local loop when signalled state is unknown or waiting for a longer time
+                obj.checklocal = (sig_res == HareScript::OutputObject::Unknown) || local_check_all;
+                waitable_reads.push_back(obj);
+
+                if (obj.checklocal)
+                    have_locally_waitables = true;
+        }
+
+        for (unsigned i = 0; i < num_writes; ++i)
+        {
+                WaitableOutputObject obj;
+
+                // Get handle and outputobject (throws if not found)
+                obj.handle = HSVM_IntegerGet(hsvm, HSVM_ArrayGetRef(hsvm, HSVM_Arg(1), i));
+                if (!obj.handle)
+                    continue;
+                obj.obj = vm->GetOutputObject(obj.handle, false);
+
+                // Check cheap signalled status, see if we can get a definite result
+                HareScript::OutputObject::SignalledStatus sig_res = obj.obj->IsWriteSignalled(0);
+                WFM_PRINT(" Got write handle " << obj.handle << " " << sig_res);
+                if (sig_res == HareScript::OutputObject::Signalled)
+                {
+                        have_signal = true;
+                        HSVM_IntegerSet(hsvm, HSVM_ArrayAppend(hsvm, var_write), obj.handle);
+                        continue;
+                }
+
+                // Only need to check in the local loop when signalled state is unknown or waiting for a longer time
+                obj.checklocal = (sig_res == HareScript::OutputObject::Unknown) || local_check_all;
+                waitable_writes.push_back(obj);
+
+                if (obj.checklocal)
+                    have_locally_waitables = true;
+        }
+
+        // Any handles we need to wait on locally?
+        // Should be false in emscruoteb
+        WFM_PRINT(" have_locally_waitables: " << have_locally_waitables);
+
+        if (!have_locally_waitables)
+        {
+                // If we already have a timeout, and no handles to check within a waiter, we're done. (S2 and S4)
+                if (have_timeout)
+                {
+                        WFM_PRINT(" No waitable handles, got timeout: returning");
+                        return;
+                }
+                // If we don't need to wait on handles locally, everything that can become signalled now is already marked as such
+                if (have_signal)
+                {
+                        WFM_PRINT(" No waitable handles, got signal: returning");
+                        return;
+                }
+        }
+
+        WFM_PRINT(" Adding locally waitable handles to waiter");
+
+        Blex::PipeWaiter waitlist;
+        bool have_any_waiter = false;
+
+        // Add to the waiter. Might also give back a signalled status, reset outputobject ptr so we know not to query from the pipewaiter
+        for (auto &itr: waitable_reads)
+        {
+                if (!itr.checklocal)
+                        continue;
+                if (itr.obj->AddToWaiterRead(waitlist))
+                {
+                        WFM_PRINT(" Handle read " << itr.handle << " now signalled");
+                        have_signal = true;
+                        itr.checklocal = false;
+                        HSVM_IntegerSet(hsvm, HSVM_ArrayAppend(hsvm, var_read), itr.handle);
+                }
+                else
+                        have_any_waiter = true;
+        }
+
+        for (auto &itr: waitable_writes)
+        {
+                if (!itr.checklocal)
+                        continue;
+                if (itr.obj->AddToWaiterWrite(waitlist))
+                {
+                        WFM_PRINT(" Handle write " << itr.handle << " now signalled");
+                        have_signal = true;
+                        itr.checklocal = false;
+                        HSVM_IntegerSet(hsvm, HSVM_ArrayAppend(hsvm, var_write), itr.handle);
+                }
+                else
+                        have_any_waiter = true;
+        }
+
+        bool run_waitloop = true;
+        if (!have_any_waiter)
+        {
+                WFM_PRINT(" No objects added to waiter");
+
+                // No waiters left - effectively have_waitable_handles turned false
+                // S5->S1, S6->S2, S7->S3, S8->S4
+                if (have_timeout) // S6, S8
+                {
+                        WFM_PRINT(" Returning");
+                        return;
+                }
+        }
+
+        while (run_waitloop)
+        {
+                if (have_signal)
+                {
+                        waitlist.Wait(now);
+                }
+                else
+                {
+                        while (true)
+                        {
+                                // Wait in increments of 100ms, so we catch aborts reasonably fast
+                                Blex::DateTime nextwait = std::min(now + Blex::DateTime::Msecs(100), until);
+                                bool have_signalled_waiter = waitlist.Wait(nextwait);
+                                if (have_signalled_waiter)
+                                        break;
+
+                                if (nextwait == until || HSVM_TestMustAbort(hsvm))
+                                {
+                                        HSVM_BooleanSet(hsvm, var_timeout, true);
+                                        return;
+                                }
+
+                                now = Blex::DateTime::Now();
+                        }
+                }
+
+                // Determine signalled status for all objects
+                for (auto &itr: waitable_reads)
+                {
+                        if (itr.checklocal && itr.obj->IsReadSignalled(&waitlist) == HareScript::OutputObject::Signalled)
+                        {
+                                WFM_PRINT(" Handle read " << itr.handle << " signalled from waiter");
+                                have_signal = true;
+                                HSVM_IntegerSet(hsvm, HSVM_ArrayAppend(hsvm, var_read), itr.handle);
+                        }
+                }
+                for (auto &itr: waitable_writes)
+                {
+                        if (itr.checklocal && itr.obj->IsWriteSignalled(&waitlist) == HareScript::OutputObject::Signalled)
+                        {
+                                WFM_PRINT(" Handle write " << itr.handle << " signalled from waiter");
+                                have_signal = true;
+                                HSVM_IntegerSet(hsvm, HSVM_ArrayAppend(hsvm, var_write), itr.handle);
+                        }
+                }
+
+                // Recheck the timeout
+                if (!have_timeout)
+                {
+                        now = Blex::DateTime::Now();
+                        have_timeout = until <= now;
+                        if (have_timeout)
+                        {
+                                WFM_PRINT(" Got timeout in local loop");
+                                HSVM_BooleanSet(hsvm, var_timeout, true);
+                        }
+                }
+
+                // At this moment, we have checked ALL outputobjects, so we can return now
+                if (have_timeout || have_signal)
+                {
+                        WFM_PRINT(" Exiting local wait loop due to timeout or signals");
+                        return;
+                }
+        }
+}
+
+
 } // End of namespace Baselibs
 
 int BaselibsEntryPoint(struct HSVM_RegData *regdata, void * /*context_ptr*/)
@@ -3212,7 +3469,9 @@ void RegisterDeprecatedBaseLibs(BuiltinFunctionsRegistrator &bifreg, Blex::Conte
 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__EM_SYSCALL::R:SV", EM_Syscall));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__EM_SYSCALL_WAITLASTPROMISE::V:", EM_SyscallWaitLastPromise));
+
 #ifdef __EMSCRIPTEN__
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_WAITFORMULTIPLEUNTIL::R:IAIAD",EM_WaitForMultipleUntil));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_TCPIP_GETSOCKETTIMEOUT::I:I",EM_HS_TCPIP_GetSocketTimeout));
 #endif // __EMSCRIPTEN__
 }
