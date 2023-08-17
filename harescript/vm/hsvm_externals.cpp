@@ -238,7 +238,7 @@ BuiltinFunctionDefinition const * BuiltinFunctionsRegistrator::GetBuiltinFunctio
         BuiltinFunctions::const_iterator it = ref->find(name);
         if (it == ref->end())
         {
-                //It seems a waste of time to have to C++ define new WASM entyproints
+                //It seems a waste of time to have to C++ define new WASM entrypoints
                 it = ref->insert(std::make_pair(name, BuiltinFunctionDefinition(name, BuiltinFunctionDefinition::NotFound, 0))).first;
         }
 
