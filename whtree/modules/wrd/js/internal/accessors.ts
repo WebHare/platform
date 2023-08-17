@@ -5,6 +5,7 @@ import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { compare, ComparableType } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
 import { Money } from "@webhare/std";
+import { RichFileDescriptor } from "@webhare/services";
 
 
 /** Response type for addToQuery
@@ -708,8 +709,9 @@ class WRDDBEnumArrayValue<Options extends { allowedvalues: string }, Required ex
 class WRDDBAddressValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBPasswordValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBImageValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
-class WRDDBFileValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
-class WRDDBRichDocumentValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
+//TODO {data: Buffer} is for 5.3 compatibility and we might have to just remove it
+class WRDDBFileValue extends WRDAttributeUnImplementedValueBase<RichFileDescriptor | { data: Buffer } | null, RichFileDescriptor | null, RichFileDescriptor | null> { }
+class WRDDBRichDocumentValue extends WRDAttributeUnImplementedValueBase<RichFileDescriptor | null, RichFileDescriptor | null, RichFileDescriptor | null> { }
 class WRDDBWHFSInstanceValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBWHFSIntextlinkValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBRecordValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }

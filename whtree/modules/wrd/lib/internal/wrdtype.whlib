@@ -2044,6 +2044,9 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
 
         IF(RecordExists(val))
         {
+          IF (jsmode AND TYPEID(val.data) = TYPEID(STRING))  //this is a Buffer beig transferred, which we supported in 5.3. Just blobify it
+            val := CELL[ ...val, data := StringToBlob(val.data) ];
+
           RECORD newinfo := MappedJoinBlobSetting(val, whfsmapper, jsmode);
           INSERT
               [ setting := 0
@@ -2198,13 +2201,15 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       CASE wrd_attributetype_file
       {
         //ADDME: Return a record like this or simply a blob? Use JoinBlobSetting?
-
         IF(TypeId(val) != TYPEID(RECORD))
           THROW NEW Exception(`Value must be of type RECORD, got ${GetTypeName(TYPEID(val))}`);
 
         //ADDME: Compensate missing fields
         IF (RecordExists(val))
         {
+          IF (jsmode AND TYPEID(val.data) = TYPEID(STRING))  //this is a Buffer being transferred, which we supported in 5.3. Just blobify it
+            val := CELL[ ...val, data := StringToBlob(val.data) ];
+
           RECORD newinfo := MappedJoinBlobSetting(val, whfsmapper, jsmode);
           INSERT
               [ setting :=    0
@@ -2250,6 +2255,9 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
               //ADDME safe/restore hash?
               DELETE CELL filename FROM embed;
               INSERT CELL filename := embed.contentid INTO embed;
+
+              IF (jsmode AND TYPEID(val.data) = TYPEID(STRING))  //this is a Buffer being transferred, which we supported in 5.3. Just blobify it
+                val := CELL[ ...val, data := StringToBlob(val.data) ];
 
               RECORD newinfo := MappedJoinBlobSetting(embed, whfsmapper, jsmode);
               INSERT

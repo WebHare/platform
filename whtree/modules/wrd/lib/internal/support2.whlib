@@ -11,6 +11,7 @@ LOADLIB "mod::system/lib/internal/cache/imgcache.whlib";
 
 LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
+LOADLIB "wh::dbase/postgresql.whlib";
 
 /** @topic wrd/api
     @public
@@ -79,6 +80,9 @@ PUBLIC RECORD FUNCTION GetWrappedObjectFromWRDSetting(RECORD entitysetting, BOOL
     ELSE
       fs_object := SELECT AS INTEGER fsobject FROM wrd.entity_settings_whfslink WHERE id = entitysetting.id; // Allow deleted refs
   }
+
+  IF(jsmode)
+    RETURN CELL[ "^$wrdtype" := "fileimage", id := __GetPostgreSQLBlobRegistrationId(GetPrimary()->id, entitysetting.blobdata), scandata := rawdata, fs_object, size := Length(entitysetting.blobdata) ];
 
   RECORD retval := MappedSplitBlobSetting(rawdata, entitysetting.blobdata, fs_object, whfs_mapper, jsmode);
   IF(isfile)

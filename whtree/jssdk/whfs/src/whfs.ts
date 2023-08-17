@@ -1,10 +1,9 @@
 import { db, sql, Selectable, Updateable } from "@webhare/whdb";
 import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
-import { RichBlob } from "@webhare/services/src/richblob";
+import { decodeScanData, RichFileDescriptor } from "@webhare/services/src/richfile";
 import { getType, FileTypeInfo, describeContentType, unknownfiletype, normalfoldertype } from "./contenttypes";
 import { defaultDateTime } from "@webhare/hscompat/datetime";
 import { CSPContentType } from "./siteprofiles";
-import { HareScriptBlob } from "@webhare/harescript";
 export { describeContentType } from "./contenttypes";
 export { Tag, TagManager, openTagManager } from "./tagmanager";
 
@@ -144,12 +143,6 @@ function excludeKeys<T extends string, K extends string>(t: T[], k: K[]): Array<
   return result;
 }
 
-class WHFSRichBlob extends RichBlob {
-  constructor(blob: HareScriptBlob | null) {
-    super(blob);
-  }
-}
-
 class WHFSObject {
   protected readonly dbrecord: FsObjectRow;
 
@@ -197,8 +190,8 @@ class WHFSFile extends WHFSObject {
   constructor(dbrecord: FsObjectRow) {
     super(dbrecord);
   }
-  get data(): RichBlob {
-    return new WHFSRichBlob(this.dbrecord.data);
+  get data(): RichFileDescriptor {
+    return new RichFileDescriptor(this.dbrecord.data, decodeScanData(this.dbrecord.scandata));
   }
   get type(): FileTypeInfo {
     return describeContentType(this.dbrecord.type || 0, { allowMissing: true, kind: "fileType" });
@@ -602,4 +595,4 @@ export async function openFolder(path: number | string, options?: { allowMissing
   return openWHFSObject(0, path, false, options?.allowMissing ?? false, "");
 }
 
-export type { Site, WHFSObject, WHFSFile, WHFSFolder, WHFSRichBlob };
+export type { Site, WHFSObject, WHFSFile, WHFSFolder };
