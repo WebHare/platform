@@ -1,6 +1,8 @@
 .wh-ui-listview {
   overflow: hidden;
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
 
 .wh-ui-listview-content {
@@ -10,6 +12,7 @@
 .wh-ui-listview>.listheader {
   white-space: nowrap;
   position: relative;
+  flex: 0 0 auto;
 }
 
 .wh-ui-listview>.listheader>span {
@@ -36,6 +39,7 @@
 .wh-ui-listview>.listbodyholder {
   overflow: hidden;
   position: relative;
+  flex: 1 0 0;
 }
 
 .wh-ui-listview>.listbody {
