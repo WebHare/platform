@@ -62,7 +62,7 @@ for mod in consilio platform publisher system tollium wrd; do
 done
 ensure_link "${WEBHARE_DIR}/jssdk/" "$WEBHARE_DATAROOT/node_modules/@webhare"
 
-# Regenerate whdata/storage/system/generated
+# Update/generate whdata/storage/system/generated/config/config.json - C++ will need it too for the module mapping
 if ! wh update-generated-files --update=config --nodb "${STARTUPOPTIONS[@]}"; then
   echo "Failed to update the configuration file, aborting"
   exit 1

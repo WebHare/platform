@@ -8,6 +8,10 @@
 #include <blex/logfile.h>
 #include <harescript/vm/hsvm_events.h>
 
+#include <rapidjson/document.h>
+#include <rapidjson/pointer.h>
+#include <rapidjson/error/en.h>
+
 #include <iostream>
 
 ///ADDME perhaps: also fallback to default language/skin if specific skins lacks a specific definition
@@ -200,83 +204,43 @@ std::string Connection::GetTmpRoot() const
 
 void Connection::ReloadPluginConfig() const
 {
+        //this file should be prepared by `wh console` (currently: wh update-generated-files)
+        std::string configpath = Blex::MergePath(basedatadir, "storage/system/generated/config/config.json");
+        std::unique_ptr<Blex::FileStream> infile(Blex::FileStream::OpenRead(configpath));
+        if(!infile.get())
+                throw std::runtime_error("Unable to open configuration");
+
+        Blex::FileOffset len = infile->GetFileLength();
+        std::vector<char> data(len + 1); //add room for \0 terminator
+        if(infile->Read(&data[0], len) != len)
+                throw std::runtime_error("Unable to read configuration");
+
+        data[len] = 0; //zero-terminate it for the JSON reader
+        rapidjson::Document indoc;
+        indoc.ParseInsitu(&data[0]);
+
+        if (indoc.HasParseError())
+        {
+                std::string error = "JSON parse error in file '" + configpath + "' at offset " + Blex::AnyToString(indoc.GetErrorOffset()) + ": " + rapidjson::GetParseError_En(indoc.GetParseError());
+                throw std::runtime_error(error);
+        }
+
+        auto modulekey = rapidjson::Pointer("/public/module").Get(indoc);
+        if(!modulekey || !modulekey->IsObject())
+                throw std::runtime_error("Unable to process configuration - missing public.module object");
+
         ModuleMap newmodulemap;
+        for (auto const& module : modulekey->GetObject())
+        {
+                auto modulename = module.name.GetString();
+                auto root = module.value.GetObject()["root"].GetString();
 
-        for(unsigned modidx = 0; modidx < moduledirs.size(); ++modidx)
-                ScanModuleFolder(&newmodulemap, moduledirs[modidx], true, false);
-
-        ScanModuleFolder(&newmodulemap, GetWebHareRoot() + "modules/", true, true);
+                newmodulemap.insert(std::make_pair(modulename, root));
+        }
 
         { // swap our new version in
                 LockedConfig::WriteRef lock(moduleconfig);
                 std::swap(lock->modulemap, newmodulemap);
-        }
-}
-
-void Connection::ScanModuleFolder(ModuleMap *map, std::string const &folder, bool rootfolder, bool always_overwrites) const
-{
-        MODULESCAN_PRINT("Searching module root " << folder);
-        for (Blex::Directory search(folder, "*");search;++search)
-        {
-                if (search.GetStatus().IsFile()
-                    || search.CurrentFile()[0]=='.'
-                    || Blex::StrCaseLike(search.CurrentFile(),"deleted"))
-                    continue;
-
-                Blex::DateTime creationdate = Blex::DateTime::FromDate(1970, 1, 1);
-
-                ModuleData mdata;
-                mdata.modpath = search.CurrentPath() + "/";
-
-                if (!Blex::PathStatus(mdata.modpath + "moduledefinition.xml").Exists())
-                {
-                        if (rootfolder)
-                            ScanModuleFolder(map, mdata.modpath, false, always_overwrites);
-                        else
-                            MODULESCAN_PRINT("Skipping folder " << mdata.modpath << ", it has no moduledefinition");
-
-                        continue;
-                }
-
-                std::string currentfile = search.CurrentFile();
-                if (Blex::StrCaseLike(currentfile, "*.*"))
-                {
-                        if (!Blex::StrCaseLike(currentfile, "*.20??????T??????*Z")) //also allow millseconds now..
-                            continue;
-
-                        std::string::const_iterator pos = std::find(currentfile.begin(), currentfile.end(), '.');
-                        creationdate = Blex::DateTime::FromText(&pos[1], &*currentfile.end());
-                        if (creationdate == Blex::DateTime::Invalid())
-                        {
-                                MODULESCAN_PRINT("Module datetime parse failure for " << currentfile);
-                                continue;
-                        }
-
-                        //Strip timestamp
-                        currentfile.resize(pos - currentfile.begin());
-                }
-
-                mdata.creationdate = creationdate;
-
-                ModuleMap::iterator curpos = map->find(currentfile);
-
-                if (curpos != map->end())
-                {
-                        if (always_overwrites || curpos->second.creationdate < mdata.creationdate)
-                        {
-                                MODULESCAN_PRINT("New module version found at " << mdata.modpath);
-                                curpos->second = mdata;
-                        }
-                        else
-                        {
-                                MODULESCAN_PRINT("Older module version found at " << mdata.modpath);
-                        }
-                        continue;
-                }
-
-                MODULESCAN_PRINT("Found module " << currentfile << " at " << mdata.modpath);
-                //currentfile is module name (ie directory name without timestamp)
-                map->insert(std::make_pair(currentfile, mdata));
         }
 }
 
@@ -295,7 +259,7 @@ std::string Connection::GetModuleFolder(std::string const &modulename) const
         ModuleMap::const_iterator modinfo = lock->modulemap.find(modulename);
         std::string retval;
         if(modinfo != lock->modulemap.end())
-            retval = modinfo->second.modpath;
+            retval = modinfo->second;
 
         return retval;
 }

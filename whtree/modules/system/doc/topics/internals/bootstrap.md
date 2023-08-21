@@ -28,6 +28,16 @@ is build by manually invoking esbuild to create a JavaScript version for later u
 `platform/scripts/bootstrap/prepare-whdata.sh` sets up the `$WEBHARE_DATAROOT` and some subfolders and symlinks that Node will
 need to resolve `@webhare/`, `@mod-xxx/` and `wh::` imports. After this step `wh run` should be able to run TypeScript files
 
+### config.json
+`platform/scripts/bootstrap/whdata.sh` also sets up the configuration file.
+
+`$WEBHARE_DATAROOT/storage/system/generated/config/config.json` contains the layout of the module directories and other
+central configuration that JavaScript and C++ processes expect to have available synchronously at startup. An initial version
+is generated without consulting the database and will be updated later as needed.
+
+Since WebHare 5.4 the C++ parts of WebHare (including the native HareScript engine still responsible for bringing up the
+database, webserver and backend) will not be able to function without this configuration file.
+
 ### Service bootstrap
 The steps taken to get WebHare running, and at what point various startup scripts
 are invoked
