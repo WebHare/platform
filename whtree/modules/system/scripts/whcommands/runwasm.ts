@@ -8,6 +8,7 @@ async function runWasmScript(script: string, params: string[]) {
   const vm = await allocateHSVM();
   vm.consoleArguments = params;
   await vm.run(script);
+  vm.shutdown();
 }
 
 if (process.argv.length < 2) {

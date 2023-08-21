@@ -186,7 +186,7 @@ HSVM* EMSCRIPTEN_KEEPALIVE CreateHSVM()
 
 void EMSCRIPTEN_KEEPALIVE ReleaseHSVM(HSVM *byebye) //assumes the VM was created by CreateHSVM, it won't be safe to delete random VMs..
 {
-        delete HareScript::GetVirtualMachine(byebye);
+        delete HareScript::GetVirtualMachine(byebye)->GetVMGroup();
 }
 
 void EMSCRIPTEN_KEEPALIVE RegisterHareScriptMacro(const char *name, unsigned id, bool async)
