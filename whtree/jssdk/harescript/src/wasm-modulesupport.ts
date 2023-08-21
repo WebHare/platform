@@ -255,7 +255,9 @@ export class WASMModule extends WASMModuleBase {
     for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
       params.push(new HSVMVar(this.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
     // ignoring vm, using itf: only one VM per module!
-    reg.macro!(this.itf, ...params);
+    const res: unknown = reg.macro!(this.itf, ...params);
+    if (res && typeof res === "object" && "then" in res)
+      throw new Error(`Return value of ${JSON.stringify(reg.name)} is a Promise, should have been registered with executeJSMacro`);
   }
 
   executeJSFunction(vm: HSVM, nameptr: StringPtr, id: number, id_set: HSVM_VariableId): void {
@@ -264,7 +266,9 @@ export class WASMModule extends WASMModuleBase {
     for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
       params.push(new HSVMVar(this.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
     // ignoring vm, using itf: only one VM per module!
-    reg.func!(this.itf, new HSVMVar(this.itf!, id_set), ...params);
+    const res: unknown = reg.func!(this.itf, new HSVMVar(this.itf!, id_set), ...params);
+    if (res && typeof res === "object" && "then" in res)
+      throw new Error(`Return value of ${JSON.stringify(reg.name)} is a Promise, should have been registered with executeJSFunction`);
   }
 
   async executeAsyncJSMacro(vm: HSVM, nameptr: StringPtr, id: number): Promise<void> {
