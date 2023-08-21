@@ -193,7 +193,6 @@ export default class ListView {
     this.updategroupfinish_cb = null;
 
     // nodes
-    this.listcontent = null;
     this.listheader = null;
     this.listbody = null;
     this.listbodyholder = null;
@@ -383,54 +382,50 @@ export default class ListView {
 
     this.node.addEventListener("contextmenu", this.onContextMenuOther.bind(this));
 
-    this.node.appendChild(
-      this.listcontent = dompack.create("div", {
-        childNodes:
-          [
-            this.listheader = dompack.create("div", { className: "listheader", style: { display: this.options.hideheader ? "none" : "" } }),
-            this.listbodyholder = dompack.create("div", {
-              className: "listbodyholder",
-              on: {
-                dragenter: evt => this.onDragOver(evt, "enter"),
-                dragover: evt => this.onDragOver(evt, "over"),
-                dragleave: evt => this.onDragLeave(evt),
-                dragend: evt => this.onDragEnd(evt),
-                drop: evt => this.onDrop(evt)
-              },
-              childNodes:
-                [
-                  this.listbody = dompack.create("div", {
-                    className: "listbody",
-                    on: {
-                      dragstart: evt => this.onDragStart(evt),
-                      contextmenu: evt => this.onContextMenuRow(evt)
-                    }
-                  }),
-                  this.listinsertline = dompack.create("div", {
-                    className: "insertpoint",
-                    style: { display: "none" },
-                    childNodes:
-                      [this.listinsertpoint = dompack.create("div")]
-                  }),
-                  this.listemptytextholder = dompack.create("div", {
-                    className: "emptytextholder",
-                    childNodes:
-                      [
-                        this.listemptytext = dompack.create("span", {
-                          className: "emptytext",
-                          textContent: this.options.emptytext || ''
-                        })
-                      ]
-                  })
-                ]
-            }),
-            this.listfooterholder = dompack.create("div", {
-              className: "listfooterholder",
-              childNodes:
-                [this.listfooter = dompack.create("div")]
-            })
-          ]
-      }));
+    this.listheader = dompack.create("div", { className: "listheader", style: { display: this.options.hideheader ? "none" : "" } });
+    this.listbodyholder = dompack.create("div", {
+      className: "listbodyholder",
+      on: {
+        dragenter: evt => this.onDragOver(evt, "enter"),
+        dragover: evt => this.onDragOver(evt, "over"),
+        dragleave: evt => this.onDragLeave(evt),
+        dragend: evt => this.onDragEnd(evt),
+        drop: evt => this.onDrop(evt)
+      },
+      childNodes:
+        [
+          this.listbody = dompack.create("div", {
+            className: "listbody",
+            on: {
+              dragstart: evt => this.onDragStart(evt),
+              contextmenu: evt => this.onContextMenuRow(evt)
+            }
+          }),
+          this.listinsertline = dompack.create("div", {
+            className: "insertpoint",
+            style: { display: "none" },
+            childNodes:
+              [this.listinsertpoint = dompack.create("div")]
+          }),
+          this.listemptytextholder = dompack.create("div", {
+            className: "emptytextholder",
+            childNodes:
+              [
+                this.listemptytext = dompack.create("span", {
+                  className: "emptytext",
+                  textContent: this.options.emptytext || ''
+                })
+              ]
+          })
+        ]
+    });
+    this.listfooterholder = dompack.create("div", {
+      className: "listfooterholder",
+      childNodes:
+        [this.listfooter = dompack.create("div")]
+    });
+
+    this.node.replaceChildren(this.listheader, this.listbodyholder, this.listfooterholder);
 
     this.listbodyholder.addEventListener("scroll", evt => this._onBodyScroll(evt));
     //manually handling the wheel reduces flicker on chrome (seems that scroll events are throtteld less)
@@ -2180,12 +2175,12 @@ export default class ListView {
     this.numvisiblerows = Math.ceil(this.bodyholderheight / this.rowheight) + 1;
 
     this.listheader.style.height = (headerheight - (parseInt(getComputedStyle(this.listheader).paddingTop) || 0) - (parseInt(getComputedStyle(this.listheader).paddingBottom) || 0)) + "px";
-    this.node.style.width = this.options.width + 'px';
+    // this.node.style.width = this.options.width + 'px';
     this.node.style.height = this.options.height + 'px';
 
-    this.listbodyholder.style.width = this.options.width + 'px'; //FIXME total column size
-    this.listbodyholder.style.height = this.bodyholderheight + 'px';
-    this.listbody.style.width = this.options.width + 'px'; //FIXME total column size
+    // this.listbodyholder.style.width = this.options.width + 'px'; //FIXME total column size
+    // this.listbodyholder.style.height = this.bodyholderheight + 'px';
+    // this.listbody.style.width = this.options.width + 'px'; //FIXME total column size
     this.listbody.style.height = this.numrows * this.rowheight + 'px';
 
     // Resize might have changed the first visible row

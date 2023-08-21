@@ -353,6 +353,7 @@ export default class ObjList extends ComponentBase {
 
   applySetWidth() {
     this.debugLog("dimensions", "min=" + this.width.min + ", calc=" + this.width.calc + ", set width=" + this.width.set);
+    this.node.style.width = this.width.set + "px";
     this.contentwidth = this.width.set - getScrollbarWidth() - this.overheadx;
     this.distributeSizes(this.contentwidth, this.columnwidths, true, this.cols.length - 1);
 

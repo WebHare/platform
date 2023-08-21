@@ -1,100 +1,85 @@
-.wh-ui-listview
-{
+.wh-ui-listview {
   overflow: hidden;
   position: relative;
+  display: flex;
+  flex-direction: column;
 }
-.wh-ui-listview-content
-{
+
+.wh-ui-listview-content {
   overflow: absolute;
 }
 
-.wh-ui-listview > div > .listheader
-{
+.wh-ui-listview>.listheader {
   white-space: nowrap;
   position: relative;
+  flex: 0 0 auto;
 }
-.wh-ui-listview > div > .listheader > span
-{
+
+.wh-ui-listview>.listheader>span {
   display: inline-block;
   overflow: hidden;
 }
-.wh-ui-listview > div > .listheader > span:after
-{
-  padding-left:3px;
+
+.wh-ui-listview>.listheader>span:after {
+  padding-left: 3px;
   vertical-align: middle;
   display: inline-block;
   margin-top: -1px;
 }
-.wh-ui-listview > div > .listheader > span.sortascending:after
-{
+
+.wh-ui-listview>.listheader>span.sortascending:after {
   content: "\25B2";
 }
-.wh-ui-listview > div > .listheader > span.sortdescending:after
-{
+
+.wh-ui-listview>.listheader>span.sortdescending:after {
   content: "\25BC";
 }
 
 
-.wh-ui-listview > div > .listbodyholder
-{
+.wh-ui-listview>.listbodyholder {
   overflow: hidden;
   position: relative;
+  flex: 1 0 0;
 }
-.wh-ui-listview > div > .listbody
-{
+
+.wh-ui-listview>.listbody {
   overflow: absolute;
 }
 
-  .wh-ui-listview > div > .listbodyholder
-, .wh-ui-listview > div > .listfooterholder
-{
-}
-
-.wh-ui-listview > div > .listbodyholder > div
-{
-}
-
-.wh-ui-listview > div > .listfooterholder > div
-{
+.wh-ui-listview>.listfooterholder>div {
   position: relative;
 }
 
-  .wh-ui-listview > div > .listbodyholder > div > .listrow
-, .wh-ui-listview > div > .listfooterholder > div > .listrow
-{
+.wh-ui-listview>.listbodyholder>div>.listrow,
+.wh-ui-listview>.listfooterholder>div>.listrow {
   position: absolute;
   width: 100%;
   white-space: nowrap;
 }
 
-.wh-ui-listview > div > .listbodyholder > div > .listrow:not(.unselectable)
-{
+.wh-ui-listview>.listbodyholder>div>.listrow:not(.unselectable) {
   cursor: pointer;
 }
 
-.wh-ui-listview .dragbodyholder > .listrow > span
-{
-  width:100%;
+.wh-ui-listview .dragbodyholder>.listrow>span {
+  width: 100%;
 }
 
-  .wh-ui-listview .dragbodyholder > .listrow > span
-, .wh-ui-listview > div > .listbodyholder > div > .listrow > span
-, .wh-ui-listview > div > .listfooterholder > div > .listrow > span
-{
-  position:absolute;
-  overflow:hidden;
-  white-space:nowrap;
+.wh-ui-listview .dragbodyholder>.listrow>span,
+.wh-ui-listview>.listbodyholder>div>.listrow>span,
+.wh-ui-listview>.listfooterholder>div>.listrow>span {
+  position: absolute;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
-  .wh-ui-listview .dragbodyholder > .listrow > span a
-, .wh-ui-listview > div > .listbodyholder > div > .listrow > span a
-, .wh-ui-listview > div > .listfooterholder > div > .listrow > span a
-{
+.wh-ui-listview .dragbodyholder>.listrow>span a,
+.wh-ui-listview>.listbodyholder>div>.listrow>span a,
+.wh-ui-listview>.listfooterholder>div>.listrow>span a {
   color: inherit;
 }
 
-.wh-ui-listview > div > .listbodyholder > div > .listrow > input
-{
+.wh-ui-listview>.listbodyholder>div>.listrow>input {
   border: none;
   padding: 0;
   margin: 0;
@@ -104,23 +89,20 @@
   appearance: none;
 }
 
-.wh-ui-listview > div > .listbodyholder > .emptytextholder
-{
+.wh-ui-listview>.listbodyholder>.emptytextholder {
   display: table;
   height: 100%;
   width: 100%;
   text-align: center;
 }
 
-.wh-ui-listview > div > .listbodyholder > .emptytextholder > span
-{
+.wh-ui-listview>.listbodyholder>.emptytextholder>span {
   display: table-cell;
   vertical-align: middle;
   white-space: pre-line;
 }
 
-.wh-ui-listview > div > div > div > .listrow.highlighted:before
-{
+.wh-ui-listview>div>div>.listrow.highlighted:before {
   display: block;
   position: absolute;
   left: 0;
@@ -129,31 +111,27 @@
   content: "";
 }
 
-.wh-ui-listview > div > .listheader > span
-{
+.wh-ui-listview>.listheader>span {
   position: relative;
 }
 
-.wh-ui-listview > div > .listheader > div.splitter
-{
+.wh-ui-listview>.listheader>div.splitter {
   position: absolute;
   display: inline-block;
   height: 100%;
 }
 
-.wh-ui-listview > div > .listheader > div.splitter:before
-{
-  content:"";
+.wh-ui-listview>.listheader>div.splitter:before {
+  content: "";
   position: absolute;
   top: 0px;
-  margin-left:-4px;
+  margin-left: -4px;
   bottom: 0px;
   cursor: ew-resize;
   width: 9px;
 }
 
-.wh-ui-listview > div > .listbodyholder > .insertpoint
-{
+.wh-ui-listview>.listbodyholder>.insertpoint {
   position: absolute;
   font-size: 0;
   margin-top: -1px;
@@ -163,8 +141,7 @@
   width: 100%;
 }
 
-.wh-ui-listview > div > .listbodyholder > .insertpoint > div
-{
+.wh-ui-listview>.listbodyholder>.insertpoint>div {
   position: absolute;
   margin-top: -3px;
   margin-left: 2px;
