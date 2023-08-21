@@ -191,7 +191,7 @@ export function readMarshalPacket(buffer: Buffer | ArrayBuffer): IPCMarshallable
 function marshalReadInternal(buf: LinearBufferReader, type: VariableType, columns: string[], blobs: Buffer[] | null): IPCMarshallableData {
   if (type & 0x80) {
     const eltcount = buf.readU32();
-    const retval: IPCMarshallableData[] = [];
+    const retval: IPCMarshallableData[] = getDefaultValue(type) as IPCMarshallableData[];
     if (type == VariableType.VariantArray) {
       for (let i = 0; i < eltcount; ++i) {
         const subtype = buf.readU8() as VariableType;
