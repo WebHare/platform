@@ -660,7 +660,7 @@ void GetIPCLinkToJob(VarId id_set, VirtualMachine *vm)
 
 void InitIPC(Blex::ContextRegistrator &, BuiltinFunctionsRegistrator &bifreg)
 {
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_CREATENAMEDIPCPORT::I:S", CreateNamedIPCPort));
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_CREATENAMEDIPCPORT::I:SB", CreateNamedIPCPort));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_CLOSENAMEDIPCPORT:::I", CloseNamedIPCPort));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_CONNECTTOIPCPORT::I:S", ConnectToIPCPort));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_ACCEPTIPCCONNECTION::I:I", AcceptIPCConnection));

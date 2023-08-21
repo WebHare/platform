@@ -1,5 +1,5 @@
 import { createHarescriptModule, recompileHarescriptLibrary, HareScriptVM } from "./wasm-hsvm";
-import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { IPCMarshallableRecord, VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { backendConfig, log } from "@webhare/services";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
@@ -7,13 +7,14 @@ import { HSVMVar } from "./wasm-hsvmvar";
 import { WASMModule } from "./wasm-modulesupport";
 import { HSVM, Ptr, StringPtr } from "wh:internal/whtree/lib/harescript-interface";
 import { OutputObjectBase } from "@webhare/harescript/src/wasm-modulesupport";
-import { generateRandomId } from "@webhare/std";
+import { generateRandomId, sleep } from "@webhare/std";
 import * as syscalls from "./syscalls";
 import { localToUTC, utcToLocal } from "@webhare/hscompat/datetime";
 import { isWHDBBlob } from "@webhare/whdb/src/blobs";
 import * as crypto from "node:crypto";
+import { IPCEndPoint, IPCMessagePacket, IPCPort } from "@mod-system/js/internal/whmanager/ipc";
 
-type SysCallsModule = { [key: string]: (data: unknown) => unknown };
+type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
 
 
 class OutputCapturingModule extends WASMModule {
@@ -72,6 +73,83 @@ class Hasher extends OutputObjectBase {
     const result = this.hasher.digest();
     this.close();
     return result;
+  }
+}
+
+class HSIPCPort extends OutputObjectBase {
+  port: IPCPort;
+  endpoints = new Array<IPCEndPoint>;
+  constructor(vm: HareScriptVM, port: IPCPort) {
+    super(vm, "IPC port");
+    this.port = port;
+    this.port.on("accept", (endpoint) => {
+      this.injectEndPoint(endpoint);
+    });
+    this.setReadSignalled(false);
+  }
+  injectEndPoint(endpoint: IPCEndPoint) {
+    this.endpoints.push(endpoint);
+    this.setReadSignalled(true);
+  }
+  getEndPoint() {
+    const endpoint = this.endpoints.shift();
+    this.setReadSignalled(Boolean(this.endpoints.length || this.closed));
+    return endpoint;
+  }
+  close() {
+    this.port.close();
+    super.close();
+  }
+}
+
+class HSIPCLink extends OutputObjectBase {
+  link: IPCEndPoint | undefined;
+  messages = new Array<IPCMessagePacket<IPCMarshallableRecord>>;
+  whmanagerMsgIdCounter = 0n;
+  constructor(vm: HareScriptVM, link: IPCEndPoint | undefined) {
+    super(vm, "IPC link");
+    if (link)
+      this.setLink(link);
+    this.setReadSignalled(false);
+  }
+  setLink(link: IPCEndPoint) {
+    if (this.link)
+      throw new Error(`Cannot set link twice`);
+    this.link = link;
+    this.link.on("message", (msg) => {
+      this.messages.push(msg);
+      this.setReadSignalled(true);
+    });
+    this.link.on("exception", (msg) => {
+      this.messages.push(msg);
+      this.setReadSignalled(true);
+    });
+    this.link.on("close", () => {
+      this.setReadSignalled(true);
+    });
+  }
+  injectMessage(msg: IPCMessagePacket<IPCMarshallableRecord>) {
+    this.messages.push(msg);
+    this.setReadSignalled(true);
+  }
+  getMessage(): IPCMessagePacket<IPCMarshallableRecord> | undefined {
+    const msg = this.messages.shift();
+    this.setReadSignalled(Boolean(this.messages.length || this.closed || this.link?.closed));
+    return msg;
+  }
+  close() {
+    if (this.link) {
+      this.link.close();
+    }
+    super.close();
+  }
+  async activate() {
+    try {
+      await this.link?.activate();
+    } catch (e) {
+      // Ignore activation errors, they will close the link anyway
+      this.setReadSignalled(true);
+    }
   }
 }
 
@@ -135,7 +213,9 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       return;
     }
 
-    const value = (syscalls as SysCallsModule)[func].call(vm, data);
+    let value = (syscalls as SysCallsModule)[func](vm, data);
+    if (value === undefined)
+      value = false;
     if (value && typeof value === "object" && "then" in value && typeof value.then === "function") {
       // This assumes that __EM_SYSCALL_WAITLASTPROMISE is called immediately after __EM_SYSCALL returns!
       last_syscall_promise = value as Promise<unknown>;
@@ -254,7 +334,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     log(logfile.getString(), { __system_remotelog_wasm: text.getString() });
   });
 
-  wasmmodule.registerExternalFunction("CREATEHASHER::I:S", async (vm, id_set, varAlgorithm) => {
+  wasmmodule.registerAsyncExternalFunction("CREATEHASHER::I:S", async (vm, id_set, varAlgorithm) => {
     let algorithm: "md5" | "sha1" | "sha224" | "sha256" | "sha384" | "sha512" | "crc32";
     switch (varAlgorithm.getString()) {
       case "MD5": algorithm = "md5"; break;
@@ -270,10 +350,142 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     id_set.setInteger(hasher.id);
   });
 
-  wasmmodule.registerExternalFunction("FINALIZEHASHER::S:I", async (vm, id_set, id) => {
+  wasmmodule.registerAsyncExternalFunction("FINALIZEHASHER::S:I", async (vm, id_set, id) => {
     const hasher = Hasher.context(vm).hashers.get(id.getInteger());
     if (!hasher)
       throw new Error(`No such crypto hasher with id ${id.getInteger()}`);
     id_set.setString(hasher.finalize());
+  });
+
+  const ipcContext = contextGetterFactory(class {
+    ports = new Map<number, HSIPCPort>;
+    links = new Map<number, HSIPCLink>;
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__HS_CREATENAMEDIPCPORT::I:SB", async (vm, id_set, var_portname, var_globalport) => {
+    const port = bridge.createPort(var_portname.getString(), { global: var_globalport.getBoolean() });
+    const hsport = new HSIPCPort(vm, port);
+    ipcContext(vm).ports.set(hsport.id, hsport);
+    await hsport.port.activate();
+    id_set.setInteger(hsport.id);
+  });
+
+  wasmmodule.registerExternalFunction("__HS_CONNECTTOIPCPORT::I:S", (vm, id_set, var_portname) => {
+    let link: IPCEndPoint | undefined;
+    if (var_portname.getString() !== "system:whmanager") {
+      link = bridge.connect(var_portname.getString(), { global: false });
+    }
+    const hslink = new HSIPCLink(vm, link);
+    // Not waiting for activation by the other side, HareScript didn't do that either.
+    hslink.activate();
+    ipcContext(vm).links.set(hslink.id, hslink);
+    id_set.setInteger(hslink.id);
+  });
+
+  wasmmodule.registerExternalFunction("__HS_SENDIPCMESSAGE::R:IV6", (vm, id_set, var_linkid, var_data, var_replyto) => {
+    const link = ipcContext(vm).links.get(var_linkid.getInteger());
+    if (!link)
+      throw new Error(`No such link with id ${var_linkid.getInteger()}`);
+    if (!link.link) {
+      // system:whmanager pseudo-link
+      const data = var_data.getJSValue() as { type: string; port: string };
+      switch (data.type) {
+        case "register": {// registers a port as global. just act like it has been registered
+          const replyto = ++link.whmanagerMsgIdCounter;
+          const msgid = ++link.whmanagerMsgIdCounter;
+          const res = {
+            msgid,
+            replyto,
+            message: { type: "createportresponse", port: data.port, success: true }
+          };
+          link.injectMessage(res);
+          id_set.setJSValue({ msgid: replyto, status: "ok" });
+          return;
+        }
+        case "connect": { // connect a link to a remote port
+          const replyto = ++link.whmanagerMsgIdCounter;
+          const msgid = ++link.whmanagerMsgIdCounter;
+
+          link.setLink(bridge.connect(data.port, { global: true }));
+          // TypeScript doesn't known that setLink updated the link property
+          // Not waiting for activation by the other side, HareScript didn't do that either.
+          link.activate();
+          const res = {
+            msgid,
+            replyto,
+            message: { status: "ok" }
+          };
+          link.injectMessage(res);
+          id_set.setJSValue({ msgid: replyto, status: "ok" });
+          return;
+        }
+      }
+      id_set.setJSValue({ msgid: 0n, status: "ok" });
+    } else if (link.link.closed)
+      id_set.setJSValue({ msgid: 0n, status: "closed" });
+    else {
+      const msgid = link.link.send(var_data.getJSValue() as IPCMarshallableRecord, var_replyto.getInteger64());
+      id_set.setJSValue({ msgid, status: "ok" });
+    }
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__HS_RECEIVEIPCMESSAGE::R:I", async (vm, id_set, var_linkid, var_data, var_replyto) => {
+    const link = ipcContext(vm).links.get(var_linkid.getInteger());
+    if (!link)
+      throw new Error(`No such link with id ${var_linkid.getInteger()}`);
+    let msg = link.getMessage();
+    if (!msg) {
+      // HareScript is more deterministic than JS bridge, wait a bit and try again
+      await sleep(1);
+      msg = link.getMessage();
+    }
+    if (msg) {
+      id_set.setJSValue({
+        status: "ok",
+        replyto: msg.replyto,
+        msgid: msg.msgid,
+        msg: msg.message
+      });
+    } else if (link.closed || link.link?.closed)
+      id_set.setJSValue({ status: "gone" });
+    else
+      id_set.setJSValue({ status: "none" });
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__HS_ACCEPTIPCCONNECTION::I:I", async (vm, id_set, var_portid) => {
+    const port = ipcContext(vm).ports.get(var_portid.getInteger());
+    if (!port)
+      throw new Error(`No such port with id ${var_portid.getInteger()}`);
+
+    let bridgelink = port.getEndPoint();
+    if (!bridgelink) {
+      await sleep(10);
+      bridgelink = port.getEndPoint();
+    }
+    if (!bridgelink)
+      id_set.setInteger(0);
+    else {
+      const hslink = new HSIPCLink(vm, bridgelink);
+      await hslink.activate();
+      ipcContext(vm).links.set(hslink.id, hslink);
+      id_set.setInteger(hslink.id);
+    }
+  });
+
+  wasmmodule.registerExternalFunction("__HS_CLOSEIPCENDPOINT:::I", (vm, id_set, var_linkid) => {
+    const link = ipcContext(vm).links.get(var_linkid.getInteger());
+    if (!link)
+      throw new Error(`No such link with id ${var_linkid.getInteger()}`);
+    link.close();
+    ipcContext(vm).links.delete(var_linkid.getInteger());
+  });
+
+  wasmmodule.registerExternalFunction("__HS_CLOSENAMEDIPCPORT:::I", (vm, id_set, var_portid) => {
+    const port = ipcContext(vm).ports.get(var_portid.getInteger());
+    if (!port)
+      throw new Error(`No such port with id ${var_portid.getInteger()}`);
+
+    port.close();
+    ipcContext(vm).ports.delete(var_portid.getInteger());
   });
 }

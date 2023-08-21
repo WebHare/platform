@@ -82,7 +82,10 @@ export function getDefaultValue<T extends VariableType>(type: T): HSType<T> {
     case VariableType.RecordArray:
     case VariableType.StringArray:
     case VariableType.ObjectArray:
-    case VariableType.BlobArray: {
+    case VariableType.BlobArray:
+    case VariableType.WeakObjectArray:
+    case VariableType.FunctionPtrArray:
+    case VariableType.TableArray: {
       return Object.defineProperty([] as HSType<T>, "__hstype", { value: type });
     }
     default:
@@ -191,7 +194,7 @@ export function readMarshalPacket(buffer: Buffer | ArrayBuffer): IPCMarshallable
 function marshalReadInternal(buf: LinearBufferReader, type: VariableType, columns: string[], blobs: Buffer[] | null): IPCMarshallableData {
   if (type & 0x80) {
     const eltcount = buf.readU32();
-    const retval: IPCMarshallableData[] = [];
+    const retval: IPCMarshallableData[] = getDefaultValue(type) as IPCMarshallableData[];
     if (type == VariableType.VariantArray) {
       for (let i = 0; i < eltcount; ++i) {
         const subtype = buf.readU8() as VariableType;

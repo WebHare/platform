@@ -33,7 +33,7 @@ MACRO BaseTest()
   TestReadSignalledStatus(FALSE, port2->handle);
 
   // No duplicate ports
-  TestThrowsLike("*cannot*create*'test1'*already*exists", PTR CreateIPCPort("test1"));
+  TestThrowsLike(`*cannot*create*"test1"*already*exists`, PTR CreateIPCPort("test1"));
 
   // Make 3 connections to the same port
   OBJECT l1a := ConnectToIPCPort("test1");

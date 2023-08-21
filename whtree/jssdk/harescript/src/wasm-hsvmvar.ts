@@ -103,9 +103,9 @@ export class HSVMVar {
   checkType(expectType: VariableType) {
     this.type ??= this.vm.checkType(this.id, expectType);
   }
-  getBoolean(): number {
+  getBoolean(): boolean {
     this.checkType(VariableType.Boolean);
-    return this.vm.wasmmodule._HSVM_BooleanGet(this.vm.hsvm, this.id);
+    return Boolean(this.vm.wasmmodule._HSVM_BooleanGet(this.vm.hsvm, this.id));
   }
   setBoolean(value: boolean) {
     this.vm.wasmmodule._HSVM_BooleanSet(this.vm.hsvm, this.id, value ? 1 : 0);

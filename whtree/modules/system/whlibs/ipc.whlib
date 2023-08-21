@@ -25,6 +25,7 @@ LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internal/jobs.whlib" EXPORT RegisterReceivedExceptionType, EventManager;
 LOADLIB "wh::internal/hsservices.whlib";
 LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 
 ///Resolve when events are over
 BOOLEAN eventscancelled;
@@ -239,10 +240,10 @@ PUBLIC STRING FUNCTION GenerateTemporaryIPCPortName()
 */
 PUBLIC OBJECT FUNCTION CreateIPCPort(STRING name)
 {
-  INTEGER handle := __HS_CREATENAMEDIPCPORT(name);
+  INTEGER handle := __HS_CREATENAMEDIPCPORT(name, FALSE);
 
   IF (handle = 0)
-    THROW NEW Exception("Cannot create port '" || name || "', a port with that name already exists");
+    THROW NEW Exception(`Cannot create port ${EncodeJSON(name)}, a port with that name already exists`);
 
   RETURN NEW IPCPort(handle, name);
 }
@@ -307,8 +308,13 @@ PUBLIC MACRO __INTERNAL_KeepPortGlobal(OBJECT port)
 */
 PUBLIC OBJECT FUNCTION CreateGlobalIPCPort(STRING name)
 {
-  OBJECT port := CreateIPCPort(name);
-  __INTERNAL_KeepPortGlobal(port);
+  INTEGER handle := __HS_CREATENAMEDIPCPORT(name, TRUE);
+  IF (handle = 0)
+    THROW NEW Exception(`Cannot create port ${EncodeJSON(name)}, a port with that name already exists`);
+
+  OBJECT port := NEW IPCPort(handle, name);
+  IF (NOT IsWASM())
+    __INTERNAL_KeepPortGlobal(port);
   RETURN port;
 }
 

@@ -1145,7 +1145,7 @@ void WHFileSystem::ResolveAbsoluteLibrary([[maybe_unused]]Blex::ContextKeeper &k
 }
 
 EM_ASYNC_JS(char*, supportRecompile, (const char *liburi), {
-  await Module.recompile(liburi);
+  return await Module.recompile(liburi);
 });
 
 WHFileSystem::RecompileResult WHFileSystem::Recompile([[maybe_unused]]Blex::ContextKeeper &keeper, [[maybe_unused]]std::string const &_liburi, [[maybe_unused]]bool isloadlib, [[maybe_unused]]HareScript::ErrorHandler *errorhandler)

@@ -255,7 +255,9 @@ export class WASMModule extends WASMModuleBase {
     for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
       params.push(new HSVMVar(this.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
     // ignoring vm, using itf: only one VM per module!
-    reg.macro!(this.itf, ...params);
+    const res: unknown = reg.macro!(this.itf, ...params);
+    if (res && typeof res === "object" && "then" in res)
+      throw new Error(`Return value of ${JSON.stringify(reg.name)} is a Promise, should have been registered with executeJSMacro`);
   }
 
   executeJSFunction(vm: HSVM, nameptr: StringPtr, id: number, id_set: HSVM_VariableId): void {
@@ -264,7 +266,9 @@ export class WASMModule extends WASMModuleBase {
     for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
       params.push(new HSVMVar(this.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
     // ignoring vm, using itf: only one VM per module!
-    reg.func!(this.itf, new HSVMVar(this.itf!, id_set), ...params);
+    const res: unknown = reg.func!(this.itf, new HSVMVar(this.itf!, id_set), ...params);
+    if (res && typeof res === "object" && "then" in res)
+      throw new Error(`Return value of ${JSON.stringify(reg.name)} is a Promise, should have been registered with executeJSFunction`);
   }
 
   async executeAsyncJSMacro(vm: HSVM, nameptr: StringPtr, id: number): Promise<void> {
@@ -375,6 +379,7 @@ export enum SocketError {
 
 /** Represents an OutputObject in HareScript */
 export class OutputObjectBase {
+  static vmTypeStrings = new WeakMap<HareScriptVM, Record<string, number>>;
   readonly vm: HareScriptVM;
   readonly id: number;
   closed = false;
@@ -382,13 +387,15 @@ export class OutputObjectBase {
   private _writeSignalled = true;
 
   constructor(vm: HareScriptVM, type: string) {
-    this.vm = vm;
-    const stralloc = this.vm.wasmmodule.stringToNewUTF8(type);
-    try {
-      this.id = this.vm.wasmmodule._CreateWASMOutputObject(vm.hsvm, this.vm.wasmmodule.Emval.toHandle(this), stralloc);
-    } finally {
-      this.vm.wasmmodule._free(stralloc);
+    let typeStrings = OutputObjectBase.vmTypeStrings.get(vm);
+    if (!typeStrings) {
+      typeStrings = {};
+      OutputObjectBase.vmTypeStrings.set(vm, typeStrings);
     }
+
+    this.vm = vm;
+    const typestr = typeStrings[type] ??= this.vm.wasmmodule.stringToNewUTF8(type);
+    this.id = this.vm.wasmmodule._CreateWASMOutputObject(vm.hsvm, this.vm.wasmmodule.Emval.toHandle(this), typestr);
   }
 
   /** Called when read from the outputobject. Wrapper to create nice Buffers and process the signalled status */
@@ -410,6 +417,7 @@ export class OutputObjectBase {
   /** Called when the outputobject has been deregistered in HareScript */
   protected _closed() {
     this.closed = true;
+    this.close();
   }
 
   /** Updates the read signalled status */
