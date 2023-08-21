@@ -208,27 +208,14 @@ export class HareScriptVM {
   async loadScript(lib: string): Promise<void> {
     const lib_str = this.wasmmodule.stringToNewUTF8(lib);
     try {
-      const maxTries = 5;
-      for (let tryCounter = 0; tryCounter < maxTries; ++tryCounter) {
-        this.wasmmodule._HSVM_SetDefault(this.hsvm, this.errorlist, VariableType.RecordArray as HSVM_VariableType);
-        const fptrresult = await this.wasmmodule._HSVM_LoadScript(this.hsvm, lib_str);
-        if (fptrresult)
-          return; //Success!
+      this.wasmmodule._HSVM_SetDefault(this.hsvm, this.errorlist, VariableType.RecordArray as HSVM_VariableType);
+      const fptrresult = await this.wasmmodule._HSVM_LoadScript(this.hsvm, lib_str);
+      if (fptrresult)
+        return; //Success!
 
-        this.wasmmodule._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
-        const parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
-        if (tryCounter < maxTries - 1 && parsederrors.length === 1 && [2, 139, 157].includes(parsederrors[0].code)) {
-          let recompileres = await recompileHarescriptLibrary(lib);
-          recompileres = recompileres.filter(msg => msg.iserror);
-          if (recompileres.length)
-            throw new Error(`Error during compilation of ${lib}: ` + recompileres[0].message);
-        } else {
-          throw new Error(`Error loading library ${lib}: ${parsederrors[0].message || "Unknown error"}`);
-        }
-      }
-
-      // Should be unreachable, in last tries the returned error is thrown
-      throw new Error(`Could not compile library after ${maxTries} tries`);
+      this.wasmmodule._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
+      const parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
+      throw new Error(`Error loading library ${lib}: ${parsederrors[0].message || "Unknown error"}`);
     } finally {
       this.wasmmodule._free(lib_str);
     }
@@ -255,39 +242,26 @@ export class HareScriptVM {
       throw new Error(`Error executing script`);
   }
 
-  async makeFunctionPtr(fptr: HSVM_VariableId, lib: string, name: string): Promise<boolean> {
+  async makeFunctionPtr(fptr: HSVM_VariableId, lib: string, name: string): Promise<void> {
     const lib_str = this.wasmmodule.stringToNewUTF8(lib);
     const name_str = this.wasmmodule.stringToNewUTF8(name);
     try {
-      const maxTries = 5;
-      for (let tryCounter = 0; tryCounter < maxTries; ++tryCounter) {
-        this.wasmmodule._HSVM_SetDefault(this.hsvm, this.errorlist, VariableType.RecordArray as HSVM_VariableType);
-        const fptrresult = await this.wasmmodule._HSVM_MakeFunctionPtrAutoDetect(this.hsvm, fptr, lib_str, name_str, this.errorlist);
-        switch (fptrresult) {
-          case 0:
-          case -2: {
-            let parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
-            if (parsederrors.length === 0) { //runtime errors are in the VM's mesage list
-              this.wasmmodule._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
-              parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
-            }
-            if (tryCounter < maxTries - 1 && parsederrors.length === 1 && [2, 139, 157].includes(parsederrors[0].code)) {
-              let recompileres = await recompileHarescriptLibrary(lib);
-              recompileres = recompileres.filter(msg => msg.iserror);
-              if (recompileres.length)
-                throw new Error(`Error during compilation of ${lib}: ` + recompileres[0].message);
-            } else {
-              console.error(parsederrors);
-              throw new Error(`Error loading library ${lib}: ${parsederrors[0].message || "Unknown error"}`);
-            }
-          } break;
-          case -1: throw new Error(`No such function ${lib}#${name}`);
-          case 1: return true;
-        }
+      this.wasmmodule._HSVM_SetDefault(this.hsvm, this.errorlist, VariableType.RecordArray as HSVM_VariableType);
+      const fptrresult = await this.wasmmodule._HSVM_MakeFunctionPtrAutoDetect(this.hsvm, fptr, lib_str, name_str, this.errorlist);
+      switch (fptrresult) {
+        case 0:
+        case -2: {
+          let parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
+          if (parsederrors.length === 0) { //runtime errors are in the VM's mesage list
+            this.wasmmodule._HSVM_GetMessageList(this.hsvm, this.errorlist, 1);
+            parsederrors = this.quickParseVariable(this.errorlist) as MessageList;
+          }
+          console.error(parsederrors);
+          throw new Error(`Error loading library ${lib}: ${parsederrors[0].message || "Unknown error"}`);
+        } break;
+        case -1: throw new Error(`No such function ${lib}#${name}`);
+        case 1: return;
       }
-
-      // Should be unreachable, in last tries the returned error is thrown
-      throw new Error(`Could not compile library after ${maxTries} tries`);
     } finally {
       this.wasmmodule._free(lib_str);
       this.wasmmodule._free(name_str);
