@@ -290,8 +290,7 @@ PUBLIC STATIC OBJECTTYPE EventCompletionPortHandler EXTEND IPCPortHandlerBase
 
 PUBLIC MACRO RunCompletionService()
 {
-  OBJECT completionport := CreateIPCPort("system:eventcompletion");
-  __INTERNAL_KeepPortGlobal(completionport);
+  OBJECT completionport := CreateGlobalIPCPort("system:eventcompletion");
 
   OBJECT completionhandler := NEW EventCompletionPortHandler(completionport);
   completionhandler->Run();
