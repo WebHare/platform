@@ -334,7 +334,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     log(logfile.getString(), { __system_remotelog_wasm: text.getString() });
   });
 
-  wasmmodule.registerExternalFunction("CREATEHASHER::I:S", async (vm, id_set, varAlgorithm) => {
+  wasmmodule.registerAsyncExternalFunction("CREATEHASHER::I:S", async (vm, id_set, varAlgorithm) => {
     let algorithm: "md5" | "sha1" | "sha224" | "sha256" | "sha384" | "sha512" | "crc32";
     switch (varAlgorithm.getString()) {
       case "MD5": algorithm = "md5"; break;
@@ -350,7 +350,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     id_set.setInteger(hasher.id);
   });
 
-  wasmmodule.registerExternalFunction("FINALIZEHASHER::S:I", async (vm, id_set, id) => {
+  wasmmodule.registerAsyncExternalFunction("FINALIZEHASHER::S:I", async (vm, id_set, id) => {
     const hasher = Hasher.context(vm).hashers.get(id.getInteger());
     if (!hasher)
       throw new Error(`No such crypto hasher with id ${id.getInteger()}`);
