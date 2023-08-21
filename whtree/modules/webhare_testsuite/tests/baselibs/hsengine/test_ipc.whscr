@@ -2,8 +2,10 @@
 
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
 LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 
 
 OBJECT localeventmgr;
@@ -388,6 +390,8 @@ MACRO AsyncFunctionsTest()
 
     promise := pair.first->AsyncDoRequest([ type := "msg2" ]);
     promise->Cancel();
+    IF (IsWasm()) // fix race in WASM mode
+      WaitForPromise(CreateSleepPromise(100));
     TestEQMembers([ status := "ok", msg := [ type := "msg2" ] ], pair.second->ReceiveMessage(DEFAULT DATETIME), "*");
     TestThrowsLike("*cancelled*", PTR WaitForPromise(promise));
 
@@ -457,9 +461,14 @@ ASYNC MACRO TestEventManager()
   TestEQ(TRUE, GetDateTimeDifference(start, GetCurrentDateTime()).msecs >= 50);
 
   start := GetCurrentDateTime();
-  StartPortHandler("delayedevent");
-  TestEQMembers([ status := "ok", msg := [ j := 1 ] ], e->ReceiveEvent(AddTimeToDate(5000, GetCurrentDateTime())), "*");
-  TestEQ(TRUE, GetDateTimeDifference(start, GetCurrentDateTime()).msecs < 1000); // should not wait 5 secs
+
+  IF (NOT IsWasm())
+  {
+    PRINT(`Skip TestEventManager deleyedevent test - jobs not supported in WASM\n`);
+    StartPortHandler("delayedevent");
+    TestEQMembers([ status := "ok", msg := [ j := 1 ] ], e->ReceiveEvent(AddTimeToDate(5000, GetCurrentDateTime())), "*");
+    TestEQ(TRUE, GetDateTimeDifference(start, GetCurrentDateTime()).msecs < 1000); // should not wait 5 secs
+  }
 
   e->Close();
 }
@@ -526,8 +535,13 @@ MACRO TestEventCollector()
 
 PRINT("\n === Running TestIPC\n");
 ThrowTest();
-PorthandlerTest();
-FlatPorthandlerTest();
+IF (NOT IsWasm())
+{
+  PRINT(`Skip PorthandlerTest - jobs not supported in WASM\n`);
+  PorthandlerTest();
+  PRINT(`Skip FlatPorthandlerTest - jobs not supported in WASM\n`);
+  FlatPorthandlerTest();
+}
 CallbackTest();
 ImmediateBroadcastCallbackTest();
 AsyncFunctionsTest();

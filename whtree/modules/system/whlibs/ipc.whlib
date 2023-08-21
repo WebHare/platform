@@ -25,6 +25,7 @@ LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internal/jobs.whlib" EXPORT RegisterReceivedExceptionType, EventManager;
 LOADLIB "wh::internal/hsservices.whlib";
 LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 
 ///Resolve when events are over
 BOOLEAN eventscancelled;
@@ -312,7 +313,8 @@ PUBLIC OBJECT FUNCTION CreateGlobalIPCPort(STRING name)
     THROW NEW Exception(`Cannot create port ${EncodeJSON(name)}, a port with that name already exists`);
 
   OBJECT port := NEW IPCPort(handle, name);
-  __INTERNAL_KeepPortGlobal(port);
+  IF (NOT IsWASM())
+    __INTERNAL_KeepPortGlobal(port);
   RETURN port;
 }
 

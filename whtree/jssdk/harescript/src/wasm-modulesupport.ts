@@ -414,6 +414,7 @@ export class OutputObjectBase {
   /** Called when the outputobject has been deregistered in HareScript */
   protected _closed() {
     this.closed = true;
+    this.close();
   }
 
   /** Updates the read signalled status */
