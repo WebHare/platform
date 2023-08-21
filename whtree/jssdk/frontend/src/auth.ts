@@ -14,5 +14,5 @@ export async function startSSOLogin(tag: string, options?: SSOLoginOptions): Pro
   const client = createRPCClient<MyService>("wrd:auth");
 
   //Launch SSO login for the current page.
-  navigateTo(await client.startLogin2(location.pathname, tag, { passive: options?.passive }));
+  navigateTo(await client.startLogin2(location.pathname + location.search + location.hash, tag, { passive: options?.passive }));
 }
