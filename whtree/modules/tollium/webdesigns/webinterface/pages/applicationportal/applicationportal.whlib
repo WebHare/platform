@@ -300,7 +300,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
     }
 
     STRING openas := GetWebVariable("openas");
-    STRING language := GetWebVariable("language");
+    STRING language := GetWebVariable("lang") ?? GetWebVariable("language");
 
     DATETIME sessionexpires;
     IF(this->config.useexternalwebharelogin)
