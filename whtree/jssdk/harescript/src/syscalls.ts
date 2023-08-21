@@ -13,18 +13,18 @@ export function init() {
   return { iswasm: true };
 }
 
-export async function lockMutex(this: HareScriptVM, params: { mutexname: string; wait_until: Date }) {
+export async function lockMutex(hsvm: HareScriptVM, params: { mutexname: string; wait_until: Date }) {
   const mutex = await services.lockMutex(params.mutexname, { timeout: params.wait_until });
   if (!mutex)
     return { status: "timeout" };
 
-  this.mutexes.push(mutex);
-  return { status: "ok", mutex: this.mutexes.length };
+  hsvm.mutexes.push(mutex);
+  return { status: "ok", mutex: hsvm.mutexes.length };
 }
 
-export async function unlockMutex(this: HareScriptVM, params: { mutexid: number }) {
-  this.mutexes[params.mutexid - 1]?.release();
-  this.mutexes[params.mutexid - 1] = null;
+export async function unlockMutex(hsvm: HareScriptVM, params: { mutexid: number }) {
+  hsvm.mutexes[params.mutexid - 1]?.release();
+  hsvm.mutexes[params.mutexid - 1] = null;
   return null;
 }
 
@@ -41,29 +41,29 @@ export function webHareConfig() {
 }
 
 /** Run JavaScript code directly (no TypeScript!) */
-export function executeInline({ func, param }: { func: string; param?: unknown }): Promise<unknown> {
+export function executeInline(hsvm: HareScriptVM, { func, param }: { func: string; param?: unknown }): Promise<unknown> {
   const compileOptions = {
     contextExtensions: [{ require }]
   };
 
   /* When the keyword "await" is present in the function code, it needs to be run in an async function. For false
-     positives, this might result in a somewhat slower execution, but no correctness problems.
+     positives, hsvm might result in a somewhat slower execution, but no correctness problems.
   */
   if (func.indexOf("await") !== -1) {
     if (param !== undefined) {
-      const tocall = vm.compileFunction(`async function wrapper(param) { ${func} }; return wrapper($param);`, ["$param"], compileOptions);
-      return tocall(param);
+      const tocall = vm.compileFunction(`async function wrapper(vm, param) { ${func} }; return wrapper($vm, $param);`, ["$vm", "$param"], compileOptions);
+      return tocall(hsvm, param);
     } else {
-      const tocall = vm.compileFunction(`async function wrapper() { ${func} }; return wrapper();`, [], compileOptions);
-      return tocall();
+      const tocall = vm.compileFunction(`async function wrapper(vm) { ${func} }; return wrapper($vm);`, ["$vm"], compileOptions);
+      return tocall(hsvm);
     }
   } else {
     if (param !== undefined) {
-      const tocall = vm.compileFunction(func, ["param"], compileOptions);
-      return tocall(param);
+      const tocall = vm.compileFunction(func, ["vm", "param"], compileOptions);
+      return tocall(hsvm, param);
     } else {
-      const tocall = vm.compileFunction(func, [], compileOptions);
-      return tocall();
+      const tocall = vm.compileFunction(func, ["vm"], compileOptions);
+      return tocall(hsvm);
     }
   }
 }

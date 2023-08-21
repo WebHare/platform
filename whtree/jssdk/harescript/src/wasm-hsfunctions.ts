@@ -14,7 +14,7 @@ import { isWHDBBlob } from "@webhare/whdb/src/blobs";
 import * as crypto from "node:crypto";
 import { IPCEndPoint, IPCMessagePacket, IPCPort } from "@mod-system/js/internal/whmanager/ipc";
 
-type SysCallsModule = { [key: string]: (data: unknown) => unknown };
+type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
 
 
 class OutputCapturingModule extends WASMModule {
@@ -213,7 +213,9 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       return;
     }
 
-    const value = (syscalls as SysCallsModule)[func].call(vm, data);
+    let value = (syscalls as SysCallsModule)[func](vm, data);
+    if (value === undefined)
+      value = false;
     if (value && typeof value === "object" && "then" in value && typeof value.then === "function") {
       // This assumes that __EM_SYSCALL_WAITLASTPROMISE is called immediately after __EM_SYSCALL returns!
       last_syscall_promise = value as Promise<unknown>;
