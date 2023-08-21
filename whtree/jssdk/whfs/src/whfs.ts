@@ -6,6 +6,7 @@ import { defaultDateTime } from "@webhare/hscompat/datetime";
 import { CSPContentType } from "./siteprofiles";
 export { describeContentType } from "./contenttypes";
 export { Tag, TagManager, openTagManager } from "./tagmanager";
+export { isValidName } from "./support";
 
 // Adds the custom generated columns
 interface SiteRow extends Selectable<WebHareDB, "system.sites"> {

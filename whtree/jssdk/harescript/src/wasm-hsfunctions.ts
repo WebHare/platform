@@ -13,6 +13,7 @@ import { localToUTC, utcToLocal } from "@webhare/hscompat/datetime";
 import { isWHDBBlob } from "@webhare/whdb/src/blobs";
 import * as crypto from "node:crypto";
 import { IPCEndPoint, IPCMessagePacket, IPCPort } from "@mod-system/js/internal/whmanager/ipc";
+import { isValidName } from "@webhare/whfs/src/support";
 
 type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
 
@@ -487,5 +488,11 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
 
     port.close();
     ipcContext(vm).ports.delete(var_portid.getInteger());
+  });
+
+  wasmmodule.registerExternalFunction("ISVALIDWHFSNAME::B:SB", (vm, id_set, var_name, var_slashes) => {
+    const name = var_name.getString();
+    const slashes = var_slashes.getBoolean();
+    id_set.setBoolean(isValidName(name, { allowSlashes: slashes }));
   });
 }
