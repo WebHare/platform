@@ -47,7 +47,7 @@ export function executeInline(hsvm: HareScriptVM, { func, param }: { func: strin
   };
 
   /* When the keyword "await" is present in the function code, it needs to be run in an async function. For false
-     positives, hsvm might result in a somewhat slower execution, but no correctness problems.
+     positives, this might result in a somewhat slower execution, but no correctness problems.
   */
   if (func.indexOf("await") !== -1) {
     if (param !== undefined) {

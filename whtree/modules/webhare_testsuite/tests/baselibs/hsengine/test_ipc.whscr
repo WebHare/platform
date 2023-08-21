@@ -464,11 +464,12 @@ ASYNC MACRO TestEventManager()
 
   IF (NOT IsWasm())
   {
-    PRINT(`Skip TestEventManager deleyedevent test - jobs not supported in WASM\n`);
     StartPortHandler("delayedevent");
     TestEQMembers([ status := "ok", msg := [ j := 1 ] ], e->ReceiveEvent(AddTimeToDate(5000, GetCurrentDateTime())), "*");
     TestEQ(TRUE, GetDateTimeDifference(start, GetCurrentDateTime()).msecs < 1000); // should not wait 5 secs
   }
+  ELSE
+    PRINT(`Skip TestEventManager deleyedevent test - jobs not supported in WASM\n`);
 
   e->Close();
 }
@@ -537,10 +538,13 @@ PRINT("\n === Running TestIPC\n");
 ThrowTest();
 IF (NOT IsWasm())
 {
-  PRINT(`Skip PorthandlerTest - jobs not supported in WASM\n`);
   PorthandlerTest();
-  PRINT(`Skip FlatPorthandlerTest - jobs not supported in WASM\n`);
   FlatPorthandlerTest();
+}
+ELSE
+{
+  PRINT(`Skip PorthandlerTest - jobs not supported in WASM\n`);
+  PRINT(`Skip FlatPorthandlerTest - jobs not supported in WASM\n`);
 }
 CallbackTest();
 ImmediateBroadcastCallbackTest();
