@@ -331,7 +331,7 @@ MACRO WaitForEventCompletions(DATETIME deadline)
     IF(NOT CellExists(rec,"msg"))
     {
       DumpValue(rec,'tree');
-      THROW NEW Exception("system:eventcompletion iss unexpectedly unavailable");
+      THROW NEW Exception("system:eventcompletion is unexpectedly unavailable");
     }
     IF (NOT rec.msg.result)
       BREAK;

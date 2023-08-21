@@ -21,7 +21,7 @@ function getURLOrigin(url) {
   return url.split('/').slice(0, 3).join('/');
 }
 
-class WRDAuthenticationProvider {
+export class WRDAuthenticationProvider {
   constructor(options) {
     if (!options)
       options = {};
@@ -277,11 +277,15 @@ class WRDAuthenticationProvider {
     document.documentElement.classList.toggle("wh-wrdauth-loggedin", this.isLoggedIn()); //legacy! will be removed
     document.documentElement.classList.toggle("wh-wrdauth--isloggedin", this.isLoggedIn());
   }
+
+  static getDefaultAuth() {
+    return defaultauth;
+  }
 }
 
-WRDAuthenticationProvider.getDefaultAuth = function () {
+export function getDefaultAuth() {
   return defaultauth;
-};
+}
 
 if (window.$wh && window.$wh.WRDAuthenticationProvider) {
   console.log("Both designfiles wrd.auth and @mod-wrd/js/auth are loaded. @mod-wrd/js/auth will not activate");
@@ -316,4 +320,4 @@ if (window.$wh && window.$wh.WRDAuthenticationProvider) {
   }
 }
 
-module.exports = WRDAuthenticationProvider;
+export default WRDAuthenticationProvider;
