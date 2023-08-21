@@ -379,6 +379,7 @@ export enum SocketError {
 
 /** Represents an OutputObject in HareScript */
 export class OutputObjectBase {
+  static vmTypeStrings = new WeakMap<HareScriptVM, Record<string, number>>;
   readonly vm: HareScriptVM;
   readonly id: number;
   closed = false;
@@ -386,13 +387,15 @@ export class OutputObjectBase {
   private _writeSignalled = true;
 
   constructor(vm: HareScriptVM, type: string) {
-    this.vm = vm;
-    const stralloc = this.vm.wasmmodule.stringToNewUTF8(type);
-    try {
-      this.id = this.vm.wasmmodule._CreateWASMOutputObject(vm.hsvm, this.vm.wasmmodule.Emval.toHandle(this), stralloc);
-    } finally {
-      this.vm.wasmmodule._free(stralloc);
+    let typeStrings = OutputObjectBase.vmTypeStrings.get(vm);
+    if (!typeStrings) {
+      typeStrings = {};
+      OutputObjectBase.vmTypeStrings.set(vm, typeStrings);
     }
+
+    this.vm = vm;
+    const typestr = typeStrings[type] ??= this.vm.wasmmodule.stringToNewUTF8(type);
+    this.id = this.vm.wasmmodule._CreateWASMOutputObject(vm.hsvm, this.vm.wasmmodule.Emval.toHandle(this), typestr);
   }
 
   /** Called when read from the outputobject. Wrapper to create nice Buffers and process the signalled status */
