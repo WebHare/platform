@@ -329,7 +329,7 @@ PUBLIC STATIC OBJECTTYPE SiteProps EXTEND TolliumScreenBase
 
     // Keep the 'official' URL with the site
     IF(GetDtapStage() = "production")
-      ^sitesettings->^productionurl := siteobj->webroot;
+      ^sitesettings->^productionurl->value := siteobj->webroot;
 
     ^siteroot->Store(work, [ fsobjectid := siteobj->id ]);
 
