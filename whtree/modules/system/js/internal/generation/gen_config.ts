@@ -62,7 +62,7 @@ function isValidDTAPStage(dtapstage: string): dtapstage is DTAPStage {
 
 type NoDBConfig = Pick<ConfigFile, "modulescandirs" | "baseport"> & { public: Pick<BackendConfiguration, "dataroot" | "installationroot" | "module" | "buildinfo"> & Partial<Pick<BackendConfiguration, "dtapstage">> };
 
-function generateNoDBConfig(): NoDBConfig {
+export function generateNoDBConfig(): NoDBConfig {
   let baseport = Number(process.env.WEBHARE_BASEPORT || "0");
   const dataroot = appendSlashWhenMissing(process.env.WEBHARE_DATAROOT ?? "");
   const installationroot = appendSlashWhenMissing(process.env.WEBHARE_DIR ?? "");

@@ -65,8 +65,8 @@ loadshellconfig()
 
   getwhparameters
 
-  SHELLCONFIG="$(runscript mod::system/scripts/whcommands/shellconfig.whscr)"
-  [ "$?" == "0" ] || die "shellconfig.whscr failed"
+  SHELLCONFIG="$(wh_runjs "$WEBHARE_DIR/modules/platform/js/bootstrap/getshellconfig.ts")"
+  [ "$?" == "0" ] || die "shellconfig failed"
 
   eval "$SHELLCONFIG"
   LOADEDSHELLCONFIG=1
