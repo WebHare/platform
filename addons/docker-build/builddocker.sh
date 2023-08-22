@@ -176,12 +176,11 @@ if [ "${PIPESTATUS[0]}" != "0" ]; then
 fi
 
 [ -d tocompile ] && rm -rf tocompile
+#TODO if we could move more into the 'builder' dir we could simplify this list
 mkdir -p tocompile/whtree/lib tocompile/whtree/bin tocompile/whtree/modules/system/
-cp -a $SOURCEDIR/{ap,base_makefile,blex,drawlib,harescript,parsers,vendor} tocompile/
-# wh tool
-mv whtree/lib/wh-functions.sh tocompile/whtree/lib
-# we need 'wh' to be able to 'wh make' in the dockerfile
-mv whtree/bin/wh tocompile/whtree/bin
+cp -a $SOURCEDIR/{ap,base_makefile,blex,builder,drawlib,harescript,parsers,vendor} tocompile/
+# Fonts are also required for drawlib tests
+mv whtree/fonts tocompile/whtree/
 
 # Testsuite
 rm -rf webhare_testsuite # remove any already present testsuite

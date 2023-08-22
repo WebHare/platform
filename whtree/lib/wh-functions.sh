@@ -16,28 +16,6 @@ testEq()
   fi
 }
 
-estimate_buildj()
-{
-  if [ -n "$WHBUILD_NUMPROC" ]; then
-    return
-  fi
-
-  if [ "$WHBUILD_PLATFORM" == "darwin" ]; then
-    WHBUILD_NUMPROC=$(( `sysctl hw.ncpu | cut -d":" -f2` + 1 ))
-  elif [ "$WHBUILD_PLATFORM" == "linux" ]; then
-    WHBUILD_NUMPROC=`LANG=en_US.utf8 lscpu 2>/dev/null | grep "^CPU(s):" | cut -d: -f2` #2>/dev/null because centos 5 util-linux does not include lscpu
-    MAXPROC=$(( `cat /proc/meminfo | grep ^MemTotal | cut -b10-24` / 1024000 ))
-    if [ -z "$WHBUILD_NUMPROC" ]; then
-      WHBUILD_NUMPROC=4
-    elif [ $WHBUILD_NUMPROC -gt $MAXPROC ]; then
-      WHBUILD_NUMPROC=$MAXPROC
-    fi
-  else
-    echo "Unable to estimate proper build flags"
-    exit 1
-  fi
-}
-
 getbaseversioninfo()
 {
   local WHNUMERICVERSION
@@ -529,35 +507,8 @@ verify_webhare_version()
   return 0
 }
 
-setup_base_buildsystem()
-{
- if [ -n "$WEBHARE_IN_DOCKER" ] && [ -z "$WHBUILD_ALLOW" ]; then
-    # Prevent you from accidentally breaking a running WebHare installation - did you think you were running this locally?
-    die "If WEBHARE_IN_DOCKER is set you must set WHBUILD_ALLOW to be able to 'wh make'"
-  fi
-
-  if [ -z "$WEBHARE_BUILDDIR" ]; then
-    die "Haven't determined the WebHare builddir - your checkout looks too different from what I'm used to"
-  fi
-  mkdir -p "$WEBHARE_BUILDDIR"
-
-  export WHBUILD_CCACHE_DIR="$WHBUILD_BUILDROOT/ccache" #for ccache only
-  export WHBUILD_BUILDCACHE_DIR="$WHBUILD_BUILDROOT/buildcache" #for other build artifcates
-
-  mkdir -p "$WHBUILD_CCACHE_DIR" "$WHBUILD_BUILDCACHE_DIR"
-
-  # Colors are nice
-  export GCC_COLORS=1
-
-  export SRCDIR=$WEBHARE_CHECKEDOUT_TO
-  export WHBUILD_PLATFORM
-}
-
-
 setup_buildsystem()
 {
-  setup_base_buildsystem
-
   if [ "$WHBUILD_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebrew and packages are available
     if ! which brew >/dev/null 2>&1 ; then
       echo "On macOS we rely on Homebrew (http://brew.sh) and some additional packages being installed. Please install it"
@@ -631,6 +582,10 @@ setup_buildsystem()
   fi
 
   if [ -z "$WEBHARE_IN_DOCKER" ]; then # Not a docker build, configure for local building
+
+    source $WEBHARE_CHECKEDOUT_TO/builder/support/make-functions.sh
+    setup_builddir
+
     # Additional dependencies
     if ! /bin/bash $WEBHARE_CHECKEDOUT_TO/addons/docker-build/setup-pdfbox.sh ; then
       echo "setup-pdfbox failed"
@@ -692,4 +647,4 @@ HERE
   fi
 }
 
-export -f estimate_buildj die setup_buildsystem setup_base_buildsystem
+export -f die setup_buildsystem

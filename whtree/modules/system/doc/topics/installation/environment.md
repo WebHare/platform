@@ -152,5 +152,5 @@ The `WEBHARE_CI_MODULE` variable contains the name of the module being tested by
 These variables are only used during the WebHare build proces or by 'from source' installations. They have no effect
 on a running WebHare or on Docker versions
 
-### WHUILD_NUMPROC
+### WHBUILD_NUMPROC
 Number of processors to use (the `make -j` parameter). Estimated based on CPU cores and/or memory if not set.

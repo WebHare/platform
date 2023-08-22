@@ -1,3 +1,29 @@
+#!/bin/bash
+# TODO use nproc or `sysctl -n hw.logicalcpu` instead of relying on the old buildj calculation
+
+estimate_buildj() #local copy so the original can move into the buildtree
+{
+  if [ -n "$WHBUILD_NUMPROC" ]; then
+    return
+  fi
+
+  if [ "$WHBUILD_PLATFORM" == "darwin" ]; then
+    WHBUILD_NUMPROC=$(( `sysctl hw.ncpu | cut -d":" -f2` + 1 ))
+  elif [ "$WHBUILD_PLATFORM" == "linux" ]; then
+    WHBUILD_NUMPROC=`LANG=en_US.utf8 lscpu 2>/dev/null | grep "^CPU(s):" | cut -d: -f2` #2>/dev/null because centos 5 util-linux does not include lscpu
+    MAXPROC=$(( `cat /proc/meminfo | grep ^MemTotal | cut -b10-24` / 1024000 ))
+    if [ -z "$WHBUILD_NUMPROC" ]; then
+      WHBUILD_NUMPROC=4
+    elif [ $WHBUILD_NUMPROC -gt $MAXPROC ]; then
+      WHBUILD_NUMPROC=$MAXPROC
+    fi
+  else
+    echo "Unable to estimate proper build flags"
+    exit 1
+  fi
+}
+
+
 estimate_buildj
 NOMODE=""
 
