@@ -30,6 +30,33 @@ getbaseversioninfo()
   WEBHARE_VERSION=${WHNUMERICVERSION:0:1}.$((${WHNUMERICVERSION:1:2})).$((${WHNUMERICVERSION:3:2}))
 }
 
+# run a JS/TS script, assumes the resolveplugin is ready for use
+wh_runjs()
+{
+  local ARGS
+
+  ARGS=("$@")
+
+  # is the 'apr' flag set ?
+  if [[ $WEBHARE_DEBUG =~ ((^|[,])apr([,]|$))+ ]] ; then
+    # prefix with profile starter. note that this for now just prints some simple stats to stdout (and is not compatible with nodejs --prof/--prof-process - but much faster)
+    ARGS=("$WEBHARE_DIR/modules/system/js/internal/debug/autoprofile.ts" "${ARGS[@]}")
+  fi
+
+  # avoid side effects if other scripts invoke node (eg 'wh make' and its postinstall)
+  SAVE_NODE_PATH="$NDOE_PATH"
+  SAVE_NODE_OPTIONS="$NDOE_OPTIONS"
+
+  export NODE_PATH="$WEBHARE_DATAROOT/node_modules"
+  export NODE_OPTIONS="--enable-source-maps --require \"$WEBHARE_DIR/jssdk/ts-esbuild-runner/dist/resolveplugin.js\" $NODE_OPTIONS"
+
+  # --experimental-wasm-stack-switching is not allowed in NODE_OPTIONS
+  $RUNJS_PREFIX node --experimental-wasm-stack-switching $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
+
+  NODE_PATH="$SAVE_NODE_PATH"
+  NODE_OPTIONS="$SAVE_NODE_OPTIONS"
+}
+
 loadshellconfig()
 {
   if [ -n "$LOADEDSHELLCONFIG" ]; then
@@ -645,4 +672,4 @@ HERE
   fi
 }
 
-export -f die setup_buildsystem
+export -f die setup_buildsystem wh_runjs
