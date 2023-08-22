@@ -609,6 +609,8 @@ export async function cbUpdateRecord(vm: HareScriptVM, queryparam: HSVMVar, rowd
   const query = queryparam.getJSValue() as Query;
   const rowdata = rowdataparam.getJSValue() as { ctid: Tid };
   const values = await decodeNewFields(vm, query, newfields);
+  if (!Object.keys(values).length) //nothing to update!
+    return;
 
   const whdb = db();
   await whdb

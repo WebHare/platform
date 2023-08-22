@@ -5,6 +5,21 @@ import * as crypto from "node:crypto";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 
 async function testWHFS() {
+  test.assert(!whfs.isValidName("^file"));
+  test.assert(!whfs.isValidName("!file"));
+  test.assert(!whfs.isValidName(" ^file"));
+  test.assert(!whfs.isValidName(" !file"));
+  test.assert(!whfs.isValidName("fi|le"));
+  test.assert(whfs.isValidName("_^file"));
+  test.assert(whfs.isValidName("_!file"));
+  test.assert(!whfs.isValidName("a/b"));
+  test.assert(whfs.isValidName("a/b", { allowSlashes: true }));
+  test.assert(!whfs.isValidName("a\\b"));
+  test.assert(!whfs.isValidName("a\\b", { allowSlashes: true }));
+  test.assert(!whfs.isValidName("\r"));
+  test.assert(!whfs.isValidName("\u0000"));
+  test.assert(!whfs.isValidName("\u0001"));
+
   await test.throws(/No such site 'webhare_testsuite.nosuchsite'/, whfs.openSite("webhare_testsuite.nosuchsite"));
   test.eq(null, await whfs.openSite("webhare_testsuite.nosuchsite", { allowMissing: true }));
 
