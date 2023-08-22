@@ -27,7 +27,6 @@ st                                      Git status
 make                                    Build from source
 mic                                     Make Install, run in console mode
 umic                                    Update git, make install, run in console mode
-hstest <test>                           Run the specified HareScript test
 installsocketbinder                     Install the socket binder
 execbuilt                               Execute the specificed process directly from the build tree
 

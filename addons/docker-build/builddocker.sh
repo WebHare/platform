@@ -182,8 +182,6 @@ cp -a $SOURCEDIR/{ap,base_makefile,blex,drawlib,harescript,parsers,vendor} tocom
 mv whtree/lib/wh-functions.sh tocompile/whtree/lib
 # we need 'wh' to be able to 'wh make' in the dockerfile
 mv whtree/bin/wh tocompile/whtree/bin
-# Fonts are also required in the tests
-mv whtree/fonts tocompile/whtree/
 
 # Testsuite
 rm -rf webhare_testsuite # remove any already present testsuite

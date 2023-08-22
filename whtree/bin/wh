@@ -609,17 +609,6 @@ HERE
     exit 255
     ;;
 
-  "hstest")
-    if [ -z "$1" ]; then
-      die "Specify the test to run"
-    fi
-    setup_buildsystem
-    estimate_buildj
-    cd $WEBHARE_BUILDDIR
-    exec make -rj$WHBUILD_NUMPROC -f $WEBHARE_CHECKEDOUT_TO/base_makefile HSTEST=$1 harescript-test
-    exit 255
-    ;;
-
   "__listcommands")
     list_commands | sort -u
     exit 0
