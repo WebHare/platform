@@ -59,7 +59,7 @@ get_finaltag
 list_finaltag
 
 pushd ../.. >/dev/null 2>&1
-if [ ! -f base_makefile ]; then
+if [ ! -f builder/base_makefile ]; then
   echo "`pwd` does not appear to be a proper WebHare source tree root"
   exit 1
 fi
@@ -175,10 +175,13 @@ if [ "${PIPESTATUS[0]}" != "0" ]; then
   exit 1
 fi
 
+# Recreate tocompile dir. we need 'whtree' to exist too so we can move the fonts in place
 [ -d tocompile ] && rm -rf tocompile
+mkdir -p tocompile/whtree
+
 #TODO if we could move more into the 'builder' dir we could simplify this list
-mkdir -p tocompile/whtree/lib tocompile/whtree/bin tocompile/whtree/modules/system/
-cp -a $SOURCEDIR/{ap,base_makefile,blex,builder,drawlib,harescript,parsers,vendor} tocompile/
+cp -a $SOURCEDIR/{ap,blex,builder,drawlib,harescript,parsers,vendor} tocompile/
+
 # Fonts are also required for drawlib tests
 mv whtree/fonts tocompile/whtree/
 

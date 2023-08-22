@@ -32,7 +32,7 @@ export SRCDIR="$WEBHARE_CHECKEDOUT_TO"
 export WHBUILD_PLATFORM
 
 retval=0
-make -rj$WHBUILD_NUMPROC -f $WEBHARE_CHECKEDOUT_TO/base_makefile "$@" || retval=$?
+make -rj$WHBUILD_NUMPROC -f $WEBHARE_CHECKEDOUT_TO/builder/base_makefile "$@" || retval=$?
 
 if [ "$retval" != "0" ]; then
   echo ""
