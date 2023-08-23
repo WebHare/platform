@@ -1,9 +1,7 @@
 # This script is also deployed to https://build.webhare.dev/ci/scripts/wh-functions.sh
-die()
-{
-  echo "$@" 1>&2
-  exit 1
-}
+
+# import { die, logWithTime } from:
+source "${BASH_SOURCE%/*}/../modules/platform/scripts/bootstrap/bootstrap-functions.sh"
 
 testEq()
 {

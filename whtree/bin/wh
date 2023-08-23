@@ -2,9 +2,14 @@
 source ${BASH_SOURCE%/*}/../lib/wh-functions.sh
 
 REQUIRENPMVERSION="7.13.0"
+DEBUGSTARTUP=""
 export WHBUILD_PLATFORM="$(uname | tr A-Z a-z)"
 export PGUSER="root" #postgres user, must be locked for compatibility between dev and prod
 export HOMEBREW_NO_AUTO_UPDATE=1 # We don't want to responsible for brew/trigger updates.
+
+if [[ $WEBHARE_DEBUG =~ ((^|[,])startup([,]|$))+ ]] ; then
+  DEBUGSTARTUP=1
+fi
 
 while [[ $1 =~ ^-.* ]]; do
   if [ "$1" == "-v" -o "$1" == "--verbose" ]; then
@@ -16,18 +21,13 @@ while [[ $1 =~ ^-.* ]]; do
   elif [ "$1" == "-i" -o "$1" == "--ignore-running" ]; then
     IGNORERUNNING=1
     shift
-  elif [ "$1" == "--setup-env" ]; then
-    SETUPENV=1
-    shift
   else
     die "Illegal option $1"
   fi
 done
 
-# If used as command in 'docker run', initialize the environment
-if [ "$$" = "1" -a -n "$WEBHARE_IN_DOCKER" ]; then
-  SETUPENV=1
-fi
+# Print ASAP to give accurate measurements
+[ "$1" == "console" ] && [ -n "$DEBUGSTARTUP" ] && logWithTime "Preparing for console"
 
 # We must have $WEBHARE_DIR, pointing to the 'whtree'.
 if [ -z "$WEBHARE_DIR" ]; then
@@ -325,6 +325,8 @@ case $INSTR in
 
     getwhparameters
     setup_webhare_envsettings
+
+    # Verify no unsupported downgrade
     PREVIOUSVERSION=""
     if [ -f "$WEBHARE_DATAROOT/webhare.version" ]; then
       PREVIOUSVERSION="$(jq -r .version < "$WEBHARE_DATAROOT/webhare.version" 2>/dev/null)"
@@ -365,6 +367,8 @@ case $INSTR in
 
     # reset current directory, make sure we're not on a mountpunt (and would dump any coredumps over the network)
     cd /tmp/
+
+    [ -n "$DEBUGSTARTUP" ] && logWithTime "Launching in console mode"
 
     if [ "$DEBUGTAGS" == "" ]; then # no processing needed, just exec
       exec $WEBHARE_DIR/bin/webhare "$@" console
