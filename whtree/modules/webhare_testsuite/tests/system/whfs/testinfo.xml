@@ -3,6 +3,7 @@
   <test script="test-whfs-register.whscr" />
   <test script="test-whfs-siteprofiles_apply.whscr" />
   <test script="test-whfs-conversions.whscr" />
+  <test script="test-whfs-dbaseprocs.whscr" />
   <test script="test-whfs-archiving.whscr" />
   <test script="test-whfs-history-v4.whscr" />
   <test script="test-whfs-versioning.whscr" />
