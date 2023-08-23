@@ -12,7 +12,7 @@ The Docker build process runs a 'shrinkwrap' step which gather artifacts from th
 build image to speed up the actual bootstrap when starting WebHare.
 
 ## Finalizing WebHare
-See `modules/platform/scripts/bootstrap/finalize-webhare.sh` for the implementation
+See `whtree/modules/platform/scripts/bootstrap/finalize-webhare.sh` for the implementation
 
 ### Installing NPM packages
 Finalization installs the packages in `whtree/package.json` (outside the built-in modules)
@@ -25,9 +25,9 @@ is build by manually invoking esbuild to create a JavaScript version for later u
 ## Bootstrap
 
 ### Preparing the data directory
-`platform/scripts/bootstrap/prepare-whdata.sh` sets up the `$WEBHARE_DATAROOT` and some subfolders and symlinks that Node will
-need to resolve `@webhare/`, `@mod-xxx/` and `wh::` imports. After this step `wh run` should be able to run TypeScript files
-
+`whtree/modules/platform/scripts/bootstrap/prepare-whdata.sh` sets up the `$WEBHARE_DATAROOT` and some subfolders and symlinks 
+that Node will need to resolve `@webhare/`, `@mod-xxx/` and `wh:` imports. After this step `wh run` should be able to run 
+TypeScript files.
 ### config.json
 `platform/scripts/bootstrap/whdata.sh` also sets up the configuration file.
 
