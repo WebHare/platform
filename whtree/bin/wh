@@ -530,7 +530,7 @@ HERE
 
   "finalize-webhare")
     check_webhare_not_running
-    exec "$WEBHARE_DIR/modules/platform/scripts/bootstrap/finalize-webhare.sh"
+    exec "$WEBHARE_DIR/modules/platform/scripts/bootstrap/finalize-webhare.sh" "${OPTIONS[@]}"
     ;;
 
   "fixbuild")

@@ -25,6 +25,7 @@ freshdbconsole                          Wipe database and run in console mode
 up                                      Update git
 st                                      Git status
 make                                    Build from source
+finalize-webhare                        Run postinstall tasks (including rebuilding the resolveplugin)
 mic                                     Make Install, run in console mode
 umic                                    Update git, make install, run in console mode
 installsocketbinder                     Install the socket binder
