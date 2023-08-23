@@ -88,30 +88,22 @@ RUN --mount=type=bind,source=/setup-opensearch.sh,target=/setup-opensearch.sh \
     --mount=type=cache,id=opensearch,target=/tmp/downloads \
     /bin/bash /setup-opensearch.sh
 
-# Let's do the NPM work first, for better caching
-RUN --mount=type=tmpfs,target=/tmp/ \
-    --mount=type=tmpfs,target=/root/ \
-    --mount=type=cache,id=npmcache,target=/tmp/npmcache \
-    --mount=type=bind,source=/whtree/package.json,target=/opt/wh/whtree/package.json \
-    --mount=type=bind,source=/whtree/package-lock.json,target=/opt/wh/whtree/package-lock.json \
-    --mount=type=bind,source=/whtree/modules/system/scripts/fixmodules-plugin.sh,target=/opt/wh/whtree/modules/system/scripts/fixmodules-plugin.sh \
-   npm_config_cache=/tmp/npmcache /opt/wh/whtree/modules/system/scripts/fixmodules-plugin.sh
-
-# Add built WebHare
-RUN --mount=type=bind,from=builder,target=/builder \
-   cp -av /builder/opt/wh/whtree/bin /builder/opt/wh/whtree/lib /builder/opt/wh/whtree/fonts /opt/wh/whtree/
+# Add dropins (service management scripts etc)
+ADD dropins /
 
 # Throw in the whtree and addons - note: builds will always stop caching after this step
 COPY whtree /opt/wh/whtree
 
-# Postinstall fixups
-RUN --mount=type=tmpfs,target=/opt/whdata /opt/wh/whtree/modules/system/scripts/internal/fixup_modules.sh
+# Add built WebHare (ie 'wh make install' from the parallel build)
+RUN --mount=type=bind,from=builder,target=/builder \
+   cp -av /builder/opt/wh/whtree/bin /builder/opt/wh/whtree/lib /builder/opt/wh/whtree/fonts /opt/wh/whtree/
 
-# Add other dropins
-ADD dropins /
-
-# Create the shrinkwrap
-RUN --mount=type=tmpfs,target=/opt/whdata /opt/wh/whtree/modules/system/scripts/internal/create_shrinkwrap.sh
+# Finalize WebHare (eg generate files in /opt/wh/) and shrinkwrap it (precompile/pregenerate files)
+RUN --mount=type=tmpfs,target=/tmp/ \
+    --mount=type=tmpfs,target=/root/ \
+    --mount=type=tmpfs,target=/opt/whdata \
+    --mount=type=cache,id=npmcache,target=/tmp/npmcache \
+   npm_config_cache=/tmp/npmcache /opt/wh/whtree/bin/wh finalize-webhare --shrinkwrap
 
 # Add a label with the commit SHA
 ARG CI_COMMIT_SHA
