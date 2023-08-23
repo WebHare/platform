@@ -244,14 +244,7 @@ namespace WHManagerConnectionType
 class BLEXLIB_PUBLIC Connection
 {
         public:
-
-        struct ModuleData
-        {
-                std::string modpath;
-                Blex::DateTime creationdate;
-        };
-
-        typedef std::map<std::string, ModuleData, Blex::StrCaseLess<std::string> > ModuleMap;
+        typedef std::map<std::string, std::string, Blex::StrCaseLess<std::string> > ModuleMap;
 
         /** Add well-known WebHare options to a command line parser */
         static void AddOptions(Blex::OptionParser &optparser);
@@ -329,10 +322,6 @@ class BLEXLIB_PUBLIC Connection
 
         /** Reload plugin configuration */
         void ReloadPluginConfig() const;
-
-        /** Scan a specific module folder
-            @param always_overwrites Always overwrite modules found here (to ensure webhare core modules are never overwritten) */
-        void ScanModuleFolder(ModuleMap *map, std::string const &folder, bool rootfolder, bool always_overwrites) const;
 
         /** Connect to the WH manager to listen for remote events */
         void ConnectToWHManager();

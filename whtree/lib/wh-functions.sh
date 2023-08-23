@@ -1,9 +1,7 @@
 # This script is also deployed to https://build.webhare.dev/ci/scripts/wh-functions.sh
-die()
-{
-  echo "$@" 1>&2
-  exit 1
-}
+
+# import { die, logWithTime } from:
+source "${BASH_SOURCE%/*}/../modules/platform/scripts/bootstrap/bootstrap-functions.sh"
 
 testEq()
 {
@@ -32,6 +30,33 @@ getbaseversioninfo()
   WEBHARE_VERSION=${WHNUMERICVERSION:0:1}.$((${WHNUMERICVERSION:1:2})).$((${WHNUMERICVERSION:3:2}))
 }
 
+# run a JS/TS script, assumes the resolveplugin is ready for use
+wh_runjs()
+{
+  local ARGS
+
+  ARGS=("$@")
+
+  # is the 'apr' flag set ?
+  if [[ $WEBHARE_DEBUG =~ ((^|[,])apr([,]|$))+ ]] ; then
+    # prefix with profile starter. note that this for now just prints some simple stats to stdout (and is not compatible with nodejs --prof/--prof-process - but much faster)
+    ARGS=("$WEBHARE_DIR/modules/system/js/internal/debug/autoprofile.ts" "${ARGS[@]}")
+  fi
+
+  # avoid side effects if other scripts invoke node (eg 'wh make' and its postinstall)
+  SAVE_NODE_PATH="$NDOE_PATH"
+  SAVE_NODE_OPTIONS="$NDOE_OPTIONS"
+
+  export NODE_PATH="$WEBHARE_DATAROOT/node_modules"
+  export NODE_OPTIONS="--enable-source-maps --require \"$WEBHARE_DIR/jssdk/ts-esbuild-runner/dist/resolveplugin.js\" $NODE_OPTIONS"
+
+  # --experimental-wasm-stack-switching is not allowed in NODE_OPTIONS
+  $RUNJS_PREFIX node --experimental-wasm-stack-switching $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
+
+  NODE_PATH="$SAVE_NODE_PATH"
+  NODE_OPTIONS="$SAVE_NODE_OPTIONS"
+}
+
 loadshellconfig()
 {
   if [ -n "$LOADEDSHELLCONFIG" ]; then
@@ -40,8 +65,8 @@ loadshellconfig()
 
   getwhparameters
 
-  SHELLCONFIG="$(runscript mod::system/scripts/whcommands/shellconfig.whscr)"
-  [ "$?" == "0" ] || die "shellconfig.whscr failed"
+  SHELLCONFIG="$(wh_runjs "$WEBHARE_DIR/modules/platform/js/bootstrap/getshellconfig.ts")"
+  [ "$?" == "0" ] || die "shellconfig failed"
 
   eval "$SHELLCONFIG"
   LOADEDSHELLCONFIG=1
@@ -596,55 +621,4 @@ setup_buildsystem()
   fi
 }
 
-ensure_link()
-{
-  local currentdest
-  if [ ! -e "$2" ]; then # if it doesn't exist, create it
-    ln -sf "$1" "$2"
-    return
-  fi
-
-  currentdest="$(readlink $2)"
-  if [ "$currentdest" != "$1" ]; then
-    echo "Fixing $2 pointing to $currentdest but it should point to $1"
-    rm "$2" # we need to rm first if we want to ensure a slash at the end
-    ln -sf "$1" "$2"
-  fi
-}
-
-bootstrap_whdata()
-{
-  # Setup basic symlinks for @mod- and @webhare- helpers so we can refer to them from JS (wh node sets NODE_PATH to "$WEBHARE_DATAROOT/node_modules")
-  if [ -z "$WEBHARE_DATAROOT" ]; then
-    echo WEBHARE_DATAROOT not configured!
-    exit 1
-  fi
-
-  mkdir -p "$WEBHARE_DATAROOT"/lib "$WEBHARE_DATAROOT"/home "$WEBHARE_DATAROOT"/tmp >/dev/null 2>&1
-
-  # Make sure node_modules and links point to the right plae. A restore or move might have misplaced them and will break bootstrapping various other scripts
-  # node might not actually be functional yet at this point so fix the basic links in the shell
-  mkdir -p "$WEBHARE_DATAROOT/node_modules"
-  for mod in consilio platform publisher system tollium wrd; do
-    ensure_link "${WEBHARE_DIR}/modules/${mod}/" "$WEBHARE_DATAROOT/node_modules/@mod-${mod}"
-  done
-  ensure_link "${WEBHARE_DIR}/jssdk/" "$WEBHARE_DATAROOT/node_modules/@webhare"
-
-  # When running from source, rebuild buildinfo
-  if [ -z "$WEBHARE_IN_DOCKER" ]; then
-    getbaseversioninfo
-    if [ -z "$WEBHARE_VERSION" ]; then
-      die Cannot determine WebHare version
-    fi
-
-    cat > "$WEBHARE_DIR/modules/system/whres/buildinfo.tmp" << HERE
-committag="$(git -C "$WEBHARE_DIR" rev-parse HEAD)"
-version="${WEBHARE_VERSION}-dev"
-branch="$(git -C "$WEBHARE_DIR" rev-parse --abbrev-ref HEAD)"
-origin=$(git -C "$WEBHARE_DIR" config --get remote.origin.url)
-HERE
-    mv "$WEBHARE_DIR/modules/system/whres/buildinfo.tmp" "$WEBHARE_DIR/modules/system/whres/buildinfo"
-  fi
-}
-
-export -f die setup_buildsystem
+export -f die setup_buildsystem getbaseversioninfo wh_runjs

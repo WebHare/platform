@@ -16,21 +16,10 @@ if [ -z "$WEBHARE_DATAROOT" ]; then
   exit 1
 fi
 
-ARGS=("$@")
-
-# is the 'apr' flag set ?
-if [[ $WEBHARE_DEBUG =~ ((^|[,])apr([,]|$))+ ]] ; then
-  # prefix with profile starter. note that this for now just prints some simple stats to stdout (and is not compatible with nodejs --prof/--prof-process - but much faster)
-  ARGS=("${BASH_SOURCE%/*}/../../js/internal/debug/autoprofile.ts" "${ARGS[@]}")
-fi
-
-export NODE_PATH="$WEBHARE_DATAROOT/node_modules"
-export NODE_OPTIONS="--enable-source-maps --require \"$WEBHARE_DIR/jssdk/ts-esbuild-runner/dist/resolveplugin.js\" $NODE_OPTIONS"
-
 # is the 'heavy' node profiler enabled?
 if [ -n "$WEBHARE_NODEPROFILE" ]; then
   WORKDIR="$(mktemp -d)"
-  node --experimental-wasm-stack-switching --logfile="$WORKDIR/log" --prof $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
+  node --experimental-wasm-stack-switching --logfile="$WORKDIR/log" --prof $WEBHARE_NODE_OPTIONS "$@"
   RETVAL="$?"
   OUTPUTFILES=()
   for P in "$WORKDIR"/* ; do
@@ -45,6 +34,7 @@ if [ -n "$WEBHARE_NODEPROFILE" ]; then
   exit $RETVAL
 fi
 
-exec node --experimental-wasm-stack-switching $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
+RUNJS_PREFIX=exec #used by runjs
+wh_runjs "$@"
 echo "wh node: the actual node binary was not found" 1>&2
 exit 255

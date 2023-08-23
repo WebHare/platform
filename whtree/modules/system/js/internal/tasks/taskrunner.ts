@@ -65,6 +65,7 @@ export async function executeManagedTask(taskinfo: TaskInfo, debug: boolean) {
     if (isWorkOpen())
       await rollbackWork();
 
-    return { type: "taskfailed", error: (e as Error).message, trace: getStructuredTrace(e as Error), isfatal: false };
+    //TODO Why aren't we using IPC encoded exceptions?
+    return { type: "taskfailed", error: (e as Error).message || String(e), trace: getStructuredTrace(e as Error), isfatal: false };
   }
 }
