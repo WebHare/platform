@@ -42,7 +42,7 @@ fi
 
 # Try to set WEBHARE_CHECKEDOUT_TO from WEBHARE_DIR where possible
 if [ -z "$WEBHARE_CHECKEDOUT_TO" ]; then
-  if [ -f "$WEBHARE_DIR/../base_makefile" ]; then
+  if [ -f "$WEBHARE_DIR/../builder/base_makefile" ]; then
     export WEBHARE_CHECKEDOUT_TO="`cd ${WEBHARE_DIR}/..; pwd`"
   fi
 fi

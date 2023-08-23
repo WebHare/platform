@@ -311,10 +311,8 @@ ifneq ($(DISABLE_PCH),1)
   ALLBUILDDIRS += $(ALLPCHDIRS)
 endif
 
-EXTRAINSTALLDIR=dbase log output tmp var lib
-
 # Create all directories
-ALLDIRS=$(ALLBUILDDIRS) $(ALLINSTALLDIRS)
+ALLDIRS=$(ALLBUILDDIRS) $(ALLINSTALLDIRS) $(PREFIX)/bin $(PREFIX)/lib
 
 #################################################
 ##
@@ -870,9 +868,6 @@ $(foreach dep,$(ALL_DEPLOYABLES), $(eval $(call InstallOurDeployable,$(dep))))
 ## Misc stuff
 ##
 
-$(addprefix $(PREFIX)/,$(EXTRAINSTALLDIR)):
-	[ -h $@ ] || mkdir -p $@
-
 # Call installables, with .debug files in 'symbols' dir, and .debug links
 HSENGINE_INSTALLABLES_DEBUG = $(FINAL_EXTERNAL_LIBS) $(HSENGINE_DEPLOYABLES)
 WHAP_INSTALLABLES_DEBUG = $(WHAP_DEPLOYABLES)
@@ -907,14 +902,13 @@ sandwich:
 
 # install also cleans up old targets. we didn't really use to care, but it can put people on the wrong track ("appserver is crashing! no, it was removed")
 # we invoke 'wasm' (a PHONY) explicitly to ensure it's always rechecked as the toplevel make cannot check the wasm's sub-make dependencies
-install: $(addprefix $(PREFIX)/,$(EXTRAINSTALLDIR)) postinstall | \
+install: $(ALLINSTALLDIRS) postinstall | \
          $(call BuildAndTest,blex) \
          $(call BuildAndTest,harescript) \
          $(call BuildAndTest,drawlib) \
          $(addprefix $(PREFIX)/,$(WHAP_INSTALLABLES)) \
          $(call BuildAndTest,ap) \
-         $(call BuildAndTest,wasm) \
-         $(ALLINSTALLDIRS)
+         $(call BuildAndTest,wasm)
 	${HIDE}rm $(PREFIX)/bin/{appserver,backup,consilio,dbserver,dumpcomplexfslog,dumprawtable} 2>/dev/null || true #cleanup old bins
 	${HIDE}rm $(PREFIX)/lib/{hsm_parser_office_excel,hsm_parser_office_powerpoint}.* 2>/dev/null || true #cleanup old bins
 
@@ -960,7 +954,7 @@ endif
 
 # Directories dependency - but if a symlink exists(docker build) don't create it
 $(sort $(ALLDIRS)):
-	[ -h $@ ] || mkdir -p $@
+	${HIDE}[ -h $@ ] || mkdir -p $@
 
 # Make all directories in one
 dirs: $(ALLDIRS)
