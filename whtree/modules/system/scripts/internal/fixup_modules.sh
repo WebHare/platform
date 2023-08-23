@@ -59,9 +59,6 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then #Only do this when building docker images, 
     echo Too few entries in the compilecache, precompile may have failed
     FAIL=1
   fi
-
-  # cleanup caches and build stuff
-  rm -rf /root/.node-gyp /root/.npm /tmp/* /opt/whdata/tmp/*
 fi
 
 exit $FAIL
