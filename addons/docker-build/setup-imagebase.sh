@@ -71,7 +71,8 @@ echo Updates are verified
 # 2023-04-02: Added 'libaio1' - it's a dependency for oracle instantclient
 # 2021-12-22: Added 'zip' for shrinkwrap (building history/source.zips)
 # 2022-08-05: Added 'jq' to parse webhare.version
-# 2023-5-30: Removed libxml2 but adding automake,autoconf,libtool to build it from source
+# 2023-05-30: Removed libxml2 but adding automake,autoconf,libtool to build it from source
+# 2023-08-23: Restore openssh-server, our test_sftp needs it (and sftp needs a ssh client)
 
 PACKAGES="certbot
     cron
@@ -101,6 +102,7 @@ PACKAGES="certbot
     libtiff5
     locales-all
     nodejs
+    openssh-server
     openssl
     libpixman-1-0
     postgresql-11
