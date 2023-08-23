@@ -14,13 +14,10 @@ MAKEFLAGS=--warn-undefined-variables --output-sync=target
 SRCDIR ?= .
 PREFIX ?= $(SRCDIR)/whtree
 WHBUILD_PLATFORM := $(shell uname | tr A-Z a-z)
-HSTEST ?= all
 
 export WHBUILD_SRCDIR=$(abspath $(SRCDIR))
 export WHBUILD_PREFIX=$(abspath $(PREFIX))
 export WHBUILD_BUILDDIR:=$(abspath $(shell pwd))
-
-export HSTEST
 
 ifeq ($(DEBUGMAKE),1)
 	HIDE=

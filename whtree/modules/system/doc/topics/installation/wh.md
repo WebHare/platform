@@ -40,8 +40,6 @@ the path to the `wh` tool as needed.
 
 `wh make` builds WebHare.
 
-`wh hstest <test>` - run a HareScript test (eg 'stringfunctions')
-
 ## Setting up multiple WebHare installations
 If your WebHare was built from source you can use environment variables
 to point the WebHare binaries to a different source folder. You will need

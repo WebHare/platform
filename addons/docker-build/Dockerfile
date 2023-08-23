@@ -40,7 +40,7 @@ ENV \
 RUN --mount=type=tmpfs,target=/opt/whbuild \
     --mount=type=tmpfs,target=/tmp \
     --mount=type=cache,id=compile,target=/tmp/compile  \
-    /bin/bash -c ". /opt/emsdk/emsdk_env.sh && /opt/wh/whtree/bin/wh make install"
+    /bin/bash -c ". /opt/emsdk/emsdk_env.sh && /opt/wh/builder/make.sh install"
 
 ################# STAGE 2 - application image
 FROM       ubuntu:20.04 AS appimage
