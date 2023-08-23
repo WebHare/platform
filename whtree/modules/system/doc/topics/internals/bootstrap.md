@@ -1,9 +1,34 @@
 # WebHare bootstrap
 
-This document attemps to give an outline of the current WebHare startup process.
-It may go out of date fast, so always check the code too
+To get from a source tree to a running WebHare the installation needs to be 'finalized' and 'bootstrapped'. Finalization
+adds to the 'source' directory, bootstrap sets up the 'data' directory. Both are necessary for the TypeScript and HareScript
+engines to function, and after bootstrap `wh console` should work and the various core services (ue webserver, database,
+HareScript compiler, whmanager/bridge) should be able to start.
 
-## Service bootstrap
+Database initialization and (module) upgrade scripts are generally not considered parts of the bootstrapping process as
+they are started after or in parallel with the core services.
+
+The Docker build process runs a 'shrinkwrap' step which gather artifacts from the bootstrap process (compilecache) into the
+build image to speed up the actual bootstrap when starting WebHare.
+
+## Finalizing WebHare
+See `modules/platform/scripts/bootstrap/finalize-webhare.sh` for the implementation
+
+### Installing NPM packages
+Finalization installs the packages in `whtree/package.json` (outside the built-in modules)
+
+### Bootstrapping TypeScript
+WebHare uses Node.js for JavaScript execution, but Node does not support TypeScript out of the box. We plug in a resolve
+to add on-demand TypeScript compilation using esbuild. @webhare/ts-esbuild-runner provides this plugin. The plugin itself
+is build by manually invoking esbuild to create a JavaScript version for later use.
+
+## Bootstrap
+
+### Preparing the data directory
+`platform/scripts/bootstrap/prepare-whdata.sh` sets up the `$WEBHARE_DATAROOT` and some subfolders and symlinks that Node will
+need to resolve `@webhare/`, `@mod-xxx/` and `wh::` imports. After this step `wh run` should be able to run TypeScript files
+
+### Service bootstrap
 The steps taken to get WebHare running, and at what point various startup scripts
 are invoked
 

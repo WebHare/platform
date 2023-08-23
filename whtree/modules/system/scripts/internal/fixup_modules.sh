@@ -13,6 +13,8 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then #Only do this when building docker images, 
   export WEBHARE_DTAPSTAGE=production
   export WEBHARE_SERVERNAME=fixup-modules.example.net
 
+  "$WHTREE/modules/platform/scripts/bootstrap/prepare-whdata.sh" #Ensure @mod- paths work
+
   eval `$WHTREE/bin/wh setupmyshell`  #more dogfooding
   mkdir -p /opt/whdata/tmp/
 

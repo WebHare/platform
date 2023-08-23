@@ -26,8 +26,12 @@ while [[ $1 =~ ^-.* ]]; do
   fi
 done
 
+INSTR="${1:-help}"
+shift
+OPTIONS=("$@")
+
 # Print ASAP to give accurate measurements
-[ "$1" == "console" ] && [ -n "$DEBUGSTARTUP" ] && logWithTime "Preparing for console"
+[ "$INSTR" == "console" ] && [ -n "$DEBUGSTARTUP" ] && logWithTime "Preparing for console"
 
 # We must have $WEBHARE_DIR, pointing to the 'whtree'.
 if [ -z "$WEBHARE_DIR" ]; then
@@ -92,12 +96,6 @@ fi
 
 [ "$WH_VERBOSE" == "1" ] && echo "WebHare data directory:   $WEBHARE_DATAROOT"
 [ "$WH_VERBOSE" == "1" ] && echo "WebHare base port number: $WEBHARE_BASEPORT"
-
-if [ -n "$WHBUILD_DEBUG" ]; then
-  WHBUILD_DIPREFIX=debug-
-else
-  WHBUILD_DIPREFIX=release-
-fi
 
 export WEBHARE_CHECKEDOUT_TO
 export WEBHARE_BUILDDIR
@@ -233,7 +231,7 @@ setup_for_console() #setup_for_console is invoked when we're starting a major su
     exit 1
   fi
 
-  bootstrap_whdata
+  "$WEBHARE_DIR/modules/platform/scripts/bootstrap/prepare-whdata.sh" --force # Ensure @mod- symlinks are in place
 
   # WH 5.0 - move the unified cache (image cache) into the right place. To avoid races we *have* to do this before we start WebHare - it should normally be done in a sec...
   if [ -d "$WEBHARE_DATAROOT"/ephemeral/system.uc2 ]; then
@@ -247,9 +245,13 @@ setup_for_console() #setup_for_console is invoked when we're starting a major su
   fi
 }
 
-INSTR="${1:-help}"
-shift
-OPTIONS=("$@")
+# Do we need to prepare whdata? Anything that does setup_for_console or things like make and finalize don't need it
+if [[ ! "$INSTR" =~ ^(console|mic|umic|exec|execbuilt|shell|make|finalize-webhare|prepare-whdata)$ ]]; then
+  if [ -z "$__WEBHARE_IN_PREPARE_WHDATA" ]; then
+    export __WEBHARE_IN_PREPARE_WHDATA=1 #Prevent duplicate/looping invocations. I'ts easy for wh to refer back to itself during execution
+    "$WEBHARE_DIR/modules/platform/scripts/bootstrap/prepare-whdata.sh"
+  fi
+fi
 
 # Find the 'dev' module, and if present, load its hooks. Not sure if we should trust random modules to install hooks.. especially as we may run under different UIDs ?
 # WEBHARE_WH_HOOK is an external hook which may replace implementations in wh.
@@ -344,11 +346,6 @@ case $INSTR in
       echo " ($WEBHARE_ISRESTORED)"
     else
       echo ""
-    fi
-
-    if ! wh update-generated-files --update=config --nodb "${STARTUPOPTIONS[@]}"; then
-      echo "Failed to update the configuration file, aborting"
-      exit 1
     fi
 
     TOSHOWFILE=
@@ -535,6 +532,11 @@ HERE
   "finalize-webhare")
     check_webhare_not_running
     exec "$WEBHARE_DIR/modules/platform/scripts/bootstrap/finalize-webhare.sh" "${OPTIONS[@]}"
+    ;;
+
+  "prepare-whdata")
+    check_webhare_not_running
+    exec "$WEBHARE_DIR/modules/platform/scripts/bootstrap/prepare-whdata.sh" --verbose "${OPTIONS[@]}"
     ;;
 
   "fixbuild")

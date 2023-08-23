@@ -3,7 +3,7 @@
 # finalize-webhare sets up all generated files in the source ($WEBHAREDIR) directory
 # we will normally be invoked by `wh finalize-webhare`
 #
-# We need to be in shell script as TypeScript isn't available yet - we're bootstrapping TS suport!!
+# We need to be in shell script as TypeScript isn't available yet - we're bootstrapping TS support!
 
 RUNSHRINKWRAP=""
 
@@ -24,7 +24,7 @@ source "modules/platform/scripts/bootstrap/bootstrap-functions.sh"
 [ -f package.json ] || die "Failed ot navigate to whtree directory"
 
 logWithTime "Updating whtree NPM packages"
-npm install --no-save --ignore-scripts --omit=dev --omit=peer | die "NPM failure"
+npm install --no-save --ignore-scripts --omit=dev --omit=peer || die "NPM failure"
 
 # run scripts we trust and need explicitly.
 ## download the esbuild for this platform
@@ -37,6 +37,23 @@ logWithTime "Setup postgresql-client"
 
 logWithTime "Build the resolveplugin"
 modules/platform/scripts/bootstrap/build-resolveplugin.sh || die "Failed to setup the resolveplugin"
+
+# When running from source, rebuild buildinfo (for docker builddocker.sh generates this)
+if [ -z "$WEBHARE_IN_DOCKER" ]; then
+  logWithTime "Build the resolveplugin"
+  getbaseversioninfo # from wh-functions.sh
+  if [ -z "$WEBHARE_VERSION" ]; then
+    die Cannot determine WebHare version
+  fi
+
+  cat > "$WEBHARE_DIR/modules/system/whres/buildinfo.tmp" << HERE
+committag="$(git -C "$WEBHARE_DIR" rev-parse HEAD)"
+version="${WEBHARE_VERSION}-dev"
+branch="$(git -C "$WEBHARE_DIR" rev-parse --abbrev-ref HEAD)"
+origin=$(git -C "$WEBHARE_DIR" config --get remote.origin.url)
+HERE
+  mv "$WEBHARE_DIR/modules/system/whres/buildinfo.tmp" "$WEBHARE_DIR/modules/system/whres/buildinfo"
+fi
 
 if [ -n "$RUNSHRINKWRAP" ]; then
   #TODO Merge both with us?
