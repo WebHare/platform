@@ -932,11 +932,11 @@ postinstall: success.node
 success.node: \
 			$(PREFIX)/package.json \
 			$(PREFIX)/package-lock.json \
-			$(PREFIX)/modules/system/scripts/fixmodules-plugin.sh \
+			$(PREFIX)/modules/platform/scripts/bootstrap/finalize-webhare.sh \
 			$(PREFIX)/modules/tollium/webdesigns/webinterface/package.json \
 			$(PREFIX)/modules/tollium/webdesigns/webinterface/package-lock.json \
 			$(addprefix $(PREFIX)/,$(WHAP_INSTALLABLES))
-	$(PREFIX)/modules/system/scripts/fixmodules-plugin.sh
+	$(PREFIX)/bin/wh finalize-webhare
 	touch $@
 
 endif #WEBHARE_IN_DOCKER
