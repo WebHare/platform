@@ -1,0 +1,46 @@
+<?wh
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+LOADLIB "mod::publisher/lib/siteapi.whlib";
+
+
+OBJECT testsite, subfile;
+
+MACRO Prepare()
+{
+  testfw->BeginWork();
+
+  OBJECT firstfolder := testfw->GetWHFSTestRoot();
+  testsite := CreateSiteFromFolder(firstfolder->id);
+  subfile := testsite->rootobject->CreateFile([name := "testfile", publish := TRUE]);
+  testfw->CommitWork();
+}
+
+MACRO TestSQL()
+{
+  // Test using a generated column in a WHERE
+  TestEQ([ CELL[ subfile->id, publish := TRUE ] ],
+      SELECT id
+           , publish
+        FROM system.fs_objects
+       WHERE id = subfile->id AND publish);
+
+
+  // Test using a generated column in a WHERE
+  TestEQ([ CELL[ a := subfile->id, b := subfile->id ] ],
+      SELECT a := ta.id
+           , b := tb.id
+        FROM system.fs_objects AS ta
+           , system.fs_objects AS tb
+       WHERE ta.id = subfile->id
+         AND ta.id = tb.id
+         AND tb.publish = tb.publish);
+
+}
+
+
+RunTestframework([ PTR Prepare
+                 , PTR TestSQL
+                 ]);

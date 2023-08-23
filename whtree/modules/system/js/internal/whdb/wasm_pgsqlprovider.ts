@@ -382,11 +382,10 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
     const cond = query.singleconditions[condidx];
     if (!cond.handled)
       continue;
-    const tableid = `T${cond.tableid}`;
     const column = query.tablesources[cond.tableid].columns[cond.columnid];
     const value = getConditionValue(query, cond, condidx, queryparam);
 
-    const colref = sql.ref(`${tableid}.${column.dbase_name}`);
+    const colref = getTableAndColumnExpression(cond.tableid, column);
     let colexpr = colref;
     if (!cond.casesensitive)
       colexpr = sql`upper(${colexpr})`;
@@ -406,12 +405,10 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
   for (const cond of query.joinconditions) {
     if (!cond.handled)
       continue;
-    const tableid1 = `T${cond.table1_id}`;
     const column1 = query.tablesources[cond.table1_id].columns[cond.t1_columnid];
-    const colref1 = sql.ref(`${tableid1}.${column1.dbase_name}`);
-    const tableid2 = `T${cond.table2_id}`;
+    const colref1 = getTableAndColumnExpression(cond.table1_id, column1);
     const column2 = query.tablesources[cond.table2_id].columns[cond.t2_columnid];
-    const colref2 = sql.ref(`${tableid2}.${column2.dbase_name}`);
+    const colref2 = getTableAndColumnExpression(cond.table2_id, column2);
 
     let expr = sql`${buildComparison(colref1, cond.condition, colref2)}`;
     if (cond.match_double_null) {
