@@ -68,11 +68,5 @@ ASYNC MACRO TestSFTP()
   AWAIT RunCommand("/usr/sbin/service", [ "ssh", "stop" ]);
 }
 
-IF (GetWebhareVersionInfo().docker)
-{
-  PRINT(`Skipping test, can only be run in docker\n`);
-  RETURN;
-}
-
 RunTestFramework([ PTR TestSFTP
                  ]);
