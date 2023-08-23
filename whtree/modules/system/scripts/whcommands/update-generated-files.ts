@@ -15,7 +15,7 @@ async function runUpdate(targets: string[] | undefined, verbose: boolean, nodb: 
   if (!targets || targets.includes('config')) {
     if (verbose)
       console.time("Updating WebHare config files");
-    await updateWebHareConfigFile(!nodb);
+    await updateWebHareConfigFile({ nodb, verbose });
     if (verbose)
       console.timeEnd("Updating WebHare config files");
   }
