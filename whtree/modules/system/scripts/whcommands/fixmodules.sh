@@ -52,6 +52,9 @@ FAILED=0
 # --silent also kills error logging, so just try to prevent as much as possible
 NPMOPTIONS="--no-update-notifier --quiet --no-fund --no-audit --no-save --ignore-scripts --no-progress --omit=peer"
 
+# ensure module maps are up-to-date (TODO we really need more coordination here, especially in CI. wh fixmodules racing wh console startup is painful)
+wh update-generated-files --update=config --nodb
+
 if [ "$#" == 1 ] && [ "$1" == "*" ]; then
   if [ -n "$ONLYINSTALLEDMODULES" ]; then
     MODULESLIST=($(wh getinstalledmodulelist))

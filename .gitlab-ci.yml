@@ -48,12 +48,10 @@ builddocker-scheduled:
 
 testbaselibs:
   stage: test
-  variables:
-    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
-    - whtree/bin/wh testdocker --tag=-external baselibs
+    - addons/docker-build/testdocker.sh --tag=-external baselibs
   artifacts:
     paths:
       - artifacts/
@@ -63,10 +61,8 @@ testbaselibs:
 
 testmodules:
   stage: test
-  variables:
-    TESTFW_INSTALLTESTSUITE: 1
   script:
-    - whtree/bin/wh testdocker --tag=-external checkmodules
+    - addons/docker-build/testdocker.sh --tag=-external checkmodules
   artifacts:
     paths:
       - artifacts/
@@ -76,12 +72,10 @@ testmodules:
 
 testversioning:
   stage: test
-  variables:
-    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
-    - whtree/bin/wh testdocker --tag=-external publisher-versioning
+    - addons/docker-build/testdocker.sh --tag=-external publisher-versioning
   artifacts:
     paths:
       - artifacts/
@@ -91,12 +85,10 @@ testversioning:
 
 testpublisher:
   stage: test
-  variables:
-    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
-    - whtree/bin/wh testdocker --tag=-external,-forms publisher
+    - addons/docker-build/testdocker.sh --tag=-external,-forms publisher
   artifacts:
     paths:
       - artifacts/
@@ -106,12 +98,10 @@ testpublisher:
 
 testpublisher-forms:
   stage: test
-  variables:
-    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
-    - whtree/bin/wh testdocker --tag=forms publisher
+    - addons/docker-build/testdocker.sh --tag=forms publisher
   artifacts:
     paths:
       - artifacts/
@@ -121,12 +111,10 @@ testpublisher-forms:
 
 testsystem:
   stage: test
-  variables:
-    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
-    - whtree/bin/wh testdocker --tag=-external,-nodejs system
+    - addons/docker-build/testdocker.sh --tag=-external,-nodejs system
   artifacts:
     paths:
       - artifacts/
@@ -136,12 +124,10 @@ testsystem:
 
 testsystem_nodejs:
   stage: test
-  variables:
-    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
-    - whtree/bin/wh testdocker --tag=-external,nodejs system
+    - addons/docker-build/testdocker.sh --tag=-external,nodejs system
   artifacts:
     paths:
       - artifacts/
@@ -151,12 +137,10 @@ testsystem_nodejs:
 
 testwebdesign:
   stage: test
-  variables:
-    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
-    - whtree/bin/wh testdocker --tag=-external publisher-webdesign
+    - addons/docker-build/testdocker.sh --tag=-external publisher-webdesign
   artifacts:
     paths:
       - artifacts/
@@ -166,12 +150,10 @@ testwebdesign:
 
 testdatabase:
   stage: test
-  variables:
-    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
-    - whtree/bin/wh testdocker --tag=-external wh.database
+    - addons/docker-build/testdocker.sh --tag=-external wh.database
   artifacts:
     paths:
       - artifacts/
@@ -181,12 +163,10 @@ testdatabase:
 
 testtollium:
   stage: test
-  variables:
-    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
-    - whtree/bin/wh testdocker --tag=-external tollium
+    - addons/docker-build/testdocker.sh --tag=-external tollium
   artifacts:
     paths:
       - artifacts/
@@ -196,12 +176,10 @@ testtollium:
 
 testconsilio:
   stage: test
-  variables:
-    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
-    - whtree/bin/wh testdocker --tag=-external consilio
+    - addons/docker-build/testdocker.sh --tag=-external consilio
   artifacts:
     paths:
       - artifacts/
@@ -211,12 +189,10 @@ testconsilio:
 
 testcore:
   stage: test
-  variables:
-    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
-    - whtree/bin/wh testdocker --tag=-external --generatexmltests wh.hscore
+    - addons/docker-build/testdocker.sh --tag=-external --generatexmltests wh.hscore
   artifacts:
     paths:
       - artifacts/
@@ -226,12 +202,10 @@ testcore:
 
 testwebserver:
   stage: test
-  variables:
-    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
-    - whtree/bin/wh testdocker --tag=-external wh.webserver
+    - addons/docker-build/testdocker.sh --tag=-external wh.webserver
   artifacts:
     paths:
       - artifacts/
@@ -241,12 +215,10 @@ testwebserver:
 
 testsocialite:
   stage: test
-  variables:
-    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
-    - whtree/bin/wh testdocker --tag=-external socialite
+    - addons/docker-build/testdocker.sh --tag=-external socialite
   artifacts:
     paths:
       - artifacts/
@@ -256,12 +228,10 @@ testsocialite:
 
 testwrd:
   stage: test
-  variables:
-    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
-    - whtree/bin/wh testdocker --tag=-external wrd
+    - addons/docker-build/testdocker.sh --tag=-external wrd
   artifacts:
     paths:
       - artifacts/
@@ -271,12 +241,10 @@ testwrd:
 
 testjscomponents:
   stage: test
-  variables:
-    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
-    - whtree/bin/wh testdocker --tag=-external wh.jscomponents
+    - addons/docker-build/testdocker.sh --tag=-external wh.jscomponents
   artifacts:
     paths:
       - artifacts/
@@ -286,13 +254,11 @@ testjscomponents:
 
 testexternal:
   stage: test
-  variables:
-    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   allow_failure: true
   script:
-    - whtree/bin/wh testdocker --tag=external
+    - addons/docker-build/testdocker.sh --tag=external
   artifacts:
     paths:
       - artifacts/
@@ -302,13 +268,11 @@ testexternal:
 
 testsftp:
   stage: test
-  variables:
-    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   allow_failure: true
   script:
-    - whtree/bin/wh testdocker --tag=-external wh.sftp
+    - addons/docker-build/testdocker.sh --tag=-external wh.sftp
   artifacts:
     paths:
       - artifacts/
@@ -318,12 +282,10 @@ testsftp:
 
 testtwohares:
   stage: test
-  variables:
-    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
-    - whtree/bin/wh testdocker --twohares --testscript $PWD/whtree/modules/webhare_testsuite/scripts/whcommands/twoharetests.sh
+    - addons/docker-build/testdocker.sh --twohares --testscript $PWD/whtree/modules/webhare_testsuite/scripts/whcommands/twoharetests.sh
   artifacts:
     paths:
       - artifacts/
@@ -333,12 +295,10 @@ testtwohares:
 
 testbackuprestore:
   stage: test
-  variables:
-    TESTFW_INSTALLTESTSUITE: 1
   except:
     - /^docs\/.*$/
   script:
-    - whtree/bin/wh testdocker --testscript $PWD/whtree/modules/webhare_testsuite/scripts/whcommands/backup-restore-test.sh
+    - addons/docker-build/testdocker.sh --testscript $PWD/whtree/modules/webhare_testsuite/scripts/whcommands/backup-restore-test.sh
   artifacts:
     paths:
       - artifacts/
@@ -348,13 +308,11 @@ testbackuprestore:
 
 calculatecoverage:
   stage: test
-  variables:
-    TESTFW_INSTALLTESTSUITE: 1
   when: manual
   except:
     - /^docs\/.*$/
   script:
-    - whtree/bin/wh testdocker --coverage --generatexmltests
+    - addons/docker-build/testdocker.sh --coverage --generatexmltests
   artifacts:
     paths:
       - artifacts/

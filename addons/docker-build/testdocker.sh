@@ -1,13 +1,17 @@
 #!/bin/bash
 
 # This script is also deployed to https://build.webhare.dev/ci/scripts/testdocker.sh
-
-if [ -f $WEBHARE_DIR/lib/wh-functions.sh ] ; then
+if [ -f "${BASH_SOURCE%/*}/../../whtree/lib/wh-functions.sh" ] ; then
   # Running from a whtree
-  source $WEBHARE_DIR/lib/wh-functions.sh
-else
+  source "${BASH_SOURCE%/*}/../../whtree/lib/wh-functions.sh"
+  # get_finaltag looks up branding.h so we need to set this:
+  export WEBHARE_CHECKEDOUT_TO="$(cd ${BASH_SOURCE%/*}/../.. ; pwd )"
+elif [ -f "${BASH_SOURCE%/*}/wh-functions.sh" ]; then
   # Running from a CI which directly downloaded wh-functions.sh
-  source `dirname $0`/wh-functions.sh
+  source "${BASH_SOURCE%/*}/wh-functions.sh"
+else
+  echo "Unrecognized environment for testdocker"
+  exit 1
 fi
 
 version=""
@@ -457,6 +461,28 @@ if [ -n "$ISMODULETEST" ]; then # Tell the shutdownscript to use 'kill' as sleep
   TESTENV_KILLCONTAINER2=1
 fi
 
+if [ -z "$ISMODULETEST" ]; then # NOTE: we *also* know we're running 5.4 then, as platform CI doesn't use an external testmodule.sh
+  TESTINGMODULE="webhare_testsuite"
+  TESTINGMODULEDIR="${PWD}/../../whtree/modules/webhare_testsuite"
+
+  if [ -z "$TESTLIST" ]; then
+    TESTLIST="all"
+  fi
+else
+  TESTINGMODULEDIR="$TESTINGMODULE" # we look in th ecurrent directory first
+
+  if [ ! -d "$TESTINGMODULEDIR" ]; then
+    if [ -z "$CI_JOB_TOKEN" ]; then #doesn't appear to be CI, so give wh a shot to expand to the full module name
+      TESTINGMODULEDIR="$(../../whtree/bin/wh getmoduledir $TESTINGMODULE)"
+    fi
+    if [ ! -d "$TESTINGMODULEDIR" ]; then
+      echo "Cannot find module $TESTINGMODULE - we require the base module to be checked out so we can extract dependency info"
+      echo "Alternatively give us the full path to $TESTINGMODULE"
+      exit_failure_sh "Dependency extraction failed"
+    fi
+  fi
+fi
+
 create_container 1
 echo "Container 1: $TESTENV_CONTAINER1"
 
@@ -469,50 +495,32 @@ if [ -n "$ISMODULETEST" ] && [ -z "$EXPLAIN_OPTION_NOSTARTUPERRORS" ]; then
   ALLOWSTARTUPERRORS=1
 fi
 
-if [ -n "$ISMODULETEST" ]; then
-  TESTINGMODULEDIR="$TESTINGMODULE"
-  if [ ! -d "$TESTINGMODULEDIR" ]; then
-    TESTINGMODULEDIR="`${PWD}/../../whtree/bin/wh getmoduledir $TESTINGMODULE`"
-    if [ ! -d "$TESTINGMODULEDIR" ]; then
-      echo "Cannot find module $TESTINGMODULE - we require the base module to be checked out so we can extract dependency info"
-      echo "Alternatively give us the full path to $TESTINGMODULE"
-      exit_failure_sh "Dependency extraction failed"
-    fi
-  fi
-  if [ ! -f $TESTINGMODULEDIR/moduledefinition.xml ]; then
-    exit_failure_sh "Cannot find $TESTINGMODULEDIR/moduledefinition.xml"
-  fi
-  if [ -z "$TESTLIST" ]; then
-    TESTLIST="$TESTINGMODULENAME"
-  fi
+if [ ! -f "$TESTINGMODULEDIR/moduledefinition.xml" ]; then
+  exit_failure_sh "Cannot find $TESTINGMODULEDIR/moduledefinition.xml"
+fi
 
-  echo "Autoadded module: $TESTINGMODULE"
-  ADDMODULES="$ADDMODULES $TESTINGMODULE"
+if [ -z "$TESTLIST" ]; then
+  TESTLIST="$TESTINGMODULENAME"
+fi
 
-  echo "$(date) Pulling dependency information for module $TESTINGMODULE"
-  # TODO: shouldn't harescript just create /opt/whdata/tmp so stuff just works?
-  RunDocker exec "$TESTENV_CONTAINER1" mkdir /opt/whdata/tmp/
-  MODSETTINGS="$(RunDocker exec -i "$TESTENV_CONTAINER1" env WEBHARE_DTAPSTAGE=development WEBHARE_SERVERNAME=moduletest.webhare.net wh run mod::system/scripts/internal/tests/explainmodule.whscr < "$TESTINGMODULEDIR"/moduledefinition.xml)"
-  ERRORCODE="$?"
+echo "$(date) Pulling dependency information for module $TESTINGMODULE"
+# TODO: shouldn't harescript just create /opt/whdata/tmp so stuff just works?
+RunDocker exec "$TESTENV_CONTAINER1" mkdir /opt/whdata/tmp/
+MODSETTINGS="$(RunDocker exec -i "$TESTENV_CONTAINER1" env WEBHARE_DTAPSTAGE=development WEBHARE_SERVERNAME=moduletest.webhare.net wh run mod::system/scripts/internal/tests/explainmodule.whscr < "$TESTINGMODULEDIR"/moduledefinition.xml)"
+ERRORCODE="$?"
 
-  if [ "$ERRORCODE" != "0" ]; then
-    exit_failure_sh "Failed to get dependency info, error code: $ERRORCODE"
-  fi
+if [ "$ERRORCODE" != "0" ]; then
+  exit_failure_sh "Failed to get dependency info, error code: $ERRORCODE"
+fi
 
-  eval $MODSETTINGS
+eval $MODSETTINGS
 
-  # Early exit when the module is not meant for this WebHare version
-  if [ "$MODULENOTAPPLICABLE" != "" ]; then
-    echo ""
-    echo "$(c red)****** Module is not applicable for this WebHare version: $MODULENOTAPPLICABLE *******$(c reset)"
-    echo ""
-    exit 0
-  fi
-
-else
-  if [ -z "$TESTLIST" ]; then
-    TESTLIST="all"
-  fi
+# Early exit when the module is not meant for this WebHare version
+if [ "$MODULENOTAPPLICABLE" != "" ]; then
+  echo ""
+  echo "$(c red)****** Module is not applicable for this WebHare version: $MODULENOTAPPLICABLE *******$(c reset)"
+  echo ""
+  exit 0
 fi
 
 
@@ -570,62 +578,65 @@ do
   fi
 done
 
-if [ -n "$ADDMODULES" ]; then
-  for MODULE in $ADDMODULES; do
-    if [ ! -d "$MODULE" ]; then
-      MODULE="`${PWD}/../../whtree/bin/wh getmoduledir $MODULE`"
-      if [ -z "$MODULE" ]; then
+for MODULE in "$TESTINGMODULEDIR" $ADDMODULES; do
+  if [ ! -d "$MODULE" ]; then
+    if [ -z "$CI_JOB_TOKEN" ]; then
+      MODULEDIR="`${PWD}/../../whtree/bin/wh getmoduledir $MODULE`"
+      if [ -z "$MODULEDIR" ]; then
         exit_failure_sh "Unable to get module dir for $MODULE"
       fi
-    fi
-    MODULENAME="$(basename $MODULE)"
-    echo "Copying module $MODULENAME"
-
-    # Don't copy files that won't be committed due to default git ignore rules
-    mkdir -p "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"
-    if [ -d "$MODULE/.git" ]; then
-      if ! (cd $MODULE ; git ls-files -co --exclude-standard | tar -c -T -) | tar -x -C "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME" ; then
-        exit_failure_sh "Failed to copy $MODULE"
-      fi
+      MODULE="$MODULEDIR"
     else
-      # non-git module, just copy all
-      mkdir -p "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"
-      cp -a "$MODULE/" "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"
+      exit_failure_sh "Missing module $MODULE"
     fi
+  fi
+
+  MODULENAME="$(basename $MODULE)"
+  echo "Copying module $MODULENAME"
+
+  # Don't copy files that won't be committed due to default git ignore rules
+  mkdir -p "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"
+  if [ -d "$MODULE/.git" ]; then
+    if ! (cd $MODULE ; git ls-files -co --exclude-standard | tar -c -T -) | tar -x -C "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME" ; then
+      exit_failure_sh "Failed to copy $MODULE"
+    fi
+  else
+    # non-git module, just copy all
+    mkdir -p "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"
+    cp -a "$MODULE/" "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"
+    # TODO honor .gitignore
+    # Remove wh fixmodules managed node_modules, wh fixmodules should apply them (keeps us closer to a CI environment)
+    rm -r "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"/node_modules "${TEMPBUILDROOT}/docker-tests/modules/$MODULENAME"/webdesigns/*/node_modules 2>/dev/null
+  fi
+done
+
+echo "$(date) Running prestart"
+
+for CONTAINERID in "${CONTAINERS[@]}"; do
+  if is_atleast_version 5.2.0-dev ; then
+    DESTCOPYDIR=/opt/whdata/installedmodules/ # we don't need the intermediate /webhare-ci-modules/ anymore now we can directly access /opt/whdata/
+  else
+    DESTCOPYDIR=/opt/whmodules/
+  fi
+
+  # /. ensures that the contents are copied into the directory whether or not it exists (https://docs.docker.com/engine/reference/commandline/cp/)
+  RunDocker cp "${TEMPBUILDROOT}/docker-tests/modules/." "$CONTAINERID:$DESTCOPYDIR" || exit_failure_sh "Module copy failed!"
+
+  if [ -z "$ISMODULETEST" ] && [ -d "$BUILDDIR/build" ]; then
+    $SUDO docker cp "$BUILDDIR/build" "$CONTAINERID:/" || exit_failure_sh "Artifact copy failed!"
+  fi
+
+  # Find prehooks (TODO Move inside webhare image and perhaps have it try to follow the dependency order)
+  for SCRIPT in $(RunDocker exec "$CONTAINERID" find $DESTCOPYDIR -regex "${DESTCOPYDIR}[^/]+/scripts/hooks/ci-prestart.sh" -executable ); do
+    RunDocker exec -i "$CONTAINERID" "$SCRIPT" "$version" "$TESTINGMODULENAME" || exit_failure_sh "ci-prestart failed"
   done
-fi
 
-if [ -n "$TESTINGMODULE" ]; then
-  echo "$(date) Running prestart"
+  RunDocker exec "$CONTAINERID" rm /pause-webhare-startup || exit_failure_sh "Failed to unblock container $CONTAINERID"
+done
 
-  for CONTAINERID in "${CONTAINERS[@]}"; do
-    if [ -n "$ADDMODULES" ]; then
-      if is_atleast_version 5.2.0-dev ; then
-        DESTCOPYDIR=/opt/whdata/installedmodules/ # we don't need the intermediate /webhare-ci-modules/ anymore now we can directly access /opt/whdata/
-      else
-        DESTCOPYDIR=/opt/whmodules/
-      fi
-
-      # /. ensures that the contents are copied into the directory whether or not it exists (https://docs.docker.com/engine/reference/commandline/cp/)
-      RunDocker cp "${TEMPBUILDROOT}/docker-tests/modules/." "$CONTAINERID:$DESTCOPYDIR" || exit_failure_sh "Module copy failed!"
-    fi
-
-    if [ -z "$ISMODULETEST" ] && [ -d "$BUILDDIR/build" ]; then
-      $SUDO docker cp "$BUILDDIR/build" "$CONTAINERID:/" || exit_failure_sh "Artifact copy failed!"
-    fi
-
-    # Find prehooks (TODO Move inside webhare image and perhaps have it try to follow the dependency order)
-    for SCRIPT in $(RunDocker exec "$CONTAINERID" find $DESTCOPYDIR -regex "${DESTCOPYDIR}[^/]+/scripts/hooks/ci-prestart.sh" -executable ); do
-      RunDocker exec -i "$CONTAINERID" "$SCRIPT" "$version" "$TESTINGMODULENAME" || exit_failure_sh "ci-prestart failed"
-    done
-
-    RunDocker exec "$CONTAINERID" rm /pause-webhare-startup || exit_failure_sh "Failed to unblock container $CONTAINERID"
-  done
-
-  # Tell our cleanup script it should now just 'stop' the containers
-  TESTENV_KILLCONTAINER1=""
-  TESTENV_KILLCONTAINER2=""
-fi
+# Tell our cleanup script it should now just 'stop' the containers
+TESTENV_KILLCONTAINER1=""
+TESTENV_KILLCONTAINER2=""
 
 echo "$(date) Running fixmodules"
 for CONTAINERID in "${CONTAINERS[@]}"; do
