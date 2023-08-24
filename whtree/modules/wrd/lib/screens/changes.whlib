@@ -212,7 +212,7 @@ PUBLIC STATIC OBJECTTYPE EntityChanges EXTEND TolliumScreenBase
 
     FOREVERY (OBJECT typeobj FROM OBJECT[ this->_entity->wrdtype, ...this->_recursetypes ])
     {
-      RECORD ARRAY changes := typeobj->GetChanges(changeset, CELL[ mergechanges := this->_mergechanges, filterentities := relevantids ]);
+      RECORD ARRAY changes := typeobj->GetChanges(changeset, CELL[ mergechanges := this->_mergechanges, filterentities := relevantids, wrapobjects := TRUE ]);
 
       RECORD ARRAY entityrows :=
           SELECT entity

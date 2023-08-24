@@ -252,12 +252,12 @@ STATIC OBJECTTYPE WRDQuerySource EXTEND WRDMultiCondition
   }
 
   //Split selected attributes into fields and basefields and setup accessors for non basefields. Can be called with different jsmode
-  PUBLIC RECORD FUNCTION CreateAccessors(BOOLEAN jsmode)
+  PUBLIC RECORD FUNCTION CreateAccessors(BOOLEAN jsmode, BOOLEAN wrapobjects)
   {
     IF (LENGTH(this->selected_attributes) = 0)
       RETURN DEFAULT RECORD;
 
-    RETURN GetAccessors(this->wrd_type, this->selected_attributes, DEFAULT OBJECT, this->pvt_whfsmapper, jsmode);
+    RETURN GetAccessors(this->wrd_type, this->selected_attributes, DEFAULT OBJECT, this->pvt_whfsmapper, jsmode, wrapobjects);
   }
 
   PUBLIC RECORD ARRAY FUNCTION RecurseGetOutputColumns(VARIANT in_outputcolumns)
@@ -432,6 +432,8 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
 
     BOOLEAN jsmode;
 
+    BOOLEAN wrapobjects;
+
     // Initialize the multiquery with a single query
     // ----------------------------------------------------------------------------
     //
@@ -441,11 +443,12 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
     /** @param wrd_schema WRD schema
         @param whfsmapper WHFS mapper
     */
-    PUBLIC MACRO NEW(OBJECT wrd_schema, OBJECT whfsmapper, BOOLEAN jsmode)
+    PUBLIC MACRO NEW(OBJECT wrd_schema, OBJECT whfsmapper, BOOLEAN jsmode, BOOlEAN wrapobjects)
     {
       this->wrd_schema := wrd_schema;
       this->pvt_whfsmapper := whfsmapper;
       this->jsmode := jsmode;
+      this->wrapobjects :=wrapobjects;
       this->resultlimit := -1;
     }
 
@@ -1659,7 +1662,7 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
 
       FOREVERY (OBJECT single FROM this->singles)
       {
-        RECORD accessors := single->CreateAccessors(this->jsmode);
+        RECORD accessors := single->CreateAccessors(this->jsmode, this->wrapobjects);
         IF(NOT RecordExists(accessors))
           CONTINUE;
 
@@ -2003,10 +2006,10 @@ STATIC OBJECTTYPE WRDQueryInterfaceNormalQuery EXTEND WRDQueryInterface
       RETURN this->query->GetOutputColumns();
     }
 
-    PUBLIC INTEGER FUNCTION GetTypeForOutputcolumn(STRING colname, BOOLEAN jsmode DEFAULTSTO FALSE)
+    PUBLIC INTEGER FUNCTION GetTypeForOutputcolumn(STRING colname, BOOLEAN jsmode, BOOLEAN wrapobjects)
     {
       //NOTE this only supports single source scenario
-      RETURN TypeID(GetCell(GetDefaultRecordForSource(this->query->singles[0], jsmode), colname));
+      RETURN TypeID(GetCell(GetDefaultRecordForSource(this->query->singles[0], jsmode, wrapobjects), colname));
     }
     UPDATE PUBLIC MACRO ResetCurrentTime(DATETIME current_time DEFAULTSTO DEFAULT DATETIME)
     {
@@ -3538,19 +3541,39 @@ STATIC OBJECTTYPE WRDDBRecordValue EXTEND WRDDBIncomparableValue
 >;
 
 STATIC OBJECTTYPE WRDDBJSONValue EXTEND WRDDBIncomparableValue
-< PUBLIC UPDATE VARIANT FUNCTION GetDefaultValue()
+<
+  BOOLEAN wrapobjects;
+
+  MACRO NEW(OBJECT type, RECORD attr, RECORD options)
+  : WRDDBIncomparableValue(type, attr)
   {
+    this->wrapobjects := options.wrapobjects;
+  }
+
+  PUBLIC UPDATE VARIANT FUNCTION GetDefaultValue()
+  {
+    IF(this->wrapobjects)
+      RETURN DEFAULT OBJECT;
+
     RETURN DEFAULT RECORD;
   }
 
   PUBLIC UPDATE VARIANT FUNCTION GetFromRecord(RECORD ARRAY entity_settings, INTEGER settings_start, INTEGER settings_limit)
   {
     IF(settings_start = settings_limit)
-      RETURN DEFAULT RECORD;
+      RETURN this->GetDefaultValue();
 
-    VARIANT data := entity_settings[settings_start].rawdata != "" ? DecodeJSON(entity_settings[settings_start].rawdata) : DecodeJSONBlob(entity_settings[settings_start].blobdata);
-    IF(TypeID(data) != TypeID(RECORD))
+    VARIANT data := entity_settings[settings_start].rawdata != "" ? DecodeJSON(entity_settings[settings_start].rawdata, CELL[], [ wrapobjects := this->wrapobjects ])
+                                                                  : DecodeJSONBlob(entity_settings[settings_start].blobdata, CELL[], [ wrapobjects := this->wrapobjects ]);
+    IF(TypeID(data) = TypeID(OBJECT))
+    {
+      IF(NOT (data EXTENDSFROM JSONObject))
+        THROW NEW Exception(`Entity setting #${entity_settings[settings_start].id} incorrectly contains a non-record value`);
+    }
+    ELSE IF(TypeID(data) != TypeID(RECORD))
+    {
       THROW NEW Exception(`Entity setting #${entity_settings[settings_start].id} incorrectly contains a non-record value`);
+    }
     RETURN data;
   }
 
@@ -4026,7 +4049,7 @@ PUBLIC OBJECT FUNCTION GetAccessorForAttributeType(RECORD attrinfo, OBJECT wrd_t
     { RETURN NEW WRDDBWHFSLinkValue(wrd_type, attrinfo, options); }
 
   CASE wrd_attributetype_json
-    { RETURN NEW WRDDBJSONValue(wrd_type, attrinfo); }
+    { RETURN NEW WRDDBJSONValue(wrd_type, attrinfo, options); }
 
   DEFAULT
     { THROW NEW Exception(`Type ${GetAttributeTypeNameByTypeId(attributetype)} has not been implemented in the query interface yet`); }
@@ -4159,9 +4182,9 @@ RECORD ARRAY FUNCTION ProcessParameters(RECORD ARRAY parameters, BOOLEAN strict)
   RETURN processed_parameters;
 }
 
-RECORD FUNCTION GetDefaultRecordForSource(OBJECT querysource, BOOLEAN jsmode)
+RECORD FUNCTION GetDefaultRecordForSource(OBJECT querysource, BOOLEAN jsmode, BOOLEAN wrapobjects)
 {
-  RECORD accessors := querysource->CreateAccessors(jsmode);
+  RECORD accessors := querysource->CreateAccessors(jsmode, wrapobjects);
 
   RECORD data := GenerateBaseFields(accessors.base_fields, default_entity, jsmode);
   FOREVERY (RECORD field FROM accessors.fields)
@@ -4179,11 +4202,12 @@ PUBLIC RECORD FUNCTION GetDefaultJoinRecord(OBJECT wrdtype, RECORD outputcolumns
   options := ValidateOptions(
       [ whfsmapper :=   DEFAULT OBJECT
       , jsmode :=       FALSE
+      ,wrapobjects :=   FALSE
       ], options);
 
   OBJECT obj := NEW WRDQuerySource(wrdtype, options.whfsmapper, options.jsmode);
   obj->return_map := obj->RecurseGetoutputColumns(outputcolumns);
-  RETURN GetDefaultRecordForSource(obj, options.jsmode);
+  RETURN GetDefaultRecordForSource(obj, options.jsmode, options.wrapobjects);
 }
 
 /** Constructs a WRD query
@@ -4229,13 +4253,14 @@ PUBLIC OBJECT FUNCTION MakeWRDQuery(RECORD querydata)
     THROW NEW Exception(`Trying to execute a query on a WRD schema without specifying the type (use wrdschema->^type->RunQuery)`);
 
   FOREVERY(RECORD cellrec FROM UnpackRecord(querydata))
-    IF(cellrec.name NOT IN ["SOURCES","LINKS","PARAMS","RESULTLIMIT","WRDSCHEMA", "WHFSMAPPER", "JSMODE"])
+    IF(cellrec.name NOT IN ["SOURCES","LINKS","PARAMS","RESULTLIMIT","WRDSCHEMA", "WHFSMAPPER", "JSMODE", "WRAPOBJECTS"])
       THROW NEW Exception(`Unsupported query parameter '${cellrec.name}'`);
 
   RECORD ARRAY sources := querydata.sources;
   RECORD ARRAY links := CellExists(querydata, "LINKS") ? querydata.links : DEFAULT RECORD ARRAY;
   RECORD ARRAY parameters := CellExists(querydata, "PARAMS") ? querydata.params : DEFAULT RECORD ARRAY;
   BOOLEAN jsmode := CellExists(querydata, "JSMODE") AND querydata.jsmode;
+  BOOLEAN wrapobjects := CellExists(querydata, "wrapobjects") AND querydata.wrapobjects;
 
   // Parsed links and sources (objects)
   OBJECT ARRAY parsed_sources;
@@ -4459,7 +4484,7 @@ PUBLIC OBJECT FUNCTION MakeWRDQuery(RECORD querydata)
   OBJECT wrd_schema := parsed_sources[0]->wrd_type->wrdschema;
 
   // Build a new query object
-  OBJECT query := NEW WRDQuery(wrd_schema, whfsmapper, jsmode);
+  OBJECT query := NEW WRDQuery(wrd_schema, whfsmapper, jsmode, wrapobjects);
   query->singles := parsed_sources;
   query->links := parsed_links;
   query->parameters := parsed_parameters;
@@ -5088,12 +5113,13 @@ STRING FUNCTION FormatMoneyXSD(MONEY value)
     @cell return.base_fields List of fields with base attributes
     @cell return.fields List of fields with normal attributes
 */
-PUBLIC RECORD FUNCTION GetAccessors(OBJECT wrd_type, RECORD ARRAY selectfields, OBJECT linkgetter, OBJECT whfsmapper, BOOLEAN jsmode)
+PUBLIC RECORD FUNCTION GetAccessors(OBJECT wrd_type, RECORD ARRAY selectfields, OBJECT linkgetter, OBJECT whfsmapper, BOOLEAN jsmode, BOOLEAN wrapobjects)
 {
   RECORD options := CELL
       [ linkgetter
       , whfsmapper
       , jsmode
+      ,wrapobjects
       ];
 
   RECORD ARRAY fields, base_fields;

@@ -44,9 +44,24 @@ Terminology:
 - fields and attributes are often the same
 */
 
+CONSTANT RECORD wrd_query_options :=
+    [ when := DEFAULT DATETIME
+    , when_start := DEFAULT DATETIME
+    , when_limit := DEFAULT DATETIME
+    , historymode := "all"
+    , cachettl := 0
+    , jsmode := FALSE
+    , wrapobjects := FALSE
+    ];
+
 STRING ARRAY warnings_per_vm;
 
 INTEGER64 ARRAY entity_settings_autonumbers;
+
+RECORD FUNCTION PickEnrichQueryOptions(RECORD options)
+{
+  RETURN PickCells(options, [ "jsmode", "wrapobjects" ]);
+}
 
 INTEGER64 FUNCTION AllocEntitySettingsAutonumber()
 {
@@ -543,6 +558,7 @@ BLOB FUNCTION MapBlob(RECORD ARRAY blobmapping, RECORD change, RECORD setting)
   RECORD match  := RecordLowerBound(blobmapping, [ change := change.id, seqnr := setting.blobseqnr ], [ "CHANGE", "SEQNR" ]);
   RETURN match.found ? blobmapping[match.position].data : DEFAULT BLOB;
 }
+
 
 
 PUBLIC STATIC OBJECTTYPE WRDTypeBase
@@ -1656,17 +1672,13 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   {
     //note: we also support historymode '__getfields' (Return all entities, including temporaries) for internal use
 
-    options := ValidateOptions([ historymode :=   "all"
-                               , when :=          DEFAULT DATETIME
-                               , when_start :=    DEFAULT DATETIME
-                               , when_limit :=    DEFAULT DATETIME
-                               , joinfield :=     "WRD_ID"
-                               , cachettl := 0
-                               , jsmode :=        FALSE
-                               ], options,
-                               [ passthroughin := "enrichoptions"
-                               , optional := [ "WHEN", "WHEN_START", "WHEN_LIMIT", "CACHETTL" ]
-                               ]);
+    options := ValidateOptions( CELL[ ...wrd_query_options
+                                    , joinfield :=     "WRD_ID"
+                                    ]
+                              , options
+                              , [ passthroughin := "enrichoptions"
+                                 , optional := [ "WHEN", "WHEN_START", "WHEN_LIMIT", "CACHETTL" ]
+                                 ]);
 
     //ADDME reuse existing id cells
     INSERT CELL __joinid := options.joinfield INTO addcolumns;
@@ -1746,6 +1758,8 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     OBJECT whfsmapper;
     BOOLEAN singlecolumn;
     BOOLEAN jsmode;
+    BOOLEAN wrapobjects;
+
     IF (CellExists(querydata, "resultlimit"))
     {
       resultlimit := querydata.resultlimit;
@@ -1771,6 +1785,11 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       jsmode := querydata.jsmode;
       DELETE CELL jsmode FROM querydata;
     }
+    IF (CellExists(querydata, "wrapobjects"))
+    {
+      wrapobjects := querydata.wrapobjects;
+      DELETE CELL wrapobjects FROM querydata;
+    }
 
 
     RECORD wrdquery := [ sources := [ CELL[...querydata, type := this] ]];
@@ -1780,15 +1799,17 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       INSERT CELL whfsmapper := whfsmapper INTO wrdquery;
     IF (jsmode)
       INSERT CELL jsmode := jsmode INTO wrdquery;
+    IF (wrapobjects)
+      INSERT CELL wrapobjects := wrapobjects INTO wrdquery;
 
     OBJECT wrd_query := MakeWRDQuery(wrdquery);
     VARIANT returnvalue := wrd_query->Execute(DEFAULT RECORD);
     IF(singlecolumn)
     {
-      INTEGER returntype := wrd_query->GetTypeForOutputcolumn("RETVAL");
+      INTEGER returntype := wrd_query->GetTypeForOutputcolumn("RETVAL", FALSE, wrapobjects);
       IF (jsmode)
       {
-        INTEGER jsreturntype := wrd_query->GetTypeForOutputcolumn("RETVAL", TRUE);
+        INTEGER jsreturntype := wrd_query->GetTypeForOutputcolumn("RETVAL", TRUE, wrapobjects);
         IF (returntype != jsreturntype)
           returntype := TypeID(VARIANT);
       }
@@ -1860,13 +1881,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
     IF(find_id=0)
       RETURN DEFAULT RECORD; //Will never match, avoid the query construction
 
-    options := ValidateOptions( [ when := DEFAULT DATETIME
-                                , when_start := DEFAULT DATETIME
-                                , when_limit := DEFAULT DATETIME
-                                , historymode := "__getfields"
-                                , cachettl := 0
-                                , jsmode := FALSE
-                                ], options, [ optional := ["WHEN", "WHEN_START", "WHEN_LIMIT", "CACHETTL"]]);
+    options := ValidateOptions(CELL[ ...wrd_query_options, historymode := "__getfields" ], options, [ optional := ["WHEN", "WHEN_START", "WHEN_LIMIT", "CACHETTL"]]);
 
     RETURN this->RunQuery(CELL
         [ outputcolumns :=  fields
@@ -1884,7 +1899,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
   PUBLIC VARIANT FUNCTION GetEntityField(INTEGER find_id, STRING field, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     RECORD outputcolumns := [ result := field ];
-    RETURN (this->GetEntityFields(find_id, outputcolumns, options) ?? GetDefaultJoinRecord(this, outputcolumns, CELL[ jsmode := CellExists(options, "JSMODE") AND options.jsmode ])).result;
+    RETURN (this->GetEntityFields(find_id, outputcolumns, options) ?? GetDefaultJoinRecord(this, outputcolumns, PickEnrichQueryOptions(options))).result;
   }
 
   /////////////////////////////////////////////////////////////////////////////
@@ -2327,12 +2342,26 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
       }
       CASE wrd_attributetype_json
       {
-        IF(TypeId(val) != TYPEID(RECORD))
-          THROW NEW Exception(`Value must be of type RECORD, got ${GetTypeName(TYPEID(val))}`);
-
-        IF(RecordExists(val))
+        STRING data;
+        IF(TypeId(val) = TYPEID(OBJECT))
         {
-          STRING data := EncodeJSON(val);
+          IF(ObjectExists(val))
+          {
+            IF(NOT (val EXTENDSFROM JSONObject))
+              THROW NEW Exception(`Value for JSON field must extend from JSONObject`);
+            data := EncodeJSON(val);
+          }
+        }
+        ELSE IF (TypeId(val) = TYPEID(RECORD))
+        {
+          IF(RecordExists(val))
+            data := EncodeJSON(val);
+        }
+        ELSE
+          THROW NEW Exception(`Value must be of type RECORD or an object extending from JSONObject, got ${GetTypeName(TYPEID(val))}`);
+
+        IF(data != "")
+        {
           IF(Length(data) <= 4096)
             INSERT [ setting := 0, rawdata := data, blobdata := DEFAULT BLOB ] INTO newsets AT END;
           ELSE
@@ -2867,6 +2896,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         , __debug :=                FALSE
         , filterentities :=         INTEGER[]
         , jsmode :=                 FALSE
+        , wrapobjects :=            FALSE
         ], options);
 
     STRING ARRAY filterguids;
@@ -2910,7 +2940,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
              , sourcename :=  "rowdata"
              , subselect :=   STRING[]
              , wrapper := DEFAULT RECORD
-          FROM this->__final_attrs), linkgetter, DEFAULT OBJECT, options.jsmode);
+          FROM this->__final_attrs), linkgetter, DEFAULT OBJECT, options.jsmode, options.wrapobjects);
 
     FOREVERY (RECORD change FROM changes)
     {
