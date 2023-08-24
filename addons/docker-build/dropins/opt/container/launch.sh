@@ -40,18 +40,6 @@ fi
 chgrp whdata /opt/whdata
 chmod o-rwx /opt/whdata
 
-# Extract embedded webhare_testsuite
-if [ -n "$TESTFW_INSTALLTESTSUITE" ]; then
-  echo "$(date) Extracting module webhare_testsuite"
-  mkdir -p /opt/whdata/installedmodules/
-  if ! tar -C /opt/whdata/installedmodules/ -xf /opt/wh/whtree/webhare_testsuite.tar.gz ; then
-    echo "Failed to extract testsuite!"
-    exit 1
-  fi
-
-  echo "$(date) Finished initial webhare_testsuite preparation"
-fi
-
 # Mount needed data for restores
 if [ -f /opt/whdata/backupmountconfig ]; then
   source /opt/whdata/backupmountconfig

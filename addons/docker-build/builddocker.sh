@@ -185,23 +185,9 @@ cp -a $SOURCEDIR/{ap,blex,builder,drawlib,harescript,parsers,vendor} tocompile/
 # Fonts are also required for drawlib tests
 mv whtree/fonts tocompile/whtree/
 
-# Testsuite
-rm -rf webhare_testsuite # remove any already present testsuite
-if ! mv whtree/modules/webhare_testsuite . ; then
-  echo Extracting webhare_testsuite failed ${PWD}
-  exit 1
-fi
-
-# Compress testsuite for future use (during transition, some tests still need this)
-mkdir -p dropins/opt/wh/whtree/
-if ! tar zcf dropins/opt/wh/whtree/webhare_testsuite.tar.gz webhare_testsuite ; then
-  echo Adding webhare_testsuite failed
-  exit 1
-fi
-rm -rf webhare_testsuite
-
 cat > .dockerignore << HERE
-*/engines/pdfbox*.jar
+**/engines/pdfbox*.jar
+**/webhare_testsuite
 HERE
 
 # Create version info
