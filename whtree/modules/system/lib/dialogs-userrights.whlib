@@ -31,8 +31,8 @@ PUBLIC RECORD ARRAY FUNCTION RunUserRoleSelectDialog(OBJECT parent, RECORD optio
 
   OBJECT screen := parent->LoadScreen("mod::system/screens/userrights/dialogs.xml#selectuserrole");
 
-  IF(options.selectmultiple)
-    screen->selectmode := "multiple";
+  IF(NOT options.selectmultiple)
+    screen->selectmode := "single";
   screen->explanation := options.explanation;
 
   IF(Length(options.value) > 0)
@@ -48,7 +48,10 @@ PUBLIC RECORD ARRAY FUNCTION RunUserRoleSelectDialog(OBJECT parent, RECORD optio
       screen->unit := parent->contexts->userapi->GetUnit(parentunit);
 
     //TODO support multiple preselect but I think we need to fix the dialog first to just take IDs instead of a hard object translation. that gets easier when external callers (UT?) are cleaned
-    screen->value := OBJECT[ descr.wrdtypetag = "WHUSER_ROLE" ? parent->contexts->userapi->GetRole(options.value[0]) : parent->contexts->userapi->GetUser(options.value[0])];
+    IF(options.selectmultiple)
+      screen->value := OBJECT[ descr.wrdtypetag = "WHUSER_ROLE" ? parent->contexts->userapi->GetRole(options.value[0]) : parent->contexts->userapi->GetUser(options.value[0])];
+    ELSE
+      screen->value := descr.wrdtypetag = "WHUSER_ROLE" ? parent->contexts->userapi->GetRole(options.value[0]) : parent->contexts->userapi->GetUser(options.value[0]);
   }
   IF(options.unit != 0)
     screen->unit := parent->contexts->userapi->GetUnit(options.unit);
@@ -62,7 +65,8 @@ PUBLIC RECORD ARRAY FUNCTION RunUserRoleSelectDialog(OBJECT parent, RECORD optio
     RETURN RECORD[];
 
   RECORD ARRAY selection;
-  FOREVERY(OBJECT obj FROM screen->value)
+  OBJECT ARRAY value := options.selectmultiple ? screen->value : OBJECT[ screen->value ];
+  FOREVERY(OBJECT obj FROM value)
     IF(obj->type IN [1,3])
       INSERT [ type := obj->type = 1 ? "user" : "role", entityid := obj->entityid, authobjectid := obj->authobjectid ] INTO selection AT END;
 
