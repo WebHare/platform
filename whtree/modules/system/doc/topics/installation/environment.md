@@ -154,3 +154,6 @@ on a running WebHare or on Docker versions
 
 ### WHBUILD_NUMPROC
 Number of processors to use (the `make -j` parameter). Estimated based on CPU cores and/or memory if not set.
+
+### WHBUILD_DEBUG
+Set to build debug versions of WebHare C++ components

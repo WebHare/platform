@@ -8,7 +8,7 @@
    to directly invoke JS through syscalls without any IPC)
 */
 
-LOADLIB "mod::system/lib/tasks.whlib";
+LOADLIB "mod::system/lib/internal/tasks/callasync.whlib";
 
 RECORD ARRAY libcache; //cache opened instances
 

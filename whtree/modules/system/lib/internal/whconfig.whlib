@@ -3,6 +3,7 @@ LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::xml/xsd.whlib";
 LOADLIB "wh::os.whlib";
@@ -12,7 +13,6 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/registry.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
-LOADLIB "mod::system/lib/internal/tasks/callasync.whlib";
 
 PUBLIC CONSTANT STRING ARRAY systemservertypes := ["production","acceptance","test","development"];
 CONSTANT STRING ARRAY servicestates := ["startup","started","poststartdone"];
@@ -363,5 +363,5 @@ ASYNC FUNCTION ReadWholeProcessOutput(OBJECT process)
 
 PUBLIC MACRO UpdateWebHareConfigJSONFile()
 {
-  WaitForPromise(CallAsync("@mod-system/js/internal/generation/gen_config.ts#updateWebHareConfigFile", VARIANT[[ verbose := IsDebugTagEnabled("startup") ]]));
+  WaitForPromise(ImportJS("@mod-system/js/internal/generation/gen_config.ts")->updateWebHareConfigFile([ verbose := IsDebugTagEnabled("startup") ]));
 }

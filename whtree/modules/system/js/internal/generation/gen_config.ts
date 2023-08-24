@@ -166,7 +166,7 @@ export function updateWebHareConfigWithoutDB(oldconfig: PartialConfigFile): Conf
   };
 }
 
-export async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean): Promise<ConfigFile> {
+async function updateWebHareConfig(oldconfig: PartialConfigFile, withdb: boolean): Promise<ConfigFile> {
   const finalconfig: ConfigFile = updateWebHareConfigWithoutDB(oldconfig);
 
   if (!withdb)
@@ -268,7 +268,7 @@ export function registerUpdateConfigCallback(cb: () => void) {
   updateCallbacks.push(cb);
 }
 
-export async function updateWebHareConfigFile(withdb: boolean) {
+export async function updateWebHareConfigFile({ verbose = false, nodb = false }: { verbose?: boolean; nodb?: boolean } = {}) {
   const dataroot = appendSlashWhenMissing(process.env.WEBHARE_DATAROOT ?? "");
   if (!dataroot)
     throw new Error("Invalid WEBHARE_DATAROOT");
@@ -281,7 +281,7 @@ export async function updateWebHareConfigFile(withdb: boolean) {
     oldconfig = JSON.parse(fs.readFileSync(file).toString());
   }
 
-  const newconfig = await updateWebHareConfig(oldconfig, withdb);
+  const newconfig = await updateWebHareConfig(oldconfig, !nodb);
   if (await updateDir(dir, [{ type: "file", name: "config.json", data: [] }], true, () => JSON.stringify(newconfig))) {
     for (const cb of [...updateCallbacks])
       cb();

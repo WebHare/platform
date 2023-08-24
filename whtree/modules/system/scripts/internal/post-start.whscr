@@ -4,6 +4,7 @@ LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::promise.whlib";
 
@@ -15,7 +16,6 @@ LOADLIB "mod::system/lib/internal/moduledefparser.whlib";
 LOADLIB "mod::system/lib/internal/backend/backendsite.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/modules/migrations.whlib";
-LOADLIB "mod::system/lib/tasks.whlib";
 
 
 BOOLEAN debug;
@@ -129,11 +129,12 @@ IF (IsDatabaseWritable())
   trans->CommitWork();
 
   // Rebuild various webhare pregenerated files so they are available before poststart completes (TODO we may need to generate non type-info stubs for missing files so scripts have something to import)
-  WaitForPromise(CreatePromiseAll([ CallAsync("@mod-system/js/internal/generation/gen_config.ts#updateWebHareConfigFile", [[ verbose := IsDebugTagEnabled("startup") ]])
-                                  , CallAsync("@mod-system/js/internal/generation/gen_whdb.ts#updateAllModuleTableDefs", [[ verbose := IsDebugTagEnabled("startup") ]])
-                                  , CallAsync("@mod-system/js/internal/generation/gen_wrd.ts#updateAllModuleWRDDefs", [[ verbose := IsDebugTagEnabled("startup") ]])
-                                  , CallAsync("@mod-system/js/internal/generation/gen_openapi.ts#updateAllModuleOpenAPIDefs", [[ verbose := IsDebugTagEnabled("startup") ]])
-                                  ]));
+  WaitForPromise(CreatePromiseAll(
+      OBJECT[ ImportJS("@mod-system/js/internal/generation/gen_config.ts")->updateWebHareConfigFile([ verbose := IsDebugTagEnabled("startup") ])
+            , ImportJS("@mod-system/js/internal/generation/gen_whdb.ts")->updateAllModuleTableDefs([ verbose := IsDebugTagEnabled("startup") ])
+            , ImportJS("@mod-system/js/internal/generation/gen_wrd.ts")->updateAllModuleWRDDefs([ verbose := IsDebugTagEnabled("startup") ])
+            , ImportJS("@mod-system/js/internal/generation/gen_openapi.ts")->updateAllModuleOpenAPIDefs([ verbose := IsDebugTagEnabled("startup") ])
+            ]));
 
   trans->BeginWork();
   LogDebug("system:poststart", "Start PreflightChecks");

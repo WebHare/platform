@@ -77,6 +77,7 @@ STATIC OBJECTTYPE SFTPConnection
         , ...(this->ignorecertificate ? [ "set ssl:verify-certificate no" ] : STRING[])
         , `set net:max-retries 1`
         , `set sftp:auto-confirm yes`
+        , `set sftp:connect-program "ssh -a -x -o StrictHostKeyChecking=no"` //workaround for https://bugs.debian.org/cgi-bin/bugreport.cgi?bug=964953 - but we should probably just remove ssh.whlib and switch to https://www.npmjs.com/package/ssh2
         , `connect ${this->Escape(this->ConstructConnectURL())}`
         , ...(ext_dir = "" ? STRING[] : [ `cd "${ext_dir}"` ])
         , `${options.command} ${this->Escape(options.command = "put" ? options.localpath : extfile)} -o ${this->Escape(options.command = "put" ? extfile : options.localpath)}`

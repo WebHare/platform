@@ -57,8 +57,11 @@ fi
 
 if [ -n "$RUNSHRINKWRAP" ]; then
   #TODO Merge both with us?
+  logWithTime "Shrinkwrap: fixup_modules"
   modules/system/scripts/internal/fixup_modules.sh || die "Unable to fixup the modules"
-  exec modules/system/scripts/internal/create_shrinkwrap.sh || die "Unable to start create_shrinkwrap.sh"
+  logWithTime "Shrinkwrap: create_shrinkwrap"
+  modules/system/scripts/internal/create_shrinkwrap.sh || die "Unable to start create_shrinkwrap.sh"
 fi
 
+logWithTime "Fianlize done"
 exit 0
