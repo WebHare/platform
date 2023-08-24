@@ -281,9 +281,11 @@ export async function updateWebHareConfigFile({ verbose = false, nodb = false }:
     oldconfig = JSON.parse(fs.readFileSync(file).toString());
   }
 
+  // process.stderr.write((new Date).toString() + " Starting config update\n");
   const newconfig = await updateWebHareConfig(oldconfig, !nodb);
   if (await updateDir(dir, [{ type: "file", name: "config.json", data: [] }], true, () => JSON.stringify(newconfig))) {
     for (const cb of [...updateCallbacks])
       cb();
   }
+  // process.stderr.write((new Date).toString() + " Done config update, modules: " + Object.keys(newconfig.public.module).join(", ") + "\n");
 }

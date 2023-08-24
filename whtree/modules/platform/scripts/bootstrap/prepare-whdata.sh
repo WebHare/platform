@@ -5,18 +5,13 @@
 #
 # We need to be in shell script as TypeScript isn't available yet - we're bootstrapping TS support!
 
-# Directly invokable using: platform/scripts/bootstrap/prepare-whdata.sh
-#
-
 FORCE=""
 VERBOSE=""
 
 while [[ $1 =~ ^-.* ]]; do
   if [ "$1" == "--force" ]; then
-    shift
     FORCE="1"
   elif [ "$1" == "--verbose" ]; then
-    shift
     VERBOSE="1"
   else
     echo "Illegal option $1"
@@ -35,7 +30,7 @@ ensure_link()
 
   currentdest="$(readlink $2)"
   if [ "$currentdest" != "$1" ]; then
-    echo "Fixing $2 pointing to $currentdest but it should point to $1"
+    echo "Fixing $2 pointing to $currentdest but it should point to $1" 1>&2
     rm "$2" # we need to rm first if we want to ensure a slash at the end
     ln -sf "$1" "$2"
   fi
@@ -47,8 +42,9 @@ if [ -z "$WEBHARE_DATAROOT" ]; then
   exit 1
 fi
 
-if [ -z "$FORCE" ] && [ -h "$WEBHARE_DATAROOT/node_modules/@webhare" ] && [ -f "$WEBHARE_DATAROOT/storage/system/generated/config/config.json" ]; then
-  [ -n "$VERBOSE" ] && echo "prepare-whdata: it looks like $WEBHARE_DATAROOT has already been prepared"
+CONFIGJSON="$WEBHARE_DATAROOT/storage/system/generated/config/config.json"
+if [ -z "$FORCE" ] && [ -h "$WEBHARE_DATAROOT/node_modules/@webhare" ] && [ -f "$CONFIGJSON" ]; then
+  [ -n "$VERBOSE" ] && echo "prepare-whdata: it looks like $WEBHARE_DATAROOT has already been prepared" 1>&2
   exit 0
 fi
 
@@ -64,7 +60,7 @@ ensure_link "${WEBHARE_DIR}/jssdk/" "$WEBHARE_DATAROOT/node_modules/@webhare"
 
 # Update/generate whdata/storage/system/generated/config/config.json - C++ will need it too for the module mapping
 if ! wh update-generated-files --update=config --nodb "${STARTUPOPTIONS[@]}"; then
-  echo "Failed to update the configuration file, aborting"
+  echo "Failed to update the configuration file, aborting"  1>&2
   exit 1
 fi
 

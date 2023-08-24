@@ -63,5 +63,5 @@ if [ -n "$RUNSHRINKWRAP" ]; then
   modules/system/scripts/internal/create_shrinkwrap.sh || die "Unable to start create_shrinkwrap.sh"
 fi
 
-logWithTime "Fianlize done"
+logWithTime "Finalize done"
 exit 0
