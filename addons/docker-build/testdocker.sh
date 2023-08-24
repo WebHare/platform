@@ -469,7 +469,7 @@ if [ -z "$ISMODULETEST" ]; then # NOTE: we *also* know we're running 5.4 then, a
     TESTLIST="all"
   fi
 else
-  TESTINGMODULEDIR="$TESTINGMODULE" # we look in th ecurrent directory first
+  TESTINGMODULEDIR="$TESTINGMODULE" # we look in the current directory first
 
   if [ ! -d "$TESTINGMODULEDIR" ]; then
     if [ -z "$CI_JOB_TOKEN" ]; then #doesn't appear to be CI, so give wh a shot to expand to the full module name
