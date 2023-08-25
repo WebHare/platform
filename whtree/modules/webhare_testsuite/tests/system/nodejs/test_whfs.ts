@@ -114,6 +114,8 @@ async function testWHFS() {
 
   const ensuredfolder = await tmpfolder.ensureFolder("sub1");
   test.eq("sub1", ensuredfolder.name);
+  test.eq("sub1", (await tmpfolder.ensureFolder("sub1")).name);
+  test.eq("sub1", (await tmpfolder.ensureFolder("sub1", {})).name);
   const ensuredfolder2 = await tmpfolder.ensureFolder("sub1");
   test.eq(ensuredfolder.id, ensuredfolder2.id);
 

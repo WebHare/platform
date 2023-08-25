@@ -179,6 +179,9 @@ class WHFSObject {
       storedata = metadata as Updateable<WebHareDB, "system.fs_objects">;
     }
 
+    if (!Object.keys(storedata).length)
+      return; //nothing to update
+
     await db<WebHareDB>()
       .updateTable("system.fs_objects")
       .where("parent", "=", this.id)
