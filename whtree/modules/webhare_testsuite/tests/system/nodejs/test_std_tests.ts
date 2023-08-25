@@ -322,6 +322,9 @@ async function testStrings() {
   test.eq("\n", std.decodeString("<br />", "html"), "Verify HareScript's <br /> is decoded");
   test.eq("\n", std.decodeString("<br>", "html"), "Verify our <br> is decoded");
   //TODO strip all html, HS DecodeHTML learned that too?
+
+  test.eq(JSON.stringify({ a: { b: 42 } }), std.stableStringify({ a: { b: 42 } }));
+  test.eq(std.stableStringify({ a1: { b1: 45, b2: 43 }, a2: 44 }), std.stableStringify({ a2: 44, a1: { b2: 43, b1: 45 } }));
 }
 
 async function testCollections() {

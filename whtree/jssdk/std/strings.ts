@@ -117,3 +117,19 @@ export function decodeString(str: string, encoding: StringEncodings): string {
 
   throw new Error(`Invalid encoding '${encoding}'`);
 }
+
+function stableReplacer(this: unknown, key: unknown, value: unknown) {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return Object.fromEntries(Object.entries(value).sort((lhs, rhs) => lhs < rhs ? -1 : lhs === rhs ? 0 : 1));
+  }
+  return value;
+}
+
+/** Encode as JSON with sorted keys for stable comparison */
+export function stableStringify(arg: unknown, replacer?: (this: unknown, key: unknown, value: unknown) => unknown, space?: string | number) {
+  // eslint-disable-next-line @typescript-eslint/no-invalid-this -- a replacer needs a forwarded this
+  const usereplacer = !replacer ? stableReplacer : function (this: unknown, key: unknown, value: unknown) {
+    return stableReplacer.call(this, key, replacer!.call(this, key, value));
+  };
+  return JSON.stringify(arg, usereplacer, space);
+}
