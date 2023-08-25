@@ -524,14 +524,12 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
         break;
       }
 
-      if (!(value instanceof HareScriptMemoryBlob))
-        throw new Error(`encodeHSON only supports HareScriptMemoryBlob for blobs`); //as we can't await
-
+      const data = Buffer.from((value as unknown as HareScriptBlob).tryArrayBufferSync());
       if (blobs) {
-        blobs.push(value.data!);
+        blobs.push(data);
         writer.writeU32(blobs.length);
       } else {
-        writer.writeBinary(value.data!);
+        writer.writeBinary(data);
       }
     } break;
     default: {
@@ -617,10 +615,11 @@ function encodeHSONInternal(value: IPCMarshallableData, needtype?: VariableType)
         retval = `b""`;
         break;
       }
-
-      if (!(value instanceof HareScriptMemoryBlob))
-        throw new Error(`encodeHSON only supports HareScriptMemoryBlob for blobs`); //as we can't await
-      retval = `b"` + value.data!.toString("base64") + `"`;
+      if (value instanceof HareScriptMemoryBlob)
+        retval = `b"` + value.data!.toString("base64") + `"`;
+      else {
+        retval = `b"` + Buffer.from((value as unknown as HareScriptBlob).tryArrayBufferSync()).toString("base64") + `"`;
+      }
     } break;
     case VariableType.Integer64: retval = "i64 " + (value as number | bigint).toString(); break;
     case VariableType.Integer: retval = (value as number).toString(); break;

@@ -29,7 +29,7 @@ class HSVMBlob implements HareScriptBlob {
     this.size = size;
   }
 
-  async arrayBuffer(): Promise<ArrayBuffer> {
+  tryArrayBufferSync(): ArrayBuffer {
     if (!this.id)
       throw new Error(`This blob has already been closed`);
 
@@ -47,6 +47,10 @@ class HSVMBlob implements HareScriptBlob {
       this.vm.wasmmodule._free(buffer);
       this.vm.wasmmodule._HSVM_BlobClose(this.vm.hsvm, openblob);
     }
+  }
+
+  async arrayBuffer(): Promise<ArrayBuffer> {
+    return this.tryArrayBufferSync();
   }
 
   async text(): Promise<string> {
