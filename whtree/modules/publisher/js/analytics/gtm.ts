@@ -46,7 +46,7 @@ export function setVariables(vars: DataLayerVars) {
 }
 
 /* Send an event to the data layer. Returns a promise that will resolve when the event is sent, or after a timeout of 200ms */
-export function sendEvent(event: string, vars: Record<string, string | number | boolean | null> = {}) {
+export function sendEvent(event: string, vars: DataLayerVars = {}) {
   const defer = createDeferred();
   try {
     window.dataLayer.push({ event: event, eventCallback: () => defer.resolve(false), ...vars });
