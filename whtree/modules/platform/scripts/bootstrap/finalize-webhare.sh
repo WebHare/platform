@@ -19,7 +19,7 @@ while [[ $1 =~ ^-.* ]]; do
 done
 
 cd "${BASH_SOURCE%/*}/../../../.." || exit 1  #take us to whtree/
-source "modules/platform/scripts/bootstrap/bootstrap-functions.sh"
+source "lib/wh-functions.sh"
 
 [ -f package.json ] || die "Failed ot navigate to whtree directory"
 
