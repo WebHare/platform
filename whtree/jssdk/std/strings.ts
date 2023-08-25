@@ -133,3 +133,29 @@ export function stableStringify(arg: unknown, replacer?: (this: unknown, key: un
   };
   return JSON.stringify(arg, usereplacer, space);
 }
+
+/** Generate a slug from a (suggested) (file)name
+ * @param text - Text to convert
+ * @param separator - Separator to use between words (defaults to ':')
+ * @param keep - Set of characters to keep in addition to a-z0-9
+ * @returns Slugified text or null if we couldn't generate anything reeadable
+ */
+export function slugify(text: string, { separator = "-", keep = "" }: {
+  separator?: string;
+  keep?: string;
+} = {}): string | null {
+  //This function mixes HS getSafeName with a few more modern approaches
+  const keepclass = `[^a-z0-9${escapeRegExp(keep)}]`;
+  text = text
+    .normalize('NFD')                   // split an accented letter in the base letter and the acent
+    // eslint-disable-next-line no-control-regex
+    .replaceAll(/[\u0000-\u001F]/g, '')
+    .replaceAll(/[\u0300-\u036f]/g, '')   // remove all previously split accents
+    .replaceAll(/ß/g, 'ss')               // german ss
+    .toLowerCase()
+    .replace(new RegExp(`^${keepclass}+`), "") //replace bad characters at the start
+    .replace(new RegExp(`${keepclass}+$`), "") //.. and end
+    .replaceAll(new RegExp(`${keepclass}+`, "g"), separator); // replace all non alphanumeric/space with a single dash
+
+  return text || null; //we return 'null' on purpose so callers realize we won't necessarily give them a string!
+}
