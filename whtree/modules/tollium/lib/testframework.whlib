@@ -1391,13 +1391,13 @@ OBJECT FUNCTION LookupByTitle(OBJECT screen, STRING text, BOOLEAN islast, STRING
   INTEGER expectmatches := 1;
   INTEGER selectmatch := 1;
 
-  IF (text LIKE "*[*/*]")
+  IF (text LIKE "*[*/*]" OR text LIKE "*[*of*]")
   {
     INTEGER qpos := SearchLastSubString(text, "[");
-    STRING ARRAY parts := Tokenize(SubString(text, qpos + 1, LENGTH(text) - qpos - 2), "/");
+    STRING ARRAY parts := Tokenize(Substitute(SubString(text, qpos + 1, LENGTH(text) - qpos - 2), "of", "/"), "/");
     text := Left(text, qpos);
-    expectmatches := ToInteger(parts[1], 0);
-    selectmatch := ToInteger(parts[0], 0);
+    expectmatches := ToInteger(TrimWhitespace(parts[1]), 0);
+    selectmatch := ToInteger(TrimWhitespace(parts[0]), 0);
     IF (expectmatches <= 0 OR selectmatch <= 0 OR selectmatch > expectmatches)
       THROW NEW Exception(`Illegal match nr selector: ${EncodeJSON(`[${Detokenize(parts, "/")}]`)}`);
   }
