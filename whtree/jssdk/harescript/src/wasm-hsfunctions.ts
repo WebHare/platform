@@ -99,6 +99,8 @@ class HSIPCPort extends OutputObjectBase {
   }
   close() {
     this.port.close();
+    for (const endpoint of this.endpoints)
+      endpoint.close();
     super.close();
   }
 }
