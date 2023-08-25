@@ -290,6 +290,8 @@ export class WASMModule extends WASMModuleBase {
   }
 
   registerExternalMacro(signature: string, macro: (vm: HareScriptVM, ...params: HSVMVar[]) => void): void {
+    if (!macro.name)
+      Object.defineProperty(macro, "name", { value: signature });
     const unmangled = unmangleFunctionName(signature);
     const id = this.externals.length;
     this.externals.push({ name: signature, parameters: unmangled.parameters.length, macro });
@@ -299,6 +301,8 @@ export class WASMModule extends WASMModuleBase {
   }
 
   registerExternalFunction(signature: string, func: (vm: HareScriptVM, id_set: HSVMVar, ...params: HSVMVar[]) => void): void {
+    if (!func.name)
+      Object.defineProperty(func, "name", { value: signature });
     const unmangled = unmangleFunctionName(signature);
     const id = this.externals.length;
     this.externals.push({ name: signature, parameters: unmangled.parameters.length, func });
@@ -308,6 +312,8 @@ export class WASMModule extends WASMModuleBase {
   }
 
   registerAsyncExternalMacro(signature: string, asyncmacro: (vm: HareScriptVM, ...params: HSVMVar[]) => Promise<void>): void {
+    if (!asyncmacro.name)
+      Object.defineProperty(asyncmacro, "name", { value: signature });
     const unmangled = unmangleFunctionName(signature);
     const id = this.externals.length;
     this.externals.push({ name: signature, parameters: unmangled.parameters.length, asyncmacro });
@@ -317,6 +323,8 @@ export class WASMModule extends WASMModuleBase {
   }
 
   registerAsyncExternalFunction(signature: string, asyncfunc: (vm: HareScriptVM, id_set: HSVMVar, ...params: HSVMVar[]) => Promise<void>): void {
+    if (!asyncfunc.name)
+      Object.defineProperty(asyncfunc, "name", { value: signature });
     const unmangled = unmangleFunctionName(signature);
     const id = this.externals.length;
     this.externals.push({ name: signature, parameters: unmangled.parameters.length, asyncfunc });
