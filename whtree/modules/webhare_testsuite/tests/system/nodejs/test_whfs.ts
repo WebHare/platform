@@ -19,6 +19,7 @@ async function testWHFS() {
   test.assert(!whfs.isValidName("\r"));
   test.assert(!whfs.isValidName("\u0000"));
   test.assert(!whfs.isValidName("\u0001"));
+  test.assert(whfs.isValidName(".doc"), "'dot' files are okay");
 
   await test.throws(/No such site 'webhare_testsuite.nosuchsite'/, whfs.openSite("webhare_testsuite.nosuchsite"));
   test.eq(null, await whfs.openSite("webhare_testsuite.nosuchsite", { allowMissing: true }));
@@ -66,6 +67,9 @@ async function testWHFS() {
 
   const list2 = await testpagesfolder.list(["type"]);
   test.eq("http://www.webhare.net/xmlns/publisher/richdocumentfile", list2.find(_ => _.name === 'staticpage-ps-af')?.type);
+
+  test.eq({ id: markdownfile.id, name: markdownfile.name, isFolder: false }, (await testpagesfolder.list()).find(e => e.name == markdownfile.name), "Verify list() works without any keys");
+  test.eq({ id: markdownfile.id, name: markdownfile.name, isFolder: false }, (await testpagesfolder.list([])).find(e => e.name == markdownfile.name), "Verify list() works with empty keys");
 
   //Compare other opening routes
   test.eq(markdownfile.id, (await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage")).id);
@@ -134,7 +138,90 @@ async function testSiteProfiles() {
   test.eq("mod::webhare_testsuite/webdesigns/basetest/lib/basetest.whlib#BaseTestDesign", publicationsettings.objectname);
 }
 
+async function testGenerateUniqueName() {
+  const tmpfolder = await whfs.openFolder("site::webhare_testsuite.testsite/tmp");
+
+  await whdb.beginWork();
+  const oldfolder = await tmpfolder.openFolder("uniquenames", { allowMissing: true });
+  if (oldfolder)
+    await oldfolder.delete();
+
+  const uniquenamefolder = await tmpfolder.createFolder("uniquenames");
+  const l256a = "aaaa".repeat(256 / 4);
+  const r240a = l256a.substring(0, 236) + ".doc";
+  const r240b = l256a.substring(0, 235) + "-9.doc";
+  const r240c = l256a.substring(0, 235) + "-9.txt";
+
+  const fileids: Record<string, number> = {};
+  for (const name of [
+    "a.tar.gz",
+    "a.doc",
+    "a-2.tar.gz",
+    "b.doc",
+    "b-2.doc",
+    "b-4.doc",
+    "b-5.doc",
+    "d--2.doc",
+    "e-0.doc",
+    "f-a.doc",
+    "g-1.doc",
+    "h.doc",
+    "h-1.doc",
+    "unnamed",
+    r240b,
+    r240c,
+    "webhare.txt",
+    ".doc"
+  ])
+    fileids[name] = (await uniquenamefolder.createFile(name)).id;
+  await whdb.commitWork();
+
+  test.eq("a-3.tar.gz", await uniquenamefolder.generateName("a.tar.gz"));
+  test.eq("a-3.tar.gz", await uniquenamefolder.generateName("^a.tar.gz"));
+  test.eq("a-3.tar.gz", await uniquenamefolder.generateName("a-1.tar.gz"));
+  test.eq("a-3.tar.gz", await uniquenamefolder.generateName("a-1.tar.gz"));
+  test.eq("a-2.tar.gz", await uniquenamefolder.generateName("a-2.tar.gz", { ignoreObject: fileids["a-2.tar.gz"] }));
+  test.eq("a-3.tar.gz", await uniquenamefolder.generateName("a-3.tar.gz"));
+  test.eq("a-4.tar.gz", await uniquenamefolder.generateName("a-4.tar.gz"));
+  test.eq("a-2.doc", await uniquenamefolder.generateName("a.doc"));
+  test.eq("a-2.doc", await uniquenamefolder.generateName("a-1.doc"));
+  test.eq("a-2.doc", await uniquenamefolder.generateName("a-2.doc"));
+  test.eq("a-3.doc", await uniquenamefolder.generateName("a-3.doc"));
+  test.eq("b-3.doc", await uniquenamefolder.generateName("b.doc"));
+  test.eq("b-3.doc", await uniquenamefolder.generateName("b-1.doc"));
+  test.eq("b-3.doc", await uniquenamefolder.generateName("b-2.doc"));
+  test.eq("b-3.doc", await uniquenamefolder.generateName("b-3.doc"));
+  test.eq("b-6.doc", await uniquenamefolder.generateName("b-4.doc"));
+  test.eq("b-6.doc", await uniquenamefolder.generateName("b-5.doc"));
+  test.eq("b-6.doc", await uniquenamefolder.generateName("b-6.doc"));
+  test.eq("c.doc", await uniquenamefolder.generateName("c.doc"));
+  test.eq("c-2.doc", await uniquenamefolder.generateName("c--2.doc"));
+  test.eq("c.doc", await uniquenamefolder.generateName("c--1.doc")); //this is a weird corner case either way..
+  test.eq("d.doc", await uniquenamefolder.generateName("d--1.doc"));
+  test.eq("d-0.doc", await uniquenamefolder.generateName("d-0.doc"));
+  test.eq("e-0-2.doc", await uniquenamefolder.generateName("e-0.doc"));
+  test.eq("f-a-2.doc", await uniquenamefolder.generateName("f-a.doc"));
+  test.eq("g.doc", await uniquenamefolder.generateName("g.doc"));
+  test.eq("g.doc", await uniquenamefolder.generateName("g-1.doc"));
+  test.eq("h-2.doc", await uniquenamefolder.generateName("h.doc"));
+  test.eq("h-2.doc", await uniquenamefolder.generateName("h-1.doc"));
+  test.eq("unnamed-2", await uniquenamefolder.generateName("unnamed"));
+  test.eq("doc", await uniquenamefolder.generateName(".doc"));
+  test.eq(r240a, await uniquenamefolder.generateName(r240a));
+  test.eq("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa.doc", await uniquenamefolder.generateName("a" + r240a));
+  test.eq("webhare.doc", await uniquenamefolder.generateName(r240b)); // overload of aa...aa (10).doc (241 chars)
+  test.eq("webhare-2.txt", await uniquenamefolder.generateName(r240c)); // overload of aa...aa (10).doc (241 chars)
+  test.eq("fail.doc", await uniquenamefolder.generateName("fail?.doc"));
+  test.eq("fail.txt", await uniquenamefolder.generateName("fail?.txt"));
+  test.eq("index.html", await uniquenamefolder.generateName("^index.html"));
+
+  test.eq("bachelor-colloquium-owk-jacqueline-aalberssamenwerking-in-collaborative-data-teams.-onderzoek-naar-typen-van-samenwerking-en-bevorderende-en-belemmerende-factoren-in-data-teams-ter-verbetering-van-het-onderwijs-en-nog-een-heel-lang-verhaa"
+    , await uniquenamefolder.generateName("bachelor-colloquium-owk-jacqueline-aalberssamenwerking-in-collaborative-data-teams. -onderzoek naar typen van samenwerking en bevorderende en belemmerende factoren in data teams ter verbetering van het onderwijs- en nog een heel lang verhaal dat we misschien niet willen weten omdat het zo lang is"));
+
+}
+
 test.run([
   testWHFS,
-  testSiteProfiles
+  testSiteProfiles,
+  testGenerateUniqueName
 ]);
