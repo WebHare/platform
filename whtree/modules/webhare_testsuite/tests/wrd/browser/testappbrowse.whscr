@@ -35,10 +35,30 @@ ASYNC MACRO TestWRDBrowser()
   TT("results_frees")->selection := TT("results_frees")->rows;
   topscreen->frame->focused := TT("results_frees");
 
+  ///////////////////////
+  //
+  // STORY: Create history, test it, test restoring it
+  INTEGER appbrowse := testfw->GetWRDSchema()->^wrd_person->Search("WRD_LASTNAME", "TestAppBrowse");
+  TestEQ(TRUE, appbrowse != 0);
+
+  testfw->BeginWork();
+  testfw->GetWRDSchema()->^wrd_person->UpdateEntity(appbrowse, [ richie := wrdtest_withembedded ]);
+  testfw->CommitWork();
+
+  testfw->BeginWork();
+  testfw->GetWRDSchema()->^wrd_person->UpdateEntity(appbrowse, [ richie := DEFAULT RECORD]);
+  testfw->CommitWork();
+
   //Open history
   AWAIT ExpectScreenChange(+1, PTR TTClick("showhistory"));
-  TestEq(2, Length(TT("changes")->rows)); // one changeset with one changed entity
-  TT("changes")->selection := TT("changes")->rows[1];
+  TestEq(6, Length(TT("changes")->rows)); // one changeset with one changed entity
+  TT("changes")->selection := TT("changes")->rows[3]; //select the 2nd most recent change
+  TT("changedvalues")->selection := SELECT * FROM TT("changedvalues")->rows WHERE prop="richie";
+  TestEq(TRUE, RecordExists(TT("changedvalues")->selection));
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("restorenewvalue"));
+  TestEq(wrdtest_withembedded.htmltext, testfw->GetWRDSchema()->^wrd_person->GetEntityField(appbrowse, "RICHIE").htmltext);
+  AWAIT ExpectAndAnswerMessageBox("yes", PTR TTClick("restoreoldvalue"));
+  TestEq(DEFAULT RECORD, testfw->GetWRDSchema()->^wrd_person->GetEntityFielD(appbrowse, "RICHIE"));
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 
   AWAIT ExpectScreenChange(+1, PTR TTClick("mergeentity"));

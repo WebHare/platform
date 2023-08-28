@@ -414,6 +414,8 @@
   </textgroup>
   <textgroup gid="entitychanges" limitlanguages="en nl">   <!-- entitychanges -->
     <text tid="changetype">Change type</text>
+    <text tid="confirmnewrestore">Are you sure you want to set the 'new' value of this history item as the current entity value ?</text>
+    <text tid="confirmoldrestore">Are you sure you want to set the 'old' value of this history item as the current entity value ?</text>
     <text tid="creation">new value</text>
     <text tid="entitychanges">Changes</text>
     <text tid="keepinghistory">Change history is kept for <param p="1"/> day(s)</text>
@@ -421,6 +423,8 @@
     <text tid="notkeepinghistory">Change history is currently not being kept</text>
     <text tid="oldvalue">Old</text>
     <text tid="prop">Property</text>
+    <text tid="restorenewvalue">Set new value as current</text>
+    <text tid="restoreoldvalue">Set old value as current</text>
     <text tid="title">Title</text>
     <text tid="type">Type</text>
     <text tid="update">update</text>
