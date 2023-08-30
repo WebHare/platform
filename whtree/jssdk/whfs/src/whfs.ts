@@ -4,6 +4,10 @@ import { decodeScanData, RichFileDescriptor } from "@webhare/services/src/richfi
 import { getType, FileTypeInfo, describeContentType, unknownfiletype, normalfoldertype } from "./contenttypes";
 import { defaultDateTime } from "@webhare/hscompat/datetime";
 import { CSPContentType } from "./siteprofiles";
+import { extname, parse } from 'node:path';
+import { isValidName } from "./support";
+import * as std from "@webhare/std";
+
 export { describeContentType } from "./contenttypes";
 export { Tag, TagManager, openTagManager } from "./tagmanager";
 export { isValidName } from "./support";
@@ -179,6 +183,9 @@ class WHFSObject {
       storedata = metadata as Updateable<WebHareDB, "system.fs_objects">;
     }
 
+    if (!Object.keys(storedata).length)
+      return; //nothing to update
+
     await db<WebHareDB>()
       .updateTable("system.fs_objects")
       .where("parent", "=", this.id)
@@ -232,8 +239,12 @@ class WHFSFolder extends WHFSObject {
 
   get indexDoc() { return this.dbrecord.indexdoc; }
 
-  async list<K extends keyof ListableFsObjectRow>(keys: K[]): Promise<Array<Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder">>> {
-    const getkeys = new Set<keyof ListableFsObjectRow>(["id", "name", "isFolder", ...keys]);
+  //typescript doesn't understand an empty list? expicitly declare it not to contain any other keys
+  async list(): Promise<Array<Pick<ListableFsObjectRow, "id" | "name" | "isFolder">>>;
+  async list<K extends keyof ListableFsObjectRow>(keys: K[]): Promise<Array<Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder">>>;
+
+  async list<K extends keyof ListableFsObjectRow>(keys?: K[]): Promise<Array<Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder">>> {
+    const getkeys = new Set<keyof ListableFsObjectRow>(["id", "name", "isFolder", ...(keys || [])]);
     const selectkeys = new Set<keyof FsObjectRow>;
 
     for (const k of getkeys) {
@@ -277,7 +288,7 @@ class WHFSFolder extends WHFSObject {
     this._doUpdate(metadata);
   }
 
-  private async doCreate(name: string, type: CSPContentType, metadata: CreateFileMetadata | CreateFolderMetadata) {
+  private async doCreate(name: string, type: CSPContentType, metadata?: CreateFileMetadata | CreateFolderMetadata) {
     const creationdate = new Date();
     const retval = await db<WebHareDB>()
       .insertInto("system.fs_objects")
@@ -286,12 +297,12 @@ class WHFSFolder extends WHFSObject {
         modificationdate: creationdate,
         parent: this.id,
         name,
-        title: metadata.title || "",
-        description: metadata.description || "",
+        title: metadata?.title || "",
+        description: metadata?.description || "",
         errordata: "",
         externallink: "",
         isfolder: Boolean(type.foldertype),
-        keywords: type.foldertype ? "" : (metadata as CreateFileMetadata).keywords || "",
+        keywords: type.foldertype ? "" : (metadata as CreateFileMetadata)?.keywords || "",
         firstpublishdate: defaultDateTime,
         lastpublishdate: defaultDateTime,
         lastpublishsize: 0,
@@ -300,16 +311,16 @@ class WHFSFolder extends WHFSObject {
         ordering: 0,
         published: 0,
         type: type.id || null, //#0 can't be stored so convert to null
-        ispinned: metadata.isPinned || false
+        ispinned: metadata?.isPinned || false
       }).returning(['id']).executeTakeFirstOrThrow();
 
     return retval.id;
   }
 
-  async createFile(name: string, metadata: CreateFileMetadata): Promise<WHFSFile> {
-    const type = getType(metadata.type ?? unknownfiletype, "fileType");
+  async createFile(name: string, metadata?: CreateFileMetadata): Promise<WHFSFile> {
+    const type = getType(metadata?.type ?? unknownfiletype, "fileType");
     if (!type || !type.filetype)
-      throw new Error(`No such fileType: ${metadata.type}`);
+      throw new Error(`No such fileType: ${metadata?.type}`);
 
     return await openFile((await this.doCreate(name, type, metadata)));
   }
@@ -324,10 +335,10 @@ class WHFSFolder extends WHFSObject {
     return existingfile;
   }
 
-  async createFolder(name: string, metadata: CreateFolderMetadata): Promise<WHFSFolder> {
-    const type = getType(metadata.type ?? normalfoldertype, "folderType");
+  async createFolder(name: string, metadata?: CreateFolderMetadata): Promise<WHFSFolder> {
+    const type = getType(metadata?.type ?? normalfoldertype, "folderType");
     if (!type || !type.foldertype)
-      throw new Error(`No such folderType: ${metadata.type}`);
+      throw new Error(`No such folderType: ${metadata?.type}`);
 
     return await openFolder((await this.doCreate(name, type, metadata)));
   }
@@ -352,6 +363,75 @@ class WHFSFolder extends WHFSObject {
   async openFolder(path: string, options?: { allowMissing: boolean }): Promise<WHFSFolder>;
   async openFolder(path: string, options?: { allowMissing: boolean }) {
     return openWHFSObject(this.id, path, false, options?.allowMissing ?? false, `in folder '${this.whfsPath}'`);
+  }
+
+  /** Generate a unique name for a new object in this folder
+   * @param suggestion - Suggested name for the new object. If this name is already taken, a counter will be appended to the name
+   * @param ignoreObject - Ignore this object when looking for a free name (usually refers to an object being renamed as it shouldn't clash with itself)
+   * @param slugify - Slugify the suggested name, defaults to true
+   */
+
+  async generateName(suggestion: string, { ignoreObject = null, slugify = true }: {
+    ignoreObject?: number | null;
+    slugify?: boolean;
+  } = {}) {
+
+    suggestion = suggestion.replace(/^\.+/, ''); //remove leading dots
+
+    let basename;
+    let extension = extname(suggestion);
+    if (!extension || extension === '.' || extension.length > 50) { //that's not an extension...
+      extension = "";
+      basename = suggestion;
+    } else {
+      extension = extension.trim();
+      basename = parse(suggestion).name;
+    }
+    basename = basename.trim();
+
+    if (extension == '.gz') { // .tar.gz?
+      const e2 = extname(basename).trim();
+      if (e2 == '.tar') {
+        extension = e2 + extension;
+        basename = parse(basename).name.trim();
+      }
+    }
+
+    //Ensure that the extension is sane
+    if (!isValidName(extension))
+      extension = "";
+
+    let counter = 1;
+    const p = basename.lastIndexOf("-");
+    if (p > 0) { //extract an existing counter?
+      const nr = parseInt(basename.substring(p + 1));
+      if (nr >= 1) {
+        counter = nr;
+        basename = basename.substring(0, p);
+      }
+    }
+
+    //Ensure that the basename is sane
+    basename = basename.substring(0, 240);
+    if (slugify || !isValidName(basename))
+      basename = std.slugify(basename, { keep: '.' }) || 'webhare';
+
+    for (; ; ++counter) {
+      const testname = basename + (counter > 1 ? '-' + counter : '') + extension;
+      if (!await db<WebHareDB>()
+        .selectFrom("system.fs_objects")
+        .select("id") //FIXME we have to select 'something' or kyseley crashes
+        .where("parent", "=", this.id)
+        .$if(ignoreObject! > 0, qb => qb.where("id", "<>", ignoreObject)) //null > 0 is false too, so not caring about null
+        .where(sql`upper(name)`, "=", sql`upper(${testname})`)
+        .executeTakeFirst())
+        return testname;
+
+      if (testname.length > 240) { //retry with shorter name
+        counter = 0; //will increment to 1 on next iteration
+        basename = "webhare";
+      }
+    }
   }
 }
 

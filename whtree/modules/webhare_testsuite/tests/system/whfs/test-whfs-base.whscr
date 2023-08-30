@@ -171,6 +171,7 @@ MACRO SimpleTest()
   TestEq(FALSE, IsValidWHFSName(" !file", FALSE));
   TestEq(TRUE, IsValidWHFSName("_^file", FALSE));
   TestEq(TRUE, IsValidWHFSName("_!file", FALSE));
+  TestEq(TRUE, IsValidWHFSName(".doc", FALSE), "'dotfiles' are okay");
 }
 
 MACRO WrappedTest()

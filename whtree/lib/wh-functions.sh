@@ -1,7 +1,20 @@
 # This script is also deployed to https://build.webhare.dev/ci/scripts/wh-functions.sh
 
-# import { die, logWithTime } from:
-source "${BASH_SOURCE%/*}/../modules/platform/scripts/bootstrap/bootstrap-functions.sh"
+die() {
+  echo "$@"; exit 1
+}
+
+logWithTime()
+{
+  local now
+  if [[ "$OSTYPE" == "darwin"* ]]; then  #mac doesn't support .%3N
+    now=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+  else
+    now=$(date -u +'%Y-%m-%dT%H:%M:%S.%3NZ')
+  fi
+
+  echo "[$now]" "$1"
+}
 
 testEq()
 {

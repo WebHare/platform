@@ -344,6 +344,7 @@ MACRO MiscTest()
   TestEq("", GetExtensionFromPath("/my/dir/.."));
   TestEq(".htaccess", GetBasenameFromPath("/my/dir/.htaccess.txt"));
   TestEq(".txt", GetExtensionFromPath("/my/dir/.htaccess.txt"));
+  TestEq("", GetExtensionFromPath(".txt"));
 
   //Test openining a nonexisting file
   STRING testfile := "/tmp/does-not-exist-" || GenerateUFS128BitId();

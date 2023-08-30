@@ -117,3 +117,45 @@ export function decodeString(str: string, encoding: StringEncodings): string {
 
   throw new Error(`Invalid encoding '${encoding}'`);
 }
+
+function stableReplacer(this: unknown, key: unknown, value: unknown) {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    return Object.fromEntries(Object.entries(value).sort((lhs, rhs) => lhs < rhs ? -1 : lhs === rhs ? 0 : 1));
+  }
+  return value;
+}
+
+/** Encode as JSON with sorted keys for stable comparison */
+export function stableStringify(arg: unknown, replacer?: (this: unknown, key: unknown, value: unknown) => unknown, space?: string | number) {
+  // eslint-disable-next-line @typescript-eslint/no-invalid-this -- a replacer needs a forwarded this
+  const usereplacer = !replacer ? stableReplacer : function (this: unknown, key: unknown, value: unknown) {
+    return stableReplacer.call(this, key, replacer!.call(this, key, value));
+  };
+  return JSON.stringify(arg, usereplacer, space);
+}
+
+/** Generate a slug from a (suggested) (file)name
+ * @param text - Text to convert
+ * @param separator - Separator to use between words (defaults to '-')
+ * @param keep - Set of characters to keep in addition to a-z0-9
+ * @returns Slugified text or null if we couldn't generate anything reeadable
+ */
+export function slugify(text: string, { separator = "-", keep = "" }: {
+  separator?: string;
+  keep?: string;
+} = {}): string | null {
+  //This function mixes HS getSafeName with a few more modern approaches
+  const keepclass = `[^a-z0-9${escapeRegExp(keep)}]`;
+  text = text
+    .normalize('NFD')                   // split an accented letter in the base letter and the acent
+    // eslint-disable-next-line no-control-regex
+    .replaceAll(/[\u0000-\u001F]/g, '')
+    .replaceAll(/[\u0300-\u036f]/g, '')   // remove all previously split accents
+    .replaceAll(/ß/g, 'ss')               // german ss
+    .toLowerCase()
+    .replace(new RegExp(`^${keepclass}+`), "") //replace bad characters at the start
+    .replace(new RegExp(`${keepclass}+$`), "") //.. and end
+    .replaceAll(new RegExp(`${keepclass}+`, "g"), separator); // replace all non alphanumeric/space with a single dash
+
+  return text || null; //we return 'null' on purpose so callers realize we won't necessarily give them a string!
+}
