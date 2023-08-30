@@ -367,7 +367,7 @@ class WHFSFolder extends WHFSObject {
 
   /** Generate a unique name for a new object in this folder
    * @param suggestion - Suggested name for the new object. If this name is already taken, a counter will be appended to the name
-   * @param ignoreObject - Ignore this object when looking for a free name (usually refers to an objecft being remaind as it shouldn't clash with itself)
+   * @param ignoreObject - Ignore this object when looking for a free name (usually refers to an object being renamed as it shouldn't clash with itself)
    * @param slugify - Slugify the suggested name, defaults to true
    */
 

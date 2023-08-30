@@ -136,7 +136,7 @@ export function stableStringify(arg: unknown, replacer?: (this: unknown, key: un
 
 /** Generate a slug from a (suggested) (file)name
  * @param text - Text to convert
- * @param separator - Separator to use between words (defaults to ':')
+ * @param separator - Separator to use between words (defaults to '-')
  * @param keep - Set of characters to keep in addition to a-z0-9
  * @returns Slugified text or null if we couldn't generate anything reeadable
  */
