@@ -414,6 +414,8 @@
   </textgroup>
   <textgroup gid="entitychanges">   <!-- entitychanges -->
     <text tid="changetype">Type wijziging</text>
+    <text tid="confirmnewrestore">Weet u zeker dat u de 'nieuwe' waarde van deze geschiedenisregel als huidige waarde wil instellen ?</text>
+    <text tid="confirmoldrestore">Weet u zeker dat u de 'oude' waarde van deze geschiedenisregel als huidige waarde wil instellen ?</text>
     <text tid="creation">nieuwe waarde</text>
     <text tid="entitychanges">Wijzigingen</text>
     <text tid="keepinghistory">De wijzigsgeschiedenis wordt <param p="1"/> dag(en) bijgehouden</text>
@@ -421,6 +423,8 @@
     <text tid="notkeepinghistory">De wijzigingsgeschiedenis wordt momenteel niet bijgehouden</text>
     <text tid="oldvalue">Oud</text>
     <text tid="prop">Eigenschap</text>
+    <text tid="restorenewvalue">Zet nieuwe waarde als huidige</text>
+    <text tid="restoreoldvalue">Zet oude waarde als huidige</text>
     <text tid="title">Titel</text>
     <text tid="type">Type</text>
     <text tid="update">wijziging</text>

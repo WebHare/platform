@@ -106,6 +106,29 @@ PUBLIC STATIC OBJECTTYPE EntityChanges EXTEND TolliumScreenBase
       ^historystatus->value := this->GetTid(".notkeepinghistory");
   }
 
+  MACRO RestoreValue(STRING which)
+  {
+    IF(this->RunSimpleScreen("confirm", which = "old" ? this->GetTid(".confirmoldrestore") : this->GetTid(".confirmnewrestore")) != "yes")
+      RETURN;
+
+    OBJECT work := this->BeginUnvalidatedWork();
+    RECORD mychanges := SELECT * FROM this->_entity->wrdtype->GetChanges(^changes->selection.changeset) AS ch WHERE ch.entity = this->_entity->id;
+    RECORD source := which = "old" ? mychanges.oldsettings : mychanges.modifications;
+    STRING field := ^changedvalues->selection.prop;
+    this->_entity->UpdateEntity(CellInsert(CELL[], field, GetCell(source, field)));
+    work->Finish();
+  }
+
+  MACRO DoRestoreOldValue()
+  {
+    this->RestoreValue("old");
+  }
+
+  MACRO DoRestoreNewValue()
+  {
+    this->RestoreValue("new");
+  }
+
   MACRO GotChangeEvents(RECORD ARRAY events)
   {
     ^changes->Invalidate();
@@ -171,6 +194,7 @@ PUBLIC STATIC OBJECTTYPE EntityChanges EXTEND TolliumScreenBase
         SELECT rowkey :=      `changeset:${id}`
              , type :=        "changeset"
              , id
+             , changeset :=   id
              , when :=        this->contexts->user->FormatDateTime(creationdate, "minutes", TRUE, TRUE)
              , user :=        (CellExists(userdata, "realname") ? userdata.realname : "") ?? (CellExists(userdata, "login") ? userdata.login : "")
              , relevantids := relevantids
@@ -214,6 +238,7 @@ PUBLIC STATIC OBJECTTYPE EntityChanges EXTEND TolliumScreenBase
           SELECT rowkey :=        `change:${id}`
                , type :=          "change"
                , id
+               , changeset :=     changeset
                , when :=          type
                , user :=          title
                , change :=        changes
@@ -242,6 +267,7 @@ PUBLIC STATIC OBJECTTYPE EntityChanges EXTEND TolliumScreenBase
                   , newvalue := ""
                   , subnodes := RECORD[]
                   , path := path
+                  , canrestore := Length(path) = 1
                   ];
 
     INTEGER comparetype := TYPEID(oldvalue) != TYPEID(DEFAULT OBJECT) ? TYPEID(oldvalue) : TYPEID(newvalue);

@@ -1,0 +1,62 @@
+<?wh
+// short: WRD Entity changer
+
+LOADLIB "wh::os.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+LOADLIB "mod::system/lib/database.whlib";
+
+//TODO Extend with get/set of fields, so we have some way to manually fix/copy RTD fields
+
+MACRO SetOldFromHistory(STRING ARRAY params)
+{
+  RECORD subargs := ParseArguments(params,
+      [ [ name := "wrdschema", type := "param", required := TRUE ]
+      , [ name := "wrdtype", type := "param", required := TRUE ]
+      , [ name := "entity", type := "param", required := TRUE ]
+      , [ name := "changeset", type := "param", required := TRUE ]
+      , [ name := "field", type := "param", required := TRUE ]
+      ]);
+
+  IF(NOT RecordExists(subargs))
+  {
+    Print("Syntax: wh wrd:entity setoldfromhistory <wrdschema> <wrdtype> <entityguid> <changeset> <field>\n");
+    TerminateScriptWithError("");
+  }
+
+  GetPrimary()->BeginWork();
+  OBJECT wrdschema := OpenWRDSchema(subargs.wrdschema);
+  OBJECT wrdtype := wrdschema->GetType(subargs.wrdtype);
+  INTEGER entity := wrdtype->Search("WRD_GUID", subargs.entity);
+  RECORD mychanges := SELECT * FROM wrdtype->GetChanges(ToInteger(subargs.changeset,0)) AS ch WHERE ch.entity = VAR entity;
+  wrdtype->UpdateEntity(entity, CellInsert(CELL[], subargs.field, GetCell(mychanges.oldsettings, subargs.field)));
+
+  GetPrimary()->CommitWork();
+}
+
+MACRO Main()
+{
+  RECORD ARRAY syntax := [ [ name := "command", type := "param", required := TRUE ]
+                         , [ name := "params", type := "paramlist" ]
+                         ];
+
+  RECORD args := ParseArguments(GetConsoleArguments(), syntax);
+
+  SWITCH(RecordExists(args) ? args.command : "help")
+  {
+    CASE "setoldfromhistory"
+    {
+      SetOldFromHistory(args.params);
+    }
+    DEFAULT
+    {
+      Print("Syntax: wh wrd:entity <command>\n");
+      Print("  setoldfromhistory ...: Set an entity's setting from its history\n");
+      TerminateScriptWithError("");
+    }
+  }
+}
+
+OpenPrimary();
+Main();
