@@ -52,7 +52,7 @@ MACRO Main()
     DEFAULT
     {
       Print("Syntax: wh wrd:entity <command>\n");
-      Print("  setoldfromhistory ...: Set an entity's setting from its history \n");
+      Print("  setoldfromhistory ...: Set an entity's setting from its history\n");
       TerminateScriptWithError("");
     }
   }
