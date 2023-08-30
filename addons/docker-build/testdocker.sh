@@ -225,7 +225,7 @@ while true; do
     shift
   elif [ "$1" == "--port" ]; then
     shift
-    DOCKERARGS="$DOCKERARGS -p $1:8000"
+    DOCKERARGS="$DOCKERARGS -p $1:13679"
     shift
   elif [ "$1" == "--generatexmltests" ]; then
     GENERATEXMLTESTS=1

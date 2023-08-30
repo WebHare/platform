@@ -8,6 +8,8 @@ export interface HareScriptBlob {
   text(): Promise<string>;
   ///Get the blob contents as a U8 buffer
   arrayBuffer(): Promise<ArrayBuffer>;
+  ///Get the blob contents as a U8 buffer, throws if not supported
+  tryArrayBufferSync(): ArrayBuffer;
   ///Annouce that this blob has been uploaded to the PG database. Used to prevent reuploading the same blob.
   registerPGUpload?(databaseid: string): void;
 }
@@ -37,7 +39,11 @@ export class HareScriptMemoryBlob implements HareScriptBlob {
   }
 
   arrayBuffer(): Promise<ArrayBuffer> {
-    return Promise.resolve(this.data || new ArrayBuffer(0));
+    return Promise.resolve(this.tryArrayBufferSync());
+  }
+
+  tryArrayBufferSync(): ArrayBuffer {
+    return this.data || new ArrayBuffer(0);
   }
 
   private toString(): string { //remark us as private to help catch callers that think they're still dealing with a Buffer

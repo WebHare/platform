@@ -1,5 +1,6 @@
 import { generateRandomId } from '@webhare/std';
 import { mkdir, readFile, writeFile, rename, stat } from 'node:fs/promises';
+import { readFileSync } from 'node:fs';
 import * as path from 'node:path';
 import * as process from 'node:process';
 import { Connection, DataType, DataTypeOIDs, SmartBuffer } from './../vendor/postgresql-client/src/index';
@@ -39,6 +40,11 @@ export class WHDBBlobImplementation implements HareScriptBlob {
   async arrayBuffer(): Promise<ArrayBuffer> {
     const pathinfo = this.__getDiskPathinfo();
     return await readFile(pathinfo.fullpath);
+  }
+
+  tryArrayBufferSync(): ArrayBuffer {
+    const pathinfo = this.__getDiskPathinfo();
+    return readFileSync(pathinfo.fullpath);
   }
 
   isSameBlob(rhs: HareScriptBlob): boolean {
@@ -158,7 +164,7 @@ export const BlobType: DataType = {
   },
 };
 
-export type WHDBBlob = Pick<WHDBBlobImplementation, "size" | "text" | "isSameBlob" | "isWHDBBlob" | "arrayBuffer">;
+export type WHDBBlob = Pick<WHDBBlobImplementation, "size" | "text" | "isSameBlob" | "isWHDBBlob" | "arrayBuffer" | "tryArrayBufferSync">;
 
 //not sure if we want to expose this as eg static isBlob on WHDBBlob (should it match BoxedDefaultBlob too?) so making it an internal API for now
 export function isWHDBBlob(v: unknown): v is WHDBBlobImplementation {
