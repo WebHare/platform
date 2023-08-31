@@ -1,4 +1,5 @@
-<?wh
+<?wh (* ISSYSTEMLIBRARY *)
+
 /** @short Money type utility functions
     @long This library contains functions that manipulate money type variables in different ways.
           Money types are used to store fractional values. Money values support up to 5 decimals,
