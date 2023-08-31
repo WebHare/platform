@@ -2,6 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as test from "@mod-tollium/js/testframework";
+import * as browser from "dompack/extra/browser";
 
 
 let savefirstwidth;
@@ -58,7 +59,8 @@ test.registerTests(
       test: function (doc, win) {
         const testpanel = test.compByName("componentpanel");
         const select = testpanel.querySelector('select');
-        test.eq(5, select.options.length);
+        // Browsers other than Firefox insert <hr> dividers instead of disabled options
+        test.eq(browser.getName() === "firefox" ? 5 : 4, select.options.length);
       }
     },
     test.testClickTolliumLabel('Enabled'),
