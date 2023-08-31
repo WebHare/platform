@@ -22,3 +22,22 @@ export function isValidName(name: string, { allowSlashes = false }: { allowSlash
 
   return true;
 }
+
+const PublishedFlag_OncePublished = 100000;
+
+function testFlagFromPublished(published: number, flag_to_test: number) {
+  return ((published % (flag_to_test * 2)) / flag_to_test) == 1;
+}
+
+function getErrorFromPublished(published: number) {
+  return published % 100000;
+}
+
+/** @returns True if the file was erver succesfully published (its file.url cell is valid) */
+function getOncePublishedFromPublished(published: number) {
+  return testFlagFromPublished(published, PublishedFlag_OncePublished);
+}
+
+export function isPublish(published: number) {
+  return getErrorFromPublished(published) != 0 || getOncePublishedFromPublished(published);
+}

@@ -5,7 +5,7 @@ import { getType, FileTypeInfo, describeContentType, unknownfiletype, normalfold
 import { defaultDateTime } from "@webhare/hscompat/datetime";
 import { CSPContentType } from "./siteprofiles";
 import { extname, parse } from 'node:path';
-import { isValidName } from "./support";
+import { isPublish, isValidName } from "./support";
 import * as std from "@webhare/std";
 
 export { describeContentType } from "./contenttypes";
@@ -197,6 +197,9 @@ class WHFSObject {
 class WHFSFile extends WHFSObject {
   constructor(dbrecord: FsObjectRow) {
     super(dbrecord);
+  }
+  get publish() {
+    return isPublish(this.dbrecord.published);
   }
   get data(): RichFileDescriptor {
     return new RichFileDescriptor(this.dbrecord.data, decodeScanData(this.dbrecord.scandata));

@@ -75,6 +75,7 @@ async function testWHFS() {
   test.eq(markdownfile.id, (await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage")).id);
   test.eq(markdownfile.id, (await whfs.openFile(markdownfile.id)).id);
   test.eq(markdownfile.id, (await whfs.openFile("whfs::" + markdownfile.whfsPath)).id);
+  test.eq(true, (await whfs.openFile(markdownfile.id)).publish);
 
   test.eq(testpagesfolder.id, (await testsite.openFolder("testpages")).id);
   test.eq(testpagesfolder.id, (await whfs.openFolder("site::webhare_testsuite.testsite/testpages")).id);
