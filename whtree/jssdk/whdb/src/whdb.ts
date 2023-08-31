@@ -231,7 +231,7 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
   }
 
   isWorkOpen() {
-    return Boolean(this.openwork);
+    return this.openwork?.open || false;
   }
 
   private checkState(expectwork: true): Work; //guaranteed to return a work object or throw
@@ -241,7 +241,7 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
   private checkState(expectwork: boolean | undefined): Work | null {
     if (!this.pgclient)
       throw new Error(`Connection was already closed`);
-    if (expectwork !== undefined && Boolean(this.openwork) !== expectwork) {
+    if (expectwork !== undefined && isWorkOpen() !== expectwork) {
       throw new Error(`Work has already been ${expectwork ? 'closed' : 'opened'}${debugFlags.async ? "" : " - WEBHARE_DEBUG=async may help locating this"}`, { cause: this.lastopen });
     }
     return this.openwork || null;

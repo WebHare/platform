@@ -218,7 +218,14 @@ async function testFinishHandlers() {
   broadcastOnCommit("webhare_testsuite:worktest.1");
   broadcastOnCommit("webhare_testsuite:worktest.1");
   broadcastOnCommit("webhare_testsuite:worktest.2");
-  onFinishWork(() => ({ onCommit: () => handlerresult.push('first') })); // returns number
+  onFinishWork(() => ({
+    onCommit: async () => {
+      test.eq(false, isWorkOpen());
+      await beginWork();
+      await commitWork();
+      handlerresult.push('first');
+    }
+  })); // returns number
   onFinishWork(() => ({ onCommit: () => { /* empty */ } })); // test if returning void is accepted
 
   await commitWork();
@@ -293,8 +300,8 @@ test.run([
   cleanup,
   testQueries,
   testTypes,
+  testFinishHandlers,
   testHSCommitHandlers,
   testCodeContexts,
-  testCodeContexts2,
-  testFinishHandlers,
+  testCodeContexts2
 ]);
