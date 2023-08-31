@@ -1,12 +1,13 @@
 import { ensureScopedResource, getScopedResource } from "@webhare/services/src/codecontexts";
 import { HSVMCallsProxy, argsToHSVMVar } from "./wasm-proxies";
 import { HareScriptVM, allocateHSVM } from "./wasm-hsvm";
+import { CommonLibraries, CommonLibraryType } from "./commonlibs";
 
 const HSVMSymbol = Symbol("HSVM");
 
 async function allocateCodeContextHSVM() {
   const vm = await allocateHSVM();
-  await vm.loadlib("mod::system/lib/database.whlib").openPrimary(); //JS has prepaerd it anwyway, so open it
+  await vm.loadlib("mod::system/lib/database.whlib").openPrimary(); //JS has prepared it anwyway, so open it
   return vm;
 }
 
@@ -40,6 +41,9 @@ class ContextLibraryProxy {
     return result ? result.getJSValue() : undefined;
   }
 }
+
+export function loadlib<Lib extends keyof CommonLibraries>(name: Lib): CommonLibraryType<Lib>;
+export function loadlib(name: string): HSVMCallsProxy;
 
 /** Loads a stub to access a library in the then current code context VM. */
 export function loadlib(name: string): HSVMCallsProxy {

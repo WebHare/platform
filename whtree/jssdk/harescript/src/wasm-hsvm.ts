@@ -11,6 +11,7 @@ import { HSVMVar } from "./wasm-hsvmvar";
 import { HSVMCallsProxy, HSVMLibraryProxy, HSVMObjectCache } from "./wasm-proxies";
 import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 import { Mutex } from "@webhare/services";
+import { CommonLibraries, CommonLibraryType } from "./commonlibs";
 
 const dispatchlibrary = "mod::system/js/internal/wasm/dispatch.whlib";
 const dispatchname = "DISPATCH";
@@ -220,6 +221,9 @@ export class HareScriptVM {
       this.wasmmodule._free(lib_str);
     }
   }
+
+  loadlib<Lib extends keyof CommonLibraries>(name: Lib): CommonLibraryType<Lib>;
+  loadlib(name: string): HSVMCallsProxy;
 
   loadlib(name: string): HSVMCallsProxy {
     const proxy = new Proxy({}, new HSVMLibraryProxy(this, name)) as HSVMCallsProxy;
