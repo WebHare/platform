@@ -6,7 +6,8 @@ import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommi
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
 import * as contexttests from "./data/context-tests";
 import { WHDBBlob } from "@webhare/whdb/src/blobs";
-import { HareScriptMemoryBlob } from "@webhare/harescript";
+import { HareScriptMemoryBlob, loadlib } from "@webhare/harescript";
+import { getCodeContextHSVM } from "@webhare/harescript/src/contextvm";
 
 async function cleanup() {
   await beginWork();
@@ -93,6 +94,33 @@ async function testTypes() {
   //TODO perhaps we should have used timestamp-with-tz columns?
   const rawrows = (await query<{ adate: string }>("select adate::varchar(32) from webhare_testsuite.consilio_index where text='row1'")).rows;
   test.eq("2022-05-02 19:07:45", rawrows[0].adate);
+}
+
+async function testHSCommitHandlers() {
+  test.eq(undefined, getCodeContextHSVM(), "Ensure that the bare commitWorks above did not instiate a VM");
+
+  const invoketarget = loadlib("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib");
+  const primary = await loadlib("mod::system/lib/database.whlib").getPrimary();
+  test.assert(primary);
+  test.eq(false, await primary.isWorkOpen());
+  await beginWork();
+  test.eq(true, await primary.isWorkOpen());
+  await invoketarget.SetGobalOnCommit({ x: 121 });
+
+  test.eq(null, await invoketarget.getGlobal());
+  await commitWork();
+  test.eq(false, await primary.isWorkOpen());
+  test.eq({ x: 121, iscommit: true }, await invoketarget.getGlobal());
+
+  await invoketarget.setGlobal({ x: 222 });
+  await beginWork();
+  await commitWork();
+  test.eq({ x: 222 }, await invoketarget.getGlobal(), "Verifies the handler was cleared");
+
+  await beginWork();
+  await invoketarget.SetGobalOnCommit({ x: 343 });
+  await rollbackWork();
+  test.eq({ x: 343, iscommit: false }, await invoketarget.getGlobal(), "Verify rollback works too");
 }
 
 async function testCodeContexts() {
@@ -264,6 +292,7 @@ test.run([
   cleanup,
   testQueries,
   testTypes,
+  testHSCommitHandlers,
   testCodeContexts,
   testCodeContexts2,
   testFinishHandlers,

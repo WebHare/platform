@@ -1,5 +1,6 @@
 <?wh
 LOADLIB "wh::promise.whlib";
+LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::webhare_testsuite/lib/database.whlib";
 
 PUBLIC INTEGER FUNCTION Add(INTEGER lhs, INTEGER rhs)
@@ -47,4 +48,12 @@ PUBLIC RECORD ARRAY FUNCTION GetExportTest()
 PUBLIC MACRO UpdateExportTest()
 {
   UPDATE webhare_testsuite.exporttest SET text := text || " (updated)";
+}
+MACRO DoSetGlobal(RECORD newrec, BOOLEAN iscommit)
+{
+  SetGlobal(CELL[...newrec, iscommit]);
+}
+PUBLIC MACRO SetGobalOnCommit(RECORD newrec)
+{
+  GetPrimary()->RegisterCommitHandler("", PTR DoSetGlobal(newrec, #1));
 }

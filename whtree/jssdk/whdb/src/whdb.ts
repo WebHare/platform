@@ -21,6 +21,7 @@ import { checkPromiseErrorsHandled } from '@mod-system/js/internal/util/devhelpe
 import { uploadBlobToConnection, WHDBBlob, ValidBlobSources } from './blobs';
 import { ensureScopedResource } from '@webhare/services/src/codecontexts';
 import { WHDBPgClient } from './connection';
+import { getCodeContextHSVM } from '@webhare/harescript/src/contextvm';
 
 export { WHDBBlob } from "./blobs";
 
@@ -57,6 +58,13 @@ class Work {
   async _invokeFinishHandlers(handler: "onBeforeCommit" | "onCommit" | "onRollback") {
     //invoke all finishedhandlers in 'parallel' and wait for them to finish
     await Promise.all(Array.from(this.finishhandlers.values()).map(h => h[handler]?.()));
+
+    const vm = getCodeContextHSVM();
+    if (vm) { //someone allocated a VM.. run any handlers there too
+      const primary = await (await vm).loadlib("mod::system/lib/database.whlib").getPrimary();
+      if (primary)
+        await primary.__InvokeFinishHandlers(handler);
+    }
   }
 
   async uploadBlob(data: ValidBlobSources): Promise<WHDBBlob | null> {
