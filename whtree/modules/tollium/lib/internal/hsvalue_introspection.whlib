@@ -210,6 +210,11 @@ PUBLIC STATIC OBJECTTYPE HSValueDescriber
 
       CASE TypeId(OBJECT)
       {
+        IF(value EXTENDSFROM JsonObject)
+          RETURN this->GetJSONObjectDescription(value, level + 1);
+        IF(value EXTENDSFROM JsonArray)
+          RETURN this->GetJSONArrayDescription(value, level + 1);
+
         RETURN this->GetObjectDescription(name, value, level + 1, FALSE);
       }
 
@@ -538,6 +543,51 @@ PUBLIC STATIC OBJECTTYPE HSValueDescriber
     RETURN fixedrecord;
   }
 
+  /** @short fixup all fields within the specified record
+  */
+  RECORD FUNCTION GetJSONObjectDescription(OBJECT value, INTEGER level)
+  {
+    IF (level > this->debug->maxtreedepth)
+      RETURN [ hstype := "CUTOFF" ]; // too deep, delete from here
+    IF(NOT ObjectExists(value))
+      RETURN DEFAULT RECORD;
+
+    RECORD ARRAY unpacked := SELECT * FROM value->Unpack() ORDER BY ToUpperCase(name);
+
+    RECORD fixedrecord := [ hstype := "OBJECT"
+                          , objtype := "JSONObject"
+                          , id     := __INTERNAL_GETOBJECTID(value)
+                          , elements := RECORD[]
+                          ];
+
+    FOREVERY(RECORD field FROM unpacked)
+      INSERT CELL[field.name, value := this->GetVarDescription(field.name, field.value, level, FALSE, FALSE) ] INTO fixedrecord.elements AT END;
+
+    RETURN fixedrecord;
+  }
+  /** @short fixup all fields within the specified record
+  */
+  RECORD FUNCTION GetJSONArrayDescription(OBJECT value, INTEGER level)
+  {
+    IF (level > this->debug->maxtreedepth)
+      RETURN [ hstype := "CUTOFF" ]; // too deep, delete from here
+    IF(NOT ObjectExists(value))
+      RETURN DEFAULT RECORD;
+
+    RECORD ARRAY unpacked := SELECT name := ToString(#el), value := val FROM ToRecordArray(value->GetRawElements(),"val") AS el;
+
+    RECORD fixedrecord := [ hstype := "OBJECT"
+                          , objtype := "JSONArray"
+                          , id     := __INTERNAL_GETOBJECTID(value)
+                          , elements := RECORD[]
+                          ];
+
+    // unpacked function pointer or record
+    FOREVERY(RECORD field FROM unpacked)
+      INSERT CELL[field.name, value := this->GetVarDescription(field.name, field.value, level, FALSE, FALSE) ] INTO fixedrecord.elements AT END;
+
+    RETURN fixedrecord;
+  }
   /** @short
       @return
       @cell hstype "intextlink"
@@ -1062,8 +1112,45 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
         CASE "OBJECT"
         {
           haschildren := TRUE;
-          typename := value.weak ? "WEAKOBJECT" : "OBJECT";
           expanded := level < this->expandlevel;
+
+          IF(CellExists(value, "objtype")) //newly decoded objects eg JSONObject
+          {
+            typename := value.objtype;
+
+            RECORD ARRAY unpacked := value.elements;
+            varcontent := varcontent || '<div class="content">' || Length(unpacked) || ' properties:';
+            RECORD ARRAY group1; // misc types
+            RECORD ARRAY group2; // ARRAY's and OBJECT's
+
+            FOREVERY(RECORD memberrec FROM unpacked)
+            {
+              STRING content := this->DumpType(memberrec.name, memberrec.value, level + 1, FALSE, -1) || "\n";
+
+              // we want to place OBJECT's and ARRAY's after simpler types
+              IF (TypeID(memberrec.value) = TypeID(OBJECT) OR IsTypeIdArray(TypeID(memberrec.value)))
+                INSERT [ name := memberrec.name, content := content ] INTO group2 AT END;
+              ELSE
+                INSERT [ name := memberrec.name, content := content ] INTO group1 AT END;
+            }
+            varcontent := varcontent
+                          || DeTokenize( (SELECT AS STRING ARRAY content FROM group1 ORDER BY group1.name), "")
+                          || DeTokenize( (SELECT AS STRING ARRAY content FROM group2 ORDER BY group2.name), "")
+                          || '</div>'
+                          ;
+
+            RETURN CELL[ varinfo
+                       , varcontent
+                       , typename
+                       , haschildren
+                       , expanded
+                       ];
+          }
+          ELSE
+          {
+            typename := value.weak ? "WEAKOBJECT" : "OBJECT";
+          }
+
 
           IF (value.id = -1)
           {

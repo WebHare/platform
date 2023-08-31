@@ -552,13 +552,23 @@ MACRO TestJSONAttr()
   TestEq([ jsondata := CELL[] ], testperson->GetFields(["jsondata"]));
   testperson->UpdateEntity([ jsondata := DEFAULT RECORD ]);
   TestEq([ jsondata := DEFAULT RECORD ], testperson->GetFields(["jsondata"]));
+  TestEq(DEFAULT OBJECT, testperson->GetField("jsondata", [ wrapobjects := TRUE ]));
 
   //verify that it's cleared in the database
   TestEq(0, Length(SELECT FROM wrd.entity_settings WHERE entity = testperson->id AND attribute = jsondata_attributeid));
 
+  //test preserving casse
+  testperson->UpdateEntity([ jsondata := DecodeJSON(`{"myJSONValue":43}`,CELL[], [ wrapobjects := TRUE ])]);
+  TestEq([ jsondata := [ myjsonvalue := 43 ] ], testperson->GetFields(["jsondata"]));
+  TestEq(43, testperson->GetField("jsondata", [ wrapobjects := TRUE ])->GetProp("myJSONValue"));
+
+  testperson->UpdateEntity([ jsondata := DEFAULT OBJECT ]);
+  TestEq([ jsondata := DEFAULT RECORD ], testperson->GetFields(["jsondata"]));
+  TestEq([ jsondata := DEFAULT OBJECT ], testperson->GetFields(["jsondata"], [ wrapobjects := TRUE ]));
+
   BLOB goudvis := GetWebHareResource("mod::system/web/tests/goudvis.png");
   testperson->UpdateEntity([ extradata := [ goudvis := goudvis ]]); //overlong data
-  TestEq([ goudvis := goudvis ], testperson->GetField("extradata"));
+  TestEq([ goudvis := goudvis ], testperson->GetField("extradata", [ wrapobjects := TRUE]));
 
   testfw->CommitWork();
 }

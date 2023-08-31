@@ -699,7 +699,7 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
       ^entitycontent->value := DEFAULT RECORD;
       RETURN;
     }
-    ^entitycontent->value := this->contexts->wrdschema->GetTypeById(describe.wrdtype)->GetEntityFields(entid, ["*"]);
+    ^entitycontent->value := this->contexts->wrdschema->GetTypeById(describe.wrdtype)->GetEntityFields(entid, ["*"], [ wrapobjects := TRUE ]);
   }
 
 
