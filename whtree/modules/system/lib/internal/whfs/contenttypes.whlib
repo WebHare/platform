@@ -1615,11 +1615,6 @@ STATIC OBJECTTYPE WHFSType
       GetWHFSCommitHandler()->AddLinkCheckedSettings(rec.linkchecked_settingids);
     }
 
-    RunModuleHookTarget("system:whfs_object_afterinstancedataupdate", [ objectid := objectid
-                                                                      , typeobject := this
-                                                                      , newinstancedata := newinstancedata
-                                                                      ]);
-
     IF(this->namespace = "http://www.webhare.net/xmlns/publisher/sitesettings") //this might change siteprofile associations or webdesign/webfeatures
       GetWHFSCommitHandler()->TriggerSiteSettingsCheckOnCommit();
 

@@ -1,4 +1,5 @@
 <?wh
+LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
@@ -11,6 +12,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
@@ -100,6 +102,29 @@ PUBLIC RECORD ARRAY FUNCTION FixupRecycleBinNames(RECORD ARRAY inrecs)
   RETURN inrecs;
 }
 
+RECORD FUNCTION GetCacheablePreviewableTypes()
+{
+  INTEGER ARRAY types :=
+      SELECT AS INTEGER ARRAY id
+        FROM system.fs_types
+       WHERE generatepreview
+    ORDER BY id;
+
+  RETURN
+      [ value :=        types
+      , eventmasks :=   [ "publisher:internal.siteprofiles.recompiled" ]
+      ];
+}
+
+MACRO DefaultAfterMetadataUpdate(RECORD indata)
+{
+  INTEGER ARRAY preview_types := GetAdhocCached([ type := "genpreview" ], PTR GetCacheablePreviewableTypes);
+
+  IF (LowerBound(preview_types, indata.newtype).found)
+    ScheduleManagedTask("publisher:generatewidgetpreview", [ id := indata.id ], DEFAULT RECORD);
+  ELSE IF (LowerBound(preview_types, indata.oldtype).found)
+    OpenWHFSType("http://www.webhare.net/xmlns/publisher/previewinfo")->SetInstancedata(indata.id, DEFAULT RECORD);
+}
 
 PUBLIC OBJECTTYPE InstanceMapperBase
 <
@@ -626,14 +651,12 @@ OBJECTTYPE WHFSObject
       @cell newmetadata.externallink URL this file links to (string, files only)
       @cell newmetadata.publish Whether this file is published. Ignored for non-publishable file types. (boolean, files only)
       @cell newmetadata.published Publication status of this file is published (integer, files only)
-      @cell(boolean) options.runhooks Whether to run the hooks
       @cell(boolean) options.setindex If TRUE, make this file the index of its parent folder
       @see WHFSFolder::CreateFile, WHFSFolder::CreateFolder
   */
   PUBLIC MACRO UpdateMetadata(RECORD newmetadata, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions( [ runhooks := TRUE
-                                , setindex := FALSE
+    options := ValidateOptions( [ setindex := FALSE
                                 , ifreadonly := "fail"
                                 ], options, [ enums := [ ifreadonly := [ "fail", "skip", "update" ]]]);
 
@@ -695,13 +718,10 @@ OBJECTTYPE WHFSObject
         }
       }
 
-      IF(options.runhooks)
-        RunModuleHookTarget("system:whfs_file_aftercontentupdate"
-                              , [ id := this->pvt_id
-                                , oldtype := this->pvt_type
-                                , newtype := CellExists(newmetadata,'type') ? newmetadata.type : this->pvt_type
-                                , data := CellExists(newmetadata,'data') ? newmetadata.data : this->data
-                                ]);
+      DefaultAfterMetadataUpdate([ id := this->pvt_id
+                                 , oldtype := this->pvt_type
+                                 , newtype := CellExists(newmetadata,'type') ? newmetadata.type : this->pvt_type
+                                 ]);
 
       republish_file := TRUE;
     }
@@ -713,13 +733,6 @@ OBJECTTYPE WHFSObject
       DELETE CELL publish FROM newmetadata;
       INSERT CELL publish := FALSE INTO newmetadata;
     }
-
-    IF(options.runhooks)
-      RunModuleHookTarget(this->pvt_isfolder ? "system:whfs_folder_aftermetadataupdate" : "system:whfs_file_aftermetadataupdate"
-                             , [ id := this->pvt_id
-                               , oldtype := this->pvt_type
-                               , newtype := CellExists(newmetadata,'type') ? newmetadata.type : this->pvt_type
-                               ]);
 
     INTEGER newtype := CellExists(newmetadata, 'type') ? newmetadata.type : this->pvt_type;
     STRING newname  := CellExists(newmetadata,'name') ? newmetadata.name : oldversion.name ;
@@ -1253,13 +1266,11 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
       @cell metadata.ordering Relative ordering vs other objects in the parent folder (integer, optional)
       @cell metadata.indexdoc Id of indexdocument of this folder (integer, must link to file within this folder,
         optional)
-      @cell(boolean) options.runhooks Whether to run hooks. Defaults to true
       @return (object %WHFSFolder) New folder object
   */
   PUBLIC OBJECT FUNCTION CreateFolder(RECORD metadata, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions( [ runhooks := TRUE
-                                ], options);
+    options := ValidateOptions(CELL[], options);
 
     metadata := VerifyMetadata(metadata, TRUE);
     metadata := this->FixupNewObjectMetadata(metadata, TRUE);
@@ -1271,13 +1282,6 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
     OBJECT newfolder := OpenWHFSObject(metadata.id);
     IF(NOT ObjectExists(newfolder))
       THROW NEW WHFSException("OTHER","Unexpected database insert error");
-
-    IF(options.runhooks)
-      RunModuleHookTarget("system:whfs_folder_aftermetadataupdate"
-                             , [ id := metadata.id
-                               , oldtype := 0
-                               , newtype := CellExists(metadata,'type') ? metadata.type : 0
-                               ]);
 
     RETURN newfolder;
   }
@@ -1296,7 +1300,6 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
       @cell(integer) metadata.filelink Id of object this file links to
       @cell(string) metadata.externallink URL this file links to
       @cell(boolean) metadata.publish Whether this file is published. Ignored for non-publishable file types
-      @cell(boolean) options.runhooks Whether to run hooks
       @cell(boolean) options.setindex Set to TRUE to make this document the folder's index
       @return (object %WHFSFile) New file object
   */
@@ -1304,8 +1307,7 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
   {
     //note: dataistrusted and published are not documented as they are deprecated or for internal use only
     //      dataistrusted should have been an option, not metadata
-    options := ValidateOptions( [ runhooks := TRUE
-                                , setindex := FALSE
+    options := ValidateOptions( [ setindex := FALSE
                                 ], options);
 
     metadata := VerifyMetadata(metadata, FALSE);
@@ -1328,20 +1330,11 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
     IF(NOT ObjectExists(toret))
       THROW NEW WHFSException("OTHER","Unexpected database insert error (access denied?)");
 
-    IF(options.runhooks)
-    {
-      IF(CellExists(metadata,"data"))
-      {
-        RunModuleHookTarget("system:whfs_file_aftercontentupdate",
-                                    [ id := toret->id
-                                    , oldtype := 0
-                                    , newtype := toret->type
-                                    , data := metadata.data
-                                    ]);
-      }
+    DefaultAfterMetadataUpdate([ id := toret->id
+                               , oldtype := 0
+                               , newtype := toret->type
+                               ]);
 
-      RunModuleHookTarget("system:whfs_file_aftermetadataupdate", [ id := toret->id, oldtype := 0, newtype := toret->type ]);
-    }
     GetWHFSCommitHandler()->AddCompletionEvent( [ type := "addfile", id := toret->id ]);
 
     RETURN toret;
@@ -1353,8 +1346,7 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
       @return(object %WHFSFolder) The folder */
   PUBLIC OBJECT FUNCTION EnsureFolder(RECORD requiredmetadata, RECORD optionalmetadata DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions( [ runhooks := TRUE
-                                ], options);
+    options := ValidateOptions(CELL[], options);
 
     IF(NOT GetPrimary()->IsWorkOpen())
       THROW NEW Exception(`EnsureFolder requires open work`); //prevent users from 'getting away' with EnsureFolder outside work if it didn't make any material change
@@ -1382,8 +1374,7 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
       @return(object %WHFSFile) The file */
   PUBLIC OBJECT FUNCTION EnsureFile(RECORD requiredmetadata, RECORD optionalmetadata DEFAULTSTO DEFAULT RECORD, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions( [ runhooks := TRUE
-                                ], options);
+    options := ValidateOptions(CELL[], options);
 
     IF(NOT GetPrimary()->IsWorkOpen())
       THROW NEW Exception(`EnsureFile requires open work`); //prevent users from 'getting away' with EnsureFile outside work if it didn't make any material change
