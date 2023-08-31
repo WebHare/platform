@@ -1,3 +1,15 @@
+function isNotExcluded<T extends string, K extends string>(t: T, excludes: K[]): t is Exclude<T, K> {
+  return !excludes.includes(t as unknown as K);
+}
+
+export function excludeKeys<T extends string, K extends string>(t: T[], k: K[]): Array<Exclude<T, K>> {
+  const result = new Array<Exclude<T, K>>;
+  for (const a of t)
+    if (isNotExcluded(a, k))
+      result.push(a);
+  return result;
+}
+
 /** Whether the name is acceptable for use in WHFS
  * @param name - The name to check
  * @param allowSlashes - Whether to allow slashes in the name (default: false)
@@ -40,4 +52,8 @@ function getOncePublishedFromPublished(published: number) {
 
 export function isPublish(published: number) {
   return getErrorFromPublished(published) != 0 || getOncePublishedFromPublished(published);
+}
+
+export function formatPathOrId(path: number | string) {
+  return typeof path === "number" ? `#${path}` : `'${path}'`;
 }
