@@ -119,6 +119,7 @@ export class HSVMObjectCache {
         return existingproxy;
 
       this.cachedobjects.delete(proxyvarid);
+      this.vm.wasmmodule._HSVM_ObjectMemberDelete(this.vm.hsvm, id, proxycolumnid, /*skipaccess=*/1);
     }
 
     //Assign new proxy number
