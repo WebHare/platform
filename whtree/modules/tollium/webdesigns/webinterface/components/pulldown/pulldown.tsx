@@ -2,6 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from 'dompack';
+import * as browser from "dompack/extra/browser";
 import HTMLComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/html';
 import $todd from "@mod-tollium/web/ui/js/support";
 
@@ -48,7 +49,11 @@ export default class ObjPulldown extends HTMLComponentBase {
 
       //real item, flush any divider
       if (insertdivider) {
-        node.append(<option disabled="disabled" class="divider">──────────</option>);
+        // Firefox doesn't support using <hr> as menu divider
+        if (browser.getName() === "firefox")
+          node.append(<option disabled="disabled" class="divider">──────────</option>);
+        else
+          node.append(<hr />);
         insertdivider = false;
       }
 

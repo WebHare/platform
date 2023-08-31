@@ -66,6 +66,9 @@ export default class ObjMenuItem extends ComponentBase {
       osx_keysymbols.forEach(repl => {
         this.shortcut = this.shortcut.replace(repl.key, repl.symbol);
       });
+    } else {
+      // Surround "+" with zero-width spaces (so text-transform: capitalize works properly on Firefox)
+      this.shortcut = this.shortcut.replace(/\+/g, "\u200B+\u200B");
     }
 
     if (typeof this.action == "object")
@@ -98,14 +101,16 @@ export default class ObjMenuItem extends ComponentBase {
       },
       className: {
         hassubmenu: this.items.length,
-        disabled: !enabled
+        disabled: !enabled,
+        checked: this.checked,
+        selected: this.selected
         //, hidden: this.disablemode == 'hidden' && !enabled
-      },
-      style: {
-        marginLeft: this.indent ? (this.indent * 6) + 'px' : 0
       },
       on: { click: evt => this.onClick(evt) }
     });
+    // The '--indent' variable is used to calculate the left padding
+    if (this.indent)
+      node.style.setProperty("--indent", (this.indent * 6) + "px");
     if (this.shortcut)
       node.dataset.menushortcut = this.shortcut;
 

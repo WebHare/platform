@@ -19,7 +19,7 @@ ul.wh-menu
 ul.wh-menu li
 {
   color: #000000;
-  padding: 0 20px;
+  padding: 0 20px 0 calc(var(--indent, 0px) + 20px);
   height: 23px;
   line-height:23px;
 }
@@ -28,6 +28,18 @@ ul.wh-menu li.currentvalue::before
   content: "\2022";
   position:absolute;
   left:8px;
+}
+ul.wh-menu li.checked::before
+{
+  background-color: #000000;
+  content: "";
+  height: 12px;
+  left: 5px;
+  -webkit-mask: url("~@mod-tollium/web/ui/skins/default/check.16x16.svg") center / 12px no-repeat;
+  mask: url("~@mod-tollium/web/ui/skins/default/check.16x16.svg") center / 12px no-repeat;
+  position: absolute;
+  top: 5px;
+  width: 12px;
 }
 
 ul.wh-menu li.selected
@@ -41,6 +53,10 @@ ul.wh-menu.hassubselect li.selected
   background: #b3b3b3;
 }
 
+ul.wh-menulist li[data-menushortcut]::before
+{
+  color: #666666;
+}
 
 ul.wh-menu li.disabled:hover
 {
@@ -51,7 +67,8 @@ ul.wh-menu li.divider:hover
   background-color: transparent;
   color: inherit;
 }
-ul.wh-menulist li.disabled
+ul.wh-menulist li.disabled,
+ul.wh-menulist li.disabled[data-menushortcut]::before
 {
   color: #b3b3b3;
 }

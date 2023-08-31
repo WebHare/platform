@@ -268,9 +268,8 @@ html ul.wh-menubar li
   margin-right: -15px;
   margin-top: 3px;// 1/2 * 23px item height - 17px line height
   white-space: nowrap;
-  font-size: 11px;
   line-height: 17px;
-  text-transform: uppercase;
+  text-transform: capitalize;
 }
 /* line 374, http://webhare.moe.sf.b-lex.com/.tollium/ui/css/apps.less */
 .wh-menu-detached,
