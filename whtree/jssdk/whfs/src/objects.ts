@@ -198,11 +198,7 @@ export class WHFSFolder extends WHFSObject {
 
   get indexDoc() { return this.dbrecord.indexdoc; }
 
-  //typescript doesn't understand an empty list? expicitly declare it not to contain any other keys
-  async list(): Promise<Array<Pick<ListableFsObjectRow, "id" | "name" | "isFolder">>>;
-  async list<K extends keyof ListableFsObjectRow>(keys: K[]): Promise<Array<Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder">>>;
-
-  async list<K extends keyof ListableFsObjectRow>(keys?: K[]): Promise<Array<Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder">>> {
+  async list<K extends keyof ListableFsObjectRow = never>(keys?: K[]): Promise<Array<Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder">>> {
     const getkeys = new Set<keyof ListableFsObjectRow>(["id", "name", "isFolder", ...(keys || [])]);
     const selectkeys = new Set<keyof FsObjectRow>;
 
