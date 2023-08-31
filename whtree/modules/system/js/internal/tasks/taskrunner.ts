@@ -60,7 +60,8 @@ export async function executeManagedTask(taskinfo: TaskInfo, debug: boolean) {
         throw new Error(`Unrecognzized task result type ${(taskresponse as { type: string }).type}`);
     }
 
-    return { type: "taskdone", result: taskresponse.result };
+    //result is allowed to be undefined, but IPC doesn't like that, so map that to null (DEFAULT RECORD)
+    return { type: "taskdone", result: taskresponse.result ?? null };
   } catch (e) {
     if (isWorkOpen())
       await rollbackWork();
