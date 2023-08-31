@@ -1114,7 +1114,7 @@ PUBLIC STATIC OBJECTTYPE HSValueDumper
           haschildren := TRUE;
           expanded := level < this->expandlevel;
 
-          IF(CellExists(value, "objtype")) //newly decodde objects eg JSONObject
+          IF(CellExists(value, "objtype")) //newly decoded objects eg JSONObject
           {
             typename := value.objtype;
 

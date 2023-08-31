@@ -443,12 +443,12 @@ PUBLIC STATIC OBJECTTYPE WRDQuery
     /** @param wrd_schema WRD schema
         @param whfsmapper WHFS mapper
     */
-    PUBLIC MACRO NEW(OBJECT wrd_schema, OBJECT whfsmapper, BOOLEAN jsmode, BOOlEAN wrapobjects)
+    PUBLIC MACRO NEW(OBJECT wrd_schema, OBJECT whfsmapper, BOOLEAN jsmode, BOOLEAN wrapobjects)
     {
       this->wrd_schema := wrd_schema;
       this->pvt_whfsmapper := whfsmapper;
       this->jsmode := jsmode;
-      this->wrapobjects :=wrapobjects;
+      this->wrapobjects := wrapobjects;
       this->resultlimit := -1;
     }
 
@@ -4202,7 +4202,7 @@ PUBLIC RECORD FUNCTION GetDefaultJoinRecord(OBJECT wrdtype, RECORD outputcolumns
   options := ValidateOptions(
       [ whfsmapper :=   DEFAULT OBJECT
       , jsmode :=       FALSE
-      ,wrapobjects :=   FALSE
+      , wrapobjects :=   FALSE
       ], options);
 
   OBJECT obj := NEW WRDQuerySource(wrdtype, options.whfsmapper, options.jsmode);
