@@ -1,5 +1,5 @@
 import { sleep } from "@webhare/std";
-import { CodeContext, getCodeContext } from "@webhare/services";
+import { CodeContext, getCodeContext } from "@webhare/services/src/codecontexts";
 import { db, beginWork, commitWork } from "@webhare/whdb";
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
 import { loadlib } from "@webhare/harescript";

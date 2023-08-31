@@ -13,7 +13,6 @@ export { log, logNotice, logError, logDebug, readLogLines, LoggableRecord } from
 export { ConvertBackendServiceInterfaceToClientInterface } from "@mod-system/js/internal/webhareservice";
 export type { RichFileDescriptor } from "./richfile";
 export { lockMutex, type Mutex } from "./mutex";
-export { getCodeContext, CodeContext } from "./codecontexts";
 export { TaskRequest, TaskResponse, scheduleTask, scheduleTimedTask } from "./tasks";
 export { readRegistryKey } from "./registry";
 

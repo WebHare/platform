@@ -1,4 +1,4 @@
-import { BackendEvent, BackendEventSubscription, subscribe, CodeContext } from "@webhare/services";
+import { BackendEvent, BackendEventSubscription, subscribe } from "@webhare/services";
 import * as test from "@webhare/test";
 import { DeferredPromise, createDeferred, sleep } from "@webhare/std";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
@@ -8,6 +8,7 @@ import * as contexttests from "./data/context-tests";
 import { WHDBBlob } from "@webhare/whdb/src/blobs";
 import { HareScriptMemoryBlob, loadlib } from "@webhare/harescript";
 import { getCodeContextHSVM } from "@webhare/harescript/src/contextvm";
+import { CodeContext } from "@webhare/services/src/codecontexts";
 
 async function cleanup() {
   await beginWork();

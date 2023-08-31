@@ -124,19 +124,21 @@ export class CodeContext extends EventSource<CodeContextEvents>{
 
 export const rootstorage = new CodeContext("root", {});
 
-export function getScopedResource<ValueType>(key: string | symbol): ValueType | undefined {
-  return (als.getStore() ?? rootstorage).getScopedResource<ValueType>(key);
-}
-export function ensureScopedResource<ValueType>(key: string | symbol, createcb: (context: CodeContext) => ValueType): ValueType {
-  return (als.getStore() ?? rootstorage).ensureScopedResource(key, createcb);
+export function isRootCodeContext(): boolean {
+  return als.getStore() === undefined;
 }
 
 export function getCodeContext(): CodeContext {
-  const store = als.getStore();
-  if (!store) //We throw because if you use this API you expect to be written for a CodeContext isolation - so it's odd if you wouldn't know that.
-    throw new Error("Not running inside a CodeContext");
-  return store;
+  return als.getStore() ?? rootstorage;
 }
+
+export function getScopedResource<ValueType>(key: string | symbol): ValueType | undefined {
+  return getCodeContext().getScopedResource<ValueType>(key);
+}
+export function ensureScopedResource<ValueType>(key: string | symbol, createcb: (context: CodeContext) => ValueType): ValueType {
+  return getCodeContext().ensureScopedResource(key, createcb);
+}
+
 
 type ActiveCodeContext = {
   /// Stack trace where this context was allocated (only filled when debug flag 'async' is enabled)
