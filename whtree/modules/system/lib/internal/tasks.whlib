@@ -196,7 +196,9 @@ OBJECTTYPE TaskFinishHandler EXTEND TransactionFinishHandlerBase
 
   UPDATE PUBLIC MACRO OnCommit()
   {
-    RunInSeparatePrimary(PTR this->QueueTasks, [ work := TRUE ]);
+    GetPrimary()->BeginWork();
+    this->QueueTasks();
+    GetPrimary()->CommitWork();
   }
   MACRO QueueTasks()
   {
