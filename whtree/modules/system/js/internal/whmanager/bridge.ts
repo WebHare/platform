@@ -462,7 +462,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   createPort<LinkType extends IPCLinkType<any, any> = IPCLinkType>(name: string, { global }: { global?: boolean } = {}): LinkType["Port"] {
-    const { port1, port2 } = createTypedMessageChannel<never, IPCPortControlMessage>();
+    const { port1, port2 } = createTypedMessageChannel<never, IPCPortControlMessage>("createPort " + name);
     this.port.postMessage({
       type: ToMainBridgeMessageType.RegisterPort,
       name,
@@ -474,7 +474,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   connect<LinkType extends IPCLinkType<any, any> = IPCLinkType>(name: string, { global }: { global?: boolean } = {}): LinkType["ConnectEndPoint"] {
-    const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>();
+    const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>("connect " + name);
     const id = generateRandomId();
     this.port.postMessage({
       type: ToMainBridgeMessageType.ConnectLink,
@@ -706,7 +706,7 @@ class MainBridge extends EventSource<BridgeEvents> {
         if (!reg) {
           this.sendData({ opcode: WHMRequestOpcode.OpenLinkResult, linkid: data.linkid, replyto: data.msgid, success: false });
         } else {
-          const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>();
+          const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>("OpenLink " + data.portname);
           reg.port.postMessage({
             type: IPCPortControlMessageType.IncomingLink,
             id: `remote ${data.linkid} (${data.portname})`,
@@ -1038,7 +1038,7 @@ class MainBridge extends EventSource<BridgeEvents> {
     if (this.debuglink && !has_ts_debugger)
       this.debuglink.close();
     else if (!this.debuglink && has_ts_debugger && this.connectionactive) {
-      const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>();
+      const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>("initDebugger");
       const id = generateRandomId();
       this.debuglink = new IPCEndPointImpl(`${id} - origin (ts:debugmgr_internal)`, port2, "connecting", "global port ts:debugmgr_internal");
       const link = this.debuglink;
@@ -1112,7 +1112,7 @@ class MainBridge extends EventSource<BridgeEvents> {
   }
 
   getLocalHandlerInitData(): LocalBridgeInitData {
-    const { port1, port2 } = createTypedMessageChannel<ToLocalBridgeMessage, ToMainBridgeMessage>();
+    const { port1, port2 } = createTypedMessageChannel<ToLocalBridgeMessage, ToMainBridgeMessage>("getLocalHandlerInitData");
     const id = generateRandomId();
     port1.on("message", (msg) => this.gotLocalBridgeMessage(id, port1, msg));
     port1.on("close", () => this.gotLocalBridgeClose(id, port1));
