@@ -1,6 +1,6 @@
-import { ensureScopedResource } from "@webhare/services/src/codecontexts";
-import { allocateHSVM } from "./wasm-hsvm";
+import { ensureScopedResource, getScopedResource } from "@webhare/services/src/codecontexts";
 import { HSVMCallsProxy, argsToHSVMVar } from "./wasm-proxies";
+import { HareScriptVM, allocateHSVM } from "./wasm-hsvm";
 
 const HSVMSymbol = Symbol("HSVM");
 
@@ -10,7 +10,10 @@ async function allocateCodeContextHSVM() {
   return vm;
 }
 
-export function getCodeContextHSVM() {
+export function getCodeContextHSVM(): Promise<HareScriptVM> | undefined {
+  return getScopedResource<Promise<HareScriptVM>>(HSVMSymbol);
+}
+export function ensureCodeContextHSVM(): Promise<HareScriptVM> {
   return ensureScopedResource(HSVMSymbol, () => allocateCodeContextHSVM());
 }
 
@@ -30,7 +33,7 @@ class ContextLibraryProxy {
 
   ///JavaScript supporting invoke (TODO detect HSVM Vars and copyfrom them?)
   async invoke(name: string, args: unknown[]) {
-    const vm = await getCodeContextHSVM();
+    const vm = await ensureCodeContextHSVM();
     const funcargs = argsToHSVMVar(vm, args);
 
     const result = await vm.callWithHSVMVars(this.lib + "#" + name, funcargs);

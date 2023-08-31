@@ -87,13 +87,18 @@ export class CodeContext extends EventSource<CodeContextEvents>{
     return () => context.runGenerator(callback);
   }
 
-  ensureScopedResource<ValueType>(key: string | symbol, createcb: (context: CodeContext) => ValueType): ValueType {
+  getScopedResource<ValueType>(key: string | symbol): ValueType | undefined {
     if (this.closed)
-      throw new Error(`Cannot call ensureScopedResource on a closed CodeContext`);
-    if (this.storage.get(key))
-      return this.storage.get(key) as ValueType;
-    const retval = createcb(this);
-    this.storage.set(key, retval);
+      throw new Error(`Cannot get scoped resources from a closed CodeContext`);
+    return this.storage.get(key) as ValueType | undefined;
+  }
+
+  ensureScopedResource<ValueType>(key: string | symbol, createcb: (context: CodeContext) => ValueType): ValueType {
+    let retval = this.getScopedResource<ValueType>(key);
+    if (retval === undefined) {
+      retval = createcb(this);
+      this.storage.set(key, retval);
+    }
     return retval;
   }
 
@@ -119,7 +124,9 @@ export class CodeContext extends EventSource<CodeContextEvents>{
 
 export const rootstorage = new CodeContext("root", {});
 
-//Not exported through @webhare/services yet. Should we?
+export function getScopedResource<ValueType>(key: string | symbol): ValueType | undefined {
+  return (als.getStore() ?? rootstorage).getScopedResource<ValueType>(key);
+}
 export function ensureScopedResource<ValueType>(key: string | symbol, createcb: (context: CodeContext) => ValueType): ValueType {
   return (als.getStore() ?? rootstorage).ensureScopedResource(key, createcb);
 }
