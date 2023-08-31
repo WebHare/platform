@@ -555,13 +555,13 @@ MACRO SaveCompiledSiteProfiles(RECORD result)
                                       , title := "Precompiled site profiles"
                                       , description := "This file stores the results of the last successful site profile compilation"
                                       , type := 0
-                                      ], [ runhooks := FALSE ]);
+                                      ]);
   }
 
   INTEGER str := CreateStream();
   __HS_MarshalWriteTo(str, result);
   BLOB blobdata := MakeBlobFromStream(str);
-  cspfile->UpdateMetaData([ data := blobdata ], [ runhooks := FALSE ]);
+  cspfile->UpdateMetaData([ data := blobdata ]);
 
   STRING configpath := GetModuleStorageRoot("system") || "config";
   CreateDiskDirectoryRecursive(configpath, TRUE);

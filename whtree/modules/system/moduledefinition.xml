@@ -2097,11 +2097,6 @@ The full base URL on which this site will be published, calculated by combining 
   </registry>
 
   <hooking>
-    <!-- This hook is invoked whenever the 'type' and/or 'data' of a file is changed -->
-    <target name="whfs_file_aftercontentupdate" />
-    <target name="whfs_folder_aftermetadataupdate" />
-    <target name="whfs_file_aftermetadataupdate" />
-    <target name="whfs_object_afterinstancedataupdate" />
     <target name="devtools_openreveal" />
     <target name="moduleconfig_afterconnectchange" />
     <target name="librarysystem" />

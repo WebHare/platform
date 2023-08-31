@@ -523,12 +523,6 @@ PUBLIC MACRO PerformEmptyWHFSMetadataUpdate(INTEGER fsobj, RECORD options)
       , published :=        newpublished
       ];
 
-  RunModuleHookTarget(oldversion.isfolder ? "system:whfs_folder_aftermetadataupdate" : "system:whfs_file_aftermetadataupdate"
-                         , [ id :=        fsobj
-                           , oldtype :=   oldversion.type
-                           , newtype :=   oldversion.type
-                           ]);
-
   UPDATE system.fs_objects SET RECORD newmetadata WHERE id = fsobj;
   commithandler->ObjectUpdate(oldversion.parentsite, oldversion.parent, fsobj);
 
