@@ -51,6 +51,9 @@ PUBLIC MACRO UpdateExportTest()
 }
 MACRO DoSetGlobal(RECORD newrec, BOOLEAN iscommit)
 {
+  //ensure we're in a proper state, after the original commit
+  GetPrimary()->BeginWork();
+  GetPrimary()->CommitWork();
   SetGlobal(CELL[...newrec, iscommit]);
 }
 PUBLIC MACRO SetGobalOnCommit(RECORD newrec)

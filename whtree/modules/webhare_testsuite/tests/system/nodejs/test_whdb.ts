@@ -95,17 +95,57 @@ async function testTypes() {
   //TODO perhaps we should have used timestamp-with-tz columns?
   const rawrows = (await query<{ adate: string }>("select adate::varchar(32) from webhare_testsuite.consilio_index where text='row1'")).rows;
   test.eq("2022-05-02 19:07:45", rawrows[0].adate);
+
+  test.eq(undefined, getCodeContextHSVM(), "Ensure that the bare commitWorks above did not instiate a VM");
+}
+
+async function testHSWorkSync() {
+  const primary = await loadlib("mod::system/lib/database.whlib").getPrimary();
+  test.assert(primary);
+
+  //verify work sync
+  test.eq(false, await primary.isWorkOpen());
+  test.eq(false, isWorkOpen());
+
+  await primary.beginWork();
+  test.eq(true, await primary.isWorkOpen());
+  test.eq(true, isWorkOpen());
+  await primary.commitWork();
+  test.eq(false, await primary.isWorkOpen());
+  test.eq(false, isWorkOpen());
+
+  await primary.beginWork();
+  test.eq(true, await primary.isWorkOpen());
+  test.eq(false, await primary.isNestedWorkOpen());
+  test.eq(true, isWorkOpen());
+  await primary.pushWork();
+  test.eq(true, await primary.isNestedWorkOpen());
+  await primary.popWork();
+  await primary.commitWork();
+
+  test.eq(false, await primary.isWorkOpen());
+  test.eq(false, isWorkOpen());
+
+  await primary.beginWork();
+  await commitWork();
+  await primary.beginWork();
+  await commitWork();
+
+  await primary.pushWork();
+  test.eq(true, await primary.isWorkOpen());
+  test.eq(true, isWorkOpen());
+  test.eq(false, await primary.isNestedWorkOpen());
+
+  await primary.popWork();
+  test.eq(false, await primary.isWorkOpen());
+  test.eq(false, isWorkOpen());
 }
 
 async function testHSCommitHandlers() {
-  test.eq(undefined, getCodeContextHSVM(), "Ensure that the bare commitWorks above did not instiate a VM");
-
   const invoketarget = loadlib("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib");
   const primary = await loadlib("mod::system/lib/database.whlib").getPrimary();
   test.assert(primary);
-  test.eq(false, await primary.isWorkOpen());
   await beginWork();
-  test.eq(true, await primary.isWorkOpen());
   await invoketarget.SetGobalOnCommit({ x: 121 });
 
   test.eq(null, await invoketarget.getGlobal());
@@ -300,6 +340,7 @@ test.run([
   cleanup,
   testQueries,
   testTypes,
+  testHSWorkSync,
   testFinishHandlers,
   testHSCommitHandlers,
   testCodeContexts,

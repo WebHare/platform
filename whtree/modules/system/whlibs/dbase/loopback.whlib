@@ -139,6 +139,11 @@ OBJECTTYPE ForwardingLoopbackTransaction EXTEND LoopbackTransaction
     RETURN this->itf.IsWorkOpen();
   }
 
+  UPDATE PUBLIC BOOLEAN FUNCTION IsNestedWorkOpen()
+  {
+    RETURN this->itf.IsNestedWorkOpen();
+  }
+
   UPDATE PUBLIC MACRO BeginWork(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     this->itf.BeginWork(options);
@@ -152,6 +157,16 @@ OBJECTTYPE ForwardingLoopbackTransaction EXTEND LoopbackTransaction
   UPDATE PUBLIC MACRO RollbackWork()
   {
     this->itf.RollbackWork();
+  }
+
+  UPDATE PUBLIC MACRO PushWork()
+  {
+    this->itf.PushWork();
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION PopWork()
+  {
+    RETURN this->itf.PopWork();
   }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetSchemaListing()
@@ -360,6 +375,11 @@ BOOLEAN FUNCTION WLT_IsWorkOpen(INTEGER transid)
   RETURN GetTransObject(transid)->IsWorkOpen();
 }
 
+BOOLEAN FUNCTION WLT_IsNestedWorkOpen(INTEGER transid)
+{
+  RETURN GetTransObject(transid)->IsNestedWorkOpen();
+}
+
 MACRO WLT_BeginWork(INTEGER transid, RECORD options)
 {
   GetTransObject(transid)->BeginWork(options);
@@ -368,6 +388,16 @@ MACRO WLT_BeginWork(INTEGER transid, RECORD options)
 RECORD ARRAY FUNCTION WLT_CommitWork(INTEGER transid)
 {
   RETURN GetTransObject(transid)->CommitWork();
+}
+
+MACRO WLT_PushWork(INTEGER transid)
+{
+  GetTransObject(transid)->PushWork();
+}
+
+RECORD ARRAY FUNCTION WLT_PopWork(INTEGER transid)
+{
+  RETURN GetTransObject(transid)->PopWork();
 }
 
 MACRO WLT_RollbackWork(INTEGER transid)
@@ -476,8 +506,11 @@ PUBLIC RECORD FUNCTION GetTransactionFLTRecordInterface(OBJECT transaction)
       , opencursor :=           PTR WLT_OpenCursor(id, #1, #2)
       , hasworksupport :=       transaction->HasWorkSupport()
       , isworkopen :=           PTR WLT_IsWorkOpen(id)
+      , isnestedworkopen :=     PTR WLT_IsNestedWorkOpen(id)
       , beginwork :=            PTR WLT_BeginWork(id, #1)
       , commitwork :=           PTR WLT_CommitWork(id)
+      , pushwork :=             PTR WLT_PushWork(id)
+      , popwork :=              PTR WLT_PopWork(id)
       , rollbackwork :=         PTR WLT_RollbackWork(id)
       , getschemalisting :=     PTR WLT_GetSchemaListing(id)
       , gettablelisting :=      PTR WLT_GetTableListing(id, #1)

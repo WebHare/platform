@@ -108,6 +108,7 @@ STATIC OBJECTTYPE EMTransactionCursor EXTEND TransactionCursorBase
 
 STATIC OBJECTTYPE EMTransaction EXTEND LockingTransactionBase
 <
+  INTEGER pushlevel;
   PUBLIC INTEGER forwardtransid;
 
   UPDATE STRING FUNCTION GetType()
@@ -119,18 +120,87 @@ STATIC OBJECTTYPE EMTransaction EXTEND LockingTransactionBase
 //    DumpValue(CELL[ query, type ], "tree");
     RETURN NEW EMTransactionCursor(PRIVATE this, CELL[ ...query, type ]);
   }
-  UPDATE MACRO DoBeginWork()
+
+  //NOTE we need to fully overwrite the Work API as transbase's work counters are useless, JS won't update them
+  UPDATE PUBLIC MACRO BeginWork(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    CallImpl("cbDoBeginWork", DEFAULT RECORD);
+    options := ValidateOptions([ mutex := ""
+                               , mutexes := STRING[]
+                               , delayreadonlyerror := FALSE
+                               ], options);
+
+    IF (this->IsWorkOpen())
+      THROW NEW Exception("Cannot begin work: work is already open");
+
+    IF (NOT options.delayreadonlyerror AND this->pvt_isprimary AND NOT IsDatabaseWritable())
+      THROW NEW DatabaseReadonlyException;
+
+    TRY
+    {
+      IF(options.mutex != "")
+        INSERT this->__DoLockMutex(options.mutex) INTO this->pvt_worklocks AT END;
+
+      FOREVERY(STRING mutex FROM options.mutexes)
+        INSERT this->__DoLockMutex(mutex) INTO this->pvt_worklocks AT END;
+
+      CallImpl("cbDoBeginWork", DEFAULT RECORD);
+    }
+    CATCH(OBJECT e)
+    {
+      this->ReleaseAllLocks();
+      THROW;
+    }
   }
-  UPDATE MACRO DoRollbackWork()
+
+  /** Returns TRUE when there is nested work open
+      @return TRUE if nested work is open (eg multiple PushWorks)
+  */
+  UPDATE PUBLIC BOOLEAN FUNCTION IsNestedWorkOpen()
   {
-    CallImpl("cbDoRollbackWork", DEFAULT RECORD);
+    RETURN this->pushlevel > 0;
   }
-  UPDATE RECORD ARRAY FUNCTION DoCommitWork()
+
+  /** Pushes a new work; if no work has been opened, it will be opened.
+  */
+  UPDATE PUBLIC MACRO PushWork()
   {
+    IF(this->IsWorkOpen())  //already open work? then just increase refcount
+    {
+      this->pushlevel := this->pushlevel + 1;
+      RETURN;
+    }
+    this->BeginWork();
+  }
+
+  /** Pops work; if no pushed work is left, the work is committed and returned
+      @return List of commit errors (FIXME: specify cells)
+  */
+  UPDATE PUBLIC RECORD ARRAY FUNCTION PopWork()
+  {
+    IF(this->pushlevel > 0) //Just count one down
+    {
+      this->pushlevel := this->pushlevel - 1;
+      RETURN RECORD[];
+    }
+    RETURN this->CommitWork();
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION CommitWork()
+  {
+    IF (this->pushlevel > 0)
+      THROW NEW Exception("Cannot commit work: inside a nesting level, we still need " || (this->pushlevel) || " PopWork calls");
+
+    //TODO WASM PG needs to handle readonly DBs like transbase does
     CallImpl("cbDoCommitWork", DEFAULT RECORD);
     RETURN RECORD[];
+  }
+
+  UPDATE PUBLIC MACRO RollbackWork()
+  {
+    IF (this->pushlevel > 0)
+      THROW NEW Exception("Cannot rollback work: inside a nesting level, we still need " || (this->pushlevel) || " PopWork calls");
+
+    CallImpl("cbDoRollbackWork", DEFAULT RECORD);
   }
 
   UPDATE PUBLIC MACRO InsertRecord(RECORD query, RECORD newfields)
