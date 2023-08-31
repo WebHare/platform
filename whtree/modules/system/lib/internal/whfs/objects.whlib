@@ -1,4 +1,5 @@
 <?wh
+LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
@@ -11,6 +12,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/typecoder.whlib";
 LOADLIB "mod::system/lib/internal/whfs/base.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
@@ -100,6 +102,29 @@ PUBLIC RECORD ARRAY FUNCTION FixupRecycleBinNames(RECORD ARRAY inrecs)
   RETURN inrecs;
 }
 
+RECORD FUNCTION GetCacheablePreviewableTypes()
+{
+  INTEGER ARRAY types :=
+      SELECT AS INTEGER ARRAY id
+        FROM system.fs_types
+       WHERE generatepreview
+    ORDER BY id;
+
+  RETURN
+      [ value :=        types
+      , eventmasks :=   [ "publisher:internal.siteprofiles.recompiled" ]
+      ];
+}
+
+MACRO DefaultAfterMetadataUpdate(RECORD indata)
+{
+  INTEGER ARRAY preview_types := GetAdhocCached([ type := "genpreview" ], PTR GetCacheablePreviewableTypes);
+
+  IF (LowerBound(preview_types, indata.newtype).found)
+    ScheduleManagedTask("publisher:generatewidgetpreview", [ id := indata.id ], DEFAULT RECORD);
+  ELSE IF (LowerBound(preview_types, indata.oldtype).found)
+    OpenWHFSType("http://www.webhare.net/xmlns/publisher/previewinfo")->SetInstancedata(indata.id, DEFAULT RECORD);
+}
 
 PUBLIC OBJECTTYPE InstanceMapperBase
 <
@@ -692,6 +717,11 @@ OBJECTTYPE WHFSObject
           }
         }
       }
+
+      DefaultAfterMetadataUpdate([ id := this->pvt_id
+                                 , oldtype := this->pvt_type
+                                 , newtype := CellExists(newmetadata,'type') ? newmetadata.type : this->pvt_type
+                                 ]);
 
       republish_file := TRUE;
     }
@@ -1299,6 +1329,11 @@ OBJECTTYPE WHFSFolder EXTEND WHFSObject
     OBJECT toret := OpenWHFSObject(metadata.id);
     IF(NOT ObjectExists(toret))
       THROW NEW WHFSException("OTHER","Unexpected database insert error (access denied?)");
+
+    DefaultAfterMetadataUpdate([ id := toret->id
+                               , oldtype := 0
+                               , newtype := toret->type
+                               ]);
 
     GetWHFSCommitHandler()->AddCompletionEvent( [ type := "addfile", id := toret->id ]);
 
