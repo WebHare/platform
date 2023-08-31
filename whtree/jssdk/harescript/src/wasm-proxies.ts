@@ -10,7 +10,7 @@ export type HSVMObject = HSVMObjectWrapper & HSCallsProxy;
 
 export type HSVMLibrary = HSCallsProxy;
 
-function argsToHSVMVar(vm: HareScriptVM, args: unknown[]): HSVMVar[] {
+export function argsToHSVMVar(vm: HareScriptVM, args: unknown[]): HSVMVar[] {
 
   const funcargs: HSVMVar[] = [];
   for (const arg of args) {
