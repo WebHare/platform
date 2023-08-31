@@ -254,6 +254,14 @@ OBJECTTYPE ForwardingLoopbackTransaction EXTEND LoopbackTransaction
   {
     RETURN this->itf.__GetTableTypeInfoCols(tbl, cols);
   }
+  UPDATE PUBLIC BOOLEAN FUNCTION HasMutex(STRING mutexname)
+  {
+    RETURN this->itf.HasMutex(mutexname);
+  }
+  UPDATE PUBLIC BOOLEAN FUNCTION TryLockMutex(STRING mutexname, DATETIME wait_until)
+  {
+    RETURN this->itf.TryLockMutex(mutexname, wait_until);
+  }
 >;
 
 RECORD ARRAY transobjects;
@@ -482,6 +490,14 @@ MACRO WLT_DropTable(INTEGER transid, STRING schemaname, STRING tablename)
 {
   GetTransObject(transid)->DropTable(schemaname, tablename);
 }
+BOOLEAN FUNCTION WLT_HasMutex(INTEGER transid, STRING mutexname)
+{
+  RETURN GetTransObject(transid)->HasMutex(mutexname);
+}
+BOOLEAN FUNCTION WLT_TryLockMutex(INTEGER transid, STRING mutexname, DATETIME wait_until)
+{
+  RETURN GetTransObject(transid)->TryLockMutex(mutexname, wait_until);
+}
 RECORD ARRAY FUNCTION WLT___GetTableTypeInfoCols(INTEGER transid, TABLE tbl, STRING ARRAY cols)
 {
   RETURN GetTransObject(transid)->__GetTableTypeInfoCols(tbl, cols);
@@ -529,6 +545,9 @@ PUBLIC RECORD FUNCTION GetTransactionFLTRecordInterface(OBJECT transaction)
       , dropschema :=           PTR WLT_DropSchema(id, #1, #2)
       , droptable :=            PTR WLT_DropTable(id, #1, #2)
       , __GetTableTypeInfoCols := PTR WLT___GetTableTypeInfoCols(id, #1, #2)
+
+      , hasmutex :=             PTR WLT_HasMutex(id, #1)
+      , trylockmutex :=         PTR WLT_TryLockMutex(id, #1, #2)
       ];
 }
 

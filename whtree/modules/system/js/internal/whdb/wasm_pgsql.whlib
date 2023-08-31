@@ -192,6 +192,7 @@ STATIC OBJECTTYPE EMTransaction EXTEND LockingTransactionBase
 
     //TODO WASM PG needs to handle readonly DBs like transbase does
     CallImpl("cbDoCommitWork", DEFAULT RECORD);
+    this->ReleaseAllLocks(); //TODO WASM PG should handle locks, not us. otherwise a commit on their side will not revoke the locks
     RETURN RECORD[];
   }
 
@@ -201,6 +202,7 @@ STATIC OBJECTTYPE EMTransaction EXTEND LockingTransactionBase
       THROW NEW Exception("Cannot rollback work: inside a nesting level, we still need " || (this->pushlevel) || " PopWork calls");
 
     CallImpl("cbDoRollbackWork", DEFAULT RECORD);
+    this->ReleaseAllLocks(); //TODO WASM PG should handle locks, not us. otherwise a rollback on their side will not revoke the locks
   }
 
   UPDATE PUBLIC MACRO InsertRecord(RECORD query, RECORD newfields)
