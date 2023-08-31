@@ -1,6 +1,6 @@
 import { ensureScopedResource } from "@webhare/services/src/codecontexts";
-import { HSCallsProxy, argsToHSVMVar } from "./wasm-proxies";
 import { allocateHSVM } from "./wasm-hsvm";
+import { HSVMCallsProxy, argsToHSVMVar } from "./wasm-proxies";
 
 const HSVMSymbol = Symbol("HSVM");
 
@@ -39,7 +39,7 @@ class ContextLibraryProxy {
 }
 
 /** Loads a stub to access a library in the then current code context VM. */
-export function loadlib(name: string): HSCallsProxy {
-  const proxy = new Proxy({}, new ContextLibraryProxy(name)) as HSCallsProxy;
+export function loadlib(name: string): HSVMCallsProxy {
+  const proxy = new Proxy({}, new ContextLibraryProxy(name)) as HSVMCallsProxy;
   return proxy;
 }

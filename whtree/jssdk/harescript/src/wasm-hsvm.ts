@@ -8,7 +8,7 @@ import createModule from "../../../lib/harescript";
 import { registerBaseFunctions } from "./wasm-hsfunctions";
 import { WASMModule } from "./wasm-modulesupport";
 import { HSVMVar } from "./wasm-hsvmvar";
-import { HSCallsProxy, HSVMLibraryProxy, HSVMObjectCache } from "./wasm-proxies";
+import { HSVMCallsProxy, HSVMLibraryProxy, HSVMObjectCache } from "./wasm-proxies";
 import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 import { Mutex } from "@webhare/services";
 
@@ -221,8 +221,8 @@ export class HareScriptVM {
     }
   }
 
-  loadlib(name: string): HSCallsProxy {
-    const proxy = new Proxy({}, new HSVMLibraryProxy(this, name)) as HSCallsProxy;
+  loadlib(name: string): HSVMCallsProxy {
+    const proxy = new Proxy({}, new HSVMLibraryProxy(this, name)) as HSVMCallsProxy;
     return proxy;
   }
 

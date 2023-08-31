@@ -2,13 +2,14 @@ import { HareScriptVM } from "./wasm-hsvm";
 import { HSVMVar } from "./wasm-hsvmvar";
 import { HSVM_VariableId } from "wh:internal/whtree/lib/harescript-interface";
 
-export interface HSCallsProxy {
-  [key: string]: (...args: unknown[]) => Promise<unknown>;
+export interface HSVMCallsProxy {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- it's overhead to have to define the type whenever you invoke. But feel free to extend commonlibs.ts!
+  [key: string]: (...args: unknown[]) => Promise<any>;
 }
 
-export type HSVMObject = HSVMObjectWrapper & HSCallsProxy;
+export type HSVMObject = HSVMObjectWrapper & HSVMCallsProxy;
 
-export type HSVMLibrary = HSCallsProxy;
+export type HSVMLibrary = HSVMCallsProxy;
 
 export function argsToHSVMVar(vm: HareScriptVM, args: unknown[]): HSVMVar[] {
 
