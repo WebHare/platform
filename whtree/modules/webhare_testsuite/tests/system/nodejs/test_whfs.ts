@@ -52,7 +52,7 @@ async function testWHFS() {
   test.eq("TestPages", testpagesfolder.name);
   test.eq(null, testpagesfolder.indexDoc);
 
-  const list = await testpagesfolder.list(["parent"]);
+  const list = await testpagesfolder.list(["parent", "publish"]);
   test.assert(list.length > 5, "should be a lot of files/folders in this list");
   test.eq([
     {
@@ -60,8 +60,10 @@ async function testWHFS() {
       name: markdownfile.name,
       isFolder: false,
       parent: testpagesfolder.id,
+      publish: true
     }
   ], list.filter(e => e.name == markdownfile.name));
+  test.eqProps({ publish: false }, list.find(e => e.name === "unpublished"));
   for (let i = 0; i < list.length - 1; ++i)
     test.assert(list[i].name < list[i + 1].name, "List should be sorted on name");
 
