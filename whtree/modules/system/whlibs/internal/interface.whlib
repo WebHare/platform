@@ -472,3 +472,289 @@ PUBLIC INTEGER FUNCTION CreateZlibCompressor(INTEGER outstream, STRING format, I
     @loadlib wh::filetypes/archiving.whlib
 */
 PUBLIC RECORD FUNCTION CloseZlibCompressor(INTEGER compressor) __ATTRIBUTES__(EXTERNAL);
+
+/** @short   Returns a string representation of an integer
+    @long    ToString creates a string representation of the specified integer in the specified base (radix)
+
+             A base of 10 indicates that the string should use decimal numbers, 8 octal, 16 hexadecimal, and so on.
+             Note: you don't need to use the ToString function to merge integers to strings.
+
+    @param   val Value to convert
+    @param   radix Number system used in the string, ranging from 2 to 36. This parameter is optional and defaults to 10 (decimal system)
+    @return  The number converted to a string value in the requested number system
+    @see     ToInteger, ToInteger64
+    @topic   harescript-core/builtins
+    @public
+    @loadlib wh::system.whlib
+    @example
+// returns "9"
+STRING example1 := ToString(9, 10);
+
+// returns "11"
+STRING example2 := ToString(11);
+
+// returns "12"
+STRING example3 := ToString(10, 8);
+
+// returns "ff00"
+STRING example4 := ToString(65280, 16);
+*/
+PUBLIC STRING FUNCTION ToString(INTEGER64 val, INTEGER radix DEFAULTSTO 10) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+/** @short   Returns an integer representation of a string
+    @long    ToInteger parses the string, and attempts to return an integer of the specified base (radix).
+             If the function failed to parse the specified string, it will return @italic defaultvalue
+
+             A base of 10 indicates that a decimal number should be converted, 8 octal, 16 hexadecimal, and so on.
+    @param   str String to convert
+    @param   defaultvalue Value to return if 'str' is not a valid number in the specified number system
+    @param   radix Number system used in the string, ranging from 2 to 36. If the base is out of range,
+             defaultvalue is returned. This parameter is optional and defaults to 10 (decimal system)
+    @return  The number in the passed string as an integer, or defaultvalue if the conversion failed.
+    @see     ToString, ToInteger64
+    @topic   harescript-core/builtins
+    @public
+    @loadlib wh::system.whlib
+    @example
+// The following examples all return 15
+INTEGER example1 := ToInteger("15", -1);
+INTEGER example2 := ToInteger("15", -1, 10);
+INTEGER example3 := ToInteger("F", -1, 16);
+INTEGER example4 := ToInteger("1111", -1, 2);
+
+// The following faulty strings all return -1
+INTEGER example5 := ToInteger("15,99", -1);
+INTEGER example6 := ToInteger("5*3", -1, 10);
+INTEGER example7 := ToInteger("FFFFFFFFFF", -1, 16);
+INTEGER example8 := ToInteger("22", -1, 2);
+*/
+PUBLIC INTEGER FUNCTION ToInteger(STRING str, INTEGER defaultvalue, INTEGER radix DEFAULTSTO 10) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+/** @short   Returns an integer64 representation of a string
+    @long    ToInteger64 parses the string, and attempts to return an integer of the specified base (radix).
+             If the function failed to parse the specified string, it will return @italic defaultvalue
+
+             A base of 10 indicates that a decimal number should be converted, 8 octal, 16 hexadecimal, and so on.
+    @param   str String to convert
+    @param   defaultvalue Value to return if 'str' is not a valid number in the specified number system
+    @param   radix Number system used in the string, ranging from 2 to 36. If the base is out of range,
+             defaultvalue is returned. This parameter is optional and defaults to 10 (decimal system)
+    @return  The number in the passed string as an integer64, or defaultvalue if the conversion failed.
+    @see     ToString, ToInteger
+    @topic   harescript-core/builtins
+    @public
+    @loadlib wh::system.whlib
+    @example
+// The following examples all return 15
+INTEGER64 example1 := ToInteger64("15", -1);
+INTEGER64 example2 := ToInteger64("15", -1, 10);
+INTEGER64 example3 := ToInteger64("F", -1, 16);
+INTEGER64 example4 := ToInteger64("1111", -1, 2);
+
+// The following faulty strings all return -1
+INTEGER64 example5 := ToInteger64("15,99", -1);
+INTEGER64 example6 := ToInteger64("5*3", -1, 10);
+INTEGER64 example7 := ToInteger64("FFFFFFFFFFFFFFFFF", -1, 16);
+INTEGER64 example8 := ToInteger64("22", -1, 2);
+*/
+PUBLIC INTEGER64 FUNCTION ToInteger64(STRING str, INTEGER64 defaultvalue, INTEGER radix DEFAULTSTO 10) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+
+/** @short Returns the length of an variable.
+    @long This function returns the length of an variable. The variable can be of a STRING, BLOB or any ARRAY type.
+          Its unit of measurement depends on the type of the variable.
+    @param obj The variable whose length should be measured.
+    @return The function returns the number of bytes in the STRING, number of elements in the
+            ARRAY or the length of a BLOB in bytes.
+    @see wh::system.whlib#UCLength
+    @topic   harescript-core/builtins
+    @public
+    @loadlib wh::system.whlib
+    @example
+// returns 6
+INTEGER example1 := Length("abcdef");
+
+// returns 8 (the euro character consists of three bytes)
+INTEGER example2 := Length("€ 2,50");
+
+// returns 6 (the euro character is one character in UNICODE(UTF-8))
+INTEGER example2 := UCLength("€ 2,50");
+
+// returns 4
+INTEGER ARRAY intarray := [1, 2, 3, 4];
+INTEGER example3 := Length(intarray);
+*/
+PUBLIC INTEGER Function Length(VARIANT obj) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+
+/** @short Returns the length of an variable as an integer64.
+    @long This function returns the length of an variable. It supports all the types the Length function does, but is mostly useful for Blobs larger than 2GB
+    @param obj The variable whose length should be measured.
+    @return The function returns the number of bytes in the STRING, number of elements in the ARRAY or the length of a BLOB in bytes.
+    @topic   harescript-core/builtins
+    @public
+    @loadlib wh::system.whlib
+    @see wh::system.whlib#UCLength
+    @example
+INTEGER64 dvdlength := Length64(GetDiskResource("/tmp/centos-6.iso"));
+*/
+PUBLIC INTEGER64 Function Length64(VARIANT obj) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+/** @short   Returns the left part of a string.
+    @long    Left returns the first 'n' bytes from a string.
+             If a string contains less than the requested number of bytes, the entire string is returned.
+             When manipulating UTF-8 strings it is recommended that you use the function UCLeft because UTF-8
+             characters can be made up from more bytes and the result is therefore unpredictable.
+    @param   text String to return a part from
+    @param   numbytes Number of bytes to return
+    @return  The requested part of the string
+    @see     wh::system.whlib#UCLeft Substring Right wh::system.whlib#UCRight
+    @topic   harescript-core/builtins
+    @public
+    @loadlib wh::system.whlib
+    @example
+// returns 'ab'
+STRING example1 := Left("abcdef", 2);
+
+// returns '€u'
+STRING example2 := Left("€uro", 4);
+
+// returns '€uro'
+STRING example3 := UCLeft("€uro", 4)
+
+// returns the entire string, e.g 'abcdef'
+STRING example4 := Left("abcdef", 100);
+
+// returns an empty string
+STRING example5 := Left("abcdef", -10);
+*/
+PUBLIC STRING FUNCTION Left(STRING text, INTEGER numbytes) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+/** @short   Returns the right part of a string.
+    @long    Right returns the last 'n' bytes from a string.
+             If a string contains less than the requested number of bytes, the entire string is returned.
+             When manipulating UTF-8 strings it is recommended that you use the function UCRight because UTF-8
+             characters can be made up from more bytes and the result is therefore unpredictable.
+    @param   text String to return a part from
+    @param   numbytes Number of bytes to return
+    @return  The requested part of the string
+    @see     wh::system.whlib#UCRight Substring Left wh::system.whlib#UCLeft
+    @topic   harescript-core/builtins
+    @public
+    @loadlib wh::system.whlib
+    @example
+// returns 'ef'
+STRING example1 := Right("abcdef", 2);
+
+// returns 'ro€'
+STRING example2 := Right("euro€", 5);
+
+// returns 'euro€'
+STRING example3 := UCRight("euro€", 5);
+
+// returns the entire string, e.g 'abcdef'
+STRING example4 := Right("abcdef", 100);
+
+// returns an empty string
+STRING example5 := Right("abcdef", -10);
+*/
+PUBLIC STRING FUNCTION Right(STRING text, INTEGER numbytes) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+/** @short   Returns part of a string.
+    @long    Substring returns the part of string specified by the start and length parameters.
+             If the string after the start position contains less than the requested number of bytes, the whole
+             string after the start position is returned.
+             If the length parameter is omitted, the portion of string beginning at start and ending at the
+             end of the string is returned
+             When manipulating UTF-8 strings it is recommended that you use the function UCSubstring because
+             UTF-8 characters can be made up from more bytes and the result is therefore unpredictable.
+    @param   text String to return a part from
+    @param   start Starting byte position
+    @param   numbytes Number of bytes to return. When omitted, the portion from start until the end of the string is returned.
+    @return  The requested part of the string
+    @see     wh::system/whlib#UCSubstring Left Right wh::system/whlib#UCLeft wh::system/whlib#UCRight
+    @topic   harescript-core/builtins
+    @public
+    @loadlib wh::system.whlib
+    @example
+// returns 'bcde'
+STRING example1 := Substring("abcdef", 1, 4);
+
+// returns '€u'
+STRING example2 := Substring("euro€uro", 4, 4);
+
+// returns '€uro'
+STRING example3 := UCSubstring("euro€uro", 4, 4);
+
+// returns an empty string
+STRING example4 := Substring("abcdef", 100, 100);
+
+// returns an empty string
+STRING example5 := Substring("abcdef", -10, -20);
+*/
+PUBLIC STRING FUNCTION Substring(STRING text, INTEGER start, INTEGER numbytes DEFAULTSTO 2147483647) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+/** @short   Find the first occurrence of a substring
+    @long    Searchsubstring does a case-sensitive search in a string for the first occurence of a substring.
+    @param   text String to search in
+    @param   search String to search for
+    @param   start The byte position to start searching. Note that characters in UNICODE(UTF-8) are sometimes
+             made up from more bytes.
+    @return  Starting byte position of the first occurence, or -1 if the string was not found
+    @see     SearchLastSubstring wh::system/whlib#UCSearchSubstring wh::system/whlib#UCSearchLastSubstring
+    @topic   harescript-core/builtins
+    @public
+    @loadlib wh::system.whlib
+    @example
+// returns 2
+INTEGER example1 := SearchSubstring("abcdef", "c");
+
+// returns 0
+INTEGER example2 := SearchSubstring("ababab", "ab");
+
+// returns -1
+INTEGER example3 := SearchSubstring("abcdef", "g");
+
+// returns -1
+INTEGER example4 := SearchSubstring("abcdef", "A");
+
+// returns 2
+INTEGER example5 := SearchSubstring("ababab", "ab", 1);
+
+// returns -1
+INTEGER example6 := SearchSubstring("ababab", "ab", 5);
+*/
+PUBLIC INTEGER FUNCTION SearchSubstring(STRING text, STRING search, INTEGER start DEFAULTSTO 0) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+
+/** @short   Find the last occurrence of a substring
+    @long    Searchsubstring does a case-sensitive search in a string for the last occurence of a substring.
+    @param   text String to search in
+    @param   search String to search for
+    @param   start The byte position to start searching. Note that characters in UNICODE(UTF-8) are sometimes
+             made up from more bytes.
+    @return  Starting byte position of the last occurence, or -1 if the string was not found
+    @see     SearchSubstring wh::system/whlib#UCSearchSubstring wh::system/whlib#UCSearchLastSubString
+    @topic   harescript-core/builtins
+    @public
+    @loadlib wh::system.whlib
+    @example
+// returns 3
+INTEGER example1 := SearchLastSubstring("aaaa", "a");
+
+// returns 4
+INTEGER example2 := SearchLastSubstring("ababab", "ab");
+
+// returns -1
+INTEGER example3 := SearchLastSubstring("abcdef", "g");
+
+// returns -1
+INTEGER example4 := SearchLastSubstring("abcdef", "A");
+
+// returns 2
+INTEGER example5 := SearchLastSubstring("ababab", "ab", 4);
+
+// returns -1
+INTEGER example6 := SearchLastSubstring("ababab", "ab", 0);
+*/
+PUBLIC INTEGER FUNCTION SearchLastSubstring(STRING text, STRING search, INTEGER start DEFAULTSTO 2147483647) __ATTRIBUTES__(EXTERNAL, CONSTANT);
