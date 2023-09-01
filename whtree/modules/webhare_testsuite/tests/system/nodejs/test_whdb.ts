@@ -260,10 +260,10 @@ async function testFinishHandlers() {
   broadcastOnCommit("webhare_testsuite:worktest.2");
   onFinishWork(() => ({
     onCommit: async () => {
+      handlerresult.push('first');
       test.eq(false, isWorkOpen());
       await beginWork();
       await commitWork();
-      handlerresult.push('first');
     }
   })); // returns number
   onFinishWork(() => ({ onCommit: () => { /* empty */ } })); // test if returning void is accepted
