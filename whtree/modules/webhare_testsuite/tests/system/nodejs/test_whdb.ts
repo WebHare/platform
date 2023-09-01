@@ -1,4 +1,4 @@
-import { BackendEvent, BackendEventSubscription, subscribe, CodeContext } from "@webhare/services";
+import { BackendEvent, BackendEventSubscription, subscribe } from "@webhare/services";
 import * as test from "@webhare/test";
 import { DeferredPromise, createDeferred, sleep } from "@webhare/std";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
@@ -6,7 +6,9 @@ import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommi
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
 import * as contexttests from "./data/context-tests";
 import { WHDBBlob } from "@webhare/whdb/src/blobs";
-import { HareScriptMemoryBlob } from "@webhare/harescript";
+import { HareScriptMemoryBlob, loadlib } from "@webhare/harescript";
+import { getCodeContextHSVM } from "@webhare/harescript/src/contextvm";
+import { CodeContext } from "@webhare/services/src/codecontexts";
 
 async function cleanup() {
   await beginWork();
@@ -93,6 +95,73 @@ async function testTypes() {
   //TODO perhaps we should have used timestamp-with-tz columns?
   const rawrows = (await query<{ adate: string }>("select adate::varchar(32) from webhare_testsuite.consilio_index where text='row1'")).rows;
   test.eq("2022-05-02 19:07:45", rawrows[0].adate);
+
+  test.eq(undefined, getCodeContextHSVM(), "Ensure that the bare commitWorks above did not instiate a VM");
+}
+
+async function testHSWorkSync() {
+  const primary = await loadlib("mod::system/lib/database.whlib").getPrimary();
+  test.assert(primary);
+
+  //verify work sync
+  test.eq(false, await primary.isWorkOpen());
+  test.eq(false, isWorkOpen());
+
+  await primary.beginWork();
+  test.eq(true, await primary.isWorkOpen());
+  test.eq(true, isWorkOpen());
+  await primary.commitWork();
+  test.eq(false, await primary.isWorkOpen());
+  test.eq(false, isWorkOpen());
+
+  await primary.beginWork();
+  test.eq(true, await primary.isWorkOpen());
+  test.eq(false, await primary.isNestedWorkOpen());
+  test.eq(true, isWorkOpen());
+  await primary.pushWork();
+  test.eq(true, await primary.isNestedWorkOpen());
+  await primary.popWork();
+  await primary.commitWork();
+
+  test.eq(false, await primary.isWorkOpen());
+  test.eq(false, isWorkOpen());
+
+  await primary.beginWork();
+  await commitWork();
+  await primary.beginWork();
+  await commitWork();
+
+  await primary.pushWork();
+  test.eq(true, await primary.isWorkOpen());
+  test.eq(true, isWorkOpen());
+  test.eq(false, await primary.isNestedWorkOpen());
+
+  await primary.popWork();
+  test.eq(false, await primary.isWorkOpen());
+  test.eq(false, isWorkOpen());
+}
+
+async function testHSCommitHandlers() {
+  const invoketarget = loadlib("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib");
+  const primary = await loadlib("mod::system/lib/database.whlib").getPrimary();
+  test.assert(primary);
+  await beginWork();
+  await invoketarget.SetGobalOnCommit({ x: 121 });
+
+  test.eq(null, await invoketarget.getGlobal());
+  await commitWork();
+  test.eq(false, await primary.isWorkOpen());
+  test.eq({ x: 121, iscommit: true }, await invoketarget.getGlobal());
+
+  await invoketarget.setGlobal({ x: 222 });
+  await beginWork();
+  await commitWork();
+  test.eq({ x: 222 }, await invoketarget.getGlobal(), "Verifies the handler was cleared");
+
+  await beginWork();
+  await invoketarget.SetGobalOnCommit({ x: 343 });
+  await rollbackWork();
+  test.eq({ x: 343, iscommit: false }, await invoketarget.getGlobal(), "Verify rollback works too");
 }
 
 async function testCodeContexts() {
@@ -105,8 +174,14 @@ async function testCodeContexts() {
   //prove the transactions are running in parallel:
   test.eq("inserted 40", (await c1.next()).value);
   test.eq("inserted 41", (await c2.next()).value);
-  test.eqProps([{ id: 40 }], (await c1.next()).value, [], "context1 sees only 40");
-  test.eqProps([{ id: 41 }], (await c2.next()).value, [], "context2 sees only 41");
+  test.eqProps([{ id: 41, harescript: false }], (await c2.next()).value, [], "context2 sees only 41");
+  test.eqProps([{ id: 40, harescript: false }], (await c1.next()).value, [], "context1 sees only 40");
+  test.eqProps([{ id: 40, harescript: true, text: `Inserting '40 from 'whcontext-2: test_whdb: testCodeContexts: parallel'` }], (await c1.next()).value, [], "context1 sees only 40");
+  test.eqProps([{ id: 41, harescript: true, text: `Inserting '41 from 'whcontext-3: test_whdb: testCodeContexts: parallel'` }], (await c2.next()).value, [], "context2 sees only 41");
+
+  //Now HS will update it, then JS will return it
+  test.eqProps([{ id: 40, harescript: false, text: `Inserting '40 from 'whcontext-2: test_whdb: testCodeContexts: parallel' (updated)` }], (await c1.next()).value, [], "context1 sees only 40");
+  test.eqProps([{ id: 41, harescript: false, text: `Inserting '41 from 'whcontext-3: test_whdb: testCodeContexts: parallel' (updated)` }], (await c2.next()).value, [], "context2 sees only 41");
 
   //and that, once committed, they see each other's changes:
   test.eq("committed", (await c1.next()).value);
@@ -183,7 +258,14 @@ async function testFinishHandlers() {
   broadcastOnCommit("webhare_testsuite:worktest.1");
   broadcastOnCommit("webhare_testsuite:worktest.1");
   broadcastOnCommit("webhare_testsuite:worktest.2");
-  onFinishWork(() => ({ onCommit: () => handlerresult.push('first') })); // returns number
+  onFinishWork(() => ({
+    onCommit: async () => {
+      handlerresult.push('first');
+      test.eq(false, isWorkOpen());
+      await beginWork();
+      await commitWork();
+    }
+  })); // returns number
   onFinishWork(() => ({ onCommit: () => { /* empty */ } })); // test if returning void is accepted
 
   await commitWork();
@@ -258,7 +340,9 @@ test.run([
   cleanup,
   testQueries,
   testTypes,
-  testCodeContexts,
-  testCodeContexts2,
+  testHSWorkSync,
   testFinishHandlers,
+  testHSCommitHandlers,
+  testCodeContexts,
+  testCodeContexts2
 ]);

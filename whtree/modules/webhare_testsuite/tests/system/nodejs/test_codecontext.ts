@@ -1,10 +1,12 @@
-import { getCodeContext, CodeContext } from "@webhare/services";
+import { getCodeContext, CodeContext, isRootCodeContext } from "@webhare/services/src/codecontexts";
 import * as test from "@webhare/test";
 import * as contexttests from "./data/context-tests";
 import { ensureScopedResource } from "@webhare/services/src/codecontexts";
+import { loadlib } from "@webhare/harescript";
 
 async function testContextSetup() {
-  test.throws(/Not running inside a CodeContext/, getCodeContext);
+  test.eq('root', getCodeContext().title);
+  test.eq(true, isRootCodeContext());
 
   const context1 = new CodeContext("test_codecontext:context setup", { context: 1 });
   const context2 = new CodeContext("test_codecontext:context setup", { context: 2 });
@@ -12,6 +14,7 @@ async function testContextSetup() {
   test.eq(/^whcontext-.*/, context2.id);
   test.assert(context1.id !== context2.id, "Assert we have two different contexts");
 
+  test.eq(false, context1.run(() => isRootCodeContext()));
   test.eq(context1.id, context1.run(contexttests.returnContextId));
   test.eq(context2.id, context2.run(contexttests.returnContextId));
   test.eq(context1.id, await context1.run(contexttests.returnContextIdAsync));
@@ -50,7 +53,31 @@ async function testContextStorage() {
   test.eq(99, context2.ensureScopedResource("webhare_testsuite:mykey", (): number => { throw new Error("should not happen"); }));
 }
 
+async function testContextHSVM() {
+  const context1 = new CodeContext("test_codecontext:context storage", { context: 1 });
+  const context2 = new CodeContext("test_codecontext:context storage", { context: 2 });
+  const invoketarget = "mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib";
+
+  await loadlib(invoketarget).setGlobal({ x: 42 });
+  test.eq({ x: 42 }, await loadlib(invoketarget).getGlobal());
+
+  await context1.run(() => loadlib(invoketarget).setGlobal({ x: 77 }));
+  test.eq({ x: 77 }, await context1.run(() => loadlib(invoketarget).getGlobal()));
+
+  await context2.run(() => loadlib(invoketarget).setGlobal({ x: 99 }));
+  test.eq({ x: 99 }, await context2.run(() => loadlib(invoketarget).getGlobal()));
+  test.eq({ x: 77 }, await context1.run(() => loadlib(invoketarget).getGlobal()));
+  test.eq({ x: 42 }, await loadlib(invoketarget).getGlobal());
+
+  //verify that loadlib itself doesn't bind
+  const myloadlib = loadlib(invoketarget);
+  test.eq({ x: 99 }, await context2.run(() => myloadlib.getGlobal()));
+  test.eq({ x: 77 }, await context1.run(() => myloadlib.getGlobal()));
+  test.eq({ x: 42 }, await myloadlib.getGlobal());
+}
+
 test.run([
   testContextSetup,
-  testContextStorage
+  testContextStorage,
+  testContextHSVM
 ]);

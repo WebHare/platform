@@ -19,7 +19,7 @@ export class WorkerHandler {
     switch (message.type) {
       case "instantiateServiceRequest": {
         try {
-          const channel = createTypedMessageChannel<WorkerServiceLinkRequest, WorkerServiceLinkResponse>();
+          const channel = createTypedMessageChannel<WorkerServiceLinkRequest, WorkerServiceLinkResponse>("WorkerHandler");
           const serviceclass = message.isfactory ?
             await (await loadJSFunction(message.func))(...message.params) as object :
             new (await loadJSFunction(message.func) as unknown as { new(...args: unknown[]): object })(...message.params) as object;

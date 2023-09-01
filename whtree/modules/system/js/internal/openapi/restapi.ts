@@ -3,9 +3,10 @@ import { createJSONResponse, HTTPErrorCode, WebRequest, DefaultRestParams, RestR
 import Ajv2020, { ValidateFunction, ErrorObject, SchemaObject } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import { OpenAPIV3 } from "openapi-types";
-import { CodeContext, LoggableRecord, resolveResource, toFSPath } from "@webhare/services";
+import { LoggableRecord, resolveResource, toFSPath } from "@webhare/services";
 import { loadJSFunction } from "../resourcetools";
 import { config } from "@mod-system/js/internal/configuration";
+import { CodeContext } from "@webhare/services/src/codecontexts";
 
 const SupportedMethods: HTTPMethod[] = [HTTPMethod.GET, HTTPMethod.PUT, HTTPMethod.POST, HTTPMethod.DELETE, HTTPMethod.OPTIONS, HTTPMethod.HEAD, HTTPMethod.PATCH];
 

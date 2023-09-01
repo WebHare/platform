@@ -150,7 +150,7 @@ export class AsyncWorker {
       // LocalBridges need to be initialized with data from the main thread
       throw new Error(`Not allowed to create an AsyncWorker within an AsyncWorker`);
     }
-    const ports = createTypedMessageChannel<WorkerControlLinkRequest, WorkerControlLinkResponse>();
+    const ports = createTypedMessageChannel<WorkerControlLinkRequest, WorkerControlLinkResponse>("AsyncWorker");
     this.port = ports.port1;
     const localHandlerInitData = getLocalHandlerInitData();
     this.worker = new Worker(require.resolve("./worker_handler.ts"), {

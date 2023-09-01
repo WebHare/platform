@@ -1,5 +1,7 @@
 <?wh
 LOADLIB "wh::promise.whlib";
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::webhare_testsuite/lib/database.whlib";
 
 PUBLIC INTEGER FUNCTION Add(INTEGER lhs, INTEGER rhs)
 {
@@ -20,6 +22,7 @@ OBJECTTYPE ObjType
 >;
 
 OBJECT obj;
+RECORD globalrec;
 
 PUBLIC OBJECT FUNCTION GetObject(INTEGER sleepmsecs)
 {
@@ -27,4 +30,33 @@ PUBLIC OBJECT FUNCTION GetObject(INTEGER sleepmsecs)
     obj := NEW ObjType;
   Sleep(sleepmsecs);
   RETURN obj;
+}
+
+PUBLIC MACRO SetGlobal(RECORD rec)
+{
+  globalrec := rec;
+}
+PUBLIC RECORD FUNCTION GetGlobal()
+{
+  RETURN globalrec;
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetExportTest()
+{
+  RETURN SELECT *, harescript := TRUE FROM webhare_testsuite.exporttest;
+}
+PUBLIC MACRO UpdateExportTest()
+{
+  UPDATE webhare_testsuite.exporttest SET text := text || " (updated)";
+}
+MACRO DoSetGlobal(RECORD newrec, BOOLEAN iscommit)
+{
+  //ensure we're in a proper state, after the original commit
+  GetPrimary()->BeginWork();
+  GetPrimary()->CommitWork();
+  SetGlobal(CELL[...newrec, iscommit]);
+}
+PUBLIC MACRO SetGobalOnCommit(RECORD newrec)
+{
+  GetPrimary()->RegisterCommitHandler("", PTR DoSetGlobal(newrec, #1));
 }

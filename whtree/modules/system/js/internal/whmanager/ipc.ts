@@ -445,7 +445,7 @@ export class IPCPortImpl<SendType extends object | null, ReceiveType extends obj
 */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function createIPCEndPointPair<LinkType extends IPCLinkType<any, any> = IPCLinkType>(): [LinkType["ConnectEndPoint"], LinkType["AcceptEndPoint"]] {
-  const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>();
+  const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>("IPCEndpointPair");
   const id = generateRandomId();
   return [new IPCEndPointImpl(`${id} - port1`, port1, "direct"), new IPCEndPointImpl(`${id} - port2`, port2, "direct")];
 }

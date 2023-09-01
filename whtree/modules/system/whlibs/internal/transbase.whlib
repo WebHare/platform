@@ -518,6 +518,30 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
         rec.obj->OnPreCommit(this);
   }
 
+  /// Invoked by WASM PG provider
+  PUBLIC MACRO __InvokeFinishHandlers(STRING handler) // handler: "onBeforeCommit" | "onCommit" | "onRollback"
+  {
+    SWITCH(handler)
+    {
+      CASE "onBeforeCommit"
+      {
+        this->__CallPrecommitHandlers(TRUE);
+      }
+      CASE "onCommit"
+      {
+        this->__CallCommitHandlers(TRUE);
+      }
+      CASE "onRollback"
+      {
+        this->__CallCommitHandlers(FALSE);
+      }
+      DEFAULT
+      {
+        THROW NEW Exception(`Unexpected __InvokeFinishHandlers: ${handler}`);
+      }
+    }
+  }
+
   /** Calls all commit handlers after a commit or rollback. Call this function after every
       commit or rollback!
       @param iscommit TRUE for commit, FALSE for rollback

@@ -2,13 +2,14 @@ import { HareScriptVM } from "./wasm-hsvm";
 import { HSVMVar } from "./wasm-hsvmvar";
 import { HSVM_VariableId } from "wh:internal/whtree/lib/harescript-interface";
 
-export interface HSCallsProxy {
-  [key: string]: (...args: unknown[]) => Promise<unknown>;
+export interface HSVMCallsProxy {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- it's overhead to have to define the type whenever you invoke. But feel free to extend commonlibs.ts!
+  [key: string]: (...args: unknown[]) => Promise<any>;
 }
 
-export type HSVMObject = HSVMObjectWrapper & HSCallsProxy;
+export type HSVMObject = HSVMObjectWrapper & HSVMCallsProxy;
 
-export type HSVMLibrary = HSCallsProxy;
+export type HSVMLibrary = HSVMCallsProxy;
 
 function argsToHSVMVar(vm: HareScriptVM, args: unknown[]): HSVMVar[] {
 
@@ -19,6 +20,14 @@ function argsToHSVMVar(vm: HareScriptVM, args: unknown[]): HSVMVar[] {
     funcargs.push(newvar);
   }
   return funcargs;
+}
+
+function cleanupHSVMCall(vm: HareScriptVM, args: HSVMVar[], result: HSVMVar | undefined) {
+  for (const arg of args)
+    vm.wasmmodule._HSVM_DeallocateVariable(vm.hsvm, arg.id);
+
+  if (result)
+    vm.wasmmodule._HSVM_DeallocateVariable(vm.hsvm, result.id);
 }
 
 export class HSVMObjectWrapper {
@@ -45,8 +54,13 @@ export class HSVMObjectWrapper {
 
   async $invoke(name: string, args: unknown[]) {
     const funcargs = argsToHSVMVar(this.$vm, args);
-    const result = await this.$vm.callWithHSVMVars(name, funcargs, this.$objid);
-    return result ? result.getJSValue() : undefined;
+    let result: HSVMVar | undefined;
+    try {
+      result = await this.$vm.callWithHSVMVars(name, funcargs, this.$objid);
+      return result ? result.getJSValue() : undefined;
+    } finally {
+      cleanupHSVMCall(this.$vm, funcargs, result);
+    }
   }
 }
 
@@ -62,6 +76,17 @@ export class HSVMObjectProxy {
   }
 }
 
+export async function invokeOnVM(vm: HareScriptVM, lib: string, name: string, args: unknown[]) {
+  //TODO detect HSVM Vars and copyfrom them?
+  const funcargs = argsToHSVMVar(vm, args);
+
+  const result = await vm.callWithHSVMVars(lib + "#" + name, funcargs);
+  try {
+    return result?.getJSValue();
+  } finally {
+    cleanupHSVMCall(vm, funcargs, result);
+  }
+}
 
 export class HSVMLibraryProxy {
   private readonly vm: HareScriptVM;
@@ -79,12 +104,9 @@ export class HSVMLibraryProxy {
     return (...args: unknown[]) => this.invoke(prop, args);
   }
 
-  ///JavaScript supporting invoke (TODO detect HSVM Vars and copyfrom them?)
+  ///JavaScript supporting invoke
   async invoke(name: string, args: unknown[]) {
-    const funcargs = argsToHSVMVar(this.vm, args);
-
-    const result = await this.vm.callWithHSVMVars(this.lib + "#" + name, funcargs);
-    return result ? result.getJSValue() : undefined;
+    return invokeOnVM(this.vm, this.lib, name, args);
   }
 }
 
@@ -118,6 +140,7 @@ export class HSVMObjectCache {
         return existingproxy;
 
       this.cachedobjects.delete(proxyvarid);
+      this.vm.wasmmodule._HSVM_ObjectMemberDelete(this.vm.hsvm, id, proxycolumnid, /*skipaccess=*/1);
     }
 
     //Assign new proxy number

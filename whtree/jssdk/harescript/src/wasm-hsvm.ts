@@ -8,9 +8,10 @@ import createModule from "../../../lib/harescript";
 import { registerBaseFunctions } from "./wasm-hsfunctions";
 import { WASMModule } from "./wasm-modulesupport";
 import { HSVMVar } from "./wasm-hsvmvar";
-import { HSCallsProxy, HSVMLibraryProxy, HSVMObjectCache } from "./wasm-proxies";
+import { HSVMCallsProxy, HSVMLibraryProxy, HSVMObjectCache } from "./wasm-proxies";
 import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 import { Mutex } from "@webhare/services";
+import { CommonLibraries, CommonLibraryType } from "./commonlibs";
 
 const dispatchlibrary = "mod::system/js/internal/wasm/dispatch.whlib";
 const dispatchname = "DISPATCH";
@@ -221,8 +222,11 @@ export class HareScriptVM {
     }
   }
 
-  loadlib(name: string): HSCallsProxy {
-    const proxy = new Proxy({}, new HSVMLibraryProxy(this, name)) as HSCallsProxy;
+  loadlib<Lib extends keyof CommonLibraries>(name: Lib): CommonLibraryType<Lib>;
+  loadlib(name: string): HSVMCallsProxy;
+
+  loadlib(name: string): HSVMCallsProxy {
+    const proxy = new Proxy({}, new HSVMLibraryProxy(this, name)) as HSVMCallsProxy;
     return proxy;
   }
 
@@ -285,7 +289,7 @@ export class HareScriptVM {
   /** @param functionref - Function to call
       @param isfunction - Whether to call a function or macro
    */
-  async callWithHSVMVars(functionref: string, params: HSVMVar[], object?: HSVM_VariableId): Promise<HSVMVar | void> { //TODO shouldn't we replace doCall ?
+  async callWithHSVMVars(functionref: string, params: HSVMVar[], object?: HSVM_VariableId): Promise<HSVMVar | undefined> { //TODO shouldn't we replace doCall ?
     const parts = functionref.split("#");
     if (!object && parts.length !== 2)
       throw new Error(`Illegal function reference ${JSON.stringify(functionref)}`);

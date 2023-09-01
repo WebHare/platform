@@ -21,6 +21,7 @@ import { checkPromiseErrorsHandled } from '@mod-system/js/internal/util/devhelpe
 import { uploadBlobToConnection, WHDBBlob, ValidBlobSources } from './blobs';
 import { ensureScopedResource } from '@webhare/services/src/codecontexts';
 import { WHDBPgClient } from './connection';
+import { getCodeContextHSVM } from '@webhare/harescript/src/contextvm';
 
 export { WHDBBlob } from "./blobs";
 
@@ -57,6 +58,13 @@ class Work {
   async _invokeFinishHandlers(handler: "onBeforeCommit" | "onCommit" | "onRollback") {
     //invoke all finishedhandlers in 'parallel' and wait for them to finish
     await Promise.all(Array.from(this.finishhandlers.values()).map(h => h[handler]?.()));
+
+    const vm = getCodeContextHSVM();
+    if (vm) { //someone allocated a VM.. run any handlers there too
+      const primary = await (await vm).loadlib("mod::system/lib/database.whlib").getPrimary();
+      if (primary)
+        await primary.__InvokeFinishHandlers(handler);
+    }
   }
 
   async uploadBlob(data: ValidBlobSources): Promise<WHDBBlob | null> {
@@ -223,7 +231,7 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
   }
 
   isWorkOpen() {
-    return Boolean(this.openwork);
+    return this.openwork?.open || false;
   }
 
   private checkState(expectwork: true): Work; //guaranteed to return a work object or throw
@@ -233,7 +241,7 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
   private checkState(expectwork: boolean | undefined): Work | null {
     if (!this.pgclient)
       throw new Error(`Connection was already closed`);
-    if (expectwork !== undefined && Boolean(this.openwork) !== expectwork) {
+    if (expectwork !== undefined && isWorkOpen() !== expectwork) {
       throw new Error(`Work has already been ${expectwork ? 'closed' : 'opened'}${debugFlags.async ? "" : " - WEBHARE_DEBUG=async may help locating this"}`, { cause: this.lastopen });
     }
     return this.openwork || null;

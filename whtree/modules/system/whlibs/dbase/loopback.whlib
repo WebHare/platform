@@ -139,6 +139,11 @@ OBJECTTYPE ForwardingLoopbackTransaction EXTEND LoopbackTransaction
     RETURN this->itf.IsWorkOpen();
   }
 
+  UPDATE PUBLIC BOOLEAN FUNCTION IsNestedWorkOpen()
+  {
+    RETURN this->itf.IsNestedWorkOpen();
+  }
+
   UPDATE PUBLIC MACRO BeginWork(RECORD options DEFAULTSTO DEFAULT RECORD)
   {
     this->itf.BeginWork(options);
@@ -152,6 +157,16 @@ OBJECTTYPE ForwardingLoopbackTransaction EXTEND LoopbackTransaction
   UPDATE PUBLIC MACRO RollbackWork()
   {
     this->itf.RollbackWork();
+  }
+
+  UPDATE PUBLIC MACRO PushWork()
+  {
+    this->itf.PushWork();
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION PopWork()
+  {
+    RETURN this->itf.PopWork();
   }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetSchemaListing()
@@ -238,6 +253,14 @@ OBJECTTYPE ForwardingLoopbackTransaction EXTEND LoopbackTransaction
   UPDATE PUBLIC RECORD ARRAY FUNCTION __GetTableTypeInfoCols(TABLE tbl, STRING ARRAY cols)
   {
     RETURN this->itf.__GetTableTypeInfoCols(tbl, cols);
+  }
+  UPDATE PUBLIC BOOLEAN FUNCTION HasMutex(STRING mutexname)
+  {
+    RETURN this->itf.HasMutex(mutexname);
+  }
+  UPDATE PUBLIC BOOLEAN FUNCTION TryLockMutex(STRING mutexname, DATETIME wait_until)
+  {
+    RETURN this->itf.TryLockMutex(mutexname, wait_until);
   }
 >;
 
@@ -360,6 +383,11 @@ BOOLEAN FUNCTION WLT_IsWorkOpen(INTEGER transid)
   RETURN GetTransObject(transid)->IsWorkOpen();
 }
 
+BOOLEAN FUNCTION WLT_IsNestedWorkOpen(INTEGER transid)
+{
+  RETURN GetTransObject(transid)->IsNestedWorkOpen();
+}
+
 MACRO WLT_BeginWork(INTEGER transid, RECORD options)
 {
   GetTransObject(transid)->BeginWork(options);
@@ -368,6 +396,16 @@ MACRO WLT_BeginWork(INTEGER transid, RECORD options)
 RECORD ARRAY FUNCTION WLT_CommitWork(INTEGER transid)
 {
   RETURN GetTransObject(transid)->CommitWork();
+}
+
+MACRO WLT_PushWork(INTEGER transid)
+{
+  GetTransObject(transid)->PushWork();
+}
+
+RECORD ARRAY FUNCTION WLT_PopWork(INTEGER transid)
+{
+  RETURN GetTransObject(transid)->PopWork();
 }
 
 MACRO WLT_RollbackWork(INTEGER transid)
@@ -452,6 +490,14 @@ MACRO WLT_DropTable(INTEGER transid, STRING schemaname, STRING tablename)
 {
   GetTransObject(transid)->DropTable(schemaname, tablename);
 }
+BOOLEAN FUNCTION WLT_HasMutex(INTEGER transid, STRING mutexname)
+{
+  RETURN GetTransObject(transid)->HasMutex(mutexname);
+}
+BOOLEAN FUNCTION WLT_TryLockMutex(INTEGER transid, STRING mutexname, DATETIME wait_until)
+{
+  RETURN GetTransObject(transid)->TryLockMutex(mutexname, wait_until);
+}
 RECORD ARRAY FUNCTION WLT___GetTableTypeInfoCols(INTEGER transid, TABLE tbl, STRING ARRAY cols)
 {
   RETURN GetTransObject(transid)->__GetTableTypeInfoCols(tbl, cols);
@@ -476,8 +522,11 @@ PUBLIC RECORD FUNCTION GetTransactionFLTRecordInterface(OBJECT transaction)
       , opencursor :=           PTR WLT_OpenCursor(id, #1, #2)
       , hasworksupport :=       transaction->HasWorkSupport()
       , isworkopen :=           PTR WLT_IsWorkOpen(id)
+      , isnestedworkopen :=     PTR WLT_IsNestedWorkOpen(id)
       , beginwork :=            PTR WLT_BeginWork(id, #1)
       , commitwork :=           PTR WLT_CommitWork(id)
+      , pushwork :=             PTR WLT_PushWork(id)
+      , popwork :=              PTR WLT_PopWork(id)
       , rollbackwork :=         PTR WLT_RollbackWork(id)
       , getschemalisting :=     PTR WLT_GetSchemaListing(id)
       , gettablelisting :=      PTR WLT_GetTableListing(id, #1)
@@ -496,6 +545,9 @@ PUBLIC RECORD FUNCTION GetTransactionFLTRecordInterface(OBJECT transaction)
       , dropschema :=           PTR WLT_DropSchema(id, #1, #2)
       , droptable :=            PTR WLT_DropTable(id, #1, #2)
       , __GetTableTypeInfoCols := PTR WLT___GetTableTypeInfoCols(id, #1, #2)
+
+      , hasmutex :=             PTR WLT_HasMutex(id, #1)
+      , trylockmutex :=         PTR WLT_TryLockMutex(id, #1, #2)
       ];
 }
 

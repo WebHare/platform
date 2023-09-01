@@ -1,7 +1,8 @@
 import { sleep } from "@webhare/std";
-import { CodeContext, getCodeContext } from "@webhare/services";
+import { CodeContext, getCodeContext } from "@webhare/services/src/codecontexts";
 import { db, beginWork, commitWork } from "@webhare/whdb";
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
+import { loadlib } from "@webhare/harescript";
 
 export function returnContextId() {
   return getCodeContext().id;
@@ -39,7 +40,14 @@ export async function* inContextWHDB(id: number) {
 
   yield "inserted " + id;
 
-  yield await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").selectAll().orderBy("id").execute();
+  yield (await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").selectAll().orderBy("id").execute()).map(_ => ({ ..._, harescript: false }));
+
+  yield await loadlib("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib").getExportTest();
+
+  await loadlib("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib").updateExportTest();
+
+  yield (await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").selectAll().orderBy("id").execute()).map(_ => ({ ..._, harescript: false }));
+
   await commitWork();
 
   yield "committed";
