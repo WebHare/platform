@@ -131,7 +131,7 @@ MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderwidgetpr
   }
 
   STRING baseurl := Tokenize(GetRequestURL(),'?')[0];
-  baseurl := Detokenize(ArraySlice(Tokenize(GetRequestURL(), '/'),3,3),'/') || "/";
+  baseurl := Detokenize(ArraySlice(Tokenize(baseurl, '/'),3,3),'/') || "/";
   __pageinfo := __SplitBaseAndSubUrl(GetRequestURL(), baseurl);
 
   RECORD sourceinfo := GetSystemRedirectInfo(source);
