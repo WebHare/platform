@@ -414,7 +414,7 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
     if (cond.match_double_null) {
       // A primary key can't be NULL, so when a key is involved, this comparison isn't necessary
       if (!(column1.flags & ColumnFlags.Key) && !(column2.flags & ColumnFlags.Key))
-        expr = sql`(${expr}) OR ((${colref1} IS NULL AND ${colref2} IN NULL))`;
+        expr = sql`(${expr}) OR ((${colref1} IS NULL AND ${colref2} IS NULL))`;
     } else {
       // One column has no null default, or the defaults differ
       if (column2.flags & ColumnFlags.TranslateNulls && column2.nulldefault_valid) {
