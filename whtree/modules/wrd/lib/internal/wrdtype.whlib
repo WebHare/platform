@@ -2357,6 +2357,15 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           IF(RecordExists(val))
             data := EncodeJSON(val);
         }
+        ELSE IF(jsmode AND TypeId(val) = TYPEID(STRING)) //already encoded
+        {
+          IF(val != "null")
+          {
+            IF(val NOT LIKE "{*" OR NOT RecordExists(DecodeJSON(val)))
+             THROW NEW Exception(`Value is not a valid JSON object`);
+            data := val;
+          }
+        }
         ELSE
           THROW NEW Exception(`Value must be of type RECORD or an object extending from JSONObject, got ${GetTypeName(TYPEID(val))}`);
 

@@ -1,10 +1,10 @@
 import { HSVMObject } from "@webhare/services/src/hsvm";
-import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeType, WRDAttributeTypeNames } from "./types";
+import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeTypeNames } from "./types";
 export { SchemaTypeDefinition } from "./types";
 import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
 import { checkPromiseErrorsHandled } from "@mod-system/js/internal/util/devhelpers";
 import { ensureScopedResource } from "@webhare/services/src/codecontexts";
-import { fieldsToHS, tagToHS, outputmapToHS, repairResultSet, tagToJS, repairResultValue } from "@webhare/wrd/src/wrdsupport";
+import { fieldsToHS, tagToHS, outputmapToHS, repairResultSet, tagToJS, repairResultValue, WRDAttributeConfiguration, WRDAttributeConfiguration_HS } from "@webhare/wrd/src/wrdsupport";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 
@@ -39,17 +39,6 @@ type WRDTypeConfiguration = WRDObjectTypeConfiguration | WRDAttachmentTypeConfig
 
 // Updatable type metadata
 type WRDTypeMetadata = Omit<WRDTypeConfiguration, "metaType">;
-
-interface WRDAttributeConfiguration {
-  attributeType: WRDAttributeType;
-  title: string;
-  checkLinks: boolean;
-  domain: string | null;
-  isUnsafeToCopy: boolean;
-  isRequired: boolean;
-  isOrdered: boolean;
-  allowedValues: string[] | null;
-}
 
 type WRDAttributeCreateConfiguration = Pick<WRDAttributeConfiguration, 'attributeType'> & Partial<Omit<WRDAttributeConfiguration, 'attributeType'>>;
 
@@ -219,6 +208,9 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   schema: WRDSchema<S>;
   tag: T;
 
+  private attrs: null | WRDAttributeConfiguration_HS[] = null;
+  private attrPromise: null | Promise<WRDAttributeConfiguration_HS[]> = null;
+
   constructor(schema: WRDSchema<S>, tag: T) {
     this.schema = schema;
     this.tag = tag;
@@ -233,6 +225,13 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     return this.schema[getWRDSchemaType](this.tag, false);
   }
 
+  async ensureAttributes() {
+    if (!this.attrPromise)
+      this.attrPromise = (await this._getType()).listAttributes(0) as Promise<WRDAttributeConfiguration_HS[]>;
+
+    this.attrs = await this.attrPromise;
+  }
+
   async updateMetadata(newmetadata: Partial<WRDTypeMetadata>) {
     await extendWorkToCoHSVM();
     await (await this._getType()).updateMetadata(newmetadata);
@@ -240,13 +239,19 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
 
   async createEntity(value: Updatable<S[T]>): Promise<number> {
     await extendWorkToCoHSVM();
-    const entityobj = await (await this._getType()).createEntity(fieldsToHS(value), { jsmode: true });
+    if (!this.attrs)
+      await this.ensureAttributes();
+
+    const entityobj = await (await this._getType()).createEntity(fieldsToHS(value, this.attrs!), { jsmode: true });
     return await (entityobj as HSVMObject).get("id") as number;
   }
 
   async updateEntity(wrd_id: number, value: Updatable<S[T]>): Promise<void> {
     await extendWorkToCoHSVM();
-    await (await this._getType()).updateEntity(wrd_id, fieldsToHS(value), { jsmode: true });
+    if (!this.attrs)
+      await this.ensureAttributes();
+
+    await (await this._getType()).updateEntity(wrd_id, fieldsToHS(value, this.attrs!), { jsmode: true });
   }
 
   async search<F extends AttrRef<S[T]>>(field: F, value: (GetCVPairs<S[T][F]> & { condition: "=" })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }>): Promise<number | null> {
@@ -283,11 +288,12 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   async describeAttribute(tag: string): Promise<WRDAttributeConfiguration | null> {
     const typeobj = await this._getType();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await typeobj.GetAttribute(tagToHS(tag)) as any;
+    const result = await typeobj.GetAttribute(tagToHS(tag)) as WRDAttributeConfiguration_HS;
     if (!result)
       return null;
 
     return {
+      tag: result.tag,
       attributeType: result.attributetype,
       title: result.title || "",
       checkLinks: result.checklinks,

@@ -182,7 +182,7 @@ function testSupportAPI() {
 
   function testFields(hs: Record<string, unknown>, js: Record<string, unknown>) {
     test.eq(js, wrdsupport.fieldsToJS(hs));
-    test.eq(hs, wrdsupport.fieldsToHS(js));
+    test.eq(hs, wrdsupport.fieldsToHS(js, []));
   }
 
   testTag("WRD_PERSON", "wrdPerson");
@@ -235,8 +235,7 @@ async function testNewAPI() {
     .where("wrdFirstName", "=", "first")
     .execute();
 
-  //FIXME I want to see 'mixedCase' but until the WRD TS engine is done... no case-rentention for us
-  test.eq([{ wrdFirstName: "first", lastname: "lastname", id: firstperson, testJson: { mixedcase: [1, "yes!"] } }], selectres);
+  test.eq([{ wrdFirstName: "first", lastname: "lastname", id: firstperson, testJson: { mixedCase: [1, "yes!"] } }], selectres);
 
   test.eq([{ wrdFirstName: "first", lastname: "lastname", id: firstperson, x1: 5 }, { wrdFirstName: "first", lastname: "lastname", id: firstperson, x1: 15 }],
     await schema.enrich(
