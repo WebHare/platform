@@ -130,6 +130,10 @@ MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderwidgetpr
     RETURN;
   }
 
+  STRING baseurl := Tokenize(GetRequestURL(),'?')[0];
+  baseurl := Detokenize(ArraySlice(Tokenize(baseurl, '/'),3,3),'/') || "/";
+  __pageinfo := __SplitBaseAndSubUrl(GetRequestURL(), baseurl);
+
   RECORD sourceinfo := GetSystemRedirectInfo(source);
   IF(sourceinfo.success)
   {
@@ -137,8 +141,7 @@ MACRO RunPublisherPreview(OBJECT openobj, INTEGER source, BOOLEAN renderwidgetpr
     RETURN;
   }
 
-  __pageinfo := [ pagefolder := GetDirectoryFromPath(Tokenize(webdesigninfo.renderinfo.objectname,'#')[0]) ];
-
+  INSERT CELL pagefolder := GetDirectoryFromPath(Tokenize(webdesigninfo.renderinfo.objectname,'#')[0]) INTO __pageinfo;
   IF(webdesigninfo.renderinfo.renderer != "")
   {
     RECORD capturedpage := WaitForPromise(CallAsync("mod::publisher/js/internal/capturejsdesign.ts#captureJSPage", VARIANT[ source, openobj->id ]));

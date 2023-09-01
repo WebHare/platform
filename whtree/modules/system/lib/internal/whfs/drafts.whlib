@@ -477,6 +477,8 @@ PUBLIC OBJECT FUNCTION CreateDraft(OBJECT whfsobject, INTEGER instancesource, BO
     THROW NEW Exception("Cannot create a draft version from a folder");
   IF(NOT ObjectExists(__user))
     __user := GetEffectiveUser();
+  IF(NOT ObjectExists(__user))
+    THROW NEW Exception(`CreateDraft requires a user parameter if not available through GetEffectiveUser`);
 
   INTEGER versioning_site;
   IF (publicdraft)
