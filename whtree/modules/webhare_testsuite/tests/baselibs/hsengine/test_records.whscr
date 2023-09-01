@@ -781,13 +781,18 @@ MACRO EnforceStructureTest()
   TestEq([ _float := 1.5f ], EnforceStructure([ _float := 0f ], [ _float := "1.5" ]));
   TestEq([ _float := 2f ], EnforceStructure([ _float := 0f ], [ _float := "2" ]));
 
-  // integer/integer64/float -> money
+  // integer/integer64/float/string -> money
   TestEq([ _money := 0m ], EnforceStructure([ _money := 0m ], [ _money := 0 ]));
   TestEq([ _money := 0m ], EnforceStructure([ _money := 0m ], [ _money := 0i64 ]));
   TestEq([ _money := 1m ], EnforceStructure([ _money := 0m ], [ _money := 1f ]));
   TestEq([ _money := 1.5m ], EnforceStructure([ _money := 0m ], [ _money := 1.5f ]));
   TestEq([ _money := 0.00000m ], EnforceStructure([ _money := 0m ], [ _money := 0.0000049f ]));
   TestEq([ _money := 0.00001m ], EnforceStructure([ _money := 0m ], [ _money := 0.0000051f ]));
+  TestEq([ _money := 0m ], EnforceStructure([ _money := 0m ], [ _money := "0" ]));
+  TestEq([ _money := 0m ], EnforceStructure([ _money := 0m ], [ _money := "two" ]));
+  TestEq([ _money := 1.001m ], EnforceStructure([ _money := 0m ], [ _money := "1.001" ]));
+  TestEq([ _money := 1.12121m ], EnforceStructure([ _money := 0m ], [ _money := "1.12121212" ]));
+  TestEq([ _money := -1.12121m ], EnforceStructure([ _money := 0m ], [ _money := "-1.12121212" ]));
   // test limits of 53-bit precision
   TestEq([ _money := 90071992547.40992m ], EnforceStructure([ _money := 0m ], [ _money := 90071992547.40992f ]));
   TestEq([ _money := 90071992547.40991m ], EnforceStructure([ _money := 0m ], [ _money := 90071992547.40991f ]));
