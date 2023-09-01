@@ -568,6 +568,9 @@ ASYNC MACRO StopCancelledTasks(RECORD defer, BOOLEAN iscommit)
 */
 PUBLIC OBJECT FUNCTION CancelManagedTasks(INTEGER ARRAY taskids)
 {
+  IF(Length(taskids) = 0)
+    RETURN CreateResolvedPromise(TRUE);
+
   STRING ARRAY seentasktypes := SELECT AS STRING ARRAY DISTINCT tasktype FROM system.managedtasks WHERE id IN taskids;
   UPDATE system.managedtasks SET iscancelled := TRUE
                                , finished := GetCurrentDatetime()
@@ -590,6 +593,9 @@ PUBLIC OBJECT FUNCTION CancelManagedTasks(INTEGER ARRAY taskids)
 */
 PUBLIC OBJECT FUNCTION DeleteManagedTasks(INTEGER ARRAY taskids)
 {
+  IF(Length(taskids) = 0)
+    RETURN CreateResolvedPromise(TRUE);
+
   STRING ARRAY seentasktypes := SELECT AS STRING ARRAY DISTINCT tasktype FROM system.managedtasks WHERE id IN taskids;
   DELETE FROM system.managedtasks WHERE id IN taskids;
 

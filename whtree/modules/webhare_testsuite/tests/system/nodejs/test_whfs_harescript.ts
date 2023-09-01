@@ -1,0 +1,35 @@
+//We test the usability of WHFS APIs which we'll need until JS WHFS is done
+
+import * as test from "@webhare/test";
+import { HareScriptMemoryBlob, loadlib } from "@webhare/harescript";
+import { beginWork, commitWork, isWorkOpen } from "@webhare/whdb";
+import { generateRandomId } from "@webhare/std";
+
+async function setup() {
+  await loadlib("mod::system/lib/testframework.whlib").runTestFramework([]);
+  const uuid = generateRandomId();
+
+  test.assert(!isWorkOpen());
+  test.eq(null, await loadlib("mod::publisher/lib/siteapi.whlib").openSiteByName("__nosuchsite__"));
+  const testsite = await loadlib("mod::publisher/lib/siteapi.whlib").openSiteByName("webhare_testsuite.testsite");
+  test.assert(testsite);
+
+  const tmpfolder = await testsite.openByPath("tmp");
+  test.assert(tmpfolder);
+
+  console.log("creating file");
+  await beginWork();
+  const file = await tmpfolder.ensureFile({ name: "file.txt", publish: true, data: new HareScriptMemoryBlob(Buffer.from("Ik ben data " + uuid)) });
+  test.eq("file.txt", await (await tmpfolder.openByName("file.txt")).$get("name"));
+  console.log("..commit");
+  await commitWork();
+
+  console.log("wait for publish completion");
+  test.assert(await loadlib("mod::publisher/lib/control.whlib").waitForPublishCompletion(await testsite.$get("id")));
+
+  const url = await file.$get("link");
+  const output = await fetch(url);
+  test.eq("Ik ben data " + uuid, await output.text());
+}
+
+test.run([setup]);
