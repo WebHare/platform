@@ -8,6 +8,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/webserver/confighelpers.whlib";
+LOADLIB "mod::system/lib/internal/whfs/drafts.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 
@@ -33,10 +34,34 @@ MACRO TestPreview()
   STRING previewlink := CreatePreviewLink(MAX_DATETIME, "", staticpreviewpage->id, staticpreviewpage->id);
   TestEq(TRUE, testfw->browser->GotoWebPage(previewlink)); //make sure no internal error
 
+  OBJECT staticpage := OpenTestsuiteSite()->OpenByPath("testpages/staticpage");
   OBJECT contentlinkpage := OpenTestsuiteSite()->OpenByPath("testpages/staticpage-contentlink");
   previewlink := CreatePreviewLink(MAX_DATETIME, "", contentlinkpage->id, contentlinkpage->id);
   TestEq(TRUE, testfw->browser->GotoWebPage(previewlink));
+  TestEq(contentlinkpage->whfspath, testfw->browser->QS("#content")->GetAttribute("data-targetobjectpath"));
+  TestEq(staticpage->whfspath, testfw->browser->QS("#content")->GetAttribute("data-contentobjectpath"));
   TestEq("This is StaticPage in TestPages", testfw->browser->QS("#content")->textcontent);
+
+  OBJECT dynamicpage := OpenTestsuiteSite()->OpenByPath("testpages/dynamicpage");
+
+  testfw->BeginWork();
+  OBJECT dynamictmp := dynamicpage->CopyTo(GetTestsuiteTempFolder(), "dynpagecopy");
+  OBJECT dynamictmp_draft := CreateDraft(dynamictmp, dynamictmp->id, TRUE);
+  OpenWHFSType("http://www.webhare.net/xmlns/beta/test")->SetInstanceData(dynamictmp_draft->id, [ stringarray := ["rabbits"] ], [ ifreadonly := "update" ]);
+  testfw->CommitWork();
+
+  previewlink := CreatePreviewLink(MAX_DATETIME, "", dynamictmp->id, dynamictmp_draft->id);
+  TestEq(TRUE, testfw->browser->GotoWebPage(previewlink));
+
+  RECORD betatestinstance := DecodeJSON(testfw->browser->QS("#content")->GetAttribute("data-betatestinstance"));
+  TestEq(["rabbits"], betatestinstance.stringarray);
+
+  RECORD dynpageparams := DecodeJSON(testfw->browser->QS("#content")->GetAttribute("data-dynamicpageparameters"));
+  TestEq([ absolutebaseurl := previewlink, append := "", subpath := "" ], dynpageparams);
+
+  TestEq(TRUE, testfw->browser->GotoWebPage(previewlink || "sub%20page?subvar=1"));
+  dynpageparams := DecodeJSON(testfw->browser->QS("#content")->GetAttribute("data-dynamicpageparameters"));
+  TestEq([ absolutebaseurl := previewlink, append := "?subvar=1", subpath := "sub%20page" ], dynpageparams);
 }
 
 MACRO LookupTest()
@@ -264,4 +289,6 @@ MACRO LookupTest()
 RunTestFramework([ PTR TestRescueWithoutWebservers
                  , PTR TestPreview
                  , PTR LookupTest
-                 ]);
+                 ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ] //createdraft requires a user
+                                   ]
+                    ]);

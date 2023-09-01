@@ -40,7 +40,7 @@ PUBLIC STRING FUNCTION GetPreviewLink(INTEGER fsobject, RECORD options DEFAULTST
 
   RECORD viewdata := [ id := showversion, c := (SELECT AS DATETIME creationdate FROM system.fs_objects WHERE id = showversion), v := options.validuntil, p := options.password ];
   STRING urldata := EncryptForThisServer("publisher:preview", viewdata);
-  RETURN ResolveToAbsoluteURL(baseurl, "/.publisher/preview/" || urldata);
+  RETURN ResolveToAbsoluteURL(baseurl, "/.publisher/preview/" || urldata || "/");
 }
 
 /** @short Get a link that will show a specific A/B test variant
