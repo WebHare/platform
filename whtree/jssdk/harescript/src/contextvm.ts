@@ -1,5 +1,5 @@
 import { ensureScopedResource, getScopedResource } from "@webhare/services/src/codecontexts";
-import { HSVMCallsProxy, argsToHSVMVar } from "./wasm-proxies";
+import { HSVMCallsProxy, invokeOnVM } from "./wasm-proxies";
 import { HareScriptVM, allocateHSVM } from "./wasm-hsvm";
 import { CommonLibraries, CommonLibraryType } from "./commonlibs";
 
@@ -32,13 +32,9 @@ class ContextLibraryProxy {
     return (...args: unknown[]) => this.invoke(prop, args);
   }
 
-  ///JavaScript supporting invoke (TODO detect HSVM Vars and copyfrom them?)
+  ///JavaScript supporting invoke
   async invoke(name: string, args: unknown[]) {
-    const vm = await ensureCodeContextHSVM();
-    const funcargs = argsToHSVMVar(vm, args);
-
-    const result = await vm.callWithHSVMVars(this.lib + "#" + name, funcargs);
-    return result ? result.getJSValue() : undefined;
+    return invokeOnVM(await ensureCodeContextHSVM(), this.lib, name, args);
   }
 }
 

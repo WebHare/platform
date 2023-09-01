@@ -289,7 +289,7 @@ export class HareScriptVM {
   /** @param functionref - Function to call
       @param isfunction - Whether to call a function or macro
    */
-  async callWithHSVMVars(functionref: string, params: HSVMVar[], object?: HSVM_VariableId): Promise<HSVMVar | void> { //TODO shouldn't we replace doCall ?
+  async callWithHSVMVars(functionref: string, params: HSVMVar[], object?: HSVM_VariableId): Promise<HSVMVar | undefined> { //TODO shouldn't we replace doCall ?
     const parts = functionref.split("#");
     if (!object && parts.length !== 2)
       throw new Error(`Illegal function reference ${JSON.stringify(functionref)}`);

@@ -11,7 +11,7 @@ export type HSVMObject = HSVMObjectWrapper & HSVMCallsProxy;
 
 export type HSVMLibrary = HSVMCallsProxy;
 
-export function argsToHSVMVar(vm: HareScriptVM, args: unknown[]): HSVMVar[] {
+function argsToHSVMVar(vm: HareScriptVM, args: unknown[]): HSVMVar[] {
 
   const funcargs: HSVMVar[] = [];
   for (const arg of args) {
@@ -20,6 +20,14 @@ export function argsToHSVMVar(vm: HareScriptVM, args: unknown[]): HSVMVar[] {
     funcargs.push(newvar);
   }
   return funcargs;
+}
+
+function cleanupHSVMCall(vm: HareScriptVM, args: HSVMVar[], result: HSVMVar | undefined) {
+  for (const arg of args)
+    vm.wasmmodule._HSVM_DeallocateVariable(vm.hsvm, arg.id);
+
+  if (result)
+    vm.wasmmodule._HSVM_DeallocateVariable(vm.hsvm, result.id);
 }
 
 export class HSVMObjectWrapper {
@@ -46,8 +54,13 @@ export class HSVMObjectWrapper {
 
   async $invoke(name: string, args: unknown[]) {
     const funcargs = argsToHSVMVar(this.$vm, args);
-    const result = await this.$vm.callWithHSVMVars(name, funcargs, this.$objid);
-    return result ? result.getJSValue() : undefined;
+    let result: HSVMVar | undefined;
+    try {
+      result = await this.$vm.callWithHSVMVars(name, funcargs, this.$objid);
+      return result ? result.getJSValue() : undefined;
+    } finally {
+      cleanupHSVMCall(this.$vm, funcargs, result);
+    }
   }
 }
 
@@ -63,6 +76,17 @@ export class HSVMObjectProxy {
   }
 }
 
+export async function invokeOnVM(vm: HareScriptVM, lib: string, name: string, args: unknown[]) {
+  //TODO detect HSVM Vars and copyfrom them?
+  const funcargs = argsToHSVMVar(vm, args);
+
+  const result = await vm.callWithHSVMVars(lib + "#" + name, funcargs);
+  try {
+    return result?.getJSValue();
+  } finally {
+    cleanupHSVMCall(vm, funcargs, result);
+  }
+}
 
 export class HSVMLibraryProxy {
   private readonly vm: HareScriptVM;
@@ -80,12 +104,9 @@ export class HSVMLibraryProxy {
     return (...args: unknown[]) => this.invoke(prop, args);
   }
 
-  ///JavaScript supporting invoke (TODO detect HSVM Vars and copyfrom them?)
+  ///JavaScript supporting invoke
   async invoke(name: string, args: unknown[]) {
-    const funcargs = argsToHSVMVar(this.vm, args);
-
-    const result = await this.vm.callWithHSVMVars(this.lib + "#" + name, funcargs);
-    return result ? result.getJSValue() : undefined;
+    return invokeOnVM(this.vm, this.lib, name, args);
   }
 }
 
