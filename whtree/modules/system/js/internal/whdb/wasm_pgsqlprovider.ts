@@ -414,14 +414,14 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
     if (cond.match_double_null) {
       // A primary key can't be NULL, so when a key is involved, this comparison isn't necessary
       if (!(column1.flags & ColumnFlags.Key) && !(column2.flags & ColumnFlags.Key))
-        expr = sql`(${expr}) OR ((${colref1} IS NULL AND ${colref2} IS NULL))`;
+        expr = sql`((${expr}) OR (${colref1} IS NULL AND ${colref2} IS NULL))`;
     } else {
       // One column has no null default, or the defaults differ
       if (column2.flags & ColumnFlags.TranslateNulls && column2.nulldefault_valid) {
-        expr = sql`(${expr}) OR (${colref2} IS NULL AND ${buildComparison(colref1, cond.condition, sql.value(column2.nulldefault))})`;
+        expr = sql`((${expr}) OR (${colref2} IS NULL AND ${buildComparison(colref1, cond.condition, sql.value(column2.nulldefault))}))`;
       }
       if (column1.flags & ColumnFlags.TranslateNulls && column1.nulldefault_valid) {
-        expr = sql`(${expr}) OR (${colref1} IS NULL AND ${buildSwappedComparison(colref2, cond.condition, sql.value(column1.nulldefault))})`;
+        expr = sql`((${expr}) OR (${colref1} IS NULL AND ${buildSwappedComparison(colref2, cond.condition, sql.value(column1.nulldefault))}))`;
       }
     }
     conditions.push(expr);
