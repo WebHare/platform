@@ -16,7 +16,7 @@ import { debugFlags } from "@webhare/env";
 import bridge, { BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
 import { CodeContext, getCodeContext, rootstorage } from "@webhare/services/src/codecontexts";
 
-type MessageList = Array<{
+export type MessageList = Array<{
   iserror: boolean;
   iswarning: boolean;
   istrace: boolean;
@@ -442,6 +442,14 @@ export class HareScriptVM {
     } finally {
       callfuncptr.dispose();
     }
+  }
+
+  parseMessageList(): MessageList {
+    const errorlist = this.wasmmodule._HSVM_AllocateVariable(this.hsvm);
+    this.wasmmodule._HSVM_GetMessageList(this.hsvm, errorlist, 1);
+    const retval = this.quickParseVariable(errorlist) as MessageList;
+    this.wasmmodule._HSVM_DeallocateVariable(this.hsvm, errorlist);
+    return retval;
   }
 
   private throwVMErrors(): never {

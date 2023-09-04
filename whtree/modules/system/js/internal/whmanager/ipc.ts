@@ -7,7 +7,7 @@ import { RefTracker } from "./refs";
 import { bufferToArrayBuffer } from "./transport";
 import { generateRandomId } from "@webhare/std";
 import * as envbackend from "@webhare/env/src/envbackend";
-import { receiveMessageOnPort } from 'node:worker_threads';
+import { MessagePort, receiveMessageOnPort, TransferListItem } from 'node:worker_threads';
 
 const logmessages = envbackend.debugFlags.ipc;
 
@@ -92,6 +92,17 @@ export interface IPCEndPoint<SendType extends object | null = IPCMarshallableRec
 
   /** Synchronously checks for events and emits them */
   checkForEventsSync(): void;
+
+  /** Encode for transfer to another worker */
+  encodeForTransfer(): {
+    encoded: {
+      type: "$IPCEndPoint";
+      port: MessagePort;
+      id: string;
+      mode: "direct" | "connecting" | "accepting";
+    };
+    transferList: TransferListItem[];
+  };
 }
 
 export enum IPCEndPointImplControlMessageType {
@@ -338,6 +349,36 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
   dropReference() {
     this.refs.dropInitialReference();
   }
+
+  encodeForTransfer(): {
+    encoded: {
+      type: "$IPCEndPoint";
+      port: MessagePort;
+      id: string;
+      mode: "direct" | "connecting" | "accepting";
+    };
+    transferList: TransferListItem[];
+  } {
+    if (this.emitting || this.closed || this.queue?.length || this.requests.size)
+      throw new Error(`IPC endpoint is not in a transferrable state (closed or already emitting events)`);
+    return {
+      encoded: {
+        type: "$IPCEndPoint",
+        port: this.port as MessagePort,
+        id: this.id,
+        mode: this.mode,
+      },
+      transferList: [this.port as MessagePort]
+    };
+  }
+
+  static decodeFromTransfer<SendType extends object | null, ReceiveType extends object | null>(data: unknown): IPCEndPointImpl<SendType, ReceiveType> {
+    const decoded = data as ReturnType<IPCEndPointImpl<SendType, ReceiveType>["encodeForTransfer"]>["encoded"];
+    if (decoded.type !== "$IPCEndPoint")
+      throw new Error(`Data does not describe a valid IPC endpoint`);
+    registerTransferredPort(decoded.port, decoded.id);
+    return new IPCEndPointImpl(decoded.id, decoded.port, decoded.mode);
+  }
 }
 
 export enum IPCPortControlMessageType {
@@ -463,7 +504,6 @@ export class IPCPortImpl<SendType extends object | null, ReceiveType extends obj
   dropReference(): void {
     this.refs.dropInitialReference();
   }
-
 }
 
 /** Creates an IPC link pair
@@ -471,9 +511,9 @@ export class IPCPortImpl<SendType extends object | null, ReceiveType extends obj
     @typeParam SendType - the type of messages the second endpoint can send, and the first endpoint can receive
 */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function createIPCEndPointPair<LinkType extends IPCLinkType<any, any> = IPCLinkType>(): [LinkType["ConnectEndPoint"], LinkType["AcceptEndPoint"]] {
-  const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>("IPCEndpointPair");
+export function createIPCEndPointPair<LinkType extends IPCLinkType<any, any> = IPCLinkType>(title = "IPCEndpointPair"): [LinkType["ConnectEndPoint"], LinkType["AcceptEndPoint"]] {
   const id = generateRandomId();
+  const { port1, port2 } = createTypedMessageChannel<IPCEndPointImplControlMessage, IPCEndPointImplControlMessage>(`${title} ${id}`);
   return [new IPCEndPointImpl(`${id} - port1`, port1, "direct"), new IPCEndPointImpl(`${id} - port2`, port2, "direct")];
 }
 
@@ -485,6 +525,10 @@ export function encodeIPCException(error: Error): IPCExceptionMessage {
       trace: getStructuredTrace(error)
     }
   };
+}
+
+export function decodeTransferredIPCEndPoint<SendType extends object | null, ReceiveType extends object | null>(data: unknown): IPCEndPoint<SendType, ReceiveType> {
+  return IPCEndPointImpl.decodeFromTransfer<SendType, ReceiveType>(data);
 }
 
 export function parseIPCException(message: IPCExceptionMessage): Error {
