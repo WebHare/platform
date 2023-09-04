@@ -5,6 +5,7 @@ import { backendConfig, toFSPath } from "@webhare/services";
 import { HSVMVar } from "./wasm-hsvmvar";
 import { recompileHarescriptLibraryRaw, type HareScriptVM } from "./wasm-hsvm";
 import { VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { debugFlags } from "@webhare/env";
 
 const wh_namespace_location = "mod::system/whlibs/";
 function translateDirectToModURI(directuri: string) {
@@ -255,9 +256,11 @@ export class WASMModule extends WASMModuleBase {
     for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
       params.push(new HSVMVar(this.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
     // ignoring vm, using itf: only one VM per module!
+    const transitionLock = debugFlags.async && this.itf!.startTransition(false, reg.name);
     const res: unknown = reg.macro!(this.itf, ...params);
     if (res && typeof res === "object" && "then" in res)
       throw new Error(`Return value of ${JSON.stringify(reg.name)} is a Promise, should have been registered with executeJSMacro`);
+    transitionLock?.close();
   }
 
   executeJSFunction(vm: HSVM, nameptr: StringPtr, id: number, id_set: HSVM_VariableId): void {
@@ -266,9 +269,11 @@ export class WASMModule extends WASMModuleBase {
     for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
       params.push(new HSVMVar(this.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
     // ignoring vm, using itf: only one VM per module!
+    const transitionLock = debugFlags.async && this.itf!.startTransition(false, reg.name);
     const res: unknown = reg.func!(this.itf, new HSVMVar(this.itf!, id_set), ...params);
     if (res && typeof res === "object" && "then" in res)
       throw new Error(`Return value of ${JSON.stringify(reg.name)} is a Promise, should have been registered with executeJSFunction`);
+    transitionLock?.close();
   }
 
   async executeAsyncJSMacro(vm: HSVM, nameptr: StringPtr, id: number): Promise<void> {
@@ -277,7 +282,9 @@ export class WASMModule extends WASMModuleBase {
     for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
       params.push(new HSVMVar(this.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
     // ignoring vm, using itf: only one VM per module!
+    const transitionLock = debugFlags.async && this.itf!.startTransition(false, reg.name);
     await reg.asyncmacro!(this.itf, ...params);
+    transitionLock?.close();
   }
 
   async executeAsyncJSFunction(vm: HSVM, nameptr: StringPtr, id: number, id_set: HSVM_VariableId): Promise<void> {
@@ -286,7 +293,9 @@ export class WASMModule extends WASMModuleBase {
     for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
       params.push(new HSVMVar(this.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
     // ignoring vm, using itf: only one VM per module!
+    const transitionLock = debugFlags.async && this.itf!.startTransition(false, reg.name);
     await reg.asyncfunc!(this.itf, new HSVMVar(this.itf!, id_set), ...params);
+    transitionLock?.close();
   }
 
   registerExternalMacro(signature: string, macro: (vm: HareScriptVM, ...params: HSVMVar[]) => void): void {

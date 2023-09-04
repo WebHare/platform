@@ -12,6 +12,7 @@ import { HSVMCallsProxy, HSVMLibraryProxy, HSVMObjectCache, argsToHSVMVar, clean
 import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 import { Mutex } from "@webhare/services";
 import { CommonLibraries, CommonLibraryType } from "./commonlibs";
+import { debugFlags } from "@webhare/env";
 
 type MessageList = Array<{
   iserror: boolean;
@@ -83,6 +84,51 @@ export async function recompileHarescriptLibraryRaw(uri: string, options?: { for
   }
 }
 
+class TransitionLock {
+  vm: HareScriptVM;
+  intoHareScript: boolean;
+  trace: Error;
+  title: string;
+  constructor(vm: HareScriptVM, intoHareScript: boolean, title: string) {
+    this.vm = vm;
+    this.intoHareScript = intoHareScript;
+    this.title = title;
+    this.trace = new Error(`transition into ${this.intoHareScript ? "HareScript" : "TypeScript"} calling ${JSON.stringify(title)}`);
+    const currentTransition: TransitionLock = vm.transitionLocks[vm.transitionLocks.length - 1];
+    if (currentTransition && !currentTransition.intoHareScript !== intoHareScript) {
+      throw new Error(`Missing transition registration when calling ${JSON.stringify(title)}, this transition is ${intoHareScript ? "js->hs" : "hs->js"} just like the current top transition`, { cause: currentTransition.trace });
+    }
+    vm.transitionLocks.push(this);
+  }
+  close() {
+    let other = this.vm.transitionLocks.pop();
+    if (other && other !== this) {
+      const pos = this.vm.transitionLocks.indexOf(this);
+      if (pos !== -1)
+        other = this.vm.transitionLocks[pos + 1] ?? other;
+
+      // Calls to async functions lose connection to the stack trace, so use the current transition lock stack to show some more
+      const transitionTrace = this.vm.transitionLocks.slice(0, pos).map(t => `${JSON.stringify(t.title)}->`).join("");
+      let traces = "";
+      for (const lock of this.vm.transitionLocks.slice(0, pos).reverse()) {
+        const stack = lock.trace.stack ?? "";
+        const spos = stack.indexOf("\n    at", stack.indexOf("startTransition"));
+        traces += `\n    at transition:${JSON.stringify(lock.title)}${stack.substring(spos)}`;
+      }
+
+      try {
+        this.trace.cause = other.trace;
+        this.trace.message = `Tried to return to ${this.intoHareScript ? "TypeScript" : "HareScript"} after calling ${transitionTrace}${JSON.stringify(this.title)} while a call to ${JSON.stringify(other.title)} was still in progress`;
+        throw this.trace;
+      } catch (e) {
+        // TODO: eliminate overlapping trace parts
+        (e as Error).stack += traces;
+        throw e;
+      }
+    }
+  }
+}
+
 export async function recompileHarescriptLibrary(uri: string, options?: { force: boolean }) {
   const text = await recompileHarescriptLibraryRaw(uri, options);
   const lines = text.split("\n").filter(line => line);
@@ -105,6 +151,7 @@ export class HareScriptVM {
   currentgroup: string | undefined; //set on first use
   pipeWaiters = new Map<Ptr, object>;
   heapFinalizer = new FinalizationRegistry<HSVM_VariableId>((varid) => this._hsvm && this.wasmmodule._HSVM_DeallocateVariable(this._hsvm, varid));
+  transitionLocks = new Array<TransitionLock>;
 
   constructor(module: WASMModule) {
     this.wasmmodule = module;
@@ -314,7 +361,9 @@ export class HareScriptVM {
       let retvalid, wasfunction;
       if (object) {
         const colid = this.getColumnId(functionref);
+        const transitionLock = debugFlags.async && this.startTransition(true, functionref);
         retvalid = await this.wasmmodule._HSVM_CallObjectMethod(this.hsvm, object, colid, 0, /*allow macro=*/1);
+        transitionLock?.close();
         //HSVM_CallObjectMethod simply returns an uninitialized value when dealing with a macro
         wasfunction = retvalid !== 0 && this.wasmmodule._HSVM_GetType(this.hsvm, retvalid) !== VariableType.Uninitialized;
       } else {
@@ -324,7 +373,9 @@ export class HareScriptVM {
         const returntypecell = this.wasmmodule._HSVM_RecordGetRef(this.hsvm, callfuncptr.id, returntypecolumn);
         const returntype = this.wasmmodule._HSVM_IntegerGet(this.hsvm, returntypecell);
         wasfunction = ![0, 2].includes(returntype);
+        const transitionLock = debugFlags.async && this.startTransition(true, functionref);
         retvalid = await this.wasmmodule._HSVM_CallFunctionPtr(this.hsvm, callfuncptr.id, /*allow macro=*/1);
+        transitionLock?.close();
       }
 
       if (!retvalid) {
@@ -407,6 +458,12 @@ export class HareScriptVM {
     //TODO what do we need to shutdown in the wasmmodule itself? or can we prepare it for reuse ?
     this.wasmmodule._ReleaseHSVM(this.hsvm);
     this._hsvm = null;
+  }
+
+  startTransition(intoHareScript: boolean, title: string): TransitionLock | undefined {
+    if (!debugFlags.async)
+      return;
+    return new TransitionLock(this, intoHareScript, title);
   }
 }
 
