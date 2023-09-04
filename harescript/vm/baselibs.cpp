@@ -3069,11 +3069,6 @@ void EM_Syscall(HareScript::VarId id_set, HareScript::VirtualMachine *vm)
         HSVM_SetDefault(*vm, id_set, HSVM_VAR_Record);
 }
 
-void EM_SyscallWaitLastPromise(HareScript::VarId id_set, HareScript::VirtualMachine *vm)
-{
-        HSVM_SetDefault(*vm, id_set, HSVM_VAR_Record);
-}
-
 namespace
 {
 
@@ -3468,7 +3463,6 @@ void RegisterDeprecatedBaseLibs(BuiltinFunctionsRegistrator &bifreg, Blex::Conte
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__SYSTEM_WEBHAREVERSION::R:", SYS_WebHareVersion));
 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__EM_SYSCALL::R:SV", EM_Syscall));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__EM_SYSCALL_WAITLASTPROMISE::V:", EM_SyscallWaitLastPromise));
 
 #ifdef __EMSCRIPTEN__
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_WAITFORMULTIPLEUNTIL::R:IAIAD",EM_WaitForMultipleUntil));

@@ -1,6 +1,14 @@
 <?wh
 
+LOADLIB "wh::internal/wasm.whlib";
+
+
 PUBLIC MACRO ThrowIt()
 {
   THROW NEW Exception("We're throwing it");
+}
+
+PUBLIC INTEGER FUNCTION ReentrantSyscall()
+{
+  RETURN EM_Syscall("executeInline", [ func := "return await 1", param := DEFAULT RECORD ]);
 }

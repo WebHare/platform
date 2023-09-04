@@ -6,7 +6,6 @@ LOADLIB "wh::internal/interface.whlib";
 
 //This API in baselibs.cpp invokes Module.emSyscall and acts as a (slow) generic bridge to javascript.
 RECORD FUNCTION __EM_SYSCALL(STRING call, VARIANT data) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
-VARIANT FUNCTION __EM_SYSCALL_WAITLASTPROMISE() __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
 
 ///We can't base off system.whlibs Exception (At least not without a whole lot of refactoring around ValidateOptions)
 PUBLIC STATIC OBJECTTYPE WasmInvalidSyscallException
@@ -38,8 +37,6 @@ PUBLIC VARIANT FUNCTION EM_Syscall(STRING call, RECORD data DEFAULTSTO DEFAULT R
     RETURN DEFAULT RECORD; //signals no WASM
   IF(res.result = "unknown")
     THROW NEW WasmInvalidSyscallException(`No such EM Syscall '${call}'`);
-  IF(res.result = "promise")
-    res := __EM_SYSCALL_WAITLASTPROMISE();
 
   RETURN res.value;
 }
