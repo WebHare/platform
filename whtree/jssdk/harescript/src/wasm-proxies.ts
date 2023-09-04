@@ -46,7 +46,10 @@ export class HSVMObjectWrapper {
       throw new Error(`No such member or property '${prop}' on HareScript object`);
 
     const receiver = this.$vm.wasmmodule._HSVM_AllocateVariable(this.$vm.hsvm);
-    this.$vm.wasmmodule._HSVM_ObjectMemberCopy(this.$vm.hsvm, this.$objid, proxycolumnid, receiver, /*skipaccess=*/1);
+    const copyresult = await this.$vm.wasmmodule._HSVM_ObjectMemberCopy(this.$vm.hsvm, this.$objid, proxycolumnid, receiver, /*skipaccess=*/1);
+    if (!copyresult)
+      throw new Error(`Copy of property '${prop}' failed`);
+
     const retval = new HSVMVar(this.$vm, receiver).getJSValue();
     this.$vm.wasmmodule._HSVM_DeallocateVariable(this.$vm.hsvm, receiver);
     return retval;
