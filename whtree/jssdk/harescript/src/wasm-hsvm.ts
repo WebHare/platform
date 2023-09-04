@@ -1,5 +1,5 @@
 import type { HSVM, HSVM_ColumnId, HSVM_VariableId, HSVM_VariableType, Ptr, StringPtr } from "../../../lib/harescript-interface";
-import { IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { IPCMarshallableData, SimpleMarshallableRecord, VariableType, readMarshalData, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { decodeString } from "@webhare/std";
 
@@ -13,7 +13,8 @@ import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlp
 import { Mutex } from "@webhare/services";
 import { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { debugFlags } from "@webhare/env";
-import bridge from "@mod-system/js/internal/whmanager/bridge";
+import bridge, { BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
+import { CodeContext, getCodeContext, rootstorage } from "@webhare/services/src/codecontexts";
 
 type MessageList = Array<{
   iserror: boolean;
@@ -136,6 +137,36 @@ export async function recompileHarescriptLibrary(uri: string, options?: { force:
   return lines.map(line => parseError(line));
 }
 
+function registerBridgeEventHandler(weakModule: WeakRef<HareScriptVM>) {
+  rootstorage.run(() => {
+    const listenerid = bridge.on("event", (event: BridgeEvent) => {
+      const mod = weakModule.deref();
+      if (!mod || !mod.hsvm) {
+        bridge.off(listenerid);
+        if (mod)
+          mod.unregisterEventCallback = undefined;
+        return;
+      }
+
+      // Don't re-emit events that originate from this vm
+      if (event.data && event.data.__sourcegroup === mod.currentgroup)
+        return;
+
+      mod.codeContext.run(() => {
+        const encoded = writeMarshalData(event.data, { onlySimple: true });
+        const payload = mod.wasmmodule._malloc(encoded.byteLength);
+        const name = mod.wasmmodule.stringToNewUTF8(event.name);
+        encoded.copy(mod.wasmmodule.HEAPU8, payload);
+        mod.wasmmodule._InjectEvent(mod.hsvm, name, payload, encoded.byteLength);
+        mod.wasmmodule._free(payload);
+        mod.wasmmodule._free(name);
+      });
+    });
+    weakModule.deref()!.unregisterEventCallback = () => bridge.off(listenerid);
+  });
+}
+
+
 export class HareScriptVM {
   static moduleIdCounter = 0;
   wasmmodule: WASMModule;
@@ -154,6 +185,8 @@ export class HareScriptVM {
   pipeWaiters = new Map<Ptr, object>;
   heapFinalizer = new FinalizationRegistry<HSVM_VariableId>((varid) => this._hsvm && this.wasmmodule._HSVM_DeallocateVariable(this._hsvm, varid));
   transitionLocks = new Array<TransitionLock>;
+  unregisterEventCallback: (() => void) | undefined;
+  codeContext: CodeContext;
 
   constructor(module: WASMModule) {
     this.wasmmodule = module;
@@ -165,8 +198,10 @@ export class HareScriptVM {
     this.errorlist = module._HSVM_AllocateVariable(this.hsvm);
     this.columnnamebuf = module._malloc(65);
     this.stringptrs = module._malloc(8); // 2 string pointers
+    this.codeContext = getCodeContext();
     this.consoleArguments = [];
     this.currentgroup = `${bridge.getGroupId()}/wasmmodule-${HareScriptVM.moduleIdCounter++}`;
+    this.integrateEvents();
   }
 
   get hsvm() { //We want callers to not have to check this.hsvm on every use
@@ -453,6 +488,7 @@ export class HareScriptVM {
 
   /// Shutdown the VM. Use this if you know it's no longer needed, it prevents having to wait for garbage collection to free up resources
   shutdown() {
+    this.unregisterEventCallback?.();
     this.wasmmodule._HSVM_AbortVM(this.hsvm);
 
     for (const mutex of this.mutexes)
@@ -467,6 +503,28 @@ export class HareScriptVM {
     if (!debugFlags.async)
       return;
     return new TransitionLock(this, intoHareScript, title);
+  }
+
+  integrateEvents() {
+    /* bridge may not hold strong references to the wasm module, so use a free-standing function
+       that won't keep this object in a closure context */
+    registerBridgeEventHandler(new WeakRef(this));
+
+    const gotEvent = (nameptr: number, payloadptr: number, payloadlength: number): void => {
+      const name = this.wasmmodule.UTF8ToString(nameptr);
+      const payload = Buffer.from(this.wasmmodule.HEAPU8.slice(payloadptr, payloadptr + payloadlength));
+      let data = readMarshalData(payload) as (SimpleMarshallableRecord & { __recordexists?: boolean; __sourcegroup?: string }) | null;
+      // Make sure __sourcegroup is filled in the data
+      if (!data || !("__sourcegroup" in data)) {
+        if (!data)
+          data = { __recordexists: false };
+        data.__sourcegroup ??= this.currentgroup || "";
+      }
+      /* Send the event over the bridge. It will be reflected to the local bridge, but filtered out by
+         the receiver based on sourcegroup */
+      bridge.sendEvent(name, data as SimpleMarshallableRecord);
+    };
+    this.wasmmodule._SetEventCallback(this.hsvm, this.wasmmodule.addFunction(gotEvent, "viii"));
   }
 }
 

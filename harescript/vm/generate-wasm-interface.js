@@ -137,8 +137,10 @@ function parseType(parts) {
   const partstr = parts.filter(p => !["const", "struct"].includes(p)).join(" ");
   switch (partstr) {
     case "void": return "void";
-    case "void *": return "Ptr";
-    case "char *": return "StringPtr";
+    case "void *":
+    case "const void *": return "Ptr";
+    case "char *":
+    case "const char *": return "StringPtr";
     case "bool":
     case "double":
     case "int":
@@ -159,6 +161,7 @@ function parseType(parts) {
     case "HSVM_IOWriter":
     case "HSVM_IOEndOfStream":
     case "HSVM_IOClose":
+    case "EventCallback":
       return "number";
     case "HSVM_VariableType": return "HSVM_VariableType";
     case "HSVM_VariableId": return "HSVM_VariableId";

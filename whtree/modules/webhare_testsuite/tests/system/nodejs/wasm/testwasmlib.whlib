@@ -1,6 +1,10 @@
 <?wh
 
+LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::os.whlib";
+LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::internal/wasm.whlib";
+LOADLIB "wh::internal/interface.whlib";
 
 
 PUBLIC MACRO ThrowIt()
@@ -11,4 +15,35 @@ PUBLIC MACRO ThrowIt()
 PUBLIC INTEGER FUNCTION ReentrantSyscall()
 {
   RETURN EM_Syscall("executeInline", [ func := "return await 1", param := DEFAULT RECORD ]);
+}
+
+PUBLIC MACRO RunWASMEventTestHandler()
+{
+  INTEGER eventstream := __HS_EVENT_CREATESTREAM();
+  __HS_EVENT_STREAMMODIFYSUBSCRIPTIONS(eventstream, [ "ipc-test.*" ], STRING[], FALSE);
+
+  STRING id := GetConsoleArguments()[0];
+
+  Sleep(100);
+
+  BroadcastEvent(`ipc-test.${id}`, DEFAULT RECORD);
+
+  INTEGER gotevents;
+  DATETIME wait_until := MAX_DATETIME;
+  WHILE (TRUE)
+  {
+    RECORD wres := WaitUntil([ read := eventstream ], wait_until);
+    IF (wres.type = "timeout")
+      BREAK;
+    RECORD rec := __HS_EVENT_STREAMREAD(eventstream);
+    IF (RecordExists(rec))
+    {
+      gotevents := gotevents + 1;
+      IF (gotevents = 4)
+        wait_until := AddTimeToDate(100, GetCurrentDateTime());
+      PRINT(`${id}: ${rec.name}\n`);
+    }
+  }
+
+  PRINT(`${id}: final events: ${gotevents}\n`);
 }
