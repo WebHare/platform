@@ -334,7 +334,7 @@ MACRO AsyncFunctionsTest()
     pair := CreateLinkPair();
 
     RegisterTimedCallback(AddTimeToDate(10, GetCurrentDateTime()), PTR pair.first->Close);
-    OBJECT promise := pair.second->AsyncReceiveMessage(AddTimeToDate(20, GetCurrentDateTime()));
+    OBJECT promise := pair.second->AsyncReceiveMessage(AddTimeToDate(200, GetCurrentDateTime()));
     RECORD retval := WaitForPromise(promise);
     TestEQ("gone", retval.status);
   }
@@ -343,14 +343,14 @@ MACRO AsyncFunctionsTest()
   {
     pair := CreateLinkPair();
     RegisterTimedCallback(AddTimeToDate(10, GetCurrentDateTime()), PTR pair.second->Close);
-    OBJECT promise := pair.second->AsyncReceiveMessage(AddTimeToDate(20, GetCurrentDateTime()));
+    OBJECT promise := pair.second->AsyncReceiveMessage(AddTimeToDate(200, GetCurrentDateTime()));
     TestThrowsLike("*cancelled*", PTR WaitForPromise(promise));
   }
 
   // Test cancel of promise
   {
     pair := CreateLinkPair();
-    OBJECT promise := pair.second->AsyncReceiveMessage(AddTimeToDate(20, GetCurrentDateTime()));
+    OBJECT promise := pair.second->AsyncReceiveMessage(AddTimeToDate(200, GetCurrentDateTime()));
     RegisterTimedCallback(AddTimeToDate(10, GetCurrentDateTime()), PTR promise->Cancel);
     TestThrowsLike("*cancelled*", PTR WaitForPromise(promise));
     promise->Cancel(); // 2nd cancel shouldn't crash
