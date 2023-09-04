@@ -106,11 +106,12 @@ EM_JS(void, pipewaiterClearWaiter, (void *pipewaiter), {
 
 EM_ASYNC_JS(int, pipewaiterWait, (void *pipewaiter, int wait_ms), {
   const waiter = Module.itf.pipeWaiters.get(pipewaiter);
-  if (waiter) {
-    setTimeout(() => waiter.resolve(0), wait_ms);
-    return await waiter.promise;
-  }
-  return -1;
+  if (!waiter)
+    throw new Error(`Could not find pipewaiter`);
+
+  setTimeout(() => waiter.resolve(0), wait_ms);
+  const res = await waiter.promise;
+  return res;
 });
 
 PipeWaiter::~PipeWaiter()
@@ -138,8 +139,6 @@ void PipeWaiter::AddEvent(Event &event)
 bool PipeWaiter::InitEventWait()
 {
         //DEBUGPRINT("Pipewaiter: InitEventWait, events: " << waitevents.size());
-        if (waitevents.empty())
-            return false;
 
         // Check if any event is signalled
         bool retval = false;
@@ -174,8 +173,6 @@ bool PipeWaiter::InitEventWait()
 void PipeWaiter::FinishEventWait()
 {
 //        DEBUGPRINT("Pipewaiter: FinishEventWait, events: " << waitevents.size());
-        if (waitevents.empty())
-            return;
 
         LockedEventData::WriteRef lock(eventdata);
         lock->waiting = false;
