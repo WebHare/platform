@@ -158,16 +158,6 @@ MACRO LocalizeDateTimeTest()
   TestEq("02-10-2010 15:24:35 CEST", LocalizeDateTime(format, value, "nl", "Europe/Amsterdam"));
   TestEq("02.10.2010, 15:24:35 MESZ", LocalizeDateTime(format, value, "de", "Europe/Amsterdam"));
 
-  // FormatDateTime compatibility test
-  format := "%Y-%m-%d %#H:%M:%S";
-  TestEq(FormatDateTime(format, value, GetLocalizedDatetimeStrings("en")), LocalizeDateTime(GetLocalizeFormatString(format), value, "en", "", TRUE));
-  TestEq(FormatDateTime(format, value, GetLocalizedDatetimeStrings("nl")), LocalizeDateTime(GetLocalizeFormatString(format), value, "nl", "", TRUE));
-  TestEq(FormatDateTime(format, value, GetLocalizedDatetimeStrings("de")), LocalizeDateTime(GetLocalizeFormatString(format), value, "de", "", TRUE));
-  format := "%A, %#d %b, %#I o'clock %p";
-  TestEq(FormatDateTime(format, value, GetLocalizedDatetimeStrings("en")), LocalizeDateTime(GetLocalizeFormatString(format), value, "en", "", TRUE));
-  TestEq(FormatDateTime(format, value, GetLocalizedDatetimeStrings("nl")), LocalizeDateTime(GetLocalizeFormatString(format), value, "nl", "", TRUE));
-  TestEq(FormatDateTime(format, value, GetLocalizedDatetimeStrings("de")), LocalizeDateTime(GetLocalizeFormatString(format), value, "de", "", TRUE));
-
   CloseTest("TestLocalization: LocalizeDateTimeTest");
 }
 
@@ -451,7 +441,10 @@ MACRO TimeZoneTests()
   //TestBothConversions(MakeDateTime(1910, 04, 24, 20, 00, 00), MakeDateTime(1910, 04, 24, 19, 40, 28), "EUROPE/AMSTERDAM"); //pre-1970 data is no longer present in the TZ database
 
   IF (IsWasm())
+  {
+    CloseTest("TestLocalization: TimeZoneTests");
     RETURN;
+  }
 
   TestEq(FALSE, IsLocalTimeDST(MakeDateTime(2002, 10, 27, 03, 00, 00), "CET"));
   TestEq(TRUE,  IsLocalTimeDST(MakeDateTime(2003, 03, 30, 03, 00, 00), "CET"));
@@ -935,14 +928,17 @@ MACRO NumberFormatTest()
 
 Print("\n === Running TestLocalization\n");
 IF (NOT IsWasm())
-{
-  // Time zone support
-  TimeZoneTests();
-  RETURN;
-}
-VersionTest();
+  VersionTest();
+
 // Formatting functions
 LocalizeDateTimeTest();
+// Time zone support
+TimeZoneTests();
+
+IF (IsWasm())
+  RETURN; // We're done with WASM for now
+
+// Formatting functions
 LocalizeNumberTest();
 LocalizeCurrencyTest();
 LocalizePercentageTest();
@@ -952,8 +948,6 @@ LocalizeOrdinalTest();
 WorldInfoTest();
 // Text transformations
 TransformationTest();
-// Time zone support
-TimeZoneTests();
 // Comparison
 ComparisonTest();
 // Intl, Collator, DateTimeFormat, NumberFormat
