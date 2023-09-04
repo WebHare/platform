@@ -2,6 +2,7 @@ import { backendConfig } from "@webhare/services";
 import * as vm from 'node:vm';
 import * as services from '@webhare/services';
 import { HareScriptVM } from "./harescript";
+import { defaultDateTime, formatISO8601Date, localizeDate, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 
 /* Syscalls are simple APIs for HareScript to reach into JS-native functionality that would otherwise be supplied by
    the C++ baselibs, eg openssl crypto. These APIs are generally pure and JSON based for ease of implementation and
@@ -66,4 +67,39 @@ export function executeInline(hsvm: HareScriptVM, { func, param }: { func: strin
       return tocall(hsvm);
     }
   }
+}
+
+export function formatISO8601DateTime(_hsvm: HareScriptVM, params: {
+  date: Date; options: {
+    dateformat: "year" | "month" | "day" | "empty";
+    timeformat: "hours" | "minutes" | "seconds" | "milliseconds" | "empty";
+    timezone: string;
+    extended: boolean;
+  };
+}) {
+  if (params.date.getTime() <= defaultDateTime.getTime() || params.date.getTime() >= maxDateTimeTotalMsecs)
+    return { result: "" };
+
+  return {
+    result: formatISO8601Date(params.date, {
+      dateFormat: params.options.dateformat,
+      timeFormat: params.options.timeformat,
+      timeZone: params.options.timezone,
+      extended: params.options.extended
+    })
+  };
+}
+
+export function localizeDateTime(_hsvm: HareScriptVM, params: {
+  formatstring: string;
+  date: Date;
+  locale: string;
+  timezone: string;
+}) {
+  if (params.date.getTime() <= defaultDateTime.getTime() || params.date.getTime() >= maxDateTimeTotalMsecs)
+    return { result: "" };
+
+  return {
+    result: localizeDate(params.formatstring, params.date, params.locale, params.timezone || "UTC")
+  };
 }

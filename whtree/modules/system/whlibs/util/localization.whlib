@@ -35,6 +35,7 @@ Ideas for further functionality:
 */
 LOADLIB "wh::system.whlib";
 LOADLIB "wh::internal/interface.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 
 PUBLIC STRING FUNCTION __ICU_GetICUVersion() __ATTRIBUTES__(EXTERNAL, CONSTANT);
 PUBLIC STRING FUNCTION __ICU_GetTZDataVersion() __ATTRIBUTES__(EXTERNAL, CONSTANT);
@@ -122,11 +123,14 @@ PUBLIC STRING FUNCTION GetLocaleForLangTag(STRING langtag)
              | `yy` | Two-digit year without century (00 to 99) |
              | `y` | Year with century |
              | `z` | Time zone |
-             | `'` | Literal text is enclosed within single quotes |
+             | `'` | Text within quotes is ignored |
              | `''` | Single quote `'` |
 
              When specifying an hour display, the locale may change the display from 12 to 24 hour notation or vice versa if
              combined with other speficiers (e.g. 'z').
+
+             Note that all letter characters are interpreted as format specifiers, unless enclosed within single quotes.
+             Non-letter characters and quoted text are ignored.
 
              For a full description of the formatting string, see
              https://unicode-org.github.io/icu/userguide/format_parse/datetime/#datetime-format-syntax
@@ -135,9 +139,6 @@ PUBLIC STRING FUNCTION GetLocaleForLangTag(STRING langtag)
     @param   locale       The language or locale to use (e.g. 'en', 'en-GB', 'nl' or 'zh-Hans-CN')
     @param   timezone     The time zone to use when formatting the DATETIME (use only when the provided date is in UTC as the
                           supplied date will be converted to this time zone)
-    @param   useexact     If set to TRUE, use the exact pattern supplied, otherwise find a locale matching pattern (this
-                          defaults to FALSE, so supplying "dMY" as the format will produce "12/25/2010" for 'en', "25/12/2010"
-                          for 'en-GB' and "25-12-2010" for 'nl', if set to TRUE, it will produce the literal "25122010")
     @return  A string with the formatted date and time. If MAX_DATETIME or an invalid @italic date value was entered, the
              function returns an empty string
     @see     LocalizeTimeStamp, GetLocalizeFormatString
@@ -150,17 +151,23 @@ STRING example1 := LocalizeDateTime("ddMMMMy", MakeDateTime(2005, 1, 1, 12, 34, 
 // example2 = "01. Januar 2005"
 STRING example2 := LocalizeDateTime("ddMMMMy", MakeDateTime(2005, 1, 1, 12, 34, 56), "de");
 
-// The day of the week in the Dutch language. If useexact had not been supplied, only "Zaterdag" would be returned.
-// The date format is <abbreviated> - <full>.
-// example3 = "za - zaterdag"
-STRING example3 := LocalizeDateTime("E - EEEE", MakeDateTime(2005, 1, 1, 12, 34, 56), "nl", "", TRUE);
-
 // The date and time in Dutch notation, in Amsterdam time zone.
-// example4 := "1-1-2005 13:34:56 CET"
-STRING example4 := LocalizeDateTime("HmszdMy", MakeDateTime(2005, 1, 1, 12, 34, 56), "nl", "Europe/Amsterdam");
+// example3 := "1-1-2005 13:34:56 CET"
+STRING example3 := LocalizeDateTime("HmszdMy", MakeDateTime(2005, 1, 1, 12, 34, 56), "nl", "Europe/Amsterdam");
+
+// All text other than format specifiers is ignored (note that the time and date separators are ignored as well)
+// example4 := "1.1., 13:34:56"
+STRING example3 := LocalizeDateTime("H.m.s 'op' d/M", MakeDateTime(2005, 1, 1, 12, 34, 56), "de", "Europe/Amsterdam");
 */
 PUBLIC STRING FUNCTION LocalizeDateTime(STRING formatstring, DATETIME date, STRING locale, STRING timezone DEFAULTSTO "", BOOLEAN useexact DEFAULTSTO FALSE)
 {
+  IF (IsWASM())
+  {
+    IF (useexact)
+      THROW NEW Exception("The 'useexact' parameter isn't supported in WASM");
+    RETURN EM_Syscall("localizeDateTime", CELL[ formatstring, date, locale, timezone ]).result;
+  }
+
   // Check date
   IF(date = DEFAULT DATETIME OR date = MAX_DATETIME)
     RETURN "";

@@ -13,6 +13,7 @@ LOADLIB "wh::internal/interface.whlib" EXPORT MAX_DATETIME, MakeDateFromText, Ge
 LOADLIB "wh::util/localization.whlib" EXPORT UTCToLocal, LocalToUTC, IsLocalTimeDST, IsWeekend, GetUTCOffset,
                                              GetAvailableTimeZones, GetAvailableTimeZoneNames,
                                              GetSystemTimeZoneID;
+LOADLIB "wh::internal/wasm.whlib";
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -782,7 +783,7 @@ PUBLIC STRING FUNCTION FormatISO8601DateTime(DATETIME whattime, VARIANT options 
 {
   IF (TypeID(options) = TypeID(STRING))
   {
-    /* Handle deprecated syntax, the 'dateformat' argument was used at the 
+    /* Handle deprecated syntax, the 'dateformat' argument was used at the
        location of the 'options' parameter, defaulted to "" (handled as 'day')
     */
     options := CELL
@@ -790,7 +791,7 @@ PUBLIC STRING FUNCTION FormatISO8601DateTime(DATETIME whattime, VARIANT options 
         , timeformat :=   timeformat ?? "seconds"
         , timezone :=     timezone ?? "UTC"
         , extended
-        ]; 
+        ];
   }
   ELSE IF (TypeID(options) != TypeID(RECORD))
     THROW NEW InvalidOptionException("options", "Parameter 'options' must be of type RECORD");
@@ -805,6 +806,14 @@ PUBLIC STRING FUNCTION FormatISO8601DateTime(DATETIME whattime, VARIANT options 
                                                     , timeformat := [ "hours", "minutes", "milliseconds", "empty", "seconds" ]
                                                     ]
                                          ]);
+
+  IF (IsWasm())
+  {
+    IF (options.dateformat IN [ "week", "weekday", "yearday" ])
+      THROW NEW Exception(`Dateformat value '${options.dateFormat}' is not supported in WASM`);
+
+    RETURN EM_Syscall("formatISO8601DateTime", CELL[ date := whattime, options ]).result;
+  }
 
   STRING datestr, timestr;
 

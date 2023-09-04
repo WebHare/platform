@@ -1,4 +1,5 @@
-<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="dumpjobs.whlib *.sh subdir testdata_* testfiles *.txt">
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo"
+       ignoremasks="dumpjobs.whlib *.sh subdir testdata_* testfiles *.txt">
   <test script="test_algorithms.whscr" />
   <test script="test_arrays.whscr" />
   <test script="test_asn1.whscr" />
@@ -71,48 +72,48 @@
     <test script="test_bibtex.whscr" />
     <test script="test_colors.whscr" />
     <test script="test_comparisons.whscr" />
-    <test script="test_control.whscr" xfail="1" /> <!-- Missing process control -->
+    <test script="test_control.whscr" xfail="1" />  <!-- Missing process control -->
     <test script="test_constants.whscr" />
     <test script="test_conversions.whscr" />
-    <test script="test_crypto.whscr" xfail="1" /> <!-- Missing algorithm CRC32 -->
+    <test script="test_crypto.whscr" xfail="1" />  <!-- Missing algorithm CRC32 -->
     <test script="test_css.whscr" />
     <test script="test_css_xpath.whscr" />
     <test script="test_database.whscr" />
-    <test script="test_datetime.whscr" xfail="1" /> <!-- Missing ICU -->
-    <test script="test_docgen.whscr" xfail="1" /> <!-- Missing test:: support -->
-    <test script="test_exceptions.whscr" xfail="1" /> <!-- Missing test:: support -->
-    <test script="test_export.whscr" xfail="1" /> <!-- Missing test:: support -->
+    <test script="test_datetime.whscr" />
+    <test script="test_docgen.whscr" xfail="1" />  <!-- Missing test:: support -->
+    <test script="test_exceptions.whscr" xfail="1" />  <!-- Missing test:: support -->
+    <test script="test_export.whscr" xfail="1" />  <!-- Missing test:: support -->
     <test script="test_events.whscr" />
-    <test script="test_files.whscr" xfail="1" /> <!-- Missing ICU -->
+    <test script="test_files.whscr" xfail="1" />  <!-- Missing ZLib -->
     <test script="test_float.whscr" />
     <test script="test_foreveryyield.whscr" />
-    <test script="test_functions.whscr" xfail="1" /> <!-- Missing test:: support -->
+    <test script="test_functions.whscr" xfail="1" />  <!-- Missing test:: support -->
     <test script="test_getopt.whscr" />
-    <test script="test_graphics.whscr" xfail="1" /> <!-- Missing Drawlib -->
+    <test script="test_graphics.whscr" xfail="1" />  <!-- Missing Drawlib -->
     <test script="test_html.whscr" />
-    <test script="test_ical.whscr" xfail="1" /> <!-- Missing function GetSystemHostname -->
-    <test script="test_internet.whscr" xfail="1" /> <!-- Missing socket support -->
-    <test script="test_ipc.whscr" /> <!-- Missing IPC support -->
-    <test script="test_jobs.whscr" xfail="1" /> <!-- Missing job support -->
+    <test script="test_ical.whscr" xfail="1" />  <!-- Missing function GetSystemHostname -->
+    <test script="test_internet.whscr" xfail="1" />  <!-- Missing socket support -->
+    <test script="test_ipc.whscr" />  <!-- Missing IPC support -->
+    <test script="test_jobs.whscr" xfail="1" />  <!-- Missing job support -->
     <test script="test_json.whscr" />
     <test script="test_libdump.whscr" />
-    <test script="test_loadlib.whscr" xfail="1" /> <!-- Missing test:: support -->
-    <test script="test_localization.whscr" xfail="1" /> <!-- Missing ICU -->
+    <test script="test_loadlib.whscr" xfail="1" />  <!-- Missing test:: support -->
+    <test script="test_localization.whscr" />
     <test script="test_loopbackdb.whscr" />
     <test script="test_map.whscr" />
     <test script="test_mime.whscr" />
     <test script="test_money.whscr" />
-    <test script="test_mutex.whscr" xfail="1" /> <!-- Missing job support -->
+    <test script="test_mutex.whscr" xfail="1" />  <!-- Missing job support -->
     <test script="test_nestedif.whscr" />
     <test script="test_numbers.whscr" />
-    <test script="test_objects.whscr" xfail="1" /> <!-- Missing test:: support -->
-    <test script="test_xlsx.whscr" xfail="1" /> <!-- Missing ICU -->
+    <test script="test_objects.whscr" xfail="1" />  <!-- Missing test:: support -->
+    <test script="test_xlsx.whscr" xfail="1" />  <!-- Missing Zlib -->
     <test script="test_operators.whscr" />
-    <test script="test_os.whscr" xfail="1" /> <!-- Missing function WaitForMultipleUntil -->
+    <test script="test_os.whscr" xfail="1" />  <!-- Missing function WaitForMultipleUntil -->
     <test script="test_otp.whscr" />
-    <test script="test_ports.whscr" xfail="1" /> <!-- Missing IPC support -->
+    <test script="test_ports.whscr" xfail="1" />  <!-- Missing IPC support -->
     <test script="test_promise.whscr" />
-    <test script="test_recordoptimizer.whscr" xfail="1" /> <!-- Missing test:: support -->
+    <test script="test_recordoptimizer.whscr" xfail="1" />  <!-- Missing test:: support -->
     <test script="test_records.whscr" />
     <test script="test_regex.whscr" />
     <test script="test_regression.whscr" />
@@ -122,11 +123,11 @@
     <test script="test_stringparser.whscr" />
     <test script="test_syntax.whscr" />
     <test script="test_tests.whscr" />
-    <test script="test_traces.whscr" runmode="process" xfail="1" /> <!-- Missing test:: support -->
+    <test script="test_traces.whscr" runmode="process" xfail="1" />  <!-- Missing test:: support -->
     <test script="test_types.whscr" />
     <test script="test_witty.whscr" />
-    <test script="test_xml_signature.whscr" xfail="1" /> <!-- Missing function GetCertificateData -->
-    <test script="test_xml.whscr" /> <!-- Spurious xmlns="" added. now commented out, needs fixing though -->
+    <test script="test_xml_signature.whscr" xfail="1" />  <!-- Missing function GetCertificateData -->
+    <test script="test_xml.whscr" />  <!-- Spurious xmlns="" added. now commented out, needs fixing though -->
     <test script="test_yieldasync.whscr" />
   </group>
 </group>
