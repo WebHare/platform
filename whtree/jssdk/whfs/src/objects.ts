@@ -213,11 +213,12 @@ export class WHFSFolder extends WHFSObject {
       .selectFrom("system.fs_objects")
       .where("parent", "=", this.id)
       .orderBy("name")
-      .select(excludeKeys([...selectkeys], ["link", "fullpath", "whfspath", "parentsite"]))
+      .select(excludeKeys([...selectkeys], ["link", "fullpath", "whfspath", "parentsite", "publish"]))
       .$if(getkeys.has("link"), qb => qb.select(sql<string>`webhare_proc_fs_objects_indexurl(id,name,isfolder,parent,published,type,externallink,filelink,indexdoc)`.as("link")))
       .$if(getkeys.has("fullPath"), qb => qb.select(sql<string>`webhare_proc_fs_objects_fullpath(id,isfolder)`.as("fullpath")))
       .$if(getkeys.has("whfsPath"), qb => qb.select(sql<string>`webhare_proc_fs_objects_whfspath(id,isfolder)`.as("whfspath")))
       .$if(getkeys.has("parentSite"), qb => qb.select(sql<number>`webhare_proc_fs_objects_highestparent(id, NULL)`.as("parentsite")))
+      .$if(getkeys.has("publish"), qb => qb.select("published"))
       .execute();
 
     const mappedrows = retval.map(row => {
@@ -226,6 +227,8 @@ export class WHFSFolder extends WHFSObject {
         if (k === 'type') { //remap to string
           const type = describeContentType(row.type || 0, { allowMissing: true, kind: row.isfolder ? "folderType" : "fileType" });
           result.type = type?.namespace ?? "#" + row.type;
+        } else if (k === 'publish') { //remap from published
+          (result as unknown as { publish: boolean }).publish = isPublish(row.published);
         } else {
           const dbkey = fsObjects_js_to_db[k];
           if (dbkey in row)

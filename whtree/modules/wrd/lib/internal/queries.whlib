@@ -3543,11 +3543,13 @@ STATIC OBJECTTYPE WRDDBRecordValue EXTEND WRDDBIncomparableValue
 STATIC OBJECTTYPE WRDDBJSONValue EXTEND WRDDBIncomparableValue
 <
   BOOLEAN wrapobjects;
+  BOOLEAN jsmode;
 
   MACRO NEW(OBJECT type, RECORD attr, RECORD options)
   : WRDDBIncomparableValue(type, attr)
   {
     this->wrapobjects := options.wrapobjects;
+    this->jsmode := options.jsmode;
   }
 
   PUBLIC UPDATE VARIANT FUNCTION GetDefaultValue()
@@ -3562,6 +3564,9 @@ STATIC OBJECTTYPE WRDDBJSONValue EXTEND WRDDBIncomparableValue
   {
     IF(settings_start = settings_limit)
       RETURN this->GetDefaultValue();
+
+    IF(this->jsmode)
+      RETURN CELL[ "^$wrdtype" := "json", json := entity_settings[settings_start].rawdata ?? BlobToString(entity_settings[settings_start].blobdata) ];
 
     VARIANT data := entity_settings[settings_start].rawdata != "" ? DecodeJSON(entity_settings[settings_start].rawdata, CELL[], [ wrapobjects := this->wrapobjects ])
                                                                   : DecodeJSONBlob(entity_settings[settings_start].blobdata, CELL[], [ wrapobjects := this->wrapobjects ]);
