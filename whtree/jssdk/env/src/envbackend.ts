@@ -12,6 +12,8 @@ interface WellKnownFlags {
   apr?: true;
   /** IPC */
   ipc?: true;
+  /** async */
+  async?: true;
 }
 type DebugFlags = WellKnownFlags & { [key: string]: true | undefined };
 
@@ -58,6 +60,8 @@ export function updateDebugConfig(settings: DebugConfig | null) {
       try { cb(); } catch (e) { }
     }
   }
+  if (debugFlags.async && Error.stackTraceLimit < 100)
+    Error.stackTraceLimit = 100;
 }
 
 export function registerDebugConfigChangedCallback(cb: () => void) {
