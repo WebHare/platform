@@ -161,9 +161,10 @@ fi
 # (ADDME: improve separation, consider moving whlibs/whres back to buildtree, to have a clean 'build this (ap,harescript,...)' and 'run this (whtree)' dir.)
 
 [ -d whtree ] && rm -rf whtree # remove old build data
-
+# recurse-submodules ensures we get the tracked files but not eg. node_modules from the submodules, giving a cleaner build
+# can't combine this with --others so you'll have to add untracked files before running 'wh builddocker' now.
 # Note: alpine tar doesn't support --warning=no-unknown-keyword so we need to fix it at the source
-if ! (cd $SOURCEDIR ; git ls-files -co --exclude-standard whtree | tar -c -T -) | tar -x ; then
+if ! (cd $SOURCEDIR ; git ls-files --cached --exclude-standard --recurse-submodules whtree | tar -c -T -) | tar -x ; then
   echo "tar failed"
   exit 1
 fi
