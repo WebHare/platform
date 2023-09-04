@@ -3,7 +3,7 @@ import { WorkerControlLinkRequest, WorkerControlLinkResponse, WorkerServiceLinkR
 import { loadJSFunction } from "./resourcetools";
 import { describePublicInterface } from "./webhareservice";
 import { encodeIPCException } from "./whmanager/ipc";
-import { TypedMessagePort, createTypedMessageChannel } from "./whmanager/transport";
+import { TypedMessagePort, createTypedMessageChannel, registerTransferredPort } from "./whmanager/transport";
 import { activateHMR } from "@webhare/services/src/services";
 import { ReturnValueWithTransferList } from "./worker";
 
@@ -12,6 +12,7 @@ export class WorkerHandler {
 
   constructor(port: TypedMessagePort<WorkerControlLinkResponse, WorkerControlLinkRequest>) {
     this.port = port;
+    registerTransferredPort(port, "async worker port");
     this.port.on("message", (message) => this.gotMessage(message));
   }
 
@@ -19,7 +20,7 @@ export class WorkerHandler {
     switch (message.type) {
       case "instantiateServiceRequest": {
         try {
-          const channel = createTypedMessageChannel<WorkerServiceLinkRequest, WorkerServiceLinkResponse>("WorkerHandler");
+          const channel = createTypedMessageChannel<WorkerServiceLinkRequest, WorkerServiceLinkResponse>("WorkerHandler " + message.func);
           const serviceclass = message.isfactory ?
             await (await loadJSFunction(message.func))(...message.params) as object :
             new (await loadJSFunction(message.func) as unknown as { new(...args: unknown[]): object })(...message.params) as object;
@@ -73,6 +74,7 @@ class ServicePortHandler {
 
   constructor(port: TypedMessagePort<WorkerServiceLinkResponse, WorkerServiceLinkRequest>, serviceclass: object) {
     this.port = port;
+    registerTransferredPort(port, "worker servicehandler port");
     this.serviceclass = serviceclass;
     this.port.on("message", (message) => this.gotMessage(message));
   }

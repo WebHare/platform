@@ -2,7 +2,7 @@ import EventSource from "../eventsource";
 import { createDeferred, DeferredPromise } from "@webhare/std";
 import { readMarshalPacket, writeMarshalPacket, IPCMarshallableRecord } from './hsmarshalling';
 import * as stacktrace_parser from "stacktrace-parser";
-import { TypedMessagePort, createTypedMessageChannel } from './transport';
+import { TypedMessagePort, createTypedMessageChannel, registerTransferredPort } from './transport';
 import { RefTracker } from "./refs";
 import { bufferToArrayBuffer } from "./transport";
 import { generateRandomId } from "@webhare/std";
@@ -387,6 +387,7 @@ export class IPCPortImpl<SendType extends object | null, ReceiveType extends obj
       } break;
       case IPCPortControlMessageType.IncomingLink: {
         const link = new IPCEndPointImpl<SendType, ReceiveType>(ctrlmsg.id, ctrlmsg.port, "accepting");
+        registerTransferredPort(ctrlmsg.port, ctrlmsg.id);
         this.handleItem(link);
       } break;
     }
