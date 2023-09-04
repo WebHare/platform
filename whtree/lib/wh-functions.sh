@@ -78,7 +78,8 @@ loadshellconfig()
 
   getwhparameters
 
-  SHELLCONFIG="$(wh_runjs "$WEBHARE_DIR/modules/platform/js/bootstrap/getshellconfig.ts")"
+  # Ignore WEBHARE_NODE_OPTIONS when running getshellconfig.ts (NODE_OPTIONS is still honored)
+  SHELLCONFIG="$(WEBHARE_NODE_OPTIONS= wh_runjs "$WEBHARE_DIR/modules/platform/js/bootstrap/getshellconfig.ts")"
   [ "$?" == "0" ] || die "shellconfig failed"
 
   eval "$SHELLCONFIG"
