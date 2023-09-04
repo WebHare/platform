@@ -178,7 +178,7 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { deleteClos
   await persontype.createAttribute("richie", { attributeType: WRDAttributeType.RichDocument, title: "Rich document" });
 
   const personattachment = await schemaobj.createType("personattachment", { metaType: WRDMetaType.Attachment, title: "Test person attachments", left: "wrdPerson", deleteClosedAfter: options.deleteClosedAfter, keepHistoryDays: options.keepHistoryDays });
-  personattachment.createAttribute("attachfree", { attributeType: WRDAttributeType.Free, title: "Free text attribute" });
+  await personattachment.createAttribute("attachfree", { attributeType: WRDAttributeType.Free, title: "Free text attribute" });
 
 
 
