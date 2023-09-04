@@ -2,8 +2,7 @@ import { backendConfig } from "@webhare/services";
 import * as vm from 'node:vm';
 import * as services from '@webhare/services';
 import { HareScriptVM } from "./harescript";
-import { formatISO8601Date, localizeDate } from "@webhare/hscompat/datetime";
-import { defaultDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
+import { defaultDateTime, formatISO8601Date, localizeDate, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 
 /* Syscalls are simple APIs for HareScript to reach into JS-native functionality that would otherwise be supplied by
    the C++ baselibs, eg openssl crypto. These APIs are generally pure and JSON based for ease of implementation and
