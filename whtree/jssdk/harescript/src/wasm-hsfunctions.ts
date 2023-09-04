@@ -156,6 +156,12 @@ class HSIPCLink extends OutputObjectBase {
   }
 }
 
+const ipcContext = contextGetterFactory(class {
+  ports = new Map<number, HSIPCPort>;
+  links = new Map<number, HSIPCLink>;
+  externalsessiondata = "";
+});
+
 export function registerBaseFunctions(wasmmodule: WASMModule) {
 
   wasmmodule.registerExternalFunction("__SYSTEM_GETMODULEINSTALLATIONROOT::S:S", (vm, id_set, modulename) => {
@@ -312,7 +318,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   });
 
   wasmmodule.registerExternalFunction("GETEXTERNALSESSIONDATA::S:", (vm, id_set) => {
-    id_set.setString("");
+    id_set.setString(ipcContext(vm).externalsessiondata);
   });
 
   wasmmodule.registerExternalMacro("__SYSTEM_REMOTELOG:::SS", (vm, logfile: HSVMVar, text: HSVMVar) => {
@@ -341,11 +347,6 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     if (!hasher)
       throw new Error(`No such crypto hasher with id ${id.getInteger()}`);
     id_set.setString(hasher.finalize());
-  });
-
-  const ipcContext = contextGetterFactory(class {
-    ports = new Map<number, HSIPCPort>;
-    links = new Map<number, HSIPCLink>;
   });
 
   wasmmodule.registerAsyncExternalFunction("__HS_CREATENAMEDIPCPORT::I:SB", async (vm, id_set, var_portname, var_globalport) => {
@@ -479,5 +480,9 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     const name = var_name.getString();
     const slashes = var_slashes.getBoolean();
     id_set.setBoolean(isValidName(name, { allowSlashes: slashes }));
+  });
+
+  wasmmodule.registerExternalMacro("SETEXTERNALSESSIONDATA:::S", (vm, var_sessiondata) => {
+    ipcContext(vm).externalsessiondata = var_sessiondata.getString();
   });
 }
