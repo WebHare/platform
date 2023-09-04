@@ -13,6 +13,7 @@ import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlp
 import { Mutex } from "@webhare/services";
 import { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { debugFlags } from "@webhare/env";
+import bridge from "@mod-system/js/internal/whmanager/bridge";
 
 type MessageList = Array<{
   iserror: boolean;
@@ -136,6 +137,7 @@ export async function recompileHarescriptLibrary(uri: string, options?: { force:
 }
 
 export class HareScriptVM {
+  static moduleIdCounter = 0;
   wasmmodule: WASMModule;
   private _hsvm: HSVM | null;
   errorlist: HSVM_VariableId;
@@ -148,7 +150,7 @@ export class HareScriptVM {
   columnNameIdMap: Record<string, HSVM_ColumnId> = {};
   objectCache;
   mutexes: Array<Mutex | null> = [];
-  currentgroup: string | undefined; //set on first use
+  currentgroup: string;
   pipeWaiters = new Map<Ptr, object>;
   heapFinalizer = new FinalizationRegistry<HSVM_VariableId>((varid) => this._hsvm && this.wasmmodule._HSVM_DeallocateVariable(this._hsvm, varid));
   transitionLocks = new Array<TransitionLock>;
@@ -164,6 +166,7 @@ export class HareScriptVM {
     this.columnnamebuf = module._malloc(65);
     this.stringptrs = module._malloc(8); // 2 string pointers
     this.consoleArguments = [];
+    this.currentgroup = `${bridge.getGroupId()}/wasmmodule-${HareScriptVM.moduleIdCounter++}`;
   }
 
   get hsvm() { //We want callers to not have to check this.hsvm on every use

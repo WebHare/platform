@@ -308,7 +308,6 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   });
 
   wasmmodule.registerExternalFunction("__HS_GETCURRENTGROUPID::S:", (vm, id_set) => {
-    vm.currentgroup ||= generateRandomId("base64url");
     id_set.setString(vm.currentgroup);
   });
 
