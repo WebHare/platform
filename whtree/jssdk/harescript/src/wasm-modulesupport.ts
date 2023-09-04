@@ -431,6 +431,16 @@ export class OutputObjectBase {
     return res;
   }
 
+  /** Called just before a wait so wait status can be checked synchronously */
+  protected syncUpdateReadSignalled() {
+    /* empty */
+  }
+
+  /** Called just before a wait so wait status can be checked synchronously */
+  protected syncUpdateWriteSignalled() {
+    /* empty */
+  }
+
   /** Called when the outputobject has been deregistered in HareScript */
   protected _closed() {
     this.closed = true;

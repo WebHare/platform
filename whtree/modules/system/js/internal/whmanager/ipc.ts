@@ -7,6 +7,7 @@ import { RefTracker } from "./refs";
 import { bufferToArrayBuffer } from "./transport";
 import { generateRandomId } from "@webhare/std";
 import * as envbackend from "@webhare/env/src/envbackend";
+import { receiveMessageOnPort } from 'node:worker_threads';
 
 const logmessages = envbackend.debugFlags.ipc;
 
@@ -88,6 +89,9 @@ export interface IPCEndPoint<SendType extends object | null = IPCMarshallableRec
 
   /** Drop the reference on this endpoint, so the node process won't keep running when this endpoint hasn't been closed yet */
   dropReference(): void;
+
+  /** Synchronously checks for events and emits them */
+  checkForEventsSync(): void;
 }
 
 export enum IPCEndPointImplControlMessageType {
@@ -161,7 +165,17 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
       this.defer = createDeferred<void>();
   }
 
-  handleControlMessage(ctrlmsg: IPCEndPointImplControlMessage, isqueueitem?: boolean) {
+  checkForEventsSync(): void {
+    let res = receiveMessageOnPort(this.port as MessagePort);
+    if (res && this.handleControlMessage(res.message)) {
+      // Received connectresult, try again to see if a message is pending
+      res = receiveMessageOnPort(this.port as MessagePort);
+      if (res)
+        this.handleControlMessage(res.message);
+    }
+  }
+
+  handleControlMessage(ctrlmsg: IPCEndPointImplControlMessage, isqueueitem?: boolean): boolean {
     if (logmessages) {
       const tolog = ctrlmsg.type === IPCEndPointImplControlMessageType.Message
         ? { ...ctrlmsg, type: IPCEndPointImplControlMessageType[ctrlmsg.type], buffer: readMarshalPacket(Buffer.from(ctrlmsg.buffer)) }
@@ -169,7 +183,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
       console.log(`ipclink ${this.id} received ctrl msg`, tolog, { isqueueitem });
     }
     if (this.closed)
-      return;
+      return false;
     // handle connectresult immediately, don't let it go through the queue
     if (this.queue && !isqueueitem && ctrlmsg.type != IPCEndPointImplControlMessageType.ConnectResult) {
       this.queue.push(ctrlmsg);
@@ -178,15 +192,18 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     } else {
       switch (ctrlmsg.type) {
         case IPCEndPointImplControlMessageType.ConnectResult: {
-          if (ctrlmsg.success)
+          if (ctrlmsg.success) {
             this.defer?.resolve();
-          else
+            return true;
+          } else {
+            this.defer?.reject(new Error(`Could not connect to ${this.connectporttitle}`));
             this.close();
+          }
         } break;
         case IPCEndPointImplControlMessageType.Message: {
           const message = readMarshalPacket(Buffer.from(ctrlmsg.buffer));
           if (typeof message != "object")
-            return;
+            return false;
 
           const req = ctrlmsg.replyto && this.requests.get(ctrlmsg.replyto);
           if (req) {
@@ -196,7 +213,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
             } catch (e) {
               req.reject(e as Error);
             }
-            return;
+            return false;
           }
           if (message && "__exception" in message)
             this.emit("exception", { msgid: ctrlmsg.msgid, replyto: ctrlmsg.replyto, message: message as IPCExceptionMessage });
@@ -205,6 +222,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
         } break;
       }
     }
+    return false;
   }
 
   async activate(): Promise<void> {
@@ -218,7 +236,6 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
         // re-throw the error so the stack trace points to the invocation of activate()
         throw new Error((e as Error).message);
       }
-
     }
     Promise.resolve(true).then(() => this.emitQueue());
   }
@@ -356,6 +373,9 @@ export interface IPCPort<SendType extends object | null = IPCMarshallableRecord,
 
   /** Drop the reference on this port, so the node process won't keep running when this port hasn't been closed yet */
   dropReference(): void;
+
+  /** Synchronously checks for events and emits them */
+  checkForEventsSync(): void;
 }
 
 export class IPCPortImpl<SendType extends object | null, ReceiveType extends object | null> extends EventSource<IPCPortEvents<SendType, ReceiveType>> implements IPCPort<SendType, ReceiveType> {
@@ -373,6 +393,12 @@ export class IPCPortImpl<SendType extends object | null, ReceiveType extends obj
     this.port = port;
     this.port.on("message", (message) => this.handleControlMessage(message));
     this.refs = new RefTracker(this.port, { initialref: true });
+  }
+
+  checkForEventsSync(): void {
+    const res = receiveMessageOnPort(this.port as MessagePort);
+    if (res)
+      this.handleControlMessage(res.message);
   }
 
   handleControlMessage(ctrlmsg: IPCPortControlMessage) {

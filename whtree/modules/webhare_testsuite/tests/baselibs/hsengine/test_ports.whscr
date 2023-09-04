@@ -154,7 +154,7 @@ MACRO BaseTest()
   l2b->Close();
 
   // Close ports
-  OBJECT l4a := ConnectToIPCPort("test1") ;
+  OBJECT l4a := ConnectToIPCPort("test1");
 
   port1->Close();
   TestThrowsLike("*closed*", PTR port1->IsSignalled);

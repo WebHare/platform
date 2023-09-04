@@ -88,6 +88,9 @@ class HSIPCPort extends OutputObjectBase {
     });
     this.setReadSignalled(false);
   }
+  protected syncUpdateReadSignalled(): void {
+    this.port.checkForEventsSync();
+  }
   injectEndPoint(endpoint: IPCEndPoint) {
     this.endpoints.push(endpoint);
     this.setReadSignalled(true);
@@ -131,6 +134,9 @@ class HSIPCLink extends OutputObjectBase {
       this.setReadSignalled(true);
     });
   }
+  protected syncUpdateReadSignalled(): void {
+    this.link?.checkForEventsSync();
+  }
   injectMessage(msg: IPCMessagePacket<IPCMarshallableRecord>) {
     this.messages.push(msg);
     this.setReadSignalled(true);
@@ -146,12 +152,14 @@ class HSIPCLink extends OutputObjectBase {
     }
     super.close();
   }
-  async activate() {
+  async activate(): Promise<boolean> {
     try {
       await this.link?.activate();
+      return true;
     } catch (e) {
       // Ignore activation errors, they will close the link anyway
       this.setReadSignalled(true);
+      return false;
     }
   }
 }
@@ -352,21 +360,30 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerAsyncExternalFunction("__HS_CREATENAMEDIPCPORT::I:SB", async (vm, id_set, var_portname, var_globalport) => {
     const port = bridge.createPort(var_portname.getString(), { global: var_globalport.getBoolean() });
     const hsport = new HSIPCPort(vm, port);
-    ipcContext(vm).ports.set(hsport.id, hsport);
-    await hsport.port.activate();
-    id_set.setInteger(hsport.id);
+    try {
+      await hsport.port.activate();
+      ipcContext(vm).ports.set(hsport.id, hsport);
+      id_set.setInteger(hsport.id);
+    } catch (e) {
+      id_set.setInteger(0);
+    }
   });
 
-  wasmmodule.registerExternalFunction("__HS_CONNECTTOIPCPORT::I:S", (vm, id_set, var_portname) => {
+  wasmmodule.registerAsyncExternalFunction("__HS_CONNECTTOIPCPORT::I:S", async (vm, id_set, var_portname) => {
     let link: IPCEndPoint | undefined;
     if (var_portname.getString() !== "system:whmanager") {
       link = bridge.connect(var_portname.getString(), { global: false });
     }
     const hslink = new HSIPCLink(vm, link);
-    // Not waiting for activation by the other side, HareScript didn't do that either.
-    hslink.activate();
-    ipcContext(vm).links.set(hslink.id, hslink);
-    id_set.setInteger(hslink.id);
+    // Wait 100 ms for activation, so we can error out on not-existing local ports
+    const activationPromise = hslink.activate();
+    if (await Promise.race([sleep(100), activationPromise]) === false) {
+      id_set.setInteger(0);
+      hslink.close();
+    } else {
+      ipcContext(vm).links.set(hslink.id, hslink);
+      id_set.setInteger(hslink.id);
+    }
   });
 
   wasmmodule.registerExternalFunction("__HS_SENDIPCMESSAGE::R:IV6", (vm, id_set, var_linkid, var_data, var_replyto) => {
@@ -409,7 +426,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       }
       id_set.setJSValue({ msgid: 0n, status: "ok" });
     } else if (link.link.closed)
-      id_set.setJSValue({ msgid: 0n, status: "closed" });
+      id_set.setJSValue({ msgid: 0n, status: "gone" });
     else {
       const msgid = link.link.send(var_data.getJSValue() as IPCMarshallableRecord, var_replyto.getInteger64());
       id_set.setJSValue({ msgid, status: "ok" });
@@ -423,7 +440,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     let msg = link.getMessage();
     if (!msg) {
       // HareScript is more deterministic than JS bridge, wait a bit and try again
-      await sleep(1);
+      await sleep(10);
       msg = link.getMessage();
     }
     if (msg) {

@@ -137,6 +137,7 @@ bool EMWrappedOutputObject::IsAtEOF()
 
 bool EMWrappedOutputObject::AddToWaiterRead(Blex::PipeWaiter &waiter)
 {
+        obj.call<emscripten::val>("syncUpdateReadSignalled");
         if (event_read.IsSignalled())
             return true;
         waiter.AddEvent(event_read);
@@ -150,6 +151,7 @@ HareScript::OutputObject::SignalledStatus EMWrappedOutputObject::IsReadSignalled
 
 bool EMWrappedOutputObject::AddToWaiterWrite(Blex::PipeWaiter &waiter)
 {
+        obj.call<emscripten::val>("syncUpdateWriteSignalled");
         if (event_write.IsSignalled())
             return true;
         waiter.AddEvent(event_write);
