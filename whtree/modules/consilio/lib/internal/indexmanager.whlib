@@ -963,6 +963,7 @@ STATIC OBJECTTYPE IndexManagerBulkKeeper
   {
     options := ValidateOptions(
         [ refresh :=            FALSE
+        , timeout := opensearch_write_timeout
         ], options,
         [ notypecheck := [ "refresh" ]
         ]);
@@ -972,7 +973,7 @@ STATIC OBJECTTYPE IndexManagerBulkKeeper
     FOREVERY (RECORD rec FROM this->_requests)
     {
       STRING url := rec.finalindexname || "/_bulk";
-      RECORD response := SendRawJSONToOpenSearch(rec.indexmanagerid, "POST", url, [ bulkrequests := rec.requests ], CELL[ ndjson := TRUE, options.refresh ]);
+      RECORD response := SendRawJSONToOpenSearch(rec.indexmanagerid, "POST", url, [ bulkrequests := rec.requests ], CELL[ ndjson := TRUE, options.refresh, options.timeout ]);
       IF(response.result.errors)
       {
         RECORD ARRAY itemresponses := SELECT *, operation := CellExists(items,"index") ? items."index" : items."delete"
@@ -1011,6 +1012,7 @@ PUBLIC MACRO AddIndexManagerObjects(OBJECT catalog, RECORD contentsource, STRING
       , suffix := "" // Sub-index suffix, for unmanaged indices, OpenSearch only
       , bulk := DEFAULT OBJECT
       , debug := FALSE
+      , timeout := opensearch_write_timeout
       ];
   options := ValidateOptions(defaultoptions, options);
 
@@ -1097,7 +1099,7 @@ PUBLIC MACRO AddIndexManagerObjects(OBJECT catalog, RECORD contentsource, STRING
   }
 
   IF(ObjectExists(temporarybulk))
-    temporarybulk->Execute(CELL[ options.refresh ]);
+    temporarybulk->Execute(CELL[ options.refresh, options.timeout ]);
 }
 
 /** @short Delete a group from an index
