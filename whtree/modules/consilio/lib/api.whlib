@@ -14,6 +14,7 @@ LOADLIB "mod::consilio/lib/internal/support.whlib" EXPORT fetcher_trusted_ip;
 LOADLIB "mod::consilio/lib/internal/opensearch.whlib" EXPORT SearchUnavailableException;
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/internal/whfs/support.whlib";
+LOADLIB "mod::consilio/lib/internal/indexmanager_state.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
@@ -717,6 +718,7 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
       , explain := FALSE
       , refresh := FALSE
       , validatemapping := TRUE
+      , timeout := opensearch_read_timeout
       ], options, [ optional := [ "orderdesc" ] ]);
 
   IF(NOT RecordExists(query)
@@ -799,6 +801,7 @@ PUBLIC RECORD FUNCTION RunConsilioSearch(STRING indextag, RECORD query, RECORD o
       , options.debug
       , options.explain
       , options.totaltotrack
+      , options.timeout
       ];
   IF (RecordExists(options.mapping))
     INSERT CELL mapping := options.mapping INTO searchoptions;
