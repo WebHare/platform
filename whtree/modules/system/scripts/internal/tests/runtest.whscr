@@ -8,6 +8,7 @@ LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internal/jobs.whlib";
+LOADLIB "wh::xml/xsd.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
@@ -708,14 +709,12 @@ parsedargs := ParseArguments(GetConsoleArguments(),
                                     , [name := "keepsessions", type := "switch"]
                                     , [name := "terse", type := "switch"]
                                     , [name := "wasm", type := "switch"]
-                                    , [name := "testname", type := "param" ]
+                                    , [name := "testlist", type := "paramlist" ]
                                     ]);
 
 IF (NOT RecordExists(parsedargs))
   SyntaxError("Parameter syntax error");
 
-STRING testgroup := "all";
-STRING testname := "all";
 testtypes := parsedargs.testtype;
 IF ("all" IN testtypes OR Length(testtypes)=0)
   testtypes := [ ...testtypes, "frontend", "backend" ];
@@ -772,8 +771,14 @@ FOREVERY (STRING param FROM parsedargs.param)
     INSERT [name := param, value := ""] INTO testrunner->cmdparams AT END;
 }
 
-IF (parsedargs.testname = "")
-  parsedargs.testname := "all";
+//Let's be very tolerant of the testlist to allow users to easily copypaste. We'll accept commas and any whitespace to separate testnames
+STRING ARRAY testlist;
+FOREVERY(STRING testarg FROM parsedargs.testlist ?? ["all"])
+{
+  testarg := Substitute(testarg,',',' ');
+  FOREVERY(STRING test FROM ParseXSList(testarg))
+    INSERT test INTO testlist AT END;
+}
 
 //Tests are unsafe until WebHare is ready
 IF(NOT RecordExists(PollWHServiceState("poststartdone")))
@@ -792,7 +797,7 @@ testrunner := NEW RunTests;
 testrunner->print_debug := parsedargs.d;
 
 RECORD ARRAY alltests;
-RECORD ARRAY tests := testrunner->GatherAllTests(Tokenize(parsedargs.testname,','), DEFAULT STRING ARRAY);
+RECORD ARRAY tests := testrunner->GatherAllTests(testlist, DEFAULT STRING ARRAY);
 WHILE (TRUE)
 {
   BOOLEAN seenanytest := FALSE;
