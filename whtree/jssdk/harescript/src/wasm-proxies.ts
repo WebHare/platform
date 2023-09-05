@@ -11,7 +11,7 @@ export type HSVMObject = HSVMObjectWrapper & HSVMCallsProxy;
 
 export type HSVMLibrary = HSVMCallsProxy;
 
-function argsToHSVMVar(vm: HareScriptVM, args: unknown[]): HSVMHeapVar[] {
+export function argsToHSVMVar(vm: HareScriptVM, args: unknown[]): HSVMHeapVar[] {
 
   const funcargs: HSVMHeapVar[] = [];
   for (const arg of args) {
@@ -22,7 +22,7 @@ function argsToHSVMVar(vm: HareScriptVM, args: unknown[]): HSVMHeapVar[] {
   return funcargs;
 }
 
-function cleanupHSVMCall(vm: HareScriptVM, args: HSVMHeapVar[], result: HSVMHeapVar | undefined) {
+export function cleanupHSVMCall(vm: HareScriptVM, args: HSVMHeapVar[], result: HSVMHeapVar | undefined) {
   for (const arg of args)
     arg.dispose();
 

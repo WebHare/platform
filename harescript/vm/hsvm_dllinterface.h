@@ -631,6 +631,12 @@ HSVM_PUBLIC void*  HSVM_ObjectContext(struct HSVM *vm, HSVM_VariableId object_id
 */
  HSVM_PUBLIC void HSVM_ObjectSetMarshaller(struct HSVM *vm, HSVM_VariableId object_id, HSVM_ObjectMarshallerPtr marshaller);
 
+/** Get the VM's exception variable */
+ HSVM_PUBLIC HSVM_VariableId HSVM_GetThrowVar(struct HSVM *vm);
+
+/** Reset the VM's exception handling */
+ HSVM_PUBLIC void HSVM_CleanupException(struct HSVM *vm);
+
 /** Returns whether an object exists
     @param vm Virtual machine
     @param id Id of the object

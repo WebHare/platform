@@ -1773,6 +1773,16 @@ HSVM_VariableId HSVM_ScheduleFunctionPtrCall(struct HSVM *vm, HSVM_VariableId fp
         return HSVM_CallFunctionPtrInternal(vm, fptr, true, allow_macro);
 }
 
+HSVM_VariableId HSVM_GetThrowVar(struct HSVM *vm)
+{
+        return VM.throwvar;
+}
+
+void HSVM_CleanupException(struct HSVM *vm)
+{
+        VM.CleanupException();
+}
+
 HSVM_VariableId HSVM_CallObjectMethod(struct HSVM *vm, HSVM_VariableId object_id, HSVM_ColumnId name_id, int skip_access, int allow_macro)
 {
         START_CATCH_VMEXCEPTIONS
