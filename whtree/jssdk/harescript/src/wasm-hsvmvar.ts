@@ -19,33 +19,31 @@ function canCastTo(from: VariableType, to: VariableType): boolean {
 
 //TODO WeakRefs so the HareScriptVM can be garbage collected ? We should also consider moving the GlobalBlobStorage to JavaScript so we don't need to keep the HSVMs around
 class HSVMBlob implements HareScriptBlob {
-  readonly vm: HareScriptVM;
+  blob: HSVMHeapVar | null;
   readonly size: number;
-  id: HSVM_VariableId | null;
 
-  constructor(vm: HareScriptVM, varid: HSVM_VariableId, size: number) {
-    this.vm = vm;
-    this.id = varid;
+  constructor(blob: HSVMHeapVar, size: number) {
+    this.blob = blob;
     this.size = size;
   }
 
   tryArrayBufferSync(): ArrayBuffer {
-    if (!this.id)
+    if (!this.blob)
       throw new Error(`This blob has already been closed`);
 
-    const buffer = this.vm.wasmmodule._malloc(this.size);
-    const openblob = this.vm.wasmmodule._HSVM_BlobOpen(this.vm.hsvm, this.id);
+    const buffer = this.blob.vm.wasmmodule._malloc(this.size);
+    const openblob = this.blob.vm.wasmmodule._HSVM_BlobOpen(this.blob.vm.hsvm, this.blob.id);
 
     try {
-      const numread = Number(this.vm.wasmmodule._HSVM_BlobDirectRead(this.vm.hsvm, openblob, 0n, this.size, buffer));
+      const numread = Number(this.blob.vm.wasmmodule._HSVM_BlobDirectRead(this.blob.vm.hsvm, openblob, 0n, this.size, buffer));
       if (numread !== this.size)
         throw new Error(`Failed to read blob, got ${numread} of ${this.size} bytes`);
 
-      const data = this.vm.wasmmodule.HEAP8.slice(buffer, buffer + this.size);
+      const data = this.blob.vm.wasmmodule.HEAP8.slice(buffer, buffer + this.size);
       return new Int8Array(data);
     } finally {
-      this.vm.wasmmodule._free(buffer);
-      this.vm.wasmmodule._HSVM_BlobClose(this.vm.hsvm, openblob);
+      this.blob.vm.wasmmodule._free(buffer);
+      this.blob.vm.wasmmodule._HSVM_BlobClose(this.blob.vm.hsvm, openblob);
     }
   }
 
@@ -63,32 +61,31 @@ class HSVMBlob implements HareScriptBlob {
 
   //You should close a HSVMBlob when you're done with it so the HSVM can garbage collect it (FIXME also use a FinalizerRegistry!)
   close() {
-    if (this.id) {
-      this.vm.wasmmodule._HSVM_DeallocateVariable(this.vm.hsvm, this.id);
-      this.id = null;
+    if (this.blob) {
+      this.blob.dispose();
+      this.blob = null;
     }
   }
 
   //Get the JS tag for this blob, used to track its original/current location (eg on disk or uploaded to PG)
   getJSTag(): JSBlobTag {
-    if (!this.id)
+    if (!this.blob)
       throw new Error(`This blob has already been closed`);
 
-    return this.vm.getBlobJSTag(this.id);
+    return this.blob.vm.getBlobJSTag(this.blob.id);
   }
   setJSTag(tag: JSBlobTag) {
-    if (!this.id)
+    if (!this.blob)
       throw new Error(`This blob has already been closed`);
 
-    this.vm.setBlobJSTag(this.id, tag);
+    this.blob.vm.setBlobJSTag(this.blob.id, tag);
   }
 
   registerPGUpload(databaseid: string) {
-    if (this.id) //not closed yet
+    if (this.blob) //not closed yet
       this.setJSTag({ pg: databaseid });
   }
 }
-
 
 export class HSVMVar {
   vm: HareScriptVM;
@@ -226,7 +223,7 @@ export class HSVMVar {
     //TODO we might not need a wrapper around HSVM_BlobRead (with all the issue if the blobs outlive the HSVM!) if we can reach directly into the backing blob storage ?
     const cloneblob = this.vm.allocateVariable();
     this.vm.wasmmodule._HSVM_CopyFrom(this.vm.hsvm, cloneblob.id, this.id);
-    return new HSVMBlob(this.vm, cloneblob.id, size);
+    return new HSVMBlob(cloneblob, size);
   }
   setBlob(value: WHDBBlob | HareScriptMemoryBlob | null) {
     if (isWHDBBlob(value)) {
@@ -286,6 +283,51 @@ export class HSVMVar {
     const newid = this.vm.wasmmodule._HSVM_RecordCreate(this.vm.hsvm, this.id, columnid);
     return new HSVMVar(this.vm, newid);
   }
+  objectExists() {
+    this.checkType(VariableType.Object);
+    return this.vm.wasmmodule._HSVM_ObjectExists(this.vm.hsvm, this.id);
+  }
+  memberExists(name: string): boolean {
+    this.checkType(VariableType.Object);
+    const columnid = this.vm.getColumnId(name);
+    return this.vm.wasmmodule._HSVM_ObjectMemberExists(this.vm.hsvm, this.id, columnid) !== 0;
+  }
+
+  /** Get and copy an object member, resolve property calls */
+  async getMember(name: string, options?: { allowMissing: false }): Promise<HSVMHeapVar>;
+  async getMember(name: string, options?: { allowMissing: boolean }): Promise<HSVMHeapVar | undefined>;
+
+  async getMember(name: string, options?: { allowMissing: boolean }): Promise<HSVMHeapVar | undefined> {
+    if (!this.memberExists(name))
+      if (options?.allowMissing)
+        return undefined;
+      else
+        throw new Error(`No such member or property '${name}' on HareScript object`);
+
+    const columnid = this.vm.getColumnId(name);
+    const temp = this.vm.wasmmodule._HSVM_AllocateVariable(this.vm.hsvm);
+    if (!await this.vm.wasmmodule._HSVM_ObjectMemberCopy(this.vm.hsvm, this.id, columnid, temp, /*skipaccess=*/1))
+      throw new Error(`Failed to copy member ${name} from object`);
+
+    return new HSVMHeapVar(this.vm, temp);
+  }
+
+  /** Get a primitive object member. Will fail if the property requires a callback. Returns a reference that may be invalidated on future VM calls */
+  getMemberRef(name: string, options?: { allowMissing: false }): HSVMVar;
+  getMemberRef(name: string, options?: { allowMissing: boolean }): HSVMVar | undefined;
+
+  getMemberRef(name: string, options?: { allowMissing: boolean }): HSVMVar | undefined {
+    if (!this.memberExists(name))
+      if (options?.allowMissing)
+        return undefined;
+      else
+        throw new Error(`No such member or property '${name}' on HareScript object`);
+
+    const columnid = this.vm.getColumnId(name);
+    return new HSVMVar(this.vm, this.vm.wasmmodule._HSVM_ObjectMemberRef(this.vm.hsvm, this.id, columnid, /*skipaccess=*/1));
+  }
+
+
   setJSValue(value: unknown) {
     this.setJSValueInternal(value, VariableType.Variant);
   }
@@ -426,16 +468,13 @@ export class HSVMVar {
         return value;
       }
       case VariableType.Object: {
-        if (!this.vm.wasmmodule._HSVM_ObjectExists(this.vm.hsvm, this.id))
+        if (!this.objectExists())
           return null; //TODO or a boxed default object?
 
         //We map some objects based on their ^$WASMTYPE. We can't use the __GetMarshalData approach as we can't invoke functionptrs here (async)
-        const wasmtype_columnid = this.vm.getColumnId("^$WASMTYPE");
-        if (this.vm.wasmmodule._HSVM_ObjectMemberExists(this.vm.hsvm, this.id, wasmtype_columnid)) {
-          const wasmtype_column = this.vm.wasmmodule._HSVM_ObjectMemberRef(this.vm.hsvm, this.id, wasmtype_columnid, /*skipaccess=*/1);
-          const wasmtype = new HSVMVar(this.vm, wasmtype_column).getString();
-          return resurrect(wasmtype, this);
-        }
+        const wasmtype_column = this.getMemberRef("^$WASMTYPE", { allowMissing: true });
+        if (wasmtype_column !== undefined)
+          return resurrect(wasmtype_column.getString(), this);
 
         return this.vm.objectCache.ensureObject(this.id);
       }
@@ -459,4 +498,20 @@ export class HSVMVar {
     this.vm.wasmmodule._HSVM_CopyFrom(this.vm.hsvm, this.id, variable.id);
     this.type = variable.type;
   }
+}
+
+export class HSVMHeapVar extends HSVMVar {
+  constructor(vm: HareScriptVM, id: HSVM_VariableId) {
+    super(vm, id);
+    vm.heapFinalizer.register(this, id, this);
+  }
+
+  dispose() {
+    if (this.id) {
+      this.vm.heapFinalizer.unregister(this);
+      this.vm.wasmmodule._HSVM_DeallocateVariable(this.vm.hsvm, this.id);
+      this.id = 0 as HSVM_VariableId;
+    }
+  }
+
 }

@@ -898,6 +898,7 @@ class BLEXLIB_PUBLIC VirtualMachine
         VarId throwvar;
 
         void UnwindToNextCatch(bool need_frame);
+        void CleanupException();
 
         std::string GenerateFunctionSignature(LinkedLibrary::ResolvedFunctionDef const *funcdef);
         std::string GenerateFunctionPTRSignature(HSVM_VariableId functionptr, LinkedLibrary::ResolvedFunctionDef const *funcdef);

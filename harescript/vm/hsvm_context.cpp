@@ -1692,6 +1692,12 @@ template< bool debug >
         }
 }
 
+void VirtualMachine::CleanupException()
+{
+        stackmachine.InitVariable(throwvar, VariableTypes::Object);
+        is_unwinding = false;
+}
+
 void VirtualMachine::UnwindToNextCatch(bool push_frame)
 {
         if (push_frame)

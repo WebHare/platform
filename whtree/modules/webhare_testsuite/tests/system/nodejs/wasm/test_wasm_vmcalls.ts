@@ -1,3 +1,4 @@
+import * as stacktrace_parser from "stacktrace-parser";
 import { BoxedFloat, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { HSVMObject, HareScriptMemoryBlob, allocateHSVM } from "@webhare/harescript";
 import * as test from "@webhare/test";
@@ -60,9 +61,17 @@ async function testVarMemory() {
 
 async function testCalls() {
   const vm = await allocateHSVM();
-  test.eq([17, 42, 999], await vm.callFunction("wh::util/algorithms.whlib#GetSortedSet", [42, 17, 999]));
+  test.eq([17, 42, 999], await vm.call("wh::util/algorithms.whlib#GetSortedSet", [42, 17, 999]));
+  const err = await test.throws(/We're throwing it/, vm.call("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib#ThrowIt"));
+  const parsed = stacktrace_parser.parse(err.stack!);
+  test.eqProps({ file: /testwasmlib\.whlib$/, methodName: "THROWIT" }, parsed[0]); //TODO we still return mod:: paths or should it just be a full path ?
 
-  test.throws(/We're throwing it/, vm.callMacro("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib#ThrowIt"));
+  //test the VM is still operating after the throw:
+  test.eq([17, 42, 999], await vm.call("wh::util/algorithms.whlib#GetSortedSet", [42, 17, 999]));
+
+  //and if another throw works
+  await test.throws(/We're throwing it/, vm.call("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib#ThrowIt"));
+  test.eq([17, 42, 999], await vm.call("wh::util/algorithms.whlib#GetSortedSet", [42, 17, 999]));
 }
 
 async function testMutex() { //test the shutdown behavior of WASM HSVM mutexes
@@ -95,5 +104,4 @@ test.run([
   testVarMemory,
   testCalls,
   testMutex
-
 ]);
