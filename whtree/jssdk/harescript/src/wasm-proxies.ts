@@ -1,5 +1,5 @@
 import { HareScriptVM } from "./wasm-hsvm";
-import { HSVMHeapVar, HSVMVar } from "./wasm-hsvmvar";
+import { HSVMHeapVar } from "./wasm-hsvmvar";
 import { HSVM_VariableId } from "wh:internal/whtree/lib/harescript-interface";
 
 export interface HSVMCallsProxy {
@@ -37,18 +37,10 @@ export class HSVMObjectWrapper {
     vm.wasmmodule._HSVM_CopyFrom(vm.hsvm, this.$obj.id, objid);
   }
 
-  async $get(prop: string) {
-    const proxycolumnid = this.$obj.vm.getColumnId(prop);
-    if (!this.$obj.vm.wasmmodule._HSVM_ObjectMemberExists(this.$obj.vm.hsvm, this.$obj.id, proxycolumnid))
-      throw new Error(`No such member or property '${prop}' on HareScript object`);
-
-    const receiver = this.$obj.vm.wasmmodule._HSVM_AllocateVariable(this.$obj.vm.hsvm);
-    const copyresult = await this.$obj.vm.wasmmodule._HSVM_ObjectMemberCopy(this.$obj.vm.hsvm, this.$obj.id, proxycolumnid, receiver, /*skipaccess=*/1);
-    if (!copyresult)
-      throw new Error(`Copy of property '${prop}' failed`);
-
-    const retval = new HSVMVar(this.$obj.vm, receiver).getJSValue();
-    this.$obj.vm.wasmmodule._HSVM_DeallocateVariable(this.$obj.vm.hsvm, receiver);
+  async $get(prop: string): Promise<unknown> {
+    const retvalholder = await this.$obj.getMember(prop);
+    const retval = retvalholder.getJSValue();
+    retvalholder.dispose();
     return retval;
   }
 

@@ -283,6 +283,51 @@ export class HSVMVar {
     const newid = this.vm.wasmmodule._HSVM_RecordCreate(this.vm.hsvm, this.id, columnid);
     return new HSVMVar(this.vm, newid);
   }
+  objectExists() {
+    this.checkType(VariableType.Object);
+    return this.vm.wasmmodule._HSVM_ObjectExists(this.vm.hsvm, this.id);
+  }
+  memberExists(name: string): boolean {
+    this.checkType(VariableType.Object);
+    const columnid = this.vm.getColumnId(name);
+    return this.vm.wasmmodule._HSVM_ObjectMemberExists(this.vm.hsvm, this.id, columnid) !== 0;
+  }
+
+  /** Get and copy an object member, resolve property calls */
+  async getMember(name: string, options?: { allowMissing: false }): Promise<HSVMHeapVar>;
+  async getMember(name: string, options?: { allowMissing: boolean }): Promise<HSVMHeapVar | undefined>;
+
+  async getMember(name: string, options?: { allowMissing: boolean }): Promise<HSVMHeapVar | undefined> {
+    if (!this.memberExists(name))
+      if (options?.allowMissing)
+        return undefined;
+      else
+        throw new Error(`No such member or property '${name}' on HareScript object`);
+
+    const columnid = this.vm.getColumnId(name);
+    const temp = this.vm.wasmmodule._HSVM_AllocateVariable(this.vm.hsvm);
+    if (!await this.vm.wasmmodule._HSVM_ObjectMemberCopy(this.vm.hsvm, this.id, columnid, temp, /*skipaccess=*/1))
+      throw new Error(`Failed to copy member ${name} from object`);
+
+    return new HSVMHeapVar(this.vm, temp);
+  }
+
+  /** Get a primitive object member. Will fail if the property requires a callback. Returns a reference that may be invalidated on future VM calls */
+  getMemberRef(name: string, options?: { allowMissing: false }): HSVMVar;
+  getMemberRef(name: string, options?: { allowMissing: boolean }): HSVMVar | undefined;
+
+  getMemberRef(name: string, options?: { allowMissing: boolean }): HSVMVar | undefined {
+    if (!this.memberExists(name))
+      if (options?.allowMissing)
+        return undefined;
+      else
+        throw new Error(`No such member or property '${name}' on HareScript object`);
+
+    const columnid = this.vm.getColumnId(name);
+    return new HSVMVar(this.vm, this.vm.wasmmodule._HSVM_ObjectMemberRef(this.vm.hsvm, this.id, columnid, /*skipaccess=*/1));
+  }
+
+
   setJSValue(value: unknown) {
     this.setJSValueInternal(value, VariableType.Variant);
   }
@@ -423,16 +468,13 @@ export class HSVMVar {
         return value;
       }
       case VariableType.Object: {
-        if (!this.vm.wasmmodule._HSVM_ObjectExists(this.vm.hsvm, this.id))
+        if (!this.objectExists())
           return null; //TODO or a boxed default object?
 
         //We map some objects based on their ^$WASMTYPE. We can't use the __GetMarshalData approach as we can't invoke functionptrs here (async)
-        const wasmtype_columnid = this.vm.getColumnId("^$WASMTYPE");
-        if (this.vm.wasmmodule._HSVM_ObjectMemberExists(this.vm.hsvm, this.id, wasmtype_columnid)) {
-          const wasmtype_column = this.vm.wasmmodule._HSVM_ObjectMemberRef(this.vm.hsvm, this.id, wasmtype_columnid, /*skipaccess=*/1);
-          const wasmtype = new HSVMVar(this.vm, wasmtype_column).getString();
-          return resurrect(wasmtype, this);
-        }
+        const wasmtype_column = this.getMemberRef("^$WASMTYPE", { allowMissing: true });
+        if (wasmtype_column !== undefined)
+          return resurrect(wasmtype_column.getString(), this);
 
         return this.vm.objectCache.ensureObject(this.id);
       }
