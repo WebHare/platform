@@ -7,7 +7,7 @@ import { decodeString } from "@webhare/std";
 import createModule from "../../../lib/harescript";
 import { registerBaseFunctions } from "./wasm-hsfunctions";
 import { WASMModule } from "./wasm-modulesupport";
-import { HSVMVar } from "./wasm-hsvmvar";
+import { HSVMHeapVar, HSVMVar } from "./wasm-hsvmvar";
 import { HSVMCallsProxy, HSVMLibraryProxy, HSVMObjectCache } from "./wasm-proxies";
 import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 import { Mutex } from "@webhare/services";
@@ -94,6 +94,7 @@ export class HareScriptVM {
   mutexes: Array<Mutex | null> = [];
   currentgroup: string | undefined; //set on first use
   pipeWaiters = new Map<Ptr, object>;
+  heapFinalizer = new FinalizationRegistry<HSVM_VariableId>((varid) => this._hsvm && this.wasmmodule._HSVM_DeallocateVariable(this._hsvm, varid));
 
   constructor(module: WASMModule) {
     this.wasmmodule = module;
@@ -157,9 +158,9 @@ export class HareScriptVM {
     return this.columnNameIdMap[name] = this.wasmmodule._HSVM_GetColumnId(this.hsvm, this.columnnamebuf);
   }
 
-  allocateVariable(): HSVMVar {
+  allocateVariable(): HSVMHeapVar {
     const id = this.wasmmodule._HSVM_AllocateVariable(this.hsvm);
-    return new HSVMVar(this, id);
+    return new HSVMHeapVar(this, id);
   }
 
   quickParseVariable(variable: HSVM_VariableId): IPCMarshallableData {
@@ -289,12 +290,12 @@ export class HareScriptVM {
   /** @param functionref - Function to call
       @param isfunction - Whether to call a function or macro
    */
-  async callWithHSVMVars(functionref: string, params: HSVMVar[], object?: HSVM_VariableId): Promise<HSVMVar | undefined> { //TODO shouldn't we replace doCall ?
+  async callWithHSVMVars(functionref: string, params: HSVMVar[], object?: HSVM_VariableId): Promise<HSVMHeapVar | undefined> { //TODO shouldn't we replace doCall ?
     const parts = functionref.split("#");
     if (!object && parts.length !== 2)
       throw new Error(`Illegal function reference ${JSON.stringify(functionref)}`);
 
-    const callfuncptr = this.allocateVariable();
+    const callfuncptr: HSVMHeapVar = this.allocateVariable();
     try {
       this.wasmmodule._HSVM_OpenFunctionCall(this.hsvm, params.length);
       for (const [idx, param] of params.entries())
@@ -327,7 +328,7 @@ export class HareScriptVM {
       this.wasmmodule._HSVM_CloseFunctionCall(this.hsvm);
       return wasfunction ? retval : undefined;
     } finally {
-      this.wasmmodule._HSVM_DeallocateVariable(this.hsvm, callfuncptr.id);
+      callfuncptr.dispose();
     }
   }
 
@@ -402,22 +403,22 @@ export class HareScriptVM {
     await this.doCall(functionref, false, params);
   }
 
-  async createPrintCallback(text: string): Promise<HSVMVar> {
+  async createPrintCallback(text: string): Promise<HSVMHeapVar> {
     const printcallback = this.allocateVariable();
     const printptr = this.allocateVariable();
     await this.makeFunctionPtr(printptr.id, "wh::system.whlib", "Print");
 
     const textholder = this.allocateVariable();
     textholder.setString(text);
-    const bound = this.wasmmodule._malloc(4); //alllocate 1 ptr
-    const sources = this.wasmmodule._malloc(4); //alllocate 1 ptr
+    const bound = this.wasmmodule._malloc(4); //allocate 1 ptr
+    const sources = this.wasmmodule._malloc(4); //allocate 1 ptr
     this.wasmmodule.setValue(bound, textholder.id, "i32");
     this.wasmmodule.setValue(sources, 0, "i32");
     this.wasmmodule._HSVM_RebindFunctionPtr(this.hsvm, printcallback.id, printptr.id, 1, 0, sources, bound, 0, 0);
     this.wasmmodule._free(bound);
     this.wasmmodule._free(sources);
-    this.wasmmodule._HSVM_DeallocateVariable(this.hsvm, textholder.id); //FIXME HSVMVar should be able to clean up
-    this.wasmmodule._HSVM_DeallocateVariable(this.hsvm, printptr.id); //FIXME HSVMVar should be able to clean up
+    printptr.dispose();
+    textholder.dispose();
 
     return printcallback;
   }

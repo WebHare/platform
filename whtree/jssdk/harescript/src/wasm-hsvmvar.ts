@@ -19,33 +19,31 @@ function canCastTo(from: VariableType, to: VariableType): boolean {
 
 //TODO WeakRefs so the HareScriptVM can be garbage collected ? We should also consider moving the GlobalBlobStorage to JavaScript so we don't need to keep the HSVMs around
 class HSVMBlob implements HareScriptBlob {
-  readonly vm: HareScriptVM;
+  blob: HSVMHeapVar | null;
   readonly size: number;
-  id: HSVM_VariableId | null;
 
-  constructor(vm: HareScriptVM, varid: HSVM_VariableId, size: number) {
-    this.vm = vm;
-    this.id = varid;
+  constructor(blob: HSVMHeapVar, size: number) {
+    this.blob = blob;
     this.size = size;
   }
 
   tryArrayBufferSync(): ArrayBuffer {
-    if (!this.id)
+    if (!this.blob)
       throw new Error(`This blob has already been closed`);
 
-    const buffer = this.vm.wasmmodule._malloc(this.size);
-    const openblob = this.vm.wasmmodule._HSVM_BlobOpen(this.vm.hsvm, this.id);
+    const buffer = this.blob.vm.wasmmodule._malloc(this.size);
+    const openblob = this.blob.vm.wasmmodule._HSVM_BlobOpen(this.blob.vm.hsvm, this.blob.id);
 
     try {
-      const numread = Number(this.vm.wasmmodule._HSVM_BlobDirectRead(this.vm.hsvm, openblob, 0n, this.size, buffer));
+      const numread = Number(this.blob.vm.wasmmodule._HSVM_BlobDirectRead(this.blob.vm.hsvm, openblob, 0n, this.size, buffer));
       if (numread !== this.size)
         throw new Error(`Failed to read blob, got ${numread} of ${this.size} bytes`);
 
-      const data = this.vm.wasmmodule.HEAP8.slice(buffer, buffer + this.size);
+      const data = this.blob.vm.wasmmodule.HEAP8.slice(buffer, buffer + this.size);
       return new Int8Array(data);
     } finally {
-      this.vm.wasmmodule._free(buffer);
-      this.vm.wasmmodule._HSVM_BlobClose(this.vm.hsvm, openblob);
+      this.blob.vm.wasmmodule._free(buffer);
+      this.blob.vm.wasmmodule._HSVM_BlobClose(this.blob.vm.hsvm, openblob);
     }
   }
 
@@ -63,32 +61,31 @@ class HSVMBlob implements HareScriptBlob {
 
   //You should close a HSVMBlob when you're done with it so the HSVM can garbage collect it (FIXME also use a FinalizerRegistry!)
   close() {
-    if (this.id) {
-      this.vm.wasmmodule._HSVM_DeallocateVariable(this.vm.hsvm, this.id);
-      this.id = null;
+    if (this.blob) {
+      this.blob.dispose();
+      this.blob = null;
     }
   }
 
   //Get the JS tag for this blob, used to track its original/current location (eg on disk or uploaded to PG)
   getJSTag(): JSBlobTag {
-    if (!this.id)
+    if (!this.blob)
       throw new Error(`This blob has already been closed`);
 
-    return this.vm.getBlobJSTag(this.id);
+    return this.blob.vm.getBlobJSTag(this.blob.id);
   }
   setJSTag(tag: JSBlobTag) {
-    if (!this.id)
+    if (!this.blob)
       throw new Error(`This blob has already been closed`);
 
-    this.vm.setBlobJSTag(this.id, tag);
+    this.blob.vm.setBlobJSTag(this.blob.id, tag);
   }
 
   registerPGUpload(databaseid: string) {
-    if (this.id) //not closed yet
+    if (this.blob) //not closed yet
       this.setJSTag({ pg: databaseid });
   }
 }
-
 
 export class HSVMVar {
   vm: HareScriptVM;
@@ -226,7 +223,7 @@ export class HSVMVar {
     //TODO we might not need a wrapper around HSVM_BlobRead (with all the issue if the blobs outlive the HSVM!) if we can reach directly into the backing blob storage ?
     const cloneblob = this.vm.allocateVariable();
     this.vm.wasmmodule._HSVM_CopyFrom(this.vm.hsvm, cloneblob.id, this.id);
-    return new HSVMBlob(this.vm, cloneblob.id, size);
+    return new HSVMBlob(cloneblob, size);
   }
   setBlob(value: WHDBBlob | HareScriptMemoryBlob | null) {
     if (isWHDBBlob(value)) {
@@ -459,4 +456,20 @@ export class HSVMVar {
     this.vm.wasmmodule._HSVM_CopyFrom(this.vm.hsvm, this.id, variable.id);
     this.type = variable.type;
   }
+}
+
+export class HSVMHeapVar extends HSVMVar {
+  constructor(vm: HareScriptVM, id: HSVM_VariableId) {
+    super(vm, id);
+    vm.heapFinalizer.register(this, id, this);
+  }
+
+  dispose() {
+    if (this.id) {
+      this.vm.heapFinalizer.unregister(this);
+      this.vm.wasmmodule._HSVM_DeallocateVariable(this.vm.hsvm, this.id);
+      this.id = 0 as HSVM_VariableId;
+    }
+  }
+
 }

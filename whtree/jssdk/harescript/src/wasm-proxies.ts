@@ -1,5 +1,5 @@
 import { HareScriptVM } from "./wasm-hsvm";
-import { HSVMVar } from "./wasm-hsvmvar";
+import { HSVMHeapVar, HSVMVar } from "./wasm-hsvmvar";
 import { HSVM_VariableId } from "wh:internal/whtree/lib/harescript-interface";
 
 export interface HSVMCallsProxy {
@@ -11,9 +11,9 @@ export type HSVMObject = HSVMObjectWrapper & HSVMCallsProxy;
 
 export type HSVMLibrary = HSVMCallsProxy;
 
-function argsToHSVMVar(vm: HareScriptVM, args: unknown[]): HSVMVar[] {
+function argsToHSVMVar(vm: HareScriptVM, args: unknown[]): HSVMHeapVar[] {
 
-  const funcargs: HSVMVar[] = [];
+  const funcargs: HSVMHeapVar[] = [];
   for (const arg of args) {
     const newvar = vm.allocateVariable();
     newvar.setJSValue(arg);
@@ -22,47 +22,44 @@ function argsToHSVMVar(vm: HareScriptVM, args: unknown[]): HSVMVar[] {
   return funcargs;
 }
 
-function cleanupHSVMCall(vm: HareScriptVM, args: HSVMVar[], result: HSVMVar | undefined) {
+function cleanupHSVMCall(vm: HareScriptVM, args: HSVMHeapVar[], result: HSVMHeapVar | undefined) {
   for (const arg of args)
-    vm.wasmmodule._HSVM_DeallocateVariable(vm.hsvm, arg.id);
+    arg.dispose();
 
-  if (result)
-    vm.wasmmodule._HSVM_DeallocateVariable(vm.hsvm, result.id);
+  result?.dispose();
 }
 
 export class HSVMObjectWrapper {
-  $vm;
-  $objid;
+  $obj: HSVMHeapVar;
 
   constructor(vm: HareScriptVM, objid: HSVM_VariableId) {
-    this.$vm = vm;
-    this.$objid = vm.wasmmodule._HSVM_AllocateVariable(vm.hsvm);
-    vm.wasmmodule._HSVM_CopyFrom(vm.hsvm, this.$objid, objid);
+    this.$obj = vm.allocateVariable();
+    vm.wasmmodule._HSVM_CopyFrom(vm.hsvm, this.$obj.id, objid);
   }
 
   async $get(prop: string) {
-    const proxycolumnid = this.$vm.getColumnId(prop);
-    if (!this.$vm.wasmmodule._HSVM_ObjectMemberExists(this.$vm.hsvm, this.$objid, proxycolumnid))
+    const proxycolumnid = this.$obj.vm.getColumnId(prop);
+    if (!this.$obj.vm.wasmmodule._HSVM_ObjectMemberExists(this.$obj.vm.hsvm, this.$obj.id, proxycolumnid))
       throw new Error(`No such member or property '${prop}' on HareScript object`);
 
-    const receiver = this.$vm.wasmmodule._HSVM_AllocateVariable(this.$vm.hsvm);
-    const copyresult = await this.$vm.wasmmodule._HSVM_ObjectMemberCopy(this.$vm.hsvm, this.$objid, proxycolumnid, receiver, /*skipaccess=*/1);
+    const receiver = this.$obj.vm.wasmmodule._HSVM_AllocateVariable(this.$obj.vm.hsvm);
+    const copyresult = await this.$obj.vm.wasmmodule._HSVM_ObjectMemberCopy(this.$obj.vm.hsvm, this.$obj.id, proxycolumnid, receiver, /*skipaccess=*/1);
     if (!copyresult)
       throw new Error(`Copy of property '${prop}' failed`);
 
-    const retval = new HSVMVar(this.$vm, receiver).getJSValue();
-    this.$vm.wasmmodule._HSVM_DeallocateVariable(this.$vm.hsvm, receiver);
+    const retval = new HSVMVar(this.$obj.vm, receiver).getJSValue();
+    this.$obj.vm.wasmmodule._HSVM_DeallocateVariable(this.$obj.vm.hsvm, receiver);
     return retval;
   }
 
   async $invoke(name: string, args: unknown[]) {
-    const funcargs = argsToHSVMVar(this.$vm, args);
-    let result: HSVMVar | undefined;
+    const funcargs = argsToHSVMVar(this.$obj.vm, args);
+    let result: HSVMHeapVar | undefined;
     try {
-      result = await this.$vm.callWithHSVMVars(name, funcargs, this.$objid);
+      result = await this.$obj.vm.callWithHSVMVars(name, funcargs, this.$obj.id);
       return result ? result.getJSValue() : undefined;
     } finally {
-      cleanupHSVMCall(this.$vm, funcargs, result);
+      cleanupHSVMCall(this.$obj.vm, funcargs, result);
     }
   }
 }
@@ -114,22 +111,12 @@ export class HSVMLibraryProxy {
 }
 
 export class HSVMObjectCache {
-  finalizer: FinalizationRegistry<{
-    varid: HSVM_VariableId;
-    objid: number;
-  }>;
   cachedobjects = new Map<number, WeakRef<HSVMObject>>;
   nextcachedobjectid = 53000;
   vm;
 
   constructor(vm: HareScriptVM) {
     this.vm = vm;
-    this.finalizer = new FinalizationRegistry((finalizedata) => this.cleanupObject(finalizedata));
-  }
-
-  cleanupObject(finalizedata: { varid: HSVM_VariableId }) {
-    ///HSVMObjectWrapper allocated a variable to hold the object id, so we need to deallocate it
-    this.vm.wasmmodule._HSVM_DeallocateVariable(this.vm.hsvm, finalizedata.varid);
   }
 
   ensureObject(id: HSVM_VariableId): HSVMObject {
@@ -151,7 +138,6 @@ export class HSVMObjectCache {
     const proxy = new HSVMObjectProxy;
     const obj: HSVMObject = new Proxy(new HSVMObjectWrapper(this.vm, id), proxy) as HSVMObject;
     this.cachedobjects.set(objid, new WeakRef(obj));
-    this.finalizer.register(obj, { varid: obj.$objid, objid });
 
     const intvar = this.vm.wasmmodule._HSVM_AllocateVariable(this.vm.hsvm);
     this.vm.wasmmodule._HSVM_IntegerSet(this.vm.hsvm, intvar, objid);
