@@ -19,7 +19,7 @@ while [[ $1 =~ ^-.* ]]; do
     FORCE=1
     shift
   elif [ "$1" == "-i" -o "$1" == "--ignore-running" ]; then
-    IGNORERUNNING=1
+    export WEBHARE_IGNORE_RUNNING=1
     shift
   else
     die "Illegal option $1"
@@ -142,7 +142,7 @@ exec_wh()
 
 check_webhare_running()
 {
-  if [ "$IGNORERUNNING" == "1" ]; then
+  if [ "$WEBHARE_IGNORE_RUNNING" == "1" ]; then
     return
   fi
 
@@ -153,7 +153,7 @@ check_webhare_running()
 
 check_webhare_not_running()
 {
-  if [ "$IGNORERUNNING" == "1" ]; then
+  if [ "$WEBHARE_IGNORE_RUNNING" == "1" ]; then
     return
   fi
 
