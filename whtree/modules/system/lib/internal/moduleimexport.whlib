@@ -6,6 +6,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "wh::xml/dom.whlib";
@@ -161,36 +162,41 @@ PUBLIC BOOLEAN FUNCTION DeleteModule(STRING module)
 {
   // Get the current modules in the installation dir. Order so that the most current module will be moved last
   RECORD ARRAY folderstomove := GetModuleDirs(module);
-  IF(Length(folderstomove)=0)
-    THROW NEW Exception(`Cannot find folder to delete for module '${module}'`);
-
-  folderstomove :=
-      SELECT *
-           , data := GetModuleDataFromFolder(path, name, FALSE)
-        FROM folderstomove;
-
-  // Order by moduledate, so we archive the oldest module first
-  folderstomove :=
-      SELECT *
-        FROM folderstomove
-    ORDER BY REcordExists(data) ? data.moduledate : DEFAULT DATETIME;
-
   BOOLEAN success := TRUE;
-  FOREVERY (RECORD folder FROM folderstomove)
-  {
-    DATETIME obsoletiondate := #folder = LENGTH(folderstomove) - 1 ? GetCurrentDateTime() : folderstomove[#folder + 1].data.moduleorgdate;
 
-    // Move all modules, obsolete them by deletion date
-    IF (NOT ArchiveModuleVersionByPath(folder.path, obsoletiondate))
-      success := FALSE; //don't abort yet - we might have still moved one folder successfuly, so we'll need to go through all the reloads.
+  /* We consider deletion successful if the module folder is already gone. This allows you to fixup state by using `wh module del`
+     after (incorrectly!) manually moving/deleting a module folder yourself */
+  IF(Length(folderstomove) > 0)
+  {
+    folderstomove :=
+        SELECT *
+             , data := GetModuleDataFromFolder(path, name, FALSE)
+          FROM folderstomove;
+
+    // Order by moduledate, so we archive the oldest module first
+    folderstomove :=
+        SELECT *
+          FROM folderstomove
+      ORDER BY REcordExists(data) ? data.moduledate : DEFAULT DATETIME;
+
+    FOREVERY (RECORD folder FROM folderstomove)
+    {
+      DATETIME obsoletiondate := #folder = LENGTH(folderstomove) - 1 ? GetCurrentDateTime() : folderstomove[#folder + 1].data.moduleorgdate;
+
+      // Move all modules, obsolete them by deletion date
+      IF (NOT ArchiveModuleVersionByPath(folder.path, obsoletiondate))
+        success := FALSE; //don't abort yet - we might have still moved one folder successfuly, so we'll need to go through all the reloads.
+    }
   }
+
   ReloadWebhareConfig(TRUE, TRUE, [ isdelete := TRUE ]);
 
   OBJECT remove_generated_files := CreatePromiseAll(
-      [ CallAsync("mod::system/js/internal/generation/gen_whdb.ts#updateSingleModuleTableDefs", VARIANT[ module, [ verbose := IsDebugTagEnabled("startup") ]])
-      , CallAsync("mod::system/js/internal/generation/gen_wrd.ts#updateSingleModuleWRDDefs", VARIANT[ module, [ verbose := IsDebugTagEnabled("startup") ]])
-      , CallAsync("mod::system/js/internal/generation/gen_openapi.ts#updateSingleModuleOpenAPIDefs", VARIANT[ module, [ verbose := IsDebugTagEnabled("startup") ]])
-      ]);
+      OBJECT[ ImportJS("@mod-system/js/internal/generation/gen_config.ts")->updateWebHareConfigFile([ verbose := IsDebugTagEnabled("startup") ])
+            , ImportJS("mod::system/js/internal/generation/gen_whdb.ts")->updateSingleModuleTableDefs( module, [ verbose := IsDebugTagEnabled("startup") ])
+            , ImportJS("mod::system/js/internal/generation/gen_wrd.ts")->updateSingleModuleWRDDefs(module, [ verbose := IsDebugTagEnabled("startup") ])
+            , ImportJS("mod::system/js/internal/generation/gen_openapi.ts")->updateSingleModuleOpenAPIDefs(module, [ verbose := IsDebugTagEnabled("startup") ])
+            ]);
 
   RecompileSiteProfiles();
 
@@ -435,11 +441,11 @@ RECORD FUNCTION __ActivateInstalledModule(STRING modulename, STRING installpath)
 
   FixModuleSymlinks([modulename], FALSE); //put nodejs folder in place
   UpdateWebHareConfigJSONFile();
-  OBJECT create_gen_whdb_promise := CallAsync("mod::system/js/internal/generation/gen_whdb.ts#updateAllModuleTableDefs", VARIANT[[ verbose := IsDebugTagEnabled("startup") ]]);
+  OBJECT create_gen_whdb_promise := ImportJS("mod::system/js/internal/generation/gen_whdb.ts")->updateAllModuleTableDefs([ verbose := IsDebugTagEnabled("startup") ]);
   OBJECT wait_other_generated_files := CreatePromiseAll(
-      [ CallAsync("mod::system/js/internal/generation/gen_wrd.ts#updateAllModuleWRDDefs", VARIANT[[ verbose := IsDebugTagEnabled("startup") ]])
-      , CallAsync("mod::system/js/internal/generation/gen_openapi.ts#updateAllModuleOpenAPIDefs", VARIANT[[ verbose := IsDebugTagEnabled("startup") ]])
-      ]);
+      OBJECT[ ImportJS("mod::system/js/internal/generation/gen_wrd.ts")->updateAllModuleWRDDefs([ verbose := IsDebugTagEnabled("startup") ])
+            , ImportJS("mod::system/js/internal/generation/gen_openapi.ts")->updateAllModuleOpenAPIDefs([ verbose := IsDebugTagEnabled("startup") ])
+            ]);
 
   GetPrimary()->BeginWork();
   EnsureModulePrivateFolders();
