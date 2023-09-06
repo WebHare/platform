@@ -14,9 +14,15 @@ LOADLIB "mod::system/lib/internal/whfs/support.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "wh::util/algorithms.whlib";
 
+CONSTANT INTEGER maxs32 := 2147483647;
 
 /* FIXME
-   Experimental XML and WHDB import/export code. After stabilizing the API, it should move to wh::..xml.whlib  and wh:..whdb.whlib */
+   Experimental XML and WHDB import/export code. After stabilizing the API, it should move to wh::..xml.whlib  and wh:..whdb.whlib
+
+   imexport.whlib is limited to 32bit signed IDs. Once databases start producing setting ids above 2^31 we will break. We intend
+   to deprecate imexport and replace it with WRD-native export/import (which will not need to export raw settingids) before
+   that point
+   */
 
 /////////////////////////////////////////////////////////////////////
 //
@@ -814,10 +820,15 @@ MACRO ResetMappings()
 }
 
 //Look up an id, and create a mapping if it doesn't exist yet
-INTEGER FUNCTION MapImportedId(INTEGER trans, STRING tablename, INTEGER id)
+INTEGER FUNCTION MapImportedId(INTEGER trans, STRING tablename, INTEGER64 inputid)
 {
+  IF(inputid > maxs32 OR inputid < -maxs32)
+    THROW NEW Exception(`This ID cannot be exported by system/imexport: ${inputid}`);
+
+  INTEGER id := INTEGER(inputid);
   IF (id=0) //0 is always 0!
     RETURN 0;
+
   RECORD groupdata := [ "0" := id, "1" := tablename ];
 
   INTEGER grouppos := __HS_SQL_GetGroupPosition(whdb_id_mappings, groupdata);
@@ -1428,7 +1439,7 @@ PUBLIC OBJECTTYPE DatabaseImExport
       WriteXMLTableRecord(outtable, row);
 
     IF(gatherrowids)
-      this->seenrowids := this->seenrowids CONCAT SELECT AS INTEGER ARRAY id FROM outrows;
+      this->seenrowids := this->seenrowids CONCAT SELECT AS INTEGER ARRAY (INTEGER(id)) FROM outrows;
 
     RETURN TRUE;
   }
@@ -1513,7 +1524,10 @@ PUBLIC OBJECTTYPE DatabaseImExport
     RECORD ARRAY childtables := SELECT * FROM this->tables WHERE tables.parenttable = tablerec.input_table;
     IF(Length(childtables) > 0)
     {
-      INTEGER ARRAY selected_ids := SELECT AS INTEGER ARRAY id FROM outrows;
+      IF(RecordExists(SELECT FROM outrows WHERE id > maxs32))
+        THROW NEW Exception(`These tables cannot be copied by system/imexport`);
+
+      INTEGER ARRAY selected_ids := SELECT AS INTEGER ARRAY (INTEGER(id)) FROM outrows;
       FOREVERY(RECORD childtable FROM childtables)
       {
         this->CopyTable(childtable, selected_ids, FALSE, importspecification);
