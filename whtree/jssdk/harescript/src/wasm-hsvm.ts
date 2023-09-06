@@ -120,7 +120,7 @@ class TransitionLock {
 
       try {
         this.trace.cause = other.trace;
-        this.trace.message = `Tried to return to ${this.intoHareScript ? "TypeScript" : "HareScript"} after calling ${transitionTrace}${JSON.stringify(this.title)} while a call to ${JSON.stringify(other.title)} was still in progress`;
+        this.trace.message = `Tried to return to ${this.intoHareScript ? "TypeScript" : "HareScript"} after calling ${transitionTrace}${JSON.stringify(this.title)} while a call to ${JSON.stringify(other.title)} was still in progress. Probably an await is missing in the first transition chain.`;
         throw this.trace;
       } catch (e) {
         // TODO: eliminate overlapping trace parts
