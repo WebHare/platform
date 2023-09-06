@@ -137,6 +137,7 @@ bool EMWrappedOutputObject::IsAtEOF()
 
 bool EMWrappedOutputObject::AddToWaiterRead(Blex::PipeWaiter &waiter)
 {
+        obj.call<emscripten::val>("syncUpdateReadSignalled");
         if (event_read.IsSignalled())
             return true;
         waiter.AddEvent(event_read);
@@ -150,6 +151,7 @@ HareScript::OutputObject::SignalledStatus EMWrappedOutputObject::IsReadSignalled
 
 bool EMWrappedOutputObject::AddToWaiterWrite(Blex::PipeWaiter &waiter)
 {
+        obj.call<emscripten::val>("syncUpdateWriteSignalled");
         if (event_write.IsSignalled())
             return true;
         waiter.AddEvent(event_write);
@@ -233,6 +235,27 @@ void EMSCRIPTEN_KEEPALIVE CloseWASMOutputObject(HSVM *vm, int id)
         auto obj = dynamic_cast<EMWrappedOutputObject *>(HareScript::GetVirtualMachine(vm)->GetOutputObject(id, false));
         if (obj)
             context->other_outputobjects.erase(id);
+}
+
+typedef void (*EventCallback)(const char *name, const void *payload, unsigned payloadlength);
+
+void HandleEvent(EventCallback callback, std::shared_ptr< Blex::NotificationEvent > const &event)
+{
+        unsigned char *payload = event->payload.size() ? &event->payload[0] : nullptr;
+        callback(event->name.c_str(), payload, event->payload.size());
+}
+
+void EMSCRIPTEN_KEEPALIVE SetEventCallback(HSVM *, EventCallback callback)
+{
+        Context &context = EnsureContext();
+        context.eventmgr.SetExportCallback(std::bind(&HandleEvent, callback, std::placeholders::_1));
+}
+
+void EMSCRIPTEN_KEEPALIVE InjectEvent(HSVM *, const char *name, uint8_t const *payloadstart, int32_t payloadlen)
+{
+        Context &context = EnsureContext();
+        auto event = std::make_shared<Blex::NotificationEvent>(name, payloadstart, payloadlen);
+        context.eventmgr.QueueEventNoExport(event);
 }
 
 } // extern "C"

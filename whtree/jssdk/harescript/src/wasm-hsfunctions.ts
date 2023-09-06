@@ -1,10 +1,10 @@
-import { createHarescriptModule, recompileHarescriptLibrary, HareScriptVM } from "./wasm-hsvm";
+import { createHarescriptModule, recompileHarescriptLibrary, HareScriptVM, allocateHSVM, MessageList } from "./wasm-hsvm";
 import { IPCMarshallableRecord, VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { backendConfig, log } from "@webhare/services";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { HSVMVar } from "./wasm-hsvmvar";
-import { WASMModule } from "./wasm-modulesupport";
+import { SocketError, WASMModule } from "./wasm-modulesupport";
 import { HSVM, Ptr, StringPtr } from "wh:internal/whtree/lib/harescript-interface";
 import { OutputObjectBase } from "@webhare/harescript/src/wasm-modulesupport";
 import { generateRandomId, sleep } from "@webhare/std";
@@ -12,8 +12,9 @@ import * as syscalls from "./syscalls";
 import { localToUTC, utcToLocal } from "@webhare/hscompat/datetime";
 import { isWHDBBlob } from "@webhare/whdb/src/blobs";
 import * as crypto from "node:crypto";
-import { IPCEndPoint, IPCMessagePacket, IPCPort } from "@mod-system/js/internal/whmanager/ipc";
+import { IPCEndPoint, IPCMessagePacket, IPCPort, createIPCEndPointPair, decodeTransferredIPCEndPoint } from "@mod-system/js/internal/whmanager/ipc";
 import { isValidName } from "@webhare/whfs/src/support";
+import { AsyncWorker, ConvertWorkerServiceInterfaceToClientInterface } from "@mod-system/js/internal/worker";
 
 type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
 
@@ -88,6 +89,9 @@ class HSIPCPort extends OutputObjectBase {
     });
     this.setReadSignalled(false);
   }
+  protected syncUpdateReadSignalled(): void {
+    this.port.checkForEventsSync();
+  }
   injectEndPoint(endpoint: IPCEndPoint) {
     this.endpoints.push(endpoint);
     this.setReadSignalled(true);
@@ -99,6 +103,8 @@ class HSIPCPort extends OutputObjectBase {
   }
   close() {
     this.port.close();
+    for (const endpoint of this.endpoints)
+      endpoint.close();
     super.close();
   }
 }
@@ -129,6 +135,9 @@ class HSIPCLink extends OutputObjectBase {
       this.setReadSignalled(true);
     });
   }
+  protected syncUpdateReadSignalled(): void {
+    this.link?.checkForEventsSync();
+  }
   injectMessage(msg: IPCMessagePacket<IPCMarshallableRecord>) {
     this.messages.push(msg);
     this.setReadSignalled(true);
@@ -144,15 +153,143 @@ class HSIPCLink extends OutputObjectBase {
     }
     super.close();
   }
-  async activate() {
+  async activate(): Promise<boolean> {
     try {
       await this.link?.activate();
+      return true;
     } catch (e) {
       // Ignore activation errors, they will close the link anyway
       this.setReadSignalled(true);
+      return false;
     }
   }
 }
+
+class HSJob extends OutputObjectBase {
+  linkinparent: IPCEndPoint | undefined;
+  worker: AsyncWorker;
+  jobobj: ConvertWorkerServiceInterfaceToClientInterface<HareScriptJob>;
+  isRunning = false;
+  arguments = new Array<string>;
+  output: HSJobOutput | undefined;
+  constructor(
+    vm: HareScriptVM,
+    linkinparent: IPCEndPoint,
+    worker: AsyncWorker,
+    jobobj: ConvertWorkerServiceInterfaceToClientInterface<HareScriptJob>,
+  ) {
+    super(vm, "Job");
+    this.linkinparent = linkinparent;
+    this.worker = worker;
+    this.jobobj = jobobj;
+  }
+  async start() {
+    if (this.closed)
+      throw new Error(`The job has already been closed`);
+    this.setReadSignalled(false);
+    await this.jobobj.start();
+    this.isRunning = true;
+    // The job may be closed before
+    this.jobobj.waitDone().then(() => this.jobIsDone()).catch(e => void (false));
+  }
+  private jobIsDone() {
+    this.setReadSignalled(true);
+    this.isRunning = false;
+  }
+  async setArguments(args: string[]) {
+    if (this.closed)
+      throw new Error(`The job has already been closed`);
+    await this.jobobj.setArguments(args);
+  }
+  async getAuthenticationRecord() {
+    if (this.closed)
+      throw new Error(`The job has already been closed`);
+    return this.jobobj.getAuthenticationRecord();
+  }
+  async terminate() {
+    if (this.closed)
+      throw new Error(`The job has already been closed`);
+    await this.jobobj.terminate();
+  }
+  async captureOutput(endpoint: IPCEndPoint) {
+    if (this.closed)
+      throw new Error(`The job has already been closed`);
+    const encoded = endpoint.encodeForTransfer();
+    await this.jobobj.captureOutput.callWithTransferList(encoded.transferList, encoded.encoded);
+  }
+  async getExitCode() {
+    if (this.closed)
+      throw new Error(`The job has already been closed`);
+    return await this.jobobj.getExitCode();
+  }
+  close() {
+    if (this.closed)
+      return;
+    this.jobobj.close();
+    this.output?.close();
+    this.worker.close();
+    super.close();
+  }
+}
+
+class HSJobOutput extends OutputObjectBase {
+  buf0ofs = 0;
+  buffers = new Array<Buffer>;
+  linkClosed = false;
+  endpoint: IPCEndPoint;
+  constructor(vm: HareScriptVM, endpoint: IPCEndPoint) {
+    super(vm, "Job output");
+    this.endpoint = endpoint;
+    this.endpoint.on("message", (packet) => this.gotMessage(packet));
+    this.endpoint.on("close", () => this.gotClose());
+    this.endpoint.activate();
+  }
+
+  gotMessage(packet: IPCMessagePacket<IPCMarshallableRecord>) {
+    const buffer = Buffer.from((packet.message as { data: number[] }).data);
+    if (buffer.byteLength) {
+      this.buffers.push(Buffer.from((packet.message as { data: number[] }).data));
+      this.setReadSignalled(true);
+    }
+  }
+
+  gotClose() {
+    this.linkClosed = true;
+    this.setReadSignalled(true);
+  }
+
+  read(buffer: Buffer): { error?: SocketError; bytes: number; signalled?: boolean } {
+    let pos = 0;
+    while (pos < buffer.byteLength && this.buffers.length) {
+      const tocopy = Math.min(buffer.byteLength - pos, this.buffers[0].byteLength - this.buf0ofs);
+      this.buffers[0].copy(buffer, pos, this.buf0ofs, this.buf0ofs + tocopy);
+      this.buf0ofs += tocopy;
+      pos += tocopy;
+      if (this.buf0ofs === this.buffers[0].byteLength) {
+        this.buffers.shift();
+        this.buf0ofs = 0;
+      }
+    }
+    return { bytes: pos, signalled: Boolean(this.buffers.length || this.linkClosed) };
+  }
+
+  isAtEOF() {
+    return !this.buffers.length && this.linkClosed;
+  }
+
+  close() {
+    this.endpoint.close();
+    super.close();
+  }
+}
+
+const ipcContext = contextGetterFactory(class {
+  ports = new Map<number, HSIPCPort>;
+  links = new Map<number, HSIPCLink>;
+  jobs = new Map<number, HSJob>;
+  linktoparent: IPCEndPoint | undefined;
+  externalsessiondata = "";
+});
 
 export function registerBaseFunctions(wasmmodule: WASMModule) {
 
@@ -205,36 +342,20 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerExternalFunction("GENERATEUFS128BITID::S:", (vm, id_set) => {
     id_set.setString(generateRandomId("base64url"));
   });
-  let last_syscall_promise: Promise<unknown> | undefined;
-  wasmmodule.registerExternalFunction("__EM_SYSCALL::R:SV", (vm, id_set, var_func, var_data) => {
+  wasmmodule.registerAsyncExternalFunction("__EM_SYSCALL::R:SV", async (vm, id_set, var_func, var_data) => {
     const func = var_func.getString();
     const data = var_data.getJSValue();
     if (!(syscalls as SysCallsModule)[func]) {
       id_set.setJSValue({ result: "unknown" });
       return;
     }
-
-    let value = (syscalls as SysCallsModule)[func](vm, data);
+    let value = await (syscalls as SysCallsModule)[func](vm, data);
     if (value === undefined)
       value = false;
-    if (value && typeof value === "object" && "then" in value && typeof value.then === "function") {
-      // This assumes that __EM_SYSCALL_WAITLASTPROMISE is called immediately after __EM_SYSCALL returns!
-      last_syscall_promise = value as Promise<unknown>;
-      id_set.setJSValue({
-        result: "promise"
-      });
-    } else {
-      id_set.setJSValue({
-        result: "ok",
-        value
-      });
-    }
-  });
-  wasmmodule.registerAsyncExternalFunction("__EM_SYSCALL_WAITLASTPROMISE::V:", async (vm, id_set) => {
-    const toawait = last_syscall_promise;
-    last_syscall_promise = undefined;
-    const result = await toawait;
-    id_set.setJSValue({ value: result === undefined ? false : result });
+    id_set.setJSValue({
+      result: "ok",
+      value
+    });
   });
   wasmmodule.registerAsyncExternalFunction("__ICU_GETTIMEZONEIDS::SA:", async (vm, id_set) => {
     //@ts-ignore -- MDN says it is supported everywhere we need it to be
@@ -322,12 +443,11 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   });
 
   wasmmodule.registerExternalFunction("__HS_GETCURRENTGROUPID::S:", (vm, id_set) => {
-    vm.currentgroup ||= generateRandomId("base64url");
     id_set.setString(vm.currentgroup);
   });
 
   wasmmodule.registerExternalFunction("GETEXTERNALSESSIONDATA::S:", (vm, id_set) => {
-    id_set.setString("");
+    id_set.setString(ipcContext(vm).externalsessiondata);
   });
 
   wasmmodule.registerExternalMacro("__SYSTEM_REMOTELOG:::SS", (vm, logfile: HSVMVar, text: HSVMVar) => {
@@ -335,7 +455,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     log(logfile.getString(), { __system_remotelog_wasm: text.getString() });
   });
 
-  wasmmodule.registerAsyncExternalFunction("CREATEHASHER::I:S", async (vm, id_set, varAlgorithm) => {
+  wasmmodule.registerExternalFunction("CREATEHASHER::I:S", (vm, id_set, varAlgorithm) => {
     let algorithm: "md5" | "sha1" | "sha224" | "sha256" | "sha384" | "sha512" | "crc32";
     switch (varAlgorithm.getString()) {
       case "MD5": algorithm = "md5"; break;
@@ -351,36 +471,40 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     id_set.setInteger(hasher.id);
   });
 
-  wasmmodule.registerAsyncExternalFunction("FINALIZEHASHER::S:I", async (vm, id_set, id) => {
+  wasmmodule.registerExternalFunction("FINALIZEHASHER::S:I", (vm, id_set, id) => {
     const hasher = Hasher.context(vm).hashers.get(id.getInteger());
     if (!hasher)
       throw new Error(`No such crypto hasher with id ${id.getInteger()}`);
     id_set.setString(hasher.finalize());
   });
 
-  const ipcContext = contextGetterFactory(class {
-    ports = new Map<number, HSIPCPort>;
-    links = new Map<number, HSIPCLink>;
-  });
-
   wasmmodule.registerAsyncExternalFunction("__HS_CREATENAMEDIPCPORT::I:SB", async (vm, id_set, var_portname, var_globalport) => {
     const port = bridge.createPort(var_portname.getString(), { global: var_globalport.getBoolean() });
     const hsport = new HSIPCPort(vm, port);
-    ipcContext(vm).ports.set(hsport.id, hsport);
-    await hsport.port.activate();
-    id_set.setInteger(hsport.id);
+    try {
+      await hsport.port.activate();
+      ipcContext(vm).ports.set(hsport.id, hsport);
+      id_set.setInteger(hsport.id);
+    } catch (e) {
+      id_set.setInteger(0);
+    }
   });
 
-  wasmmodule.registerExternalFunction("__HS_CONNECTTOIPCPORT::I:S", (vm, id_set, var_portname) => {
+  wasmmodule.registerAsyncExternalFunction("__HS_CONNECTTOIPCPORT::I:S", async (vm, id_set, var_portname) => {
     let link: IPCEndPoint | undefined;
     if (var_portname.getString() !== "system:whmanager") {
       link = bridge.connect(var_portname.getString(), { global: false });
     }
     const hslink = new HSIPCLink(vm, link);
-    // Not waiting for activation by the other side, HareScript didn't do that either.
-    hslink.activate();
-    ipcContext(vm).links.set(hslink.id, hslink);
-    id_set.setInteger(hslink.id);
+    // Wait 100 ms for activation, so we can error out on not-existing local ports
+    const activationPromise = hslink.activate();
+    if (await Promise.race([sleep(100), activationPromise]) === false) {
+      id_set.setInteger(0);
+      hslink.close();
+    } else {
+      ipcContext(vm).links.set(hslink.id, hslink);
+      id_set.setInteger(hslink.id);
+    }
   });
 
   wasmmodule.registerExternalFunction("__HS_SENDIPCMESSAGE::R:IV6", (vm, id_set, var_linkid, var_data, var_replyto) => {
@@ -423,7 +547,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       }
       id_set.setJSValue({ msgid: 0n, status: "ok" });
     } else if (link.link.closed)
-      id_set.setJSValue({ msgid: 0n, status: "closed" });
+      id_set.setJSValue({ msgid: 0n, status: "gone" });
     else {
       const msgid = link.link.send(var_data.getJSValue() as IPCMarshallableRecord, var_replyto.getInteger64());
       id_set.setJSValue({ msgid, status: "ok" });
@@ -437,7 +561,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     let msg = link.getMessage();
     if (!msg) {
       // HareScript is more deterministic than JS bridge, wait a bit and try again
-      await sleep(1);
+      await sleep(10);
       msg = link.getMessage();
     }
     if (msg) {
@@ -495,4 +619,192 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     const slashes = var_slashes.getBoolean();
     id_set.setBoolean(isValidName(name, { allowSlashes: slashes }));
   });
+
+  wasmmodule.registerAsyncExternalFunction("__HS_CREATEJOB::R:S", async (vm, id_set, var_mainscript) => {
+    const link = createIPCEndPointPair();
+
+    const encodedEndpoint = link[1].encodeForTransfer();
+
+    const worker = new AsyncWorker;
+    const jobobj = await worker.callFactory<HareScriptJob>({
+      ref: __filename + "#harescriptWorkerFactory",
+      transferList: encodedEndpoint.transferList
+    },
+      var_mainscript.getString(), encodedEndpoint.encoded);
+
+    const job = new HSJob(vm, link[0], worker, jobobj);
+    ipcContext(vm).jobs.set(job.id, job);
+
+    id_set.setJSValue({
+      status: "ok",
+      jobid: job.id,
+      groupid: "unknown",
+      errors: getTypedArray(VariableType.RecordArray, [])
+    });
+  });
+
+  wasmmodule.registerExternalFunction("__HS_GETIPCLINKTOJOB::I:I", (vm, id_set, var_jobid) => {
+    const job = ipcContext(vm).jobs.get(var_jobid.getInteger());
+    if (!job)
+      throw new Error(`No such job with id ${var_jobid.getInteger()}`);
+    if (!job.linkinparent)
+      throw new Error(`Link to job has already been retrieved`);
+
+    const hslink = new HSIPCLink(vm, job.linkinparent);
+    hslink.activate();
+    ipcContext(vm).links.set(hslink.id, hslink);
+    id_set.setInteger(hslink.id);
+    job.linkinparent = undefined;
+  });
+
+  wasmmodule.registerAsyncExternalMacro("__HS_STARTJOB:::I", async (vm, var_jobid) => {
+    const job = ipcContext(vm).jobs.get(var_jobid.getInteger());
+    if (!job)
+      throw new Error(`No such job with id ${var_jobid.getInteger()}`);
+
+    await job.start();
+  });
+
+  wasmmodule.registerExternalFunction("__HS_GETIPCLINKTOPARENT::I:", (vm, id_set) => {
+    const endpoint = ipcContext(vm).linktoparent;
+    if (!endpoint)
+      throw new Error(`Link to parent has already been retrieved`);
+
+    ipcContext(vm).linktoparent = undefined;
+    const hslink = new HSIPCLink(vm, endpoint);
+    hslink.activate();
+    ipcContext(vm).links.set(hslink.id, hslink);
+    id_set.setInteger(hslink.id);
+  });
+
+  wasmmodule.registerAsyncExternalMacro("__HS_TERMINATEJOB:::I", async (vm, var_jobid) => {
+    const job = ipcContext(vm).jobs.get(var_jobid.getInteger());
+    if (!job)
+      throw new Error(`No such job with id ${var_jobid.getInteger()}`);
+
+    await job.jobobj.terminate();
+  });
+
+  wasmmodule.registerAsyncExternalMacro("__HS_DELETEJOB:::I", async (vm, var_jobid) => {
+    const job = ipcContext(vm).jobs.get(var_jobid.getInteger());
+    if (!job)
+      throw new Error(`No such job with id ${var_jobid.getInteger()}`);
+
+    if (job.isRunning)
+      await job.terminate();
+    job.close();
+  });
+
+  wasmmodule.registerExternalMacro("SETEXTERNALSESSIONDATA:::S", (vm, var_sessiondata) => {
+    ipcContext(vm).externalsessiondata = var_sessiondata.getString();
+  });
+
+  wasmmodule.registerAsyncExternalMacro("__HS_SETJOBARGUMENTS:::ISA", async (vm, var_jobid, var_arguments) => {
+    const job = ipcContext(vm).jobs.get(var_jobid.getInteger());
+    if (!job)
+      throw new Error(`No such job with id ${var_jobid.getInteger()}`);
+    if (job.isRunning)
+      throw new Error(`Job is already running`);
+    await job.setArguments(var_arguments.getJSValue() as string[]);
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__HS_GETJOBAUTHENTICATIONRECORD::R:I", async (vm, id_set, var_jobid) => {
+    const job = ipcContext(vm).jobs.get(var_jobid.getInteger());
+    if (!job)
+      throw new Error(`No such job with id ${var_jobid.getInteger()}`);
+    if (job.isRunning)
+      throw new Error(`Job is already running`);
+    id_set.setJSValue(await job.getAuthenticationRecord());
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__HS_CAPTUREJOBOUTPUT::I:I", async (vm, id_set, var_jobid) => {
+    const job = ipcContext(vm).jobs.get(var_jobid.getInteger());
+    if (!job)
+      throw new Error(`No such job with id ${var_jobid.getInteger()}`);
+    if (job.isRunning)
+      throw new Error(`Job is already running`);
+
+    const links = createIPCEndPointPair();
+    job.output = new HSJobOutput(vm, links[0]);
+    job.captureOutput(links[1]);
+    id_set.setInteger(job.output.id);
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__HS_GETJOBEXITCODE::I:I", async (vm, id_set, var_jobid) => {
+    const job = ipcContext(vm).jobs.get(var_jobid.getInteger());
+    if (!job)
+      throw new Error(`No such job with id ${var_jobid.getInteger()}`);
+    id_set.setInteger(await job.getExitCode());
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__HS_GETJOBERRORS::RA:I", async (vm, id_set, var_jobid) => {
+    const job = ipcContext(vm).jobs.get(var_jobid.getInteger());
+    if (!job)
+      throw new Error(`No such job with id ${var_jobid.getInteger()}`);
+    id_set.setJSValue(getTypedArray(VariableType.RecordArray, await job.jobobj.getErrors()));
+  });
+}
+
+class HareScriptJob {
+  vm: HareScriptVM;
+  script: string;
+  runPromise: Promise<void> | undefined;
+  outputEndPoint: IPCEndPoint | undefined;
+  exitCode = 0;
+  errors: MessageList = [];
+  active = true;
+
+  constructor(vm: HareScriptVM, script: string, link: IPCEndPoint) {
+    this.vm = vm;
+    this.script = script;
+    ipcContext(vm).linktoparent = link;
+  }
+  captureOutput(encodedLink: unknown) {
+    this.outputEndPoint = decodeTransferredIPCEndPoint<IPCMarshallableRecord, IPCMarshallableRecord>(encodedLink);
+    const out = (opaqueptr: number, numbytes: number, data: StringPtr, allow_partial: number, error_result: Ptr): number => {
+      this.outputEndPoint!.send({ data: Array.from(this.vm.wasmmodule.HEAP8.slice(data, data + numbytes)) });
+      return numbytes;
+    };
+    const outputfunction = this.vm.wasmmodule.addFunction(out, "iiiiii");
+    this.vm.wasmmodule._HSVM_SetOutputCallback(this.vm.hsvm, 0, outputfunction);
+  }
+  setArguments(args: string[]) {
+    this.vm.consoleArguments = args;
+  }
+  start(): void {
+    this.runPromise = this.vm.run(this.script).finally(() => this.scriptDone()).catch(e => void (0));
+  }
+  terminate(): void {
+    if (this.active)
+      this.vm.wasmmodule._HSVM_AbortVM(this.vm.hsvm);
+  }
+  getAuthenticationRecord() {
+    return {};
+  }
+  async waitDone() {
+    await this.runPromise;
+  }
+  getExitCode() {
+    return this.exitCode;
+  }
+  getErrors() {
+    return this.errors;
+  }
+  scriptDone() {
+    this.active = false;
+    this.exitCode = this.vm.wasmmodule._HSVM_GetConsoleExitCode(this.vm.hsvm);
+    this.errors = this.vm.parseMessageList();
+    this.vm.shutdown();
+    this.outputEndPoint?.close();
+  }
+
+  close() {
+    this.terminate();
+  }
+}
+
+export async function harescriptWorkerFactory(script: string, encodedLink: unknown): Promise<HareScriptJob> {
+  const link = decodeTransferredIPCEndPoint<IPCMarshallableRecord, IPCMarshallableRecord>(encodedLink);
+  const vm = await allocateHSVM();
+  return new HareScriptJob(vm, script, link);
 }

@@ -28,7 +28,7 @@ RegisterReceivedExceptionType("myexception", PTR ParseMyException);
 
 OBJECT FUNCTION StartPortHandler(STRING msg)
 {
-  RECORD res := CreateJob("test::testdata_jobs_a.whlib");
+  RECORD res := CreateJob("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_jobs_a.whlib");
   OBJECT job := res.job;
 
   TestEq(DEFAULT RECORD ARRAY, res.errors);
@@ -461,15 +461,9 @@ ASYNC MACRO TestEventManager()
   TestEQ(TRUE, GetDateTimeDifference(start, GetCurrentDateTime()).msecs >= 50);
 
   start := GetCurrentDateTime();
-
-  IF (NOT IsWasm())
-  {
-    StartPortHandler("delayedevent");
-    TestEQMembers([ status := "ok", msg := [ j := 1 ] ], e->ReceiveEvent(AddTimeToDate(5000, GetCurrentDateTime())), "*");
-    TestEQ(TRUE, GetDateTimeDifference(start, GetCurrentDateTime()).msecs < 1000); // should not wait 5 secs
-  }
-  ELSE
-    PRINT(`Skip TestEventManager deleyedevent test - jobs not supported in WASM\n`);
+  StartPortHandler("delayedevent");
+  TestEQMembers([ status := "ok", msg := [ j := 1 ] ], e->ReceiveEvent(AddTimeToDate(5000, GetCurrentDateTime())), "*");
+  TestEQ(TRUE, GetDateTimeDifference(start, GetCurrentDateTime()).msecs < 1000); // should not wait 5 secs
 
   e->Close();
 }
@@ -536,16 +530,8 @@ MACRO TestEventCollector()
 
 PRINT("\n === Running TestIPC\n");
 ThrowTest();
-IF (NOT IsWasm())
-{
-  PorthandlerTest();
-  FlatPorthandlerTest();
-}
-ELSE
-{
-  PRINT(`Skip PorthandlerTest - jobs not supported in WASM\n`);
-  PRINT(`Skip FlatPorthandlerTest - jobs not supported in WASM\n`);
-}
+PorthandlerTest();
+FlatPorthandlerTest();
 CallbackTest();
 ImmediateBroadcastCallbackTest();
 AsyncFunctionsTest();

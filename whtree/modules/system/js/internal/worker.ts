@@ -1,5 +1,5 @@
 import { WebHareServiceDescription, WorkerControlLinkRequest, WorkerControlLinkResponse, WorkerServiceLinkRequest, WorkerServiceLinkResponse } from "./types";
-import { TypedMessagePort, createTypedMessageChannel } from "./whmanager/transport";
+import { TypedMessagePort, createTypedMessageChannel, registerTransferredPort } from "./whmanager/transport";
 import { parseIPCException } from "./whmanager/ipc";
 import { Worker, TransferListItem, isMainThread } from "node:worker_threads";
 import { DeferredPromise, createDeferred } from "@webhare/std/promises";
@@ -216,7 +216,8 @@ export class AsyncWorker {
       const result = await deferred.promise;
       if (result.type === "instantiateServiceError")
         throw parseIPCException(result.error);
-      else if (result.type === "instantiateServiceResponse")
+      else if (result.type === "instantiateServiceResponse") {
+        registerTransferredPort(result.port, `worker servicehandler port: ${options.ref}`);
         return new Proxy({}, new WorkerServiceProxy<ConvertWorkerServiceInterfaceToClientInterface<T>>(
           result.port,
           options.ref,
@@ -225,7 +226,7 @@ export class AsyncWorker {
           this.requests,
           () => this.checkClosed()
         )) as ConvertWorkerServiceInterfaceToClientInterface<T>;
-      else
+      } else
         throw new Error(`Got wrong response, type ${result.type}`);
     } finally {
       lock.release();

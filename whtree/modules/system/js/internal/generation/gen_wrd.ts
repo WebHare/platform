@@ -246,6 +246,7 @@ export async function updateAllModuleWRDDefs(options: GenerateOptions = { verbos
   const noncoremodules = Object.keys(config.module).filter(m => !whconstant_builtinmodules.includes(m));
   await updateDir(storagedir, noncoremodules.map(m => ({ type: "file", name: m + ".ts", data: { defname: m, modules: [m] } })), true, generateFile.bind(null, hsvm, options));
   await updateDir(localdir, [{ type: "file", name: "webhare.ts", data: { defname: "webhare", modules: whconstant_builtinmodules } }], true, generateFile.bind(null, hsvm, options));
+  hsvm.shutdown();
 }
 
 export async function updateSingleModuleWRDDefs(name: string, options: GenerateOptions = { verbose: false }) {
@@ -259,4 +260,5 @@ export async function updateSingleModuleWRDDefs(name: string, options: GenerateO
   } else {
     await updateDir(storagedir, [{ type: "file", name: name + ".ts", data: { defname: name, modules: [name] } }], false, generateFile.bind(null, hsvm, options));
   }
+  hsvm.shutdown();
 }

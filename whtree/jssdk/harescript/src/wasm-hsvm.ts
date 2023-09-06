@@ -1,5 +1,5 @@
 import type { HSVM, HSVM_ColumnId, HSVM_VariableId, HSVM_VariableType, Ptr, StringPtr } from "../../../lib/harescript-interface";
-import { IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { IPCMarshallableData, SimpleMarshallableRecord, VariableType, readMarshalData, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { decodeString } from "@webhare/std";
 
@@ -12,8 +12,11 @@ import { HSVMCallsProxy, HSVMLibraryProxy, HSVMObjectCache, argsToHSVMVar, clean
 import { registerPGSQLFunctions } from "@mod-system/js/internal/whdb/wasm_pgsqlprovider";
 import { Mutex } from "@webhare/services";
 import { CommonLibraries, CommonLibraryType } from "./commonlibs";
+import { debugFlags } from "@webhare/env";
+import bridge, { BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
+import { CodeContext, getCodeContext, rootstorage } from "@webhare/services/src/codecontexts";
 
-type MessageList = Array<{
+export type MessageList = Array<{
   iserror: boolean;
   iswarning: boolean;
   istrace: boolean;
@@ -83,13 +86,89 @@ export async function recompileHarescriptLibraryRaw(uri: string, options?: { for
   }
 }
 
+class TransitionLock {
+  vm: HareScriptVM;
+  intoHareScript: boolean;
+  trace: Error;
+  title: string;
+  constructor(vm: HareScriptVM, intoHareScript: boolean, title: string) {
+    this.vm = vm;
+    this.intoHareScript = intoHareScript;
+    this.title = title;
+    this.trace = new Error(`transition into ${this.intoHareScript ? "HareScript" : "TypeScript"} calling ${JSON.stringify(title)}`);
+    const currentTransition: TransitionLock = vm.transitionLocks[vm.transitionLocks.length - 1];
+    if (currentTransition && !currentTransition.intoHareScript !== intoHareScript) {
+      throw new Error(`Missing transition registration when calling ${JSON.stringify(title)}, this transition is ${intoHareScript ? "js->hs" : "hs->js"} just like the current top transition`, { cause: currentTransition.trace });
+    }
+    vm.transitionLocks.push(this);
+  }
+  close() {
+    let other = this.vm.transitionLocks.pop();
+    if (other && other !== this) {
+      const pos = this.vm.transitionLocks.indexOf(this);
+      if (pos !== -1)
+        other = this.vm.transitionLocks[pos + 1] ?? other;
+
+      // Calls to async functions lose connection to the stack trace, so use the current transition lock stack to show some more
+      const transitionTrace = this.vm.transitionLocks.slice(0, pos).map(t => `${JSON.stringify(t.title)}->`).join("");
+      let traces = "";
+      for (const lock of this.vm.transitionLocks.slice(0, pos).reverse()) {
+        const stack = lock.trace.stack ?? "";
+        const spos = stack.indexOf("\n    at", stack.indexOf("startTransition"));
+        traces += `\n    at transition:${JSON.stringify(lock.title)}${stack.substring(spos)}`;
+      }
+
+      try {
+        this.trace.cause = other.trace;
+        this.trace.message = `Tried to return to ${this.intoHareScript ? "TypeScript" : "HareScript"} after calling ${transitionTrace}${JSON.stringify(this.title)} while a call to ${JSON.stringify(other.title)} was still in progress`;
+        throw this.trace;
+      } catch (e) {
+        // TODO: eliminate overlapping trace parts
+        (e as Error).stack += traces;
+        throw e;
+      }
+    }
+  }
+}
+
 export async function recompileHarescriptLibrary(uri: string, options?: { force: boolean }) {
   const text = await recompileHarescriptLibraryRaw(uri, options);
   const lines = text.split("\n").filter(line => line);
   return lines.map(line => parseError(line));
 }
 
+function registerBridgeEventHandler(weakModule: WeakRef<HareScriptVM>) {
+  rootstorage.run(() => {
+    const listenerid = bridge.on("event", (event: BridgeEvent) => {
+      const mod = weakModule.deref();
+      if (!mod || !mod.hsvm) {
+        bridge.off(listenerid);
+        if (mod)
+          mod.unregisterEventCallback = undefined;
+        return;
+      }
+
+      // Don't re-emit events that originate from this vm
+      if (event.data && event.data.__sourcegroup === mod.currentgroup)
+        return;
+
+      mod.codeContext.run(() => {
+        const encoded = writeMarshalData(event.data, { onlySimple: true });
+        const payload = mod.wasmmodule._malloc(encoded.byteLength);
+        const name = mod.wasmmodule.stringToNewUTF8(event.name);
+        encoded.copy(mod.wasmmodule.HEAPU8, payload);
+        mod.wasmmodule._InjectEvent(mod.hsvm, name, payload, encoded.byteLength);
+        mod.wasmmodule._free(payload);
+        mod.wasmmodule._free(name);
+      });
+    });
+    weakModule.deref()!.unregisterEventCallback = () => bridge.off(listenerid);
+  });
+}
+
+
 export class HareScriptVM {
+  static moduleIdCounter = 0;
   wasmmodule: WASMModule;
   private _hsvm: HSVM | null;
   errorlist: HSVM_VariableId;
@@ -102,9 +181,12 @@ export class HareScriptVM {
   columnNameIdMap: Record<string, HSVM_ColumnId> = {};
   objectCache;
   mutexes: Array<Mutex | null> = [];
-  currentgroup: string | undefined; //set on first use
+  currentgroup: string;
   pipeWaiters = new Map<Ptr, object>;
   heapFinalizer = new FinalizationRegistry<HSVM_VariableId>((varid) => this._hsvm && this.wasmmodule._HSVM_DeallocateVariable(this._hsvm, varid));
+  transitionLocks = new Array<TransitionLock>;
+  unregisterEventCallback: (() => void) | undefined;
+  codeContext: CodeContext;
 
   constructor(module: WASMModule) {
     this.wasmmodule = module;
@@ -116,7 +198,10 @@ export class HareScriptVM {
     this.errorlist = module._HSVM_AllocateVariable(this.hsvm);
     this.columnnamebuf = module._malloc(65);
     this.stringptrs = module._malloc(8); // 2 string pointers
+    this.codeContext = getCodeContext();
     this.consoleArguments = [];
+    this.currentgroup = `${bridge.getGroupId()}/wasmmodule-${HareScriptVM.moduleIdCounter++}`;
+    this.integrateEvents();
   }
 
   get hsvm() { //We want callers to not have to check this.hsvm on every use
@@ -314,7 +399,9 @@ export class HareScriptVM {
       let retvalid, wasfunction;
       if (object) {
         const colid = this.getColumnId(functionref);
+        const transitionLock = debugFlags.async && this.startTransition(true, functionref);
         retvalid = await this.wasmmodule._HSVM_CallObjectMethod(this.hsvm, object, colid, 0, /*allow macro=*/1);
+        transitionLock?.close();
         //HSVM_CallObjectMethod simply returns an uninitialized value when dealing with a macro
         wasfunction = retvalid !== 0 && this.wasmmodule._HSVM_GetType(this.hsvm, retvalid) !== VariableType.Uninitialized;
       } else {
@@ -324,7 +411,9 @@ export class HareScriptVM {
         const returntypecell = this.wasmmodule._HSVM_RecordGetRef(this.hsvm, callfuncptr.id, returntypecolumn);
         const returntype = this.wasmmodule._HSVM_IntegerGet(this.hsvm, returntypecell);
         wasfunction = ![0, 2].includes(returntype);
+        const transitionLock = debugFlags.async && this.startTransition(true, functionref);
         retvalid = await this.wasmmodule._HSVM_CallFunctionPtr(this.hsvm, callfuncptr.id, /*allow macro=*/1);
+        transitionLock?.close();
       }
 
       if (!retvalid) {
@@ -353,6 +442,14 @@ export class HareScriptVM {
     } finally {
       callfuncptr.dispose();
     }
+  }
+
+  parseMessageList(): MessageList {
+    const errorlist = this.wasmmodule._HSVM_AllocateVariable(this.hsvm);
+    this.wasmmodule._HSVM_GetMessageList(this.hsvm, errorlist, 1);
+    const retval = this.quickParseVariable(errorlist) as MessageList;
+    this.wasmmodule._HSVM_DeallocateVariable(this.hsvm, errorlist);
+    return retval;
   }
 
   private throwVMErrors(): never {
@@ -399,6 +496,7 @@ export class HareScriptVM {
 
   /// Shutdown the VM. Use this if you know it's no longer needed, it prevents having to wait for garbage collection to free up resources
   shutdown() {
+    this.unregisterEventCallback?.();
     this.wasmmodule._HSVM_AbortVM(this.hsvm);
 
     for (const mutex of this.mutexes)
@@ -407,6 +505,34 @@ export class HareScriptVM {
     //TODO what do we need to shutdown in the wasmmodule itself? or can we prepare it for reuse ?
     this.wasmmodule._ReleaseHSVM(this.hsvm);
     this._hsvm = null;
+  }
+
+  startTransition(intoHareScript: boolean, title: string): TransitionLock | undefined {
+    if (!debugFlags.async)
+      return;
+    return new TransitionLock(this, intoHareScript, title);
+  }
+
+  integrateEvents() {
+    /* bridge may not hold strong references to the wasm module, so use a free-standing function
+       that won't keep this object in a closure context */
+    registerBridgeEventHandler(new WeakRef(this));
+
+    const gotEvent = (nameptr: number, payloadptr: number, payloadlength: number): void => {
+      const name = this.wasmmodule.UTF8ToString(nameptr);
+      const payload = Buffer.from(this.wasmmodule.HEAPU8.slice(payloadptr, payloadptr + payloadlength));
+      let data = readMarshalData(payload) as (SimpleMarshallableRecord & { __recordexists?: boolean; __sourcegroup?: string }) | null;
+      // Make sure __sourcegroup is filled in the data
+      if (!data || !("__sourcegroup" in data)) {
+        if (!data)
+          data = { __recordexists: false };
+        data.__sourcegroup ??= this.currentgroup || "";
+      }
+      /* Send the event over the bridge. It will be reflected to the local bridge, but filtered out by
+         the receiver based on sourcegroup */
+      bridge.sendEvent(name, data as SimpleMarshallableRecord);
+    };
+    this.wasmmodule._SetEventCallback(this.hsvm, this.wasmmodule.addFunction(gotEvent, "viii"));
   }
 }
 

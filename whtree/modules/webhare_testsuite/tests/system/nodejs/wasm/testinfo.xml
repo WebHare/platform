@@ -3,4 +3,5 @@
   <test script="test_wasm_basics.whscr" engine="wasm" />
   <test script="test_wasm_fails.whscr" engine="wasm" xfail="true" />
   <test script="test_wasm_vmcalls.ts" />
+  <test script="test_wasm_events.ts" />
 </group>

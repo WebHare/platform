@@ -50,3 +50,9 @@ export function dumpActiveIPCMessagePorts({ onlyreferenced = true } = {}) {
     }
   }
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- allow all types of TypedMessagePort to be registered
+export function registerTransferredPort(port: TypedMessagePort<any, any>, title = "unknown") {
+  setTrackingSymbol(port, title + " - transferred");
+  ports.push(new WeakRef(port as MessagePort));
+}

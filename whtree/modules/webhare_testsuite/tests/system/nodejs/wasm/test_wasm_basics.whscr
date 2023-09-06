@@ -59,6 +59,10 @@ PUBLIC MACRO RunWasmtest()
   //test buffers over EM_Syscall
   TestEq("010203", EM_Syscall("executeInline", [ func := "return param instanceof Buffer ? param.toString('hex') : 'NOT A BUFFER'", param := NEW Buffer("\x01\x02\x03")]));
   TestEq("040506", EM_Syscall("executeInline", [ func := "return param[1] instanceof Buffer ? param[1].toString('hex') : 'NOT A BUFFER ARRAY'", param := [NEW Buffer("\x01\x02\x03"),NEW Buffer("\x04\x05\x06")]]));
+
+  //Test reentrant syscalls
+  PRINT(`start reentrant syscall test\n`);
+  TestEq(2, EM_Syscall("executeInline", [ func := `return await vm.loadlib(${EncodeJSON(Resolve("testwasmlib.whlib"))}).ReentrantSyscall() + 1;`, param := DEFAULT RECORD ]));
 }
 
 RunWasmTest(); //TODO RunTestFramework isn't supported yet

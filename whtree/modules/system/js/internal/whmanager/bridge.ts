@@ -907,6 +907,7 @@ class MainBridge extends EventSource<BridgeEvents> {
           type: IPCEndPointImplControlMessageType.ConnectResult,
           success: false,
         });
+        message.port.close();
       } break;
       case ToMainBridgeMessageType.Log: {
         // this keeps the bridge alive until the current connection attempt has finished
