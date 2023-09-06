@@ -184,32 +184,47 @@ class HSJob extends OutputObjectBase {
     this.jobobj = jobobj;
   }
   async start() {
+    if (this.closed)
+      throw new Error(`The job has already been closed`);
     this.setReadSignalled(false);
     await this.jobobj.start();
     this.isRunning = true;
-    this.jobobj.waitDone().then(() => this.jobIsDone());
+    // The job may be closed before
+    this.jobobj.waitDone().then(() => this.jobIsDone()).catch(e => void (false));
   }
-  async setArguments(args: string[]) {
-    await this.jobobj.setArguments(args);
-  }
-  async getAuthenticationRecord() {
-    return this.jobobj.getAuthenticationRecord();
-  }
-  async terminate() {
-    await this.jobobj.terminate();
-  }
-  jobIsDone() {
+  private jobIsDone() {
     this.setReadSignalled(true);
     this.isRunning = false;
   }
+  async setArguments(args: string[]) {
+    if (this.closed)
+      throw new Error(`The job has already been closed`);
+    await this.jobobj.setArguments(args);
+  }
+  async getAuthenticationRecord() {
+    if (this.closed)
+      throw new Error(`The job has already been closed`);
+    return this.jobobj.getAuthenticationRecord();
+  }
+  async terminate() {
+    if (this.closed)
+      throw new Error(`The job has already been closed`);
+    await this.jobobj.terminate();
+  }
   async captureOutput(endpoint: IPCEndPoint) {
+    if (this.closed)
+      throw new Error(`The job has already been closed`);
     const encoded = endpoint.encodeForTransfer();
     await this.jobobj.captureOutput.callWithTransferList(encoded.transferList, encoded.encoded);
   }
   async getExitCode() {
+    if (this.closed)
+      throw new Error(`The job has already been closed`);
     return await this.jobobj.getExitCode();
   }
   close() {
+    if (this.closed)
+      return;
     this.jobobj.close();
     this.output?.close();
     this.worker.close();
@@ -642,7 +657,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     job.linkinparent = undefined;
   });
 
-  wasmmodule.registerAsyncExternalFunction("__HS_STARTJOB:::I", async (vm, id_set, var_jobid) => {
+  wasmmodule.registerAsyncExternalMacro("__HS_STARTJOB:::I", async (vm, var_jobid) => {
     const job = ipcContext(vm).jobs.get(var_jobid.getInteger());
     if (!job)
       throw new Error(`No such job with id ${var_jobid.getInteger()}`);
@@ -650,7 +665,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     await job.start();
   });
 
-  wasmmodule.registerExternalFunction("__HS_GETIPCLINKTOPARENT::I:", (vm, id_set, var_jobid) => {
+  wasmmodule.registerExternalFunction("__HS_GETIPCLINKTOPARENT::I:", (vm, id_set) => {
     const endpoint = ipcContext(vm).linktoparent;
     if (!endpoint)
       throw new Error(`Link to parent has already been retrieved`);
