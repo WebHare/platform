@@ -298,7 +298,7 @@ void SoftResetListener::ReceiveNotificationEvent(std::string const &event, uint8
                 // Ignore event data for now, just reload all
                 HSVM_ClearCaches();
         }
-        if (event == "system:softreset")
+        if (event == "system:configupdate")
         {
                 conn.ReloadPluginConfig();
         }

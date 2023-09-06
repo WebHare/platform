@@ -1127,7 +1127,7 @@ class MainBridge extends EventSource<BridgeEvents> {
 
 function handleGlobalEvent(data: WHMResponse_IncomingEvent) {
   switch (data.eventname) {
-    case "system:softreset": {
+    case "system:configupdate": {
       updateConfig();
     } break;
   }
