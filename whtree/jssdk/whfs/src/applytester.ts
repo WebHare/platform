@@ -1,17 +1,15 @@
 import { CSPApplyTo, CSPApplyRule, getCachedSiteProfiles, CSPApplyToTo, CSPPluginBase, CSPPluginDataRow } from "./siteprofiles";
 import { openFolder, WHFSObject, WHFSFolder, WHFSFile } from "./whfs";
-import { HSVM, openHSVM } from "@webhare/services/src/hsvm";
 import { db, Selectable } from "@webhare/whdb";
 import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { isLike, isNotLike } from "@webhare/hscompat/strings";
 import { emplace } from "@webhare/std";
+import { loadlib } from "@webhare/harescript";
 
 export interface WebDesignInfo {
   objectname: string;
   witty: string;
 }
-
-let myvm: Promise<HSVM> | null = null;
 
 interface PluginData extends CSPPluginBase {
   datas: CSPPluginDataRow[];
@@ -23,19 +21,9 @@ interface SiteApplicabilityInfo {
   sitedesign: string;
 }
 
-async function promiseVM() {
-  const vm = await openHSVM();
-  const database = vm.loadlib("mod::system/lib/database.whlib");
-  await database.openPrimary();
-  return vm;
-}
-
 ///describe a specific site for apply testing
 async function getSiteApplicabilityInfo(siteid: number | null) {
-  if (!myvm)
-    myvm = promiseVM();
-
-  const readerwhlib = (await myvm).loadlib("mod::publisher/lib/internal/siteprofiles/reader.whlib");
+  const readerwhlib = loadlib("mod::publisher/lib/internal/siteprofiles/reader.whlib");
   return await readerwhlib.GetSiteApplicabilityInfo(siteid ?? 0) as SiteApplicabilityInfo;
 }
 
