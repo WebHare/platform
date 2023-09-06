@@ -24,7 +24,9 @@ PUBLIC MACRO RunWASMEventTestHandler()
 
   STRING id := GetConsoleArguments()[0];
 
-  Sleep(100);
+  OBJECT link := ConnectToIPCPort("local:registration");
+  link->DoRequest(CELL[ type := "register", id ]);
+  link->Close();
 
   BroadcastEvent(`ipc-test.${id}`, DEFAULT RECORD);
 
