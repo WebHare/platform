@@ -2183,7 +2183,7 @@ The full base URL on which this site will be published, calculated by combining 
     <debugflag name="wrq" description="Show webrequests (formerly `__webbrowser_debugall := TRUE`)" />
     <debugflag name="evt" description="Event broadcasts" />
     <debugflag name="ahc" description="Ad-hoc Cache requests and stores" />
-    <debugflag name="apr" description="Make a function CPU profile" />
+    <debugflag name="apr" description="Make a function CPU profile for HareScript code" />
     <debugflag name="cov" description="Make a coverage profile" />
     <debugflag name="que" description="Log task/queue actions" />
     <debugflag name="ipc" description="Log backend/internal IPC traffic" />
@@ -2202,6 +2202,7 @@ The full base URL on which this site will be published, calculated by combining 
     <debugflag name="etr" description="Enable full error tracing for ALL webserver clients" />
     <debugflag name="openapi" description="Log openAPI request data to the debug log" />
     <debugflag name="async" description="Activate various async tools (enforce awaits, track openWork calls)" />
+    <debugflag name="jsprofile" description="Generate some profiling data for JavaScript ran by node" />
   </development>
 
   <wrdschemas>
