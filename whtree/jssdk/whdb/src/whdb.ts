@@ -17,7 +17,7 @@ import { RefTracker, checkIsRefCounted } from '@mod-system/js/internal/whmanager
 import { BackendEventData, broadcast } from '@webhare/services/src/backendevents';
 import { BackendEvent } from '../../services/src/services';
 import { debugFlags } from '@webhare/env/src/envbackend';
-import { checkPromiseErrorsHandled } from '@mod-system/js/internal/util/devhelpers';
+import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
 import { uploadBlobToConnection, WHDBBlob, ValidBlobSources } from './blobs';
 import { ensureScopedResource } from '@webhare/services/src/codecontexts';
 import { WHDBPgClient } from './connection';
