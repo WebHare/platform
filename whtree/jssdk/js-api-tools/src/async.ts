@@ -1,4 +1,4 @@
-import { debugFlags } from "@webhare/env/src/envbackend";
+import { debugFlags } from "@webhare/env";
 
 /** Throws an unhandled rejection if a promise isn't awaited on within a few milliseconds after
  *  its creation if the `async` debug flag is enabled

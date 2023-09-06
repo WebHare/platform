@@ -4,6 +4,7 @@ import Ajv from "ajv";
 import Ajv2019 from "ajv/dist/2019";
 import Ajv2020, { SchemaObject, ValidateFunction } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
+import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
 
 export { LoadTSTypeOptions } from "./testsupport";
 
@@ -321,7 +322,7 @@ export function throws(expect: RegExp, func_or_promise: Promise<unknown> | (() =
     //If we got a function, execute it
     const potentialpromise = typeof func_or_promise == "function" ? func_or_promise() : func_or_promise;
     if ((potentialpromise as Promise<unknown>)?.then)
-      return throwsAsync(expect, potentialpromise as Promise<unknown>, annotation);
+      return checkPromiseErrorsHandled(throwsAsync(expect, potentialpromise as Promise<unknown>, annotation));
 
     retval = potentialpromise;
     //fallthrough OUT OF the catch to do the actual throw, or we'll just recatch it below
