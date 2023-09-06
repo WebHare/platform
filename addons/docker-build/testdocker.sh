@@ -763,8 +763,8 @@ fi
 mark "Done with tests - stopping containers"
 
 # Stop the containers nicely so we have full logs
-RunDocker exec "$TESTENV_CONTAINER1" sv stop webhare
-[ -n "$TESTENV_CONTAINER2" ] && RunDocker exec "$TESTENV_CONTAINER2" sv stop webhare
+RunDocker exec "$TESTENV_CONTAINER1" sv down webhare
+[ -n "$TESTENV_CONTAINER2" ] && RunDocker exec "$TESTENV_CONTAINER2" sv down webhare
 
 if [ -z "$ARTIFACTS" ]; then
   if [ -n "$CI_PROJECT_DIR" ]; then
