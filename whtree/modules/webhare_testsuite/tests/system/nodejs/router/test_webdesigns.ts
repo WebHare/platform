@@ -11,8 +11,12 @@ import { buildSiteRequest } from "@webhare/router/src/siterequest";
 import { IncomingWebRequest } from "@webhare/router/src/request";
 
 function parseHTMLDoc(html: string): Document {
-  // eslint-disable-next-line @typescript-eslint/no-empty-function -- we want an empty function!
-  return new DOMParser({ errorHandler: { warning: w => { } } }).parseFromString(html, "text/html");
+  return new DOMParser({
+    errorHandler: {
+      warning: w => { //just ignore
+      }
+    }
+  }).parseFromString(html, "text/html");
 }
 
 function getWHConfig(parseddoc: Document) {

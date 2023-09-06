@@ -96,7 +96,17 @@
             }
         ],
         "@typescript-eslint/member-delimiter-style": "error",
-        "@typescript-eslint/no-empty-function": "error",
+        /* Empty interfaces that extend a non-empty interface are often 'future extension points' so let's accept those, eg:
+          interface OptionBase { rowkey: string; }
+          interface RoomOption extends OptionBase { maxpersons: number; }
+          interface BikeOption extends OptionBase { }
+        */
+        "@typescript-eslint/no-empty-interface": [
+            "error",
+            {
+                "allowSingleExtends": false
+            }
+        ],
         //Need typescript parser services for this one
         "@typescript-eslint/no-implied-eval": "off",
         "@typescript-eslint/no-invalid-this": "error",
