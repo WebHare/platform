@@ -2,6 +2,7 @@
 
 LOADLIB "wh::adhoccache.whlib";
 
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/tasks.whlib";
 
@@ -37,12 +38,20 @@ RECORD FUNCTION GetCacheableAllTaskTypeInfo()
   FOREVERY (STRING modulename FROM GetInstalledModuleNames())
   {
     STRING resname := GetModuleDefinitionXMLResourceName(modulename);
-    OBJECT xmldoc := GetModuleDefinitionXML(modulename);
-
-    RECORD parsed := ParseModuleTasks(modulename, resname, xmldoc);
-    clusters := clusters CONCAT parsed.clusters;
-    tasktypes := tasktypes CONCAT parsed.tasktypes;
     INSERT resname INTO resources AT END;
+    TRY
+    {
+      OBJECT xmldoc := GetModuleDefinitionXML(modulename);
+
+      RECORD parsed := ParseModuleTasks(modulename, resname, xmldoc);
+      clusters := clusters CONCAT parsed.clusters;
+      tasktypes := tasktypes CONCAT parsed.tasktypes;
+    }
+    CATCH(OBJECT e)
+    {
+      LogHarescriptException(e);
+      CONTINUE; //Don't shut down the whole task system just because one XML file broke
+    }
   }
 
   // Get overrides from system:config schema
