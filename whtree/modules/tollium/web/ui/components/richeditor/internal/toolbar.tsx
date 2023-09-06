@@ -36,7 +36,7 @@ class ToolbarButtonBase extends Toolbar.Button {
   }
 
   updateButtonRendering() {
-    // eslint-disable-current-line no-empty-function
+    // extension point for subclasses
   }
 
 }
@@ -166,7 +166,7 @@ class MenuButton extends SimpleToggleButton {
 
   // Override to fill this.listnode with <li> menuitems
   ensureSubMenu() {
-    // eslint-disable-current-line no-empty-function
+    // extension point for subclasses
   }
 
   // Override to respond to selected menuitem (event.detail.menuitem is selected <li>)

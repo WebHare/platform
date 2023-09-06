@@ -67,8 +67,12 @@
         "prefer-rest-params": "error",
         "prefer-spread": "error",
         "yoda": "error",
+        "default-case-last": "error",
+        "no-fallthrough": "error",
         //Prevent these from accidentally lingering in code
         "no-alert": "error",
+        //We're fine with explicit ! assertions.
+        "@typescript-eslint/no-non-null-assertion": "off",
         //Things that make diffing hard
         "no-tabs": "error",
         "no-trailing-spaces": "error",
@@ -92,7 +96,17 @@
             }
         ],
         "@typescript-eslint/member-delimiter-style": "error",
-        "@typescript-eslint/no-empty-function": "error",
+        /* Empty interfaces that extend a non-empty interface are often 'future extension points' so let's accept those, eg:
+          interface OptionBase { rowkey: string; }
+          interface RoomOption extends OptionBase { maxpersons: number; }
+          interface BikeOption extends OptionBase { }
+        */
+        "@typescript-eslint/no-empty-interface": [
+            "error",
+            {
+                "allowSingleExtends": true
+            }
+        ],
         //Need typescript parser services for this one
         "@typescript-eslint/no-implied-eval": "off",
         "@typescript-eslint/no-invalid-this": "error",
@@ -101,6 +115,8 @@
         //Need typescript parser services for this one
         "@typescript-eslint/no-throw-literal": "off",
         "@typescript-eslint/no-unused-expressions": "error",
+        //There's really no such thing as 'too much documentation'
+        "@typescript-eslint/no-inferrable-types": "off",
         "@typescript-eslint/no-unused-vars": [
             "error",
             {
@@ -142,6 +158,44 @@
             ],
             "rules": {
                 "@typescript-eslint/no-explicit-any": 0
+            }
+        },
+        {
+            "files": [
+                "*.ts",
+                "**/*.ts",
+                "*.tsx",
+                "**/*.tsx"
+            ],
+            "rules": {
+                // Styling:
+                "array-bracket-newline": [
+                    "error",
+                    {
+                        "multiline": true
+                    }
+                ],
+                "brace-style": [
+                    "error",
+                    "1tbs",
+                    {
+                        "allowSingleLine": true
+                    }
+                ],
+                "comma-style": [
+                    "error",
+                    "last"
+                ],
+                "eol-last": [
+                    "error",
+                    "always"
+                ],
+                "object-curly-newline": [
+                    "error",
+                    {
+                        "consistent": true
+                    }
+                ]
             }
         }
     ]

@@ -165,7 +165,7 @@ export class DialogBase {
   }
 
   afterShow() {
-    // eslint-disable-current @typescript-eslint/no-empty-function -- supposed to be empty but extenders can override
+    // supposed to be empty but extenders can override
   }
 }
 

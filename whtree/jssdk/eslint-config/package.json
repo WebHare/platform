@@ -1,5 +1,5 @@
 {
-  "name": "@webhare/eslint-config-defaultconfig",
+  "name": "@webhare/eslint-config",
   "version": "1.0.0",
   "description": "",
   "main": ".eslintrc.json",

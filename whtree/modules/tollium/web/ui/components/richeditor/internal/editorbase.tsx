@@ -2564,7 +2564,7 @@ export default class EditorBase {
       @param range - Range (optional, if range not set, use (& restore!) current selection)
   */
   checkDomStructure(range, preservelocators) {
-    // eslint-disable-current-line no-empty-function
+    // extension point for subclasses
   }
 
   tableEditorStateHasChanged() {
@@ -2861,7 +2861,7 @@ export default class EditorBase {
   }
 
   _gotMouseClick(event) {
-    // eslint-disable-current-line no-empty-function
+    // extension point for subclasses
   }
 
   _gotDoubleClick(event) {
@@ -3169,7 +3169,7 @@ export default class EditorBase {
       @param cellnode - Table cell node (td or th)
   */
   _initNewTableCell(cellnode) {
-    // eslint-disable-current-line no-empty-function
+    // extension point for subclasses
   }
 
   /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
