@@ -41,9 +41,9 @@ export async function storeDiskFile(path: string, data: string | Buffer, options
     }
   } finally {
     //cleanup, ignore errors at this point
-    newfile?.close().then(function () {/*ignore*/ }, function () {/*ignore*/ });
-    reservefile?.close().then(function () {/*ignore*/ }, function () {/*ignore*/ });
+    newfile?.close().catch(function () {/*ignore*/ });
+    reservefile?.close().catch(function () {/*ignore*/ });
     if (writepath)
-      unlink(writepath).then(function () {/*ignore*/ }, function () {/*ignore*/ });
+      unlink(writepath).catch(function () {/*ignore*/ });
   }
 }
