@@ -104,7 +104,7 @@
         "@typescript-eslint/no-empty-interface": [
             "error",
             {
-                "allowSingleExtends": false
+                "allowSingleExtends": true
             }
         ],
         //Need typescript parser services for this one
