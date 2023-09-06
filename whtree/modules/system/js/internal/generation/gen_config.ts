@@ -238,7 +238,7 @@ function scanModuleFolder(modulemap: ModuleMap, folder: string, rootfolder: bool
       if (!dateparts) {
         continue;
       }
-      const isofulldate = `${dateparts[1]}-${dateparts[2]}-${dateparts[3]}T${dateparts[4]}:${dateparts[5]}:${dateparts[6]}${dateparts[7]}`;
+      const isofulldate = `${dateparts[1]}-${dateparts[2]}-${dateparts[3]}T${dateparts[4]}:${dateparts[5]}:${dateparts[6]}${dateparts[7]}Z`;
       const isofulldate_msecs = Date.parse(isofulldate);
       if (!isofulldate_msecs) {
         // Invalid ISO date, ignore module
