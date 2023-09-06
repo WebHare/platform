@@ -3,7 +3,7 @@ import { WHManagerConnection, WHMResponse } from "./whmanager_conn";
 import { WHMRequest, WHMRequestOpcode, WHMResponseOpcode, WHMProcessType, WHMResponse_IncomingEvent } from "./whmanager_rpcdefs";
 import * as hsmarshalling from "./hsmarshalling";
 import { registerAsNonReloadableLibrary, getState as getHMRState } from "../hmrinternal";
-import { createDeferred, DeferredPromise } from "@webhare/std";
+import { createDeferred, DeferredPromise, pick } from "@webhare/std";
 import { DebugConfig, updateDebugConfig } from "@webhare/env/src/envbackend";
 import { IPCPortControlMessage, IPCEndPointImplControlMessage, IPCEndPointImpl, IPCPortImpl, IPCPortControlMessageType, IPCEndPointImplControlMessageType, IPCLinkType } from "./ipc";
 import { TypedMessagePort, createTypedMessageChannel, bufferToArrayBuffer } from './transport';
@@ -16,7 +16,6 @@ import * as envbackend from "@webhare/env/src/envbackend";
 import { getCallerLocation } from "../util/stacktrace";
 import { updateConfig } from "../configuration";
 import { getActiveCodeContexts } from "@webhare/services/src/codecontexts";
-import { pick } from "../util/algorithms";
 import { isMainThread, workerData } from "node:worker_threads";
 
 export { IPCMessagePacket, IPCLinkType } from "./ipc";

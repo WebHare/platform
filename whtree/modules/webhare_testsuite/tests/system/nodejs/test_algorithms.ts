@@ -1,4 +1,5 @@
-import { freezeRecursive, omit, pick, RecursivePartial, RecursiveReadOnly } from "@mod-system/js/internal/util/algorithms";
+import { omit, pick } from "@webhare/std";
+import { freezeRecursive, RecursivePartial, RecursiveReadOnly } from "@mod-system/js/internal/util/algorithms";
 import * as test from "@webhare/test";
 
 
