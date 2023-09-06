@@ -848,11 +848,7 @@ WHILE (TRUE)
   }
 
   IF (NOT seenanytest)
-  {
-    Print(`\nError: No test matched the name '${parsedargs.testname}'\n`);
-    SetConsoleExitCode(1);
-    RETURN;
-  }
+    TerminateScriptWithError(`Error: No test matched: ${Detokenize(parsedargs.testlist,',')}'`);
 
   MyPrint("\n\n+=====================================================================\n");
   MyPrint("| TEST RESULTS\n");
