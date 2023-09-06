@@ -278,7 +278,12 @@ export async function updateWebHareConfigFile({ verbose = false, nodb = false }:
 
   let oldconfig = {};
   if (fs.existsSync(file)) {
-    oldconfig = JSON.parse(fs.readFileSync(file).toString());
+    try {
+      oldconfig = JSON.parse(fs.readFileSync(file).toString());
+    } catch (e) {
+      console.error("Failed to load old configuration file", e);
+      //and ignore it, we don't want to get stuck updating config files
+    }
   }
 
   // process.stderr.write((new Date).toString() + " Starting config update\n");

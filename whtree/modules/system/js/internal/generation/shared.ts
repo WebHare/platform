@@ -1,4 +1,6 @@
-import fs, { Dirent } from "node:fs";
+import { storeDiskFile } from "@webhare/system-tools";
+import { existsSync, Dirent } from "node:fs";
+import * as fs from "node:fs/promises";
 
 export interface GenerateOptions {
   verbose?: boolean;
@@ -16,15 +18,15 @@ export type DirItem<O> = {
 };
 
 /** Update a file only if it has changed */
-function updateFile(filename: string, defs: string): boolean {
+async function updateFile(filename: string, defs: string): Promise<boolean> {
   try {
-    const current = fs.readFileSync(filename).toString();
+    const current = await fs.readFile(filename, 'utf8');
     if (defs && current === defs) {
       return false;
     }
     if (!defs) {
       // remove the file if none should exist
-      fs.rmSync(`${filename}`, { force: true });
+      await fs.rm(`${filename}`, { force: true });
       return true;
     }
   } catch (e) {
@@ -33,9 +35,7 @@ function updateFile(filename: string, defs: string): boolean {
       return false;
   }
 
-  fs.rmSync(`${filename}.tmp`, { force: true });
-  fs.writeFileSync(`${filename}.tmp`, defs);
-  fs.renameSync(`${filename}.tmp`, filename);
+  await storeDiskFile(filename, defs, { overwrite: true });
   return true;
 }
 
@@ -47,20 +47,18 @@ export async function updateDir<O>(dir: string, items: Array<DirItem<O>> | null,
 async function updateDirInternal<O>(dir: string, items: Array<DirItem<O>> | null, path: string, removeother: boolean, generatecb: (file: string, data: O) => string | Promise<string>) {
   let anyupdate = false;
   if (!items) {
-    if (fs.existsSync(dir)) {
-      fs.rmSync(dir, { recursive: true, force: true });
+    if (await existsSync(dir)) {
+      await fs.rm(dir, { recursive: true, force: true });
     }
     return;
   }
 
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
+  await fs.mkdir(dir, { recursive: true });
 
   let existingfiles: Dirent[] = [];
   if (removeother) {
     try {
-      existingfiles = fs.readdirSync(dir, { withFileTypes: true });
+      existingfiles = await fs.readdir(dir, { withFileTypes: true });
     } catch (e) {
     }
   }
@@ -70,7 +68,7 @@ async function updateDirInternal<O>(dir: string, items: Array<DirItem<O>> | null
       try {
         const defs = await generatecb(path + item.name, item.data);
         const filename = `${dir}${item.name}`;
-        if (updateFile(filename, defs))
+        if (await updateFile(filename, defs))
           anyupdate = true;
       } catch (e) {
         console.log(`Error generating file ${path}${item.name}: `, e);
@@ -87,10 +85,10 @@ async function updateDirInternal<O>(dir: string, items: Array<DirItem<O>> | null
       if (!items.find(i => i.name === file.name)) {
         // not referenced, should be deleted
         if (file.isDirectory()) {
-          fs.rmSync(existingpath, { recursive: true, force: true });
+          await fs.rm(existingpath, { recursive: true, force: true });
           anyupdate = true;
         } else if (file.isFile()) {
-          fs.rmSync(existingpath, { force: true });
+          await fs.rm(existingpath, { force: true });
           anyupdate = true;
         }
       }
