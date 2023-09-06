@@ -1,0 +1,1 @@
+export { storeDiskFile } from "./fs";

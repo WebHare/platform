@@ -278,7 +278,12 @@ export async function updateWebHareConfigFile({ verbose = false, nodb = false }:
 
   let oldconfig = {};
   if (fs.existsSync(file)) {
-    oldconfig = JSON.parse(fs.readFileSync(file).toString());
+    try {
+      oldconfig = JSON.parse(fs.readFileSync(file).toString());
+    } catch (e) {
+      console.error("Failed to load old configuration file", e);
+      //and ignore it, we don't want to get stuck updating config files
+    }
   }
 
   // process.stderr.write((new Date).toString() + " Starting config update\n");
@@ -287,5 +292,12 @@ export async function updateWebHareConfigFile({ verbose = false, nodb = false }:
     for (const cb of [...updateCallbacks])
       cb();
   }
+
+  if (!nodb) {
+    //    (await import("@webhare/services")).broadcast("system:configupdate"); //TODO resolveplugin doesn't intercept moduleloader yet so can't await
+    // eslint-disable-next-line @typescript-eslint/no-var-requires -- we can't await import yet, see above
+    require("@webhare/services").broadcast("system:configupdate");
+  }
+
   // process.stderr.write((new Date).toString() + " Done config update, modules: " + Object.keys(newconfig.public.module).join(", ") + "\n");
 }

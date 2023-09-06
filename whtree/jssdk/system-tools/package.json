@@ -1,0 +1,19 @@
+{
+  "name": "@webhare/system-tools",
+  "version": "0.504.0",
+  "description": "",
+  "main": "src/system-tools.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "WebHare bv",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "typedocOptions": {
+    "entryPoints": [
+      "./src/system-tools.ts"
+    ]
+  }
+}
