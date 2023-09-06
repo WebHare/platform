@@ -200,7 +200,7 @@ export class HareScriptVM {
     this.stringptrs = module._malloc(8); // 2 string pointers
     this.codeContext = getCodeContext();
     this.consoleArguments = [];
-    this.currentgroup = `${bridge.getGroupId()}/wasmmodule-${HareScriptVM.moduleIdCounter++}`;
+    this.currentgroup = `${bridge.getGroupId()}-wasmmodule-${HareScriptVM.moduleIdCounter++}`;
     this.integrateEvents();
   }
 

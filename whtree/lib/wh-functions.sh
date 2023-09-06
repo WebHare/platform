@@ -50,10 +50,10 @@ wh_runjs()
 
   ARGS=("$@")
 
-  # is the 'apr' flag set ?
-  if [[ $WEBHARE_DEBUG =~ ((^|[,])apr([,]|$))+ ]] ; then
+  # is the 'jsprofile' flag set ?
+  if [[ $WEBHARE_DEBUG =~ ((^|[,])jsprofile([,]|$))+ ]] ; then
     # prefix with profile starter. note that this for now just prints some simple stats to stdout (and is not compatible with nodejs --prof/--prof-process - but much faster)
-    ARGS=("$WEBHARE_DIR/modules/system/js/internal/debug/autoprofile.ts" "${ARGS[@]}")
+    ARGS=("$WEBHARE_DIR/modules/system/js/internal/debug/jsprofile.ts" "${ARGS[@]}")
   fi
 
   # avoid side effects if other scripts invoke node (eg 'wh make' and its postinstall)
