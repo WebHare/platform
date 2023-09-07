@@ -5,6 +5,7 @@ LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 
 MACRO TestReadSignalledStatus(BOOLEAN expect_status, INTEGER handle)
 {
@@ -122,6 +123,8 @@ MACRO BaseTest()
 
   // Closing of endpoints of link l1
   l1b->Close();
+  IF (IsWasm()) // Can't synchronously detect MessagePort closing in nodejs
+    Sleep(10);
   TestEq(TRUE, l1a->IsSignalled());
 
   res := l1a->SendMessage([ test := "a3" ]);
@@ -160,6 +163,8 @@ MACRO BaseTest()
   TestThrowsLike("*closed*", PTR port1->IsSignalled);
   TestThrowsLike("*closed*", PTR port1->Accept(DEFAULT DATETIME));
 
+  IF (IsWasm()) // Can't synchronously detect MessagePort closing in nodejs
+    Sleep(10);
   TestEq(TRUE, l4a->IsSignalled());
 
   l3a->Close();

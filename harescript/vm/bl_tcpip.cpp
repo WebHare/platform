@@ -5,7 +5,9 @@
 #include <blex/path.h>
 #include "baselibs.h"
 #include "hsvm_context.h"
+#if !defined(__EMSCRIPTEN__)
 #include <openssl/ssl.h>
+#endif
 
 // Show all tcp debugging stuff
 //#define SHOW_TCPIP
@@ -27,6 +29,8 @@ namespace HareScript {
 namespace Baselibs {
 
 using namespace std::literals::string_view_literals;
+
+#if !defined(__EMSCRIPTEN__)
 
 //ADDME: VAlidate all received IP addresses
 
@@ -918,6 +922,8 @@ void HS_TCPIP_GetSocketErrorText(HareScript::VarId id_set, HareScript::VirtualMa
         HSVM_StringSet(*vm, id_set, errortext, errortext?errortext+strlen(errortext):NULL);
 }
 
+#endif // __EMSCRIPTEN__
+
 //STRING FUNCTION __HS_TCPIP_CanoncalizeIP(STRING address, INTEGER networkprefix) __ATTRIBUTES__(EXTERNAL);
 void HS_TCPIP_CanonicalizeIP(HareScript::VarId id_set, HareScript::VirtualMachine *vm)
 {
@@ -932,6 +938,8 @@ void HS_TCPIP_CanonicalizeIP(HareScript::VarId id_set, HareScript::VirtualMachin
                 HSVM_SetDefault(*vm, id_set, HSVM_VAR_String);
         }
 }
+
+#if !defined(__EMSCRIPTEN__)
 
 class TCPIPContext::SocketMarshallerData
 {
@@ -1014,8 +1022,11 @@ void HS_TCPIP_SetSocketMarshaller(HareScript::VirtualMachine *vm)
         HSVM_ObjectSetMarshaller(*vm, HSVM_Arg(0), &TCPIPContext::SocketMarshallerData::MarshalSocket);
 }
 
+#endif // __EMSCRIPTEN__
+
 void InitTCPIP(BuiltinFunctionsRegistrator &bifreg)
 {
+#if !defined(__EMSCRIPTEN__)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CREATETCPSOCKET::I:",CreateTCPSocket));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CREATEUDPSOCKET::I:",CreateUDPSocket));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_TCPIP_SETLASTERROR:::II",HS_TCPIP_SetLastErrorCode));
@@ -1048,8 +1059,9 @@ void InitTCPIP(BuiltinFunctionsRegistrator &bifreg)
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETSOCKETSENDBUFFERSIZE::I:I",HS_TCPIP_GetSocketSendBufferSize));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("RECEIVESOCKETUDP::R:I",HS_TCPIP_UDPReceive));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("SENDSOCKETUDP::B:ISIS",HS_TCPIP_UDPSend));
-        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_TCPIP_CANONICALIZEIP::S:SI",HS_TCPIP_CanonicalizeIP));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("SOCKET#SETSOCKETMARSHALLER:::O", HS_TCPIP_SetSocketMarshaller));
+#endif // __EMSCRIPTEN__
+        bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_TCPIP_CANONICALIZEIP::S:SI",HS_TCPIP_CanonicalizeIP));
 }
 
 

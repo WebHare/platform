@@ -4,7 +4,8 @@ import { toResourcePath } from "@webhare/services";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 
 async function runWasmScript(script: string, params: string[]) {
-  script = toResourcePath(script, { allowUnmatched: true }) || `direct::${path.isAbsolute(script) ? script : path.join(process.cwd(), script)}`;
+  if (!script.startsWith("mod::"))
+    script = toResourcePath(script, { allowUnmatched: true }) || `direct::${path.isAbsolute(script) ? script : path.join(process.cwd(), script)}`;
 
   try {
     const vm = await allocateHSVM();

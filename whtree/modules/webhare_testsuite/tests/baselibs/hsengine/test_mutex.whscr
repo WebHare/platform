@@ -44,7 +44,7 @@ MACRO ExecuteTest(INTEGER jobcount, RECORD ARRAY script)
   OBJECT ARRAY jobs;
   FOR (INTEGER i := 0; i < jobcount; i := i + 1)
   {
-    RECORD res := CreateJob("test::testdata_mutex_a.whlib");
+    RECORD res := CreateJob("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_mutex_a.whlib");
     INSERT res.job INTO jobs AT END;
     res.job->Start();
     res.job->ipclink->autothrow := TRUE;

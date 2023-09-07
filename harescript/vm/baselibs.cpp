@@ -79,6 +79,8 @@ void SystemContextData::CloseHandles()
 #ifndef __EMSCRIPTEN__
         tcpip.CloseHandles();
 #endif // __EMSCRIPTEN__
+
+        other_outputobjects.clear();
 }
 
 void HS_FatalError(VirtualMachine *vm)
@@ -3337,8 +3339,8 @@ void RegisterDeprecatedBaseLibs(BuiltinFunctionsRegistrator &bifreg, Blex::Conte
         InitBlob(bifreg);
         InitLibdumper(bifreg);
         InitProcess(bifreg);
-#ifndef __EMSCRIPTEN__
         InitTCPIP(bifreg);
+#ifndef __EMSCRIPTEN__
         InitJobManager(creg, bifreg);
         InitIPC(creg, bifreg);
 #endif

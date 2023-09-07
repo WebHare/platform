@@ -7,7 +7,7 @@ import { HSVMVar } from "./wasm-hsvmvar";
 import { SocketError, WASMModule } from "./wasm-modulesupport";
 import { HSVM, Ptr, StringPtr } from "wh:internal/whtree/lib/harescript-interface";
 import { OutputObjectBase } from "@webhare/harescript/src/wasm-modulesupport";
-import { generateRandomId, sleep } from "@webhare/std";
+import { createDeferred, generateRandomId, sleep } from "@webhare/std";
 import * as syscalls from "./syscalls";
 import { localToUTC, utcToLocal } from "@webhare/hscompat/datetime";
 import { isWHDBBlob } from "@webhare/whdb/src/blobs";
@@ -206,6 +206,31 @@ class HSJob extends OutputObjectBase {
       throw new Error(`The job has already been closed`);
     return this.jobobj.getAuthenticationRecord();
   }
+  async setAuthenticationRecord(authrec: unknown) {
+    if (this.closed)
+      throw new Error(`The job has already been closed`);
+    this.jobobj.setAuthenticationRecord(authrec);
+  }
+  async getExternalSessionData() {
+    if (this.closed)
+      throw new Error(`The job has already been closed`);
+    return this.jobobj.getExternalSessionData();
+  }
+  async setExternalSessionData(newdata: string) {
+    if (this.closed)
+      throw new Error(`The job has already been closed`);
+    this.jobobj.setExternalSessionData(newdata);
+  }
+  async getEnvironment() {
+    if (this.closed)
+      throw new Error(`The job has already been closed`);
+    return this.jobobj.getEnvironment();
+  }
+  async setEnvironment(newdata: Array<{ name: string; value: string }>) {
+    if (this.closed)
+      throw new Error(`The job has already been closed`);
+    this.jobobj.setEnvironment(newdata);
+  }
   async terminate() {
     if (this.closed)
       throw new Error(`The job has already been closed`);
@@ -239,6 +264,7 @@ class HSJobOutput extends OutputObjectBase {
   endpoint: IPCEndPoint;
   constructor(vm: HareScriptVM, endpoint: IPCEndPoint) {
     super(vm, "Job output");
+    this.setReadSignalled(false);
     this.endpoint = endpoint;
     this.endpoint.on("message", (packet) => this.gotMessage(packet));
     this.endpoint.on("close", () => this.gotClose());
@@ -621,8 +647,15 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   });
 
   wasmmodule.registerAsyncExternalFunction("__HS_CREATEJOB::R:S", async (vm, id_set, var_mainscript) => {
-    const link = createIPCEndPointPair();
+    const context = ipcContext(vm);
 
+    // Get authenticationrecord
+    const scratchvar = vm.allocateVariable();
+    vm.wasmmodule._HSVM_GetAuthenticationRecord(vm.hsvm, scratchvar.id);
+    const authenticationRecord = scratchvar.getJSValue();
+    scratchvar.dispose();
+
+    const link = createIPCEndPointPair();
     const encodedEndpoint = link[1].encodeForTransfer();
 
     const worker = new AsyncWorker;
@@ -630,10 +663,14 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       ref: __filename + "#harescriptWorkerFactory",
       transferList: encodedEndpoint.transferList
     },
-      var_mainscript.getString(), encodedEndpoint.encoded);
+      var_mainscript.getString(),
+      encodedEndpoint.encoded,
+      authenticationRecord,
+      context.externalsessiondata,
+    );
 
-    const job = new HSJob(vm, link[0], worker, jobobj);
-    ipcContext(vm).jobs.set(job.id, job);
+    const job = new HSJob(vm, link[0], worker, jobobj,);
+    context.jobs.set(job.id, job);
 
     id_set.setJSValue({
       status: "ok",
@@ -667,14 +704,14 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
 
   wasmmodule.registerExternalFunction("__HS_GETIPCLINKTOPARENT::I:", (vm, id_set) => {
     const endpoint = ipcContext(vm).linktoparent;
-    if (!endpoint)
-      throw new Error(`Link to parent has already been retrieved`);
-
-    ipcContext(vm).linktoparent = undefined;
-    const hslink = new HSIPCLink(vm, endpoint);
-    hslink.activate();
-    ipcContext(vm).links.set(hslink.id, hslink);
-    id_set.setInteger(hslink.id);
+    if (endpoint) {
+      ipcContext(vm).linktoparent = undefined;
+      const hslink = new HSIPCLink(vm, endpoint);
+      hslink.activate();
+      ipcContext(vm).links.set(hslink.id, hslink);
+      id_set.setInteger(hslink.id);
+    } else
+      id_set.setInteger(0);
   });
 
   wasmmodule.registerAsyncExternalMacro("__HS_TERMINATEJOB:::I", async (vm, var_jobid) => {
@@ -717,6 +754,33 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     id_set.setJSValue(await job.getAuthenticationRecord());
   });
 
+  wasmmodule.registerAsyncExternalMacro("__HS_SETJOBAUTHENTICATIONRECORD:::IR", async (vm, var_jobid, var_authrecord) => {
+    const job = ipcContext(vm).jobs.get(var_jobid.getInteger());
+    if (!job)
+      throw new Error(`No such job with id ${var_jobid.getInteger()}`);
+    if (job.isRunning)
+      throw new Error(`Job is already running`);
+    await job.setAuthenticationRecord(var_authrecord.getJSValue());
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__HS_GETJOBEXTERNALSESSIONDATA::S:I", async (vm, id_set, var_jobid) => {
+    const job = ipcContext(vm).jobs.get(var_jobid.getInteger());
+    if (!job)
+      throw new Error(`No such job with id ${var_jobid.getInteger()}`);
+    if (job.isRunning)
+      throw new Error(`Job is already running`);
+    id_set.setString(await job.getExternalSessionData());
+  });
+
+  wasmmodule.registerAsyncExternalMacro("__HS_SETJOBEXTERNALSESSIONDATA:::IS", async (vm, var_jobid, var_newdata) => {
+    const job = ipcContext(vm).jobs.get(var_jobid.getInteger());
+    if (!job)
+      throw new Error(`No such job with id ${var_jobid.getInteger()}`);
+    if (job.isRunning)
+      throw new Error(`Job is already running`);
+    await job.setExternalSessionData(var_newdata.getString());
+  });
+
   wasmmodule.registerAsyncExternalFunction("__HS_CAPTUREJOBOUTPUT::I:I", async (vm, id_set, var_jobid) => {
     const job = ipcContext(vm).jobs.get(var_jobid.getInteger());
     if (!job)
@@ -743,6 +807,34 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       throw new Error(`No such job with id ${var_jobid.getInteger()}`);
     id_set.setJSValue(getTypedArray(VariableType.RecordArray, await job.jobobj.getErrors()));
   });
+
+  wasmmodule.registerAsyncExternalFunction("__HS_GETJOBENVIRONMENT::RA:I", async (vm, id_set, var_jobid) => {
+    const job = ipcContext(vm).jobs.get(var_jobid.getInteger());
+    if (!job)
+      throw new Error(`No such job with id ${var_jobid.getInteger()}`);
+    id_set.setJSValue(getTypedArray(VariableType.RecordArray, await job.jobobj.getEnvironment()));
+  });
+
+  wasmmodule.registerAsyncExternalMacro("__HS_SETJOBENVIRONMENT:::IRA", async (vm, var_jobid, var_newdata) => {
+    const job = ipcContext(vm).jobs.get(var_jobid.getInteger());
+    if (!job)
+      throw new Error(`No such job with id ${var_jobid.getInteger()}`);
+    const newdata = var_newdata.getJSValue() as Array<{ name: string; value: string }>;
+    for (const elt of newdata) {
+      if (typeof elt.name !== "string" || typeof elt.value !== "string")
+        throw new Error(`Incorrect data in new environment record array`);
+    }
+    await job.jobobj.setEnvironment(newdata);
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__SYSTEM_FLUSHREMOTELOG::B:S", async (vm, id_set, var_logname) => {
+    await bridge.flushLog(var_logname.getString());
+    id_set.setBoolean(true);
+  });
+
+  wasmmodule.registerExternalMacro("__HS_SETRUNNINGSTATUS:::B", (vm, var_running) => {
+    // Ignored
+  });
 }
 
 class HareScriptJob {
@@ -753,11 +845,14 @@ class HareScriptJob {
   exitCode = 0;
   errors: MessageList = [];
   active = true;
+  deferShutdown = createDeferred<void>();
 
-  constructor(vm: HareScriptVM, script: string, link: IPCEndPoint) {
+  constructor(vm: HareScriptVM, script: string, link: IPCEndPoint, authRecord: unknown, externalSessionData: string) {
     this.vm = vm;
     this.script = script;
     ipcContext(vm).linktoparent = link;
+    ipcContext(vm).externalsessiondata = externalSessionData;
+    this.setAuthenticationRecord(authRecord);
   }
   captureOutput(encodedLink: unknown) {
     this.outputEndPoint = decodeTransferredIPCEndPoint<IPCMarshallableRecord, IPCMarshallableRecord>(encodedLink);
@@ -765,6 +860,7 @@ class HareScriptJob {
       this.outputEndPoint!.send({ data: Array.from(this.vm.wasmmodule.HEAP8.slice(data, data + numbytes)) });
       return numbytes;
     };
+
     const outputfunction = this.vm.wasmmodule.addFunction(out, "iiiiii");
     this.vm.wasmmodule._HSVM_SetOutputCallback(this.vm.hsvm, 0, outputfunction);
   }
@@ -778,8 +874,37 @@ class HareScriptJob {
     if (this.active)
       this.vm.wasmmodule._HSVM_AbortVM(this.vm.hsvm);
   }
-  getAuthenticationRecord() {
-    return {};
+  async getAuthenticationRecord() {
+    const scratchvar = this.vm.allocateVariable();
+    this.vm.wasmmodule._HSVM_GetAuthenticationRecord(this.vm.hsvm, scratchvar.id);
+    const retval = scratchvar.getJSValue();
+    scratchvar.dispose();
+    return retval;
+  }
+  async getExternalSessionData() {
+    return ipcContext(this.vm).externalsessiondata;
+  }
+  async setExternalSessionData(newdata: string) {
+    ipcContext(this.vm).externalsessiondata = newdata;
+  }
+  setAuthenticationRecord(authrecord: unknown): void {
+    const scratchvar = this.vm.allocateVariable();
+    scratchvar.setJSValue(authrecord);
+    this.vm.wasmmodule._HSVM_SetAuthenticationRecord(this.vm.hsvm, scratchvar.id);
+    scratchvar.dispose();
+  }
+  async getEnvironment() {
+    const scratchvar = this.vm.allocateVariable();
+    this.vm.wasmmodule._GetEnvironment(this.vm.hsvm, scratchvar.id);
+    const retval = scratchvar.getJSValue() as Array<{ name: string; value: string }>;
+    scratchvar.dispose();
+    return retval;
+  }
+  async setEnvironment(env: Array<{ name: string; value: string }>) {
+    const scratchvar = this.vm.allocateVariable();
+    scratchvar.setJSValue(env);
+    this.vm.wasmmodule._SetEnvironment(this.vm.hsvm, scratchvar.id);
+    scratchvar.dispose();
   }
   async waitDone() {
     await this.runPromise;
@@ -794,17 +919,22 @@ class HareScriptJob {
     this.active = false;
     this.exitCode = this.vm.wasmmodule._HSVM_GetConsoleExitCode(this.vm.hsvm);
     this.errors = this.vm.parseMessageList();
-    this.vm.shutdown();
+    if (this.errors.length)
+      this.exitCode = -1; // hsvm_processmgr does it too
+    ipcContext(this.vm).linktoparent?.close();
+    this.vm.releaseResources();
     this.outputEndPoint?.close();
+    this.deferShutdown.resolve();
   }
 
   close() {
     this.terminate();
+    this.deferShutdown.promise.then(() => this.vm.shutdown());
   }
 }
 
-export async function harescriptWorkerFactory(script: string, encodedLink: unknown): Promise<HareScriptJob> {
+export async function harescriptWorkerFactory(script: string, encodedLink: unknown, authRecord: unknown, externalSessionData: string): Promise<HareScriptJob> {
   const link = decodeTransferredIPCEndPoint<IPCMarshallableRecord, IPCMarshallableRecord>(encodedLink);
   const vm = await allocateHSVM();
-  return new HareScriptJob(vm, script, link);
+  return new HareScriptJob(vm, script, link, authRecord, externalSessionData);
 }

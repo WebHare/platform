@@ -1,5 +1,6 @@
 <?wh
 
+LOADLIB "wh::regex.whlib";
 LOADLIB "wh::dbase/loopback.whlib";
 LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "wh::util/algorithms.whlib";
@@ -61,6 +62,19 @@ CONSTANT INTEGER OID_VARBIT := 1562;
 CONSTANT INTEGER OID_NUMERIC := 1700;
 CONSTANT INTEGER OID_ANY := 2276;
 CONSTANT INTEGER OID_ANYARRAY := 2277;
+
+STRING FUNCTION MapAction(STRING indata)
+{
+  SWITCH (indata)
+  {
+    CASE "a"  { RETURN "NO ACTION"; }
+    CASE "r"  { RETURN "RESTRICT"; }
+    CASE "c"  { RETURN "CASCADE"; }
+    CASE "n"  { RETURN "SET NULL"; }
+    CASE "d"  { RETURN "SET DEFAULT"; }
+  }
+  RETURN "";
+}
 
 /** doc1 */
 
@@ -287,6 +301,106 @@ STATIC OBJECTTYPE EMTransaction EXTEND LockingTransactionBase
     RETURN SELECT schema_name :=      nspname
                 , is_system_schema := ToUppercase(nspname) IN [ "DEFINITION_SCHEMA", "INFORMATION_SCHEMA" ] OR ToUppercase(nspname) LIKE "PG_*"
              FROM catalog.pg_namespace;
+  }
+
+  UPDATE PUBLIC RECORD ARRAY FUNCTION GetColumnListing(STRING schemaname, STRING tablename)
+  {
+    SCHEMA catalog LIKE postgresql_pg_catalog;
+    catalog := BindTransactionToSchema(this->forwardtransid, "pg_catalog");
+    SCHEMA is LIKE postgresql_information_schema;
+    is := BindTransactionToSchema(this->forwardtransid, "information_schema");
+
+    INTEGER namespace_oid :=
+       SELECT AS INTEGER oid
+         FROM catalog.pg_namespace
+        WHERE ToUppercase(nspname) = ToUppercase(schemaname);
+
+    INTEGER table_oid :=
+        SELECT AS INTEGER oid
+          FROM catalog.pg_class
+         WHERE relkind IN [ "r", "v", "m" ] // table, view, materialized view
+           AND relnamespace = namespace_oid
+           AND ToUppercase(relname) = ToUppercase(tablename);
+
+    RECORD ARRAY constraints := this->__ExecSQL(
+        `SELECT conrelid
+              , contype
+              , confrelid
+              , conkey
+              , conname
+              , confdeltype
+              , pg_get_constraintdef(oid) AS check_expression
+           FROM pg_catalog.pg_constraint
+         WHERE conrelid = $1
+           AND array_length(conkey, 1) = 1`, [ args := VARIANT[ table_oid ] ]);
+
+    RECORD ARRAY refdtables :=
+        SELECT confrelid :=                 pg_class.oid
+             , referenced_table_name :=     relname
+             , referenced_table_schema :=   nspname
+          FROM catalog.pg_class
+             , catalog.pg_namespace
+         WHERE relnamespace = pg_namespace.oid
+           AND pg_class.oid IN (SELECT AS INTEGER ARRAY DISTINCT confrelid FROM constraints WHERE confrelid != 0);
+
+    constraints := JoinArrays(constraints, "confrelid", refdtables,
+        [ referenced_table_name := ""
+        , referenced_table_schema := ""
+        ],
+        [ rightouterjoin := TRUE
+        ]);
+
+    OBJECT sequence_generator := NEW Regex("^nextval\\((.*)\\)|\\(([^.]*\\.webhare_autonrs_.*)\\(1\\)\\)\\[1\\]$");
+
+    RECORD ARRAY columns :=
+        SELECT TEMPORARY attr_constraints := (SELECT * FROM constraints WHERE constraints.conkey[0] = pg_attribute.attnum)
+             , TEMPORARY foreignkey := (SELECT * FROM attr_constraints WHERE contype = "f")
+             , TEMPORARY check_expression := (SELECT AS STRING COLUMN check_expression FROM attr_constraints WHERE contype = "c")
+             , column_name :=               attname
+             , character_octet_length :=    attlen
+             , character_maximum_length :=  atttypid IN [ OID_BPCHAR, OID_VARCHAR ] ? atttypmod - 4 : atttypid IN [ OID_BIT, OID_VARBIT ] ? atttypmod : 0 // https://stackoverflow.com/questions/52376045/why-does-atttypmod-differ-from-character-maximum-length
+             , is_nullable :=               RecordExists(foreignkey) ? attnotnull = FALSE : check_expression = ""
+             , data_type :=                 (nspname = "pg_catalog" ? "" : nspname || ".") || typname || (atttypid IN [ OID_BPCHAR, OID_VARCHAR ] ? `(${atttypmod - 4})` : atttypid IN [ OID_BIT, OID_VARBIT ] ? `(${atttypmod})` : "")
+             , on_delete :=                 RecordExists(foreignkey) ? MapAction(foreignkey.confdeltype) : ""
+             , is_unique :=                 RecordExists(SELECT FROM attr_constraints WHERE contype = "u" OR contype = "p")
+             , referenced_table_name :=     RecordExists(foreignkey) ? foreignkey.referenced_table_name : ""
+             , referenced_table_schema :=   RecordExists(foreignkey) ? foreignkey.referenced_table_schema : ""
+             , referenced_table_oid :=      RecordExists(foreignkey) ? foreignkey.confrelid : 0
+          FROM catalog.pg_attribute
+             , catalog.pg_type
+             , catalog.pg_namespace
+         WHERE attrelid = table_oid
+           AND pg_type.oid = atttypid
+           AND pg_namespace.oid = pg_type.typnamespace
+           AND NOT attisdropped
+           AND attname NOT IN [ "cmin", "cmax", "ctid", "tableoid", "xmax", "xmin" ]; // hide system columns
+
+    RECORD ARRAY is_cols :=
+        SELECT column_name
+             , autonumber_start :=          ToInteger64(identity_minimum, 0)
+             , column_default
+          FROM is.columns
+         WHERE ToUppercase(table_schema) = ToUppercase(schemaname)
+           AND ToUppercase(table_name) = ToUppercase(tablename);
+
+    FOREVERY (RECORD col FROM is_cols)
+    {
+      RECORD ARRAY match := sequence_generator->Exec(col.column_default);
+      IF (RecordExists(match))
+      {
+        STRING sequencename := match[1].value;
+        IF (sequencename = "")
+        {
+          // Assume that column_default is escaped so that regclass cast can parse it when encoded as string literal
+          sequencename := `${PostgresqlEscapeLiteral(Substitute(match[2].value, ".webhare_autonrs_", ".webhare_seq_"))}::regclass`;
+        }
+
+        RECORD seq := this->__ExecSQL(`SELECT seqrelid, seqstart FROM pg_catalog.pg_sequence WHERE seqrelid = ${sequencename}`);
+        is_cols[#col].autonumber_start := RecordExists(seq) ? INTEGER(seq.seqstart) : 0;
+      }
+    }
+
+    RETURN JoinArrays(columns, "column_name", is_cols, [ autonumber_start := 0i64, column_default := "" ]);
   }
 
   UPDATE PUBLIC MACRO CreateSchema(STRING schemaname, STRING ownerschema, STRING ownerrole)

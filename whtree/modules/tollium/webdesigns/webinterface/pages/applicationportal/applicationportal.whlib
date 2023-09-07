@@ -928,7 +928,8 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
     IF(RecordExists(firstmessage))
       RETURN firstmessage;
 
-    OBJECT link := ConnectToManagedPort("tollium:appstarter", "webserver");
+    STRING appstarterport := IsDebugTagEnabled("tollium:alt-appstarter") ? "tollium:appstarter-alt" : "tollium:appstarter";
+    OBJECT link := ConnectToManagedPort(appstarterport, "webserver");
     IF (NOT ObjectExists(link))
       THROW NEW Exception("No application starter present (unable to connect to tollium:appstarter)");
 

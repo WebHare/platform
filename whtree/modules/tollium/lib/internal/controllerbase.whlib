@@ -2609,7 +2609,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase
       LogDebug("ng-ctrlr-link", "Create port for " || this->applicationid);
 
     STRING linkname := "tollium:link." || this->applicationid;
-    this->ipcport := isheadless ? CreateGlobalIPCPort(linkname) : CreateIPCPort(linkname);
+    this->ipcport := isheadless OR IsDebugTagEnabled("tollium:alt-appstarter") ? CreateGlobalIPCPort(linkname) : CreateIPCPort(linkname);
   }
 
   MACRO AcceptLink()

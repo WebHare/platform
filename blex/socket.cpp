@@ -860,6 +860,8 @@ const char *GetErrorText(SocketError::Errors whicherror)
 }
 } //end namespace SocketError
 
+#ifndef __EMSCRIPTEN__
+
 Socket::Socket(Protocols prot)
 : Blex::Stream(false)
 , sockstate(SClosed)
@@ -2122,6 +2124,8 @@ SocketSet::SocketSet(Socket::Protocols protocol, bool ipv6)
 SocketSet::~SocketSet()
 {
 }
+
+#endif // __EMSCRIPTEN__
 
 void AddResolvedIPsToList(addrinfo *aresult, std::vector<SocketAddress> *results)
 {

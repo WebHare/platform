@@ -86,7 +86,7 @@ MACRO OnData(STRING data)
             IF (__debugwebsockets)
               LogDebug("tollium", "websocket", "Port " || portid || " not found for link " || linkid || ", connecting");
 
-            OBJECT link := ConnectToIPCPort("tollium:link." || portid);
+            OBJECT link := ConnectToIPCPort("tollium:link." || portid) ?? ConnectToGlobalIPCPort("tollium:link." || portid);
             IF (ObjectExists(link))
             {
               link->userdata :=

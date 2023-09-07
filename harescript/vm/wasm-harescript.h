@@ -14,6 +14,8 @@ void EMSCRIPTEN_KEEPALIVE RegisterHareScriptMacro(const char *name, unsigned id,
 
 void EMSCRIPTEN_KEEPALIVE RegisterHareScriptFunction(const char *name, unsigned id, bool async);
 
+void EMSCRIPTEN_KEEPALIVE ReleaseHSVMResources(HSVM *vm);
+
 void EMSCRIPTEN_KEEPALIVE ReleaseHSVM(HSVM *byebye);
 
 int EMSCRIPTEN_KEEPALIVE CreateWASMOutputObject(HSVM *vm, emscripten::EM_VAL obj_handle, const char *type);
@@ -29,6 +31,10 @@ void EMSCRIPTEN_KEEPALIVE InjectEvent(HSVM *vm, const char *name, const char *pa
 typedef void (*EventCallback)(const char *name, const void *payload, unsigned payloadlength);
 
 void EMSCRIPTEN_KEEPALIVE SetEventCallback(HSVM *vm, EventCallback callback);
+
+void EMSCRIPTEN_KEEPALIVE GetEnvironment(HSVM *hsvm, HSVM_VariableId id_set);
+
+void EMSCRIPTEN_KEEPALIVE SetEnvironment(HSVM *hsvm, HSVM_VariableId data);
 
 } // extern "C"
 

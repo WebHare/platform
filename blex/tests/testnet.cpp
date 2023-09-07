@@ -1,5 +1,3 @@
-#if !defined(__EMSCRIPTEN__)
-
 //---------------------------------------------------------------------------
 #include <blex/blexlib.h>
 #include <iostream>
@@ -18,6 +16,8 @@
 #include "../path.h"
 #include "../testing.h"
 #include <set>
+
+#if !defined(__EMSCRIPTEN__)
 
 extern std::string self_app;
 
@@ -97,6 +97,8 @@ void DoBidirectionalTest(Blex::PipeReadStream &in, Blex::PipeSet &out)
         BLEX_TEST_CHECKEQUAL(0u,   in.Read(&byte,1));
         BLEX_TEST_CHECKEQUAL(true, in.EndOfStream());
 }
+
+#endif // __EMSCRIPTEN__
 
 BLEX_TEST_FUNCTION(TestSocketAddress)
 {
@@ -195,6 +197,8 @@ BLEX_TEST_FUNCTION(TestSocketAddress)
         BLEX_TEST_CHECKTHROW(Blex::SocketAddress("::1:80"), std::invalid_argument);
         BLEX_TEST_CHECKTHROW(Blex::SocketAddress("[127.0.0.1]:80"), std::invalid_argument);
 }
+
+#if !defined(__EMSCRIPTEN__)
 
 BLEX_TEST_FUNCTION(TestPipes)
 {

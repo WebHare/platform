@@ -472,12 +472,12 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
 
       // else if (col.type === VariableType.HSMoney)
       //   value = new Money(value as string);
-      // FIXME: how to trigger null translation? The following doesn't work:
-      if (value !== null || !(col.flags & ColumnFlags.TranslateNulls))
+      if (value !== null) {
         if (col.tableid >= 0)
           tablerows[col.tableid][col.exportName] = value;
         else
           rowdata[col.exportName] = value;
+      }
     }
     tabledata.push(...tablerows);
     rowsdata.push(rowdata);

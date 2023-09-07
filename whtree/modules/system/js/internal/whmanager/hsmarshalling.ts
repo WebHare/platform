@@ -111,6 +111,10 @@ const MarshalPacketFormatType = 3;
 
 /** A boxed float preserves the number being/becoming a HareScript FLOAT. We might not need this is if the PGSQLProvider returned HS VariableTypes along with the result sets so we could fix it in SetJSValue */
 export class BoxedFloat {
+  static isBoxedFloat(value: unknown): value is BoxedFloat {
+    return Boolean(value && typeof value === "object" && (value as { __hstype?: VariableType }).__hstype === VariableType.Float);
+  }
+
   readonly __hstype = VariableType.Float;
   value: number;
 
@@ -450,18 +454,21 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
       writer.writeS64(BigInt(value as (number | bigint)));
     } break;
     case VariableType.Float: {
-      if (typeof value !== "number") { // Money?
-        if (!Money.isMoney(value))
-          throw new Error(`Unknown object to encode as money`);
-        writer.writeDouble(Number((value as Money).value));
+      if (typeof value !== "number") { // Money, boxed float??
+        if (BoxedFloat.isBoxedFloat(value))
+          writer.writeDouble(value.value);
+        else if (Money.isMoney(value))
+          writer.writeDouble(Number(value.value));
+        else
+          throw new Error(`Unknown object to encode as float`);
       } else
         writer.writeDouble(value as number);
     } break;
     case VariableType.HSMoney: {
       if (typeof value !== "number") { // Money?
         if (!Money.isMoney(value))
-          throw new Error(`Unknown object to encode as float`);
-        let str = (value as Money).value;
+          throw new Error(`Unknown object to encode as money`);
+        let str = value.value;
         const dotpos = (str + ".").indexOf('.');
         str = str.substring(0, dotpos) + str.substring(dotpos + 1).padEnd(5, "0").substring(0, 5);
         writer.writeS64(BigInt(str));
@@ -596,9 +603,12 @@ function encodeHSONInternal(value: IPCMarshallableData, needtype?: VariableType)
     } break;
     case VariableType.Float: {
       if (typeof value === "object") {
-        if (!Money.isMoney(value))
+        if (BoxedFloat.isBoxedFloat(value))
+          retval = "f " + value.value.toString().replace('+', ''); //format 1e+308 as 1e308
+        else if (Money.isMoney(value))
+          retval = "f " + (value as Money).value;
+        else
           throw new Error(`Unknown object to encode as float`);
-        retval = "f " + (value as Money).value;
       } else
         retval = "f " + (value as number).toString().replace('+', ''); //format 1e+308 as 1e308
     } break;
@@ -1612,5 +1622,5 @@ export type SimpleMarshallableRecord = null | { [key in string]: SimpleMarshalla
 
 /* TODO we may need to support WHDBBlob too - encodeHSON and IPC only currently require that they can transfer the data without await */
 export type IPCMarshallableBlob = HareScriptMemoryBlob;
-export type IPCMarshallableData = boolean | null | string | number | bigint | Date | Money | ArrayBuffer | Uint8Array | IPCMarshallableBlob | { [key in string]: IPCMarshallableData } | IPCMarshallableData[];
+export type IPCMarshallableData = boolean | null | string | number | bigint | Date | Money | BoxedFloat | ArrayBuffer | Uint8Array | IPCMarshallableBlob | { [key in string]: IPCMarshallableData } | IPCMarshallableData[];
 export type IPCMarshallableRecord = null | { [key in string]: IPCMarshallableData };
