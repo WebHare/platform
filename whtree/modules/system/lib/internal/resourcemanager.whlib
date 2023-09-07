@@ -28,7 +28,7 @@ PUBLIC MACRO SetSystemServerType(STRING newservertype)
   UpdateSystemConfigurationRecord();
 
   // Rebuild the webhare config file
-  UpdateWebHareConfigJSONFile();
+  UpdateGeneratedFiles(["config"]);
 
   BroadcastEvent("system:config.servertype", DEFAULT RECORD);
   //ADDME access rules should listen to servertype themselves?
@@ -75,9 +75,6 @@ PUBLIC RECORD FUNCTION RefreshGlobalWebserverConfig(RECORD options DEFAULTSTO DE
 PUBLIC MACRO ReloadWebhareConfig2(STRING toreload, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions( [ isdelete := FALSE, nowait := FALSE ], options);
-
-  // Rebuild the webhare config file
-  UpdateWebHareConfigJSONFile();
 
   STRING ARRAY parts := toreload = "" ? DEFAULT STRING ARRAY : Tokenize(toreload, ' ');
   IF("AUTHDATA" IN parts OR "ALL" IN parts)

@@ -361,7 +361,9 @@ ASYNC FUNCTION ReadWholeProcessOutput(OBJECT process)
   RETURN retval;
 }
 
-PUBLIC MACRO UpdateWebHareConfigJSONFile()
+PUBLIC MACRO UpdateGeneratedFiles(STRING ARRAY targets, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  WaitForPromise(ImportJS("@mod-system/js/internal/generation/gen_config.ts")->updateWebHareConfigFile([ verbose := IsDebugTagEnabled("startup") ]));
+  WaitForPromise(ImportJS("@mod-system/js/internal/generation/generator.ts")->UpdateGeneratedFiles(targets, CELL[ verbose := IsDebugTagEnabled("startup"), ...options ]));
+  IF("all" IN targets OR "config" IN targets)
+    BroadcastLocalEvent("system:configupdate"); //ensure our process synchronously knows about any new module paths
 }
