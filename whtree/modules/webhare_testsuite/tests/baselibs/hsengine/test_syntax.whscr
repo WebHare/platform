@@ -469,22 +469,22 @@ PUBLIC MACRO AttributesTest()
   TestCleanResult(1, errors);
   MayNotContainWarnings(2, errors);
 
-  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib"; i:= 1; j := 2; ?>');
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_a.whlib"; i:= 1; j := 2; ?>');
   TestCleanResult(3, errors);
   MustContainWarning(4, errors, 18, 'I');
   MustContainWarning(5, errors, 19, 'J', "Stop using j");
 
-  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib"; T1(); T2();');
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_a.whlib"; T1(); T2();');
   TestCleanResult(6, errors);
   MustContainWarning(7, errors, 18, 'T1');
   MustContainWarning(8, errors, 19, 'T2', "Stop using T2");
 
-  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib"; NEW O1(); NEW O2();');
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_a.whlib"; NEW O1(); NEW O2();');
   TestCleanResult(6, errors);
   MustContainWarning(9, errors, 18, 'O1');
   MustContainWarning(10, errors, 19, 'O2', "Stop using O2");
 
-  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib"; OBJECTTYPE e1 EXTEND o1< >; OBJECTTYPE e2 EXTEND o2< >;');
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_a.whlib"; OBJECTTYPE e1 EXTEND o1< >; OBJECTTYPE e2 EXTEND o2< >;');
   TestCleanResult(6, errors);
   MustContainWarning(11, errors, 18, 'O1');
   MustContainWarning(12, errors, 19, 'O2', "Stop using O2");
@@ -561,15 +561,15 @@ PUBLIC MACRO ShadowingTest()
   MustContainWarning(0, errors, 27, "A");
   MustContainWarning(0, errors, 28, "A");
 
-  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib"; INTEGER int1; ?>');
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_a.whlib"; INTEGER int1; ?>');
   MustContainWarning(0, errors, 27, "INT1");
   MustContainWarning(0, errors, 28, "INT1");
 
-  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib"; MACRO Test(INTEGER int1) { } ?>');
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_a.whlib"; MACRO Test(INTEGER int1) { } ?>');
   MustContainWarning(0, errors, 27, "INT1");
   MustContainWarning(0, errors, 28, "INT1");
 
-  errors := TestCompile('<?wh\nLOADLIB "test::testdata_loadlib_a.whlib";\nMACRO Test() { INTEGER int1; } ?>');
+  errors := TestCompile('<?wh\nLOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_a.whlib";\nMACRO Test() { INTEGER int1; } ?>');
   MustContainWarning(0, errors, 27, "INT1");
   MustContainWarning(0, errors, 28, "INT1");
 

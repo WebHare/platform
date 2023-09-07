@@ -461,12 +461,12 @@ MACRO LoadlibRedefinitionTest()
 {
   OpenTest("TestControl: LoadlibRedefinitionTest");
 
-  result := TestCompileAndRun('<?wh LOADLIB "test::testdata_export_middlelib.whlib"; PUBLIC INTEGER i := 5; PRINT(""||i); ?>');
+  result := TestCompileAndRun('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_export_middlelib.whlib"; PUBLIC INTEGER i := 5; PRINT(""||i); ?>');
   TestCleanResult(1, result.errors);
-  MustContainWarning(2, result.errors, 21, "I", "test::testdata_export_toplib.whlib");
+  MustContainWarning(2, result.errors, 21, "I", "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_export_toplib.whlib");
   TestEq("5", result.output);
 
-  errors := TestCompile('<?wh LOADLIB "test::testdata_export_middlelib.whlib" EXPORT i; PUBLIC INTEGER i := 5; PRINT(""||i); ?>');
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_export_middlelib.whlib" EXPORT i; PUBLIC INTEGER i := 5; PRINT(""||i); ?>');
   MustContainError(4, errors, 4, "I");
 
   CloseTest("TestControl: LoadlibRedefinitionTest");

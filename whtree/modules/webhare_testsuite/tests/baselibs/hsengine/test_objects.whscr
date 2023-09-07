@@ -3,7 +3,7 @@
 LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::devsupport.whlib";
-LOADLIB "test::testdata_objects.whlib";
+LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_objects.whlib";
 
 
 RECORD ARRAY errors;
@@ -295,14 +295,14 @@ MACRO BaseTest()
   OBJECT test;
   TestEq(TRUE, test = DEFAULT OBJECT);
 
-  TestThrowsLike("There was no public objecttype 'PVTOBJECT' found in library 'test::testdata_objects.whlib'", PTR MakeObject("test::testdata_objects.whlib", "pvtobject"));
-  TestThrowsLike("There was no public objecttype 'PVTOBJECT' found in library 'test::testdata_objects.whlib'", PTR MakeObject("test::testdata_objects.whlib#pvtobject"));
+  TestThrowsLike("There was no public objecttype 'PVTOBJECT' found in library 'mod::webhare_testsuite/tests/baselibs/hsengine/testdata_objects.whlib'", PTR MakeObject("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_objects.whlib", "pvtobject"));
+  TestThrowsLike("There was no public objecttype 'PVTOBJECT' found in library 'mod::webhare_testsuite/tests/baselibs/hsengine/testdata_objects.whlib'", PTR MakeObject("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_objects.whlib#pvtobject"));
   TestThrowsLike(`Illegal object name ""`, PTR MakeObject(""));
 
-  test := MakeObject("test::testdata_objects.whlib#test1");
+  test := MakeObject("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_objects.whlib#test1");
   TestEq(FALSE, test = DEFAULT OBJECT);
 
-  test := MakeObject("test::testdata_objects.whlib", "test1");
+  test := MakeObject("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_objects.whlib", "test1");
   TestEq(FALSE, test = DEFAULT OBJECT);
   TestEq("test!", test->abc("test"));
 
@@ -354,7 +354,7 @@ MACRO BaseTest()
   testparent->xref->xref->xref := DEFAULT OBJECT;
   TestEq(TRUE, testparent->xref = DEFAULT OBJECT);
 
-  test := MakeObject("test::testdata_objects.whlib", "test1");
+  test := MakeObject("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_objects.whlib", "test1");
   OBJECT test2 := NEW test1; // Test new
   TestEq(TRUE, test = test);
   TestEq(FALSE, test = test2);
@@ -730,8 +730,8 @@ MACRO ExtendTest()
 //  OBJECT y := NEW d;
 //  TestEq(3, y->id3);
 
-  //FIXME: This test fails unless test::testdata_subobject explictly exports basetest
-  //errors := TestCompile('<?wh LOADLIB "test::testdata_subobject.whlib"; OBJECTTYPE extendtest EXTEND subtest < UPDATE MACRO MyMacro() { subtest::MyMacro(); } >;  ?>');
+  //FIXME: This test fails unless mod::webhare_testsuite/tests/baselibs/hsengine/testdata_subobject explictly exports basetest
+  //errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_subobject.whlib"; OBJECTTYPE extendtest EXTEND subtest < UPDATE MACRO MyMacro() { submod::webhare_testsuite/tests/baselibs/hsengine/MyMacro(); } >;  ?>');
   //TestCleanResult(26, errors);
 
   CloseTest("TestObjects: ExtendTest");

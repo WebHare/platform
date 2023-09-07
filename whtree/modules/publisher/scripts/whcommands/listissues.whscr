@@ -9,7 +9,7 @@ LOADLIB "mod::system/lib/database.whlib";
 
 OpenPrimary();
 RECORD ARRAY issues := ListSiteIssues();
-FOREVERY(RECORD sitewithissues FROM SELECT * FROM ListSiteIssues() ORDER BY ToUppercase(name))
+FOREVERY(RECORD sitewithissues FROM SELECT * FROM issues ORDER BY ToUppercase(name))
 {
   Print(`Site ${sitewithissues.name}:\n`);
   FOREVERY(RECORD file FROM SELECT * FROM sitewithissues.fileswitherrors ORDER BY ToUppercase(fullpath))

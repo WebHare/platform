@@ -7,7 +7,7 @@ LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internal/jobs.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
 
-LOADLIB "test::testdata_traces_a.whlib";
+LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_traces_a.whlib";
 
 
 STRING ARRAY FUNCTION GetTraceFunctions(RECORD ARRAY trace, STRING ARRAY stopat)
@@ -47,7 +47,7 @@ MACRO TestTraces()
   }
 
   {
-    RECORD jres := CreateJob("test::testdata_traces_a.whlib");
+    RECORD jres := CreateJob("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_traces_a.whlib");
     TestEq(TRUE, ObjectExists(jres.job));
     RECORD res := jres.job->ipclink->SendMessage([ type := "abort" ]);
     TestEq("ok", res.status);
@@ -69,7 +69,7 @@ MACRO TestTraces()
   }
 
   {
-    RECORD jres := CreateJob("test::testdata_traces_a.whlib");
+    RECORD jres := CreateJob("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_traces_a.whlib");
     TestEq(TRUE, ObjectExists(jres.job));
     RECORD res := jres.job->ipclink->SendMessage([ type := "throw" ]);
     TestEq("ok", res.status);

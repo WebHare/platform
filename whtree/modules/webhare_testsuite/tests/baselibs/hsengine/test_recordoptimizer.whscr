@@ -7,7 +7,7 @@
  *****************************************/
 
 LOADLIB "wh::internal/hsselftests.whlib";
-LOADLIB "test::testdata_recordoptimizer_loadlib.whlib";
+LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_recordoptimizer_loadlib.whlib";
 
 RECORD FUNCTION recordid(RECORD a) { RETURN a; }
 

@@ -2,7 +2,7 @@
 /// @short Functions test
 
 LOADLIB "wh::internal/hsselftests.whlib";
-LOADLIB "test::testdata_functions_loadlib.whlib";
+LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_functions_loadlib.whlib";
 
 PUBLIC STRING pubdata;
 RECORD ARRAY errors;
@@ -99,7 +99,7 @@ MACRO PtrSyntaxTest()
   MustContainError(6, result.errors, 62, "INTEGER", "STRING");
 
   //Test indirect loadlib messing up
-  result := TestCompileAndRun('<?wh LOADLIB "test::testdata_functions_loadlib.whlib"; test2ptr(); ?>');
+  result := TestCompileAndRun('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_functions_loadlib.whlib"; test2ptr(); ?>');
   TestCleanResult(7, result.errors);
   TestEq("Test", result.output);
 
@@ -250,7 +250,7 @@ MACRO PtrInDeInitTest()
 {
   OpenTest("TestFunctions: PtrInDeInitTest");
 
-  result := TestCompileAndRun('<?wh LOADLIB "test::testdata_functions_loadlib.whlib"; STRING FUNCTION CallMe() { RETURN "WHAT?"; } CallOnDeinit := PTR CallMe; ?>');
+  result := TestCompileAndRun('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_functions_loadlib.whlib"; STRING FUNCTION CallMe() { RETURN "WHAT?"; } CallOnDeinit := PTR CallMe; ?>');
   MustContainError(1, result.errors, 0, "Function called in already unloaded library");
 
   CloseTest("TestFunctions: PtrInDeInitTest");
@@ -337,45 +337,45 @@ MACRO DynamicTest()
   TestThrowsLike("Invalid call to MakeFunctionPtr - functionname was empty", PTR MakeFunctionPtr(""));
   TestThrowsLike("Invalid call to MakeFunctionPtr - first argument was not a full library#function path, but did not receive function name either", PTR MakeFunctionPtr("blablafunc"));
 
-  TestThrowsLike("Cannot find library*", PTR MakeFunctionPtr("test::blablabla.whlib", "blablafunc", 0, DEFAULT INTEGER ARRAY));
-  TestThrowsLike("Cannot find library*", PTR MakeFunctionPtr("test::blablabla.whlib#blablafunc", 0, DEFAULT INTEGER ARRAY));
+  TestThrowsLike("Cannot find library*", PTR MakeFunctionPtr("mod::webhare_testsuite/tests/baselibs/hsengine/blablabla.whlib", "blablafunc", 0, DEFAULT INTEGER ARRAY));
+  TestThrowsLike("Cannot find library*", PTR MakeFunctionPtr("mod::webhare_testsuite/tests/baselibs/hsengine/blablabla.whlib#blablafunc", 0, DEFAULT INTEGER ARRAY));
 
-  TestThrowsLike("*not found*", PTR MakeFunctionPtr("test::testdata_functions_loadlib.whlib", "toowrongtomatch_x35225dsd", 0, DEFAULT INTEGER ARRAY));
-  TestThrowsLike("*not found*", PTR MakeFunctionPtr("test::testdata_functions_loadlib.whlib#toowrongtomatch_x35225dsd", 0, DEFAULT INTEGER ARRAY));
+  TestThrowsLike("*not found*", PTR MakeFunctionPtr("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_functions_loadlib.whlib", "toowrongtomatch_x35225dsd", 0, DEFAULT INTEGER ARRAY));
+  TestThrowsLike("*not found*", PTR MakeFunctionPtr("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_functions_loadlib.whlib#toowrongtomatch_x35225dsd", 0, DEFAULT INTEGER ARRAY));
 
-  TestThrowsLike("*did you mean*", PTR MakeFunctionPtr("test::testdata_functions_loadlib.whlib", "RetTest3x", TypeId(STRING), DEFAULT INTEGER ARRAY));
-  TestThrowsLike("*did you mean*", PTR MakeFunctionPtr("test::testdata_functions_loadlib.whlib#RetTest3x", TypeId(STRING), DEFAULT INTEGER ARRAY));
+  TestThrowsLike("*did you mean*", PTR MakeFunctionPtr("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_functions_loadlib.whlib", "RetTest3x", TypeId(STRING), DEFAULT INTEGER ARRAY));
+  TestThrowsLike("*did you mean*", PTR MakeFunctionPtr("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_functions_loadlib.whlib#RetTest3x", TypeId(STRING), DEFAULT INTEGER ARRAY));
 
-  TestThrowsLike("*signature*", PTR MakeFunctionPtr("test::testdata_functions_loadlib.whlib", "RetTest3", 0, [ TypeId(STRING) ]));
-  TestThrowsLike("*signature*", PTR MakeFunctionPtr("test::testdata_functions_loadlib.whlib#RetTest3", 0, [ TypeId(STRING) ]));
+  TestThrowsLike("*signature*", PTR MakeFunctionPtr("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_functions_loadlib.whlib", "RetTest3", 0, [ TypeId(STRING) ]));
+  TestThrowsLike("*signature*", PTR MakeFunctionPtr("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_functions_loadlib.whlib#RetTest3", 0, [ TypeId(STRING) ]));
 
-  TestThrowsLike("*signature*", PTR MakeFunctionPtr("test::testdata_functions_loadlib.whlib", "RetTest3", TypeId(STRING), [ TypeId(STRING) ]));
+  TestThrowsLike("*signature*", PTR MakeFunctionPtr("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_functions_loadlib.whlib", "RetTest3", TypeId(STRING), [ TypeId(STRING) ]));
 
-  test := MakeFunctionPtr("test::testdata_functions_loadlib.whlib", "RetTest3", TypeId(STRING), DEFAULT INTEGER ARRAY);
+  test := MakeFunctionPtr("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_functions_loadlib.whlib", "RetTest3", TypeId(STRING), DEFAULT INTEGER ARRAY);
   TestEq(TRUE, test != DEFAULT FUNCTION PTR);
   TestEq("test3", test());
 
-  test := MakeFunctionPtr("test::testdata_functions_loadlib.whlib#RetTest3", TypeId(STRING), DEFAULT INTEGER ARRAY);
+  test := MakeFunctionPtr("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_functions_loadlib.whlib#RetTest3", TypeId(STRING), DEFAULT INTEGER ARRAY);
   TestEq(TRUE, test != DEFAULT FUNCTION PTR);
   TestEq("test3", test());
 
-  test := MakeFunctionPtr("test::testdata_functions_loadlib.whlib", "passthrough", TypeId(STRING), [TypeId(STRING)]);
+  test := MakeFunctionPtr("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_functions_loadlib.whlib", "passthrough", TypeId(STRING), [TypeId(STRING)]);
   TestEq(TRUE, test != DEFAULT FUNCTION PTR);
   TestEq("test5", test("test5"));
 
-  test := MakeFunctionPtr("test::testdata_functions_loadlib.whlib#passthrough", TypeId(STRING), [TypeId(STRING)]);
+  test := MakeFunctionPtr("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_functions_loadlib.whlib#passthrough", TypeId(STRING), [TypeId(STRING)]);
   TestEq(TRUE, test != DEFAULT FUNCTION PTR);
   TestEq("test5", test("test5"));
 
-  test := MakeFunctionPtr("test::testdata_functions_loadlib.whlib", "defaultvalue", TypeId(STRING), [TypeId(STRING),TypeId(STRING)]);
+  test := MakeFunctionPtr("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_functions_loadlib.whlib", "defaultvalue", TypeId(STRING), [TypeId(STRING),TypeId(STRING)]);
   TestEq(TRUE, test != DEFAULT FUNCTION PTR);
   TestEq("1-2", test("1"));
 
-  test := MakeFunctionPtr("test::testdata_functions_loadlib.whlib#defaultvalue", TypeId(STRING), [TypeId(STRING),TypeId(STRING)]);
+  test := MakeFunctionPtr("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_functions_loadlib.whlib#defaultvalue", TypeId(STRING), [TypeId(STRING),TypeId(STRING)]);
   TestEq(TRUE, test != DEFAULT FUNCTION PTR);
   TestEq("1-2", test("1"));
 
-  test := MakeFunctionPtr("test::testdata_functions_loadlib.whlib", "RetTest3");
+  test := MakeFunctionPtr("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_functions_loadlib.whlib", "RetTest3");
   TestEq(TRUE, test != DEFAULT FUNCTION PTR);
 
   CloseTest("TestFunctions: DynamicTest");

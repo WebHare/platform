@@ -1,4 +1,4 @@
 <?wh
 
 // Indirect circular link
-LOADLIB "test::testdata_loadlib_circ_b.whlib";
+LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_circ_b.whlib";

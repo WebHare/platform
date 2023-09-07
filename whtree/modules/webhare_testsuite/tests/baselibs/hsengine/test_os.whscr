@@ -42,7 +42,7 @@ MACRO ProcessTest()
   STRING executable := MergePath(whroot, "bin/wh");
   STRING ARRAY extraparams := ["run"];
 
-  OBJECT process := CreateProcess(executable, extraparams CONCAT [ "test::testdata_os_a.whscr", "0", "1", "2" ], TRUE, TRUE, TRUE, FALSE);
+  OBJECT process := CreateProcess(executable, extraparams CONCAT [ "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_os_a.whscr", "0", "1", "2" ], TRUE, TRUE, TRUE, FALSE);
   process->Start();
   WaitUntil([ read := process->output_handle ], AddTimeToDate(200, GetCurrentDateTime()));
   TestEq("Args:0,1,2\n", ReadLineFrom(process->output_handle, 4096, FALSE));

@@ -1,6 +1,6 @@
 <?wh
 
-LOADLIB "test::testdata_export_toplib.whlib" EXPORT i, i2 __ATTRIBUTES__(DEPRECATED);
+LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_export_toplib.whlib" EXPORT i, i2 __ATTRIBUTES__(DEPRECATED);
 
 PUBLIC BOOLEAN activated1 := FALSE;
 

@@ -621,8 +621,7 @@ enum Type
         FSCurrentSite,
         FSDirect,
         FSDirectClib,
-        FSRelative,
-        FSTest
+        FSRelative
 };
 
 Type GetPrefix(std::string const &liburi)
@@ -657,8 +656,6 @@ Type GetPrefix(std::string const &liburi)
             return FSDirectClib;
         else if (prefix == Blex::StringPair::FromStringConstant("relative"))
             return FSRelative;
-        else if (prefix == Blex::StringPair::FromStringConstant("test"))
-            return FSTest;
 
         throw HareScript::VMRuntimeError(HareScript::Error::UnknownFilePrefix, prefix.stl_str(), liburi);
 }
@@ -680,7 +677,6 @@ const char * GetPrefixString(Type type)
         case FSDirect:          return "direct";
         case FSDirectClib:      return "directclib";
         case FSRelative:        return "relative";
-        case FSTest:            return "test";
         }
         return "";
 }
@@ -776,7 +772,6 @@ void WHFileSystem::ResolveAbsoluteLibrary(Blex::ContextKeeper &keeper, std::stri
                     savefirstpart = true;
                     //fallthrough
                 case FSWH:
-                case FSTest:
                     allowreset = true;
                     break;
 
@@ -904,15 +899,6 @@ HareScript::FileSystem::FilePtr WHFileSystem::OpenLibrary(Blex::ContextKeeper &k
                             return FilePtr();
 
                         templatepath = Blex::MergePath(templatepath + "whlibs", liburi);
-                        file = GetDirectFile(keeper, templatepath);
-                } break;
-        case FSTest:
-                {
-                        std::string templatepath = context->whconn->GetModuleFolder("webhare_testsuite");
-                        if(templatepath.empty())
-                            return FilePtr();
-
-                        templatepath = Blex::MergePath(templatepath + "tests/baselibs/hsengine/", liburi);
                         file = GetDirectFile(keeper, templatepath);
                 } break;
 

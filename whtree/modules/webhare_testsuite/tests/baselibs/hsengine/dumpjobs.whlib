@@ -4,7 +4,7 @@ LOADLIB "wh::datetime.whlib";
 
 /* Debugging tool, usage:
 
-  RECORD logjob := CreateJob("test::dumpjobs.whlib");
+  RECORD logjob := CreateJob("mod::webhare_testsuite/tests/baselibs/hsengine/dumpjobs.whlib");
   logjob.job->Start();
 
   ... code ...

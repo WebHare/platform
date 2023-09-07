@@ -865,7 +865,7 @@ MACRO TestReadLine(BOOLEAN ipv6)
 
 
   {
-    RECORD res := CreateJob("test::testdata_jobs_a.whlib");
+    RECORD res := CreateJob("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_jobs_a.whlib");
     OBJECT job := res.job;
 
     TestEq(DEFAULT RECORD ARRAY, res.errors);
@@ -932,7 +932,7 @@ MACRO TestReadLine(BOOLEAN ipv6)
 
 MACRO TestWebBrowser()
 {
-  RECORD res := CreateJob("test::testdata_jobs_a.whlib");
+  RECORD res := CreateJob("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_jobs_a.whlib");
   OBJECT job := res.job;
   job->ipclink->autothrow := TRUE;
   job->Start();

@@ -1,5 +1,5 @@
 <?wh
-LOADLIB "test::testdata_objects.whlib";
+LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_objects.whlib";
 
 PUBLIC OBJECTTYPE subtest EXTEND basetest
 <

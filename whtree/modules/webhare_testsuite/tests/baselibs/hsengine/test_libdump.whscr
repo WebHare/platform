@@ -191,8 +191,6 @@ RECORD FUNCTION __HS_LIBDUMP(STRING libname) __ATTRIBUTES__(EXTERNAL);
 MACRO TestLibdump()
 {
   RECORD dump := __HS_LIBDUMP("mod::webhare_testsuite/tests/baselibs/hsengine/test_libdump.whscr");
-  IF (NOT dump.success)
-    dump := __HS_LIBDUMP("test::test_libdump.whscr");
 
   TestEQ(TRUE, dump.success);
 
