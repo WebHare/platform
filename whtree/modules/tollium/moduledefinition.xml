@@ -105,6 +105,7 @@
 
     <debugflag name="logcontroller" description="Log tollium/todd controller" />
     <debugflag name="logtransport" description="Log tollium/todd controller" />
+    <debugflag name="alt-appstarter" description="Use freestanding appstarter to host tollium applications" />
   </development>
 
   <hooking>

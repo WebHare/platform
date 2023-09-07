@@ -13,6 +13,12 @@ LOADLIB "mod::tollium/lib/todd/internal/communication.whlib";
 
 
 /** This library owns all tollium applications, keeps their crash histories
+
+  To start this in freestanding WASM mode, use
+  ```
+  wh runwasm mod::tollium/scripts/internal/applicationstarter.whscr
+  wh debug enable tollium:alt-appstarter
+  ```
 */
 
 INTEGER keephistory := 20; // in seconds
@@ -71,15 +77,15 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
 
     this->localid := "O:" || GetCurrentGroupId();
     STRING myportname := "tollium:link." || this->localid;
-    this->linkport := CreateIPCPort(myportname);
-    __INTERNAL_KeepPortGlobal(this->linkport);
+    this->linkport := CreateGlobalIPCPort(myportname);
     this->dispatcher := NEW ToddLinkDispatcher(this->localid || "(as)");
 
     this->AddListeningPort(this->linkport);
     RegisterTimedCallback(AddTimeToDate(checkinterval*1000, GetCurrentDateTime()), PTR this->CleanupOldApps);
 
     this->parentlink := GetIPCLinkToParent();
-    this->parentlinkcb := RegisterHandleReadCallback(this->parentlink->handle, PTR this->GotParentMessage);
+    IF (ObjectExists(this->parentlink))
+      this->parentlinkcb := RegisterHandleReadCallback(this->parentlink->handle, PTR this->GotParentMessage);
 
     IF (log_appstarter)
       this->LogDebug("Started, my port: " || myportname);
@@ -589,9 +595,12 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
 
 
 // Create BEFORE we create the port
-OBJECT commport := InitManagedScript();
-//OBJECT commport := CreateIPCPort("tollium:appowner");
-//__INTERNAL_KeepPortGlobal(commport);
+OBJECT commport;
+
+IF (NOT ObjectExists(GetIPCLinkToParent()))
+  commport := CreateGlobalIPCPort("tollium:appstarter-alt");
+ELSE
+  commport := InitManagedScript();
 
 OBJECT handler := NEW AppOwnerPortHandler(commport);
 handler->Run();
