@@ -3,6 +3,7 @@
 
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
+import $todd from "@mod-tollium/web/ui/js/support";
 import "./iframe.scss";
 
 export default class ObjIFrame extends ComponentBase {
@@ -199,7 +200,7 @@ export default class ObjIFrame extends ComponentBase {
   }
 
   enabledOn(checkflags, min, max, selectionmatch) {
-    return ComponentBase.checkEnabledFlags(this.selectionflags, checkflags, min, max, selectionmatch);
+    return $todd.checkEnabledFlags(this.selectionflags, checkflags, min, max, selectionmatch);
   }
 
   addIframeEvent(obj, type, fn) {
