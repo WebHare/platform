@@ -2,6 +2,7 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::dbase/dynquery.whlib";
 LOADLIB "wh::dbase/postgresql.whlib";
 LOADLIB "wh::internal/wasm.whlib";
 
@@ -192,6 +193,11 @@ MACRO TestPrimitiveValues()
       TestEQ(id, found);
 
       // ADDME: test dynquery!
+      OBJECT dynquery := NEW DynamicQuery;
+      dynquery->AddTable("tab", GetPrimary()->id, "webhare_testsuite_testschema.primitives", SELECT AS STRING ARRAY ToLowercase(name) FROM UnpackRecord(readvalue));
+      dynquery->AddConstraint("tab.id", "=", toinsert.id);
+      readvalue := dynquery->Execute();
+      TestEq(CELL[ ...defaultrec, ...toinsert ], readvalue.tab);
     }
   }
 

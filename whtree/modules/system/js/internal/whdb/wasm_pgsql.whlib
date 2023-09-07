@@ -316,7 +316,7 @@ STATIC OBJECTTYPE EMTransaction EXTEND LockingTransactionBase
       CASE OID_NAME       { RETURN ""; }
       CASE OID_TEXT       { RETURN ""; }
       CASE OID_VARCHAR    { RETURN ""; }
-      CASE OID_INT8       { RETURN 0; }
+      CASE OID_INT8       { RETURN 0i64; }
       CASE OID_INT2       { RETURN 0; }
       CASE OID_INT4       { RETURN 0; }
       CASE OID_REGPROC    { RETURN 0; }

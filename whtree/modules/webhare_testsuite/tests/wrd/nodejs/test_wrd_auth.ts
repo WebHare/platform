@@ -58,12 +58,12 @@ async function setupKeys() {
 
   const provider_for_people = new AuthProvider(wrdTestschemaSchema, { tokenType: "whuserAccessToken", audience: "People" });
   const provider_for_robots = new AuthProvider(wrdTestschemaSchema, { tokenType: "whuserAccessToken", audience: "Robots" });
-  test.throws(/audience invalid/, provider_for_people.verifySession(testsession.token));
+  await test.throws(/audience invalid/, provider_for_people.verifySession(testsession.token));
 
   const peoplesession = await provider_for_people.createSession(testuser, { scopes: ["Bunny"], settings: { wrdTitle: "My first session" } });
   verifyresult = await provider_for_people.verifySession(peoplesession.token);
   test.eq("People", verifyresult.payload.aud);
-  test.throws(/audience invalid/, provider_for_robots.verifySession(peoplesession.token));
+  await test.throws(/audience invalid/, provider_for_robots.verifySession(peoplesession.token));
 
   await whdb.commitWork();
 }
