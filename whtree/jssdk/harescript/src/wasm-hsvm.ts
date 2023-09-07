@@ -37,6 +37,9 @@ interface TraceElement {
   func: string;
 }
 
+///Pool of unused engines.
+const enginePool = new Array<WASMModule>;
+
 export type JSBlobTag = { pg: string } | null;
 
 function addHareScriptTrace(trace: TraceElement[], err: Error) {
@@ -169,7 +172,7 @@ function registerBridgeEventHandler(weakModule: WeakRef<HareScriptVM>) {
 
 export class HareScriptVM {
   static moduleIdCounter = 0;
-  wasmmodule: WASMModule;
+  private _wasmmodule: WASMModule | null;
   private _hsvm: HSVM | null;
   errorlist: HSVM_VariableId;
   dispatchfptr: HSVM_VariableId;
@@ -189,7 +192,7 @@ export class HareScriptVM {
   codeContext: CodeContext;
 
   constructor(module: WASMModule) {
-    this.wasmmodule = module;
+    this._wasmmodule = module;
     this.objectCache = new HSVMObjectCache(this);
     module.itf = this;
     this._hsvm = module._CreateHSVM();
@@ -207,6 +210,12 @@ export class HareScriptVM {
   get hsvm() { //We want callers to not have to check this.hsvm on every use
     if (this._hsvm)
       return this._hsvm;
+    throw new Error(`This VM has already shut down`);
+  }
+
+  get wasmmodule() {
+    if (this._wasmmodule)
+      return this._wasmmodule;
     throw new Error(`This VM has already shut down`);
   }
 
@@ -509,7 +518,11 @@ export class HareScriptVM {
 
     //TODO what do we need to shutdown in the wasmmodule itself? or can we prepare it for reuse ?
     this.wasmmodule._ReleaseHSVM(this.hsvm);
+
+    enginePool.push(this.wasmmodule);
+
     this._hsvm = null;
+    this._wasmmodule = null;
   }
 
   startTransition(intoHareScript: boolean, title: string): TransitionLock | undefined {
@@ -554,6 +567,9 @@ export async function createHarescriptModule<T extends WASMModule>(modulefunctio
 }
 
 export async function allocateHSVM(): Promise<HareScriptVM> {
-  const module = await createHarescriptModule(new WASMModule);
-  return new HareScriptVM(module);
+  if (enginePool.length)
+    return new HareScriptVM(enginePool.pop()!);
+
+  const hsvmModule = createHarescriptModule(new WASMModule);
+  return new HareScriptVM(await hsvmModule);
 }
