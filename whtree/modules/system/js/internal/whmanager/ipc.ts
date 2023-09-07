@@ -183,6 +183,8 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
   }
 
   checkForEventsSync(): void {
+    if (this.closed)
+      return;
     let res = receiveMessageOnPort(this.port as MessagePort);
     if (res && this.handleControlMessage(res.message)) {
       // Received connectresult, try again to see if a message is pending
@@ -451,6 +453,8 @@ export class IPCPortImpl<SendType extends object | null, ReceiveType extends obj
   }
 
   checkForEventsSync(): void {
+    if (this.closed)
+      return;
     const res = receiveMessageOnPort(this.port as MessagePort);
     if (res)
       this.handleControlMessage(res.message);
