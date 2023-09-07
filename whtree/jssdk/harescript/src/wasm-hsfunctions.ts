@@ -831,6 +831,10 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     await bridge.flushLog(var_logname.getString());
     id_set.setBoolean(true);
   });
+
+  wasmmodule.registerExternalMacro("__HS_SETRUNNINGSTATUS:::B", (vm, var_running) => {
+    // Ignored
+  });
 }
 
 class HareScriptJob {
