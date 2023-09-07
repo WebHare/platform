@@ -19,7 +19,8 @@ fi
 # is the 'heavy' node profiler enabled?
 if [ -n "$WEBHARE_NODEPROFILE" ]; then
   WORKDIR="$(mktemp -d)"
-  node --experimental-wasm-stack-switching --logfile="$WORKDIR/log" --prof $WEBHARE_NODE_OPTIONS "$@"
+  WEBHARE_NODE_OPTIONS="--logfile="$WORKDIR/log" --prof $WEBHARE_NODE_OPTIONS"
+  wh_runjs "$@"
   RETVAL="$?"
   OUTPUTFILES=()
   for P in "$WORKDIR"/* ; do
