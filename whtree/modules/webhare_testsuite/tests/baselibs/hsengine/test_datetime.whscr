@@ -572,6 +572,7 @@ MACRO ISOTimestampTest()
   TestEq("20010101T123456+0100", FormatISO8601DateTime(MakeDateTime(2001,1,1,11,34,56), [ timezone := "CET", extended := FALSE ]));
   TestEq("2001-01-01T12:34:56+01:00", FormatISO8601DateTime(MakeDateTime(2001,1,1,11,34,56), "", "", "CET", TRUE));
   TestEq("2001-01-01T12:34:56+01:00", FormatISO8601DateTime(MakeDateTime(2001,1,1,11,34,56), [ timezone := "CET" ]));
+  TestEq("2001-01T123456+0100", FormatISO8601DateTime(MakeDateTime(2001,1,1,11,34,56), [ dateformat := "month", timezone := "CET", extended := FALSE ]));
 
   TestEq("2001", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), "year", "empty", "", FALSE));
   TestEq("2001", FormatISO8601DateTime(MakeDateTime(2001,1,1,12,34,56), [ dateformat := "year", timeformat := "empty",extended := FALSE ]));
