@@ -194,7 +194,6 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
         this.emitQueue();
 
       res = receiveMessageOnPort(this.port as MessagePort);
-      console.log(`checkForEventsSync link ${this.id} #2: `, res);
       if (res)
         this.handleControlMessage(res.message);
     }
