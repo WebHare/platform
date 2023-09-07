@@ -16,7 +16,7 @@ IF (ObjectExists(crash))
 
 IF (Detokenize(GetConsoleArguments(), ",") = "overrideexecutelibrary")
 {
-  __HS_INTERNAL_OverrideExecuteLibrary("test::subdir/relativelib.whlib");
+  __HS_INTERNAL_OverrideExecuteLibrary("mod::webhare_testsuite/tests/baselibs/hsengine/subdir/relativelib.whlib");
   TRY
   {
     MakeFunctionPtr("relative::relativelib.whlib", "test", 0, DEFAULT INTEGER ARRAY)();
@@ -187,6 +187,7 @@ WHILE (NOT break_out)
     }
     CASE "control"
     {
+      link->SendReply([ type := "ack" ], rec.msgid);
       WHILE (TRUE)
       {
         RECORD data := link->ReceiveMessage(MAX_DATETIME);

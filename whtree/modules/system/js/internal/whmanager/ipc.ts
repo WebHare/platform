@@ -154,6 +154,12 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
   /** Defer used to wait for connection results */
   private defer?: DeferredPromise<void>;
 
+  /** Set to true when connected (defer.promise has been resolved, not rejected) */
+  private connected = false;
+
+  /** Set to true when connected (defer.promise has been resolved, not rejected) */
+  private activationStarted = false;
+
   /** Reference tracker
   */
   private refs: RefTracker;
@@ -180,7 +186,13 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     let res = receiveMessageOnPort(this.port as MessagePort);
     if (res && this.handleControlMessage(res.message)) {
       // Received connectresult, try again to see if a message is pending
+
+      // synchronously start emitting queued events
+      if (this.activationStarted && this.connected && !this.emitting)
+        this.emitQueue();
+
       res = receiveMessageOnPort(this.port as MessagePort);
+      console.log(`checkForEventsSync link ${this.id} #2: `, res);
       if (res)
         this.handleControlMessage(res.message);
     }
@@ -205,6 +217,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
         case IPCEndPointImplControlMessageType.ConnectResult: {
           if (ctrlmsg.success) {
             this.defer?.resolve();
+            this.connected = true;
             return true;
           } else {
             this.defer?.reject(new Error(`Could not connect to ${this.connectporttitle}`));
@@ -237,6 +250,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
   }
 
   async activate(): Promise<void> {
+    this.activationStarted = true;
     // send back a message that the link has been accepted (and messages will be received)
     if (this.mode == "accepting")
       this.sendPortMessage({ type: IPCEndPointImplControlMessageType.ConnectResult, success: true });

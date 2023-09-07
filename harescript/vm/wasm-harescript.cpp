@@ -137,7 +137,6 @@ bool EMWrappedOutputObject::IsAtEOF()
 
 bool EMWrappedOutputObject::AddToWaiterRead(Blex::PipeWaiter &waiter)
 {
-        obj.call<emscripten::val>("syncUpdateReadSignalled");
         if (event_read.IsSignalled())
             return true;
         waiter.AddEvent(event_read);
@@ -146,12 +145,12 @@ bool EMWrappedOutputObject::AddToWaiterRead(Blex::PipeWaiter &waiter)
 
 HareScript::OutputObject::SignalledStatus EMWrappedOutputObject::IsReadSignalled(Blex::PipeWaiter *)
 {
+        obj.call<emscripten::val>("syncUpdateReadSignalled");
         return event_read.IsSignalled() ? Signalled : NotSignalled;
 }
 
 bool EMWrappedOutputObject::AddToWaiterWrite(Blex::PipeWaiter &waiter)
 {
-        obj.call<emscripten::val>("syncUpdateWriteSignalled");
         if (event_write.IsSignalled())
             return true;
         waiter.AddEvent(event_write);
@@ -160,6 +159,7 @@ bool EMWrappedOutputObject::AddToWaiterWrite(Blex::PipeWaiter &waiter)
 
 HareScript::OutputObject::SignalledStatus EMWrappedOutputObject::IsWriteSignalled(Blex::PipeWaiter *)
 {
+        obj.call<emscripten::val>("syncUpdateWriteSignalled");
         return event_write.IsSignalled() ? Signalled : NotSignalled;
 }
 
@@ -184,6 +184,11 @@ HSVM* EMSCRIPTEN_KEEPALIVE CreateHSVM()
         //HSVM_SetErrorCallback(myvm, 0, &StandardErrorWriter);
         //cif->SetupConsole(myvm, args);
         return group->CreateVirtualMachine();
+}
+
+void EMSCRIPTEN_KEEPALIVE ReleaseHSVMResources(HSVM *vm)
+{
+        HareScript::GetVirtualMachine(vm)->GetVMGroup()->CloseHandles();
 }
 
 void EMSCRIPTEN_KEEPALIVE ReleaseHSVM(HSVM *byebye) //assumes the VM was created by CreateHSVM, it won't be safe to delete random VMs..
@@ -257,5 +262,54 @@ void EMSCRIPTEN_KEEPALIVE InjectEvent(HSVM *, const char *name, uint8_t const *p
         auto event = std::make_shared<Blex::NotificationEvent>(name, payloadstart, payloadlen);
         context.eventmgr.QueueEventNoExport(event);
 }
+
+void EMSCRIPTEN_KEEPALIVE GetEnvironment(HSVM *hsvm, HSVM_VariableId id_set) {
+        Blex::Environment env;
+        std::shared_ptr< const Blex::Environment > override = HareScript::GetVirtualMachine(hsvm)->GetVMGroup()->jmdata.environment;
+
+        Blex::Environment const *useenv;
+        if (override)
+            useenv = override.get();
+        else
+        {
+                useenv = &env;
+                Blex::ParseEnvironment(&env);
+        }
+
+        HSVM_ColumnId col_name =   HSVM_GetColumnId(hsvm, "NAME");
+        HSVM_ColumnId col_value =  HSVM_GetColumnId(hsvm, "VALUE");
+
+        HSVM_SetDefault(hsvm, id_set, HSVM_VAR_RecordArray);
+        for (auto itr : *useenv)
+        {
+                HSVM_VariableId newrec = HSVM_ArrayAppend(hsvm, id_set);
+
+                HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, newrec, col_name), itr.first);
+                HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, newrec, col_value), itr.second);
+        }
+}
+
+void EMSCRIPTEN_KEEPALIVE SetEnvironment(HSVM *hsvm, HSVM_VariableId data)
+{
+        HSVM_ColumnId col_name =   HSVM_GetColumnId(hsvm, "NAME");
+        HSVM_ColumnId col_value =  HSVM_GetColumnId(hsvm, "VALUE");
+
+        auto override = std::make_shared< Blex::Environment >();
+        unsigned numvars = HSVM_ArrayLength(hsvm, data);
+        for (unsigned i = 0; i < numvars; ++i)
+        {
+                HSVM_VariableId rec = HSVM_ArrayGetRef(hsvm, data, i);
+
+                HSVM_VariableId var_name = HSVM_RecordGetRequiredTypedRef(hsvm, rec, col_name, HSVM_VAR_String);
+                HSVM_VariableId var_value = HSVM_RecordGetRequiredTypedRef(hsvm, rec, col_value, HSVM_VAR_String);
+                if (!var_name || !var_value)
+                    return;
+
+                (*override)[HSVM_StringGetSTD(hsvm, var_name)] = HSVM_StringGetSTD(hsvm, var_value);
+        }
+
+        HareScript::GetVirtualMachine(hsvm)->GetVMGroup()->jmdata.environment = override;
+}
+
 
 } // extern "C"

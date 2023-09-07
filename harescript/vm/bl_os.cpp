@@ -1579,6 +1579,8 @@ void HS_GetEnvironmentVariable(VarId id_set, VirtualMachine *vm)
         JobManager *jobmgr = vm->GetVMGroup()->GetJobManager();
         if (jobmgr)
             override = jobmgr->GetGroupEnvironmentOverride(vm->GetVMGroup());
+#else
+            override = vm->GetVMGroup()->jmdata.environment;
 #endif
 
         if (override)
@@ -1605,6 +1607,8 @@ void HS_GetEnvironment(VarId id_set, VirtualMachine *vm)
         JobManager *jobmgr = vm->GetVMGroup()->GetJobManager();
         if (jobmgr)
             override = jobmgr->GetGroupEnvironmentOverride(vm->GetVMGroup());
+#else
+            override = vm->GetVMGroup()->jmdata.environment;
 #endif
 
         Blex::Environment const *useenv;

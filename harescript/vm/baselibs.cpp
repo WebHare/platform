@@ -79,6 +79,8 @@ void SystemContextData::CloseHandles()
 #ifndef __EMSCRIPTEN__
         tcpip.CloseHandles();
 #endif // __EMSCRIPTEN__
+
+        other_outputobjects.clear();
 }
 
 void HS_FatalError(VirtualMachine *vm)

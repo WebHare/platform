@@ -310,8 +310,15 @@ class BLEXLIB_PUBLIC VMGroup
         /// Event that will be set to signalled when the group has finished
         Blex::StatefulEvent finishevent;
 
+#ifdef __EMSCRIPTEN__
+    public:
+#endif
         /// Process manager data
         JobManagerGroupData jmdata;
+
+#ifdef __EMSCRIPTEN__
+    private:
+#endif
 
         /// Reference counter  (managed by grouprefmutex in hsvm_processmgr.cpp)
         unsigned refcount;

@@ -494,13 +494,18 @@ export class HareScriptVM {
     return printcallback;
   }
 
-  /// Shutdown the VM. Use this if you know it's no longer needed, it prevents having to wait for garbage collection to free up resources
-  shutdown() {
+  releaseResources() {
     this.unregisterEventCallback?.();
     this.wasmmodule._HSVM_AbortVM(this.hsvm);
+    this.wasmmodule._ReleaseHSVMResources(this.hsvm);
 
     for (const mutex of this.mutexes)
       mutex?.release();
+  }
+
+  /// Shutdown the VM. Use this if you know it's no longer needed, it prevents having to wait for garbage collection to free up resources
+  shutdown() {
+    this.releaseResources();
 
     //TODO what do we need to shutdown in the wasmmodule itself? or can we prepare it for reuse ?
     this.wasmmodule._ReleaseHSVM(this.hsvm);

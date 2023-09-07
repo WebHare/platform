@@ -93,8 +93,8 @@
     <test script="test_html.whscr" />
     <test script="test_ical.whscr" xfail="1" />  <!-- Missing function GetSystemHostname -->
     <test script="test_internet.whscr" xfail="1" />  <!-- Missing socket support -->
-    <test script="test_ipc.whscr" />  <!-- Missing IPC support -->
-    <test script="test_jobs.whscr" xfail="1" />  <!-- Missing job support -->
+    <test script="test_ipc.whscr" />
+    <test script="test_jobs.whscr" />
     <test script="test_json.whscr" />
     <test script="test_libdump.whscr" />
     <test script="test_loadlib.whscr" xfail="1" />  <!-- Missing test:: support -->
@@ -103,7 +103,7 @@
     <test script="test_map.whscr" />
     <test script="test_mime.whscr" />
     <test script="test_money.whscr" />
-    <test script="test_mutex.whscr" xfail="1" />  <!-- Missing job support -->
+    <test script="test_mutex.whscr" xfail="1" />  <!-- Missing local lock support -->
     <test script="test_nestedif.whscr" />
     <test script="test_numbers.whscr" />
     <test script="test_objects.whscr" xfail="1" />  <!-- Missing test:: support -->
