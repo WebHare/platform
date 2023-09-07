@@ -295,6 +295,6 @@ IF(GetEnvironmentVariable("WEBHARE_CI") != "")
 
 UpdateSystemBackendSite(); //this will also trigger a site profile (re)compilation!
 
-UpdateWebHareConfigJSONFile();
+UpdateGeneratedFiles(["config"]);
 
 trans->CommitWork();

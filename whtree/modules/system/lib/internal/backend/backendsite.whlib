@@ -12,7 +12,7 @@ LOADLIB "mod::system/lib/internal/whconfig.whlib";
 MACRO GotBackendSiteChanged(BOOLEAN committed)
 {
   IF (committed)
-    UpdateWebHareConfigJSONFile();
+    UpdateGeneratedFiles(["config"]); //config.backend must be updated
 }
 
 PUBLIC OBJECT FUNCTION EnsureSystemBackendSite()

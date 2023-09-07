@@ -190,17 +190,8 @@ PUBLIC BOOLEAN FUNCTION DeleteModule(STRING module)
   }
 
   ReloadWebhareConfig(TRUE, TRUE, [ isdelete := TRUE ]);
-
-  OBJECT remove_generated_files := CreatePromiseAll(
-      OBJECT[ ImportJS("@mod-system/js/internal/generation/gen_config.ts")->updateWebHareConfigFile([ verbose := IsDebugTagEnabled("startup") ])
-            , ImportJS("mod::system/js/internal/generation/gen_whdb.ts")->updateSingleModuleTableDefs( module, [ verbose := IsDebugTagEnabled("startup") ])
-            , ImportJS("mod::system/js/internal/generation/gen_wrd.ts")->updateSingleModuleWRDDefs(module, [ verbose := IsDebugTagEnabled("startup") ])
-            , ImportJS("mod::system/js/internal/generation/gen_openapi.ts")->updateSingleModuleOpenAPIDefs(module, [ verbose := IsDebugTagEnabled("startup") ])
-            ]);
-
+  UpdateGeneratedFiles(["all"]); //TODO some regenerators might be pushed off to an async task, remaining code shouldn't be depending on a deleted module anyway
   RecompileSiteProfiles();
-
-  WaitForPromise(remove_generated_files);
 
   BroadcastEvent("system:modulesupdate", [ modulename := module  ]);
 
@@ -430,22 +421,16 @@ PUBLIC RECORD FUNCTION ActivateInstalledModule(STRING modulename, STRING install
 RECORD FUNCTION __ActivateInstalledModule(STRING modulename, STRING installpath)
 {
   RECORD retval := [ warnings := DEFAULT STRING ARRAY ];
-  //Reload module config (ADDME: Run installscript BEFORE __SYSTEM_RESTART!)  FIXME: Ensure reload was completed or manually find the InstallScript
 
-  //explicitly flush any moduledefinition.xml caches - otherwise we'll race with the source watcher doing the same in a few seconds
-  BroadcastEvent("system:modulesupdate", [ modulename := modulename ]);
+  //Updates config.json, regenerates dependencies for java/typescript
+  UpdateGeneratedFiles(["all"]);
 
   ReconfigureLogFiles();
 
-  //__FlushCaches();
+  FixModuleSymlinks([modulename], FALSE); //put nodejs folder in place. TODO gen_config.ts should do this
 
-  FixModuleSymlinks([modulename], FALSE); //put nodejs folder in place
-  UpdateWebHareConfigJSONFile();
-  OBJECT create_gen_whdb_promise := ImportJS("mod::system/js/internal/generation/gen_whdb.ts")->updateAllModuleTableDefs([ verbose := IsDebugTagEnabled("startup") ]);
-  OBJECT wait_other_generated_files := CreatePromiseAll(
-      OBJECT[ ImportJS("mod::system/js/internal/generation/gen_wrd.ts")->updateAllModuleWRDDefs([ verbose := IsDebugTagEnabled("startup") ])
-            , ImportJS("mod::system/js/internal/generation/gen_openapi.ts")->updateAllModuleOpenAPIDefs([ verbose := IsDebugTagEnabled("startup") ])
-            ]);
+  //explicitly flush any moduledefinition.xml caches - otherwise we'll race with the source watcher doing the same in a few seconds
+  BroadcastEvent("system:modulesupdate", [ modulename := modulename ]);
 
   GetPrimary()->BeginWork();
   EnsureModulePrivateFolders();
@@ -459,9 +444,6 @@ RECORD FUNCTION __ActivateInstalledModule(STRING modulename, STRING installpath)
 
   OBJECT validator := GetModuleXMLValidator(modulename);
   INSERT CELL runoncescripts := ParseModuleDefRunonce(validator) INTO moduleinfo;
-
-  // Make sure the generated database files are ready before running upgrade scripts
-  WaitForPromise(create_gen_whdb_promise);
 
   ClearAllSchemaCaches();
   RECORD sch := GetModuleDatabaseSchema(modulename);
@@ -525,9 +507,6 @@ RECORD FUNCTION __ActivateInstalledModule(STRING modulename, STRING installpath)
 
   // Recompile siteprofiles and refresh the webserver configuration in-line.
   RecompileSiteProfiles();
-
-  // Wait for the remaining generated files
-  WaitForPromise(wait_other_generated_files);
 
   // Softreset (used to clear all caches, now only linked to specific cache keys) restart needed scripts
   BroadcastEvent("system:softreset", [ toreload := DEFAULT STRING ARRAY ]);
