@@ -964,21 +964,6 @@ STATIC OBJECTTYPE LocalLockManager
     RETURN obj;
   }
 
-  /** Create a semaphore lock and put it into the lock queue
-      @param name Name of the semaphore to lock
-      @param maxconcurrent Max nr. of concurrent lock-keepers during the requested lock
-      @return Lock info
-      @cell return.locked Whether the lock is active (if not, wait for the lock to become signalled)
-      @cell return.lock Lock object
-  */
-  PUBLIC RECORD FUNCTION __ScheduleLocalSemaphoreLock(STRING name, INTEGER maxconcurrent)
-  {
-    RECORD res := __HS_OPENLOCALLOCK(name, maxconcurrent, FALSE);
-    IF (res.lockid = 0)
-      THROW NEW Exception("Expected lock id");
-    RETURN CELL[ res.locked, lock := NEW LocalLock(res.lockid, name) ];
-  }
-
   // ---------------------------------------------------------------------------
   //
   // Public interface
