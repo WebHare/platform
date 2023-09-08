@@ -680,6 +680,7 @@
     <denyformquestion type="http://www.webhare.net/xmlns/publisher/forms#rtd" />
     <denyformquestion type="http://www.webhare.net/xmlns/publisher/forms#captcha" />
     <denyformquestion type="http://www.webhare.net/xmlns/publisher/forms#array" />
+    <denyformquestion type="http://www.webhare.net/xmlns/publisher/forms#hidden" />
     <allowformhandler type="http://www.webhare.net/xmlns/publisher/forms#*" />
     <denyformhandler type="http://www.webhare.net/xmlns/publisher/forms#mailconfirmationhandler" />
     <allowformrtdtype type="http://www.webhare.net/xmlns/publisher/rtdfielddefaulttype" />

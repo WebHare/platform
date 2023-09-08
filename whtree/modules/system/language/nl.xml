@@ -1252,7 +1252,7 @@
           <text tid="response">SMTP antwoord</text>
           <text tid="result">Verzendresultaat</text>
           <text tid="route">Route</text>
-          <text tid="sender">Verstuurder</text>
+          <text tid="sender">Verzender</text>
           <text tid="serverip">SMTP server ip</text>
         </textgroup>
       </textgroup>

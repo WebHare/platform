@@ -801,11 +801,11 @@ GetTid("missing.module"); GetTid("system:has.module");`);
 
   res := ValidateSingleFile("mod::webhare_testsuite/webdesigns/basetest/pages/formtest/formtest.formdef.xml");
   TestEq(RECORD[], res.errors);
-  TestEq([[ line := 7,  attrname := "name" ]], SELECT line, attrname FROM res.tids WHERE tid="webhare_testsuite:site.coretest.radiotest");
+  TestEq([[ line := 10,  attrname := "name" ]], SELECT line, attrname FROM res.tids WHERE tid="webhare_testsuite:site.coretest.radiotest");
   TestEq(RECORD[], SELECT line, attrname FROM res.tids WHERE tid="webhare_testsuite:site.coretest.richtexttid");
-  TestEq([[ line := 100,  attrname := "data-wh-gettid" ]], SELECT line, attrname FROM res.tids WHERE tid="webhare_testsuite:site.coretest.richtext-tid");
+  TestEq([[ line := 112,  attrname := "data-wh-gettid" ]], SELECT line, attrname FROM res.tids WHERE tid="webhare_testsuite:site.coretest.richtext-tid");
   TestEq(1, Length(SELECT line, attrname FROM res.tids WHERE tid="webhare_testsuite:site.multipagetest.nextlabeltid"));
-  TestEq([[ line := 164, attrname := "pagetid" ]], SELECT line, attrname FROM res.tids WHERE tid="webhare_testsuite:site.multipagetest.nextpage");
+  TestEq([[ line := 183, attrname := "pagetid" ]], SELECT line, attrname FROM res.tids WHERE tid="webhare_testsuite:site.multipagetest.nextpage");
 
   res := ValidateSingleFile("mod::webhare_testsuite/moduledefinition.xml");
   TestEq(TRUE, RecordExists(SELECT FROM res.tids WHERE tid="webhare_testsuite:module.webruleset"));

@@ -1,79 +1,93 @@
-<formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms" xmlns:wt="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents" gid="site">
-  <form name="coretest" gid='.coretest' objectname="formtest.whlib#CoreTestForm" jshandler="coretest">
+<formdefinitions xmlns="http://www.webhare.net/xmlns/publisher/forms"
+                 xmlns:wt="http://www.webhare.net/xmlns/webhare_testsuite/testformcomponents"
+                 gid="site">
+
+  <form name="coretest" gid=".coretest" jshandler="coretest" objectname="formtest.whlib#CoreTestForm">
     <page>
-      <textedit validationchecks="email" name="email" title="Email" enabled="false" />
+      <textedit name="email" enabled="false" title="Email" validationchecks="email" />
       <textedit name="text" title="Text" />
       <textedit name="setvalidator" title="SetValidator" />
-      <select name="radiotest" rowkeytype="integer" type="radio" required="1">
+      <select name="radiotest" type="radio" required="1" rowkeytype="integer">
         <option rowkey="1" title="Option 1">
-          <textedit name="radiotestnamelijk" value="15" tid=".namelijk" valuetype="integer" required="true" />
+          <textedit name="radiotestnamelijk" required="true" tid=".namelijk" value="15" valuetype="integer" />
         </option>
         <option rowkey="2" selected="true" />
       </select>
-      <select name="radioboolean" rowkeytype="boolean" title="Radioboolean" type="radio">
+      <select name="radioboolean" type="radio" rowkeytype="boolean" title="Radioboolean">
         <option rowkey="true" title="Truth" />
         <option rowkey="false" title="Lie" />
       </select>
-      <checkbox name="showradioy" title="Radio" label="Show requiredradio Y" value="true"/>
-      <select name="requiredradio" title="Required&amp;;Radio" type="radio" required="true">
+      <checkbox name="showradioy" label="Show requiredradio Y" title="Radio" value="true" />
+      <select name="requiredradio" type="radio" required="true" title="Required&amp;;Radio">
         <option rowkey="x" title="X" />
         <option rowkey="y" title="Y" />
-        <option rowkey="z" title="Z" enabled="false"/>
+        <option enabled="false" rowkey="z" title="Z" />
       </select>
-      <select name="horizontalradio" title="Horizontal Radio" type="radio" horizontal="true">
+      <select name="horizontalradio" type="radio" horizontal="true" title="Horizontal Radio">
         <option rowkey="x" title="X" />
         <option rowkey="y" title="Y" />
       </select>
-      <select name="pulldowntest" rowkeytype="integer" placeholdertid=".make_a_selection" title="Pulldowntest" type="pulldown" required="true">
+      <select name="pulldowntest"
+              type="pulldown"
+              placeholdertid=".make_a_selection"
+              required="true"
+              rowkeytype="integer"
+              title="Pulldowntest">
         <!-- <option rowkey="0" title="Make a selection" /> via placeholdertid -->
         <optgroup title="Below five">
           <option rowkey="1" title="One" />
           <option rowkey="2" title="Two" />
-          <option rowkey="3" title="Three" enabled="false" />
+          <option enabled="false" rowkey="3" title="Three" />
         </optgroup>
         <optgroup title="Five and above">
           <option rowkey="5" title="Five" />
           <option rowkey="8" title="Eight" />
         </optgroup>
       </select>
-      <select name="pulldown2test" title="Pulldown2test" type="pulldown">
+      <select name="pulldown2test" type="pulldown" title="Pulldown2test">
         <option rowkey="red" title="Red" />
-        <option rowkey="green" title="Green" selected="true">
+        <option rowkey="green" selected="true" title="Green">
           <textedit name="shade" title="Shade of green" />
         </option>
         <option rowkey="blue" title="Blue" />
       </select>
-      <select name="pulldown3test" title="Pulldown2test" type="pulldown" placeholder="Select"> <!-- placeholders broke earlier due to JS handler iisues -->
+      <select name="pulldown3test" type="pulldown" placeholder="Select" title="Pulldown2test">
+        <!-- placeholders broke earlier due to JS handler iisues -->
         <option rowkey="red" title="Red" />
         <option rowkey="green" title="Green">
           <textedit name="shade2" title="Shade of green" />
         </option>
         <option rowkey="blue" title="Blue" />
       </select>
-      <select name="disabledpulldowntest" tid=".disabledpulldown" type="pulldown" enabled="false">
+      <select name="disabledpulldowntest" type="pulldown" enabled="false" tid=".disabledpulldown">
         <option rowkey="cant" title="Can't" />
-        <option rowkey="touch" title="Touch" selected="true" />
+        <option rowkey="touch" selected="true" title="Touch" />
         <option rowkey="this" title="This" />
       </select>
       <checkbox name="checkboxesvisible" title="Show checkboxes" value="true" />
-      <select name="checkboxes" rowkeytype="integer" title="Checkboxes" type="checkbox" min="1" max="2">
-        <option rowkey="0" title="Disabled" enabled="false" />
-        <option rowkey="1" title="Eins" selected="true" />
+      <select name="checkboxes" type="checkbox" max="2" min="1" rowkeytype="integer" title="Checkboxes">
+        <option enabled="false" rowkey="0" title="Disabled" />
+        <option rowkey="1" selected="true" title="Eins" />
         <option rowkey="2" tid=".zwei" />
-        <option rowkey="3" title="Polizei" selected="true"/>
+        <option rowkey="3" selected="true" title="Polizei" />
       </select>
       <upload name="upload" tid="~upload" />
-      <date name="dateofbirth" min="1900-02-03" max="now+1d" title="DateOfBirth" value="now" groupclasses="ut-dateofbirth" required="true" />
-      <password name="password" title="Wachtwoord?" placeholder="secret" />
-      <textedit name="number" title="NumberPlease" valuetype="integer" min="-2" max="2"/>
-      <textedit name="numberemptyvalue" title="NumberEmpty" valuetype="integer" emptyvalue="0" value="0" />
-      <textedit name="nevervisible" title="I AM INVISIBLE" value="InvisValue" visible="false"/><!-- static invisible -->
-      <textedit name="invisible" title="I AM INVISIBLE" value="InvisValue"/><!-- dynamic invisible -->
-      <address name="address" title="Address" countrylist="NL BE" />
-      <wt:twolevel name="twolevel" title="" groupclasses="wh-testsuite-twolevel-groupclasses"/>
-      <textarea name="textarea" title="Textarea" placeholder="Type a text in this area" maxlength="70" />
-      <checkbox name="agree" title="Agree?" required="true" labeltid=".terms"/>
-
+      <date name="dateofbirth"
+            groupclasses="ut-dateofbirth"
+            max="now+1d"
+            min="1900-02-03"
+            required="true"
+            title="DateOfBirth"
+            value="now" />
+      <password name="password" placeholder="secret" title="Wachtwoord?" />
+      <textedit name="number" max="2" min="-2" title="NumberPlease" valuetype="integer" />
+      <textedit name="numberemptyvalue" emptyvalue="0" title="NumberEmpty" value="0" valuetype="integer" />
+      <textedit name="nevervisible" title="I AM INVISIBLE" value="InvisValue" visible="false" />  <!-- static invisible -->
+      <textedit name="invisible" title="I AM INVISIBLE" value="InvisValue" />  <!-- dynamic invisible -->
+      <address name="address" countrylist="NL BE" title="Address" />
+      <wt:twolevel name="twolevel" groupclasses="wh-testsuite-twolevel-groupclasses" title="" />
+      <textarea name="textarea" maxlength="70" placeholder="Type a text in this area" title="Textarea" />
+      <checkbox name="agree" labeltid=".terms" required="true" title="Agree?" />
       <checkbox name="condition_or_1" title="OR 1" />
       <checkbox name="condition_or_2" title="OR 2" />
       <textedit name="condition_or_visible" title="OR visible" />
@@ -83,70 +97,74 @@
       <checkbox name="condition_not" title="NOT" />
       <textedit name="condition_not_enabled" title="NOT enabled" />
       <textedit name="condition_not_required" title="NOT required" />
-
-      <select name="condition_options" title="Conditional options" type="pulldown" rowkeytype="integer">
+      <select name="condition_options" type="pulldown" rowkeytype="integer" title="Conditional options">
         <option rowkey="1" title="Eins selected" />
         <option rowkey="2" tid=".zwei" />
         <option rowkey="3" title="Polizei" />
       </select>
-
-      <wt:matchattributes name="matchattributes_type1" title="type1" attr1="type1" />
-      <wt:matchattributes name="matchattributes_type2_true" title="type2_true" attr1="type2" attr2="true" />
-      <wt:matchattributes name="matchattributes_type2_false" title="type2_false" attr1="type2" attr2="false" />
-
-      <group name="richtextgroup" title=""> <!-- TODO why is there a 'richtextgroup' ? -->
+      <wt:matchattributes name="matchattributes_type1" attr1="type1" title="type1" />
+      <wt:matchattributes name="matchattributes_type2_true" attr1="type2" attr2="true" title="type2_true" />
+      <wt:matchattributes name="matchattributes_type2_false" attr1="type2" attr2="false" title="type2_false" />
+      <group name="richtextgroup" title="">
+        <!-- TODO why is there a 'richtextgroup' ? -->
         <richtext name="richtexttid" title="">
           <body xmlns="http://www.w3.org/1999/xhtml">
             <h2>before <span data-wh-gettid=".richtext-tid">This text is replaced by the 'site.coretest.richtext-tid' tid value</span> after</h2>
           </body>
         </richtext>
       </group>
+      <hidden name="hidden" title="" value="value-xml" />
     </page>
   </form>
 
-  <form name="dynamictest" objectname="formtest.whlib#DynamicTestForm" jshandler="dynamicform">
+  <form name="dynamictest" jshandler="dynamicform" objectname="formtest.whlib#DynamicTestForm">
     <page>
-      <select name="day" rowkeytype="integer" title="Day" type="pulldown" required="true">
+      <select name="day" type="pulldown" required="true" rowkeytype="integer" title="Day">
         <option rowkey="1" title="Monday" />
         <option rowkey="2" title="Tuesday" />
       </select>
-      <select name="timeslot" rowkeytype="datetime" title="Timeslot" type="radio" required="true">
+      <select name="timeslot" type="radio" required="true" rowkeytype="datetime" title="Timeslot">
         <option rowkey="2012-05-05T17:00:00" title="5 o'clock" />
         <option rowkey="2012-05-05T21:00:00.005" title="9 o'clock and 5 ms" />
       </select>
     </page>
   </form>
 
-  <form name="rtdtest" objectname="formtest.whlib#RTDForm" jshandler="rtdform">
+  <form name="rtdtest" jshandler="rtdform" objectname="formtest.whlib#RTDForm">
     <page>
-      <checkbox name="enablefields" title="" label="EnableFields" value="true" />
-      <checkbox name="requirefields" title="" label="RequireFields" value="false" />
+      <checkbox name="enablefields" label="EnableFields" title="" value="true" />
+      <checkbox name="requirefields" label="RequireFields" title="" value="false" />
       <rtd name="rtd" rtdtype="http://www.webhare.net/xmlns/webhare_testsuite/rtd/level1" title="RTD" />
       <imgedit name="img" title="Image" />
       <upload name="file" title="File" />
       <checkbox name="showfile2" title="Show file #2" />
-      <upload name="file2" title="File #2" required="true" />
+      <upload name="file2" required="true" title="File #2" />
     </page>
   </form>
 
-  <form name="multipagetest" gid=".multipagetest" objectname="formtest.whlib#MultipageTestForm" prevlabel="&lt;--" nextlabeltid=".nextlabeltid" jshandler="multipageform">
-    <page pagetitle="firstpage" fieldsrenderer="formtest.whlib#RenderMultipageTestFirstPage">
-      <richtext title="" name="text1">
+  <form name="multipagetest"
+        gid=".multipagetest"
+        jshandler="multipageform"
+        nextlabeltid=".nextlabeltid"
+        objectname="formtest.whlib#MultipageTestForm"
+        prevlabel="&lt;--">
+    <page fieldsrenderer="formtest.whlib#RenderMultipageTestFirstPage" pagetitle="firstpage">
+      <richtext name="text1" title="">
         <body xmlns="http://www.w3.org/1999/xhtml">
           <h2>Page 1</h2>
         </body>
       </richtext>
-      <textedit name="firstname" title="First name" required="true" />
-      <textedit validationchecks="email" name="email" title="Email" required="true" />
-      <checkbox name="showskipform" title="" label="Show 'skip the entire' form" value="true" />
-      <checkbox name="skipform" title="" label="Skip the entire form" /><!-- Skip form, 'next' button should change to 'submit' -->
-      <checkbox name="fillmaybe" title="" label="Maybe fill an extra page" /><!-- Show the 'conditional' page -->
-      <checkbox name="vertspace" title="" label="I need more vertical space" /><!-- Show the 'vertical space' RTD -->
-      <select type="radio" name="metabonusquestion" title="What is your quest?">
+      <textedit name="firstname" required="true" title="First name" />
+      <textedit name="email" required="true" title="Email" validationchecks="email" />
+      <checkbox name="showskipform" label="Show 'skip the entire' form" title="" value="true" />
+      <checkbox name="skipform" label="Skip the entire form" title="" />  <!-- Skip form, 'next' button should change to 'submit' -->
+      <checkbox name="fillmaybe" label="Maybe fill an extra page" title="" />  <!-- Show the 'conditional' page -->
+      <checkbox name="vertspace" label="I need more vertical space" title="" />  <!-- Show the 'vertical space' RTD -->
+      <select name="metabonusquestion" type="radio" title="What is your quest?">
         <option rowkey="notaquest" title="I'm on no quest" />
         <option rowkey="holygrail" title="I seek the holy grail" />
       </select>
-      <richtext title="" name="vertspacetext">
+      <richtext name="vertspacetext" title="">
         <body xmlns="http://www.w3.org/1999/xhtml">
           <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
           <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
@@ -161,49 +179,52 @@
         </body>
       </richtext>
     </page>
+
     <page name="conditional" pagetid=".nextpage">
-      <richtext title="" name="maybetext">
+      <richtext name="maybetext" title="">
         <body xmlns="http://www.w3.org/1999/xhtml">
           <h2>Maybe Page</h2>
         </body>
       </richtext>
-      <textedit name="maybe" title="Maybe fill this in?" required="true" />
-      <textedit name="never" title="Never fill this in" enabled="false" />
+      <textedit name="maybe" required="true" title="Maybe fill this in?" />
+      <textedit name="never" enabled="false" title="Never fill this in" />
       <group name="hiddengroup" title="">
         <textedit name="hidden" title="Cannot fill this in" />
       </group>
-      <select name="fillextra" title="" type="checkbox" rowkeytype="integer">
+      <select name="fillextra" type="checkbox" rowkeytype="integer" title="">
         <option rowkey="1" title="Fill an extra field" />
       </select>
-      <textedit name="extra" title="Fill an extra field?" required="true" />
-      <select name="fillother" title="" type="checkbox">
+      <textedit name="extra" required="true" title="Fill an extra field?" />
+      <select name="fillother" type="checkbox" title="">
         <option rowkey="yep" title="Fill another field?">
-          <textedit name="other" title="" required="true" />
+          <textedit name="other" required="true" title="" />
         </option>
       </select>
-      <select type="radio" name="bonusquestion" title="What...is the airspeed velocity of an unladen swallow?">
+      <select name="bonusquestion" type="radio" title="What...is the airspeed velocity of an unladen swallow?">
         <option rowkey="answer1" title="16 km/h" />
         <option rowkey="answer2" title="10 mph" />
         <option rowkey="answer3" title="What do you mean, an African or a European swallow?" />
       </select>
       <imgedit name="img" title="Image" />
     </page>
+
     <page name="bonuspage" pagetitle="BonusPage">
-      <richtext title="" name="bonuspagetext">
+      <richtext name="bonuspagetext" title="">
         <body xmlns="http://www.w3.org/1999/xhtml">
           <p>Well...I don't know...AAAAARRRRRRRRRRRRRRRGGGGGHHHH!!!</p>
         </body>
       </richtext>
     </page>
+
     <page name="lastpage">
-      <richtext title="" name="text2">
+      <richtext name="text2" title="">
         <body xmlns="http://www.w3.org/1999/xhtml">
           <h2>Page 2</h2>
-          <p>Come on <span data-merge="textContent:form.firstname" />, just one more page!</p>
+          <p>Come on <span data-merge="textContent:form.firstname"/>, just one more page!</p>
         </body>
       </richtext>
-      <textedit name="text" title="Text" required="true" />
-      <richtext title="" name="vertspacetext2">
+      <textedit name="text" required="true" title="Text" />
+      <richtext name="vertspacetext2" title="">
         <body xmlns="http://www.w3.org/1999/xhtml">
           <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
           <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
@@ -218,14 +239,15 @@
         </body>
       </richtext>
     </page>
+
     <page role="thankyou">
-      <richtext title="" name="text3">
+      <richtext name="text3" title="">
         <body xmlns="http://www.w3.org/1999/xhtml">
           <h2>Done!</h2>
-          <p>Thank you for filling this form, we will contact you at <span data-merge="textContent:form.email" /></p>
+          <p>Thank you for filling this form, we will contact you at <span data-merge="textContent:form.email"/></p>
         </body>
       </richtext>
-      <richtext title="" name="vertspacetext3">
+      <richtext name="vertspacetext3" title="">
         <body xmlns="http://www.w3.org/1999/xhtml">
           <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
           <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
@@ -239,33 +261,35 @@
           <p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p><p>.</p>
         </body>
       </richtext>
-      <richtext title="" name="text4">
+      <richtext name="text4" title="">
         <body xmlns="http://www.w3.org/1999/xhtml">
-          <p>We will <span data-merge="textContent:form.maybe" /> contact you</p>
+          <p>We will <span data-merge="textContent:form.maybe"/> contact you</p>
         </body>
       </richtext>
     </page>
   </form>
 
-  <form name="addressform" objectname="formtest.whlib#AddressForm" gid=".addressform" jshandler="anyformhandler">
+  <form name="addressform" gid=".addressform" jshandler="anyformhandler" objectname="formtest.whlib#AddressForm">
     <page>
-      <checkbox name="visiblegroup" title="" label="VisibleGroup" value="true" />
-      <checkbox name="enablegroup" title="" label="EnableGroup" value="true" />
+      <checkbox name="visiblegroup" label="VisibleGroup" title="" value="true" />
+      <checkbox name="enablegroup" label="EnableGroup" title="" value="true" />
       <group name="addressgroup" title="Address group">
-        <checkbox name="visiblefields" title="" label="VisibleFields" value="true" />
-        <checkbox name="enablefields" title="" label="EnableFields" value="true" />
+        <checkbox name="visiblefields" label="VisibleFields" title="" value="true" />
+        <checkbox name="enablefields" label="EnableFields" title="" value="true" />
         <address name="address" countrylist="NL BE" options="nl-zip-force">
           <fieldtitle tag="nr_detail" title="Number and Addition" />
-          <fieldtitle tag="zip" /><!-- Use tid derived from field tid and fieldtitle tag, i.e. "site.addressform.address-zip" -->
+          <fieldtitle tag="zip" />  <!-- Use tid derived from field tid and fieldtitle tag, i.e. "site.addressform.address-zip" -->
         </address>
-        <textedit name="neighbourhood"  title=""/>
-        <richtext title="" name="address2heading"><body xmlns="http://www.w3.org/1999/xhtml"><h2>Adddress 2</h2><p>countrylist=NL BE DE, options=nl-zip-suggest</p></body></richtext>
+        <textedit name="neighbourhood" title="" />
+        <richtext name="address2heading" title="">
+          <body xmlns="http://www.w3.org/1999/xhtml"><h2>Adddress 2</h2><p>countrylist=NL BE DE, options=nl-zip-suggest</p></body>
+        </richtext>
         <address name="address2" countrylist="NL BE DE - WORLD" options="nl-zip-suggest" title="">
           <fieldtitle tag="country" title="Address2" />
           <fieldtitle tag="nr_detail" title="Number and Addition2" />
         </address>
       </group>
-      <group title="Address 3" name="address3group" >
+      <group name="address3group" title="Address 3">
         <address name="address3" options="!nl-zip-suggest" title="" />
       </group>
     </page>
@@ -279,15 +303,16 @@
         </body>
       </richtext>
     </page>
-    <page role="thankyou" redirect="about:blank">
-    </page>
+
+    <page redirect="about:blank" role="thankyou" />
   </form>
 
   <form name="emailform" objectname="formtest.whlib#EmailForm">
     <page>
-      <textedit validationchecks="email" name="email" title="Email" required="true" />
-      <textedit validationchecks="email-maysendfrom" name="email_sendfrom" title="May send from"  />
+      <textedit name="email" required="true" title="Email" validationchecks="email" />
+      <textedit name="email_sendfrom" title="May send from" validationchecks="email-maysendfrom" />
     </page>
+
     <page role="thankyou">
       <richtext name="thankyoutext" title="">
         <body xmlns="http://www.w3.org/1999/xhtml">
@@ -299,49 +324,55 @@
 
   <form name="workhandlingerrorsform" objectname="formtest.whlib#WorkHandlingErrorsForm">
     <page>
-      <textedit name="mode" title="Mode" required="true" />
+      <textedit name="mode" required="true" title="Mode" />
       <wt:twolevel name="twolevel" title="" />
     </page>
   </form>
 
-  <form name="arrayform" objectname="formtest.whlib#ArrayForm" jshandler="arrayform">
+  <form name="arrayform" jshandler="arrayform" objectname="formtest.whlib#ArrayForm">
     <page>
-      <textedit name="text" title="A text"/>
-      <array name="contacts" min="1" max="2" title="Contacts">
-        <textedit name="name" title="Name"/>
+      <textedit name="text" title="A text" />
+      <array name="contacts" max="2" min="1" title="Contacts">
+        <textedit name="name" title="Name" />
         <upload name="photo" title="Photo" />
-        <select name="gender" rowkeytype="integer" type="pulldown" title="Gender"/>
+        <select name="gender" type="pulldown" rowkeytype="integer" title="Gender" />
         <date name="wrd_dateofbirth" title="DOB" />
-        <checkbox name="confirm" title="" label="Please confirm" />
+        <checkbox name="confirm" label="Please confirm" title="" />
         <select name="favcolor" type="radio" title="Favorite color">
           <option rowkey="red" title="Red" />
           <option rowkey="yellow" title="Yellow" />
           <option rowkey="blue" title="Blue" />
         </select>
       </array>
-      <array name="contacts2" min="0" max="1" title="More contacts">
-        <textedit name="name" title="Name"/>  <!-- shouldn't conflict with array above us -->
+      <array name="contacts2" max="1" min="0" title="More contacts">
+        <textedit name="name" title="Name" />  <!-- shouldn't conflict with array above us -->
         <wt:tscustomcomp name="customcomp" title="customcomp" />
       </array>
       <array name="customarray" title="Custom components">
-        <textedit name="name" title="Name"/>
+        <textedit name="name" title="Name" />
         <wt:tscustomcomp name="customcomp" title="customcomp" />
         <wt:twolevel name="twolevel" title="twolevel" />
       </array>
     </page>
   </form>
 
-  <form name="datetimeform" objectname="formtest.whlib#DateTimeTestForm" jshandler="anyformhandler">
+  <form name="datetimeform" jshandler="anyformhandler" objectname="formtest.whlib#DateTimeTestForm">
     <page>
-      <checkbox name="enable_fields" title="" label="Enable fields" value="true"/>
-      <checkbox name="require_fields" title="" label="Require fields" value="true"/>
-      <checkbox name="show_fields" title="" label="Show fields" value="true"/>
-      <date name="dateofbirth" min="1900-02-03" max="now+1d" title="DateOfBirth" value="now" groupclasses="ut-dateofbirth" />
+      <checkbox name="enable_fields" label="Enable fields" title="" value="true" />
+      <checkbox name="require_fields" label="Require fields" title="" value="true" />
+      <checkbox name="show_fields" label="Show fields" title="" value="true" />
+      <date name="dateofbirth" groupclasses="ut-dateofbirth" max="now+1d" min="1900-02-03" title="DateOfBirth" value="now" />
       <time name="time" title="SomeTime" />
-      <time name="time_sec" title="SomeTime_sec" precision="seconds" />
+      <time name="time_sec" precision="seconds" title="SomeTime_sec" />
       <select name="choice" type="checkbox" title="Choice">
         <option rowkey="date" title="a date">
-          <date name="choice_date" min="1900-02-03" max="now+1d" title="" value="now" groupclasses="ut-dateofbirth" required="true" />
+          <date name="choice_date"
+                groupclasses="ut-dateofbirth"
+                max="now+1d"
+                min="1900-02-03"
+                required="true"
+                title=""
+                value="now" />
         </option>
         <option rowkey="time" title="a time">
           <time name="choice_time" title="" />
@@ -351,19 +382,22 @@
     </page>
   </form>
 
-  <form name="visibleconditionsform" objectname="formtest.whlib#VisibleConditionsTestForm" jshandler="anyformhandler" classes="formdefclass1 formdefclass2">
+  <form name="visibleconditionsform"
+        classes="formdefclass1 formdefclass2"
+        jshandler="anyformhandler"
+        objectname="formtest.whlib#VisibleConditionsTestForm">
     <page>
-      <select name="first" title="First choice" type="radio">
+      <select name="first" type="radio" title="First choice">
         <option rowkey="a" title="A" />
         <option rowkey="b" title="B" />
       </select>
-      <select name="second" title="Second choice" type="radio">
+      <select name="second" type="radio" title="Second choice">
         <option rowkey="a_a" title="A A" />
         <option rowkey="a_b" title="A B" />
         <option rowkey="b_a" title="B A" />
         <option rowkey="b_b" title="B B" />
       </select>
-      <select name="third" title="Third choice" type="radio">
+      <select name="third" type="radio" title="Third choice">
         <option rowkey="a" title="A" />
         <option rowkey="b" title="B" />
       </select>

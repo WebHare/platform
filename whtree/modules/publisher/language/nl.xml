@@ -946,6 +946,12 @@
       <text tid="blockstyle">Kopstijl</text>
       <text tid="name">Groep<ifparam p="1" value=""><else/> <param p="1"/></ifparam></text>
     </textgroup>
+    <textgroup gid="hidden">   <!-- formcomponents.hidden -->
+      <text tid="answer">Antwoord</text>
+      <text tid="description">Verborgen veld met een vaste waarde</text>
+      <text tid="name">Verborgen</text>
+      <text tid="value">Waarde</text>
+    </textgroup>
     <textgroup gid="imgedit">   <!-- formcomponents.imgedit -->
       <text tid="description">Een afbeeldingsbestand uploaden</text>
       <text tid="name">Afbeelding</text>

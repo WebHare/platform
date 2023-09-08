@@ -1,0 +1,57 @@
+<?wh
+
+LOADLIB "mod::publisher/lib/forms/components.whlib";
+LOADLIB "mod::publisher/lib/forms/editor.whlib";
+LOADLIB "mod::publisher/lib/internal/forms/rendering.whlib";
+
+
+PUBLIC STATIC OBJECTTYPE HiddenField EXTEND FormFieldBase
+<
+  PUBLIC STRING value;
+
+  MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
+  : FormFieldBase(form, parent, field)
+  {
+    this->value := field.value;
+  }
+
+  UPDATE PUBLIC MACRO RenderField()
+  {
+    RECORD fielddescription := this->GetBaseRenderData();
+    STRING idstr := fielddescription.firstid != "" ? ` id="${EncodeValue(fielddescription.firstid)}"` : "";
+    STRING datasetstr := GetDatasetAsString(fielddescription.dataset);
+    Print(`<input${idstr} type="hidden" name="${EncodeValue(fielddescription.name)}" value="${EncodeValue(this->value)}"${datasetstr}>`);
+  }
+
+  UPDATE PUBLIC MACRO UpdateFromJS(VARIANT jsdata)
+  {
+    this->value := jsdata;
+  }
+>;
+
+PUBLIC OBJECTTYPE FormHidden EXTEND FormComponentExtensionBase
+<
+  UPDATE PUBLIC MACRO PostInitExtension()
+  {
+    this->value->value := this->node->GetAttribute("value");
+  }
+
+  UPDATE PUBLIC MACRO SubmitExtension(OBJECT work)
+  {
+    IF (NOT work->HasFailed())
+    {
+      IF (this->value->value != "")
+        this->node->SetAttribute("value", this->value->value);
+      ELSE
+        this->node->RemoveAttribute("value");
+    }
+  }
+>;
+
+PUBLIC RECORD FUNCTION ParseFormHidden(RECORD fielddef, OBJECT node, RECORD parsecontext)
+{
+  RETURN CELL
+      [ ...fielddef
+      , value := node->GetAttribute("value")
+      ];
+}
