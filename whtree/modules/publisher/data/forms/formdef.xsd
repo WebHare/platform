@@ -153,6 +153,7 @@
   <xs:group name="LineComponents">
     <xs:choice>
       <xs:element ref="customfield" />
+      <xs:element ref="hidden" />
       <xs:element ref="textedit" />
       <xs:element ref="password" />
       <xs:element ref="date" />
@@ -500,6 +501,28 @@
           </xs:documentation>
         </xs:annotation>
       </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+
+  <xs:element name="hidden">
+    <xs:complexType>
+      <xs:annotation>
+        <xs:documentation>
+          @topic forms/standardcomponents
+        </xs:documentation>
+        <xs:appinfo>
+          <fai:formcomponent descriptiontid="formcomponents.hidden.description"
+                             editdefaults="name title noenabled novisible"
+                             editextension="/screens/formcomponents.xml#formhidden"
+                             fieldobject="/lib/webtools/formcomponents/hidden.whlib#HiddenField"
+                             icon="tollium:forms/hidden"
+                             linecomponent="false"
+                             parserfunc="/lib/webtools/formcomponents/hidden.whlib#parseformhidden"
+                             tid="formcomponents.hidden.name" />
+        </xs:appinfo>
+      </xs:annotation>
+      <xs:attributeGroup ref="BaseAttributes" />
+      <xs:attribute name="value" />
     </xs:complexType>
   </xs:element>
 

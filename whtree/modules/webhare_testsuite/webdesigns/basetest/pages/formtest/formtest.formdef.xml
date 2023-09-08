@@ -113,6 +113,7 @@
           </body>
         </richtext>
       </group>
+      <hidden name="hidden" title="" value="value-xml" />
     </page>
   </form>
 

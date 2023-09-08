@@ -946,6 +946,12 @@
       <text tid="blockstyle">Heading style</text>
       <text tid="name">Group<ifparam p="1" value=""><else/> <param p="1"/></ifparam></text>
     </textgroup>
+    <textgroup gid="hidden">   <!-- formcomponents.hidden -->
+      <text tid="answer">Answer</text>
+      <text tid="description">Hidden field with a fixed value</text>
+      <text tid="name">Hidden</text>
+      <text tid="value">Value</text>
+    </textgroup>
     <textgroup gid="imgedit">   <!-- formcomponents.imgedit -->
       <text tid="description">Upload an image file</text>
       <text tid="name">Image</text>

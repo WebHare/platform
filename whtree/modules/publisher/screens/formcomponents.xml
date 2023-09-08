@@ -32,6 +32,14 @@
     </insert>
   </tabsextension>
 
+  <tabsextension name="formhidden" gid=".hidden" implementation="lib" lib="webtools/formcomponents/hidden.whlib">
+    <!-- Insert after 'titles' instead of 'answers', so we can use our own 'Answer' heading instead of 'Answers' -->
+    <insert position="titles" where="after">
+      <heading tid=".answer" />
+      <textedit name="value" width="1pr" />
+    </insert>
+  </tabsextension>
+
   <tabsextension name="formnumerictextedit" gid=".textedit" implementation="lib" lib="webtools/formcomponents/textedit.whlib">
     <insert position="validation" where="after">
       <!-- Using -1000000001 as emptyvalue so users can explicitly these values to 0 -->

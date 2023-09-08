@@ -24,6 +24,9 @@ class CoreForm extends RPCFormBase {
     super(node);
     qS('#coreform .prefillbutton').addEventListener('click', () => this.doPrefill());
     qS('#coreform .validatebutton').addEventListener('click', () => this.validate());
+
+    if (new URL(location.href).searchParams.get("sethiddenfield") === "javascript")
+      this.setFieldValue(this.node.elements["hidden"], "value-javascript");
   }
 
   async doPrefill() {

@@ -548,5 +548,40 @@ test.registerTests(
       test.click('.wh-form__button--previous');
       await test.wait("load");
       test.eq("Welcome to the testsite", test.qS("#content p").textContent);
-    }
+    },
+
+    "Test hidden field",
+    async function () {
+      // Hidden field gets value from XML source
+      await test.load(test.getTestSiteRoot() + "testpages/formtest/" + urlappend);
+      test.eq("value-xml", test.qS("[name=hidden]").value);
+      quickFillDefaultRequiredFields();
+      test.click("#submitbutton");
+      await test.wait("ui");
+      test.eq("value-xml", JSON.parse(test.qS("#coreformsubmitresponse").textContent).form.hidden);
+
+      // Hidden field is prefilled by url
+      await test.load(test.getTestSiteRoot() + "testpages/formtest/?hidden=value-url" + urlappend.replace("?", "&"));
+      test.eq("value-url", test.qS("[name=hidden]").value);
+      quickFillDefaultRequiredFields();
+      test.click("#submitbutton");
+      await test.wait("ui");
+      test.eq("value-url", JSON.parse(test.qS("#coreformsubmitresponse").textContent).form.hidden);
+
+      // Hidden field is set dynamically server-side
+      await test.load(test.getTestSiteRoot() + "testpages/formtest/?sethiddenfield=harescript" + urlappend.replace("?", "&"));
+      test.eq("value-harescript", test.qS("[name=hidden]").value);
+      quickFillDefaultRequiredFields();
+      test.click("#submitbutton");
+      await test.wait("ui");
+      test.eq("value-harescript", JSON.parse(test.qS("#coreformsubmitresponse").textContent).form.hidden);
+
+      // Hidden field is set dynamically client-side
+      await test.load(test.getTestSiteRoot() + "testpages/formtest/?sethiddenfield=javascript" + urlappend.replace("?", "&"));
+      test.eq("value-javascript", test.qS("[name=hidden]").value);
+      quickFillDefaultRequiredFields();
+      test.click("#submitbutton");
+      await test.wait("ui");
+      test.eq("value-javascript", JSON.parse(test.qS("#coreformsubmitresponse").textContent).form.hidden);
+    },
   ]);
