@@ -1,4 +1,4 @@
-import { ensureScopedResource, getCodeContext, getScopedResource } from "@webhare/services/src/codecontexts";
+import { ensureScopedResource, getScopedResource } from "@webhare/services/src/codecontexts";
 import { HSVMCallsProxy, invokeOnVM } from "./wasm-proxies";
 import { HareScriptVM, allocateHSVM } from "./wasm-hsvm";
 import { CommonLibraries, CommonLibraryType } from "./commonlibs";
@@ -8,7 +8,6 @@ const HSVMSymbol = Symbol("HSVM");
 async function allocateCodeContextHSVM() {
   const vm = await allocateHSVM();
   await vm.loadlib("mod::system/lib/database.whlib").openPrimary(); //JS has prepared it anwyway, so open it
-  getCodeContext().on("close", () => vm.shutdown());
   return vm;
 }
 
@@ -16,7 +15,9 @@ export function getCodeContextHSVM(): Promise<HareScriptVM> | undefined {
   return getScopedResource<Promise<HareScriptVM>>(HSVMSymbol);
 }
 export function ensureCodeContextHSVM(): Promise<HareScriptVM> {
-  return ensureScopedResource(HSVMSymbol, () => allocateCodeContextHSVM());
+  return ensureScopedResource(HSVMSymbol, () => allocateCodeContextHSVM(), async vm => {
+    (await vm).shutdown();
+  });
 }
 
 class ContextLibraryProxy {
