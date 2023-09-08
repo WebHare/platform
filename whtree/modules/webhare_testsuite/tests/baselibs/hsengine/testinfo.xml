@@ -75,7 +75,7 @@
     <test script="test_control.whscr" xfail="1" />  <!-- Missing process control -->
     <test script="test_constants.whscr" />
     <test script="test_conversions.whscr" />
-    <test script="test_crypto.whscr" xfail="1" />  <!-- Missing algorithm CRC32 -->
+    <test script="test_crypto.whscr" xfail="1" />  <!-- Missing exception translation -->
     <test script="test_css.whscr" />
     <test script="test_css_xpath.whscr" />
     <test script="test_database.whscr" />
@@ -84,14 +84,14 @@
     <test script="test_exceptions.whscr" />
     <test script="test_export.whscr" />
     <test script="test_events.whscr" />
-    <test script="test_files.whscr" xfail="1" />  <!-- Missing ZLib -->
+    <test script="test_files.whscr" xfail="1" />  <!-- Missing drawlib -->
     <test script="test_float.whscr" />
     <test script="test_foreveryyield.whscr" />
     <test script="test_functions.whscr" />
     <test script="test_getopt.whscr" />
     <test script="test_graphics.whscr" xfail="1" />  <!-- Missing Drawlib -->
     <test script="test_html.whscr" />
-    <test script="test_ical.whscr" xfail="1" />  <!-- Missing function GetSystemHostname -->
+    <test script="test_ical.whscr" xfail="1" />  <!-- Missing function __ICU_GETCANONICALTIMEZONEID -->
     <test script="test_internet.whscr" xfail="1" />  <!-- Missing socket support -->
     <test script="test_ipc.whscr" />
     <test script="test_jobs.whscr" />
@@ -107,9 +107,9 @@
     <test script="test_nestedif.whscr" />
     <test script="test_numbers.whscr" />
     <test script="test_objects.whscr" />
-    <test script="test_xlsx.whscr" xfail="1" />  <!-- Missing Zlib -->
+    <test script="test_xlsx.whscr" />
     <test script="test_operators.whscr" />
-    <test script="test_os.whscr" xfail="1" />  <!-- Missing function WaitForMultipleUntil -->
+    <test script="test_os.whscr" xfail="1" />  <!-- Missing process control -->
     <test script="test_otp.whscr" />
     <test script="test_ports.whscr" />
     <test script="test_promise.whscr" />
@@ -123,10 +123,10 @@
     <test script="test_stringparser.whscr" />
     <test script="test_syntax.whscr" />
     <test script="test_tests.whscr" />
-    <test script="test_traces.whscr" runmode="process" xfail="1" />  <!-- Missing test:: support -->
+    <test script="test_traces.whscr" runmode="process" />
     <test script="test_types.whscr" />
     <test script="test_witty.whscr" />
-    <test script="test_xml_signature.whscr" xfail="1" />  <!-- Missing function GetCertificateData -->
+    <test script="test_xml_signature.whscr" />
     <test script="test_xml.whscr" />  <!-- Spurious xmlns="" added. now commented out, needs fixing though -->
     <test script="test_yieldasync.whscr" />
   </group>

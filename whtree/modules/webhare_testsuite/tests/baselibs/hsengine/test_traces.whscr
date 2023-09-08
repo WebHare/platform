@@ -6,6 +6,7 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internal/jobs.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 
 LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_traces_a.whlib";
 
@@ -61,12 +62,16 @@ MACRO TestTraces()
     RECORD ARRAY trace := SELECT * FROM jres.job->GetErrors() WHERE istrace;
     TestEq([ "TEST4", "TEST3", "TEST2", "TEST1" ], GetTraceFunctions(trace, [":INITFUNCTION"]));
 
-    TestEQ(jres.job->GetErrors(), __HS_ERRORSBYGROUPID(jres.job->groupid).messages);
+    IF (NOT IsWASM()) // No process mgr in wasm
+    {
+      TestEQ(jres.job->GetErrors(), __HS_ERRORSBYGROUPID(jres.job->groupid).messages);
 
-    TestEQ(DEFAULT RECORD, __HS_ERRORSBYGROUPID("fail"));
+      TestEQ(DEFAULT RECORD, __HS_ERRORSBYGROUPID("fail"));
+    }
 
     jres.job->Close();
   }
+
 
   {
     RECORD jres := CreateJob("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_traces_a.whlib");
@@ -83,7 +88,8 @@ MACRO TestTraces()
     RECORD ARRAY trace := SELECT * FROM jres.job->GetErrors() WHERE istrace;
     TestEq([ "TEST4", "TEST3", "TEST2", "TEST1" ], GetTraceFunctions(trace, [":INITFUNCTION"]));
 
-    TestEQ(jres.job->GetErrors(), __HS_ERRORSBYGROUPID(jres.job->groupid).messages);
+    IF (NOT IsWASM()) // No process mgr in wasm
+      TestEQ(jres.job->GetErrors(), __HS_ERRORSBYGROUPID(jres.job->groupid).messages);
 
     jres.job->Close();
   }

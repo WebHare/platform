@@ -12,9 +12,11 @@ import * as syscalls from "./syscalls";
 import { localToUTC, utcToLocal } from "@webhare/hscompat/datetime";
 import { isWHDBBlob } from "@webhare/whdb/src/blobs";
 import * as crypto from "node:crypto";
+import * as os from "node:os";
 import { IPCEndPoint, IPCMessagePacket, IPCPort, createIPCEndPointPair, decodeTransferredIPCEndPoint } from "@mod-system/js/internal/whmanager/ipc";
 import { isValidName } from "@webhare/whfs/src/support";
 import { AsyncWorker, ConvertWorkerServiceInterfaceToClientInterface } from "@mod-system/js/internal/worker";
+import { Crc32 } from "@mod-system/js/internal/util/crc32";
 
 type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
 
@@ -59,11 +61,13 @@ function contextGetterFactory<T extends new (...args: any) => any>(obj: T): (vm:
 class Hasher extends OutputObjectBase {
   static context = contextGetterFactory(class { hashers = new Map<number, Hasher>; });
 
-  hasher: crypto.Hash;
+  hasher: { update(data: crypto.BinaryLike): void; digest(): Buffer };
 
   constructor(vm: HareScriptVM, algorithm: string) {
     super(vm, "Crypto hasher");
-    this.hasher = crypto.createHash(algorithm);
+    this.hasher = algorithm === "crc32"
+      ? new Crc32
+      : crypto.createHash(algorithm);
   }
 
   write(buffer: Buffer, allowPartial: boolean) {
@@ -484,6 +488,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerExternalFunction("CREATEHASHER::I:S", (vm, id_set, varAlgorithm) => {
     let algorithm: "md5" | "sha1" | "sha224" | "sha256" | "sha384" | "sha512" | "crc32";
     switch (varAlgorithm.getString()) {
+      case "CRC32": algorithm = "crc32"; break;
       case "MD5": algorithm = "md5"; break;
       case "SHA-1": algorithm = "sha1"; break;
       case "SHA-256": algorithm = "sha256"; break;
@@ -834,6 +839,98 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
 
   wasmmodule.registerExternalMacro("__HS_SETRUNNINGSTATUS:::B", (vm, var_running) => {
     // Ignored
+  });
+
+  wasmmodule.registerExternalFunction("__DOEVPCRYPT::S:SBSSS", (vm, id_set, var_algo, var_encrypt, var_keydata, var_data, var_iv) => {
+    const algo = var_algo.getString() as "bf-cbc" | "bf-ecb";
+    if (algo != "bf-cbc" && algo != "bf-ecb")
+      throw new Error(`Invalid algorithm ${JSON.stringify(algo)}`);
+
+    let key = var_keydata.getStringAsBuffer();
+    const iv = var_iv.getStringAsBuffer();
+
+    if (key.byteLength < 16) {
+      // pad key with zeroes if too short
+      const toadd = Buffer.alloc(16 - key.byteLength);
+      key = Buffer.concat([key, toadd]);
+    }
+
+    if (iv.byteLength !== 0 && iv.byteLength !== 8)
+      throw new Error(`Encryption iv length is wrong, expected 8 bytes, got ${iv.byteLength} bytes`);
+
+    const cipher = var_encrypt.getBoolean() ?
+      crypto.createCipheriv(algo, key, iv) :
+      crypto.createDecipheriv(algo, key, iv);
+
+    let output = cipher.update(var_data.getStringAsBuffer());
+    output = Buffer.concat([output, cipher.final()]);
+    id_set.setString(output);
+  });
+
+  wasmmodule.registerExternalFunction("ENCRYPT_XOR::S:SS", (vm, id_set, var_key, var_data) => {
+    const buf = var_data.getStringAsBuffer();
+    const key = var_key.getStringAsBuffer();
+
+    for (let i = 0; i < buf.byteLength; ++i)
+      buf[i] = buf[i] ^ key[i % key.byteLength];
+
+    id_set.setString(buf);
+  });
+
+  wasmmodule.registerExternalFunction("GETSYSTEMHOSTNAME::S:B", (vm, id_set, var_full) => {
+    id_set.setString(os.hostname());
+  });
+
+  wasmmodule.registerExternalFunction("GETCERTIFICATEDATA::R:S", (vm, id_set, var_certdata) => {
+    const key = crypto.createPublicKey(var_certdata.getStringAsBuffer()).export({ type: 'pkcs1', format: 'pem' });
+    id_set.setDefault(VariableType.Record);
+    id_set.ensureCell("PUBLICKEY").setString(key);
+  });
+
+  const cryptoContext = contextGetterFactory(class {
+    idcounter = 0;
+    keys = new Map<number, { key: crypto.KeyObject; isPrivate: boolean }>;
+  });
+
+  wasmmodule.registerExternalFunction("__EVP_LOADPRVKEY::I:S", (vm, id_set, var_keydata) => {
+    let key: { key: crypto.KeyObject; isPrivate: boolean };
+    try {
+      key = { key: crypto.createPrivateKey(var_keydata.getStringAsBuffer()), isPrivate: true };
+    } catch (e) {
+      key = { key: crypto.createPublicKey(var_keydata.getStringAsBuffer()), isPrivate: false };
+    }
+    const ctxt = cryptoContext(vm);
+    const id = ++ctxt.idcounter;
+    ctxt.keys.set(id, key);
+    id_set.setInteger(id);
+  });
+
+  wasmmodule.registerExternalFunction("__EVP_SIGN::S:ISS", (vm, id_set, var_handle, var_data, var_alg) => {
+    const keyrec = cryptoContext(vm).keys.get(var_handle.getInteger());
+    if (!keyrec)
+      throw new Error(`Invalid key handle`);
+
+    const sign = crypto.createSign(var_alg.getString());
+    sign.update(var_data.getStringAsBuffer());
+    id_set.setString(sign.sign(keyrec.key));
+  });
+
+  wasmmodule.registerExternalFunction("__EVP_VERIFY::B:ISSS", (vm, id_set, var_handle, var_data, var_signature, var_alg) => {
+    const keyrec = cryptoContext(vm).keys.get(var_handle.getInteger());
+    if (!keyrec)
+      throw new Error(`Invalid key handle`);
+
+    const verify = crypto.createVerify(var_alg.getString());
+    verify.update(var_data.getStringAsBuffer());
+    id_set.setBoolean(verify.verify(keyrec.key, var_signature.getStringAsBuffer()));
+  });
+
+  wasmmodule.registerExternalFunction("__EVP_ISKEYPUBLICONLY::B:I", (vm, id_set, var_handle) => {
+    const keyrec = cryptoContext(vm).keys.get(var_handle.getInteger());
+    if (!keyrec)
+      throw new Error(`Invalid key handle`);
+
+    id_set.setBoolean(!keyrec.isPrivate);
   });
 }
 

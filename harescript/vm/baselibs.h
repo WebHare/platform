@@ -546,6 +546,7 @@ struct SystemContextData
         OSContext os;
 #ifndef __EMSCRIPTEN__
         CryptoContext crypto;
+#endif // __EMSCRIPTEN__
 
         struct CompressingStream
         {
@@ -562,19 +563,16 @@ struct SystemContextData
                 std::unique_ptr<Blex::Stream> inputdata;
                 std::unique_ptr<Blex::ZlibDecompressStream> outputdata;
         };
-#endif // __EMSCRIPTEN__
 
         struct Log;
 
         typedef RegisteredIdMapStorage<std::shared_ptr<Log> > Logs;
         Logs logs;
 
-#ifndef __EMSCRIPTEN__
         typedef std::shared_ptr<CompressingStream> CompressingStreamPtr;
         typedef std::shared_ptr<DecompressingStream> DecompressingStreamPtr;
         std::map<int, CompressingStreamPtr> compressingstreams;
         std::map<int, DecompressingStreamPtr> decompressingstreams;
-#endif
 
         std::map< int32_t, std::shared_ptr< EventStream > > eventstreams;
         std::map< int32_t, std::shared_ptr< EventCollector > > eventcollectors;

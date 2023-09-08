@@ -9,6 +9,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/csv.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 
 
 RECORD ARRAY errors;
@@ -588,22 +589,27 @@ MACRO ArchiveTest()
   TestEqual(37,2,length(select from macarchive where name!='')); //files
   TestEqual(38,2,length(select from macarchive where name='')); //folders
 
+  BLOB originaldata := StringToBlob("0123456789");
+  STRING output;
+  IF (NOT IsWasm())
   {
     // create a zip by streaming (will have compressed size and crc in local file header set to 0)
-    BLOB originaldata := StringToBlob("0123456789");
     OBJECT proc := CreateProcess("zip", [ "-r", "-", "-" ], [ take_input := TRUE, take_output := TRUE, take_errors := TRUE ]);
     proc->Start();
     SendBlobTo(proc->input_handle, originaldata); // small enough for buffers
     proc->CloseInput();
-    STRING output := ReadFromFile(proc->output_handle, 1000000); // should fit
+    output := ReadFromFile(proc->output_handle, 1000000); // should fit
     proc->Close();
-    TestEQMembers(
-        [ [ name := "-"
-          , path := ""
-          , data := originaldata
-          ]
-        ], UnpackArchive(StringToBlob(output)), "*");
   }
+  ELSE
+    output := DecodeUFS("UEsDBC0ACAAIAMddKFcAAAAA__________8BABQALQEAEAAAAAAAAAAAAAAAAAAAAAAAMzA0MjYxNTO3sAQAUEsHCMbHhKYMAAAAAAAAAAoAAAAAAAAAUEsBAh4DLQAIAAgAx10oV8bHhKYMAAAACgAAAAEAAAAAAAAAAQAAALARAAAAAC1QSwUGAAAAAAEAAQAvAAAAVwAAAAAA");
+
+  TestEQMembers(
+      [ [ name := "-"
+        , path := ""
+        , data := originaldata
+        ]
+      ], UnpackArchive(StringToBlob(output)), "*");
 
   CloseTest("TestFiles: ArchiveTest");
 }

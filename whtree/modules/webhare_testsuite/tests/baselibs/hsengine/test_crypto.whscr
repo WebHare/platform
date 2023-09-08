@@ -5,6 +5,7 @@ LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::filetypes/pkcs.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 
 STRING FUNCTION MakePasswordUTF8Safe(STRING inpassword)
 {
@@ -66,15 +67,17 @@ MACRO HashTest()
 
 
   // No test for broken MD5...
+  IF (NOT IsWasM())
+  {
+    // MD5 crypt
+    TestEq(TRUE, VerifyWebHarePasswordHash("hiningo", "LCR:$1$ny$k/OtiLM5erXWmOr.phmGm0"));
+    TestEq(FALSE, VerifyWebHarePasswordHash("hiningo", "LCR:$1$ny$k/OtiLM5erXWmOr.phmGm1"));
+    TestEq(FALSE, VerifyWebHarePasswordHash("hiningo", "LCR:ny$k/OtiLM5erXWmOr.phmGm0"));
 
-  // MD5 crypt
-  TestEq(TRUE, VerifyWebHarePasswordHash("hiningo", "LCR:$1$ny$k/OtiLM5erXWmOr.phmGm0"));
-  TestEq(FALSE, VerifyWebHarePasswordHash("hiningo", "LCR:$1$ny$k/OtiLM5erXWmOr.phmGm1"));
-  TestEq(FALSE, VerifyWebHarePasswordHash("hiningo", "LCR:ny$k/OtiLM5erXWmOr.phmGm0"));
-
-  // DES crypt
-  TestEq(TRUE, VerifyWebHarePasswordHash("hiningo", "LCR:nyfVcZo/9Cj1U"));
-  TestEq(FALSE, VerifyWebHarePasswordHash("hiningo", "LCR:nyfVcZo/9Cj1V"));
+    // DES crypt
+    TestEq(TRUE, VerifyWebHarePasswordHash("hiningo", "LCR:nyfVcZo/9Cj1U"));
+    TestEq(FALSE, VerifyWebHarePasswordHash("hiningo", "LCR:nyfVcZo/9Cj1V"));
+  }
 
   TestEq(FALSE, VerifyWebHarePasswordHash("hiningo", ""));
 
@@ -189,7 +192,7 @@ O1t8+FbRGplZNW0qXQIDAQAB
   // Signature created by 'openssl dgst -sha1 -sign privatekey.pem -out testsign.sgn testdata.txt'
   // (dumping: hexdump -C testsign.sgn)
   STRING expect_signature_sha1 := DecodeBase16(
-       "9e993f65e248ece02689fa14fc6ea962"
+      "9e993f65e248ece02689fa14fc6ea962"
     || "888783e78f4e6e6e149cbd7626c001ff"
     || "bc8750fd3e8f51b1ee1426dab52d5abf"
     || "74a359359e624f463f22ecc973b874fa"
@@ -515,7 +518,8 @@ BlowfishTest();
 SignTest();
 PasswordTest();
 XorTest();
-EvpTest();
+IF (NOT IsWASM())
+  EvpTest();
 PKCSTest();
 HMACTest();
 GUIDTest();

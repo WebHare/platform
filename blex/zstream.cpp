@@ -1,4 +1,3 @@
-#if !defined(__EMSCRIPTEN__)
 #include <blex/blexlib.h>
 
 /* ADDME: Better error reporting on why things went wrong*/
@@ -816,5 +815,3 @@ bool ZipArchiveReader::SendFileByPath(std::string const &path, Stream &output_st
 }
 
 } //end of namespace Blex
-
-#endif

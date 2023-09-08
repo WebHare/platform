@@ -61,7 +61,7 @@ wh_runjs()
   SAVE_NODE_OPTIONS="$NDOE_OPTIONS"
 
   export NODE_PATH="$WEBHARE_DATAROOT/node_modules"
-  export NODE_OPTIONS="--enable-source-maps --require \"$WEBHARE_DIR/jssdk/ts-esbuild-runner/dist/resolveplugin.js\" $NODE_OPTIONS"
+  export NODE_OPTIONS="--enable-source-maps --require \"$WEBHARE_DIR/jssdk/ts-esbuild-runner/dist/resolveplugin.js\" --openssl-legacy-provider $NODE_OPTIONS"
 
   # --experimental-wasm-stack-switching is not allowed in NODE_OPTIONS
   $RUNJS_PREFIX node --experimental-wasm-stack-switching $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
