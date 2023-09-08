@@ -1,4 +1,4 @@
-#if !defined(blex_zstream) && !defined(__EMSCRIPTEN__)
+#if !defined(blex_zstream)
 #define blex_zstream
 
 #ifndef blex_stream

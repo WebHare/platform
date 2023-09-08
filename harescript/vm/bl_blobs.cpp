@@ -460,8 +460,6 @@ void MakeComposedBlob(VarId id_set, VirtualMachine *vm)
         stackm.SetBlob(id_set, BlobRefPtr(new ComposedBlob(vm, std::move(defs))));
 }
 
-#ifndef __EMSCRIPTEN__
-
 ///////////////////////////////////////////////////////////////////////////////
 //
 // Compression
@@ -636,7 +634,6 @@ void CloseZlibDecompressor(VirtualMachine *vm)
         HSVM_UnregisterIOObject(*vm, id);
         context->decompressingstreams[id].reset();
 }
-#endif // __EMSCRIPTEN__
 
 void InitBlob(BuiltinFunctionsRegistrator &bifreg)
 {
@@ -644,12 +641,10 @@ void InitBlob(BuiltinFunctionsRegistrator &bifreg)
 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("SENDBLOBTO::B:IX",SendBlobTo));
 
-#ifndef __EMSCRIPTEN__
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CREATEZLIBCOMPRESSOR::I:ISI",CreateZlibCompressor));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CLOSEZLIBCOMPRESSOR::R:I",CloseZlibCompressor));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("OPENBLOBASDECOMPRESSINGSTREAM::I:XS",OpenBlobAsDecompressingStream));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("CLOSEZLIBDECOMPRESSOR:::I",CloseZlibDecompressor));
-#endif // __EMSCRIPTEN__
 
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("__HS_CREATESTREAM::I:",MakeBlob));
         bifreg.RegisterBuiltinFunction(BuiltinFunctionDefinition("GETSTREAMLENGTH::6:I",GetStreamLength));
