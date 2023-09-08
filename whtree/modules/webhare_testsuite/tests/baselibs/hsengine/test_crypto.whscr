@@ -5,6 +5,7 @@ LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::filetypes/pkcs.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 
 STRING FUNCTION MakePasswordUTF8Safe(STRING inpassword)
 {
@@ -66,15 +67,17 @@ MACRO HashTest()
 
 
   // No test for broken MD5...
+  IF (NOT IsWasM())
+  {
+    // MD5 crypt
+    TestEq(TRUE, VerifyWebHarePasswordHash("hiningo", "LCR:$1$ny$k/OtiLM5erXWmOr.phmGm0"));
+    TestEq(FALSE, VerifyWebHarePasswordHash("hiningo", "LCR:$1$ny$k/OtiLM5erXWmOr.phmGm1"));
+    TestEq(FALSE, VerifyWebHarePasswordHash("hiningo", "LCR:ny$k/OtiLM5erXWmOr.phmGm0"));
 
-  // MD5 crypt
-  TestEq(TRUE, VerifyWebHarePasswordHash("hiningo", "LCR:$1$ny$k/OtiLM5erXWmOr.phmGm0"));
-  TestEq(FALSE, VerifyWebHarePasswordHash("hiningo", "LCR:$1$ny$k/OtiLM5erXWmOr.phmGm1"));
-  TestEq(FALSE, VerifyWebHarePasswordHash("hiningo", "LCR:ny$k/OtiLM5erXWmOr.phmGm0"));
-
-  // DES crypt
-  TestEq(TRUE, VerifyWebHarePasswordHash("hiningo", "LCR:nyfVcZo/9Cj1U"));
-  TestEq(FALSE, VerifyWebHarePasswordHash("hiningo", "LCR:nyfVcZo/9Cj1V"));
+    // DES crypt
+    TestEq(TRUE, VerifyWebHarePasswordHash("hiningo", "LCR:nyfVcZo/9Cj1U"));
+    TestEq(FALSE, VerifyWebHarePasswordHash("hiningo", "LCR:nyfVcZo/9Cj1V"));
+  }
 
   TestEq(FALSE, VerifyWebHarePasswordHash("hiningo", ""));
 
@@ -149,7 +152,9 @@ MACRO SignTest()
 {
   OpenTest("TestCrypto: SignTest");
 
-  STRING privatekey := `-----BEGIN RSA PRIVATE KEY-----
+  IF (NOT IsWASM())
+  {
+    STRING privatekey := `-----BEGIN RSA PRIVATE KEY-----
 MIICXQIBAAKBgQCfDciBDx2gTq4k5RlXG4Z+DDoardiseAc3/K42Zx5TKhdzw3fG
 rM/4ySVqJwHmuw1i2aLWC7I8T8FuryWT4fkETYvp44dZvi4YXg5BjOeODSYdMohD
 nL+rkIzbty8mdG5j/LpWZJDF7Be9cdyQsq/9Dd3RO1t8+FbRGplZNW0qXQIDAQAB
@@ -165,87 +170,88 @@ R1/A7kmCdIm1QvQv2RcCQQDQ/2UYRWYOmgAGglDfhZ+i1HjLJ9aZrsQpUNbbsEHl
 JCvHLhuworQbbfK4wqJK/QxSFKz4u2dc2g0DGHD3U3HS
 -----END RSA PRIVATE KEY-----`;
 
-  STRING publickey := `-----BEGIN PUBLIC KEY-----
+    STRING publickey := `-----BEGIN PUBLIC KEY-----
 MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCfDciBDx2gTq4k5RlXG4Z+DDoa
 rdiseAc3/K42Zx5TKhdzw3fGrM/4ySVqJwHmuw1i2aLWC7I8T8FuryWT4fkETYvp
 44dZvi4YXg5BjOeODSYdMohDnL+rkIzbty8mdG5j/LpWZJDF7Be9cdyQsq/9Dd3R
 O1t8+FbRGplZNW0qXQIDAQAB
 -----END PUBLIC KEY-----`;
 
-  STRING testdata := 'Testdata\n';
-  STRING testdata_md5digest := GetHashForString(testdata, "MD5");
-  STRING testdata_sha1digest_1 := GetSHA1Hash(testdata);
-  STRING testdata_sha1digest_2 := GetHashForString(testdata, "SHA-1");
-  STRING testdata_sha224digest := GetHashForString(testdata, "SHA-224");
-  STRING testdata_sha256digest := GetHashForString(testdata, "SHA-256");
-  STRING testdata_sha384digest := GetHashForString(testdata, "SHA-384");
-  STRING testdata_sha512digest := GetHashForString(testdata, "SHA-512");
+    STRING testdata := 'Testdata\n';
+    STRING testdata_md5digest := GetHashForString(testdata, "MD5");
+    STRING testdata_sha1digest_1 := GetSHA1Hash(testdata);
+    STRING testdata_sha1digest_2 := GetHashForString(testdata, "SHA-1");
+    STRING testdata_sha224digest := GetHashForString(testdata, "SHA-224");
+    STRING testdata_sha256digest := GetHashForString(testdata, "SHA-256");
+    STRING testdata_sha384digest := GetHashForString(testdata, "SHA-384");
+    STRING testdata_sha512digest := GetHashForString(testdata, "SHA-512");
 
-  STRING signature_sha224 := MakeCryptoKey(privatekey)->Sign(testdata, "SHA-224");
-  STRING signature_sha256 := MakeCryptoKey(privatekey)->Sign(testdata, "SHA-256");
-  STRING signature_sha384 := MakeCryptoKey(privatekey)->Sign(testdata, "SHA-384");
-  STRING signature_sha512 := MakeCryptoKey(privatekey)->Sign(testdata, "SHA-512");
+    STRING signature_sha224 := MakeCryptoKey(privatekey)->Sign(testdata, "SHA-224");
+    STRING signature_sha256 := MakeCryptoKey(privatekey)->Sign(testdata, "SHA-256");
+    STRING signature_sha384 := MakeCryptoKey(privatekey)->Sign(testdata, "SHA-384");
+    STRING signature_sha512 := MakeCryptoKey(privatekey)->Sign(testdata, "SHA-512");
 
-  // Signature created by 'openssl dgst -sha1 -sign privatekey.pem -out testsign.sgn testdata.txt'
-  // (dumping: hexdump -C testsign.sgn)
-  STRING expect_signature_sha1 := DecodeBase16(
-       "9e993f65e248ece02689fa14fc6ea962"
-    || "888783e78f4e6e6e149cbd7626c001ff"
-    || "bc8750fd3e8f51b1ee1426dab52d5abf"
-    || "74a359359e624f463f22ecc973b874fa"
-    || "236013aea63896c1818bc07cc7c3fa0a"
-    || "f8dff4bc05a336229215cdd2de1811ac"
-    || "82d43e070766d698895924cde41724f7"
-    || "9048a3d7889884a9ec1852a7218387d4");
+    // Signature created by 'openssl dgst -sha1 -sign privatekey.pem -out testsign.sgn testdata.txt'
+    // (dumping: hexdump -C testsign.sgn)
+    STRING expect_signature_sha1 := DecodeBase16(
+        "9e993f65e248ece02689fa14fc6ea962"
+      || "888783e78f4e6e6e149cbd7626c001ff"
+      || "bc8750fd3e8f51b1ee1426dab52d5abf"
+      || "74a359359e624f463f22ecc973b874fa"
+      || "236013aea63896c1818bc07cc7c3fa0a"
+      || "f8dff4bc05a336229215cdd2de1811ac"
+      || "82d43e070766d698895924cde41724f7"
+      || "9048a3d7889884a9ec1852a7218387d4");
 
-  STRING expect_signature_md5 := DecodeBase16(
-      "2ac9d7c3e9e6ce9661ef9f06fcf37385"
-    || "fe213638e994c3b1111ef03ab7f3e6a0"
-    || "c9dd4feb2284fe0932f70c6ea7fd0de6"
-    || "bdcec13dadc5eae07c7c911d6aef6658"
-    || "b129cfe5c75e5c349b906e4d9b963cb4"
-    || "d7a5648a5d12b4748b560d1c978536a4"
-    || "e5ec573aa2e2b5d5af9945a22fe7402e"
-    || "197c1e01f08ddc130dae3eb30b9dc56f");
+    STRING expect_signature_md5 := DecodeBase16(
+        "2ac9d7c3e9e6ce9661ef9f06fcf37385"
+      || "fe213638e994c3b1111ef03ab7f3e6a0"
+      || "c9dd4feb2284fe0932f70c6ea7fd0de6"
+      || "bdcec13dadc5eae07c7c911d6aef6658"
+      || "b129cfe5c75e5c349b906e4d9b963cb4"
+      || "d7a5648a5d12b4748b560d1c978536a4"
+      || "e5ec573aa2e2b5d5af9945a22fe7402e"
+      || "197c1e01f08ddc130dae3eb30b9dc56f");
 
-  STRING expect_signature_sha256 := DecodeBase16(
-      "1c737829224d4c419496255a54796faf"
-    || "f0949263ec1b8c4023583144159167af"
-    || "e024375f917deca67d191e468d34a22b"
-    || "06820f1296e79b5a9fb55566743197b5"
-    || "b285b5ced4e22b9f0ba040670979d1ff"
-    || "064cae246ba46d747801d096989c355c"
-    || "5de5204c9195f39fcf9026e9cf635f9d"
-    || "bb8d00ed8e3c122b9271217be848bb38");
+    STRING expect_signature_sha256 := DecodeBase16(
+        "1c737829224d4c419496255a54796faf"
+      || "f0949263ec1b8c4023583144159167af"
+      || "e024375f917deca67d191e468d34a22b"
+      || "06820f1296e79b5a9fb55566743197b5"
+      || "b285b5ced4e22b9f0ba040670979d1ff"
+      || "064cae246ba46d747801d096989c355c"
+      || "5de5204c9195f39fcf9026e9cf635f9d"
+      || "bb8d00ed8e3c122b9271217be848bb38");
 
-  STRING expect_signature_sha384 := DecodeBase16(
-      "4bea054a2d1539204c34ff119dac7f1d"
-    || "a85bc27ec165746e5733523f16237dcb"
-    || "e91997b478a58b9fbbdec69bebfed2e9"
-    || "5a2d91bc943d4999b53badfd0220641a"
-    || "7f5c30214377217b43b9eefe9e0c8251"
-    || "19bace0f0b39cd1a57728951ddc623ff"
-    || "05c84202d6b5dab0e217607eaea1476d"
-    || "b5b20c16b1ddb6b61d4f8ea44754d8c8");
+    STRING expect_signature_sha384 := DecodeBase16(
+        "4bea054a2d1539204c34ff119dac7f1d"
+      || "a85bc27ec165746e5733523f16237dcb"
+      || "e91997b478a58b9fbbdec69bebfed2e9"
+      || "5a2d91bc943d4999b53badfd0220641a"
+      || "7f5c30214377217b43b9eefe9e0c8251"
+      || "19bace0f0b39cd1a57728951ddc623ff"
+      || "05c84202d6b5dab0e217607eaea1476d"
+      || "b5b20c16b1ddb6b61d4f8ea44754d8c8");
 
-  STRING expect_signature_sha512 := DecodeBase16(
-      "9c005b3086d2124b9ab82df4a47782c4"
-    || "e611b49441d61fc5fef173d10f021d03"
-    || "dae43f0eccdd0915b5831cb2e3a2f791"
-    || "bc85289367505deb90150ba6e2d8f89e"
-    || "cc317cdc7f205d0090dcdb270e63e5e2"
-    || "dcf765ef4df8159d8a5e9aa8017dc9b5"
-    || "4a02436dd135f3b700420cf03ba95a3b"
-    || "192a0529832e7d0dab30b07e1eb9f26b");
+    STRING expect_signature_sha512 := DecodeBase16(
+        "9c005b3086d2124b9ab82df4a47782c4"
+      || "e611b49441d61fc5fef173d10f021d03"
+      || "dae43f0eccdd0915b5831cb2e3a2f791"
+      || "bc85289367505deb90150ba6e2d8f89e"
+      || "cc317cdc7f205d0090dcdb270e63e5e2"
+      || "dcf765ef4df8159d8a5e9aa8017dc9b5"
+      || "4a02436dd135f3b700420cf03ba95a3b"
+      || "192a0529832e7d0dab30b07e1eb9f26b");
 
-  TestEq(expect_signature_sha256, signature_sha256);
-  TestEq(expect_signature_sha384, signature_sha384);
-  TestEq(expect_signature_sha512, signature_sha512);
+    TestEq(expect_signature_sha256, signature_sha256);
+    TestEq(expect_signature_sha384, signature_sha384);
+    TestEq(expect_signature_sha512, signature_sha512);
 
-  TestEq(TRUE, MakeCryptoKey(publickey)->Verify(testdata, signature_sha224, "SHA-224"));
-  TestEq(TRUE, MakeCryptoKey(publickey)->Verify(testdata, signature_sha256, "SHA-256"));
-  TestEq(TRUE, MakeCryptoKey(publickey)->Verify(testdata, signature_sha384, "SHA-384"));
-  TestEq(TRUE, MakeCryptoKey(publickey)->Verify(testdata, signature_sha512, "SHA-512"));
+    TestEq(TRUE, MakeCryptoKey(publickey)->Verify(testdata, signature_sha224, "SHA-224"));
+    TestEq(TRUE, MakeCryptoKey(publickey)->Verify(testdata, signature_sha256, "SHA-256"));
+    TestEq(TRUE, MakeCryptoKey(publickey)->Verify(testdata, signature_sha384, "SHA-384"));
+    TestEq(TRUE, MakeCryptoKey(publickey)->Verify(testdata, signature_sha512, "SHA-512"));
+  }
 
   STRING encryptedbeagle := EncryptAndSignData("Beagle", "SHA-1,BLOWFISH+ECB,8", "secret");
   TestEq(64, length(encryptedbeagle));
@@ -515,7 +521,8 @@ BlowfishTest();
 SignTest();
 PasswordTest();
 XorTest();
-EvpTest();
+IF (NOT IsWASM())
+  EvpTest();
 PKCSTest();
 HMACTest();
 GUIDTest();

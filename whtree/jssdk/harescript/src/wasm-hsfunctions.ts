@@ -839,6 +839,42 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerExternalMacro("__HS_SETRUNNINGSTATUS:::B", (vm, var_running) => {
     // Ignored
   });
+
+  wasmmodule.registerExternalFunction("__DOEVPCRYPT::S:SBSSS", (vm, id_set, var_algo, var_encrypt, var_keydata, var_data, var_iv) => {
+    const algo = var_algo.getString() as "bf-cbc" | "bf-ecb";
+    if (algo != "bf-cbc" && algo != "bf-ecb")
+      throw new Error(`Invalid algorithm ${JSON.stringify(algo)}`);
+
+    let key = var_keydata.getStringAsBuffer();
+    const iv = var_iv.getStringAsBuffer();
+
+    if (key.byteLength < 16) {
+      // pad key with zeroes if too short
+      const toadd = Buffer.alloc(16 - key.byteLength);
+      key = Buffer.concat([key, toadd]);
+    }
+
+    if (iv.byteLength !== 0 && iv.byteLength !== 8)
+      throw new Error(`Encryption iv length is wrong, expected 8 bytes, got ${iv.byteLength} bytes`);
+
+    const cipher = var_encrypt.getBoolean() ?
+      crypto.createCipheriv(algo, key, iv) :
+      crypto.createDecipheriv(algo, key, iv);
+
+    let output = cipher.update(var_data.getStringAsBuffer());
+    output = Buffer.concat([output, cipher.final()]);
+    id_set.setString(output);
+  });
+
+  wasmmodule.registerExternalFunction("ENCRYPT_XOR::S:SS", (vm, id_set, var_key, var_data) => {
+    const buf = var_data.getStringAsBuffer();
+    const key = var_key.getStringAsBuffer();
+
+    for (let i = 0; i < buf.byteLength; ++i)
+      buf[i] = buf[i] ^ key[i % key.byteLength];
+
+    id_set.setString(buf);
+  });
 }
 
 class HareScriptJob {
