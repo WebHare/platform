@@ -15,7 +15,9 @@ export function getCodeContextHSVM(): Promise<HareScriptVM> | undefined {
   return getScopedResource<Promise<HareScriptVM>>(HSVMSymbol);
 }
 export function ensureCodeContextHSVM(): Promise<HareScriptVM> {
-  return ensureScopedResource(HSVMSymbol, () => allocateCodeContextHSVM());
+  return ensureScopedResource(HSVMSymbol, () => allocateCodeContextHSVM(), async vm => {
+    (await vm).shutdown();
+  });
 }
 
 class ContextLibraryProxy {

@@ -61,7 +61,7 @@ export class CodeContext extends EventSource<CodeContextEvents>{
   readonly id: string;
   readonly title: string;
   readonly metadata: CodeContextMetadata;
-  readonly storage = new Map<string | symbol, unknown>();
+  readonly storage = new Map<string | symbol, { resource: unknown; dispose?: (x: unknown) => void }>();
   private closed = false;
 
   constructor(title: string, metadata: CodeContextMetadata) {
@@ -90,14 +90,16 @@ export class CodeContext extends EventSource<CodeContextEvents>{
   getScopedResource<ValueType>(key: string | symbol): ValueType | undefined {
     if (this.closed)
       throw new Error(`Cannot get scoped resources from a closed CodeContext`);
-    return this.storage.get(key) as ValueType | undefined;
+    return this.storage.get(key)?.resource as ValueType | undefined;
   }
 
-  ensureScopedResource<ValueType>(key: string | symbol, createcb: (context: CodeContext) => ValueType): ValueType {
+  ensureScopedResource<ValueType>(key: string | symbol, createcb: (context: CodeContext) => ValueType, dispose?: (val: ValueType) => void): ValueType {
     let retval = this.getScopedResource<ValueType>(key);
     if (retval === undefined) {
       retval = createcb(this);
-      this.storage.set(key, retval);
+      this.storage.set(key, {
+        resource: retval, dispose: dispose as (x: unknown) => void
+      });
     }
     return retval;
   }
@@ -117,7 +119,12 @@ export class CodeContext extends EventSource<CodeContextEvents>{
 
   close() {
     /// Need to run the close event within this CodeContext, so cleanup can access it.
-    this.run(() => this.emit("close", {}));
+    this.run(() => {
+      this.emit("close", {});
+      for (const [, resource] of this.storage)
+        resource.dispose?.(resource.resource);
+    });
+    this.storage.clear();
     this.closed = true;
   }
 }
@@ -135,8 +142,8 @@ export function getCodeContext(): CodeContext {
 export function getScopedResource<ValueType>(key: string | symbol): ValueType | undefined {
   return getCodeContext().getScopedResource<ValueType>(key);
 }
-export function ensureScopedResource<ValueType>(key: string | symbol, createcb: (context: CodeContext) => ValueType): ValueType {
-  return getCodeContext().ensureScopedResource(key, createcb);
+export function ensureScopedResource<ValueType>(key: string | symbol, createcb: (context: CodeContext) => ValueType, dispose?: (val: ValueType) => void): ValueType {
+  return getCodeContext().ensureScopedResource(key, createcb, dispose);
 }
 
 

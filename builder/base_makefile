@@ -275,8 +275,9 @@ GeneratePCHDepsWasm = $(HIDE)echo "- GeneratePCHDepsWasm $1 -> $2" && $(EMCC) $(
 GeneratePCHNative = $(HIDE)echo "- GeneratePCHNative $2" && $(CXX) $(CPPFLAGS) $(CXXFLAGS) -x c++-header $4 -o$3 -c $2
 GeneratePCHWasm = $(HIDE)echo "- GeneratePCHWasm $2" && $(EMCC) $(CPPFLAGS_WASM) $(CXXFLAGS_WASM) -x c++-header $4 -o$3 -c $2
 
-LinkWASMImportable  = $(HIDE)echo "- LinkWASMImportable $2" && truncate -s 0 $2.map && $(EMCC) $(WHLDFLAGS_WASM) $(WHLDFLAGS_IMPORTABLE) --source-map-base file://$3 -o $2 $1
-LinkWASMExecutable  = $(HIDE)echo "- LinkWASMExecutable $2" && truncate -s 0 $2.map && $(EMCC) $(WHLDFLAGS_WASM) --source-map-base file://$3 -o $2 $1
+# We'll keep the fix-emcc-output.js infrastructure around now fix-emcc-output.js
+LinkWASMImportable  = $(HIDE)echo "- LinkWASMImportable $2" && $(EMCC) $(WHLDFLAGS_WASM) $(WHLDFLAGS_IMPORTABLE) -o $2 $1 && node $(SRCDIR)/harescript/vm/fix-emcc-output.js $2
+LinkWASMExecutable  = $(HIDE)echo "- LinkWASMExecutable $2" && $(EMCC) $(WHLDFLAGS_WASM) -o $2 $1 && node $(SRCDIR)/harescript/vm/fix-emcc-output.js $2
 
 ifeq ($(WHBUILD_PLATFORM),darwin)
  	LinkShared       = $(HIDE)echo "- LinkSharedNative $2" && $(LD_APP) $(WHLDFLAGS) -shared -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
@@ -637,14 +638,14 @@ success.blex: bin/blex-test-native blex/tests/dynamic$(DLL_SUFFIX)
 	ulimit -n 1024 && bin/blex-test-native test bin/blex-test-native blex/tests/dynamic$(DLL_SUFFIX) $(SRCDIR)/blex/tests/data 1 ; test "$$?" = 241
 	> success.blex
 
-bin/blex-test-wasm.wasm: $(LIBBLEX_WASM_SOURCEOBJS) $(LIBBLEX_WASM_TESTOBJS)
+bin/blex-test-wasm: $(LIBBLEX_WASM_SOURCEOBJS) $(LIBBLEX_WASM_TESTOBJS) | $(SRCDIR)/harescript/vm/fix-emcc-output.js
 	$(call LinkWASMExecutable,$^,bin/blex-test-wasm,$(WHBUILD_BUILDDIR)/bin/)
 
 # no dynamic libs, so no build necessary
 build.wasm-blex:
 	> build.wasm-blex
 
-success.wasm-blex: build.wasm-blex bin/blex-test-wasm.wasm
+success.wasm-blex: build.wasm-blex bin/blex-test-wasm
 	ulimit -n 1024 && node --experimental-wasm-stack-switching bin/blex-test-wasm test bin/blex-test-wasm blex/tests/dynamic$(DLL_SUFFIX) $(SRCDIR)/blex/tests/data 1 ; test "$$?" = 242
 	> success.wasm-blex
 
@@ -822,7 +823,7 @@ $(foreach mod,$(AP_DEPLOYABLES_UTILS),$(eval $(call ApUtilTarget,$(mod))))
 
 # Note that wasm targets are easier as we don't bother with dynamic linking.
 # Make 4.4 allows to define grouped targets (lib/harescript.js lib/harescript.wasm &: ...) but ubuntu 20.4 is still on 4.3
-lib/harescript.js: $(LIBHSVM_WASM_SOURCEOBJS) $(call BuildAndTest,wasm-blex) $(SRCDIR)/harescript/vm/wasm-suspending-functions.txt
+lib/harescript.js: $(LIBHSVM_WASM_SOURCEOBJS) $(call BuildAndTest,wasm-blex) $(SRCDIR)/harescript/vm/wasm-suspending-functions.txt $(SRCDIR)/harescript/vm/fix-emcc-output.js
 	$(call LinkWASMImportable,$(LIBHSVM_WASM_SOURCEOBJS),$@,$(PREFIX)/lib/)
 lib/harescript.wasm: lib/harescript.js lib/harescript-interface.ts
 

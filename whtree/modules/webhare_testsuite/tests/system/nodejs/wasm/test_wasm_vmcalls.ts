@@ -57,6 +57,8 @@ async function testVarMemory() {
   const returnedblob2 = blobvar2.getBlob();
   test.eq(returnedblob2.size, blob2.size, "first a superficial check...");
   test.assert(blob2.isSameBlob(returnedblob2));
+
+  vm.shutdown(); //let next test reuse it
 }
 
 async function testCalls() {
