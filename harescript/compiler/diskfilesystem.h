@@ -73,7 +73,7 @@ class BLEXLIB_PUBLIC DiskFileSystem : public FileSystem
         virtual std::string TranslateLibraryURI(Blex::ContextKeeper &keeper, std::string const &directuri) const;
 
 
-        RecompileResult Recompile(Blex::ContextKeeper &keeper, std::string const &_liburi, bool isloadlib, HareScript::ErrorHandler *errorhandler);
+        RecompileResult Recompile(Blex::ContextKeeper &keeper, std::string const &_liburi, HareScript::ErrorHandler *errorhandler);
 
         std::string ResolveLibraryName(std::string const &liburi) const;
 };

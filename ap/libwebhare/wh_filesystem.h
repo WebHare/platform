@@ -9,22 +9,6 @@
 
 const unsigned WHFileSystemContextId = 258;
 
-namespace CompilationPriority
-{
-///Compilation priority classes
-enum Class
-{
-        ///Highest priority (unused)
-        ClassHighest,
-        ///Interactive applications
-        ClassInteractive,
-        ///Background applications
-        ClassBackground,
-        ///Idle compilations (not directly required, but compile them just in  case)
-        ClassIdle
-};
-} //end namespace CompilationPriority
-
 /** Filesystem class that handles file access for libraries for the VM and the
     compiler.
 
@@ -55,9 +39,6 @@ class BLEXLIB_PUBLIC WHFileSystem : public HareScript::FileSystem
         /// Compile cache directory
         std::string const dynamicmodulepath;
 
-        /// Priority
-        CompilationPriority::Class const priorityclass;
-
 #ifndef __EMSCRIPTEN__
         WHCore::Connection *conn;
 #endif
@@ -80,38 +61,34 @@ class BLEXLIB_PUBLIC WHFileSystem : public HareScript::FileSystem
 
         bool ManualRecompile(std::string const &_liburi, HareScript::ErrorHandler *handler, bool force);
 
-        RecompileResult RecompileInternal(Blex::ContextKeeper &keeper, std::string const &_liburi, bool /*isloadlib*/, CompilationPriority::Class priorityclass, bool allow_manual_recompilation, bool force, HareScript::ErrorHandler *errorhandler);
+        RecompileResult RecompileInternal(Blex::ContextKeeper &keeper, std::string const &_liburi, bool allow_manual_recompilation, bool force, HareScript::ErrorHandler *errorhandler);
 
     public:
 
 #ifndef __EMSCRIPTEN__
-        /** Constructs this filesystem
-            @param priorityclass Priority class for our compilations */
-        WHFileSystem(WHCore::Connection &conn, CompilationPriority::Class priorityclass, bool allow_direct_compilations);
+        /** Constructs this filesystem */
+        WHFileSystem(WHCore::Connection &conn, bool allow_direct_compilations);
 #else
         WHFileSystem(
             std::string const &tmproot,
             std::string const &whres,
             std::string const &_installationroot,
             std::string const &_compilecache,
-            CompilationPriority::Class priorityclass,
             bool allow_direct_compilations);
 #endif
 
         /** Returns a file object for a file
             @param keeper ContextKeeper with the current context
             @param liburi Uri to the library
-            @param isloadlib True if this getlibrary originated from a loadlib
             @return File object. Can be 0 if an error occurred (file doesn't exist), but that is not mandatory! Caller may NOT delete the file object. */
         virtual HareScript::FileSystem::FilePtr OpenLibrary(Blex::ContextKeeper &keeper, std::string const &liburi) const;
 
         /** Tries to recompile this library (and all dependent libraries, if necessary)
             @param keeper ContextKeeper with the current context
             @param liburi Uri to the library
-            @param isloadlib True if this getlibrary originated from a loadlib
             @param preloads List of preloads for this library
             @return TRUE if successful. If compile fails, the errorhandler is given the errors */
-        virtual RecompileResult Recompile(Blex::ContextKeeper &keeper, std::string const &_liburi, bool isloadlib,HareScript::ErrorHandler *errorhandler);
+        virtual RecompileResult Recompile(Blex::ContextKeeper &keeper, std::string const &_liburi, HareScript::ErrorHandler *errorhandler);
 
         /** Registers context data
             @param reg Registrator to register context with

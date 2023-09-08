@@ -388,10 +388,8 @@ class BLEXLIB_PUBLIC Environment
         /** Load any dynamic modules referenced by 'library' */
         void LoadDynamicModules(Library &library);
 
-        bool const allow_std_sharing;
-
     public:
-        Environment(Blex::NotificationEventManager &eventmgr, FileSystem &filesystem, GlobalBlobManager &blobmanager, bool allow_std_sharing);
+        Environment(Blex::NotificationEventManager &eventmgr, FileSystem &filesystem, GlobalBlobManager &blobmanager);
 
         ~Environment();
 
@@ -451,10 +449,6 @@ class BLEXLIB_PUBLIC Environment
         */
         void BroadcastMessageLocally(std::string const &eventname, uint8_t const *data, size_t datalen);
 
-        bool AllowStdStreamSharing() const
-        {
-                return allow_std_sharing;
-        }
         inline GlobalBlobManager & GetBlobManager() { return blobmanager; }
 
         void RegisterDebugStatFunction(std::string const &name, std::function< void(HSVM *, HSVM_VariableId) > const &func, std::function< void(HSVM *vm, std::vector< std::string > const &tags) > const &setdebugtags);

@@ -246,10 +246,8 @@ class BLEXLIB_PUBLIC ScriptEnvironment
 {
         public:
         /** Construct a parent WebHare HareScript environment
-            @param whconn Associated WebHare connection
-            @param environmentname Name of the compilation environment (used to detect library mixups)
-            @param priorityclass Priority class for our compilations*/
-        ScriptEnvironment(Connection &whconn, CompilationPriority::Class priorityclass, bool allow_direct_compilations, bool allow_std_sharing);
+            @param whconn Associated WebHare connection  */
+        ScriptEnvironment(Connection &whconn, bool allow_direct_compilations);
         ~ScriptEnvironment();
 
         /** Create a group */

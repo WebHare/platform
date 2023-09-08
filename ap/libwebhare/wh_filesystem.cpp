@@ -491,12 +491,11 @@ class WHFileSystem::ContextData
 //
 
 #ifndef __EMSCRIPTEN__
-WHFileSystem::WHFileSystem(WHCore::Connection &_conn, CompilationPriority::Class priorityclass, bool allow_direct_compilations)
+WHFileSystem::WHFileSystem(WHCore::Connection &_conn, bool allow_direct_compilations)
 : HareScript::FileSystem(_conn.GetTmpRoot(), _conn.GetModuleFolder("system") + "whres")
 , dataroot(_conn.GetWebHareRoot())
 , compilecache(_conn.GetCompileCache())
 , dynamicmodulepath(_conn.GetLibRoot())
-, priorityclass(priorityclass)
 , conn(&_conn)
 , allow_direct_compilations(allow_direct_compilations)
 {
@@ -507,13 +506,11 @@ WHFileSystem::WHFileSystem(
         std::string const &whres,
         std::string const &_installationroot,
         std::string const &_compilecache,
-        CompilationPriority::Class priorityclass,
         bool allow_direct_compilations)
 : HareScript::FileSystem(tmproot, whres)
 , dataroot(_installationroot)
 , compilecache(_compilecache)
 , dynamicmodulepath("")
-, priorityclass(priorityclass)
 , allow_direct_compilations(allow_direct_compilations)
 {
 }
@@ -1011,17 +1008,17 @@ bool WHFileSystem::ManualRecompile(std::string const &_liburi, HareScript::Error
         return true;
 }
 
-WHFileSystem::RecompileResult WHFileSystem::Recompile(Blex::ContextKeeper &keeper, std::string const &_liburi, bool isloadlib, HareScript::ErrorHandler *errorhandler)
+WHFileSystem::RecompileResult WHFileSystem::Recompile(Blex::ContextKeeper &keeper, std::string const &_liburi, HareScript::ErrorHandler *errorhandler)
 {
-        return RecompileInternal(keeper, _liburi, isloadlib, priorityclass, allow_direct_compilations, true, errorhandler);
+        return RecompileInternal(keeper, _liburi, allow_direct_compilations, true, errorhandler);
 }
 
 WHFileSystem::RecompileResult WHFileSystem::RecompileExternal(Blex::ContextKeeper &keeper, std::string const &liburi, bool force, HareScript::ErrorHandler *errorhandler)
 {
-        return RecompileInternal(keeper, liburi, /*isloadlib=*/false, CompilationPriority::ClassBackground, /*allow_manual_recompilation=*/false, force, errorhandler);
+        return RecompileInternal(keeper, liburi, /*allow_manual_recompilation=*/false, force, errorhandler);
 }
 
-WHFileSystem::RecompileResult WHFileSystem::RecompileInternal(Blex::ContextKeeper &keeper, std::string const &_liburi, bool /*isloadlib*/, CompilationPriority::Class priority, bool allow_manual_recompilation, bool force, HareScript::ErrorHandler *errorhandler)
+WHFileSystem::RecompileResult WHFileSystem::RecompileInternal(Blex::ContextKeeper &keeper, std::string const &_liburi, bool allow_manual_recompilation, bool force, HareScript::ErrorHandler *errorhandler)
 {
         Context context(keeper);
 
@@ -1042,7 +1039,6 @@ WHFileSystem::RecompileResult WHFileSystem::RecompileInternal(Blex::ContextKeepe
                 {
                         if(force)
                             httpconn->AddRequestHeader("X-WHCompile-Force", "true");
-                        httpconn->AddRequestHeader("X-WHCompile-Priority", Blex::AnyToString((int32_t)priority));
                         result = httpconn->DoRequest("GET", requesturi);
                 }
                 else if (!allow_manual_recompilation)
@@ -1134,7 +1130,7 @@ EM_ASYNC_JS(char*, supportRecompile, (const char *liburi), {
   return await Module.recompile(liburi);
 });
 
-WHFileSystem::RecompileResult WHFileSystem::Recompile([[maybe_unused]]Blex::ContextKeeper &keeper, [[maybe_unused]]std::string const &_liburi, [[maybe_unused]]bool isloadlib, [[maybe_unused]]HareScript::ErrorHandler *errorhandler)
+WHFileSystem::RecompileResult WHFileSystem::Recompile([[maybe_unused]]Blex::ContextKeeper &keeper, [[maybe_unused]]std::string const &_liburi, [[maybe_unused]]HareScript::ErrorHandler *errorhandler)
 {
         std::string response = ConvertCharPtrAndDelete(supportRecompile(_liburi.c_str()));
         return ProcessCompileOutput(&*response.begin(), &*response.end(), errorhandler);

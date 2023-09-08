@@ -81,7 +81,7 @@ void FileSystem::ReleaseResources(Blex::ContextKeeper &/*keeper*/)
 {
 }
 
-FileSystem::RecompileResult FileSystem::Recompile(Blex::ContextKeeper &, std::string const &, bool, HareScript::ErrorHandler *)
+FileSystem::RecompileResult FileSystem::Recompile(Blex::ContextKeeper &, std::string const &, HareScript::ErrorHandler *)
 {
         return RecompileNotSupported;
 

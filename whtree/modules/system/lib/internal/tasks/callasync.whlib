@@ -15,7 +15,6 @@ LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 
 
 PUBLIC OBJECT ipcparentlink;
-PUBLIC BOOLEAN nostdoutintercept;
 
 RECORD ARRAY pendingcalls;
 
@@ -49,11 +48,9 @@ ASYNC MACRO StartIPCNodeProcess()
         [ `${webhareconfig.installationroot}/modules/system/scripts/internal/callrunnerts.ts`
         , portname
         ], [ take_output := FALSE, take_errors := FALSE ]);
-    IF(processinfo.clientname NOT IN ["webserver"] AND NOT nostdoutintercept) //TODO how can we tell beforehand whether we're allowed to share streams? at least webserver won't allow us
-    {
-      proc->share_stdout := TRUE;
-      proc->share_stderr := TRUE;
-    }
+
+    proc->share_stdout := TRUE;
+    proc->share_stderr := TRUE;
     proc->Start();
 
     /* This used to be 15sec, updating to 60sec as the 15sec mark is easy to miss on a very busy system (think bootstrapping CI builds)

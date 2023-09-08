@@ -1301,9 +1301,6 @@ HSVM_PUBLIC unsigned  HSVM_GetVMGroupId(struct HSVM *vm, char *dest, unsigned ro
 /** Returns whether the script has a system redirect script property */
  HSVM_PUBLIC int HSVM_HasSystemRedirect(HSVM *hsvm);
 
-/** Returns whether the current environment allows stdin/out/err sharing */
- HSVM_PUBLIC int HSVM_AllowStdStreamSharing(HSVM *hsvm);
-
 #ifdef __cplusplus
 } /* End of "C" linkage */
 
