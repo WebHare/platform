@@ -37,7 +37,6 @@ BLEX_TEST_FUNCTION(LockWhileWaiting)
         //Setup the file system
         HareScript::DiskFileSystem filesystem(tempdir, tempdir, "", Blex::MergePath(VMTest::srcdir, "whtree/modules/system/whres"));
         filesystem.SetupNamespace("wh", Blex::MergePath(VMTest::srcdir, "whtree/modules/system/whlibs"));
-        filesystem.SetupNamespace("test", Blex::MergePath(VMTest::srcdir, "harescript/vmtest/data"));
         filesystem.SetupDynamicModulePath(VMTest::moduledir);
 
         // Compile the testscript
@@ -49,7 +48,7 @@ BLEX_TEST_FUNCTION(LockWhileWaiting)
                 Blex::ContextKeeper keeper(creg);
                 HareScript::Compiler::CompileControl control(compile_engine, filesystem);
 
-                control.CompileLibrary(keeper, "test::suspendtest.hslib");
+                control.CompileLibrary(keeper, "mod::webhare_testsuite/tests/baselibs/hsengine/suspendtest.hslib");
 
                 if (compile_engine.GetErrorHandler().AnyErrors())
                     ShowErrors(compile_engine.GetErrorHandler());
@@ -73,7 +72,7 @@ BLEX_TEST_FUNCTION(LockWhileWaiting)
         std::vector<std::string> args;
         cif->SetupConsole(myvm, args);
 
-        bool any_errors = !HSVM_LoadScript(myvm, "test::suspendtest.hslib");
+        bool any_errors = !HSVM_LoadScript(myvm, "mod::webhare_testsuite/tests/baselibs/hsengine/suspendtest.hslib");
         if (any_errors)
             ShowErrors(cif->GetErrorHandler());
 

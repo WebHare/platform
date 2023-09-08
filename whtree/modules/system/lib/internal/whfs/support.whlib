@@ -582,12 +582,6 @@ PUBLIC STRING FUNCTION GetDiskPathForAsset(STRING inpath, STRING reportpath, BOO
       RETURN "wh::" || restpath;
     RETURN MergePath(GetModuleInstallationRoot('system') || 'whlibs', restpath) || (terminatewithslash ? "/" : "");
   }
-  IF(namespace="test")
-  {
-    IF (usemoduleroot)
-      RETURN "test::" || restpath;
-    RETURN MergePath(GetModuleInstallationRoot('webhare_testsuite') || 'tests/baselibs/hsengine', restpath) || (terminatewithslash ? "/" : "");
-  }
   IF(namespace="mod" OR namespace="storage")
   {
     INTEGER nextslash := SearchSubstring(restpath,'/');

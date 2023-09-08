@@ -799,7 +799,7 @@ MACRO BasicTest()
 {
   OpenTest("DocgenTest: BasicTest");
 
-  BLOB testfile := GetHareScriptResource("test::testdata_docgen_lib.whlib");
+  BLOB testfile := GetHareScriptResource("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_docgen_lib.whlib");
 
   // Parse the test script individually
   RECORD script := ParseHarescriptFileDocumentation(testfile);//,"test_docgen_lib.whlib");
@@ -876,8 +876,8 @@ MACRO LibdumpTest()
   TestEq(DEFAULT RECORD, DescribeCompiledLibrary("wh::bestaatniet.whlib"));
   TestEq(DEFAULT RECORD, DescribeCompiledLibrary("namespace::bestaatniet.whlib"));
 
-  //DumpValue(__HS_LIBDUMP("test::testdata_docgen_lib.whlib"),"tree");
-  RECORD dump := DescribeCompiledLibrary("test::testdata_docgen_lib.whlib");
+  //DumpValue(__HS_LIBDUMP("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_docgen_lib.whlib"),"tree");
+  RECORD dump := DescribeCompiledLibrary("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_docgen_lib.whlib");
   TestEq(46, SELECT AS INTEGER line FROM dump.functions WHERE name = "PUBLICMACRO");
   TestEq(1, SELECT AS INTEGER line FROM dump.functions WHERE name = "Main HareScript code");
 

@@ -4,7 +4,7 @@
 LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/xml.whlib";
-LOADLIB "test::testdata_loadlib_c.whlib";
+LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_c.whlib";
 
 VARIANT FUNCTION Throws()
 {

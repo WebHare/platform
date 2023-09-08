@@ -1,7 +1,7 @@
 <?wh
 /// @short Loadlib test; sublibrary B
 
-LOADLIB "test::testdata_loadlib_c.whlib" EXPORT deep_func1, deep_var1, deep_objecttype1, deep_objecttype2;
+LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_c.whlib" EXPORT deep_func1, deep_var1, deep_objecttype1, deep_objecttype2;
 
 PUBLIC INTEGER FUNCTION func1() { RETURN 0; }
 PUBLIC MACRO mac1() { }

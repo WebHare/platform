@@ -16,7 +16,7 @@ MACRO SyntaxTest()
   OpenTest("TestLoadlib: SyntaxTest");
 
   //No relative paths
-  errors := TestCompile('<?wh LOADLIB "test::../testdata_loadlib_a.whlib"; ?>');
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/../testdata_loadlib_a.whlib"; ?>');
   MustContainError(2, errors, 184);
 
   //No backslashes relative paths
@@ -24,19 +24,19 @@ MACRO SyntaxTest()
   MustContainError(3, errors, 184);
 
   //No terminating spaces or dots
-  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib "; ?>');
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_a.whlib "; ?>');
   MustContainError(4, errors, 184);
-  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib."; ?>');
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_a.whlib."; ?>');
   MustContainError(5, errors, 184);
 
   //No spaces and dots inside paths
-  errors := TestCompile('<?wh LOADLIB "test::a /testdata_loadlib_a.whlib"; ?>');
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/a /testdata_loadlib_a.whlib"; ?>');
   MustContainError(6, errors, 184);
-  errors := TestCompile('<?wh LOADLIB "test::b./testdata_loadlib_a.whlib"; ?>');
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/b./testdata_loadlib_a.whlib"; ?>');
   MustContainError(7, errors, 184);
 
   //Once got harescript crashing with missing lib and no export
-  errors := TestCompile('<?wh LOADLIB "test::\x80.whlib" EXPORT i; ?>');
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/\x80.whlib" EXPORT i; ?>');
   MustContainError(8, errors, 184);
 
   CloseTest("TestLoadlib: SyntaxTest");
@@ -46,17 +46,17 @@ MACRO ExportTest()
 {
   OpenTest("TestLoadlib: ExportTest");
 
-  result := TestCompileAndRun('<?wh LOADLIB "test::testdata_loadlib_b.whlib"; deep_func1(); ?>');
+  result := TestCompileAndRun('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_b.whlib"; deep_func1(); ?>');
   TestCleanResult(1, result.errors);
 
-  result := TestCompileAndRun('<?wh LOADLIB "test::testdata_loadlib_b.whlib"; deep_var1 := ""; ?>');
+  result := TestCompileAndRun('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_b.whlib"; deep_var1 := ""; ?>');
   TestCleanResult(2, result.errors);
 
-  result := TestCompileAndRun('<?wh LOADLIB "test::testdata_loadlib_b.whlib"; OBJECT x := NEW deep_objecttype1; PRINT(""||x->memberx); ?>');
+  result := TestCompileAndRun('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_b.whlib"; OBJECT x := NEW deep_objecttype1; PRINT(""||x->memberx); ?>');
   TestCleanResult(3, result.errors);
   TestEq("0", result.output);
 
-  result := TestCompileAndRun('<?wh LOADLIB "test::testdata_loadlib_b.whlib"; OBJECT x := NEW deep_objecttype2; PRINT(""||x->memberx); ?>');
+  result := TestCompileAndRun('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_b.whlib"; OBJECT x := NEW deep_objecttype2; PRINT(""||x->memberx); ?>');
   TestCleanResult(5, result.errors);
   TestEq("7", result.output);
 
@@ -67,25 +67,25 @@ MACRO AmbiguityTest()
 {
   OpenTest("TestLoadlib: AmbiguityTest");
 
-  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib"; LOADLIB "test::testdata_loadlib_b.whlib"; func1(); ?>');
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_a.whlib"; LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_b.whlib"; func1(); ?>');
   MustContainError(1, errors, 114, "FUNC1");
 
-  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib"; LOADLIB "test::testdata_loadlib_b.whlib"; int1; ?>');
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_a.whlib"; LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_b.whlib"; int1; ?>');
   MustContainError(2, errors, 114, "INT1");
 
-  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib"; LOADLIB "test::testdata_loadlib_b.whlib"; mac1(); ?>');
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_a.whlib"; LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_b.whlib"; mac1(); ?>');
   MustContainError(3, errors, 114, "MAC1");
 
-  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_a.whlib"; LOADLIB "test::testdata_loadlib_b.whlib"; deep_func1(); ?>');
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_a.whlib"; LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_b.whlib"; deep_func1(); ?>');
   TestCleanResult(4, errors);
 
-  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_c.whlib" EXPORT deep_func1; LOADLIB "test::testdata_loadlib_b.whlib";  ?>');
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_c.whlib" EXPORT deep_func1; LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_b.whlib";  ?>');
   TestCleanResult(5, errors);
 
-  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_b.whlib"; LOADLIB "test::testdata_loadlib_c.whlib" EXPORT deep_func1;  ?>');
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_b.whlib"; LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_c.whlib" EXPORT deep_func1;  ?>');
   TestCleanResult(6, errors);
 
-  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_c.whlib"; LOADLIB "wh::datetime.whlib" EXPORT deep_func1;  ?>');
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_c.whlib"; LOADLIB "wh::datetime.whlib" EXPORT deep_func1;  ?>');
   MustContainError(7, errors, 9, "DEEP_FUNC1");
 
   CloseTest("TestLoadlib: AmbiguityTest");
@@ -95,11 +95,11 @@ MACRO CirularReferenceTest()
 {
   OpenTest("TestLoadlib: CircularReferenceTest");
 
-  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_circ_a.whlib";  ?>');
-  MustContainError(1, errors, 179, "test::testdata_loadlib_circ_a.whlib");
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_circ_a.whlib";  ?>');
+  MustContainError(1, errors, 179, "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_circ_a.whlib");
 
-  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_circ_b.whlib";  ?>');
-  MustContainError(2, errors, 179, "test::testdata_loadlib_circ_b.whlib");
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_circ_b.whlib";  ?>');
+  MustContainError(2, errors, 179, "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_circ_b.whlib");
 
   CloseTest("TestLoadlib: CircularReferenceTest");
 }
@@ -144,7 +144,7 @@ MACRO TranslateLibraryPath()
 
 MACRO ObjectStructures()
 {
-  errors := TestCompile('<?wh LOADLIB "test::testdata_loadlib_b.whlib"; STATIC OBJECTTYPE test EXTEND objecttype3ext < MACRO NEW() { this->memberx3 := 0; } >; ?>');
+  errors := TestCompile('<?wh LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_loadlib_b.whlib"; STATIC OBJECTTYPE test EXTEND objecttype3ext < MACRO NEW() { this->memberx3 := 0; } >; ?>');
   TestCleanResult(0, errors);
 }
 
