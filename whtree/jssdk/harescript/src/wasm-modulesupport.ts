@@ -112,13 +112,17 @@ export class WASMModule extends WASMModuleBase {
 
   constructor() {
     super();
-    // this.itf is always set when running functions of this class, so make it look like it is
+    // this.itf is always set when running functions of this class, so make it look like it is (FIXME we might now need to guard it now that we can push WASMModules for reuse?)
     this.itf = undefined as unknown as HareScriptVM;
   }
 
   prepare() {
     // emscripten doesn't call preRun with class syntax, so bind it
     this["preRun"] = this["preRun"].bind(this);
+  }
+
+  prepareForReuse() { //ensures garbage can be collected when we're pushed for reuse
+    this.itf = undefined as unknown as HareScriptVM;
   }
 
   init() {
