@@ -15,6 +15,7 @@ import * as crypto from "node:crypto";
 import { IPCEndPoint, IPCMessagePacket, IPCPort, createIPCEndPointPair, decodeTransferredIPCEndPoint } from "@mod-system/js/internal/whmanager/ipc";
 import { isValidName } from "@webhare/whfs/src/support";
 import { AsyncWorker, ConvertWorkerServiceInterfaceToClientInterface } from "@mod-system/js/internal/worker";
+import { Crc32 } from "@mod-system/js/internal/util/crc32";
 
 type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
 
@@ -59,11 +60,13 @@ function contextGetterFactory<T extends new (...args: any) => any>(obj: T): (vm:
 class Hasher extends OutputObjectBase {
   static context = contextGetterFactory(class { hashers = new Map<number, Hasher>; });
 
-  hasher: crypto.Hash;
+  hasher: { update(data: crypto.BinaryLike): void; digest(): Buffer };
 
   constructor(vm: HareScriptVM, algorithm: string) {
     super(vm, "Crypto hasher");
-    this.hasher = crypto.createHash(algorithm);
+    this.hasher = algorithm === "crc32"
+      ? new Crc32
+      : crypto.createHash(algorithm);
   }
 
   write(buffer: Buffer, allowPartial: boolean) {
@@ -484,6 +487,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerExternalFunction("CREATEHASHER::I:S", (vm, id_set, varAlgorithm) => {
     let algorithm: "md5" | "sha1" | "sha224" | "sha256" | "sha384" | "sha512" | "crc32";
     switch (varAlgorithm.getString()) {
+      case "CRC32": algorithm = "crc32"; break;
       case "MD5": algorithm = "md5"; break;
       case "SHA-1": algorithm = "sha1"; break;
       case "SHA-256": algorithm = "sha256"; break;
