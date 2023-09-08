@@ -29,4 +29,9 @@ applyFix('emscripten 3.1.43 fix', /Asyncify.asyncExports/,
   `Asyncify.asyncExports.add(original);if(isAsyncifyExport){`,
   `if(isAsyncifyExport){Asyncify.asyncExports.add(original);`);
 
+// https://github.com/emscripten-core/emscripten/pull/20213
+applyFix('fix removeFunction reference leak', /removeFunction/,
+  `functionsInTableMap.delete(getWasmTableEntry(index));freeTableIndexes.push(index)`,
+  `functionsInTableMap.delete(getWasmTableEntry(index));setWasmTableEntry(index,null);freeTableIndexes.push(index)`);
+
 console.log(`fix-emcc-output: Needed to apply ${numapplied} of ${numfixes} known fixes.`);

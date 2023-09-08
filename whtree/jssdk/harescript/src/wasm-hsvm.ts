@@ -190,6 +190,7 @@ export class HareScriptVM {
   transitionLocks = new Array<TransitionLock>;
   unregisterEventCallback: (() => void) | undefined;
   codeContext: CodeContext;
+  private gotEventCallbackId = 0; //id of event callback provided to the C++ code
 
   constructor(module: WASMModule) {
     this._wasmmodule = module;
@@ -518,6 +519,9 @@ export class HareScriptVM {
 
     //TODO what do we need to shutdown in the wasmmodule itself? or can we prepare it for reuse ?
     this.wasmmodule._ReleaseHSVM(this.hsvm);
+    this.wasmmodule.removeFunction(this.gotEventCallbackId);
+    this.wasmmodule._SetEventCallback(0 as HSVM, 0);
+    this.wasmmodule.prepareForReuse();
 
     enginePool.push(this.wasmmodule);
 
@@ -550,7 +554,9 @@ export class HareScriptVM {
          the receiver based on sourcegroup */
       bridge.sendEvent(name, data as SimpleMarshallableRecord);
     };
-    this.wasmmodule._SetEventCallback(this.hsvm, this.wasmmodule.addFunction(gotEvent, "viii"));
+
+    this.gotEventCallbackId = this.wasmmodule.addFunction(gotEvent, "viii");
+    this.wasmmodule._SetEventCallback(this.hsvm, this.gotEventCallbackId);
   }
 }
 

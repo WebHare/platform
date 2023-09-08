@@ -250,10 +250,13 @@ void HandleEvent(EventCallback callback, std::shared_ptr< Blex::NotificationEven
         callback(event->name.c_str(), payload, event->payload.size());
 }
 
-void EMSCRIPTEN_KEEPALIVE SetEventCallback(HSVM *, EventCallback callback)
+void EMSCRIPTEN_KEEPALIVE SetEventCallback(HSVM *vm, EventCallback callback)
 {
         Context &context = EnsureContext();
-        context.eventmgr.SetExportCallback(std::bind(&HandleEvent, callback, std::placeholders::_1));
+        if(vm)
+            context.eventmgr.SetExportCallback(std::bind(&HandleEvent, callback, std::placeholders::_1));
+        else
+            context.eventmgr.SetExportCallback(nullptr);
 }
 
 void EMSCRIPTEN_KEEPALIVE InjectEvent(HSVM *, const char *name, uint8_t const *payloadstart, int32_t payloadlen)
