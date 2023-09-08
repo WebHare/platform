@@ -15,12 +15,17 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::util/algorithms.whlib";
-LOADLIB "wh::util/localization.whlib";
 LOADLIB "wh::util/stringparser.whlib";
 LOADLIB "wh::internal/filetypes.whlib";
 
-STRING iso8601_date := "%Y%m%d";
-STRING iso8601_datetime := "%Y%m%dT%H%M%S";
+CONSTANT STRING iso8601_date := "%Y%m%d";
+CONSTANT STRING iso8601_datetime := "%Y%m%dT%H%M%S";
+
+/* For now, we only support event non-UTC timestamps in the timezones "Europe/Amsterdam" or "CET" */
+CONSTANT RECORD vtimezone_europe_amsterdam :=
+    [ tzid := "Europe/Amsterdam"
+    , vtimezone := "BEGIN:VTIMEZONE\r\nTZID:Europe/Amsterdam\r\nX-TZINFO:Europe/Amsterdam\r\nBEGIN:DAYLIGHT\r\nTZOFFSETTO:+020000\r\nTZOFFSETFROM:+010000\r\nTZNAME:(DST)\r\nDTSTART:20000326T020000\r\nRRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU\r\nEND:DAYLIGHT\r\nBEGIN:STANDARD\r\nTZOFFSETTO:+010000\r\nTZOFFSETFROM:+020000\r\nTZNAME:(STD)\r\nDTSTART:20001029T030000\r\nRRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU\r\nEND:STANDARD\r\nEND:VTIMEZONE"
+    ];
 
 /* Fold a string longer than 75 octets, as specified in RFC 2445:
 
@@ -79,37 +84,6 @@ STRING FUNCTION EncodeICal(STRING str)
    DEFAULT
      {
        result := result || " ";
-     }
-   }
-   parser->Next();
- }
- RETURN result;
-}
-
-STRING FUNCTION DecodeICal(STRING str)
-{
- STRING result;
- OBJECT parser := NEW StringParser(str);
-
- STRING encodeset := parser->set_control || "\\,;";
-
- WHILE (TRUE)
- {
-   result := result || parser->ParseWhileNotInSet("\\");
-   IF (parser->eof)
-     BREAK;
-
-   parser->Next();
-
-   SWITCH (parser->current)
-   {
-   CASE ",", ";", "\\"
-     {
-       result := result || parser->current;
-     }
-   CASE "n", "N"
-     {
-       result := result || "\n";
      }
    }
    parser->Next();
@@ -273,84 +247,6 @@ PUBLIC STRING FUNCTION EncodeICalEvent(RECORD event)
   RETURN ical || "END:VEVENT\r\n";
 }
 
-/** Decodes a single ICal event
-    @long Note that for start and end time with time zone information, the time zones are assumed to be the same. Windows
-        time zone identifiers are converted to tzdb identifiers which can be used in our localization functions.
-    @param ical Single ICal event to decode
-    @return The decoded event @includecelldef #MakeDefaultICalEvent.return
-*/
-PUBLIC RECORD FUNCTION DecodeICalEvent(STRING ical)
-{
-  STRING ARRAY lines := Tokenize(ical, "\r\n");
-  WHILE(Length(lines)>0 AND lines[Length(lines)-1] = "")
-    DELETE FROM lines AT Length(lines)-1;
-
-  IF (Length(lines)<2 OR lines[0] != "BEGIN:VEVENT" OR Length(lines) < 3 OR lines[END-1] != "END:VEVENT")
-    RETURN DEFAULT RECORD;
-
-  // Get a default iCalendar event
-  RECORD event := MakeDefaultICalEvent();
-
-  INTEGER i := 0;
-  WHILE (i < Length(lines))
-  {
-    // Unfold folded strings
-    STRING line := lines[i];
-    i := i + 1;
-    WHILE (i < Length(lines) AND Left(lines[i], 1) = " ")
-    {
-      line := line || Right(lines[i], Length(lines[i])-1);
-      i := i + 1;
-    }
-
-    // Split field and value
-    INTEGER sep := SearchSubstring(line, ":");
-    IF (sep < 0)
-      CONTINUE;
-    STRING fld := Left(line, sep);
-    STRING val := DecodeICal(Right(line, Length(line)-sep-1));
-
-    STRING ARRAY params := Tokenize(fld, ";");
-    fld := params[0];
-    DELETE FROM params AT 0;
-
-    // Update values in the event record
-    SWITCH (fld)
-    {
-      CASE "UID", "SUMMARY", "DESCRIPTION", "URL", "LOCATION"
-      {
-        event := CellUpdate(event, fld, val);
-      }
-      CASE "DTSTART", "DTEND"
-      {
-        event := CellUpdate(event, fld, MakeDateFromText(val));
-        IF (fld = "DTSTART")
-        {
-          FOREVERY (STRING param FROM params)
-          {
-            IF (param = "VALUE=DATE")
-              event.allday := TRUE;
-            // Assume start and end dates have the same timezone
-            ELSE IF (param LIKE "TZID=*")
-            {
-              STRING tzid := Substring(param, 5);
-              event.timezone := GetCanonicalTimeZoneID(tzid);
-              IF (tzid != "" AND event.timezone = "")
-                event.timezone := GetTimeZoneIDForWindowsID(tzid);
-            }
-          }
-        }
-      }
-      CASE "CATEGORIES"
-      {
-        event := CellUpdate(event, fld, Tokenize(val, ","));
-      }
-    }
-  }
-
-  RETURN event;
-}
-
 /** Creates an ICal calendar file for events
     @param events ICal events @includecelldef #MakeDefaultICalEvent.return
     @param calendarsettings Settings
@@ -390,7 +286,10 @@ PUBLIC STRING FUNCTION EncodeICalCalendar(RECORD ARRAY events, RECORD calendarse
       CONTINUE; // Dates don't have time zones
     IF (CellExists(event, "timezone") AND ToUppercase(event.timezone) NOT IN [ "", "UTC" ])
     {
-      RECORD info := GetVTimeZone(event.timezone, event.dtstart);
+      IF (ToUppercase(event.timezone) NOT IN [ "EUROPE/AMSTERDAM", "CET" ])
+        THROW NEW Exception(`Unsupported TZID '${event.timezone}'`);
+
+      RECORD info := vtimezone_europe_amsterdam;
       INSERT CELL dtstart := event.dtstart INTO info;
       events[#event].timezone := info.tzid;
       IF (info.vtimezone != "")
@@ -429,34 +328,4 @@ PUBLIC RECORD FUNCTION GetWrappedIcalCalendar(STRING filename, RECORD ARRAY even
          , extension := ".ics"
          , data      := ical
          ];
-}
-
-/** Decodes an ICal calendar
-    @long Note that time zone descriptions are ignored and only the time zone identifiers in the events are returned.
-    @param icaldata ICal calendar
-    @return @includecelldef #MakeDefaultICalEvent.return
-*/
-PUBLIC RECORD ARRAY FUNCTION DecodeICalCalendar(STRING icaldata)
-{
-  RECORD ARRAY events;
-  INTEGER pos := 0;
-
-  WHILE (pos < Length(icaldata))
-  {
-    INTEGER eventstart := SearchSubstring(icaldata,"\r\nBEGIN:VEVENT\r\n", pos);
-    IF(eventstart=-1)
-      BREAK;
-
-    INTEGER eventend := SearchSubstring(icaldata, "\r\nEND:VEVENT\r\n", eventstart);
-    IF(eventend=-1)
-      BREAK;
-
-    STRING eventdata := Substring(icaldata, eventstart + 2, eventend - eventstart + 10);
-    RECORD eventrec := DecodeICalEvent(eventdata);
-    IF(RecordExists(eventrec))
-      INSERT eventrec INTO events AT END;
-
-    pos := eventend+12;
-  }
-  RETURN events;
 }
