@@ -12,6 +12,7 @@ import * as syscalls from "./syscalls";
 import { localToUTC, utcToLocal } from "@webhare/hscompat/datetime";
 import { isWHDBBlob } from "@webhare/whdb/src/blobs";
 import * as crypto from "node:crypto";
+import * as os from "node:os";
 import { IPCEndPoint, IPCMessagePacket, IPCPort, createIPCEndPointPair, decodeTransferredIPCEndPoint } from "@mod-system/js/internal/whmanager/ipc";
 import { isValidName } from "@webhare/whfs/src/support";
 import { AsyncWorker, ConvertWorkerServiceInterfaceToClientInterface } from "@mod-system/js/internal/worker";
@@ -874,6 +875,62 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       buf[i] = buf[i] ^ key[i % key.byteLength];
 
     id_set.setString(buf);
+  });
+
+  wasmmodule.registerExternalFunction("GETSYSTEMHOSTNAME::S:B", (vm, id_set, var_full) => {
+    id_set.setString(os.hostname());
+  });
+
+  wasmmodule.registerExternalFunction("GETCERTIFICATEDATA::R:S", (vm, id_set, var_certdata) => {
+    const key = crypto.createPublicKey(var_certdata.getStringAsBuffer()).export({ type: 'pkcs1', format: 'pem' });
+    id_set.setDefault(VariableType.Record);
+    id_set.ensureCell("PUBLICKEY").setString(key);
+  });
+
+  const cryptoContext = contextGetterFactory(class {
+    idcounter = 0;
+    keys = new Map<number, { key: crypto.KeyObject; isPrivate: boolean }>;
+  });
+
+  wasmmodule.registerExternalFunction("__EVP_LOADPRVKEY::I:S", (vm, id_set, var_keydata) => {
+    let key: { key: crypto.KeyObject; isPrivate: boolean };
+    try {
+      key = { key: crypto.createPrivateKey(var_keydata.getStringAsBuffer()), isPrivate: true };
+    } catch (e) {
+      key = { key: crypto.createPublicKey(var_keydata.getStringAsBuffer()), isPrivate: false };
+    }
+    const ctxt = cryptoContext(vm);
+    const id = ++ctxt.idcounter;
+    ctxt.keys.set(id, key);
+    id_set.setInteger(id);
+  });
+
+  wasmmodule.registerExternalFunction("__EVP_SIGN::S:ISS", (vm, id_set, var_handle, var_data, var_alg) => {
+    const keyrec = cryptoContext(vm).keys.get(var_handle.getInteger());
+    if (!keyrec)
+      throw new Error(`Invalid key handle`);
+
+    const sign = crypto.createSign(var_alg.getString());
+    sign.update(var_data.getStringAsBuffer());
+    id_set.setString(sign.sign(keyrec.key));
+  });
+
+  wasmmodule.registerExternalFunction("__EVP_VERIFY::B:ISSS", (vm, id_set, var_handle, var_data, var_signature, var_alg) => {
+    const keyrec = cryptoContext(vm).keys.get(var_handle.getInteger());
+    if (!keyrec)
+      throw new Error(`Invalid key handle`);
+
+    const verify = crypto.createVerify(var_alg.getString());
+    verify.update(var_data.getStringAsBuffer());
+    id_set.setBoolean(verify.verify(keyrec.key, var_signature.getStringAsBuffer()));
+  });
+
+  wasmmodule.registerExternalFunction("__EVP_ISKEYPUBLICONLY::B:I", (vm, id_set, var_handle) => {
+    const keyrec = cryptoContext(vm).keys.get(var_handle.getInteger());
+    if (!keyrec)
+      throw new Error(`Invalid key handle`);
+
+    id_set.setBoolean(!keyrec.isPrivate);
   });
 }
 

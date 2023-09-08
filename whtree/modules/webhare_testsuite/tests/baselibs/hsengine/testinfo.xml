@@ -126,7 +126,7 @@
     <test script="test_traces.whscr" runmode="process" />
     <test script="test_types.whscr" />
     <test script="test_witty.whscr" />
-    <test script="test_xml_signature.whscr" xfail="1" />  <!-- Missing function GetCertificateData -->
+    <test script="test_xml_signature.whscr" />
     <test script="test_xml.whscr" />  <!-- Spurious xmlns="" added. now commented out, needs fixing though -->
     <test script="test_yieldasync.whscr" />
   </group>
