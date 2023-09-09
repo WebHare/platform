@@ -132,12 +132,11 @@ LibraryFile::~LibraryFile()
 {
 }
 
-Environment::Environment(Blex::NotificationEventManager &_eventmgr, FileSystem &_filesystem, GlobalBlobManager &_blobmanager, bool allow_std_sharing)
+Environment::Environment(Blex::NotificationEventManager &_eventmgr, FileSystem &_filesystem, GlobalBlobManager &_blobmanager)
 : eventmgr(_eventmgr)
 , filesystem(_filesystem)
 , blobmanager(_blobmanager)
 , externals(_filesystem)
-, allow_std_sharing(allow_std_sharing)
 {
         InvokeModuleRegistration(&DocgenEntryPoint, (void*)0);
         //ADDME? DEBUGONLY(cache.SetupDebugging("Environment lock"));
@@ -465,7 +464,7 @@ Library const * Environment::GetLibRef(Blex::ContextKeeper &keeper, std::string 
                 // FIXME: we now recompile on ExecutionEnvNotAvailable, because the changes to detect out-of-date BEFORE the that are TOOOO much.
                 // When compile-server stuff that administrates library-validity is implemented, it can be shot down.
                 if (m.iserror && (m.code == Error::CannotFindCompiledLibrary || m.code == Error::InvalidLibrary))
-                    switch (filesystem.Recompile(keeper, name, false, &handler))
+                    switch (filesystem.Recompile(keeper, name, &handler))
                     {
                     case FileSystem::RecompileSuccess:
                         {

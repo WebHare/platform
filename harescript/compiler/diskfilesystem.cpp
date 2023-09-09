@@ -206,7 +206,7 @@ std::string DiskFileSystem::GetDynamicModuleFullPath(std::string const &modulena
         return Blex::MergePath(dynamicmodulepath, "hsm_" + modulename + Blex::GetDynamicLibExtension());
 }
 
-DiskFileSystem::RecompileResult DiskFileSystem::Recompile(Blex::ContextKeeper &keeper, std::string const &_liburi, bool /*isloadlib*/, HareScript::ErrorHandler *errorhandler)
+DiskFileSystem::RecompileResult DiskFileSystem::Recompile(Blex::ContextKeeper &keeper, std::string const &_liburi, HareScript::ErrorHandler *errorhandler)
 {
         std::unique_ptr<Blex::FileStream> lockfile(Blex::FileStream::OpenRW(Blex::MergePath(compilecache, "lockfile"), true, false, Blex::FilePermissions::PublicRead));
         if(!lockfile.get())

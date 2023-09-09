@@ -114,9 +114,6 @@ void ShowSyntax(std::string const &error)
 
         WHCore::Connection::PrintGlobalOptions();
         //            --xxxxxxxxxxxxxxxxxxxxxxxxx  ddddddddddddddddddddddddddddddddddddddddddddddd\n
-        std::cerr << "--interactive                Request maximum compilation priority\n";
-        std::cerr << "--high                       Request high compilation priority\n";
-        std::cerr << "--idle                       Request lowest compilation priority\n";
         std::cerr << "--workerthreads <num>        Launch the specified number of execution threads\n";
         std::cerr << "\n" << error << "\n";
 }
@@ -176,9 +173,6 @@ int UTF8Main(std::vector<std::string> const &args)
         unsigned retval = EXIT_FAILURE;
 
         Blex::OptionParser::Option optionlist[] = {
-                Blex::OptionParser::Option::Switch("high", false),
-                Blex::OptionParser::Option::Switch("interactive", false),
-                Blex::OptionParser::Option::Switch("idle", false),
                 Blex::OptionParser::Option::StringOpt("workerthreads"),
                 Blex::OptionParser::Option::Param("scriptfile", true),
                 Blex::OptionParser::Option::ParamList("scriptargs"),
@@ -219,10 +213,6 @@ int UTF8Main(std::vector<std::string> const &args)
         try
         {
 
-                CompilationPriority::Class pri = options.Switch("high") ? CompilationPriority::ClassHighest
-                                               : options.Switch("interactive") ? CompilationPriority::ClassInteractive
-                                               : options.Switch("idle") ? CompilationPriority::ClassIdle : CompilationPriority::ClassBackground;
-
                 std::string scriptname = options.Param("scriptfile");
                 std::string org_scriptname = scriptname;
 
@@ -242,7 +232,7 @@ int UTF8Main(std::vector<std::string> const &args)
                 connection->ConnectToWHManager();
 
                 bool allow_direct_compilations = Blex::GetEnvironVariable("WEBHARE_NOMANUALCOMPILE") != "1";
-                scriptenv.reset(new WHCore::ScriptEnvironment(*connection, pri, allow_direct_compilations, true));
+                scriptenv.reset(new WHCore::ScriptEnvironment(*connection, allow_direct_compilations));
 
                 jobmgr.reset(new HareScript::JobManager(scriptenv->GetEnvironment()));
                 jobmgr->Start(worker_count, 0); // Start with 2 worker threads

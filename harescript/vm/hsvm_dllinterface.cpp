@@ -2754,14 +2754,6 @@ int HSVM_HasSystemRedirect(HSVM *vm)
         return 0;
 }
 
-int HSVM_AllowStdStreamSharing(HSVM *vm)
-{
-        START_CATCH_VMEXCEPTIONS
-        return VM.GetEnvironment().AllowStdStreamSharing();
-        END_CATCH_VMEXCEPTIONS
-        return 0;
-}
-
 } // End of "C" linkage
 
 // Needs to be defined in root namespace

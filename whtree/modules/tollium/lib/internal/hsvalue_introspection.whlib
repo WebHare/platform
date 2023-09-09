@@ -166,10 +166,11 @@ PUBLIC STATIC OBJECTTYPE HSValueDescriber
           , TypeId(DATETIME)
           ];
 
+    /* This didn't seem to actually trigger an issue? Disabling for now, otherwise consider clamping but this otherwise breaks the WRD dataviewer
     IF (valuetype = TypeId(DATETIME) AND value > this->hson_max_datetime AND value != MAX_DATETIME)
     {
       THROW NEW Exception("Dates above the year 9999 cannot be encoded.");
-    }
+    }*/
 
     IF (valuetype IN skip_typeids)
       RETURN value;

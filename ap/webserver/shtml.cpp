@@ -106,7 +106,7 @@ bool Shtml_TransmittableFile::EndOfStream()
 
 Shtml::Shtml(WebHareServer &_whserver, bool _debugmode)
   : debugmode   (_debugmode)
-  , environment (_whserver.GetWHConn(), CompilationPriority::ClassInteractive, false, false)
+  , environment (_whserver.GetWHConn(), false)
   , webhare     (_whserver.GetWHConn())
   , webserver   (_whserver.GetWebServer())
   , whserver    (_whserver)

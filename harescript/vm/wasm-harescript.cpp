@@ -51,11 +51,11 @@ class Context
 };
 
 Context::Context(std::string const &tmpdir, std::string const &whresdir, std::string const &installationroot, std::string const &compilecache)
-: filesystem(tmpdir, whresdir, installationroot, compilecache, CompilationPriority::ClassInteractive, false)
+: filesystem(tmpdir, whresdir, installationroot, compilecache, false)
 , creg()
 , eventmgr()
 , blobmgr("/tmp/emscripten/tmpdir/")
-, environment(eventmgr, filesystem, blobmgr, true)
+, environment(eventmgr, filesystem, blobmgr)
 {
         filesystem.Register(creg);
 }

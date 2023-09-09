@@ -425,11 +425,11 @@ void AdhocCache::ReceiveNotificationEvent(std::string const &event, uint8_t cons
    be unable to support those - so we must keep the function registrations
    separate */
 
-ScriptEnvironment::ScriptEnvironment(Connection &whconn, CompilationPriority::Class priorityclass, bool allow_direct_compilations, bool allow_std_sharing)
+ScriptEnvironment::ScriptEnvironment(Connection &whconn, bool allow_direct_compilations)
  : whconn(whconn)
- , filesystem ( whconn, priorityclass, allow_direct_compilations)
+ , filesystem ( whconn, allow_direct_compilations)
  , blobmgr(filesystem.GetTempDir())
- , environment (whconn.GetNotificationEventMgr(), filesystem, blobmgr, allow_std_sharing)
+ , environment (whconn.GetNotificationEventMgr(), filesystem, blobmgr)
  , adhoccache(whconn)
 {
         Init();

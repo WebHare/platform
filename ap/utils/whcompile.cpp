@@ -521,7 +521,7 @@ int UTF8Main(std::vector<std::string> const &args)
         // Ensure the compilecache exists...
         Blex::CreateDirRecursive(Blex::MergePath(conn.GetCompileCache(), "harescript"),false);
 
-        WHFileSystem filesystem(conn, CompilationPriority::ClassHighest, false); //If we ever decide to compile something ourself, we better hurry? :-)
+        WHFileSystem filesystem(conn, false); //If we ever decide to compile something ourself, we better hurry? :-)
         filesystem.Register(creg);
         Context::Register(creg);
 

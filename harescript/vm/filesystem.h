@@ -101,10 +101,9 @@ class BLEXLIB_PUBLIC FileSystem
             it will return NotSupported
             @param keeper ContextKeeper with the current context
             @param liburi Uri to the library
-            @param isloadlib True if this getlibrary originated from a loadlib
             @param preloads List of preloads for this library
             @return TRUE if successful, NotSupported if recompile is not supported. If compile fails, the errorhandler is given the errors */
-        virtual RecompileResult Recompile(Blex::ContextKeeper &keeper, std::string const &_liburi, bool isloadlib, HareScript::ErrorHandler *errorhandler);
+        virtual RecompileResult Recompile(Blex::ContextKeeper &keeper, std::string const &_liburi, HareScript::ErrorHandler *errorhandler);
 
         /** Returns the path to a dynamic loaded module, based on it's name
             @param keeper ContextKeeper with the current context

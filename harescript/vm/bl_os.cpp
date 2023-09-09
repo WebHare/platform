@@ -877,12 +877,6 @@ void HS_RunProcess(VarId id_set, VirtualMachine *vm)
         bool share_stdin = HSVM_BooleanGet(*vm, HSVM_Arg(4));
         bool share_stdout = HSVM_BooleanGet(*vm, HSVM_Arg(5));
         bool share_stderr = HSVM_BooleanGet(*vm, HSVM_Arg(6));
-        if((share_stdin || share_stdout || share_stderr) && !HSVM_AllowStdStreamSharing(*vm))
-        {
-                HSVM_ThrowException(*vm, "The current environment does not permit sharing of stdin/out/err");
-                return;
-        }
-
         bool success = context->os.RunProcess(HSVM_IntegerGet(*vm, HSVM_Arg(0)),
                                               HSVM_StringGetSTD(*vm, HSVM_Arg(1)),
                                               arguments,

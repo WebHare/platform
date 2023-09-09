@@ -73,7 +73,6 @@ export async function recompileHarescriptLibraryRaw(uri: string, options?: { for
 
     const res = await fetch(`http://127.0.0.1:${getFullConfigFile().baseport + 1}/compile/${encodeURIComponent(uri)}`, {
       headers: {
-        "X-WHCompile-Priority": "2", // CompilationPriority::ClassBackground
         ...(options?.force ? { "X-WHCompile-Force": "true" } : {})
       }
     });
