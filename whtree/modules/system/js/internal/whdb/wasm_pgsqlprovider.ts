@@ -5,10 +5,12 @@ import { FullPostgresQueryResult } from "@webhare/whdb/src/connection";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat/datetime";
 import { Tid } from "@webhare/whdb/src/types";
 import { isWHDBBlob } from "@webhare/whdb/src/blobs";
-import { isHareScriptBlob, HareScriptMemoryBlob } from "@webhare/harescript/src/hsblob";
+import { isHareScriptBlob } from "@webhare/harescript/src/hsblob";
 import { WASMModule } from "@webhare/harescript/src/wasm-modulesupport";
 import { HareScriptVM } from "@webhare/harescript/src/harescript";
 import { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
+import { HSVM_VariableId, HSVM_VariableType } from "wh:internal/whtree/lib/harescript-interface";
+import { Money } from "@webhare/std";
 
 enum Fases {
   None = 0,
@@ -271,8 +273,8 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
 
   if (query.type !== "SELECT") {
     // For updating queries, get the 'ctid' column as column 0
-    resultcolumns.push({ tableid: -1, queryName: "ctid", exportName: "ctid", type: VariableType.String, flags: 0, expr: sql.ref(`T0.ctid`) });
-    resultcolumnsfase2.push({ tableid: -1, queryName: "ctid", exportName: "ctid", type: VariableType.String, flags: 0, expr: sql.ref(`T0.ctid`) });
+    resultcolumns.push({ tableid: -1, queryName: "ctid", exportName: "ctid", type: VariableType.Record, flags: 0, expr: sql.ref(`T0.ctid`) });
+    resultcolumnsfase2.push({ tableid: -1, queryName: "ctid", exportName: "ctid", type: VariableType.Record, flags: 0, expr: sql.ref(`T0.ctid`) });
     // in fase2, the row position is returned as column 1
 
     for (const column of query.tablesources[0].columns) {
@@ -451,43 +453,83 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
     dbquery = dbquery.modifyEnd(modifyend);
 
   const res = await dbquery.execute();
-  const tabledata = [], rowsdata = [];
+
+  vm.wasmmodule._HSVM_SetDefault(vm.hsvm, id_set.id, VariableType.Record as HSVM_VariableType);
+  const recarray_tabledata = vm.wasmmodule._HSVM_RecordCreate(vm.hsvm, id_set.id, vm.getColumnId("tabledata"));
+  vm.wasmmodule._HSVM_SetDefault(vm.hsvm, recarray_tabledata, VariableType.RecordArray as HSVM_VariableType);
+  const recarray_rowsdata = vm.wasmmodule._HSVM_RecordCreate(vm.hsvm, id_set.id, vm.getColumnId("rowsdata"));
+  vm.wasmmodule._HSVM_SetDefault(vm.hsvm, recarray_rowsdata, VariableType.RecordArray as HSVM_VariableType);
+
+  const prepped_resultcolumns = resultcolumns.map(col => ({ ...col, exportId: vm.getColumnId(col.exportName) }));
+
   //TODO Both cbExecuteQuery and cbSendPostgreSQLCommand need to do some return type postprocessing to align with HS types, share!
   for (const row of res) {
-    const tablerows: Array<Record<string, unknown>> = [];
+    const tablerows = new Array<HSVM_VariableId>;
+
     for (let idx = 0; idx < query.tablesources.length; ++idx)
-      tablerows.push({});
-    const rowdata: Record<string, unknown> = {};
+      tablerows.push(vm.wasmmodule._HSVM_ArrayAppend(vm.hsvm, recarray_tabledata));
+    const rowsdata = vm.wasmmodule._HSVM_ArrayAppend(vm.hsvm, recarray_rowsdata);
 
-    for (const col of resultcolumns) {
-      let value = row[col.queryName];
-      if (col.type === VariableType.Blob && value === null)
-        value = new HareScriptMemoryBlob;
-      else if (col.type === VariableType.Integer64)
-        value = BigInt(value as number || 0);
-      else if (col.type === VariableType.Float)
-        value = new BoxedFloat(value as number);
-      else if (col.type === VariableType.DateTime)
-        value = value === -Infinity ? defaultDateTime : value === Infinity ? maxDateTime : value;
+    for (const col of prepped_resultcolumns) {
+      const value = row[col.queryName];
+      if (value === null && col.type !== VariableType.Blob && col.type !== VariableType.Integer64 && col.type !== VariableType.DateTime)
+        continue; //not storing this null
 
-      // else if (col.type === VariableType.HSMoney)
-      //   value = new Money(value as string);
-      if (value !== null) {
-        if (col.tableid >= 0)
-          tablerows[col.tableid][col.exportName] = value;
-        else
-          rowdata[col.exportName] = value;
+      let store: HSVM_VariableId;
+      if (col.tableid >= 0)
+        store = vm.wasmmodule._HSVM_RecordCreate(vm.hsvm, tablerows[col.tableid], col.exportId);
+      else
+        store = vm.wasmmodule._HSVM_RecordCreate(vm.hsvm, rowsdata, col.exportId);
+
+      switch (col.type) {
+        case VariableType.Integer:
+          vm.wasmmodule._HSVM_IntegerSet(vm.hsvm, store, value as number);
+          break;
+        case VariableType.Integer64:
+          vm.wasmmodule._HSVM_Integer64Set(vm.hsvm, store, BigInt(value as number || 0));
+          break;
+        case VariableType.String:
+          new HSVMVar(vm, store).setString(value as string | Buffer);
+          break;
+        case VariableType.Record: //ctid
+          new HSVMVar(vm, store).setJSValue(value as string | Buffer);
+          break;
+        case VariableType.Boolean:
+          vm.wasmmodule._HSVM_BooleanSet(vm.hsvm, store, value ? 1 : 0);
+          break;
+        case VariableType.HSMoney:
+          new HSVMVar(vm, store).setMoney(value as Money);
+          break;
+        case VariableType.Float:
+          vm.wasmmodule._HSVM_FloatSet(vm.hsvm, store, value as number);
+          break;
+        case VariableType.DateTime:
+          new HSVMVar(vm, store).setDateTime(value === -Infinity ? defaultDateTime : value === Infinity ? maxDateTime : value as Date);
+          break;
+        case VariableType.IntegerArray:
+          new HSVMVar(vm, store).setJSValue(value);
+          break;
+        case VariableType.Blob:
+          if (value === null) {
+            vm.wasmmodule._HSVM_SetDefault(vm.hsvm, store, VariableType.Blob as HSVM_VariableType);
+            break;
+          }
+          new HSVMVar(vm, store).setJSValue(value);
+          break;
+        default:
+          throw new Error(`Unrecognized type ${VariableType[col.type]} for cell '${col.exportName}'`);
+
+        /*
+              if (col.type === VariableType.Blob && value === null)
+                value = new HareScriptMemoryBlob;
+        */
       }
     }
-    tabledata.push(...tablerows);
-    rowsdata.push(rowdata);
   }
 
   // FIXME: use these columns
   void (keycolumn);
   void (updatedtable);
-
-  id_set.setJSValue({ tabledata, rowsdata });
 }
 
 export async function cbIsWorkOpen() {
