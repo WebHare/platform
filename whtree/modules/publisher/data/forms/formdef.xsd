@@ -518,6 +518,7 @@
                              icon="tollium:forms/hidden"
                              linecomponent="false"
                              parserfunc="/lib/webtools/formcomponents/hidden.whlib#parseformhidden"
+                             supportedvalues="string"
                              tid="formcomponents.hidden.name" />
         </xs:appinfo>
       </xs:annotation>
