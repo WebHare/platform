@@ -98,10 +98,11 @@ ASYNC MACRO TestEntitiesEdit()
   </screen>
   <screen name="editentity2" footerbuttons="ok cancel">
     <compositions>
-      <wrd:entity name="entity" wrdtype="test_domain_1"/>
+      <wrd:entity name="entity" wrdtype="test_domain_1" onload="onentityload" onstore="onentitystore" getfields="wrd_ordering"/>
     </compositions>
     <body>
       <textedit name="mytitle" title="Title" required="true" />
+      <textedit composition="entity" cellname="ordering" title="Ordering" required="true" name="ordering" />
     </body>
     <footer>
       <defaultformbuttons buttons="ok cancel" />
@@ -119,12 +120,14 @@ ASYNC MACRO TestEntitiesEdit()
 
   TestEq("a domain value", TT("entities")->selection.wrd_title);
 
-  //Test virtual cell
+  //Test virtual cell and onstore/onload
   TT("entities")->entityeditscreen := "#editentity2";
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
-  TestEq(["wrd_title"], GetSortedSet(TT("^entity")->GetComposedCellNames()));
+  TestEq(["ordering","wrd_title"], GetSortedSet(TT("^entity")->GetComposedCellNames()));
   TestEq("a domain value; virtualcell", TT("mytitle")->value);
+  TestEq("four", TT("ordering")->value);
   TT("mytitle")->value := "new domain value";
+  TT("ordering")->value := "five";
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Ok"));
 
   TT("entities")->entityeditscreen := "#editentity";
@@ -137,7 +140,7 @@ ASYNC MACRO TestEntitiesEdit()
       [ [ wrd_title := "Domain value 1.3", wrd_ordering := 1 ]
       , [ wrd_title := "Domain value 1.2", wrd_ordering := 2 ]
       , [ wrd_title := "Domain value 1.1", wrd_ordering := 3 ]
-      , [ wrd_title := "new domain value", wrd_ordering := 4 ]
+      , [ wrd_title := "new domain value", wrd_ordering := 5 ]
       ], allvals, "*");
 
   TTFillByTitle("entities->entities->list", "new domain value");

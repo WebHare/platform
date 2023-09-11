@@ -1992,6 +1992,12 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
   ///List of virtual cells (not backed by a real tollium field)
   RECORD ARRAY __virtualcells;
 
+  ///Update the loaded value for the composition (pre-processes the value before applying it to the composition components)
+  PUBLIC FUNCTION PTR onload;
+  ///Update the stored value for the composition (post-processes the full value read from the composition components)
+  PUBLIC FUNCTION PTR onstore;
+
+
   // ---------------------------------------------------------------------------
   //
   // Properties
@@ -2025,6 +2031,8 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
   {
     this->TolliumComponentBase_StaticInit(def);
     this->mergecompositions := def.mergecompositions; //ADDME make property and guard against loops and doubly-claimed cells. ensure the merged ones are compositions too
+    this->onstore := def.onstore;
+    this->onload := def.onload;
   }
 
   // ---------------------------------------------------------------------------
@@ -2097,6 +2105,9 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
     IF(NOT RecordExists(contents)) //no effect. If you want to reset all data, use ResetValue
       RETURN;
 
+    IF(this->onload != DEFAULT FUNCTION PTR)
+      contents := this->onload(contents);
+
     FOREVERY(OBJECT subcell FROM this->cells)
     {
       IF (NOT CellExists(contents, subcell->cellname))
@@ -2159,6 +2170,9 @@ PUBLIC OBJECTTYPE TolliumCompositionBase EXTEND TolliumComponentBase
 
       rec := CellInsert(rec, subcell.name, subcell.getter());
     }
+
+    IF(this->onstore != DEFAULT FUNCTION PTR)
+      rec := this->onstore(rec);
 
     RETURN rec;
   }

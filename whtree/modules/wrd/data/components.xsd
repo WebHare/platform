@@ -103,6 +103,11 @@
     <xs:complexType>
       <xs:attributeGroup ref="tc:CompositionBase" />
       <xs:attributeGroup ref="tc:IsComposable" />
+      <xs:attribute name="getfields" type="s:StringList">
+        <xs:annotation>
+          <xs:documentation>Additional fields to get for onload</xs:documentation>
+        </xs:annotation>
+      </xs:attribute>
       <xs:attribute name="onstorevalue" type="tc:Handler">
         <xs:annotation>
           <xs:appinfo>

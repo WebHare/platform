@@ -49,12 +49,16 @@ PUBLIC STATIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
 
   PUBLIC PROPERTY autoupdate(GetAutoUpdate, SetAutoUpdate);
 
+  PUBLIC STRING ARRAY getfields;
+
   UPDATE PUBLIC MACRO StaticInit(RECORD def)
   {
     TolliumCompositionBase::StaticInit(def);
     this->attributebase := def.attributebase;
     this->onstorevalue := def.onstorevalue;
     this->onupdate := def.onupdate;
+    this->getfields := def.getfields;
+
 
     IF(def.wrdtype != "")
     {
@@ -98,6 +102,31 @@ PUBLIC STATIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
     this->wrdentitylistener->SetListener(this->pvt_entity);
   }
 
+  STRING ARRAY FUNCTION GetFieldsToGet()
+  {
+    STRING ARRAY getnames;
+    STRING ARRAY availablenames := SELECT AS STRING ARRAY ToLowercase(tag) FROm this->wrdtype->Listattributes(0);
+
+    FOREVERY(STRING name FROM this->GetComposedCellNames())
+    {
+      name := ToLowercase(name);
+      IF(name IN availablenames)
+        INSERT name INTO getnames AT END;
+    }
+    FOREVERY(STRING name FROM this->getfields)
+    {
+      name := ToLowercase(name);
+      IF(name IN getnames)
+        CONTINUE;
+      IF(name IN availablenames)
+        INSERT name INTO getnames AT END;
+      ELSE
+        THROW NEW TolliumException(this,`No such field '${name}' in type '${this->wrdtype->tag}', but it was explicitly requested by the 'getfields' property`);
+    }
+
+    RETURN getnames;
+  }
+
   /** @short Load an entity
       @long Load an entity into the composition. Throws if the id cannot be resolved to an entity, except if the id is 0
       @param id ID of entity to load */
@@ -120,7 +149,7 @@ PUBLIC STATIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
       IF(NOT ObjectExists(this->pvt_entity))
         THROW NEW TolliumException(this, `No such entity #${id}`);
 
-      this->value := this->pvt_entity->GetFields(this->GetComposedCellNames());
+      this->value := this->pvt_entity->GetFields(this->GetFieldsToGet());
     }
 
     this->DestroyCurrentStorage();
@@ -164,7 +193,7 @@ PUBLIC STATIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
   MACRO GotUpdateEvent()
   {
     IF(ObjectExists(this->pvt_entity))
-      this->value := this->pvt_entity->GetFields(this->GetComposedCellNames());
+      this->value := this->pvt_entity->GetFields(this->GetFieldsToGet());
     IF(this->onupdate != DEFAULT MACRO PTR)
       this->onupdate();
   }
@@ -293,7 +322,7 @@ PUBLIC STATIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
     }
 
     this->pvt_entity := newentity;
-    this->value := newentity->GetFields(this->GetComposedCellNames());
+    this->value := newentity->GetFields(this->GetFieldsToGet());
   }
 
   PUBLIC UPDATE VARIANT FUNCTION GetUpdateValue()
@@ -520,7 +549,7 @@ PUBLIC STATIC OBJECTTYPE TolliumWRDEntity EXTEND TolliumCompositionBase
   UPDATE PUBLIC MACRO Invalidate()
   {
     IF (ObjectExists(this->wrdentity))
-      this->value := this->wrdentity->GetFields(this->GetComposedCellNames());
+      this->value := this->wrdentity->GetFields(this->GetFieldsToGet());
   }
 
   /** Return the fields that would be modified when calling StoreEntity (optionally with additional values)
