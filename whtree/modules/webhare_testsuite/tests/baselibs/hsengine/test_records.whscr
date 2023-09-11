@@ -530,6 +530,11 @@ MACRO UnpackRepackTest()
 
   TestEq([x := 42], PickCells([x:=42, y:=43], [ "x", "z" ]));
   TestThrowsLike(`Duplicate cell "X"`, PTR PickCells([x:=42, y:=43], [ "x", "X" ]));
+  TestEq(DEFAULT RECORD, PickCells(DEFAULT RECORD, [ "x", "z" ]));
+  TestEq(CELL[], PickCells(CELL[], [ "x", "z" ]));
+  TestEq([y := 43], OmitCells([x:=42, y:=43], [ "x", "z" ]));
+  TestEq(DEFAULT RECORD, OmitCells(DEFAULT RECORD, [ "x", "z" ]));
+  TestEq(CELL[], OmitCells(CELL[], [ "x", "z" ]));
 
   CloseTest("TestRecords: UnpackRepackTest");
 }
