@@ -1176,13 +1176,15 @@ class WRDDBBaseCreationLimitDateValue extends WRDAttributeValueBase<Date | null,
   }
 
   getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, entityrec: EntityPartialRec): Date | null {
-    let val: Date | undefined;
+    let val: Date | number | undefined;
     if (this.attr.tag === "wrdCreationDate")
-      val = entityrec.creationdate;
+      val = entityrec.creationdate as Date | number;
     else if (this.attr.tag === "wrdLimitDate")
-      val = entityrec.limitdate;
+      val = entityrec.limitdate as Date | number;
     else
       throw new Error(`Unhandled base domain attribute ${JSON.stringify(this.attr.tag)}`);
+    if (typeof val === "number") // -Infinity and Infinity
+      return null;
     if (!val || val.getTime() <= defaultDateTime.getTime() || val.getTime() >= maxDateTimeTotalMsecs)
       return null;
     return val;
