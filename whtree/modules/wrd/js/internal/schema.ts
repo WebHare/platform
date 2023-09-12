@@ -2,9 +2,11 @@ import { HSVMObject } from "@webhare/services/src/hsvm";
 import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeTypeNames } from "./types";
 export { SchemaTypeDefinition } from "./types";
 import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
+import { loadlib } from "@webhare/harescript";
 import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
 import { ensureScopedResource } from "@webhare/services/src/codecontexts";
 import { fieldsToHS, tagToHS, outputmapToHS, repairResultSet, tagToJS, repairResultValue, WRDAttributeConfiguration, WRDAttributeConfiguration_HS } from "@webhare/wrd/src/wrdsupport";
+import { debugFlags } from "@webhare/env";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 
@@ -75,7 +77,8 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     const left = await this.__toWRDTypeId((config as WRDLinkTypeConfiguration)?.left);
     const right = await this.__toWRDTypeId((config as WRDLinkTypeConfiguration)?.right);
 
-    await extendWorkToCoHSVM();
+    if (!debugFlags["wrd:usewasmvm"])
+      await extendWorkToCoHSVM();
 
     const createrequest = {
       title: "",
@@ -99,8 +102,8 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     if (!type)
       return null;
 
-    const linkfrom = await type.get("linkfrom") as number;
-    const linkto = await type.get("linkto") as number;
+    const linkfrom = await type.$get("linkfrom") as number;
+    const linkto = await type.$get("linkto") as number;
 
     return {
       left: linkfrom ? await this.__getTypeTag(linkfrom) : null,
@@ -126,8 +129,10 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   private getWRDSchemaCache(): CoVMSchemaCache {
     return ensureScopedResource(this.coVMSchemaCacheSymbol, (context) => ({
       schemaobj: (async () => {
-        const hsvm = await getCoHSVM();
-        const wrd_api = hsvm.loadlib("mod::wrd/lib/api.whlib");
+        //const hsvm = await getCoHSVM();
+        const wrd_api = debugFlags["wrd:usewasmvm"]
+          ? loadlib("mod::wrd/lib/api.whlib")
+          : (await getCoHSVM()).loadlib("mod::wrd/lib/api.whlib");
         const wrdschema = (typeof this.id === "number" ? await wrd_api.OpenWRDSchemaById(this.id) : await wrd_api.OpenWRDSchema(this.id)) as HSVMObject | null;
         if (!wrdschema)
           throw new Error(`No such WRD schema ${this.id}`);
@@ -233,21 +238,24 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   async updateMetadata(newmetadata: Partial<WRDTypeMetadata>) {
-    await extendWorkToCoHSVM();
+    if (!debugFlags["wrd:usewasmvm"])
+      await extendWorkToCoHSVM();
     await (await this._getType()).updateMetadata(newmetadata);
   }
 
   async createEntity(value: Updatable<S[T]>): Promise<number> {
-    await extendWorkToCoHSVM();
+    if (!debugFlags["wrd:usewasmvm"])
+      await extendWorkToCoHSVM();
     if (!this.attrs)
       await this.ensureAttributes();
 
     const entityobj = await (await this._getType()).createEntity(fieldsToHS(value, this.attrs!), { jsmode: true });
-    return await (entityobj as HSVMObject).get("id") as number;
+    return await (entityobj as HSVMObject).$get("id") as number;
   }
 
   async updateEntity(wrd_id: number, value: Updatable<S[T]>): Promise<void> {
-    await extendWorkToCoHSVM();
+    if (!debugFlags["wrd:usewasmvm"])
+      await extendWorkToCoHSVM();
     if (!this.attrs)
       await this.ensureAttributes();
 
@@ -280,7 +288,8 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   async delete(ids: number | number[]): Promise<void> {
     ids = Array.isArray(ids) ? ids : [ids];
     if (ids.length) {
-      await extendWorkToCoHSVM();
+      if (!debugFlags["wrd:usewasmvm"])
+        await extendWorkToCoHSVM();
       await (await this._getType()).deleteEntities(ids);
     }
   }
@@ -306,7 +315,8 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   async createAttribute(tag: string, configuration: WRDAttributeCreateConfiguration) {
-    await extendWorkToCoHSVM();
+    if (!debugFlags["wrd:usewasmvm"])
+      await extendWorkToCoHSVM();
     const typeobj = await this._getType();
     const typetag = WRDAttributeTypeNames[configuration.attributeType - 1];
 
@@ -321,7 +331,8 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 
   async updateAttribute(tag: string, configuration: Partial<WRDAttributeConfiguration>) {
-    await extendWorkToCoHSVM();
+    if (!debugFlags["wrd:usewasmvm"])
+      await extendWorkToCoHSVM();
     const typeobj = await this._getType();
     await typeobj.UpdateAttribute(tagToHS(tag), configuration);
     return;

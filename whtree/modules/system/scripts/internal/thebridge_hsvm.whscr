@@ -131,7 +131,7 @@ OBJECTTYPE Controller
     args := SELECT AS VARIANT ARRAY MapFromBridge(arg) FROM ToRecordArray(args,"arg");
 
     VARIANT retval;
-    IF(ToUppercase(name) = "GET")
+    IF(ToUppercase(name) = "GET" OR ToUppercase(name) = "$GET")
       IF(MemberExists(obj, args[0]))
         RETURN MapToBridge(GetMember(obj, args[0]));
       ELSE
