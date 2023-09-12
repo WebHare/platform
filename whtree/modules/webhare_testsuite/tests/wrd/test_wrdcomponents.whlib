@@ -2,6 +2,8 @@
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::wrd/lib/screenbase.whlib";
 
+STRING ARRAY orders := ["zero","one","two","three","four","five"];
+
 PUBLIC OBJECTTYPE TestRunQuery EXTEND TolliumScreenBase
 <
   MACRO Init(RECORD data)
@@ -27,6 +29,14 @@ PUBLIC STATIC OBJECTTYPE EditEntity2 EXTEND WRDEntityEditScreenBase
   {
     ^entity->RegisterVirtualCell("wrd_title", PTR this->GetTitle, PTR this->SetTitle);
     WRDEntityEditScreenBase::Init(data);
+  }
+  RECORD FUNCTION OnEntityLoad(RECORD original)
+  {
+    RETURN CELL[ ...original, ordering := orders[original.wrd_ordering], DELETE wrd_ordering];
+  }
+  RECORD FUNCTION OnEntityStore(RECORD original)
+  {
+    RETURN CELL[ ...original, wrd_ordering := SearchElement(orders, original.ordering), DELETE ordering];
   }
   STRING FUNCTION GetTitle()
   {

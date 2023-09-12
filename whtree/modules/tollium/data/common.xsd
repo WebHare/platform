@@ -126,6 +126,22 @@
     <xs:attribute name="mergecompositions" type="ComponentRefList" />
     <xs:attributeGroup ref="IsDirtyable" />
     <xs:attributeGroup ref="ComponentBase" />
+    <xs:attribute name="onload" type="Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <t:callbacksignature returntype="record" arguments="record" />
+        </xs:appinfo>
+        <xs:documentation>Update the loaded value for the composition (pre-processes the value before applying it to the composition components)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="onstore" type="Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <t:callbacksignature returntype="record" arguments="record" />
+        </xs:appinfo>
+        <xs:documentation>Update the stored value for the composition (post-processes the full value read from the composition components)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:attributeGroup>
 
   <xs:attributeGroup name="ComponentBase">

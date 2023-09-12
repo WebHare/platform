@@ -2468,6 +2468,22 @@ PUBLIC RECORD FUNCTION PickCells(RECORD data, STRING ARRAY cells)
   RETURN retval;
 }
 
+/** @short Eliminates a subset of cells of a record
+    @param data Source record
+    @param cells Names of cells to drop from the source record (if they exist)
+    @return Record with the omitted cells
+*/
+PUBLIC RECORD FUNCTION OmitCells(RECORD data, STRING ARRAY cells)
+{
+  IF (IsDefaultValue(data))
+    RETURN data;
+
+  FOREVERY (STRING name FROM cells)
+    data := CellDelete(data, name);
+
+  RETURN data;
+}
+
 STRING FUNCTION ReadFromFile(INTEGER filehandle, INTEGER numbytes)
 {
   IF(numbytes<=32768) RETURN ReadFrom(filehandle, numbytes);

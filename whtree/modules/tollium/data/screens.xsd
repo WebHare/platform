@@ -3801,7 +3801,7 @@ To change a <xs:attribute /> for adding descriptions
           <tai:tolliumcomponent placement="composition" objecttype="/lib/components/virtualcell.whlib#TolliumVirtualCell" />
         </xs:appinfo>
       </xs:annotation>
-      <xs:attributeGroup ref="tc:CompositionBase" />
+      <xs:attributeGroup ref="tc:ComponentBase" />
       <xs:attributeGroup ref="tc:IsComposable" />
       <xs:attribute name="onget" type="tc:Handler">
         <xs:annotation>
