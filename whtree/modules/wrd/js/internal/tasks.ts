@@ -1,12 +1,10 @@
 import { addDuration } from "@webhare/std";
 import { beginWork, db, commitWork } from "@webhare/whdb";
 import { listSchemas } from "@webhare/wrd";
-import { extendWorkToCoHSVM } from "@webhare/services/src/co-hsvm";
 import { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 
 export async function cleanupOutdatedEntities(options?: { forSchema?: string }) {
   await beginWork();
-  await extendWorkToCoHSVM();
 
   const now = new Date();
   // We'll only delete entities that are modified at least one day ago

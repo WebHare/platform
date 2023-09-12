@@ -1,5 +1,5 @@
+import { loadlib } from "@webhare/harescript";
 import { convertWaitPeriodToDate, WaitPeriod } from "@webhare/std";
-import { extendWorkToCoHSVM, getCoHSVM } from "./co-hsvm";
 
 interface TaskResponseFinished {
   type: "finished";
@@ -34,9 +34,7 @@ export class TaskRequest<TaskDataType, TaskResultType = unknown> {
 }
 
 export async function scheduleTask(call: string, ...args: unknown[]) {
-  const vm = await getCoHSVM();
-  await extendWorkToCoHSVM();
-  return await vm.loadlib("mod::system/lib/tasks.whlib").scheduleManagedTask(call, ...args) as number;
+  return await loadlib("mod::system/lib/tasks.whlib").scheduleManagedTask(call, ...args) as number;
 }
 
 /** Schedule a timed task to run.
@@ -50,9 +48,7 @@ export async function scheduleTask(call: string, ...args: unknown[]) {
                      allowMissing: Don't fail if the task isn't registered (yet)
 */
 export async function scheduleTimedTask(taskname: string, options?: { when?: Date; allowMissing?: boolean }): Promise<void> {
-  const vm = await getCoHSVM();
-  await extendWorkToCoHSVM();
-  await vm.loadlib("mod::system/lib/tasks.whlib").scheduleTimedTask(taskname, options ?? {});
+  await loadlib("mod::system/lib/tasks.whlib").scheduleTimedTask(taskname, options ?? {});
 }
 
 export async function retrieveTaskResult<T>(taskId: number, timeout: WaitPeriod, options?: {
@@ -66,7 +62,7 @@ export async function retrieveTaskResult<T>(taskId: number, timeout: WaitPeriod,
     acceptTimeout: false,
     ...options
   };
-  const vm = await getCoHSVM();
+
   const maxwait = convertWaitPeriodToDate(timeout);
-  return await vm.loadlib("mod::system/lib/tasks.whlib").retrieveManagedTaskResult(taskId, maxwait, options) as T;
+  return await loadlib("mod::system/lib/tasks.whlib").retrieveManagedTaskResult(taskId, maxwait, options) as T;
 }
