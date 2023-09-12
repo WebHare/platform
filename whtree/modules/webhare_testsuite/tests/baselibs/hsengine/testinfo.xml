@@ -75,7 +75,7 @@
     <test script="test_control.whscr" xfail="1" />  <!-- Missing process control -->
     <test script="test_constants.whscr" />
     <test script="test_conversions.whscr" />
-    <test script="test_crypto.whscr" xfail="1" />  <!-- Missing exception translation -->
+    <test script="test_crypto.whscr" />
     <test script="test_css.whscr" />
     <test script="test_css_xpath.whscr" />
     <test script="test_database.whscr" />
