@@ -1,20 +1,21 @@
 import { WRDBaseAttributeType, WRDAttributeType, AllowedFilterConditions, WRDAttrBase, WRDGender, Insertable, GetResultType, SimpleWRDAttributeType } from "./types";
-import type { AttrRec, EntityPartialRec, EntitySettingsRec } from "./db";
-import { sql, SelectQueryBuilder, ExpressionBuilder } from "kysely";
+import type { AttrRec, EntityPartialRec, EntitySettingsRec, EntitySettingsWHFSLinkRec } from "./db";
+import { sql, SelectQueryBuilder, ExpressionBuilder, RawBuilder } from "kysely";
 import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
-import { compare, ComparableType } from "@webhare/hscompat/algorithms";
+import { compare, ComparableType, recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
 import { Money } from "@webhare/std";
-import { RichFileDescriptor } from "@webhare/services";
+import { decodeScanData, RichFileDescriptor } from "@webhare/services/src/richfile";
+import { defaultDateTime, makeDateFromParts, maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 
 
-/** Response type for addToQuery
+/** Response type for addToQuery. Null to signal the added condition is always false
  * @typeParam O - Kysely selection map for wrd.entities (third parameter for `SelectQueryBuilder<WebHareDB, "wrd.entities", O>`)
  */
 type AddToQueryResponse<O> = {
   needaftercheck: boolean;
   query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>;
-};
+} | null;
 
 /** Base for an attribute accessor
  * @typeParam In - Type for allowed values for insert and update
@@ -76,26 +77,38 @@ export abstract class WRDAttributeValueBase<In, Default, Out extends Default, C 
    * @param entity_settings - List of entity settings
    * @param settings_start - Position where settings for this attribute start
    * @param settings_limit - Limit of setting for this attribute, is always greater than settings_start
+   * @param links - Entity settings whfs links, sorted on id
    */
-  abstract getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): Out;
+  abstract getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[]): Out;
 
   /** Given a list of entity settings, extract the return value for a field
    * @param entity_settings - List of entity settings
    * @param settings_start - Position where settings for this attribute start
-   * @param settings_limit - Limit of setting for this attribute, may be the same as settings_start)
+   * @param settings_limit - Limit of setting for this attribute, may be the same as settings_start
+   * @param row - Entity record
+   * @param links - Entity settings whfs links, sorted on id
    * @returns The parsed value. The return type of this function is used to determine the selection output type for a attribute.
    */
-  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, row: EntityPartialRec): Out {
+  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, row: EntityPartialRec, links: EntitySettingsWHFSLinkRec[]): Out {
     if (settings_limit <= settings_start)
       return this.getDefaultValue() as Out; // Cast is needed because for required fields, Out may not extend Default.
     else
-      return this.getFromRecord(entity_settings, settings_start, settings_limit);
+      return this.getFromRecord(entity_settings, settings_start, settings_limit, links);
   }
 
   /** Check the contents of a value used to insert or update a value
    * @param value - The value to check. The type of this value is used to determine which type is accepted in an insert or update.
    */
   abstract validateInput(value: In): void;
+
+  /** Returns the list of attributes that need to be fetched */
+  getAttrIds(): number | number[] {
+    return this.attr.id;
+  }
+
+  getAttrBaseCells(): null | keyof EntityPartialRec | Array<keyof EntityPartialRec> {
+    return null;
+  }
 }
 
 /** Compare values */
@@ -117,11 +130,12 @@ type SettingsSelectBuilder = SelectQueryBuilder<WebHareDB, "wrd.entities" | "wrd
  * @param qb - Query over wrd.entities
  * @returns Subquery over wrd.entity_settings, with the column `id` already selected.
 */
-function getSettingsSelect(qb: ExpressionBuilder<WebHareDB, "wrd.entities">): SettingsSelectBuilder {
+function getSettingsSelect(qb: ExpressionBuilder<WebHareDB, "wrd.entities">, attr: number): SettingsSelectBuilder {
   return qb
     .selectFrom("wrd.entity_settings")
     .select(["wrd.entity_settings.id"])
-    .whereRef("wrd.entity_settings.entity", "=", "wrd.entities.id");
+    .whereRef("wrd.entity_settings.entity", "=", "wrd.entities.id")
+    .where("wrd.entity_settings.attribute", "=", attr);
 }
 
 /** Adds query filters to a query for simple query matches
@@ -138,13 +152,13 @@ function getSettingsSelect(qb: ExpressionBuilder<WebHareDB, "wrd.entities">): Se
  * @param builder - Function that add the relevant conditions on the first subquery to identify matching settings records
  * @returns Updated query
 */
-function addQueryFilter<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, defaultmatches: boolean, builder: (b: SettingsSelectBuilder) => SettingsSelectBuilder): SelectQueryBuilder<WebHareDB, "wrd.entities", O> {
+function addQueryFilter<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, attr: number, defaultmatches: boolean, builder: (b: SettingsSelectBuilder) => SettingsSelectBuilder): SelectQueryBuilder<WebHareDB, "wrd.entities", O> {
   return query.where((oqb) => {
     oqb = oqb.orWhereExists((qb) => {
-      return builder(getSettingsSelect(qb));
+      return builder(getSettingsSelect(qb, attr));
     });
     if (defaultmatches)
-      oqb = oqb.orWhereNotExists(getSettingsSelect);
+      oqb = oqb.orWhereNotExists(soqb => getSettingsSelect(soqb, attr));
     return oqb;
   });
 }
@@ -206,7 +220,7 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
 
     // copy to a new variable to satisfy TypeScript type inference
     const filtered_cv = db_cv;
-    query = addQueryFilter(query, defaultmatches, b => {
+    query = addQueryFilter(query, this.attr.id, defaultmatches, b => {
       return b
         .$if(Boolean(db_cv.options?.matchcase), f => f.where(sql`rawdata`, filtered_cv.condition, filtered_cv.value))
         .$if(!db_cv.options?.matchcase, f => f.where(sql`upper("rawdata")`, filtered_cv.condition, filtered_cv.value));
@@ -228,6 +242,108 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
   }
 }
 
+class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string, WRDDBStringConditions> {
+  getDefaultValue() { return ""; }
+  checkFilter({ condition, value }: WRDDBStringConditions) {
+    if (condition === "mentions" && !value)
+      throw new Error(`Value may not be empty for condition type ${JSON.stringify(condition)}`);
+  }
+  matchesValue(value: string, cv: WRDDBStringConditions): boolean {
+    if (!cv.options?.matchcase)
+      value = value.toUpperCase();
+    if (cv.condition === "in" || cv.condition === "mentionsany") {
+      if (!cv.options?.matchcase) {
+        return cv.value.some(v => value === v.toUpperCase());
+      } else
+        return cv.value.includes(value);
+    }
+    const cmpvalue = cv.options?.matchcase ? cv.value : cv.value.toUpperCase();
+    if (cv.condition === "like") {
+      return isLike(value, cmpvalue);
+    }
+    return cmp(value, cv.condition === "mentions" ? "=" : cv.condition, cmpvalue);
+  }
+
+  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBStringConditions): AddToQueryResponse<O> {
+    // Rewrite like query to PostgreSQL LIKE mask format
+    let db_cv = { ...cv };
+    if (db_cv.condition === "like") {
+      db_cv.value = db_cv.value.replaceAll(/[\\%_]/g, "\\$&").replaceAll("*", "%").replaceAll(".", "_");
+    }
+
+    // rewrite mentions and mentionsany to supported conditions
+    if (db_cv.condition === "mentions")
+      db_cv = { ...db_cv, condition: "=" };
+    else if (db_cv.condition === "mentionsany")
+      db_cv = { ...db_cv, condition: "in" };
+
+    if (!db_cv.options?.matchcase) {
+      if (db_cv.condition === "in")
+        db_cv.value = db_cv.value.map(v => v.toUpperCase());
+      else
+        db_cv.value = db_cv.value.toUpperCase();
+    }
+
+    // copy to a new variable to satisfy TypeScript type inference
+    const filtered_cv = db_cv;
+
+    let baseAttr: RawBuilder<unknown>;
+    switch (this.attr.tag) {
+      case "wrdTag": baseAttr = db_cv.options?.matchcase ? sql`tag` : sql`upper("tag")`; break;
+      case "wrdInitials": baseAttr = db_cv.options?.matchcase ? sql`initials` : sql`upper("initials")`; break;
+      case "wrdFirstName": baseAttr = db_cv.options?.matchcase ? sql`firstname` : sql`upper("firstname")`; break;
+      case "wrdFirstNames": baseAttr = db_cv.options?.matchcase ? sql`firstnames` : sql`upper("firstnames")`; break;
+      case "wrdInfix": baseAttr = db_cv.options?.matchcase ? sql`infix` : sql`upper("infix")`; break;
+      case "wrdLastName": baseAttr = db_cv.options?.matchcase ? sql`lastname` : sql`upper("lastname")`; break;
+      case "wrdTitlesSuffix": baseAttr = db_cv.options?.matchcase ? sql`titles_suffix` : sql`upper("titles_suffix")`; break;
+      default: throw new Error(`Unhandled base string attribute ${JSON.stringify(this.attr.tag)}`);
+    }
+    return {
+      needaftercheck: false,
+      query: query.where(baseAttr, filtered_cv.condition, filtered_cv.value)
+    };
+  }
+
+  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, entityRecord: EntityPartialRec): string {
+    switch (this.attr.tag) {
+      case "wrdTag": return entityRecord.tag || "";
+      case "wrdInitials": return entityRecord.initials || "";
+      case "wrdFirstName": return entityRecord.firstname || "";
+      case "wrdFirstNames": return entityRecord.firstnames || "";
+      case "wrdInfix": return entityRecord.infix || "";
+      case "wrdLastName": return entityRecord.lastname || "";
+      case "wrdTitlesSuffix": return entityRecord.titles_suffix || "";
+      default: throw new Error(`Unhandled base string attribute ${JSON.stringify(this.attr.tag)}`);
+    }
+  }
+
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): string {
+    throw new Error("Not implemented for base fields");
+  }
+
+  validateInput(value: string) {
+    if (this.attr.required && !value)
+      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+    if (value.length > 256)
+      throw new Error(`Value for attribute ${this.attr.tag} is too long (${value.length} characters, maximum is 256)`);
+  }
+
+  getAttrBaseCells(): null | keyof EntityPartialRec | Array<keyof EntityPartialRec> {
+    switch (this.attr.tag) {
+      case "wrdTag": return "tag";
+      case "wrdInitials": return "initials";
+      case "wrdFirstName": return "firstname";
+      case "wrdFirstNames": return "firstnames";
+      case "wrdInfix": return "infix";
+      case "wrdLastName": return "lastname";
+      case "wrdTitlesSuffix": return "titles_suffix";
+      default: throw new Error(`Unhandled base string attribute ${JSON.stringify(this.attr.tag)}`);
+    }
+  }
+
+}
+
+
 type WRDDBBooleanConditions = {
   condition: "<" | "<=" | "=" | "!=" | ">=" | ">"; value: boolean;
 };
@@ -244,7 +360,7 @@ class WRDDBBooleanValue extends WRDAttributeValueBase<boolean, boolean, boolean,
   addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBBooleanConditions): AddToQueryResponse<O> {
     const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
 
-    query = addQueryFilter(query, defaultmatches, b => b.where(`rawdata`, cv.condition, cv.value ? "1" : ""));
+    query = addQueryFilter(query, this.attr.id, defaultmatches, b => b.where(`rawdata`, cv.condition, cv.value ? "1" : ""));
 
     return {
       needaftercheck: false,
@@ -282,7 +398,7 @@ class WRDDBIntegerValue extends WRDAttributeValueBase<number, number, number, WR
   addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBIntegerConditions): AddToQueryResponse<O> {
     const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
 
-    query = addQueryFilter(query, defaultmatches, b => b.where(sql`rawdata::integer`, cv.condition, cv.value));
+    query = addQueryFilter(query, this.attr.id, defaultmatches, b => b.where(sql`rawdata::integer`, cv.condition, cv.value));
 
     return {
       needaftercheck: false,
@@ -300,6 +416,59 @@ class WRDDBIntegerValue extends WRDAttributeValueBase<number, number, number, WR
   }
 }
 
+class WRDDBBaseIntegerValue extends WRDAttributeValueBase<number, number, number, WRDDBIntegerConditions> {
+  getDefaultValue() { return 0; }
+  checkFilter({ condition, value }: WRDDBIntegerConditions) {
+    // type-check is enough (for now)
+  }
+  matchesValue(value: number, cv: WRDDBIntegerConditions): boolean {
+    if (cv.condition === "in")
+      return cv.value.includes(value);
+    return cmp(value, cv.condition, cv.value);
+  }
+
+  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBIntegerConditions): AddToQueryResponse<O> {
+    switch (this.attr.tag) {
+      case "wrdId": query = query.where("id", cv.condition, cv.value); break;
+      case "wrdType": query = query.where("type", cv.condition, cv.value); break;
+      case "wrdOrdering": query = query.where("ordering", cv.condition, cv.value); break;
+      default: throw new Error(`Unhandled base integer attribute ${JSON.stringify(this.attr.tag)}`);
+    }
+
+    return {
+      needaftercheck: false,
+      query
+    };
+  }
+
+  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, entityrec: EntityPartialRec): number {
+    switch (this.attr.tag) {
+      case "wrdId": return entityrec["id"] || 0;
+      case "wrdType": return entityrec["type"] || 0;
+      case "wrdOrdering": return entityrec["ordering"] || 0;
+      default: throw new Error(`Unhandled base integer attribute ${JSON.stringify(this.attr.tag)}`);
+    }
+  }
+
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): number {
+    throw new Error(`Should not be called for base attributes`);
+  }
+
+  validateInput(value: number) {
+    if (this.attr.required && !value)
+      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+  }
+
+  getAttrBaseCells(): null | keyof EntityPartialRec | Array<keyof EntityPartialRec> {
+    switch (this.attr.tag) {
+      case "wrdId": return "id";
+      case "wrdType": return "type";
+      case "wrdOrdering": return "ordering";
+    }
+    return null;
+  }
+}
+
 type WRDDBDomainConditions = {
   condition: "=" | "!="; value: number | null;
 } | {
@@ -311,6 +480,73 @@ type WRDDBDomainConditions = {
 };
 
 class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
+  (true extends Required ? number : number | null),
+  (number | null),
+  (true extends Required ? number : number | null),
+  WRDDBDomainConditions
+> {
+  getDefaultValue(): number | null { return null; }
+  checkFilter(cv: WRDDBDomainConditions) {
+    if (cv.condition === "mentionsany") {
+      if (cv.value.some(v => !v))
+        throw new Error(`Not allowed to use 'null' or 0 for matchtype ${JSON.stringify(cv.condition)}`);
+    } else if (cv.condition === "in") {
+      if (cv.value.some(v => v === 0))
+        throw new Error(`Not allowed to use 0 for matchtype ${JSON.stringify(cv.condition)}`);
+    } else if (cv.condition === "mentions" && !cv.value)
+      throw new Error(`Not allowed to use 'null' or 0 for matchtype ${JSON.stringify(cv.condition)}`);
+    if (cv.value === 0)
+      throw new Error(`Not allowed to use 0 for domain types`);
+  }
+  matchesValue(value: number | null, cv: WRDDBDomainConditions): boolean {
+    switch (cv.condition) {
+      case "=":
+      case "mentions": {
+        return value === (cv.value || null);
+      }
+      case "!=": {
+        return value !== (cv.value || null);
+      }
+      case "in": {
+        return Boolean(cv.value.includes(value));
+      }
+      case "mentionsany": {
+        return Boolean(value && cv.value.includes(value));
+      }
+    }
+  }
+
+  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBDomainConditions): AddToQueryResponse<O> {
+    const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
+
+    // rewrite mentions and mentionsany to supported conditions
+    let db_cv = { ...cv };
+    if (db_cv.condition === "mentions")
+      db_cv = { ...db_cv, condition: "=" };
+    else if (db_cv.condition === "mentionsany")
+      db_cv = { ...db_cv, condition: "in" };
+
+    // copy to a new variable to satisfy TypeScript type inference
+    const fixed_db_cv = db_cv;
+    query = addQueryFilter(query, this.attr.id, defaultmatches, b => b.where(`setting`, fixed_db_cv.condition, fixed_db_cv.value));
+
+    return {
+      needaftercheck: false,
+      query
+    };
+  }
+
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): (true extends Required ? number : number | null) {
+    return entity_settings[settings_start].setting as number; // for domains, always filled with valid reference
+  }
+
+  validateInput(value: true extends Required ? number : number | null) {
+    if (this.attr.required && !value)
+      throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+  }
+}
+
+class WRDDBBaseDomainValue<Required extends boolean> extends WRDAttributeValueBase<
   (true extends Required ? number : number | null),
   (number | null),
   (true extends Required ? number : number | null),
@@ -341,8 +577,6 @@ class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
   }
 
   addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBDomainConditions): AddToQueryResponse<O> {
-    const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
-
     // rewrite mentions and mentionsany to supported conditions
     let db_cv = { ...cv };
     if (db_cv.condition === "mentions")
@@ -352,7 +586,12 @@ class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
 
     // copy to a new variable to satisfy TypeScript type inference
     const fixed_db_cv = db_cv;
-    query = addQueryFilter(query, defaultmatches, b => b.where(`setting`, fixed_db_cv.condition, fixed_db_cv.value));
+    if (this.attr.tag === "wrdLeftEntity")
+      query = query.where("leftentity", fixed_db_cv.condition, fixed_db_cv.value);
+    else if (this.attr.tag === "wrdRightEntity")
+      query = query.where("rightentity", fixed_db_cv.condition, fixed_db_cv.value);
+    else
+      throw new Error(`Unhandled base domain attribute ${JSON.stringify(this.attr.tag)}`);
 
     return {
       needaftercheck: false,
@@ -360,8 +599,17 @@ class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
     };
   }
 
+  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, entityrec: EntityPartialRec): (true extends Required ? number : number | null) {
+    if (this.attr.tag === "wrdLeftEntity")
+      return entityrec.leftentity || null as (true extends Required ? number : number | null);
+    else if (this.attr.tag === "wrdRightEntity")
+      return entityrec.rightentity || null as (true extends Required ? number : number | null);
+    else
+      throw new Error(`Unhandled base domain attribute ${JSON.stringify(this.attr.tag)}`);
+  }
+
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): (true extends Required ? number : number | null) {
-    return entity_settings[settings_start].setting as number; // for domains, always filled with valid reference
+    throw new Error(`Should not be called for base attributes`);
   }
 
   validateInput(value: true extends Required ? number : number | null) {
@@ -435,7 +683,7 @@ class WRDDBDomainArrayValue extends WRDAttributeValueBase<number[], number[], nu
     if (db_cv) {
       // copy to a new variable to satisfy TypeScript type inference
       const fixed_db_cv = db_cv;
-      query = addQueryFilter(query, defaultmatches, b => b.where(`setting`, fixed_db_cv.condition, fixed_db_cv.value));
+      query = addQueryFilter(query, this.attr.id, defaultmatches, b => b.where(`setting`, fixed_db_cv.condition, fixed_db_cv.value));
     }
 
     return {
@@ -463,7 +711,7 @@ class WRDDBDomainArrayValue extends WRDAttributeValueBase<number[], number[], nu
 type WRDDBEnumConditions = {
   condition: "=" | "!="; value: string | null;
 } | {
-  condition: "in"; value: readonly string[];
+  condition: "in"; value: ReadonlyArray<string | null>;
 } | {
   condition: "like"; value: string;
 } | {
@@ -480,16 +728,21 @@ class WRDDBEnumValue<Options extends { allowedvalues: string }, Required extends
   checkFilter({ condition, value }: WRDDBEnumConditions) {
     if (condition === "mentions" && !value)
       throw new Error(`Value may not be empty for condition type ${JSON.stringify(condition)}`);
+    if (value === "")
+      throw new Error(`Use null instead of "" for enum compares`);
   }
   matchesValue(value: string | null, cv: WRDDBEnumConditions): boolean {
+    if (cv.condition === "in") {
+      return cv.value.includes(value);
+    }
     value = value || "";
-    if (cv.condition === "in" || cv.condition === "mentionsany") {
+    if (cv.condition === "mentionsany") {
       return cv.value.includes(value);
     }
     if (cv.condition === "like") {
       return isLike(value, cv.value);
     }
-    return cmp(value, cv.condition === "mentions" ? "=" : cv.condition, cv.value);
+    return cmp(value, cv.condition === "mentions" ? "=" : cv.condition, cv.value || "");
   }
 
   addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBEnumConditions): AddToQueryResponse<O> {
@@ -507,9 +760,15 @@ class WRDDBEnumValue<Options extends { allowedvalues: string }, Required extends
     else if (db_cv.condition === "mentionsany")
       db_cv = { ...db_cv, condition: "in" };
 
+    // Eliminate nulls
+    if (db_cv.condition === "=" || db_cv.condition === "!=")
+      db_cv = { ...db_cv, value: db_cv.value ?? "" };
+    if (db_cv.condition === "in")
+      db_cv = { ...db_cv, value: db_cv.value.map(v => v ?? "") };
+
     // copy to a new variable to satisfy TypeScript type inference
     const filtered_cv = db_cv;
-    query = addQueryFilter(query, defaultmatches, b => b.where(sql`rawdata`, filtered_cv.condition, filtered_cv.value));
+    query = addQueryFilter(query, this.attr.id, defaultmatches, b => b.where(sql`rawdata`, filtered_cv.condition, filtered_cv.value));
     return {
       needaftercheck: false,
       query
@@ -527,7 +786,9 @@ class WRDDBEnumValue<Options extends { allowedvalues: string }, Required extends
 }
 
 type WRDDBDateTimeConditions = {
-  condition: "=" | "!=" | ">=" | "<=" | "<" | ">"; value: Date | null;
+  condition: "=" | "!="; value: Date | null;
+} | {
+  condition: ">=" | "<=" | "<" | ">"; value: Date;
 } | {
   condition: "in"; value: ReadonlyArray<Date | null>;
 };
@@ -539,17 +800,23 @@ class WRDDBDateValue<Required extends boolean> extends WRDAttributeValueBase<(tr
   }
   matchesValue(value: Date | null, cv: WRDDBDateTimeConditions): boolean {
     if (cv.condition === "in") {
-      return cv.value.includes(value);
+      for (const v of cv.value)
+        if (v?.getTime() === value?.getTime())
+          return true;
+      return false;
     }
     return cmp(value, cv.condition, cv.value);
   }
 
   addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBDateTimeConditions): AddToQueryResponse<O> {
-    throw new Error(`not implemented`);
+    return { needaftercheck: true, query };
   }
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): (true extends Required ? Date : Date | null) {
-    throw new Error(`not implemented`);
+    const parts = entity_settings[settings_start].rawdata.split(",");
+    if (Number(parts[0]) >= 2147483647)
+      return null as (true extends Required ? Date : Date | null);
+    return makeDateFromParts(Number(parts[0]), 0);
   }
 
   validateInput(value: (true extends Required ? Date : Date | null)) {
@@ -558,10 +825,13 @@ class WRDDBDateValue<Required extends boolean> extends WRDAttributeValueBase<(tr
   }
 }
 
-class WRDDBDateTimeValue<Required extends boolean> extends WRDAttributeValueBase<(true extends Required ? Date : Date | null), Date | null, (true extends Required ? Date : Date | null), WRDDBDateTimeConditions> {
+class WRDDBBaseDateValue extends WRDAttributeValueBase<Date | null, Date | null, Date | null, WRDDBDateTimeConditions> {
   getDefaultValue(): Date | null { return null; }
-  checkFilter({ condition, value }: WRDDBDateTimeConditions) {
-    /* always ok */
+  checkFilter(cv: WRDDBDateTimeConditions) {
+    if (cv.condition === "in")
+      cv.value.forEach(v => this.validateInput(v));
+    else
+      this.validateInput(cv.value);
   }
   matchesValue(value: Date | null, cv: WRDDBDateTimeConditions): boolean {
     if (cv.condition === "in") {
@@ -571,11 +841,79 @@ class WRDDBDateTimeValue<Required extends boolean> extends WRDAttributeValueBase
   }
 
   addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBDateTimeConditions): AddToQueryResponse<O> {
-    throw new Error(`not implemented`);
+    let fieldname: "dateofbirth" | "dateofdeath";
+    if (this.attr.tag === "wrdDateOfBirth")
+      fieldname = "dateofbirth";
+    else if (this.attr.tag === "wrdDateOfDeath")
+      fieldname = "dateofdeath";
+    else
+      throw new Error(`Unhandled base string attribute ${JSON.stringify(this.attr.tag)}`);
+
+    if (cv.condition === "in")
+      cv.value = cv.value.map(v => v ?? defaultDateTime);
+    else
+      cv.value ??= defaultDateTime;
+
+    query = query.where(fieldname, cv.condition, cv.value);
+    return { needaftercheck: false, query };
+  }
+
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): Date | null {
+    throw new Error(`not used`);
+  }
+
+  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, entityrec: EntityPartialRec): Date | null {
+    let val: Date | undefined;
+    if (this.attr.tag === "wrdDateOfBirth")
+      val = entityrec.dateofbirth;
+    else if (this.attr.tag === "wrdDateOfDeath")
+      val = entityrec.dateofdeath;
+    else
+      throw new Error(`Unhandled base domain attribute ${JSON.stringify(this.attr.tag)}`);
+    if (!val || val.getTime() <= defaultDateTime.getTime() || val.getTime() >= maxDateTimeTotalMsecs)
+      return null;
+    return val;
+  }
+
+  validateInput(value: Date | null) {
+    if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs))
+      throw new Error(`Not allowed to use defaultDatetime or maxDatetime, use null`);
+  }
+
+  getAttrBaseCells(): null | keyof EntityPartialRec | Array<keyof EntityPartialRec> {
+    switch (this.attr.tag) {
+      case "wrdDateOfBirth": return "dateofbirth";
+      case "wrdDateOfDeath": return "dateofdeath";
+    }
+    return null;
+  }
+
+}
+
+class WRDDBDateTimeValue<Required extends boolean> extends WRDAttributeValueBase<(true extends Required ? Date : Date | null), Date | null, (true extends Required ? Date : Date | null), WRDDBDateTimeConditions> {
+  getDefaultValue(): Date | null { return null; }
+  checkFilter({ condition, value }: WRDDBDateTimeConditions) {
+    /* always ok */
+  }
+  matchesValue(value: Date | null, cv: WRDDBDateTimeConditions): boolean {
+    if (cv.condition === "in") {
+      for (const v of cv.value)
+        if (v?.getTime() === value?.getTime())
+          return true;
+      return false;
+    }
+    return cmp(value, cv.condition, cv.value);
+  }
+
+  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBDateTimeConditions): AddToQueryResponse<O> {
+    return { needaftercheck: true, query };
   }
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): (true extends Required ? Date : Date | null) {
-    throw new Error(`not implemented`);
+    const parts = entity_settings[settings_start].rawdata.split(",");
+    if (Number(parts[0]) >= 2147483647)
+      return null as (true extends Required ? Date : Date | null);
+    return makeDateFromParts(Number(parts[0]), Number(parts[1]));
   }
 
   validateInput(value: (true extends Required ? Date : Date | null)) {
@@ -588,11 +926,100 @@ type ArraySelectable<Members extends Record<string, SimpleWRDAttributeType | WRD
   [K in keyof Members]: GetResultType<Members[K]>;
 };
 
+class WRDDBBaseCreationLimitDateValue extends WRDAttributeValueBase<Date | null, Date | null, Date | null, WRDDBDateTimeConditions> {
+  getDefaultValue(): Date | null { return null; }
+  checkFilter(cv: WRDDBDateTimeConditions) {
+    if (cv.condition === "in")
+      cv.value.forEach(v => this.validateInput(v));
+    else
+      this.validateInput(cv.value);
+  }
+  matchesValue(value: Date | null, cv: WRDDBDateTimeConditions): boolean {
+    if (cv.condition === "in") {
+      return cv.value.includes(value);
+    }
+    return cmp(value, cv.condition, cv.value);
+  }
+
+  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBDateTimeConditions): AddToQueryResponse<O> {
+    const defaultMatches = this.matchesValue(this.getDefaultValue(), cv);
+
+    let fieldname: "creationdate" | "limitdate";
+    if (this.attr.tag === "wrdCreationDate")
+      fieldname = "creationdate";
+    else if (this.attr.tag === "wrdLimitDate")
+      fieldname = "limitdate";
+    else
+      throw new Error(`Unhandled base string attribute ${JSON.stringify(this.attr.tag)}`);
+
+    if (cv.condition === "in")
+      cv.value = cv.value.map(v => v ?? defaultDateTime);
+    else
+      cv.value ??= defaultDateTime;
+
+    const maxDateTimeMatches = this.matchesValue(maxDateTime, cv);
+    if (defaultMatches && !maxDateTimeMatches) {
+      query = query.where(qb => qb
+        .orWhere(fieldname, cv.condition, cv.value)
+        .orWhere(fieldname, "=", maxDateTime));
+    } else {
+      query = query.where(fieldname, cv.condition, cv.value);
+      if (maxDateTimeMatches && !defaultMatches)
+        query = query.where(fieldname, "!=", maxDateTime);
+    }
+    return { needaftercheck: false, query };
+  }
+
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): Date | null {
+    throw new Error(`not used`);
+  }
+
+  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, entityrec: EntityPartialRec): Date | null {
+    let val: Date | undefined;
+    if (this.attr.tag === "wrdCreationDate")
+      val = entityrec.creationdate;
+    else if (this.attr.tag === "wrdLimitDate")
+      val = entityrec.limitdate;
+    else
+      throw new Error(`Unhandled base domain attribute ${JSON.stringify(this.attr.tag)}`);
+    if (!val || val.getTime() <= defaultDateTime.getTime() || val.getTime() >= maxDateTimeTotalMsecs)
+      return null;
+    return val;
+  }
+
+  validateInput(value: Date | null) {
+    if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs))
+      throw new Error(`Not allowed to use defaultDatetime or maxDatetime, use null`);
+  }
+
+  getAttrBaseCells(): null | keyof EntityPartialRec | Array<keyof EntityPartialRec> {
+    switch (this.attr.tag) {
+      case "wrdCreationDate": return "creationdate";
+      case "wrdLimitDate": return "limitdate";
+    }
+    return null;
+  }
+}
+
 class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WRDAttrBase>> extends WRDAttributeValueBase<
   Array<Insertable<Members> & { wrdSettingId?: bigint }>,
   Array<ArraySelectable<Members> & { wrdSettingId: bigint }>,
   Array<ArraySelectable<Members> & { wrdSettingId: bigint }>,
   never> {
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fields = new Array<{ name: keyof Members; accessor: WRDAttributeValueBase<any, any, any, any> }>;
+
+  constructor(attr: AttrRec, parentAttrMap: Map<number | null, AttrRec[]>) {
+    super(attr);
+
+    const childAttrs = parentAttrMap.get(attr.id);
+    if (childAttrs) {
+      for (const childAttr of childAttrs) {
+        this.fields.push({ name: childAttr.tag, accessor: getAccessor(childAttr, parentAttrMap) });
+      }
+    }
+  }
 
   getDefaultValue(): Array<ArraySelectable<Members> & { wrdSettingId: bigint }> { return []; }
 
@@ -627,7 +1054,7 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
    * @param settings_start - Position where settings for this attribute start
    * @param settings_limit - Limit of setting for this attribute, is always greater than settings_start
    */
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): Array<ArraySelectable<Members> & { wrdSettingId: bigint }> {
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[]): Array<ArraySelectable<Members> & { wrdSettingId: bigint }> {
     throw new Error(`Not implemented yet`);
   }
 
@@ -637,11 +1064,23 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
    * @param settings_limit - Limit of setting for this attribute, may be the same as settings_start)
    * @returns The parsed value. The return type of this function is used to determine the selection output type for a attribute.
    */
-  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, row: EntityPartialRec): Array<ArraySelectable<Members> & { wrdSettingId: bigint }> {
+  getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, row: EntityPartialRec, links: EntitySettingsWHFSLinkRec[]): Array<ArraySelectable<Members> & { wrdSettingId: bigint }> {
     if (settings_limit <= settings_start)
       return this.getDefaultValue() as Array<ArraySelectable<Members> & { wrdSettingId: bigint }>; // Cast is needed because for required fields, Out may not extend Default.
-    else
-      return this.getFromRecord(entity_settings, settings_start, settings_limit);
+    else {
+      const retval = new Array<ArraySelectable<Members> & { wrdSettingId: bigint }>;
+      for (let idx = settings_start; idx < settings_limit; ++idx) {
+        const settingid = entity_settings[idx].id;
+        const rec = { wrdSettingId: BigInt(settingid) } as ArraySelectable<Members> & { wrdSettingId: bigint };
+        for (const field of this.fields) {
+          const lb = recordLowerBound(entity_settings, { attribute: field.accessor.attr.id, parentsetting: settingid }, ["attribute", "parentsetting"]);
+          const ub = recordUpperBound(entity_settings, { attribute: field.accessor.attr.id, parentsetting: settingid }, ["attribute", "parentsetting"]);
+          rec[field.name] = field.accessor.getValue(entity_settings, lb.position, ub, row, links);
+        }
+        retval.push(rec);
+      }
+      return retval;
+    }
   }
 
   /** Check the contents of a value used to insert or update a value
@@ -650,10 +1089,90 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
   validateInput(value: Array<Insertable<Members> & { wrdSettingId?: bigint }>) {
     throw new Error(`Not implemented yet`);
   }
+
+  getAttrIds(): number | number[] {
+    const retval = [this.attr.id];
+    for (const field of this.fields) {
+      const childIds = field.accessor.getAttrIds();
+      if (typeof childIds === "number")
+        retval.push(childIds);
+      else
+        retval.push(...childIds);
+    }
+    return retval;
+  }
 }
 
-export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default, C extends { condition: AllowedFilterConditions; value: unknown } = { condition: AllowedFilterConditions; value: unknown }> extends WRDAttributeValueBase<In, Default, Out, C> {
+export abstract class WRDAttributeUncomparableValueBase<In, Default, Out extends Default> extends WRDAttributeValueBase<In, Default, Out, never> {
+  checkFilter(cv: never): void {
+    throw new Error(`Cannot compare values of type ${WRDAttributeType[this.attr.attributetype]}`);
+  }
 
+  matchesValue(value: unknown, cv: never): boolean {
+    throw new Error(`Cannot compare values of type  ${WRDAttributeType[this.attr.attributetype]}`);
+  }
+
+  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv_org: never): AddToQueryResponse<O> {
+    throw new Error(`Cannot compare values of type  ${WRDAttributeType[this.attr.attributetype]}`);
+  }
+
+  containsOnlyDefaultValues(cv: never): boolean {
+    throw new Error(`Cannot compare values of type  ${WRDAttributeType[this.attr.attributetype]}`);
+  }
+}
+
+class WRDDBJSONValue extends WRDAttributeUncomparableValueBase<object | null, object | null, object | null> {
+  /** Returns the default value for a value with no settings
+      @returns Default value for this type
+  */
+  getDefaultValue(): Promise<object | null> {
+    return Promise.resolve(null);
+  }
+
+  // Async function, accessing blobs.
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): Promise<object | null> {
+    if (entity_settings[settings_start].rawdata)
+      return JSON.parse(entity_settings[settings_start].rawdata);
+    const buf = entity_settings[settings_start].blobdata?.tryArrayBufferSync();
+    return buf ? JSON.parse(Buffer.from(buf).toString()) : {};
+  }
+
+  validateInput(value: object | null): void {
+    /* always valid */
+  }
+}
+
+//TODO {data: Buffer} is for 5.3 compatibility and we might have to just remove it
+class WHDBRichFileAttributeBase extends WRDAttributeUncomparableValueBase<RichFileDescriptor | null | { data: Buffer }, RichFileDescriptor | null, RichFileDescriptor | null> {
+  /** Returns the default value for a value with no settings
+      @returns Default value for this type
+  */
+  getDefaultValue(): RichFileDescriptor | null {
+    return null;
+  }
+
+  // Async function, accessing blobs.
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[]): RichFileDescriptor | null {
+    const val = entity_settings[settings_start];
+    const lpos = recordLowerBound(links, val, ["id"]);
+    const sourceFile = lpos.found ? links[lpos.position].fsobject : null;
+    return val.blobdata
+      ? new RichFileDescriptor(val.blobdata, { ...decodeScanData(val.rawdata), sourceFile })
+      : null;
+  }
+
+  validateInput(value: RichFileDescriptor | null | { data: Buffer }): void {
+    /* always valid */
+  }
+}
+
+class WRDDBFileValue extends WHDBRichFileAttributeBase { }
+
+class WRDDBImageValue extends WHDBRichFileAttributeBase { }
+
+class WRDDBRichDocumentValue extends WHDBRichFileAttributeBase { }
+
+export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default, C extends { condition: AllowedFilterConditions; value: unknown } = { condition: AllowedFilterConditions; value: unknown }> extends WRDAttributeValueBase<In, Default, Out, C> {
   throwError(): never {
     throw new Error(`Unimplemented accessor for type ${WRDAttributeType[this.attr.type]} (tag: ${JSON.stringify(this.attr.tag)})`);
   }
@@ -698,7 +1217,7 @@ export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default
 type GetEnumArrayAllowedValues<Options extends { allowedvalues: string }> = Options extends { allowedvalues: infer V } ? V : never;
 
 /// The following accessors are not implemented yet, but have some typings
-class WRDDBBaseCreationLimitDateValue extends WRDAttributeUnImplementedValueBase<Date | null, Date | null, Date | null> { }
+//class WRDDBBaseCreationLimitDateValue extends WRDAttributeUnImplementedValueBase<Date | null, Date | null, Date | null> { }
 class WRDDBBaseModificationDateValue extends WRDAttributeUnImplementedValueBase<Date, Date, Date> { }
 class WRDDBMoneyValue extends WRDAttributeUnImplementedValueBase<Money, Money, Money> { }
 class WRDDBInteger64Value extends WRDAttributeUnImplementedValueBase<bigint, bigint, bigint> { }
@@ -708,14 +1227,12 @@ class WRDDBEnumArrayValue<Options extends { allowedvalues: string }, Required ex
 /// The following accessors are not implemented yet
 class WRDDBAddressValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBPasswordValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
-class WRDDBImageValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
-//TODO {data: Buffer} is for 5.3 compatibility and we might have to just remove it
-class WRDDBFileValue extends WRDAttributeUnImplementedValueBase<RichFileDescriptor | { data: Buffer } | null, RichFileDescriptor | null, RichFileDescriptor | null> { }
-class WRDDBRichDocumentValue extends WRDAttributeUnImplementedValueBase<RichFileDescriptor | null, RichFileDescriptor | null, RichFileDescriptor | null> { }
+//class WRDDBImageValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
+//class WRDDBFileValue extends WRDAttributeUnImplementedValueBase<RichFileDescriptor | { data: Buffer } | null, RichFileDescriptor | null, RichFileDescriptor | null> { }
+//class WRDDBRichDocumentValue extends WRDAttributeUnImplementedValueBase<RichFileDescriptor | null, RichFileDescriptor | null, RichFileDescriptor | null> { }
 class WRDDBWHFSInstanceValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBWHFSIntextlinkValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBRecordValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
-class WRDDBJSONValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBPaymentProviderValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBPaymentValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBStatusRecordValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
@@ -726,12 +1243,12 @@ class WRDDBWHFSLinkValue extends WRDAttributeUnImplementedValueBase<unknown, unk
 type SimpleTypeMap<Required extends boolean> = {
   [WRDBaseAttributeType.Base_Integer]: WRDDBIntegerValue;
   [WRDBaseAttributeType.Base_Guid]: WRDDBStringValue;
-  [WRDBaseAttributeType.Base_Tag]: WRDDBStringValue;
+  [WRDBaseAttributeType.Base_Tag]: WRDDBBaseStringValue;
   [WRDBaseAttributeType.Base_CreationLimitDate]: WRDDBBaseCreationLimitDateValue;
   [WRDBaseAttributeType.Base_ModificationDate]: WRDDBBaseModificationDateValue;
   [WRDBaseAttributeType.Base_Date]: WRDDBDateValue<false>;
   [WRDBaseAttributeType.Base_GeneratedString]: WRDDBStringValue;
-  [WRDBaseAttributeType.Base_NameString]: WRDDBStringValue;
+  [WRDBaseAttributeType.Base_NameString]: WRDDBBaseStringValue;
   [WRDBaseAttributeType.Base_Domain]: WRDDBDomainValue<Required>;
   [WRDBaseAttributeType.Base_Gender]: WRDDBBaseGenderValue;
 
@@ -778,3 +1295,53 @@ export type AccessorType<T extends WRDAttrBase> = T["__attrtype"] extends keyof 
           : (T extends { __attrtype: WRDAttributeType.Array }
             ? WRDDBArrayValue<T["__options"]["members"]>
             : never)))));
+
+export function getAccessor<T extends WRDAttrBase>(
+  attrinfo: AttrRec & { attributetype: T["__attrtype"]; required: T["__required"] },
+  parentAttrMap: Map<number | null, AttrRec[]>,
+): AccessorType<T> {
+  switch (attrinfo.attributetype) {
+    case WRDBaseAttributeType.Base_Integer: return new WRDDBBaseIntegerValue(attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeType.Base_Guid: return new WRDAttributeUnImplementedValueBase(attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeType.Base_Tag: return new WRDDBBaseStringValue(attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeType.Base_CreationLimitDate: return new WRDDBBaseCreationLimitDateValue(attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeType.Base_ModificationDate: return new WRDDBBaseModificationDateValue(attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeType.Base_Date: return new WRDDBBaseDateValue(attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeType.Base_GeneratedString: return new WRDAttributeUnImplementedValueBase(attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeType.Base_NameString: return new WRDDBBaseStringValue(attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeType.Base_Domain: return new WRDDBBaseDomainValue<T["__required"]>(attrinfo) as AccessorType<T>;
+    case WRDBaseAttributeType.Base_Gender: return new WRDAttributeUnImplementedValueBase(attrinfo) as AccessorType<T>; // WRDDBBaseGenderValue
+
+    case WRDAttributeType.Free: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.Email: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.Telephone: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.URL: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.Boolean: return new WRDDBBooleanValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.Integer: return new WRDDBIntegerValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.Domain: return new WRDDBDomainValue<T["__required"]>(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.DomainArray: return new WRDDBDomainArrayValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.Address: return new WRDDBAddressValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.Password: return new WRDDBPasswordValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.Image: return new WRDDBImageValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.File: return new WRDDBFileValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.Money: return new WRDDBMoneyValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.RichDocument: return new WRDDBRichDocumentValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.Integer64: return new WRDDBInteger64Value(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.WHFSInstance: return new WRDDBWHFSInstanceValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.WHFSIntextlink: return new WRDDBWHFSIntextlinkValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.Record: return new WRDDBRecordValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.JSON: return new WRDDBJSONValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.PaymentProvider: return new WRDDBPaymentProviderValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.Payment: return new WRDDBPaymentValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.StatusRecord: return new WRDDBStatusRecordValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.AuthenticationSettings: return new WRDDBAuthenticationSettingsValue(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.WHFSLink: return new WRDDBWHFSLinkValue(attrinfo) as AccessorType<T>;
+
+    case WRDAttributeType.Enum: return new WRDDBEnumValue<{ allowedvalues: (T["__options"] & { allowedvalues: string })["allowedvalues"] }, T["__required"]>(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.EnumArray: return new WRDDBEnumArrayValue<{ allowedvalues: (T["__options"] & { allowedvalues: string })["allowedvalues"] }, T["__required"]>(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.Date: return new WRDDBDateValue<T["__required"]>(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.DateTime: return new WRDDBDateTimeValue<T["__required"]>(attrinfo) as AccessorType<T>;
+    case WRDAttributeType.Array: return new WRDDBArrayValue<(T["__options"] & { members: Record<string, SimpleWRDAttributeType | WRDAttrBase> })["members"]>(attrinfo, parentAttrMap) as AccessorType<T>;
+  }
+  throw new Error(`Unhandled attribute type ${(attrinfo.attributetype < 0 ? WRDBaseAttributeType[attrinfo.attributetype] : WRDAttributeType[attrinfo.attributetype]) ?? attrinfo.attributetype}`);
+}
