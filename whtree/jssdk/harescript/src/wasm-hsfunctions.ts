@@ -387,7 +387,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       value
     });
   });
-  wasmmodule.registerAsyncExternalFunction("__ICU_GETTIMEZONEIDS::SA:", async (vm, id_set) => {
+  wasmmodule.registerExternalFunction("__ICU_GETTIMEZONEIDS::SA:", (vm, id_set) => {
     //@ts-ignore -- MDN says it is supported everywhere we need it to be
     const list = Intl.supportedValuesOf('timeZone');
     // Add some missing timezones: https://bugs.chromium.org/p/v8/issues/detail?id=13084
@@ -396,21 +396,21 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
         list.push(toAdd);
     id_set.setJSValue(list.sort());
   });
-  wasmmodule.registerAsyncExternalFunction("__ICU_LOCALTOUTC::D:DS", async (vm, id_set, var_date, var_timezone) => {
+  wasmmodule.registerExternalFunction("__ICU_LOCALTOUTC::D:DS", (vm, id_set, var_date, var_timezone) => {
     try {
       id_set.setDateTime(localToUTC(var_date.getDateTime(), var_timezone.getString()));
     } catch (e) {
       id_set.copyFrom(var_date);
     }
   });
-  wasmmodule.registerAsyncExternalFunction("__ICU_UTCTOLOCAL::D:DS", async (vm, id_set, var_date, var_timezone) => {
+  wasmmodule.registerExternalFunction("__ICU_UTCTOLOCAL::D:DS", (vm, id_set, var_date, var_timezone) => {
     try {
       id_set.setDateTime(utcToLocal(var_date.getDateTime(), var_timezone.getString()));
     } catch (e) {
       id_set.copyFrom(var_date);
     }
   });
-  wasmmodule.registerAsyncExternalFunction("POSTGRESQLESCAPEIDENTIFIER::S:S", async (vm, id_set, var_str) => {
+  wasmmodule.registerExternalFunction("POSTGRESQLESCAPEIDENTIFIER::S:S", (vm, id_set, var_str) => {
     const str = var_str.getString();
     const is_simple = Boolean(str.match(/^[0-9a-zA-Z_"$]*$/));
     let retval: string;
@@ -435,7 +435,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     }
     id_set.setString(retval);
   });
-  wasmmodule.registerAsyncExternalFunction("POSTGRESQLESCAPELITERAL::S:S", async (vm, id_set, var_str) => {
+  wasmmodule.registerExternalFunction("POSTGRESQLESCAPELITERAL::S:S", (vm, id_set, var_str) => {
     // Don't care about UTF-8 encoding problems, the server will catch them anyway
     let have_backslashes = false;
     const str = var_str.getString();
@@ -467,7 +467,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     id_set.setString(result);
   });
 
-  wasmmodule.registerAsyncExternalFunction("__PGSQL_GETBLOBINTERNALID::S:IX", async (vm, id_set, transaction, var_blob) => {
+  wasmmodule.registerExternalFunction("__PGSQL_GETBLOBINTERNALID::S:IX", (vm, id_set, transaction, var_blob) => {
     const blob = var_blob.getBlob();
     id_set.setString(isWHDBBlob(blob) ? blob.databaseid : "");
   });
