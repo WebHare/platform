@@ -1,18 +1,9 @@
 import { WRDSchema } from "@webhare/wrd";
-import { HSVM, HSVMObject, openHSVM } from '@webhare/services/src/hsvm';
+import { loadlib } from "@webhare/harescript";
 import { getTypedArray, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { WRDAttributeType, WRDMetaType } from "@mod-wrd/js/internal/types"; //FIXME shouldn't need an internal API for WRDMetaType
-
-let myvm: Promise<HSVM> | null = null;
-
-async function promiseVM() {
-  const vm = await openHSVM();
-  // const database = vm.loadlib("mod::system/lib/database.whlib");
-  // await database.openPrimary();
-  return vm;
-}
 
 export const testSchemaTag = "wrd:testschema";
 
@@ -21,20 +12,6 @@ export function getWRDSchema() {
   if (!wrdschema)
     throw new Error(`${testSchemaTag} not found. wrd not enabled for this test run?`);
   return wrdschema;
-}
-
-export async function prepareTestFramework(options?: { wrdauth?: boolean }) {
-  if (!myvm)
-    myvm = promiseVM();
-
-  // options := ValidateOptions([ wrdauth := FALSE ], options);
-  const vm = await myvm;
-  await vm.loadlib("mod::system/lib/database.whlib").SetPrimaryWebhareTransaction(0);
-  //for convenience we'll reuse RunTestframework's various cleanups/resets as much as possible
-  await vm.loadlib("mod::system/lib/testframework.whlib").RunTestframework([], options || {});
-  //testfw will insist on opening one, so close it immediately
-  const primary = await vm.loadlib("mod::system/lib/database.whlib").GetPrimary() as HSVMObject;
-  await primary.close();
 }
 
 async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { deleteClosedAfter?: number; keepHistoryDays?: number; withRichDoc?: boolean } = {}) {
@@ -284,7 +261,7 @@ export async function createWRDTestSchema(options?: {
     ...options
   };
 
-  await prepareTestFramework({ wrdauth: false });
+  await loadlib("mod::system/lib/testframework.whlib").RunTestframework([], { wrdauth: false });
 
   // FIXME here we're assuming whdb work to be global but that's just asking for conflicts in real code. See webharedev_jsbridges#4
   const schemaobj = await getWRDSchema();

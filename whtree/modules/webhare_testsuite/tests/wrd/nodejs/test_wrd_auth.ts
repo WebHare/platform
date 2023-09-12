@@ -1,9 +1,9 @@
-import { prepareTestFramework } from "@mod-webhare_testsuite/js/wrd/testhelpers";
 import * as whdb from "@webhare/whdb";
 import * as test from "@webhare/test";
 import { createSigningKey, createJWT, verifyJWT, AuthProvider } from "@webhare/wrd/src/auth";
 import { addDuration } from "@webhare/std";
 import { wrdTestschemaSchema } from "@mod-system/js/internal/generated/wrd/webhare";
+import { loadlib } from "@webhare/harescript";
 
 async function testLowLevelAuthAPIs() {
   const key = await createSigningKey();
@@ -31,7 +31,8 @@ async function testLowLevelAuthAPIs() {
 }
 
 async function setupKeys() {
-  await prepareTestFramework();
+  //for convenience we'll reuse RunTestframework's various cleanups/resets as much as possible
+  await loadlib("mod::system/lib/testframework.whlib").RunTestframework([]);
 
   //Setup test keys. even if WRD learns to do this automatically for new schemas we'd still want to overwrite them for proper tests
   await whdb.beginWork();
