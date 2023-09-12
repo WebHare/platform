@@ -4,8 +4,9 @@ import * as fs from "node:fs";
 import { backendConfig, toFSPath } from "@webhare/services";
 import { HSVMVar } from "./wasm-hsvmvar";
 import { recompileHarescriptLibraryRaw, type HareScriptVM } from "./wasm-hsvm";
-import { VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { debugFlags } from "@webhare/env";
+import * as stacktrace_parser from "stacktrace-parser";
 
 const wh_namespace_location = "mod::system/whlibs/";
 function translateDirectToModURI(directuri: string) {
@@ -248,6 +249,34 @@ export class WASMModule extends WASMModuleBase {
     return this.stringToNewUTF8(libname);
   }
 
+  throwReturnedException(vm: HareScriptVM, e: unknown, stopAtFunction?: string) {
+    let message: string;
+    let stacktrace: stacktrace_parser.StackFrame[] = [];
+    if (e instanceof Error) {
+      stacktrace = stacktrace_parser.parse(e.stack || "");
+      message = e.message;
+      if (stopAtFunction) {
+        const stopAt = stacktrace.findIndex(elt => elt.methodName.includes(stopAtFunction));
+        if (stopAt !== -1)
+          stacktrace.splice(stopAt);
+      }
+    } else
+      message = `${e}`;
+
+    const alloced = this.stringToNewUTF8(message);
+    this._HSVM_ThrowException(vm.hsvm, alloced);
+    this._free(alloced);
+
+    const throwvar = new HSVMVar(vm, vm.wasmmodule._HSVM_GetThrowVar(vm.hsvm));
+    const trace = throwvar.getMemberRef("pvt_trace");
+    trace.setJSValue(getTypedArray(VariableType.RecordArray, stacktrace.map(elt => ({
+      filename: elt.file || "unknown",
+      line: elt.lineNumber || 1,
+      col: elt.column || 1,
+      func: elt.methodName || "anonymous"
+    }))));
+  }
+
   throwException(vm: HSVM, text: string): void {
     const alloced = this.stringToNewUTF8(text);
     this._HSVM_ThrowException(vm, alloced);
@@ -261,10 +290,15 @@ export class WASMModule extends WASMModuleBase {
       params.push(new HSVMVar(this.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
     // ignoring vm, using itf: only one VM per module!
     const transitionLock = debugFlags.async && this.itf!.startTransition(false, reg.name);
-    const res: unknown = reg.macro!(this.itf, ...params);
-    if (res && typeof res === "object" && "then" in res)
-      throw new Error(`Return value of ${JSON.stringify(reg.name)} is a Promise, should have been registered with executeJSMacro`);
-    transitionLock?.close();
+    try {
+      const res: unknown = reg.macro!(this.itf, ...params);
+      if (res && typeof res === "object" && "then" in res)
+        throw new Error(`Return value of ${JSON.stringify(reg.name)} is a Promise, should have been registered with executeJSMacro`);
+    } catch (e) {
+      this.throwReturnedException(this.itf!, e, "executeJSMacro");
+    } finally {
+      transitionLock?.close();
+    }
   }
 
   executeJSFunction(vm: HSVM, nameptr: StringPtr, id: number, id_set: HSVM_VariableId): void {
@@ -274,10 +308,15 @@ export class WASMModule extends WASMModuleBase {
       params.push(new HSVMVar(this.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
     // ignoring vm, using itf: only one VM per module!
     const transitionLock = debugFlags.async && this.itf!.startTransition(false, reg.name);
-    const res: unknown = reg.func!(this.itf, new HSVMVar(this.itf!, id_set), ...params);
-    if (res && typeof res === "object" && "then" in res)
-      throw new Error(`Return value of ${JSON.stringify(reg.name)} is a Promise, should have been registered with executeJSFunction`);
-    transitionLock?.close();
+    try {
+      const res: unknown = reg.func!(this.itf, new HSVMVar(this.itf!, id_set), ...params);
+      if (res && typeof res === "object" && "then" in res)
+        throw new Error(`Return value of ${JSON.stringify(reg.name)} is a Promise, should have been registered with executeJSFunction`);
+    } catch (e) {
+      this.throwReturnedException(this.itf!, e, "executeJSFunction");
+    } finally {
+      transitionLock?.close();
+    }
   }
 
   async executeAsyncJSMacro(vm: HSVM, nameptr: StringPtr, id: number): Promise<void> {
@@ -287,8 +326,13 @@ export class WASMModule extends WASMModuleBase {
       params.push(new HSVMVar(this.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
     // ignoring vm, using itf: only one VM per module!
     const transitionLock = debugFlags.async && this.itf!.startTransition(false, reg.name);
-    await reg.asyncmacro!(this.itf, ...params);
-    transitionLock?.close();
+    try {
+      await reg.asyncmacro!(this.itf, ...params);
+    } catch (e) {
+      this.throwReturnedException(this.itf!, e, "executeAsyncJSMacro");
+    } finally {
+      transitionLock?.close();
+    }
   }
 
   async executeAsyncJSFunction(vm: HSVM, nameptr: StringPtr, id: number, id_set: HSVM_VariableId): Promise<void> {
@@ -298,8 +342,13 @@ export class WASMModule extends WASMModuleBase {
       params.push(new HSVMVar(this.itf!, (0x88000000 - 1 - paramnr) as HSVM_VariableId));
     // ignoring vm, using itf: only one VM per module!
     const transitionLock = debugFlags.async && this.itf!.startTransition(false, reg.name);
-    await reg.asyncfunc!(this.itf, new HSVMVar(this.itf!, id_set), ...params);
-    transitionLock?.close();
+    try {
+      await reg.asyncfunc!(this.itf, new HSVMVar(this.itf!, id_set), ...params);
+    } catch (e) {
+      this.throwReturnedException(this.itf!, e, "executeAsyncJSFunction");
+    } finally {
+      transitionLock?.close();
+    }
   }
 
   registerExternalMacro(signature: string, macro: (vm: HareScriptVM, ...params: HSVMVar[]) => void): void {
