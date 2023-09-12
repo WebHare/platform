@@ -1,10 +1,9 @@
 #!/bin/bash
-
-if ! [ -f /opt/whdata/.webhare-envsettings.sh ]; then
-  echo "This script should only be run on a WebHare inside docker. Use \`wh backuplocal\` for local backups"
+if [ -z "$WEBHARE_DATAROOT" ]; then
+  echo WEBHARE_DATAROOT not set
   exit 1
 fi
 
-rm -rf -- /opt/whdata/preparedbackup
-mkdir -p -- /opt/whdata/preparedbackup
-exec /opt/wh/whtree/modules/system/scripts/internal/runbackup.sh /opt/whdata/preparedbackup
+rm -rf -- "$WEBHARE_DATAROOT"/preparedbackup
+mkdir -p -- "$WEBHARE_DATAROOT"/preparedbackup
+exec "$WEBHARE_DIR"/modules/system/scripts/internal/runbackup.sh "$WEBHARE_DATAROOT"/preparedbackup

@@ -3,12 +3,20 @@
 // short: Show data usage of WRD schema(s)
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::filetypes/csv.whlib";
 LOADLIB "wh::os.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/support.whlib";
+
+INTEGER ARRAY blobattributetypes :=
+  [ wrd_attributetype_image, wrd_attributetype_file
+  , wrd_attributetype_richdocument, wrd_attributetype_record
+  , wrd_attributetype_statusrecord, wrd_attributetype_json
+  ];
 
 RECORD ARRAY options :=
   [ [ name := "schemaname", type := "param" ]
@@ -25,13 +33,21 @@ OBJECT trans := OpenPrimary();
 
 iF(cmdargs.schemaname = "") //show all
 {
-  RECORD ARRAY schemas := SELECT * FROM wrd.schemas;
+  RECORD ARRAY schemas := SELECT * FROM wrd.schemas ORDER BY ToUppercase(name);
   RECORD ARRAY outlist;
+
+  Print(`num,newest,name,id,numblobs,blobs_mb\n`);
   FOREVERY(RECORD s FROM schemas)
   {
     INTEGER numentities := Length(SELECT FROM wrd.entities, wrd.types WHERE entities.type = types.id AND types.wrd_schema=s.id);
     DATETIME newest := SELECT AS DATETIME modificationdate FROM wrd.entities, wrd.types WHERE entities.type = types.id AND types.wrd_schema=s.id ORDER BY modificationdate DESC;
-    INSERT [ num := numentities, newest := newest, name := s.name, id := s.id ] INTO outlist AT END;
+
+    INTEGER ARRAY schemablobattrs := SELECT AS INTEGER ARRAY attrs.id FROM wrd.attrs, wrd.types WHERE attrs.type = types.id AND types.wrd_schema=s.id AND attrs.attributetype IN blobattributetypes;
+    RECORD blobstats := RECORD(SELECT num := COUNT(*), size := SUM(INTEGER64(Length(blobdata))) FROM wrd.entity_settings WHERE attribute IN schemablobattrs AND Length(blobdata) > 0) ?? [ num := 0, size := 0i64 ];
+
+    RECORD row := [ num := numentities, newest := newest, name := s.name, id := s.id, numblobs := blobstats.num, blobsize := blobstats.size ];
+    Print(`${row.num},${FormatISO8601Datetime(row.newest)},${EncodeExcelCSV(row.name)},${row.id},${blobstats.num},${blobstats.size/1024/1024}\n`);
+    INSERT row INTO outlist AT END;
   }
 
   outlist := SELECT * FROM outlist ORDER BY num DESC, newest DESC;
@@ -72,7 +88,7 @@ MACRO RecurseBlobAttrs(OBJECT typeobj, INTEGER currentparent)
 {
   FOREVERY(RECORD attr FROM SELECT * FROM typeobj->ListAttributes(currentparent) ORDER BY ToUppercase(tag))
   {
-    IF(attr.attributetype IN [9,10,17,22])
+    IF(attr.attributetype IN blobattributetypes)
     {
       //FIXME deal with outside stored blobs
       Print("#" || attr.id || ": " || typeobj->tag || "." || attr.tag || " (" || attr.title || "): ");

@@ -123,7 +123,10 @@ IF(max_recycle_days != 0)
   IF (Length(to_delete)>0)
   {
     IF(debug OR dryrun)
-      PRINT("Deleting " || Length(to_delete) || " items from the recycle bin because of age\n");
+    {
+      INTEGER64 totalsize_destructable := SELECT AS INTEGER64 SUM(GetSize(fs_object)) FROM to_delete;
+      PRINT("Deleting " || Length(to_delete) || " items from the recycle bin because of age, freeing " || (totalsize_destructable/1024/1024) || "MB\n");
+    }
 
     Clean(to_delete);
   }
