@@ -9,6 +9,7 @@ import { fieldsToHS, tagToHS, outputmapToHS, repairResultSet, tagToJS, repairRes
 import { getSchemaData, SchemaData } from "./db";
 import { debugFlags } from "@webhare/env";
 import { runSimpleWRDQuery } from "./queries";
+import { omit } from "@webhare/std";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 
@@ -183,7 +184,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
   // eslint-disable-next-line @typescript-eslint/ban-types
   selectFrom<T extends keyof S & string>(type: T): WRDSingleQueryBuilder<S, T, null> {
     const wrdtype = this.getType(type);
-    return new WRDSingleQueryBuilder(wrdtype, null, [], null);
+    return new WRDSingleQueryBuilder(wrdtype, null, [], null, null);
   }
 
   insert<T extends keyof S & string>(type: T, value: Insertable<S[T]>) {
@@ -194,7 +195,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return checkPromiseErrorsHandled(this.getType(type).updateEntity(wrd_id, value));
   }
 
-  search<T extends keyof S & string, F extends AttrRef<S[T]>>(type: T, field: F, value: (GetCVPairs<S[T][F]> & { condition: "=" })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }>): Promise<number | null> {
+  search<T extends keyof S & string, F extends AttrRef<S[T]>>(type: T, field: F, value: (GetCVPairs<S[T][F]> & { condition: "=" })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode: HistoryModeData }): Promise<number | null> {
     return checkPromiseErrorsHandled(this.getType(type).search(field, value, options));
   }
 
@@ -269,8 +270,13 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     await (await this._getType()).updateEntity(wrd_id, fieldsToHS(value, this.attrs!), { jsmode: true });
   }
 
-  async search<F extends AttrRef<S[T]>>(field: F, value: (GetCVPairs<S[T][F]> & { condition: "=" })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }>): Promise<number | null> {
-    const res = await (await this._getType()).search(tagToHS(field), value, { ...(options || {}), jsmode: true }) as number;
+  async search<F extends AttrRef<S[T]>>(field: F, value: (GetCVPairs<S[T][F]> & { condition: "=" })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode?: HistoryModeData }): Promise<number | null> {
+    if (debugFlags["wrd:usewasmvm"] && debugFlags["wrd:usejsengine"]) {
+      type FilterOverride = { field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown };
+      const list = await runSimpleWRDQuery(this, "wrdId", [{ field, condition: "=", value, options } as FilterOverride], options?.historyMode ?? { mode: "now" }, 1);
+      return list.length ? list[0] as number : null;
+    }
+    const res = await (await this._getType()).search(tagToHS(field), value, { ...(options || {}), historymode: options?.historyMode?.mode ?? "now", jsmode: true }) as number;
     return res || null;
   }
 
@@ -346,8 +352,8 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 }
 
-export type HistoryModeData = { historymode: "now" | "all" | "__getfields" } | { historymode: "at"; when: Date } | { historymode: "range"; when_start: Date; when_limit: Date } | null;
-type GetOptionsIfExists<T> = T extends { options: unknown } ? T["options"] : undefined;
+export type HistoryModeData = { mode: "now" | "all" | "__getfields" } | { mode: "at"; when: Date } | { mode: "range"; when_start: Date; when_limit: Date } | null;
+type GetOptionsIfExists<T, D> = T extends { options: unknown } ? T["options"] : D;
 type HSWRDQuery = {
   outputcolumn?: string;
   outputcolumns?: object;
@@ -357,6 +363,7 @@ type HSWRDQuery = {
   when_start?: Date;
   when_limit?: Date;
   jsmode: true;
+  resultlimit?: number;
 };
 
 /* The query object. We are initially created by selectFrom() with an O === null - select() then recreates us with a set O
@@ -366,21 +373,25 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
   private selects: O;
   private wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>;
   private historymode: HistoryModeData;
+  private _limit: number | null;
 
-  constructor(type: WRDType<S, T>, selects: O, wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>, historymode: HistoryModeData) {
+  constructor(type: WRDType<S, T>, selects: O, wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>, historymode: HistoryModeData, limit: number | null) {
     this.type = type;
     this.selects = selects;
     this.wheres = wheres;
     this.historymode = historymode;
+    this._limit = limit;
   }
 
   select<M extends OutputMap<S[T]>>(mapping: M): WRDSingleQueryBuilder<S, T, CombineRecordOutputMaps<S[T], O, RecordizeOutputMap<S[T], M>>> {
     const recordmapping = recordizeOutputMap<S[T], typeof mapping>(mapping);
-    return new WRDSingleQueryBuilder(this.type, combineRecordOutputMaps(this.selects, recordmapping), this.wheres, this.historymode);
+    return new WRDSingleQueryBuilder(this.type, combineRecordOutputMaps(this.selects, recordmapping), this.wheres, this.historymode, this._limit);
   }
 
-  where<F extends keyof S[T] & string, Condition extends GetCVPairs<S[T][F]>["condition"] & AllowedFilterConditions>(field: F, condition: Condition, value: (GetCVPairs<S[T][F]> & { condition: Condition })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: Condition }>): WRDSingleQueryBuilder<S, T, O> {
-    return new WRDSingleQueryBuilder(this.type, this.selects, [...this.wheres, { field, condition, value }], this.historymode);
+  where<F extends keyof S[T] & string, Condition extends GetCVPairs<S[T][F]>["condition"] & AllowedFilterConditions>(field: F, condition: Condition, value: (GetCVPairs<S[T][F]> & { condition: Condition })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: Condition }, undefined>): WRDSingleQueryBuilder<S, T, O> {
+    // Need to cast the filter because the options member isn't accepted otherwise
+    type FilterOverride = { field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown };
+    return new WRDSingleQueryBuilder(this.type, this.selects, [...this.wheres, { field, condition, value, options } as FilterOverride], this.historymode, this._limit);
   }
 
   $call<TO extends RecordOutputMap<S[T]> | null>(cb: (b: WRDSingleQueryBuilder<S, T, O>) => WRDSingleQueryBuilder<S, T, TO>): WRDSingleQueryBuilder<S, T, TO> {
@@ -396,15 +407,21 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
       case "now":
       case "__getfields":
       case "all": {
-        return new WRDSingleQueryBuilder(this.type, this.selects, this.wheres, { historymode: mode });
+        return new WRDSingleQueryBuilder(this.type, this.selects, this.wheres, { mode }, this._limit);
       }
       case "at": {
-        return new WRDSingleQueryBuilder(this.type, this.selects, this.wheres, { historymode: mode, when: start! });
+        return new WRDSingleQueryBuilder(this.type, this.selects, this.wheres, { mode, when: start! }, this._limit);
       }
       case "range": {
-        return new WRDSingleQueryBuilder(this.type, this.selects, this.wheres, { historymode: mode, when_start: start!, when_limit: limit! });
+        return new WRDSingleQueryBuilder(this.type, this.selects, this.wheres, { mode, when_start: start!, when_limit: limit! }, this._limit);
       }
     }
+  }
+
+  limit(limit: number | null) {
+    if (limit && limit < 0)
+      throw new Error(`Illegal negative query result limit`);
+    this._limit = limit;
   }
 
   private async executeInternal(): Promise<O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never> {
@@ -417,16 +434,18 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
     else
       query.outputcolumns = outputmapToHS(this.selects);
     if (this.historymode)
-      query = { ...query, ...this.historymode };
+      query = { ...query, historymode: this.historymode.mode, ...omit(this.historymode, ["mode"]) };
     if (this.wheres.length)
       query.filters = this.wheres.map(({ field, condition, value }) => ({ field: tagToHS(field), matchtype: condition.toUpperCase(), value }));
+    if (this._limit !== null)
+      query.resultlimit = this._limit;
     const retval = await type.runQuery(query);
     return retval as unknown as (O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never);
   }
 
   async execute(): Promise<O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never> {
     if (debugFlags["wrd:usewasmvm"] && debugFlags["wrd:usejsengine"])
-      return runSimpleWRDQuery(this.type, this.selects || {}, this.wheres, this.historymode) as unknown as O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never;
+      return runSimpleWRDQuery(this.type, this.selects || {}, this.wheres, this.historymode, this._limit) as unknown as O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never;
     const result = await checkPromiseErrorsHandled(this.executeInternal());
     if (typeof this.selects === "string") //no need for translation
       return result.map(repairResultValue) as typeof result;

@@ -418,6 +418,10 @@ async function testComparisons() {
     testEnum: { values: [null, "enum1", "enum2"] },
   };
 
+  // Delete other persons to make sure search can only find newperson
+  const otherPersons = await schema.selectFrom("wrdPerson").select("wrdId").where("wrdId", "!=", newperson).historyMode("__getfields").execute();
+  await schema.delete("wrdPerson", otherPersons);
+
   const comparetypes = ["=", "!=", "<", "<=", ">", ">=", "in"] as const;
 
   // Test all comparisons
@@ -434,7 +438,11 @@ async function testComparisons() {
           const select = await schema.selectFrom("wrdPerson").select(attr as any).where(attr as any, comparetype, othervalue).where("wrdId", "=", newperson).historyMode("__getfields").execute();
           const expect = cmp(value, comparetype, othervalue);
           console.log(`Testing ${JSON.stringify(value)} ${comparetype} ${JSON.stringify(othervalue)}, expect: ${expect}, entityval: ${JSON.stringify(entityval)}, selectresult: ${JSON.stringify(select)}`);
-          test.eq(expect, select.length === 1, `Testing ${JSON.stringify(value)} ${comparetype} ${othervalue}`);
+          test.eq(expect, select.length === 1, `Testing select ${JSON.stringify(value)} ${comparetype} ${othervalue}`);
+          if (comparetype === "=") {
+            const searchRes = await schema.search("wrdPerson", attr as any, othervalue, { historyMode: { mode: "__getfields" } });
+            test.eq(expect, searchRes === newperson, `Testing search ${JSON.stringify(value)} ${comparetype} ${othervalue}`);
+          }
         }
     }
   }

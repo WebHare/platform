@@ -104,7 +104,11 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
   type: WRDType<S, T>,
   selects: O,
   wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>,
-  historymode: HistoryModeData) {
+  historymode: HistoryModeData,
+  limit: number | null,
+) {
+  if (limit !== null && limit <= 0)
+    return [];
 
   // Get the data for the whole schema
   const schemadata = await type.schema.ensureSchemaData();
@@ -131,7 +135,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
     .where("wrd.entities.type", "=", sql`any(${typerec.childTypeIds})`);
 
   // process the history mode
-  switch (historymode?.historymode) {
+  switch (historymode?.mode) {
     case undefined:
     case "now": {
       const now = new Date;
@@ -169,7 +173,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
   }
 
   // Make sure id and type are selected too
-  let selectquery = query.select(["wrd.entities.id", "wrd.entities.type"]).orderBy("wrd.entities.id");
+  let selectquery = query.select(["wrd.entities.id", "wrd.entities.type"]);
 
   // Select all needed base fields too (for select map and afterchecks). Process every atrtribute only once.
   const selectedAttrs = new Set<string>;
@@ -192,6 +196,10 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
         selectquery = selectquery.select([baseCells]);
     }
   }
+
+  // If there are no afterchecks, we can limit the number of returned items in the entity select query
+  if (!afterchecks.length && limit)
+    selectquery = selectquery.limit(limit);
 
   // Execute the query if there could be results
   const entities = await selectquery.execute();
@@ -249,6 +257,9 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
 
     // Apply the output mapping, push the value to the results
     retval.push(applyMap(map, accvalues) as MapRecordOutputMap<S[T], O>);
+
+    if (limit && retval.length >= limit)
+      break;
   }
 
   return retval;
