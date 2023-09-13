@@ -43,7 +43,7 @@ export async function runAccountExpiration(tag: string) {
     selectFrom("wrdPerson").
     select(["wrdId", "wrdCreationDate", "whuserLastlogin", "whuserUnit"]).
     where("whuserUnit", "in", processunits.map(_ => _.wrdId)).
-    where("whuserDisableType", "=", "").
+    where("whuserDisableType", "=", null).
     execute();
 
   const lockusers = [];

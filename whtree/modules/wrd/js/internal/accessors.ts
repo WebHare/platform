@@ -7,6 +7,8 @@ import { isLike } from "@webhare/hscompat/strings";
 import { Money } from "@webhare/std";
 import { decodeScanData, RichFileDescriptor } from "@webhare/services/src/richfile";
 import { defaultDateTime, makeDateFromParts, maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
+import { decodeHSON } from "@webhare/hscompat/hscompat";
+import { IPCMarshallableRecord } from "@mod-system/js/internal/whmanager/hsmarshalling";
 
 
 /** Response type for addToQuery. Null to signal the added condition is always false
@@ -356,7 +358,7 @@ type WRDDBGuidConditions = {
 
 class WRDDBBaseGuidValue extends WRDAttributeValueBase<string, string, string, WRDDBGuidConditions> {
   checkGuid(guid: string) {
-    if (!/^wrd:[0-9a-f]{32}$/.exec(guid))
+    if (!/^wrd:[0-9a-fA-F]{32}$/.exec(guid))
       throw new Error(`Invalid guid value`);
   }
   getDefaultValue() { return ""; }
@@ -387,7 +389,7 @@ class WRDDBBaseGuidValue extends WRDAttributeValueBase<string, string, string, W
   }
 
   getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, entityRecord: EntityPartialRec): string {
-    return `wrd:${entityRecord.guid!.toString("hex")}`;
+    return `wrd:${entityRecord.guid!.toString("hex").toUpperCase()}`;
   }
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): string {
@@ -1382,19 +1384,40 @@ class WRDDBJSONValue extends WRDAttributeUncomparableValueBase<object | null, ob
   /** Returns the default value for a value with no settings
       @returns Default value for this type
   */
-  getDefaultValue(): Promise<object | null> {
-    return Promise.resolve(null);
+  getDefaultValue(): object | null {
+    return null;
   }
 
   // Async function, accessing blobs.
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): Promise<object | null> {
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): object | null {
     if (entity_settings[settings_start].rawdata)
       return JSON.parse(entity_settings[settings_start].rawdata);
     const buf = entity_settings[settings_start].blobdata?.tryArrayBufferSync();
-    return buf ? JSON.parse(Buffer.from(buf).toString()) : {};
+    return buf ? JSON.parse(Buffer.from(buf).toString()) : null;
   }
 
   validateInput(value: object | null): void {
+    /* always valid */
+  }
+}
+
+class WRDDBRecordValue extends WRDAttributeUncomparableValueBase<IPCMarshallableRecord | null, IPCMarshallableRecord | null, IPCMarshallableRecord | null> {
+  /** Returns the default value for a value with no settings
+      @returns Default value for this type
+  */
+  getDefaultValue(): IPCMarshallableRecord | null {
+    return null;
+  }
+
+  // Async function, accessing blobs.
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): IPCMarshallableRecord | null {
+    if (entity_settings[settings_start].rawdata)
+      return decodeHSON(entity_settings[settings_start].rawdata) as IPCMarshallableRecord;
+    const buf = entity_settings[settings_start].blobdata?.tryArrayBufferSync();
+    return buf ? decodeHSON(Buffer.from(buf).toString()) as IPCMarshallableRecord : null;
+  }
+
+  validateInput(value: IPCMarshallableRecord | null): void {
     /* always valid */
   }
 }
@@ -1489,7 +1512,7 @@ class WRDDBPasswordValue extends WRDAttributeUnImplementedValueBase<unknown, unk
 //class WRDDBRichDocumentValue extends WRDAttributeUnImplementedValueBase<RichFileDescriptor | null, RichFileDescriptor | null, RichFileDescriptor | null> { }
 class WRDDBWHFSInstanceValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBWHFSIntextlinkValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
-class WRDDBRecordValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
+//class WRDDBRecordValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBPaymentProviderValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBPaymentValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBStatusRecordValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
