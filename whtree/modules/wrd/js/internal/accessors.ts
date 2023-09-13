@@ -1407,7 +1407,6 @@ class WRDDBJSONValue extends WRDAttributeUncomparableValueBase<object | null, ob
     return null;
   }
 
-  // Async function, accessing blobs.
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): object | null {
     if (entity_settings[settings_start].rawdata)
       return JSON.parse(entity_settings[settings_start].rawdata);
@@ -1428,7 +1427,6 @@ class WRDDBRecordValue extends WRDAttributeUncomparableValueBase<IPCMarshallable
     return null;
   }
 
-  // Async function, accessing blobs.
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): IPCMarshallableRecord | null {
     if (entity_settings[settings_start].rawdata)
       return decodeHSON(entity_settings[settings_start].rawdata) as IPCMarshallableRecord;
@@ -1450,7 +1448,6 @@ class WHDBRichFileAttributeBase extends WRDAttributeUncomparableValueBase<RichFi
     return null;
   }
 
-  // Async function, accessing blobs.
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[]): RichFileDescriptor | null {
     const val = entity_settings[settings_start];
     const lpos = recordLowerBound(links, val, ["id"]);
