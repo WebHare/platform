@@ -8,7 +8,7 @@ export { SchemaTypeDefinition } from "./types";
 import type { HistoryModeData, WRDType } from "./schema";
 import { getAccessor } from "./accessors";
 import { AttrRec, EntitySettingsRec, EntitySettingsWHFSLinkRec, /*TypeRec, */selectEntitySettingColumns, selectEntitySettingWHFSLinkColumns } from "./db";
-import { db } from "@webhare/whdb";
+import { db, sql } from "@webhare/whdb";
 import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { recordLowerBound, recordUpperBound, recordRange } from "@webhare/hscompat/algorithms";
 import { maxDateTime } from "@webhare/hscompat/datetime";
@@ -128,7 +128,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
   // Base entity query
   let query = db<WebHareDB>()
     .selectFrom("wrd.entities")
-    .where("wrd.entities.type", "in", typerec.childTypeIds);
+    .where("wrd.entities.type", "=", sql`any(${typerec.childTypeIds})`);
 
   // process the history mode
   switch (historymode?.historymode) {
@@ -202,8 +202,8 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
   const settings: EntitySettingsRec[] = selectattrids.length ?
     await db<WebHareDB>()
       .selectFrom("wrd.entity_settings")
-      .where("entity", "in", entities.map(e => e.id))
-      .where("attribute", "in", selectattrids)
+      .where("entity", "=", sql`any(${entities.map(e => e.id)})`)
+      .where("attribute", "=", sql`any(${selectattrids})`)
       .select(selectEntitySettingColumns)
       .orderBy("entity")
       .orderBy("attribute")
@@ -216,7 +216,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
     await db<WebHareDB>()
       .selectFrom("wrd.entity_settings_whfslink")
       .select(selectEntitySettingWHFSLinkColumns)
-      .where("id", "in", settings.map(setting => setting.id))
+      .where("id", "=", sql`any(${settings.map(setting => setting.id)})`)
       .orderBy("id")
       .execute() :
     [];
