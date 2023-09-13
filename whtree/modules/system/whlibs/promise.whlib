@@ -4,10 +4,33 @@
     @topic harescript-core/promises
 */
 
-LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::system.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::internal/callbacks.whlib";
+
+INTEGER FUNCTION GetDayCount(DATETIME date) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+INTEGER FUNCTION GetMsecondCount(DATETIME endtime) __ATTRIBUTES__(EXTERNAL, CONSTANT);
+DATETIME FUNCTION AddTimeToDate(INTEGER64 add_msecs, DATETIME date)
+{
+  INTEGER days := GetDayCount(date);
+  INTEGER64 msecs:= GetMsecondCount(date);
+
+  msecs := msecs + add_msecs;
+  while (msecs < 0) //reverse day counter until msecs is back into range
+  {
+    msecs := msecs + (24*60*60*1000);
+    days := days - 1;
+  }
+
+  //do the final addition, also compensating for a msecs 'larger' than days
+  days := days + INTEGER((msecs)/(24*60*60*1000));
+  msecs:= msecs % (24*60*60*1000);
+
+  IF(days<0)
+    THROW NEW Exception("Date overflow");
+
+  RETURN __HS_CREATEDATETIMEFROMDM(days,INTEGER(msecs));
+}
 
 
 /** Exception thrown to indicate that an operation has been cancelled

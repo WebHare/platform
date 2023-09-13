@@ -143,7 +143,7 @@ function registerBridgeEventHandler(weakModule: WeakRef<HareScriptVM>) {
   rootstorage.run(() => {
     const listenerid = bridge.on("event", (event: BridgeEvent) => {
       const mod = weakModule.deref();
-      if (!mod || !mod.hsvm) {
+      if (!mod || mod.isShutdown()) {
         bridge.off(listenerid);
         if (mod)
           mod.unregisterEventCallback = undefined;
@@ -154,15 +154,7 @@ function registerBridgeEventHandler(weakModule: WeakRef<HareScriptVM>) {
       if (event.data && event.data.__sourcegroup === mod.currentgroup)
         return;
 
-      mod.codeContext.run(() => {
-        const encoded = writeMarshalData(event.data, { onlySimple: true });
-        const payload = mod.wasmmodule._malloc(encoded.byteLength);
-        const name = mod.wasmmodule.stringToNewUTF8(event.name);
-        encoded.copy(mod.wasmmodule.HEAPU8, payload);
-        mod.wasmmodule._InjectEvent(mod.hsvm, name, payload, encoded.byteLength);
-        mod.wasmmodule._free(payload);
-        mod.wasmmodule._free(name);
-      });
+      mod.codeContext.run(() => mod.injectEvent(event.name, event.data));
     });
     weakModule.deref()!.unregisterEventCallback = () => bridge.off(listenerid);
   });
@@ -230,6 +222,23 @@ export class HareScriptVM {
       throw new Error(`Variable doesn't have expected type ${VariableType[expectType]}, but got ${VariableType[curType]}`);
 
     return curType;
+  }
+
+  /// Inject an event directly into this HSVM
+  injectEvent(name: string, data: unknown) {
+    if (this.isShutdown())
+      return;
+
+    const encoded = writeMarshalData(data, { onlySimple: true });
+    const payload = this.wasmmodule._malloc(encoded.byteLength);
+    const namebuf = this.wasmmodule.stringToNewUTF8(name);
+    try {
+      encoded.copy(this.wasmmodule.HEAPU8, payload);
+      this.wasmmodule._InjectEvent(this.hsvm, namebuf, payload, encoded.byteLength);
+    } finally {
+      this.wasmmodule._free(payload);
+      this.wasmmodule._free(namebuf);
+    }
   }
 
   //Get the JS tag for this blob, used to track its original/current location (eg on disk or uploaded to PG)
@@ -526,6 +535,11 @@ export class HareScriptVM {
 
     this._hsvm = null;
     this._wasmmodule = null;
+  }
+
+  /// Is the VM already closed?
+  isShutdown() {
+    return this._hsvm === null;
   }
 
   startTransition(intoHareScript: boolean, title: string): TransitionLock | undefined {
