@@ -11,6 +11,12 @@ LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
+/* Direct URLs:
+
+   To prefill mask & filter pulldown (note: task list is populated automatically):
+   https://my.webhare.dev/?app=system:dashboard(system%3Amanagedtasks,*,all)
+*/
+
 PUBLIC INTEGER FUNCTION GetTaskStatusIcon(RECORD task)
 {
   RETURN task.isscheduled ? 7 : task.isrunning ? 6 : task.iscancelled ? 4 : task.lasterrors != "" ? 2 : task.finished != DEFAULT DATETIME ? 3 : 1;
@@ -23,6 +29,13 @@ PUBLIC STATIC OBJECTTYPE Panel EXTEND DashboardPanelBase
 
   MACRO Init()
   {
+    IF (MemberExists(this->tolliumparent, "screenparams") AND Length(this->tolliumparent->screenparams) > 1)
+    {
+      ^taskmask->value := this->tolliumparent->screenparams[1];
+      IF (Length(this->tolliumparent->screenparams) > 2)
+        ^taskfilter->SetValueIfValid(this->tolliumparent->screenparams[2]);
+    }
+
     this->DoUpdateFilter();
   }
 
