@@ -992,7 +992,7 @@ class WRDDBEnumArrayValue<Options extends { allowedvalues: string }> extends WRD
   }
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): Array<GetEnumArrayAllowedValues<Options>> {
-    return entity_settings[settings_start].rawdata ? entity_settings[settings_start].rawdata.split(",") as Array<GetEnumArrayAllowedValues<Options>> : [];
+    return entity_settings[settings_start].rawdata ? entity_settings[settings_start].rawdata.split("\t") as Array<GetEnumArrayAllowedValues<Options>> : [];
   }
 
   validateInput(value: Array<GetEnumArrayAllowedValues<Options>>) {
