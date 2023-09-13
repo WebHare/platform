@@ -10,6 +10,7 @@ LOADLIB "wh::internal/interface.whlib";
 
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/cluster/logwriter.whlib";
 
 
 INTEGER inputstream;
@@ -322,6 +323,7 @@ STATIC OBJECTTYPE WebserverWebSocketHandler EXTEND WebserverWebSocketConnection
 
   PUBLIC MACRO Run()
   {
+    __UnhandledRejection := PTR AbortOnUnhandledRejection;
     TRY
       WaitForPromise(this->ReceiveLoop());
     CATCH (OBJECT< OperationCancelledException > e); // is thrown when closing the loop, no need to propagate
@@ -337,4 +339,10 @@ STATIC OBJECTTYPE WebserverWebSocketHandler EXTEND WebserverWebSocketConnection
 PUBLIC OBJECT FUNCTION CreateWebSocketHandler()
 {
   RETURN NEW WebserverWebSocketHandler();
+}
+
+MACRO AbortOnUnhandledRejection(RECORD data)
+{
+  LogNoticeException("script-unhandledrejection", "", data.e, CELL[ data := CELL[ data.promise_id ] ]);
+  TerminateScript(); //don't keep a websocket up when noone is catching exceptinos
 }
