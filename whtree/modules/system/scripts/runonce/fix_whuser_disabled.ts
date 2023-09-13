@@ -16,7 +16,7 @@ async function fixWHUserDisabled() {
     const fixusers = await schemaobj.selectFrom("wrdPerson").
       select(["wrdId", "whuserDisabled", "whuserDisableType"]).
       where("whuserDisabled", "=", true).
-      where("whuserDisableType", "=", "").
+      where("whuserDisableType", "=", null).
       execute();
 
     if (fixusers.length) {

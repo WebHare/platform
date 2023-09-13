@@ -8,7 +8,7 @@ export { SchemaTypeDefinition } from "./types";
 import type { HistoryModeData, WRDType } from "./schema";
 import { getAccessor } from "./accessors";
 import { AttrRec, EntitySettingsRec, EntitySettingsWHFSLinkRec, /*TypeRec, */selectEntitySettingColumns, selectEntitySettingWHFSLinkColumns } from "./db";
-import { db } from "@webhare/whdb";
+import { db, sql } from "@webhare/whdb";
 import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { recordLowerBound, recordUpperBound, recordRange } from "@webhare/hscompat/algorithms";
 import { maxDateTime } from "@webhare/hscompat/datetime";
@@ -104,7 +104,11 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
   type: WRDType<S, T>,
   selects: O,
   wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>,
-  historymode: HistoryModeData) {
+  historymode: HistoryModeData,
+  limit: number | null,
+) {
+  if (limit !== null && limit <= 0)
+    return [];
 
   // Get the data for the whole schema
   const schemadata = await type.schema.ensureSchemaData();
@@ -128,10 +132,10 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
   // Base entity query
   let query = db<WebHareDB>()
     .selectFrom("wrd.entities")
-    .where("wrd.entities.type", "in", typerec.childTypeIds);
+    .where("wrd.entities.type", "=", sql`any(${typerec.childTypeIds})`);
 
   // process the history mode
-  switch (historymode?.historymode) {
+  switch (historymode?.mode) {
     case undefined:
     case "now": {
       const now = new Date;
@@ -169,7 +173,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
   }
 
   // Make sure id and type are selected too
-  let selectquery = query.select(["wrd.entities.id", "wrd.entities.type"]).orderBy("wrd.entities.id");
+  let selectquery = query.select(["wrd.entities.id", "wrd.entities.type"]);
 
   // Select all needed base fields too (for select map and afterchecks). Process every atrtribute only once.
   const selectedAttrs = new Set<string>;
@@ -193,6 +197,10 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
     }
   }
 
+  // If there are no afterchecks, we can limit the number of returned items in the entity select query
+  if (!afterchecks.length && limit)
+    selectquery = selectquery.limit(limit);
+
   // Execute the query if there could be results
   const entities = await selectquery.execute();
   if (!entities.length)
@@ -202,8 +210,8 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
   const settings: EntitySettingsRec[] = selectattrids.length ?
     await db<WebHareDB>()
       .selectFrom("wrd.entity_settings")
-      .where("entity", "in", entities.map(e => e.id))
-      .where("attribute", "in", selectattrids)
+      .where("entity", "=", sql`any(${entities.map(e => e.id)})`)
+      .where("attribute", "=", sql`any(${selectattrids})`)
       .select(selectEntitySettingColumns)
       .orderBy("entity")
       .orderBy("attribute")
@@ -216,7 +224,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
     await db<WebHareDB>()
       .selectFrom("wrd.entity_settings_whfslink")
       .select(selectEntitySettingWHFSLinkColumns)
-      .where("id", "in", settings.map(setting => setting.id))
+      .where("id", "=", sql`any(${settings.map(setting => setting.id)})`)
       .orderBy("id")
       .execute() :
     [];
@@ -249,6 +257,9 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
 
     // Apply the output mapping, push the value to the results
     retval.push(applyMap(map, accvalues) as MapRecordOutputMap<S[T], O>);
+
+    if (limit && retval.length >= limit)
+      break;
   }
 
   return retval;
