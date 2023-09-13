@@ -86,6 +86,8 @@ export class WHDBPgClient {
         for (const param of parameters) {
           if (Array.isArray(param) && param.length === 0)
             queryoptions.params!.push(new BindParam(DataTypeOIDs._int2, [])); //workaround for postgresql-client not detecting a type for this.
+          else if (typeof param === "string")
+            queryoptions.params!.push(new BindParam(DataTypeOIDs.text, param));
           else
             queryoptions.params!.push(param);
         }

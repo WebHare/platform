@@ -136,7 +136,10 @@ export async function getSchemaData(id: string | number): Promise<SchemaData> {
   const typeIdMap = new Map(types.map(type => [type.id, type]));
   for (const typerec of types) {
     let parentType = typerec.parenttype;
+    const parentTypeTags = new Set<string>;
+    parentTypeTags.add(typerec.tag);
     while (parentType) {
+      parentTypeTags.add(typerec.tag);
       const parentTypeRec = typeIdMap.get(parentType);
       if (!parentTypeRec)
         break;
@@ -148,9 +151,21 @@ export async function getSchemaData(id: string | number): Promise<SchemaData> {
   }
   const allAttrs: typeof attrs = [];
   for (const attr of attrs) {
-    const inTypes = typeIdMap.get(attr.type)!.parentTypeIds;
-    for (const type of inTypes) {
-      allAttrs.push({ ...attr, type });
+    const inTypes = typeIdMap.get(attr.type)!.childTypeIds;
+    if (attr.tag === "wrdTitle") {
+      const wrdOrganizationId = typeTagMap.get("wrdOrganization")?.id;
+      const wrdOrgNameAttr = allAttrs.find(a => a.type === wrdOrganizationId && a.tag === "wrdOrgName");
+      for (const type of inTypes) {
+        // redirect wrd_title to wrd_orgname in wrd_organization and child types by setting overriding id and attributetype
+        if (wrdOrganizationId && wrdOrgNameAttr && typeIdMap.get(type)?.parentTypeIds.includes(wrdOrganizationId)) {
+          allAttrs.push({ ...attr, id: wrdOrgNameAttr.id, attributetype: wrdOrgNameAttr.attributetype, type });
+        } else
+          allAttrs.push({ ...attr, type });
+      }
+    } else {
+      for (const type of inTypes) {
+        allAttrs.push({ ...attr, type });
+      }
     }
   }
   const typeParentAttrMap = mappedGroupBy(allAttrs, (attr) => [attr.type, attr], (attrlist) => mappedGroupBy(attrlist, (attr) => [attr.parent, attr]));

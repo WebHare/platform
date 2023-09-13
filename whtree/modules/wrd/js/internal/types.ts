@@ -28,7 +28,7 @@ export enum WRDBaseAttributeType {
   Base_CreationLimitDate = -4, // wrdCreationDate, wrdLimitDate
   Base_ModificationDate = -10, // wrdModificationDate
   Base_Date = -5, // wrdDateOfBirth, wrdDateOfDeath
-  Base_GeneratedString = -6, // wrdSaluteFormal, wrd_address_formal, wrdFullName
+  Base_GeneratedString = -6, // wrdSaluteFormal, wrdAddressFormal, wrdFullName, wrdTitle
   Base_NameString = -7, // wrd_titles, wrd_initials, wrdFirstName, wrdFirstNames, wrd_infix, wrdLastName, wrdTitlesSuffix
   Base_Domain = -8, // wrdLeftEntity, wrdRightEntity
   Base_Gender = -9, // wrd_gender

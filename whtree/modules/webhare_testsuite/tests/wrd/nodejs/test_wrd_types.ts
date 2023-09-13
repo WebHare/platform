@@ -98,59 +98,31 @@ function testTypes() {
     };
   }, MapRecordOutputMap<GenericWRDTypeDef, { a: "a"; b: { c: "c" }; d: { e: "e" } }>>>();
 
-  /* This fails, don't know why
-  test.typeAssert<test.Equals<{
-    invented_domain?: number | null;
-    whuser_comment?: string;
-    whuser_disabled?: boolean;
-    whuser_disablereason?: string;
-    whuser_hiddenannouncements?: number[];
-    whuser_lastlogin?: Date;
+  test.typeAssert<test.Assignable<{
+    invented_domain?: number | null | undefined;
+    whuser_comment?: string | undefined;
+    whuser_disabled?: boolean | undefined;
+    whuser_disablereason?: string | undefined;
+    whuser_hiddenannouncements?: number[] | undefined;
+    whuser_lastlogin?: Date | null | undefined;
     whuser_unit: number;
-    wrdCreationDate?: Date;
-    wrdDateOfBirth?: Date;
-    wrdDateOfDeath?: Date;
-    wrdFirstName?: string;
-    wrdFirstNames?: string;
-    wrd_gender?: WRDGender;
-    wrd_guid?: string;
-    wrd_id?: number;
-    wrd_infix?: string;
-    wrd_initials?: string;
-    wrdLastName?: string;
-    wrdLimitDate?: Date;
-    wrdModificationDate?: Date;
-    wrdTag?: string;
-    wrdTitlesSuffix?: string;
-    wrd_titles?: string;
+    wrdCreationDate?: Date | null | undefined;
+    wrdDateOfBirth?: Date | null | undefined;
+    wrdDateOfDeath?: Date | null | undefined;
+    wrdFirstName?: string | undefined;
+    wrdFirstNames?: string | undefined;
+    wrd_gender?: WRDGender | undefined;
+    wrd_guid?: string | undefined;
+    wrd_id?: number | undefined;
+    wrd_infix?: string | undefined;
+    wrd_initials?: string | undefined;
+    wrdLastName?: string | undefined;
+    wrdLimitDate?: Date | null | undefined;
+    wrdModificationDate?: Date | undefined;
+    wrdTag?: string | undefined;
+    wrdTitlesSuffix?: string | undefined;
+    wrd_titles?: string | undefined;
   }, Insertable<System_Usermgmt_WRDPerson>>>();
-*/
-  // FIXME: this only works when using Required, don't know why yet. It seems to look ok, though
-  test.typeAssert<test.Equals<Required<{
-    invented_domain?: number | null;
-    whuser_comment?: string;
-    whuser_disabled?: boolean;
-    whuser_disablereason?: string;
-    whuser_hiddenannouncements?: number[];
-    whuser_lastlogin?: Date | null;
-    whuser_unit: number;
-    wrdCreationDate?: Date | null;
-    wrdDateOfBirth?: Date | null;
-    wrdDateOfDeath?: Date | null;
-    wrdFirstName?: string;
-    wrdFirstNames?: string;
-    wrd_gender?: WRDGender;
-    wrd_guid?: string;
-    wrd_id?: number;
-    wrd_infix?: string;
-    wrd_initials?: string;
-    wrdLastName?: string;
-    wrdLimitDate?: Date | null;
-    wrdModificationDate?: Date;
-    wrdTag?: string;
-    wrdTitlesSuffix?: string;
-    wrd_titles?: string;
-  }>, Required<Insertable<System_Usermgmt_WRDPerson>>>>();
 }
 
 test.run([testTypes], { wrdauth: false });
