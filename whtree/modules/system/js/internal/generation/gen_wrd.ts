@@ -6,8 +6,7 @@ import { resolveResource } from "@webhare/services";
 import { WRDBaseAttributeType, WRDAttributeType } from "@mod-wrd/js/internal/types";
 import { updateDir, GenerateOptions } from "./shared";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
-import { HareScriptVM, allocateHSVM } from "@webhare/harescript/src/wasm-hsvm";
-
+import { loadlib } from "@webhare/harescript";
 
 function elements<T extends Element>(collection: HTMLCollectionOf<T>): T[] {
   const items: T[] = [];
@@ -58,7 +57,7 @@ type SchemaDef = {
   }>;
 };
 
-export async function generateWRDDefs(hsvm: HareScriptVM, options: GenerateOptions, modulename: string, modules: string[]): Promise<string> {
+export async function generateWRDDefs(options: GenerateOptions, modulename: string, modules: string[]): Promise<string> {
   let fullfile = "";
   let used_isrequired = false;
   let used_wrdattr = false;
@@ -93,7 +92,7 @@ export async function generateWRDDefs(hsvm: HareScriptVM, options: GenerateOptio
 
         let def = "\n";
         try {
-          const schemadef = await hsvm.call("mod::wrd/lib/internal/metadata/schemaparser.whlib#OpenWRDSchemaDefFile", resolved_definitionfile) as SchemaDef;
+          const schemadef = await loadlib("mod::wrd/lib/internal/metadata/schemaparser.whlib").OpenWRDSchemaDefFile(resolved_definitionfile) as SchemaDef;
           let fulldef = `export type ${modprefix}${generateTypeName(tag)}SchemaType = {\n`;
 
           for (const type of schemadef.types) {
@@ -225,14 +224,14 @@ function createTypeDef(attr: SchemaDef["types"][number]["allattrs"][number], ind
   return typedef;
 }
 
-function generateFile(hsvm: HareScriptVM, options: GenerateOptions, file: string, { defname, modules }: { defname: string; modules: string[] }) {
+function generateFile(options: GenerateOptions, file: string, { defname, modules }: { defname: string; modules: string[] }) {
   // Only process existing modules
   modules = modules.filter(module => config.module[module]);
   if (!modules.length) {
     return "";
   }
 
-  return generateWRDDefs(hsvm, options, defname, modules);
+  return generateWRDDefs(options, defname, modules);
 }
 
 const storagedir = config.dataroot + "storage/system/generated/wrd/";
@@ -241,24 +240,20 @@ export async function updateAllModuleWRDDefs(options: GenerateOptions = { verbos
   updateConfig();
 
   const localdir = config.installationroot + "modules/system/js/internal/generated/wrd/";
-  const hsvm = await allocateHSVM();
 
   const noncoremodules = Object.keys(config.module).filter(m => !whconstant_builtinmodules.includes(m));
-  await updateDir(storagedir, noncoremodules.map(m => ({ type: "file", name: m + ".ts", data: { defname: m, modules: [m] } })), true, generateFile.bind(null, hsvm, options));
-  await updateDir(localdir, [{ type: "file", name: "webhare.ts", data: { defname: "webhare", modules: whconstant_builtinmodules } }], true, generateFile.bind(null, hsvm, options));
-  hsvm.shutdown();
+  await updateDir(storagedir, noncoremodules.map(m => ({ type: "file", name: m + ".ts", data: { defname: m, modules: [m] } })), true, generateFile.bind(null, options));
+  await updateDir(localdir, [{ type: "file", name: "webhare.ts", data: { defname: "webhare", modules: whconstant_builtinmodules } }], true, generateFile.bind(null, options));
 }
 
 export async function updateSingleModuleWRDDefs(name: string, options: GenerateOptions = { verbose: false }) {
   // Make sure the configuration is uptodate
   updateConfig();
 
-  const hsvm = await allocateHSVM();
   if (whconstant_builtinmodules.includes(name)) {
     const localdir = config.installationroot + "modules/system/js/internal/generated/wrd/";
-    await updateDir(localdir, [{ type: "file", name: "webhare.ts", data: { defname: "webhare", modules: whconstant_builtinmodules } }], true, generateFile.bind(null, hsvm, options));
+    await updateDir(localdir, [{ type: "file", name: "webhare.ts", data: { defname: "webhare", modules: whconstant_builtinmodules } }], true, generateFile.bind(null, options));
   } else {
-    await updateDir(storagedir, [{ type: "file", name: name + ".ts", data: { defname: name, modules: [name] } }], false, generateFile.bind(null, hsvm, options));
+    await updateDir(storagedir, [{ type: "file", name: name + ".ts", data: { defname: name, modules: [name] } }], false, generateFile.bind(null, options));
   }
-  hsvm.shutdown();
 }

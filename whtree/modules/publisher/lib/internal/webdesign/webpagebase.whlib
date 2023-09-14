@@ -39,7 +39,7 @@ PUBLIC OBJECTTYPE WebPageBase
   */
   PUBLIC MACRO PTR FUNCTION GetPageBody()
   {
-    THROW NEW Exception("This page did not yet update the PUBLIC MACRO PTR GetPageBody()");
+    THROW NEW Exception("This page did not yet update the PUBLIC MACRO PTR FUNCTION GetPageBody()");
   }
 
   /** Override GetDynamicPageCacheSettings to set your own cache settings. The page
