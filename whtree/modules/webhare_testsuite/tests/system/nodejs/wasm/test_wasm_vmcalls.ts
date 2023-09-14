@@ -4,6 +4,7 @@ import { HSVMObject, HareScriptMemoryBlob, allocateHSVM } from "@webhare/harescr
 import * as test from "@webhare/test";
 import { beginWork, uploadBlob } from "@webhare/whdb";
 import { lockMutex } from "@webhare/services";
+import { isInFreePool } from "@webhare/harescript/src/wasm-hsvm";
 
 function testTypeAPIs() {
   test.eq(VariableType.Float, determineType(new BoxedFloat(2.5)));
@@ -58,7 +59,9 @@ async function testVarMemory() {
   test.eq(returnedblob2.size, blob2.size, "first a superficial check...");
   test.assert(blob2.isSameBlob(returnedblob2));
 
+  const __wasmmodule = vm.wasmmodule;
   vm.shutdown(); //let next test reuse it
+  await test.wait(() => isInFreePool(__wasmmodule));
 }
 
 async function testCalls() {

@@ -3,9 +3,8 @@ import bridge from "@mod-system/js/internal/whmanager/bridge";
 
 async function test() {
   try {
-    const vm = await allocateHSVM();
-    await vm.run(process.argv[2]);
-    vm.shutdown();
+    const vm = await allocateHSVM({ script: process.argv[2], consoleArguments: process.argv.slice(3) });
+    await vm.done;
   } finally {
     await bridge.ensureDataSent();
   }

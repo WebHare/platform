@@ -8,10 +8,8 @@ async function runWasmScript(script: string, params: string[]) {
     script = toResourcePath(script, { allowUnmatched: true }) || `direct::${path.isAbsolute(script) ? script : path.join(process.cwd(), script)}`;
 
   try {
-    const vm = await allocateHSVM();
-    vm.consoleArguments = params;
-    await vm.run(script);
-    vm.shutdown();
+    const vm = await allocateHSVM({ script, consoleArguments: params });
+    await vm.done;
   } finally {
     await bridge.ensureDataSent();
   }

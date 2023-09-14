@@ -213,6 +213,7 @@ async function testHareScriptVM() {
   test.eq("webhare_testsuite:basetest", testsitesettings.sitedesign);
 
   //TODO verify that if the hsvm is garbagecollected associated objects are gone too on the HS side?
+  hsvm.shutdown(); //TODO can this become optional again? but we need toh have the EM PipeWaiter waitloop abort if the VM no longer has anything to do *and* is unreferenced
 }
 
 async function runPrintCallbackTest(hsvm: HareScriptVM) {
@@ -257,6 +258,8 @@ async function testHareScriptVMFptrs() {
 
   //test invoking a MACRO directly
   test.eq(undefined, await hsvm.loadlib("wh::system.whlib").Print("Tested invoking a MACRO directly - you will see this in the console, ignore\n"));
+
+  hsvm.shutdown(); //TODO can this become optional again? but we need toh have the EM PipeWaiter waitloop abort if the VM no longer has anything to do *and* is unreferenced
 }
 
 async function testResources() {
