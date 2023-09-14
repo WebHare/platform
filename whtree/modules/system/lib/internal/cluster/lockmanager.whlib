@@ -263,7 +263,7 @@ OBJECTTYPE LockManager
   {
     IF(IsWasm())
     {
-      RECORD lockresult := EM_Syscall("lockMutex", CELL[mutexname, wait_until]);
+      RECORD lockresult := WaitForPromise(EM_Syscall("lockMutex", CELL[mutexname, wait_until]));
       IF (lockresult.status = "ok")
         RETURN NEW WasmMutexLock(mutexname, lockresult.mutex);
       ELSE

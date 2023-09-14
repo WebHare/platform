@@ -14,8 +14,9 @@ import { Mutex } from "@webhare/services";
 import { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { debugFlags } from "@webhare/env";
 import bridge, { BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
-import { CodeContext, getCodeContext, rootstorage } from "@webhare/services/src/codecontexts";
+import { rootstorage, runOutsideCodeContext } from "@webhare/services/src/codecontexts";
 import { type HSVM_HSVMSource } from "./machinewrapper";
+
 
 export interface StartupOptions {
   /// Script to run. If not specified an eventloop is started
@@ -150,7 +151,7 @@ export async function recompileHarescriptLibrary(uri: string, options?: { force:
 }
 
 function registerBridgeEventHandler(weakModule: WeakRef<HareScriptVM>) {
-  rootstorage.run(() => {
+  runOutsideCodeContext(() => {
     const listenerid = bridge.on("event", (event: BridgeEvent) => {
       const mod = weakModule.deref();
       if (!mod || mod.isShutdown()) {
@@ -164,7 +165,7 @@ function registerBridgeEventHandler(weakModule: WeakRef<HareScriptVM>) {
       if (event.data && event.data.__sourcegroup === mod.currentgroup)
         return;
 
-      mod.codeContext.run(() => mod.injectEvent(event.name, event.data));
+      mod.injectEvent(event.name, event.data);
     });
     weakModule.deref()!.unregisterEventCallback = () => bridge.off(listenerid);
   });
@@ -190,13 +191,18 @@ export class HareScriptVM implements HSVM_HSVMSource {
   heapFinalizer = new FinalizationRegistry<HSVM_VariableId>((varid) => this._hsvm && this.wasmmodule._HSVM_DeallocateVariable(this._hsvm, varid));
   transitionLocks = new Array<TransitionLock>;
   unregisterEventCallback: (() => void) | undefined;
-  codeContext: CodeContext;
   private gotEventCallbackId = 0; //id of event callback provided to the C++ code
   __unrefMainTimer: boolean;
   onScriptDone: ((e: Error | null) => void | Promise<void>) | null;
 
   /// Unique id counter
   syscallPromiseIdCounter = 0;
+  /// List of JS Promises that have resolved and now need their results communicated back to HS
+  pendingPromiseResults = new Array<{
+    id: number;
+    isResolve: boolean;
+    result: unknown;
+  }>;
   /// List of HS function calls that need to be execute
   pendingFunctionRequests = new Array<{
     id: number;
@@ -218,14 +224,12 @@ export class HareScriptVM implements HSVM_HSVMSource {
     this.errorlist = module._HSVM_AllocateVariable(this.hsvm);
     this.columnnamebuf = module._malloc(65);
     this.stringptrs = module._malloc(8); // 2 string pointers
-    this.codeContext = getCodeContext();
     this.consoleArguments = startupoptions?.consoleArguments || [];
     this.currentgroup = `${bridge.getGroupId()}-wasmmodule-${HareScriptVM.moduleIdCounter++}`;
     this.integrateEvents();
     this.onScriptDone = startupoptions.onScriptDone || null;
 
     this.__unrefMainTimer = startupoptions?.__unrefMainTimer || false;
-    // this.done = this._launch(startupoptions);
   }
 
   async run(script: string): Promise<void> {
@@ -301,7 +305,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
     if (!waiter)
       throw new Error(`Could not find pipewaiter`);
 
-    const timer = setTimeout(() => waiter.resolve(0), wait_ms);
+    const timer = rootstorage.run(() => setTimeout(() => waiter.resolve(0), wait_ms));
     if (this.__unrefMainTimer && !this.pendingFunctionRequests.length)
       timer.unref();
     const res = await waiter.promise;
@@ -319,6 +323,12 @@ export class HareScriptVM implements HSVM_HSVMSource {
       throw new Error(`Variable doesn't have expected type ${VariableType[expectType]}, but got ${VariableType[curType]}`);
 
     return curType;
+  }
+
+  /** Resolve a promise returnd by EM_Syscall */
+  resolveSyscalledPromise(id: number, isResolve: boolean, result: unknown) {
+    this.pendingPromiseResults.push({ id, isResolve, result: result === undefined ? false : result });
+    this.injectEvent("system:wasm-promises", null);
   }
 
   /// Inject an event directly into this HSVM

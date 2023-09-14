@@ -74,6 +74,9 @@ async function testContextHSVM() {
   test.eq({ x: 99 }, await context2.run(() => myloadlib.getGlobal()));
   test.eq({ x: 77 }, await context1.run(() => myloadlib.getGlobal()));
   test.eq({ x: 42 }, await myloadlib.getGlobal());
+
+  context1.close();
+  context2.close();
 }
 
 test.run([

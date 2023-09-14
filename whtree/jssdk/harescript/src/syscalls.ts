@@ -122,6 +122,8 @@ export function getActionQueue(hsvm: HareScriptVM) {
   }
 
   return {
+    ///Promises resolved in JS that can now be resolved in the HSVM
+    promiseresults: hsvm.pendingPromiseResults.splice(0, hsvm.pendingPromiseResults.length),
     ///Function calls the JS code wants the HSVM to execute
     functionrequests
   };

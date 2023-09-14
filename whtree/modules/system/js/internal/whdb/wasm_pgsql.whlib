@@ -17,7 +17,7 @@ RECORD FUNCTION __WASMPG_EXECUTEQUERY(RECORD query) __ATTRIBUTES__(EXECUTESHARES
 
 VARIANT FUNCTION CallImpl(STRING name, RECORD data)
 {
-  VARIANT retval := EM_Syscall("executeInline",
+  VARIANT retval := WaitForPromise(EM_Syscall("executeInline",
       [ func := `
 const impl = require("@mod-system/js/internal/whdb/wasm_pgsqlprovider.ts");
 const func = impl[param.name];
@@ -26,7 +26,7 @@ if (!func)
 return await func(param.data);
 `
       , param := CELL[ name, data ]
-      ]);
+      ]));
 
   IF(IsDebugTagEnabled("pgsql-debug"))
     DumpValue(CELL[name, data, retval], 'tree');

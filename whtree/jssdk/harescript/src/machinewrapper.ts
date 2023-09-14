@@ -1,3 +1,4 @@
+import { debugFlags } from "@webhare/env";
 import { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { HareScriptVM, StartupOptions, allocateHSVM } from "./wasm-hsvm";
 import { HSVMCallsProxy, HSVMLibraryProxy } from "./wasm-proxies";
@@ -22,6 +23,8 @@ export class HSVMWrapper implements HSVM_HSVMSource {
 
   constructor(vm: HareScriptVM) {
     this.vm = new WeakRef(vm);
+    if (debugFlags.vmlifecycle)
+      console.log(`[${vm.currentgroup}] HSVMWrapper created`);
     vmfinalizer.register(this, vm, this);
   }
 
@@ -71,5 +74,7 @@ export async function createVM(options?: StartupOptions) {
 }
 
 function shutdownHSVM(vm: HareScriptVM) {
+  if (debugFlags.vmlifecycle)
+    console.log(`[${vm.currentgroup}] shutdownHSVM`);
   vm.shutdown();
 }

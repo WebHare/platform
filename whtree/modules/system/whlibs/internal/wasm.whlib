@@ -9,6 +9,8 @@ LOADLIB "wh::internal/callbacks.whlib";
 //This API in baselibs.cpp invokes Module.emSyscall and acts as a (slow) generic bridge to javascript.
 RECORD FUNCTION __EM_SYSCALL(STRING call, VARIANT data) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
 
+RECORD ARRAY pendingpromises;
+
 ///We can't base off system.whlibs Exception (At least not without a whole lot of refactoring around ValidateOptions)
 PUBLIC STATIC OBJECTTYPE WasmInvalidSyscallException
 < /// Message for this exception
@@ -60,6 +62,17 @@ MACRO RunFunctionRequest(RECORD request)
 PUBLIC MACRO PromiseReceiver(STRING event, RECORD ARRAY msg)
 {
   RECORD grp := __EM_SYSCALL("getActionQueue", DEFAULT RECORD).value;
+  FOREVERY(RECORD result FROM grp.promiseresults)
+  {
+    INTEGER matchpos := (SELECT AS INTEGER #pendingpromises + 1 FROM pendingpromises WHERE pendingpromises.id = result.id) - 1;
+    IF(matchpos < 0)
+      CONTINUE;
+
+    //Don't want to synchronously deal with followup exceptions, so let microtasks deal with 'm
+    ScheduleMicroTask(PTR CallAnyPtrVA(result.isresolve ? pendingpromises[matchpos].resolve : pendingpromises[matchpos].reject, VARIANT[result.result]));
+    DELETE FROM pendingpromises AT matchpos;
+  }
+
   FOREVERY(RECORD request FROM grp.functionrequests)
     ScheduleMicroTask(PTR RunFunctionRequest(request));
 }
@@ -73,7 +86,12 @@ PUBLIC VARIANT FUNCTION EM_Syscall(STRING call, RECORD data DEFAULTSTO DEFAULT R
   IF(res.result = "unknown")
     THROW NEW WasmInvalidSyscallException(`No such EM Syscall '${call}'`);
 
-  RETURN res.value;
+  IF(res.promiseid = 0)
+    RETURN res.value;
+
+  RECORD defer := CreateDeferredPromise();
+  INSERT CELL[ defer.resolve, defer.reject, id := res.promiseid ] INTO pendingpromises AT END;
+  RETURN defer.promise;
 }
 
 RECORD emstate := EM_SYSCALL("init") ?? [ iswasm := FALSE ];

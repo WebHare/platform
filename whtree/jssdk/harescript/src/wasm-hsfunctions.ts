@@ -376,19 +376,31 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerExternalFunction("GENERATEUFS128BITID::S:", (vm, id_set) => {
     id_set.setString(generateRandomId("base64url"));
   });
-  wasmmodule.registerAsyncExternalFunction("__EM_SYSCALL::R:SV", async (vm, id_set, var_func, var_data) => {
+  wasmmodule.registerExternalFunction("__EM_SYSCALL::R:SV", (vm, id_set, var_func, var_data) => {
     const func = var_func.getString();
     const data = var_data.getJSValue();
     if (!(syscalls as SysCallsModule)[func]) {
       id_set.setJSValue({ result: "unknown" });
       return;
     }
-    let value = await (syscalls as SysCallsModule)[func](vm, data);
+    let value = (syscalls as SysCallsModule)[func](vm, data);
     if (value === undefined)
       value = false;
+    if ((value as Promise<unknown>)?.then) { //looks like a promise
+      const id = ++vm.syscallPromiseIdCounter;
+
+      //TODO keep weak references, promises may stick around a long time
+      (value as Promise<unknown>).then(
+        result => vm.resolveSyscalledPromise(id, true, result),
+        result => vm.resolveSyscalledPromise(id, false, result));
+
+      id_set.setJSValue({ result: "ok", promiseid: id });
+      return;
+    }
     id_set.setJSValue({
       result: "ok",
-      value
+      value,
+      promiseid: 0
     });
   });
   wasmmodule.registerExternalFunction("__ICU_GETTIMEZONEIDS::SA:", (vm, id_set) => {

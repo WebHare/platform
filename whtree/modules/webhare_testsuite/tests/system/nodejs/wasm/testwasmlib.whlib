@@ -14,7 +14,7 @@ PUBLIC MACRO ThrowIt()
 
 PUBLIC INTEGER FUNCTION ReentrantSyscall()
 {
-  RETURN EM_Syscall("executeInline", [ func := "return await 1", param := DEFAULT RECORD ]);
+  RETURN WaitForPromise(EM_Syscall("executeInline", [ func := "return await 1", param := DEFAULT RECORD ]));
 }
 
 PUBLIC MACRO RunWASMEventTestHandler()
