@@ -85,15 +85,10 @@ rm -rf $WORKDIR
 mkdir -p $WORKDIR
 cd $WORKDIR
 
+TARCREATEOPTS=()
 # select the right tar implementation, we need gnu-tar
-if [ "`uname`" == "Darwin" ]; then
-  if ! which gtar >/dev/null 2>&1 ; then
-    brew install gnu-tar
-  fi
-
-  TAR=gtar
-else
-  TAR=tar
+if [ "$(uname)" == "Darwin" ]; then
+  TARCREATEOPTS+=(--no-xattrs)
 fi
 
 GITCHECKOUT=
@@ -166,7 +161,9 @@ fi
 # (ADDME: improve separation, consider moving whlibs/whres back to buildtree, to have a clean 'build this (ap,harescript,...)' and 'run this (whtree)' dir.)
 
 [ -d whtree ] && rm -rf whtree # remove old build data
-if ! (cd $SOURCEDIR ; git ls-files -co --exclude-standard whtree | tar -c -T -) | $TAR --warning=no-unknown-keyword -x ; then
+
+# Note: alpine tar doesn't support --warning=no-unknown-keyword so we need to fix it at the source
+if ! (cd $SOURCEDIR ; git ls-files -co --exclude-standard whtree | tar -c -T -) | tar -x ; then
   echo "tar failed"
   exit 1
 fi
