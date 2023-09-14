@@ -19,13 +19,15 @@ export function getStructuredTrace(e: Error) {
   return trace.map(i => ({ filename: i.file || "", line: i.lineNumber || 1, col: i.column || 1, func: (i.methodName || "") }));
 }
 
+export type IPCEncodedException = {
+  type: string;
+  what: string;
+  trace?: Array<{ filename: string; line: number; col: number; func: string }>;
+};
+
 /** Format of a message containing an exception */
 export type IPCExceptionMessage = {
-  __exception: {
-    type: string;
-    what: string;
-    trace?: Array<{ filename: string; line: number; col: number; func: string }>;
-  };
+  __exception: IPCEncodedException;
 };
 
 /** Custom omit mapper, with TypeScript Omit causes switch type narrowing for the default case doesn't work */
@@ -553,7 +555,7 @@ export function parseIPCException(message: IPCExceptionMessage): Error {
   const error = new Error(exceptionmessage.__exception.what);
   const trace = exceptionmessage.__exception.trace?.map(item =>
     `\n    at ${item.func ?? "unknown"} (${item.filename}:${item.line}:${item.col})`) ?? [];
-  error.stack = exceptionmessage.__exception.what + trace;
+  error.stack = exceptionmessage.__exception.what + trace.join("");
   return error;
 }
 
