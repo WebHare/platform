@@ -169,13 +169,16 @@ class HSIPCLink extends OutputObjectBase {
   }
 }
 
+//The HSJob is the object the parent communicates with. It holds the reference to the worker
 class HSJob extends OutputObjectBase {
   linkinparent: IPCEndPoint | undefined;
   worker: AsyncWorker;
+  /// A proxy that will transfer calls to the HareScriptJob in the worker thread
   jobobj: ConvertWorkerServiceInterfaceToClientInterface<HareScriptJob>;
   isRunning = false;
   arguments = new Array<string>;
   output: HSJobOutput | undefined;
+
   constructor(
     vm: HareScriptVM,
     linkinparent: IPCEndPoint,
@@ -254,6 +257,7 @@ class HSJob extends OutputObjectBase {
   close() {
     if (this.closed)
       return;
+
     this.jobobj.close();
     this.output?.close();
     this.worker.close();
@@ -359,7 +363,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerAsyncExternalFunction("DORUN:WH_SELFCOMPILE:R:SSA", async (vm, id_set, filename, args) => {
     const extfunctions = new OutputCapturingModule;
     const newmodule = await createHarescriptModule(extfunctions);
-    const newvm = new HareScriptVM(newmodule);
+    const newvm = new HareScriptVM(newmodule, {});
     newvm.consoleArguments = args.getJSValue() as string[];
     await newvm.loadScript(filename.getString());
     await newmodule._HSVM_ExecuteScript(newvm.hsvm, 1, 0);
@@ -934,18 +938,19 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   });
 }
 
+//The HareScriptJob wraps the actual job inside the Worker
 class HareScriptJob {
   vm: HareScriptVM;
   script: string;
-  runPromise: Promise<void> | undefined;
   outputEndPoint: IPCEndPoint | undefined;
   exitCode = 0;
   errors: MessageList = [];
   active = true;
-  deferShutdown = createDeferred<void>();
+  doneDefer = createDeferred<void>();
 
   constructor(vm: HareScriptVM, script: string, link: IPCEndPoint, authRecord: unknown, externalSessionData: string) {
     this.vm = vm;
+    this.vm.onScriptDone = verdict => this.scriptDone(verdict);
     this.script = script;
     ipcContext(vm).linktoparent = link;
     ipcContext(vm).externalsessiondata = externalSessionData;
@@ -965,7 +970,8 @@ class HareScriptJob {
     this.vm.consoleArguments = args;
   }
   start(): void {
-    this.runPromise = this.vm.run(this.script).finally(() => this.scriptDone()).catch(e => void (0));
+    //vm.run will throw any script errors, but we'll already have recorded them in scriptDone and there's nothing in this worker thread to handle the exception
+    this.vm.run(this.script).catch(e => void (0));
   }
   terminate(): void {
     if (this.active)
@@ -1003,8 +1009,9 @@ class HareScriptJob {
     this.vm.wasmmodule._SetEnvironment(this.vm.hsvm, scratchvar.id);
     scratchvar.dispose();
   }
-  async waitDone() {
-    await this.runPromise;
+  waitDone() {
+    //So when is a script 'done' ? When all resources are freed or when the main function is finished? waitDone waits fo the latter after giving scriptDone a chance to cleanup
+    return this.doneDefer.promise;
   }
   getExitCode() {
     return this.exitCode;
@@ -1012,21 +1019,19 @@ class HareScriptJob {
   getErrors() {
     return this.errors;
   }
-  scriptDone() {
+  scriptDone(exception: Error | null) {
     this.active = false;
     this.exitCode = this.vm.wasmmodule._HSVM_GetConsoleExitCode(this.vm.hsvm);
     this.errors = this.vm.parseMessageList();
     if (this.errors.length)
       this.exitCode = -1; // hsvm_processmgr does it too
     ipcContext(this.vm).linktoparent?.close();
-    this.vm.releaseResources();
     this.outputEndPoint?.close();
-    this.deferShutdown.resolve();
+    this.doneDefer.resolve();
   }
 
   close() {
     this.terminate();
-    this.deferShutdown.promise.then(() => this.vm.shutdown());
   }
 }
 

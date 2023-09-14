@@ -1,3 +1,4 @@
+import { HSVM_HSVMSource } from "./machinewrapper";
 import { HareScriptVM } from "./wasm-hsvm";
 import { HSVMHeapVar } from "./wasm-hsvmvar";
 import { HSVM_VariableId } from "wh:internal/whtree/lib/harescript-interface";
@@ -79,10 +80,10 @@ export async function invokeOnVM(vm: HareScriptVM, lib: string, name: string, ar
 }
 
 export class HSVMLibraryProxy {
-  private readonly vm: HareScriptVM;
+  private readonly vm: HSVM_HSVMSource;
   private readonly lib: string;
 
-  constructor(vm: HareScriptVM, lib: string) {
+  constructor(vm: HSVM_HSVMSource, lib: string) {
     this.vm = vm;
     this.lib = lib;
   }
@@ -96,7 +97,7 @@ export class HSVMLibraryProxy {
 
   ///JavaScript supporting invoke
   async invoke(name: string, args: unknown[]) {
-    return invokeOnVM(this.vm, this.lib, name, args);
+    return invokeOnVM(this.vm._getHSVM(), this.lib, name, args);
   }
 }
 

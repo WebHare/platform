@@ -1,9 +1,9 @@
-import { allocateHSVM } from "./wasm-hsvm";
+import { runScript } from "./machinewrapper";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 
 async function test() {
   try {
-    const vm = await allocateHSVM({ script: process.argv[2], consoleArguments: process.argv.slice(3) });
+    const vm = await runScript(process.argv[2], { consoleArguments: process.argv.slice(3) });
     await vm.done;
   } finally {
     await bridge.ensureDataSent();

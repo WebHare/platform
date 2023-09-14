@@ -1,22 +1,23 @@
-import { ensureScopedResource, getScopedResource } from "@webhare/services/src/codecontexts";
+import { ensureScopedResource, getScopedResource, isRootCodeContext } from "@webhare/services/src/codecontexts";
 import { HSVMCallsProxy, invokeOnVM } from "./wasm-proxies";
-import { HareScriptVM, allocateHSVM } from "./wasm-hsvm";
 import { CommonLibraries, CommonLibraryType } from "./commonlibs";
+import { CallableVMWrapper, createVM } from "./machinewrapper";
 
 const HSVMSymbol = Symbol("HSVM");
 
 async function allocateCodeContextHSVM() {
-  const vm = await allocateHSVM();
+  /// this makes sure the eventloop won't keep the process alive as the global root context (and its HSVM) is never discarded
+  const vm = await createVM({ __unrefMainTimer: isRootCodeContext() });
   await vm.loadlib("mod::system/lib/database.whlib").openPrimary(); //JS has prepared it anwyway, so open it
   return vm;
 }
 
-export function getCodeContextHSVM(): Promise<HareScriptVM> | undefined {
-  return getScopedResource<Promise<HareScriptVM>>(HSVMSymbol);
+export function getCodeContextHSVM(): Promise<CallableVMWrapper> | undefined {
+  return getScopedResource<Promise<CallableVMWrapper>>(HSVMSymbol);
 }
-export function ensureCodeContextHSVM(): Promise<HareScriptVM> {
+export function ensureCodeContextHSVM(): Promise<CallableVMWrapper> {
   return ensureScopedResource(HSVMSymbol, () => allocateCodeContextHSVM(), async vm => {
-    (await vm).shutdown();
+    (await vm).dispose();
   });
 }
 
@@ -36,7 +37,7 @@ class ContextLibraryProxy {
 
   ///JavaScript supporting invoke
   async invoke(name: string, args: unknown[]) {
-    return invokeOnVM(await ensureCodeContextHSVM(), this.lib, name, args);
+    return invokeOnVM((await ensureCodeContextHSVM())._getHSVM(), this.lib, name, args);
   }
 }
 

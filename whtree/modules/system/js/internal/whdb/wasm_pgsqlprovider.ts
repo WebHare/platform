@@ -7,7 +7,7 @@ import { Tid } from "@webhare/whdb/src/types";
 import { isWHDBBlob } from "@webhare/whdb/src/blobs";
 import { isHareScriptBlob } from "@webhare/harescript/src/hsblob";
 import { WASMModule } from "@webhare/harescript/src/wasm-modulesupport";
-import { HareScriptVM } from "@webhare/harescript/src/harescript";
+import { HareScriptVM } from "@webhare/harescript/src/wasm-hsvm";
 import { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 import { HSVM_VariableId, HSVM_VariableType } from "wh:internal/whtree/lib/harescript-interface";
 import { Money } from "@webhare/std";

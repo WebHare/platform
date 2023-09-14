@@ -1,7 +1,7 @@
 import type { HSVM, HSVM_ColumnId, HSVM_VariableId, HSVM_VariableType, Ptr, StringPtr } from "../../../lib/harescript-interface";
 import { IPCMarshallableData, SimpleMarshallableRecord, VariableType, readMarshalData, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
-import { createDeferred, decodeString } from "@webhare/std";
+import { DeferredPromise, createDeferred, decodeString } from "@webhare/std";
 
 // @ts-ignore: implicitly has an `any` type
 import createModule from "../../../lib/harescript";
@@ -15,11 +15,15 @@ import { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { debugFlags } from "@webhare/env";
 import bridge, { BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
 import { CodeContext, getCodeContext, rootstorage } from "@webhare/services/src/codecontexts";
+import { type HSVM_HSVMSource } from "./machinewrapper";
 
 export interface StartupOptions {
   /// Script to run. If not specified an eventloop is started
   script?: string;
   consoleArguments?: string[];
+  /// A hook that is executed when the main script is done but before it is cleaned up. HSVM/wasmmodule state should still be accessible
+  onScriptDone?: (exception: Error | null) => void | Promise<void>;
+  __unrefMainTimer?: boolean;
 }
 
 export type MessageList = Array<{
@@ -36,24 +40,24 @@ export type MessageList = Array<{
   message: string;
 }>;
 
-interface TraceElement {
-  filename: string;
-  line: number;
-  col: number;
-  func: string;
-}
+// interface TraceElement {
+//   filename: string;
+//   line: number;
+//   col: number;
+//   func: string;
+// }
 
 ///Pool of unused engines.
 const enginePool = new Array<WASMModule>;
 
 export type JSBlobTag = { pg: string } | null;
 
-function addHareScriptTrace(trace: TraceElement[], err: Error) {
-  const stacklines = err.stack?.split("\n") || [];
-  const tracelines = trace.map(e =>
-    `    at ${e.func} (${e.filename}:${e.line}:${e.col})`).join("\n");
-  err.stack = (stacklines[0] ? stacklines[0] + "\n" : "") + tracelines + '\n' + (stacklines.slice(1).join("\n"));
-}
+// function addHareScriptTrace(trace: TraceElement[], err: Error) {
+//   const stacklines = err.stack?.split("\n") || [];
+//   const tracelines = trace.map(e =>
+//     `    at ${e.func} (${e.filename}:${e.line}:${e.col})`).join("\n");
+//   err.stack = (stacklines[0] ? stacklines[0] + "\n" : "") + tracelines + '\n' + (stacklines.slice(1).join("\n"));
+// }
 
 function parseError(line: string) {
   const errorparts = line.split("\t");
@@ -167,7 +171,7 @@ function registerBridgeEventHandler(weakModule: WeakRef<HareScriptVM>) {
 }
 
 
-export class HareScriptVM {
+export class HareScriptVM implements HSVM_HSVMSource {
   static moduleIdCounter = 0;
   private _wasmmodule: WASMModule | null;
   private _hsvm: HSVM | null;
@@ -182,13 +186,14 @@ export class HareScriptVM {
   objectCache;
   mutexes: Array<Mutex | null> = [];
   currentgroup: string;
-  pipeWaiters = new Map<Ptr, object>;
+  pipeWaiters = new Map<Ptr, DeferredPromise<number>>;
   heapFinalizer = new FinalizationRegistry<HSVM_VariableId>((varid) => this._hsvm && this.wasmmodule._HSVM_DeallocateVariable(this._hsvm, varid));
   transitionLocks = new Array<TransitionLock>;
   unregisterEventCallback: (() => void) | undefined;
   codeContext: CodeContext;
   private gotEventCallbackId = 0; //id of event callback provided to the C++ code
-  done: Promise<void>;
+  __unrefMainTimer: boolean;
+  onScriptDone: ((e: Error | null) => void | Promise<void>) | null;
 
   /// Unique id counter
   syscallPromiseIdCounter = 0;
@@ -217,25 +222,40 @@ export class HareScriptVM {
     this.consoleArguments = startupoptions?.consoleArguments || [];
     this.currentgroup = `${bridge.getGroupId()}-wasmmodule-${HareScriptVM.moduleIdCounter++}`;
     this.integrateEvents();
+    this.onScriptDone = startupoptions.onScriptDone || null;
 
-    this.done = this._launch(startupoptions);
+    this.__unrefMainTimer = startupoptions?.__unrefMainTimer || false;
+    // this.done = this._launch(startupoptions);
   }
 
-  private async _launch(startupoptions: StartupOptions): Promise<void> {
-    const library = startupoptions.script || "mod::system/scripts/internal/eventloop.whscr";
-    if (debugFlags.vmlifecycle)
-      console.log(`[${this.currentgroup}] Load script: ${library}`);
-    await this.loadScript(library);
+  async run(script: string): Promise<void> {
+    if (debugFlags.vmlifecycle) {
+      console.log(`[${this.currentgroup}] Load script: ${script}`);
+      console.trace();
+    }
+    await this.loadScript(script);
 
+    let exception: unknown | null = null;
     try {
       if (debugFlags.vmlifecycle)
         console.log(`[${this.currentgroup}] Execute script`);
       await this.executeScript();
+    } catch (e) {
+      exception = e;
+      throw e;
     } finally {
       //When the script is done, we clean up
+      if (this.onScriptDone)
+        await this.onScriptDone(exception instanceof Error ? exception : null);
+
       try {
+        //TODO Might want to already release some resources when the main script is done ?
+
         if (debugFlags.vmlifecycle) {
-          console.log(`[${this.currentgroup}] Releasing VM from:`);
+          if (exception)
+            console.log(`[${this.currentgroup}] Script failed, releasing VM`, exception);
+          else
+            console.log(`[${this.currentgroup}] Script completed, releasing VM`);
           console.trace();
         }
 
@@ -260,17 +280,32 @@ export class HareScriptVM {
     }
   }
 
+  _getHSVM() {
+    return this;
+  }
 
   get hsvm() { //We want callers to not have to check this.hsvm on every use
     if (this._hsvm)
       return this._hsvm;
-    throw new Error(`This VM has already shut down`);
+    throw new Error(`VM ${this.currentgroup} has already shut down`);
   }
 
   get wasmmodule() {
     if (this._wasmmodule)
       return this._wasmmodule;
-    throw new Error(`This VM has already shut down`);
+    throw new Error(`VM ${this.currentgroup} has already shut down`);
+  }
+
+  async __pipewaiterWait(pipewaiter: number, wait_ms: number) { //threads.cpp callback
+    const waiter = this.pipeWaiters.get(pipewaiter);
+    if (!waiter)
+      throw new Error(`Could not find pipewaiter`);
+
+    const timer = setTimeout(() => waiter.resolve(0), wait_ms);
+    if (this.__unrefMainTimer && !this.pendingFunctionRequests.length)
+      timer.unref();
+    const res = await waiter.promise;
+    return res;
   }
 
   //Bridge-based HSVM compatibillty. Report the number of Proxies still alive

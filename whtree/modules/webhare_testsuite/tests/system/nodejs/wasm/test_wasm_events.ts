@@ -1,14 +1,15 @@
-import { allocateHSVM } from "@webhare/harescript";
 import bridge, { IPCLinkType } from "@mod-system/js/internal/whmanager/bridge";
 import * as test from "@webhare/test";
 import { createDeferred } from "@webhare/std";
+import { createVM } from "@webhare/harescript/src/machinewrapper";
 
 
 let output = "";
 
 
 async function runSingleEventHandler(id: number) {
-  const vm = await allocateHSVM();
+  const vmwrapper = await createVM();
+  const vm = vmwrapper._getHSVM();
 
   const out = (opaqueptr: number, numbytes: number, data: number, allow_partial: number, error_result: number): number => {
     output += Buffer.from(vm.wasmmodule.HEAP8.slice(data, data + numbytes)).toString();
@@ -20,7 +21,7 @@ async function runSingleEventHandler(id: number) {
   vm.consoleArguments = [`${id}`];
   await new Promise(r => setTimeout(r, 500));
 
-  await vm.loadlib(`mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib`).RunWASMEventTestHandler();
+  await vmwrapper.loadlib(`mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib`).RunWASMEventTestHandler();
   await bridge.ensureDataSent();
 }
 

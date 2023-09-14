@@ -1,6 +1,6 @@
 import * as stacktrace_parser from "stacktrace-parser";
 import { BoxedFloat, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { HSVMObject, HareScriptMemoryBlob, allocateHSVM } from "@webhare/harescript";
+import { HSVMObject, HareScriptMemoryBlob, createVM } from "@webhare/harescript";
 import * as test from "@webhare/test";
 import { beginWork, uploadBlob } from "@webhare/whdb";
 import { lockMutex } from "@webhare/services";
@@ -13,7 +13,8 @@ function testTypeAPIs() {
 }
 
 async function testVarMemory() {
-  const vm = await allocateHSVM();
+  const vmwrapper = await createVM();
+  const vm = vmwrapper._getHSVM();
   const arrayvar = vm.allocateVariable();
   const js_in64array = [0, -1, 1, -2147483648, -2147483649, -2147483650, -9223372036854775807n, -9223372036854775808n, 9223372036854775807n];
   arrayvar.setJSValue(js_in64array);
@@ -60,27 +61,27 @@ async function testVarMemory() {
   test.assert(blob2.isSameBlob(returnedblob2));
 
   const __wasmmodule = vm.wasmmodule;
-  vm.shutdown(); //let next test reuse it
+  vmwrapper.dispose(); //let next test reuse it
   await test.wait(() => isInFreePool(__wasmmodule));
 }
 
 async function testCalls() {
-  const vm = await allocateHSVM();
-  test.eq([17, 42, 999], await vm.call("wh::util/algorithms.whlib#GetSortedSet", [42, 17, 999]));
-  const err = await test.throws(/We're throwing it/, vm.call("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib#ThrowIt"));
+  const vm = await createVM();
+  test.eq([17, 42, 999], await vm.loadlib("wh::util/algorithms.whlib").GetSortedSet([42, 17, 999]));
+  const err = await test.throws(/We're throwing it/, vm.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").ThrowIt());
   const parsed = stacktrace_parser.parse(err.stack!);
   test.eqProps({ file: /testwasmlib\.whlib$/, methodName: "THROWIT" }, parsed[0]); //TODO we still return mod:: paths or should it just be a full path ?
 
   //test the VM is still operating after the throw:
-  test.eq([17, 42, 999], await vm.call("wh::util/algorithms.whlib#GetSortedSet", [42, 17, 999]));
+  test.eq([17, 42, 999], await vm.loadlib("wh::util/algorithms.whlib").GetSortedSet([42, 17, 999]));
 
   //and if another throw works
-  await test.throws(/We're throwing it/, vm.call("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib#ThrowIt"));
-  test.eq([17, 42, 999], await vm.call("wh::util/algorithms.whlib#GetSortedSet", [42, 17, 999]));
+  await test.throws(/We're throwing it/, vm.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").ThrowIt());
+  test.eq([17, 42, 999], await vm.loadlib("wh::util/algorithms.whlib").GetSortedSet([42, 17, 999]));
 }
 
 async function testMutex() { //test the shutdown behavior of WASM HSVM mutexes
-  const vm = await allocateHSVM();
+  const vm = await createVM();
   const hs_lockmgr = await vm.loadlib("mod::system/lib/services.whlib").openLockManager() as HSVMObject;
   const hs_mutex1lock = await hs_lockmgr.lockMutex("test:mutex1") as HSVMObject;
   const hs_mutex2lock = await hs_lockmgr.lockMutex("test:mutex2") as HSVMObject;
@@ -95,7 +96,7 @@ async function testMutex() { //test the shutdown behavior of WASM HSVM mutexes
   let mutex = await test.wait(() => lockMutex("test:mutex1", { timeout: 0 }), "VM isn't actually releasing the lock");
   mutex.release();
 
-  vm.shutdown();
+  vm.dispose();
 
   mutex = await test.wait(() => lockMutex("test:mutex2", { timeout: 0 }), "VM isn't properly shutting down, mutex is not being freed");
   mutex.release();
