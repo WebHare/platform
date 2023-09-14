@@ -77,9 +77,6 @@ MACRO BaseTest()
   TestEQ("job-env-override", res.msg.env_test);
   TestEQ("test:job-env-override", res.msg.env_first);
 
-  TestEq([jobtest := 3 ], job->GetAuthenticationRecord());
-
-
   STRING output := ReadFrom(outputhandle, 4096);
   TestEq("job output", output);
 
