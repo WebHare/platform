@@ -2607,7 +2607,9 @@ void HSVM_UnlockVM(struct HSVM *vm)
 void HSVM_AbortVM(struct HSVM *vm)
 {
         START_CATCH_VMEXCEPTIONS
-#ifndef __EMSCRIPTEN__
+#ifdef __EMSCRIPTEN__
+        *GetVirtualMachine(vm)->GetVMGroup()->GetAbortFlag() = true;
+#else
         VMGroup *group = GetVirtualMachine(vm)->GetVMGroup();
         group->GetJobManager()->AbortVMGroup(group);
 #endif
