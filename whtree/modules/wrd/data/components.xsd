@@ -507,6 +507,7 @@
       </xs:annotation>
       <xs:attributeGroup ref="tc:ComposableComponentBase" />
       <xs:attributeGroup ref="sc:TidOrTitle" />
+      <xs:attribute name="attributetags" type="xs:boolean"/>
 
       <xs:attribute name="onsearch" type="tc:Handler">
         <xs:annotation>
