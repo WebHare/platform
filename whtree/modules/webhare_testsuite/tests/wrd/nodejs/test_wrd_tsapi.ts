@@ -223,8 +223,18 @@ async function testNewAPI() {
   test.eq(unit_id, await schema.search("whuserUnit", "wrdId", unit_id));
   test.eq(null, await schema.search("whuserUnit", "wrdId", -1));
 
+  /* Verify that the Record type isn't constraining too much (it regressed no longer accepting interface types:
+     'Type 'TestRecordDataInterface' is not assignable to type '{ [x: string]: IPCMarshallableData; }'.
+      Index signature for type 'string' is missing in type 'TestRecordDataInterface'.'
+  */
+  interface TestRecordDataInterface {
+    x: string;
+  }
+
+  const testrecorddata: TestRecordDataInterface = { x: "FourtyTwo" } as TestRecordDataInterface;
+
   const firstperson = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", whuserUnit: unit_id, testJson: { mixedCase: [1, "yes!"] } });
-  const secondperson = await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", whuserUnit: unit_id });
+  const secondperson = await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface });
 
   await whdb.commitWork();
 

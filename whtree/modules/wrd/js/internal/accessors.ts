@@ -1419,7 +1419,7 @@ class WRDDBJSONValue extends WRDAttributeUncomparableValueBase<object | null, ob
   }
 }
 
-class WRDDBRecordValue extends WRDAttributeUncomparableValueBase<IPCMarshallableRecord | null, IPCMarshallableRecord | null, IPCMarshallableRecord | null> {
+class WRDDBRecordValue extends WRDAttributeUncomparableValueBase<object | null, IPCMarshallableRecord | null, IPCMarshallableRecord | null> {
   /** Returns the default value for a value with no settings
       @returns Default value for this type
   */
@@ -1434,7 +1434,7 @@ class WRDDBRecordValue extends WRDAttributeUncomparableValueBase<IPCMarshallable
     return buf ? decodeHSON(Buffer.from(buf).toString()) as IPCMarshallableRecord : null;
   }
 
-  validateInput(value: IPCMarshallableRecord | null): void {
+  validateInput(value: object | null): void {
     /* always valid */
   }
 }
