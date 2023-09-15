@@ -22,7 +22,8 @@
   <test script="test_tsconfig.whscr" />
   <test script="test_finmath.ts" />
   <test script="test_hsmarshalling.whscr" />
-  <test script="test_harescript_calls.whscr" />
+  <test name="test_harescript_calls-native" script="test_harescript_calls.whscr" engine="native" />
+  <test name="test_harescript_calls-wasm" script="test_harescript_calls.whscr" engine="wasm"/>
   <test script="test_whmanager_conn.ts" />
   <test script="test_whmanager_bridge.ts" />
   <test script="test_stacktrace.ts" />

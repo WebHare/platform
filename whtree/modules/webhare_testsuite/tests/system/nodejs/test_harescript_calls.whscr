@@ -1,6 +1,9 @@
 <?wh
 LOADLIB "wh::internal/testfuncs.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 LOADLIB "wh::javascript.whlib";
+
+LOADLIB "mod::system/lib/configure.whlib";
 
 OBJECT std := ImportJs("@webhare/std");
 TestEqLike("????????-????-????-????-????????????", std->GenerateRandomId("uuidv4"));
@@ -8,9 +11,12 @@ TestEqLike("????????-????-????-????-????????????", std->GenerateRandomId("uuidv4
 OBJECT imp := ImportJs(Resolve("data/calls.ts"));
 TestEq(imp, ImportJs(Resolve("data/calls.ts")), "should simply be the same object so callers don't have to bother centrally keeping refs");
 
-OBJECT promise42 := imp->test42();
-TestEq(42, WaitForPromise(promise42), "Expect async functions to be automatically awaited (until we can return promises?)");
+OBJECT promise42 := imp->testAsync42();
+TestEq(43, imp->testSync43());
+TestEq(42, WaitForPromise(promise42));
 
 STRING randomonce := imp->getOnceRandom();
 STRING randomtwice := imp->getOnceRandom();
 TestEq(randomonce, randomtwice, "Should be equal as we expect ImportJS to cache loaded lib instances");
+
+TestEq(GetProcessInfo().pid, ImportJS("process")->_get(IsWasm() ? "pid" : "ppid"));

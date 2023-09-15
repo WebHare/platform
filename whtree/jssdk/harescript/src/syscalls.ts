@@ -2,6 +2,7 @@ import { backendConfig } from "@webhare/services";
 import * as vm from 'node:vm';
 import * as services from '@webhare/services';
 import { defaultDateTime, formatISO8601Date, localizeDate, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
+import { callExportNowrap, describe } from "@mod-system/js/internal/util/jssupport";
 import { VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { IPCEncodedException, parseIPCException } from "@mod-system/js/internal/whmanager/ipc";
 import { HareScriptVM } from "./wasm-hsvm";
@@ -105,6 +106,14 @@ export function localizeDateTime(_hsvm: HareScriptVM, params: {
     result: localizeDate(params.formatstring, params.date, params.locale, params.timezone || "UTC")
   };
 }
+
+export function importDescribe(hsvm: HareScriptVM, { name }: { name: string }) {
+  return describe(name);
+}
+export function importCall(hsvm: HareScriptVM, { name, lib, args }: { lib: string; name: string; args: unknown[] }) {
+  return callExportNowrap(lib, name, args);
+}
+
 export function getActionQueue(hsvm: HareScriptVM) {
   const functionrequests = [];
   for (const req of hsvm.pendingFunctionRequests) {

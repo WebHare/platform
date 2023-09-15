@@ -893,6 +893,10 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     id_set.setString(buf);
   });
 
+  wasmmodule.registerExternalFunction("__SYSTEM_GETPROCESSINFO::R:", (vm, id_set) => {
+    id_set.setJSValue({ clientname: "emscripten", pid: process.pid, processcode: 0 }); //TODO do we need proper clientname/processcode?
+  });
+
   wasmmodule.registerExternalFunction("GETSYSTEMHOSTNAME::S:B", (vm, id_set, var_full) => {
     id_set.setString(os.hostname());
   });
