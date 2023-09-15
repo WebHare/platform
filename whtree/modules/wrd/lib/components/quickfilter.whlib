@@ -11,6 +11,7 @@ PUBLIC OBJECTTYPE QuickFilter EXTEND TolliumFragmentBase
 <
   OBJECT pvt_type;
   RECORD ARRAY pvt_searchattributes;
+  PUBLIC BOOLEAN attributetags;
   PUBLIC MACRO PTR onsearch;
   PUBLIC PROPERTY wrdtype(pvt_type, SetWRDType);
   PUBLIC PROPERTY searchattributes(pvt_searchattributes, SetSearchAttributes);
@@ -23,6 +24,7 @@ PUBLIC OBJECTTYPE QuickFilter EXTEND TolliumFragmentBase
   {
     TolliumFragmentBase::StaticInit(def);
     this->onsearch := def.onsearch;
+    this->attributetags := def.attributetags;
   }
 
   MACRO SetWRDType(OBJECT type)
@@ -45,19 +47,28 @@ PUBLIC OBJECTTYPE QuickFilter EXTEND TolliumFragmentBase
       this->SetupAttributeSelection();
   }
 
+  STRING FUNCTION GenerateAttrTitle(STRING tag, STRING title)
+  {
+    IF(this->attributetags) //TODO JS tag mapping too for readability!
+      RETURN title != "" ? `${tag} (${title})` : tag;
+    ELSE
+      RETURN title ?? tag;
+  }
+
   MACRO SetupAttributeSelection()
   {
     STRING lastattr := this->owner->tolliumuser->GetRegistryKey(GetSchemaBaseKey(this->wrdtype->wrdschema) || RegSafeName(this->wrdtype->tag) || ".lastattr", "");
 
     // FIXME: Searching through SINGLEDOMAIN / MULTIPLEDOMAIN isn't possible yet
-    RECORD ARRAY attrs := SELECT rowkey := ToUppercase(tag)
-                               , title := title ?? ToUppercase(tag)
+    RECORD ARRAY attrs := SELECT TEMPORARY title := this->GenerateAttrTitle(tag, attrinfo.title)
+                               , rowkey := ToUppercase(tag)
+                               , title := title
                                , attributetype
                                , attrinfo := attrinfo
                                , autowildcards := FALSE
                             FROM this->wrdtype->ListAttributes(0) AS attrinfo
                            WHERE attributetype IN [ 2, 4, 5, 6, wrd_attributetype_time, 12, 15, 18, 21, 23 ] OR tag="WRD_GUID"
-                        ORDER BY tag="WRD_ID" DESC, NormalizeText(title ?? ToUppercase(tag), this->owner->tolliumuser->language);
+                        ORDER BY tag="WRD_ID" DESC, NormalizeText(title, this->owner->tolliumuser->language);
 
     IF(this->wrdtype->tag="WRD_RELATION")
       DELETE FROM attrs WHERE rowkey = "WRD_TITLE"; //will never be searchable

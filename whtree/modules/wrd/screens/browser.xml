@@ -159,7 +159,7 @@
               <panel name="freesearchbox" backgroundcolor="#f0f0f0" spacers="left right">
                 <line>
                   <select name="freetype" type="pulldown" onchange="onselectfreetype" />
-                  <wrd:quickfilter name="quickfilter" onsearch="onquickfiltersearch"/>
+                  <wrd:quickfilter name="quickfilter" onsearch="onquickfiltersearch" attributetags="true"/>
                 </line>
               </panel>
               <!--box tid=".searchresults" height="1pr"-->
