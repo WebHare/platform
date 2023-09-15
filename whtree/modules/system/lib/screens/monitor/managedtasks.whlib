@@ -29,7 +29,9 @@ PUBLIC STATIC OBJECTTYPE Panel EXTEND DashboardPanelBase
 
   MACRO Init()
   {
-    IF (MemberExists(this->tolliumparent, "screenparams") AND Length(this->tolliumparent->screenparams) > 1)
+    IF (MemberExists(this->tolliumparent, "screenparams")
+        AND Length(this->tolliumparent->screenparams) > 1
+        AND this->tolliumparent->screenparams[0] = "system:managedtasks")
     {
       ^taskmask->value := this->tolliumparent->screenparams[1];
       IF (Length(this->tolliumparent->screenparams) > 2)
