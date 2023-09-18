@@ -86,7 +86,7 @@ PUBLIC OBJECTTYPE TolliumHeadlessController EXTEND TolliumControllerBase
         appurl := Left(appurl, Length(appurl) - 1);
 
       appurl := UpdateURLVariables(appurl || this->overrideurl, [ app := app, openas := this->user->login ]);
-      Print(`Opening APP (with target): ${appurl}\n`);
+      Print(`Opening APP: ${appurl}\n`);
     }
     TolliumControllerBase::LaunchApplication(appname, data);
   }
