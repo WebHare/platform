@@ -1012,6 +1012,7 @@
     <xs:attributeGroup ref="sc:TidOrTitle" />
     <xs:attribute name="screen" type="xs:string" />
     <xs:attributeGroup ref="ApplicabletoWebHare" />
+    <xs:attribute name="icon" type="sc:ImageSrc" />
   </xs:complexType>
 
   <xs:complexType name="DashboardGroup">
@@ -1037,6 +1038,7 @@
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="screen" type="xs:string" />
+    <xs:attribute name="icon" type="sc:ImageSrc" />
   </xs:complexType>
 
 
