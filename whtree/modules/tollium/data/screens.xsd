@@ -5133,7 +5133,7 @@ To change a <xs:attribute /> for adding descriptions
         <xs:appinfo>
           <tai:callbacksignature returntype="record" />
         </xs:appinfo>
-        <xs:documentation>Retrievers user data to pass to the edit screen when</xs:documentation>
+        <xs:documentation>Retrieves user data to pass to the edit screen</xs:documentation>
       </xs:annotation>
     </xs:attribute>
   </xs:attributeGroup>

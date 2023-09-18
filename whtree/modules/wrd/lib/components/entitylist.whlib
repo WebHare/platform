@@ -618,7 +618,6 @@ PUBLIC STATIC OBJECTTYPE EntitiesEdit EXTEND EntityListBase
                        , component :=      this
                        , initordering :=   this->orderable
                        , userdata := CELL[ ...this->GetUserData(), ...options.userdata ]
-
                        ];
 
     IF(roweditscreen != "")
