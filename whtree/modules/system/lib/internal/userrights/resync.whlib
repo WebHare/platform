@@ -178,13 +178,6 @@ PUBLIC RECORD ARRAY FUNCTION GetSyncableUnits(OBJECT wrdunittype, INTEGER ARRAY 
                                                   , historymode := "all"
                                                   ]);
 
-  RECORD legacy_whmodules := SELECT * FROM wrd_units WHERE wrd_title = "__whmodules__";
-  IF(RecordExists(legacy_whmodules))
-  {
-    wrdunittype->DeleteEntity(legacy_whmodules.wrd_id); //there's no need to have this one anymore
-    DELETE FROM wrd_units WHERE wrd_title = "__whmodules__";
-  }
-
   // Construct the system authobject records as we want them to be (only types 1, 2, 3)
   RECORD ARRAY wantauthobjs :=
       SELECT wrd_id
