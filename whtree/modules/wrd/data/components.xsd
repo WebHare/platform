@@ -825,6 +825,15 @@
 
         <xs:attributeGroup ref="s:ArrayListEditButtons" />
         <xs:attributeGroup ref="s:ArrayListEditFlags" />
+
+        <xs:attribute name="ongetuserdata" type="tc:Handler">
+          <xs:annotation>
+            <xs:appinfo>
+              <tai:callbacksignature returntype="record" />
+            </xs:appinfo>
+            <xs:documentation>Retrievers user data to pass to the edit screen when</xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
       </xs:extension>
     </xs:complexContent>
   </xs:complexType>

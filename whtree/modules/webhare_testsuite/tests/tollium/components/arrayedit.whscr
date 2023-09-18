@@ -12,7 +12,8 @@ OBJECT ASYNC FUNCTION TestArrayEdit()
       <arrayedit name="comp" roweditscreen="mod::webhare_testsuite/screens/tests/anycomponent.xml#roweditor"
                              onchange="mod::webhare_testsuite/lib/tollium/handlers.whlib#IncCallCounter"
                              onmaprows="mod::webhare_testsuite/lib/tollium/handlers.whlib#MapRowsAddIsEven"
-                             flags="iseven">
+                             flags="iseven"
+                             ongetuserdata="mod::webhare_testsuite/lib/tollium/handlers.whlib#GetUserData">
         <column type="text" name="text" title="Text" checkboxname="checkbox" />
       </arrayedit>
     </body>
@@ -30,6 +31,7 @@ OBJECT ASYNC FUNCTION TestArrayEdit()
 
   AWAIT ExpectScreenChange(+1, PTR topscreen->comp->addbutton->tolliumclick());
   TT("virtualized_text")->value := "My new row";
+  TestEq([ x89 := 89], topscreen->gotuserdata);
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
   TestEq(["Row 1","My new row"],SELECT AS STRING ARRAY text FROM topscreen->comp->value);

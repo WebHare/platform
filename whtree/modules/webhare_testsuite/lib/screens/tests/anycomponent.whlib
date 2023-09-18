@@ -629,12 +629,15 @@ PUBLIC MACRO RunAnyComponent(OBJECT controller, RECORD data)
 
 PUBLIC STATIC OBJECTTYPE RowEditor EXTEND TolliumRowEditScreenBase
 <
+  PUBLIC RECORD gotuserdata;
+
   UPDATE MACRO Init(RECORD data)
   {
     ^row->RegisterVirtualCell("text", PTR this->GetVirtualText, PTR this->SetVirtualText);
     TolliumRowEditScreenBase::Init(data);
     TestEq("mod::webhare_testsuite/screens/tests/anycomponent.xml#roweditor", this->openingcomponent->roweditscreen, "test if openingcomponent appears to be our arrayedit");
     TestEq(TRUE, "text" IN ^row->GetComposedCellNames());
+    this->gotuserdata := data.userdata;
   }
   STRING FUNCTION GetVirtualText()
   {
