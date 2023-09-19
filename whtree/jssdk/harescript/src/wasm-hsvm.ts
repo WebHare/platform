@@ -692,10 +692,10 @@ export class HareScriptVM implements HSVM_HSVMSource {
   }
 }
 
-export async function createHarescriptModule<T extends WASMModule>(modulefunctions: T): Promise<T> {
-
+async function createHarescriptModule() {
+  const modulefunctions = new WASMModule;
   modulefunctions.prepare();
-  const wasmmodule = await createModule(modulefunctions) as T;
+  const wasmmodule = await createModule(modulefunctions);
   wasmmodule.init();
 
   registerBaseFunctions(wasmmodule);
@@ -706,7 +706,7 @@ export async function createHarescriptModule<T extends WASMModule>(modulefunctio
 
 //TODO should we rename this to make clear we're also starting the VM? it's not just an 'allocation' anymore
 export async function allocateHSVM(options?: StartupOptions): Promise<HareScriptVM> {
-  const hsvmModule = enginePool.pop() || createHarescriptModule(new WASMModule);
+  const hsvmModule = enginePool.pop() || createHarescriptModule();
   return new HareScriptVM(await hsvmModule, options || {});
 }
 
