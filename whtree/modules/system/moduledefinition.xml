@@ -34,6 +34,9 @@
     <task runat="19  4 * * *"  runtz="maintenance" tag="renewcertbot" script="scripts/tasks/renewcertbot.whscr" description="Renew certbot certificates" />
     <task runat="39  5 * * *"  runtz="maintenance" tag="updatefallbackcertificate" script="scripts/tasks/updatefallbackcertificate.whscr" description="Renew the fallback certificate" runatstartup="true"/>
 
+    <!-- update proxy configurations. we now do this async so it doesn't block, and it should be safe on restored servers since the proxy won't contact us anyway if we use old settings -->
+    <task tag="update_proxies" script="scripts/tasks/update_proxies.whscr" description="Update proxy server configuration" allowifrestore="true" />
+
     <task runat="29  * * * *"  runtz="maintenance" tag="cleanup_hourly" script="scripts/tasks/cleanup_hourly.whscr" description="Hourly cleanup"/>
     <task runat="39  * * * *"  runtz="maintenance" tag="uploadstatus" script="scripts/tasks/uploadstatus.whscr" runatstartup="true" />
 
