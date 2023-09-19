@@ -985,7 +985,7 @@ ifeq ($(WHBUILD_PLATFORM),darwin)
 harescript/modules/git/git.native-obj: $(BREWPREFIX)/lib/libgit2.dylib
 # Recompile all if ICU is updated, it hooks too deeply now (even hsm_whmod_graphics is looking for it these days)
 $(ALLOBJS): $(BREWPREFIX)/opt/icu4c/INSTALL_RECEIPT.json
-$(blex_DEPLOYABLES_HSENGINE) harescript/vm/bl_crypto.native-obj: $(BREWPREFIX)/opt/openssl/INSTALL_RECEIPT.json
+$(blex_DEPLOYABLES_HSENGINE) harescript/vm/bl_crypto.native-obj: | $(BREWPREFIX)/opt/openssl/INSTALL_RECEIPT.json
 
 endif # end darwin check
 
