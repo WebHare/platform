@@ -1,11 +1,10 @@
-import { createHarescriptModule, recompileHarescriptLibrary, HareScriptVM, allocateHSVM, MessageList } from "./wasm-hsvm";
+import { recompileHarescriptLibrary, HareScriptVM, allocateHSVM, MessageList } from "./wasm-hsvm";
 import { IPCMarshallableRecord, VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { backendConfig, log } from "@webhare/services";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { HSVMVar } from "./wasm-hsvmvar";
 import { SocketError, WASMModule } from "./wasm-modulesupport";
-import { HSVM, Ptr, StringPtr } from "wh:internal/whtree/lib/harescript-interface";
 import { OutputObjectBase } from "@webhare/harescript/src/wasm-modulesupport";
 import { createDeferred, generateRandomId, sleep } from "@webhare/std";
 import * as syscalls from "./syscalls";
@@ -19,30 +18,6 @@ import { AsyncWorker, ConvertWorkerServiceInterfaceToClientInterface } from "@mo
 import { Crc32 } from "@mod-system/js/internal/util/crc32";
 
 type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
-
-
-class OutputCapturingModule extends WASMModule {
-  stdout_bytes: number[] = [];
-  outputfunction: number = 0;
-
-  init() {
-    super.init();
-    const out = (opaqueptr: number, numbytes: number, data: StringPtr, allow_partial: number, error_result: Ptr): number => {
-      this.stdout_bytes.push(...Array.from(this.HEAP8.slice(data, data + numbytes)));
-      return numbytes;
-    };
-    this.outputfunction = this.addFunction(out, "iiiiii");
-  }
-
-  initVM(hsvm: HSVM) {
-    super.initVM(hsvm);
-    this._HSVM_SetOutputCallback(hsvm, 0, this.outputfunction);
-  }
-
-  getOutput() {
-    return Buffer.from(this.stdout_bytes).toString();
-  }
-}
 
 /** Builds a function that returns (or creates when not present yet) a class instance associated with a HareScriptVM */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -361,16 +336,19 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     id_set.setJSValue(getTypedArray(VariableType.RecordArray, compileresult));
   });
   wasmmodule.registerAsyncExternalFunction("DORUN:WH_SELFCOMPILE:R:SSA", async (vm, id_set, filename, args) => {
-    const extfunctions = new OutputCapturingModule;
-    const newmodule = await createHarescriptModule(extfunctions);
-    const newvm = new HareScriptVM(newmodule, {});
-    newvm.consoleArguments = args.getJSValue() as string[];
+    const newvm = await allocateHSVM({
+      consoleArguments: args.getJSValue() as string[],
+    });
+
+    const stdout_bytes: number[] = [];
+    newvm.captureOutput((output: number[]) => stdout_bytes.push(...output));
+
     await newvm.loadScript(filename.getString());
-    await newmodule._HSVM_ExecuteScript(newvm.hsvm, 1, 0);
-    newmodule._HSVM_GetMessageList(newvm.hsvm, newvm.errorlist, 1);
+    await newvm.wasmmodule._HSVM_ExecuteScript(newvm.hsvm, 1, 0);
+    newvm.wasmmodule._HSVM_GetMessageList(newvm.hsvm, newvm.errorlist, 1);
     id_set.setJSValue({
       errors: new HSVMVar(newvm, newvm.errorlist).getJSValue(),
-      output: extfunctions.getOutput()
+      output: Buffer.from(stdout_bytes).toString()
     });
   });
   wasmmodule.registerExternalFunction("GENERATEUFS128BITID::S:", (vm, id_set) => {
@@ -974,13 +952,7 @@ class HareScriptJob {
   }
   captureOutput(encodedLink: unknown) {
     this.outputEndPoint = decodeTransferredIPCEndPoint<IPCMarshallableRecord, IPCMarshallableRecord>(encodedLink);
-    const out = (opaqueptr: number, numbytes: number, data: StringPtr, allow_partial: number, error_result: Ptr): number => {
-      this.outputEndPoint!.send({ data: Array.from(this.vm.wasmmodule.HEAP8.slice(data, data + numbytes)) });
-      return numbytes;
-    };
-
-    const outputfunction = this.vm.wasmmodule.addFunction(out, "iiiiii");
-    this.vm.wasmmodule._HSVM_SetOutputCallback(this.vm.hsvm, 0, outputfunction);
+    this.vm.captureOutput((output: number[]) => this.outputEndPoint!.send({ data: output }));
   }
   setArguments(args: string[]) {
     this.vm.consoleArguments = args;
