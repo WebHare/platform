@@ -96,7 +96,7 @@ function formatAjvError(errors: ErrorObject[]): string {
   */
   const error = errors?.[0];
   const params = Object.entries(error.params).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join(", ");
-  return `${error.message ?? "invalid value"}}${params ? ` (${params})` : ``}${(error?.instancePath ? ` (at ${JSON.stringify(error?.instancePath)})` : "")}`;
+  return `${error.message ?? "invalid value"}${params ? ` (${params})` : ``}${(error?.instancePath ? ` (at ${JSON.stringify(error?.instancePath)})` : "")}`;
 }
 
 export class LogInfo {
