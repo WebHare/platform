@@ -3,6 +3,7 @@
 
 #include <iterator>
 #include <algorithm>
+#include <functional>
 
 namespace Utilities
 {
@@ -13,14 +14,14 @@ namespace Utilities
 
 // Returns first item of pair
 template <class A, class B>
- struct pair_first : public std::unary_function< std::pair<A, B>, A >
+ struct pair_first
 {
         A operator() (std::pair<A, B> const &pair) const  { return pair.first; }
 };
 
 // Returns second item of pair
 template <class A, class B>
- struct pair_second : public std::unary_function< std::pair<A, B>, B >
+ struct pair_second
 {
         B operator() (std::pair<A, B> const &pair) const { return pair.second; }
 };
