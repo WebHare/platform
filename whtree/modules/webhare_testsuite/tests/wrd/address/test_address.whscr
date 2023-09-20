@@ -7,6 +7,97 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 LOADLIB "mod::wrd/lib/address.whlib";
 LOADLIB "mod::wrd/lib/worldinfo/countries.whlib";
 LOADLIB "mod::wrd/lib/internal/addressverification/support.whlib";
+LOADLIB "mod::wrd/lib/internal/addressfields.whlib";
+
+RECORD FUNCTION ParseAddress(STRING rawdata)
+{
+  RETURN GenerateAddress(rawdata, "", 0, FALSE);
+}
+
+MACRO AddressConversion()
+{
+  //we'll never set locatinodetail anymore but we'll keep it for backwards compatibility
+  CONSTANT RECORD baseaddress := CELL[ country := "", zip := "", street := "", nr_detail := "", city := "", state := "", locationdetail := "" ];
+  TestEq(CELL[ ...baseaddress
+             , country := "NL"
+             , street :="Loskade"
+             , nr_detail := "4"
+             , zip := "7202 CZ"
+             , city := "Zutphen"
+             ], ParseAddress('COUNTRY=NL\nSTREET=Loskade\nNR_DETAIL=4\nZIP=7202 CZ\nCITY=Zutphen\nCOUNTRY_FULL=Nederland\nLOCATIONDETAIL=\n'));
+
+  TestEq(CELL[ ...baseaddress
+             , country := "NL"
+             , street :="Hengelosestraat"
+             , nr_detail := "296"
+             , zip := "7521 AM"
+             , city := "Enschede"
+             , state := "Overijssel" //not discarding this, Hengelo might be ambiguous without
+             ], ParseAddress('STREET=Hengelosestraat\nNR_DETAIL=296\nZIP=7521 AM\nCITY=Enschede\nPROVINCE=Overijssel\nCOUNTRY=NL\n'));
+
+  TestEq(CELL[ ...baseaddress
+             , country := "ES"
+             , street := "Villa Azul\nCarrer del torrent"
+             , nr_detail := "0"
+             , zip := "07817"
+             , city := "Eivissa"
+             ], ParseAddress('LOCATIONDETAIL=Villa Azul\nPROVINCE=\nCOUNTRY_FULL=Spanje\nCOUNTRY=ES\nCITY=Eivissa\nNR_DETAIL=0\nSTREET=Carrer del torrent\nZIP=07817\n'));
+
+  TestEq(CELL[ ...baseaddress
+             , country := "CN"
+             , street := "Ms. WU\nScience"
+             , nr_detail := "1"
+             , zip := "1"
+             , city := "China"
+             ], ParseAddress('COUNTRY=cn\nLOCATIONDETAIL=Ms. WU\nBUILDING=\nNR_DETAIL=1\nSTREET=Science\nZIP=1\nCITY=China\nCOUNTRY_FULL=China'));
+
+  TestEq(CELL[ ...baseaddress
+             , country := "GB"
+             , street := "Great Barr\nAmblecote Avenue"
+             , nr_detail := "0"
+             , zip := "B44 9AL"
+             , city := "Birmingham"
+             ], ParseAddress('COUNTRY=GB\nCITY=Birmingham\nCOUNTRY=GB\nLOCALAREA=Great Barr\nNR_DETAIL=0\nSTREET=Amblecote Avenue\nZIP=B44 9AL\n'));
+
+  TestEq(CELL[ ...baseaddress
+             , country := "JP"
+             , street := "0-1\nMaki"
+             , zip := "514-1123"
+             , city := "Tsu-shi, Mie"
+             ], ParseAddress('CITY=Tsu-shi\nCOUNTRY=JP\nDISTRICT=Mie\nLOCATIONDETAIL=0-1\nLOCATIONDETAIL2=Maki\nNR_DETAIL=\nSTREET=\nZIP=514-1123\n'));
+
+  TestEq(CELL[ ...baseaddress
+             , country := "FR"
+             , street := "Rue du Grand Moulin"
+             , zip := "50700"
+             , city := "Vol"
+             , nr_detail := "0"
+             ], ParseAddress('COUNTRY=fr\nLOCATIONDETAIL=-\nNR_DETAIL=0\nSTREET=Rue du Grand Moulin\nZIP=50700\nCITY=Vol\nCEDEX=-\nCOUNTRY_FULL=Frankrijk\n'));
+
+   STRING encoded := EncodeWRDAddress(CELL[ country := "Nl"
+                                          , street :="Hengelosestraat"
+                                          , nr_detail := "296"
+                                          , zip := "7521 AM"
+                                          , city := "Enschede"
+                                          , state := ""
+                                          ]);
+  TestEq(CELL[ country := "NL"
+             , street :="Hengelosestraat"
+             , nr_detail := "296"
+             , zip := "7521 AM"
+             , city := "Enschede"
+             ], DecodeJSON(encoded));
+
+  TestEq(CELL[ ...baseaddress
+             , country := "NL"
+             , street :="Hengelosestraat"
+             , nr_detail := "296"
+             , zip := "7521 AM"
+             , city := "Enschede"
+             ], ParseAddress(encoded));
+
+  Testeq(CELL[ country := "AU" ], DecodeJSON(EncodeWRDAddress(CELL[country:="au"])));
+}
 
 MACRO GenericCodes()
 {
@@ -411,7 +502,8 @@ MACRO TestCountryCallingCodes()
 }
 
 
-Runtestframework([ PTR GenericCodes
+Runtestframework([ PTR AddressConversion
+                 , PTR GenericCodes
                  , PTR NLCodes
                  , PTR TestAddressInfo
                  , PTR TolliumFieldsNew
