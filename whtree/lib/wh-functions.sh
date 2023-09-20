@@ -635,4 +635,40 @@ setup_buildsystem()
   fi
 }
 
+load_postgres_settings()
+{
+  # Let's start (and setup?) PostgreSQL!
+  if [ -z "$WEBHARE_DBASENAME" ]; then
+    echo "WEBHARE_DBASENAME name not set"
+    exit 1
+  fi
+  if [ -z "$WEBHARE_DATAROOT" ]; then
+    echo "WEBHARE_DATAROOT name not set"
+    exit 1
+  fi
+
+  # We put everything under a postgresql folder, so we can chown that to ourselves in the future
+  PSROOT="${WEBHARE_DATAROOT}postgresql"
+
+  if [ -n "$WEBHARE_IN_DOCKER" ]; then  #TODO should share with recreate-database and postgres-single
+    RUNAS="chpst -u postgres:whdata"
+    PSBIN="/usr/lib/postgresql/11/bin/"
+  elif [ "$WHBUILD_PLATFORM" = "darwin" ]; then
+    # Read the version of the PostgreSQL database, fall back to version 13 (as specified in webhare.rb) for new databases
+    PGVERSION=$(cat "$PSROOT/db/PG_VERSION" 2>/dev/null)
+    if [ -z "${PGVERSION}" ]; then
+      PGVERSION=13
+    fi
+    if [ -x "$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/postmaster" ]; then
+      PSBIN="$(brew --prefix)/opt/postgresql@${PGVERSION}/bin/"
+    else
+      echo "This database requires postgres version @${PGVERSION}. Please install it"
+    fi
+  else
+    PSBIN="/usr/pgsql-11/bin/"
+  fi
+
+  export PSROOT RUNAS PGVERSION PSBIN
+}
+
 export -f die setup_buildsystem getbaseversioninfo wh_runjs

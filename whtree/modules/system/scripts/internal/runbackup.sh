@@ -1,6 +1,7 @@
 #!/bin/bash
 
 source "$WEBHARE_DIR/lib/wh-functions.sh"
+load_postgres_settings
 
 BACKUPDEST="$1"
 [ -z "$BACKUPDEST" ] && die "No backup destination"
@@ -61,7 +62,7 @@ done
 PSROOT="${WEBHARE_DATAROOT}postgresql"
 mkdir -p "$BACKUPDEST/backup/"
 
-pg_basebackup -D "$BACKUPDEST/backup/" -h "$PSROOT/db" -F tar -P -v -h "$PSROOT" --compress=1
+"$PSBIN/pg_basebackup" -D "$BACKUPDEST/backup/" -h "$PSROOT/db" -F tar -P -v -h "$PSROOT" --compress=1
 BACKUPRETVAL="$?"
 
 if [ "$BACKUPRETVAL" != "0" ]; then
