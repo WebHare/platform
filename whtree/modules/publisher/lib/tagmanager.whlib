@@ -726,7 +726,7 @@ PUBLIC OBJECT FUNCTION OpenSimpleTagManager(OBJECT folder)
 
 /** Open a full-fledged tagmanager
 */
-PUBLIC OBJECT FUNCTION OpenTagManager(OBJECT folder, STRING name) __ATTRIBUTES__(DEPRECATED "This API might be removed in the future, we recommend OpenSimpleTagManager")
+PUBLIC OBJECT FUNCTION OpenTagManager(OBJECT folder, STRING name)
 {
   RETURN NEW TagManager(folder, name);
 }

@@ -68,7 +68,7 @@ RECORD FUNCTION RunWitty(INTEGER script, RECORD data)
   RETURN RunWittyComponent(script, "", data);
 }
 
-RECORD FUNCTION RunWittyComponent(INTEGER script, STRING component, RECORD data) __ATTRIBUTES__(EXECUTESHARESCRIPT, DEPRECATED "Switch to the Witty object API in WebHare v3")
+RECORD FUNCTION RunWittyComponent(INTEGER script, STRING component, RECORD data)
 {
   IF(script<=0 OR script>Length(l_witties) OR l_witties[script-1] = DEFAULT OBJECT)
     ABORT("Invalid Witty handle (parse errors?)");

@@ -1177,7 +1177,7 @@ PUBLIC RECORD ARRAY FUNCTION WaitUntil(RECORD waitfor, DATETIME until)
     @param until @includecelldef #WaitUntil.until
     @return @includecelldef #WaitUntil.return
 */
-PUBLIC RECORD ARRAY FUNCTION WaitUntilMultiple(RECORD waitfor, DATETIME until) __ATTRIBUTES__(DEPRECATED "Use WaitUntil with multiple := TRUE")
+PUBLIC RECORD ARRAY FUNCTION WaitUntilMultiple(RECORD waitfor, DATETIME until)
 {
   RETURN WaitUntil(CELL[ multiple := TRUE, ...waitfor], until);
 }

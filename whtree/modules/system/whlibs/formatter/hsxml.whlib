@@ -267,7 +267,7 @@ STATIC OBJECTTYPE HSXMLFormatterPage EXTEND __CallbackFormatterPageBase
 
   PUBLIC PROPERTY images(pvt_images, -);
 
-  MACRO NEW(OBJECT formatteroutput, INTEGER streamid) __ATTRIBUTES__(DEPRECATED "The HSXML formatter has been deprecated in favour of the RTD format")
+  MACRO NEW(OBJECT formatteroutput, INTEGER streamid)
   : __CallbackFormatterPageBase(formatteroutput, streamid)
   {
     this->official_character := this->base_character;
@@ -448,7 +448,7 @@ STATIC OBJECTTYPE HSXMLFormatterPage EXTEND __CallbackFormatterPageBase
 
 PUBLIC OBJECTTYPE HSXMLFormatterOutput EXTEND FormattingOutputBase
 <
-  MACRO NEW() __ATTRIBUTES__(DEPRECATED "The HSXML formatter has been deprecated in favour of the RTD format")
+  MACRO NEW()
   {
 
   }

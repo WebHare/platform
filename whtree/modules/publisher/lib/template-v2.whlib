@@ -256,7 +256,7 @@ MACRO PTR rawfilecallback;
 RECORD ARRAY Hyperlinks;
 
 //HTML conversion options
-PUBLIC BOOLEAN __PUBLISHER_FORBID_IMG_ALIGN __ATTRIBUTES__(DEPRECATED "Use SetHTMLDocSuppressImgAlign") := FALSE;
+PUBLIC BOOLEAN __PUBLISHER_FORBID_IMG_ALIGN := FALSE;
 
 INTEGER htmldoc_id;
 
@@ -421,7 +421,7 @@ PUBLIC STRING FUNCTION MakeFileLinkByName(INTEGER startpageid, STRING filename)
     @param   pagename Page name to which the link should be made
     @return  A properly encoded absolute or relative URL, as requested
 */
-PUBLIC STRING FUNCTION MakePageLinkByName(INTEGER startpageid, STRING pagename) __ATTRIBUTES__(DEPRECATED "Use the MakeFileLinkByName function")
+PUBLIC STRING FUNCTION MakePageLinkByName(INTEGER startpageid, STRING pagename)
 {
   RETURN MakeFileLinkByName(startpageid, pagename);
 }
@@ -970,7 +970,7 @@ PUBLIC STRING FUNCTION GetFileLinkByName(STRING filename)
     @return  A properly encoded hyperlink to the requested file
     @see     GetFileLinkByName
 */
-PUBLIC STRING FUNCTION GetPageLinkByName(STRING pagename) __ATTRIBUTES__(DEPRECATED "Use the GetFileLinkByName function")
+PUBLIC STRING FUNCTION GetPageLinkByName(STRING pagename)
 {
   RETURN GetFileLinkByName(pagename);
 }
@@ -1412,7 +1412,7 @@ MACRO __templatev2_correcting_hyperlinkcallback(RECORD hyperlinkinfo, MACRO PTR 
 // Image handling
 //
 
-PUBLIC MACRO AddImageCompletionCallback(MACRO PTR newcallback) __ATTRIBUTES__(DEPRECATED "This v2.32rc-only function has been moved to wh::formatter/html.whlib as AddHTMLDocImageCompletionCallback")
+PUBLIC MACRO AddImageCompletionCallback(MACRO PTR newcallback)
 {
   AddHtmlDocImageCompletionCallback(GetHTMLDocId(), newcallback);
 }
