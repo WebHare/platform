@@ -6,6 +6,11 @@ PUBLIC MACRO IncCallCounter(OBJECT contexts)
   callcounter := callcounter + 1;
 }
 
+PUBLIC RECORD FUNCTION GetUserData(OBJECT contexts)
+{
+  RETURN [ x89 := 89 ];
+}
+
 PUBLIC RECORD ARRAY FUNCTION MapRowsAddIsEven(OBJECT contexts, RECORD ARRAY inrows)
 {
   RETURN SELECT *, iseven := (#inrows+1) % 2 = 0 FROM inrows;

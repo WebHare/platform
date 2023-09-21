@@ -5128,6 +5128,14 @@ To change a <xs:attribute /> for adding descriptions
       </xs:annotation>
     </xs:attribute>
 
+    <xs:attribute name="ongetuserdata" type="tc:Handler">
+      <xs:annotation>
+        <xs:appinfo>
+          <tai:callbacksignature returntype="record" />
+        </xs:appinfo>
+        <xs:documentation>Retrieves user data to pass to the edit screen</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:attributeGroup>
 
   <xs:complexType name="ListEdit">

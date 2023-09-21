@@ -80,7 +80,7 @@ ASYNC MACRO TestEntitiesEdit()
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens" xmlns:wrd="http://www.webhare.net/xmlns/wrd/components" library="${Resolve("test_wrdcomponents.whlib")}">
   <screen name="testentitiesedit">
     <body>
-      <wrd:entitiesedit name="entities" wrdtype="test_domain_1" orderable="true" entityeditscreen="#editentity" deletemode="close" onchangeorder="GotChangeOrder">
+      <wrd:entitiesedit name="entities" wrdtype="test_domain_1" orderable="true" entityeditscreen="#editentity" deletemode="close" onchangeorder="GotChangeOrder" ongetuserdata="GetUD">
         <column name="wrd_title" type="text" />
       </wrd:entitiesedit>
     </body>
@@ -123,6 +123,7 @@ ASYNC MACRO TestEntitiesEdit()
   //Test virtual cell and onstore/onload
   TT("entities")->entityeditscreen := "#editentity2";
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Edit"));
+  TestEq([ wrd87 := 87 ], topscreen->gotuserdata);
   TestEq(["ordering","wrd_title"], GetSortedSet(TT("^entity")->GetComposedCellNames()));
   TestEq("a domain value; virtualcell", TT("mytitle")->value);
   TestEq("four", TT("ordering")->value);

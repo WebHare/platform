@@ -473,6 +473,7 @@ PUBLIC STATIC OBJECTTYPE EntitiesEdit EXTEND EntityListBase
 
   MACRO PTR pvt_onentitydelete;
   MACRO PTR pvt_onentitiesdelete;
+  PUBLIC FUNCTION PTR ongetuserdata;
 
 
   // ---------------------------------------------------------------------------
@@ -533,6 +534,7 @@ PUBLIC STATIC OBJECTTYPE EntitiesEdit EXTEND EntityListBase
     this->deletemode := definition.deletemode;
     this->orderable := definition.orderable;
     this->onchangeorder := definition.onchangeorder;
+    this->ongetuserdata := definition.ongetuserdata;
 
     ^entities->buttons := definition.buttons;
     ^entities->showbuttons := definition.showbuttons;
@@ -599,6 +601,13 @@ PUBLIC STATIC OBJECTTYPE EntitiesEdit EXTEND EntityListBase
       ^entities->selectmode := selectmultiple ? "multiple" : "single";
   }
 
+  PUBLIC RECORD FUNCTION GetUserData()
+  {
+    IF(this->ongetuserdata != DEFAULT FUNCTION PTR)
+      RETURN this->ongetuserdata();
+    RETURN DEFAULT RECORD;
+  }
+
   /** Run an entity add/edit screen
       @cell(record) options.userdata Additional data sent to the screen's init function
   */
@@ -608,7 +617,7 @@ PUBLIC STATIC OBJECTTYPE EntitiesEdit EXTEND EntityListBase
     RECORD opts := CELL[ entitycontext :=  this->GetFinalEntityContext(TRUE)
                        , component :=      this
                        , initordering :=   this->orderable
-                       , options.userdata
+                       , userdata := CELL[ ...this->GetUserData(), ...options.userdata ]
                        ];
 
     IF(roweditscreen != "")

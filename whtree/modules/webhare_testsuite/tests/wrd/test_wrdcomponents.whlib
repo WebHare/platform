@@ -21,14 +21,21 @@ PUBLIC OBJECTTYPE TestEntitiesEdit EXTEND TolliumScreenBase
       wrdtype->UpdateEntity(rowkey, [ wrd_ordering := #rowkey + 1 ]);
     work->Finish();
   }
+  RECORD FUNCTION GetUD()
+  {
+    RETURN [ wrd87 := 87];
+  }
 >;
 
 PUBLIC STATIC OBJECTTYPE EditEntity2 EXTEND WRDEntityEditScreenBase
 <
+  PUBLIC RECORD gotuserdata;
+
   UPDATE MACRO Init(RECORD data)
   {
     ^entity->RegisterVirtualCell("wrd_title", PTR this->GetTitle, PTR this->SetTitle);
     WRDEntityEditScreenBase::Init(data);
+    this->gotuserdata := data.userdata;
   }
   RECORD FUNCTION OnEntityLoad(RECORD original)
   {
