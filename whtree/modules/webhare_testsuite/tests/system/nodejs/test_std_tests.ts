@@ -51,17 +51,28 @@ function testMoney() {
   test.throws(/Money value '-1000000000' is out of range/, () => Money.fromNumber(-1_000_000_000));
 
   // testPresentation
-  test.eq("0", new Money("0").format(".", 0));
-  test.eq("-2", new Money("-2").format(".", 0));
-  test.eq("-2.0", new Money("-2").format(".", 1));
-  test.eq("-2.1", new Money("-2.1").format(".", 1));
-  test.eq("-0.1", new Money("-0.1").format(".", 1));
-  test.eq("-0.01", new Money("-0.01").format(".", 1));
-  test.eq("1", new Money("1.0").format(".", 0));
-  test.eq("1.0", new Money("1.0").format(".", 1));
-  test.eq("1.01", new Money("1.01").format(".", 0));
-  test.eq("0.50", new Money("0.50").format(".", 2));
-  test.eq("119.50", new Money("119.5").format(".", 2));
+  test.eq("0.00", new Money("0").format());
+  test.eq("0,00", new Money("0").format({ decimalSeparator: "," }));
+  test.eq("-2", new Money("-2").format({ minDecimals: 0 }));
+  test.eq("-2.0", new Money("-2").format({ minDecimals: 1 }));
+  test.eq("-2.1", new Money("-2.1").format({ minDecimals: 1 }));
+  test.eq("-0.1", new Money("-0.1").format({ minDecimals: 1 }));
+  test.eq("-0.01", new Money("-0.01").format({ minDecimals: 1 }));
+  test.eq("1", new Money("1.0").format({ minDecimals: 0 }));
+  test.eq("1.0", new Money("1.0").format({ minDecimals: 1 }));
+  test.eq("1.01", new Money("1.01").format({ minDecimals: 0 }));
+  test.eq("0.50", new Money("0.50").format());
+  test.eq("119.50", new Money("119.5").format());
+  test.eq("50000.00", new Money("50000").format());
+  test.eq("50.000,00", new Money("50000").format({ decimalSeparator: ",", thousandsSeparator: "." }));
+  test.eq("1.234,56", new Money("1234.56").format({ decimalSeparator: ",", thousandsSeparator: "." }));
+  test.eq("12.345,67", new Money("12345.67").format({ decimalSeparator: ",", thousandsSeparator: "." }));
+  test.eq("123,456.78", new Money("123456.78").format({ thousandsSeparator: "," }));
+  test.eq("1'234'567.89", new Money("1234567.89").format({ thousandsSeparator: "'" }));
+  test.eq("12 345 678:90", new Money("12345678.9").format({ thousandsSeparator: " ", decimalSeparator: ":" }));
+
+  //TOO AS soon as we extend the maximum money range:
+  // test.eq("1 222 333 444", new Money("1222333444").format({ thousandsSeparator: " ", decimalSeparator: ":", minDecimals: 0 }));
 
   // testAddition()
   testEqMoney("0.5", Money.add("0.50", "0"));
@@ -118,29 +129,29 @@ function testMoney() {
   test.eq(-1, Money.cmp("0.0", "0.50"));
   test.eq(0, Money.cmp("-0", "0"));
 
-  test.eq(false, Money.test("1", "<", "0"));
-  test.eq(false, Money.test("1", "<", "1"));
-  test.eq(true, Money.test("1", "<", "2"));
+  test.eq(false, Money.check("1", "<", "0"));
+  test.eq(false, Money.check("1", "<", "1"));
+  test.eq(true, Money.check("1", "<", "2"));
 
-  test.eq(false, Money.test("1", "<=", "0"));
-  test.eq(true, Money.test("1", "<=", "1"));
-  test.eq(true, Money.test("1", "<=", "2"));
+  test.eq(false, Money.check("1", "<=", "0"));
+  test.eq(true, Money.check("1", "<=", "1"));
+  test.eq(true, Money.check("1", "<=", "2"));
 
-  test.eq(false, Money.test("1", "==", "0"));
-  test.eq(true, Money.test("1", "==", "1"));
-  test.eq(false, Money.test("1", "==", "2"));
+  test.eq(false, Money.check("1", "==", "0"));
+  test.eq(true, Money.check("1", "==", "1"));
+  test.eq(false, Money.check("1", "==", "2"));
 
-  test.eq(true, Money.test("1", "!=", "0"));
-  test.eq(false, Money.test("1", "!=", "1"));
-  test.eq(true, Money.test("1", "!=", "2"));
+  test.eq(true, Money.check("1", "!=", "0"));
+  test.eq(false, Money.check("1", "!=", "1"));
+  test.eq(true, Money.check("1", "!=", "2"));
 
-  test.eq(true, Money.test("1", ">", "0"));
-  test.eq(false, Money.test("1", ">", "1"));
-  test.eq(false, Money.test("1", ">", "2"));
+  test.eq(true, Money.check("1", ">", "0"));
+  test.eq(false, Money.check("1", ">", "1"));
+  test.eq(false, Money.check("1", ">", "2"));
 
-  test.eq(true, Money.test("1", ">=", "0"));
-  test.eq(true, Money.test("1", ">=", "1"));
-  test.eq(false, Money.test("1", ">=", "2"));
+  test.eq(true, Money.check("1", ">=", "0"));
+  test.eq(true, Money.check("1", ">=", "1"));
+  test.eq(false, Money.check("1", ">=", "2"));
 
   // testRounding()
   //                                        -5  -4  -3  -2  -1  0  1  2  3  4  5
