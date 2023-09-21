@@ -2196,7 +2196,6 @@ The full base URL on which this site will be published, calculated by combining 
     <debugflag name="postgresql:logcommands" description="Log all SQL queries sent to the PostgreSQL database to the debug log "/>
     <debugflag name="postgresql:noerrordelay" description="Immediately report errors on insert queries (normally these are detected when the next SQL query is executed)" />
     <debugflag name="whfsplan" description="Print WHFS copy/move planning and mapping actions" />
-    <debugflag name="oldcssengine" description="Use the old HareScript CSS selector engine" />
     <debugflag name="runner" description="Debug the node runner plugin" />
     <debugflag name="conloc" description="Prefix console output with file and line number" />
     <debugflag name="etr" description="Enable full error tracing for ALL webserver clients" />
