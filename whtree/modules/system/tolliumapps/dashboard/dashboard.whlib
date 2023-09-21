@@ -20,11 +20,13 @@ LOADLIB "mod::system/lib/resources.whlib";
 
 PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 <
+  PUBLIC STRING ARRAY screenparams; // optionally used in child panels
+  
   RECORD ARRAY allgroups;
   RECORD ARRAY allpanels;
   RECORD originalspacers;
   STRING originaltitle;
-
+  
   MACRO NEW()
   {
     /* under extreme configuration issues, such as a 427->426 downgrade, userapi may not exist
@@ -50,8 +52,9 @@ PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
     this->SetupGroups();
     RegisterEventCallback("system:softreset", PTR this->OnSoftReset);
 
-    IF (RecordExists(data) AND data.calltype = "direct" AND Length(data.params) = 1)
-      ^monitorpanels->value := data.params[0];
+    this->screenparams := data.params;
+    IF (RecordExists(data) AND data.calltype = "direct" AND Length(this->screenparams) > 0)
+      ^monitorpanels->value := this->screenparams[0];
     ELSE
       ^monitorpanels->value := ^monitorpanels->rows[0].rowkey;
   }
