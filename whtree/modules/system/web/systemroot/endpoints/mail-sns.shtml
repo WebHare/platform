@@ -48,7 +48,12 @@ RECORD snsmessage := DecodeJSON(data.message);
 IF(snsmessage.notificationtype = "AmazonSnsSubscriptionSucceeded")
   RETURN;
 
-STRING ourmessageid := snsmessage.mail.commonheaders.messageid;
+STRING ourmessageid;
+IF(CellExists(snsmessage.mail.commonheaders,'messageid'))
+  ourmessageid := snsmessage.mail.commonheaders.messageid; //NOTE Apparently AWS doesn't always send it..
+ELSE
+  ourmessageid := SELECT AS STRING value FROM snsmessage.mail.headers WHERE ToUppercase(name) = "MESSAGE-ID";
+
 
 RECORD typedmessage := GetCell(snsmessage, snsmessage.notificationtype);
 RECORD basicobject := [ timestamp    := MakeDateFromText(typedmessage.timestamp)
