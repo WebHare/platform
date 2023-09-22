@@ -9,12 +9,19 @@ LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
 LOADLIB "mod::wrd/lib/internal/addressfields.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 
+STRING FUNCTION Convert(STRING rawdata, INTEGER64 setting, INTEGER entity, INTEGER attribute)
+{
+  RECORD result := GenerateAddress(rawdata, "", 0, FALSE);
+  LogDebug("wrd:addressconversion", CELL[ setting, entity, attribute, rawdata, result ]);
+  RETURN EncodeWRDAddress(result);
+}
+
 OpenPrimary()->BeginWork();
 
 INTEGER ARRAY addressfields := SELECT AS INTEGER ARRAY id FROM wrd.attrs WHERE attributetype = wrd_attributetype_address; //wrd_attributetype_address = 3
 
 UPDATE wrd.entity_settings
-   SET rawdata := EncodeWRDAddress(GenerateAddress(rawdata, "", 0, FALSE))
+   SET rawdata := Convert(rawdata, id, entity, attribute)
  WHERE attribute IN addressfields
        AND rawdata LIKE "*\n*"; //any linefeds point to a non-json version
 

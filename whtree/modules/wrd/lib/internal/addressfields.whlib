@@ -80,7 +80,7 @@ PUBLIC RECORD FUNCTION GenerateAddress(STRING rawvalue, STRING currentlanguage, 
       IF(CellExists(address,straightcopy))
         finaladdress := CellUpdate(finaladdress, straightcopy, GetCell(address, straightcopy));
 
-    IF(Length(address.country) != 2)
+    IF(NOT CellExists(address,'country') OR Length(address.country) != 2)
       RETURN DEFAULT RECORD; //broken value
 
     IF(CellExists(address, "province"))
