@@ -16,7 +16,7 @@ RECORD FUNCTION ParseAddress(STRING rawdata)
 
 MACRO AddressConversion()
 {
-  //we'll never set locatinodetail anymore but we'll keep it for backwards compatibility
+  //we'll never set locationdetail anymore but we'll keep it for backwards compatibility
   CONSTANT RECORD baseaddress := CELL[ country := "", zip := "", street := "", nr_detail := "", city := "", state := "", locationdetail := "" ];
   TestEq(CELL[ ...baseaddress
              , country := "NL"

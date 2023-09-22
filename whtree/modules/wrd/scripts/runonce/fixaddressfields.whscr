@@ -23,7 +23,7 @@ INTEGER ARRAY addressfields := SELECT AS INTEGER ARRAY id FROM wrd.attrs WHERE a
 UPDATE wrd.entity_settings
    SET rawdata := Convert(rawdata, id, entity, attribute)
  WHERE attribute IN addressfields
-       AND rawdata LIKE "*\n*"; //any linefeds point to a non-json version
+       AND rawdata LIKE "*\n*"; //any linefeeds point to a non-json version
 
 DELETE FROM wrd.entity_settings
  WHERE attribute IN addressfields

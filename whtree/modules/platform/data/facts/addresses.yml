@@ -33,7 +33,7 @@ customFormat:
       - zip
       - " " #We need two spaces before the city in NL
       - city
-  CA: # We deafault to state after city, Canada wants it before (or is the US the exception?)
+  CA: # We default to state after city, Canada wants it before (or is the US the exception?)
     - fields:
       - nr_detail
       - street
