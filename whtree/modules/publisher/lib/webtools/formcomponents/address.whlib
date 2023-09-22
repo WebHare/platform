@@ -638,12 +638,11 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
     orderings[END-1].countries := STRING[];
 
     // Add a country field
-    RECORD countrydef := GetAddressField("COUNTRY", [ language := this->form->formlanguagecode ]);
     OBJECT countryfield := this->CreateSubField("select", "country");
-    countryfield->title := CellExists(this->fieldtitles, "country") ? GetTid(GetCell(this->fieldtitles, "country")) : countrydef.title;
+    countryfield->title := CellExists(this->fieldtitles, "country") ? GetTid(GetCell(this->fieldtitles, "country")) : GetTid("platform:common.addressfields.country");
     countryfield->type := "pulldown";
     countryfield->required := TRUE;
-    countryfield->autocomplete := this->autocomplete CONCAT (countrydef.autocomplete != "" ? STRING [ countrydef.autocomplete ] : STRING[]);
+    countryfield->autocomplete := STRING[ ...this->autocomplete, "country" ];
     countryfield->dataset := [ orderingdata := orderings ];
     RECORD ARRAY countryoptions := [ [ rowkey := "", title := "", enabled := FALSE ] ];
     OBJECT allcountries := ReadCountries(this->form->formlanguagecode);
@@ -676,7 +675,7 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
       MemberInsert(this, "^" || field.tag, FALSE, subfield);
     }
 
-    INSERT CELL[ ...countrydef, fieldobj := countryfield, tag := "COUNTRY" ] INTO this->allfields AT 0;
+    INSERT CELL[ fieldobj := countryfield, tag := "COUNTRY" ] INTO this->allfields AT 0;
 
     this->SetupComposition(SELECT AS OBJECT ARRAY fieldobj FROM this->allfields);
   }

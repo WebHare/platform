@@ -577,21 +577,6 @@ PUBLIC RECORD FUNCTION GetAddressFormat(STRING countrycode, RECORD options DEFAU
               ];
 }
 
-/** @short Describe an address field, generalized for any country
-    @param tag Requested field
-    @cell(string) options.language Language code to use (default: current tid language)
-    @return A description of the requested field (throws if field is unknown)
-    @cell(string) return.autocomplete Recommended HTML5 autcomplete attribute
-    @cell(string) return.title Label in requested language
-    @cell(boolean) return.required If true, this this field is required for this country
-*/
-PUBLIC RECORD FUNCTION GetAddressField(STRING tag, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := ValidateOptions( [ language := "" ], options);
-  RECORD field := GetWRDAddressField(tag, options.language ?? GetTidLanguage());
-  RETURN RecordExists(field) ? CELL[...field, DELETE ordering, DELETE break_after, DELETE tag ] : field;
-}
-
 /** @short Get an address validator as configured for a WRD schema
     @param wrdschema WRD Schema
     @param country Code of country being validated

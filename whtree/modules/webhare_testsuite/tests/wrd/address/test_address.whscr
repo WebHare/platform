@@ -109,23 +109,6 @@ MACRO GenericCodes()
   TestEq("13 6", JoinHousenumber("13","6"));
   TestEq("13a", JoinHousenumber("13","a"));
   TestEq("13a", JoinHousenumber("13"," a"));
-
-  RECORD field := GetAddressField("COUNTRY");
-  TestEq("Country",field.title);
-  TestEq("country",field.autocomplete);
-
-  field := GetAddressField("country", [ language := "nl" ]);
-  TestEq("Land",field.title);
-  TestEq("country",field.autocomplete);
-  TestEq(TRUE, field.required);
-  TestEq(FALSE, CellExists(field,'break_after'));
-
-  field := GetAddressField("ZIP");
-  TestEq("postal-code",field.autocomplete);
-  TestEq(FALSE, field.required);
-  TestEq(FALSE, CellExists(field,'break_after'));
-
-  TestThrowsLike('*has no default text*', PTR GetAddressField("XXXX"));
 }
 
 MACRO NLCodes()
