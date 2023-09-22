@@ -1,3 +1,5 @@
+import { FillableFormElement } from "@webhare/dompack/dompack";
+
 export const CustomEvent = globalThis.CustomEvent;
 
 type DomEventOptions =
@@ -48,13 +50,12 @@ export function dispatchDomEvent(element: EventTarget, eventtype: string, option
   return element.dispatchEvent(evt);
 }
 
-//fire the proper modified events (input and/or change) on the element after changing its value - DEPRECATED, you should fire the proper input and change events according to the situation
-/**
+/** Fire the proper modified events (input and/or change) on the element after changing its value
  * @param element - Element to receive event
  * @param options - Event options
- * @deprecated Fire the proper input and change events according to the situation
+ * @deprecated Use changeValue so we can figure out the proper events to fire
  */
-export function fireModifiedEvents(element: EventTarget, options?: DomEventOptions) {
+export function fireModifiedEvents(element: FillableFormElement, options?: DomEventOptions) {
   dispatchDomEvent(element, 'input', options);
   dispatchDomEvent(element, 'change', options);
 }
@@ -121,7 +122,7 @@ export function dispatchCustomEvent(node: EventTarget, event: string, params: Cu
     @param element - Element to change
     @param newvalue - New value
  */
-export function changeValue(element: HTMLInputElement | HTMLSelectElement, newvalue: string | number | boolean) {
+export function changeValue(element: FillableFormElement, newvalue: string | number | boolean) {
   if (element.matches(`input[type=radio], input[type=checkbox]`)) {
     if (Boolean((element as HTMLInputElement).checked) == Boolean(newvalue))
       return;

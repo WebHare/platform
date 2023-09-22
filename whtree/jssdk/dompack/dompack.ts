@@ -2,7 +2,7 @@
 
 export { flagUIBusy, Lock, BusyModalEvent, setupBusyModal } from './impl/busy';
 export { dispatchCustomEvent, dispatchDomEvent, fireModifiedEvents, changeValue, stop } from '../../modules/system/js/dompack/src/events';
-export { qS, qR, qSA } from './impl/tree';
+export { qS, qR, qSA, FillableFormElement } from './impl/tree';
 export { isDomReady, onDomReady } from '../../modules/system/js/dompack/src/tree';
 export { create, jsxcreate, jsxfragment } from '../../modules/system/js/dompack/src/create';
 export { focus, register, registerMissed } from '../../modules/system/js/dompack/src/components';
