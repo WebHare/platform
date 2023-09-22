@@ -961,7 +961,7 @@ MACRO FillTestFormFile(OBJECT formfile, RECORD options)
     OBJECT addressfield := formpage->AppendComponent("address");
     addressfield->SetAttribute("name","address");
     addressfield->SetAttribute("title","Address");
-    addressfield->SetAttribute("countrylist", "NL BE LU - DE");
+    addressfield->SetAttribute("countrylist", "NL BE LU - DE CA");
   }
 
   IF(options.addtwolevelfield)

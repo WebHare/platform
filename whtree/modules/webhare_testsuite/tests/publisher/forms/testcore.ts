@@ -58,7 +58,7 @@ test.registerTests(
         const field_address_country = test.qS(".wh-form__fields .wh-form__fieldline select[name='address.country']");
         const field_address_street = test.qS(".wh-form__fields .wh-form__fieldline input[name='address.street']");
         const field_address_nr_detail = test.qS(".wh-form__fields .wh-form__fieldline input[name='address.nr_detail']");
-        const field_address_province = test.qS(".wh-form__fields .wh-form__fieldline input[name='address.province']");
+        const field_address_state = test.qS(".wh-form__fields .wh-form__fieldline input[name='address.state']");
         const field_address_zip = test.qS(".wh-form__fields .wh-form__fieldline input[name='address.zip']");
         const field_address_city = test.qS(".wh-form__fields .wh-form__fieldline input[name='address.city']");
         const field_condition_or_1 = test.qS("input[name='condition_or_1']");
@@ -178,10 +178,10 @@ test.registerTests(
         test.fill(field_address_country, "NL");
         field_address_street.scrollIntoView();
         test.assert(test.canClick(field_address_street), "street should be available");
-        test.assert(!test.canClick(field_address_province), "province should not be available");
-        test.fill(field_address_country, "BE");
+        test.assert(!test.canClick(field_address_state), "state should not be available");
+        test.fill(field_address_country, "CA");
         test.assert(test.canClick(field_address_street), "street should still be available");
-        test.assert(test.canClick(field_address_province), "province should now be available");
+        test.assert(test.canClick(field_address_state), "state should now be available");
 
         // fill in BE address
         test.fill(field_address_country, "NL");

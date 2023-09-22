@@ -598,6 +598,9 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
 
       FOREVERY (RECORD field FROM GetAddressFormat(code, [ language := this->form->formlanguagecode ]).fields)
       {
+        IF(field.hide)
+          CONTINUE; //we're almost only used to request new addresses so this should be (mostly?) safe
+
         RECORD fieldrec := SELECT *, idx := #allfields FROM this->allfields WHERE allfields.tag = field.tag;
         IF (RecordExists(fieldrec))
         {
@@ -754,10 +757,10 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
   }
 
   /** @param orderings List of orderings. Last ordering MUST exist and have an empty fieldorder
-      @cell fieldorder List of tags. Last record must have
-      @cell countries List of applicable countries
       @param country
       @param fields List of fields
+      @cell fields.fieldorder List of tags. Last record must have
+      @cell fields.countries List of applicable countries
       @cell fields.tag
   */
   RECORD ARRAY FUNCTION AddFieldsToOrderings(RECORD ARRAY orderings, STRING country, RECORD ARRAY fields)
