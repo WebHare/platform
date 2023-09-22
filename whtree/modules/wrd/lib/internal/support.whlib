@@ -21,7 +21,6 @@ PUBLIC INTEGER ttl_wrdschemacache := 5 * 60 * 1000;
 
 PUBLIC CONSTANT STRING wrd_baseschemaresource := "mod::wrd/data/wrdschemas/base.wrdschema.xml";
 
-PUBLIC STRING worldinfo_ns := "http://www.webhare.net/xmlns/wrd/worldinfo";
 PUBLIC STRING ARRAY builtin_wrdtypes := ["WRD_RELATION","WRD_PERSON","WRD_ORGANIZATION"];
 
 PUBLIC STRING ARRAY attrtypes := [ "DOMAIN", /*2*/"FREE", "ADDRESS", "EMAIL", "TELEPHONE", "DATE", "PASSWORD"

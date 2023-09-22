@@ -10,7 +10,6 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::wrd/lib/address.whlib";
 LOADLIB "mod::wrd/lib/imexport.whlib";
-LOADLIB "mod::wrd/lib/worldinfo/countries.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/tolliumfuncs.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";

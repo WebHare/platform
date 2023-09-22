@@ -6,13 +6,11 @@
 LOADLIB "wh::adhoccache.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/yaml.whlib";
-LOADLIB "wh::util/localization.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
-LOADLIB "mod::wrd/lib/worldinfo/countries.whlib";
 LOADLIB "mod::wrd/lib/internal/addressfields.whlib";
 LOADLIB "mod::wrd/lib/internal/addressverification/support.whlib";
 
@@ -84,8 +82,7 @@ RECORD FUNCTION GetAddressInfoData()
     @cell(string) return.editextension Editor extension, implementation object should extend WRDAddressVerificationExtensionBase
     @cell(string array) return.countries List of (uppercase) country codes of the countries for which this service validates addresses
     @cell(string array) return.completionfields List of WRD address field tags of fields that can be completed using other fields (e.g. for Dutch
-        addresses this will be [ "STREET", "CITY" ] as these fields can be filled using "ZIP" and "NR_DETAIL"). For a list of
-        available field tags, see worldinfo.xml
+        addresses this will be [ "STREET", "CITY" ] as these fields can be filled using "ZIP" and "NR_DETAIL"). For
 */
 PUBLIC RECORD ARRAY FUNCTION GetAddressValidationServices()
 {
