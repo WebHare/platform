@@ -8,6 +8,7 @@ LOADLIB "mod::tollium/lib/commondialogs.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
+LOADLIB "mod::wrd/lib/address.whlib";
 LOADLIB "mod::wrd/lib/imexport.whlib";
 LOADLIB "mod::wrd/lib/worldinfo/countries.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
@@ -494,16 +495,11 @@ PUBLIC OBJECTTYPE Import EXTEND TolliumScreenBase
   RECORD ARRAY FUNCTION GenerateAddressSubs(RECORD impcol)
   {
     //ADDME get fields for all linked countries?
-    RECORD ARRAY addressfields;
-    IF(this->forcecountry = "")
-      addressfields := [[ tag := "COUNTRY", title := GetTid("wrd:exchange.import.country"), requiresimportmap := TRUE ]];
-
-    RECORD ARRAY subfields := GetWRDAddressInfo(this->forcecountry ?? "NL", GetTidLanguage());
-    addressfields := addressfields CONCAT
-                        (SELECT *
-                              , requiresimportmap := FALSE
-                           FROM subfields
-                       ORDER BY ordering);
+    RECORD ARRAY addressfields := SELECT tag := field
+                                       , requiresimportmap := field = "country"
+                                       , title := GetTid(tid)
+                                    FROM GetWRDAddressFields()
+                                   WHERE this->forcecountry = "" ? TRUE : field != "country";
 
     STRING ARRAY usedfields := SELECT AS STRING ARRAY ToUppercase(subfield) FROM this->mapped_columns WHERE tag = impcol.tag;
     RETURN SELECT subfield := tag

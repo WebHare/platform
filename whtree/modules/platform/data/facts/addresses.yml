@@ -1,0 +1,18 @@
+addressfields:
+  - field: street
+    autocomplete: street-address
+    tid: "platform:common.addressfields.street"
+  - field: nr_detail
+    tid: "platform:common.addressfields.nr_detail"
+  - field: zip
+    autocomplete: postal-code
+    tid: "platform:common.addressfields.zip"
+  - field: city
+    autocomplete: address-level2
+    tid: "platform:common.addressfields.city"
+  - field: state
+    autocomplete: address-level1
+    tid: "platform:common.addressfields.state"
+  - field: country
+    autocomplete: country
+    tid: "platform:common.addressfields.country"

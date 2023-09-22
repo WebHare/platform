@@ -4,8 +4,11 @@
 */
 
 LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/yaml.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/worldinfo/countries.whlib";
@@ -59,6 +62,18 @@ RECORD ARRAY addressvalidationservices :=
       ]
     ];
 
+
+RECORD FUNCTION GetCacheableAddressInfoData()
+{
+  RETURN [ value := DecodeYAML(BlobToString(GetWebHareResource("mod::platform/data/facts/addresses.yml")))
+         , ttl := 60 * 60 * 1000
+         , eventmasks := GetResourceEventMasks(["mod::platform/data/facts/addresses.yml"])
+         ];
+}
+RECORD FUNCTION GetAddressInfoData()
+{
+  RETURN GetAdhocCached(CELL["addresses"], PTR GetCacheableAddressInfoData);
+}
 
 /** @short Get a list of supported validation services
     @return List of validation services
@@ -584,4 +599,12 @@ PUBLIC OBJECT FUNCTION GetAddressLookupAPI(OBJECT applytester, STRING country)
 {
   RECORD info := __LookupFormIntegrationAddressInfo(applytester);
   RETURN __GetAddressLookupAPIForSettings(info, country);
+}
+
+//List address fields we know about. import.whlib needs this (including its connect cloned version)
+PUBLIC RECORD ARRAY FUNCTION GetWRDAddressFields()
+{
+  RETURN SELECT field
+              , tid
+           FROM GetAddressInfoData().addressfields;
 }

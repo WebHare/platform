@@ -1,0 +1,13 @@
+<?wh
+
+LOADLIB "mod::tollium/lib/gettid.whlib";
+
+
+//This is a stub whlib for gettid. as soon we tidscan can figure out itself how to scan addresess.yml we can remove this
+
+GetTid("platform:common.addressfields.street");
+GetTid("platform:common.addressfields.nr_detail");
+GetTid("platform:common.addressfields.zip");
+GetTid("platform:common.addressfields.city");
+GetTid("platform:common.addressfields.state");
+GetTid("platform:common.addressfields.country");
