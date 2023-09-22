@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<language xmlns="http://www.webhare.net/xmlns/tollium/screens" xml:lang="nl" xmlns:html="http://www.w3.org/1999/xhtml" fallbacklanguage="en">
+  <textgroup gid="common">   <!-- common -->
+    <textgroup gid="addressfields">   <!-- common.addressfields -->
+      <text tid="city">Plaats</text>
+      <text tid="country">Land</text>
+      <text tid="nr_detail">Huisnummer</text>
+      <text tid="state">Staat</text>
+      <text tid="street">Straat</text>
+      <text tid="zip">Postcode</text>
+    </textgroup>
+  </textgroup>
+</language>

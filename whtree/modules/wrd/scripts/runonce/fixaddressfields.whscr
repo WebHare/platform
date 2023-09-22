@@ -1,66 +1,32 @@
 <?wh
-LOADLIB "wh::util/algorithms.whlib";
+/*
+If you need to rerun the conversion, eg after a WRD Import/sync of pre WH5.4 data:
+wh run mod::wrd/scripts/runonce/fixaddressfields.whscr
+*/
+
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
 LOADLIB "mod::wrd/lib/internal/addressfields.whlib";
-LOADLIB "mod::wrd/lib/api.whlib";
-/*
-TODO: Eventually this script will register itself as a runonce script and drop worldinfo.xml support
-      Until then we're scanning for potential conversion issues
+LOADLIB "mod::wrd/lib/internal/support.whlib";
 
-wh run mod::wrd/scripts/runonce/fixaddressfields.whscr
-
-Odd things I've already discovered
-- COUNTRY_FULL isn't always in the data received from ParseAddressRawdata
-- COUNTRY is usually uppercase but sometimes in lowercase
-*/
-
-STRING ARRAY knownfields := ["CITY","COUNTRY","COUNTRY_FULL","NR_DETAIL","STREET","ZIP","PROVINCE","STATE","__WRDENTITY"];
-
-BOOLEAN FUNCTION IsComplexAddress(RECORD address)
+STRING FUNCTION Convert(STRING rawdata, INTEGER64 setting, INTEGER entity, INTEGER attribute)
 {
-  IF(address.country = "NL")
-    RETURN FALSE; //not caring about odd fields
-
-  IF(Length(SELECT FROM UnpackRecord(address) WHERE name NOT IN knownfields AND IsValueSet(value))=0)
-    RETURN FALSE; //no odd fields set
-
-  RETURN TRUE;
+  RECORD result := GenerateAddress(rawdata, "", 0, FALSE);
+  LogDebug("wrd:addressconversion", CELL[ setting, entity, attribute, rawdata, result ]);
+  RETURN EncodeWRDAddress(result);
 }
 
-STRING ARRAY FUNCTION GetExtraFields(RECORD ARRAY address)
-{
-  STRING ARRAY fields;
-  FOREVERY(RECORD add FROM address)
-    FOREVERY(RECORD fld FROM SELECT * FROM UnpackRecord(address) WHERE name NOT IN knownfields AND IsValueSet(value))
-      IF(fld.name NOT IN fields)
-        INSERT fld.name INTO fields AT END;
+OpenPrimary()->BeginWork();
 
-  RETURN GetSortedSet(fields);
-}
+INTEGER ARRAY addressfields := SELECT AS INTEGER ARRAY id FROM wrd.attrs WHERE attributetype = wrd_attributetype_address; //wrd_attributetype_address = 3
 
-OpenPrimary();
+UPDATE wrd.entity_settings
+   SET rawdata := Convert(rawdata, id, entity, attribute)
+ WHERE attribute IN addressfields
+       AND rawdata LIKE "*\n*"; //any linefeeds point to a non-json version
 
-RECORD ARRAY addressfields := SELECT * FROM wrd.attrs WHERE attributetype = 3;
-RECORD ARRAY complexaddresses;
+DELETE FROM wrd.entity_settings
+ WHERE attribute IN addressfields
+       AND rawdata = ""; //get rid of anything broken after the above conversion
 
-FOREVERY(RECORD addrfield FROM addressfields)
-{
-  RECORD descr := DescribeWRDAttribute(addrfield.id);
-
-  RECORD ARRAY vals := SELECT id,entity,rawdata,address := CELL[...ParseAddressRawdata(rawdata), __WRDENTITY := entity ]  FROM wrd.entity_settings WHERE attribute = addrfield.id;
-  DELETE FROM vals WHERE NOT IsComplexAddress(address);
-  IF(length(vals) = 0)
-    CONTINUE;
-
-  Print(OpenWRDSchemaById(descr.wrdschema)->tag || "." || descr.wrdtypetag || "." || descr.attributetag || "\n");
-  complexaddresses := complexaddresses CONCAT SELECT AS RECORD ARRAY address FROM vals;
-  Print(`- ${Length(vals)} complex addresses\n`);
-}
-
-//List per country
-DumpValue( (SELECT country, num := COUNT(*), fields := GetExtraFields(GroupedValues(complexaddresses)) FROM complexaddresses GROUP BY country), 'tree');
-
-Print("\n\n-- The complex addresses:\n\n");
-complexaddresses := SELECT *, __WRDENTITY := DescribeWRDEntity(__WRDENTITY) FROM complexaddresses;
-dumpvalue(complexaddresses,'tree'); //Enable to show details
+GetPrimary()->CommitWork();

@@ -1,9 +1,0 @@
-<?wh
-
-LOADLIB "wh::util/localization.whlib";
-
-PUBLIC RECORD ARRAY FUNCTION HelperGetCountryList()
-{
-  RETURN GetCountryList(["en","nl","de"]);
-
-}

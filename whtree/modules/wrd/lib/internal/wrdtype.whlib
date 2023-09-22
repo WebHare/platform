@@ -25,6 +25,7 @@ LOADLIB "mod::system/lib/internal/whfs/objects.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
 LOADLIB "mod::wrd/lib/database.whlib";
+LOADLIB "mod::wrd/lib/internal/addressfields.whlib";
 LOADLIB "mod::wrd/lib/internal/attributes.whlib";
 LOADLIB "mod::wrd/lib/internal/cache.whlib";
 LOADLIB "mod::wrd/lib/internal/queries.whlib";
@@ -1972,16 +1973,9 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         IF(TypeId(val) != TYPEID(RECORD))
           THROW NEW Exception(`Value must be of type RECORD, got ${GetTypeName(TYPEID(val))}`);
 
-        IF(RecordExists(val))
-        {
-          STRING rawdata;
-          IF(NOT CellExists(val, 'country'))
-            THROW NEW Exception("Value must have a country field");
-
-          FOREVERY(RECORD field FROM UnpackRecord(val))
-            rawdata := rawdata || EncodeJava(field.name) || "=" || EncodeJava(field.value) || "\n";
-          INSERT [ setting := 0, rawdata := rawdata, blobdata := DEFAULT BLOB ] INTO newsets AT END;
-        }
+        STRING rawdata := EncodeWRDAddress(val);
+        IF(rawdata != "")
+          INSERT CELL[ setting := 0, rawdata, blobdata := DEFAULT BLOB ] INTO newsets AT END;
       }
       CASE wrd_attributetype_free, wrd_attributetype_email, wrd_attributetype_telephone, wrd_attributetype_url
       {

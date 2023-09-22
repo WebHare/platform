@@ -53,10 +53,10 @@ test.registerTests(
       test.assert(!test.qS('[data-wh-form-group-for="address.zip"]').classList.contains("wh-form__fieldgroup--error"), "ZIP should be out of error mode");
     },
 
-    'Check UX - BE',
+    'Check UX - AF',
     async function () {
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=2');
-      test.fill("#addressform-address\\.country", "BE");
+      test.fill("#addressform-address\\.country", "AF");
       test.fill("#addressform-address\\.nr_detail", "100");
       test.fill("#addressform-address\\.zip", "1000");
       testNoLookup("address");
@@ -73,34 +73,36 @@ test.registerTests(
       test.eq('', test.qS("#addressform-address\\.country").value);
       test.assert(!test.canClick("#addressform-address\\.city"));
 
-      // NL (no province, street and city disabled, rest required)
+      // NL (no state, street and city disabled, rest required)
       test.fill("#addressform-address\\.country", "NL");
       test.assert(test.canClick("#addressform-address\\.street"));
       test.assert(test.canClick("#addressform-address\\.nr_detail"));
       test.assert(test.canClick("#addressform-address\\.zip"));
       test.assert(test.canClick("#addressform-address\\.city"));
-      test.assert(test.qS("#addressform-address\\.street").disabled);
-      test.assert(!test.qS("#addressform-address\\.nr_detail").disabled);
-      test.assert(!test.qS("#addressform-address\\.zip").disabled);
-      test.assert(test.qS("#addressform-address\\.city").disabled);
-      test.assert(!test.qS("#addressform-address\\.province").required);
-      test.assert(!test.qS("#addressform-address\\.street").required);
-      test.assert(test.qS("#addressform-address\\.nr_detail").required);
-      test.assert(test.qS("#addressform-address\\.zip").required);
-      test.assert(!test.qS("#addressform-address\\.city").required);
+      test.assert(test.qR("#addressform-address\\.street").disabled);
+      // test.eq("INPUT", test.qR("#addressform-address\\.street").tagName);
+      test.assert(!test.qR("#addressform-address\\.nr_detail").disabled);
+      test.assert(!test.qR("#addressform-address\\.zip").disabled);
+      test.assert(test.qR("#addressform-address\\.city").disabled);
+      test.assert(!test.qR("#addressform-address\\.street").required);
+      test.assert(test.qR("#addressform-address\\.nr_detail").required);
+      test.assert(test.qR("#addressform-address\\.zip").required);
+      test.assert(!test.qR("#addressform-address\\.city").required);
 
-      // BE (+province, province and nr_detail not required)
-      test.fill("#addressform-address\\.country", "BE");
+      // test.fill(test.qR("#addressform-address\\.street"), "Hengelosestraat");
+
+      // Afghanistan (to test the 'default' address field)
+      test.fill("#addressform-address\\.country", "AF");
       test.assert(test.canClick("#addressform-address\\.street"));
-      test.assert(test.canClick("#addressform-address\\.province"));
-      test.assert(test.canClick("#addressform-address\\.nr_detail"));
+      // test.eq("TEXTAREA", test.qR("#addressform-address\\.street").tagName);
+      test.assert(!test.canClick("#addressform-address\\.nr_detail"));
       test.assert(test.canClick("#addressform-address\\.zip"));
       test.assert(test.canClick("#addressform-address\\.city"));
-      test.assert(!test.qS("#addressform-address\\.province").required);
-      test.assert(test.qS("#addressform-address\\.street").required);
-      test.assert(test.qS("#addressform-address\\.nr_detail").required);
-      test.assert(test.qS("#addressform-address\\.zip").required);
-      test.assert(test.qS("#addressform-address\\.city").required);
+      test.assert(test.qR("#addressform-address\\.street").required);
+      test.assert(!test.qR("#addressform-address\\.nr_detail").required);
+      test.assert(!test.qR("#addressform-address\\.zip").required);
+      test.assert(test.qR("#addressform-address\\.city").required);
+      test.assert(!test.qR("#addressform-address\\.state").required);
 
       //Test that the third unconfigured address field simply shows all countries
       const address3country = test.qS("#addressform-address3\\.country");
@@ -197,8 +199,8 @@ test.registerTests(
       test.eq(["", "NL", "BE", "DE", "", "AF", "AX", "AL"], countryoptions.slice(0, 8));
       test.fill("#addressform-address2\\.country", "NL");
       test.eq(["country", "zip", "nr_detail", "street", "city"], test.qSA(`.wh-form__fieldgroup:not(.wh-form__fieldgroup--hidden) [name^="address2."]`).map(node => node.name.replace("address2.", "")));
-      test.fill("#addressform-address2\\.country", "BE");
-      test.eq(["country", "province", "street", "nr_detail", "zip", "city"], test.qSA(`.wh-form__fieldgroup:not(.wh-form__fieldgroup--hidden) [name^="address2."]`).map(node => node.name.replace("address2.", "")));
+      test.fill("#addressform-address2\\.country", "CA");
+      test.eq(["country", "street", "zip", "city", "state"], test.qSA(`.wh-form__fieldgroup:not(.wh-form__fieldgroup--hidden) [name^="address2."]`).map(node => node.name.replace("address2.", "")));
       test.fill("#addressform-address2\\.country", "DE");
       test.eq(["country", "street", "nr_detail", "zip", "city"], test.qSA(`.wh-form__fieldgroup:not(.wh-form__fieldgroup--hidden) [name^="address2."]`).map(node => node.name.replace("address2.", "")));
       test.fill("#addressform-address2\\.country", "NL");

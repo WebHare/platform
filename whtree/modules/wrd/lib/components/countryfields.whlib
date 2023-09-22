@@ -114,16 +114,15 @@ PUBLIC OBJECTTYPE TolliumWRDCountryFields EXTEND TolliumComponentBase
 
   MACRO SetSubFields(RECORD address)
   {
-    FOREVERY(RECORD cellrec FROM UnpackRecord(address))
-    {
-      RECORD field := SELECT * FROM this->country_fields WHERE tag = cellrec.name;
-      IF(RecordExists(field))
-        field.component->value := cellrec.value;
-    }
-
     FOREVERY(RECORD field FROM this->country_fields)
-      IF(NOT CellExists(address, field.tag))
-        field.component->value := "";
+    {
+      STRING setvalue := CellExists(address,field.tag) ? GetCell(address, field.tag) : "";
+      IF(setvalue LIKE "*\n*" AND NOT field.textarea)
+        setvalue := Substitute(setvalue,"\n"," ");
+
+      field.component->value := setvalue;
+      field.component->visible := field.hide = FALSE OR setvalue != ""; //we show hidden fields if they already contain data
+    }
   }
 
   UPDATE MACRO SetReadonly(BOOLEAN newstate)
@@ -152,42 +151,43 @@ PUBLIC OBJECTTYPE TolliumWRDCountryFields EXTEND TolliumComponentBase
 
   MACRO RegenerateFields()
   {
-    this->currentcountry := this->pvt_country;
+    this->currentcountry := ToUppercase(this->pvt_country);
 
     //FIXME Skip deletion if there is no change in fields
     FOREVERY(RECORD field FROM this->country_fields)
       field.component->DeleteComponent();
 
     DELETE FROM this->country_fields ALL;
+    IF(this->pvt_country = '')
+      RETURN;
 
-    RECORD ARRAY fields;
-    IF(this->pvt_country!='')
-      fields := GetAddressFormat(this->pvt_country, [ language := GetTidLanguage() ]).fields;
+    RECORD format := GetAddressFormat(this->currentcountry, [ language := GetTidLanguage() ]);
 
 //FIXME use wrdschema for validation data
-    IF(this->have_nl_validation AND TOUppercase(this->pvt_country)="NL")
+    IF(this->have_nl_validation AND this->currentcountry="NL")
     {
       // We're rearranging the fields when we can verify the address
       //ADDME: hard-coded voor Nederland op het moment...
-      fields := [ (SELECT * FROM fields WHERE ToUppercase(tag) = "ZIP")[0]
-                , (SELECT * FROM fields WHERE ToUppercase(tag) = "NR_DETAIL")[0]
-                , (SELECT * FROM fields WHERE ToUppercase(tag) = "STREET")[0]
-                , (SELECT * FROM fields WHERE ToUppercase(tag) = "CITY")[0]
-                ];
+      format.fields := SELECT * FROM format.fields ORDER BY SearchElement(["zip","nr_detail","street","city","state"], tag);
     }
 
     OBJECT lastfield := this;
-    FOREVERY(RECORD field FROM fields)
+    FOREVERY(RECORD field FROM format.fields)
     {
-      OBJECT extracell := this->CreateSubComponent("textedit");
+      BOOLEAN textarea := field.tag = "street" AND NOT format.onlystreet;
+      OBJECT extracell := this->CreateSubComponent(textarea ? "textarea" : "textedit");
       extracell->maxlength := 512; // 512 bytes should be enough for every address line :-)
       extracell->title := field.title;
-      extracell->required := field.required AND this->required;
+      extracell->required := field.required AND this->required; //TODO why is 'this->required' even an option? shouldn't we just have a 'clear address' button higher up ?
       extracell->readonly := this->readonly;
-      INSERT [ tag := ToUppercase(field.tag)
-             , component := extracell
-             , required := field.required
-             ]  INTO this->country_fields AT END;
+      IF(textarea)
+        extracell->height := "3gr";
+      INSERT CELL[ tag := ToUppercase(field.tag)
+                 , component := extracell
+                 , field.required
+                 , field.hide
+                 , textarea
+                 ]  INTO this->country_fields AT END;
 
       this->parent->InsertComponentAfter(extracell, lastfield, #field > 0);
       lastfield := extracell;

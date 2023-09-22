@@ -18,6 +18,7 @@
   </publisher>
 
   <servicemanager>
+    <runonce tag="fixaddressfields" script="scripts/runonce/fixaddressfields.whscr" when="poststart" />
     <task runat="41  3 * * *" runtz="maintenance" tag="maintenancetask" script="scripts/tasks/executemaintenance.whscr" />
     <task runat="*/6 * * * *" runtz="maintenance" tag="pollpaymentstatus" script="scripts/tasks/pollpaymentstatus.whscr" />
     <task runat="22 */3 * * *" runtz="maintenance" tag="checkpaymentmethods" script="scripts/tasks/checkpaymentmethods.whscr" runatstartup="true" />

@@ -91,7 +91,7 @@ PUBLIC MACRO CustomForm()
                                    , nr_detail := "296"
                                    , zip := "7521 AM"
                                    , city := "Enschede"
-                                   , province := "OV" // will be ignored for NL
+                                   , state := "OV" // will be ignored for NL
                                    ]
                       , "tsline.customselect.select" := "lang-en"
                       , radio := ["opt"]
@@ -113,7 +113,6 @@ PUBLIC MACRO CustomForm()
   TestEq("testfw+formtest@beta.webhare.net", submitted.response.email);
   TestEq("NL", submitted.response.address.country);
   TestEq("Hengelosestraat", submitted.response.address.street);
-  TestEq(FALSE, CellExists(submitted.response.address, "province")); // Province is only used for BE
 
   RECORD witty := webtoolresults->GetWittyResultdata(submitted);
   TestEq(TRUE, witty.pagedata.editlink != "", "Editlink must be set");
@@ -182,7 +181,6 @@ PUBLIC MACRO CustomForm()
   TestEq(TRUE, RecordExists(submitted.response.address));
   TestEq("DE", submitted.response.address.country);
   TestEq("Hengelosestraat", submitted.response.address.street);
-  TestEq(FALSE, CellExists(submitted.response.address, "province")); // Province is only used for BE
 
   //And there should still be only one result
   TestEq(1, webtoolresults->GetResultsCount());
@@ -235,7 +233,7 @@ PUBLIC MACRO CustomForm()
                             , nr_detail := "296"
                             , zip := "7521 AM"
                             , city := "Enschede"
-                            , province := "OV" // will be ignored for NL
+                            , state := "OV" // will be ignored for NL
                             ]
                , "tsline.customselect.select" := "lang-en"
                , textarea := RepeatText("x", 8192) // Test long strings being exported as blobs
@@ -488,7 +486,7 @@ ASYNC MACRO ProcessExpiredResults()
                                    , nr_detail := "296"
                                    , zip := "7521 AM"
                                    , city := "Enschede"
-                                   , province := "OV" // will be ignored for NL
+                                   , state := "OV" // will be ignored for NL
                                    ]
                       , email := "testfw+formtest@beta.webhare.net"
                       ];
@@ -543,7 +541,7 @@ MACRO CustomFormApplyTest()
                                    , nr_detail := "296"
                                    , zip := "7521 AM"
                                    , city := "Enschede"
-                                   , province := "OV" // will be ignored for NL
+                                   , state := "OV" // will be ignored for NL
                                    ]
                       , "tsline.customselect.select" := "lang-en"
                       , radio := ["opt"]

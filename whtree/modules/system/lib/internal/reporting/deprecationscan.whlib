@@ -73,13 +73,29 @@ PUBLIC RECORD FUNCTION GetDeprecationScanReport()
 
   wrd_brokenpasswords := SELECT *, attributetag := DescribeAttribute(attribute) FROM wrd_brokenpasswords;
 
+  RECORD ARRAY addressmembers := SELECT id
+                                   FROM wrd.attrs
+                                  WHERE attributetype IN [ wrd_attributetype_address ];
+
+  RECORD ARRAY wrd_brokenaddresses := SELECT attribute, num := COUNT(*)
+                                       FROM wrd.entity_settings
+                                      WHERE attribute IN (SELECT AS INTEGER ARRAY id FROM addressmembers)
+                                             AND rawdata LIKE "*\n*"
+                                    GROUP BY attribute;
+
+  wrd_brokenaddresses := SELECT *, attributetag := DescribeAttribute(attribute) FROM wrd_brokenaddresses;
+
   RETURN CELL[ creationdate := now
              , versioninfo := GetWebHareVersionInfo()
              , name :=        GetServerName()
              , fs_maxdatetime_settings
              , wrd_brokenemails
              , wrd_brokenpasswords
-             , numissues := Length(fs_maxdatetime_settings) + Length(wrd_brokenemails) + Length(wrd_brokenpasswords)
+             , wrd_brokenaddresses
+             , numissues := Length(fs_maxdatetime_settings)
+                            + Length(wrd_brokenemails)
+                            + Length(wrd_brokenpasswords)
+                            + Length(wrd_brokenaddresses)
              ];
 }
 
@@ -97,11 +113,17 @@ PUBLIC MACRO PrintDeprecationScanReport(RECORD report)
     FOREVERY(RECORD wrd_brokenemail FROM report.wrd_brokenemails)
       Print(`* WRD Attribute #${wrd_brokenemail.attribute} (${wrd_brokenemail.attributetag}) contains ${wrd_brokenemail.num} instance(s) of a future unacceptable email address '${wrd_brokenemail.rawdata}'\n`);
   ELSE
-    Print(`- Good! No WRD Email attributes with an unacceptable email address\n`);
+    Print(`- Good! No WRD Email attribute values with an unacceptable email address\n`);
 
   IF(Length(report.wrd_brokenpasswords) > 0)
     FOREVERY(RECORD wrd_brokenpassword FROM report.wrd_brokenpasswords)
       Print(`* WRD Attribute #${wrd_brokenpassword.attribute} (${wrd_brokenpassword.attributetag}) contains ${wrd_brokenpassword.num} instance(s) of a future unacceptable password algorithm '${wrd_brokenpassword.alg}'\n`);
   ELSE
-    Print(`- Good! No WRD Password attributes with a broken hash algorithm\n`);
+    Print(`- Good! No WRD Password attribute values with a broken hash algorithm\n`);
+
+  IF(Length(report.wrd_brokenaddresses) > 0)
+    FOREVERY(RECORD wrd_brokenaddress FROM report.wrd_brokenaddresses)
+      Print(`* WRD Attribute #${wrd_brokenaddress.attribute} (${wrd_brokenaddress.attributetag}) contains ${wrd_brokenaddress.num} instance(s) of an old-style address. Run fixaddressfields?\n`);
+  ELSE
+    Print(`- Good! No old WRD Adderss attribute avlues\n`);
 }

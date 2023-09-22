@@ -8,8 +8,8 @@ LOADLIB "mod::tollium/lib/commondialogs.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
+LOADLIB "mod::wrd/lib/address.whlib";
 LOADLIB "mod::wrd/lib/imexport.whlib";
-LOADLIB "mod::wrd/lib/worldinfo/countries.whlib";
 LOADLIB "mod::wrd/lib/internal/support.whlib";
 LOADLIB "mod::wrd/lib/internal/tolliumfuncs.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
@@ -279,6 +279,7 @@ PUBLIC OBJECTTYPE Import EXTEND TolliumScreenBase
 
   ///Result imports
   RECORD ARRAY imports;
+  RECORD ARRAY addressfields;
 
   PUBLIC MACRO Init(RECORD data)
   {
@@ -396,7 +397,12 @@ PUBLIC OBJECTTYPE Import EXTEND TolliumScreenBase
 
   MACRO OnImportDataPageInit(RECORD pagedata)
   {
-    //this->wizard->nextbutton->enabled := RecordExists(this->importfile->value);
+    //we load addressfields before tests have to go into ExpectOptionalProgressWindow as that test API call will proceed when we WaitForPromise
+    this->addressfields := SELECT tag := field
+                                , requiresimportmap := field = "country"
+                                , title := GetTid(tid)
+                             FROM GetWRDAddressFields()
+                            WHERE this->forcecountry = "" ? TRUE : field != "country";
   }
   BOOLEAN FUNCTION OnBeforeImportFileChange(RECORD newfilevalue)
   {
@@ -493,18 +499,6 @@ PUBLIC OBJECTTYPE Import EXTEND TolliumScreenBase
 
   RECORD ARRAY FUNCTION GenerateAddressSubs(RECORD impcol)
   {
-    //ADDME get fields for all linked countries?
-    RECORD ARRAY addressfields;
-    IF(this->forcecountry = "")
-      addressfields := [[ tag := "COUNTRY", title := GetTid("wrd:exchange.import.country"), requiresimportmap := TRUE ]];
-
-    RECORD ARRAY subfields := GetWRDAddressInfo(this->forcecountry ?? "NL", GetTidLanguage());
-    addressfields := addressfields CONCAT
-                        (SELECT *
-                              , requiresimportmap := FALSE
-                           FROM subfields
-                       ORDER BY ordering);
-
     STRING ARRAY usedfields := SELECT AS STRING ARRAY ToUppercase(subfield) FROM this->mapped_columns WHERE tag = impcol.tag;
     RETURN SELECT subfield := tag
                 , title
@@ -525,7 +519,7 @@ PUBLIC OBJECTTYPE Import EXTEND TolliumScreenBase
                                           , islinkable := TRUE
                                           ]
                                 ]
-             FROM addressfields
+             FROM this->addressfields AS addressfields
             WHERE tag NOT IN usedfields;
   }
 

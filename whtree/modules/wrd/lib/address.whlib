@@ -4,11 +4,13 @@
 */
 
 LOADLIB "wh::adhoccache.whlib";
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/yaml.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
-LOADLIB "mod::wrd/lib/worldinfo/countries.whlib";
 LOADLIB "mod::wrd/lib/internal/addressfields.whlib";
 LOADLIB "mod::wrd/lib/internal/addressverification/support.whlib";
 
@@ -60,6 +62,18 @@ RECORD ARRAY addressvalidationservices :=
     ];
 
 
+RECORD FUNCTION GetCacheableAddressInfoData()
+{
+  RETURN [ value := DecodeYAML(BlobToString(GetWebHareResource("mod::platform/data/facts/addresses.yml")))
+         , ttl := 60 * 60 * 1000
+         , eventmasks := GetResourceEventMasks(["mod::platform/data/facts/addresses.yml"])
+         ];
+}
+RECORD FUNCTION GetAddressInfoData()
+{
+  RETURN GetAdhocCached(CELL["addresses"], PTR GetCacheableAddressInfoData);
+}
+
 /** @short Get a list of supported validation services
     @return List of validation services
     @cell(string) return.name Validation service name, should be unique
@@ -68,8 +82,7 @@ RECORD ARRAY addressvalidationservices :=
     @cell(string) return.editextension Editor extension, implementation object should extend WRDAddressVerificationExtensionBase
     @cell(string array) return.countries List of (uppercase) country codes of the countries for which this service validates addresses
     @cell(string array) return.completionfields List of WRD address field tags of fields that can be completed using other fields (e.g. for Dutch
-        addresses this will be [ "STREET", "CITY" ] as these fields can be filled using "ZIP" and "NR_DETAIL"). For a list of
-        available field tags, see worldinfo.xml
+        addresses this will be [ "STREET", "CITY" ] as these fields can be filled using "ZIP" and "NR_DETAIL").
 */
 PUBLIC RECORD ARRAY FUNCTION GetAddressValidationServices()
 {
@@ -390,8 +403,45 @@ PUBLIC STRING FUNCTION FormatAddress(RECORD addressdata, RECORD options DEFAULTS
   options := ValidateOptions( [ language := ""
                               , showcountry := TRUE
                               ], options);
+
   STRING language := options.language ?? GetTidLanguage();
-  RETURN GetDisplayValueForParsedAddress(FixupAddress(addressdata), language, options.showcountry);
+  addressdata := FixupAddress(addressdata);
+  IF(NOT CellExists(addressdata,'country'))
+    RETURN "";
+
+  RECORD formatinfo := GetAddressFormat(addressdata.country);
+  STRING ARRAY outputlines;
+  FOREVERY(RECORD line FROM formatinfo.format)
+  {
+    STRING outputline;
+    FOREVERY(STRING field FROM line.fields)
+    {
+      IF(field = "country" AND NOT options.showcountry)
+        CONTINUE;
+
+      IF(field IN stored_address_fields)
+      {
+        STRING usetext;
+        IF(CellExists(addressdata,field)) //straight field inclusion
+        {
+          usetext := GetCell(addressdata, field);
+          IF(field = "country")
+            usetext := MapToCountryName(usetext, language) ?? usetext;
+        }
+
+        IF(usetext != "")
+          outputline := (outputline != "" ? outputline || " " : "") || usetext;
+      }
+      ELSE
+      {
+        outputline := outputline || field;
+      }
+    }
+    IF(outputline != "")
+      INSERT outputline INTO outputlines AT END;
+  }
+
+  RETURN Detokenize(outputlines, '\n');
 }
 
 /** @short Normalize a WRD address record
@@ -475,35 +525,53 @@ PUBLIC STRING FUNCTION JoinHousenumber(STRING nr, STRING detail)
     @param countrycode Requested country
     @cell(string) options.language Language code to use (default: current tid language)
     @return Address fields in ordering, excluding country field
-    @cell(string) return.autocomplete Recommended HTML5 autcomplete attribute
-    @cell(string) return.tag Field name (eg 'street', 'nr_detail')
-    @cell(string) return.title Label in requested language
-    @cell(boolean) return.required If true, this this field is required for this country
-    @cell(boolean) return.break_after If true, a linebreak should generally occur after thi sfield
-*/
+    @cell(string) return.fields.autocomplete Recommended HTML5 autcomplete attribute
+    @cell(string) return.fields.field Field name (eg 'street', 'nr_detail')
+    @cell(string) return.fields.title Label in requested language
+    @cell(boolean) return.fields.hide We recommend hiding this field for this country, especially if not yet set
+    @cell(boolean) return.onlyStreet If true we recommend a single line version  of the street field */
 PUBLIC RECORD FUNCTION GetAddressFormat(STRING countrycode, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  countrycode := ToUppercase(countrycode);
   options := ValidateOptions( [ language := "" ], options);
   STRING language := options.language ?? GetTidLanguage();
-  RECORD retval := [ fields := SELECT *, DELETE ordering FROM GetWRDAddressInfo(countrycode, language)
-                   ];
 
-  RETURN retval;
-}
+  RECORD addressinfo := GetAddressInfoData();
+  BOOLEAN hidestate := countrycode IN addressinfo.hidestate;
+  BOOLEAN requirestate := countrycode IN addressinfo.requirestate;
+  BOOLEAN requirezip := countrycode IN addressinfo.requirezip;
+  STRING nrplace :=countrycode IN addressinfo.nrdetail.before ? "before" : countrycode IN addressinfo.nrdetail.after ? "after" : "hide";
 
-/** @short Describe an address field, generalized for any country
-    @param tag Requested field
-    @cell(string) options.language Language code to use (default: current tid language)
-    @return A description of the requested field (throws if field is unknown)
-    @cell(string) return.autocomplete Recommended HTML5 autcomplete attribute
-    @cell(string) return.title Label in requested language
-    @cell(boolean) return.required If true, this this field is required for this country
-*/
-PUBLIC RECORD FUNCTION GetAddressField(STRING tag, RECORD options DEFAULTSTO DEFAULT RECORD)
-{
-  options := ValidateOptions( [ language := "" ], options);
-  RECORD field := GetWRDAddressField(tag, options.language ?? GetTidLanguage());
-  RETURN RecordExists(field) ? CELL[...field, DELETE ordering, DELETE break_after, DELETE tag ] : field;
+  RECORD ARRAY fields := SELECT TEMPORARY hide := (field = "state" AND hidestate) OR (field = "nr_detail" AND nrplace = "hide")
+                              , tag := ToUppercase(field)
+                              , autocomplete := CellExists(addressfields, "autocomplete") ? addressfields.autocomplete : ""
+                              , title := GetTidForLanguage(language, tid)
+                              , hide := hide
+                              , required := field = "state" ? requirestate
+                                            : field = "zip" ? requirezip
+                                            : hide ? FALSE
+                                            : field = "nr_detail" ? nrplace != "hide"
+                                            : TRUE
+                           FROM addressinfo.addressfields
+                          WHERE field != "country";
+
+  RECORD ARRAY format;
+  IF(CellExists(addressinfo.customformat, countrycode))
+  {
+    format := GetCell(addressinfo.customformat, countrycode);
+  }
+  ELSE
+  {
+    format := [[ fields := nrplace = "after" ? [ "street", "nr_detail" ] : [ "nr_detail", "street" ]]
+              ,[ fields := [ "zip", "city", "state" ]]
+              ];
+  }
+  INSERT [ fields := [ "country" ]] INTO format AT END;
+
+  RETURN CELL [ fields
+              , format
+              , onlyStreet := countrycode IN addressinfo.onlyStreet
+              ];
 }
 
 /** @short Get an address validator as configured for a WRD schema
@@ -584,4 +652,12 @@ PUBLIC OBJECT FUNCTION GetAddressLookupAPI(OBJECT applytester, STRING country)
 {
   RECORD info := __LookupFormIntegrationAddressInfo(applytester);
   RETURN __GetAddressLookupAPIForSettings(info, country);
+}
+
+//List address fields we know about. import.whlib needs this (including its connect cloned version)
+PUBLIC RECORD ARRAY FUNCTION GetWRDAddressFields()
+{
+  RETURN SELECT field
+              , tid
+           FROM GetAddressInfoData().addressfields;
 }

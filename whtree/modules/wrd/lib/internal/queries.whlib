@@ -3348,7 +3348,6 @@ STATIC OBJECTTYPE WRDDBAddressValue EXTEND WRDDBValue
   PUBLIC UPDATE VARIANT FUNCTION GetFromRecord(RECORD ARRAY entity_settings, INTEGER settings_start, INTEGER settings_limit)
   {
     RETURN GenerateAddress(entity_settings[settings_start].rawdata, this->language, this->wrd_schema->id, NOT this->wrd_schema->__iswrdapi2017);
-//      RETURN ParseAddressRawdata(entity_settings[settings_start].rawdata);
   }
 
   PUBLIC UPDATE BOOLEAN FUNCTION MatchesDefault(VARIANT value, OBJECT condition)

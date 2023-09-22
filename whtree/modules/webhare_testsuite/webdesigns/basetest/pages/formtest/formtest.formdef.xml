@@ -84,7 +84,7 @@
       <textedit name="numberemptyvalue" emptyvalue="0" title="NumberEmpty" value="0" valuetype="integer" />
       <textedit name="nevervisible" title="I AM INVISIBLE" value="InvisValue" visible="false" />  <!-- static invisible -->
       <textedit name="invisible" title="I AM INVISIBLE" value="InvisValue" />  <!-- dynamic invisible -->
-      <address name="address" countrylist="NL BE" title="Address" />
+      <address name="address" countrylist="NL BE CA" title="Address" />
       <wt:twolevel name="twolevel" groupclasses="wh-testsuite-twolevel-groupclasses" title="" />
       <textarea name="textarea" maxlength="70" placeholder="Type a text in this area" title="Textarea" />
       <checkbox name="agree" labeltid=".terms" required="true" title="Agree?" />
@@ -276,7 +276,7 @@
       <group name="addressgroup" title="Address group">
         <checkbox name="visiblefields" label="VisibleFields" title="" value="true" />
         <checkbox name="enablefields" label="EnableFields" title="" value="true" />
-        <address name="address" countrylist="NL BE" options="nl-zip-force">
+        <address name="address" countrylist="NL AF" options="nl-zip-force">
           <fieldtitle tag="nr_detail" title="Number and Addition" />
           <fieldtitle tag="zip" />  <!-- Use tid derived from field tid and fieldtitle tag, i.e. "site.addressform.address-zip" -->
         </address>
