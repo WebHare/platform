@@ -37,7 +37,6 @@ PUBLIC STRING FUNCTION EncodeWRDAddress(RECORD indata)
     RETURN "";
   IF(NOT CellExists(indata,'country') OR Length(indata.country) != 2)
   {
-    dumpvalue(indata);
     THROW NEW Exception(`The field 'country' is required in an address and must be a 2 digit code`);
   }
 
