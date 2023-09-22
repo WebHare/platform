@@ -1,11 +1,6 @@
 ﻿<?wh
 
-LOADLIB "wh::adhoccache.whlib";
-LOADLIB "wh::util/algorithms.whlib";
 LOADLIB "wh::util/localization.whlib";
-LOADLIB "wh::witty.whlib";
-
-LOADLIB "mod::wrd/lib/worldinfo/countries.whlib";
 
 PUBLIC CONSTANT STRING ARRAY stored_address_fields := ["country","street","nr_detail","zip","state","city"];
 
@@ -29,6 +24,13 @@ RECORD FUNCTION ParseAddressRawdata(STRING data)
   RETURN retdata;
 }
 
+PUBLIC STRING FUNCTION MapToCountryName(STRING countrycode, STRING language)
+{
+  RETURN SELECT AS STRING GetCell(countries, language)
+           FROM GetCountryList(language) AS countries
+          WHERE code = VAR countrycode;
+}
+
 PUBLIC STRING FUNCTION EncodeWRDAddress(RECORD indata)
 {
   IF(NOT RecordExists(indata))
@@ -46,62 +48,6 @@ PUBLIC STRING FUNCTION EncodeWRDAddress(RECORD indata)
       indata := CellDelete(indata, field);
 
   RETURN EncodeJSON(indata);
-}
-
-PUBLIC STRING FUNCTION GetDisplayValueForParsedAddress(RECORD rawaddress, STRING language, BOOLEAN showcountry)
-{
-  STRING countrycode := CellExists(rawaddress,"country") ? rawaddress.country : "";
-  /* Look up address information for this country */
-  RECORD info := __GetWRDAddressInfo(countrycode,language);
-  RECORD ARRAY fields := info.fields;
-
-  STRING displayvalue;
-  IF(info.addressformat != "")
-  {
-     //TODO Cache the witty!
-    OBJECT addresswitty := NEW WittyTemplate("TEXT");
-    addresswitty->LoadCodeDirect(DecodeJava(info.addressformat));
-    displayvalue := addresswitty->RunToString(rawaddress);
-  }
-  ELSE
-  {
-    FOREVERY(RECORD subfield FROM fields)
-    {
-      STRING cellvalue;
-      IF(CellExists(rawaddress,subfield.tag))
-        cellvalue:=GetCell(rawaddress,subfield.tag);
-
-      INSERT CELL value := cellvalue INTO fields[#subfield];
-
-      displayvalue := displayvalue || cellvalue;
-
-      //Append a break if requested, but only if this is not the first line and the preceding line was not empty.
-      IF (displayvalue != "" AND Right(displayvalue,1)!="\n")
-        displayvalue := displayvalue || (subfield.break_after ? '\n' : ' ');
-    }
-  }
-
-  // Add the country
-  IF(showcountry)
-  {
-    // Add an break (if needed)
-    IF (displayvalue!="" AND Right(displayvalue,1)!="\n")
-      displayvalue := displayvalue || '\n';
-
-    displayvalue := displayvalue ||
-        (SELECT AS STRING title
-           FROM GetWRDCountryList(language, countrycode)
-          WHERE code = ToUppercase(countrycode));
-  }
-  RETURN TrimWhitespace(displayvalue);
-}
-
-RECORD FUNCTION GetCacheableCountryNameList(STRING language)
-{
-  RETURN
-      [ value :=      (SELECT code, title := GetCell(row, language) FROM GetCountryList(language) AS row ORDER BY code)
-      , ttl :=        60 * 60 * 1000
-      ];
 }
 
 PUBLIC RECORD FUNCTION GenerateAddress(STRING rawvalue, STRING currentlanguage, INTEGER wrd_schema, BOOLEAN with_country_full)
@@ -169,18 +115,8 @@ PUBLIC RECORD FUNCTION GenerateAddress(STRING rawvalue, STRING currentlanguage, 
 
   finaladdress.country := ToUppercase(finaladdress.country);
 
-  IF (with_country_full)
-  {
-    STRING country_full;
-    IF(finaladdress.country != "")
-    {
-      RECORD ARRAY countries := GetAdhocCached([ lang := currentlanguage ], PTR GetCacheableCountryNameList(currentlanguage));
-      RECORD pos := RecordLowerBound(countries, [ code := finaladdress.country ], [ "CODE" ]);
-      IF (pos.found)
-        country_full := countries[pos.position].title;
-    }
-    finaladdress := CELL[...finaladdress, country_full ];
-  }
+  IF (with_country_full) //only used by pre WRD2017 API
+    finaladdress := CELL[...finaladdress, country_full := MapToCountryName(finaladdress.country, currentlanguage) ];
 
   RETURN finaladdress;
 }

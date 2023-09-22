@@ -429,11 +429,7 @@ PUBLIC STRING FUNCTION FormatAddress(RECORD addressdata, RECORD options DEFAULTS
         {
           usetext := GetCell(addressdata, field);
           IF(field = "country")
-          {
-            STRING fullcountryname := SELECT AS STRING GetCell(country,language) FROM GetCountryList(language) AS country WHERE code = usetext;
-            IF(fullcountryname != "")
-              usetext := fullcountryname;
-          }
+            usetext := MapToCountryName(usetext, language) ?? usetext;
         }
 
         IF(usetext != "")
