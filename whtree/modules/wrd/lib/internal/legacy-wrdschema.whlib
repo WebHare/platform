@@ -158,16 +158,6 @@ PUBLIC OBJECTTYPE LegacyWRDSchema EXTEND WRDSchemaBase
     RETURN this->countries;
   }
 
-  PUBLIC RECORD ARRAY FUNCTION GetCountryAddressFields(STRING countrycode)
-  {
-    RETURN GetWRDAddressInfo(countrycode, this->currentlanguage);
-  }
-
-  PUBLIC STRING FUNCTION GetParsedAddressDisplay(RECORD addressdata)
-  {
-    RETURN GetDisplayValueForParsedAddress(addressdata, this->currentlanguage, TRUE);
-  }
-
   PUBLIC OBJECT FUNCTION CreateRelationType (STRING title, STRING description, STRING tag)
   {
     THROW NEW Exception(`Legacy WRDType attribute manipulation is no longer supported. You need to use the WRD2017 APIs from mod::wrd/lib/api.whlib`);

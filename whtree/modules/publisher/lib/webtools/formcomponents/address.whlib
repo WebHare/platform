@@ -598,7 +598,7 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
 
       FOREVERY (RECORD field FROM GetAddressFormat(code, [ language := this->form->formlanguagecode ]).fields)
       {
-        RECORD fieldrec := SELECT *, idx := #allfields FROM this->allfields WHERE tag = field.tag;
+        RECORD fieldrec := SELECT *, idx := #allfields FROM this->allfields WHERE allfields.tag = field.tag;
         IF (RecordExists(fieldrec))
         {
           INSERT code INTO this->allfields[fieldrec.idx].countries AT END;

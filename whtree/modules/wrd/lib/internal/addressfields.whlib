@@ -6,9 +6,8 @@ LOADLIB "wh::util/localization.whlib";
 LOADLIB "wh::witty.whlib";
 
 LOADLIB "mod::wrd/lib/worldinfo/countries.whlib";
-LOADLIB "mod::wrd/lib/worldinfo/countries.whlib";
 
-CONSTANT STRING ARRAY stored_address_fields := ["country","street","nr_detail","zip","state","city"];
+PUBLIC CONSTANT STRING ARRAY stored_address_fields := ["country","street","nr_detail","zip","state","city"];
 
 /** @short Parse a rawdata address
     @long The address is stored in java-encoded, linefeed separated, value=data pairs */

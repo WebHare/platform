@@ -116,7 +116,8 @@ PUBLIC RECORD FUNCTION __GetWRDAddressInfo(STRING countrycode, STRING language)
     @cell return.fields.tag A tag for this field (STREET, NR_DETAIL, CITY, STATE, POBOX, ZIP, or a local specific tag)
     @cell return.fields.title Name for this field in selected language
     @cell return.fields.ordering Relative 1-based ordering for this field
-    @cell return.fields.required True if this field is required */
+    @cell return.fields.required True if this field is required
+    @cell return.fields.multiline Whether we recommend a multiline version (street field only, is enabled except for specific countries */
 PUBLIC RECORD ARRAY FUNCTION GetWRDAddressInfo(STRING countrycode, STRING language, INTEGER schemaid DEFAULTSTO 0)
 {
   RETURN __GetWRDAddressInfo(countrycode, language).fields;

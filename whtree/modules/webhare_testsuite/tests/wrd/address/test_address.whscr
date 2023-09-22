@@ -158,18 +158,6 @@ MACRO NLCodes()
   TestEq("123-6", FixupNRDetailNL("123-6"));
   TestEq("", FixupNRDetailNL("06-123"));
 
-  RECORD format := GetAddressFormat("nl");
-  TestEq(4, Length(format.fields));
-  TestEq('Number', format.fields[1].title);
-  TestEq((SELECT * FROM format.fields), format.fields, "Should be returned in proper order");
-
-  format := GetAddressFormat("NL", [ language := "nl" ]);
-  TestEq(4, Length(format.fields));
-  TestEq('Straat', format.fields[0].title);
-  TestEq(FALSE, format.fields[0].break_after);
-  TestEq('Huisnummer', format.fields[1].title);
-  TestEq(TRUE, format.fields[1].break_after);
-
   TestEq(DEFAULT RECORD, FixupAddress(DEFAULT RECORD));
   TestEq([ street := "", nr_detail := "", city := "", country := "NL", zip := "7512 AB" ], FixupAddress([ country := "nl", zip := "7512ab" ]));
   TestEq([ street := "", nr_detail := "", city := "", country := "NL", zip := "7512 AB" ],  FixupAddress([ country := "NL", zip := "7512ab" ]));
@@ -190,7 +178,8 @@ OBJECT ASYNC FUNCTION TolliumFieldsNew()
 
   AWAIT ExpectScreenChange(+1, PTR topscreen->comp->changeaction->TolliumClick());
   TT("country")->value := "NL";
-  TestEq(4, Length(TT("countryfields")->currentfields));
+  TestEq(5, Length(TT("countryfields")->currentfields));
+  TestEq(4, Length(SELECT FROM TT("countryfields")->currentfields WHERE component->visible));
 
   (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="STREET")->value := "Hengelosestraat";
   (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="NR_DETAIL")->value := "296";
@@ -198,7 +187,7 @@ OBJECT ASYNC FUNCTION TolliumFieldsNew()
   (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="CITY")->value := "Enschede";
 
   TT("country")->value := "CF";
-  TestEq(2, Length(TT("countryfields")->currentfields));
+  TestEq(5, Length(SELECT FROM TT("countryfields")->currentfields WHERE component->visible)); //state will become visible
   TestEq("Enschede", (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="CITY")->value);
 
   TT("country")->value := "NL"; //TODO restore nr_detail etc if we had them in the current session?
@@ -220,25 +209,44 @@ OBJECT ASYNC FUNCTION TolliumFieldsNew()
 
 MACRO TestAddressInfo()
 {
-  RECORD ARRAY expectnlfields :=
-      [ [ break_after := FALSE, ordering := 1, required := TRUE, tag := "STREET",    title := "Straat",     autocomplete := "address-line1"   ]
-      , [ break_after := TRUE,  ordering := 2, required := TRUE, tag := "NR_DETAIL", title := "Huisnummer", autocomplete := ""                ]
-      , [ break_after := FALSE, ordering := 4, required := TRUE, tag := "ZIP",       title := "Postcode",   autocomplete := "postal-code"     ]
-      , [ break_after := TRUE,  ordering := 5, required := TRUE, tag := "CITY",      title := "Plaats",     autocomplete := "address-level2"  ]
-      ];
-
-  TestEq(expectnlfields, GetWRDAddressInfo("nl", "nl")); //legacy api!
-  TestEq([ fields := SELECT *, DELETE ordering FROM expectnlfields ], GetAddressFormat("nl", [language:="nl"]));
-
-  RECORD format_us := GetAddressFormat("us", [language:="en"]);
   TestEq(
-      [ [ break_after := FALSE, required := FALSE, tag := "NR_DETAIL", title := "Number",   autocomplete := ""                ]
-      , [ break_after := TRUE,  required := TRUE, tag := "STREET",     title := "Street",   autocomplete := "address-line1"   ]
-      , [ break_after := TRUE,  required := FALSE, tag := "POBOX",     title := "PO-Box",   autocomplete := ""                ]
-      , [ break_after := FALSE, required := TRUE, tag := "CITY",       title := "City",     autocomplete := "address-level2"  ]
-      , [ break_after := FALSE, required := TRUE, tag := "STATE",      title := "State",    autocomplete := "address-level1"  ]
-      , [ break_after := TRUE,  required := TRUE, tag := "ZIP",        title := "Zip code", autocomplete := "postal-code"     ]
-      ], format_us.fields);
+    [[ tag := "STREET", autocomplete := "street-address",  title := "Street", hide := FALSE, required := TRUE ]
+    ,[ tag := "NR_DETAIL", autocomplete := "",  title := "Number", hide := FALSE, required := TRUE ]
+    ,[ tag := "ZIP", autocomplete := "postal-code",  title := "Zip code", hide := FALSE, required := TRUE ]
+    ,[ tag := "CITY", autocomplete := "address-level2",  title := "City", hide := FALSE, required := TRUE ]
+    ,[ tag := "STATE", autocomplete := "address-level1",  title := "State", hide := TRUE, required := FALSE ]
+    ], GetAddressFormat("nl", [ language := "en" ]).fields);
+
+  TestEq(TRUE, GetAddressFormat("nl", [ language := "en" ]).onlyStreet);
+
+  TestEqMembers( //test translation
+    [[ tag := "STREET",  title := "Straat", hide := FALSE ]
+    ,[ tag := "NR_DETAIL", title :="Huisnummer", hide := FALSE ]
+    ,[ tag := "ZIP" ]
+    ,[ tag := "CITY" ]
+    ,[ tag := "STATE" ]
+    ], GetAddressFormat("nl", [ language := "nl" ]).fields, "*");
+
+  TestEqMembers(
+    [ fields := [[ tag := "STREET",    hide := FALSE, required := TRUE ]
+                ,[ tag := "NR_DETAIL", hide := TRUE, required := FALSE ]
+                ,[ tag := "ZIP",       hide := FALSE, required := TRUE ]
+                ,[ tag := "CITY",      hide := FALSE, required := TRUE ]
+                ,[ tag := "STATE",     hide := FALSE, required := TRUE ]
+                ]
+    , onlystreet := FALSE
+    ], GetAddressFormat("us"), "*");
+
+  //Note that 'Afghanisatan' is currently a 'we honestly don't know at all' country and is used to test the defaults
+  TestEqMembers(
+    [ fields := [[ tag := "STREET",    hide := FALSE, required := TRUE ]
+                ,[ tag := "NR_DETAIL", hide := TRUE, required := FALSE ]
+                ,[ tag := "ZIP",       hide := FALSE, required := FALSE ]
+                ,[ tag := "CITY",      hide := FALSE, required := TRUE ]
+                ,[ tag := "STATE",     hide := FALSE, required := FALSE ]
+                ]
+    , onlystreet := FALSE
+    ], GetAddressFormat("af"), "*");
 
   TestEq("Hengelosestraat 296\n7521 AM  Enschede\nNetherlands", FormatAddress([ country := "NL", street := "Hengelosestraat", nr_detail := "296", city := "Enschede", zip := "7521AM" ], [ language := "EN"]));
   TestEq("Hengelosestraat 296\n7521 AM  Enschede\nNederland", FormatAddress([ country := "NL", street := "Hengelosestraat", nr_detail := "296", city := "Enschede", zip := "7521AM" ], [ language := "NL"]));
@@ -275,7 +283,7 @@ OBJECT ASYNC FUNCTION TolliumFieldsEdit()
   AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
   AWAIT ExpectScreenChange(+1, PTR topscreen->comp->changeaction->TolliumClick());
   TestEq("La Rambla", (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="STREET")->value);
-  TestEq([ required := FALSE ], SELECT AS RECORD CELL[ component->required ] FROM TT("countryfields")->currentfields WHERE tag="PROVINCE");
+  TestEq([ required := FALSE ], SELECT AS RECORD CELL[ component->required ] FROM TT("countryfields")->currentfields WHERE tag="STATE");
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 
@@ -473,7 +481,7 @@ MACRO TestFallbackAPI()
 
   checkres := api->CheckAddress([ zip := "2018", nr_detail := "27", country := "BE", street := "Koningin Astridplein", city := "Antwerpen"], [ alwaysverify := TRUE ]);
   TestEq('ok', checkres.status);
-  TestEq([ city := "Antwerpen", country := "BE", nr_detail := "27", zip := "2018", street := "Koningin Astridplein" ], checkres.data);
+  TestEq([ city := "Antwerpen", country := "BE", nr_detail := "27", zip := "2018", street := "Koningin Astridplein"], checkres.data);
 
   //block invalid BE zips
   checkres := api->CheckAddress([ zip := "999", nr_detail := "27", country := "BE", street := "Koningin Astridplein", city := "Antwerpen"], [ alwaysverify := TRUE ]);
