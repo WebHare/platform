@@ -137,6 +137,6 @@ test.registerTests(
   ]);
 
 
-  //and now we can close the app
-  //ADDME toggle allowclose
-  //ADDME test verification dialog
+//and now we can close the app
+//ADDME toggle allowclose
+//ADDME test verification dialog

@@ -3,7 +3,7 @@ import { WaitableConditionBase } from "./waitableconditionbase";
 /** This class implements a timer that can be waited on (and be reset)
 */
 export class WaitableTimer extends WaitableConditionBase {
-  _cb: NodeJS.Timer | null;
+  _cb: NodeJS.Timeout | null;
 
   constructor(timeout?: number) {
     super();

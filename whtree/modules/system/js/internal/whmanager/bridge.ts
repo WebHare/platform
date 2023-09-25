@@ -515,10 +515,9 @@ class MainBridge extends EventSource<BridgeEvents> {
   conn: WHManagerConnection;
   connectionactive = false;
   connectcounter = 0;
-  connectionfailedtimeout?: NodeJS.Timer;
   localbridges = new Set<{ id: string; port: TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage> }>;
   _ready = createDeferred<void>();
-  _conntimeout?: NodeJS.Timer;
+  _conntimeout?: NodeJS.Timeout;
 
   ports = new Map<string, PortRegistration>;
 
