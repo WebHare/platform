@@ -798,11 +798,14 @@ testrunner->print_debug := parsedargs.d;
 
 RECORD ARRAY alltests;
 RECORD ARRAY tests := testrunner->GatherAllTests(testlist, DEFAULT STRING ARRAY);
+INTEGER iteration;
 WHILE (TRUE)
 {
   BOOLEAN seenanytest := FALSE;
 
   RECORD ARRAY failed_tests;
+
+  iteration := iteration + 1;
 
   FOREVERY (RECORD test FROM tests)
   {
@@ -851,7 +854,10 @@ WHILE (TRUE)
     TerminateScriptWithError(`Error: No test matched: ${Detokenize(parsedargs.testlist,',')}'`);
 
   MyPrint("\n\n+=====================================================================\n");
-  MyPrint("| TEST RESULTS\n");
+  IF(looptests)
+    MyPrint(`| TEST RESULTS (loops so far: ${iteration})\n`);
+  ELSE
+    MyPrint(`| TEST RESULTS\n`);
   MyPrint("+=====================================================================\n\n");
 
   IF (LENGTH(failed_tests) = 0)
