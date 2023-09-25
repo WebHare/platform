@@ -13,7 +13,7 @@ function testHasLookup(fieldname: string) {
   test.assert(test.qSA(`[data-wh-form-group-for^="${CSS.escape(fieldname + ".")}"]`).filter(el => el.classList.contains("wh-form__fieldgroup--addresslookup")).length > 0);
 }
 
-const rawApiTests = 8;
+const rawApiTests = 10;
 
 test.registerTests(
   [
@@ -61,10 +61,22 @@ test.registerTests(
       }, await verifyAddress({ country: "NL", zip: "7500 OO", nr_detail: "3" }));
 
       test.eqProps({
+        status: "error",
+        errors: [{ fields: [], message: "Het adres kon niet worden gevonden." }],
+        corrections: null
+      }, await verifyAddress({ country: "NL", zip: "7500 OO", nr_detail: "3" }, { lang: "nl" }));
+
+      test.eqProps({
         status: "unknown",
         errors: [],
         corrections: null
       }, await verifyAddress({ country: "NL", zip: "7500 OO", nr_detail: "4" }));
+
+      test.eqProps({
+        status: "error",
+        errors: [{ fields: [], message: "The address could not be found." }],
+        corrections: null
+      }, await verifyAddress({ country: "NL", zip: "7500 OO", nr_detail: "4" }, { checks: ["nl-zip-force"] }));
 
       test.eqProps({
         status: "error",

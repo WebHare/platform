@@ -6,8 +6,8 @@ export interface AddressValue {
   nr_detail?: string;
   zip?: string;
   state?: string;
-  //2 letter country code, upper
-  country?: string;
+  //2 letter country code, uppercase
+  country: string;
 }
 
 export type AddressChecks = "nl-zip-suggest" | "nl-zip-force";

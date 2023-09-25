@@ -2,7 +2,6 @@ import * as dompack from "@webhare/dompack";
 import { getTid } from "@mod-tollium/js/gettid";
 import FormBase from "../formbase";
 import { flags } from "@webhare/env";
-import { AddressValue } from "@webhare/forms/src/address";
 
 function orThrow(error: string): never {
   throw new Error(error);
@@ -44,7 +43,7 @@ interface LookupResult {
   ///The (normalized) input data
   data: [key: string];
   ///The result of the address lookup, contains the complete address if the status is "incomplete"
-  looked_up: AddressValue;
+  looked_up: Record<string, string>;
 }
 
 const lookupcache = new Map<string, Promise<LookupResult>>();

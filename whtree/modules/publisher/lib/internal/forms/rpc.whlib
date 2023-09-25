@@ -222,10 +222,11 @@ PUBLIC RECORD FUNCTION RPC_VerifyAddress(STRING url, RECORD value, RECORD option
   //TODO cache addresslookup settings so we don't always have to go the database
   OpenPrimary();
 
-  options := EnforceStructure([checks := STRING[]], options);
+  options := EnforceStructure([ checks := STRING[], lang := "" ], options);
 
   OBJECT wc := GetWebContextForURL(GetWebOriginURL(url), [ clientwebserver := GetClientWebserver() ] );
   RECORD info := __LookupFormIntegrationAddressInfo(wc->targetapplytester);
+  STRING lang := options.lang ?? "en";
 
   OBJECT validator;
   IF (CellExists(value, "country"))
@@ -254,23 +255,23 @@ PUBLIC RECORD FUNCTION RPC_VerifyAddress(STRING url, RECORD value, RECORD option
       CASE "invalid_city"
       {
         // We'll target the right field but we don't want to supply N translations for 'invalid city'
-        INSERT [ fields := ["city"], message := GetTid("publisher:site.forms.addressfield.address_not_found") ] INTO verifyresult.errors AT END;
+        INSERT [ fields := ["city"], message := GetTidForLanguage(lang, "publisher:site.forms.addressfield.address_not_found") ] INTO verifyresult.errors AT END;
       }
       CASE "invalid_zip"
       {
-        INSERT [ fields := ["zip"], message := GetTid("publisher:site.forms.addressfield.invalid_zip") ] INTO verifyresult.errors AT END;
+        INSERT [ fields := ["zip"], message := GetTidForLanguage(lang, "publisher:site.forms.addressfield.invalid_zip") ] INTO verifyresult.errors AT END;
       }
       CASE "zip_not_found"
       {
-        INSERT [ fields := ["zip","nr_detail"], message := GetTid("publisher:site.forms.addressfield.zip_not_found") ] INTO verifyresult.errors AT END;
+        INSERT [ fields := ["zip","nr_detail"], message := GetTidForLanguage(lang, "publisher:site.forms.addressfield.zip_not_found") ] INTO verifyresult.errors AT END;
       }
       CASE "invalid_nr_detail"
       {
-        INSERT [ fields := ["nr_detail"], message := GetTid("publisher:site.forms.addressfield.invalid_nr_detail") ] INTO verifyresult.errors AT END;
+        INSERT [ fields := ["nr_detail"], message := GetTidForLanguage(lang, "publisher:site.forms.addressfield.invalid_nr_detail") ] INTO verifyresult.errors AT END;
       }
       CASE "address_not_found"
       {
-        INSERT [ fields := STRING[], message := GetTid("publisher:site.forms.addressfield.address_not_found") ] INTO verifyresult.errors AT END;
+        INSERT [ fields := STRING[], message := GetTidForLanguage(lang, "publisher:site.forms.addressfield.address_not_found") ] INTO verifyresult.errors AT END;
       }
       CASE "incomplete", "ok" //incomplete = the lookup corrected it (if it didn't it would return not_enough_data)
       {
@@ -280,7 +281,7 @@ PUBLIC RECORD FUNCTION RPC_VerifyAddress(STRING url, RECORD value, RECORD option
   }
 
   IF(value.country = "NL" AND "nl-zip-force" IN options.checks AND verifyresult.status != "ok" AND Length(verifyresult.errors) = 0)
-    INSERT [ fields := STRING[], message := GetTid("publisher:site.forms.addressfield.address_not_found") ] INTO verifyresult.errors AT END;
+    INSERT [ fields := STRING[], message := GetTidForLanguage(lang, "publisher:site.forms.addressfield.address_not_found") ] INTO verifyresult.errors AT END;
 
   IF(Length(verifyresult.errors) > 0)
     verifyresult.status := "error";
