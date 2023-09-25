@@ -267,5 +267,27 @@ test.registerTests(
       await test.wait(() => test.qR("#addressform-address\\.street").value);
 
       test.assert(test.canClick("#addressform-neighbourhood"));
+    },
+
+    "Test nl-zip-force",
+    async function () {
+      await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=4');
+
+      test.fill("[id='addressform-address2.country']", "NL");
+      test.fill("[id='addressform-address2.zip']", "7521AM");
+      test.fill("[id='addressform-address2.nr_detail']", "705");
+      test.fill("[id='addressform-address2.street']", "Teststraat");
+      test.fill("[id='addressform-address2.city']", "Teststad");
+
+      await test.pressKey('Tab');
+      test.fill("[id='addressform-address4.country']", "NL");
+      test.fill("[id='addressform-address4.zip']", "7521AM");
+      test.fill("[id='addressform-address4.nr_detail']", "705");
+
+      await test.pressKey('Tab');
+
+      //wait for completion. one should fail
+      await test.wait(() => test.qSA(".wh-form__fieldgroup--error").length === 1);
+      test.assert(test.qR(`[data-wh-form-group-for="address4.zip"]`).classList.contains("wh-form__fieldgroup--error"), "ZIP should be in error mode");
     }
   ]);
