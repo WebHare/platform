@@ -9,6 +9,7 @@
 
 import { installResolveHook } from "./resolvehook";
 import { debugFlags } from "@webhare/env/src/envbackend";
+import "./polyfills";
 
 const debug = Boolean(debugFlags.runner);
 installResolveHook(debug);
