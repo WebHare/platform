@@ -23,7 +23,9 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/webserver/filetransfer.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/service.whlib";
+
 LOADLIB "mod::wrd/lib/address.whlib";
+LOADLIB "mod::wrd/lib/internal/addressfields.whlib";
 
 OBJECT FUNCTION GetFormObject(RECORD submitinfo)
 {
@@ -241,8 +243,8 @@ PUBLIC RECORD FUNCTION RPC_VerifyAddress(STRING url, RECORD value, RECORD option
 
     RECORD result := validator->CheckAddress(value);
 
-    verifyresult.corrections := result.looked_up;
-    DELETE CELL status FROM verifyresult.corrections;
+    verifyresult.corrections := PickCells(result.looked_up, stored_address_fields);
+
     FOREVERY(RECORD field FROM UnpackRecord(verifyresult.corrections))
       IF(CellExists(value, field.name) AND GetCell(value,field.name ) = field.value) //so there was no real correction?
         verifyresult.corrections := CellDelete(verifyresult.corrections, field.name);
