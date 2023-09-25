@@ -63,6 +63,11 @@ wh_runjs()
   export NODE_PATH="$WEBHARE_DATAROOT/node_modules"
   export NODE_OPTIONS="--enable-source-maps --require \"$WEBHARE_DIR/jssdk/ts-esbuild-runner/dist/resolveplugin.js\" --openssl-legacy-provider $NODE_OPTIONS"
 
+  # is the 'retainers' flag set ?
+  if [[ $WEBHARE_DEBUG =~ ((^|[,])retainers([,]|$))+ ]] ; then
+    NODE_OPTIONS="--require \"$WEBHARE_DIR/modules/system/js/internal/debug/retainers.js\" $NODE_OPTIONS"
+  fi
+
   # --experimental-wasm-stack-switching is not allowed in NODE_OPTIONS
   $RUNJS_PREFIX node --experimental-wasm-stack-switching $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
 
