@@ -2179,29 +2179,6 @@ The full base URL on which this site will be published, calculated by combining 
     <xmlfiletype namespaceuri="" rootnodes="group"  validator="lib/internal/validation/xml.whlib#LegacyTestInfoValidator" />
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/system/testinfo" rootnodes="group" schemalocation="data/testinfo.xsd" validator="lib/internal/validation/xml.whlib#TestInfoValidator" />
     <xmlfiletype namespaceuri="http://www.webhare.net/xmlns/dev/topic" rootnodes="topic" schemalocation="data/topic.xsd" validator="lib/internal/validation/xml.whlib#TopicValidator" />
-
-    <debugflag name="wrq" description="Show webrequests (formerly `__webbrowser_debugall := TRUE`)" />
-    <debugflag name="evt" description="Event broadcasts" />
-    <debugflag name="ahc" description="Ad-hoc Cache requests and stores" />
-    <debugflag name="apr" description="Make a function CPU profile for HareScript code" />
-    <debugflag name="cov" description="Make a coverage profile" />
-    <debugflag name="que" description="Log task/queue actions" />
-    <debugflag name="ipc" description="Log backend/internal IPC traffic" />
-    <debugflag name="hmr" description="Log hot module reloading actions" />
-    <debugflag name="asprod" description="As production - used to trigger some production-only dialogs/workflows (%IsProductionOrAsIf will evaluate to TRUE)" />
-    <debugflag name="handles" description="Record stack traces when handles are created (currently only outputobjects)" />
-    <debugflag name="startup" description="Log startup processes and timing" />
-    <debugflag name="traceadhoccache" description="Record stack traces when new items are inserted in the adhoc cache" />
-    <debugflag name="postgresql:auto_explain" description="Activate the PostgreSQL auto_explain module on new transactions and log its output to the debug log" />
-    <debugflag name="postgresql:logcommands" description="Log all SQL queries sent to the PostgreSQL database to the debug log "/>
-    <debugflag name="postgresql:noerrordelay" description="Immediately report errors on insert queries (normally these are detected when the next SQL query is executed)" />
-    <debugflag name="whfsplan" description="Print WHFS copy/move planning and mapping actions" />
-    <debugflag name="runner" description="Debug the node runner plugin" />
-    <debugflag name="conloc" description="Prefix console output with file and line number" />
-    <debugflag name="etr" description="Enable full error tracing for ALL webserver clients" />
-    <debugflag name="openapi" description="Log openAPI request data to the debug log" />
-    <debugflag name="async" description="Activate various async tools (enforce awaits, track openWork calls)" />
-    <debugflag name="jsprofile" description="Generate some profiling data for JavaScript ran by node" />
   </development>
 
   <wrdschemas>
