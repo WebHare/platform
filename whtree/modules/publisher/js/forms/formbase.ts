@@ -93,7 +93,9 @@ function handleValidateAfterEvent(event) {
 }
 
 export default class FormBase {
-  constructor(formnode) {
+  readonly node: HTMLFormElement;
+
+  constructor(formnode: HTMLFormElement) {
     this.node = formnode;
     this.validationqueue = [];
     if (this.node.nodeName != 'FORM')
@@ -124,6 +126,10 @@ export default class FormBase {
     const pagestate = this._getPageState();
     this._updatePageVisibility(pagestate.pages, 0);
     this._updatePageNavigation();
+  }
+
+  static getForNode(node: HTMLElment): FormBase | null {
+    return node.propWhFormhandler || null;
   }
 
   sendFormEvent(eventtype, vars) {
@@ -1475,10 +1481,6 @@ export default class FormBase {
 
 window.addEventListener("mouseup", releasePendingValidations, true);
 window.addEventListener("focusin", handleFocusInEvent, true);
-
-FormBase.getForNode = function (node) {
-  return node.propWhFormhandler || null;
-};
 
 FormBase.setFieldError = setFieldError;
 FormBase.setupValidator = setupValidator;
