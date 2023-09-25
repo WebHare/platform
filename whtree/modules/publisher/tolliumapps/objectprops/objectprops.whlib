@@ -333,11 +333,7 @@ PUBLIC STATIC OBJECTTYPE ObjectProps EXTEND TolliumScreenBase
         canschedule := canschedule AND this->curtype.ispublishable;
         BOOLEAN cansetpublish := canschedule;
 
-        BOOLEAN initialpublish :=
-            cansetpublish
-            AND this->curtype.namespace != "http://www.webhare.net/xmlns/publisher/richdocumentfile"
-            AND this->curtype.namespace != "http://www.webhare.net/xmlns/publisher/formwebtool"
-            AND NOT ObjectExists(this->objectpolicy);
+        BOOLEAN initialpublish := cansetpublish AND this->curtype.initialpublish AND NOT ObjectExists(this->objectpolicy);
 
         ^notpublished->visible := NOT cansetpublish;
         ^notpublishedtext->value := this->curtype.ispublishable ? this->GetTid(".sitenotpublished") : this->GetTid(".typenotpublished", ^type->value);
