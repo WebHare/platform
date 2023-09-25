@@ -1177,7 +1177,7 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
 
     this->__UpdateDebugConfig(DEFAULT RECORD);
 
-    this->SetAllowErrorDelay(NOT IsDebugTagEnabled("postgresql:noerrordelay"));
+    this->SetAllowErrorDelay(NOT IsDebugTagEnabled("pg-noerrordelay"));
 
     IF(this->pvt_isauto)
     {
@@ -1712,7 +1712,7 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
 
     RECORD cursettings := __PGSQL_GETDEBUGSETTINGS(this->id);
     cursettings := CELL[ ...cursettings, ...newconfig ];
-    cursettings.logcommands := this->pvt_keepcommandlog OR IsDebugTagEnabled("postgresql:logcommands") ? 1 : 0;
+    cursettings.logcommands := this->pvt_keepcommandlog OR IsDebugTagEnabled("pg-logcommands") ? 1 : 0;
     __PGSQL_UPDATEDEBUGSETTINGS(this->id, cursettings.logstacktraces, cursettings.logcommands, cursettings.commandtimeout);
   }
 
@@ -1901,7 +1901,7 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
 
   OBJECT trans := NEW WHPostgreSQLTransaction(transresult, transinfo.auto, transinfo.isprimary, transinfo.blobhandler);
 
-  IF (IsDebugTagEnabled("postgresql:auto_explain"))
+  IF (IsDebugTagEnabled("pg-auto_explain"))
   {
     trans->__ExecSQL("LOAD 'auto_explain'");
     trans->__ExecSQL("SET auto_explain.log_min_duration = 0");
@@ -1966,7 +1966,7 @@ PUBLIC BOOLEAN FUNCTION __HandleMessage(INTEGER transid, RECORD message) __ATTRI
 
 PUBLIC MACRO __HandleRunCommand(INTEGER transid, RECORD command) __ATTRIBUTES__(SKIPTRACE)
 {
-  IF (IsDebugTagEnabled("postgresql:logcommands"))
+  IF (IsDebugTagEnabled("pg-logcommands"))
     LogDebug("wh:postgresql.command", command);
   OBJECT trans := GetTransactionObjectById(transid);
   trans->__GotRunCommand(command);

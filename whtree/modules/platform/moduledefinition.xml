@@ -31,9 +31,9 @@
     <debugflag name="handles" description="Record stack traces when handles are created (currently only outputobjects)" />
     <debugflag name="startup" description="Log startup processes and timing" />
     <debugflag name="traceadhoccache" description="Record stack traces when new items are inserted in the adhoc cache" />
-    <debugflag name="postgresql:auto_explain" description="Activate the PostgreSQL auto_explain module on new transactions and log its output to the debug log" />
-    <debugflag name="postgresql:logcommands" description="Log all SQL queries sent to the PostgreSQL database to the debug log "/>
-    <debugflag name="postgresql:noerrordelay" description="Immediately report errors on insert queries (normally these are detected when the next SQL query is executed)" />
+    <debugflag name="pg-auto_explain" description="Activate the PostgreSQL auto_explain module on new transactions and log its output to the debug log" />
+    <debugflag name="pg-logcommands" description="Log all SQL queries sent to the PostgreSQL database to the debug log "/>
+    <debugflag name="pg-noerrordelay" description="Immediately report errors on insert queries (normally these are detected when the next SQL query is executed)" />
     <debugflag name="whfsplan" description="Print WHFS copy/move planning and mapping actions" />
     <debugflag name="runner" description="Debug the node runner plugin" />
     <debugflag name="conloc" description="Prefix console output with file and line number" />
