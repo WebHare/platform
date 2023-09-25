@@ -237,6 +237,9 @@ MACRO TestAddressInfo()
 
   TestEq("Unit A, 6870 Sellers Av\nBurnaby BC V5J 4R3\nCanada", FormatAddress([ country := "CA", street := "Sellers Av", nr_detail := "Unit A, 6870", city := "Burnaby", state := "BC", zip := "V5J 4R3" ], [ language := "en" ]));
   TestEq("Unit A, 6870 Sellers Av\nBurnaby BC V5J 4R3\nCanada", FormatAddress([ country := "CA", street := "Unit A, 6870 Sellers Av", nr_detail := "", city := "Burnaby", state := "BC", zip := "V5J 4R3" ], [ language := "en" ]));
+
+  TestEq("1600 Pennsylvania Ave NW\nWashington, DC 20500\nUnited States", FormatAddress([ country := "US", street := "Pennsylvania Ave NW", nr_detail := "1600", city := "Washington", state := "DC", zip := "20500" ], [ language := "en" ]));
+  TestEq("1600 Pennsylvania Ave NW\nWashington, DC 20500\nUnited States", FormatAddress([ country := "US", street := "1600 Pennsylvania Ave NW", city := "Washington", state := "DC", zip := "20500" ], [ language := "en" ]));
 }
 
 OBJECT ASYNC FUNCTION TolliumFieldsEdit()

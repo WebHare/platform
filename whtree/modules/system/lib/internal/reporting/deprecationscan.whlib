@@ -85,6 +85,18 @@ PUBLIC RECORD FUNCTION GetDeprecationScanReport()
 
   wrd_brokenaddresses := SELECT *, attributetag := DescribeAttribute(attribute) FROM wrd_brokenaddresses;
 
+  RECORD ARRAY datesmembers := SELECT id
+                                   FROM wrd.attrs
+                                  WHERE attributetype IN [ wrd_attributetype_datetime ];
+
+  RECORD ARRAY wrd_brokendates := SELECT attribute, num := COUNT(*)
+                                    FROM wrd.entity_settings
+                                   WHERE attribute IN (SELECT AS INTEGER ARRAY id FROM datesmembers)
+                                         AND rawdata ="2147483647,86399999"
+                                GROUP BY attribute;
+
+  wrd_brokendates := SELECT *, attributetag := DescribeAttribute(attribute) FROM wrd_brokendates;
+
   RETURN CELL[ creationdate := now
              , versioninfo := GetWebHareVersionInfo()
              , name :=        GetServerName()
@@ -92,10 +104,12 @@ PUBLIC RECORD FUNCTION GetDeprecationScanReport()
              , wrd_brokenemails
              , wrd_brokenpasswords
              , wrd_brokenaddresses
+             , wrd_brokendates
              , numissues := Length(fs_maxdatetime_settings)
                             + Length(wrd_brokenemails)
                             + Length(wrd_brokenpasswords)
                             + Length(wrd_brokenaddresses)
+                            + Length(wrd_brokendates)
              ];
 }
 
@@ -105,7 +119,7 @@ PUBLIC MACRO PrintDeprecationScanReport(RECORD report)
 
   IF(Length(report.fs_maxdatetime_settings) > 0)
     FOREVERY(RECORD toreport FROM report.fs_maxdatetime_settings)
-      Print(`* ${toreport.namespace}#${toreport.name} has ${toreport.num} instances of MAX_DATETIME - this will not be supported in JavaScript\n`);
+      Print(`* ${toreport.namespace}#${toreport.name} has ${toreport.num} instances of MAX_DATETIME - this will not be supported in JavaScript. You should use DEFAULT DATETIME or 9999-12-31 as a workaround\n`);
   ELSE
     Print(`- Good! No fs_settings with a MAX_DATETIME value\n`);
 
@@ -121,9 +135,15 @@ PUBLIC MACRO PrintDeprecationScanReport(RECORD report)
   ELSE
     Print(`- Good! No WRD Password attribute values with a broken hash algorithm\n`);
 
+  IF(Length(report.wrd_brokendates) > 0)
+    FOREVERY(RECORD wrd_brokendate FROM report.wrd_brokendates)
+      Print(`* WRD Attribute #${wrd_brokendate.attribute} (${wrd_brokendate.attributetag}) contains ${wrd_brokendate.num} instance(s) of MAX_DATETIME - this will not be supported in JavaScript. You should use DEFAULT DATETIME or 9999-12-31 as a workaround\n`);
+  ELSE
+    Print(`- Good! No WRD attribute values with a MAX_DATETIME value\n`);
+
   IF(Length(report.wrd_brokenaddresses) > 0)
     FOREVERY(RECORD wrd_brokenaddress FROM report.wrd_brokenaddresses)
       Print(`* WRD Attribute #${wrd_brokenaddress.attribute} (${wrd_brokenaddress.attributetag}) contains ${wrd_brokenaddress.num} instance(s) of an old-style address. Run fixaddressfields?\n`);
   ELSE
-    Print(`- Good! No old WRD Adderss attribute avlues\n`);
+    Print(`- Good! No old WRD Address attribute values\n`);
 }

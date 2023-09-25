@@ -1,3 +1,6 @@
+/** Elements you can set a value on and would have to trigger change and/or input events */
+export type FillableFormElement = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+
 export function qS<E extends Element = HTMLElement>(startnode: ParentNode, selector: string): E | null;
 export function qS<E extends Element = HTMLElement>(selector: string): E | null;
 

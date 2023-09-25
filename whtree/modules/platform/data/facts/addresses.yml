@@ -41,6 +41,15 @@ customFormat:
       - city
       - state
       - zip
+  US:
+    - fields:
+      - nr_detail
+      - street
+    - fields:
+      - city
+      - ","
+      - state
+      - zip
 
 # hide the 'state' fields for
 hideState:
