@@ -128,6 +128,11 @@ OBJECTTYPE ForwardingLoopbackTransaction EXTEND LoopbackTransaction
     this->itf.InsertRecord(dbquery, newrecord);
   }
 
+  UPDATE PUBLIC MACRO InsertRecords(RECORD dbquery, RECORD ARRAY newrecordarray)
+  {
+    this->itf.InsertRecords(dbquery, newrecordarray);
+  }
+
   UPDATE PUBLIC OBJECT FUNCTION OpenCursor(RECORD dbquery, STRING type)
   {
 //    PRINT("ForwardingLoopbackTransaction::OpenCursor, query:\n"||AnyToString(dbquery, "boxed"));
@@ -380,6 +385,11 @@ MACRO WLT_InsertRecord(INTEGER transid, RECORD query, RECORD newfields)
   GetTransObject(transid)->InsertRecord(query, newfields);
 }
 
+MACRO WLT_InsertRecords(INTEGER transid, RECORD query, RECORD ARRAY newrecordarray)
+{
+  GetTransObject(transid)->InsertRecords(query, newrecordarray);
+}
+
 RECORD FUNCTION WLT_OpenCursor(INTEGER transid, RECORD dbquery, STRING type)
 {
   OBJECT recursor := GetTransObject(transid)->OpenCursor(dbquery, type);
@@ -527,6 +537,7 @@ PUBLIC RECORD FUNCTION GetTransactionFLTRecordInterface(OBJECT transaction)
   RETURN
       [ type :=                 transaction->type
       , insertrecord :=         PTR WLT_InsertRecord(id, #1, #2)
+      , insertrecords :=        PTR WLT_InsertRecords(id, #1, #2)
       , opencursor :=           PTR WLT_OpenCursor(id, #1, #2)
       , hasworksupport :=       transaction->HasWorkSupport()
       , isworkopen :=           PTR WLT_IsWorkOpen(id)

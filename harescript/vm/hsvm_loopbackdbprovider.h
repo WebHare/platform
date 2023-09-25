@@ -48,6 +48,11 @@ class LoopbackDBTransactionDriver : public DatabaseTransactionDriverInterface
             @param newrecord Record with values for new record */
         void ExecuteInsert(DatabaseQuery const &query, VarId newrecord);
 
+        /** Inserts records into the table specified in the query. Records with values may not be altered.
+            @param query Query containing 1 table
+            @param newrecordarray Array of records with values for new records */
+        void ExecuteInserts(DatabaseQuery const &query, VarId newrecordarray);
+
         /** Opens a cursor for a query. This query MUST be closed by calling CloseCursor after completion of the query
             @param vm Virtual machine in which query is executed
             @param query Structure containing the query definition. The definition must be updated to show which conditions/joins
