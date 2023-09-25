@@ -62,7 +62,7 @@ export const whconstant_whfsid_whfs = 24;
 export const whconstant_whfsid_whfs_snapshots = 25;
 
 //Default key expiry warning (days)
-export const whconstant_default_warnexpirydays = 45;
+export const whconstant_default_warnexpirydays = 30;
 
 //Default key expiry warning (days) for automatically renewed keys
 export const whconstant_autorenewed_warnexpirydays = 21;

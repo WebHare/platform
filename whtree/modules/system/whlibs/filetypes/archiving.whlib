@@ -743,7 +743,7 @@ INTEGER FUNCTION __CreateArchive(BOOLEAN targz, INTEGER compressionlevel)
 /** @private deprecated
     @return New archive id
 */
-PUBLIC INTEGER FUNCTION CreateArchive() __ATTRIBUTES__(DEPRECATED "Switch to CreateNewArchive")
+PUBLIC INTEGER FUNCTION CreateArchive()
 {
   RETURN __CreateArchive(TRUE, 9);
 }
@@ -801,7 +801,7 @@ PUBLIC OBJECT FUNCTION CreateNewArchive(STRING type, RECORD options DEFAULTSTO D
     @param filedata File data
     @param lastmod Modification date
 */
-PUBLIC MACRO AddFileToArchive(INTEGER archiveid, STRING filepath, BLOB filedata, DATETIME lastmod) __ATTRIBUTES__(DEPRECATED "Switch to CreateNewArchive")
+PUBLIC MACRO AddFileToArchive(INTEGER archiveid, STRING filepath, BLOB filedata, DATETIME lastmod)
 {
   WHILE (filepath LIKE "/*")
     filepath := substring(filepath, 1);
@@ -834,7 +834,7 @@ PUBLIC MACRO AddFileToArchive(INTEGER archiveid, STRING filepath, BLOB filedata,
     @param folderpath Path of the folder
     @param lastmod Modification date
 */
-PUBLIC MACRO AddFolderToArchive(INTEGER archiveid, STRING folderpath, DATETIME lastmod DEFAULTSTO DEFAULT DATETIME) __ATTRIBUTES__(DEPRECATED "Switch to CreateNewArchive")
+PUBLIC MACRO AddFolderToArchive(INTEGER archiveid, STRING folderpath, DATETIME lastmod DEFAULTSTO DEFAULT DATETIME)
 {
   WHILE (folderpath LIKE "/*")
     folderpath := substring(folderpath,1,4096);
@@ -877,7 +877,7 @@ MACRO SetArchiveComment(INTEGER archiveid, STRING comment)
     @param archiveid Archive id
     @return Archive blob
 */
-PUBLIC BLOB FUNCTION MakeBlobFromArchive(INTEGER archiveid) __ATTRIBUTES__(DEPRECATED "Switch to CreateNewArchive")
+PUBLIC BLOB FUNCTION MakeBlobFromArchive(INTEGER archiveid)
 {
   RECORD pos := RecordLowerBound(archives, [ id := archiveid ], [ "ID" ]);
   IF (NOT pos.found)

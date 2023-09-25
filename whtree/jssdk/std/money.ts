@@ -18,6 +18,109 @@ export type MoneyTestTypes = "<" | "<=" | "==" | "!=" | ">" | ">=";
 
 type MoneyParameter = Money | string;
 
+interface SplitNumber {
+  num: number;
+  decimals: number;
+}
+
+export interface MoneyFormatOptions {
+  //thousand separator. defaults to ""
+  thousandsSeparator?: string;
+  //decimal separator. defaults to "."
+  decimalSeparator?: string;
+  //minimum # of decimals. defaults to 2
+  minDecimals?: number;
+}
+
+function stripUnneededDecimals(num: number, decimals: number) {
+  //we have a maximum of 5 digits of external precision
+  if (decimals > 5) {
+    // math.round rounds toward positive infinity
+    const isneg = num < 0;
+    if (isneg)
+      num = -num;
+
+    while (decimals > 6) { //truncate excess digits
+      num = Math.floor(num / 10);
+      --decimals;
+    }
+    //round up if 6th decimal >= 5
+    num = Math.round(num / 10);
+    decimals = 5;
+
+    if (isneg)
+      num = -num;
+  }
+
+  //strip unneeded decimals
+  while (decimals > 0 && !(num % 10)) {
+    num /= 10;
+    --decimals;
+  }
+
+  return { num, decimals };
+}
+
+/** Convert a price of any format to a price parts object
+    @param money - Either an integer number, string with a number of a price object
+    @returns Price parts object
+*/
+function splitPrice(money: MoneyParameter): SplitNumber {
+  if (typeof money == 'number') {
+    if (money != Math.floor(money))
+      throw new Error("Passing a non-integer number to splitPrice");
+    if (!Number.isSafeInteger(money))
+      throw new Error(`The value ${money} is outside the safe value range`);
+    return { num: money, decimals: 0 };
+  }
+  if (typeof money != 'string')
+    throw new Error("splitPrice should receive either number or string, got " + money);
+
+  const split = money.match(/^(-)?([0-9]+)(\.[0-9]{0,5})?$/);
+  if (!split)
+    throw new Error(`splitPrice received illegal price: '${money}'`);
+
+  const sign = split[1] == '-' ? -1 : 1;
+  const decimals = split[3] ? split[3].length - 1 : 0;
+  const num = sign * (parseInt(split[2]) * Math.pow(10, decimals) + (parseInt((split[3] || '').substr(1)) || 0));
+  if (!Number.isSafeInteger(num))
+    throw new Error(`The value '${money}' is outside the safe value range`);
+
+  return stripUnneededDecimals(num, decimals);
+}
+
+function toText(amount: SplitNumber, decimalpoint: string, mindecimals: number, thousandpoint: string) {
+  if (!Number.isSafeInteger(amount.num))
+    throw new Error("Result would overflow the safe value range");
+
+  let { num, decimals } = stripUnneededDecimals(amount.num, amount.decimals);
+
+  // Strip sign from number, may need to prefix it
+  const isnegative = num < 0;
+  if (isnegative)
+    num = -num;
+
+  let astext = String(num);
+
+  // Ensure we have enough leading 0's to render the first integer digit
+  if (astext.length <= decimals)
+    astext = '00000000000000000000'.substr(0, decimals + 1 - astext.length) + astext;
+  // make sure we have enough 0's to show mindecimals
+  if (decimals < mindecimals) {
+    astext += '00000000000000000000'.substr(0, mindecimals - decimals);
+    decimals = mindecimals;
+  }
+
+  let beforepoint = astext.substring(0, astext.length - decimals);
+  const afterpoint = astext.substring(astext.length - decimals);
+
+  // Add thouands points if neeed
+  if (thousandpoint)
+    beforepoint = beforepoint.replaceAll(/\B(?=(\d{3})+(?!\d))/g, thousandpoint);
+
+  return (isnegative ? "-" : "") + beforepoint + (afterpoint.length ? decimalpoint + afterpoint : "");
+}
+
 /** A decimal based JS money type*/
 export class Money {
   /** finmath-compatible value */
@@ -52,13 +155,13 @@ export class Money {
 
   /** Adds two numbers together
   */
-  static add(left: MoneyParameter, right: MoneyParameter) {
+  static add(left: MoneyParameter, right: MoneyParameter): Money {
     return new Money(finmath.add(Money.parseParameter(left), Money.parseParameter(right)));
   }
 
   /** Subtracts a number from another number
   */
-  static subtract(left: MoneyParameter, right: MoneyParameter) {
+  static subtract(left: MoneyParameter, right: MoneyParameter): Money {
     return new Money(finmath.subtract(Money.parseParameter(left), Money.parseParameter(right)));
   }
 
@@ -77,7 +180,7 @@ export class Money {
         </ul>
       @returns The rounded value
   */
-  static roundToMultiple(amount: MoneyParameter, roundto: MoneyParameter, mode: MoneyRoundingMode) {
+  static roundToMultiple(amount: MoneyParameter, roundto: MoneyParameter, mode: MoneyRoundingMode): Money {
     return new Money(finmath.roundToMultiple(Money.parseParameter(amount), Money.parseParameter(roundto), mode));
   }
 
@@ -96,15 +199,15 @@ export class Money {
       @param rhs - Right hand value
       @returns TRUE if the relation holds
       @example
-        console.log(finmath.test(1, '\<', 2)); // prints 'true'
+        console.log(Money.check(1, '\<', 2)); // prints 'true'
   */
-  static test(left: MoneyParameter, relation: MoneyTestTypes, right: MoneyParameter): boolean {
+  static check(left: MoneyParameter, relation: MoneyTestTypes, right: MoneyParameter): boolean {
     return finmath.test(Money.parseParameter(left), relation, Money.parseParameter(right));
   }
 
   /** Multiplies two numbers together
   */
-  static multiply(left: MoneyParameter, right: MoneyParameter) {
+  static multiply(left: MoneyParameter, right: MoneyParameter): Money {
     return new Money(finmath.multiply(Money.parseParameter(left), Money.parseParameter(right)));
   }
 
@@ -113,7 +216,7 @@ export class Money {
       @param perc - Percentage of the amount to return
       @returns Percentage of the amount
   */
-  static getPercentage(amount: MoneyParameter, percentage: MoneyParameter) {
+  static getPercentage(amount: MoneyParameter, percentage: MoneyParameter): Money {
     return new Money(finmath.getPercentageOfAmount(Money.parseParameter(amount), Money.parseParameter(percentage)));
   }
 
@@ -122,7 +225,7 @@ export class Money {
       @param divisor - Divisor
       @returns Divided value
   */
-  static divide(numerator: MoneyParameter, divider: MoneyParameter) {
+  static divide(numerator: MoneyParameter, divider: MoneyParameter): Money {
     return new Money(finmath.divide(Money.parseParameter(numerator), Money.parseParameter(divider)));
   }
   /** Returns the minimum of all the arguments
@@ -145,8 +248,11 @@ export class Money {
   }
 
   /** format a price amount. extend # of decimals to specified # if not enough */
-  format(decimalpoint: string, mindecimals: number): string {
-    return finmath.formatPrice(this.value, decimalpoint, mindecimals);
+  format(format?: MoneyFormatOptions): string {
+    return toText(splitPrice(this.value),
+      format?.decimalSeparator ?? ".",
+      format?.minDecimals ?? 2,
+      format?.thousandsSeparator ?? "");
   }
 
   toJSON(): string {

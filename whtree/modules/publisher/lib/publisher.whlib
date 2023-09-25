@@ -94,7 +94,7 @@ PUBLIC STRING FUNCTION GetFileSubpageURL(INTEGER fileid, STRING pagename)
     @param   siteid Site ID to look for
     @return  The requested site record, or a non-existing record if the site does not exist
 */
-PUBLIC RECORD FUNCTION FindSite(INTEGER siteid) __ATTRIBUTES__(DEPRECATED "Use publisher/siteapi.whlib")
+PUBLIC RECORD FUNCTION FindSite(INTEGER siteid)
 {
   RETURN __FindSite(siteid);
 }
@@ -105,7 +105,7 @@ PUBLIC RECORD FUNCTION FindSite(INTEGER siteid) __ATTRIBUTES__(DEPRECATED "Use p
     @param   sitename Name (case-insensitive) of the site to look for
     @return  The requested site record, or a non-existing record if the site does not exist
 */
-PUBLIC RECORD FUNCTION FindSiteByName(STRING sitename) __ATTRIBUTES__(DEPRECATED "Use publisher/siteapi.whlib")
+PUBLIC RECORD FUNCTION FindSiteByName(STRING sitename)
 {
   RETURN SELECT * FROM system.sites WHERE ToUppercase(sites.name) = ToUppercase(sitename);
 }
@@ -118,7 +118,7 @@ PUBLIC RECORD FUNCTION FindSiteByName(STRING sitename) __ATTRIBUTES__(DEPRECATED
     @param   fileid File ID to look for
     @return  The requested file record, or a non-existing record if the file does not exist
 */
-PUBLIC RECORD FUNCTION FindFile(INTEGER fileid) __ATTRIBUTES__(DEPRECATED "Use WHFS apis")
+PUBLIC RECORD FUNCTION FindFile(INTEGER fileid)
 {
   RETURN __FindFile(fileid);
 }
@@ -131,7 +131,7 @@ PUBLIC RECORD FUNCTION FindFile(INTEGER fileid) __ATTRIBUTES__(DEPRECATED "Use W
     @param   folderid Folder ID to look for
     @return  The requested folder record, or a non-existing record if the folder does not exist
 */
-PUBLIC RECORD FUNCTION FindFolder(INTEGER folderid) __ATTRIBUTES__(DEPRECATED "Use WHFS apis")
+PUBLIC RECORD FUNCTION FindFolder(INTEGER folderid)
 {
   RETURN __FindFolder(folderid);
 }
@@ -145,7 +145,7 @@ PUBLIC RECORD FUNCTION FindFolder(INTEGER folderid) __ATTRIBUTES__(DEPRECATED "U
     @param   filename Name (case-insensitive) of the file to look for
     @return  The requested file record, or a non-existing record if the file does not exist
 */
-PUBLIC RECORD FUNCTION FindFileByName(INTEGER parentid, STRING filename) __ATTRIBUTES__(DEPRECATED "Use WHFS apis")
+PUBLIC RECORD FUNCTION FindFileByName(INTEGER parentid, STRING filename)
 {
   RETURN SELECT *
               , DELETE objecturl
@@ -163,7 +163,7 @@ PUBLIC RECORD FUNCTION FindFileByName(INTEGER parentid, STRING filename) __ATTRI
     @param   fullpath Path (case-insensitive) of the file to look for
     @return  The requested file record, or a non-existing record if the file does not exist
 */
-PUBLIC RECORD FUNCTION FindFileByFullPath(INTEGER siteid, STRING fullpath) __ATTRIBUTES__(DEPRECATED "Use WHFS apis")
+PUBLIC RECORD FUNCTION FindFileByFullPath(INTEGER siteid, STRING fullpath)
 {
   IF(fullpath lIKE "*/../*" OR fullpath LIKE "../*") //contains double dots
     RETURN DEFAULT RECORD;
@@ -181,7 +181,7 @@ PUBLIC RECORD FUNCTION FindFileByFullPath(INTEGER siteid, STRING fullpath) __ATT
     @param   foldername Name (case-insensitive) of the folder to look for
     @return  The requested folder record, or a non-existing record if the folder does not exist
 */
-PUBLIC RECORD FUNCTION FindFolderByName(INTEGER parentid, STRING foldername) __ATTRIBUTES__(DEPRECATED "Use WHFS apis")
+PUBLIC RECORD FUNCTION FindFolderByName(INTEGER parentid, STRING foldername)
 {
   RETURN SELECT *
               , DELETE objecturl
@@ -198,7 +198,7 @@ PUBLIC RECORD FUNCTION FindFolderByName(INTEGER parentid, STRING foldername) __A
     @param   fullpath Path (case-insensitive) of the folder to look for,
     @return  The requested folder record, or a non-existing record if the folder does not exist
 */
-PUBLIC RECORD FUNCTION FindFolderByFullPath(INTEGER siteid, STRING fullpath) __ATTRIBUTES__(DEPRECATED "Use WHFS apis")
+PUBLIC RECORD FUNCTION FindFolderByFullPath(INTEGER siteid, STRING fullpath)
 {
   IF(fullpath lIKE "*/../*" OR fullpath LIKE "../*") //contains double dots
     RETURN DEFAULT RECORD;
@@ -253,7 +253,7 @@ PUBLIC INTEGER ARRAY FUNCTION GetFolderTreeIDS(INTEGER folderid)
     @return  A record array of folders representing every folder in the path.
     @see     IsFolderAncestorOf GetFolderTreeIDS
 */
-PUBLIC RECORD ARRAY FUNCTION GetFolderTree(INTEGER folderid) __ATTRIBUTES__(DEPRECATED "Use GetFolderTreeIDs and WHFS api to access the actual sites")
+PUBLIC RECORD ARRAY FUNCTION GetFolderTree(INTEGER folderid)
 {
   RECORD ARRAY treefolders;
 
