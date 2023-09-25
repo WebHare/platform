@@ -57,8 +57,8 @@ wh_runjs()
   fi
 
   # avoid side effects if other scripts invoke node (eg 'wh make' and its postinstall)
-  SAVE_NODE_PATH="$NDOE_PATH"
-  SAVE_NODE_OPTIONS="$NDOE_OPTIONS"
+  SAVE_NODE_PATH="$NODE_PATH"
+  SAVE_NODE_OPTIONS="$NODE_OPTIONS"
 
   export NODE_PATH="$WEBHARE_DATAROOT/node_modules"
   export NODE_OPTIONS="--enable-source-maps --require \"$WEBHARE_DIR/jssdk/ts-esbuild-runner/dist/resolveplugin.js\" --openssl-legacy-provider $NODE_OPTIONS"
