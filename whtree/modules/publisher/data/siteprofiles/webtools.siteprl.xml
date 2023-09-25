@@ -197,6 +197,7 @@
   <filetype namespace="http://www.webhare.net/xmlns/publisher/formwebtool"
             kind="virtualfile"
             icon="tollium:files/application_x-webhare-survey"
+            initialpublish="false"
             searchcontentprovider="publisher:webtoolform"
             tid="filetypes.webtool-form">
     <members>

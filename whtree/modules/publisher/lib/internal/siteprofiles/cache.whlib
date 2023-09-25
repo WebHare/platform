@@ -66,6 +66,7 @@ PUBLIC BOOLEAN FUNCTION AppliesToAllSites(RECORD sitesetting)
     @cell(integer) return.id Id of the content type
     @cell(string) return.namespace Namespace of the content type
     @cell(boolean) return.ispublishable Whether the content type is publishable
+    @cell(boolean) return.initialpublish Whether the files should be published immediately after creation
     @cell(boolean) return.needstemplate Whether files of this type need a template
     @cell(string) return.title Tid with the title of the content type
     @cell(string) return.tolliumicon Icon of this content type
@@ -129,6 +130,7 @@ PUBLIC RECORD FUNCTION DescribeContentTypeById(INTEGER id, RECORD options DEFAUL
   RETURN [ id := id
          , namespace := ns
          , ispublishable := RecordExists(type.filetype) AND type.filetype.ispublishable
+         , initialpublish := RecordExists(type.filetype) AND type.filetype.initialpublish
          , needstemplate := RecordExists(type.filetype) AND type.filetype.needstemplate
          , title := ismissing ? ":"||ns : type.title
          , tolliumicon := type.tolliumicon ?? (RecordExists(type.foldertype) ? whconstant_publisher_foldericonfallback : whconstant_publisher_fileiconfallback)

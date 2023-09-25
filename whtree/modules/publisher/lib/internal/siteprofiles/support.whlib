@@ -58,6 +58,7 @@ PUBLIC RECORD FUNCTION GetBaseFiletypeRecord()
          , isacceptableindex := FALSE
          , needstemplate := FALSE
          , ispublishable := FALSE
+         , initialpublish := FALSE
          , ispublishedassubdir := FALSE
          , capturesubpaths := FALSE
          ];
