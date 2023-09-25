@@ -192,6 +192,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
   transitionLocks = new Array<TransitionLock>;
   unregisterEventCallback: (() => void) | undefined;
   private gotEventCallbackId = 0; //id of event callback provided to the C++ code
+  private gotOutputCallbackId = 0;  //id of output callback provided to the C++ code
   __unrefMainTimer: boolean;
   onScriptDone: ((e: Error | null) => void | Promise<void>) | null;
 
@@ -230,6 +231,19 @@ export class HareScriptVM implements HSVM_HSVMSource {
     this.onScriptDone = startupoptions.onScriptDone || null;
 
     this.__unrefMainTimer = startupoptions?.__unrefMainTimer || false;
+
+  }
+
+  captureOutput(onOutput: (output: number[]) => void) {
+    if (this.gotOutputCallbackId)
+      throw new Error("output callback already set");
+
+    const out = (opaqueptr: number, numbytes: number, data: StringPtr, allow_partial: number, error_result: Ptr): number => {
+      onOutput(Array.from(this.wasmmodule.HEAP8.slice(data, data + numbytes)));
+      return numbytes;
+    };
+    this.gotOutputCallbackId = this.wasmmodule.addFunction(out, "iiiiii"); //TODO where do we remove this?
+    this.wasmmodule._HSVM_SetOutputCallback(this.hsvm, 0, this.gotOutputCallbackId);
   }
 
   async run(script: string): Promise<void> {
@@ -270,7 +284,10 @@ export class HareScriptVM implements HSVM_HSVMSource {
           mutex?.release();
 
         this.wasmmodule._SetEventCallback(0 as HSVM, 0);
-        this.wasmmodule.removeFunction(this.gotEventCallbackId);
+        if (this.gotEventCallbackId)
+          this.wasmmodule.removeFunction(this.gotEventCallbackId);
+        if (this.gotOutputCallbackId)
+          this.wasmmodule.removeFunction(this.gotOutputCallbackId);
         this.wasmmodule._ReleaseHSVM(this.hsvm);
         this.wasmmodule.prepareForReuse();
 
@@ -675,10 +692,10 @@ export class HareScriptVM implements HSVM_HSVMSource {
   }
 }
 
-export async function createHarescriptModule<T extends WASMModule>(modulefunctions: T): Promise<T> {
-
+async function createHarescriptModule() {
+  const modulefunctions = new WASMModule;
   modulefunctions.prepare();
-  const wasmmodule = await createModule(modulefunctions) as T;
+  const wasmmodule = await createModule(modulefunctions);
   wasmmodule.init();
 
   registerBaseFunctions(wasmmodule);
@@ -689,7 +706,7 @@ export async function createHarescriptModule<T extends WASMModule>(modulefunctio
 
 //TODO should we rename this to make clear we're also starting the VM? it's not just an 'allocation' anymore
 export async function allocateHSVM(options?: StartupOptions): Promise<HareScriptVM> {
-  const hsvmModule = enginePool.pop() || createHarescriptModule(new WASMModule);
+  const hsvmModule = enginePool.pop() || createHarescriptModule();
   return new HareScriptVM(await hsvmModule, options || {});
 }
 

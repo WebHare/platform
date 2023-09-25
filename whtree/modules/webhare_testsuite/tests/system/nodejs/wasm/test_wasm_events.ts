@@ -6,19 +6,10 @@ import { createVM } from "@webhare/harescript/src/machinewrapper";
 
 let output = "";
 
-
 async function runSingleEventHandler(id: number) {
-  const vmwrapper = await createVM();
+  const vmwrapper = await createVM({ consoleArguments: [`${id}`] });
   const vm = vmwrapper._getHSVM();
-
-  const out = (opaqueptr: number, numbytes: number, data: number, allow_partial: number, error_result: number): number => {
-    output += Buffer.from(vm.wasmmodule.HEAP8.slice(data, data + numbytes)).toString();
-    return numbytes;
-  };
-  const outputfunction = vm.wasmmodule.addFunction(out, "iiiiii");
-  vm.wasmmodule._HSVM_SetOutputCallback(vm.hsvm, 0, outputfunction);
-
-  vm.consoleArguments = [`${id}`];
+  vm.captureOutput(out => output += Buffer.from(out).toString());
   await new Promise(r => setTimeout(r, 500));
 
   await vmwrapper.loadlib(`mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib`).RunWASMEventTestHandler();
