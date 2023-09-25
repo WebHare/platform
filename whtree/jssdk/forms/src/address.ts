@@ -1,3 +1,4 @@
+import { stableStringify, emplace } from "@webhare/std";
 import PublisherFormService from "./formservice";
 
 export interface AddressValue {
@@ -31,8 +32,15 @@ export interface AddressValidationResult {
   corrections: Record<keyof AddressValue, string> | null;
 }
 
-export async function verifyAddress(address: AddressValue, options?: AddressValidationOptions): Promise<AddressValidationResult> {
-  //FIXME client side cache
-  const result = await PublisherFormService.verifyAddress(location.pathname, address, options) as AddressValidationResult;
-  return result;
+let lookupcache: Map<string, Promise<AddressValidationResult>> | undefined;
+
+export async function verifyAddress(address: AddressValue, options: AddressValidationOptions = {}): Promise<AddressValidationResult> {
+  if (!lookupcache)
+    lookupcache = new Map<string, Promise<AddressValidationResult>>;
+
+  const lookupkey = stableStringify({ address, options });
+  const lookup = emplace(lookupcache, lookupkey, {
+    insert: () => PublisherFormService.verifyAddress(location.pathname, address, options) || {}
+  });
+  return await lookup;
 }

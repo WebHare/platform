@@ -1,5 +1,6 @@
 // import * as rpc from '@mod-system/js/wh/rpc';
 import createClient from "@webhare/jsonrpc-client";
+import { AddressValidationOptions, AddressValidationResult, AddressValue } from "./address";
 
 export interface EmailValidationResult { /** If blocked, the suggested error message */
   blocked?: string;
@@ -28,7 +29,7 @@ export interface PublisherFormService {
   validateEmbeddedObjects(objrefs: string[]): Promise<{ tokill: string[] }>;
 
   /** Verify address */
-  verifyAddress(url: string, address: unknown, options: unknown): Promise<unknown>;
+  verifyAddress(url: string, address: AddressValue, options: AddressValidationOptions): Promise<AddressValidationResult>;
 }
 
 // const client = rpc.createClient<PublisherFormService>("publisher:forms");

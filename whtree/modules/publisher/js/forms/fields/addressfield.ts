@@ -1,7 +1,7 @@
 import * as dompack from "@webhare/dompack";
 import FormBase from "../formbase";
 import { flags } from "@webhare/env";
-import { verifyAddress, AddressValidationResult } from "@webhare/forms";
+import { verifyAddress, AddressValidationResult, AddressValue, AddressChecks } from "@webhare/forms";
 
 function orThrow(error: string): never {
   throw new Error(error);
@@ -23,8 +23,6 @@ interface OrderingData {
   countries: string[];
   fieldorder: string[];
 }
-
-const lookupcache = new Map<string, Promise<AddressValidationResult>>();
 
 export default class AddressField {
   numvaliditycalls = 0;
@@ -139,13 +137,13 @@ export default class AddressField {
   }
 
   _getCurState() {
-    const value: Record<string, string> = {};
+    const value: AddressValue = { country: "" };
     const visiblefields: HTMLElement[] = [];
     let anyset = false, allrequiredset = true;
     this.allFields.forEach((field, key) => {
       if (!field.fieldgroup.classList.contains("wh-form__fieldgroup--hidden")) {
         visiblefields.push(field.node.closest(".wh-form__fieldgroup")!);
-        value[key] = field.node.value;
+        value[key as keyof AddressValue] = field.node.value;
 
         if (!anyset && key != 'country' && field.node.value)
           anyset = true;
@@ -176,16 +174,11 @@ export default class AddressField {
     const lock = dompack.flagUIBusy();
     try {
       curstate.visiblefields.forEach(el => el.classList.add("wh-form__fieldgroup--addresslookup"));
-
       ++this.numvaliditycalls;
-      if (!lookupcache.get(curstate.lookupkey))
-        ///@ts-ignore the assumption that a form is a RPCormBase already exists without validation, so keeping this call for now
-        lookupcache.set(curstate.lookupkey, verifyAddress(curstate.value, {
-          lang: form.getLangCode(),
-          checks: this.node.dataset.checks?.split(' ') ?? []
-        }));
-
-      result = await lookupcache.get(curstate.lookupkey)!; //has to existed, created above
+      result = await verifyAddress(curstate.value as AddressValue, {
+        lang: form.getLangCode(),
+        checks: (this.node.dataset.checks?.split(' ') ?? []) as AddressChecks[]
+      });
     } catch (e) {
       console.error(`Error while validating value: ${e}`);
       return;
