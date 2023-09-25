@@ -1,6 +1,3 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from '@mod-system/js/wh/testframework';
 import * as dompack from 'dompack';
 
@@ -8,10 +5,10 @@ function getFormRPCRequests() {
   return Array.from(test.getWin().performance.getEntriesByType('resource')).filter(node => node.name.includes("/wh_services/publisher/forms/"));
 }
 
-function testNoLookup(fieldname) {
+function testNoLookup(fieldname: string) {
   test.eq(0, test.qSA(`[data-wh-form-group-for^="${CSS.escape(fieldname + ".")}"]`).filter(el => el.classList.contains("wh-form__fieldgroup--addresslookup")).length);
 }
-function testHasLookup(fieldname) {
+function testHasLookup(fieldname: string) {
   test.assert(test.qSA(`[data-wh-form-group-for^="${CSS.escape(fieldname + ".")}"]`).filter(el => el.classList.contains("wh-form__fieldgroup--addresslookup")).length > 0);
 }
 
@@ -46,11 +43,11 @@ test.registerTests(
       await test.wait('ui');
 
       test.eq(1, getFormRPCRequests().length, "ONE lookup allowed to reject 1000-100");
-      test.assert(test.qS('[data-wh-form-group-for="address.zip"]').classList.contains("wh-form__fieldgroup--error"), "ZIP should now be in error mode");
+      test.assert(test.qR('[data-wh-form-group-for="address.zip"]').classList.contains("wh-form__fieldgroup--error"), "ZIP should now be in error mode");
 
       //STORY: Switching to BE should immediately clear the zip error state. let validation confirm issues first..
       test.fill("#addressform-address\\.country", "BE");
-      test.assert(!test.qS('[data-wh-form-group-for="address.zip"]').classList.contains("wh-form__fieldgroup--error"), "ZIP should be out of error mode");
+      test.assert(!test.qR('[data-wh-form-group-for="address.zip"]').classList.contains("wh-form__fieldgroup--error"), "ZIP should be out of error mode");
     },
 
     'Check UX - AF',
@@ -70,7 +67,7 @@ test.registerTests(
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=2');
 
       test.assert(test.canClick("#addressform-address\\.country"));
-      test.eq('', test.qS("#addressform-address\\.country").value);
+      test.eq('', test.qR("#addressform-address\\.country").value);
       test.assert(!test.canClick("#addressform-address\\.city"));
 
       // NL (no state, street and city disabled, rest required)
@@ -105,7 +102,7 @@ test.registerTests(
       test.assert(!test.qR("#addressform-address\\.state").required);
 
       //Test that the third unconfigured address field simply shows all countries
-      const address3country = test.qS("#addressform-address3\\.country");
+      const address3country = test.qR("#addressform-address3\\.country");
       test.assert(address3country, 'selector should be visible');
       //make sure it sorted right. ie NL countrynames didn't get EN sorted
 
@@ -115,8 +112,8 @@ test.registerTests(
       test.fill(address3country, 'NL');
       await test.wait('tick'); //just in case someone delays reodering
 
-      const zipfield = test.qS("#addressform-address3\\.zip");
-      const streetfield = test.qS("#addressform-address3\\.street");
+      const zipfield = test.qR("#addressform-address3\\.zip");
+      const streetfield = test.qR("#addressform-address3\\.street");
       test.assert(!streetfield.disabled);
       test.assert(zipfield.getBoundingClientRect().top > streetfield.getBoundingClientRect().bottom, "Zip MUST be below country");
     },
@@ -127,26 +124,26 @@ test.registerTests(
 
       // initially not visible
       test.assert(!test.canClick("#addressform-address\\.nr_detail"));
-      test.assert(!test.qS("#addressform-address\\.street").required);
-      test.assert(!test.qS("#addressform-address\\.nr_detail").required);
+      test.assert(!test.qR("#addressform-address\\.street").required);
+      test.assert(!test.qR("#addressform-address\\.nr_detail").required);
 
       test.fill("#addressform-address\\.country", "NL");
-      test.assert(test.qS("#addressform-address\\.nr_detail").required);
-      test.assert(!test.qS("#addressform-address\\.nr_detail").disabled);
+      test.assert(test.qR("#addressform-address\\.nr_detail").required);
+      test.assert(!test.qR("#addressform-address\\.nr_detail").disabled);
 
       test.fill("#addressform-enablefields", false);
-      test.assert(test.qS("#addressform-address\\.nr_detail").disabled);
+      test.assert(test.qR("#addressform-address\\.nr_detail").disabled);
 
       test.fill("#addressform-visiblefields", false);
       test.assert(!test.canClick("#addressform-address\\.nr_detail"));
 
       test.fill("#addressform-enablefields", true);
       test.fill("#addressform-visiblefields", true);
-      test.assert(!test.qS("#addressform-address\\.nr_detail").disabled);
+      test.assert(!test.qR("#addressform-address\\.nr_detail").disabled);
       test.assert(test.canClick("#addressform-address\\.nr_detail"));
 
       test.fill("#addressform-enablegroup", false);
-      test.assert(test.qS("#addressform-address\\.nr_detail").disabled);
+      test.assert(test.qR("#addressform-address\\.nr_detail").disabled);
 
       test.fill("#addressform-visiblegroup", false);
       test.assert(!test.canClick("#addressform-address\\.nr_detail"));
@@ -164,8 +161,8 @@ test.registerTests(
       // address validation/completion should be triggered now
 
       await test.wait("ui");
-      test.eq("Hengelosestraat", test.qS("#addressform-address\\.street").value);
-      test.eq("Enschede", test.qS("#addressform-address\\.city").value);
+      test.eq("Hengelosestraat", test.qR("#addressform-address\\.street").value);
+      test.eq("Enschede", test.qR("#addressform-address\\.city").value);
 
       test.fill("#addressform-address\\.country", "NL");
 
@@ -186,12 +183,12 @@ test.registerTests(
       //lookup should be done again
       testNoLookup("address");
 
-      test.eq("Combinatie van postcode en huisnummer komt niet voor.", test.qS('[data-wh-form-group-for="address.zip"] .wh-form__error').textContent);
+      test.eq("Combinatie van postcode en huisnummer komt niet voor.", test.qR('[data-wh-form-group-for="address.zip"] .wh-form__error').textContent);
 
       // address_not_found should place an error on the first field (here: 'zip')
       test.fill("#addressform-address\\.nr_detail", "3");
       await test.wait("ui");
-      test.eq("Het adres kon niet worden gevonden.", test.qS('[data-wh-form-group-for="address.zip"] .wh-form__error').textContent);
+      test.eq("Het adres kon niet worden gevonden.", test.qR('[data-wh-form-group-for="address.zip"] .wh-form__error').textContent);
     },
 
     async function CheckAddressFieldReordering() {
@@ -209,11 +206,11 @@ test.registerTests(
 
     "Regression: addressfield clearing itself when receiving events that don't change anything",
     async function () {
-      test.eq("NL", test.qS("[id='addressform-address.country']").value);
-      test.eq("7500 OO", test.qS("[id='addressform-address.zip']").value);
+      test.eq("NL", test.qR("[id='addressform-address.country']").value);
+      test.eq("7500 OO", test.qR("[id='addressform-address.zip']").value);
       test.fill("[id='addressform-visiblegroup']", false); //hide the addreses
-      dompack.dispatchDomEvent(test.qS("[id='addressform-address.country']"), 'change'); //this used to trigger a reset because the field was hidden
-      test.eq("NL", test.qS("[id='addressform-address.country']").value);
+      dompack.dispatchDomEvent(test.qR("[id='addressform-address.country']"), 'change'); //this used to trigger a reset because the field was hidden
+      test.eq("NL", test.qR("[id='addressform-address.country']").value);
     },
     // */
     "Regression: modify during validation",
@@ -237,10 +234,10 @@ test.registerTests(
       test.click("button[type=submit]");
 
       await test.wait("ui");
-      test.assert(!test.qS('[data-wh-form-group-for="address.zip"]').classList.contains("wh-form__fieldgroup--error"), "ZIP was valid for BE so should NOT report an error");
-      test.eq("1000", test.qS("#addressform-address\\.zip").value);
-      test.assert(!test.qS('[data-wh-form-group-for="address2.zip"]').classList.contains("wh-form__fieldgroup--error"), "ZIP was valid for BE so should NOT report an error");
-      test.eq("1000", test.qS("#addressform-address2\\.zip").value);
+      test.assert(!test.qR('[data-wh-form-group-for="address.zip"]').classList.contains("wh-form__fieldgroup--error"), "ZIP was valid for BE so should NOT report an error");
+      test.eq("1000", test.qR("#addressform-address\\.zip").value);
+      test.assert(!test.qR('[data-wh-form-group-for="address2.zip"]').classList.contains("wh-form__fieldgroup--error"), "ZIP was valid for BE so should NOT report an error");
+      test.eq("1000", test.qR("#addressform-address2\\.zip").value);
     },
 
     "Regression: addressfield nl-optional broke (incorrectly waiting for allrequiredset)",
@@ -251,9 +248,9 @@ test.registerTests(
       test.fill("#addressform-address2\\.nr_detail", "296");
       await test.pressKey('Tab');
       //wait for completion
-      await test.wait(() => test.qS("#addressform-address2\\.street").value);
-      test.eq("Hengelosestraat", test.qS("#addressform-address2\\.street").value);
-      test.eq("Enschede", test.qS("#addressform-address2\\.city").value);
+      await test.wait(() => test.qR("#addressform-address2\\.street").value);
+      test.eq("Hengelosestraat", test.qR("#addressform-address2\\.street").value);
+      test.eq("Enschede", test.qR("#addressform-address2\\.city").value);
     },
 
     "Test using (disabled) city field as condition source",
@@ -267,7 +264,7 @@ test.registerTests(
       test.fill("#addressform-address\\.nr_detail", "296");
       await test.pressKey('Tab');
       //wait for completion
-      await test.wait(() => test.qS("#addressform-address\\.street").value);
+      await test.wait(() => test.qR("#addressform-address\\.street").value);
 
       test.assert(test.canClick("#addressform-neighbourhood"));
     }
