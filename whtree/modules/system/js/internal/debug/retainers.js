@@ -4,8 +4,6 @@ function getStackTrace() {
   return (new Error).stack.toString();
 }
 
-globalThis.Promise.prototype.foundit = true;
-
 class TracedPromise extends Promise {
   constructor(...args) {
     super(...args);
