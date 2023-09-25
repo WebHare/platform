@@ -356,6 +356,8 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
       IF (Length(ctype.filetype.extensions) > 0 AND ctype.filetype.extensions[0] = "")
         ctype.filetype.extensions := DEFAULT STRING ARRAY;
     }
+
+    ctype.filetype.initialpublish := ctype.filetype.ispublishable AND ParseXSBoolean(ftype->GetAttribute("initialpublish") ?? "true");
     RETURN ctype;
   }
 

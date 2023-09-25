@@ -445,6 +445,7 @@
             kind="virtualfile"
             extensions=".rtd"
             icon="tollium:files/application_x-webhare-richdocument"
+            initialpublish="false"
             searchcontentprovider="publisher:rtd"
             tid="publisher:filetypes.richdocumentfile">
     <members>

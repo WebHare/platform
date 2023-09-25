@@ -733,6 +733,11 @@
         <xs:attribute name="needstemplate" type="xs:boolean" />
         <xs:attribute name="isacceptableindex" type="xs:boolean" />
         <xs:attribute name="ispublishable" type="xs:boolean" />
+        <xs:attribute name="initialpublish" type="xs:boolean" default="true">
+          <xs:annotation>
+            <xs:documentation>Publish files of this time immediately after creation? Defaults to true if publishable</xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
         <xs:attribute name="ispublishedassubdir" type="xs:boolean" />
         <xs:attributeGroup ref="CaptureSubPaths" />
         <xs:attribute name="pagelistprovider">
