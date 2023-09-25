@@ -1,5 +1,6 @@
 import * as test from '@mod-system/js/wh/testframework';
 import * as dompack from 'dompack';
+import { type verifyAddress as VerifyAddressAPI } from '@webhare/forms';
 
 function getFormRPCRequests() {
   return Array.from(test.getWin().performance.getEntriesByType('resource')).filter(node => node.name.includes("/wh_services/publisher/forms/"));
@@ -12,15 +13,74 @@ function testHasLookup(fieldname: string) {
   test.assert(test.qSA(`[data-wh-form-group-for^="${CSS.escape(fieldname + ".")}"]`).filter(el => el.classList.contains("wh-form__fieldgroup--addresslookup")).length > 0);
 }
 
+const rawApiTests = 8;
+
 test.registerTests(
   [
-    'Check UX',
+    'Prepare',
     async function () {
       await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SnoozeRateLimits');
       await test.load(test.getTestSiteRoot() + 'testpages/formtest/?address=2');
 
       test.eq(0, getFormRPCRequests().length, "Verify initial state");
+    },
 
+    'Test raw API',
+    async function () {
+
+      const verifyAddress = (test.getWin() as unknown as { formrpc_validateAddress: typeof VerifyAddressAPI }).formrpc_validateAddress;
+      test.eqProps({
+        status: "error",
+        errors: [{ fields: ["city"], message: /address.*not.*found/ }],
+        corrections: null
+      }, await verifyAddress({ country: "GH", city: "15" }));
+
+      //Test all well known valiadtion paths
+      test.eqProps({
+        status: "ok",
+        errors: [],
+        corrections: null
+      }, await verifyAddress({ country: "NL", zip: "7521 AM", nr_detail: "296", street: "Hengelosestraat", city: "Enschede" }));
+
+      test.eqProps({
+        status: "unknown",
+        errors: [],
+        corrections: null
+      }, await verifyAddress({ country: "NL", zip: "7500 OO", nr_detail: "1" }));
+
+      test.eqProps({
+        status: "error",
+        errors: [{ fields: ["zip", "nr_detail"], message: "Unknown combination of postal code and house number." }],
+        corrections: null
+      }, await verifyAddress({ country: "NL", zip: "7500 OO", nr_detail: "2" }));
+
+      test.eqProps({
+        status: "error",
+        errors: [{ fields: [], message: "The address could not be found." }],
+        corrections: null
+      }, await verifyAddress({ country: "NL", zip: "7500 OO", nr_detail: "3" }));
+
+      test.eqProps({
+        status: "unknown",
+        errors: [],
+        corrections: null
+      }, await verifyAddress({ country: "NL", zip: "7500 OO", nr_detail: "4" }));
+
+      test.eqProps({
+        status: "error",
+        errors: [{ fields: ["zip"], message: "Invalid ZIP or postal code." }],
+        corrections: null
+      }, await verifyAddress({ country: "NL", zip: "7500 OO", nr_detail: "5" }));
+
+      test.eqProps({
+        status: "ok",
+        errors: [],
+        corrections: { city: "DO NOT SHIP - NIET VERZENDEN", street: "PDOK (Publieke Dienstverlening Op de Kaart)" }
+      }, await verifyAddress({ country: "NL", zip: "7500 OO", nr_detail: "296" }));
+    },
+
+    'Check UX',
+    async function () {
       //just changing country on an empty field used to trigger a validation, and then a "Ongeldige postcode"
       test.fill("#addressform-address\\.country", "BE");
       testNoLookup("address");
@@ -37,12 +97,12 @@ test.registerTests(
       testNoLookup("address");
 
       //set a zipcode and housenumber, bring the NL validator into error mode
-      test.eq(0, getFormRPCRequests().length, "Still no lookups please..");
+      test.eq(rawApiTests, getFormRPCRequests().length, "Still no lookups please..");
       test.fill("#addressform-address\\.nr_detail", "100");
       test.fill("#addressform-address\\.zip", "1000");
       await test.wait('ui');
 
-      test.eq(1, getFormRPCRequests().length, "ONE lookup allowed to reject 1000-100");
+      test.eq(rawApiTests + 1, getFormRPCRequests().length, "ONE lookup allowed to reject 1000-100");
       test.assert(test.qR('[data-wh-form-group-for="address.zip"]').classList.contains("wh-form__fieldgroup--error"), "ZIP should now be in error mode");
 
       //STORY: Switching to BE should immediately clear the zip error state. let validation confirm issues first..

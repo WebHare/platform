@@ -23,6 +23,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::system/lib/whfs.whlib";
 LOADLIB "mod::system/lib/webserver/filetransfer.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/service.whlib";
+LOADLIB "mod::wrd/lib/address.whlib";
 
 OBJECT FUNCTION GetFormObject(RECORD submitinfo)
 {
@@ -214,4 +215,75 @@ PUBLIC RECORD FUNCTION RPC_ValidateEmail(STRING langcode, STRING emailaddress)
     RETURN [ suggestion := correction.suggestion ];
   }
   RETURN DEFAULT RECORD;
+}
+
+PUBLIC RECORD FUNCTION RPC_VerifyAddress(STRING url, RECORD value, RECORD options)
+{
+  //TODO cache addresslookup settings so we don't always have to go the database
+  OpenPrimary();
+
+  options := EnforceStructure([checks := STRING[]], options);
+
+  OBJECT wc := GetWebContextForURL(GetWebOriginURL(url), [ clientwebserver := GetClientWebserver() ] );
+  RECORD info := __LookupFormIntegrationAddressInfo(wc->targetapplytester);
+
+  OBJECT validator;
+  IF (CellExists(value, "country"))
+    validator := __GetAddressLookupAPIForSettings(info, value.country);
+
+  RECORD verifyresult := [ status := "unknown", errors := RECORD[], corrections := DEFAULT RECORD ];
+
+  IF(ObjectExists(validator))
+  {
+    IF (value.country = "NL" AND "nl-zip-force" IN options.checks)
+      value := CELL[ ...value, street := "", city := "" ];
+
+    RECORD result := validator->CheckAddress(value);
+
+    verifyresult.corrections := result.looked_up;
+    DELETE CELL status FROM verifyresult.corrections;
+    FOREVERY(RECORD field FROM UnpackRecord(verifyresult.corrections))
+      IF(CellExists(value, field.name) AND GetCell(value,field.name ) = field.value) //so there was no real correction?
+        verifyresult.corrections := CellDelete(verifyresult.corrections, field.name);
+
+    IF(Length(UnpackRecord(verifyresult.corrections))=0)
+      verifyresult.corrections := DEFAULT RECORD;
+
+    SWITCH(result.status)
+    {
+      CASE "invalid_city"
+      {
+        // We'll target the right field but we don't want to supply N translations for 'invalid city'
+        INSERT [ fields := ["city"], message := GetTid("publisher:site.forms.addressfield.address_not_found") ] INTO verifyresult.errors AT END;
+      }
+      CASE "invalid_zip"
+      {
+        INSERT [ fields := ["zip"], message := GetTid("publisher:site.forms.addressfield.invalid_zip") ] INTO verifyresult.errors AT END;
+      }
+      CASE "zip_not_found"
+      {
+        INSERT [ fields := ["zip","nr_detail"], message := GetTid("publisher:site.forms.addressfield.zip_not_found") ] INTO verifyresult.errors AT END;
+      }
+      CASE "invalid_nr_detail"
+      {
+        INSERT [ fields := ["nr_detail"], message := GetTid("publisher:site.forms.addressfield.invalid_nr_detail") ] INTO verifyresult.errors AT END;
+      }
+      CASE "address_not_found"
+      {
+        INSERT [ fields := STRING[], message := GetTid("publisher:site.forms.addressfield.address_not_found") ] INTO verifyresult.errors AT END;
+      }
+      CASE "incomplete", "ok" //incomplete = the lookup corrected it (if it didn't it would return not_enough_data)
+      {
+        verifyresult.status := "ok";
+      }
+    }
+  }
+
+  IF(value.country = "NL" AND "nl-zip-force" IN options.checks AND verifyresult.status != "ok" AND Length(verifyresult.errors) = 0)
+    INSERT [ fields := STRING[], message := GetTid("publisher:site.forms.addressfield.address_not_found") ] INTO verifyresult.errors AT END;
+
+  IF(Length(verifyresult.errors) > 0)
+    verifyresult.status := "error";
+
+  RETURN verifyresult;
 }

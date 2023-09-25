@@ -171,7 +171,6 @@ PUBLIC STATIC OBJECTTYPE WRDAddressVerificationBase
     addressdata := FixupAddress(addressdata);
 
     RECORD data := this->ParseAddress(addressdata);
-
     IF((addressdata.nr_detail LIKE "0*" OR addressdata.nr_detail LIKE "+*") AND Length(addressdata.nr_detail) > 7) // this looks very much like a phone number
       RETURN CELL[ status := "invalid_nr_detail", data := data.output, looked_up := [ status := "invalid_nr_detail" ] ];
 
@@ -195,7 +194,7 @@ PUBLIC STATIC OBJECTTYPE WRDAddressVerificationBase
     {
       SWITCH (data.input.nr_detail)
       {
-        CASE "0"      { RETURN CELL[ status := "lookup_failed", data, looked_up := [ status := "lookup_failed" ] ]; }
+        CASE "0"      { RETURN CELL[ status := "lookup_failed", data, looked_up := [ status := "lookup_failed" ] ]; } //TODO this is probably unreachable due to the precheck above which will fail it with invalid_nr_detail
         CASE "1"      { RETURN CELL[ status := "not_supported", data, looked_up := [ status := "not_supported" ] ]; }
         CASE "2"      { RETURN CELL[ status := "zip_not_found", data, looked_up := [ status := "zip_not_found" ] ]; }
         CASE "3"      { RETURN CELL[ status := "address_not_found", data, looked_up := [ status := "address_not_found" ] ]; }

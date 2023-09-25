@@ -26,6 +26,9 @@ export interface PublisherFormService {
   getUploadedFileFinalURL(uploadurl: string): Promise<string>;
 
   validateEmbeddedObjects(objrefs: string[]): Promise<{ tokill: string[] }>;
+
+  /** Verify address */
+  verifyAddress(url: string, address: unknown, options: unknown): Promise<unknown>;
 }
 
 // const client = rpc.createClient<PublisherFormService>("publisher:forms");

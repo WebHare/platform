@@ -2,6 +2,7 @@ import * as dompack from "@webhare/dompack";
 import { getTid } from "@mod-tollium/js/gettid";
 import FormBase from "../formbase";
 import { flags } from "@webhare/env";
+import { AddressValue } from "@webhare/forms/src/address";
 
 function orThrow(error: string): never {
   throw new Error(error);
@@ -22,17 +23,6 @@ class SubField {
 interface OrderingData {
   countries: string[];
   fieldorder: string[];
-}
-
-interface AddressValue {
-  street?: string;
-  city?: string;
-  nr_detail?: string;
-  zip?: string;
-  state?: string;
-  //2 letter country code, uppercase
-  country?: string;
-
 }
 
 interface LookupResult {
