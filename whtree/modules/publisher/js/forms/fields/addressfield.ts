@@ -1,7 +1,7 @@
 import * as dompack from "@webhare/dompack";
-import { getTid } from "@mod-tollium/js/gettid";
 import FormBase from "../formbase";
 import { flags } from "@webhare/env";
+import { verifyAddress, AddressValidationResult } from "@webhare/forms";
 
 function orThrow(error: string): never {
   throw new Error(error);
@@ -24,29 +24,7 @@ interface OrderingData {
   fieldorder: string[];
 }
 
-interface LookupResult {
-  /* Lookup Status
-
-  "ok" (the address is valid or addresses for this country cannot be checked)
-  - "not_enough_data" (NL: not enough data to do an address lookup)
-  - "invalid_city" city is not correct (eg a number)
-  - "invalid_zip" (NL: the supplied zip is invalid)
-  - "invalid_nr_detail" (NL: the nr_detail is invalid)
-  - "different_citystreet" (NL: given city and street are different from the city and street that are found for the given zip and nr_detail)
-  - "incomplete" (NL: the input data was incomplete - the looked_up field contains the missing fields)
-  - "zip_not_found" (NL: there is no address with the given zip and nr_detail)
-  - "address_not_found" (NL: there is no address with the given street nr_detail and city),
-  - "lookup_failed" (there was an error looking up data - maybe the service is not configured correctly or was unavailable)
-  - "not_supported" (the operation is not supported for this service)
-  */
-  status: "ok" | "not_enough_data" | "invalid_city" | "invalid_zip" | "invalid_nr_detail" | "different_citystreet" | "incomplete" | "zip_not_found" | "address_not_found" | "lookup_failed" | "not_supported";
-  ///The (normalized) input data
-  data: [key: string];
-  ///The result of the address lookup, contains the complete address if the status is "incomplete"
-  looked_up: Record<string, string>;
-}
-
-const lookupcache = new Map<string, Promise<LookupResult>>();
+const lookupcache = new Map<string, Promise<AddressValidationResult>>();
 
 export default class AddressField {
   numvaliditycalls = 0;
@@ -194,14 +172,18 @@ export default class AddressField {
     if (!curstate.allrequiredset)
       return; //no need to validate if we don't even have the required fields in place
 
-    let result: LookupResult;
+    let result: AddressValidationResult;
+    const lock = dompack.flagUIBusy();
     try {
       curstate.visiblefields.forEach(el => el.classList.add("wh-form__fieldgroup--addresslookup"));
 
       ++this.numvaliditycalls;
       if (!lookupcache.get(curstate.lookupkey))
         ///@ts-ignore the assumption that a form is a RPCormBase already exists without validation, so keeping this call for now
-        lookupcache.set(curstate.lookupkey, form.invokeBackgroundRPC(this.fieldName + ".ValidateValue", curstate.value));
+        lookupcache.set(curstate.lookupkey, verifyAddress(curstate.value, {
+          lang: form.getLangCode(),
+          checks: this.node.dataset.checks?.split(' ') ?? []
+        }));
 
       result = await lookupcache.get(curstate.lookupkey)!; //has to existed, created above
     } catch (e) {
@@ -210,6 +192,8 @@ export default class AddressField {
     } finally {
       if (--this.numvaliditycalls == 0) //we're the last call
         curstate.visiblefields.forEach(el => el.classList.remove("wh-form__fieldgroup--addresslookup"));
+
+      lock.release();
     }
     if (this._getCurState().lookupkey != curstate.lookupkey)
       return; //abandon this _checkValidity call, the field has already changed.
@@ -227,69 +211,28 @@ export default class AddressField {
     }
 
     this._clearErrors();
-    switch (result.status) {
-      case "not_supported": // Address lookup not supported, treat as "ok"
-      case "ok":
-        {
-          break;
+
+    for (const err of result.errors) {
+      const field = this.allFields.get(err.fields[0]) ?? this._getFirstCountrySpecificField();
+      if (field)
+        form.setFieldError(field.node, err.message, { reportimmediately: true });
+    }
+
+    if (result.corrections) {
+      let anychanges = false;
+      this._updatingFields = true;
+
+      for (const [key, newvalue] of Object.entries(result.corrections)) {
+        const field = this.allFields.get(key);
+        if (field && field.node.value !== newvalue) {
+          dompack.changeValue(field.node, newvalue);
+          anychanges = true;
         }
-      case "not_enough_data":
-        {
-          // Nothing to check yet
-          break;
-        }
-      case "invalid_city":
-        {
-          // We'll target the right field but we don't want to supply N translations for 'invalid city'
-          form.setFieldError(this.allFields.get("city")!.node, getTid("publisher:site.forms.addressfield.address_not_found"), { reportimmediately: true });
-          break;
-        }
-      case "invalid_zip":
-        {
-          form.setFieldError(this.allFields.get("zip")!.node, getTid("publisher:site.forms.addressfield.invalid_zip"), { reportimmediately: true });
-          break;
-        }
-      case "invalid_nr_detail":
-        {
-          form.setFieldError(this.allFields.get("nr_detail")!.node, getTid("publisher:site.forms.addressfield.invalid_nr_detail"), { reportimmediately: true });
-          break;
-        }
-      case "zip_not_found":
-        {
-          form.setFieldError(this.allFields.get("zip")!.node, getTid("publisher:site.forms.addressfield.zip_not_found"), { reportimmediately: true });
-          break;
-        }
-      case "address_not_found":
-        {
-          form.setFieldError(this._getFirstCountrySpecificField().node, getTid("publisher:site.forms.addressfield.address_not_found"), { reportimmediately: true });
-          break;
-        }
-      case "different_citystreet": // This can happen when fields have been set for another country, we'll update those fields with correct values
-      case "incomplete":
-        {
-          let anychanges = false;
-          this._updatingFields = true;
-          this.allFields.forEach((field, key) => {
-            if (key in result.looked_up) {
-              dompack.changeValue(field.node, (result.looked_up as Record<string, string>)[key]);
-              anychanges = true;
-            }
-          });
-          this._updatingFields = false;
-          if (anychanges)
-            form.refreshConditions();
-          break;
-        }
-      case "lookup_failed":
-        {
-          console.error("Lookup failed, is the service configured correctly?");
-          break;
-        }
-      default:
-        {
-          console.error(`Unknown status code '${result.status}' returned`);
-          break;
-        }
+      }
+
+      this._updatingFields = false;
+      if (anychanges)
+        form.refreshConditions();
     }
   }
 }

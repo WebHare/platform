@@ -132,6 +132,11 @@ export default class FormBase {
     return node.propWhFormhandler || null;
   }
 
+  /** Get language for this form */
+  getLangCode() {
+    return this.node.closest<HTMLElement>('[lang]')?.lang ?? 'en';
+  }
+
   sendFormEvent(eventtype, vars) {
     if (!this._formhandling || !this._formhandling.pxl)
       return;

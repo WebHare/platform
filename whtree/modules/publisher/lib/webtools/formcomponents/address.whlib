@@ -935,6 +935,7 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
 
   PUBLIC RECORD FUNCTION RPC_ValidateValue(RECORD value)
   {
+    //TODO Remove - except for some migration issues noone should be using this anymore since WH 5.4
     RETURN this->CheckAddress(value);
   }
 
