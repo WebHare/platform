@@ -56,7 +56,7 @@ RECORD ARRAY FUNCTION GatherDebugFlags()
   FOREVERY(RECORD flag FROM GetCustomModuleSettings("http://www.webhare.net/xmlns/system/moduledefinition", "debugflag"))
   {
     STRING name := flag.node->GetAttribute("name");
-    IF(flag.module != "system" )
+    IF(flag.module != "platform" )
       name := flag.module || ":" || name;
 
     INSERT CELL[ name
