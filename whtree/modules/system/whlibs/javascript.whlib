@@ -7,7 +7,7 @@
    the bridge or directly linked to the current HSVM hosting process like CallAsync. And in WASM mode we should be able
    to directly invoke JS through syscalls without any IPC)
 */
-
+LOADLIB "wh::internal/wasm.whlib";
 LOADLIB "mod::system/lib/internal/tasks/callasync.whlib";
 
 RECORD ARRAY libcache; //cache opened instances
@@ -25,12 +25,12 @@ OBJECTTYPE ImportedLibrary
       IF(MemberExists(this, exp.name))
         CONTINUE; //ambiguous? ignore
       IF(exp.name LIKE "_*")
-        CONTINUE; //probably an internal api. don't offer this (but if needed we might add/expose something like __InvokeFunction to resolve ambiguous names?)
+        CONTINUE; //probably an internal api. don't offer this (but if needed we might add/expose something like _Invoke to resolve ambiguous names?)
 
       IF(exp.type = "function")
       {
         FUNCTION PTR rebound := __HS_REBINDFUNCTIONPTR2(
-            PTR this->__InvokeFunction,
+            PTR this->_Invoke,
             [[ source := 0, value := exp.name ]],
             0,
             TRUE);
@@ -44,14 +44,23 @@ OBJECTTYPE ImportedLibrary
     }
   }
 
-  VARIANT FUNCTION __InvokeFunction(STRING name, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
+  PUBLIC VARIANT FUNCTION _Invoke(STRING name, VARIANT ARRAY args) __ATTRIBUTES__(VARARG)
   {
+    IF(IsWasm())
+      RETURN EM_Syscall("importCall", CELL[ lib := this->__lib, name, args ]);
+
     RECORD result := WaitForPromise(CallAsync("@mod-system/js/internal/util/jssupport.ts#callExport", VARIANT[this->__lib, name, args]));
     IF(CellExists(result,'promiseid'))
       RETURN CallAsync("@mod-system/js/internal/util/jssupport.ts#awaitPromise", VARIANT[ result.promiseid ]);
 
     RETURN result.retval;
   }
+
+  PUBLIC VARIANT FUNCTION _Get(STRING prop)
+  {
+    RETURN this->_Invoke("^^get", prop);
+  }
+
 >;
 
 PUBLIC OBJECT FUNCTION ImportJS(STRING name)
@@ -60,7 +69,11 @@ PUBLIC OBJECT FUNCTION ImportJS(STRING name)
   IF(NOT ObjectExists(lib))
   {
     //TODO cache descriptions, eventmasks on the file should suffice unless we really need to support 'export' ?
-    RECORD descr := WaitForPromise(CallAsync("@mod-system/js/internal/util/jssupport.ts#describe", [ name ]));
+    RECORD descr;
+    IF(IsWasm())
+      descr := WaitForPromise(EM_Syscall("importDescribe", CELL[name]));
+    ELSE
+      descr := WaitForPromise(CallAsync("@mod-system/js/internal/util/jssupport.ts#describe", [ name ]));
     lib := NEW ImportedLibrary(name, descr);
     INSERT CELL [ lib, name ] INTO libcache AT END;
   }

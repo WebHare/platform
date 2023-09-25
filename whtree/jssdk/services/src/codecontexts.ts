@@ -139,6 +139,10 @@ export function getCodeContext(): CodeContext {
   return als.getStore() ?? rootstorage;
 }
 
+export function runOutsideCodeContext<R, TArgs extends unknown[]>(callback: (...args: TArgs) => R, ...args: TArgs): R {
+  return als.exit(callback, ...args);
+}
+
 export function getScopedResource<ValueType>(key: string | symbol): ValueType | undefined {
   return getCodeContext().getScopedResource<ValueType>(key);
 }

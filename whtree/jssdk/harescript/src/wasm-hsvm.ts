@@ -1,7 +1,7 @@
 import type { HSVM, HSVM_ColumnId, HSVM_VariableId, HSVM_VariableType, Ptr, StringPtr } from "../../../lib/harescript-interface";
 import { IPCMarshallableData, SimpleMarshallableRecord, VariableType, readMarshalData, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
-import { decodeString } from "@webhare/std";
+import { DeferredPromise, createDeferred, decodeString } from "@webhare/std";
 
 // @ts-ignore: implicitly has an `any` type
 import createModule from "../../../lib/harescript";
@@ -14,7 +14,18 @@ import { Mutex } from "@webhare/services";
 import { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { debugFlags } from "@webhare/env";
 import bridge, { BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
-import { CodeContext, getCodeContext, rootstorage } from "@webhare/services/src/codecontexts";
+import { rootstorage, runOutsideCodeContext } from "@webhare/services/src/codecontexts";
+import { type HSVM_HSVMSource } from "./machinewrapper";
+
+
+export interface StartupOptions {
+  /// Script to run. If not specified an eventloop is started
+  script?: string;
+  consoleArguments?: string[];
+  /// A hook that is executed when the main script is done but before it is cleaned up. HSVM/wasmmodule state should still be accessible
+  onScriptDone?: (exception: Error | null) => void | Promise<void>;
+  __unrefMainTimer?: boolean;
+}
 
 export type MessageList = Array<{
   iserror: boolean;
@@ -30,24 +41,24 @@ export type MessageList = Array<{
   message: string;
 }>;
 
-interface TraceElement {
-  filename: string;
-  line: number;
-  col: number;
-  func: string;
-}
+// interface TraceElement {
+//   filename: string;
+//   line: number;
+//   col: number;
+//   func: string;
+// }
 
 ///Pool of unused engines.
 const enginePool = new Array<WASMModule>;
 
 export type JSBlobTag = { pg: string } | null;
 
-function addHareScriptTrace(trace: TraceElement[], err: Error) {
-  const stacklines = err.stack?.split("\n") || [];
-  const tracelines = trace.map(e =>
-    `    at ${e.func} (${e.filename}:${e.line}:${e.col})`).join("\n");
-  err.stack = (stacklines[0] ? stacklines[0] + "\n" : "") + tracelines + '\n' + (stacklines.slice(1).join("\n"));
-}
+// function addHareScriptTrace(trace: TraceElement[], err: Error) {
+//   const stacklines = err.stack?.split("\n") || [];
+//   const tracelines = trace.map(e =>
+//     `    at ${e.func} (${e.filename}:${e.line}:${e.col})`).join("\n");
+//   err.stack = (stacklines[0] ? stacklines[0] + "\n" : "") + tracelines + '\n' + (stacklines.slice(1).join("\n"));
+// }
 
 function parseError(line: string) {
   const errorparts = line.split("\t");
@@ -140,7 +151,7 @@ export async function recompileHarescriptLibrary(uri: string, options?: { force:
 }
 
 function registerBridgeEventHandler(weakModule: WeakRef<HareScriptVM>) {
-  rootstorage.run(() => {
+  runOutsideCodeContext(() => {
     const listenerid = bridge.on("event", (event: BridgeEvent) => {
       const mod = weakModule.deref();
       if (!mod || mod.isShutdown()) {
@@ -154,14 +165,14 @@ function registerBridgeEventHandler(weakModule: WeakRef<HareScriptVM>) {
       if (event.data && event.data.__sourcegroup === mod.currentgroup)
         return;
 
-      mod.codeContext.run(() => mod.injectEvent(event.name, event.data));
+      mod.injectEvent(event.name, event.data);
     });
     weakModule.deref()!.unregisterEventCallback = () => bridge.off(listenerid);
   });
 }
 
 
-export class HareScriptVM {
+export class HareScriptVM implements HSVM_HSVMSource {
   static moduleIdCounter = 0;
   private _wasmmodule: WASMModule | null;
   private _hsvm: HSVM | null;
@@ -176,14 +187,34 @@ export class HareScriptVM {
   objectCache;
   mutexes: Array<Mutex | null> = [];
   currentgroup: string;
-  pipeWaiters = new Map<Ptr, object>;
+  pipeWaiters = new Map<Ptr, DeferredPromise<number>>;
   heapFinalizer = new FinalizationRegistry<HSVM_VariableId>((varid) => this._hsvm && this.wasmmodule._HSVM_DeallocateVariable(this._hsvm, varid));
   transitionLocks = new Array<TransitionLock>;
   unregisterEventCallback: (() => void) | undefined;
-  codeContext: CodeContext;
   private gotEventCallbackId = 0; //id of event callback provided to the C++ code
+  __unrefMainTimer: boolean;
+  onScriptDone: ((e: Error | null) => void | Promise<void>) | null;
 
-  constructor(module: WASMModule) {
+  /// Unique id counter
+  syscallPromiseIdCounter = 0;
+  /// List of JS Promises that have resolved and now need their results communicated back to HS
+  pendingPromiseResults = new Array<{
+    id: number;
+    isResolve: boolean;
+    result: unknown;
+  }>;
+  /// List of HS function calls that need to be execute
+  pendingFunctionRequests = new Array<{
+    id: number;
+    resolve: (result: unknown | undefined) => void;
+    reject: (result: Error) => void;
+    functionref: string;
+    params: HSVMVar[];
+    object: HSVMHeapVar | null;
+    sent: boolean;
+  }>;
+
+  constructor(module: WASMModule, startupoptions: StartupOptions) {
     this._wasmmodule = module;
     this.objectCache = new HSVMObjectCache(this);
     module.itf = this;
@@ -193,22 +224,92 @@ export class HareScriptVM {
     this.errorlist = module._HSVM_AllocateVariable(this.hsvm);
     this.columnnamebuf = module._malloc(65);
     this.stringptrs = module._malloc(8); // 2 string pointers
-    this.codeContext = getCodeContext();
-    this.consoleArguments = [];
+    this.consoleArguments = startupoptions?.consoleArguments || [];
     this.currentgroup = `${bridge.getGroupId()}-wasmmodule-${HareScriptVM.moduleIdCounter++}`;
     this.integrateEvents();
+    this.onScriptDone = startupoptions.onScriptDone || null;
+
+    this.__unrefMainTimer = startupoptions?.__unrefMainTimer || false;
+  }
+
+  async run(script: string): Promise<void> {
+    if (debugFlags.vmlifecycle) {
+      console.log(`[${this.currentgroup}] Load script: ${script}`);
+      console.trace();
+    }
+    await this.loadScript(script);
+
+    let exception: unknown | null = null;
+    try {
+      if (debugFlags.vmlifecycle)
+        console.log(`[${this.currentgroup}] Execute script`);
+      await this.executeScript();
+    } catch (e) {
+      exception = e;
+      throw e;
+    } finally {
+      //When the script is done, we clean up
+      if (this.onScriptDone)
+        await this.onScriptDone(exception instanceof Error ? exception : null);
+
+      try {
+        //TODO Might want to already release some resources when the main script is done ?
+
+        if (debugFlags.vmlifecycle) {
+          if (exception)
+            console.log(`[${this.currentgroup}] Script failed, releasing VM`, exception);
+          else
+            console.log(`[${this.currentgroup}] Script completed, releasing VM`);
+          console.trace();
+        }
+
+        this.unregisterEventCallback?.();
+        this.wasmmodule._ReleaseHSVMResources(this.hsvm);
+
+        for (const mutex of this.mutexes)
+          mutex?.release();
+
+        this.wasmmodule._SetEventCallback(0 as HSVM, 0);
+        this.wasmmodule.removeFunction(this.gotEventCallbackId);
+        this.wasmmodule._ReleaseHSVM(this.hsvm);
+        this.wasmmodule.prepareForReuse();
+
+        enginePool.push(this.wasmmodule);
+
+        this._hsvm = null;
+        this._wasmmodule = null;
+      } catch (e) {
+        console.error("Exception during HSVM cleanup", e);
+      }
+    }
+  }
+
+  _getHSVM() {
+    return this;
   }
 
   get hsvm() { //We want callers to not have to check this.hsvm on every use
     if (this._hsvm)
       return this._hsvm;
-    throw new Error(`This VM has already shut down`);
+    throw new Error(`VM ${this.currentgroup} has already shut down`);
   }
 
   get wasmmodule() {
     if (this._wasmmodule)
       return this._wasmmodule;
-    throw new Error(`This VM has already shut down`);
+    throw new Error(`VM ${this.currentgroup} has already shut down`);
+  }
+
+  async __pipewaiterWait(pipewaiter: number, wait_ms: number) { //threads.cpp callback
+    const waiter = this.pipeWaiters.get(pipewaiter);
+    if (!waiter)
+      throw new Error(`Could not find pipewaiter`);
+
+    const timer = rootstorage.run(() => setTimeout(() => waiter.resolve(0), wait_ms));
+    if (this.__unrefMainTimer && !this.pendingFunctionRequests.length)
+      timer.unref();
+    const res = await waiter.promise;
+    return res;
   }
 
   //Bridge-based HSVM compatibillty. Report the number of Proxies still alive
@@ -222,6 +323,12 @@ export class HareScriptVM {
       throw new Error(`Variable doesn't have expected type ${VariableType[expectType]}, but got ${VariableType[curType]}`);
 
     return curType;
+  }
+
+  /** Resolve a promise returnd by EM_Syscall */
+  resolveSyscalledPromise(id: number, isResolve: boolean, result: unknown) {
+    this.pendingPromiseResults.push({ id, isResolve, result: result === undefined ? false : result });
+    this.injectEvent("system:wasm-promises", null);
   }
 
   /// Inject an event directly into this HSVM
@@ -274,6 +381,12 @@ export class HareScriptVM {
   allocateVariable(): HSVMHeapVar {
     const id = this.wasmmodule._HSVM_AllocateVariable(this.hsvm);
     return new HSVMHeapVar(this, id);
+  }
+
+  allocateVariableCopy(source: HSVM_VariableId): HSVMHeapVar {
+    const heapvar = this.allocateVariable();
+    this.wasmmodule._HSVM_CopyFrom(this.hsvm, heapvar.id, source);
+    return heapvar;
   }
 
   quickParseVariable(variable: HSVM_VariableId): IPCMarshallableData {
@@ -386,12 +499,6 @@ export class HareScriptVM {
     }
   }
 
-  async run(library: string): Promise<void> {
-    await this.loadScript(library);
-    await this.executeScript();
-    return;
-  }
-
   openFunctionCall(paramcount: number): HSVMVar[] {
     const params: HSVMVar[] = [];
     this.wasmmodule._HSVM_OpenFunctionCall(this.hsvm, paramcount);
@@ -403,7 +510,18 @@ export class HareScriptVM {
   /** @param functionref - Function to call
       @param isfunction - Whether to call a function or macro
    */
-  async callWithHSVMVars(functionref: string, params: HSVMVar[], object?: HSVM_VariableId): Promise<HSVMHeapVar | undefined> {
+  async callWithHSVMVars(functionref: string, params: HSVMVar[], objectid?: HSVM_VariableId): Promise<unknown> {
+    //FIXME check if we really want to bother with HSMVars as currently its just a lot of extra cloning
+    const defer = createDeferred<unknown | undefined>();
+    const id = ++this.syscallPromiseIdCounter;
+    const object = objectid ? this.allocateVariableCopy(objectid) : null;
+    this.pendingFunctionRequests.push({ id, resolve: defer.resolve, reject: defer.reject, functionref, params: params.map(p => this.allocateVariableCopy(p.id)), object, sent: false });
+
+    // console.log("Queued outgoing call", this.pendingFunctionRequests.at(-1));
+    this.injectEvent("system:wasm-promises", null);
+    return defer.promise;
+
+    /* TODO do we need to keep the direct-invoke approach ?
     const parts = functionref.split("#");
     if (!object && parts.length !== 2)
       throw new Error(`Illegal function reference ${JSON.stringify(functionref)}`);
@@ -418,7 +536,7 @@ export class HareScriptVM {
       if (object) {
         const colid = this.getColumnId(functionref);
         const transitionLock = debugFlags.async && this.startTransition(true, functionref);
-        retvalid = await this.wasmmodule._HSVM_CallObjectMethod(this.hsvm, object, colid, 0, /*allow macro=*/1);
+        retvalid = await this.wasmmodule._HSVM_CallObjectMethod(this.hsvm, object, colid, 0, /*allow macro=* /1);
         transitionLock?.close();
         //HSVM_CallObjectMethod simply returns an uninitialized value when dealing with a macro
         wasfunction = retvalid !== 0 && this.wasmmodule._HSVM_GetType(this.hsvm, retvalid) !== VariableType.Uninitialized;
@@ -430,7 +548,7 @@ export class HareScriptVM {
         const returntype = this.wasmmodule._HSVM_IntegerGet(this.hsvm, returntypecell);
         wasfunction = ![0, 2].includes(returntype);
         const transitionLock = debugFlags.async && this.startTransition(true, functionref);
-        retvalid = await this.wasmmodule._HSVM_CallFunctionPtr(this.hsvm, callfuncptr.id, /*allow macro=*/1);
+        retvalid = await this.wasmmodule._HSVM_CallFunctionPtr(this.hsvm, callfuncptr.id, /*allow macro=* /1);
         transitionLock?.close();
       }
 
@@ -460,6 +578,7 @@ export class HareScriptVM {
     } finally {
       callfuncptr.dispose();
     }
+    */
   }
 
   parseMessageList(): MessageList {
@@ -483,12 +602,10 @@ export class HareScriptVM {
 
   async call(functionref: string, ...params: unknown[]): Promise<unknown> {
     const funcargs = argsToHSVMVar(this, params);
-    let result: HSVMHeapVar | undefined;
     try {
-      result = await this.callWithHSVMVars(functionref, funcargs);
-      return result ? result.getJSValue() : undefined;
+      return this.callWithHSVMVars(functionref, funcargs);
     } finally {
-      cleanupHSVMCall(this, funcargs, result);
+      cleanupHSVMCall(this, funcargs, undefined);
     }
   }
 
@@ -512,29 +629,14 @@ export class HareScriptVM {
     return printcallback;
   }
 
-  releaseResources() {
-    this.unregisterEventCallback?.();
-    this.wasmmodule._HSVM_AbortVM(this.hsvm);
-    this.wasmmodule._ReleaseHSVMResources(this.hsvm);
-
-    for (const mutex of this.mutexes)
-      mutex?.release();
-  }
-
   /// Shutdown the VM. Use this if you know it's no longer needed, it prevents having to wait for garbage collection to free up resources
   shutdown() {
-    this.releaseResources();
+    if (debugFlags.vmlifecycle) {
+      console.log(`[${this.currentgroup}] Aborting VM:`);
+      console.trace();
+    }
 
-    //TODO what do we need to shutdown in the wasmmodule itself? or can we prepare it for reuse ?
-    this.wasmmodule._ReleaseHSVM(this.hsvm);
-    this.wasmmodule.removeFunction(this.gotEventCallbackId);
-    this.wasmmodule._SetEventCallback(0 as HSVM, 0);
-    this.wasmmodule.prepareForReuse();
-
-    enginePool.push(this.wasmmodule);
-
-    this._hsvm = null;
-    this._wasmmodule = null;
+    this.wasmmodule._HSVM_AbortVM(this.hsvm);
   }
 
   /// Is the VM already closed?
@@ -585,10 +687,13 @@ export async function createHarescriptModule<T extends WASMModule>(modulefunctio
   return wasmmodule;
 }
 
-export async function allocateHSVM(): Promise<HareScriptVM> {
-  if (enginePool.length)
-    return new HareScriptVM(enginePool.pop()!);
+//TODO should we rename this to make clear we're also starting the VM? it's not just an 'allocation' anymore
+export async function allocateHSVM(options?: StartupOptions): Promise<HareScriptVM> {
+  const hsvmModule = enginePool.pop() || createHarescriptModule(new WASMModule);
+  return new HareScriptVM(await hsvmModule, options || {});
+}
 
-  const hsvmModule = createHarescriptModule(new WASMModule);
-  return new HareScriptVM(await hsvmModule);
+//Only for CI tests:
+export async function isInFreePool(mod: WASMModule) {
+  return enginePool.includes(mod);
 }

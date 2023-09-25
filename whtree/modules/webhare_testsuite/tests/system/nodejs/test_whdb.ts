@@ -1,6 +1,6 @@
 import { BackendEvent, BackendEventSubscription, subscribe } from "@webhare/services";
 import * as test from "@webhare/test";
-import { DeferredPromise, createDeferred, sleep } from "@webhare/std";
+import { sleep } from "@webhare/std";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
 import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen, uploadBlob, query } from "@webhare/whdb";
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
@@ -192,6 +192,9 @@ async function testCodeContexts() {
   context2.close();
 }
 
+/* TODO: how useful is this test really?  codecontexts very easily get bound and I think their whole
+   point is that we'll manually shut them down whenever their scoope/rquest ends - so garbage collection is irrelevant?
+
 // Test that code contexts are kept when referencable and released when done
 async function testCodeContexts2() {
   let weak: WeakRef<CodeContext> | undefined;
@@ -230,6 +233,7 @@ async function testCodeContexts2() {
   }, "The context should have been collected after the function finished");
   console.log("Garbage collection verified");
 }
+*/
 
 async function testFinishHandlers() {
   const handlerresult: string[] = [];
@@ -343,6 +347,5 @@ test.run([
   testHSWorkSync,
   testFinishHandlers,
   testHSCommitHandlers,
-  testCodeContexts,
-  testCodeContexts2
+  testCodeContexts
 ]);

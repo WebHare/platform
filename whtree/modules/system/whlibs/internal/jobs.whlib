@@ -355,6 +355,7 @@ PUBLIC STATIC OBJECTTYPE Job EXTEND __HS_INTERNAL_OutputObject
   //
   // Variables
   //
+  BOOLEAN started;
 
   /// Link the the job
   OBJECT pvt_link;
@@ -408,6 +409,7 @@ PUBLIC STATIC OBJECTTYPE Job EXTEND __HS_INTERNAL_OutputObject
     IF (this->pvt_handle = 0)
       THROW NEW Exception("Cannot start a closed job");
 
+    this->started := TRUE;
     __HS_StartJob(this->pvt_handle);
   }
 
@@ -576,6 +578,8 @@ PUBLIC STATIC OBJECTTYPE Job EXTEND __HS_INTERNAL_OutputObject
   {
     IF (this->pvt_handle = 0)
       THROW NEW Exception("Cannot get the authentication record of a closed job");
+    IF(this->started) //this should be done before starting, only legitimate user is applicationstarter
+      THROW NEW Exception("Cannot manipulate the authentication record of a started job");
 
     RETURN __HS_GETJOBAUTHENTICATIONRECORD(this->pvt_handle);
   }
@@ -588,6 +592,8 @@ PUBLIC STATIC OBJECTTYPE Job EXTEND __HS_INTERNAL_OutputObject
   {
     IF (this->pvt_handle = 0)
       THROW NEW Exception("Cannot set the authentication record of a closed job");
+    IF(this->started) //this should be done before starting, only legitimate user is applicationstarter
+      THROW NEW Exception("Cannot manipulate the authentication record of a started job");
 
     __HS_SETJOBAUTHENTICATIONRECORD(this->pvt_handle, authrec);
   }

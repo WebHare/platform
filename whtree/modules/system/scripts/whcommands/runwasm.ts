@@ -1,17 +1,15 @@
 import * as path from "node:path";
-import { allocateHSVM } from "@webhare/harescript";
 import { toResourcePath } from "@webhare/services";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
+import { runScript } from "@webhare/harescript/src/machinewrapper";
 
 async function runWasmScript(script: string, params: string[]) {
   if (!script.startsWith("mod::"))
     script = toResourcePath(script, { allowUnmatched: true }) || `direct::${path.isAbsolute(script) ? script : path.join(process.cwd(), script)}`;
 
   try {
-    const vm = await allocateHSVM();
-    vm.consoleArguments = params;
-    await vm.run(script);
-    vm.shutdown();
+    const vm = await runScript(script, { consoleArguments: params });
+    await vm.done;
   } finally {
     await bridge.ensureDataSent();
   }

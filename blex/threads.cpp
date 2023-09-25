@@ -105,13 +105,7 @@ EM_JS(void, pipewaiterClearWaiter, (void *pipewaiter), {
 });
 
 EM_ASYNC_JS(int, pipewaiterWait, (void *pipewaiter, int wait_ms), {
-  const waiter = Module.itf.pipeWaiters.get(pipewaiter);
-  if (!waiter)
-    throw new Error(`Could not find pipewaiter`);
-
-  setTimeout(() => waiter.resolve(0), wait_ms);
-  const res = await waiter.promise;
-  return res;
+  return Module.itf.__pipewaiterWait(pipewaiter, wait_ms);
 });
 
 PipeWaiter::~PipeWaiter()

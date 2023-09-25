@@ -1,4 +1,4 @@
-import { scheduleLingeringProcessCheck } from './testsupport';
+import { triggerGarbageCollection, scheduleLingeringProcessCheck } from './testsupport';
 export { triggerGarbageCollection } from './testsupport';
 
 // Want more than the default 10 stack frames in errors
@@ -55,6 +55,7 @@ export async function run(tests: Array<() => unknown>, options?: object) {
     throw e; //TODO don't rethrow but *do* mark the tests as failed
   } finally {
     // Dump all resources keeping the script alive after 5 seconds after finishing the tests
+    triggerGarbageCollection();
     scheduleLingeringProcessCheck();
   }
 }

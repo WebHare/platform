@@ -46,15 +46,16 @@ PUBLIC MACRO RunWasmtest()
       ];
 
   TestEQ(CELL[ ...testrec, called := TRUE ], EM_Syscall("executeInline", [ func := "return { ...param, called: true };", param := testrec ]));
-  TestEQ(CELL[ ...testrec, called := TRUE ], EM_Syscall("executeInline",
+
+  TestEQ(CELL[ ...testrec, called := TRUE ], WaitForPromise(EM_Syscall("executeInline",
       [ func := "return await new Promise(r => setTimeout(() => r({ ...param, called: true }), 1));"
       , param := testrec
-      ]));
+      ])));
 
   //verify a promise not returning anything doesn't break the VM
-  TestEq(FALSE, EM_Syscall("executeInline",
+  TestEq(FALSE, WaitForPromise(EM_Syscall("executeInline",
       [ func := "return await new Promise(r => setTimeout(() => r(), 1));"
-      ]));
+      ])));
 
   //test buffers over EM_Syscall
   TestEq("010203", EM_Syscall("executeInline", [ func := "return param instanceof Buffer ? param.toString('hex') : 'NOT A BUFFER'", param := NEW Buffer("\x01\x02\x03")]));
@@ -62,7 +63,8 @@ PUBLIC MACRO RunWasmtest()
 
   //Test reentrant syscalls
   PRINT(`start reentrant syscall test\n`);
-  TestEq(2, EM_Syscall("executeInline", [ func := `return await vm.loadlib(${EncodeJSON(Resolve("testwasmlib.whlib"))}).ReentrantSyscall() + 1;`, param := DEFAULT RECORD ]));
+  TestEq(2, WaitForPromise(EM_Syscall("executeInline", [ func := `return 1 + await vm.loadlib(${EncodeJSON(Resolve("testwasmlib.whlib"))}).ReentrantSyscall();`, param := DEFAULT RECORD ])));
+  PRINT(`done reentrant syscall test\n`);
 }
 
 RunWasmTest(); //TODO RunTestFramework isn't supported yet

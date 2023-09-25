@@ -1,0 +1,5 @@
+<?wh
+
+LOADLIB "wh::ipc.whlib";
+
+RunEventLoop();

@@ -16,10 +16,10 @@ function applyFix(title, match, badPart, goodPart) {
       contents = contents.replace(badPart, goodPart);
       fs.writeFileSync(jsfile + ".tmp", contents);
       fs.renameSync(jsfile + ".tmp", jsfile);
-      console.log(`Applied fix: ${title}`);
+      console.log(`fix-emcc-output: Applied fix: ${title}`);
       ++numapplied;
     } else if (!isGood) {
-      console.error(`Don't know how to apply fix: ${title}`);
+      console.error(`fix-emcc-output: Don't know how to apply fix: ${title}`);
       process.exit(1);
     }
   }
