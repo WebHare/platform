@@ -6,8 +6,12 @@ const jsfile = process.argv[2];
 let contents = fs.readFileSync(jsfile).toString();
 let numfixes = 0, numapplied = 0;
 
-function applyFix(title, match, badPart, goodPart) {
-  const isGood = contents.indexOf(goodPart) !== -1;
+function applyFix(title, match, badPart, goodPart, altGoodParts) {
+  let isGood = contents.indexOf(goodPart) !== -1;
+  if (altGoodParts)
+    for (const part of altGoodParts)
+      if (!isGood && contents.match(part))
+        isGood = true;
   const isBad = contents.indexOf(badPart) !== -1;
 
   ++numfixes;
@@ -27,11 +31,13 @@ function applyFix(title, match, badPart, goodPart) {
 
 applyFix('emscripten 3.1.43 fix', /Asyncify.asyncExports/,
   `Asyncify.asyncExports.add(original);if(isAsyncifyExport){`,
-  `if(isAsyncifyExport){Asyncify.asyncExports.add(original);`);
+  `if(isAsyncifyExport){Asyncify.asyncExports.add(original);`,
+  [/if *\(isAsyncifyExport\) *{\n? *Asyncify.asyncExports.add\(original\);/m]);
 
 // https://github.com/emscripten-core/emscripten/pull/20213
 applyFix('fix removeFunction reference leak', /removeFunction/,
   `functionsInTableMap.delete(getWasmTableEntry(index));freeTableIndexes.push(index)`,
-  `functionsInTableMap.delete(getWasmTableEntry(index));setWasmTableEntry(index,null);freeTableIndexes.push(index)`);
+  `functionsInTableMap.delete(getWasmTableEntry(index));setWasmTableEntry(index,null);freeTableIndexes.push(index)`,
+  [/functionsInTableMap.delete\(getWasmTableEntry\(index\)\);\n? *setWasmTableEntry\(index, ?null\);\n? *freeTableIndexes.push\(index\)/m ]);
 
 console.log(`fix-emcc-output: Needed to apply ${numapplied} of ${numfixes} known fixes.`);
