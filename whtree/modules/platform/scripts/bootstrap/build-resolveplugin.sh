@@ -1,3 +1,5 @@
+# Use `wh finalize-webhare` to force a rebuild of the resolve plugign
+
 cd "${BASH_SOURCE%/*}/../../../.." || exit 1  #take us to whtree/
 
 # Clear the esbuild cache so the new plugin has fresh data to work with

@@ -85,7 +85,7 @@ test.registerTests(
         const lock = api.flagUIBusy({ modal: true });
         const dialog = await test.waitForElement(['dialog', /Please wait!/]);
         test.eq(1, test.qSA("dialog.dompack-busydialog").length);
-        lock.release();
+        lock[Symbol.dispose](); //should be identical to release()
         await test.wait('ui'); //ensure ui-wait works - we did just flag busy...
         await test.wait(() => dialog.parentNode === null);
       }
@@ -95,10 +95,14 @@ test.registerTests(
       api.setupBusyModal(test.qR("#mywaiter") as HTMLDialogElement);
       test.eq(false, test.canClick("#mywaiter"));
       for (let repeat = 0; repeat < 2; ++repeat) {
-        const lock = api.flagUIBusy({ modal: true });
-        await test.waitForElement("#mywaiter");
-        test.eq(true, test.canClick("#mywaiter"));
-        lock.release();
+        { /* extra block to verify 'using'
+            unfortunately there's no way to use using without a variable. see also
+            https://github.com/tc39/proposal-explicit-resource-management/blob/main/future/using-void-declaration.md
+          */
+          using lock = api.flagUIBusy({ modal: true }); void lock;
+          await test.waitForElement("#mywaiter");
+          test.eq(true, test.canClick("#mywaiter"));
+        }
         await test.wait(() => !test.canClick("#mywaiter"));
       }
 

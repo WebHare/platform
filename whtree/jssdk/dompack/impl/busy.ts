@@ -1,6 +1,7 @@
 import { debugFlags } from '@webhare/env';
 import * as domevents from '../../../modules/system/js/dompack/src/events';
 import { createDeferred, DeferredPromise } from "@webhare/std";
+import "@webhare/ts-esbuild-runner/src/polyfills";
 
 let locallocks: BusyLock[] = [];
 let modallocked = false;
@@ -17,8 +18,9 @@ let busymodalcontent: string | HTMLElement | HTMLDialogElement | undefined;
 
 export type BusyModalEvent = CustomEvent<{ show: boolean }>;
 
-export interface Lock {
+export interface Lock extends Disposable {
   release(): void;
+  [Symbol.dispose](): void;
 }
 
 declare global {
@@ -204,7 +206,8 @@ class BusyLock implements Lock {
       console.trace('[bus] Busy lock #' + this.locknum + ' taken. ' + lockmgr.getNumLocks() + " locks active now: " + lockmgr.getLockIds());
     }
   }
-  release() {
+
+  [Symbol.dispose]() {
     if (debugFlags.bus)
       this.releasestack = (new Error).stack;
 
@@ -217,6 +220,10 @@ class BusyLock implements Lock {
     }
 
     scheduleCheckUIFree();
+  }
+
+  release() {
+    this[Symbol.dispose]();
   }
 }
 
