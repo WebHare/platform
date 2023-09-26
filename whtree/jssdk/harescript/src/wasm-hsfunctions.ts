@@ -88,6 +88,22 @@ class HSIPCPort extends OutputObjectBase {
   }
 }
 
+class SignalIntPipe extends OutputObjectBase {
+  private _listener;
+
+  constructor(vm: HareScriptVM) {
+    super(vm, "SignalIntPipe");
+    this.setReadSignalled(false);
+
+    this._listener = () => this.setReadSignalled(true);
+    process.addListener('SIGINT', this._listener);
+  }
+  close() {
+    process.removeListener('SIGINT', this._listener);
+    super.close();
+  }
+}
+
 class HSIPCLink extends OutputObjectBase {
   link: IPCEndPoint | undefined;
   messages = new Array<IPCMessagePacket<IPCMarshallableRecord>>;
@@ -297,6 +313,7 @@ const ipcContext = contextGetterFactory(class {
   links = new Map<number, HSIPCLink>;
   jobs = new Map<number, HSJob>;
   linktoparent: IPCEndPoint | undefined;
+  signalintpipe: SignalIntPipe | undefined;
   externalsessiondata = "";
 });
 
@@ -501,6 +518,12 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     if (!hasher)
       throw new Error(`No such crypto hasher with id ${id.getInteger()}`);
     id_set.setString(hasher.finalize());
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__HS_GETSIGNALINTPIPE::I:", async (vm, id_set) => {
+    if (!ipcContext(vm).signalintpipe)
+      ipcContext(vm).signalintpipe = new SignalIntPipe(vm);
+    id_set.setInteger(ipcContext(vm).signalintpipe!.id);
   });
 
   wasmmodule.registerAsyncExternalFunction("__HS_CREATENAMEDIPCPORT::I:SB", async (vm, id_set, var_portname, var_globalport) => {
