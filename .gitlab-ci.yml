@@ -329,7 +329,7 @@ deploydocker:
     - schedules
     - /^docs\/.*$/
   script:
-    - whtree/bin/wh deploydocker
+    - addons/docker-build/deploydocker.sh
   interruptible: true
 
 updatetestscripts:
