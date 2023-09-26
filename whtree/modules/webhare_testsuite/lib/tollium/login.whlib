@@ -10,6 +10,7 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
 LOADLIB "mod::wrd/lib/auth.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
 
 
@@ -108,7 +109,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetSchemaValidationChecks(STRING passwordvalid
       : GetWRDAuthPlugin(options.url)->wrdschema;
 
   GetPrimary()->BeginWork();
-  wrdschema->SetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", passwordvalidationchecks);
+  SetWRDSetting(wrdschema, "password_validation_checks", passwordvalidationchecks);
   GetPrimary()->CommitWork();
 
   RETURN DEFAULT RECORD;

@@ -29,6 +29,7 @@
         <free tag="remotewrdschema" required="true" />
       </array>
       <free tag="domain_secret" description="Shared secret for WRDAuth tokens" unsafetocopy="true" />
+      <free tag="password_validation_checks" description="Global checks" />
       <json tag="login_settings" description="Login configuration (see wrdauth_defaultconfiguration)" />
       <free tag="issuer" description="JWT issuer" unsafetocopy="true" />  <!-- attempting to sync an existing issuer will only generate confusing tokens. it's better to maintain this per server -->
       <array tag="signing_keys" description="JWT keys" unsafetocopy="true">
