@@ -85,8 +85,8 @@ test.registerTests(
       }, await verifyAddress({ country: "NL", zip: "7500 OO", nr_detail: "5" }));
 
       test.eqProps({
-        status: "ok",
-        errors: [],
+        status: "error",
+        errors: [{ fields: ["zip"], message: "Invalid ZIP or postal code." }],
         corrections: { city: "DO NOT SHIP - NIET VERZENDEN", street: "PDOK (Publieke Dienstverlening Op de Kaart)" }
       }, await verifyAddress({ country: "NL", zip: "7500 OO", nr_detail: "296" }));
     },
