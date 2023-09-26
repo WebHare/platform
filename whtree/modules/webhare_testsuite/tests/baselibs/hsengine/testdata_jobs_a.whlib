@@ -195,6 +195,7 @@ WHILE (NOT break_out)
         {
           CASE "output"       { PRINT(data.msg.data); }
           CASE "crash"        { ABORT(data.msg.data); }
+          CASE "throw"        { THROW NEW Exception(data.msg.data); }
           CASE "terminate"    { TerminateScript(); }
         }
       }
