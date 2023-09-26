@@ -485,8 +485,7 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
 
     RECORD integrationsettings := this->GetIntegrationConfiguration();
 
-    // Set options before initializing components by setting countrylist
-    this->addressoptions := integrationsettings.options CONCAT field.options;
+    this->addressoptions := field.hasoptions ? field.options : integrationsettings.options;
     this->countrylist := field.hascountrylist ? field.countrylist : CheckCountryList(integrationsettings.countrylist, this->allcountries, this->form->formlanguagecode);
   }
 

@@ -63,7 +63,7 @@ PUBLIC OBJECTTYPE FormIntegrationPlugin EXTEND WebDesignPluginBase
            , usecaptcha := ParseXSBoolean(node->GetAttribute("usecaptcha"))
            , allowsubmittype := ParseXSBoolean(node->GetAttribute("allowsubmittype"))
            , countrylist := node->HasAttribute("countrylist") ? ParseXSList(node->GetAttribute("countrylist")) : ["WORLD"]
-           , addressoptions := ParseXSList(node->GetAttribute("addressoptions")) ?? default_addressfield_options
+           , addressoptions := node->HasAttribute("addressoptions") ? ParseXSList(node->GetAttribute("addressoptions")) : default_addressfield_options
            , enablepagetitles := ParseXSBoolean(node->GetAttribute("enablepagetitles"))
            , enableinfotexts := ParseXSBoolean(node->GetAttribute("enableinfotexts"))
            , infotextrtdtype := node->GetAttribute("infotextrtdtype")
