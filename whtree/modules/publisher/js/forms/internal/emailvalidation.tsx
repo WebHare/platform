@@ -1,6 +1,6 @@
 import * as dompack from 'dompack';
 import { getTid, getTidLanguage } from "@mod-tollium/js/gettid";
-import formservice, { EmailValidationResult } from './formservice';
+import formservice, { EmailValidationResult } from "@webhare/forms/src/formservice";
 
 const cache:
   {

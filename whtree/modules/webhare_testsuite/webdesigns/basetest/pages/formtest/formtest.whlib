@@ -54,7 +54,7 @@ PUBLIC STATIC OBJECTTYPE FormTestPage EXTEND WebPageBase
            , [ multipageform := this->webdesign->GetWittyDataForForm("webhare_testsuite:formdefs#multipagetest")
                ]);
     }
-    ELSE IF(GetWebVariable("address") IN ["1","2"])
+    ELSE IF(GetWebVariable("address") != "")
     {
       RETURN PTR EmbedWittyComponent(Resolve("formtest.witty:addressform")
            , [ addressform := this->webdesign->GetWittyDataForForm("addressform")
@@ -719,6 +719,7 @@ PUBLIC STATIC OBJECTTYPE AddressForm EXTEND FormBase
     ^address->enabledcondition := FCIsSet(^enablefields);
     ^neighbourhood->visiblecondition := FCMatch(^address->^city, "IN", [ "eNSCHeDe" ], [ matchcase := FALSE, checkdisabled := TRUE ]);
     ^address3group->visible := IsRequest() AND GetFormWebVariable("address") = "2";
+    ^address4group->visible := IsRequest() AND GetFormWebVariable("address") = "4";
   }
 
   PUBLIC RECORD FUNCTION Submit(RECORD extradata)

@@ -282,7 +282,7 @@
         </address>
         <textedit name="neighbourhood" title="" />
         <richtext name="address2heading" title="">
-          <body xmlns="http://www.w3.org/1999/xhtml"><h2>Adddress 2</h2><p>countrylist=NL BE DE, options=nl-zip-suggest</p></body>
+          <body xmlns="http://www.w3.org/1999/xhtml"><h2>Address 2</h2><p>countrylist=NL BE DE, options=nl-zip-suggest</p></body>
         </richtext>
         <address name="address2" countrylist="NL BE DE - WORLD" options="nl-zip-suggest" title="">
           <fieldtitle tag="country" title="Address2" />
@@ -291,6 +291,9 @@
       </group>
       <group name="address3group" title="Address 3">
         <address name="address3" options="!nl-zip-suggest" title="" />
+      </group>
+      <group name="address4group" title="Address 4">
+        <address name="address4" countrylist="NL AF" options="nl-zip-force" title="" />
       </group>
     </page>
   </form>
