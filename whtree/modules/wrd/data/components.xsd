@@ -469,6 +469,7 @@
       <xs:attribute name="defaultcountry" type="xs:string" />
       <xs:attribute name="errorlabel" type="xs:string" />
       <xs:attribute name="errorlabeltid" type="sc:Tid" />
+      <xs:attribute name="checks" type="sc:FormAddressOptions" default="nl-zip-suggest" />
     </xs:complexType>
   </xs:element>
 
@@ -487,6 +488,7 @@
         </xs:annotation>
       </xs:attribute>
       <xs:attributeGroup ref="tc:Required" />
+      <xs:attribute name="checks" type="sc:FormAddressOptions" default="nl-zip-suggest" />
     </xs:complexType>
   </xs:element>
 

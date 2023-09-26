@@ -2,6 +2,9 @@
 
 LOADLIB "wh::util/localization.whlib";
 
+PUBLIC CONSTANT STRING ARRAY default_addressfield_options := ["nl-zip-suggest"];
+PUBLIC CONSTANT STRING ARRAY valid_addressfield_options := ["nl-zip-suggest","nl-zip-force"];
+
 PUBLIC CONSTANT STRING ARRAY stored_address_fields := ["country","street","nr_detail","zip","state","city"];
 
 /** @short Parse a rawdata address

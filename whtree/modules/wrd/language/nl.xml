@@ -344,6 +344,9 @@
     <text tid="confirmdeleteentities">Weet je zeker dat je deze elementen wil verwijderen?</text>
     <text tid="confirmdeleteentity">Weet je zeker dat je dit element wilt verwijderen?</text>
     <text tid="gender">Geslacht</text>
+    <textgroup gid="addressfield">   <!-- components.addressfield -->
+      <text tid="lookup">Zoek op</text>
+    </textgroup>
     <textgroup gid="addressvalidation">   <!-- components.addressvalidation -->
       <text tid="invalidsettings">De adresvalidatie-instellingen zijn ongeldig<ifparam p="1" value=""><else/><br/><br/>Foutmelding:<br/><param p="1"/></ifparam></text>
       <text tid="moreinfo">Meer informatie</text>
