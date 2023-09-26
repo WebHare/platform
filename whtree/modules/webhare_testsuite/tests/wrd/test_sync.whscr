@@ -336,7 +336,6 @@ MACRO TestSchemaSettings()
   TestEQMembers(
       [ [ name := "webhare_testsuite:a", value := 1 ]
       , [ name := "webhare_testsuite:c", value := "f" ]
-      //, [ name := "wrd:auth.domainsecret", value := testfw->GetWRDSchema()->GetSchemaSetting("wrd:auth.domainsecret") ]
       , [ name := "wrd:debug.answer", value := 42 ]
       ], (SELECT * FROM synctarget->ListSchemaSettings() WHERE name NOT LIKE "wrd:migrations.*"), "*");
 
@@ -345,7 +344,6 @@ MACRO TestSchemaSettings()
   TestEQ(
       [ [ name := "webhare_testsuite:a", value := 1 ]
       , [ name := "webhare_testsuite:c", value := "f" ]
-      //, [ name := "wrd:auth.domainsecret", value := testfw->GetWRDSchema()->GetSchemaSetting("wrd:auth.domainsecret") ]
       , [ name := "wrd:debug.answer", value := 42 ]
       ], SELECT * FROM testfw->GetWRDSchema()->ListSchemaSettings() WHERE name NOT LIKE "wrd:migrations.*" AND name NOT IN [ "wrd:schemaresources" ]);
 }

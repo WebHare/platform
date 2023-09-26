@@ -1,7 +1,7 @@
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
 
   <migration tag="wrd:migratesettings"
-             revision="3"
+             revision="4"
              stage="afterEntities"
              updatefunction="mod::wrd/lib/internal/metadata/migrations.whlib#MigrateSettings" />
 
@@ -37,6 +37,7 @@
         <free tag="key_id" required="true" />
         <json tag="private_key" required="true" />
       </array>
+      <json tag="address_verification" description="Address verification provider" unsafetocopy="true" />
     </attributes>
     <values matchattribute="wrd_tag" overwriteattributes="wrd_guid wrd_limitdate">
       <value>

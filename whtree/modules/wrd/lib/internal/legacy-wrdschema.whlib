@@ -325,11 +325,6 @@ PUBLIC OBJECTTYPE LegacyWRDSchema EXTEND WRDSchemaBase
       ABORT(broken, "boxed");
   }
 
-  PUBLIC BOOLEAN FUNCTION HasAddressVerification()
-  {
-    RETURN RecordExists(this->GetSchemaSetting("wrd:addressverification", [fallback := DEFAULT RECORD]));
-  }
-
   PUBLIC RECORD FUNCTION CheckAddress(RECORD address)
   {
     RETURN GetWRDAddressLookupAPI(this, CellExists(address,'country') ? address.country : "")->CheckAddress(address);

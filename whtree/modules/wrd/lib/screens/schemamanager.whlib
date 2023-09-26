@@ -16,7 +16,7 @@ LOADLIB "mod::wrd/lib/database.whlib";
 LOADLIB "mod::wrd/lib/internal/tolliumfuncs.whlib";
 LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 LOADLIB "mod::wrd/lib/internal/metadata/moduledefs.whlib";
-
+LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
 RECORD ARRAY FUNCTION GenerateAccountOptions(RECORD ARRAY suitableattributes, STRING fieldtocheck)
 {
@@ -211,7 +211,7 @@ PUBLIC STATIC OBJECTTYPE SchemaProps EXTEND TolliumScreenBase
     //Allow usermgmt only to be modified by sysop, and only to be set if whuser_unit exists (as a quick check whether you applied usermgmt.wrdschema.xml)
     ^usermgmt->enabled := this->tolliumuser->HasRight("system:sysop") AND (^usermgmt->value OR ObjectExists(this->contexts->wrdschema->GetType("WHUSER_UNIT")));
 
-    ^validationsettings->value := this->contexts->wrdschema->GetSchemaSetting("wrd:addressverification", [ fallback := DEFAULT RECORD]);
+    ^validationsettings->value := GetWRDSetting(this->contexts->wrdschema, "address_verification");
   }
 
   MACRO OnAccountTypeChange()
