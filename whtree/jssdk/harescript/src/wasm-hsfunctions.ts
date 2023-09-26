@@ -675,10 +675,16 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     const scratchvar = vm.allocateVariable();
     vm.wasmmodule._HSVM_GetAuthenticationRecord(vm.hsvm, scratchvar.id);
     const authenticationRecord = scratchvar.getJSValue();
-    scratchvar.dispose();
 
     const link = createIPCEndPointPair();
     const encodedEndpoint = link[1].encodeForTransfer();
+
+    let env: Array<{ name: string; value: string }> | null = null;
+    if (vm.wasmmodule._HasEnvironmentOverride(vm.hsvm)) {
+      vm.wasmmodule._GetEnvironment(vm.hsvm, scratchvar.id);
+      env = scratchvar.getJSValue() as Array<{ name: string; value: string }>;
+    }
+    scratchvar.dispose();
 
     const worker = new AsyncWorker;
     const jobobj = await worker.callFactory<HareScriptJob>({
@@ -689,6 +695,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       encodedEndpoint.encoded,
       authenticationRecord,
       context.externalsessiondata,
+      env,
     );
 
     const job = new HSJob(vm, link[0], worker, jobobj,);
@@ -965,13 +972,15 @@ class HareScriptJob {
   active = true;
   doneDefer = createDeferred<void>();
 
-  constructor(vm: HareScriptVM, script: string, link: IPCEndPoint, authRecord: unknown, externalSessionData: string) {
+  constructor(vm: HareScriptVM, script: string, link: IPCEndPoint, authRecord: unknown, externalSessionData: string, env: Array<{ name: string; value: string }> | null) {
     this.vm = vm;
     this.vm.onScriptDone = verdict => this.scriptDone(verdict);
     this.script = script;
     ipcContext(vm).linktoparent = link;
     ipcContext(vm).externalsessiondata = externalSessionData;
     this.setAuthenticationRecord(authRecord);
+    if (env)
+      this.setEnvironment(env);
   }
   captureOutput(encodedLink: unknown) {
     this.outputEndPoint = decodeTransferredIPCEndPoint<IPCMarshallableRecord, IPCMarshallableRecord>(encodedLink);
@@ -1007,14 +1016,14 @@ class HareScriptJob {
     this.vm.wasmmodule._HSVM_SetAuthenticationRecord(this.vm.hsvm, scratchvar.id);
     scratchvar.dispose();
   }
-  async getEnvironment() {
+  getEnvironment() {
     const scratchvar = this.vm.allocateVariable();
     this.vm.wasmmodule._GetEnvironment(this.vm.hsvm, scratchvar.id);
     const retval = scratchvar.getJSValue() as Array<{ name: string; value: string }>;
     scratchvar.dispose();
     return retval;
   }
-  async setEnvironment(env: Array<{ name: string; value: string }>) {
+  setEnvironment(env: Array<{ name: string; value: string }>) {
     const scratchvar = this.vm.allocateVariable();
     scratchvar.setJSValue(env);
     this.vm.wasmmodule._SetEnvironment(this.vm.hsvm, scratchvar.id);
@@ -1046,8 +1055,8 @@ class HareScriptJob {
   }
 }
 
-export async function harescriptWorkerFactory(script: string, encodedLink: unknown, authRecord: unknown, externalSessionData: string): Promise<HareScriptJob> {
+export async function harescriptWorkerFactory(script: string, encodedLink: unknown, authRecord: unknown, externalSessionData: string, env: Array<{ name: string; value: string }> | null): Promise<HareScriptJob> {
   const link = decodeTransferredIPCEndPoint<IPCMarshallableRecord, IPCMarshallableRecord>(encodedLink);
   const vm = await allocateHSVM();
-  return new HareScriptJob(vm, script, link, authRecord, externalSessionData);
+  return new HareScriptJob(vm, script, link, authRecord, externalSessionData, env);
 }

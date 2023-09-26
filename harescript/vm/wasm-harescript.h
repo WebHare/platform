@@ -32,6 +32,8 @@ typedef void (*EventCallback)(const char *name, const void *payload, unsigned pa
 
 void EMSCRIPTEN_KEEPALIVE SetEventCallback(HSVM *vm, EventCallback callback);
 
+bool EMSCRIPTEN_KEEPALIVE HasEnvironmentOverride(HSVM *hsvm);
+
 void EMSCRIPTEN_KEEPALIVE GetEnvironment(HSVM *hsvm, HSVM_VariableId id_set);
 
 void EMSCRIPTEN_KEEPALIVE SetEnvironment(HSVM *hsvm, HSVM_VariableId data);

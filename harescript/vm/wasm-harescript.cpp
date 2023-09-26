@@ -266,6 +266,10 @@ void EMSCRIPTEN_KEEPALIVE InjectEvent(HSVM *, const char *name, uint8_t const *p
         context.eventmgr.QueueEventNoExport(event);
 }
 
+bool EMSCRIPTEN_KEEPALIVE HasEnvironmentOverride(HSVM *hsvm) {
+        return HareScript::GetVirtualMachine(hsvm)->GetVMGroup()->jmdata.environment.get();
+}
+
 void EMSCRIPTEN_KEEPALIVE GetEnvironment(HSVM *hsvm, HSVM_VariableId id_set) {
         Blex::Environment env;
         std::shared_ptr< const Blex::Environment > override = HareScript::GetVirtualMachine(hsvm)->GetVMGroup()->jmdata.environment;
