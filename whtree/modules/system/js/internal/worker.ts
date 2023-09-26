@@ -1,10 +1,10 @@
 import { WebHareServiceDescription, WorkerControlLinkRequest, WorkerControlLinkResponse, WorkerServiceLinkRequest, WorkerServiceLinkResponse } from "./types";
 import { TypedMessagePort, createTypedMessageChannel, registerTransferredPort } from "./whmanager/transport";
 import { parseIPCException } from "./whmanager/ipc";
-import { Worker, TransferListItem, isMainThread } from "node:worker_threads";
+import { Worker, TransferListItem } from "node:worker_threads";
 import { DeferredPromise, createDeferred } from "@webhare/std/promises";
 import { RefTracker } from "./whmanager/refs";
-import { getLocalHandlerInitData, initializedWorker } from "./whmanager/bridge";
+import bridge, { initializedWorker } from "./whmanager/bridge";
 
 // Closes the port when the AsyncWorker / WorkerServiceProxy goes out of scope
 const portcloser = new FinalizationRegistry((port: TypedMessagePort<object, object>) => {
@@ -146,13 +146,9 @@ export class AsyncWorker {
   private error: Error | undefined;
 
   constructor() {
-    if (!isMainThread) {
-      // LocalBridges need to be initialized with data from the main thread
-      throw new Error(`Not allowed to create an AsyncWorker within an AsyncWorker`);
-    }
     const ports = createTypedMessageChannel<WorkerControlLinkRequest, WorkerControlLinkResponse>("AsyncWorker");
     this.port = ports.port1;
-    const localHandlerInitData = getLocalHandlerInitData();
+    const localHandlerInitData = bridge.getLocalHandlerInitDataForWorker();
     this.worker = new Worker(require.resolve("./worker_handler.ts"), {
       workerData: {
         port: ports.port2,
