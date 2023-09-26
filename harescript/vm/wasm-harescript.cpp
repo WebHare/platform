@@ -15,6 +15,7 @@
 #include <harescript/vm/wasm-tools.h>
 #include <harescript/vm/baselibs.h>
 #include <harescript/vm/outputobject.h>
+#include <harescript/vm/hsvm_environment.h>
 
 using namespace WebHare::WASM;
 
@@ -318,5 +319,38 @@ void EMSCRIPTEN_KEEPALIVE SetEnvironment(HSVM *hsvm, HSVM_VariableId data)
         HareScript::GetVirtualMachine(hsvm)->GetVMGroup()->jmdata.environment = override;
 }
 
+void EMSCRIPTEN_KEEPALIVE GetLoadedLibrariesInfo(HSVM *hsvm, HSVM_VariableId id_set, bool onlydirectloaded) {
+        HSVM_SetDefault(hsvm, id_set, HSVM_VAR_Record);
+        HSVM_VariableId var_errors = HSVM_RecordCreate(hsvm, id_set, HSVM_GetColumnId(hsvm, "ERRORS"));
+        HSVM_SetDefault(hsvm, var_errors, HSVM_VAR_RecordArray);
+
+        HSVM_VariableId var_libraries = HSVM_RecordCreate(hsvm, id_set, HSVM_GetColumnId(hsvm, "LIBRARIES"));
+        HSVM_SetDefault(hsvm, var_libraries, HSVM_VAR_RecordArray);
+
+        std::vector< HareScript::LibraryInfo > info;
+        try
+        {
+                if (onlydirectloaded)
+                    HareScript::GetVirtualMachine(hsvm)->GetLoadedLibrariesInfo(&info);
+                else
+                    HareScript::GetVirtualMachine(hsvm)->GetAllLibrariesInfo(&info);
+        }
+        catch (HareScript::VMRuntimeError &e)
+        {
+                HareScript::GetVirtualMachine(hsvm)->GetErrorHandler().AddMessage(e);
+                HSVM_GetMessageList(hsvm, var_errors, 0);
+
+                HareScript::GetVirtualMachine(hsvm)->GetErrorHandler().Reset();
+        }
+
+        for (std::vector< HareScript::LibraryInfo >::iterator it = info.begin(); it != info.end(); ++it)
+        {
+                HSVM_VariableId var_elt = HSVM_ArrayAppend(hsvm, var_libraries);
+
+                HSVM_StringSetSTD(hsvm, HSVM_RecordCreate(hsvm, var_elt, HSVM_GetColumnId(hsvm, "LIBURI")),  it->uri);
+                HSVM_BooleanSet(hsvm, HSVM_RecordCreate(hsvm, var_elt, HSVM_GetColumnId(hsvm, "OUTOFDATE")), it->outofdate);
+                HSVM_DateTimeSet(hsvm, HSVM_RecordCreate(hsvm, var_elt, HSVM_GetColumnId(hsvm, "COMPILE_ID")), it->compile_id.GetDays(), it->compile_id.GetMsecs());
+        }
+}
 
 } // extern "C"

@@ -160,6 +160,11 @@ class HSIPCLink extends OutputObjectBase {
   }
 }
 
+type LoadedLibrariesInfo = {
+  errors: MessageList;
+  libraries: Array<{ liburi: string; outofdate: boolean; compile_id: Date }>;
+};
+
 //The HSJob is the object the parent communicates with. It holds the reference to the worker
 class HSJob extends OutputObjectBase {
   linkinparent: IPCEndPoint | undefined;
@@ -239,6 +244,16 @@ class HSJob extends OutputObjectBase {
       throw new Error(`The job has already been closed`);
     const encoded = endpoint.encodeForTransfer();
     await this.jobobj.captureOutput.callWithTransferList(encoded.transferList, encoded.encoded);
+  }
+  async getLoadedLibrariesInfo() {
+    if (this.closed)
+      throw new Error(`The job has already been closed`);
+    const res = await this.jobobj.getLoadedLibrariesInfo();
+    if (res && res.errors)
+      res.errors = getTypedArray(VariableType.RecordArray, res.errors);
+    if (res && res.libraries)
+      res.libraries = getTypedArray(VariableType.RecordArray, res.libraries);
+    return res;
   }
   async getExitCode() {
     if (this.closed)
@@ -855,7 +870,12 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     }
     await job.jobobj.setEnvironment(newdata);
   });
-
+  wasmmodule.registerAsyncExternalFunction("__HS_GETJOBLOADEDLIBRARIESINFO::R:IB", async (vm, id_set, var_jobid) => {
+    const job = ipcContext(vm).jobs.get(var_jobid.getInteger());
+    if (!job)
+      throw new Error(`No such job with id ${var_jobid.getInteger()}`);
+    id_set.setJSValue(await job.getLoadedLibrariesInfo());
+  });
   wasmmodule.registerAsyncExternalFunction("__SYSTEM_FLUSHREMOTELOG::B:S", async (vm, id_set, var_logname) => {
     await bridge.flushLog(var_logname.getString());
     id_set.setBoolean(true);
@@ -968,6 +988,7 @@ class HareScriptJob {
   script: string;
   outputEndPoint: IPCEndPoint | undefined;
   exitCode = 0;
+  loadedLibraries: null | LoadedLibrariesInfo = null;
   errors: MessageList = [];
   active = true;
   doneDefer = createDeferred<void>();
@@ -1039,12 +1060,20 @@ class HareScriptJob {
   getErrors() {
     return this.errors;
   }
+  getLoadedLibrariesInfo() {
+    return this.loadedLibraries;
+  }
   scriptDone(exception: Error | null) {
     this.active = false;
     this.exitCode = this.vm.wasmmodule._HSVM_GetConsoleExitCode(this.vm.hsvm);
     this.errors = this.vm.parseMessageList();
     if (this.errors.length)
       this.exitCode = -1; // hsvm_processmgr does it too
+    {
+      using scratchvar = this.vm.allocateVariable();
+      this.vm.wasmmodule._GetLoadedLibrariesInfo(this.vm.hsvm, scratchvar.id, 0);
+      this.loadedLibraries = scratchvar.getJSValue() as LoadedLibrariesInfo;
+    }
     ipcContext(this.vm).linktoparent?.close();
     this.outputEndPoint?.close();
     this.doneDefer.resolve();
