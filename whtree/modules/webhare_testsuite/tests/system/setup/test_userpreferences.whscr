@@ -7,6 +7,7 @@ LOADLIB "mod::tollium/lib/testframework.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 
+LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
 ASYNC MACRO TestAuthSettings()
 {
@@ -48,7 +49,7 @@ ASYNC MACRO TestAuthSettings()
 
   // STORY disallow password reuse when configured
   testfw->BeginWork();
-  testfw->GetWRDSchema()->SetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", "noreuse:P2D");
+  SetWRDsetting(testfw->GetWRDSchema(), "password_validation_checks", "noreuse:P2D");
   testfw->CommitWork();
 
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:personalsettings", [ calltype := "direct", params := DEFAULT STRING ARRAY, target := DEFAULT RECORD ]));
@@ -70,7 +71,7 @@ ASYNC MACRO TestAuthSettings()
 
   // STORY: warn on about to expire passwords
   testfw->BeginWork();
-  testfw->GetWRDSchema()->SetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", "maxage:P2M");
+  SetWRDsetting(testfw->GetWRDSchema(), "password_validation_checks", "maxage:P2M");
   testfw->CommitWork();
 
     // set an old password
@@ -103,7 +104,7 @@ ASYNC MACRO TestAuthSettings()
 
   // STORY: warn on about expired passwords
   testfw->BeginWork();
-  testfw->GetWRDSchema()->SetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", "maxage:P1M");
+  SetWRDsetting(testfw->GetWRDSchema(), "password_validation_checks", "maxage:P1M");
   testfw->GetWRDschema()->^wrd_person->UpdateEntity(testfw->GetUserWRDId("lisa@allow2fa.test.webhare.net"),
       [ whuser_password :=
             [ version :=      1

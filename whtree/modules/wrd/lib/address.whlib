@@ -13,6 +13,7 @@ LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/internal/addressfields.whlib";
 LOADLIB "mod::wrd/lib/internal/addressverification/support.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
 //ADDME: Move this into XML at some point for extendability, so we have a way to define custom validation services for
 //       customers. How to make sure which services are available in which contexts? I.e. a custom validation service for one
@@ -585,7 +586,7 @@ PUBLIC OBJECT FUNCTION GetWRDAddressLookupAPI(OBJECT wrdschema, STRING country, 
       [ accountingsource :=   "wrd:" || wrdschema->tag
       ], options);
 
-  RECORD settings := wrdschema->GetSchemaSetting("wrd:addressverification", [ fallback := DEFAULT RECORD ]);
+  RECORD settings := GetWRDSetting(wrdschema, "address_verification");
   RETURN GetValidationForCountry(settings, country, options.accountingsource);
 }
 
@@ -596,14 +597,9 @@ PUBLIC OBJECT FUNCTION GetWRDAddressLookupAPI(OBJECT wrdschema, STRING country, 
 PUBLIC MACRO SetupWRDAddressVerification(OBJECT wrdschema, RECORD settings)
 {
   IF(RecordExists(settings))
-  {
     __OpenWRDAddressLookupAPI(settings, "", ""); //verify it's valid
-    wrdschema->SetSchemaSetting("wrd:addressverification", settings);
-  }
-  ELSE
-  {
-    wrdschema->RemoveSchemaSetting("wrd:addressverification");
-  }
+
+  SetWRDSettings(wrdschema, [ address_verification := settings ]);
 }
 
 //Split GetAddressLookupAPI so formintegration can optimize away siteprofile lookups, but we really need to simplify the amount of calc/data an <address> field needs...
@@ -627,7 +623,7 @@ PUBLIC RECORD FUNCTION __LookupFormIntegrationAddressInfo(OBJECT applytester)
     OBJECT targetschema := OpenWRDSchema(wrdschema);
     IF(ObjectExists(targetschema))
     {
-      RECORD settings := targetschema->GetSchemaSetting("wrd:addressverification", [ fallback := DEFAULT RECORD ]);
+      RECORD settings := GetWRDSetting(targetschema, "address_verification");
       RETURN CELL[ settings, source := "wrd:" || targetschema->tag ];
     }
   }

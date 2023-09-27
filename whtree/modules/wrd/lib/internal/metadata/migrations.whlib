@@ -32,6 +32,18 @@ PUBLIC RECORD FUNCTION MigrateSettings(OBJECT wrdschema)
     wrdschema->RemoveSchemaSetting("wrd:auth.localsettings");
   }
 
+  //Migrate wrd:addressverification
+  RECORD addressverification := wrdschema->GetSchemaSetting("wrd:addressverification", [ fallback := DEFAULT RECORD ]);
+  IF(RecordExists(addressverification))
+    newsettings := CELL[ ...newsettings, address_verification := addressverification ];
+  wrdschema->RemoveSchemaSetting("wrd:addressverification");
+
+  //Migrate wrd:auth.passwordpolicy.validationchecks
+  STRING validationchecks := wrdschema->GetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", [ fallback := "" ]);
+  IF(validationchecks != "" )
+    newsettings := CELL[ ...newsettings, password_validation_checks := validationchecks ];
+  wrdschema->RemoveSchemaSetting("wrd:auth.passwordpolicy.validationchecks");
+
   IF(RecordExists(newsettings))
     SetWRDSettings(wrdschema, newsettings);
 

@@ -13,6 +13,7 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 
 LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
 
 PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
@@ -66,7 +67,7 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
     ^displaytype->value := RecordExists(^displayimage->value) ? "displayimage" : "displayname";
 
     OBJECT wrdschema := this->contexts->userapi->wrdschema;
-    ^passwordvalidationchecks->value := wrdschema->GetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", [ fallback := "" ]);
+    ^passwordvalidationchecks->value := GetWRDSetting(wrdschema, "password_validation_checks");
 
     STRING docroot := ReadRegistryKey("system.services.webhare.docroot");
     ^embeddeddocs->value := docroot != "";
@@ -144,7 +145,7 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
       OpenSite(whconstant_whfsid_webharebackend)->SetPrimaryOutput(^webhareurl->value, "/");
 
       OBJECT wrdschema := GetPrimaryWebhareUserAPI()->wrdschema;
-      wrdschema->SetSchemaSetting("wrd:auth.passwordpolicy.validationchecks", ^passwordvalidationchecks->value);
+      SetWRDSetting(wrdschema, "password_validation_checks", ^passwordvalidationchecks->value);
     }
 
     ^modulemgr->WriteToRegistry();

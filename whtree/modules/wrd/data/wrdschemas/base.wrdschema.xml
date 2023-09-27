@@ -1,7 +1,7 @@
 <schemadefinition xmlns="http://www.webhare.net/xmlns/wrd/schemadefinition">
 
   <migration tag="wrd:migratesettings"
-             revision="3"
+             revision="4"
              stage="afterEntities"
              updatefunction="mod::wrd/lib/internal/metadata/migrations.whlib#MigrateSettings" />
 
@@ -29,6 +29,7 @@
         <free tag="remotewrdschema" required="true" />
       </array>
       <free tag="domain_secret" description="Shared secret for WRDAuth tokens" unsafetocopy="true" />
+      <free tag="password_validation_checks" description="Global checks" />
       <json tag="login_settings" description="Login configuration (see wrdauth_defaultconfiguration)" />
       <free tag="issuer" description="JWT issuer" unsafetocopy="true" />  <!-- attempting to sync an existing issuer will only generate confusing tokens. it's better to maintain this per server -->
       <array tag="signing_keys" description="JWT keys" unsafetocopy="true">
@@ -37,6 +38,7 @@
         <free tag="key_id" required="true" />
         <json tag="private_key" required="true" />
       </array>
+      <json tag="address_verification" description="Address verification provider" unsafetocopy="true" />
     </attributes>
     <values matchattribute="wrd_tag" overwriteattributes="wrd_guid wrd_limitdate">
       <value>
