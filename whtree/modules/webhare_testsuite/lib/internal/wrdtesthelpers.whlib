@@ -345,7 +345,7 @@ PUBLIC MACRO TestCoreAddressAPI(OBJECT api, RECORD options DEFAULTSTO DEFAULT RE
   TestEq(RECORD[], SELECT * FROM GetNewAccountingLogEntries()); //should have no entries yet
 
   checkres := api->CheckAddress([ zip := "7500OO", nr_detail:="296",country := "NL"]);
-  TestEq('incomplete', checkres.status);
+  TestEq('invalid_zip', checkres.status); //blocked so we never accept it
   testEq(TRUE, checkres.looked_up.street != "");
   TestEq([ city := "DO NOT SHIP - NIET VERZENDEN", country := "NL", nr_detail := "296", zip := "7500 OO" ], CellDelete(checkres.looked_up, 'street'));
 

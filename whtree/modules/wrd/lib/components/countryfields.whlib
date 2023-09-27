@@ -2,8 +2,25 @@
 LOADLIB "mod::tollium/lib/componentbase.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::wrd/lib/address.whlib";
+LOADLIB "mod::wrd/lib/internal/addressfields.whlib";
 LOADLIB "mod::wrd/lib/internal/addressverification/support.whlib";
 
+
+BOOLEAN FUNCTION IsAddressEqual(RECORD lhs, RECORD rhs)
+{
+  IF(RecordExists(rhs) != RecordExists(lhs))
+    RETURN FALSE;
+
+  FOREVERY(RECORD lhscell FROM UnpackRecord(lhs))
+  {
+    IF(lhscell.name = "COUNTRY_FULL")
+      CONTINUE; //don't compare country full names
+    IF(NOT CellExists(rhs, lhscell.name) OR lhscell.value != GetCell(rhs, lhscell.name))
+      RETURN FALSE;
+  }
+  //no need to inspect RHS if all cells in LHS match (considering that they _should_ have the same record structure anyway IF their countries match)
+  RETURN TRUE;
+}
 
 PUBLIC OBJECTTYPE TolliumWRDCountryFields EXTEND TolliumComponentBase
 < // ---------------------------------------------------------------------------
@@ -11,14 +28,13 @@ PUBLIC OBJECTTYPE TolliumWRDCountryFields EXTEND TolliumComponentBase
   // Variables
   //
 
-  OBJECT pvt_wrdschema;
-
-
   RECORD ARRAY country_fields;
 
 
   STRING currentcountry;
   STRING pvt_country;
+  OBJECT lookupbutton;
+  OBJECT lookupaction;
 
 
   // ---------------------------------------------------------------------------
@@ -30,6 +46,8 @@ PUBLIC OBJECTTYPE TolliumWRDCountryFields EXTEND TolliumComponentBase
 
 
   PUBLIC STRING defaultcountry;
+
+  PUBLIC STRING ARRAY checks;
 
   // ---------------------------------------------------------------------------
   //
@@ -46,6 +64,9 @@ PUBLIC OBJECTTYPE TolliumWRDCountryFields EXTEND TolliumComponentBase
 
   PUBLIC PROPERTY value(GetValue, SetValue);
 
+  //The address we verified (after explicit check or initially set to assume it)
+  PUBLIC RECORD verified_address;
+
   // ---------------------------------------------------------------------------
   //
   // Constructor & tollium admin
@@ -55,6 +76,7 @@ PUBLIC OBJECTTYPE TolliumWRDCountryFields EXTEND TolliumComponentBase
   {
     EXTEND this BY TolliumIsComposable;
     this->invisibletitle := TRUE;
+    this->checks := default_addressfield_options;
   }
 
 
@@ -67,22 +89,112 @@ PUBLIC OBJECTTYPE TolliumWRDCountryFields EXTEND TolliumComponentBase
   PUBLIC UPDATE MACRO StaticInit(RECORD description)
   {
     TolliumComponentBase::StaticInit(description);
+    this->checks := description.checks;
     this->defaultcountry := description.defaultcountry;
     this->pvt_country := this->defaultcountry;
     this->required := description.required;
+  }
+
+  PUBLIC BOOLEAN FUNCTION IsAddressVerified()
+  {
+    RETURN IsAddressEqual(this->verified_address, this->value);
+  }
+
+  PUBLIC BOOLEAN FUNCTION CheckVerifyAddress(BOOLEAN also_report_ok)
+  {
+    RECORD addressdata := this->value;
+    IF (NOT RecordExists(addressdata))
+      RETURN TRUE;
+
+    OBJECT lookup;
+    IF(ObjectExists(this->contexts->applytester))
+      lookup := GetAddressLookupAPI(this->contexts->applytester, addressdata.country);
+
+    IF(NOT ObjectExists(lookup))
+    {
+      OBJECT wrdschema := this->wrdschema ?? this->contexts->wrdschema;
+      IF(ObjectExists(wrdschema))
+        lookup := GetWRDAddressLookupAPI(wrdschema, addressdata.country);
+    }
+
+    IF(NOT ObjectExists(lookup))
+      RETURN TRUE;
+
+    RECORD verify_data := lookup->CheckAddress(addressdata, [ alwaysverify := TRUE ]);
+    RECORD newaddr := CELL[ ...verify_data.data, ...verify_data.looked_up ];
+
+    SWITCH (verify_data.status)
+    {
+      CASE "ok"
+      {
+        this->value := newaddr;
+        this->verified_address := newaddr;
+
+        IF (also_report_ok)
+          this->RunMessageBox("wrd:commondialogs.addressverify_ok");
+        RETURN TRUE;
+      }
+      CASE "incomplete"
+      {
+        this->value := newaddr;
+        this->verified_address := newaddr;
+      }
+      CASE "different_citystreet"
+      {
+        IF (NOT CellExists(verify_data.looked_up, "NR_DETAIL") AND CellExists(this->value, "NR_DETAIL"))
+          INSERT CELL nr_detail := this->value.nr_detail INTO verify_data.looked_up;
+
+        OBJECT dialog := this->owner->LoadScreen("wrd:commondialogs.verificationresult");
+        dialog->original->value := FormatAddress(addressdata);
+        dialog->returned->value := FormatAddress(verify_data.looked_up);
+        dialog->problems_street->visible := ToUppercase(addressdata.street) != ToUppercase(verify_data.looked_up.street);
+        dialog->problems_city->visible := ToUppercase(addressdata.city) != ToUppercase(verify_data.looked_up.city);
+        IF(dialog->RunModal()="overwrite")
+        {
+          this->value := verify_data.data;
+        }
+      }
+      CASE "not_enough_data"
+      {
+        this->value := newaddr; //copy what we did get
+        this->owner->RunMessageBox("wrd:commondialogs.addressverify_not_enough_data");
+      }
+      CASE "zip_not_found"
+      {
+        this->value := newaddr; //copy what we did get
+        this->owner->RunMessageBox("wrd:commondialogs.addressverify_zip_not_found");
+      }
+      CASE "address_not_found"
+      {
+        this->value := newaddr; //copy what we did get
+        this->owner->RunMessageBox("wrd:commondialogs.addressverify_address_not_found");
+      }
+      CASE "invalid_nr_detail"
+      {
+        this->value := newaddr; //copy what we did get
+        this->owner->RunMessageBox("wrd:commondialogs.addressverify_invalid_nr_detail");
+      }
+      CASE "invalid_zip"
+      {
+        this->value := newaddr; //copy what we did get
+        this->owner->RunMessageBox("wrd:commondialogs.addressverify_invalid_zip");
+      }
+      CASE "lookup_failed"
+      {
+        this->owner->RunMessageBox("wrd:commondialogs.addressverify_lookup_failed");
+      }
+      CASE "invalid_settings"
+      {
+        this->owner->RunMessageBox("wrd:commondialogs.addressverify_invalid_settings");
+      }
+    }
+    RETURN FALSE;
   }
 
   // ---------------------------------------------------------------------------
   //
   // Getters/setters
   //
-
-  MACRO SetWRDSchema(OBJECT wrdschema)
-  {
-    this->pvt_wrdschema := wrdschema;
-    this->UpdateFields();
-  }
-
 
   MACRO SetCountry(STRING countrycode)
   {
@@ -157,6 +269,9 @@ PUBLIC OBJECTTYPE TolliumWRDCountryFields EXTEND TolliumComponentBase
     FOREVERY(RECORD field FROM this->country_fields)
       field.component->DeleteComponent();
 
+    IF(ObjectExists(this->lookupbutton))
+      this->lookupbutton->RemoveFromParent();
+
     DELETE FROM this->country_fields ALL;
     IF(this->pvt_country = '')
       RETURN;
@@ -164,24 +279,28 @@ PUBLIC OBJECTTYPE TolliumWRDCountryFields EXTEND TolliumComponentBase
     RECORD format := GetAddressFormat(this->currentcountry, [ language := GetTidLanguage() ]);
 
 //FIXME use wrdschema for validation data
-    IF(this->have_nl_validation AND this->currentcountry="NL")
+    BOOLEAN haszipforce := this->currentcountry="NL" AND "nl-zip-force" IN this->checks;
+    BOOLEAN hasziplookup := haszipforce OR (this->currentcountry="NL" AND (this->have_nl_validation OR "nl-zip-suggest" IN this->checks));
+    IF(hasziplookup)
     {
       // We're rearranging the fields when we can verify the address
       //ADDME: hard-coded voor Nederland op het moment...
-      format.fields := SELECT * FROM format.fields ORDER BY SearchElement(["zip","nr_detail","street","city","state"], tag);
+      format.fields := SELECT * FROM format.fields ORDER BY SearchElement(["ZIP","NR_DETAIL","STREET","CITY","STATE"], tag);
     }
 
     OBJECT lastfield := this;
     FOREVERY(RECORD field FROM format.fields)
     {
-      BOOLEAN textarea := field.tag = "street" AND NOT format.onlystreet;
-      OBJECT extracell := this->CreateSubComponent(textarea ? "textarea" : "textedit");
+      BOOLEAN textarea := field.tag = "STREET" AND NOT format.onlystreet;
+      OBJECT extracell := this->owner->CreateTolliumComponent(textarea ? "textarea" : "textedit");
       extracell->maxlength := 512; // 512 bytes should be enough for every address line :-)
       extracell->title := field.title;
       extracell->required := field.required AND this->required; //TODO why is 'this->required' even an option? shouldn't we just have a 'clear address' button higher up ?
       extracell->readonly := this->readonly;
+      extracell->enabled := this->enabled AND (haszipforce = FALSE OR field.tag NOT IN ["STREET","CITY"]);
       IF(textarea)
         extracell->height := "3gr";
+
       INSERT CELL[ tag := ToUppercase(field.tag)
                  , component := extracell
                  , field.required
@@ -191,8 +310,27 @@ PUBLIC OBJECTTYPE TolliumWRDCountryFields EXTEND TolliumComponentBase
 
       this->parent->InsertComponentAfter(extracell, lastfield, #field > 0);
       lastfield := extracell;
-    }
 
+      IF(field.tag = "NR_DETAIL" AND hasziplookup)
+      {
+        IF(NOT ObjectExists(this->lookupbutton))
+          this->BuildLookupButton();
+
+        this->parent->InsertComponentAfter(this->lookupbutton, lastfield, FALSE);
+        lastfield := this->lookupbutton;
+      }
+    }
+  }
+
+  MACRO BuildLookupButton()
+  {
+    this->lookupaction := this->owner->CreateTolliumComponent("action");
+    this->lookupaction->onexecute := PTR this->DoLookup;
+
+    this->lookupbutton := this->owner->CreateTolliumComponent("button");
+    this->lookupbutton->action := this->lookupaction;
+    this->lookupbutton->title := GetTid("wrd:components.addressfield.lookup");
+    this->lookupbutton->enabled := this->enabled;
   }
 
   MACRO UpdateFields()
@@ -203,6 +341,12 @@ PUBLIC OBJECTTYPE TolliumWRDCountryFields EXTEND TolliumComponentBase
     RECORD saveaddress := this->value;
     this->RegenerateFields();
     this->SetSubFields(saveaddress);
+  }
+
+  MACRO DoLookup()
+  {
+    //TODO share with RPC_VerifyAddress
+    this->CheckVerifyAddress(TRUE);
   }
 
   UPDATE PUBLIC MACRO ValidateValue(OBJECT work)

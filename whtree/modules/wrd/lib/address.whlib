@@ -202,7 +202,7 @@ PUBLIC STATIC OBJECTTYPE WRDAddressVerificationBase
         CASE "5"      { RETURN CELL[ status := "invalid_zip", data, looked_up := [ status := "invalid_zip" ] ]; }
         CASE "296"     //our easter egg/verification that the proper provider is installend (and not PDOK)
         {
-          RETURN [ status := "incomplete"
+          RETURN [ status := "invalid_zip" //we still don't want this to actually be accepted
                  , data := data.output
                  , looked_up := CELL[ ...data.input
                                     , city := "DO NOT SHIP - NIET VERZENDEN" //it's NL, so dutch should be acceptable, otherwise we just hope you understand NL

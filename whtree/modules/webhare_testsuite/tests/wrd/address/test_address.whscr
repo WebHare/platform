@@ -153,6 +153,8 @@ MACRO NLCodes()
 
 OBJECT ASYNC FUNCTION TolliumFieldsNew()
 {
+  GetTestController()->contexts->wrdschema := testfw->GetWRDSchema();
+
   OBJECT scr := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent", [ component := "http://www.webhare.net/xmlns/wrd/components:addressfield" ]);
   AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
 
@@ -162,12 +164,14 @@ OBJECT ASYNC FUNCTION TolliumFieldsNew()
   AWAIT ExpectScreenChange(+1, PTR topscreen->comp->changeaction->TolliumClick());
   TT("country")->value := "NL";
   TestEq(5, Length(TT("countryfields")->currentfields));
-  TestEq(4, Length(SELECT FROM TT("countryfields")->currentfields WHERE component->visible));
+  TestEq(["ZIP","NR_DETAIL","STREET","CITY"], SELECT AS STRING ARRAY tag FROM TT("countryfields")->currentfields WHERE component->visible);
 
-  (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="STREET")->value := "Hengelosestraat";
-  (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="NR_DETAIL")->value := "296";
   (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="ZIP")->value := "7521am";
-  (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="CITY")->value := "Enschede";
+  (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="NR_DETAIL")->value := "296";
+  TTClick(":Look up");
+  TestEq("Enschede", (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="CITY")->value);
+  TestEq("Hengelosestraat", (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="STREET")->value);
+  TestEq(TRUE, (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="CITY")->enabled);
 
   TT("country")->value := "CF";
   TestEq(5, Length(SELECT FROM TT("countryfields")->currentfields WHERE component->visible)); //state will become visible
@@ -187,6 +191,39 @@ OBJECT ASYNC FUNCTION TolliumFieldsNew()
   topscreen->validatevalue->TolliumClick();
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+
+  scr := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
+    [ component := "http://www.webhare.net/xmlns/wrd/components:addressfield"
+    , settings := [ checks := [""] ] //nl-zip-suggest was the default, remove it
+    ]);
+
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  AWAIT ExpectScreenChange(+1, PTR topscreen->comp->changeaction->TolliumClick());
+  TT("country")->value := "NL";
+  TestEq(["STREET", "NR_DETAIL", "ZIP", "CITY" ], SELECT AS STRING ARRAY tag FROM TT("countryfields")->currentfields WHERE component->visible);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
+  scr := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
+    [ component := "http://www.webhare.net/xmlns/wrd/components:addressfield"
+    , settings := [ checks := ["nl-zip-force"] ]
+    ]);
+
+  AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
+  AWAIT ExpectScreenChange(+1, PTR topscreen->comp->changeaction->TolliumClick());
+  TT("country")->value := "NL";
+  TestEq(["ZIP","NR_DETAIL","STREET","CITY"], SELECT AS STRING ARRAY tag FROM TT("countryfields")->currentfields WHERE component->visible);
+
+  (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="ZIP")->value := "7521am";
+  (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="NR_DETAIL")->value := "296";
+  TTClick(":Look up");
+  TestEq("Enschede", (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="CITY")->value);
+  TestEq("Hengelosestraat", (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="STREET")->value);
+  TestEq(FALSE, (SELECT AS OBJECT component FROM TT("countryfields")->currentfields WHERE tag="CITY")->enabled);
+
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
   RETURN TRUE;
 }
 
@@ -298,7 +335,7 @@ OBJECT ASYNC FUNCTION TolliumFieldsEdit()
   scr := GetTestController()->LoadScreen("webhare_testsuite:tests/anycomponent.anycomponent",
       [ component := "http://www.webhare.net/xmlns/wrd/components:addressfield"
       , settings := [ required := TRUE
-                    , value := [ country := "NL", street := "", nr_Detail := "296", city := "", zip := "7500 OO" ]
+                    , value := [ country := "NL", street := "", nr_detail := "296", city := "", zip := "7500 OO" ]
                     , verification := TRUE
                     , force_verification := TRUE
                     , wrdschema := "wrdschema:" || testfw->GetWRDSchema()->tag
@@ -307,10 +344,12 @@ OBJECT ASYNC FUNCTION TolliumFieldsEdit()
 
   AWAIT ExpectScreenChange(+1, PTR scr->RunModal());
   AWAIT ExpectScreenChange(+1, PTR TT(":Edit")->TolliumClick());
-  AWAIT ExpectNoScreenChange(PTR TT(":Verify address")->TolliumClick());
-  AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
+  AWAIT ExpectAndAnswerMessageBox("OK", PTR TTClick(":Look up"), [ messagemask := "*Unknown zip-code*" ]);
+  TestEq("PDOK (Publieke Dienstverlening Op de Kaart)", TT(":Street")->value);
+  TestEq("DO NOT SHIP - NIET VERZENDEN", TT(":City")->value);
 
-  TestEq("PDOK (Publieke Dienstverlening Op de Kaart) 296\n7500 OO  DO NOT SHIP - NIET VERZENDEN\nNetherlands", topscreen->comp->addressfield->value);
+  AWAIT ExpectScreenChange(-1, PTR TTEscape);
+
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteSubmit());
 

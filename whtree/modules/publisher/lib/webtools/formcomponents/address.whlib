@@ -15,6 +15,7 @@ LOADLIB "mod::publisher/lib/internal/forms/support.whlib";
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 
 LOADLIB "mod::wrd/lib/address.whlib";
+LOADLIB "mod::wrd/lib/internal/addressfields.whlib";
 
 //ADDME: This loadlib can be removed when AddressField::SetCountryList can remove form fields (it's used for a DTAP check)
 LOADLIB "mod::system/lib/configure.whlib";
@@ -485,8 +486,7 @@ PUBLIC STATIC OBJECTTYPE AddressField EXTEND ComposedFormFieldBase
 
     RECORD integrationsettings := this->GetIntegrationConfiguration();
 
-    // Set options before initializing components by setting countrylist
-    this->addressoptions := integrationsettings.options CONCAT field.options;
+    this->addressoptions := field.hasoptions ? field.options : integrationsettings.options;
     this->countrylist := field.hascountrylist ? field.countrylist : CheckCountryList(integrationsettings.countrylist, this->allcountries, this->form->formlanguagecode);
   }
 

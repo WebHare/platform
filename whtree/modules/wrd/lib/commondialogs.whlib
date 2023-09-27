@@ -4,6 +4,7 @@
 LOADLIB "mod::tollium/lib/commondialogs.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::wrd/lib/address.whlib";
+LOADLIB "mod::wrd/lib/internal/addressfields.whlib";
 
 /////////////////////////////////////////////////////////////////////
 //
@@ -338,6 +339,7 @@ OBJECTTYPE WRDEditAddress
   {
     this->parentform := parentform;
     this->wrdschema := wrdschema;
+    this->checks := default_addressfield_options;
   }
   PRIVATE OBJECT parentform;
   PRIVATE OBJECT wrdschema;
@@ -347,10 +349,11 @@ OBJECTTYPE WRDEditAddress
   PUBLIC BOOLEAN force_verification;
   PUBLIC BOOLEAN required;
   PUBLIC STRING defaultcountry;
+  PUBLIC STRING ARRAY checks;
 
   PUBLIC BOOLEAN FUNCTION RunDialog()
   {
-    OBJECT diag := this->parentform->LoadSCreen("wrd:commondialogs.editaddress", [ wrdschema := this->wrdschema, address := this->address, defaultcountry := this->defaultcountry ]);
+    OBJECT diag := this->parentform->LoadScreen("wrd:commondialogs.editaddress", CELL[ this->wrdschema, this->address, this->defaultcountry, this->checks ]);
     diag->verification := this->verification;
     diag->required := this->required;
     diag->force_verification := this->force_verification;

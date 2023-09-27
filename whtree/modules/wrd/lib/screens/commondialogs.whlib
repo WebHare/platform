@@ -519,8 +519,6 @@ PUBLIC STATIC OBJECTTYPE EditAddress EXTEND TolliumScreenBase
   BOOLEAN pvt_verification;
 
 
-  RECORD verified_address;
-
   // ---------------------------------------------------------------------------
   //
   // Public variables
@@ -558,6 +556,7 @@ PUBLIC STATIC OBJECTTYPE EditAddress EXTEND TolliumScreenBase
   PUBLIC MACRO Init(RECORD initdata)
   {
     this->wrdschema := initdata.wrdschema;
+    ^countryfields->checks := initdata.checks;
     ^countryfields->wrdschema := this->wrdschema;
     this->defaultcountry := initdata.defaultcountry;
 
@@ -570,7 +569,7 @@ PUBLIC STATIC OBJECTTYPE EditAddress EXTEND TolliumScreenBase
 
     ^country->options := SELECT * FROM countrylist ORDER BY ToUppercase(title);
     this->SetAddress(initdata.address);
-    this->verified_address := initdata.address;
+    ^countryfields->verified_address := initdata.address;
   }
 
   // ---------------------------------------------------------------------------
@@ -648,8 +647,8 @@ PUBLIC STATIC OBJECTTYPE EditAddress EXTEND TolliumScreenBase
     IF (NOT work->Finish())
       RETURN FALSE;
 
-    IF (this->force_verification AND NOT this->IsAddressEqual(this->verified_address, this->value))
-      RETURN this->CheckVerifyAddress(TRUE);
+    IF (this->force_verification AND NOT ^countryfields->IsAddressVerified())
+      RETURN ^countryfields->CheckVerifyAddress(FALSE);
 
     RETURN TRUE;
   }
@@ -658,22 +657,6 @@ PUBLIC STATIC OBJECTTYPE EditAddress EXTEND TolliumScreenBase
   //
   // Helper functions
   //
-
-  BOOLEAN FUNCTION IsAddressEqual(RECORD lhs, RECORD rhs)
-  {
-    IF(RecordExists(rhs) != RecordExists(lhs))
-      RETURN FALSE;
-
-    FOREVERY(RECORD lhscell FROM UnpackRecord(lhs))
-    {
-      IF(lhscell.name = "COUNTRY_FULL")
-        CONTINUE; //don't compare country full names
-      IF(NOT CellExists(rhs, lhscell.name) OR lhscell.value != GetCell(rhs, lhscell.name))
-        RETURN FALSE;
-    }
-    //no need to inspect RHS if all cells in LHS match (considering that they _should_ have the same record structure anyway IF their countries match)
-    RETURN TRUE;
-  }
 
 
   /// Returns a string with all the contents of this->address (stable for cell ordering). Use to compare for changes.
@@ -689,95 +672,6 @@ PUBLIC STATIC OBJECTTYPE EditAddress EXTEND TolliumScreenBase
     RETURN addr;
   }
 
-  PRIVATE BOOLEAN FUNCTION CheckVerifyAddress(BOOLEAN onexit)
-  {
-    RECORD addressdata := this->GetAddress();
-    IF (NOT RecordExists(addressdata))
-      RETURN TRUE;
-
-    OBJECT lookup;
-    IF(ObjectExists(this->contexts->applytester))
-      lookup := GetAddressLookupAPI(this->contexts->applytester, addressdata.country);
-
-    IF(NOT ObjectExists(lookup))
-    {
-      OBJECT wrdschema := this->wrdschema ?? this->contexts->wrdschema;
-      IF(ObjectExists(wrdschema))
-        lookup := GetWRDAddressLookupAPI(wrdschema, addressdata.country);
-    }
-
-    IF(NOT ObjectExists(lookup))
-      RETURN TRUE;
-
-    RECORD verify_data := lookup->CheckAddress(addressdata, [ alwaysverify := TRUE ]);
-
-    SWITCH (verify_data.status)
-    {
-      CASE "ok"
-      {
-        RECORD newaddr := CELL[ ...verify_data.data, ...verify_data.looked_up ];
-        this->SetAddress(newaddr);
-        this->verified_address := newaddr;
-
-        IF (NOT onexit)
-          this->RunMessageBox("wrd:commondialogs.addressverify_ok");
-        RETURN TRUE;
-      }
-      CASE "incomplete"
-      {
-        RECORD newaddr := CELL[ ...verify_data.data, ...verify_data.looked_up ];
-        this->SetAddress(newaddr);
-        this->verified_address := newaddr;
-
-        IF (onexit)
-          this->RunMessageBox("wrd:commondialogs.addressverify_incomplete");
-      }
-      CASE "different_citystreet"
-      {
-        IF (NOT CellExists(verify_data.looked_up, "NR_DETAIL") AND CellExists(this->address, "NR_DETAIL"))
-          INSERT CELL nr_detail := this->address.nr_detail INTO verify_data.looked_up;
-
-        OBJECT dialog := this->LoadScreen("wrd:commondialogs.verificationresult");
-        dialog->original->value := FormatAddress(addressdata);
-        dialog->returned->value := FormatAddress(verify_data.looked_up);
-        dialog->problems_street->visible := ToUppercase(addressdata.street) != ToUppercase(verify_data.looked_up.street);
-        dialog->problems_city->visible := ToUppercase(addressdata.city) != ToUppercase(verify_data.looked_up.city);
-        IF(dialog->RunModal()="overwrite")
-        {
-          this->SetAddress(verify_data.data);
-        }
-      }
-      CASE "not_enough_data"
-      {
-        this->RunMessageBox("wrd:commondialogs.addressverify_not_enough_data");
-      }
-      CASE "zip_not_found"
-      {
-        this->RunMessageBox("wrd:commondialogs.addressverify_zip_not_found");
-      }
-      CASE "address_not_found"
-      {
-        this->RunMessageBox("wrd:commondialogs.addressverify_address_not_found");
-      }
-      CASE "invalid_nr_detail"
-      {
-        this->RunMessageBox("wrd:commondialogs.addressverify_invalid_nr_detail");
-      }
-      CASE "invalid_zip"
-      {
-        this->RunMessageBox("wrd:commondialogs.addressverify_invalid_zip");
-      }
-      CASE "lookup_failed"
-      {
-        this->RunMessageBox("wrd:commondialogs.addressverify_lookup_failed");
-      }
-      CASE "invalid_settings"
-      {
-        this->RunMessageBox("wrd:commondialogs.addressverify_invalid_settings");
-      }
-    }
-    RETURN FALSE;
-  }
 
 
   MACRO UpdateVerifyStatus()
@@ -799,7 +693,7 @@ PUBLIC STATIC OBJECTTYPE EditAddress EXTEND TolliumScreenBase
 
   PUBLIC MACRO DoCheckVerify()
   {
-    this->CheckVerifyAddress(FALSE);
+    ^countryfields->CheckVerifyAddress(TRUE);
   }
 >;
 

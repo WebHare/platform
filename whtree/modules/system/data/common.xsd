@@ -409,17 +409,7 @@
           </xs:enumeration>
           <xs:enumeration value="nl-zip-force">
             <xs:annotation>
-              <xs:documentation>Place the zip and house nr first for NL addresses, do not editing of street and city</xs:documentation>
-            </xs:annotation>
-          </xs:enumeration>
-          <xs:enumeration value="!nl-zip-suggest">
-            <xs:annotation>
-              <xs:documentation>Disables nl-zip-suggest</xs:documentation>
-            </xs:annotation>
-          </xs:enumeration>
-          <xs:enumeration value="!nl-zip-force">
-            <xs:annotation>
-              <xs:documentation>Disables nl-zip-force</xs:documentation>
+              <xs:documentation>Place the zip and house nr first for NL addresses, do not allow editing of street and city</xs:documentation>
             </xs:annotation>
           </xs:enumeration>
         </xs:restriction>

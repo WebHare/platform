@@ -11,18 +11,42 @@ LOADLIB "mod::wrd/lib/objectapi.whlib";
 
 STRING user, password;
 
-MACRO TestWebservicesLowlevel()
+MACRO TestWebservicesAPI()
+{
+  testfw->BeginWork();
+  TestThrowsLike('Missing*USER*',PTR SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "webservices.nl" ]));
+
+  SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "webservices.nl"
+                                                      , user := "loopback"
+                                                      , password := "loopback"
+                                                      ]);
+  OBJECT api := GetWRDAddressLookupAPI(testfw->GetWRDSchema(), "nl");
+  TestCoreAddressAPI(api, [loopback:=TRUE, uppercasenlcity := TRUE]);
+  testfw->CommitWork();
+}
+
+MACRO TestLegacyAPI()
+{
+  OBJECT legacywrdschema := OpenWRDSchema(testfw->GetWRDSchema()->id);
+  TestEQ(TRUE, legacywrdschema->HasAddressVerification());
+
+  RECORD res := legacywrdschema->CheckAddress([ street := "Hengelosestraat", nr_detail := "296", city := "Enschede", country := "NL" ]);
+  TestEq('incomplete',res.status);
+  TestEq('7521 AM',res.data.zip);
+}
+
+MACRO TestWebservicesAPI_External()
 {
   testfw->BeginWork();
   SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "webservices.nl"
-                                                     , user := user
-                                                     , password := password
-                                                     ]);
-  testfw->CommitWork();
+                                                      , user := user
+                                                      , password := password
+                                                      ]);
 
   OBJECT api := GetWRDAddressLookupAPI(testfw->GetWRDSchema(), "nl");
-//  dumpvalue(api->AddressReeksPostcodeSearch("7551AC",73));
-//  dumpvalue(api->AddressReeksPostcodeSearch("9999AC",1273));
+  TestCoreAddressAPI(api, [uppercasenlcity := TRUE]);
+
+  //Low level test
   RECORD res := api->AddressReeksParameterSearch("enschede","drienerlolaan",5,"",0);
   /*
   RECORD
@@ -67,44 +91,8 @@ MACRO TestWebservicesLowlevel()
    +WIJKCODE: '7522'
   */
   testEq('ENSCHEDE', res.results[0].plaatsnaam);
-}
 
-MACRO TestWebservicesAPI()
-{
-  testfw->BeginWork();
-  TestThrowsLike('Missing*USER*',PTR SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "webservices.nl" ]));
-
-  SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "webservices.nl"
-                                                      , user := "loopback"
-                                                      , password := "loopback"
-                                                      ]);
-  OBJECT api := GetWRDAddressLookupAPI(testfw->GetWRDSchema(), "nl");
-  TestCoreAddressAPI(api, [loopback:=TRUE, uppercasenlcity := TRUE]);
-  testfw->CommitWork();
-}
-
-MACRO TestLegacyAPI()
-{
-  OBJECT legacywrdschema := OpenWRDSchema(testfw->GetWRDSchema()->id);
-  TestEQ(TRUE, legacywrdschema->HasAddressVerification());
-
-  RECORD res := legacywrdschema->CheckAddress([ street := "Hengelosestraat", nr_detail := "296", city := "Enschede", country := "NL" ]);
-  TestEq('incomplete',res.status);
-  TestEq('7521 AM',res.data.zip);
-}
-
-MACRO TestWebservicesAPI_External()
-{
-  testfw->BeginWork();
-  SetupWRDAddressVerification(testfw->GetWRDSchema(), [ type := "webservices.nl"
-                                                      , user := user
-                                                      , password := password
-                                                      ]);
-
-  OBJECT api := GetWRDAddressLookupAPI(testfw->GetWRDSchema(), "nl");
-  TestCoreAddressAPI(api, [uppercasenlcity := TRUE]);
-
-  RECORD res := api->CheckAddress([ street := "Drienerlolaan", nr_detail := "5", city := "Enschede", country := "NL" ]);
+  res := api->CheckAddress([ street := "Drienerlolaan", nr_detail := "5", city := "Enschede", country := "NL" ]);
   TestEq('incomplete',res.status);
   TestEq('7522 NB',res.data.zip);
 
@@ -136,7 +124,6 @@ IF(user = "" OR password = "")
 ELSE
 {
   tests := [ ...tests
-           , PTR TestWebservicesLowlevel
            , PTR TestWebservicesAPI_External
            ];
 }

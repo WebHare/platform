@@ -225,7 +225,7 @@ RECORD FUNCTION ParseAttributeTypeDef(OBJECT attrtype, STRING attrname, STRING d
     IF(attrtype->name = "Handler" OR attrtype->name = "NotimplementedOrHandler")
       THROW NEW Exception(`Attribute '${attrname}' is a Handler but lacks a <callbacksignature>`);
 
-    IF(attrtype->name IN ["StringList","CheckFlags","Flags","InputValidationCheckList","SizeList","NameList","ValidationChecks"])
+    IF(attrtype->name IN ["StringList","CheckFlags","Flags","InputValidationCheckList","SizeList","NameList","ValidationChecks","FormAddressOptions"])
     {
       RETURN [ defaultvalue := ParseXSList(defaultval), finaltype := TYPEID(STRING) ];
     }

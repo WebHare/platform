@@ -290,7 +290,7 @@
         </address>
       </group>
       <group name="address3group" title="Address 3">
-        <address name="address3" options="!nl-zip-suggest" title="" />
+        <address name="address3" options="" title="" />
       </group>
       <group name="address4group" title="Address 4">
         <address name="address4" countrylist="NL AF" options="nl-zip-force" title="" />

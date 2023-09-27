@@ -11,9 +11,6 @@ LOADLIB "mod::system/lib/internal/composer.whlib";
 
 OBJECT tag_regex; // Used for checking field name validity
 
-PUBLIC CONSTANT STRING ARRAY default_addressfield_options := ["nl-zip-suggest"];
-PUBLIC CONSTANT STRING ARRAY valid_addressfield_options := ["nl-zip-suggest","nl-zip-force"];
-
 /* Autocomplete values we support
    Spec of allowed values is here https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#autofill
    But https://developer.mozilla.org/en-US/docs/Web/HTML/Attributes/autocomplete is more detailed

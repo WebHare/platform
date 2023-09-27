@@ -4,6 +4,7 @@ LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::wrd/lib/address.whlib";
 LOADLIB "mod::wrd/lib/commondialogs.whlib";
 LOADLIB "mod::wrd/lib/components/entity.whlib";
+LOADLIB "mod::wrd/lib/internal/addressfields.whlib";
 
 
 PUBLIC OBJECTTYPE TolliumWRDAddressField EXTEND TolliumFragmentBase
@@ -12,6 +13,7 @@ PUBLIC OBJECTTYPE TolliumWRDAddressField EXTEND TolliumFragmentBase
   PUBLIC BOOLEAN force_verification;
   PUBLIC STRING defaultcountry;
   RECORD addressvalue;
+  PUBLIC STRING ARRAY checks;
 
   PUBLIC PROPERTY value(GetValue, SetValue);
   PUBLIC PROPERTY wrdschema(pvt_wrdschema, SetWRDSchema);
@@ -27,6 +29,7 @@ PUBLIC OBJECTTYPE TolliumWRDAddressField EXTEND TolliumFragmentBase
   {
     EXTEND this BY TolliumIsComposable;
     this->invisibletitle := TRUE;
+    this->checks := default_addressfield_options;
   }
 
   PUBLIC UPDATE MACRO StaticInit(RECORD description)
@@ -39,6 +42,7 @@ PUBLIC OBJECTTYPE TolliumWRDAddressField EXTEND TolliumFragmentBase
     this->force_verification := description.forceverification;
     this->defaultcountry := description.defaultcountry;
     this->title              := description.title;
+    this->checks       := description.checks;
 
     IF (description.height != "")
       this->block->height := description.height;
@@ -73,6 +77,7 @@ PUBLIC OBJECTTYPE TolliumWRDAddressField EXTEND TolliumFragmentBase
     diag->required := this->required;
     diag->address := this->value;
     diag->defaultcountry := this->defaultcountry;
+    diag->checks := this->checks;
 
     IF(diag->RunDialog())
     {

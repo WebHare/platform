@@ -344,6 +344,9 @@
     <text tid="confirmdeleteentities">Are you sure you want to delete these items?</text>
     <text tid="confirmdeleteentity">Are you sure you want to delete this item?</text>
     <text tid="gender">Gender</text>
+    <textgroup gid="addressfield">   <!-- components.addressfield -->
+      <text tid="lookup">Look up</text>
+    </textgroup>
     <textgroup gid="addressvalidation">   <!-- components.addressvalidation -->
       <text tid="invalidsettings">The address validation settings are invalid<ifparam p="1" value=""><else/><br/><br/>Error message:<br/><param p="1"/></ifparam></text>
       <text tid="moreinfo">More information</text>
