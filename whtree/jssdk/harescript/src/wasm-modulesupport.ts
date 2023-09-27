@@ -110,6 +110,7 @@ export class WASMModule extends WASMModuleBase {
   stringptrs: Ptr = 0;
   externals = new Array<RegisteredExternal>;
   itf: HareScriptVM; // only one VM per module!
+  lastSyncException: undefined | { error: unknown; stopAtFunction: string };
 
   constructor() {
     super();
@@ -249,7 +250,7 @@ export class WASMModule extends WASMModuleBase {
     return this.stringToNewUTF8(libname);
   }
 
-  throwReturnedException(vm: HareScriptVM, e: unknown, stopAtFunction?: string) {
+  async throwReturnedException(vm: HareScriptVM, e: unknown, stopAtFunction?: string) {
     let message: string;
     let stacktrace: stacktrace_parser.StackFrame[] = [];
     if (e instanceof Error) {
@@ -264,7 +265,7 @@ export class WASMModule extends WASMModuleBase {
       message = `${e}`;
 
     const alloced = this.stringToNewUTF8(message);
-    this._HSVM_ThrowException(vm.hsvm, alloced);
+    await this._HSVM_ThrowException(vm.hsvm, alloced);
     this._free(alloced);
 
     const throwvar = new HSVMVar(vm, vm.wasmmodule._HSVM_GetThrowVar(vm.hsvm));
@@ -277,13 +278,7 @@ export class WASMModule extends WASMModuleBase {
     }))));
   }
 
-  throwException(vm: HSVM, text: string): void {
-    const alloced = this.stringToNewUTF8(text);
-    this._HSVM_ThrowException(vm, alloced);
-    this._free(alloced);
-  }
-
-  executeJSMacro(vm: HSVM, nameptr: StringPtr, id: number): void {
+  executeJSMacro(vm: HSVM, nameptr: StringPtr, id: number): boolean {
     const reg = this.externals[id];
     const params = new Array<HSVMVar>;
     for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
@@ -294,14 +289,16 @@ export class WASMModule extends WASMModuleBase {
       const res: unknown = reg.macro!(this.itf, ...params);
       if (res && typeof res === "object" && "then" in res)
         throw new Error(`Return value of ${JSON.stringify(reg.name)} is a Promise, should have been registered with executeJSMacro`);
+      return true;
     } catch (e) {
-      this.throwReturnedException(this.itf!, e, "executeJSMacro");
+      this.lastSyncException = { error: e, stopAtFunction: "executeJSMacro" };
+      return false;
     } finally {
       transitionLock?.close();
     }
   }
 
-  executeJSFunction(vm: HSVM, nameptr: StringPtr, id: number, id_set: HSVM_VariableId): void {
+  executeJSFunction(vm: HSVM, nameptr: StringPtr, id: number, id_set: HSVM_VariableId): boolean {
     const reg = this.externals[id];
     const params = new Array<HSVMVar>;
     for (let paramnr = 0; paramnr < reg.parameters; ++paramnr)
@@ -312,11 +309,21 @@ export class WASMModule extends WASMModuleBase {
       const res: unknown = reg.func!(this.itf, new HSVMVar(this.itf!, id_set), ...params);
       if (res && typeof res === "object" && "then" in res)
         throw new Error(`Return value of ${JSON.stringify(reg.name)} is a Promise, should have been registered with executeJSFunction`);
+      return true;
     } catch (e) {
-      this.throwReturnedException(this.itf!, e, "executeJSFunction");
+      this.lastSyncException = { error: e, stopAtFunction: "executeJSFunction" };
+      return false;
     } finally {
       transitionLock?.close();
     }
+  }
+
+  async throwLastSyncException() {
+    if (!this.lastSyncException)
+      throw new Error(`No lastSyncException set`);
+    const data = this.lastSyncException;
+    this.lastSyncException = undefined;
+    await this.throwReturnedException(this.itf!, data.error, data.stopAtFunction);
   }
 
   async executeAsyncJSMacro(vm: HSVM, nameptr: StringPtr, id: number): Promise<void> {
