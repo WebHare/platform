@@ -2170,8 +2170,9 @@ export default class ListView {
     const oldvisiblesel = this._findFirstSelectedRowInVisibleRows();
 
     const headerheight = this.options.hideheader ? 0 : this.options.headerheight;
+    const footerheight = this.footerrows.length ? this.footerrows.length * this.rowheight + 1 : 0;
     //With footer rows, we also need to subtract an extra pixel for the line separating the footer from the rest
-    this.bodyholderheight = this.options.height - headerheight - (this.footerrows.length ? this.footerrows.length * this.rowheight + 1 : 0);
+    this.bodyholderheight = this.options.height - headerheight - footerheight;
     this.numvisiblerows = Math.ceil(this.bodyholderheight / this.rowheight) + 1;
 
     this.listheader.style.height = (headerheight - (parseInt(getComputedStyle(this.listheader).paddingTop) || 0) - (parseInt(getComputedStyle(this.listheader).paddingBottom) || 0)) + "px";
@@ -2182,6 +2183,8 @@ export default class ListView {
     // this.listbodyholder.style.height = this.bodyholderheight + 'px';
     // this.listbody.style.width = this.options.width + 'px'; //FIXME total column size
     this.listbody.style.height = this.numrows * this.rowheight + 'px';
+
+    this.listfooterholder.style.height = footerheight + 'px';
 
     // Resize might have changed the first visible row
     this.firstvisiblerow = this.getFirstVisibleRow();

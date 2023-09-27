@@ -27,6 +27,9 @@ function collectFlags(iterable) {
  ****************************************************************************************************************************/
 
 export default class ObjList extends ComponentBase {
+  componenttype = "list";
+  list: ListView;
+
   constructor(parentcomp, data, replacingcomp) {
     super(parentcomp, data, replacingcomp);
 
@@ -354,15 +357,12 @@ export default class ObjList extends ComponentBase {
   applySetWidth() {
     this.debugLog("dimensions", "min=" + this.width.min + ", calc=" + this.width.calc + ", set width=" + this.width.set);
     this.node.style.width = this.width.set + "px";
-    this.contentwidth = this.width.set - getScrollbarWidth() - this.overheadx;
-    this.distributeSizes(this.contentwidth, this.columnwidths, true, this.cols.length - 1);
+
+    const contentwidth = this.width.set - getScrollbarWidth() - this.overheadx;
+    this.distributeSizes(contentwidth, this.columnwidths, true, this.cols.length - 1);
 
     for (let i = 0; i < this.cols.length; ++i)
       this.cols[i].width = this.columnwidths[i].set;
-  }
-
-  applySetHeight() {
-    this.contentheight = this.height.set - this.overheady;
   }
 
   calculateDimHeight() {
