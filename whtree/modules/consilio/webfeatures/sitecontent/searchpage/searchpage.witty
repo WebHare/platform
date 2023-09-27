@@ -45,7 +45,7 @@
     <article>
       <h2 class="wh-searchpage__resulttitle"><a href="[link]">[title]</a></h2>
       [if summary]
-        <div class="wh-searchpage__resultsummary">[summary]</div>
+        <div class="wh-searchpage__resultsummary">[summary:none]</div>
       [/if]
       <div class="wh-searchpage__resultlink" aria-hidden="true">  [! hide the link for screenreaders, it's already behind the title too so consider it decoration and it doesn't add much to read it aloud !]
         <a href="[link]">[link]</a>
