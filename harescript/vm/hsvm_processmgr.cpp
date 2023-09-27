@@ -2516,7 +2516,7 @@ void GetJobEnvironment(VarId id_set, VirtualMachine *vm)
         HSVM_ColumnId col_value =  HSVM_GetColumnId(*vm, "VALUE");
 
         HSVM_SetDefault(*vm, id_set, HSVM_VAR_RecordArray);
-        for (auto itr : *useenv)
+        for (auto &itr : *useenv)
         {
                 HSVM_VariableId newrec = HSVM_ArrayAppend(*vm, id_set);
 

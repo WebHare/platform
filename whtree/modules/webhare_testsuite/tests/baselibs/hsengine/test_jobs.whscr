@@ -227,9 +227,36 @@ ASYNC MACRO TestAsyncIterator()
   TestEQ(TRUE, job->handle != 0); // is not auto-closed
 }
 
+MACRO TestErrorHandling()
+{
+  {
+    OBJECT job := CreateJob("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_jobs_a.whlib").job;
+    job->Start();
+    job->ipclink->DoRequest([ type := "control" ]);
+    job->ipclink->SendMessage([ type := "crash", data := "CRASHMSG" ]);
+    TestEQMembers(
+      [ [ iserror := TRUE,  iswarning := FALSE, istrace := FALSE, filename := "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_jobs_a.whlib", code := 182, param1 := 'CRASHMSG',      param2 := '', func := ':INITFUNCTION', message := 'Custom error message: \'CRASHMSG\'.' ]
+      , [ iserror := FALSE, iswarning := FALSE, istrace := TRUE,  filename := "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_jobs_a.whlib", code := -1,  param1 := ':INITFUNCTION', param2 := '', func := ':INITFUNCTION', message := '' ]
+      ], job->GetErrors(), "*");
+    job->Close();
+  }
+  {
+    OBJECT job := CreateJob("mod::webhare_testsuite/tests/baselibs/hsengine/testdata_jobs_a.whlib").job;
+    job->Start();
+    job->ipclink->DoRequest([ type := "control" ]);
+    job->ipclink->SendMessage([ type := "throw", data := "THROWMSG" ]);
+    TestEQMembers(
+      [ [ iserror := TRUE,  iswarning := FALSE, istrace := FALSE, filename := "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_jobs_a.whlib", code := 203, param1 := 'EXCEPTION',     param2 := 'THROWMSG', func := ':INITFUNCTION', message := 'Exception EXCEPTION: THROWMSG.' ]
+      , [ iserror := FALSE, iswarning := FALSE, istrace := TRUE,  filename := "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_jobs_a.whlib", code := -1,  param1 := ':INITFUNCTION', param2 := '',         func := ':INITFUNCTION', message := '' ]
+      ], job->GetErrors(), "*");
+    job->Close();
+  }
+}
+
 PRINT("\n === Running TestJobs\n");
 BaseTest();
 TestIPCLinkGoneAfterCrash();
 TestOverrideExecuteLibrary();
 TestInterrupt();
 WaitForPromise(TestAsyncIterator());
+TestErrorHandling();

@@ -2520,6 +2520,10 @@ int32_t HSVM_CreateJob(struct HSVM *vm, const char *scriptname, HSVM_VariableId 
         std::pair< VMGroup *, int32_t > data = jobmgr->CreateVMGroupInVM(vm);
         HSVM *newvm = data.first->CreateVirtualMachine();
 
+        std::shared_ptr< const Blex::Environment > override = jobmgr->GetGroupEnvironmentOverride(GetVirtualMachine(vm)->GetVMGroup());
+        if (override)
+            jobmgr->SetGroupEnvironmentOverride(*GetVirtualMachine(newvm)->GetVMGroup(), std::make_shared<Blex::Environment>(*override));
+
         if (!HSVM_LoadJobScript(newvm, scriptname))
         {
                 if (errorstore != 0)

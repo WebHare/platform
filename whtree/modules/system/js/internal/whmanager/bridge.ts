@@ -152,6 +152,9 @@ interface Bridge extends EventSource<BridgeEvents> {
 
   /** Returns a list of all currently running processes */
   getProcessList(): Promise<ProcessList>;
+
+  /** Return bridge initialization data for the local bridge in a worker */
+  getLocalHandlerInitDataForWorker(): LocalBridgeInitData;
 }
 
 enum ToLocalBridgeMessageType {
@@ -191,6 +194,7 @@ enum ToMainBridgeMessageType {
   FlushLog,
   EnsureDataSent,
   GetProcessList,
+  RegisterLocalBridge,
 }
 
 type ToMainBridgeMessage = {
@@ -222,11 +226,16 @@ type ToMainBridgeMessage = {
 } | {
   type: ToMainBridgeMessageType.GetProcessList;
   requestid: number;
+} | {
+  type: ToMainBridgeMessageType.RegisterLocalBridge;
+  id: string;
+  port: TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage>;
 };
 
 type LocalBridgeInitData = {
   id: string;
   port: TypedMessagePort<ToMainBridgeMessage, ToLocalBridgeMessage>;
+  /// 2 atomic uint32's, 0: console log counter, 1: 1 if workers are (or have been) active, 0 if not
   consoleLogData: Uint32Array;
 };
 
@@ -499,6 +508,18 @@ class LocalBridge extends EventSource<BridgeEvents> {
     } finally {
       lock.release();
     }
+  }
+
+  getLocalHandlerInitDataForWorker(): LocalBridgeInitData {
+    const { port1, port2 } = createTypedMessageChannel<ToLocalBridgeMessage, ToMainBridgeMessage>("getTopLocalBridgeInitData");
+    const id = generateRandomId();
+    this.port.postMessage({
+      type: ToMainBridgeMessageType.RegisterLocalBridge,
+      id,
+      port: port1
+    }, [port1]);
+    port2.unref();
+    return { id, port: port2, consoleLogData };
   }
 }
 
@@ -973,9 +994,21 @@ class MainBridge extends EventSource<BridgeEvents> {
           ref.release();
         }
       } break;
+      case ToMainBridgeMessageType.RegisterLocalBridge: {
+        this.registerLocalBridge(message.id, message.port);
+      } break;
       default:
         checkAllMessageTypesHandled(message, "type");
     }
+  }
+
+  private registerLocalBridge(id: string, port: TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage>) {
+    port.on("message", (msg) => this.gotLocalBridgeMessage(id, port, msg));
+    port.on("close", () => this.gotLocalBridgeClose(id, port));
+    this.localbridges.add({ id: id, port: port });
+    port.postMessage({ type: ToLocalBridgeMessageType.SystemConfig, connected: this.connectionactive, systemconfig: this.systemconfig });
+    // Do not want this port to keep the event loop running.
+    port.unref();
   }
 
   allocateLinkid() {
@@ -1110,15 +1143,10 @@ class MainBridge extends EventSource<BridgeEvents> {
         this.localbridges.delete(bridge);
   }
 
-  getLocalHandlerInitData(): LocalBridgeInitData {
-    const { port1, port2 } = createTypedMessageChannel<ToLocalBridgeMessage, ToMainBridgeMessage>("getLocalHandlerInitData");
+  getTopLocalBridgeInitData(): LocalBridgeInitData {
+    const { port1, port2 } = createTypedMessageChannel<ToLocalBridgeMessage, ToMainBridgeMessage>("getTopLocalBridgeInitData");
     const id = generateRandomId();
-    port1.on("message", (msg) => this.gotLocalBridgeMessage(id, port1, msg));
-    port1.on("close", () => this.gotLocalBridgeClose(id, port1));
-    this.localbridges.add({ id, port: port1 });
-    port1.postMessage({ type: ToLocalBridgeMessageType.SystemConfig, connected: this.connectionactive, systemconfig: this.systemconfig });
-    // Do not want these ports to keep the event loop running.
-    port1.unref();
+    this.registerLocalBridge(id, port1);
     port2.unref();
     return { id, port: port2, consoleLogData };
   }
@@ -1140,7 +1168,7 @@ const old_std_writes = {
 
 /** Buffer for console logging administration (0: log counter, 1: whether workers have been used)
  * Worker console log messages are written to the main console log via the event loop, so they
- * can be issued out-of-order. Using atomics to get aR global ordering.
+ * can be issued out-of-order. Using atomics to get a global ordering.
 */
 const consoleLogData = !isMainThread && workerData && "localHandlerInitData" in workerData
   ? workerData.localHandlerInitData.consoleLogData
@@ -1213,14 +1241,14 @@ hookConsoleLog();
 
 let mainbridge: MainBridge | undefined;
 
-export function getLocalHandlerInitData(): LocalBridgeInitData {
+function getLocalHandlerInitData(): LocalBridgeInitData {
   // If this is a worker, use the localHandlerInitData sent to the worker if present
   if (!isMainThread && workerData && "localHandlerInitData" in workerData) {
     return workerData.localHandlerInitData;
   }
-  // No main bridge to contact, initialize one
+  // Main script - initialize the main bridge
   mainbridge ??= new MainBridge;
-  return mainbridge.getLocalHandlerInitData();
+  return mainbridge.getTopLocalBridgeInitData();
 }
 
 const localHandlerInitData = getLocalHandlerInitData();

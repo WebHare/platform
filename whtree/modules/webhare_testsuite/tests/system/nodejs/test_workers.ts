@@ -48,6 +48,11 @@ export async function myTestFuncAsync(a: number, b: number) {
   return a + b;
 }
 
+export async function myRecursiveTest(a: number, b: number) {
+  const subworker = new AsyncWorker;
+  return await subworker.callRemote(`${__filename}#myTestFuncAsync`, a, b);
+}
+
 let signalPortClosed: Promise<void>;
 
 async function runWorkerTest() {
@@ -59,6 +64,7 @@ async function runWorkerTest() {
   test.eq(15, await r.returnAplusBAsync(5));
   test.eq(18, await worker.callRemote(`${__filename}#myTestFunc`, 11, 7));
   test.eq(20, await worker.callRemote(`${__filename}#myTestFuncAsync`, 12, 8));
+  test.eq(22, await worker.callRemote(`${__filename}#myRecursiveTest`, 13, 9));
 
   const r2 = await worker.callFactory<myTestClass>(`${__filename}#myFactory`, 16);
   test.eq(21, await r2.returnAplusB(5));

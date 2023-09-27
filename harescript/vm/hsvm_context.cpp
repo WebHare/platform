@@ -1925,12 +1925,16 @@ void VirtualMachine::PrepareCall(Library const &lib, FunctionId func)
 
 #ifdef __EMSCRIPTEN__
 
-EM_JS(void, supportExecuteJSMacro, (void *hsvm, const char *name, unsigned externalid), {
-  Module.executeJSMacro(hsvm, name, externalid);
+EM_JS(bool, supportExecuteJSMacro, (void *hsvm, const char *name, unsigned externalid), {
+  return Module.executeJSMacro(hsvm, name, externalid);
 });
 
-EM_JS(void, supportExecuteJSFunction, (void *hsvm, const char *name, unsigned externalid, unsigned id_set), {
-  Module.executeJSFunction(hsvm, name, externalid, id_set);
+EM_JS(bool, supportExecuteJSFunction, (void *hsvm, const char *name, unsigned externalid, unsigned id_set), {
+  return Module.executeJSFunction(hsvm, name, externalid, id_set);
+});
+
+EM_ASYNC_JS(bool, supportThrowLastSyncException, (void), {
+  return Module.throwLastSyncException();
 });
 
 EM_ASYNC_JS(void, supportExecuteAsyncJSMacro, (void *hsvm, const char *name, unsigned externalid), {
@@ -1996,14 +2000,16 @@ void VirtualMachine::PrepareCallInternal(LinkedLibrary::ResolvedFunctionDefList:
                 case BuiltinFunctionDefinition::JSMacro:
                         {
                                 struct HSVM* hsvm = *this;
-                                supportExecuteJSMacro(hsvm, resolvedfunc.def->builtindef->name.c_str(), resolvedfunc.def->builtindef->externalid);
+                                if (!supportExecuteJSMacro(hsvm, resolvedfunc.def->builtindef->name.c_str(), resolvedfunc.def->builtindef->externalid))
+                                    supportThrowLastSyncException();
                         }
                         break;
                 case BuiltinFunctionDefinition::JSFunction:
                         {
                                 struct HSVM* hsvm = *this;
                                 VarId retvalptr = stackmachine.PushVariables(1);
-                                supportExecuteJSFunction(hsvm, resolvedfunc.def->builtindef->name.c_str(), resolvedfunc.def->builtindef->externalid, retvalptr);
+                                if (!supportExecuteJSFunction(hsvm, resolvedfunc.def->builtindef->name.c_str(), resolvedfunc.def->builtindef->externalid, retvalptr))
+                                    supportThrowLastSyncException();
                         }
                         break;
                 case BuiltinFunctionDefinition::JSAsyncMacro:

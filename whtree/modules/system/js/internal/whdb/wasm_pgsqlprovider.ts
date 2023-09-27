@@ -644,6 +644,19 @@ async function cbInsertRecord(vm: HareScriptVM, queryparam: HSVMVar, newfields: 
   await whdb.insertInto(name.toLowerCase()).values(values).execute();
 }
 
+async function cbInsertRecords(vm: HareScriptVM, queryparam: HSVMVar, newfields: HSVMVar) {
+  const query = queryparam.getJSValue() as Query;
+  const values = new Array<Promise<Record<string, unknown>>>;
+  const len = newfields.arrayLength();
+  for (let i = 0; i < len; ++i)
+    values.push(decodeNewFields(vm, query, newfields.arrayGetRef(i) as HSVMVar));
+  const resolvedValues = await Promise.all(values);
+
+  const name = query.tablesources[0].name;
+  const whdb = db<Record<string, unknown>>();
+  await whdb.insertInto(name.toLowerCase()).values(resolvedValues).execute();
+}
+
 export async function cbUpdateRecord(vm: HareScriptVM, queryparam: HSVMVar, rowdataparam: HSVMVar, newfields: HSVMVar) {
   const query = queryparam.getJSValue() as Query;
   const rowdata = rowdataparam.getJSValue() as { ctid: Tid };
@@ -670,6 +683,7 @@ export async function cbDeleteRecord(params: { query: Query; row: number; rowdat
 
 export async function registerPGSQLFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerAsyncExternalMacro("__WASMPG_INSERTRECORD:::RR", cbInsertRecord);
+  wasmmodule.registerAsyncExternalMacro("__WASMPG_INSERTRECORDS:::RRA", cbInsertRecords);
   wasmmodule.registerAsyncExternalMacro("__WASMPG_UPDATERECORD:::RRR", cbUpdateRecord);
   wasmmodule.registerAsyncExternalFunction("__WASMPG_EXECUTEQUERY::R:R", cbExecuteQuery);
 }

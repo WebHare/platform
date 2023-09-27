@@ -206,6 +206,17 @@ void LoopbackDBTransactionDriver::ExecuteInsert(DatabaseQuery const &query, VarI
         HSVM_CloseFunctionCall(*vm);
 }
 
+void LoopbackDBTransactionDriver::ExecuteInserts(DatabaseQuery const &query, VarId newrecordarray)
+{
+        HSVM_OpenFunctionCall(*vm, 2);
+
+        TranslateDBQuery(query, HSVM_CallParam(*vm, 0));
+        HSVM_CopyFrom(*vm, HSVM_CallParam(*vm, 1), newrecordarray);
+
+        HSVM_CallObjectMethod(*vm, obj, HSVM_GetColumnId(*vm, "INSERTRECORDS"), true, true);
+        HSVM_CloseFunctionCall(*vm);
+}
+
 LoopbackDBTransactionDriver::CursorId LoopbackDBTransactionDriver::OpenCursor(DatabaseQuery &query, CursorType cursortype)
 {
         HSVM_OpenFunctionCall(*vm, 2);

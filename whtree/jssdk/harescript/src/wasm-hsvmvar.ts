@@ -514,4 +514,7 @@ export class HSVMHeapVar extends HSVMVar {
     }
   }
 
+  [Symbol.dispose]() {
+    this.dispose();
+  }
 }
