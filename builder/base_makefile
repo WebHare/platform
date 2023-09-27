@@ -558,6 +558,14 @@ all: $(ALLBUILDANDTEST) $(addsuffix -all,$(SUBPROJECTS)) wasm
 
 #################################################
 ##
+## Other dependencies
+##
+$(PREFIX)/jssdk/whdb/vendor/postgresql-client/package.json:
+	git -C $(SRCDIR) submodule update --init --recursive
+
+
+#################################################
+##
 ## Setup libxml2 dependencies
 ##
 LIBXML2_GENERATEDFILE=config.h
@@ -937,6 +945,7 @@ success.node: \
 			$(PREFIX)/package.json \
 			$(PREFIX)/package-lock.json \
 			$(PREFIX)/modules/platform/scripts/bootstrap/finalize-webhare.sh \
+			$(PREFIX)/jssdk/whdb/vendor/postgresql-client/package.json \
 			$(PREFIX)/modules/tollium/webdesigns/webinterface/package.json \
 			$(PREFIX)/modules/tollium/webdesigns/webinterface/package-lock.json \
 			$(addprefix $(PREFIX)/,$(WHAP_INSTALLABLES))

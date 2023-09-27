@@ -247,10 +247,10 @@ setup_for_console() #setup_for_console is invoked when we're starting a major su
 }
 
 # Do we need to prepare whdata? Anything that does setup_for_console or things like make and finalize don't need it
-if [[ ! "$INSTR" =~ ^(console|mic|umic|exec|execbuilt|shell|make|finalize-webhare|prepare-whdata)$ ]]; then
+if [[ ! "$INSTR" =~ ^(console|mic|umic|exec|execbuilt|shell|make|finalize-webhare|prepare-whdata|fixbuild|builddocker|testdocker|deploydocker)$ ]]; then
   if [ -z "$__WEBHARE_IN_PREPARE_WHDATA" ]; then
     export __WEBHARE_IN_PREPARE_WHDATA=1 #Prevent duplicate/looping invocations. It's easy for wh to refer back to itself during execution
-    "$WEBHARE_DIR/modules/platform/scripts/bootstrap/prepare-whdata.sh"
+    "$WEBHARE_DIR/modules/platform/scripts/bootstrap/prepare-whdata.sh" || die "Cannot prepare whdata"
   fi
 fi
 

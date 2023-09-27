@@ -46,7 +46,7 @@ getbaseversioninfo()
 # run a JS/TS script, assumes the resolveplugin is ready for use
 wh_runjs()
 {
-  local ARGS
+  local ARGS RETVAL
 
   ARGS=("$@")
 
@@ -70,9 +70,12 @@ wh_runjs()
 
   # --experimental-wasm-stack-switching is not allowed in NODE_OPTIONS
   $RUNJS_PREFIX node --experimental-wasm-stack-switching $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
+  RETVAL="$?"
 
   NODE_PATH="$SAVE_NODE_PATH"
   NODE_OPTIONS="$SAVE_NODE_OPTIONS"
+
+  return $RETVAL
 }
 
 loadshellconfig()
@@ -83,7 +86,7 @@ loadshellconfig()
 
   getwhparameters
 
-  # Ignore WEBHARE_NODE_OPTIONS when running getshellconfig.ts (NODE_OPTIONS is still honored)
+  # Ignore WEBHARE_NODE_OPTIONS when running getshellconfig.ts (NODE_OPTIONS is still honored) so we're not eg. inspecting the wrong process
   SHELLCONFIG="$(WEBHARE_NODE_OPTIONS= wh_runjs "$WEBHARE_DIR/modules/platform/js/bootstrap/getshellconfig.ts")"
   [ "$?" == "0" ] || die "shellconfig failed"
 
