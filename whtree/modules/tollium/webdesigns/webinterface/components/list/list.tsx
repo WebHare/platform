@@ -1306,6 +1306,8 @@ class IconWrapper extends Base {
   }
 
   render(list, columndef, row, cell, data, wrapped) {
+    cell.style.display = "inline-flex";
+
     let iconholder = cell.firstChild;
     if (!iconholder) {
       iconholder = dompack.create("span",
@@ -1323,7 +1325,8 @@ class IconWrapper extends Base {
       restholder = dompack.create("span",
         {
           style: {
-            "display": "inline-block"
+            "display": "inline-block",
+            "flex": "1 0 0"
           }
         });
       cell.appendChild(restholder);
