@@ -11,6 +11,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/services.whlib";
+LOADLIB "mod::system/lib/tasks.whlib";
 LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/webserver/config.whlib";
 LOADLIB "mod::system/lib/internal/nginx/config.whlib";
@@ -60,7 +61,11 @@ RECORD FUNCTION LoadConfig(RECORD configuration, BOOLEAN isuptodate)
 
   //Do NOT just blindly talk to proxies when restarting - they should already be working from our previous config
   IF(isuptodate)
-    ReconfigureProxies(configuration);
+  {
+    GetPrimary()->BeginWork();
+    ScheduleTimedTask("system:update_proxies", [ allowmissing := TRUE]); //allowmissing as we may be invoked during WebHare's bootstrap
+    GetPrimary()->CommitWOrk();
+  }
 
   BroadcastEvent("system:internal.webserver.didconfigreload", DEFAULT RECORD);
   RETURN CELL [...configuration, version := GetWebhareVersionNumber(), reloadstatus];
@@ -86,7 +91,7 @@ PUBLIC RECORD FUNCTION ReloadPreviousConfig(RECORD config)
   RETURN LoadConfig(config, FALSE);
 }
 
-MACRO ReconfigureProxies(RECORD config)
+PUBLIC MACRO ReconfigureProxies()
 {
   IF (NOT IsDatabaseWritable())
     RETURN;
@@ -95,6 +100,8 @@ MACRO ReconfigureProxies(RECORD config)
   OBJECT lock := OpenLockManager()->LockMutex("system:webserver.proxyconfig");
   TRY
   {
+    RECORD config := DownloadWebserverConfig();
+
     // Generate a new verification code for this registration round
     STRING data := GenerateUFS128BitId();
     trans->BeginWork();
