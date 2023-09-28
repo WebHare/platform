@@ -24,12 +24,9 @@ export enum CSPMemberType {
 }
 
 export interface CSPMember {
-  id: number;
   children: CSPMember[];
   name: string;
   type: CSPMemberType;
-  orphan: boolean;
-  parent: number;
 }
 
 export interface CSPContentType {

@@ -1,5 +1,9 @@
+import { getTestSiteTemp, testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
 import * as test from "@webhare/test";
+import { beginWork, commitWork } from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
+import { WHFSFile } from "@webhare/whfs";
+import { verifyNumSettings } from "./data/whfs-testhelpers";
 
 async function testMockedTypes() {
   const builtin_normalfoldertype = await whfs.describeContentType("http://www.webhare.net/xmlns/publisher/normalfolder");
@@ -25,7 +29,8 @@ async function testMockedTypes() {
   test.eq("http://www.webhare.net/xmlns/publisher/htmlfile", htmltype.namespace);
 
   const rtdtype = await whfs.describeContentType("http://www.webhare.net/xmlns/publisher/richdocumentfile");
-  test.eqProps({ name: "data", type: "richdocument" }, rtdtype.members.find(_ => _.name === "data"));
+  test.eqProps({ name: "data", type: "richDocument" }, rtdtype.members.find(_ => _.name === "data"));
+  test.assert(!rtdtype.members.find(_ => !_.id), "All members should have an id");
 
   //verify some corner cases
   await test.throws(/No such type/, () => whfs.describeContentType("", { allowMissing: true }));
@@ -36,4 +41,37 @@ async function testMockedTypes() {
   //TODO ensure that orphans return a mockedtype unless you explicitly open in orphan mode. But consider whether we really want to describe orphans as that will require describe to be async!
 }
 
-test.run([testMockedTypes]);
+async function testInstanceData() {
+  await beginWork();
+
+  const tmpfolder = await getTestSiteTemp();
+  const testfile: WHFSFile = await tmpfolder.createFile("testfile.txt");
+
+  const testtype = whfs.openType("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype");
+  test.eqProps({ int: 0, yesno: false }, await testtype.get(testfile.id));
+  await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 0);
+
+  //Test basic get/set
+  await testtype.set(testfile.id, {
+    int: 15,
+    yesno: true //FIXME also get a property to  verify camelcasing
+  });
+  test.eqProps({ int: 15, yesno: true }, await testtype.get(testfile.id));
+  await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 2);
+
+  await testtype.set(testfile.id, {
+    int: 20,
+    yesno: false
+  });
+  test.eqProps({ int: 20, yesno: false }, await testtype.get(testfile.id));
+  await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 1);
+
+
+  await commitWork();
+}
+
+test.run([
+  testSuiteCleanup,
+  testMockedTypes,
+  testInstanceData
+]);
