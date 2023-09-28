@@ -86,6 +86,7 @@ ASYNC MACRO TestMarshalling()
         , ds := MakeDateFromParts(0, 1)
         , dm := MAX_DATETIME
         , blob2 := StringToBlob("blob2")
+        , ms := [ 0m, .25m, 2.5m, 1m, 10m ]
         ]
     ];
 
