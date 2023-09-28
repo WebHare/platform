@@ -1,6 +1,3 @@
-# syntax=docker/dockerfile:experimental
-# https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/experimental.md
-
 ################# STAGE 1 - builder image
 FROM       ubuntu:20.04 AS builder
 MAINTAINER WebHare bv <info@webhare.com>
