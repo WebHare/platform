@@ -5,6 +5,7 @@ import * as fs from "fs";
 import * as process from 'process';
 import * as services from "@webhare/services";
 import * as StackTrace from 'stack-trace';
+import bridge from "./whmanager/bridge";
 
 const getopt = require('node-getopt/lib/getopt.js').create([
   ['', 'debug', 'debug output.'],
@@ -125,6 +126,7 @@ async function mainloop(managedqueuemgr) {
       };
     } catch (e) {
       console.log("runephemeraltask got exception", e);
+      bridge.logError(e);
       const trace = StackTrace.parse(e).map(elt =>
       ({
         func: elt.getFunctionName() || "",

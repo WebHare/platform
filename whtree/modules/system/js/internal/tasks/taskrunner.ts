@@ -3,6 +3,8 @@ import { loadJSFunction } from "../resourcetools";
 import { System_Managedtasks, WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { WHDBBlob, commitWork, db, isWorkOpen, rollbackWork, uploadBlob } from "@webhare/whdb";
 import { getStructuredTrace } from "../whmanager/ipc";
+import bridge from "../whmanager/bridge";
+import { pick } from "@webhare/std";
 
 interface TaskInfo {
   queueid: string;
@@ -57,12 +59,15 @@ export async function executeManagedTask(taskinfo: TaskInfo, debug: boolean) {
       }
 
       default:
-        throw new Error(`Unrecognzized task result type ${(taskresponse as { type: string }).type}`);
+        throw new Error(`Unrecognized task result type ${(taskresponse as { type: string }).type}`);
     }
 
     //result is allowed to be undefined, but IPC doesn't like that, so map that to null (DEFAULT RECORD)
     return { type: "taskdone", result: taskresponse.result ?? null };
   } catch (e) {
+    if (typeof e === "string" || e instanceof Error)
+      bridge.logError(e, { contextinfo: { context: "managedtask", ...pick(taskinfo, ["tasktype", "dbid"]) } });
+
     if (isWorkOpen())
       await rollbackWork();
 
