@@ -27,6 +27,9 @@ function collectFlags(iterable) {
  ****************************************************************************************************************************/
 
 export default class ObjList extends ComponentBase {
+  componenttype = "list";
+  list: ListView;
+
   constructor(parentcomp, data, replacingcomp) {
     super(parentcomp, data, replacingcomp);
 
@@ -354,15 +357,12 @@ export default class ObjList extends ComponentBase {
   applySetWidth() {
     this.debugLog("dimensions", "min=" + this.width.min + ", calc=" + this.width.calc + ", set width=" + this.width.set);
     this.node.style.width = this.width.set + "px";
-    this.contentwidth = this.width.set - getScrollbarWidth() - this.overheadx;
-    this.distributeSizes(this.contentwidth, this.columnwidths, true, this.cols.length - 1);
+
+    const contentwidth = this.width.set - getScrollbarWidth() - this.overheadx;
+    this.distributeSizes(contentwidth, this.columnwidths, true, this.cols.length - 1);
 
     for (let i = 0; i < this.cols.length; ++i)
       this.cols[i].width = this.columnwidths[i].set;
-  }
-
-  applySetHeight() {
-    this.contentheight = this.height.set - this.overheady;
   }
 
   calculateDimHeight() {
@@ -1306,6 +1306,8 @@ class IconWrapper extends Base {
   }
 
   render(list, columndef, row, cell, data, wrapped) {
+    cell.style.display = "inline-flex";
+
     let iconholder = cell.firstChild;
     if (!iconholder) {
       iconholder = dompack.create("span",
@@ -1323,7 +1325,8 @@ class IconWrapper extends Base {
       restholder = dompack.create("span",
         {
           style: {
-            "display": "inline-block"
+            "display": "inline-block",
+            "flex": "1 0 0"
           }
         });
       cell.appendChild(restholder);

@@ -1,10 +1,10 @@
 # Field types
 
-Add a fieldgroup to your `<catalog>` to explicitly define the fields to use:
+Add fieldgroups to your `<catalog>` to explicitly define the fields to use:
 
 ```xml
 <consilio>
-  <catalog tag="myindex" managed="false" fieldgroup="myindexfields" />
+  <catalog tag="myindex" managed="false" fieldgroups="myindexfields" />
   <fieldgroup tag="myindexfields">
     <text name="title" />
     <text name="body" />
