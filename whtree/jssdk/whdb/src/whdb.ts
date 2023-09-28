@@ -67,6 +67,22 @@ class Work {
     }
   }
 
+  async nextVals(field: string, howMany: number): Promise<number[]> {
+    //TODO it's a bit weird for us to be blindly splitting and reeconding table names. but if we take separate schema and table names, we'd be incompatible with Kyseley?
+    const fieldtoks = field.split('.');
+    if (fieldtoks.length !== 3)
+      throw new Error(`Invalid field name`);
+
+    const [schema, table, column] = fieldtoks;
+    const generator = `(${escapePGIdentifier(schema)}.${escapePGIdentifier(`webhare_autonrs_${table}_${column}`)}(${howMany}))`;
+    const queryresult = (await this.conn.query<{ value: number[] }>(`SELECT ${generator} AS value`));
+    const result = queryresult.rows[0]?.value;
+    if (result?.length !== howMany)
+      throw new Error(`No value returned by autonr generator`);
+
+    return result;
+  }
+
   async uploadBlob(data: ValidBlobSources): Promise<WHDBBlob | null> {
     if (!this.open)
       throw new Error(`Work is already closed`);
@@ -208,10 +224,10 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
     // is needed for PostgresPool implementation
   }
 
-  query<R>(cursor: PostgresCursor<R>): PostgresCursor<R>;
-  query<R>(sqlquery: string, parameters?: readonly unknown[]): Promise<PostgresQueryResult<R>>;
+  query<R extends object>(cursor: PostgresCursor<R>): PostgresCursor<R>;
+  query<R extends object>(sqlquery: string, parameters?: readonly unknown[]): Promise<PostgresQueryResult<R>>;
 
-  query<R>(sqlquery: string | PostgresCursor<R>, parameters?: readonly unknown[]): Promise<PostgresQueryResult<R>> | PostgresCursor<R> {
+  query<R extends object>(sqlquery: string | PostgresCursor<R>, parameters?: readonly unknown[]): Promise<PostgresQueryResult<R>> | PostgresCursor<R> {
     if (typeof sqlquery === "string") {
       const lock = this.reftracker.getLock("query lock");
       return super.query<R>(sqlquery, parameters).finally(() => lock.release());
@@ -241,7 +257,7 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
   private checkState(expectwork: boolean | undefined): Work | null {
     if (!this.pgclient)
       throw new Error(`Connection was already closed`);
-    if (expectwork !== undefined && isWorkOpen() !== expectwork) {
+    if (expectwork !== undefined && this.isWorkOpen() !== expectwork) {
       throw new Error(`Work has already been ${expectwork ? 'closed' : 'opened'}${debugFlags.async ? "" : " - WEBHARE_DEBUG=async may help locating this"}`, { cause: this.lastopen });
     }
     return this.openwork || null;
@@ -263,6 +279,14 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
     } finally {
       lock.release();
     }
+  }
+
+  async nextVal(table: string): Promise<number> {
+    return this.nextVals(table, 1).then(_ => _[0]);
+  }
+
+  async nextVals(table: string, howMany: number): Promise<number[]> {
+    return await this.checkState(true).nextVals(table, howMany);
   }
 
   async commitWork(): Promise<void> {
@@ -290,9 +314,34 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
     @typeParam T - Kysely database definition interface
 */
 
-type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob">;
+type WHDBConnection = Pick<WHDBConnectionImpl, "db" | "beginWork" | "commitWork" | "rollbackWork" | "isWorkOpen" | "onFinishWork" | "broadcastOnCommit" | "uploadBlob" | "nextVal" | "nextVals">;
 
 const connsymbol = Symbol("WHDBConnection");
+
+export function escapePGIdentifier(str: string): string {
+  const is_simple = Boolean(str.match(/^[0-9a-zA-Z_"$]*$/));
+  let retval: string;
+  if (is_simple)
+    retval = `"${str.replaceAll(`"`, `""`)}"`;
+  else {
+    retval = `U&"`;
+    for (const char of str) {
+      const code = char.charCodeAt(0);
+      if (code >= 32 && code < 127) {
+        if (char === "\\")
+          retval += char;
+        retval += char;
+      } else {
+        if (code < 65536)
+          retval += `\\${code.toString(16).padStart(4, "0")}`;
+        else
+          retval += `\\+${code.toString(16).padStart(8, "0")}`;
+      }
+    }
+    retval += `"`;
+  }
+  return retval;
+}
 
 function getConnection() {
   return ensureScopedResource(connsymbol, (context) => {
@@ -325,6 +374,18 @@ export function db<T>() {
 */
 export function isWorkOpen() {
   return getConnection().isWorkOpen();
+}
+
+/** Get the next primary key value for a specific table
+*/
+export function nextVal(table: string) {
+  return checkPromiseErrorsHandled(getConnection().nextVal(table));
+}
+
+/** Get multiple primary key values for a specific table
+*/
+export function nextVals(table: string, howMany: number) {
+  return checkPromiseErrorsHandled(getConnection().nextVals(table, howMany));
 }
 
 /** Begins a new transaction. Throws when a transaction is already in progress

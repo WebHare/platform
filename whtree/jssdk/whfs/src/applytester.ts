@@ -1,5 +1,5 @@
 import { CSPApplyTo, CSPApplyRule, getCachedSiteProfiles, CSPApplyToTo, CSPPluginBase, CSPPluginDataRow } from "./siteprofiles";
-import { openFolder, WHFSObject, WHFSFolder, WHFSFile } from "./whfs";
+import { openFolder, WHFSObject, WHFSFolder, describeContentType } from "./whfs";
 import { db, Selectable } from "@webhare/whdb";
 import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { isLike, isNotLike } from "@webhare/hscompat/strings";
@@ -38,6 +38,7 @@ interface BaseInfo extends SiteApplicabilityInfo {
   parent: WHFSFolder | null;
   isfile: boolean;
   isfake: boolean;
+  typeneedstemplate: boolean;
 }
 
 function isResourceMatch(rule_siteprofileids: number[], test_siteprofileids: number[]) {
@@ -57,6 +58,9 @@ export async function getBaseInfoForApplyCheck(obj: WHFSObject): Promise<BaseInf
   if (obj.parentSite) {
     site = await db<WebHareDB>().selectFrom("system.sites").selectAll().where("id", "=", obj.parentSite).executeTakeFirst() ?? null; //TODO why doesn't getSiteApplicabilityInfo give us what we need here
   }
+
+  const typeneedstemplate = obj.isFile && ((await describeContentType(obj.type, { allowMissing: true }))?.isWebPage ?? false);
+
   //TODO don't actually open the objects if we can avoid it.
   return {
     ...siteapply,
@@ -65,7 +69,8 @@ export async function getBaseInfoForApplyCheck(obj: WHFSObject): Promise<BaseInf
     parent: obj.parentSite === obj.id ? (obj as WHFSFolder) //a root *has* to be a folder
       : obj.parent ? (await openFolder(obj.parent)) : null,
     isfile: obj.isFile,
-    isfake: false
+    isfake: false,
+    typeneedstemplate
   };
 }
 
@@ -202,7 +207,7 @@ export class WHFSApplyTester {
   }
 
   isTypeNeedsTemplate() {
-    return this.objinfo.obj.isFile && (this.objinfo.obj as WHFSFile).type.iswebpage;
+    return this.objinfo.typeneedstemplate;
   }
 
   /** Are any of these webfeatures active? ('to webfeatures=') */

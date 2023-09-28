@@ -1,7 +1,7 @@
 import { db, sql, Selectable, Updateable } from "@webhare/whdb";
 import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { decodeScanData, RichFileDescriptor } from "@webhare/services/src/richfile";
-import { getType, FileTypeInfo, describeContentType, unknownfiletype, normalfoldertype } from "./contenttypes";
+import { getType, describeContentType, unknownfiletype, normalfoldertype } from "./contenttypes";
 import { defaultDateTime } from "@webhare/hscompat/datetime";
 import { CSPContentType } from "./siteprofiles";
 import { extname, parse } from 'node:path';
@@ -106,9 +106,11 @@ export interface UpdateFolderMetadata extends CreateFolderMetadata {
 
 export class WHFSObject {
   protected readonly dbrecord: FsObjectRow;
+  private readonly _typens: string;
 
-  constructor(dbrecord: FsObjectRow) {
+  constructor(dbrecord: FsObjectRow, typens: string) {
     this.dbrecord = dbrecord;
+    this._typens = typens;
   }
 
   get id() { return this.dbrecord.id; }
@@ -121,6 +123,7 @@ export class WHFSObject {
   get fullPath() { return this.dbrecord.fullpath; }
   get whfsPath() { return this.dbrecord.whfspath; }
   get parentSite() { return this.dbrecord.parentsite; }
+  get type() { return this._typens; }
 
   async delete(): Promise<void> {
     //TODO implement side effects that the HS variants do
@@ -151,17 +154,11 @@ export class WHFSObject {
 }
 
 export class WHFSFile extends WHFSObject {
-  constructor(dbrecord: FsObjectRow) {
-    super(dbrecord);
-  }
   get publish() {
     return isPublish(this.dbrecord.published);
   }
   get data(): RichFileDescriptor {
     return new RichFileDescriptor(this.dbrecord.data, decodeScanData(this.dbrecord.scandata));
-  }
-  get type(): FileTypeInfo {
-    return describeContentType(this.dbrecord.type || 0, { allowMissing: true, kind: "fileType" });
   }
   async update(metadata: UpdateFileMetadata) {
     this._doUpdate(metadata);
@@ -192,10 +189,6 @@ const fsObjects_js_to_db: Record<keyof ListableFsObjectRow, keyof FsObjectRow> =
 // const fsObjects_db_to_js: Partial<Record<keyof FsObjectRow, keyof ListableFsObjectRow>> = Object.fromEntries(Object.entries(fsObjects_js_to_db).map(([k, v]) => [v, k]));
 
 export class WHFSFolder extends WHFSObject {
-  constructor(dbrecord: FsObjectRow) {
-    super(dbrecord);
-  }
-
   get indexDoc() { return this.dbrecord.indexdoc; }
 
   async list<K extends keyof ListableFsObjectRow = never>(keys?: K[]): Promise<Array<Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder">>> {
@@ -221,11 +214,12 @@ export class WHFSFolder extends WHFSObject {
       .$if(getkeys.has("publish"), qb => qb.select("published"))
       .execute();
 
-    const mappedrows = retval.map(row => {
+    const mappedrows = [];
+    for (const row of retval) {
       const result: Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder" | "type"> = {} as Pick<ListableFsObjectRow, K | "id" | "name" | "isFolder" | "type">;
       for (const k of getkeys) {
         if (k === 'type') { //remap to string
-          const type = describeContentType(row.type || 0, { allowMissing: true, kind: row.isfolder ? "folderType" : "fileType" });
+          const type = await describeContentType(row.type || 0, { allowMissing: true, metaType: row.isfolder ? "folderType" : "fileType" });
           result.type = type?.namespace ?? "#" + row.type;
         } else if (k === 'publish') { //remap from published
           (result as unknown as { publish: boolean }).publish = isPublish(row.published);
@@ -236,8 +230,8 @@ export class WHFSFolder extends WHFSObject {
             result[k] = row[dbkey];
         }
       }
-      return result;
-    });
+      mappedrows.push(result);
+    }
 
     return mappedrows;
   }
@@ -515,7 +509,9 @@ export async function openWHFSObject(startingpoint: number, path: string | numbe
   if (dbrecord.isfolder !== !findfile)
     throw new Error(`Type mismatch, expected ${findfile ? "file, got folder" : "folder, got file"} for ${formatPathOrId(path)} ${failcontext}`);
 
-  return findfile ? new WHFSFile(dbrecord) : new WHFSFolder(dbrecord);
+  const matchtype = await getType(dbrecord.type || 0, findfile ? "fileType" : "folderType"); //NOTE: This API is currently sync... but isn't promising to stay that way so just in case we'll pretend its async
+  const typens = matchtype?.namespace ?? "#" + dbrecord.type;
+  return findfile ? new WHFSFile(dbrecord, typens) : new WHFSFolder(dbrecord, typens);
 }
 
 export async function openFile(path: number | string, options: { allowMissing: true }): Promise<WHFSFile | null>;

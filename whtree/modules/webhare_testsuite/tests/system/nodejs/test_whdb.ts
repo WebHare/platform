@@ -2,7 +2,7 @@ import { BackendEvent, BackendEventSubscription, subscribe } from "@webhare/serv
 import * as test from "@webhare/test";
 import { sleep } from "@webhare/std";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
-import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen, uploadBlob, query } from "@webhare/whdb";
+import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen, uploadBlob, query, nextVal, nextVals } from "@webhare/whdb";
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
 import * as contexttests from "./data/context-tests";
 import { WHDBBlob } from "@webhare/whdb/src/blobs";
@@ -37,13 +37,16 @@ async function testQueries() {
   ///@ts-expect-error -- We need to ensure TypeScript can differentiate between HareScriptBlob and WHDBBlob ducks (TODO alternative solution) or it can't guard against insert errors
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const dummy_hsvm_blob: WHDBBlob = emptyboxedblob;
-
-  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: 5, text: "This is a text", datablob: newblob }).execute();
-  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: 10, text: "This is another text" }).execute();
+  const nextid: number = await nextVal("webhare_testsuite.exporttest.id");
+  const nextids: number[] = await nextVals("webhare_testsuite.exporttest.id", 2);
+  test.eq(2, nextids.length);
+  test.assert(!nextids.includes(nextid));
+  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextids[0], text: "This is a text", datablob: newblob }).execute();
+  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextids[1], text: "This is another text" }).execute();
   await commitWork();
 
   const tablecontents = await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").selectAll().orderBy("id").execute();
-  test.eqProps([{ id: 5, text: 'This is a text' }, { id: 10, text: 'This is another text' }], tablecontents);
+  test.eqProps([{ id: nextids[0], text: 'This is a text' }, { id: nextids[1], text: 'This is another text' }], tablecontents);
   test.assert(tablecontents[0].datablob);
   test.eq(14, tablecontents[0].datablob.size);
   test.eq("This is a blob", await tablecontents[0].datablob.text());

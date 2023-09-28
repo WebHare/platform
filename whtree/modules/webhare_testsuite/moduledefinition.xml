@@ -248,7 +248,7 @@
     <d:obsoletetable name="hosted_blobs" />
 
     <d:table name="exporttest" primarykey="id">
-      <d:integer name="id" />
+      <d:integer name="id" autonumberstart="1" />
       <d:varchar name="text" maxlength="4096" />
       <d:blob name="datablob" />
     </d:table>

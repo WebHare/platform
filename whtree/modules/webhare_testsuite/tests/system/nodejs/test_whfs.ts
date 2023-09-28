@@ -135,7 +135,7 @@ async function testWHFS() {
 
 async function testSiteProfiles() {
   const markdownfile = await whfs.openFile("site::webhare_testsuite.testsite/testpages/markdownpage");
-  test.eq("http://www.webhare.net/xmlns/publisher/markdownfile", markdownfile.type.namespace);
+  test.eq("http://www.webhare.net/xmlns/publisher/markdownfile", markdownfile.type);
 
   const publicationsettings = await (await getApplyTesterForObject(markdownfile)).getWebDesignInfo();
   test.eq("mod::webhare_testsuite/webdesigns/basetest/lib/basetest.whlib#BaseTestDesign", publicationsettings.objectname);
