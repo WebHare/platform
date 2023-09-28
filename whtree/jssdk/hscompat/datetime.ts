@@ -8,8 +8,30 @@ export const maxDateTimeTotalMsecs = 100000000 * 86400000 - 1;
 export const maxDateTime: Date = Object.freeze(new Date(maxDateTimeTotalMsecs));
 export const defaultDateTime: Date = Object.freeze(new Date(-719163 * 86400000));
 
-export function makeDateFromParts(daycount: number, msecs: number): Date {
-  return new Date(Date.UTC(1970, 0, daycount - 719162, 0, 0, 0, msecs));
+export function makeDateFromParts(days: number, msecs: number): Date {
+  days -= 719163;
+  const totalmsecs = days * 86400000 + msecs;
+  if (totalmsecs >= maxDateTimeTotalMsecs)
+    return maxDateTime;
+  return new Date(totalmsecs);
+}
+
+export function dateToParts(date: Date): { days: number; msecs: number } {
+  const totalmsecs = Number(date);
+  let days, msecs;
+  if (totalmsecs >= maxDateTimeTotalMsecs) {
+    days = 2147483647;
+    msecs = 86400000 - 1;
+  } else {
+    days = Math.floor(totalmsecs / 86400000);
+    msecs = totalmsecs - days * 86400000;
+    days += 719163; // 1970-1-1
+    if (days < 0 || msecs < 0) {
+      days = 0;
+      msecs = 0;
+    }
+  }
+  return { days, msecs };
 }
 
 export function utcToLocal(utc: Date, timeZone: string) {
