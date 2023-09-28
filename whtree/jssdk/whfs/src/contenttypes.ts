@@ -1,7 +1,7 @@
 import { CSPContentType, CSPMember, CSPMemberType, getCachedSiteProfiles } from "./siteprofiles";
 
 export type MemberType = "string" | "datetime" | "file" | "boolean" | "integer" | "float" | "money" | "whfsref" | "array" | "whfsrefarray" | "stringarray" | "richdocument" | "intextlink" | "instance" | "url" | "composeddocument" | "record" | "formcondition";
-export type ContentTypeKinds = "contenttype" | "fileType" | "folderType";
+export type ContentTypeMetaTypes = "contentType" | "fileType" | "folderType";
 export const unknownfiletype = "http://www.webhare.net/xmlns/publisher/unknownfile";
 export const normalfoldertype = "http://www.webhare.net/xmlns/publisher/normalfolder";
 
@@ -20,11 +20,11 @@ export interface ContentTypeMember {
 export interface ContentTypeInfo {
   namespace: string;
   title: string;
-  kind: ContentTypeKinds;
+  metaType: ContentTypeMetaTypes;
   members: ContentTypeMember[];
 
   ///File types: When rendered, render inside a webdesign (aka 'needstemplate')
-  iswebpage?: boolean;
+  isWebPage?: boolean;
 }
 
 //TODO mark inwebdesign etc as present..
@@ -36,6 +36,7 @@ export interface FolderTypeInfo extends ContentTypeInfo {
   kind: "folderType";
 }
 
+//WARNING we may need to make this API async in the future. It's not publicly exposed yet though so for now it's okay to be sync
 export function getType(type: string | number, kind?: "fileType" | "folderType"): CSPContentType | undefined {
   const types = getCachedSiteProfiles().contenttypes;
   if (typeof type === "string")
@@ -79,23 +80,24 @@ function mapMembers(inmembers: CSPMember[]): ContentTypeMember[] {
  * @throws If the type could not be found and allowMissing was not set
 */
 
-export function describeContentType(type: string | number, options: { allowMissing?: boolean; kind: "fileType" }): FileTypeInfo;
-export function describeContentType(type: string | number, options: { allowMissing?: boolean; kind: "folderType" }): FolderTypeInfo;
-export function describeContentType(type: string | number, options: { allowMissing: true; kind?: "fileType" | "folderType" }): ContentTypeInfo | null;
-export function describeContentType(type: string | number): ContentTypeInfo;
+export async function describeContentType(type: string | number, options: { allowMissing?: boolean; metaType: "fileType" }): Promise<FileTypeInfo>;
+export async function describeContentType(type: string | number, options: { allowMissing?: boolean; metaType: "folderType" }): Promise<FolderTypeInfo>;
+export async function describeContentType(type: string | number, options: { allowMissing: true; metaType?: "fileType" | "folderType" }): Promise<ContentTypeInfo | null>;
+export async function describeContentType(type: string | number): Promise<ContentTypeInfo>;
 
-export function describeContentType(type: string | number, options?: { allowMissing?: boolean; kind?: "fileType" | "folderType" }): ContentTypeInfo | null {
+export async function describeContentType(type: string | number, options?: { allowMissing?: boolean; metaType?: "fileType" | "folderType" }): Promise<ContentTypeInfo | null> {
   //Based on HS DescribeContentTypeById - but we also set up a publicinfo to define a limited/cleaned set of data for the JS WHFSObject.type API
-  const matchtype = getType(type, options?.kind);
+  const matchtype = await getType(type, options?.metaType); //NOTE: This API is currently sync... but isn't promising to stay that way so just in case we'll pretend its async
   if (!matchtype) {
     if (!options?.allowMissing || type === "") //never accept '' (but we do accept '0' as that is historically a valid file type in WebHare)
       throw new Error(`No such type: '${type}'`);
-    if (!options?.kind || !['fileType', 'folderType'].includes(options?.kind))
+    if (!options?.metaType || !['fileType', 'folderType'].includes(options?.metaType))
       return null;
 
-    const fallbackns = options.kind === "fileType" ? unknownfiletype : normalfoldertype;
-    const fallbacktype = describeContentType(fallbackns);
+    const fallbackns = options.metaType === "fileType" ? unknownfiletype : normalfoldertype;
+    const fallbacktype = await describeContentType(fallbackns);
     const usenamespace = typeof type === "string" ? type : "#" + type;
+
     return {
       ...fallbacktype,
       namespace: usenamespace,
@@ -106,15 +108,44 @@ export function describeContentType(type: string | number, options?: { allowMiss
 
   const baseinfo: ContentTypeInfo = {
     namespace: matchtype.namespace,
-    kind: matchtype.foldertype ? "folderType" : matchtype.filetype ? "fileType" : "contenttype", //TODO add widget rtdtype etc?
+    metaType: matchtype.foldertype ? "folderType" : matchtype.filetype ? "fileType" : "contentType", //TODO add widget rtdtype etc?
     title: matchtype.title,
     members: mapMembers(matchtype.members)
   };
 
   if (matchtype.filetype)
     Object.assign(baseinfo, {
-      iswebpage: Boolean(matchtype.filetype.needstemplate)
+      isWebPage: Boolean(matchtype.filetype.needstemplate)
     });
 
   return baseinfo;
+}
+
+/** An API offering access to data stored in an instance type.
+ */
+export interface InstanceDataAccessor<ContentTypeStructure = unknown> {
+  //TODO Add a 'pick: ' option
+  get(id: number): Promise<ContentTypeStructure>;
+  set(id: number, data: ContentTypeStructure): Promise<void>;
+}
+
+class WHFSTypeAccessor<ContentTypeStructure = unknown> implements InstanceDataAccessor<ContentTypeStructure> {
+  private readonly ns: string;
+
+  constructor(ns: string) {
+    this.ns = ns;
+  }
+
+  async get(id: number): Promise<ContentTypeStructure> {
+    throw new Error("Not implemented");
+  }
+
+  async set(id: number, ContentTypeStructure: unknown): Promise<void> {
+    throw new Error("Not implemented");
+  }
+}
+
+export function openType<ContentTypeStructure = unknown>(ns: string): InstanceDataAccessor<ContentTypeStructure> {
+  //note that as we're sync, we can't actually promise to validate whether the type xists
+  return new WHFSTypeAccessor<ContentTypeStructure>(ns);
 }
