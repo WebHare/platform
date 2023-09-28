@@ -16,6 +16,7 @@ import { IPCEndPoint, IPCMessagePacket, IPCPort, createIPCEndPointPair, decodeTr
 import { isValidName } from "@webhare/whfs/src/support";
 import { AsyncWorker, ConvertWorkerServiceInterfaceToClientInterface } from "@mod-system/js/internal/worker";
 import { Crc32 } from "@mod-system/js/internal/util/crc32";
+import { escapePGIdentifier } from "@webhare/whdb";
 
 type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
 
@@ -437,29 +438,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     }
   });
   wasmmodule.registerExternalFunction("POSTGRESQLESCAPEIDENTIFIER::S:S", (vm, id_set, var_str) => {
-    const str = var_str.getString();
-    const is_simple = Boolean(str.match(/^[0-9a-zA-Z_"$]*$/));
-    let retval: string;
-    if (is_simple)
-      retval = `"${str.replaceAll(`"`, `""`)}"`;
-    else {
-      retval = `U&"`;
-      for (const char of str) {
-        const code = char.charCodeAt(0);
-        if (code >= 32 && code < 127) {
-          if (char === "\\")
-            retval += char;
-          retval += char;
-        } else {
-          if (code < 65536)
-            retval += `\\${code.toString(16).padStart(4, "0")}`;
-          else
-            retval += `\\+${code.toString(16).padStart(8, "0")}`;
-        }
-      }
-      retval += `"`;
-    }
-    id_set.setString(retval);
+    id_set.setString(escapePGIdentifier(var_str.getString()));
   });
   wasmmodule.registerExternalFunction("POSTGRESQLESCAPELITERAL::S:S", (vm, id_set, var_str) => {
     // Don't care about UTF-8 encoding problems, the server will catch them anyway
