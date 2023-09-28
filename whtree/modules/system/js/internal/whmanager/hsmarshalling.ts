@@ -222,8 +222,8 @@ function marshalReadInternal(buf: LinearBufferReader, type: VariableType, column
       const value = buf.readBigS64();
       let str = value.toString();
       const isnegative = value < BigInt(0);
-      str = str.substring(isnegative ? 1 : 0).padStart(5, "0");
-      str = str.substring(0, -5) + "." + str.substring(-5);
+      str = str.substring(isnegative ? 1 : 0).padStart(6, "0");
+      str = str.substring(0, str.length - 5) + "." + str.substring(str.length - 5);
       return new Money((isnegative ? "-" : "") + str);
     }
     case VariableType.Float: {
@@ -637,7 +637,7 @@ function encodeHSONInternal(value: IPCMarshallableData, needtype?: VariableType)
       if (typeof value === "object") {
         if (!Money.isMoney(value))
           throw new Error(`Unknown object to encode as money`);
-        retval = "m " + ((value as Money).value ?? "0");
+        retval = "m " + (value as Money).format({ minDecimals: 0 });
       } else
         retval = "m " + value.toString();
     } break;

@@ -427,6 +427,10 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
   private async executeInternal(): Promise<O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never> {
     if (!this.selects)
       throw new Error(`A select is required`);
+
+    if (debugFlags["wrd:usewasmvm"] && debugFlags["wrd:usejsengine"])
+      return runSimpleWRDQuery(this.type, this.selects || {}, this.wheres, this.historymode, this._limit) as unknown as O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never;
+
     const type = await this.type._getType();
     let query: HSWRDQuery = { jsmode: true };
     if (typeof this.selects === "string")
@@ -439,17 +443,15 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
       query.filters = this.wheres.map(({ field, condition, value }) => ({ field: tagToHS(field), matchtype: condition.toUpperCase(), value }));
     if (this._limit !== null)
       query.resultlimit = this._limit;
-    const retval = await type.runQuery(query);
-    return retval as unknown as (O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never);
-  }
+    const result = await type.runQuery(query) as unknown as (O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never);
 
-  async execute(): Promise<O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never> {
-    if (debugFlags["wrd:usewasmvm"] && debugFlags["wrd:usejsengine"])
-      return runSimpleWRDQuery(this.type, this.selects || {}, this.wheres, this.historymode, this._limit) as unknown as O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never;
-    const result = await checkPromiseErrorsHandled(this.executeInternal());
     if (typeof this.selects === "string") //no need for translation
       return result.map(repairResultValue) as typeof result;
 
     return repairResultSet(result as Array<Record<string, unknown>>, this.selects!) as unknown as ReturnType<typeof this.executeInternal>;
+  }
+
+  execute(): Promise<O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never> {
+    return checkPromiseErrorsHandled(this.executeInternal());
   }
 }

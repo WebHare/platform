@@ -856,7 +856,7 @@ PUBLIC MACRO FixModuleSymlinks(STRING ARRAY modules, BOOLEAN isallmodules)
 
   EnsureFileContents(MergePath(whdataroot, ".eslintrc.json"),
   `{
-    "extends": "@webhare/defaultconfig"
+    "extends": "@webhare/eslint-config"
   }`);
 
   /* When runnning `npm install` in the dataroot or a subdirectory (without its own package.json),

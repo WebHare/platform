@@ -93,13 +93,13 @@ function splitPrice(money: FinmathInput): SplitNumber {
   if (typeof money != 'string')
     throw new Error("splitPrice should receive either number or string, got " + money);
 
-  const split = money.match(/^(-)?([0-9]+)(\.[0-9]{0,5})?$/);
+  const split = money.match(/^(-)?([0-9]+)(\.[0-9]{0,5})?$/) ?? money.match(/^(-)?()(\.[0-9]{1,5})$/);
   if (!split)
     throw new Error(`splitPrice received illegal price: '${money}'`);
 
   const sign = split[1] == '-' ? -1 : 1;
   const decimals = split[3] ? split[3].length - 1 : 0;
-  const num = sign * (parseInt(split[2]) * Math.pow(10, decimals) + (parseInt((split[3] || '').substr(1)) || 0));
+  const num = sign * (parseInt(split[2] || "0") * Math.pow(10, decimals) + (parseInt((split[3] || '').substr(1)) || 0));
   if (!Number.isSafeInteger(num))
     throw new Error(`The value '${money}' is outside the safe value range`);
 
