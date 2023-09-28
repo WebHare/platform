@@ -4,6 +4,7 @@ import { beginWork, commitWork } from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import { WHFSFile } from "@webhare/whfs";
 import { verifyNumSettings } from "./data/whfs-testhelpers";
+import { Money } from "@webhare/std";
 
 async function testMockedTypes() {
   const builtin_normalfoldertype = await whfs.describeContentType("http://www.webhare.net/xmlns/publisher/normalfolder");
@@ -54,7 +55,7 @@ async function testInstanceData() {
   //Test basic get/set
   await testtype.set(testfile.id, {
     int: 15,
-    yesno: true //FIXME also get a property to  verify camelcasing
+    yesno: true
   });
   test.eqProps({ int: 15, yesno: true }, await testtype.get(testfile.id));
   await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 2);
@@ -66,6 +67,20 @@ async function testInstanceData() {
   test.eqProps({ int: 20, yesno: false }, await testtype.get(testfile.id));
   await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 1);
 
+  //Test the rest of the primitive types
+  await testtype.set(testfile.id, {
+    str: "String",
+    price: Money.fromNumber(2.5),
+    afloat: 1.5,
+    adatetime: new Date("2023-09-28T21:04:35Z")
+  });
+
+  test.eqProps({
+    str: "String",
+    price: Money.fromNumber(2.5),
+    afloat: 1.5,
+    adatetime: new Date("2023-09-28T21:04:35Z")
+  }, await testtype.get(testfile.id));
 
   await commitWork();
 }

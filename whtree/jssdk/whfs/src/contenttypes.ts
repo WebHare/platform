@@ -3,27 +3,7 @@ import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { openWHFSObject } from "./objects";
 import { CSPContentType, getCachedSiteProfiles } from "./siteprofiles";
 import { isReadonlyWHFSSpace } from "./support";
-import { Money } from "@webhare/std";
-import { makeDateFromParts } from "@webhare/hscompat/datetime";
-
-export type MemberType = "string" // 2
-  | "dateTime" //4
-  | "file" //5
-  | "boolean" //6
-  | "integer" //7
-  | "float" // 8
-  | "money" //9
-  | "whfsRef" //11
-  | "array" //12
-  | "whfsRefArray" //13
-  | "stringArray" //14
-  | "richDocument" //15
-  | "intExtLink" //16
-  | "instance" //18
-  | "url" //19
-  | "composedDocument" //20
-  | "record" //21
-  | "formCondition"; //22
+import { MemberType, codecs } from "./codecs";
 
 export type ContentTypeMetaTypes = "contentType" | "fileType" | "folderType";
 export const unknownfiletype = "http://www.webhare.net/xmlns/publisher/unknownfile";
@@ -206,26 +186,20 @@ class RecursiveSetter {
       const thismembersettings = this.cursettings.filter(_ => _.parent === elementSettingId && _.fs_member === matchmember.id);
       const mynewsettings = new Array<Partial<FSSettingsRow>>;
 
-      switch (matchmember.type) {
-        case "boolean": {
-          if (typeof value !== "boolean")
-            throw new Error(`Incorrect type for field '${matchmember.name}', got '${typeof value}', but wanted boolean`);
-          if (value)
-            mynewsettings.push({ setting: "1" });
-          break;
-        }
+      if (!codecs[matchmember.type])
+        throw new Error(`Unsupported type ${matchmember.type} for member '${matchmember.name}'`);
 
-        case "integer": {
-          if (typeof value !== "number")
-            throw new Error(`Incorrect type for field '${matchmember.name}', got '${typeof value}', but wanted integer`);
-          if (value < -2147483648 || value > 2147483647) //as long as we're HS compatible, this is the range to stick to
-            throw new Error(`Value for field '${matchmember.name}' is out of range for a 32 bit integer`);
-          if (value)
-            mynewsettings.push({ setting: value.toString() });
-          break;
-        }
-        default:
-          throw new Error(`Unsupported type ${matchmember.type} for member '${matchmember.name}'`);
+      try {
+        const settings = codecs[matchmember.type].encoder(value);
+        if (settings)
+          if (Array.isArray(settings))
+            mynewsettings.push(...settings);
+          else
+            mynewsettings.push(settings);
+      } catch (e) {
+        if (e instanceof Error)
+          e.message += ` (while setting '${matchmember.name}')`;
+        throw e;
       }
 
       for (let i = 0; i < mynewsettings.length; ++i) {
@@ -287,38 +261,18 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
       const settings = cursettings.filter(_ => _.fs_member === member.id && _.parent === elementSettingId);
       let setval;
 
-      switch (member.type) {
-        case "integer": {
-          setval = parseInt(settings[0]?.setting) || 0;
-          break;
+      try {
+        if (!codecs[member.type]) {
+          setval = { FIXME: member.type }; //FIXME just throw }
+          // throw new Error(`Unsupported type '${member.type}' for member '${member.name}'`);
+        } else {
+          setval = codecs[member.type].decoder(settings);
         }
-        case "boolean": {
-          setval = ["1", "true"].includes(settings[0]?.setting); //TBH I doubt 'true' was ever written to the database by any actual HS TypeCoder
-          break;
-        }
-        case "string": {
-          setval = settings[0]?.setting || "";
-          break;
-        }
-        case "money": {
-          setval = new Money(settings[0]?.setting || "0");
-          break;
-        }
-        case "float": {
-          setval = parseFloat(settings[0]?.setting) || 0;
-          break;
-        }
-        case "dateTime": {
-          const dt = settings[0]?.setting?.split(",");
-          setval = dt?.length === 2 ? makeDateFromParts(parseInt(dt[0]), parseInt(dt[1])) : null;
-          break;
-        }
-        default:
-          setval = { FIXME: member.type }; {//FIXME just throw }
-            // throw new Error(`Unsupported type '${member.type}' for member '${member.name}'`);
-          }
+      } catch (e) {
+        if (e instanceof Error)
+          e.message += ` (while getting '${member.name}')`;
+        throw e;
       }
-
       retval[member.name] = setval;
     }
 
