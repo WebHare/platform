@@ -82,6 +82,8 @@
                      tag="tolliumapplicationstarter"
                      tid="todd.misc.applicationstarter"
                      where="webserver" />
+
+    <apprunnerconfig configfunction="lib/internal/support.whlib#GetTolliumAppRunnerConfig" />
   </services>
 
   <documentation>
@@ -105,7 +107,7 @@
 
     <debugflag name="logcontroller" description="Log tollium/todd controller" />
     <debugflag name="logtransport" description="Log tollium/todd controller" />
-    <debugflag name="alt-appstarter" description="Use freestanding appstarter to host tollium applications" />
+    <debugflag name="usewasm" description="Use wasm as default application engine" />
   </development>
 
   <hooking>

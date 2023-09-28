@@ -11,6 +11,7 @@ LOADLIB "wh::internal/jobs.whlib";
 LOADLIB "wh::internal/callbacks.whlib";
 LOADLIB "wh::internet/urls.whlib";
 LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
@@ -2609,7 +2610,7 @@ PUBLIC OBJECTTYPE TolliumControllerBase
       LogDebug("ng-ctrlr-link", "Create port for " || this->applicationid);
 
     STRING linkname := "tollium:link." || this->applicationid;
-    this->ipcport := isheadless OR IsDebugTagEnabled("tollium:alt-appstarter") ? CreateGlobalIPCPort(linkname) : CreateIPCPort(linkname);
+    this->ipcport := isheadless OR IsWasm() ? CreateGlobalIPCPort(linkname) : CreateIPCPort(linkname);
   }
 
   MACRO AcceptLink()

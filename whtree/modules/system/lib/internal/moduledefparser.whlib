@@ -963,6 +963,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
                                , supportedlanguages := ParseXSList(subchild->GetAttribute("supportedlanguages"))
                                , shortcut :=       ParseShortcut(subchild->GetAttribute("shortcut"))
                                , line :=           subchild->linenum
+                               , engine :=         subchild->GetAttribute("engine")
                                ];
 
                 app := MakeMergedRecord(app, this->ParseApp(subchild));
