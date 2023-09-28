@@ -109,10 +109,13 @@ PUBLIC STATIC OBJECTTYPE TestInfoValidator EXTEND XMLValidatorBase
     {
       STRING strippath := checknode->GetAttribute("path");
       IF(strippath LIKE "?*/")
-      {
         strippath := Left(strippath, Length(strippath)-1); //delete trailing slash
-        DELETE FROM unreferred WHERE name = strippath;
-      }
+      DELETE FROM unreferred WHERE name = strippath;
+      IF (NOT RecordExists(
+          SELECT
+            FROM ReadWebHareResourceFolder(MergePath(GetDirectoryFromPath(this->respath), strippath))
+           WHERE name = "testinfo.xml"))
+        this->AddError(checknode, `File ${strippath}/testinfo.xml does not exist`);
     }
 
     FOREVERY(RECORD entry FROM unreferred)
