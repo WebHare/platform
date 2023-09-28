@@ -3,6 +3,5 @@ export { Tag, TagManager, openTagManager } from "./tagmanager";
 export { isValidName } from "./support";
 
 export type { CreateFSObjectMetadata, CreateFileMetadata, CreateFolderMetadata, UpdateFileMetadata, UpdateFolderMetadata, WHFSFile, WHFSFolder, WHFSObject } from "./objects";
-export { openFile, openFolder } from "./objects";
-export type { Site } from "./sites";
-export { openSite, listSites } from "./sites";
+export { openFile, openFolder, openFileOrFolder } from "./objects";
+export { openSite, listSites, type Site } from "./sites";

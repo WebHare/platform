@@ -480,7 +480,10 @@ async function lookupWHFSObject(startingpoint: number, fullpath: string) {
   return res.leftover ? -1 : res.id;
 }
 
-export async function openWHFSObject(startingpoint: number, path: string | number, findfile: boolean, allowmissing: boolean, failcontext: string): Promise<WHFSFile | WHFSFolder | null> {
+export async function openWHFSObject(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: false, failcontext: string): Promise<WHFSFile | WHFSFolder>;
+export async function openWHFSObject(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: boolean, failcontext: string): Promise<WHFSFile | WHFSFolder | null>;
+
+export async function openWHFSObject(startingpoint: number, path: string | number, findfile: boolean | undefined, allowmissing: boolean, failcontext: string): Promise<WHFSFile | WHFSFolder | null> {
   let location;
   if (typeof path === "string")
     location = await lookupWHFSObject(startingpoint, path);
@@ -506,12 +509,12 @@ export async function openWHFSObject(startingpoint: number, path: string | numbe
     return null;
   }
 
-  if (dbrecord.isfolder !== !findfile)
+  if (findfile !== undefined && dbrecord.isfolder !== !findfile)
     throw new Error(`Type mismatch, expected ${findfile ? "file, got folder" : "folder, got file"} for ${formatPathOrId(path)} ${failcontext}`);
 
-  const matchtype = await getType(dbrecord.type || 0, findfile ? "fileType" : "folderType"); //NOTE: This API is currently sync... but isn't promising to stay that way so just in case we'll pretend its async
+  const matchtype = await getType(dbrecord.type || 0, dbrecord.isfolder ? "folderType" : "fileType"); //NOTE: This API is currently sync... but isn't promising to stay that way so just in case we'll pretend its async
   const typens = matchtype?.namespace ?? "#" + dbrecord.type;
-  return findfile ? new WHFSFile(dbrecord, typens) : new WHFSFolder(dbrecord, typens);
+  return dbrecord.isfolder ? new WHFSFolder(dbrecord, typens) : new WHFSFile(dbrecord, typens);
 }
 
 export async function openFile(path: number | string, options: { allowMissing: true }): Promise<WHFSFile | null>;
@@ -528,4 +531,12 @@ export async function openFolder(path: number | string, options?: { allowMissing
 /** Open a folder */
 export async function openFolder(path: number | string, options?: { allowMissing: boolean }) {
   return openWHFSObject(0, path, false, options?.allowMissing ?? false, "");
+}
+
+export async function openFileOrFolder(path: number | string, options: { allowMissing: true }): Promise<WHFSFolder | WHFSFile | null>;
+export async function openFileOrFolder(path: number | string, options?: { allowMissing: boolean }): Promise<WHFSFolder | WHFSFile>;
+
+/** Open a file or folder - used when you're unsure what an ID points to */
+export async function openFileOrFolder(path: number | string, options?: { allowMissing: boolean }) {
+  return openWHFSObject(0, path, undefined, options?.allowMissing ?? false, "");
 }
