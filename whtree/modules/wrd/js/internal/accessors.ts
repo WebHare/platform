@@ -5,7 +5,7 @@ import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { compare, ComparableType, recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
 import { Money } from "@webhare/std";
-import { decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
+import { decodeScanData, ResourceDescriptor, WHDBResourceDescriptor } from "@webhare/services/src/descriptor";
 import { defaultDateTime, makeDateFromParts, maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { decodeHSON } from "@webhare/hscompat/hscompat";
 import { IPCMarshallableRecord } from "@mod-system/js/internal/whmanager/hsmarshalling";
@@ -1453,7 +1453,7 @@ class WHDBResourceAttributeBase extends WRDAttributeUncomparableValueBase<Resour
     const lpos = recordLowerBound(links, val, ["id"]);
     const sourceFile = lpos.found ? links[lpos.position].fsobject : null;
     return val.blobdata
-      ? new ResourceDescriptor(val.blobdata, { ...decodeScanData(val.rawdata), sourceFile })
+      ? new WHDBResourceDescriptor(val.blobdata, { ...decodeScanData(val.rawdata), sourceFile })
       : null;
   }
 

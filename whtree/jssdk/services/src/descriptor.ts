@@ -1,20 +1,6 @@
 import { decodeHSON } from "@webhare/hscompat";
 import { WHDBBlob, WHDBBlobImplementation } from "@webhare/whdb/src/blobs";
 
-/*
-    @cell(string) return.extension
-    @cell(string) return.mimetype The mimetype for the file. If unrecognized, `application/octet-stream`
-    @cell(integer) return.width Image width (in pixels)
-    @cell(integer) return.heigh Image height (in pixels)
-    @cell(integer) return.rotation Image rotation in degrees (0,90,180 or 270)
-    @cell(boolean) return.mirrored True if this is a mirrored image
-    @cell(record) return.refpoint Reference point if set, default record otherwise
-    @cell(integer) return.refpoint.x X coordinate of reference point (in pixels)
-    @cell(integer) return.refpoint.y Y coordinate of reference point (in pixels)
-    @cell(string) return.dominantcolor Image's dominant color as a `#RRGGBB` code, 'transparent' if the image is transparent. Only extracted if the extractdominantcolor option is enabled
-    @cell(string) return.hash UFS encoded SHA-256 hash of the file. Only calculated if the generatehash option is enabled
-*/
-
 export interface ResourceMetaData {
   ///The proper or usual extension for the file's mimetype, if known to webhare. Either null or a text starting with a dot ('.')
   extension: string | null;
@@ -33,11 +19,19 @@ export interface ResourceMetaData {
   ///Image's dominant color as a `#RRGGBB` code, null if the image is transparent or not an image. Only extracted if the extractdominantcolor option is enabled
   dominantColor: string | null;
   ///UFS encoded SHA-256 hash of the file. Only calculated if the generatehash option is enabled
-  hash: string;
+  hash: string | null;
   ///filename
   fileName: string | null;
   ///Original in image library
   sourceFile: number | null;
+}
+
+type ResourceMetaDataInit = Partial<ResourceMetaData> & Pick<ResourceMetaData, "mediaType">;
+
+export interface ResourceDescriptor extends ResourceMetaData {
+  size: number;
+  text(): Promise<string>;
+  arrayBuffer(): Promise<ArrayBuffer>;
 }
 
 /** Get the proper or usual extension for the file's mimetype
@@ -130,53 +124,63 @@ export function decodeScanData(scandata: string): ResourceMetaData {
   };
 }
 
-/** A descriptor pointing to an file/image and its metadata */
-export class ResourceDescriptor implements ResourceMetaData {
-  private readonly bloblocation: string; // The location of the blob
-  private readonly _size: number;
-  private readonly metadata: ResourceMetaData; // The metadata of the blob
+/* A baseclass to hold the actual properties. This approach is based on an unverified assumption that it will be more efficient to load
+  a metadata object into an existing class have getters ready in the class prototype rather than destructuring the scandata record */
+class RMDHolder implements ResourceMetaData {
+  private readonly metadata: ResourceMetaDataInit; // The metadata of the blob
 
-  constructor(blob: WHDBBlob | null, metadata: ResourceMetaData) {
-    this.bloblocation = blob ? "pg:" + (blob as WHDBBlobImplementation).databaseid : "";
-    this._size = blob?.size || 0;
-    this.metadata = { ...metadata };
+  constructor(metadata: ResourceMetaDataInit) {
+    this.metadata = metadata;
   }
 
   get extension() {
-    return this.metadata.extension;
+    return this.metadata.extension ?? null;
   }
   get mediaType() {
     return this.metadata.mediaType;
   }
   get width() {
-    return this.metadata.width;
+    return this.metadata.width ?? null;
   }
   get height() {
-    return this.metadata.height;
+    return this.metadata.height ?? null;
   }
   get rotation() {
-    return this.metadata.rotation;
+    return this.metadata.rotation ?? null;
   }
   get mirrored() {
-    return this.metadata.mirrored;
+    return this.metadata.mirrored ?? null;
   }
   get refPoint() {
-    return this.metadata.refPoint;
+    return this.metadata.refPoint ?? null;
   }
   get dominantColor() {
-    return this.metadata.dominantColor;
+    return this.metadata.dominantColor ?? null;
   }
   get hash() {
-    return this.metadata.hash;
+    return this.metadata.hash ?? null;
   }
   get fileName() {
-    return this.metadata.fileName;
-  }
-  get size() {
-    return this._size;
+    return this.metadata.fileName ?? null;
   }
   get sourceFile() {
-    return this.metadata.sourceFile;
+    return this.metadata.sourceFile ?? null;
+  }
+}
+
+/** A descriptor pointing to an file/image and its metadata in WHDB */
+export class WHDBResourceDescriptor extends RMDHolder implements ResourceDescriptor {
+  private readonly bloblocation: string; // The location of the blob
+  private readonly _size: number;
+
+  constructor(blob: WHDBBlob | null, metadata: ResourceMetaDataInit) {
+    super(metadata);
+    this.bloblocation = blob ? "pg:" + (blob as WHDBBlobImplementation).databaseid : "";
+    this._size = blob?.size || 0;
+  }
+
+  get size() {
+    return this._size;
   }
 
   private getAsBlob() {

@@ -1,5 +1,5 @@
 import { WRDAttributeType } from "@mod-wrd/js/internal/types";
-import { decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
+import { decodeScanData, WHDBResourceDescriptor } from "@webhare/services/src/descriptor";
 import { WHDBBlobImplementation } from "@webhare/whdb/src/blobs";
 
 export interface WRDAttributeConfiguration_HS {
@@ -93,7 +93,7 @@ interface WrappedJSONFromWRDSetting {
 type WrappedFromWRDSetting = WrappedObjectFromWRDSetting | WrappedJSONFromWRDSetting;
 
 function buildRichDescriptor(val: WrappedObjectFromWRDSetting) {
-  return new ResourceDescriptor(val.size ? new WHDBBlobImplementation(val.id, val.size) : null, { ...decodeScanData(val.scandata), sourceFile: val.fs_object });
+  return new WHDBResourceDescriptor(val.size ? new WHDBBlobImplementation(val.id, val.size) : null, { ...decodeScanData(val.scandata), sourceFile: val.fs_object });
 }
 
 function returnWRDObject(value: object) {
