@@ -5,6 +5,7 @@ import Ajv2019 from "ajv/dist/2019";
 import Ajv2020, { SchemaObject, ValidateFunction } from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
+import { Money } from "@webhare/std";
 
 export { LoadTSTypeOptions } from "./testsupport";
 
@@ -76,6 +77,20 @@ function printColoredTextDiff(expected: string, actual: string) {
   console.log(str, ...colors);
 }
 
+function testMoney(expect: Money, actual: unknown, path: string) {
+  if (!Money.isMoney(actual)) {
+    onLog("Money fails type: expected", expect);
+    onLog("Money fails type: actual  ", actual);
+    throw new Error("Expected type: Money actual type: " + typeof actual + (path != "" ? " at " + path : ""));
+  }
+
+  if (Money.cmp(expect, actual) !== 0) {
+    onLog("Money fails: expected", expect);
+    onLog("Money fails: actual  ", actual);
+    throw new Error("Expected match: " + String(expect) + " actual: " + actual + (path != "" ? " at " + path : ""));
+  }
+}
+
 function testRegExp(expect: RegExp, actual: unknown, path: string) {
   if (typeof actual !== "string") {
     onLog("regExp fails type: expected", expect);
@@ -88,8 +103,6 @@ function testRegExp(expect: RegExp, actual: unknown, path: string) {
     onLog("regExp fails: actual  ", actual);
     throw new Error("Expected match: " + String(expect) + " actual: " + actual + (path != "" ? " at " + path : ""));
   }
-
-  return;
 }
 
 function testDeepEq(expected: unknown, actual: unknown, path: string) {
@@ -109,6 +122,8 @@ function testDeepEq(expected: unknown, actual: unknown, path: string) {
 
   if (expected instanceof RegExp)
     return testRegExp(expected, actual, path);
+  if (Money.isMoney(expected))
+    return testMoney(expected, actual, path);
 
   const t_expected = typeof expected;
   const t_actual = typeof actual;
@@ -172,7 +187,7 @@ function testDeepEq(expected: unknown, actual: unknown, path: string) {
   }
 }
 
-function isequal(a: unknown, b: unknown) {
+function isEqual(a: unknown, b: unknown) {
   try {
     testDeepEq(a, b, '');
     return true;
@@ -208,7 +223,7 @@ export function eq<T>(expected: RecursiveOrRegexp<T>, actual: T, annotation?: An
   if (arguments.length < 2)
     throw new Error("Missing argument to test.eq");
 
-  if (isequal(expected, actual))
+  if (isEqual(expected, actual))
     return;
 
   const expected_str = toTestableString(expected);
@@ -348,7 +363,7 @@ function eqPropsRecurse<T>(expect: RecursivePartialOrRegexp<T>, actual: T, path:
     case "undefined": return;
     case "object":
       {
-        if (isDate(expect) || isDate(actual)) {
+        if (isDate(expect) || isDate(actual) || Money.isMoney(expect) || Money.isMoney(actual)) {
           testDeepEq(expect, actual, path);
           return;
         }

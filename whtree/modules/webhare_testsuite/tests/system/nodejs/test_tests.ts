@@ -1,5 +1,6 @@
 import * as test from '@webhare/test';
 import * as services from '@webhare/services';
+import * as std from '@webhare/std';
 
 // import * as util from 'node:util';
 import * as child_process from 'node:child_process';
@@ -10,6 +11,7 @@ async function testChecks() {
   test.throws(/Expected function to throw/, () => test.throws(/Fourty two/, () => 42));
   console.log("(you can ignore the message above about expecting a fourty two exception)");
 
+  //test JS native Date type
   test.eq(new Date("2023-01-01"), new Date("2023-01-01"));
   test.eq({ deep: new Date("2023-01-01") }, { deep: new Date("2023-01-01") });
   test.eqProps({ deep: new Date("2023-01-01") }, { deep: new Date("2023-01-01") });
@@ -17,13 +19,24 @@ async function testChecks() {
   test.throws(/Expected date/, () => test.eq({ deep: new Date("2023-01-02") }, { deep: new Date("2023-01-01") }));
   test.throws(/Expected date/, () => test.eqProps({ deep: new Date("2023-01-02") }, { deep: new Date("2023-01-01") }));
 
+  //test WH Money tye
+  test.eq(std.Money.fromNumber(2.5), new std.Money("2.5"));
+  test.eq(new std.Money("2.5"), new std.Money("2.500"));
+  test.eqProps({ deep: new std.Money("2.5") }, { deep: new std.Money("2.500") });
+  ///@ts-expect-error -- TS shouldn't like the type mismatch either
+  test.throws(/Expected type: Money/, () => test.eq(new std.Money("2.5"), 2.5));
+  ///@ts-expect-error -- TS shouldn't like the type mismatch either
+  test.throws(/Expected type: number/, () => test.eq(2.5, new std.Money("2.5")));
+  test.throws(/Expected match/, () => test.eq(new std.Money("2.5"), new std.Money("1.5")));
+
+  //test RegEx vs strings
   test.eq(/konijntje/, "Heb jij mijn konijntje gezien?");
   test.eqProps(/konijntje/, "Heb jij mijn konijntje gezien?");
   test.eq({ text: /konijntje/ }, { text: "Heb jij mijn konijntje gezien?" });
   test.eqProps({ text: /konijntje/ }, { text: "Heb jij mijn konijntje gezien?" });
   test.throws(/Expected match/, () => test.eq({ text: /Konijntje/ }, { text: "Heb jij mijn konijntje gezien?" }), "We should be case sensitive");
   test.throws(/Expected match/, () => test.eqProps({ text: /Konijntje/ }, { text: "Heb jij mijn konijntje gezien?" }));
-  ///@ts-ignore TS also rejects the regexp on the RHS
+  ///@ts-expect-error -- TS also rejects the regexp on the RHS
   test.throws(/Expected type/, () => test.eq({ text: "Heb jij mijn konijntje gezien?" }, { text: /konijntje/ }), "Only 'expect' is allowed to hold regexes");
 
   const x_ab = { cellA: "A", cellB: "B" };
