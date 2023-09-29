@@ -1,4 +1,4 @@
-import { BoxedFloat, IPCMarshallableRecord, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { IPCMarshallableRecord, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import type { HSVM_VariableId, HSVM_VariableType, } from "../../../lib/harescript-interface";
 import type { HareScriptVM, JSBlobTag } from "./wasm-hsvm";
 import { dateToParts, makeDateFromParts } from "@webhare/hscompat";
@@ -185,13 +185,10 @@ export class HSVMVar {
   }
   getFloat() {
     this.checkType(VariableType.Float);
-    return new BoxedFloat(this.vm.wasmmodule._HSVM_FloatGet(this.vm.hsvm, this.id));
+    return this.vm.wasmmodule._HSVM_FloatGet(this.vm.hsvm, this.id);
   }
-  setFloat(value: number | BoxedFloat) {
-    if (typeof value === "object")
-      this.vm.wasmmodule._HSVM_FloatSet(this.vm.hsvm, this.id, value.value);
-    else
-      this.vm.wasmmodule._HSVM_FloatSet(this.vm.hsvm, this.id, value);
+  setFloat(value: number) {
+    this.vm.wasmmodule._HSVM_FloatSet(this.vm.hsvm, this.id, value);
   }
   getBlob(): HareScriptBlob {
     this.checkType(VariableType.Blob);
@@ -251,6 +248,14 @@ export class HSVMVar {
   arrayGetRef(index: number) {
     const eltid = this.vm.wasmmodule._HSVM_ArrayGetRef(this.vm.hsvm, this.id, index);
     return eltid ? new HSVMVar(this.vm, eltid) : null;
+  }
+  ///Return all array elements as HSVMVars references
+  arrayContents(): HSVMVar[] {
+    const retval: HSVMVar[] = [];
+    const num = this.arrayLength();
+    for (let i = 0; i < num; ++i)
+      retval.push(this.arrayGetRef(i)!);
+    return retval;
   }
   getCell(name: string) {
     this.checkType(VariableType.Record);
@@ -368,7 +373,7 @@ export class HSVMVar {
         return;
       } break;
       case VariableType.Float: {
-        this.setFloat(value as number | BoxedFloat);
+        this.setFloat(value as number);
         return;
       } break;
       case VariableType.Blob: {

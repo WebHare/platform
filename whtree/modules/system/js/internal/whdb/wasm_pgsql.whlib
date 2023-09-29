@@ -15,6 +15,7 @@ MACRO __WASMPG_INSERTRECORD(RECORD query, RECORD newfields) __ATTRIBUTES__(EXECU
 MACRO __WASMPG_INSERTRECORDS(RECORD query, RECORD ARRAY newrecordarray) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
 MACRO __WASMPG_UPDATERECORD(RECORD query, RECORD rowdata, RECORD newfields) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
 RECORD FUNCTION __WASMPG_EXECUTEQUERY(RECORD query) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
+RECORD ARRAY FUNCTION __WASMPG_EXECUTESQL(STRING query, RECORD options) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
 
 VARIANT FUNCTION CallImpl(STRING name, RECORD data)
 {
@@ -232,26 +233,7 @@ STATIC OBJECTTYPE EMTransaction EXTEND LockingTransactionBase
 
   PUBLIC RECORD ARRAY FUNCTION __ExecSQL(STRING query, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    IF(CellExists(options,'argencodings'))
-      FOREVERY(STRING enc FROM options.argencodings)
-        IF(enc = "binary")
-          SWITCH(TYPEID(options.args[#enc]))
-          {
-            CASE TYPEID(STRING)
-            {
-              options.args[#enc] := NEW Buffer(options.args[#enc]);
-            }
-            CASE TYPEID(STRING ARRAY )
-            {
-              options.args[#enc] := SELECT AS OBJECT ARRAY NEW Buffer(str) FROM ToRecordArray(options.args[#enc], 'str');;
-            }
-            DEFAULT
-            {
-              THROW NEW Exception(`Cannot do binary transfer of type '${GetTypeName(TYPEID(options.args[#enc]))}`);
-            }
-          }
-
-    RETURN CallImpl("cbSendPostgreSQLCommand", CELL[ query, options ]);
+    RETURN __WASMPG_EXECUTESQL(query, options);
   }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION GetTableListing(STRING schemaname)
