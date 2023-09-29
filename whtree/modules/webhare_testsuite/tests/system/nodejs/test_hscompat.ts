@@ -220,6 +220,9 @@ async function testHSON() {
 
   test.eq('hson:f 5', encodeHSON(new BoxedFloat(5)));
 
+  //should lowercase kesy as HS is case insensitive
+  test.eq('hson:{"mixedcase":{"mc":43}}', encodeHSON({ MixedCase: { MC: 43 } }));
+
   testHSONEnDeCode('hson:"Ab\\"cd\'efgh"', "Ab\"cd'efgh");
 
   //TODO should this be possible? as \x80 is not valid UTF8  .. testHSONEnDeCode('hson:"Ab\\x80a\\x80\\u00A0"', "Ab\x80a\x80\u00A0");

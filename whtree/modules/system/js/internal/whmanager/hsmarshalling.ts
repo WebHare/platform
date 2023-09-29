@@ -639,7 +639,7 @@ function encodeHSONInternal(value: IPCMarshallableData, needtype?: VariableType)
             retval = retval + ",";
           else
             first = false;
-          retval = retval + JSON.stringify(key) + ":" + encodeHSONInternal(propval);
+          retval = retval + JSON.stringify(key.toLowerCase()) + ":" + encodeHSONInternal(propval);
         }
         retval = retval + "}";
       }
