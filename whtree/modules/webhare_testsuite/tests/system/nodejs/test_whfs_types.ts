@@ -126,6 +126,7 @@ async function testInstanceData() {
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { url: 1 }));
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { aRecord: 1 }));
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { aRecord: new Date() }));
+  await test.throws(/non-existing cell 'noSuchProp/, () => testtype.set(testfile.id, { noSuchProp: new Date() }));
 
   //Test arrays
   await testtype.set(testfile.id, {

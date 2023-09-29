@@ -1,4 +1,4 @@
-import { Selectable, db, nextVal } from "@webhare/whdb";
+import { Selectable, db, nextVal, sql } from "@webhare/whdb";
 import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { openWHFSObject } from "./objects";
 import { CSPContentType, getCachedSiteProfiles } from "./siteprofiles";
@@ -276,7 +276,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
       .where("fs_instance", "=", instanceId);
 
     if (topLevelMembers)
-      query = query.where(qb => qb.where("fs_member", "in", topLevelMembers).orWhere("parent", "is not", null));
+      query = query.where(qb => qb.where("fs_member", "=", sql`any(${topLevelMembers})`).orWhere("parent", "is not", null));
 
     const dbsettings = await query.execute();
     return dbsettings.sort((a, b) => (a.parent || 0) - (b.parent || 0) || a.fs_member - b.fs_member || a.ordering - b.ordering);
@@ -334,7 +334,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
     //TODO bulk insert once we've prepared all settings
     const keysToSet = Object.keys(data);
     const topLevelMembers = descr.members.filter(_ => keysToSet.includes(_.name)).map(_ => _.id);
-    const cursettings = instanceId ? await this.getCurrentSettings(instanceId, topLevelMembers) : [];
+    const cursettings = instanceId && topLevelMembers.length ? await this.getCurrentSettings(instanceId, topLevelMembers) : [];
 
     const setter = new RecursiveSetter(cursettings);
     await setter.recurseSetData(descr.members, data, null, null);
