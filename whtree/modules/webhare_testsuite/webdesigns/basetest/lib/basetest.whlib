@@ -94,6 +94,7 @@ PUBLIC STATIC OBJECTTYPE BetaSharedDesign EXTEND WebDesignBase
                         , targetobjectpath := ObjectExists(this->targetobject) ? this->targetobject->whfspath : ""
                         , contentobjectpath := ObjectExists(this->contentobject) ? this->contentobject->whfspath : ""
                         , navigationobjectpath := ObjectExists(this->navigationobject) ? this->navigationobject->whfspath : ""
+                        , betatestinstance := this->contentobject->GetInstanceData("http://www.webhare.net/xmlns/beta/test")
                         ];
 
     RETURN wittydata;

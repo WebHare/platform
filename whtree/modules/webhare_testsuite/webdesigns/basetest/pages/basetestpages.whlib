@@ -19,29 +19,35 @@ PUBLIC OBJECTTYPE DynamicPage EXTEND WebPageBase
   UPDATE PUBLIC MACRO PTR FUNCTION GetPageBody()
   {
     OBJECT gtmplugin := this->webdesign->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile","gtm");
-    IF(GetWebVariable("gtmplugin_integration") = "none")
+    IF(ObjectExists(gtmplugin))
     {
-      gtmplugin->account := "";
-    }
-    ELSE
-    {
-      gtmplugin->DatalayerPush([ val := "HiThere", filename := this->webdesign->targetobject->name ]);
-      gtmplugin->integration := GetWebVariable("gtmplugin_integration") ?? gtmplugin->integration;
-      gtmplugin->launch := GetWebVariable("gtmplugin_launch") ?? gtmplugin->launch;
+      IF(GetWebVariable("gtmplugin_integration") = "none")
+      {
+        gtmplugin->account := "";
+      }
+      ELSE
+      {
+        gtmplugin->DatalayerPush([ val := "HiThere", filename := this->webdesign->targetobject->name ]);
+        gtmplugin->integration := GetWebVariable("gtmplugin_integration") ?? gtmplugin->integration;
+        gtmplugin->launch := GetWebVariable("gtmplugin_launch") ?? gtmplugin->launch;
+      }
     }
 
     OBJECT ga4plugin := this->webdesign->GetPlugin("http://www.webhare.net/xmlns/publisher/siteprofile","googleanalytics4");
-    IF(GetWebVariable("ga4_integration") = "none")
+    IF(ObjectExists(ga4plugin))
     {
-      ga4plugin->account := "";
-    }
-    ELSE
-    {
-      IF(GetWebVariable("ga4_integration") != "")
-        ga4plugin->integration := GetWebVariable("ga4_integration");
+      IF(GetWebVariable("ga4_integration") = "none")
+      {
+        ga4plugin->account := "";
+      }
+      ELSE
+      {
+        IF(GetWebVariable("ga4_integration") != "")
+          ga4plugin->integration := GetWebVariable("ga4_integration");
 
-      IF(GetWebVariable("ga4_anonymizeip") != "")
-        ga4plugin->anonymizeip := ParseXSBoolean(GetWebVariable("ga4_anonymizeip"));
+        IF(GetWebVariable("ga4_anonymizeip") != "")
+          ga4plugin->anonymizeip := ParseXSBoolean(GetWebVariable("ga4_anonymizeip"));
+      }
     }
     RETURN PTR Print(`<div id="dynamicpage"></div>`);
   }
