@@ -95,6 +95,39 @@ async function testInstanceData() {
     aRecord: { x: 42, y: 43, mixedcase: 44, mymoney: Money.fromNumber(2.5) } //TODO add rich HS types like Money and Empty IntArrays and ensure the keys are lowercased
   }, await testtype.get(testfile.id));
 
+  //Test validation
+  await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { int: "a" }));
+  await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { yesNo: "a" }));
+  await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { str: 1 }));
+  await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { price: 'a' }));
+  await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { aFloat: "a" }));
+  await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { aDateTime: "a" }));
+  await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { strArray: 1 }));
+  await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { url: 1 }));
+  await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { aRecord: 1 }));
+  await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { aRecord: new Date() }));
+
+  //Test arrays
+  await testtype.set(testfile.id, {
+    anArray: [
+      { aSubArray: [{ subIntMember: 42 }, { subIntMember: 41 }, { subIntMember: 40 }] },
+      {},
+      {
+        aSubArray: [{ subIntMember: 52 }, {}]
+      }
+    ]
+  });
+
+  test.eqProps({
+    anArray: [
+      { aSubArray: [{ subIntMember: 42 }, { subIntMember: 41 }, { subIntMember: 40 }] },
+      { aSubArray: [] },
+      {
+        aSubArray: [{ subIntMember: 52 }, { subIntMember: 0 }]
+      }
+    ]
+  }, await testtype.get(testfile.id));
+
   await commitWork();
 }
 

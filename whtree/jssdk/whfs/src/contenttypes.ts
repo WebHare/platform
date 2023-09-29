@@ -1,4 +1,4 @@
-import { Selectable, db } from "@webhare/whdb";
+import { Selectable, db, nextVal } from "@webhare/whdb";
 import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { openWHFSObject } from "./objects";
 import { CSPContentType, getCachedSiteProfiles } from "./siteprofiles";
@@ -174,6 +174,19 @@ class RecursiveSetter {
     this.cursettings = cursettings;
   }
 
+  async setArray(matchmember: ContentTypeMember, value: unknown, elementSettingId: number | null) {
+    if (!Array.isArray(value))
+      throw new Error(`Incorrect type. Wanted array, got '${typeof value}'`);
+
+    //FIXME reuse existing row ids/databse rows, avoid updating unchanged settings
+    let rownum = 1;
+    for (const row of value) {
+      const rowsettingid = await nextVal("system.fs_settings.id");
+      this.toinsert.push({ id: rowsettingid, fs_member: matchmember.id, parent: elementSettingId, ordering: ++rownum });
+      await this.recurseSetData(matchmember.children!, row, matchmember, rowsettingid);
+    }
+  }
+
   /** Recursively set the data
    * @param instanceId - The database instance we're updating
    * @param members - The set of members at his level
@@ -186,33 +199,37 @@ class RecursiveSetter {
         continue;
 
       const matchmember = members.find(_ => _.name === key);
-      if (!matchmember) //TODO orphan check, parent path, DidYouMean
+      if (!matchmember)  //TODO orphan check, parent path, DidYouMean
         throw new Error(`Trying to set a value for the non-existing cell '${key}'`);
 
-      const thismembersettings = this.cursettings.filter(_ => _.parent === elementSettingId && _.fs_member === matchmember.id);
-      const mynewsettings = new Array<Partial<FSSettingsRow>>;
 
-      if (!codecs[matchmember.type])
-        throw new Error(`Unsupported type ${matchmember.type} for member '${matchmember.name}'`);
+      const thismembersettings = this.cursettings.filter(_ => _.parent === elementSettingId && _.fs_member === matchmember.id);
 
       try {
+        if (matchmember.type === "array")  //Arrays are too complex for the current encoder setup
+          return this.setArray(matchmember, value, elementSettingId);
+
+        const mynewsettings = new Array<Partial<FSSettingsRow>>;
+        if (!codecs[matchmember.type])
+          throw new Error(`Unsupported type ${matchmember.type}`);
+
         const settings = codecs[matchmember.type].encoder(value);
         if (settings)
           if (Array.isArray(settings))
             mynewsettings.push(...settings);
           else
             mynewsettings.push(settings);
+
+        for (let i = 0; i < mynewsettings.length; ++i) {
+          if (i < thismembersettings.length)
+            mynewsettings[i].id = thismembersettings[i].id;
+
+          this.toinsert.push({ ...mynewsettings[i], fs_member: matchmember.id, parent: elementSettingId });
+        }
       } catch (e) {
         if (e instanceof Error)
           e.message += ` (while setting '${matchmember.name}')`;
         throw e;
-      }
-
-      for (let i = 0; i < mynewsettings.length; ++i) {
-        if (i < thismembersettings.length)
-          mynewsettings[i].id = thismembersettings[i].id;
-
-        this.toinsert.push({ ...mynewsettings[i], fs_member: matchmember.id, parent: elementSettingId });
       }
     }
   }
@@ -220,10 +237,11 @@ class RecursiveSetter {
   async apply(instanceId: number) {
     const setrows = this.toinsert.map(row => ({ setting: "", ordering: 0, ...row }));
     const insertrows = [];
+    const currentSettings = new Set<number>([...this.cursettings.map(_ => _.id)]);
     const reusedSettings = new Set<number>;
 
     for (const row of setrows)
-      if (row.id) {
+      if (row.id && currentSettings.has(row.id)) { //FIXME avoid updating unchanged settings
         await db<WebHareDB>().updateTable("system.fs_settings").set(row).where("id", "=", row.id).execute();
         reusedSettings.add(row.id);
       } else
@@ -261,7 +279,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
       query = query.where(qb => qb.where("fs_member", "in", topLevelMembers).orWhere("parent", "is not", null));
 
     const dbsettings = await query.execute();
-    return dbsettings.sort((a, b) => (a.parent || 0) - (b.parent || 0) || a.fs_member - b.fs_member);
+    return dbsettings.sort((a, b) => (a.parent || 0) - (b.parent || 0) || a.fs_member - b.fs_member || a.ordering - b.ordering);
   }
 
   async recurseGet(cursettings: readonly FSSettingsRow[], members: ContentTypeMember[], arrayMember: ContentTypeMember | null, elementSettingId: number | null) {
@@ -272,7 +290,11 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
       let setval;
 
       try {
-        if (!codecs[member.type]) {
+        if (member.type === "array") {
+          setval = [];
+          for (const row of settings)
+            setval.push(await this.recurseGet(cursettings, member.children!, member, row.id));
+        } else if (!codecs[member.type]) {
           setval = { FIXME: member.type }; //FIXME just throw }
           // throw new Error(`Unsupported type '${member.type}' for member '${member.name}'`);
         } else {
@@ -321,6 +343,27 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
       instanceId = (await db<WebHareDB>().insertInto("system.fs_instances").values({ fs_type: descr.id, fs_object: id }).returning("id").executeTakeFirstOrThrow()).id;
 
     await setter.apply(instanceId);
+
+    // if (!(await result).any_nondefault) {
+    /* We may be able to delete the instance completely. Check if settings still remain, there may be
+       members RecurseSetInstanceData didn't know about */
+    // IF(NOT RecordExists(SELECT FROM system.fs_settings WHERE fs_instance = instance LIMIT 1))
+    // {
+    //   DELETE FROM system.fs_instances WHERE id = instance;
+    //   instance:= 0;
+    // }
+    // } else {
+    //FIXME      GetWHFSCommitHandler()->AddLinkCheckedSettings(rec.linkchecked_settingids);
+    // }
+    /* FIXME
+        IF(this->namespace = "http://www.webhare.net/xmlns/publisher/sitesettings") //this might change siteprofile associations or webdesign/webfeatures
+          GetWHFSCommitHandler()->TriggerSiteSettingsCheckOnCommit();
+
+        IF (options.isvisibleedit)
+          GetWHFSCommitHandler()->TriggerEmptyUpdateOnCommit(objectid);
+        ELSE
+          GetWHFSCommitHandler()->TriggerReindexOnCommit(objectid);
+    */
   }
 }
 
