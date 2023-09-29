@@ -1,7 +1,8 @@
 import { Selectable } from "@webhare/whdb";
 import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { Money } from "@webhare/std";
-import { dateToParts, makeDateFromParts } from "@webhare/hscompat";
+import { dateToParts, encodeHSON, decodeHSON, makeDateFromParts } from "@webhare/hscompat";
+import { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 
 export type MemberType = "string" // 2
   | "dateTime" //4
@@ -27,6 +28,14 @@ type FSSettingsRow = Selectable<WebHareDB, "system.fs_settings">;
 interface TypeCodec {
   encoder(value: unknown): Partial<FSSettingsRow> | Array<Partial<FSSettingsRow>> | null;
   decoder(settings: FSSettingsRow[]): unknown;
+}
+
+function assertValidString(value: unknown) {
+  if (typeof value !== "string")
+    throw new Error(`Incorrect type. Wanted string, got '${typeof value}'`);
+  if (value.length >= 4096) //TODO byte length not UTF16 length for HS compatibility
+    throw new Error(`String too long (${value.length})`);
+  return value;
 }
 
 export const codecs: { [key: string]: TypeCodec } = {
@@ -82,15 +91,55 @@ export const codecs: { [key: string]: TypeCodec } = {
   },
   "string": {
     encoder: (value: unknown) => {
-      if (typeof value !== "string")
-        throw new Error(`Incorrect type. Wanted string, got '${typeof value}'`);
-      if (value.length >= 4096) //TODO byte length not UTF16 length for HS compatibility
-        throw new Error(`String too long (${value.length})`);
-
-      return value ? { setting: value } : null;
+      const strvalue = assertValidString(value);
+      return strvalue ? { setting: strvalue } : null;
     },
     decoder: (settings: FSSettingsRow[]) => {
       return settings[0]?.setting || "";
+    }
+  },
+  "url": { //TODO identical to "string" at this moment, but we're not handling linkchecking yet
+    encoder: (value: unknown) => {
+      const strvalue = assertValidString(value);
+      return strvalue ? { setting: strvalue } : null;
+    },
+    decoder: (settings: FSSettingsRow[]) => {
+      return settings[0]?.setting || "";
+    }
+  },
+  "record": {
+    //FIXME Overlong record support (TODO record automatically triggers blob download and parsing, so any future "JSON" type should be smarter than that)
+    encoder: (value: unknown) => {
+      if (typeof value !== "object") //NOTE 'null' is an object too and acceptable here
+        throw new Error(`Incorrect type. Wanted an object`);
+      if (!value) //null!
+        return null; //nothing to store
+
+      if (Object.getPrototypeOf(value).constructor.name !== "Object")
+        throw new Error(`Incorrect type. Wanted a plain object but got a '${Object.getPrototypeOf(value).constructor.name}'`);
+
+      const ashson = encodeHSON(value as IPCMarshallableData);
+      if (ashson.length > 4096)
+        throw new Error(`Overlong records not yet implemtened (${ashson.length})`);
+
+      return { setting: ashson };
+    },
+    decoder: (settings: FSSettingsRow[]) => {
+      if (!settings.length)
+        return null;
+
+      return decodeHSON(settings[0].setting);
+    }
+  },
+  "stringArray": {
+    encoder: (value: unknown) => {
+      if (!Array.isArray(value))
+        throw new Error(`Incorrect type. Wanted string array, got '${typeof value}'`);
+
+      return value.length ? value.map(v => ({ setting: assertValidString(v) })) : null;
+    },
+    decoder: (settings: FSSettingsRow[]) => {
+      return settings.map(s => s.setting);
     }
   },
   "money": {

@@ -221,6 +221,7 @@ class RecursiveSetter {
     const setrows = this.toinsert.map(row => ({ setting: "", ordering: 0, ...row }));
     const insertrows = [];
     const reusedSettings = new Set<number>;
+
     for (const row of setrows)
       if (row.id) {
         await db<WebHareDB>().updateTable("system.fs_settings").set(row).where("id", "=", row.id).execute();
@@ -250,13 +251,16 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
       .selectFrom("system.fs_instances").select("id").where("fs_type", "=", type.id).where("fs_object", "=", fsobj).executeTakeFirst())?.id || null;
   }
 
-  private async getCurrentSettings(instanceId: number) {
-    const dbsettings = (await db<WebHareDB>().
-      selectFrom("system.fs_settings").
-      selectAll().
-      where("fs_instance", "=", instanceId).
-      execute());
+  private async getCurrentSettings(instanceId: number, topLevelMembers?: number[]) {
+    let query = db<WebHareDB>()
+      .selectFrom("system.fs_settings")
+      .selectAll()
+      .where("fs_instance", "=", instanceId);
 
+    if (topLevelMembers)
+      query = query.where(qb => qb.where("fs_member", "in", topLevelMembers).orWhere("parent", "is not", null));
+
+    const dbsettings = await query.execute();
     return dbsettings.sort((a, b) => (a.parent || 0) - (b.parent || 0) || a.fs_member - b.fs_member);
   }
 
@@ -306,8 +310,9 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
     let instanceId = await this.getCurrentInstanceId(id, descr);
 
     //TODO bulk insert once we've prepared all settings
-
-    const cursettings = instanceId ? await this.getCurrentSettings(instanceId) : [];
+    const keysToSet = Object.keys(data);
+    const topLevelMembers = descr.members.filter(_ => keysToSet.includes(_.name)).map(_ => _.id);
+    const cursettings = instanceId ? await this.getCurrentSettings(instanceId, topLevelMembers) : [];
 
     const setter = new RecursiveSetter(cursettings);
     await setter.recurseSetData(descr.members, data, null, null);

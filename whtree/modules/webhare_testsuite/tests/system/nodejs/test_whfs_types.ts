@@ -72,14 +72,27 @@ async function testInstanceData() {
     str: "String",
     price: Money.fromNumber(2.5),
     aFloat: 1.5,
-    aDateTime: new Date("2023-09-28T21:04:35Z")
+    aDateTime: new Date("2023-09-28T21:04:35Z"),
+    url: "http://www.webhare.com",
+    aRecord: { x: 42, y: 43, MixEdCaSe: 44, mymoney: Money.fromNumber(2.5) } //TODO add rich HS types like Money and Empty IntArrays and ensure the keys are lowercased
   });
 
+  await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 7);
+
+  await testtype.set(testfile.id, {
+    strArray: ["a", "b", "c"]
+  });
+  await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 10);
+
   test.eqProps({
+    int: 20,
     str: "String",
     price: Money.fromNumber(2.5),
     aFloat: 1.5,
-    aDateTime: new Date("2023-09-28T21:04:35Z")
+    aDateTime: new Date("2023-09-28T21:04:35Z"),
+    strArray: ["a", "b", "c"],
+    url: "http://www.webhare.com",
+    aRecord: { x: 42, y: 43, mixedcase: 44, mymoney: Money.fromNumber(2.5) } //TODO add rich HS types like Money and Empty IntArrays and ensure the keys are lowercased
   }, await testtype.get(testfile.id));
 
   await commitWork();
