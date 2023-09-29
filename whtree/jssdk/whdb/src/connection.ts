@@ -58,7 +58,8 @@ export class WHDBPgClient {
   constructor() {
     this.pgclient = new Connection({
       host: process.env.WEBHARE_DATAROOT + "/postgresql/.s.PGSQL.5432",
-      database: process.env.WEBHARE_DBASENAME
+      database: process.env.WEBHARE_DBASENAME,
+      rollbackOnError: false
     });
     if (debugFlags["pg-logcommands"])
       this.pgclient.on("debug", (evt) => this.onDebug(evt));
