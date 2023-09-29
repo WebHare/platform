@@ -49,37 +49,37 @@ async function testInstanceData() {
   const testfile: WHFSFile = await tmpfolder.createFile("testfile.txt");
 
   const testtype = whfs.openType("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype");
-  test.eqProps({ int: 0, yesno: false }, await testtype.get(testfile.id));
+  test.eqProps({ int: 0, yesNo: false }, await testtype.get(testfile.id));
   await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 0);
 
   //Test basic get/set
   await testtype.set(testfile.id, {
     int: 15,
-    yesno: true
+    yesNo: true
   });
-  test.eqProps({ int: 15, yesno: true }, await testtype.get(testfile.id));
+  test.eqProps({ int: 15, yesNo: true }, await testtype.get(testfile.id));
   await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 2);
 
   await testtype.set(testfile.id, {
     int: 20,
-    yesno: false
+    yesNo: false
   });
-  test.eqProps({ int: 20, yesno: false }, await testtype.get(testfile.id));
+  test.eqProps({ int: 20, yesNo: false }, await testtype.get(testfile.id));
   await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 1);
 
   //Test the rest of the primitive types
   await testtype.set(testfile.id, {
     str: "String",
     price: Money.fromNumber(2.5),
-    afloat: 1.5,
-    adatetime: new Date("2023-09-28T21:04:35Z")
+    aFloat: 1.5,
+    aDateTime: new Date("2023-09-28T21:04:35Z")
   });
 
   test.eqProps({
     str: "String",
     price: Money.fromNumber(2.5),
-    afloat: 1.5,
-    adatetime: new Date("2023-09-28T21:04:35Z")
+    aFloat: 1.5,
+    aDateTime: new Date("2023-09-28T21:04:35Z")
   }, await testtype.get(testfile.id));
 
   await commitWork();

@@ -82,10 +82,16 @@ function mapMembers(inmembers: CSPMember[]): ContentTypeMember[] {
 }
 */
 
+function memberNameToJS(tag: string): string {
+  tag = tag.toLowerCase();
+  tag = tag.replaceAll(/_[a-z]/g, c => c[1].toUpperCase());
+  return tag;
+}
+
 function mapRecurseMembers(allrows: FSMemberRow[], parent: number | null = null): ContentTypeMember[] {
   return allrows.filter(_ => _.parent === parent).map(_ => ({
     id: _.id,
-    name: _.name,
+    name: memberNameToJS(_.name),
     type: membertypenames[_.type] as MemberType,
     children: mapRecurseMembers(allrows, _.id)
   }));
