@@ -82,10 +82,10 @@ export const codecs: { [key: string]: TypeCodec } = {
         throw new Error(`Incorrect type. Wanted a Date, got '${typeof value}'`);
 
       const { days, msecs } = dateToParts(value);
-      return days || msecs ? { setting: `${days},${msecs}` } : null;
+      return days || msecs ? { setting: `${days}:${msecs}` } : null;
     },
     decoder: (settings: FSSettingsRow[]) => {
-      const dt = settings[0]?.setting?.split(",") ?? null;
+      const dt = settings[0]?.setting?.split(":") ?? null;
       return dt && dt.length == 2 ? makeDateFromParts(parseInt(dt[0]), parseInt(dt[1])) : null;
     }
   },

@@ -33,3 +33,29 @@ export async function verifyNumSettings(objid: number, ns: string, expect: numbe
     throw new Error(`Expected ${expect} settings but got ${settings.length} fs_settinsg for type ${type.id} and object ${objid}`);
   }
 }
+
+export async function dumpSettings(objid: number, ns: string) {
+  const type = await describeContentType(ns);
+  const instances = await db<WebHareDB>()
+    .selectFrom("system.fs_instances")
+    .selectAll()
+    .where("fs_type", "=", type.id)
+    .where("fs_object", "=", objid)
+    .execute();
+
+  if (!instances.length) {
+    console.log("No instances found");
+    return;
+  }
+  console.log("fs_instance: ", instances[0]);
+
+  const settings = await db<WebHareDB>()
+    .selectFrom("system.fs_settings")
+    .selectAll()
+    .where("fs_instance", "=", instances[0].id)
+    .execute();
+
+  console.log(`${settings.length} settings found`);
+  if (settings.length)
+    console.table(settings);
+}

@@ -5,6 +5,7 @@ import * as whfs from "@webhare/whfs";
 import { WHFSFile } from "@webhare/whfs";
 import { verifyNumSettings } from "./data/whfs-testhelpers";
 import { Money } from "@webhare/std";
+import { loadlib } from "@webhare/harescript";
 
 async function testMockedTypes() {
   const builtin_normalfoldertype = await whfs.describeContentType("http://www.webhare.net/xmlns/publisher/normalfolder");
@@ -74,7 +75,7 @@ async function testInstanceData() {
     aFloat: 1.5,
     aDateTime: new Date("2023-09-28T21:04:35Z"),
     url: "http://www.webhare.com",
-    aRecord: { x: 42, y: 43, MixEdCaSe: 44, mymoney: Money.fromNumber(2.5) } //TODO add rich HS types like Money and Empty IntArrays and ensure the keys are lowercased
+    aRecord: { x: 42, y: 43, MixEdCaSe: 44, my_money: Money.fromNumber(4.5) }
   });
 
   await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 7);
@@ -92,8 +93,27 @@ async function testInstanceData() {
     aDateTime: new Date("2023-09-28T21:04:35Z"),
     strArray: ["a", "b", "c"],
     url: "http://www.webhare.com",
-    aRecord: { x: 42, y: 43, mixedcase: 44, mymoney: Money.fromNumber(2.5) } //TODO add rich HS types like Money and Empty IntArrays and ensure the keys are lowercased
+    aRecord: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) }
   }, await testtype.get(testfile.id));
+
+  // await dumpSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype");
+
+  //Does HareScript agree with us ?
+  const hs_generictype = await loadlib("mod::system/lib/whfs.whlib").openWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype");
+  const val = await hs_generictype.getInstanceData(testfile.id);
+  test.eq(Money.fromNumber(2.5), val.price);
+  test.eq({ price: Money.fromNumber(2.5) }, { price: val.price });
+  test.eqProps({ price: Money.fromNumber(2.5) }, { price: val.price });
+  test.eqProps({
+    int: 20,
+    str: "String",
+    price: Money.fromNumber(2.5),
+    a_float: 1.5,
+    a_date_time: new Date("2023-09-28T21:04:35Z"),
+    str_array: ["a", "b", "c"],
+    url: "http://www.webhare.com",
+    a_record: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) }
+  }, await hs_generictype.getInstanceData(testfile.id));
 
   //Test validation
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { int: "a" }));
