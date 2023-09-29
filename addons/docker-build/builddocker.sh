@@ -5,8 +5,6 @@ if [ -z "$WEBHARE_BUILDDIR" ]; then
   exit 1
 fi
 
-export DOCKER_BUILDKIT=1  # needed for cache mounts (ccache, npm cache)
-
 DOCKERBUILDARGS=()
 DESTDIR="`pwd`"
 USEPODMAN=""
