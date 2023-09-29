@@ -1,5 +1,6 @@
 import { decodeHSON } from "@webhare/hscompat";
 import { WHDBBlob, WHDBBlobImplementation } from "@webhare/whdb/src/blobs";
+import * as fs from "node:fs/promises";
 
 export interface ResourceMetaData {
   ///The proper or usual extension for the file's mimetype, if known to webhare. Either null or a text starting with a dot ('.')
@@ -38,7 +39,7 @@ export interface ResourceDescriptor extends ResourceMetaData {
     @param mediaType - Mimetype
     @returns Extension (incliding the ".", eg ".jpg"), null if no extension has been defined for this mimetype.
 */
-function getExtensionForMediaType(mediaType: string): string | null {
+export function getExtensionForMediaType(mediaType: string): string | null {
   return {
     "image/tiff": ".tif",
     "image/x-bmp": ".bmp",
@@ -197,5 +198,28 @@ export class WHDBResourceDescriptor extends RMDHolder implements ResourceDescrip
   }
   async arrayBuffer(): Promise<ArrayBuffer> {
     return this.getAsBlob()?.arrayBuffer() ?? new ArrayBuffer(0);
+  }
+}
+
+/** A descriptor pointing to an file/image on disk */
+export class LocalFileDescriptor extends RMDHolder implements ResourceDescriptor {
+  private readonly path: string; // The location of the blob
+  private readonly _size: number;
+
+  constructor(path: string, size: number, metadata: ResourceMetaDataInit) {
+    super(metadata);
+    this.path = path;
+    this._size = size;
+  }
+
+  get size() {
+    return this._size;
+  }
+
+  async text(): Promise<string> {
+    return fs.readFile(this.path, "utf8");
+  }
+  async arrayBuffer(): Promise<ArrayBuffer> {
+    return fs.readFile(this.path);
   }
 }

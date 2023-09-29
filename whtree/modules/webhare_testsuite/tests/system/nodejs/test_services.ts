@@ -248,6 +248,16 @@ async function testResources() {
   test.throws(/^Unsupported resource path/, () => services.toFSPath("site::repository/"));
   test.eq(null, services.toFSPath("site::repository/", { allowUnmatched: true }));
 
+  //FIXME scanBlob like things, but for now we'll have to help services
+  const goudvis = await services.openResource("mod::system/web/tests/goudvis.png", { mediaType: "image/png" });
+  test.eq("image/png", goudvis.mediaType);
+  test.eq(null, goudvis.hash, "no scan is implicitly done");
+  test.eq(null, goudvis.width, "no scan is implicitly done");
+  test.eq(75125, goudvis.size);
+
+  const scannedGoudvis = await services.openResource("mod::system/web/tests/goudvis.png", { mediaType: "image/png", getHash: true });
+  test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", scannedGoudvis.hash);
+
   //TODO do we want still want to allow direct:: paths? test.eq("direct::/etc", services.toResourcePath("/etc", { allowdiskpath: true }));
   /* TODO do we really want to support resource paths as input ?
   test.eq("mod::system/lib/tests/cluster.whlib", services.toResourcePath("mod::system/lib/tests/cluster.whlib"));
