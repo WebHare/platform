@@ -220,7 +220,7 @@ async function testHSON() {
 
   test.eq('hson:f 5', encodeHSON(new BoxedFloat(5)));
 
-  //should lowercase kesy as HS is case insensitive
+  //should lowercase keys as HS is case insensitive
   test.eq('hson:{"mixedcase":{"mc":43}}', encodeHSON({ MixedCase: { MC: 43 } }));
 
   testHSONEnDeCode('hson:"Ab\\"cd\'efgh"', "Ab\"cd'efgh");
