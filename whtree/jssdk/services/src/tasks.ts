@@ -45,7 +45,7 @@ export class TaskRequest<TaskDataType, TaskResultType = unknown> {
     return { type: "finished", result };
   }
 
-  resolveByFailure(error: string, { result }: { result?: object } = {}): TaskResponse {
+  resolveByPermanentFailure(error: string, { result }: { result?: object } = {}): TaskResponse {
     return { type: "failed", error, result };
   }
 

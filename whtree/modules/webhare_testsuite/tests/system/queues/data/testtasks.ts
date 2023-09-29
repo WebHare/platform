@@ -43,5 +43,5 @@ export async function failingTaskJS(req: TaskRequest<{ temporary?: boolean; next
     };
     return req.resolveByTemporaryFailure("Failure", opts);
   } else
-    return req.resolveByFailure("Permanent failure", { result: { type: "failed" } });
+    return req.resolveByPermanentFailure("Permanent failure", { result: { type: "failed" } });
 }
