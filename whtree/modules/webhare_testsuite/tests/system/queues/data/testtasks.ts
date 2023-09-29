@@ -32,3 +32,16 @@ export async function timelimitedtaskJS(req: TaskRequest<{ sleep: number }>): Pr
   await beginWork();
   return req.resolveByCompletion(req.taskdata);
 }
+
+export async function failingTaskJS(req: TaskRequest<{ temporary?: boolean; nextretry?: Date | null } | null>): Promise<TaskResponse> {
+  await beginWork();
+
+  if (req.taskdata?.temporary !== false) {
+    const opts = {
+      result: { type: "failedtemporarily" },
+      ...(req.taskdata && "nextretry" in req.taskdata ? { nextRetry: req.taskdata.nextretry } : {})
+    };
+    return req.resolveByTemporaryFailure("Failure", opts);
+  } else
+    return req.resolveByFailure("Permanent failure", { result: { type: "failed" } });
+}
