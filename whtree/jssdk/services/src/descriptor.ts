@@ -15,14 +15,14 @@ import { WHDBBlob, WHDBBlobImplementation } from "@webhare/whdb/src/blobs";
     @cell(string) return.hash UFS encoded SHA-256 hash of the file. Only calculated if the generatehash option is enabled
 */
 
-export interface RichFileMetadata {
+export interface ResourceMetaData {
   ///The proper or usual extension for the file's mimetype, if known to webhare. Either null or a text starting with a dot ('.')
   extension: string | null;
-  ///Mime type
-  mimeType: string;
-  ///Image width (in pixels), null if not a bitmap
+  ///Media type (http://www.iana.org/assignments/media-types/)
+  mediaType: string;
+  ///Width (in pixels), null if not known or not applicable
   width: number | null;
-  ///Image height (in pixels)
+  ///Height (in pixels)
   height: number | null;
   ///Image rotation in degrees (0,90,180 or 270). null for non images
   rotation: 0 | 90 | 180 | 270 | null;
@@ -41,10 +41,10 @@ export interface RichFileMetadata {
 }
 
 /** Get the proper or usual extension for the file's mimetype
-    @param mimetype - Mimetype
+    @param mediaType - Mimetype
     @returns Extension (incliding the ".", eg ".jpg"), null if no extension has been defined for this mimetype.
 */
-function getExtensionForMimeType(mimetype: string): string | null {
+function getExtensionForMediaType(mediaType: string): string | null {
   return {
     "image/tiff": ".tif",
     "image/x-bmp": ".bmp",
@@ -95,10 +95,10 @@ function getExtensionForMimeType(mimetype: string): string | null {
     "text/x-vcard": ".vcf",
     "video/x-flv": ".flv",
     "text/calendar": ".ics"
-  }[mimetype] ?? null;
+  }[mediaType] ?? null;
 }
 
-export function decodeScanData(scandata: string): RichFileMetadata {
+export function decodeScanData(scandata: string): ResourceMetaData {
   const parseddata = scandata ? decodeHSON(scandata) as {
     x?: string;
     m?: string;
@@ -117,8 +117,8 @@ export function decodeScanData(scandata: string): RichFileMetadata {
 
   return {
     hash: parseddata.x || "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU",
-    mimeType: parseddata.m || "application/octet-stream",
-    extension: getExtensionForMimeType(parseddata.m || "application/octet-stream"),
+    mediaType: parseddata.m || "application/octet-stream",
+    extension: getExtensionForMediaType(parseddata.m || "application/octet-stream"),
     width: parseddata.w || null,
     height: parseddata.h || null,
     rotation: parseddata.w ? (parseddata.r || 0) : null,
@@ -131,12 +131,12 @@ export function decodeScanData(scandata: string): RichFileMetadata {
 }
 
 /** A descriptor pointing to an file/image and its metadata */
-export class RichFileDescriptor implements RichFileMetadata {
+export class ResourceDescriptor implements ResourceMetaData {
   private readonly bloblocation: string; // The location of the blob
   private readonly _size: number;
-  private readonly metadata: RichFileMetadata; // The metadata of the blob
+  private readonly metadata: ResourceMetaData; // The metadata of the blob
 
-  constructor(blob: WHDBBlob | null, metadata: RichFileMetadata) {
+  constructor(blob: WHDBBlob | null, metadata: ResourceMetaData) {
     this.bloblocation = blob ? "pg:" + (blob as WHDBBlobImplementation).databaseid : "";
     this._size = blob?.size || 0;
     this.metadata = { ...metadata };
@@ -145,8 +145,8 @@ export class RichFileDescriptor implements RichFileMetadata {
   get extension() {
     return this.metadata.extension;
   }
-  get mimeType() {
-    return this.metadata.mimeType;
+  get mediaType() {
+    return this.metadata.mediaType;
   }
   get width() {
     return this.metadata.width;

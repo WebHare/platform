@@ -96,7 +96,7 @@ async function testWHFS() {
 
   const imgfile = await testpagesfolder.openFile("imgeditfile.jpeg");
   test.eq('0hMX4RpiWulvvNdfeF92ErsUAWebk7Kx59bsflO3BIw', imgfile.data.hash);
-  test.eq('image/jpeg', imgfile.data.mimeType);
+  test.eq('image/jpeg', imgfile.data.mediaType);
   test.eq('.jpg', imgfile.data.extension);
   test.eq(1024, imgfile.data.width);
   test.eq(768, imgfile.data.height);

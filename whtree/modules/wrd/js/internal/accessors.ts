@@ -5,7 +5,7 @@ import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { compare, ComparableType, recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
 import { Money } from "@webhare/std";
-import { decodeScanData, RichFileDescriptor } from "@webhare/services/src/richfile";
+import { decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
 import { defaultDateTime, makeDateFromParts, maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { decodeHSON } from "@webhare/hscompat/hscompat";
 import { IPCMarshallableRecord } from "@mod-system/js/internal/whmanager/hsmarshalling";
@@ -1440,33 +1440,33 @@ class WRDDBRecordValue extends WRDAttributeUncomparableValueBase<object | null, 
 }
 
 //TODO {data: Buffer} is for 5.3 compatibility and we might have to just remove it
-class WHDBRichFileAttributeBase extends WRDAttributeUncomparableValueBase<RichFileDescriptor | null | { data: Buffer }, RichFileDescriptor | null, RichFileDescriptor | null> {
+class WHDBResourceAttributeBase extends WRDAttributeUncomparableValueBase<ResourceDescriptor | null | { data: Buffer }, ResourceDescriptor | null, ResourceDescriptor | null> {
   /** Returns the default value for a value with no settings
       @returns Default value for this type
   */
-  getDefaultValue(): RichFileDescriptor | null {
+  getDefaultValue(): ResourceDescriptor | null {
     return null;
   }
 
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[]): RichFileDescriptor | null {
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, links: EntitySettingsWHFSLinkRec[]): ResourceDescriptor | null {
     const val = entity_settings[settings_start];
     const lpos = recordLowerBound(links, val, ["id"]);
     const sourceFile = lpos.found ? links[lpos.position].fsobject : null;
     return val.blobdata
-      ? new RichFileDescriptor(val.blobdata, { ...decodeScanData(val.rawdata), sourceFile })
+      ? new ResourceDescriptor(val.blobdata, { ...decodeScanData(val.rawdata), sourceFile })
       : null;
   }
 
-  validateInput(value: RichFileDescriptor | null | { data: Buffer }): void {
+  validateInput(value: ResourceDescriptor | null | { data: Buffer }): void {
     /* always valid */
   }
 }
 
-class WRDDBFileValue extends WHDBRichFileAttributeBase { }
+class WRDDBFileValue extends WHDBResourceAttributeBase { }
 
-class WRDDBImageValue extends WHDBRichFileAttributeBase { }
+class WRDDBImageValue extends WHDBResourceAttributeBase { }
 
-class WRDDBRichDocumentValue extends WHDBRichFileAttributeBase { }
+class WRDDBRichDocumentValue extends WHDBResourceAttributeBase { }
 
 export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default, C extends { condition: AllowedFilterConditions; value: unknown } = { condition: AllowedFilterConditions; value: unknown }> extends WRDAttributeValueBase<In, Default, Out, C> {
   throwError(): never {
@@ -1524,8 +1524,8 @@ class WRDDBBaseGenderValue extends WRDAttributeUnImplementedValueBase<WRDGender,
 class WRDDBAddressValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBPasswordValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 //class WRDDBImageValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
-//class WRDDBFileValue extends WRDAttributeUnImplementedValueBase<RichFileDescriptor | { data: Buffer } | null, RichFileDescriptor | null, RichFileDescriptor | null> { }
-//class WRDDBRichDocumentValue extends WRDAttributeUnImplementedValueBase<RichFileDescriptor | null, RichFileDescriptor | null, RichFileDescriptor | null> { }
+//class WRDDBFileValue extends WRDAttributeUnImplementedValueBase<ResourceDescriptor | { data: Buffer } | null, ResourceDescriptor | null, ResourceDescriptor | null> { }
+//class WRDDBRichDocumentValue extends WRDAttributeUnImplementedValueBase<ResourceDescriptor | null, ResourceDescriptor | null, ResourceDescriptor | null> { }
 class WRDDBWHFSInstanceValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBWHFSIntextlinkValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 //class WRDDBRecordValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }

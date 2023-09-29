@@ -1,6 +1,6 @@
 import { db, sql, Selectable, Updateable } from "@webhare/whdb";
 import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
-import { decodeScanData, RichFileDescriptor } from "@webhare/services/src/richfile";
+import { decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
 import { getType, describeContentType, unknownfiletype, normalfoldertype } from "./contenttypes";
 import { defaultDateTime } from "@webhare/hscompat/datetime";
 import { CSPContentType } from "./siteprofiles";
@@ -157,8 +157,8 @@ export class WHFSFile extends WHFSObject {
   get publish() {
     return isPublish(this.dbrecord.published);
   }
-  get data(): RichFileDescriptor {
-    return new RichFileDescriptor(this.dbrecord.data, decodeScanData(this.dbrecord.scandata));
+  get data(): ResourceDescriptor {
+    return new ResourceDescriptor(this.dbrecord.data, decodeScanData(this.dbrecord.scandata));
   }
   async update(metadata: UpdateFileMetadata) {
     this._doUpdate(metadata);
