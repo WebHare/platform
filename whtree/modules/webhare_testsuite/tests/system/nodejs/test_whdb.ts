@@ -1,4 +1,4 @@
-import { BackendEvent, BackendEventSubscription, subscribe } from "@webhare/services";
+import { BackendEvent, BackendEventSubscription, openResource, subscribe } from "@webhare/services";
 import * as test from "@webhare/test";
 import { sleep } from "@webhare/std";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
@@ -21,18 +21,24 @@ async function testQueries() {
   await beginWork();
   test.eq(null, await uploadBlob(""));
 
+  const goudvis = await openResource("mod::system/web/tests/goudvis.png");
+  const hsblob = new HareScriptMemoryBlob(Buffer.from("This is another blob"));
   const newblob = await uploadBlob("This is a blob");
-  const newblob2 = await uploadBlob(new HareScriptMemoryBlob(Buffer.from("This is another blob")));
+  const newblob2 = await uploadBlob(hsblob);
+  const newblob3 = await uploadBlob(goudvis);
   const emptyboxedblob = new HareScriptMemoryBlob; //Represents a HSVM compatbile empty blob
 
   test.assert(newblob);
   test.assert(newblob2);
+  test.assert(newblob3);
   test.assert(emptyboxedblob);
   test.eq(14, newblob.size);
   test.eq("This is a blob", await newblob.text());
   test.eq("", await emptyboxedblob.text());
   test.eq(null, await uploadBlob(emptyboxedblob));
-  test.assert(newblob.isSameBlob((await uploadBlob(newblob))!), "No effect when uploading a WHDBBlob");
+  test.assert(newblob.isSameBlob((await uploadBlob(newblob))!), "Should have no effect when uploading a WHDBBlob");
+  test.assert(newblob2.isSameBlob((await uploadBlob(hsblob))!), "Should have no effect when reuploading a HareScript Blob");
+  test.assert(newblob3.isSameBlob((await uploadBlob(goudvis))!), "Should have no effect when reuploading a HareScript Blob");
 
   ///@ts-expect-error -- We need to ensure TypeScript can differentiate between HareScriptBlob and WHDBBlob ducks (TODO alternative solution) or it can't guard against insert errors
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
