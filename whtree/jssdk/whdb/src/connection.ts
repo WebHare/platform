@@ -11,6 +11,7 @@ import { Connection, GlobalTypeMap, QueryOptions, BindParam, DataTypeOIDs, Query
 import { debugFlags } from '@webhare/env/src/envbackend';
 import { BlobType } from "./blobs";
 import { ArrayFloat8Type, ArrayMoneyType, ArrayTidType, Float8Type, MoneyType, TidType } from "./types";
+import { getIntlConnection } from '../vendor/postgresql-client/src/connection/intl-connection';
 
 let configuration: { bloboid: number } | null = null;
 
@@ -19,6 +20,7 @@ interface PGConnectionDebugEvent {
   connection: Connection;
   message: string;
   sql?: string;
+  args?: unknown[];
 }
 
 //Read database connection settings and configure our PG driver. We attempt this at the start of every connection (bootstrap might need to reinvoke us?)
@@ -60,12 +62,14 @@ export class WHDBPgClient {
     });
     if (debugFlags["pg-logcommands"])
       this.pgclient.on("debug", (evt) => this.onDebug(evt));
+    if (debugFlags["pg-logsocket"])
+      getIntlConnection(this.pgclient).socket.on("debug", (evt) => this.onDebug(evt));
 
     this.connectpromise = this.pgclient.connect();
   }
 
   private onDebug(evt: PGConnectionDebugEvent) {
-    console.log(evt.location, evt.sql);
+    console.log(evt.location, evt.sql ?? evt.args);
   }
 
   query<R>(cursor: PostgresCursor<R>): PostgresCursor<R>;
