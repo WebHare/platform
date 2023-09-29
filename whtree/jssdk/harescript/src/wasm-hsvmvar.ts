@@ -1,7 +1,7 @@
 import { BoxedFloat, IPCMarshallableRecord, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import type { HSVM_VariableId, HSVM_VariableType, } from "../../../lib/harescript-interface";
 import type { HareScriptVM, JSBlobTag } from "./wasm-hsvm";
-import { maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
+import { dateToParts, makeDateFromParts } from "@webhare/hscompat";
 import { Money } from "@webhare/std";
 import { WHDBBlob } from "@webhare/whdb";
 import { WHDBBlobImplementation } from "@webhare/whdb/src/blobs";
@@ -162,29 +162,12 @@ export class HSVMVar {
   getDateTime(): Date {
     this.checkType(VariableType.DateTime);
     this.vm.wasmmodule._HSVM_DateTimeGet(this.vm.hsvm, this.id, this.vm.wasmmodule.stringptrs, this.vm.wasmmodule.stringptrs + 4);
-    const days_raw = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs, "i32") as number;
+    const days = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs, "i32") as number;
     const msecs = this.vm.wasmmodule.getValue(this.vm.wasmmodule.stringptrs + 4, "i32") as number;
-    const days = days_raw - 719163;
-    const totalmsecs = days * 86400000 + msecs;
-    if (totalmsecs >= maxDateTimeTotalMsecs)
-      return maxDateTime;
-    return new Date(totalmsecs);
+    return makeDateFromParts(days, msecs);
   }
   setDateTime(value: Date) {
-    const totalmsecs = Number(value as Date);
-    let days, msecs;
-    if (totalmsecs >= maxDateTimeTotalMsecs) {
-      days = 2147483647;
-      msecs = 86400000 - 1;
-    } else {
-      days = Math.floor(totalmsecs / 86400000);
-      msecs = totalmsecs - days * 86400000;
-      days += 719163; // 1970-1-1
-      if (days < 0 || msecs < 0) {
-        days = 0;
-        msecs = 0;
-      }
-    }
+    const { days, msecs } = dateToParts(value);
     this.vm.wasmmodule._HSVM_DateTimeSet(this.vm.hsvm, this.id, days, msecs);
     this.type = VariableType.DateTime;
   }

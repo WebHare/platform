@@ -3,6 +3,8 @@ import * as whdb from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import * as crypto from "node:crypto";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
+import { getTestSiteTemp, testSuiteCleanup } from "@mod-webhare_testsuite/js/testsupport";
+import { openFileOrFolder } from "@webhare/whfs";
 
 async function testWHFS() {
   test.assert(!whfs.isValidName("^file"));
@@ -41,6 +43,8 @@ async function testWHFS() {
   test.eq(testsite.webRoot + "TestPages/markdownpage/", markdownfile.link);
   test.eq("/TestPages/markdownpage", markdownfile.fullPath);
   test.eq(testsite.id, markdownfile.parentSite);
+
+  test.eq(true, (await openFileOrFolder(markdownfile.id)).isFile);
 
   const rootfolder = await testsite.openFolder(".");
   test.eq(testsite.id, rootfolder.id);
@@ -142,13 +146,9 @@ async function testSiteProfiles() {
 }
 
 async function testGenerateUniqueName() {
-  const tmpfolder = await whfs.openFolder("site::webhare_testsuite.testsite/tmp");
+  const tmpfolder = await getTestSiteTemp();
 
   await whdb.beginWork();
-  const oldfolder = await tmpfolder.openFolder("uniquenames", { allowMissing: true });
-  if (oldfolder)
-    await oldfolder.delete();
-
   const uniquenamefolder = await tmpfolder.createFolder("uniquenames");
   const l256a = "aaaa".repeat(256 / 4);
   const r240a = l256a.substring(0, 236) + ".doc";
@@ -224,6 +224,7 @@ async function testGenerateUniqueName() {
 }
 
 test.run([
+  testSuiteCleanup,
   testWHFS,
   testSiteProfiles,
   testGenerateUniqueName

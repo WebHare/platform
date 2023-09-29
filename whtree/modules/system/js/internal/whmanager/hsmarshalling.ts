@@ -1,7 +1,7 @@
 import { LinearBufferReader, LinearBufferWriter } from "./bufs";
 // FIXME - import { Money } from "@webhare/std"; - but this breaks the shrinkwrap (it can't find @webhare/std)
 import { Money } from "../../../../../jssdk/std/money";
-import { defaultDateTime, maxDateTime, maxDateTimeTotalMsecs } from "../../../../../jssdk/hscompat/datetime";
+import { dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, maxDateTimeTotalMsecs } from "../../../../../jssdk/hscompat/datetime";
 import { HareScriptBlob, HareScriptMemoryBlob, isHareScriptBlob } from "../../../../../jssdk/harescript/src/hsblob"; //we need to directly load is to not break gen_config.ts
 
 export enum VariableType {
@@ -233,12 +233,9 @@ function marshalReadInternal(buf: LinearBufferReader, type: VariableType, column
       return buf.readBoolean();
     }
     case VariableType.DateTime: {
-      const days = buf.readU32() - 719163;
+      const days = buf.readU32();
       const msecs = buf.readU32();
-      const totalmsecs = days * 86400000 + msecs;
-      if (totalmsecs >= maxDateTimeTotalMsecs)
-        return maxDateTime;
-      return new Date(totalmsecs);
+      return makeDateFromParts(days, msecs);
     }
     case VariableType.String: {
       return buf.readString();
@@ -483,20 +480,7 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
       writer.writeString(value as string);
     } break;
     case VariableType.DateTime: {
-      const totalmsecs = Number(value as Date);
-      let days, msecs;
-      if (totalmsecs >= maxDateTimeTotalMsecs) {
-        days = 2147483647;
-        msecs = 86400000 - 1;
-      } else {
-        days = Math.floor(totalmsecs / 86400000);
-        msecs = totalmsecs - days * 86400000;
-        days += 719163; // 1970-1-1
-        if (days < 0 || msecs < 0) {
-          days = 0;
-          msecs = 0;
-        }
-      }
+      const { days, msecs } = dateToParts(value as Date);
       writer.writeU32(days);
       writer.writeU32(msecs);
     } break;
@@ -655,7 +639,7 @@ function encodeHSONInternal(value: IPCMarshallableData, needtype?: VariableType)
             retval = retval + ",";
           else
             first = false;
-          retval = retval + JSON.stringify(key) + ":" + encodeHSONInternal(propval);
+          retval = retval + JSON.stringify(key.toLowerCase()) + ":" + encodeHSONInternal(propval);
         }
         retval = retval + "}";
       }
