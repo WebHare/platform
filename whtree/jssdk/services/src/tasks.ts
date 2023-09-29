@@ -12,7 +12,20 @@ interface TaskResponseCancelled {
   error: string;
 }
 
-export type TaskResponse = TaskResponseFinished | TaskResponseCancelled;
+interface TaskResponseFailed {
+  type: "failed";
+  result: unknown;
+  error: string;
+}
+
+interface TaskResponseFailedTemporarily {
+  type: "failedtemporarily";
+  result: unknown;
+  error: string;
+  nextretry?: Date | null;
+}
+
+export type TaskResponse = TaskResponseFinished | TaskResponseCancelled | TaskResponseFailed | TaskResponseFailedTemporarily;
 
 
 export class TaskRequest<TaskDataType, TaskResultType = unknown> {
@@ -30,6 +43,14 @@ export class TaskRequest<TaskDataType, TaskResultType = unknown> {
 
   resolveByCompletion(result?: TaskResultType): TaskResponse {
     return { type: "finished", result };
+  }
+
+  resolveByPermanentFailure(error: string, { result }: { result?: object } = {}): TaskResponse {
+    return { type: "failed", error, result };
+  }
+
+  resolveByTemporaryFailure(error: string, { result, nextRetry }: { result?: object; nextRetry?: Date | null } = {}): TaskResponse {
+    return { type: "failedtemporarily", error, result, nextretry: nextRetry ?? null };
   }
 }
 

@@ -4,7 +4,7 @@ import { System_Managedtasks, WebHareDB } from "@mod-system/js/internal/generate
 import { WHDBBlob, commitWork, db, isWorkOpen, rollbackWork, uploadBlob } from "@webhare/whdb";
 import { getStructuredTrace } from "../whmanager/ipc";
 import bridge from "../whmanager/bridge";
-import { pick } from "@webhare/std";
+import { addDuration, pick } from "@webhare/std";
 
 interface TaskInfo {
   queueid: string;
@@ -13,6 +13,10 @@ interface TaskInfo {
   dbid: number;
   data: unknown;
 }
+
+const failreschedule = 15 * 60 * 1000;
+const restartdelay = 1000;
+
 
 async function finalizeTaskResult(taskinfo: TaskInfo, updates: Partial<System_Managedtasks>) {
   if (!isWorkOpen())
@@ -51,12 +55,35 @@ export async function executeManagedTask(taskinfo: TaskInfo, debug: boolean) {
         await finalizeTaskResult(taskinfo, { lasterrors: "", finished: new Date, ...await splitretval(taskresponse.result) });
         break;
 
-      // case "failed": //TODO but not excercised by tests yet
+      case "failed":
       case "cancelled": {
         const iscancelled = taskresponse.type === "cancelled";
         await finalizeTaskResult(taskinfo, { iscancelled, lasterrors: taskresponse.error, finished: new Date, ...await splitretval(taskresponse.result) });
         break;
       }
+
+      case "failedtemporarily": {
+        const minNextRetry = new Date(Date.now() + restartdelay);
+        let nextRetry = !taskresponse.nextretry || taskresponse.nextretry.getTime() > minNextRetry.getTime() ? taskresponse.nextretry || null : minNextRetry;
+
+        const iterations = (await db<WebHareDB>().selectFrom("system.managedtasks").select("iterations").where("id", "=", taskinfo.dbid).executeTakeFirst())?.iterations || 0;
+        console.log({ minNextRetry, nextRetry, iterations });
+        if (!nextRetry) {
+          if (iterations >= 6)
+            nextRetry = addDuration(new Date, "P1D");
+          else
+            nextRetry = new Date(Date.now() + (failreschedule << iterations));
+        }
+
+        console.log({ taskresponse, nextRetry, failreschedule });
+
+        await finalizeTaskResult(taskinfo, {
+          nextattempt: new Date(nextRetry),
+          iterations: iterations + 1,
+          lasterrors: taskresponse.error,
+          ...await splitretval(taskresponse.result)
+        });
+      } break;
 
       default:
         throw new Error(`Unrecognized task result type ${(taskresponse as { type: string }).type}`);

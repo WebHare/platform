@@ -37,6 +37,7 @@
     <managedtask type="cancellable" objectname="lib/internal/tasks.whlib#cancellabletask" />
     <managedtask type="cancellable_js" taskrunner="tests/system/queues/data/testtasks.ts#cancellabletaskJS" />
     <managedtask type="temporaryfailure" objectname="lib/internal/tasks.whlib#TemporaryFailingTask" />
+    <managedtask type="temporaryfailure_js" taskrunner="tests/system/queues/data/testtasks.ts#failingTaskJS" />
     <managedtask type="timelimitedtask" objectname="lib/internal/tasks.whlib#TimelimitedTask" timeout="300" />
     <managedtask type="timelimitedtask_js"  taskrunner="tests/system/queues/data/testtasks.ts#timelimitedtaskJS" timeout="300" />
     <managedtask type="usereditedtask" objectname="lib/internal/tasks.whlib#UserEditedTask" />

@@ -110,8 +110,11 @@ PUBLIC OBJECTTYPE TemporaryFailingTask EXTEND ManagedTaskBase
 <
   UPDATE PUBLIC MACRO RunTask(RECORD data)
   {
-    data := ValidateOptions([ nextretry := DEFAULT DATETIME ], data);
-    this->ResolveByTemporaryFailure(data, "Temporary failure", data.nextretry = DEFAULT DATETIME ? DEFAULT RECORD : CELL[ data.nextretry ]);
+    data := ValidateOptions([ nextretry := DEFAULT DATETIME, "temporary" := TRUE ], data);
+    IF (data."temporary")
+      this->ResolveByTemporaryFailure(data, "Temporary failure", data.nextretry = DEFAULT DATETIME ? DEFAULT RECORD : CELL[ data.nextretry ]);
+    ELSE
+      this->ResolveByFailure([ type := "failed" ], "Permanent failure");
   }
 >;
 
@@ -161,5 +164,3 @@ PUBLIC STATIC OBJECTTYPE DoubleScheduleTask EXTEND ManagedTaskBase
     }
   }
 >;
-
-

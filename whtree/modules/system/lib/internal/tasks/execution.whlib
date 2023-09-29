@@ -137,6 +137,9 @@ PUBLIC RECORD FUNCTION ExecuteManagedTask(RECORD taskinfo, BOOLEAN debug)
 
     DATETIME now := GetCurrentDatetime();
 
+    IF (TypeID(resolution.nextretry) = TypeID(RECORD))
+      resolution := CELL[ ...resolution, nextretry := MAX_DATETIME ];
+
     // At least restartdelay spacing between retries
     DATETIME minnextretry := AddTimeToDate(restartdelay, GetCurrentDatetime());
     DATETIME nexttry := MAX[]([ minnextretry, resolution.nextretry ]);

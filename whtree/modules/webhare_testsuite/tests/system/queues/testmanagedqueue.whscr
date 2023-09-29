@@ -210,17 +210,21 @@ RECORD FUNCTION WaitForError(INTEGER taskid)
   RETURN descr;
 }
 
-MACRO TestMarkAsTemporaryFailure()
+MACRO TestMarkAsTemporaryFailure(STRING engine)
 {
   DATETIME taskstart, retryat;
   INTEGER taskid;
   RECORD descr;
 
+  IF (engine != "js" AND engine != "hs")
+    THROW NEW Exception(`Invalid engine ${engine}`);
+  STRING temporaryfailure_taskname := engine = "js" ? "webhare_testsuite:temporaryfailure_js" : "webhare_testsuite:temporaryfailure";
+
   FOR (INTEGER itr := 0; itr <= 7; itr := itr + 1)
   {
     testfw->BeginWork();
     taskstart := GetCurrentDateTime();
-    taskid := ScheduleManagedTask("webhare_testsuite:temporaryfailure", DEFAULT RECORD);
+    taskid := ScheduleManagedTask(temporaryfailure_taskname, DEFAULT RECORD);
 
     IF (itr != 0)
     {
@@ -251,7 +255,7 @@ MACRO TestMarkAsTemporaryFailure()
     testfw->BeginWork();
     retryat := AddTimeToDate(2 * 60 * 1000, GetCurrentDateTime());
     taskstart := GetCurrentDateTime();
-    taskid := ScheduleManagedTask("webhare_testsuite:temporaryfailure", CELL[ nextretry := retryat ]);
+    taskid := ScheduleManagedTask(temporaryfailure_taskname, CELL[ nextretry := retryat ]);
     testfw->CommitWork();
 
     descr := WaitForError(taskid);
@@ -265,21 +269,42 @@ MACRO TestMarkAsTemporaryFailure()
   }
 }
 
-ASYNC MACRO TestNotBeforeTasks()
+MACRO TestFailingTask(STRING engine)
+{
+  IF (engine != "js" AND engine != "hs")
+    THROW NEW Exception(`Invalid engine ${engine}`);
+  STRING temporaryfailure_taskname := engine = "js" ? "webhare_testsuite:temporaryfailure_js" : "webhare_testsuite:temporaryfailure";
+
+  testfw->BeginWork();
+  INTEGER taskid := ScheduleManagedTask(temporaryfailure_taskname, [ "temporary" := FALSE ]);
+  testfw->CommitWork();
+  TestThrowsLike("*permanently failed: Permanent failure", PTR RetrieveManagedTaskResult(taskid, AddTimeToDate(120*1000, GetCurrentDateTime())));
+  // test if retval is recorded
+  TestEQMembers(
+      [ retval :=
+          [ type := "failed"]
+      ], DescribeManagedTask(taskid), "*");
+}
+
+ASYNC MACRO TestNotBeforeTasks(STRING engine)
 {
   DATETIME now := GetCurrentDateTime();
+
+  IF (engine != "js" AND engine != "hs")
+    THROW NEW Exception(`Invalid engine ${engine}`);
+  STRING temporaryfailure_taskname := engine = "js" ? "webhare_testsuite:temporaryfailure_js" : "webhare_testsuite:temporaryfailure";
 
   testfw->BeginWork();
   INTEGER taskid := ScheduleManagedTask("webhare_testsuite:ping", [ ping := 42 ], [ notbefore := AddTimeToDate(2000, now) ]);
   INTEGER taskid2 := ScheduleManagedTask("webhare_testsuite:ping", [ ping := 42 ], [ notbefore := AddTimeToDate(2000, now) ]);
-  INTEGER taskid3 := ScheduleManagedTask("webhare_testsuite:temporaryfailure", DEFAULT RECORD, [ notbefore := AddTimeToDate(60000, now) ]);
+  INTEGER taskid3 := ScheduleManagedTask(temporaryfailure_taskname, DEFAULT RECORD, [ notbefore := AddTimeToDate(60000, now) ]);
   testfw->CommitWork();
 
   TestEQMembers([ notbefore := AddTimeToDate(2000, now), nextattempt := AddTimeToDate(2000, now) ], DescribeManagedTask(taskid), "*");
 
   testfw->BeginWork();
   RetryPendingManagedTasksByIds([ taskid2 ]);
-  RetryPendingManagedTasks("webhare_testsuite:temporaryfailure");
+  RetryPendingManagedTasks(temporaryfailure_taskname);
   testfw->CommitWork();
 
   TestEQMembers([ notbefore := AddTimeToDate(2000, now), nextattempt := AddTimeToDate(2000, now) ], DescribeManagedTask(taskid2), "*");
@@ -345,10 +370,14 @@ ASYNC MACRO TestWaitableAction_JS()
 }
 
 RunTestframework([ PTR TestEphemeralTasks
+                 , PTR TestFailingTask("hs")
+                 , PTR TestFailingTask("js")
                  , PTR TestWaitableAction_HS
                  , PTR TestWaitableAction_JS
-                 , PTR TestMarkAsTemporaryFailure
-                 , PTR TestNotBeforeTasks
+                 , PTR TestMarkAsTemporaryFailure("hs")
+                 , PTR TestMarkAsTemporaryFailure("js")
+                 , PTR TestNotBeforeTasks("hs")
+                 , PTR TestNotBeforeTasks("js")
                  , PTR TestDoubleSchedule()
                  ],
                  [ wrdschema := FALSE
