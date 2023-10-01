@@ -1,6 +1,6 @@
 import { beginWork, commitWork, db, __getConnection, rollbackWork, uploadBlob, isWorkOpen } from "@webhare/whdb";
 import { AliasedRawBuilder, RawBuilder, sql } from 'kysely';
-import { BoxedFloat, VariableType, getTypedArray } from "../whmanager/hsmarshalling";
+import { VariableType, getTypedArray } from "../whmanager/hsmarshalling";
 import { FullPostgresQueryResult } from "@webhare/whdb/src/connection";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat/datetime";
 import { Tid } from "@webhare/whdb/src/types";
@@ -11,6 +11,7 @@ import { HareScriptVM } from "@webhare/harescript/src/wasm-hsvm";
 import { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 import { HSVM_VariableId, HSVM_VariableType } from "wh:internal/whtree/lib/harescript-interface";
 import { Money } from "@webhare/std";
+import { BindParam } from "@webhare/whdb/vendor/postgresql-client/src";
 
 enum Fases {
   None = 0,
@@ -181,15 +182,6 @@ function fixValue(value: unknown) {
 
       return newblob;
     });
-}
-
-async function fixUploadedParams(params: unknown[]): Promise<unknown[]> {
-  const newparams = [];
-  for (const value of params) {
-    const fix = fixValue(value);
-    newparams.push(fix?.then ? await fix : value);
-  }
-  return newparams;
 }
 
 async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSVMVar, newfields: HSVMVar) {
@@ -462,7 +454,7 @@ async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSV
 
   const prepped_resultcolumns = resultcolumns.map(col => ({ ...col, exportId: vm.getColumnId(col.exportName) }));
 
-  //TODO Both cbExecuteQuery and cbSendPostgreSQLCommand need to do some return type postprocessing to align with HS types, share!
+  //TODO Both cbExecuteQuery and cbExecuteSQL need to do some return type postprocessing to align with HS types, share!
   for (const row of res) {
     const tablerows = new Array<HSVM_VariableId>;
 
@@ -551,19 +543,43 @@ export async function cbDoCommitWork() {
   return getTypedArray(VariableType.RecordArray, []);
 }
 
-export async function cbSendPostgreSQLCommand(params: { query: string; options: { args?: unknown[] } }) {
+export async function cbExecuteSQL(vm: HareScriptVM, id_set: HSVMVar, sqlquery: HSVMVar, options: HSVMVar) {
+  const argencodings = options.getCell("argencodings")?.getJSValue() as string[] ?? [];
+  const hsargs = options.getCell("args");
+  const numhsargs = hsargs?.arrayLength() ?? 0;
+  const args = [];
+
+  for (let i = 0; i < numhsargs; ++i) {
+    const hsarg = hsargs!.arrayGetRef(i)!;
+    const type = hsarg.getType();
+    const asBinary = i < argencodings.length && argencodings[i] === "binary";
+
+    if (type === VariableType.String && asBinary)
+      args.push(hsarg.getStringAsBuffer());
+    else if (type === VariableType.StringArray && asBinary)
+      args.push(hsarg.arrayContents().map(s => s.getStringAsBuffer()));
+    else if (type === VariableType.Float)
+      args.push(new BindParam(OID.FLOAT8, hsarg.getFloat()));
+    else {
+      const val = hsarg.getJSValue();
+      const fix = fixValue(val);
+      args.push(fix?.then ? await fix : val);
+    }
+  }
+
   const connection = __getConnection();
   type ResultRowType = Record<string, unknown>;
+  const result = await connection.query(sqlquery.getString(), args) as FullPostgresQueryResult<ResultRowType>;
 
-  const args = await fixUploadedParams(params.options?.args || []);
-  const result = await connection.query(params.query, args) as FullPostgresQueryResult<ResultRowType>;
-
-  //TODO Both cbExecuteQuery and cbSendPostgreSQLCommand need to do some return type postprocessing to align with HS types, share!
-  const retval: ResultRowType[] = [];
+  //TODO Both cbExecuteQuery and cbExecuteSQL need to do some return type postprocessing to align with HS types, share!
+  id_set.setDefault(VariableType.RecordArray);
   for (const row of result.rows) {
-    const retvalrow: ResultRowType = {};
+    const outrow = id_set.arrayAppend();
+
     for (const field of result.fields || []) {
       let value = row[field.fieldName];
+      const store = outrow.ensureCell(field.fieldName);
+
       switch (field.dataTypeId) {
         case OID.BOOL:
           if (value === null)
@@ -588,12 +604,11 @@ export async function cbSendPostgreSQLCommand(params: { query: string; options: 
           break;
         case OID.FLOAT4:
         case OID.FLOAT8:
-          value = new BoxedFloat(value as number || 0);
-          break;
+          store.setFloat(value as number || 0);
+          continue; //SKIPS the usual 'just setJSValue'
         case OID.INT8:
-          if (typeof value !== "bigint")
-            value = BigInt(value as number | null ?? 0);
-          break;
+          store.setInteger64(value as bigint | number || 0);
+          continue; //SKIPS the usual 'just setJSValue'
         case OID.INT8ARRAY:
           if (value === null)
             value = [];
@@ -608,14 +623,9 @@ export async function cbSendPostgreSQLCommand(params: { query: string; options: 
 
         // FIXME: port the rest too
       }
-
-      retvalrow[field.fieldName] = value;
+      store.setJSValue(value);
     }
-    retval.push(retvalrow);
   }
-
-  // console.table(retval);
-  return retval;
 }
 
 async function decodeNewFields(vm: HareScriptVM, query: Query, newfields: HSVMVar) {
@@ -686,4 +696,5 @@ export async function registerPGSQLFunctions(wasmmodule: WASMModule) {
   wasmmodule.registerAsyncExternalMacro("__WASMPG_INSERTRECORDS:::RRA", cbInsertRecords);
   wasmmodule.registerAsyncExternalMacro("__WASMPG_UPDATERECORD:::RRR", cbUpdateRecord);
   wasmmodule.registerAsyncExternalFunction("__WASMPG_EXECUTEQUERY::R:R", cbExecuteQuery);
+  wasmmodule.registerAsyncExternalFunction("__WASMPG_EXECUTESQL::RA:SR", cbExecuteSQL);
 }

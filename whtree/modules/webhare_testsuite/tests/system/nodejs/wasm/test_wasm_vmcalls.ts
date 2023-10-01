@@ -1,5 +1,5 @@
 import * as stacktrace_parser from "stacktrace-parser";
-import { BoxedFloat, VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { HSVMObject, HareScriptMemoryBlob, createVM } from "@webhare/harescript";
 import * as test from "@webhare/test";
 import { beginWork, uploadBlob } from "@webhare/whdb";
@@ -7,7 +7,6 @@ import { lockMutex } from "@webhare/services";
 import { isInFreePool } from "@webhare/harescript/src/wasm-hsvm";
 
 function testTypeAPIs() {
-  test.eq(VariableType.Float, determineType(new BoxedFloat(2.5)));
   test.eq(VariableType.Integer64Array, determineType([0, -1, 1, -2147483648, -2147483649, -2147483650, -9223372036854775807n, -9223372036854775808n, 9223372036854775807n]));
   test.eq(VariableType.Integer64Array, determineType(getTypedArray(VariableType.Integer64Array, [1n, 2n, 3n])));
 }

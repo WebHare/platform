@@ -9,7 +9,7 @@ import { Money } from "@webhare/std";
 import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime } from "@webhare/hscompat";
 import { compare } from "@webhare/hscompat/algorithms";
 import { localizeDate } from "@webhare/hscompat/datetime";
-import { BoxedFloat, getTypedArray, IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { getTypedArray, IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { HareScriptMemoryBlob, isHareScriptBlob } from "@webhare/harescript";
 
 function testStrings() {
@@ -217,8 +217,6 @@ async function testHSON() {
   testHSONEnDeCode('hson:i64 5', BigInt(5));
 
   testHSONEnDeCode('hson:i64 9223372036854775807', BigInt("9223372036854775807"));
-
-  test.eq('hson:f 5', encodeHSON(new BoxedFloat(5)));
 
   //should lowercase keys as HS is case insensitive
   test.eq('hson:{"mixedcase":{"mc":43}}', encodeHSON({ MixedCase: { MC: 43 } }));

@@ -1,7 +1,6 @@
 import { Money } from '@webhare/std';
 import { DataType, DataTypeOIDs, SmartBuffer } from './../vendor/postgresql-client/src/index';
 import { numberBytesToString } from './../vendor/postgresql-client/src/data-types/numeric-type';
-import { BoxedFloat } from '@mod-system/js/internal/whmanager/hsmarshalling';
 
 // const NUMERIC_NEG = 0x4000;
 const NUMERIC_NAN = 0xc000;
@@ -62,14 +61,14 @@ export const Float8Type: DataType = {
     return v.readDoubleBE(0);
   },
 
-  encodeBinary(buf: SmartBuffer, v: BoxedFloat | number | string): void {
-    buf.writeDoubleBE(v instanceof BoxedFloat ? v.value : typeof v === "number" ? v : parseFloat(v));
+  encodeBinary(buf: SmartBuffer, v: number | string): void {
+    buf.writeDoubleBE(typeof v === "number" ? v : parseFloat(v));
   },
 
   parseText: parseFloat,
 
   isType(v: unknown): boolean {
-    return typeof v === "number" || v instanceof BoxedFloat;
+    return typeof v === "number";
   },
 };
 
