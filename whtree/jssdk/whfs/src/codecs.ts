@@ -98,12 +98,14 @@ export const codecs: { [key: string]: TypeCodec } = {
         throw new Error(`Incorrect type. Wanted array, got '${typeof value}'`);
 
       const settings: Array<Partial<FSSettingsRow>> = [];
+      let nextOrdering = 1;
       for (const val of value) {
         if (typeof val !== "number")
           throw new Error(`Incorrect type. Wanted number, got '${typeof val}'`);
         if (!val)
           continue;
-        settings.push({ fs_object: val });
+
+        settings.push({ fs_object: val, ordering: nextOrdering++ });
       }
       return settings;
     },
@@ -206,7 +208,7 @@ export const codecs: { [key: string]: TypeCodec } = {
       if (!Array.isArray(value))
         throw new Error(`Incorrect type. Wanted string array, got '${typeof value}'`);
 
-      return value.length ? value.map(v => ({ setting: assertValidString(v) })) : null;
+      return value.length ? value.map((v, idx) => ({ setting: assertValidString(v), ordering: ++idx })) : null;
     },
     decoder: (settings: FSSettingsRow[]) => {
       return settings.map(s => s.setting);
