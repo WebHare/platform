@@ -1,8 +1,9 @@
-import { Selectable } from "@webhare/whdb";
+import { Selectable, uploadBlob } from "@webhare/whdb";
 import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { Money } from "@webhare/std";
 import { dateToParts, encodeHSON, decodeHSON, makeDateFromParts } from "@webhare/hscompat";
 import { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { ResourceDescriptor, WHDBResourceDescriptor, addMissingScanData, decodeScanData } from "@webhare/services/src/descriptor";
 
 export type MemberType = "string" // 2
   | "dateTime" //4
@@ -25,8 +26,11 @@ export type MemberType = "string" // 2
 
 type FSSettingsRow = Selectable<WebHareDB, "system.fs_settings">;
 
+type EncoderAsyncReturnValue = Promise<Partial<FSSettingsRow>>;
+type EncoderReturnValue = Partial<FSSettingsRow> | Array<Partial<FSSettingsRow>> | Promise<Partial<FSSettingsRow>> | null;
+
 interface TypeCodec {
-  encoder(value: unknown): Partial<FSSettingsRow> | Array<Partial<FSSettingsRow>> | null;
+  encoder(value: unknown): EncoderReturnValue;
   decoder(settings: FSSettingsRow[]): unknown;
 }
 
@@ -152,6 +156,27 @@ export const codecs: { [key: string]: TypeCodec } = {
     },
     decoder: (settings: FSSettingsRow[]) => {
       return new Money(settings[0]?.setting || "0");
+    }
+  },
+  "file": {
+    encoder: (value: unknown) => {
+      if (typeof value !== "object") //TODO test for an actual ResourceDescriptor
+        throw new Error(`Incorrect type. Wanted a ResourceDescriptor, got '${typeof value}'`);
+      if (!value)
+        return null;
+
+      //Return the actual work as a promise, so we can wait for uploadBlob
+      return (async (): EncoderAsyncReturnValue => ({
+        setting: await addMissingScanData(value as ResourceDescriptor),
+        fs_object: (value as ResourceDescriptor).sourceFile,
+        blobdata: (value as ResourceDescriptor).size ? await uploadBlob(value as ResourceDescriptor) : null
+      }))();
+    },
+    decoder: (settings: FSSettingsRow[]) => {
+      if (!settings.length)
+        return null;
+
+      return new WHDBResourceDescriptor(settings[0].blobdata, decodeScanData(settings[0].setting));
     }
   }
 };

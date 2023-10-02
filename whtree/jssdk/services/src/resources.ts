@@ -128,6 +128,7 @@ interface OpenResourceOptions {
   getHash?: boolean;
 }
 
+//TODO share ourselves with a generic hasher in descriptor's addMissingScanData
 async function getHash(file: string) {
   const hasher = crypto.createHash('sha256');
   const fileStream = fs.createReadStream(file);

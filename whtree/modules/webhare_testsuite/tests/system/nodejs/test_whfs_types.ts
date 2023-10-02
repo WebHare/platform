@@ -6,6 +6,7 @@ import { WHFSFile } from "@webhare/whfs";
 import { verifyNumSettings } from "./data/whfs-testhelpers";
 import { Money } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
+import { ResourceDescriptor, openResource } from "@webhare/services";
 
 async function testMockedTypes() {
   const builtin_normalfoldertype = await whfs.describeContentType("http://www.webhare.net/xmlns/publisher/normalfolder");
@@ -96,6 +97,16 @@ async function testInstanceData() {
     aRecord: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) }
   }, await testtype.get(testfile.id));
 
+  //Test files
+  const goldfish = await openResource("mod::system/web/tests/goudvis.png");
+  await testtype.set(testfile.id, {
+    blub: goldfish
+  });
+  await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 11);
+
+  const returnedGoldfish = (await testtype.get(testfile.id)).blub as ResourceDescriptor;
+  test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", returnedGoldfish.hash);
+
   // await dumpSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype");
 
   //Does HareScript agree with us ?
@@ -104,6 +115,7 @@ async function testInstanceData() {
   test.eq(Money.fromNumber(2.5), val.price);
   test.eq({ price: Money.fromNumber(2.5) }, { price: val.price });
   test.eqProps({ price: Money.fromNumber(2.5) }, { price: val.price });
+
   test.eqProps({
     int: 20,
     str: "String",
@@ -113,8 +125,11 @@ async function testInstanceData() {
     str_array: ["a", "b", "c"],
     url: "http://www.webhare.com",
     a_record: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) }
-  }, await hs_generictype.getInstanceData(testfile.id));
+  }, val);
 
+  test.eq(returnedGoldfish.mediaType, val.blub.mimetype);
+  test.eq(returnedGoldfish.hash, val.blub.hash);
+  test.eq(Buffer.from(await returnedGoldfish.arrayBuffer()).toString("base64"), (await val.blub.data.arrayBuffer()).toString("base64"));
   //Test validation
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { int: "a" }));
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { yesNo: "a" }));

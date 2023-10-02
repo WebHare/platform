@@ -153,7 +153,7 @@ export async function describeContentType(type: string | number, options?: { all
 
 /** An API offering access to data stored in an instance type.
  */
-export interface InstanceDataAccessor<ContentTypeStructure = unknown> {
+export interface InstanceDataAccessor<ContentTypeStructure extends object = Record<string, unknown>> {
   //TODO Add a 'pick: ' option
   get(id: number): Promise<ContentTypeStructure>;
   set(id: number, data: ContentTypeStructure): Promise<void>;
@@ -217,8 +217,10 @@ class RecursiveSetter {
         if (settings)
           if (Array.isArray(settings))
             mynewsettings.push(...settings);
+          else if ((settings as Promise<Partial<FSSettingsRow>>).then)
+            mynewsettings.push(await settings);
           else
-            mynewsettings.push(settings);
+            mynewsettings.push(settings as Partial<FSSettingsRow>);
 
         for (let i = 0; i < mynewsettings.length; ++i) {
           if (i < thismembersettings.length)
@@ -367,7 +369,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
   }
 }
 
-export function openType<ContentTypeStructure extends object = object>(ns: string): InstanceDataAccessor<ContentTypeStructure> {
+export function openType<ContentTypeStructure extends object = Record<string, unknown>>(ns: string): InstanceDataAccessor<ContentTypeStructure> {
   //note that as we're sync, we can't actually promise to validate whether the type xists
   return new WHFSTypeAccessor<ContentTypeStructure>(ns);
 }

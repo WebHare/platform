@@ -1,5 +1,7 @@
-import { decodeHSON } from "@webhare/hscompat";
+import { encodeHSON, decodeHSON } from "@webhare/hscompat";
+import { pick } from "@webhare/std";
 import { WHDBBlob, WHDBBlobImplementation } from "@webhare/whdb/src/blobs";
+import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 
 export interface ResourceMetaData {
@@ -93,27 +95,83 @@ export function getExtensionForMediaType(mediaType: string): string | null {
   }[mediaType] ?? null;
 }
 
+type SerializedScanData = {
+  x?: string;
+  m?: string;
+  w?: number;
+  h?: number;
+  r?: 0 | 90 | 180 | 270;
+  s?: boolean;
+  p?: { x: number; y: number };
+  d?: string;
+  f?: string;
+};
+
+const EmptyFileHash = "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU";
+const DefaultMediaType = "application/octet-stream";
+const BitmapImageTypes = ["image/png", "image/jpeg", "image/gif"];
+
+export function encodeScanData(meta: Omit<ResourceMetaData, "sourceFile" | "extension">): string {
+  const data: SerializedScanData = {};
+  if (!meta.hash)
+    throw new Error("Hash is required");
+  else if (meta.hash != EmptyFileHash)
+    data.x = meta.hash;
+
+  if (!meta.mediaType)
+    throw new Error("MediaType is required");
+  else if (meta.mediaType != DefaultMediaType)
+    data.m = meta.mediaType;
+
+  if (BitmapImageTypes.includes(meta.mediaType) && (!meta.width || !meta.height))
+    throw new Error("Width and height are required for bitmap images");
+
+  //TODO Block writing mages with unknown widdth/height
+  if (meta.width)
+    data.w = meta.width;
+  if (meta.height)
+    data.h = meta.height;
+  if (meta.rotation !== null)
+    data.r = meta.rotation;
+  if (meta.mirrored !== null)
+    data.s = meta.mirrored;
+  if (meta.refPoint)
+    data.p = meta.refPoint;
+  if (meta.dominantColor)
+    data.d = meta.dominantColor;
+  if (meta.fileName)
+    data.f = meta.fileName;
+
+  return encodeHSON(data);
+}
+
+export async function addMissingScanData(meta: ResourceDescriptor) {
+  const newmeta = pick(meta, ["hash", "mediaType", "width", "height", "rotation", "mirrored", "refPoint", "dominantColor", "fileName"]);
+
+  if (!newmeta.hash) {
+    const hasher = crypto.createHash('sha256');
+    //TODO avoid reading the full buffer. blob() or Nodejs streams or even webstreams? which to add to our Resources (and HareScript/WHDBBlobs ?)
+    const data = await meta.arrayBuffer();
+    hasher.update(Buffer.from(data));
+    newmeta.hash = hasher.digest("base64url");
+  }
+
+  if (!newmeta.mediaType)
+    throw new Error("mediaType is required");
+  return encodeScanData(newmeta);
+}
+
 export function decodeScanData(scandata: string): ResourceMetaData {
-  const parseddata = scandata ? decodeHSON(scandata) as {
-    x?: string;
-    m?: string;
-    w?: number;
-    h?: number;
-    r?: 0 | 90 | 180 | 270;
-    s?: boolean;
-    p?: { x: number; y: number };
-    d?: string;
-    f?: string;
-  } : {};
+  const parseddata = scandata ? decodeHSON(scandata) as SerializedScanData : {};
 
   let fileName = parseddata.f || null;
   if (fileName && (fileName == 'noname' || fileName.startsWith('noname.')))
     fileName = null; //WebHare would write 'noname' followed by the extension if the filename was not set. make it clear we didn't have a filename (TODO stop writing 'noname', probably need to rename 'f' for backwards compat with existing data)
 
   return {
-    hash: parseddata.x || "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU",
-    mediaType: parseddata.m || "application/octet-stream",
-    extension: getExtensionForMediaType(parseddata.m || "application/octet-stream"),
+    hash: parseddata.x || EmptyFileHash,
+    mediaType: parseddata.m || DefaultMediaType,
+    extension: getExtensionForMediaType(parseddata.m || DefaultMediaType),
     width: parseddata.w || null,
     height: parseddata.h || null,
     rotation: parseddata.w ? (parseddata.r || 0) : null,
