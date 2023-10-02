@@ -23,6 +23,7 @@ LOADLIB "mod::system/lib/internal/browsers/chrome/coverage.whlib";
 LOADLIB "mod::system/lib/internal/browsers/chrome/page.whlib";
 LOADLIB "mod::system/lib/internal/browsers/chrome/support.whlib";
 
+CONSTANT INTEGER default_test_timeout := 15 * 60 * 1000;
 
 PUBLIC RECORD basetestsettings :=
  [ tags := DEFAULT STRING ARRAY
@@ -202,6 +203,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
                          , sitename := sitename
                          , flaky := ParseXSBoolean(testnode->GetAttribute("flaky"))
                          , xfail := ParseXSBoolean(testnode->GetAttribute("xfail"))
+                         , timeout := ParseXSInt(testnode->GetAttribute("timeout")) ?? default_test_timeout
                          , validationconfig := validationconfig
                          , env := RECORD[]
                          ]);
@@ -272,6 +274,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
                 , flaky := ParseXSBoolean(elt->GetAttribute("flaky"))
                 , runmode := elt->GetAttribute("runmode")
                 , validationconfig
+                , timeout := ParseXSInt(elt->GetAttribute("timeout")) ?? default_test_timeout
                 , env := RECORD[]
                 ]) INTO tests AT END;
           }
@@ -513,7 +516,7 @@ PUBLIC STATIC OBJECTTYPE TestRunnerBase
       AWAIT this->StartSession();
       YIELD [ status := "gotsession" ];
 
-      DATETIME test_timeout := AddTimeToDate(3 * 60 * 1000, GetCurrentDateTime());
+      DATETIME test_timeout := AddTimeToDate(test.timeout, GetCurrentDateTime());
 
       STRING testurl := AddVariableToURL(test.baseurl, "mask", test.testname);
       testurl := AddVariableToURL(testurl, "autostart", "0");
