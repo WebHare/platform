@@ -52,6 +52,7 @@ OBJECT ASYNC FUNCTION BaseReview()
       [ name :=   "test.rtd"
       , type :=   OpenWHFSType("http://www.webhare.net/xmlns/publisher/richdocumentfile")->id
       , title :=  "first title"
+      , publish := FALSE
       ]);
 
   testfiledraft := UpdateDraftPublish(testfile, TRUE);
@@ -71,6 +72,10 @@ OBJECT ASYNC FUNCTION BaseReview()
         , comment :=  "request approval"
         ]
       ], topscreen->actionlist->rows, "ID,NAME,COMMENT");
+  topscreen->actionlist->selection := topscreen->actionlist->rows[0];
+  TestEq(TRUE, testfw->browser->GotoWebPage(TT("previewbrowser")->GetPreviewState().browserurl));
+  TestEqLike("*/webhare_testsuite.site/test.rtd", testfw->browser->QS("#content")->GetAttribute("data-targetobjectpath"));
+  TestEqLike("*/" || testfiledraft->id, testfw->browser->QS("#content")->GetAttribute("data-contentobjectpath"));
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
 
   // Should be visible for other sysops, though

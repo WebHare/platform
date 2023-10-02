@@ -51,7 +51,7 @@ PUBLIC OBJECTTYPE Overview EXTEND DashboardPanelBase
                                  , rowkey := wrd_id
                                  , id := wrd_id
                                  , listrowclasses := this->GetNewsStyle(now, publish_from, publish_until)
-                                 , publishdate_creationdate := publish_from ?? creationdate
+                                 , publishdate_creationdate := publish_from ?? wrd_creationdate
                               FROM newsentries;
 
     // If we've added/edited/deleted some newsitem, broadcast this to all interested clients
