@@ -3,11 +3,13 @@ import * as test from "@webhare/test";
 import { beginWork, commitWork } from "@webhare/whdb";
 import * as whfs from "@webhare/whfs";
 import { WHFSFile } from "@webhare/whfs";
-import { verifyNumSettings } from "./data/whfs-testhelpers";
+import { verifyNumSettings, dumpSettings } from "./data/whfs-testhelpers";
 import { Money } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
 import { ResourceDescriptor, RichDocument, openResource } from "@webhare/services";
 import { createRichDocument } from "@webhare/services/src/rtdbuilder";
+
+void dumpSettings; //don't require us to add/remove the import while debugging
 
 async function testMockedTypes() {
   const builtin_normalfoldertype = await whfs.describeContentType("http://www.webhare.net/xmlns/publisher/normalfolder");
