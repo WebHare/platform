@@ -37,10 +37,13 @@ ASYNC MACRO TestDebugger()
 
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Job Monitor"));
   TT("{list}:*[1/2]")->value := GetProcessInfo().processcode;
+dumpvalue(TT("{list}:*[2/2]")->rows);
 
   // Wait for list of jobs to show up
   FOR (INTEGER i := 0; i < 600 AND NOT RecordExists(TT("{list}:*[2/2]")->rows); i := i + 1)
     AWAIT CreateSleepPromise(100);
+dumpvalue(TT("{list}:*[2/2]")->rows);
+dumpvalue(GetCurrentGroupId());
 
   STRING job_rowkey := SELECT AS STRING rowkey FROM TT("{list}:*[2/2]")->rows WHERE rowkey != GetCurrentGroupId();
   TT("{list}:*[2/2]")->value := job_rowkey;
