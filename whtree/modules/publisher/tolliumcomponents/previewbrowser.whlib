@@ -197,6 +197,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       RETURN DEFAULT RECORD;
 
     this->currenturl := "";
+    BOOLEAN ispreview := fileid != usecontentfile AND usecontentfile != 0; //is this a draft preview request?
     RECORD data := [ fileid := fileid
                    ];
 
@@ -322,7 +323,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       }
     }
 
-    IF (NOT generatewidgetpreview AND GetErrorFromPublished(selectedfile.published) = 0 AND NOT GetOncePublishedFromPublished(selectedfile.published))
+    IF (NOT generatewidgetpreview AND NOT ispreview AND GetErrorFromPublished(selectedfile.published) = 0 AND NOT GetOncePublishedFromPublished(selectedfile.published))
     {
       RECORD fileinfo := DescribeContentTypeById(selectedfile.type, [ isfolder := FALSE, mockifmissing := TRUE ]);
       INSERT [ level := 0
@@ -546,6 +547,7 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
     }
 
     this->currenturl := ""; //reset for building new url
+    this->suppressrendering := FALSE;
     this->currentsandbox := TRUE;
 
     RECORD baseinfo;
@@ -571,8 +573,11 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
       ELSE
         previewfile := baseinfo;
 
+
     IF(RecordExists(previewfile) AND previewfile.id != 0)
     {
+      //this->suppressrendering := FALSE; //do not suppress just because the baseurl may be empty (ie unpublished file) which broke the Review/Versioning app for unpublished files. let GetPreviewData re-decide
+
       RECORD previewdata := this->GetPreviewData(previewfile.id, contentfile);
       this->previewfileid := previewdata.fileid;
       this->contentfileid := contentfile;
