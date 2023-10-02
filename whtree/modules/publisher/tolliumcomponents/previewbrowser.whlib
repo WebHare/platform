@@ -576,7 +576,6 @@ PUBLIC STATIC OBJECTTYPE PreviewBrowser EXTEND TolliumFragmentBase
 
     IF(RecordExists(previewfile) AND previewfile.id != 0)
     {
-      //this->suppressrendering := FALSE; //do not suppress just because the baseurl may be empty (ie unpublished file) which broke the Review/Versioning app for unpublished files. let GetPreviewData re-decide
 
       RECORD previewdata := this->GetPreviewData(previewfile.id, contentfile);
       this->previewfileid := previewdata.fileid;
