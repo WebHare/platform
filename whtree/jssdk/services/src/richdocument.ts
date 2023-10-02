@@ -2,14 +2,15 @@ import { HareScriptBlob } from "@webhare/harescript/src/hsblob";
 
 
 class RichDocument {
-  private rawHtml: HareScriptBlob;
-  constructor(rawHtml: HareScriptBlob) {
+  private rawHtml: string | HareScriptBlob;
+
+  constructor(rawHtml: string | HareScriptBlob) {
     this.rawHtml = rawHtml;
   }
 
   // Not sure if this API will stay
   async __getRawHTML() {
-    return await this.rawHtml.text();
+    return typeof this.rawHtml === 'string' ? this.rawHtml : await this.rawHtml.text();
   }
 }
 
