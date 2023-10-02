@@ -342,7 +342,7 @@
     </compositions>
     <body>
       <fileedit composition="row" cellname="data" />
-      <datetime composition="row" cellname="acceptuntil" type="date" emptyvalue="max_datetime" />
+      <datetime composition="row" cellname="acceptuntil" type="date" />
     </body>
     <footer>
       <defaultformbuttons buttons="ok cancel" />

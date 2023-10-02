@@ -3,7 +3,7 @@
 
   <import definitionfile="mod::wrd/data/wrdschemas/authschema.xml" />
 
-  <migration tag="system:disconnect_samltypes" updatefunction="mod::wrd/lib/internal/auth/migrations.whlib#DisconnectSAMLTypes"/>
+  <migration tag="system:updatesaml" updatefunction="mod::wrd/lib/internal/auth/migrations.whlib#UpdateSAML"/>
 
   <object tag="WRD_AUTHDOMAIN_SAMLPROVIDERBASE" title="Authentication domain SAML service base">
     <attributes>
