@@ -1,5 +1,7 @@
 import { WRDAttributeType } from "@mod-wrd/js/internal/types";
+import { HareScriptBlob } from "@webhare/harescript/src/hsblob";
 import { decodeScanData, WHDBResourceDescriptor } from "@webhare/services/src/descriptor";
+import { __RichDocumentInternal } from "@webhare/services/src/richdocument";
 import { WHDBBlobImplementation } from "@webhare/whdb/src/blobs";
 
 export interface WRDAttributeConfiguration_HS {
@@ -90,18 +92,29 @@ interface WrappedJSONFromWRDSetting {
   json: string;
 }
 
-type WrappedFromWRDSetting = WrappedObjectFromWRDSetting | WrappedJSONFromWRDSetting;
+interface WrappedRichDocumentFromWRDSetting {
+  "^$wrdtype": "richdocument";
+  htmltext: HareScriptBlob;
+  embedded: unknown[];
+  links: Array<{ tag: string; linkref: number }>;
+  instances: Array<{ instanceid: string; data: unknown }>;
+}
+
+type WrappedFromWRDSetting = WrappedObjectFromWRDSetting | WrappedJSONFromWRDSetting | WrappedRichDocumentFromWRDSetting;
 
 function buildRichDescriptor(val: WrappedObjectFromWRDSetting) {
   return new WHDBResourceDescriptor(val.size ? new WHDBBlobImplementation(val.id, val.size) : null, { ...decodeScanData(val.scandata), sourceFile: val.fs_object });
 }
 
-function returnWRDObject(value: object) {
-  switch ((value as WrappedFromWRDSetting)["^$wrdtype"]) {
+function returnWRDObject(rawvalue: object) {
+  const value = rawvalue as WrappedFromWRDSetting;
+  switch (value["^$wrdtype"]) {
     case "fileimage":
-      return buildRichDescriptor(value as WrappedObjectFromWRDSetting);
+      return buildRichDescriptor(value);
     case "json":
-      return JSON.parse((value as WrappedJSONFromWRDSetting).json);
+      return JSON.parse((value).json);
+    case "richdocument":
+      return new __RichDocumentInternal(value.htmltext);
     default:
       return value;
   }

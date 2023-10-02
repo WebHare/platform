@@ -54,6 +54,9 @@ class Mutex {
     }
     this.link = null;
   }
+  [Symbol.dispose]() {
+    this.release();
+  }
 }
 
 //Connect, set up IPC port in mutexmanager. TODO: Reuse connections - but this will *also* require us to locally handle mutex conflicts inside our link
@@ -100,7 +103,7 @@ export async function lockMutex(name: string, options?: { timeout: std.WaitPerio
     if (lockresult.status == "timeout" || lockresult.status == "no")
       return null;
     if (lockresult.status == "ok")
-      return await new Mutex(mutexmanager!, name);
+      return new Mutex(mutexmanager!, name);
 
     throw new Error(`Unexpected status '${lockresult.status}' from mutexmanager locking '${name}'`);
   } finally {

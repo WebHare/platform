@@ -9,6 +9,7 @@ import { decodeScanData, ResourceDescriptor, WHDBResourceDescriptor } from "@web
 import { defaultDateTime, makeDateFromParts, maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { decodeHSON } from "@webhare/hscompat/hscompat";
 import { IPCMarshallableRecord } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { RichDocument } from "@webhare/services/src/richdocument";
 
 
 /** Response type for addToQuery. Null to signal the added condition is always false
@@ -1466,8 +1467,6 @@ class WRDDBFileValue extends WHDBResourceAttributeBase { }
 
 class WRDDBImageValue extends WHDBResourceAttributeBase { }
 
-class WRDDBRichDocumentValue extends WHDBResourceAttributeBase { }
-
 export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default, C extends { condition: AllowedFilterConditions; value: unknown } = { condition: AllowedFilterConditions; value: unknown }> extends WRDAttributeValueBase<In, Default, Out, C> {
   throwError(): never {
     throw new Error(`Unimplemented accessor for type ${WRDAttributeType[this.attr.attributetype] ?? WRDBaseAttributeType[this.attr.attributetype]} (tag: ${JSON.stringify(this.attr.tag)})`);
@@ -1534,6 +1533,7 @@ class WRDDBPaymentValue extends WRDAttributeUnImplementedValueBase<unknown, unkn
 class WRDDBStatusRecordValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBAuthenticationSettingsValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
 class WRDDBWHFSLinkValue extends WRDAttributeUnImplementedValueBase<unknown, unknown, unknown> { }
+class WRDDBRichDocumentValue extends WRDAttributeUnImplementedValueBase<RichDocument | null, RichDocument | null, RichDocument | null> { }
 
 /// Map for all attribute types that have no options
 type SimpleTypeMap<Required extends boolean> = {

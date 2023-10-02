@@ -3485,12 +3485,14 @@ STATIC OBJECTTYPE WRDDBRichDocumentValue EXTEND WRDDBIncomparableValue
 <
   OBJECT linkgetter;
   OBJECT whfsmapper;
+  BOOLEAN jsmode;
 
   MACRO NEW(OBJECT type, RECORD attr, RECORD options)
   : WRDDBIncomparableValue(type, attr)
   {
     this->linkgetter := options.linkgetter;
     this->whfsmapper := options.whfsmapper;
+    this->jsmode := options.jsmode;
   }
 
   PUBLIC UPDATE VARIANT FUNCTION GetDefaultValue()
@@ -3507,7 +3509,11 @@ STATIC OBJECTTYPE WRDDBRichDocumentValue EXTEND WRDDBIncomparableValue
       INSERT entity_settings[i] INTO rows AT END;
     }
 
-    RETURN ReadWRDRichDocument(rows, this->linkgetter, this->whfsmapper);
+    RECORD retval := ReadWRDRichDocument(rows, this->linkgetter, this->whfsmapper);
+    IF (this->jsmode)
+      retval := CELL[ "^$wrdtype" := "richdocument", ...retval ];
+
+    RETURN retval;
   }
 
   PUBLIC UPDATE MACRO RequestNeededColumns(OBJECT query, STRING settings_source)

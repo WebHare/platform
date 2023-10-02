@@ -1,0 +1,17 @@
+<?wh
+
+LOADLIB "wh::files.whlib";
+LOADLIB "wh::filetypes/richdocument.whlib";
+
+LOADLIB "mod::wrd/lib/api.whlib";
+
+
+PUBLIC MACRO SetTestRichDocumentField(STRING wrdschemaname, INTEGER person, STRING html)
+{
+  OBJECT myrichdoc := NEW RichDocument;
+  myrichdoc->ImportFromRecord([ htmltext := StringToBlob(html) ]);
+
+  OpenWRDSchema(wrdschemaname)->^wrd_person->UpdateEntity(person,
+      [ richie := myrichdoc->ExportAsRecord()
+      ]);
+}
