@@ -81,6 +81,36 @@ export const codecs: { [key: string]: TypeCodec } = {
       return parseFloat(settings[0]?.setting) || 0;
     }
   },
+  "whfsRef": {
+    encoder: (value: unknown) => {
+      if (typeof value !== "number")
+        throw new Error(`Incorrect type. Wanted number, got '${typeof value}'`);
+
+      return value ? { fs_object: value } : null;
+    },
+    decoder: (settings: FSSettingsRow[]) => {
+      return settings[0]?.fs_object || null;
+    }
+  },
+  "whfsRefArray": {
+    encoder: (value: unknown) => {
+      if (!Array.isArray(value))
+        throw new Error(`Incorrect type. Wanted array, got '${typeof value}'`);
+
+      const settings: Array<Partial<FSSettingsRow>> = [];
+      for (const val of value) {
+        if (typeof val !== "number")
+          throw new Error(`Incorrect type. Wanted number, got '${typeof val}'`);
+        if (!val)
+          continue;
+        settings.push({ fs_object: val });
+      }
+      return settings;
+    },
+    decoder: (settings: FSSettingsRow[]) => {
+      return settings.map(s => s.fs_object).filter(s => s !== null);
+    }
+  },
   "dateTime": {
     encoder: (value: unknown) => {
       if (value === null) //we accept nulls in datetime fields

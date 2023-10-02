@@ -50,6 +50,7 @@ async function testInstanceData() {
 
   const tmpfolder = await getTestSiteTemp();
   const testfile: WHFSFile = await tmpfolder.createFile("testfile.txt");
+  const fileids = [tmpfolder.id, testfile.id];
 
   const testtype = whfs.openType("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype");
   test.eqProps({ int: 0, yesNo: false }, await testtype.get(testfile.id));
@@ -77,15 +78,17 @@ async function testInstanceData() {
     aFloat: 1.5,
     aDateTime: new Date("2023-09-28T21:04:35Z"),
     url: "http://www.webhare.com",
-    aRecord: { x: 42, y: 43, MixEdCaSe: 44, my_money: Money.fromNumber(4.5) }
+    aRecord: { x: 42, y: 43, MixEdCaSe: 44, my_money: Money.fromNumber(4.5) },
+    myWhfsRef: testfile.id,
+    myWhfsRefArray: fileids
   });
 
-  await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 7);
+  await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 10);
 
   await testtype.set(testfile.id, {
     strArray: ["a", "b", "c"]
   });
-  await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 10);
+  await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 13);
 
   test.eqProps({
     int: 20,
@@ -95,7 +98,9 @@ async function testInstanceData() {
     aDateTime: new Date("2023-09-28T21:04:35Z"),
     strArray: ["a", "b", "c"],
     url: "http://www.webhare.com",
-    aRecord: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) }
+    aRecord: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) },
+    myWhfsRef: testfile.id,
+    myWhfsRefArray: fileids
   }, await testtype.get(testfile.id));
 
   //Test files
@@ -103,7 +108,7 @@ async function testInstanceData() {
   await testtype.set(testfile.id, {
     blub: goldfish
   });
-  await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 11);
+  await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 14);
 
   const returnedGoldfish = (await testtype.get(testfile.id)).blub as ResourceDescriptor;
   test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", returnedGoldfish.hash);
@@ -115,7 +120,7 @@ async function testInstanceData() {
     rich: inRichdoc
   });
 
-  await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 12);
+  await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 15);
 
   const returnedRichdoc = (await testtype.get(testfile.id)).rich as RichDocument;
   test.eq(inRichdocHTML, await returnedRichdoc.__getRawHTML());
@@ -137,7 +142,9 @@ async function testInstanceData() {
     a_date_time: new Date("2023-09-28T21:04:35Z"),
     str_array: ["a", "b", "c"],
     url: "http://www.webhare.com",
-    a_record: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) }
+    a_record: { x: 42, y: 43, mixedcase: 44, my_money: Money.fromNumber(4.5) },
+    my_whfs_ref: testfile.id,
+    my_whfs_ref_array: fileids
   }, val);
 
   test.eq(returnedGoldfish.mediaType, val.blub.mimetype);

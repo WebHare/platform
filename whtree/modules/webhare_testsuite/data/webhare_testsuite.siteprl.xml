@@ -219,6 +219,8 @@
         <integer name="sub_int_member" />
       </array>
     </array>
+    <whfsref name="my_whfs_ref" />
+    <whfsrefarray name="my_whfs_ref_array" />
   </contenttype>
 
   <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1">
