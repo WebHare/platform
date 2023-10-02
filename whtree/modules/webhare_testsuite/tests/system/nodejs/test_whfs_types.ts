@@ -6,7 +6,8 @@ import { WHFSFile } from "@webhare/whfs";
 import { verifyNumSettings } from "./data/whfs-testhelpers";
 import { Money } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
-import { ResourceDescriptor, openResource } from "@webhare/services";
+import { ResourceDescriptor, RichDocument, openResource } from "@webhare/services";
+import { createRichDocument } from "@webhare/services/src/rtdbuilder";
 
 async function testMockedTypes() {
   const builtin_normalfoldertype = await whfs.describeContentType("http://www.webhare.net/xmlns/publisher/normalfolder");
@@ -107,6 +108,18 @@ async function testInstanceData() {
   const returnedGoldfish = (await testtype.get(testfile.id)).blub as ResourceDescriptor;
   test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", returnedGoldfish.hash);
 
+  //Test rich documents
+  const inRichdoc = await createRichDocument([{ blockType: "p", contents: "Hello, World!" }]);
+  const inRichdocHTML = await inRichdoc.__getRawHTML();
+  await testtype.set(testfile.id, {
+    rich: inRichdoc
+  });
+
+  await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 12);
+
+  const returnedRichdoc = (await testtype.get(testfile.id)).rich as RichDocument;
+  test.eq(inRichdocHTML, await returnedRichdoc.__getRawHTML());
+
   // await dumpSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype");
 
   //Does HareScript agree with us ?
@@ -130,6 +143,9 @@ async function testInstanceData() {
   test.eq(returnedGoldfish.mediaType, val.blub.mimetype);
   test.eq(returnedGoldfish.hash, val.blub.hash);
   test.eq(Buffer.from(await returnedGoldfish.arrayBuffer()).toString("base64"), (await val.blub.data.arrayBuffer()).toString("base64"));
+
+  test.eq(inRichdocHTML, (await val.rich.htmltext.arrayBuffer()).toString("utf8"));
+
   //Test validation
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { int: "a" }));
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { yesNo: "a" }));

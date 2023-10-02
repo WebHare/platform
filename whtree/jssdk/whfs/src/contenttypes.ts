@@ -3,7 +3,7 @@ import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { openWHFSObject } from "./objects";
 import { CSPContentType, getCachedSiteProfiles } from "./siteprofiles";
 import { isReadonlyWHFSSpace } from "./support";
-import { MemberType, codecs } from "./codecs";
+import { EncoderAsyncReturnValue, EncoderBaseReturnValue, EncoderReturnValue, MemberType, codecs } from "./codecs";
 
 export type ContentTypeMetaTypes = "contentType" | "fileType" | "folderType";
 export const unknownfiletype = "http://www.webhare.net/xmlns/publisher/unknownfile";
@@ -202,7 +202,6 @@ class RecursiveSetter {
       if (!matchmember)  //TODO orphan check, parent path, DidYouMean
         throw new Error(`Trying to set a value for the non-existing cell '${key}'`);
 
-
       const thismembersettings = this.cursettings.filter(_ => _.parent === elementSettingId && _.fs_member === matchmember.id);
 
       try {
@@ -213,14 +212,16 @@ class RecursiveSetter {
         if (!codecs[matchmember.type])
           throw new Error(`Unsupported type ${matchmember.type}`);
 
-        const settings = codecs[matchmember.type].encoder(value);
-        if (settings)
-          if (Array.isArray(settings))
-            mynewsettings.push(...settings);
-          else if ((settings as Promise<Partial<FSSettingsRow>>).then)
-            mynewsettings.push(await settings);
-          else
-            mynewsettings.push(settings as Partial<FSSettingsRow>);
+        const encodedsettings: EncoderReturnValue = codecs[matchmember.type].encoder(value);
+        const finalsettings: EncoderBaseReturnValue =
+          (encodedsettings as EncoderAsyncReturnValue)?.then
+            ? await encodedsettings as EncoderBaseReturnValue
+            : encodedsettings as EncoderBaseReturnValue;
+
+        if (Array.isArray(finalsettings))
+          mynewsettings.push(...finalsettings);
+        else if (finalsettings)
+          mynewsettings.push(finalsettings);
 
         for (let i = 0; i < mynewsettings.length; ++i) {
           if (i < thismembersettings.length)

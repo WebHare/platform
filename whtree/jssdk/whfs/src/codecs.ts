@@ -4,6 +4,8 @@ import { Money } from "@webhare/std";
 import { dateToParts, encodeHSON, decodeHSON, makeDateFromParts } from "@webhare/hscompat";
 import { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { ResourceDescriptor, WHDBResourceDescriptor, addMissingScanData, decodeScanData } from "@webhare/services/src/descriptor";
+import { RichDocument } from "@webhare/services";
+import { __RichDocumentInternal } from "@webhare/services/src/richdocument";
 
 export type MemberType = "string" // 2
   | "dateTime" //4
@@ -26,8 +28,9 @@ export type MemberType = "string" // 2
 
 type FSSettingsRow = Selectable<WebHareDB, "system.fs_settings">;
 
-type EncoderAsyncReturnValue = Promise<Partial<FSSettingsRow>>;
-type EncoderReturnValue = Partial<FSSettingsRow> | Array<Partial<FSSettingsRow>> | Promise<Partial<FSSettingsRow>> | null;
+export type EncoderBaseReturnValue = Partial<FSSettingsRow> | Array<Partial<FSSettingsRow>> | null;
+export type EncoderAsyncReturnValue = Promise<EncoderBaseReturnValue>;
+export type EncoderReturnValue = EncoderBaseReturnValue | EncoderAsyncReturnValue;
 
 interface TypeCodec {
   encoder(value: unknown): EncoderReturnValue;
@@ -113,6 +116,39 @@ export const codecs: { [key: string]: TypeCodec } = {
   },
   "record": {
     //FIXME Overlong record support (TODO record automatically triggers blob download and parsing, so any future "JSON" type should be smarter than that)
+    /*
+              IF (NOT CanCastTypeTo(TYPEID(newval), TYPEID(RECORD)))
+                THROW NEW WHFSException("OTHER","Incorrect type for field '" || memberrec.name || "' in type " || this->namespace ||
+                    ", got type '" || GetTypeName(TYPEID(newval)) || "', but wanted 'RECORD'");
+
+              IF (NOT RecordExists(newval))
+              {
+                killsettings := killsettings CONCAT current_member_settings;
+              }
+              ELSE
+              {
+                STRING data := EncodeHSON(newval);
+                RECORD newset;
+
+                IF (Length(data) <= 4096)
+                  newset := [ setting := data, blobdata := DEFAULT BLOB ];
+                ELSE
+                  newset := [ setting := "", blobdata := StringToBlob(data) ];
+
+                IF (Length(current_member_settings) = 1)
+                {
+                  UPDATE system.fs_settings SET setting := newset.setting, blobdata := newset.blobdata WHERE id = current_member_settings[0].id;
+                }
+                ELSE
+                {
+                  killsettings := killsettings CONCAT current_member_settings;
+
+                  INTEGER newid := MakeAutoNumber(system.fs_settings, "id");
+                  INSERT INTO system.fs_settings(id, fs_instance, fs_member, setting, blobdata, parent)
+                         VALUES(newid, instanceid, memberrec.id, newset.setting, newset.blobdata, cursetting);
+                }
+
+                */
     encoder: (value: unknown) => {
       if (typeof value !== "object") //NOTE 'null' is an object too and acceptable here
         throw new Error(`Incorrect type. Wanted an object`);
@@ -177,6 +213,32 @@ export const codecs: { [key: string]: TypeCodec } = {
         return null;
 
       return new WHDBResourceDescriptor(settings[0].blobdata, decodeScanData(settings[0].setting));
+    }
+  },
+  "richDocument": {
+    encoder: (value: RichDocument | null) => {
+      if (typeof value !== "object") //TODO test for an actual RichDocument
+        throw new Error(`Incorrect type. Wanted a RichDocument, got '${typeof value}'`);
+      if (!value)
+        return null;
+
+      //Return the actual work as a promise, so we can wait for uploadBlob
+      return (async (): EncoderAsyncReturnValue => {
+        const settings: Array<Partial<FSSettingsRow>> = [];
+        settings.push({
+          setting: "RD1",
+          ordering: 0,
+          blobdata: await uploadBlob(await (value as RichDocument).__getRawHTML()),
+        });
+
+        return settings;
+      })();
+    },
+    decoder: (settings: FSSettingsRow[]) => {
+      if (!settings.length || !settings[0].blobdata)
+        return null;
+
+      return new __RichDocumentInternal(settings[0].blobdata);
     }
   }
 };
