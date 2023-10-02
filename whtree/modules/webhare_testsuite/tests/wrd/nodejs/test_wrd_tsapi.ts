@@ -7,7 +7,9 @@ import { ComparableType, compare } from "@webhare/hscompat/algorithms";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
 
 import { System_Usermgmt_WRDAuthdomainSamlIdp } from "@mod-system/js/internal/generated/wrd/webhare";
-import { ResourceDescriptor } from "@webhare/services";
+import { ResourceDescriptor, toResourcePath } from "@webhare/services";
+import { loadlib } from "@webhare/harescript/src/contextvm";
+import { flags } from "@webhare/env/src/env";
 
 type TestSchema = {
   wrdPerson: {
@@ -326,6 +328,12 @@ async function testNewAPI() {
   test.eq('Hey everybody 2', await filerec.text());
   test.eq('5q1Ql8lEa-yynDB7Gow5Oq4tj3aUhW_fUthcW-Fu0YM', filerec.hash);
 
+  // Set the 'richie' rich document document
+  const testHTML = `<html><head></head><body>\n<p class="normal">blabla</p>\n</body></html>`;
+  await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestRichDocumentField(testSchemaTag, newperson, testHTML);
+  const richrec = (await schema.getFields("wrdPerson", newperson, ["richie"]))!.richie;
+  test.eq(testHTML, await richrec!.__getRawHTML());
+
   // test array & nested record selectors
   {
     await schema.update("wrdPerson", newperson, {
@@ -465,6 +473,8 @@ function testGeneratedWebHareWRDAPI() {
   test.typeAssert<test.Assignable<{ organizationName: unknown }, System_Usermgmt_WRDAuthdomainSamlIdp>>();
   test.typeAssert<test.Equals<string, SelectionResultRow<System_Usermgmt_WRDAuthdomainSamlIdp, "organizationName">>>();
 }
+
+flags["wrd:usewasmvm"] = true;
 
 test.run([
   testSupportAPI,

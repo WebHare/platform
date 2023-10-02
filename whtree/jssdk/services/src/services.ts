@@ -15,6 +15,7 @@ export { type ResourceDescriptor } from "./descriptor";
 export { lockMutex, type Mutex } from "./mutex";
 export { TaskRequest, TaskResponse, scheduleTask, scheduleTimedTask } from "./tasks";
 export { readRegistryKey } from "./registry";
+export { type RichDocument } from "./richdocument";
 
 /** Promise that resolves as soon as the WebHare configuration is available
  * @deprecated The configuration is now always available

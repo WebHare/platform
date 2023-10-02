@@ -1,4 +1,4 @@
-<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="*.shtml test_wrdcomponents.whlib data">
+<group xmlns="http://www.webhare.net/xmlns/system/testinfo" ignoremasks="tsapi_support.whlib">
   <test script="test_wrd_api.ts" />
   <test script="test_wrd_types.ts" />
   <test script="test_wrd_tsapi.ts" />
