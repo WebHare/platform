@@ -146,8 +146,7 @@ export class AuthProvider<WRDSchemaType> {
     if (!settings)
       throw new Error("WRD_SETTINGS not found");
 
-    // @ts-ignore the cast are needed because TS thinks setting can be '{}' ?
-    return { issuer: settings.issuer as string, signingKeys: settings.signingKeys as Array<{ privateKey: JsonWebKey; keyId: string }> };
+    return { issuer: settings.issuer, signingKeys: settings.signingKeys };
   }
 
   async getPublicJWKS(): Promise<JWKS> {

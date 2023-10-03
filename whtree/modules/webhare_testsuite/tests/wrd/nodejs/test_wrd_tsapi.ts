@@ -5,8 +5,8 @@ import { Combine, IsGenerated, IsNonUpdatable, IsRequired, WRDAttr, WRDAttribute
 import { WRDSchema, listSchemas } from "@webhare/wrd";
 import { ComparableType, compare } from "@webhare/hscompat/algorithms";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
-
-import { System_Usermgmt_WRDAuthdomainSamlIdp } from "@mod-system/js/internal/generated/wrd/webhare";
+import { JsonWebKey } from "node:crypto";
+import { wrdTestschemaSchema, System_Usermgmt_WRDAuthdomainSamlIdp } from "@mod-system/js/internal/generated/wrd/webhare";
 import { ResourceDescriptor, toResourcePath } from "@webhare/services";
 import { loadlib } from "@webhare/harescript/src/contextvm";
 import { flags } from "@webhare/env/src/env";
@@ -214,6 +214,10 @@ function testSupportAPI() {
   testTag("WRD_RIGHTENTITY", "wrdRightEntity");
 }
 
+interface TestRecordDataInterface {
+  x: string;
+}
+
 async function testNewAPI() {
   type Combined = Combine<[TestSchema, SchemaUserAPIExtension, CustomExtensions]>;
   const schema = new WRDSchema<Combined>(testSchemaTag);//extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>();
@@ -230,10 +234,6 @@ async function testNewAPI() {
      'Type 'TestRecordDataInterface' is not assignable to type '{ [x: string]: IPCMarshallableData; }'.
       Index signature for type 'string' is missing in type 'TestRecordDataInterface'.'
   */
-  interface TestRecordDataInterface {
-    x: string;
-  }
-
   const testrecorddata: TestRecordDataInterface = { x: "FourtyTwo" } as TestRecordDataInterface;
 
   const firstperson = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", whuserUnit: unit_id, testJson: { mixedCase: [1, "yes!"] }, testJsonRequired: { mixedCase: [1, "yes!"] } });
@@ -261,18 +261,6 @@ async function testNewAPI() {
       { wrdFirstName: "wrdFirstName", lastname: "wrdLastName" }));
 
   test.eq({ wrdFirstName: "first", lastname: "lastname" }, await schema.getFields("wrdPerson", selectres[0].id, { wrdFirstName: "wrdFirstName", lastname: "wrdLastName" }));
-
-  const f = false;
-  if (f) {
-    // @ts-expect-error -- Should only allow string
-    test.eq([secondperson], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", ["a"]).execute());
-
-    // @ts-expect-error -- Should only allow number array
-    test.eq([secondperson], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdId", "in", 6).execute());
-
-    // @ts-expect-error -- Not allowed to insert null into testJsonRequired
-    await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: null });
-  }
 
   await whdb.beginWork();
   await schema.delete("wrdPerson", firstperson);
@@ -393,8 +381,47 @@ async function testNewAPI() {
     // @ts-expect-error -- wrdLeftEntity and wrdRightEntity must be numbers
     await schema.insert("personorglink", { wrdLeftEntity: null, wrdRightEntity: null });
   }
-
   await whdb.commitWork();
+}
+
+async function testTSTypes() {
+  type Combined = Combine<[TestSchema, SchemaUserAPIExtension, CustomExtensions]>;
+  const schema = new WRDSchema<Combined>(testSchemaTag);//extendWith<SchemaUserAPIExtension>().extendWith<CustomExtensions>();
+  const unit_id = 0;
+  const testrecorddata = null as any;
+
+  const f = false;
+  if (f) {
+    // @ts-expect-error -- Should only allow string
+    test.eq([secondperson], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdFirstName", "=", ["a"]).execute());
+
+    // @ts-expect-error -- Should only allow number array
+    test.eq([secondperson], await schema.selectFrom("wrdPerson").select("wrdId").where("wrdId", "in", 6).execute());
+
+    // @ts-expect-error -- Should give an error when inserting wrongly typed data
+    await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { wrong: true } });
+
+    // @ts-expect-error -- Not allowed to insert null into testJsonRequired
+    await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: null });
+
+    // Test if wrdSettings.signingKeys[].privateKey has type `JSONWebKey`
+    const settingid = await wrdTestschemaSchema.search("wrdSettings", "wrdTag", "WRD_SETTINGS");
+    if (settingid) {
+      await wrdTestschemaSchema.update("wrdSettings", settingid, {
+        signingKeys: [{ availableSince: new Date, keyId: "key", privateKey: {} as JsonWebKey }]
+      });
+      await wrdTestschemaSchema.insert("wrdSettings", {
+        // @ts-expect-error -- Wrong type
+        signingKeys: [{ availableSince: new Date, keyId: "key", privateKey: { wrong: true, x: 0 } }]
+      });
+      await wrdTestschemaSchema.update("wrdSettings", settingid, {
+        // @ts-expect-error -- Wrong type
+        signingKeys: [{ availableSince: new Date, keyId: "key", privateKey: { wrong: true, x: 0 } }]
+      });
+      const signingKeys = await wrdTestschemaSchema.getFields("wrdSettings", settingid, "signingKeys");
+      test.typeAssert<test.Equals<JsonWebKey, (typeof signingKeys & object)[0]["privateKey"]>>();
+    }
+  }
 }
 
 async function testComparisons() {
@@ -485,6 +512,7 @@ flags["wrd:usewasmvm"] = true;
 
 test.run([
   testSupportAPI,
+  testTSTypes,
   createWRDTestSchema,
   testNewAPI,
   testComparisons,
