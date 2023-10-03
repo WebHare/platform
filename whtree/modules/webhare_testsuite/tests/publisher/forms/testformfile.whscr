@@ -638,7 +638,8 @@ ASYNC MACRO TestFormApp()
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Yes"));
   TestEq(4, Length(TT("results")->rows));
 
-  AWAIT ExpectScreenChange(+1, PTR TTClick(":Delete all"));
+  AWAIT ExpectScreenChange(+1, PTR TTClick(":Delete all results"));
+  TT("deleteall")->value := TRUE;
   AWAIT ExpectScreenChange(-1, PTR TTClick(":Yes"));
   TestEq(0, Length(TT("results")->rows));
 

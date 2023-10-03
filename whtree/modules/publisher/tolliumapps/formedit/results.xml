@@ -95,4 +95,24 @@
     </body>
   </screen>
 
+  <screen name="confirmdeleteall" gid=".confirmdeleteall">
+    <actions>
+      <action name="yes" onexecute="submit" tid="~yes">
+        <enableon source="deleteall" min="1" />
+      </action>
+    </actions>
+
+    <body layout="left">
+      <text name="confirmdeleteallresults" title="" />
+      <checkbox name="deleteall" labeltid=".yesdeleteall" title="" />
+    </body>
+
+    <footer>
+      <line layout="right">
+        <button action="yes" />
+        <button tid="~no" tolliumresult="no" />
+      </line>
+    </footer>
+  </screen>
+
 </screens>

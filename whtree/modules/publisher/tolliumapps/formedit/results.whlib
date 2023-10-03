@@ -27,6 +27,7 @@ PUBLIC STATIC OBJECTTYPE Results EXTEND TolliumScreenBase
   OBJECT exporter;
   STRING language;
   STRING ARRAY boolean_columns;
+  INTEGER numresults;
 
   // ---------------------------------------------------------------------------
   //
@@ -110,7 +111,7 @@ PUBLIC STATIC OBJECTTYPE Results EXTEND TolliumScreenBase
 
   MACRO DoDeleteAllResults()
   {
-    IF(this->RunSimpleScreen("verify", this->GetTid(".confirmdeleteallresults")) != "yes")
+    IF(this->RunScreen(Resolve("results.xml#confirmdeleteall"), [ numresults := this->numresults ]) != "ok")
       RETURN;
 
     OBJECT work := this->BeginWork([validate := OBJECT[]]);
@@ -231,7 +232,7 @@ PUBLIC STATIC OBJECTTYPE Results EXTEND TolliumScreenBase
         ELSE
         {
           work->Finish();
-          this->RunSimpleScreen("info", this->GetTid(".importresults", ToString(result.numresults)));
+          this->RunSimpleScreen("info", this->GetTid(".importresults", ToString(this->numresults)));
         }
       }
     }
@@ -286,7 +287,8 @@ PUBLIC STATIC OBJECTTYPE Results EXTEND TolliumScreenBase
       rows := SELECT AS RECORD ARRAY CellInsert(CellDelete(rows, col), col, GetCell(rows, col) ? 1 : 2) FROM rows;
 
     ^results->rows := rows;
-    ^numresults->value := ToString(Length(rows));
+    this->numresults := Length(rows);
+    ^numresults->value := ToString(this->numresults);
   }
 >;
 
@@ -345,5 +347,13 @@ PUBLIC STATIC OBJECTTYPE SingleResult EXTEND TolliumScreenBase
       RECORD meta := DecodeScanData(attachments[0].metadata);
       filereceiver->SendFile(attachments[0].file, meta.mimetype, meta.filename);
     }
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE ConfirmDeleteAll EXTEND TolliumScreenBase
+<
+  MACRO Init(RECORD data)
+  {
+    ^confirmdeleteallresults->value := this->GetTid(".confirmdeleteallresults", ToString(data.numresults));
   }
 >;
