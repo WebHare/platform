@@ -1,10 +1,10 @@
 import { HareScriptBlob } from "@webhare/harescript/src/hsblob";
-
+import { WHDBBlob } from "@webhare/whdb";
 
 class RichDocument {
-  private rawHtml: string | HareScriptBlob;
+  private rawHtml;
 
-  constructor(rawHtml: string | HareScriptBlob) {
+  constructor(rawHtml: string | HareScriptBlob | WHDBBlob) {
     this.rawHtml = rawHtml;
   }
 

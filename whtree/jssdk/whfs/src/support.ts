@@ -57,3 +57,11 @@ export function isPublish(published: number) {
 export function formatPathOrId(path: number | string) {
   return typeof path === "number" ? `#${path}` : `'${path}'`;
 }
+
+export function isReadonlyWHFSSpace(path: string) {
+  path = path.toUpperCase();
+  return path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS/SNAPSHOTS/") ||
+    path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONS/") ||
+    path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-VERSIONARCHIVE/") ||
+    path.startsWith("/WEBHARE-PRIVATE/SYSTEM/WHFS-DRAFTS/");
+}

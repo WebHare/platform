@@ -199,26 +199,28 @@
   <!-- generic test types -->
   <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/generictesttype">
     <string name="str" />
-    <string name="emptystr" />
+    <string name="empty_str" />
     <integer name="int" />
     <file name="blub" />
     <money name="price" />
     <richdocument name="rich" />
-    <boolean name="yesno" />
-    <float name="afloat" />
-    <datetime name="adatetime" />
-    <instance name="aninstance" />
-    <stringarray name="strarray" />
+    <boolean name="yes_no" />
+    <float name="a_float" />
+    <datetime name="a_date_time" />
+    <instance name="an_instance" />
+    <stringarray name="str_array" />
     <url name="url" />
-    <record name="arecord" />
-    <array name="anarray">
-      <richdocument name="richmember" />
-      <integer name="intmember" />
-      <array name="asubarray">
-        <richdocument name="subrichmember" />
-        <integer name="subintmember" />
+    <record name="a_record" />
+    <array name="an_array">
+      <richdocument name="rich_member" />
+      <integer name="int_member" />
+      <array name="a_sub_array">
+        <richdocument name="sub_rich_member" />
+        <integer name="sub_int_member" />
       </array>
     </array>
+    <whfsref name="my_whfs_ref" />
+    <whfsrefarray name="my_whfs_ref_array" />
   </contenttype>
 
   <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1">

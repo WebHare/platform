@@ -81,38 +81,38 @@ MACRO FindTest()
 
   findtest1->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype",
       [ int := 15
-      , yesno := TRUE
+      , yes_no := TRUE
       ]);
   findtest2->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype",
       [ int := 30
       ]);
   findtest3->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype",
-      [ yesno := TRUE
+      [ yes_no := TRUE
       ]);
   findtest1->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype",
-      [ strarray := [ "a" ]
+      [ str_array := [ "a" ]
       ]);
   findtest2->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype",
-      [ strarray := [ "a", "a" ]
+      [ str_array := [ "a", "a" ]
       ]);
   findtest3->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype",
-      [ strarray := [ "" ]
+      [ str_array := [ "" ]
       ]);
 
   TestThrowsLike("FindObjectsByMemberValue cannot be used to find empty values", PTR ctype->FindObjectsByMemberValue("str", ""));
   TestThrowsLike("FindObjectsByMemberValue cannot be used to find empty values", PTR ctype->FindObjectsByMemberValue("int", 0));
-  TestThrowsLike("FindObjectsByMemberValue cannot be used to find empty values", PTR ctype->FindObjectsByMemberValue("yesno", FALSE));
+  TestThrowsLike("FindObjectsByMemberValue cannot be used to find empty values", PTR ctype->FindObjectsByMemberValue("yes_no", FALSE));
   TestThrowsLike("FindObjectsByMemberValue cannot be used to find values longer than 2048 bytes", PTR ctype->FindObjectsByMemberValue("str", "overlong" || RepeatText("X",2048)));
-  TestThrowsLike("FindObjectsByMemberValue cannot be used to find empty values", PTR ctype->FindObjectsByMemberValue("strarray", ""));
+  TestThrowsLike("FindObjectsByMemberValue cannot be used to find empty values", PTR ctype->FindObjectsByMemberValue("str_array", ""));
 
 //  ABORT(ctype->FindObjectsByMemberValue("int", 15));
 
   TestEq([INTEGER(findtest1->id)], ctype->FindObjectsByMemberValue("int", 15));
   TestEq([INTEGER(findtest2->id)], ctype->FindObjectsByMemberValue("int", 30));
   TestEq(DEFAULT INTEGER ARRAY, ctype->FindObjectsByMemberValue("int", 40));
-  TestEq([INTEGER(findtest1->id), findtest2->id], ctype->FindObjectsByMemberValue("strarray", "a"));
+  TestEq([INTEGER(findtest1->id), findtest2->id], ctype->FindObjectsByMemberValue("str_array", "a"));
 
-  result := SELECT AS INTEGER ARRAY val FROM ToRecordArray(ctype->FindObjectsByMemberValue("yesno", TRUE),"val") ORDER BY val;
+  result := SELECT AS INTEGER ARRAY val FROM ToRecordArray(ctype->FindObjectsByMemberValue("yes_no", TRUE),"val") ORDER BY val;
   TestEq([INTEGER(findtest1->id), findtest3->id], result);
 
   testfw->RollbackWork();
@@ -472,7 +472,7 @@ MACRO TestDirectInstanceData()
   testfw->BeginWork();
   // Update instance
   testfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype",
-      [ aninstance :=
+      [ an_instance :=
           [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance2"
           , str2 := "str2"
           ]
@@ -482,10 +482,10 @@ MACRO TestDirectInstanceData()
   OBJECT whfstype_instance2 := OpenWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/genericinstance2");
 
   RECORD rec := testfile->GetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype");
-  TestEQ(rec.aninstance, GetWHFSInstanceDirect(rec.aninstance.whfssettingid));
+  TestEQ(rec.an_instance, GetWHFSInstanceDirect(rec.an_instance.whfssettingid));
 
-  RECORD irec := SELECT * FROM whfstype_instance2->ListAllInstances() WHERE settingid = rec.aninstance.whfssettingid;
-  TestEQ(rec.aninstance, whfstype_instance2->GetInstanceDataByDirectRef(irec.directref));
+  RECORD irec := SELECT * FROM whfstype_instance2->ListAllInstances() WHERE settingid = rec.an_instance.whfssettingid;
+  TestEQ(rec.an_instance, whfstype_instance2->GetInstanceDataByDirectRef(irec.directref));
 
   // Wrong type
   TestThrowsLike("Setting data with \'WHFSTYPE\' set to the wrong type (expected http://www.webhare.net/xmlns/webhare_testsuite/genericinstance2, got http://www.webhare.net/xmlns/webhare_testsuite/genericinstance3", PTR whfstype_instance2->SetInstanceDataByDirectRef(irec.directref, [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance3" ]));
@@ -494,9 +494,9 @@ MACRO TestDirectInstanceData()
   TestEQ(
       [ str2 :=           "str3"
       , whfsfileid :=     0
-      , whfssettingid :=  rec.aninstance.whfssettingid
+      , whfssettingid :=  rec.an_instance.whfssettingid
       , whfstype :=       "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance2"
-      ], GetWHFSInstanceDirect(rec.aninstance.whfssettingid));
+      ], GetWHFSInstanceDirect(rec.an_instance.whfssettingid));
 
   testfile->SetInstanceData("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype",
       [ rich :=

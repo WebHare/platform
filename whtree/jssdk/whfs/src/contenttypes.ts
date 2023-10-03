@@ -1,15 +1,23 @@
-import { CSPContentType, CSPMember, CSPMemberType, getCachedSiteProfiles } from "./siteprofiles";
+import { Selectable, db, nextVal, sql } from "@webhare/whdb";
+import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
+import { openWHFSObject } from "./objects";
+import { CSPContentType, getCachedSiteProfiles } from "./siteprofiles";
+import { isReadonlyWHFSSpace } from "./support";
+import { EncoderAsyncReturnValue, EncoderBaseReturnValue, EncoderReturnValue, MemberType, codecs } from "./codecs";
 
-export type MemberType = "string" | "datetime" | "file" | "boolean" | "integer" | "float" | "money" | "whfsref" | "array" | "whfsrefarray" | "stringarray" | "richdocument" | "intextlink" | "instance" | "url" | "composeddocument" | "record" | "formcondition";
 export type ContentTypeMetaTypes = "contentType" | "fileType" | "folderType";
 export const unknownfiletype = "http://www.webhare.net/xmlns/publisher/unknownfile";
 export const normalfoldertype = "http://www.webhare.net/xmlns/publisher/normalfolder";
 
 //positioned list to convert database ids:
 const membertypenames: Array<MemberType | null> =
-  [null, null, "string", null, "datetime", "file", "boolean", "integer", "float", "money", null, "whfsref", "array", "whfsrefarray", "stringarray", "richdocument", "intextlink", null, "instance", "url", "composeddocument", "record", "formcondition"];
+  [null, null, "string", null, "dateTime", "file", "boolean", "integer", "float", "money", null, "whfsRef", "array", "whfsRefArray", "stringArray", "richDocument", "intExtLink", null, "instance", "url", "composedDocument", "record", "formCondition"];
+
+type FSSettingsRow = Selectable<WebHareDB, "system.fs_settings">;
+type FSMemberRow = Selectable<WebHareDB, "system.fs_members">;
 
 export interface ContentTypeMember {
+  id: number;
   name: string;
   type: MemberType;
   //children. only if type === array
@@ -18,6 +26,7 @@ export interface ContentTypeMember {
 
 //Here we add properties that we think are useful to support longterm on the `whfsobject.type` property. At some point CSP should perhaps directly store this format
 export interface ContentTypeInfo {
+  id: number | null;
   namespace: string;
   title: string;
   metaType: ContentTypeMetaTypes;
@@ -53,6 +62,7 @@ export function getType(type: string | number, kind?: "fileType" | "folderType")
   return types.find(_ => _.id === type);
 }
 
+/* It would have been nice to get these from the CSP... but the CSP currently has no IDs (and no orphan info)
 function mapMembers(inmembers: CSPMember[]): ContentTypeMember[] {
   const members: ContentTypeMember[] = [];
   for (const member of inmembers) {
@@ -70,6 +80,22 @@ function mapMembers(inmembers: CSPMember[]): ContentTypeMember[] {
   }
   return members;
 }
+*/
+
+function memberNameToJS(tag: string): string {
+  tag = tag.toLowerCase();
+  tag = tag.replaceAll(/_[a-z]/g, c => c[1].toUpperCase());
+  return tag;
+}
+
+function mapRecurseMembers(allrows: FSMemberRow[], parent: number | null = null): ContentTypeMember[] {
+  return allrows.filter(_ => _.parent === parent).map(_ => ({
+    id: _.id,
+    name: memberNameToJS(_.name),
+    type: membertypenames[_.type] as MemberType,
+    children: mapRecurseMembers(allrows, _.id)
+  }));
+}
 
 /** Returns the configuration of a content type
  * @param type - Namespace of the content type
@@ -86,7 +112,6 @@ export async function describeContentType(type: string | number, options: { allo
 export async function describeContentType(type: string | number): Promise<ContentTypeInfo>;
 
 export async function describeContentType(type: string | number, options?: { allowMissing?: boolean; metaType?: "fileType" | "folderType" }): Promise<ContentTypeInfo | null> {
-  //Based on HS DescribeContentTypeById - but we also set up a publicinfo to define a limited/cleaned set of data for the JS WHFSObject.type API
   const matchtype = await getType(type, options?.metaType); //NOTE: This API is currently sync... but isn't promising to stay that way so just in case we'll pretend its async
   if (!matchtype) {
     if (!options?.allowMissing || type === "") //never accept '' (but we do accept '0' as that is historically a valid file type in WebHare)
@@ -100,17 +125,22 @@ export async function describeContentType(type: string | number, options?: { all
 
     return {
       ...fallbacktype,
+      id: null,
       namespace: usenamespace,
       title: ":" + usenamespace,
       members: []
     };
   }
 
+  const allmembers = await db<WebHareDB>().selectFrom("system.fs_members").selectAll().where("fs_type", "=", matchtype.id).execute();
+  const members = mapRecurseMembers(allmembers);
+
   const baseinfo: ContentTypeInfo = {
+    id: matchtype.id || null,
     namespace: matchtype.namespace,
     metaType: matchtype.foldertype ? "folderType" : matchtype.filetype ? "fileType" : "contentType", //TODO add widget rtdtype etc?
     title: matchtype.title,
-    members: mapMembers(matchtype.members)
+    members: members //mapMembers(matchtype.members)
   };
 
   if (matchtype.filetype)
@@ -123,29 +153,224 @@ export async function describeContentType(type: string | number, options?: { all
 
 /** An API offering access to data stored in an instance type.
  */
-export interface InstanceDataAccessor<ContentTypeStructure = unknown> {
+export interface InstanceDataAccessor<ContentTypeStructure extends object = Record<string, unknown>> {
   //TODO Add a 'pick: ' option
   get(id: number): Promise<ContentTypeStructure>;
   set(id: number, data: ContentTypeStructure): Promise<void>;
 }
 
-class WHFSTypeAccessor<ContentTypeStructure = unknown> implements InstanceDataAccessor<ContentTypeStructure> {
+interface InstanceSetOptions {
+  ///How to handle readonly fsobjects. fail (the default), skip or actually updat
+  ifReadOnly?: "fail" | "skip" | "update";
+}
+
+class RecursiveSetter {
+  linkchecked_settingids: number[] = [];
+  toinsert = new Array<Partial<FSSettingsRow>>;
+  //The complete list of settings being updated
+  cursettings;
+
+  constructor(cursettings: readonly FSSettingsRow[]) {
+    this.cursettings = cursettings;
+  }
+
+  async setArray(matchmember: ContentTypeMember, value: unknown, elementSettingId: number | null) {
+    if (!Array.isArray(value))
+      throw new Error(`Incorrect type. Wanted array, got '${typeof value}'`);
+
+    //FIXME reuse existing row ids/databse rows, avoid updating unchanged settings
+    let rownum = 1;
+    for (const row of value) {
+      const rowsettingid = await nextVal("system.fs_settings.id");
+      this.toinsert.push({ id: rowsettingid, fs_member: matchmember.id, parent: elementSettingId, ordering: ++rownum });
+      await this.recurseSetData(matchmember.children!, row, matchmember, rowsettingid);
+    }
+  }
+
+  /** Recursively set the data
+   * @param instanceId - The database instance we're updating
+   * @param members - The set of members at his level
+   * @param data - Data to apply at this level
+   * @param arrayMember - The current array member being updated
+   * @param elementSettingId - The current element being updated  */
+  async recurseSetData(members: ContentTypeMember[], data: object, arrayMember: ContentTypeMember | null, elementSettingId: number | null) {
+    for (const [key, value] of Object.entries(data as object)) {
+      if (key === "fsSettingId") //FIXME though only invalid on sublevels, not toplevel!
+        continue;
+
+      const matchmember = members.find(_ => _.name === key);
+      if (!matchmember)  //TODO orphan check, parent path, DidYouMean
+        throw new Error(`Trying to set a value for the non-existing cell '${key}'`);
+
+      const thismembersettings = this.cursettings.filter(_ => _.parent === elementSettingId && _.fs_member === matchmember.id);
+
+      try {
+        if (matchmember.type === "array")  //Arrays are too complex for the current encoder setup
+          return this.setArray(matchmember, value, elementSettingId);
+
+        const mynewsettings = new Array<Partial<FSSettingsRow>>;
+        if (!codecs[matchmember.type])
+          throw new Error(`Unsupported type ${matchmember.type}`);
+
+        const encodedsettings: EncoderReturnValue = codecs[matchmember.type].encoder(value);
+        const finalsettings: EncoderBaseReturnValue =
+          (encodedsettings as EncoderAsyncReturnValue)?.then
+            ? await encodedsettings as EncoderBaseReturnValue
+            : encodedsettings as EncoderBaseReturnValue;
+
+        if (Array.isArray(finalsettings))
+          mynewsettings.push(...finalsettings);
+        else if (finalsettings)
+          mynewsettings.push(finalsettings);
+
+        for (let i = 0; i < mynewsettings.length; ++i) {
+          if (i < thismembersettings.length)
+            mynewsettings[i].id = thismembersettings[i].id;
+
+          this.toinsert.push({ ...mynewsettings[i], fs_member: matchmember.id, parent: elementSettingId });
+        }
+      } catch (e) {
+        if (e instanceof Error)
+          e.message += ` (while setting '${matchmember.name}')`;
+        throw e;
+      }
+    }
+  }
+
+  async apply(instanceId: number) {
+    const setrows = this.toinsert.map(row => ({ setting: "", ordering: 0, ...row }));
+    const insertrows = [];
+    const currentSettings = new Set<number>([...this.cursettings.map(_ => _.id)]);
+    const reusedSettings = new Set<number>;
+
+    for (const row of setrows)
+      if (row.id && currentSettings.has(row.id)) { //FIXME avoid updating unchanged settings
+        await db<WebHareDB>().updateTable("system.fs_settings").set(row).where("id", "=", row.id).execute();
+        reusedSettings.add(row.id);
+      } else
+        insertrows.push({ ...row, fs_instance: instanceId }); //flush any insertable rows en block
+
+    if (insertrows.length)
+      await db<WebHareDB>().insertInto("system.fs_settings").values(insertrows).execute();
+
+    //Basically we discard all settingIds we didn't reuse
+    const todiscard = this.cursettings.filter(row => !reusedSettings.has(row.id)).map(row => row.id);
+    if (todiscard.length)
+      await db<WebHareDB>().deleteFrom("system.fs_settings").where("id", "in", todiscard).execute();
+  }
+}
+
+class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements InstanceDataAccessor<ContentTypeStructure> {
   private readonly ns: string;
 
   constructor(ns: string) {
     this.ns = ns;
   }
 
-  async get(id: number): Promise<ContentTypeStructure> {
-    throw new Error("Not implemented");
+  private async getCurrentInstanceId(fsobj: number, type: ContentTypeInfo) {
+    return (await db<WebHareDB>()
+      .selectFrom("system.fs_instances").select("id").where("fs_type", "=", type.id).where("fs_object", "=", fsobj).executeTakeFirst())?.id || null;
   }
 
-  async set(id: number, ContentTypeStructure: unknown): Promise<void> {
-    throw new Error("Not implemented");
+  private async getCurrentSettings(instanceId: number, topLevelMembers?: number[]) {
+    let query = db<WebHareDB>()
+      .selectFrom("system.fs_settings")
+      .selectAll()
+      .where("fs_instance", "=", instanceId);
+
+    if (topLevelMembers)
+      query = query.where(qb => qb.where("fs_member", "=", sql`any(${topLevelMembers})`).orWhere("parent", "is not", null));
+
+    const dbsettings = await query.execute();
+    return dbsettings.sort((a, b) => (a.parent || 0) - (b.parent || 0) || a.fs_member - b.fs_member || a.ordering - b.ordering);
+  }
+
+  async recurseGet(cursettings: readonly FSSettingsRow[], members: ContentTypeMember[], arrayMember: ContentTypeMember | null, elementSettingId: number | null) {
+    const retval: { [key: string]: unknown } = {};
+
+    for (const member of members) {
+      const settings = cursettings.filter(_ => _.fs_member === member.id && _.parent === elementSettingId);
+      let setval;
+
+      try {
+        if (member.type === "array") {
+          setval = [];
+          for (const row of settings)
+            setval.push(await this.recurseGet(cursettings, member.children!, member, row.id));
+        } else if (!codecs[member.type]) {
+          setval = { FIXME: member.type }; //FIXME just throw }
+          // throw new Error(`Unsupported type '${member.type}' for member '${member.name}'`);
+        } else {
+          setval = codecs[member.type].decoder(settings);
+        }
+      } catch (e) {
+        if (e instanceof Error)
+          e.message += ` (while getting '${member.name}')`;
+        throw e;
+      }
+      retval[member.name] = setval;
+    }
+
+    return retval;
+  }
+
+  async get(id: number): Promise<ContentTypeStructure> {
+    const descr = await describeContentType(this.ns);
+    const instanceId = await this.getCurrentInstanceId(id, descr);
+    const cursettings = instanceId ? await this.getCurrentSettings(instanceId) : [];
+    return await this.recurseGet(cursettings, descr.members, null, null) as ContentTypeStructure;
+  }
+
+  async set(id: number, data: ContentTypeStructure, options?: InstanceSetOptions): Promise<void> {
+    const descr = await describeContentType(this.ns);
+    if (!descr.id)
+      throw new Error(`You cannot set instances of type '${this.ns}'`);
+    const objinfo = await openWHFSObject(0, id, undefined, false, "setInstanceData");
+    if (options?.ifReadOnly !== 'update' && isReadonlyWHFSSpace(objinfo?.whfsPath)) {
+      if (options?.ifReadOnly !== 'skip') //ie "fail"
+        throw new Error(`Attempting to update instance data on non existing file #${id} `);
+      return;
+    }
+
+    let instanceId = await this.getCurrentInstanceId(id, descr);
+
+    //TODO bulk insert once we've prepared all settings
+    const keysToSet = Object.keys(data);
+    const topLevelMembers = descr.members.filter(_ => keysToSet.includes(_.name)).map(_ => _.id);
+    const cursettings = instanceId && topLevelMembers.length ? await this.getCurrentSettings(instanceId, topLevelMembers) : [];
+
+    const setter = new RecursiveSetter(cursettings);
+    await setter.recurseSetData(descr.members, data, null, null);
+
+    if (!instanceId) //FIXME *only* get an instanceId if we're actually going to store settings
+      instanceId = (await db<WebHareDB>().insertInto("system.fs_instances").values({ fs_type: descr.id, fs_object: id }).returning("id").executeTakeFirstOrThrow()).id;
+
+    await setter.apply(instanceId);
+
+    // if (!(await result).any_nondefault) {
+    /* We may be able to delete the instance completely. Check if settings still remain, there may be
+       members RecurseSetInstanceData didn't know about */
+    // IF(NOT RecordExists(SELECT FROM system.fs_settings WHERE fs_instance = instance LIMIT 1))
+    // {
+    //   DELETE FROM system.fs_instances WHERE id = instance;
+    //   instance:= 0;
+    // }
+    // } else {
+    //FIXME      GetWHFSCommitHandler()->AddLinkCheckedSettings(rec.linkchecked_settingids);
+    // }
+    /* FIXME
+        IF(this->namespace = "http://www.webhare.net/xmlns/publisher/sitesettings") //this might change siteprofile associations or webdesign/webfeatures
+          GetWHFSCommitHandler()->TriggerSiteSettingsCheckOnCommit();
+
+        IF (options.isvisibleedit)
+          GetWHFSCommitHandler()->TriggerEmptyUpdateOnCommit(objectid);
+        ELSE
+          GetWHFSCommitHandler()->TriggerReindexOnCommit(objectid);
+    */
   }
 }
 
-export function openType<ContentTypeStructure = unknown>(ns: string): InstanceDataAccessor<ContentTypeStructure> {
+export function openType<ContentTypeStructure extends object = Record<string, unknown>>(ns: string): InstanceDataAccessor<ContentTypeStructure> {
   //note that as we're sync, we can't actually promise to validate whether the type xists
   return new WHFSTypeAccessor<ContentTypeStructure>(ns);
 }

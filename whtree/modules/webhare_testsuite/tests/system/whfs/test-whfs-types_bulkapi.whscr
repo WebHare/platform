@@ -30,10 +30,10 @@ MACRO TestBulkApi()
       , int := 42
       , blub := wrapblob(StringToBlob("Dit is een test"),"blub")
       , price := 0m
-      , yesno := FALSE
-      , afloat := 0f
-      , adatetime := MakeDatetime(2010,5,4,3,2,1)
-      , aninstance :=
+      , yes_no := FALSE
+      , a_float := 0f
+      , a_date_time := MakeDatetime(2010,5,4,3,2,1)
+      , an_instance :=
           [ whfstype := "http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1"
           , str1 := "str1"
           ]
@@ -55,9 +55,9 @@ MACRO TestBulkApi()
                            ]
                          ]
           ]
-      , anarray :=
-          [ [ intmember := 1
-            , richmember :=
+      , an_array :=
+          [ [ int_member := 1
+            , rich_member :=
                 [ htmltext :=   StringToBlob("htmltext")
                 , embedded :=   [MakeMergedRecord(WrapBlob(StringToBlob("text"),"text.txt"), [ contentid := "cid:1" ])]
                 , instances := [ [ instanceid := "TAG1-1"
@@ -74,9 +74,9 @@ MACRO TestBulkApi()
                                  ]
                                ]
                 ]
-            , asubarray :=
-                  [ [ subintmember := 11
-                    , subrichmember :=
+            , a_sub_array :=
+                  [ [ sub_int_member := 11
+                    , sub_rich_member :=
                         [ htmltext :=   StringToBlob("htmltext")
                         , embedded :=   [MakeMergedRecord(WrapBlob(StringToBlob("text"),"text.txt"), [ contentid := "cid:1" ])]
                         , instances := [ [ instanceid := "TAG11-1"
@@ -96,8 +96,8 @@ MACRO TestBulkApi()
                     ]
                   ]
             ]
-          , [ intmember := 2
-            , richmember :=
+          , [ int_member := 2
+            , rich_member :=
                 [ htmltext :=   StringToBlob("htmltext")
                 , embedded :=   [MakeMergedRecord(WrapBlob(StringToBlob("text"),"text.txt"), [ contentid := "cid:1" ])]
                 , instances := [ [ instanceid := "TAG2-1"
@@ -127,28 +127,28 @@ MACRO TestBulkApi()
       , int := 0
       , blub := DEFAULT RECORD
       , price := 42.42
-      , yesno := TRUE
-      , afloat := 3.5f
+      , yes_no := TRUE
+      , a_float := 3.5f
       , url := "http://example.com/test2"
       ]);
 
   RECORD ARRAY results;
-  results := mytype->GetBulkData([INTEGER(testfile1->id), testfile2->id], ["STR","INT","ADATETIME","ANINSTANCE", "URL", "ANARRAY"]);
+  results := mytype->GetBulkData([INTEGER(testfile1->id), testfile2->id], ["STR","INT","a_date_time","an_instance", "URL", "an_array"]);
 
   TestEq(2,Length(results));
   TestEq(testfile1->id, results[0].id);
   TestEq(testfile2->id, results[1].id);
   TestEq("", results[0].str);
   TestEq(42, results[1].int);
-  TestEq(DEFAULT DATETIME, results[0].adatetime);
-  TestEq(MakeDatetime(2010,5,4,3,2,1), results[1].adatetime);
-  TestEq(DEFAULT RECORD, results[0].aninstance);
-  TestEq("http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1", results[1].aninstance.whfstype);
-  TestEq("str1", results[1].aninstance.str1);
-  TestEq(TRUE, results[1].aninstance.whfssettingid != 0);
-  TestEq(0, results[1].aninstance.whfsfileid);
+  TestEq(DEFAULT DATETIME, results[0].a_date_time);
+  TestEq(MakeDatetime(2010,5,4,3,2,1), results[1].a_date_time);
+  TestEq(DEFAULT RECORD, results[0].an_instance);
+  TestEq("http://www.webhare.net/xmlns/webhare_testsuite/genericinstance1", results[1].an_instance.whfstype);
+  TestEq("str1", results[1].an_instance.str1);
+  TestEq(TRUE, results[1].an_instance.whfssettingid != 0);
+  TestEq(0, results[1].an_instance.whfsfileid);
 
-  TestEq(results[1].aninstance, GetWHFSInstanceDirect(results[1].aninstance.whfssettingid));
+  TestEq(results[1].an_instance, GetWHFSInstanceDirect(results[1].an_instance.whfssettingid));
   TestEq("http://example.com/test2", results[0].url);
   TestEq("", results[1].url);
 
@@ -185,19 +185,19 @@ MACRO TestBulkApi()
   TestEq(2,Length(results[0].rich.instances));
   TestEq('str1', results[0].rich.instances[0].data.str1);
 
-  results := mytype->GetBulkData(INTEGER[ testfile2->id ], [ "ANARRAY"]);
-  TestEq('str1-1', results[0].anarray[0].richmember.instances[0].data.str1);
-  TestEq('str2-3', results[0].anarray[1].richmember.instances[1].data.str3);
-  TestEq('str11-1', results[0].anarray[0].asubarray[0].subrichmember.instances[0].data.str1);
-  TestEq(1, results[0].anarray[0].intmember);
-  TestEq(11, results[0].anarray[0].asubarray[0].subintmember);
+  results := mytype->GetBulkData(INTEGER[ testfile2->id ], [ "an_array"]);
+  TestEq('str1-1', results[0].an_array[0].rich_member.instances[0].data.str1);
+  TestEq('str2-3', results[0].an_array[1].rich_member.instances[1].data.str3);
+  TestEq('str11-1', results[0].an_array[0].a_sub_array[0].sub_rich_member.instances[0].data.str1);
+  TestEq(1, results[0].an_array[0].int_member);
+  TestEq(11, results[0].an_array[0].a_sub_array[0].sub_int_member);
 
-  results := mytype->GetBulkData(INTEGER[ testfile2->id ], [ "ANARRAY.RICHMEMBER", "ANARRAY.ASUBARRAY.SUBRICHMEMBER"]);
-  TestEq('str1-1', results[0].anarray[0].richmember.instances[0].data.str1);
-  TestEq('str2-3', results[0].anarray[1].richmember.instances[1].data.str3);
-  TestEq('str11-1', results[0].anarray[0].asubarray[0].subrichmember.instances[0].data.str1);
-  TestEq(FALSE, CellExists(results[0].anarray[0], "intmember"));
-  TestEq(FALSE, CellExists(results[0].anarray[0].asubarray[0], "subintmember"));
+  results := mytype->GetBulkData(INTEGER[ testfile2->id ], [ "an_array.rich_member", "an_array.A_SUB_ARRAY.SUB_rich_member"]);
+  TestEq('str1-1', results[0].an_array[0].rich_member.instances[0].data.str1);
+  TestEq('str2-3', results[0].an_array[1].rich_member.instances[1].data.str3);
+  TestEq('str11-1', results[0].an_array[0].a_sub_array[0].sub_rich_member.instances[0].data.str1);
+  TestEq(FALSE, CellExists(results[0].an_array[0], "int_member"));
+  TestEq(FALSE, CellExists(results[0].an_array[0].a_sub_array[0], "sub_int_member"));
 
   testfw->RollbackWork();
 }
