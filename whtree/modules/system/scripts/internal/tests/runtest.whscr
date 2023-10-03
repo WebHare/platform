@@ -48,7 +48,6 @@ STRING chromeurl;
 BOOLEAN keepsessions;
 STRING profiling; // "", "cov", "apr"
 BOOLEAN jscoverage;
-INTEGER testtimeout := 15 * 60 * 1000;
 RECORD parsedargs;
 
 BOOLEAN interrupted;
@@ -212,8 +211,8 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
         IF (tries != 0)
           MyPrint(FormatDateTime("[%H:%M:%S.%Q]", GetCurrentDateTime()) || " Retry failed flaky test " || testinfo.testname  || " (try " || tries + 1 || ")\n");
 
-        success := run_in_job ? WaitForPromise(RunTestJob(testinfo.testname, runner, testinfo.arguments, script, testinfo.xfail))
-                              : RunTestProcess(testinfo.testname, runner, arguments, script, testinfo.xfail, testinfo.env);
+        success := run_in_job ? WaitForPromise(RunTestJob(testinfo.testname, runner, testinfo.arguments, script, testinfo.xfail, testinfo.timeout))
+                              : RunTestProcess(testinfo.testname, runner, arguments, script, testinfo.xfail, testinfo.env, testinfo.timeout);
         IF (success OR NOT testinfo.flaky)
           BREAK;
       }
@@ -358,7 +357,7 @@ RECORD FUNCTION RunTest(RECORD testinfo, STRING testmask, BOOLEAN toplevel, STRI
 }
 
 
-BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arguments, STRING script, BOOLEAN xfail, RECORD ARRAY addenv)
+BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arguments, STRING script, BOOLEAN xfail, RECORD ARRAY addenv, INTEGER timeout_msecs)
 {
   BOOLEAN success := TRUE;
 
@@ -400,7 +399,7 @@ BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arg
 
   INTEGER outputstream := delay_output ? CreateStream() : 0;
 
-  DATETIME timeout := AddTimeToDate(testtimeout, GetCurrentDateTime());
+  DATETIME timeout := AddTimeToDate(timeout_msecs, GetCurrentDateTime());
   BOOLEAN is_timeout;
 
   WHILE (TRUE)
@@ -486,7 +485,7 @@ BOOLEAN FUNCTION RunTestProcess(STRING testname, STRING runner, STRING ARRAY arg
   IF (timeout <= GetCurrentDateTime())
   {
     PRINT(delayed_output);
-    Print("Script timed out after " || testtimeout || " ms\n");
+    Print("Script timed out after " || timeout_msecs || " ms\n");
     RETURN FALSE;
   }
 
@@ -520,7 +519,7 @@ RECORD FUNCTION ReturnTimeout(INTEGER timeoutduration)
   RETURN [ done := FALSE, value := [ type := "timeout" ]];
 }
 
-ASYNC FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY arguments, STRING script, BOOLEAN xfail)
+ASYNC FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY arguments, STRING script, BOOLEAN xfail, INTEGER timeout_msecs)
 {
   BOOLEAN success := TRUE;
 
@@ -557,7 +556,7 @@ ASYNC FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY arguments
   BOOLEAN is_timeout;
 
   OBJECT itr := MakeJobAsyncIterator(job, CELL[ outputhandle := joboutput, autoclose := FALSE ]);
-  OBJECT timeout := CreateSleepPromise(testtimeout)->Then(PTR ReturnTimeout);
+  OBJECT timeout := CreateSleepPromise(timeout_msecs)->Then(PTR ReturnTimeout);
 
   FOR (RECORD evt := AWAIT CreatePromiseRace([ timeout, interruptdefer.promise, itr->Next() ]); NOT evt.done; evt := AWAIT CreatePromiseRace([ timeout, interruptdefer.promise, itr->Next() ]))
   {
@@ -605,7 +604,7 @@ ASYNC FUNCTION RunTestJob(STRING testname, STRING runner, STRING ARRAY arguments
   IF (is_timeout)
   {
     PRINT(delayed_output);
-    Print("Script timed out after " || testtimeout || " ms\n");
+    Print("Script timed out after " || timeout_msecs || " ms\n");
     RETURN xfail;
   }
 
@@ -703,7 +702,6 @@ parsedargs := ParseArguments(GetConsoleArguments(),
                                     , [name := "jscoverage", type := "switch"]
                                     , [name := "coverage", type := "switch" ]
                                     , [name := "chromeurl", type := "stringopt"]
-                                    , [name := "timeout", type := "stringopt" ]
                                     , [name := "skip", type := "stringlist"]
                                     , [name := "untilfail", type := "switch"]
                                     , [name := "breakonerror", type := "switch"]
@@ -737,12 +735,6 @@ keepsessions := parsedargs.keepsessions;
 profiling := parsedargs.coverage ? "cov" : "";
 jscoverage := parsedargs.jscoverage;
 BOOLEAN looptests := parsedargs.loop OR parsedargs.untilfail;
-IF(parsedargs.timeout != "")
-{
-  testtimeout := ToInteger(parsedargs.timeout, -1);
-  IF(testtimeout <= 0)
-    SyntaxError("Invalid timeout");
-}
 
 STRING ARRAY requiretags, excludetags;
 FOREVERY(STRING tag FROM Tokenize(parsedargs.tag,','))

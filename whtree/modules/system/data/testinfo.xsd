@@ -58,6 +58,7 @@
             <xs:attribute name="path" /> <!-- FIXME would be cleaner (and allow us to require more) if we replaced this with a <subdir> node instead of overloading <test> -->
             <xs:attribute name="okifmissing" type="xs:boolean" />
             <xs:attribute name="xfail" type="xs:boolean" />
+            <xs:attribute name="timeout" type="xs:integer" />
             <xs:attribute name="script" />
             <xs:attributeGroup ref="TestShared" />
             <xs:attribute name="runmode">

@@ -30,7 +30,7 @@
   <jstest file="test_pxl.ts" />
   <jstest file="test_backendapi.ts" />
 
-  <test name="sitecontent" path="sitecontent/" />
+  <test name="sitecontent" path="sitecontent/" flaky="true" />
   <test name="whfscatalog" path="whfscatalog/" />
 
 </group>

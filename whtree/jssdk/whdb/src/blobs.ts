@@ -5,6 +5,7 @@ import * as path from 'node:path';
 import * as process from 'node:process';
 import { Connection, DataType, DataTypeOIDs, SmartBuffer } from './../vendor/postgresql-client/src/index';
 import { HareScriptBlob } from '@webhare/harescript';
+import { ResourceDescriptor } from '@webhare/services/src/descriptor';
 
 export class WHDBBlobImplementation implements HareScriptBlob {
   readonly databaseid: string;
@@ -52,7 +53,7 @@ export class WHDBBlobImplementation implements HareScriptBlob {
   }
 }
 
-export type ValidBlobSources = string | HareScriptBlob;
+export type ValidBlobSources = string | HareScriptBlob | ResourceDescriptor;
 
 //TODO whdb.ts and we should probably get this from services or some other central configuration
 function getBlobStoragepath() {
@@ -76,11 +77,19 @@ async function getFilePaths(blobpartid: string, createdir: boolean) {
   return { fullpath: paths.fullpath, temppath: path.join(paths.baseblobdir, "tmp", blobpartid) };
 }
 
+const uploadedblobs = new WeakMap<Exclude<ValidBlobSources, string>, WHDBBlobImplementation>();
+
 export async function uploadBlobToConnection(pg: Connection, data: ValidBlobSources): Promise<WHDBBlob | null> {
   if (!data || (typeof data !== "string" && data.size === 0))
     return null;
   if (isWHDBBlob(data)) //reuploading is a no-op
     return data;
+
+  if (typeof data !== "string") {
+    const earlierUpload = uploadedblobs.get(data);
+    if (earlierUpload)
+      return earlierUpload;
+  }
 
   const blobpartid = generateRandomId('hex', 16);
   //EncodeUFS('001') (="AAAB") is our 'storage strategy'. we may support multiple in the future and reserve '000' for 'fully in-database storage'
@@ -96,7 +105,10 @@ export async function uploadBlobToConnection(pg: Connection, data: ValidBlobSour
   const finallength = (await stat(paths.fullpath)).size;
   await pg.query("INSERT INTO webhare_internal.blob(id) VALUES(ROW($1,$2))", { params: [databaseid, finallength] });
 
-  return new WHDBBlobImplementation(databaseid, finallength);
+  const nowUploaded = new WHDBBlobImplementation(databaseid, finallength);
+  if (typeof data !== "string")
+    uploadedblobs.set(data, nowUploaded);
+  return nowUploaded;
 }
 
 export function createPGBlob(pgdata: string): WHDBBlob {
