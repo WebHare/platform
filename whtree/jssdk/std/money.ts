@@ -130,7 +130,7 @@ export class Money {
     this.value = Money.parseParameter(value);
 
     const intvalue = parseInt(this.value);
-    if (intvalue < -900_000_000 || intvalue > 900_000_000)
+    if (!Number.isSafeInteger(intvalue))
       throw new TypeError(`Money value '${value}' is out of range`);
 
     /// Marker for safe type detections across realms - TODO we need to define a more stable marshalling interface
