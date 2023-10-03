@@ -504,7 +504,7 @@ PUBLIC OBJECTTYPE EditConnectedProvider EXTEND TolliumScreenBase
         INSERT certrow INTO certs AT END;
 
         // Try longest accepted certificates first
-        certs := SELECT * FROM certs ORDER BY acceptuntil DESC;
+        certs := SELECT * FROM certs ORDER BY acceptuntil ?? MAX_DATETIME DESC;
       }
     }
 

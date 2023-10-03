@@ -198,7 +198,7 @@ MACRO ValidateSAMLDocument(RECORD data, RECORD ARRAY certificates, RECORD option
   OBJECT laste;
   FOREVERY (RECORD cert FROM certificates)
   {
-    IF (cert.acceptuntil < GetCurrentDateTime())
+    IF ((cert.acceptuntil ?? MAX_DATETIME) < GetCurrentDateTime())
       CONTINUE;
 
     TRY

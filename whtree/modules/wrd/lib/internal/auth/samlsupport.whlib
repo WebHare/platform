@@ -160,7 +160,7 @@ PUBLIC RECORD FUNCTION ParseConnectedSAMLProviderMetadata(OBJECT doc)
         // Create certificate PEM
         STRING cert := EncodeRawPEMFile("CERTIFICATE", DecodeBase64(keyinfo.value));
 
-        INSERT [ data := WrapBlob(StringToBlob(cert), "certificate.crt"), acceptuntil := MAX_DATETIME ] INTO certs AT END;
+        INSERT [ data := WrapBlob(StringToBlob(cert), "certificate.crt"), acceptuntil := DEFAULT DATETIME ] INTO certs AT END;
       }
     }
 
