@@ -26,7 +26,7 @@ async function testQueries() {
   const newblob = await uploadBlob("This is a blob");
   const newblob2 = await uploadBlob(hsblob);
   const newblob3 = await uploadBlob(goudvis);
-  const emptyboxedblob = new HareScriptMemoryBlob; //Represents a HSVM compatbile empty blob
+  const emptyboxedblob = new HareScriptMemoryBlob; //Represents a HSVM compatible empty blob
 
   test.assert(newblob);
   test.assert(newblob2);
