@@ -6,7 +6,7 @@ export { SchemaTypeDefinition } from "./types";
 //import { WRDAttributeConfiguration_HS } from "@webhare/wrd/src/wrdsupport";
 //import { fieldsToHS, tagToHS, outputmapToHS, repairResultSet, tagToJS, repairResultValue, WRDAttributeConfiguration, WRDAttributeConfiguration_HS } from "@webhare/wrd/src/wrdsupport";
 import type { HistoryModeData, WRDType } from "./schema";
-import { getAccessor } from "./accessors";
+import { AnyWRDAccessor, getAccessor } from "./accessors";
 import { AttrRec, EntitySettingsRec, EntitySettingsWHFSLinkRec, /*TypeRec, */selectEntitySettingColumns, selectEntitySettingWHFSLinkColumns } from "./db";
 import { db, sql } from "@webhare/whdb";
 import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
@@ -79,7 +79,7 @@ function createSelectMap<S extends SchemaTypeDefinition, T extends keyof S & str
     if (!attrrec) {
       throw new Error(`Could not find attribute ${field}`);
     }
-    accessors.push({ field, accessor: getAccessor(attrrec, parentAttrMap) });
+    accessors.push({ field, accessor: getAccessor(attrrec, parentAttrMap) as AnyWRDAccessor });
   }
   accessors.sort((a, b) => cmp(a.accessor.attr.id, b.accessor.attr.id) ?? cmp(a.field, b.field));
   const accpos = new Map(accessors.map((a, idx) => [a.field, idx]));
@@ -153,7 +153,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
   }
 
   // add more wheres
-  const afterchecks: Array<typeof wheres[number] & { accessor: ReturnType<typeof getAccessor> }> = [];
+  const afterchecks: Array<typeof wheres[number] & { accessor: AnyWRDAccessor }> = [];
   for (const filter of wheres) {
     const attr = rootAttrMap.get(filter.field);
     if (!attr)
@@ -216,6 +216,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
       .orderBy("entity")
       .orderBy("attribute")
       .orderBy("parentsetting")
+      .orderBy("ordering")
       .execute() :
     [];
 

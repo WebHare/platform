@@ -55,6 +55,7 @@ RECORD ARRAY FUNCTION GetXMLAttributes(OBJECT parent)
       INSERT CELL attrs := GetXMLAttributes(attrnode) INTO attr;
       INSERT CELL multiline := ParseXSBoolean(attrnode->GetAttribute("multiline")) INTO attr;
       INSERT CELL allowedvalues := ParseXSList(attrnode->GetAttribute("allowedvalues")) INTO attr;
+      INSERT CELL typedeclaration := attrnode->GetAttribute("typedeclaration") INTO attr;
 
       IF(attrnode->HasAttribute("checklinks"))
         INSERT CELL checklinks := ParseXSBoolean(attrnode->GetAttribute("checklinks")) INTO attr;

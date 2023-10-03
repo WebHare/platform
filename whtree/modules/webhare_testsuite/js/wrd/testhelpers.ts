@@ -150,6 +150,7 @@ async function setupTheWRDTestSchema(schemaobj: WRDSchema, options: { deleteClos
   await persontype.createAttribute("testEmptyenumarray", { attributeType: WRDAttributeType.EnumArray, title: "Emum attribute", allowedValues: getTypedArray(VariableType.StringArray, []) });
   await persontype.createAttribute("testRecord", { attributeType: WRDAttributeType.Record, title: "Record attribute", allowedValues: getTypedArray(VariableType.StringArray, []) });
   await persontype.createAttribute("testJson", { attributeType: WRDAttributeType.JSON, title: "JSON attribute" });
+  await persontype.createAttribute("testJsonRequired", { attributeType: WRDAttributeType.JSON, title: "JSON attribute", isRequired: true });
   await persontype.createAttribute("testStatusrecord", { attributeType: WRDAttributeType.StatusRecord, title: "Status record", allowedValues: ["warning", "error", "ok"] });
   await persontype.createAttribute("testFreeNocopy", { attributeType: WRDAttributeType.Free, title: "Uncopyable free attribute", isUnsafeToCopy: true });
   await persontype.createAttribute("richie", { attributeType: WRDAttributeType.RichDocument, title: "Rich document" });
