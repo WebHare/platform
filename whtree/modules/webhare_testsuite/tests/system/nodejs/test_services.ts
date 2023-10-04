@@ -15,53 +15,6 @@ function ensureProperPath(inpath: string) {
   test.assert(!inpath.includes("//"), `Path should not contain duplicate slashes: ${inpath}`);
 }
 
-async function testResolve() {
-  test.throws(/without a base path/, () => services.resolveResource("", "lib/emtpydesign.whlib"));
-
-  test.eq("", services.resolveResource("mod::a/b/c/d", ""));
-  test.eq("mod::a/e", services.resolveResource("mod::a/b/c/d", "/e"));
-  test.eq("mod::a/b/c/e", services.resolveResource("mod::a/b/c/d", "./e"));
-  test.eq("mod::a/b/e", services.resolveResource("mod::a/b/c/d", "../e"));
-  test.eq("mod::a/e", services.resolveResource("mod::a/b/c/d", "../../e"));
-  test.throws(/tries to escape/, () => services.resolveResource("mod::a/b/c/d", "../../../e"));
-
-  test.eq(true, services.isAbsoluteResource("mod::publisher/designs/emptydesign/"));
-
-  test.eq("mod::publisher/designs/emptydesign/lib/emptydesign.whlib", services.resolveResource("mod::publisher/designs/emptydesign/", "lib/emptydesign.whlib"));
-  test.eq("mod::publisher/designs/emptydesign/lib/", services.resolveResource("mod::publisher/designs/emptydesign/", "lib/"));
-  test.eq("mod::publisher/api.whlib", services.resolveResource("mod::publisher/designs/emptydesign/", "/api.whlib"));
-
-  test.eq("site::webhare backend/design/lib/webharebackend.whlib", services.resolveResource("mod::publisher/designs/emptydesign/", "site::webhare backend/design/lib/webharebackend.whlib"));
-  test.eq("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml", services.resolveResource("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.siteprl", './registrationform.xml'));
-  test.eq("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", services.resolveResource("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.siteprl", './registrationform.xml#editor'));
-
-  // TODO do we really want to be able to ignre the missing first path and return a path anyway?
-  //      it seems that the base path would often be fixe and the relative path 'external' data
-  //      so that we should fail *any* case where the base path is unusable?
-  //test.eq("mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor", services.resolveResource("", 'mod::example/webdesigns/ws2016/src/pages/registrationform/registrationform.xml#editor'));
-
-  test.eq("mod::publisher/designs/emptydesign/lib/emptydesign.witty", services.resolveResource("mod::publisher/designs/emptydesign/lib/emptydesign.whlib", "emptydesign.witty"));
-  // MakeAbsoluteResourcePath would return "mod::publisher/designs/emptydesign/" but without the slash makes more sense? you're referring to that directory
-  test.eq("mod::publisher/designs/emptydesign", services.resolveResource("mod::publisher/designs/emptydesign/siteprl.prl", "."));
-
-  test.eq("site::lelibel/design/customleft.siteprl", services.resolveResource("site::lelibel/design/", "/design/customleft.siteprl"));
-  /* TODO unlikely for wh:: support to return
-  test.eq("wh::a/", services.resolveResource("wh::a/b.whlib", "."));
-  test.eq("wh::b/la/", services.resolveResource("wh::b/", "la/"));
-  test.eq("wh::b/la/", services.resolveResource("wh::b/c.whlib", "la/"));
-  test.eq("wh::c.whlib", services.resolveResource("wh::a/b.whlib", "/c.whlib"));
-  test.eq("wh::c.whlib", services.resolveResource("wh::a/b.whlib", "../c.whlib"));
-
-  await test.throws(/tries to escape/, () => services.resolveResource("wh::a/b.whlib", "../../c.whlib"));
-  await test.throws(/tries to escape/, () => services.resolveResource("wh::a.whlib", "../../c.whlib"));
-  */
-  test.throws(/Invalid namespace 'xx'/, () => services.resolveResource("xx::a/b/c/d", "e"));
-  test.throws(/Invalid namespace 'xx'/, () => services.resolveResource("mod::publisher/designs/emptydesign/", "xx::a/b/c/d"));
-
-  test.throws(/tries to escape/, () => services.resolveResource("mod::publisher/designs/emptydesign/", "../../../bla.whlib"));
-  test.throws(/tries to escape/, () => services.resolveResource("site::mysite/folder/test.html", "../../bla.html"));
-}
-
 async function testServices() {
   test.assert(services.config);
 
@@ -220,49 +173,6 @@ async function testHareScriptVMFptrs() {
 
   //test invoking a MACRO directly
   test.eq(undefined, await hsvm.loadlib("wh::system.whlib").Print("Tested invoking a MACRO directly - you will see this in the console, ignore\n"));
-}
-
-async function testResources() {
-  test.assert(services.config);
-
-  test.eq(services.config.module.system.root + "lib/database.whlib", services.toFSPath("mod::system/lib/database.whlib"));
-  test.eq(services.config.module.system.root + "scripts/whcommands/reset.whscr", services.toFSPath("mod::system/scripts/whcommands/reset.whscr"));
-
-  //Verify final slashes handling
-  test.eq(services.config.module.system.root, services.toFSPath("mod::system"));
-  test.eq(services.config.module.system.root, services.toFSPath("mod::system/"));
-  test.eq(services.config.module.system.root + "lib", services.toFSPath("mod::system/lib"));
-  test.eq(services.config.module.system.root + "lib/", services.toFSPath("mod::system/lib/"));
-
-  test.eq(services.config.dataroot + "storage/system/xyz", services.toFSPath("storage::system/xyz"));
-  test.eq(services.config.dataroot + "storage/system/xyz/", services.toFSPath("storage::system/xyz/"));
-  test.eq(services.config.dataroot + "storage/system/", services.toFSPath("storage::system"));
-
-  test.eq(/^https?:.*/, services.config.backendURL);
-
-  const systempath = services.config.module.system.root;
-  test.eq("mod::system/lib/tests/cluster.whlib", services.toResourcePath(systempath + "lib/tests/cluster.whlib"));
-  test.throws(/Cannot match filesystem path/, () => services.toResourcePath("/etc"));
-  test.eq(null, services.toResourcePath("/etc", { allowUnmatched: true }));
-
-  test.throws(/^Unsupported resource path/, () => services.toFSPath("site::repository/"));
-  test.eq(null, services.toFSPath("site::repository/", { allowUnmatched: true }));
-
-  //FIXME scanBlob like things, but for now we'll have to help services
-  const goudvis = await services.openResource("mod::system/web/tests/goudvis.png", { mediaType: "image/png" });
-  test.eq("image/png", goudvis.mediaType);
-  test.eq(null, goudvis.hash, "no scan is implicitly done");
-  test.eq(null, goudvis.width, "no scan is implicitly done");
-  test.eq(75125, goudvis.size);
-
-  const scannedGoudvis = await services.openResource("mod::system/web/tests/goudvis.png", { mediaType: "image/png", getHash: true });
-  test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", scannedGoudvis.hash);
-
-  //TODO do we want still want to allow direct:: paths? test.eq("direct::/etc", services.toResourcePath("/etc", { allowdiskpath: true }));
-  /* TODO do we really want to support resource paths as input ?
-  test.eq("mod::system/lib/tests/cluster.whlib", services.toResourcePath("mod::system/lib/tests/cluster.whlib"));
-  test.eq("site::a/b/test.whscr", services.toResourcePath("site::a/b/test.whscr"));
-  */
 }
 
 interface ProcessUndocumented {
@@ -488,14 +398,12 @@ async function testLogs() {
 
 test.run(
   [
-    testResolve,
     testServices,
     testServiceState,
     testMutex,
     testEvents,
     testHareScriptVM,
     testHareScriptVMFptrs,
-    testResources,
     testDisconnects,
     testServiceTimeout,
     runBackendServiceTest_JS,
