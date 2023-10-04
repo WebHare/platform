@@ -476,12 +476,9 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
           throw new Error(`Detected a circular reference`);
         path.push(value as object);
 
-        const entries = Object.entries(value as object);
+        const entries = Object.entries(value as object).filter(([, v]) => v !== undefined);// like JSON.stringify we drop undefined values completely
         writer.writeS32(entries.length);
         for (const [key, subvalue] of entries) {
-          if (subvalue === undefined)
-            throw new Error(`Attempting to marshal 'undefined' for property ${key}`);
-
           let columnid = columns.get(key.toUpperCase());
           if (columnid === undefined) {
             columnid = columns.size;
