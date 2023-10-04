@@ -28,6 +28,7 @@ CONSTANT RECORD attributedefaults :=
         , maxlength := 0
         , multiline := FALSE
         , parent := 0
+        , typedeclaration := ""
         ];
 
 CONSTANT RECORD baseattributedefaults :=
@@ -79,6 +80,7 @@ RECORD ARRAY FUNCTION GetSubAttrs(INTEGER whichtype)
               , checklinks
               , multiline
               , allowedvalues := allowedvalues != "" ? Tokenize(allowedvalues,'\t') : DEFAULT STRING ARRAY
+              , typedeclaration
           FROM wrd.attrs AS mainattrs
          WHERE type = whichtype;
 
