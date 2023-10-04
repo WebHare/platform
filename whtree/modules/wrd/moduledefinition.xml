@@ -163,7 +163,7 @@
         </d:documentation>
       </d:varchar>
 
-      <d:varchar name="typedeclaration" maxlength="4096">
+      <d:varchar name="typedeclaration" maxlength="256">
         <d:documentation>
           Typescript type for JSON types
         </d:documentation>
