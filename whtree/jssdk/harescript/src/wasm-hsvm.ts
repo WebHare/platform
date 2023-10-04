@@ -16,6 +16,7 @@ import { debugFlags } from "@webhare/env";
 import bridge, { BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
 import { rootstorage, runOutsideCodeContext } from "@webhare/services/src/codecontexts";
 import { type HSVM_HSVMSource } from "./machinewrapper";
+import { encodeIPCException } from "@mod-system/js/internal/whmanager/ipc";
 
 
 export interface StartupOptions {
@@ -344,6 +345,9 @@ export class HareScriptVM implements HSVM_HSVMSource {
 
   /** Resolve a promise returnd by EM_Syscall */
   resolveSyscalledPromise(id: number, isResolve: boolean, result: unknown) {
+    if (!isResolve)
+      result = encodeIPCException(result as Error).__exception;
+
     this.pendingPromiseResults.push({ id, isResolve, result: result === undefined ? false : result });
     this.injectEvent("system:wasm-promises", null);
   }

@@ -59,6 +59,16 @@ MACRO RunFunctionRequest(RECORD request)
   }
 }
 
+OBJECT FUNCTION DecodeException(RECORD exc)
+{
+  IF (exc.type != "exception")
+    RETURN NEW Exception(`Unrecognized IPC exception type '${exc.type}'`);
+
+  OBJECT e := NEW EXCEPTION(exc.what);
+  e->trace := RECORD ARRAY(exc.trace);
+  RETURN e;
+}
+
 PUBLIC MACRO PromiseReceiver(STRING event, RECORD ARRAY msg)
 {
   RECORD grp := __EM_SYSCALL("getActionQueue", DEFAULT RECORD).value;
@@ -69,7 +79,10 @@ PUBLIC MACRO PromiseReceiver(STRING event, RECORD ARRAY msg)
       CONTINUE;
 
     //Don't want to synchronously deal with followup exceptions, so let microtasks deal with 'm
-    ScheduleMicroTask(PTR CallAnyPtrVA(result.isresolve ? pendingpromises[matchpos].resolve : pendingpromises[matchpos].reject, VARIANT[result.result]));
+    IF(result.isresolve)
+      ScheduleMicroTask(PTR CallAnyPtrVA(pendingpromises[matchpos].resolve, VARIANT[result.result]));
+    ELSE
+      ScheduleMicroTask(PTR CallAnyPtrVA(pendingpromises[matchpos].reject, VARIANT[DecodeException(result.result)]));
     DELETE FROM pendingpromises AT matchpos;
   }
 

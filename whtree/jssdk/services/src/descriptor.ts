@@ -225,6 +225,11 @@ class RMDHolder implements ResourceMetaData {
   get sourceFile() {
     return this.metadata.sourceFile ?? null;
   }
+
+  //Gets a simple object containing *only* the metadata
+  getMetaData(): ResourceMetaData {
+    return pick(this, ["extension", "mediaType", "width", "height", "rotation", "mirrored", "refPoint", "dominantColor", "hash", "fileName", "sourceFile"]);
+  }
 }
 
 /** A descriptor pointing to an file/image and its metadata in WHDB */
