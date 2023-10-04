@@ -34,6 +34,7 @@ RECORD attrstructure := [ id := 0, attributetypename := "", attributetype := 0, 
                         , isreadonly := FALSE, isrequired := FALSE, isunique := FALSE, isinherited := FALSE, isunsafetocopy := FALSE
                         , localtag := "", maxlength := 0, checklinks := FALSE, multiline := FALSE
                         , parent := 0, tag := "", title := "", isordered := FALSE, allowedvalues := DEFAULT STRING ARRAY
+                        , typedeclaration := ""
                         ];
 
 MACRO TestImageFileField(OBJECT persontype, INTEGER testpersonid, BOOLEAN currently_has_file)

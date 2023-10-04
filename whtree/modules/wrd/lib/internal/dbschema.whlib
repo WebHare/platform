@@ -61,6 +61,7 @@ PUBLIC SCHEMA
     , BOOLEAN "checklinks"
     , BOOLEAN "multiline"
     , STRING "allowedvalues"
+    , STRING "typedeclaration"
     ; KEY id
     > attrs
   , TABLE
