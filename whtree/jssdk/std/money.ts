@@ -130,7 +130,7 @@ export class Money {
     this.value = Money.parseParameter(value);
 
     const intvalue = parseInt(this.value);
-    //We need the njmber to be in the safe range even after adding 5 decimals
+    //We need the number to be in the safe range even after adding 5 decimals
     if (intvalue <= (Number.MIN_SAFE_INTEGER / 100000) || intvalue >= (Number.MAX_SAFE_INTEGER / 100000))
       throw new TypeError(`Money value '${value}' is out of range`);
 
