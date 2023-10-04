@@ -2133,7 +2133,6 @@
         <text tid="willdeleteresults"><param p="1"/> resultaten zullen worden verwijderd door de beperking van de bewaartermijn.<br/><br/>Weet u zeker dat u door wil gaan?</text>
       </textgroup>
       <textgroup gid="results">   <!-- tolliumapps.formedit.results -->
-        <text tid="confirmdeleteallresults">Weet u zeker dat u ALLE resultaten wil verwijderen ?</text>
         <text tid="confirmdeleteresult">Weet u zeker dat u het geselecteerde resultaat wil verwijderen ?</text>
         <text tid="confirmdeleteresults">Weet u zeker dat u <param p="1"/> geselecteerde resultaten wil verwijderen ?</text>
         <text tid="exportresultsformigration">Exporteren voor migratie</text>
@@ -2154,6 +2153,11 @@
         <text tid="url">Formulierlocatie</text>
         <text tid="useragent">Gebruikersagent</text>
         <text tid="when">Wanneer</text>
+        <textgroup gid="confirmdeleteall">   <!-- tolliumapps.formedit.results.confirmdeleteall -->
+          <text tid="confirmdeleteall">Alle resultaten verwijderen</text>
+          <text tid="confirmdeleteallresults">Weet u zeker dat u ALLE resultaten wil verwijderen ?</text>
+          <text tid="yesdeleteall">Ja, verwijder alle resultaten</text>
+        </textgroup>
       </textgroup>
       <textgroup gid="selectcomponent">   <!-- tolliumapps.formedit.selectcomponent -->
         <text tid="builtin">Standaard</text>

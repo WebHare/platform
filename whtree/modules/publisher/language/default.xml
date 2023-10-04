@@ -2134,7 +2134,6 @@
         <text tid="willdeleteresults"><param p="1"/> results will be deleted due do the reduction of the retention period.<br/><br/>Are you sure you want to continue?</text>
       </textgroup>
       <textgroup gid="results">   <!-- tolliumapps.formedit.results -->
-        <text tid="confirmdeleteallresults">Are you sure you want to delete ALL results ?</text>
         <text tid="confirmdeleteresult">Are you sure you want to delete the selected result ?</text>
         <text tid="confirmdeleteresults">Are you sure you want to delete <param p="1"/> selected results ?</text>
         <text tid="exportresultsformigration">Export for migration</text>
@@ -2155,6 +2154,11 @@
         <text tid="url">Form location</text>
         <text tid="useragent">User agent</text>
         <text tid="when">When</text>
+        <textgroup gid="confirmdeleteall">   <!-- tolliumapps.formedit.results.confirmdeleteall -->
+          <text tid="confirmdeleteall">Delete all results</text>
+          <text tid="confirmdeleteallresults">Are you sure you want to delete ALL results ?</text>
+          <text tid="yesdeleteall">Yes, delete all results</text>
+        </textgroup>
       </textgroup>
       <textgroup gid="selectcomponent">   <!-- tolliumapps.formedit.selectcomponent -->
         <text tid="builtin">Standard</text>
