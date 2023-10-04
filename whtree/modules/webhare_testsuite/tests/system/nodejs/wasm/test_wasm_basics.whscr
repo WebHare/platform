@@ -61,6 +61,9 @@ PUBLIC MACRO RunWasmtest()
   TestEq("010203", EM_Syscall("executeInline", [ func := "return param instanceof Buffer ? param.toString('hex') : 'NOT A BUFFER'", param := NEW Buffer("\x01\x02\x03")]));
   TestEq("040506", EM_Syscall("executeInline", [ func := "return param[1] instanceof Buffer ? param[1].toString('hex') : 'NOT A BUFFER ARRAY'", param := [NEW Buffer("\x01\x02\x03"),NEW Buffer("\x04\x05\x06")]]));
 
+  TestThrowsLike("sync inline exception", PTR EM_Syscall("executeInline", [ func := "throw new Error(`sync inline exception`)"]));
+  TestRejectedLike("ASYNC inline exception", EM_Syscall("executeInline", [ func := "return (async function(){ throw new Error(`ASYNC inline exception`); })()"]));
+
   //Test reentrant syscalls
   PRINT(`start reentrant syscall test\n`);
   TestEq(2, WaitForPromise(EM_Syscall("executeInline", [ func := `return 1 + await vm.loadlib(${EncodeJSON(Resolve("testwasmlib.whlib"))}).ReentrantSyscall();`, param := DEFAULT RECORD ])));
