@@ -1040,8 +1040,9 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
                                    , allowedvalues := DEFAULT STRING ARRAY
                                    , attributetypename := ""
                                    , domain := 0
+                                   , typedeclaration := ""
                                    ], newsettings
-                                    , [ optional := ["CHECKLINKS","MULTILINE","ISUNIQUE","ISREQUIRED","ISORDERED","ISUNSAFETOCOPY","TAG","TITLE","ALLOWEDVALUES", "DOMAIN"]
+                                    , [ optional := ["CHECKLINKS","MULTILINE","ISUNIQUE","ISREQUIRED","ISORDERED","ISUNSAFETOCOPY","TAG","TITLE","ALLOWEDVALUES", "DOMAIN", "TYPEDECLARATION"]
                                       , title := "attribute settings"
                                       ]);
 
@@ -1251,6 +1252,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
           , allowedvalues :=  DEFAULT STRING ARRAY
           , isordered :=      FALSE
           , multiline :=      FALSE
+          , typedeclaration := ""
           ],
           attr,
           [ optional := ["checklinks"]

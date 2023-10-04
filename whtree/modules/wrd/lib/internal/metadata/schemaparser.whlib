@@ -16,7 +16,7 @@ LOADLIB "mod::wrd/lib/internal/support.whlib";
 //LOADLIB "mod::wrd/lib/internal/schemaupdate.whlib";
 STRING ns_schemadef := "http://www.webhare.net/xmlns/wrd/schemadefinition";
 
-RECORD ARRAY FUNCTION GetXMLAttributes(OBJECT parent)
+RECORD ARRAY FUNCTION GetXMLAttributes(OBJECT parent, STRING currentfile)
 {
   RECORD ARRAY attrs;
   FOREVERY(OBJECT attrnode FROM parent->childnodes->GetCurrentElements())
@@ -52,9 +52,14 @@ RECORD ARRAY FUNCTION GetXMLAttributes(OBJECT parent)
           THROW NEW Exception(`Attribute '${attr.tag}' has no domain`);
       }
 
-      INSERT CELL attrs := GetXMLAttributes(attrnode) INTO attr;
+      INSERT CELL attrs := GetXMLAttributes(attrnode, currentfile) INTO attr;
       INSERT CELL multiline := ParseXSBoolean(attrnode->GetAttribute("multiline")) INTO attr;
       INSERT CELL allowedvalues := ParseXSList(attrnode->GetAttribute("allowedvalues")) INTO attr;
+
+      STRING typedeclaration := attrnode->GetAttribute("typedeclaration");
+      IF (typedeclaration != "")
+        typedeclaration := MakeAbsoluteResourcePath(currentfile, typedeclaration);
+      INSERT CELL typedeclaration := attrnode->GetAttribute("typedeclaration") INTO attr;
 
       IF(attrnode->HasAttribute("checklinks"))
         INSERT CELL checklinks := ParseXSBoolean(attrnode->GetAttribute("checklinks")) INTO attr;
@@ -173,7 +178,7 @@ STATIC OBJECTTYPE ParsedSchemaDef
     OBJECT attributesnode := typenode->GetChildElementsByTagNameNS(ns_schemadef, "attributes")->Item(0);
     IF(ObjectExists(attributesnode))
     {
-      type.attrs := type.attrs CONCAT GetXMLAttributes(attributesnode);
+      type.attrs := type.attrs CONCAT GetXMLAttributes(attributesnode, this->currentfile);
       type.allattrs := type.attrs;
       //FIXME scan for dupes
 

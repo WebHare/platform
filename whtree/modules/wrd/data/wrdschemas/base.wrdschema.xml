@@ -36,7 +36,7 @@
         <!-- mark as unsafe... syncing keys should be an explicit action -->
         <datetime tag="available_since" required="true" />
         <free tag="key_id" required="true" />
-        <json tag="private_key" required="true" />
+        <json tag="private_key" required="true" typedeclaration="node:crypto#JsonWebKey" />
       </array>
       <json tag="address_verification" description="Address verification provider" unsafetocopy="true" />
     </attributes>

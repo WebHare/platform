@@ -40,16 +40,20 @@ function testMoney() {
   test.eq('"0"', JSON.stringify(new Money('0')));
   test.eq('"15.5"', JSON.stringify(new Money("15.50")));
   test.eq('"0.5"', JSON.stringify(new Money(".50")));
+  test.eq('"1000000000"', JSON.stringify(new Money("1000000000")));
+  test.eq('"-1000000000"', JSON.stringify(new Money("-1000000000")));
+  test.eq('"1000000000"', JSON.stringify(Money.fromNumber(1_000_000_000)));
+  test.eq('"-1000000000"', JSON.stringify(Money.fromNumber(-1_000_000_000)));
   ///@ts-ignore -- we do not allow number casts as mixing number and Money may cause loss of precision/floating point decimal noise. verify runtime checks are in place
   test.throws(/Money cannot be constructed out of a value of type number/, () => new Money(0));
   ///@ts-ignore -- another throw check
   test.throws(/Money cannot be constructed out of a value of type number/, () => new Money(-1));
-  test.throws(/Money value '1000000000' is out of range/, () => new Money("1000000000"));
-  test.throws(/Money value '-1000000000' is out of range/, () => new Money("-1000000000"));
+  test.throws(/Money value '1000000000000' is out of range/, () => new Money("1000000000000"));
+  test.throws(/Money value '-1000000000000' is out of range/, () => new Money("-1000000000000"));
   //but it's okay to explicitly build from numbers
   test.eq('"15.5"', JSON.stringify(Money.fromNumber(15.5)));
-  test.throws(/Money value '1000000000' is out of range/, () => Money.fromNumber(1_000_000_000));
-  test.throws(/Money value '-1000000000' is out of range/, () => Money.fromNumber(-1_000_000_000));
+  test.throws(/Money value '1000000000000' is out of range/, () => Money.fromNumber(1_000_000_000_000));
+  test.throws(/Money value '-1000000000000' is out of range/, () => Money.fromNumber(-1_000_000_000_000));
 
   // testPresentation
   test.eq("0.00", new Money("0").format());

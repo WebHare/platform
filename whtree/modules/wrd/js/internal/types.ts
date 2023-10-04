@@ -110,7 +110,6 @@ export type SimpleWRDAttributeType =
   WRDAttributeType.WHFSIntextlink |
   WRDAttributeType.URL |
   WRDAttributeType.Record |
-  WRDAttributeType.JSON |
   WRDAttributeType.PaymentProvider |
   WRDAttributeType.Payment |
   WRDAttributeType.StatusRecord |
@@ -151,7 +150,8 @@ export type WRDAttrBaseGen<T extends (WRDAttributeType | WRDBaseAttributeType), 
 export type WRDAttrBase =
   WRDAttrBaseGen<SimpleWRDAttributeType, never> |
   WRDAttrBaseGen<WRDAttributeType.Enum | WRDAttributeType.EnumArray, { allowedvalues: string }> |
-  WRDAttrBaseGen<WRDAttributeType.Array, { members: Record<string, SimpleWRDAttributeType | WRDAttrBase> }>;
+  WRDAttrBaseGen<WRDAttributeType.Array, { members: Record<string, SimpleWRDAttributeType | WRDAttrBase> }> |
+  WRDAttrBaseGen<WRDAttributeType.JSON, { type: object }>;
 
 /** Converts a SimpleWRDAttributeType (enum) to a WRDAttrBase */
 export type ToWRDAttr<T extends SimpleWRDAttributeType | WRDAttrBase> = T extends WRDAttrBase ? T : T extends SimpleWRDAttributeType ? WRDAttr<T> : never;

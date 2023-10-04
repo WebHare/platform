@@ -220,7 +220,7 @@
       <xs:element name="whfsinstance" type="PlainAttribute" />
       <xs:element name="whfsintextlink" type="LinkAttribute" />
       <xs:element name="record" type="PlainAttribute" />
-      <xs:element name="json" type="PlainAttribute" />
+      <xs:element name="json" type="JsonAttribute" />
       <xs:element name="authenticationsettings" type="PlainAttribute" />
       <xs:element name="obsolete" type="ObsoleteAttribute" />
       <xs:element name="whfslink" type="PlainAttribute" />
@@ -301,6 +301,15 @@
         <xs:attribute name="checklinks" type="xs:boolean">
         </xs:attribute>
         <xs:attribute name="multiline" type="xs:boolean">
+        </xs:attribute>
+      </xs:extension>
+    </xs:complexContent>
+  </xs:complexType>
+
+  <xs:complexType name="JsonAttribute">
+    <xs:complexContent>
+      <xs:extension base="PlainAttribute">
+        <xs:attribute name="typedeclaration" type="xs:string">
         </xs:attribute>
       </xs:extension>
     </xs:complexContent>

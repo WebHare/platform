@@ -7,6 +7,7 @@ import { WRDBaseAttributeType, WRDAttributeType } from "@mod-wrd/js/internal/typ
 import { updateDir, GenerateOptions } from "./shared";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { loadlib } from "@webhare/harescript";
+import { emplace } from "@webhare/std/collections";
 
 function elements<T extends Element>(collection: HTMLCollectionOf<T>): T[] {
   const items: T[] = [];
@@ -52,6 +53,7 @@ type SchemaDef = {
       attributetype: WRDBaseAttributeType | WRDAttributeType;
       allowedvalues: string[];
       isrequired: boolean;
+      typedeclaration: string;
       attrs: SchemaDef["types"][number]["allattrs"];  // recursive def
     }>;
   }>;
@@ -61,9 +63,32 @@ export async function generateWRDDefs(options: GenerateOptions, modulename: stri
   let fullfile = "";
   let used_isrequired = false;
   let used_wrdattr = false;
+
+  const typeDeclNames = new Set<string>;
+  const typeDeclImports = new Map<string, Map<string, string>>;
+
+  // eslint-disable-next-line no-inner-declarations
+  function addTypeDeclImport(decl: string) {
+    if (!decl)
+      return "object";
+    const parts = decl.split("#");
+    if (parts.length !== 2 || !parts[0] || !parts[1])
+      return "object";
+    const imports = emplace(typeDeclImports, parts[0], { insert: () => new Map<string, string> });
+    let usename = imports.get(parts[1]);
+    if (!usename) {
+      usename = parts[1];
+      for (let i = 1; typeDeclNames.has(usename); ++i)
+        usename = `${parts[1]}_${i}`;
+      imports.set(parts[1], usename);
+    }
+    return usename;
+  }
+
   for (const mod of Object.entries(config.module)) {
     if (!modules.includes(mod[0]))
       continue;
+
 
     const moduleroot = mod[1].root;
 
@@ -147,7 +172,7 @@ export async function generateWRDDefs(options: GenerateOptions, modulename: stri
               } else {
                 // custom attribute: generate type definition
                 // eslint-disable-next-line @typescript-eslint/no-loop-func
-                const typedef = createTypeDef(attr, "  ", () => { used_isrequired = true; }, () => { used_wrdattr = true; });
+                const typedef = createTypeDef(attr, "  ", () => { used_isrequired = true; }, () => { used_wrdattr = true; }, addTypeDeclImport);
                 if (typedef)
                   normalattrdefs += `  ${tagToJS(attr.tag)}: ${typedef};\n`;
               }
@@ -190,15 +215,23 @@ export async function generateWRDDefs(options: GenerateOptions, modulename: stri
       needtypes.push('IsRequired');
     if (used_wrdattr)
       needtypes.push('WRDAttr');
+
+    const typedecls = Array.from(typeDeclImports.entries()).map(([library, imports]) => {
+      const names = Array.from(imports).map(([name, usename]) => (name !== usename ? `${name} as ${usename}` : name)).join(",");
+      library = library.replace(/(\.d)?\.tsx?$/, ""); // remove .d.ts,  .ts, .tsx extensions
+      return `import type { ${names} } from ${JSON.stringify(library)};\n`;
+    }
+    ).join("");
+
     fullfile = `import { ${needtypes.join(", ")} } from "@mod-wrd/js/internal/types";
 import { WRDSchema } from "@mod-wrd/js/internal/schema";
-
+${typedecls}
 ` + fullfile;
   }
   return fullfile;
 }
 
-function createTypeDef(attr: SchemaDef["types"][number]["allattrs"][number], indent: string, gotrequired: () => void, gotwrdattr: () => void): string {
+function createTypeDef(attr: SchemaDef["types"][number]["allattrs"][number], indent: string, gotrequired: () => void, gotwrdattr: () => void, gottypedecl: (decl: string) => string): string {
   if (!attr.attributetype) // obsolete?
     return "";
   let typedef = "";
@@ -209,11 +242,15 @@ function createTypeDef(attr: SchemaDef["types"][number]["allattrs"][number], ind
     typedef = `WRDAttr<WRDAttributeType.${WRDAttributeType[attr.attributetype]}, {\n${indent}  members: {\n`;
     gotwrdattr();
     for (const subattr of attr.attrs) {
-      const subdef = createTypeDef(subattr, indent + "    ", gotrequired, gotwrdattr);
+      const subdef = createTypeDef(subattr, indent + "    ", gotrequired, gotwrdattr, gottypedecl);
       if (subdef)
         typedef += `${indent}    ${tagToJS(subattr.tag)}: ${subdef};\n`;
     }
     typedef += `${indent}  };\n${indent}}>`;
+  } else if (attr.attributetype == WRDAttributeType.JSON) {
+    const typedeclname = attr.typedeclaration ? gottypedecl(attr.typedeclaration) : "object";
+    typedef = `WRDAttr<WRDAttributeType.${WRDAttributeType[attr.attributetype]}, { type: ${typedeclname} }>`;
+    gotwrdattr();
   } else {
     typedef = `WRDAttributeType.${WRDAttributeType[attr.attributetype]}`;
   }

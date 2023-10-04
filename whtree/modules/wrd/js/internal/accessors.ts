@@ -20,6 +20,9 @@ type AddToQueryResponse<O> = {
   query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>;
 } | null;
 
+/// Returns `null` if Required might be false
+type NullIfNotRequired<Required extends boolean> = false extends Required ? null : never;
+
 /** Base for an attribute accessor
  * @typeParam In - Type for allowed values for insert and update
  * @typeParam Out - Type returned by queries
@@ -113,6 +116,9 @@ export abstract class WRDAttributeValueBase<In, Default, Out extends Default, C 
     return null;
   }
 }
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type AnyWRDAccessor = WRDAttributeValueBase<any, any, any, any>;
 
 /** Compare values */
 function cmp<T extends ComparableType>(a: T, condition: "=" | ">=" | ">" | "!=" | "<" | "<=", b: T) {
@@ -1400,22 +1406,22 @@ export abstract class WRDAttributeUncomparableValueBase<In, Default, Out extends
   }
 }
 
-class WRDDBJSONValue extends WRDAttributeUncomparableValueBase<object | null, object | null, object | null> {
+class WRDDBJSONValue<Required extends boolean, JSONType extends object> extends WRDAttributeUncomparableValueBase<JSONType | NullIfNotRequired<Required>, JSONType | null, JSONType | NullIfNotRequired<Required>> {
   /** Returns the default value for a value with no settings
       @returns Default value for this type
   */
-  getDefaultValue(): object | null {
+  getDefaultValue(): JSONType | null {
     return null;
   }
 
-  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): object | null {
+  getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): JSONType | NullIfNotRequired<Required> {
     if (entity_settings[settings_start].rawdata)
       return JSON.parse(entity_settings[settings_start].rawdata);
     const buf = entity_settings[settings_start].blobdata?.tryArrayBufferSync();
     return buf ? JSON.parse(Buffer.from(buf).toString()) : null;
   }
 
-  validateInput(value: object | null): void {
+  validateInput(value: JSONType | JSONType | NullIfNotRequired<Required>): void {
     /* always valid */
   }
 }
@@ -1566,7 +1572,6 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDAttributeType.WHFSInstance]: WRDDBWHFSInstanceValue;
   [WRDAttributeType.WHFSIntextlink]: WRDDBWHFSIntextlinkValue;
   [WRDAttributeType.Record]: WRDDBRecordValue;
-  [WRDAttributeType.JSON]: WRDDBJSONValue;
   [WRDAttributeType.PaymentProvider]: WRDDBPaymentProviderValue;
   [WRDAttributeType.Payment]: WRDDBPaymentValue;
   [WRDAttributeType.StatusRecord]: WRDDBStatusRecordValue;
@@ -1590,7 +1595,9 @@ export type AccessorType<T extends WRDAttrBase> = T["__attrtype"] extends keyof 
           ? WRDDBDateTimeValue<T["__required"]>
           : (T extends { __attrtype: WRDAttributeType.Array }
             ? WRDDBArrayValue<T["__options"]["members"]>
-            : never)))));
+            : (T extends { __attrtype: WRDAttributeType.JSON }
+              ? WRDDBJSONValue<T["__required"], T["__options"]["type"]>
+              : never))))));
 
 export function getAccessor<T extends WRDAttrBase>(
   attrinfo: AttrRec & { attributetype: T["__attrtype"]; required: T["__required"] },
@@ -1626,7 +1633,6 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDAttributeType.WHFSInstance: return new WRDDBWHFSInstanceValue(attrinfo) as AccessorType<T>;
     case WRDAttributeType.WHFSIntextlink: return new WRDDBWHFSIntextlinkValue(attrinfo) as AccessorType<T>;
     case WRDAttributeType.Record: return new WRDDBRecordValue(attrinfo) as AccessorType<T>;
-    case WRDAttributeType.JSON: return new WRDDBJSONValue(attrinfo) as AccessorType<T>;
     case WRDAttributeType.PaymentProvider: return new WRDDBPaymentProviderValue(attrinfo) as AccessorType<T>;
     case WRDAttributeType.Payment: return new WRDDBPaymentValue(attrinfo) as AccessorType<T>;
     case WRDAttributeType.StatusRecord: return new WRDDBStatusRecordValue(attrinfo) as AccessorType<T>;
@@ -1638,6 +1644,7 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDAttributeType.Date: return new WRDDBDateValue<T["__required"]>(attrinfo) as AccessorType<T>;
     case WRDAttributeType.DateTime: return new WRDDBDateTimeValue<T["__required"]>(attrinfo) as AccessorType<T>;
     case WRDAttributeType.Array: return new WRDDBArrayValue<(T["__options"] & { members: Record<string, SimpleWRDAttributeType | WRDAttrBase> })["members"]>(attrinfo, parentAttrMap) as AccessorType<T>;
+    case WRDAttributeType.JSON: return new WRDDBJSONValue<T["__required"], (T["__options"] & { type: object })["type"]>(attrinfo) as AccessorType<T>;
   }
   throw new Error(`Unhandled attribute type ${(attrinfo.attributetype < 0 ? WRDBaseAttributeType[attrinfo.attributetype] : WRDAttributeType[attrinfo.attributetype]) ?? attrinfo.attributetype}`);
 }
