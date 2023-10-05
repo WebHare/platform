@@ -107,10 +107,13 @@ export default class AddressField {
       if (ordering) {
         let prevgroup;
         for (let idx = 0; idx < ordering.fieldorder.length; ++idx) {
-          const item = this.allFields.get(ordering.fieldorder[idx])!;
+          const item = this.allFields.get(ordering.fieldorder[idx]);
+          if (!item)
+            continue; //ordering may appear to fields that have not been rendered, eg 'state'
+
           item.pos = idx + 1;
           const fieldgroup = item.fieldgroup;
-          if (idx !== 0) {
+          if (prevgroup) {
             const compareres = prevgroup!.compareDocumentPosition(fieldgroup);
             if (compareres & Node.DOCUMENT_POSITION_PRECEDING)
               prevgroup!.parentNode!.insertBefore(fieldgroup, prevgroup!.nextSibling);

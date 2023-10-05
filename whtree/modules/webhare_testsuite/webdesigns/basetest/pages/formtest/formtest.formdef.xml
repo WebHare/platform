@@ -293,7 +293,7 @@
         <address name="address3" options="" title="" />
       </group>
       <group name="address4group" title="Address 4">
-        <address name="address4" countrylist="NL AF" options="nl-zip-force" title="" />
+        <address name="address4" countrylist="NL" options="nl-zip-force" title="" />
       </group>
     </page>
   </form>
