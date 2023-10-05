@@ -799,10 +799,11 @@ MACRO ScanBlobTest()
   TestEq("video/x-matroska", ScanBlob(mkv,"").mimetype);
 
   BLOB dummygif := StringToBlob(DecodeBase16("47494638396101000100800000ffffffffffff21f90401000000002c00000000010001000002024401003b"));
-  detect := WrapBlob(dummygif, "", [ extractdominantcolor := TRUE]);
+  detect := WrapBlob(dummygif, "", [ extractdominantcolor := TRUE, generatehash := TRUE]);
   TestEq("image/gif", detect.mimetype);
   TestEq("noname.gif", detect.filename);
   TestEq("transparent", detect.dominantcolor);
+  TestEq("hy_6nckd_mgbm-gsu0HLzcCYXnerJ-FYPjjYThVDy3Q", detect.hash);
 
   //test robustness against broken canvas
   detect := WrapBlob(MakeSlicedBlob(dummygif,0,20), "", [ extractdominantcolor := TRUE]);

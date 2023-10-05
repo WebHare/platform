@@ -8,6 +8,8 @@ LOADLIB "wh::internal/interface.whlib" EXPORT OpenBlobAsFile, SetFilePointer, Ma
 LOADLIB "wh::internal/filetypes.whlib";
 LOADLIB "wh::internal/graphics.whlib";
 LOADLIB "wh::graphics/core.whlib";
+LOADLIB "wh::internal/wasm.whlib";
+LOADLIB "wh::javascript.whlib";
 
 /** @short Obtain the directory part from a path
     @long Strips the filename and extension from a complete path, leaving only the
@@ -867,28 +869,39 @@ PUBLIC RECORD FUNCTION ScanBlob(BLOB toscan, STRING filename DEFAULTSTO "", RECO
 
   IF(RecordExists(typeinfo.imginfo) AND base.mimetype LIKE "image/*")
   {
-    base := [ ...base
-            , width    := typeinfo.imginfo.width
-            , height   := typeinfo.imginfo.height
-            , rotation := typeinfo.imginfo.rotation
-            , mirrored := typeinfo.imginfo.mirrored
-            ];
-    IF(options.extractdominantcolor)
+    IF(IsWASM())
     {
-      INTEGER canvas := GfxCreateResizedCanvasFromImageBlob(toscan, 100, 100);
-      IF(canvas > 0)
+      RECORD imginfo := WaitForPromise(ImportJS("@webhare/services/src/descriptor.ts")->analyzeImage(toscan, options.extractdominantcolor));
+      //deal with potential nulls
+      imginfo := EnforceStructure([ width := 0, height := 0, rotation := 0, mirrored := FALSE, dominantcolor := ""], imginfo);
+      BOOLEAN isrotated := imginfo.rotation IN [ 90, 270];
+      base := CELL[ ...base, ...imginfo, width := isrotated ? imginfo.height : imginfo.width, height := isrotated ? imginfo.width : imginfo.height ];
+    }
+    ELSE
+    {
+      base := [ ...base
+              , width    := typeinfo.imginfo.width
+              , height   := typeinfo.imginfo.height
+              , rotation := typeinfo.imginfo.rotation
+              , mirrored := typeinfo.imginfo.mirrored
+              ];
+      IF(options.extractdominantcolor)
       {
-        RECORD ARRAY colorrecs := __DRAWLIB_V2_GETKMEANSQUANTIZEDPALETTE(
-            canvas,
-            6,
-            50, //alpha < 20%, hardly visible
-            10, // 10 iterations should suffice
-            0.5);
-        IF(Length(colorrecs)>0)
-          base.dominantcolor := "#"||Right("00000"||ToString(GfxCreateColor(colorrecs[0].r,colorrecs[0].g,colorrecs[0].b),16),6);
-        ELSE
-          base.dominantcolor := "transparent";
-        GfxDestroyCanvas(canvas);
+        INTEGER canvas := GfxCreateResizedCanvasFromImageBlob(toscan, 100, 100);
+        IF(canvas > 0)
+        {
+          RECORD ARRAY colorrecs := __DRAWLIB_V2_GETKMEANSQUANTIZEDPALETTE(
+              canvas,
+              6,
+              50, //alpha < 20%, hardly visible
+              10, // 10 iterations should suffice
+              0.5);
+          IF(Length(colorrecs)>0)
+            base.dominantcolor := "#"||Right("00000"||ToString(GfxCreateColor(colorrecs[0].r,colorrecs[0].g,colorrecs[0].b),16),6);
+          ELSE
+            base.dominantcolor := "transparent";
+          GfxDestroyCanvas(canvas);
+        }
       }
     }
   }

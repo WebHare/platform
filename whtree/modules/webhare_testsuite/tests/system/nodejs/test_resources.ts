@@ -2,6 +2,7 @@ import * as test from "@webhare/test";
 import * as services from "@webhare/services";
 import { ReadableStream } from "node:stream/web";
 import { WebHareBlob } from "@webhare/services";
+import { Rotation } from "@webhare/services/src/descriptor";
 
 async function testResolve() {
   test.throws(/without a base path/, () => services.resolveResource("", "lib/emtpydesign.whlib"));
@@ -148,6 +149,74 @@ async function testResourceDescriptors() {
       height: null
     }, fish.getMetaData());
   }
+
+  {
+    const fish = await services.ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getImageMetadata: true });
+    test.eqProps({
+      mediaType: "image/png",
+      hash: null,
+      mirrored: null,
+      width: 385,
+      height: 236,
+      rotation: null,
+      dominantColor: null
+    }, fish.getMetaData());
+  }
+
+  {
+    const fish = await services.ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getDominantColor: true });
+    test.eqProps({
+      mediaType: "image/png",
+      hash: null,
+      width: 385, //implied by getDmoinantColor
+      height: 236,
+      dominantColor: "#080808"
+    }, fish.getMetaData());
+  }
+
+  {
+    const landscape = await services.ResourceDescriptor.fromResource("mod::webhare_testsuite/tests/baselibs/hsengine/data/exif/landscape_7.jpg", { getImageMetadata: true });
+    test.eq(140645, landscape.resource.size);
+    test.eqProps({
+      mediaType: "image/jpeg",
+      hash: null,
+      mirrored: true,
+      width: 600,
+      height: 450,
+      rotation: 90 as Rotation,
+      dominantColor: null
+    }, landscape.getMetaData());
+  }
+}
+
+async function testGIFs() {
+  const dummygif = Buffer.from("47494638396101000100800000ffffffffffff21f90401000000002c00000000010001000002024401003b", "hex");
+  //TODO decide whether this is really the desired way to deal with in-memory info, and not arraybuffers or views
+  const parsedgif = await services.ResourceDescriptor.from(dummygif, { getHash: true, getDominantColor: true });
+  test.eq(43, parsedgif.resource.size);
+  test.eqProps({
+    mediaType: "image/gif",
+    hash: "hy_6nckd_mgbm-gsu0HLzcCYXnerJ-FYPjjYThVDy3Q",
+    mirrored: null,
+    width: 1,
+    height: 1,
+    rotation: null,
+    dominantColor: "transparent"
+  }, parsedgif.getMetaData());
+
+  const brokengif = Buffer.from("47494638396101000100800000ffffffffffff21f90401000000002c0000", "hex");
+  const brokenparsedgif = await services.ResourceDescriptor.from(brokengif, { getHash: true, getDominantColor: true });
+  test.eq(30, brokenparsedgif.resource.size);
+
+  test.eqProps({
+    mediaType: "application/octet-stream",
+    hash: "HSYfiL-sB6VV2_nfkPTR_IxepvNXb1oBbJ0rzvrwmgM",
+    mirrored: null,
+    width: null,
+    height: null,
+    rotation: null,
+    dominantColor: null
+  }, brokenparsedgif.getMetaData());
 }
 
 test.run(
@@ -155,5 +224,6 @@ test.run(
     testResolve,
     testPaths,
     testWebHareBlobs,
-    testResourceDescriptors
+    testResourceDescriptors,
+    testGIFs
   ]);

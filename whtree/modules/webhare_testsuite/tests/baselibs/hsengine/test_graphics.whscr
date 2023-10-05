@@ -1,6 +1,7 @@
 ﻿<?wh
 LOADLIB "wh::graphics/core.whlib";
 LOADLIB "wh::internal/hsselftests.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 LOADLIB "wh::internal/graphics.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::graphics/canvas.whlib";
@@ -422,20 +423,23 @@ MACRO RotateTest()
   TestEq( [ outwidth := 600, outheight := 450, outtype := "image/jpeg", renderx := 0, rendery := 0, renderwidth := 600, renderheight := 450, bgcolor := 0x00FFFFFF, noforce := TRUE, quality := 85, grayscale := FALSE, rotate := 270, mirror := TRUE, hblur := 0, vblur := 0, refpoint := DEFAULT RECORD ]
         , MyExplainImageProcessing( imgl7, [ method := "none", fixorientation := TRUE ]));
 
-  OBJECT canvas_imgl6 := CreateResizedCanvasFromBlob(landscape6, [ method := "none", fixorientation := TRUE ]);
-  TestEq(600, canvas_imgl6->width);
+  IF(NOT IsWasm())
+  {
+    // These tests verify whether canvasses can autofix orientationm but WASM won't have DrawLib canvasses
+    OBJECT canvas_imgl6 := CreateResizedCanvasFromBlob(landscape6, [ method := "none", fixorientation := TRUE ]);
+    TestEq(600, canvas_imgl6->width);
 
-  //  CreateDiskfileFromBlob("/tmp/imgcanvas.png", TRUE, FALSE, imgcanvas->ExportAsPNG(TRUE));
-  //  CreateDiskfileFromBlob("/tmp/imgsrc.png", TRUE, FALSE, imgsrc->ExportAsPNG(TRUE));
-  TestEqCanvas(Resolve("data/exif/landscape_1.jpg"), canvas_imgl6, 2000);
+    //  CreateDiskfileFromBlob("/tmp/imgcanvas.png", TRUE, FALSE, imgcanvas->ExportAsPNG(TRUE));
+    //  CreateDiskfileFromBlob("/tmp/imgsrc.png", TRUE, FALSE, imgsrc->ExportAsPNG(TRUE));
+    TestEqCanvas(Resolve("data/exif/landscape_1.jpg"), canvas_imgl6, 2000);
 
-  OBJECT canvas_imgl7 := CreateResizedCanvasFromBlob(landscape7, [ method := "none", fixorientation := TRUE ]);
-  TEstEq(600, canvas_imgl7->width);
-  TestEqCanvas(Resolve("data/exif/landscape_1.jpg"), canvas_imgl7, 2000);
+    OBJECT canvas_imgl7 := CreateResizedCanvasFromBlob(landscape7, [ method := "none", fixorientation := TRUE ]);
+    TEstEq(600, canvas_imgl7->width);
+    TestEqCanvas(Resolve("data/exif/landscape_1.jpg"), canvas_imgl7, 2000);
 
-  OBJECT fit_imgl7 := CreateResizedCanvasFromBlob(landscape7, [ method := "fill", setwidth := 150, setheight := 100 ]);
-  TestEqCanvas(Resolve("data/exif/landscape_7_fill.jpg"), fit_imgl7, 2);
-
+    OBJECT fit_imgl7 := CreateResizedCanvasFromBlob(landscape7, [ method := "fill", setwidth := 150, setheight := 100 ]);
+    TestEqCanvas(Resolve("data/exif/landscape_7_fill.jpg"), fit_imgl7, 2);
+  }
 
   CloseTest("TestGraphics: RotateTest");
 }
@@ -479,8 +483,12 @@ MACRO TestRegressions()
 
 MethodPacking();
 FilterTest();
-NoForceTest();
-DuplicateTest();
+IF(NOT IsWASM())
+{
+  //These tests directly work with canvasses and will never be supported without DrawLib
+  NoForceTest();
+  DuplicateTest();
+  ColorDetectTest();
+}
 RotateTest();
-ColorDetectTest();
 TestRegressions();

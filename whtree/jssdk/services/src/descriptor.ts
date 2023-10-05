@@ -5,12 +5,19 @@ import * as crypto from "node:crypto";
 import { WebHareBlob } from "./webhareblob";
 import { basename } from "node:path";
 import { isAbsoluteResource, toFSPath } from "./resources";
+import { createSharpImage } from "./sharpwrapper";
+
+const MaxImageScanSize = 16 * 1024 * 1024; //Size above which we don't trust images
 
 export interface ResourceScanOptions {
   mediaType?: string;
   fileName?: string;
   getHash?: boolean;
+  getImageMetadata?: boolean;
+  getDominantColor?: boolean;
 }
+
+export type Rotation = 0 | 90 | 180 | 270;
 
 export interface ResourceMetaData {
   ///The proper or usual extension for the file's mimetype, if known to webhare. Either null or a text starting with a dot ('.')
@@ -22,7 +29,7 @@ export interface ResourceMetaData {
   ///Height (in pixels)
   height: number | null;
   ///Image rotation in degrees (0,90,180 or 270). null for non images
-  rotation: 0 | 90 | 180 | 270 | null;
+  rotation: Rotation | null;
   ///True if this is a mirrored image. null for non images
   mirrored: boolean | null;
   ///Reference point if set, default record otherwise
@@ -37,7 +44,7 @@ export interface ResourceMetaData {
   sourceFile: number | null;
 }
 
-type ResourceMetaDataInit = Partial<ResourceMetaData> & Pick<ResourceMetaData, "mediaType">;
+export type ResourceMetaDataInit = Partial<ResourceMetaData> & Pick<ResourceMetaData, "mediaType">;
 
 // export type ResourceDescriptor = WebHareBlob & ResourceMetaData;
 
@@ -114,6 +121,57 @@ type SerializedScanData = {
 const EmptyFileHash = "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU";
 const DefaultMediaType = "application/octet-stream";
 const BitmapImageTypes = ["image/png", "image/jpeg", "image/gif"];
+const MapBitmapImageTypes: Record<string, string> = {
+  "jpeg": "image/jpeg",
+  "png": "image/png",
+  "gif": "image/gif"
+};
+
+function colorToHex({ r, g, b }: { r: number; g: number; b: number }) {
+  return "#" + (("0" + r.toString(16)).slice(-2) + ("0" + g.toString(16)).slice(-2) + ("0" + b.toString(16)).slice(-2)).toUpperCase();
+}
+
+export async function analyzeImage(image: WebHareBlob, getDominantColor: boolean): Promise<Partial<ResourceMetaData>> {
+  const data = await image.arrayBuffer();
+
+  /* FIXME The actual dominant colors picked by sharp are not impressive compared to what Drawlib currently finds. See also
+     - https://github.com/lovell/sharp/issues/3273 (dark gray images being picked)
+
+     We may still be able to tune .. or perhaps we should try to resize like harescript did ...
+
+     https://lokeshdhakar.com/projects/color-thief/ may otherwse be an alternative
+
+     For now we just want *a* color to get WASM to work
+     */
+
+  let metadata, stats;
+  try {
+    const img = await createSharpImage(data);
+    metadata = await img.metadata();
+    stats = getDominantColor ? await img.stats() : undefined;
+  } catch (e) {
+    if ((e as Error).message.match?.(/Something went wrong installing the "sharp" module/))
+      throw e; //rethrow installation issues
+
+    //TODO should we be putting something in the image/metadata to recognize a corrupt image? but perhaps someone was just blindly enabling getImageData on a non-image
+    return {}; //assuming it was't an image
+  }
+
+  const istransparent = stats && stats?.channels.length >= 4 && (stats.channels[0].sum + stats.channels[1].sum + stats.channels[2].sum + stats.channels[3].sum) == 0;
+
+  const mirrored = metadata.orientation ? [2, 4, 5, 7].includes(metadata.orientation) : null;
+  const rotation = metadata.orientation ? ([0, 0, 180, 180, 270, 270, 90, 90] as const)[metadata.orientation - 1] ?? null : null;
+  const isrotated = [90, 270].includes(rotation!); //looks like sharp doesn't flip width/height, so we have to do it ourselves
+
+  return {
+    width: metadata[isrotated ? "height" : "width"] || null,
+    height: metadata[isrotated ? "width" : "height"] || null,
+    dominantColor: istransparent ? "transparent" : stats?.dominant ? colorToHex(stats.dominant) : null,
+    mediaType: (metadata.format ? MapBitmapImageTypes[metadata.format] : undefined) || DefaultMediaType,
+    mirrored,
+    rotation
+  };
+}
 
 type EncodableResourceMetaData = Omit<ResourceMetaData, "sourceFile" | "extension">;
 
@@ -133,10 +191,15 @@ export function encodeScanData(meta: EncodableResourceMetaData): string {
     throw new Error("Width and height are required for bitmap images");
 
   //TODO Block writing mages with unknown widdth/height
-  if (meta.width)
-    data.w = meta.width;
-  if (meta.height)
-    data.h = meta.height;
+
+  //HareScript used to store width/height pre-rotation but we don't want that in the presented metadata.
+  const isrotated = [90, 270].includes(meta.rotation!);
+  const width = meta[isrotated ? "height" : "width"];
+  const height = meta[isrotated ? "width" : "height"];
+  if (width)
+    data.w = width;
+  if (height)
+    data.h = height;
   if (meta.rotation !== null)
     data.r = meta.rotation;
   if (meta.mirrored !== null)
@@ -178,13 +241,17 @@ export function decodeScanData(scandata: string): ResourceMetaData {
   if (fileName && (fileName == 'noname' || fileName.startsWith('noname.')))
     fileName = null; //WebHare would write 'noname' followed by the extension if the filename was not set. make it clear we didn't have a filename (TODO stop writing 'noname', probably need to rename 'f' for backwards compat with existing data)
 
+  const rotation = parseddata.w ? (parseddata.r || 0) : null;
+  const isrotated = [90, 270].includes(rotation!);
+  const width = parseddata[isrotated ? "h" : "w"] || null;
+  const height = parseddata[isrotated ? "w" : "h"] || null;
   return {
     hash: parseddata.x || EmptyFileHash,
     mediaType: parseddata.m || DefaultMediaType,
     extension: getExtensionForMediaType(parseddata.m || DefaultMediaType),
-    width: parseddata.w || null,
-    height: parseddata.h || null,
-    rotation: parseddata.w ? (parseddata.r || 0) : null,
+    width,
+    height,
+    rotation,
     mirrored: parseddata.w ? (parseddata.s || false) : null,
     refPoint: parseddata.p || null,
     dominantColor: parseddata.d || null,
@@ -202,6 +269,11 @@ export class ResourceDescriptor implements ResourceMetaData {
   constructor(resource: WebHareBlob | null, metadata: ResourceMetaDataInit) {
     this._resource = resource || WebHareBlob.from("");
     this.metadata = metadata;
+  }
+
+  static async from(str: string | Buffer, options?: ResourceScanOptions): Promise<ResourceDescriptor> {
+    const blob = WebHareBlob.from(str);
+    return buildDescriptorFromResource(blob, options);
   }
 
   static async fromDisk(path: string, options?: ResourceScanOptions): Promise<ResourceDescriptor> {
@@ -264,11 +336,15 @@ export class ResourceDescriptor implements ResourceMetaData {
 
 async function buildDescriptorFromResource(blob: WebHareBlob, options?: ResourceScanOptions) {
   const mediaType = options?.mediaType ?? "application/octet-stream";
-  const metadata = {
+  let metadata = {
     mediaType,
     fileName: options?.fileName || null,
     extension: getExtensionForMediaType(mediaType),
     hash: options?.getHash ? await hashStream(await blob.getStream()) : null
   };
+
+  if ((options?.getImageMetadata || options?.getDominantColor) && blob.size < MaxImageScanSize)
+    metadata = { ...metadata, ...await analyzeImage(blob, options?.getDominantColor || false) };
+
   return new ResourceDescriptor(blob, metadata);
 }
