@@ -29,6 +29,9 @@ require('../pages/customform2/customform2');
 require('../pages/customformdef/customformdef');
 require('../pages/exclusiveaccesstest/exclusiveaccesstest');
 
+window.basetestErrorList = [];
+window.addEventListener("error", (e: ErrorEvent) => window.basetestErrorList.push(e));
+
 /////////////////////////////////////////
 // Gallery (wh-gallery)
 import setupGallery from '@mod-publisher/js/gallery/defaultgallery';
