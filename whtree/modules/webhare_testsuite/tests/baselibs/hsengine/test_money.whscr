@@ -231,7 +231,6 @@ MACRO PrecisionTest()
   CloseTest("TestMoney: PrecisionTest");
 }
 
-PRINT("\n === Running TestMoney\n");
 FormatMoneyTest();
 TomoneyTest();
 ConversionTest();

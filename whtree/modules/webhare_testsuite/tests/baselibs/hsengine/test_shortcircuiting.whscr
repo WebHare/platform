@@ -111,6 +111,5 @@ MACRO OrTest()
   CloseTest("TestShortCircuiting: OrTest");
 }
 
-PRINT("\n === Running TestShortCircuiting\n");
 AndTest();
 OrTest();

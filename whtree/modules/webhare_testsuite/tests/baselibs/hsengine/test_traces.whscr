@@ -185,6 +185,5 @@ OBJECT ASYNC FUNCTION TestAsyncTrace()
   RETURN DEFAULT RECORD;
 }
 
-PRINT("\n === Running TestTraces\n");
 TestTraces();
 WaitForPromise(TestAsyncTrace());

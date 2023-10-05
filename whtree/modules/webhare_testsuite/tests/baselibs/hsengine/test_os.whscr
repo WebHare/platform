@@ -66,6 +66,5 @@ MACRO ProcessTest()
   process->Close();
 }
 
-PRINT("\n === Running TestOS\n");
 WaitForMultipleTest();
 ProcessTest();

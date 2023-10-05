@@ -532,7 +532,6 @@ MACRO TestYieldStar()
   TestEQ(0, unclosed, "all generators should have executed their FINALLY");
 }
 
-PRINT("\n === Running TestYieldAsync\n");
 TestSyntax();
 TestYield();
 TestAsync();

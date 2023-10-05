@@ -194,7 +194,6 @@ MACRO EqualityTest()
   CloseTest("TestConversions: EqualityTest");
 }
 
-PRINT("\n === Running TestConversions\n");
 TointegerTest();
 Tointeger64Test();
 TostringTest();

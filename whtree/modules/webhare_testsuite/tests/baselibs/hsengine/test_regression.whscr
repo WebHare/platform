@@ -5,8 +5,6 @@ LOADLIB "wh::internal/hsselftests.whlib";
 
 OpenTest("TestRegression");
 
-PRINT("\n === Running TestRegression\n");
-
 /*
 This tests tests code generation; in particular TryMergeBlocks.
 

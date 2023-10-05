@@ -263,7 +263,6 @@ MACRO TestBiBTeXOutput()
 }
 
 
-PRINT("\n === Running TestBiBTeX\n");
 TestSpecExample();
 TestBiBTeXTokenizer();
 TestBiBTeXParser();

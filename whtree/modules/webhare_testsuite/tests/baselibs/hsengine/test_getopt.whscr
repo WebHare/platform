@@ -114,5 +114,4 @@ MACRO ParseArgumentsTest()
   CloseTest("TestArguments: ParseArgumentsTest");
 }
 
-PRINT("\n === Running TestGetOpt\n");
 ParseArgumentsTest();

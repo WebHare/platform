@@ -103,5 +103,4 @@ MACRO CssColorTest()
   CloseTest("TestColors: CssColorTest");
 }
 
-PRINT("\n === Running TestColors\n");
 CssColorTest();

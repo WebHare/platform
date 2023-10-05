@@ -273,7 +273,6 @@ MACRO GeoTest()
   TestEqFloat(2000f, GetLatLngDistance(cp1, CELL[ lat := box.maxlat, cp1.lng ]), 1);
 }
 
-PRINT("\n === Running TestFloat\n");
 FormatFloatTest();
 TofloatTest();
 ConversionTest();

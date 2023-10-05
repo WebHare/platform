@@ -99,7 +99,6 @@ PRINT(test[0].a.b.d[1]);
 }
 
 
-PRINT("\n === Running TestConstants\n");
 ConstantsTest();
 SwitchTest();
 CompileTimeErrorTest();

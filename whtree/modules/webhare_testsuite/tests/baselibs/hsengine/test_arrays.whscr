@@ -482,7 +482,6 @@ MACRO PickTest()
 
 }
 
-PRINT("\n === Running TestArrays\n");
 DeclareTest();
 InsertTest();
 DeleteTest();

@@ -918,7 +918,6 @@ MACRO TestBlobStream()
   TestEQ("abCdef\x00H", BlobToString(MakeBlobFromStream(s)));
 }
 
-PRINT("\n === Running TestFiles\n");
 LoopbackReaders();
 CSVTest();
 CSVCreateTest();

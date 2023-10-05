@@ -1423,8 +1423,6 @@ MACRO SelectTemporariesTest()
   CloseTest("TestDatabase: SelectTemporariesTest");
 }
 
-PRINT("\n === Running TestDatabase\n");
-
 InsertTest();
 DynQueryTest();
 TableSchemaDeclTest();

@@ -415,7 +415,6 @@ MACRO TestJSONFormatting()
 
 __system_jsonobjectclonehook := PTR OnClone;
 
-PRINT("\n === Running TestJSON\n");
 TestJSON();
 TestWrappedJSONEncodeDecode();
 TestJSONObject();

@@ -837,7 +837,6 @@ MACRO TestIsValueSet()
   CloseTest("TestTypes: TestIsDefaultValue");
 }
 
-PRINT("\n === Running TestTypes\n");
 IntegerTest();
 Integer64Test();
 TypeIdTest();

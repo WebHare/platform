@@ -733,7 +733,6 @@ MACRO HolidayTest()
   TestEq(MakeDate(2013,3,31), GetYearlyHoliday(2013,"easter"));
 }
 
-PRINT("\n === Running TestDateTime\n");
 CalcTests();
 MakeTest();
 GetTest();

@@ -966,7 +966,6 @@ MACRO CellUpdateTest()
   MustContainError(4, result.errors, 62, "INTEGER64", "MONEY");
 }
 
-PRINT("\n === Running TestRecords\n");
 UnpackRepackTest();
 RecordInitializerTest();
 IncompleteTypeinfoTest();

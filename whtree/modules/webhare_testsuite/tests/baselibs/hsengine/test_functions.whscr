@@ -522,7 +522,6 @@ MACRO PtrErrorDetectionTest()
 }
 
 
-PRINT("\n === Running TestFunctions\n");
 VarargTest();
 CrashVA();
 PtrRunningTest();

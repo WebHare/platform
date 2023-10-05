@@ -49,6 +49,5 @@ MACRO TestStructureTest()
   TestEqMembers([m1:=1,m2:=1],[m1:=1,m2:=2],"*,-m2"); //m2 differs but is ignored
 }
 
-PRINT("\n === Running TestsTests\n");
 TestStructureTest();
 

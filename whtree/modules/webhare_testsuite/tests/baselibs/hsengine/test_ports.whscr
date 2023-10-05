@@ -175,5 +175,4 @@ MACRO BaseTest()
   CloseTest("TestPorts: Base");
 }
 
-PRINT("\n === Running TestPorts\n");
 BaseTest();

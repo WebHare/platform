@@ -528,7 +528,6 @@ MACRO TestEventCollector()
   __HS_EVENT_CLOSECOLLECTOR(collector);
 }
 
-PRINT("\n === Running TestIPC\n");
 ThrowTest();
 PorthandlerTest();
 FlatPorthandlerTest();

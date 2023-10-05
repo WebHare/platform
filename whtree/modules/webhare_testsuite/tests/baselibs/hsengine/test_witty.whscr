@@ -931,8 +931,6 @@ INTEGER FUNCTION CountExternalVars()
   RETURN cnt;
 }
 
-PRINT("\n === Running TestWTE\n");
-
 INTEGER extvars := CountExternalVars();
 
 SimpleTestWTE();

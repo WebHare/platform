@@ -584,7 +584,6 @@ MACRO TestArrayMove()
   TestThrowsLike("*out*of*bounds*", PTR __ArrayMove([0,1,2,3,4], 5, 'up'));
 }
 
-PRINT("\n === Running TestAlgorithms\n");
 TestRecordLowerBound();
 TestLowerBound();
 TestLowerBoundCustomSort();

@@ -517,7 +517,6 @@ MACRO TestConvertHtmlToPlainText()
   }
 }
 
-PRINT("\n === Running TestHTML\n");
 TestInternals();
 TestOpenHTML();
 TestInlineMode();

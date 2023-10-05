@@ -538,7 +538,6 @@ MACRO ProfilingTest()
   CloseTest("TestControl: ProfilingTest");
 }
 
-PRINT("\n === Running TestControl\n");
 ProfilingTest();
 LoadlibTest();
 LoadlibRedefinitionTest();

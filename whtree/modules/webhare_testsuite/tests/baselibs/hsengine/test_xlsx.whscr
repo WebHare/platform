@@ -458,7 +458,6 @@ MACRO TestXLSX_Compression()
   TestEQ(TRUE, LENGTH64(better_compressed_file.data) < LENGTH64(file.data), "Higher compressionlevel than the default should compress better" );
 }
 
-Print("\n === Running TestXLSX\n");
 TestXLSX_columnfiles();
 TestXLSX_testfile();
 TestXLSX_wide();

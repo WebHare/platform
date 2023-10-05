@@ -54,20 +54,4 @@ MACRO TestMap()
   CloseTest("TestMap: TestMap");
 }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-PRINT("\n === Running TestMap\n");
 TestMap();

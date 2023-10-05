@@ -345,7 +345,6 @@ MACRO TestImapPartParser()
   CloseTest("TestMime:  TestImapPartParse");
 }
 
-PRINT("\n === Running TestMime\n");
 MimeDecodeTest();
 MimeDecodeTest2();
 MimeDecodeTest2Sliced();
