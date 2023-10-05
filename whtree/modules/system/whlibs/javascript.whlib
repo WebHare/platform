@@ -8,7 +8,6 @@
    to directly invoke JS through syscalls without any IPC)
 */
 LOADLIB "wh::internal/wasm.whlib";
-LOADLIB "mod::system/lib/internal/tasks/callasync.whlib";
 
 RECORD ARRAY libcache; //cache opened instances
 
@@ -49,6 +48,7 @@ OBJECTTYPE ImportedLibrary
     IF(IsWasm())
       RETURN EM_Syscall("importCall", CELL[ lib := this->__lib, name, args ]);
 
+    FUNCTION PTR CallAsync := MakeFunctionPtr("mod::system/lib/internal/tasks/callasync.whlib#CallAsync");
     RECORD result := WaitForPromise(CallAsync("@mod-system/js/internal/util/jssupport.ts#callExport", VARIANT[this->__lib, name, args]));
     IF(CellExists(result,'promiseid'))
       RETURN CallAsync("@mod-system/js/internal/util/jssupport.ts#awaitPromise", VARIANT[ result.promiseid ]);
@@ -73,7 +73,10 @@ PUBLIC OBJECT FUNCTION ImportJS(STRING name)
     IF(IsWasm())
       descr := WaitForPromise(EM_Syscall("importDescribe", CELL[name]));
     ELSE
+    {
+      FUNCTION PTR CallAsync := MakeFunctionPtr("mod::system/lib/internal/tasks/callasync.whlib#CallAsync");
       descr := WaitForPromise(CallAsync("@mod-system/js/internal/util/jssupport.ts#describe", [ name ]));
+    }
     lib := NEW ImportedLibrary(name, descr);
     INSERT CELL [ lib, name ] INTO libcache AT END;
   }
