@@ -1,8 +1,10 @@
 import { ReadableStream, TransformStream } from "node:stream/web";
+import { arrayBuffer } from 'node:stream/consumers';
 import { stat } from "node:fs/promises";
 import { isAbsolute } from "node:path";
 import { createReadStream, readFileSync } from "node:fs";
 import { Readable } from "node:stream";
+
 
 /** Interface to streamable binary buffers that may come from eg. disk, memory or database */
 export abstract class WebHareBlob {
@@ -59,6 +61,11 @@ export abstract class WebHareBlob {
   ///Get the contents synchronously, This is needed for the blob to support setJSValue
   __getAsSyncUInt8Array(): Readonly<Uint8Array> {
     throw new Error(`This blob does not support synchronous access`);
+  }
+
+  ///Annouce that this blob has been uploaded to the PG database. Used to prevent reuploading the same blob.
+  __registerPGUpload(databaseid: string): void {
+    //Only overridden by HSVM
   }
 
   //TODO should this be sync? ReadableStream has plenty of async support ?

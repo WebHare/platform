@@ -91,8 +91,8 @@ async function testWHFS() {
 
   //Read a 'fs_objects.data' cell
   const wittytestfile = await testpagesfolder.openFile("wittytest.witty");
-  test.eq(11, await wittytestfile.data.size);
-  test.eq(`[wittytest]`, await wittytestfile.data.text());
+  test.eq(11, await wittytestfile.data.resource.size);
+  test.eq(`[wittytest]`, await wittytestfile.data.resource.text());
 
   const imgfile = await testpagesfolder.openFile("imgeditfile.jpeg");
   test.eq('0hMX4RpiWulvvNdfeF92ErsUAWebk7Kx59bsflO3BIw', imgfile.data.hash);
@@ -108,7 +108,7 @@ async function testWHFS() {
 
   // Get the sha256 of the file
   const hashSum = crypto.createHash('sha256');
-  hashSum.update(Buffer.from(await imgfile.data.arrayBuffer()));
+  hashSum.update(Buffer.from(await imgfile.data.resource.arrayBuffer()));
   test.eq('0hMX4RpiWulvvNdfeF92ErsUAWebk7Kx59bsflO3BIw', hashSum.digest('base64url'));
 
   const tmpfolder = await testsite.openFolder("tmp");

@@ -3,11 +3,10 @@ import type { HSVM_VariableId, HSVM_VariableType, } from "../../../lib/harescrip
 import type { HareScriptVM, JSBlobTag } from "./wasm-hsvm";
 import { dateToParts, makeDateFromParts } from "@webhare/hscompat";
 import { Money } from "@webhare/std";
-import { WHDBBlob } from "@webhare/whdb";
-import { WHDBBlobImplementation } from "@webhare/whdb/src/blobs";
-import { isWHDBBlob } from "@webhare/whdb/src/blobs";
-import { HareScriptMemoryBlob, HareScriptBlob } from "./hsblob";
+import { __getBlobDatabaseId, __getBlobDiskFilePath, createPGBlobByBlobRec } from "@webhare/whdb/src/blobs";
 import { resurrect } from "./wasm-resurrection";
+import { WebHareBlob } from "@webhare/services/src/webhareblob";
+import { ReadableStream, TransformStream } from "node:stream/web";
 
 function canCastTo(from: VariableType, to: VariableType): boolean {
   if (from === to)
@@ -18,16 +17,15 @@ function canCastTo(from: VariableType, to: VariableType): boolean {
 }
 
 //TODO WeakRefs so the HareScriptVM can be garbage collected ? We should also consider moving the GlobalBlobStorage to JavaScript so we don't need to keep the HSVMs around
-class HSVMBlob implements HareScriptBlob {
+class HSVMBlob extends WebHareBlob {
   blob: HSVMHeapVar | null;
-  readonly size: number;
 
   constructor(blob: HSVMHeapVar, size: number) {
+    super(size);
     this.blob = blob;
-    this.size = size;
   }
 
-  tryArrayBufferSync(): ArrayBuffer {
+  __getAsSyncUInt8Array(): Readonly<Uint8Array> {
     if (!this.blob)
       throw new Error(`This blob has already been closed`);
 
@@ -40,26 +38,23 @@ class HSVMBlob implements HareScriptBlob {
         throw new Error(`Failed to read blob, got ${numread} of ${this.size} bytes`);
 
       const data = this.blob.vm.wasmmodule.HEAP8.slice(buffer, buffer + this.size);
-      return new Int8Array(data);
+      return new Uint8Array(data);
     } finally {
       this.blob.vm.wasmmodule._free(buffer);
       this.blob.vm.wasmmodule._HSVM_BlobClose(this.blob.vm.hsvm, openblob);
     }
   }
 
-  async arrayBuffer(): Promise<ArrayBuffer> {
-    return this.tryArrayBufferSync();
+  async getStream(): Promise<ReadableStream> {
+    //TODO create proper stream?
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
+    writer.write(this.__getAsSyncUInt8Array());
+    writer.close();
+    return readable;
   }
 
-  async text(): Promise<string> {
-    return new TextDecoder("utf8").decode(await this.arrayBuffer());
-  }
-
-  isSameBlob(rhs: HareScriptBlob): boolean {
-    return false; //TODO? but we don't really care as there is currently no useful optimization
-  }
-
-  //You should close a HSVMBlob when you're done with it so the HSVM can garbage collect it (FIXME also use a FinalizerRegistry!)
+  //You should close a HSVMBlob when you're done with it so the HSVM can garbage collect it (FIXME use a FinalizerRegistry because noone can reallyt invoke this!)
   close() {
     if (this.blob) {
       this.blob.dispose();
@@ -81,7 +76,7 @@ class HSVMBlob implements HareScriptBlob {
     this.blob.vm.setBlobJSTag(this.blob.id, tag);
   }
 
-  registerPGUpload(databaseid: string) {
+  __registerPGUpload(databaseid: string) {
     if (this.blob) //not closed yet
       this.setJSTag({ pg: databaseid });
   }
@@ -190,40 +185,47 @@ export class HSVMVar {
   setFloat(value: number) {
     this.vm.wasmmodule._HSVM_FloatSet(this.vm.hsvm, this.id, value);
   }
-  getBlob(): HareScriptBlob {
+  getBlob(): WebHareBlob {
     this.checkType(VariableType.Blob);
     const size = Number(this.vm.wasmmodule._HSVM_BlobLength(this.vm.hsvm, this.id));
     if (size === 0)
-      return new HareScriptMemoryBlob;
+      return WebHareBlob.from("");
 
     const tag = this.vm.getBlobJSTag(this.id);
     if (tag?.pg)
-      return new WHDBBlobImplementation(tag.pg, size);
+      return createPGBlobByBlobRec(tag.pg, size);
 
     //TODO we might not need a wrapper around HSVM_BlobRead (with all the issue if the blobs outlive the HSVM!) if we can reach directly into the backing blob storage ?
     const cloneblob = this.vm.allocateVariable();
     this.vm.wasmmodule._HSVM_CopyFrom(this.vm.hsvm, cloneblob.id, this.id);
     return new HSVMBlob(cloneblob, size);
   }
-  setBlob(value: WHDBBlob | HareScriptMemoryBlob | null) {
-    if (isWHDBBlob(value)) {
-      const fullpath = value.__getDiskPathinfo().fullpath;
-      const fullpath_cstr = this.vm.wasmmodule.stringToNewUTF8(fullpath);
-      this.vm.wasmmodule._HSVM_MakeBlobFromDiskPath(this.vm.hsvm, this.id, fullpath_cstr, BigInt(value.size));
-      this.vm.wasmmodule._free(fullpath_cstr);
-      this.vm.setBlobJSTag(this.id, { pg: value.databaseid });
-      this.type = VariableType.Blob;
-    } else if (value?.size) {
-      const stream = this.vm.wasmmodule._HSVM_CreateStream(this.vm.hsvm);
-      //TODO write in blocks to reduce memory peak usage/fragmentation?
-      const tempbuffer = this.vm.wasmmodule._malloc(value.size);
-      this.vm.wasmmodule.HEAP8.set((value as HareScriptMemoryBlob).data!, tempbuffer);
-      //TODO deal with too short return values
-      this.vm.wasmmodule._HSVM_WriteTo(this.vm.hsvm, stream, value.size, tempbuffer);
-      this.vm.wasmmodule._free(tempbuffer);
-      this.vm.wasmmodule._HSVM_MakeBlobFromStream(this.vm.hsvm, this.id, stream);
-    } else
+  setBlob(blob: WebHareBlob | null) {
+    if (!blob || !blob.size) {
       this.setDefault(VariableType.Blob);
+      return;
+    }
+
+    const dbid = __getBlobDatabaseId(blob);
+    if (dbid) {
+      const fullpath = __getBlobDiskFilePath(dbid);
+      const fullpath_cstr = this.vm.wasmmodule.stringToNewUTF8(fullpath);
+      this.vm.wasmmodule._HSVM_MakeBlobFromDiskPath(this.vm.hsvm, this.id, fullpath_cstr, BigInt(blob.size));
+      this.vm.wasmmodule._free(fullpath_cstr);
+      this.vm.setBlobJSTag(this.id, { pg: dbid });
+      this.type = VariableType.Blob;
+      return;
+    }
+
+    const blobcontent = blob.__getAsSyncUInt8Array();
+    const stream = this.vm.wasmmodule._HSVM_CreateStream(this.vm.hsvm);
+    //TODO write in blocks to reduce memory peak usage/fragmentation? or replace __getAsSyncUInt8Array with an APi to directly copy it into the alloced buffer ?
+    const tempbuffer = this.vm.wasmmodule._malloc(blob.size);
+    this.vm.wasmmodule.HEAP8.set(blobcontent, tempbuffer);
+    //TODO deal with too short return values
+    this.vm.wasmmodule._HSVM_WriteTo(this.vm.hsvm, stream, blobcontent.byteLength, tempbuffer);
+    this.vm.wasmmodule._free(tempbuffer);
+    this.vm.wasmmodule._HSVM_MakeBlobFromStream(this.vm.hsvm, this.id, stream);
   }
   setDefault(type: VariableType): HSVMVar {
     if (type === VariableType.Array)
@@ -377,7 +379,7 @@ export class HSVMVar {
         return;
       } break;
       case VariableType.Blob: {
-        this.setBlob(value as WHDBBlob | HareScriptMemoryBlob | null);
+        this.setBlob(value as WebHareBlob | null);
         return;
       } break;
       case VariableType.Record: {

@@ -1,7 +1,8 @@
 import type { HTTPMethod } from "@webhare/router";
-import type { IPCMarshallableBlob, IPCMarshallableData, VariableType } from "./whmanager/hsmarshalling";
+import type { IPCMarshallableData, VariableType } from "./whmanager/hsmarshalling";
 import type { IPCExceptionMessage, IPCLinkType } from "./whmanager/ipc";
 import type { TypedMessagePort } from "./whmanager/transport";
+import type { WebHareBlob } from "@webhare/services";
 
 /// Primitive values (string, number or boolean)
 export type PlainValue = string | number | boolean;
@@ -82,14 +83,14 @@ export interface WebRequestInfo {
   method: HTTPMethod;
   url: string;
   headers: Record<string, string>;
-  body: IPCMarshallableBlob;
+  body: WebHareBlob;
 }
 
 ///Internal data structure used to marshall responses from JavaScript to HareScript. Proper routers would use WebResponse (and not have to deal with HS blobs)
 export interface WebResponseInfo {
   status: number;
   headers: Record<string, string>;
-  body: IPCMarshallableBlob;
+  body: WebHareBlob;
 }
 
 export type WorkerControlLinkRequest = {

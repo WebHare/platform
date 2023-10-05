@@ -307,7 +307,7 @@ async function testNewAPI() {
   // verify File/Image fields (blob). TODO this might go away in the future, but for 5.3 compatibility support `{data:Buffer}` fields
   await schema.update("wrdPerson", newperson, { testFile: { data: Buffer.from("Hey everybody") } });
   const file: ResourceDescriptor = (await schema.selectFrom("wrdPerson").select("testFile").where("wrdId", "=", newperson).execute())[0]!;
-  test.eq("Hey everybody", await file.text());
+  test.eq("Hey everybody", await file.resource.text());
 
   test.eq('XwMO4BX9CoLbEUXw98kaTSw3Ut4S-HbEvWpHyBtJD1c', file.hash);
   test.eq('application/octet-stream', file.mediaType);
@@ -322,7 +322,7 @@ async function testNewAPI() {
 
   await schema.update("wrdPerson", newperson, { testFile: { data: Buffer.from("Hey everybody 2") } });
   const filerec: ResourceDescriptor = (await schema.selectFrom("wrdPerson").select(["testFile"]).where("wrdId", "=", newperson).execute())[0].testFile!;
-  test.eq('Hey everybody 2', await filerec.text());
+  test.eq('Hey everybody 2', await filerec.resource.text());
   test.eq('5q1Ql8lEa-yynDB7Gow5Oq4tj3aUhW_fUthcW-Fu0YM', filerec.hash);
 
   // Set the 'richie' rich document document

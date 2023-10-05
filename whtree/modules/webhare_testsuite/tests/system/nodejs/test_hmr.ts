@@ -6,8 +6,7 @@ import { config } from "@mod-system/js/internal/configuration";
 import { activate } from "@mod-system/js/internal/hmrinternal";
 import { openHSVM, HSVM, HSVMObject } from "@webhare/services/src/hsvm";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
-import { toFSPath } from "@webhare/services";
-import { HareScriptMemoryBlob } from "@webhare/harescript";
+import { toFSPath, WebHareBlob } from "@webhare/services";
 import { storeDiskFile } from "@webhare/system-tools";
 
 async function testFileEdits() {
@@ -98,7 +97,7 @@ async function testFileEdits() {
 async function createModule(hsvm: HSVM, name: string, files: Record<string, string>) {
   const archive = await hsvm.loadlib("mod::system/whlibs/filetypes/archiving.whlib").CreateNewArchive("application/zip") as HSVMObject;
   for (const [path, data] of Object.entries(files)) {
-    await archive.AddFile(name + "/" + path, new HareScriptMemoryBlob(Buffer.from(data)), new Date);
+    await archive.AddFile(name + "/" + path, WebHareBlob.from(data), new Date);
   }
   const modulearchive = await archive.MakeBlob();
   const res = await hsvm.loadlib("mod::system/lib/internal/moduleimexport.whlib").ImportModule(modulearchive) as {

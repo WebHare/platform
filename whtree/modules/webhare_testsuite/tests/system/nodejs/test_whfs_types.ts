@@ -6,7 +6,7 @@ import { WHFSFile } from "@webhare/whfs";
 import { verifyNumSettings, dumpSettings } from "./data/whfs-testhelpers";
 import { Money } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
-import { ResourceDescriptor, RichDocument, openResource } from "@webhare/services";
+import { ResourceDescriptor, RichDocument, WebHareBlob } from "@webhare/services";
 import { createRichDocument } from "@webhare/services/src/rtdbuilder";
 
 void dumpSettings; //don't require us to add/remove the import while debugging
@@ -106,7 +106,7 @@ async function testInstanceData() {
   }, await testtype.get(testfile.id));
 
   //Test files
-  const goldfish = await openResource("mod::system/web/tests/goudvis.png");
+  const goldfish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png");
   await testtype.set(testfile.id, {
     blub: goldfish
   });
@@ -151,9 +151,13 @@ async function testInstanceData() {
 
   test.eq(returnedGoldfish.mediaType, val.blub.mimetype);
   test.eq(returnedGoldfish.hash, val.blub.hash);
-  test.eq(Buffer.from(await returnedGoldfish.arrayBuffer()).toString("base64"), (await val.blub.data.arrayBuffer()).toString("base64"));
 
-  test.eq(inRichdocHTML, (await val.rich.htmltext.arrayBuffer()).toString("utf8"));
+  const blubFromHareScript = val.blub.data as WebHareBlob;
+  const blubFromOurGet = returnedGoldfish.resource;
+  test.eq(blubFromHareScript.size, blubFromOurGet.size);
+  test.eq(Buffer.from(await blubFromOurGet.arrayBuffer()).toString("base64"), Buffer.from(await blubFromHareScript.arrayBuffer()).toString("base64"));
+
+  test.eq(inRichdocHTML, Buffer.from(await val.rich.htmltext.arrayBuffer()).toString("utf8"));
 
   //Test validation
   await test.throws(/Incorrect type/, () => testtype.set(testfile.id, { int: "a" }));

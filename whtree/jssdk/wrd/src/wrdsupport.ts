@@ -1,8 +1,8 @@
 import { WRDAttributeType } from "@mod-wrd/js/internal/types";
-import { HareScriptBlob } from "@webhare/harescript/src/hsblob";
-import { decodeScanData, WHDBResourceDescriptor } from "@webhare/services/src/descriptor";
+import { ResourceDescriptor, decodeScanData } from "@webhare/services/src/descriptor";
 import { __RichDocumentInternal } from "@webhare/services/src/richdocument";
-import { WHDBBlobImplementation } from "@webhare/whdb/src/blobs";
+import { WebHareBlob } from "@webhare/services";
+import { createPGBlobByBlobRec } from "@webhare/whdb/src/blobs";
 
 export interface WRDAttributeConfiguration_HS {
   attributetype: number;
@@ -94,7 +94,7 @@ interface WrappedJSONFromWRDSetting {
 
 interface WrappedRichDocumentFromWRDSetting {
   "^$wrdtype": "richdocument";
-  htmltext: HareScriptBlob;
+  htmltext: WebHareBlob;
   embedded: unknown[];
   links: Array<{ tag: string; linkref: number }>;
   instances: Array<{ instanceid: string; data: unknown }>;
@@ -103,7 +103,7 @@ interface WrappedRichDocumentFromWRDSetting {
 type WrappedFromWRDSetting = WrappedObjectFromWRDSetting | WrappedJSONFromWRDSetting | WrappedRichDocumentFromWRDSetting;
 
 function buildRichDescriptor(val: WrappedObjectFromWRDSetting) {
-  return new WHDBResourceDescriptor(val.size ? new WHDBBlobImplementation(val.id, val.size) : null, { ...decodeScanData(val.scandata), sourceFile: val.fs_object });
+  return new ResourceDescriptor(val.size ? createPGBlobByBlobRec(val.id, val.size) : null, { ...decodeScanData(val.scandata), sourceFile: val.fs_object });
 }
 
 function returnWRDObject(rawvalue: object) {

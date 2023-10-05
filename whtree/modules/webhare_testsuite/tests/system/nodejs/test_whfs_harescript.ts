@@ -1,9 +1,10 @@
 //We test the usability of WHFS APIs which we'll need until JS WHFS is done
 
 import * as test from "@webhare/test";
-import { HareScriptMemoryBlob, loadlib } from "@webhare/harescript";
+import { loadlib } from "@webhare/harescript";
 import { beginWork, commitWork, isWorkOpen } from "@webhare/whdb";
 import { generateRandomId } from "@webhare/std";
+import { WebHareBlob } from "@webhare/services/src/webhareblob";
 
 async function setup() {
   await loadlib("mod::system/lib/testframework.whlib").runTestFramework([]);
@@ -19,7 +20,7 @@ async function setup() {
 
   console.log("creating file");
   await beginWork();
-  const file = await tmpfolder.ensureFile({ name: "file.txt", publish: true, data: new HareScriptMemoryBlob(Buffer.from("Ik ben data " + uuid)) });
+  const file = await tmpfolder.ensureFile({ name: "file.txt", publish: true, data: WebHareBlob.from("Ik ben data " + uuid) });
   test.eq("file.txt", await (await tmpfolder.openByName("file.txt")).$get("name"));
   console.log("..commit");
   await commitWork();

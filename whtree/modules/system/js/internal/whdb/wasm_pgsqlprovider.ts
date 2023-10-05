@@ -4,14 +4,13 @@ import { VariableType, getTypedArray } from "../whmanager/hsmarshalling";
 import { FullPostgresQueryResult } from "@webhare/whdb/src/connection";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat/datetime";
 import { Tid } from "@webhare/whdb/src/types";
-import { isWHDBBlob } from "@webhare/whdb/src/blobs";
-import { isHareScriptBlob } from "@webhare/harescript/src/hsblob";
 import { WASMModule } from "@webhare/harescript/src/wasm-modulesupport";
 import { HareScriptVM } from "@webhare/harescript/src/wasm-hsvm";
 import { HSVMVar } from "@webhare/harescript/src/wasm-hsvmvar";
 import { HSVM_VariableId, HSVM_VariableType } from "wh:internal/whtree/lib/harescript-interface";
 import { Money } from "@webhare/std";
 import { BindParam } from "@webhare/whdb/vendor/postgresql-client/src";
+import { WebHareBlob } from "@webhare/services/src/webhareblob";
 
 enum Fases {
   None = 0,
@@ -171,17 +170,6 @@ function getConditionValue(query: Query, cond: SingleCondition, condidx: number,
 
 function encodePattern(mask: string) {
   return mask.replace(/([_%\\])/g, `\\$1`).replace(/\?/g, "_").replace(/\*/g, "%");
-}
-
-function fixValue(value: unknown) {
-  if (isHareScriptBlob(value) && !isWHDBBlob(value))
-    return uploadBlob(value).then(newblob => {
-      if (isWHDBBlob(newblob))
-        if (value?.registerPGUpload)
-          value.registerPGUpload(newblob.databaseid);
-
-      return newblob;
-    });
 }
 
 async function cbExecuteQuery(vm: HareScriptVM, id_set: HSVMVar, queryparam: HSVMVar, newfields: HSVMVar) {
@@ -562,8 +550,10 @@ export async function cbExecuteSQL(vm: HareScriptVM, id_set: HSVMVar, sqlquery: 
       args.push(new BindParam(OID.FLOAT8, hsarg.getFloat()));
     else {
       const val = hsarg.getJSValue();
-      const fix = fixValue(val);
-      args.push(fix?.then ? await fix : val);
+      if (val instanceof WebHareBlob)
+        await uploadBlob(val);
+
+      args.push(val);
     }
   }
 
@@ -638,8 +628,10 @@ async function decodeNewFields(vm: HareScriptVM, query: Query, newfields: HSVMVa
 
       //We'll manually get the individual cells so we can retrieve binary data where needed
       const setvalue = column.flags & ColumnFlags.Binary ? cell.getStringAsBuffer() : cell.getJSValue();
-      const fixedvalue = fixValue(setvalue);
-      values[column.dbase_name] = fixedvalue?.then ? await fixedvalue : setvalue;
+      if (setvalue instanceof WebHareBlob)
+        await uploadBlob(setvalue);
+
+      values[column.dbase_name] = setvalue;
     }
 
   return values;

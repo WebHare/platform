@@ -117,8 +117,8 @@ async function testWebHareBlobs() {
 async function testResourceDescriptors() {
   //Test various resource scan options
   {
-    const fish = await services.openResource("mod::system/web/tests/goudvis.png");
-    test.eq(75125, fish.size);
+    const fish = await services.ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png");
+    test.eq(75125, fish.resource.size);
     test.eqProps({
       mediaType: "application/octet-stream",
       hash: null,
@@ -128,8 +128,8 @@ async function testResourceDescriptors() {
   }
 
   {
-    const fish = await services.openResource("mod::system/web/tests/goudvis.png", { mediaType: "image/png" });
-    test.eq(75125, fish.size);
+    const fish = await services.ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { mediaType: "image/png" });
+    test.eq(75125, fish.resource.size);
     test.eqProps({
       mediaType: "image/png",
       hash: null,
@@ -139,8 +139,8 @@ async function testResourceDescriptors() {
   }
 
   {
-    const fish = await services.openResource("mod::system/web/tests/goudvis.png", { getHash: true });
-    test.eq(75125, fish.size);
+    const fish = await services.ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png", { getHash: true });
+    test.eq(75125, fish.resource.size);
     test.eqProps({
       mediaType: "application/octet-stream",
       hash: "aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY",

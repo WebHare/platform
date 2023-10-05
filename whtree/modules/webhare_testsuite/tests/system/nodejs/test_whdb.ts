@@ -1,14 +1,14 @@
-import { BackendEvent, BackendEventSubscription, openResource, subscribe } from "@webhare/services";
+import { BackendEvent, BackendEventSubscription, WebHareBlob, ResourceDescriptor, subscribe } from "@webhare/services";
 import * as test from "@webhare/test";
 import { sleep } from "@webhare/std";
 import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
-import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen, uploadBlob, query, nextVal, nextVals } from "@webhare/whdb";
+import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen, uploadBlob, query, nextVal, nextVals, isSameUploadedBlob } from "@webhare/whdb";
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
 import * as contexttests from "./data/context-tests";
-import { WHDBBlob } from "@webhare/whdb/src/blobs";
-import { HareScriptMemoryBlob, loadlib } from "@webhare/harescript";
+import { loadlib } from "@webhare/harescript";
 import { getCodeContextHSVM } from "@webhare/harescript/src/contextvm";
 import { CodeContext } from "@webhare/services/src/codecontexts";
+import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
 
 async function cleanup() {
   await beginWork();
@@ -19,51 +19,51 @@ async function cleanup() {
 
 async function testQueries() {
   await beginWork();
-  test.eq(null, await uploadBlob(""));
 
-  const goudvis = await openResource("mod::system/web/tests/goudvis.png");
-  const hsblob = new HareScriptMemoryBlob(Buffer.from("This is another blob"));
-  const newblob = await uploadBlob("This is a blob");
-  const newblob2 = await uploadBlob(hsblob);
-  const newblob3 = await uploadBlob(goudvis);
-  const emptyboxedblob = new HareScriptMemoryBlob; //Represents a HSVM compatible empty blob
+  const emptyblob = WebHareBlob.from("");
+  await uploadBlob(WebHareBlob.from(""));
+  test.eq(null, __getBlobDatabaseId(emptyblob), "empty blob should not be actually uploaded");
 
-  test.assert(newblob);
-  test.assert(newblob2);
-  test.assert(newblob3);
-  test.assert(emptyboxedblob);
-  test.eq(14, newblob.size);
-  test.eq("This is a blob", await newblob.text());
-  test.eq("", await emptyboxedblob.text());
-  test.eq(null, await uploadBlob(emptyboxedblob));
-  test.assert(newblob.isSameBlob((await uploadBlob(newblob))!), "Should have no effect when uploading a WHDBBlob");
-  test.assert(newblob2.isSameBlob((await uploadBlob(hsblob))!), "Should have no effect when reuploading a HareScript Blob");
-  test.assert(newblob3.isSameBlob((await uploadBlob(goudvis))!), "Should have no effect when reuploading a HareScript Blob");
+  const goudvis = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png");
+  const thisisablob = WebHareBlob.from("This is a blob");
+  await uploadBlob(thisisablob);
+  await uploadBlob(goudvis.resource);
 
-  ///@ts-expect-error -- We need to ensure TypeScript can differentiate between HareScriptBlob and WHDBBlob ducks (TODO alternative solution) or it can't guard against insert errors
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const dummy_hsvm_blob: WHDBBlob = emptyboxedblob;
+  const thisisablob_id = __getBlobDatabaseId(thisisablob);
+  test.assert(thisisablob_id);
+  await uploadBlob(thisisablob);
+  test.eq(thisisablob_id, __getBlobDatabaseId(thisisablob), "Reupload should have no effect - we verify that by ensuring the databaseid is unchanged");
+
   const nextid: number = await nextVal("webhare_testsuite.exporttest.id");
-  const nextids: number[] = await nextVals("webhare_testsuite.exporttest.id", 2);
-  test.eq(2, nextids.length);
-  test.assert(!nextids.includes(nextid));
-  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextids[0], text: "This is a text", datablob: newblob }).execute();
-  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextids[1], text: "This is another text" }).execute();
+  const moreids: number[] = await nextVals("webhare_testsuite.exporttest.id", 3);
+  test.eq(3, moreids.length);
+  test.assert(!moreids.includes(nextid));
+  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: nextid, text: "This is a goldfish", datablob: goudvis.resource }).execute();
+  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: moreids[0], text: "This is a text", datablob: thisisablob }).execute();
+  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: moreids[1], text: "This is another text" }).execute();
+  await db<WebHareTestsuiteDB>().insertInto("webhare_testsuite.exporttest").values({ id: moreids[2], text: "This is an empty blob", datablob: emptyblob }).execute();
   await commitWork();
 
   const tablecontents = await db<WebHareTestsuiteDB>().selectFrom("webhare_testsuite.exporttest").selectAll().orderBy("id").execute();
-  test.eqProps([{ id: nextids[0], text: 'This is a text' }, { id: nextids[1], text: 'This is another text' }], tablecontents);
-  test.assert(tablecontents[0].datablob);
-  test.eq(14, tablecontents[0].datablob.size);
-  test.eq("This is a blob", await tablecontents[0].datablob.text());
-  test.eq("This is a blob", new TextDecoder().decode(await tablecontents[0].datablob.arrayBuffer()));
-  test.eq(null, tablecontents[1].datablob);
-  test.assert(newblob.isSameBlob(tablecontents[0].datablob));
-  test.assert(tablecontents[0].datablob.isSameBlob(newblob));
-  test.assert(!newblob2.isSameBlob(tablecontents[0].datablob));
+  test.eqProps([
+    { id: nextid, text: 'This is a goldfish' },
+    { id: moreids[0], text: 'This is a text' },
+    { id: moreids[1], text: 'This is another text' },
+    { id: moreids[2], text: 'This is an empty blob' }
+  ], tablecontents);
+  test.assert(tablecontents[1].datablob);
+  test.eq(14, tablecontents[1].datablob.size);
+  test.eq("This is a blob", await tablecontents[1].datablob.text());
+  test.eq(null, tablecontents[2].datablob);
+  test.eq(null, tablecontents[3].datablob);
+  test.assert(isSameUploadedBlob(thisisablob, tablecontents[1].datablob));
+  test.assert(isSameUploadedBlob(tablecontents[1].datablob, thisisablob));
+  test.assert(isSameUploadedBlob(goudvis.resource, tablecontents[0].datablob!));
+  test.assert(!isSameUploadedBlob(goudvis.resource, tablecontents[1].datablob!));
 
   await beginWork();
-  test.assert(newblob.isSameBlob((await uploadBlob(tablecontents[0].datablob))!), "No effect when uploading a downloaded WHDBBlob");
+  await uploadBlob(tablecontents[0].datablob!);
+  test.eq(thisisablob_id, __getBlobDatabaseId(tablecontents[1].datablob), "No effect when uploading a downloaded WHDBBlob");
   await rollbackWork();
 
   const tablecontents2 = (await query("select * from webhare_testsuite.exporttest order by id")).rows;

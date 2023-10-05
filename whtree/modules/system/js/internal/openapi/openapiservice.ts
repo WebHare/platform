@@ -25,7 +25,7 @@ export class RestService {
     const logger = new LogInfo(req.sourceip, req.method.toLowerCase());
 
     try {
-      const webreq = newWebRequestFromInfo(req);
+      const webreq = await newWebRequestFromInfo(req);
       const response = await (await this.#runRestRouter(webreq, relurl, logger)).asWebResponseInfo();
       //TODO It's a bit ugly to be working with a HareScriptBlob here (`body.size`) as this is still JS code, but it's a quick workaround for not having to JSON.stringify twice
       this.logRequest(logger, response.status, response.body.size);

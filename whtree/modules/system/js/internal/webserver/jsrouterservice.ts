@@ -8,7 +8,7 @@ class JSRouter {
     const router = await loadJSFunction(routerfunc) as WebHareRouter;
     let webreq;
     try {
-      webreq = newForwardedWebRequest(newWebRequestFromInfo(req), localbaseurl.substring(1));
+      webreq = newForwardedWebRequest(await newWebRequestFromInfo(req), localbaseurl.substring(1));
     } catch (e) {
       return createWebResponse("Invalid URL", { status: 400 }).asWebResponseInfo();
     }

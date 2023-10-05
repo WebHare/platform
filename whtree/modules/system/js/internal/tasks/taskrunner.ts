@@ -1,7 +1,7 @@
-import { TaskRequest, TaskResponse, broadcast } from "@webhare/services";
+import { TaskRequest, TaskResponse, WebHareBlob, broadcast } from "@webhare/services";
 import { loadJSFunction } from "../resourcetools";
 import { System_Managedtasks, WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
-import { WHDBBlob, commitWork, db, isWorkOpen, rollbackWork, uploadBlob } from "@webhare/whdb";
+import { commitWork, db, isWorkOpen, rollbackWork, uploadBlob } from "@webhare/whdb";
 import { getStructuredTrace } from "../whmanager/ipc";
 import bridge from "../whmanager/bridge";
 import { addDuration, pick } from "@webhare/std";
@@ -29,7 +29,7 @@ async function finalizeTaskResult(taskinfo: TaskInfo, updates: Partial<System_Ma
   broadcast("system:managedtasks." + taskinfo.tasktype + "." + taskinfo.dbid);
 }
 
-async function splitretval(data: unknown): Promise<{ shortretval: string; longretval: WHDBBlob | null }> {
+async function splitretval(data: unknown): Promise<{ shortretval: string; longretval: WebHareBlob | null }> {
   if (!data)
     return { shortretval: "", longretval: null };
 
@@ -37,7 +37,9 @@ async function splitretval(data: unknown): Promise<{ shortretval: string; longre
   if (result.length < 1000)
     return { shortretval: result, longretval: null };
 
-  return { shortretval: "long", longretval: await uploadBlob(result) };
+  const blob = WebHareBlob.from(result);
+  await uploadBlob(blob);
+  return { shortretval: "long", longretval: blob };
 }
 
 export async function executeManagedTask(taskinfo: TaskInfo, debug: boolean) {

@@ -15,15 +15,16 @@ import {
 
 import { RefTracker, checkIsRefCounted } from '@mod-system/js/internal/whmanager/refs';
 import { BackendEventData, broadcast } from '@webhare/services/src/backendevents';
-import { BackendEvent } from '../../services/src/services';
+import { WebHareBlob } from '@webhare/services/src/webhareblob';
+import { type BackendEvent } from '@webhare/services';
 import { debugFlags } from '@webhare/env/src/envbackend';
 import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
-import { uploadBlobToConnection, WHDBBlob, ValidBlobSources } from './blobs';
+import { uploadBlobToConnection } from './blobs';
 import { ensureScopedResource } from '@webhare/services/src/codecontexts';
 import { WHDBPgClient } from './connection';
 import { getCodeContextHSVM } from '@webhare/harescript/src/contextvm';
 
-export { WHDBBlob } from "./blobs";
+export { isSameUploadedBlob } from "./blobs";
 
 // Export kysely helper stuff for use in external modules
 export {
@@ -83,7 +84,7 @@ class Work {
     return result;
   }
 
-  async uploadBlob(data: ValidBlobSources): Promise<WHDBBlob | null> {
+  async uploadBlob(data: WebHareBlob): Promise<void> {
     if (!this.open)
       throw new Error(`Work is already closed`);
     if (!this.conn.pgclient)
@@ -297,7 +298,7 @@ class WHDBConnectionImpl extends WHDBPgClient implements WHDBConnection, Postgre
     return this.checkState(true).rollback();
   }
 
-  async uploadBlob(data: ValidBlobSources): Promise<WHDBBlob | null> {
+  async uploadBlob(data: WebHareBlob): Promise<void> {
     return this.checkState(true).uploadBlob(data);
   }
 
@@ -415,8 +416,9 @@ export function rollbackWork() {
 }
 
 /** Upload a blob to the database
+ *  @returns Uploaded version of the blob. If the blob was uploaded earlier, the same WHDBBlob is returned
 */
-export async function uploadBlob(data: ValidBlobSources): Promise<WHDBBlob | null> {
+export async function uploadBlob(data: WebHareBlob): Promise<void> {
   return getConnection().uploadBlob(data);
 }
 

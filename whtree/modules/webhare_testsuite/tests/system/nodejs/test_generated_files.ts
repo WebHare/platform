@@ -3,7 +3,7 @@ import * as fs from "fs";
 import { config } from "@mod-system/js/internal/configuration";
 import { openHSVM, HSVM, HSVMObject } from "@webhare/services/src/hsvm";
 import { generateKyselyDefs } from "@mod-system/js/internal/generation/gen_whdb";
-import { HareScriptMemoryBlob } from "@webhare/harescript";
+import { WebHareBlob } from "@webhare/services";
 
 async function testBasics() {
   const result = generateKyselyDefs("system", ["system"]);
@@ -13,7 +13,7 @@ async function testBasics() {
 async function createModule(hsvm: HSVM, name: string, files: Record<string, string>) {
   const archive = await hsvm.loadlib("mod::system/whlibs/filetypes/archiving.whlib").CreateNewArchive("application/zip") as HSVMObject;
   for (const [path, data] of Object.entries(files)) {
-    await archive.AddFile(name + "/" + path, new HareScriptMemoryBlob(Buffer.from(data)), new Date);
+    await archive.AddFile(name + "/" + path, WebHareBlob.from(data), new Date);
   }
   const modulearchive = await archive.MakeBlob();
 

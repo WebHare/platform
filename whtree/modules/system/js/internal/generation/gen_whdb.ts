@@ -151,7 +151,7 @@ export function generateKyselyDefs(modulename: string, modules: string[]): strin
             case "blob": {
               hasblobs = true;
               nullable = col_nullable;
-              tstype = "WHDBBlob";
+              tstype = "WebHareBlob";
             } break;
             case "boolean": {
               tstype = "boolean";
@@ -196,7 +196,7 @@ export function generateKyselyDefs(modulename: string, modules: string[]): strin
     return "";
 
   return `import type { ColumnType } from ${JSON.stringify(kyselyimportlib)};
-${hasblobs ? `import type { WHDBBlob } from "@webhare/whdb";` : ""}
+${hasblobs ? `import type { WebHareBlob } from "@webhare/services";` : ""}
 
 /* Contains the Kysely database definitions for ${modulename == "webhare" ? `the WebHare core modules` : `module ${modulename}`}
     Example usage:

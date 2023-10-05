@@ -2,7 +2,7 @@ import { HTTPErrorCode, HTTPMethod, HTTPStatusCode, RestDefaultErrorBody } from 
 import { ComponentsBase, DefaultErrorType, GetBodyType, GetOperation, GetOperationByPathAndMethod, GetParametersType, JSONResponseTypes } from "./types";
 import { JSONResponseCodes, JSONResponseForCode, RestResponsesBase } from "@webhare/router/src/restrequest";
 import { getServiceInstance, RestService } from "@mod-system/js/internal/openapi/openapiservice";
-import { HareScriptMemoryBlob } from "@webhare/harescript";
+import { WebHareBlob } from "@webhare/services";
 
 
 type OpenAPIResponse<BodyType> = {
@@ -101,7 +101,9 @@ export class TypedOpenAPIClient<Paths extends object, Components extends Compone
     let retval;
     if (this.viaservice) {
       this.serviceinstance ??= await getServiceInstance(this.viaservice);
-      const res = await this.serviceinstance.APICall({ sourceip: "127.0.0.1", method: method.toLowerCase() as HTTPMethod, url: url.toString(), body: new HareScriptMemoryBlob(Buffer.from(requestbody)), headers: fetchoptions.headers }, url.toString().slice(this.baseurl.length));
+      const res = await this.serviceinstance.APICall({
+        sourceip: "127.0.0.1", method: method.toLowerCase() as HTTPMethod, url: url.toString(), body: WebHareBlob.from(requestbody), headers: fetchoptions.headers
+      }, url.toString().slice(this.baseurl.length));
       const headers = new Headers(res.headers);
       const contenttype = headers.get("Content-Type") || "";
       const responsebody = contenttype == "application/json" ? JSON.parse(await res.body.text()) : res.body;

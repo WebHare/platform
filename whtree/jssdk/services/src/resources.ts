@@ -1,9 +1,5 @@
 import * as path from "node:path";
-import * as fs from "node:fs";
-import * as fsPromises from "node:fs/promises";
-import * as crypto from "node:crypto";
 import { config } from "./config";
-import { LocalFileDescriptor, getExtensionForMediaType } from "./descriptor";
 
 export function toFSPath(resource: string, options: { allowUnmatched: true }): string | null;
 export function toFSPath(diskpath: string, options?: { allowUnmatched: boolean }): string;
@@ -121,57 +117,4 @@ export function resolveResource(base: string, relativepath: string): string {
     return basepart + relativepath + append;
 
   return basepart + path.join(basesubpath, relativepath) + append;
-}
-
-interface OpenResourceOptions {
-  mediaType?: string;
-  getHash?: boolean;
-}
-
-//TODO share ourselves with a generic hasher in descriptor's addMissingScanData
-async function getHash(file: string) {
-  const hasher = crypto.createHash('sha256');
-  const fileStream = fs.createReadStream(file);
-  for await (const chunk of fileStream)
-    hasher.update(chunk);
-
-  return hasher.digest("base64url");
-}
-
-export async function openLocalFileResource(file: string, options?: OpenResourceOptions) {
-  //TODO scanblob-like things
-  if (!path.isAbsolute(file))
-    throw new Error(`Cannot open a local file resource without an absolute path, got: '${file}'`);
-
-  //TODO consider avoid the stat if the filesize is provided to us?
-  let size;
-  try {
-    const stat = await fsPromises.stat(file);
-    if (!stat.isFile())
-      throw new Error(`'${file}' is not a file`);
-
-    size = stat.size;
-  } catch (e) {
-    throw new Error(`Cannot stat '${file}': ${(e as Error)?.message ?? "unknown"}`);
-  }
-
-  const mediaType = options?.mediaType ?? "application/octet-stream";
-  const metadata = {
-    mediaType,
-    extension: getExtensionForMediaType(mediaType),
-    fileName: path.basename(file),
-    hash: options?.getHash ? await getHash(file) : null
-  };
-
-  return new LocalFileDescriptor(file, size, metadata);
-}
-
-export async function openResource(resource: string, options?: OpenResourceOptions) {
-  if (!isAbsoluteResource(resource))
-    throw new Error(`Opening a resource requires an absolute path, got: '${resource}'`);
-
-  if (!resource.startsWith("mod::"))
-    throw new Error(`Cannot yet open resources other than mod::`);
-
-  return openLocalFileResource(toFSPath(resource), options);
 }

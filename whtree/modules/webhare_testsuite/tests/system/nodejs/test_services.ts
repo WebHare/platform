@@ -7,7 +7,7 @@ import { readJSONLogLines } from "@mod-system/js/internal/logging";
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
 import { DemoServiceInterface } from "@mod-webhare_testsuite/js/demoservice";
 import runBackendService from "@mod-system/js/internal/webhareservice";
-import { HareScriptBlob, isHareScriptBlob, HareScriptMemoryBlob, createVM, HSVMObject } from "@webhare/harescript";
+import { createVM, HSVMObject } from "@webhare/harescript";
 import { CallableVMWrapper } from "@webhare/harescript/src/machinewrapper";
 
 function ensureProperPath(inpath: string) {
@@ -42,8 +42,8 @@ async function testServices() {
   ensureProperPath(services.config.module.system.root);
 
   //Verify callHareScript supporting the new blobs
-  test.eq("1234", await services.callHareScript("wh::files.whlib#BlobToString", [new HareScriptMemoryBlob(Buffer.from("1234"))]));
-  const returnblob = await services.callHareScript("wh::files.whlib#StringToBlob", ["5678"]) as HareScriptBlob;
+  test.eq("1234", await services.callHareScript("wh::files.whlib#BlobToString", [services.WebHareBlob.from("1234")]));
+  const returnblob = await services.callHareScript("wh::files.whlib#StringToBlob", ["5678"]) as services.WebHareBlob;
   test.eq("5678", await returnblob.text());
 }
 
@@ -152,11 +152,8 @@ async function runPrintCallbackTest(hsvm: CallableVMWrapper) {
   //Ensure we can setup simple 'callbacks' that just print placeholders
   const print_helloworld_callback = await hsvm._getHSVM().createPrintCallback(`Hello, world!`);
   const fileswhlib = hsvm.loadlib("wh::files.whlib");
-  const capture_helloworld = await fileswhlib.GetPrintedAsBlob(print_helloworld_callback) as Buffer | HareScriptBlob; //NOTE  FAALT maar kan simpelweg verwarring bij retour marshall zijn
-  if (isHareScriptBlob(capture_helloworld)) //WebHare blob
-    test.eq("Hello, world!", await capture_helloworld.text());
-  else
-    test.eq("Hello, world!", capture_helloworld.toString());
+  const capture_helloworld = await fileswhlib.GetPrintedAsBlob(print_helloworld_callback) as services.WebHareBlob;
+  test.eq("Hello, world!", await capture_helloworld.text());
 }
 
 async function testHareScriptVMFptrs() {

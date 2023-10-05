@@ -1,10 +1,10 @@
-import { HareScriptBlob } from "@webhare/harescript/src/hsblob";
-import { WHDBBlob } from "@webhare/whdb";
+import { WebHareBlob } from "./webhareblob";
 
 class RichDocument {
   private rawHtml;
 
-  constructor(rawHtml: string | HareScriptBlob | WHDBBlob) {
+  //TODO should we still accept a string constructor now that a WebHareBlob is so easy to build?
+  constructor(rawHtml: string | WebHareBlob) {
     this.rawHtml = rawHtml;
   }
 
