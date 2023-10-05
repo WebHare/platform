@@ -11,23 +11,13 @@ containsElement()
   return 1
 }
 
-INCLUDEWEBHARE=1
-ONLYMODULES=
-LISTBROKENOPTS=""
 NOCOMPILE=
-ONLYINSTALLEDMODULES=
 DRYRUNPREFIX=""
 
 while [[ $1 =~ -.* ]]; do
-  if [ "$1" == "--onlymodules" ]; then
-    ONLYMODULES=1
-    INCLUDEWEBHARE=
-    LISTBROKENOPTS="$LISTBROKENOPTS --onlymodules"
+  if [ "$1" == "--onlymodules" ]; then #ignored. wh finalize-webhare fixes WebHare
     shift
-  elif [ "$1" == "--onlyinstalledmodules" ]; then
-    ONLYINSTALLEDMODULES=1
-    INCLUDEWEBHARE=
-    LISTBROKENOPTS="$LISTBROKENOPTS --onlyinstalledmodules"
+  elif [ "$1" == "--onlyinstalledmodules" ]; then #ignored. wh finalize-webhare fixes WebHare
     shift
   elif [ "$1" == "--onlybroken" ]; then
     echo "--onlybroken is now the default. use '*' to process all modules"
@@ -68,21 +58,14 @@ if [ "$#" == 1 ] && [ "$1" == "*" ]; then
 elif [ "$#" != 0 ]; then
   MODULESLIST=("$@")
 else
-  MODULESLIST=($(wh run mod::system/scripts/internal/listbrokenmodules.whscr $LISTBROKENOPTS))
+  MODULESLIST=($(wh run mod::system/scripts/internal/listbrokenmodules.whscr))
 fi
 
 for MODULENAME in "${MODULESLIST[@]}"; do
   if [ "$MODULENAME" == "webhare" ]; then
     echo "Updating WebHare Platform"
-    cd "$WEBHARE_DIR" || exit 1
-    $DRYRUNPREFIX npm install $NPMOPTIONS
-    RETVAL=$?
-    if [ "$RETVAL" != "0" ]; then
-      echo NPM FAILED with errorcode $RETVAL
-      FAILED=1
-    fi
-
-    MODULEDIR="$WEBHARE_DIR/modules/system"
+    wh -i finalize-webhare
+    continue
   else # MODULENAME != webhare
     getmoduledir MODULEDIR $MODULENAME
     cd "$MODULEDIR" || exit 1
