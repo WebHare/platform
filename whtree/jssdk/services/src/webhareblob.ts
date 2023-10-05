@@ -13,7 +13,9 @@ export abstract class WebHareBlob {
   }
 
   /** Create a in-memory WebHareBlob from a string */
-  static from(str: string): WebHareBlob {
+  static from(str: string | Buffer): WebHareBlob {
+    if (str instanceof Buffer)
+      return new WebHareMemoryBlob(str);
     return new WebHareMemoryBlob(new TextEncoder().encode(str));
   }
 

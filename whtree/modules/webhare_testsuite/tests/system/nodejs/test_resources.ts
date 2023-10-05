@@ -97,6 +97,10 @@ async function testWebHareBlobs() {
 
   test.eq("Hello, World", await helloblob.text());
 
+  const bufferblob = WebHareBlob.from(Buffer.from("01020304", "hex"));
+  test.eq(4, bufferblob.size);
+  test.eq("\x01\x02\x03\x04", await bufferblob.text());
+
   const diskblob = await WebHareBlob.fromDisk(__dirname + "/data/testfile.txt");
   test.eq(19, diskblob.size);
   test.eq("This is a testfile\n", await diskblob.text());
