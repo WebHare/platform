@@ -49,6 +49,13 @@ export abstract class WebHareBlob {
     return out;
   }
 
+  /** @deprecated This is likely always inefficient but providing arrayBuffer eases the HareScriptBlob transition */
+  async arrayBuffer(): Promise<ArrayBuffer> {
+    //FIXME decide whether this should stay or go, or be replaced by eg Uint8Array ?
+    ///@ts-ignore node (types?) has 2 versions of ReadableStream and they;re getting in the way here. we test this API in test_resources, let's otherwise ignore it for now
+    return await arrayBuffer(await this.getStream());
+  }
+
   ///Get the contents synchronously, This is needed for the blob to support setJSValue
   __getAsSyncUInt8Array(): Readonly<Uint8Array> {
     throw new Error(`This blob does not support synchronous access`);

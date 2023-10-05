@@ -108,6 +108,10 @@ async function testWebHareBlobs() {
   //test HSVM Compatibility APIs
   test.eq("Hello, World", Buffer.from(helloblob.__getAsSyncUInt8Array()).toString('utf8'));
   test.eq("This is a testfile\n", Buffer.from(diskblob.__getAsSyncUInt8Array()).toString('utf8'));
+
+  //test temporary? compatibility
+  test.eq("Hello, World", Buffer.from(await helloblob.arrayBuffer()).toString('utf8'));
+  test.eq("This is a testfile\n", Buffer.from(await diskblob.arrayBuffer()).toString('utf8'));
 }
 
 async function testResourceDescriptors() {
