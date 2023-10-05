@@ -36,6 +36,7 @@
     "openapi-typescript": "^6.2.4",
     "rimraf": "^3.0.2",
     "sass": "^1.40.1",
+    "sharp": "^0.32.6",
     "stack-trace": "0.0.10",
     "stacktrace-js": "^2.0.2",
     "stacktrace-parser": "^0.1.9",

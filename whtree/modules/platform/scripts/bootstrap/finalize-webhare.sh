@@ -31,6 +31,9 @@ npm install --no-save --ignore-scripts --omit=dev --omit=peer || die "NPM failur
 logWithTime "Downloading esbuild"
 node node_modules/esbuild/install.js || die "Download failed"
 
+## download sharp
+(cd node_modules/sharp && npm run install)
+
 ## get dependencies for the postgresql-client
 logWithTime "Setup postgresql-client"
 ( cd jssdk/whdb/vendor/postgresql-client && npm install --no-save --ignore-scripts --omit=dev --omit=peer ) || die "postgresql-client install failure"
