@@ -77,3 +77,14 @@ export async function JSONAPICall(servicedef: WebServiceDefinition, req: WebRequ
   const result = await runJSONAPICall(servicedef, req);
   return result.asWebResponseInfo();
 }
+
+class JSONAPICaller {
+  async runJSONAPICall(servicedef: WebServiceDefinition, req: WebRequestInfo): Promise<WebResponseInfo> {
+    const retval = await runJSONAPICall(servicedef, req);
+    return retval.asWebResponseInfo();
+  }
+}
+
+export function getJSONApiCaller() {
+  return new JSONAPICaller;
+}

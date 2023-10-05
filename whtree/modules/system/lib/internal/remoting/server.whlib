@@ -9,6 +9,7 @@ LOADLIB "wh::ipc.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 LOADLIB "mod::system/lib/webserver/errors.whlib";
 LOADLIB "mod::system/lib/internal/remoting/rpclibhandler.whlib";
@@ -505,8 +506,9 @@ PUBLIC MACRO RunRequest(RECORD ARRAY errors, STRING error_groupid, BOOLEAN isweb
   ELSE IF(servicedef.service != "")
   {
     //service object. pass through to javascript
-    OBJECT call := CallAsync("mod::system/js/internal/jsonrpccaller.ts#JSONAPICall", VARIANT[servicedef, EncodeWebRequestForJS()]);
-    ExecuteWebResponse(waitforpromise(call));
+    OBJECT service := WaitForPromise(OpenWebHareService("system:jsonapicaller"));
+    RECORD response := WaitForPromise(service->runJSONAPICall(servicedef, EncodeWebRequestForJS()));
+    ExecuteWebResponse(response);
   }
   ELSE
   {
