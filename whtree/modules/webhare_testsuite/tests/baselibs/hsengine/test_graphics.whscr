@@ -477,7 +477,6 @@ MACRO TestRegressions()
   TestEq(DEFAULT RECORD, GfxDimensionsFromImageBlob(StringToBlob("Hello, world!")));
 }
 
-PRINT("\n === Running TestGraphics\n");
 MethodPacking();
 FilterTest();
 NoForceTest();

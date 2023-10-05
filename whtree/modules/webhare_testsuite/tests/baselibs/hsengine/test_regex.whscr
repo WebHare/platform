@@ -198,7 +198,6 @@ MACRO LikeRegexPatternTest()
   TestEQ(TRUE, NEW RegEx(CreateLikeRegexPattern("*?*"))->Test("A"));
 }
 
-PRINT("\n === Running TestRegex\n");
 RegExTest();
 ReplaceTest();
 ReplaceCallbackTest();

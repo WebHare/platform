@@ -343,7 +343,6 @@ MACRO TestLowLevelSignVerify()
    ADDME: test if GetSignedXMLDocument works correctly
 */
 
-PRINT("\n === Running TestXML_Signature\n");
 TestXMLDSigCases();
 TestMultipleDocs();
 TestLowLevelSignVerify();

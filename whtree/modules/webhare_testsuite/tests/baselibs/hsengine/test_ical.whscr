@@ -281,8 +281,6 @@ MACRO TestIcal_Regression()
   CloseTest("TestIcal_Regression");
 }
 
-Print("\n === Running TestIcal\n");
-
 TestIcal_Parser();
 TestIcal_Dogfood();
 TestIcal_Regression();

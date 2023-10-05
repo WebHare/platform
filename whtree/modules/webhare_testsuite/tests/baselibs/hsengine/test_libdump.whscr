@@ -214,5 +214,4 @@ MACRO TestLibdump()
   }
 }
 
-PRINT("\n === Running TestLibdump\n");
 TestLibdump();

@@ -920,7 +920,6 @@ MACRO NullCoalesceTest()
   CloseTest("TestOperators: NullCoalesceTest");
 }
 
-PRINT("\n === Running TestOperators\n");
 NullCoalesceTest();
 InCONCATTest();
 BitOperatorTest();

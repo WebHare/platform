@@ -408,7 +408,6 @@ MACRO FinallyTest()
   CloseTest("TestExceptions: FinallyTest");
 }
 
-PRINT("\n === Running TestExceptions\n");
 BasicTest();
 CCallTest();
 TypeTest();

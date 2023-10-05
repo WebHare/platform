@@ -896,6 +896,5 @@ MACRO LibdumpTest()
   CloseTest("DocgenTest::LibdumpTest");
 }
 
-PRINT("\n === Running DocGenTest\n");
 BasicTest();
 LibdumpTest();

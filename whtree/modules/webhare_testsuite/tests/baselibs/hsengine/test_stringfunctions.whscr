@@ -946,7 +946,6 @@ MACRO HsonTest(BOOLEAN viablob)
   CloseTest("TestStringFunctions: HsonTest");
 }
 
-PRINT("\n === Running TestStringFunctions\n");
 HsonLegacyPlaceholderTest();
 HsonTest(FALSE);
 HsonTest(TRUE);

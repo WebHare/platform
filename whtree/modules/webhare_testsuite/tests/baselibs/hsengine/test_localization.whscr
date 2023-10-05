@@ -926,7 +926,6 @@ MACRO NumberFormatTest()
 }
 
 
-Print("\n === Running TestLocalization\n");
 IF (NOT IsWasm())
   VersionTest();
 

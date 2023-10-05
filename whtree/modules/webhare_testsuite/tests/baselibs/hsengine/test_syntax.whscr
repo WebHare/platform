@@ -695,7 +695,6 @@ INTEGER value := 0x11 + 0b110 + "a";
 
 }
 
-PRINT("\n === Running TestSyntax\n");
 EmbeddingTest();
 GeneralTest();
 FunctionTest();

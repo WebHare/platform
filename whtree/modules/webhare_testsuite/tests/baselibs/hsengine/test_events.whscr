@@ -4,8 +4,6 @@ LOADLIB "wh::util/eventemitter.whlib";
 LOADLIB "wh::internal/hsselftests.whlib";
 
 
-PRINT("\n === Running TestEvents\n");
-
 RECORD ARRAY eventlog;
 
 MACRO AddEvent(STRING eventname, RECORD data) //TODO data should be a varargs variant array for compatibility with socket.io and nodejs versions

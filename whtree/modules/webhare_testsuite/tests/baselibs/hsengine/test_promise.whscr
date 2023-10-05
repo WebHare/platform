@@ -236,8 +236,6 @@ MACRO TestPromiseTime()
   TestEQ(TRUE, GetdatetimeDifference(now, GetCurrentDatetime()).msecs >= 100);
 }
 
-PRINT("\n === Running TestPromise\n");
-
 TestCreateResolvedPromise();
 TestCreateRejectedPromise();
 TestThen();

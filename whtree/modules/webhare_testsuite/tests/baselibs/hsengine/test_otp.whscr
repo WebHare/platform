@@ -274,7 +274,6 @@ MACRO TestTestCode()
       ], TestTOTPCode(secret32, "581437", CELL[ now, hmac := "HMAC:SHA-256" ]));
 }
 
-PRINT("\n === Running TestOTP\n");
 TestGenerate();
 TestHOTP();
 TestTOTP();

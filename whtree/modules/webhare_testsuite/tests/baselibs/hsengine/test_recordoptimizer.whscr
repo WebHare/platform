@@ -120,7 +120,6 @@ MACRO ConcatTest()
   CloseTest("TestRecordOptimizer: ConcatTest");
 }
 
-PRINT("\n === Running TestRecordOptimizer\n");
 BasicTest();
 GlobalTest();
 ReturnTest();

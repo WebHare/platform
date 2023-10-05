@@ -512,7 +512,6 @@ MACRO GUIDTest()
 //unsigned char cipher[8] = {0xB1, 0xB8, 0xCC, 0x0B, 0x25, 0x0F, 0x09, 0xA0};
 
 
-PRINT("\n === Running TestCrypto\n");
 HashTest();
 BlowfishTest();
 SignTest();

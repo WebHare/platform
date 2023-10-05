@@ -1658,7 +1658,6 @@ MACRO TestSharedReferenceTest()
   TestEQ([ isshared := TRUE, value := obj ], __HS_INTERNAL_TESTOBJECTSHAREDREFERENCE(obj));
 }
 
-PRINT("\n === Running TestObjects\n");
 BaseTest();
 InsertMemberTest();
 PrivateTest();

@@ -184,5 +184,4 @@ MACRO TestSerializer()
   TestEQ(STRING[ "0-wait", "0-start", "1-wait", "0-finish", "0-done", "1-start", "1-finish", "1-done" ], calls);
 }
 
-PRINT("\n === Running TestAsync\n");
 TestSerializer();

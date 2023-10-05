@@ -219,7 +219,6 @@ MACRO TestRoundToMultiple()
   TestThrowsLike("*INTEGER*INTEGER64*MONEY*", PTR RoundToMultiple(3f, 2f, "down"));
 }
 
-PRINT("\n === Running TestNumbers\n");
 RangeTest();
 BinHexTest();
 SuffixedUnderOverflowTest();

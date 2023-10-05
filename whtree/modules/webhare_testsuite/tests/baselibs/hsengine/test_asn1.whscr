@@ -346,7 +346,6 @@ MACRO TestEnDecoding()
 }
 
 
-PRINT("\n === Running TestASN1\n");
 TestCertificateDecoding();
 TestCRTCSRDecoding();
 TestCertificateEncoding();

@@ -165,7 +165,6 @@ CONSTANT FLOAT my_pi := pi;
 `);
 }
 
-PRINT("\n === Running TestLoadlib\n");
 DeinitTest();
 SyntaxTest();
 ExportTest();

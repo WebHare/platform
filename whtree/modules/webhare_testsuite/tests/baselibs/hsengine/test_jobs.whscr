@@ -253,7 +253,6 @@ MACRO TestErrorHandling()
   }
 }
 
-PRINT("\n === Running TestJobs\n");
 BaseTest();
 TestIPCLinkGoneAfterCrash();
 TestOverrideExecuteLibrary();

@@ -528,7 +528,6 @@ MACRO TestAttributeSelectors()
 }
 
 
-PRINT("\n === Running TestCSS\n");
 
 TestIncompleteAtRule();
 TestCommentHandling();

@@ -53,6 +53,5 @@ MACRO TestGetBestMatch()
   TestEq("", GetBestMatch("123", [ "123456" ]));
 }
 
-PRINT("\n === Running TestComparisons\n");
 TestLevenshteinDistance();
 TestGetBestMatch();

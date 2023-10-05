@@ -313,7 +313,6 @@ ASYNC MACRO TestAsyncForeveryYield()
   }
 }
 
-PRINT("\n === Running TestForEveryYield\n");
 TestForEveryYield();
 WaitForPromise(TestAsyncForeveryYield());
 

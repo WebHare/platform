@@ -400,7 +400,6 @@ MACRO SkipNTest()
 }
 
 
-PRINT("\n === Running TestStringParser\n");
 ResetTest();
 NextTest();
 ParseWhileInSetTest();

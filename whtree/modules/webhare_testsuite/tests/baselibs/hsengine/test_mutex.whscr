@@ -237,6 +237,5 @@ MACRO SemaphoreTest()
 
 RECORD ARRAY FUNCTION __HS_GetLocalLockStatus() __ATTRIBUTES__(EXTERNAL);
 
-PRINT("\n === Running TestMutex\n");
 MutexTest();
 SemaphoreTest();

@@ -177,8 +177,6 @@ MACRO TestSemVer_Ranges()
 }
 
 
-Print("\n === Running TestSemVer\n");
-
 //ADDME: Test various valid and invalid version strings
 TestSemVer_Increment();
 TestSemVer_Precedence();

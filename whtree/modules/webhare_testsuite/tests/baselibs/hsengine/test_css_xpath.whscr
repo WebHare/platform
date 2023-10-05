@@ -445,7 +445,6 @@ MACRO TestCSSParser()
   OBJECT ARRAY testrules := stylesheet->cssrules->GetRulesForSelector("#test");
 }
 
-PRINT("\n === Running TestCSS_XPath\n");
 TestCSSSelectorEngine();
 TestComplexCSSRule();
 TestCSSRuleXpathNamespaced();
