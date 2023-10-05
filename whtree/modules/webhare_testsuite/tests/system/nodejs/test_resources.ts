@@ -1,5 +1,7 @@
 import * as test from "@webhare/test";
 import * as services from "@webhare/services";
+import { ReadableStream } from "node:stream/web";
+import { WebHareBlob } from "@webhare/services";
 
 async function testResolve() {
   test.throws(/without a base path/, () => services.resolveResource("", "lib/emtpydesign.whlib"));
@@ -75,6 +77,35 @@ async function testPaths() {
   test.eq(null, services.toFSPath("site::repository/", { allowUnmatched: true }));
 }
 
+async function readAllFromStream(stream: ReadableStream) {
+  let out = '';
+  for await (const chunk of stream)
+    out += Buffer.from(chunk).toString('utf8');
+
+  return out;
+}
+
+async function testWebHareBlobs() {
+  const emptyblob = WebHareBlob.from("");
+  test.eq(0, emptyblob.size);
+  test.eq("", await readAllFromStream(await emptyblob.getStream()));
+
+  const helloblob = WebHareBlob.from("Hello, World");
+  test.eq(12, helloblob.size);
+  test.eq("Hello, World", await readAllFromStream(await helloblob.getStream()));
+  test.eq("Hello, World", await readAllFromStream(await helloblob.getStream()), 'verify double readable');
+
+  test.eq("Hello, World", await helloblob.text());
+
+  const diskblob = await WebHareBlob.fromDisk(__dirname + "/data/testfile.txt");
+  test.eq(19, diskblob.size);
+  test.eq("This is a testfile\n", await diskblob.text());
+
+  //test HSVM Compatibility APIs
+  test.eq("Hello, World", Buffer.from(helloblob.__getAsSyncUInt8Array()).toString('utf8'));
+  test.eq("This is a testfile\n", Buffer.from(diskblob.__getAsSyncUInt8Array()).toString('utf8'));
+}
+
 async function testResourceDescriptors() {
   //Test various resource scan options
   {
@@ -115,5 +146,6 @@ test.run(
   [
     testResolve,
     testPaths,
+    testWebHareBlobs,
     testResourceDescriptors
   ]);
