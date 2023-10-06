@@ -51,6 +51,9 @@ async function testChecks() {
   test.eqProps(x_abc, x_abc_badb, ["cellB"], "shouldn't throw if cellB is explicitly ignored");
   test.throws(/Mismatched value at root.cellB/, () => test.eqProps(x_abc, x_abc_badb));
 
+  ///@ts-expect-error - TS will also complain about the promise
+  test.throws(/cannot.*assert.*promise/, () => test.assert(Promise.resolve(true)));
+
   {
 
     const v_ts = await test.loadTSType(`@mod-webhare_testsuite/tests/system/nodejs/test_tests.ts#MyInterface`);
