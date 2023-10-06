@@ -1,4 +1,5 @@
 import * as env from "@webhare/env";
+import { StackTrace, parseTrace, prependStackTrace } from "@webhare/js-api-tools";
 
 //just number RPCs globally instead of per server, makes debug ouput more useful
 let globalseqnr = 1;
@@ -21,6 +22,28 @@ export interface RPCCallOptions {
   keepalive?: boolean;
 }
 
+export type RequestID = number | string | null;
+
+export interface JSONRPCSuccesfulResponse {
+  id: RequestID;
+  error: null;
+  result: unknown;
+}
+
+export interface JSONRPCErrorResponse {
+  id: RequestID;
+  result: null;
+  error: {
+    code: number;
+    message: string;
+    data?: {
+      trace?: StackTrace;
+    };
+  };
+}
+
+export type JSONRPCResponse = JSONRPCSuccesfulResponse | JSONRPCErrorResponse;
+
 function getDebugAppend() {
   if (typeof window !== "undefined" && typeof window.location !== "undefined") {
     const urldebugvar = new URL(window.location.href).searchParams.get("wh-debug");
@@ -29,8 +52,6 @@ function getDebugAppend() {
   }
   return '';
 }
-
-type Stack = unknown;
 
 /* this is the followup for net/jsonrpc.es - we can hopefully clear net/ someday
    and move net/eventserver to wh/eventserver.es then */
@@ -46,7 +67,7 @@ class ControlledCall {
   timedout?: boolean;
   aborted?: boolean;
 
-  constructor(client: RPCClient, method: string, stack: Stack, id: number, options: RPCCallOptions, callurl: string, fetchoptions: RequestInit) {
+  constructor(client: RPCClient, method: string, stack: StackTrace, id: number, options: RPCCallOptions, callurl: string, fetchoptions: RequestInit) {
     this.client = client;
     this.options = options;
 
@@ -79,7 +100,7 @@ class ControlledCall {
     this.abortcontroller.abort();
   }
 
-  async _completeCall(method: string, stack: Stack, id: number, fetchpromise: Promise<Response>) {
+  async _completeCall(method: string, requestStack: StackTrace, id: number, fetchpromise: Promise<Response>) {
     let response;
     try {
       for (; ;) { //loop to handle "429 Conflict"s
@@ -109,7 +130,7 @@ class ControlledCall {
 
     let jsonresponse;
     try {
-      jsonresponse = await response.json();
+      jsonresponse = await response.json() as JSONRPCResponse;
       if (this.client.debug)
         console.log(`[rpc] #${id} Received response to '${method}'`, jsonresponse);
     } catch (exception) {
@@ -120,9 +141,18 @@ class ControlledCall {
     if (!jsonresponse)
       throw new Error("RPC Failed: Invalid JSON/RPC response received");
 
-    if (jsonresponse && jsonresponse.error) {
-      this.client._tryLogError(stack, jsonresponse.error);
-      throw new Error("RPC Error: " + (jsonresponse.error.message || "Unknown error"));
+    if (jsonresponse?.error) {
+      const err = new Error("RPC Error: " + (jsonresponse.error.message || "Unknown error"));
+      if (jsonresponse.error.data?.trace) {
+        try {
+          prependStackTrace(err, jsonresponse.error.data.trace);
+        } catch (err2) {
+          //ignore stacktrace manipulation error
+        }
+      }
+
+      this.client._tryLogError(requestStack, err);
+      throw err;
     }
 
     if (response.status == 200 && jsonresponse && jsonresponse.id !== id)
@@ -176,21 +206,12 @@ class RPCClient {
     this.options = { ...this.options, ...options };
   }
 
-  _tryLogError(stack: Stack, error: { data: { trace: unknown; list: unknown }; message: string }) {
-    //@ts-ignore TODO figure out proper signatures for stack/errors
-    const trace: Array<{ filename: string; line: number; col: number; func: string }> = error.data ? (error.data.trace || error.data.list || []) : [];
-
+  _tryLogError(requestStack: StackTrace, error: Error) {
     console.group();
-    console.warn("RPC failed:", error.message);
-    trace.forEach(rec => {
-      if (rec.filename || rec.line) {
-        const line = rec.filename + '#' + rec.line + '#' + rec.col + (rec.func ? ' (' + rec.func + ')' : '');
-        console.log(line);
-      }
-    });
-    if (stack) {
+    console.warn("RPC failed:", error);
+    if (requestStack) {
       console.warn("Stack at calling point");
-      console.log(stack);
+      console.log(requestStack);
     }
     console.groupEnd();
   }
@@ -211,10 +232,10 @@ class RPCClient {
     callurl += this.urlappend;
 
     const id = ++globalseqnr;
-    let stack;
+    const requestStack: StackTrace = [];
 
     if (this.debug) {
-      stack = new Error().stack;
+      requestStack.push(...parseTrace(new Error));
       console.log(`[rpc] #${id} Invoking '${method}'`, params, callurl);
     }
 
@@ -234,7 +255,7 @@ class RPCClient {
       keepalive: Boolean(this.options.keepalive)
     };
 
-    return new ControlledCall(this, method, stack, id, this.options, callurl, fetchoptions).promise;
+    return new ControlledCall(this, method, requestStack, id, this.options, callurl, fetchoptions).promise;
   }
 }
 

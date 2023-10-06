@@ -19,7 +19,7 @@ export function isValidModuleScopedName(eventname: string): boolean {
 
 /** Check and split a module scoped name. Throws if invalid
  *  @param name - Name to split
- *  @returns [module, name] or null if not a valid module scoped name
+ *  @returns [module, name]
 */
 export function checkModuleScopedName(name: string): string[] {
   const split = splitModuleScopedName(name);

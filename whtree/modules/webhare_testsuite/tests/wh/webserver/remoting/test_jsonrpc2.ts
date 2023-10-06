@@ -3,6 +3,7 @@ import { JSONAPICall } from '@mod-system/js/internal/jsonrpccaller';
 import noAuthJSService from '@mod-webhare_testsuite/js/jsonrpc/client';
 import { HTTPMethod } from '@webhare/router';
 import { WebHareBlob } from '@webhare/services';
+import { parseTrace } from '@webhare/js-api-tools';
 
 async function testRPCCaller() {
   const servicedef = { service: "mod::webhare_testsuite/js/jsonrpc/service.ts#TestNoAuthJS" };
@@ -31,12 +32,18 @@ async function testRPCCaller() {
 
   //TODO - *with* `etr` debugflag, the error message should be revealed. But we can't set that flag yet in JS tests
   //test.eq({ id: 77, error: { code: -32000, message: `this is a server crash` }, result: null }, JSON.parse(await callres.body.text()));
-  test.eq({ id: 77, error: { code: -32000, message: `Internal error` }, result: null }, JSON.parse(await callres.body.text()));
+  test.eqProps({ id: 77, error: { code: -32000, message: `this is a server crash` }, result: null }, JSON.parse(await callres.body.text()));
 }
 
 async function testTypedClient() {
   test.eq(true, await noAuthJSService.validateEmail("nl", "pietje@webhare.dev"));
   test.eq(false, await noAuthJSService.validateEmail("en", "klaasje@beta.webhare.net"));
+
+  const err = await test.throws(/this is a server crash/, noAuthJSService.serverCrash());
+  const trace = parseTrace(err);
+  //verify I can see client and server side
+  test.assert(trace.find(t => t.func === "TestNoAuthJS.serverCrash"));
+  test.assert(trace.find(t => t.func.includes("testTypedClient")));
 }
 
 test.run([

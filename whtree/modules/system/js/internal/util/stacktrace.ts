@@ -1,17 +1,12 @@
 import { fileURLToPath } from "node:url";
 import Module from "node:module";
+import { StackTraceItem } from "@webhare/js-api-tools";
+export { StackTraceItem };
 
 /* this api takes over source mapping of an entire stack trace, so getCallerLocation only needs to
    do one source map lookup (accelerating logging for console log)
    ADDME: test if this is really worth it comparing to parsing Error.stack with stacktrace-parser
 */
-
-export type StackTraceItem = {
-  filename: string;
-  line: number;
-  col: number;
-  func: string;
-};
 
 function getRawStackTrace(): NodeJS.CallSite[] {
   let capturedframes: NodeJS.CallSite[] = [];
