@@ -915,6 +915,9 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
 
   BOOLEAN FUNCTION UpdateAutosave()
   {
+    IF (NOT this->frame->flags.isdirty AND NOT ObjectExists(this->currentautosave))
+      RETURN FALSE; //nothing to do, don't bother the database with work
+
     OBJECT work := this->BeginUnvalidatedWork();
 
     IF (this->frame->flags.isdirty)
@@ -1034,6 +1037,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
     }
     ELSE
     {
+      this->UpdateAutosave();
       IF(NOT this->contexts->editdocumentapi->onconfirmsaveandpublish())
         RETURN;
     }
