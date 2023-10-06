@@ -1,5 +1,5 @@
 import { ReadableStream, TransformStream } from "node:stream/web";
-import { arrayBuffer } from 'node:stream/consumers';
+import { arrayBuffer, text } from 'node:stream/consumers';
 import { stat } from "node:fs/promises";
 import { isAbsolute } from "node:path";
 import { createReadStream, readFileSync } from "node:fs";
@@ -44,17 +44,12 @@ export abstract class WebHareBlob {
 
   ///Get the blob contents as a utf8 encoded string
   async text(): Promise<string> {
-    let out = '';
-    for await (const chunk of await this.getStream())
-      out += Buffer.from(chunk).toString('utf8');
-
-    return out;
+    return await text(await this.getStream());
   }
 
   /** @deprecated This is likely always inefficient but providing arrayBuffer eases the HareScriptBlob transition */
   async arrayBuffer(): Promise<ArrayBuffer> {
     //FIXME decide whether this should stay or go, or be replaced by eg Uint8Array ?
-    ///@ts-ignore node (types?) has 2 versions of ReadableStream and they;re getting in the way here. we test this API in test_resources, let's otherwise ignore it for now
     return await arrayBuffer(await this.getStream());
   }
 
@@ -69,7 +64,7 @@ export abstract class WebHareBlob {
   }
 
   //TODO should this be sync? ReadableStream has plenty of async support ?
-  abstract getStream(): Promise<ReadableStream>;
+  abstract getStream(): Promise<ReadableStream<Uint8Array>>;
 }
 
 export class WebHareMemoryBlob extends WebHareBlob {
@@ -80,7 +75,7 @@ export class WebHareMemoryBlob extends WebHareBlob {
     this.data = data;
   }
 
-  async getStream(): Promise<ReadableStream> {
+  async getStream(): Promise<ReadableStream<Uint8Array>> {
     //Create a ReadableStream from our Uint8Array (TODO actual streaming)
     const { readable, writable } = new TransformStream();
     const writer = writable.getWriter();
@@ -102,7 +97,7 @@ export class WebHareDiskBlob extends WebHareBlob {
     this.path = path;
   }
 
-  async getStream(): Promise<ReadableStream> {
+  async getStream(): Promise<ReadableStream<Uint8Array>> {
     return Readable.toWeb(createReadStream(this.path, { start: 0, end: this.size }));
   }
 

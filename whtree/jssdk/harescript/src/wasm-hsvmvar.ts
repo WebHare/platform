@@ -6,7 +6,7 @@ import { Money } from "@webhare/std";
 import { __getBlobDatabaseId, __getBlobDiskFilePath, createPGBlobByBlobRec } from "@webhare/whdb/src/blobs";
 import { resurrect } from "./wasm-resurrection";
 import { WebHareBlob } from "@webhare/services/src/webhareblob";
-import { ReadableStream, TransformStream } from "node:stream/web";
+import { ReadableStream } from "node:stream/web";
 
 function canCastTo(from: VariableType, to: VariableType): boolean {
   if (from === to)
@@ -45,13 +45,14 @@ class HSVMBlob extends WebHareBlob {
     }
   }
 
-  async getStream(): Promise<ReadableStream> {
-    //TODO create proper stream?
-    const { readable, writable } = new TransformStream();
-    const writer = writable.getWriter();
-    writer.write(this.__getAsSyncUInt8Array());
-    writer.close();
-    return readable;
+  async getStream(): Promise<ReadableStream<Uint8Array>> {
+    const data = this.__getAsSyncUInt8Array();
+    return new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(data);
+        controller.close();
+      }
+    });
   }
 
   //You should close a HSVMBlob when you're done with it so the HSVM can garbage collect it (FIXME use a FinalizerRegistry because noone can reallyt invoke this!)

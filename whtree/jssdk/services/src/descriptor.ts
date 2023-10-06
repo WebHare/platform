@@ -151,7 +151,7 @@ export function encodeScanData(meta: EncodableResourceMetaData): string {
   return encodeHSON(data);
 }
 
-export async function hashStream(r: ReadableStream) {
+export async function hashStream(r: ReadableStream<Uint8Array>) {
   const hasher = crypto.createHash('sha256');
   for await (const chunk of r)
     hasher.update(chunk);
