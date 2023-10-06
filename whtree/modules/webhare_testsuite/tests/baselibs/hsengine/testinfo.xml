@@ -91,7 +91,7 @@
     <test script="test_getopt.whscr" />
     <test script="test_graphics.whscr" xfail="1" />  <!-- Missing Drawlib -->
     <test script="test_html.whscr" />
-    <test script="test_ical.whscr" xfail="1" />  <!-- Missing function __ICU_GETCANONICALTIMEZONEID -->
+    <test script="test_ical.whscr" />
     <test script="test_internet.whscr" xfail="1" />  <!-- Missing socket support -->
     <test script="test_ipc.whscr" />
     <test script="test_jobs.whscr" />

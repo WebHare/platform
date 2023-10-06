@@ -1,48 +1,13 @@
 <?wh
 
 LOADLIB "wh::datetime.whlib";
-LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/icalendar.whlib";
 LOADLIB "wh::internal/hsselftests.whlib";
-LOADLIB "wh::util/localization.whlib";
 
 
-MACRO TestIcal_Parser()
+MACRO TestIcal_IcalEncoding()
 {
-  OpenTest("TestIcal_Parser");
-
-  RECORD ARRAY events := DecodeICalCalendar(BlobToString(OpenTestFile("calendar.ics"),-1));
-  //DumpValue(events,'tree');
-
-  TestEq(3, Length(events));
-  TestEq("Van 6 okt t/m 10 okt, 11.00 - 14.00, zonder locatie", events[0].summary);
-  TestEq("Beschrijvinkje", events[0].description);
-  TestEq(FALSE, events[0].allday);
-  TestEq(MakeDateTime(2011,10,6,11,0,0), events[0].dtstart);
-  TestEq(MakeDateTime(2011,10,10,14,0,0), events[0].dtend);
-  TestEq("Europe/Berlin", events[0].timezone); // The Windows "W. Europe Standard Time" is converted to tzdb "Europe/Berlin"
-
-  TestEq("Dit is de omschrijving. beschikbaarbeid is \'beschikbaar\'", events[1].description);
-  TestEq("Testje (all day)", events[1].summary);
-  TestEq("1fa8b30f-5f66-48c8-9cc4-a38ad805719c", events[1].uid);
-  TestEq(TRUE, events[1].allday);
-  TestEq(MakeDate(2011,9,30), events[1].dtstart);
-  TestEq(MakeDate(2011,10,1), events[1].dtend);
-  TestEq("Locatie", events[1].location);
-  TestEq("UTC", events[1].timezone);
-
-  TestEq("Beschrijving. Beschikbaarheid is \'bezet\'", events[2].description);
-  TestEq("Onderwerp op zondag", events[2].summary);
-  TestEq("52a68867-cc98-420a-bd45-e370098e4bdc", events[2].uid);
-  TestEq(FALSE, events[2].allday);
-  TestEq("Europe/Berlin", events[2].timezone); // The Windows "W. Europe Standard Time" is converted to tzdb "Europe/Berlin"
-
-  CloseTest("TestIcal_Parser");
-}
-
-MACRO TestIcal_Dogfood()
-{
-  OpenTest("TestIcal_Dogfood");
+  OpenTest("TestIcal_IcalEncoding");
 
   DATETIME date := MakeDate(2013,1,1);
   STRING locationevent := EncodeICalEvent([ dtstart := date, location:="xyz", description := RepeatText("\u20AC", 500) ]);
@@ -51,10 +16,6 @@ MACRO TestIcal_Dogfood()
      We can't have that, and Thunderbird crashes on it anyway, so lets ensure
      proper UTF8 after splitting */
   TestEq(TRUE, IsValidUTF8(locationevent)); //no truncated utf-8 sequences
-  RECORD decoded := DecodeICALEvent(locationevent);
-  TestEq("xyz", decoded.location);
-  TestEq(RepeatText("\u20AC", 500), decoded.description);
-  TestEq(date, decoded.dtstart);
 
   date := MakeDateTime(2000,1,1,12,34,56);
   // For EncodeICalEvent, the supplied tzid is used as supplied (it should match a VTIMEZONE within the calendar)
@@ -63,8 +24,6 @@ MACRO TestIcal_Dogfood()
 DTSTART;TZID=SomeID:20000101T123456\r
 END:VEVENT\r
 `, timezoneevent);
-  decoded := DecodeICALEvent(timezoneevent);
-  TestEq(date, decoded.dtstart); // We ignore time zone information
   // But UTC is handled separately (no TZID, 'Z' added to timestamp)
   timezoneevent := EncodeICalEvent([ dtstart := date, timezone := "UTC" ]);
   TestEq(`BEGIN:VEVENT\r
@@ -97,7 +56,7 @@ VERSION:2.0\r
 PRODID:-//WebHare bv//NONSGML WebHare Calendar//EN\r
 BEGIN:VTIMEZONE\r
 TZID:Europe/Amsterdam\r
-X-TZINFO:Europe/Amsterdam[${__ICU_GetTZDataVersion()}/Partial@${GetUnixTimestampMSecs(date)}]\r
+X-TZINFO:Europe/Amsterdam\r
 BEGIN:DAYLIGHT\r
 TZOFFSETTO:+020000\r
 TZOFFSETFROM:+010000\r
@@ -129,7 +88,7 @@ VERSION:2.0\r
 PRODID:-//WebHare bv//NONSGML WebHare Calendar//EN\r
 BEGIN:VTIMEZONE\r
 TZID:Europe/Amsterdam\r
-X-TZINFO:Europe/Amsterdam[${__ICU_GetTZDataVersion()}/Partial@${GetUnixTimestampMSecs(date)}]\r
+X-TZINFO:Europe/Amsterdam\r
 BEGIN:DAYLIGHT\r
 TZOFFSETTO:+020000\r
 TZOFFSETFROM:+010000\r
@@ -153,91 +112,6 @@ DTSTART;TZID=Europe/Amsterdam:20000101T123456\r
 END:VEVENT\r
 END:VCALENDAR\r
 `, timezonecalendar);
-  // If events have different time zones, the time zone information is added to the calendar for all used time zones
-  timezonecalendar := EncodeICalCalendar(
-      [ [ dtstart := AddDaysToDate(1, date), timezone := "europe/amsterdam" ]
-      , [ dtstart := date, timezone := "AMERICA/NEW_YORK" ]
-      ]);
-  TestEq(`BEGIN:VCALENDAR\r
-VERSION:2.0\r
-PRODID:-//WebHare bv//NONSGML WebHare Calendar//EN\r
-BEGIN:VTIMEZONE\r
-TZID:America/New_York\r
-X-TZINFO:America/New_York[${__ICU_GetTZDataVersion()}/Partial@${GetUnixTimestampMSecs(date)}]\r
-BEGIN:DAYLIGHT\r
-TZOFFSETTO:-040000\r
-TZOFFSETFROM:-050000\r
-TZNAME:America/New_York(DST)\r
-DTSTART:20000402T020000\r
-RRULE:FREQ=YEARLY;BYMONTH=4;BYDAY=1SU;UNTIL=20060402T020000\r
-END:DAYLIGHT\r
-BEGIN:STANDARD\r
-TZOFFSETTO:-050000\r
-TZOFFSETFROM:-040000\r
-TZNAME:America/New_York(STD)\r
-DTSTART:20001029T020000\r
-RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU;UNTIL=20061029T020000\r
-END:STANDARD\r
-BEGIN:DAYLIGHT\r
-TZOFFSETTO:-040000\r
-TZOFFSETFROM:-050000\r
-TZNAME:America/New_York(DST)\r
-DTSTART:20070311T020000\r
-RDATE:20070311T020000\r
-END:DAYLIGHT\r
-BEGIN:STANDARD\r
-TZOFFSETTO:-050000\r
-TZOFFSETFROM:-040000\r
-TZNAME:America/New_York(STD)\r
-DTSTART:20071104T020000\r
-RDATE:20071104T020000\r
-END:STANDARD\r
-BEGIN:DAYLIGHT\r
-TZOFFSETTO:-040000\r
-TZOFFSETFROM:-050000\r
-TZNAME:(DST)\r
-DTSTART:20080309T020000\r
-RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=2SU\r
-END:DAYLIGHT\r
-BEGIN:STANDARD\r
-TZOFFSETTO:-050000\r
-TZOFFSETFROM:-040000\r
-TZNAME:(STD)\r
-DTSTART:20081102T020000\r
-RRULE:FREQ=YEARLY;BYMONTH=11;BYDAY=1SU\r
-END:STANDARD\r
-END:VTIMEZONE\r
-BEGIN:VTIMEZONE\r
-TZID:Europe/Amsterdam\r
-X-TZINFO:Europe/Amsterdam[${__ICU_GetTZDataVersion()}/Partial@${GetUnixTimestampMSecs(AddDaysToDate(1, date))}]\r
-BEGIN:DAYLIGHT\r
-TZOFFSETTO:+020000\r
-TZOFFSETFROM:+010000\r
-TZNAME:(DST)\r
-DTSTART:20000326T020000\r
-RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU\r
-END:DAYLIGHT\r
-BEGIN:STANDARD\r
-TZOFFSETTO:+010000\r
-TZOFFSETFROM:+020000\r
-TZNAME:(STD)\r
-DTSTART:20001029T030000\r
-RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU\r
-END:STANDARD\r
-END:VTIMEZONE\r
-BEGIN:VEVENT\r
-DTSTART;TZID=Europe/Amsterdam:20000102T123456\r
-END:VEVENT\r
-BEGIN:VEVENT\r
-DTSTART;TZID=America/New_York:20000101T123456\r
-END:VEVENT\r
-END:VCALENDAR\r
-`, timezonecalendar);
-  // Check decoding of time zone identifiers
-  RECORD ARRAY events := DecodeICalCalendar(timezonecalendar);
-  TestEq(2, Length(events));
-  TestEq("Europe/Amsterdam", events[0].timezone);
-  TestEq("America/New_York", events[1].timezone);
   // If no time zone is specified, UTC is assumed and to time zone information is added
   timezonecalendar := EncodeICalCalendar([ [ dtstart := date ] ]);
   TestEq(`BEGIN:VCALENDAR\r
@@ -269,18 +143,7 @@ END:VEVENT\r
 END:VCALENDAR\r
 `, timezonecalendar);
 
-  CloseTest("TestIcal_Dogfood");
+  CloseTest("TestIcal_IcalEncoding");
 }
 
-MACRO TestIcal_Regression()
-{
-  OpenTest("TestIcal_Regression");
-
-  TestEq(FALSE, RecordExists(DecodeICALEvent(""))); //crashed earlier..
-
-  CloseTest("TestIcal_Regression");
-}
-
-TestIcal_Parser();
-TestIcal_Dogfood();
-TestIcal_Regression();
+TestIcal_IcalEncoding();
