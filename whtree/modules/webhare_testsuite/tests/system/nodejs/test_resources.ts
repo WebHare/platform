@@ -78,11 +78,11 @@ async function testPaths() {
 }
 
 async function readAllFromStream(stream: ReadableStream) {
-  let out = '';
+  const buffers: Buffer[] = [];
   for await (const chunk of stream)
-    out += Buffer.from(chunk).toString('utf8');
+    buffers.push(Buffer.from(chunk));
 
-  return out;
+  return Buffer.concat(buffers).toString('utf8');
 }
 
 async function testWebHareBlobs() {
