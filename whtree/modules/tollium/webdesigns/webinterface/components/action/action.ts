@@ -209,7 +209,7 @@ export default class ObjAction extends ActionForwardBase {
   executeWindowOpenAction(data) {
     const fturl = this.getFileTransferURL('asyncwindowopen');
 
-    window.open(fturl.url, this.target || "_blank");
+    window.open(fturl.url, this.target || "_blank", "noopener");
     this.queueMessage('windowopen', { rule: data.rule, ftid: fturl.id }, true);
   }
 
