@@ -3,7 +3,6 @@
          lib="screens/commondialogs.whlib"
          gid="commondialogs">
 
-
   <messageboxes gid=".messageboxes">
     <messagebox name="confirmclear" icon="question" buttons="yes no" />
     <messagebox name="noresults" icon="information" buttons="ok" />
@@ -39,22 +38,6 @@
                   onmoveoverlay="onmoveoverlay"
                   width="1pr" height="1pr"
                   minwidth="200px" minheight="150px"/>
-    </body>
-    <footer>
-      <defaultformbuttons buttons="ok cancel" />
-    </footer>
-  </screen>
-
-  <screen name="authorize" gid=".authorize" width="40x" onshow="onshow" onunload="onunload">
-    <body>
-      <panel height="1pr">
-        <text name="authorize_text" title="" valuetid=".authorize_text" wordwrap="true" />
-        <line>
-          <text name="authorize_remark" title="" value="" wordwrap="true" visible="false" />
-        </line>
-        <text title="" name="clicklink" />
-        <textedit name="verify" visible="false" />
-      </panel>
     </body>
     <footer>
       <defaultformbuttons buttons="ok cancel" />

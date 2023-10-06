@@ -30,24 +30,6 @@ PUBLIC SCHEMA
     > applicationkeys
   , TABLE
     < INTEGER "id" NULL := 0
-    , INTEGER "application" NULL := 0
-    , STRING "title"
-    , STRING "tag"
-    , STRING "authorizationremark"
-    , BOOLEAN "persistent"
-    , BOOLEAN "authorized"
-    , DATETIME "authorizedat"
-    , DATETIME "verifiedat"
-    , STRING "requestpermissions"
-    , STRING "accesstoken"
-    , STRING "userid"
-    , STRING "methods"
-    , BOOLEAN "expirationwarning"
-    ; KEY id
-    > sessions
-  , TABLE
-    < INTEGER "id" NULL := 0
-    , INTEGER "session" NULL := 0
     , STRING "query"
     , DATETIME "created"
     , DATETIME "lastupdateattempt"

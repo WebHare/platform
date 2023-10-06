@@ -9,95 +9,16 @@ LOADLIB "mod::socialite/lib/commondialogs.whlib";
 LOADLIB "mod::socialite/lib/internal/support.whlib";
 
 
-PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
+PUBLIC STATIC OBJECTTYPE Main EXTEND TolliumScreenBase
 <
   MACRO Init(RECORD data)
   {
     this->Refresh();
-    this->CreateDocumentationMenu();
-    this->SelectApplication();
-
-    IF(Length(data.params)>1 AND data.params[0]="feeds") //ADDME rempve or perm check
-    {
-      OBJECT sessiondialog := this->LoadScreen('feeds.feeds', [ sessionid := ToInteger(data.params[1],0) ]);
-      sessiondialog->RunModal();
-    }
-
-    IF(Length(data.params)=4 AND data.params[0]="authorize")
-    {
-      INTEGER accountid := SELECT AS INTEGER id FROM this->apps->rows WHERE isaccount AND tag = data.params[1];
-      this->apps->value :=
-          SELECT AS STRING rowkey
-            FROM this->apps->rows
-           WHERE isapp
-             AND COLUMN accountid = VAR accountid
-             AND tag = data.params[2];
-
-      this->persistent_list->value := SELECT AS INTEGER rowkey FROM this->persistent_list->rows WHERE tag = data.params[3];
-      IF (this->persistent_list->value != 0)
-        this->DoAuthorizePersistentSession();
-    }
-  }
-
-  MACRO CreateDocumentationMenu()
-  {
-    FOREVERY(RECORD network FROM socialnetworks)
-    {
-      OBJECT networkmenuitem := this->CreateTolliumComponent("menuitem");
-      networkmenuitem->title := network.title;
-
-      IF (Length(network.helplinks) > 0)
-      {
-        INSERT [ menuitem := networkmenuitem, isdivider := FALSE ] INTO this->documentation->items AT END;
-
-        FOREVERY(RECORD link FROM network.helplinks)
-        {
-          OBJECT gotoaction := this->CreateTolliumComponent("action");
-          gotoaction->onexecute := PTR this->frame->OpenBrowserWindow(link.link, "_blank");
-
-          OBJECT linkmenuitem := this->CreateTolliumComponent("menuitem");
-          linkmenuitem->title := link.title;
-          linkmenuitem->action := gotoaction;
-
-          INSERT [ menuitem := linkmenuitem, isdivider := FALSE ] INTO networkmenuitem->items AT END;
-        }
-      }
-    }
   }
 
   MACRO Refresh()
   {
-    this->apps->rows := this->GetAccounts();
-  }
-
-  MACRO RefreshSessions()
-  {
-    RECORD ARRAY app_sessions :=
-      SELECT rowkey := id
-           , title
-           , tag
-           , persistent
-           , authorized := authorized ? 1 : 0
-           , authorizedat
-        FROM socialite.sessions
-       WHERE application = this->apps->selection.id;
-
-    this->persistent_list->rows :=
-      SELECT * FROM app_sessions WHERE persistent;
-
-    RECORD ARRAY normal_sessions :=
-      SELECT * FROM app_sessions WHERE NOT persistent;
-
-    IF (LENGTH(normal_sessions) >= 250)
-    {
-      this->session_list->rows := DEFAULT RECORD ARRAY;
-      this->session_list->empty := GetTid("socialite:config.main.toomanysessions", ToString(LENGTH(normal_sessions)));
-    }
-    ELSE
-    {
-      this->session_list->rows := normal_sessions;
-      this->session_list->empty := "";
-    }
+    ^apps->rows := this->GetAccounts();
   }
 
   RECORD ARRAY FUNCTION GetAccounts()
@@ -135,19 +56,6 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
         FROM applications;
   }
 
-  MACRO DoImportAccount()
-  {
-    OBJECT accountdialog := this->LoadScreen(".importaccount");
-    accountdialog->RunModal();
-    this->Refresh();
-  }
-
-  MACRO DoExportAccount()
-  {
-    OBJECT accountdialog := this->LoadScreen(".exportaccount", [ account := this->apps->selection.id  ]);
-    accountdialog->RunModal();
-  }
-
   MACRO DoAddAccount()
   {
     OBJECT accountdialog := this->LoadScreen(".account");
@@ -157,31 +65,31 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoAddApplication()
   {
-    OBJECT accountdialog := this->LoadScreen(".application", [ account := this->apps->selection.id, id := 0 ]);
+    OBJECT accountdialog := this->LoadScreen(".application", [ account := ^apps->selection.id, id := 0 ]);
     accountdialog->RunModal();
     this->Refresh();
   }
 
   MACRO DoEditAccount()
   {
-    OBJECT accountdialog := this->LoadScreen(".account", [id := this->apps->selection.id]);
+    OBJECT accountdialog := this->LoadScreen(".account", [id := ^apps->selection.id]);
     accountdialog->RunModal();
     this->Refresh();
   }
 
   MACRO DoEditApplication()
   {
-    OBJECT accountdialog := this->LoadScreen(".application", [ account := 0, id := this->apps->selection.id ]);
+    OBJECT accountdialog := this->LoadScreen(".application", [ account := 0, id := ^apps->selection.id ]);
     accountdialog->RunModal();
     this->Refresh();
   }
 
   MACRO DoDeleteAccount()
   {
-    IF (this->RunMessageBox(".delete_confirmation") = "yes")
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".delete_confirmation")) = "yes")
     {
       OBJECT work := this->BeginWork();
-      DELETE FROM socialite.accounts WHERE id = this->apps->selection.id;
+      DELETE FROM socialite.accounts WHERE id = ^apps->selection.id;
       work->Finish();
     }
 
@@ -190,132 +98,15 @@ PUBLIC OBJECTTYPE Main EXTEND TolliumScreenBase
 
   MACRO DoDeleteApplication()
   {
-    IF (this->RunMessageBox(".delete_confirmation") = "yes")
+    IF (this->RunSimpleScreen("confirm", this->GetTid(".delete_confirmation")) = "yes")
     {
       OBJECT work := this->BeginWork();
-      DELETE FROM socialite.applications WHERE id = this->apps->selection.id;
+      DELETE FROM socialite.applications WHERE id = ^apps->selection.id;
       work->Finish();
       BroadcastEvent("socialite:applications", DEFAULT RECORD);
     }
 
     this->Refresh();
-  }
-
-  MACRO DoAddPersistent()
-  {
-    OBJECT persistentdialog := this->LoadScreen(".persistent", [ id := 0, application := this->apps->selection.id ]);
-    persistentdialog->RunModal();
-    this->RefreshSessions();
-  }
-
-  MACRO DoEditPersistent()
-  {
-    OBJECT persistentdialog := this->LoadScreen(".persistent", [ id := this->persistent_list->value, application := this->apps->selection.id ]);
-    persistentdialog->RunModal();
-    this->RefreshSessions();
-  }
-
-  MACRO DoDeletePersistent()
-  {
-    IF (this->RunMessageBox(".delete_confirmation") = "yes")
-    {
-      OBJECT work := this->BeginWork();
-      DELETE FROM socialite.sessions WHERE id = this->persistent_list->value;
-      work->Finish();
-    }
-
-    this->RefreshSessions();
-  }
-
-  MACRO SelectApplication()
-  {
-    BOOLEAN isapplication := (RecordExists(this->apps->selection) ? this->apps->selection.isapp : FALSE);
-    this->sessiontabs->visible := isapplication;
-
-    IF (isapplication)
-    {
-      this->RefreshSessions();
-    }
-  }
-
-  MACRO DoAuthorizeSession()
-  {
-    this->DoAuthorize(this->session_list->value);
-  }
-
-  MACRO DoAuthorizePersistentSession()
-  {
-    this->DoAuthorize(this->persistent_list->value);
-  }
-
-  MACRO DoDeauthorizePersistentSession()
-  {
-    this->DoDeAuthorize(this->persistent_list->value);
-  }
-
-  MACRO DoAuthorize(INTEGER sessionid)
-  {
-    OBJECT dialog := CreateAuthorizationDialog(this, this->persistent_list->value);
-    dialog->RunModal();
-
-    this->RefreshSessions();
-  }
-
-  MACRO DoDeAuthorize(INTEGER sessionid)
-  {
-    IF (this->RunMessageBox(".suredeauthorizesession") = "yes")
-    {
-      OBJECT work := this->BeginWork();
-      UPDATE socialite.sessions
-         SET authorized :=      FALSE
-           , authorizedat :=    DEFAULT DATETIME
-           , accesstoken :=     ""
-       WHERE application = this->apps->selection.id
-         AND id = sessionid;
-
-      work->Finish();
-      this->RefreshSessions();
-    }
-  }
-
-  MACRO DoViewTemporarySession()
-  {
-    this->DoViewSession(this->session_list->value);
-  }
-
-  MACRO DoViewPersistentSession()
-  {
-    this->DoViewSession(this->persistent_list->value);
-  }
-
-  MACRO DoViewSession(INTEGER sessionid)
-  {
-    OBJECT sessiondialog := this->LoadScreen('.viewsession', [ sessionid := sessionid ]);
-    sessiondialog->RunModal();
-  }
-
-  MACRO DoViewFeeds()
-  {
-    OBJECT sessiondialog := this->LoadScreen('feeds.feeds', [ sessionid := this->persistent_list->value ]);
-    sessiondialog->RunModal();
-  }
-
-  MACRO DoViewAnonymousFeeds()
-  {
-    OBJECT sessiondialog := this->LoadScreen('feeds.feeds', [ sessionid := 0 ]);
-    sessiondialog->RunModal();
-  }
-
-  MACRO DoImportSecureToken()
-  {
-    OBJECT screen := this->LoadScreen(".importsecuretoken" , [ appid := this->apps->selection.id ]);
-    screen->RunModal();
-  }
-
-  MACRO DoSetSecureToken()
-  {
-    OBJECT screen := this->LoadScreen(".setsecuretoken" , [ id := this->persistent_list->value ]);
-    screen->RunModal();
   }
 
   MACRO DoExit()
@@ -474,284 +265,4 @@ PUBLIC OBJECTTYPE Application EXTEND TolliumScreenBase
     BroadcastEvent("socialite:applications", DEFAULT RECORD);
     RETURN result;
   }
->;
-
-PUBLIC OBJECTTYPE Persistent EXTEND TolliumScreenBase
-<
-  INTEGER applicationid;
-  INTEGER sessionid;
-  OBJECT socialapp;
-
-  MACRO Init(RECORD data)
-  {
-    this->applicationid := data.application;
-    this->sessionid := data.id;
-
-    RECORD app := SELECT * FROM socialite.applications WHERE id = data.application;
-
-    STRING networkname := app.type;
-
-    this->socialapp := OpenSocialiteConnectionById(app.id);
-
-    IF (this->socialapp->newpermissionmodel)
-    {
-      this->requestpermissions->options :=
-          SELECT rowkey := name
-               , title  := name
-            FROM this->socialapp->permissionmap
-        ORDER BY ToUppercase(name);
-    }
-    ELSE
-    {
-      this->requestpermissions->options :=
-          SELECT rowkey := ToString(id)
-               , title  := userapi // FIXME: or use GetTid()?
-            FROM globalpermissionmap
-           WHERE ToUpperCase(networkname) IN networks
-        ORDER BY ToUppercase(userapi);
-    }
-
-    STRING loginuri;
-
-    IF (this->sessionid != 0)
-    {
-      RECORD sessionrec := SELECT * FROM socialite.sessions WHERE sessions.id = this->sessionid;
-
-      this->title->value := sessionrec.title;
-      this->tag->value := sessionrec.tag;
-      this->authorizationremark->value := sessionrec.authorizationremark;
-      this->expirationwarning->value := sessionrec.expirationwarning;
-
-      TRY
-      {
-        this->socialapp->OpenPersistentSessionByTag(sessionrec.tag);
-        this->securetoken->value := this->socialapp->GetSecureAccessToken();
-      }
-      CATCH(OBJECT e)
-      {
-        //sesssion never logged in, probably. ignore.
-      }
-
-      this->requestpermissions->value := sessionrec.requestpermissions = ""
-          ? DEFAULT STRING ARRAY
-          : Tokenize(sessionrec.requestpermissions, ",");
-    }
-  }
-
-  BOOLEAN FUNCTION Submit()
-  {
-    OBJECT work := this->BeginWork();
-
-    STRING requestpermissions := Detokenize(this->requestpermissions->value, ',');
-
-    IF (this->sessionid = 0)
-    {
-      //this->sessionid := this->socialapp->CreateNewSessionByAppTag(app.tag, this->title->value, this->tag->value, TRUE);
-      this->sessionid := MakeAutonumber(socialite.sessions, "id");
-      INSERT INTO socialite.sessions(id, application, title, tag, authorizationremark, persistent, requestpermissions, expirationwarning)
-           VALUES (this->sessionid, this->applicationid, this->title->value, this->tag->value, this->authorizationremark->value, TRUE, requestpermissions, this->expirationwarning->value);
-    }
-    ELSE
-    {
-      UPDATE socialite.sessions
-         SET title := this->title->value
-           , tag := this->tag->value
-           , authorizationremark := this->authorizationremark->value
-           , requestpermissions := VAR requestpermissions
-           , expirationwarning := this->expirationwarning->value
-       WHERE id = this->sessionid;
-    }
-
-    RETURN work->Finish();
-  }
->;
-
-
-PUBLIC OBJECTTYPE ViewSession EXTEND TolliumScreenBase
-<
-  MACRO Init(RECORD data)
-  {
-    RECORD session :=
-        SELECT *
-          FROM socialite.sessions
-         WHERE id = data.sessionid;
-
-    this->sessionkeys->rows :=
-        SELECT tag :=   ToLowercase(name)
-             , value := this->AnyToString(value)
-          FROM UnpackRecord(session);
-       //WHERE value != ""
-//        WHERE ToUppercase(name) IN [ "ACCESSTOKEN", "USERID", "METHODS" ];
-  }
-
-  STRING FUNCTION AnyToString(VARIANT value)
-  {
-    IF (TypeID(value) = TypeID(0))
-      RETURN ToString(value);
-
-    IF (TypeID(value) = TypeID(BOOLEAN))
-      RETURN value ? "TRUE" : "FALSE";
-
-    IF (TypeID(Value) = TypeID(DATETIME))
-      RETURN this->tolliumuser->FormatDate(value, TRUE, TRUE);
-
-    RETURN value;
-  }
-
->;
-
-PUBLIC OBJECTTYPE importsecuretoken EXTEND TolliumScreenBase
-<
-  INTEGER appid;
-
-  MACRO Init(RECORD data)
-  {
-    this->appid := data.appid;
-  }
-  MACRO DoImport()
-  {
-    this->outputtoken->value := "";
-
-    OBJECT work := this->BeginFeedback();
-    RECORD tok := SplitSecureToken(this->inputtoken->value);
-    IF(NOT RecordExists(tok))
-    {
-      work->AddErrorFor(this->inputtoken, GetTid("socialite:common.errors.invalidtoken"));
-    }
-    ELSE
-    {
-      OBJECT conn := OpenSocialiteConnectionById(this->appid);
-      IF(NOT conn->SetSecureEncryptedHandle(tok.encryptedhandle))
-      {
-        work->AddErrorFor(this->inputtoken, GetTid("socialite:common.errors.incorrectapp"));
-      }
-      ELSE
-      {
-        this->outputtoken->value := conn->GetSecureAccessToken();
-      }
-    }
-    work->Finish();
-  }
->;
-
-PUBLIC OBJECTTYPE SetSecureToken EXTEND TolliumScreenBase
-<
-  INTEGER sessionid;
-
-  MACRO Init(RECORD data)
-  {
-    this->sessionid := data.id;
-  }
-  BOOLEAN FUNCTION Submit()
-  {
-    OBJECT work := this->BeginWork();
-
-    RECORD sessionrec := SELECT * FROM socialite.sessions WHERE sessions.id = this->sessionid;
-    OBJECT conn := OpenSocialiteConnectionById(sessionrec.application);
-    RECORD tok := SplitSecureToken(this->inputtoken->value);
-
-    IF(NOT RecordExists(tok))
-    {
-      work->AddErrorFor(this->inputtoken, GetTid("socialite:common.errors.invalidtoken"));
-    }
-    ELSE
-    {
-      IF(NOT conn->SetSecureEncryptedHandle(tok.encryptedhandle))
-      {
-        work->AddErrorFor(this->inputtoken, GetTid("socialite:common.errors.incorrectapp"));
-      }
-      ELSE
-      {
-        conn->UpdateStoredAccessToken(this->sessionid);
-      }
-    }
-    RETURN work->Finish();
-  }
->;
-
-PUBLIC OBJECTTYPE ImportAccount EXTEND TolliumScreenBase
-<
-  BOOLEAN FUNCTION Submit()
-  {
-    OBJECT work := this->BeginWork();
-    OBJECT doc := MakeXMLDocument(StringToBlob(this->data->value));
-
-    IF(NOT ObjectExists(doc->documentelement) OR Length(doc->GetParseErrors())>0)
-    {
-      work->AddError(this->GetTid(".invalidxml"));
-    }
-    ELSE IF(doc->documentelement->namespaceuri != "http://www.webhare.net/xmlns/socialite/account" OR doc->documentelement->localname != "account")
-    {
-      work->AddError(this->GetTid(".notaccountxml"));
-    }
-    ELSE
-    {
-      RECORD data := doc->documentelement->__INTERNAL_GetHSValue();
-      IF(RecordExists(SELECT FROM socialite.accounts WHERE ToUppercase(tag) = ToUppercase(data.tag)))
-      {
-        work->AddError(this->GetTid(".accountexists", data.tag));
-      }
-      ELSE
-      {
-        INTEGER accountid := MakeAutonumber(socialite.accounts,"id");
-        INSERT INTO socialite.accounts(id,tag,title)
-               VALUES(accountid,data.tag,data.title);
-        FOREVERY(RECORD app FROM data.apps)
-        {
-          INTEGER appid := MakeAutonumber(socialite.applications,"id");
-          INSERT INTO socialite.applications(account,id,tag,title,type,remarks)
-                 VALUES(accountid,appid,app.tag,app.title,app.type,app.remarks);
-
-          FOREVERY(RECORD keyrec FROM app.keys)
-          {
-            INSERT INTO socialite.applicationkeys(application,tag,value)
-                   VALUES(appid, keyrec.tag, keyrec.value);
-          }
-          FOREVERY(RECORD psession FROM app.persistentsessions)
-          {
-            INSERT INTO socialite.sessions(application,persistent,title,tag,methods,requestpermissions)
-                   VALUES(appid, TRUE, psession.title, psession.tag, psession.methods, psession.requestpermissions);
-          }
-        }
-      }
-    }
-    RETURN work->Finish();
-  }
->;
-
-PUBLIC OBJECTTYPE ExportAccount EXTEND TolliumScreenBase
-<
-  MACRO Init(RECORD data)
-  {
-    RECORD accountinfo := SELECT accounts.title
-                               , accounts.tag
-                               , apps := (SELECT tag
-                                               , title
-                                               , type
-                                               , remarks
-                                               , keys := (SELECT tag
-                                                               , value
-                                                            FROM socialite.applicationkeys
-                                                           WHERE applicationkeys.application = applications.id
-                                                        ORDER BY tag)
-                                               , persistentsessions := (SELECT title
-                                                                             , tag
-                                                                             , methods
-                                                                             , requestpermissions
-                                                                          FROM socialite.sessions
-                                                                         WHERE sessions.application = applications.id
-                                                                               AND sessions.persistent
-                                                                      ORDER BY tag)
-                                            FROM socialite.applications
-                                           WHERE applications.account = accounts.id
-                                        ORDER BY tag)
-                               FROM socialite.accounts WHERE id=data.account;
-
-    OBJECT accountdoc := NEW XMLDOMImplementation->CreateDocument("http://www.webhare.net/xmlns/socialite/account", "account", DEFAULT OBJECT);
-    accountdoc->documentelement->__Sethsvalue(accountinfo);
-
-    accountdoc->NormalizeDocument();
-    this->data->value := BlobToString(accountdoc->GetDocumentBlob(TRUE),-1);
-  }
-
 >;

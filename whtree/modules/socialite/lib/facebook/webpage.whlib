@@ -1,3 +1,0 @@
-<?wh
-//please use socialite/facebook.whlib
-LOADLIB "mod::socialite/lib/facebook.whlib" EXPORT SendJavascriptTopRedirect, AuthorizeAppByRedirect, FacebookTabPage, PrepareFacebookAppTab, GetFacebookinfoForTab;
