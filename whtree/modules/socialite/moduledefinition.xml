@@ -19,7 +19,6 @@
   </meta>
 
   <servicemanager>
-    <task runat="*/30  * * * *" script="scripts/tasks/checksessions.whscr" tag="checksessions" description="Check persistent sessions" />
     <task runat="*/5   * * * *" script="scripts/tasks/update_embedded.whscr" tag="update_embedded" description="Update embedded scripts" />
   </servicemanager>
 
@@ -31,8 +30,6 @@
                 transports="jsonrpc">
       <accesscheck />
     </webservice>
-
-    <check objectname="lib/internal/check.whlib#SessionsCheck" />
   </services>
 
   <portal>
@@ -76,12 +73,6 @@
     <right name="fullaccess" descriptiontid="rights.fullaccess-descr" objecttype="accounts" tid="rights.fullaccess">
       <impliedby right="system:sysop" />
     </right>
-    <right name="authorizesessions"
-           descriptiontid="rights.authorizesessions-descr"
-           objecttype="accounts"
-           tid="rights.authorizesessions">
-      <impliedby right="fullaccess" />
-    </right>
   </rights>
 
   <tollium>
@@ -114,26 +105,10 @@
       <d:varchar name="tag" maxlength="256" nullable="0" />
       <d:varchar name="value" maxlength="4096" />
     </d:table>
-    <d:table name="sessions" parentlinkcolumn="application" primarykey="id">
-      <d:integer name="id" autonumberstart="1" />
-      <d:integer name="application" nullable="0" ondelete="cascade" references=".applications" />
-      <d:varchar name="title" maxlength="256" nullable="0" />
-      <d:varchar name="tag" maxlength="256" />
-      <d:varchar name="authorizationremark" maxlength="4096" />
-      <d:boolean name="persistent" />
-      <d:boolean name="authorized" />
-      <d:datetime name="authorizedat" />
-      <d:datetime name="verifiedat" />
-      <d:varchar name="requestpermissions" maxlength="4096" />  <!-- list with numers of abstracted permissions we want to use/authorize for -->
-      <d:varchar name="userid" maxlength="256" />  <!-- userid (used for hyvertising logintokens) -->
-      <d:varchar name="accesstoken" maxlength="4096" />  <!-- accesstoken for this session -->
-      <d:varchar name="methods" maxlength="4096" />
-      <d:boolean name="expirationwarning" />
-      <d:index name="useridindex" columns="application userid" />
-    </d:table>
+    <d:obsoletetable name="sessions" parentlinkcolumn="application" primarykey="id" />
     <d:table name="feeds" primarykey="id">
       <d:integer name="id" autonumberstart="1" />
-      <d:integer name="session" ondelete="cascade" references=".sessions" />
+      <d:obsoletecolumn name="session"/>
       <d:integer name="maxnum">
         <d:documentation>Maximum number of entries to store</d:documentation>
       </d:integer>
@@ -158,7 +133,7 @@
       <d:varchar name="lasterror" maxlength="4096">
         <d:documentation>Last error message</d:documentation>
       </d:varchar>
-      <d:index name="sessionquery" columns="session query" unique="1" />
+      <d:index name="queryindex" columns="query(64)" /> <!-- TODO making this unique would be nice but might complicate upgrades... -->
       <d:blob name="baseinfo" />
       <d:varchar name="baseinfohash" maxlength="64" />
     </d:table>

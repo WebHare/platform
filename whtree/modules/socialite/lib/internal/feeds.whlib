@@ -76,14 +76,13 @@ OBJECTTYPE SocialiteFeedApp
 >;
 
 // Might be used with & without open work!
-RECORD FUNCTION TryReturnCachedFeed(OBJECT netapp, INTEGER sessionid, STRING query, INTEGER maxnum, DATETIME now)
+RECORD FUNCTION TryReturnCachedFeed(OBJECT netapp, STRING query, INTEGER maxnum, DATETIME now)
 {
   // Retrieve the feed (based on the query)
   RECORD feed :=
       SELECT *
         FROM socialite.feeds
-       WHERE feeds.session = sessionid
-         AND feeds.query = VAR query;
+       WHERE feeds.query = VAR query;
 
   RECORD result;
   RECORD baseinfo;
@@ -126,47 +125,23 @@ RECORD FUNCTION TryReturnCachedFeed(OBJECT netapp, INTEGER sessionid, STRING que
       ];
 }
 
-RECORD FUNCTION GrabFeed(STRING account, STRING app, STRING sessionname, STRING query, INTEGER maxnum, BOOLEAN force)
+RECORD FUNCTION GrabFeed(STRING query, INTEGER maxnum)
 {
-  RETURN RunInSeparatePrimary(PTR DoGrabFeed(account,app,sessionname,query,maxnum,force));
+  RETURN RunInSeparatePrimary(PTR DoGrabFeed(query,maxnum));
 }
 
-RECORD FUNCTION DoGrabFeed(STRING account, STRING app, STRING sessionname, STRING query, INTEGER maxnum, BOOLEAN force)
+RECORD FUNCTION DoGrabFeed(STRING query, INTEGER maxnum)
 {
   //Open the proper socialite app
-  OBJECT netapp;
-  INTEGER sessionid;
-
-  TRY
-  {
-    IF(account != "")
-    {
-      netapp := OpenSocialiteConnection(account, app);
-      sessionid := netapp->OpenPersistentSessionByTag(sessionname);
-    }
-    ELSE
-    {
-      netapp := NEW SocialiteFeedApp;
-    }
-  }
-  CATCH(OBJECT e)
-  {
-    LogError("socialite:feeds", "Error opening persistent session " || account || ":" || app || " account " || sessionname || " for '" || query || "': " || e->what, [ error := "FEEDOPENERROR", account := account, app := app, sessionname := sessionname, query := query]);
-    RETURN [ ttl := 60 * 1000
-            ,value := [ lastupdate := DEFAULT DATETIME
-                      , entries := DEFAULT RECORD ARRAY
-                      , baseinfo := DEFAULT RECORD
-                      ]
-           , eventmasks := [ "socialite:feedsupdate" ]
-           ];
-  }
+  OBJECT netapp := NEW SocialiteFeedApp;
+  BOOLEAN force := FALSE;
 
   // Whether to re-get the feed
   DATETIME now := GetCurrentDatetime();
 
   // Current feed up to date?
-  RECORD feedcheck := TryReturnCachedFeed(netapp, sessionid, query, maxnum, now);
-  IF (RecordExists(feedcheck.result) AND NOT force)
+  RECORD feedcheck := TryReturnCachedFeed(netapp, query, maxnum, now);
+  IF (RecordExists(feedcheck.result))
     RETURN [ ttl := 60 * 1000
            , value := feedcheck.result
            , eventmasks := [ "socialite:feedsupdate" ]
@@ -177,14 +152,14 @@ RECORD FUNCTION DoGrabFeed(STRING account, STRING app, STRING sessionname, STRIN
   ///FIXME we should probably ALWAYS do async-updates. first request for a feed should simply be scheduling it
 
   // Begin locked work for this feed. Group together on sessionid & query
-  GetPrimary()->BeginLockedWork("socialite:updatefeed." || sessionid || "." || EncodeUFS(GetSHA1Hash(query)));
+  GetPrimary()->BeginLockedWork("socialite:updatefeed." || EncodeUFS(GetSHA1Hash(query)));
   TRY
   {
     // Time may have progressed significantly when waiting for a lock
     now := GetCurrentDatetime();
 
     // Recheck feed within work (another thread might have updated it already)
-    feedcheck := TryReturnCachedFeed(netapp, sessionid, query, maxnum, now);
+    feedcheck := TryReturnCachedFeed(netapp, query, maxnum, now);
     IF (RecordExists(feedcheck.result) AND NOT force)
       RETURN [ ttl := 60 * 1000
              , value := feedcheck.result
@@ -215,7 +190,7 @@ RECORD FUNCTION DoGrabFeed(STRING account, STRING app, STRING sessionname, STRIN
     }
     CATCH(OBJECT e)
     {
-      LogError("socialite:feeds", "Error querying feed " || account || ":" || app || " account " || sessionname || " for '" || query || "': " || e->what, [ error := "FEEDQUERYERROR", account := account, app := app, sessionname := sessionname, query := query]);
+      LogError("socialite:feeds", "Error querying feed for '" || query || "': " || e->what, [ error := "FEEDQUERYERROR", query := query]);
       error := e->what; //FIXME Log it, mark the feed as failing
     }
 
@@ -257,8 +232,8 @@ RECORD FUNCTION DoGrabFeed(STRING account, STRING app, STRING sessionname, STRIN
     {
       // New feed
       feedid := MakeAutonumber(socialite.feeds,"ID");
-      INSERT INTO socialite.feeds(id, session, query, created, lastupdateattempt, lastupdate, lastrequest, format, maxnum, baseinfo, baseinfohash)
-              VALUES(feedid, sessionid, query, now, now, error != "" ? DEFAULT DATETIME : now, now, RecordExists(feedresult) ? feedresult.format : "", maxnum, StringToBLob(baseinfodata), baseinfohash);
+      INSERT INTO socialite.feeds(id, query, created, lastupdateattempt, lastupdate, lastrequest, format, maxnum, baseinfo, baseinfohash)
+              VALUES(feedid, query, now, now, error != "" ? DEFAULT DATETIME : now, now, RecordExists(feedresult) ? feedresult.format : "", maxnum, StringToBLob(baseinfodata), baseinfohash);
     }
 
     //Throw new entries into the database (but only if there were no errors getting the feed)
@@ -332,10 +307,8 @@ RECORD FUNCTION DoGrabFeed(STRING account, STRING app, STRING sessionname, STRIN
   }
 }
 
-PUBLIC RECORD FUNCTION RequestFeed(STRING account, STRING app, STRING sessionname, STRING query, INTEGER maxnum, BOOLEAN forcerequest)
+PUBLIC RECORD FUNCTION RequestFeed(STRING query, INTEGER maxnum)
 {
-  IF(forcerequest)
-    RETURN GrabFeed(account,app,sessionname,query,maxnum, TRUE).value;
   //The adhoc cache also prevents multiple requests for the same feed to be issued, causing database duplicates
-  RETURN GetAdhocCached([ account := account, app := app, sessionname := sessionname, query := query, maxnum := maxnum ], PTR GrabFeed(account,app,sessionname,query,maxnum, FALSE));
+  RETURN GetAdhocCached([ query := query, maxnum := maxnum ], PTR GrabFeed(query,maxnum));
 }
