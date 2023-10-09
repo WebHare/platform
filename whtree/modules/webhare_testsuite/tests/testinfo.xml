@@ -26,10 +26,10 @@
       <arg value="webhare_testsuite" />
     </test>
     <test name="checkjssdk" script="mod::system/scripts/whcommands/checkjssdk.sh" />
-    <test name="coremodules" script="mod::system/scripts/whcommands/checkmodule.whscr">
+    <test name="platform" script="mod::system/scripts/whcommands/checkmodule.whscr">
       <arg value="--async" />
       <arg value="--hidehints" />
-      <arg value="coremodules" />
+      <arg value="platform" />
       <!-- <arg value="webhare_testsuite" />   we're pretty far from fully validating ourselves... so we'll stick to testinfo.xml -->
     </test>
     <!-- we need to checkmodule the webhare_testsuite to help find API breakage especially for typescript.

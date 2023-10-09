@@ -120,7 +120,7 @@ OBJECTTYPE CheckerObject
 
     OBJECT typescriptresultpromise, checkformattingpromise;
     IF (this->options.checktypescript)
-      typescriptresultpromise := CheckModuleTypeScriptFiles(modname IN whconstant_builtinmodules ? "coremodules" : modname);
+      typescriptresultpromise := CheckModuleTypeScriptFiles(modname IN whconstant_builtinmodules ? "platform" : modname);
     checkformattingpromise := CheckModuleJavascriptFormatting(modname, CELL[ this->options.onlypaths, this->options.filemask ]);
 
     this->validateconfig := GetModuleValidationConfig(modname = "jssdk" ? "system" : modname);

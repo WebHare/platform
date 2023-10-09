@@ -28,7 +28,7 @@ INTEGER numerrors, numwarnings;
 
 IF(NOT RecordExists(args))
 {
-  Print("Syntax: wh checkmodule [ coremodules / <modulename mask...> ] \n");
+  Print("Syntax: wh checkmodule [ platform / <modulename mask...> ] \n");
   TerminateScriptWithError("Invalid syntax");
 }
 SetupFunctionProfiling("checkmodule", Detokenize(args.modules,','));
@@ -75,7 +75,7 @@ IF(Length(args.modules) = 0)
 ELSE
 {
   FOREVERY(STRING module FROM args.modules)
-    FOREVERY(STRING mask FROM module = "coremodules" ? whconstant_builtinmodules CONCAT [ "jssdk" ]: [module])
+    FOREVERY(STRING mask FROM module = "platform" ? whconstant_builtinmodules CONCAT [ "jssdk" ]: [module])
   {
     BOOLEAN have_match;
     FOREVERY(STRING mod FROM __SYSTEM_GetInstalledModuleNames() CONCAT [ "jssdk" ])
