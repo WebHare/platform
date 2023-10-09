@@ -6452,6 +6452,7 @@ To change a <xs:attribute /> for adding descriptions
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="makeappdirty" type="xs:boolean" />
   </xs:complexType>
 
   <xs:complexType name="Proxy">
