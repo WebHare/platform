@@ -5,17 +5,18 @@ import * as witty from '@webhare/witty';
 import { config as backendConfig, WebHareBackendConfiguration } from "./config";
 
 export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR, registerLoadedResource } from "@mod-system/js/internal/hmr";
-export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource, openResource, openLocalFileResource } from "./resources";
+export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource } from "./resources";
 export { openBackendService, BackendServiceController } from "./backendservice";
 export { config as backendConfig, WebHareBackendConfiguration } from "./config";
 export { broadcast, subscribe, BackendEvent, BackendEventSubscription } from "./backendevents";
 export { log, logNotice, logError, logDebug, readLogLines, LoggableRecord } from "./logging";
 export { ConvertBackendServiceInterfaceToClientInterface } from "@mod-system/js/internal/webhareservice";
-export { type ResourceDescriptor } from "./descriptor";
+export { ResourceDescriptor } from "./descriptor";
 export { lockMutex, type Mutex } from "./mutex";
 export { TaskRequest, TaskResponse, scheduleTask, scheduleTimedTask } from "./tasks";
 export { readRegistryKey } from "./registry";
 export { type RichDocument } from "./richdocument";
+export { WebHareBlob } from "./webhareblob";
 
 /** Promise that resolves as soon as the WebHare configuration is available
  * @deprecated The configuration is now always available

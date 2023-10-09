@@ -2,7 +2,7 @@ import { LinearBufferReader, LinearBufferWriter } from "./bufs";
 // FIXME - import { Money } from "@webhare/std"; - but this breaks the shrinkwrap (it can't find @webhare/std)
 import { Money } from "../../../../../jssdk/std/money";
 import { dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, maxDateTimeTotalMsecs } from "../../../../../jssdk/hscompat/datetime";
-import { HareScriptBlob, HareScriptMemoryBlob, isHareScriptBlob } from "../../../../../jssdk/harescript/src/hsblob"; //we need to directly load is to not break gen_config.ts
+import { WebHareBlob } from "../../../../../jssdk/services/src/webhareblob"; //we need to directly load is to not break gen_config.ts
 
 export enum VariableType {
   Uninitialized = 0x00,                 ///< Not initialised variable
@@ -47,7 +47,7 @@ export type HSType<T extends VariableType> =
   T extends VariableType.Integer64 ? bigint :
   T extends VariableType.Record ? IPCMarshallableRecord :
   T extends VariableType.String ? string :
-  T extends VariableType.Blob ? HareScriptMemoryBlob :
+  T extends VariableType.Blob ? WebHareBlob :
   T extends VariableType.VariantArray ? IPCMarshallableData[] :
   T extends VariableType.IntegerArray ? Array<HSType<VariableType.Integer>> :
   T extends VariableType.MoneyArray ? Array<HSType<VariableType.HSMoney>> :
@@ -71,7 +71,7 @@ export function getDefaultValue<T extends VariableType>(type: T): HSType<T> {
     case VariableType.Integer64: { return BigInt(0) as HSType<T>; }
     case VariableType.Record: { return null as HSType<T>; }
     case VariableType.String: { return "" as HSType<T>; }
-    case VariableType.Blob: { return new HareScriptMemoryBlob as HSType<T>; }
+    case VariableType.Blob: { return WebHareBlob.from("") as HSType<T>; }
     case VariableType.VariantArray:
     case VariableType.IntegerArray:
     case VariableType.MoneyArray:
@@ -230,11 +230,11 @@ function marshalReadInternal(buf: LinearBufferReader, type: VariableType, column
       if (blobs) {
         const blobid = buf.readU32();
         if (!blobid)
-          return new HareScriptMemoryBlob;
+          return WebHareBlob.from("");
         else
-          return new HareScriptMemoryBlob(blobs[blobid - 1]);
+          return WebHareBlob.from(blobs[blobid - 1]);
       } else
-        return new HareScriptMemoryBlob(buf.readBinary());
+        return WebHareBlob.from(buf.readBinary());
     }
     case VariableType.FunctionPtr: {
       throw new Error(`Cannot decode FUNCTIONPTR yet`); // FIXME?
@@ -370,7 +370,7 @@ export function determineType(value: unknown): VariableType {
   }
   switch (typeof value) {
     case "object": {
-      if (isHareScriptBlob(value))
+      if (value instanceof WebHareBlob)
         return VariableType.Blob;
       if (value instanceof Uint8Array || value instanceof ArrayBuffer || value instanceof Buffer)
         return VariableType.String;
@@ -404,7 +404,7 @@ export function determineType(value: unknown): VariableType {
   }
 }
 
-function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, columns: Map<string, number>, blobs: Buffer[] | null, type: VariableType | null, path: object[]) {
+function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, columns: Map<string, number>, blobs: Uint8Array[] | null, type: VariableType | null, path: object[]) {
   const determinedtype = determineType(value);
   if (type === null) {
     type = determinedtype;
@@ -491,12 +491,12 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
       }
     } break;
     case VariableType.Blob: {
-      if (!(value as HareScriptBlob).size) { //empty blob
+      if (!(value as WebHareBlob).size) { //empty blob
         writer.writeU32(0); //either we write blobid 0 or size 0
         break;
       }
 
-      const data = Buffer.from((value as unknown as HareScriptBlob).tryArrayBufferSync());
+      const data = (value as WebHareBlob).__getAsSyncUInt8Array();
       if (blobs) {
         blobs.push(data);
         writer.writeU32(blobs.length);
@@ -584,15 +584,13 @@ function encodeHSONInternal(value: IPCMarshallableData, needtype?: VariableType)
       retval = JSON.stringify((value as Buffer).toString()).replaceAll("\\u0000", "\\x00");
       break;
     case VariableType.Blob: {
-      if (!(value as HareScriptBlob).size) {
+      if (!(value as WebHareBlob).size) {
         retval = `b""`;
         break;
       }
-      if (value instanceof HareScriptMemoryBlob)
-        retval = `b"` + value.data!.toString("base64") + `"`;
-      else {
-        retval = `b"` + Buffer.from((value as unknown as HareScriptBlob).tryArrayBufferSync()).toString("base64") + `"`;
-      }
+
+      const data = (value as WebHareBlob).__getAsSyncUInt8Array();
+      retval = `b"` + Buffer.from(data).toString("base64") + `"`; //FIXME avoid this buffer copy
     } break;
     case VariableType.Integer64: retval = "i64 " + (value as number | bigint).toString(); break;
     case VariableType.Integer: retval = (value as number).toString(); break;
@@ -1507,7 +1505,7 @@ class JSONParser {
           this.parsestate = ParseState.PS_Error;
           return false;
         }
-        parent[key] = new HareScriptMemoryBlob(Buffer.from(token, "base64"));
+        parent[key] = WebHareBlob.from(Buffer.from(token, "base64"));
         return true;
       }
       case VariableType.DateTime: {
@@ -1584,6 +1582,5 @@ export type SimpleMarshallableData = boolean | null | string | number | bigint |
 export type SimpleMarshallableRecord = null | { [key in string]: SimpleMarshallableData };
 
 /* TODO we may need to support WHDBBlob too - encodeHSON and IPC only currently require that they can transfer the data without await */
-export type IPCMarshallableBlob = HareScriptMemoryBlob;
-export type IPCMarshallableData = boolean | null | string | number | bigint | Date | Money | ArrayBuffer | Uint8Array | IPCMarshallableBlob | { [key in string]: IPCMarshallableData } | IPCMarshallableData[];
+export type IPCMarshallableData = boolean | null | string | number | bigint | Date | Money | ArrayBuffer | Uint8Array | WebHareBlob | { [key in string]: IPCMarshallableData } | IPCMarshallableData[];
 export type IPCMarshallableRecord = null | { [key in string]: IPCMarshallableData };

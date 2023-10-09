@@ -1,59 +1,11 @@
 import { generateRandomId } from '@webhare/std';
-import { mkdir, readFile, writeFile, rename, stat } from 'node:fs/promises';
-import { readFileSync } from 'node:fs';
+import { mkdir, rename, stat } from 'node:fs/promises';
+import { createWriteStream } from 'node:fs';
 import * as path from 'node:path';
 import * as process from 'node:process';
 import { Connection, DataType, DataTypeOIDs, SmartBuffer } from './../vendor/postgresql-client/src/index';
-import { HareScriptBlob } from '@webhare/harescript';
-import { ResourceDescriptor } from '@webhare/services/src/descriptor';
-
-export class WHDBBlobImplementation implements HareScriptBlob {
-  readonly databaseid: string;
-  readonly _size: number;
-
-  readonly isWHDBBlob = true; //We need to ensure TypeScript can differentiate between HareScriptBlob and WHDBBlob ducks (TODO alternative solution)
-
-  constructor(databaseid: string, length: number) {
-    if (!length)
-      throw new Error(`A WHDBBlob must have content - use null to represent empty blobs`);
-
-    this.databaseid = databaseid;
-    this._size = length;
-  }
-
-  get size() {
-    return this._size;
-  }
-
-  __getDiskPathinfo() {
-    if (!this.databaseid.startsWith('AAAB'))
-      throw new Error(`Unrecognized storage system for blob '${this.databaseid}'`);
-
-    return getDiskPathinfo(this.databaseid.substring(4));
-  }
-
-  // Get the full contents of a database blob
-  async text(): Promise<string> {
-    const pathinfo = this.__getDiskPathinfo();
-    return await readFile(pathinfo.fullpath, "utf8");
-  }
-
-  async arrayBuffer(): Promise<ArrayBuffer> {
-    const pathinfo = this.__getDiskPathinfo();
-    return await readFile(pathinfo.fullpath);
-  }
-
-  tryArrayBufferSync(): ArrayBuffer {
-    const pathinfo = this.__getDiskPathinfo();
-    return readFileSync(pathinfo.fullpath);
-  }
-
-  isSameBlob(rhs: HareScriptBlob): boolean {
-    return rhs instanceof WHDBBlobImplementation && this.databaseid === rhs.databaseid;
-  }
-}
-
-export type ValidBlobSources = string | HareScriptBlob | ResourceDescriptor;
+import { WebHareBlob, WebHareDiskBlob } from '@webhare/services/src/webhareblob';
+import { Writable } from 'node:stream';
 
 //TODO whdb.ts and we should probably get this from services or some other central configuration
 function getBlobStoragepath() {
@@ -77,53 +29,54 @@ async function getFilePaths(blobpartid: string, createdir: boolean) {
   return { fullpath: paths.fullpath, temppath: path.join(paths.baseblobdir, "tmp", blobpartid) };
 }
 
-const uploadedblobs = new WeakMap<Exclude<ValidBlobSources, string>, WHDBBlobImplementation>();
+const uploadedblobs = new WeakMap<WebHareBlob, string>();
 
-export async function uploadBlobToConnection(pg: Connection, data: ValidBlobSources): Promise<WHDBBlob | null> {
-  if (!data || (typeof data !== "string" && data.size === 0))
-    return null;
-  if (isWHDBBlob(data)) //reuploading is a no-op
-    return data;
-
-  if (typeof data !== "string") {
-    const earlierUpload = uploadedblobs.get(data);
-    if (earlierUpload)
-      return earlierUpload;
-  }
+export async function uploadBlobToConnection(pg: Connection, blob: WebHareBlob): Promise<void> {
+  if (blob.size === 0 || uploadedblobs.get(blob))
+    return;
 
   const blobpartid = generateRandomId('hex', 16);
   //EncodeUFS('001') (="AAAB") is our 'storage strategy'. we may support multiple in the future and reserve '000' for 'fully in-database storage'
   const databaseid = "AAAB" + blobpartid;
 
   const paths = await getFilePaths(blobpartid, true);
-  if (typeof data === "string")
-    await writeFile(paths.temppath, data);
-  else //write the arraybuffer to the file
-    await writeFile(paths.temppath, Buffer.from(await data.arrayBuffer()));
+  const writer = createWriteStream(paths.temppath);
+  const reader = await blob.getStream();
+  await reader.pipeTo(Writable.toWeb(writer));
 
   await rename(paths.temppath, paths.fullpath);
   const finallength = (await stat(paths.fullpath)).size;
   await pg.query("INSERT INTO webhare_internal.blob(id) VALUES(ROW($1,$2))", { params: [databaseid, finallength] });
 
-  const nowUploaded = new WHDBBlobImplementation(databaseid, finallength);
-  if (typeof data !== "string")
-    uploadedblobs.set(data, nowUploaded);
-  return nowUploaded;
+  uploadedblobs.set(blob, databaseid);
+  blob.__registerPGUpload(databaseid);
 }
 
-export function createPGBlob(pgdata: string): WHDBBlob {
+function createPGBlob(pgdata: string): WebHareBlob {
   const tokenized = pgdata.match(/^\((.+),([0-9]+)\)$/);
   if (!tokenized)
     throw new Error(`Received invalid blob identifier from database: ${tokenized}`);
 
-  return new WHDBBlobImplementation(tokenized[1], parseInt(tokenized[2]));
+  const [, databaseid, sizetok] = tokenized;
+  return createPGBlobByBlobRec(databaseid, parseInt(sizetok));
 }
+
+export function createPGBlobByBlobRec(databaseid: string, size: number): WebHareBlob {
+  if (!databaseid.startsWith('AAAB'))
+    throw new Error(`Unrecognized storage system for blob '${databaseid}'`);
+
+  const diskpath = getDiskPathinfo(databaseid.substring(4)).fullpath;
+  const blob = new WebHareDiskBlob(size, diskpath);
+  uploadedblobs.set(blob, databaseid);
+  return blob;
+}
+
 export const BlobType: DataType = {
   name: "webhare_internal.webhare_blob",
   oid: 0, // we'll lookup after connecting
   jsType: "object",
 
-  parseBinary(v: Buffer): WHDBBlobImplementation {
+  parseBinary(v: Buffer): WebHareBlob {
     const numcols = v.readUInt32BE();
     if (numcols !== 2)
       throw new Error(`Expected 2 columns in WHDBBlob, got ${numcols}`);
@@ -144,17 +97,25 @@ export const BlobType: DataType = {
       throw new Error(`Expected 8 bytes in WHDBBlob, got ${col2len}`);
 
     const col2 = Number(v.readBigInt64BE(20 + col1len));
-    return new WHDBBlobImplementation(col1, col2);
+    return createPGBlobByBlobRec(col1, col2);
   },
 
-  encodeBinary(buf: SmartBuffer, v: WHDBBlobImplementation): void {
+  encodeAsNull(v: WebHareBlob): boolean {
+    return v.size === 0;
+  },
+
+  encodeBinary(buf: SmartBuffer, v: WebHareBlob): void {
+    const databaseid = uploadedblobs.get(v);
+    if (!databaseid)
+      throw new Error(`Attempting to insert a blob without uploading it first`);
+
     // Blex::putu32msb(data, 2); // 2 columns
     buf.writeUInt32BE(2);// 2 columns
     // Blex::puts32msb(data + 4, static_cast< int32_t >(OID::TEXT)); // col 1, OID
     buf.writeUInt32BE(DataTypeOIDs.text);
     // Blex:: puts32msb(data + 8, context -> blobid.size()); // col 1, length of blobid
     // std:: copy(context -> blobid.begin(), context -> blobid.end(), data + 12);
-    buf.writeLString(v.databaseid, 'utf8');
+    buf.writeLString(databaseid, 'utf8');
     //Blex:: puts32msb(data + 12 + context -> blobid.size(), static_cast<int32_t>(OID:: INT8)); // col 2, OID
     buf.writeUInt32BE(DataTypeOIDs.int8);
     // Blex:: puts32msb(data + 16 + context -> blobid.size(), 8); // col 2, 8 bytes length
@@ -163,22 +124,37 @@ export const BlobType: DataType = {
     buf.writeBigInt64BE(v.size);
   },
 
-  encodeText(v: WHDBBlobImplementation): string {
-    return `($v.databaseid}, ${v.size})`;
+  encodeText(v: WebHareBlob): string {
+    const databaseid = uploadedblobs.get(v);
+    if (!databaseid)
+      throw new Error(`Attempting to insert a blob without uploading it first`);
+
+    return `(${databaseid}, ${v.size})`;
   },
 
-  parseText(v: string): WHDBBlob {
+  parseText(v: string): WebHareBlob {
     return createPGBlob(v);
   },
 
   isType(v: unknown): boolean {
-    return isWHDBBlob(v);
+    return v instanceof WebHareBlob;
   },
 };
 
-export type WHDBBlob = Pick<WHDBBlobImplementation, "size" | "text" | "isSameBlob" | "isWHDBBlob" | "arrayBuffer" | "tryArrayBufferSync">;
+/** Are both blobs the same in the database ? */
+export function isSameUploadedBlob(lhs: WebHareBlob, rhs: WebHareBlob): boolean {
+  const lhs_dbid = uploadedblobs.get(lhs);
+  return Boolean(lhs_dbid && lhs_dbid === uploadedblobs.get(rhs));
+}
 
-//not sure if we want to expose this as eg static isBlob on WHDBBlob (should it match BoxedDefaultBlob too?) so making it an internal API for now
-export function isWHDBBlob(v: unknown): v is WHDBBlobImplementation {
-  return Boolean(v && typeof v === "object" && "databaseid" in v && "_size" in v && "text" in v);
+/** Debug api: get the raw database id for a blob if it's associated with the databse */
+export function __getBlobDatabaseId(lhs: WebHareBlob): string | null {
+  return uploadedblobs.get(lhs) || null;
+}
+/** HSVM helper api: get diskfilepath based on raw database id */
+export function __getBlobDiskFilePath(databaseid: string): string {
+  if (!databaseid.startsWith('AAAB'))
+    throw new Error(`Unrecognized storage system for blob '${databaseid}'`);
+
+  return getDiskPathinfo(databaseid.substring(4)).fullpath;
 }

@@ -1,7 +1,7 @@
 import * as env from "@webhare/env";
 import { getCallStackAsText } from "@mod-system/js/internal/util/stacktrace";
 import { WebResponseInfo } from "@mod-system/js/internal/types";
-import { HareScriptMemoryBlob } from "@webhare/harescript";
+import { WebHareBlob } from "@webhare/services";
 
 export enum HTTPErrorCode {
   BadRequest = 400,
@@ -136,7 +136,7 @@ export class WebResponse {
   /// Convert result to WebResponseInfo often used when marshalling. API will be removed when JS webserver has replaced the C++ webserver
   async asWebResponseInfo(): Promise<WebResponseInfo> {
     const headers = this.getHeaders();
-    return { status: this.status, headers: Object.fromEntries(headers), body: new HareScriptMemoryBlob(Buffer.from(await this.arrayBuffer())) };
+    return { status: this.status, headers: Object.fromEntries(headers), body: WebHareBlob.from(Buffer.from(await this.arrayBuffer())) };
   }
 }
 

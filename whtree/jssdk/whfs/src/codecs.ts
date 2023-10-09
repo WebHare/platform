@@ -3,8 +3,8 @@ import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { Money } from "@webhare/std";
 import { dateToParts, encodeHSON, decodeHSON, makeDateFromParts } from "@webhare/hscompat";
 import { IPCMarshallableData } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { ResourceDescriptor, WHDBResourceDescriptor, addMissingScanData, decodeScanData } from "@webhare/services/src/descriptor";
-import { RichDocument } from "@webhare/services";
+import { ResourceDescriptor, addMissingScanData, decodeScanData } from "@webhare/services/src/descriptor";
+import { RichDocument, WebHareBlob } from "@webhare/services";
 import { __RichDocumentInternal } from "@webhare/services/src/richdocument";
 
 export type MemberType = "string" // 2
@@ -234,17 +234,23 @@ export const codecs: { [key: string]: TypeCodec } = {
         return null;
 
       //Return the actual work as a promise, so we can wait for uploadBlob
-      return (async (): EncoderAsyncReturnValue => ({
-        setting: await addMissingScanData(value as ResourceDescriptor),
-        fs_object: (value as ResourceDescriptor).sourceFile,
-        blobdata: (value as ResourceDescriptor).size ? await uploadBlob(value as ResourceDescriptor) : null
-      }))();
+      return (async (): EncoderAsyncReturnValue => {
+        const v = value as ResourceDescriptor;
+        if (v.resource.size)
+          await uploadBlob(v.resource);
+
+        return {
+          setting: await addMissingScanData(v),
+          fs_object: v.sourceFile,
+          blobdata: v.resource
+        };
+      })();
     },
     decoder: (settings: FSSettingsRow[]) => {
       if (!settings.length)
         return null;
 
-      return new WHDBResourceDescriptor(settings[0].blobdata, decodeScanData(settings[0].setting));
+      return new ResourceDescriptor(settings[0].blobdata, decodeScanData(settings[0].setting));
     }
   },
   "richDocument": {
@@ -256,11 +262,15 @@ export const codecs: { [key: string]: TypeCodec } = {
 
       //Return the actual work as a promise, so we can wait for uploadBlob
       return (async (): EncoderAsyncReturnValue => {
+        const v = value as RichDocument;
         const settings: Array<Partial<FSSettingsRow>> = [];
+        const text = WebHareBlob.from(await v.__getRawHTML());
+        await uploadBlob(text);
+
         settings.push({
           setting: "RD1",
           ordering: 0,
-          blobdata: await uploadBlob(await (value as RichDocument).__getRawHTML()),
+          blobdata: text,
         });
 
         return settings;

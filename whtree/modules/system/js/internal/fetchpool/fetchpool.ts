@@ -1,7 +1,7 @@
-import { HareScriptBlob, HareScriptMemoryBlob } from "@webhare/harescript/src/hsblob";
+import { WebHareBlob } from "@webhare/services/src/webhareblob";
 
 interface IncomingRequestInit extends Omit<RequestInit, "body"> {
-  body?: HareScriptBlob;
+  body?: WebHareBlob;
 }
 
 export interface FetchPoolOptions {
@@ -30,7 +30,7 @@ export class Fetcher {
         statusText: response.statusText,
         ok: response.ok,
         headers: [...response.headers.entries()],
-        body: new HareScriptMemoryBlob(Buffer.from(await response.arrayBuffer()))
+        body: WebHareBlob.from(Buffer.from(await response.arrayBuffer()))
       };
 
       if (pooloptions?.debug)

@@ -10,7 +10,7 @@ import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, deco
 import { compare } from "@webhare/hscompat/algorithms";
 import { localizeDate } from "@webhare/hscompat/datetime";
 import { getTypedArray, IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { HareScriptMemoryBlob, isHareScriptBlob } from "@webhare/harescript";
+import { WebHareBlob } from "@webhare/services";
 
 function testStrings() {
   //based on test_operators.whscr LikeTest
@@ -235,10 +235,10 @@ async function testHSON() {
   testHSONEnDeCode('hson:d"201100415"', makeDateFromParts(7344766, 0));
 
   //  testHSONEnDeCode('hson:b"' + btoa("Ik ben een blob") + '"', Buffer.from("Ik ben een blob"));
-  const encval_blob = encodeHSON(new HareScriptMemoryBlob(Buffer.from("Ik ben een blob")));
+  const encval_blob = encodeHSON(WebHareBlob.from("Ik ben een blob"));
   test.eq('hson:b"' + btoa("Ik ben een blob") + '"', encval_blob);
   const decoded_blob = decodeHSON(encval_blob);
-  test.assert(isHareScriptBlob(decoded_blob));
+  test.assert(decoded_blob instanceof WebHareBlob);
   test.eq("Ik ben een blob", await decoded_blob.text());
 
   testHSONEnDeCode('hson:m -92233720.75808', new Money("-92233720.75808"));
@@ -287,8 +287,7 @@ async function testHSON() {
 
   testHSONEnDeCode('hson:ia[1,2,3]', [1, 2, 3]);
 
-  test.eq('hson:b""', encodeHSON(new HareScriptMemoryBlob(Buffer.from(''))));
-  test.eq('hson:b""', encodeHSON(new HareScriptMemoryBlob));
+  test.eq('hson:b""', encodeHSON(WebHareBlob.from('')));
 
   testHSONEnDeCode('hson:d""', defaultDateTime);
 

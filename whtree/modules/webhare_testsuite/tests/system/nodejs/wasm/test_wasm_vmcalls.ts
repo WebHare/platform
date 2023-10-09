@@ -1,9 +1,9 @@
 import * as stacktrace_parser from "stacktrace-parser";
 import { VariableType, determineType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { HSVMObject, HareScriptMemoryBlob, createVM } from "@webhare/harescript";
+import { HSVMObject, createVM } from "@webhare/harescript";
 import * as test from "@webhare/test";
-import { beginWork, uploadBlob } from "@webhare/whdb";
-import { lockMutex } from "@webhare/services";
+import { beginWork, isSameUploadedBlob, uploadBlob } from "@webhare/whdb";
+import { WebHareBlob, lockMutex } from "@webhare/services";
 import { isInFreePool } from "@webhare/harescript/src/wasm-hsvm";
 
 function testTypeAPIs() {
@@ -28,10 +28,10 @@ async function testVarMemory() {
   test.eq([0, 0x80], [...binaryvar.getStringAsBuffer().values()]);
 
   const blobvar = vm.allocateVariable();
-  blobvar.setBlob(new HareScriptMemoryBlob);
+  blobvar.setBlob(WebHareBlob.from(""));
   test.eq("", await blobvar.getBlob().text());
 
-  blobvar.setBlob(new HareScriptMemoryBlob(Buffer.from("a blob!")));
+  blobvar.setBlob(WebHareBlob.from("a blob!"));
   test.eq("a blob!", await blobvar.getBlob().text());
 
   /* Test empty blobs. Currently I'm assuming we will be needing type retention so getBlob should always be returning an object.
@@ -44,20 +44,22 @@ async function testVarMemory() {
   blobvar1.setBlob(null);
   test.eq(0, blobvar1.getBlob().size, `confirm we're not getting nulls back after an explicit null`);
 
-  const blob1 = await uploadBlob("This is blob 1");
-  const blob2 = await uploadBlob("This is blob 2");
-  test.assert(blob1 && blob2);
+  const blob1 = WebHareBlob.from("This is blob 1");
+  const blob2 = WebHareBlob.from("This is blob 2");
+  await uploadBlob(blob1);
+  await uploadBlob(blob2);
+
   blobvar1.setBlob(blob1);
   blobvar2.setJSValue(blob2);
   test.eq(VariableType.Blob, blobvar2.getType());
 
   const returnedblob1 = blobvar1.getBlob();
   test.eq(returnedblob1.size, blob1.size, "first a superficial check...");
-  test.assert(blob1.isSameBlob(returnedblob1));
+  test.assert(isSameUploadedBlob(blob1, returnedblob1));
 
   const returnedblob2 = blobvar2.getBlob();
   test.eq(returnedblob2.size, blob2.size, "first a superficial check...");
-  test.assert(blob2.isSameBlob(returnedblob2));
+  test.assert(isSameUploadedBlob(blob2, returnedblob2));
 
   const __wasmmodule = vm.wasmmodule;
   vmwrapper.dispose(); //let next test reuse it

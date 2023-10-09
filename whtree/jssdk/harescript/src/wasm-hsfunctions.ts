@@ -9,7 +9,7 @@ import { OutputObjectBase } from "@webhare/harescript/src/wasm-modulesupport";
 import { createDeferred, generateRandomId, sleep } from "@webhare/std";
 import * as syscalls from "./syscalls";
 import { localToUTC, utcToLocal } from "@webhare/hscompat/datetime";
-import { isWHDBBlob } from "@webhare/whdb/src/blobs";
+import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
 import * as crypto from "node:crypto";
 import * as os from "node:os";
 import { IPCEndPoint, IPCMessagePacket, IPCPort, createIPCEndPointPair, decodeTransferredIPCEndPoint } from "@mod-system/js/internal/whmanager/ipc";
@@ -474,7 +474,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
 
   wasmmodule.registerExternalFunction("__PGSQL_GETBLOBINTERNALID::S:IX", (vm, id_set, transaction, var_blob) => {
     const blob = var_blob.getBlob();
-    id_set.setString(isWHDBBlob(blob) ? blob.databaseid : "");
+    id_set.setString(__getBlobDatabaseId(blob) ?? "");
   });
 
   wasmmodule.registerExternalFunction("__HS_GETCURRENTGROUPID::S:", (vm, id_set) => {

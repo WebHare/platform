@@ -1,8 +1,16 @@
+import { ReadableStream } from "node:stream/web";
 import { encodeHSON, decodeHSON } from "@webhare/hscompat";
 import { pick } from "@webhare/std";
-import { WHDBBlob, WHDBBlobImplementation } from "@webhare/whdb/src/blobs";
 import * as crypto from "node:crypto";
-import * as fs from "node:fs/promises";
+import { WebHareBlob } from "./webhareblob";
+import { basename } from "node:path";
+import { isAbsoluteResource, toFSPath } from "./resources";
+
+export interface ResourceScanOptions {
+  mediaType?: string;
+  fileName?: string;
+  getHash?: boolean;
+}
 
 export interface ResourceMetaData {
   ///The proper or usual extension for the file's mimetype, if known to webhare. Either null or a text starting with a dot ('.')
@@ -31,11 +39,7 @@ export interface ResourceMetaData {
 
 type ResourceMetaDataInit = Partial<ResourceMetaData> & Pick<ResourceMetaData, "mediaType">;
 
-export interface ResourceDescriptor extends ResourceMetaData {
-  size: number;
-  text(): Promise<string>;
-  arrayBuffer(): Promise<ArrayBuffer>;
-}
+// export type ResourceDescriptor = WebHareBlob & ResourceMetaData;
 
 /** Get the proper or usual extension for the file's mimetype
     @param mediaType - Mimetype
@@ -111,7 +115,9 @@ const EmptyFileHash = "47DEQpj8HBSa-_TImW-5JCeuQeRkm5NMpJWZG3hSuFU";
 const DefaultMediaType = "application/octet-stream";
 const BitmapImageTypes = ["image/png", "image/jpeg", "image/gif"];
 
-export function encodeScanData(meta: Omit<ResourceMetaData, "sourceFile" | "extension">): string {
+type EncodableResourceMetaData = Omit<ResourceMetaData, "sourceFile" | "extension">;
+
+export function encodeScanData(meta: EncodableResourceMetaData): string {
   const data: SerializedScanData = {};
   if (!meta.hash)
     throw new Error("Hash is required");
@@ -145,19 +151,23 @@ export function encodeScanData(meta: Omit<ResourceMetaData, "sourceFile" | "exte
   return encodeHSON(data);
 }
 
-export async function addMissingScanData(meta: ResourceDescriptor) {
-  const newmeta = pick(meta, ["hash", "mediaType", "width", "height", "rotation", "mirrored", "refPoint", "dominantColor", "fileName"]);
+export async function hashStream(r: ReadableStream<Uint8Array>) {
+  const hasher = crypto.createHash('sha256');
+  for await (const chunk of r)
+    hasher.update(chunk);
 
-  if (!newmeta.hash) {
-    const hasher = crypto.createHash('sha256');
-    //TODO avoid reading the full buffer. blob() or Nodejs streams or even webstreams? which to add to our Resources (and HareScript/WHDBBlobs ?)
-    const data = await meta.arrayBuffer();
-    hasher.update(Buffer.from(data));
-    newmeta.hash = hasher.digest("base64url");
-  }
+  return hasher.digest("base64url");
+}
+
+export async function addMissingScanData(meta: ResourceDescriptor) { //TODO cache missing metadata with the resource to prevent recalculation when inserted multiple times
+  const newmeta: EncodableResourceMetaData = pick(meta, ["hash", "mediaType", "width", "height", "rotation", "mirrored", "refPoint", "dominantColor", "fileName"]);
+
+  if (!newmeta.hash)
+    newmeta.hash = await hashStream(await meta.resource.getStream());
 
   if (!newmeta.mediaType)
     throw new Error("mediaType is required");
+
   return encodeScanData(newmeta);
 }
 
@@ -185,13 +195,33 @@ export function decodeScanData(scandata: string): ResourceMetaData {
 
 /* A baseclass to hold the actual properties. This approach is based on an unverified assumption that it will be more efficient to load
   a metadata object into an existing class have getters ready in the class prototype rather than destructuring the scandata record */
-class RMDHolder implements ResourceMetaData {
+export class ResourceDescriptor implements ResourceMetaData {
   private readonly metadata: ResourceMetaDataInit; // The metadata of the blob
+  private readonly _resource; // The resource itself
 
-  constructor(metadata: ResourceMetaDataInit) {
+  constructor(resource: WebHareBlob | null, metadata: ResourceMetaDataInit) {
+    this._resource = resource || WebHareBlob.from("");
     this.metadata = metadata;
   }
 
+  static async fromDisk(path: string, options?: ResourceScanOptions): Promise<ResourceDescriptor> {
+    const blob = await WebHareBlob.fromDisk(path);
+    return buildDescriptorFromResource(blob, { fileName: basename(path), ...options });
+  }
+
+  static async fromResource(resource: string, options?: ResourceScanOptions): Promise<ResourceDescriptor> {
+    if (!isAbsoluteResource(resource))
+      throw new Error(`Opening a resource requires an absolute path, got: '${resource}'`);
+
+    if (!resource.startsWith("mod::"))
+      throw new Error(`Cannot yet open resources other than mod::`);
+
+    return ResourceDescriptor.fromDisk(toFSPath(resource), options);
+  }
+
+  get resource() {
+    return this._resource;
+  }
   get extension() {
     return this.metadata.extension ?? null;
   }
@@ -232,57 +262,13 @@ class RMDHolder implements ResourceMetaData {
   }
 }
 
-/** A descriptor pointing to an file/image and its metadata in WHDB */
-export class WHDBResourceDescriptor extends RMDHolder implements ResourceDescriptor {
-  private readonly bloblocation: string; // The location of the blob
-  private readonly _size: number;
-
-  constructor(blob: WHDBBlob | null, metadata: ResourceMetaDataInit) {
-    super(metadata);
-    this.bloblocation = blob ? "pg:" + (blob as WHDBBlobImplementation).databaseid : "";
-    this._size = blob?.size || 0;
-  }
-
-  get size() {
-    return this._size;
-  }
-
-  private getAsBlob() {
-    if (!this._size)
-      return null;
-    if (this.bloblocation.startsWith('pg:'))
-      return new WHDBBlobImplementation(this.bloblocation.substring(3), this.size);
-
-    throw new Error(`Don't know where to find blob '${this.bloblocation}'`);
-  }
-
-  async text(): Promise<string> {
-    return this.getAsBlob()?.text() ?? "";
-  }
-  async arrayBuffer(): Promise<ArrayBuffer> {
-    return this.getAsBlob()?.arrayBuffer() ?? new ArrayBuffer(0);
-  }
-}
-
-/** A descriptor pointing to an file/image on disk */
-export class LocalFileDescriptor extends RMDHolder implements ResourceDescriptor {
-  private readonly path: string; // The location of the blob
-  private readonly _size: number;
-
-  constructor(path: string, size: number, metadata: ResourceMetaDataInit) {
-    super(metadata);
-    this.path = path;
-    this._size = size;
-  }
-
-  get size() {
-    return this._size;
-  }
-
-  async text(): Promise<string> {
-    return fs.readFile(this.path, "utf8");
-  }
-  async arrayBuffer(): Promise<ArrayBuffer> {
-    return fs.readFile(this.path);
-  }
+async function buildDescriptorFromResource(blob: WebHareBlob, options?: ResourceScanOptions) {
+  const mediaType = options?.mediaType ?? "application/octet-stream";
+  const metadata = {
+    mediaType,
+    fileName: options?.fileName || null,
+    extension: getExtensionForMediaType(mediaType),
+    hash: options?.getHash ? await hashStream(await blob.getStream()) : null
+  };
+  return new ResourceDescriptor(blob, metadata);
 }

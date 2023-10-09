@@ -52,13 +52,13 @@ async function testOurWebserver() {
     },
     {
       port: port_https,
-      certificatechain: await fallback_certificate.data.text(),
+      certificatechain: await fallback_certificate.data.resource.text(),
       ciphersuite: "",
       id: -1,
       ip: "127.0.0.1",
       istrustedport: false,
       keypair: 0,
-      privatekey: await fallback_privatekey.data.text(),
+      privatekey: await fallback_privatekey.data.resource.text(),
       virtualhost: true
     }
   ];
