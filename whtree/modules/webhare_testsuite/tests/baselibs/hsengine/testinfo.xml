@@ -84,12 +84,12 @@
     <test script="test_exceptions.whscr" />
     <test script="test_export.whscr" />
     <test script="test_events.whscr" />
-    <test script="test_files.whscr" xfail="1" />  <!-- Missing drawlib -->
+    <test script="test_files.whscr" />
     <test script="test_float.whscr" />
     <test script="test_foreveryyield.whscr" />
     <test script="test_functions.whscr" />
     <test script="test_getopt.whscr" />
-    <test script="test_graphics.whscr" xfail="1" />  <!-- Missing Drawlib -->
+    <test script="test_graphics.whscr" />
     <test script="test_html.whscr" />
     <test script="test_ical.whscr" />
     <test script="test_internet.whscr" xfail="1" />  <!-- Missing socket support -->
