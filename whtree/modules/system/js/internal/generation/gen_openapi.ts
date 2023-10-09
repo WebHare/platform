@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { config, updateConfig } from "../configuration";
+import { config } from "../configuration";
 import { whconstant_builtinmodules } from "../webhareconstants";
 import { DirItem, GenerateOptions, updateDir } from "./shared";
 import * as services from "@webhare/services";
@@ -385,9 +385,6 @@ function getFilesForModules(modules: string[]) {
 }
 
 export async function updateAllModuleOpenAPIDefs(options: GenerateOptions = { verbose: false }) {
-  // Make sure the configuration is up-to-date
-  updateConfig();
-
   const storagedir = config.dataroot + "storage/system/generated/openapi/";
   const localdir = config.installationroot + "modules/system/js/internal/generated/openapi/";
 
@@ -397,9 +394,6 @@ export async function updateAllModuleOpenAPIDefs(options: GenerateOptions = { ve
 }
 
 export async function updateSingleModuleOpenAPIDefs(name: string, options: GenerateOptions = { verbose: false }) {
-  // Make sure the configuration is up-to-date
-  updateConfig();
-
   if (whconstant_builtinmodules.includes(name)) {
     const localdir = config.installationroot + "modules/system/js/internal/generated/openapi/";
     await updateDir(localdir, getFilesForModules([name]), false, generateFile.bind(null, options));

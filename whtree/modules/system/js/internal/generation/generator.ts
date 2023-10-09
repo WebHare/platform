@@ -4,6 +4,7 @@ import { updateWebHareConfigFile } from "@mod-system/js/internal/generation/gen_
 import { updateAllModuleTableDefs } from "@mod-system/js/internal/generation/gen_whdb";
 import { updateAllModuleWRDDefs } from "@mod-system/js/internal/generation/gen_wrd";
 import { updateAllModuleOpenAPIDefs } from "@mod-system/js/internal/generation/gen_openapi";
+import { updateConfig } from "../configuration";
 
 export async function updateGeneratedFiles(targets: string[], options?: { verbose?: boolean; nodb?: boolean }) {
   if (targets.includes('all') || targets.includes('config')) {
@@ -13,6 +14,9 @@ export async function updateGeneratedFiles(targets: string[], options?: { verbos
     if (options?.verbose)
       console.timeEnd("Updating WebHare config files");
   }
+
+  // Reload any configuration updated above
+  updateConfig();
 
   const promises = new Array<Promise<void>>;
 
