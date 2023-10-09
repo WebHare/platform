@@ -6219,6 +6219,16 @@ To change a <xs:attribute /> for adding descriptions
         </xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="makeappdirty" type="xs:boolean">
+      <xs:annotation>
+        <xs:documentation>
+          <html:p>
+            This dirty listener influences the application's dirty status. If an application is marked dirty, the browser
+            will prevent the user from accidentally navigating away from the WebHare interface.
+          </html:p>
+        </xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
   </xs:complexType>
 
   <xs:complexType name="Proxy">

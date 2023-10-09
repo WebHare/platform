@@ -83,6 +83,7 @@
 
     <compositions>
       <eventlistener name="publicationlistener" onevents="gotfolderchangeevents" />
+      <dirtylistener name="dirtylistener" makeappdirty="true" ondirty="gotdirty" />
     </compositions>
 
     <toolbar name="toolbar">

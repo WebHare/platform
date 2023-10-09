@@ -92,12 +92,14 @@ class ApplicationTab {
         this.root.classList.add('t-apptab--' + this.app.tabmodifier);
       this.root[appbarsymbol].tabmodifier = this.app.tabmodifier;
     }
+    this.root.classList.toggle('t-apptab--dirty', Boolean(this.app.dirty));
 
     if (this.app.appicon)
       toddImages.updateImage(this.icon, this.app.appicon, this.app.appiconwidth, this.app.appiconheight, 'w');
     this.title.textContent = this.app.title;
     this.title.title = this.app.title;
     this.menuitem.textContent = this.app.title;
+    this.menuitem.classList.toggle("dirty", Boolean(this.app.dirty));
     this._appbar._resize();
   }
 

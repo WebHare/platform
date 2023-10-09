@@ -13,6 +13,11 @@ import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/
 
 export default class DirtyListener extends ComponentBase {
 
+  // The dirty listener is dirty if it's manually set to dirty or any of its components is dirty
+  get dirty() {
+    return this.manualdirty || [...this.checkcomponents.values()].some(_ => _);
+  }
+
   /****************************************************************************************************************************
    * Initialization
    */
@@ -25,11 +30,21 @@ export default class DirtyListener extends ComponentBase {
     this.checkcomponents = new Map();
     this.setComponents(data.checkcomponents);
     this.owner.node.addEventListener("tollium:updatedcomponents", () => this.refreshComponents());
+    this.manualdirty = data.manualdirty;
+
+    // Register the dirty listener with the application if it can make the application dirty
+    if (data.makeappdirty)
+      this.owner.hostapp.registerDirtyListener(this);
   }
 
   /****************************************************************************************************************************
   * Component management
   */
+
+  destroy() {
+    this.owner.hostapp.unregisterDirtyListener(this);
+    super.destroy();
+  }
 
   setComponents(components) {
     const keepcomponents = [];
@@ -67,6 +82,8 @@ export default class DirtyListener extends ComponentBase {
 
     this.checkcomponents.set(comp.name, true);
     this.queueMessage("dirtycomponent", { component: comp.name });
+    // Maybe update the dirty state of the application
+    this.owner.hostapp.checkDirtyState();
     return true;
   }
 
@@ -86,6 +103,16 @@ export default class DirtyListener extends ComponentBase {
       case "dirtycomponents":
         for (const key of this.checkcomponents.keys())
           this.checkcomponents.set(key, data.dirtycomponents.includes(key));
+        this.manualdirty = data.manualdirty;
+        // Maybe update the dirty state of the application
+        this.owner.hostapp.checkDirtyState();
+        return;
+      case "makeappdirty":
+        // Register or unregister the dirty listener with the application
+        if (data.makeappdirty)
+          this.owner.hostapp.registerDirtyListener(this);
+        else
+          this.owner.hostapp.unregisterDirtyListener(this);
         return;
     }
     super.applyUpdate(data);

@@ -57,6 +57,12 @@ require("../common.lang.json");
 
 import TolliumShell from "@mod-tollium/shell/platform/shell";
 
+// Prevent reloading or closing the window (activated if any of the applications is dirty)
+function preventNavigation(event) {
+  event.preventDefault();
+  return (event.returnValue = "");
+}
+
 class IndyShell extends TolliumShell {
   constructor(setup) {
     super(setup);
@@ -187,6 +193,15 @@ class IndyShell extends TolliumShell {
       metacomm.onmessage = this._gotMetaMessage.bind(this.shell);
       metacomm.onclosed = this._gotMetaClose.bind(this, data.frontendid);
       metacomm.register(this.transportmgr);
+    }
+  }
+
+  checkDirtyState() {
+    // If any of the applications is dirty, add the beforeunload listener, otherwise remove it
+    if ($todd.applications.some(app => app.dirty)) {
+      window.addEventListener("beforeunload", preventNavigation, { capture: true });
+    } else {
+      window.removeEventListener("beforeunload", preventNavigation, { capture: true });
     }
   }
 

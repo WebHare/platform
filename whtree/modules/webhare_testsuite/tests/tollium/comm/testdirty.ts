@@ -2,12 +2,13 @@ import * as test from "@mod-tollium/js/testframework";
 ///@ts-ignore -- not yet ported (and currently being refactored externally)
 import * as rtetest from "@mod-tollium/js/testframework-rte";
 
-let status_comp: any, clearbutton_node: any;
+let status_comp: any, clearbutton_node: any, apptab: any;
 
 async function clearState() {
   test.click(clearbutton_node);
   await test.wait("ui");
   test.eq("NO", status_comp.value);
+  test.eq(false, apptab.classList.contains("t-apptab--dirty"));
 }
 
 test.registerTests(
@@ -19,6 +20,7 @@ test.registerTests(
       // Get general components
       status_comp = test.compByName("dirtystatus").propTodd;
       clearbutton_node = test.compByName("clearbutton");
+      apptab = test.qSA(".t-apptab")[1];
       await clearState();
 
       // Explicitly set the state
@@ -26,6 +28,7 @@ test.registerTests(
       test.click(setbutton_node);
       await test.wait("ui");
       test.eq("YES", status_comp.value);
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Update textedit value
@@ -33,12 +36,14 @@ test.registerTests(
       test.fill(textedit_node, "some text");
       // Wait until the state changes (times out if it doesn't work)
       await test.wait(() => status_comp.value == "YES");
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test composition
       const composition_node = test.compByName("textedit_composition").querySelector("input");
       test.fill(composition_node, "some text");
       await test.wait(() => status_comp.value == "YES");
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test combobox
@@ -48,12 +53,14 @@ test.registerTests(
       const combobox_menu = test.getDoc().querySelector(".t-selectlist__item");
       test.click(combobox_menu);
       await test.wait(() => status_comp.value == "YES");
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test textarea
       const textarea_node = test.compByName("textarea").querySelector("textarea");
       test.fill(textarea_node, "some text");
       await test.wait(() => status_comp.value == "YES");
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test checkbox
@@ -66,12 +73,14 @@ test.registerTests(
       const radiobutton_node = test.compByName("radiobutton");
       test.click(radiobutton_node);
       await test.wait(() => status_comp.value == "YES");
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test radiogroup
       const radiogroup_node = test.compByName("radiobutton_group");
       test.click(radiogroup_node);
       await test.wait(() => status_comp.value == "YES");
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test select pulldown
@@ -80,6 +89,7 @@ test.registerTests(
       /*ADDME: Don't know how to trigger a select change; setting the node value doesn't do the trick
       await test.wait("ui");
       test.eq("YES", status_comp.value);
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       */
       await clearState();
 
@@ -88,6 +98,7 @@ test.registerTests(
       test.click(select_checkbox_node);
       await test.wait("ui");
       test.eq("YES", status_comp.value);
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test select radio
@@ -95,12 +106,14 @@ test.registerTests(
       test.click(select_radio_node);
       await test.wait("ui");
       test.eq("YES", status_comp.value);
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test select checkboxlist
       test.click(test.qSA("[data-name*=':select_checkboxlist$'] .listrow")[0]);
       await test.wait("ui");
       test.eq("YES", status_comp.value);
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test list celledit
@@ -112,12 +125,14 @@ test.registerTests(
       await test.pressKey("Escape");
       await test.wait("ui");
       test.eq("NO", status_comp.value);
+      test.eq(false, apptab.classList.contains("t-apptab--dirty"));
       await test.sleep(500); // otherwise next click won't register?
       test.click(list_node.querySelector(".listrow"));
       await test.wait("ui");
       await test.pressKey("Enter");
       await test.wait("ui");
       test.eq("YES", status_comp.value);
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test list checkbox
@@ -125,6 +140,7 @@ test.registerTests(
       test.click(list_node.querySelector(".listrow input"));
       await test.wait("ui");
       test.eq("YES", status_comp.value);
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test arrayedit add
@@ -136,6 +152,7 @@ test.registerTests(
       await test.pressKey("Enter");
       await test.wait("ui");
       test.eq("YES", status_comp.value);
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test arrayedit edit
@@ -145,11 +162,13 @@ test.registerTests(
       await test.pressKey("Escape");
       await test.wait("ui");
       test.eq("NO", status_comp.value);
+      test.eq(false, apptab.classList.contains("t-apptab--dirty"));
       test.click(arrayedit_editbutton_node);
       await test.wait("ui");
       await test.pressKey("Enter");
       await test.wait("ui");
       test.eq("YES", status_comp.value);
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test arrayedit checkbox
@@ -158,6 +177,7 @@ test.registerTests(
       test.click(arrayedit_node.querySelector(".listrow input"));
       await test.wait("ui");
       test.eq("YES", status_comp.value);
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test arrayedit delete
@@ -167,6 +187,7 @@ test.registerTests(
       test.clickTolliumButton("Yes");
       await test.wait("ui");
       test.eq("YES", status_comp.value);
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test box
@@ -175,6 +196,7 @@ test.registerTests(
       box_node.click();
       await test.wait("ui"); // wait for enablecomponents
       test.eq("YES", status_comp.value);
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test heading enabled after checking box
@@ -182,6 +204,7 @@ test.registerTests(
       heading_node.scrollIntoView({ block: "nearest" });
       heading_node.click();
       await test.wait(() => status_comp.value == "YES");
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test slider
@@ -189,6 +212,7 @@ test.registerTests(
       slider_node.scrollIntoView();
       test.click(slider_node, { y: 0, x: "51%" }); // just click in the middle to change the slider value from 0 (min) to 1 (max)
       await test.wait(() => status_comp.value == "YES");
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test tagedit
@@ -197,14 +221,17 @@ test.registerTests(
       await test.sleep(250);
       // Just typing some text doesn't make the field dirty
       test.eq("NO", status_comp.value);
+      test.eq(false, apptab.classList.contains("t-apptab--dirty"));
       await test.pressKey("Enter");
       await test.wait(() => status_comp.value == "YES");
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test date
       test.click(test.compByName("date").querySelector(".tollium__datetime__togglepicker"));
       test.qS<HTMLElement>('.tollium__datetime__picker__todaybutton')!.click(); //FIXME should use test.click but the date doesn't scroll into view... but not really the point of this test anyway
       await test.wait(() => status_comp.value == "YES");
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test datetime date
@@ -212,6 +239,7 @@ test.registerTests(
       test.fill(test.compByName("datetime").querySelector("input.tollium__datetime__month"), "02");
       test.fill(test.compByName("datetime").querySelector("input.tollium__datetime__year"), "2020");
       await test.wait(() => status_comp.value == "YES");
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test datetime time
@@ -220,6 +248,7 @@ test.registerTests(
       const datetimem_node = test.compByName("datetime").querySelector(".tollium__datetime__minute");
       test.fill(datetimem_node, "20");
       await test.wait(() => status_comp.value == "YES");
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test time
@@ -228,6 +257,7 @@ test.registerTests(
       const timem_node = test.compByName("time!dt").querySelector(".tollium__datetime__minute");
       test.fill(timem_node, "20");
       await test.wait(() => status_comp.value == "YES");
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test imgedit upload
@@ -242,6 +272,7 @@ test.registerTests(
       await uploadpromise;
       await test.wait("ui");
       test.eq("YES", status_comp.value);
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test imgedit edit
@@ -250,12 +281,14 @@ test.registerTests(
       test.clickTolliumButton("Save");
       await test.wait("ui");
       test.eq("YES", status_comp.value);
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test codeedit
       const codeedit_node = test.compByName("code").querySelector("textarea");
       test.fill(codeedit_node, "some text");
       await test.wait(() => status_comp.value == "YES");
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test RTE
@@ -264,12 +297,14 @@ test.registerTests(
       rte_selection.insertBefore(test.getCurrentApp().win.document.createTextNode("some text"));
       rte_comp._checkDirty();//ADDME: How can we trigger RTE dirtyness without having to call _checkDirty ourselves?
       await test.wait(() => status_comp.value == "YES");
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
 
       // Test RTE again; its internal dirty state should be cleared again
       rte_selection.insertBefore(test.getCurrentApp().win.document.createTextNode("other text"));
       rte_comp._checkDirty();//ADDME: How can we trigger RTE dirtyness without having to call _checkDirty ourselves?
       await test.wait(() => status_comp.value == "YES");
+      test.eq(true, apptab.classList.contains("t-apptab--dirty"));
       await clearState();
     }
   ]);

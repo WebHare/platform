@@ -7,7 +7,7 @@
     </actions>
 
     <compositions>
-      <dirtylistener name="dirtylistener" ondirty="ondirty" />
+      <dirtylistener name="dirtylistener" makeappdirty="true" ondirty="ondirty" />
       <dirtylistener name="lonelydirtylistener" ondirty="onlonelydirty" />
       <record name="composition" dirtylistener="dirtylistener" />
       <radiogroup name="radiogroup" />

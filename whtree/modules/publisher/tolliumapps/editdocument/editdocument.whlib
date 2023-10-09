@@ -119,7 +119,7 @@ STATIC OBJECTTYPE EditDocumentAPI
   PUBLIC MACRO MarkDocumentAsDirty()
   {
     //DumpValue(GetStackTrace(), [ name := "BE DIRTY!"]);
-    this->editscreen->frame->flags.isdirty := TRUE;
+    this->editscreen->^dirtylistener->SetDirty();
     this->editscreen->RefreshState();
   }
 
@@ -399,7 +399,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
         IF(response = "yes")
         {
           mustloadrte := FALSE;
-          this->frame->flags.isdirty := TRUE;
+          ^dirtylistener->SetDirty();
         }
         ELSE
         {
@@ -889,7 +889,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
       RETURN FALSE;
     }
 
-    this->frame->flags.isdirty := FALSE;
+    ^dirtylistener->ClearDirty();
     //DumpValue(GetStackTrace(), [ name := "BE CLEAN!"]);
     this->RefreshState();
 
@@ -994,6 +994,11 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
 
     IF (have_change)
       this->RefreshState();
+  }
+
+  MACRO GotDirty()
+  {
+    this->frame->flags.isdirty := ^dirtylistener->dirty;
   }
 
   MACRO GotScreenStolen()
