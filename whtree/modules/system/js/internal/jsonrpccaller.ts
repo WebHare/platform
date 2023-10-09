@@ -1,7 +1,9 @@
 import { HTTPErrorCode, createJSONResponse, WebResponse, HTTPSuccessCode } from "@webhare/router";
 import * as services from "@webhare/services";
 import { WebRequestInfo, WebResponseInfo } from "./types";
-
+import { StackTrace, parseTrace, } from "@webhare/js-api-tools";
+import { debugFlags } from "@webhare/env/src/envbackend";
+import { RequestID, type JSONRPCErrorResponse } from "@webhare/jsonrpc-client/src/jsonrpc-client";
 /*
 Status codes
 
@@ -19,15 +21,13 @@ interface WebServiceDefinition {
   service: string;
 }
 
-/** An identifier established by the Client that MUST contain a String, Number, or NULL value if included. If it is not included it is assumed to be a notification. The value SHOULD normally not be Null and Numbers SHOULD NOT contain fractional parts  */
-type RequestID = number | string | null;
-
 /** Create a webresponse returning a JSON body
  * @param jsonbody - The JSON body to return
  * @param options - Optional statuscode
  */
-export function createJSONRPCError(requestid: RequestID, status: HTTPErrorCode, errorCode: number, message: string) {
-  return createJSONResponse(status, { id: requestid, error: { code: errorCode, message }, result: null });
+function createJSONRPCError(requestid: RequestID, status: HTTPErrorCode, errorCode: number, message: string, trace?: StackTrace) {
+  const response: JSONRPCErrorResponse = { id: requestid, error: { code: errorCode, message, ...(trace ? { data: { trace } } : null) }, result: null };
+  return createJSONResponse(status, response);
 }
 
 export class JSONRPCError {
@@ -67,8 +67,11 @@ async function runJSONAPICall(servicedef: WebServiceDefinition, req: WebRequestI
       return createJSONRPCError(id, e.status, e.errorCode, e.message);
     else {
       services.logError(e as Error);
-      //FIXME provide error info and stacktrace if `etr` debugflag is set and verified
-      return createJSONRPCError(id, HTTPErrorCode.InternalServerError, -32000, "Internal error"); //Do not leak Error object information
+      const showerrors = debugFlags.etr || servicedef.service.startsWith("mod::webhare_testsuite/"); //test_jsonrpc2.ts has no way to (temporarily) enable etr
+      if (showerrors)
+        return createJSONRPCError(id, HTTPErrorCode.InternalServerError, -32000, (e as Error).message, parseTrace(e as Error));
+      else
+        return createJSONRPCError(id, HTTPErrorCode.InternalServerError, -32000, "Internal error");
     }
   }
 }

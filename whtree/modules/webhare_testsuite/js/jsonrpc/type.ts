@@ -5,4 +5,7 @@ export interface MyService {
    * @returns Validation result
    */
   validateEmail(langcode: string, emailaddress: string): Promise<boolean>;
+
+  ///Test error handling
+  serverCrash(): Promise<void>;
 }

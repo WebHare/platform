@@ -2,9 +2,9 @@ import { TaskRequest, TaskResponse, WebHareBlob, broadcast } from "@webhare/serv
 import { loadJSFunction } from "../resourcetools";
 import { System_Managedtasks, WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
 import { commitWork, db, isWorkOpen, rollbackWork, uploadBlob } from "@webhare/whdb";
-import { getStructuredTrace } from "../whmanager/ipc";
 import bridge from "../whmanager/bridge";
 import { addDuration, pick } from "@webhare/std";
+import { parseTrace } from "@webhare/js-api-tools";
 
 interface TaskInfo {
   queueid: string;
@@ -101,6 +101,6 @@ export async function executeManagedTask(taskinfo: TaskInfo, debug: boolean) {
       await rollbackWork();
 
     //TODO Why aren't we using IPC encoded exceptions?
-    return { type: "taskfailed", error: (e as Error).message || String(e), trace: getStructuredTrace(e as Error), isfatal: false };
+    return { type: "taskfailed", error: (e as Error).message || String(e), trace: parseTrace(e as Error), isfatal: false };
   }
 }

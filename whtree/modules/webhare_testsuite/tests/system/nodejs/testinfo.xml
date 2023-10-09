@@ -4,6 +4,7 @@
   <test script="test_algorithms.ts" />
   <test script="test_std_api.ts" />
   <jstest file="test_std_frontend.ts" />
+  <test script="test_apitools.ts" />  <!-- TODO run in frontend too -->
   <test script="test_systemtools.ts" />
   <test script="test_hscompat.ts" />
   <test script="test_codecontext.ts" />
@@ -25,7 +26,7 @@
   <test script="test_finmath.ts" />
   <test script="test_hsmarshalling.whscr" />
   <test name="test_harescript_calls-native" script="test_harescript_calls.whscr" engine="native" />
-  <test name="test_harescript_calls-wasm" script="test_harescript_calls.whscr" engine="wasm"/>
+  <test name="test_harescript_calls-wasm" script="test_harescript_calls.whscr" engine="wasm" />
   <test script="test_whmanager_conn.ts" />
   <test script="test_whmanager_bridge.ts" />
   <test script="test_stacktrace.ts" />

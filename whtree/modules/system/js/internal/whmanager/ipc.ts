@@ -1,28 +1,20 @@
 import EventSource from "../eventsource";
 import { createDeferred, DeferredPromise } from "@webhare/std";
 import { readMarshalPacket, writeMarshalPacket, IPCMarshallableRecord } from './hsmarshalling';
-import * as stacktrace_parser from "stacktrace-parser";
 import { TypedMessagePort, createTypedMessageChannel, registerTransferredPort } from './transport';
 import { RefTracker } from "./refs";
 import { bufferToArrayBuffer } from "./transport";
 import { generateRandomId } from "@webhare/std";
 import * as envbackend from "@webhare/env/src/envbackend";
 import { MessagePort, receiveMessageOnPort, TransferListItem } from 'node:worker_threads';
+import { StackTrace, parseTrace } from "@webhare/js-api-tools";
 
 const logmessages = envbackend.debugFlags.ipc;
-
-export function getStructuredTrace(e: Error) {
-  if (!e?.stack)
-    return [];
-
-  const trace = stacktrace_parser.parse(e.stack);
-  return trace.map(i => ({ filename: i.file || "", line: i.lineNumber || 1, col: i.column || 1, func: (i.methodName || "") }));
-}
 
 export type IPCEncodedException = {
   type: string;
   what: string;
-  trace?: Array<{ filename: string; line: number; col: number; func: string }>;
+  trace?: StackTrace;
 };
 
 /** Format of a message containing an exception */
@@ -541,7 +533,7 @@ export function encodeIPCException(error: Error): IPCExceptionMessage {
     __exception: {
       type: "exception",
       what: error?.message || String(error), //this also deals with non Error objects (eg 'throw 1') or even `throw undefined`
-      trace: getStructuredTrace(error)
+      trace: parseTrace(error)
     }
   };
 }
