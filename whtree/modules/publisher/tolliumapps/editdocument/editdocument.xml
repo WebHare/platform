@@ -20,7 +20,6 @@
       <action name="sendpreviewlink" ellipsis="true" frameflags="havesomethingtopublish" onexecute="dosendpreviewlink" />
       <action name="publish" frameflags="canpublish" onexecute="dopublish" />
       <action name="close" onexecute="doclose" tid="~close" />
-
       <windowopenaction name="viewpublished"
                         frameflags="canview"
                         onwindowopen="doviewpublished"
@@ -33,12 +32,7 @@
                         frameflags="canpreview isdirty"
                         onwindowopen="dopreviewcurrentcontent"
                         target="webhare_publisher_editdocument" />
-
-      <action name="openinpublisher"
-              tid="tolliumapps.common.actions.revealinpublisher"
-              onexecute="doopeninpublisher"
-              />
-
+      <action name="openinpublisher" onexecute="doopeninpublisher" tid="tolliumapps.common.actions.revealinpublisher" />
       <action name="inspectautosave" frameflags="isdeveloper" onexecute="doinspectautosave" />
       <action name="inspectdraft" frameflags="isdeveloper" onexecute="doinspectdraft" />
       <action name="inspectfinal" frameflags="isdeveloper" onexecute="doinspectfinal" />
@@ -60,9 +54,7 @@
              this application was opened by another app with the
              "assumewriteaccess" parameter -->
         <item name="openinpublisher_public" action="openinpublisher" tid="tolliumapps.common.actions.revealinpublisher" />
-
         <divider />
-
         <item name="canceldraftmenu" action="canceldraft" />
         <item name="cancelrequestmenu" action="cancelrequest" />
         <divider />
@@ -80,7 +72,6 @@
         <divider />
         <item action="close" tid="~exit" />
       </menu>
-
       <menu name="previewmenu">
         <item action="viewpublished" />
         <item action="previewdraft" />
@@ -107,18 +98,13 @@
           <text name="draftmode" width="1pr" onclicklink="ondraftmodeclick" title="" wordwrap="true" />
           <spacer width="1pr" />
           <text name="draftbar_canceldraft" action="canceldraft" title="" valuetid=".canceldraftmenu" visible="false" />
-          <text name="draftbar_cancelrequest"
-                action="cancelrequest"
-                title=""
-                valuetid=".cancelrequestmenu"
-                visible="false" />
+          <text name="draftbar_cancelrequest" action="cancelrequest" title="" valuetid=".cancelrequestmenu" visible="false" />
         </line>
       </statuspanel>
-      <split name="editarea" height="1pr" type="horizontal">
-        <part name="doceditor" width="2pr">
-        </part>
+      <split name="editarea" type="horizontal" height="1pr">
+        <part name="doceditor" width="2pr" />
         <part name="metapart" width="1pr" visible="false">
-          <tabs name="metatabs" height="1pr" type="stacked" />
+          <tabs name="metatabs" type="stacked" height="1pr" />
         </part>
       </split>
       <panel layout="left" spacers="left right">
