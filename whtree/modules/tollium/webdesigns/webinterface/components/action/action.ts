@@ -209,7 +209,10 @@ export default class ObjAction extends ActionForwardBase {
   executeWindowOpenAction(data) {
     const fturl = this.getFileTransferURL('asyncwindowopen');
 
-    window.open(fturl.url, this.target || "_blank", "noopener");
+    // If "noopener" is supplied as the third argument, a new window is always opened in Safari instead of a new tab
+    // (Setting opener afterwards is functionally equivalent to supplying the "noopener" window feature; the new location is
+    // only loaded in the next tick)
+    window.open(fturl.url, this.target || "_blank").opener = null;
     this.queueMessage('windowopen', { rule: data.rule, ftid: fturl.id }, true);
   }
 
