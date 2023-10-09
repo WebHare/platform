@@ -425,7 +425,7 @@ MACRO RotateTest()
 
   IF(NOT IsWasm())
   {
-    // These tests verify whether canvasses can autofix orientationm but WASM won't have DrawLib canvasses
+    // These tests verify whether canvasses can autofix orientation, but WASM won't have DrawLib canvasses
     OBJECT canvas_imgl6 := CreateResizedCanvasFromBlob(landscape6, [ method := "none", fixorientation := TRUE ]);
     TestEq(600, canvas_imgl6->width);
 
