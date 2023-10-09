@@ -8,21 +8,15 @@ LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/modules/node.whlib";
 
+//NOTE arguments are ignored now. You need to use `wh finalize-webhare` if you need to explicitly fix WebHare modules
 RECORD args := ParseArguments(GetConsoleArguments(),
                               [ [ name := "onlymodules", type := "switch" ]
                               , [ name := "onlyinstalledmodules", type := "switch" ]
                               ]);
 
 STRING ARRAY brokenmodules;
-IF(NOT args.onlyinstalledmodules AND NOT args.onlymodules)
-  IF(Length(CheckNodeModulesInModule(GetWebhareConfiguration().installationroot)) > 0)
-    INSERT "webhare" INTO brokenmodules AT END;
-
 FOREVERY (STRING modulename FROM GetInstalledModulenames())
   IF(Length(CheckNodeModulesInModule(GetModuleInstallationRoot(modulename))) > 0)
     INSERT modulename INTO brokenmodules AT END;
-
-IF(args.onlyinstalledmodules)
-  brokenmodules := ArrayDelete(brokenmodules, whconstant_builtinmodules);
 
 Print(Detokenize(brokenmodules,'\n')||'\n');
