@@ -465,8 +465,9 @@ export async function expectWindowOpen(code) {
   try {
     const promise = new Promise((resolve, reject) => {
       test.getWin().open = (url, target) => {
-        console.log("window.open request", { url, target });
+        console.log("window.open request, returning fake WindowProxy", { url, target });
         resolve({ url, target });
+        return { __expectWindowOpen: "Returned by testframework expectWindowOpen" };
       };
       setTimeout(() => reject(new Error("Timeout waiting for window.open")), 30000);
     });
