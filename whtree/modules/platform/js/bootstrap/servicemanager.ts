@@ -313,4 +313,9 @@ async function shutdown() {
 
 process.on("SIGINT", shutdownSignal);
 process.on("SIGTERM", shutdownSignal);
+process.on("uncaughtException", (err, origin) => {
+  console.error("Uncaught exception", err, origin);
+  shutdown();
+  log(`Uncaught exception`);
+});
 main().then(exitcode => { process.exitCode = exitcode; }, e => console.error(e));
