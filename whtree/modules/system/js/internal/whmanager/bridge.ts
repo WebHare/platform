@@ -1140,6 +1140,13 @@ class MainBridge extends EventSource<BridgeEvents> {
           workers: Array.from(this.localbridges.values()).map(({ id }) => ({ id }))
         }, packet.msgid);
       } break;
+      case DebugRequestType.getEnvironment: {
+        const envkeys = Object.entries(process.env).filter(([, value]) => typeof value === "string");
+        this.debuglink?.send({
+          type: DebugResponseType.getEnvironmentResult,
+          env: Object.fromEntries(envkeys) as Record<string, string>
+        }, packet.msgid);
+      } break;
       default:
         checkAllMessageTypesHandled(message, "type");
     }
