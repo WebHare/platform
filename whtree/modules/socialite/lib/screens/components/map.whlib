@@ -484,8 +484,8 @@ PUBLIC OBJECTTYPE GoogleMapComponent EXTEND TolliumComponentBase
                               , backgroundcolor := this->pvt_backgroundcolor
                               , iconsize := iconsize
                               , icons := icons
-                              , newcontextmenu := ObjectExists(this->newcontextmenu) ? this->newcontextmenu->name : ""
-                              , selectcontextmenu := ObjectExists(this->selectcontextmenu) ? this->selectcontextmenu->name : ""
+                              , newcontextmenu := ObjectExists(this->newcontextmenu) ? GetComponentName(this->newcontextmenu) : ""
+                              , selectcontextmenu := ObjectExists(this->selectcontextmenu) ? GetComponentName(this->selectcontextmenu) : ""
                               , lang := this->owner->tolliumuser->language
                               , imgbase := "/tollium_todd.res/socialite/img/"
                               ]
