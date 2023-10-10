@@ -621,6 +621,8 @@ export class BackendApplication extends ApplicationBase {
     this.queuedEvents = [];
 
     this.closebusylock = null;
+
+    this.dirtylisteners = [];
   }
 
   applyAppInit(node) {
@@ -1082,6 +1084,33 @@ export class BackendApplication extends ApplicationBase {
     alert("Unable to contact the application server."); //FIXME what to tell a user, really?
   }
 
+  // The application is dirty if any of its dirty listeners is dirty
+  get dirty() {
+    return this.dirtylisteners.some(listener => listener.dirty);
+  }
+
+  registerDirtyListener(listener) {
+    const idx = this.dirtylisteners.indexOf(listener);
+    if (idx < 0) {
+      this.dirtylisteners.push(listener);
+      this.checkDirtyState();
+    }
+  }
+
+  unregisterDirtyListener(listener) {
+    const idx = this.dirtylisteners.indexOf(listener);
+    if (idx >= 0) {
+      this.dirtylisteners.splice(idx, 1);
+      this.checkDirtyState();
+    }
+  }
+
+  checkDirtyState() {
+    // Update the dirty indicator on the app tab and app tabs bar overflow menu
+    this._fireUpdateAppEvent();
+    // Add or remove the beforeunload listener
+    this.shell.checkDirtyState();
+  }
 
 
   /****************************************************************************************************************************

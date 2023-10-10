@@ -41,6 +41,18 @@ ul.wh-menu li.checked::before
   top: 5px;
   width: 12px;
 }
+ul.wh-menu li.dirty::before
+{
+  background-color: #000000;
+  content: "";
+  height: 12px;
+  left: 5px;
+  -webkit-mask: url("~@mod-tollium/web/ui/skins/default/dot.16x16.svg") center / 12px no-repeat;
+  mask: url("~@mod-tollium/web/ui/skins/default/dot.16x16.svg") center / 12px no-repeat;
+  position: absolute;
+  top: 5px;
+  width: 12px;
+}
 
 ul.wh-menu li.selected
 /*, ul.wh-menu li:hover*/

@@ -20,6 +20,9 @@ PUBLIC STATIC OBJECTTYPE TolliumDirtyListener EXTEND TolliumSpecialComponent
   //local dirty status, used if we're explicitly made dirty
   BOOLEAN manualdirty;
 
+  //make application dirty
+  BOOLEAN pvt_makeappdirty;
+
 
   // ---------------------------------------------------------------------------
   //
@@ -31,6 +34,9 @@ PUBLIC STATIC OBJECTTYPE TolliumDirtyListener EXTEND TolliumSpecialComponent
 
   /// If the screen is dirty
   PUBLIC PROPERTY dirty(GetDirty, -);
+
+  /// If this dirty listener marks the application dirty, triggering the onbeforeunload handler
+  PUBLIC PROPERTY makeappdirty(pvt_makeappdirty, SetMakeAppDirty);
 
 
   // ---------------------------------------------------------------------------
@@ -47,6 +53,7 @@ PUBLIC STATIC OBJECTTYPE TolliumDirtyListener EXTEND TolliumSpecialComponent
   {
     TolliumComponentBase::StaticInit(definition);
     this->ondirty := definition.ondirty;
+    this->pvt_makeappdirty := definition.makeappdirty;
   }
 
 
@@ -65,6 +72,7 @@ PUBLIC STATIC OBJECTTYPE TolliumDirtyListener EXTEND TolliumSpecialComponent
     RETURN
         [ checkcomponents := FALSE
         , dirtycomponents := FALSE
+        , makeappdirty := FALSE
         ];
   }
 
@@ -75,6 +83,8 @@ PUBLIC STATIC OBJECTTYPE TolliumDirtyListener EXTEND TolliumSpecialComponent
       RECORD compinfo :=
           [ checkcomponents := GetComponentNames(SELECT AS OBJECT ARRAY comp FROM this->components)
           , dirtycomponents := GetComponentNames(SELECT AS OBJECT ARRAY comp FROM this->components WHERE isdirty)
+          , manualdirty := this->manualdirty
+          , makeappdirty := this->makeappdirty
           ];
 
       this->owner->tolliumcontroller->SendComponent(this, compinfo);
@@ -93,6 +103,14 @@ PUBLIC STATIC OBJECTTYPE TolliumDirtyListener EXTEND TolliumSpecialComponent
         this->ToddUpdate(
             [ type := "dirtycomponents"
             , dirtycomponents := GetComponentNames(SELECT AS OBJECT ARRAY comp FROM this->components WHERE isdirty)
+            , manualdirty := this->manualdirty
+            ]);
+      }
+      IF (this->dirtyflags.makeappdirty)
+      {
+        this->ToddUpdate(
+            [ type := "makeappdirty"
+            , makeappdirty := this->makeappdirty
             ]);
       }
     }
@@ -235,6 +253,15 @@ PUBLIC STATIC OBJECTTYPE TolliumDirtyListener EXTEND TolliumSpecialComponent
     RETURN this->manualdirty OR RecordExists(SELECT FROM this->components WHERE isdirty);
   }
 
+  MACRO SetMakeAppDirty(BOOLEAN makeappdirty)
+  {
+    IF (makeappdirty != this->pvt_makeappdirty)
+    {
+      this->pvt_makeappdirty := makeappdirty;
+      this->ExtUpdatedMakeAppDirty();
+    }
+  }
+
 
   // ---------------------------------------------------------------------------
   //
@@ -251,5 +278,11 @@ PUBLIC STATIC OBJECTTYPE TolliumDirtyListener EXTEND TolliumSpecialComponent
   {
     this->EnsureFilledDirtyFlags();
     this->dirtyflags.dirtycomponents := TRUE;
+  }
+
+  MACRO ExtUpdatedMakeAppDirty()
+  {
+    this->EnsureFilledDirtyFlags();
+    this->dirtyflags.makeappdirty := TRUE;
   }
 >;

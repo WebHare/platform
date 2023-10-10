@@ -114,7 +114,20 @@ t-text a
   font: normal normal normal 14px/1 FontAwesome;
   color:#ff0000;
 }
-.t-apptab.t-apptab--activeapp:before
+.t-apptab.t-apptab--dirty:before
+{
+  border: 8px solid transparent;
+  border-right-color:#52aefe;
+  content: "";
+  display: block;
+  position:absolute;
+  top:-8px;
+  left:-8px;
+  height:0;
+  width:0;
+  transform: rotate(45deg);
+}
+.t-apptab.t-apptab--activeapp:after
 {
   content:"";
   position:absolute;
