@@ -1,6 +1,6 @@
 import type { HSVM, HSVM_ColumnId, HSVM_VariableId, HSVM_VariableType, Ptr, StringPtr } from "../../../lib/harescript-interface";
 import { IPCMarshallableData, SimpleMarshallableRecord, VariableType, readMarshalData, writeMarshalData } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { getFullConfigFile } from "@mod-system/js/internal/configuration";
+import { getCompileServerOrigin } from "@mod-system/js/internal/configuration";
 import { DeferredPromise, createDeferred, decodeString } from "@webhare/std";
 
 // @ts-ignore: implicitly has an `any` type
@@ -83,7 +83,7 @@ export async function recompileHarescriptLibraryRaw(uri: string, options?: { for
   try {
     // console.log(`recompileHarescriptLibrary`, uri);
 
-    const res = await fetch(`http://127.0.0.1:${getFullConfigFile().baseport + 1}/compile/${encodeURIComponent(uri)}`, {
+    const res = await fetch(`${getCompileServerOrigin()}/compile/${encodeURIComponent(uri)}`, {
       headers: {
         ...(options?.force ? { "X-WHCompile-Force": "true" } : {})
       }

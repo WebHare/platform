@@ -49,3 +49,7 @@ export function getRescueOrigin() {
   const rescueport = process.env["WEBHARE_BASEPORT"] || "13679";
   return `http://${rescueip}:${rescueport}`;
 }
+
+export function getCompileServerOrigin() {
+  return `http://127.0.0.1:${getFullConfigFile().baseport + 1}`;
+}

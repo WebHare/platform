@@ -327,6 +327,10 @@ void CompileServer::HandleCompileRequest(WebServer::Connection *webcon, std::str
                 source.reset(webcon->GetRequestParser().OpenBody());
                 loadlibs = true;
         }
+        else if (url == "/") //Used to poll whether we're alive without spamming the conole with Illegal compile URL:
+        {
+                return;
+        }
         else
         {
                 webcon->FailRequest(WebServer::StatusNotFound, "Illegal compile URL: '" + url + "'");
