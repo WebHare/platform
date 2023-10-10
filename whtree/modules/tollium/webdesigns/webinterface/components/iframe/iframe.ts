@@ -270,7 +270,7 @@ export default class ObjIFrame extends ComponentBase {
           return;
 
         var iframepos = this.node.getBoundingClientRect();
-        menu.openMenuAt(iframepos.width + data.x, iframepos.height + data.y);
+        menu.openMenuAt({ pageX: iframepos.left + data.x, pageY: iframepos.top + data.y });
         break;
 
       case 'actionenabler':

@@ -12,7 +12,8 @@ PUBLIC STATIC OBJECTTYPE HiddenField EXTEND FormFieldBase
   MACRO NEW(OBJECT form, OBJECT parent, RECORD field)
   : FormFieldBase(form, parent, field)
   {
-    this->value := field.value;
+    IF (CellExists(field, "value"))
+      this->value := field.value;
   }
 
   UPDATE PUBLIC MACRO RenderField()
