@@ -1092,6 +1092,16 @@ class MainBridge extends EventSource<BridgeEvents> {
   }
 
   gotDebugMessage(packet: DebugIPCLinkType["ConnectEndPointPacket"]) {
+    try {
+      return this.processDebugMessage(packet);
+    } catch (e) {
+      //This shouldn't be fatal to the process, catch and ignore (ie process may not have restarted yet)
+      console.error("Error processing debug message", e);
+      this.debuglink?.close();
+    }
+  }
+
+  processDebugMessage(packet: DebugIPCLinkType["ConnectEndPointPacket"]) {
     const message: typeof packet.message = packet.message;
     switch (message.type) {
       case DebugRequestType.enableInspector: {
