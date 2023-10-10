@@ -274,7 +274,7 @@ BOOLEAN FUNCTION ShouldDiscard(STRING modulename, STRING resourcename)
 
      We cannot force checkmodules on external paths to use our types. It doesn't use our tsconfig.json path list for resolving @types/node
      but looks at the https://www.typescriptlang.org/tsconfig#typeRoots setting. But if we overwrite that, we completely take over all
-     tyoes, not just @types/node
+     types, not just @types/node
 
      To avoid having every module install/upgrade their @types/node when encountering this we'll simply ignore any errors
      coming from the jssdk or builtin modules.

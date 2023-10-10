@@ -107,7 +107,7 @@ ASYNC MACRO HandleModuleDefinitionChange()
   // ADDME: get resource names to see which modules need to be updated
   OBJECT siteprofcompile := AsyncRecompileSiteProfiles();
   UpdateGeneratedFiles(["whdb","wrd","openapi"]);
-  WAitForPromise(siteprofcompile);
+  WaitForPromise(siteprofcompile);
 }
 
 ASYNC MACRO HandleWRDSchemaChange()
