@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { DOMParser } from '@xmldom/xmldom';
-import { config, updateConfig } from "../configuration";
+import { config } from "../configuration";
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { resolveResource } from "@webhare/services";
 import { WRDBaseAttributeType, WRDAttributeType } from "@mod-wrd/js/internal/types";
@@ -273,9 +273,6 @@ function generateFile(options: GenerateOptions, file: string, { defname, modules
 
 const storagedir = config.dataroot + "storage/system/generated/wrd/";
 export async function updateAllModuleWRDDefs(options: GenerateOptions = { verbose: false }) {
-  // Make sure the configuration is uptodate
-  updateConfig();
-
   const localdir = config.installationroot + "modules/system/js/internal/generated/wrd/";
 
   const noncoremodules = Object.keys(config.module).filter(m => !whconstant_builtinmodules.includes(m));
@@ -284,9 +281,6 @@ export async function updateAllModuleWRDDefs(options: GenerateOptions = { verbos
 }
 
 export async function updateSingleModuleWRDDefs(name: string, options: GenerateOptions = { verbose: false }) {
-  // Make sure the configuration is uptodate
-  updateConfig();
-
   if (whconstant_builtinmodules.includes(name)) {
     const localdir = config.installationroot + "modules/system/js/internal/generated/wrd/";
     await updateDir(localdir, [{ type: "file", name: "webhare.ts", data: { defname: "webhare", modules: whconstant_builtinmodules } }], true, generateFile.bind(null, options));

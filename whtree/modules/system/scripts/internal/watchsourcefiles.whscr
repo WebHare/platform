@@ -13,7 +13,7 @@ LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/tasks.whlib";
-
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
 
 /** Returns whether a file exists. ADDME: test for executable?
 */
@@ -105,20 +105,15 @@ RECORD ARRAY actions :=
 ASYNC MACRO HandleModuleDefinitionChange()
 {
   // ADDME: get resource names to see which modules need to be updated
-  AWAIT CreatePromiseAll(
-      [ AsyncRecompileSiteProfiles()
-      , CallAsync("@mod-system/js/internal/generation/gen_whdb.ts#updateAllModuleTableDefs", VARIANT[])
-      , CallAsync("@mod-system/js/internal/generation/gen_wrd.ts#updateAllModuleWRDDefs", VARIANT[])
-      , CallAsync("@mod-system/js/internal/generation/gen_openapi.ts#updateAllModuleOpenAPIDefs", VARIANT[])
-      ]);
+  OBJECT siteprofcompile := AsyncRecompileSiteProfiles();
+  UpdateGeneratedFiles(["whdb","wrd","openapi"]);
+  WaitForPromise(siteprofcompile);
 }
 
 ASYNC MACRO HandleWRDSchemaChange()
 {
   // ADDME: get resource names to see which modules need to be updated
-  AWAIT CreatePromiseAll(
-      [ CallAsync("@mod-system/js/internal/generation/gen_wrd.ts#updateAllModuleWRDDefs", VARIANT[])
-      ]);
+  UpdateGeneratedFiles(["wrd"]);
 }
 
 ASYNC MACRO DoSiteProfileRecompile()

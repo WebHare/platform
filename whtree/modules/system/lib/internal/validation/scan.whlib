@@ -74,7 +74,7 @@ STRING ARRAY FUNCTION GetFilesAndMasksToScan(STRING ARRAY files, STRING ARRAY ex
     }
   }
 
-  IF (Detokenize(files, ",") = "coremodules")
+  IF (Detokenize(files, ",") = "platform")
   {
     FOREVERY (RECORD mod FROM SELECT * FROM allmoduleroots WHERE module IN whconstant_builtinmodules ORDER BY module)
       FOREVERY (STRING ext FROM extensions)
@@ -201,7 +201,7 @@ PUBLIC BOOLEAN FUNCTION MatchesPathMasks(STRING path, STRING ARRAY masks)
 
 /** Gather files to validate
     @param paths Paths to start indexing. Accepts:
-      - 'coremodules'
+      - 'platform'
       - Absolute paths
       - Relative paths (resolved wrt GetCurrentPath())
       - mod::module paths

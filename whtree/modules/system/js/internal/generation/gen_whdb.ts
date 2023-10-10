@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { DOMParser } from '@xmldom/xmldom';
-import { config, updateConfig } from "../configuration";
+import { config } from "../configuration";
 import { whconstant_builtinmodules } from "../webhareconstants";
 import { updateDir } from "./shared";
 import { encodeString } from "@webhare/std";
@@ -233,9 +233,6 @@ function generateFile(file: string, { defname, modules }: { defname: string; mod
 }
 
 export async function updateAllModuleTableDefs() {
-  // Make sure the configuration is uptodate
-  updateConfig();
-
   const storagedir = config.dataroot + "storage/system/generated/whdb/";
   const localdir = config.installationroot + "modules/system/js/internal/generated/whdb/";
 
@@ -245,9 +242,6 @@ export async function updateAllModuleTableDefs() {
 }
 
 export async function updateSingleModuleTableDefs(name: string) {
-  // Make sure the configuration is uptodate
-  updateConfig();
-
   if (whconstant_builtinmodules.includes(name)) {
     const localdir = config.installationroot + "modules/system/js/internal/generated/whdb/";
     await updateDir(localdir, [{ type: "file", name: "webhare.ts", data: { defname: "webhare", modules: whconstant_builtinmodules } }], true, generateFile);
