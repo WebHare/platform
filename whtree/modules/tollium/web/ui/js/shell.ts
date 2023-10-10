@@ -59,8 +59,10 @@ import TolliumShell from "@mod-tollium/shell/platform/shell";
 
 // Prevent reloading or closing the window (activated if any of the applications is dirty)
 function preventNavigation(event) {
+  // For Safari and Firefox, preventDefault triggers the confirmation dialog
   event.preventDefault();
-  return (event.returnValue = "");
+  // For Chrome, setting the returnValue to anything triggers the confirmation dialog
+  event.returnValue = "";
 }
 
 class IndyShell extends TolliumShell {
