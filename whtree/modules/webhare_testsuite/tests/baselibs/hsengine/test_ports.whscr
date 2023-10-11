@@ -5,7 +5,7 @@ LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
-LOADLIB "wh::internal/wasm.whlib";
+LOADLIB "wh::javascript.whlib";
 
 MACRO TestReadSignalledStatus(BOOLEAN expect_status, INTEGER handle)
 {

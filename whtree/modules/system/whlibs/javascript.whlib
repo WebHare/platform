@@ -7,7 +7,8 @@
    the bridge or directly linked to the current HSVM hosting process like CallAsync. And in WASM mode we should be able
    to directly invoke JS through syscalls without any IPC)
 */
-LOADLIB "wh::internal/wasm.whlib";
+LOADLIB "wh::internal/wasm.whlib" EXPORT IsWasm;
+LOADLIB "wh::internal/interface.whlib";
 
 RECORD ARRAY libcache; //cache opened instances
 
@@ -65,6 +66,13 @@ OBJECTTYPE ImportedLibrary
 
 PUBLIC OBJECT FUNCTION ImportJS(STRING name)
 {
+  IF(name LIKE "./*" OR name LIKE "../*") //relative paths
+  {
+    STRING caller := GetCallingLibrary(TRUE); //may return a direct:: path!
+    INTEGER lastslash := SearchLastSubstring(caller,'/');
+    name := __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(GetCallingLibrary(TRUE), "relative::" || name);
+  }
+
   OBJECT lib := SELECT AS OBJECT libcache.lib FROM libcache WHERE libcache.name = VAR name;
   IF(NOT ObjectExists(lib))
   {

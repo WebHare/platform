@@ -6,7 +6,7 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
 LOADLIB "wh::internal/jobs.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
-LOADLIB "wh::internal/wasm.whlib";
+LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::webhare_testsuite/tests/baselibs/hsengine/testdata_traces_a.whlib";
 

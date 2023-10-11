@@ -5,7 +5,7 @@ LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::internal/interface.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::filetypes/pkcs.whlib";
-LOADLIB "wh::internal/wasm.whlib";
+LOADLIB "wh::javascript.whlib";
 
 STRING FUNCTION MakePasswordUTF8Safe(STRING inpassword)
 {

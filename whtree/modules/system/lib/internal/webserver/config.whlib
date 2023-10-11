@@ -847,6 +847,7 @@ OBJECTTYPE WebConfigBuilder
            , lowercasemode := FALSE
            , forcehttps := FALSE
            , forcehttpsport := 0
+           , baseurl := ""
            ] INTO hosts AT END;
 
     RECORD ARRAY access;
