@@ -29,6 +29,8 @@ interface ServiceDefinition {
   stopSignal?: NodeJS.Signals;
   ///Restart this service if it fails?
   keepAlive: boolean;
+  ///Wait for this script to complete before moving to the next stage (TODO this may make keepAlive obsolete?)
+  waitForCompletion?: boolean;
   ///override the stopTimeout. we used to do this for the WH databse server
   stopTimeout?: number;
   isExitFatal?: (terminationcode: string | number) => boolean;
@@ -77,7 +79,8 @@ const expectedServices: Record<string, ServiceDefinition> = {
   "platform:webhareservice-startup": {
     cmd: ["runscript", "--workerthreads", "4", "mod::system/scripts/internal/webhareservice-startup.whscr"],
     startIn: Stages.StartupScript,
-    keepAlive: false
+    keepAlive: false,
+    waitForCompletion: true
   },
   "platform:apprunner": {
     cmd: ["runscript", "mod::system/scripts/internal/apprunner.whscr"],
@@ -226,8 +229,11 @@ async function startStage(stage: Stages): Promise<void> {
   }
 
   for (const [name, service] of Object.entries(expectedServices)) {
-    if (service.startIn === stage && !service.current)
-      new ProcessManager(name, service);
+    if (service.startIn === stage && !service.current) {
+      const proc = new ProcessManager(name, service);
+      if (service.waitForCompletion)
+        subpromises.push(proc.stopDefer.promise); //TODO should we have a timeout? (but what do you do if it hits? terminate? move to next stage?)
+    }
   }
 
   await Promise.all(subpromises);
