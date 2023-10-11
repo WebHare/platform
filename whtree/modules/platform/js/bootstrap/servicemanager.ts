@@ -253,6 +253,7 @@ async function waitForCompileServer() {
 function unlinkServicestateFiles() {
   try {
     const servicestatepath = backendConfig.dataroot + "ephemeral/system.servicestate";
+    fs.mkdirSync(servicestatepath, { recursive: true });
     for (const file of fs.readdirSync(servicestatepath))
       fs.unlinkSync(servicestatepath + "/" + file);
   } catch (e) {
