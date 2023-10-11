@@ -10,6 +10,9 @@ TestEqLike("????????-????-????-????-????????????", std->GenerateRandomId("uuidv4
 OBJECT imp := ImportJs(Resolve("data/calls.ts"));
 TestEq(imp, ImportJs(Resolve("data/calls.ts")), "should simply be the same object so callers don't have to bother centrally keeping refs");
 
+TestEq(imp, ImportJs("./data/calls.ts"), "ImportJs should not require Resolve a long as you make clear the path is relative");
+TestEq(imp, ImportJs("../nodejs/data/calls.ts"), "ImportJs should not require Resolve a long as you make clear the path is relative (2)");
+
 OBJECT promise42 := imp->testAsync42();
 TestEq(43, imp->testSync43());
 TestEq(42, WaitForPromise(promise42));
