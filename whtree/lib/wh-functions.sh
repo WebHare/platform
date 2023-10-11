@@ -276,8 +276,9 @@ is_webhare_running()
     else # linux does not like the '-' in '-cp'
       PROCESSNAME="$(ps -o command= cp "$PID")"
     fi
-    # Our master is either 'node' or 'webhare'.
-    if [ "$PROCESSNAME" == "node" ] || [ "$PROCESSNAME" == "webhare" ]; then
+
+    # Our master process is either 'node' or 'webhare'. But on linux the renamed process title is picked up, so look for webhare: too
+    if [ "$PROCESSNAME" == "node" ] || [ "$PROCESSNAME" == "webhare" ] || [ "${PROCESSNAME:0:8}" == "webhare:" ]; then
       return 0 #running
     fi
   fi
