@@ -272,13 +272,13 @@ is_webhare_running()
   get_webhare_pid PID
   if [ -n "$PID" ]; then
     if [ "$WHBUILD_PLATFORM" == "darwin" ]; then
-      if [ "`ps -o command= -cp $PID`" == "webhare" ]; then
-        return 0 #running
-      fi
+      PROCESSNAME="$(ps -o command= -cp "$PID")"
     else # linux does not like the '-' in '-cp'
-      if [ "`ps -o command= cp $PID`" == "webhare" ]; then
-        return 0 #running
-      fi
+      PROCESSNAME="$(ps -o command= cp "$PID")"
+    fi
+    # Our master is either 'node' or 'webhare'.
+    if [ "$PROCESSNAME" == "node" ] || [ "$PROCESSNAME" == "webhare" ]; then
+      return 0 #running
     fi
   fi
   return 1
