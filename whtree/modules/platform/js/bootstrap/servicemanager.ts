@@ -81,7 +81,7 @@ const expectedServices: Record<string, ServiceDefinition> = {
   },
   "platform:apprunner": {
     cmd: ["runscript", "mod::system/scripts/internal/apprunner.whscr"],
-    startIn: Stages.StartupScript,
+    startIn: Stages.Active,
     keepAlive: true
   },
   "platform:clusterservices": {
