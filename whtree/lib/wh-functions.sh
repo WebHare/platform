@@ -78,6 +78,11 @@ wh_runjs()
   return $RETVAL
 }
 
+exec_wh_runjs()
+{
+  RUNJS_PREFIX=exec wh_runjs "$@"
+}
+
 loadshellconfig()
 {
   if [ -n "$LOADEDSHELLCONFIG" ]; then
@@ -679,4 +684,4 @@ load_postgres_settings()
   export PSROOT RUNAS PGVERSION PSBIN
 }
 
-export -f die setup_buildsystem getbaseversioninfo wh_runjs
+export -f die setup_buildsystem getbaseversioninfo wh_runjs exec_wh_runjs

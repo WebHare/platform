@@ -1,0 +1,49 @@
+<?wh
+/*
+Extract sensitive and configuration settings which you may need to preserve after overwriting a server (Eg recloning
+an acceptance server from an existing production environment)
+
+wh run mod::system/scripts/tools/export-settings.whscr > /tmp/settings.json
+wh run mod::system/scripts/tools/export-settings.whscr | jq | less
+*/
+
+LOADLIB "mod::system/lib/database.whlib";
+LOADLIB "mod::system/lib/internal/webserver/config.whlib";
+LOADLIB "mod::wrd/lib/api.whlib";
+LOADLIB "mod::wrd/lib/internal/dbschema.whlib";
+
+OpenPrimary();
+
+RECORD ARRAY keys := SELECT name, value := data = "" ? DecodeHSONBlob(blobdata) : DecodeHSON(data) FROM system.flatregistry WHERE name NOT LIKE "<*" ORDER BY name;
+keys := SELECT *, type := ToLowercase(GetTypeName(TYPEID(value))) FROM keys;
+
+//gather unsafetocopy fields
+RECORD ARRAY unsafetocopy_attrs := SELECT tag, attributetype, type, parent FROM wrd.attrs WHERE isunsafetocopy AND parent =0 ;//FIXME support deep attributes? but only take precisely what we need
+//dumpvalue(unsafetocopy_attrs,'boxed');
+
+RECORD wrdextracts;
+FOREVERY(RECORD wrdschemarec FROM ListWRDSchemas())
+{
+  OBJECT wrdschema := OpenWRDSchemaById(wrdschemarec.id);
+
+  RECORD saveddata;
+  FOREVERY(RECORD wrdtyperec FROM SELECT * FROM wrdschema->ListTypes() WHERE id IN (SELECT AS INTEGER ARRAY type FROM unsafetocopy_attrs))
+  {
+    STRING ARRAY relevantattributes := SELECT AS STRING ARRAY tag FROM unsafetocopy_attrs WHERE unsafetocopy_attrs.type = wrdtyperec.id;
+    RECORD ARRAY data := wrdschema->GetTypeById(wrdtyperec.id)->RunQuery(
+        [ outputcolumns := [ "wrd_guid", ...relevantattributes ]
+        ]);
+    saveddata := CellInsert(saveddata, wrdtyperec.tag, CELL[ relevantattributes, data ]);
+  }
+  wrdextracts := CellInsert(wrdextracts, wrdschemarec.tag, saveddata);
+}
+
+//This gets you the webservernames, aliases and certificates and keys
+RECORD webserverconfig := DownloadWebserverConfig();
+
+Print(EncodeJSON(CELL[
+  version := 1,
+  keys,
+  wrdextracts,
+  webserverconfig
+]) || '\n');

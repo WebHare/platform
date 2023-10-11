@@ -35,7 +35,6 @@ if [ -n "$WEBHARE_NODEPROFILE" ]; then
   exit $RETVAL
 fi
 
-RUNJS_PREFIX=exec #used by runjs
-wh_runjs "$@"
+exec_wh_runjs "$@"
 echo "wh node: the actual node binary was not found" 1>&2
 exit 255

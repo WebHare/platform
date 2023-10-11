@@ -2,10 +2,11 @@ import bridge, { IPCMessagePacket, IPCMarshallableData } from "@mod-system/js/in
 import { ServiceBase } from "@webhare/services/src/backendservice";
 import { createDeferred } from "@webhare/std";
 import { ServiceInitMessage, ServiceCallMessage, WebHareServiceDescription, WebHareServiceIPCLinkType } from './types';
+import { checkModuleScopedName } from "@webhare/services/src/naming";
 
 interface WebHareServiceOptions {
-  autorestart?: boolean;
-  restartimmediately?: boolean;
+  autoRestart?: boolean;
+  restartImmediately?: boolean;
   //TODO __droplistenerreference is now a hack for the incoming bridgemgmt service which should either become permanent or go away once bridge uses IPClinks for that
   __droplistenerreference?: boolean;
 }
@@ -168,13 +169,12 @@ class WebHareService { //EXTEND IPCPortHandlerBase
     @param servicename - Name of the service (should follow the 'module:tag' pattern)
     @param constructor - Constructor to invoke for incoming connections. This object will be marshalled through %OpenWebhareService
     @param options - Options.<br>
-     - autorestart: Automatically restart the service if the source code has changed. Defaults to TRUE
-     - restartimmediately: Immediately restart the service even if we stil have open connections. Defaults to FALSE
+     - autoRestart: Automatically restart the service if the source code has changed. Defaults to true
+     - restartImmediately: Immediately restart the service even if we stil have open connections. Defaults to false
 */
 export default async function runBackendService(servicename: string, constructor: ConnectionConstructor, options?: WebHareServiceOptions) {
-  options = { autorestart: true, restartimmediately: false, __droplistenerreference: false, ...options };
-  if (!servicename.match(/^.+:.+$/))
-    throw new Error("A service should have a <module>:<service> name");
+  options = { autoRestart: true, restartImmediately: false, __droplistenerreference: false, ...options };
+  checkModuleScopedName(servicename);
 
   const hostport = bridge.createPort<WebHareServiceIPCLinkType>("webhareservice:" + servicename, { global: true });
   const service = new WebHareService(hostport, servicename, constructor, options);
