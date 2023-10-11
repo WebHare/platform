@@ -1,4 +1,4 @@
-import { ConvertBackendServiceInterfaceToClientInterface, BackendServiceController } from "@webhare/services";
+import { BackendServiceController } from "@webhare/services";
 
 class Controller implements BackendServiceController {
   dummy = -1;
@@ -69,8 +69,6 @@ class ClusterTestLink {
   // }
 }
 
-export type DemoServiceInterface = ConvertBackendServiceInterfaceToClientInterface<ClusterTestLink>;
-
 export async function createDemoMain() {
   await Promise.resolve(); //wait a tick
   return new Controller;
@@ -80,3 +78,5 @@ export async function openDemoService(testdata: string) {
   await Promise.resolve(); //wait a tick
   return new ClusterTestLink(null, testdata);
 }
+
+export type { ClusterTestLink };
