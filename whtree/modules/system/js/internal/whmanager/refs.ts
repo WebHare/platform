@@ -20,6 +20,10 @@ export class RefLock {
   release() {
     this.tracker._remove(this);
   }
+
+  [Symbol.dispose]() {
+    this.release();
+  }
 }
 
 type Referencable = {
