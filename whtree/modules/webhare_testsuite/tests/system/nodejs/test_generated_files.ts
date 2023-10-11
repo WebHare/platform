@@ -1,43 +1,24 @@
 import * as test from "@webhare/test";
 import * as fs from "fs";
 import { config } from "@mod-system/js/internal/configuration";
-import { openHSVM, HSVM, HSVMObject } from "@webhare/services/src/hsvm";
 import { generateKyselyDefs } from "@mod-system/js/internal/generation/gen_whdb";
-import { WebHareBlob } from "@webhare/services";
+import { installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
+import { loadlib } from "@webhare/harescript";
 
 async function testBasics() {
   const result = generateKyselyDefs("system", ["system"]);
   test.eq(/fullpath: IsGenerated<string>/, result, "fullpath & co must be marked as IsGenerated as you can't insert them");
 }
 
-async function createModule(hsvm: HSVM, name: string, files: Record<string, string>) {
-  const archive = await hsvm.loadlib("mod::system/whlibs/filetypes/archiving.whlib").CreateNewArchive("application/zip") as HSVMObject;
-  for (const [path, data] of Object.entries(files)) {
-    await archive.AddFile(name + "/" + path, WebHareBlob.from(data), new Date);
-  }
-  const modulearchive = await archive.MakeBlob();
-
-  const res = await hsvm.loadlib("mod::system/lib/internal/moduleimexport.whlib").ImportModule(modulearchive);
-
-  // Wait for the module to show up in the local configuration
-  test.wait(() => Boolean(config.module[name]));
-
-  console.log(`installed ${name} to ${(res as { path: string }).path}`);
-}
-
 async function testModule() {
-
-  const hsvm = await openHSVM();
-  await hsvm.loadlib("mod::system/lib/database.whlib").OpenPrimary();
-
   if (config.module["webhare_testsuite_generatedfilestest"]) {
     console.log(`delete module webhare_testsuite_generatedfilestest`);
-    if (!await hsvm.loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule("webhare_testsuite_generatedfilestest"))
+    if (!await loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule("webhare_testsuite_generatedfilestest"))
       throw new Error(`Could not delete module "webhare_testsuite_generatedfilestest"`);
   }
 
   console.log(`create module webhare_testsuite_generatedfilestest`);
-  await createModule(hsvm, "webhare_testsuite_generatedfilestest", {
+  await installTestModule("webhare_testsuite_generatedfilestest", {
     "moduledefinition.xml": `<?xml version="1.0"?>
 <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
   <meta>
@@ -149,7 +130,7 @@ export async function getUsers(req: RestRequest): Promise<WebResponse> {
   const file_wrd = require.resolve("wh:wrd/webhare_testsuite_generatedfilestest");
   const file_openapi = require.resolve("wh:openapi/webhare_testsuite_generatedfilestest/testopenapiservice");
 
-  if (!await hsvm.loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule("webhare_testsuite_generatedfilestest"))
+  if (!await loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule("webhare_testsuite_generatedfilestest"))
     throw new Error(`Could not delete module "webhare_testsuite_generatedfilestest"`);
 
   // wait for the generated files to disappear
