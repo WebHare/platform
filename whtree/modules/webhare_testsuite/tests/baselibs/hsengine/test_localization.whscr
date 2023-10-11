@@ -2,7 +2,7 @@
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::util/localization.whlib";
-LOADLIB "wh::internal/wasm.whlib";
+LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::system/lib/tasks.whlib";
 

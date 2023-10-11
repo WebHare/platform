@@ -7,7 +7,7 @@
    the bridge or directly linked to the current HSVM hosting process like CallAsync. And in WASM mode we should be able
    to directly invoke JS through syscalls without any IPC)
 */
-LOADLIB "wh::internal/wasm.whlib";
+LOADLIB "wh::internal/wasm.whlib" EXPORT IsWasm;
 
 RECORD ARRAY libcache; //cache opened instances
 

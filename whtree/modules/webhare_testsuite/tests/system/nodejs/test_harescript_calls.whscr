@@ -1,6 +1,5 @@
 <?wh
 LOADLIB "wh::internal/testfuncs.whlib";
-LOADLIB "wh::internal/wasm.whlib";
 LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";

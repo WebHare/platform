@@ -9,7 +9,7 @@ LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
 LOADLIB "wh::internal/jobs.whlib";
-LOADLIB "wh::internal/wasm.whlib";
+LOADLIB "wh::javascript.whlib";
 
 
 MACRO TestReadSignalledStatus(INTEGER testid, BOOLEAN expect_status, INTEGER handle)

@@ -1,7 +1,7 @@
 <?wh
 LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::internal/testfuncs.whlib";
-LOADLIB "wh::internal/wasm.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::filetypes/xml.whlib";

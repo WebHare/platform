@@ -3,7 +3,7 @@
 
 LOADLIB "wh::internal/hsselftests.whlib";
 LOADLIB "wh::internal/interface.whlib";
-LOADLIB "wh::internal/wasm.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::datetime.whlib";
 
 RECORD ARRAY errors;
