@@ -2,7 +2,6 @@ import { HSVMObject, loadlib } from "@webhare/harescript";
 import { WebHareBlob, backendConfig } from "@webhare/services";
 import * as test from "@webhare/test";
 
-//TODO use WASM HSVMs but they don't support archiving yet ?
 export async function installTestModule(name: string, files: Record<string, string>) {
   const archive = await loadlib("mod::system/whlibs/filetypes/archiving.whlib").CreateNewArchive("application/zip") as HSVMObject;
   for (const [path, data] of Object.entries(files)) {
