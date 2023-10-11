@@ -327,7 +327,7 @@ void CompileServer::HandleCompileRequest(WebServer::Connection *webcon, std::str
                 source.reset(webcon->GetRequestParser().OpenBody());
                 loadlibs = true;
         }
-        else if (url == "/") //Used to poll whether we're alive without spamming the conole with Illegal compile URL:
+        else if (url == "/") //Used to poll whether we're alive without spamming the console with Illegal compile URL:
         {
                 return;
         }

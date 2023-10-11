@@ -37,7 +37,7 @@ interface ServiceDefinition {
 
 const stagetitles: Record<Stages, string> = {
   [Stages.Bootup]: "Booting critical proceses",
-  [Stages.StartupScript]: "Running startup scrips", //not entirely accurate, in this phase we also bootup webserver & apprunner etc
+  [Stages.StartupScript]: "Running startup scripts", //not entirely accurate, in this phase we also bootup webserver & apprunner etc
   [Stages.Active]: "Online",
   [Stages.Terminating]: "Terminating subprocesses",
   [Stages.ShuttingDown]: "Shutting down bridge and database"
