@@ -71,6 +71,28 @@ async function getInspectorURL(process: string) {
   }
 }
 
+program.command('getenvironment')
+  .description('Get process environment')
+  .argument('<process>', 'Process to connect to')
+  .action(async (instance: string) => {
+    const link = bridge.connect<DebugMgrClientLink>("ts:debugmgr", { global: true });
+    try {
+      await link.activate();
+
+      const searchprocesscode = await getProcessCodeFromInstance(link, instance);
+      const result = await link.doRequest({
+        type: DebugMgrClientLinkRequestType.getEnvironment,
+        processcode: searchprocesscode
+      });
+      link.close();
+      console.log(JSON.stringify(result.env, null, 2));
+    } catch (e) {
+      console.error(`Error: ${(e as Error).message}`);
+      process.exitCode = 1;
+      link.close();
+    }
+  });
+
 program.command('inspect')
   .description('Enable inspector and return settings')
   .argument('<process>', 'Process to connect to')

@@ -1092,6 +1092,16 @@ class MainBridge extends EventSource<BridgeEvents> {
   }
 
   gotDebugMessage(packet: DebugIPCLinkType["ConnectEndPointPacket"]) {
+    try {
+      return this.processDebugMessage(packet);
+    } catch (e) {
+      //This shouldn't be fatal to the process, catch and ignore (ie process may not have restarted yet)
+      console.error("Error processing debug message", e);
+      this.debuglink?.close();
+    }
+  }
+
+  processDebugMessage(packet: DebugIPCLinkType["ConnectEndPointPacket"]) {
     const message: typeof packet.message = packet.message;
     switch (message.type) {
       case DebugRequestType.enableInspector: {
@@ -1128,6 +1138,13 @@ class MainBridge extends EventSource<BridgeEvents> {
         this.debuglink?.send({
           type: DebugResponseType.getWorkersResult,
           workers: Array.from(this.localbridges.values()).map(({ id }) => ({ id }))
+        }, packet.msgid);
+      } break;
+      case DebugRequestType.getEnvironment: {
+        const envkeys = Object.entries(process.env).filter(([, value]) => typeof value === "string");
+        this.debuglink?.send({
+          type: DebugResponseType.getEnvironmentResult,
+          env: Object.fromEntries(envkeys) as Record<string, string>
         }, packet.msgid);
       } break;
       default:

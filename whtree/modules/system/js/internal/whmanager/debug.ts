@@ -19,6 +19,7 @@ export enum DebugRequestType {
   getHMRState,
   getCodeContexts,
   getWorkers,
+  getEnvironment
 }
 
 type DebugRequest = {
@@ -37,6 +38,9 @@ type DebugRequest = {
 } | {
   type: DebugRequestType.getWorkers;
   __responseKey: { type: DebugResponseType.getWorkersResult };
+} | {
+  type: DebugRequestType.getEnvironment;
+  __responseKey: { type: DebugResponseType.getEnvironmentResult };
 };
 
 export enum DebugResponseType {
@@ -46,6 +50,7 @@ export enum DebugResponseType {
   getHMRStateResult,
   getCodeContextsResult,
   getWorkersResult,
+  getEnvironmentResult
 }
 
 export type ConsoleLogItem = {
@@ -81,6 +86,9 @@ type DebugResponse = {
 } | {
   type: DebugResponseType.getWorkersResult;
   workers: Array<{ id: string }>;
+} | {
+  type: DebugResponseType.getEnvironmentResult;
+  env: Record<string, string>;
 };
 
 /** Request and response are swapped here, because conceptually the
@@ -97,6 +105,7 @@ export enum DebugMgrClientLinkRequestType {
   getHMRState,
   getCodeContexts,
   getWorkers,
+  getEnvironment
 }
 
 export enum DebugMgrClientLinkResponseType {
@@ -108,6 +117,7 @@ export enum DebugMgrClientLinkResponseType {
   getHMRStateResult,
   getCodeContextsResult,
   getWorkersResult,
+  getEnvironmentResult
 }
 
 /** List of directly forwarded calls */
@@ -116,6 +126,7 @@ export const directforwards = {
   [DebugMgrClientLinkRequestType.getHMRState]: { requesttype: DebugRequestType.getHMRState, responsetype: DebugResponseType.getHMRStateResult, clientresponsetype: DebugMgrClientLinkResponseType.getHMRStateResult },
   [DebugMgrClientLinkRequestType.getCodeContexts]: { requesttype: DebugRequestType.getCodeContexts, responsetype: DebugResponseType.getCodeContextsResult, clientresponsetype: DebugMgrClientLinkResponseType.getCodeContextsResult },
   [DebugMgrClientLinkRequestType.getWorkers]: { requesttype: DebugRequestType.getWorkers, responsetype: DebugResponseType.getWorkersResult, clientresponsetype: DebugMgrClientLinkResponseType.getWorkersResult },
+  [DebugMgrClientLinkRequestType.getEnvironment]: { requesttype: DebugRequestType.getEnvironment, responsetype: DebugResponseType.getEnvironmentResult, clientresponsetype: DebugMgrClientLinkResponseType.getEnvironmentResult },
 } as const;
 
 /// Returns the matching objects in a union whose "type" property extends from T
