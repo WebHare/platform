@@ -9,7 +9,7 @@ export interface BackendServiceController {
 */
 interface DefaultWebHareServiceClient {
   /** Our methods */
-  [key: string]: (...args: unknown[]) => Promise<unknown>;
+  [key: string]: (...args: unknown[]) => unknown;
 }
 
 export type ServiceBase = {
@@ -63,7 +63,7 @@ class ServiceProxy<T extends object> implements ProxyHandler<T & ServiceBase> {
 
     const response = await this.link.doRequest(calldata) as ServiceCallResult;
     if (this.isjs)
-      return JSON.parse(response.result as string);
+      return response.result ? JSON.parse(response.result as string) : undefined;
     else
       return response.result;
   }
@@ -74,13 +74,29 @@ export interface BackendServiceOptions {
   linger?: boolean;
 }
 
+/** Convert the return type of a function to a promise
+ * Inspired by https://stackoverflow.com/questions/50011616/typescript-change-function-type-so-that-it-returns-new-value
+*/
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- using any is needed for this type definition
+type PromisifyFunctionReturnType<T extends (...a: any) => any> = (...a: Parameters<T>) => ReturnType<T> extends Promise<any> ? ReturnType<T> : Promise<ReturnType<T>>;
+
+/** Converts the interface of a WebHare service to the interface used by a client.
+ * Removes the "close" method and all methods starting with `_`, and converts all return types to a promise. Readds "close" as added by ServiceBase
+ * @typeParam BackendHandlerType - Type definition of the service class that implements this service.
+*/
+type ConvertToClientInterface<BackendHandlerType extends object> = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- using any is needed for this type definition
+  [K in Exclude<keyof BackendHandlerType, `_${string}` | "close"> as BackendHandlerType[K] extends (...a: any) => any ? K : never]: BackendHandlerType[K] extends (...a: any[]) => void ? PromisifyFunctionReturnType<BackendHandlerType[K]> : never;
+} & ServiceBase;
+
 /** Open a WebHare backend service
  *  @param name - Service name (a module:service pair)
  *  @param args - Arguments to pass to the constructor
  *  @param options - timeout: Maximum time to wait for the service to come online in msecs (default: 30sec)
  *                   linger: If true, service requires an explicit close() and will keep the process running
  */
-export async function openBackendService<T extends object = DefaultWebHareServiceClient>(name: string, args?: unknown[], options?: BackendServiceOptions): Promise<T & ServiceBase> {
+export async function openBackendService<T extends object = DefaultWebHareServiceClient>
+  (name: string, args?: unknown[], options?: BackendServiceOptions): Promise<ConvertToClientInterface<T> & ServiceBase> {
 
   const startconnect = Date.now(); //only used for exception reporting
   const deadline = new Promise(resolve => setTimeout(() => resolve(false), options?.timeout || 30000).unref());
@@ -110,7 +126,7 @@ export async function openBackendService<T extends object = DefaultWebHareServic
       if (!options?.linger)
         link.dropReference();
 
-      return new Proxy({}, new ServiceProxy(link, description)) as T & ServiceBase;
+      return new Proxy({}, new ServiceProxy(link, description)) as ConvertToClientInterface<T> & ServiceBase;
     } catch (e) {
       link.close();
       throw e; //not relooping if describing fails

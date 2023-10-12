@@ -5,7 +5,7 @@ import * as services from "@webhare/services";
 import { GenericLogLine } from "@webhare/services/src/logging";
 import { readJSONLogLines } from "@mod-system/js/internal/logging";
 import { dumpActiveIPCMessagePorts } from "@mod-system/js/internal/whmanager/transport";
-import { DemoServiceInterface } from "@mod-webhare_testsuite/js/demoservice";
+import type { ClusterTestLink } from "@mod-webhare_testsuite/js/demoservice";
 import runBackendService from "@mod-system/js/internal/webhareservice";
 import { createVM, HSVMObject } from "@webhare/harescript";
 import { CallableVMWrapper } from "@webhare/harescript/src/machinewrapper";
@@ -187,8 +187,7 @@ async function runBackendServiceTest_JS() {
   await new Promise(r => setTimeout(r, 5));
   test.eq(0, await getActiveMessagePortCount());
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not worth writing an interface for just a test
-  test.assert(await services.openBackendService<DemoServiceInterface>("webhare_testsuite:demoservice"), "Fails in HS but works in JS as invalid # of arguments is not an issue for JavaScript");
+  test.assert(await services.openBackendService<ClusterTestLink>("webhare_testsuite:demoservice"), "Fails in HS but works in JS as invalid # of arguments is not an issue for JavaScript");
   test.eq(0, await getActiveMessagePortCount(), "Failed and closed attempts above should not have kept a pending reference");
 
   dumpActiveIPCMessagePorts();
@@ -198,6 +197,7 @@ async function runBackendServiceTest_JS() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not worth writing an interface for just a test
   const serverinstance = await services.openBackendService("webhare_testsuite:demoservice", ["x"]);
   test.eq(42, await serverinstance.getLUE());
+  test.eq(undefined, await serverinstance.voidReturn());
 
   test.assert(serverinstance._invisible === undefined, "Should not see _prefixed APIs");
   test.assert(serverinstance.dummy === undefined, "Should not see variables");

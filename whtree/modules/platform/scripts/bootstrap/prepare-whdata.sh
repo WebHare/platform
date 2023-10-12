@@ -42,10 +42,15 @@ if [ -z "$WEBHARE_DATAROOT" ]; then
   exit 1
 fi
 
-CONFIGJSON="$WEBHARE_DATAROOT/storage/system/generated/config/config.json"
+CONFIGDIR="$WEBHARE_DATAROOT/storage/system/generated/config"
+CONFIGJSON="$CONFIGDIR/config.json"
 if [ -z "$FORCE" ] && [ -h "$WEBHARE_DATAROOT/node_modules/@webhare" ] && [ -f "$CONFIGJSON" ]; then
   [ -n "$VERBOSE" ] && echo "prepare-whdata: it looks like $WEBHARE_DATAROOT has already been prepared" 1>&2
   exit 0
+fi
+if [ ! -f "$CONFIGJSON" ]; then #Bootstrap an empty file to prevent complaints from @webhare/services using scripts
+  mkdir -p "$CONFIGDIR"
+  echo {} > "$CONFIGJSON"
 fi
 
 mkdir -p "$WEBHARE_DATAROOT"/lib "$WEBHARE_DATAROOT"/home "$WEBHARE_DATAROOT"/tmp >/dev/null 2>&1

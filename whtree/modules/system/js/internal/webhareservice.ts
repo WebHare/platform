@@ -1,30 +1,16 @@
 import bridge, { IPCMessagePacket, IPCMarshallableData } from "@mod-system/js/internal/whmanager/bridge";
-import { ServiceBase } from "@webhare/services/src/backendservice";
 import { createDeferred } from "@webhare/std";
 import { ServiceInitMessage, ServiceCallMessage, WebHareServiceDescription, WebHareServiceIPCLinkType } from './types';
 import { checkModuleScopedName } from "@webhare/services/src/naming";
 
 interface WebHareServiceOptions {
+  ///Enable automatic restart of the service when the source code changes. Defaults to true
   autoRestart?: boolean;
+  ///Immediately restart the service even if we stil have open connections.
   restartImmediately?: boolean;
-  //TODO __droplistenerreference is now a hack for the incoming bridgemgmt service which should either become permanent or go away once bridge uses IPClinks for that
-  __droplistenerreference?: boolean;
+  //Don't keep a reference to the listening port, preventing this service from keeping the process alive
+  dropListenerReference?: boolean;
 }
-
-/** Convert the return type of a function to a promise
- * Inspired by https://stackoverflow.com/questions/50011616/typescript-change-function-type-so-that-it-returns-new-value
-*/
-// eslint-disable-next-line @typescript-eslint/no-explicit-any -- using any is needed for this type definition
-type PromisifyFunctionReturnType<T extends (...a: any) => any> = (...a: Parameters<T>) => ReturnType<T> extends Promise<any> ? ReturnType<T> : Promise<ReturnType<T>>;
-
-/** Converts the interface of a WebHare service to the interface used by a client.
- * Removes the "close" method and all methods starting with `_`, and converts all return types to a promise. Readds "close" as added by ServiceBase
- * @typeParam BackendHandlerType - Type definition of the service class that implements this service.
-*/
-export type ConvertBackendServiceInterfaceToClientInterface<BackendHandlerType extends object> = {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- using any is needed for this type definition
-  [K in Exclude<keyof BackendHandlerType, `_${string}` | "close"> as BackendHandlerType[K] extends (...a: any) => any ? K : never]: BackendHandlerType[K] extends (...a: any[]) => void ? PromisifyFunctionReturnType<BackendHandlerType[K]> : never;
-} & ServiceBase;
 
 //Describe a JS public interface in a HS compatible way
 export function describePublicInterface(inobj: object): WebHareServiceDescription {
@@ -100,7 +86,7 @@ class WebHareService { //EXTEND IPCPortHandlerBase
       link.on("close", () => this._onClose(state));
       link.on("message", _ => this._onMessage(state, _));
       link.on("exception", () => false);
-      if (this._options.__droplistenerreference)
+      if (this._options.dropListenerReference)
         link.dropReference();
 
       await link.activate();
@@ -168,18 +154,16 @@ class WebHareService { //EXTEND IPCPortHandlerBase
 
     @param servicename - Name of the service (should follow the 'module:tag' pattern)
     @param constructor - Constructor to invoke for incoming connections. This object will be marshalled through %OpenWebhareService
-    @param options - Options.<br>
-     - autoRestart: Automatically restart the service if the source code has changed. Defaults to true
-     - restartImmediately: Immediately restart the service even if we stil have open connections. Defaults to false
+    @param options - Service options
 */
 export default async function runBackendService(servicename: string, constructor: ConnectionConstructor, options?: WebHareServiceOptions) {
-  options = { autoRestart: true, restartImmediately: false, __droplistenerreference: false, ...options };
+  options = { autoRestart: true, restartImmediately: false, dropListenerReference: false, ...options };
   checkModuleScopedName(servicename);
 
   const hostport = bridge.createPort<WebHareServiceIPCLinkType>("webhareservice:" + servicename, { global: true });
   const service = new WebHareService(hostport, servicename, constructor, options);
 
-  if (options.__droplistenerreference)
+  if (options.dropListenerReference)
     hostport.dropReference();
 
   await hostport.activate();
