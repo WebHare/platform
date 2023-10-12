@@ -42,11 +42,6 @@ const defaultServices: Record<string, ServiceDefinition> = {
     keepAlive: false,
     waitForCompletion: true
   },
-  "platform:apprunner": {
-    cmd: ["runscript", "mod::system/scripts/internal/apprunner.whscr"],
-    startIn: Stages.Active,
-    keepAlive: true
-  },
   "platform:clusterservices": {
     cmd: ["runscript", "--workerthreads", "4", "mod::system/scripts/internal/clusterservices.whscr"],
     startIn: Stages.StartupScript,
