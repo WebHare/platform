@@ -6,7 +6,7 @@ export class RotatingLogFile {
   private logfd = 0;
   private readonly stdout;
 
-  constructor(basepath: string, { stdout }: { stdout?: boolean } = {}) {
+  constructor(basepath: string | null, { stdout }: { stdout?: boolean } = {}) {
     this.basepath = basepath;
     this.stdout = stdout || false;
   }
@@ -16,6 +16,9 @@ export class RotatingLogFile {
     const date = (new Date).toISOString();
     if (this.stdout)
       console.log(`[${date}] ${line}`);
+
+    if (!this.basepath)
+      return; //not atually logging to a file
 
     const day = date.substring(0, 10); //YYYY-MM-DD
 

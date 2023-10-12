@@ -25,3 +25,8 @@ export async function installTestModule(name: string, files: Record<string, stri
   console.log(`installed ${name} to ${(res as { path: string }).path}`);
   return res;
 }
+
+//TODO does this need to be a testapi? or something for a @webhare/config ?
+export async function deleteTestModule(name: string) {
+  await loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule(name);
+}
