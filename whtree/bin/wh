@@ -339,16 +339,6 @@ case $INSTR in
       exit 1
     fi
 
-    # Show version and restore information
-    echo -n "WebHare version: $WEBHARE_VERSION"
-    if [ "$WEBHARE_ISRESTORED" == "1" ]; then
-      echo " (restored)"
-    elif [ -n "$WEBHARE_ISRESTORED" ]; then
-      echo " ($WEBHARE_ISRESTORED)"
-    else
-      echo ""
-    fi
-
     TOSHOWFILE=
     if [ "$DEBUGTAGS" == "cov" ]; then
       runscript --workerthreads 4 "mod::system/scripts/debug/analyze_coverage.whscr" --deleteprofiles

@@ -22,6 +22,7 @@ import { RotatingLogFile } from "../logging/rotatinglogfile";
 import runBackendService from '@mod-system/js/internal/webhareservice';
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
 import { getAllModuleYAMLs } from '@webhare/services/src/moduledefparser';
+import { LoggableRecord } from "@webhare/services/src/logmessages";
 
 program.name("servicemanager")
   .option("-s, --secondary", "Mark us as a secondary service manager")
@@ -46,7 +47,7 @@ const verbose = program.opts().verbose || debugFlags.startup;
 
 let keepAlive: NodeJS.Timeout | null = null;
 let shuttingdown = false;
-let logfile;
+let logfile: RotatingLogFile | undefined;
 
 interface ServiceDefinition {
   cmd: string[];
@@ -125,6 +126,18 @@ const defaultServices: Record<string, ServiceDefinition> = {
 
 const expectedServices = new Map<string, ServiceDefinition>();
 
+function smLog(text: string, data?: LoggableRecord) {
+  if (!logfile) {
+    console.error("** This smLog() call happened too early!");
+    console.error(text);
+    console.error(data);
+    console.error((new Error).stack);
+    return;
+  }
+
+  logfile.log(text, data);
+}
+
 class ProcessManager {
   readonly name;
   readonly displayName;
@@ -136,7 +149,7 @@ class ProcessManager {
   toldToStop = false;
   stopDefer = createDeferred();
   killTimeout: NodeJS.Timeout | null = null;
-  started: Date | null = null;
+  started: number | null = null;
   startDelay;
   startDelayTimer: NodeJS.Timeout | null = null;
 
@@ -151,14 +164,19 @@ class ProcessManager {
     this.startDelayTimer = setTimeout(() => this.start(), startDelay);
   }
 
+  log(text: string, data?: LoggableRecord) {
+    const at = this.started ? Date.now() - this.started : null;
+    smLog(`${this.displayName}: ${text}`, { message: text, service: this.name, at, ...data });
+  }
+
   start() {
     const cmd = this.service.cmd[0].includes('/') ? this.service.cmd[0] : `${backendConfig.installationroot}bin/${this.service.cmd[0]}`;
     const args = this.service.cmd.slice(1);
 
     if (debugFlags.startup)
-      log(`Starting ${this.displayName}: ${cmd}${args.length ? ` with ${JSON.stringify(args)}` : ""}`);
+      this.log(`Starting ${cmd}${args.length ? ` with ${JSON.stringify(args)}` : ""}`);
 
-    this.started = new Date;
+    this.started = Date.now();
     this.startDelayTimer = null;
     this.process = child_process.spawn(cmd, args, {
       stdio: ['ignore', 'pipe', 'pipe'],  //no STDIN, we catch the reset
@@ -194,14 +212,14 @@ class ProcessManager {
 
   renderOutput(stream: "stdout" | "stderr", lines: string[]) {
     for (const line of lines)
-      log(`${this.displayName} ${stream}: ${line}`);
+      this.log(line, { stream });
   }
 
   processStarted() {
     this.running = true;
   }
 
-  processExit(errorCode: number | null, signal: string | null) {
+  processExit(exitCode: number | null, signal: string | null) {
     for (const stream of ["stdout", "stderr"] as const)
       if (this[stream])
         this.renderOutput(stream, [this[stream]]);
@@ -212,14 +230,14 @@ class ProcessManager {
     this.running = false;
     if (!this.toldToStop || debugFlags.startup) {
       if (signal)
-        log(`Service ${this.displayName} exited with signal ${signal} `);
-      else if (errorCode || this.service.keepAlive) //no need to mention a normal shutdown for a singleshot service
-        log(`Service ${this.displayName} exited with code ${errorCode} `);
+        this.log(`Exited with signal ${signal}`, { exitSignal: signal });
+      else if (exitCode || this.service.keepAlive) //no need to mention a normal shutdown for a singleshot service
+        this.log(`Exited with code ${exitCode} `, { exitCode: exitCode });
     }
 
-    const exitreason = signal ?? errorCode ?? "unknown";
+    const exitreason = signal ?? exitCode ?? "unknown";
     if (this.service.isExitFatal && !this.toldToStop && this.service.isExitFatal(exitreason)) {
-      log(`Exit of service ${this.displayName} is considered fatal, shutting down`);
+      this.log(`Exit is considered fatal, shutting down service manager`);
       shutdown();
     }
 
@@ -228,11 +246,11 @@ class ProcessManager {
     processes.delete(this);
 
     if (!shuttingdown && this.service.keepAlive) {
-      if (Date.now() < this.started!.getTime() + MinimumRunTime) {
+      if (!this.started || Date.now() < this.started + MinimumRunTime) {
         this.startDelay = Math.min(this.startDelay * 2 || 1000, MaxStartupDelay);
-        log(`Throttling service ${this.displayName}, will restart after ${this.startDelay / 1000} seconds`);
+        this.log(`Throttling, will restart after ${this.startDelay / 1000} seconds`);
       } else {
-        log(`Restarting service ${this.displayName}`);
+        this.log(`Restarting`);
       }
       new ProcessManager(this.name, this.service, this.startDelay);
     }
@@ -248,7 +266,7 @@ class ProcessManager {
 
     this.toldToStop = true;
     if (verbose)
-      log(`Stopping service ${this.displayName}`);
+      this.log(`Stopping service`);
     this.process!.kill(this.service.stopSignal ?? "SIGTERM");
 
     const timeout = this.service.stopTimeout ?? DefaultTimeout;
@@ -256,7 +274,7 @@ class ProcessManager {
       this.killTimeout =
         setTimeout(() => {
           if (this.running) {
-            log(`Killing service ${this.displayName} - timeout of ${timeout}ms to shutdown reached`);
+            this.log(`Killing service - timeout of ${timeout}ms to shutdown reached`);
             this.process!.kill("SIGKILL");
           }
         }, timeout);
@@ -271,7 +289,7 @@ const processes = new Set<ProcessManager>;
 /// Move to a new stage
 async function startStage(stage: Stages): Promise<void> {
   if (verbose)
-    log(`Starting stage: ${stagetitles[stage]} `);
+    smLog(`Entering stage: ${stagetitles[stage]} `, { stage: stagetitles[stage] }); //TODO shouldn't we be logging a tag/string instead of a full title
   currentstage = stage;
   return await updateForCurrentStage();
 }
@@ -295,11 +313,6 @@ async function updateForCurrentStage(): Promise<void> {
   }
 
   await Promise.all(subpromises);
-}
-
-//FIXME open the servicemanager.log. build or find a rotator. log everything there too
-function log(text: string) {
-  logfile!.log(text);
 }
 
 async function waitForCompileServer() {
@@ -397,12 +410,14 @@ async function main() {
 
   //TODO check if webhare isn't already running when not started with --secondary
 
-  await loadServiceList();
+  //Setting up logs must be one of the first things we do so log() works
   fs.mkdirSync(backendConfig.dataroot + "log", { recursive: true });
   logfile = new RotatingLogFile(isSecondaryManager ? null : backendConfig.dataroot + "log/servicemanager", { stdout: true });
 
+  await loadServiceList();
+
   const showversion = process.env.WEBHARE_DISPLAYBUILDINFO ?? backendConfig.buildinfo.version ?? "unknown";
-  log(`Starting WebHare ${showversion} in ${backendConfig.dataroot} at ${getRescueOrigin()}`);
+  smLog(`Starting WebHare ${showversion} in ${backendConfig.dataroot} at ${getRescueOrigin()}`, { version: showversion });
 
   //remove old servicestate files
   if (!isSecondaryManager) {
@@ -426,7 +441,7 @@ async function main() {
 }
 
 async function shutdownSignal(signal: NodeJS.Signals) {
-  log(`Received signal '${signal}'${shuttingdown ? ' but already shutting down' : ', shutting down'}`);
+  smLog(`Received signal '${signal}'${shuttingdown ? ' but already shutting down' : ', shutting down'}`, { signal, wasShuttingDown: shuttingdown });
   shutdown();
 }
 
@@ -454,7 +469,7 @@ process.on("SIGTERM", shutdownSignal);
 process.on("uncaughtException", (err, origin) => {
   console.error("Uncaught exception", err, origin);
   shutdown();
-  log(`Uncaught exception`);
+  smLog(`Uncaught exception`, { error: String(err), origin: String(origin) });
 });
 
 main().then(exitcode => { process.exitCode = exitcode; }, e => console.error(e));
