@@ -1,5 +1,8 @@
+/* See servicemanager/main.ts on how to run a separate servicemanager process for faster testing (and as this test creates modules
+   I'd also recommend a freshdbconsole or at least an install with a minimal amount of modules) */
+
 import { openBackendService } from "@webhare/services/src/backendservice";
-import { type ServiceManagerClient } from "@mod-platform/js/bootstrap/servicemanager";
+import { type ServiceManagerClient } from "@mod-platform/js/bootstrap/servicemanager/main";
 import * as test from "@webhare/test";
 import { deleteTestModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
 import { backendConfig } from "@webhare/services/src/services";

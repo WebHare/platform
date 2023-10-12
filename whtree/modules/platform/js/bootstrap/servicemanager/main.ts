@@ -1,11 +1,11 @@
 /* For now: experimental service runner to replace webhare.cpp and decentral service managers
-   Invoke using wh run mod::platform/js/bootstrap/servicemanager.ts
+   Invoke using wh run mod::platform/js/bootstrap/servicemanager/main.ts
 
    When debugging us, it may be useful to run a second instance for easy restarting. To do this:
    - Start your primary instance with a different service name:
      wh console --name platform:altsm --exclude "webhare_testsuite_temp:*"
    - Start a secondary instance
-     wh run mod::platform/js/bootstrap/servicemanager.ts --secondary -v --include "webhare_testsuite_temp:*"
+     wh run mod::platform/js/bootstrap/servicemanager/main.ts --secondary -v --include "webhare_testsuite_temp:*"
 
   If you're stuck with a lot of stray processes on OSX an effective way to kill them all is:
   kill $(ps ewwax|grep ' WEBHARE_SERVICEMANAGERID=' | cut -d' ' -f1)
@@ -19,7 +19,7 @@ import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import * as child_process from "child_process";
 import { createDeferred, generateRandomId, sleep, wildcardsToRegExp } from "@webhare/std";
 import { getCompileServerOrigin, getRescueOrigin } from "@mod-system/js/internal/configuration";
-import { RotatingLogFile } from "../logging/rotatinglogfile";
+import { RotatingLogFile } from "../../logging/rotatinglogfile";
 import runBackendService from '@mod-system/js/internal/webhareservice';
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
 import { getAllModuleYAMLs } from '@webhare/services/src/moduledefparser';
