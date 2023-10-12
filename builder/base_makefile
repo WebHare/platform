@@ -485,7 +485,7 @@ parsers_DEPLOYABLES = $(parsers_DEPLOYABLES_WHAP)
 
 # AP
 AP_DEPLOYABLES_SERVERS = webserver whmanager
-AP_DEPLOYABLES_UTILS = runscript whcompile webhare
+AP_DEPLOYABLES_UTILS = runscript whcompile
 ap_DEPLOYABLES_WHAP = \
 	$(AP_libwebhare) \
 	lib/hsm_system_geoip$(DLL_SUFFIX) \
