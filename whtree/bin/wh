@@ -339,16 +339,6 @@ case $INSTR in
       exit 1
     fi
 
-    # Show version and restore information
-    echo -n "WebHare version: $WEBHARE_VERSION"
-    if [ "$WEBHARE_ISRESTORED" == "1" ]; then
-      echo " (restored)"
-    elif [ -n "$WEBHARE_ISRESTORED" ]; then
-      echo " ($WEBHARE_ISRESTORED)"
-    else
-      echo ""
-    fi
-
     TOSHOWFILE=
     if [ "$DEBUGTAGS" == "cov" ]; then
       runscript --workerthreads 4 "mod::system/scripts/debug/analyze_coverage.whscr" --deleteprofiles
@@ -363,17 +353,29 @@ case $INSTR in
       WEBHARE_DEBUG=""
     fi
 
+    # check if file ulimit is below 1024
+    FILELIMIT=$(ulimit -n)
+    if [[ "$FILELIMIT" != "unlimited" ]] && (( $FILELIMIT < 1024 )) ; then
+      echo ""
+      echo "** WARNING: The current filedescriptor limit is set to $FILELIMIT, you should raise it above 1024 (but probably more)"
+      echo ""
+      sleep 3
+    fi
+
     # reset current directory, make sure we're not on a mountpunt (and would dump any coredumps over the network)
     cd /tmp/
 
     [ -n "$DEBUGSTARTUP" ] && logWithTime "Launching in console mode"
 
+    SERVICEMANAGER="$WEBHARE_DIR/modules/platform/js/bootstrap/servicemanager.ts"
+    # 100 spaces to allocate room for updating the process.title
+    PS_SPACER="                                                                                                    "
     if [ "$DEBUGTAGS" == "" ]; then # no processing needed, just exec
-      exec $WEBHARE_DIR/bin/webhare "$@" console
+      exec_wh_runjs "$SERVICEMANAGER" "$@" "$PS_SPACER"
       exit 255
     fi
 
-    $WEBHARE_DIR/bin/webhare "$@" console
+    wh_runjs "$SERVICEMANAGER" "$@" "$PS_SPACER"
 
     if [ "$DEBUGTAGS" == "cov" ]; then
       echo

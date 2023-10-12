@@ -1,4 +1,4 @@
-import { LoggableRecord } from "@webhare/services";
+import { LoggableRecord } from "@webhare/services/src/logmessages";
 import { WebRequest } from "./request";
 import { createJSONResponse, createWebResponse, HTTPErrorCode, HTTPSuccessCode, WebResponse } from "./response";
 

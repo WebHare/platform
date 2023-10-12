@@ -1,3 +1,4 @@
+import { LoggableRecord, formatLogObject } from '@webhare/services/src/logmessages';
 import * as fs from 'node:fs';
 
 export class RotatingLogFile {
@@ -6,16 +7,19 @@ export class RotatingLogFile {
   private logfd = 0;
   private readonly stdout;
 
-  constructor(basepath: string, { stdout }: { stdout?: boolean } = {}) {
+  constructor(basepath: string | null, { stdout }: { stdout?: boolean } = {}) {
     this.basepath = basepath;
     this.stdout = stdout || false;
   }
 
-  log(line: string) {
+  log(line: string, data?: LoggableRecord) {
     //TODO escape any control characters in 'line
     const date = (new Date).toISOString();
     if (this.stdout)
       console.log(`[${date}] ${line}`);
+
+    if (!this.basepath)
+      return; //not atually logging to a file
 
     const day = date.substring(0, 10); //YYYY-MM-DD
 
@@ -27,6 +31,6 @@ export class RotatingLogFile {
       this.lastdate = day;
     }
 
-    fs.writeFile(this.logfd, `[${date}] ${line}\n`, () => { });
+    fs.writeFile(this.logfd, formatLogObject(date, { message: line, ...data }) + '\n', () => { });
   }
 }

@@ -1,24 +1,59 @@
 /* For now: experimental service runner to replace webhare.cpp and decentral service managers
    Invoke using wh run mod::platform/js/bootstrap/servicemanager.ts
+
+   When debugging us, it may be useful to run a second instance for easy restarting. To do this:
+   - Start your primary instance with a different service name:
+     wh console --name platform:altsm --exclude "webhare_testsuite_temp:*"
+   - Start a secondary instance
+     wh run mod::platform/js/bootstrap/servicemanager.ts --secondary -v --include "webhare_testsuite_temp:*"
+
+  If you're stuck with a lot of stray processes on OSX an effective way to kill them all is:
+  kill $(ps ewwax|grep ' WEBHARE_SERVICEMANAGERID=' | cut -d' ' -f1)
 */
 
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import { debugFlags } from "@webhare/env/src/envbackend";
-import { backendConfig } from "@webhare/services/src/services";
+import { backendConfig, resolveResource } from "@webhare/services/src/services";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import * as child_process from "child_process";
-import { createDeferred, sleep } from "@webhare/std";
+import { createDeferred, generateRandomId, sleep, wildcardsToRegExp } from "@webhare/std";
 import { getCompileServerOrigin, getRescueOrigin } from "@mod-system/js/internal/configuration";
 import { RotatingLogFile } from "../logging/rotatinglogfile";
+import runBackendService from '@mod-system/js/internal/webhareservice';
+import { program } from 'commander'; //https://www.npmjs.com/package/commander
+import { getAllModuleYAMLs } from '@webhare/services/src/moduledefparser';
+import { LoggableRecord } from "@webhare/services/src/logmessages";
+import bridge from '@mod-system/js/internal/whmanager/bridge';
+
+program.name("servicemanager")
+  .option("-s, --secondary", "Mark us as a secondary service manager")
+  .option("-v, --verbose", "Verbose logging (also set by 'startup' debug flag)")
+  .option("--name [servicename]", "Name for the backend service to manage us", "platform:servicemanager")
+  .option("--include <mask>", "Only manage services that match this mask", "")
+  .option("--exclude <mask>", "Do not manage services that match this mask", "")
+  .parse();
 
 enum Stages { Bootup, StartupScript, Active, Terminating, ShuttingDown }
 let currentstage = Stages.Bootup;
 const DefaultShutdownStage = Stages.Terminating;
 const DefaultTimeout = 5000;
+///minimum time the proces must be running before we throttle startup
+const MinimumRunTime = 60000;
+///maximum startup delay
+const MaxStartupDelay = 60000;
 const MaxLineLength = 512;
 const earlywebserver = process.env.WEBHARE_WEBSERVER == "node";
+const isSecondaryManager: boolean = program.opts().secondary;
+const verbose = program.opts().verbose || debugFlags.startup;
+const ServiceManagerId = process.env.WEBHARE_SERVICEMANAGERID || generateRandomId("base64url");
+
+const setProcessTitles = os.platform() === "linux";
+const setTerminalTitles = os.platform() === "darwin";
+
+let keepAlive: NodeJS.Timeout | null = null;
 let shuttingdown = false;
-let logfile;
+let logfile: RotatingLogFile | undefined;
 
 interface ServiceDefinition {
   cmd: string[];
@@ -45,7 +80,7 @@ const stagetitles: Record<Stages, string> = {
   [Stages.ShuttingDown]: "Shutting down bridge and database"
 };
 
-const expectedServices: Record<string, ServiceDefinition> = {
+const defaultServices: Record<string, ServiceDefinition> = {
   "platform:whmanager": {
     cmd: ["whmanager"],
     startIn: Stages.Bootup,
@@ -95,36 +130,75 @@ const expectedServices: Record<string, ServiceDefinition> = {
   }
 };
 
+const expectedServices = new Map<string, ServiceDefinition>();
+
+function smLog(text: string, data?: LoggableRecord) {
+  if (!logfile) {
+    console.error("** This smLog() call happened too early!");
+    console.error(text);
+    console.error(data);
+    console.error((new Error).stack);
+    return;
+  }
+
+  logfile.log(text, data);
+}
+
+function updateTitle(title: string) {
+  if (setProcessTitles)
+    process.title = title || "";
+  if (setTerminalTitles)
+    process.stdout.write(String.fromCharCode(27) + "]0;" + title + String.fromCharCode(7));
+}
+
 class ProcessManager {
   readonly name;
   readonly displayName;
   readonly service;
-  process;
+  process: ReturnType<typeof child_process.spawn> | null = null;
   stdout = "";
   stderr = "";
   running = false;
   toldToStop = false;
   stopDefer = createDeferred();
   killTimeout: NodeJS.Timeout | null = null;
+  started: number | null = null;
+  startDelay;
+  startDelayTimer: NodeJS.Timeout | null = null;
 
-  constructor(name: string, service: ServiceDefinition) {
+  constructor(name: string, service: ServiceDefinition, startDelay = 0) {
     this.name = name;
     this.displayName = name.startsWith("platform:") ? name.substring(9) : name;
     this.service = service;
+    this.startDelay = startDelay;
     service.current = this;
     processes.add(this);
 
-    const cmd = service.cmd[0].includes('/') ? service.cmd[0] : `${backendConfig.installationroot}bin/${service.cmd[0]}`;
-    const args = service.cmd.slice(1);
-    if (debugFlags.startup)
-      log(`Starting ${name}: ${cmd}${args.length ? ` with ${JSON.stringify(args)}` : ""}`);
+    this.startDelayTimer = setTimeout(() => this.start(), startDelay);
+  }
 
+  log(text: string, data?: LoggableRecord) {
+    const at = this.started ? Date.now() - this.started : null;
+    smLog(`${this.displayName}: ${text}`, { message: text, service: this.name, at, ...data });
+  }
+
+  start() {
+    const cmd = this.service.cmd[0].includes('/') ? this.service.cmd[0] : `${backendConfig.installationroot}bin/${this.service.cmd[0]}`;
+    const args = this.service.cmd.slice(1);
+
+    if (debugFlags.startup)
+      this.log(`Starting ${cmd}${args.length ? ` with ${JSON.stringify(args)}` : ""}`);
+
+    this.started = Date.now();
+    this.startDelayTimer = null;
     this.process = child_process.spawn(cmd, args, {
       stdio: ['ignore', 'pipe', 'pipe'],  //no STDIN, we catch the reset
       detached: true, //separate process group so a terminal CTRL+C doesn't get sent to our subs (And we get to properly shut them down)
       env: {
         ...process.env,
-        //Prevent manual compiles for processes started through us (WE'll manage whcompile)
+        ///Unique ID to find children
+        WEBHARE_SERVICEMANAGERID: ServiceManagerId,
+        //Prevent manual compiles for processes started through us (We'll manage whcompile)
         WEBHARE_NOMANUALCOMPILE: "1",
         //For backwards compatibility, don't leak these. Maybe we should set them and inherit them everywhere, but it currently breaks starting other node-based services (Eg chatplane)
         NODE_PATH: "",
@@ -132,8 +206,8 @@ class ProcessManager {
       }
     });
 
-    this.process.stdout.on('data', data => this.processOutput("stdout", data));
-    this.process.stderr.on('data', data => this.processOutput("stderr", data));
+    this.process.stdout!.on('data', data => this.processOutput("stdout", data));
+    this.process.stderr!.on('data', data => this.processOutput("stderr", data));
     this.process.on("spawn", () => this.processStarted());
     this.process.on("exit", (code, signal) => this.processExit(code, signal));
   }
@@ -153,14 +227,14 @@ class ProcessManager {
 
   renderOutput(stream: "stdout" | "stderr", lines: string[]) {
     for (const line of lines)
-      log(`${this.displayName} ${stream}: ${line}`);
+      this.log(line, { stream });
   }
 
   processStarted() {
     this.running = true;
   }
 
-  processExit(errorCode: number | null, signal: string | null) {
+  processExit(exitCode: number | null, signal: string | null) {
     for (const stream of ["stdout", "stderr"] as const)
       if (this[stream])
         this.renderOutput(stream, [this[stream]]);
@@ -171,14 +245,14 @@ class ProcessManager {
     this.running = false;
     if (!this.toldToStop || debugFlags.startup) {
       if (signal)
-        log(`Service ${this.displayName} exited with signal ${signal} `);
-      else if (errorCode || this.service.keepAlive) //no need to mention a normal shutdown for a singleshot service
-        log(`Service ${this.displayName} exited with code ${errorCode} `);
+        this.log(`Exited with signal ${signal}`, { exitSignal: signal });
+      else if (exitCode || this.service.keepAlive) //no need to mention a normal shutdown for a singleshot service
+        this.log(`Exited with code ${exitCode} `, { exitCode: exitCode });
     }
 
-    const exitreason = signal ?? errorCode ?? "unknown";
+    const exitreason = signal ?? exitCode ?? "unknown";
     if (this.service.isExitFatal && !this.toldToStop && this.service.isExitFatal(exitreason)) {
-      log(`Exit of service ${this.displayName} is considered fatal, shutting down`);
+      this.log(`Exit is considered fatal, shutting down service manager`);
       shutdown();
     }
 
@@ -187,25 +261,37 @@ class ProcessManager {
     processes.delete(this);
 
     if (!shuttingdown && this.service.keepAlive) {
-      log(`Restarting service ${this.displayName}`);
-      new ProcessManager(this.name, this.service);
+      if (!this.started || Date.now() < this.started + MinimumRunTime) {
+        this.startDelay = Math.min(this.startDelay * 2 || 1000, MaxStartupDelay);
+        this.log(`Throttling, will restart after ${this.startDelay / 1000} seconds`);
+      } else {
+        this.startDelay = 0;
+        this.log(`Restarting`);
+      }
+      new ProcessManager(this.name, this.service, this.startDelay);
     }
   }
 
   async stop() {
+    if (this.startDelayTimer) {
+      clearTimeout(this.startDelayTimer);
+      this.startDelayTimer = null;
+    }
     if (!this.running)
       return;
 
     this.toldToStop = true;
-    this.process.kill(this.service.stopSignal ?? "SIGTERM");
+    if (verbose)
+      this.log(`Stopping service`);
+    this.process!.kill(this.service.stopSignal ?? "SIGTERM");
 
     const timeout = this.service.stopTimeout ?? DefaultTimeout;
     if (timeout !== Infinity) {
       this.killTimeout =
         setTimeout(() => {
           if (this.running) {
-            log(`Killing service ${this.displayName} - timeout of ${timeout}ms to shutdown reached`);
-            this.process.kill("SIGKILL");
+            this.log(`Killing service - timeout of ${timeout}ms to shutdown reached`);
+            this.process!.kill("SIGKILL");
           }
         }, timeout);
     }
@@ -216,20 +302,30 @@ class ProcessManager {
 
 const processes = new Set<ProcessManager>;
 
+/// Move to a new stage
 async function startStage(stage: Stages): Promise<void> {
-  const subpromises = [];
-  process.title = `webhare: ${stagetitles[stage]} `;
+  if (verbose)
+    smLog(`Entering stage: ${stagetitles[stage]} `, { stage: stagetitles[stage] }); //TODO shouldn't we be logging a tag/string instead of a full title
   currentstage = stage;
-  if (debugFlags.startup)
-    log(`Starting stage: ${stagetitles[stage]} `);
+  return await updateForCurrentStage();
+}
 
+function updateVisibleState() {
+  updateTitle(`webhare: ${stagetitles[currentstage]} - ${backendConfig.servername}`);
+}
+
+/// Actually apply the current stage. Also used when configurationchanges
+async function updateForCurrentStage(): Promise<void> {
+  updateVisibleState();
+
+  const subpromises = [];
   for (const process of [...processes]) {
-    if ((process.service.stopIn ?? DefaultShutdownStage) === stage)
+    if ((process.service.stopIn ?? DefaultShutdownStage) === currentstage || !expectedServices.has(process.name))
       subpromises.push(process.stop());
   }
 
-  for (const [name, service] of Object.entries(expectedServices)) {
-    if (service.startIn === stage && !service.current) {
+  for (const [name, service] of expectedServices.entries()) {
+    if (service.startIn === currentstage && !service.current) {
       const proc = new ProcessManager(name, service);
       if (service.waitForCompletion)
         subpromises.push(proc.stopDefer.promise); //TODO should we have a timeout? (but what do you do if it hits? terminate? move to next stage?)
@@ -239,11 +335,6 @@ async function startStage(stage: Stages): Promise<void> {
   await Promise.all(subpromises);
 }
 
-//FIXME open the servicemanager.log. build or find a rotator. log everything there too
-function log(text: string) {
-  logfile!.log(text);
-}
-
 async function waitForCompileServer() {
   // eslint-disable-next-line no-unmodified-loop-condition -- it's modified through the signal handler
   while (!shuttingdown) {
@@ -251,7 +342,7 @@ async function waitForCompileServer() {
       await fetch(getCompileServerOrigin());
       return;
     } catch (e) {
-      await sleep(500);
+      await sleep(100);
     }
   }
 }
@@ -273,25 +364,97 @@ function unlinkServicestateFiles() {
   signal(SIGTTOU, SIG_IGN);
 */
 
+class ServiceManagerClient {
+  getWebHareState() {
+    return {
+      stage: stagetitles[currentstage],
+      availableServices: [...expectedServices.entries()].map(([name, service]) => ({
+        name
+      }))
+    };
+  }
+  async reload() {
+    await loadServiceList(); //we block this so the service will be visible in the next getWebhareState from this client
+    updateForCurrentStage(); //I don't think we need to block clients on startup of services ? they can wait themselves
+  }
+}
+
+export async function gatherManagedServices(): Promise<Record<string, ServiceDefinition>> {
+  const services: Record<string, ServiceDefinition> = {};
+
+  for (const mod of await getAllModuleYAMLs()) {
+    if (mod.managedServices)
+      for (const [name, servicedef] of Object.entries(mod.managedServices)) {
+        if (servicedef?.script) {
+          const cmd = ["wh", "run", resolveResource(mod.baseResourcePath, servicedef.script)];
+          services[`${mod.module}:${name}`] = {
+            cmd,
+            startIn: Stages.Active,
+            keepAlive: true
+          };
+        }
+      }
+  }
+
+  return services;
+}
+
+async function loadServiceList() {
+  const include = program.opts().include ? new RegExp(wildcardsToRegExp(program.opts().include)) : null;
+  const exclude = program.opts().exclude ? new RegExp(wildcardsToRegExp(program.opts().exclude)) : null;
+  const allservices = Object.entries({ ...await gatherManagedServices(), ...defaultServices });
+
+  const removeServices = new Set(expectedServices.keys());
+
+  for (const [name, servicedef] of allservices) {
+    if ((include && !include.test(name)) || (exclude && exclude.test(name)) || (isSecondaryManager && !include))
+      continue;
+
+    expectedServices.set(name, servicedef);
+    removeServices.delete(name);
+  }
+
+  for (const service of removeServices) {
+    expectedServices.get(service)!.keepAlive = false;
+    expectedServices.delete(service);
+  }
+}
+
 async function main() {
   if (!backendConfig.dataroot) {
     console.error("Cannot start WebHare. Data root not set");
     return 1;
   }
 
+  keepAlive = setInterval(() => { }, 1000 * 60 * 60 * 24); //keep us alive
+
+  //TODO check if webhare isn't already running when not started with --secondary
+
+  //Setting up logs must be one of the first things we do so log() works
   fs.mkdirSync(backendConfig.dataroot + "log", { recursive: true });
-  logfile = new RotatingLogFile(backendConfig.dataroot + "log/servicemanager", { stdout: true });
+  logfile = new RotatingLogFile(isSecondaryManager ? null : backendConfig.dataroot + "log/servicemanager", { stdout: true });
+
+  await loadServiceList();
+  bridge.on("event", event => {
+    if (event.name === "system:configupdate")
+      setImmediate(() => updateVisibleState()); //ensure the bridge is uptodate (TODO can't we have bridge's updateConfig signal us so we're sure we're not racing it)
+  });
 
   const showversion = process.env.WEBHARE_DISPLAYBUILDINFO ?? backendConfig.buildinfo.version ?? "unknown";
-  log(`Starting WebHare ${showversion} in ${backendConfig.dataroot} at ${getRescueOrigin()}`);
+  smLog(`Starting WebHare ${showversion} in ${backendConfig.dataroot} at ${getRescueOrigin()}`, { version: showversion });
 
   //remove old servicestate files
-  unlinkServicestateFiles();
-
-  storeDiskFile(backendConfig.dataroot + ".webhare.pid", process.pid.toString() + "\n", { overwrite: true });
+  if (!isSecondaryManager) {
+    unlinkServicestateFiles();
+    storeDiskFile(backendConfig.dataroot + ".webhare.pid", process.pid.toString() + "\n", { overwrite: true });
+  }
 
   await startStage(Stages.Bootup);
-  await waitForCompileServer();
+  if (!isSecondaryManager)
+    await waitForCompileServer();
+
+  //FIXME do we need to wait for the bridge to be ready? do we auto reregister when the bridge comes back?
+  runBackendService(program.opts().name, () => new ServiceManagerClient, { autoRestart: false, dropListenerReference: true });
 
   if (!shuttingdown)
     await startStage(Stages.StartupScript);
@@ -302,20 +465,28 @@ async function main() {
 }
 
 async function shutdownSignal(signal: NodeJS.Signals) {
-  log(`Received signal '${signal}', shutting down.`);
+  smLog(`Received signal '${signal}'${shuttingdown ? ' but already shutting down' : ', shutting down'}`, { signal, wasShuttingDown: shuttingdown });
   shutdown();
 }
 
 async function shutdown() {
+  if (shuttingdown)
+    return;
+  if (keepAlive)
+    clearTimeout(keepAlive);
+
   shuttingdown = true;
   await startStage(Stages.Terminating);
   await startStage(Stages.ShuttingDown);
-  try {
-    fs.unlinkSync(backendConfig.dataroot + ".webhare.pid");
-  } catch (e) {
-    console.error("Failed to remove webhare.pid file", e);
-  }
+  updateTitle('');
 
+  if (!isSecondaryManager) {
+    try {
+      fs.unlinkSync(backendConfig.dataroot + ".webhare.pid");
+    } catch (e) {
+      console.error("Failed to remove webhare.pid file", e);
+    }
+  }
 }
 
 process.on("SIGINT", shutdownSignal);
@@ -323,6 +494,9 @@ process.on("SIGTERM", shutdownSignal);
 process.on("uncaughtException", (err, origin) => {
   console.error("Uncaught exception", err, origin);
   shutdown();
-  log(`Uncaught exception`);
+  smLog(`Uncaught exception`, { error: String(err), origin: String(origin) });
 });
+
 main().then(exitcode => { process.exitCode = exitcode; }, e => console.error(e));
+
+export type { ServiceManagerClient };

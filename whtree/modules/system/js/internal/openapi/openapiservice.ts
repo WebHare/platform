@@ -9,6 +9,7 @@ import { WebRequestInfo, WebResponseInfo } from "../types";
 import { getOpenAPIService } from "@webhare/services/src/moduledefparser";
 import { registerLoadedResource } from "../hmrinternal";
 import { newWebRequestFromInfo } from "@webhare/router/src/request";
+import { LoggableRecord } from "@webhare/services/src/logmessages";
 
 // A REST service supporting an OpenAPI definition
 export class RestService {
@@ -39,7 +40,7 @@ export class RestService {
   logRequest(logger: LogInfo, status: number, response: number) {
     const totaltime = performance.now() - logger.start;
     const timings = { ...logger.timings, total: totaltime };
-    const logrec: services.LoggableRecord = { service: this.servicename, method: logger.method, route: logger.route, status, sourceip: logger.sourceip, response, timings };
+    const logrec: LoggableRecord = { service: this.servicename, method: logger.method, route: logger.route, status, sourceip: logger.sourceip, response, timings };
     if (logger.authorized)
       logrec.authorized = logger.authorized;
 

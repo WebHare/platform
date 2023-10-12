@@ -1,12 +1,11 @@
-import bridge, { LogErrorOptions, LogNoticeOptions, LoggableRecord } from "@mod-system/js/internal/whmanager/bridge";
-export { LoggableRecord } from "@mod-system/js/internal/whmanager/bridge";
+import bridge, { LogErrorOptions, LogNoticeOptions } from "@mod-system/js/internal/whmanager/bridge";
+import { LoggableRecord } from "./logmessages";
 import { backendConfig } from "./services";
 import fs from "fs/promises";
 import { checkModuleScopedName } from "./naming";
 import { getModuleDefinition } from "./moduledefinitions";
 import { escapeRegExp } from "@webhare/std";
 import { readFileSync } from "fs";
-
 
 type LogReadField = string | number | boolean | null | LogReadField[] | { [key: string]: LogReadField };
 type LogLineBase = { "@timestamp": Date };

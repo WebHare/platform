@@ -9,7 +9,7 @@ export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource } from ".
 export { openBackendService, BackendServiceController } from "./backendservice";
 export { config as backendConfig, WebHareBackendConfiguration } from "./config";
 export { broadcast, subscribe, BackendEvent, BackendEventSubscription } from "./backendevents";
-export { log, logNotice, logError, logDebug, readLogLines, LoggableRecord } from "./logging";
+export { log, logNotice, logError, logDebug, readLogLines } from "./logging";
 export { ResourceDescriptor } from "./descriptor";
 export { lockMutex, type Mutex } from "./mutex";
 export { TaskRequest, TaskResponse, scheduleTask, scheduleTimedTask } from "./tasks";
