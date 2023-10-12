@@ -17,6 +17,7 @@ import { isValidName } from "@webhare/whfs/src/support";
 import { AsyncWorker, ConvertWorkerServiceInterfaceToClientInterface } from "@mod-system/js/internal/worker";
 import { Crc32 } from "@mod-system/js/internal/util/crc32";
 import { escapePGIdentifier } from "@webhare/whdb";
+import { LogFileConfiguration } from "@mod-system/js/internal/whmanager/whmanager_rpcdefs";
 
 type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
 
@@ -902,6 +903,13 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
 
   wasmmodule.registerExternalFunction("__SYSTEM_GETPROCESSINFO::R:", (vm, id_set) => {
     id_set.setJSValue({ clientname: "emscripten", pid: process.pid, processcode: 0 }); //TODO do we need proper clientname/processcode?
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__SYSTEM_CONFIGUREREMOTELOGS::R:RA", async (vm, id_set, var_logfiles) => {
+    const logs = var_logfiles.getJSValue() as LogFileConfiguration[];
+    const result = await bridge.configureLogs(logs);
+    const errors = logs.filter((logfile, idx) => !result[idx]).map(logfile => ({ tag: logfile.tag, msg: `Can't open log ${logfile.tag}` }));
+    id_set.setJSValue({ errors });
   });
 
   wasmmodule.registerExternalFunction("GETSYSTEMHOSTNAME::S:B", (vm, id_set, var_full) => {

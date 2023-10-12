@@ -4,10 +4,11 @@ import * as fs from "fs";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { config } from "@mod-system/js/internal/configuration";
 import { activate } from "@mod-system/js/internal/hmrinternal";
-import { openHSVM, HSVM, HSVMObject } from "@webhare/services/src/hsvm";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
-import { toFSPath, WebHareBlob } from "@webhare/services";
+import { toFSPath } from "@webhare/services";
 import { storeDiskFile } from "@webhare/system-tools";
+import { installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
+import { loadlib } from "@webhare/harescript";
 
 async function testFileEdits() {
 
@@ -94,48 +95,21 @@ async function testFileEdits() {
   }, map);
 }
 
-async function createModule(hsvm: HSVM, name: string, files: Record<string, string>) {
-  const archive = await hsvm.loadlib("mod::system/whlibs/filetypes/archiving.whlib").CreateNewArchive("application/zip") as HSVMObject;
-  for (const [path, data] of Object.entries(files)) {
-    await archive.AddFile(name + "/" + path, WebHareBlob.from(data), new Date);
-  }
-  const modulearchive = await archive.MakeBlob();
-  const res = await hsvm.loadlib("mod::system/lib/internal/moduleimexport.whlib").ImportModule(modulearchive) as {
-    name: string;
-    path: string;
-    fullversion: string;
-    warnings: string[];
-    errors: string[];
-    importmodulename: string;
-    manifestdata: unknown;
-    orgmanifestdata: unknown;
-  };
-
-  // Wait for the module to show up in the local configuration
-  test.wait(() => Boolean(config.module[name]));
-
-  console.log(`installed ${name} to ${(res as { path: string }).path}`);
-  return res;
-}
-
 async function testModuleReplacement() {
-  const hsvm = await openHSVM();
-  await hsvm.loadlib("mod::system/lib/database.whlib").OpenPrimary();
-
   if (config.module["webhare_testsuite_hmrtest"]) {
     console.log(`delete module webhare_testsuite_hmrtest`);
-    if (!await hsvm.loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule("webhare_testsuite_hmrtest"))
+    if (!await loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule("webhare_testsuite_hmrtest"))
       throw new Error(`Could not delete module "webhare_testsuite_hmrtest"`);
   }
 
   if (config.module["webhare_testsuite_hmrtest2"]) {
     console.log(`delete module webhare_testsuite_hmrtest2`);
-    if (!await hsvm.loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule("webhare_testsuite_hmrtest2"))
+    if (!await loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule("webhare_testsuite_hmrtest2"))
       throw new Error(`Could not delete module "webhare_testsuite_hmrtest2"`);
   }
 
   console.log(`create module webhare_testsuite_hmrtest`);
-  const hmrtestresult = await createModule(hsvm, "webhare_testsuite_hmrtest", {
+  const hmrtestresult = await installTestModule("webhare_testsuite_hmrtest", {
     "moduledefinition.xml": `<?xml version="1.0"?>
 <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
   <meta>
@@ -147,7 +121,7 @@ async function testModuleReplacement() {
   });
 
   console.log(`create module webhare_testsuite_hmrtest2`);
-  const hmrtestresult2 = await createModule(hsvm, "webhare_testsuite_hmrtest2", {
+  const hmrtestresult2 = await installTestModule("webhare_testsuite_hmrtest2", {
     "moduledefinition.xml": `<?xml version="1.0"?>
 <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
   <meta>
@@ -185,7 +159,7 @@ export function func3() { return Number(file.trim()); }
   test.eq(1, require.cache[loaderfilepath]?.children.filter(({ id }) => id === toFSPath("mod::webhare_testsuite_hmrtest2/js/file3.ts")).length);
 
   console.log(`create 2nd version of module webhare_testsuite_hmrtest`);
-  const hmrtestresult_reupload = await createModule(hsvm, "webhare_testsuite_hmrtest", {
+  const hmrtestresult_reupload = await installTestModule("webhare_testsuite_hmrtest", {
     "moduledefinition.xml": `<?xml version="1.0"?>
 <module xmlns="http://www.webhare.net/xmlns/system/moduledefinition">
   <meta>
@@ -215,9 +189,9 @@ export function func3() { return Number(file.trim()); }
   test.assert(Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest2/js/file2.ts")));
   test.assert(Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest2/js/file3.ts")));
 
-  if (!await hsvm.loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule("webhare_testsuite_hmrtest"))
+  if (!await loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule("webhare_testsuite_hmrtest"))
     throw new Error(`Could not delete module "webhare_testsuite_hmrtest"`);
-  if (!await hsvm.loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule("webhare_testsuite_hmrtest2"))
+  if (!await loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule("webhare_testsuite_hmrtest2"))
     throw new Error(`Could not delete module "webhare_testsuite_hmrtest2"`);
 
 }

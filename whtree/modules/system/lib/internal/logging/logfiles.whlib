@@ -63,7 +63,7 @@ PUBLIC RECORD ARRAY FUNCTION ReconfigureLogFiles()
   errors :=
       SELECT tag
            , msg
-        FROM logfiles.errors CONCAT rec.errors;
+        FROM logfiles.errors CONCAT RECORD ARRAY(rec.errors);
 
   IF (LENGTH(errors) != 0)
     PRINT("Errors configuring log files:\n" || AnyToString(errors, "boxed"));

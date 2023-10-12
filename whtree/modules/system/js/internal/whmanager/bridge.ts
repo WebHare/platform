@@ -1,6 +1,6 @@
 import EventSource from "../eventsource";
 import { WHManagerConnection, WHMResponse } from "./whmanager_conn";
-import { WHMRequest, WHMRequestOpcode, WHMResponseOpcode, WHMProcessType, WHMResponse_IncomingEvent } from "./whmanager_rpcdefs";
+import { WHMRequest, WHMRequestOpcode, WHMResponseOpcode, WHMProcessType, WHMResponse_IncomingEvent, LogFileConfiguration } from "./whmanager_rpcdefs";
 import * as hsmarshalling from "./hsmarshalling";
 import { registerAsNonReloadableLibrary, getState as getHMRState } from "../hmrinternal";
 import { createDeferred, DeferredPromise, pick } from "@webhare/std";
@@ -155,6 +155,9 @@ interface Bridge extends EventSource<BridgeEvents> {
 
   /** Return bridge initialization data for the local bridge in a worker */
   getLocalHandlerInitDataForWorker(): LocalBridgeInitData;
+
+  /** Reconfigure log files */
+  configureLogs(logfiles: LogFileConfiguration[]): Promise<boolean[]>;
 }
 
 enum ToLocalBridgeMessageType {
@@ -163,6 +166,7 @@ enum ToLocalBridgeMessageType {
   FlushLogResult,
   EnsureDataSentResult,
   GetProcessListResult,
+  ConfigureLogsResult
 }
 
 type ToLocalBridgeMessage = {
@@ -184,6 +188,10 @@ type ToLocalBridgeMessage = {
   type: ToLocalBridgeMessageType.GetProcessListResult;
   requestid: number;
   processes: ProcessList;
+} | {
+  type: ToLocalBridgeMessageType.ConfigureLogsResult;
+  requestid: number;
+  results: boolean[];
 };
 
 enum ToMainBridgeMessageType {
@@ -195,6 +203,7 @@ enum ToMainBridgeMessageType {
   EnsureDataSent,
   GetProcessList,
   RegisterLocalBridge,
+  ConfigureLogs
 }
 
 type ToMainBridgeMessage = {
@@ -230,6 +239,10 @@ type ToMainBridgeMessage = {
   type: ToMainBridgeMessageType.RegisterLocalBridge;
   id: string;
   port: TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage>;
+} | {
+  type: ToMainBridgeMessageType.ConfigureLogs;
+  requestid: number;
+  config: LogFileConfiguration[];
 };
 
 type LocalBridgeInitData = {
@@ -277,6 +290,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
 
   pendingensuredatasent = new Map<number, () => void>();
   pendingflushlogs = new Map<number, { resolve: () => void; reject: (_: Error) => void }>;
+  pendingreconfigurelogs = new Map<number, (results: boolean[]) => void>();
   pendinggetprocesslists = new Map<number, (processlist: ProcessList) => void>();
 
   constructor(initdata: LocalBridgeInitData) {
@@ -348,6 +362,15 @@ class LocalBridge extends EventSource<BridgeEvents> {
         if (reg) {
           this.pendinggetprocesslists.delete(message.requestid);
           reg(message.processes);
+        }
+      } break;
+      case ToLocalBridgeMessageType.ConfigureLogsResult: {
+        const reg = this.pendingreconfigurelogs.get(message.requestid);
+        if (logmessages)
+          console.log(`localbridge ${this.id}: pendingreconfigurelogs result`, message.requestid, Boolean(reg));
+        if (reg) {
+          this.pendinggetprocesslists.delete(message.requestid);
+          reg(message.results);
         }
       } break;
       default:
@@ -521,6 +544,21 @@ class LocalBridge extends EventSource<BridgeEvents> {
     port2.unref();
     return { id, port: port2, consoleLogData };
   }
+
+  async configureLogs(logfiles: LogFileConfiguration[]) {
+    const requestid = ++this.requestcounter;
+    using lock = this.reftracker.getLock();
+    void (lock);
+
+    return await new Promise<boolean[]>((resolve) => {
+      this.pendingreconfigurelogs.set(requestid, resolve);
+      this.port.postMessage({
+        type: ToMainBridgeMessageType.ConfigureLogs,
+        requestid,
+        config: logfiles
+      });
+    });
+  }
 }
 
 type PortRegistration = {
@@ -551,6 +589,7 @@ class MainBridge extends EventSource<BridgeEvents> {
   requestcounter = 34000; // start here to aid debugging
   flushlogrequests = new Map<number, { port: TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage>; requestid: number }>;
   getprocesslistrequests = new Map<number, { port: TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage>; requestid: number }>;
+  configurelogrequests = new Map<number, { port: TypedMessagePort<ToLocalBridgeMessage, ToMainBridgeMessage>; requestid: number }>;
 
   systemconfig: Record<string, unknown>;
 
@@ -801,8 +840,18 @@ class MainBridge extends EventSource<BridgeEvents> {
           });
         }
       } break;
+      case WHMResponseOpcode.ConfigureLogsResult: {
+        const reg = this.configurelogrequests.get(data.requestid);
+        if (reg) {
+          this.configurelogrequests.delete(data.requestid);
+          reg.port.postMessage({
+            type: ToLocalBridgeMessageType.ConfigureLogsResult,
+            requestid: reg.requestid,
+            results: data.results
+          });
+        }
+      } break;
       case WHMResponseOpcode.AnswerException:
-      case WHMResponseOpcode.ConfigureLogsResult:
       case WHMResponseOpcode.UnregisterPortResult: {
         // all ignored
       } break;
@@ -996,6 +1045,28 @@ class MainBridge extends EventSource<BridgeEvents> {
       } break;
       case ToMainBridgeMessageType.RegisterLocalBridge: {
         this.registerLocalBridge(message.id, message.port);
+      } break;
+      case ToMainBridgeMessageType.ConfigureLogs: {
+        const ref = await this.waitReadyReturnRef();
+        try {
+          if (this.connectionactive) {
+            const requestid = this.allocateRequestId();
+            this.configurelogrequests.set(requestid, { port, requestid: message.requestid });
+            this.sendData({
+              opcode: WHMRequestOpcode.ConfigureLogs,
+              requestid,
+              config: message.config
+            });
+          } else {
+            port.postMessage({
+              type: ToLocalBridgeMessageType.GetProcessListResult,
+              requestid: message.requestid,
+              processes: []
+            });
+          }
+        } finally {
+          ref.release();
+        }
       } break;
       default:
         checkAllMessageTypesHandled(message, "type");

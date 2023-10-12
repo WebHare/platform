@@ -92,18 +92,19 @@ export type WHMRequest_GetProcessList = {
   opcode: WHMRequestOpcode.GetProcessList;
   requestid: number;
 };
+export type LogFileConfiguration = {
+  tag: string;
+  logroot: string;
+  logname: string;
+  logextension: string;
+  autoflush: boolean;
+  rotates: number;
+  timestamps: boolean;
+};
 export type WHMRequest_ConfigureLogs = {
   opcode: WHMRequestOpcode.ConfigureLogs;
   requestid: number;
-  config: Array<{
-    tag: string;
-    logroot: string;
-    logname: string;
-    logextension: string;
-    autoflush: boolean;
-    rotates: number;
-    timestamps: boolean;
-  }>;
+  config: LogFileConfiguration[];
 };
 export type WHMRequest_Log = {
   opcode: WHMRequestOpcode.Log;
