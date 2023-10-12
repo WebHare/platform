@@ -14,7 +14,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import { debugFlags } from "@webhare/env/src/envbackend";
-import { backendConfig, resolveResource } from "@webhare/services/src/services";
+import { backendConfig } from "@webhare/services/src/services";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import * as child_process from "child_process";
 import { createDeferred, generateRandomId, sleep, wildcardsToRegExp } from "@webhare/std";
@@ -22,9 +22,10 @@ import { getCompileServerOrigin, getRescueOrigin } from "@mod-system/js/internal
 import { RotatingLogFile } from "../../logging/rotatinglogfile";
 import runBackendService from '@mod-system/js/internal/webhareservice';
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
-import { getAllModuleYAMLs } from '@webhare/services/src/moduledefparser';
 import { LoggableRecord } from "@webhare/services/src/logmessages";
 import bridge from '@mod-system/js/internal/whmanager/bridge';
+import { getAllServices } from './gatherservices';
+import { ServiceDefinition, Stages } from './smtypes';
 
 program.name("servicemanager")
   .option("-s, --secondary", "Mark us as a secondary service manager")
@@ -34,8 +35,7 @@ program.name("servicemanager")
   .option("--exclude <mask>", "Do not manage services that match this mask", "")
   .parse();
 
-enum Stages { Bootup, StartupScript, Active, Terminating, ShuttingDown }
-let currentstage = Stages.Bootup;
+export let currentstage = Stages.Bootup;
 const DefaultShutdownStage = Stages.Terminating;
 const DefaultTimeout = 5000;
 ///minimum time the proces must be running before we throttle startup
@@ -43,7 +43,6 @@ const MinimumRunTime = 60000;
 ///maximum startup delay
 const MaxStartupDelay = 60000;
 const MaxLineLength = 512;
-const earlywebserver = process.env.WEBHARE_WEBSERVER == "node";
 const isSecondaryManager: boolean = program.opts().secondary;
 const verbose = program.opts().verbose || debugFlags.startup;
 const ServiceManagerId = process.env.WEBHARE_SERVICEMANAGERID || generateRandomId("base64url");
@@ -55,79 +54,12 @@ let keepAlive: NodeJS.Timeout | null = null;
 let shuttingdown = false;
 let logfile: RotatingLogFile | undefined;
 
-interface ServiceDefinition {
-  cmd: string[];
-  startIn: Stages;
-  ///stopIn should be used by passive services (ie that only respond to others) to stay up as active processes get terminated, mostly to reduce screams in the log
-  stopIn?: Stages;
-  ///stopSignal (defaults to SIGTERM)
-  stopSignal?: NodeJS.Signals;
-  ///Restart this service if it fails?
-  keepAlive: boolean;
-  ///Wait for this script to complete before moving to the next stage (TODO this may make keepAlive obsolete?)
-  waitForCompletion?: boolean;
-  ///override the stopTimeout. we used to do this for the WH databse server
-  stopTimeout?: number;
-  isExitFatal?: (terminationcode: string | number) => boolean;
-  current?: ProcessManager;
-}
-
 const stagetitles: Record<Stages, string> = {
   [Stages.Bootup]: "Booting critical proceses",
   [Stages.StartupScript]: "Running startup scripts", //not entirely accurate, in this phase we also bootup webserver & apprunner etc
   [Stages.Active]: "Online",
   [Stages.Terminating]: "Terminating subprocesses",
   [Stages.ShuttingDown]: "Shutting down bridge and database"
-};
-
-const defaultServices: Record<string, ServiceDefinition> = {
-  "platform:whmanager": {
-    cmd: ["whmanager"],
-    startIn: Stages.Bootup,
-    stopIn: Stages.ShuttingDown,
-    isExitFatal: () => currentstage < Stages.Active,
-    keepAlive: true
-  },
-  "platform:database": {
-    cmd: ["postgres.sh"],
-    startIn: Stages.Bootup,
-    stopIn: Stages.ShuttingDown,
-    isExitFatal: () => currentstage < Stages.Active,
-    keepAlive: true,
-    /* To terminate the postgres server normally, the signals SIGTERM, SIGINT, or SIGQUIT can be used. The first will wait for all clients to terminate before
-       quitting, the second will forcefully disconnect all clients, and the third will quit immediately without proper shutdown, resulting in a recovery run during restart.
-    */
-    stopSignal: "SIGINT"
-  },
-  "platform:harescript-compiler": {
-    cmd: ["whcompile", "--listen"],
-    startIn: Stages.Bootup,
-    isExitFatal: () => currentstage < Stages.Active,
-    keepAlive: true
-  },
-  "platform:webserver": {
-    cmd: ["webserver.sh"],
-    //The node webserver doesn't need to wait for the compileserver so launch it right away
-    startIn: earlywebserver ? Stages.Bootup : Stages.StartupScript,
-    keepAlive: true
-  },
-  "platform:webhareservice-startup": {
-    cmd: ["runscript", "--workerthreads", "4", "mod::system/scripts/internal/webhareservice-startup.whscr"],
-    startIn: Stages.StartupScript,
-    keepAlive: false,
-    waitForCompletion: true
-  },
-  "platform:apprunner": {
-    cmd: ["runscript", "mod::system/scripts/internal/apprunner.whscr"],
-    startIn: Stages.Active,
-    keepAlive: true
-  },
-  "platform:clusterservices": {
-    cmd: ["runscript", "--workerthreads", "4", "mod::system/scripts/internal/clusterservices.whscr"],
-    startIn: Stages.StartupScript,
-    stopIn: Stages.ShuttingDown, //it'll otherwise quickly cause other scripts to crash with a lost connection
-    keepAlive: true
-  }
 };
 
 const expectedServices = new Map<string, ServiceDefinition>();
@@ -379,31 +311,10 @@ class ServiceManagerClient {
   }
 }
 
-export async function gatherManagedServices(): Promise<Record<string, ServiceDefinition>> {
-  const services: Record<string, ServiceDefinition> = {};
-
-  for (const mod of await getAllModuleYAMLs()) {
-    if (mod.managedServices)
-      for (const [name, servicedef] of Object.entries(mod.managedServices)) {
-        if (servicedef?.script) {
-          const cmd = ["wh", "run", resolveResource(mod.baseResourcePath, servicedef.script)];
-          services[`${mod.module}:${name}`] = {
-            cmd,
-            startIn: Stages.Active,
-            keepAlive: true
-          };
-        }
-      }
-  }
-
-  return services;
-}
-
 async function loadServiceList() {
   const include = program.opts().include ? new RegExp(wildcardsToRegExp(program.opts().include)) : null;
   const exclude = program.opts().exclude ? new RegExp(wildcardsToRegExp(program.opts().exclude)) : null;
-  const allservices = Object.entries({ ...await gatherManagedServices(), ...defaultServices });
-
+  const allservices = Object.entries(await getAllServices());
   const removeServices = new Set(expectedServices.keys());
 
   for (const [name, servicedef] of allservices) {
@@ -499,4 +410,4 @@ process.on("uncaughtException", (err, origin) => {
 
 main().then(exitcode => { process.exitCode = exitcode; }, e => console.error(e));
 
-export type { ServiceManagerClient };
+export type { ServiceManagerClient, ProcessManager };
