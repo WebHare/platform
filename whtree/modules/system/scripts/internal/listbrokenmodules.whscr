@@ -16,7 +16,7 @@ RECORD args := ParseArguments(GetConsoleArguments(),
 
 STRING ARRAY brokenmodules;
 FOREVERY (STRING modulename FROM GetInstalledModulenames())
-  IF(Length(CheckNodeModulesInModule(GetModuleInstallationRoot(modulename))) > 0)
+  IF(modulename NOT IN whconstant_builtinmodules AND Length(CheckNodeModulesInModule(GetModuleInstallationRoot(modulename))) > 0)
     INSERT modulename INTO brokenmodules AT END;
 
 Print(Detokenize(brokenmodules,'\n')||'\n');
