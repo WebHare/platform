@@ -1992,7 +1992,10 @@ MACRO TestCanonizalization()
   STRING canonicalized := BlobToString(programdoc->GetCanonicalizedDocument("C14N 1.0", [ nodelist := signednodeset ]));
   IF (IsWasm())
   {
-    PRINT(`FIXME: canonicalization failure in WASM, ignored for now!\n`);
+    PRINT(`FIXME: canonicalization failure in WASM, ignored for now!
+Users of XML signatures and canonicalization are the iDEAL PSP (for which there are easier APIs already)
+and SAML (which should be deprecated and replaced with OIDC where possible). We may not need to bother with lowlevel C14N
+issues if we replace these users at a higher level (eg removing saml or using an external module in JS)\n`);
     RETURN;
   }
   TestEQ(`<a xmlns="urn::a"><b><c></c></b></a>`, canonicalized);
