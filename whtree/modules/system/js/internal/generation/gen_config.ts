@@ -264,6 +264,7 @@ function scanModuleFolder(modulemap: ModuleMap, folder: string, rootfolder: bool
 
 const updateCallbacks = new Array<() => void>;
 
+// Listen to local updateWebHareConfigFile changes. This is *not* a global (bridge event) config change listener.
 export function registerUpdateConfigCallback(cb: () => void) {
   updateCallbacks.push(cb);
 }

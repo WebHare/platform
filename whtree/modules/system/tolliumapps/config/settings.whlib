@@ -171,6 +171,7 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
     BroadcastEvent("system:internal.configdata", DEFAULT RECORD);
     BroadcastEvent("system:config.servertype", DEFAULT RECORD);
     UpdateSystemConfigurationRecord();
+    UpdateGeneratedFiles(["config"]);
     RevokeAllWebsessionAuthentications(); //make sure all auth scripts run again
 
     RETURN TRUE;

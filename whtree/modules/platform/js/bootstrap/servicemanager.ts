@@ -24,6 +24,7 @@ import runBackendService from '@mod-system/js/internal/webhareservice';
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
 import { getAllModuleYAMLs } from '@webhare/services/src/moduledefparser';
 import { LoggableRecord } from "@webhare/services/src/logmessages";
+import bridge from '@mod-system/js/internal/whmanager/bridge';
 
 program.name("servicemanager")
   .option("-s, --secondary", "Mark us as a secondary service manager")
@@ -308,11 +309,15 @@ async function startStage(stage: Stages): Promise<void> {
   return await updateForCurrentStage();
 }
 
+function updateVisibleState() {
+  updateTitle(`webhare: ${stagetitles[currentstage]} - ${backendConfig.servername}`);
+}
+
 /// Actually apply the current stage. Also used when configurationchanges
 async function updateForCurrentStage(): Promise<void> {
-  const subpromises = [];
-  updateTitle(`webhare: ${stagetitles[currentstage]}`);
+  updateVisibleState();
 
+  const subpromises = [];
   for (const process of [...processes]) {
     if ((process.service.stopIn ?? DefaultShutdownStage) === currentstage || !expectedServices.has(process.name))
       subpromises.push(process.stop());
@@ -429,6 +434,10 @@ async function main() {
   logfile = new RotatingLogFile(isSecondaryManager ? null : backendConfig.dataroot + "log/servicemanager", { stdout: true });
 
   await loadServiceList();
+  bridge.on("event", event => {
+    if (event.name === "system:configupdate")
+      setImmediate(() => updateVisibleState()); //ensure the bridge is uptodate (TODO can't we have bridge's updateConfig signal us so we're sure we're not racing it)
+  });
 
   const showversion = process.env.WEBHARE_DISPLAYBUILDINFO ?? backendConfig.buildinfo.version ?? "unknown";
   smLog(`Starting WebHare ${showversion} in ${backendConfig.dataroot} at ${getRescueOrigin()}`, { version: showversion });
