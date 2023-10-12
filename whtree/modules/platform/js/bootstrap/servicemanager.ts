@@ -265,6 +265,7 @@ class ProcessManager {
         this.startDelay = Math.min(this.startDelay * 2 || 1000, MaxStartupDelay);
         this.log(`Throttling, will restart after ${this.startDelay / 1000} seconds`);
       } else {
+        this.startDelay = 0;
         this.log(`Restarting`);
       }
       new ProcessManager(this.name, this.service, this.startDelay);
