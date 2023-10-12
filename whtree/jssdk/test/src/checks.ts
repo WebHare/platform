@@ -250,7 +250,7 @@ export function eq<T>(expected: RecursiveOrRegexp<T>, actual: T, annotation?: An
 /* TypeScript requires assertions to return void, so we can't just "asserts actual" here if we return the original value.
    assert's returnvalue isn't that useful so it seems worth giving up the return value for cleaner testcode
 */
-export function assert<T>(actual: Exclude<T, Promise<unknown>>, annotation?: Annotation): asserts actual {
+export function assert<T>(actual: [T] extends [void] ? T & false : Exclude<T, Promise<unknown>>, annotation?: Annotation): asserts actual {
   if ((actual as Promise<unknown>)?.then)
     throw new Error(`You cannot assert on a promise. Did you forget to await it?`);
 
