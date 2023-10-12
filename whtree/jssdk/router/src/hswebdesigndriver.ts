@@ -48,7 +48,7 @@ export async function wrapHSWebdesign<T extends object>(request: SiteRequest): P
 
   const siteprofileslib = hsvm.loadlib("mod::publisher/lib/siteprofiles.whlib");
   const webdesign = await siteprofileslib.GetWebDesign(request.targetObject.id) as HSVMObject;
-  const pageConfig = await webdesign.get("pageConfig");
+  const pageConfig = await webdesign.getPageconfigForJS();
 
   return new HSWebdesignDriver<T>(hsvm, webdesign, pageConfig as T, request, new SiteResponseSettings);
 }
