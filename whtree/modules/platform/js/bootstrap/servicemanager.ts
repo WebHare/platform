@@ -375,7 +375,7 @@ class ServiceManagerClient {
   }
   async reload() {
     await loadServiceList(); //we block this so the service will be visible in the next getWebhareState from this client
-    updateForCurrentStage(); //I don't think we need to block clients on startup of services ? they can wait themslevs
+    updateForCurrentStage(); //I don't think we need to block clients on startup of services ? they can wait themselves
   }
 }
 
@@ -453,7 +453,7 @@ async function main() {
   if (!isSecondaryManager)
     await waitForCompileServer();
 
-  //FIXME do we need to wait for the bridge to be ready? do we auto reregister when te bridge comes bakck?
+  //FIXME do we need to wait for the bridge to be ready? do we auto reregister when the bridge comes back?
   runBackendService(program.opts().name, () => new ServiceManagerClient, { autoRestart: false, dropListenerReference: true });
 
   if (!shuttingdown)
