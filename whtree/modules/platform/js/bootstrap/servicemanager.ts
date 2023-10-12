@@ -15,6 +15,10 @@ enum Stages { Bootup, StartupScript, Active, Terminating, ShuttingDown }
 let currentstage = Stages.Bootup;
 const DefaultShutdownStage = Stages.Terminating;
 const DefaultTimeout = 5000;
+///minimum time the proces must be running before we throttle startup
+const MinimumRunTime = 60000;
+///maximum startup delay
+const MaxStartupDelay = 60000;
 const MaxLineLength = 512;
 const earlywebserver = process.env.WEBHARE_WEBSERVER == "node";
 let shuttingdown = false;
@@ -99,32 +103,43 @@ class ProcessManager {
   readonly name;
   readonly displayName;
   readonly service;
-  process;
+  process: ReturnType<typeof child_process.spawn> | null = null;
   stdout = "";
   stderr = "";
   running = false;
   toldToStop = false;
   stopDefer = createDeferred();
   killTimeout: NodeJS.Timeout | null = null;
+  started: Date | null = null;
+  startDelay;
+  startDelayTimer: NodeJS.Timeout | null = null;
 
-  constructor(name: string, service: ServiceDefinition) {
+  constructor(name: string, service: ServiceDefinition, startDelay = 0) {
     this.name = name;
     this.displayName = name.startsWith("platform:") ? name.substring(9) : name;
     this.service = service;
+    this.startDelay = startDelay;
     service.current = this;
     processes.add(this);
 
-    const cmd = service.cmd[0].includes('/') ? service.cmd[0] : `${backendConfig.installationroot}bin/${service.cmd[0]}`;
-    const args = service.cmd.slice(1);
-    if (debugFlags.startup)
-      log(`Starting ${name}: ${cmd}${args.length ? ` with ${JSON.stringify(args)}` : ""}`);
+    this.startDelayTimer = setTimeout(() => this.start(), startDelay);
+  }
 
+  start() {
+    const cmd = this.service.cmd[0].includes('/') ? this.service.cmd[0] : `${backendConfig.installationroot}bin/${this.service.cmd[0]}`;
+    const args = this.service.cmd.slice(1);
+
+    if (debugFlags.startup)
+      log(`Starting ${this.displayName}: ${cmd}${args.length ? ` with ${JSON.stringify(args)}` : ""}`);
+
+    this.started = new Date;
+    this.startDelayTimer = null;
     this.process = child_process.spawn(cmd, args, {
       stdio: ['ignore', 'pipe', 'pipe'],  //no STDIN, we catch the reset
       detached: true, //separate process group so a terminal CTRL+C doesn't get sent to our subs (And we get to properly shut them down)
       env: {
         ...process.env,
-        //Prevent manual compiles for processes started through us (WE'll manage whcompile)
+        //Prevent manual compiles for processes started through us (We'll manage whcompile)
         WEBHARE_NOMANUALCOMPILE: "1",
         //For backwards compatibility, don't leak these. Maybe we should set them and inherit them everywhere, but it currently breaks starting other node-based services (Eg chatplane)
         NODE_PATH: "",
@@ -132,8 +147,8 @@ class ProcessManager {
       }
     });
 
-    this.process.stdout.on('data', data => this.processOutput("stdout", data));
-    this.process.stderr.on('data', data => this.processOutput("stderr", data));
+    this.process.stdout!.on('data', data => this.processOutput("stdout", data));
+    this.process.stderr!.on('data', data => this.processOutput("stderr", data));
     this.process.on("spawn", () => this.processStarted());
     this.process.on("exit", (code, signal) => this.processExit(code, signal));
   }
@@ -187,17 +202,26 @@ class ProcessManager {
     processes.delete(this);
 
     if (!shuttingdown && this.service.keepAlive) {
-      log(`Restarting service ${this.displayName}`);
-      new ProcessManager(this.name, this.service);
+      if (Date.now() < this.started!.getTime() + MinimumRunTime) {
+        this.startDelay = Math.min(this.startDelay * 2 || 1000, MaxStartupDelay);
+        log(`Throttling service ${this.displayName}, will restart after ${this.startDelay / 1000} seconds`);
+      } else {
+        log(`Restarting service ${this.displayName}`);
+      }
+      new ProcessManager(this.name, this.service, this.startDelay);
     }
   }
 
   async stop() {
+    if (this.startDelayTimer) {
+      clearTimeout(this.startDelayTimer);
+      this.startDelayTimer = null;
+    }
     if (!this.running)
       return;
 
     this.toldToStop = true;
-    this.process.kill(this.service.stopSignal ?? "SIGTERM");
+    this.process!.kill(this.service.stopSignal ?? "SIGTERM");
 
     const timeout = this.service.stopTimeout ?? DefaultTimeout;
     if (timeout !== Infinity) {
@@ -205,7 +229,7 @@ class ProcessManager {
         setTimeout(() => {
           if (this.running) {
             log(`Killing service ${this.displayName} - timeout of ${timeout}ms to shutdown reached`);
-            this.process.kill("SIGKILL");
+            this.process!.kill("SIGKILL");
           }
         }, timeout);
     }
@@ -251,7 +275,7 @@ async function waitForCompileServer() {
       await fetch(getCompileServerOrigin());
       return;
     } catch (e) {
-      await sleep(500);
+      await sleep(100);
     }
   }
 }
@@ -302,7 +326,7 @@ async function main() {
 }
 
 async function shutdownSignal(signal: NodeJS.Signals) {
-  log(`Received signal '${signal}', shutting down.`);
+  log(`Received signal '${signal}'${shuttingdown ? ' but already shutting down' : ', shutting down'}`);
   shutdown();
 }
 
