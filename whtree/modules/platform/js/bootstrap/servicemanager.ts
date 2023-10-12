@@ -12,6 +12,7 @@
 */
 
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import { debugFlags } from "@webhare/env/src/envbackend";
 import { backendConfig, resolveResource } from "@webhare/services/src/services";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
@@ -45,6 +46,9 @@ const earlywebserver = process.env.WEBHARE_WEBSERVER == "node";
 const isSecondaryManager: boolean = program.opts().secondary;
 const verbose = program.opts().verbose || debugFlags.startup;
 const ServiceManagerId = process.env.WEBHARE_SERVICEMANAGERID || generateRandomId("base64url");
+
+const setProcessTitles = os.platform() === "linux";
+const setTerminalTitles = os.platform() === "darwin";
 
 let keepAlive: NodeJS.Timeout | null = null;
 let shuttingdown = false;
@@ -137,6 +141,13 @@ function smLog(text: string, data?: LoggableRecord) {
   }
 
   logfile.log(text, data);
+}
+
+function updateTitle(title: string) {
+  if (setProcessTitles)
+    process.title = title || "";
+  if (setTerminalTitles)
+    process.stdout.write(String.fromCharCode(27) + "]0;" + title + String.fromCharCode(7));
 }
 
 class ProcessManager {
@@ -300,7 +311,7 @@ async function startStage(stage: Stages): Promise<void> {
 /// Actually apply the current stage. Also used when configurationchanges
 async function updateForCurrentStage(): Promise<void> {
   const subpromises = [];
-  process.title = `webhare: ${stagetitles[currentstage]} `;
+  updateTitle(`webhare: ${stagetitles[currentstage]}`);
 
   for (const process of [...processes]) {
     if ((process.service.stopIn ?? DefaultShutdownStage) === currentstage || !expectedServices.has(process.name))
@@ -457,6 +468,7 @@ async function shutdown() {
   shuttingdown = true;
   await startStage(Stages.Terminating);
   await startStage(Stages.ShuttingDown);
+  updateTitle('');
 
   if (!isSecondaryManager) {
     try {

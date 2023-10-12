@@ -359,12 +359,14 @@ case $INSTR in
     [ -n "$DEBUGSTARTUP" ] && logWithTime "Launching in console mode"
 
     SERVICEMANAGER="$WEBHARE_DIR/modules/platform/js/bootstrap/servicemanager.ts"
+    # 100 spaces to allocate room for updating the process.title
+    PS_SPACER="                                                                                                    "
     if [ "$DEBUGTAGS" == "" ]; then # no processing needed, just exec
-      exec_wh_runjs "$SERVICEMANAGER" "$@"
+      exec_wh_runjs "$SERVICEMANAGER" "$@" "$PS_SPACER"
       exit 255
     fi
 
-    wh_runjs "$SERVICEMANAGER" "$@"
+    wh_runjs "$SERVICEMANAGER" "$@" "$PS_SPACER"
 
     if [ "$DEBUGTAGS" == "cov" ]; then
       echo
