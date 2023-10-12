@@ -391,6 +391,12 @@ PUBLIC STATIC OBJECTTYPE WebDesignBase EXTEND WebContext
     this->pvt_contentnavstops := stops;
   }
 
+  //Override us to change/remove data that doesn't need to be sent back to JavaScript pages
+  PUBLIC RECORD FUNCTION GetPageconfigForJS()
+  {
+    RETURN this->pageconfig;
+  }
+
   MACRO SetPageConfig(RECORD newpageconfig)
   {
     IF(this->pvt_startedrendering)
