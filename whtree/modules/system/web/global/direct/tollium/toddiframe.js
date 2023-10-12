@@ -10,125 +10,122 @@
     @cell options.ondata A handler which is called when the iframe data object has resized
     @cell options.targetorigin The url at which messages are targeted (if not specified, all targets are accepted)
 */
-function $toddiframe(options)
+class $toddiframe
 {
-  options = options || {};
-
-  // If not specified, accept any target origin
-  this.__targetorigin = options.targetorigin || "*";
-
-  // The iframe data object
-  this.__data = null;
-
-  // Store the supplied event handlers
-  if (options.oncallback && typeof options.oncallback == "function")
-    this.__oncallback = options.oncallback;
-  if (options.onprint && typeof options.onprint == "function")
-    this.__onprint = options.onprint;
-  if (options.onresize && typeof options.onresize == "function")
-    this.__onresize = options.onresize;
-  if (options.ondata && typeof options.ondata == "function")
-    this.__ondata = options.ondata;
-
-  // Listen to the 'message' event
-  var self = this;
-  var onmessage = function() { self.__onMessage.apply(self, arguments); };
-  if (window.addEventListener)
-    window.addEventListener("message", onmessage);
-  else
-    window.attachEvent("onmessage", onmessage);
-}
-
-/** @short Post a message from the iframe to todd
-*/
-$toddiframe.prototype.postMessage = function(message)
-{
-  //console.log("postMessage "+message.type);
-  window.parent.postMessage(message, this.__targetorigin);
-};
-
-/** @short Do a callback from the iframe to todd with the given data
-    @param data The data to send with the callback
-*/
-$toddiframe.prototype.doCallback = function(data)
-{
-  this.postMessage({ type: "callback", data: data });
-};
-
-/** @short Get the iframe data object
-*/
-$toddiframe.prototype.getData = function()
-{
-  return this.__data;
-};
-
-/** @short Update the iframe data object
-    @param data The new iframe data object
-*/
-$toddiframe.prototype.setData = function(data)
-{
-  this.__data = data;
-  this.postMessage({ type: "data", data: this.__data });
-};
-
-/** @short Show a menu at a given position
-    @param menuname The name of the menu to show
-    @param x The x position to show the menu at, relative to the top left of the iframe
-    @param y The y position to show the menu at, relative to the top left of the iframe
-*/
-$toddiframe.prototype.showContextMenu = function(menuname, x, y)
-{
-  this.postMessage({ type: "contextmenu", name: menuname, x: x, y: y });
-};
-
-/** @short Check enabled state of all actions
-    @param selectionflags The flags for the current selection
-*/
-$toddiframe.prototype.actionEnabler = function(selectionflags)
-{
-  this.postMessage({ type: "actionenabler", selectionflags: selectionflags });
-};
-
-// Handle incoming events. Process some standard iframe event types here, otherwise call the supplied onmessage event handler
-// with the event data.
-$toddiframe.prototype.__onMessage = function(e)
-{
-  e = e || window.event;
-  var message = e.data;
-  if (message && message.type)
+  constructor(options)
   {
-    switch (message.type)
-    {
-      case "calljs":
-        var func = window[message.funcname];
-        if (func)
-          func.apply(window, message.args);
-        else
-          console.error("Cannot find function '" + message.funcname + "' to call");
-        return;
+    options = options || {};
 
-      case "data":
-        this.__data = message.data;
-        if (this.__ondata)
-          this.__ondata.call(window);
-        return;
+    // If not specified, accept any target origin
+    this.__targetorigin = options.targetorigin || "*";
 
-      case "callback":
-        if (this.__oncallback)
-          this.__oncallback.call(window, message.data);
-        return;
+    // The iframe data object
+    this.__data = null;
 
-      case "print":
-        if (this.__onprint)
-          this.__onprint.call(window);
-        else
-          window.print();
-        return;
+    // Store the supplied event handlers
+    if (typeof options.oncallback == "function")
+      this.__oncallback = options.oncallback;
+    if (typeof options.onprint == "function")
+      this.__onprint = options.onprint;
+    if (typeof options.onresize == "function")
+      this.__onresize = options.onresize;
+    if (typeof options.ondata == "function")
+      this.__ondata = options.ondata;
 
-      case "resize":
-        if (this.__onresize)
-          this.__onresize.call(window);
-        return;
-    }
+    // Listen to the 'message' event
+    window.addEventListener("message", event => this.__onMessage(event));
   }
-};
+
+  /** @short Post a message from the iframe to todd
+  */
+  postMessage(message)
+  {
+    //console.log("postMessage "+message.type);
+    window.parent.postMessage(message, this.__targetorigin);
+  };
+
+  /** @short Do a callback from the iframe to todd with the given data
+      @param data The data to send with the callback
+  */
+  doCallback(data)
+  {
+    this.postMessage({ type: "callback", data: data });
+  };
+
+  /** @short Get the iframe data object
+  */
+  getData()
+  {
+    return this.__data;
+  };
+
+  /** @short Update the iframe data object
+      @param data The new iframe data object
+  */
+  setData(data)
+  {
+    this.__data = data;
+    this.postMessage({ type: "data", data: this.__data });
+  };
+
+  /** @short Show a menu at a given position
+      @param menuname The name of the menu to show
+      @param x The x position to show the menu at, relative to the top left of the iframe
+      @param y The y position to show the menu at, relative to the top left of the iframe
+  */
+  showContextMenu(menuname, x, y)
+  {
+    this.postMessage({ type: "contextmenu", name: menuname, x: x, y: y });
+  };
+
+  /** @short Check enabled state of all actions
+      @param selectionflags The flags for the current selection
+  */
+  actionEnabler(selectionflags)
+  {
+    this.postMessage({ type: "actionenabler", selectionflags: selectionflags });
+  };
+
+  // Handle incoming events. Process some standard iframe event types here, other events can be handled by writing onmessage
+  // handlers
+  __onMessage(event)
+  {
+    var message = event.data;
+    if (message && message.type)
+    {
+      switch (message.type)
+      {
+        case "calljs":
+          var func = window[message.funcname];
+          if (func)
+            func.apply(window, message.args);
+          else
+            console.error("Cannot find function '" + message.funcname + "' to call");
+          return;
+
+        case "data":
+          this.__data = message.data;
+          if (this.__ondata)
+            this.__ondata.call(window);
+          return;
+
+        case "callback":
+          if (this.__oncallback)
+            this.__oncallback.call(window, message.data);
+          return;
+
+        case "print":
+          if (this.__onprint)
+            this.__onprint.call(window);
+          else
+            window.print();
+          return;
+
+        case "resize":
+          if (this.__onresize)
+            this.__onresize.call(window);
+          return;
+      }
+    }
+  };
+}

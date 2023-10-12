@@ -1046,10 +1046,4 @@ PUBLIC OBJECTTYPE GoogleMapComponent EXTEND TolliumComponentBase
     IF (ObjectExists(this->iframecomp))
       this->iframecomp->PostMessage([ type := "LoadDirections", directions := [ origin, destination ], options := this->directionsoptions ], "*");
   }
-
-  PUBLIC MACRO PrintMap()
-  {
-    IF (ObjectExists(this->iframecomp))
-      this->iframecomp->Print();
-  }
 >;

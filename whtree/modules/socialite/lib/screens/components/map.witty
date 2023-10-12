@@ -17,7 +17,7 @@ html, body, #map_canvas
 </style>
 </head>
 
-<body onunload="UnloadMap();">
+<body onunload="unloadMap();">
 <div id="map_canvas"><div>[loadingtext]</div></div>
 
 <script src="[toddiframeurl]" type="text/javascript"></script>

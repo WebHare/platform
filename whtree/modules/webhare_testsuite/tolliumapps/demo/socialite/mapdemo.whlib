@@ -475,11 +475,6 @@ PUBLIC OBJECTTYPE Maps EXTEND TolliumScreenBase
 
     RETURN reply.results;
   }
-
-  MACRO DoPrintMap()
-  {
-    this->map->PrintMap();
-  }
 >;
 
 
