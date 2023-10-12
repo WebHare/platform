@@ -8,7 +8,7 @@
      wh run mod::platform/js/bootstrap/servicemanager.ts --secondary -v --include "webhare_testsuite_temp:*"
 
   If you're stuck with a lot of stray processes on OSX an effective way to kill them all is:
-  kill $(ps eww -ax|grep ' WEBHARE_NOINSTALLATIONINFO=1'|cut -d' ' -f1)
+  kill $(ps ewwax|grep ' WEBHARE_SERVICEMANAGERID=' | cut -d' ' -f1)
 */
 
 import * as fs from 'node:fs';
@@ -16,7 +16,7 @@ import { debugFlags } from "@webhare/env/src/envbackend";
 import { backendConfig, resolveResource } from "@webhare/services/src/services";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import * as child_process from "child_process";
-import { createDeferred, sleep, wildcardsToRegExp } from "@webhare/std";
+import { createDeferred, generateRandomId, sleep, wildcardsToRegExp } from "@webhare/std";
 import { getCompileServerOrigin, getRescueOrigin } from "@mod-system/js/internal/configuration";
 import { RotatingLogFile } from "../logging/rotatinglogfile";
 import runBackendService from '@mod-system/js/internal/webhareservice';
@@ -44,6 +44,7 @@ const MaxLineLength = 512;
 const earlywebserver = process.env.WEBHARE_WEBSERVER == "node";
 const isSecondaryManager: boolean = program.opts().secondary;
 const verbose = program.opts().verbose || debugFlags.startup;
+const ServiceManagerId = process.env.WEBHARE_SERVICEMANAGERID || generateRandomId("base64url");
 
 let keepAlive: NodeJS.Timeout | null = null;
 let shuttingdown = false;
@@ -183,6 +184,8 @@ class ProcessManager {
       detached: true, //separate process group so a terminal CTRL+C doesn't get sent to our subs (And we get to properly shut them down)
       env: {
         ...process.env,
+        ///Unique ID to find children
+        WEBHARE_SERVICEMANAGERID: ServiceManagerId,
         //Prevent manual compiles for processes started through us (We'll manage whcompile)
         WEBHARE_NOMANUALCOMPILE: "1",
         //For backwards compatibility, don't leak these. Maybe we should set them and inherit them everywhere, but it currently breaks starting other node-based services (Eg chatplane)

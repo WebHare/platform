@@ -45,6 +45,10 @@ Set if we're running inside a docker environment, and not from a source installa
 ### WEBHARE_VERSION
 Current semantic WebHare version number, eg 4.27.0
 
+### WEBHARE_SERVICEMANAGERID
+Unique ID intended to be inherited by all children of a service manager. This can also be used to track orphaned processes, eg
+on macOS: `ps ewwax|grep ' WEBHARE_SERVICEMANAGERID=' | cut -d' ' -f1`
+
 ## Tweaks
 
 ### WEBHARE_CHECKEDOUT_TO
