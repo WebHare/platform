@@ -9,6 +9,9 @@
 */
 LOADLIB "wh::internal/wasm.whlib" EXPORT IsWasm;
 LOADLIB "wh::internal/interface.whlib";
+LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+
+RECORD FUNCTION GetDiskFileProperties(STRING filename) __ATTRIBUTES__(EXTERNAL);
 
 RECORD ARRAY libcache; //cache opened instances
 
@@ -71,6 +74,32 @@ PUBLIC OBJECT FUNCTION ImportJS(STRING name)
     STRING caller := GetCallingLibrary(TRUE); //may return a direct:: path!
     INTEGER lastslash := SearchLastSubstring(caller,'/');
     name := __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(GetCallingLibrary(TRUE), "relative::" || name);
+  }
+  ELSE IF(name NOT LIKE "*::*") //try node_modules like resolution
+  {
+    //Attempt an upwards search (but do not leave the module!)
+    STRING ourdir := __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(GetCallingLibrary(TRUE), "relative::.");
+    IF(ourdir LIKE "mod::*")
+    {
+      STRING ARRAY toks := Tokenize(ourdir,'/');
+      STRING modpart := toks[0];
+      toks[0] := GetModuleInstallationRoot(Substring(modpart, 5));
+      IF(toks[0] != "")
+        FOR(INTEGER numtoks := Length(toks); numtoks>0; numtoks := numtoks - 1) //shorten th path until we find a match (TODO node_module style extension appending)
+        {
+          STRING trydiskpath := Detokenize(ArraySlice(toks, 0, numtoks),'/') || "/node_modules/" || name;
+          IF(trydiskpath != "")
+          {
+            RECORD props := GetDiskFileProperties(trydiskpath);
+            IF(RecordExists(props))
+            {
+              //Rebuild that path using mod:: to cut back on potential aliassing
+              name := modpart || Detokenize(ArraySlice(toks, 1, numtoks-1),'/') || "/node_modules/" || name;
+              BREAK;
+            }
+          }
+      }
+    }
   }
 
   OBJECT lib := SELECT AS OBJECT libcache.lib FROM libcache WHERE libcache.name = VAR name;

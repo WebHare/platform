@@ -1,0 +1,5 @@
+{
+  "name": "testpackage",
+  "main": "testpackage.js",
+  "private": "true"
+}

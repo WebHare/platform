@@ -5,6 +5,7 @@
   "dependencies": {
     "@xmldom/xmldom": "^0.8.6",
     "fast-xml-parser": "^4.0.13",
-    "stacktrace-parser": "^0.1.10"
+    "stacktrace-parser": "^0.1.10",
+    "testpackage": "file:tests/system/nodejs/data/testpackage"
   }
 }
