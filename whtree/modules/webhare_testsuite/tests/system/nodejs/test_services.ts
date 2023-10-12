@@ -197,6 +197,7 @@ async function runBackendServiceTest_JS() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- not worth writing an interface for just a test
   const serverinstance = await services.openBackendService("webhare_testsuite:demoservice", ["x"]);
   test.eq(42, await serverinstance.getLUE());
+  test.eq(undefined, await serverinstance.voidReturn());
 
   test.assert(serverinstance._invisible === undefined, "Should not see _prefixed APIs");
   test.assert(serverinstance.dummy === undefined, "Should not see variables");

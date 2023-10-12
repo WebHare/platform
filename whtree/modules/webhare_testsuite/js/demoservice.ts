@@ -33,6 +33,8 @@ class ClusterTestLink {
   getLUE() {
     return 42;
   }
+  voidReturn() {
+  }
   async getAsyncLUE() {
     await new Promise(resolve => setTimeout(resolve, 50));
     return 42;

@@ -63,7 +63,7 @@ class ServiceProxy<T extends object> implements ProxyHandler<T & ServiceBase> {
 
     const response = await this.link.doRequest(calldata) as ServiceCallResult;
     if (this.isjs)
-      return JSON.parse(response.result as string);
+      return response.result ? JSON.parse(response.result as string) : undefined;
     else
       return response.result;
   }
