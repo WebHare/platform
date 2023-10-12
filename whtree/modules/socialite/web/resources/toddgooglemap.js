@@ -33,6 +33,11 @@ class toddGoogleMap {
     // Image base URL
     this.imgbase = options.imgbase;
 
+    // Image load queue
+    this.imgqueue = new Map();
+    this.imgqueueid = 0;
+    window.addEventListener("message", (event) => this.onWindowMessage(event));
+
     // Add callbacks to options
     options.CreateButtonImage =   (...args) => this.createButtonImage(...args);
     options.OnInitialized =       (...args) => this.onInitialized(...args);
@@ -100,13 +105,39 @@ class toddGoogleMap {
     }
   }
 
-  createButtonImage(filename, width, height)
+  async createButtonImage(filename, width, height)
   {
-    var img = document.createElement("img");
-    img.src = this.imgbase + filename;
-    img.width = width;
-    img.height = height;
-    return img;
+    return new Promise(resolve => {
+      const id = ++this.imgqueueid;
+      this.imgqueue.set(id, { id, resolve });
+      // filename is 'map_[button].png', change to 'tollium:maps/[button]'
+      this.iframetodd.postMessage({
+        id,
+        type: "createimage",
+        imgname: "tollium:maps/" + filename.substring(4, filename.length - 4),
+        width: 24,
+        height: 24,
+        color: "b"
+      });
+    });
+  }
+
+  onWindowMessage(event) {
+    switch (event.data.type) {
+      case "createdimage": {
+        const queued = this.imgqueue.get(event.data.id);
+        if (queued) {
+          this.imgqueue.delete(queued.id);
+
+          const img = document.createElement("img");
+          img.src = event.data.src;
+          img.width = event.data.width;
+          img.height = event.data.height;
+          queued.resolve(img);
+        }
+        break;
+      }
+    }
   }
 
   onInitialized()

@@ -1301,23 +1301,11 @@ function toddGM_NavControl(callbacks)
   this.node = document.createElement("div");
   this.node.style.padding = "8px"
   this.node.style.textAlign = "center";
+  this.node.className = "map_navcontrol";
 
   this.buttons = {};
   if (this.callbacks.CreateButtonImage)
-  {
-    // Create our buttons buttons and add them to the container
-    this.buttons.goup = this.CreateButton("goup", toddGM_BindFunction(this.PanUp, this), this.node);
-    this.node.appendChild(document.createElement("br"));
-    this.buttons.goleft = this.CreateButton("goleft", toddGM_BindFunction(this.PanLeft, this), this.node);
-    this.buttons.goright = this.CreateButton("goright", toddGM_BindFunction(this.PanRight, this), this.node);
-    this.node.appendChild(document.createElement("br"));
-    this.buttons.godown = this.CreateButton("godown", toddGM_BindFunction(this.PanDown, this), this.node);
-    this.node.appendChild(document.createElement("br"));
-    this.buttons.zoomin = this.CreateButton("zoomin", toddGM_BindFunction(this.ZoomIn, this), this.node);
-    if (this.buttons.zoomin)
-      this.buttons.zoomin.style.marginTop = "6px";
-    this.buttons.zoomout = this.CreateButton("zoomout", toddGM_BindFunction(this.ZoomOut, this), this.node);
-  }
+    this.CreateButtons();
 }
 
 toddGM_NavControl.prototype.AddToMap = function(map)
@@ -1338,12 +1326,28 @@ toddGM_NavControl.prototype.DeInit = function toddGM_NavControl_DeInit()
       google.maps.event.clearInstanceListeners(this.buttons[b]);
 }
 
-toddGM_NavControl.prototype.CreateButton = function toddGM_NavControl_CreateButton(buttonimage, callback, parent)
+toddGM_NavControl.prototype.CreateButtons = async function toddGM_NavControl_CreateButtons()
+{
+  // Create our buttons buttons and add them to the container
+  this.buttons.goup = await this.CreateButton("goup", () => this.PanUp(), this.node);
+  this.node.appendChild(document.createElement("br"));
+  this.buttons.goleft = await this.CreateButton("goleft", () => this.PanLeft(), this.node);
+  this.buttons.goright = await this.CreateButton("goright", () => this.PanRight(), this.node);
+  this.node.appendChild(document.createElement("br"));
+  this.buttons.godown = await this.CreateButton("godown", () => this.PanDown(), this.node);
+  this.node.appendChild(document.createElement("br"));
+  this.buttons.zoomin = await this.CreateButton("zoomin", () => this.ZoomIn(), this.node);
+  if (this.buttons.zoomin)
+    this.buttons.zoomin.style.marginTop = "6px";
+  this.buttons.zoomout = await this.CreateButton("zoomout", () => this.ZoomOut(), this.node);
+}
+
+toddGM_NavControl.prototype.CreateButton = async function toddGM_NavControl_CreateButton(buttonimage, callback, parent)
 {
   // Within the todd context, the button <img> node created by the appserver is created by the containing todd application
   // document, not the iframe document. To be able to use this node in our current document, we have to import using
   // importNode. Unfortunately, Internet Explorer does not support the importNode method, so we'll have to use a hack.
-  var external_button = this.callbacks.CreateButtonImage("map_" + buttonimage + ".png", 16, 16);
+  var external_button = await this.callbacks.CreateButtonImage("map_" + buttonimage + ".png", 16, 16);
   if (!external_button)
     return null;
 
@@ -1359,7 +1363,7 @@ toddGM_NavControl.prototype.CreateButton = function toddGM_NavControl_CreateButt
 
   button.map = this.map;
   button.style.cursor = "pointer";
-  google.maps.event.addDomListener(button, "click", callback);
+  button.addEventListener("click", callback);
   parent.appendChild(button);
   return button;
 }

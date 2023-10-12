@@ -14,6 +14,17 @@ html, body, #map_canvas
   width: 100%;
 }
 
+.map_navcontrol img + img
+{
+  margin-left: -1px;
+}
+
+.map_navcontrol br + img,
+.map_navcontrol br + img + img
+{
+  margin-top: -1px;
+}
+
 </style>
 </head>
 
