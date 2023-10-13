@@ -4,5 +4,5 @@ LOADLIB "wh::javascript.whlib";
 PUBLIC RECORD ARRAY FUNCTION CheckNodeModulesInModule(STRING modulerootdir, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
   options := ValidateOptions([ skipmodtimecheck := FALSE ], options);
-  RETURN WaitForPromise(ImportJS("@mod-platform/js/validate/npm.ts")->checkNodeModulesInModule(modulerootdir));
+  RETURN WaitForPromise(ImportJS("@mod-platform/js/devsupport/npm.ts")->checkNodeModulesInModule(modulerootdir));
 }
