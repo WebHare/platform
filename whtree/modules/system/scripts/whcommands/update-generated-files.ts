@@ -7,6 +7,7 @@ async function main() {
   program
     .name('update-generated-files')
     .option('-v, --verbose', 'verbose mode')
+    .option('--dryrun', 'Do not actually rewrite files')
     .option('--nodb', 'Do not access the database')
     .option('--update <targets>', 'Update specific targets only (one or more of config,whdb,wrd,openapi)');
 
@@ -16,7 +17,7 @@ async function main() {
   if (verbose)
     console.time("Updating generated files");
   try {
-    await updateGeneratedFiles(targets, { verbose: program.opts().verbose, nodb: program.opts().nodb });
+    await updateGeneratedFiles(targets, { verbose: program.opts().verbose, nodb: program.opts().nodb, dryRun: program.opts().dryrun });
   } finally {
     if (verbose)
       console.timeEnd("Updating generated files");

@@ -1,55 +1,77 @@
 /* Drives the generator, takes care of proper sync/async ordering */
 
 import { updateWebHareConfigFile } from "@mod-system/js/internal/generation/gen_config";
-import { updateAllModuleTableDefs } from "@mod-system/js/internal/generation/gen_whdb";
-import { updateAllModuleWRDDefs } from "@mod-system/js/internal/generation/gen_wrd";
-import { updateAllModuleOpenAPIDefs } from "@mod-system/js/internal/generation/gen_openapi";
+import { listAllModuleTableDefs } from "@mod-system/js/internal/generation/gen_whdb";
+import { listAllModuleWRDDefs } from "@mod-system/js/internal/generation/gen_wrd";
+import { listAllModuleOpenAPIDefs } from "@mod-system/js/internal/generation/gen_openapi";
 import { updateConfig } from "../configuration";
+import { backendConfig } from "@webhare/services";
+import { FileToUpdate } from "./shared";
+import { mkdir, readFile } from "fs/promises";
+import { dirname, join } from "node:path";
+import { deleteRecursive, storeDiskFile } from "@webhare/system-tools/src/fs";
 
-export async function updateGeneratedFiles(targets: string[], options?: { verbose?: boolean; nodb?: boolean }) {
+function getPaths() {
+  const installedBaseDir = backendConfig.dataroot + "storage/system/generated/";
+  const builtinBaseDir = backendConfig.installationroot + "modules/system/js/internal/generated/";
+
+  return { installedBaseDir, builtinBaseDir };
+}
+
+export async function listAllGeneratedFiles(): Promise<FileToUpdate[]> {
+  const { installedBaseDir, builtinBaseDir } = getPaths();
+
+  const files: FileToUpdate[] = [];
+  files.push(...await listAllModuleTableDefs(), ...await listAllModuleWRDDefs(), ...await listAllModuleOpenAPIDefs());
+  files.forEach(file => {
+    file.path = (file.module == "platform" ? builtinBaseDir : installedBaseDir) + file.path;
+  });
+  return files;
+}
+
+export async function updateGeneratedFiles(targets: string[], options: { dryRun?: boolean; verbose?: boolean; nodb?: boolean } = {}) {
   if (targets.includes('all') || targets.includes('config')) {
     if (options?.verbose)
       console.time("Updating WebHare config files");
-    await updateWebHareConfigFile(options);
+    if (!options.dryRun)
+      await updateWebHareConfigFile(options);
     if (options?.verbose)
       console.timeEnd("Updating WebHare config files");
   }
 
-  // Reload any configuration updated above
+  // Reload any configuration updated above (TODO shouldn't updateWebHareConfig have triggered a callback to do this ?)
   updateConfig();
 
-  const promises = new Array<Promise<void>>;
+  // FIXME listAllGeneratedFiles will list *all* files but the generator can still decide *not* to generate the accompanying file. This needs to be fixed in listAllGeneratedFiles so 'dev' can trust it!
+  const files = await listAllGeneratedFiles();
+  const togenerate = targets.includes('all') ? files : files.filter(file => targets.includes(file.type));
 
-  if (targets.includes('all') || targets.includes('whdb')) {
-    promises.push((async function () {
-      if (options?.verbose)
-        console.time("Updating table definitions");
-      await updateAllModuleTableDefs();
-      if (options?.verbose)
-        console.timeEnd("Updating table definitions");
-    })());
+  //Start generating files
+  const { installedBaseDir, builtinBaseDir } = getPaths();
+  const generated = togenerate.map(file => file.generator(options));
+  const keepfiles = new Set<string>([join(installedBaseDir, "config/config.json"), ...files.map(file => file.path)]);
+
+  //Process them
+  for (const [idx, file] of togenerate.entries()) {
+    const content = await generated[idx];
+
+    try {
+      const currentdata = await readFile(file.path, 'utf8');
+      if (currentdata === content)
+        continue;
+    } catch (ignore) {
+    }
+
+    if (!options?.dryRun) {
+      await mkdir(dirname(file.path), { recursive: true });
+      await storeDiskFile(file.path, content, { overwrite: true });
+    }
+    if (options?.verbose)
+      console.log(`Updated ${file.path}`);
   }
 
-  if (targets.includes('all') || targets.includes('wrd')) {
-    promises.push((async function () {
-      if (options?.verbose)
-        console.time("Updating WRD definitions");
-      await updateAllModuleWRDDefs(options);
-      if (options?.verbose)
-        console.timeEnd("Updating WRD definitions");
-    })());
-  }
-
-  if (targets.includes('all') || targets.includes('openapi')) {
-    promises.push((async function () {
-      if (options?.verbose)
-        console.time("Updating OpenAPI definitions");
-      await updateAllModuleOpenAPIDefs(options);
-      if (options?.verbose)
-        console.timeEnd("Updating OpenAPI definitions");
-    })());
-  }
-
-  await Promise.all(promises);
+  //Remove old files
+  await deleteRecursive(installedBaseDir, { keep: _ => keepfiles.has(join(_.path, _.name)), dryRun: options.dryRun, verbose: options.verbose });
+  await deleteRecursive(builtinBaseDir, { keep: _ => keepfiles.has(join(_.path, _.name)), dryRun: options.dryRun, verbose: options.verbose });
   return;
 }

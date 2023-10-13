@@ -4,7 +4,7 @@ import { config } from "../configuration";
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { resolveResource } from "@webhare/services";
 import { WRDBaseAttributeType, WRDAttributeType } from "@mod-wrd/js/internal/types";
-import { updateDir, GenerateOptions } from "./shared";
+import { GenerateOptions, FileToUpdate } from "./shared";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { loadlib } from "@webhare/harescript";
 import { emplace } from "@webhare/std/collections";
@@ -261,7 +261,7 @@ function createTypeDef(attr: SchemaDef["types"][number]["allattrs"][number], ind
   return typedef;
 }
 
-function generateFile(options: GenerateOptions, file: string, { defname, modules }: { defname: string; modules: string[] }) {
+function generateFile(options: GenerateOptions, { defname, modules }: { defname: string; modules: string[] }) {
   // Only process existing modules
   modules = modules.filter(module => config.module[module]);
   if (!modules.length) {
@@ -271,20 +271,20 @@ function generateFile(options: GenerateOptions, file: string, { defname, modules
   return generateWRDDefs(options, defname, modules);
 }
 
-const storagedir = config.dataroot + "storage/system/generated/wrd/";
-export async function updateAllModuleWRDDefs(options: GenerateOptions = { verbose: false }) {
-  const localdir = config.installationroot + "modules/system/js/internal/generated/wrd/";
-
+export async function listAllModuleWRDDefs(): Promise<FileToUpdate[]> {
   const noncoremodules = Object.keys(config.module).filter(m => !whconstant_builtinmodules.includes(m));
-  await updateDir(storagedir, noncoremodules.map(m => ({ type: "file", name: m + ".ts", data: { defname: m, modules: [m] } })), true, generateFile.bind(null, options));
-  await updateDir(localdir, [{ type: "file", name: "webhare.ts", data: { defname: "webhare", modules: whconstant_builtinmodules } }], true, generateFile.bind(null, options));
-}
 
-export async function updateSingleModuleWRDDefs(name: string, options: GenerateOptions = { verbose: false }) {
-  if (whconstant_builtinmodules.includes(name)) {
-    const localdir = config.installationroot + "modules/system/js/internal/generated/wrd/";
-    await updateDir(localdir, [{ type: "file", name: "webhare.ts", data: { defname: "webhare", modules: whconstant_builtinmodules } }], true, generateFile.bind(null, options));
-  } else {
-    await updateDir(storagedir, [{ type: "file", name: name + ".ts", data: { defname: name, modules: [name] } }], false, generateFile.bind(null, options));
-  }
+  return [
+    {
+      path: "wrd/webhare.ts",
+      module: "platform",
+      type: "wrd",
+      generator: (options: GenerateOptions) => generateFile(options, { defname: "webhare", modules: whconstant_builtinmodules })
+    }, ...noncoremodules.map(m => ({
+      path: `wrd/${m}.ts`,
+      module: m,
+      type: "wrd",
+      generator: (options: GenerateOptions) => generateFile(options, { defname: m, modules: [m] })
+    }))
+  ];
 }

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import { config } from "../configuration";
 import { whconstant_builtinmodules } from "../webhareconstants";
-import { DirItem, GenerateOptions, updateDir } from "./shared";
+import { FileToUpdate, GenerateOptions } from "./shared";
 import * as services from "@webhare/services";
 import type { Readable } from "node:stream";
 import SwaggerParser from "@apidevtools/swagger-parser";
@@ -354,7 +354,7 @@ function getOpenAPIServicesOfModule(module: string) {
   return retval;
 }
 
-async function generateFile(options: GenerateOptions, file: string, service: OpenAPIService) {
+async function generateFile(options: GenerateOptions, service: OpenAPIService) {
   const importname = whconstant_builtinmodules.includes(service.module)
     ? `modules/system/js/internal/generated/openapi/${service.module}/${service.name}`
     : `wh:openapi/${service.module}/${service.name}`;
@@ -370,35 +370,24 @@ async function generateFile(options: GenerateOptions, file: string, service: Ope
   return retval;
 }
 
-function getFilesForModules(modules: string[]) {
-  const retval: Array<DirItem<OpenAPIService>> = [];
-  for (const module of modules) {
-    const items = config.module[module] ? getOpenAPIServicesOfModule(module) : [];
-    retval.push({
-      type: "folder",
-      name: module,
-      items: items.length ? items.map(m => ({ type: "file", name: `${m.name}.ts`, data: m })) : null,
-      removeother: true
-    });
-  }
+function getFilesForModules(module: string, processmodules: string[]): FileToUpdate[] {
+  const retval: FileToUpdate[] = [];
+  for (const processmodule of processmodules)
+    for (const item of config.module[module] ? getOpenAPIServicesOfModule(processmodule) : [])
+      retval.push({
+        type: "openapi",
+        path: "openapi/" + processmodule + "/" + item.name + ".ts",
+        module,
+        generator: (options) => generateFile(options, item)
+      });
+
   return retval;
 }
 
-export async function updateAllModuleOpenAPIDefs(options: GenerateOptions = { verbose: false }) {
-  const storagedir = config.dataroot + "storage/system/generated/openapi/";
-  const localdir = config.installationroot + "modules/system/js/internal/generated/openapi/";
-
+export async function listAllModuleOpenAPIDefs(): Promise<FileToUpdate[]> {
   const noncoremodules = Object.keys(config.module).filter(m => !whconstant_builtinmodules.includes(m));
-  await updateDir(storagedir, getFilesForModules(noncoremodules), true, generateFile.bind(null, options));
-  await updateDir(localdir, getFilesForModules(whconstant_builtinmodules), true, generateFile.bind(null, options));
-}
-
-export async function updateSingleModuleOpenAPIDefs(name: string, options: GenerateOptions = { verbose: false }) {
-  if (whconstant_builtinmodules.includes(name)) {
-    const localdir = config.installationroot + "modules/system/js/internal/generated/openapi/";
-    await updateDir(localdir, getFilesForModules([name]), false, generateFile.bind(null, options));
-  } else {
-    const storagedir = config.dataroot + "storage/system/generated/openapi/";
-    await updateDir(storagedir, getFilesForModules([name]), false, generateFile.bind(null, options));
-  }
+  const files = getFilesForModules("platform", whconstant_builtinmodules);
+  for (const mod of noncoremodules)
+    files.push(...getFilesForModules(mod, [mod]));
+  return files;
 }
