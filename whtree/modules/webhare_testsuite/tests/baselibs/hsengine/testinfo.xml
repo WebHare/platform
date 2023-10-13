@@ -72,7 +72,7 @@
     <test script="test_bibtex.whscr" />
     <test script="test_colors.whscr" />
     <test script="test_comparisons.whscr" />
-    <test script="test_control.whscr" xfail="1" />  <!-- Missing process control -->
+    <test script="test_control.whscr" />
     <test script="test_constants.whscr" />
     <test script="test_conversions.whscr" />
     <test script="test_crypto.whscr" />
@@ -127,7 +127,7 @@
     <test script="test_types.whscr" />
     <test script="test_witty.whscr" />
     <test script="test_xml_signature.whscr" />
-    <test script="test_xml.whscr" />  <!-- Spurious xmlns="" added. now commented out, needs fixing though -->
+    <test script="test_xml.whscr" />
     <test script="test_yieldasync.whscr" />
   </group>
 </group>

@@ -398,31 +398,31 @@ MACRO LoadlibTest()
 {
   OpenTest("TestControl: LoadlibTest");
 
-  errors := TestCompilePrimitive('<?wh LOADLIB "wh::os.whlib"; INTEGER i := 1; IsProcessRunning(0); ?>');
+  errors := TestCompilePrimitive('<?wh LOADLIB "wh::os.whlib"; INTEGER i := 1; GetConsoleArguments(); ?>');
   TestCleanResult(1, errors);
 
-  errors := TestCompilePrimitive('<?wh INTEGER i := 1; LOADLIB "wh::os.whlib"; IsProcessRunning(0); ?>');
+  errors := TestCompilePrimitive('<?wh INTEGER i := 1; LOADLIB "wh::os.whlib"; GetConsoleArguments(); ?>');
   MustContainError(2, errors, 73, 'LOADLIB');
 
-  errors := TestCompilePrimitive('<?wh LOADLIB; INTEGER i := 1; IsProcessRunning(0); ?>');
+  errors := TestCompilePrimitive('<?wh LOADLIB; INTEGER i := 1; GetConsoleArguments(); ?>');
   MustContainError(3, errors, 16);
 
-  errors := TestCompilePrimitive('<?wh LOADLIB 1; INTEGER i := 1; IsProcessRunning(0); ?>');
+  errors := TestCompilePrimitive('<?wh LOADLIB 1; INTEGER i := 1; GetConsoleArguments(); ?>');
   MustContainError(4, errors, 16);
 
-  errors := TestCompilePrimitive('<?wh LOADLIB TRUE; INTEGER i := 1; IsProcessRunning(0); ?>');
+  errors := TestCompilePrimitive('<?wh LOADLIB TRUE; INTEGER i := 1; GetConsoleArguments(); ?>');
   MustContainError(5, errors, 16);
 
-  errors := TestCompilePrimitive('<?wh INTEGER i := 1; IsProcessRunning(0); ?>');
-  MustContainError(6, errors, 139, 'ISPROCESSRUNNING');
+  errors := TestCompilePrimitive('<?wh INTEGER i := 1; GetConsoleArguments(); ?>');
+  MustContainError(6, errors, 139, 'GETCONSOLEARGUMENTS');
 
   //ExternalData moet voor LOADLIB mogen
-  result := TestCompileAndRunPrimitive('Hoi!<?wh /**/LOADLIB "wh::os.whlib"/**/; /**/IsProcessRunning(0); ?>');
+  result := TestCompileAndRunPrimitive('Hoi!<?wh /**/LOADLIB "wh::os.whlib"/**/; /**/GetConsoleArguments(); ?>');
   TestCleanResult (7, result.errors);
   TestEq("Hoi!", result.output);
 
   //ExternalData moet tussen LOADLIBs mogen
-  result := TestCompileAndRunPrimitive('<?wh LOADLIB "wh::float.whlib"; /**/?>Hoi!<?wh /**/LOADLIB "wh::os.whlib"; IsProcessRunning(0); ?>');
+  result := TestCompileAndRunPrimitive('<?wh LOADLIB "wh::float.whlib"; /**/?>Hoi!<?wh /**/LOADLIB "wh::os.whlib"; GetConsoleArguments(); ?>');
   TestCleanResult (9, result.errors);
   TestEq("Hoi!", result.output);
 
