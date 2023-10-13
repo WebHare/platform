@@ -10,6 +10,7 @@ import { FileToUpdate } from "./shared";
 import { mkdir, readFile } from "fs/promises";
 import { dirname, join } from "node:path";
 import { deleteRecursive, storeDiskFile } from "@webhare/system-tools/src/fs";
+import { whconstant_builtinmodules } from "../webhareconstants";
 
 function getPaths() {
   const installedBaseDir = backendConfig.dataroot + "storage/system/generated/";
@@ -22,7 +23,9 @@ export async function listAllGeneratedFiles(): Promise<FileToUpdate[]> {
   const { installedBaseDir, builtinBaseDir } = getPaths();
 
   const files: FileToUpdate[] = [];
-  files.push(...await listAllModuleTableDefs(), ...await listAllModuleWRDDefs(), ...await listAllModuleOpenAPIDefs());
+  const allmods = ["platform", ...Object.keys(backendConfig.module).filter(m => !whconstant_builtinmodules.includes(m))];
+
+  files.push(...await listAllModuleTableDefs(allmods), ...await listAllModuleWRDDefs(), ...await listAllModuleOpenAPIDefs());
   files.forEach(file => {
     file.path = (file.module == "platform" ? builtinBaseDir : installedBaseDir) + file.path;
   });

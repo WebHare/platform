@@ -1,9 +1,9 @@
 import fs from "node:fs";
 import { DOMParser } from '@xmldom/xmldom';
-import { config } from "../configuration";
 import { whconstant_builtinmodules } from "../webhareconstants";
 import { FileToUpdate } from "./shared";
 import { encodeString } from "@webhare/std";
+import { backendConfig } from "@webhare/services";
 
 function elements<T extends Element>(collection: HTMLCollectionOf<T>): T[] {
   const items: T[] = [];
@@ -97,14 +97,13 @@ export interface WHDBDefs {
   }>;
 }
 
-export function parseWHDBDefs(modulename: string, modules: string[]): WHDBDefs {
+export function parseWHDBDefs(modulename: string): WHDBDefs {
   const schemas = [];
-  for (const mod of Object.entries(config.module)) {
-    if (!modules.includes(mod[0]))
+  const mods = modulename === "platform" ? whconstant_builtinmodules : [modulename];
+  for (const module of mods.sort()) {
+    const moduleroot = backendConfig.module[module]?.root;
+    if (!moduleroot)
       continue;
-
-    const moduleroot = mod[1].root;
-
     const buffer = fs.readFileSync(moduleroot + "moduledefinition.xml");
     if (!buffer)
       continue;
@@ -113,7 +112,7 @@ export function parseWHDBDefs(modulename: string, modules: string[]): WHDBDefs {
 
     for (const dbschema of elements(doc.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "databaseschema"))) {
       const schemainfo: WHDBDefs["schemas"][0] = {
-        name: mod[0],
+        name: module,
         tables: []
       };
 
@@ -121,7 +120,7 @@ export function parseWHDBDefs(modulename: string, modules: string[]): WHDBDefs {
         const table_name = dbtable.getAttribute("name") || "";
         const tableinfo: WHDBDefs["schemas"][0]["tables"][0] = {
           name: table_name,
-          interface: `${generateTableTypeName(mod[0])}_${generateTableTypeName(table_name)}`,
+          interface: `${generateTableTypeName(schemainfo.name)}_${generateTableTypeName(table_name)}`,
           documentation: "",
           columns: []
         };
@@ -232,12 +231,12 @@ export function parseWHDBDefs(modulename: string, modules: string[]): WHDBDefs {
   };
 }
 
-export function generateKyselyDefs(modulename: string, modules: string[]): string {
-  const whdbdefs = parseWHDBDefs(modulename, modules);
+export function generateKyselyDefs(modulename: string): string {
+  const whdbdefs = parseWHDBDefs(modulename);
   if (!whdbdefs.schemas.length)
     return '';
 
-  const kyselyimportlib = modulename === "webhare" ? "kysely" : "wh:internal/whtree/node_modules/kysely";
+  const kyselyimportlib = modulename === "platform" ? "kysely" : "wh:internal/whtree/node_modules/kysely";
   const tablemap = new Map<string, string>;
   let hasblobs = false;
   let tabledefs = "";
@@ -258,22 +257,11 @@ export function generateKyselyDefs(modulename: string, modules: string[]): strin
     }
   }
 
-  return `import type { ColumnType } from ${JSON.stringify(kyselyimportlib)};
+  return `/* This file is auto-generated, do not modify but regenerate using \`wh update-generated-files\`
+   Use the dev module's browser for examples on how to use these types. */
+
+import type { ColumnType } from ${JSON.stringify(kyselyimportlib)};
 ${hasblobs ? `import type { WebHareBlob } from "@webhare/services";` : ""}
-
-/* Contains the Kysely database definitions for ${modulename == "webhare" ? `the WebHare core modules` : `module ${modulename}`}
-    Example usage:
-
-\`\`\`
-import { db, Selectable } from "@webhare/whdb";
-import type { ${whdbdefs.interfaceName} } from "@mod-system/js/internal/generated/whdb/${modulename}";
-
-let rows: Selectable<${whdbdefs.interfaceName}, "<tablename>">;
-rows = db<${whdbdefs.interfaceName}>().selectFrom("<tablename>").selectAll().execute();
-\`\`\`
-*/
-
-// This file is generated, don't try to modify this file. Regenerate using \`wh updategeneratedfiles\`
 
 type IsGenerated<T> = ColumnType<T, T | undefined, never>;
 
@@ -285,29 +273,11 @@ ${[...tablemap.entries()].map(entry => `  ${JSON.stringify(entry[0])}: ${entry[1
 `;
 }
 
-function generateFile({ defname, modules }: { defname: string; modules: string[] }) {
-  // Only process existing modules
-  modules = modules.filter(module => config.module[module]);
-  if (!modules.length) {
-    return "";
-  }
-
-  return generateKyselyDefs(defname, modules);
-}
-
-export async function listAllModuleTableDefs(): Promise<FileToUpdate[]> {
-  const noncoremodules = Object.keys(config.module).filter(m => !whconstant_builtinmodules.includes(m));
-  return [
-    {
-      path: "whdb/platform.ts",
-      module: "platform",
-      type: "whdb",
-      generator: () => generateFile({ defname: "webhare", modules: whconstant_builtinmodules })
-    }, ...noncoremodules.map(m => ({
-      path: `whdb/${m}.ts`,
-      module: m,
-      type: "whdb",
-      generator: () => generateFile({ defname: m, modules: [m] })
-    }))
-  ];
+export async function listAllModuleTableDefs(mods: string[]): Promise<FileToUpdate[]> {
+  return mods.map(module => ({
+    path: `whdb/${module}.ts`,
+    module,
+    type: "whdb",
+    generator: () => generateKyselyDefs(module)
+  }));
 }
