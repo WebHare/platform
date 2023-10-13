@@ -35,14 +35,6 @@ if [ -n "$WEBHARE_IN_DOCKER" ]; then #Only do this when building docker images, 
   $WHTREE/bin/wh exec whcompile -q /opt/wh/whtree/modules/consilio /opt/wh/whtree/modules/publisher /opt/wh/whtree/modules/socialite /opt/wh/whtree/modules/tollium /opt/wh/whtree/modules/wrd &
   COMPILEPID=$!
 
-  echo "Running fixmodules"
-  wh fixmodules --onlymodules --nocompile
-  RETVAL=$?
-  if [ $RETVAL != 0 ]; then
-    echo "Fixmodules failed with errorcode $RETVAL"
-    FAIL=1
-  fi
-
   wait $COMPILEPID
   RETVAL=$?
   if [ $RETVAL != 0 ]; then

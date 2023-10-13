@@ -15,13 +15,8 @@ NOCOMPILE=
 DRYRUNPREFIX=""
 
 while [[ $1 =~ -.* ]]; do
-  if [ "$1" == "--onlymodules" ]; then #ignored. wh finalize-webhare fixes WebHare
+  if [ "$1" == "--onlyinstalledmodules" ]; then #ignored. wh finalize-webhare fixes WebHare. kept for compatibility with wh testdocker (which sends this parameter for 5.3 and below)
     shift
-  elif [ "$1" == "--onlyinstalledmodules" ]; then #ignored. wh finalize-webhare fixes WebHare
-    shift
-  elif [ "$1" == "--onlybroken" ]; then
-    echo "--onlybroken is now the default. use '*' to process all modules"
-    exit 1
   elif [ "$1" == "--nocompile" ]; then
     NOCOMPILE=1
     shift
@@ -46,15 +41,7 @@ NPMOPTIONS="--no-update-notifier --quiet --no-fund --no-audit --no-save --ignore
 wh update-generated-files --update=config --nodb
 
 if [ "$#" == 1 ] && [ "$1" == "*" ]; then
-  if [ -n "$ONLYINSTALLEDMODULES" ]; then
-    MODULESLIST=($(wh getinstalledmodulelist))
-  else
-    MODULESLIST=($(wh getmodulelist))
-  fi
-  if [ "$INCLUDEWEBHARE" == "1" ]; then
-    #prepend webhare to the list
-    MODULESLIST=(webhare "${MODULESLIST[@]}")
-  fi
+  MODULESLIST=($(wh getinstalledmodulelist))
 elif [ "$#" != 0 ]; then
   MODULESLIST=("$@")
 else
@@ -62,33 +49,27 @@ else
 fi
 
 for MODULENAME in "${MODULESLIST[@]}"; do
-  if [ "$MODULENAME" == "webhare" ]; then
-    echo "Updating WebHare Platform"
-    wh -i finalize-webhare
-    continue
-  else # MODULENAME != webhare
-    getmoduledir MODULEDIR $MODULENAME
-    cd "$MODULEDIR" || exit 1
-    if [ -f package.json ]; then
-      echo "Installing npm modules for module '$MODULENAME'"
-      $DRYRUNPREFIX npm install $NPMOPTIONS
-    fi
+  getmoduledir MODULEDIR $MODULENAME
+  cd "$MODULEDIR" || exit 1
+  if [ -f package.json ]; then
+    echo "Installing npm modules for module '$MODULENAME'"
+    $DRYRUNPREFIX npm install $NPMOPTIONS
+  fi
 
-    for Q in "$MODULEDIR/webdesigns"/?* ; do
-      if cd "$Q" 2>/dev/null ; then
-        echo "Installing npm modules for webdesign '$MODULENAME:$(basename "$Q")'"
+  for Q in "$MODULEDIR/webdesigns"/?* ; do
+    if cd "$Q" 2>/dev/null ; then
+      echo "Installing npm modules for webdesign '$MODULENAME:$(basename "$Q")'"
 
-        if [ -f package.json ]; then
-          $DRYRUNPREFIX npm install $NPMOPTIONS
-          RETVAL=$?
-          if [ "$RETVAL" != "0" ]; then
-            echo NPM FAILED with errorcode $RETVAL
-            FAILED=1
-          fi
+      if [ -f package.json ]; then
+        $DRYRUNPREFIX npm install $NPMOPTIONS
+        RETVAL=$?
+        if [ "$RETVAL" != "0" ]; then
+          echo NPM FAILED with errorcode $RETVAL
+          FAILED=1
         fi
       fi
-    done
-  fi # ends MODULENAME != webhare
+    fi
+  done
 
   if [ -x "$MODULEDIR/scripts/fixmodules-plugin.sh" ]; then
     cd "${MODULEDIR}" || exit 1
@@ -105,13 +86,11 @@ done
 # Now recompile all modules that we updated
 if [ -z "$NOCOMPILE" ]; then
   for MODULENAME in ${MODULESLIST[@]}; do
-    if [ "$MODULENAME" != "webhare" ]; then
-      $DRYRUNPREFIX wh assetpacks --quiet recompile "$MODULENAME:*"
-      RETVAL=$?
-      if [ "$RETVAL" != "0" ]; then
-        echo "wh assetpacks recompile for module '$MODULENAME' failed with errorcode $RETVAL"
-        FAILED=1
-      fi
+    $DRYRUNPREFIX wh assetpacks --quiet recompile "$MODULENAME:*"
+    RETVAL=$?
+    if [ "$RETVAL" != "0" ]; then
+      echo "wh assetpacks recompile for module '$MODULENAME' failed with errorcode $RETVAL"
+      FAILED=1
     fi
   done
 
