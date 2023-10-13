@@ -12,7 +12,7 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
-
+LOADLIB "mod::system/lib/internal/cluster/logwriter.whlib";
 
 PUBLIC OBJECT ipcparentlink;
 
@@ -194,6 +194,12 @@ MACRO HandleMessage(OBJECT link, RECORD msg, INTEGER64 msgid, INTEGER64 replyto)
 {
   IF (CellExists(msg, "__EXCEPTION"))
   {
+    IF(replyto = 0) //unsollicited, uncaught rejection? we can't really THROW it as HS will ignore it, but we want the caller to know!
+    {
+      LogNoticeException("callasync--unhandledrejection", "", DecodeReceivedException(msg.__exception), DEFAULT RECORD);
+      RETURN;
+    }
+
     RECORD pos := RecordLowerBound(pendingcalls, [ id := replyto ], [ "ID" ]);
     IF (pos.found)
     {
