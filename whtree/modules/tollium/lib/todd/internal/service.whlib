@@ -234,30 +234,44 @@ PUBLIC RECORD FUNCTION RPC_RunToddComm(RECORD request)
 
 PUBLIC RECORD FUNCTION RPC_RetrieveImages(RECORD ARRAY images, BOOLEAN nocache)
 {
-  RECORD options := [ nocache := nocache
-                    , nobroken := TRUE
-                    ];
+  RECORD options := CELL
+      [ nocache
+      , nobroken := TRUE
+      ];
   FOREVERY (RECORD img FROM images)
   {
-    RECORD ARRAY retrieved;
+    RECORD ARRAY toretrieve;
+    // By default, specifying "icon1+icon2" creates a knockout of icon2 in icon1. Use "icon1++icon2" to composite icons without knockout
     FOREVERY (STRING imgname FROM img.data.imgnames)
+    {
+      // If this is the empty string between "++", prevent creating a knockout in the previous layer
+      IF (imgname = "")
+      {
+        IF (Length(toretrieve) > 0)
+          toretrieve[END-1].knockout := FALSE;
+      }
+      ELSE
+        INSERT CELL[ imgname, knockout := TRUE ] INTO toretrieve AT END;
+    }
+    RECORD ARRAY retrieved;
+    FOREVERY (RECORD item FROM toretrieve)
     {
       retrieved := retrieved CONCAT
           ((SELECT data := EncodeBase64(BlobToString(data, -1))
                  , type
                  , color
                  , invertable
-                 , knockout
+                 , knockout := img.knockout AND item.knockout
                  , translatex
                  , translatey
-                 , imgname := VAR imgname
-              FROM GetImage(imgname, img.data.width, img.data.height, "", img.data.color, options) AS img)
+                 , imgname := VAR item.imgname
+              FROM GetImage(item.imgname, img.data.width, img.data.height, "", img.data.color, options) AS img)
             ?? [ DEFAULT RECORD ]);
     }
     INSERT CELL images := retrieved INTO images[#img];
     DELETE CELL data FROM images[#img];
   }
-  RETURN [ images := images ];
+  RETURN CELL[ images ];
 }
 
 STRING ARRAY FUNCTION GetNonlocalIps()
