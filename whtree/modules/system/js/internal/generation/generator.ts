@@ -71,7 +71,7 @@ export async function updateGeneratedFiles(targets: string[], options: { dryRun?
   }
 
   //Remove old files
-  await deleteRecursive(installedBaseDir, { keep: _ => keepfiles.has(join(_.path, _.name)), dryRun: options.dryRun, verbose: options.verbose });
-  await deleteRecursive(builtinBaseDir, { keep: _ => keepfiles.has(join(_.path, _.name)), dryRun: options.dryRun, verbose: options.verbose });
+  await deleteRecursive(installedBaseDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.path, _.name)), dryRun: options.dryRun, verbose: options.verbose });
+  await deleteRecursive(builtinBaseDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.path, _.name)), dryRun: options.dryRun, verbose: options.verbose });
   return;
 }

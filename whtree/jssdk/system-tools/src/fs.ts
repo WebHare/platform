@@ -49,16 +49,25 @@ export async function storeDiskFile(path: string, data: string | Buffer, options
   }
 }
 
-async function readDirRecursiveDeeper(basepath: string, subpath: string): Promise<Dirent[]> {
-  const direntries = await readdir(join(basepath, subpath), { withFileTypes: true });
+async function readDirRecursiveDeeper(basepath: string, subpath: string, allowMissing?: boolean): Promise<Dirent[]> {
+  const direntries = [];
+  try {
+    direntries.push(...await readdir(join(basepath, subpath), { withFileTypes: true }));
+  } catch (err) {
+    if (allowMissing && (err as { code: string })?.code === "ENOENT")
+      return [];
+
+    throw err;
+  }
+
   for (const item of direntries.filter(_ => _.isDirectory()))
-    direntries.push(...await readDirRecursiveDeeper(basepath, join(subpath, item.name)));
+    direntries.push(...await readDirRecursiveDeeper(basepath, join(subpath, item.name), allowMissing));
   return direntries;
 }
 
 /** Read a directory, recursive */
-export async function readDirRecursive(basepath: string): Promise<Dirent[]> {
-  return await readDirRecursiveDeeper(basepath, "");
+export async function readDirRecursive(basepath: string, { allowMissing }: { allowMissing?: boolean } = {}): Promise<Dirent[]> {
+  return await readDirRecursiveDeeper(basepath, "", allowMissing);
 }
 
 interface DeleteRecursiveOptions {
@@ -70,10 +79,21 @@ interface DeleteRecursiveOptions {
   verbose?: boolean;
   /** Don't actually delete anything */
   dryRun?: boolean;
+  /** Ignore missing directory entries */
+  allowMissing?: boolean;
 }
 
 async function deleteRecursiveDeeper(basepath: string, subpath: string, options?: DeleteRecursiveOptions): Promise<boolean> {
-  const direntries = await readdir(join(basepath, subpath), { withFileTypes: true });
+  const direntries = [];
+  try {
+    direntries.push(...await readdir(join(basepath, subpath), { withFileTypes: true }));
+  } catch (err) {
+    if (options?.allowMissing && (err as { code: string })?.code === "ENOENT")
+      return true;
+
+    throw err;
+  }
+
   let allgone = true;
   for (const item of direntries) {
     const isdir = item.isDirectory();
@@ -85,8 +105,16 @@ async function deleteRecursiveDeeper(basepath: string, subpath: string, options?
       continue;
     }
 
-    if (!options?.dryRun)
-      await (isdir ? rmdir : unlink)(join(basepath, subpath, item.name));
+    if (!options?.dryRun) {
+      try {
+        await (isdir ? rmdir : unlink)(join(basepath, subpath, item.name));
+      } catch (err) {
+        if (options?.allowMissing && (err as { code: string })?.code === "ENOENT")
+          continue;
+
+        throw err;
+      }
+    }
   }
   return allgone;
 }
@@ -98,8 +126,16 @@ async function deleteRecursiveDeeper(basepath: string, subpath: string, options?
 export async function deleteRecursive(basepath: string, options?: DeleteRecursiveOptions): Promise<boolean> {
   //TODO should we be throwing on nonexistent files/dirs or just ignore that? (ie. gone=gone)
   const allgone = await deleteRecursiveDeeper(basepath, '', options);
-  if (allgone && options?.deleteSelf)
-    await rmdir(basepath);
+  if (allgone && options?.deleteSelf) {
+    try {
+      await rmdir(basepath);
+    } catch (err) {
+      if (options?.allowMissing && (err as { code: string })?.code === "ENOENT")
+        return true;
+
+      throw err;
+    }
+  }
 
   return allgone;
 }

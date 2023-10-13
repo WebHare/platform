@@ -56,6 +56,12 @@ async function testFS() {
   test.eq(true, await deleteRecursive(tempdir));
   test.assert(existsSync(path.join(tempdir)));
 
+  /* Directory structure syncers (which is what readDirRecursive and deleteRecursive are actually about) often don't care about missing files. */
+  await test.throws(/no such.*directory/, readDirRecursive(path.join(tempdir, "nonexistent")));
+  await test.throws(/no such.*directory/, deleteRecursive(path.join(tempdir, "nonexistent")));
+  test.eq([], await readDirRecursive(path.join(tempdir, "nonexistent"), { allowMissing: true }));
+  test.eq(true, await deleteRecursive(path.join(tempdir, "nonexistent"), { allowMissing: true, deleteSelf: true }));
+
   test.eq(true, await deleteRecursive(tempdir, { deleteSelf: true }));
   test.assert(!existsSync(path.join(tempdir)));
 }
