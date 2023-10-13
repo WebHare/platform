@@ -54,11 +54,13 @@ class toddGoogleMap {
     options.OpenInfoWindow =      (...args) => this.openInfoWindow(...args);
     options.CloseInfoWindow =     (...args) => this.closeInfoWindow(...args);
 
-    // Our todd map controller object
-    this.map = toddGM_Initialize(options.mapdiv, options);
-
     // Previous center (used to prevent generating move events when the map did not actually move)
     this.prevmapcenter = null;
+
+    // Load icons and then initialize our todd map controller object
+    this.loadIcons(options.icons).then((icons) => {
+      this.map = toddGM_Initialize(options.mapdiv, { ...options, icons });
+    });
   }
 
   // Deinitialize the map
@@ -71,19 +73,21 @@ class toddGoogleMap {
   {
     // If the Google map is loaded, call requested function on our Google Map object, otherwise delay the call until the map
     // is initialized
-    if (this.map.map)
+    if (this.map?.map)
     {
       if (this.map[name])
         this.map[name].apply(this.map, args);
     }
     else
-      this.cached_calls.push({ name: name, args: args });
+      this.cached_calls.push({ name, args });
   }
 
   iFrameResized()
   {
-    if (this.map.map)
+    if (this.map?.map)
       google.maps.event.trigger(this.map.map, "resize");
+    else
+      this.cached_calls.push({ name: "iFrameResized", args: [] });
   }
 
   selectionUpdate(overlay, latlng)
@@ -107,17 +111,36 @@ class toddGoogleMap {
 
   async createButtonImage(filename, width, height)
   {
+    // filename is 'map_[button].png', change to 'tollium:maps/[button]'
+    // maps-v3.js creates 16x16 buttons, we want 24x24 buttons
+    const data = await this.loadImage("tollium:maps/" + filename.substring(4, filename.length - 4), 24, 24);
+    const img = document.createElement("img");
+    img.src = data.src;
+    img.width = data.width;
+    img.height = data.height;
+    return img;
+  }
+
+  async loadIcons(icons) {
+    for (const icon of icons) {
+      icon.icon = (await this.loadImage(icon.icon, icon.width, icon.height, "c")).src;
+      if (icon.shadow)
+        icon.shadow = (await this.loadImage(icon.shadow, icon.width, icon.height, "c")).src;
+    }
+    return icons;
+  }
+
+  async loadImage(imgname, width, height, color = "b") {
     return new Promise(resolve => {
       const id = ++this.imgqueueid;
-      this.imgqueue.set(id, { id, resolve });
-      // filename is 'map_[button].png', change to 'tollium:maps/[button]'
+      this.imgqueue.set(id, { id, imgname, resolve });
       this.iframetodd.postMessage({
         id,
         type: "createimage",
-        imgname: "tollium:maps/" + filename.substring(4, filename.length - 4),
-        width: 24,
-        height: 24,
-        color: "b"
+        imgname,
+        width,
+        height,
+        color
       });
     });
   }
@@ -128,12 +151,7 @@ class toddGoogleMap {
         const queued = this.imgqueue.get(event.data.id);
         if (queued) {
           this.imgqueue.delete(queued.id);
-
-          const img = document.createElement("img");
-          img.src = event.data.src;
-          img.width = event.data.width;
-          img.height = event.data.height;
-          queued.resolve(img);
+          queued.resolve(event.data);
         }
         break;
       }

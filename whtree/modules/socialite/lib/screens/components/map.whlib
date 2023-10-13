@@ -452,10 +452,6 @@ PUBLIC OBJECTTYPE GoogleMapComponent EXTEND TolliumComponentBase
                                  , height := height LIKE "*px" ? ToInteger(Left(height, Length(height)-2),48) : 48
                               FROM [ defaultoverlayicon ] CONCAT this->icons;
 
-      STRING imgshtml := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img.shtml");
-      UPDATE icons SET icon := icon != "" ? imgshtml || "?n=" || EncodeURL(icon) || "&w=" || width || "&h=" || height || "&type=.png" : ""
-                      , shadow := shadow != "" ? imgshtml || "?n=" || EncodeURL(shadow) || "&w=" || width || "&h=" || height || "&type=.png" : "";
-
       INTEGER iconsize; //how much to reserve for icons
       IF(Length(icons)=0)
       {
@@ -476,7 +472,7 @@ PUBLIC OBJECTTYPE GoogleMapComponent EXTEND TolliumComponentBase
                           , loadingtext := GetTid("socialite:components.map.loading")
                           , mapdata :=
                               [ maptype := this->pvt_maptype
-                              , initial_pos := LatLngObjectToString(this->pvt_center)
+                              , center := LatLngObjectToString(this->pvt_center)
                               , zoom := this->pvt_zoom
                               , restrictto := BoundsToString(this->pvt_restrictto)
                               , moveable := this->pvt_moveable

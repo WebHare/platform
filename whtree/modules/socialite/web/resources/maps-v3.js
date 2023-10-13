@@ -268,18 +268,12 @@ toddGM_Map.prototype.ParseIcons = function toddGM_Map_ParseIcons(icons)
   for (var i = 0; i < icons.length; ++i)
   {
     // Create a new icon
-    var icon = new google.maps.MarkerImage( icons[i].icon
-                                          , new google.maps.Size(icons[i].width ? icons[i].width : this.iconsize, icons[i].height ? icons[i].height : this.iconsize)
-                                          , null
-                                          , new google.maps.Point(icons[i].anchor_x, icons[i].anchor_y)
-                                          );
+    var size = new google.maps.Size(icons[i].width ? icons[i].width : this.iconsize, icons[i].height ? icons[i].height : this.iconsize);
+    var anchor = new google.maps.Point(icons[i].anchor_x, icons[i].anchor_y);
+    var icon = { url: icons[i].icon, size, scaledSize: size, anchor };
     var shadow = null;
     if (icons[i].shadow)
-      shadow = new google.maps.MarkerImage( icons[i].shadow
-                                          , new google.maps.Size(icons[i].width ? icons[i].width : this.iconsize, icons[i].height ? icons[i].height : this.iconsize)
-                                          , null
-                                          , new google.maps.Point(icons[i].anchor_x, icons[i].anchor_y)
-                                          );
+      shadow = { url: icons[i].shadow, size, scaledSize: size, anchor };
 
     // InfoWindow offset, relative from top left position
     var infoOffset = new google.maps.Point(icons[i].popup_x, icons[i].popup_y);
