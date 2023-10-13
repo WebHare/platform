@@ -75,7 +75,7 @@ PUBLIC OBJECT FUNCTION ImportJS(STRING name)
     INTEGER lastslash := SearchLastSubstring(caller,'/');
     name := __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(GetCallingLibrary(TRUE), "relative::" || name);
   }
-  ELSE IF(name NOT LIKE "*::*") //try node_modules like resolution
+  ELSE IF(name NOT LIKE "*::*" AND name NOT LIKE "@mod-*") //try node_modules like resolution
   {
     //Attempt an upwards search (but do not leave the module!)
     STRING ourdir := __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(GetCallingLibrary(TRUE), "relative::.");
