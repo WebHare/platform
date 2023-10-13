@@ -301,7 +301,7 @@ PUBLIC RECORD FUNCTION GetLatLngBoundingCoordinates(RECORD centerpoint, FLOAT di
   options := ValidateOptions([ radius := 6378137f ], options);
   IF(distance < 0)
     THROW NEW Exception("Distance must be >= 0");
-  IF(options.radius <- 0)
+  IF(options.radius <= 0)
     THROW NEW Exception("Radius must be > 0");
 
   FLOAT radlat := DegreesToRadians(centerpoint.lat);
@@ -338,3 +338,39 @@ PUBLIC RECORD FUNCTION GetLatLngBoundingCoordinates(RECORD centerpoint, FLOAT di
               ];
 }
 
+/** Get bounding coordinates for a list of points
+    @long Computes the bounding coordinates that contain all given points. If no points are given, returns a default record.
+    @param points The points that should be contained
+    @cell(float) points.lat Latitude
+    @cell(float) points.lng Longitude
+    @return Bounding coordinates which should contain all given points, or a default record if not points we're supplied
+    @cell(float) return.minlat Minimum latitude
+    @cell(float) return.maxlat Minimum latitude
+    @cell(float) return.minlng Minimum longitude
+    @cell(float) return.maxlng Minimum longitude
+    */
+PUBLIC RECORD FUNCTION GetLatLngsBoundingCoordinates(RECORD ARRAY points)
+{
+  IF (NOT RecordExists(points))
+    RETURN DEFAULT RECORD;
+
+  FLOAT minlat := points[0].lat;
+  FLOAT maxlat := points[0].lat;
+  FLOAT minlng := points[0].lng;
+  FLOAT maxlng := points[0].lng;
+
+  FOREVERY (RECORD point FROM points)
+  {
+    IF (#point = 0)
+      CONTINUE;
+    IF (point.lat < minlat)
+      minlat := point.lat;
+    IF (point.lat > maxlat)
+      maxlat := point.lat;
+    IF (point.lng < minlng)
+      minlng := point.lng;
+    IF (point.lng > maxlng)
+      maxlng := point.lng;
+  }
+  RETURN CELL[ minlat, maxlat, minlng, maxlng ];
+}
