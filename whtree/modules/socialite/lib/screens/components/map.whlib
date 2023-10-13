@@ -30,10 +30,10 @@ PUBLIC STRING ARRAY google_reserved_iconnames := [ "G_DEFAULT_ICON" ];
 
 // Used if no or invalid icon was specified
 RECORD defaultoverlayicon := [ name := ""
-                             , icon := "socialite:markers/pin_red"
-                             , shadow := "socialite:markers/pin_shadow"
-                             , anchor_x := 15
-                             , anchor_y := 42
+                             , icon := "tollium:maps/markers/marker_blue"
+                             , shadow := ""
+                             , anchor_x := 24
+                             , anchor_y := 38
                              , label_x := 24
                              , label_y := 8
                              , popup_x := 24
