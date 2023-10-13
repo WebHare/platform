@@ -1,10 +1,10 @@
-import { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
+import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { db } from "@webhare/whdb";
 import { describeContentType } from "@webhare/whfs";
 
 export async function verifyNumSettings(objid: number, ns: string, expect: number) {
   const type = await describeContentType(ns);
-  const instances = await db<WebHareDB>()
+  const instances = await db<PlatformDB>()
     .selectFrom("system.fs_instances")
     .selectAll()
     .where("fs_type", "=", type.id)
@@ -22,7 +22,7 @@ export async function verifyNumSettings(objid: number, ns: string, expect: numbe
   if (!instances.length)
     throw new Error(`Expected ${expect} settings but didn't even find fs_instance for type ${type.id} and object ${objid}`);
 
-  const settings = await db<WebHareDB>()
+  const settings = await db<PlatformDB>()
     .selectFrom("system.fs_settings")
     .selectAll()
     .where("fs_instance", "=", instances[0].id)
@@ -36,7 +36,7 @@ export async function verifyNumSettings(objid: number, ns: string, expect: numbe
 
 export async function dumpSettings(objid: number, ns: string) {
   const type = await describeContentType(ns);
-  const instances = await db<WebHareDB>()
+  const instances = await db<PlatformDB>()
     .selectFrom("system.fs_instances")
     .selectAll()
     .where("fs_type", "=", type.id)
@@ -49,7 +49,7 @@ export async function dumpSettings(objid: number, ns: string) {
   }
   console.log("fs_instance: ", instances[0]);
 
-  const settings = await db<WebHareDB>()
+  const settings = await db<PlatformDB>()
     .selectFrom("system.fs_settings")
     .selectAll()
     .where("fs_instance", "=", instances[0].id)

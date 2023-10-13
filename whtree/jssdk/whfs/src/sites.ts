@@ -1,10 +1,10 @@
 import { db, sql, Selectable } from "@webhare/whdb";
-import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
+import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { WHFSFile, WHFSFolder, openWHFSObject } from "./objects";
 import { excludeKeys, formatPathOrId } from "./support";
 
 // Adds the custom generated columns
-interface SiteRow extends Selectable<WebHareDB, "system.sites"> {
+interface SiteRow extends Selectable<PlatformDB, "system.sites"> {
   webroot: string;
 }
 
@@ -74,7 +74,7 @@ export async function openSite(site: number | string, options?: { allowMissing: 
 
 export async function openSite(site: number | string, options?: { allowMissing: boolean }) {
   //TODO we may need a view for this ? or learn our sql about .append too or similar
-  const match = await db<WebHareDB>()
+  const match = await db<PlatformDB>()
     .selectFrom("system.sites")
     .selectAll()
     .select(sql<string>`webhare_proc_sites_webroot(outputweb, outputfolder)`.as("webroot"))
@@ -107,7 +107,7 @@ export async function listSites<K extends keyof ListableSiteRow>(keys: K[] = [])
     selectkeys.add(dbkey);
   }
 
-  const rows = await db<WebHareDB>()
+  const rows = await db<PlatformDB>()
     .selectFrom("system.sites")
     .select(excludeKeys([...selectkeys], ["webroot"]))
     .$if(selectkeys.has("webroot"), qb => qb.select(sql<string>`webhare_proc_sites_webroot(outputweb, outputfolder)`.as("webroot")))

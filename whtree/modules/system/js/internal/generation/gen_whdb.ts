@@ -228,7 +228,7 @@ export function parseWHDBDefs(modulename: string, modules: string[]): WHDBDefs {
 
   return {
     schemas,
-    interfaceName: modulename === "webhare" ? "WebHareDB" : `${generateTableTypeName(modulename)}DB`
+    interfaceName: modulename === "webhare" ? "PlatformDB" : `${generateTableTypeName(modulename)}DB`
   };
 }
 
@@ -299,7 +299,7 @@ export async function listAllModuleTableDefs(): Promise<FileToUpdate[]> {
   const noncoremodules = Object.keys(config.module).filter(m => !whconstant_builtinmodules.includes(m));
   return [
     {
-      path: "whdb/webhare.ts",
+      path: "whdb/platform.ts",
       module: "platform",
       type: "whdb",
       generator: () => generateFile({ defname: "webhare", modules: whconstant_builtinmodules })

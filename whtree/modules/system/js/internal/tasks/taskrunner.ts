@@ -1,6 +1,6 @@
 import { TaskRequest, TaskResponse, WebHareBlob, broadcast } from "@webhare/services";
 import { loadJSFunction } from "../resourcetools";
-import { System_Managedtasks, WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
+import { System_Managedtasks, PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { commitWork, db, isWorkOpen, rollbackWork, uploadBlob } from "@webhare/whdb";
 import bridge from "../whmanager/bridge";
 import { addDuration, pick } from "@webhare/std";
@@ -22,7 +22,7 @@ async function finalizeTaskResult(taskinfo: TaskInfo, updates: Partial<System_Ma
   if (!isWorkOpen())
     throw new Error("Task did not open work");
 
-  await db<WebHareDB>().updateTable("system.managedtasks").where("id", "=", taskinfo.dbid).set(updates).execute();
+  await db<PlatformDB>().updateTable("system.managedtasks").where("id", "=", taskinfo.dbid).set(updates).execute();
   await commitWork();
 
   broadcast("system:managedtasks.any." + taskinfo.dbid);
@@ -68,7 +68,7 @@ export async function executeManagedTask(taskinfo: TaskInfo, debug: boolean) {
         const minNextRetry = new Date(Date.now() + restartdelay);
         let nextRetry = !taskresponse.nextretry || taskresponse.nextretry.getTime() > minNextRetry.getTime() ? taskresponse.nextretry || null : minNextRetry;
 
-        const iterations = (await db<WebHareDB>().selectFrom("system.managedtasks").select("iterations").where("id", "=", taskinfo.dbid).executeTakeFirst())?.iterations || 0;
+        const iterations = (await db<PlatformDB>().selectFrom("system.managedtasks").select("iterations").where("id", "=", taskinfo.dbid).executeTakeFirst())?.iterations || 0;
         if (!nextRetry) {
           if (iterations >= 6)
             nextRetry = addDuration(new Date, "P1D");

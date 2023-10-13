@@ -1,5 +1,5 @@
 import { db, Selectable, sql } from "@webhare/whdb";
-import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
+import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { WRDBaseAttributeType, WRDMetaType } from "./types";
 
@@ -9,12 +9,12 @@ const selectAttrColumns = ["id", "attributetype", "domain", "isunique", "isunsaf
 export const selectEntitySettingColumns = ["id", "entity", "attribute", "blobdata", "rawdata", "setting", "ordering", "parentsetting"] as const;
 export const selectEntitySettingWHFSLinkColumns = ["id", "fsobject", "linktype"] as const;
 
-export type SchemaRec = Pick<Selectable<WebHareDB, "wrd.schemas">, typeof selectSchemaColumns[number]>;
-export type TypeRec = Pick<Selectable<WebHareDB, "wrd.types">, typeof selectTypeColumns[number]> & { parentTypeIds: number[]; childTypeIds: number[] };
-export type AttrRec = Pick<Selectable<WebHareDB, "wrd.attrs">, typeof selectAttrColumns[number]>;
-export type EntitySettingsRec = Pick<Selectable<WebHareDB, "wrd.entity_settings">, typeof selectEntitySettingColumns[number]>;
-export type EntityPartialRec = Partial<Selectable<WebHareDB, "wrd.entities">>;
-export type EntitySettingsWHFSLinkRec = Pick<Selectable<WebHareDB, "wrd.entity_settings_whfslink">, typeof selectEntitySettingWHFSLinkColumns[number]>;
+export type SchemaRec = Pick<Selectable<PlatformDB, "wrd.schemas">, typeof selectSchemaColumns[number]>;
+export type TypeRec = Pick<Selectable<PlatformDB, "wrd.types">, typeof selectTypeColumns[number]> & { parentTypeIds: number[]; childTypeIds: number[] };
+export type AttrRec = Pick<Selectable<PlatformDB, "wrd.attrs">, typeof selectAttrColumns[number]>;
+export type EntitySettingsRec = Pick<Selectable<PlatformDB, "wrd.entity_settings">, typeof selectEntitySettingColumns[number]>;
+export type EntityPartialRec = Partial<Selectable<PlatformDB, "wrd.entities">>;
+export type EntitySettingsWHFSLinkRec = Pick<Selectable<PlatformDB, "wrd.entity_settings_whfslink">, typeof selectEntitySettingWHFSLinkColumns[number]>;
 
 
 export type SchemaData = {
@@ -101,7 +101,7 @@ function getBaseAttrsFor(type: TypeRec): AttrRec[] {
 }
 
 export async function getSchemaData(id: string | number): Promise<SchemaData> {
-  let schemaquery = db<WebHareDB>()
+  let schemaquery = db<PlatformDB>()
     .selectFrom("wrd.schemas")
     .select(selectSchemaColumns);
   if (typeof id === "number")
@@ -111,7 +111,7 @@ export async function getSchemaData(id: string | number): Promise<SchemaData> {
   const schema = await schemaquery.executeTakeFirst();
   if (!schema)
     throw new Error(`No such schema ${JSON.stringify(id)}`);
-  const types = (await db<WebHareDB>()
+  const types = (await db<PlatformDB>()
     .selectFrom("wrd.types")
     .select(selectTypeColumns)
     .where("wrd_schema", "=", schema.id)
@@ -123,7 +123,7 @@ export async function getSchemaData(id: string | number): Promise<SchemaData> {
       childTypeIds: [type.id],
     }));
   const typeids: number[] = types.map(t => t.id);
-  const attrs = (await db<WebHareDB>()
+  const attrs = (await db<PlatformDB>()
     .selectFrom("wrd.attrs")
     .select(selectAttrColumns)
     .where("type", "=", sql`any(${typeids})`)

@@ -1,7 +1,7 @@
 import { addDuration } from "@webhare/std";
 import { beginWork, db, commitWork } from "@webhare/whdb";
 import { listSchemas } from "@webhare/wrd";
-import { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
+import { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 
 export async function cleanupOutdatedEntities(options?: { forSchema?: string }) {
   await beginWork();
@@ -12,7 +12,7 @@ export async function cleanupOutdatedEntities(options?: { forSchema?: string }) 
 
   // List all types of all schemas
   const schemas = (await listSchemas()).filter(schema => !options?.forSchema || schema.tag == options.forSchema);
-  const types = await db<WebHareDB>()
+  const types = await db<PlatformDB>()
     .selectFrom("wrd.types")
     .select(["id", "deleteclosedafter"])
     .where("wrd_schema", "in", schemas.map(_ => _.id))
@@ -22,7 +22,7 @@ export async function cleanupOutdatedEntities(options?: { forSchema?: string }) 
   // Delete outdated entities
   for (const wrdType of types) {
     const outdatedDate = addDuration(now, `-P${wrdType.deleteclosedafter}D`);
-    await db<WebHareDB>()
+    await db<PlatformDB>()
       .deleteFrom("wrd.entities")
       .where("type", "=", wrdType.id)
       .where("limitdate", "<", outdatedDate)

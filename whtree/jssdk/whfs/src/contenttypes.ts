@@ -1,5 +1,5 @@
 import { Selectable, db, nextVal, sql } from "@webhare/whdb";
-import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
+import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { openWHFSObject } from "./objects";
 import { CSPContentType, getCachedSiteProfiles } from "./siteprofiles";
 import { isReadonlyWHFSSpace } from "./support";
@@ -13,8 +13,8 @@ export const normalfoldertype = "http://www.webhare.net/xmlns/publisher/normalfo
 const membertypenames: Array<MemberType | null> =
   [null, null, "string", null, "dateTime", "file", "boolean", "integer", "float", "money", null, "whfsRef", "array", "whfsRefArray", "stringArray", "richDocument", "intExtLink", null, "instance", "url", "composedDocument", "record", "formCondition"];
 
-type FSSettingsRow = Selectable<WebHareDB, "system.fs_settings">;
-type FSMemberRow = Selectable<WebHareDB, "system.fs_members">;
+type FSSettingsRow = Selectable<PlatformDB, "system.fs_settings">;
+type FSMemberRow = Selectable<PlatformDB, "system.fs_members">;
 
 export interface ContentTypeMember {
   id: number;
@@ -132,7 +132,7 @@ export async function describeContentType(type: string | number, options?: { all
     };
   }
 
-  const allmembers = await db<WebHareDB>().selectFrom("system.fs_members").selectAll().where("fs_type", "=", matchtype.id).execute();
+  const allmembers = await db<PlatformDB>().selectFrom("system.fs_members").selectAll().where("fs_type", "=", matchtype.id).execute();
   const members = mapRecurseMembers(allmembers);
 
   const baseinfo: ContentTypeInfo = {
@@ -245,18 +245,18 @@ class RecursiveSetter {
 
     for (const row of setrows)
       if (row.id && currentSettings.has(row.id)) { //FIXME avoid updating unchanged settings
-        await db<WebHareDB>().updateTable("system.fs_settings").set(row).where("id", "=", row.id).execute();
+        await db<PlatformDB>().updateTable("system.fs_settings").set(row).where("id", "=", row.id).execute();
         reusedSettings.add(row.id);
       } else
         insertrows.push({ ...row, fs_instance: instanceId }); //flush any insertable rows en block
 
     if (insertrows.length)
-      await db<WebHareDB>().insertInto("system.fs_settings").values(insertrows).execute();
+      await db<PlatformDB>().insertInto("system.fs_settings").values(insertrows).execute();
 
     //Basically we discard all settingIds we didn't reuse
     const todiscard = this.cursettings.filter(row => !reusedSettings.has(row.id)).map(row => row.id);
     if (todiscard.length)
-      await db<WebHareDB>().deleteFrom("system.fs_settings").where("id", "in", todiscard).execute();
+      await db<PlatformDB>().deleteFrom("system.fs_settings").where("id", "in", todiscard).execute();
   }
 }
 
@@ -268,12 +268,12 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
   }
 
   private async getCurrentInstanceId(fsobj: number, type: ContentTypeInfo) {
-    return (await db<WebHareDB>()
+    return (await db<PlatformDB>()
       .selectFrom("system.fs_instances").select("id").where("fs_type", "=", type.id).where("fs_object", "=", fsobj).executeTakeFirst())?.id || null;
   }
 
   private async getCurrentSettings(instanceId: number, topLevelMembers?: number[]) {
-    let query = db<WebHareDB>()
+    let query = db<PlatformDB>()
       .selectFrom("system.fs_settings")
       .selectAll()
       .where("fs_instance", "=", instanceId);
@@ -343,7 +343,7 @@ class WHFSTypeAccessor<ContentTypeStructure extends object = object> implements 
     await setter.recurseSetData(descr.members, data, null, null);
 
     if (!instanceId) //FIXME *only* get an instanceId if we're actually going to store settings
-      instanceId = (await db<WebHareDB>().insertInto("system.fs_instances").values({ fs_type: descr.id, fs_object: id }).returning("id").executeTakeFirstOrThrow()).id;
+      instanceId = (await db<PlatformDB>().insertInto("system.fs_instances").values({ fs_type: descr.id, fs_object: id }).returning("id").executeTakeFirstOrThrow()).id;
 
     await setter.apply(instanceId);
 

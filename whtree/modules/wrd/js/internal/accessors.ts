@@ -1,7 +1,7 @@
 import { WRDBaseAttributeType, WRDAttributeType, AllowedFilterConditions, WRDAttrBase, WRDGender, Insertable, GetResultType, SimpleWRDAttributeType } from "./types";
 import type { AttrRec, EntityPartialRec, EntitySettingsRec, EntitySettingsWHFSLinkRec } from "./db";
 import { sql, SelectQueryBuilder, ExpressionBuilder, RawBuilder, ComparisonOperatorExpression, WhereInterface } from "kysely";
-import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
+import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { compare, ComparableType, recordLowerBound, recordUpperBound } from "@webhare/hscompat/algorithms";
 import { isLike } from "@webhare/hscompat/strings";
 import { Money } from "@webhare/std";
@@ -13,11 +13,11 @@ import { RichDocument } from "@webhare/services/src/richdocument";
 
 
 /** Response type for addToQuery. Null to signal the added condition is always false
- * @typeParam O - Kysely selection map for wrd.entities (third parameter for `SelectQueryBuilder<WebHareDB, "wrd.entities", O>`)
+ * @typeParam O - Kysely selection map for wrd.entities (third parameter for `SelectQueryBuilder<PlatformDB, "wrd.entities", O>`)
  */
 type AddToQueryResponse<O> = {
   needaftercheck: boolean;
-  query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>;
+  query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>;
 } | null;
 
 /// Returns `null` if Required might be false
@@ -58,7 +58,7 @@ export abstract class WRDAttributeValueBase<In, Default, Out extends Default, C 
    * @param cv - Condition and value to compare with
    * @returns Whether after-filtering is necessary and updated query
    */
-  abstract addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: C): AddToQueryResponse<O>;
+  abstract addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: C): AddToQueryResponse<O>;
 
   /** Returns true all the values in a filter match the default value
    * @param cv - Condition+value to check
@@ -133,13 +133,13 @@ function cmp<T extends ComparableType>(a: T, condition: "=" | ">=" | ">" | "!=" 
   }
 }
 
-type SettingsSelectBuilder = SelectQueryBuilder<WebHareDB, "wrd.entities" | "wrd.entity_settings", { id: number }>;
+type SettingsSelectBuilder = SelectQueryBuilder<PlatformDB, "wrd.entities" | "wrd.entity_settings", { id: number }>;
 
 /** Returns a subquery over wrd.entity_settings on a wrd.entities where, joined on the entity id
  * @param qb - Query over wrd.entities
  * @returns Subquery over wrd.entity_settings, with the column `id` already selected.
 */
-function getSettingsSelect(qb: ExpressionBuilder<WebHareDB, "wrd.entities">, attr: number): SettingsSelectBuilder {
+function getSettingsSelect(qb: ExpressionBuilder<PlatformDB, "wrd.entities">, attr: number): SettingsSelectBuilder {
   return qb
     .selectFrom("wrd.entity_settings")
     .select(["wrd.entity_settings.id"])
@@ -161,7 +161,7 @@ function getSettingsSelect(qb: ExpressionBuilder<WebHareDB, "wrd.entities">, att
  * @param builder - Function that add the relevant conditions on the first subquery to identify matching settings records
  * @returns Updated query
 */
-function addQueryFilter<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, attr: number, defaultmatches: boolean, builder: (b: SettingsSelectBuilder) => SettingsSelectBuilder): SelectQueryBuilder<WebHareDB, "wrd.entities", O> {
+function addQueryFilter<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, attr: number, defaultmatches: boolean, builder: (b: SettingsSelectBuilder) => SettingsSelectBuilder): SelectQueryBuilder<PlatformDB, "wrd.entities", O> {
   return query.where((oqb) => {
     oqb = oqb.orWhereExists((qb) => {
       return builder(getSettingsSelect(qb, attr));
@@ -225,7 +225,7 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
     return cmp(value, cv.condition === "mentions" ? "=" : cv.condition, cmpvalue);
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBStringConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBStringConditions): AddToQueryResponse<O> {
     const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
 
     // Rewrite like query to PostgreSQL LIKE mask format
@@ -296,7 +296,7 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
     return cmp(value, cv.condition === "mentions" ? "=" : cv.condition, cmpvalue);
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBStringConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBStringConditions): AddToQueryResponse<O> {
     // Rewrite like query to PostgreSQL LIKE mask format
     let db_cv = { ...cv };
     if (db_cv.condition === "like") {
@@ -400,7 +400,7 @@ class WRDDBBaseGuidValue extends WRDAttributeValueBase<string, string, string, W
       return cv.value.includes(value);
     return cmp(value, cv.condition, cv.value);
   }
-  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBGuidConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBGuidConditions): AddToQueryResponse<O> {
     // Rewrite like query to PostgreSQL LIKE mask format
     const db_cv = cv.condition === "in" ?
       { ...cv, value: cv.value.map(v => Buffer.from(v.slice(4), "hex")) } :
@@ -451,7 +451,7 @@ class WRDDBBaseGeneratedStringValue extends WRDAttributeValueBase<never, string,
     return cmp(value, cv.condition, cv.value);
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBaseGeneratedStringConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBaseGeneratedStringConditions): AddToQueryResponse<O> {
     return { needaftercheck: true, query };
   }
 
@@ -515,7 +515,7 @@ class WRDDBBooleanValue extends WRDAttributeValueBase<boolean, boolean, boolean,
     return cmp(value, cv.condition, cv.value);
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBBooleanConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBBooleanConditions): AddToQueryResponse<O> {
     const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
 
     query = addQueryFilter(query, this.attr.id, defaultmatches, b => addWhere(b, `rawdata`, cv.condition, cv.value ? "1" : ""));
@@ -553,7 +553,7 @@ class WRDDBIntegerValue extends WRDAttributeValueBase<number, number, number, WR
     return cmp(value, cv.condition, cv.value);
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBIntegerConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBIntegerConditions): AddToQueryResponse<O> {
     const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
 
     if (cv.condition === "in" && !cv.value.length)
@@ -588,7 +588,7 @@ class WRDDBBaseIntegerValue extends WRDAttributeValueBase<number, number, number
     return cmp(value, cv.condition, cv.value);
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBIntegerConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBIntegerConditions): AddToQueryResponse<O> {
     if (cv.condition === "in" && !cv.value.length)
       return null;
     switch (this.attr.tag) {
@@ -679,7 +679,7 @@ class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
     }
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBDomainConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBDomainConditions): AddToQueryResponse<O> {
     const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
 
     // rewrite mentions and mentionsany to supported conditions
@@ -742,7 +742,7 @@ class WRDDBBaseDomainValue<Required extends boolean> extends WRDAttributeValueBa
     }
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBDomainConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBDomainConditions): AddToQueryResponse<O> {
     // rewrite mentions and mentionsany to supported conditions
     let db_cv = { ...cv };
     if (db_cv.condition === "mentions")
@@ -839,7 +839,7 @@ class WRDDBDomainArrayValue extends WRDAttributeValueBase<number[], number[], nu
     }
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBDomainArrayConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBDomainArrayConditions): AddToQueryResponse<O> {
     const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
 
     type Conditions = {
@@ -927,7 +927,7 @@ class WRDDBEnumValue<Options extends { allowedvalues: string }, Required extends
     return cmp(value, cv.condition === "mentions" ? "=" : cv.condition, cv.value || "");
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBEnumConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBEnumConditions): AddToQueryResponse<O> {
     const defaultmatches = this.matchesValue(this.getDefaultValue(), cv);
 
     // Rewrite like query to PostgreSQL LIKE mask format
@@ -994,7 +994,7 @@ class WRDDBEnumArrayValue<Options extends { allowedvalues: string }> extends WRD
     throw new Error(`Condition ${cv.condition} not yet implemented for enumarray`);
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBEnumArrayConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBEnumArrayConditions): AddToQueryResponse<O> {
     return { needaftercheck: true, query };
   }
 
@@ -1032,7 +1032,7 @@ class WRDDBDateValue<Required extends boolean> extends WRDAttributeValueBase<(tr
     return cmp(value, cv.condition, cv.value);
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBDateTimeConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBDateTimeConditions): AddToQueryResponse<O> {
     return { needaftercheck: true, query };
   }
 
@@ -1064,7 +1064,7 @@ class WRDDBBaseDateValue extends WRDAttributeValueBase<Date | null, Date | null,
     return cmp(value, cv.condition, cv.value);
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBDateTimeConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBDateTimeConditions): AddToQueryResponse<O> {
     let fieldname: "dateofbirth" | "dateofdeath";
     if (this.attr.tag === "wrdDateOfBirth")
       fieldname = "dateofbirth";
@@ -1132,7 +1132,7 @@ class WRDDBDateTimeValue<Required extends boolean> extends WRDAttributeValueBase
     return cmp(value, cv.condition, cv.value);
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBDateTimeConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBDateTimeConditions): AddToQueryResponse<O> {
     return { needaftercheck: true, query };
   }
 
@@ -1168,7 +1168,7 @@ class WRDDBBaseCreationLimitDateValue extends WRDAttributeValueBase<Date | null,
     return cmp(value, cv.condition, cv.value);
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBDateTimeConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBDateTimeConditions): AddToQueryResponse<O> {
     const defaultMatches = this.matchesValue(this.getDefaultValue(), cv);
 
     let fieldname: "creationdate" | "limitdate";
@@ -1253,7 +1253,7 @@ class WRDDBBaseModificationDateValue extends WRDAttributeValueBase<Date, Date | 
     return cmp(value, cv.condition, cv.value);
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: WRDDBDateTimeConditions): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: WRDDBDateTimeConditions): AddToQueryResponse<O> {
     if (cv.condition === "in")
       cv.value = cv.value.map(v => v ?? defaultDateTime);
     else
@@ -1322,7 +1322,7 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
    * @param cv - Condition and value to compare with
    * @returns Whether after-filtering is necessary and updated query
    */
-  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv: never): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv: never): AddToQueryResponse<O> {
     throw new Error(`Filters not allowed on arrays`);
   }
 
@@ -1397,7 +1397,7 @@ export abstract class WRDAttributeUncomparableValueBase<In, Default, Out extends
     throw new Error(`Cannot compare values of type  ${WRDAttributeType[this.attr.attributetype]}`);
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv_org: never): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv_org: never): AddToQueryResponse<O> {
     throw new Error(`Cannot compare values of type  ${WRDAttributeType[this.attr.attributetype]}`);
   }
 
@@ -1493,7 +1493,7 @@ export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default
     this.throwError();
   }
 
-  addToQuery<O>(query: SelectQueryBuilder<WebHareDB, "wrd.entities", O>, cv_org: C): AddToQueryResponse<O> {
+  addToQuery<O>(query: SelectQueryBuilder<PlatformDB, "wrd.entities", O>, cv_org: C): AddToQueryResponse<O> {
     this.throwError();
   }
 

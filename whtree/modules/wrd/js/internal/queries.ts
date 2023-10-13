@@ -9,7 +9,7 @@ import type { HistoryModeData, WRDType } from "./schema";
 import { AnyWRDAccessor, getAccessor } from "./accessors";
 import { AttrRec, EntitySettingsRec, EntitySettingsWHFSLinkRec, /*TypeRec, */selectEntitySettingColumns, selectEntitySettingWHFSLinkColumns } from "./db";
 import { db, sql } from "@webhare/whdb";
-import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
+import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { recordLowerBound, recordUpperBound, recordRange } from "@webhare/hscompat/algorithms";
 import { maxDateTime } from "@webhare/hscompat/datetime";
 
@@ -130,7 +130,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
   const { map, accessors } = createSelectMap(type, selects || {}, rootAttrMap, parentAttrMap);
 
   // Base entity query
-  let query = db<WebHareDB>()
+  let query = db<PlatformDB>()
     .selectFrom("wrd.entities")
     .where("wrd.entities.type", "=", sql`any(${typerec.childTypeIds})`);
 
@@ -208,7 +208,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
 
   // Get required entity settings if needed
   const settings: EntitySettingsRec[] = selectattrids.length ?
-    await db<WebHareDB>()
+    await db<PlatformDB>()
       .selectFrom("wrd.entity_settings")
       .where("entity", "=", sql`any(${entities.map(e => e.id)})`)
       .where("attribute", "=", sql`any(${selectattrids})`)
@@ -222,7 +222,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
 
   // TODO: get only link settings for attributes that have them, reduces size of the where array
   const links: EntitySettingsWHFSLinkRec[] = settings.length ?
-    await db<WebHareDB>()
+    await db<PlatformDB>()
       .selectFrom("wrd.entity_settings_whfslink")
       .select(selectEntitySettingWHFSLinkColumns)
       .where("id", "=", sql`any(${settings.map(setting => setting.id)})`)
