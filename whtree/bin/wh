@@ -367,7 +367,7 @@ case $INSTR in
 
     [ -n "$DEBUGSTARTUP" ] && logWithTime "Launching in console mode"
 
-    SERVICEMANAGER="$WEBHARE_DIR/modules/platform/js/bootstrap/servicemanager.ts"
+    SERVICEMANAGER="$WEBHARE_DIR/modules/platform/js/bootstrap/servicemanager/main.ts"
     # 100 spaces to allocate room for updating the process.title
     PS_SPACER="                                                                                                    "
     if [ "$DEBUGTAGS" == "" ]; then # no processing needed, just exec

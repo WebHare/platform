@@ -1,0 +1,3 @@
+managedServices:
+  apprunner:
+    script: mod::system/scripts/internal/apprunner.whscr
