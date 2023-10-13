@@ -24,7 +24,7 @@ MACRO TestRegressions()
 
   RECORD ARRAY issues := CheckNodeModulesInModule(GetWebHareResourceDiskPath(Resolve("data/nodechecks/undetected-root-module")), [ skipmodtimecheck := TRUE ]);
   TestEq(1, Length(issues));
-  TestEqLike("*node-fetch*not installed*", issues[0].error);
+  TestEqLike("*node-fetch*required by*", issues[0].error);
 }
 
 RunTestframework([ PTR TestCoreModules

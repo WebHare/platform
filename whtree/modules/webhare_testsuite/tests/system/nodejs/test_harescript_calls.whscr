@@ -4,6 +4,8 @@ LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 
+LOADLIB "wh::internal/wasm.whlib" EXPORT IsWasm;
+
 OBJECT std := ImportJs("@webhare/std");
 TestEqLike("????????-????-????-????-????????????", std->GenerateRandomId("uuidv4"));
 
@@ -12,6 +14,8 @@ TestEq(imp, ImportJs(Resolve("data/calls.ts")), "should simply be the same objec
 
 TestEq(imp, ImportJs("./data/calls.ts"), "ImportJs should not require Resolve a long as you make clear the path is relative");
 TestEq(imp, ImportJs("../nodejs/data/calls.ts"), "ImportJs should not require Resolve a long as you make clear the path is relative (2)");
+TestEq("testme! 42", ImportJs("testpackage")->testme());
+TestEq("testme! 42", ImportJs("testpackage/testpackage.js")->testme());
 
 OBJECT promise42 := imp->testAsync42();
 TestEq(43, imp->testSync43());

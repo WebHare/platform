@@ -4389,7 +4389,7 @@ PUBLIC STRING FUNCTION Resolve(STRING inpath)
   { //Get our filename
     STRING caller := GetCallingLibrary(TRUE); //may return a direct:: path!
     INTEGER lastslash := SearchLastSubstring(caller,'/');
-    RETURN __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(GetCallingLibrary(TRUE),"relative::" || Substring(caller,lastslash+1)) || addhash;
+    RETURN __HS_INTERNAL_RESOLVEABSOLUTELIBRARY(caller, "relative::" || Substring(caller,lastslash+1)) || addhash;
   }
 
   //(ab)use __HS_INTERNAL_RESOLVEABSOLUTELIBRARY to get the short mod:: name to our current file

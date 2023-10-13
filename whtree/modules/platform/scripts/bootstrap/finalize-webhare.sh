@@ -21,10 +21,15 @@ done
 cd "${BASH_SOURCE%/*}/../../../.." || exit 1  #take us to whtree/
 source "lib/wh-functions.sh"
 
-[ -f package.json ] || die "Failed ot navigate to whtree directory"
+[ -f package.json ] || die "Failed to navigate to whtree directory"
 
-logWithTime "Updating whtree NPM packages"
-npm install --no-save --ignore-scripts --omit=dev --omit=peer || die "NPM failure"
+# Install all packages
+NPMCANDIDATES=$(ls -d . modules/* modules/*/webdesigns/* | grep -v webhare_testsuite)
+for CANDIDATE in $NPMCANDIDATES ; do
+  if [ -f "$CANDIDATE/package.json" ]; then
+    npm install --no-save --ignore-scripts --omit=dev --omit=peer --prefix $CANDIDATE || die "NPM install failure for $CANDIDATE"
+  fi
+done
 
 # run scripts we trust and need explicitly.
 ## download the esbuild for this platform

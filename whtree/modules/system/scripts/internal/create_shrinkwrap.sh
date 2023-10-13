@@ -21,10 +21,6 @@ if [ ! -f "$WHTREE/bin/runscript" ]; then
   exit 1
 fi
 
-# We need to take another pass at fixmodules, because in Docker builds `ADD dropins /` happens just before create_shrinkwrap
-# and only now can we build the esbuild runner plugin
-wh fixmodules --nocompile webhare
-
 function stop_webhare()
 {
   local PID
