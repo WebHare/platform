@@ -12,6 +12,7 @@
   <test script="test_services.ts" />
   <test script="test_servicemgr.ts" />
   <test script="test_resources.ts" />
+  <test script="test_devsupport.ts" />
   <test script="test_rtd.ts" />
   <test script="test_bridge_from_harescript.whscr" />
   <test script="test_tests.ts" />
