@@ -278,10 +278,15 @@ export async function updateWebHareConfigFile({ verbose = false, nodb = false }:
   const dir = dataroot + "storage/system/generated/config/";
   const file = dir + "config.json";
 
-  let oldconfig = {};
-  if (fs.existsSync(file)) {
+  let oldconfig = {}, currenttext: string | null = null;
+  try {
+    currenttext = await readFile(file, 'utf8');
+  } catch (ignore) {
+  }
+
+  if (currenttext !== null) {
     try {
-      oldconfig = JSON.parse(fs.readFileSync(file).toString());
+      oldconfig = JSON.parse(currenttext);
     } catch (e) {
       console.error("Failed to load old configuration file", e);
       //and ignore it, we don't want to get stuck updating config files
@@ -291,13 +296,7 @@ export async function updateWebHareConfigFile({ verbose = false, nodb = false }:
   // process.stderr.write((new Date).toString() + " Starting config update\n");
   const newconfig = await updateWebHareConfig(oldconfig, !nodb);
   const newconfigtext = JSON.stringify(newconfig, null, 2);
-  let anychanges = false;
-
-  try {
-    const currentdata = await readFile(file, 'utf8');
-    anychanges = currentdata !== newconfigtext;
-  } catch (ignore) {
-  }
+  const anychanges = newconfigtext !== currenttext;
 
   if (anychanges) {
     await storeDiskFile(file, newconfigtext, { overwrite: true });
