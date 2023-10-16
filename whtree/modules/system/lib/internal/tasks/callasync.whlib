@@ -194,7 +194,7 @@ MACRO HandleMessage(OBJECT link, RECORD msg, INTEGER64 msgid, INTEGER64 replyto)
 {
   IF (CellExists(msg, "__EXCEPTION"))
   {
-    IF(replyto = 0) //unsollicited, uncaught rejection? we can't really THROW it as HS will ignore it, but we want the caller to know!
+    IF(replyto = 0) //unsolicited, uncaught rejection? we can't really THROW it as HS will ignore it, but we want the caller to know!
     {
       LogNoticeException("callasync--unhandledrejection", "", DecodeReceivedException(msg.__exception), DEFAULT RECORD);
       RETURN;
