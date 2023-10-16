@@ -102,8 +102,7 @@ RECORD ARRAY FUNCTION GetModuleApps()
     }
     CATCH (OBJECT e)
     {
-      // FIXME: to harescript-errors log
-      PRINT("Could not get apprunner config from module " || node.module || ", lib " || library || " func " || func);
+      PRINT("Could not get apprunner config from module " || node.module || ", lib " || library || " func " || func || "\n");
       LogHarescriptException(e);
     }
   }
