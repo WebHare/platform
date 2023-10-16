@@ -5,9 +5,10 @@ import * as fs from "node:fs";
 import { omit, RecursivePartial, RecursiveReadOnly } from "../util/algorithms";
 import { WHDBPgClient } from "@webhare/whdb/src/connection"; //we need a raw client without services/config dependency to bootstrap
 import { whconstant_whfsid_webharebackend } from "../webhareconstants";
-import { updateDir } from "./shared";
 import { decodeHSON } from "../whmanager/hsmarshalling";
 import { DTAPStage } from "@webhare/env/src/concepts";
+import { storeDiskFile } from "@webhare/system-tools/src/fs";
+import { readFile } from "node:fs/promises";
 
 interface ModuleData {
   /** Module's version */
@@ -289,15 +290,25 @@ export async function updateWebHareConfigFile({ verbose = false, nodb = false }:
 
   // process.stderr.write((new Date).toString() + " Starting config update\n");
   const newconfig = await updateWebHareConfig(oldconfig, !nodb);
-  if (await updateDir(dir, [{ type: "file", name: "config.json", data: [] }], true, () => JSON.stringify(newconfig))) {
-    for (const cb of [...updateCallbacks])
-      cb();
+  const newconfigtext = JSON.stringify(newconfig, null, 2);
+  let anychanges = false;
+
+  try {
+    const currentdata = await readFile(file, 'utf8');
+    anychanges = currentdata !== newconfigtext;
+  } catch (ignore) {
   }
 
-  if (!nodb) {
-    //    (await import("@webhare/services")).broadcast("system:configupdate"); //TODO resolveplugin doesn't intercept moduleloader yet so can't await
-    // eslint-disable-next-line @typescript-eslint/no-var-requires -- we can't await import yet, see above
-    require("@webhare/services").broadcast("system:configupdate");
+  if (anychanges) {
+    await storeDiskFile(file, newconfigtext, { overwrite: true });
+    for (const cb of [...updateCallbacks])
+      cb();
+
+    if (!nodb) {
+      //    (await import("@webhare/services")).broadcast("system:configupdate"); //TODO resolveplugin doesn't intercept moduleloader yet so can't await
+      // eslint-disable-next-line @typescript-eslint/no-var-requires -- we can't await import yet, see above
+      require("@webhare/services").broadcast("system:configupdate");
+    }
   }
 
   // process.stderr.write((new Date).toString() + " Done config update, modules: " + Object.keys(newconfig.public.module).join(", ") + "\n");

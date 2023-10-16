@@ -1,6 +1,7 @@
 import { generateRandomId } from "@webhare/std";
-import { open, FileHandle, rename, unlink } from "node:fs/promises";
-import { parse } from "node:path";
+import { Dirent } from "node:fs";
+import { open, FileHandle, rename, unlink, readdir, rmdir } from "node:fs/promises";
+import { join, parse } from "node:path";
 
 export interface StoreDiskFileOptions {
   ///Overwrite if the file already exists? (other we would throw)
@@ -46,4 +47,95 @@ export async function storeDiskFile(path: string, data: string | Buffer, options
     if (writepath)
       unlink(writepath).catch(function () {/*ignore*/ });
   }
+}
+
+async function readDirRecursiveDeeper(basepath: string, subpath: string, allowMissing?: boolean): Promise<Dirent[]> {
+  const direntries = [];
+  try {
+    direntries.push(...await readdir(join(basepath, subpath), { withFileTypes: true }));
+  } catch (err) {
+    if (allowMissing && (err as { code: string })?.code === "ENOENT")
+      return [];
+
+    throw err;
+  }
+
+  for (const item of direntries.filter(_ => _.isDirectory()))
+    direntries.push(...await readDirRecursiveDeeper(basepath, join(subpath, item.name), allowMissing));
+  return direntries;
+}
+
+/** Read a directory, recursive */
+export async function readDirRecursive(basepath: string, { allowMissing }: { allowMissing?: boolean } = {}): Promise<Dirent[]> {
+  return await readDirRecursiveDeeper(basepath, "", allowMissing);
+}
+
+interface DeleteRecursiveOptions {
+  /** A function that returns true if the file should be kept */
+  keep?: (file: Dirent) => boolean;
+  /** If true, the basepath itself will be deleted if it is empty */
+  deleteSelf?: boolean;
+  /** Log what would be deleted or kept */
+  verbose?: boolean;
+  /** Don't actually delete anything */
+  dryRun?: boolean;
+  /** Ignore missing directory entries */
+  allowMissing?: boolean;
+}
+
+async function deleteRecursiveDeeper(basepath: string, subpath: string, options?: DeleteRecursiveOptions): Promise<boolean> {
+  const direntries = [];
+  try {
+    direntries.push(...await readdir(join(basepath, subpath), { withFileTypes: true }));
+  } catch (err) {
+    if (options?.allowMissing && (err as { code: string })?.code === "ENOENT")
+      return true;
+
+    throw err;
+  }
+
+  let allgone = true;
+  for (const item of direntries) {
+    const isdir = item.isDirectory();
+    const keepit = options?.keep?.(item) || (isdir && !await deleteRecursiveDeeper(basepath, join(subpath, item.name), options));
+    if (options?.verbose)
+      console.log(`${keepit ? "Keeping" : "Deleting"} ${isdir ? "directory" : "file"} ${join(basepath, subpath, item.name)}`);
+    if (keepit) {
+      allgone = false;
+      continue;
+    }
+
+    if (!options?.dryRun) {
+      try {
+        await (isdir ? rmdir : unlink)(join(basepath, subpath, item.name));
+      } catch (err) {
+        if (options?.allowMissing && (err as { code: string })?.code === "ENOENT")
+          continue;
+
+        throw err;
+      }
+    }
+  }
+  return allgone;
+}
+
+/** Delete the contents of a directory
+ * @param basepath - Starting path
+ * @returns true if the basepath is now empty, false if we had to keep things
+ */
+export async function deleteRecursive(basepath: string, options?: DeleteRecursiveOptions): Promise<boolean> {
+  //TODO should we be throwing on nonexistent files/dirs or just ignore that? (ie. gone=gone)
+  const allgone = await deleteRecursiveDeeper(basepath, '', options);
+  if (allgone && options?.deleteSelf) {
+    try {
+      await rmdir(basepath);
+    } catch (err) {
+      if (options?.allowMissing && (err as { code: string })?.code === "ENOENT")
+        return true;
+
+      throw err;
+    }
+  }
+
+  return allgone;
 }

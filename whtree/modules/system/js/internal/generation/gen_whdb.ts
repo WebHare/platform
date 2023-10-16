@@ -2,7 +2,7 @@ import fs from "node:fs";
 import { DOMParser } from '@xmldom/xmldom';
 import { config } from "../configuration";
 import { whconstant_builtinmodules } from "../webhareconstants";
-import { updateDir } from "./shared";
+import { FileToUpdate } from "./shared";
 import { encodeString } from "@webhare/std";
 
 
@@ -222,7 +222,7 @@ ${[...tablemap.entries()].map(entry => `  ${JSON.stringify(entry[0])}: ${entry[1
 `;
 }
 
-function generateFile(file: string, { defname, modules }: { defname: string; modules: string[] }) {
+function generateFile({ defname, modules }: { defname: string; modules: string[] }) {
   // Only process existing modules
   modules = modules.filter(module => config.module[module]);
   if (!modules.length) {
@@ -232,21 +232,19 @@ function generateFile(file: string, { defname, modules }: { defname: string; mod
   return generateKyselyDefs(defname, modules);
 }
 
-export async function updateAllModuleTableDefs() {
-  const storagedir = config.dataroot + "storage/system/generated/whdb/";
-  const localdir = config.installationroot + "modules/system/js/internal/generated/whdb/";
-
+export async function listAllModuleTableDefs(): Promise<FileToUpdate[]> {
   const noncoremodules = Object.keys(config.module).filter(m => !whconstant_builtinmodules.includes(m));
-  await updateDir(storagedir, noncoremodules.map(m => ({ type: "file", name: m + ".ts", data: { defname: m, modules: [m] } })), true, generateFile);
-  await updateDir(localdir, [{ type: "file", name: "webhare.ts", data: { defname: "webhare", modules: whconstant_builtinmodules } }], true, generateFile);
-}
-
-export async function updateSingleModuleTableDefs(name: string) {
-  if (whconstant_builtinmodules.includes(name)) {
-    const localdir = config.installationroot + "modules/system/js/internal/generated/whdb/";
-    await updateDir(localdir, [{ type: "file", name: "webhare.ts", data: { defname: "webhare", modules: whconstant_builtinmodules } }], true, generateFile);
-  } else {
-    const storagedir = config.dataroot + "storage/system/generated/whdb/";
-    await updateDir(storagedir, [{ type: "file", name: name + ".ts", data: { defname: name, modules: [name] } }], false, generateFile);
-  }
+  return [
+    {
+      path: "whdb/webhare.ts",
+      module: "platform",
+      type: "whdb",
+      generator: () => generateFile({ defname: "webhare", modules: whconstant_builtinmodules })
+    }, ...noncoremodules.map(m => ({
+      path: `whdb/${m}.ts`,
+      module: m,
+      type: "whdb",
+      generator: () => generateFile({ defname: m, modules: [m] })
+    }))
+  ];
 }

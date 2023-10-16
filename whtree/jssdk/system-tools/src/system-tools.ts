@@ -1,1 +1,1 @@
-export { storeDiskFile } from "./fs";
+export { readDirRecursive, storeDiskFile, deleteRecursive } from "./fs";
