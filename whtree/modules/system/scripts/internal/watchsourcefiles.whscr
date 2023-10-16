@@ -79,7 +79,7 @@ RECORD ARRAY actions :=
       , cb :=         0
       , delay :=      300
       ]
-    , [ name :=       "wh:db file regeneration and siteprofiles recompule"
+    , [ name :=       "wh:db file regeneration and siteprofiles recompile"
       , masks :=      [ "mod::*/moduledefinition.xml" ]
       , skipmasks :=  DEFAULT STRING ARRAY
       , execute :=    PTR HandleModuleDefinitionChange()
@@ -250,6 +250,8 @@ OBJECT ASYNC FUNCTION HandleWatchProcess(OBJECT proc, BOOLEAN is_inotifywait)
   INTEGER output_handle;
   STRING buffer;
 
+  STRING ARRAY seen_in_batch;
+
   WHILE (TRUE)
   {
     AWAIT proc->AsyncWaitRead(MAX_DATETIME);
@@ -268,9 +270,6 @@ OBJECT ASYNC FUNCTION HandleWatchProcess(OBJECT proc, BOOLEAN is_inotifywait)
     IF (errors != "")
       PRINT(errors || "\n");
 
-    IF (args.o)
-      PRINT(output);
-
     buffer := buffer || output;
     STRING ARRAY lines := Tokenize(buffer, "\n");
     buffer := lines[END - 1];
@@ -279,6 +278,26 @@ OBJECT ASYNC FUNCTION HandleWatchProcess(OBJECT proc, BOOLEAN is_inotifywait)
     DATETIME schedule_time := AddTimeToDate(1000, GetCurrentDateTime());
     FOREVERY (STRING line FROM lines)
     {
+      IF (args.o)
+        PRINT(`output: ${line}\n`);
+      IF (NOT is_inotifywait)
+      {
+        IF (line = "NoOp")
+        {
+          IF (args.v)
+            PRINT(`End of batch\n`);
+          seen_in_batch := STRING[];
+          CONTINUE;
+        }
+        IF (line IN seen_in_batch)
+        {
+          IF (args.v)
+            PRINT(`Ignore duplicate line within batch\n`);
+          CONTINUE;
+        }
+        INSERT line INTO seen_in_batch AT END;
+      }
+
       STRING ARRAY parts := Tokenize(line || "  ", " ");
       STRING path := parts[0];
       IF (is_inotifywait)
@@ -412,7 +431,7 @@ FOREVERY (STRING dir FROM watchdirs)
   }
   ELSE
   {
-    STRING ARRAY proc_args := [ "-rn", "-l", ".1" ] CONCAT [ dir ];
+    STRING ARRAY proc_args := [ "-rn", "-l", ".1", "--batch-marker" ] CONCAT [ dir ];
     proc := CreateProcess(fswatch, proc_args, FALSE, TRUE, TRUE, FALSE);
   }
 
