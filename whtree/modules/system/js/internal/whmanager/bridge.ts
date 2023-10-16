@@ -263,8 +263,6 @@ class LocalBridge extends EventSource<BridgeEvents> {
   _ready: DeferredPromise<void>;
   connected = false;
   reftracker: RefTracker;
-  /// interval timer for local bridge in main thread to use while waiting for init
-  readyTimer: NodeJS.Timer | undefined;
 
   pendingensuredatasent = new Map<number, () => void>();
   pendingflushlogs = new Map<number, { resolve: () => void; reject: (_: Error) => void }>;
@@ -293,9 +291,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
       this.port.unref();
       this.reftracker = new RefTracker(this.port, { initialref: false });
     } else {
-      this.readyTimer = setInterval(() => false, 60000 * 1000);
-      this.readyTimer.unref();
-      this.reftracker = new RefTracker(this.readyTimer, { initialref: false });
+      this.reftracker = new RefTracker(null, { initialref: false });
     }
   }
 
@@ -580,7 +576,7 @@ type LocalBridgeData = {
   localBridge: null;
 } | {
   id: string;
-  port: | null;
+  port: null;
   localBridge: LocalBridge;
 };
 
