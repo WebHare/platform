@@ -5,7 +5,7 @@ import * as witty from '@webhare/witty';
 import { config as backendConfig, WebHareBackendConfiguration } from "./config";
 
 export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR, registerLoadedResource } from "@mod-system/js/internal/hmr";
-export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource } from "./resources";
+export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource, parseResourcePath } from "./resources";
 export { openBackendService, BackendServiceController } from "./backendservice";
 export { config as backendConfig, WebHareBackendConfiguration } from "./config";
 export { broadcast, subscribe, BackendEvent, BackendEventSubscription } from "./backendevents";
