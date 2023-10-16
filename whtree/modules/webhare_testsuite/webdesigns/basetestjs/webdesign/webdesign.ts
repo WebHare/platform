@@ -28,5 +28,5 @@ export async function BaseTestJSDesign(request: SiteRequest, settings: SiteRespo
   return new SiteResponse(pageConfig, request, settings);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- validate the signature. for CI purposes, not needed in external modules
-const BaseTestJSDesignValidator: WebDesignFunction<BaseTestPageConfig> = BaseTestJSDesign;
+// validate signatures
+BaseTestJSDesign satisfies WebDesignFunction<BaseTestPageConfig>;
