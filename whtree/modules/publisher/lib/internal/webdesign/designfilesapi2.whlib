@@ -220,24 +220,6 @@ PUBLIC STRING FUNCTION UnmapBundleUuid(STRING inuuid)
   RETURN inuuid;
 }
 
-PUBLIC RECORD FUNCTION GetAssetpacksBaseConfig()
-{
-  RECORD config := GetWebHareConfiguration();
-
-  RECORD baseconfig := [ installedmodules :=  (SELECT name
-                                                    , root := GetModuleInstallationRoot(name)
-                                                 FROM ToRecordArray(GetInstalledModuleNames(), "name"))
-                       , configtoken := ""
-                       , settingstoken := ""
-                       ];
-
-  RECORD settingstokenconfig := baseconfig;
-  DELETE CELL installedmodules FROM settingstokenconfig;
-  baseconfig.settingstoken := EncodeBase64(GetSHA1Hash(EncodeHSON(settingstokenconfig)));
-  baseconfig.configtoken := EncodeBase64(GetSHA1Hash(EncodeHSON(baseconfig)));
-  RETURN baseconfig;
-}
-
 PUBLIC RECORD ARRAY FUNCTION GetPersistentBundles()
 {
   //do not return bundles from uninstalled modules. scheduled compilations will fail and may race against (re)installation of modules

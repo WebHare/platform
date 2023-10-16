@@ -5,7 +5,7 @@ import * as path from 'path';
 const Module = require('module');
 import * as services from "@webhare/services";
 
-function resolveWebHareAssetPath(startingpoint: string, inpath: string) {
+export function resolveWebHareAssetPath(startingpoint: string, inpath: string) {
   if (inpath.startsWith("dompack/")) {
     return services.toFSPath("mod::system/js/" + inpath);
   }
@@ -22,7 +22,7 @@ function resolveWebHareAssetPath(startingpoint: string, inpath: string) {
     */
     if (inpath.startsWith('@mod-')) {
       // The directory should exist, so we can realpath that part
-      const inpathdir = path.join(services.config.dataroot, "node_modules/", path.dirname(inpath));
+      const inpathdir = path.join(services.backendConfig.dataroot, "node_modules/", path.dirname(inpath));
       inpath = path.join(fs.realpathSync(inpathdir), path.basename(inpath));
       paths = [];
     }
@@ -36,8 +36,6 @@ function resolveWebHareAssetPath(startingpoint: string, inpath: string) {
 }
 
 /** Resets the path resolve cache, so changes in directory structure won't have effect */
-function resetResolveCache() {
+export function resetResolveCache() {
   Module._pathCache = Object.create(null);
 }
-
-module.exports = { resolveWebHareAssetPath, resetResolveCache };

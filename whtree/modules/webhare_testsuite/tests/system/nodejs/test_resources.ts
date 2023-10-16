@@ -7,6 +7,13 @@ import { Rotation } from "@webhare/services/src/descriptor";
 async function testResolve() {
   test.throws(/without a base path/, () => services.resolveResource("", "lib/emtpydesign.whlib"));
 
+  test.eq({ namespace: "mod", module: "a", subpath: "b/c/d" }, services.parseResourcePath("mod::a/b/c/d"));
+  test.eq({ namespace: "mod", module: "a", subpath: "b/c/d", hash: "#e" }, services.parseResourcePath("mod::a/b/c/d#e"));
+  test.eq({ namespace: "storage", module: "a", subpath: "b/c/d", hash: "#e" }, services.parseResourcePath("storage::a/b/c/d#e"));
+  test.eq({ namespace: "site", subpath: "a/b/c/d", hash: "#e" }, services.parseResourcePath("site::a/b/c/d#e"));
+  test.eq(null, services.parseResourcePath("nosuch::a/b/c/d#e"));
+  test.eq(null, services.parseResourcePath("/a/b/c/d#e"));
+
   test.eq("", services.resolveResource("mod::a/b/c/d", ""));
   test.eq("mod::a/e", services.resolveResource("mod::a/b/c/d", "/e"));
   test.eq("mod::a/b/c/e", services.resolveResource("mod::a/b/c/d", "./e"));

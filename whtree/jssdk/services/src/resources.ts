@@ -67,6 +67,28 @@ export function toResourcePath(diskpath: string, options?: { allowUnmatched: boo
   throw new Error(`Cannot match filesystem path '${diskpath}' to a resource`);
 }
 
+interface ParsedResourcePath {
+  namespace: string;
+  subpath: string;
+  module?: string;
+  hash?: string;
+}
+
+//TODO should we interpret the full set of isAbsoltueResource? do our users want that?
+export function parseResourcePath(resourcepath: string): ParsedResourcePath | null {
+  const getns = resourcepath.match(/^(mod::([^/]+)\/|storage::([^/]+)\/|(.+)::)([^#]*)(#.+)?/);
+  if (!getns)
+    return null;
+  if (getns[2] || getns[3]) //either mod::[2] or storage:[3] matched
+    return { namespace: getns[2] ? "mod" : "storage", module: getns[2] || getns[3], subpath: getns[5], ...(getns[6] ? { hash: getns[6] } : null) };
+
+  const namespace = getns[1].substring(0, getns[1].length - 2);
+  if (!['site', 'whfs'].includes(namespace))
+    return null; //TODO support other namespaces? parse site name ?
+
+  return { namespace, subpath: getns[5], ...(getns[6] ? { hash: getns[6] } : null) };
+}
+
 /** Returns whether a resource path is an absolute path
     @param resourcepath - Resource path to test
     @returns true if the resource path is an absolute path

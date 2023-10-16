@@ -9,8 +9,6 @@ import * as path from "node:path";
 
 import * as services from "@webhare/services";
 
-let baseconfig: unknown; //we consider this opaque data we get and pass to the compiler
-/// @ts-ignore -- not ported yet to TS
 import { recompile } from '@mod-publisher/js/internal/esbuild/compiletask';
 
 //TODO these types should move to assetpackcontrol/bulder
@@ -44,7 +42,7 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
     fs.rmSync(bundle.outputpath, { recursive: true });
   fs.mkdirSync(bundle.outputpath);
 
-  const data = { directcompile: true, baseconfig, bundle };
+  const data = { directcompile: true, bundle, compiletoken: "adhoctest" };
   const result = await recompile(data) as CompileResult;
   JSON.stringify(result); //detect cycles etc;
   if (!result.haserrors) {
@@ -68,11 +66,6 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
 }
 
 async function testCompileerrors() {
-  console.log("setup");
-  {
-    baseconfig = await services.callHareScript('mod::publisher/lib/internal/webdesign/designfilesapi2.whlib#GetAssetpacksBaseConfig', []);
-  }
-
   console.log("should properly detect broken scss");
   {
     const result = await compileAdhocTestBundle(__dirname + "/broken-scss/broken-scss.es", true);
@@ -123,14 +116,13 @@ async function testCompileerrors() {
     test.assert(filedeps.filter(entry => entry[0] != '/').length == 0); //no weird entries, no 'stdin'...
   }
 
-  console.log("looking for a nonexisting module should register missingDependencies on node_modules");
+  console.log("looking for a nonexisting node_module should register missingDependencies on node_modules");
   {
     let result = await compileAdhocTestBundle(path.join(__dirname, "dependencies/find-vendornamespace-module.es"), true);
 
     test.assert(result.haserrors === true);
 
     let missingdeps = Array.from(result.info.dependencies.missingDependencies);
-
     test.assert(missingdeps.includes(path.join(services.config.module.webhare_testsuite.root, "node_modules/@vendor/submodule")));
     test.assert(missingdeps.includes(path.join(services.config.module.webhare_testsuite.root, "node_modules/@vendor/submodule/index.js")));
     test.assert(missingdeps.includes(path.join(services.config.module.webhare_testsuite.root, "node_modules/@vendor/submodule/index.es")));

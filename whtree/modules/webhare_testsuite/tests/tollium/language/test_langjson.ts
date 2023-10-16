@@ -1,7 +1,6 @@
 import * as test from '@webhare/test';
 
 import * as path from "node:path";
-/// @ts-ignore -- not ported yet to TS
 import * as langparser from "@mod-tollium/js/internal/lang";
 
 // Test the lang.json parser
@@ -27,11 +26,6 @@ async function testLangJsonParser() {
     test.eq(true, "node" in alltexts.get("webhare_testsuite").test.testgroup);
     test.eq(true, "" in alltexts.get("webhare_testsuite").test.testgroup.node);
     test.eq(true, "text" in alltexts.get("webhare_testsuite").test.testgroup.node);
-
-    const output = langparser.generateTexts(alltexts);
-    //we can't compile code that will contain 2028 or 2029 linefeeds
-    test.eq(false, output.includes("\u2028"));
-    test.eq(false, output.includes("\u2029"));
 
     // groups and texts with the same name, group after first text and text after group
     const custom = {};
