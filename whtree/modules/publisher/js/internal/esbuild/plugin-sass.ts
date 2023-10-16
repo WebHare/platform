@@ -103,40 +103,32 @@ async function replaceUrls(css, newCssFileName, sourceDir, rootDir) {
           && node.name === "import"
           && node.prelude != null
           && node.prelude.type === "AtrulePrelude") {
-          if (!node.prelude.children.isEmpty()) {
-            const urlNode = node.prelude.children.first();
+          if (!node.prelude.children.isEmpty) {
+            const urlNode = node.prelude.children.first;
             if (urlNode != null && urlNode.type === "String") {
-              const normalizedUrl = normalizeQuotes(urlNode.value);
-              const rewritten = rewriteSassURL(newCssFileName, normalizedUrl);
+              const rewritten = rewriteSassURL(newCssFileName, urlNode.value);
               if (rewritten) {
                 if (process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
-                  console.log(`[plugin-sass] replaceUrls: @import rewrote ${normalizedUrl} to ${rewritten}`);
-                urlNode.value = `"${fixCssUrl(rewritten)}"`;
+                  console.log(`[plugin-sass] replaceUrls: @import rewrote ${urlNode.value} to ${rewritten}`);
+                urlNode.value = rewritten;
               } else {
                 if (process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
-                  console.log(`[plugin-sass] replaceUrls: @import did not rewrite ${normalizedUrl}`);
+                  console.log(`[plugin-sass] replaceUrls: @import did not rewrite ${urlNode.value}`);
               }
             }
           }
         }
 
         if (node.type === "Url") {
-          const value = node.value;
-          const normalizedUrl = value.type === "String" ? normalizeQuotes(value.value) : value.value;
-          const rewritten = rewriteSassURL(newCssFileName, normalizedUrl);
+          const rewritten = rewriteSassURL(newCssFileName, node.value);
           if (rewritten) {
             if (process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
-              console.log(`[plugin-sass] replaceUrls: url() rewrote ${normalizedUrl} to ${rewritten}`);
+              console.log(`[plugin-sass] replaceUrls: url() rewrote ${node.value} to ${rewritten}`);
 
-            node.value =
-            {
-              ...node.value,
-              type: "String",
-              value: `"${fixCssUrl(rewritten)}"`
-            };
+            node.value = rewritten;
           } else {
             if (process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
-              console.log(`[plugin-sass] replaceUrls: url() did not rewrite ${normalizedUrl}`);
+              console.log(`[plugin-sass] replaceUrls: url() did not rewrite ${node.value}`);
           }
         }
       }
@@ -155,17 +147,6 @@ function isLocalFileUrl(url) {
   }
   return true;
 }
-function normalizeQuotes(stringValue) {
-  let _a;
-  const match = stringValue.match(/^['"](.*)["']$/s);
-  return match != null ? (_a = match[1]) !== null && _a !== void 0 ? _a : "" : stringValue;
-}
-// Always use unix-style path separator (/) in urls in CSS, since Windows-style
-// separator doesn't work on Windows
-function fixCssUrl(filePath) {
-  return filePath.split(path.sep).join('/');
-}
-
 
 module.exports = (captureplugin, options = {}) => ({
   name: "sass",
