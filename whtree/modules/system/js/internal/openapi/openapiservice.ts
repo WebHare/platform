@@ -103,7 +103,7 @@ export class RestService {
 
       if (env.flags.etr)
         result = createJSONResponse(HTTPErrorCode.InternalServerError, { error: (e as Error).message, stack: (e as Error).stack });
-      else if (services.config.dtapstage == "development")
+      else if (services.backendConfig.dtapstage == "development")
         result = createJSONResponse(HTTPErrorCode.InternalServerError, { error: "Internal error - enable the 'etr' debug flag to enable full error tracing" });
       else
         result = createJSONResponse(HTTPErrorCode.InternalServerError, { error: "Internal error" });

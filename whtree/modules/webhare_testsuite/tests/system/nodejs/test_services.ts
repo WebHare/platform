@@ -16,7 +16,7 @@ function ensureProperPath(inpath: string) {
 }
 
 async function testServices() {
-  test.assert(services.config);
+  test.assert(services.backendConfig);
 
   //Verify potentially higher level invoke APIs work
   test.eq(45, await services.callHareScript("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib#Add", [22, 23]));
@@ -30,16 +30,16 @@ async function testServices() {
 
   //get WebHare configuration
   const whconfig = await services.callHareScript("mod::system/lib/configure.whlib#GetWebHareConfiguration", []) as any;
-  // console.log(services.config, whconfig);
-  test.eq(whconfig.basedataroot, services.config.dataroot);
+  // console.log(services.backendConfig, whconfig);
+  test.eq(whconfig.basedataroot, services.backendConfig.dataroot);
 
-  ensureProperPath(services.config.dataroot);
-  ensureProperPath(services.config.installationroot);
+  ensureProperPath(services.backendConfig.dataroot);
+  ensureProperPath(services.backendConfig.installationroot);
 
-  test.throws(/The WebHare configuration is read-only/, () => { if (services.config) (services.config as any).dataroot = "I touched it"; });
+  test.throws(/The WebHare configuration is read-only/, () => { if (services.backendConfig) (services.backendConfig as any).dataroot = "I touched it"; });
 
-  test.eq(await services.callHareScript("mod::system/lib/configure.whlib#GetModuleInstallationRoot", ["system"]) as string, services.config.module.system.root);
-  ensureProperPath(services.config.module.system.root);
+  test.eq(await services.callHareScript("mod::system/lib/configure.whlib#GetModuleInstallationRoot", ["system"]) as string, services.backendConfig.module.system.root);
+  ensureProperPath(services.backendConfig.module.system.root);
 
   //Verify callHareScript supporting the new blobs
   test.eq("1234", await services.callHareScript("wh::files.whlib#BlobToString", [services.WebHareBlob.from("1234")]));

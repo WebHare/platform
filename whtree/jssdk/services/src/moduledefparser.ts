@@ -1,6 +1,6 @@
 import { readFileSync } from "fs";
 import { XMLParser } from "fast-xml-parser";
-import { backendConfig, getConfig, resolveResource, toFSPath } from "./services";
+import { backendConfig, resolveResource, toFSPath } from "./services";
 import { splitModuleScopedName } from "./naming";
 import YAML from "yaml";
 import { ModuleDefinitionYML } from "./moduledeftypes";
@@ -33,7 +33,7 @@ export function gatherBackendServices() {
     isArray: (name, jpath, isLeafNode, isAttribute) => ["backendservice"].includes(name)
   });
 
-  for (const module of Object.keys(getConfig().module)) {
+  for (const module of Object.keys(backendConfig.module)) {
     const moduledefresource = `mod::${module}/moduledefinition.xml`;
     const parsedmodule = parser.parse(readFileSync(toFSPath(moduledefresource)));
     for (const service of parsedmodule.module.services?.backendservice ?? [])

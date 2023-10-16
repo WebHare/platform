@@ -207,7 +207,7 @@ export async function recompile(data: RecompileSettings) {
     // TODO metafile gives some more stats and an alternative way towards grabbing dependencies, but doesnt return anything on error, so we'll stick to our handler for now
     // , metafile:true
 
-    nodePaths: [services.config.dataroot + "node_modules/"],
+    nodePaths: [services.backendConfig.dataroot + "node_modules/"],
     resolveExtensions: [".js", ".ts", ".tsx", ".es"], //es must be last so it can re-export .ts(x) without using extensions
     logLevel: data.logLevel || 'silent'
   };

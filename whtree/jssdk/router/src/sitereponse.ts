@@ -54,9 +54,9 @@ export class SiteResponse<T extends object = object> {
       siteroot: "",
       site: {},
       obj: {},
-      dtapstage: services.config.dtapstage,
-      //TODO should we have a services.config.islive? or just clientside or never generate that?
-      islive: ["production", "acceptance"].includes(services.config.dtapstage),
+      dtapstage: services.backendConfig.dtapstage,
+      //TODO should we have a services.backendConfig.islive? or just clientside or never generate that?
+      islive: ["production", "acceptance"].includes(services.backendConfig.dtapstage),
       locale: this.settings.lang, //why doesn't JS just get the html lang= ?
       server: 50300 //FIXME how to get it, and do we still want to in JS ?
     };

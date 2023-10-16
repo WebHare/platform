@@ -47,5 +47,3 @@ function getIntegrationConfig(): WHConfigScriptData {
 }
 
 export const frontendConfig = getIntegrationConfig();
-/** @deprecated Use the name 'frontendConfig' for disambiguation with backendConfig */
-export const config = frontendConfig;

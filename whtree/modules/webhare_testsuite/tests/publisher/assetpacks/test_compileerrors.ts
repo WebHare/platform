@@ -76,8 +76,8 @@ async function testCompileerrors() {
 
     //TODO preferably esbuild would also point to the SCSS, we'll re-investigate that once dart-sass improves its error output
     const acceptablenames = [
-      services.config.module.webhare_testsuite.root + "tests/publisher/assetpacks/broken-scss/broken-scss.scss", // <-- webpack
-      services.config.module.webhare_testsuite.root + "tests/publisher/assetpacks/broken-scss/broken-scss.es"   // <-- esbuild
+      services.backendConfig.module.webhare_testsuite.root + "tests/publisher/assetpacks/broken-scss/broken-scss.scss", // <-- webpack
+      services.backendConfig.module.webhare_testsuite.root + "tests/publisher/assetpacks/broken-scss/broken-scss.es"   // <-- esbuild
     ];
     console.log("Acceptable locations:", acceptablenames);
     console.log("Reported location:", result.info.errors[0].resource);
@@ -103,7 +103,7 @@ async function testCompileerrors() {
     test.assert(result.info.errors[0].message);
 
 
-    const acceptablenames = [services.config.module.webhare_testsuite.root + "tests/publisher/assetpacks/dependencies/deeper/import-fail.es"]; // <-- esbuild
+    const acceptablenames = [services.backendConfig.module.webhare_testsuite.root + "tests/publisher/assetpacks/dependencies/deeper/import-fail.es"]; // <-- esbuild
 
     console.log("Acceptable locations:", acceptablenames);
     console.log("Reported location:", result.info.errors[0].resource);
@@ -123,10 +123,10 @@ async function testCompileerrors() {
     test.assert(result.haserrors === true);
 
     let missingdeps = Array.from(result.info.dependencies.missingDependencies);
-    test.assert(missingdeps.includes(path.join(services.config.module.webhare_testsuite.root, "node_modules/@vendor/submodule")));
-    test.assert(missingdeps.includes(path.join(services.config.module.webhare_testsuite.root, "node_modules/@vendor/submodule/index.js")));
-    test.assert(missingdeps.includes(path.join(services.config.module.webhare_testsuite.root, "node_modules/@vendor/submodule/index.es")));
-    test.assert(missingdeps.includes(path.join(services.config.module.webhare_testsuite.root, "node_modules/@vendor/submodule/package.json")));
+    test.assert(missingdeps.includes(path.join(services.backendConfig.module.webhare_testsuite.root, "node_modules/@vendor/submodule")));
+    test.assert(missingdeps.includes(path.join(services.backendConfig.module.webhare_testsuite.root, "node_modules/@vendor/submodule/index.js")));
+    test.assert(missingdeps.includes(path.join(services.backendConfig.module.webhare_testsuite.root, "node_modules/@vendor/submodule/index.es")));
+    test.assert(missingdeps.includes(path.join(services.backendConfig.module.webhare_testsuite.root, "node_modules/@vendor/submodule/package.json")));
     test.assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule")));
     test.assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule.js")));
     test.assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule.es")));
@@ -138,7 +138,7 @@ async function testCompileerrors() {
     test.assert(result.haserrors === true);
 
     missingdeps = Array.from(result.info.dependencies.missingDependencies);
-    test.assert(missingdeps.includes(path.join(services.config.module.webhare_testsuite.root, "node_modules/@vendor/submodule/my.scss")));
+    test.assert(missingdeps.includes(path.join(services.backendConfig.module.webhare_testsuite.root, "node_modules/@vendor/submodule/my.scss")));
     test.assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my.scss")));
     test.assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my.scss.scss")));
     test.assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my.scss.sass")));
@@ -147,7 +147,7 @@ async function testCompileerrors() {
     test.assert(result.haserrors === true);
 
     missingdeps = Array.from(result.info.dependencies.missingDependencies);
-    test.assert(missingdeps.includes(path.join(services.config.module.webhare_testsuite.root, "node_modules/@vendor/submodule/my2.scss")));
+    test.assert(missingdeps.includes(path.join(services.backendConfig.module.webhare_testsuite.root, "node_modules/@vendor/submodule/my2.scss")));
     test.assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my2.scss")));
     test.assert(missingdeps.includes(path.join(__dirname, "node_modules/@vendor/submodule/my2.scss.scss")));
   }
@@ -169,7 +169,7 @@ async function testCompileerrors() {
 
     const filedeps = Array.from(result.info.dependencies.fileDependencies);
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.es")));
-    test.assert(filedeps.includes(path.join(services.config.installationroot, "modules/publisher/js/internal/polyfills/modern.ts")));
+    test.assert(filedeps.includes(path.join(services.backendConfig.installationroot, "modules/publisher/js/internal/polyfills/modern.ts")));
   }
 
   console.log("scss files dependencies");
@@ -195,8 +195,8 @@ async function testCompileerrors() {
 
     const filedeps = Array.from(result.info.dependencies.fileDependencies);
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.rpc.json")));
-    test.assert(filedeps.includes(path.join(services.config.installationroot, "modules/system/js/wh/rpc.ts")));
-    test.assert(filedeps.includes(services.config.module.webhare_testsuite.root + "lib/webservicetest.whlib"));
+    test.assert(filedeps.includes(path.join(services.backendConfig.installationroot, "modules/system/js/wh/rpc.ts")));
+    test.assert(filedeps.includes(services.backendConfig.module.webhare_testsuite.root + "lib/webservicetest.whlib"));
   }
 
   console.log("lang.json files pull in extra dependencies");
@@ -206,9 +206,9 @@ async function testCompileerrors() {
 
     const filedeps = Array.from(result.info.dependencies.fileDependencies);
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.lang.json")));
-    test.assert(filedeps.includes(path.join(services.config.installationroot, "modules/tollium/js/gettid.ts")));
-    test.assert(filedeps.includes(path.join(services.config.installationroot, "modules/tollium/language/default.xml")));
-    test.assert(filedeps.includes(path.join(services.config.installationroot, "modules/tollium/language/nl.xml")));
+    test.assert(filedeps.includes(path.join(services.backendConfig.installationroot, "modules/tollium/js/gettid.ts")));
+    test.assert(filedeps.includes(path.join(services.backendConfig.installationroot, "modules/tollium/language/default.xml")));
+    test.assert(filedeps.includes(path.join(services.backendConfig.installationroot, "modules/tollium/language/nl.xml")));
   }
 
   console.log("combine-deps pulls all these in as dependencies");
@@ -223,12 +223,12 @@ async function testCompileerrors() {
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.lang.json")));
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.rpc.json")));
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/base-for-deps.scss")));
-    test.assert(filedeps.includes(path.join(services.config.installationroot, "modules/publisher/js/internal/polyfills/modern.ts")));
-    test.assert(filedeps.includes(path.join(services.config.installationroot, "modules/system/js/wh/rpc.ts")));
-    test.assert(filedeps.includes(path.join(services.config.installationroot, "modules/tollium/js/gettid.ts")));
-    test.assert(filedeps.includes(path.join(services.config.installationroot, "modules/tollium/language/default.xml")));
-    test.assert(filedeps.includes(path.join(services.config.installationroot, "modules/tollium/language/nl.xml")));
-    test.assert(filedeps.includes(path.join(services.config.installationroot, "modules/tollium/web/img/buttonbar/bulletedlist.16x16.b.svg")));
+    test.assert(filedeps.includes(path.join(services.backendConfig.installationroot, "modules/publisher/js/internal/polyfills/modern.ts")));
+    test.assert(filedeps.includes(path.join(services.backendConfig.installationroot, "modules/system/js/wh/rpc.ts")));
+    test.assert(filedeps.includes(path.join(services.backendConfig.installationroot, "modules/tollium/js/gettid.ts")));
+    test.assert(filedeps.includes(path.join(services.backendConfig.installationroot, "modules/tollium/language/default.xml")));
+    test.assert(filedeps.includes(path.join(services.backendConfig.installationroot, "modules/tollium/language/nl.xml")));
+    test.assert(filedeps.includes(path.join(services.backendConfig.installationroot, "modules/tollium/web/img/buttonbar/bulletedlist.16x16.b.svg")));
 
     const missingdeps = Array.from(result.info.dependencies.missingDependencies);
     test.assert(missingdeps.length == 0);
@@ -241,7 +241,7 @@ async function testCompileerrors() {
 
     const filedeps = Array.from(result.info.dependencies.fileDependencies);
 
-    test.assert(filedeps.includes(path.join(services.config.installationroot, "modules/system/js/dompack/browserfix/reset.css")));
+    test.assert(filedeps.includes(path.join(services.backendConfig.installationroot, "modules/system/js/dompack/browserfix/reset.css")));
 
     const css = fs.readFileSync("/tmp/compileerrors-build-test/build/ap.css").toString();
     test.assert(css.match(/.test2{.*margin-left:1px.*}/));
@@ -281,7 +281,7 @@ async function testCompileerrors() {
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript/test-typescript.ts")), 'test-typescript.ts');
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript/test-typescript-2.ts")), 'test-typescript-2.ts'); // loaded by test-typescript.ts
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript/folder/index.ts")), 'typescript/index.ts'); // loaded by test-typescript.ts
-    test.assert(filedeps.includes(path.join(services.config.installationroot, "modules/publisher/js/internal/polyfills/modern.ts")));
+    test.assert(filedeps.includes(path.join(services.backendConfig.installationroot, "modules/publisher/js/internal/polyfills/modern.ts")));
 
     result = await compileAdhocTestBundle(__dirname + "/dependencies/typescript/test-typescript-in-js.ts", false); //verify we cannot load TypeScript in JS
     test.assert(result.haserrors === true);
@@ -296,7 +296,7 @@ async function testCompileerrors() {
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript-jsx/test-typescript.tsx")), 'test-typescript.tsx');
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript-jsx/test-typescript-2.tsx")), 'test-typescript-2.tsx'); // loaded by test-typescript.tsx
     test.assert(filedeps.includes(path.join(__dirname, "/dependencies/typescript-jsx/folder/index.tsx")), 'typescript/index.tsx'); // loaded by test-typescript.tsx
-    test.assert(filedeps.includes(path.join(services.config.installationroot, "modules/publisher/js/internal/polyfills/modern.ts")));
+    test.assert(filedeps.includes(path.join(services.backendConfig.installationroot, "modules/publisher/js/internal/polyfills/modern.ts")));
   }
 }
 

@@ -141,9 +141,9 @@ async function testOverlappingCalls() {
 }
 
 async function verifyPublicParts() {
-  test.assert(services.config.backendURL, "backendURL not set in configuration");
-  userapiroot = services.config.backendURL + ".webhare_testsuite/openapi/testservice/";
-  authtestsroot = services.config.backendURL + ".webhare_testsuite/openapi/authtests/";
+  test.assert(services.backendConfig.backendURL, "backendURL not set in configuration");
+  userapiroot = services.backendConfig.backendURL + ".webhare_testsuite/openapi/testservice/";
+  authtestsroot = services.backendConfig.backendURL + ".webhare_testsuite/openapi/authtests/";
 
   //Verify we get the openapi.json (not available through direct APICalls)
   const useropenapi = await (await fetch(userapiroot + "openapi.json", { redirect: "manual" })).json();

@@ -2,7 +2,6 @@ import { toFSPath } from "./resources";
 import * as fs from "node:fs";
 import { getBridgeService, InvokeOptions } from "./bridgeservice";
 import * as witty from '@webhare/witty';
-import { backendConfig, WebHareBackendConfiguration } from "./config";
 
 export { registerAsDynamicLoadingLibrary, registerAsNonReloadableLibrary, activate as activateHMR, registerLoadedResource } from "@mod-system/js/internal/hmr";
 export { toFSPath, toResourcePath, resolveResource, isAbsoluteResource, parseResourcePath } from "./resources";
@@ -22,13 +21,6 @@ export { WebHareBlob } from "./webhareblob";
 */
 export async function ready(): Promise<void> {
   return;
-}
-
-/** Returns the current configuration
- * @deprecated Just use `config`
-*/
-export function getConfig(): WebHareBackendConfiguration {
-  return config;
 }
 
 /** Asynchronously invoke a HareScript fuction
@@ -60,6 +52,3 @@ function readWittyResource(resource: string): Promise<string> {
     });
   });
 }
-
-/** @deprecated Use the name 'backendendconfig' for disambiguation with frontendConfig */
-export const config = backendConfig;
