@@ -1,28 +1,27 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 /* Based on https://www.npmjs.com/package/esbuild-sass-plugin/v/1.5.2
 */
 
 "use strict";
 
-import * as fs from "fs";
+import type * as esbuild from 'esbuild';
+import * as fs from "node:fs";
 import * as sass from "sass";
 import * as util from "util";
 import * as path from "path";
 import * as csstree from "css-tree";
 const sassRender = util.promisify(sass.render);
 import * as compileutils from './compileutils';
+import type { CaptureLoadPlugin } from './compiletask';
 
-function addUnderscoreToFilename(url) {
+function addUnderscoreToFilename(url: string) {
   const parts = url.split('/');
   parts[parts.length - 1] = '_' + parts[parts.length - 1];
   return parts.join('/');
 }
 
-function lookupSassURL(startingpoint, url) {
-  return new Promise((resolve, reject) => {
-    if (!url.startsWith("~") & !url.startsWith("@"))
+function lookupSassURL(startingpoint: string, url: string): Promise<undefined | string> {
+  return new Promise((resolve: (result: string | undefined) => void, reject) => {
+    if (!url.startsWith("~") && !url.startsWith("@"))
       return resolve(undefined);
 
     if (url.startsWith("~"))
@@ -45,35 +44,35 @@ function lookupSassURL(startingpoint, url) {
       return resolve(url); //let the caller fail on this path
 
     //check if the path exists. we might have to add scss otherwise
-    fs.access(target, fs.F_OK, (err) => {
+    fs.access(target, fs.constants.F_OK, (err) => {
       if (!err)
-        return resolve(target); //found with original name
+        return resolve(target!); //found with original name
 
-      fs.access(target + ".scss", fs.F_OK, err2 => {
+      fs.access(target + ".scss", fs.constants.F_OK, err2 => {
         if (err2)
-          return resolve(target); //then resolve to the original path and let it fail
+          return resolve(target!); //then resolve to the original path and let it fail
         return resolve(target + ".scss"); //found it as '.scss'
       });
 
-      fs.access(target + ".sass", fs.F_OK, err2 => {
+      fs.access(target + ".sass", fs.constants.F_OK, err2 => {
         if (err2)
-          return resolve(target); //then resolve to the original path and let it fail
+          return resolve(target!); //then resolve to the original path and let it fail
         return resolve(target + ".sass"); //found it as '.sass'
       });
     });
   });
 }
 
-function sassImporter(startingpoint, url, prev, done) {
+function sassImporter(startingpoint: string, url: string, prev: string, done: (result: sass.LegacyImporterResult) => void) {
   //  console.log("IMPORTER",url, prev, done);
-  lookupSassURL(startingpoint, url).then(result => {
+  lookupSassURL(startingpoint, url).then((result: string | undefined) => {
     // console.log(`sassImporter resolution: ${url} => ${result}`);
-    done(result ? { file: result } : undefined);
+    done(result ? { file: result } : new Error("Unrecognized URL"));
   });
   return undefined;
 }
 
-function rewriteSassURL(newCssFileName, inputurl) {
+function rewriteSassURL(newCssFileName: string, inputurl: string) {
   if (inputurl.startsWith('http:') || inputurl.startsWith('https:') || inputurl.startsWith('/')) //TODO or move this to
     return;
 
@@ -86,14 +85,14 @@ function rewriteSassURL(newCssFileName, inputurl) {
   return null;
 }
 
-async function replaceUrls(css, newCssFileName, sourceDir, rootDir) {
+async function replaceUrls(css: string, newCssFileName: string, sourceDir: string, rootDir: string) {
   if (process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
     console.log("replaceUrls", newCssFileName, sourceDir, rootDir);
 
   const ast = csstree.parse(css);
   csstree.walk(ast,
     {
-      enter(node) {
+      enter(node: csstree.CssNode) {
         /* Special case for import, since it supports raw strings as url.
         Plain css imports (eg @import "~dompack/browserfix/reset.css")
         goes through US not the import callback!
@@ -135,7 +134,7 @@ async function replaceUrls(css, newCssFileName, sourceDir, rootDir) {
     });
   return csstree.generate(ast);
 }
-function isLocalFileUrl(url) {
+function isLocalFileUrl(url: string) {
   if (/^https?:\/\//i.test(url)) {
     return false;
   }
@@ -148,12 +147,13 @@ function isLocalFileUrl(url) {
   return true;
 }
 
-module.exports = (captureplugin, options = {}) => ({
+export default (captureplugin: CaptureLoadPlugin, options: { rootDir?: string } = {}) => ({
   name: "sass",
-  setup: function (build) {
+  setup: (build: esbuild.PluginBuild) => {
     const { rootDir = process.cwd(), } = options;
 
-    build.onLoad({ filter: /.\.(scss|sass)$/, namespace: "file" }, async (args) => {
+    build.onLoad({ filter: /.\.(scss|sass)$/, namespace: "file" }, async (args: esbuild.OnLoadArgs) => {
+      ///@ts-ignore -- FIXME already broken? resolveDir isn't there in type, but path.resolve(undefined, "/absolute path") will simply return the path, so maybe we always gave absolute paths
       const sourceFullPath = path.resolve(args.resolveDir, args.path);
       const sourceDir = path.dirname(sourceFullPath);
 
@@ -163,15 +163,16 @@ module.exports = (captureplugin, options = {}) => ({
         file: sourceFullPath
       });
 
-      let css = result.css.toString();
+      // @ts-ignore -- FIXME original code didn't deal with potential undefined result
+      let css = result!.css.toString();
       // Replace all relative urls
       css = await replaceUrls(css, sourceFullPath, sourceDir, rootDir);
-      result.stats.includedFiles.forEach(dep => captureplugin.loadcache.add(dep));
+      result!.stats.includedFiles.forEach(dep => captureplugin.loadcache.add(dep));
 
       return {
         contents: css,
         loader: "css",
-        watchFiles: result.stats.includedFiles
+        watchFiles: result!.stats.includedFiles
       };
     });
   },

@@ -9,8 +9,7 @@ import * as path from "node:path";
 
 import * as services from "@webhare/services";
 
-let baseconfig: unknown; //we consider this opaque data we get and pass to the compiler
-/// @ts-ignore -- not ported yet to TS
+let baseconfig: any; //we consider this opaque data we get and pass to the compiler
 import { recompile } from '@mod-publisher/js/internal/esbuild/compiletask';
 
 //TODO these types should move to assetpackcontrol/bulder
@@ -44,7 +43,7 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
     fs.rmSync(bundle.outputpath, { recursive: true });
   fs.mkdirSync(bundle.outputpath);
 
-  const data = { directcompile: true, baseconfig, bundle };
+  const data = { directcompile: true, baseconfig, bundle, compiletoken: "adhoctest" };
   const result = await recompile(data) as CompileResult;
   JSON.stringify(result); //detect cycles etc;
   if (!result.haserrors) {

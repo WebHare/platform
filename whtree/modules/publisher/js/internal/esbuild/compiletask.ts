@@ -1,6 +1,3 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as esbuild from 'esbuild';
 import * as fs from "fs";
 import whSassPlugin from "./plugin-sass";
@@ -17,25 +14,24 @@ const compressGz = promisify(zlib.gzip);
 const compressBr = promisify(zlib.brotliCompress);
 */
 
-class captureLoadPlugin {
-  constructor(loadcache) {
-    this.loadcache = new Set;
-  }
+export class CaptureLoadPlugin {
+  loadcache = new Set<string>;
+
   getPlugin() {
     return {
       name: 'captureloads',
-      setup: build => this.setup(build)
+      setup: (build: esbuild.PluginBuild) => this.setup(build)
     };
   }
-  setup(build) {
-    build.onLoad({ filter: /./ }, args => {
+  setup(build: esbuild.PluginBuild) {
+    build.onLoad({ filter: /./ }, (args: esbuild.OnLoadArgs) => {
       this.loadcache.add(args.path);
+      return null;
     });
   }
 }
 
-function whResolverPlugin(bundle, build) //setup function
-{
+function whResolverPlugin(bundle: Bundle, build: esbuild.PluginBuild) { //setup function
   build.onResolve({ filter: /^\/\/:entrypoint\.js/ }, args => {
     return { path: args.path };
   });
@@ -45,7 +41,7 @@ function whResolverPlugin(bundle, build) //setup function
     if (bundle.bundleconfig.environment == 'window') //declare our existence and dev mode
       prologue = `window.whBundles||=[];window.whBundles["${bundle.outputtag}"]={dev:${bundle.isdev}};`;
 
-    const paths = JSON.parse(decodeURIComponent(args.path.split('?')[1]));
+    const paths = JSON.parse(decodeURIComponent(args.path.split('?')[1])) as string[];
     //TODO escape quotes and backslashes..
     const imports = paths.map(_ => `import "${_}";`);
     return {
@@ -53,8 +49,7 @@ function whResolverPlugin(bundle, build) //setup function
     };
   });
 
-  build.onResolve({ filter: /^\// }, args => // can't filter on kind (yet?). https://github.com/evanw/esbuild/issues/1548
-  {
+  build.onResolve({ filter: /^\// }, args => { // can't filter on kind (yet?). https://github.com/evanw/esbuild/issues/1548
     if (args.kind == 'url-token' || args.kind == 'import-rule') {
       if (process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
         console.log(`[esbuild-compiletask] kind '${args.kind}' considering as external url: ${args.path}`);
@@ -66,17 +61,20 @@ function whResolverPlugin(bundle, build) //setup function
 
   //debug line, capture all resolves
   if (process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
-    build.onResolve({ filter: /./ }, args => console.log(`[esbuild-compiletask] kind '${args.kind}' did not help resolve ${args.path}`));
+    build.onResolve({ filter: /./ }, args => {
+      console.log(`[esbuild-compiletask] kind '${args.kind}' did not help resolve ${args.path}`);
+      return null;
+    });
 }
 
-function createWhResolverPlugin(bundleconfig) {
+function createWhResolverPlugin(bundle: Bundle) {
   return {
     name: "whresolver",
-    setup: build => whResolverPlugin(bundleconfig, build)
+    setup: (build: esbuild.PluginBuild) => whResolverPlugin(bundle, build)
   };
 }
 
-function mapESBuildError(entrypoint, error) {
+function mapESBuildError(entrypoint: string, error: esbuild.Message) {
   /* potential structure of buildresult.errors
 
      detail: undefined,
@@ -114,7 +112,36 @@ function mapESBuildError(entrypoint, error) {
   };
 }
 
-export async function recompile(data) {
+interface BundleConfig {
+  languages: string[];
+  webharepolyfills: boolean;
+  compatibility: string;
+  environment: string;
+  //TODO replace with a true plugin invocation/hook where the callee gets to update the settings
+  esbuildsettings: string;
+  extrarequires: string[];
+}
+
+interface Bundle {
+  bundleconfig: BundleConfig;
+  entrypoint: string;
+  outputpath: string;
+  isdev: boolean;
+  outputtag: string;
+}
+
+interface RecompileSettings {
+  logLevel?: esbuild.LogLevel;
+  compiletoken: string;
+  baseconfig: { //configuration sent to the compiler (TODO replace with proper @webhaer/services calls)
+    installedmodules: Array<{
+      root: string;
+    }>;
+  };
+  bundle: Bundle;
+}
+
+export async function recompile(data: RecompileSettings) {
   compileutils.resetResolveCache();
 
   const bundle = data.bundle;
@@ -124,7 +151,7 @@ export async function recompile(data) {
   };
 
   // https://esbuild.github.io/api/#simple-options
-  const captureplugin = new captureLoadPlugin;
+  const captureplugin = new CaptureLoadPlugin;
 
   /* 'inject' is *not* the proper way to pass on extra requires, seemed to work but triggers weird dependency ordering issues (dompack not getting initialized etc)
      we'll compile a fake :entrypoint.js file,
@@ -140,8 +167,7 @@ export async function recompile(data) {
 
   const outdir = path.join(bundle.outputpath, "build");
 
-  let esbuild_configuration =
-  {
+  let esbuild_configuration: esbuild.BuildOptions & { outdir: string } = {
     entryPoints: ["//:entrypoint.js?" + encodeURIComponent(JSON.stringify(rootfiles))],
     publicPath: '', //bundle.bundleconfig.assetbaseurl || `/.ap/${bundle.outputtag.split(':').join('.')}/`
     // This is a workaround for broken stacktrace resolving caused by esbuild generating ../../../../ paths but running out of path components when building relative URLs in stack-mapper in stacktrace-gps
@@ -155,11 +181,14 @@ export async function recompile(data) {
     jsxFragment: 'dompack.jsxfragment',
     write: false,
     target: bundle.bundleconfig.compatibility.split(','),
+    //FIXME ASSETPACK_ENVIRONMENT is only used by libliveapi for a crypto shim, should be removable!
     define: { "process.env.ASSETPACK_ENVIRONMENT": `"${bundle.bundleconfig.environment}"` },
     plugins: [
       captureplugin.getPlugin(),
       createWhResolverPlugin(bundle),
+      // eslint-disable-next-line @typescript-eslint/no-var-requires -- these still need TS conversion
       require("@mod-publisher/js/internal/rpcloader").getESBuildPlugin(captureplugin),
+      // eslint-disable-next-line @typescript-eslint/no-var-requires -- these still need TS conversion
       require("@mod-tollium/js/internal/lang").getESBuildPlugin(langconfig, captureplugin),
 
       // , sassPlugin({ importer: sassImporter
@@ -193,7 +222,7 @@ export async function recompile(data) {
   };
 
   if (bundle.bundleconfig.environment == 'window') //map 'global' to 'window' like some modules expect from webpack (see eg https://github.com/evanw/esbuild/issues/73)
-    esbuild_configuration.define["global"] = "window";
+    esbuild_configuration.define = { ...esbuild_configuration.define, global: "window" };
 
   let buildresult;
   const start = Date.now();
@@ -202,19 +231,19 @@ export async function recompile(data) {
       esbuild_configuration = { ...esbuild_configuration, ...JSON.parse(bundle.bundleconfig.esbuildsettings) };
     buildresult = await esbuild.build(esbuild_configuration);
   } catch (e) {
-    if (e.warnings) //FIXME does this actually happen?  who throws errors that way?
-    {
+    if ((e as esbuild.BuildFailure)?.warnings) { //FIXME does this actually happen?  who throws errors that way?
       buildresult = {
-        warnings: e.warnings,
-        errors: e.errors
+        warnings: (e as esbuild.BuildFailure).warnings,
+        errors: (e as esbuild.BuildFailure).errors
       };
     } else {
       buildresult = {
         warnings: [],
         errors: [
           {
-            text: e.toString()
-          }
+            text: String(e)
+            //@ts-ignore FIXME it does *not* satisfy but apparently this sort of worked. not fixing it during a TS Fix round
+          } satisfies esbuild.BuildFailure["errors"][0]
         ]
       };
     }
@@ -226,21 +255,27 @@ export async function recompile(data) {
       fileDependencies: Array.from(captureplugin.loadcache).filter(_ => !_.startsWith("//:")), //exclude //:entrypoint.js or we'll recompile endlessly
       contextDependencies: [],
       missingDependencies: []
+    } as {
+      start: number;
+      fileDependencies: string[];
+      contextDependencies: string[];
+      missingDependencies: string[];
     },
+    ///@ts-ignore TS bug already present, see satisfies FIXME above
     errors: buildresult.errors.map(_ => mapESBuildError(bundle.entrypoint, _))
   };
 
   const haserrors = buildresult.errors.length > 0;
-  let missingpath, missingextensions;
+  let missingpath, missingextensions: string[] = [];
   let resolveerror = buildresult.errors.find(error => error.text.match(/Could not resolve/));
   if (resolveerror) {
+    ///@ts-ignore TS bug already present, see satisfies FIXME above
     missingpath = resolveerror.text.match(/Could not resolve "(.*)"/)[1];
     if (missingpath)
       missingextensions = ["", ".js", ".es", "/index.js", "/index.es", "/package.json"];
   } else {
     resolveerror = buildresult.errors.find(error => error.text.match(/Can't find stylesheet to/));
-    if (resolveerror) //attempt to extract the path
-    {
+    if (resolveerror) { //attempt to extract the path
       missingpath = resolveerror.text.match(/@import *"(.*)"/)?.[1]
         || resolveerror.text.match(/@import *'(.*)'/)?.[1];
 
@@ -251,8 +286,7 @@ export async function recompile(data) {
     }
   }
 
-  if (missingpath && !missingpath.startsWith('.')) //not a relative path..
-  {
+  if (missingpath && !missingpath.startsWith('.')) { //not a relative path..
     /* We're not yet getting useful missingDependencies out of esbuild, and perhaps we'll never get that until we manually resolve
        as a workround, we'll just register node_modules as missingpath in case someone installs a module to fix this error.
        won't handle broken references to node_modules from *other* modules we're depending on though. for that we really need to know the resolver paths.
@@ -275,6 +309,13 @@ export async function recompile(data) {
   const assetoverview = {
     version: 1,
     assets: []
+  } as {
+    version: number;
+    assets: Array<{
+      subpath: string;
+      compressed: boolean;
+      sourcemap: boolean;
+    }>;
   };
 
   //TODO should this be more async-y ? especially with compression..
