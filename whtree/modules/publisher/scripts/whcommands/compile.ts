@@ -1,5 +1,3 @@
-/// @ts-nocheck -- We'll have to fix this later but it's currently completely broken, so fix that regression first...
-
 // syntax: <assetpack>
 // short: Recompile a specific assetpack
 
@@ -8,20 +6,17 @@
 */
 
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
-import { recompile } from '@mod-publisher/js/internal/esbuild/compiletask';
+import { Bundle, RecompileSettings, recompile } from '@mod-publisher/js/internal/esbuild/compiletask';
 import * as services from "@webhare/services";
 
 async function main(bundlename: string, options: { verbose: boolean }) {
 
-  const baseconfig = await services.callHareScript('mod::publisher/lib/internal/webdesign/designfilesapi2.whlib#GetAssetpacksBaseConfig', []);
-  const bundle = await services.callHareScript('mod::publisher/lib/internal/webdesign/designfilesapi2.whlib#GetBundle', [bundlename]);
+  const bundle = await services.callHareScript('mod::publisher/lib/internal/webdesign/designfilesapi2.whlib#GetBundle', [bundlename]) as Bundle;
   console.log(bundle);
 
-  //TODO we need a specification for 'data', baseconfig and bundle, but *actually* compiletask should be able to discover most settings by itself
-  const data = {
-    directcompile: true,
-    baseconfig: baseconfig,
-    bundle: bundle
+  const data: RecompileSettings = {
+    bundle: bundle,
+    compiletoken: "compile.ts"
   };
 
   try {
@@ -32,7 +27,7 @@ async function main(bundlename: string, options: { verbose: boolean }) {
     console.log("total result", result);
     console.log("dependencies", result.info.dependencies);
     console.log("---assets---");
-    console.log(result.info.assets);
+    console.log(result.assetoverview.assets);
     console.log("---structured response---");
     console.log("Reported errors", result.info.errors); //FIXME should be at high levlel 'info' should go
 

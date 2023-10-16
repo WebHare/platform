@@ -93,7 +93,7 @@ BOOLEAN FUNCTION WaitForCompilation(STRING mask, BOOLEAN verbose)
   }
 }
 
-IF (NOT RecordExists(args) OR args.command NOT IN [ "list", "recompile", "rebuild", "info", "dumpstats", "wait", "check", "autocompile","__getassetpacksbaseconfig" ])
+IF (NOT RecordExists(args) OR args.command NOT IN [ "list", "recompile", "rebuild", "info", "dumpstats", "wait", "check", "autocompile" ])
   Syntax();
 
 IF (args.color OR IsConsoleATerminal())
@@ -431,11 +431,5 @@ SWITCH (args.command)
       WriteRegistryKey("publisher.bundledassets.suspendautocompile", newsuspend);
       trans->CommitWork();
     }
-  }
-  CASE "__getassetpacksbaseconfig"
-  {
-    OpenPrimary();
-    RECORD config := WaitForPromise(assetpackcontrol->GetAssetPacksBaseConfig());
-    DumpValue(config,'tree');
   }
 }

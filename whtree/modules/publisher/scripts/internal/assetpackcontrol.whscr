@@ -582,14 +582,13 @@ STATIC OBJECTTYPE AssetPackController
 
   STRING FUNCTION GetBundleCompiletoken(RECORD bundle)
   {
-    RECORD baseconfig := GetAssetpacksBaseConfig();
     RECORD bundledata := this->GetBundleData(bundle);
 
     // entrypoint and origentrypoint are rewritten but not stored
     DELETE CELL entrypoint FROM bundledata;
     DELETE CELL diskpath FROM bundledata;
 
-    RETURN EncodeBase64(GetSHA1Hash(baseconfig.settingstoken || EncodeHSON(CELL[bundledata, bundle.isdev])));
+    RETURN EncodeBase64(GetSHA1Hash(EncodeHSON(CELL[bundledata, bundle.isdev])));
   }
 
   // FIXME: the part of an async function until the first await should be executed synchronously, but that doesn't happen
@@ -623,7 +622,6 @@ STATIC OBJECTTYPE AssetPackController
     bundle := this->CheckBundle(bundle);
     IF (RecordExists(bundle) AND NOT bundle.hasstatus)
     {
-      RECORD baseconfig := GetAssetpacksBaseConfig();
       DATETIME start := GetCurrentDatetime();
 
       TRY
@@ -636,8 +634,8 @@ STATIC OBJECTTYPE AssetPackController
 
         // Don't use persistent cache for adhoc bundles
         OBJECT task := CallAsync("mod::publisher/js/internal/esbuild/compiletask.ts#recompile",
-            [[ baseconfig :=   baseconfig
-            , envkey :=       envkey
+            [[
+             envkey :=       envkey
             , compiletoken := compiletoken
             , bundle :=       bundledata
             , timestamps :=   this->GetTimeStamps(bundle, DEFAULT OBJECT)
@@ -1663,11 +1661,6 @@ OBJECTTYPE AssetPackControl
     controller->UpdateSourceMapType(outputtag, fullsourcemap);
     controller->RecompileBundleByoutputtag(outputtag, FALSE);
 
-  }
-
-  PUBLIC RECORD FUNCTION GetAssetpacksBaseConfig()
-  {
-    RETURN GetAssetpacksBaseConfig();
   }
 >;
 

@@ -2,6 +2,7 @@ import * as esbuild from 'esbuild';
 import * as fs from "fs";
 import whSassPlugin from "./plugin-sass";
 import whSourceMapPathsPlugin from "./plugin-sourcemappaths";
+import whTolliumLangPlugin from "@mod-tollium/js/internal/lang";
 import * as path from 'path';
 import * as services from "@webhare/services";
 
@@ -112,7 +113,7 @@ function mapESBuildError(entrypoint: string, error: esbuild.Message) {
   };
 }
 
-interface BundleConfig {
+export interface BundleConfig {
   languages: string[];
   webharepolyfills: boolean;
   compatibility: string;
@@ -122,7 +123,7 @@ interface BundleConfig {
   extrarequires: string[];
 }
 
-interface Bundle {
+export interface Bundle {
   bundleconfig: BundleConfig;
   entrypoint: string;
   outputpath: string;
@@ -130,14 +131,9 @@ interface Bundle {
   outputtag: string;
 }
 
-interface RecompileSettings {
+export interface RecompileSettings {
   logLevel?: esbuild.LogLevel;
   compiletoken: string;
-  baseconfig: { //configuration sent to the compiler (TODO replace with proper @webhaer/services calls)
-    installedmodules: Array<{
-      root: string;
-    }>;
-  };
   bundle: Bundle;
 }
 
@@ -145,10 +141,6 @@ export async function recompile(data: RecompileSettings) {
   compileutils.resetResolveCache();
 
   const bundle = data.bundle;
-  const langconfig = {
-    modules: data.baseconfig.installedmodules,
-    languages: bundle.bundleconfig.languages
-  };
 
   // https://esbuild.github.io/api/#simple-options
   const captureplugin = new CaptureLoadPlugin;
@@ -188,8 +180,7 @@ export async function recompile(data: RecompileSettings) {
       createWhResolverPlugin(bundle),
       // eslint-disable-next-line @typescript-eslint/no-var-requires -- these still need TS conversion
       require("@mod-publisher/js/internal/rpcloader").getESBuildPlugin(captureplugin),
-      // eslint-disable-next-line @typescript-eslint/no-var-requires -- these still need TS conversion
-      require("@mod-tollium/js/internal/lang").getESBuildPlugin(langconfig, captureplugin),
+      whTolliumLangPlugin(bundle.bundleconfig.languages, captureplugin),
 
       // , sassPlugin({ importer: sassImporter
       // , exclude: /\.css$/ //webhare expects .css files to be true css and directly loadable (eg by the RTD)
@@ -287,17 +278,19 @@ export async function recompile(data: RecompileSettings) {
   }
 
   if (missingpath && !missingpath.startsWith('.')) { //not a relative path..
-    /* We're not yet getting useful missingDependencies out of esbuild, and perhaps we'll never get that until we manually resolve
-       as a workround, we'll just register node_modules as missingpath in case someone installs a module to fix this error.
+    /* We're not yet getting useful missingDependencies out of esbuild, and perhaps we'll never get that until we manually resolve.
+       As a workaround we'll just register node_modules as missingpath in case someone installs a module to fix this error.
        won't handle broken references to node_modules from *other* modules we're depending on though. for that we really need to know the resolver paths.
-       may be sufficient to resolve some CI issues */
+       may be sufficient to resolve some CI issues
 
-    const mod = data.baseconfig.installedmodules.find(_ => bundle.entrypoint.startsWith(_.root));
-    if (mod) {
-      const localpath = bundle.entrypoint.substr(mod.root.length);
-      let currentroot = mod.root;
+      ie if the entrypoint looks like /whdata/installedmodules/example.1234/webdesigns/blabla/webdesign.ts
+      we look for /whdata/installedmodules/example.1234/webdesigns/blabla/webdesign.[all extensions]
+              and /whdata/installedmodules/example.1234/[all extensions] */
 
-      for (const subpath of ['', ...localpath.split('/')]) {
+    const pathinfo = services.parseResourcePath(services.toResourcePath(bundle.entrypoint));
+    if (pathinfo?.module) {
+      let currentroot = services.toFSPath(`mod::${pathinfo.module}`);
+      for (const subpath of ['', ...pathinfo.subpath.split('/')]) {
         currentroot = path.join(currentroot, subpath);
         for (const ext of missingextensions)
           info.dependencies.missingDependencies.push(path.join(currentroot, "node_modules", missingpath) + ext);
@@ -362,6 +355,7 @@ export async function recompile(data: RecompileSettings) {
     statsjson: "",
     haserrors: haserrors,
     info: info,
+    assetoverview,
     compiletoken: data.compiletoken,
     compiler: "esbuild"
     // , fullrecompile
