@@ -43,8 +43,8 @@
     <task runat="*/10 * * * *" runtz="maintenance" tag="webserverusage" script="scripts/tasks/webserverusage.whscr" description="Process webserver usage stats" />
     <task runat="19 */4 * * *" runtz="maintenance" tag="compileablestodisk" script="scripts/tasks/compileablestodisk.whscr" description="Ensures database HareScript code is on disk" />
 
-    <!-- Deprecation scans run on 'mondays' -->
-    <task runat="0 8 * * 1" runtz="maintenance" tag="autodeprecationscan" script="scripts/tasks/autodeprecationscan.whscr" description="Scan for known future deprecations" />
+    <!-- Deprecation scans run on 'mondays'. we specifically want them at the start of the usual WebHare working day -->
+    <task runat="0 8 * * 1" runtz="Europe/Amsterdam" tag="autodeprecationscan" script="scripts/tasks/autodeprecationscan.whscr" description="Scan for known future deprecations" />
 
     <task runat="*/30 * * * *" tag="checkwebservers" script="scripts/tasks/checkwebservers.whscr" description="Make sure all webservers still properly resolve" allowifrestore="true" />
     <task runat="54 */4 * * *" tag="check_hotfixes" script="scripts/tasks/check_hotfixes.whscr" runatstartup="true" />
