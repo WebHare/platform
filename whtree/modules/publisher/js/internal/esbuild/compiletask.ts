@@ -244,13 +244,8 @@ export async function recompile(data: RecompileSettings) {
     dependencies: {
       start: start,
       fileDependencies: Array.from(captureplugin.loadcache).filter(_ => !_.startsWith("//:")), //exclude //:entrypoint.js or we'll recompile endlessly
-      contextDependencies: [],
-      missingDependencies: []
-    } as {
-      start: number;
-      fileDependencies: string[];
-      contextDependencies: string[];
-      missingDependencies: string[];
+      contextDependencies: new Array<string>,
+      missingDependencies: new Array<string>
     },
     ///@ts-ignore TS bug already present, see satisfies FIXME above
     errors: buildresult.errors.map(_ => mapESBuildError(bundle.entrypoint, _))
@@ -301,14 +296,11 @@ export async function recompile(data: RecompileSettings) {
   //create asset list. just iterate the output directory (FIXME iterate result.outputFiles, but not available in dev mode perhaps?)
   const assetoverview = {
     version: 1,
-    assets: []
-  } as {
-    version: number;
-    assets: Array<{
+    assets: new Array<{
       subpath: string;
       compressed: boolean;
       sourcemap: boolean;
-    }>;
+    }>
   };
 
   //TODO should this be more async-y ? especially with compression..
