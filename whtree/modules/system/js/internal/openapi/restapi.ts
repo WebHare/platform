@@ -6,7 +6,7 @@ import { OpenAPIV3 } from "openapi-types";
 import { resolveResource, toFSPath } from "@webhare/services";
 import { LoggableRecord } from "@webhare/services/src/logmessages";
 import { loadJSFunction } from "../resourcetools";
-import { config } from "@mod-system/js/internal/configuration";
+import { backendConfig } from "@mod-system/js/internal/configuration";
 import { CodeContext } from "@webhare/services/src/codecontexts";
 
 const SupportedMethods: HTTPMethod[] = [HTTPMethod.GET, HTTPMethod.PUT, HTTPMethod.POST, HTTPMethod.DELETE, HTTPMethod.OPTIONS, HTTPMethod.HEAD, HTTPMethod.PATCH];
@@ -229,7 +229,7 @@ export class RestAPI {
 
     const response = await this.handleEndpointRequest(req, relurl, match, endpoint, logger);
 
-    if (["development", "test"].includes(config.dtapstage)) {
+    if (["development", "test"].includes(backendConfig.dtapstage)) {
       // ADDME: add flag to disable for performance testing
 
       // Check if response is listed

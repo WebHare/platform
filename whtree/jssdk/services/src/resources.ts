@@ -1,5 +1,5 @@
 import * as path from "node:path";
-import { config } from "./config";
+import { backendConfig } from "./config";
 
 export function toFSPath(resource: string, options: { allowUnmatched: true }): string | null;
 export function toFSPath(diskpath: string, options?: { allowUnmatched: boolean }): string;
@@ -24,7 +24,7 @@ export function toFSPath(resource: string, options?: { allowUnmatched: boolean }
       throw new Error("No such resource: missing module name");
     }
 
-    const modinfo = config.module[modulename];
+    const modinfo = backendConfig.module[modulename];
     if (!modinfo) {
       if (options?.allowUnmatched)
         return null;
@@ -32,7 +32,7 @@ export function toFSPath(resource: string, options?: { allowUnmatched: boolean }
       throw new Error(`No such resource: no such module '${modulename}'`);
     }
 
-    const basedir = namespace == "mod" ? modinfo.root : `${config.dataroot}storage/${modulename}/`;
+    const basedir = namespace == "mod" ? modinfo.root : `${backendConfig.dataroot}storage/${modulename}/`;
 
     if (nextslash == -1)
       return basedir; //we'll always terminate a path like `mod::system` with a slash
@@ -56,7 +56,7 @@ export function toResourcePath(diskpath: string, options?: { allowUnmatched: boo
 */
 export function toResourcePath(diskpath: string, options?: { allowUnmatched: boolean }) {
   //FIXME is it useful for this function to throw() if it cannot match the path? The API is rarely used but no match will be quite common! (but toFSPath)
-  for (const [modulename, moduleconfig] of Object.entries(config.module)) {
+  for (const [modulename, moduleconfig] of Object.entries(backendConfig.module)) {
     if (diskpath.startsWith(moduleconfig.root))
       return `mod::${modulename}/${diskpath.substring(moduleconfig.root.length)}`;
   }

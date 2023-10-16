@@ -1,3 +1,5 @@
+import { RecursiveReadOnly } from "@webhare/js-api-tools";
+
 export { pick, omit } from "@webhare/std";
 
 /** Maps every key of an object with a mapping function to a new value
@@ -36,11 +38,6 @@ export function freezeRecursive<T>(value: T): RecursiveReadOnly<T> {
   }
   return value as RecursiveReadOnly<T>;
 }
-
-/** Recursively converts a type to readonly
- * @typeParam T - Type to convert
-*/
-export type RecursiveReadOnly<T> = T extends Array<infer U> ? ReadonlyArray<RecursiveReadOnly<U>> : T extends object ? { readonly [K in keyof T]: RecursiveReadOnly<T[K]> } : T;
 
 /** Recursively apply `Partial<>`  on records in a type
  * @typeParam T - Type to convert

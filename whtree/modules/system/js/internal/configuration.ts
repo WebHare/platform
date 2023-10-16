@@ -1,8 +1,10 @@
 import * as fs from "node:fs";
-import { registerUpdateConfigCallback, WebHareBackendConfiguration, ConfigFile, updateWebHareConfigWithoutDB } from "./generation/gen_config";
-import { RecursiveReadOnly, freezeRecursive } from "./util/algorithms";
+import { registerUpdateConfigCallback, updateWebHareConfigWithoutDB } from "./generation/gen_config";
+import { freezeRecursive } from "./util/algorithms";
+import { WebHareBackendConfiguration, ConfigFile, WebHareConfigFile } from "@webhare/services/src/config";
+import { RecursiveReadOnly } from "@webhare/js-api-tools";
 
-export type { WebHareBackendConfiguration, WebHareConfigFile } from "./generation/gen_config";
+export type { WebHareBackendConfiguration, WebHareConfigFile };
 
 let loggederror = false;
 
@@ -29,7 +31,7 @@ registerUpdateConfigCallback(() => updateConfig());
 
 let configfile = readConfigFile();
 const publicconfig = { ...configfile.public };
-export const config = new Proxy(publicconfig, {
+export const backendConfig = new Proxy(publicconfig, {
   set() {
     throw new Error(`The WebHare configuration is read-only`);
   }

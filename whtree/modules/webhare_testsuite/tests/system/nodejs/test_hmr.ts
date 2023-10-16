@@ -2,13 +2,11 @@ import { map } from "./hmrlibs/keeper";
 import * as test from "@webhare/test";
 import * as fs from "fs";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
-import { config } from "@mod-system/js/internal/configuration";
 import { activate } from "@mod-system/js/internal/hmrinternal";
 import * as resourcetools from "@mod-system/js/internal/resourcetools";
-import { toFSPath } from "@webhare/services";
+import { toFSPath, backendConfig } from "@webhare/services";
 import { storeDiskFile } from "@webhare/system-tools";
-import { installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
-import { loadlib } from "@webhare/harescript";
+import { deleteTestModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
 
 async function testFileEdits() {
 
@@ -96,16 +94,14 @@ async function testFileEdits() {
 }
 
 async function testModuleReplacement() {
-  if (config.module["webhare_testsuite_hmrtest"]) {
+  if (backendConfig.module["webhare_testsuite_hmrtest"]) {
     console.log(`delete module webhare_testsuite_hmrtest`);
-    if (!await loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule("webhare_testsuite_hmrtest"))
-      throw new Error(`Could not delete module "webhare_testsuite_hmrtest"`);
+    await deleteTestModule("webhare_testsuite_hmrtest");
   }
 
-  if (config.module["webhare_testsuite_hmrtest2"]) {
+  if (backendConfig.module["webhare_testsuite_hmrtest2"]) {
     console.log(`delete module webhare_testsuite_hmrtest2`);
-    if (!await loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule("webhare_testsuite_hmrtest2"))
-      throw new Error(`Could not delete module "webhare_testsuite_hmrtest2"`);
+    await deleteTestModule("webhare_testsuite_hmrtest2");
   }
 
   console.log(`create module webhare_testsuite_hmrtest`);
@@ -147,9 +143,9 @@ export function func3() { return Number(file.trim()); }
   test.eq(1, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest/js/file.ts#func"))());
   test.eq(1, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest2/js/file2.ts#func2"))());
   test.eq(1, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest2/js/file3.ts#func3"))());
-  const orgpath = config.module["webhare_testsuite_hmrtest"].root;
+  const orgpath = backendConfig.module["webhare_testsuite_hmrtest"].root;
   test.eq(hmrtestresult.path + '/', orgpath); //not sure if ImportModule should be returning without slash, but not modifying any APIs right now if we don't have to
-  test.eq(hmrtestresult2.path + '/', config.module["webhare_testsuite_hmrtest2"].root);
+  test.eq(hmrtestresult2.path + '/', backendConfig.module["webhare_testsuite_hmrtest2"].root);
 
   test.assert(Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest/js/file.ts")));
   test.assert(Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest2/js/file2.ts")));
@@ -179,8 +175,8 @@ export function func3() { return Number(file.trim()); }
   test.eq(0, require.cache[loaderfilepath]?.children.filter(({ id }) => id === toFSPath("mod::webhare_testsuite_hmrtest2/js/file2.ts")).length);
   test.eq(0, require.cache[loaderfilepath]?.children.filter(({ id }) => id === toFSPath("mod::webhare_testsuite_hmrtest2/js/file3.ts")).length);
 
-  test.eq(hmrtestresult_reupload.path + '/', config.module["webhare_testsuite_hmrtest"].root, "Path in config object should have been updated");
-  test.assert(orgpath !== config.module["webhare_testsuite_hmrtest"].root, `new path ${config.module["webhare_testsuite_hmrtest"].root} should differ from old path ${orgpath}`);
+  test.eq(hmrtestresult_reupload.path + '/', backendConfig.module["webhare_testsuite_hmrtest"].root, "Path in config object should have been updated");
+  test.assert(orgpath !== backendConfig.module["webhare_testsuite_hmrtest"].root, `new path ${backendConfig.module["webhare_testsuite_hmrtest"].root} should differ from old path ${orgpath}`);
   test.eq(2, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest/js/file.ts#func"))());
   test.eq(2, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest2/js/file2.ts#func2"))(), "Recursive invalidation of modules should work, resolve cache and realpath cache should also be cleared");
   test.eq(2, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest2/js/file3.ts#func3"))(), "Invalidation by loaded resources should work");
@@ -189,11 +185,8 @@ export function func3() { return Number(file.trim()); }
   test.assert(Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest2/js/file2.ts")));
   test.assert(Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest2/js/file3.ts")));
 
-  if (!await loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule("webhare_testsuite_hmrtest"))
-    throw new Error(`Could not delete module "webhare_testsuite_hmrtest"`);
-  if (!await loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule("webhare_testsuite_hmrtest2"))
-    throw new Error(`Could not delete module "webhare_testsuite_hmrtest2"`);
-
+  await deleteTestModule("webhare_testsuite_hmrtest");
+  await deleteTestModule("webhare_testsuite_hmrtest2");
 }
 
 test.run([
