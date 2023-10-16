@@ -32,5 +32,5 @@ export function hookComposer(hookdata: GTMPluginData, composer: SiteResponse) {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- validate the signature. for CI purposes, not needed in external modules
-const HookComposerValidator: ComposerHookFunction<GTMPluginData> = hookComposer;
+//validate signatures
+hookComposer satisfies ComposerHookFunction<GTMPluginData>;

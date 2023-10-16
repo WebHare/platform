@@ -81,6 +81,8 @@ wh_runjs()
 exec_wh_runjs()
 {
   RUNJS_PREFIX=exec wh_runjs "$@"
+  echo "wh node: the actual node binary was not found" 1>&2
+  exit 255
 }
 
 loadshellconfig()

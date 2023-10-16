@@ -14,5 +14,5 @@ export async function handleJSRequest(req: WebRequest): Promise<WebResponse> {
   return createJSONResponse(400, { error: "Invalid request" });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- validate the signature. for CI purposes, not needed in external modules
-const handleJSRequestValidator: WebHareRouter = handleJSRequest;
+// validate signatures
+handleJSRequest satisfies WebHareRouter;

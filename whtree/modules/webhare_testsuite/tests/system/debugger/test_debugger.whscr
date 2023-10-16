@@ -14,7 +14,6 @@ PUBLIC RECORD FUNCTION JobFunction()
 {
   OBJECT mutex := OpenLocalLockManager()->LockLocalMutex("test");
 
-
   Sleep(60000);
   RETURN DEFAULT RECORD;
 }
@@ -36,14 +35,17 @@ ASYNC MACRO TestDebugger()
   AWAIT ExpectScreenChange(+1, PTR TTLaunchApp("system:debugger"));
 
   AWAIT ExpectScreenChange(+1, PTR TTClick(":Job Monitor"));
+  FOR (INTEGER i := 0; i < 600 AND NOT RecordExists(SELECT FROM TT("{list}:*[1/2]")->rows WHERE rowkey = GetProcessInfo().processcode); i := i + 1)
+    AWAIT CreateSleepPromise(100);
+
   TT("{list}:*[1/2]")->value := GetProcessInfo().processcode;
-dumpvalue(TT("{list}:*[2/2]")->rows);
+  TestEq(TRUE, RecordExists(TT("{list}:*[1/2]")->selection), `We (${GetProcessInfo().processcode}) didn't show up in the process list`);
 
   // Wait for list of jobs to show up
   FOR (INTEGER i := 0; i < 600 AND NOT RecordExists(TT("{list}:*[2/2]")->rows); i := i + 1)
     AWAIT CreateSleepPromise(100);
-dumpvalue(TT("{list}:*[2/2]")->rows);
-dumpvalue(GetCurrentGroupId());
+
+  TestEq(TRUE, Length(TT("{list}:*[2/2]")->rows) > 0, 'No jobs showed up for the proces');
 
   STRING job_rowkey := SELECT AS STRING rowkey FROM TT("{list}:*[2/2]")->rows WHERE rowkey != GetCurrentGroupId();
   TT("{list}:*[2/2]")->value := job_rowkey;

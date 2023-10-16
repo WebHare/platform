@@ -23,9 +23,7 @@ export async function getDummy(req: RestRequest) {
   return createJSONResponse(HTTPSuccessCode.Ok, (req.authorization as any).key);
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- validate the signature
-const validate_denyAll: RestAuthorizationFunction = denyAll;
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- validate the signature
-const validate_getDummy: RestImplementationFunction = getDummy;
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- validate the signature
-const validate_needSecret: RestAuthorizationFunction = needSecret;
+//validate signatures
+denyAll satisfies RestAuthorizationFunction;
+getDummy satisfies RestImplementationFunction;
+needSecret satisfies RestAuthorizationFunction;

@@ -36,5 +36,3 @@ if [ -n "$WEBHARE_NODEPROFILE" ]; then
 fi
 
 exec_wh_runjs "$@"
-echo "wh node: the actual node binary was not found" 1>&2
-exit 255

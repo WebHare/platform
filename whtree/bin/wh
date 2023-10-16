@@ -425,7 +425,7 @@ case $INSTR in
     # This should match the whconstant_javascript_extensions:
     if [ "${SCRIPT: -3}" == ".es" -o "${SCRIPT: -3}" == ".js" -o "${SCRIPT: -3}" == ".ts" -o "${SCRIPT: -4}" == ".tsx" ]; then
       resolveresourcepath RESOLVEDPATH "$SCRIPT"
-      exec "$WEBHARE_DIR/modules/system/scripts/whcommands/node.sh" "$RESOLVEDPATH" "$@"
+      exec_wh_runjs "$RESOLVEDPATH" "$@"
     else
       exec_runscript --workerthreads 4 "$SCRIPT" "$@"
     fi
@@ -667,7 +667,7 @@ HERE
     # This should match the whconstant_javascript_extensions:
     for EXT in es js ts tsx ; do
       if [ -f "${MODULEDIR}scripts/whcommands/$SUBCOMMAND.$EXT" ] ; then
-        exec "$WEBHARE_DIR/modules/system/scripts/whcommands/node.sh" "${MODULEDIR}scripts/whcommands/$SUBCOMMAND.$EXT" "${OPTIONS[@]}"
+        exec_wh_runjs "${MODULEDIR}scripts/whcommands/$SUBCOMMAND.$EXT" "${OPTIONS[@]}"
       fi
     done
 
