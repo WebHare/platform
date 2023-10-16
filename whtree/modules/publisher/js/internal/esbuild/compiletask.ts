@@ -9,6 +9,8 @@ import * as services from "@webhare/services";
 import * as compileutils from './compileutils';
 import { promisify } from 'util';
 import * as zlib from 'zlib';
+import { debugFlags } from '@webhare/env';
+
 const compressGz = promisify(zlib.gzip);
 
 /* TODO likewise addd Brotli, but WH can't serve it yet anyway
@@ -32,7 +34,7 @@ export class CaptureLoadPlugin {
   }
 }
 
-function whResolverPlugin(bundle: Bundle, build: esbuild.PluginBuild) { //setup function
+function whResolverPlugin(bundle: Bundle, build: esbuild.PluginBuild, captureplugin: CaptureLoadPlugin) { //setup function
   build.onResolve({ filter: /^\/\/:entrypoint\.js/ }, args => {
     return { path: args.path };
   });
@@ -52,26 +54,52 @@ function whResolverPlugin(bundle: Bundle, build: esbuild.PluginBuild) { //setup 
 
   build.onResolve({ filter: /^\// }, args => { // can't filter on kind (yet?). https://github.com/evanw/esbuild/issues/1548
     if (args.kind == 'url-token' || args.kind == 'import-rule') {
-      if (process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
-        console.log(`[esbuild-compiletask] kind '${args.kind}' considering as external url: ${args.path}`);
+      if (debugFlags["assetpack"])
+        console.log(`[assetpack] kind '${args.kind}' considering as external url: ${args.path}`);
       return { path: args.path, external: true };
     }
+  });
+
+  build.onResolve({ filter: /^~/ }, args => { // we need to drop all ~s, they're an alternative module reference
+    const filepath = args.path.substring(1).split('?')[0].split('#')[0];
+    const tryextensions = (args.kind == 'url-token' || args.kind == 'import-rule') ? ['', '.scss', '.sass', '.css'] : [];
+    for (const modulepath of getPossibleNodeModulePaths(services.toResourcePath(args.importer)))
+      for (const ext of tryextensions) {
+        let trypath = path.join(modulepath, filepath) + ext;
+
+        if (fs.existsSync(trypath)) {
+          trypath = fs.realpathSync(trypath);
+          if (debugFlags["assetpack"])
+            console.log(`[assetpack] URL with ~@ should be considered to start with @ (sass passes these through): ${args.path}, resolved to ${trypath}`);
+
+          captureplugin.loadcache.add(trypath);
+
+          return {
+            path: trypath,
+            external: false
+          };
+        }
+      }
+    if (debugFlags["assetpack"])
+      console.log(`[assetpack] Failed to resolve URL with ~@: ${args.path}`);
+
+    return null;
   });
 
   // @mod-... paths are resolved up by the nodePath in the esbuild configuration
 
   //debug line, capture all resolves
-  if (process.env.WEBHARE_ASSETPACK_DEBUGREWRITES)
+  if (debugFlags["assetpack"])
     build.onResolve({ filter: /./ }, args => {
-      console.log(`[esbuild-compiletask] kind '${args.kind}' did not help resolve ${args.path}`);
+      console.log(`[assetpack] kind '${args.kind}' did not help resolve ${args.path}`);
       return null;
     });
 }
 
-function createWhResolverPlugin(bundle: Bundle) {
+function createWhResolverPlugin(bundle: Bundle, captureplugin: CaptureLoadPlugin) {
   return {
     name: "whresolver",
-    setup: (build: esbuild.PluginBuild) => whResolverPlugin(bundle, build)
+    setup: (build: esbuild.PluginBuild) => whResolverPlugin(bundle, build, captureplugin)
   };
 }
 
@@ -137,6 +165,22 @@ export interface RecompileSettings {
   bundle: Bundle;
 }
 
+function getPossibleNodeModulePaths(startingpoint: string) {
+  const paths = [];
+  const pathinfo = services.parseResourcePath(startingpoint);
+  if (pathinfo?.module)
+    for (; ;) {
+      paths.push(services.toFSPath(`mod::${pathinfo.module}/${pathinfo.subpath}/node_modules`));
+      if (!pathinfo.subpath)
+        break;
+
+      pathinfo.subpath = pathinfo.subpath.substring(0, pathinfo.subpath.lastIndexOf("/"));
+    }
+
+  paths.push(services.backendConfig.dataroot + "node_modules");
+  return paths;
+}
+
 export async function recompile(data: RecompileSettings) {
   compileutils.resetResolveCache();
 
@@ -177,7 +221,7 @@ export async function recompile(data: RecompileSettings) {
     define: { "process.env.ASSETPACK_ENVIRONMENT": `"${bundle.bundleconfig.environment}"` },
     plugins: [
       captureplugin.getPlugin(),
-      createWhResolverPlugin(bundle),
+      createWhResolverPlugin(bundle, captureplugin),
       // eslint-disable-next-line @typescript-eslint/no-var-requires -- these still need TS conversion
       require("@mod-publisher/js/internal/rpcloader").getESBuildPlugin(captureplugin),
       whTolliumLangPlugin(bundle.bundleconfig.languages, captureplugin),
@@ -281,16 +325,9 @@ export async function recompile(data: RecompileSettings) {
       ie if the entrypoint looks like /whdata/installedmodules/example.1234/webdesigns/blabla/webdesign.ts
       we look for /whdata/installedmodules/example.1234/webdesigns/blabla/webdesign.[all extensions]
               and /whdata/installedmodules/example.1234/[all extensions] */
-
-    const pathinfo = services.parseResourcePath(services.toResourcePath(bundle.entrypoint));
-    if (pathinfo?.module) {
-      let currentroot = services.toFSPath(`mod::${pathinfo.module}`);
-      for (const subpath of ['', ...pathinfo.subpath.split('/')]) {
-        currentroot = path.join(currentroot, subpath);
-        for (const ext of missingextensions)
-          info.dependencies.missingDependencies.push(path.join(currentroot, "node_modules", missingpath) + ext);
-      }
-    }
+    for (const subpath of getPossibleNodeModulePaths(services.toResourcePath(bundle.entrypoint)))
+      for (const ext of missingextensions)
+        info.dependencies.missingDependencies.push(path.join(subpath, missingpath) + ext);
   }
 
   //create asset list. just iterate the output directory (FIXME iterate result.outputFiles, but not available in dev mode perhaps?)

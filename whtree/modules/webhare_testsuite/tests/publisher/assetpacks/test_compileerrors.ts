@@ -62,6 +62,11 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
     });
   }
 
+  for (const dep of result.info.dependencies.fileDependencies) {
+    if (dep.startsWith("//"))
+      throw new Error(`Invalid depdenency path ${dep}`); //prefix '//' might leak through
+  }
+
   return result;
 }
 
@@ -270,6 +275,18 @@ async function testCompileerrors() {
     // Avoid inset: collapse, safari v14 doesn't like this and we're in no rush to deprecate that one
     test.eq(/.test1c{.*top:.*}/, css);
     test.assert(!css.match(/.test1c{.*inset:.*}/));
+
+    /* regression:
+       font: 9pt/16px "Menlo", "Consolas", "DejaVu Sans Mono", "Courier New", "monospace";
+       was output as
+       font: 9pt/16px"Menlo", "Consolas", "DejaVu Sans Mono", "Courier New", "monospace";
+
+       https://github.com/evanw/esbuild/issues/3452
+
+       esbuild has fixed the bug, but we've dropped the css-tree module sidestepping this issue completely
+    */
+    test.assert(!css.match(/16pxMenlo/));
+    test.assert(css.match(/16px Menlo/));
   }
 
   console.log("TypeScript is working");
