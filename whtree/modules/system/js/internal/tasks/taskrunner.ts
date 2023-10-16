@@ -69,15 +69,12 @@ export async function executeManagedTask(taskinfo: TaskInfo, debug: boolean) {
         let nextRetry = !taskresponse.nextretry || taskresponse.nextretry.getTime() > minNextRetry.getTime() ? taskresponse.nextretry || null : minNextRetry;
 
         const iterations = (await db<WebHareDB>().selectFrom("system.managedtasks").select("iterations").where("id", "=", taskinfo.dbid).executeTakeFirst())?.iterations || 0;
-        console.log({ minNextRetry, nextRetry, iterations });
         if (!nextRetry) {
           if (iterations >= 6)
             nextRetry = addDuration(new Date, "P1D");
           else
             nextRetry = new Date(Date.now() + (failreschedule << iterations));
         }
-
-        console.log({ taskresponse, nextRetry, failreschedule });
 
         await finalizeTaskResult(taskinfo, {
           nextattempt: new Date(nextRetry),

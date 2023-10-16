@@ -23,10 +23,13 @@ async function runInvoke(task: InvokeTask): Promise<unknown> {
 function connectIPC(name: string) {
   try {
     const link = bridge.connect<CallRunnerLinkType>(name, { global: true });
+    const pending = new Set<bigint>();
+
     link.on("message", async (msg) => {
       switch (msg.message.cmd) {
         case "invoke": {
           try {
+            pending.add(msg.msgid);
             let value = await runInvoke(msg.message);
             if (value === undefined)
               value = false;
@@ -36,11 +39,22 @@ function connectIPC(name: string) {
             }, msg.msgid);
           } catch (e: unknown) {
             link.sendException(e as Error, msg.msgid);
+          } finally {
+            pending.delete(msg.msgid);
           }
         }
       }
     });
     link.on("close", () => process.exit()); //FIXME are we sure this is fired? it's not tested yet at least!
+    process.on("unhandledRejection", (reason: unknown) => {
+      if (pending.size > 0) { //try to reject all pending messages, at least that should give the caller a somewhat usable trace
+        for (const msgid of pending)
+          link.sendException(reason as Error, msgid);
+      } else {
+        //this will probably only end up in a log somewhere
+        link.sendException(reason as Error, 0n);
+      }
+    });
     link.activate();
   } catch (e) {
     console.error(`got error: ${e}`);

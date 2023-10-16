@@ -32,6 +32,7 @@ ASYNC MACRO TestCallAsync()
 
   TestRejectedLike("*terminated without giving a response", Do("ts", 1));
   TestRejectedLike("js-error", Do("ts", 2));
+  TestRejectedLike("This will be an uncaught rejection", Do("ts", 6));
 
   // Verify roundtrips
   FOREVERY(STRING ext FROM [".ts",".whlib"])
