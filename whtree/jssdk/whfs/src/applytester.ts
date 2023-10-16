@@ -1,7 +1,7 @@
 import { CSPApplyTo, CSPApplyRule, getCachedSiteProfiles, CSPApplyToTo, CSPPluginBase, CSPPluginDataRow } from "./siteprofiles";
 import { openFolder, WHFSObject, WHFSFolder, describeContentType } from "./whfs";
 import { db, Selectable } from "@webhare/whdb";
-import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
+import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { isLike, isNotLike } from "@webhare/hscompat/strings";
 import { emplace } from "@webhare/std";
 import { loadlib } from "@webhare/harescript";
@@ -33,7 +33,7 @@ function matchPathRegex(pattern: string, path: string): boolean {
 }
 
 interface BaseInfo extends SiteApplicabilityInfo {
-  site: Selectable<WebHareDB, "system.sites"> | null;
+  site: Selectable<PlatformDB, "system.sites"> | null;
   obj: WHFSObject;
   parent: WHFSFolder | null;
   isfile: boolean;
@@ -54,9 +54,9 @@ export async function getBaseInfoForApplyCheck(obj: WHFSObject): Promise<BaseInf
   // RETURN DEFAULT RECORD;
 
   const siteapply = await getSiteApplicabilityInfo(obj.parentSite);
-  let site: Selectable<WebHareDB, "system.sites"> | null = null;
+  let site: Selectable<PlatformDB, "system.sites"> | null = null;
   if (obj.parentSite) {
-    site = await db<WebHareDB>().selectFrom("system.sites").selectAll().where("id", "=", obj.parentSite).executeTakeFirst() ?? null; //TODO why doesn't getSiteApplicabilityInfo give us what we need here
+    site = await db<PlatformDB>().selectFrom("system.sites").selectAll().where("id", "=", obj.parentSite).executeTakeFirst() ?? null; //TODO why doesn't getSiteApplicabilityInfo give us what we need here
   }
 
   const typeneedstemplate = obj.isFile && ((await describeContentType(obj.type, { allowMissing: true }))?.isWebPage ?? false);
@@ -88,7 +88,7 @@ export class WHFSApplyTester {
 */
 
   //TODO shouldn't take access to dbrecord, just need to add some more fields to the base types
-  private async toIsMatch(element: CSPApplyTo, site: Selectable<WebHareDB, "system.sites"> | null, folder: WHFSFolder | null): Promise<boolean> {
+  private async toIsMatch(element: CSPApplyTo, site: Selectable<PlatformDB, "system.sites"> | null, folder: WHFSFolder | null): Promise<boolean> {
     switch (element.type) {
       case "and":
         for (const crit of element.criteria)
@@ -150,7 +150,7 @@ export class WHFSApplyTester {
         if (element.match_folder && this.objinfo.isfile)
           return false;
         //TODO decide whether the API should still expose numeric types.... or have siteprofiles simply make them irrelevant (do we still support numbers *anywhere*? )
-        const numerictype = (this.objinfo.obj as unknown as { dbrecord: Selectable<WebHareDB, "system.fs_objects"> }).dbrecord.type;
+        const numerictype = (this.objinfo.obj as unknown as { dbrecord: Selectable<PlatformDB, "system.fs_objects"> }).dbrecord.type;
         if (element.foldertype && !this.matchType(numerictype, element.foldertype, true))
           return false;
         if (element.filetype && !this.matchType(numerictype, element.filetype, false))
@@ -180,14 +180,14 @@ export class WHFSApplyTester {
     return true;
   }
 
-  testPathConstraint(rec: CSPApplyToTo, site: Selectable<WebHareDB, "system.sites"> | null, parentitem: WHFSFolder | null): boolean {
+  testPathConstraint(rec: CSPApplyToTo, site: Selectable<PlatformDB, "system.sites"> | null, parentitem: WHFSFolder | null): boolean {
     if (rec.pathmask && isNotLike(this.objinfo.obj.fullPath.toUpperCase(), rec.pathmask.toUpperCase()))
       return false;
     if (rec.parentmask && (!parentitem || isNotLike(parentitem.fullPath.toUpperCase(), rec.parentmask.toUpperCase())))
       return false;
 
     //TODO decide whether the API should still expose numeric types.... or have siteprofiles simply make them irrelevant (do we still support numbers *anywhere*? )
-    const numerictype = (parentitem as unknown as { dbrecord: Selectable<WebHareDB, "system.fs_objects"> }).dbrecord.type;
+    const numerictype = (parentitem as unknown as { dbrecord: Selectable<PlatformDB, "system.fs_objects"> }).dbrecord.type;
     if (rec.parenttype && (!parentitem || !this.matchType(numerictype, rec.parenttype, true)))
       return false;
     if (rec.withintype) //FIXME: && (!parentitem || ! this.matchWithinType(parentitem.type, rec.withintype,true)))

@@ -6,7 +6,7 @@ import { installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers"
 import { loadlib } from "@webhare/harescript";
 
 async function testBasics() {
-  const result = generateKyselyDefs("system", ["system"]);
+  const result = generateKyselyDefs("platform");
   test.eq(/fullpath: IsGenerated<string>/, result, "fullpath & co must be marked as IsGenerated as you can't insert them");
 }
 

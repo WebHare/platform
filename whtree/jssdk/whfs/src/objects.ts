@@ -1,5 +1,5 @@
 import { db, sql, Selectable, Updateable } from "@webhare/whdb";
-import type { WebHareDB } from "@mod-system/js/internal/generated/whdb/webhare";
+import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
 import { getType, describeContentType, unknownfiletype, normalfoldertype } from "./contenttypes";
 import { defaultDateTime } from "@webhare/hscompat/datetime";
@@ -8,7 +8,7 @@ import { extname, parse } from 'node:path';
 import { excludeKeys, formatPathOrId, isPublish, isValidName } from "./support";
 import * as std from "@webhare/std";
 
-interface FsObjectRow extends Selectable<WebHareDB, "system.fs_objects"> {
+interface FsObjectRow extends Selectable<PlatformDB, "system.fs_objects"> {
   link: string;
   fullpath: string;
   whfspath: string;
@@ -127,25 +127,25 @@ export class WHFSObject {
 
   async delete(): Promise<void> {
     //TODO implement side effects that the HS variants do
-    await db<WebHareDB>().deleteFrom("system.fs_objects").where("id", "=", this.id).execute();
+    await db<PlatformDB>().deleteFrom("system.fs_objects").where("id", "=", this.id).execute();
   }
 
   protected async _doUpdate(metadata: UpdateFileMetadata | UpdateFolderMetadata) {
-    let storedata: Updateable<WebHareDB, "system.fs_objects">;
+    let storedata: Updateable<PlatformDB, "system.fs_objects">;
     if (metadata.type) {
       const type = getType(metadata.type, this.isFile ? "fileType" : "folderType");
       if (!type)
         throw new Error(`No such type: ${metadata.type}`);
 
-      storedata = { ...metadata, type: metadata.type || null } as Updateable<WebHareDB, "system.fs_objects">; //#0 can't be stored so convert to null
+      storedata = { ...metadata, type: metadata.type || null } as Updateable<PlatformDB, "system.fs_objects">; //#0 can't be stored so convert to null
     } else {
-      storedata = metadata as Updateable<WebHareDB, "system.fs_objects">;
+      storedata = metadata as Updateable<PlatformDB, "system.fs_objects">;
     }
 
     if (!Object.keys(storedata).length)
       return; //nothing to update
 
-    await db<WebHareDB>()
+    await db<PlatformDB>()
       .updateTable("system.fs_objects")
       .where("parent", "=", this.id)
       .set(storedata)
@@ -202,7 +202,7 @@ export class WHFSFolder extends WHFSObject {
       selectkeys.add(dbkey);
     }
 
-    const retval = await db<WebHareDB>()
+    const retval = await db<PlatformDB>()
       .selectFrom("system.fs_objects")
       .where("parent", "=", this.id)
       .orderBy("name")
@@ -242,7 +242,7 @@ export class WHFSFolder extends WHFSObject {
 
   private async doCreate(name: string, type: CSPContentType, metadata?: CreateFileMetadata | CreateFolderMetadata) {
     const creationdate = new Date();
-    const retval = await db<WebHareDB>()
+    const retval = await db<PlatformDB>()
       .insertInto("system.fs_objects")
       .values({
         creationdate: creationdate,
@@ -370,7 +370,7 @@ export class WHFSFolder extends WHFSObject {
 
     for (; ; ++counter) {
       const testname = basename + (counter > 1 ? '-' + counter : '') + extension;
-      if (!await db<WebHareDB>()
+      if (!await db<PlatformDB>()
         .selectFrom("system.fs_objects")
         .select("id") //FIXME we have to select 'something' or kyseley crashes
         .where("parent", "=", this.id)
@@ -410,7 +410,7 @@ async function resolveWHFSObjectByPath(startingpoint: number, fullpath: string) 
     let trynew = 0;
 
     if (i == 0 && now == 0 && tok.startsWith("site::")) {
-      trynew = (await db<WebHareDB>()
+      trynew = (await db<PlatformDB>()
         .selectFrom("system.sites")
         .select("id")
         .where(sql`upper(name)`, "=", sql`upper(${tok.substring(6)})`)
@@ -432,7 +432,7 @@ async function resolveWHFSObjectByPath(startingpoint: number, fullpath: string) 
 
     if (tok === '..') {
       if (now !== limitparent) {
-        trynew = (await db<WebHareDB>()
+        trynew = (await db<PlatformDB>()
           .selectFrom("system.fs_objects")
           .select("parent")
           .where("id", "=", now)
@@ -444,7 +444,7 @@ async function resolveWHFSObjectByPath(startingpoint: number, fullpath: string) 
       }
     } else {
       //as parent = 0 is stored as 'null', we need a different comparison there
-      trynew = (await db<WebHareDB>()
+      trynew = (await db<PlatformDB>()
         .selectFrom("system.fs_objects")
         .select("id")
         .$if(now === 0, qb => qb.where("parent", "is", null))
@@ -492,7 +492,7 @@ export async function openWHFSObject(startingpoint: number, path: string | numbe
 
   let dbrecord: FsObjectRow | undefined;
   if (location > 0) {//FIXME support opening the root object too - but *not* by doing a openWHFSObject(0), that'd be too dangerous
-    dbrecord = await db<WebHareDB>()
+    dbrecord = await db<PlatformDB>()
       .selectFrom("system.fs_objects")
       .selectAll()
       .select(sql<string>`webhare_proc_fs_objects_indexurl(id,name,isfolder,parent,published,type,externallink,filelink,indexdoc)`.as("link"))
