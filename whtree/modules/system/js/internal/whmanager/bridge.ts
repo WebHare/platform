@@ -906,29 +906,31 @@ class MainBridge extends EventSource<BridgeEvents> {
         }
       } break;
       case ToMainBridgeMessageType.RegisterPort: {
-        const ref = await this.waitReadyReturnRef();
-        try {
-          if (this.ports.get(message.name)) {
-            message.port.postMessage({
-              type: IPCPortControlMessageType.RegisterResult,
-              success: false
-            });
-            return;
-          }
-          const reg: PortRegistration = {
-            name: message.name,
-            port: message.port,
-            globalregconnectcounter: 0,
-            initialregistration: message.global
-          };
-          this.ports.set(message.name, reg);
-          if (message.global) {
+        if (this.ports.get(message.name)) {
+          message.port.postMessage({
+            type: IPCPortControlMessageType.RegisterResult,
+            success: false
+          });
+          message.port.close();
+          return;
+        }
+        const reg: PortRegistration = {
+          name: message.name,
+          port: message.port,
+          globalregconnectcounter: 0,
+          initialregistration: message.global
+        };
+        this.ports.set(message.name, reg);
+        if (message.global) {
+          const ref = await this.waitReadyReturnRef();
+          try {
             await this.ready();
             if (!this.connectionactive) {
               message.port.postMessage({
                 type: IPCPortControlMessageType.RegisterResult,
                 success: false
               });
+              message.port.close();
               this.ports.delete(message.name);
               return;
             }
@@ -940,30 +942,30 @@ class MainBridge extends EventSource<BridgeEvents> {
               msgid
             });
             this.portregisterrequests.set(msgid, reg);
-          } else {
-            message.port.postMessage({
-              type: IPCPortControlMessageType.RegisterResult,
-              success: true
+          } finally {
+            ref.release();
+          }
+        } else {
+          message.port.postMessage({
+            type: IPCPortControlMessageType.RegisterResult,
+            success: true
+          });
+        }
+        message.port.on("close", () => {
+          if (logmessages)
+            console.log(`main bridge: ${message.global ? "global" : "local"}  port ${message.name} closed`);
+          if (this.ports.get(message.name) === reg)
+            this.ports.delete(message.name);
+          if (message.global) {
+            this.sendData({
+              opcode: WHMRequestOpcode.UnregisterPort,
+              portname: message.name,
+              linkid: 0,
+              msgid: BigInt(0),
+              need_unregister_response: false
             });
           }
-          message.port.on("close", () => {
-            if (logmessages)
-              console.log(`main bridge: ${message.global ? "global" : "local"}  port ${message.name} closed`);
-            if (this.ports.get(message.name) === reg)
-              this.ports.delete(message.name);
-            if (message.global) {
-              this.sendData({
-                opcode: WHMRequestOpcode.UnregisterPort,
-                portname: message.name,
-                linkid: 0,
-                msgid: BigInt(0),
-                need_unregister_response: false
-              });
-            }
-          });
-        } finally {
-          ref.release();
-        }
+        });
       } break;
       case ToMainBridgeMessageType.ConnectLink: {
         const reg = this.ports.get(message.name);
