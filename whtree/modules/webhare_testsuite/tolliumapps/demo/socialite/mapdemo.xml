@@ -38,8 +38,6 @@
       <action name="deleteitem" onexecute="dodeleteitem" title="Delete" />
 
       <action name="centeronitem" onexecute="docenteronitem" />
-
-      <action name="printmap" onexecute="doprintmap" />
     </actions>
 
     <menus>
@@ -57,7 +55,6 @@
         <item tid="tollium:common.menu.file">
           <item action="importgpx" />
           <item action="saveasgpx" />
-          <item action="printmap" />
         </item>
       </menu>
       <menu name="mapcontents_context">

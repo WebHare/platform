@@ -30,10 +30,10 @@ PUBLIC STRING ARRAY google_reserved_iconnames := [ "G_DEFAULT_ICON" ];
 
 // Used if no or invalid icon was specified
 RECORD defaultoverlayicon := [ name := ""
-                             , icon := "socialite:markers/pin_red"
-                             , shadow := "socialite:markers/pin_shadow"
-                             , anchor_x := 15
-                             , anchor_y := 42
+                             , icon := "tollium:maps/markers/marker_blue"
+                             , shadow := ""
+                             , anchor_x := 24
+                             , anchor_y := 38
                              , label_x := 24
                              , label_y := 8
                              , popup_x := 24
@@ -452,10 +452,6 @@ PUBLIC OBJECTTYPE GoogleMapComponent EXTEND TolliumComponentBase
                                  , height := height LIKE "*px" ? ToInteger(Left(height, Length(height)-2),48) : 48
                               FROM [ defaultoverlayicon ] CONCAT this->icons;
 
-      STRING imgshtml := GetModuleResourceURL("mod::tollium/webdesigns/webinterface/web/img.shtml");
-      UPDATE icons SET icon := icon != "" ? imgshtml || "?n=" || EncodeURL(icon) || "&w=" || width || "&h=" || height || "&type=.png" : ""
-                      , shadow := shadow != "" ? imgshtml || "?n=" || EncodeURL(shadow) || "&w=" || width || "&h=" || height || "&type=.png" : "";
-
       INTEGER iconsize; //how much to reserve for icons
       IF(Length(icons)=0)
       {
@@ -476,7 +472,7 @@ PUBLIC OBJECTTYPE GoogleMapComponent EXTEND TolliumComponentBase
                           , loadingtext := GetTid("socialite:components.map.loading")
                           , mapdata :=
                               [ maptype := this->pvt_maptype
-                              , initial_pos := LatLngObjectToString(this->pvt_center)
+                              , center := LatLngObjectToString(this->pvt_center)
                               , zoom := this->pvt_zoom
                               , restrictto := BoundsToString(this->pvt_restrictto)
                               , moveable := this->pvt_moveable
@@ -1045,11 +1041,5 @@ PUBLIC OBJECTTYPE GoogleMapComponent EXTEND TolliumComponentBase
   {
     IF (ObjectExists(this->iframecomp))
       this->iframecomp->PostMessage([ type := "LoadDirections", directions := [ origin, destination ], options := this->directionsoptions ], "*");
-  }
-
-  PUBLIC MACRO PrintMap()
-  {
-    IF (ObjectExists(this->iframecomp))
-      this->iframecomp->Print();
   }
 >;

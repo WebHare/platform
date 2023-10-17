@@ -3,7 +3,9 @@
 
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
+import * as menus from '@mod-tollium/web/ui/components/basecontrols/menu';
 import $todd from "@mod-tollium/web/ui/js/support";
+import { createImage } from "@mod-tollium/js/icons";
 import "./iframe.scss";
 
 export default class ObjIFrame extends ComponentBase {
@@ -273,9 +275,21 @@ export default class ObjIFrame extends ComponentBase {
         menu.openMenuAt({ pageX: iframepos.left + data.x, pageY: iframepos.top + data.y });
         break;
 
+      case 'closeallmenus':
+        menus.closeAll();
+        break;
+
       case 'actionenabler':
         this.selectionflags = data.selectionflags || [];
         this.owner.actionEnabler();
+        break;
+
+      case 'createimage':
+        const img = createImage(data.imgname, data.width, data.height, data.color, null);
+        img.addEventListener("load", () => {
+          this.queuedmessages.push({ id: data.id, type: 'createdimage', src: img.src, width: data.width, height: data.height });
+          this.postQueuedMessages(false);
+        });
         break;
 
       //FIXME get rid of (most of) the handlers above... just go for free communication!
