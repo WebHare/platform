@@ -164,9 +164,6 @@ class toddGoogleMap {
   //  if (this.iframetodd)
   //    this.iframetodd.RemoveIFrameEvents();
 
-    // We have a map, attach our info window
-    this.infowindow = new toddGM_InfoWindow(this.map.map);
-
     // Set initial directions, if any
     var data = this.iframetodd.getData();
     if (data && data.directions)
@@ -301,6 +298,8 @@ class toddGoogleMap {
 
   openInfoWindow(overlay)
   {
+    // Initialize and attach the info window
+    this.infowindow = this.infowindow || new toddGM_InfoWindow(this.map.map);
     this.infowindow.Open(overlay);
   }
 
