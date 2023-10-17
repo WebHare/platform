@@ -111,7 +111,7 @@ class ProcessManager {
 
   log(text: string, data?: LoggableRecord) {
     const at = this.started ? Date.now() - this.started : null;
-    smLog(`${this.displayName} ${this.process?.pid}: ${text}`, { message: text, service: this.name, at, ...data });
+    smLog(`${this.displayName}: ${text}`, { message: text, service: this.name, at, ...data });
   }
 
   start() {
@@ -180,7 +180,7 @@ class ProcessManager {
     }
 
     const exitreason = signal ?? exitCode ?? "unknown";
-    if (this.service.isExitFatal && !this.toldToStop && this.service.isExitFatal(exitreason)) {
+    if (!this.toldToStop && this.service.ciriticalForStartup && currentstage < Stage.Active) {
       this.log(`Exit is considered fatal, shutting down service manager`);
       shutdown();
     }

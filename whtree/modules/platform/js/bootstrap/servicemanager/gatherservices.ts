@@ -1,7 +1,6 @@
 import { resolveResource } from "@webhare/services/src/services";
 import { getAllModuleYAMLs } from '@webhare/services/src/moduledefparser';
 import { ServiceDefinition, Stage } from './smtypes';
-import { currentstage } from "./main"; //TODO cleanup, is a mutual include
 
 const earlywebserver = process.env.WEBHARE_WEBSERVER == "node";
 
@@ -10,13 +9,13 @@ const defaultServices: Record<string, ServiceDefinition> = {
     cmd: ["whmanager"],
     startIn: Stage.Bootup,
     stopIn: Stage.ShuttingDown,
-    isExitFatal: () => currentstage < Stage.Active,
+    ciriticalForStartup: true,
   },
   "platform:database": {
     cmd: ["postgres.sh"],
     startIn: Stage.Bootup,
     stopIn: Stage.ShuttingDown,
-    isExitFatal: () => currentstage < Stage.Active,
+    ciriticalForStartup: true,
     /* To terminate the postgres server normally, the signals SIGTERM, SIGINT, or SIGQUIT can be used. The first will wait for all clients to terminate before
        quitting, the second will forcefully disconnect all clients, and the third will quit immediately without proper shutdown, resulting in a recovery run during restart.
     */
@@ -25,7 +24,7 @@ const defaultServices: Record<string, ServiceDefinition> = {
   "platform:harescript-compiler": {
     cmd: ["whcompile", "--listen"],
     startIn: Stage.Bootup,
-    isExitFatal: () => currentstage < Stage.Active,
+    ciriticalForStartup: true
   },
   "platform:webserver": {
     cmd: ["webserver.sh"],

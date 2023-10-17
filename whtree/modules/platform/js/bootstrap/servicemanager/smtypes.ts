@@ -20,7 +20,8 @@ export interface ServiceDefinition {
   waitForCompletion?: boolean;
   ///override the stopTimeout. we used to do this for the WH database server
   stopTimeout?: number;
-  isExitFatal?: (terminationcode: string | number) => boolean;
+  ///when ciriticalForStartup is true and the service crashes during stage Bootup or StartupScript, WebHare will terminate
+  ciriticalForStartup?: boolean;
 }
 
 function getServiceRuntimeParamHash(service: ServiceDefinition) {
