@@ -1,11 +1,11 @@
 /* See servicemanager/main.ts on how to run a separate servicemanager process for faster testing (and as this test creates modules
    I'd also recommend a freshdbconsole or at least an install with a minimal amount of modules) */
 
-import { openBackendService } from "@webhare/services/src/backendservice";
 import { type ServiceManagerClient } from "@mod-platform/js/bootstrap/servicemanager/main";
 import * as test from "@webhare/test";
 import { deleteTestModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
-import { backendConfig } from "@webhare/services/src/services";
+import { openBackendService, backendConfig } from "@webhare/services";
+import { HSVMObject, loadlib } from "@webhare/harescript";
 
 async function prepTests() {
   const smservice = await openBackendService<ServiceManagerClient>("platform:servicemanager", [], { timeout: 5000 });
@@ -35,29 +35,29 @@ async function testBasicAPI() {
     "moduledefinition.yml": `
 managedServices:
   simpleservice:
-    script: js/simpleservice.js
+    script: js/service.js
+    arguments: ["webhare_testsuite_temp:simple"]
     run: always
   ondemandservice:
-    script: js/ondemandservice.js
+    script: js/service.js
+    arguments: ["webhare_testsuite_temp:ondemandservice"]
+    run: on-demand # should autostart as soon as someone connects to the backend ervice
+  ondemandservice2:
+    script: js/service.js
+    arguments: ["webhare_testsuite_temp:ondemandservice2"]
     run: on-demand # should autostart as soon as someone connects to the backend ervice
 `,
-    "js/simpleservice.js": `
+    "js/service.js": `
 import runBackendService from '@mod-system/js/internal/webhareservice';
-
+const instanceid = "instance" + Math.random();
+const port = process.argv[2];
+let service;
 class Client {
-  hey() { return 42; }
+  info() { return { x: 42, instanceid, port }; }
+  shutdown() { service.close(); }
 };
-console.log("Starting js/simpleservice.js");
-runBackendService("webhare_testsuite_temp:simple", () => new Client);`,
-
-    "js/ondemandservice.js": `
-import runBackendService from '@mod-system/js/internal/webhareservice';
-
-class Client {
-  hey() { return 44; }
-};
-console.log("Starting js/ondemandservice.js");
-runBackendService("webhare_testsuite_temp:ondemandservice", () => new Client);`
+console.log("Creating a backendService listening on", port);
+service = runBackendService(port, () => new Client);`
   });
 
 
@@ -73,12 +73,22 @@ runBackendService("webhare_testsuite_temp:ondemandservice", () => new Client);`
 
   //Connect to our new services
   const testclient = await openBackendService<any>("webhare_testsuite_temp:simple", []);
-  test.eq(42, await testclient.hey());
+  test.eqProps({ x: 42 }, await testclient.info());
   testclient.close();
 
   console.log("Connecting to on demand service");
   const testondemand = await openBackendService<any>("webhare_testsuite_temp:ondemandservice", []);
-  test.eq(44, await testondemand.hey());
+  const instanceid = (await testondemand.info()).instanceid;
+
+  //Tell the service to shut down
+  console.log("Manually stopping on demand service");
+  await smservice.stopService("webhare_testsuite_temp:ondemandservice");
+  await test.throws(/is unavailable/, openBackendService<any>("webhare_testsuite_temp:ondemandservice", [], { timeout: 500, notOnDemand: true }));
+
+  //Have HareScript connect to an ondemand service
+  const ondemandThroughHS = await loadlib("mod::system/lib/services.whlib").openWebHareService("webhare_testsuite_temp:ondemandservice2") as HSVMObject;
+  test.eqProps({ x: 42, port: "webhare_testsuite_temp:ondemandservice2" }, await ondemandThroughHS.info());
+  test.assert(instanceid != (await ondemandThroughHS.info()).instanceid);
 
   //Delete the module again
   await deleteTestModule("webhare_testsuite_temp");

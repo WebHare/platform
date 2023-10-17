@@ -3,6 +3,8 @@
 export interface ManagedService {
   ///Script to run
   script?: string;
+  ///Script arguments
+  arguments?: string[];
   ///When to run it
   run: "always" | "on-demand";
 }

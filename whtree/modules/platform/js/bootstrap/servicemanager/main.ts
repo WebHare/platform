@@ -120,6 +120,9 @@ class ProcessManager {
 
     this.started = Date.now();
     this.startDelayTimer = null;
+    if (verbose)
+      this.log(`Starting service with command: ${cmd} ${args.join(" ")}`, { cmd, args });
+
     this.process = child_process.spawn(cmd, args, {
       stdio: ['ignore', 'pipe', 'pipe'],  //no STDIN, we catch the reset
       detached: true, //separate process group so a terminal CTRL+C doesn't get sent to our subs (And we get to properly shut them down)
@@ -192,7 +195,8 @@ class ProcessManager {
     if (processes.get(this.name) === this)
       processes.delete(this.name);
 
-    if (!shuttingdown && this.service.run != "once" && expectedServices.has(this.name)) {
+    const servicesettings = expectedServices.get(this.name);
+    if (!shuttingdown && servicesettings?.run === "always") {
       if (!this.started || Date.now() < this.started + MinimumRunTime) {
         this.startDelay = Math.min(this.startDelay * 2 || 1000, MaxStartupDelay);
         this.log(`Throttling, will restart after ${this.startDelay / 1000} seconds`);
@@ -200,7 +204,7 @@ class ProcessManager {
         this.startDelay = 0;
         this.log(`Restarting`);
       }
-      new ProcessManager(this.name, this.service, this.startDelay);
+      new ProcessManager(this.name, servicesettings, this.startDelay);
     }
   }
 
@@ -339,6 +343,16 @@ class ServiceManagerClient {
       return { errorMessage: `Service '${service}' is not on-demand` };
 
     new ProcessManager(service, serviceinfo);
+    return { ok: true };
+  }
+  stopService(service: string) {
+    const process = processes.get(service);
+    if (!process)
+      return { errorMessage: `Service '${service}' is not running` };
+    if (process.service.run !== "on-demand") //TODO also stop non on-demand services, or should that be enable/disable and not start/stop ? (for ondemand those would be to different things)
+      return { errorMessage: `Service '${service}' is not on-demand` };
+
+    process.stop();
     return { ok: true };
   }
   async reload() {
