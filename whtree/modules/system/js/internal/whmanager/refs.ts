@@ -43,40 +43,43 @@ export class RefTracker extends EventSource<RefTrackerEvents>{
   private hasref: boolean;
   private objhasref: boolean;
   ///The object that was passed to us to track
-  private readonly trackedObject: Referencable;
+  private readonly trackedObject: Referencable | null;
   ///The object that we are actually referencing if the original object cannot be safely used
   private readonly referencedObject: Referencable;
 
-  /** @param initialref - Assume we already have an active reference (use dropInitialReference) */
-  constructor(obj: Referencable, { initialref }: { initialref?: boolean } = {}) {
+  /** @param obj - Object that kan keep NodeJS running (or null to allocate one)
+   *  @param initialref - Assume we already have an active reference (use dropInitialReference) */
+  constructor(obj: Referencable | null, { initialref }: { initialref?: boolean } = {}) {
     super();
     this.trackedObject = obj;
-    obj[reftrackersymbol] = this;
+    if (obj)
+      obj[reftrackersymbol] = this;
     this.hasref = initialref ?? false;
     this.objhasref = this.hasref;
     if (initialref) {
       this.initialref = new RefLock(this, "initial reference");
       this.locks.add(this.initialref);
     }
-    this.referencedObject = obj;
-
-    if ("allowHalfOpen" in obj) {
+    if (!obj || "allowHalfOpen" in obj) {
       /* object is a Socket. re-referencing a socket sometimes doesn't work in node 19
          we use an Interval object simply to have something that supports references
          we must create the interval in the root context to not interfere with CodeContext cleanup
       */
-      const timer = rootstorage.run(() => setInterval(function () { return false; }, 86400000));
+      if (obj) {
+        (obj as Socket).on("close", () => clearInterval(timer)); // close when the socket closes
+        (obj as Socket).on("error", () => clearInterval(timer)); // or has an error
+      }
       // use an interval for references instead, one with few callbacks
-      (obj as Socket).on("close", () => clearInterval(timer)); // close when the socket closes
-      (obj as Socket).on("error", () => clearInterval(timer)); // or has an error
+      const timer = rootstorage.run(() => setInterval(function () { return false; }, 86400000));
       this.referencedObject = timer;
       if (initialref) //trackedObject is still referenced
-        this.trackedObject.unref();
+        this.trackedObject?.unref();
       else
         this.referencedObject.unref();
 
       //post: trackedObject is unreferenced, referencedObject is referenced iff initialRef is set
-    }
+    } else
+      this.referencedObject = obj;
   }
 
   getLock(title?: string): RefLock {

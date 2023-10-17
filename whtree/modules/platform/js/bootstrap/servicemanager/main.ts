@@ -14,7 +14,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import { debugFlags } from "@webhare/env/src/envbackend";
-import { backendConfig } from "@webhare/services/src/services";
+import { backendConfig, logError } from "@webhare/services/src/services";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import * as child_process from "child_process";
 import { createDeferred, generateRandomId, sleep, wildcardsToRegExp } from "@webhare/std";
@@ -25,7 +25,7 @@ import { program } from 'commander'; //https://www.npmjs.com/package/commander
 import { LoggableRecord } from "@webhare/services/src/logmessages";
 import bridge from '@mod-system/js/internal/whmanager/bridge';
 import { getAllServices } from './gatherservices';
-import { ServiceDefinition, Stages } from './smtypes';
+import { defaultShutDownStage, ServiceDefinition, Stage, shouldRestartService } from './smtypes';
 
 program.name("servicemanager")
   .option("-s, --secondary", "Mark us as a secondary service manager")
@@ -35,8 +35,7 @@ program.name("servicemanager")
   .option("--exclude <mask>", "Do not manage services that match this mask", "")
   .parse();
 
-export let currentstage = Stages.Bootup;
-const DefaultShutdownStage = Stages.Terminating;
+export let currentstage = Stage.Bootup;
 const DefaultTimeout = 5000;
 ///minimum time the proces must be running before we throttle startup
 const MinimumRunTime = 60000;
@@ -54,15 +53,17 @@ let keepAlive: NodeJS.Timeout | null = null;
 let shuttingdown = false;
 let logfile: RotatingLogFile | undefined;
 
-const stagetitles: Record<Stages, string> = {
-  [Stages.Bootup]: "Booting critical proceses",
-  [Stages.StartupScript]: "Running startup scripts", //not entirely accurate, in this phase we also bootup webserver & apprunner etc
-  [Stages.Active]: "Online",
-  [Stages.Terminating]: "Terminating subprocesses",
-  [Stages.ShuttingDown]: "Shutting down bridge and database"
+const stagetitles: Record<Stage, string> = {
+  [Stage.Bootup]: "Booting critical proceses",
+  [Stage.StartupScript]: "Running startup scripts", //not entirely accurate, in this phase we also bootup webserver & apprunner etc
+  [Stage.Active]: "Online",
+  [Stage.Terminating]: "Terminating subprocesses",
+  [Stage.ShuttingDown]: "Shutting down bridge and database"
 };
 
 const expectedServices = new Map<string, ServiceDefinition>();
+const processes = new Map<string, ProcessManager>;
+const finishedWaitForCompletionServices = new Set<string>;
 
 function smLog(text: string, data?: LoggableRecord) {
   if (!logfile) {
@@ -103,8 +104,7 @@ class ProcessManager {
     this.displayName = name.startsWith("platform:") ? name.substring(9) : name;
     this.service = service;
     this.startDelay = startDelay;
-    service.current = this;
-    processes.add(this);
+    processes.set(name, this);
 
     this.startDelayTimer = setTimeout(() => this.start(), startDelay);
   }
@@ -117,9 +117,6 @@ class ProcessManager {
   start() {
     const cmd = this.service.cmd[0].includes('/') ? this.service.cmd[0] : `${backendConfig.installationroot}bin/${this.service.cmd[0]}`;
     const args = this.service.cmd.slice(1);
-
-    if (debugFlags.startup)
-      this.log(`Starting ${cmd}${args.length ? ` with ${JSON.stringify(args)}` : ""}`);
 
     this.started = Date.now();
     this.startDelayTimer = null;
@@ -178,21 +175,24 @@ class ProcessManager {
     if (!this.toldToStop || debugFlags.startup) {
       if (signal)
         this.log(`Exited with signal ${signal}`, { exitSignal: signal });
-      else if (exitCode || this.service.keepAlive) //no need to mention a normal shutdown for a singleshot service
+      else if (exitCode || !this.service.waitForCompletion) //no need to mention a normal shutdown for a singleshot service
         this.log(`Exited with code ${exitCode} `, { exitCode: exitCode });
     }
 
     const exitreason = signal ?? exitCode ?? "unknown";
-    if (this.service.isExitFatal && !this.toldToStop && this.service.isExitFatal(exitreason)) {
+    if (!this.toldToStop && this.service.ciriticalForStartup && currentstage < Stage.Active) {
       this.log(`Exit is considered fatal, shutting down service manager`);
       shutdown();
     }
 
     this.stopDefer.resolve(exitreason);
 
-    processes.delete(this);
+    if (this.service.waitForCompletion)
+      finishedWaitForCompletionServices.add(this.name);
+    if (processes.get(this.name) === this)
+      processes.delete(this.name);
 
-    if (!shuttingdown && this.service.keepAlive) {
+    if (!shuttingdown && !this.service.waitForCompletion) {
       if (!this.started || Date.now() < this.started + MinimumRunTime) {
         this.startDelay = Math.min(this.startDelay * 2 || 1000, MaxStartupDelay);
         this.log(`Throttling, will restart after ${this.startDelay / 1000} seconds`);
@@ -232,10 +232,8 @@ class ProcessManager {
   }
 }
 
-const processes = new Set<ProcessManager>;
-
 /// Move to a new stage
-async function startStage(stage: Stages): Promise<void> {
+async function startStage(stage: Stage): Promise<void> {
   if (verbose)
     smLog(`Entering stage: ${stagetitles[stage]} `, { stage: stagetitles[stage] }); //TODO shouldn't we be logging a tag/string instead of a full title
   currentstage = stage;
@@ -251,16 +249,34 @@ async function updateForCurrentStage(): Promise<void> {
   updateVisibleState();
 
   const subpromises = [];
-  for (const process of [...processes]) {
-    if ((process.service.stopIn ?? DefaultShutdownStage) === currentstage || !expectedServices.has(process.name))
+  for (const process of [...processes.values()]) {
+    if (!expectedServices.has(process.name))
       subpromises.push(process.stop());
   }
 
   for (const [name, service] of expectedServices.entries()) {
-    if (service.startIn === currentstage && !service.current) {
-      const proc = new ProcessManager(name, service);
-      if (service.waitForCompletion)
-        subpromises.push(proc.stopDefer.promise); //TODO should we have a timeout? (but what do you do if it hits? terminate? move to next stage?)
+    /* When waitForCompletion is true, the script should be running when we're in the startIn stage and the
+        script hasn't finished yet.
+        If it is false, the script should be running when we're in between the startIn stage and the stopIn stage.
+    */
+    const shouldRunNow = service.waitForCompletion ?
+      currentstage === service.startIn && !finishedWaitForCompletionServices.has(name) :
+      service.startIn <= currentstage && currentstage < (service.stopIn ?? defaultShutDownStage);
+
+    let process = processes.get(name);
+    if (process && !shouldRunNow) {
+      subpromises.push(process.stop());
+    } else if (shouldRunNow) {
+      if (process && !service.waitForCompletion && shouldRestartService(process.service, service)) {
+        // Wait for it to stap, don't want to overlap with the new service instance
+        await process.stop();
+        process = undefined;
+      }
+      if (!process) {
+        const proc = new ProcessManager(name, service);
+        if (service.waitForCompletion)
+          subpromises.push(proc.stopDefer.promise); //TODO should we have a timeout? (but what do you do if it hits? terminate? move to next stage?)
+      }
     }
   }
 
@@ -326,8 +342,21 @@ async function loadServiceList() {
   }
 
   for (const service of removeServices) {
-    expectedServices.get(service)!.keepAlive = false;
     expectedServices.delete(service);
+  }
+}
+
+async function startBackendService() {
+  // eslint-disable-next-line no-unmodified-loop-condition -- modified by signals
+  for (; !shuttingdown;) {
+    try {
+      //FIXME do we need to wait for the bridge to be ready? do we auto reregister when the bridge comes back?
+      await runBackendService(program.opts().name, () => new ServiceManagerClient, { autoRestart: false, dropListenerReference: true });
+      break;
+    } catch (e) {
+      smLog(`Service manager backend service failed with error: ${e}`);
+      await sleep(1000);
+    }
   }
 }
 
@@ -349,6 +378,9 @@ async function main() {
   bridge.on("event", event => {
     if (event.name === "system:configupdate")
       setImmediate(() => updateVisibleState()); //ensure the bridge is uptodate (TODO can't we have bridge's updateConfig signal us so we're sure we're not racing it)
+    if (event.name === "system:modulesupdate") {
+      loadServiceList().then(() => updateForCurrentStage()).catch(e => logError(e));
+    }
   });
 
   const showversion = process.env.WEBHARE_DISPLAYBUILDINFO ?? backendConfig.buildinfo.version ?? "unknown";
@@ -360,17 +392,16 @@ async function main() {
     storeDiskFile(backendConfig.dataroot + ".webhare.pid", process.pid.toString() + "\n", { overwrite: true });
   }
 
-  await startStage(Stages.Bootup);
+  await startStage(Stage.Bootup);
   if (!isSecondaryManager)
     await waitForCompileServer();
 
-  //FIXME do we need to wait for the bridge to be ready? do we auto reregister when the bridge comes back?
-  runBackendService(program.opts().name, () => new ServiceManagerClient, { autoRestart: false, dropListenerReference: true });
+  startBackendService();
 
   if (!shuttingdown)
-    await startStage(Stages.StartupScript);
+    await startStage(Stage.StartupScript);
   if (!shuttingdown)
-    await startStage(Stages.Active); //TODO we should run the poststart script instead of execute tasks so we can mark when that's done. as that's when we are really online
+    await startStage(Stage.Active); //TODO we should run the poststart script instead of execute tasks so we can mark when that's done. as that's when we are really online
 
   return 0;
 }
@@ -387,8 +418,8 @@ async function shutdown() {
     clearTimeout(keepAlive);
 
   shuttingdown = true;
-  await startStage(Stages.Terminating);
-  await startStage(Stages.ShuttingDown);
+  await startStage(Stage.Terminating);
+  await startStage(Stage.ShuttingDown);
   updateTitle('');
 
   if (!isSecondaryManager) {
