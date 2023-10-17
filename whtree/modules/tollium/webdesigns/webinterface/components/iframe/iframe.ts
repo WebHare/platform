@@ -3,6 +3,7 @@
 
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
+import * as menus from '@mod-tollium/web/ui/components/basecontrols/menu';
 import $todd from "@mod-tollium/web/ui/js/support";
 import { createImage } from "@mod-tollium/js/icons";
 import "./iframe.scss";
@@ -272,6 +273,10 @@ export default class ObjIFrame extends ComponentBase {
 
         var iframepos = this.node.getBoundingClientRect();
         menu.openMenuAt({ pageX: iframepos.left + data.x, pageY: iframepos.top + data.y });
+        break;
+
+      case 'closeallmenus':
+        menus.closeAll();
         break;
 
       case 'actionenabler':

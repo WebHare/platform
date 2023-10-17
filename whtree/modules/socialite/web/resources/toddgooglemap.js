@@ -186,8 +186,6 @@ class toddGoogleMap {
     this.selectionUpdate(null, toddGM_LatLngToString(latlng));
     if (this.iframetodd)
     {
-  //ADDME:
-  //    toddClearPopupStack();
       this.iframetodd.doCallback({
         type: "map_click",
         pos: toddGM_LatLngToString(latlng)
@@ -200,8 +198,6 @@ class toddGoogleMap {
     this.selectionUpdate(null, toddGM_LatLngToString(latlng));
     if (this.iframetodd)
     {
-  //ADDME:
-  //    toddClearPopupStack();
       this.iframetodd.doCallback({
         type: "map_dblclick",
         pos: toddGM_LatLngToString(latlng)
@@ -214,8 +210,6 @@ class toddGoogleMap {
     this.selectionUpdate(null, toddGM_LatLngToString(latlng));
     if (this.iframetodd)
     {
-  //ADDME:
-  //    toddClearPopupStack();
       this.iframetodd.showContextMenu(this.newcontextmenuname, point.x, point.y);
     }
   }
@@ -229,8 +223,7 @@ class toddGoogleMap {
 
     if (this.iframetodd)
     {
-  //ADDME:
-  //    toddClearPopupStack();
+      this.iframetodd.closeAllMenus();
       this.iframetodd.doCallback({ type: "map_moveend"
                                  , center: toddGM_LatLngToString(mapcenter)
                                  , bounds: toddGM_BoundsToString(this.map.map.getBounds())
@@ -242,8 +235,7 @@ class toddGoogleMap {
   {
     if (this.iframetodd)
     {
-  //ADDME:
-  //    toddClearPopupStack();
+      this.iframetodd.closeAllMenus();
       this.iframetodd.doCallback({
         type: "map_zoomend",
         zoom: this.map.map.getZoom(),
@@ -257,8 +249,6 @@ class toddGoogleMap {
     this.selectionUpdate(overlay, toddGM_LatLngToString(latlng));
     if (this.iframetodd)
     {
-  //ADDME:
-  //    toddClearPopupStack();
       this.iframetodd.doCallback({
         type: "overlay_click",
         rowkeys: overlay.rowkeys
@@ -271,8 +261,6 @@ class toddGoogleMap {
     this.selectionUpdate(overlay, toddGM_LatLngToString(latlng));
     if (this.iframetodd)
     {
-  //ADDME:
-  //    toddClearPopupStack();
       this.iframetodd.doCallback({
         type: "overlay_dblclick",
         rowkeys: overlay.rowkeys
@@ -285,8 +273,6 @@ class toddGoogleMap {
     this.selectionUpdate(overlay, toddGM_LatLngToString(latlng));
     if (this.iframetodd)
     {
-  //ADDME:
-  //    toddClearPopupStack();
       this.iframetodd.showContextMenu(this.selectcontextmenuname, parseInt(point.x), parseInt(point.y));
     }
   }
@@ -296,8 +282,6 @@ class toddGoogleMap {
     this.selectionUpdate(overlay, toddGM_LatLngToString(latlng));
     if (this.iframetodd)
     {
-  //ADDME:
-  //    toddClearPopupStack();
       this.iframetodd.doCallback({
         type: "overlay_dragend",
         rowkeys: overlay.rowkeys,

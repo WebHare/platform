@@ -78,6 +78,12 @@ class $toddiframe
     this.postMessage({ type: "contextmenu", name: menuname, x: x, y: y });
   };
 
+  /** @short Close any currently opened (context) menus */
+  closeAllMenus()
+  {
+    this.postMessage({ type: "closeallmenus" });
+  };
+
   /** @short Check enabled state of all actions
       @param selectionflags The flags for the current selection
   */

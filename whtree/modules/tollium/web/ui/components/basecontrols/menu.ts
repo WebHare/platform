@@ -349,7 +349,7 @@ function getEventNode() {
   return document.documentElement;
 }
 
-function closeAll() {
+export function closeAll() {
   if (activemenus.length)
     activemenus[0]._selectItem(null);
 
