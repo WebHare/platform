@@ -11,9 +11,14 @@ export function resurrectBuffer(obj: HSVMVar) {
   return new HSVMVar(obj.vm, bytes_column).getStringAsBuffer();
 }
 
+export function resurrectPromise(obj: HSVMVar) {
+  return obj.vm.callWithHSVMVars("wh::internal/hsservices.whlib#WaitForPromise", [obj]);
+}
+
 export function resurrect(type: string, obj: HSVMVar) {
   const resurrectmap: Record<string, (obj: HSVMVar) => unknown> = {
-    "Buffer": resurrectBuffer
+    "Buffer": resurrectBuffer,
+    "Promise": resurrectPromise
   };
 
   if (resurrectmap[type])
