@@ -36,6 +36,10 @@ async function testBasicAPI() {
 managedServices:
   simpleservice:
     script: js/simpleservice.js
+    run: always
+  ondemandservice:
+    script: js/ondemandservice.js
+    run: on-demand # should autostart as soon as someone connects to the backend ervice
 `,
     "js/simpleservice.js": `
 import runBackendService from '@mod-system/js/internal/webhareservice';
@@ -44,7 +48,16 @@ class Client {
   hey() { return 42; }
 };
 console.log("Starting js/simpleservice.js");
-runBackendService("webhare_testsuite_temp:simple", () => new Client);`
+runBackendService("webhare_testsuite_temp:simple", () => new Client);`,
+
+    "js/ondemandservice.js": `
+import runBackendService from '@mod-system/js/internal/webhareservice';
+
+class Client {
+  hey() { return 44; }
+};
+console.log("Starting js/ondemandservice.js");
+runBackendService("webhare_testsuite_temp:ondemandservice", () => new Client);`
   });
 
 
@@ -53,12 +66,19 @@ runBackendService("webhare_testsuite_temp:simple", () => new Client);`
 
   state = await smservice.getWebHareState();
   const myservice = state.availableServices.find(_ => _.name === "webhare_testsuite_temp:simpleservice");
-  test.assert(myservice);
+  test.eqProps({ isRunning: true }, myservice);
 
-  //Connect to our new service
+  const ondemandservice = state.availableServices.find(_ => _.name === "webhare_testsuite_temp:ondemandservice");
+  test.eqProps({ isRunning: false }, ondemandservice);
+
+  //Connect to our new services
   const testclient = await openBackendService<any>("webhare_testsuite_temp:simple", []);
   test.eq(42, await testclient.hey());
   testclient.close();
+
+  console.log("Connecting to on demand service");
+  const testondemand = await openBackendService<any>("webhare_testsuite_temp:ondemandservice", []);
+  test.eq(44, await testondemand.hey());
 
   //Delete the module again
   await deleteTestModule("webhare_testsuite_temp");

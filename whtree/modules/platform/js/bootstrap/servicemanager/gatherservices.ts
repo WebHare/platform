@@ -12,6 +12,7 @@ const defaultServices: Record<string, ServiceDefinition> = {
     startIn: Stage.Bootup,
     stopIn: Stage.ShuttingDown,
     ciriticalForStartup: true,
+    run: "always"
   },
   "platform:database": {
     cmd: ["postgres.sh"],
@@ -21,12 +22,14 @@ const defaultServices: Record<string, ServiceDefinition> = {
     /* To terminate the postgres server normally, the signals SIGTERM, SIGINT, or SIGQUIT can be used. The first will wait for all clients to terminate before
        quitting, the second will forcefully disconnect all clients, and the third will quit immediately without proper shutdown, resulting in a recovery run during restart.
     */
-    stopSignal: "SIGINT"
+    stopSignal: "SIGINT",
+    run: "always"
   },
   "platform:harescript-compiler": {
     cmd: ["whcompile", "--listen"],
     startIn: Stage.Bootup,
-    ciriticalForStartup: true
+    ciriticalForStartup: true,
+    run: "always"
   },
   /** The startup stage is executed as soon as the HareScript compiler is responsive
    *
@@ -36,17 +39,19 @@ const defaultServices: Record<string, ServiceDefinition> = {
     cmd: ["webserver.sh"],
     //The node webserver doesn't need to wait for the compileserver so launch it right away
     startIn: earlywebserver ? Stage.Bootup : Stage.StartupScript,
+    run: "always"
   },
   "platform:webhareservice-startup": {
     cmd: ["wh", "run", "mod::system/scripts/internal/webhareservice-startup.ts"],
     startIn: Stage.StartupScript,
-    waitForCompletion: true
+    run: "once"
   },
   /// Cluster services enable mutexes (and also set up some after-commit handlers). The startup scripts should not attempt to use cluster services (nothing runs parallelo them anyway)
   "platform:clusterservices": {
     cmd: ["runscript", "--workerthreads", "4", "mod::system/scripts/internal/clusterservices.whscr"],
     startIn: Stage.StartupScript,
     stopIn: Stage.ShuttingDown, //it'll otherwise quickly cause other scripts to crash with a lost connection
+    run: "always"
   }
 };
 
@@ -61,6 +66,7 @@ export async function gatherManagedServices(): Promise<Record<string, ServiceDef
           services[`${mod.module}:${name}`] = {
             cmd,
             startIn: Stage.Active,
+            run: servicedef.run
           };
         }
       }

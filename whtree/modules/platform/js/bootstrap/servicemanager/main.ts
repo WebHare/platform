@@ -175,7 +175,7 @@ class ProcessManager {
     if (!this.toldToStop || debugFlags.startup) {
       if (signal)
         this.log(`Exited with signal ${signal}`, { exitSignal: signal });
-      else if (exitCode || !this.service.waitForCompletion) //no need to mention a normal shutdown for a singleshot service
+      else if (exitCode || this.service.run != "once") //no need to mention a normal shutdown for a singleshot service
         this.log(`Exited with code ${exitCode} `, { exitCode: exitCode });
     }
 
@@ -187,12 +187,12 @@ class ProcessManager {
 
     this.stopDefer.resolve(exitreason);
 
-    if (this.service.waitForCompletion)
+    if (this.service.run == "once")
       finishedWaitForCompletionServices.add(this.name);
     if (processes.get(this.name) === this)
       processes.delete(this.name);
 
-    if (!shuttingdown && !this.service.waitForCompletion) {
+    if (!shuttingdown && this.service.run != "once" && expectedServices.has(this.name)) {
       if (!this.started || Date.now() < this.started + MinimumRunTime) {
         this.startDelay = Math.min(this.startDelay * 2 || 1000, MaxStartupDelay);
         this.log(`Throttling, will restart after ${this.startDelay / 1000} seconds`);
@@ -244,6 +244,17 @@ function updateVisibleState() {
   updateTitle(`webhare: ${stagetitles[currentstage]} - ${backendConfig.servername}`);
 }
 
+function shouldRun(name: string, service: ServiceDefinition): boolean | null {
+  if (service.run === "once") //script should be running when we're in the startIn stage and the script hasn't finished yet.
+    return currentstage === service.startIn && !finishedWaitForCompletionServices.has(name);
+  if (currentstage >= (service.stopIn ?? defaultShutDownStage))
+    return false; //shut it down once we're past the services' state
+  if (service.run === "always") //should run once we reached or passed its state
+    return service.startIn <= currentstage;
+
+  return null; //keep the service in whatever its current state it
+}
+
 /// Actually apply the current stage. Also used when configurationchanges
 async function updateForCurrentStage(): Promise<void> {
   updateVisibleState();
@@ -255,26 +266,22 @@ async function updateForCurrentStage(): Promise<void> {
   }
 
   for (const [name, service] of expectedServices.entries()) {
-    /* When waitForCompletion is true, the script should be running when we're in the startIn stage and the
-        script hasn't finished yet.
-        If it is false, the script should be running when we're in between the startIn stage and the stopIn stage.
-    */
-    const shouldRunNow = service.waitForCompletion ?
-      currentstage === service.startIn && !finishedWaitForCompletionServices.has(name) :
-      service.startIn <= currentstage && currentstage < (service.stopIn ?? defaultShutDownStage);
+    const shouldRunNow = shouldRun(name, service);
+    if (shouldRunNow === null)
+      continue;
 
     let process = processes.get(name);
     if (process && !shouldRunNow) {
       subpromises.push(process.stop());
     } else if (shouldRunNow) {
-      if (process && !service.waitForCompletion && shouldRestartService(process.service, service)) {
+      if (process && service.run !== "once" && shouldRestartService(process.service, service)) {
         // Wait for it to stap, don't want to overlap with the new service instance
         await process.stop();
         process = undefined;
       }
       if (!process) {
         const proc = new ProcessManager(name, service);
-        if (service.waitForCompletion)
+        if (service.run == "once")
           subpromises.push(proc.stopDefer.promise); //TODO should we have a timeout? (but what do you do if it hits? terminate? move to next stage?)
       }
     }
@@ -317,33 +324,52 @@ class ServiceManagerClient {
     return {
       stage: stagetitles[currentstage],
       availableServices: [...expectedServices.entries()].map(([name, service]) => ({
-        name
+        name,
+        isRunning: processes.get(name)?.running ?? false,
       }))
     };
   }
+  startService(service: string) {
+    const serviceinfo = expectedServices.get(service);
+    if (!serviceinfo)
+      return { errorMessage: `No such service '${service}'` };
+    if (processes.has(service))
+      return { errorMessage: `Service '${service}' is already running` };
+    if (serviceinfo.run !== "on-demand")
+      return { errorMessage: `Service '${service}' is not on-demand` };
+
+    new ProcessManager(service, serviceinfo);
+    return { ok: true };
+  }
   async reload() {
-    await loadServiceList(); //we block this so the service will be visible in the next getWebhareState from this client
+    await loadServiceList("ServiceMangerClient.reload"); //we block this so the service will be visible in the next getWebhareState from this client
     updateForCurrentStage(); //I don't think we need to block clients on startup of services ? they can wait themselves
   }
 }
 
-async function loadServiceList() {
+async function loadServiceList(source: string) {
   const include = program.opts().include ? new RegExp(wildcardsToRegExp(program.opts().include)) : null;
   const exclude = program.opts().exclude ? new RegExp(wildcardsToRegExp(program.opts().exclude)) : null;
   const allservices = Object.entries(await getAllServices());
   const removeServices = new Set(expectedServices.keys());
+  const addedServices = new Set<string>();
 
   for (const [name, servicedef] of allservices) {
     if ((include && !include.test(name)) || (exclude && exclude.test(name)) || (isSecondaryManager && !include))
       continue;
 
+    if (!expectedServices.has(name))
+      addedServices.add(name);
+
     expectedServices.set(name, servicedef);
     removeServices.delete(name);
   }
 
-  for (const service of removeServices) {
+  for (const service of removeServices)
     expectedServices.delete(service);
-  }
+
+  if (source)
+    smLog(`Updated servicelist for ${source}: added ${[...addedServices].join(", ") || "(none)"}, removed ${[...removeServices].join(", ") || "(none)"}`);
 }
 
 async function startBackendService() {
@@ -374,12 +400,12 @@ async function main() {
   fs.mkdirSync(backendConfig.dataroot + "log", { recursive: true });
   logfile = new RotatingLogFile(isSecondaryManager ? null : backendConfig.dataroot + "log/servicemanager", { stdout: true });
 
-  await loadServiceList();
+  await loadServiceList("");
   bridge.on("event", event => {
     if (event.name === "system:configupdate")
       setImmediate(() => updateVisibleState()); //ensure the bridge is uptodate (TODO can't we have bridge's updateConfig signal us so we're sure we're not racing it)
     if (event.name === "system:modulesupdate") {
-      loadServiceList().then(() => updateForCurrentStage()).catch(e => logError(e));
+      loadServiceList("system:modulesupdate").then(() => updateForCurrentStage()).catch(e => logError(e));
     }
   });
 
