@@ -2,6 +2,8 @@
 @import '~@mod-publisher/js/forms/styles';
 @import "@mod-publisher/js/forms/fields/datetime.scss";
 @import "~dompack/browserfix/reset.css";
+@import "~dompack/components/dialog/mixins";
+@import "~dompack/components/mixins";
 
 @import "~modtest/modtest.scss";
 @import "~modtest/modtest2"; //and users also do module imports without the extension

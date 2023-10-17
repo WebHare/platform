@@ -5,9 +5,12 @@ import * as path from 'path';
 const Module = require('module');
 import * as services from "@webhare/services";
 
+//TODO merge with the compiletask.ts getPossibleNodeModulePaths instead of relying on require.resolve and Module._pathCache
 export function resolveWebHareAssetPath(startingpoint: string, inpath: string) {
   if (inpath.startsWith("dompack/")) {
-    return services.toFSPath("mod::system/js/" + inpath);
+    const trypath = services.toFSPath("mod::system/js/" + inpath);
+    if (fs.existsSync(trypath))
+      return trypath;
   }
   try {
     // https://nodejs.org/api/modules.html#modules_require_resolve_request_options
