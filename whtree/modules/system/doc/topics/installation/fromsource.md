@@ -51,7 +51,7 @@ From this point you should be able to use the [Getting started](https://www.webh
 to configure your WebHare - you can just leave out all the `docker exec webhare` parts. You may need to use higher numbered
 ports (eg 8000) for the webinterface if you didn't install the socketbinder or if you're running multiple webservers.
 
-If the webinterface doesn't load due to missing `ap.js` files, try `wh assetpacks recompile "tollium:*"`
+If the webinterface doesn't load due to missing `ap.js` files, try `wh assetpack recompile "tollium:*"`
 
 ## Getting Java to work
 Some of the software used by WebHare (eg PDFBox for printer.whlib) requires Java. You will need to install that yourself.
