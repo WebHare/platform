@@ -1,6 +1,6 @@
 import * as dompack from '@webhare/dompack';
 import { navigateTo, NavigateInstruction } from "@webhare/frontend";
-export { config } from "@webhare/frontend";
+export { frontendConfig as config } from "@webhare/frontend";
 
 type FormValueList = Array<{ name: string; value: string }>;
 

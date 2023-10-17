@@ -2,56 +2,15 @@
  */
 
 import * as fs from "node:fs";
-import { omit, RecursivePartial, RecursiveReadOnly } from "../util/algorithms";
+import { omit } from "@webhare/std";
+import { RecursivePartial } from "../util/algorithms";
 import { WHDBPgClient } from "@webhare/whdb/src/connection"; //we need a raw client without services/config dependency to bootstrap
 import { whconstant_whfsid_webharebackend } from "../webhareconstants";
 import { decodeHSON } from "../whmanager/hsmarshalling";
 import { DTAPStage } from "@webhare/env/src/concepts";
 import { storeDiskFile } from "@webhare/system-tools/src/fs";
 import { readFile } from "node:fs/promises";
-
-interface ModuleData {
-  /** Module's version */
-  //version: string;
-  /** Creation date */
-  creationdate: Date;
-  /** Absolute path to module root data */
-  root: string;
-}
-
-type ModuleMap = { [name: string]: ModuleData };
-
-type BackendConfiguration = {
-  buildinfo: {
-    comitttag: string;
-    version: string;
-    branch: string;
-    origin: string;
-  };
-  /** The data path, ending with a slash. Usually /opt/whdata/. */
-  dataroot: string;
-  dtapstage: DTAPStage;
-  /** The installation (source) path, ending with a slash. Usually /opt/wh/whtree/. */
-  installationroot: string;
-  module: ModuleMap;
-  /** The URL to the backend interface (if configured), eg https://my.webhare.dev/ */
-  backendURL: string;
-  servername: string;
-};
-
-export type ConfigFile = {
-  baseport: number;
-  modulescandirs: string[];
-  public: BackendConfiguration;
-  secrets: {
-    cache: string;
-    cookie: string;
-    debug: string;
-  };
-};
-
-export type WebHareBackendConfiguration = RecursiveReadOnly<BackendConfiguration>;
-export type WebHareConfigFile = RecursiveReadOnly<ConfigFile>;
+import { BackendConfiguration, ConfigFile, ModuleMap } from "@webhare/services/src/config";
 
 function appendSlashWhenMissing(path: string) {
   return !path || path.endsWith("/") ? path : path + "/";

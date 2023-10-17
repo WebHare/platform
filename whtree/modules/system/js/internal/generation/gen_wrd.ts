@@ -1,13 +1,12 @@
 import fs from "node:fs";
 import { DOMParser } from '@xmldom/xmldom';
-import { config } from "../configuration";
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
-import { resolveResource } from "@webhare/services";
+import { backendConfig, resolveResource } from "@webhare/services";
 import { WRDBaseAttributeType, WRDAttributeType } from "@mod-wrd/js/internal/types";
 import { GenerateOptions, FileToUpdate } from "./shared";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { loadlib } from "@webhare/harescript";
-import { emplace } from "@webhare/std/collections";
+import { emplace } from "@webhare/std";
 
 function elements<T extends Element>(collection: HTMLCollectionOf<T>): T[] {
   const items: T[] = [];
@@ -85,7 +84,7 @@ export async function generateWRDDefs(options: GenerateOptions, modulename: stri
     return usename;
   }
 
-  for (const mod of Object.entries(config.module)) {
+  for (const mod of Object.entries(backendConfig.module)) {
     if (!modules.includes(mod[0]))
       continue;
 
@@ -263,7 +262,7 @@ function createTypeDef(attr: SchemaDef["types"][number]["allattrs"][number], ind
 
 function generateFile(options: GenerateOptions, { defname, modules }: { defname: string; modules: string[] }) {
   // Only process existing modules
-  modules = modules.filter(module => config.module[module]);
+  modules = modules.filter(module => backendConfig.module[module]);
   if (!modules.length) {
     return "";
   }
@@ -272,7 +271,7 @@ function generateFile(options: GenerateOptions, { defname, modules }: { defname:
 }
 
 export async function listAllModuleWRDDefs(): Promise<FileToUpdate[]> {
-  const noncoremodules = Object.keys(config.module).filter(m => !whconstant_builtinmodules.includes(m));
+  const noncoremodules = Object.keys(backendConfig.module).filter(m => !whconstant_builtinmodules.includes(m));
 
   return [
     {

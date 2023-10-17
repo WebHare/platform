@@ -11,15 +11,15 @@ interface GetRequestDataResponse {
 }
 
 function testWebRequest() {
-  let req = new IncomingWebRequest(services.config.backendURL);
-  test.eq(services.config.backendURL, req.url.toString());
-  test.eq(services.config.backendURL, req.baseURL);
+  let req = new IncomingWebRequest(services.backendConfig.backendURL);
+  test.eq(services.backendConfig.backendURL, req.url.toString());
+  test.eq(services.backendConfig.backendURL, req.baseURL);
   test.eq("", req.localPath);
 
-  req = new IncomingWebRequest(services.config.backendURL + "sub%20URL/dir/f?hungry4=Spicy");
+  req = new IncomingWebRequest(services.backendConfig.backendURL + "sub%20URL/dir/f?hungry4=Spicy");
   test.eq("Spicy", req.url.searchParams.get("hungry4"));
   test.eq(null, req.url.searchParams.get("Hungry4"), "On the JS side we're case sensitive");
-  test.eq(services.config.backendURL, req.baseURL);
+  test.eq(services.backendConfig.backendURL, req.baseURL);
   test.eq("sub url/dir/f", req.localPath);
 
   test.throws(/original base/, () => newForwardedWebRequest(req, "sub URL/"));
@@ -29,17 +29,17 @@ function testWebRequest() {
 
   const req2 = newForwardedWebRequest(req, "sub%20URL/");
   test.eq("Spicy", req2.url.searchParams.get("hungry4"));
-  test.eq(services.config.backendURL + "sub%20URL/", req2.baseURL);
+  test.eq(services.backendConfig.backendURL + "sub%20URL/", req2.baseURL);
   test.eq("dir/f", req2.localPath);
 
   const req3 = newForwardedWebRequest(req2, "dir/");
   test.eq("Spicy", req3.url.searchParams.get("hungry4"));
-  test.eq(services.config.backendURL + "sub%20URL/dir/", req3.baseURL);
+  test.eq(services.backendConfig.backendURL + "sub%20URL/dir/", req3.baseURL);
   test.eq("f", req3.localPath);
 }
 
 async function testHSWebserver() {
-  const testsuiteresources = services.config.backendURL + "tollium_todd.res/webhare_testsuite/tests/";
+  const testsuiteresources = services.backendConfig.backendURL + "tollium_todd.res/webhare_testsuite/tests/";
   let result = await coreWebHareRouter(new IncomingWebRequest(testsuiteresources + "getrequestdata.shtml"));
   test.eq(200, result.status);
   test.eq("application/x-hson", result.getHeader("content-type"));
@@ -67,7 +67,7 @@ async function testHSWebserver() {
 }
 
 async function testJSBackedURLs() {
-  const baseURL = services.config.backendURL + ".webhare_testsuite/tests/js/";
+  const baseURL = services.backendConfig.backendURL + ".webhare_testsuite/tests/js/";
   let fetchresult = await fetch(baseURL);
   let jsonresponse = await fetchresult.json();
 
@@ -98,7 +98,7 @@ async function testJSBackedURLs() {
   test.eq("42", jsonresponse.headers["x-test"]);
   test.eq("a=1&b=2", jsonresponse.text);
 
-  const mixedcase_baseUrl = services.config.backendURL + ".webhare_Testsuite/TESTs/js/";
+  const mixedcase_baseUrl = services.backendConfig.backendURL + ".webhare_Testsuite/TESTs/js/";
   fetchresult = await fetch(mixedcase_baseUrl + "Sub%20Url?type=debug");
   jsonresponse = await fetchresult.json();
 
@@ -108,7 +108,7 @@ async function testJSBackedURLs() {
 
   //Follow an ambiguous URL due to a caller having its own opinion about URL encoding
   //TODO It would be nice to be able to support it in the JS webserver, but HS webserver mangles the URL too much
-  const badbaseUrl = services.config.backendURL + ".webhare_testsuite/tests/j%73/"; //%73=s
+  const badbaseUrl = services.backendConfig.backendURL + ".webhare_testsuite/tests/j%73/"; //%73=s
   fetchresult = await fetch(badbaseUrl + "Sub%20Url?type=debug");
   test.eq(400, fetchresult.status);
 }

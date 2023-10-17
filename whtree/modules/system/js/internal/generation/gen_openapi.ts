@@ -1,5 +1,4 @@
 import fs from "node:fs";
-import { config } from "../configuration";
 import { whconstant_builtinmodules } from "../webhareconstants";
 import { FileToUpdate, GenerateOptions } from "./shared";
 import * as services from "@webhare/services";
@@ -10,6 +9,7 @@ import { OpenAPIV3 } from "openapi-types";
 import { HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
 import { splitFileReference } from "@webhare/services/src/naming";
 import { XMLParser } from "fast-xml-parser";
+import { backendConfig } from "@webhare/services";
 
 
 /** This scripts create typescript type definitions from the OpenAPI specification for APIs
@@ -373,7 +373,7 @@ async function generateFile(options: GenerateOptions, service: OpenAPIService) {
 function getFilesForModules(module: string, processmodules: string[]): FileToUpdate[] {
   const retval: FileToUpdate[] = [];
   for (const processmodule of processmodules)
-    for (const item of config.module[module] ? getOpenAPIServicesOfModule(processmodule) : [])
+    for (const item of backendConfig.module[module] ? getOpenAPIServicesOfModule(processmodule) : [])
       retval.push({
         type: "openapi",
         path: "openapi/" + processmodule + "/" + item.name + ".ts",
@@ -385,7 +385,7 @@ function getFilesForModules(module: string, processmodules: string[]): FileToUpd
 }
 
 export async function listAllModuleOpenAPIDefs(): Promise<FileToUpdate[]> {
-  const noncoremodules = Object.keys(config.module).filter(m => !whconstant_builtinmodules.includes(m));
+  const noncoremodules = Object.keys(backendConfig.module).filter(m => !whconstant_builtinmodules.includes(m));
   const files = getFilesForModules("platform", whconstant_builtinmodules);
   for (const mod of noncoremodules)
     files.push(...getFilesForModules(mod, [mod]));

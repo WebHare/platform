@@ -1,3 +1,5 @@
+//Data as imported from moduledefs
+
 export interface ManagedService {
   ///Script to run
   script?: string;

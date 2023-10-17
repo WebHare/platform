@@ -59,24 +59,24 @@ async function testResolve() {
 }
 
 async function testPaths() {
-  test.assert(services.config);
+  test.assert(services.backendConfig);
 
-  test.eq(services.config.module.system.root + "lib/database.whlib", services.toFSPath("mod::system/lib/database.whlib"));
-  test.eq(services.config.module.system.root + "scripts/whcommands/reset.whscr", services.toFSPath("mod::system/scripts/whcommands/reset.whscr"));
+  test.eq(services.backendConfig.module.system.root + "lib/database.whlib", services.toFSPath("mod::system/lib/database.whlib"));
+  test.eq(services.backendConfig.module.system.root + "scripts/whcommands/reset.whscr", services.toFSPath("mod::system/scripts/whcommands/reset.whscr"));
 
   //Verify final slashes handling
-  test.eq(services.config.module.system.root, services.toFSPath("mod::system"));
-  test.eq(services.config.module.system.root, services.toFSPath("mod::system/"));
-  test.eq(services.config.module.system.root + "lib", services.toFSPath("mod::system/lib"));
-  test.eq(services.config.module.system.root + "lib/", services.toFSPath("mod::system/lib/"));
+  test.eq(services.backendConfig.module.system.root, services.toFSPath("mod::system"));
+  test.eq(services.backendConfig.module.system.root, services.toFSPath("mod::system/"));
+  test.eq(services.backendConfig.module.system.root + "lib", services.toFSPath("mod::system/lib"));
+  test.eq(services.backendConfig.module.system.root + "lib/", services.toFSPath("mod::system/lib/"));
 
-  test.eq(services.config.dataroot + "storage/system/xyz", services.toFSPath("storage::system/xyz"));
-  test.eq(services.config.dataroot + "storage/system/xyz/", services.toFSPath("storage::system/xyz/"));
-  test.eq(services.config.dataroot + "storage/system/", services.toFSPath("storage::system"));
+  test.eq(services.backendConfig.dataroot + "storage/system/xyz", services.toFSPath("storage::system/xyz"));
+  test.eq(services.backendConfig.dataroot + "storage/system/xyz/", services.toFSPath("storage::system/xyz/"));
+  test.eq(services.backendConfig.dataroot + "storage/system/", services.toFSPath("storage::system"));
 
-  test.eq(/^https?:.*/, services.config.backendURL);
+  test.eq(/^https?:.*/, services.backendConfig.backendURL);
 
-  const systempath = services.config.module.system.root;
+  const systempath = services.backendConfig.module.system.root;
   test.eq("mod::system/lib/tests/cluster.whlib", services.toResourcePath(systempath + "lib/tests/cluster.whlib"));
   test.throws(/Cannot match filesystem path/, () => services.toResourcePath("/etc"));
   test.eq(null, services.toResourcePath("/etc", { allowUnmatched: true }));

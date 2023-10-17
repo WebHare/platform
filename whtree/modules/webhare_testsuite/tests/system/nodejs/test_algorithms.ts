@@ -1,6 +1,7 @@
 import { omit, pick } from "@webhare/std";
-import { freezeRecursive, RecursivePartial, RecursiveReadOnly } from "@mod-system/js/internal/util/algorithms";
+import { freezeRecursive, RecursivePartial } from "@mod-system/js/internal/util/algorithms";
 import * as test from "@webhare/test";
+import { RecursiveReadOnly } from "@webhare/js-api-tools";
 
 
 function testPick() {

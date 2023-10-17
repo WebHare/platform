@@ -1,6 +1,6 @@
 import * as fs from "node:fs";
 import Module from "node:module";
-import { config, getFullConfigFile } from "./configuration";
+import { backendConfig, getFullConfigFile } from "./configuration";
 import { debugFlags } from "@webhare/env/src/envbackend"; // don't want services module, included from @webhare/env
 
 export type LibraryData = {
@@ -183,7 +183,7 @@ export function handleSoftReset() {
   const modulescandirs = toRealPaths(fullconfig.modulescandirs);
 
   // and the real paths of all currently valid objects
-  const moduledirs = toRealPaths(Object.values(config.module).map(m => m.root));
+  const moduledirs = toRealPaths(Object.values(backendConfig.module).map(m => m.root));
 
   // A path is now invalid if it is within the module scan paths, but not within an active module
   const isInvalidPath = (path: string) => startsWithAny(path, modulescandirs) && !startsWithAny(path, moduledirs);

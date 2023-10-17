@@ -1,9 +1,9 @@
-import { config } from '@mod-system/js/internal/configuration';
+import { backendConfig } from '@mod-system/js/internal/configuration';
 
 export function getDefaultRPCBase() {
-  return config.backendURL;
+  return backendConfig.backendURL;
 }
 
 export function getDtapStage() {
-  return config.dtapstage;
+  return backendConfig.dtapstage;
 }

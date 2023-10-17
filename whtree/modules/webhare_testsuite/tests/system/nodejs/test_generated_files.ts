@@ -1,9 +1,8 @@
 import * as test from "@webhare/test";
 import * as fs from "fs";
-import { config } from "@mod-system/js/internal/configuration";
+import { backendConfig } from "@webhare/services";
 import { generateKyselyDefs } from "@mod-system/js/internal/generation/gen_whdb";
-import { installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
-import { loadlib } from "@webhare/harescript";
+import { deleteTestModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
 
 async function testBasics() {
   const result = generateKyselyDefs("platform");
@@ -11,11 +10,8 @@ async function testBasics() {
 }
 
 async function testModule() {
-  if (config.module["webhare_testsuite_generatedfilestest"]) {
-    console.log(`delete module webhare_testsuite_generatedfilestest`);
-    if (!await loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule("webhare_testsuite_generatedfilestest"))
-      throw new Error(`Could not delete module "webhare_testsuite_generatedfilestest"`);
-  }
+  if (backendConfig.module["webhare_testsuite_generatedfilestest"])
+    await deleteTestModule("webhare_testsuite_generatedfilestest");
 
   console.log(`create module webhare_testsuite_generatedfilestest`);
   await installTestModule("webhare_testsuite_generatedfilestest", {
@@ -120,7 +116,7 @@ export async function getUsers(req: RestRequest): Promise<WebResponse> {
   });
 
   // Wait for the module to appear in the configuration
-  test.wait(() => Boolean(config.module.webhare_testsuite_generatedfilestest));
+  test.wait(() => Boolean(backendConfig.module.webhare_testsuite_generatedfilestest));
 
   test.assert(Boolean(fs.statSync(require.resolve("wh:db/webhare_testsuite_generatedfilestest.ts"))));
   test.assert(Boolean(fs.statSync(require.resolve("wh:wrd/webhare_testsuite_generatedfilestest.ts"))));
@@ -130,11 +126,10 @@ export async function getUsers(req: RestRequest): Promise<WebResponse> {
   const file_wrd = require.resolve("wh:wrd/webhare_testsuite_generatedfilestest");
   const file_openapi = require.resolve("wh:openapi/webhare_testsuite_generatedfilestest/testopenapiservice");
 
-  if (!await loadlib("mod::system/lib/internal/moduleimexport.whlib").DeleteModule("webhare_testsuite_generatedfilestest"))
-    throw new Error(`Could not delete module "webhare_testsuite_generatedfilestest"`);
+  await deleteTestModule("webhare_testsuite_generatedfilestest");
 
   // wait for the generated files to disappear
-  await test.wait(() => !config.module.webhare_testsuite_generatedfilestest);
+  await test.wait(() => !backendConfig.module.webhare_testsuite_generatedfilestest);
   await test.wait(() => !fs.statSync(file_whdb, { throwIfNoEntry: false }));
   await test.wait(() => !fs.statSync(file_wrd, { throwIfNoEntry: false }));
   await test.wait(() => !fs.statSync(file_openapi, { throwIfNoEntry: false }));
