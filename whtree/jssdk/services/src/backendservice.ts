@@ -18,7 +18,7 @@ export type ServiceBase = {
   [Symbol.dispose](): void;
 };
 
-class ServiceProxy<T extends object> implements ProxyHandler<T & ServiceBase> {
+export class ServiceProxy<T extends object> implements ProxyHandler<T & ServiceBase> {
   link: WebHareServiceIPCLinkType["ConnectEndPoint"];
   isjs: boolean;
   description: WebHareServiceDescription;
@@ -90,7 +90,7 @@ type PromisifyFunctionReturnType<T extends (...a: any) => any> = (...a: Paramete
  * Removes the "close" method and all methods starting with `_`, and converts all return types to a promise. Readds "close" as added by ServiceBase
  * @typeParam BackendHandlerType - Type definition of the service class that implements this service.
 */
-type ConvertToClientInterface<BackendHandlerType extends object> = {
+export type ConvertToClientInterface<BackendHandlerType extends object> = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- using any is needed for this type definition
   [K in Exclude<keyof BackendHandlerType, `_${string}` | "close"> as BackendHandlerType[K] extends (...a: any) => any ? K : never]: BackendHandlerType[K] extends (...a: any[]) => void ? PromisifyFunctionReturnType<BackendHandlerType[K]> : never;
 } & ServiceBase;

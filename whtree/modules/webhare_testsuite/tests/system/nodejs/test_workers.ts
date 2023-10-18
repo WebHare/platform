@@ -1,7 +1,8 @@
 import * as test from "@webhare/test";
 import { MessagePort, MessageChannel, isMainThread } from "node:worker_threads";
-import { AsyncWorker, createReturnValueWithTransferList } from "@mod-system/js/internal/worker";
+import { AsyncWorker } from "@mod-system/js/internal/worker";
 import { triggerGarbageCollection } from "@webhare/test";
+import { createReturnValueWithTransferList } from "@webhare/services/src/localservice";
 
 
 export class myTestClass {

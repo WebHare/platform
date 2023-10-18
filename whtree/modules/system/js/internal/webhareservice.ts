@@ -67,21 +67,16 @@ class LinkState {
   }
 }
 
-class WebHareService { //EXTEND IPCPortHandlerBase
-  private _port: WebHareServiceIPCLinkType["Port"];
+export class ServiceHandlerBase {
   private _constructor: ConnectionConstructor;
-  private _links: LinkState[];
   private _options: WebHareServiceOptions;
 
-  constructor(port: WebHareServiceIPCLinkType["Port"], servicename: string, constructor: ConnectionConstructor, options: WebHareServiceOptions) {
-    this._port = port;
+  constructor(servicename: string, constructor: ConnectionConstructor, options: WebHareServiceOptions) {
     this._constructor = constructor;
-    this._port.on("accept", link => this._onLinkAccepted(link));
-    this._links = [];
     this._options = options;
   }
 
-  async _onLinkAccepted(link: WebHareServiceIPCLinkType["AcceptEndPoint"]) {
+  async addLink(link: WebHareServiceIPCLinkType["AcceptEndPoint"]) {
     try {
       const state = new LinkState(null, link);
       link.on("close", () => this._onClose(state));
@@ -131,7 +126,6 @@ class WebHareService { //EXTEND IPCPortHandlerBase
 
     try {
       const message = msg.message as ServiceCallMessage;
-      //const pos = this._links.findIndex(_ => _.link === state.link);
       const args = message.jsargs ? JSON.parse(message.jsargs) : message.args; //javascript string-encodes messages so we don't lose property casing due to DecodeJSON/EncodeJSON
       const result = await (state.handler as ServiceConnection)[message.call].apply(state.handler, args) as IPCMarshallableData;
       state.link.send({ result: message.jsargs ? JSON.stringify(result) : result }, msg.msgid);
@@ -145,7 +139,21 @@ class WebHareService { //EXTEND IPCPortHandlerBase
   }
 
   close() {
+  }
+}
+
+class WebHareService extends ServiceHandlerBase { //EXTEND IPCPortHandlerBase
+  private _port: WebHareServiceIPCLinkType["Port"];
+
+  constructor(port: WebHareServiceIPCLinkType["Port"], servicename: string, constructor: ConnectionConstructor, options: WebHareServiceOptions) {
+    super(servicename, constructor, options);
+    this._port = port;
+    this._port.on("accept", link => this.addLink(link));
+  }
+
+  close() {
     this._port.close();
+    super.close();
   }
 }
 

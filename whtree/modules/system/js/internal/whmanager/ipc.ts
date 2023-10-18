@@ -39,6 +39,13 @@ type IPCEndPointEvents<ReceiveType extends object | null> = {
   close: undefined;
 };
 
+export type EncodedIPCLinkEndPoint = {
+  type: "$IPCEndPoint";
+  port: MessagePort;
+  id: string;
+  mode: "direct" | "connecting" | "accepting";
+};
+
 type CalcResponseType<SendType, ReceiveType, T extends OmitResponseKey<SendType>> = OmitResponseKey<SendType & T extends { __responseKey: object }
   ? ReceiveType & (SendType & T)["__responseKey"]
   : ReceiveType>;
@@ -89,12 +96,7 @@ export interface IPCEndPoint<SendType extends object | null = IPCMarshallableRec
 
   /** Encode for transfer to another worker */
   encodeForTransfer(): {
-    encoded: {
-      type: "$IPCEndPoint";
-      port: MessagePort;
-      id: string;
-      mode: "direct" | "connecting" | "accepting";
-    };
+    encoded: EncodedIPCLinkEndPoint;
     transferList: TransferListItem[];
   };
 }
@@ -285,7 +287,7 @@ export class IPCEndPointImpl<SendType extends object | null, ReceiveType extends
     this.emit("close", undefined);
 
     for (const [, { reject }] of this.requests)
-      reject(new Error(`Request is cancelled, link was closed`));
+      reject(new DOMException(`Request is cancelled, link was closed`, "AbortError"));
     this.defer?.reject(new Error(`Could not connect to ${this.connectporttitle}`));
   }
 
@@ -580,8 +582,10 @@ export function parseIPCException(message: IPCExceptionMessage): Error {
 export type IPCLinkType<RequestType extends object | null = IPCMarshallableRecord, ResponseType extends object | null = IPCMarshallableRecord> = {
   AcceptEndPoint: IPCEndPoint<ResponseType, RequestType>;
   AcceptEndPointPacket: IPCMessagePacket<RequestType>;
+  AcceptEndPointMessageType: RequestType;
   ConnectEndPoint: IPCEndPoint<RequestType, ResponseType>;
   ConnectEndPointPacket: IPCMessagePacket<ResponseType>;
+  ConnectEndPointMessageType: ResponseType;
   ExceptionPacket: IPCMessagePacket<IPCExceptionMessage>;
   Port: IPCPort<ResponseType, RequestType>;
 };

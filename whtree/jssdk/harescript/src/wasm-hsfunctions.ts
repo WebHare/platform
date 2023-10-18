@@ -4,7 +4,7 @@ import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { backendConfig, log } from "@webhare/services";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { HSVMVar } from "./wasm-hsvmvar";
-import { SocketError, WASMModule } from "./wasm-modulesupport";
+import type { SocketError, WASMModule } from "./wasm-modulesupport";
 import { OutputObjectBase } from "@webhare/harescript/src/wasm-modulesupport";
 import { createDeferred, generateRandomId, sleep } from "@webhare/std";
 import * as syscalls from "./syscalls";
@@ -14,10 +14,11 @@ import * as crypto from "node:crypto";
 import * as os from "node:os";
 import { IPCEndPoint, IPCMessagePacket, IPCPort, createIPCEndPointPair, decodeTransferredIPCEndPoint } from "@mod-system/js/internal/whmanager/ipc";
 import { isValidName } from "@webhare/whfs/src/support";
-import { AsyncWorker, ConvertWorkerServiceInterfaceToClientInterface } from "@mod-system/js/internal/worker";
+import { AsyncWorker } from "@mod-system/js/internal/worker";
 import { Crc32 } from "@mod-system/js/internal/util/crc32";
 import { escapePGIdentifier } from "@webhare/whdb";
-import { LogFileConfiguration } from "@mod-system/js/internal/whmanager/whmanager_rpcdefs";
+import type { LogFileConfiguration } from "@mod-system/js/internal/whmanager/whmanager_rpcdefs";
+import type { ConvertLocalServiceInterfaceToClientInterface } from "@webhare/services/src/localservice";
 
 type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
 
@@ -172,7 +173,7 @@ class HSJob extends OutputObjectBase {
   linkinparent: IPCEndPoint | undefined;
   worker: AsyncWorker;
   /// A proxy that will transfer calls to the HareScriptJob in the worker thread
-  jobobj: ConvertWorkerServiceInterfaceToClientInterface<HareScriptJob>;
+  jobobj: ConvertLocalServiceInterfaceToClientInterface<HareScriptJob>;
   isRunning = false;
   arguments = new Array<string>;
   output: HSJobOutput | undefined;
@@ -181,7 +182,7 @@ class HSJob extends OutputObjectBase {
     vm: HareScriptVM,
     linkinparent: IPCEndPoint,
     worker: AsyncWorker,
-    jobobj: ConvertWorkerServiceInterfaceToClientInterface<HareScriptJob>,
+    jobobj: ConvertLocalServiceInterfaceToClientInterface<HareScriptJob>,
   ) {
     super(vm, "Job");
     this.linkinparent = linkinparent;

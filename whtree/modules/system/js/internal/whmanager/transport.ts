@@ -21,6 +21,8 @@ export type AnyTypedMessagePort = TypedMessagePort<any, any>;
 export interface TypedMessagePort<SendType extends object, ReceiveType extends object> {
   on(name: "message", cb: (message: ReceiveType) => void): void;
   on(name: "close", cb: () => void): void;
+  off(name: "message", cb: (message: ReceiveType) => void): void;
+  off(name: "close", cb: () => void): void;
   postMessage(message: SendType, transferList?: ReadonlyArray<TransferListItem | AnyTypedMessagePort>): void;
   ref(): void;
   unref(): void;
@@ -57,4 +59,22 @@ export function dumpActiveIPCMessagePorts({ onlyreferenced = true } = {}) {
 export function registerTransferredPort(port: AnyTypedMessagePort, title = "unknown") {
   setTrackingSymbol(port, title + " - transferred");
   ports.push(new WeakRef(port as MessagePort));
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- need it for generics
+export async function getSingleMessage<Response extends object>(port: TypedMessagePort<any, Response>): Promise<Response> {
+  let removeListeners: (() => void) | undefined;
+  try {
+    return await new Promise<Response>((resolve, reject) => {
+      const closer = () => reject(new Error("Service link was closed"));
+      port.on("message", resolve);
+      port.on("close", () => reject(new Error("Service link was closed")));
+      removeListeners = () => {
+        port.off("message", resolve);
+        port.off("close", closer);
+      };
+    });
+  } finally {
+    removeListeners?.();
+  }
 }
