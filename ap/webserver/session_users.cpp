@@ -88,12 +88,13 @@ void SUCache::ExpireSessions()
         }
 }
 
-Session* SUCache::GenerateSession()
+Session* SUCache::GenerateSession(std::string sessionid)
 {
         Sessions::iterator itr = sessionlist.insert(sessionlist.end(), Session());
         while(true)
         {
-                std::string sessionid = Blex::GenerateUFS128BitId();
+                if(sessionid.empty()) //we allow you to suggest a ID once
+                    sessionid = Blex::GenerateUFS128BitId();
 
                 std::pair<SessionMap::iterator,bool> retval = sessionidx.insert(std::make_pair(sessionid,itr));
                 if (retval.second) //not a dupe session id
@@ -101,6 +102,8 @@ Session* SUCache::GenerateSession()
                         itr->sessionid = sessionid;
                         return &*itr;
                 }
+
+                sessionid.clear(); //conflict, retry
         }
 }
 
@@ -152,7 +155,7 @@ Session* SUCache::OpenBasicAuth(WebServer::Connection const &conn, bool create_i
         }
         if (create_if_new)
         {
-                Session *newsess = CreateSession(UserCacheTrust, true, -1, std::string());
+                Session *newsess = CreateSession(UserCacheTrust, true, -1, std::string(), std::string());
                 newsess->session_username = auth.seen_username;
                 newsess->trust_until = newsess->creationtime + Blex::DateTime::Seconds(UserCacheTrust);
                 newsess->basicauth_password = auth.password;
@@ -161,9 +164,9 @@ Session* SUCache::OpenBasicAuth(WebServer::Connection const &conn, bool create_i
         return NULL;
 }
 
-Session* SUCache::CreateSession(int32_t auto_increment, bool limited_to_webserver, int32_t webserverid, std::string const &password)
+Session* SUCache::CreateSession(int32_t auto_increment, bool limited_to_webserver, int32_t webserverid, std::string const &password, std::string const &sessionid)
 {
-        Session *newsession = GenerateSession();
+        Session *newsession = GenerateSession(sessionid);
         newsession->auto_increment = auto_increment;
         newsession->scope = password;
         newsession->limited_to_webserver = limited_to_webserver && webserverid != 0;

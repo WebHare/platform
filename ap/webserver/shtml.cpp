@@ -371,7 +371,8 @@ bool Shtml::ContentHandler(WebServer::Connection *webcon, std::string const &pat
                         SRHErrorKeep, // The SRH MUST reference this session
                         true,
                         webcon->GetRequest().website ? webcon->GetRequest().website->webserver_id : 0,
-                        "" //passwd
+                        "", //passwd
+                        "" //suggested sessionid
                         );
                 app->sessionid = srhsession->sessionid;
 

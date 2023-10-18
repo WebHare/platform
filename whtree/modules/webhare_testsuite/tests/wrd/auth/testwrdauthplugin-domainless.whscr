@@ -19,6 +19,7 @@ LOADLIB "mod::wrd/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/webserver.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
 
 
@@ -332,6 +333,31 @@ MACRO TestPersistentLogin()
   TEstEq(TRUE, RecordExists(logincookie));
   TestEQ(DEFAULT DATETIME, logincookie.expires);
 
+  STRING cursessionid := Tokenize(DecodeURL(logincookie.data),' ')[0];
+  RECORD sessdata := ManipWebserverSession("get", cursessionid, "wrd:authsession");
+  TestEq("testaccount@test.invalid", sessdata.login);
+  ManipWebserverSession("close", cursessionid, "wrd:authsession");
+
+  result := DoReq( [ action := "checkstatus" ]);
+  TestEq(TRUE, result.isloggedin, "Session should be repaired");
+  logincookie := SELECT * FROM testfw->browser->GetAllCookies() WHERE ToUppercase(name)="WEBHARELOGIN-WRD-TESTSCHEMA";
+  STRING newsessionid := Tokenize(DecodeURL(logincookie.data),' ')[0];
+  TestEq(cursessionid, newsessionid, "Session ID should be retained");
+
+  TestAuditEvent(
+      [ entity := entityid
+      , type := "wrd:logincookie"
+      , login := "testaccount@test.invalid"
+      , impersonated := FALSE
+      , data := ""
+      , browsertriplet := ""
+      , byentity := entityid
+      , bylogin := "testaccount@test.invalid"
+      ]);
+
+  TestEq(TRUE, RecordExists(logincookie));
+  TestEQ(DEFAULT DATETIME, logincookie.expires);
+
   //Invalidate the sessionid stored in the webhare login cookie
   InvalidateWebhareLoginSession();
 
@@ -458,19 +484,19 @@ MACRO TestRequireExternalLoggedinUser()
   STRING loginpage := testfw->browser->url;
 
   RECORD rec := testfw->browser->InvokeJSONRPC("/wh_services/wrd/auth", "Login",
-                  VARIANT[testfw->browser->url, testfw->GetUserLogin("mysysop"), testfw->GetUserPassword("mysysop"), FALSE, CELL[ browsertriplet := "mac-chrome-01", logincontrol ]]);
+                  VARIANT[testfw->browser->url, testfw->GetUserLogin("sysop"), testfw->GetUserPassword("sysop"), FALSE, CELL[ browsertriplet := "mac-chrome-01", logincontrol ]]);
 
   TestEq(TRUE, rec.success);
 
   TestAuditEvent(
-      [ entity := testfw->GetUserWRDId("mysysop")
+      [ entity := testfw->GetUserWRDId("sysop")
       , type := "wrd:login:ok"
-      , login := "mysysop@beta.webhare.net"
+      , login := "sysop@beta.webhare.net"
       , impersonated := FALSE
       , data := ""
       , browsertriplet := "mac-chrome-01"
-      , byentity := testfw->GetUserWRDId("mysysop")
-      , bylogin := "mysysop@beta.webhare.net"
+      , byentity := testfw->GetUserWRDId("sysop")
+      , bylogin := "sysop@beta.webhare.net"
       ]);
 
   TestEq('redirect', rec.result.submitinstruction.type);
@@ -478,7 +504,7 @@ MACRO TestRequireExternalLoggedinUser()
   TestEq(TRUE, testfw->browser->ExecuteSubmitInstruction(rec.result.submitinstruction), "Execute the submit instruction");
   TestEq(200, testfw->browser->GetHTTPStatusCode()); // another redirect to clean the location
   TestEq(loginrequiringurl, testfw->browser->url, "Should be redirected back to the original location, but now we should see things here");
-  TestEq("mysysop@beta.webhare.net", DecodeHSONBLob(testfw->browser->content).login);
+  TestEq("sysop@beta.webhare.net", DecodeHSONBLob(testfw->browser->content).login);
 
   InvalidateExternalLoginSessions();
 
@@ -495,14 +521,14 @@ MACRO TestRequireExternalLoggedinUser()
   TestAuditEvent(DEFAULT RECORD); //check log is still empty
   testEq(TRUE, testfw->browser->GotoWebPage(GetTestsuiteWRDauthPlugin()->GetLogoutLink()));
   TestAuditEvent(
-      [ entity := testfw->GetUserWRDId("mysysop")
+      [ entity := testfw->GetUserWRDId("sysop")
       , type := "wrd:logout"
-      , login := "mysysop@beta.webhare.net"
+      , login := "sysop@beta.webhare.net"
       , impersonated := FALSE
       , data := ""
       , browsertriplet := ""
-      , byentity := testfw->GetUserWRDId("mysysop")
-      , bylogin := "mysysop@beta.webhare.net"
+      , byentity := testfw->GetUserWRDId("sysop")
+      , bylogin := "sysop@beta.webhare.net"
       ]);
 
   // FIXME: when the disk audit log is converted to JSON, test if the WRD schema is set in this log entry
@@ -525,7 +551,7 @@ MACRO TestCrossDomainLogin()
 //  testfw->browser->debug:=TRUE;
   STRING loginpage := testfw->browser->url;
   RECORD rec := testfw->browser->InvokeJSONRPC("/wh_services/wrd/auth", "Login",
-                  VARIANT[testfw->browser->url, testfw->GetUserLogin("mysysop"), testfw->GetUserPassword("mysysop"), FALSE, CELL[ browsertriplet := "mac-chrome-01", logincontrol ]]);
+                  VARIANT[testfw->browser->url, testfw->GetUserLogin("sysop"), testfw->GetUserPassword("sysop"), FALSE, CELL[ browsertriplet := "mac-chrome-01", logincontrol ]]);
 
   TestEq(TRUE, rec.success);
   TestEq("redirect", rec.result.submitinstruction.type);
@@ -542,14 +568,14 @@ MACRO TestCrossDomainLogin()
 
   //TestEq('reload', rec.result.submitinstruction.type);
   TestAuditEvent(
-      [ entity := testfw->GetUserWRDId("mysysop")
+      [ entity := testfw->GetUserWRDId("sysop")
       , type := "wrd:login:ok"
-      , login := "mysysop@beta.webhare.net"
+      , login := "sysop@beta.webhare.net"
       , impersonated := FALSE
       , data := ""
       , browsertriplet := "mac-chrome-01"
-      , byentity := testfw->GetUserWRDId("mysysop")
-      , bylogin := "mysysop@beta.webhare.net"
+      , byentity := testfw->GetUserWRDId("sysop")
+      , bylogin := "sysop@beta.webhare.net"
       ]);
 
   TestEq(TRUE, testfw->browser->ExecuteSubmitInstruction(rec.result.submitinstruction), "Execute the submitinstruction");
@@ -587,7 +613,7 @@ OBJECT ASYNC FUNCTION TestAuditDialog()
 {
   AWAIT ExpectScreenChange(+1, PTR RunWRDAuditLogDialog(GetTestController(),
     [ wrdschema := testfw->GetWRDSchema()
-    , accountid := testfw->GetUserWRDId("mysysop")
+    , accountid := testfw->GetUserWRDId("sysop")
     , onshow := PTR RecordOnShowData
     ]));
   TestEq(3, Length(topscreen->events->rows));
@@ -598,7 +624,7 @@ OBJECT ASYNC FUNCTION TestAuditDialog()
   TestEq(TRUE, RecordExists(onshowdata));
 
   //dumpvalue(onshowdata);
-  TestEq(testfw->GetUserWRDId("mysysop"), onshowdata.entity);
+  TestEq(testfw->GetUserWRDId("sysop"), onshowdata.entity);
   TestEq("wrd:login:ok", onshowdata.type);
 
   topscreen->events->selection := (SELECT * FROM topscreen->events->rows ORDER BY wrd_creationdate)[1];
@@ -606,7 +632,7 @@ OBJECT ASYNC FUNCTION TestAuditDialog()
   TestEq(TRUE, RecordExists(onshowdata));
 
   //dumpvalue(onshowdata);
-  TestEq(testfw->GetUserWRDId("mysysop"), onshowdata.entity);
+  TestEq(testfw->GetUserWRDId("sysop"), onshowdata.entity);
   TestEq("wrd:logout", onshowdata.type);
 
   AWAIT ExpectScreenChange(-1, PTR topscreen->TolliumExecuteCancel);
@@ -803,6 +829,6 @@ Runtestframework( [ PTR PrepareServer
                   , PTR TestAuditDialog
                   , PTR TestLoginDenied
                   , PTR TestWRDAuthRouter
-                  ], [ testusers := [[ login := "mysysop", grantrights := ["system:sysop"] ]
+                  ], [ testusers := [[ login := "sysop", grantrights := ["system:sysop"] ]
                                     ]
                      ]);

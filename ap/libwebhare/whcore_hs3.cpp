@@ -1275,7 +1275,7 @@ int WHCore_ModuleEntryPoint(HSVM_RegData *regdata, void *context_ptr)
 
         HSVM_RegisterMacro(regdata, "ACCEPTBASICAUTHCREDENTIALS:::SII",WHS_AcceptBasicAuthCredentials);
         HSVM_RegisterMacro(regdata, "CLOSEWEBSESSION:::SS",WHS_CloseWebSession);
-        HSVM_RegisterFunction(regdata, "CREATEWEBSESSION::S:SRIB",WHS_CreateWebSession);
+        HSVM_RegisterFunction(regdata, "CREATEWEBSESSION::S:SRIBS",WHS_CreateWebSession);
         HSVM_RegisterFunction(regdata, "__UPDATEWEBSESSION::B:SSRBI",WHS_UpdateWebSession);
         HSVM_RegisterFunction(regdata, "__WHS_FLUSHWEBRESPONSE::R:D",WHS_FlushWebResponse);
         HSVM_RegisterMacro(regdata, "RESETWEBRESPONSE:::",WHS_ResetWebResponse);
