@@ -3,6 +3,7 @@ import { createWebResponse, WebResponse } from "./response";
 import type { SiteRequest } from "./siterequest";
 import * as services from "@webhare/services";
 import { encodeString } from "@webhare/std";
+import { getVersionInteger } from "@mod-system/js/internal/configuration";
 
 export class SiteResponseSettings {
   assetpack: string = '';
@@ -58,7 +59,7 @@ export class SiteResponse<T extends object = object> {
       //TODO should we have a services.backendConfig.islive? or just clientside or never generate that?
       islive: ["production", "acceptance"].includes(services.backendConfig.dtapstage),
       locale: this.settings.lang, //why doesn't JS just get the html lang= ?
-      server: 50300 //FIXME how to get it, and do we still want to in JS ?
+      server: getVersionInteger() //TODO we intend to completely deprecate this. should never depend on server versions
     };
   }
 

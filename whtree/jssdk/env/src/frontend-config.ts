@@ -18,7 +18,9 @@ export interface WHConfigScriptData {
   islive: boolean;
   /** Current WebHare's DTAP stage */
   dtapstage: DTAPStage;
-  /** Numeric server version number (eg 5.02.24 = 50224) */
+  /** Numeric server version number (eg 5.02.24 = 50224)
+   *  @deprecated Interpreting numbers (or version strings) is dangerous. Feature flags/testing or limiting your entire module to compatible versions is safer
+  */
   server: number;
 
   //TODO do we (still) need all these roots?
