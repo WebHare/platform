@@ -28,6 +28,7 @@ const defaultServices: Record<string, ServiceDefinition> = {
   "platform:harescript-compiler": {
     cmd: ["whcompile", "--listen"],
     startIn: Stage.Bootup,
+    stopIn: Stage.ShuttingDown, //it's passive and early termination only creates noise, so keep it a bit longer
     ciriticalForStartup: true,
     run: "always"
   },
