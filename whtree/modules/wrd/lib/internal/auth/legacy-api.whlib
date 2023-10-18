@@ -706,7 +706,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
         ];
   }
 
-  PUBLIC RECORD FUNCTION LoginByCookie(STRING cookie, INTEGER logintime, BOOLEAN updatelogindata /*defaulted to TRUE */, BOOLEAN islogincookie)
+  RECORD FUNCTION LoginByCookie(STRING cookie, INTEGER logintime, BOOLEAN updatelogindata /*defaulted to TRUE */, BOOLEAN islogincookie)
   {
     /* TODO are we sure that every LoginByCookie should be updating last logindata (and perhaps it also auditlogs? auditlog knows about cookie
        logins...)  or perhaps only for PERSISTENT logins if the session truly expired, or for the first login on the day? */
@@ -796,8 +796,6 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
   PUBLIC STRING cookiedomain;
   /// Set the time in minutes the loginstate cookie should last (keeping a user logged in). Defaults to 0 (no limit, and 365 days for a permanent cookie)
   PUBLIC INTEGER logintime;
-  /// Set whether to autoextend the logintime whenever we see the cookie
-  PUBLIC BOOLEAN autoextend;
   /// Set to make the cookies secure (only transferrable over https)
   PUBLIC BOOLEAN securecookie;
   /// Set the samesite value of the cookie
@@ -870,7 +868,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       RECORD logindata := RunInSeparatePrimary(PTR this->LoginByCookie(cookies.enclogindata, this->logintime*60, TRUE, FALSE), [ work := TRUE ]);
       IF(RecordExists(logindata))
       {
-        IF (this->CompleteLogin(logindata, (force OR this->autoextend)).success) //FIXME autoextend = false and force=true should not further extend cookie lifetime, but they should keep their current lifetime
+        IF (this->CompleteLogin(logindata, force, cookies.sessionid, DEFAULT RECORD).success) //FIXME force=true should not further extend cookie lifetime, but they should keep their current lifetime
         {
           //FIXME isn't this just noise?
           this->WriteAuditEvent("WRD:LOGINCOOKIE",
@@ -974,7 +972,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       RETURN trylogin;
     }
 
-    RECORD res := this->CompleteLogin(trylogin, TRUE, options);
+    RECORD res := this->CompleteLogin(trylogin, TRUE, "", options);
     //IF (res.success)
     //  this->WriteAuditEvent("WRD:LOGINID",
     //      [ account := trylogin.entityid
@@ -1019,7 +1017,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     IF(NOT trylogin.success)
       RETURN trylogin;
 
-    RECORD res := this->CompleteLogin(trylogin, TRUE, options);
+    RECORD res := this->CompleteLogin(trylogin, TRUE, "", options);
     RETURN res;
   }
 
@@ -1047,7 +1045,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
     IF(NOT trylogin.success)
       RETURN trylogin;
 
-    RECORD res := this->CompleteLogin(trylogin, TRUE, options);
+    RECORD res := this->CompleteLogin(trylogin, TRUE, "", options);
 
     res := CELL
         [ ...res
@@ -1088,7 +1086,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       @param setlogincookie
       @cell options.allowlogout
   */
-  PUBLIC RECORD FUNCTION CompleteLogin(RECORD trylogin, BOOLEAN setlogincookie, RECORD options DEFAULTSTO DEFAULT RECORD)
+  RECORD FUNCTION CompleteLogin(RECORD trylogin, BOOLEAN setlogincookie, STRING sessionid, RECORD options)
   {
     UpdateAuditContext([ user_entityid := trylogin.entityid, user_login := trylogin.login ]);
 
@@ -1126,7 +1124,8 @@ PUBLIC STATIC OBJECTTYPE WRDAuth
       this->sessionid := CreateWebSession("wrd:authsession"
                                          , this->sessiondata
                                          , this->maxidle_minutes
-                                         , /*limit to server: */ FALSE);
+                                         , /*limit to server: */ FALSE
+                                         , sessionid);
 
       this->SetLoginCookie(this->sessionid || " " || trylogin.logincookie, trylogin.logincookielifetime);
 

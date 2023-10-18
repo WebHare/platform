@@ -19,6 +19,7 @@ LOADLIB "mod::wrd/lib/dialogs.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/system/tests.whlib";
 
+LOADLIB "mod::webhare_testsuite/lib/system/webserver.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/testsite.whlib";
 
 
@@ -330,6 +331,31 @@ MACRO TestPersistentLogin()
 
   RECORD logincookie := SELECT * FROM testfw->browser->GetAllCookies() WHERE ToUppercase(name)="WEBHARELOGIN-WRD-TESTSCHEMA";
   TEstEq(TRUE, RecordExists(logincookie));
+  TestEQ(DEFAULT DATETIME, logincookie.expires);
+
+  STRING cursessionid := Tokenize(DecodeURL(logincookie.data),' ')[0];
+  RECORD sessdata := ManipWebserverSession("get", cursessionid, "wrd:authsession");
+  TestEq("testaccount@test.invalid", sessdata.login);
+  ManipWebserverSession("close", cursessionid, "wrd:authsession");
+
+  result := DoReq( [ action := "checkstatus" ]);
+  TestEq(TRUE, result.isloggedin, "Session should be repaired");
+  logincookie := SELECT * FROM testfw->browser->GetAllCookies() WHERE ToUppercase(name)="WEBHARELOGIN-WRD-TESTSCHEMA";
+  STRING newsessionid := Tokenize(DecodeURL(logincookie.data),' ')[0];
+  TestEq(cursessionid, newsessionid, "Session ID should be retained");
+
+  TestAuditEvent(
+      [ entity := entityid
+      , type := "wrd:logincookie"
+      , login := "testaccount@test.invalid"
+      , impersonated := FALSE
+      , data := ""
+      , browsertriplet := ""
+      , byentity := entityid
+      , bylogin := "testaccount@test.invalid"
+      ]);
+
+  TestEq(TRUE, RecordExists(logincookie));
   TestEQ(DEFAULT DATETIME, logincookie.expires);
 
   //Invalidate the sessionid stored in the webhare login cookie

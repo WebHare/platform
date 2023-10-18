@@ -489,11 +489,12 @@ void ShtmlContextData::CreateWebSession(HSVM *vm, HSVM_VariableId id_set)
         bool limit_to_webserver = HSVM_BooleanGet(vm, HSVM_Arg(3));
         int32_t limit_webserver_id = request.get() && request->website ? request->website->webserver_id : 0;
         std::string password = HSVM_StringGetSTD(vm, HSVM_Arg(0));
+        std::string sessionid = HSVM_StringGetSTD(vm, HSVM_Arg(4));
 
         LockedSUCache::WriteRef lock(shtml->sucache);
 
         //Create and initialize session
-        Session *newsession = lock->CreateSession(auto_increment, limit_to_webserver, limit_webserver_id, password);
+        Session *newsession = lock->CreateSession(auto_increment, limit_to_webserver, limit_webserver_id, password, sessionid);
         newsession->sessdata.reset(packet.release());
 
         //Return session ID

@@ -489,7 +489,7 @@ PUBLIC MACRO UpdateWebCookie(STRING name, STRING value, RECORD options DEFAULTST
     @return A random session id which can be used to refer to the session
     @see GetWebSessionData CloseWebSession
 */
-PUBLIC STRING FUNCTION CreateWebSession(STRING scope, RECORD sessdata, INTEGER maxidle_minutes, BOOLEAN limit_to_server) __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
+PUBLIC STRING FUNCTION CreateWebSession(STRING scope, RECORD sessdata, INTEGER maxidle_minutes, BOOLEAN limit_to_server, STRING sessionid DEFAULTSTO "") __ATTRIBUTES__(EXTERNAL, EXECUTESHARESCRIPT);
 
 /** @short Store data into a session
     @param sessid Session ID to open

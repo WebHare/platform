@@ -132,7 +132,7 @@ class SUCache
 //        Session* OpenBasicAuth(std::string const &username, std::string const &password, bool create_if_new);
         Session* OpenBasicAuth(WebServer::Connection const &conn, bool create_if_new);
 
-        Session* CreateSession(int32_t auto_increment, bool limited_to_webserver, int32_t webserverid, std::string const &password);
+        Session* CreateSession(int32_t auto_increment, bool limited_to_webserver, int32_t webserverid, std::string const &password, std::string const &sessionid);
         std::pair< Session*, bool > OpenOrCreateSession(std::string const &sessionid, std::string const &scope, int32_t auto_increment);
         Session* OpenSessionNochecks(std::string const &sessionid, bool only_if_trusted);
         void CloseSession(Session *session);
@@ -148,7 +148,7 @@ class SUCache
         Sessions sessionlist;
         SessionMap sessionidx;
 
-        Session* GenerateSession();
+        Session* GenerateSession(std::string sessionid);
 
         void DoEraseSession(Sessions::iterator sessionitr);
 };
