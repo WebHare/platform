@@ -1,6 +1,6 @@
 import EventSource from "../eventsource";
 import { WHManagerConnection, WHMResponse } from "./whmanager_conn";
-import { WHMRequest, WHMRequestOpcode, WHMResponseOpcode, WHMProcessType, WHMResponse_IncomingEvent, LogFileConfiguration } from "./whmanager_rpcdefs";
+import { WHMRequest, WHMRequestOpcode, WHMResponseOpcode, WHMProcessType, LogFileConfiguration } from "./whmanager_rpcdefs";
 import * as hsmarshalling from "./hsmarshalling";
 import { registerAsNonReloadableLibrary, getState as getHMRState } from "../hmrinternal";
 import { createDeferred, DeferredPromise, pick } from "@webhare/std";
@@ -321,6 +321,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
         this.emit("systemconfig", this.systemconfig);
       } break;
       case ToLocalBridgeMessageType.Event: {
+        handleGlobalEvent(message);
         this.emit("event", {
           name: message.name,
           data: hsmarshalling.readMarshalData(message.data) as hsmarshalling.SimpleMarshallableRecord
@@ -712,7 +713,6 @@ class MainBridge extends EventSource<BridgeEvents> {
 
     switch (data.opcode) {
       case WHMResponseOpcode.IncomingEvent: {
-        handleGlobalEvent(data);
         for (const localbridge of this.localbridges)
           this.postLocalBridgeMessage(localbridge[1], {
             type: ToLocalBridgeMessageType.Event,
@@ -1264,8 +1264,8 @@ class MainBridge extends EventSource<BridgeEvents> {
   }
 }
 
-function handleGlobalEvent(data: WHMResponse_IncomingEvent) {
-  switch (data.eventname) {
+function handleGlobalEvent(data: { name: string }) {
+  switch (data.name) {
     case "system:configupdate": {
       updateConfig();
     } break;
