@@ -283,11 +283,7 @@ export async function initNewLocalServiceProxy<T extends object>(port: TypedMess
   }
   port.unref();
   const refs = new RefTracker(port);
-  return new Proxy({}, new LocalServiceProxy<ConvertLocalServiceInterfaceToClientInterface<T>>(
-    port,
-    name,
-    res.description,
-    refs)) as ConvertLocalServiceInterfaceToClientInterface<T>;
+  return buildLocalServiceProxy<T>(port, name, res.description, refs);
 }
 
 export function buildLocalServiceProxy<T extends object>(port: TypedMessagePort<LocalServiceRequest, LocalServiceResponse>, name: string, description: WebHareServiceDescription | null, refs: RefTracker): ConvertLocalServiceInterfaceToClientInterface<T> {

@@ -181,17 +181,20 @@ class HSJob extends OutputObjectBase {
   isRunning = false;
   arguments = new Array<string>;
   output: HSJobOutput | undefined;
+  groupId: string;
 
   constructor(
     vm: HareScriptVM,
     linkinparent: IPCEndPoint,
     worker: AsyncWorker,
     jobobj: ConvertLocalServiceInterfaceToClientInterface<HareScriptJob>,
+    groupId: string,
   ) {
     super(vm, "Job");
     this.linkinparent = linkinparent;
     this.worker = worker;
     this.jobobj = jobobj;
+    this.groupId = groupId;
   }
   async start() {
     if (this.closed)
@@ -267,13 +270,16 @@ class HSJob extends OutputObjectBase {
       throw new Error(`The job has already been closed`);
     return await this.jobobj.getExitCode();
   }
+
   close() {
     if (this.closed)
       return;
 
+    this.jobobj.terminate().catch(e => 0);
     this.jobobj.close();
     this.output?.close();
     this.worker.close();
+
     super.close();
   }
 }
@@ -571,9 +577,11 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   });
 
   wasmmodule.registerExternalFunction("FINALIZEHASHER::S:I", (vm, id_set, id) => {
-    const hasher = Hasher.context(vm).hashers.get(id.getInteger());
+    const ctxt = Hasher.context(vm);
+    const hasher = ctxt.hashers.get(id.getInteger());
     if (!hasher)
       throw new Error(`No such crypto hasher with id ${id.getInteger()}`);
+    ctxt.hashers.delete(hasher.id);
     id_set.setString(hasher.finalize());
   });
 
@@ -754,13 +762,15 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       env,
     );
 
-    const job = new HSJob(vm, link[0], worker, jobobj,);
+    const groupid = await jobobj.getGroupId();
+
+    const job = new HSJob(vm, link[0], worker, jobobj, groupid);
     context.jobs.set(job.id, job);
 
     id_set.setJSValue({
       status: "ok",
       jobid: job.id,
-      groupid: "unknown",
+      groupid,
       errors: getTypedArray(VariableType.RecordArray, [])
     });
   });
@@ -812,8 +822,6 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     if (!job)
       throw new Error(`No such job with id ${var_jobid.getInteger()}`);
 
-    if (job.isRunning)
-      await job.terminate();
     job.close();
   });
 
@@ -1206,6 +1214,9 @@ class HareScriptJob {
   }
   setArguments(args: string[]) {
     this.vm.consoleArguments = args;
+  }
+  getGroupId(): string {
+    return this.vm.currentgroup;
   }
   start(): void {
     //vm.run will throw any script errors, but we'll already have recorded them in scriptDone and there's nothing in this worker thread to handle the exception

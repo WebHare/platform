@@ -462,6 +462,7 @@ export class OutputObjectBase {
   closed = false;
   private _readSignalled = true;
   private _writeSignalled = true;
+  private _unregisteredId = false;
 
   constructor(vm: HareScriptVM, type: string) {
     let typeStrings = OutputObjectBase.vmTypeStrings.get(vm);
@@ -501,10 +502,12 @@ export class OutputObjectBase {
     /* empty */
   }
 
-  /** Called when the outputobject has been deregistered in HareScript */
+  /** Called by HareScript when the outputobject has been deregistered */
   protected _closed() {
-    this.closed = true;
+    this._unregisteredId = true;
     this.close();
+    if (!this.closed)
+      throw new Error(`The close() function of outputobjects should call super.close()!`);
   }
 
   /** Updates the read signalled status */
@@ -544,9 +547,12 @@ export class OutputObjectBase {
     return true;
   }
 
-  /** Close the outputobject, unregister its id in HareScript. Will call the `_closed` callback  */
+  /** Close the outputobject, unregister its id in HareScript. Is called by the `_closed` callback  */
   close() {
-    if (!this.closed)
+    if (!this._unregisteredId) {
+      this._unregisteredId = true;
       this.vm.wasmmodule._CloseWASMOutputObject(this.vm.hsvm, this.id);
+    }
+    this.closed = true;
   }
 }
