@@ -18,6 +18,7 @@ LOADLIB "mod::system/lib/internal/dbschema.whlib";
 LOADLIB "mod::system/lib/internal/resourcemanager.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 
 LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
@@ -763,18 +764,8 @@ STATIC OBJECTTYPE AssetPackController
     IF (NOT IsDatabaseWritable()) //FIXME we probably still want to generate bundles when recovering readonly as we may start out without a filesystem. alternatively, have a way to download generated assets from the database
       RETURN;
 
-    RECORD ARRAY modulepacks;
-    RECORD ARRAY addtoassetpacks;
+    RECORD ARRAY modulepacks := __GetExtractedConfig("assetpacks");
     STRING ARRAY seenpacks;
-
-    FOREVERY(RECORD mod FROM GetWebHareModules())
-    {
-      modulepacks := modulepacks CONCAT SELECT *, extrarequires := STRING[] FROM mod.assetpacks;
-      addtoassetpacks := addtoassetpacks CONCAT mod.addtoassetpacks;
-    }
-
-    FOREVERY(RECORD toadd FROM addtoassetpacks) //inject extrarequires frmo the assetpacks
-      UPDATE modulepacks SET extrarequires := STRING[...extrarequires, toadd.entrypoint] WHERE modulepacks.name = toadd.assetpack;
 
     //Are they all in the database?
     GetPrimary()->BeginWork();
@@ -1360,14 +1351,8 @@ STATIC OBJECTTYPE AssetPackController
     RETURN defer.promise;
   }
 
-  /** Returns a promise that is resolved when the first compile for a bundle has finished (with a timeout of 2 minutes)
-      @param acceptstale We accept stale versions
-  */
-  PUBLIC OBJECT FUNCTION WaitForCompile(STRING outputtag, BOOLEAN acceptstale)
+  RECORD FUNCTION GetBundleRecheck(STRING outputtag) //used to look for a bundle we're convinced should exists
   {
-    // Need to reload the bundles, if assetpackmgr isn't online yet they haven't been reloaded
-    //this->LoadBundles();
-
     RECORD bundle := SELECT * FROM this->bundles WHERE bundles.outputtag = VAR outputtag;
     IF(NOT RecordExists(bundle))
     {
@@ -1376,11 +1361,25 @@ STATIC OBJECTTYPE AssetPackController
          infrequently hitting publisher-webdesign.moduledesigntest test
 
          Are we racing against a module offering bundles? Try to load the bundles
+
+         FIXME it would be so much better if you could ensure these changes were applied for me.
+               (ie explicitly ApplyWebHareConfiguration("assetpacks") in SetupWebDesign after modifying the modXml
+                to add a webdesign/assetpack, which would then wait for assetpackcontrol to be in sync
        */
+      UpdateGeneratedFiles(["config","extracts"]);
       this->ScanModulesForBundles();
       this->LoadBundles();
       bundle := SELECT * FROM this->bundles WHERE bundles.outputtag = VAR outputtag;
     }
+    RETURN bundle;
+  }
+
+  /** Returns a promise that is resolved when the first compile for a bundle has finished (with a timeout of 2 minutes)
+      @param acceptstale We accept stale versions
+  */
+  PUBLIC OBJECT FUNCTION WaitForCompile(STRING outputtag, BOOLEAN acceptstale)
+  {
+    RECORD bundle := this->GetBundleRecheck(outputtag);
 
     IF(NOT RecordExists(bundle))
     {
@@ -1450,6 +1449,12 @@ STATIC OBJECTTYPE AssetPackController
   PUBLIC MACRO RecompileBundleByoutputtag(STRING outputtag, BOOLEAN rebuild DEFAULTSTO FALSE)
   {
     RECORD ARRAY bundles := SELECT * FROM this->bundles WHERE COLUMN outputtag LIKE VAR outputtag;
+    IF(Length(bundles) = 0)
+    {
+      RECORD retry := this->GetBundleRecheck(outputtag);
+      IF(RecordExists(retry))
+        bundles := [ retry ];
+    }
     FOREVERY(RECORD bundle FROM bundles)
     {
       //Delete records.json on rebuild, as that file sometimes fatally breaks webpack
