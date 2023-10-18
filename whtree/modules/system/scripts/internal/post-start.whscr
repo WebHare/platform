@@ -21,14 +21,6 @@ LOADLIB "mod::system/lib/internal/modules/migrations.whlib";
 BOOLEAN debug;
 OBJECT trans;
 
-MACRO PreflightChecks()
-{
-  //Update system.webservers output path if still referring to the pre-docker path
-  STRING outputpath := ReadSoftLink("/opt/webhare/output");
-  IF(outputpath = "/opt/whdata/output")
-    UPDATE system.webservers SET diskfolder := Substitute(diskfolder, "/opt/webhare/output/", "/opt/whdata/output/");
-}
-
 MACRO UpdateModuleNotifications()
 {
   trans->BeginWork();
@@ -130,11 +122,6 @@ IF (IsDatabaseWritable())
 
   // Rebuild various webhare pregenerated files so they are available before poststart completes (TODO we may need to generate non type-info stubs for missing files so scripts have something to import)
   UpdateGeneratedFiles(["all"]);
-
-  trans->BeginWork();
-  LogDebug("system:poststart", "Start PreflightChecks");
-  PreflightChecks();
-  trans->CommitWork();
 
   LogDebug("system:poststart", "Start UpdateModuleNotifications");
   UpdateModuleNotifications();
