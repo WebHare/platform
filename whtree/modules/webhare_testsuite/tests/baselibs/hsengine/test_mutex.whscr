@@ -22,6 +22,28 @@ STRING FUNCTION Pad(STRING s, INTEGER len)
   RETURN LEFT(s, len);
 }
 
+MACRO WaitLocksClean(STRING groupid)
+{
+  RECORD ARRAY locks := __HS_GetLocalLockStatus();
+  FOR (INTEGER i := 0; ; i := i + 1)
+  {
+    IF (groupid != "all")
+      DELETE FROM locks WHERE COLUMn groupid != VAR groupid;
+    IF (LENGTH(locks) = 0)
+      BREAK;
+    IF (i = 301) // 3 seconds
+      THROW NEW Exception(`Locks from terminated jobs aren't being freed`);
+
+    Sleep(100);
+    locks := __HS_GetLocalLockStatus();
+    IF (LENGTH(locks) != 0 AND ((i+1) % 30) = 0)
+    {
+      PRINT(`Locks not all free yet (waiting on ${groupid}\n`);
+      DumpValue(locks, "boxed");
+    }
+  }
+}
+
 MACRO DumpLockStatus(OBJECT ARRAY jobs)
 {
   RECORD ARRAY locks := __HS_GetLocalLockStatus();
@@ -41,6 +63,8 @@ MACRO DumpLockStatus(OBJECT ARRAY jobs)
 
 MACRO ExecuteTest(INTEGER jobcount, RECORD ARRAY script)
 {
+  WaitLocksClean("all");
+
   OBJECT ARRAY jobs;
   FOR (INTEGER i := 0; i < jobcount; i := i + 1)
   {
@@ -63,8 +87,10 @@ MACRO ExecuteTest(INTEGER jobcount, RECORD ARRAY script)
 
     IF (CellExists(rec, "KILL"))
     {
+      STRING groupid := job->groupid;
       job->Close();
       jobs[rec.job - 1] := DEFAULT OBJECT;
+      WaitLocksClean(groupid);
     }
 
     IF (CellExists(rec, "RECV"))

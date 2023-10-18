@@ -8,7 +8,7 @@ import type { SocketError, WASMModule } from "./wasm-modulesupport";
 import { OutputObjectBase } from "@webhare/harescript/src/wasm-modulesupport";
 import { createDeferred, generateRandomId, sleep } from "@webhare/std";
 import * as syscalls from "./syscalls";
-import { localToUTC, utcToLocal } from "@webhare/hscompat/datetime";
+import { defaultDateTime, localToUTC, utcToLocal } from "@webhare/hscompat/datetime";
 import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
 import * as crypto from "node:crypto";
 import * as os from "node:os";
@@ -19,6 +19,7 @@ import { Crc32 } from "@mod-system/js/internal/util/crc32";
 import { escapePGIdentifier } from "@webhare/whdb";
 import type { LogFileConfiguration } from "@mod-system/js/internal/whmanager/whmanager_rpcdefs";
 import type { ConvertLocalServiceInterfaceToClientInterface } from "@webhare/services/src/localservice";
+import type { LocalLockService } from "./wasm-locallockservice";
 
 type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
 
@@ -338,6 +339,43 @@ const ipcContext = contextGetterFactory("ipc", class {
     this.linktoparent = undefined;
     this.signalintpipe?.close();
     this.signalintpipe = undefined;
+  }
+});
+
+type LockServiceClient = ConvertLocalServiceInterfaceToClientInterface<LocalLockService>;
+
+class HSLocalLock extends OutputObjectBase {
+  service: LockServiceClient;
+  serviceId: number;
+
+  constructor(vm: HareScriptVM, name: string, service: LockServiceClient, serviceId: number) {
+    super(vm, `Local lock: ${JSON.stringify(name)}`);
+    this.service = service;
+    this.serviceId = serviceId;
+
+    this.setReadSignalled(false);
+
+    // Wait for the lock to open. Ignore disconnect errors
+    service?.waitLock(serviceId).then((success) => this.gotLockResult(success), () => 0);
+  }
+
+  gotLockResult(success: boolean) {
+    if (!this.closed)
+      this.setReadSignalled(success);
+  }
+
+  close(): void {
+    super.close();
+    // ignore errors
+    this.service.closeLock(this.serviceId).catch(() => 0);
+  }
+}
+
+const localLockContext = contextGetterFactory("local locks", class {
+  locks = new Map<number, HSLocalLock>;
+  lockService: LockServiceClient | undefined;
+  close() {
+    this.lockService?.close();
   }
 });
 
@@ -973,6 +1011,49 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       throw new Error(`Invalid key handle`);
 
     id_set.setBoolean(!keyrec.isPrivate);
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__HS_OPENLOCALLOCK::R:SIB", async (vm, id_set, var_name, var_maxconcurrent, var_failifqueued) => {
+    const ctxt = localLockContext(vm);
+    const lockService = (ctxt.lockService ??= await bridge.connectToLocalService<LocalLockService>("@webhare/harescript/src/wasm-locallockservice.ts#openLocalLockService", [vm.currentgroup]));
+
+    const lockResult = await lockService.openLock(var_name.getString(), var_maxconcurrent.getInteger(), var_failifqueued.getBoolean());
+    if (!lockResult.lockId) {
+      id_set.setJSValue({
+        lockid: 0,
+        locked: false
+      });
+    }
+
+    const lock = new HSLocalLock(vm, var_name.getString(), lockService, lockResult.lockId);
+    ctxt.locks.set(lock.id, lock);
+
+    id_set.setJSValue({
+      lockid: lock.id,
+      locked: lockResult.locked
+    });
+  });
+
+  wasmmodule.registerExternalMacro("__HS_CLOSELOCALLOCK:::I", (vm, var_id) => {
+    const ctxt = localLockContext(vm);
+    const id = var_id.getInteger();
+    const lock = ctxt.locks.get(id);
+    if (!lock)
+      throw new Error(`Invalid lock handle`);
+    lock.close();
+    ctxt.locks.delete(id);
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__HS_GETLOCALLOCKSTATUS::RA:", async (vm, id_set) => {
+    const ctxt = localLockContext(vm);
+    const lockService = (ctxt.lockService ??= await bridge.connectToLocalService<LocalLockService>("@webhare/harescript/src/wasm-locallockservice.ts#openLocalLockService", [vm.currentgroup]));
+    const status = await lockService.getStatus();
+    // FIXME: why aren't dates transferred correctly?
+    id_set.setJSValue(status.map(row => ({
+      ...row,
+      lockStart: typeof row.lockStart === "string" ? new Date(Date.parse(row.lockStart)) : !row.lockStart ? defaultDateTime : row.lockStart,
+      waitStart: typeof row.waitStart === "string" ? new Date(Date.parse(row.waitStart)) : !row.waitStart ? defaultDateTime : row.waitStart,
+    })));
   });
 }
 
