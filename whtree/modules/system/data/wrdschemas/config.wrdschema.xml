@@ -103,7 +103,7 @@
       <json tag="message_tid" description="Translatable message text (of the form: {tid,params})" />
       <json tag="jump_to" description="Jump instruction to application which can provide more information" />
       <datetime tag="snoozed_until" description="Time until we start actively reporting this error again" />
-      <enumarray tag="scopes" description="Special scopes for some checks" allowedvalues="gdpr" />
+      <enumarray tag="scopes" description="Special scopes for some checks" allowedvalues="gdpr policy" />
     </attributes>
   </object>
 
