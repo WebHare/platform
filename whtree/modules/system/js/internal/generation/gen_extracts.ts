@@ -1,0 +1,142 @@
+/* Generates varius extracts of moduledefinition information */
+
+import { resolveResource } from "@webhare/services";
+import { FileToUpdate, GenerateContext, isNodeApplicableToThisWebHare } from "./shared";
+import { elements, getAttr } from "./xmlhelpers";
+import { whconstant_default_compatibility } from "../webhareconstants";
+
+//TODO where to store these types? config.ts is a lot of readonly fiddling, moduledeftypes.ts is about raw YML data
+export interface AssetPack {
+  name: string; //full name
+  entryPoint: string;
+  supportedLanguages: string[];
+  designRoot: string;
+  assetBaseUrl: string;
+  compatibility: string;
+  webHarePolyfills: boolean;
+  environment: string;
+  afterCompileTask: string;
+  esBuildSettings: string;
+  extraRequires: string[];
+}
+
+function getXMLAssetPacks(mod: string, resourceBase: string, modXml: Document): AssetPack[] {
+  const packs: AssetPack[] = [];
+
+  const publisher = modXml.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "publisher")[0];
+  if (!publisher)
+    return [];
+
+  //TODO we're actually a <webdesign> parser!
+  for (const webdesign of elements(publisher.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "webdesign"))) {
+    if (!isNodeApplicableToThisWebHare(webdesign, ""))
+      continue;
+
+    const designname = webdesign.getAttribute("name");
+    let designroot = webdesign.getAttribute("path") || `mod::${mod}/webdesigns/${designname}/`;
+    if (!designroot.endsWith("/"))
+      designroot += "/";
+
+    const istemplate = getAttr(webdesign, "istemplate", false);
+    if (!istemplate)
+      for (const assetpacknode of elements(webdesign.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "assetpack"))) {
+        const assetpackname = `${mod}:${assetpacknode.getAttribute("name") || designname}`;
+        if (packs.find(_ => _.name === assetpackname)) {
+          //TODO error about dupe
+          continue;
+        }
+
+        const entrypoint = getAttr(assetpacknode, "entrypoint");
+        const compatibility = getAttr(assetpacknode, "compatibility", whconstant_default_compatibility);
+        const webharepolyfills = getAttr(assetpacknode, "webharepolyfills", true);
+        const environment = getAttr(assetpacknode, "environment", "window");
+        const aftercompiletask = getAttr(assetpacknode, "aftercompiletask");
+        const esbuildsettings = getAttr(assetpacknode, "esbuildsettings");
+
+        packs.push({
+          name: assetpackname,
+          entryPoint: resolveResource(resourceBase, entrypoint),
+          supportedLanguages: [...new Set(getAttr(assetpacknode, "supportedlanguages", []))],
+          designRoot: designroot, //FIXME does an assetpack need this? why?
+          assetBaseUrl: getAttr(assetpacknode, "assetbaseurl"),
+          compatibility,
+          webHarePolyfills: webharepolyfills,
+          environment,
+          afterCompileTask: aftercompiletask,
+          esBuildSettings: esbuildsettings,
+          extraRequires: []
+        });
+      }
+
+    /* TOOD to be a webdesign parser, we also need this:
+
+    //In a template, the siteprofile is simply a witty expression, so don't expand it
+      STRING siteprofile;
+      IF(istemplate)
+        siteprofile:= child -> GetAttribute("siteprofile"); //no legacy support for templates
+      ELSE //We used to resolve based on designroot, but that's inconsistent with how our paths normally work
+        siteprofile:= this -> GetVerifyPath(child, "siteprofile", designroot);
+
+      INSERT[name := designname
+          , title := ParseXMLTidPtr(this -> respath, childgid, child, "title")
+          , siteprofile := siteprofile
+          , line := child -> linenum
+          , col := 0
+          , designroot := designroot
+          , istemplate := istemplate
+          , hidden := ParseXSBoolean(child -> GetAttribute("hidden"))
+          ] INTO designs AT END;
+    }*/
+  }
+
+  return packs;
+}
+
+function getXMLAddToPacks(mod: string, resourceBase: string, modXml: Document) {
+  const publisher = modXml.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "publisher")[0];
+  if (!publisher)
+    return [];
+
+  const addto = [];
+  for (const addtoassetpack of elements(publisher.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "addtoassetpack"))) {
+    if (!isNodeApplicableToThisWebHare(addtoassetpack, ""))
+      continue;
+
+    const assetpack = getAttr(addtoassetpack, "assetpack");
+    const extraRequire = resolveResource(resourceBase, getAttr(addtoassetpack, "entrypoint"));
+    addto.push({ assetpack, extraRequire });
+  }
+
+  return addto;
+}
+
+export function generateAssetPacks(context: GenerateContext): string {
+  const assetpacks = new Array<AssetPack>();
+  const addto = [];
+
+  for (const mod of context.moduledefs) {
+    if (mod.modXml) {
+      assetpacks.push(...getXMLAssetPacks(mod.name, mod.resourceBase, mod.modXml));
+      addto.push(...getXMLAddToPacks(mod.name, mod.resourceBase, mod.modXml));
+    }
+  }
+
+  for (const toadd of addto) {
+    const match = assetpacks.find(_ => _.name === toadd.assetpack);
+    if (match)
+      match.extraRequires.push(toadd.extraRequire);
+  }
+
+  return JSON.stringify(assetpacks, null, 2) + "\n";
+}
+
+export async function listAllExtracts(): Promise<FileToUpdate[]> {
+  return [
+    {
+      path: `extract/assetpacks.json`,
+      module: "platform",
+      type: "extract",
+      generator: (context: GenerateContext) => generateAssetPacks(context)
+    }
+  ];
+}

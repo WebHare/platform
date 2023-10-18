@@ -1,6 +1,7 @@
 import { whconstant_builtinmodules } from "../webhareconstants";
-import { FileToUpdate, GenerateContext, elements } from "./shared";
+import { FileToUpdate, GenerateContext } from "./shared";
 import { encodeString } from "@webhare/std";
+import { elements } from "./xmlhelpers";
 
 function generateTableTypeName(str: string) {
   if (str.startsWith("wrd"))

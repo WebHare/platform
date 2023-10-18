@@ -10,6 +10,7 @@ import * as path from "node:path";
 import * as services from "@webhare/services";
 
 import { recompile } from '@mod-publisher/js/internal/esbuild/compiletask';
+import { whconstant_default_compatibility } from '@mod-system/js/internal/webhareconstants';
 
 //TODO these types should move to assetpackcontrol/bulder
 interface AssetPackManifest {
@@ -37,6 +38,7 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
   bundle.entrypoint = entrypoint;
   bundle.outputpath = "/tmp/compileerrors-build-test/";
   bundle.isdev = isdev;
+  test.eq(whconstant_default_compatibility, bundle.bundleconfig.compatibility);
 
   if (fs.existsSync(bundle.outputpath))
     fs.rmSync(bundle.outputpath, { recursive: true });

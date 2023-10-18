@@ -9,7 +9,7 @@ async function main() {
     .option('-v, --verbose', 'verbose mode')
     .option('--dryrun', 'Do not actually rewrite files')
     .option('--nodb', 'Do not access the database')
-    .option('--update <targets>', 'Update specific targets only (one or more of config,whdb,wrd,openapi)');
+    .option('--update <targets>', 'Update specific targets only (one or more of config,whdb,wrd,openapi,extract)');
 
   program.parse();
   const verbose = program.opts().verbose as boolean;

@@ -3,7 +3,21 @@ import * as fs from "fs";
 import { backendConfig } from "@webhare/services";
 import { generateKyselyDefs } from "@mod-system/js/internal/generation/gen_whdb";
 import { deleteTestModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
-import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
+import { buildGeneratorContext, updateGeneratedFiles } from "@mod-system/js/internal/generation/generator";
+import { getExtractedConfig } from "@mod-system/js/internal/configuration";
+
+async function testWebHareConfig() {
+  /* Tests whether the current WebHare builtin config is properly parsed
+     This saves us from having to build modules but we risk a test breaking and having to look for
+     new examples if WebHare itself changes */
+  await updateGeneratedFiles(["extract"], { verbose: true }); //regenerate, useful if you're currently developing a generator
+  const assetpacks = getExtractedConfig("assetpacks");
+  const basetestpack = assetpacks.find(_ => _.name === "webhare_testsuite:basetest");
+  test.eqProps({
+    entryPoint: "mod::webhare_testsuite/webdesigns/basetest/js/basetest",
+    extraRequires: ["mod::webhare_testsuite/webdesigns/basetest/js/addtopack"]
+  }, basetestpack);
+}
 
 async function testBasics() {
   const context = await buildGeneratorContext(["system"], false);
@@ -138,6 +152,7 @@ export async function getUsers(req: RestRequest): Promise<WebResponse> {
 }
 
 test.run([
+  testWebHareConfig,
   testBasics,
   testModule
 ]);

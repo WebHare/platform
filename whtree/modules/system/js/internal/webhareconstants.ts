@@ -239,6 +239,9 @@ export const whconstant_forms_validhandlereditdefaults = ["condition"];
 //valid user-supplied debug tokens
 export const whconstant_whdebug_publicflags = ["apr"];
 
+//default compatibility. safari14 avoids inset:
+export const whconstant_default_compatibility = "es2016,safari14";
+
 //standard failed task reschedule time
 export const whconstant_default_failreschedule = 15 * 60 * 1000;
 

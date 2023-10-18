@@ -15,6 +15,7 @@ import { DOMParser } from '@xmldom/xmldom';
 import { ModuleDefinitionYML } from "@webhare/services/src/moduledeftypes";
 import YAML from "yaml";
 import { ModuleData } from "@webhare/services/src/config";
+import { listAllExtracts } from "./gen_extracts";
 import { RecursiveReadOnly } from "@webhare/js-api-tools/src/utility-types";
 
 function getPaths() {
@@ -30,9 +31,17 @@ export async function listAllGeneratedFiles(): Promise<FileToUpdate[]> {
   const files: FileToUpdate[] = [];
   const allmods = ["platform", ...Object.keys(backendConfig.module).filter(m => !whconstant_builtinmodules.includes(m))];
 
-  files.push(...await listAllModuleTableDefs(allmods), ...await listAllModuleWRDDefs(), ...await listAllModuleOpenAPIDefs());
+  files.push(
+    ...await listAllModuleTableDefs(allmods),
+    ...await listAllModuleWRDDefs(),
+    ...await listAllModuleOpenAPIDefs(),
+    ...await listAllExtracts()
+  );
+
+  //we keep all extracts in the generated dir even if they describe the platform (similar to config.json)
+  //extracts are not depended on by TS files anyway
   files.forEach(file => {
-    file.path = (file.module == "platform" ? builtinBaseDir : installedBaseDir) + file.path;
+    file.path = (file.module == "platform" && file.type != 'extract' ? builtinBaseDir : installedBaseDir) + file.path;
   });
   return files;
 }

@@ -3,6 +3,8 @@ import { registerUpdateConfigCallback, updateWebHareConfigWithoutDB } from "./ge
 import { freezeRecursive } from "./util/algorithms";
 import { WebHareBackendConfiguration, ConfigFile, WebHareConfigFile } from "@webhare/services/src/config";
 import { RecursiveReadOnly } from "@webhare/js-api-tools";
+import { AssetPack } from "./generation/gen_extracts";
+import { toFSPath } from "@webhare/services/src/resources";
 
 export type { WebHareBackendConfiguration, WebHareConfigFile };
 
@@ -66,4 +68,12 @@ export function getVersionInteger(): number {
       return major * 10000 + minor * 100 + patch;
   }
   throw new Error(`Version '${backendConfig.buildinfo.version}' is not convertible to a legacy version integer`);
+}
+
+export function isRestoredWebHare(): boolean {
+  return Boolean(process.env["WEBHARE_ISRESTORED"]);
+}
+
+export function getExtractedConfig(which: "assetpacks"): AssetPack[] {
+  return JSON.parse(fs.readFileSync(toFSPath("storage::system/generated/extract/" + which + ".json"), 'utf8'));
 }
