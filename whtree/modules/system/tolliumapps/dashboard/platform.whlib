@@ -120,7 +120,10 @@ PUBLIC STATIC OBJECTTYPE PlatformPanel EXTEND DashboardPanelBase
 
   MACRO DoDetails()
   {
-    this->RunScreen("#details", [ id := ^results->value[0] ]);
+    IF(^results->value[0] > 0)
+      this->RunScreen("#details", [ id := ^results->value[0] ]);
+    ELSE //eg 'periodic status checks are failing'. these don't exist in the database so we can't open the details
+      this->RunSimpleScreen("info", ^results->selection[0].message_text);
   }
 
   MACRO DoSnooze()

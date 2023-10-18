@@ -134,7 +134,6 @@ PUBLIC BOOLEAN FUNCTION IsProductionOrAsIf()
 /** @short Get the WebHare installation/configuration parameters
     @long This function returns the various path locations and database settings as configured in the webhare-(default-)config.xml file.
     @return Configuration parameters
-    @cell(string) return.installationtype The installation type ('production', 'restore' or 'test')
     @cell(string) return.installationroot The WebHare installation root directory (eg /opt/webhare)
     @cell(string) return.basedataroot The base directory for the WebHare data files (dbase, etc). Custom and modulespecific folders should use the varroot or the ephemeralroot
     @cell(string) return.config Path to the configuration file

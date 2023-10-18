@@ -77,7 +77,7 @@ PUBLIC STATIC OBJECTTYPE DisplayedFunctionProfile EXTEND DisplayedProfile
   UPDATE PUBLIC RECORD FUNCTION GetInfoFromRawData(RECORD rawdata)
   {
     FLOAT totalselftime :=
-        SELECT AS FLOAT Sum(selftime)
+        SELECT AS FLOAT Sum(FLOAT(selftime))
           FROM rawdata.items;
 
     RETURN [ text := FormatFloat(totalselftime * 1000, 3), sortval := totalselftime ];
@@ -86,6 +86,10 @@ PUBLIC STATIC OBJECTTYPE DisplayedFunctionProfile EXTEND DisplayedProfile
   UPDATE PUBLIC MACRO InitWithRawData(RECORD rawdata)
   {
     RECORD ARRAY locations := rawdata.locations;
+    rawdata.items := SELECT *
+                          , selftime := FLOAT(selftime)
+                          , totaltime_callee_nr := FLOAT(totaltime_callee_nr)
+                       FROM rawdata.items;
 
     STRING ARRAY ambiguous_names :=
         SELECT AS STRING ARRAY func
