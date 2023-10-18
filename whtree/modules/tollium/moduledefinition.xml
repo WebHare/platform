@@ -82,8 +82,6 @@
                      tag="tolliumapplicationstarter"
                      tid="todd.misc.applicationstarter"
                      where="webserver" />
-
-    <apprunnerconfig configfunction="lib/internal/support.whlib#GetTolliumAppRunnerConfig" />
   </services>
 
   <documentation>

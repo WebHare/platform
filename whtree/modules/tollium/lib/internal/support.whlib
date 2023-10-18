@@ -733,12 +733,3 @@ PUBLIC BOOLEAN FUNCTION IsOldStyleScreenReference(STRING screenref)
          OR (screenref LIKE ".*")
          OR (screenref NOT LIKE "*::*" AND screenref LIKE "*:*.*");
 }
-
-PUBLIC RECORD ARRAY FUNCTION GetTolliumAppRunnerConfig()
-{
-  RETURN
-      [ [ name :=     "tollium:wasmapprunner"
-        , cmdline :=  "wh runwasm mod::tollium/scripts/internal/applicationstarter.whscr"
-        ]
-      ];
-}

@@ -2,3 +2,7 @@ managedServices:
   apprunner:
     script: mod::system/scripts/internal/apprunner.whscr
     run: always
+  tollium-wasm-runner:
+    script: mod::tollium/scripts/internal/applicationstarter.whscr
+    run: always
+    engine: wasm

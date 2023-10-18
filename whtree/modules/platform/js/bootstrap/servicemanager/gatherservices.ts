@@ -63,7 +63,8 @@ export async function gatherManagedServices(): Promise<Record<string, ServiceDef
     if (mod.managedServices)
       for (const [name, servicedef] of Object.entries(mod.managedServices)) {
         if (servicedef?.script) {
-          const cmd = ["wh", "run", resolveResource(mod.baseResourcePath, servicedef.script), ...(servicedef?.arguments ?? [])];
+          const runner = servicedef?.script.endsWith(".whscr") && servicedef?.engine === "wasm" ? "runwasm" : "run";
+          const cmd = ["wh", runner, resolveResource(mod.baseResourcePath, servicedef.script), ...(servicedef?.arguments ?? [])];
           services[`${mod.module}:${name}`] = {
             cmd,
             startIn: Stage.Active,

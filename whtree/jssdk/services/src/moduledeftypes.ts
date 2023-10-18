@@ -7,6 +7,8 @@ export interface ManagedService {
   arguments?: string[];
   ///When to run it
   run: "always" | "on-demand";
+  ///Engine for HareScript
+  engine?: "native" | "wasm";
 }
 
 export interface ModuleDefinitionYML {
