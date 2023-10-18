@@ -85,6 +85,15 @@ service = runBackendService(port, () => new Client);`
   await smservice.stopService("webhare_testsuite_temp:ondemandservice");
   await test.throws(/is unavailable/, openBackendService<any>("webhare_testsuite_temp:ondemandservice", [], { timeout: 500, notOnDemand: true }));
 
+  state = await smservice.getWebHareState();
+  test.eqProps({ isRunning: false }, state.availableServices.find(_ => _.name === "webhare_testsuite_temp:ondemandservice"));
+
+  const testondemand_reconect = await openBackendService<any>("webhare_testsuite_temp:ondemandservice", []);
+  test.assert(instanceid != (await testondemand_reconect.info()).instanceid);
+
+  state = await smservice.getWebHareState();
+  test.eqProps({ isRunning: true }, state.availableServices.find(_ => _.name === "webhare_testsuite_temp:ondemandservice"));
+
   //Have HareScript connect to an ondemand service
   const ondemandThroughHS = await loadlib("mod::system/lib/services.whlib").openWebHareService("webhare_testsuite_temp:ondemandservice2") as HSVMObject;
   test.eqProps({ x: 42, port: "webhare_testsuite_temp:ondemandservice2" }, await ondemandThroughHS.info());
