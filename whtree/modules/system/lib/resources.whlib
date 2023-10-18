@@ -115,7 +115,7 @@ PUBLIC OBJECT FUNCTION GetModuleDefinitionXML(STRING modulename)
      was broken due to earlier 4.32 commits anyway without known bad consequences) */
   RETURN OpenXMLDoc(GetModuleDefinitionXMLResourceName(modulename), FALSE).doc;
 }
-/** Get a list of installed modules
+/** Get a list of installed modules (includes builtin modules)
     @return List of module names */
 PUBLIC STRING ARRAY FUNCTION GetInstalledModuleNames()
 {
