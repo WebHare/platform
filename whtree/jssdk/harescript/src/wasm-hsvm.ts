@@ -194,6 +194,9 @@ export class HareScriptVM implements HSVM_HSVMSource {
   unregisterEventCallback: (() => void) | undefined;
   private gotEventCallbackId = 0; //id of event callback provided to the C++ code
   private gotOutputCallbackId = 0;  //id of output callback provided to the C++ code
+  private onOutput: undefined | ((output: Buffer) => void);
+  private gotErrorCallbackId = 0;  //id of error callback provided to the C++ code
+  private onErrors: undefined | ((errors: Buffer) => void);
   __unrefMainTimer: boolean;
   onScriptDone: ((e: Error | null) => void | Promise<void>) | null;
 
@@ -235,16 +238,28 @@ export class HareScriptVM implements HSVM_HSVMSource {
 
   }
 
-  captureOutput(onOutput: (output: number[]) => void) {
-    if (this.gotOutputCallbackId)
-      throw new Error("output callback already set");
+  captureOutput(onOutput: (output: Buffer) => void) {
+    if (!this.gotOutputCallbackId) {
+      const out = (opaqueptr: number, numbytes: number, data: StringPtr, allow_partial: number, error_result: Ptr): number => {
+        this.onOutput?.(Buffer.copyBytesFrom(this.wasmmodule.HEAPU8, data, numbytes));
+        return numbytes;
+      };
+      this.gotOutputCallbackId = this.wasmmodule.addFunction(out, "iiiiii"); //TODO where do we remove this?
+      this.wasmmodule._HSVM_SetOutputCallback(this.hsvm, 0, this.gotOutputCallbackId);
+    }
+    this.onOutput = onOutput;
+  }
 
-    const out = (opaqueptr: number, numbytes: number, data: StringPtr, allow_partial: number, error_result: Ptr): number => {
-      onOutput(Array.from(this.wasmmodule.HEAP8.slice(data, data + numbytes)));
-      return numbytes;
-    };
-    this.gotOutputCallbackId = this.wasmmodule.addFunction(out, "iiiiii"); //TODO where do we remove this?
-    this.wasmmodule._HSVM_SetOutputCallback(this.hsvm, 0, this.gotOutputCallbackId);
+  captureErrors(onErrors: (errors: Buffer) => void) {
+    if (!this.gotErrorCallbackId) {
+      const error = (opaqueptr: number, numbytes: number, data: StringPtr, allow_partial: number, error_result: Ptr): number => {
+        this.onErrors?.(Buffer.copyBytesFrom(this.wasmmodule.HEAPU8, data, numbytes));
+        return numbytes;
+      };
+      this.gotErrorCallbackId = this.wasmmodule.addFunction(error, "iiiiii"); //TODO where do we remove this?
+      this.wasmmodule._HSVM_SetErrorCallback(this.hsvm, 0, this.gotErrorCallbackId);
+    }
+    this.onErrors = onErrors;
   }
 
   async run(script: string): Promise<void> {
@@ -289,6 +304,8 @@ export class HareScriptVM implements HSVM_HSVMSource {
           this.wasmmodule.removeFunction(this.gotEventCallbackId);
         if (this.gotOutputCallbackId)
           this.wasmmodule.removeFunction(this.gotOutputCallbackId);
+        if (this.gotErrorCallbackId)
+          this.wasmmodule.removeFunction(this.gotErrorCallbackId);
         this.wasmmodule._ReleaseHSVM(this.hsvm);
         this.wasmmodule.prepareForReuse();
 

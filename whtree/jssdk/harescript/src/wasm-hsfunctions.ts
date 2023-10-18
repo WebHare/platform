@@ -374,15 +374,15 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       consoleArguments: args.getJSValue() as string[],
     });
 
-    const stdout_bytes: number[] = [];
-    newvm.captureOutput((output: number[]) => stdout_bytes.push(...output));
+    const stdout_buffers: Buffer[] = [];
+    newvm.captureOutput((output: Buffer) => stdout_buffers.push(output));
 
     await newvm.loadScript(filename.getString());
     await newvm.wasmmodule._HSVM_ExecuteScript(newvm.hsvm, 1, 0);
     newvm.wasmmodule._HSVM_GetMessageList(newvm.hsvm, newvm.errorlist, 1);
     id_set.setJSValue({
       errors: new HSVMVar(newvm, newvm.errorlist).getJSValue(),
-      output: Buffer.from(stdout_bytes).toString()
+      output: Buffer.concat(stdout_buffers).toString()
     });
   });
   wasmmodule.registerExternalFunction("GENERATEUFS128BITID::S:", (vm, id_set) => {
@@ -991,7 +991,7 @@ class HareScriptJob {
   }
   captureOutput(encodedLink: unknown) {
     this.outputEndPoint = decodeTransferredIPCEndPoint<IPCMarshallableRecord, IPCMarshallableRecord>(encodedLink);
-    this.vm.captureOutput((output: number[]) => this.outputEndPoint!.send({ data: output }));
+    this.vm.captureOutput((output: Buffer) => this.outputEndPoint!.send({ data: output }));
   }
   setArguments(args: string[]) {
     this.vm.consoleArguments = args;
