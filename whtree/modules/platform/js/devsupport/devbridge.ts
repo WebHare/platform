@@ -1,7 +1,7 @@
 /* This is an import specifically for APIs needed by the 'dev' module, allowing us to manage version differences a bit */
 
 import { parseWHDBDefs } from "@mod-system/js/internal/generation/gen_whdb";
-import { listAllGeneratedFiles } from "@mod-system/js/internal/generation/generator";
+import { buildGeneratorContext, listAllGeneratedFiles } from "@mod-system/js/internal/generation/generator";
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { backendConfig, toResourcePath } from "@webhare/services";
 import { pick } from "@webhare/std";
@@ -35,7 +35,8 @@ export async function getGeneratedFiles({ module }: { module: string }) {
 }
 
 export async function getDatabaseDefs({ module }: { module: string }) {
-  return parseWHDBDefs(module);
+  const context = await buildGeneratorContext(null, false);
+  return parseWHDBDefs(context, module);
 }
 
 export function getBuiltinModules() {

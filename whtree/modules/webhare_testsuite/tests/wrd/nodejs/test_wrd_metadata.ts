@@ -1,8 +1,10 @@
 import * as test from "@webhare/test";
 import { generateWRDDefs } from "@mod-system/js/internal/generation/gen_wrd";
+import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
 
 async function testFileGeneration() {
-  let result = await generateWRDDefs({ verbose: true }, "webhare", ["system"]);
+  const context = await buildGeneratorContext(["system"], true);
+  let result = await generateWRDDefs(context, "webhare", ["system"]);
 
   //Basic sanity checks - we don't want to set up a full TS parser (yet?)
   result = result.replaceAll("\n", " ");

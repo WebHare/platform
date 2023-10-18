@@ -1,19 +1,10 @@
-import fs from "node:fs";
-import { DOMParser } from '@xmldom/xmldom';
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { backendConfig, resolveResource } from "@webhare/services";
 import { WRDBaseAttributeType, WRDAttributeType } from "@mod-wrd/js/internal/types";
-import { GenerateOptions, FileToUpdate } from "./shared";
+import { GenerateContext, FileToUpdate, elements } from "./shared";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
 import { loadlib } from "@webhare/harescript";
 import { emplace } from "@webhare/std";
-
-function elements<T extends Element>(collection: HTMLCollectionOf<T>): T[] {
-  const items: T[] = [];
-  for (let i = 0; i < collection.length; ++i)
-    items.push(collection[i]);
-  return items;
-}
 
 /** Convert snake_case to CamelCase, with the first character uppercase. Special cases the words 'WRD', 'WH' and 'WebHare' */
 export function generateTypeName(str: string) {
@@ -58,7 +49,7 @@ type SchemaDef = {
   }>;
 };
 
-export async function generateWRDDefs(options: GenerateOptions, modulename: string, modules: string[]): Promise<string> {
+export async function generateWRDDefs(context: GenerateContext, modulename: string, modules: string[]): Promise<string> {
   let fullfile = "";
   let used_isrequired = false;
   let used_wrdattr = false;
@@ -88,20 +79,15 @@ export async function generateWRDDefs(options: GenerateOptions, modulename: stri
     if (!modules.includes(mod[0]))
       continue;
 
-
-    const moduleroot = mod[1].root;
-
-    const buffer = fs.readFileSync(moduleroot + "moduledefinition.xml");
-    if (!buffer)
+    const doc = context.moduledefs.find(m => m.name === mod[0])?.modXml;
+    if (!doc)
       continue;
-
-    const doc = new DOMParser().parseFromString(buffer.toString("utf-8"), 'text/xml');
 
     for (const wrdschemas of elements(doc.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "wrdschemas"))) {
       for (const wrdschema of elements(wrdschemas.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "schema"))) {
         const tag = wrdschema.getAttribute("tag") || "";
         const fulltag = mod[0] + ":" + tag;
-        if (options.verbose)
+        if (context.verbose)
           console.time("generateWRDDefs " + fulltag);
 
         const definitionfile = wrdschema.getAttribute("definitionfile") || "";
@@ -202,7 +188,7 @@ export async function generateWRDDefs(options: GenerateOptions, modulename: stri
           console.log(fulltag + ": " + (e as Error).message); //TODO log it, back to console.error, but we need to understand applicability first as we now fail for newsletter module
         }
 
-        if (options.verbose)
+        if (context.verbose)
           console.timeEnd("generateWRDDefs " + fulltag);
       }
     }
@@ -260,7 +246,7 @@ function createTypeDef(attr: SchemaDef["types"][number]["allattrs"][number], ind
   return typedef;
 }
 
-function generateFile(options: GenerateOptions, { defname, modules }: { defname: string; modules: string[] }) {
+function generateFile(options: GenerateContext, { defname, modules }: { defname: string; modules: string[] }) {
   // Only process existing modules
   modules = modules.filter(module => backendConfig.module[module]);
   if (!modules.length) {
@@ -278,12 +264,12 @@ export async function listAllModuleWRDDefs(): Promise<FileToUpdate[]> {
       path: "wrd/webhare.ts",
       module: "platform",
       type: "wrd",
-      generator: (options: GenerateOptions) => generateFile(options, { defname: "webhare", modules: whconstant_builtinmodules })
+      generator: (options: GenerateContext) => generateFile(options, { defname: "webhare", modules: whconstant_builtinmodules })
     }, ...noncoremodules.map(m => ({
       path: `wrd/${m}.ts`,
       module: m,
       type: "wrd",
-      generator: (options: GenerateOptions) => generateFile(options, { defname: m, modules: [m] })
+      generator: (options: GenerateContext) => generateFile(options, { defname: m, modules: [m] })
     }))
   ];
 }

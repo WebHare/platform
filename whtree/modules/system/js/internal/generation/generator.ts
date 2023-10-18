@@ -5,12 +5,17 @@ import { listAllModuleTableDefs } from "@mod-system/js/internal/generation/gen_w
 import { listAllModuleWRDDefs } from "@mod-system/js/internal/generation/gen_wrd";
 import { listAllModuleOpenAPIDefs } from "@mod-system/js/internal/generation/gen_openapi";
 import { updateConfig } from "../configuration";
-import { backendConfig } from "@webhare/services";
-import { FileToUpdate } from "./shared";
+import { backendConfig, toFSPath } from "@webhare/services";
+import { FileToUpdate, GenerateContext, LoadedModuleDefs } from "./shared";
 import { mkdir, readFile } from "fs/promises";
 import { dirname, join } from "node:path";
 import { deleteRecursive, storeDiskFile } from "@webhare/system-tools/src/fs";
 import { whconstant_builtinmodules } from "../webhareconstants";
+import { DOMParser } from '@xmldom/xmldom';
+import { ModuleDefinitionYML } from "@webhare/services/src/moduledeftypes";
+import YAML from "yaml";
+import { ModuleData } from "@webhare/services/src/config";
+import { RecursiveReadOnly } from "@webhare/js-api-tools/src/utility-types";
 
 function getPaths() {
   const installedBaseDir = backendConfig.dataroot + "storage/system/generated/";
@@ -32,6 +37,39 @@ export async function listAllGeneratedFiles(): Promise<FileToUpdate[]> {
   return files;
 }
 
+async function loadModuleDefs(name: string, mod: RecursiveReadOnly<ModuleData>): Promise<LoadedModuleDefs> {
+  const resourceBase = `mod::${name}/`;
+  let modXml: Document | null = null;
+  try {
+    const moddef = resourceBase + "moduledefinition.xml";
+    const text = await readFile(toFSPath(moddef), 'utf8');
+    modXml = new DOMParser().parseFromString(text, "text/xml");
+  } catch (ignore) {
+  }
+
+  let modYml: ModuleDefinitionYML | null = null;
+  try {
+    //TODO validate what we read, but we need a schema infrastructure. see also https://gitlab.webhare.com/webharebv/codekloppers/-/issues/890
+    modYml = YAML.parse(await readFile(toFSPath(resourceBase + "moduledefinition.yml"), 'utf8'), { strict: true, version: "1.2" }) as ModuleDefinitionYML;
+  } catch (ignore) {
+  }
+
+  return { name, resourceBase, modXml, modYml };
+}
+
+export async function buildGeneratorContext(modules: string[] | null, verbose: boolean): Promise<GenerateContext> {
+  const moduledefs = await Promise.all(
+    Object.entries(backendConfig.module)
+      .filter(([key]) => modules === null || modules.includes(key))
+      .map(([key, value]) => loadModuleDefs(key, value))
+  );
+
+  return {
+    moduledefs,
+    verbose
+  };
+}
+
 export async function updateGeneratedFiles(targets: string[], options: { dryRun?: boolean; verbose?: boolean; nodb?: boolean } = {}) {
   if (targets.includes('all') || targets.includes('config')) {
     if (options?.verbose)
@@ -45,13 +83,18 @@ export async function updateGeneratedFiles(targets: string[], options: { dryRun?
   // Reload any configuration updated above (TODO shouldn't updateWebHareConfig have triggered a callback to do this ?)
   updateConfig();
 
-  // FIXME listAllGeneratedFiles will list *all* files but the generator can still decide *not* to generate the accompanying file. This needs to be fixed in listAllGeneratedFiles so 'dev' can trust it!
+  if (targets.filter(_ => _ !== 'config').length === 0) //only config was requested
+    return;
+
+  const context = await buildGeneratorContext(null, options?.verbose || false);
+
+  // FIXME listAllGeneratedFiles will list *all* files but the generator can still decide *not* to generate the accompanying file. This needs to be fixed in listAllGeneratedFiles so 'dev' can trust it! (OTOH, listAll wants to be fast but currently we'd need a lot of XML parsing for elimination..)
   const files = await listAllGeneratedFiles();
   const togenerate = targets.includes('all') ? files : files.filter(file => targets.includes(file.type));
 
   //Start generating files
   const { installedBaseDir, builtinBaseDir } = getPaths();
-  const generated = togenerate.map(file => file.generator(options));
+  const generated = togenerate.map(file => file.generator(context));
   const keepfiles = new Set<string>([join(installedBaseDir, "config/config.json"), ...files.map(file => file.path)]);
 
   //Process them

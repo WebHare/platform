@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import { whconstant_builtinmodules } from "../webhareconstants";
-import { FileToUpdate, GenerateOptions } from "./shared";
+import { FileToUpdate, GenerateContext } from "./shared";
 import * as services from "@webhare/services";
 import type { Readable } from "node:stream";
 import SwaggerParser from "@apidevtools/swagger-parser";
@@ -354,7 +354,7 @@ function getOpenAPIServicesOfModule(module: string) {
   return retval;
 }
 
-async function generateFile(options: GenerateOptions, service: OpenAPIService) {
+async function generateFile(options: GenerateContext, service: OpenAPIService) {
   const importname = whconstant_builtinmodules.includes(service.module)
     ? `modules/system/js/internal/generated/openapi/${service.module}/${service.name}`
     : `wh:openapi/${service.module}/${service.name}`;
@@ -378,7 +378,7 @@ function getFilesForModules(module: string, processmodules: string[]): FileToUpd
         type: "openapi",
         path: "openapi/" + processmodule + "/" + item.name + ".ts",
         module,
-        generator: (options) => generateFile(options, item)
+        generator: (context: GenerateContext) => generateFile(context, item)
       });
 
   return retval;

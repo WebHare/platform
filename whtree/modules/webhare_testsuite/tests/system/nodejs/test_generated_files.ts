@@ -3,9 +3,11 @@ import * as fs from "fs";
 import { backendConfig } from "@webhare/services";
 import { generateKyselyDefs } from "@mod-system/js/internal/generation/gen_whdb";
 import { deleteTestModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
+import { buildGeneratorContext } from "@mod-system/js/internal/generation/generator";
 
 async function testBasics() {
-  const result = generateKyselyDefs("platform");
+  const context = await buildGeneratorContext(["system"], false);
+  const result = generateKyselyDefs(context, "platform");
   test.eq(/fullpath: IsGenerated<string>/, result, "fullpath & co must be marked as IsGenerated as you can't insert them");
 }
 
