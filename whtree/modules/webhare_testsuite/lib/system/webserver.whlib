@@ -1,0 +1,66 @@
+<?wh
+
+LOADLIB "wh::internet/urls.whlib";
+LOADLIB "wh::internet/webbrowser.whlib";
+
+LOADLIB "mod::system/lib/remoting/client.whlib";
+LOADLIB "mod::system/lib/testframework.whlib";
+
+OBJECT browser;
+
+RECORD FUNCTION AuthHandler(STRING realm, STRING url)
+{
+  RETURN
+      [ username := testfw->GetUserLogin("sysop")
+      , password := testfw->GetUserPassword("sysop")
+      ];
+}
+
+MACRO InitBrowser()
+{
+  IF (NOT ObjectExists(browser))
+  {
+    browser := NEW WebBrowser;
+    browser->onauth := PTR AuthHandler;
+  }
+}
+
+
+PUBLIC RECORD FUNCTION DoBlobRequest(RECORD params, BLOB data)
+{
+  InitBrowser();
+
+  RECORD port := testfw->GetLocalhostWebinterface();
+  STRING url := ResolveToAbsoluteURL(port.baseurl, "/.system/filetransfer/filetransfer.shtml");
+
+  FOREVERY (RECORD rec FROM UnpackRecord(params))
+    url := AddVariableToUrl(url, ToLowercase(rec.name), rec.value||"");
+
+  IF (NOT browser->PostWebPageBlob(url, DEFAULT RECORD ARRAY, data))
+    RETURN DEFAULT RECORD;
+
+  RETURN DecodeJSONBlob(browser->content);
+}
+
+PUBLIC RECORD ARRAY FUNCTION GetUploadedFiles(STRING ARRAY filetokens)
+{
+  InitBrowser();
+
+  RECORD port := testfw->GetLocalhostWebinterface();
+  STRING url := ResolveToAbsoluteURL(port.baseurl, "/wh_services/webhare_testsuite/test/");
+
+  // Use to crash with 'requires authentication'.
+  RETURN InvokeRemoteFunctionWithBrowser(browser, url|| "getwebserveruploadedfiles", filetokens);
+}
+
+PUBLIC RECORD FUNCTION ManipWebserverSession(STRING action, STRING sessionid, STRING passwd, RECORD data DEFAULTSTO DEFAULT RECORD)
+{
+  InitBrowser();
+
+  RECORD port := testfw->GetLocalhostWebinterface();
+  STRING url := ResolveToAbsoluteURL(port.baseurl, "/wh_services/webhare_testsuite/test/");
+
+  // Use to crash with 'requires authentication'.
+  RETURN InvokeRemoteFunctionWithBrowser(browser, url|| "ManipWebserverSession", action, sessionid, passwd, data);
+}
+
