@@ -32,6 +32,7 @@ LOADLIB "mod::system/lib/webserver/whdebug.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 LOADLIB "mod::tollium/lib/todd/internal/actions.whlib";
+LOADLIB "mod::tollium/lib/internal/appmgmt.whlib";
 LOADLIB "mod::tollium/lib/internal/controllerbase.whlib";
 LOADLIB "mod::tollium/lib/internal/support.whlib";
 LOADLIB "mod::tollium/lib/internal/gettid.whlib";
@@ -924,32 +925,7 @@ PUBLIC STATIC OBJECTTYPE TolliumInterfacePage EXTEND WebPageBase
                          , lang := GetTidLanguage()
                          ];
 
-    RECORD firstmessage := HookableStartTolliumApp(app, invoke);
-    IF(RecordExists(firstmessage))
-      RETURN firstmessage;
-
-    STRING engine := app.engine ?? (IsDebugTagEnabled("tollium:usewasm") ? "wasm" : "native");
-    STRING appstarterport := engine = "native" ? "tollium:appstarter" : "tollium:wasm-appstarter";
-
-    OBJECT link := ConnectToManagedPort(appstarterport, "webserver");
-    IF (NOT ObjectExists(link))
-      THROW NEW Exception(`No application starter present (unable to connect to ${appstarterport})`);
-
-    //Request the appstarter to create an app hosting the final application
-    link->autothrow := TRUE;
-
-    RECORD rec := link->DoRequest([ task := "startapp"
-                                  , invoke := invoke
-                                  ]);
-    IF (rec.status != "ok")
-    {
-      THROW NEW Exception("Application starter failed");
-    }
-
-    IF(IsDebugTagEnabled("tollium:logtransport"))
-      LogDebug("todd-comm" , "Prepping initial response", anytostring(rec.msg,'tree'));
-
-    RETURN rec.msg;
+    RETURN BootApp(app, invoke);
   }
 
   PUBLIC RECORD FUNCTION WCS_CompleteLogin(STRING data)

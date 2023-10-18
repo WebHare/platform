@@ -4,5 +4,5 @@ managedServices:
     run: always
   tollium-wasm-runner:
     script: mod::tollium/scripts/internal/applicationstarter.whscr
-    run: always
+    run: on-demand
     engine: wasm

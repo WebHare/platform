@@ -330,6 +330,7 @@ class ServiceManagerClient {
       availableServices: [...expectedServices.entries()].map(([name, service]) => ({
         name,
         isRunning: processes.get(name)?.running ?? false,
+        run: service.run
       }))
     };
   }
