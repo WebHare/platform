@@ -23,7 +23,7 @@ MACRO Syntax(STRING errormsg DEFAULTSTO "")
 {
   IF (errormsg != "")
     PRINT(errormsg || "\n");
-  Print("Syntax: wh assetpacks [--quiet] <instruction>\n");
+  Print("Syntax: wh assetpack [--quiet] <instruction>\n");
   Print("  --quiet                Don't report anything that's not an error\n");
   Print("  list                   List all asset packs\n");
   Print("  check [assetpack]      Check if assetpacks are okay. List any errors. Omit or use '*' to check all\n");

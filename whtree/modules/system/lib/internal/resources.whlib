@@ -46,7 +46,7 @@ RECORD FUNCTION GetCacheableComponentSourceList()
     IF(NOT RecordExists(res))
       CONTINUE;
 
-    eventmasks := eventmasks CONCAT GetResourceEventMasks([resname]); //TODO we can just wait for system:moduleupdate instead of all individual oodueldefs ?
+    eventmasks := eventmasks CONCAT GetResourceEventMasks([resname]); //TODO we can just wait for system:modulesupdate instead of all individual moduledefs ?
 
     OBJECT xmldoc := MakeXMLDocument(res.data);
     sources := sources CONCAT GetSchemaDefs(mod, resname, xmldoc, "tolliumcomponents", "tollium", "components")

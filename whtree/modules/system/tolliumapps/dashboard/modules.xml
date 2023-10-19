@@ -38,7 +38,7 @@
                      onevents="GotGitEvent" />
       <eventlistener name="moduleeventlistener"
                      groupinterval="1000"
-                     masks="system:softreset system:moduleupdate"
+                     masks="system:softreset system:modulesupdate"
                      onevents="GotModuleEvent" />
     </compositions>
 

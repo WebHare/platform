@@ -79,6 +79,10 @@ async function testCalls() {
   //and if another throw works
   await test.throws(/We're throwing it/, vm.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").ThrowIt());
   test.eq([17, 42, 999], await vm.loadlib("wh::util/algorithms.whlib").GetSortedSet([42, 17, 999]));
+
+  //verify promises
+  test.eq(15, await vm.loadlib("wh::promise.whlib").createSleepPromise(15));
+  await test.throws(/We're async throwing it/, vm.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").ThrowItAsync());
 }
 
 async function testMutex() { //test the shutdown behavior of WASM HSVM mutexes

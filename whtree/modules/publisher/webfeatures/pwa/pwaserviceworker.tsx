@@ -1,7 +1,7 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-// when developing, to explicitly recompile our package: wh assetpacks recompile publisher:pwaserviceworker
+// when developing, to explicitly recompile our package: wh assetpack recompile publisher:pwaserviceworker
 import * as pwadb from '@mod-publisher/js/pwa/internal/pwadb';
 import { generateRandomId } from "@webhare/std";
 const serviceworkerurl = new URL(location.href);

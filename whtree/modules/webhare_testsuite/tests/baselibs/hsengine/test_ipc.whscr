@@ -60,7 +60,11 @@ RECORD FUNCTION CreateLinkPair()
       ];
 }
 
-
+MACRO BadPorttest()
+{
+  TestEq(DEFAULT OBJECT, ConnectToIPCPort("webhare_testsuite:nosuchport"));
+  TestEq(DEFAULT OBJECT, ConnectToGlobalIPCPort("webhare_testsuite:nosuchport"));
+}
 
 MACRO ThrowTest()
 {
@@ -528,6 +532,7 @@ MACRO TestEventCollector()
   __HS_EVENT_CLOSECOLLECTOR(collector);
 }
 
+BadPortTest();
 ThrowTest();
 PorthandlerTest();
 FlatPorthandlerTest();

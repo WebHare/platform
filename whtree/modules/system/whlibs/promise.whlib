@@ -433,6 +433,8 @@ PUBLIC STATIC OBJECTTYPE PromiseBase
   /// Promise ID (for logging purposes)
   INTEGER64 promise_id;
 
+  STRING "^$WASMTYPE";
+
   // ---------------------------------------------------------------------------
   //
   // Public properties
@@ -459,6 +461,8 @@ PUBLIC STATIC OBJECTTYPE PromiseBase
   */
   MACRO NEW(FUNCTION PTR func)
   {
+    this->"^$WASMTYPE" := "Promise";
+
     promise_counter := promise_counter + 1;
     this->promise_id := promise_counter;
 

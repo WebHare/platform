@@ -550,7 +550,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     }
   });
 
-  wasmmodule.registerExternalFunction("__HS_SENDIPCMESSAGE::R:IV6", (vm, id_set, var_linkid, var_data, var_replyto) => {
+  wasmmodule.registerAsyncExternalFunction("__HS_SENDIPCMESSAGE::R:IV6", async (vm, id_set, var_linkid, var_data, var_replyto) => {
     const link = ipcContext(vm).links.get(var_linkid.getInteger());
     if (!link)
       throw new Error(`No such link with id ${var_linkid.getInteger()}`);
@@ -576,12 +576,11 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
 
           link.setLink(bridge.connect(data.port, { global: true }));
           // TypeScript doesn't known that setLink updated the link property
-          // Not waiting for activation by the other side, HareScript didn't do that either.
-          link.activate();
+          const connected = await link.activate();
           const res = {
             msgid,
             replyto,
-            message: { status: "ok" }
+            message: { status: connected ? "ok" : "nosuchport" }
           };
           link.injectMessage(res);
           id_set.setJSValue({ msgid: replyto, status: "ok" });

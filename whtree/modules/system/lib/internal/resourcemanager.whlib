@@ -7,6 +7,7 @@ LOADLIB "wh::util/semver.whlib";
 LOADLIB "mod::tollium/lib/dragdrop.whlib";
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/configure.whlib";
+LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver/management.whlib";
 LOADLIB "mod::system/lib/internal/modules/defreader.whlib" EXPORT GetWebhareModules, GetWebhareModuleInfo;
@@ -62,7 +63,7 @@ PUBLIC RECORD FUNCTION RefreshGlobalWebserverConfig(RECORD options DEFAULTSTO DE
     IF (res.status != "ok" OR res.msg.status != "ok")
     {
       LogDebug("system:refreshglobalwebserverconfig-error", CELL[ options.nowait, error := res ]);
-      THROW NEW Exception("Reloading webserver configuration failed" || AnyToString(res, "tree"));
+      THROW NEW Exception("Reloading webserver configuration failed");
     }
     reloadstatus := res.msg.reloadstatus;
     LogDebug("system:refreshglobalwebserverconfig-done", CELL[ options.nowait, reloadstatus, time := GetDatetimeDifference(now, GetCurrentDatetime()).totalmsecs ]);
@@ -78,7 +79,19 @@ PUBLIC MACRO ReloadWebhareConfig2(STRING toreload, RECORD options DEFAULTSTO DEF
 
   STRING ARRAY parts := toreload = "" ? DEFAULT STRING ARRAY : Tokenize(toreload, ' ');
   IF("AUTHDATA" IN parts OR "ALL" IN parts)
-    RefreshGlobalWebserverConfig([ nowait := options.nowait ]);
+  {
+    TRY
+    {
+      RefreshGlobalWebserverConfig([ nowait := options.nowait ]);
+    }
+    CATCH(OBJECT e)
+    {
+      LogHarescriptException(e);
+      /* Not sending the softreset isn't an option, and the "gone" is often triggered by modules disappearing triggering
+         a RetrieveResourceException. We then need to rely on the config handler restarting and reloading config
+         anyway. So we'll log and ignore */
+    }
+  }
   BroadcastEvent("system:softreset", [ toreload := parts, isdelete := options.isdelete ]);
 }
 
