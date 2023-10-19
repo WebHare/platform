@@ -52,6 +52,7 @@ PUBLIC OBJECTTYPE ClusteredServiceBase EXTEND EventEmitter
   {
     this->__servicename := servicename;
     this->__link := link;
+    link->autothrow := FALSE;
     ReconstructInvokables(this, description, PTR this->__AsyncRemotingFunc);
     this->__listener := RegisterHandleReadCallback(link->handle, PTR this->__IncomingResult);
   }
@@ -356,6 +357,7 @@ OBJECTTYPE SyncClusteredServiceBase EXTEND EventEmitter
   {
     this->__servicename := servicename;
     this->__link := link;
+    link->autothrow := FALSE;
     ReconstructInvokables(this, description, PTR this->__RemotingFunc);
   }
 

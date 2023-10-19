@@ -25,13 +25,14 @@ PUBLIC OBJECT FUNCTION SetupTestWebsite(STRING webdesigntemplate, RECORD options
       , webfeatures :=  DEFAULT STRING ARRAY
       , waitwebserver := FALSE
       , timestampfolder := FALSE
+      , modulename :=   testfw_testmodule
       //, aftercompiletask := ""
       ], options,
       [ optional := [ "SITENAME" ]
       ]);
 
-  IF(NOT IsModuleInstalled(testfw_testmodule) AND (webdesigntemplate LIKE testfw_testmodule || ":*" OR options.istemplate))
-    testfw->SetupTestModule(CELL[ options.timestampfolder ]);
+  IF(NOT IsModuleInstalled(options.modulename) AND (webdesigntemplate LIKE options.modulename || ":*" OR options.istemplate))
+    testfw->SetupTestModule(CELL[ options.modulename, options.timestampfolder ]);
 
   testfw->BeginWork();
 
@@ -50,11 +51,11 @@ PUBLIC OBJECT FUNCTION SetupTestWebsite(STRING webdesigntemplate, RECORD options
 
   IF(options.istemplate)
   {
-    SetupWebDesign(webdesigntemplate, testfw_testmodule, "TestDesign", [ aftercompiletask := "webhare_testsuite:aftercompile"] );
+    SetupWebDesign(webdesigntemplate, options.modulename, "TestDesign", [ aftercompiletask := "webhare_testsuite:aftercompile"] );
     RecompileSiteProfiles(); //makes sure the XML/siteprl changes are picked up synchronously
   }
 
-  RECORD meta := [ sitedesign := options.istemplate ? `${testfw_testmodule}:testdesign` : webdesigntemplate
+  RECORD meta := [ sitedesign := options.istemplate ? `${options.modulename}:testdesign` : webdesigntemplate
                  , webfeatures := options.webfeatures
                  ];
 

@@ -23,7 +23,7 @@ LOADLIB "mod::consilio/lib/api.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/database.whlib";
-LOADLIB "mod::system/lib/logging.whlib";
+LOADLIB "mod::system/lib/logging.whlib" EXPORT WriteLogMarker;
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/services.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
@@ -839,14 +839,20 @@ STATIC OBJECTTYPE TestFramework
 
   PUBLIC MACRO DeleteTestModule()
   {
-    IF(IsModuleInstalled(testfw_testmodule) AND NOT DeleteModule(testfw_testmodule))
-      THROW NEW Exception(`Deletion of module '${testfw_testmodule}' failed!`);
+    FOREVERY(STRING module FROM GetInstalledModuleNames())
+      IF(IsTestModuleName(module) AND NOT DeleteModule(module))
+          THROW NEW Exception(`Deletion of module '${module}' failed!`);
 
-    IF(this->usedatabase AND GetPrimary()->SchemaExists(testfw_testmodule))
+    IF(this->usedatabase)
     {
-      GetPrimary()->BeginWork();
-      GetPrimary()->DropSchema(testfw_testmodule, [ cascade := TRUE ]);
-      GetPrimary()->CommitWork();
+      RECORD ARRAY dropschemas := SELECT * FROM GetPrimary()->GetSchemaListing() WHERE IsTestModuleName(schema_name);
+      IF(Length(dropschemas) > 0)
+      {
+        GetPrimary()->BeginWork();
+        FOREVERY(RECORD schemarec FROM dropschemas)
+          GetPrimary()->DropSchema(schemarec.schema_name, [ cascade := TRUE ]);
+        GetPrimary()->CommitWork();
+      }
     }
   }
 
@@ -1797,12 +1803,15 @@ STATIC OBJECTTYPE TestFramework
     IF(NOT this->usedatabase)
       THROW NEW Exception("Setting up modules requires a database connection");
 
-    RECORD result := SetupModule(testfw_testmodule, testfw_testmodule,
+    STRING modname := CellExists(options, 'modulename') ? options.modulename : testfw_testmodule;
+
+    RECORD result := SetupModule(testfw_testmodule, modname,
                                  CELL[ description := "Test module"
                                      , defaultlanguage := "en"
                                      , ...options
+                                     , DELETE modulename
                                      ]);
-    TestEq(testfw_testmodule, result.modulename);
+    TestEq(modname, result.modulename);
   }
 
   /** Returns TRUE if a test has failed
@@ -2291,4 +2300,13 @@ PUBLIC RECORD ARRAY FUNCTION TestInvoke_ExtractAllMailFor(STRING emailaddress, R
   OBJECT trans := OpenPrimary();
   options := EnforceStructure([ scanaheaduntil := DEFAULT DATETIME ], options);
   RETURN ExtractAllMailFor(emailaddress,options);
+}
+
+PUBLIC BOOLEAN FUNCTION IsTestModuleName(STRING module)
+{
+  RETURN module = testfw_testmodule OR module LIKE testfw_testmodule || "_*";
+}
+PUBLIC STRING FUNCTION GetRandomTestModuleName()
+{
+  RETURN testfw_testmodule || "_" || Random(10000,70000) || "_" || Random(10000,70000);
 }
