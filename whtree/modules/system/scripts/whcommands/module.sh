@@ -76,7 +76,7 @@ done
 for MOD in $NEWMODULES ; do
   if is_webhare_running ; then
     echo "Activating module '$MOD'"
-    wh apply "mod::$MOD/moduledefinition.xml"
+    wh applyfile "mod::$MOD/moduledefinition.xml" # TODO switch to a proper `wh apply`. should it really care which module was activated or just activate them all ?
   fi
   echo "Fixing module '$MOD'"
   $WEBHARE_DIR/bin/wh fixmodules "$MOD"

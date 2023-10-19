@@ -1,6 +1,5 @@
 <?wh
-// syntax: <file>
-// short: apply configuration from file
+// TODO deprecate us with a keyword based 'wh apply'
 
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::os.whlib";
