@@ -23,6 +23,16 @@ async function testWebHareConfig() {
   test.eqProps({
     clientFactory: "mod::system/js/internal/fetchpool/fetchpool.ts#getFetcher"
   }, fetchpoolservice);
+
+  const testservice = services.openAPIServices.find(_ => _.name === "webhare_testsuite:testservice");
+  test.eqProps({
+    spec: "mod::webhare_testsuite/tests/wh/webserver/remoting/openapi/testservice.yaml"
+  }, testservice);
+
+  const testclient = services.openAPIClients.find(_ => _.name === "webhare_testsuite:testclient");
+  test.eqProps({
+    spec: "mod::webhare_testsuite/tests/wh/webserver/remoting/openapi/testservice.yaml"
+  }, testclient);
 }
 
 async function testBasics() {

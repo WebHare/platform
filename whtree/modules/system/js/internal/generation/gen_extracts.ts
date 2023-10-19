@@ -26,8 +26,15 @@ export interface BackendServiceDescriptor {
   controllerFactory: string;
 }
 
+export interface OpenAPIDescriptor {
+  name: string;
+  spec: string;
+}
+
 export interface Services {
   backendServices: BackendServiceDescriptor[];
+  openAPIServices: OpenAPIDescriptor[];
+  openAPIClients: OpenAPIDescriptor[]; //no difference in types (yet)
 }
 
 function getXMLAssetPacks(mod: string, resourceBase: string, modXml: Document): AssetPack[] {
@@ -142,7 +149,9 @@ export function generateAssetPacks(context: GenerateContext): string {
 
 export function generateServices(context: GenerateContext): string {
   const retval: Services = {
-    backendServices: []
+    backendServices: [],
+    openAPIServices: [],
+    openAPIClients: []
   };
 
   for (const mod of context.moduledefs) {
@@ -158,6 +167,26 @@ export function generateServices(context: GenerateContext): string {
         name: `${mod.name}:${getAttr(backendservice, "name")}`,
         clientFactory: resolveResource(mod.resourceBase, getAttr(backendservice, "clientfactory")),
         controllerFactory: resolveResource(mod.resourceBase, getAttr(backendservice, "controllerfactory"))
+      });
+    }
+
+    for (const openapiservice of elements(services.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "openapiservice"))) {
+      if (!isNodeApplicableToThisWebHare(openapiservice, ""))
+        continue;
+
+      retval.openAPIServices.push({
+        name: `${mod.name}:${getAttr(openapiservice, "name")}`,
+        spec: resolveResource(mod.resourceBase, getAttr(openapiservice, "spec")),
+      });
+    }
+
+    for (const openapiclient of elements(services.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "openapiclient"))) {
+      if (!isNodeApplicableToThisWebHare(openapiclient, ""))
+        continue;
+
+      retval.openAPIClients.push({
+        name: `${mod.name}:${getAttr(openapiclient, "name")}`,
+        spec: resolveResource(mod.resourceBase, getAttr(openapiclient, "spec")),
       });
     }
   }
