@@ -198,12 +198,10 @@ class ProcessManager {
       clearTimeout(this.killTimeout);
 
     this.running = false;
-    if (!this.toldToStop || debugFlags.startup) {
-      if (signal)
-        this.log(`Exited with signal ${signal}`, { exitSignal: signal });
-      else if (exitCode || this.service.run != "once") //no need to mention a normal shutdown for a singleshot service
-        this.log(`Exited with code ${exitCode} `, { exitCode: exitCode });
-    }
+    if (signal)
+      this.log(`Exited with signal ${signal}`, { exitSignal: signal });
+    else if (exitCode || verbose || (this.service.run === "always" && !this.toldToStop)) //report on error, if it's an always-running service, or if debugging
+      this.log(`Exited with error code ${exitCode} `, { exitCode: exitCode });
 
     const exitreason = signal ?? exitCode ?? "unknown";
     if (!this.toldToStop && this.service.ciriticalForStartup && currentstage < Stage.Active) {
