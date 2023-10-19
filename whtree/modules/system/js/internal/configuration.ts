@@ -3,6 +3,8 @@ import { registerUpdateConfigCallback, updateWebHareConfigWithoutDB } from "./ge
 import { freezeRecursive } from "./util/algorithms";
 import { WebHareBackendConfiguration, ConfigFile, WebHareConfigFile } from "@webhare/services/src/config";
 import { RecursiveReadOnly } from "@webhare/js-api-tools";
+import { AssetPack } from "./generation/gen_extracts";
+import { toFSPath } from "@webhare/services/src/resources";
 
 export type { WebHareBackendConfiguration, WebHareConfigFile };
 
@@ -54,4 +56,24 @@ export function getRescueOrigin() {
 
 export function getCompileServerOrigin() {
   return `http://127.0.0.1:${getFullConfigFile().baseport + 1}`;
+}
+
+export function getVersionInteger(): number {
+  const versioninfo = backendConfig.buildinfo.version.match(/^(\d+)\.(\d+)\.(\d+)/);
+  if (versioninfo) {
+    const major = parseInt(versioninfo[1]);
+    const minor = parseInt(versioninfo[2]);
+    const patch = parseInt(versioninfo[3]);
+    if (major >= 5 && minor < 100 && patch < 100)
+      return major * 10000 + minor * 100 + patch;
+  }
+  throw new Error(`Version '${backendConfig.buildinfo.version}' is not convertible to a legacy version integer`);
+}
+
+export function isRestoredWebHare(): boolean {
+  return Boolean(process.env["WEBHARE_ISRESTORED"]);
+}
+
+export function getExtractedConfig(which: "assetpacks"): AssetPack[] {
+  return JSON.parse(fs.readFileSync(toFSPath("storage::system/generated/extract/" + which + ".json"), 'utf8'));
 }

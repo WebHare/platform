@@ -1,16 +1,7 @@
-import fs from "node:fs";
-import { DOMParser } from '@xmldom/xmldom';
 import { whconstant_builtinmodules } from "../webhareconstants";
-import { FileToUpdate } from "./shared";
+import { FileToUpdate, GenerateContext } from "./shared";
 import { encodeString } from "@webhare/std";
-import { backendConfig } from "@webhare/services";
-
-function elements<T extends Element>(collection: HTMLCollectionOf<T>): T[] {
-  const items: T[] = [];
-  for (let i = 0; i < collection.length; ++i)
-    items.push(collection[i]);
-  return items;
-}
+import { elements } from "./xmlhelpers";
 
 function generateTableTypeName(str: string) {
   if (str.startsWith("wrd"))
@@ -97,18 +88,13 @@ export interface WHDBDefs {
   }>;
 }
 
-export function parseWHDBDefs(modulename: string): WHDBDefs {
+export function parseWHDBDefs(context: GenerateContext, modulename: string): WHDBDefs {
   const schemas = [];
   const mods = modulename === "platform" ? whconstant_builtinmodules : [modulename];
   for (const module of mods.sort()) {
-    const moduleroot = backendConfig.module[module]?.root;
-    if (!moduleroot)
+    const doc = context.moduledefs.find(m => m.name === module)?.modXml;
+    if (!doc)
       continue;
-    const buffer = fs.readFileSync(moduleroot + "moduledefinition.xml");
-    if (!buffer)
-      continue;
-
-    const doc = new DOMParser().parseFromString(buffer.toString("utf-8"), 'text/xml');
 
     for (const dbschema of elements(doc.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "databaseschema"))) {
       const schemainfo: WHDBDefs["schemas"][0] = {
@@ -231,8 +217,8 @@ export function parseWHDBDefs(modulename: string): WHDBDefs {
   };
 }
 
-export function generateKyselyDefs(modulename: string): string {
-  const whdbdefs = parseWHDBDefs(modulename);
+export function generateKyselyDefs(context: GenerateContext, modulename: string): string {
+  const whdbdefs = parseWHDBDefs(context, modulename);
   if (!whdbdefs.schemas.length)
     return '';
 
@@ -278,6 +264,6 @@ export async function listAllModuleTableDefs(mods: string[]): Promise<FileToUpda
     path: `whdb/${module}.ts`,
     module,
     type: "whdb",
-    generator: () => generateKyselyDefs(module)
+    generator: (context: GenerateContext) => generateKyselyDefs(context, module)
   }));
 }

@@ -62,7 +62,7 @@ export function generateNoDBConfig(): NoDBConfig {
         const key = line.substring(0, eqpos).trim() as keyof typeof buildinfo;
         let value = line.substring(eqpos + 1).trim();
         if (buildinfo_keys.includes(key)) {
-          if (value.startsWith("="))
+          if (value.startsWith('"'))
             value = JSON.parse(value);
           buildinfo[key] = value;
         }

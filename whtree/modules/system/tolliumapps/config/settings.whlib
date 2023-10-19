@@ -168,6 +168,7 @@ PUBLIC STATIC OBJECTTYPE Settings EXTEND TolliumScreenBase
     IF(NOT work->Finish())
       RETURN FALSE;
 
+    //TODO we should be sharing with SetSystemServerType
     BroadcastEvent("system:internal.configdata", DEFAULT RECORD);
     BroadcastEvent("system:config.servertype", DEFAULT RECORD);
     UpdateSystemConfigurationRecord();

@@ -1,4 +1,4 @@
-//Data as imported from moduledefs
+/** This file describes data as directly imported from moduledefs (not how we store/present it) */
 
 export interface ManagedService {
   ///Script to run

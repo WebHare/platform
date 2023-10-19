@@ -5,6 +5,8 @@ import { ServiceDefinition, Stage } from './smtypes';
 const earlywebserver = process.env.WEBHARE_WEBSERVER == "node";
 
 const defaultServices: Record<string, ServiceDefinition> = {
+  /* Bootup stage. Here we bring up all passive services that WebHare scripts will need
+  */
   "platform:whmanager": {
     cmd: ["whmanager"],
     startIn: Stage.Bootup,
@@ -26,16 +28,21 @@ const defaultServices: Record<string, ServiceDefinition> = {
     startIn: Stage.Bootup,
     ciriticalForStartup: true
   },
+  /** The startup stage is executed as soon as the HareScript compiler is responsive
+   *
+   * webhareservice-startup.ts will run the legacy webhareservice-startup.whscr as soon as basic configuration is in place
+   */
   "platform:webserver": {
     cmd: ["webserver.sh"],
     //The node webserver doesn't need to wait for the compileserver so launch it right away
     startIn: earlywebserver ? Stage.Bootup : Stage.StartupScript,
   },
   "platform:webhareservice-startup": {
-    cmd: ["runscript", "--workerthreads", "4", "mod::system/scripts/internal/webhareservice-startup.whscr"],
+    cmd: ["wh", "run", "mod::system/scripts/internal/webhareservice-startup.ts"],
     startIn: Stage.StartupScript,
     waitForCompletion: true
   },
+  /// Cluster services enable mutexes (and also set up some after-commit handlers). The startup scripts should not attempt to use cluster services (nothing runs parallelo them anyway)
   "platform:clusterservices": {
     cmd: ["runscript", "--workerthreads", "4", "mod::system/scripts/internal/clusterservices.whscr"],
     startIn: Stage.StartupScript,
