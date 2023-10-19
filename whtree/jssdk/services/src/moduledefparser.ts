@@ -5,12 +5,6 @@ import { splitModuleScopedName } from "./naming";
 import YAML from "yaml";
 import { ModuleDefinitionYML } from "./moduledeftypes";
 
-export interface BackendServiceDescriptor {
-  fullname: string;
-  clientfactory: string;
-  controllerfactory: string;
-}
-
 export async function getAllModuleYAMLs(): Promise<ModuleDefinitionYML[]> { //not promising to stay sync
   const defs = [];
   for (const module of Object.keys(backendConfig.module)) {
@@ -23,28 +17,6 @@ export async function getAllModuleYAMLs(): Promise<ModuleDefinitionYML[]> { //no
     }
   }
   return defs;
-}
-
-export function gatherBackendServices() {
-  const backendservices: BackendServiceDescriptor[] = [];
-  const parser = new XMLParser({
-    ignoreAttributes: false,
-    attributeNamePrefix: "@",
-    isArray: (name, jpath, isLeafNode, isAttribute) => ["backendservice"].includes(name)
-  });
-
-  for (const module of Object.keys(backendConfig.module)) {
-    const moduledefresource = `mod::${module}/moduledefinition.xml`;
-    const parsedmodule = parser.parse(readFileSync(toFSPath(moduledefresource)));
-    for (const service of parsedmodule.module.services?.backendservice ?? [])
-      backendservices.push({
-        fullname: `${module}:${service["@name"]}`,
-        clientfactory: resolveResource(moduledefresource, service["@clientfactory"]),
-        controllerfactory: resolveResource(moduledefresource, service["@controllerfactory"])
-      });
-  }
-
-  return backendservices;
 }
 
 export function getOpenAPIService(servicename: string) {

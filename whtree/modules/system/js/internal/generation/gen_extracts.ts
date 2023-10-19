@@ -20,6 +20,16 @@ export interface AssetPack {
   extraRequires: string[];
 }
 
+export interface BackendServiceDescriptor {
+  name: string;
+  clientFactory: string;
+  controllerFactory: string;
+}
+
+export interface Services {
+  backendServices: BackendServiceDescriptor[];
+}
+
 function getXMLAssetPacks(mod: string, resourceBase: string, modXml: Document): AssetPack[] {
   const packs: AssetPack[] = [];
 
@@ -32,15 +42,15 @@ function getXMLAssetPacks(mod: string, resourceBase: string, modXml: Document): 
     if (!isNodeApplicableToThisWebHare(webdesign, ""))
       continue;
 
-    const designname = webdesign.getAttribute("name");
-    let designroot = webdesign.getAttribute("path") || `mod::${mod}/webdesigns/${designname}/`;
+    const designname = getAttr(webdesign, "name");
+    let designroot = getAttr(webdesign, "path", `mod::${mod}/webdesigns/${designname}/`);
     if (!designroot.endsWith("/"))
       designroot += "/";
 
     const istemplate = getAttr(webdesign, "istemplate", false);
     if (!istemplate)
       for (const assetpacknode of elements(webdesign.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "assetpack"))) {
-        const assetpackname = `${mod}:${assetpacknode.getAttribute("name") || designname}`;
+        const assetpackname = `${mod}:${getAttr(assetpacknode, "name") || designname}`;
         if (packs.find(_ => _.name === assetpackname)) {
           //TODO error about dupe
           continue;
@@ -130,6 +140,30 @@ export function generateAssetPacks(context: GenerateContext): string {
   return JSON.stringify(assetpacks, null, 2) + "\n";
 }
 
+export function generateServices(context: GenerateContext): string {
+  const retval: Services = {
+    backendServices: []
+  };
+
+  for (const mod of context.moduledefs) {
+    const services = mod.modXml?.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "services")[0];
+    if (!services)
+      continue;
+
+    for (const backendservice of elements(services.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "backendservice"))) {
+      if (!isNodeApplicableToThisWebHare(backendservice, ""))
+        continue;
+
+      retval.backendServices.push({
+        name: `${mod.name}:${getAttr(backendservice, "name")}`,
+        clientFactory: resolveResource(mod.resourceBase, getAttr(backendservice, "clientfactory")),
+        controllerFactory: resolveResource(mod.resourceBase, getAttr(backendservice, "controllerfactory"))
+      });
+    }
+  }
+  return JSON.stringify(retval, null, 2) + "\n";
+}
+
 export async function listAllExtracts(): Promise<FileToUpdate[]> {
   return [
     {
@@ -137,6 +171,12 @@ export async function listAllExtracts(): Promise<FileToUpdate[]> {
       module: "platform",
       type: "extract",
       generator: (context: GenerateContext) => generateAssetPacks(context)
+    },
+    {
+      path: `extract/services.json`,
+      module: "platform",
+      type: "extract",
+      generator: (context: GenerateContext) => generateServices(context)
     }
   ];
 }
