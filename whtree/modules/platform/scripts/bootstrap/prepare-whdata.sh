@@ -64,7 +64,7 @@ done
 ensure_link "${WEBHARE_DIR}/jssdk/" "$WEBHARE_DATAROOT/node_modules/@webhare"
 
 # Update/generate whdata/storage/system/generated/config/config.json - C++ will need it too for the module mapping
-if ! wh update-generated-files --update=config --nodb "${STARTUPOPTIONS[@]}"; then
+if ! wh update-generated-files --only=config --nodb "${STARTUPOPTIONS[@]}"; then
   echo "Failed to update the configuration file, aborting"  1>&2
   exit 1
 fi

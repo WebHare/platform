@@ -5,10 +5,13 @@ import { getAttr } from "./xmlhelpers";
 
 const systemservertypes = ["production", "acceptance", "test", "development"];
 
+export const generatorTypes = ["config", "extract", "whdb", "wrd", "openapi", "extract"] as const;
+export type GeneratorType = typeof generatorTypes[number];
+
 export interface FileToUpdate {
   path: string;
   module: string; //'platform' for builtin modules
-  type: string;
+  type: GeneratorType;
   generator: (options: GenerateContext) => string | Promise<string>;
 }
 
