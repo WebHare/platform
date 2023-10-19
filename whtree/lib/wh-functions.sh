@@ -69,7 +69,7 @@ wh_runjs()
   fi
 
   # --experimental-wasm-stack-switching is not allowed in NODE_OPTIONS
-  $RUNJS_PREFIX node --experimental-wasm-stack-switching $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
+  "${RUNPREFIX[@]}" node --experimental-wasm-stack-switching $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
   RETVAL="$?"
 
   NODE_PATH="$SAVE_NODE_PATH"
@@ -80,7 +80,8 @@ wh_runjs()
 
 exec_wh_runjs()
 {
-  RUNJS_PREFIX=exec wh_runjs "$@"
+  RUNPREFIX=(exec)
+  wh_runjs "$@"
   echo "wh node: the actual node binary was not found" 1>&2
   exit 255
 }
@@ -99,12 +100,6 @@ loadshellconfig()
 
   eval "$SHELLCONFIG"
   LOADEDSHELLCONFIG=1
-}
-
-runscript()
-{
-  getwhparameters
-  $WEBHARE_DIR/bin/runscript "$@"
 }
 
 getwhparameters()
@@ -253,10 +248,50 @@ getlog()
   return 0
 }
 
-exec_runscript()
+is_wasmengine()
+{
+  local TOTEST
+  TOTEST="$1"
+  if [[ $TOTEST =~ .*\<\?wh.*\(\*WASMENGINE\*\) ]]; then
+    return 0
+  fi
+  return 1
+}
+
+wh_runwhscr()
+{
+  local RESOLVEDPATH FIRSTLINE
+
+  getwhparameters
+  resolveresourcepath RESOLVEDPATH "$1"
+
+  # we use a heuristic to detect the (*WASMENGINE*) text. we can make this a bit more robust but why are you fighting us anyway :-)
+  read -r FIRSTLINE < "$RESOLVEDPATH"
+  if is_wasmengine "$FIRSTLINE"; then
+    #wh_runjs will honor any RUNPREFIX
+    wh_runjs "$WEBHARE_DIR/modules/system/scripts/whcommands/runwasm.ts" "$@"
+  else
+    "${RUNPREFIX[@]}" $WEBHARE_DIR/bin/runscript --workerthreads 4 "$@"
+  fi
+}
+
+exec_wh_runwhscr()
+{
+  RUNPREFIX=(exec)
+  wh_runwhscr "$@"
+  exit 255
+}
+
+runscript()
 {
   getwhparameters
-  exec $WEBHARE_DIR/bin/runscript "$@"
+  "${RUNPREFIX[@]}" $WEBHARE_DIR/bin/runscript "$@"
+}
+
+exec_runscript()
+{
+  RUNPREFIX=(exec)
+  runscript "$@"
   exit 255
 }
 
@@ -687,4 +722,4 @@ load_postgres_settings()
   export PSROOT RUNAS PGVERSION PSBIN
 }
 
-export -f die setup_buildsystem getbaseversioninfo wh_runjs exec_wh_runjs
+export -f die setup_buildsystem getbaseversioninfo wh_runjs exec_wh_runjs wh_runwhscr exec_wh_runwhscr

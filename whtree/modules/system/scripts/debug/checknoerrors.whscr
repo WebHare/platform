@@ -1,9 +1,13 @@
-<?wh
+<?wh (*WASMENGINE*)
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "mod::system/lib/logging.whlib";
 LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/resources.whlib";
+
+IF(NOT IsWasm()) //checknoerrors is used during CI, so here's our "test" for now
+  ABORT("We said '(*" || "WASMENGINE" || "*)' so why aren't we running under WASM?");
 
 /* wh run mod::system/scripts/debug/checknoerrors.whscr
 */

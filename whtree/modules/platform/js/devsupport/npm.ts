@@ -16,7 +16,7 @@ function listNodePackageRoots(basepath: string) {
 
 /* ==============
    this is an experiment to speed up the npm ls calls. it's a proof of concept, it's leaky etc.
-   test it by enabling it and invoking: wh runwasm mod::system/scripts/internal/listbrokenmodules.whscr
+   test it by enabling it and invoking: wh run mod::system/scripts/internal/listbrokenmodules.whscr
    */
 async function buildMyNpm() {
   //@ts-ignore experimental, ignore

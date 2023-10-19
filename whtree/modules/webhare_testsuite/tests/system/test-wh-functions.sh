@@ -2,6 +2,26 @@
 # wh runtest system.test-wh-functions
 source "${WEBHARE_DIR}/lib/wh-functions.sh"
 
+expectWasmEngine()
+{
+  local STATUS=false
+
+  echo -n "is_wasmengine(\"$2\"): "
+  is_wasmengine "$2" && STATUS=true
+
+  if [ "$STATUS" != "$1" ]; then
+    echo "${STATUS} (FAIL, expected $1)"
+    [ "$3" != "" ] && echo "$3"
+    exit 1
+  fi
+  echo "${STATUS} (OK)"
+}
+testIsWasmEngine()
+{
+  expectWasmEngine true  "<?wh (*WASMENGINE*)"
+  expectWasmEngine false "<?wh *WASMENGINE*)"
+}
+
 testVersionCheck()
 {
   local TEXT STATUS
@@ -89,6 +109,7 @@ testDockerTagCalculation()
   testEq "4.35.0" "$WEBHARE_VERSION"
 }
 
+testIsWasmEngine
 testVersionChecks
 testDockerTagCalculation
 
