@@ -95,15 +95,6 @@ PUBLIC MACRO PrepareTestModuleWebDesignWebsite(STRING webdesigntemplate, RECORD 
     WaitForPublishCompletion(newsite->id, [ accepterrors := options.witherrors ]);
 }
 
-PUBLIC ASYNC FUNCTION EnsureValidTestModuleWebDesignWebsiteBundle()
-{
-  //make sure the bundle compiled
-  OBJECT service := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
-  RECORD res := AWAIT service->WaitForCompile("webhare_testsuite_temp:testdesign", FALSE);
-  TestEq(FALSE, res.haserrors, "compile should have succeeded");
-  RETURN TRUE;
-}
-
 PUBLIC RECORD FUNCTION ExtractBundleOutputTag(OBJECT doc)
 {
   OBJECT ARRAY scripts := doc->getElements('script[src]');
