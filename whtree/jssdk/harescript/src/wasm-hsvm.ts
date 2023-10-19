@@ -199,6 +199,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
   private onErrors: undefined | ((errors: Buffer) => void);
   __unrefMainTimer: boolean;
   onScriptDone: ((e: Error | null) => void | Promise<void>) | null;
+  contexts = new Map<symbol, { close?: () => void }>;
 
   /// Unique id counter
   syscallPromiseIdCounter = 0;
@@ -298,6 +299,8 @@ export class HareScriptVM implements HSVM_HSVMSource {
 
         for (const mutex of this.mutexes)
           mutex?.release();
+        for (const context of this.contexts.values())
+          context.close?.();
 
         this.wasmmodule._SetEventCallback(0);
         if (this.gotEventCallbackId)

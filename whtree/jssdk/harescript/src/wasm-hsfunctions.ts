@@ -24,20 +24,20 @@ type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unkn
 
 /** Builds a function that returns (or creates when not present yet) a class instance associated with a HareScriptVM */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function contextGetterFactory<T extends new (...args: any) => any>(obj: T): (vm: HareScriptVM) => InstanceType<T> {
-  const map = new WeakMap<HareScriptVM, InstanceType<T>>;
+function contextGetterFactory<T extends new (...args: any) => { close?: () => void }>(name: string, obj: T): (vm: HareScriptVM) => InstanceType<T> {
+  const symbol = Symbol(`hsvm context: ${name}`);
   return (vm: HareScriptVM): InstanceType<T> => {
-    const res = map.get(vm);
+    const res = vm.contexts.get(symbol);
     if (res)
-      return res;
-    const newobj = new obj;
-    map.set(vm, newobj);
+      return res as InstanceType<T>;
+    const newobj = new obj as InstanceType<T>;
+    vm.contexts.set(symbol, newobj);
     return newobj;
   };
 }
 
 class Hasher extends OutputObjectBase {
-  static context = contextGetterFactory(class { hashers = new Map<number, Hasher>; });
+  static context = contextGetterFactory("hashers", class { hashers = new Map<number, Hasher>; close() { } });
 
   hasher: { update(data: crypto.BinaryLike): void; digest(): Buffer };
 
@@ -326,13 +326,19 @@ class HSJobOutput extends OutputObjectBase {
   }
 }
 
-const ipcContext = contextGetterFactory(class {
+const ipcContext = contextGetterFactory("ipc", class {
   ports = new Map<number, HSIPCPort>;
   links = new Map<number, HSIPCLink>;
   jobs = new Map<number, HSJob>;
   linktoparent: IPCEndPoint | undefined;
   signalintpipe: SignalIntPipe | undefined;
   externalsessiondata = "";
+  close() {
+    this.linktoparent?.close();
+    this.linktoparent = undefined;
+    this.signalintpipe?.close();
+    this.signalintpipe = undefined;
+  }
 });
 
 export function registerBaseFunctions(wasmmodule: WASMModule) {
@@ -922,9 +928,10 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     id_set.ensureCell("PUBLICKEY").setString(key);
   });
 
-  const cryptoContext = contextGetterFactory(class {
+  const cryptoContext = contextGetterFactory("crypto", class {
     idcounter = 0;
     keys = new Map<number, { key: crypto.KeyObject; isPrivate: boolean }>;
+    close() { }
   });
 
   wasmmodule.registerExternalFunction("__EVP_LOADPRVKEY::I:S", (vm, id_set, var_keydata) => {
@@ -1061,7 +1068,6 @@ class HareScriptJob {
       this.vm.wasmmodule._GetLoadedLibrariesInfo(this.vm.hsvm, scratchvar.id, 0);
       this.loadedLibraries = scratchvar.getJSValue() as LoadedLibrariesInfo;
     }
-    ipcContext(this.vm).linktoparent?.close();
     this.outputEndPoint?.close();
     this.doneDefer.resolve();
   }
