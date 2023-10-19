@@ -85,7 +85,7 @@ OBJECTTYPE Application
         TRUE,  //takeoutput
         TRUE,  //takeerrors
         FALSE,  //mergeerrors
-        TRUE); //spearategroup
+        FALSE); //no separate group (so we can be suspended together)
 
     this->outputcallback := RegisterHandleReadCallback(proc->output_handle, PTR this->OnAppOutput);
     this->errorcallback := RegisterHandleReadCallback(proc->errors_handle, PTR this->OnAppErrors);
