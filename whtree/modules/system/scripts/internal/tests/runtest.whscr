@@ -876,7 +876,7 @@ WHILE (TRUE)
     SetConsoleExitCode(1);
   }
 
-  IF (NOT looptests OR (Length(failed_tests)>0 AND breakonerror))
+  IF (NOT looptests OR (Length(failed_tests)>0 AND breakonerror) OR interrupted)
     BREAK;
 }
 
