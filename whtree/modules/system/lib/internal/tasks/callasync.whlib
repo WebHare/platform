@@ -4,6 +4,7 @@ LOADLIB "wh::async.whlib";
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::promise.whlib";
@@ -362,6 +363,9 @@ PUBLIC ASYNC MACRO HandleHSIPCMessages(OBJECT link, BOOLEAN hasjob)
 */
 PUBLIC ASYNC FUNCTION CallAsync(STRING func, VARIANT ARRAY args, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  IF(IsWasm())
+    THROW NEW Exception("CallAsync is not available under WASM. Please use ImportJS to invoke JavaScript");
+
   options := ValidateOptions(
       [ wrapobjects :=      FALSE
       ], options);

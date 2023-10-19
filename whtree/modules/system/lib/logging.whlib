@@ -3,6 +3,7 @@
 
 LOADLIB "wh::ipc.whlib";
 
+LOADLIB "wh::javascript.whlib";
 LOADLIB "mod::system/lib/internal/tasks/callasync.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib";
 LOADLIB "mod::system/lib/internal/cluster/logging.whlib" EXPORT OpenWebHareLogStream, OpenWebHareLogStreamFromFiles, LogHarescriptException, ModuleLog, UpdateAuditContext;
@@ -155,11 +156,9 @@ PUBLIC MACRO WriteLogMarker(STRING text)
   ModuleLog("system:servicemanager", EncodeJava("system:debug") || "\t" || GetCurrentGroupId() || "\t" || EncodeJava(mark));
 }
 
-PUBLIC RECORD ARRAY FUNCTION ReadJSONLogLines(STRING logname, DATETIME start, DATETIME until DEFAULTSTO DEFAULT DATETIME)
+PUBLIC RECORD ARRAY FUNCTION ReadJSONLogLines(STRING logname, DATETIME start, VARIANT until DEFAULTSTO DEFAULT RECORD)
 {
   FlushModuleLog(logname); //flush entries in *our* vm..
   VARIANT ARRAY args := VARIANT[ logname, start ];
-  IF(until != DEFAULT DATETIME)
-    INSERT until INTO args AT END;
-  RETURN WaitForPromise(CallAsync("@mod-system/js/internal/logging.ts#readJSONLogLines", args));
+  RETURN WaitForPromise(ImportJS("@mod-system/js/internal/logging.ts")->readJSONLogLines(logname, start, until));
 }
