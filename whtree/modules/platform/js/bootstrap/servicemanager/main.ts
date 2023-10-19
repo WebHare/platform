@@ -452,6 +452,19 @@ async function shutdownSignal(signal: NodeJS.Signals) {
   shutdown();
 }
 
+async function stopContinueSignal(signal: NodeJS.Signals) {
+  smLog(`Received signal '${signal}'`, { signal });
+
+  //forward STOP and CONT to subprocesses
+  for (const proc of [...processes.values()])
+    if (proc.process?.pid) //we need to send the STOP/CONT to the whole process group (hence negative pid). doesn't work for postgres though, its subproceses are in a different group
+      process.kill(-proc.process?.pid, signal === "SIGTSTP" ? "SIGSTOP" : signal);
+
+  await sleep(100);
+  if (signal === "SIGTSTP") //if we received a stop, now stop ourselves
+    process.kill(process.pid, "SIGSTOP");
+}
+
 async function shutdown() {
   if (shuttingdown)
     return;
@@ -474,6 +487,8 @@ async function shutdown() {
 
 process.on("SIGINT", shutdownSignal);
 process.on("SIGTERM", shutdownSignal);
+process.on("SIGTSTP", stopContinueSignal);
+process.on("SIGCONT", stopContinueSignal);
 process.on("uncaughtException", (err, origin) => {
   console.error("Uncaught exception", err, origin);
   shutdown();
