@@ -34,7 +34,9 @@
         <option rowkey="2" title="Two,">
           <textedit name="radioaddendum" title='especially' placeholder="Type a text" />
         </option>
-        <option rowkey="3" title="Three shall be the number thou shalt count, and the number of the counting shall be three" />
+        <option rowkey="3" title="Three shall be the number thou shalt count, and the number of the counting shall be three">
+          <textarea name="radioaddendum2" title='Why' placeholder="Type a text" />
+        </option>
         <option rowkey="4" title="Four shalt thou not count" />
         <option rowkey="5" title="Five is right out" />
       </select>
@@ -50,7 +52,9 @@
         <option rowkey="2" title="Two,">
           <textedit name="checkboxaddendum" title='with an especially long text that would cause whitespace wrappings in most forms, especially given the fact we are repeating an especially long text that would cause whitespace wrappings in most forms' placeholder="Type a text" />
         </option>
-        <option rowkey="3" title="Three shall be the number thou shalt count, and the number of the counting shall be three" />
+        <option rowkey="3" title="Three shall be the number thou shalt count, and the number of the counting shall be three">
+          <textarea name="checkboxaddendum3" title='Why now' placeholder="Type a text" />
+        </option>
         <option rowkey="4" title="Four shalt thou not count" />
         <option rowkey="5" title="Five is right out" />
       </select>
