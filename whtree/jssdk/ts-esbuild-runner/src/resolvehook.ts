@@ -73,14 +73,14 @@ function transpile(code: string, filename: string): string {
   const mustrecompile = !compile_stat || compile_stat.mtime < file_stat.mtime;
   if (!mustrecompile) {
     if (debug)
-      console.log('[runner] cache hit', filename, '=>', compiledpath);
+      console.error('[runner] cache hit', filename, '=>', compiledpath);
 
     return fs.readFileSync(compiledpath, { encoding: "utf8" });
   }
 
   for (; ;) {
     if (debug)
-      console.log('[runner] transpile', filename, '=>', compiledpath);
+      console.error('[runner] transpile', filename, '=>', compiledpath);
 
     code = _transform(code, filename);
 
@@ -97,7 +97,7 @@ function transpile(code: string, filename: string): string {
       return code;
 
     if (debug)
-      console.log('[runner] source updated during transpile', filename, old_file_stat.mtime, file_stat.mtime);
+      console.error('[runner] source updated during transpile', filename, old_file_stat.mtime, file_stat.mtime);
   }
 }
 
@@ -125,7 +125,7 @@ export function installResolveHook(setdebug: boolean) {
 
       if (request.endsWith(".js") && !request.includes("/node_modules/")) { //this may be an attempt at including a *.ts file, so retry
         if (debug)
-          console.log('[runner] retrying', request, 'as', request.slice(0, -3) + ".ts");
+          console.error('[runner] retrying', request, 'as', request.slice(0, -3) + ".ts");
         try {
           return oldresolve(request.slice(0, -3) + ".ts", parent, isMain, options);
         } catch (e2) {
