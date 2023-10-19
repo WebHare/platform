@@ -1,7 +1,6 @@
 <screens xmlns="http://www.webhare.net/xmlns/tollium/screens"
          xmlns:testcomp="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents"
-         lib="screens/tests/comm.whlib"
-         gid="appstart">
+         lib="screens/tests/comm.whlib">
 
   <messageboxes>
     <messagebox name="confirmclose" title="Close?!" buttons="yes no" />
@@ -29,9 +28,10 @@
       </menu>
     </menus>
     <body>
-      <textedit name="targetval" valuetype="integer" />
-      <textarea name="messages" height="1pr" />
-      <textedit name="expirydate" />
+      <textedit name="targetval" valuetype="integer" title="Targetval"/>
+      <textedit name="engine" title="Engine" enabled="false" />
+      <textarea name="messages" height="1pr" title="Messages"/>
+      <textedit name="expirydate" title="Expiry date"/>
     </body>
   </screen>
 

@@ -1,6 +1,7 @@
 ﻿<?wh
 
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::tollium/lib/screenbase.whlib";
 LOADLIB "mod::tollium/lib/towl.whlib";
@@ -21,6 +22,7 @@ PUBLIC OBJECTTYPE AppStart EXTEND TolliumScreenBase
 
     INTEGER my_targetid := RecordExists(this->tolliumcontroller->applicationtarget) ? this->tolliumcontroller->applicationtarget.test : 0;
     this->targetval->value := my_targetid;
+    ^engine->value := IsWasm() ? "wasm" : "native";
     this->UpdateTitle();
     this->UpdateExpiryDate();
   }

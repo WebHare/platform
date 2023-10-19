@@ -66,6 +66,9 @@
     <application name="appstarttest" screen="/screens/tests/comm.xml#appstart">
       <accesscheck />
     </application>
+    <application name="wasmstarttest" screen="/screens/tests/comm.xml#appstart" engine="wasm">
+      <accesscheck />
+    </application>
     <application name="human" screen="/screens/tests/human.xml#main">
       <accesscheck />
     </application>

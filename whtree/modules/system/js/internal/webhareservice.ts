@@ -2,6 +2,7 @@ import bridge, { IPCMessagePacket, IPCMarshallableData } from "@mod-system/js/in
 import { createDeferred } from "@webhare/std";
 import { ServiceInitMessage, ServiceCallMessage, WebHareServiceDescription, WebHareServiceIPCLinkType } from './types';
 import { checkModuleScopedName } from "@webhare/services/src/naming";
+import { broadcast } from "@webhare/services/src/backendevents";
 
 interface WebHareServiceOptions {
   ///Enable automatic restart of the service when the source code changes. Defaults to true
@@ -167,6 +168,8 @@ export default async function runBackendService(servicename: string, constructor
     hostport.dropReference();
 
   await hostport.activate();
+  //HareScript uses this event if waiting for service to come online. FIXME TS should too (it now spins in openBackendService)
+  broadcast(`system:webhareservice.${servicename}.start`);
 
   return service;
 }

@@ -5,6 +5,7 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::devsupport.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::util/algorithms.whlib";
+LOADLIB "wh::internal/wasm.whlib";
 
 LOADLIB "mod::system/lib/webserver/management.whlib";
 LOADLIB "mod::system/lib/internal/cluster/logwriter.whlib";
@@ -17,7 +18,7 @@ LOADLIB "mod::tollium/lib/todd/internal/communication.whlib";
   To start this in freestanding WASM mode, use
   ```
   wh runwasm mod::tollium/scripts/internal/applicationstarter.whscr
-  wh debug enable tollium:alt-appstarter
+  wh debug enable tollium:usewasm
   ```
 */
 
@@ -597,8 +598,8 @@ STATIC OBJECTTYPE AppOwnerPortHandler EXTEND IPCPortHandlerBase
 // Create BEFORE we create the port
 OBJECT commport;
 
-IF (NOT ObjectExists(GetIPCLinkToParent()))
-  commport := CreateGlobalIPCPort("tollium:appstarter-alt");
+IF (IsWasm())
+  commport := CreateGlobalIPCPort("tollium:wasm-appstarter");
 ELSE
   commport := InitManagedScript();
 

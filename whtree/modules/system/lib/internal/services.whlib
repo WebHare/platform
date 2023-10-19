@@ -259,10 +259,33 @@ PUBLIC OBJECT ASYNC FUNCTION CreateServiceStartWait(STRING service, INTEGER time
   RETURN retval;
 }
 
+ASYNC MACRO AttemptAutoStart(STRING servicename)
+{
+  //TODO avoid a thundering herd, throttle repeated auto starts from our side
+  //TODO check configuration (where will we persist the service list) whether this service can be started on demand
+  //notOnDemand to prevent a loop if platform:servicemanager itself is unavailable
+  OBJECT smservice;
+  TRY
+  {
+    smservice := AWAIT OpenWebhareService("platform:servicemanager", [ timeout := 5000, notondemand := TRUE ]);
+    AWAIT smservice->startService(servicename);
+  }
+  CATCH(OBJECT ignore)
+  {
+    //ignore exceptions, we'll just timeout then
+  }
+  FINALLY
+  {
+    IF(ObjectExists(smservice))
+      smservice->CloseService();
+  }
+}
+
 /** Open a WebHare service
     @param servicename Name of the service (should follow the 'module:tag' pattern)
     @cell(variant array) options.arguments Arguments for the service
     @cell(integer) options.timeout Connect timeout, defaults to 30 seconds
+    @cell(boolean) options.notondemand Do not try to autostart an ondemand service
     @return A proxy offering ASYNC versions of the service API
     @topic modules/services
     @public
@@ -272,6 +295,7 @@ PUBLIC OBJECT ASYNC FUNCTION OpenWebHareService(STRING servicename, RECORD optio
 {
   options := ValidateOptions([ arguments := VARIANT[]
                              , timeout := 30000
+                             , notondemand := FALSE
                              ], options);
 
   //FIXME don't assume servicename matches servicetag... we should be looking up the <internalservice tag=".... "
@@ -280,6 +304,9 @@ PUBLIC OBJECT ASYNC FUNCTION OpenWebHareService(STRING servicename, RECORD optio
   {
     // Start a listen to the start event (async function but listener registration is synchronous)
     OBJECT startpromise := CreateServiceStartWait(servicename, options.timeout);
+
+    IF(NOT options.notondemand)
+      AttemptAutoStart(servicename);
 
     // Check for the port to exist (it might have been created before the event listen started)
     mgrport := ConnectToGlobalIPCPort("webhareservice:" || servicename);

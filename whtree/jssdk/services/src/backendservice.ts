@@ -1,5 +1,6 @@
 import { ServiceCallMessage, ServiceCallResult, WebHareServiceDescription, WebHareServiceIPCLinkType } from "@mod-system/js/internal/types";
 import bridge, { IPCMarshallableData } from "@mod-system/js/internal/whmanager/bridge";
+import { ServiceManagerClient } from "@mod-platform/js/bootstrap/servicemanager/main";
 
 export interface BackendServiceController {
   createClient(...args: unknown[]): Promise<unknown>;
@@ -14,6 +15,7 @@ interface DefaultWebHareServiceClient {
 
 export type ServiceBase = {
   close(): void;
+  [Symbol.dispose](): void;
 };
 
 class ServiceProxy<T extends object> implements ProxyHandler<T & ServiceBase> {
@@ -27,14 +29,16 @@ class ServiceProxy<T extends object> implements ProxyHandler<T & ServiceBase> {
     this.isjs = description.isjs || false;
   }
 
-  get(target: object, prop: string, receiver: unknown) {
-    if (prop === 'close') //create a close() function
+  get(target: object, prop: string | symbol, receiver: unknown) {
+    if (prop === 'close' || prop === Symbol.dispose) //create a close() function
       return () => this.closeService();
-    if (!this.isjs)
-      prop = prop.toUpperCase();
 
-    if (this.description.methods.find(m => m.name === prop)) {
-      return (...args: unknown[]) => this.remotingFunc({ name: prop }, args);
+    if (typeof prop === "string") {
+      if (!this.isjs)
+        prop = prop.toUpperCase();
+
+      if (this.description.methods.find(m => m.name === prop))
+        return (...args: unknown[]) => this.remotingFunc({ name: prop as string }, args);
     }
 
     return undefined;
@@ -72,6 +76,8 @@ class ServiceProxy<T extends object> implements ProxyHandler<T & ServiceBase> {
 export interface BackendServiceOptions {
   timeout?: number;
   linger?: boolean;
+  ///Do not try to autostart an ondemand service
+  notOnDemand?: boolean;
 }
 
 /** Convert the return type of a function to a promise
@@ -89,6 +95,14 @@ type ConvertToClientInterface<BackendHandlerType extends object> = {
   [K in Exclude<keyof BackendHandlerType, `_${string}` | "close"> as BackendHandlerType[K] extends (...a: any) => any ? K : never]: BackendHandlerType[K] extends (...a: any[]) => void ? PromisifyFunctionReturnType<BackendHandlerType[K]> : never;
 } & ServiceBase;
 
+async function attemptAutoStart(name: string) {
+  //TODO avoid a thundering herd, throttle repeated auto starts form our side
+  //TODO check configuration (where will we persist the service list) whether this service can be started on demand
+  //notOnDemand to prevent a loop if platform:servicemanager itself is unavailable
+  using smservice = await openBackendService<ServiceManagerClient>("platform:servicemanager", [], { timeout: 5000, notOnDemand: true });
+  await smservice.startService(name);
+}
+
 /** Open a WebHare backend service
  *  @param name - Service name (a module:service pair)
  *  @param args - Arguments to pass to the constructor
@@ -100,6 +114,7 @@ export async function openBackendService<T extends object = DefaultWebHareServic
 
   const startconnect = Date.now(); //only used for exception reporting
   const deadline = new Promise(resolve => setTimeout(() => resolve(false), options?.timeout || 30000).unref());
+  let attemptedstart = false;
 
   for (; ;) { //repeat until we're connected
     const link = bridge.connect<WebHareServiceIPCLinkType>("webhareservice:" + name, { global: true });
@@ -118,6 +133,10 @@ export async function openBackendService<T extends object = DefaultWebHareServic
       }
     } catch (e) {
       link.close();
+      if (!attemptedstart && !options?.notOnDemand) {
+        attemptAutoStart(name).catch(() => { }); //ignore exceptions, we'll just timeout then
+        attemptedstart = true;
+      }
       continue;
     }
 

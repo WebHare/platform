@@ -840,6 +840,17 @@
                 <xs:documentation>Shortcut used to launch this application if the dashboard is active</xs:documentation>
               </xs:annotation>
             </xs:attribute>
+            <xs:attribute name="engine">
+              <xs:annotation>
+                <xs:documentation>Shortcut used to launch this application if the dashboard is active</xs:documentation>
+              </xs:annotation>
+                <xs:simpleType>
+                  <xs:restriction base="xs:string">
+                    <xs:enumeration value="native"/>
+                    <xs:enumeration value="wasm"/>
+                  </xs:restriction>
+                </xs:simpleType>
+            </xs:attribute>
           </xs:complexType>
         </xs:element>
         <xs:element name="linkapp">

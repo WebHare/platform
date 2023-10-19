@@ -16,12 +16,16 @@ export interface ServiceDefinition {
   stopIn?: Stage;
   ///stopSignal (defaults to SIGTERM)
   stopSignal?: NodeJS.Signals;
-  /// Run this script once the stage advances to startIn, and wait for this script to complete before moving to the next stage
-  waitForCompletion?: boolean;
   ///override the stopTimeout. we used to do this for the WH database server
   stopTimeout?: number;
   ///when ciriticalForStartup is true and the service crashes during stage Bootup or StartupScript, WebHare will terminate
   ciriticalForStartup?: boolean;
+  /** Run type:
+   * always: always run the service in the requested stages
+   * once: run this script once the stage advances to startIn, and wait for this script to complete before moving to the next stage
+   * on-demand: start the service when someone connects to its backend service
+   * */
+  run: "always" | "on-demand" | "once";
 }
 
 function getServiceRuntimeParamHash(service: ServiceDefinition) {
