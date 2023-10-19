@@ -261,7 +261,7 @@ PUBLIC OBJECT ASYNC FUNCTION CreateServiceStartWait(STRING service, INTEGER time
 
 ASYNC MACRO AttemptAutoStart(STRING servicename)
 {
-  //TODO avoid a thundering herd, throttle repeated auto starts form our side
+  //TODO avoid a thundering herd, throttle repeated auto starts from our side
   //TODO check configuration (where will we persist the service list) whether this service can be started on demand
   //notOnDemand to prevent a loop if platform:servicemanager itself is unavailable
   OBJECT smservice;

@@ -41,11 +41,11 @@ managedServices:
   ondemandservice:
     script: js/service.js
     arguments: ["webhare_testsuite_temp:ondemandservice"]
-    run: on-demand # should autostart as soon as someone connects to the backend ervice
+    run: on-demand # should autostart as soon as someone connects to the backend service
   ondemandservice2:
     script: js/service.js
     arguments: ["webhare_testsuite_temp:ondemandservice2"]
-    run: on-demand # should autostart as soon as someone connects to the backend ervice
+    run: on-demand # should autostart as soon as someone connects to the backend service
 `,
     "js/service.js": `
 import runBackendService from '@mod-system/js/internal/webhareservice';

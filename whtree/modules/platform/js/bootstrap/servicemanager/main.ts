@@ -350,7 +350,7 @@ class ServiceManagerClient {
     const process = processes.get(service);
     if (!process)
       return { errorMessage: `Service '${service}' is not running` };
-    if (process.service.run !== "on-demand") //TODO also stop non on-demand services, or should that be enable/disable and not start/stop ? (for ondemand those would be to different things)
+    if (process.service.run !== "on-demand") //TODO also stop non on-demand services, or should that be enable/disable and not start/stop ? (for ondemand those would be two different things)
       return { errorMessage: `Service '${service}' is not on-demand` };
 
     process.stop();
