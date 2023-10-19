@@ -45,7 +45,7 @@ if [ "$#" == 1 ] && [ "$1" == "*" ]; then
 elif [ "$#" != 0 ]; then
   MODULESLIST=("$@")
 else
-  MODULESLIST=($(time wh runwasm mod::system/scripts/internal/listbrokenmodules.whscr))
+  MODULESLIST=($(time wh_runwhscr mod::system/scripts/internal/listbrokenmodules.whscr))
 fi
 
 for MODULENAME in "${MODULESLIST[@]}"; do

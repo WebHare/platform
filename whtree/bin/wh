@@ -341,7 +341,7 @@ case $INSTR in
 
     TOSHOWFILE=
     if [ "$DEBUGTAGS" == "cov" ]; then
-      runscript --workerthreads 4 "mod::system/scripts/debug/analyze_coverage.whscr" --deleteprofiles
+      wh_runwhscr "mod::system/scripts/debug/analyze_coverage.whscr" --deleteprofiles
 
       echo "Coverage data will be stored in ${WEBHARE_DATAROOT}ephemeral/profiles/default"
       echo
@@ -380,7 +380,7 @@ case $INSTR in
     if [ "$DEBUGTAGS" == "cov" ]; then
       echo
       echo "Processing coverage data in ${WEBHARE_DATAROOT}ephemeral/profiles/default"
-      runscript --workerthreads 4 "mod::system/scripts/debug/analyze_coverage.whscr"
+      wh_runwhscr "mod::system/scripts/debug/analyze_coverage.whscr"
       echo "Results are available in ${WEBHARE_DATAROOT}ephemeral/profiles/default/index.html"
       TOSHOWFILE="${WEBHARE_DATAROOT}ephemeral/profiles/default/index.html"
     fi
@@ -394,11 +394,11 @@ case $INSTR in
     ;;
 
   "reset-coverage")
-    exec_runscript --workerthreads 4 "mod::system/scripts/debug/analyze_coverage.whscr" --deleteprofiles
+    exec_wh_runwhscr "mod::system/scripts/debug/analyze_coverage.whscr" --deleteprofiles
     ;;
 
   "calculate-coverage")
-    exec_runscript --workerthreads 4 "mod::system/scripts/debug/analyze_coverage.whscr"
+    exec_wh_runwhscr "mod::system/scripts/debug/analyze_coverage.whscr"
     ;;
 
   "cachereset")
@@ -427,7 +427,7 @@ case $INSTR in
       resolveresourcepath RESOLVEDPATH "$SCRIPT"
       exec_wh_runjs "$RESOLVEDPATH" "$@"
     else
-      exec_runscript --workerthreads 4 "$SCRIPT" "$@"
+      exec_wh_runwhscr "$SCRIPT" "$@"
     fi
     ;;
 
@@ -661,7 +661,7 @@ HERE
       exec /bin/bash "${MODULEDIR}scripts/whcommands/$SUBCOMMAND.sh" "${OPTIONS[@]}"
     fi
     if [ -f "${MODULEDIR}scripts/whcommands/$SUBCOMMAND.whscr" ]; then
-      exec_runscript --workerthreads 4 "mod::$TARGETMODULE/scripts/whcommands/$SUBCOMMAND.whscr" "${OPTIONS[@]}"
+      exec_wh_runwhscr "mod::$TARGETMODULE/scripts/whcommands/$SUBCOMMAND.whscr" "${OPTIONS[@]}"
     fi
 
     # This should match the whconstant_javascript_extensions:

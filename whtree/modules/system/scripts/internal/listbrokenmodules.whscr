@@ -1,4 +1,4 @@
-<?wh
+<?wh (*WASMENGINE*)
 
 LOADLIB "wh::os.whlib";
 LOADLIB "wh::util/algorithms.whlib";

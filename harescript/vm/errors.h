@@ -309,6 +309,7 @@ namespace Error
                 MisspelledMember =           265,
                 CannotConvertToIterator =    266,
                 CannotConvertFilledVariantArray = 267,
+                TooLateForWasmEngine =       268
                 /* Please reuse free error codes instead of adding more of them */
         };
 }
