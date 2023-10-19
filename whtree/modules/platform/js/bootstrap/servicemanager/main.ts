@@ -498,7 +498,6 @@ async function stopContinueSignal(signal: NodeJS.Signals) {
     if (proc.process?.pid) //we need to send the STOP/CONT to the whole process group (hence negative pid). doesn't work for postgres though, its subproceses are in a different group
       process.kill(-proc.process?.pid, signal === "SIGTSTP" ? "SIGSTOP" : signal);
 
-  await sleep(100);
   if (signal === "SIGTSTP") //if we received a stop, now stop ourselves
     process.kill(process.pid, "SIGSTOP");
 }
