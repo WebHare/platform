@@ -36,6 +36,8 @@ async function main() {
       console.error(`Startup script exited with code ${returncode.code}`);
     else if (returncode.signal)
       console.error(`Startup script exited with signal ${returncode.signal}`);
+
+    process.exitCode = 1;
   }
 }
 
