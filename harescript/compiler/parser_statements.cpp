@@ -1158,6 +1158,19 @@ void Parser::P_CompilerStatement(bool only_report)
                         return;
                 }
         }
+        else if(TokenType() == Lexer::Identifier && lexer.GetTokenIdentifier()=="WASMENGINE")
+        {
+                if(pos.line > 1)
+                        lexer.AddErrorAt(pos, Error::TooLateForWasmEngine);
+
+                NextToken();
+               if(TokenType() == Lexer::OpMultiply) //eureka! it might be all good ADDME: proper detection of *)
+                {
+                        NextToken();//eat it!
+                        ExpectCloseParenthesis();
+                        return;
+                }
+        }
         else if(TokenType() == Lexer::Else)
         {
                 NextToken();
