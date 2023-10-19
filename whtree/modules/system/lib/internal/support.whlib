@@ -233,9 +233,6 @@ PUBLIC RECORD ARRAY FUNCTION GetSystemAppRunnerConfig()
       , [ name :=     "system:chromeheadlessrunner"
         , cmdline :=  "runscript mod::system/scripts/internal/chromeheadlessrunner.whscr"
         ]
-      , [ name :=     "system:nodeservices"
-        , cmdline :=  "wh run mod::system/scripts/internal/nodeservices.ts"
-        ]
       , [ name :=     "system:thebridge"
         , cmdline :=  "runscript --workerthreads 16 mod::system/scripts/internal/thebridge.whscr"
         ]

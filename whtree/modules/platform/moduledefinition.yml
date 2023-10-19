@@ -6,3 +6,6 @@ managedServices:
     script: mod::tollium/scripts/internal/applicationstarter.whscr
     run: on-demand
     engine: wasm
+  nodeservices: # Implements JS-based <backendservice>s
+    script: js/nodeservices/nodeservices.ts
+    run: always
