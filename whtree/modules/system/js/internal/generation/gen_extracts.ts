@@ -4,6 +4,7 @@ import { resolveResource } from "@webhare/services";
 import { FileToUpdate, GenerateContext, isNodeApplicableToThisWebHare } from "./shared";
 import { elements, getAttr } from "./xmlhelpers";
 import { whconstant_default_compatibility } from "../webhareconstants";
+import { addModule } from "@webhare/services/src/naming";
 
 //TODO where to store these types? config.ts is a lot of readonly fiddling, moduledeftypes.ts is about raw YML data
 export interface AssetPack {
@@ -57,30 +58,23 @@ function getXMLAssetPacks(mod: string, resourceBase: string, modXml: Document): 
     const istemplate = getAttr(webdesign, "istemplate", false);
     if (!istemplate)
       for (const assetpacknode of elements(webdesign.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "assetpack"))) {
-        const assetpackname = `${mod}:${getAttr(assetpacknode, "name") || designname}`;
+        const assetpackname = addModule(mod, getAttr(assetpacknode, "name", designname));
         if (packs.find(_ => _.name === assetpackname)) {
           //TODO error about dupe
           continue;
         }
 
-        const entrypoint = getAttr(assetpacknode, "entrypoint");
-        const compatibility = getAttr(assetpacknode, "compatibility", whconstant_default_compatibility);
-        const webharepolyfills = getAttr(assetpacknode, "webharepolyfills", true);
-        const environment = getAttr(assetpacknode, "environment", "window");
-        const aftercompiletask = getAttr(assetpacknode, "aftercompiletask");
-        const esbuildsettings = getAttr(assetpacknode, "esbuildsettings");
-
         packs.push({
           name: assetpackname,
-          entryPoint: resolveResource(resourceBase, entrypoint),
+          entryPoint: resolveResource(resourceBase, getAttr(assetpacknode, "entrypoint")),
           supportedLanguages: [...new Set(getAttr(assetpacknode, "supportedlanguages", []))],
           designRoot: designroot, //FIXME does an assetpack need this? why?
           assetBaseUrl: getAttr(assetpacknode, "assetbaseurl"),
-          compatibility,
-          webHarePolyfills: webharepolyfills,
-          environment,
-          afterCompileTask: aftercompiletask,
-          esBuildSettings: esbuildsettings,
+          compatibility: getAttr(assetpacknode, "compatibility", whconstant_default_compatibility),
+          webHarePolyfills: getAttr(assetpacknode, "webharepolyfills", true),
+          environment: getAttr(assetpacknode, "environment", "window"),
+          afterCompileTask: addModule(mod, getAttr(assetpacknode, "aftercompiletask")),
+          esBuildSettings: getAttr(assetpacknode, "esbuildsettings"), //FIXME deprecate this, we should just let users supply a JS function to apply to the esbuild config
           extraRequires: []
         });
       }
