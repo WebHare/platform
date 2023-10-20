@@ -1,4 +1,24 @@
-/* Drives the generator, takes care of proper sync/async ordering */
+/* Drives the generator, takes care of proper sync/async ordering
+
+   We set up the following directories:
+   - whtree/modules/platform/generated/<type>
+     - in JS/TS: @mod-platform/generated/<type>/
+     - in HS/as resource: mod::platform/generated/<type>/
+   - whtree/modules/system/js/internal/generated/<type>   (might move into the above dir?)
+     - in JS/TS: @mod-system/generated/<type>/
+     - in HS/as resource: mod::system/generated/<type>/
+   - whdata/storage/system/generated/<type>               (might become whdata/storage/<type> but we don't expose that as a resource in JS yet)
+     - in JS/TS: wh:<type>/
+      - in HS/as resource: storage::system/generated/<type>/
+
+  Types:
+  - schema: TS interfaces for shipped schemas (eg moduledefiniton.yml types)
+  - config: config.json
+  - extract: subsets of gathered moduledefinition.xml info
+  - whdb: database definitions
+  - wrd: WRD schema definitions
+  - openapi: OpenAPI definitions
+*/
 
 import { updateWebHareConfigFile } from "@mod-system/js/internal/generation/gen_config";
 import { listAllModuleTableDefs } from "@mod-system/js/internal/generation/gen_whdb";
@@ -12,24 +32,29 @@ import { dirname, join } from "node:path";
 import { deleteRecursive, storeDiskFile } from "@webhare/system-tools/src/fs";
 import { whconstant_builtinmodules } from "../webhareconstants";
 import { DOMParser } from '@xmldom/xmldom';
-import { ModuleDefinitionYML } from "@webhare/services/src/moduledeftypes";
-import YAML from "yaml";
 import { ModuleData } from "@webhare/services/src/config";
 import { listAllExtracts } from "./gen_extracts";
 import { RecursiveReadOnly } from "@webhare/js-api-tools/src/utility-types";
+import { listAllSchemas } from "./gen_schema";
+import { ModDefYML, parseModuleDefYML } from "@webhare/services/src/moduledefparser";
 
 function getPaths() {
   const installedBaseDir = backendConfig.dataroot + "storage/system/generated/";
   const builtinBaseDir = backendConfig.installationroot + "modules/system/js/internal/generated/";
+  const platformGeneratedDir = toFSPath("mod::platform/generated/");
 
-  return { installedBaseDir, builtinBaseDir };
+  return { installedBaseDir, builtinBaseDir, platformGeneratedDir };
 }
 
 function fixFilePaths(files: FileToUpdate[]) {
-  const { installedBaseDir, builtinBaseDir } = getPaths();
+  const { installedBaseDir, builtinBaseDir, platformGeneratedDir } = getPaths();
   return files.map(file => ({
     ...file,
-    path: (file.module == "platform" && file.type != 'extract' ? builtinBaseDir : installedBaseDir) + file.path
+    path: (file.module == "platform" && file.type == "schema"
+      ? platformGeneratedDir
+      : file.module == "platform" && file.type != 'extract'
+        ? builtinBaseDir
+        : installedBaseDir) + file.path
   }));
 }
 
@@ -56,10 +81,10 @@ async function loadModuleDefs(name: string, mod: RecursiveReadOnly<ModuleData>):
   } catch (ignore) {
   }
 
-  let modYml: ModuleDefinitionYML | null = null;
+  let modYml: ModDefYML | null = null;
   try {
     //TODO validate what we read, but we need a schema infrastructure. see also https://gitlab.webhare.com/webharebv/codekloppers/-/issues/890
-    modYml = YAML.parse(await readFile(toFSPath(resourceBase + "moduledefinition.yml"), 'utf8'), { strict: true, version: "1.2" }) as ModuleDefinitionYML;
+    modYml = await parseModuleDefYML(name);
   } catch (ignore) {
   }
 
@@ -120,6 +145,11 @@ export async function updateGeneratedFiles(targets: Array<(GeneratorType | "all"
 
   const context = await buildGeneratorContext(null, options?.verbose || false);
 
+  //TODO we might need to be above buildGenerateContext in the future to provide moduledefinition schemas for runtime validation?
+  const schemas = fixFilePaths(await listAllSchemas());
+  if (targets.includes('schema') || targets.includes('all'))
+    await generateFiles(schemas, context, options);
+
   //Start generating files. Finish all extracts before we start the rest, as some extracts are needed input for generators
   const extracts = fixFilePaths(await listAllExtracts());
   if (targets.includes('extract') || targets.includes('all'))
@@ -130,14 +160,16 @@ export async function updateGeneratedFiles(targets: Array<(GeneratorType | "all"
   await generateFiles(togenerate, context, options);
 
   //Remove old files
-  const { installedBaseDir, builtinBaseDir } = getPaths();
+  const { installedBaseDir, builtinBaseDir, platformGeneratedDir } = getPaths();
   const keepfiles = new Set<string>([
     join(installedBaseDir, "config/config.json"),
+    ...schemas.map(file => file.path),
     ...extracts.map(file => file.path),
     ...otherfiles.map(file => file.path)
   ]);
 
   await deleteRecursive(installedBaseDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.path, _.name)), dryRun: options.dryRun, verbose: options.verbose });
   await deleteRecursive(builtinBaseDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.path, _.name)), dryRun: options.dryRun, verbose: options.verbose });
+  await deleteRecursive(platformGeneratedDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.path, _.name)), dryRun: options.dryRun, verbose: options.verbose });
   return;
 }

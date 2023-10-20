@@ -1,11 +1,11 @@
-import { ModuleDefinitionYML } from "@webhare/services/src/moduledeftypes";
+import { ModDefYML } from "@webhare/services/src/moduledefparser";
 import { backendConfig, getVersionInteger } from "../configuration";
 import { wildcardsToRegExp } from "@webhare/std/strings";
 import { getAttr } from "./xmlhelpers";
 
 const systemservertypes = ["production", "acceptance", "test", "development"];
 
-export const generatorTypes = ["config", "extract", "whdb", "wrd", "openapi"] as const;
+export const generatorTypes = ["schema", "config", "extract", "whdb", "wrd", "openapi"] as const;
 export type GeneratorType = typeof generatorTypes[number];
 
 export interface FileToUpdate {
@@ -19,7 +19,7 @@ export interface LoadedModuleDefs {
   name: string;
   resourceBase: string;
   modXml: Document | null;
-  modYml: ModuleDefinitionYML | null;
+  modYml: ModDefYML | null;
 }
 
 export interface GenerateContext {
