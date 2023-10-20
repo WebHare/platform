@@ -1166,26 +1166,24 @@ HSVM_PUBLIC HSVM_VariableId  HSVM_CallObjectMethod(struct HSVM *vm, HSVM_Variabl
 
 *****************************************************************************/
 
-#if 0
 /** Calculates total size needed to store the representation of a variable
     @param vm Virtual Machine in which the variable exists
     @param var Variable to calculate the representation size of
     @return Size of representation */
-HSVM_PUBLIC unsigned  HSVM_MarshalCalculateLength(struct HSVM *vm, HSVM_VariableId var) ;
+HSVM_PUBLIC unsigned HSVM_MarshalCalculateLength(struct HSVM *vm, HSVM_VariableId var) ;
 
 /** Writes the marshal-representation to a specified location. The size of the
     buffer needed can be calculated with HSVM_MarshalCalculateLength.
     @param vm Virtual Machine in which the variable exists
     @param var Variable to calculate the marshal-representation of
     @param ptr Buffer to write to */
- HSVM_PUBLIC void HSVM_MarshalWrite(struct HSVM *vm, HSVM_VariableId var, uint8_t *ptr) ;
+ HSVM_PUBLIC void HSVM_MarshalWrite(struct HSVM *vm, HSVM_VariableId var, uint8_t *ptr, uint8_t *limit) ;
 
 /** Reads a marshal-representation back into a variable.
     @param vm Virtual Machine in which the variable exists
     @param vm Variable to write to
     @param ptr Address of marshal-representation to read */
- HSVM_PUBLIC void HSVM_MarshalRead(struct HSVM *vm, HSVM_VariableId var, uint8_t const *ptr) ;
-#endif
+ HSVM_PUBLIC void HSVM_MarshalRead(struct HSVM *vm, HSVM_VariableId var, uint8_t const *ptr, uint8_t const *limit) ;
 
 #ifdef __cplusplus
 } /* End of "C" linkage */

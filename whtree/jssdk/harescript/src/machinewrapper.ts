@@ -41,6 +41,10 @@ export class HSVMWrapper implements HSVM_HSVMSource {
     this.vm?.deref()?.shutdown();
     this.vm = null;
   }
+
+  [Symbol.dispose]() {
+    this.dispose();
+  }
 }
 
 export class CallableVMWrapper extends HSVMWrapper {

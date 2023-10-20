@@ -18,7 +18,7 @@ RECORD FUNCTION CalcData(STRING inval)
 
   INSERT inval INTO alternate_seenvalues AT END;
   RETURN [ value := ToUppercase(inval)
-         , ttl := 5000
+         , ttl := 60000
          ];
 }
 

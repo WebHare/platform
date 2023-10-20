@@ -5,7 +5,9 @@ LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
 LOADLIB "wh::ipc.whlib";
 LOADLIB "wh::promise.whlib";
+LOADLIB "wh::internet/fetch.whlib";
 LOADLIB "wh::xml/dom.whlib";
+LOADLIB "wh::javascript.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -121,6 +123,10 @@ MACRO AdHocCacheTest()
 
 MACRO AdHocTestMarshalledObjects()
 {
+  // WASM adhoc cache cannot store marshalled objects
+  IF (IsWasm())
+    RETURN;
+
   OBJECT doc := MakeXMLDocument(StringToBlob("<test>value</test"), "", TRUE);
   OBJECT cdoc := GetCachedClone(doc);
 
@@ -131,6 +137,11 @@ MACRO AdHocTestMarshalledObjects()
 
 MACRO RecompileInvalidationTest()
 {
+  // This tests the adhoccache libray invalidation within the webserver, so it doesn't test the local WASM adhoccache implementation
+  // Alternative test in adhoccache_wasm.ts
+  IF (IsWasm())
+    RETURN;
+
   STRING whlib_data :=
       "<?wh\n" ||
       "LOADLIB 'mod::system/lib/cache.whlib';\n" ||
@@ -275,9 +286,11 @@ MACRO LocalEventtest()
   OBJECT eventmgr := NEW EventManager;
   eventmgr->RegisterInterest('webhare_testsuite:*');
 
-  RECORD port := testfw->GetLocalhostWebinterface();
-  STRING baseurl := port .baseurl || "tollium_todd.res/webhare_testsuite/tests/adhoccache.shtml";
-  TestEq(TRUE, testfw->browser->GotoWebPage(baseurl || "?broadcast=1"));
+  //RECORD port := testfw->GetLocalhostWebinterface();
+  //STRING baseurl := port.baseurl || "tollium_todd.res/webhare_testsuite/tests/adhoccache.shtml";
+  //TestEq(TRUE, testfw->browser->GotoWebPage(baseurl || "?broadcast=1"));
+  STRING baseurl := GetPrimaryWebhareInterfaceURL() || "tollium_todd.res/webhare_testsuite/tests/adhoccache.shtml";
+  TestEQ(TRUE, WaitForPromise(Fetch(baseurl || "?broadcast=1"))->ok);
 
   RECORD evt1 := eventmgr->ReceiveEvent(timeout);
   RECORD evt2 := eventmgr->ReceiveEvent(timeout);
@@ -287,7 +300,8 @@ MACRO LocalEventtest()
   TestEq(7, GAC(7), "We flushed GAC() externally");
   TestEq(7, GAC(8), "We still flushed GAC() externally");
 
-  TestEq(TRUE, testfw->browser->GotoWebPage(baseurl || "?broadcast=2"));
+  //TestEq(TRUE, testfw->browser->GotoWebPage(baseurl || "?broadcast=2"));
+  TestEQ(TRUE, WaitForPromise(Fetch(baseurl || "?broadcast=2"))->ok);
   RECORD evt := eventmgr->ReceiveEvent(timeout);
   TestEq("webhare_testsuite:didbroadcast", evt.event);
 
@@ -296,6 +310,10 @@ MACRO LocalEventtest()
 
 MACRO WebserverCacheTest()
 {
+  // This tests the adhoccache in the webserver, so it doesn't test the local WASM adhoccache implementation
+  IF (IsWasm())
+    RETURN;
+
   RECORD port := testfw->GetLocalhostWebinterface();
   STRING baseurl := port .baseurl || "tollium_todd.res/webhare_testsuite/tests/adhoccache.shtml";
 

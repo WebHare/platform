@@ -375,4 +375,37 @@ void EMSCRIPTEN_KEEPALIVE GetLoadedLibrariesInfo(HSVM *hsvm, HSVM_VariableId id_
         }
 }
 
+static std::string lasthash;
+
+bool EMSCRIPTEN_KEEPALIVE GetAdhocCacheKeyData(HSVM *hsvm, const char **library, uint64_t *modtime, HSVM_VariableId cachetag, const char **store_hash)
+{
+        const char cachelib[] = "wh::adhoccache.whlib";
+
+        int daysvalue, msecsvalue;
+        const char *cache_librarystr = HSVM_GetCallingLibrary(hsvm, 0, false);
+        const char *calling_librarystr = HSVM_GetCallingLibraryWithCompileTime(hsvm, 1, false, &daysvalue, &msecsvalue);
+
+        if (!cache_librarystr || !calling_librarystr || Blex::StrCompare(cache_librarystr, cache_librarystr + strlen(cache_librarystr), cachelib, cachelib + sizeof(cachelib) - 1) != 0)
+            return false;
+
+        if (modtime)
+            *modtime = static_cast< uint64_t >(daysvalue) * 86400000 + msecsvalue;
+        if (library)
+            *library = calling_librarystr;
+
+        Blex::DateTime bmodtime(daysvalue, msecsvalue);
+        lasthash = HareScript::GetVirtualMachine(hsvm)->GetStackMachine().CalculateHash(cachetag, &bmodtime);
+        if (store_hash)
+           *store_hash = lasthash.c_str();
+
+        return true;
+}
+
+bool EMSCRIPTEN_KEEPALIVE GetEventCollectorSignalled(HSVM *hsvm, int32_t eventcollector)
+{
+        HareScript::OutputObject *collector = eventcollector != 0 ? HareScript::GetVirtualMachine(hsvm)->GetOutputObject(eventcollector, false) : nullptr;
+
+        return collector && collector->IsReadSignalled(nullptr) != HareScript::OutputObject::NotSignalled;
+}
+
 } // extern "C"

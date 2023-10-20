@@ -20,12 +20,15 @@ import { escapePGIdentifier } from "@webhare/whdb";
 import type { LogFileConfiguration } from "@mod-system/js/internal/whmanager/whmanager_rpcdefs";
 import type { ConvertLocalServiceInterfaceToClientInterface } from "@webhare/services/src/localservice";
 import type { LocalLockService } from "./wasm-locallockservice";
+import type { AdhocCacheService } from "./wasm-adhoccacheservice";
+import { debugFlags } from "@webhare/env/src/envbackend";
+
 
 type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
 
 /** Builds a function that returns (or creates when not present yet) a class instance associated with a HareScriptVM */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function contextGetterFactory<T extends new (...args: any) => { close?: () => void }>(name: string, obj: T): (vm: HareScriptVM) => InstanceType<T> {
+function contextGetterFactory<T extends new () => { close?: () => void }>(name: string, obj: T): (vm: HareScriptVM) => InstanceType<T> {
   const symbol = Symbol(`hsvm context: ${name}`);
   return (vm: HareScriptVM): InstanceType<T> => {
     const res = vm.contexts.get(symbol);
@@ -379,6 +382,16 @@ const localLockContext = contextGetterFactory("local locks", class {
   }
 });
 
+type AdhocCacheServiceClient = ConvertLocalServiceInterfaceToClientInterface<AdhocCacheService>;
+
+const adhocCacheContext = contextGetterFactory("adhoccache", class {
+  service: AdhocCacheServiceClient | undefined;
+  close() {
+    this.service?.close();
+  }
+});
+
+
 export function registerBaseFunctions(wasmmodule: WASMModule) {
 
   wasmmodule.registerExternalFunction("__SYSTEM_GETMODULEINSTALLATIONROOT::S:S", (vm, id_set, modulename) => {
@@ -532,8 +545,12 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   });
 
   wasmmodule.registerExternalMacro("__SYSTEM_REMOTELOG:::SS", (vm, logfile: HSVMVar, text: HSVMVar) => {
-    //FIXME should bridge log just give us a raw format? or should we convert all WASM logger usage to JSON?
-    log(logfile.getString(), { __system_remotelog_wasm: text.getString() });
+    try {
+      const decoded = JSON.parse(text.getString());
+      log(logfile.getString(), decoded);
+    } catch (e) {
+      log(logfile.getString(), { __system_remotelog_wasm: text.getString() });
+    }
   });
 
   wasmmodule.registerExternalFunction("CREATEHASHER::I:S", (vm, id_set, varAlgorithm) => {
@@ -1055,6 +1072,111 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       waitStart: typeof row.waitStart === "string" ? new Date(Date.parse(row.waitStart)) : !row.waitStart ? defaultDateTime : row.waitStart,
     })));
   });
+
+  wasmmodule.registerAsyncExternalFunction("GETADHOCCACHEDATA::R:R", async (vm, id_set, var_cachetag) => {
+    const ctxt = adhocCacheContext(vm);
+    const service = (ctxt.service ??= await bridge.connectToLocalService<AdhocCacheService>("@webhare/harescript/src/wasm-adhoccacheservice.ts#openAdhocCacheService", [vm.currentgroup]));
+
+    const returndata = vm.wasmmodule._malloc(16);
+    try {
+
+      const success = vm.wasmmodule._GetAdhocCacheKeyData(vm.hsvm, returndata + 8, returndata, var_cachetag.id, returndata + 12);
+      if (!success)
+        throw new Error(`not called from wh::adhoccache.whlib`);
+
+      const libraryUri = vm.wasmmodule.UTF8ToString(vm.wasmmodule.HEAP32[returndata + 8 >> 2]);
+      const libraryModDate = vm.wasmmodule.HEAP64[returndata >> 3];
+      const hashpos = vm.wasmmodule.HEAP32[returndata + 12 >> 2];
+      const hash = Buffer.from(vm.wasmmodule.HEAP8.subarray(hashpos, hashpos + 16)).toString("hex").toUpperCase();
+
+      const item = await service.getItem(libraryUri, libraryModDate, hash) as { value: SharedArrayBuffer } | undefined;
+      if (!item) {
+        id_set.setJSValue({
+          found: false,
+          hash,
+          value: null,
+        });
+      } else {
+        id_set.setJSValue({
+          found: true,
+          hash,
+        });
+
+        const sharedBufferView = new Uint8Array(item.value);
+        const dataPtr = vm.wasmmodule._malloc(sharedBufferView.length);
+        try {
+          const dataView = vm.wasmmodule.HEAPU8.subarray(dataPtr, dataPtr + sharedBufferView.length);
+          dataView.set(sharedBufferView);
+          const var_value = id_set.ensureCell("value");
+          vm.wasmmodule._HSVM_MarshalRead(vm.hsvm, var_value.id, dataPtr, dataPtr + sharedBufferView.length);
+        } finally {
+          vm.wasmmodule._free(dataPtr);
+        }
+      }
+    } finally {
+      vm.wasmmodule._free(returndata);
+    }
+  });
+
+  wasmmodule.registerAsyncExternalMacro("SETADHOCCACHEDATA:::RVDSAI", async (vm, var_cachetag, var_data, var_expires, var_eventmasks, var_eventcollector) => {
+    const ctxt = adhocCacheContext(vm);
+    const service = (ctxt.service ??= await bridge.connectToLocalService<AdhocCacheService>("@webhare/harescript/src/wasm-adhoccacheservice.ts#openAdhocCacheService", [vm.currentgroup]));
+
+    const eventcollector = var_eventcollector.getInteger();
+    if (eventcollector && vm.wasmmodule._GetEventCollectorSignalled(vm.hsvm, eventcollector))
+      return;
+
+    const returndata = vm.wasmmodule._malloc(16);
+    let dataPtr = 0;
+    let libraryUri: string | undefined;
+    try {
+      const success = vm.wasmmodule._GetAdhocCacheKeyData(vm.hsvm, returndata + 8, returndata, var_cachetag.id, returndata + 12);
+      if (!success)
+        throw new Error(`not called from wh::adhoccache.whlib`);
+
+      libraryUri = vm.wasmmodule.UTF8ToString(vm.wasmmodule.HEAP32[returndata + 8 >> 2]);
+      const libraryModDate = vm.wasmmodule.HEAP64[returndata >> 3];
+      const hashpos = vm.wasmmodule.HEAP32[returndata + 12 >> 2];
+      const hash = Buffer.from(vm.wasmmodule.HEAP8.subarray(hashpos, hashpos + 16)).toString("hex").toUpperCase();
+
+      try {
+        const len = vm.wasmmodule._HSVM_MarshalCalculateLength(vm.hsvm, var_data.id);
+        if (!len)
+          throw new Error(`Data is not marshallable`);
+
+        dataPtr = vm.wasmmodule._malloc(len);
+        vm.wasmmodule._HSVM_MarshalWrite(vm.hsvm, var_data.id, dataPtr, dataPtr + len);
+        const dataView = vm.wasmmodule.HEAPU8.slice(dataPtr, dataPtr + len);
+
+        const sharedBuffer = new SharedArrayBuffer(len);
+        const sharedBufferView = new Uint8Array(sharedBuffer);
+        sharedBufferView.set(dataView);
+
+        await service.setItem(libraryUri, libraryModDate, hash, var_expires.getDateTime(), var_eventmasks.getJSValue() as string[], sharedBuffer);
+      } catch (e) {
+        if (debugFlags.ahc)
+          console.error(`Setting adhoccache item from ${JSON.stringify(libraryUri ?? "unknown library")} failed:`, (e as Error).message);
+      }
+    } finally {
+      vm.wasmmodule._free(returndata);
+      if (dataPtr)
+        vm.wasmmodule._free(dataPtr);
+    }
+  });
+
+  wasmmodule.registerAsyncExternalMacro("INVALIDATEADHOCCACHE:::", async (vm) => {
+    const ctxt = adhocCacheContext(vm);
+    const service = (ctxt.service ??= await bridge.connectToLocalService<AdhocCacheService>("@webhare/harescript/src/wasm-adhoccacheservice.ts#openAdhocCacheService", [vm.currentgroup]));
+    await service.clearCache();
+  });
+
+  wasmmodule.registerAsyncExternalFunction("GETADHOCCACHESTATS::R:", async (vm, id_set) => {
+    const ctxt = adhocCacheContext(vm);
+    const service = (ctxt.service ??= await bridge.connectToLocalService<AdhocCacheService>("@webhare/harescript/src/wasm-adhoccacheservice.ts#openAdhocCacheService", [vm.currentgroup]));
+
+    id_set.setJSValue(await service.getStats());
+  });
+
 }
 
 //The HareScriptJob wraps the actual job inside the Worker

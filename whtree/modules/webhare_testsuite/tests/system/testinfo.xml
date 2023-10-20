@@ -7,7 +7,9 @@
   <test script="asynctools.whscr" />
   <test script="registry.whscr" />
   <test script="virtualfs.whscr" />
-  <test script="adhoccache.whscr" runmode="process" /> <!-- Needs isolation because adhoccache is per-process -->
+  <test script="adhoccache.whscr" runmode="process" engine="native" /> <!-- Needs isolation because adhoccache is per-process -->
+  <test script="adhoccache.whscr" runmode="process" engine="wasm" /> <!-- Needs isolation because adhoccache is per-process -->
+  <test script="adhoccache_wasm.ts" runmode="process" /> <!-- Needs isolation because adhoccache is per-process -->
   <test script="testunifiedcache.whscr" />
   <test script="ipc.whscr" />
   <test script="promises.whscr" />

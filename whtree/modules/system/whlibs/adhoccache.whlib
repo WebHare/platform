@@ -24,9 +24,6 @@ MACRO SetAdhocCacheData(RECORD cachetag, VARIANT data, DATETIME expires, STRING 
 */
 PUBLIC VARIANT FUNCTION GetAdhocCached(RECORD cachetag, MACRO PTR cachegetter, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  IF(IsWasm())
-    RETURN cachegetter().value;
-
   BOOLEAN exclusive := NOT CellExists(options, "EXCLUSIVE") OR options.exclusive;
 
   RECORD result := GetAdhocCacheData(cachetag);
@@ -219,4 +216,3 @@ PUBLIC MACRO StoreAdhocCached(RECORD cachetag, RECORD storevalue)
 
   SetAdhocCacheData(cachetag, storevalue.value, expires, eventmasks, 0);
 }
-
