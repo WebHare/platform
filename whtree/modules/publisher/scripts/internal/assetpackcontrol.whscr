@@ -1136,8 +1136,17 @@ STATIC OBJECTTYPE AssetPackController
     IF(NOT haserrors AND bundle.bundleconfig.aftercompiletask != "")
     {
       GetPrimary()->BeginWork();
+      TRY
+      {
       ScheduleManagedTask(bundle.bundleconfig.aftercompiletask, [ assetpack := message.bundle ]);
-      GetPrimary()->CommiTWork();
+        GetPrimary()->CommitWork();
+      }
+      CATCH(OBJECT e) //eg. missing task
+      {
+        IF(GetPrimary()->IsWorkOpen())
+          GetPrimary()->RollbackWork();
+        THROW e;
+      }
     }
 
     BroadcastEvent("publisher:assetpackcontrol.change." || message.bundle, DEFAULT RECORD);
