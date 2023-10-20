@@ -64,7 +64,10 @@ export default (captureplugin: CaptureLoadPlugin, options: { rootDir?: string } 
   name: "sass",
   setup: (build: esbuild.PluginBuild) => {
     build.onLoad({ filter: /.\.(scss|sass)$/, namespace: "file" }, async (args: esbuild.OnLoadArgs): Promise<esbuild.OnLoadResult> => {
-      const result = await sass.compileAsync(args.path, { importers: [SassImporter] });
+      const result = await sass.compileAsync(args.path, {
+        importers: [SassImporter],
+        alertColor: false
+      });
       //SASS plugin creates duplicate slashes, not sure why
       const watchFiles = result.loadedUrls.map(_ => _.pathname).map(pathname => pathname.startsWith("//") ? pathname.substring(1) : pathname);
       watchFiles.forEach(file => captureplugin.loadcache.add(file));
