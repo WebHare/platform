@@ -33,5 +33,31 @@ program.command("start")
     console.log("Service starting");
   });
 
+program.command("stop")
+  .description("Stop a service")
+  .argument("<service>", "Service name")
+  .action(async (service: string) => {
+    const smservice = await connectSM();
+    const result = await smservice.stopService(service);
+    if (result.errorMessage) {
+      console.error(result.errorMessage);
+      process.exit(1);
+    }
+    console.log("Service stopping");
+  });
+
+program.command("restart")
+  .description("Restart a service")
+  .argument("<service>", "Service name")
+  .action(async (service: string) => {
+    const smservice = await connectSM();
+    const result = await smservice.restartService(service);
+    if (result.errorMessage) {
+      console.error(result.errorMessage);
+      process.exit(1);
+    }
+    console.log("Service restarting");
+  });
+
 program.addHelpCommand();
 program.parse();

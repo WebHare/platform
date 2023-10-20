@@ -62,7 +62,30 @@ const stagetitles: Record<Stage, string> = {
 };
 
 const expectedServices = new Map<string, ServiceDefinition>();
-const processes = new Map<string, ProcessManager>;
+const processes = new class ProcessList {
+  private procs = new Map<string, ProcessManager>();
+  private lingeringProcesses = new Set<ProcessManager>();
+
+  get(name: string) {
+    return this.procs.get(name);
+  }
+  addProc(name: string, mgr: ProcessManager) {
+    const existing = this.procs.get(name);
+    if (existing)
+      this.lingeringProcesses.add(existing);
+    this.procs.set(name, mgr);
+  }
+  unregister(mgr: ProcessManager) {
+    if (this.lingeringProcesses.has(mgr))
+      this.lingeringProcesses.delete(mgr);
+    else
+      this.procs.delete(mgr.name);
+  }
+  getAllRunning(): ProcessManager[] {
+    return [...this.procs.values(), ...this.lingeringProcesses.values()];
+  }
+};
+
 const finishedWaitForCompletionServices = new Set<string>;
 
 function smLog(text: string, data?: LoggableRecord) {
@@ -104,7 +127,7 @@ class ProcessManager {
     this.displayName = name.startsWith("platform:") ? name.substring(9) : name;
     this.service = service;
     this.startDelay = startDelay;
-    processes.set(name, this);
+    processes.addProc(name, this);
 
     this.startDelayTimer = setTimeout(() => this.start(), startDelay);
   }
@@ -175,12 +198,10 @@ class ProcessManager {
       clearTimeout(this.killTimeout);
 
     this.running = false;
-    if (!this.toldToStop || debugFlags.startup) {
-      if (signal)
-        this.log(`Exited with signal ${signal}`, { exitSignal: signal });
-      else if (exitCode || this.service.run != "once") //no need to mention a normal shutdown for a singleshot service
-        this.log(`Exited with code ${exitCode} `, { exitCode: exitCode });
-    }
+    if (signal)
+      this.log(`Exited with signal ${signal}`, { exitSignal: signal });
+    else if (exitCode || verbose || (this.service.run === "always" && !this.toldToStop)) //report on error, if it's an always-running service, or if debugging
+      this.log(`Exited with error code ${exitCode} `, { exitCode: exitCode });
 
     const exitreason = signal ?? exitCode ?? "unknown";
     if (!this.toldToStop && this.service.ciriticalForStartup && currentstage < Stage.Active) {
@@ -192,11 +213,10 @@ class ProcessManager {
 
     if (this.service.run == "once")
       finishedWaitForCompletionServices.add(this.name);
-    if (processes.get(this.name) === this)
-      processes.delete(this.name);
+    processes.unregister(this);
 
     const servicesettings = expectedServices.get(this.name);
-    if (!shuttingdown && servicesettings?.run === "always") {
+    if (!shuttingdown && servicesettings?.run === "always" && !this.toldToStop) {
       if (!this.started || Date.now() < this.started + MinimumRunTime) {
         this.startDelay = Math.min(this.startDelay * 2 || 1000, MaxStartupDelay);
         this.log(`Throttling, will restart after ${this.startDelay / 1000} seconds`);
@@ -213,10 +233,11 @@ class ProcessManager {
       clearTimeout(this.startDelayTimer);
       this.startDelayTimer = null;
     }
+
+    this.toldToStop = true;
     if (!this.running)
       return;
 
-    this.toldToStop = true;
     if (verbose)
       this.log(`Stopping service`);
     this.process!.kill(this.service.stopSignal ?? "SIGTERM");
@@ -264,7 +285,7 @@ async function updateForCurrentStage(): Promise<void> {
   updateVisibleState();
 
   const subpromises = [];
-  for (const process of [...processes.values()]) {
+  for (const process of processes.getAllRunning()) {
     if (!expectedServices.has(process.name))
       subpromises.push(process.stop());
   }
@@ -338,7 +359,7 @@ class ServiceManagerClient {
     const serviceinfo = expectedServices.get(service);
     if (!serviceinfo)
       return { errorMessage: `No such service '${service}'` };
-    if (processes.has(service))
+    if (processes.get(service))
       return { errorMessage: `Service '${service}' is already running` };
     if (serviceinfo.run !== "on-demand")
       return { errorMessage: `Service '${service}' is not on-demand` };
@@ -356,6 +377,21 @@ class ServiceManagerClient {
     process.stop();
     return { ok: true };
   }
+
+  async restartService(service: string) {
+    //TODO we should probably tell process.stop to restart and be a bit more robust against parallel start/stop calls
+    //TODO I think we could better combine start/stoprestart APIs (especially when enable/disable comes around too)
+    const serviceinfo = expectedServices.get(service);
+    const process = processes.get(service);
+    if (!serviceinfo)
+      return { errorMessage: `No such service '${service}'` };
+    if (process?.running)
+      await process.stop();
+
+    new ProcessManager(service, serviceinfo);
+    return { ok: true };
+  }
+
   async reload() {
     await loadServiceList("ServiceMangerClient.reload"); //we block this so the service will be visible in the next getWebhareState from this client
     updateForCurrentStage(); //I don't think we need to block clients on startup of services ? they can wait themselves
@@ -456,11 +492,10 @@ async function stopContinueSignal(signal: NodeJS.Signals) {
   smLog(`Received signal '${signal}'`, { signal });
 
   //forward STOP and CONT to subprocesses
-  for (const proc of [...processes.values()])
+  for (const proc of processes.getAllRunning())
     if (proc.process?.pid) //we need to send the STOP/CONT to the whole process group (hence negative pid). doesn't work for postgres though, its subproceses are in a different group
       process.kill(-proc.process?.pid, signal === "SIGTSTP" ? "SIGSTOP" : signal);
 
-  await sleep(100);
   if (signal === "SIGTSTP") //if we received a stop, now stop ourselves
     process.kill(process.pid, "SIGSTOP");
 }
