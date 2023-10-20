@@ -141,6 +141,15 @@ function mapESBuildError(entrypoint: string, error: esbuild.Message) {
   };
 }
 
+export interface AssetPackManifest {
+  version: number;
+  assets: Array<{
+    subpath: string;
+    compressed: boolean;
+    sourcemap: boolean;
+  }>;
+}
+
 export interface BundleConfig {
   languages: string[];
   webharepolyfills: boolean;
@@ -331,7 +340,7 @@ export async function recompile(data: RecompileSettings) {
   }
 
   //create asset list. just iterate the output directory (FIXME iterate result.outputFiles, but not available in dev mode perhaps?)
-  const assetoverview = {
+  const assetoverview: AssetPackManifest = {
     version: 1,
     assets: new Array<{
       subpath: string;
