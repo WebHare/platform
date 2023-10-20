@@ -30,7 +30,7 @@ void EMSCRIPTEN_KEEPALIVE InjectEvent(HSVM *vm, const char *name, const char *pa
 
 typedef void (*EventCallback)(const char *name, const void *payload, unsigned payloadlength);
 
-void EMSCRIPTEN_KEEPALIVE SetEventCallback(HSVM *vm, EventCallback callback);
+void EMSCRIPTEN_KEEPALIVE SetEventCallback(EventCallback callback);
 
 bool EMSCRIPTEN_KEEPALIVE HasEnvironmentOverride(HSVM *hsvm);
 

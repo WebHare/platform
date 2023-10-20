@@ -79,7 +79,7 @@ class AdhocCache : public Blex::NotificationEventReceiver
             those will be removed within this function
         */
         bool RemoveEntry(LockedCacheData::WriteRef &lock, LibraryURI const &library, HashTag const &hash);
-        void ReceiveNotificationEvent(std::string const &event, uint8_t const */*hsvmdata*/, unsigned /*hsvmdatalen*/);
+        void ReceiveNotificationEvent(std::string const &event, uint8_t const */*hsvmdata*/, unsigned /*hsvmdatalen*/, Blex::NotificationEventSource source);
 
     public:
         AdhocCache(Connection &conn);

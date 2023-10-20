@@ -184,6 +184,7 @@ type ToMainBridgeMessage = {
   type: ToMainBridgeMessageType.SendEvent;
   name: string;
   data: ArrayBuffer;
+  local: boolean;
 } | {
   type: ToMainBridgeMessageType.RegisterPort;
   name: string;
@@ -378,11 +379,12 @@ class LocalBridge extends EventSource<BridgeEvents> {
       throw new Error(`no port, no mainbridge`);
   }
 
-  sendEvent(name: string, data: unknown): void {
+  sendEvent(name: string, data: unknown, { local }: { local?: boolean } = {}): void {
     this.postMainBridgeMessage({
       type: ToMainBridgeMessageType.SendEvent,
       name,
-      data: bufferToArrayBuffer(hsmarshalling.writeMarshalData(data, { onlySimple: true }))
+      data: bufferToArrayBuffer(hsmarshalling.writeMarshalData(data, { onlySimple: true })),
+      local: local ?? false
     });
   }
 
@@ -890,7 +892,7 @@ class MainBridge extends EventSource<BridgeEvents> {
       case ToMainBridgeMessageType.SendEvent: {
         const ref = await this.waitReadyReturnRef();
         try {
-          if (this.connectionactive) {
+          if (this.connectionactive && !message.local) {
             this.sendData({
               opcode: WHMRequestOpcode.SendEvent,
               eventname: message.name,

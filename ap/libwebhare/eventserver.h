@@ -99,7 +99,7 @@ class BLEXLIB_PUBLIC EventServerBroadcastListener : public Blex::NotificationEve
         EventServerBroadcastListener(WHCore::Connection &conn, EventServer &eventserver);
         ~EventServerBroadcastListener();
 
-        void ReceiveNotificationEvent(std::string const &event, uint8_t const *hsvmdata, unsigned hsvmdatalen);
+        void ReceiveNotificationEvent(std::string const &event, uint8_t const *hsvmdata, unsigned hsvmdatalen, Blex::NotificationEventSource source);
 
     private:
         /// IndexManager link

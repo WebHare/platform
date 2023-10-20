@@ -209,10 +209,9 @@ void NotificationEventReceiver::Unregister()
         }
 }
 
-void NotificationEventReceiver::ReceiveNotificationEvent(std::string const &/*event*/,  uint8_t const */*hsvmdata*/, unsigned /*hsvmdatalen*/)
+void NotificationEventReceiver::ReceiveNotificationEvent(std::string const &/*event*/,  uint8_t const */*hsvmdata*/, unsigned /*hsvmdatalen*/, Blex::NotificationEventSource /*source*/)
 {
 }
-
 
 void NotificationEventManager::Register(NotificationEventReceiver *receiver)
 {
@@ -244,12 +243,12 @@ void NotificationEventManager::SetExportCallback(ExportCallback onexport)
         lock->onexport = onexport;
 }
 
-void NotificationEventManager::QueueEventNoExport(std::shared_ptr< NotificationEvent > const &event)
+void NotificationEventManager::QueueEventNoExport(std::shared_ptr< NotificationEvent > const &event, Blex::NotificationEventSource source)
 {
         LockedData::WriteRef lock(data);
 
         for (auto &itr: lock->eventreceivers)
-            itr->ReceiveNotificationEvent(event->name, event->payload.begin(), event->payload.size());
+            itr->ReceiveNotificationEvent(event->name, event->payload.begin(), event->payload.size(), source);
 
         for (auto &itr: lock->keepers)
             itr->TryAddEvent(event);
@@ -265,7 +264,7 @@ void NotificationEventManager::QueueEvent(std::shared_ptr< NotificationEvent > c
         if (lock->onexport)
             lock->onexport(event);
 
-        QueueEventNoExport(event);
+        QueueEventNoExport(event, Blex::NotificationEventSource::LocalPublic);
 }
 
 NotificationEventManager::EventLock NotificationEventManager::GetTemporaryEventLock()

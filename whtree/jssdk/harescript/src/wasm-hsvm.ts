@@ -284,7 +284,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
         for (const mutex of this.mutexes)
           mutex?.release();
 
-        this.wasmmodule._SetEventCallback(0 as HSVM, 0);
+        this.wasmmodule._SetEventCallback(0);
         if (this.gotEventCallbackId)
           this.wasmmodule.removeFunction(this.gotEventCallbackId);
         if (this.gotOutputCallbackId)
@@ -676,7 +676,9 @@ export class HareScriptVM implements HSVM_HSVMSource {
        that won't keep this object in a closure context */
     registerBridgeEventHandler(new WeakRef(this));
 
-    const gotEvent = (nameptr: number, payloadptr: number, payloadlength: number): void => {
+    const gotEvent = (nameptr: number, payloadptr: number, payloadlength: number, source: number): void => {
+      if (source == 2) // Blex::NotificationEventSource::External
+        return;
       const name = this.wasmmodule.UTF8ToString(nameptr);
       const payload = Buffer.from(this.wasmmodule.HEAPU8.slice(payloadptr, payloadptr + payloadlength));
       let data = readMarshalData(payload) as (SimpleMarshallableRecord & { __recordexists?: boolean; __sourcegroup?: string }) | null;
@@ -691,8 +693,8 @@ export class HareScriptVM implements HSVM_HSVMSource {
       bridge.sendEvent(name, data as SimpleMarshallableRecord);
     };
 
-    this.gotEventCallbackId = this.wasmmodule.addFunction(gotEvent, "viii");
-    this.wasmmodule._SetEventCallback(this.hsvm, this.gotEventCallbackId);
+    this.gotEventCallbackId = this.wasmmodule.addFunction(gotEvent, "viiii");
+    this.wasmmodule._SetEventCallback(this.gotEventCallbackId);
   }
 }
 

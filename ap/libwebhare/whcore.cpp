@@ -291,7 +291,7 @@ SoftResetListener::~SoftResetListener()
         Unregister();
 }
 
-void SoftResetListener::ReceiveNotificationEvent(std::string const &event, uint8_t const */*hsvmdata*/, unsigned /*hsvmdatalen*/)
+void SoftResetListener::ReceiveNotificationEvent(std::string const &event, uint8_t const */*hsvmdata*/, unsigned /*hsvmdatalen*/, Blex::NotificationEventSource /*source*/)
 {
         if (event == "system:clearcaches")
         {
@@ -874,7 +874,7 @@ void ManagerConnection::SendUpdatedSystemConfigEvent()
         marshaller.WriteToPodVector(composevar, &evt->payload);
 
         // Send a local event
-        notificationeventmgr.QueueEventNoExport(evt);
+        notificationeventmgr.QueueEventNoExport(evt, Blex::NotificationEventSource::LocalProcessOnly);
 }
 
 void ManagerConnection::HandleInput(Blex::PipeWaiter *waiter, IOBufferPtr *iobufptr)
@@ -895,7 +895,7 @@ void ManagerConnection::HandleInput(Blex::PipeWaiter *waiter, IOBufferPtr *iobuf
 
                     // Send the event locally
                     auto evt = std::make_shared< Blex::NotificationEvent >(eventname, eventdata.first, eventdata.second - eventdata.first);
-                    notificationeventmgr.QueueEventNoExport(evt);
+                    notificationeventmgr.QueueEventNoExport(evt, Blex::NotificationEventSource::External);
             } break;
 
         case WHMResponseOpcode::RegisterPortResult:

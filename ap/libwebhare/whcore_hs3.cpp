@@ -378,7 +378,7 @@ void AdhocCache::TwistKnobs(int32_t max_entries, int32_t min_entries_per_library
         CullEntries(lock);
 }
 
-void AdhocCache::ReceiveNotificationEvent(std::string const &event, uint8_t const */*hsvmdata*/, unsigned /*hsvmdatalen*/)
+void AdhocCache::ReceiveNotificationEvent(std::string const &event, uint8_t const */*hsvmdata*/, unsigned /*hsvmdatalen*/, Blex::NotificationEventSource /*source*/)
 {
         if (event == "system:clearcaches")
         {
