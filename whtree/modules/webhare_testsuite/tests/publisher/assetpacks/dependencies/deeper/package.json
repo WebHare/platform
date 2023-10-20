@@ -1,0 +1,5 @@
+{
+  "browser": {
+    "./util.inspect.js": false
+  }
+}

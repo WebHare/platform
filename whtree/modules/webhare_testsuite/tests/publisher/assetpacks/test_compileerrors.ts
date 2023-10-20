@@ -50,6 +50,8 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
   for (const dep of result.info.dependencies.fileDependencies) {
     if (dep.startsWith("//"))
       throw new Error(`Invalid depdenency path ${dep}`); //prefix '//' might leak through
+    if (!fs.existsSync(dep))
+      throw new Error(`Incorrectly claiming filedep ${dep} (missing extension?)`);
   }
 
   return result;

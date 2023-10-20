@@ -28,7 +28,10 @@ export class CaptureLoadPlugin {
   }
   setup(build: esbuild.PluginBuild) {
     build.onLoad({ filter: /./ }, (args: esbuild.OnLoadArgs) => {
-      this.loadcache.add(args.path);
+      if (fs.existsSync(args.path))
+        this.loadcache.add(args.path);
+      else if (debugFlags["assetpack"]) //this may happen if a file is blocked through package.json - https://github.com/evanw/esbuild/issues/3459
+        console.error(`[assetpack] got a load for nonexisting file ${args.path} - ignoring`);
       return null;
     });
   }

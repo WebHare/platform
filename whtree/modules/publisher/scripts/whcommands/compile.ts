@@ -24,19 +24,7 @@ async function main(bundlename: string, options: { verbose: boolean }) {
       data.logLevel = "verbose";
 
     const result = await recompile(data);
-    console.log("total result", result);
-    console.log("dependencies", result.info.dependencies);
-    console.log("---assets---");
-    console.log(result.assetoverview.assets);
-    console.log("---structured response---");
-    console.log("Reported errors", result.info.errors); //FIXME should be at high levlel 'info' should go
-
-    try {
-      JSON.stringify(result);
-    } catch (e) {//detect cycles etc
-      console.error("FAILED TO STRINGIFY RESULT!", e);
-      process.exit(1);
-    }
+    console.log(JSON.stringify(result, null, 2));
     process.exit(result.haserrors === false ? 0 : 1);
   } catch (e) {
     console.error(e);
