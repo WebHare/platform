@@ -32,7 +32,7 @@ PUBLIC MACRO InvokeTestPage(MACRO PTR pagebody, RECORD options DEFAULTSTO DEFAUL
   OBJECT context := NEW TestContext;
   context->basefolder := basepath;
 
-  OBJECT depresolver := CreateDependencyResolverForJSFile(GetWebHareResourceDiskPath(jsfile), [ supportedlanguages := [ "en" ]]);
+  OBJECT depresolver := CreateDependencyResolverForJSFile(jsfile, [ supportedlanguages := [ "en" ]]);
   LoadWittyLibrary("mod::system/lib/testfw/testpage.witty", "HTML")->Run(
      CELL[ printheaders := PTR depresolver->PrintHeaders(DEFAULT OBJECT,"")
          , body := PTR pagebody(context)

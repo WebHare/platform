@@ -197,8 +197,8 @@ export async function recompile(data: RecompileSettings) {
   */
   const rootfiles = [
     ...(bundle.bundleconfig.webharepolyfills ? [services.toFSPath("mod::publisher/js/internal/polyfills/all")] : []),
-    bundle.entrypoint,
-    ...bundle.bundleconfig.extrarequires.filter(node => Boolean(node))
+    services.toFSPath(bundle.entrypoint),
+    ...bundle.bundleconfig.extrarequires.filter(node => Boolean(node)).map(_ => services.toFSPath(_))
   ];
 
   const outdir = path.join(bundle.outputpath, "build");
@@ -325,7 +325,7 @@ export async function recompile(data: RecompileSettings) {
       ie if the entrypoint looks like /whdata/installedmodules/example.1234/webdesigns/blabla/webdesign.ts
       we look for /whdata/installedmodules/example.1234/webdesigns/blabla/webdesign.[all extensions]
               and /whdata/installedmodules/example.1234/[all extensions] */
-    for (const subpath of getPossibleNodeModulePaths(services.toResourcePath(bundle.entrypoint)))
+    for (const subpath of getPossibleNodeModulePaths(bundle.entrypoint))
       for (const ext of missingextensions)
         info.dependencies.missingDependencies.push(path.join(subpath, missingpath) + ext);
   }

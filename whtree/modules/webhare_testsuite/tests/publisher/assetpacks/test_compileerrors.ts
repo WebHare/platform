@@ -35,7 +35,7 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
 
   //TODO nicer way to init a bundle
   bundle.outputtag = "webhare_testsuite:compileerrors";
-  bundle.entrypoint = entrypoint;
+  bundle.entrypoint = services.toResourcePath(entrypoint);
   bundle.outputpath = "/tmp/compileerrors-build-test/";
   bundle.isdev = isdev;
   test.eq(whconstant_default_compatibility, bundle.bundleconfig.compatibility);
