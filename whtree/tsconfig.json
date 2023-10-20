@@ -1,3 +1,8 @@
+/* This tsconfig.json is used to validate the base platform modules and helps prevent
+   accidental references to installed modules.
+
+  /opt/whdata/tsconfig.json will be generated to extend from this file (but knows about installed modules)
+*/
 {
   "extends": "@tsconfig/recommended",
   "compilerOptions": {
@@ -5,7 +10,7 @@
     "jsx": "react",
     "jsxFactory": "dompack.jsxcreate",
     "jsxFragmentFactory": "dompack.jsxfragment",
-    "noEmit": true,
+    "noEmit": true, //prevent accidental TS Compiler invocations from generating code
     "paths": {
       "dompack": [
         "modules/system/js/dompack"
