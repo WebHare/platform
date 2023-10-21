@@ -1,12 +1,12 @@
-/* Generates varius extracts of moduledefinition information */
+/* Generates various extracts of moduledefinition information */
 
 import { resolveResource } from "@webhare/services";
 import { FileToUpdate, GenerateContext, isNodeApplicableToThisWebHare } from "./shared";
 import { elements, getAttr } from "./xmlhelpers";
 import { whconstant_default_compatibility } from "../webhareconstants";
 import { addModule } from "@webhare/services/src/naming";
+import { ModDefYML } from "@webhare/services/src/moduledefparser";
 
-//TODO where to store these types? config.ts is a lot of readonly fiddling, moduledeftypes.ts is about raw YML data
 export interface AssetPack {
   name: string; //full name
   entryPoint: string;
@@ -103,6 +103,30 @@ function getXMLAssetPacks(mod: string, resourceBase: string, modXml: Document): 
   return packs;
 }
 
+function getYMLAssetPacks(mod: string, resourceBase: string, modYml: ModDefYML): AssetPack[] {
+  const packs: AssetPack[] = [];
+  if (modYml.assetPacks)
+    for (const [name, assetpack] of Object.entries(modYml.assetPacks)) {
+      packs.push({
+        name: addModule(mod, name),
+        entryPoint: resolveResource(resourceBase, assetpack.entryPoint),
+        supportedLanguages: [...new Set(assetpack.supportedLanguages)],
+        designRoot: "",
+        assetBaseUrl: "",
+        // designRoot: designroot, //FIXME does an assetpack need this? why?
+        // assetBaseUrl: getAttr(assetpacknode, "assetbaseurl"),
+        compatibility: assetpack.compatibility || whconstant_default_compatibility,
+        webHarePolyfills: assetpack.webharePolyfills ?? true,
+        environment: "window", //TODO can we rempve this? only liveapi neeeded it for crypto shims, and browser-packagejson can fix that too
+        afterCompileTask: addModule(mod, assetpack.afterCompileTask || ""),
+        esBuildSettings: "", //FIXME deprecate this ? we should just let users supply a JS function to apply to the esbuild config? or both?
+        extraRequires: []
+      });
+    }
+
+  return packs;
+}
+
 function getXMLAddToPacks(mod: string, resourceBase: string, modXml: Document) {
   const publisher = modXml.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "publisher")[0];
   if (!publisher)
@@ -129,6 +153,9 @@ export function generateAssetPacks(context: GenerateContext): string {
     if (mod.modXml) {
       assetpacks.push(...getXMLAssetPacks(mod.name, mod.resourceBase, mod.modXml));
       addto.push(...getXMLAddToPacks(mod.name, mod.resourceBase, mod.modXml));
+    }
+    if (mod.modYml) {
+      assetpacks.push(...getYMLAssetPacks(mod.name, mod.resourceBase, mod.modYml));
     }
   }
 

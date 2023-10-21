@@ -1012,15 +1012,6 @@
       <assetpack name="pwaserviceworker" entrypoint="webfeatures/pwa/pwaserviceworker" supportedlanguages="en" compatibility="es2016" environment="sharedworker" webharepolyfills="false"/>
     </webdesign>
 
-    <webdesign name="authormode" hidden="true">
-      <!-- (ab)using this <webdesign> to create other assetpacks as we can't create them outside a design
-           we shouldn't polyfill with this assetpack or we'll be messing up anyone trying to test locally ('dev' module will affect their site)
-     -->
-      <assetpack entrypoint="webdesigns/authormode/authormode.tsx"
-                 supportedlanguages="en nl"
-                 webharepolyfills="false" />
-    </webdesign>
-
     <webfeature name="savedurlhistory" tid="webfeatures.savedurlhistory.webfeaturetitle"  siteprofile="webfeatures/savedurlhistory/savedurlhistory.siteprl.xml"/>
 
     <customnode namespace="http://www.webhare.net/xmlns/publisher/siteprofile" name="embeddededitor" />
