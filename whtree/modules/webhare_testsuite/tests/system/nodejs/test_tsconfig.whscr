@@ -15,11 +15,11 @@ STRING FUNCTION ResolveToAbsolute(STRING base, STRING target)
 
 MACRO TSConfigTest()
 {
-  OBJECT whdata_tsconfig := DecodeJSONBlob(GetDiskResource(MergePath(GetWebhareConfiguration().basedataroot, "tsconfig.json")), DEFAULT RECORD, [ wrapobjects := TRUE ]);
+  OBJECT whdata_tsconfig := DecodeJSONBlob(GetDiskResource(MergePath(GetWebhareConfiguration().basedataroot, "tsconfig.json")), DEFAULT RECORD, [ wrapobjects := TRUE, allowcomments := TRUE ]);
 
   // Test paths from whtree/tsconfig.json
   {
-    OBJECT whtree_tsconfig := DecodeJSONBlob(GetDiskResource(MergePath(GetWebhareConfiguration().installationroot, "tsconfig.json")), DEFAULT RECORD, [ wrapobjects := TRUE ]);
+    OBJECT whtree_tsconfig := DecodeJSONBlob(GetDiskResource(MergePath(GetWebhareConfiguration().installationroot, "tsconfig.json")), DEFAULT RECORD, [ wrapobjects := TRUE, allowcomments := TRUE ]);
     RECORD whdata_paths := whdata_tsconfig->GetProp("compilerOptions")->GetProp("paths")->GetValue();
     STRING baseurl := whdata_tsconfig->GetProp("compilerOptions")->GetProp("baseUrl");
     baseurl := ResolveToAbsolute(GetWebhareConfiguration().basedataroot, baseurl);

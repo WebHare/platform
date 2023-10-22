@@ -204,19 +204,23 @@ PUBLIC BOOLEAN FUNCTION WaitForTimedTask(STRING taskname, DATETIME deadline, REC
   FOR (INTEGER iter := 0;; iter := iter + 1)
   {
     OBJECT link := ConnectToGlobalIPCPort("system:executetasks");
-    RECORD retval := link->DoRequest([ task := "listprocesses" ]);
-    link->Close();
-
-    IF (retval.status != "ok" OR retval.msg.status != "ok")
-      THROW NEW Exception(`Connection to system:executetasks service lost`);
-
-    IF(RecordExists(SELECT FROM system_internal.tasks WHERE tasks.tag = VAR matchtag) //if the tag exists (we might still need it to be registered. TODO have executetasks transmit a list of all known tasks)
-       AND NOT RecordExists(
-          SELECT
-            FROM retval.msg.processes CONCAT retval.msg.module_startup_scripts CONCAT retval.msg.uncompleted_startup_scripts
-           WHERE tag = VAR matchtag))
+    RECORD retval;
+    IF(ObjectExists(link)) //executetasks might not be up!
     {
-      RETURN TRUE;
+      retval := link->DoRequest([ task := "listprocesses" ]);
+      link->Close();
+
+      IF (retval.status != "ok" OR retval.msg.status != "ok")
+        THROW NEW Exception(`Connection to system:executetasks service lost`);
+
+      IF(RecordExists(SELECT FROM system_internal.tasks WHERE tasks.tag = VAR matchtag) //if the tag exists (we might still need it to be registered. TODO have executetasks transmit a list of all known tasks)
+         AND NOT RecordExists(
+            SELECT
+              FROM retval.msg.processes CONCAT retval.msg.module_startup_scripts CONCAT retval.msg.uncompleted_startup_scripts
+             WHERE tag = VAR matchtag))
+      {
+        RETURN TRUE;
+      }
     }
 
     DATETIME now := GetCurrentDatetime();
@@ -224,9 +228,12 @@ PUBLIC BOOLEAN FUNCTION WaitForTimedTask(STRING taskname, DATETIME deadline, REC
     {
       PRINT(`** ${now >= deadline ? "timeout " : iter<50 ? "" : "still "}waiting for executetasks to finish (waited ${GetDateTimeDifference(start, now).msecs / 1000} secs)\n`);
       PRINT(`Waiting for tags [${Detokenize(options.tags, ", ")}], scripts [${Detokenize(options.scripts, ", ")}]\n`);
-      PRINT(`Now running:\n${AnyToString((SELECT script, tag, starttime, ismatch := tag = VAR matchtag FROM retval.msg.processes ORDER BY starttime), "boxed")}`);
-      PRINT(`Module startup scripts:\n${AnyToString((SELECT script, tag, ismatch := tag = VAR matchtag FROM retval.msg.module_startup_scripts ORDER BY tag), "boxed")}`);
-      PRINT(`Uncompleted startup scripts:\n${AnyToString((SELECT script, tag, ismatch := tag = VAR matchtag FROM retval.msg.uncompleted_startup_scripts ORDER BY tag), "boxed")}`);
+      IF(RecordExists(retval))
+      {
+        PRINT(`Now running:\n${AnyToString((SELECT script, tag, starttime, ismatch := tag = VAR matchtag FROM retval.msg.processes ORDER BY starttime), "boxed")}`);
+        PRINT(`Module startup scripts:\n${AnyToString((SELECT script, tag, ismatch := tag = VAR matchtag FROM retval.msg.module_startup_scripts ORDER BY tag), "boxed")}`);
+        PRINT(`Uncompleted startup scripts:\n${AnyToString((SELECT script, tag, ismatch := tag = VAR matchtag FROM retval.msg.uncompleted_startup_scripts ORDER BY tag), "boxed")}`);
+      }
     }
 
     IF (now >= deadline)
