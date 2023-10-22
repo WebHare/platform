@@ -18,7 +18,7 @@ LOADLIB "mod::system/lib/internal/services.whlib";
 RECORD FUNCTION GetHeadersForAdhocBundle(STRING entrypoint)
 {
   RECORD requestedbundle := MakeEmptyBundle();
-  requestedbundle.basedependency := GetWebHareResourceDiskPath(entrypoint);
+  requestedbundle.basedependency := entrypoint;
   requestedbundle.adhoc := TRUE;
   requestedbundle.bundleconfig.languages := STRING[];
 

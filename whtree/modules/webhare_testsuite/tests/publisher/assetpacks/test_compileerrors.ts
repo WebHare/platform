@@ -9,25 +9,8 @@ import * as path from "node:path";
 
 import * as services from "@webhare/services";
 
-import { recompile } from '@mod-publisher/js/internal/esbuild/compiletask';
+import { AssetPackManifest, recompile } from '@mod-publisher/js/internal/esbuild/compiletask';
 import { whconstant_default_compatibility } from '@mod-system/js/internal/webhareconstants';
-
-//TODO these types should move to assetpackcontrol/bulder
-interface AssetPackManifest {
-  version: number;
-  assets: Array<{ subpath: string; compressed: boolean; sourcemap: boolean }>;
-}
-
-interface CompileResult {
-  haserrors: boolean;
-  info: {
-    errors: Array<{ message: string; resource: string }>
-    ; dependencies: {
-      fileDependencies: string[]
-      ; missingDependencies: string[];
-    };
-  };
-}
 
 async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- internal API, not documenting. we probably need to work closer with assetpackcnotrol anyway and avoid designfilesapi2
@@ -35,7 +18,7 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
 
   //TODO nicer way to init a bundle
   bundle.outputtag = "webhare_testsuite:compileerrors";
-  bundle.entrypoint = entrypoint;
+  bundle.entrypoint = services.toResourcePath(entrypoint);
   bundle.outputpath = "/tmp/compileerrors-build-test/";
   bundle.isdev = isdev;
   test.eq(whconstant_default_compatibility, bundle.bundleconfig.compatibility);
@@ -45,7 +28,7 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
   fs.mkdirSync(bundle.outputpath);
 
   const data = { directcompile: true, bundle, compiletoken: "adhoctest" };
-  const result = await recompile(data) as CompileResult;
+  const result = await recompile(data);
   JSON.stringify(result); //detect cycles etc;
   if (!result.haserrors) {
     //verify the manifest
@@ -67,6 +50,8 @@ async function compileAdhocTestBundle(entrypoint: string, isdev: boolean) {
   for (const dep of result.info.dependencies.fileDependencies) {
     if (dep.startsWith("//"))
       throw new Error(`Invalid depdenency path ${dep}`); //prefix '//' might leak through
+    if (!fs.existsSync(dep))
+      throw new Error(`Incorrectly claiming filedep ${dep} (missing extension?)`);
   }
 
   return result;

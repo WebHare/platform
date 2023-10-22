@@ -149,14 +149,6 @@ STATIC OBJECTTYPE FilePathTranslator
     }
     RETURN DEFAULT RECORD;
   }
-
-  PUBLIC STRING FUNCTION GetDiskPath(STRING path)
-  {
-    RECORD rec := this->LookupPath(path);
-    IF (NOT RecordExists(rec))
-      THROW NEW Exception("Could not find path '" || path || "' in an installed module");
-    RETURN rec.diskpath;
-  }
 >;
 
 STATIC OBJECTTYPE AssetPackController
@@ -519,19 +511,6 @@ STATIC OBJECTTYPE AssetPackController
       {
         STRING ARRAY bundletagtoks := Tokenize(bundle.outputtag, ':');
         bundle.diskpath := GetModuleInstallationRoot(bundletagtoks[0]) || "webdesigns/" || bundletagtoks[1];
-      }
-
-      TRY bundle.entrypoint := this->fptranslator->GetDiskPath(bundle.origentrypoint);
-      CATCH THROW NEW Exception("Entrypoint '" || bundle.origentrypoint || "' is invalid");
-
-      FOREVERY(STRING extrareq FROM bundle.bundleconfig.extrarequires)
-      {
-        IF(extrareq LIKE "*::*") //namespaced path
-        {
-          TRY extrareq := this->fptranslator->GetDiskPath(extrareq);
-          CATCH THROW NEW Exception("Extra require '" || extrareq || "' is invalid");
-          bundle.bundleconfig.extrarequires[#extrareq] := extrareq;
-        }
       }
     }
     CATCH (OBJECT e)
@@ -1136,8 +1115,17 @@ STATIC OBJECTTYPE AssetPackController
     IF(NOT haserrors AND bundle.bundleconfig.aftercompiletask != "")
     {
       GetPrimary()->BeginWork();
-      ScheduleManagedTask(bundle.bundleconfig.aftercompiletask, [ assetpack := message.bundle ]);
-      GetPrimary()->CommiTWork();
+      TRY
+      {
+        ScheduleManagedTask(bundle.bundleconfig.aftercompiletask, [ assetpack := message.bundle ]);
+        GetPrimary()->CommitWork();
+      }
+      CATCH(OBJECT e) //eg. missing task
+      {
+        IF(GetPrimary()->IsWorkOpen())
+          GetPrimary()->RollbackWork();
+        THROW e;
+      }
     }
 
     BroadcastEvent("publisher:assetpackcontrol.change." || message.bundle, DEFAULT RECORD);

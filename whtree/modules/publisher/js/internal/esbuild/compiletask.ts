@@ -28,7 +28,10 @@ export class CaptureLoadPlugin {
   }
   setup(build: esbuild.PluginBuild) {
     build.onLoad({ filter: /./ }, (args: esbuild.OnLoadArgs) => {
-      this.loadcache.add(args.path);
+      if (fs.existsSync(args.path))
+        this.loadcache.add(args.path);
+      else if (debugFlags["assetpack"]) //this may happen if a file is blocked through package.json - https://github.com/evanw/esbuild/issues/3459
+        console.error(`[assetpack] got a load for nonexisting file ${args.path} - ignoring`);
       return null;
     });
   }
@@ -141,6 +144,15 @@ function mapESBuildError(entrypoint: string, error: esbuild.Message) {
   };
 }
 
+export interface AssetPackManifest {
+  version: number;
+  assets: Array<{
+    subpath: string;
+    compressed: boolean;
+    sourcemap: boolean;
+  }>;
+}
+
 export interface BundleConfig {
   languages: string[];
   webharepolyfills: boolean;
@@ -197,8 +209,8 @@ export async function recompile(data: RecompileSettings) {
   */
   const rootfiles = [
     ...(bundle.bundleconfig.webharepolyfills ? [services.toFSPath("mod::publisher/js/internal/polyfills/all")] : []),
-    bundle.entrypoint,
-    ...bundle.bundleconfig.extrarequires.filter(node => Boolean(node))
+    services.toFSPath(bundle.entrypoint),
+    ...bundle.bundleconfig.extrarequires.filter(node => Boolean(node)).map(_ => services.toFSPath(_))
   ];
 
   const outdir = path.join(bundle.outputpath, "build");
@@ -325,13 +337,13 @@ export async function recompile(data: RecompileSettings) {
       ie if the entrypoint looks like /whdata/installedmodules/example.1234/webdesigns/blabla/webdesign.ts
       we look for /whdata/installedmodules/example.1234/webdesigns/blabla/webdesign.[all extensions]
               and /whdata/installedmodules/example.1234/[all extensions] */
-    for (const subpath of getPossibleNodeModulePaths(services.toResourcePath(bundle.entrypoint)))
+    for (const subpath of getPossibleNodeModulePaths(bundle.entrypoint))
       for (const ext of missingextensions)
         info.dependencies.missingDependencies.push(path.join(subpath, missingpath) + ext);
   }
 
   //create asset list. just iterate the output directory (FIXME iterate result.outputFiles, but not available in dev mode perhaps?)
-  const assetoverview = {
+  const assetoverview: AssetPackManifest = {
     version: 1,
     assets: new Array<{
       subpath: string;

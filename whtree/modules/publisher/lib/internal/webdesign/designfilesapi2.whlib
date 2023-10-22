@@ -265,20 +265,6 @@ PUBLIC RECORD FUNCTION GetBundle(STRING byoutputtag)
     THROW NEW Exception(`No such bundle ${byoutputtag} registered`);
 
   bundle := PreFixupBundleconfig(bundle);
-
-  TRY bundle.entrypoint := GetWebHareResourceDiskPath(bundle.origentrypoint);
-  CATCH THROW NEW Exception("Entrypoint '" || bundle.origentrypoint || "' is invalid");
-
-  FOREVERY(STRING extrareq FROM bundle.bundleconfig.extrarequires)
-  {
-    IF(extrareq LIKE "*::*") //namespaced path
-    {
-      TRY extrareq := GetWebHareResourceDiskPath(extrareq);
-      CATCH THROW NEW Exception("Extra require '" || extrareq || "' is invalid");
-      bundle.bundleconfig.extrarequires[#extrareq] := extrareq;
-    }
-  }
-
   INSERT CELL outputpath := GetBundleOutputPath(bundle.outputtag) INTO bundle;
 
   RETURN bundle;
