@@ -52,6 +52,9 @@ on macOS: `ps ewwax|grep ' WEBHARE_SERVICEMANAGERID=' | cut -d' ' -f1`
 ### WEBHARE_PLATFORM
 Our build/run platform. `linux` or `darwin`
 
+### WEBHARE_NODE_BINARY
+Which process to invoke for 'node' (needed sometimes to lock in the proper version)
+
 ## Tweaks
 
 ### WEBHARE_CHECKEDOUT_TO

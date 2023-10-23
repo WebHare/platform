@@ -69,13 +69,7 @@ wh_runjs()
   fi
 
   # --experimental-wasm-stack-switching is not allowed in NODE_OPTIONS
-  # on macOS we require brew-installed node@20 for sass compatibility
-  if [ -x "$(brew --prefix)/opt/node@20/bin/node" ]; then
-    NODE_BINARY="$(brew --prefix)/opt/node@20/bin/node"
-  else
-    NODE_BINARY="node"
-  fi
-  "${RUNPREFIX[@]}" ${NODE_BINARY} --experimental-wasm-stack-switching $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
+  "${RUNPREFIX[@]}" ${WEBHARE_NODE_BINARY} --experimental-wasm-stack-switching $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
   RETVAL="$?"
 
   NODE_PATH="$SAVE_NODE_PATH"
