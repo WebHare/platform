@@ -3,7 +3,7 @@
 set -eo pipefail
 
 WEBHARE_CHECKEDOUT_TO="$(cd "${BASH_SOURCE%/*}/.."; pwd)"
-source "$WEBHARE_CHECKEDOUT_TO/builder/support/make-functions.sh"
+source "$WEBHARE_CHECKEDOUT_TO/whtree/lib/make-functions.sh"
 estimate_buildj
 
 setup_builddir

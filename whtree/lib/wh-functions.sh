@@ -1,8 +1,8 @@
+#!/bin/bash
+
 # This script is also deployed to https://build.webhare.dev/ci/scripts/wh-functions.sh
 
-die() {
-  echo "$@"; exit 1
-}
+source "${BASH_SOURCE%/*}/make-functions.sh"
 
 logWithTime()
 {
@@ -678,8 +678,6 @@ setup_buildsystem()
   fi
 
   if [ -z "$WEBHARE_IN_DOCKER" ]; then # Not a docker build, configure for local building
-
-    source $WEBHARE_CHECKEDOUT_TO/builder/support/make-functions.sh
     setup_builddir
 
     # Additional dependencies
@@ -728,4 +726,4 @@ load_postgres_settings()
   export PSROOT RUNAS PGVERSION PSBIN
 }
 
-export -f die setup_buildsystem getbaseversioninfo wh_runjs exec_wh_runjs wh_runwhscr exec_wh_runwhscr
+export -f setup_buildsystem getbaseversioninfo wh_runjs exec_wh_runjs wh_runwhscr exec_wh_runwhscr

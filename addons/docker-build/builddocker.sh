@@ -173,13 +173,16 @@ fi
 
 # Recreate tocompile dir. we need 'whtree' to exist too so we can move the fonts in place
 [ -d tocompile ] && rm -rf tocompile
-mkdir -p tocompile/whtree
+mkdir -p tocompile/whtree tocompile/whtree/lib
 
 #TODO if we could move more into the 'builder' dir we could simplify this list
 cp -a $SOURCEDIR/{ap,blex,builder,drawlib,harescript,parsers,vendor} tocompile/
 
 # Fonts are also required for drawlib tests
 mv whtree/fonts tocompile/whtree/
+
+# make-functions.sh stores functions shared between the build and runtime process so we need it earlier.
+mv whtree/lib/make-functions.sh tocompile/whtree/lib/
 
 cat > .dockerignore << HERE
 **/engines/pdfbox*.jar

@@ -1,13 +1,19 @@
 #!/bin/bash
+# This script is also deployed to https://build.webhare.dev/ci/scripts/make-functions.sh
 
-# Helper functions for 'make' etc.
-# 'wh' is allowed to depend on us but we want to not depend on 'wh' or anything outside the builder/ dir (and other stuff copied by wh builddocker)
+# Helper functions shared between build ('make'), CI (testdocker) and runtime WebHare.
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
   WEBHARE_PLATFORM="darwin"
 else
   WEBHARE_PLATFORM="linux"
 fi
+
+die()
+{
+  echo "$@" 1>&2
+  exit 1
+}
 
 estimate_buildj()
 {
@@ -56,8 +62,4 @@ setup_builddir()
   fi
 }
 
-die()
-{
-  echo "$@" 1>&2
-  exit 1
-}
+export -f die
