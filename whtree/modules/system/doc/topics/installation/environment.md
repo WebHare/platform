@@ -49,6 +49,9 @@ Current semantic WebHare version number, eg 4.27.0
 Unique ID intended to be inherited by all children of a service manager. This can also be used to track orphaned processes, eg
 on macOS: `ps ewwax|grep ' WEBHARE_SERVICEMANAGERID=' | cut -d' ' -f1`
 
+### WEBHARE_PLATFORM
+Our build/run platform. `linux` or `darwin`
+
 ## Tweaks
 
 ### WEBHARE_CHECKEDOUT_TO

@@ -314,7 +314,7 @@ is_webhare_running()
   local PID
   get_webhare_pid PID
   if [ -n "$PID" ]; then
-    if [ "$WHBUILD_PLATFORM" == "darwin" ]; then
+    if [ "$WEBHARE_PLATFORM" == "darwin" ]; then
       PROCESSNAME="$(ps -o command= -cp "$PID")"
     else # linux does not like the '-' in '-cp'
       PROCESSNAME="$(ps -o command= cp "$PID")"
@@ -605,7 +605,7 @@ verify_webhare_version()
 
 setup_buildsystem()
 {
-  if [ "$WHBUILD_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebrew and packages are available
+  if [ "$WEBHARE_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebrew and packages are available
     if ! which brew >/dev/null 2>&1 ; then
       echo "On macOS we rely on Homebrew (http://brew.sh) and some additional packages being installed. Please install it"
       exit 1
@@ -628,7 +628,7 @@ setup_buildsystem()
       exit 1
     fi
 
-  elif [ "$WHBUILD_PLATFORM" == "linux" ] && [ -f /etc/redhat-release ] && ! grep CentOS /etc/redhat-release ; then
+  elif [ "$WEBHARE_PLATFORM" == "linux" ] && [ -f /etc/redhat-release ] && ! grep CentOS /etc/redhat-release ; then
     REQUIREPACKAGES="openssl-devel pixman-devel git freetype-devel GeoIP-devel libtiff-devel giflib-devel libjpeg-turbo-devel libpng-devel libtiff-devel pixman-devel openssl-devel libicu-devel libxml2-devel valgrind-devel libgit2-devel libmaxminddb-devel libpq-devel"
     if ! which ccache > /dev/null 2>&1 ; then
       REQUIREPACKAGES="$REQUIREPACKAGES ccache"
@@ -710,7 +710,7 @@ load_postgres_settings()
   if [ -n "$WEBHARE_IN_DOCKER" ]; then  #TODO should share with recreate-database and postgres-single
     RUNAS="chpst -u postgres:whdata"
     PSBIN="/usr/lib/postgresql/11/bin/"
-  elif [ "$WHBUILD_PLATFORM" = "darwin" ]; then
+  elif [ "$WEBHARE_PLATFORM" = "darwin" ]; then
     # Read the version of the PostgreSQL database, fall back to version 13 (as specified in webhare.rb) for new databases
     PGVERSION=$(cat "$PSROOT/db/PG_VERSION" 2>/dev/null)
     if [ -z "${PGVERSION}" ]; then

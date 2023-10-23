@@ -10,7 +10,7 @@ fi
 if [ -n "$WEBHARE_IN_DOCKER" ]; then
   RUNAS="chpst -u postgres:whdata"
   PSBIN="/usr/lib/postgresql/11/bin/"
-elif [ "$WHBUILD_PLATFORM" = "darwin" ]; then
+elif [ "$WEBHARE_PLATFORM" = "darwin" ]; then
   PSBIN="$(brew --prefix)/bin/"
 else
   PSBIN="/usr/pgsql-11/bin/"

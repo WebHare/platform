@@ -29,7 +29,7 @@ cd "$WEBHARE_BUILDDIR"
 export GCC_COLORS=1
 
 export SRCDIR="$WEBHARE_CHECKEDOUT_TO"
-export WHBUILD_PLATFORM
+export WEBHARE_PLATFORM
 
 retval=0
 make -rj$WHBUILD_NUMPROC -f $WEBHARE_CHECKEDOUT_TO/builder/base_makefile "$@" || retval=$?
