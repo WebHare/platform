@@ -4,6 +4,7 @@ import { resolveResource } from "@webhare/services";
 import { FileToUpdate, GenerateContext, isNodeApplicableToThisWebHare } from "./shared";
 import { elements, getAttr } from "./xmlhelpers";
 import { whconstant_default_compatibility } from "../webhareconstants";
+import { addModule } from "@webhare/services/src/naming";
 
 //TODO where to store these types? config.ts is a lot of readonly fiddling, moduledeftypes.ts is about raw YML data
 export interface AssetPack {
@@ -20,6 +21,23 @@ export interface AssetPack {
   extraRequires: string[];
 }
 
+export interface BackendServiceDescriptor {
+  name: string;
+  clientFactory: string;
+  controllerFactory: string;
+}
+
+export interface OpenAPIDescriptor {
+  name: string;
+  spec: string;
+}
+
+export interface Services {
+  backendServices: BackendServiceDescriptor[];
+  openAPIServices: OpenAPIDescriptor[];
+  openAPIClients: OpenAPIDescriptor[]; //no difference in types (yet)
+}
+
 function getXMLAssetPacks(mod: string, resourceBase: string, modXml: Document): AssetPack[] {
   const packs: AssetPack[] = [];
 
@@ -32,38 +50,31 @@ function getXMLAssetPacks(mod: string, resourceBase: string, modXml: Document): 
     if (!isNodeApplicableToThisWebHare(webdesign, ""))
       continue;
 
-    const designname = webdesign.getAttribute("name");
-    let designroot = webdesign.getAttribute("path") || `mod::${mod}/webdesigns/${designname}/`;
+    const designname = getAttr(webdesign, "name");
+    let designroot = getAttr(webdesign, "path", `mod::${mod}/webdesigns/${designname}/`);
     if (!designroot.endsWith("/"))
       designroot += "/";
 
     const istemplate = getAttr(webdesign, "istemplate", false);
     if (!istemplate)
       for (const assetpacknode of elements(webdesign.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "assetpack"))) {
-        const assetpackname = `${mod}:${assetpacknode.getAttribute("name") || designname}`;
+        const assetpackname = addModule(mod, getAttr(assetpacknode, "name", designname));
         if (packs.find(_ => _.name === assetpackname)) {
           //TODO error about dupe
           continue;
         }
 
-        const entrypoint = getAttr(assetpacknode, "entrypoint");
-        const compatibility = getAttr(assetpacknode, "compatibility", whconstant_default_compatibility);
-        const webharepolyfills = getAttr(assetpacknode, "webharepolyfills", true);
-        const environment = getAttr(assetpacknode, "environment", "window");
-        const aftercompiletask = getAttr(assetpacknode, "aftercompiletask");
-        const esbuildsettings = getAttr(assetpacknode, "esbuildsettings");
-
         packs.push({
           name: assetpackname,
-          entryPoint: resolveResource(resourceBase, entrypoint),
+          entryPoint: resolveResource(resourceBase, getAttr(assetpacknode, "entrypoint")),
           supportedLanguages: [...new Set(getAttr(assetpacknode, "supportedlanguages", []))],
           designRoot: designroot, //FIXME does an assetpack need this? why?
           assetBaseUrl: getAttr(assetpacknode, "assetbaseurl"),
-          compatibility,
-          webHarePolyfills: webharepolyfills,
-          environment,
-          afterCompileTask: aftercompiletask,
-          esBuildSettings: esbuildsettings,
+          compatibility: getAttr(assetpacknode, "compatibility", whconstant_default_compatibility),
+          webHarePolyfills: getAttr(assetpacknode, "webharepolyfills", true),
+          environment: getAttr(assetpacknode, "environment", "window"),
+          afterCompileTask: addModule(mod, getAttr(assetpacknode, "aftercompiletask")),
+          esBuildSettings: getAttr(assetpacknode, "esbuildsettings"), //FIXME deprecate this, we should just let users supply a JS function to apply to the esbuild config
           extraRequires: []
         });
       }
@@ -130,6 +141,52 @@ export function generateAssetPacks(context: GenerateContext): string {
   return JSON.stringify(assetpacks, null, 2) + "\n";
 }
 
+export function generateServices(context: GenerateContext): string {
+  const retval: Services = {
+    backendServices: [],
+    openAPIServices: [],
+    openAPIClients: []
+  };
+
+  for (const mod of context.moduledefs) {
+    const services = mod.modXml?.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "services")[0];
+    if (!services)
+      continue;
+
+    for (const backendservice of elements(services.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "backendservice"))) {
+      if (!isNodeApplicableToThisWebHare(backendservice, ""))
+        continue;
+
+      retval.backendServices.push({
+        name: `${mod.name}:${getAttr(backendservice, "name")}`,
+        clientFactory: resolveResource(mod.resourceBase, getAttr(backendservice, "clientfactory")),
+        controllerFactory: resolveResource(mod.resourceBase, getAttr(backendservice, "controllerfactory"))
+      });
+    }
+
+    for (const openapiservice of elements(services.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "openapiservice"))) {
+      if (!isNodeApplicableToThisWebHare(openapiservice, ""))
+        continue;
+
+      retval.openAPIServices.push({
+        name: `${mod.name}:${getAttr(openapiservice, "name")}`,
+        spec: resolveResource(mod.resourceBase, getAttr(openapiservice, "spec")),
+      });
+    }
+
+    for (const openapiclient of elements(services.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "openapiclient"))) {
+      if (!isNodeApplicableToThisWebHare(openapiclient, ""))
+        continue;
+
+      retval.openAPIClients.push({
+        name: `${mod.name}:${getAttr(openapiclient, "name")}`,
+        spec: resolveResource(mod.resourceBase, getAttr(openapiclient, "spec")),
+      });
+    }
+  }
+  return JSON.stringify(retval, null, 2) + "\n";
+}
+
 export async function listAllExtracts(): Promise<FileToUpdate[]> {
   return [
     {
@@ -137,6 +194,12 @@ export async function listAllExtracts(): Promise<FileToUpdate[]> {
       module: "platform",
       type: "extract",
       generator: (context: GenerateContext) => generateAssetPacks(context)
+    },
+    {
+      path: `extract/services.json`,
+      module: "platform",
+      type: "extract",
+      generator: (context: GenerateContext) => generateServices(context)
     }
   ];
 }

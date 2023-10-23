@@ -42,3 +42,8 @@ export function splitFileReference(ref: string): { file: string; name: string } 
     return null;
   return { file: parts[0], name: parts[1] };
 }
+
+/** Prefix a name with a module name if it has no prefix yet */
+export function addModule(module: string, name: string) {
+  return name && !name.includes(":") ? `${module}:${name}` : name;
+}

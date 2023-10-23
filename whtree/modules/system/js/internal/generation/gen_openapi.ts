@@ -1,28 +1,16 @@
-import fs from "node:fs";
 import { whconstant_builtinmodules } from "../webhareconstants";
 import { FileToUpdate, GenerateContext } from "./shared";
-import * as services from "@webhare/services";
 import type { Readable } from "node:stream";
 import SwaggerParser from "@apidevtools/swagger-parser";
 import type { OpenAPI3, OpenAPITSOptions } from "openapi-typescript";
 import { OpenAPIV3 } from "openapi-types";
 import { HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
 import { splitFileReference } from "@webhare/services/src/naming";
-import { XMLParser } from "fast-xml-parser";
-import { backendConfig } from "@webhare/services";
+import { backendConfig, toFSPath } from "@webhare/services";
+import { getExtractedConfig } from "../configuration";
+import { OpenAPIDescriptor } from "./gen_extracts";
 
 
-/** This scripts create typescript type definitions from the OpenAPI specification for APIs
- * In the component imports for the document types, it will add an optional member __internal_format_tag,
- * that ensures no data is mixed up between input, database and output without going through conversion.
- */
-
-type OpenAPIService = {
-  module: string;
-  name: string;
-  spec: string;
-  isservice: boolean;
-};
 
 function convertStatusCodes(result: string) {
   return result.split("\n").map(line => {
@@ -108,11 +96,11 @@ function addInternalFormatTags(root: object, node: object, path: string) {
   }
 }
 
-export async function createOpenAPITypeDocuments(openapifilepath: string, service: OpenAPIService, importname: string) {
+export async function createOpenAPITypeDocuments(openapifilepath: string, service: OpenAPIDescriptor, importname: string, name: string, isservice: boolean) {
   // First bundle to resolve the references to external files
   const bundled = await SwaggerParser.bundle(openapifilepath) as OpenAPIV3.Document;
 
-  const tag = service.name.replaceAll(/^[a-z]|_[a-z]/g, c => c.replace("_", "").toUpperCase());
+  const tag = name.replaceAll(/^[a-z]|_[a-z]/g, c => c.replace("_", "").toUpperCase());
 
   // Add __internal_format_tag optional keys before validation resolves every $ref reference
   addInternalFormatTags(bundled, bundled, "#");
@@ -259,7 +247,7 @@ type APIAuthInfo = null;
 /* eslint-disable @typescript-eslint/no-explicit-any -- used in helper functions emitted by openapi-typescript */
 /* eslint-disable @typescript-eslint/array-type -- openapi-typescript doesn't follow the WebHare convention */
 
-${service.isservice ? `import { OperationIds, OpenApiTypedRestAuthorizationRequest, OpenApiTypedRestRequest } from "@mod-system/js/internal/openapi/types";
+${isservice ? `import { OperationIds, OpenApiTypedRestAuthorizationRequest, OpenApiTypedRestRequest } from "@mod-system/js/internal/openapi/types";
 ` : ``}import { HTTPErrorCode, HTTPSuccessCode } from "@webhare/router";
 import { TypedOpenAPIClient, TypedClientRequestBody, TypedClientResponse, GetClientTypeParams, PathsForMethod } from "@mod-system/js/internal/openapi/openapitypedclient";
 
@@ -287,7 +275,7 @@ export type ${clientname}Response<
   MethodPath extends PathsForMethod<GetClientTypeParams<${clientname}>["paths"], Method>
 > = TypedClientResponse<${clientname}, Method, MethodPath>;
 `;
-  if (service.isservice)
+  if (isservice)
     result += `
 /** Type with the possible operations, in the form of \`\${method} \${path}\`
  */
@@ -308,62 +296,16 @@ export type TypedRestAuthorizationRequest = OpenApiTypedRestAuthorizationRequest
   return result;
 }
 
-function getOpenAPIServicesOfModule(module: string) {
-  const parser = new XMLParser({
-    ignoreAttributes: false,
-    attributeNamePrefix: "@",
-    isArray: (name, jpath, isLeafNode, isAttribute) => ["openapiservice", "openapiclient"].includes(name)
-  });
+async function generateFile(options: GenerateContext, service: OpenAPIDescriptor, module: string, name: string, isservice: boolean) {
+  const importname = whconstant_builtinmodules.includes(module)
+    ? `modules/system/js/internal/generated/openapi/${module}/${name}`
+    : `wh:openapi/${module}/${name}`;
 
-  const retval: OpenAPIService[] = [];
-  try {
-    const moduledefresource = `mod::${module}/moduledefinition.xml`;
-    const parsedmodule = parser.parse(fs.readFileSync(services.toFSPath(moduledefresource)));
-    for (const service of parsedmodule.module.services?.openapiservice ?? []) {
-      try {
-        retval.push({
-          module,
-          name: service["@name"],
-          spec: services.toFSPath(services.resolveResource(moduledefresource, service["@spec"])),
-          isservice: true
-        });
-      } catch (e) {
-        console.error(`Error resolving spec of openapi service ${module}:${service["@name"]}:`, e);
-        services.logError(e as Error);
-      }
-    }
-    for (const service of parsedmodule.module.services?.openapiclient ?? []) {
-      try {
-        if (retval.find(r => r.name === service["@name"]))
-          continue;
-        retval.push({
-          module,
-          name: service["@name"],
-          spec: services.toFSPath(services.resolveResource(moduledefresource, service["@spec"])),
-          isservice: false
-        });
-      } catch (e) {
-        console.error(`Error resolving spec of openapi service ${module}:${service["@name"]}:`, e);
-        services.logError(e as Error);
-      }
-    }
-  } catch (e) {
-    console.error(`Error parsing moduledefinition of ${module}`, e);
-    services.logError(e as Error);
-  }
-  return retval;
-}
-
-async function generateFile(options: GenerateContext, service: OpenAPIService) {
-  const importname = whconstant_builtinmodules.includes(service.module)
-    ? `modules/system/js/internal/generated/openapi/${service.module}/${service.name}`
-    : `wh:openapi/${service.module}/${service.name}`;
-
-  const timername = `Generating OpenAPI ${service.module}:${service.name}`;
+  const timername = `Generating OpenAPI ${module}:${name}`;
   if (options.verbose)
     console.time(timername);
 
-  const retval = await createOpenAPITypeDocuments(service.spec, service, importname);
+  const retval = await createOpenAPITypeDocuments(toFSPath(service.spec), service, importname, name, isservice);
   if (options.verbose)
     console.timeEnd(timername);
 
@@ -372,14 +314,21 @@ async function generateFile(options: GenerateContext, service: OpenAPIService) {
 
 function getFilesForModules(module: string, processmodules: string[]): FileToUpdate[] {
   const retval: FileToUpdate[] = [];
-  for (const processmodule of processmodules)
-    for (const item of backendConfig.module[module] ? getOpenAPIServicesOfModule(processmodule) : [])
-      retval.push({
-        type: "openapi",
-        path: "openapi/" + processmodule + "/" + item.name + ".ts",
-        module,
-        generator: (context: GenerateContext) => generateFile(context, item)
-      });
+  const serviceconfig = getExtractedConfig("services");
+  //FIXME as client and services use separate XML nodes but build the same name, who prevents a clash?
+  const openapis = [
+    ...serviceconfig.openAPIClients.map(_ => ({ ..._, isservice: false })),
+    ...serviceconfig.openAPIServices.map(_ => ({ ..._, isservice: true }))
+  ].filter(_ => processmodules.some(m => _.name.startsWith(m + ":")));
+  for (const item of openapis) {
+    const [modulename, name] = item.name.split(":");
+    retval.push({
+      type: "openapi",
+      path: "openapi/" + module + "/" + name + ".ts",
+      module,
+      generator: (context: GenerateContext) => generateFile(context, item, modulename, name, item.isservice)
+    });
+  }
 
   return retval;
 }

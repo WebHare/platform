@@ -213,3 +213,7 @@ PUBLIC STRING FUNCTION GetModuleResourceURL(STRING resourcename)
   RETURN "/.publisher/sd/" || pathtoks[0] || '/' || pathtoks[2] || "/" || Detokenize(ArraySlice(pathtoks,4),'/');
 }
 
+PUBLIC VARIANT FUNCTION __GetExtractedConfig(STRING name)
+{
+  RETURN DecodeJSONBlob(GetWebhareResource(`storage::system/generated/extract/${name}.json`));
+}

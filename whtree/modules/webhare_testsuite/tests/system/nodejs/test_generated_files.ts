@@ -9,7 +9,7 @@ import { getExtractedConfig } from "@mod-system/js/internal/configuration";
 async function testWebHareConfig() {
   /* Tests whether the current WebHare builtin config is properly parsed
      This saves us from having to build modules but we risk a test breaking and having to look for
-     new examples if WebHare itself changes */
+     new examples if WebHare itself changes (this will probably the new 'testvalidate') */
   await updateGeneratedFiles(["extract"], { verbose: true }); //regenerate, useful if you're currently developing a generator
   const assetpacks = getExtractedConfig("assetpacks");
   const basetestpack = assetpacks.find(_ => _.name === "webhare_testsuite:basetest");
@@ -17,6 +17,22 @@ async function testWebHareConfig() {
     entryPoint: "mod::webhare_testsuite/webdesigns/basetest/js/basetest",
     extraRequires: ["mod::webhare_testsuite/webdesigns/basetest/js/addtopack"]
   }, basetestpack);
+
+  const services = getExtractedConfig("services");
+  const fetchpoolservice = services.backendServices.find(_ => _.name === "system:fetchpool");
+  test.eqProps({
+    clientFactory: "mod::system/js/internal/fetchpool/fetchpool.ts#getFetcher"
+  }, fetchpoolservice);
+
+  const testservice = services.openAPIServices.find(_ => _.name === "webhare_testsuite:testservice");
+  test.eqProps({
+    spec: "mod::webhare_testsuite/tests/wh/webserver/remoting/openapi/testservice.yaml"
+  }, testservice);
+
+  const testclient = services.openAPIClients.find(_ => _.name === "webhare_testsuite:testclient");
+  test.eqProps({
+    spec: "mod::webhare_testsuite/tests/wh/webserver/remoting/openapi/testservice.yaml"
+  }, testclient);
 }
 
 async function testBasics() {

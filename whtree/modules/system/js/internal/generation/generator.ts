@@ -6,7 +6,7 @@ import { listAllModuleWRDDefs } from "@mod-system/js/internal/generation/gen_wrd
 import { listAllModuleOpenAPIDefs } from "@mod-system/js/internal/generation/gen_openapi";
 import { updateConfig } from "../configuration";
 import { backendConfig, toFSPath } from "@webhare/services";
-import { FileToUpdate, GenerateContext, LoadedModuleDefs } from "./shared";
+import { FileToUpdate, GenerateContext, GeneratorType, LoadedModuleDefs } from "./shared";
 import { mkdir, readFile } from "fs/promises";
 import { dirname, join } from "node:path";
 import { deleteRecursive, storeDiskFile } from "@webhare/system-tools/src/fs";
@@ -25,25 +25,25 @@ function getPaths() {
   return { installedBaseDir, builtinBaseDir };
 }
 
-export async function listAllGeneratedFiles(): Promise<FileToUpdate[]> {
+function fixFilePaths(files: FileToUpdate[]) {
   const { installedBaseDir, builtinBaseDir } = getPaths();
+  return files.map(file => ({
+    ...file,
+    path: (file.module == "platform" && file.type != 'extract' ? builtinBaseDir : installedBaseDir) + file.path
+  }));
+}
 
-  const files: FileToUpdate[] = [];
+async function listOtherGeneratedFiles(): Promise<FileToUpdate[]> {
   const allmods = ["platform", ...Object.keys(backendConfig.module).filter(m => !whconstant_builtinmodules.includes(m))];
-
-  files.push(
+  return fixFilePaths([
     ...await listAllModuleTableDefs(allmods),
     ...await listAllModuleWRDDefs(),
-    ...await listAllModuleOpenAPIDefs(),
-    ...await listAllExtracts()
-  );
+    ...await listAllModuleOpenAPIDefs()
+  ]);
+}
 
-  //we keep all extracts in the generated dir even if they describe the platform (similar to config.json)
-  //extracts are not depended on by TS files anyway
-  files.forEach(file => {
-    file.path = (file.module == "platform" && file.type != 'extract' ? builtinBaseDir : installedBaseDir) + file.path;
-  });
-  return files;
+export async function listAllGeneratedFiles(): Promise<FileToUpdate[]> {
+  return [...await listOtherGeneratedFiles(), ...fixFilePaths(await listAllExtracts())];
 }
 
 async function loadModuleDefs(name: string, mod: RecursiveReadOnly<ModuleData>): Promise<LoadedModuleDefs> {
@@ -79,7 +79,30 @@ export async function buildGeneratorContext(modules: string[] | null, verbose: b
   };
 }
 
-export async function updateGeneratedFiles(targets: string[], options: { dryRun?: boolean; verbose?: boolean; nodb?: boolean } = {}) {
+async function generateFiles(files: FileToUpdate[], context: GenerateContext, options: { dryRun?: boolean; verbose?: boolean; nodb?: boolean }) {
+  const generated = files.map(file => file.generator(context));
+
+  //Process them
+  for (const [idx, file] of files.entries()) {
+    const content = await generated[idx];
+
+    try {
+      const currentdata = await readFile(file.path, 'utf8');
+      if (currentdata === content)
+        continue;
+    } catch (ignore) {
+    }
+
+    if (!options?.dryRun) {
+      await mkdir(dirname(file.path), { recursive: true });
+      await storeDiskFile(file.path, content, { overwrite: true });
+    }
+    if (options?.verbose)
+      console.log(`Updated ${file.path}`);
+  }
+}
+
+export async function updateGeneratedFiles(targets: Array<(GeneratorType | "all")>, options: { dryRun?: boolean; verbose?: boolean; nodb?: boolean } = {}) {
   if (targets.includes('all') || targets.includes('config')) {
     if (options?.verbose)
       console.time("Updating WebHare config files");
@@ -97,35 +120,23 @@ export async function updateGeneratedFiles(targets: string[], options: { dryRun?
 
   const context = await buildGeneratorContext(null, options?.verbose || false);
 
-  // FIXME listAllGeneratedFiles will list *all* files but the generator can still decide *not* to generate the accompanying file. This needs to be fixed in listAllGeneratedFiles so 'dev' can trust it! (OTOH, listAll wants to be fast but currently we'd need a lot of XML parsing for elimination..)
-  const files = await listAllGeneratedFiles();
-  const togenerate = targets.includes('all') ? files : files.filter(file => targets.includes(file.type));
+  //Start generating files. Finish all extracts before we start the rest, as some extracts are needed input for generators
+  const extracts = fixFilePaths(await listAllExtracts());
+  if (targets.includes('extract') || targets.includes('all'))
+    await generateFiles(extracts, context, options);
 
-  //Start generating files
-  const { installedBaseDir, builtinBaseDir } = getPaths();
-  const generated = togenerate.map(file => file.generator(context));
-  const keepfiles = new Set<string>([join(installedBaseDir, "config/config.json"), ...files.map(file => file.path)]);
-
-  //Process them
-  for (const [idx, file] of togenerate.entries()) {
-    const content = await generated[idx];
-
-    try {
-      const currentdata = await readFile(file.path, 'utf8');
-      if (currentdata === content)
-        continue;
-    } catch (ignore) {
-    }
-
-    if (!options?.dryRun) {
-      await mkdir(dirname(file.path), { recursive: true });
-      await storeDiskFile(file.path, content, { overwrite: true });
-    }
-    if (options?.verbose)
-      console.log(`Updated ${file.path}`);
-  }
+  const otherfiles = await listOtherGeneratedFiles();
+  const togenerate = targets.includes('all') ? otherfiles : otherfiles.filter(file => targets.includes(file.type));
+  await generateFiles(togenerate, context, options);
 
   //Remove old files
+  const { installedBaseDir, builtinBaseDir } = getPaths();
+  const keepfiles = new Set<string>([
+    join(installedBaseDir, "config/config.json"),
+    ...extracts.map(file => file.path),
+    ...otherfiles.map(file => file.path)
+  ]);
+
   await deleteRecursive(installedBaseDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.path, _.name)), dryRun: options.dryRun, verbose: options.verbose });
   await deleteRecursive(builtinBaseDir, { allowMissing: true, keep: _ => keepfiles.has(join(_.path, _.name)), dryRun: options.dryRun, verbose: options.verbose });
   return;

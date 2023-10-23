@@ -109,6 +109,7 @@
     <backendservice name="controlleddemoservice" controllerfactory="js/demoservice.ts#createDemoMain" />
 
     <openapiservice name="testservice" spec="tests/wh/webserver/remoting/openapi/testservice.yaml" />
+    <openapiclient name="testclient" spec="tests/wh/webserver/remoting/openapi/testservice.yaml" />
     <openapiservice name="authtests" spec="tests/wh/webserver/remoting/openapi/authtests.yaml" />
 
     <webservice name="test"

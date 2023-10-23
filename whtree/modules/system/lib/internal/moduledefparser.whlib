@@ -720,8 +720,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
       , versioningpolicies   := DEFAULT RECORD ARRAY
       , indexfields          := DEFAULT RECORD ARRAY
       , searchfilters        := DEFAULT RECORD ARRAY
-      , assetpacks           := DEFAULT RECORD ARRAY
-      , addtoassetpacks      := RECORD[]
       , formcomponents       := DEFAULT RECORD ARRAY
       , embedvideodetectors  := RECORD[]
       , embedvideoproviders  := RECORD[]
@@ -1238,7 +1236,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
   {
     STRING modulename := this->moduledef.name;
     RECORD ARRAY designs;
-    RECORD ARRAY assetpacks;
 
     FOREVERY(OBJECT child FROM node->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef, "webdesign")->GetCurrentElements())
     {
@@ -1255,34 +1252,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
         designroot := designroot || "/";
 
       BOOLEAN istemplate := ParseXSBoolean(child->GetAttribute("istemplate"));
-      IF(NOT istemplate)
-      {
-        FOREVERY (OBJECT assetpacknode FROM child->GetChildElementsByTagNameNS(whconstant_xmlns_moduledef,"assetpack")->GetCurrentElements())
-        {
-          STRING assetpackname := modulename || ":" || (assetpacknode->GetAttribute("name") ?? designname);
-          IF(RecordExists(SELECT FROM assetpacks WHERE ToUppercase(name) = ToUppercase(assetpackname)))
-          {
-            this->AddError(assetpacknode, "Duplicate asset pack");
-            CONTINUE;
-          }
-
-          STRING entrypoint := assetpacknode->GetAttribute("entrypoint");
-          entrypoint := MakeAbsoluteResourcePath(this->respath, assetpacknode->GetAttribute("entrypoint"));
-
-          STRING compatibility := assetpacknode->GetAttribute("compatibility") ?? whconstant_default_compatibility;
-          INSERT [ name := assetpackname
-                 , entrypoint := entrypoint
-                 , supportedlanguages := (SELECT AS STRING ARRAY DISTINCT lang FROM ToRecordArray(ParseXSList(assetpacknode->GetAttribute("supportedlanguages")), "lang"))
-                 , designroot := designroot
-                 , assetbaseurl := assetpacknode->GetAttribute("assetbaseurl")
-                 , compatibility := compatibility
-                 , webharepolyfills := assetpacknode->HasAttribute("webharepolyfills") ? ParseXSBoolean(assetpacknode->GetAttribute("webharepolyfills")) : TRUE
-                 , environment := assetpacknode->GetAttribute("environment") ?? "window"
-                 , aftercompiletask := ParseXMLModuleNamed(modulename, assetpacknode, "aftercompiletask")
-                 , esbuildsettings := assetpacknode->GetAttribute("esbuildsettings")
-                 ] INTO assetpacks AT END;
-        }
-      }
 
       //In a template, the siteprofile is simply a witty expression, so don't expand it
       STRING siteprofile;
@@ -1303,7 +1272,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
     }
 
     RETURN [ webdesigns := designs
-           , assetpacks := assetpacks
            ];
   }
 
@@ -1373,7 +1341,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
   {
     RECORD designandpacks := this->ParseWebdesigns(child, childgid);
     this->moduledef.webdesigns := designandpacks.webdesigns;
-    this->moduledef.assetpacks := designandpacks.assetpacks;
     this->moduledef.addtowebdesigns := this->ParseAddToWebdesigns(child, childgid);
     this->moduledef.webfeatures := ParseWebFeatures(this->respath, this->moduledef.name, child, childgid);
 
@@ -1469,12 +1436,6 @@ PUBLIC STATIC OBJECTTYPE ModuleDefParser EXTEND XMLValidatorBase
             INSERT subchild->LookupQualifiedName(hookplugin) INTO plugin.hooksplugins AT END;
 
           INSERT plugin INTO this->moduledef.webdesignplugins AT END;
-        }
-        CASE "addtoassetpack"
-        {
-          INSERT [ assetpack := subchild->GetAttribute("assetpack")
-                 , entrypoint := MakeAbsoluteResourcePath(this->respath, subchild->GetAttribute("entrypoint"))
-                 ] INTO this->moduledef.addtoassetpacks AT END;
         }
         CASE "customnode"
         {

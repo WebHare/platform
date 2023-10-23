@@ -266,11 +266,11 @@ export async function listAllModuleWRDDefs(): Promise<FileToUpdate[]> {
       module: "platform",
       type: "wrd",
       generator: (options: GenerateContext) => generateFile(options, { defname: "webhare", modules: whconstant_builtinmodules })
-    }, ...noncoremodules.map(m => ({
-      path: `wrd/${m}.ts`,
-      module: m,
+    }, ...noncoremodules.map((module: string): FileToUpdate => ({
+      path: `wrd/${module}.ts`,
+      module,
       type: "wrd",
-      generator: (options: GenerateContext) => generateFile(options, { defname: m, modules: [m] })
+      generator: (options: GenerateContext) => generateFile(options, { defname: module, modules: [module] })
     }))
   ];
 }

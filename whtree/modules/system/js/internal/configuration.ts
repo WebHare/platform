@@ -2,8 +2,8 @@ import * as fs from "node:fs";
 import { registerUpdateConfigCallback, updateWebHareConfigWithoutDB } from "./generation/gen_config";
 import { freezeRecursive } from "./util/algorithms";
 import { WebHareBackendConfiguration, ConfigFile, WebHareConfigFile } from "@webhare/services/src/config";
-import { RecursiveReadOnly } from "@webhare/js-api-tools";
-import { AssetPack } from "./generation/gen_extracts";
+import type { RecursiveReadOnly } from "@webhare/js-api-tools";
+import type { AssetPack, Services } from "./generation/gen_extracts";
 import { toFSPath } from "@webhare/services/src/resources";
 
 export type { WebHareBackendConfiguration, WebHareConfigFile };
@@ -74,6 +74,9 @@ export function isRestoredWebHare(): boolean {
   return Boolean(process.env["WEBHARE_ISRESTORED"]);
 }
 
-export function getExtractedConfig(which: "assetpacks"): AssetPack[] {
+export function getExtractedConfig(which: "assetpacks"): AssetPack[];
+export function getExtractedConfig(which: "services"): Services;
+
+export function getExtractedConfig(which: string) {
   return JSON.parse(fs.readFileSync(toFSPath("storage::system/generated/extract/" + which + ".json"), 'utf8'));
 }

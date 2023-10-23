@@ -6,10 +6,10 @@ import { loadWittyResource, log, toFSPath } from "@webhare/services";
 import { LogInfo, RestAPI } from "./restapi";
 import { createJSONResponse, WebRequest, WebResponse, HTTPErrorCode, createWebResponse, HTTPSuccessCode } from "@webhare/router";
 import { WebRequestInfo, WebResponseInfo } from "../types";
-import { getOpenAPIService } from "@webhare/services/src/moduledefparser";
 import { registerLoadedResource } from "../hmrinternal";
 import { newWebRequestFromInfo } from "@webhare/router/src/request";
 import { LoggableRecord } from "@webhare/services/src/logmessages";
+import { getExtractedConfig } from "../configuration";
 
 // A REST service supporting an OpenAPI definition
 export class RestService {
@@ -130,7 +130,8 @@ export async function getServiceInstance(servicename: string) {
   if (cache[servicename])
     return cache[servicename];
 
-  const serviceinfo = getOpenAPIService(servicename);
+  const serviceconfig = getExtractedConfig("services");
+  const serviceinfo = serviceconfig.openAPIServices.find(_ => _.name === servicename);
   if (!serviceinfo)
     throw new Error(`Invalid OpenAPI service name: ${servicename}`);
 
