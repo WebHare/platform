@@ -1,5 +1,15 @@
 ################################################
 #
+# This makefile is executed by `wh` on source code checkouts but by
+# `/opt/wh/builder/make.sh install` on container builds. These routes differ
+# in which set of environment variables they define, but on Darwin you can always
+# assume we're invoked by `wh` and have the full set.
+#
+
+################################################
+#
+# Check whether 'make' itself is recent enough:
+#
 NEED_MAKE_VERSION=3.81
 ifneq ($(firstword $(sort $(MAKE_VERSION) $(NEED_MAKE_VERSION))),$(NEED_MAKE_VERSION))
   $(error This makefile requires version $(NEED_MAKE_VERSION), you have $(MAKE_VERSION)))
@@ -13,7 +23,7 @@ MAKEFLAGS=--warn-undefined-variables --output-sync=target
 
 SRCDIR ?= .
 PREFIX ?= $(SRCDIR)/whtree
-WHBUILD_PLATFORM := $(shell uname | tr A-Z a-z)
+WEBHARE_PLATFORM := $(shell uname | tr A-Z a-z)
 
 export WHBUILD_SRCDIR=$(abspath $(SRCDIR))
 export WHBUILD_PREFIX=$(abspath $(PREFIX))
@@ -29,7 +39,7 @@ endif
 CPPFLAGS += -I$(WHBUILD_BUILDDIR)/vendor-native/libxml2 -I$(WHBUILD_BUILDDIR)/vendor-native/libxml2/include -I$(SRCDIR)/vendor/libxml2/include/
 CPPFLAGS_WASM += -I$(WHBUILD_BUILDDIR)/vendor-wasm/libxml2 -I$(WHBUILD_BUILDDIR)/vendor-wasm/libxml2/include -I$(SRCDIR)/vendor/libxml2/include/
 
-ifeq ($(WHBUILD_PLATFORM),darwin)
+ifeq ($(WEBHARE_PLATFORM),darwin)
 	BUILDSYSTEM ?= llvm
 	BREWPREFIX ?= $(shell brew --prefix)
 	BREWPREFIX := $(BREWPREFIX)
@@ -54,7 +64,7 @@ endif
 
 PKGCONFIG = PKG_CONFIG_PATH=$(PKG_CONFIG_PATH):$(PKGCONFIGPATHS) pkg-config
 
-ifeq ($(WHBUILD_PLATFORM),darwin)
+ifeq ($(WEBHARE_PLATFORM),darwin)
 	DLL_SUFFIX=.dylib
 	DLL_SUFFIXPATTERN=*.dylib
 else
@@ -74,7 +84,7 @@ else
 	BuildAndTest = success.$1
 endif
 
-export WHBUILD_PLATFORM
+export WEBHARE_PLATFORM
 export PREFIX
 export DLL_SUFFIX
 export LD_LIBRARY_PATH
@@ -103,7 +113,7 @@ endif
 
 
 GLOBALLDFLAGS += $(PKGCONFIGLDFLAGS)
-ifeq ($(WHBUILD_PLATFORM),linux)
+ifeq ($(WEBHARE_PLATFORM),linux)
   CPPFLAGS += -I/opt/libjpeg-turbo/include
   GLOBALLDFLAGS += -L/opt/libjpeg-turbo/lib64/
   ifeq ($(WHBUILD_LTO),1)
@@ -123,7 +133,7 @@ ifeq ($(BUILDSYSTEM),gcc)
   CXXFLAGS+=-std=c++17 -Wno-deprecated-declarations
 else
 	CXXFLAGS+=-std=c++17 -Wno-deprecated-declarations
-	ifeq ($(WHBUILD_PLATFORM),darwin)
+	ifeq ($(WEBHARE_PLATFORM),darwin)
 		CXXFLAGS+=-stdlib=libc++
 		GLOBALLDFLAGS+=-stdlib=libc++
 	else
@@ -144,7 +154,7 @@ else
 		CXXFLAGS += -fno-implement-inlines -ffast-math -finline-functions
 	else
 		ifeq ($(BUILDSYSTEM),llvm)
-		  ifneq ($(WHBUILD_PLATFORM),linux)
+		  ifneq ($(WEBHARE_PLATFORM),linux)
 		    # -ffast-math gives compilation errors on Fedora 18
 		    CXXFLAGS += -ffast-math
 		  endif
@@ -156,7 +166,7 @@ else
 endif
 
 ifeq ($(BUILDSYSTEM),llvm)
-	ifeq ($(WHBUILD_PLATFORM),darwin)
+	ifeq ($(WEBHARE_PLATFORM),darwin)
 		# Warnings coming from boost headers
 		CXXFLAGS += -Wno-unknown-warning-option -Wno-unused-parameter -Wno-parentheses-equality -Wno-char-subscripts -Wno-unused-function -Wno-deprecated-register -Wno-unused-local-typedef -Wno-keyword-macro
 		# For webhare (too many false positives)
@@ -180,7 +190,7 @@ GLOBALLDFLAGS += -rdynamic
 CXXFLAGS_WASM += -Wno-unknown-warning-option -Wno-char-subscripts -fwasm-exceptions -Wno-gnu-zero-variadic-macro-arguments
 WHLDFLAGS_WASM += -fwasm-exceptions -sNODERAWFS=1 --profiling-funcs -O3 -lembind
 
-ifeq ($(WHBUILD_PLATFORM),darwin)
+ifeq ($(WEBHARE_PLATFORM),darwin)
 	# Use current MacOS version, no need for binaries to be portable between machines
 	MACOSVERSION := $(shell sw_vers | grep ProductVersion: | tr -d '\t' | cut -d: -f2 | cut -d "." -f 1-2)
 	CXXFLAGS += -mmacosx-version-min=$(MACOSVERSION)
@@ -253,7 +263,7 @@ WHLDFLAGS_WASM += -s WASM_BIGINT
 CPPFLAGS_WASM += -s USE_ZLIB=1
 WHLDFLAGS_WASM += -s USE_ZLIB=1
 
-ifeq ($(WHBUILD_PLATFORM),darwin)
+ifeq ($(WEBHARE_PLATFORM),darwin)
 	WHLDFLAGS += -Wl,-rpath '-Wl,@loader_path/../lib'
 else
 	WHLDFLAGS += -Wl,-rpath '-Wl,/usr/local/lib' -Wl,-rpath '-Wl,/usr/local/lib64'   -Wl,-rpath '-Wl,$$ORIGIN/../lib'
@@ -282,7 +292,7 @@ GeneratePCHWasm = $(HIDE)echo "- GeneratePCHWasm $2" && $(EMCC) $(CPPFLAGS_WASM)
 LinkWASMImportable  = $(HIDE)echo "- LinkWASMImportable $2" && $(EMCC) $(WHLDFLAGS_WASM) $(WHLDFLAGS_IMPORTABLE) -o $2 $1 && node $(SRCDIR)/harescript/vm/fix-emcc-output.js $2
 LinkWASMExecutable  = $(HIDE)echo "- LinkWASMExecutable $2" && $(EMCC) $(WHLDFLAGS_WASM) -o $2 $1 && node $(SRCDIR)/harescript/vm/fix-emcc-output.js $2
 
-ifeq ($(WHBUILD_PLATFORM),darwin)
+ifeq ($(WEBHARE_PLATFORM),darwin)
  	LinkShared       = $(HIDE)echo "- LinkSharedNative $2" && $(LD_APP) $(WHLDFLAGS) -shared -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
  	LinkModule       = $(HIDE)echo "- LinkModuleNative $2" && $(LD_APP) $(WHLDFLAGS) -shared -Wl,-install_name -Wl,@rpath/$(notdir $2) -o $2 $1 $(addprefix -l,$3)
  	LinkExecutable   = $(HIDE)echo "- LinkExecutableNative $2" && $(LD_APP) $(WHLDFLAGS) -o $2 $1 $(addprefix -l,$3)
@@ -384,7 +394,7 @@ blex_DEPLOYABLES=$(blex_DEPLOYABLES_WHAP)
 BLEX_BASE_LIBS=z dl $(ICU_LIBS) $(BLEX_SSL_LIBS)
 BLEX_HSVM_LIBS=$(ICU_LIBS) pq
 
-ifeq ($(WHBUILD_PLATFORM),darwin)
+ifeq ($(WEBHARE_PLATFORM),darwin)
   BLEX_BASE_LIBS+=iconv
 endif
 
@@ -982,7 +992,7 @@ clean-deps:
 # Homebrew explicit dependencies
 #
 
-ifeq ($(WHBUILD_PLATFORM),darwin)
+ifeq ($(WEBHARE_PLATFORM),darwin)
 
 # Brew extracts files with dates in the past, except for the INSTALL_RECEIPT.json. So explicitly depend on that to trigger the neded rebuilds
 # Unfortunately this does generate some harmless linker warnings 'ld: warning: ignoring file .../INSTALL_RECEIPT.json, ... unknown-unsupported file format'

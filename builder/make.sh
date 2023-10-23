@@ -3,7 +3,7 @@
 set -eo pipefail
 
 WEBHARE_CHECKEDOUT_TO="$(cd "${BASH_SOURCE%/*}/.."; pwd)"
-source "$WEBHARE_CHECKEDOUT_TO/builder/support/make-functions.sh"
+source "$WEBHARE_CHECKEDOUT_TO/whtree/lib/make-functions.sh"
 estimate_buildj
 
 setup_builddir
@@ -29,7 +29,7 @@ cd "$WEBHARE_BUILDDIR"
 export GCC_COLORS=1
 
 export SRCDIR="$WEBHARE_CHECKEDOUT_TO"
-export WHBUILD_PLATFORM
+export WEBHARE_PLATFORM
 
 retval=0
 make -rj$WHBUILD_NUMPROC -f $WEBHARE_CHECKEDOUT_TO/builder/base_makefile "$@" || retval=$?

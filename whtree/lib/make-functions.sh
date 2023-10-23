@@ -1,13 +1,28 @@
 #!/bin/bash
+# This script is also deployed to https://build.webhare.dev/ci/scripts/make-functions.sh
 
-# Helper functions for 'make' etc.
-# 'wh' is allowed to depend on us but we want to not depend on 'wh' or anything outside the builder/ dir (and other stuff copied by wh builddocker)
+# Helper functions shared between build ('make'), CI (testdocker) and runtime WebHare.
 
 if [[ "$OSTYPE" == "darwin"* ]]; then
-  WHBUILD_PLATFORM="darwin"
+  WEBHARE_PLATFORM="darwin"
 else
-  WHBUILD_PLATFORM="linux"
+  WEBHARE_PLATFORM="linux"
 fi
+
+if [ -z "$WEBHARE_NODE_BINARY" ]; then
+  if [ "$WEBHARE_PLATFORM" == "darwin" ] && [ -x "$(brew --prefix)/opt/node@20/bin/node" ]; then
+    # on macOS we require brew-installed node@20 for sass compatibility
+    WEBHARE_NODE_BINARY="$(brew --prefix)/opt/node@20/bin/node"
+  fi
+
+  [ -n "$WEBHARE_NODE_BINARY" ] || WEBHARE_NODE_BINARY="node"
+fi
+
+die()
+{
+  echo "$@" 1>&2
+  exit 1
+}
 
 estimate_buildj()
 {
@@ -15,9 +30,9 @@ estimate_buildj()
     return
   fi
 
-  if [ "$WHBUILD_PLATFORM" == "darwin" ]; then
+  if [ "$WEBHARE_PLATFORM" == "darwin" ]; then
     WHBUILD_NUMPROC=$(( `sysctl hw.ncpu | cut -d":" -f2` + 1 ))
-  elif [ "$WHBUILD_PLATFORM" == "linux" ]; then
+  elif [ "$WEBHARE_PLATFORM" == "linux" ]; then
     WHBUILD_NUMPROC=`LANG=en_US.utf8 lscpu 2>/dev/null | grep "^CPU(s):" | cut -d: -f2` #2>/dev/null because centos 5 util-linux does not include lscpu
     MAXPROC=$(( `cat /proc/meminfo | grep ^MemTotal | cut -b10-24` / 1024000 ))
     if [ -z "$WHBUILD_NUMPROC" ]; then
@@ -56,8 +71,5 @@ setup_builddir()
   fi
 }
 
-die()
-{
-  echo "$@" 1>&2
-  exit 1
-}
+export -f die
+export WEBHARE_NODE_BINARY WEBHARE_PLATFORM

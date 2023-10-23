@@ -3,9 +3,13 @@ source ${BASH_SOURCE%/*}/../lib/wh-functions.sh
 
 REQUIRENPMVERSION="7.13.0"
 DEBUGSTARTUP=""
-export WHBUILD_PLATFORM="$(uname | tr A-Z a-z)"
+
 export PGUSER="root" #postgres user, must be locked for compatibility between dev and prod
-export HOMEBREW_NO_AUTO_UPDATE=1 # We don't want to responsible for brew/trigger updates.
+
+if [ "$WEBHARE_PLATFORM" == "darwin" ]; then #macoS
+  export HOMEBREW_NO_AUTO_UPDATE=1 # We don't want to responsible for brew/trigger updates.
+fi
+
 
 if [[ $WEBHARE_DEBUG =~ ((^|[,])startup([,]|$))+ ]] ; then
   DEBUGSTARTUP=1
@@ -70,7 +74,7 @@ fi
 # Oracle's instantclient requires additional libraries we can't ship with WebHare or through npm so we offer an option
 # to place additional libraries in $WEBHARE_DATAROOT/lib/
 if [ -z "$INFERRED_DATAROOT" ]; then
-  if [ "$WHBUILD_PLATFORM" = "darwin" ]; then
+  if [ "$WEBHARE_PLATFORM" = "darwin" ]; then
     if ! [[ $DYLD_LIBRARY_PATH == ${WEBHARE_DATAROOT}lib* ]]; then #If not prepended yet..
       # Note that SIP on Darwin may interfere with this setting (see eg https://developer.apple.com/forums/thread/703757)
       export DYLD_LIBRARY_PATH="${WEBHARE_DATAROOT}lib:$DYLD_LIBRARY_PATH"
@@ -293,8 +297,8 @@ case $INSTR in
     DBGARGS=();
     if [ "$1" == "--dbg" ]; then
       shift
-      [ "$WHBUILD_PLATFORM" == "darwin" ] && DBGARGS+=("lldb" "--")
-      [ "$WHBUILD_PLATFORM" == "linux" ] && DBGARGS+=("gdb" "--args")
+      [ "$WEBHARE_PLATFORM" == "darwin" ] && DBGARGS+=("lldb" "--")
+      [ "$WEBHARE_PLATFORM" == "linux" ] && DBGARGS+=("gdb" "--args")
     fi
 
     PROCESS="$1"
@@ -386,8 +390,8 @@ case $INSTR in
     fi
 
     if [ -n "$TOSHOWFILE" ]; then
-      [ "$WHBUILD_PLATFORM" == "darwin" ] && open "$TOSHOWFILE"
-      [ "$WHBUILD_PLATFORM" == "linux" ] && xdg-open "$TOSHOWFILE"
+      [ "$WEBHARE_PLATFORM" == "darwin" ] && open "$TOSHOWFILE"
+      [ "$WEBHARE_PLATFORM" == "linux" ] && xdg-open "$TOSHOWFILE"
     fi
 
     exit 0
@@ -554,7 +558,7 @@ HERE
     ;;
 
   "builddocker")
-    source $WEBHARE_CHECKEDOUT_TO/builder/support/make-functions.sh
+    source $WEBHARE_CHECKEDOUT_TO/whtree/lib/make-functions.sh
     setup_builddir
     exec $WEBHARE_CHECKEDOUT_TO/addons/docker-build/builddocker.sh "$@"
     ;;
@@ -579,7 +583,7 @@ HERE
     git clone https://github.com/WebHare/socket_binder.git /tmp/installsocketbinder.$$
     cd /tmp/installsocketbinder.$$
     make
-    if [ "$WHBUILD_PLATFORM" == "darwin" ]; then
+    if [ "$WEBHARE_PLATFORM" == "darwin" ]; then
       sudo make install-darwin
     else
       sudo make install

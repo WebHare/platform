@@ -8,7 +8,7 @@
 # Invoke us like this
 # curl -s https://build.webhare.dev/ci/scripts/testmodule.sh | bash -s -- [options]
 
-MKTEMP=`mktemp -d`
+MKTEMP="$(mktemp -d)"
 mkdir -p "$MKTEMP"
 
 function cleanup()
@@ -18,14 +18,12 @@ function cleanup()
 
 trap cleanup EXIT # clean up our tmp on interrupt
 
-if ! curl -fs https://build.webhare.dev/ci/scripts/testdocker.sh -o "$MKTEMP"/testdocker.sh ; then
-  echo Download of testdocker.sh failed
-  exit 1
-fi
-if ! curl -fs https://build.webhare.dev/ci/scripts/wh-functions.sh -o "$MKTEMP"/wh-functions.sh ; then
-  echo Download of wh-functions.sh failed
-  exit 1
-fi
+for P in make-functions.sh wh-functions.sh testdocker.sh; do
+  if ! curl --fail --silent "https://build.webhare.dev/ci/scripts/$P" -o "${MKTEMP}/${P}" ; then
+    echo "Download of $P failed"
+    exit 1
+  fi
+done
 
 chmod a+x "$MKTEMP"/testdocker.sh
 "$MKTEMP"/testdocker.sh -m "$@"

@@ -1,8 +1,8 @@
+#!/bin/bash
+
 # This script is also deployed to https://build.webhare.dev/ci/scripts/wh-functions.sh
 
-die() {
-  echo "$@"; exit 1
-}
+source "${BASH_SOURCE%/*}/make-functions.sh"
 
 logWithTime()
 {
@@ -69,7 +69,7 @@ wh_runjs()
   fi
 
   # --experimental-wasm-stack-switching is not allowed in NODE_OPTIONS
-  "${RUNPREFIX[@]}" node --experimental-wasm-stack-switching $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
+  "${RUNPREFIX[@]}" ${WEBHARE_NODE_BINARY} --experimental-wasm-stack-switching $WEBHARE_NODE_OPTIONS "${ARGS[@]}"
   RETVAL="$?"
 
   NODE_PATH="$SAVE_NODE_PATH"
@@ -308,7 +308,7 @@ is_webhare_running()
   local PID
   get_webhare_pid PID
   if [ -n "$PID" ]; then
-    if [ "$WHBUILD_PLATFORM" == "darwin" ]; then
+    if [ "$WEBHARE_PLATFORM" == "darwin" ]; then
       PROCESSNAME="$(ps -o command= -cp "$PID")"
     else # linux does not like the '-' in '-cp'
       PROCESSNAME="$(ps -o command= cp "$PID")"
@@ -599,7 +599,7 @@ verify_webhare_version()
 
 setup_buildsystem()
 {
-  if [ "$WHBUILD_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebrew and packages are available
+  if [ "$WEBHARE_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebrew and packages are available
     if ! which brew >/dev/null 2>&1 ; then
       echo "On macOS we rely on Homebrew (http://brew.sh) and some additional packages being installed. Please install it"
       exit 1
@@ -622,7 +622,7 @@ setup_buildsystem()
       exit 1
     fi
 
-  elif [ "$WHBUILD_PLATFORM" == "linux" ] && [ -f /etc/redhat-release ] && ! grep CentOS /etc/redhat-release ; then
+  elif [ "$WEBHARE_PLATFORM" == "linux" ] && [ -f /etc/redhat-release ] && ! grep CentOS /etc/redhat-release ; then
     REQUIREPACKAGES="openssl-devel pixman-devel git freetype-devel GeoIP-devel libtiff-devel giflib-devel libjpeg-turbo-devel libpng-devel libtiff-devel pixman-devel openssl-devel libicu-devel libxml2-devel valgrind-devel libgit2-devel libmaxminddb-devel libpq-devel"
     if ! which ccache > /dev/null 2>&1 ; then
       REQUIREPACKAGES="$REQUIREPACKAGES ccache"
@@ -672,8 +672,6 @@ setup_buildsystem()
   fi
 
   if [ -z "$WEBHARE_IN_DOCKER" ]; then # Not a docker build, configure for local building
-
-    source $WEBHARE_CHECKEDOUT_TO/builder/support/make-functions.sh
     setup_builddir
 
     # Additional dependencies
@@ -704,7 +702,7 @@ load_postgres_settings()
   if [ -n "$WEBHARE_IN_DOCKER" ]; then  #TODO should share with recreate-database and postgres-single
     RUNAS="chpst -u postgres:whdata"
     PSBIN="/usr/lib/postgresql/11/bin/"
-  elif [ "$WHBUILD_PLATFORM" = "darwin" ]; then
+  elif [ "$WEBHARE_PLATFORM" = "darwin" ]; then
     # Read the version of the PostgreSQL database, fall back to version 13 (as specified in webhare.rb) for new databases
     PGVERSION=$(cat "$PSROOT/db/PG_VERSION" 2>/dev/null)
     if [ -z "${PGVERSION}" ]; then
@@ -722,4 +720,4 @@ load_postgres_settings()
   export PSROOT RUNAS PGVERSION PSBIN
 }
 
-export -f die setup_buildsystem getbaseversioninfo wh_runjs exec_wh_runjs wh_runwhscr exec_wh_runwhscr
+export -f setup_buildsystem getbaseversioninfo wh_runjs exec_wh_runjs wh_runwhscr exec_wh_runwhscr
