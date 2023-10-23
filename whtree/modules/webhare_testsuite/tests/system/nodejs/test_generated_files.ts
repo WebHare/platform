@@ -15,8 +15,16 @@ async function testWebHareConfig() {
   const basetestpack = assetpacks.find(_ => _.name === "webhare_testsuite:basetest");
   test.eqProps({
     entryPoint: "mod::webhare_testsuite/webdesigns/basetest/js/basetest",
-    extraRequires: ["mod::webhare_testsuite/webdesigns/basetest/js/addtopack"]
+    extraRequires: ["mod::webhare_testsuite/webdesigns/basetest/js/addtopack"],
+    webHarePolyfills: true
   }, basetestpack);
+
+  const authormodepack = assetpacks.find(_ => _.name === "publisher:authormode");
+  test.eqProps({
+    entryPoint: "mod::publisher/webdesigns/authormode/authormode.tsx",
+    extraRequires: [],
+    webHarePolyfills: false
+  }, authormodepack);
 
   const services = getExtractedConfig("services");
   const fetchpoolservice = services.backendServices.find(_ => _.name === "system:fetchpool");

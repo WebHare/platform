@@ -1,0 +1,7 @@
+assetPacks:
+  authormode:
+    entryPoint: webdesigns/authormode/authormode.tsx
+    supportedLanguages:
+      - en
+      - nl
+    webharePolyfills: false #we shouldn't polyfill with this assetpack, we're loaded side-by-side to an existing one

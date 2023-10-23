@@ -1,0 +1,144 @@
+---
+# yaml-language-server: $schema=http://json-schema.org/draft-07/schema#
+"$schema": http://json-schema.org/draft-07/schema#
+title: Module definition
+description: A module definition tells WebHare which features and integrations are offered by this module
+type: object
+additionalProperties: false
+properties:
+  backendHooks: # NOTE this description causes two bakcendHook
+    $ref: "#/definitions/backendHooks"
+  connect:
+    description: Extends WRD Schemas for Connect
+    $ref: "#/definitions/connect"
+  managedServices:
+    description: Additional services
+    $ref: "#/definitions/managedServices"
+  assetPacks:
+    description: JavaScript/assaet bundles
+    $ref: "#/definitions/assetPacks"
+patternProperties:
+  "^x-[a-zA-Z0-9][-a-zA-Z0-9]*$": # allow custom properties afer x- (but no x-- and no funny chars)
+    type: object
+    tsType: unknown
+
+definitions:
+  # managedServices are additional services to have the servicemanager start
+  managedServices:
+    type: object
+    additionalProperties: false
+    patternProperties:
+      "^[a-z_][a-z0-9_]*$": # Service name
+        type: object
+        additionalProperties: false
+        properties:
+          script:
+            description: "Script which implements the service (must have whscr, js or ts extesion)"
+            type: string
+          run:
+            description: "Whether to always run the service or only ondemand"
+            type: string
+            enum: # "once" is not exposed, you should use tasks instead
+              - always
+              - on-demand
+          arguments:
+            description: "Command line arguments for script"
+            type: array
+            items:
+              type: string
+          engine:
+            description: "HareScript engine to use"
+            type: string
+            enum:
+              - native
+              - wasm
+        required:
+          - script
+          - run
+
+  # backendHooks are a generic way to extend the WebHare backend (user interface)
+  backendHooks:
+    type: array
+    description: WebHare backend (user interface) integrations
+    items:
+      type: object
+      additionalProperties: false
+      required:
+        - screen
+      properties:
+        tag:
+          type: string
+        screen:
+          type: string
+        tabsExtension:
+          type: string
+        addActions:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - category
+              - title
+              - onexecute
+            properties:
+              title:
+                type: string
+                description: "Title for the action"
+              category:
+                type: string
+                description: "Action category (possible values defined by the screen)"
+              onexecute:
+                type: string
+                description: "Function to invoke"
+
+  connect:
+    type: object
+    additionalProperties: false
+    properties:
+      schemas:
+        type: object
+        additionalProperties: false
+        patternProperties:
+          "^[a-z_][a-z0-9_]+:[a-z_][a-z0-9_]+$": # WRD schema name. require a fully qualifiedname to simplify our matching in SetupBackendScreenHooks.hookssubkey
+            type: object
+            additionalProperties: false
+            properties:
+              tagset:
+                type: string
+                description: Tagset for task labels
+              backendHooks:
+                $ref: "#/definitions/backendHooks"
+
+  # assetPacks configure the JS bundler
+  assetPacks:
+    type: object
+    additionalProperties: false
+    patternProperties:
+      "^[a-z_][a-z0-9_]*$": # Assetpack name
+        type: object
+        additionalProperties: false
+        properties:
+          entryPoint:
+            description: "Initial script for the asset pack"
+            type: string
+          supportedLanguages:
+            description: "Languages to compile into the asset pack"
+            type: array
+            items:
+              # We don't suport the full range of language codes yet - this is what we tested with
+              type: string
+              desription: "ISO-639 language codes, eg 'en-US' or 'nl'"
+              pattern: "[a-z]{2}(-[A-Z-{2})"
+          compatibility:
+            description: "The compatibility settings for generated code. es2016-es2021 or esnext. See also https://esbuild.github.io/content-types/#javascript"
+            type: string
+          webharePolyfills:
+            description: "Whether to include WebHare polyfills (defaults to true)"
+            type: boolean
+          afterCompileTask:
+            description: "Task to run after compiling the asset pack"
+            type: string
+
+        required:
+          - entryPoint

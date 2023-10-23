@@ -3,7 +3,7 @@
   <meta>
     <description>WebHare platform core functionality</description>
     <validation options="nowarnings">
-      <format masks="*.ts *.tsx" />
+      <format excludemasks="generated/*" masks="*.ts *.tsx" />
     </validation>
   </meta>
 

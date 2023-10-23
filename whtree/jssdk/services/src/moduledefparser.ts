@@ -1,18 +1,22 @@
-import { readFileSync } from "fs";
-import { backendConfig, toFSPath } from "./services";
+import { toFSPath } from "./services";
 import YAML from "yaml";
-import { ModuleDefinitionYML } from "./moduledeftypes";
+import type { ModuleDefinition } from "@mod-platform/generated/schema/moduledefinition";
+import { readFile } from "fs/promises";
 
-export async function getAllModuleYAMLs(): Promise<ModuleDefinitionYML[]> { //not promising to stay sync
-  const defs = [];
-  for (const module of Object.keys(backendConfig.module)) {
-    const moduledefresource = `mod::${module}/moduledefinition.yml`;
-    try {
-      const parsed = YAML.parse(readFileSync(toFSPath(moduledefresource), 'utf8'), { strict: true, version: "1.2" });
-      defs.push({ ...parsed, module, baseResourcePath: moduledefresource });
-    } catch (ignore) {
-      continue; //guess open failure. TODO or syntax failure, but what we're gonna do about it here?
-    }
-  }
-  return defs;
+/// This is the type of the moduledefinition.yml file extended with name/path info
+export type ModDefYML = ModuleDefinition & {
+  ///Name of the module
+  module: string;
+  ///Base resource path for relative references
+  baseResourcePath: string;
+};
+
+export async function parseModuleDefYML(module: string): Promise<ModDefYML> {
+  const moduledefresource = `mod::${module}/moduledefinition.yml`;
+  const parsed = YAML.parse(await readFile(toFSPath(moduledefresource), 'utf8'), { strict: true, version: "1.2" }) as ModuleDefinition;
+  return {
+    ...parsed,
+    module,
+    baseResourcePath: moduledefresource
+  };
 }
