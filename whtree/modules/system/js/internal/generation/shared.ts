@@ -5,7 +5,7 @@ import { getAttr } from "./xmlhelpers";
 
 const systemservertypes = ["production", "acceptance", "test", "development"];
 
-export const generatorTypes = ["config", "extract", "whdb", "wrd", "openapi", "extract"] as const;
+export const generatorTypes = ["config", "extract", "whdb", "wrd", "openapi"] as const;
 export type GeneratorType = typeof generatorTypes[number];
 
 export interface FileToUpdate {
