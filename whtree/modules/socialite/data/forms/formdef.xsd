@@ -16,6 +16,7 @@
           <fai:formhandler descriptiontid="module.forms.gtmdatalayerdesc"
                            editextension="/screens/forms/gtmdatalayer.xml#settings"
                            handlerobject="../../lib/internal/forms/gtmdatalayer.whlib#gtmdatalayer"
+                           icon="tollium:reporting/report"
                            parserfunc="/lib/internal/forms/gtmdatalayer.whlib#ParseGTMDataLayer"
                            tid="module.forms.gtmdatalayer" />  <!-- tolliumicon="tollium:actions/save" -->
         </xs:appinfo>

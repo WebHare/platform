@@ -340,7 +340,7 @@
                            handlerobject="/lib/webtools/formhandlers/mailhandler.whlib#mailfeedbackhandler"
                            handlertask="publisher:mailfeedback"
                            handlertaskfor="submit cancel"
-                           icon="tollium:mailclient/replied"
+                           icon="tollium:mailclient/reply"
                            parserfunc="/lib/webtools/formhandlers/mailhandler.whlib#parsemailfeedbackhandler"
                            tid="formhandlers.mailfeedback.name" />
         </xs:appinfo>
@@ -369,7 +369,7 @@
                            handlerobject="/lib/webtools/formhandlers/mailhandler.whlib#mailconfirmationhandler"
                            handlertask="publisher:mailconfirmation"
                            handlertaskfor="confirmation"
-                           icon="tollium:objects/envelope+tollium:status/checked"
+                           icon="tollium:objects/envelope+tollium:overlays/status/positive"
                            parserfunc="/lib/webtools/formhandlers/mailhandler.whlib#parsemailconfirmationhandler"
                            tid="formhandlers.mailconfirmation.name" />
         </xs:appinfo>
@@ -401,7 +401,8 @@
           @topic forms/standardhandlers
         </xs:documentation>
         <xs:appinfo>
-          <fai:formhandler parserfunc="/lib/webtools/internal/formhandlers.whlib#ParseCustomHandler"
+          <fai:formhandler icon="tollium:applications/editor"
+                           parserfunc="/lib/webtools/internal/formhandlers.whlib#ParseCustomHandler"
                            tid="formhandlers.custom.name" />
         </xs:appinfo>
       </xs:annotation>
@@ -490,7 +491,7 @@
           @topic forms/standardcomponents
         </xs:documentation>
         <xs:appinfo>
-          <fai:formcomponent linecomponent="true" tid="formcomponents.custom.name" />
+          <fai:formcomponent icon="tollium:applications/editor" linecomponent="true" tid="formcomponents.custom.name" />
         </xs:appinfo>
       </xs:annotation>
       <xs:attributeGroup ref="BaseAttributes" />
@@ -1006,6 +1007,7 @@
         <fai:formcomponent descriptiontid="formcomponents.captcha.description"
                            editdefaults="name title"
                            fieldobject="/lib/webtools/formcomponents/captcha.whlib#CaptchaField"
+                           icon="tollium:forms/recaptcha"
                            linecomponent="false"
                            supportedvalues="boolean"
                            tid="formcomponents.captcha.name" />

@@ -17,6 +17,7 @@
         <xs:appinfo>
           <fai:formcomponent editdefaults="name title hidetitle required groupclasses"
                              fieldobject="/lib/webtools/paymentmethod.whlib#PaymentMethodField"
+                             icon="tollium:objects/banknote"
                              linecomponent="false"
                              parserfunc="/lib/webtools/paymentmethod.whlib#__parsepaymentmethod"
                              supportedvalues="record"
@@ -32,8 +33,8 @@
           <xs:list>
             <xs:simpleType>
               <xs:restriction base="xs:string">
-                <xs:enumeration value="mandate"/>
-                <xs:enumeration value="payment"/>
+                <xs:enumeration value="mandate" />
+                <xs:enumeration value="payment" />
               </xs:restriction>
             </xs:simpleType>
           </xs:list>
@@ -62,6 +63,7 @@
         <xs:appinfo>
           <fai:formhandler editextension="/lib/webtools/paymenthandler.xml#paymentsettings"
                            handlerobject="/lib/webtools/paymenthandler.whlib#PaymentHandler"
+                           icon="tollium:objects/banknote"
                            parserfunc="/lib/webtools/paymenthandler.whlib#PaymentHandlerParser"
                            tid="forms.paymenthandler.handler" />
         </xs:appinfo>
