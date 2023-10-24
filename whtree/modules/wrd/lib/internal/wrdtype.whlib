@@ -1979,7 +1979,7 @@ PUBLIC STATIC OBJECTTYPE WRDTypeBase
         IF(TypeId(val) != TYPEID(RECORD))
           THROW NEW Exception(`Value must be of type RECORD, got ${GetTypeName(TYPEID(val))}`);
 
-        STRING rawdata := EncodeWRDAddress(val);
+        STRING rawdata := EncodeWRDAddress(val, CELL[ importmode ]);
         IF(rawdata != "")
           INSERT CELL[ setting := 0, rawdata, blobdata := DEFAULT BLOB ] INTO newsets AT END;
       }
