@@ -13,7 +13,7 @@ STRING FUNCTION Convert(STRING rawdata, INTEGER64 setting, INTEGER entity, INTEG
 {
   RECORD result := GenerateAddress(rawdata, "", 0, FALSE);
   LogDebug("wrd:addressconversion", CELL[ setting, entity, attribute, rawdata, result ]);
-  RETURN EncodeWRDAddress(result);
+  RETURN EncodeWRDAddress(result, [ importmode := TRUE ]);
 }
 
 OpenPrimary()->BeginWork();

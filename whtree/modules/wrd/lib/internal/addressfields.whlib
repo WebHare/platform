@@ -34,11 +34,12 @@ PUBLIC STRING FUNCTION MapToCountryName(STRING countrycode, STRING language)
           WHERE code = VAR countrycode;
 }
 
-PUBLIC STRING FUNCTION EncodeWRDAddress(RECORD indata)
+PUBLIC STRING FUNCTION EncodeWRDAddress(RECORD indata, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
+  options := CELL[ importmode := FALSE, ...options ];
   IF(NOT RecordExists(indata))
     RETURN "";
-  IF(NOT CellExists(indata,'country') OR Length(indata.country) != 2)
+  IF((NOT CellExists(indata,'country') OR Length(indata.country) != 2) AND NOT options.importmode)
   {
     THROW NEW Exception(`The field 'country' is required in an address and must be a 2 digit code`);
   }
