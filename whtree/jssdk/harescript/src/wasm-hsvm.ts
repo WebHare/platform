@@ -194,8 +194,12 @@ export class HareScriptVM implements HSVM_HSVMSource {
   unregisterEventCallback: (() => void) | undefined;
   private gotEventCallbackId = 0; //id of event callback provided to the C++ code
   private gotOutputCallbackId = 0;  //id of output callback provided to the C++ code
+  private onOutput: undefined | ((output: Buffer) => void);
+  private gotErrorCallbackId = 0;  //id of error callback provided to the C++ code
+  private onErrors: undefined | ((errors: Buffer) => void);
   __unrefMainTimer: boolean;
   onScriptDone: ((e: Error | null) => void | Promise<void>) | null;
+  contexts = new Map<symbol, { close?: () => void }>;
 
   /// Unique id counter
   syscallPromiseIdCounter = 0;
@@ -235,16 +239,28 @@ export class HareScriptVM implements HSVM_HSVMSource {
 
   }
 
-  captureOutput(onOutput: (output: number[]) => void) {
-    if (this.gotOutputCallbackId)
-      throw new Error("output callback already set");
+  captureOutput(onOutput: (output: Buffer) => void) {
+    if (!this.gotOutputCallbackId) {
+      const out = (opaqueptr: number, numbytes: number, data: StringPtr, allow_partial: number, error_result: Ptr): number => {
+        this.onOutput?.(Buffer.copyBytesFrom(this.wasmmodule.HEAPU8, data, numbytes));
+        return numbytes;
+      };
+      this.gotOutputCallbackId = this.wasmmodule.addFunction(out, "iiiiii"); //TODO where do we remove this?
+      this.wasmmodule._HSVM_SetOutputCallback(this.hsvm, 0, this.gotOutputCallbackId);
+    }
+    this.onOutput = onOutput;
+  }
 
-    const out = (opaqueptr: number, numbytes: number, data: StringPtr, allow_partial: number, error_result: Ptr): number => {
-      onOutput(Array.from(this.wasmmodule.HEAP8.slice(data, data + numbytes)));
-      return numbytes;
-    };
-    this.gotOutputCallbackId = this.wasmmodule.addFunction(out, "iiiiii"); //TODO where do we remove this?
-    this.wasmmodule._HSVM_SetOutputCallback(this.hsvm, 0, this.gotOutputCallbackId);
+  captureErrors(onErrors: (errors: Buffer) => void) {
+    if (!this.gotErrorCallbackId) {
+      const error = (opaqueptr: number, numbytes: number, data: StringPtr, allow_partial: number, error_result: Ptr): number => {
+        this.onErrors?.(Buffer.copyBytesFrom(this.wasmmodule.HEAPU8, data, numbytes));
+        return numbytes;
+      };
+      this.gotErrorCallbackId = this.wasmmodule.addFunction(error, "iiiiii"); //TODO where do we remove this?
+      this.wasmmodule._HSVM_SetErrorCallback(this.hsvm, 0, this.gotErrorCallbackId);
+    }
+    this.onErrors = onErrors;
   }
 
   async run(script: string): Promise<void> {
@@ -283,12 +299,16 @@ export class HareScriptVM implements HSVM_HSVMSource {
 
         for (const mutex of this.mutexes)
           mutex?.release();
+        for (const context of this.contexts.values())
+          context.close?.();
 
-        this.wasmmodule._SetEventCallback(0 as HSVM, 0);
+        this.wasmmodule._SetEventCallback(0);
         if (this.gotEventCallbackId)
           this.wasmmodule.removeFunction(this.gotEventCallbackId);
         if (this.gotOutputCallbackId)
           this.wasmmodule.removeFunction(this.gotOutputCallbackId);
+        if (this.gotErrorCallbackId)
+          this.wasmmodule.removeFunction(this.gotErrorCallbackId);
         this.wasmmodule._ReleaseHSVM(this.hsvm);
         this.wasmmodule.prepareForReuse();
 
@@ -676,7 +696,9 @@ export class HareScriptVM implements HSVM_HSVMSource {
        that won't keep this object in a closure context */
     registerBridgeEventHandler(new WeakRef(this));
 
-    const gotEvent = (nameptr: number, payloadptr: number, payloadlength: number): void => {
+    const gotEvent = (nameptr: number, payloadptr: number, payloadlength: number, source: number): void => {
+      if (source == 2) // Blex::NotificationEventSource::External
+        return;
       const name = this.wasmmodule.UTF8ToString(nameptr);
       const payload = Buffer.from(this.wasmmodule.HEAPU8.slice(payloadptr, payloadptr + payloadlength));
       let data = readMarshalData(payload) as (SimpleMarshallableRecord & { __recordexists?: boolean; __sourcegroup?: string }) | null;
@@ -691,8 +713,8 @@ export class HareScriptVM implements HSVM_HSVMSource {
       bridge.sendEvent(name, data as SimpleMarshallableRecord);
     };
 
-    this.gotEventCallbackId = this.wasmmodule.addFunction(gotEvent, "viii");
-    this.wasmmodule._SetEventCallback(this.hsvm, this.gotEventCallbackId);
+    this.gotEventCallbackId = this.wasmmodule.addFunction(gotEvent, "viiii");
+    this.wasmmodule._SetEventCallback(this.gotEventCallbackId);
   }
 }
 

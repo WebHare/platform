@@ -2388,31 +2388,35 @@ void HSVM_CopyFromOtherVM(struct HSVM *vm, HSVM_VariableId dest, struct HSVM *so
         END_CATCH_VMEXCEPTIONS
 }
 
-
-/*
 unsigned HSVM_MarshalCalculateLength(struct HSVM *vm, HSVM_VariableId var)
 {
         unsigned size = 0;
         START_CATCH_VMEXCEPTIONS
-        size = STACKMACHINE.MarshalCalculateLength(var);
+        try
+        {
+                size = VM.var_marshaller.Analyze(var);
+        }
+        catch (HareScript::VMRuntimeError &e)
+        {
+                // Ignore length calculation errors, just return 0 as length
+        }
         END_CATCH_VMEXCEPTIONS
         return size;
 }
 
-void HSVM_MarshalWrite(struct HSVM *vm, HSVM_VariableId var, uint8_t *ptr)
+void HSVM_MarshalWrite(struct HSVM *vm, HSVM_VariableId var, uint8_t *ptr, uint8_t *limit)
 {
         START_CATCH_VMEXCEPTIONS
-        STACKMACHINE.MarshalWrite(var, ptr);
+        VM.var_marshaller.Write(var, ptr, limit);
         END_CATCH_VMEXCEPTIONS
 }
 
-void HSVM_MarshalRead(struct HSVM *vm, HSVM_VariableId var, uint8_t const *ptr)
+void HSVM_MarshalRead(struct HSVM *vm, HSVM_VariableId var, uint8_t const *ptr, uint8_t const *limit)
 {
         START_CATCH_VMEXCEPTIONS
-        STACKMACHINE.MarshalRead(&VM, var, ptr);
+        VM.var_marshaller.Read(var, ptr, limit);
         END_CATCH_VMEXCEPTIONS
-} */
-
+}
 
 void HSVM_GetVMStatistics(HSVM *vm, HSVM_VariableId stats_var, HSVM *query_vm)
 {

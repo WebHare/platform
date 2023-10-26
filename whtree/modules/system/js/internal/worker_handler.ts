@@ -1,11 +1,11 @@
-import { TransferListItem, workerData } from "node:worker_threads";
+import { type TransferListItem, workerData } from "node:worker_threads";
 import { WorkerControlLinkRequest, WorkerControlLinkResponse, WorkerServiceLinkRequest, WorkerServiceLinkResponse } from "./types";
 import { loadJSFunction } from "./resourcetools";
 import { describePublicInterface } from "./webhareservice";
 import { encodeIPCException } from "./whmanager/ipc";
-import { TypedMessagePort, createTypedMessageChannel, registerTransferredPort } from "./whmanager/transport";
+import { type TypedMessagePort, createTypedMessageChannel, registerTransferredPort } from "./whmanager/transport";
 import { activateHMR } from "@webhare/services/src/services";
-import { ReturnValueWithTransferList } from "./worker";
+import { ReturnValueWithTransferList } from "@webhare/services/src/localservice";
 
 export class WorkerHandler {
   port: TypedMessagePort<WorkerControlLinkResponse, WorkerControlLinkRequest>;

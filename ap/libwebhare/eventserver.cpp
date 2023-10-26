@@ -754,7 +754,7 @@ EventServerBroadcastListener::~EventServerBroadcastListener()
         Unregister();
 }
 
-void EventServerBroadcastListener::ReceiveNotificationEvent(std::string const &event, uint8_t const *hsvmdata, unsigned hsvmdatalen)
+void EventServerBroadcastListener::ReceiveNotificationEvent(std::string const &event, uint8_t const *hsvmdata, unsigned hsvmdatalen, Blex::NotificationEventSource /*source*/)
 {
         //DEBUGPRINT("Got broadcast event " << event);
         eventserver.HandleBroadcast(event, hsvmdata, hsvmdatalen);

@@ -30,7 +30,7 @@ void EMSCRIPTEN_KEEPALIVE InjectEvent(HSVM *vm, const char *name, const char *pa
 
 typedef void (*EventCallback)(const char *name, const void *payload, unsigned payloadlength);
 
-void EMSCRIPTEN_KEEPALIVE SetEventCallback(HSVM *vm, EventCallback callback);
+void EMSCRIPTEN_KEEPALIVE SetEventCallback(EventCallback callback);
 
 bool EMSCRIPTEN_KEEPALIVE HasEnvironmentOverride(HSVM *hsvm);
 
@@ -39,6 +39,10 @@ void EMSCRIPTEN_KEEPALIVE GetEnvironment(HSVM *hsvm, HSVM_VariableId id_set);
 void EMSCRIPTEN_KEEPALIVE SetEnvironment(HSVM *hsvm, HSVM_VariableId data);
 
 void EMSCRIPTEN_KEEPALIVE GetLoadedLibrariesInfo(HSVM *hsvm, HSVM_VariableId id_set, bool onlydirectloaded);
+
+bool EMSCRIPTEN_KEEPALIVE GetAdhocCacheKeyData(HSVM *hsvm, const char **library, uint64_t *modtime, HSVM_VariableId cachetag, const char **store_hash);
+
+bool EMSCRIPTEN_KEEPALIVE GetEventCollectorSignalled(HSVM *hsvm, int32_t eventcollector);
 
 } // extern "C"
 

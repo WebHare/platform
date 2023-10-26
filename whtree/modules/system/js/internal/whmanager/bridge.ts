@@ -1,6 +1,6 @@
 import EventSource from "../eventsource";
 import { WHManagerConnection, WHMResponse } from "./whmanager_conn";
-import { WHMRequest, WHMRequestOpcode, WHMResponseOpcode, WHMProcessType, WHMResponse_IncomingEvent, LogFileConfiguration } from "./whmanager_rpcdefs";
+import { WHMRequest, WHMRequestOpcode, WHMResponseOpcode, WHMProcessType, LogFileConfiguration } from "./whmanager_rpcdefs";
 import * as hsmarshalling from "./hsmarshalling";
 import { registerAsNonReloadableLibrary, getState as getHMRState } from "../hmrinternal";
 import { createDeferred, DeferredPromise, pick } from "@webhare/std";
@@ -18,6 +18,7 @@ import { updateConfig } from "../configuration";
 import { getActiveCodeContexts } from "@webhare/services/src/codecontexts";
 import { isMainThread, TransferListItem, workerData } from "node:worker_threads";
 import { formatLogObject, LoggableRecord } from "@webhare/services/src/logmessages";
+import { type ConvertLocalServiceInterfaceToClientInterface, initNewLocalServiceProxy, type LocalServiceRequest, type LocalServiceResponse, type ServiceBase } from "@webhare/services/src/localservice";
 
 export { IPCMessagePacket, IPCLinkType } from "./ipc";
 export { SimpleMarshallableData, SimpleMarshallableRecord, IPCMarshallableData, IPCMarshallableRecord } from "./hsmarshalling";
@@ -98,13 +99,13 @@ interface Bridge extends EventSource<BridgeEvents> {
 
   /** Write a line to a log file
       @param logname - Name of the log file
-      @param logline - Line to log
+      @param logdata - Line to log
   */
-  log(logname: string, logline: LoggableRecord): void;
+  log(logname: string, logdata: LoggableRecord): void;
 
   /** Write a line to the debug log file
   */
-  logDebug(logsource: string, logline: LoggableRecord): void;
+  logDebug(logsource: string, logdata: LoggableRecord): void;
 
   /** Flushes a log file. Returns when the flushing has been done, throws when the log did not exist
   */
@@ -132,6 +133,9 @@ interface Bridge extends EventSource<BridgeEvents> {
 
   /** Reconfigure log files */
   configureLogs(logfiles: LogFileConfiguration[]): Promise<boolean[]>;
+
+  /** Connect to a local service in the thread where the mainbridge runs */
+  connectToLocalService<T extends object>(factory: string, params?: hsmarshalling.IPCMarshallableData[], options?: { linger?: boolean }): Promise<ConvertLocalServiceInterfaceToClientInterface<T> & ServiceBase>;
 }
 
 enum ToLocalBridgeMessageType {
@@ -140,7 +144,8 @@ enum ToLocalBridgeMessageType {
   FlushLogResult,
   EnsureDataSentResult,
   GetProcessListResult,
-  ConfigureLogsResult
+  ConfigureLogsResult,
+  ConnectToLocalServiceResult,
 }
 
 type ToLocalBridgeMessage = {
@@ -166,6 +171,10 @@ type ToLocalBridgeMessage = {
   type: ToLocalBridgeMessageType.ConfigureLogsResult;
   requestid: number;
   results: boolean[];
+} | {
+  type: ToLocalBridgeMessageType.ConnectToLocalServiceResult;
+  requestid: number;
+  error: string;
 };
 
 enum ToMainBridgeMessageType {
@@ -177,13 +186,15 @@ enum ToMainBridgeMessageType {
   EnsureDataSent,
   GetProcessList,
   RegisterLocalBridge,
-  ConfigureLogs
+  ConfigureLogs,
+  ConnectToLocalService,
 }
 
 type ToMainBridgeMessage = {
   type: ToMainBridgeMessageType.SendEvent;
   name: string;
   data: ArrayBuffer;
+  local: boolean;
 } | {
   type: ToMainBridgeMessageType.RegisterPort;
   name: string;
@@ -217,6 +228,11 @@ type ToMainBridgeMessage = {
   type: ToMainBridgeMessageType.ConfigureLogs;
   requestid: number;
   config: LogFileConfiguration[];
+} | {
+  type: ToMainBridgeMessageType.ConnectToLocalService;
+  requestid: number;
+  factory: string;
+  port: MessagePort;
 };
 
 type LocalBridgeInitData = {
@@ -268,6 +284,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
   pendingflushlogs = new Map<number, { resolve: () => void; reject: (_: Error) => void }>;
   pendingreconfigurelogs = new Map<number, (results: boolean[]) => void>();
   pendinggetprocesslists = new Map<number, (processlist: ProcessList) => void>();
+  pendingconnectlocalservice = new Map<number, (error: string) => void>();
 
   static getLocalBridgeInitData(localBridge: LocalBridge): LocalBridgeInitData {
     // If this is a worker, use the localHandlerInitData sent to the worker if present
@@ -320,6 +337,7 @@ class LocalBridge extends EventSource<BridgeEvents> {
         this.emit("systemconfig", this.systemconfig);
       } break;
       case ToLocalBridgeMessageType.Event: {
+        handleGlobalEvent(message);
         this.emit("event", {
           name: message.name,
           data: hsmarshalling.readMarshalData(message.data) as hsmarshalling.SimpleMarshallableRecord
@@ -364,6 +382,15 @@ class LocalBridge extends EventSource<BridgeEvents> {
           reg(message.results);
         }
       } break;
+      case ToLocalBridgeMessageType.ConnectToLocalServiceResult: {
+        const reg = this.pendingconnectlocalservice.get(message.requestid);
+        if (logmessages)
+          console.log(`localbridge ${this.id}: pendingconnectlocalservice result`, message.requestid, Boolean(reg));
+        if (reg) {
+          this.pendinggetprocesslists.delete(message.requestid);
+          reg(message.error);
+        }
+      } break;
       default:
         checkAllMessageTypesHandled(message, "type");
     }
@@ -378,11 +405,12 @@ class LocalBridge extends EventSource<BridgeEvents> {
       throw new Error(`no port, no mainbridge`);
   }
 
-  sendEvent(name: string, data: unknown): void {
+  sendEvent(name: string, data: unknown, { local }: { local?: boolean } = {}): void {
     this.postMainBridgeMessage({
       type: ToMainBridgeMessageType.SendEvent,
       name,
-      data: bufferToArrayBuffer(hsmarshalling.writeMarshalData(data, { onlySimple: true }))
+      data: bufferToArrayBuffer(hsmarshalling.writeMarshalData(data, { onlySimple: true })),
+      local: local ?? false
     });
   }
 
@@ -559,6 +587,29 @@ class LocalBridge extends EventSource<BridgeEvents> {
       });
     });
   }
+
+  async connectToLocalService<T extends object>(factory: string, params?: unknown[], options?: { linger?: boolean }): Promise<ConvertLocalServiceInterfaceToClientInterface<T> & ServiceBase> {
+    const requestid = ++this.requestcounter;
+    using lock = this.reftracker.getLock();
+    void (lock);
+
+    const { port1, port2 } = createTypedMessageChannel<LocalServiceRequest, LocalServiceResponse>();
+
+    const error = await new Promise<string>((resolve) => {
+      this.pendingconnectlocalservice.set(requestid, resolve);
+      this.postMainBridgeMessage({
+        type: ToMainBridgeMessageType.ConnectToLocalService,
+        requestid,
+        factory,
+        port: port2 as unknown as MessagePort,
+      }, [port2]);
+    });
+
+    if (error)
+      throw new Error(`Could not connect to local service ${JSON.stringify(factory)}: ${error}`);
+
+    return initNewLocalServiceProxy<T>(port1, "factory", params ?? []);
+  }
 }
 
 type PortRegistration = {
@@ -710,7 +761,6 @@ class MainBridge extends EventSource<BridgeEvents> {
 
     switch (data.opcode) {
       case WHMResponseOpcode.IncomingEvent: {
-        handleGlobalEvent(data);
         for (const localbridge of this.localbridges)
           this.postLocalBridgeMessage(localbridge[1], {
             type: ToLocalBridgeMessageType.Event,
@@ -890,7 +940,7 @@ class MainBridge extends EventSource<BridgeEvents> {
       case ToMainBridgeMessageType.SendEvent: {
         const ref = await this.waitReadyReturnRef();
         try {
-          if (this.connectionactive) {
+          if (this.connectionactive && !message.local) {
             this.sendData({
               opcode: WHMRequestOpcode.SendEvent,
               eventname: message.name,
@@ -1092,6 +1142,17 @@ class MainBridge extends EventSource<BridgeEvents> {
           ref.release();
         }
       } break;
+      case ToMainBridgeMessageType.ConnectToLocalService: {
+        // need to do place the local services instantiator in a delay-loaded import because of circular import problems
+        // eslint-disable-next-line @typescript-eslint/no-var-requires -- TODO - our require plugin doesn't support await import yet
+        const caller = require(module.path + "/localservices.ts");
+        const error = await caller.openLocalServiceForBridge(message.factory, message.port);
+        this.postLocalBridgeMessage(localBridge, {
+          type: ToLocalBridgeMessageType.ConnectToLocalServiceResult,
+          requestid: message.requestid,
+          error,
+        });
+      } break;
       default:
         checkAllMessageTypesHandled(message, "type");
     }
@@ -1262,8 +1323,8 @@ class MainBridge extends EventSource<BridgeEvents> {
   }
 }
 
-function handleGlobalEvent(data: WHMResponse_IncomingEvent) {
-  switch (data.eventname) {
+function handleGlobalEvent(data: { name: string }) {
+  switch (data.name) {
     case "system:configupdate": {
       updateConfig();
     } break;

@@ -111,9 +111,11 @@ for (let i = 0; i < lines.length; ++i) {
       outfile += comment;
       outfile += `  _${signature.name}(${signature.params.map(s => `${s.name}: ${s.type}`).join(", ")}): ${signature.returntype};\n`;
 
+      console.error(`added ${signature.name}`);
+
     } catch (e) {
       if (e instanceof SkipTypeError) {
-        //console.error(`skip ${normalized_func}: `, e.message);
+        console.error(`skip ${normalized_func}: `, e.message);
       }
       else
         throw e;
@@ -138,12 +140,15 @@ function parseType(parts) {
   switch (partstr) {
     case "void": return "void";
     case "void *":
+    case "uint8_t *":
+    case "uint64_t *":
     case "const void *": return "Ptr";
     case "char *":
     case "const char *": return "StringPtr";
     case "bool":
     case "double":
     case "int":
+    case "int32_t":
     case "size_t":
     case "time_t":
     case "unsigned int":

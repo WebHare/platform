@@ -39,6 +39,36 @@ EM_JS(char*, supportGetCompileCache, (), {
   return stringToNewUTF8(Module.getCompileCache());
 });
 
+typedef void (*EventCallback)(const char *name, const void *payload, unsigned payloadlength, bool local);
+
+class WASMEventListener : public Blex::NotificationEventReceiver
+{
+    public:
+        WASMEventListener(Blex::NotificationEventManager &eventmgr);
+        ~WASMEventListener();
+
+        EventCallback callback;
+
+        void ReceiveNotificationEvent(std::string const &event, uint8_t const *hsvmdata, unsigned hsvmdatalen, Blex::NotificationEventSource source);
+};
+
+WASMEventListener::WASMEventListener(Blex::NotificationEventManager &eventmgr)
+: NotificationEventReceiver(eventmgr)
+, callback(nullptr)
+{
+        Register();
+}
+
+WASMEventListener::~WASMEventListener()
+{
+}
+
+void WASMEventListener::ReceiveNotificationEvent(std::string const &event, uint8_t const *hsvmdata, unsigned hsvmdatalen, Blex::NotificationEventSource source)
+{
+        if (source != Blex::NotificationEventSource::External && callback)
+            callback(event.c_str(), hsvmdata, hsvmdatalen, source == Blex::NotificationEventSource::LocalProcessOnly);
+}
+
 class Context
 {
     public:
@@ -47,6 +77,7 @@ class Context
         Blex::NotificationEventManager eventmgr;
         HareScript::GlobalBlobManager blobmgr;
         HareScript::Environment environment;
+        WASMEventListener eventlistener;
 
         Context(std::string const &tmpdir, std::string const &whresdir, std::string const &dataroot, std::string const &compilecache);
 };
@@ -57,6 +88,7 @@ Context::Context(std::string const &tmpdir, std::string const &whresdir, std::st
 , eventmgr()
 , blobmgr("/tmp/emscripten/tmpdir/")
 , environment(eventmgr, filesystem, blobmgr)
+, eventlistener(eventmgr)
 {
         filesystem.Register(creg);
 }
@@ -243,28 +275,17 @@ void EMSCRIPTEN_KEEPALIVE CloseWASMOutputObject(HSVM *vm, int id)
             context->other_outputobjects.erase(id);
 }
 
-typedef void (*EventCallback)(const char *name, const void *payload, unsigned payloadlength);
-
-void HandleEvent(EventCallback callback, std::shared_ptr< Blex::NotificationEvent > const &event)
-{
-        unsigned char *payload = event->payload.size() ? &event->payload[0] : nullptr;
-        callback(event->name.c_str(), payload, event->payload.size());
-}
-
-void EMSCRIPTEN_KEEPALIVE SetEventCallback(HSVM *vm, EventCallback callback)
+void EMSCRIPTEN_KEEPALIVE SetEventCallback(EventCallback callback)
 {
         Context &context = EnsureContext();
-        if(vm)
-            context.eventmgr.SetExportCallback(std::bind(&HandleEvent, callback, std::placeholders::_1));
-        else
-            context.eventmgr.SetExportCallback(nullptr);
+        context.eventlistener.callback = callback;
 }
 
 void EMSCRIPTEN_KEEPALIVE InjectEvent(HSVM *, const char *name, uint8_t const *payloadstart, int32_t payloadlen)
 {
         Context &context = EnsureContext();
         auto event = std::make_shared<Blex::NotificationEvent>(name, payloadstart, payloadlen);
-        context.eventmgr.QueueEventNoExport(event);
+        context.eventmgr.QueueEventNoExport(event, Blex::NotificationEventSource::External);
 }
 
 bool EMSCRIPTEN_KEEPALIVE HasEnvironmentOverride(HSVM *hsvm) {
@@ -319,7 +340,8 @@ void EMSCRIPTEN_KEEPALIVE SetEnvironment(HSVM *hsvm, HSVM_VariableId data)
         HareScript::GetVirtualMachine(hsvm)->GetVMGroup()->jmdata.environment = override;
 }
 
-void EMSCRIPTEN_KEEPALIVE GetLoadedLibrariesInfo(HSVM *hsvm, HSVM_VariableId id_set, bool onlydirectloaded) {
+void EMSCRIPTEN_KEEPALIVE GetLoadedLibrariesInfo(HSVM *hsvm, HSVM_VariableId id_set, bool onlydirectloaded)
+{
         HSVM_SetDefault(hsvm, id_set, HSVM_VAR_Record);
         HSVM_VariableId var_errors = HSVM_RecordCreate(hsvm, id_set, HSVM_GetColumnId(hsvm, "ERRORS"));
         HSVM_SetDefault(hsvm, var_errors, HSVM_VAR_RecordArray);
@@ -351,6 +373,39 @@ void EMSCRIPTEN_KEEPALIVE GetLoadedLibrariesInfo(HSVM *hsvm, HSVM_VariableId id_
                 HSVM_BooleanSet(hsvm, HSVM_RecordCreate(hsvm, var_elt, HSVM_GetColumnId(hsvm, "OUTOFDATE")), it->outofdate);
                 HSVM_DateTimeSet(hsvm, HSVM_RecordCreate(hsvm, var_elt, HSVM_GetColumnId(hsvm, "COMPILE_ID")), it->compile_id.GetDays(), it->compile_id.GetMsecs());
         }
+}
+
+static std::string lasthash;
+
+bool EMSCRIPTEN_KEEPALIVE GetAdhocCacheKeyData(HSVM *hsvm, const char **library, uint64_t *modtime, HSVM_VariableId cachetag, const char **store_hash)
+{
+        const char cachelib[] = "wh::adhoccache.whlib";
+
+        int daysvalue, msecsvalue;
+        const char *cache_librarystr = HSVM_GetCallingLibrary(hsvm, 0, false);
+        const char *calling_librarystr = HSVM_GetCallingLibraryWithCompileTime(hsvm, 1, false, &daysvalue, &msecsvalue);
+
+        if (!cache_librarystr || !calling_librarystr || Blex::StrCompare(cache_librarystr, cache_librarystr + strlen(cache_librarystr), cachelib, cachelib + sizeof(cachelib) - 1) != 0)
+            return false;
+
+        if (modtime)
+            *modtime = static_cast< uint64_t >(daysvalue) * 86400000 + msecsvalue;
+        if (library)
+            *library = calling_librarystr;
+
+        Blex::DateTime bmodtime(daysvalue, msecsvalue);
+        lasthash = HareScript::GetVirtualMachine(hsvm)->GetStackMachine().CalculateHash(cachetag, &bmodtime);
+        if (store_hash)
+           *store_hash = lasthash.c_str();
+
+        return true;
+}
+
+bool EMSCRIPTEN_KEEPALIVE GetEventCollectorSignalled(HSVM *hsvm, int32_t eventcollector)
+{
+        HareScript::OutputObject *collector = eventcollector != 0 ? HareScript::GetVirtualMachine(hsvm)->GetOutputObject(eventcollector, false) : nullptr;
+
+        return collector && collector->IsReadSignalled(nullptr) != HareScript::OutputObject::NotSignalled;
 }
 
 } // extern "C"

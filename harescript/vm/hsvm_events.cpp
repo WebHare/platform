@@ -260,7 +260,7 @@ void HS_Event_Broadcast(VirtualMachine *vm)
 
         Blex::NotificationEventManager &eventmgr = vm->environment.GetNotificationEventMgr();
         if (local)
-            eventmgr.QueueEventNoExport(evt);
+            eventmgr.QueueEventNoExport(evt, Blex::NotificationEventSource::LocalProcessOnly);
         else
             eventmgr.QueueEvent(evt);
 }

@@ -4,39 +4,44 @@ import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { backendConfig, log } from "@webhare/services";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { HSVMVar } from "./wasm-hsvmvar";
-import { SocketError, WASMModule } from "./wasm-modulesupport";
+import type { SocketError, WASMModule } from "./wasm-modulesupport";
 import { OutputObjectBase } from "@webhare/harescript/src/wasm-modulesupport";
 import { createDeferred, generateRandomId, sleep } from "@webhare/std";
 import * as syscalls from "./syscalls";
-import { localToUTC, utcToLocal } from "@webhare/hscompat/datetime";
+import { defaultDateTime, localToUTC, utcToLocal } from "@webhare/hscompat/datetime";
 import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
 import * as crypto from "node:crypto";
 import * as os from "node:os";
 import { IPCEndPoint, IPCMessagePacket, IPCPort, createIPCEndPointPair, decodeTransferredIPCEndPoint } from "@mod-system/js/internal/whmanager/ipc";
 import { isValidName } from "@webhare/whfs/src/support";
-import { AsyncWorker, ConvertWorkerServiceInterfaceToClientInterface } from "@mod-system/js/internal/worker";
+import { AsyncWorker } from "@mod-system/js/internal/worker";
 import { Crc32 } from "@mod-system/js/internal/util/crc32";
 import { escapePGIdentifier } from "@webhare/whdb";
-import { LogFileConfiguration } from "@mod-system/js/internal/whmanager/whmanager_rpcdefs";
+import type { LogFileConfiguration } from "@mod-system/js/internal/whmanager/whmanager_rpcdefs";
+import type { ConvertLocalServiceInterfaceToClientInterface } from "@webhare/services/src/localservice";
+import type { LocalLockService } from "./wasm-locallockservice";
+import type { AdhocCacheService } from "./wasm-adhoccacheservice";
+import { debugFlags } from "@webhare/env/src/envbackend";
+
 
 type SysCallsModule = { [key: string]: (vm: HareScriptVM, data: unknown) => unknown };
 
 /** Builds a function that returns (or creates when not present yet) a class instance associated with a HareScriptVM */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function contextGetterFactory<T extends new (...args: any) => any>(obj: T): (vm: HareScriptVM) => InstanceType<T> {
-  const map = new WeakMap<HareScriptVM, InstanceType<T>>;
+function contextGetterFactory<T extends new () => { close?: () => void }>(name: string, obj: T): (vm: HareScriptVM) => InstanceType<T> {
+  const symbol = Symbol(`hsvm context: ${name}`);
   return (vm: HareScriptVM): InstanceType<T> => {
-    const res = map.get(vm);
+    const res = vm.contexts.get(symbol);
     if (res)
-      return res;
-    const newobj = new obj;
-    map.set(vm, newobj);
+      return res as InstanceType<T>;
+    const newobj = new obj as InstanceType<T>;
+    vm.contexts.set(symbol, newobj);
     return newobj;
   };
 }
 
 class Hasher extends OutputObjectBase {
-  static context = contextGetterFactory(class { hashers = new Map<number, Hasher>; });
+  static context = contextGetterFactory("hashers", class { hashers = new Map<number, Hasher>; close() { } });
 
   hasher: { update(data: crypto.BinaryLike): void; digest(): Buffer };
 
@@ -172,21 +177,24 @@ class HSJob extends OutputObjectBase {
   linkinparent: IPCEndPoint | undefined;
   worker: AsyncWorker;
   /// A proxy that will transfer calls to the HareScriptJob in the worker thread
-  jobobj: ConvertWorkerServiceInterfaceToClientInterface<HareScriptJob>;
+  jobobj: ConvertLocalServiceInterfaceToClientInterface<HareScriptJob>;
   isRunning = false;
   arguments = new Array<string>;
   output: HSJobOutput | undefined;
+  groupId: string;
 
   constructor(
     vm: HareScriptVM,
     linkinparent: IPCEndPoint,
     worker: AsyncWorker,
-    jobobj: ConvertWorkerServiceInterfaceToClientInterface<HareScriptJob>,
+    jobobj: ConvertLocalServiceInterfaceToClientInterface<HareScriptJob>,
+    groupId: string,
   ) {
     super(vm, "Job");
     this.linkinparent = linkinparent;
     this.worker = worker;
     this.jobobj = jobobj;
+    this.groupId = groupId;
   }
   async start() {
     if (this.closed)
@@ -262,13 +270,16 @@ class HSJob extends OutputObjectBase {
       throw new Error(`The job has already been closed`);
     return await this.jobobj.getExitCode();
   }
+
   close() {
     if (this.closed)
       return;
 
+    this.jobobj.terminate().catch(e => 0);
     this.jobobj.close();
     this.output?.close();
     this.worker.close();
+
     super.close();
   }
 }
@@ -325,14 +336,67 @@ class HSJobOutput extends OutputObjectBase {
   }
 }
 
-const ipcContext = contextGetterFactory(class {
+const ipcContext = contextGetterFactory("ipc", class {
   ports = new Map<number, HSIPCPort>;
   links = new Map<number, HSIPCLink>;
   jobs = new Map<number, HSJob>;
   linktoparent: IPCEndPoint | undefined;
   signalintpipe: SignalIntPipe | undefined;
   externalsessiondata = "";
+  close() {
+    this.linktoparent?.close();
+    this.linktoparent = undefined;
+    this.signalintpipe?.close();
+    this.signalintpipe = undefined;
+  }
 });
+
+type LockServiceClient = ConvertLocalServiceInterfaceToClientInterface<LocalLockService>;
+
+class HSLocalLock extends OutputObjectBase {
+  service: LockServiceClient;
+  serviceId: number;
+
+  constructor(vm: HareScriptVM, name: string, service: LockServiceClient, serviceId: number) {
+    super(vm, `Local lock: ${JSON.stringify(name)}`);
+    this.service = service;
+    this.serviceId = serviceId;
+
+    this.setReadSignalled(false);
+
+    // Wait for the lock to open. Ignore disconnect errors
+    service?.waitLock(serviceId).then((success) => this.gotLockResult(success), () => 0);
+  }
+
+  gotLockResult(success: boolean) {
+    if (!this.closed)
+      this.setReadSignalled(success);
+  }
+
+  close(): void {
+    super.close();
+    // ignore errors
+    this.service.closeLock(this.serviceId).catch(() => 0);
+  }
+}
+
+const localLockContext = contextGetterFactory("local locks", class {
+  locks = new Map<number, HSLocalLock>;
+  lockService: LockServiceClient | undefined;
+  close() {
+    this.lockService?.close();
+  }
+});
+
+type AdhocCacheServiceClient = ConvertLocalServiceInterfaceToClientInterface<AdhocCacheService>;
+
+const adhocCacheContext = contextGetterFactory("adhoccache", class {
+  service: AdhocCacheServiceClient | undefined;
+  close() {
+    this.service?.close();
+  }
+});
+
 
 export function registerBaseFunctions(wasmmodule: WASMModule) {
 
@@ -374,15 +438,15 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       consoleArguments: args.getJSValue() as string[],
     });
 
-    const stdout_bytes: number[] = [];
-    newvm.captureOutput((output: number[]) => stdout_bytes.push(...output));
+    const stdout_buffers: Buffer[] = [];
+    newvm.captureOutput((output: Buffer) => stdout_buffers.push(output));
 
     await newvm.loadScript(filename.getString());
     await newvm.wasmmodule._HSVM_ExecuteScript(newvm.hsvm, 1, 0);
     newvm.wasmmodule._HSVM_GetMessageList(newvm.hsvm, newvm.errorlist, 1);
     id_set.setJSValue({
       errors: new HSVMVar(newvm, newvm.errorlist).getJSValue(),
-      output: Buffer.from(stdout_bytes).toString()
+      output: Buffer.concat(stdout_buffers).toString()
     });
   });
   wasmmodule.registerExternalFunction("GENERATEUFS128BITID::S:", (vm, id_set) => {
@@ -487,8 +551,12 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   });
 
   wasmmodule.registerExternalMacro("__SYSTEM_REMOTELOG:::SS", (vm, logfile: HSVMVar, text: HSVMVar) => {
-    //FIXME should bridge log just give us a raw format? or should we convert all WASM logger usage to JSON?
-    log(logfile.getString(), { __system_remotelog_wasm: text.getString() });
+    try {
+      const decoded = JSON.parse(text.getString());
+      log(logfile.getString(), decoded);
+    } catch (e) {
+      log(logfile.getString(), { __system_remotelog_wasm: text.getString() });
+    }
   });
 
   wasmmodule.registerExternalFunction("CREATEHASHER::I:S", (vm, id_set, varAlgorithm) => {
@@ -509,9 +577,11 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
   });
 
   wasmmodule.registerExternalFunction("FINALIZEHASHER::S:I", (vm, id_set, id) => {
-    const hasher = Hasher.context(vm).hashers.get(id.getInteger());
+    const ctxt = Hasher.context(vm);
+    const hasher = ctxt.hashers.get(id.getInteger());
     if (!hasher)
       throw new Error(`No such crypto hasher with id ${id.getInteger()}`);
+    ctxt.hashers.delete(hasher.id);
     id_set.setString(hasher.finalize());
   });
 
@@ -692,13 +762,15 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       env,
     );
 
-    const job = new HSJob(vm, link[0], worker, jobobj,);
+    const groupid = await jobobj.getGroupId();
+
+    const job = new HSJob(vm, link[0], worker, jobobj, groupid);
     context.jobs.set(job.id, job);
 
     id_set.setJSValue({
       status: "ok",
       jobid: job.id,
-      groupid: "unknown",
+      groupid,
       errors: getTypedArray(VariableType.RecordArray, [])
     });
   });
@@ -750,8 +822,6 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     if (!job)
       throw new Error(`No such job with id ${var_jobid.getInteger()}`);
 
-    if (job.isRunning)
-      await job.terminate();
     job.close();
   });
 
@@ -921,9 +991,10 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     id_set.ensureCell("PUBLICKEY").setString(key);
   });
 
-  const cryptoContext = contextGetterFactory(class {
+  const cryptoContext = contextGetterFactory("crypto", class {
     idcounter = 0;
     keys = new Map<number, { key: crypto.KeyObject; isPrivate: boolean }>;
+    close() { }
   });
 
   wasmmodule.registerExternalFunction("__EVP_LOADPRVKEY::I:S", (vm, id_set, var_keydata) => {
@@ -966,6 +1037,154 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
 
     id_set.setBoolean(!keyrec.isPrivate);
   });
+
+  wasmmodule.registerAsyncExternalFunction("__HS_OPENLOCALLOCK::R:SIB", async (vm, id_set, var_name, var_maxconcurrent, var_failifqueued) => {
+    const ctxt = localLockContext(vm);
+    const lockService = (ctxt.lockService ??= await bridge.connectToLocalService<LocalLockService>("@webhare/harescript/src/wasm-locallockservice.ts#openLocalLockService", [vm.currentgroup]));
+
+    const lockResult = await lockService.openLock(var_name.getString(), var_maxconcurrent.getInteger(), var_failifqueued.getBoolean());
+    if (!lockResult.lockId) {
+      id_set.setJSValue({
+        lockid: 0,
+        locked: false
+      });
+    }
+
+    const lock = new HSLocalLock(vm, var_name.getString(), lockService, lockResult.lockId);
+    ctxt.locks.set(lock.id, lock);
+
+    id_set.setJSValue({
+      lockid: lock.id,
+      locked: lockResult.locked
+    });
+  });
+
+  wasmmodule.registerExternalMacro("__HS_CLOSELOCALLOCK:::I", (vm, var_id) => {
+    const ctxt = localLockContext(vm);
+    const id = var_id.getInteger();
+    const lock = ctxt.locks.get(id);
+    if (!lock)
+      throw new Error(`Invalid lock handle`);
+    lock.close();
+    ctxt.locks.delete(id);
+  });
+
+  wasmmodule.registerAsyncExternalFunction("__HS_GETLOCALLOCKSTATUS::RA:", async (vm, id_set) => {
+    const ctxt = localLockContext(vm);
+    const lockService = (ctxt.lockService ??= await bridge.connectToLocalService<LocalLockService>("@webhare/harescript/src/wasm-locallockservice.ts#openLocalLockService", [vm.currentgroup]));
+    const status = await lockService.getStatus();
+    // FIXME: why aren't dates transferred correctly?
+    id_set.setJSValue(status.map(row => ({
+      ...row,
+      lockStart: typeof row.lockStart === "string" ? new Date(Date.parse(row.lockStart)) : !row.lockStart ? defaultDateTime : row.lockStart,
+      waitStart: typeof row.waitStart === "string" ? new Date(Date.parse(row.waitStart)) : !row.waitStart ? defaultDateTime : row.waitStart,
+    })));
+  });
+
+  wasmmodule.registerAsyncExternalFunction("GETADHOCCACHEDATA::R:R", async (vm, id_set, var_cachetag) => {
+    const ctxt = adhocCacheContext(vm);
+    const service = (ctxt.service ??= await bridge.connectToLocalService<AdhocCacheService>("@webhare/harescript/src/wasm-adhoccacheservice.ts#openAdhocCacheService", [vm.currentgroup]));
+
+    const returndata = vm.wasmmodule._malloc(16);
+    try {
+
+      const success = vm.wasmmodule._GetAdhocCacheKeyData(vm.hsvm, returndata + 8, returndata, var_cachetag.id, returndata + 12);
+      if (!success)
+        throw new Error(`not called from wh::adhoccache.whlib`);
+
+      const libraryUri = vm.wasmmodule.UTF8ToString(vm.wasmmodule.HEAP32[returndata + 8 >> 2]);
+      const libraryModDate = vm.wasmmodule.HEAP64[returndata >> 3];
+      const hashpos = vm.wasmmodule.HEAP32[returndata + 12 >> 2];
+      const hash = Buffer.from(vm.wasmmodule.HEAP8.subarray(hashpos, hashpos + 16)).toString("hex").toUpperCase();
+
+      const item = await service.getItem(libraryUri, libraryModDate, hash) as { value: SharedArrayBuffer } | undefined;
+      if (!item) {
+        id_set.setJSValue({
+          found: false,
+          hash,
+          value: null,
+        });
+      } else {
+        id_set.setJSValue({
+          found: true,
+          hash,
+        });
+
+        const sharedBufferView = new Uint8Array(item.value);
+        const dataPtr = vm.wasmmodule._malloc(sharedBufferView.length);
+        try {
+          const dataView = vm.wasmmodule.HEAPU8.subarray(dataPtr, dataPtr + sharedBufferView.length);
+          dataView.set(sharedBufferView);
+          const var_value = id_set.ensureCell("value");
+          vm.wasmmodule._HSVM_MarshalRead(vm.hsvm, var_value.id, dataPtr, dataPtr + sharedBufferView.length);
+        } finally {
+          vm.wasmmodule._free(dataPtr);
+        }
+      }
+    } finally {
+      vm.wasmmodule._free(returndata);
+    }
+  });
+
+  wasmmodule.registerAsyncExternalMacro("SETADHOCCACHEDATA:::RVDSAI", async (vm, var_cachetag, var_data, var_expires, var_eventmasks, var_eventcollector) => {
+    const ctxt = adhocCacheContext(vm);
+    const service = (ctxt.service ??= await bridge.connectToLocalService<AdhocCacheService>("@webhare/harescript/src/wasm-adhoccacheservice.ts#openAdhocCacheService", [vm.currentgroup]));
+
+    const eventcollector = var_eventcollector.getInteger();
+    if (eventcollector && vm.wasmmodule._GetEventCollectorSignalled(vm.hsvm, eventcollector))
+      return;
+
+    const returndata = vm.wasmmodule._malloc(16);
+    let dataPtr = 0;
+    let libraryUri: string | undefined;
+    try {
+      const success = vm.wasmmodule._GetAdhocCacheKeyData(vm.hsvm, returndata + 8, returndata, var_cachetag.id, returndata + 12);
+      if (!success)
+        throw new Error(`not called from wh::adhoccache.whlib`);
+
+      libraryUri = vm.wasmmodule.UTF8ToString(vm.wasmmodule.HEAP32[returndata + 8 >> 2]);
+      const libraryModDate = vm.wasmmodule.HEAP64[returndata >> 3];
+      const hashpos = vm.wasmmodule.HEAP32[returndata + 12 >> 2];
+      const hash = Buffer.from(vm.wasmmodule.HEAP8.subarray(hashpos, hashpos + 16)).toString("hex").toUpperCase();
+
+      try {
+        const len = vm.wasmmodule._HSVM_MarshalCalculateLength(vm.hsvm, var_data.id);
+        if (!len)
+          throw new Error(`Data is not marshallable`);
+
+        dataPtr = vm.wasmmodule._malloc(len);
+        vm.wasmmodule._HSVM_MarshalWrite(vm.hsvm, var_data.id, dataPtr, dataPtr + len);
+        const dataView = vm.wasmmodule.HEAPU8.slice(dataPtr, dataPtr + len);
+
+        const sharedBuffer = new SharedArrayBuffer(len);
+        const sharedBufferView = new Uint8Array(sharedBuffer);
+        sharedBufferView.set(dataView);
+
+        await service.setItem(libraryUri, libraryModDate, hash, var_expires.getDateTime(), var_eventmasks.getJSValue() as string[], sharedBuffer);
+      } catch (e) {
+        if (debugFlags.ahc)
+          console.error(`Setting adhoccache item from ${JSON.stringify(libraryUri ?? "unknown library")} failed:`, (e as Error).message);
+      }
+    } finally {
+      vm.wasmmodule._free(returndata);
+      if (dataPtr)
+        vm.wasmmodule._free(dataPtr);
+    }
+  });
+
+  wasmmodule.registerAsyncExternalMacro("INVALIDATEADHOCCACHE:::", async (vm) => {
+    const ctxt = adhocCacheContext(vm);
+    const service = (ctxt.service ??= await bridge.connectToLocalService<AdhocCacheService>("@webhare/harescript/src/wasm-adhoccacheservice.ts#openAdhocCacheService", [vm.currentgroup]));
+    await service.clearCache();
+  });
+
+  wasmmodule.registerAsyncExternalFunction("GETADHOCCACHESTATS::R:", async (vm, id_set) => {
+    const ctxt = adhocCacheContext(vm);
+    const service = (ctxt.service ??= await bridge.connectToLocalService<AdhocCacheService>("@webhare/harescript/src/wasm-adhoccacheservice.ts#openAdhocCacheService", [vm.currentgroup]));
+
+    id_set.setJSValue(await service.getStats());
+  });
+
 }
 
 //The HareScriptJob wraps the actual job inside the Worker
@@ -991,10 +1210,13 @@ class HareScriptJob {
   }
   captureOutput(encodedLink: unknown) {
     this.outputEndPoint = decodeTransferredIPCEndPoint<IPCMarshallableRecord, IPCMarshallableRecord>(encodedLink);
-    this.vm.captureOutput((output: number[]) => this.outputEndPoint!.send({ data: output }));
+    this.vm.captureOutput((output: Buffer) => this.outputEndPoint!.send({ data: output }));
   }
   setArguments(args: string[]) {
     this.vm.consoleArguments = args;
+  }
+  getGroupId(): string {
+    return this.vm.currentgroup;
   }
   start(): void {
     //vm.run will throw any script errors, but we'll already have recorded them in scriptDone and there's nothing in this worker thread to handle the exception
@@ -1060,7 +1282,6 @@ class HareScriptJob {
       this.vm.wasmmodule._GetLoadedLibrariesInfo(this.vm.hsvm, scratchvar.id, 0);
       this.loadedLibraries = scratchvar.getJSValue() as LoadedLibrariesInfo;
     }
-    ipcContext(this.vm).linktoparent?.close();
     this.outputEndPoint?.close();
     this.doneDefer.resolve();
   }

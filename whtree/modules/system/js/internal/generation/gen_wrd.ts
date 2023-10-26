@@ -65,7 +65,8 @@ export async function generateWRDDefs(context: GenerateContext, modulename: stri
     const parts = decl.split("#");
     if (parts.length !== 2 || !parts[0] || !parts[1])
       return "object";
-    const imports = emplace(typeDeclImports, parts[0], { insert: () => new Map<string, string> });
+    const library = parts[0].replace(/^mod::/, "@mod-");
+    const imports = emplace(typeDeclImports, library, { insert: () => new Map<string, string> });
     let usename = imports.get(parts[1]);
     if (!usename) {
       usename = parts[1];
@@ -203,7 +204,7 @@ export async function generateWRDDefs(context: GenerateContext, modulename: stri
       needtypes.push('WRDAttr');
 
     const typedecls = Array.from(typeDeclImports.entries()).map(([library, imports]) => {
-      const names = Array.from(imports).map(([name, usename]) => (name !== usename ? `${name} as ${usename}` : name)).join(",");
+      const names = Array.from(imports).map(([name, usename]) => (name !== usename ? `${name} as ${usename}` : name)).join(", ");
       library = library.replace(/(\.d)?\.tsx?$/, ""); // remove .d.ts,  .ts, .tsx extensions
       return `import type { ${names} } from ${JSON.stringify(library)};\n`;
     }

@@ -103,7 +103,7 @@
     <test script="test_map.whscr" />
     <test script="test_mime.whscr" />
     <test script="test_money.whscr" />
-    <test script="test_mutex.whscr" xfail="1" />  <!-- Missing local lock support -->
+    <test script="test_mutex.whscr" />
     <test script="test_nestedif.whscr" />
     <test script="test_numbers.whscr" />
     <test script="test_objects.whscr" />

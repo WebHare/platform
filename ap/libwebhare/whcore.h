@@ -221,7 +221,7 @@ class SoftResetListener : public Blex::NotificationEventReceiver
         SoftResetListener(Connection &conn);
         ~SoftResetListener();
 
-        void ReceiveNotificationEvent(std::string const &event, uint8_t const *hsvmdata, unsigned hsvmdatalen);
+        void ReceiveNotificationEvent(std::string const &event, uint8_t const *hsvmdata, unsigned hsvmdatalen, Blex::NotificationEventSource source);
 };
 
 class BLEXLIB_PUBLIC JobManagerIntegrator;

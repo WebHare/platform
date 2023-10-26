@@ -18,6 +18,12 @@ namespace Blex
 
 class NotificationEventManager;
 
+enum class NotificationEventSource {
+    LocalProcessOnly, // locally generated, processonly
+    LocalPublic, // locally generated, public
+    External, // externally generated
+};
+
 /** Contains a notification event
 */
 class BLEXLIB_PUBLIC NotificationEvent
@@ -194,7 +200,7 @@ class BLEXLIB_PUBLIC NotificationEventReceiver
         void Unregister();
 
         /// Called when a new notification event is called (before it is inserted in any NotificationEventQueue)
-        virtual void ReceiveNotificationEvent(std::string const &event, uint8_t const *hsvmdata, unsigned hsvmdatalen) = 0;
+        virtual void ReceiveNotificationEvent(std::string const &event, uint8_t const *hsvmdata, unsigned hsvmdatalen, NotificationEventSource source) = 0;
 };
 
 
@@ -243,11 +249,11 @@ class BLEXLIB_PUBLIC NotificationEventManager
         /// Sets the export callback. The callbacks registered here may NOT call QueueEvent!
         void SetExportCallback(ExportCallback _onexport);
 
-        /// Queues an event
+        /// Queues an event (locally generated, public)
         void QueueEvent(std::shared_ptr< NotificationEvent > const &event);
 
         /// Queues an event, without sending it to the onexport handler
-        void QueueEventNoExport(std::shared_ptr< NotificationEvent > const &event);
+        void QueueEventNoExport(std::shared_ptr< NotificationEvent > const &event, NotificationEventSource source);
 
         typedef std::unique_ptr< LockedData::WriteRef > EventLock;
 
