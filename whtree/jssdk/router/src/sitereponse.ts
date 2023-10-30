@@ -2,7 +2,7 @@ import { WHConfigScriptData } from "@webhare/env/src/frontend-config";
 import { createWebResponse, WebResponse } from "./response";
 import type { SiteRequest } from "./siterequest";
 import * as services from "@webhare/services";
-import { encodeString } from "@webhare/std";
+import { encodeString, stringify } from "@webhare/std";
 import { getVersionInteger } from "@mod-system/js/internal/configuration";
 
 export class SiteResponseSettings {
@@ -120,7 +120,7 @@ export class SiteResponse<T extends object = object> {
     if (this.insertions["dependencies-top"])
       page += await this.renderInserts("dependencies-top");
 
-    page += `<script type="application/json" id="wh-config">${JSON.stringify(this.frontendConfig)}</script>`;
+    page += `<script type="application/json" id="wh-config">${stringify(this.frontendConfig, { target: "script" })}</script>`;
 
     //FIXME adhoc bundle support
     /* TODO cachebuster /! support
