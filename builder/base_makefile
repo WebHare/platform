@@ -854,8 +854,6 @@ lib/harescript-interface.ts: harescript/vm/hsvm_dllinterface.wasm-obj harescript
 	$(HIDE)$(EMCC) -E -C -x c++-header -D__EMSCRIPTEN__=1 $(SRCDIR)/harescript/vm/wasm-harescript.h > harescript/vm/wasm-harescript.processed.h
 	$(HIDE)node $(SRCDIR)/harescript/vm/generate-wasm-interface.js harescript/vm/hsvm_dllinterface.processed.h harescript/vm/wasm-harescript.processed.h > lib/harescript-interface.ts
 
-$(foreach dep,$(wasm_DEPLOYABLES_WHAP), $(eval $(call InstallWasmDepoyable,$(dep))))
-
 build.wasm: $(wasm_DEPLOYABLES_WHAP)
 	> build.wasm
 
