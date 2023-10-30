@@ -531,7 +531,6 @@ WHAP_DEPLOYABLES = $(foreach sub,$(WHAP_SUBPROJECTS),$($(sub)_DEPLOYABLES_WHAP))
 ALL_DEPLOYABLES = $(sort $(HSENGINE_DEPLOYABLES) $(WHAP_DEPLOYABLES))
 ALL_DEPLOYABLES_SETUP = $(foreach sub,$(SUBPROJECTS),$($(sub)_DEPLOYABLES_SETUP))
 
-
 #################################################
 ##
 ## File listing post processing
@@ -844,9 +843,15 @@ $(foreach mod,$(AP_DEPLOYABLES_UTILS),$(eval $(call ApUtilTarget,$(mod))))
 
 # Note that wasm targets are easier as we don't bother with dynamic linking.
 # Make 4.4 allows to define grouped targets (lib/harescript.js lib/harescript.wasm &: ...) but ubuntu 20.4 is still on 4.3
-lib/harescript.js: $(LIBHSVM_WASM_SOURCEOBJS) $(call BuildAndTest,wasm-blex) $(SRCDIR)/harescript/vm/wasm-suspending-functions.txt $(SRCDIR)/harescript/vm/fix-emcc-output.js
-	$(call LinkWASMImportable,$(LIBHSVM_WASM_SOURCEOBJS),$@,$(PREFIX)/lib/)
-lib/harescript.wasm: lib/harescript.js lib/harescript-interface.ts
+# We use build.harescript-wasm as a barrier to ensure these targets waiting for the build
+build.harescript-wasm: $(LIBHSVM_WASM_SOURCEOBJS) $(call BuildAndTest,wasm-blex) $(SRCDIR)/harescript/vm/wasm-suspending-functions.txt $(SRCDIR)/harescript/vm/fix-emcc-output.js
+	$(call LinkWASMImportable,$(LIBHSVM_WASM_SOURCEOBJS),lib/harescript.js,$(PREFIX)/lib/)
+	> build.harescript-wasm
+
+lib/harescript.js: build.harescript-wasm
+lib/harescript.wasm: build.harescript-wasm
+$(PREFIX)/lib/harescript.js: build.harescript-wasm
+$(PREFIX)/lib/harescript.wasm: build.harescript-wasm
 
 lib/harescript-interface.ts: harescript/vm/hsvm_dllinterface.wasm-obj harescript/vm/wasm-harescript.wasm-obj $(SRCDIR)/harescript/vm/generate-wasm-interface.js $(SRCDIR)/harescript/vm/wasm-suspending-functions.txt
 	$(HIDE)echo "- Generating lib/harescript-interface.ts"
@@ -874,7 +879,8 @@ wasm: lib/harescript.js lib/harescript.wasm $(call BuildAndTest,wasm)
 uninstall:
 	-rm -f -- $(addprefix $(PREFIX)/,$(ALL_DEPLOYABLES))
 
-ALLBUILDANDTEST=$(foreach file,$(SUBPROJECTS),$(call BuildAndTest,${file}))
+# Lists all test targets. This causes the 'install' phase to be blocked by any subproject (or wasm, which is a testtarget but not one of the SUBPROJECTS)
+ALLBUILDANDTEST=$(foreach file,$(SUBPROJECTS),$(call BuildAndTest,${file})) $(call BuildAndTest,wasm)
 
 define InstallOurDeployable
 $(PREFIX)/$(1): $(1) | $(ALLBUILDANDTEST)
