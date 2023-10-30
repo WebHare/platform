@@ -36,16 +36,17 @@ export function generatePropertyName(str: string) {
 /** Format of schema definition data return by HareScript */
 
 interface WRDAttributeConfigurationWithChildren extends WRDAttributeConfigurationBase {
-  attrs?: Record<string, WRDAttributeConfigurationWithChildren>;
+  childAttributes?: Record<string, WRDAttributeConfigurationWithChildren>;
 }
 
 interface DeclaredAttribute extends WRDAttributeConfigurationWithChildren {
-  attrs?: Record<string, DeclaredAttribute>;
+  childAttributes?: Record<string, DeclaredAttribute>;
   isGenerated: boolean;
   defstr?: string | null; //'null' if in WRDTypeBaseSettings
-  typedeclaration?: string;
+  typeDeclaration?: string;
 }
 
+///SchemaDef as received from HareScript
 type SchemaDef = {
   types: Array<{
     tag: string;
@@ -97,12 +98,19 @@ export async function getModuleWRDSchemas(context: GenerateContext, modulename: 
   return retval;
 }
 
-interface ParsedWRDSchemaDef {
-  schematypename: string;
-  schemaprop: string;
-  types: Array<{
-    typename: string;
-    tag: string;
+///A limited view to prevent devbridge from relying on generator-only propertires
+export interface PublicParsedWRDSchemaDef {
+  schemaTypeName: string;
+  schemaProp: string;
+  types: Record<string, {
+    typeName: string;
+    attrdefs: Record<string, WRDAttributeConfigurationWithChildren>;
+  }>;
+}
+
+interface ParsedWRDSchemaDef extends PublicParsedWRDSchemaDef {
+  types: Record<string, {
+    typeName: string;
     attrdefs: Record<string, DeclaredAttribute>;
   }>;
 }
@@ -119,8 +127,8 @@ function buildAttrsFromArray(attrs: SchemaDef["types"][0]["allattrs"]): Record<s
       allowedValues: attr.allowedvalues,
       isRequired: attr.isrequired,
       isGenerated: false,
-      attrs: attr.attrs?.length ? buildAttrsFromArray(attr.attrs) : undefined,
-      typedeclaration: attr.typedeclaration
+      childAttributes: attr.attrs?.length ? buildAttrsFromArray(attr.attrs) : undefined,
+      typeDeclaration: attr.typedeclaration
     };
   }
   return attrdefs;
@@ -130,18 +138,17 @@ export async function parseWRDDefinitionFile(schemaptr: ModuleWRDSchemaDef): Pro
   const [modulename, schematag] = schemaptr.wrdschema.split(":");
   const modprefix = schemaptr.module === "platform" ? `${generateTypeName(modulename)}_` : ``;
   const parsedschemadef: ParsedWRDSchemaDef = {
-    schematypename: `${modprefix}${generateTypeName(schematag)}SchemaType`,
-    schemaprop: (schemaptr.module === "platform" ? `${modulename}_` : ``) + schematag + "_schema",
-    types: []
+    schemaTypeName: `${modprefix}${generateTypeName(schematag)}SchemaType`,
+    schemaProp: (schemaptr.module === "platform" ? `${modulename}_` : ``) + schematag + "_schema",
+    types: {}
   };
 
   try {
     const schemadef = await loadlib("mod::wrd/lib/internal/metadata/schemaparser.whlib").OpenWRDSchemaDefFile(schemaptr.definitionfile) as SchemaDef;
 
     for (const type of schemadef.types) {
-      const typeinfo: ParsedWRDSchemaDef["types"][0] = {
-        typename: `${modprefix}${generateTypeName(schematag)}_${generateTypeName(type.tag)}`,
-        tag: tagToJS(type.tag),
+      const typeinfo: ParsedWRDSchemaDef["types"][string] = {
+        typeName: `${modprefix}${generateTypeName(schematag)}_${generateTypeName(type.tag)}`,
         attrdefs: {
           wrdId: { attributeType: WRDAttributeType.Integer, isGenerated: false, isRequired: false, defstr: null },
           wrdGuid: { attributeType: WRDAttributeType.Free, isGenerated: false, isRequired: false, defstr: null },
@@ -192,7 +199,7 @@ export async function parseWRDDefinitionFile(schemaptr: ModuleWRDSchemaDef): Pro
           }
         }
       }
-      parsedschemadef.types.push(typeinfo);
+      parsedschemadef.types[tagToJS(type.tag)] = typeinfo;
     }
   } catch (e) {
     console.log(schemaptr.wrdschema + ": " + (e as Error).message); //TODO log it, back to console.error, but we need to understand applicability first as we now fail for newsletter module
@@ -230,11 +237,11 @@ export async function generateWRDDefs(context: GenerateContext, modulename: stri
     if (context.verbose)
       console.time("generateWRDDefs " + schemaptr.wrdschema);
 
-    const file = await parseWRDDefinitionFile(schemaptr);
+    const wrddef = await parseWRDDefinitionFile(schemaptr);
     let def = '';
-    let fulldef = `export type ${file.schematypename} = {\n`;
-    for (const type of file.types) {
-      def += `export type ${type.typename} = WRDTypeBaseSettings`;
+    let fulldef = `export type ${wrddef.schemaTypeName} = {\n`;
+    for (const [tag, type] of Object.entries(wrddef.types)) {
+      def += `export type ${type.typeName} = WRDTypeBaseSettings`;
 
       const attrlines = [];
       for (const [name, attrdef] of Object.entries(type.attrdefs)) {
@@ -248,11 +255,11 @@ export async function generateWRDDefs(context: GenerateContext, modulename: stri
         def += ` & {\n${attrlines.join(";\n")};\n}`;
 
       def += ';\n\n';
-      fulldef += `  ${type.tag}: ${type.typename};\n`;
+      fulldef += `  ${tag}: ${type.typeName};\n`;
     }
     fulldef += `};\n\n`;
 
-    schemaconsts.push(`export const ${generatePropertyName(file.schemaprop)} = new WRDSchema<${file.schematypename}>(${JSON.stringify(schemaptr.wrdschema)});`);
+    schemaconsts.push(`export const ${generatePropertyName(wrddef.schemaProp)} = new WRDSchema<${wrddef.schemaTypeName}>(${JSON.stringify(schemaptr.wrdschema)});`);
 
     fullfile += def + fulldef;
 
@@ -291,8 +298,8 @@ function createTypeDef(attr: DeclaredAttribute, indent: string, gottypedecl: (de
     typedef = `WRDAttr<WRDAttributeType.${WRDAttributeType[attr.attributeType]}, { allowedvalues: ${attr.allowedValues?.map(v => JSON.stringify(v)).join(" | ")} }>`;
   } else if (attr.attributeType == WRDAttributeType.Array) {
     typedef = `WRDAttr<WRDAttributeType.${WRDAttributeType[attr.attributeType]}, {\n${indent}  members: {\n`;
-    if (attr.attrs) {
-      for (const [tag, subattr] of Object.entries(attr.attrs)) {
+    if (attr.childAttributes) {
+      for (const [tag, subattr] of Object.entries(attr.childAttributes)) {
         const subdef = createTypeDef(subattr, indent + "    ", gottypedecl);
         if (subdef)
           typedef += `${indent}    ${tag}: ${subdef};\n`;
@@ -300,7 +307,7 @@ function createTypeDef(attr: DeclaredAttribute, indent: string, gottypedecl: (de
       typedef += `${indent}  };\n${indent}}>`;
     }
   } else if (attr.attributeType == WRDAttributeType.JSON) {
-    const typedeclname = attr.typedeclaration ? gottypedecl(attr.typedeclaration) : "object";
+    const typedeclname = attr.typeDeclaration ? gottypedecl(attr.typeDeclaration) : "object";
     typedef = `WRDAttr<WRDAttributeType.${WRDAttributeType[attr.attributeType]}, { type: ${typedeclname} }>`;
   } else {
     typedef = `WRDAttributeType.${WRDAttributeType[attr.attributeType]}`;

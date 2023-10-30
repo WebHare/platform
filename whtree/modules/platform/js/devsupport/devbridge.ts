@@ -3,7 +3,7 @@
 */
 
 import { parseWHDBDefs } from "@mod-system/js/internal/generation/gen_whdb";
-import { getModuleWRDSchemas, parseWRDDefinitionFile } from "@mod-system/js/internal/generation/gen_wrd";
+import { PublicParsedWRDSchemaDef, getModuleWRDSchemas, parseWRDDefinitionFile } from "@mod-system/js/internal/generation/gen_wrd";
 import { buildGeneratorContext, listAllGeneratedFiles } from "@mod-system/js/internal/generation/generator";
 import { whconstant_builtinmodules } from "@mod-system/js/internal/webhareconstants";
 import { backendConfig, toResourcePath } from "@webhare/services";
@@ -45,7 +45,7 @@ export async function getWRDDefs({ module }: { module: string }) {
   const context = await buildGeneratorContext(null, false);
   const schemas = [];
   for (const schemaptr of await getModuleWRDSchemas(context, module))
-    schemas.push({ ...schemaptr, ...await parseWRDDefinitionFile(schemaptr) });
+    schemas.push({ ...schemaptr, ...(await parseWRDDefinitionFile(schemaptr) satisfies PublicParsedWRDSchemaDef as PublicParsedWRDSchemaDef) });
 
   return { schemas };
 }

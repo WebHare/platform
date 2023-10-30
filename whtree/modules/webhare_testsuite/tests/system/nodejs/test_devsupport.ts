@@ -13,13 +13,13 @@ async function testDevBridge() {
   //TODO establish whether we want Arrays or Record<>s for schemas, columns etc and decide which format to nail down
   // console.log(JSON.stringify(platform_whdb_defs, null, 2));
   test.eqProps({ interface: "PlatformDB" }, platform_whdb_defs);
-  test.eqProps({ name: "consilio" }, platform_whdb_defs.schemas.find(_ => _.name === "consilio"));
+  test.assert(platform_whdb_defs.schemas.consilio.tables.catalogs.columns.id);
 
   const platform_wrd_defs = await devbridge.getWRDDefs({ module: "platform" });
   //TODO establish whether we want Arrays or Record<>s for schemas, columns etc and decide which format to nail down
   const usermgmt = platform_wrd_defs.schemas.find(_ => _.wrdschema === "system:usermgmt");
   test.assert(usermgmt);
-  test.eqProps({ typename: "System_Usermgmt_WHUserAnnouncement" }, usermgmt.types.find(_ => _.tag === "whuserAnnouncement"));
+  test.eqProps({ typeName: "System_Usermgmt_WHUserAnnouncement" }, usermgmt.types.whuserAnnouncement);
 
   const test_whts_files = await devbridge.getGeneratedFiles({ module: "webhare_testsuite" });
   // console.log(test_whts_files);
