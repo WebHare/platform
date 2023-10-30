@@ -6,7 +6,7 @@
 
 import * as test from "@webhare/test";
 import { Money } from "@webhare/std";
-import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime } from "@webhare/hscompat";
+import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime, omitHareScriptDefaultValues } from "@webhare/hscompat";
 import { compare } from "@webhare/hscompat/algorithms";
 import { localizeDate } from "@webhare/hscompat/datetime";
 import { getTypedArray, IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
@@ -382,11 +382,66 @@ async function testLocalizeDate() {
   test.eq("Samstag, 2., 13:24", localizeDate(format, value, "de"));
 }
 
+function testOmitHareScriptDefaultValues() {
+  test.eq({
+    a: 1,
+    b: true,
+    c: new Money("0.01"),
+    d: new Date,
+    e: [0],
+    keep_a: 0,
+  }, omitHareScriptDefaultValues({
+    a: 1,
+    b: true,
+    c: new Money("0.01"),
+    d: new Date,
+    e: [0],
+    keep_a: 0,
+    default_a: 0,
+    default_b: false,
+    default_c: new Money("0.00"),
+    default_d: defaultDateTime,
+    default_e: [],
+    default_f: undefined,
+    default_g: null,
+  }, ["a", "b", "c", "d", "e", "default_a", "default_b", "default_c", "default_d", "default_e", "default_f", "default_g"]));
+
+  test.eq([
+    {
+      a: 1,
+      b: true,
+      c: new Money("0.01"),
+      d: new Date,
+      e: [0],
+      keep_a: 0,
+    }
+  ], omitHareScriptDefaultValues([
+    {
+      a: 1,
+      b: true,
+      c: new Money("0.01"),
+      d: new Date,
+      e: [0],
+      keep_a: 0,
+      default_a: 0,
+      default_b: false,
+      default_c: new Money("0.00"),
+      default_d: defaultDateTime,
+      default_e: [],
+      default_f: undefined,
+      default_g: null,
+    }
+  ], ["a", "b", "c", "d", "e", "default_a", "default_b", "default_c", "default_d", "default_e", "default_f", "default_g"]));
+
+  test.eq([], omitHareScriptDefaultValues([] as Array<{ a?: 0 }>, ["a"]));
+}
+
 test.run([
   testStrings,
   testCompare,
   testRecordLowerBound,
   testRecordUpperBound,
   testHSON,
-  testLocalizeDate
+  testLocalizeDate,
+  testOmitHareScriptDefaultValues,
 ]);

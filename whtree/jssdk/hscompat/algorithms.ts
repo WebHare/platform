@@ -1,5 +1,6 @@
 import { Money } from "@webhare/std";
 import { isDate, determineType, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { defaultDateTime } from "./datetime";
 
 export type ComparableType = number | null | bigint | string | Date | Money | boolean;
 
@@ -25,7 +26,7 @@ export function recordLowerBound<
   T extends (string extends K ? Any : { [P in K]: ComparableType }),
   S extends (string extends K ? Any : Pick<T, K & keyof T>),
   K extends (UnknownNonNullish extends T ? keyof S : string extends keyof T ? keyof S : keyof T)
->(searchin: T[], searchrecord: S | T, keys: K[]): { found: boolean; position: number } {
+>(searchin: readonly T[], searchrecord: Readonly<S | T>, keys: K[]): { found: boolean; position: number } {
   return binaryRecordSearchImpl(searchin, searchrecord, keys, false);
 }
 
@@ -33,7 +34,7 @@ export function recordUpperBound<
   T extends (string extends K ? Any : { [P in K]: ComparableType }),
   S extends (string extends K ? Any : Pick<T, K & keyof T>),
   K extends (UnknownNonNullish extends T ? keyof S : string extends keyof T ? keyof S : keyof T)
->(searchin: T[], searchrecord: S | T, keys: K[]): number {
+>(searchin: readonly T[], searchrecord: Readonly<S | T>, keys: K[]): number {
   return binaryRecordSearchImpl(searchin, searchrecord, keys, true).position;
 }
 
@@ -41,7 +42,7 @@ export function recordRange<
   T extends (string extends K ? Any : { [P in K]: ComparableType }),
   S extends (string extends K ? Any : Pick<T, K & keyof T>),
   K extends (UnknownNonNullish extends T ? keyof S : string extends keyof T ? keyof S : keyof T)
->(searchin: T[], searchrecord: S | T, keys: K[]): T[] {
+>(searchin: readonly T[], searchrecord: Readonly<S | T>, keys: K[]): T[] {
   const start = recordLowerBound(searchin, searchrecord, keys);
   const limit = recordUpperBound(searchin, searchrecord, keys);
   return searchin.slice(start.position, limit);
@@ -51,7 +52,7 @@ function binaryRecordSearchImpl<
   T extends (string extends K ? Any : { [P in K]: ComparableType }),
   S extends (string extends K ? Any : Pick<T, K & keyof T>),
   K extends (UnknownNonNullish extends T ? keyof S : string extends keyof T ? keyof S : keyof T)
->(searchin: T[], searchrecord: S | T, keys: K[], upper_bound: boolean): { found: boolean; position: number } {
+>(searchin: readonly T[], searchrecord: Readonly<S | T>, keys: K[], upper_bound: boolean): { found: boolean; position: number } {
 
   let first = 0;
   let len = searchin.length;
@@ -153,7 +154,7 @@ function groupCompare<
   T extends (string extends K ? Any : { [P in K]: ComparableType }),
   S extends (string extends K ? Any : Pick<T, K & keyof T>),
   K extends (UnknownNonNullish extends T ? keyof S : string extends keyof T ? keyof S : keyof T)
->(searchin: T, searchrecord: S | T, keys: Array<K & keyof T>, idx: number) {
+>(searchin: Readonly<T>, searchrecord: Readonly<S | T>, keys: Array<K & keyof T>, idx: number) {
   for (const key of keys) {
     const searchinvalue = searchin[key];
     const searchrecordvalue = searchrecord[key];
@@ -167,4 +168,37 @@ function groupCompare<
       return cmp;
   }
   return 0;
+}
+
+type PartialNoNull<T extends object, K extends keyof T> = {
+  [Key in K as T[Key] extends null ? never : Key]?: Exclude<T[Key], null>;
+};
+
+function isHareScriptDefaultValue(value: unknown) {
+  if (value === false || value === null || value === undefined || value === 0 || value === "" || value === 0n)
+    return true;
+  if (Array.isArray(value) && !value.length)
+    return true;
+  if (Money.isMoney(value) && Money.cmp(value, "0") === 0)
+    return true;
+  if (isDate(value) && value.getTime() <= defaultDateTime.getTime())
+    return true;
+  if (typeof value === "object" && "length" in value && !value.length)
+    return true;
+  return false;
+}
+
+export function omitHareScriptDefaultValues<T extends object, K extends keyof T>(value: T, keys: K[]): Omit<T, K> & PartialNoNull<T, K>;
+export function omitHareScriptDefaultValues<T extends object, K extends keyof T>(value: T[], keys: K[]): Array<Omit<T, K> & PartialNoNull<T, K>>;
+
+export function omitHareScriptDefaultValues<T extends object, K extends keyof T>(value: T | T[], keys: K[]): Omit<T, K> & PartialNoNull<T, K> | Array<Omit<T, K> & PartialNoNull<T, K>> {
+  if (Array.isArray(value)) {
+    return value.map(e => omitHareScriptDefaultValues(e, keys));
+  }
+
+  const res = {} as Record<string, unknown>;
+  for (const [key, keyvalue] of Object.entries(value))
+    if (!keys.includes(key as K) || !isHareScriptDefaultValue(keyvalue))
+      res[key] = keyvalue;
+  return res as Omit<T, K> & PartialNoNull<T, K>;
 }
