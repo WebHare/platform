@@ -1,5 +1,5 @@
 import { whconstant_builtinmodules } from "../webhareconstants";
-import { FileToUpdate, GenerateContext } from "./shared";
+import { FileToUpdate, GenerateContext, generatorBanner } from "./shared";
 import { encodeString } from "@webhare/std";
 import { elements } from "./xmlhelpers";
 
@@ -70,7 +70,7 @@ function formatDocumentation(node: Element, indent: string): string {
 
 
 export interface WHDBDefs {
-  interfaceName: string;
+  interface: string;
   schemas: Array<{
     name: string;
     tables: Array<{
@@ -213,7 +213,7 @@ export function parseWHDBDefs(context: GenerateContext, modulename: string): WHD
 
   return {
     schemas,
-    interfaceName: modulename === "webhare" ? "PlatformDB" : `${generateTableTypeName(modulename)}DB`
+    interface: modulename === "webhare" ? "PlatformDB" : `${generateTableTypeName(modulename)}DB`
   };
 }
 
@@ -243,9 +243,7 @@ export function generateKyselyDefs(context: GenerateContext, modulename: string)
     }
   }
 
-  return `/* This file is auto-generated, do not modify but regenerate using \`wh update-generated-files\`
-   Use the dev module's browser for examples on how to use these types. */
-
+  return `${generatorBanner}
 import type { ColumnType } from ${JSON.stringify(kyselyimportlib)};
 ${hasblobs ? `import type { WebHareBlob } from "@webhare/services";` : ""}
 
@@ -253,7 +251,7 @@ type IsGenerated<T> = ColumnType<T, T | undefined, never>;
 
 ${tabledefs}
 
-export interface ${whdbdefs.interfaceName} {
+export interface ${whdbdefs.interface} {
 ${[...tablemap.entries()].map(entry => `  ${JSON.stringify(entry[0])}: ${entry[1]};`).join('\n')}
 }
 `;

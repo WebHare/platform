@@ -4,7 +4,7 @@
     <description>WebHare core functionality</description>
     <validation options="nowarnings">
       <exclude mask="whres/xml/*" why="External XSDs, currently too complex to validate. But even if we could, we cannot modify them, so no need to warn" permanent="true"/>
-      <format masks="*.ts *.tsx" excludemasks="*/generated/openapi/*" />
+      <format masks="*.ts *.tsx" excludemasks="*/generated/*" />
     </validation>
   </meta>
 
