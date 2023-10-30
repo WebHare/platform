@@ -118,20 +118,44 @@ export function decodeString(str: string, encoding: StringEncodings): string {
   throw new Error(`Invalid encoding '${encoding}'`);
 }
 
+type JSONReplacerArgument = ((this: unknown, key: string, value: unknown) => unknown) | undefined;
+
+export interface StringifyOptions {
+  replacer?: JSONReplacerArgument;
+  space?: string | number;
+  stable?: boolean;
+  ///What to target: string (like JSON.stringify), script (escapes '/') or attribute (escapes '/' and applies attribute encoding)
+  target?: "string" | "script" | "attribute";
+}
+
 function stableReplacer(this: unknown, key: unknown, value: unknown) {
-  if (value && typeof value === "object" && !Array.isArray(value)) {
+  if (value && typeof value === "object" && !Array.isArray(value))
     return Object.fromEntries(Object.entries(value).sort((lhs, rhs) => lhs < rhs ? -1 : lhs === rhs ? 0 : 1));
-  }
+
   return value;
 }
 
-/** Encode as JSON with sorted keys for stable comparison */
-export function stableStringify(arg: unknown, replacer?: (this: unknown, key: unknown, value: unknown) => unknown, space?: string | number) {
-  // eslint-disable-next-line @typescript-eslint/no-invalid-this -- a replacer needs a forwarded this
-  const usereplacer = !replacer ? stableReplacer : function (this: unknown, key: unknown, value: unknown) {
-    return stableReplacer.call(this, key, replacer!.call(this, key, value));
-  };
-  return JSON.stringify(arg, usereplacer, space);
+/** Improved JSON encoder
+ * @param arg - Object to encode
+ * @param options - Encoding options
+*/
+export function stringify(arg: unknown, options?: StringifyOptions) {
+  const usereplacer: JSONReplacerArgument = options?.stable ? (function (this: unknown, key: string, value: unknown) {
+    return stableReplacer.call(this, key, options?.replacer?.call(this, key as string, value) ?? value);
+  }) : options?.replacer ?? undefined;
+
+  let result = JSON.stringify(arg, usereplacer, options?.space);
+  if (options?.target && ["script", "attribute"].includes(options.target)) {
+    result = result.replaceAll("/", "\\/");
+    if (options.target === "attribute")
+      result = encodeEntities(result, false);
+  }
+  return result;
+}
+
+/** @deprecated Use the more generic stringify instead in 5.4 (and consider your target!) */
+export function stableStringify(arg: unknown, replacer?: JSONReplacerArgument, space?: string | number) {
+  return stringify(arg, { replacer, space, stable: true });
 }
 
 /** Generate a slug from a (suggested) (file)name

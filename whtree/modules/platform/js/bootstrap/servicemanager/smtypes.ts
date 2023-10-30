@@ -1,4 +1,4 @@
-import { pick, stableStringify } from "@webhare/std";
+import { pick, stringify } from "@webhare/std";
 
 /** This enum must be ordered in the normal order (so we can say a service must be running when service.startIn &lt;= current stage &lt;= service.stopIn ?? DefaultStopStage).
  */
@@ -29,7 +29,7 @@ export interface ServiceDefinition {
 }
 
 function getServiceRuntimeParamHash(service: ServiceDefinition) {
-  return stableStringify(pick(service, ["cmd"]));
+  return stringify(pick(service, ["cmd"]), { stable: true });
 }
 
 export function shouldRestartService(oldservice: ServiceDefinition, newservice: ServiceDefinition) {

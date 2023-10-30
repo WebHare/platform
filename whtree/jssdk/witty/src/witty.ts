@@ -1,4 +1,4 @@
-import { encodeString } from "@webhare/std";
+import { encodeString, stringify } from "@webhare/std";
 import { getHTMLTid, getTid } from "@mod-tollium/js/gettid";
 import * as path from "node:path";
 
@@ -1046,11 +1046,7 @@ export class WittyTemplate {
       case DataType.Cell:
         {
           if (part.encoding == ContentEncoding.Json || part.encoding == ContentEncoding.JsonValue) {
-            const temp = JSON.stringify(wittyVar);
-            if (part.encoding == ContentEncoding.Json)
-              return this.encodeString(temp, ContentEncoding.None);
-            else
-              return this.encodeString(temp, ContentEncoding.Value);
+            return stringify(wittyVar, { target: part.encoding == ContentEncoding.JsonValue ? "attribute" : "script" });
           }
           switch (typeof wittyVar) {
             case "number":

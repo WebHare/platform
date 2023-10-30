@@ -5,9 +5,16 @@ import testlist from "./test_std_tests";
 function testBigInt() {
   //'Big integer literals are not available in the configured target environment ("es2016", "safari14")'
   //so we run these tests on nodejs only
-  test.throws(/BigInt/, () => std.stableStringify({ a: { b: 42n } }));
-  test.eq(JSON.stringify({ a: { b: "42" } }), std.stableStringify({ a: { b: 42n } }, (k, v) => typeof v === "bigint" ? v.toString() : v));
-  test.eq(JSON.stringify({ a: { b: "42" } }, null, 2), std.stableStringify({ a: { b: 42n } }, (k, v) => typeof v === "bigint" ? v.toString() : v, 2));
+  test.throws(/BigInt/, () => std.stringify({ a: { b: 42n } }, { stable: true }));
+  test.eq(JSON.stringify({ a: { b: "42" } }), std.stringify({ a: { b: 42n } }, {
+    stable: true,
+    replacer: (k, v) => typeof v === "bigint" ? v.toString() : v
+  }));
+  test.eq(JSON.stringify({ a: { b: "42" } }, null, 2), std.stringify({ a: { b: 42n } }, {
+    stable: true,
+    replacer: (k, v) => typeof v === "bigint" ? v.toString() : v,
+    space: 2
+  }));
 }
 
 test.run([

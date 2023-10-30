@@ -1,4 +1,4 @@
-import { stableStringify, emplace } from "@webhare/std";
+import { stringify, emplace } from "@webhare/std";
 import PublisherFormService from "./formservice";
 
 export interface AddressValue {
@@ -38,7 +38,7 @@ export async function verifyAddress(address: AddressValue, options: AddressValid
   if (!lookupcache)
     lookupcache = new Map<string, Promise<AddressValidationResult>>;
 
-  const lookupkey = stableStringify({ address, options });
+  const lookupkey = stringify({ address, options }, { stable: true });
   const lookup = emplace(lookupcache, lookupkey, {
     insert: () => PublisherFormService.verifyAddress(location.pathname, address, options) || {}
   });
