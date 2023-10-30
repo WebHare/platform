@@ -4,6 +4,8 @@ import { mkdtemp } from 'node:fs/promises';
 import * as path from "node:path";
 import * as os from "node:os";
 import { existsSync, mkdirSync, readFileSync, symlinkSync } from "node:fs";
+import { Readable } from "node:stream";
+
 
 async function testFS() {
   const tempdir = await mkdtemp(path.join(os.tmpdir(), "test-systemtools-"));
@@ -29,6 +31,15 @@ async function testFS() {
 
   await storeDiskFile(path.join(tempdir, "4".repeat(240) || ".txt"), "test 7", { inPlace: false });
   test.eq("test 7", readFileSync(path.join(tempdir, "4".repeat(240) || ".txt"), 'utf8'));
+
+  await storeDiskFile(path.join(tempdir, "1.txt"), Buffer.from("test 8"), { overwrite: true });
+  test.eq("test 8", readFileSync(path.join(tempdir, "1.txt"), 'utf8'));
+
+  await storeDiskFile(path.join(tempdir, "1.txt"), Readable.from("test 9"), { overwrite: true });
+  test.eq("test 9", readFileSync(path.join(tempdir, "1.txt"), 'utf8'));
+
+  await storeDiskFile(path.join(tempdir, "1.txt"), Readable.toWeb(Readable.from("test 10")), { overwrite: true });
+  test.eq("test 10", readFileSync(path.join(tempdir, "1.txt"), 'utf8'));
 
   mkdirSync(path.join(tempdir, "subdir"));
   mkdirSync(path.join(tempdir, "subdir", "deeper"));
