@@ -1,5 +1,3 @@
 <icon xmlns="http://www.webhare.net/xmlns/tollium/icons">
-  <backgroundlayer src="tollium:backgrounds/document" color="b"/>
-  <layer src="tollium:objects/document"/>
-  <layer src="tollium:overlays/seal"/>
+  <layer src="tollium:misc/certificate"/>
 </icon>
