@@ -39,6 +39,9 @@ STRING FUNCTION GetWHCDPath(STRING arg)
   IF(arg="")
     RETURN GetEnvironmentVariable("WEBHARE_CHECKEDOUT_TO") ?? GetEnvironmentVariable("WEBHARE_DIR");
 
+  IF(arg LIKE "@mod-*")
+    arg := "mod::" || Substring(arg,5);
+
   STRING destpath;
   IF(arg LIKE "*::*")
   {
