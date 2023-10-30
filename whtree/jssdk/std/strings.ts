@@ -28,7 +28,7 @@ function encodeEntities(str: string, html: boolean) {
     const curch = char.codePointAt(0);
     if (curch == undefined || isHTMLUnrepresentableChar(curch))
       continue;
-    if (curch >= 32 && curch < 128 && curch != 38 && curch != 60 && curch != 62) {
+    if (curch >= 32 && curch < 128 && curch != 38 && curch != 60 && curch != 62 && (html || curch != 34 && curch != 39)) {
       s += String.fromCodePoint(curch);
       continue;
     }

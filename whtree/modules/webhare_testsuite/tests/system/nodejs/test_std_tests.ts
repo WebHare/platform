@@ -318,6 +318,7 @@ async function testStrings() {
   testValue("\u01E5", "&#485;");
   testValue("<&>", "&lt;&amp;&gt;");
   testValue("hey blaat", "hey blaat");
+  testValue(`'"`, "&apos;&quot;");
   test.eq("hey", std.encodeString("\x04hey\x05", "attribute"));
   test.eq("heylaat", std.encodeString("hey\blaat", "attribute"));
   test.eq("<&>", std.decodeString("&#60;&#38;&#62;", "attribute"));
@@ -331,6 +332,7 @@ async function testStrings() {
   testHTML("\u01E5", "&#485;");
   testHTML("<&>", "&lt;&amp;&gt;");
   testHTML("hey blaat", "hey blaat");
+  testHTML(`'"`, `'"`);
 
   test.eq("hey", std.encodeString("\x04hey\x05", "html"));
   test.eq("heylaat", std.encodeString("hey\blaat", "html"));
