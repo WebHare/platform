@@ -183,8 +183,10 @@ function isHareScriptDefaultValue(value: unknown) {
     return true;
   if (isDate(value) && value.getTime() <= defaultDateTime.getTime())
     return true;
-  if (typeof value === "object" && "length" in value && !value.length)
+  // Detect empty ArrayLike (eg empty Buffers and Uint8Arrays)
+  if (typeof value === "object" && "length" in value && !value.length) {
     return true;
+  }
   return false;
 }
 

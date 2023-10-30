@@ -383,19 +383,26 @@ async function testLocalizeDate() {
 }
 
 function testOmitHareScriptDefaultValues() {
+  const now = new Date;
   test.eq({
     a: 1,
     b: true,
     c: new Money("0.01"),
-    d: new Date,
+    d: now,
     e: [0],
     keep_a: 0,
+    f: Buffer.from("1"),
+    g: Uint8Array.from([1]),
+    h: {},
   }, omitHareScriptDefaultValues({
     a: 1,
     b: true,
     c: new Money("0.01"),
-    d: new Date,
+    d: now,
     e: [0],
+    f: Buffer.from("1"),
+    g: Uint8Array.from([1]),
+    h: {},
     keep_a: 0,
     default_a: 0,
     default_b: false,
@@ -404,15 +411,20 @@ function testOmitHareScriptDefaultValues() {
     default_e: [],
     default_f: undefined,
     default_g: null,
-  }, ["a", "b", "c", "d", "e", "default_a", "default_b", "default_c", "default_d", "default_e", "default_f", "default_g"]));
+    default_h: Buffer.from(""),
+    default_i: Uint8Array.from([]),
+  }, ["a", "b", "c", "d", "e", "f", "g", "h", "default_a", "default_b", "default_c", "default_d", "default_e", "default_f", "default_g", "default_h", "default_i"]));
 
   test.eq([
     {
       a: 1,
       b: true,
       c: new Money("0.01"),
-      d: new Date,
+      d: now,
       e: [0],
+      f: Buffer.from("1"),
+      g: Uint8Array.from([1]),
+      h: {},
       keep_a: 0,
     }
   ], omitHareScriptDefaultValues([
@@ -420,8 +432,11 @@ function testOmitHareScriptDefaultValues() {
       a: 1,
       b: true,
       c: new Money("0.01"),
-      d: new Date,
+      d: now,
       e: [0],
+      f: Buffer.from("1"),
+      g: Uint8Array.from([1]),
+      h: {},
       keep_a: 0,
       default_a: 0,
       default_b: false,
@@ -430,8 +445,10 @@ function testOmitHareScriptDefaultValues() {
       default_e: [],
       default_f: undefined,
       default_g: null,
+      default_h: Buffer.from(""),
+      default_i: Uint8Array.from([]),
     }
-  ], ["a", "b", "c", "d", "e", "default_a", "default_b", "default_c", "default_d", "default_e", "default_f", "default_g"]));
+  ], ["a", "b", "c", "d", "e", "f", "g", "h", "default_a", "default_b", "default_c", "default_d", "default_e", "default_f", "default_g", "default_h", "default_i"]));
 
   test.eq([], omitHareScriptDefaultValues([] as Array<{ a?: 0 }>, ["a"]));
 }
