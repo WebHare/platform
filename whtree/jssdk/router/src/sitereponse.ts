@@ -32,6 +32,23 @@ function encodeAttr(s: string): string {
   return encodeString(s, "attribute");
 }
 
+export function getAssetpackIntegrationCode(assetpack: string, { asyncBundle, designRoot, cacheBuster } = { asyncBundle: true, designRoot: "", cacheBuster: "" }) {
+  let scriptsettings = '';
+  if (asyncBundle)
+    scriptsettings += ' async';
+  if (designRoot !== "")
+    scriptsettings += ' crossorigin="anonymous"';
+
+  let bundleBaseUrl = "/.ap/" + assetpack.replace(":", ".") + "/";
+  if (cacheBuster)
+    bundleBaseUrl = "/!" + encodeURIComponent(cacheBuster) + bundleBaseUrl;
+  if (designRoot)
+    bundleBaseUrl = new URL(designRoot, bundleBaseUrl).toString();
+
+  return `<link rel="stylesheet" href="${encodeAttr(bundleBaseUrl)}ap.css">`
+    + `<script src="${encodeAttr(bundleBaseUrl)}ap.js"${scriptsettings}></script>`;
+}
+
 /** SiteResponse implements HTML pages rendered using site configuration from WHFS and site profiles */
 export class SiteResponse<T extends object = object> {
   siteRequest: SiteRequest;
@@ -106,13 +123,11 @@ export class SiteResponse<T extends object = object> {
     page += `<script type="application/json" id="wh-config">${JSON.stringify(this.frontendConfig)}</script>`;
 
     //FIXME adhoc bundle support
-    const bundlebaseurl = "/.ap/" + this.settings.assetpack.replace(":", ".") + "/";
     /* TODO cachebuster /! support
       IF(cachebuster != "")
         bundlebaseurl := "/!" || EncodeURL(cachebuster) || bundlebaseurl;
     */
-    page += `<link rel="stylesheet" href="${encodeAttr(bundlebaseurl)}ap.css">`;
-    page += `<script src="${encodeAttr(bundlebaseurl)}ap.js" async></script>`;
+    page += getAssetpackIntegrationCode(this.settings.assetpack);
 
 
     if (this.insertions["dependencies-bottom"])
