@@ -1,12 +1,12 @@
 # typed: false
 # frozen_string_literal: true
 
-class Webhare < Formula
+class WebhareDeps < Formula
   desc "WebHare dependency descriptions"
   homepage "https://www.webhare.dev/"
-  url "https://www.webhare.dev/"
+  url "https://build.webhare.dev/whbuild/dummy.tar.gz"
   version "1"
-  sha256 :no_check
+  sha256 "6d888e48bcda88870b318feee151d42ace8054fb5cd9a10df56786348cc61628"
 
   depends_on "autoconf"
   depends_on "automake"
@@ -27,4 +27,9 @@ class Webhare < Formula
   depends_on "rapidjson"
   depends_on "opensearch"
   depends_on "emscripten"
+
+  def install
+    # Note that we can't have the file have any of the usual meta filenames eg. README
+    prefix.install "dummy.txt"
+  end
 end

@@ -316,9 +316,15 @@ PUBLIC STATIC OBJECTTYPE ActionBase EXTEND TolliumActionForwardBase
   BOOLEAN FUNCTION MayExecuteAction()
   {
     IF(NOT this->enabled)
+    {
+      IF(__debugactions) Print("- - action not enabled\n");
       RETURN FALSE;
+    }
     IF (Length(this->pvt_frameflags) > 0 AND NOT this->owner->frame->EnabledOn(1, 1, this->pvt_frameflags, "all"))
+    {
+      IF(__debugactions) Print(`- - frame flags conditions not met (current frame flags: ${EncodeJSON(this->pvt_frameflags)})\n`);
       RETURN FALSE;
+    }
     RETURN TRUE;
   }
   BOOLEAN FUNCTION MayExecuteEnableOn(RECORD rec)
@@ -336,10 +342,10 @@ PUBLIC STATIC OBJECTTYPE ActionBase EXTEND TolliumActionForwardBase
       @return Function to invoke*/
   MACRO PTR FUNCTION ResolveActionHandler(OBJECT skipfocusobject) //FIXME eliminate if toddng is final
   {
+    IF(__debugactions)PRINT("- ResolveActionHandler for " || this->name || "\n");
+
     IF(NOT this->MayExecuteAction())
       RETURN DEFAULT MACRO PTR;
-
-    IF(__debugactions)PRINT("- ResolveActionHandler for " || this->name || "\n");
 
     IF (LENGTH(this->pvt_enableons) > 0)
     {
