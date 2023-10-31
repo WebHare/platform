@@ -318,6 +318,7 @@ async function testStrings() {
   testValue("\u01E5", "&#485;");
   testValue("<&>", "&lt;&amp;&gt;");
   testValue("hey blaat", "hey blaat");
+  testValue(`'"`, "&apos;&quot;");
   test.eq("hey", std.encodeString("\x04hey\x05", "attribute"));
   test.eq("heylaat", std.encodeString("hey\blaat", "attribute"));
   test.eq("<&>", std.decodeString("&#60;&#38;&#62;", "attribute"));
@@ -331,6 +332,7 @@ async function testStrings() {
   testHTML("\u01E5", "&#485;");
   testHTML("<&>", "&lt;&amp;&gt;");
   testHTML("hey blaat", "hey blaat");
+  testHTML(`'"`, `'"`);
 
   test.eq("hey", std.encodeString("\x04hey\x05", "html"));
   test.eq("heylaat", std.encodeString("hey\blaat", "html"));
@@ -339,8 +341,13 @@ async function testStrings() {
   test.eq("\n", std.decodeString("<br>", "html"), "Verify our <br> is decoded");
   //TODO strip all html, HS DecodeHTML learned that too?
 
-  test.eq(JSON.stringify({ a: { b: 42 } }), std.stableStringify({ a: { b: 42 } }));
-  test.eq(std.stableStringify({ a1: { b1: 45, b2: 43 }, a2: 44 }), std.stableStringify({ a2: 44, a1: { b2: 43, b1: 45 } }));
+  test.eq(JSON.stringify({ a: { b: 42 } }), std.stringify({ a: { b: 42 } }, { stable: true }));
+  test.eq(std.stringify({ a1: { b1: 45, b2: 43 }, a2: 44 }, { stable: true }), std.stringify({ a2: 44, a1: { b2: 43, b1: 45 } }, { stable: true }));
+
+  test.eq(`{"a":"</script>"}`, std.stringify({ a: "</script>" }));
+  test.eq(`{"a":"</script>"}`, std.stringify({ a: "</script>" }, { target: "string" }));
+  test.eq(`{"a":"<\\/script>"}`, std.stringify({ a: "</script>" }, { target: "script" }));
+  test.eq(`{&quot;a&quot;:&quot;&lt;\\/script&gt;&quot;}`, std.stringify({ a: "</script>" }, { target: "attribute" }));
 
   test.eq("ab", std.slugify("\x1Fab"));
   test.eq("a-b", std.slugify("a\u00A0b"));

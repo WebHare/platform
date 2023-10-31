@@ -10,7 +10,7 @@ export { SiteRequest, WebDesignFunction } from './siterequest';
 export {
   RestRequest, DefaultRestParams, RestSuccessfulAuthorization, RestFailedAuthorization, RestAuthorizationResult, RestImplementationFunction, RestAuthorizationFunction, RestResponseType, RestDefaultErrorBody
 } from './restrequest';
-export { SiteResponse, SiteResponseSettings } from "./sitereponse";
+export { SiteResponse, SiteResponseSettings, getAssetpackIntegrationCode } from "./sitereponse";
 
 export type WebHareWHFSRouter = (request: SiteRequest) => Promise<WebResponse>;
 export type WebHareRouter = (request: WebRequest) => Promise<WebResponse>;
