@@ -606,14 +606,14 @@ setup_buildsystem()
     fi
 
     if [ -z "$NOBREW" ]; then
-      # Only update homebrew if webhare.rb changed or last check was a day ago
-      TODAY="`date +%Y%m%d`"
-      if [ "$WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare-deps.rb" -nt "$WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install" ] ||
-         [ "$TODAY" != "`cat $WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install`" ]; then
-        mkdir -p $WEBHARE_CHECKEDOUT_TO/.checkoutstate
+      # Only (re)install homebrew if webhare.rb changed
+      DEPSFILE="$WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare-deps.rb"
+      CHECKFILE="$WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install"
+      if [ "$DEPSFILE" -nt "$CHECKFILE" ]; then
+        mkdir -p "$WEBHARE_CHECKEDOUT_TO/.checkoutstate"
         echo -n "Brew: "
-        if ! brew reinstall --formula $WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare.rb ; then exit ; fi
-        echo "$TODAY" > $WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install
+        if ! brew reinstall --formula "$DEPSFILE" ; then exit ; fi
+        echo "$TODAY" > "$CHECKFILE"
       fi
     fi
 
