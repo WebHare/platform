@@ -141,7 +141,7 @@ function stableReplacer(this: unknown, key: unknown, value: unknown) {
 */
 export function stringify(arg: unknown, options?: StringifyOptions) {
   const usereplacer: JSONReplacerArgument = options?.stable ? (function (this: unknown, key: string, value: unknown) {
-    return stableReplacer.call(this, key, options?.replacer?.call(this, key as string, value) ?? value);
+    return stableReplacer.call(this, key, options?.replacer ? options.replacer.call(this, key, value) : value);
   }) : options?.replacer ?? undefined;
 
   let result = JSON.stringify(arg, usereplacer, options?.space);
