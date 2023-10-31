@@ -16,8 +16,18 @@ export interface WRDAttributeConfiguration_HS {
   allowedvalues: string[];
 }
 
-export interface WRDAttributeConfiguration {
+export interface WRDAttributeConfigurationBase {
   attributeType: WRDAttributeType;
+  title?: string;
+  checkLinks?: boolean;
+  domain?: string | null;
+  isUnsafeToCopy?: boolean;
+  isRequired?: boolean;
+  isOrdered?: boolean;
+  allowedValues?: string[] | null;
+}
+
+export interface WRDAttributeConfiguration extends WRDAttributeConfigurationBase {
   tag: string;
   title: string;
   checkLinks: boolean;

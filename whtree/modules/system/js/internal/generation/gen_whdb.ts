@@ -1,5 +1,5 @@
 import { whconstant_builtinmodules } from "../webhareconstants";
-import { FileToUpdate, GenerateContext } from "./shared";
+import { FileToUpdate, GenerateContext, generatorBanner } from "./shared";
 import { encodeString } from "@webhare/std";
 import { elements } from "./xmlhelpers";
 
@@ -70,15 +70,12 @@ function formatDocumentation(node: Element, indent: string): string {
 
 
 export interface WHDBDefs {
-  interfaceName: string;
-  schemas: Array<{
-    name: string;
-    tables: Array<{
-      name: string;
+  interface: string;
+  schemas: Record<string, {
+    tables: Record<string, {
       interface: string;
       documentation: string;
-      columns: Array<{
-        name: string;
+      columns: Record<string, {
         documentation: string;
         type: string;
         //TS Type definition (TODO store nullability etc separately and build TSType in generateKyselyDefs)
@@ -89,7 +86,7 @@ export interface WHDBDefs {
 }
 
 export function parseWHDBDefs(context: GenerateContext, modulename: string): WHDBDefs {
-  const schemas = [];
+  const schemas: WHDBDefs["schemas"] = {};
   const mods = modulename === "platform" ? whconstant_builtinmodules : [modulename];
   for (const module of mods.sort()) {
     const doc = context.moduledefs.find(m => m.name === module)?.modXml;
@@ -97,18 +94,16 @@ export function parseWHDBDefs(context: GenerateContext, modulename: string): WHD
       continue;
 
     for (const dbschema of elements(doc.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "databaseschema"))) {
-      const schemainfo: WHDBDefs["schemas"][0] = {
-        name: module,
-        tables: []
+      const schemainfo: typeof schemas[string] = {
+        tables: {}
       };
 
       for (const dbtable of elements(dbschema.getElementsByTagNameNS("http://www.webhare.net/xmlns/whdb/databaseschema", "table"))) {
         const table_name = dbtable.getAttribute("name") || "";
         const tableinfo: WHDBDefs["schemas"][0]["tables"][0] = {
-          name: table_name,
-          interface: `${generateTableTypeName(schemainfo.name)}_${generateTableTypeName(table_name)}`,
+          interface: `${generateTableTypeName(module)}_${generateTableTypeName(table_name)}`,
           documentation: "",
-          columns: []
+          columns: {}
         };
 
         const primarykey = dbtable.getAttribute("primarykey");
@@ -131,9 +126,8 @@ export function parseWHDBDefs(context: GenerateContext, modulename: string): WHD
           if (!name)
             continue;
 
-          const colinfo = {
+          const colinfo: typeof tableinfo["columns"][number] = {
             documentation: "",
-            name: "",
             tstype: "",
             type: col.localName
           };
@@ -199,53 +193,50 @@ export function parseWHDBDefs(context: GenerateContext, modulename: string): WHD
           if (documentation)
             colinfo.documentation = formatDocumentation(documentation, "  ");
 
-          colinfo.name = name;
           colinfo.tstype = tstype;
-          tableinfo.columns.push(colinfo);
+          tableinfo.columns[name] = colinfo;
         }
 
-        schemainfo.tables.push(tableinfo);
+        schemainfo.tables[table_name] = tableinfo;
       }
-      if (schemainfo.tables.length)
-        schemas.push(schemainfo);
+
+      schemas[module] = schemainfo;
     }
   }
 
   return {
     schemas,
-    interfaceName: modulename === "webhare" ? "PlatformDB" : `${generateTableTypeName(modulename)}DB`
+    interface: modulename === "webhare" ? "PlatformDB" : `${generateTableTypeName(modulename)}DB`
   };
 }
 
 export function generateKyselyDefs(context: GenerateContext, modulename: string): string {
   const whdbdefs = parseWHDBDefs(context, modulename);
-  if (!whdbdefs.schemas.length)
+  if (!Object.keys(whdbdefs.schemas).length)
     return '';
 
   const kyselyimportlib = modulename === "platform" ? "kysely" : "wh:internal/whtree/node_modules/kysely";
   const tablemap = new Map<string, string>;
   let hasblobs = false;
   let tabledefs = "";
-  for (const schemainfo of whdbdefs.schemas) {
-    for (const tableinfo of schemainfo.tables) {
+  for (const [schemaname, schemainfo] of Object.entries(whdbdefs.schemas)) {
+    for (const [tablename, tableinfo] of Object.entries(schemainfo.tables)) {
       let tabledef = `${tableinfo.documentation}export interface ${tableinfo.interface} {\n`;
-      for (const col of tableinfo.columns) {
+      for (const [name, col] of Object.entries(tableinfo.columns)) {
         if (col.type == 'blob')
           hasblobs = true;
 
         tabledef += `${col.documentation}`;
-        tabledef += `  ${col.name}: ${col.tstype};\n`;
+        tabledef += `  ${name}: ${col.tstype};\n`;
       }
 
-      tablemap.set(`${schemainfo.name}.${tableinfo.name}`, `${tableinfo.interface}`);
+      tablemap.set(`${schemaname}.${tablename}`, `${tableinfo.interface}`);
       tabledef += `}\n\n`;
       tabledefs += tabledef;
     }
   }
 
-  return `/* This file is auto-generated, do not modify but regenerate using \`wh update-generated-files\`
-   Use the dev module's browser for examples on how to use these types. */
-
+  return `${generatorBanner}
 import type { ColumnType } from ${JSON.stringify(kyselyimportlib)};
 ${hasblobs ? `import type { WebHareBlob } from "@webhare/services";` : ""}
 
@@ -253,7 +244,7 @@ type IsGenerated<T> = ColumnType<T, T | undefined, never>;
 
 ${tabledefs}
 
-export interface ${whdbdefs.interfaceName} {
+export interface ${whdbdefs.interface} {
 ${[...tablemap.entries()].map(entry => `  ${JSON.stringify(entry[0])}: ${entry[1]};`).join('\n')}
 }
 `;

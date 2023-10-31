@@ -4,7 +4,7 @@ import { buildGeneratorContext } from "@mod-system/js/internal/generation/genera
 
 async function testFileGeneration() {
   const context = await buildGeneratorContext(["system"], true);
-  let result = await generateWRDDefs(context, "webhare", ["system"]);
+  let result = await generateWRDDefs(context, "platform");
 
   //Basic sanity checks - we don't want to set up a full TS parser (yet?)
   result = result.replaceAll("\n", " ");
