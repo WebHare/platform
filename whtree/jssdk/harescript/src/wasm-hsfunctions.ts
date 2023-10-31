@@ -5,7 +5,7 @@ import { backendConfig, log } from "@webhare/services";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { HSVMVar } from "./wasm-hsvmvar";
 import type { SocketError, WASMModule } from "./wasm-modulesupport";
-import { OutputObjectBase } from "@webhare/harescript/src/wasm-modulesupport";
+import { OutputObjectBase, getCachedWebAssemblyModule, setCachedWebAssemblyModule } from "@webhare/harescript/src/wasm-modulesupport";
 import { createDeferred, generateRandomId, sleep } from "@webhare/std";
 import * as syscalls from "./syscalls";
 import { defaultDateTime, localToUTC, utcToLocal } from "@webhare/hscompat/datetime";
@@ -760,6 +760,7 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       authenticationRecord,
       context.externalsessiondata,
       env,
+      getCachedWebAssemblyModule(),
     );
 
     const groupid = await jobobj.getGroupId();
@@ -1291,7 +1292,9 @@ class HareScriptJob {
   }
 }
 
-export async function harescriptWorkerFactory(script: string, encodedLink: unknown, authRecord: unknown, externalSessionData: string, env: Array<{ name: string; value: string }> | null): Promise<HareScriptJob> {
+export async function harescriptWorkerFactory(script: string, encodedLink: unknown, authRecord: unknown, externalSessionData: string, env: Array<{ name: string; value: string }> | null, wasmModule: WebAssembly.Module | undefined): Promise<HareScriptJob> {
+  if (wasmModule && !getCachedWebAssemblyModule())
+    setCachedWebAssemblyModule(wasmModule);
   const link = decodeTransferredIPCEndPoint<IPCMarshallableRecord, IPCMarshallableRecord>(encodedLink);
   const vm = await allocateHSVM();
   return new HareScriptJob(vm, script, link, authRecord, externalSessionData, env);
