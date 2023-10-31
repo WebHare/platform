@@ -1,7 +1,9 @@
 import { generateRandomId } from "@webhare/std";
-import { Dirent } from "node:fs";
-import { open, FileHandle, rename, unlink, readdir, rmdir } from "node:fs/promises";
+import type { Dirent } from "node:fs";
+import { open, type FileHandle, rename, unlink, readdir, rmdir, writeFile } from "node:fs/promises";
 import { join, parse } from "node:path";
+import type { Stream } from "node:stream";
+import type { ReadableStream } from "node:stream/web";
 
 export interface StoreDiskFileOptions {
   ///Overwrite if the file already exists? (other we would throw)
@@ -18,31 +20,25 @@ export interface StoreDiskFileOptions {
     @param path - Path to the file to create.
     @param data - Blob to write
 */
-export async function storeDiskFile(path: string, data: string | Buffer, options?: StoreDiskFileOptions) {
+export async function storeDiskFile(path: string, data: string | Buffer | Stream | ReadableStream<Uint8Array>, options?: StoreDiskFileOptions) {
   const usetemp = parse(path).base.length < 230 && !options?.inPlace;
   let writepath = usetemp ? path + ".tmp" + generateRandomId() : null;
 
   /* To provide both the atomicity guarantee of inplace := FALSE and the exlusive-create guarantee of overwrite := FALSE
      we need to hold handles to both versions */
   let reservefile: FileHandle | null = null;
-  let newfile: FileHandle | null = null;
   if (usetemp && !options?.overwrite) {
     reservefile = await open(path, "ax"); //ax = append exclusive (prevent truncation)
   }
 
   try {
-    newfile = await open(writepath ?? path, options?.overwrite ? "w" : "wx");
-    await newfile.writeFile(data);
-    await newfile.close();
-    newfile = null;
-
+    await writeFile(writepath ?? path, data, { flag: options?.overwrite ? "w" : "wx" });
     if (writepath) {
       await rename(writepath, path);
       writepath = null;
     }
   } finally {
     //cleanup, ignore errors at this point
-    newfile?.close().catch(function () {/*ignore*/ });
     reservefile?.close().catch(function () {/*ignore*/ });
     if (writepath)
       unlink(writepath).catch(function () {/*ignore*/ });

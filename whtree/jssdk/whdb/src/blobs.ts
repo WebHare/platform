@@ -1,11 +1,10 @@
 import { generateRandomId } from '@webhare/std';
-import { mkdir, rename, stat } from 'node:fs/promises';
-import { createWriteStream } from 'node:fs';
+import { mkdir, rename, stat, unlink } from 'node:fs/promises';
 import * as path from 'node:path';
 import * as process from 'node:process';
 import { Connection, DataType, DataTypeOIDs, SmartBuffer } from './../vendor/postgresql-client/src/index';
 import { WebHareBlob, WebHareDiskBlob } from '@webhare/services/src/webhareblob';
-import { Writable } from 'node:stream';
+import { storeDiskFile } from '@webhare/system-tools/src/fs';
 
 //TODO whdb.ts and we should probably get this from services or some other central configuration
 function getBlobStoragepath() {
@@ -40,11 +39,13 @@ export async function uploadBlobToConnection(pg: Connection, blob: WebHareBlob):
   const databaseid = "AAAB" + blobpartid;
 
   const paths = await getFilePaths(blobpartid, true);
-  const writer = createWriteStream(paths.temppath);
-  const reader = await blob.getStream();
-  await reader.pipeTo(Writable.toWeb(writer));
-
-  await rename(paths.temppath, paths.fullpath);
+  await storeDiskFile(paths.temppath, await blob.getStream(), { overwrite: true });
+  try {
+    await rename(paths.temppath, paths.fullpath);
+  } catch (e) {
+    await unlink(paths.temppath);
+    throw e;
+  }
   const finallength = (await stat(paths.fullpath)).size;
   await pg.query("INSERT INTO webhare_internal.blob(id) VALUES(ROW($1,$2))", { params: [databaseid, finallength] });
 
