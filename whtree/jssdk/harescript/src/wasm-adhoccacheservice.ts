@@ -106,11 +106,10 @@ class AdhocCacheData {
     if (expires) {
       const pos = recordUpperBound(this.expiries, { libraryUri, expires, hash }, ["expires", "libraryUri", "hash"]);
       this.expiries.splice(pos, 0, { expires, libraryUri, hash });
-      if (pos === 0) {
+      if (pos === 0) { //item is next to expire, reschedule expiry timer
         if (this.expireCB)
           clearTimeout(this.expireCB);
-        this.expireCB = setTimeout(() => this.gotExpiryTimeout(), Date.now() - expires.getTime());
-        this.expireCB.unref();
+        this.updateExpireCB();
       }
     }
   }
@@ -142,9 +141,13 @@ class AdhocCacheData {
       this.deleteItem(rec.libraryUri, rec.hash);
     }
     this.expiries.splice(0, idx);
-    if (this.expiries.length)
-      this.expireCB = setTimeout(() => this.gotExpiryTimeout(), Date.now() - this.expiries[0].expires.getTime());
-    this.expireCB?.unref();
+  }
+
+  private updateExpireCB() {
+    if (this.expiries.length) {
+      this.expireCB = setTimeout(() => this.gotExpiryTimeout(), this.expiries[0].expires.getTime() - Date.now());
+      this.expireCB.unref();
+    }
   }
 
   clearCache() {
