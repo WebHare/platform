@@ -254,14 +254,19 @@ void Environment::LoadLibraryData(Blex::ContextKeeper &/*keeper*/, Library *lib,
         if (!indata.get())
             throw VMRuntimeError(Error::CannotFindCompiledLibrary, lib->GetLibURI());
 
-        // Read id's, returns stream at offset 0
+        auto length = indata->GetFileLength();
+        std::vector<uint8_t> data;
+        if (length)
+        {
+                data.resize(length);
+                indata->DirectRead(0, &data[0], length); // ADDME: check if entire file read
+        }
 
-        WrappedLibrary::ReadLibraryIds(indata.get(), &lib->clib_ids);
+        // Read id's, returns stream at offset 0
+        Blex::MemoryReadStream mstream(&data[0], data.size());
+        WrappedLibrary::ReadLibraryIds(&mstream, &lib->clib_ids);
 
         // Read the library into memory
-        std::vector<uint8_t> data;
-        Blex::ReadStreamIntoVector(*indata,&data);
-        Blex::MemoryReadStream mstream(&data[0], data.size());
         lib->wrappedlibrary.ReadLibrary(lib->liburi, &mstream);
         lib->clibpath = file->GetClibPath();
 
