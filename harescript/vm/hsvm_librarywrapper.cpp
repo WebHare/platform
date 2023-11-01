@@ -382,15 +382,15 @@ void WrappedLibrary::ReadSectionLibraries(Blex::RandomStream *stream, unsigned s
         unsigned count = stream->ReadLsb<uint32_t>();
 
         // ADDME: Check against self-referencing?
-        LoadedLibraryDef lib;
+        linkinfo.libraries.reserve(linkinfo.libraries.size() + count);
         for (unsigned idx = 0; idx != count; ++idx)
         {
                 // Per library: _pathid
+                LoadedLibraryDef &lib = linkinfo.libraries.emplace_back();
                 lib.liburi_index = stream->ReadLsb<int32_t>();
                 lib.indirect = stream->ReadLsb<uint8_t>() != 0;
                 lib.clib_id = stream->ReadLsb<Blex::DateTime >();
                 lib.sourcetime = stream->ReadLsb<Blex::DateTime >();
-                linkinfo.libraries.push_back(lib);
         }
         if (stream->GetOffset() != start + length)
             throw std::runtime_error("Library corrupt, length of library-section wrong");
@@ -434,6 +434,7 @@ void WrappedLibrary::ReadSectionConstants(Blex::RandomStream *stream, unsigned s
         uint32_t length = stream->ReadLsb<uint32_t>();
         uint32_t count = stream->ReadLsb<uint32_t>();
 
+        resident.c_indexes.reserve(resident.c_indexes.size() + count + 1);
         for (unsigned idx = 0; idx != count; ++idx)
             resident.c_indexes.push_back(stream->ReadLsb<uint32_t>());
 
@@ -503,15 +504,15 @@ void WrappedLibrary::ReadSectionVariables(Blex::RandomStream *stream, unsigned s
         unsigned length = stream->ReadLsb<uint32_t>();
         unsigned count = stream->ReadLsb<uint32_t>();
 
+        linkinfo.variables.reserve(linkinfo.variables.size() + count);
         for (unsigned idx = 0; idx != count; ++idx)
         {
-                VariableDef v;
+                VariableDef &v = linkinfo.variables.emplace_back();
                 ReadSymbolDef(stream, &v);
                 v.typeinfo = stream->ReadLsb<int32_t>();
                 v.globallocation = stream->ReadLsb<uint32_t>();
                 v.is_constref =  stream->ReadLsb<uint8_t>();
                 v.constantexprid = stream->ReadLsb<uint32_t>();
-                linkinfo.variables.push_back(v);
         }
 
         resident.globalareasize  = stream->ReadLsb<uint32_t>();
@@ -625,9 +626,10 @@ void WrappedLibrary::ReadSectionFunctions(Blex::RandomStream *stream, unsigned s
         unsigned length = stream->ReadLsb<uint32_t>();
         unsigned count = stream->ReadLsb<uint32_t>();
 
+        linkinfo.functions.reserve(linkinfo.functions.size() + count);
         for (unsigned idx = 0; idx != count; ++idx)
         {
-                FunctionDef f;
+                FunctionDef &f = linkinfo.functions.emplace_back();
                 ReadSymbolDef(stream, &f);
 
                 f.dllname_index = stream->ReadLsb<uint32_t>();
@@ -638,15 +640,14 @@ void WrappedLibrary::ReadSectionFunctions(Blex::RandomStream *stream, unsigned s
                 f.flags = static_cast<FunctionFlags::Type>(stream->ReadLsb<uint32_t>());
 
                 uint32_t parameter_count = stream->ReadLsb<uint32_t>();
+                f.parameters.reserve(parameter_count);
                 for (unsigned i = 0; i != parameter_count; ++i)
                 {
-                        FunctionDef::Parameter p;
+                        FunctionDef::Parameter &p = f.parameters.emplace_back();
                         p.name_index = stream->ReadLsb<uint32_t>();
                         p.type = (VariableTypes::Type)stream->ReadLsb<uint32_t>();
                         p.defaultid = stream->ReadLsb<int32_t>();
-                        f.parameters.push_back(p);
                 }
-                linkinfo.functions.push_back(f);
         }
         if (stream->GetOffset() != start + length)
             throw std::runtime_error("Library corrupt, length of functions-section was set wrong");
@@ -701,9 +702,10 @@ void WrappedLibrary::ReadSectionObjectTypes(Blex::RandomStream *stream, unsigned
         unsigned length = stream->ReadLsb<uint32_t>();
         unsigned count = stream->ReadLsb<uint32_t>();
 
+        linkinfo.objecttypes.reserve(linkinfo.objecttypes.size() + count);
         for (unsigned idx = 0; idx != count; ++idx)
         {
-                ObjectTypeDef o;
+                ObjectTypeDef &o = linkinfo.objecttypes.emplace_back();
                 ReadSymbolDef(stream, &o);
                 o.has_base = stream->ReadLsb<uint8_t>() != 0;
                 o.base = stream->ReadLsb<int32_t>();
@@ -718,9 +720,10 @@ void WrappedLibrary::ReadSectionObjectTypes(Blex::RandomStream *stream, unsigned
                     throw std::runtime_error("Library corrupt, illegal method index for constructor encountered");
                 unsigned member_count = stream->ReadLsb<uint32_t>();
 
+                o.cells.reserve(member_count);
                 for (unsigned x = 0; x < member_count; ++x)
                 {
-                        ObjectCellDef member;
+                        ObjectCellDef &member = o.cells.emplace_back();
                         ReadSymbolDef(stream, &member);
                         member.is_private = stream->ReadLsb<uint8_t>();
                         member.is_update = stream->ReadLsb<uint8_t>();
@@ -737,13 +740,13 @@ void WrappedLibrary::ReadSectionObjectTypes(Blex::RandomStream *stream, unsigned
                         {
                                 member.method = stream->ReadLsb<int32_t>();
                                 uint32_t parameter_count = stream->ReadLsb<uint32_t>();
+                                member.parameters.reserve(parameter_count);
                                 for (unsigned i = 0; i != parameter_count; ++i)
                                 {
-                                        FunctionDef::Parameter p;
+                                        FunctionDef::Parameter &p = member.parameters.emplace_back();
                                         p.name_index = stream->ReadLsb<int32_t>();
                                         p.type = (VariableTypes::Type)stream->ReadLsb<uint32_t>();
                                         p.defaultid = stream->ReadLsb<int32_t>();
-                                        member.parameters.push_back(p);
                                 }
                         }
                         else if (member.type == ObjectCellType::Property)
@@ -751,10 +754,7 @@ void WrappedLibrary::ReadSectionObjectTypes(Blex::RandomStream *stream, unsigned
                                 member.getter_name_index = stream->ReadLsb<uint32_t>();
                                 member.setter_name_index = stream->ReadLsb<uint32_t>();
                         }
-                        o.cells.push_back(member);
                 }
-
-                linkinfo.objecttypes.push_back(o);
         }
         if (stream->GetOffset() != start + length)
             throw std::runtime_error("Library corrupt, length of objecttypes-section was set wrong");
@@ -833,6 +833,7 @@ void WrappedLibrary::ReadSectionExceptions(Blex::RandomStream *stream, unsigned 
         // Read number of exception mappings
         unsigned count = stream->ReadLsb<uint32_t>();
 
+        exceptions.unwindentries.Reserve(count);
         for (unsigned idx = 0; idx != count; ++idx)
         {
                 // Per entry: code index, location line and column
@@ -888,6 +889,7 @@ void WrappedLibrary::ReadSectionDebug(Blex::RandomStream *stream, unsigned start
         // Read number of debug mappings
         unsigned count = stream->ReadLsb<uint32_t>();
 
+        debug.debugentries.Reserve(count);
         for (unsigned idx = 0; idx != count; ++idx)
         {
                 // Per entry: code index, location line and column
@@ -942,10 +944,11 @@ void WrappedLibrary::ReadSectionTypes(Blex::RandomStream *stream, unsigned start
         // Read number of table definitions
         unsigned types_count = stream->ReadLsb<uint32_t>();
 
+        resident.types.reserve(resident.types.size() + types_count);
         for (unsigned idx = 0; idx != types_count; ++idx)
         {
                 // Per entry: nr of columns
-                DBTypeInfo typeinfo;
+                DBTypeInfo &typeinfo = resident.types.emplace_back();
                 typeinfo.type = VariableTypes::Type(stream->ReadLsb<uint32_t>());
 
                 if (typeinfo.type == VariableTypes::Table || ToNonArray(typeinfo.type) == VariableTypes::Record)
@@ -957,9 +960,10 @@ void WrappedLibrary::ReadSectionTypes(Blex::RandomStream *stream, unsigned start
                 else if (typeinfo.type == VariableTypes::Schema)
                 {
                         uint32_t table_count = stream->ReadLsb<uint32_t>();
+                        typeinfo.tablesdef.reserve(table_count);
                         for (; table_count; --table_count)
                         {
-                                DBTypeInfo::Table table;
+                                DBTypeInfo::Table &table = typeinfo.tablesdef.emplace_back();
 
                                 uint32_t namelen = stream->ReadLsb<uint32_t>();
                                 table.name.resize(namelen);
@@ -971,11 +975,8 @@ void WrappedLibrary::ReadSectionTypes(Blex::RandomStream *stream, unsigned start
 
                                 ReadSectionTypes_Columns(stream, table.columnsdef);
                                 ReadSectionTypes_Columns(stream, table.viewcolumnsdef);
-
-                                typeinfo.tablesdef.push_back(table);
                         }
                 }
-                resident.types.push_back(typeinfo);
         }
 
         if (stream->GetOffset() != start + length)
@@ -985,11 +986,11 @@ void WrappedLibrary::ReadSectionTypes(Blex::RandomStream *stream, unsigned start
 void WrappedLibrary::ReadSectionTypes_Columns(Blex::RandomStream *stream, DBTypeInfo::ColumnsDef &columnsdef)
 {
         uint32_t column_count = stream->ReadLsb<uint32_t>();
+        columnsdef.reserve(columnsdef.size() + column_count);
         for (; column_count; --column_count)
         {
-                DBTypeInfo::Column column;
+                DBTypeInfo::Column &column = columnsdef.emplace_back();
                 ReadSectionTypes_Column(stream, column);
-                columnsdef.push_back(column);
         }
 }
 
@@ -1015,11 +1016,11 @@ void WrappedLibrary::ReadSectionTypes_Column(Blex::RandomStream *stream, DBTypeI
         column.type = (VariableTypes::Type)stream->ReadLsb<uint8_t>();
         column.flags = (ColumnFlags::_type)stream->ReadLsb<uint32_t>();
         column.null_default.resize(stream->ReadLsb<uint32_t>());
-        for (std::vector<uint8_t>::iterator it = column.null_default.begin(); it != column.null_default.end(); ++it)
-            *it = stream->ReadLsb<uint8_t>();
+        if (column.null_default.size())
+            stream->Read(&column.null_default[0], column.null_default.size());
         column.view_value.resize(stream->ReadLsb<uint32_t>());
-        for (std::vector<uint8_t>::iterator it = column.view_value.begin(); it != column.view_value.end(); ++it)
-            *it = stream->ReadLsb<uint8_t>();
+        if (column.view_value.size())
+            stream->Read(&column.view_value[0], column.view_value.size());
 }
 
 

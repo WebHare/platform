@@ -161,6 +161,12 @@ template <class Key, class Data, class Compare = std::less<Key> > class MapVecto
         {
                 themap.clear();
         }
+
+        /** Reserve space for a number of entries */
+        void Reserve(typename ValueStore::size_type count)
+        {
+                themap.reserve(count);
+        }
 };
 
 /** MapVector is a std::map like class, but uses a vector as its storage container instead
