@@ -796,6 +796,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
     options := ValidateOptions([ rawlogin := FALSE
                                , logincontrol := ""
                                , skippasswordcheck := FALSE
+                               , validatepassword := FALSE
                                , remoteip := IsRequest() ? GetClientRemoteIp() : ""
                                , auditmessage := DEFAULT RECORD
                                , auditloginname := ""
@@ -830,7 +831,7 @@ PUBLIC STATIC OBJECTTYPE WRDAuthPlugin EXTEND WebDesignPluginBase
         trylogin := this->__GetWRDAuthIntegration()->Login(loginname, password, options);
       ELSE
       {
-        IF(NOT options.skippasswordcheck)
+        IF(options.validatepassword AND NOT options.skippasswordcheck)
           INSERT CELL checkpassword := PTR this->__CheckPassword INTO options;
         trylogin := this->GetSupportObject()->Login(loginname, password, options);
       }
