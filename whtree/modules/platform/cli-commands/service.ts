@@ -22,6 +22,13 @@ program.command("list")
     console.table(state.availableServices);
   });
 
+program.command("reload")
+  .description("Tell the servicemanager to reload the module list")
+  .action(async () => {
+    const smservice = await connectSM();
+    await smservice.reload();
+  });
+
 program.command("start")
   .description("Start a service")
   .argument("<service>", "Service name")
