@@ -116,6 +116,7 @@ PUBLIC RECORD FUNCTION FixupField(RECORD indescription)
                             , placeholder := ""
                             , password := FALSE
                             , value := ""
+                            , minlength := 0
                             , maxlength := 0
                             , size := 0
                             , range := DEFAULT RECORD
@@ -127,6 +128,7 @@ PUBLIC RECORD FUNCTION FixupField(RECORD indescription)
       outdescription := CELL[ ...basefielddescription
                             , name := indescription.name
                             , value := ""
+                            , minlength := 0
                             , maxlength := 0
                             , validationchecks := DEFAULT STRING ARRAY
                             , placeholder := ""
@@ -684,6 +686,8 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
           Print(` step="any"`);
         IF(fielddescription.required)
           Print(` required`);
+        IF(fielddescription.minlength > 0)
+          Print(` minlength="${fielddescription.minlength}"`);
         IF(fielddescription.maxlength > 0)
           Print(` maxlength="${fielddescription.maxlength}"`);
         IF(fielddescription.size > 0)
@@ -711,6 +715,8 @@ PUBLIC STATIC OBJECTTYPE FormRenderingBase EXTEND FormRendererRenderingTranslato
           Print(` placeholder="${EncodeValue(fielddescription.placeholder)}"`);
         IF(fielddescription.required)
           Print(` required`);
+        IF(fielddescription.minlength > 0)
+          Print(` minlength="${fielddescription.minlength}"`);
         IF(fielddescription.maxlength > 0)
           Print(` maxlength="${fielddescription.maxlength}"`);
         IF(NOT fielddescription.enabled)

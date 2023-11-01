@@ -628,6 +628,7 @@
       <xs:attributeGroup ref="BaseAttributes" />
       <xs:attributeGroup ref="MapUnmapAttributes" />
       <xs:attributeGroup ref="PlaceholderAttributes" />
+      <xs:attribute name="minlength" type="xs:positiveInteger" />
       <xs:attribute name="maxlength" type="xs:positiveInteger" />
       <xs:attribute name="value" type="xs:string" />
       <xs:attribute name="validationchecks" type="sc:ValidationChecks">
