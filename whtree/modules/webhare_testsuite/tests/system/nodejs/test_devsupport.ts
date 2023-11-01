@@ -12,7 +12,10 @@ async function testDevBridge() {
   const platform_whdb_defs = await devbridge.getDatabaseDefs({ module: "platform" });
   //TODO establish whether we want Arrays or Record<>s for schemas, columns etc and decide which format to nail down
   // console.log(JSON.stringify(platform_whdb_defs, null, 2));
-  test.eqProps({ interface: "PlatformDB" }, platform_whdb_defs);
+  test.eqProps({
+    interface: "PlatformDB",
+    importPath: '@mod-system/js/internal/generated/whdb/platform'
+  }, platform_whdb_defs);
   test.assert(platform_whdb_defs.schemas.consilio.tables.catalogs.columns.id);
 
   const platform_wrd_defs = await devbridge.getWRDDefs({ module: "platform" });

@@ -46,15 +46,18 @@ function getPaths() {
   return { installedBaseDir, builtinBaseDir, platformGeneratedDir };
 }
 
+export function getGeneratedFilePath(module: string, type: string, path: string) {
+  if (module == "platform" && type == "schema")
+    return toFSPath(`mod::platform/generated/${path}`);
+  if (module == "platform" && type != 'extract')
+    return backendConfig.installationroot + "modules/system/js/internal/generated/" + path;
+  return backendConfig.dataroot + "storage/system/generated/" + path;
+}
+
 function fixFilePaths(files: FileToUpdate[]) {
-  const { installedBaseDir, builtinBaseDir, platformGeneratedDir } = getPaths();
   return files.map(file => ({
     ...file,
-    path: (file.module == "platform" && file.type == "schema"
-      ? platformGeneratedDir
-      : file.module == "platform" && file.type != 'extract'
-        ? builtinBaseDir
-        : installedBaseDir) + file.path
+    path: getGeneratedFilePath(file.module, file.type, file.path)
   }));
 }
 

@@ -76,7 +76,8 @@ test.registerTests(
 
         test.eq(null, test.qS('#coretest-nevervisible'), 'static invisible field should be');
         test.eq(null, test.qS('#coretest-invisible'), 'dynamic invisible field should be');
-        test.eq('secret', test.qS("#coretest-password").placeholder);
+        test.eq('secret', test.qR("#coretest-password").placeholder);
+        test.eq(2, test.qR("#coretest-password").minLength);
         test.eq("before &lt;richtext&gt; inhoud <i>vanuit</i> tid after", richtext_h2.innerHTML);
         test.eq("Dynamic richtext", richtext_p.innerHTML);
         test.eq(field_matchattributes_type2_false.closest(".wh-form__fieldgroup"), richtext_h2.closest(".wh-form__fieldgroup").previousSibling);
@@ -135,7 +136,8 @@ test.registerTests(
         test.eq('', field_pulldowntest.options[3].value); //disabled option lose their values so 'required' works
 
         test.eq("PlaceHolder", test.qS("#coretest-setvalidator").placeholder);
-        test.eq("Type a text in this area", test.qS("textarea[name=textarea]").placeholder);
+        test.eq("Type a text in this area", test.qR("textarea[name=textarea]").placeholder);
+        test.eq(3, test.qR("textarea[name=textarea]").minLength);
 
         test.assert(field_shadetest.disabled, "shade of green should be disabled initially");
         test.fill(field_pulldown2test, "green");

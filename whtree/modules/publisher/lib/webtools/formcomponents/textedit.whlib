@@ -139,6 +139,7 @@ PUBLIC STATIC OBJECTTYPE TextEditFieldBase EXTEND FormFieldBase
     RECORD renderinfo := CELL[ ...FormFieldBase::GetRenderTree()
                              , placeholder := this->placeholder
                              , type := "text"
+                             , minlength := CellExists(this->field, 'minlength') ? this->field.minlength : 0
                              , maxlength := CellExists(this->field, 'maxlength') ? this->field.maxlength : 0
                              , this->value
                              , this->textvalue

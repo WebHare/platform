@@ -1705,7 +1705,7 @@
         <text tid="certbotrequest">LetsEncrypt certificaat aanvragen</text>
         <text tid="checkingwebservers">Er is een webserver controle ingepland, bij voltooing wordt de lijst bijgewerkt</text>
         <text tid="deletealias">Weet je zeker dat je de alias "<param p="1"/>' wilt verwijderen?</text>
-        <text tid="deletegroup">Weet je zeker dat je deze group wil verwijderen?</text>
+        <text tid="deletegroup">Weet je zeker dat je deze groep wil verwijderen?</text>
         <text tid="deleteselection">Weet je zeker dat je de selectie wil verwijderen ?</text>
         <text tid="deletewebserver">Weet je zeker dat je webserver '<param p="1"/>' wilt verwijderen?</text>
         <text tid="exportusagestats">Exporteer gebruiksstatistieken</text>

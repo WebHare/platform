@@ -2,6 +2,7 @@ import { whconstant_builtinmodules } from "../webhareconstants";
 import { FileToUpdate, GenerateContext, generatorBanner } from "./shared";
 import { encodeString } from "@webhare/std";
 import { elements } from "./xmlhelpers";
+import { getGeneratedFilePath } from "./generator";
 
 function generateTableTypeName(str: string) {
   if (str.startsWith("wrd"))
@@ -71,6 +72,7 @@ function formatDocumentation(node: Element, indent: string): string {
 
 export interface WHDBDefs {
   interface: string;
+  library: string;
   schemas: Record<string, {
     tables: Record<string, {
       interface: string;
@@ -206,7 +208,8 @@ export function parseWHDBDefs(context: GenerateContext, modulename: string): WHD
 
   return {
     schemas,
-    interface: modulename === "webhare" ? "PlatformDB" : `${generateTableTypeName(modulename)}DB`
+    library: getGeneratedFilePath(modulename, "whdb", `whdb/${modulename}.ts`),
+    interface: `${generateTableTypeName(modulename)}DB`
   };
 }
 

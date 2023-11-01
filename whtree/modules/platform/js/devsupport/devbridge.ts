@@ -17,18 +17,18 @@ function stripJSTSExtension(importPath: string) {
   return importPath;
 }
 
-export function getImportPath(resource: string) {
+export function getImportPath(diskpath: string) {
   const generatedbase = backendConfig.dataroot + "storage/system/generated/";
-  if (resource.startsWith(generatedbase))
-    return "wh:" + stripJSTSExtension(resource.slice(generatedbase.length));
+  if (diskpath.startsWith(generatedbase))
+    return "wh:" + stripJSTSExtension(diskpath.slice(generatedbase.length));
 
-  const tryresourcepath = toResourcePath(resource, { allowUnmatched: true });
+  const tryresourcepath = toResourcePath(diskpath, { allowUnmatched: true });
   if (tryresourcepath) {
     if (tryresourcepath.startsWith("mod::"))
       return "@mod-" + stripJSTSExtension(tryresourcepath.slice(5));
   }
 
-  throw new Error(`Don't know importPath for: ${resource}`);
+  throw new Error(`Don't know importPath for: ${diskpath}`);
 }
 
 export async function getGeneratedFiles({ module }: { module: string }) {
@@ -38,7 +38,8 @@ export async function getGeneratedFiles({ module }: { module: string }) {
 
 export async function getDatabaseDefs({ module }: { module: string }) {
   const context = await buildGeneratorContext(null, false);
-  return parseWHDBDefs(context, module);
+  const defs = parseWHDBDefs(context, module);
+  return { ...defs, importPath: getImportPath(defs.library) };
 }
 
 export async function getWRDDefs({ module }: { module: string }) {
