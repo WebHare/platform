@@ -141,13 +141,15 @@ class AdhocCacheData {
       this.deleteItem(rec.libraryUri, rec.hash);
     }
     this.expiries.splice(0, idx);
+    this.updateExpireCB();
   }
 
   private updateExpireCB() {
     if (this.expiries.length) {
       this.expireCB = setTimeout(() => this.gotExpiryTimeout(), this.expiries[0].expires.getTime() - Date.now());
       this.expireCB.unref();
-    }
+    } else
+      this.expireCB = undefined;
   }
 
   clearCache() {
