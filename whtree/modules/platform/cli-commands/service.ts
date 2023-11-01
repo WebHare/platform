@@ -2,8 +2,10 @@ import { ServiceManagerClient } from '@mod-platform/js/bootstrap/servicemanager/
 import { openBackendService } from '@webhare/services';
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
 
+//short: Control the WebHare service manager
+
 program.name("service")
-  .description('Control services');
+  .description('Control the WebHare service manager');
 
 const servicename = "platform:servicemanager";
 

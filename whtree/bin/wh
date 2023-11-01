@@ -656,6 +656,12 @@ HERE
       TARGETMODULE="${INSTR%:*}"
       SUBCOMMAND="${INSTR##*:}"
     else
+      # Try the preferred route first for new commands, a TS file in platform/cli-commands (not whcomamnds to prevent aliasing them as wh platform:xxx)
+      # Also *we* have no reason to support es/js/tsx extensons (TODO allow .sh too? but whscr definitely shouldn't be here)
+      if [ -f "${WEBHARE_DIR}/modules/platform/cli-commands/$INSTR.ts" ]; then
+        exec_wh_runjs "${WEBHARE_DIR}/modules/platform/cli-commands/$INSTR.ts" "${OPTIONS[@]}"
+      fi
+
       TARGETMODULE=system
       SUBCOMMAND="$INSTR"
     fi
