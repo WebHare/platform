@@ -6,6 +6,7 @@ import { WRDAttributeConfigurationBase, tagToJS } from "@webhare/wrd/src/wrdsupp
 import { loadlib } from "@webhare/harescript";
 import { emplace } from "@webhare/std";
 import { elements } from "./xmlhelpers";
+import { getGeneratedFilePath } from "./generator";
 
 /** Convert snake_case to CamelCase, with the first character uppercase. Special cases the words 'WRD', 'WH' and 'WebHare' */
 export function generateTypeName(str: string) {
@@ -70,8 +71,8 @@ interface ModuleWRDSchemaDef {
   definitionfile: string;
 }
 
-export async function getModuleWRDSchemas(context: GenerateContext, modulename: string): Promise<ModuleWRDSchemaDef[]> {
-  const retval = new Array<ModuleWRDSchemaDef>();
+export async function getModuleWRDSchemas(context: GenerateContext, modulename: string) {
+  const schemas = new Array<ModuleWRDSchemaDef>();
   const mods = modulename === "platform" ? whconstant_builtinmodules : [modulename];
   for (const mod of mods) {
     const doc = context.moduledefs.find(m => m.name === mod)?.modXml;
@@ -90,18 +91,21 @@ export async function getModuleWRDSchemas(context: GenerateContext, modulename: 
         if (!resolved_definitionfile)
           throw new Error(`Huh? ${mod} ${definitionfile}`);
 
-        retval.push({ module: modulename, wrdschema: fulltag, definitionfile: resolved_definitionfile });
+        schemas.push({ module: modulename, wrdschema: fulltag, definitionfile: resolved_definitionfile });
       }
     }
   }
 
-  return retval;
+  return {
+    schemas,
+    library: getGeneratedFilePath(modulename, "wrd", `wrd/${modulename === "platform" ? "webhare" : modulename}.ts`)
+  };
 }
 
 ///A limited view to prevent devbridge from relying on generator-only propertires
 export interface PublicParsedWRDSchemaDef {
   schemaTypeName: string;
-  schemaProp: string;
+  schemaObject: string;
   types: Record<string, {
     typeName: string;
     attrdefs: Record<string, WRDAttributeConfigurationWithChildren>;
@@ -139,7 +143,7 @@ export async function parseWRDDefinitionFile(schemaptr: ModuleWRDSchemaDef): Pro
   const modprefix = schemaptr.module === "platform" ? `${generateTypeName(modulename)}_` : ``;
   const parsedschemadef: ParsedWRDSchemaDef = {
     schemaTypeName: `${modprefix}${generateTypeName(schematag)}SchemaType`,
-    schemaProp: (schemaptr.module === "platform" ? `${modulename}_` : ``) + schematag + "_schema",
+    schemaObject: generatePropertyName((schemaptr.module === "platform" ? `${modulename}_` : ``) + schematag + "_schema"),
     types: {}
   };
 
@@ -233,7 +237,7 @@ export async function generateWRDDefs(context: GenerateContext, modulename: stri
   }
 
   const schemaconsts = [];
-  for (const schemaptr of await getModuleWRDSchemas(context, modulename)) {
+  for (const schemaptr of (await getModuleWRDSchemas(context, modulename)).schemas) {
     if (context.verbose)
       console.time("generateWRDDefs " + schemaptr.wrdschema);
 
@@ -259,7 +263,7 @@ export async function generateWRDDefs(context: GenerateContext, modulename: stri
     }
     fulldef += `};\n\n`;
 
-    schemaconsts.push(`export const ${generatePropertyName(wrddef.schemaProp)} = new WRDSchema<${wrddef.schemaTypeName}>(${JSON.stringify(schemaptr.wrdschema)});`);
+    schemaconsts.push(`export const ${(wrddef.schemaObject)} = new WRDSchema<${wrddef.schemaTypeName}>(${JSON.stringify(schemaptr.wrdschema)});`);
 
     fullfile += def + fulldef;
 
