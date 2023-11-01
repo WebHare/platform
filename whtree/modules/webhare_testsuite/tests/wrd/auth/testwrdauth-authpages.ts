@@ -29,7 +29,7 @@ test.registerTests(
 
     ...testwrd.testResetPassword({
       email: 'pietjetester@beta.webhare.net',
-      newpassword: 'mylittlesecret'
+      newpassword: 'mylittlesecret$'
     }),
 
     'After login stuff',
@@ -49,20 +49,27 @@ test.registerTests(
 
       test.fill('#passwordchange-currentpassword', 'secret');
       test.fill('#passwordchange-passwordnew', 'secret2');
-      test.fill('#passwordchange-passwordrepeat', 'secret3');
+      test.fill('#passwordchange-passwordrepeat', 'secret2');
 
       test.click('.wh-wrdauth-passwordchange__changebutton');
       test.assert(!test.canClick('.wh-wrdauth-passwordchange__done'));
       await test.wait('ui');
 
       test.assert(test.hasFocus(test.qR('#passwordchange-currentpassword')));
-      test.fill('#passwordchange-currentpassword', 'mylittlesecret');
+      test.fill('#passwordchange-currentpassword', 'mylittlesecret$');
 
       test.click('.wh-wrdauth-passwordchange__changebutton');
       await test.wait('ui');
-
       test.assert(test.hasFocus(test.qR('#passwordchange-passwordnew')));
-      test.fill('#passwordchange-passwordnew', 'secret3');
+      test.eq(/at least 1 symbol/i, test.qR('[data-wh-form-group-for="passwordnew"] .wh-form__error').textContent);
+
+      test.fill('#passwordchange-passwordnew', 'secret3$');
+      test.click('.wh-wrdauth-passwordchange__changebutton');
+      test.assert(!test.canClick('.wh-wrdauth-passwordchange__done'));
+      await test.wait('ui');
+      test.eq(/The passwords you entered did not match/i, test.qR('[data-wh-form-group-for="passwordnew"] .wh-form__error').textContent);
+
+      test.fill('#passwordchange-passwordrepeat', 'secret3$');
 
       test.click('.wh-wrdauth-passwordchange__changebutton');
       await test.wait('ui');
@@ -75,12 +82,12 @@ test.registerTests(
       await test.wait('pageload');
 
       test.fill(test.qR('[name="username"]'), 'pietjetester@beta.webhare.net');
-      test.fill(test.qR('[name="password"]'), 'mylittlesecret');
+      test.fill(test.qR('[name="password"]'), 'mylittlesecret$');
       test.click('.wh-wrdauth-login__loginbutton');
       await test.wait('ui');
 
       test.assert(test.hasFocus(test.qR('[name="password"]')));
-      test.fill(test.qR('[name="password"]'), 'secret3');
+      test.fill(test.qR('[name="password"]'), 'secret3$');
       test.click('.wh-wrdauth-login__loginbutton');
       await test.wait('pageload');
     },
@@ -117,7 +124,7 @@ test.registerTests(
       await test.load(test.qR<HTMLAnchorElement>('#logoutlink').href);
 
       test.fill(test.qR('[name="username"]'), 'pietjetester@beta.webhare.net');
-      test.fill(test.qR('[name="password"]'), 'secret3');
+      test.fill(test.qR('[name="password"]'), 'secret3$');
       test.click('.wh-wrdauth-login__loginbutton');
 
       await test.wait("pageload");
@@ -146,7 +153,7 @@ test.registerTests(
       await test.load(test.qR<HTMLAnchorElement>('#logoutlink').href);
 
       test.fill(test.qR('[name="username"]'), 'pietjetester@beta.webhare.net');
-      test.fill(test.qR('[name="password"]'), 'secret3');
+      test.fill(test.qR('[name="password"]'), 'secret3$');
       test.click('.wh-wrdauth-login__loginbutton');
 
       await test.wait('ui');
@@ -192,7 +199,7 @@ test.registerTests(
       await test.load(test.qR<HTMLAnchorElement>('#logoutlink').href);
 
       test.fill(test.qR('[name="username"]'), 'pietjenieuw@beta.webhare.net');
-      test.fill(test.qR('[name="password"]'), 'secret3');
+      test.fill(test.qR('[name="password"]'), 'secret3$');
       test.click('.wh-wrdauth-login__loginbutton');
 
       await test.wait("pageload");
@@ -212,7 +219,7 @@ test.registerTests(
 
       // login with (new) email and password
       test.fill(test.qR('[name="username"]'), 'pietjenieuw@beta.webhare.net');
-      test.fill(test.qR('[name="password"]'), 'secret3');
+      test.fill(test.qR('[name="password"]'), 'secret3$');
       test.click('.wh-wrdauth-login__loginbutton');
 
       await test.wait('load');
@@ -228,7 +235,7 @@ test.registerTests(
 
       // login with (new) email and password
       test.fill(test.qR('[name="username"]'), 'pietjenieuw@beta.webhare.net');
-      test.fill(test.qR('[name="password"]'), 'secret3');
+      test.fill(test.qR('[name="password"]'), 'secret3$');
       test.click('.wh-wrdauth-login__loginbutton');
 
       await test.wait('load');

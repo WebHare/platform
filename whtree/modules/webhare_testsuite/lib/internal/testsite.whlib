@@ -37,6 +37,7 @@ LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
 PUBLIC CONSTANT STRING testfw_mockbrowser := "testfw-browser-11";
 PUBLIC CONSTANT STRING testfw_mockremark := "I've got an issue with this bunny";
@@ -1559,6 +1560,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix
   RunTestFramework([ PTR DoSetupWRDAuth], [wrdauth := FALSE]);
 
   testfw->BeginWork();
+  SetWRDSetting(testfw->GetWRDSchema(), "password_validation_checks", "minlength:5 symbols:1");
 
   testfw->GetWRDSchema()->^wrd_person->CreateEntity(
     [ wrd_firstname := "Pietje"
