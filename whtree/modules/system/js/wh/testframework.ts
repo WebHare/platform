@@ -522,14 +522,40 @@ interface RetrieveEmailOptions {
   scanaheaduntil?: Date | string;
 }
 
+interface ExtractedMailLink {
+  tagname: string;
+  id: string;
+  classname: string;
+  href: string;
+  textcontent: string;
+}
+
+//See HS ProcessExtractedMail
+interface ExtractedMail {
+  envelope_sender: string;
+  headers: Array<{ field: string; value: string }>;
+  html: string;
+  links: ExtractedMailLink[];
+  linkbyid: Record<string, ExtractedMailLink>;
+  plaintext: string;
+  subject: string;
+  messageid: string;
+  mailfrom: string;
+  replyto: string;
+  toppart: unknown; //MIME structure. not specified yet
+  ///The envelope receiver (as actually queued)
+  receiver: string;
+}
+
 export async function waitForEmails(addressmask: string, options?: RetrieveEmailOptions) {
-  const emails = await invoke("mod::system/lib/testframework.whlib#ExtractAllMailFor", addressmask, options);
-  for (const email of emails) {
-    email.doc = document.createElement('div');
-    email.doc.style.display = "none";
-    email.doc.innerHTML = email.html;
-  }
-  return emails;
+  const emails = await invoke("mod::system/lib/testframework.whlib#ExtractAllMailFor", addressmask, options) as ExtractedMail[];
+  //Add simple DOMs so we can also querySelector the mail HTML
+  return emails.map(email => {
+    const doc = document.createElement('div');
+    doc.style.display = "none";
+    doc.innerHTML = email.html;
+    return { ...email, doc };
+  });
 }
 
 export async function subtest(name) {
