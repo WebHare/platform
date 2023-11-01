@@ -192,9 +192,6 @@ class Library
         /// Modtime of library at the time the utd check was done, Invalid if file didn't exist. Set in LoadLibraryData, updated in IsLocalUpTodate.
         Blex::DateTime clibtime;
 
-        /// Compile id of this library (read from clib)
-//      Blex::DateTime clib_id;
-
         /// Last successfull up-to-date check
         Blex::DateTime last_udt_check;
 
@@ -341,7 +338,7 @@ class BLEXLIB_PUBLIC Environment
         std::pair<Library *,bool> GetUptodateRef(Blex::ContextKeeper &keeper, std::string const &liburi, Blex::DateTime currenttime);
 
         /** Load the library contents from disk/dbase */
-        void LoadLibraryData(Blex::ContextKeeper &keeper, Library *lib, FileSystem::FilePtr const &file);
+        void LoadLibraryData(Blex::ContextKeeper &keeper, Library *lib, FileSystem::FilePtr const &file, Blex::DateTime currenttime);
 
         /** Load needed dynamic modules and resolve external functions */
         void HandleModulesAndExternals(Library *lib);

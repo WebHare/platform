@@ -245,7 +245,7 @@ std::pair<Library *, bool> Environment::GetUptodateRef(Blex::ContextKeeper &keep
         }
 }
 
-void Environment::LoadLibraryData(Blex::ContextKeeper &/*keeper*/, Library *lib, FileSystem::FilePtr const &file)
+void Environment::LoadLibraryData(Blex::ContextKeeper &/*keeper*/, Library *lib, FileSystem::FilePtr const &file, Blex::DateTime currenttime)
 {
         // Load the stream with the source
         std::unique_ptr< Blex::RandomStream > indata;
@@ -265,7 +265,9 @@ void Environment::LoadLibraryData(Blex::ContextKeeper &/*keeper*/, Library *lib,
         lib->wrappedlibrary.ReadLibrary(lib->liburi, &mstream);
         lib->clibpath = file->GetClibPath();
 
-//      lib->clib_id = lib->wrappedlibrary.resident.compile_id;
+        auto source_modtime = file->GetSourceModTime();
+        if (lib->wrappedlibrary.resident.sourcetime == source_modtime)
+            lib->last_udt_check = currenttime;
 }
 
 namespace
@@ -348,7 +350,7 @@ Library const * Environment::InternalGetLibRef(Blex::ContextKeeper &keeper, std:
                 if (retval.second) //library already linked and up-to-date, just return the reference
                     return retval.first;
 
-                LoadLibraryData(keeper, mainlib, file);
+                LoadLibraryData(keeper, mainlib, file, currenttime);
 
                 // Load and link dependent libraries
                 LoadDependencies(keeper, mainlib, handler, currenttime);
