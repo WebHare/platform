@@ -1083,7 +1083,8 @@ PUBLIC RECORD FUNCTION GenerateSAMLLoginResponse(OBJECT wrdauthplugin, RECORD de
     DATETIME validuntil := AddTimeToDate(5 * 60 * 1000, now); // valid for 5 mins
 
     RECORD statdata := idp_config->GenerateAuthenticationStatement2(CELL
-        [ sp
+        [ idp
+        , sp
         , endpoint
         , requestid :=        RecordExists(decoded_req.r) ? decoded_req.r.id : ""
         , now
@@ -1272,7 +1273,7 @@ PUBLIC STATIC OBJECTTYPE SAMLWebhareIDPConfig EXTEND SAMLIDPConfigBase
   // overridden functions
   //
 
-  UPDATE PUBLIC RECORD FUNCTION GenerateAuthenticationStatement()
+  UPDATE PUBLIC RECORD FUNCTION GenerateAuthenticationStatement2(RECORD requestdata)
   {
     STRING ARRAY getfields :=
         [ "WRD_GUID"
@@ -1287,6 +1288,7 @@ PUBLIC STATIC OBJECTTYPE SAMLWebhareIDPConfig EXTEND SAMLIDPConfigBase
 
     RECORD fields := this->plugin->GetLoggedinEntityFields(getfields);
 
+    STRING login := GetCell(fields, this->plugin->wrdschema->accountlogintag);
     RECORD ARRAY attributes :=
         [ [ name :=             "http://b-lex.com/saml/attribute/firstname"
           , value :=            fields.wrd_firstname
@@ -1298,7 +1300,7 @@ PUBLIC STATIC OBJECTTYPE SAMLWebhareIDPConfig EXTEND SAMLIDPConfigBase
           , value :=            fields.wrd_lastname
           ]
         , [ name :=             "http://b-lex.com/saml/attribute/login"
-          , value :=            GetCell(fields, this->plugin->wrdschema->accountlogintag)
+          , value :=            login
           ]
         ];
 
@@ -1310,14 +1312,25 @@ PUBLIC STATIC OBJECTTYPE SAMLWebhareIDPConfig EXTEND SAMLIDPConfigBase
           ] INTO attributes AT END;
     }
 
-    RETURN
-        [ subject :=
-              [ nameid :=
-                    [ format :=       "http://b-lex.com/saml/nameidformat/webhare-guid"
-                    , value :=        fields.wrd_guid
-                    ]
-              ]
-        , attributes :=     attributes
+    RECORD nameid :=
+        [ format :=       "http://b-lex.com/saml/nameidformat/webhare-guid"
+        , value :=        fields.wrd_guid
+        ];
+
+    // Send webhare-guid, unless webhare-login is configured as supported nameid format and webhare-guid isn't
+    RECORD ARRAY nameidformats := requestdata.idp->GetSupportedNameIDFormats();
+    IF (RecordExists(SELECT FROM nameidformats WHERE nameidformat = "http://b-lex.com/saml/nameidformat/webhare-login")
+      AND NOT RecordExists(SELECT FROM nameidformats WHERE nameidformat = "http://b-lex.com/saml/nameidformat/webhare-guid"))
+    {
+      nameid :=
+          [ format :=       "http://b-lex.com/saml/nameidformat/webhare-login"
+          , value :=        login
+          ];
+    }
+
+    RETURN CELL
+        [ subject := CELL[ nameid ]
+        , attributes
         ];
   }
 >;

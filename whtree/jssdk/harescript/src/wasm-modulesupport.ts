@@ -9,6 +9,17 @@ import { debugFlags } from "@webhare/env";
 import * as stacktrace_parser from "stacktrace-parser";
 
 const wh_namespace_location = "mod::system/whlibs/";
+let webAssemblyInstantiatedSourcePromise: Promise<WebAssembly.WebAssemblyInstantiatedSource> | undefined;
+let cachedWebAssemblyModule: WebAssembly.Module | undefined;
+
+export function getCachedWebAssemblyModule() {
+  return cachedWebAssemblyModule;
+}
+
+export function setCachedWebAssemblyModule(module: WebAssembly.Module) {
+  cachedWebAssemblyModule = module;
+}
+
 function translateDirectToModURI(directuri: string) {
   if (directuri.startsWith("direct::")) { //it's actually a direct::
     const directpath = directuri.substring(8);
@@ -404,6 +415,34 @@ export class WASMModule extends WASMModuleBase {
 
   preRun() {
     Object.assign(this.ENV, process.env);
+  }
+
+  /** Overrides the emscripten instantiation functions so we can save the WebAssembly module and distribute it to
+   * jobs so we can avoid reading the wasm file from disk and compiling it.
+   */
+  async instantiateWasm(imports: WebAssembly.Imports, receiveInstance: (instance: WebAssembly.Instance, module?: WebAssembly.Module) => object) {
+    if (cachedWebAssemblyModule) {
+      // synchronous variable cachedWebAssemblyModule already set, use it
+      const instance = await WebAssembly.instantiate(cachedWebAssemblyModule, imports);
+      receiveInstance(instance);
+    } else if (!webAssemblyInstantiatedSourcePromise) {
+      // No instantiation promise present yet, fill it with a new instantiation.
+      webAssemblyInstantiatedSourcePromise = (async () => {
+        const wasmFilePath = path.join(__dirname, "../../../lib/harescript.wasm");
+        const binary = await fs.promises.readFile(wasmFilePath);
+        return await WebAssembly.instantiate(binary, imports);
+      })();
+      // We wrote the webAssemblyInstantiatedSourcePromise, we can use its instance
+      const { instance, module } = await webAssemblyInstantiatedSourcePromise;
+      cachedWebAssemblyModule ??= module;
+      receiveInstance(instance);
+    } else {
+      // We didn't write the webAssemblyInstantiatedSourcePromise, use its module to create a new instance
+      const { module } = await webAssemblyInstantiatedSourcePromise;
+      cachedWebAssemblyModule ??= module;
+      const instance = await WebAssembly.instantiate(cachedWebAssemblyModule, imports);
+      receiveInstance(instance);
+    }
   }
 }
 

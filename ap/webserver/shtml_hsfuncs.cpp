@@ -1006,13 +1006,13 @@ void ShtmlContextData::GetWebhareAccessRules(HSVM *hsvm, HSVM_VariableId id_set)
 
         HSVM_ColumnId col_id = HSVM_GetColumnId(hsvm, "ID");
         HSVM_ColumnId col_data = HSVM_GetColumnId(hsvm, "DATA");
-        HSVM_ColumnId col_hitdatatoragerule = HSVM_GetColumnId(hsvm, "HITDATATORAGERULE");
+        HSVM_ColumnId col_hitdatastoragerule = HSVM_GetColumnId(hsvm, "HITDATASTORAGERULE");
 
         for (auto &ruleinfo: request->rules_hit)
         {
                 HSVM_VariableId newrow = HSVM_ArrayAppend(hsvm, id_set);
                 HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, newrow, col_id), ruleinfo.rule->id);
-                HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, newrow, col_hitdatatoragerule), ruleinfo.datastoragerule);
+                HSVM_IntegerSet(hsvm, HSVM_RecordCreate(hsvm, newrow, col_hitdatastoragerule), ruleinfo.datastoragerule);
 
                 HareScript::Marshaller marshaller(HareScript::GetVirtualMachine(hsvm), HareScript::MarshalMode::DataOnly);
                 marshaller.ReadFromVector(HSVM_RecordCreate(hsvm, newrow, col_data), ruleinfo.rule->data);

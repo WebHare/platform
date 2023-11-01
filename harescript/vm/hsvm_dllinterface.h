@@ -1019,6 +1019,13 @@ HSVM_PUBLIC void*  HSVM_BlobContext(struct HSVM *vm, HSVM_VariableId blobid, uns
 
 *****************************************************************************/
 
+/** Loads a library into memory and links it, leaking the reference
+    @param vm Virtual Machine
+    @param libraryuri Variable containing URI of library to
+    @return 1: Library loaded, 0 library not loaded due to errors
+*/
+ HSVM_PUBLIC int HSVM_PrelinkLibraryLeakRef(struct HSVM *vm, const char *liburi);
+
 /** Schedule the load of a library
     @param vm Virtual Machine
     @param libraryuri Variable containing URI of library in which the function can be found

@@ -1814,6 +1814,18 @@ HSVM_VariableId HSVM_CallObjectMethod(struct HSVM *vm, HSVM_VariableId object_id
         return 0;
 }
 
+int HSVM_PrelinkLibraryLeakRef(struct HSVM *vm, const char *liburi)
+{
+        START_CATCH_VMEXCEPTIONS
+
+        HareScript::ErrorHandler errorhandler;
+        auto lib = VM.environment.GetLibRef(VM.GetContextKeeper(), liburi, errorhandler);
+
+        return lib && !errorhandler.AnyErrors() ? 1 : 0;
+        END_CATCH_VMEXCEPTIONS
+        return 0;
+}
+
 int HSVM_ScheduleLibraryLoad(struct HSVM *vm, HSVM_VariableId libraryuri, HSVM_VariableId errors)
 {
         START_CATCH_VMEXCEPTIONS

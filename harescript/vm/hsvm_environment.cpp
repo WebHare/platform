@@ -245,7 +245,7 @@ std::pair<Library *, bool> Environment::GetUptodateRef(Blex::ContextKeeper &keep
         }
 }
 
-void Environment::LoadLibraryData(Blex::ContextKeeper &/*keeper*/, Library *lib, FileSystem::FilePtr const &file)
+void Environment::LoadLibraryData(Blex::ContextKeeper &/*keeper*/, Library *lib, FileSystem::FilePtr const &file, Blex::DateTime currenttime)
 {
         // Load the stream with the source
         std::unique_ptr< Blex::RandomStream > indata;
@@ -254,18 +254,25 @@ void Environment::LoadLibraryData(Blex::ContextKeeper &/*keeper*/, Library *lib,
         if (!indata.get())
             throw VMRuntimeError(Error::CannotFindCompiledLibrary, lib->GetLibURI());
 
-        // Read id's, returns stream at offset 0
+        auto length = indata->GetFileLength();
+        std::vector<uint8_t> data;
+        if (length)
+        {
+                data.resize(length);
+                indata->DirectRead(0, &data[0], length); // ADDME: check if entire file read
+        }
 
-        WrappedLibrary::ReadLibraryIds(indata.get(), &lib->clib_ids);
+        // Read id's, returns stream at offset 0
+        Blex::MemoryReadStream mstream(&data[0], data.size());
+        WrappedLibrary::ReadLibraryIds(&mstream, &lib->clib_ids);
 
         // Read the library into memory
-        std::vector<uint8_t> data;
-        Blex::ReadStreamIntoVector(*indata,&data);
-        Blex::MemoryReadStream mstream(&data[0], data.size());
         lib->wrappedlibrary.ReadLibrary(lib->liburi, &mstream);
         lib->clibpath = file->GetClibPath();
 
-//      lib->clib_id = lib->wrappedlibrary.resident.compile_id;
+        auto source_modtime = file->GetSourceModTime();
+        if (lib->wrappedlibrary.resident.sourcetime == source_modtime)
+            lib->last_udt_check = currenttime;
 }
 
 namespace
@@ -339,16 +346,16 @@ Library const * Environment::InternalGetLibRef(Blex::ContextKeeper &keeper, std:
                 std::pair<Library*,bool> retval = GetUptodateRef(keeper, name, currenttime);
                 mainlib=retval.first;
 
+                if (retval.second) //library already linked and up-to-date, just return the reference
+                    return retval.first;
+
                 // Get the library, for access checks
                 FileSystem::FilePtr file = filesystem.OpenLibrary(keeper, mainlib->liburi);
 
                 if (!file)
                     throw VMRuntimeError(Error::CannotFindCompiledLibrary, mainlib->GetLibURI());
 
-                if (retval.second) //library already linked and up-to-date, just return the reference
-                    return retval.first;
-
-                LoadLibraryData(keeper, mainlib, file);
+                LoadLibraryData(keeper, mainlib, file, currenttime);
 
                 // Load and link dependent libraries
                 LoadDependencies(keeper, mainlib, handler, currenttime);
