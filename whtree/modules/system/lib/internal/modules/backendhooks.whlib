@@ -42,16 +42,38 @@ RECORD FUNCTION GetScreenDef(STRING screenname)
 
 RECORD FUNCTION StructureModuleYamlDefSettings(STRING resourcename, RECORD def)
 {
-  def := EnforceStructure(
-    CELL[ backendhooks :=
-        [[ tag := ""
-         , screen := ""
-         , tabsextension := ""
-        ]]
-      ], def);
+  //This is getting a bit convoluted *especially* as long as we're only dealing with one field here.. we should start making an extract of this anad deal with all trouble in JS
+  IF(CellExists(def,'backendhooks') AND TYPEID(def.backendhooks) = TYPEID(RECORD ARRAY))
+  {
+    //This is the WH5.3 backendhook structure
+    RECORD newbackendhooks;
+    FOREVERY(RECORD row FROM def.backendhooks)
+      IF(CellExists(row,"tag"))
+        newbackendhooks := CellInsert(row,row.tag,CellDelete(row,"tag"));
+     ELSE
+        newbackendhooks := CellInsert(row,"hook" || #row,row);
+    def := CELL[...def, backendhooks := newbackendhooks];
+  }
 
-  UPDATE def.backendhooks
-     SET tabsextension := MakeAbsoluteResourcePath(resourcename, tabsextension);
+  def := EnforceStructure(
+    CELL[ backendhooks := DEFAULT RECORD
+        ], def);
+
+  RECORD ARRAY thehooks := EnforceStructure(
+        [[ name := ""
+         , value := [ screen := ""
+                    , tabsextension := ""
+                    ]
+         ]
+        ], UnpackRecord(def.backendhooks));
+
+  FOREVERY(RECORD hook FROM thehooks)
+  {
+    thehooks[#hook].value.tabsextension := MakeAbsoluteResourcePath(resourcename, thehooks[#hook].value.tabsextension);
+    INSERT CELL module := GetModuleNameFromResourcePath(resourcename) INTO thehooks[#hook].value;
+  }
+
+  def.backendhooks := RepackRecord(thehooks);
 
   RETURN CELL[ def.backendhooks ];
 }
@@ -83,7 +105,7 @@ RECORD FUNCTION GetAllHooks()
       CONTINUE;
 
     def := StructureModuleYamlDefSettings(path, def);
-    allhooks := allhooks CONCAT SELECT *, module := VAR modulename FROM def.backendhooks;
+    allhooks := allhooks CONCAT SELECT tag := name, ...value FROM UnpackRecord(def.backendhooks);
   }
 
   RETURN [ ttl := 24 * 60 * 60 * 1000
