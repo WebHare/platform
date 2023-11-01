@@ -1,7 +1,7 @@
 import { recompileHarescriptLibrary, HareScriptVM, allocateHSVM, MessageList } from "./wasm-hsvm";
 import { IPCMarshallableRecord, VariableType, getTypedArray } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
-import { backendConfig, log } from "@webhare/services";
+import { backendConfig, log, logError } from "@webhare/services";
 import bridge from "@mod-system/js/internal/whmanager/bridge";
 import { HSVMVar } from "./wasm-hsvmvar";
 import type { SocketError, WASMModule } from "./wasm-modulesupport";
@@ -343,11 +343,17 @@ const ipcContext = contextGetterFactory("ipc", class {
   linktoparent: IPCEndPoint | undefined;
   signalintpipe: SignalIntPipe | undefined;
   externalsessiondata = "";
+  jobCacheEnabled = false;
+  jobCachedWorker: AsyncWorker | undefined;
+  jobCachedPreloadLibs = new Array<string>;
   close() {
     this.linktoparent?.close();
     this.linktoparent = undefined;
     this.signalintpipe?.close();
     this.signalintpipe = undefined;
+    this.jobCacheEnabled = false;
+    this.jobCachedWorker?.close();
+    this.jobCachedWorker = undefined;
   }
 });
 
@@ -732,6 +738,23 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     id_set.setBoolean(isValidName(name, { allowSlashes: slashes }));
   });
 
+  wasmmodule.registerExternalMacro("__HS_ENABLEJOBCACHE:::BSA", (vm, var_enablecache, var_preloadscripts) => {
+    const context = ipcContext(vm);
+    context.jobCacheEnabled = var_enablecache.getBoolean();
+    context.jobCachedPreloadLibs = var_preloadscripts.getJSValue() as string[];
+    if (context.jobCacheEnabled && !context.jobCachedWorker) {
+      if (debugFlags.vmlifecycle)
+        console.log(`[${vm.currentgroup}] Preparing cached job worker, preload scripts`, context.jobCachedPreloadLibs);
+      context.jobCachedWorker = new AsyncWorker;
+      context.jobCachedWorker.callRemote(`${__filename}#harescriptWorkerPrepare`, context.jobCachedPreloadLibs, getCachedWebAssemblyModule()).catch(e => logError(e as Error));
+    } else if (!context.jobCacheEnabled && context.jobCachedWorker) {
+      if (debugFlags.vmlifecycle)
+        console.log(`[${vm.currentgroup}] Discarding cached job worker`);
+      context.jobCachedWorker.close();
+      context.jobCachedWorker = undefined;
+    }
+  });
+
   wasmmodule.registerAsyncExternalFunction("__HS_CREATEJOB::R:S", async (vm, id_set, var_mainscript) => {
     const context = ipcContext(vm);
 
@@ -750,7 +773,20 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     }
     scratchvar.dispose();
 
-    const worker = new AsyncWorker;
+    if (debugFlags.vmlifecycle && context.jobCachedWorker)
+      console.log(`[${vm.currentgroup}] Allocating job for ${JSON.stringify(var_mainscript.getString())}${context.jobCachedWorker ? ", using cached worker" : ", creating new worker"}`);
+    const worker = context.jobCachedWorker ?? new AsyncWorker;
+    if (context.jobCachedWorker) {
+      // init a new new worker into the cache, with a small delay
+      setTimeout(() => {
+        if (context.jobCachedWorker) {
+          if (debugFlags.vmlifecycle)
+            console.log(`[${vm.currentgroup}] Preparing new cached job worker, preload scripts`, context.jobCachedPreloadLibs);
+          context.jobCachedWorker = new AsyncWorker;
+          context.jobCachedWorker.callRemote(`${__filename}#harescriptWorkerPrepare`, context.jobCachedPreloadLibs, getCachedWebAssemblyModule()).catch(e => logError(e as Error));
+        }
+      }, 200);
+    }
     const jobobj = await worker.callFactory<HareScriptJob>({
       ref: __filename + "#harescriptWorkerFactory",
       transferList: encodedEndpoint.transferList
@@ -1292,10 +1328,41 @@ class HareScriptJob {
   }
 }
 
+let preparedJobHSVM: Promise<HareScriptVM> | undefined;
+
+export async function harescriptWorkerPrepare(preloadScripts: string[], wasmModule: WebAssembly.Module | undefined): Promise<void> {
+  if (preparedJobHSVM)
+    return;
+  if (wasmModule && !getCachedWebAssemblyModule())
+    setCachedWebAssemblyModule(wasmModule);
+  if (debugFlags.vmlifecycle)
+    console.log(`[n/a] Load script: prepare job`);
+  preparedJobHSVM = allocateHSVM().then(async vm => {
+    if (debugFlags.vmlifecycle)
+      console.log(`[n/a] VM allocated, preloading libraries`, preloadScripts);
+    for (const script of preloadScripts) {
+      const ptr_str = vm.wasmmodule.stringToNewUTF8(script);
+      const result = await vm.wasmmodule._HSVM_PrelinkLibraryLeakRef(vm.hsvm, ptr_str);
+      if (!result && debugFlags.vmlifecycle)
+        console.log(`[${vm.currentgroup}] Preloaded script ${JSON.stringify(script)} failed, result: ${result}`);
+      vm.wasmmodule._free(ptr_str);
+    }
+    if (debugFlags.vmlifecycle)
+      console.log(`[${vm.currentgroup}] Preload complete`);
+    return vm;
+  });
+}
+
 export async function harescriptWorkerFactory(script: string, encodedLink: unknown, authRecord: unknown, externalSessionData: string, env: Array<{ name: string; value: string }> | null, wasmModule: WebAssembly.Module | undefined): Promise<HareScriptJob> {
   if (wasmModule && !getCachedWebAssemblyModule())
     setCachedWebAssemblyModule(wasmModule);
   const link = decodeTransferredIPCEndPoint<IPCMarshallableRecord, IPCMarshallableRecord>(encodedLink);
-  const vm = await allocateHSVM();
+  if (debugFlags.vmlifecycle)
+    console.log(`[n/a] create new VM in worker${preparedJobHSVM ? ", using prepared VM" : ", allocating new VM"}`);
+  const vmPromise = preparedJobHSVM ?? allocateHSVM();
+  preparedJobHSVM = undefined;
+  const vm = await vmPromise;
+  if (debugFlags.vmlifecycle)
+    console.log(`[${vm.currentgroup}] VM allocation/preparation complete`);
   return new HareScriptJob(vm, script, link, authRecord, externalSessionData, env);
 }

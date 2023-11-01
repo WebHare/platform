@@ -13,6 +13,12 @@ LOADLIB "mod::system/lib/internal/cluster/logwriter.whlib";
 LOADLIB "mod::tollium/lib/todd/internal/communication.whlib";
 
 
+MACRO __HS_ENABLEJOBCACHE(BOOLEAN enable, STRING ARRAY preloadscripts) __ATTRIBUTES__(EXTERNAL);
+IF (IsWasm())
+{
+  __HS_ENABLEJOBCACHE(TRUE, [ "mod::tollium/scripts/internal/applicationhost.whscr" ]);
+}
+
 /** This library owns all tollium applications, keeps their crash histories
 
   To start this in freestanding WASM mode, use
