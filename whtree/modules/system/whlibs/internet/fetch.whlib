@@ -111,7 +111,7 @@ STRING FUNCTION GetResponseSummary(OBJECT response)
 PUBLIC ASYNC FUNCTION Fetch(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD, RECORD pooloptions DEFAULTSTO DEFAULT RECORD)
 {
   IF(NOT ObjectExists(fetchpool))
-    fetchpool := OpenWebHareService("system:fetchpool");
+    fetchpool := OpenWebHareService("platform:fetchpool");
 
   options := ValidateOptions(
       [ method :=         "GET"
@@ -168,7 +168,7 @@ PUBLIC ASYNC FUNCTION Fetch(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD
       IF(debug)
         Print(`[wrq] ${debugrequestid} ServiceDisconnectException, retrying once\n`);
 
-      fetchpool := OpenWebHareService("system:fetchpool");
+      fetchpool := OpenWebHareService("platform:fetchpool");
       fetchresult := AWAIT (AWAIT fetchpool)->goFetch(uri, options, pooloptions);
     }
     ELSE

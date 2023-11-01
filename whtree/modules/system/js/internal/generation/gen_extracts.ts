@@ -176,6 +176,14 @@ export function generateServices(context: GenerateContext): string {
   };
 
   for (const mod of context.moduledefs) {
+    for (const [servicename, servicedef] of Object.entries(mod.modYml?.backendServices ?? [])) {
+      retval.backendServices.push({
+        name: `${mod.name}:${servicename}`,
+        clientFactory: resolveResource(mod.resourceBase, servicedef.clientFactory || ""),
+        controllerFactory: resolveResource(mod.resourceBase, servicedef.controllerFactory || "")
+      });
+    }
+
     const services = mod.modXml?.getElementsByTagNameNS("http://www.webhare.net/xmlns/system/moduledefinition", "services")[0];
     if (!services)
       continue;

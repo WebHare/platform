@@ -1,5 +1,6 @@
 ---
 # yaml-language-server: $schema=http://json-schema.org/draft-07/schema#
+# To update derived the TypeScript interfaces: wh update-generated-files --only=schema
 "$schema": http://json-schema.org/draft-07/schema#
 title: Module definition
 description: A module definition tells WebHare which features and integrations are offered by this module
@@ -14,6 +15,9 @@ properties:
   managedServices:
     description: Additional services
     $ref: "#/definitions/managedServices"
+  backendServices:
+    description: Additional services
+    $ref: "#/definitions/backendServices"
   assetPacks:
     description: JavaScript/assaet bundles
     $ref: "#/definitions/assetPacks"
@@ -92,6 +96,22 @@ definitions:
                 onexecute:
                   type: string
                   description: "Function to invoke"
+
+  backendServices:
+    description: backendServices implement the actual services for openBackendService
+    type: object
+    additionalProperties: false
+    patternProperties:
+      "^[a-z_][-a-z0-9_]*$": # Service name
+        type: object
+        additionalProperties: false
+        properties:
+          clientFactory:
+            description: "Function to create a client for this service"
+            type: string
+          controllerFactory:
+            description: "Function to create a controller for this service which will create the clients"
+            type: string
 
   connect:
     type: object

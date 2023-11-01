@@ -8,3 +8,9 @@ backendHooks: # Where this extension hooks into the backend
   testsitehook:
     screen: "platform:siteproperties"
     tabsExtension: tests/publisher/tollium/data/backendhooks.xml#extrasitefields
+
+backendServices:
+  demoservice:
+    clientFactory: js/demoservice.ts#openDemoService
+  controlleddemoservice:
+    controllerFactory: js/demoservice.ts#createDemoMain
