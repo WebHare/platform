@@ -341,14 +341,14 @@ Library const * Environment::InternalGetLibRef(Blex::ContextKeeper &keeper, std:
                 std::pair<Library*,bool> retval = GetUptodateRef(keeper, name, currenttime);
                 mainlib=retval.first;
 
+                if (retval.second) //library already linked and up-to-date, just return the reference
+                    return retval.first;
+
                 // Get the library, for access checks
                 FileSystem::FilePtr file = filesystem.OpenLibrary(keeper, mainlib->liburi);
 
                 if (!file)
                     throw VMRuntimeError(Error::CannotFindCompiledLibrary, mainlib->GetLibURI());
-
-                if (retval.second) //library already linked and up-to-date, just return the reference
-                    return retval.first;
 
                 LoadLibraryData(keeper, mainlib, file, currenttime);
 
