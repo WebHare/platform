@@ -44,11 +44,16 @@ export async function getDatabaseDefs({ module }: { module: string }) {
 
 export async function getWRDDefs({ module }: { module: string }) {
   const context = await buildGeneratorContext(null, false);
+  const defs = await getModuleWRDSchemas(context, module);
   const schemas = [];
-  for (const schemaptr of await getModuleWRDSchemas(context, module))
-    schemas.push({ ...schemaptr, ...(await parseWRDDefinitionFile(schemaptr) satisfies PublicParsedWRDSchemaDef as PublicParsedWRDSchemaDef) });
 
-  return { schemas };
+  for (const schemaptr of defs.schemas)
+    schemas.push({
+      ...schemaptr,
+      ...(await parseWRDDefinitionFile(schemaptr) satisfies PublicParsedWRDSchemaDef as PublicParsedWRDSchemaDef)
+    });
+
+  return { schemas, importPath: getImportPath(defs.library) };
 }
 
 export function getBuiltinModules(): string[] {
