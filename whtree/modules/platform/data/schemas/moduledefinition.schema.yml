@@ -6,7 +6,7 @@ description: A module definition tells WebHare which features and integrations a
 type: object
 additionalProperties: false
 properties:
-  backendHooks: # NOTE this description causes two bakcendHook
+  backendHooks:
     $ref: "#/definitions/backendHooks"
   connect:
     description: Extends WRD Schemas for Connect
@@ -28,7 +28,7 @@ definitions:
     type: object
     additionalProperties: false
     patternProperties:
-      "^[a-z_][a-z0-9_]*$": # Service name
+      "^[a-z_][-a-z0-9_]*$": # Service name
         type: object
         additionalProperties: false
         properties:
@@ -57,40 +57,41 @@ definitions:
           - run
 
   # backendHooks are a generic way to extend the WebHare backend (user interface)
+  # NOTE In WH5.3 this was an object but we want to enforce unique names per hook so we can do things like 'before/after' (ordering) in hte future
   backendHooks:
-    type: array
     description: WebHare backend (user interface) integrations
-    items:
-      type: object
-      additionalProperties: false
-      required:
-        - screen
-      properties:
-        tag:
-          type: string
-        screen:
-          type: string
-        tabsExtension:
-          type: string
-        addActions:
-          type: array
-          items:
-            type: object
-            additionalProperties: false
-            required:
-              - category
-              - title
-              - onexecute
-            properties:
-              title:
-                type: string
-                description: "Title for the action"
-              category:
-                type: string
-                description: "Action category (possible values defined by the screen)"
-              onexecute:
-                type: string
-                description: "Function to invoke"
+    type: object
+    additionalProperties: false
+    patternProperties:
+      "^[a-z_][-a-z0-9_]*$": # Service name
+        type: object
+        additionalProperties: false
+        required:
+          - screen
+        properties:
+          screen:
+            type: string
+          tabsExtension:
+            type: string
+          addActions:
+            type: array
+            items:
+              type: object
+              additionalProperties: false
+              required:
+                - category
+                - title
+                - onexecute
+              properties:
+                title:
+                  type: string
+                  description: "Title for the action"
+                category:
+                  type: string
+                  description: "Action category (possible values defined by the screen)"
+                onexecute:
+                  type: string
+                  description: "Function to invoke"
 
   connect:
     type: object
@@ -100,7 +101,7 @@ definitions:
         type: object
         additionalProperties: false
         patternProperties:
-          "^[a-z_][a-z0-9_]+:[a-z_][a-z0-9_]+$": # WRD schema name. require a fully qualifiedname to simplify our matching in SetupBackendScreenHooks.hookssubkey
+          "^[a-z_][-a-z0-9_]+:[a-z_][-a-z0-9_]+$": # WRD schema name. require a fully qualifiedname to simplify our matching in SetupBackendScreenHooks.hookssubkey
             type: object
             additionalProperties: false
             properties:
@@ -115,7 +116,7 @@ definitions:
     type: object
     additionalProperties: false
     patternProperties:
-      "^[a-z_][a-z0-9_]*$": # Assetpack name
+      "^[a-z_][-a-z0-9_]*$": # Assetpack name
         type: object
         additionalProperties: false
         properties:

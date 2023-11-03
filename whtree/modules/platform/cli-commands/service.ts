@@ -2,8 +2,10 @@ import { ServiceManagerClient } from '@mod-platform/js/bootstrap/servicemanager/
 import { openBackendService } from '@webhare/services';
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
 
+//short: Control the WebHare service manager
+
 program.name("service")
-  .description('Control services');
+  .description('Control the WebHare service manager');
 
 const servicename = "platform:servicemanager";
 
@@ -18,6 +20,13 @@ program.command("list")
     const smservice = await connectSM();
     const state = await smservice.getWebHareState();
     console.table(state.availableServices);
+  });
+
+program.command("reload")
+  .description("Tell the servicemanager to reload the module list")
+  .action(async () => {
+    const smservice = await connectSM();
+    await smservice.reload();
   });
 
 program.command("start")

@@ -185,17 +185,16 @@ setup_webhare_envsettings()
 list_commands()
 {
   grep -oe "^[a-z]*" ${BASH_SOURCE%/*}/../modules/system/doc/wh.txt
-  SCRIPTDIRS="$WEBHARE_DIR/modules/system/scripts/whcommands/"
 
-  for SCRIPTDIR in $SCRIPTDIRS; do
-    for SCRIPTPATH in '%s\n' "${SCRIPTDIR}"*.whscr "${SCRIPTDIR}"*.sh "${SCRIPTDIR}"*.ts; do
-      if [ -f $SCRIPTPATH ]; then
-        FILENAME="${SCRIPTPATH##*/}"
-        INSTR="${FILENAME%.*}"
-        echo "$INSTR"
-      fi
-    done
+  SCRIPTDIR="$WEBHARE_DIR/modules/system/scripts/whcommands/"
+  for SCRIPTPATH in "$WEBHARE_DIR/modules/platform/cli-commands/"*.ts "${SCRIPTDIR}"*.whscr "${SCRIPTDIR}"*.sh "${SCRIPTDIR}"*.ts; do
+    if [ -f $SCRIPTPATH ]; then
+      FILENAME="${SCRIPTPATH##*/}"
+      INSTR="${FILENAME%.*}"
+      echo "$INSTR"
+    fi
   done
+
   if [ -x "$WEBHARE_DIR/bin/runscript" ]; then
     loadshellconfig
     for MODULE in $WEBHARE_CFG_MODULES; do
@@ -656,6 +655,12 @@ HERE
       TARGETMODULE="${INSTR%:*}"
       SUBCOMMAND="${INSTR##*:}"
     else
+      # Try the preferred route first for new commands, a TS file in platform/cli-commands (not whcommands to prevent aliasing them as wh platform:xxx)
+      # Also *we* have no reason to support es/js/tsx extensions (TODO allow .sh too? but whscr definitely shouldn't be here)
+      if [ -f "${WEBHARE_DIR}/modules/platform/cli-commands/$INSTR.ts" ]; then
+        exec_wh_runjs "${WEBHARE_DIR}/modules/platform/cli-commands/$INSTR.ts" "${OPTIONS[@]}"
+      fi
+
       TARGETMODULE=system
       SUBCOMMAND="$INSTR"
     fi

@@ -16,12 +16,6 @@ export { readRegistryKey } from "./registry";
 export { type RichDocument } from "./richdocument";
 export { WebHareBlob } from "./webhareblob";
 
-/** Promise that resolves as soon as the WebHare configuration is available
- * @deprecated The configuration is now always available
-*/
-export async function ready(): Promise<void> {
-  return;
-}
 
 /** Asynchronously invoke a HareScript fuction
 

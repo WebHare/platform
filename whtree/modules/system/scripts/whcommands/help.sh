@@ -59,10 +59,19 @@ show_module_commands() # modulename
 
 [ -z "$FORMODULE" ] && cat "$WEBHARE_DIR/modules/system/doc/wh.txt"
 
-SCRIPTDIRS="$WEBHARE_DIR/modules/system/scripts/whcommands/"
+if [ -z "$FORMODULE" ] || [ "$FORMODULE" == "platform" ]; then
+  for SCRIPTPATH in '%s\n' "$WEBHARE_DIR/modules/platform/cli-commands/"*.ts; do
+    if [ -f "$SCRIPTPATH" ]; then
+      FILENAME="${SCRIPTPATH##*/}"
+      INSTR="${FILENAME%.*}"
+      show_commandfile_help "$INSTR" "$SCRIPTPATH"
+    fi
+  done
+fi
+
 
 if [ -z "$FORMODULE" ] || [ "$FORMODULE" == "system" ]; then
-  for SCRIPTDIR in $SCRIPTDIRS; do
+  for SCRIPTDIR in "$WEBHARE_DIR/modules/system/scripts/whcommands/"; do
     for SCRIPTPATH in '%s\n' "${SCRIPTDIR}"*.whscr "${SCRIPTDIR}"*.sh "${SCRIPTDIR}"*.ts; do
       if [ -f "$SCRIPTPATH" ]; then
         FILENAME="${SCRIPTPATH##*/}"
