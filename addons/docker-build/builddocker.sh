@@ -23,6 +23,8 @@ while [[ $1 =~ ^-.* ]]; do
     DOCKERPULLARG=""
   elif [ "$1" == "--podman" ]; then
     USEPODMAN="1"
+    # without label=disable we can't run our build scripts. Adding `,relabel=shared` to RUN --mount=type=bind helps but makes us Docker incompatible
+    DOCKERBUILDARGS+=(--security-opt=label=disable)
   elif [ "$1" == "--nocache" -o "$1" == "--no-cache"  ]; then
     DOCKERBUILDARGS+=(--no-cache)
   elif [ "$1" == "--dockerfile" ]; then
