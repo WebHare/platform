@@ -10,9 +10,9 @@
               ingroup="http://www.webhare.net/xmlns/beta/tollium/richdoc_group"
               renderobjectname="mod::webhare_testsuite/lib/screens/components/embedtest.whlib#embedblock1_renderer">
     <members>
-      <member name="id" type="string" />
-      <member name="styletitle" type="string" />
-      <member name="fsref" type="whfsref" />
+      <string name="id" />
+      <string name="styletitle" />
+      <whfsref name="fsref" />
     </members>
   </widgettype>
 
@@ -20,20 +20,20 @@
               ingroup="http://www.webhare.net/xmlns/beta/tollium/richdoc_group"
               renderobjectname="mod::webhare_testsuite/lib/screens/components/embedtest.whlib#embedblock2_renderer">
     <members>
-      <member name="id2" type="string" />
-      <member name="styletitle" type="string" />
+      <string name="id2" />
+      <string name="styletitle" />
     </members>
   </widgettype>
 
   <widgettype namespace="http://www.webhare.net/xmlns/beta/embedinlineblock1"
-              editextension="mod::webhare_testsuite/screens/components/embedtest.xml#embedinlineblock1_comp"
+              editextension="/screens/components/embedtest.xml#embedinlineblock1_comp"
               embedtype="inline"
               ingroup="http://www.webhare.net/xmlns/beta/tollium/richdoc_group"
               renderobjectname="mod::webhare_testsuite/lib/screens/components/embedtest.whlib#EmbedInlineBlock1Renderer">
     <members>
-      <member name="id" type="string" />
-      <member name="styletitle" type="string" />
-      <member name="fsref" type="whfsref" />
+      <string name="id" />
+      <string name="styletitle" />
+      <whfsref name="fsref" />
     </members>
   </widgettype>
 
@@ -108,9 +108,9 @@
   <widgettype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtdinstancetest"
               renderobjectname="mod::webhare_testsuite/lib/rte/testcomp.whlib#RTDInstanceTestObj">
     <members>
-      <member name="stringdata" type="string" />
-      <member name="aref" type="whfsref" />
-      <member name="img" type="file" />
+      <string name="stringdata" />
+      <whfsref name="aref" />
+      <file name="img" />
     </members>
   </widgettype>
 
@@ -264,7 +264,7 @@
       <textstyle tag="HEADING1" containertag="h1" textstyles="i u" />
       <textstyle tag="HEADING2" containertag="h2" textstyles="i u" />
       <textstyle tag="NORMAL" textstyles="b a-href img sup sub strike" />
-      <textstyle tag="MYCUSTOMSTYLE" containertag="div" title="MyCustomStyle" textstyles="b a-href img sup sub strike" />
+      <textstyle tag="MYCUSTOMSTYLE" title="MyCustomStyle" containertag="div" textstyles="b a-href img sup sub strike" />
       <tablestyle tag="MYTABLE" />
       <tablestyle tag="OTHERTABLE" />
       <cellstyle tag="REDPILL" title="Red cell" />
@@ -278,7 +278,7 @@
       <textstyle tag="HEADING1" containertag="h1" textstyles="i u" />
       <textstyle tag="HEADING2" containertag="h2" textstyles="i u" />
       <textstyle tag="NORMAL" textstyles="b a-href img sup sub strike" />
-      <textstyle tag="MYCUSTOMSTYLE" containertag="div" title="MyCustomStyle" textstyles="b a-href img sup sub strike" />
+      <textstyle tag="MYCUSTOMSTYLE" title="MyCustomStyle" containertag="div" textstyles="b a-href img sup sub strike" />
       <tablestyle tag="MYTABLE" />
       <tablestyle tag="OTHERTABLE" />
       <cellstyle tag="REDPILL" title="Red cell" />
@@ -326,18 +326,17 @@
     </blockstyles>
   </rtdtype>
 
-  <rtdtype xmlns="http://www.webhare.net/xmlns/publisher/siteprofile"
-           namespace="http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure">
+  <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/page_rte_test_structure">
     <blockstyles defaultstyle="NORMAL">
       <textstyle tag="CONTENTTAB" containertag="p" importfrom="h2.tab" textstyles="" />
-      <textstyle tag="HEADING1" containertag="h1" title="Kop 1" nextstyle="HEADING2" textstyles="i u" />
-      <textstyle tag="HEADING2" containertag="h2" title="Kop 2" nextstyle="NORMAL" textstyles="i u" />
-      <textstyle tag="NORMAL" containertag="p" title="Normaal" textstyles="i u b sub sup a-href strike img" />
-      <textstyle tag="MYSTYLE" containertag="p" title="MyCustomStyle" textstyles="i u b sub sup a-href strike img" />
-      <textstyle tag="ORDERED" containertag="ol" title="Genummerde lijst" textstyles="i u b sub sup a-href strike img" />
-      <textstyle tag="UNORDERED" containertag="ul" title="Ongenummerde lijst" textstyles="i u" />
-      <tablestyle defaultstyle="MYSTYLE" tag="TABLE" title="Tabel" />
-      <tablestyle defaultstyle="MYSTYLE" tag="ALTTABLE" title="Alt Tabel" />
+      <textstyle tag="HEADING1" title="Kop 1" containertag="h1" nextstyle="HEADING2" textstyles="i u" />
+      <textstyle tag="HEADING2" title="Kop 2" containertag="h2" nextstyle="NORMAL" textstyles="i u" />
+      <textstyle tag="NORMAL" title="Normaal" containertag="p" textstyles="i u b sub sup a-href strike img" />
+      <textstyle tag="MYSTYLE" title="MyCustomStyle" containertag="p" textstyles="i u b sub sup a-href strike img" />
+      <textstyle tag="ORDERED" title="Genummerde lijst" containertag="ol" textstyles="i u b sub sup a-href strike img" />
+      <textstyle tag="UNORDERED" title="Ongenummerde lijst" containertag="ul" textstyles="i u" />
+      <tablestyle tag="TABLE" title="Tabel" defaultstyle="MYSTYLE" />
+      <tablestyle tag="ALTTABLE" title="Alt Tabel" defaultstyle="MYSTYLE" />
       <cellstyle tag="BLUE" title="Blue Cell" />
       <cellstyle tag="RED" title="Red Cell" />
     </blockstyles>
@@ -353,7 +352,7 @@
 
   <rtdtype namespace="http://www.webhare.net/xmlns/webhare_testsuite/rtd/allowinlines">
     <blockstyles defaultstyle="NORMAL">
-      <textstyle tag="NORMAL" containertag="p" title="Normaal" textstyles="i u b sub sup a-href strike ins del" />
+      <textstyle tag="NORMAL" title="Normaal" containertag="p" textstyles="i u b sub sup a-href strike ins del" />
     </blockstyles>
   </rtdtype>
 
