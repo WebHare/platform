@@ -520,7 +520,7 @@ export default class FormBase {
   }
 
   //default submission function. eg. RPC will override this
-  async submit() {
+  async submit(extradata?: object) {
     this.node.submit();
   }
 
@@ -590,7 +590,7 @@ export default class FormBase {
 
   /** Goto a specific page
       @param pageidx 0-based index of page to jump to */
-  async gotoPage(pageidx) {
+  async gotoPage(pageidx): Promise<void> {
     const state = this._getPageState();
     if (state.curpage == pageidx)
       return;
