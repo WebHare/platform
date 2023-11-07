@@ -666,6 +666,11 @@ MACRO ValidateOptionsTest()
   TestEq([ a := 42m ], ValidateOptions([ a := 42m ], [ a := 42 ], [ optional := ["a"] ]), "optional should not allow evasion of typecasts");
   TestThrowsLike("Incorrect type*'A'*RECORD*got RECORD ARRAY", PTR ValidateOptions([ a := DEFAULT RECORD ], [ a := DEFAULT RECORD ARRAY ]));
 
+  // Accept empty variant arrays
+  TestEq([ a := STRING[] ], ValidateOptions([ a := STRING[] ], [ a := VARIANT[] ]), "Accept empty variant arrays");
+  TestEq([ a := STRING[] ], ValidateOptions([ a := STRING["a","b"] ], [ a := VARIANT[] ]), "They should be seen as 'proper' arrays so not fallback to default values");
+  TestThrowsLike("Incorrect type*'A'*STRING ARRAY*got VARIANT ARRAY", PTR ValidateOptions([ a := STRING[] ], [ a := VARIANT["abc"] ]));
+
   //optional
   TestEq(CELL[], ValidateOptions([ a := 42 ], DEFAULT RECORD, [ optional :=["a"]]));
   TestEq(CELL[], ValidateOptions([ a := 42 ], CELL[], [ optional :=["a"]]));
