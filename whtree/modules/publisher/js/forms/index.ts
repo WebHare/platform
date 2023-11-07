@@ -11,7 +11,9 @@ import RPCFormBase from './rpc';
 export { FormBase, RPCFormBase };
 export { setFieldError, setupValidator } from './internal/customvalidation';
 
-const handlers = {
+type FormHandlerFactory = (form: HTMLFormElement) => FormBase;
+
+const handlers: Record<string, FormHandlerFactory> = {
   "publisher:form": form => new FormBase(form),
   "publisher:rpc": form => new RPCFormBase(form)
 };
@@ -25,7 +27,7 @@ const defaultsettings = {
 
 export const registerMergeFormatter = merge.registerFormatter;
 
-export function registerHandler(handlername, handler) {
+export function registerHandler(handlername: string, handler: FormHandlerFactory) {
   if (handlers[handlername]) {
     console.error(`Duplicate registerHandler for handler '${handlername}'`);
     return; //this _MAY_ be caused by somehow duplicate loading of libs... seen that once and ignoring+continue would indeed be the safer solution
