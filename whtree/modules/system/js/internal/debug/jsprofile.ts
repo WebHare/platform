@@ -17,6 +17,7 @@ async function finishProfile() {
 
   const { profile } = await savesession.post('Profiler.stop');
   console.log(JSON.stringify(profile, null, 2));
+  process.exit(); //force an exit. profiler seems to go into a 100% CPU loop? and we're done anyway now. without paramers this will simply quit with process.exitCode
 }
 
 const process_exit_backup = process.exit.bind(process);
