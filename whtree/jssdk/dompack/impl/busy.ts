@@ -18,7 +18,8 @@ let busymodalcontent: string | HTMLElement | HTMLDialogElement | undefined;
 
 export type BusyModalEvent = CustomEvent<{ show: boolean }>;
 
-export interface Lock extends Disposable {
+// As 'Lock' already exists on the Web (https://developer.mozilla.org/docs/Web/API/Lock) and it's seldom used just use a longer name. Available since WH 5.4
+export interface UIBusyLock extends Disposable {
   release(): void;
   [Symbol.dispose](): void;
 }
@@ -65,8 +66,8 @@ function checkCancelEvent(evt: Event) {
 }
 
 function toggleBusyModal(show: boolean) {
-  //'islock' is legacy non-camel version. TypeScript typing should help us transition (since 5.3)
-  if (!domevents.dispatchCustomEvent(window, 'dompack:busymodal', { bubbles: true, cancelable: true, detail: { show: show, islock: show } }))
+  //'islock' is legacy non-camel version. TypeScript typing should help us transition (since 5.3). 'as' shuts up the warning TODO remove 'islock' and the 'as'
+  if (!domevents.dispatchCustomEvent(window, 'dompack:busymodal', { bubbles: true, cancelable: true, detail: { show: show, islock: show } as BusyModalEvent['detail'] }))
     return; //cancelled!
 
   if (!installedanticancelhandler) {
@@ -182,7 +183,7 @@ interface LockOptions {
   modal: boolean;
 }
 
-class BusyLock implements Lock {
+class BusyLock implements UIBusyLock {
   modal: boolean;
   locknum: number;
   acquirestack: string | undefined;
@@ -238,7 +239,7 @@ export function waitUIFree() {
     @param options - Options.<br>
                    - modal: true/false - Whether the lock is a modal lock
  */
-export function flagUIBusy(options?: LockOptions): Lock {
+export function flagUIBusy(options?: LockOptions): UIBusyLock {
   return new BusyLock(options);
 }
 

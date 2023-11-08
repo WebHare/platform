@@ -1,6 +1,3 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from "@mod-system/js/wh/testframework";
 
 import * as dompack from "dompack";
@@ -9,9 +6,18 @@ import * as webhare_dompack from "@webhare/dompack";
 
 let eventcount = 0;
 
-function anyEventHandler(evt) {
+function anyEventHandler(evt: Event) {
   console.log(evt);
   ++eventcount;
+}
+
+declare global {
+  //Test extending events
+  interface GlobalEventHandlersEventMap {
+    "webhare_testsuite:mycustomevent": CustomEvent<{
+      test: 42;
+    }>;
+  }
 }
 
 test.registerTests(
@@ -37,19 +43,25 @@ test.registerTests(
     async function () {
       //please note this tests the lower layers of the JSX, it does not bother with the JSX syntax
       test.eq(0, eventcount);
-      let node = dompack.jsxcreate('input', { type: 'checkbox', checked: false });
-      test.eq(false, node.checked);
+      {
+        const node = dompack.jsxcreate('input', { type: 'checkbox', checked: false });
+        test.eq(false, node.checked);
+      }
 
-      node = dompack.jsxcreate('input', { type: 'text', onChange: anyEventHandler });
-      dompack.changeValue(node, 'newvalue');
-      test.eq(1, eventcount, 'expected change event');
+      {
+        const node = dompack.jsxcreate('input', { type: 'text', onChange: anyEventHandler });
+        dompack.changeValue(node, 'newvalue');
+        test.eq(1, eventcount, 'expected change event');
+      }
 
-      node = dompack.jsxcreate('div', { type: 'checkbox', attr1: 0, attr2: null, attr3: undefined, attr4: "" });
-      test.eq("0", node.getAttribute("attr1"));
-      test.eq(false, node.hasAttribute("attr2"));
-      test.eq(false, node.hasAttribute("attr3"));
-      test.eq(true, node.hasAttribute("attr4"));
-      test.eq("", node.getAttribute("attr4"));
+      {
+        const node = dompack.jsxcreate('div', { type: 'checkbox', attr1: 0, attr2: null, attr3: undefined, attr4: "" });
+        test.eq("0", node.getAttribute("attr1"));
+        test.eq(false, node.hasAttribute("attr2"));
+        test.eq(false, node.hasAttribute("attr3"));
+        test.eq(true, node.hasAttribute("attr4"));
+        test.eq("", node.getAttribute("attr4"));
+      }
     },
 
     "jsx-syntax",
@@ -74,5 +86,19 @@ test.registerTests(
       test.eq("3", "123".at(-1));
       test.eq("1", "123".at(-3));
       test.eq(undefined, "123".at(-4));
+    },
+
+    "Events",
+    async function () {
+      //Verify event validation (and not getting in the way of unknown events)
+      webhare_dompack.dispatchCustomEvent(window, "webhare_testsuite:mycustomevent", { bubbles: true, cancelable: true, detail: { test: 42 } });
+      ///@ts-expect-error details have been defined so should be required
+      webhare_dompack.dispatchCustomEvent(window, "webhare_testsuite:mycustomevent", { bubbles: true, cancelable: true });
+      ///@ts-expect-error nosuch is not a valid detail, should be test:42
+      webhare_dompack.dispatchCustomEvent(window, "webhare_testsuite:mycustomevent", { bubbles: true, cancelable: true, detail: { nosuch: 43 } });
+
+      //an unregistered event should not be bothered at all
+      webhare_dompack.dispatchCustomEvent(window, "webhare_testsuite:unknownevent", { bubbles: true, cancelable: true });
+      webhare_dompack.dispatchCustomEvent(window, "webhare_testsuite:unknownevent", { bubbles: true, cancelable: true, detail: { nosuch: 43 } });
     }
   ]);

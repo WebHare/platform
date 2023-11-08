@@ -78,20 +78,25 @@ type CustomEventParams =
     /** Whether this event can be cancelled */
     cancelable: boolean;
     /** Custom event information */
-    detail?: object;
+    detail?: unknown;
     /** Handler to execute if the default isn't prevented by a event listener */
     defaulthandler?: (evt: CustomEvent) => void;
   };
 
-/**
-     Fire a custom event
- *
+/** Fire a custom event
     @param node - node to fire the event on
-    @param event - event type
+    @param event - event type. You should add this event to the GlobalEventHandlersEventMap for validation in dispatchCustomEvent calls and addEventListener callbacks.
     @param params - Event options
     @returns true if the default wasn't prevented
  */
-export function dispatchCustomEvent(node: EventTarget, event: string, params: CustomEventParams) {
+
+export function dispatchCustomEvent<K extends string>(
+  node: EventTarget,
+  event: K,
+  params: CustomEventParams & (K extends keyof GlobalEventHandlersEventMap ?
+    GlobalEventHandlersEventMap[K] extends CustomEvent ?
+    { detail: GlobalEventHandlersEventMap[K]["detail"] } : unknown : unknown)) {
+
   if (!params)
     throw new Error(`Missing dispatchCustomEvent params`);
   ['bubbles', 'cancelable'].forEach(prop => {
