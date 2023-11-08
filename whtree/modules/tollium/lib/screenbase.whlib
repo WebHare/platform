@@ -796,11 +796,12 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
       @long Create a new component, which has been supplied by a different module
       @param namespace Namespace containing the custom component
       @param type Type of the component to create
+      @cell(string) options.name Name for the new component. It better not exist yet
       @cell(string) options.namebase Base prefix for the generated anonymous name for the new component
       @return The new object, or a default object if the requested component type was not known */
   PUBLIC OBJECT FUNCTION CreateCustomComponent(STRING namespace, STRING type, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
-    options := ValidateOptions( [ namebase := "tollium_d" ], options);
+    options := ValidateOptions( [ namebase := "tollium_d", name := "" ], options);
     RECORD compinfo := GetComponentDefinition(namespace, type, "element");
     IF(NOT RecordExists(compinfo))
       RETURN DEFAULT OBJECT;
@@ -809,7 +810,8 @@ PUBLIC OBJECTTYPE TolliumScreenBase EXTEND TolliumScope
       RETURN this->CreateFragment(compinfo);
 
     STRING elementtype := (namespace != whconstant_xmlns_screens ? namespace || "#" : "") || type;
-    OBJECT comp := this->tolliumscreenmanager->CreateComponent(compinfo.objtype, this->tolliumscreenmanager->CreateAnonymousName(options.namebase),  -1, DEFAULT OBJECT, "", "", elementtype);
+    STRING name := options.name ?? this->tolliumscreenmanager->CreateAnonymousName(options.namebase);
+    OBJECT comp := this->tolliumscreenmanager->CreateComponent(compinfo.objtype, name, -1, DEFAULT OBJECT, "", "", elementtype);
     RETURN comp;
   }
 
