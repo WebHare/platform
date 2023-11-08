@@ -17,7 +17,8 @@ let busymodalcontent: string | HTMLElement | HTMLDialogElement | undefined;
 
 export type BusyModalEvent = CustomEvent<{ show: boolean }>;
 
-export interface Lock {
+// As 'Lock' already exists on the Web (https://developer.mozilla.org/docs/Web/API/Lock) and it's seldom used just use a longer name. Available since WH 5.4
+export interface UIBusyLock {
   release(): void;
 }
 
@@ -180,7 +181,7 @@ interface LockOptions {
   modal: boolean;
 }
 
-class BusyLock implements Lock {
+class BusyLock implements UIBusyLock {
   modal: boolean;
   locknum: number;
   acquirestack: string | undefined;
@@ -231,7 +232,7 @@ export function waitUIFree() {
     @param options - Options.<br>
                    - modal: true/false - Whether the lock is a modal lock
  */
-export function flagUIBusy(options?: LockOptions): Lock {
+export function flagUIBusy(options?: LockOptions): UIBusyLock {
   return new BusyLock(options);
 }
 
