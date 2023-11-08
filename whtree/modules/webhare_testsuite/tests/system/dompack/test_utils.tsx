@@ -11,6 +11,15 @@ function anyEventHandler(evt: Event) {
   ++eventcount;
 }
 
+declare global {
+  //Test extending events
+  interface GlobalEventHandlersEventMap {
+    "webhare_testsuite:mycustomevent": CustomEvent<{
+      test: 42;
+    }>;
+  }
+}
+
 test.registerTests(
   [
     "Verify dompack identity",
@@ -77,5 +86,19 @@ test.registerTests(
       test.eq("3", "123".at(-1));
       test.eq("1", "123".at(-3));
       test.eq(undefined, "123".at(-4));
+    },
+
+    "Events",
+    async function () {
+      //Verify event validation (and not getting in the way of unknown events)
+      webhare_dompack.dispatchCustomEvent(window, "webhare_testsuite:mycustomevent", { bubbles: true, cancelable: true, detail: { test: 42 } });
+      ///@ts-expect-error details have been defined so should be required
+      webhare_dompack.dispatchCustomEvent(window, "webhare_testsuite:mycustomevent", { bubbles: true, cancelable: true });
+      ///@ts-expect-error nosuch is not a valid detail, should be test:42
+      webhare_dompack.dispatchCustomEvent(window, "webhare_testsuite:mycustomevent", { bubbles: true, cancelable: true, detail: { nosuch: 43 } });
+
+      //an unregistered event should not be bothered at all
+      webhare_dompack.dispatchCustomEvent(window, "webhare_testsuite:unknownevent", { bubbles: true, cancelable: true });
+      webhare_dompack.dispatchCustomEvent(window, "webhare_testsuite:unknownevent", { bubbles: true, cancelable: true, detail: { nosuch: 43 } });
     }
   ]);

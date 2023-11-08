@@ -66,8 +66,8 @@ function checkCancelEvent(evt: Event) {
 }
 
 function toggleBusyModal(show: boolean) {
-  //'islock' is legacy non-camel version. TypeScript typing should help us transition (since 5.3)
-  if (!domevents.dispatchCustomEvent(window, 'dompack:busymodal', { bubbles: true, cancelable: true, detail: { show: show, islock: show } }))
+  //'islock' is legacy non-camel version. TypeScript typing should help us transition (since 5.3). 'as' shuts up the warning TODO remove 'islock' and the 'as'
+  if (!domevents.dispatchCustomEvent(window, 'dompack:busymodal', { bubbles: true, cancelable: true, detail: { show: show, islock: show } as BusyModalEvent['detail'] }))
     return; //cancelled!
 
   if (!installedanticancelhandler) {
