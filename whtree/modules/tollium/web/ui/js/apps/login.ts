@@ -1,7 +1,6 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-/* globals $shell */
 import * as frontend from '@webhare/frontend';
 import * as whintegration from '@mod-system/js/wh/integration';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
@@ -10,6 +9,7 @@ import "../../common.lang.json";
 
 import $todd from "@mod-tollium/web/ui/js/support";
 import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
+import { getIndyShell } from '../shell';
 const getTid = require("@mod-tollium/js/gettid").getTid;
 const utilerror = require('@mod-system/js/wh/errorreporting');
 
@@ -59,7 +59,7 @@ class LoginApp {
     this.app.updateApplicationProperties({
       title: getTid("tollium:shell.login.apptitle"),
       appicon: 'tollium:objects/webhare',
-      background: $shell.settings.loginbg
+      background: getIndyShell().settings.loginbg
     });
   }
 
@@ -239,7 +239,7 @@ class LoginApp {
     }
 
     let passwordresetlines = [];
-    if ($shell.settings.allowpasswordreset) {
+    if (getIndyShell().settings.allowpasswordreset) {
       passwordresetlines = [{ layout: "right", items: [{ item: "forgotpassword" }] }];
     }
 
@@ -311,7 +311,7 @@ class LoginApp {
             /* autologin is disabled for now - we have no test coverage and probably won't even have users for it.
             if (item.autologin && item.type == "saml") //cant autologin with OIDC yet, that requires some sort of hint that is safe to try the redirect-loop
             {
-              $shell.wrdauth.startLogin(item.type, { action: 'postmessage', passive: true, allowlogout: item.allowlogout })
+              getIndyShell().wrdauth.startLogin(item.type, { action: 'postmessage', passive: true, allowlogout: item.allowlogout })
                 .then(this.handlePassiveSAMLLogin)
                 .catch(utilerror.reportException);
             }
@@ -464,9 +464,9 @@ class LoginApp {
     if (result.submitinstruction.type == "reload") {
       //no need to execute the submit instruction, it just redirects back to the shell..
       this.app.terminateApplication();
-      $shell.wrdauth.refresh();
-      $shell.wrdauth.setupPage();
-      $shell.executeShell();
+      getIndyShell().wrdauth.refresh();
+      getIndyShell().wrdauth.setupPage();
+      getIndyShell().executeShell();
       callback();
     } else {
       whintegration.executeSubmitInstruction(result.submitinstruction);
@@ -487,7 +487,7 @@ class LoginApp {
     }
 
     try {
-      const result = await $shell.wrdauth.login(loginname, password, { persistent: savelogin });
+      const result = await getIndyShell().wrdauth.login(loginname, password, { persistent: savelogin });
       if (result.submitinstruction) {
         this.handleSubmitInstruction(result, callback);
         return;
@@ -504,7 +504,7 @@ class LoginApp {
       }
       if (result.code == "REQUIRESETUPSECONDFACTOR") {
         this.topscreen.getComponent('password').setValue("");
-        const app = $shell.startBackendApplication("system:managetwofactorauth", null,
+        const app = getIndyShell().startBackendApplication("system:managetwofactorauth", null,
           {
             onappbar: false,
             isloginapp: true,
@@ -517,7 +517,7 @@ class LoginApp {
       }
       if (result.code == "FAILEDVALIDATIONCHECKS") {
         this.topscreen.getComponent('password').setValue("");
-        const app = $shell.startBackendApplication("system:resetpassword", null,
+        const app = getIndyShell().startBackendApplication("system:resetpassword", null,
           {
             onappbar: false,
             isloginapp: true,
@@ -544,7 +544,7 @@ class LoginApp {
   }
 
   async executeForgot(data, callback) {
-    const app = $shell.startBackendApplication("system:forgotpassword", this.app);
+    const app = getIndyShell().startBackendApplication("system:forgotpassword", this.app);
     await app.getLoadPromise();
     callback();
   }
@@ -609,7 +609,7 @@ class LoginApp {
     const code = this.topscreen.getComponent('totpcode').getSubmitValue();
     const persistent = this.topscreen.getComponent('savelogin').getSubmitValue().value;
 
-    const result = await $shell.wrdauth.loginSecondFactor(this.secondfactordata.firstfactorproof, "totp", { code }, { persistent });
+    const result = await getIndyShell().wrdauth.loginSecondFactor(this.secondfactordata.firstfactorproof, "totp", { code }, { persistent });
     if (result.submitinstruction) {
       this.handleSubmitInstruction(result, callback);
       return;

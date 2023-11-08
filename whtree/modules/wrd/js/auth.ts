@@ -10,7 +10,7 @@ import Keyboard from 'dompack/extra/keyboard';
 
 import JSONRPC from '@mod-system/js/net/jsonrpc';
 
-let defaultauth = null;
+let defaultauth: WRDAuthenticationProvider | null = null;
 
 function getBackVar(backurl) {
   backurl = backurl.split('/').slice(3).join('/'); //strip origin, make relative to current server
@@ -109,6 +109,7 @@ export class WRDAuthenticationProvider {
     const persistentlogin = persistentfield && persistentfield.checked;
     this._tryLogin(form, loginfield.value, passwordfield.value, { persistent: persistentlogin });
   }
+
   login(login, password, options) {
     options = { ...options };
     return new Promise((resolve, reject) => {

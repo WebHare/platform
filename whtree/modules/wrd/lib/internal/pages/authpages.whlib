@@ -11,6 +11,10 @@ LOADLIB "mod::publisher/lib/forms/base.whlib";
 
 LOADLIB "mod::tollium/lib/gettid.whlib";
 
+LOADLIB "mod::wrd/lib/auth/passwordpolicy.whlib";
+LOADLIB "mod::wrd/lib/internal/auth/support.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
+
 
 MACRO RunWRDAuthPageWitty(OBJECT webcontext, STRING component, RECORD data)
 {
@@ -144,7 +148,27 @@ PUBLIC OBJECT FUNCTION GetForgotPasswordPage(OBJECT webdesign, RECORD options)
 // Reset password (link from email)
 //
 
-PUBLIC OBJECTTYPE ResetPasswordForm EXTEND Formbase
+STATIC OBJECTTYPE PasswordFormBase EXTEND FormBase
+<
+  MACRO CheckPasswordUpdate(OBJECT work, INTEGER entityid)
+  {
+    OBJECT wrdschema := this->formcontext->GetWRDAuthPlugin()->wrdschema;
+    STRING validationchecks := GetWRDSetting(wrdschema, "password_validation_checks");
+    IF(validationchecks != "")
+    {
+      //Get current password (or ideally, full auth settings) as
+      VARIANT authenticationsettings := wrdschema->accounttype->GetEntityField(entityid, wrdschema->accountpasswordtag);
+      IF (TypeID(authenticationsettings) = TypeID(STRING))
+        authenticationsettings := CreateAuthenticationSettingsFromPasswordHash(authenticationsettings, [ validfrom := DEFAULT DATETIME ]);
+
+      RECORD rec := CheckPassword(validationchecks, ^passwordnew->value, CELL[ authenticationsettings ]);
+      IF (NOT rec.success)
+        work->AddErrorFor(^passwordnew, rec.message);
+    }
+  }
+>;
+
+PUBLIC STATIC OBJECTTYPE ResetPasswordForm EXTEND PasswordFormBase
 <
   PUBLIC RECORD verifyresult;
 
@@ -156,6 +180,9 @@ PUBLIC OBJECTTYPE ResetPasswordForm EXTEND Formbase
   PUBLIC RECORD FUNCTION Submit(RECORD extradata)
   {
     OBJECT work := this->BeginWork();
+
+    this->CheckPasswordUpdate(work, this->verifyresult.entityid);
+
     // Re-process verification link at submit, don't want it to be used twice.
     this->verifyresult := this->formcontext->GetWRDAuthPlugin()->ProcessVerificationLink(GetFormWebVariable("_ed"), GetFormWebVariable("verifier"));
     IF(NOT this->verifyresult.success)
@@ -303,7 +330,7 @@ PUBLIC OBJECT FUNCTION GetEmailChangedPage(OBJECT webdesign, RECORD options)
 // Change password
 //
 
-PUBLIC OBJECTTYPE PasswordChangeForm EXTEND Formbase
+PUBLIC STATIC OBJECTTYPE PasswordChangeForm EXTEND PasswordFormBase
 <
   MACRO NEW()
   {
@@ -312,8 +339,10 @@ PUBLIC OBJECTTYPE PasswordChangeForm EXTEND Formbase
   PUBLIC RECORD FUNCTION Submit(RECORD extradata)
   {
     OBJECT work := this->BeginWork();
-
     OBJECT authplugin := this->formcontext->GetWRDAuthPlugin();
+
+    this->CheckPasswordUpdate(work, authplugin->GetLoggedinEntity());
+
     IF(NOT authplugin->VerifyCurrentPassword(^currentpassword->value))
       work->AddErrorFor(^currentpassword, GetTid("wrd:site.forms.authpages.incorrectpassword"));
     IF(NOT work->HasFailed() AND ^passwordnew->value != ^passwordrepeat->value)

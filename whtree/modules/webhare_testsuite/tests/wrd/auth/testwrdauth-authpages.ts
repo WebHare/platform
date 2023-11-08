@@ -1,45 +1,40 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from "@mod-system/js/wh/testframework";
 import * as testwrd from "@mod-wrd/js/testframework";
-
-let setupdata;
 
 test.registerTests(
   [
     async function () {
-      setupdata = await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupWRDAuth', test.getTestSiteRoot() + "testpages/wrdauthtest-router/", "tester@beta.webhare.net"); //executes TestInvoke_SetupWRDAuth
+      await test.invoke('mod::webhare_testsuite/lib/internal/testsite.whlib#SetupWRDAuth', test.getTestSiteRoot() + "testpages/wrdauthtest-router/", "tester@beta.webhare.net"); //executes TestInvoke_SetupWRDAuth
     },
 
     "Simple login",
     async function () {
       await test.load(test.getTestSiteRoot() + "testpages/wrdauthtest-router/");
 
-      test.eq('', test.qS('[name="username"]').value);
-      test.fill(test.qS('[name="username"]'), 'pietjetester@beta.webhare.net');
-      test.fill(test.qS('[name="password"]'), 'fout');
+      test.eq('', test.qR('[name="username"]').value);
+      test.fill(test.qR('[name="username"]'), 'pietjetester@beta.webhare.net');
+      test.fill(test.qR('[name="password"]'), 'fout');
       test.click('.wh-wrdauth-login__loginbutton');
 
       await test.wait('ui');
 
-      test.assert(test.hasFocus(test.qS('[name="password"]')));
+      test.assert(test.hasFocus(test.qR('[name="password"]')));
     },
 
     "Start forgot password sequence",
     async function () {
-      test.click(test.qS('.wh-wrdauth-login__forgotpasswordlink'));
+      test.click(test.qR('.wh-wrdauth-login__forgotpasswordlink'));
       await test.wait("pageload");
     },
 
     ...testwrd.testResetPassword({
       email: 'pietjetester@beta.webhare.net',
-      newpassword: 'mylittlesecret'
+      newpassword: 'mylittlesecret$'
     }),
 
     'After login stuff',
     async function () {
-      test.assert(test.qS('#isloggedin').checked);
+      test.assert(test.qR('#isloggedin').checked);
       test.assert(!test.qS('#emailchangelink')); //should not be available unless enabled
       test.assert(!test.qS('#passwordchangelink')); //should not be available unless enabled
     },
@@ -47,27 +42,34 @@ test.registerTests(
     "Change password",
     async function () {
       await test.load(test.getTestSiteRoot() + "testpages/wrdauthtest-router-extended/");
-      test.assert(test.qS('#isloggedin').checked);
-      test.assert(test.qS('#passwordchangelink'));
+      test.assert(test.qR('#isloggedin').checked);
+      test.assert(test.qR('#passwordchangelink'));
 
-      await test.load(test.qS('#passwordchangelink').href);
+      await test.load(test.qR<HTMLAnchorElement>('#passwordchangelink').href);
 
       test.fill('#passwordchange-currentpassword', 'secret');
       test.fill('#passwordchange-passwordnew', 'secret2');
-      test.fill('#passwordchange-passwordrepeat', 'secret3');
+      test.fill('#passwordchange-passwordrepeat', 'secret2');
 
       test.click('.wh-wrdauth-passwordchange__changebutton');
       test.assert(!test.canClick('.wh-wrdauth-passwordchange__done'));
       await test.wait('ui');
 
-      test.assert(test.hasFocus(test.qS('#passwordchange-currentpassword')));
-      test.fill('#passwordchange-currentpassword', 'mylittlesecret');
+      test.assert(test.hasFocus(test.qR('#passwordchange-currentpassword')));
+      test.fill('#passwordchange-currentpassword', 'mylittlesecret$');
 
       test.click('.wh-wrdauth-passwordchange__changebutton');
       await test.wait('ui');
+      test.assert(test.hasFocus(test.qR('#passwordchange-passwordnew')));
+      test.eq(/at least 1 symbol/i, test.qR('[data-wh-form-group-for="passwordnew"] .wh-form__error').textContent);
 
-      test.assert(test.hasFocus(test.qS('#passwordchange-passwordnew')));
-      test.fill('#passwordchange-passwordnew', 'secret3');
+      test.fill('#passwordchange-passwordnew', 'secret3$');
+      test.click('.wh-wrdauth-passwordchange__changebutton');
+      test.assert(!test.canClick('.wh-wrdauth-passwordchange__done'));
+      await test.wait('ui');
+      test.eq(/The passwords you entered did not match/i, test.qR('[data-wh-form-group-for="passwordnew"] .wh-form__error').textContent);
+
+      test.fill('#passwordchange-passwordrepeat', 'secret3$');
 
       test.click('.wh-wrdauth-passwordchange__changebutton');
       await test.wait('ui');
@@ -79,55 +81,55 @@ test.registerTests(
       test.click('#logoutlink');
       await test.wait('pageload');
 
-      test.fill(test.qS('[name="username"]'), 'pietjetester@beta.webhare.net');
-      test.fill(test.qS('[name="password"]'), 'mylittlesecret');
+      test.fill(test.qR('[name="username"]'), 'pietjetester@beta.webhare.net');
+      test.fill(test.qR('[name="password"]'), 'mylittlesecret$');
       test.click('.wh-wrdauth-login__loginbutton');
       await test.wait('ui');
 
-      test.assert(test.hasFocus(test.qS('[name="password"]')));
-      test.fill(test.qS('[name="password"]'), 'secret3');
+      test.assert(test.hasFocus(test.qR('[name="password"]')));
+      test.fill(test.qR('[name="password"]'), 'secret3$');
       test.click('.wh-wrdauth-login__loginbutton');
       await test.wait('pageload');
     },
 
     async function () {
       await test.load(test.getTestSiteRoot() + "testpages/wrdauthtest-router-extended/");
-      test.assert(test.qS('#isloggedin').checked);
-      test.assert(test.qS('#emailchangelink')); //should not be available unless enabled
+      test.assert(test.qR('#isloggedin').checked);
+      test.assert(test.qR('#emailchangelink')); //should not be available unless enabled
     },
 
     "Change email",
     async function () {
-      await test.load(test.qS('#emailchangelink').href);
+      await test.load(test.qR<HTMLAnchorElement>('#emailchangelink').href);
 
-      test.eq("Crude test of witty override", test.qS("#custom-emailchange-text").textContent); //is our witty override in play ?
-      test.fill(test.qS('#emailchange-email'), 'pietjetester@beta.webhare.net');
+      test.eq("Crude test of witty override", test.qR("#custom-emailchange-text").textContent); //is our witty override in play ?
+      test.fill(test.qR('#emailchange-email'), 'pietjetester@beta.webhare.net');
       test.click('.wh-wrdauth-emailchange__changebutton');
 
       await test.wait('ui');
 
-      test.assert(test.hasFocus(test.qS('#emailchange-email')), "as this is our current email, the field should be refocussed and no submission taking place");
-      test.assert(test.canClick(test.qS('.wh-wrdauth-emailchange__changebutton')), "change button should still be here");
+      test.assert(test.hasFocus(test.qR('#emailchange-email')), "as this is our current email, the field should be refocussed and no submission taking place");
+      test.assert(test.canClick(test.qR('.wh-wrdauth-emailchange__changebutton')), "change button should still be here");
 
-      test.fill(test.qS('#emailchange-email'), 'pietjenieuw@beta.webhare.net');
+      test.fill(test.qR('#emailchange-email'), 'pietjenieuw@beta.webhare.net');
       test.click('.wh-wrdauth-emailchange__changebutton');
 
       await test.wait('ui');
 
-      test.assert(test.canClick(test.qS('.wh-wrdauth-emailchange__done')), "Expecting wh-wrdauth-emailchange__done text now");
-      test.assert(test.qS('.wh-wrdauth-emailchange__done').textContent.includes("pietjenieuw@beta.webhare.net"), "Feedback should mention my email address");
+      test.assert(test.canClick(test.qR('.wh-wrdauth-emailchange__done')), "Expecting wh-wrdauth-emailchange__done text now");
+      test.assert(test.qR('.wh-wrdauth-emailchange__done').textContent!.includes("pietjenieuw@beta.webhare.net"), "Feedback should mention my email address");
     },
     "Verify old email still works",
     async function () {
-      await test.load(test.qS('#logoutlink').href);
+      await test.load(test.qR<HTMLAnchorElement>('#logoutlink').href);
 
-      test.fill(test.qS('[name="username"]'), 'pietjetester@beta.webhare.net');
-      test.fill(test.qS('[name="password"]'), 'secret3');
+      test.fill(test.qR('[name="username"]'), 'pietjetester@beta.webhare.net');
+      test.fill(test.qR('[name="password"]'), 'secret3$');
       test.click('.wh-wrdauth-login__loginbutton');
 
       await test.wait("pageload");
 
-      test.assert(test.qS('#isloggedin').checked);
+      test.assert(test.qR('#isloggedin').checked);
     },
     "Handle email change email",
     async function () {
@@ -143,42 +145,42 @@ test.registerTests(
 
       await test.wait("pageload");
 
-      test.assert(test.canClick(test.qS('.wh-wrdauth-emailchanged')), "Expecting wh-wrdauth-emailchanged");
+      test.assert(test.canClick(test.qR('.wh-wrdauth-emailchanged')), "Expecting wh-wrdauth-emailchanged");
     },
 
     "Verify old email is now broken",
     async function () {
-      await test.load(test.qS('#logoutlink').href);
+      await test.load(test.qR<HTMLAnchorElement>('#logoutlink').href);
 
-      test.fill(test.qS('[name="username"]'), 'pietjetester@beta.webhare.net');
-      test.fill(test.qS('[name="password"]'), 'secret3');
+      test.fill(test.qR('[name="username"]'), 'pietjetester@beta.webhare.net');
+      test.fill(test.qR('[name="password"]'), 'secret3$');
       test.click('.wh-wrdauth-login__loginbutton');
 
       await test.wait('ui');
 
-      test.assert(test.hasFocus(test.qS('[name="password"]')));
-      test.assert(test.canClick(test.qS('.wh-wrdauth-login__loginbutton')), "Shouldn't be able to log in");
+      test.assert(test.hasFocus(test.qR('[name="password"]')));
+      test.assert(test.canClick(test.qR('.wh-wrdauth-login__loginbutton')), "Shouldn't be able to log in");
     },
 
     "Verify new email works",
     async function () {
-      test.fill(test.qS('[name="username"]'), 'pietjenieuw@beta.webhare.net');
+      test.fill(test.qR('[name="username"]'), 'pietjenieuw@beta.webhare.net');
       test.click('.wh-wrdauth-login__loginbutton');
 
       await test.wait("pageload");
 
-      test.assert(test.qS('#isloggedin').checked);
+      test.assert(test.qR('#isloggedin').checked);
     },
 
     "Try to take email address used by someone else",
     async function () {
-      await test.load(test.qS('#emailchangelink').href);
+      await test.load(test.qR<HTMLAnchorElement>('#emailchangelink').href);
 
-      test.fill(test.qS('#emailchange-email'), 'jantjetester@beta.webhare.net');
+      test.fill(test.qR('#emailchange-email'), 'jantjetester@beta.webhare.net');
       test.click('.wh-wrdauth-emailchange__changebutton');
       await test.wait('ui');
-      test.assert(test.canClick(test.qS('.wh-wrdauth-emailchange__done')), "Expecting wh-wrdauth-emailchange__done text now");
-      test.assert(test.qS('.wh-wrdauth-emailchange__done').textContent.includes("jantjetester@beta.webhare.net"), "Feedback should mention my attempted email address");
+      test.assert(test.canClick(test.qR('.wh-wrdauth-emailchange__done')), "Expecting wh-wrdauth-emailchange__done text now");
+      test.assert(test.qR('.wh-wrdauth-emailchange__done').textContent!.includes("jantjetester@beta.webhare.net"), "Feedback should mention my attempted email address");
     },
 
     "Handle email change email",
@@ -194,15 +196,15 @@ test.registerTests(
 
     "Verify new email works",
     async function () {
-      await test.load(test.qS('#logoutlink').href);
+      await test.load(test.qR<HTMLAnchorElement>('#logoutlink').href);
 
-      test.fill(test.qS('[name="username"]'), 'pietjenieuw@beta.webhare.net');
-      test.fill(test.qS('[name="password"]'), 'secret3');
+      test.fill(test.qR('[name="username"]'), 'pietjenieuw@beta.webhare.net');
+      test.fill(test.qR('[name="password"]'), 'secret3$');
       test.click('.wh-wrdauth-login__loginbutton');
 
       await test.wait("pageload");
 
-      test.assert(test.qS('#isloggedin').checked);
+      test.assert(test.qR('#isloggedin').checked);
     },
 
     "logincontrol test",
@@ -216,13 +218,13 @@ test.registerTests(
       test.assert(test.getWin().location.href.startsWith(test.getTestSiteRoot() + "testpages/wrdauthtest-router/"), "should be redirected to login page");
 
       // login with (new) email and password
-      test.fill(test.qS('[name="username"]'), 'pietjenieuw@beta.webhare.net');
-      test.fill(test.qS('[name="password"]'), 'secret3');
+      test.fill(test.qR('[name="username"]'), 'pietjenieuw@beta.webhare.net');
+      test.fill(test.qR('[name="password"]'), 'secret3$');
       test.click('.wh-wrdauth-login__loginbutton');
 
       await test.wait('load');
       test.assert(test.getWin().location.href.startsWith(test.getTestSiteRoot() + "testpages/wrdauthtest-router-protected/codeprotected/"));
-      test.eq('THE CODE PROTECTED CONTENT', test.getDoc().querySelector("#content").textContent);
+      test.eq('THE CODE PROTECTED CONTENT', test.qR("#content").textContent);
 
       await test.load(test.getTestSiteRoot() + "testpages/wrdauthtest-router/");
       test.click('#logoutlink');
@@ -232,13 +234,13 @@ test.registerTests(
       test.assert(test.getWin().location.href.startsWith(test.getTestSiteRoot() + "testpages/wrdauthtest-router/"), "should be redirected to login page");
 
       // login with (new) email and password
-      test.fill(test.qS('[name="username"]'), 'pietjenieuw@beta.webhare.net');
-      test.fill(test.qS('[name="password"]'), 'secret3');
+      test.fill(test.qR('[name="username"]'), 'pietjenieuw@beta.webhare.net');
+      test.fill(test.qR('[name="password"]'), 'secret3$');
       test.click('.wh-wrdauth-login__loginbutton');
 
       await test.wait('load');
       test.assert(test.getWin().location.href.startsWith(test.getTestSiteRoot() + "testpages/wrdauthtest-router-protected/accessruleprotected/"));
-      test.eq('THE ACCESSRULE PROTECTED CONTENT', test.getDoc().querySelector("#content").textContent);
+      test.eq('THE ACCESSRULE PROTECTED CONTENT', test.qR("#content").textContent);
 
       test.click('#logoutlink');
       await test.wait('pageload');

@@ -37,6 +37,7 @@ LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 
 LOADLIB "mod::wrd/lib/api.whlib";
 LOADLIB "mod::wrd/lib/auth.whlib";
+LOADLIB "mod::wrd/lib/internal/wrdsettings.whlib";
 
 PUBLIC CONSTANT STRING testfw_mockbrowser := "testfw-browser-11";
 PUBLIC CONSTANT STRING testfw_mockremark := "I've got an issue with this bunny";
@@ -1559,13 +1560,14 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix
   RunTestFramework([ PTR DoSetupWRDAuth], [wrdauth := FALSE]);
 
   testfw->BeginWork();
+  SetWRDSetting(testfw->GetWRDSchema(), "password_validation_checks", "minlength:5 symbols:1");
 
   testfw->GetWRDSchema()->^wrd_person->CreateEntity(
     [ wrd_firstname := "Pietje"
     , wrd_lastname := "Tester"
     , wrd_contact_email := "pietje" || emailsuffix
     , wrd_guid := "wrd:123F0320E665AE6BFA6C2673AE9E2F3A"
-    , password := testfw->hashedpasswords.secret
+    , password := testfw->hashedpasswords.secret_dollar
     , whuser_unit :=            testfw->testunit
     ]);
   testfw->GetWRDSchema()->^wrd_person->CreateEntity(
@@ -1573,7 +1575,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix
     , wrd_lastname := "Tester"
     , wrd_contact_email := "jantje" || emailsuffix
     , wrd_guid := "wrd:123F0320E665AE6BFA6C2673AE9E2ABC"
-    , password := testfw->hashedpasswords.secret
+    , password := testfw->hashedpasswords.secret_dollar
     , whuser_unit :=            testfw->testunit
     ]);
   testfw->CommitWork();

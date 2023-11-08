@@ -7,8 +7,6 @@
  *                                                                                                                          *
  ****************************************************************************************************************************/
 
-/* global $shell */
-
 let todd_components = {};
 
 import { getComponents } from '@mod-tollium/webdesigns/webinterface/components';
@@ -65,10 +63,19 @@ function preventNavigation(event) {
   event.returnValue = "";
 }
 
+let indyshellinstance: IndyShell | undefined;
+
 class IndyShell extends TolliumShell {
+  settings = {};
+  wrdauth = WRDAuth.getDefaultAuth();
+
   constructor(setup) {
     super(setup);
+    if (indyshellinstance)
+      throw new Error(`Duplicate shell instance`);
+
     window.$shell = this; //FIXME shouldn't need this!
+    indyshellinstance = this; //FIXME.. or this, but at least its slightly better than having to hack a global
     this.isloggingoff = false;
     this.istodd = false;
     this.eventsconnection = null;
@@ -77,9 +84,6 @@ class IndyShell extends TolliumShell {
     this.checkinterval = 0;
     this.offlinenotification = false;
 
-    this.settings = {};
-
-    this.wrdauth = WRDAuth.getDefaultAuth();
     this.frontendids = [];
 
     $todd.resourcebase = new URL(whintegration.config.obj.toddroot, location.href).toString();
@@ -192,7 +196,7 @@ class IndyShell extends TolliumShell {
     if (!seenfrontend) //FIXME should we register an endpoint if it wasn't an appstart? (what else could it be)? Decided to do it anyway, as the original code _did_ include the frontendid into $tdod.frontendids no matter what..
     {
       const metacomm = new LinkEndPoint({ linkid: data.linkid, commhost: data.commhost, frontendid: data.frontendid });
-      metacomm.onmessage = this._gotMetaMessage.bind(this.shell);
+      metacomm.onmessage = this._gotMetaMessage.bind(this);
       metacomm.onclosed = this._gotMetaClose.bind(this, data.frontendid);
       metacomm.register(this.transportmgr);
     }
@@ -566,7 +570,7 @@ class IndyShell extends TolliumShell {
   }
 
   _gotMetaMessage(data) {
-    const app = $shell.getApplicationById(data.appid);
+    const app = this.getApplicationById(data.appid);
     if (!app) {
       console.warn("Received error message for app " + data.appid + " but cannot find it", data.errors);
       return;
@@ -647,6 +651,7 @@ class IndyShell extends TolliumShell {
 
 
 $todd.handleApplicationErrors = async function (app, data) {
+  const $shell = getIndyShell();
   if (data.error) { //An error code from StartApp
     switch (data.error) {
       case "notloggedin": {
@@ -780,7 +785,7 @@ function debugApp(crashdialog, app, data, x, ondone) {
   crashdialog.actionEnabler();
 
   // appid is A:<groupid>
-  $shell.sendApplicationMessage('system:debugger', null, { groupid: data.appid.substr(2) });
+  getIndyShell().sendApplicationMessage('system:debugger', null, { groupid: data.appid.substr(2) });
   ondone();
 }
 
@@ -798,4 +803,10 @@ window.$tollium =
   componentsToMessages: $todd.componentsToMessages
 };
 
-module.exports = IndyShell;
+export function getIndyShell() {
+  if (!indyshellinstance)
+    throw new Error(`IndyShell not yet initialized. Ordering issue?`);
+  return indyshellinstance;
+}
+
+export default IndyShell;
