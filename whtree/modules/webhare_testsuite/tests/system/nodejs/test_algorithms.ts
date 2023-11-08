@@ -93,7 +93,7 @@ async function testExecuteEnrichment() {
     { a: 3, c: 4 }
   ], leftOuterJoinTest);
 
-  test.typeAssert<test.Equals<Array<{ a: number; c: number }|{ a: number; c: number }>, typeof leftOuterJoinTest>>();
+  test.typeAssert<test.Equals<Array<{ a: number; c: number } | { a: number; c: number }>, typeof leftOuterJoinTest>>();
 
   const allTest = await executeEnrichment([{ a: 1, b: 2 }, { a: 2, b: 3 }], "a", {
   }, async (ids, lor, cs) => {
