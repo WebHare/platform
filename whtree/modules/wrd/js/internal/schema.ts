@@ -238,7 +238,7 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     data: DataRow[],
     field: EnrichKey,
     mapping: Mapping,
-    options: { rightouterjoin?: RightOuterJoin } = {}
+    options: { rightOuterJoin?: RightOuterJoin } = {}
   ): WRDEnrichResult<S, T, EnrichKey, DataRow, Mapping, RightOuterJoin> {
     return checkPromiseErrorsHandled(this.getType(type).enrich(data, field, mapping, options));
   }
@@ -339,7 +339,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     data: DataRow[],
     field: EnrichKey,
     mapping: Mapping,
-    options: { rightouterjoin?: RightOuterJoin } = {}
+    options: { rightOuterJoin?: RightOuterJoin } = {}
   ): WRDEnrichResult<
     S,
     T,
@@ -355,7 +355,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
       MapEnrichRecordOutputMapWithDefaults<S[T], RecordizeEnrichOutputMap<S[T], Mapping>>;
 
     if (debugFlags["wrd:usewasmvm"] && debugFlags["wrd:usejsengine"]) {
-      const rightOuterJoin = (options.rightouterjoin ?
+      const rightOuterJoin = (options.rightOuterJoin ?
         () => {
           const recordizedOutputMap = recordizeOutputMap(mapping);
           return getDefaultJoinRecord(this, recordizedOutputMap);
@@ -560,7 +560,7 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
   >(type: EnrichTypeTag,
     field: EnrichKey,
     mapping: Mapping,
-    options: { rightouterjoin?: RightOuterJoin } = {}
+    options: { rightOuterJoin?: RightOuterJoin } = {}
   ): WRDSingleQueryBuilderWithEnrich<S,
     Awaited<WRDEnrichResult<
       S,
@@ -613,7 +613,7 @@ export class WRDSingleQueryBuilderWithEnrich<S extends SchemaTypeDefinition, O e
   >(type: EnrichTypeTag,
     field: EnrichKey,
     mapping: Mapping,
-    options: { rightouterjoin?: RightOuterJoin } = {}
+    options: { rightOuterJoin?: RightOuterJoin } = {}
   ): WRDSingleQueryBuilderWithEnrich<S,
     Awaited<WRDEnrichResult<
       S,
