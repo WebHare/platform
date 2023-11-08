@@ -1,7 +1,7 @@
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, testSchemaTag } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { Combine, IsGenerated, IsNonUpdatable, IsRequired, WRDAttr, WRDAttributeType, WRDBaseAttributeType, SelectionResultRow } from "@mod-wrd/js/internal/types";
+import { Combine, IsGenerated, IsNonUpdatable, IsRequired, WRDAttr, WRDAttributeType, WRDBaseAttributeType, SelectionResultRow, WRDTypeBaseSettings } from "@mod-wrd/js/internal/types";
 import { WRDSchema, listSchemas } from "@webhare/wrd";
 import { ComparableType, compare } from "@webhare/hscompat/algorithms";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
@@ -13,13 +13,6 @@ import { debugFlags } from "@webhare/env";
 
 type TestSchema = {
   wrdPerson: {
-    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
-    wrdGuid: WRDBaseAttributeType.Base_Guid;
-    wrdType: IsGenerated<WRDBaseAttributeType.Base_Integer>;
-    wrdTag: WRDBaseAttributeType.Base_Tag;
-    wrdCreationDate: WRDBaseAttributeType.Base_CreationLimitDate;
-    wrdLimitDate: WRDBaseAttributeType.Base_CreationLimitDate;
-    wrdModificationDate: WRDBaseAttributeType.Base_ModificationDate;
     wrdGender: WRDBaseAttributeType.Base_Gender;
     wrdSaluteFormal: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
     wrdAddressFormal: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
@@ -40,25 +33,18 @@ type TestSchema = {
     whuserLastlogin: WRDAttributeType.DateTime;
     whuserHiddenannouncements: WRDAttributeType.DomainArray;
     inventedDomain: WRDAttributeType.Domain;
-  };
+  } & WRDTypeBaseSettings;
 };
 
 type SchemaUserAPIExtension = {
   wrdPerson: {
     whuserUnit: IsRequired<WRDAttributeType.Domain>;
-  };
+  } & WRDTypeBaseSettings;
   whuserUnit: {
-    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
-    wrdGuid: WRDBaseAttributeType.Base_Guid;
-    wrdType: IsGenerated<WRDBaseAttributeType.Base_Integer>;
-    wrdTag: WRDBaseAttributeType.Base_Tag;
-    wrdCreationDate: WRDBaseAttributeType.Base_CreationLimitDate;
-    wrdLimitDate: WRDBaseAttributeType.Base_CreationLimitDate;
-    wrdModificationDate: WRDBaseAttributeType.Base_ModificationDate;
     wrdLeftEntity: WRDBaseAttributeType.Base_Domain;
     wrdTitle: WRDAttributeType.Free;
     whuserComment: WRDAttributeType.Free;
-  };
+  } & WRDTypeBaseSettings;
 };
 
 type CustomExtensions = {
@@ -108,44 +94,36 @@ type CustomExtensions = {
     testStatusrecord: WRDAttributeType.StatusRecord;//", { title: "Status record", allowedvalues: ["warning", "error", "ok"] });
     testFree_nocopy: WRDAttributeType.Free;//", { title: "Uncopyable free attribute", isunsafetocopy: true });
     richie: WRDAttributeType.RichDocument;//", { title: "Rich document" });
-  };
+  } & WRDTypeBaseSettings;
   testDomain_1: {
-    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
-    wrdTag: WRDBaseAttributeType.Base_Tag;
     wrdLeftEntity: WRDBaseAttributeType.Base_Domain;
     wrdOrdering: WRDBaseAttributeType.Base_Integer;
-  };
+  } & WRDTypeBaseSettings;
   testDomain_2: {
-    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
-    wrdTag: WRDBaseAttributeType.Base_Tag;
     wrdLeftEntity: WRDBaseAttributeType.Base_Domain;
     wrdOrdering: WRDBaseAttributeType.Base_Integer;
-  };
+  } & WRDTypeBaseSettings;
   personattachment: {
-    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
     wrdLeftEntity: IsRequired<WRDBaseAttributeType.Base_Domain>;
     attachfree: WRDAttributeType.Free;
-  };
+  } & WRDTypeBaseSettings;
   personorglink: {
-    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
     wrdLeftEntity: IsRequired<WRDBaseAttributeType.Base_Domain>;
     wrdRightEntity: IsRequired<WRDBaseAttributeType.Base_Domain>;
     text: WRDAttributeType.Free;
-  };
+  } & WRDTypeBaseSettings;
   payprov: {
-    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
     method: IsRequired<WRDAttributeType.PaymentProvider>;
-  };
+  } & WRDTypeBaseSettings;
   paydata: {
-    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
     data: WRDAttributeType.Payment;
     log: WRDAttributeType.Record;
-  };
+  } & WRDTypeBaseSettings;
   paydata2: {
     wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
     data: WRDAttributeType.Payment;
     log: WRDAttributeType.Record;
-  };
+  } & WRDTypeBaseSettings;
 
   /* FIXME: extend array too
 
