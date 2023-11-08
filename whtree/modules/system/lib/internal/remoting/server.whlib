@@ -506,7 +506,7 @@ PUBLIC MACRO RunRequest(RECORD ARRAY errors, STRING error_groupid, BOOLEAN isweb
   ELSE IF(servicedef.service != "")
   {
     //service object. pass through to javascript
-    OBJECT service := WaitForPromise(OpenWebHareService("system:jsonapicaller"));
+    OBJECT service := WaitForPromise(OpenWebHareService("platform:jsonapicaller"));
     RECORD response := WaitForPromise(service->runJSONAPICall(servicedef, EncodeWebRequestForJS()));
     ExecuteWebResponse(response);
   }

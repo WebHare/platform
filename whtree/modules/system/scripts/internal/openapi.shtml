@@ -12,6 +12,6 @@ RECORD apirule := (SELECT * FROM GetWebHareAccessRules() WHERE data.apispec != "
 STRING requesturl := GetRequestURL();
 STRING urlpath := UnpackURL(requesturl).urlpath;
 STRING relurl := Substring(urlpath, Length(apirule.data.path)-1);
-OBJECT service := WaitForPromise(OpenWebHareService("system:openapiservice", [ arguments := VARIANT[ apirule.data.apispec ]]));
+OBJECT service := WaitForPromise(OpenWebHareService("platform:openapiservice", [ arguments := VARIANT[ apirule.data.apispec ]]));
 RECORD response := WaitForPromise(service->APICall(EncodeWebRequestForJS(), relurl));
 ExecuteWebResponse(response);

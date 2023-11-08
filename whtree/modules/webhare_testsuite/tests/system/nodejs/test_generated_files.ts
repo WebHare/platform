@@ -27,7 +27,7 @@ async function testWebHareConfig() {
   }, authormodepack);
 
   const services = getExtractedConfig("services");
-  const fetchpoolservice = services.backendServices.find(_ => _.name === "system:fetchpool");
+  const fetchpoolservice = services.backendServices.find(_ => _.name === "platform:fetchpool");
   test.eqProps({
     clientFactory: "mod::system/js/internal/fetchpool/fetchpool.ts#getFetcher"
   }, fetchpoolservice);

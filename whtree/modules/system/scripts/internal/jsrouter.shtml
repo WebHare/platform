@@ -18,6 +18,6 @@ STRING pathstart := Left(unp.urlpath, Length(routerrule.data.path) - 1);
 //encode url hoping this wasn't too ambiguous
 pathstart := "/" ||EncodeURL(pathstart);
 
-OBJECT service := WaitForPromise(OpenWebHareService("system:jsrouterservice"));
+OBJECT service := WaitForPromise(OpenWebHareService("platform:jsrouterservice"));
 RECORD response := WaitForPromise(service->routerCall(routerrule.data.ruledata.router, EncodeWebRequestForJS(), pathstart));
 ExecuteWebResponse(response);

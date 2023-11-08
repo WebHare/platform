@@ -2124,11 +2124,6 @@ The full base URL on which this site will be published, calculated by combining 
   </publisher>
 
   <services>
-    <backendservice name="openapiservice" clientfactory="js/internal/openapi/openapiservice.ts#getServiceInstance" />
-    <backendservice name="jsrouterservice" clientfactory="js/internal/webserver/jsrouterservice.ts#getJSRouter" />
-    <backendservice name="fetchpool" clientfactory="js/internal/fetchpool/fetchpool.ts#getFetcher" />
-    <backendservice name="jsonapicaller" clientfactory="js/internal/jsonrpccaller.ts#getJSONApiCaller" />
-
     <webservice name="auth" transports="whremoting" library="lib/internal/webharepeers/authservice.whlib" primarytrans="none" prefix="RPC_">
       <accesscheck>
       </accesscheck>

@@ -9,3 +9,13 @@ managedServices:
   nodeservices: # Implements JS-based <backendservice>s
     script: js/nodeservices/nodeservices.ts
     run: always
+
+backendServices:
+  openapiservice:
+    clientFactory: "mod::system/js/internal/openapi/openapiservice.ts#getServiceInstance"
+  jsrouterservice:
+    clientFactory: "mod::system/js/internal/webserver/jsrouterservice.ts#getJSRouter"
+  fetchpool:
+    clientFactory: "mod::system/js/internal/fetchpool/fetchpool.ts#getFetcher"
+  jsonapicaller:
+    clientFactory: "mod::system/js/internal/jsonrpccaller.ts#getJSONApiCaller"
