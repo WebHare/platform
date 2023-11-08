@@ -9,6 +9,7 @@ import AutoSuggest from "dompack/components/autosuggest/index";
 import StaticSuggestionList from "dompack/components/autosuggest/staticlist";
 import * as dialog from 'dompack/components/dialog/index';
 import * as dialogapi from 'dompack/api/dialog';
+import OverlayManager from "@webhare/dompack-overlays";
 
 export interface DompackExampleGlobalAPI {
   storageSetLocal: typeof dompack.setLocal;
@@ -166,3 +167,61 @@ async function doOpenDialog(evt, { noinputs, allowcancel } = {}) {
 dompack.register('.opendialog', node => node.addEventListener("mousedown", evt => doOpenDialog(evt)));
 dompack.register('.opendialognoinputs', node => node.addEventListener("mousedown", evt => doOpenDialog(evt, { noinputs: true })));
 dompack.register('.opendialognocancel', node => node.addEventListener("mousedown", evt => doOpenDialog(evt, { allowcancel: false })));
+
+
+///////////////////////////////////////////////////////////////////
+//
+// Overlays
+//
+
+dompack.register(".withoverlays", (node, idx) => {
+  const mybounds = { left: 0, top: 0, right: node.clientWidth - 1, bottom: node.clientHeight - 1 };
+  const overlaymgr = new OverlayManager(node, "myoverlay", { bounds: mybounds, allowcreate: true });
+
+  node.addEventListener('dompack:overlay-selectionchange', event => {
+    dompack.qS('#selection').textContent = overlaymgr.getSelection().map(node => node.getContentNode().textContent).join(', ');
+  });
+
+  node.addEventListener('dompack:overlay-selectionchange', event => {
+    const node = dompack.qS('#selectionchanges' + (event.detail.useraction ? 'user' : ''));
+    node.textContent = (parseInt(node.textContent) || 0) + 1;
+  });
+  node.addEventListener('dompack:overlay-areachange', event => {
+    const node = dompack.qS('#areachanges' + (event.detail.useraction ? 'user' : ''));
+    node.textContent = (parseInt(node.textContent) || 0) + 1;
+  });
+  node.addEventListener('dompack:overlay-created', event => {
+    const node = dompack.qS('#created');
+    node.textContent = (parseInt(node.textContent) || 0) + 1;
+  });
+
+  const amiga = overlaymgr.addRectangle({ left: 5, top: 50, width: 50, height: 150 });
+  amiga.getContentNode().append(dompack.create("span", { className: "overlaytitle", textContent: "Amiga" }));
+
+  const apple = overlaymgr.addRectangle({ left: 45, top: 250, width: 400, height: 50 });
+  apple.getContentNode().append(dompack.create("span", { className: "overlaytitle", textContent: "Apple" }));
+
+  const atari = overlaymgr.addRectangle({ left: 380, top: 30, width: 80, height: 250 });
+  atari.getContentNode().append(dompack.create("span", { className: "overlaytitle", textContent: "Atari" }));
+
+  overlaymgr.setSelection([amiga]);
+
+  window.overlaytests = { overlaymgr, amiga, apple, atari }; //allow tests to access us
+  /*
+
+
+    let myoverlay1 = new ResizeableOverlay(node, "myoverlays",
+          { enabled: true
+          , left: 5, top: 50, width: 50, height: 150, selected: true, title: "Amiga", bounds: mybounds
+          });
+
+    let myoverlay2 = new ResizeableOverlay(node, "myoverlays",
+          { enabled: true
+          , left: 45, top: 250, width: 400, height: 50, title: "Apple", bounds: mybounds
+          });
+
+    let myoverlay3 = new ResizeableOverlay(node, "myoverlays",
+          { enabled: true
+          , left: 380, top: 30, width: 80, height: 250, title: "Atari", bounds: mybounds, enabled: false
+          });*/
+});

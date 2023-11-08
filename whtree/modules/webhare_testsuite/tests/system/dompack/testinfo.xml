@@ -8,4 +8,5 @@
   <jstest file="test_datatransfer.ts" />
   <jstest file="test_dialogapi.tsx" />
   <jstest file="test_storage.ts" />
+  <jstest file="test_overlays.ts" />
 </group>
