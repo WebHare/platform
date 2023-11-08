@@ -1,6 +1,3 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from "@mod-tollium/js/testframework";
 
 test.registerTests(
@@ -31,6 +28,7 @@ test.registerTests(
         test.eq('1', test.compByName('onchangeoverlayscount').textContent, 'first overlay appeared');
 
         const focused = test.getDoc().activeElement;
+        test.assert(focused);
         test.assert(focused.classList.contains('t-image__overlay'), 'overlay should be focused after creation');
         test.click(test.compByName('buttonreadoverlays'));
         await test.wait('ui');

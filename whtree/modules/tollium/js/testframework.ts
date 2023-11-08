@@ -220,7 +220,7 @@ function getTestScreen(testscreen) {
   const baseurl = test.getTestSiteRoot() + 'testsuiteportal/?app=webhare_testsuite:runscreen(' + testscreen + ')&' + getTolliumDebugVariables();
   return baseurl;
 }
-function getCompTestPage(componentname, params, whdebug) {
+function getCompTestPage(componentname, params?) {
   const baseurl = test.getTestSiteRoot() + 'testsuiteportal/?app=webhare_testsuite:anycomponent(' + encodeURIComponent(componentname) + ',' + encodeURIComponent(JSON.stringify(params || null)).replace(/,/g, '%2C') + ')&' + getTolliumDebugVariables();
   return baseurl;
 }
