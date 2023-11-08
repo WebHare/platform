@@ -118,16 +118,8 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
   if (!typerec)
     throw new Error(`No such type ${JSON.stringify(type.tag)}`);
 
-  // Get the needed attribute maps
-  const parentAttrMap = schemadata.typeParentAttrMap.get(typerec.id)!;
-  const rootAttrMap = schemadata.typeRootAttrMap.get(typerec.id);
-  if (!rootAttrMap) {
-    // Base attributes should be present
-    throw new Error(`No attributes found for type ${typerec.id}`);
-  }
-
   // Build the output mapping
-  const { map, accessors } = createSelectMap(type, selects || {}, rootAttrMap, parentAttrMap);
+  const { map, accessors } = createSelectMap(type, selects || {}, typerec.rootAttrMap, typerec.parentAttrMap);
 
   // Base entity query
   let query = db<PlatformDB>()
@@ -155,11 +147,11 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
   // add more wheres
   const afterchecks: Array<typeof wheres[number] & { accessor: AnyWRDAccessor }> = [];
   for (const filter of wheres) {
-    const attr = rootAttrMap.get(filter.field);
+    const attr = typerec.rootAttrMap.get(filter.field);
     if (!attr)
       throw new Error(`No such attribute ${JSON.stringify(filter.field)}`);
 
-    const accessor = getAccessor(attr, parentAttrMap);
+    const accessor = getAccessor(attr, typerec.parentAttrMap);
     accessor.checkFilter(filter as never);
 
     const queryres = accessor.addToQuery(query, filter as never);
