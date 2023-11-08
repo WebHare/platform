@@ -177,11 +177,14 @@ export type IsNonUpdatable<T extends WRDAttrBase | SimpleWRDAttributeType> = T e
   ? { __attrtype: T; __options: never; __required: false; __insertable: true; __updatable: false }
   : Omit<T, "__updatable"> & { __updatable: false };
 
-/** Base type for the type definition of a WRD type */
+/** Base type for the type definition of a WRD type or array */
 export type TypeDefinition = Record<string, SimpleWRDAttributeType | WRDAttrBase>;
 
+/** Base type for the type definition of a WRD type */
+export type RootTypeDefinition = TypeDefinition & WRDTypeBaseSettings;
+
 /** Base type for the type definition of a WRD schema */
-export type SchemaTypeDefinition = Record<string, TypeDefinition>;
+export type SchemaTypeDefinition = Record<string, RootTypeDefinition>;
 
 /** All allowed filter conditions */
 export type AllowedFilterConditions = "=" | ">=" | ">" | "!=" | "<" | "<=" | "mentions" | "mentionsany" | "in" | "like" | "contains" | "intersects";
@@ -189,12 +192,12 @@ export type AllowedFilterConditions = "=" | ">=" | ">" | "!=" | "<" | "<=" | "me
 /** Base WRD type */
 export type WRDTypeBaseSettings = {
   wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
-  wrdGuid: WRDBaseAttributeType.Base_Guid;
+  wrdGuid: ToWRDAttr<WRDBaseAttributeType.Base_Guid>;
   wrdType: IsGenerated<WRDBaseAttributeType.Base_Integer>;
-  wrdTag: WRDBaseAttributeType.Base_Tag;
-  wrdCreationDate: WRDBaseAttributeType.Base_CreationLimitDate;
-  wrdLimitDate: WRDBaseAttributeType.Base_CreationLimitDate;
-  wrdModificationDate: WRDBaseAttributeType.Base_ModificationDate;
+  wrdTag: ToWRDAttr<WRDBaseAttributeType.Base_Tag>;
+  wrdCreationDate: ToWRDAttr<WRDBaseAttributeType.Base_CreationLimitDate>;
+  wrdLimitDate: ToWRDAttr<WRDBaseAttributeType.Base_CreationLimitDate>;
+  wrdModificationDate: ToWRDAttr<WRDBaseAttributeType.Base_ModificationDate>;
 };
 
 /** Extracts the select result type for an attribute type */
@@ -365,9 +368,9 @@ export type SelectionResultRow<T extends TypeDefinition, O extends OutputMap<T>>
 export type CombineAttrs<A extends WRDAttrBase, B extends WRDAttrBase> = A extends B ? B extends A ? A : never : never;
 
 /** Combines two types. Two incompatible attributes resolve to never */
-export type CombineTypes<A extends TypeDefinition, B extends TypeDefinition> = {
+export type CombineTypes<A extends RootTypeDefinition, B extends RootTypeDefinition> = {
   [K in keyof A | keyof B]: K extends keyof A ? K extends keyof B ? CombineAttrs<ToWRDAttr<A[K]>, ToWRDAttr<B[K]>> : A[K] : K extends keyof B ? B[K] : never;
-};
+} & WRDTypeBaseSettings;
 
 /** Combines two schemas. Two incompatible attributes resolve to never */
 export type CombineSchemas<A extends SchemaTypeDefinition, B extends SchemaTypeDefinition> = {
