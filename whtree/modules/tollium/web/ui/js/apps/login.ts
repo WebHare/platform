@@ -487,7 +487,7 @@ class LoginApp {
     }
 
     try {
-      const result = await getIndyShell().wrdauth.login(loginname, password, { persistent: savelogin, validatepassword: true });
+      const result = await getIndyShell().wrdauth.login(loginname, password, { persistent: savelogin });
       if (result.submitinstruction) {
         this.handleSubmitInstruction(result, callback);
         return;

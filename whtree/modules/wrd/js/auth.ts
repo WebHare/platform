@@ -110,19 +110,14 @@ export class WRDAuthenticationProvider {
     this._tryLogin(form, loginfield.value, passwordfield.value, { persistent: persistentlogin });
   }
 
-  /* validatepassword: fail the login if the password doesn't satisfy requirements anymore (eg force a password change) */
   login(login, password, options) {
-    options = {
-      validatepassword: false,
-      ...options
-    };
+    options = { ...options };
     return new Promise((resolve, reject) => {
       const url = new URL(location.href);
 
       const opts =
       {
-        logincontrol: url.searchParams.get("wrdauth_logincontrol") || "",
-        validatepassword: options.validatepassword
+        logincontrol: url.searchParams.get("wrdauth_logincontrol") || ""
       };
 
       return this.loginservice.request('Login'

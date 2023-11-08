@@ -62,7 +62,6 @@ RECORD FUNCTION ProcessReq()
     {
       loginopts := CELL[ ...loginopts
                        , skippasswordcheck := GetWebVariable("skippasswordcheck") = "1"
-                       , validatepassword := TRUE
                        ];
 
       RECORD res := plugin->Login(GetWebVariable("username"), GetWebVariable("pwd"), loginopts);
