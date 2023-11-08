@@ -1,7 +1,7 @@
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 import { createWRDTestSchema, testSchemaTag } from "@mod-webhare_testsuite/js/wrd/testhelpers";
-import { Combine, IsGenerated, IsNonUpdatable, IsRequired, WRDAttr, WRDAttributeType, WRDBaseAttributeType, SelectionResultRow } from "@mod-wrd/js/internal/types";
+import { Combine, IsGenerated, IsNonUpdatable, IsRequired, WRDAttr, WRDAttributeType, WRDBaseAttributeType, SelectionResultRow, WRDTypeBaseSettings } from "@mod-wrd/js/internal/types";
 import { WRDSchema, listSchemas } from "@webhare/wrd";
 import { ComparableType, compare } from "@webhare/hscompat/algorithms";
 import * as wrdsupport from "@webhare/wrd/src/wrdsupport";
@@ -9,17 +9,10 @@ import { JsonWebKey } from "node:crypto";
 import { wrdTestschemaSchema, System_Usermgmt_WRDAuthdomainSamlIdp } from "@mod-system/js/internal/generated/wrd/webhare";
 import { ResourceDescriptor, toResourcePath } from "@webhare/services";
 import { loadlib } from "@webhare/harescript/src/contextvm";
-import { flags } from "@webhare/env/src/env";
+import { debugFlags } from "@webhare/env";
 
 type TestSchema = {
   wrdPerson: {
-    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
-    wrdGuid: WRDBaseAttributeType.Base_Guid;
-    wrdType: IsGenerated<WRDBaseAttributeType.Base_Integer>;
-    wrdTag: WRDBaseAttributeType.Base_Tag;
-    wrdCreationDate: WRDBaseAttributeType.Base_CreationLimitDate;
-    wrdLimitDate: WRDBaseAttributeType.Base_CreationLimitDate;
-    wrdModificationDate: WRDBaseAttributeType.Base_ModificationDate;
     wrdGender: WRDBaseAttributeType.Base_Gender;
     wrdSaluteFormal: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
     wrdAddressFormal: IsGenerated<WRDBaseAttributeType.Base_GeneratedString>;
@@ -40,25 +33,18 @@ type TestSchema = {
     whuserLastlogin: WRDAttributeType.DateTime;
     whuserHiddenannouncements: WRDAttributeType.DomainArray;
     inventedDomain: WRDAttributeType.Domain;
-  };
+  } & WRDTypeBaseSettings;
 };
 
 type SchemaUserAPIExtension = {
   wrdPerson: {
     whuserUnit: IsRequired<WRDAttributeType.Domain>;
-  };
+  } & WRDTypeBaseSettings;
   whuserUnit: {
-    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
-    wrdGuid: WRDBaseAttributeType.Base_Guid;
-    wrdType: IsGenerated<WRDBaseAttributeType.Base_Integer>;
-    wrdTag: WRDBaseAttributeType.Base_Tag;
-    wrdCreationDate: WRDBaseAttributeType.Base_CreationLimitDate;
-    wrdLimitDate: WRDBaseAttributeType.Base_CreationLimitDate;
-    wrdModificationDate: WRDBaseAttributeType.Base_ModificationDate;
     wrdLeftEntity: WRDBaseAttributeType.Base_Domain;
     wrdTitle: WRDAttributeType.Free;
     whuserComment: WRDAttributeType.Free;
-  };
+  } & WRDTypeBaseSettings;
 };
 
 type CustomExtensions = {
@@ -108,44 +94,36 @@ type CustomExtensions = {
     testStatusrecord: WRDAttributeType.StatusRecord;//", { title: "Status record", allowedvalues: ["warning", "error", "ok"] });
     testFree_nocopy: WRDAttributeType.Free;//", { title: "Uncopyable free attribute", isunsafetocopy: true });
     richie: WRDAttributeType.RichDocument;//", { title: "Rich document" });
-  };
+  } & WRDTypeBaseSettings;
   testDomain_1: {
-    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
-    wrdTag: WRDBaseAttributeType.Base_Tag;
     wrdLeftEntity: WRDBaseAttributeType.Base_Domain;
     wrdOrdering: WRDBaseAttributeType.Base_Integer;
-  };
+  } & WRDTypeBaseSettings;
   testDomain_2: {
-    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
-    wrdTag: WRDBaseAttributeType.Base_Tag;
     wrdLeftEntity: WRDBaseAttributeType.Base_Domain;
     wrdOrdering: WRDBaseAttributeType.Base_Integer;
-  };
+  } & WRDTypeBaseSettings;
   personattachment: {
-    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
     wrdLeftEntity: IsRequired<WRDBaseAttributeType.Base_Domain>;
     attachfree: WRDAttributeType.Free;
-  };
+  } & WRDTypeBaseSettings;
   personorglink: {
-    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
     wrdLeftEntity: IsRequired<WRDBaseAttributeType.Base_Domain>;
     wrdRightEntity: IsRequired<WRDBaseAttributeType.Base_Domain>;
     text: WRDAttributeType.Free;
-  };
+  } & WRDTypeBaseSettings;
   payprov: {
-    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
     method: IsRequired<WRDAttributeType.PaymentProvider>;
-  };
+  } & WRDTypeBaseSettings;
   paydata: {
-    wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
     data: WRDAttributeType.Payment;
     log: WRDAttributeType.Record;
-  };
+  } & WRDTypeBaseSettings;
   paydata2: {
     wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
     data: WRDAttributeType.Payment;
     log: WRDAttributeType.Record;
-  };
+  } & WRDTypeBaseSettings;
 
   /* FIXME: extend array too
 
@@ -264,6 +242,33 @@ async function testNewAPI() {
 
   test.eq({ wrdFirstName: "first", lastname: "lastname" }, await schema.getFields("wrdPerson", selectres[0].id, { wrdFirstName: "wrdFirstName", lastname: "wrdLastName" }));
 
+  {
+    const doubleEnrich = await schema
+      .selectFrom("wrdPerson")
+      .select(["wrdId"])
+      .where("wrdId", "=", firstperson)
+      .enrich("wrdPerson", "wrdId", { wrdFirstName: "wrdFirstName" })
+      .enrich("wrdPerson", "wrdId", { lastname: "wrdLastName", joinedId: "wrdId" })
+      .execute();
+
+    test.eq([{ wrdFirstName: "first", lastname: "lastname", wrdId: firstperson, joinedId: firstperson }], doubleEnrich);
+    test.typeAssert<test.Equals<Array<{ wrdFirstName: string; lastname: string; wrdId: number; joinedId: number }>, typeof doubleEnrich>>();
+
+    const doubleEnrichWithOuterJoin = await schema
+      .selectFrom("wrdPerson")
+      .select(["wrdId"])
+      .where("wrdId", "=", firstperson)
+      .enrich("wrdPerson", "wrdId", { wrdFirstName: "wrdFirstName" })
+      .enrich("wrdPerson", "wrdId", { lastname: "wrdLastName", joinedId: "wrdId" }, { rightouterjoin: true })
+      .execute();
+
+    test.eq([{ wrdFirstName: "first", lastname: "lastname", wrdId: firstperson, joinedId: firstperson }], doubleEnrichWithOuterJoin);
+    test.typeAssert<test.Equals<Array<
+      { wrdFirstName: string; lastname: string; wrdId: number; joinedId: number } |
+      { wrdFirstName: string; lastname: string; wrdId: number; joinedId: number | null }>, typeof doubleEnrichWithOuterJoin>>();
+
+  }
+
   await whdb.beginWork();
   await schema.delete("wrdPerson", firstperson);
   await whdb.commitWork();
@@ -325,11 +330,14 @@ async function testNewAPI() {
   test.eq('Hey everybody 2', await filerec.resource.text());
   test.eq('5q1Ql8lEa-yynDB7Gow5Oq4tj3aUhW_fUthcW-Fu0YM', filerec.hash);
 
-  // Set the 'richie' rich document document
-  const testHTML = `<html><head></head><body>\n<p class="normal">blabla</p>\n</body></html>`;
-  await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestRichDocumentField(testSchemaTag, newperson, testHTML);
-  const richrec = (await schema.getFields("wrdPerson", newperson, ["richie"]))!.richie;
-  test.eq(testHTML, await richrec!.__getRawHTML());
+  // FIXME: rich documents are not yet supported in the JS engine
+  if (!debugFlags["wrd:usejsengine"]) {
+    // Set the 'richie' rich document document
+    const testHTML = `<html><head></head><body>\n<p class="normal">blabla</p>\n</body></html>`;
+    await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestRichDocumentField(testSchemaTag, newperson, testHTML);
+    const richrec = (await schema.getFields("wrdPerson", newperson, ["richie"]))!.richie;
+    test.eq(testHTML, await richrec!.__getRawHTML());
+  }
 
   // test array & nested record selectors
   {
@@ -510,7 +518,11 @@ function testGeneratedWebHareWRDAPI() {
   test.typeAssert<test.Equals<string, SelectionResultRow<System_Usermgmt_WRDAuthdomainSamlIdp, "organizationName">>>();
 }
 
-flags["wrd:usewasmvm"] = true;
+debugFlags["wrd:usewasmvm"] = true;
+if (process.argv.includes("--usejsengine")) {
+  console.log(`using WRD js engine`);
+  debugFlags["wrd:usejsengine"] = true;
+}
 
 test.run([
   testSupportAPI,

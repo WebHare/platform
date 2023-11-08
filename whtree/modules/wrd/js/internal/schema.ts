@@ -1,5 +1,6 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- too much any's needed for generic types */
 import { HSVMObject } from "@webhare/services/src/hsvm";
-import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeTypeNames } from "./types";
+import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, RecordizeEnrichOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeTypeNames, MapEnrichRecordOutputMap, MapEnrichRecordOutputMapWithDefaults, recordizeEnrichOutputMap } from "./types";
 export { SchemaTypeDefinition } from "./types";
 import { extendWorkToCoHSVM, getCoHSVM } from "@webhare/services/src/co-hsvm";
 import { loadlib } from "@webhare/harescript";
@@ -8,8 +9,9 @@ import { ensureScopedResource } from "@webhare/services/src/codecontexts";
 import { fieldsToHS, tagToHS, outputmapToHS, repairResultSet, tagToJS, repairResultValue, WRDAttributeConfiguration, WRDAttributeConfiguration_HS } from "@webhare/wrd/src/wrdsupport";
 import { getSchemaData, SchemaData } from "./db";
 import { debugFlags } from "@webhare/env";
-import { runSimpleWRDQuery } from "./queries";
+import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
 import { omit } from "@webhare/std";
+import { EnrichmentResult, executeEnrichment } from "@mod-system/js/internal/util/algorithms";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 
@@ -51,6 +53,23 @@ type CoVMSchemaCache = {
   schemaobj: Promise<HSVMObject>;
   types: Record<string, Promise<HSVMObject>>;
 };
+
+type NumberOrNullKeys<O extends object> = keyof { [K in keyof O as O[K] extends number | null ? K : never]: null } & string;
+
+type WRDEnrichResult<
+  S extends SchemaTypeDefinition,
+  T extends keyof S & string,
+  EnrichKey extends keyof DataRow & NumberOrNullKeys<DataRow>,
+  DataRow extends object,
+  Mapping extends EnrichOutputMap<S[T]>,
+  RightOuterJoin extends boolean,
+> = EnrichmentResult<
+  DataRow,
+  EnrichKey,
+  MapEnrichRecordOutputMap<S[T], RecordizeEnrichOutputMap<S[T], Mapping>>,
+  never,
+  true extends RightOuterJoin ? MapEnrichRecordOutputMapWithDefaults<S[T], RecordizeEnrichOutputMap<S[T], Mapping>> : never,
+  never>;
 
 export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition> {
   readonly id: number | string;
@@ -195,16 +214,32 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     return checkPromiseErrorsHandled(this.getType(type).updateEntity(wrd_id, value));
   }
 
-  search<T extends keyof S & string, F extends AttrRef<S[T]>>(type: T, field: F, value: (GetCVPairs<S[T][F]> & { condition: "=" })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode: HistoryModeData }): Promise<number | null> {
+  search<T extends keyof S & string, F extends AttrRef<S[T]>>(type: T, field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode: HistoryModeData }): Promise<number | null> {
     return checkPromiseErrorsHandled(this.getType(type).search(field, value, options));
   }
 
   async getFields<M extends OutputMap<S[T]>, T extends keyof S & string>(type: T, id: number, mapping: M): Promise<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>> | null> {
-    const rows: Array<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>> = await this.selectFrom(type).select(mapping).where("wrdId", "=", id).historyMode("__getfields").execute();
+    const rows: Array<MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>> = await this.selectFrom(type)
+      .select(mapping)
+      .where("wrdId", "=" as any, id as any)
+      .historyMode("__getfields")
+      .execute();
     return rows[0] ?? null;
   }
 
-  enrich<T extends keyof S & string, F extends keyof D, M extends EnrichOutputMap<S[T]>, D extends { [K in F]: number | null }>(type: T, data: D[], field: F, mapping: M, options: { rightouterjoin?: boolean } = {}): Promise<Array<D & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>> {
+  enrich<
+    T extends keyof S & string,
+    EnrichKey extends keyof DataRow & NumberOrNullKeys<DataRow>,
+    DataRow extends { [K in EnrichKey]: number | null },
+    Mapping extends EnrichOutputMap<S[T]>,
+    RightOuterJoin extends boolean = false,
+  >(
+    type: T,
+    data: DataRow[],
+    field: EnrichKey,
+    mapping: Mapping,
+    options: { rightouterjoin?: RightOuterJoin } = {}
+  ): WRDEnrichResult<S, T, EnrichKey, DataRow, Mapping, RightOuterJoin> {
     return checkPromiseErrorsHandled(this.getType(type).enrich(data, field, mapping, options));
   }
 
@@ -270,7 +305,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     await (await this._getType()).updateEntity(wrd_id, fieldsToHS(value, this.attrs!), { jsmode: true });
   }
 
-  async search<F extends AttrRef<S[T]>>(field: F, value: (GetCVPairs<S[T][F]> & { condition: "=" })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode?: HistoryModeData }): Promise<number | null> {
+  async search<F extends AttrRef<S[T]>>(field: F, value: (GetCVPairs<S[T][F]> & { condition: "="; value: unknown })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: "=" }, object> & { historyMode?: HistoryModeData }): Promise<number | null> {
     if (debugFlags["wrd:usewasmvm"] && debugFlags["wrd:usejsengine"]) {
       type FilterOverride = { field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown };
       const list = await runSimpleWRDQuery(this, "wrdId", [{ field, condition: "=", value, options } as FilterOverride], options?.historyMode ?? { mode: "now" }, 1);
@@ -280,13 +315,75 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     return res || null;
   }
 
-  async enrich<EnrichKey extends keyof DataRow, M extends EnrichOutputMap<S[T]>, DataRow extends { [K in EnrichKey]: number | null }>(data: DataRow[], field: EnrichKey, mapping: M, options: { rightouterjoin?: boolean } = {}): Promise<Array<DataRow & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>> {
+  private async getBulkFields<Mapping extends EnrichOutputMap<S[T]>, Id extends number | null>(
+    enrichMapping: Mapping,
+    ids: Id[],
+    isLeftOuterJoin: boolean,
+    matchCase: boolean): Promise<Map<Id, MapEnrichRecordOutputMap<S[T], RecordizeEnrichOutputMap<S[T], Mapping>>>> {
+    const vals = await runSimpleWRDQuery(
+      this,
+      { __joinId: "wrdId", data: recordizeEnrichOutputMap(enrichMapping) },
+      isLeftOuterJoin ? [] : [{ field: "wrdId", condition: "=", value: ids }],
+      { mode: "now" },
+      null) as Array<{ __joinId: Id; data: MapEnrichRecordOutputMap<S[T], RecordizeEnrichOutputMap<S[T], Mapping>> }>;
+
+    return new Map(vals.map(row => [row.__joinId, row.data]));
+  }
+
+  async enrich<
+    EnrichKey extends keyof DataRow & NumberOrNullKeys<DataRow>,
+    DataRow extends { [K in EnrichKey]: number | null },
+    Mapping extends EnrichOutputMap<S[T]>,
+    RightOuterJoin extends boolean = false,
+  >(
+    data: DataRow[],
+    field: EnrichKey,
+    mapping: Mapping,
+    options: { rightouterjoin?: RightOuterJoin } = {}
+  ): WRDEnrichResult<
+    S,
+    T,
+    EnrichKey,
+    DataRow,
+    Mapping,
+    RightOuterJoin
+  > {
+    type RetVal = ReturnType<typeof this.enrich< EnrichKey, DataRow, Mapping, RightOuterJoin>>;
+
+    type RightOuterJoinType = true extends RightOuterJoin ?
+      never :
+      MapEnrichRecordOutputMapWithDefaults<S[T], RecordizeEnrichOutputMap<S[T], Mapping>>;
+
+    if (debugFlags["wrd:usewasmvm"] && debugFlags["wrd:usejsengine"]) {
+      const rightOuterJoin = (options.rightouterjoin ?
+        () => {
+          const recordizedOutputMap = recordizeOutputMap(mapping);
+          return getDefaultJoinRecord(this, recordizedOutputMap);
+        } : null) as (() => RightOuterJoinType) | null;
+
+      const result = executeEnrichment<
+        DataRow,
+        EnrichKey,
+        MapEnrichRecordOutputMap<S[T], RecordizeEnrichOutputMap<S[T], Mapping>>,
+        never,
+        RightOuterJoinType,
+        never>(
+          data,
+          field,
+          {},
+          (ids, isLeftOuterJoin, matchCase) => this.getBulkFields(mapping, ids, isLeftOuterJoin, matchCase),
+          null,
+          rightOuterJoin,
+        );
+
+      return result as RetVal;
+    }
     //avoid sending the original array through the API (and having to repair it!)
     const outputmap = recordizeOutputMap(mapping);
     const lookupkeys = new Set(data.map(row => row[field]));
     //HS wants an array to look up, so convert the uniquefied keys to {__js_enricon: lookup key }
     const lookuparray = [...lookupkeys.values()].map(key => ({ __js_enrichon: key }));
-    const result = await (await this._getType()).enrich(lookuparray, "__js_enrichon", outputmapToHS(outputmap), { ...options, jsmode: true }) as Array<{ __js_enrichon?: DataRow[EnrichKey] } & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], M>>>;
+    const result = await (await this._getType()).enrich(lookuparray, "__js_enrichon", outputmapToHS(outputmap), { ...options, jsmode: true }) as Array<{ __js_enrichon?: DataRow[EnrichKey] } & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], Mapping>>>;
     const resultlookup = new Map(result.map(row => [row.__js_enrichon, row]));
     const resultrows: Array<Record<string, unknown>> = [];
     for (const row of data) {
@@ -295,7 +392,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
       resultrows.push(remergedrow);
     }
 
-    return repairResultSet(resultrows, outputmap) as unknown as ReturnType<typeof this.enrich<EnrichKey, M, DataRow>>;
+    return repairResultSet(resultrows, outputmap) as unknown as RetVal;
   }
 
   async delete(ids: number | number[]): Promise<void> {
@@ -366,6 +463,9 @@ type HSWRDQuery = {
   resultlimit?: number;
 };
 
+type QueryReturnArrayType<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> = O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never;
+type QueryReturnRowType<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> = O extends RecordOutputMap<S[T]> ? MapRecordOutputMap<S[T], O> : never;
+
 /* The query object. We are initially created by selectFrom() with an O === null - select() then recreates us with a set O
 */
 export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> {
@@ -424,12 +524,12 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
     this._limit = limit;
   }
 
-  private async executeInternal(): Promise<O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never> {
+  private async executeInternal(): Promise<QueryReturnArrayType<S, T, O>> {
     if (!this.selects)
       throw new Error(`A select is required`);
 
     if (debugFlags["wrd:usewasmvm"] && debugFlags["wrd:usejsengine"])
-      return runSimpleWRDQuery(this.type, this.selects || {}, this.wheres, this.historymode, this._limit) as unknown as O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never;
+      return runSimpleWRDQuery(this.type, this.selects || {}, this.wheres, this.historymode, this._limit) as unknown as Promise<QueryReturnArrayType<S, T, O>>;
 
     const type = await this.type._getType();
     let query: HSWRDQuery = { jsmode: true };
@@ -443,7 +543,7 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
       query.filters = this.wheres.map(({ field, condition, value }) => ({ field: tagToHS(field), matchtype: condition.toUpperCase(), value }));
     if (this._limit !== null)
       query.resultlimit = this._limit;
-    const result = await type.runQuery(query) as unknown as (O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never);
+    const result = await type.runQuery(query) as unknown as QueryReturnArrayType<S, T, O>;
 
     if (typeof this.selects === "string") //no need for translation
       return result.map(repairResultValue) as typeof result;
@@ -451,7 +551,81 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
     return repairResultSet(result as Array<Record<string, unknown>>, this.selects!) as unknown as ReturnType<typeof this.executeInternal>;
   }
 
-  execute(): Promise<O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never> {
+  enrich<
+    EnrichTypeTag extends keyof S & string,
+    EnrichKey extends keyof DataRow & NumberOrNullKeys<DataRow>,
+    Mapping extends EnrichOutputMap<S[EnrichTypeTag]>,
+    RightOuterJoin extends boolean = false,
+    DataRow extends QueryReturnRowType<S, T, O> & Record<EnrichKey, number | null> = QueryReturnRowType<S, T, O> & Record<EnrichKey, number | null>,
+  >(type: EnrichTypeTag,
+    field: EnrichKey,
+    mapping: Mapping,
+    options: { rightouterjoin?: RightOuterJoin } = {}
+  ): WRDSingleQueryBuilderWithEnrich<S,
+    Awaited<WRDEnrichResult<
+      S,
+      EnrichTypeTag,
+      EnrichKey,
+      DataRow,
+      Mapping,
+      RightOuterJoin>>[number]> {
+    return new WRDSingleQueryBuilderWithEnrich(this.type.schema, this, [{ type, field, mapping, options }]);
+  }
+
+  execute(): Promise<QueryReturnArrayType<S, T, O>> {
+    return checkPromiseErrorsHandled(this.executeInternal());
+  }
+}
+
+export class WRDSingleQueryBuilderWithEnrich<S extends SchemaTypeDefinition, O extends object> {
+  private schema: WRDSchema<S>;
+  private baseQuery: WRDSingleQueryBuilder<S, any, any>;
+  private enriches: Array<{
+    type: string;
+    field: string;
+    mapping: any;
+    options: any;
+  }>;
+
+  constructor(schema: WRDSchema<S>, baseQuery: WRDSingleQueryBuilder<S, any, any>, enriches: Array<{
+    type: string;
+    field: string;
+    mapping: any;
+    options: any;
+  }>) {
+    this.schema = schema;
+    this.baseQuery = baseQuery;
+    this.enriches = enriches;
+  }
+
+  private async executeInternal(): Promise<O[]> {
+    let retval = await this.baseQuery.execute() as any;
+    for (const enrich of this.enriches)
+      retval = await this.schema.enrich(enrich.type, retval, enrich.field as never, enrich.mapping, enrich.options);
+    return retval as O[];
+  }
+
+  enrich<
+    EnrichTypeTag extends keyof S & string,
+    EnrichKey extends keyof O & NumberOrNullKeys<O>,
+    Mapping extends EnrichOutputMap<S[EnrichTypeTag]>,
+    RightOuterJoin extends boolean = false,
+  >(type: EnrichTypeTag,
+    field: EnrichKey,
+    mapping: Mapping,
+    options: { rightouterjoin?: RightOuterJoin } = {}
+  ): WRDSingleQueryBuilderWithEnrich<S,
+    Awaited<WRDEnrichResult<
+      S,
+      EnrichTypeTag,
+      EnrichKey,
+      O,
+      Mapping,
+      RightOuterJoin>>[number]> {
+    return new WRDSingleQueryBuilderWithEnrich(this.schema, this.baseQuery, [...this.enriches, { type, field, mapping, options }]);
+  }
+
+  execute(): Promise<O[]> {
     return checkPromiseErrorsHandled(this.executeInternal());
   }
 }

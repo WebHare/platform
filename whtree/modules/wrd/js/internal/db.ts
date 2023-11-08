@@ -1,19 +1,31 @@
 import { db, Selectable, sql } from "@webhare/whdb";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { tagToJS } from "@webhare/wrd/src/wrdsupport";
-import { WRDBaseAttributeType, WRDMetaType } from "./types";
+import { WRDAttributeType, WRDBaseAttributeType, WRDMetaType } from "./types";
+import { mapGroupBy } from "@webhare/std/collections";
 
 const selectSchemaColumns = ["id"] as const;
-const selectTypeColumns = ["id", "tag", "metatype", "parenttype", "requiretype_left", "requiretype_right", "abstract"] as const;
-const selectAttrColumns = ["id", "attributetype", "domain", "isunique", "isunsafetocopy", "parent", "required", "ordered", "tag", "type", "allowedvalues"] as const;
+const selectTypeColumns = ["id", "tag", "metatype", "parenttype", "requiretype_left", "requiretype_right", "abstract", "keephistorydays"] as const;
+const selectAttrColumns = ["id", "attributetype", "domain", "isunique", "isunsafetocopy", "parent", "required", "ordered", "tag", "type", "allowedvalues", "checklinks"] as const;
 export const selectEntitySettingColumns = ["id", "entity", "attribute", "blobdata", "rawdata", "setting", "ordering", "parentsetting"] as const;
 export const selectEntitySettingWHFSLinkColumns = ["id", "fsobject", "linktype"] as const;
 
 export type SchemaRec = Pick<Selectable<PlatformDB, "wrd.schemas">, typeof selectSchemaColumns[number]>;
-export type TypeRec = Pick<Selectable<PlatformDB, "wrd.types">, typeof selectTypeColumns[number]> & { parentTypeIds: number[]; childTypeIds: number[] };
-export type AttrRec = Pick<Selectable<PlatformDB, "wrd.attrs">, typeof selectAttrColumns[number]>;
+export type TypeRec = Pick<Selectable<PlatformDB, "wrd.types">, typeof selectTypeColumns[number]> & {
+  parentTypeIds: number[];
+  childTypeIds: number[];
+
+  parentAttrMap: Map<number | null, AttrRec[]>;
+  rootAttrMap: Map<string, AttrRec>;
+  attrRootAttrMap: Map<number, AttrRec>;
+  consilioLinkCheckAttrs: Set<number>;
+  whfsLinkAttrs: Set<number>;
+  uniqueAttrs: Set<number>;
+};
+export type AttrRec = Pick<Selectable<PlatformDB, "wrd.attrs">, typeof selectAttrColumns[number]> & { isreadonly: boolean; attributetype: WRDBaseAttributeType | WRDAttributeType };
 export type EntitySettingsRec = Pick<Selectable<PlatformDB, "wrd.entity_settings">, typeof selectEntitySettingColumns[number]>;
-export type EntityPartialRec = Partial<Selectable<PlatformDB, "wrd.entities">>;
+export type EntityRec = Selectable<PlatformDB, "wrd.entities">;
+export type EntityPartialRec = Partial<EntityRec>;
 export type EntitySettingsWHFSLinkRec = Pick<Selectable<PlatformDB, "wrd.entity_settings_whfslink">, typeof selectEntitySettingWHFSLinkColumns[number]>;
 
 
@@ -22,49 +34,26 @@ export type SchemaData = {
   typeTagMap: Map<string, TypeRec>;
   typeIdMap: Map<number, TypeRec>;
   attrs: AttrRec[];
-  typeParentAttrMap: Map<number, Map<number | null, AttrRec[]>>;
-  typeRootAttrMap: Map<number, Map<string, AttrRec>>;
 };
-
-function mappedGroupBy<Incoming, Key, Value, Result = Value[]>(
-  data: Iterable<Incoming>,
-  processElt: (elt: Incoming, idx: number) => [Key, Value],
-  processResult?: (values: Value[]) => Result,
-): Map<Key, Result> {
-  const retval = new Map<Key, Value[]>;
-  for (const elt of Array.from(data).entries()) {
-    const r = processElt(elt[1], elt[0]);
-    const arr = retval.get(r[0]);
-    if (!arr)
-      retval.set(r[0], [r[1]]);
-    else
-      arr.push(r[1]);
-  }
-  if (processResult) {
-    const ret2 = new Map<Key, Result>;
-    for (const [k, v] of retval.entries())
-      ret2.set(k, processResult(v));
-    return ret2;
-  } else
-    return retval as Map<Key, Result>;
-}
 
 function getBaseAttrsFor(type: TypeRec): AttrRec[] {
   const baseEmptyAttrRec = {
     domain: null,
     isunique: false,
     isunsafetocopy: false,
+    isreadonly: false,
     parent: null,
     required: false,
     ordered: false,
     type: type.id,
     allowedvalues: "",
+    checklinks: false,
     id: 0,
   };
   const attrs: AttrRec[] = [
     { ...baseEmptyAttrRec, tag: "wrdGuid", attributetype: WRDBaseAttributeType.Base_Guid },
-    { ...baseEmptyAttrRec, tag: "wrdId", attributetype: WRDBaseAttributeType.Base_Integer }, // FIXME: make only insertable, not updatable!
-    { ...baseEmptyAttrRec, tag: "wrdType", attributetype: WRDBaseAttributeType.Base_Integer }, // FIXME: make readonly!
+    { ...baseEmptyAttrRec, tag: "wrdId", attributetype: WRDBaseAttributeType.Base_FixedDomain }, // FIXME: make only insertable, not updatable!
+    { ...baseEmptyAttrRec, tag: "wrdType", attributetype: WRDBaseAttributeType.Base_FixedDomain, isreadonly: true }, // FIXME: make readonly!
     { ...baseEmptyAttrRec, tag: "wrdTag", attributetype: WRDBaseAttributeType.Base_Tag },
     { ...baseEmptyAttrRec, tag: "wrdCreationDate", attributetype: WRDBaseAttributeType.Base_CreationLimitDate },
     { ...baseEmptyAttrRec, tag: "wrdLimitDate", attributetype: WRDBaseAttributeType.Base_CreationLimitDate },
@@ -81,8 +70,8 @@ function getBaseAttrsFor(type: TypeRec): AttrRec[] {
       { ...baseEmptyAttrRec, tag: "wrdRightEntity", attributetype: WRDBaseAttributeType.Base_Integer, required: true },
       { ...baseEmptyAttrRec, tag: "wrdGender", attributetype: WRDBaseAttributeType.Base_Gender },
       { ...baseEmptyAttrRec, tag: "wrdSaluteFormal", attributetype: WRDBaseAttributeType.Base_GeneratedString },
-      { ...baseEmptyAttrRec, tag: "wrdAddressFormal", attributetype: WRDBaseAttributeType.Base_GeneratedString },
-      { ...baseEmptyAttrRec, tag: "wrdFullName", attributetype: WRDBaseAttributeType.Base_GeneratedString },
+      { ...baseEmptyAttrRec, tag: "wrdAddressFormal", attributetype: WRDBaseAttributeType.Base_GeneratedString, isreadonly: true },
+      { ...baseEmptyAttrRec, tag: "wrdFullName", attributetype: WRDBaseAttributeType.Base_GeneratedString, isreadonly: true },
       { ...baseEmptyAttrRec, tag: "wrdTitles", attributetype: WRDBaseAttributeType.Base_NameString },
       { ...baseEmptyAttrRec, tag: "wrdInitials", attributetype: WRDBaseAttributeType.Base_NameString },
       { ...baseEmptyAttrRec, tag: "wrdFirstName", attributetype: WRDBaseAttributeType.Base_NameString },
@@ -121,6 +110,12 @@ export async function getSchemaData(id: string | number): Promise<SchemaData> {
       tag: tagToJS(type.tag),
       parentTypeIds: [type.id],
       childTypeIds: [type.id],
+      parentAttrMap: new Map<number | null, AttrRec[]>,
+      rootAttrMap: new Map<string, AttrRec>,
+      attrRootAttrMap: new Map<number, AttrRec>,
+      consilioLinkCheckAttrs: new Set<number>,
+      whfsLinkAttrs: new Set<number>,
+      uniqueAttrs: new Set<number>,
     }));
   const typeids: number[] = types.map(t => t.id);
   const attrs = (await db<PlatformDB>()
@@ -130,6 +125,7 @@ export async function getSchemaData(id: string | number): Promise<SchemaData> {
     .orderBy("tag")
     .execute()).map(attr => ({
       ...attr,
+      isreadonly: false,
       tag: tagToJS(attr.tag),
     }));
   const typeTagMap = new Map(types.map(type => [type.tag, type]));
@@ -168,17 +164,38 @@ export async function getSchemaData(id: string | number): Promise<SchemaData> {
       }
     }
   }
-  const typeParentAttrMap = mappedGroupBy(allAttrs, (attr) => [attr.type, attr], (attrlist) => mappedGroupBy(attrlist, (attr) => [attr.parent, attr]));
-  const typeRootAttrMap = mappedGroupBy(allAttrs.filter(attr => !attr.parent), (attr) => [attr.type, attr], (attrlist) => new Map(Array.from(attrlist.values()).map(attr => [attr.tag, attr])));
-  const retval = {
+  const typeAttrMap = mapGroupBy(allAttrs, (attr) => attr.type);
+
+  for (const type of typeIdMap.values()) {
+    const typeAttrs = typeAttrMap.get(type.id)!;
+    for (const [parent, childAttrs] of mapGroupBy(typeAttrs, attr => attr.parent))
+      type.parentAttrMap.set(parent, childAttrs);
+    for (const attr of typeAttrs) {
+      if (!attr.parent)
+        type.rootAttrMap.set(attr.tag, attr);
+      if ([WRDAttributeType.RichDocument, WRDAttributeType.WHFSInstance, WRDAttributeType.URL].includes(attr.attributetype) || attr.checklinks)
+        type.consilioLinkCheckAttrs.add(attr.id);
+      if (attr.attributetype === WRDAttributeType.PaymentProvider)
+        type.whfsLinkAttrs.add(attr.id);
+    }
+    for (const rootAttr of type.rootAttrMap.values())
+      recurseStoreRootAttrs(rootAttr, rootAttr.id, type.parentAttrMap, type.attrRootAttrMap);
+  }
+
+  return {
     schema,
     typeTagMap,
     typeIdMap,
     attrs,
-    typeParentAttrMap,
-    typeRootAttrMap
   };
-  //console.log(retval);
+}
 
-  return retval;
+function recurseStoreRootAttrs(rootAttr: AttrRec, current: number, parentAttrMap: Map<number | null, AttrRec[]>, attrRootAttrMap: Map<number, AttrRec>) {
+  const attrs = parentAttrMap.get(current);
+  if (attrs)
+    for (const attr of attrs) {
+      attrRootAttrMap.set(attr.id, rootAttr);
+      if (parentAttrMap.has(attr.id))
+        recurseStoreRootAttrs(rootAttr, attr.id, parentAttrMap, attrRootAttrMap);
+    }
 }

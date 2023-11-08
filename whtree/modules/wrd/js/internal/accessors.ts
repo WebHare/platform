@@ -1,4 +1,4 @@
-import { WRDBaseAttributeType, WRDAttributeType, AllowedFilterConditions, WRDAttrBase, WRDGender, Insertable, GetResultType, SimpleWRDAttributeType } from "./types";
+import { WRDBaseAttributeType, WRDAttributeType, AllowedFilterConditions, WRDAttrBase, WRDGender, Insertable, GetResultType, SimpleWRDAttributeType, baseAttrCells } from "./types";
 import type { AttrRec, EntityPartialRec, EntitySettingsRec, EntitySettingsWHFSLinkRec } from "./db";
 import { sql, SelectQueryBuilder, ExpressionBuilder, RawBuilder, ComparisonOperatorExpression, WhereInterface } from "kysely";
 import type { PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
@@ -6,10 +6,11 @@ import { compare, ComparableType, recordLowerBound, recordUpperBound } from "@we
 import { isLike } from "@webhare/hscompat/strings";
 import { Money } from "@webhare/std";
 import { decodeScanData, ResourceDescriptor } from "@webhare/services/src/descriptor";
-import { defaultDateTime, makeDateFromParts, maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
+import { dateToParts, defaultDateTime, makeDateFromParts, maxDateTime, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { decodeHSON } from "@webhare/hscompat/hscompat";
-import { IPCMarshallableRecord } from "@mod-system/js/internal/whmanager/hsmarshalling";
+import { IPCMarshallableData, IPCMarshallableRecord, encodeHSON } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { RichDocument } from "@webhare/services/src/richdocument";
+import * as kysely from "kysely";
 
 
 /** Response type for addToQuery. Null to signal the added condition is always false
@@ -22,6 +23,29 @@ type AddToQueryResponse<O> = {
 
 /// Returns `null` if Required might be false
 type NullIfNotRequired<Required extends boolean> = false extends Required ? null : never;
+
+/// Single settings record
+export type EncodedSetting = kysely.Updateable<PlatformDB["wrd.entity_settings"]> & {
+  id?: number;
+  attribute: number;
+  sub?: EncodedSetting[];
+};
+
+/// All values needed for an field update
+export type EncodedValue = {
+  entity?: EntityPartialRec;
+  settings?: EncodedSetting | EncodedSetting[];
+};
+
+export function encodeWRDGuid(guid: Buffer) {
+  return `wrd:${guid.toString("hex").toUpperCase()}`;
+}
+
+export function decodeWRDGuid(wrdGuid: string) {
+  if (!/^wrd:[0-9a-fA-F]{32}$/.exec(wrdGuid))
+    throw new Error(`Invalid guid value`);
+  return Buffer.from(wrdGuid.substring(4), "hex");
+}
 
 /** Base for an attribute accessor
  * @typeParam In - Type for allowed values for insert and update
@@ -112,9 +136,11 @@ export abstract class WRDAttributeValueBase<In, Default, Out extends Default, C 
     return this.attr.id;
   }
 
-  getAttrBaseCells(): null | keyof EntityPartialRec | Array<keyof EntityPartialRec> {
+  getAttrBaseCells(): null | keyof EntityPartialRec | ReadonlyArray<keyof EntityPartialRec> {
     return null;
   }
+
+  abstract encodeValue(value: In): EncodedValue;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -190,6 +216,11 @@ function addOrWhere<Select extends WhereInterface<any, any>>(query: Select, fiel
     return query.orWhere(field, condition, value) as Select;
 }
 
+function getAttrBaseCells<T extends keyof typeof baseAttrCells>(tag: string, allowedTypes: readonly T[]): typeof baseAttrCells[T] {
+  if (!allowedTypes.includes(tag as T))
+    throw new Error(`Unhandled base attribute ${JSON.stringify(tag)}`);
+  return baseAttrCells[tag as T];
+}
 
 type WRDDBStringConditions = {
   condition: "=" | ">=" | ">" | "!=" | "<" | "<="; value: string; options?: { matchcase?: boolean };
@@ -271,6 +302,10 @@ class WRDDBStringValue extends WRDAttributeValueBase<string, string, string, WRD
   validateInput(value: string) {
     if (this.attr.required && !value)
       throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+  }
+
+  encodeValue(value: string): EncodedValue {
+    return value ? { settings: { rawdata: value, attribute: this.attr.id } } : {};
   }
 }
 
@@ -363,17 +398,23 @@ class WRDDBBaseStringValue extends WRDAttributeValueBase<string, string, string,
       throw new Error(`Value for attribute ${this.attr.tag} is too long (${value.length} characters, maximum is 256)`);
   }
 
-  getAttrBaseCells(): null | keyof EntityPartialRec | Array<keyof EntityPartialRec> {
-    switch (this.attr.tag) {
-      case "wrdTag": return "tag";
-      case "wrdInitials": return "initials";
-      case "wrdFirstName": return "firstname";
-      case "wrdFirstNames": return "firstnames";
-      case "wrdInfix": return "infix";
-      case "wrdLastName": return "lastname";
-      case "wrdTitlesSuffix": return "titles_suffix";
-      default: throw new Error(`Unhandled base string attribute ${JSON.stringify(this.attr.tag)}`);
-    }
+  getAttrBaseCells(): keyof EntityPartialRec {
+    return getAttrBaseCells(this.attr.tag, [
+      "wrdTag",
+      "wrdInitials",
+      "wrdFirstName",
+      "wrdFirstNames",
+      "wrdInfix",
+      "wrdLastName",
+      "wrdTitlesSuffix"
+    ]);
+  }
+
+  encodeValue(value: string): EncodedValue {
+    if (this.attr.tag === "wrdTag" && /[a-z ]/.exec(value))
+      throw new Error(`Spaces and lowercase letters are not allowed in wrdTag fields`);
+    const key = this.getAttrBaseCells();
+    return { settings: { [key]: value, attribute: this.attr.id } };
   }
 }
 
@@ -385,8 +426,7 @@ type WRDDBGuidConditions = {
 
 class WRDDBBaseGuidValue extends WRDAttributeValueBase<string, string, string, WRDDBGuidConditions> {
   checkGuid(guid: string) {
-    if (!/^wrd:[0-9a-fA-F]{32}$/.exec(guid))
-      throw new Error(`Invalid guid value`);
+    decodeWRDGuid(guid);
   }
   getDefaultValue() { return ""; }
   checkFilter(cv: WRDDBGuidConditions) {
@@ -416,7 +456,7 @@ class WRDDBBaseGuidValue extends WRDAttributeValueBase<string, string, string, W
   }
 
   getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, entityRecord: EntityPartialRec): string {
-    return `wrd:${entityRecord.guid!.toString("hex").toUpperCase()}`;
+    return encodeWRDGuid(entityRecord.guid!);
   }
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): string {
@@ -428,7 +468,11 @@ class WRDDBBaseGuidValue extends WRDAttributeValueBase<string, string, string, W
   }
 
   getAttrBaseCells(): null | keyof EntityPartialRec | Array<keyof EntityPartialRec> {
-    return "guid";
+    return getAttrBaseCells(this.attr.tag, ["wrdGuid"]);
+  }
+
+  encodeValue(value: string): EncodedValue {
+    return { entity: { guid: decodeWRDGuid(value) } };
   }
 }
 
@@ -487,17 +531,15 @@ class WRDDBBaseGeneratedStringValue extends WRDAttributeValueBase<never, string,
     throw new Error("Not implemented for base fields");
   }
 
-  getAttrBaseCells(): null | keyof EntityPartialRec | Array<keyof EntityPartialRec> {
-    switch (this.attr.tag) {
-      case "wrdSaluteFormal": return ["lastname", "gender", "titles", "infix"];
-      case "wrdAddressFormal": return ["lastname", "gender", "titles", "infix", "initials"];
-      case "wrdFullName":
-      case "wrdTitle": return ["initials", "firstname", "firstnames", "lastname", "infix"];
-      default: throw new Error(`Unhandled base generated string attribute ${JSON.stringify(this.attr.tag)}`);
-    }
+  getAttrBaseCells(): null | keyof EntityPartialRec | ReadonlyArray<keyof EntityPartialRec> {
+    return getAttrBaseCells(this.attr.tag, ["wrdSaluteFormal", "wrdAddressFormal", "wrdFullName", "wrdTitle"]);
   }
 
   validateInput(value: string): void {
+    throw new Error(`Unable to updated generated field ${JSON.stringify(this.attr.tag)}`);
+  }
+
+  encodeValue(value: string): EncodedValue {
     throw new Error(`Unable to updated generated field ${JSON.stringify(this.attr.tag)}`);
   }
 }
@@ -533,6 +575,10 @@ class WRDDBBooleanValue extends WRDAttributeValueBase<boolean, boolean, boolean,
   validateInput(value: boolean) {
     if (this.attr.required && !value)
       throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+  }
+
+  encodeValue(value: boolean): EncodedValue {
+    return value ? { settings: { rawdata: "1", attribute: this.attr.id } } : {};
   }
 }
 
@@ -574,6 +620,10 @@ class WRDDBIntegerValue extends WRDAttributeValueBase<number, number, number, WR
   validateInput(value: number) {
     if (this.attr.required && !value)
       throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+  }
+
+  encodeValue(value: number): EncodedValue {
+    return value ? { settings: { rawdata: "1", attribute: this.attr.id } } : {};
   }
 }
 
@@ -622,13 +672,12 @@ class WRDDBBaseIntegerValue extends WRDAttributeValueBase<number, number, number
       throw new Error(`Provided default value for attribute ${this.attr.tag}`);
   }
 
-  getAttrBaseCells(): null | keyof EntityPartialRec | Array<keyof EntityPartialRec> {
-    switch (this.attr.tag) {
-      case "wrdId": return "id";
-      case "wrdType": return "type";
-      case "wrdOrdering": return "ordering";
-    }
-    return null;
+  getAttrBaseCells(): keyof EntityPartialRec {
+    return getAttrBaseCells(this.attr.tag, ["wrdId", "wrdType", "wrdOrdering"]);
+  }
+
+  encodeValue(value: number): EncodedValue {
+    return { entity: { [this.getAttrBaseCells()]: value } };
   }
 }
 
@@ -710,6 +759,10 @@ class WRDDBDomainValue<Required extends boolean> extends WRDAttributeValueBase<
     if (this.attr.required && !value)
       throw new Error(`Provided default value for attribute ${this.attr.tag}`);
   }
+
+  encodeValue(value: number): EncodedValue {
+    return { settings: { setting: value, attribute: this.attr.id } };
+  }
 }
 
 class WRDDBBaseDomainValue<Required extends boolean> extends WRDAttributeValueBase<
@@ -755,12 +808,7 @@ class WRDDBBaseDomainValue<Required extends boolean> extends WRDAttributeValueBa
 
     // copy to a new variable to satisfy TypeScript type inference
     const fixed_db_cv = db_cv;
-    if (this.attr.tag === "wrdLeftEntity")
-      query = addWhere(query, "leftentity", fixed_db_cv.condition, fixed_db_cv.value);
-    else if (this.attr.tag === "wrdRightEntity")
-      query = addWhere(query, "rightentity", fixed_db_cv.condition, fixed_db_cv.value);
-    else
-      throw new Error(`Unhandled base domain attribute ${JSON.stringify(this.attr.tag)}`);
+    query = addWhere(query, this.getAttrBaseCells(), fixed_db_cv.condition, fixed_db_cv.value);
 
     return {
       needaftercheck: false,
@@ -769,12 +817,8 @@ class WRDDBBaseDomainValue<Required extends boolean> extends WRDAttributeValueBa
   }
 
   getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, entityrec: EntityPartialRec): (true extends Required ? number : number | null) {
-    if (this.attr.tag === "wrdLeftEntity")
-      return entityrec.leftentity || null as (true extends Required ? number : number | null);
-    else if (this.attr.tag === "wrdRightEntity")
-      return entityrec.rightentity || null as (true extends Required ? number : number | null);
-    else
-      throw new Error(`Unhandled base domain attribute ${JSON.stringify(this.attr.tag)}`);
+    const retval = entityrec[this.getAttrBaseCells()] || null;
+    return retval as (true extends Required ? number : number | null);
   }
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): (true extends Required ? number : number | null) {
@@ -786,13 +830,12 @@ class WRDDBBaseDomainValue<Required extends boolean> extends WRDAttributeValueBa
       throw new Error(`Provided default value for attribute ${this.attr.tag}`);
   }
 
-  getAttrBaseCells(): null | keyof EntityPartialRec | Array<keyof EntityPartialRec> {
-    if (this.attr.tag === "wrdLeftEntity")
-      return "leftentity";
-    else if (this.attr.tag === "wrdRightEntity")
-      return "rightentity";
-    else
-      throw new Error(`Unhandled base domain attribute ${JSON.stringify(this.attr.tag)}`);
+  getAttrBaseCells(): keyof EntityPartialRec {
+    return getAttrBaseCells(this.attr.tag, ["wrdId", "wrdType", "wrdLeftEntity", "wrdRightEntity"]);
+  }
+
+  encodeValue(value: number): EncodedValue {
+    return { entity: { [this.getAttrBaseCells()]: value } };
   }
 }
 
@@ -887,6 +930,14 @@ class WRDDBDomainArrayValue extends WRDAttributeValueBase<number[], number[], nu
   validateInput(value: number[]) {
     if (this.attr.required && !value.length)
       throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+    if (value.includes(0))
+      throw new Error(`Value may not include the number 0 for attribute ${this.attr.tag}`);
+  }
+
+  encodeValue(value: number[]): EncodedValue {
+    return {
+      settings: [...new Set(value)].map(setting => ({ setting, attribute: this.attr.id }))
+    };
   }
 }
 
@@ -968,6 +1019,10 @@ class WRDDBEnumValue<Options extends { allowedvalues: string }, Required extends
     if (this.attr.required && (!value || !value.length))
       throw new Error(`Provided default value for attribute ${this.attr.tag}`);
   }
+
+  encodeValue(value: GetEnumAllowedValues<Options, Required> | null) {
+    return value ? { settings: { rawdata: value, attribute: this.attr.id } } : {};
+  }
 }
 
 type WRDDBEnumArrayConditions = {
@@ -1005,6 +1060,12 @@ class WRDDBEnumArrayValue<Options extends { allowedvalues: string }> extends WRD
   validateInput(value: Array<GetEnumArrayAllowedValues<Options>>) {
     if (value.some(v => !v))
       throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+  }
+
+  encodeValue(value: Array<GetEnumArrayAllowedValues<Options>>): EncodedValue {
+    return value.length ? {
+      settings: { rawdata: value.join("\t"), attribute: this.attr.id }
+    } : {};
   }
 }
 
@@ -1046,6 +1107,16 @@ class WRDDBDateValue<Required extends boolean> extends WRDAttributeValueBase<(tr
   validateInput(value: (true extends Required ? Date : Date | null)) {
     if (this.attr.required && !value)
       throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+    if (value && (value.getTime() <= defaultDateTime.getTime() || value.getTime() > maxDateTimeTotalMsecs))
+      throw new Error(`Not allowed use defaultDateTime of maxDateTime for attribute(this.attr.tag)`);
+  }
+
+  encodeValue(value: (true extends Required ? Date : Date | null)): EncodedValue {
+    if (!value)
+      return {};
+
+    const parts = dateToParts(value);
+    return { settings: { rawdata: parts.days.toString(), attribute: this.attr.id } };
   }
 }
 
@@ -1107,14 +1178,13 @@ class WRDDBBaseDateValue extends WRDAttributeValueBase<Date | null, Date | null,
       throw new Error(`Not allowed to use defaultDatetime or maxDatetime, use null`);
   }
 
-  getAttrBaseCells(): null | keyof EntityPartialRec | Array<keyof EntityPartialRec> {
-    switch (this.attr.tag) {
-      case "wrdDateOfBirth": return "dateofbirth";
-      case "wrdDateOfDeath": return "dateofdeath";
-    }
-    return null;
+  getAttrBaseCells(): keyof EntityPartialRec {
+    return getAttrBaseCells(this.attr.tag, ["wrdDateOfBirth", "wrdDateOfDeath"]);
   }
 
+  encodeValue(value: Date | null): EncodedValue {
+    return { entity: { [this.getAttrBaseCells()]: value } };
+  }
 }
 
 class WRDDBDateTimeValue<Required extends boolean> extends WRDAttributeValueBase<(true extends Required ? Date : Date | null), Date | null, (true extends Required ? Date : Date | null), WRDDBDateTimeConditions> {
@@ -1146,6 +1216,14 @@ class WRDDBDateTimeValue<Required extends boolean> extends WRDAttributeValueBase
   validateInput(value: (true extends Required ? Date : Date | null)) {
     if (this.attr.required && !value)
       throw new Error(`Provided default value for attribute ${this.attr.tag}`);
+  }
+
+  encodeValue(value: (true extends Required ? Date : Date | null)): EncodedValue {
+    if (!value)
+      return {};
+
+    const parts = dateToParts(value);
+    return { settings: { rawdata: `${parts.days.toString()},${parts.msecs.toString()}`, attribute: this.attr.id } };
   }
 }
 
@@ -1223,12 +1301,12 @@ class WRDDBBaseCreationLimitDateValue extends WRDAttributeValueBase<Date | null,
       throw new Error(`Not allowed to use defaultDatetime or maxDatetime, use null`);
   }
 
-  getAttrBaseCells(): null | keyof EntityPartialRec | Array<keyof EntityPartialRec> {
-    switch (this.attr.tag) {
-      case "wrdCreationDate": return "creationdate";
-      case "wrdLimitDate": return "limitdate";
-    }
-    return null;
+  getAttrBaseCells(): keyof EntityPartialRec {
+    return getAttrBaseCells(this.attr.tag, ["wrdCreationDate", "wrdLimitDate"]);
+  }
+
+  encodeValue(value: Date | null): EncodedValue {
+    return { entity: { [this.getAttrBaseCells()]: value ?? maxDateTime } };
   }
 }
 
@@ -1281,8 +1359,12 @@ class WRDDBBaseModificationDateValue extends WRDAttributeValueBase<Date, Date | 
       throw new Error(`Not allowed to use defaultDatetime or maxDatetime`);
   }
 
-  getAttrBaseCells(): null | keyof EntityPartialRec | Array<keyof EntityPartialRec> {
-    return "modificationdate";
+  getAttrBaseCells(): keyof EntityPartialRec {
+    return getAttrBaseCells(this.attr.tag, ["wrdModificationDate"]);
+  }
+
+  encodeValue(value: Date | null): EncodedValue {
+    return { entity: { [this.getAttrBaseCells()]: value } };
   }
 }
 
@@ -1301,7 +1383,10 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
     const childAttrs = parentAttrMap.get(attr.id);
     if (childAttrs) {
       for (const childAttr of childAttrs) {
-        this.fields.push({ name: childAttr.tag, accessor: getAccessor(childAttr, parentAttrMap) });
+        this.fields.push({
+          name: childAttr.tag,
+          accessor: getAccessor(childAttr, parentAttrMap)
+        });
       }
     }
   }
@@ -1372,7 +1457,13 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
    * @param value - The value to check. The type of this value is used to determine which type is accepted in an insert or update.
    */
   validateInput(value: Array<Insertable<Members> & { wrdSettingId?: bigint }>) {
-    throw new Error(`Not implemented yet`);
+    for (const row of value)
+      for (const field of this.fields) {
+        if (field.name in row)
+          field.accessor.validateInput(row[field.name as keyof typeof row]);
+        else if (field.accessor.attr.required)
+          throw new Error(`Missing required field ${JSON.stringify(field.name)} in ${JSON.stringify(this.attr.tag)}`);
+      }
   }
 
   getAttrIds(): number | number[] {
@@ -1385,6 +1476,27 @@ class WRDDBArrayValue<Members extends Record<string, SimpleWRDAttributeType | WR
         retval.push(...childIds);
     }
     return retval;
+  }
+
+  encodeValue(value: Array<Insertable<Members> & { wrdSettingId?: bigint }>): EncodedValue {
+    return {
+      settings: value.map((row, idx): EncodedSetting => {
+        const retval: EncodedSetting = { attribute: this.attr.id, ordering: idx + 1 };
+        if (row.wrdSettingId)
+          retval.id = Number(row.wrdSettingId);
+        const subs: Array<EncodedSetting | EncodedSetting[]> = [];
+        for (const field of this.fields) {
+          if (field.name in row) {
+            const subSettings = field.accessor.encodeValue(row[field.name as keyof typeof row]);
+            if (subSettings.settings)
+              subs.push(subSettings.settings);
+          }
+        }
+        if (subs.length)
+          retval.sub = subs.flat();
+        return retval;
+      })
+    };
   }
 }
 
@@ -1421,8 +1533,17 @@ class WRDDBJSONValue<Required extends boolean, JSONType extends object> extends 
     return buf ? JSON.parse(Buffer.from(buf).toString()) : null;
   }
 
-  validateInput(value: JSONType | JSONType | NullIfNotRequired<Required>): void {
+  validateInput(value: JSONType | NullIfNotRequired<Required>): void {
     /* always valid */
+  }
+
+  encodeValue(value: JSONType | NullIfNotRequired<Required>): EncodedValue {
+    if (value === null)
+      return {};
+    const rawdata = JSON.stringify(value);
+    if (Buffer.byteLength(rawdata) <= 4096)
+      return { settings: { rawdata, attribute: this.attr.id } };
+    throw new Error(`FIXME: writing blob values is not supported yet`);
   }
 }
 
@@ -1444,6 +1565,16 @@ class WRDDBRecordValue extends WRDAttributeUncomparableValueBase<object | null, 
   validateInput(value: object | null): void {
     /* always valid */
   }
+
+  encodeValue(value: object | null): EncodedValue {
+    if (!value)
+      return {};
+    const rawdata = encodeHSON(value as IPCMarshallableData);
+    if (Buffer.byteLength(rawdata) <= 4096)
+      return { settings: { rawdata, attribute: this.attr.id } };
+    throw new Error(`FIXME: writing blob values is not supported yet`);
+  }
+
 }
 
 //TODO {data: Buffer} is for 5.3 compatibility and we might have to just remove it
@@ -1466,6 +1597,10 @@ class WHDBResourceAttributeBase extends WRDAttributeUncomparableValueBase<Resour
 
   validateInput(value: ResourceDescriptor | null | { data: Buffer }): void {
     /* always valid */
+  }
+
+  encodeValue(value: ResourceDescriptor | null | { data: Buffer }): EncodedValue {
+    throw new Error(`FIXME: writing blob values is not supported yet`);
   }
 }
 
@@ -1512,6 +1647,10 @@ export class WRDAttributeUnImplementedValueBase<In, Default, Out extends Default
   validateInput(value: In): void {
     this.throwError();
   }
+
+  encodeValue(value: In): EncodedValue {
+    this.throwError();
+  }
 }
 
 // FIXME: add wildcard support
@@ -1553,6 +1692,7 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDBaseAttributeType.Base_NameString]: WRDDBBaseStringValue;
   [WRDBaseAttributeType.Base_Domain]: WRDDBBaseDomainValue<Required>;
   [WRDBaseAttributeType.Base_Gender]: WRDDBBaseGenderValue;
+  [WRDBaseAttributeType.Base_FixedDomain]: WRDDBBaseDomainValue<true>;
 
   [WRDAttributeType.Free]: WRDDBStringValue;
   [WRDAttributeType.Email]: WRDDBStringValue;
@@ -1614,6 +1754,7 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDBaseAttributeType.Base_NameString: return new WRDDBBaseStringValue(attrinfo) as AccessorType<T>;
     case WRDBaseAttributeType.Base_Domain: return new WRDDBBaseDomainValue<T["__required"]>(attrinfo) as AccessorType<T>;
     case WRDBaseAttributeType.Base_Gender: return new WRDAttributeUnImplementedValueBase(attrinfo) as AccessorType<T>; // WRDDBBaseGenderValue
+    case WRDBaseAttributeType.Base_FixedDomain: return new WRDDBBaseDomainValue<true>(attrinfo) as AccessorType<T>;
 
     case WRDAttributeType.Free: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
     case WRDAttributeType.Email: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
