@@ -441,6 +441,7 @@ STATIC OBJECTTYPE TestFramework
     //CreateWebharePasswordHash is SLOW. prepping passwords is worth the trouble
     this->hashedpasswords := [ test := "WHBF:$2y$10$WiHCQT62TCzqcTLGURXPc.dU82JTaAyLizm4F5HAQO8hpnxg2qK4."
                              , secret := "WHBF:$2y$10$V0b0ckLtUivNWjT/chX1OOljYgew24zn8/ynfbUNkgZO9p7eQc2dO"
+                             , secret_dollar := "WHBF:$2y$10$WUm2byXgMFDDa0nmSCLtUO0uNyMoHNmZhNm2YjWLNq8NmV15oFMDG"
                              ];
     this->saveinitialuser := GetEffectiveUser();
 

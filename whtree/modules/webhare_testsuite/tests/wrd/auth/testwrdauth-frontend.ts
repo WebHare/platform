@@ -41,7 +41,7 @@ test.registerTests(
         test.eq('login failed', test.qR('#status').textContent);
         test.assert(!test.qR('#isloggedin').checked);
         test.assert(!test.qR('#js_isloggedin').checked);
-        test.fill(test.qR('#password'), 'secret');
+        test.fill(test.qR('#password'), 'secret$');
         test.click(test.qR('#loginbutton'));
       },
       waits: ['pageload']
@@ -137,7 +137,7 @@ test.registerTests(
     {
       name: "Set new password",
       test: function () {
-        test.fill(test.qR('#password'), 'NewPwd');
+        test.fill(test.qR('#password'), 'NewPwd$');
         test.click(test.qR('#setpassword'));
       },
       waits: ['pageload']
@@ -173,7 +173,7 @@ test.registerTests(
         test.eq('', test.qR('#js_fullname').value);
 
         test.fill(test.qR('#login'), 'pietjefrontend@beta.webhare.net');
-        test.fill(test.qR('#password'), 'NewPwd');
+        test.fill(test.qR('#password'), 'NewPwd$');
         test.click(test.qR('.wh-wrdauth__loginbutton'));
       },
       waits: ['pageload']

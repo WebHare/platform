@@ -1567,7 +1567,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix
     , wrd_lastname := "Tester"
     , wrd_contact_email := "pietje" || emailsuffix
     , wrd_guid := "wrd:123F0320E665AE6BFA6C2673AE9E2F3A"
-    , password := testfw->hashedpasswords.secret
+    , password := testfw->hashedpasswords.secret_dollar
     , whuser_unit :=            testfw->testunit
     ]);
   testfw->GetWRDSchema()->^wrd_person->CreateEntity(
@@ -1575,7 +1575,7 @@ PUBLIC RECORD FUNCTION TestInvoke_SetupWRDAuth(STRING forurl, STRING emailsuffix
     , wrd_lastname := "Tester"
     , wrd_contact_email := "jantje" || emailsuffix
     , wrd_guid := "wrd:123F0320E665AE6BFA6C2673AE9E2ABC"
-    , password := testfw->hashedpasswords.secret
+    , password := testfw->hashedpasswords.secret_dollar
     , whuser_unit :=            testfw->testunit
     ]);
   testfw->CommitWork();
