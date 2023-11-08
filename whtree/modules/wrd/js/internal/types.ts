@@ -22,7 +22,7 @@ export enum WRDGender {
 
 /** WRD attribute types. Negative values are used for base attributes (which will have a different accessor than the attributes read from settings) */
 export enum WRDBaseAttributeType {
-  Base_Integer = -1, // wrd_id, wrd_type
+  Base_Integer = -1, // wrd_ordering
   Base_Guid = -2, // wrd_guid
   Base_Tag = -3, // tag
   Base_CreationLimitDate = -4, // wrdCreationDate, wrdLimitDate
@@ -32,6 +32,7 @@ export enum WRDBaseAttributeType {
   Base_NameString = -7, // wrd_titles, wrd_initials, wrdFirstName, wrdFirstNames, wrd_infix, wrdLastName, wrdTitlesSuffix
   Base_Domain = -8, // wrdLeftEntity, wrdRightEntity
   Base_Gender = -9, // wrd_gender
+  Base_FixedDomain = -11, // wrd_id, wrd_type
 }
 
 export enum WRDAttributeType {
@@ -89,6 +90,7 @@ export type SimpleWRDAttributeType =
   WRDBaseAttributeType.Base_NameString |
   WRDBaseAttributeType.Base_Domain |
   WRDBaseAttributeType.Base_Gender |
+  WRDBaseAttributeType.Base_FixedDomain |
   WRDAttributeType.Domain |
   WRDAttributeType.Free |
   WRDAttributeType.Address |
@@ -215,9 +217,9 @@ export type AllowedFilterConditions = "=" | ">=" | ">" | "!=" | "<" | "<=" | "me
 
 /** Base WRD type */
 export type WRDTypeBaseSettings = {
-  wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_Integer>;
+  wrdId: IsNonUpdatable<WRDBaseAttributeType.Base_FixedDomain>;
   wrdGuid: ToWRDAttr<WRDBaseAttributeType.Base_Guid>;
-  wrdType: IsGenerated<WRDBaseAttributeType.Base_Integer>;
+  wrdType: IsGenerated<WRDBaseAttributeType.Base_FixedDomain>;
   wrdTag: ToWRDAttr<WRDBaseAttributeType.Base_Tag>;
   wrdCreationDate: ToWRDAttr<WRDBaseAttributeType.Base_CreationLimitDate>;
   wrdLimitDate: ToWRDAttr<WRDBaseAttributeType.Base_CreationLimitDate>;
@@ -250,6 +252,9 @@ export type RecordOutputMap<T extends TypeDefinition> = AttrRef<T> | { [K: strin
 /** Type for arguments to enrich */
 export type EnrichOutputMap<T extends TypeDefinition> = { [K: string]: OutputMap<T> } | Readonly<Array<AttrRef<T>>>;
 
+/** Type for argumemnts to select, but all arrays converted to records */
+export type EnrichRecordOutputMap<T extends TypeDefinition> = { [K: string]: RecordOutputMap<T> };
+
 /** Converts an output array to a record */
 type ConvertOutputArray<T extends TypeDefinition, M extends Readonly<Array<AttrRef<T>>>> = { [K in M[number]]: K; };
 
@@ -263,6 +268,14 @@ export type RecordizeOutputMap<T extends TypeDefinition, O extends OutputMap<T>>
       ? { [K in keyof O]: RecordizeOutputMap<T, O[K]> }
       : never));
 
+/** Converts an output array to a record output map (with the arrays converted to records) */
+export type RecordizeEnrichOutputMap<T extends TypeDefinition, O extends EnrichOutputMap<T>> =
+  (O extends Readonly<Array<AttrRef<T>>>
+    ? ConvertOutputArray<T, O>
+    : (O extends { [K: string]: OutputMap<T> }
+      ? { [K in keyof O]: RecordizeOutputMap<T, O[K]> }
+      : never));
+
 // Get the attribute def (WRDAttributeType or WRDAttr of a AttrRef)
 export type AttrOfAttrRef<T extends TypeDefinition, R extends AttrRef<T>> = T[R];
 
@@ -270,7 +283,7 @@ export type AttrOfAttrRef<T extends TypeDefinition, R extends AttrRef<T>> = T[R]
 export type MapAttrRef<T extends TypeDefinition, R extends AttrRef<T>> = GetResultType<AttrOfAttrRef<T, R>>;
 
 /** Convert an attribute reference to the selection result type */
-export type MapAttrRefForSingleItem<T extends TypeDefinition, R extends AttrRef<T>> = GetDefaultType<AttrOfAttrRef<T, R>>;
+export type MapAttrRefWithDefault<T extends TypeDefinition, R extends AttrRef<T>> = GetDefaultType<AttrOfAttrRef<T, R>>;
 
 /** Calculate the selection result of a record output map */
 export type MapRecordOutputMap<T extends TypeDefinition, O extends RecordOutputMap<T>> = O extends AttrRef<T>
@@ -279,12 +292,22 @@ export type MapRecordOutputMap<T extends TypeDefinition, O extends RecordOutputM
     ? { -readonly [K in keyof O]: MapRecordOutputMap<T, O[K]> }
     : never);
 
+/** Calculate the selection result of a enrichment record output map */
+export type MapEnrichRecordOutputMap<T extends TypeDefinition, O extends EnrichRecordOutputMap<T>> = O extends { [K: string]: RecordOutputMap<T> }
+  ? { -readonly [K in keyof O]: MapRecordOutputMap<T, O[K]> }
+  : never;
+
 /** Calculate the selection result of a record output map */
-export type MapRecordOutputMapForSingleItem<T extends TypeDefinition, O extends RecordOutputMap<T>> = O extends AttrRef<T>
-  ? MapAttrRefForSingleItem<T, O>
+export type MapRecordOutputMapWithDefaults<T extends TypeDefinition, O extends RecordOutputMap<T>> = O extends AttrRef<T>
+  ? MapAttrRefWithDefault<T, O>
   : (O extends { [K: string]: RecordOutputMap<T> }
     ? { -readonly [K in keyof O]: MapRecordOutputMap<T, O[K]> }
     : never);
+
+/** Calculate the selection result of a enrichment record output map */
+export type MapEnrichRecordOutputMapWithDefaults<T extends TypeDefinition, O extends EnrichRecordOutputMap<T>> = O extends { [K: string]: RecordOutputMap<T> }
+  ? { -readonly [K in keyof O]: MapRecordOutputMapWithDefaults<T, O[K]> }
+  : never;
 
 /** Returns whether a value is a reference to a WRD attribute
  */
@@ -322,6 +345,17 @@ export function recordizeOutputMap<T extends TypeDefinition, O extends OutputMap
   } else {
     // Need type override here, mapObject can't correctly determine the return type when using generic functions.
     return mapObject(o, <V extends OutputMap<T>>(v: V) => recordizeOutputMap(v)) as RecordizeOutputMap<T, O>;
+  }
+}
+
+/** Converts all arrays in an output map to records
+ */
+export function recordizeEnrichOutputMap<T extends TypeDefinition, O extends EnrichOutputMap<T>>(o: O): RecordizeEnrichOutputMap<T, O> {
+  if (isAttrArrayRef(o)) {
+    return recordizeOutputArray(o) as RecordizeEnrichOutputMap<T, O>;
+  } else {
+    // Need type override here, mapObject can't correctly determine the return type when using generic functions.
+    return mapObject(o as { [K: string]: OutputMap<T> }, <V extends OutputMap<T>>(v: V) => recordizeOutputMap(v)) as RecordizeEnrichOutputMap<T, O>;
   }
 }
 

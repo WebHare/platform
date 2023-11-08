@@ -808,12 +808,7 @@ class WRDDBBaseDomainValue<Required extends boolean> extends WRDAttributeValueBa
 
     // copy to a new variable to satisfy TypeScript type inference
     const fixed_db_cv = db_cv;
-    if (this.attr.tag === "wrdLeftEntity")
-      query = addWhere(query, "leftentity", fixed_db_cv.condition, fixed_db_cv.value);
-    else if (this.attr.tag === "wrdRightEntity")
-      query = addWhere(query, "rightentity", fixed_db_cv.condition, fixed_db_cv.value);
-    else
-      throw new Error(`Unhandled base domain attribute ${JSON.stringify(this.attr.tag)}`);
+    query = addWhere(query, this.getAttrBaseCells(), fixed_db_cv.condition, fixed_db_cv.value);
 
     return {
       needaftercheck: false,
@@ -822,12 +817,8 @@ class WRDDBBaseDomainValue<Required extends boolean> extends WRDAttributeValueBa
   }
 
   getValue(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number, entityrec: EntityPartialRec): (true extends Required ? number : number | null) {
-    if (this.attr.tag === "wrdLeftEntity")
-      return entityrec.leftentity || null as (true extends Required ? number : number | null);
-    else if (this.attr.tag === "wrdRightEntity")
-      return entityrec.rightentity || null as (true extends Required ? number : number | null);
-    else
-      throw new Error(`Unhandled base domain attribute ${JSON.stringify(this.attr.tag)}`);
+    const retval = entityrec[this.getAttrBaseCells()] || null;
+    return retval as (true extends Required ? number : number | null);
   }
 
   getFromRecord(entity_settings: EntitySettingsRec[], settings_start: number, settings_limit: number): (true extends Required ? number : number | null) {
@@ -840,7 +831,7 @@ class WRDDBBaseDomainValue<Required extends boolean> extends WRDAttributeValueBa
   }
 
   getAttrBaseCells(): keyof EntityPartialRec {
-    return getAttrBaseCells(this.attr.tag, ["wrdLeftEntity", "wrdRightEntity"]);
+    return getAttrBaseCells(this.attr.tag, ["wrdId", "wrdType", "wrdLeftEntity", "wrdRightEntity"]);
   }
 
   encodeValue(value: number): EncodedValue {
@@ -1701,6 +1692,7 @@ type SimpleTypeMap<Required extends boolean> = {
   [WRDBaseAttributeType.Base_NameString]: WRDDBBaseStringValue;
   [WRDBaseAttributeType.Base_Domain]: WRDDBBaseDomainValue<Required>;
   [WRDBaseAttributeType.Base_Gender]: WRDDBBaseGenderValue;
+  [WRDBaseAttributeType.Base_FixedDomain]: WRDDBBaseDomainValue<true>;
 
   [WRDAttributeType.Free]: WRDDBStringValue;
   [WRDAttributeType.Email]: WRDDBStringValue;
@@ -1762,6 +1754,7 @@ export function getAccessor<T extends WRDAttrBase>(
     case WRDBaseAttributeType.Base_NameString: return new WRDDBBaseStringValue(attrinfo) as AccessorType<T>;
     case WRDBaseAttributeType.Base_Domain: return new WRDDBBaseDomainValue<T["__required"]>(attrinfo) as AccessorType<T>;
     case WRDBaseAttributeType.Base_Gender: return new WRDAttributeUnImplementedValueBase(attrinfo) as AccessorType<T>; // WRDDBBaseGenderValue
+    case WRDBaseAttributeType.Base_FixedDomain: return new WRDDBBaseDomainValue<true>(attrinfo) as AccessorType<T>;
 
     case WRDAttributeType.Free: return new WRDDBStringValue(attrinfo) as AccessorType<T>;
     case WRDAttributeType.Email: return new WRDDBStringValue(attrinfo) as AccessorType<T>;

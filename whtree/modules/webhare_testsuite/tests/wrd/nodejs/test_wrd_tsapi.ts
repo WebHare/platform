@@ -242,6 +242,33 @@ async function testNewAPI() {
 
   test.eq({ wrdFirstName: "first", lastname: "lastname" }, await schema.getFields("wrdPerson", selectres[0].id, { wrdFirstName: "wrdFirstName", lastname: "wrdLastName" }));
 
+  {
+    const doubleEnrich = await schema
+      .selectFrom("wrdPerson")
+      .select(["wrdId"])
+      .where("wrdId", "=", firstperson)
+      .enrich("wrdPerson", "wrdId", { wrdFirstName: "wrdFirstName" })
+      .enrich("wrdPerson", "wrdId", { lastname: "wrdLastName", joinedId: "wrdId" })
+      .execute();
+
+    test.eq([{ wrdFirstName: "first", lastname: "lastname", wrdId: firstperson, joinedId: firstperson }], doubleEnrich);
+    test.typeAssert<test.Equals<Array<{ wrdFirstName: string; lastname: string; wrdId: number; joinedId: number }>, typeof doubleEnrich>>();
+
+    const doubleEnrichWithOuterJoin = await schema
+      .selectFrom("wrdPerson")
+      .select(["wrdId"])
+      .where("wrdId", "=", firstperson)
+      .enrich("wrdPerson", "wrdId", { wrdFirstName: "wrdFirstName" })
+      .enrich("wrdPerson", "wrdId", { lastname: "wrdLastName", joinedId: "wrdId" }, { rightouterjoin: true })
+      .execute();
+
+    test.eq([{ wrdFirstName: "first", lastname: "lastname", wrdId: firstperson, joinedId: firstperson }], doubleEnrichWithOuterJoin);
+    test.typeAssert<test.Equals<Array<
+      { wrdFirstName: string; lastname: string; wrdId: number; joinedId: number } |
+      { wrdFirstName: string; lastname: string; wrdId: number; joinedId: number | null }>, typeof doubleEnrichWithOuterJoin>>();
+
+  }
+
   await whdb.beginWork();
   await schema.delete("wrdPerson", firstperson);
   await whdb.commitWork();

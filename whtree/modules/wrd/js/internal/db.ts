@@ -52,8 +52,8 @@ function getBaseAttrsFor(type: TypeRec): AttrRec[] {
   };
   const attrs: AttrRec[] = [
     { ...baseEmptyAttrRec, tag: "wrdGuid", attributetype: WRDBaseAttributeType.Base_Guid },
-    { ...baseEmptyAttrRec, tag: "wrdId", attributetype: WRDBaseAttributeType.Base_Integer }, // FIXME: make only insertable, not updatable!
-    { ...baseEmptyAttrRec, tag: "wrdType", attributetype: WRDBaseAttributeType.Base_Integer, isreadonly: true }, // FIXME: make readonly!
+    { ...baseEmptyAttrRec, tag: "wrdId", attributetype: WRDBaseAttributeType.Base_FixedDomain }, // FIXME: make only insertable, not updatable!
+    { ...baseEmptyAttrRec, tag: "wrdType", attributetype: WRDBaseAttributeType.Base_FixedDomain, isreadonly: true }, // FIXME: make readonly!
     { ...baseEmptyAttrRec, tag: "wrdTag", attributetype: WRDBaseAttributeType.Base_Tag },
     { ...baseEmptyAttrRec, tag: "wrdCreationDate", attributetype: WRDBaseAttributeType.Base_CreationLimitDate },
     { ...baseEmptyAttrRec, tag: "wrdLimitDate", attributetype: WRDBaseAttributeType.Base_CreationLimitDate },

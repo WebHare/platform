@@ -1,5 +1,5 @@
 //import { AnySchemaTypeDefinition, AllowedFilterConditions, RecordOutputMap, SchemaTypeDefinition, recordizeOutputMap, Insertable, Updatable, CombineSchemas, OutputMap, RecordizeOutputMap, GetCVPairs, MapRecordOutputMap, AttrRef, EnrichOutputMap, CombineRecordOutputMaps, combineRecordOutputMaps, WRDMetaType, WRDAttributeTypeNames } from "./types";
-import { AllowedFilterConditions, MapRecordOutputMap, RecordOutputMap, SchemaTypeDefinition } from "./types";
+import { AllowedFilterConditions, MapRecordOutputMap, MapRecordOutputMapWithDefaults, RecordOutputMap, SchemaTypeDefinition } from "./types";
 export { SchemaTypeDefinition } from "./types";
 //import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
 //import { ensureScopedResource } from "@webhare/services/src/codecontexts";
@@ -98,6 +98,31 @@ function applyMap<S>(map: ReturnMap<S>, values: unknown[]): unknown {
       retval[elt.name] = applyMap(elt.fields, values);
   }
   return retval;
+}
+
+export async function getDefaultJoinRecord<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]>>(
+  type: WRDType<S, T>,
+  selects: O
+): Promise<MapRecordOutputMapWithDefaults<S[T], O>> {
+  // Get the data for the whole schema
+  const schemadata = await type.schema.ensureSchemaData();
+
+  // Lookup the type
+  const typerec = schemadata.typeTagMap.get(type.tag);
+  if (!typerec)
+    throw new Error(`No such type ${JSON.stringify(type.tag)}`);
+
+  // Build the output mapping
+  const { map, accessors } = createSelectMap(type, selects || {}, typerec.rootAttrMap, typerec.parentAttrMap);
+
+  // Gather the accessor values
+  const accvalues = [];
+  for (const acc of accessors) {
+    accvalues.push(acc.accessor.getDefaultValue());
+  }
+
+  // Apply the output mapping, push the value to the results
+  return applyMap(map, accvalues) as MapRecordOutputMapWithDefaults<S[T], O>;
 }
 
 export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]>>(
