@@ -4152,6 +4152,13 @@ PUBLIC RECORD FUNCTION ValidateOptions(RECORD defaultoptions, RECORD options, RE
     INTEGER wanttype := TypeID(GetCell(defaultoptions, cellrec.name));
     INTEGER gottype := TypeID(cellrec.value);
 
+    // Empty variant arrays should cast to other arrays (helps invocations from JS)
+    IF(gottype = TYPEID(VARIANT ARRAY) AND Length(cellrec.value) = 0 AND IsTypeidArray(wanttype))
+    {
+      result := CellInsert(result, cellrec.name, GetTypeDefaultValue(wanttype));
+      CONTINUE;
+    }
+
     // We'll allow implicit casts, but not from RECORD ARRAY to RECORD
     IF (NOT CanCastTypeTo(gottype, wanttype)
         OR (gottype = TypeID(RECORD ARRAY) AND wanttype = TypeId(RECORD)))

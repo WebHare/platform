@@ -183,7 +183,7 @@ export default class RPCFormBase extends FormBase {
     }
   }
 
-  async submit(extradata) {
+  async submit(extradata?: object) {
     //ADDME timeout and free the form after some time
     if (this.__formhandler.submitting) //throwing is the safest solution... having the caller register a second resolve is too dangerous
       throw new Error("The form is already being submitted");
