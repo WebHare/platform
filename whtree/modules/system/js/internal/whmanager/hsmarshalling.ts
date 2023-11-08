@@ -102,6 +102,10 @@ export function getTypedArray<V extends ArrayVariableType, T extends HSType<V>>(
   return copy as T;
 }
 
+export function annotateExistingArray<V extends ArrayVariableType>(type: VariableType, array: HSType<V>) {
+  return Object.defineProperty(array, "__hstype", { value: type });
+}
+
 export function isDate(value: unknown): value is Date {
   return Boolean(typeof value === "object" && value && "getDate" in value);
 }

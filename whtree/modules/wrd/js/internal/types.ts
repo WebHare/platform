@@ -117,6 +117,30 @@ export type SimpleWRDAttributeType =
   WRDAttributeType.WHFSLink;
 
 
+export const baseAttrCells = {
+  "wrdTag": "tag",
+  "wrdInitials": "initials",
+  "wrdFirstName": "firstname",
+  "wrdFirstNames": "firstnames",
+  "wrdInfix": "infix",
+  "wrdLastName": "lastname",
+  "wrdTitlesSuffix": "titles_suffix",
+  "wrdGuid": "guid",
+  "wrdSaluteFormal": ["lastname", "gender", "titles", "infix"],
+  "wrdAddressFormal": ["lastname", "gender", "titles", "infix", "initials"],
+  "wrdFullName": ["initials", "firstname", "firstnames", "lastname", "infix"],
+  "wrdTitle": ["initials", "firstname", "firstnames", "lastname", "infix"],
+  "wrdId": "id",
+  "wrdType": "type",
+  "wrdOrdering": "ordering",
+  "wrdLeftEntity": "leftentity",
+  "wrdRightEntity": "rightentity",
+  "wrdDateOfBirth": "dateofbirth",
+  "wrdDateOfDeath": "dateofdeath",
+  "wrdCreationDate": "creationdate",
+  "wrdLimitDate": "limitdate",
+  "wrdModificationDate": "modificationdate",
+} as const;
 
 /** Extended form for declaring an attribute, also supports enums and arrays properties
  * @typeParam T - WRDAttributeType for this attribute
