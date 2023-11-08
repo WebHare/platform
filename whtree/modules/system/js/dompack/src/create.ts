@@ -152,7 +152,10 @@ export function create(elementname: string, attributes?: CreateAttributes) {
     @param element - Name of the element to create
     @param childNodes - Any child nodes to add immediately
 */
-export function jsxcreate(element: string | CreateElementFunction, attributes: CreateAttributes, ...childNodes: Array<Node | string | number>) {
+export function jsxcreate<K extends keyof HTMLElementTagNameMap>(element: K, attributes: CreateAttributes, ...childNodes: Array<Node | string | number>): HTMLElementTagNameMap[K];
+export function jsxcreate(element: string | CreateElementFunction, attributes: CreateAttributes, ...childNodes: Array<Node | string | number>): HTMLElement;
+
+export function jsxcreate(element: string | CreateElementFunction, attributes: CreateAttributes, ...childNodes: Array<Node | string | number>): HTMLElement {
   // Ensure attributes
   attributes = attributes || {};
   // Flatten childnodes arrays, convert numbers to strings. Also support children property (React uses that)

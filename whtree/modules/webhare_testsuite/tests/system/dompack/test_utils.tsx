@@ -1,6 +1,3 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as test from "@mod-system/js/wh/testframework";
 
 import * as dompack from "dompack";
@@ -9,7 +6,7 @@ import * as webhare_dompack from "@webhare/dompack";
 
 let eventcount = 0;
 
-function anyEventHandler(evt) {
+function anyEventHandler(evt: Event) {
   console.log(evt);
   ++eventcount;
 }
@@ -37,19 +34,25 @@ test.registerTests(
     async function () {
       //please note this tests the lower layers of the JSX, it does not bother with the JSX syntax
       test.eq(0, eventcount);
-      let node = dompack.jsxcreate('input', { type: 'checkbox', checked: false });
-      test.eq(false, node.checked);
+      {
+        const node = dompack.jsxcreate('input', { type: 'checkbox', checked: false });
+        test.eq(false, node.checked);
+      }
 
-      node = dompack.jsxcreate('input', { type: 'text', onChange: anyEventHandler });
-      dompack.changeValue(node, 'newvalue');
-      test.eq(1, eventcount, 'expected change event');
+      {
+        const node = dompack.jsxcreate('input', { type: 'text', onChange: anyEventHandler });
+        dompack.changeValue(node, 'newvalue');
+        test.eq(1, eventcount, 'expected change event');
+      }
 
-      node = dompack.jsxcreate('div', { type: 'checkbox', attr1: 0, attr2: null, attr3: undefined, attr4: "" });
-      test.eq("0", node.getAttribute("attr1"));
-      test.eq(false, node.hasAttribute("attr2"));
-      test.eq(false, node.hasAttribute("attr3"));
-      test.eq(true, node.hasAttribute("attr4"));
-      test.eq("", node.getAttribute("attr4"));
+      {
+        const node = dompack.jsxcreate('div', { type: 'checkbox', attr1: 0, attr2: null, attr3: undefined, attr4: "" });
+        test.eq("0", node.getAttribute("attr1"));
+        test.eq(false, node.hasAttribute("attr2"));
+        test.eq(false, node.hasAttribute("attr3"));
+        test.eq(true, node.hasAttribute("attr4"));
+        test.eq("", node.getAttribute("attr4"));
+      }
     },
 
     "jsx-syntax",
