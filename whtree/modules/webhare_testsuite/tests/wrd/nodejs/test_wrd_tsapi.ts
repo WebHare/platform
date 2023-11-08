@@ -259,7 +259,7 @@ async function testNewAPI() {
       .select(["wrdId"])
       .where("wrdId", "=", firstperson)
       .enrich("wrdPerson", "wrdId", { wrdFirstName: "wrdFirstName" })
-      .enrich("wrdPerson", "wrdId", { lastname: "wrdLastName", joinedId: "wrdId" }, { rightouterjoin: true })
+      .enrich("wrdPerson", "wrdId", { lastname: "wrdLastName", joinedId: "wrdId" }, { rightOuterJoin: true })
       .execute();
 
     test.eq([{ wrdFirstName: "first", lastname: "lastname", wrdId: firstperson, joinedId: firstperson }], doubleEnrichWithOuterJoin);
