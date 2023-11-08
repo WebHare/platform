@@ -700,7 +700,9 @@ load_postgres_settings()
   PSROOT="${WEBHARE_DATAROOT}postgresql"
 
   if [ -n "$WEBHARE_IN_DOCKER" ]; then  #TODO should share with recreate-database and postgres-single
-    RUNAS="chpst -u postgres:whdata"
+    if [ "$(id -u)" == "0" ]; then #don't switch users if we didn't start as root
+      RUNAS="chpst -u postgres:whdata"
+    fi
     PSBIN="/usr/lib/postgresql/11/bin/"
   elif [ "$WEBHARE_PLATFORM" = "darwin" ]; then
     # Read the version of the PostgreSQL database, fall back to version 13 (as specified in webhare.rb) for new databases

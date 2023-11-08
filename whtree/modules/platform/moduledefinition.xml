@@ -14,7 +14,9 @@
 
     All under `/.wh/dev/` will be assigned to the standard 'dev' module (mod::dev/web/wh-dev/)
      `/.wh/common/` is a common location for tools such as Publisher feedback pages. It is managed by the 'platform' module
-     -->
+
+    Add-on modules that want to add content under /.wh/ should use /.wh/mod/<modulename>/
+    -->
     <webrule path="allroots:/.wh/common/" match="initial" handlebydir="web/wh-common/" priority="after" />
   </backend>
 
