@@ -7,6 +7,7 @@ interface SessionInterface {
 }
 
 let session: SessionInterface | undefined;
+const process_exit_backup = process.exit.bind(process);
 
 async function finishProfile() {
   if (!session)
@@ -17,16 +18,14 @@ async function finishProfile() {
 
   const { profile } = await savesession.post('Profiler.stop');
   console.log(JSON.stringify(profile, null, 2));
-  process.exit(); //force an exit. profiler seems to go into a 100% CPU loop? and we're done anyway now. without paramers this will simply quit with process.exitCode
+  process_exit_backup(); //force an exit. profiler seems to go into a 100% CPU loop? and we're done anyway now. without paramers this will simply quit with process.exitCode
 }
-
-const process_exit_backup = process.exit.bind(process);
 
 process.exit = function (code?: number): never {
   if (code !== undefined)
     process.exitCode = code;
   finishProfile().then(() => process_exit_backup());
-  throw new Error('Process has exited'); //helps ensuring process.exit aborts until JS adds a longjmp to get back to profilerMain
+  throw new Error('Process has exited'); //process.exit is not supposed to return, so we'll throw until JS adds a longjmp to get back to profilerMain
 };
 
 async function profilerMain() {
