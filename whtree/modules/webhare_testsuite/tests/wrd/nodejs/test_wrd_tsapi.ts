@@ -9,7 +9,7 @@ import { JsonWebKey } from "node:crypto";
 import { wrdTestschemaSchema, System_Usermgmt_WRDAuthdomainSamlIdp } from "@mod-system/js/internal/generated/wrd/webhare";
 import { ResourceDescriptor, toResourcePath } from "@webhare/services";
 import { loadlib } from "@webhare/harescript/src/contextvm";
-import { flags } from "@webhare/env/src/env";
+import { debugFlags } from "@webhare/env";
 
 type TestSchema = {
   wrdPerson: {
@@ -325,11 +325,14 @@ async function testNewAPI() {
   test.eq('Hey everybody 2', await filerec.resource.text());
   test.eq('5q1Ql8lEa-yynDB7Gow5Oq4tj3aUhW_fUthcW-Fu0YM', filerec.hash);
 
-  // Set the 'richie' rich document document
-  const testHTML = `<html><head></head><body>\n<p class="normal">blabla</p>\n</body></html>`;
-  await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestRichDocumentField(testSchemaTag, newperson, testHTML);
-  const richrec = (await schema.getFields("wrdPerson", newperson, ["richie"]))!.richie;
-  test.eq(testHTML, await richrec!.__getRawHTML());
+  // FIXME: rich documents are not yet supported in the JS engine
+  if (!debugFlags["wrd:usejsengine"]) {
+    // Set the 'richie' rich document document
+    const testHTML = `<html><head></head><body>\n<p class="normal">blabla</p>\n</body></html>`;
+    await loadlib(toResourcePath(__dirname) + "/tsapi_support.whlib").SetTestRichDocumentField(testSchemaTag, newperson, testHTML);
+    const richrec = (await schema.getFields("wrdPerson", newperson, ["richie"]))!.richie;
+    test.eq(testHTML, await richrec!.__getRawHTML());
+  }
 
   // test array & nested record selectors
   {
@@ -510,7 +513,11 @@ function testGeneratedWebHareWRDAPI() {
   test.typeAssert<test.Equals<string, SelectionResultRow<System_Usermgmt_WRDAuthdomainSamlIdp, "organizationName">>>();
 }
 
-flags["wrd:usewasmvm"] = true;
+debugFlags["wrd:usewasmvm"] = true;
+if (process.argv.includes("--usejsengine")) {
+  console.log(`using WRD js engine`);
+  debugFlags["wrd:usejsengine"] = true;
+}
 
 test.run([
   testSupportAPI,
