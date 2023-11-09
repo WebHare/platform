@@ -2,7 +2,7 @@ import { Money } from "@webhare/std";
 import { isDate, determineType, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { defaultDateTime } from "./datetime";
 
-export type ComparableType = number | null | bigint | string | Date | Money | boolean;
+export type ComparableType = number | null | bigint | string | Date | Money | boolean | Buffer;
 
 // needed for interface definitions, don't want to sprinkle the file with eslint-disables or disable globally
 
@@ -81,6 +81,10 @@ function binaryRecordSearchImpl<
   return { found, position: first };
 }
 
+function isBuffer(value: ComparableType): value is Buffer {
+  return Boolean(typeof value === "object" && value && "byteLength" in value);
+}
+
 export function compare(left: ComparableType, right: ComparableType): -1 | 0 | 1 {
   if (left === null)
     return right === null ? 0 : -1;
@@ -144,6 +148,8 @@ export function compare(left: ComparableType, right: ComparableType): -1 | 0 | 1
         const left_value = Number(left);
         const right_value = Number(right);
         return left_value !== right_value ? left_value < right_value ? -1 : 1 : 0;
+      } else if (isBuffer(left) && isBuffer(right)) {
+        return Buffer.compare(left, right);
       }
     } break;
   }
@@ -174,7 +180,7 @@ type PartialNoNull<T extends object, K extends keyof T> = {
   [Key in K as T[Key] extends null ? never : Key]?: Exclude<T[Key], null>;
 };
 
-function isHareScriptDefaultValue(value: unknown) {
+export function isDefaultHareScriptValue(value: unknown) {
   if (value === false || value === null || value === undefined || value === 0 || value === "" || value === 0n)
     return true;
   if (Array.isArray(value) && !value.length)
@@ -200,7 +206,7 @@ export function omitHareScriptDefaultValues<T extends object, K extends keyof T>
 
   const res = {} as Record<string, unknown>;
   for (const [key, keyvalue] of Object.entries(value))
-    if (!keys.includes(key as K) || !isHareScriptDefaultValue(keyvalue))
+    if (!keys.includes(key as K) || !isDefaultHareScriptValue(keyvalue))
       res[key] = keyvalue;
   return res as Omit<T, K> & PartialNoNull<T, K>;
 }
