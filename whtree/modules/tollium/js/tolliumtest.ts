@@ -7,7 +7,7 @@
 import { toElement } from "dompack/testframework/pointer";
 import { getCurrentScreen, getTestScreen } from "./testframework";
 
-import * as test from "@mod-system/js/wh/testframework";
+import * as test from "@webhare/test-frontend";
 import { qSA } from "@webhare/dompack";
 
 const proxies = new WeakMap<HTMLElement, ComponentProxy>();
@@ -53,7 +53,7 @@ export async function launchScreen(resource: string) {
     throw new Error(`launchScreen requires an absolute resource, got ${resource}`);
 
   await test.load(getTestScreen(resource));
-  await test.wait("ui");
+  await test.waitUI();
   //FIXME verify a screen opened
 }
 

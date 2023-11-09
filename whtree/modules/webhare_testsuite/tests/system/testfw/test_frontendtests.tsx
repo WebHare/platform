@@ -1,11 +1,7 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
 import * as dompack from "@webhare/dompack";
-import * as test from "@mod-system/js/wh/testframework";
+import * as test from "@webhare/test-frontend";
 
-function getPressedKeys() { return JSON.parse(test.qS('#keyspressed').value || "[]"); }
-
-test.registerTests(
+test.run(
   [
     async function () {
       await test.load('/.webhare_testsuite/tests/pages/statictestpage.html');
