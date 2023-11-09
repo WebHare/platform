@@ -1655,6 +1655,8 @@ PUBLIC OBJECTTYPE TolliumComponentBase
     RECORD retval := [ window := this->owner->frame->instancename
                      , type := type
                      , target := this->toddname
+                     , enabled := this->enabled
+                     , title := this->title
                      ];
 
     //bare components should not require any width/height
@@ -1671,7 +1673,6 @@ PUBLIC OBJECTTYPE TolliumComponentBase
     }
     IF (MemberExists(this, "DEFAULTBUTTON") AND this->defaultbutton != DEFAULT OBJECT)
       INSERT CELL defaultbutton := this->defaultbutton->toddname INTO retval;
-    INSERT CELL enabled := this->enabled INTO retval;
 
     RETURN retval;
   }

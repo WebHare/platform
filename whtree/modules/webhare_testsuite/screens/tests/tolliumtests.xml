@@ -1,0 +1,10 @@
+<screens xmlns="http://www.webhare.net/xmlns/tollium/screens" library="tolliumtests.whlib">
+
+  <screen name="tolliumtests">
+    <body>
+      <textedit name="textedit" title="First textedit" />
+      <button name="button" title="First button" />
+    </body>
+  </screen>
+
+</screens>

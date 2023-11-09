@@ -1,0 +1,14 @@
+<?wh
+LOADLIB "mod::system/lib/test.whlib";
+
+ASYNC MACRO TestTTApi()
+{
+  AWAIT tt.launchScreen("mod::webhare_testsuite/screens/tests/tolliumtests.xml");
+
+  test.assert(tt.comp("button") = tt.comp(":First button"));
+  test.assert(tt.comp("textedit") = tt.comp(":First textedit"));
+
+  AWAIT tt.escape();
+}
+
+test.run(VARIANT[ "Basic tests", PTR TestTTApi ]);

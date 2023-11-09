@@ -48,6 +48,9 @@ const screen_minheight = 20;
 // FIXME: remove all scroll handling for menu's (let DF menu do that)
 
 export default class Frame extends ComponentBase {
+  node: HTMLElement;
+  screenname: string;
+
   constructor(hostapp, data) {
     /* NOTE:
        initialize() will NEVER receive a true, original response when a window is constructed anymore (see createNewScreen)

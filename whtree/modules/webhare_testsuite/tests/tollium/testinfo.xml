@@ -11,6 +11,8 @@
 
   <jstest file="test_distributesizes.ts" />
 
+  <jstest file="test-tolliumtest.ts" />
+  <test script="test-tolliumtest-hs.whscr" />
   <test path="components/" />
   <test path="layout/" />
   <test path="component/" />

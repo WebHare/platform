@@ -9,6 +9,7 @@
   "author": "WebHare bv",
   "license": "MIT",
   "browser": {
+    "src/testrunner": "./src/testrunner-browser.ts",
     "src/testsupport": "./src/testsupport-browser.ts"
   },
   "typedocOptions": {

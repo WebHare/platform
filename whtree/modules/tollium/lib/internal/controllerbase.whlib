@@ -674,8 +674,7 @@ PUBLIC STATIC OBJECTTYPE __ScreenBuilder
   }
 
   /** @short lookup the handler with the given cellname
-      @param definition
-      @param name name of the cell which contains the definition of the handler (name, it's returnvalue type and argument types)
+      @param attributename name of the cell which contains the definition of the handler (name, it's returnvalue type and argument types)
   */
   PUBLIC FUNCTION PTR FUNCTION LookupAndValidateHandler(OBJECT obj, RECORD handlerrec, STRING attributename, RECORD tolliumscope)
   {
@@ -2268,7 +2267,6 @@ PUBLIC OBJECTTYPE TolliumControllerBase
 
   /** Request client to send its state to us. Warning: experimental! Interval won't run and callbacks may occur from within
       this function.
-      @param
       @cell options.lockclient Whether to lock the client (with a busylock) until the next message loop is entered.
       @cell options.timeout Time to wait until (pass MAX_DATETIME to wait forever)
       @return One of the following values: 'ok' (sync done), 'timeout' (no response from client), 'closed' (screen closed by client)
@@ -2396,10 +2394,10 @@ PUBLIC OBJECTTYPE TolliumControllerBase
   }
   PUBLIC MACRO SendComponent(OBJECT comp, RECORD data)
   {
-    RECORD base := comp->GetStandardAttributes(comp->componenttype);
-    data := MakeMergedRecord(base,data);
-    INSERT CELL instr := "component" INTO data;
-    this->QueueInstruction(data);
+    this->QueueInstruction(CELL[ ...comp->GetStandardAttributes(comp->componenttype)
+                               , ...data
+                               , instr := "component"
+    ]);
   }
   UPDATE PUBLIC MACRO SendAppLevelMessage(STRING type, RECORD data)
   {

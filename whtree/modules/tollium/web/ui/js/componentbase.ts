@@ -1,7 +1,6 @@
 /* eslint-disable */
 // @ts-nocheck -- needs porting!
 
-import * as whintegration from '@mod-system/js/wh/integration';
 import * as dompack from 'dompack';
 import * as domfocus from 'dompack/browserfix/focus';
 import $todd from "@mod-tollium/web/ui/js/support";
@@ -11,14 +10,30 @@ import { isLive } from "@webhare/env";
 
 let urlgencounter = 0;
 
+export interface ComponentStandardAttributes { //see ComponentBase::GetStandardAttributes
+  window: string;
+  type: string;
+  target: string;
+  title: string;
+  enabled: boolean;
+  minheight?: string;
+  minwidth?: string;
+  height?: string;
+  width?: string;
+  //toddname of the default button, if set
+  defaultbutton?: string;
+}
+
 /****************************************************************************************************************************
  *                                                                                                                          *
  *  COMPONENT BASE                                                                                                          *
  *                                                                                                                          *
  ****************************************************************************************************************************/
 export class ToddCompBase {
-  action: string;
-  name: string;
+  action = '';
+  name = '';
+  componenttype = 'component';
+  title: string;
 
   /****************************************************************************************************************************
   * Initialization
@@ -32,9 +47,7 @@ export class ToddCompBase {
      @param replacingcomp The old component, if this is a new version of an existing component (for tollium components only)
      @return If this is the first initialize (true), or an update (false)
   */
-  constructor(parentcomp, data, replacingcomp) {
-    this.componenttype = "component";
-
+  constructor(parentcomp, data: ComponentStandardAttributes, replacingcomp) {
     // The parent component
     // (This is what parent used to be, but MooTools uses this.parent to call ancestor functions within updated functions)
     this.parentcomp = null; // old 'parent'
@@ -81,7 +94,6 @@ export class ToddCompBase {
       this.objectmap = {}; // We need to do this because frame can't yet and it will crash registerComponent
     }
 
-    this.title = null;
     this.value = null;
     this.tooltip = null;
 
@@ -91,6 +103,7 @@ export class ToddCompBase {
     if (parentcomp === null && data === null)
       return; //the table subcomponents don't fully initialize their subs, so this is a hack for them
 
+    this.title = data.title;
     this.parentcomp = parentcomp;
     this.owner = parentcomp ? parentcomp.owner : this;
     this.destroywithparent = parentcomp && data.destroywithparent || false;

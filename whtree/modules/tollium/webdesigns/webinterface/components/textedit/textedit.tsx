@@ -9,6 +9,7 @@ import './textedit.scss';
 import { InputTextLengthCounter } from "@mod-tollium/web/ui/components/basecontrols/counter";
 import * as toddtools from '@mod-tollium/webdesigns/webinterface/components/base/tools';
 import $todd from "@mod-tollium/web/ui/js/support";
+import { ComponentStandardAttributes } from '@mod-tollium/web/ui/js/componentbase';
 
 const intra_button_padding = 5; //pixels between textedit buttons
 const prefix_suffix_margin = 5; //pixels between prefix/suffix and input
@@ -61,7 +62,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
   // Initialization
   //
 
-  constructor(parentcomp, data, replacingcomp) {
+  constructor(parentcomp, data: ComponentStandardAttributes & Record<string, unknown>, replacingcomp) {
     super(parentcomp, data, replacingcomp);
     this.componenttype = "textedit";
     this.lastreportedvalue = '';
@@ -213,7 +214,8 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
       type: this.type,
       placeholder: this.placeholder.split("\n").join(", "),
       autocapitalize: "off",
-      autocomplete: this.autocomplete.length ? this.autocomplete : "off"
+      autocomplete: this.autocomplete.length ? this.autocomplete : "off",
+      ariaLabel: this.title
     });
 
     // LastPass support, needs name="login/user/uname..." to detect as login field

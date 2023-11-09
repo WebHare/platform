@@ -59,6 +59,10 @@ export class ApplicationBase {
   busylocks: ApplicationBusyLock[] = [];
   apptarget;
 
+  /* the screenstack contains the screens currently displayed by this application (including foreign screens) in displayorder.
+    screenstack.at(-1) is the currently active and only enabled screen */
+  screenstack: Frame[] = [];
+
   constructor(shell, appname, apptarget, parentapp, options) {
     this.container = null;
     /// Name of  app
@@ -81,9 +85,6 @@ export class ApplicationBase {
 
     ///@}
 
-    /* the screenstack contains the screens currently displayed by this application (including foreign screens) in displayorder.
-      screenstack.at(-1) is the currently active and only enabled screen */
-    this.screenstack = [];
     /* the screenmap contains the screens owned by this application (never includes foreign windows) */
     this.screenmap = {};
 
