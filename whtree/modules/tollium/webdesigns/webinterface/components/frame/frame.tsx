@@ -18,6 +18,7 @@ import * as focuszones from '@mod-tollium/web/ui/components/focuszones';
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
 import { ApplicationBase } from '@mod-tollium/web/ui/js/application';
+import { getIndyShell } from '@mod-tollium/web/ui/js/shell';
 
 
 // Give each frame a unique identifier
@@ -734,7 +735,7 @@ export default class Frame extends ComponentBase {
             case 'notifications':
               {
                 // Request native notification permission
-                $todd.towl.checkNativeNotificationPermission();
+                getIndyShell().towl.checkNativeNotificationPermission();
                 return;
               }
           }

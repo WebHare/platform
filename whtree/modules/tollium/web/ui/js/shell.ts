@@ -109,7 +109,7 @@ class IndyShell extends TolliumShell {
     if (!document.body) //early termination of load, eg wrdauth of whconnect redirect
       return;
 
-    $todd.towl = new TowlNotifications(this);
+    this.towl = new TowlNotifications(this);
 
     this.continueLaunch();
   }
@@ -146,7 +146,7 @@ class IndyShell extends TolliumShell {
     if (appname == '__jsapp_hack__') //FIXME proper way to start JS frontend apps
       return this.startFrontendApplication('TestJSApp', parentapp, { src: '/tollium_todd.res/webhare_testsuite/tollium/jsapp.js' });
 
-    $todd.towl.hideNotification("tollium:shell.frontendclose");
+    this.towl.hideNotification("tollium:shell.frontendclose");
 
     const webvars = [], params = new URL(location.href).searchParams;
     for (const key of params.keys())
@@ -353,7 +353,7 @@ class IndyShell extends TolliumShell {
         description: getTid("tollium:shell.webhareupdated_description")
       };
 
-      $todd.towl.showNotification(notification);
+      this.towl.showNotification(notification);
     }
     this.startuplock.release();
   }
@@ -443,7 +443,7 @@ class IndyShell extends TolliumShell {
     this.eventsconnection.setGroups(settings.eventgroups);
     this.broadcaststart = Date.parse(settings.now);
     this.eventsconnection.start();
-    $todd.towl.setNotificationLocation(settings.notificationslocation);
+    this.towl.setNotificationLocation(settings.notificationslocation);
 
     dompack.dispatchCustomEvent(window, 'tollium:settingschange', { bubbles: true, cancelable: false });
     if (document.getElementById('openinfo')) {
@@ -556,12 +556,12 @@ class IndyShell extends TolliumShell {
           if (event.detail.applicationmessage)
             notification.applicationmessage = event.detail.applicationmessage;
 
-          $todd.towl.showNotification(notification);
+          this.towl.showNotification(notification);
           return;
         }
       case "tollium:towl.hideevent":
         {
-          $todd.towl.hideNotification(event.detail.id);
+          this.towl.hideNotification(event.detail.id);
           return;
         }
     }
@@ -601,7 +601,7 @@ class IndyShell extends TolliumShell {
         persistent: true
       };
 
-      $todd.towl.showNotification(notification);
+      this.towl.showNotification(notification);
     }
 
     this.checkVersion();
@@ -621,7 +621,7 @@ class IndyShell extends TolliumShell {
         persistent: true
       };
 
-      $todd.towl.showNotification(notification);
+      this.towl.showNotification(notification);
       this.offlinenotification = true;
     }
   }
@@ -630,7 +630,7 @@ class IndyShell extends TolliumShell {
     //    console.warn(this.offlinenotification ? "Online again" : "Online");
 
     if (this.offlinenotification)
-      $todd.towl.hideNotification("tollium:shell.offline");
+      this.towl.hideNotification("tollium:shell.offline");
 
     this.offlinenotification = false;
   }
