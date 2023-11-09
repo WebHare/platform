@@ -34,7 +34,7 @@ import { setupWHCheck } from './shell/whcheck';
 import { setupMouseHandling } from "./shell/mousehandling";
 
 import $todd from './support';
-import { BackendApplication, FrontendEmbeddedApplication, registerJSApp } from './application';
+import { ApplicationBase, BackendApplication, FrontendEmbeddedApplication, registerJSApp } from './application';
 import ApplicationBar from './shell/applicationbar';
 import "./apps/dashboard";
 import "./apps/login";
@@ -648,7 +648,7 @@ class IndyShell extends TolliumShell {
 }
 
 
-$todd.handleApplicationErrors = async function (app, data) {
+export async function handleApplicationErrors(app: ApplicationBase, data) {
   const $shell = getIndyShell();
   if (data.error) { //An error code from StartApp
     switch (data.error) {
@@ -704,7 +704,7 @@ $todd.handleApplicationErrors = async function (app, data) {
   }
 
   app.requireComponentTypes(['panel', 'button', 'action', 'textarea'], reportApplicationError.bind(null, app, data, messages, trace));
-};
+}
 
 //TODO souldn't this be *inside* the app objects instead of the shell ? these crashes dont' exist without Apps
 function reportApplicationError(app, data, messages, trace) {

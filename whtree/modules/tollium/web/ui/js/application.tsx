@@ -18,7 +18,7 @@ import DocPanel from "./application/docpanel";
 import "./application/appcanvas.scss";
 import * as toddImages from "@mod-tollium/js/icons";
 import DirtyListener from '@mod-tollium/webdesigns/webinterface/components/frame/dirtylistener';
-import IndyShell, { getIndyShell } from './shell';
+import IndyShell, { getIndyShell, handleApplicationErrors } from './shell';
 
 require("../common.lang.json");
 
@@ -1002,7 +1002,7 @@ export class BackendApplication extends ApplicationBase {
       return;
     }
 
-    $todd.handleApplicationErrors(this, metamessage);
+    handleApplicationErrors(this, metamessage);
   }
 
   /****************************************************************************************************************************
@@ -1106,7 +1106,7 @@ export class BackendApplication extends ApplicationBase {
     if (data.status != 'ok') {
       this.setAppTitle('Application');
       this._fireUpdateAppEvent();
-      $todd.handleApplicationErrors(this, data);
+      handleApplicationErrors(this, data);
       this._resolveAppLoad();
       return;
     }
