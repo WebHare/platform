@@ -337,8 +337,8 @@ class ResizeableOverlayRectangle //we may export these separately in the future,
   _setNewAreaAndFireOverlayChange(area, useraction) {
     if (this.rect.left == area.left
       && this.rect.top == area.top
-      && this.rect.width == area.width
-      && this.rect.height == area.height)
+      && (this.rect.right - this.rect.left) == area.width
+      && (this.rect.bottom - this.rect.top) == area.height)
       return; // no change, so nothing to do
 
     this.rect = area;

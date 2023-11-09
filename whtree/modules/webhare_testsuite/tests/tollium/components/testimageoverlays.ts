@@ -84,11 +84,20 @@ test.registerTests(
         test.eq(4, overlays.length, 'overlay not added?');
       }
     },
-    {
-      test: function () {
-        test.clickToddButton('selection');
-      },
-      waits: ['ui']
+    async function () {
+      test.clickToddButton('selection');
+      await test.wait('ui');
+
+      //FIXME why aren't server side changes triggering onSelecT? looks like an oversight?
+      test.eq("1", test.compByName("onchangeoverlayscount").textContent);
+
+      test.sendMouseGesture([
+        { el: test.compByName("thecomponent")!.querySelectorAll(".t-image__overlay .t-image__overlay__dragger--se")[3], down: 0 },
+        { relX: +15, rely: +15, up: 0, delay: 300 }
+      ]);
+
+      await test.wait('ui');
+      await test.wait(() => test.compByName("onchangeoverlayscount").textContent === "2");
     }
     //ADDME: Test overlays not rendered if overlays_active is not set
     //ADDME: Test overlays rendered if overlays_active is set (checkbox 'overlays_active')
