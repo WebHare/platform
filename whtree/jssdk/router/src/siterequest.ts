@@ -3,7 +3,7 @@
      - should we wrap Request objects during routing or should we just immediately create the proper object ?
 */
 
-import { openFolder, openSite, Site, WHFSFile, WHFSFolder, WHFSObject } from "@webhare/whfs";
+import { openFolder, openSite, Site, WHFSFolder, WHFSObject } from "@webhare/whfs";
 import { SiteResponse, SiteResponseSettings } from "./sitereponse";
 import { WebRequest } from "./request";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
@@ -44,7 +44,7 @@ class SiteRequest {
   readonly contentObject: WHFSObject;
   readonly navObject: WHFSObject;
 
-  constructor(webRequest: WebRequest, targetSite: Site, targetFolder: WHFSFolder, targetObject: WHFSFile, { contentObject, navObject }: { contentObject?: WHFSObject; navObject?: WHFSObject } = {}) {
+  constructor(webRequest: WebRequest, targetSite: Site, targetFolder: WHFSFolder, targetObject: WHFSObject, { contentObject, navObject }: { contentObject?: WHFSObject; navObject?: WHFSObject } = {}) {
     this.webRequest = webRequest;
     this.targetSite = targetSite;
     this.targetFolder = targetFolder;
@@ -78,7 +78,7 @@ class SiteRequest {
   }
 }
 
-export async function buildSiteRequest(webRequest: WebRequest, targetObject: WHFSFile, { contentObject, navObject }: { contentObject?: WHFSObject; navObject?: WHFSObject } = {}): Promise<SiteRequest> {
+export async function buildSiteRequest(webRequest: WebRequest, targetObject: WHFSObject, { contentObject, navObject }: { contentObject?: WHFSObject; navObject?: WHFSObject } = {}): Promise<SiteRequest> {
   if (!targetObject.parentSite)
     throw new Error(`Target '${targetObject.whfsPath}' (#${targetObject.id}) is not in a site`);
 
