@@ -326,12 +326,6 @@ test.registerTests(
       },
       waits: ['ui']
     },
-    /*
-      , { name: 'imagebuttontest-waitupload'
-        , test: function () {}
-        , waits: [ 'uploadprogress', 500 ] // FIXME: correct waits!
-        }
-    */
     {
       name: 'imagebuttontest-verify',
       test: function (doc, win) {

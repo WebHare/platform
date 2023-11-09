@@ -911,19 +911,6 @@ class TestFramework {
           deferred.promise.then(() => this.currentwaitstack = null);
           this.timedReject(deferred, "Timeout when waiting for gestures to finish", step.timeout || this.waittimeout);
         } break;
-      case "uploadprogress":
-        {
-          const framerec = this.getFrameRecord();
-          if (!framerec.win.__todd)
-            throw new Error("doWaitForUploadProgress specified, but no $todd found in testframe");
-
-          console.log('start wait for upload');
-          framerec.win.__todd.waitForUploadProgress(deferred.resolve);
-          deferred.promise.then(function () { console.log('upload done'); });
-          deferred.promise.then(() => this.currentwaitstack = null);
-
-          this.timedReject(deferred, "Timeout when waiting for upload progress", step.timeout || this.waittimeout);
-        } break;
 
       case "animationframe":
         {
@@ -988,7 +975,6 @@ class TestFramework {
     const translations =
     {
       waitforgestures: 'pointer',
-      waitforuploadprogress: 'uploadprogress',
       waitwhtransitions: 'ui',
       waitforanimationframe: 'animationframe'
     };
@@ -1157,14 +1143,6 @@ class TestFramework {
 
     this.nextstepscheduled = true;
     this.scriptframewin.waitForGestures(this.startNextStepNow.bind(this));
-  }
-  doWaitForUploadProgress() {
-    const framerec = this.getFrameRecord();
-    this.waitforuploadprogress = false;
-    if (!framerec.win.__todd)
-      throw new Error("doWaitForUploadProgress specified, but no $todd found in testframe");
-
-    framerec.win.__todd.waitForUploadProgress(this.startNextStepNow.bind(this));
   }
   doWaitForAnimationFrame() {
     const framerec = this.getFrameRecord();

@@ -232,7 +232,6 @@ test.registerTests(
         test.click(test.compByName("fragment1!uploadbutton"));
         await uploadpromise;
       },
-      //, waits: [ "ui", "uploadprogress", "ui" ]
       waits: ["ui"]
     },
     //note: the editor is skipped, because the image is already proper and then we won't auto-open
