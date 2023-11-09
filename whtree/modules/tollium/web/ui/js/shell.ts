@@ -7,15 +7,13 @@
  *                                                                                                                          *
  ****************************************************************************************************************************/
 
-let todd_components = {};
-
 import { getComponents } from '@mod-tollium/webdesigns/webinterface/components';
 import TolliumFeedbackAPI from '@mod-tollium/webdesigns/webinterface/js/feedback';
 import LinkEndPoint from './comm/linkendpoint';
 import TransportManager from './comm/transportmanager';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 
-todd_components = getComponents();
+const todd_components = getComponents();
 
 // for tests: this is the shortest test that's sufficient to open the Logoff window
 // todd_components = { button: require("@mod-tollium/webdesigns/webinterface/components/button/button.es").default

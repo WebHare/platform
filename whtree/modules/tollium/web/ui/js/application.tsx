@@ -17,6 +17,8 @@ import LinkEndPoint from './comm/linkendpoint';
 import DocPanel from "./application/docpanel";
 import "./application/appcanvas.scss";
 import * as toddImages from "@mod-tollium/js/icons";
+import DirtyListener from '@mod-tollium/webdesigns/webinterface/components/frame/dirtylistener';
+import IndyShell from './shell';
 
 require("../common.lang.json");
 
@@ -63,7 +65,12 @@ export class ApplicationBase {
     screenstack.at(-1) is the currently active and only enabled screen */
   screenstack: Frame[] = [];
 
-  constructor(shell, appname, apptarget, parentapp, options) {
+  dirtylisteners = new Array<DirtyListener>;
+
+  /** The shell starting us */
+  shell: IndyShell; //(as if there would be more than one in a JS instace?)
+
+  constructor(shell: IndyShell, appname, apptarget, parentapp, options) {
     this.container = null;
     /// Name of  app
     this.appname = '';
@@ -73,7 +80,7 @@ export class ApplicationBase {
     this.apptarget = {};
     /// Parent application
     this.parentapp = null;
-    this.shell = null;
+    this.shell = shell;
     this.tabmodifier = '';
 
     /// User config
@@ -108,7 +115,6 @@ export class ApplicationBase {
     this._apploaddeferred = dompack.createDeferred();
     this._apploadlock = dompack.flagUIBusy();
 
-    this.shell = shell;
     if (options) {
       this.container = options.container;
       options.container = null;
@@ -357,6 +363,39 @@ export class ApplicationBase {
     const name = 'localwin' + (++this.screencounter);
     return this.createNewScreenObject(name, 'frame', $todd.componentsToMessages(messages));
   }
+
+  //////////////////////////////////////////////////////////////////////////////
+  //
+  // Dirt tracking
+  // The application is dirty if any of its dirty listeners is dirty
+  get dirty() {
+    return this.dirtylisteners.some(listener => listener.dirty);
+  }
+
+  registerDirtyListener(listener: DirtyListener) {
+    const idx = this.dirtylisteners.indexOf(listener);
+    if (idx < 0) {
+      this.dirtylisteners.push(listener);
+      this.checkDirtyState();
+    }
+  }
+
+  unregisterDirtyListener(listener: DirtyListener) {
+    const idx = this.dirtylisteners.indexOf(listener);
+    if (idx >= 0) {
+      this.dirtylisteners.splice(idx, 1);
+      this.checkDirtyState();
+    }
+  }
+
+  checkDirtyState() {
+    // Update the dirty indicator on the app tab and app tabs bar overflow menu
+    this._fireUpdateAppEvent();
+    // Add or remove the beforeunload listener
+    this.shell.checkDirtyState();
+  }
+
+
 
   // ---------------------------------------------------------------------------
   //
@@ -632,7 +671,6 @@ export class BackendApplication extends ApplicationBase {
 
     this.closebusylock = null;
 
-    this.dirtylisteners = [];
   }
 
   applyAppInit(node) {
@@ -1093,35 +1131,6 @@ export class BackendApplication extends ApplicationBase {
     console.log(data);
     alert("Unable to contact the application server."); //FIXME what to tell a user, really?
   }
-
-  // The application is dirty if any of its dirty listeners is dirty
-  get dirty() {
-    return this.dirtylisteners.some(listener => listener.dirty);
-  }
-
-  registerDirtyListener(listener) {
-    const idx = this.dirtylisteners.indexOf(listener);
-    if (idx < 0) {
-      this.dirtylisteners.push(listener);
-      this.checkDirtyState();
-    }
-  }
-
-  unregisterDirtyListener(listener) {
-    const idx = this.dirtylisteners.indexOf(listener);
-    if (idx >= 0) {
-      this.dirtylisteners.splice(idx, 1);
-      this.checkDirtyState();
-    }
-  }
-
-  checkDirtyState() {
-    // Update the dirty indicator on the app tab and app tabs bar overflow menu
-    this._fireUpdateAppEvent();
-    // Add or remove the beforeunload listener
-    this.shell.checkDirtyState();
-  }
-
 
   /****************************************************************************************************************************
    * Other stuff
