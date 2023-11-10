@@ -1,5 +1,5 @@
 import { ToddCompBase } from '@mod-tollium/js/internal/debuginterface';
-import { ComponentStandardAttributes } from '@mod-tollium/web/ui/js/componentbase';
+import { ComponentBaseUpdate, ComponentStandardAttributes } from '@mod-tollium/web/ui/js/componentbase';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 
 /****************************************************************************************************************************
@@ -25,7 +25,7 @@ type DirtyListenerUpdate = {
 } | {
   type: "makeappdirty";
   makeappdirty: boolean;
-};
+} | ComponentBaseUpdate;
 
 export default class DirtyListener extends ComponentBase {
   manualdirty: boolean;

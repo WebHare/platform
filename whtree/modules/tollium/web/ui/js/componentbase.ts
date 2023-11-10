@@ -4,26 +4,36 @@
 import * as dompack from 'dompack';
 import * as domfocus from 'dompack/browserfix/focus';
 import * as $todd from "@mod-tollium/web/ui/js/support";
+import { SizeObj, calcAbsSize, isDebugTypeEnabled, isFixedSize } from "@mod-tollium/web/ui/js/support";
 import { isLive } from "@webhare/env";
 import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
+import DirtyListener from '@mod-tollium/webdesigns/webinterface/components/frame/dirtylistener';
 
 // Mutators should be defined first, so they can be used inside the ObjLayout Class!
 
 let urlgencounter = 0;
 
-export interface ComponentStandardAttributes { //see ComponentBase::GetStandardAttributes
+export interface ComponentStandardAttributes extends $todd.XMLWidthAttributes, $todd.XMLHeightAttributes { //see ComponentBase::GetStandardAttributes
   window: string;
   type: string;
   target: string;
   title: string;
   enabled: boolean;
-  minheight?: string;
-  minwidth?: string;
-  height?: string;
-  width?: string;
   //toddname of the default button, if set
   defaultbutton?: string;
+  unmasked_events?: string[];
+  enablecomponents?: string[];
+  visible?: boolean;
+  hint?: string;
+  shortcut?: string;
+  //not tranmistted by tollium harescript, used internally:
+  destroywithparent?: boolean;
 }
+
+export type ComponentBaseUpdate = {
+  type: "messages";
+  messages: Array<{ type: string; data: unknown }>;
+};
 
 /* ToddCompClass is a component-type-map constructable class. These will always a have a parent.
 TODO except for 'frame' but frame shouldn't be in the component map, it's too exceptional */
@@ -42,6 +52,49 @@ export class ToddCompBase {
   componenttype = 'component';
   title = "";
   owner: Frame;
+  /** The parent component */
+  parentcomp: ToddCompBase | null;
+  /**  children components that have this component as parentcomp */
+  childrencomps = new Array<ToddCompBase>();
+
+  // Whether to destroy this component when its parent is destroyed
+  destroywithparent = false;
+
+  // Initial property values
+  enabled = true;
+  visible = true;
+
+  /** True after mousedown, false after mouseup */
+  mousedown = false;
+
+  listeningtoactions: string[] = []; //names of actions for which we're listeninn
+  enablecomponents: string[] = [];
+
+  node: HTMLElement | null = null;
+  nodes: Record<string, HTMLElement> = {};
+
+  // Width settings
+  width: SizeObj;
+
+  // Height settings
+  height: SizeObj;
+
+  gotskinsettings = false;
+  skinsettings = null;
+
+  value: unknown = null;
+  tooltip: string | null = null;
+  isinline: boolean;
+  holdsinlineitems = false;
+
+  unmasked_events?: string[];
+  xml_enabled = false;
+
+  hint;
+  shortcut;
+  firstlayout = true;
+
+  dirtylistener?: DirtyListener;
 
   /****************************************************************************************************************************
   * Initialization
@@ -56,56 +109,22 @@ export class ToddCompBase {
   */
   constructor(parentcomp: ToddCompBase | null, data: ComponentStandardAttributes) {
     // The parent component
-    // (This is what parent used to be, but MooTools uses this.parent to call ancestor functions within updated functions)
-    this.parentcomp = null; // old 'parent'
-
-    // List children components that have this component as parentcomp
-    this.childrencomps = [];
+    this.parentcomp = parentcomp;
 
     // The component window's frame component
     // (This is what windowroot used to be)
     this.owner = parentcomp ? parentcomp.owner : this as unknown as Frame;
 
-    // Whether to destroy this component when its parent is destroyed
-    this.destroywithparent = false;
-
-    // Initial property values
-    this.enabled = true;
-    this.visible = true;
-
-    this.mousedown = false; // True after mousedown, false after mouseup
-
-    this.listeningtoactions = []; //names of actions for which we're listeninn
-    this.enablecomponents = [];
-
-    /** List of components that need to be destroyed when this component is destroyed
-        A component is inserted in this list in its parent when 'destroywithparent' is true in @a initialize.
-    */
-    this.cascadedestroys = [];
-
-    this.node = null; //'legacy' support
-    this.nodes = {};
-
-    // Width settings
-    this.width = {};
-
-    // Height settings
-    this.height = {};
-
-    this.gotskinsettings = false;
-    this.skinsettings = null;
-
-
-    if (parentcomp == null) //we are the toplevel screen/frame
-    {
-      this.objectmap = {}; // We need to do this because frame can't yet and it will crash registerComponent
-    }
-
-    this.value = null;
-    this.tooltip = null;
+    if (parentcomp == null)  //we are the toplevel screen/frame
+      // @ts-ignore // We need to do this because frame can't yet and it will crash registerComponent
+      this.objectmap = {};
 
     // If we're on a line, the line can tell us if we're in an inline element
-    this.isinline = parentcomp && parentcomp.holdsinlineitems;
+    this.isinline = Boolean(parentcomp && parentcomp.holdsinlineitems);
+
+    // TODO Some components redo this by invoking initializeSizes. teach them not to do that
+    this.width = $todd.ReadXMLWidths(data);
+    this.height = $todd.ReadXMLHeights(data, this.isinline);
 
     if (parentcomp === null && data === null)
       return; //the table subcomponents don't fully initialize their subs, so this is a hack for them
@@ -121,8 +140,6 @@ export class ToddCompBase {
     if (!this.name)
       throw new Error("Please ensure all components have a name ('target' field)"); //uniquely numbered components leak very easily in the objectmap[]...
 
-    this.initializeSizes(data);
-
     this.unmasked_events = data.unmasked_events;
     this.enablecomponents = data.enablecomponents ? data.enablecomponents : [];
     this.xml_enabled = data.enabled === true;
@@ -132,48 +149,48 @@ export class ToddCompBase {
     this.shortcut = data.shortcut ? data.shortcut : '';
 
     this.owner.registerComponent(this);
-    this.firstlayout = true;
     //      this.lineminheight = 0;
   }
   /** Transform component message for it goes into the handling phase
       Return a promise when the transformation cannot be done immediately
+
+      TODO register this callback when setting up the component type
   */
-  static asyncTransformMessage(message) {
+  static asyncTransformMessage(message: unknown): Promise<unknown> | unknown | null {
     return null;
   }
-  afterConstructor(data) //needed to run actions that affect buildNode
-  {
+  afterConstructor(data: ComponentStandardAttributes) { //needed to run actions that affect buildNode
     if (data.defaultbutton)
-      this.node.dataset.toddDefaultButton = data.defaultbutton;
+      this.node!.dataset.toddDefaultButton = data.defaultbutton;
   }
   getTitle() {
     return this.title;
   }
-  setTitle(title) {
+  setTitle(title: string) {
     this.title = title;
   }
   getEnabled() {
     return this.enabled;
   }
-  setEnabled(enabled) {
+  setEnabled(enabled: boolean) {
     this.enabled = enabled;
   }
-  getValue() {
+  getValue(): unknown {
     return this.value;
   }
-  setValue(value) {
+  setValue(value: unknown) {
     this.value = value;
   }
   getVisible() {
     return this.visible;
   }
-  setVisible(visible) {
+  setVisible(visible: boolean) {
     this.visible = visible;
   }
   getTooltop() {
     return this.tooltip;
   }
-  setTooltip(tooltip) {
+  setTooltip(tooltip: string) {
     this.tooltip = tooltip;
   }
 
@@ -204,7 +221,6 @@ export class ToddCompBase {
       this.parentcomp.childrencomps = this.parentcomp.childrencomps.filter(comp => comp != this);
 
     this.parentcomp = null;
-    this.owner = null;
   }
 
   getDestroyableNodes() {
@@ -212,18 +228,19 @@ export class ToddCompBase {
     if (this.node)
       retval.push(this.node);
     for (const i in this.nodes)
+      // eslint-disable-next-line no-prototype-builtins -- TODO check whether we need this at all ? manual destruction is mostly a IE11 thing
       if (this.nodes.hasOwnProperty(i))
         retval.push(this.nodes[i]);
 
     return retval;
   }
 
-  initializeSizes(data) {
+  initializeSizes(data: $todd.XMLWidthAttributes & $todd.XMLHeightAttributes) {
     this.width = $todd.ReadXMLWidths(data);
     this.height = $todd.ReadXMLHeights(data, this.isinline);
   }
 
-  setSizeToMaxOf(sizeproperty, nodes, addspace) {
+  setSizeToMaxOf(sizeproperty: "width" | "height", nodes: ToddCompBase[], addspace?: number) {
     let calc = 0, min = 0;
     nodes.filter(node => Boolean(node)).forEach(node => {
       calc = Math.max(calc, node[sizeproperty].calc);
@@ -234,7 +251,7 @@ export class ToddCompBase {
     this[sizeproperty].min = min + (addspace || 0);
   }
 
-  setSizeToSumOf(sizeproperty, nodes, addspace) {
+  setSizeToSumOf(sizeproperty: "width" | "height", nodes: ToddCompBase[], addspace?: number) {
     let calc = 0, min = 0;
     nodes.filter(node => Boolean(node)).forEach(node => {
       calc += node[sizeproperty].calc;
@@ -251,11 +268,11 @@ export class ToddCompBase {
   }
 
   //set the list of actions we care about.
-  setInterestingActions(actionlist) {
+  setInterestingActions(actionlist: string[]) {
     //ADDME optimize: don't unregister/reregister
 
     //unregister any current actions
-    for (let i = 0; i < this.listeningtoactions; ++i)
+    for (let i = 0; i < this.listeningtoactions.length; ++i)
       this.owner.unregisterActionListener(this.listeningtoactions[i], this.name);
     this.listeningtoactions = [];
     //register actions, skip nulls and dupes
@@ -266,7 +283,7 @@ export class ToddCompBase {
       }
   }
 
-  applyDirtyListener(dirtylistener) {
+  applyDirtyListener(dirtylistener: DirtyListener) {
     this.dirtylistener = dirtylistener;
   }
 
@@ -305,7 +322,7 @@ export class ToddCompBase {
 
     options = { modal: true, ...options };
 
-    return new Promise((resolve, reject) => {
+    return new Promise<void>((resolve, reject) => {
       const callback = () => resolve();
       this.owner.tryProcessMessage(this.name, type, data, options.modal, callback);
     });
@@ -317,7 +334,7 @@ export class ToddCompBase {
   }
 
   // If this function returns null, its value is not submitted
-  getSubmitValue() {
+  getSubmitValue(): unknown {
     return null;
   }
 
@@ -343,7 +360,7 @@ export class ToddCompBase {
   }
 
   // Apply a dynamic update
-  applyUpdate(data) {
+  applyUpdate(data: ComponentBaseUpdate) {
     if (data.type == "messages") {
       data.messages.forEach(msg => {
         this.processIncomingMessage(msg.type, msg.data);
@@ -355,7 +372,7 @@ export class ToddCompBase {
     console.error("Received update '" + data.type + "' for component '" + this.name + "' but not handled");
   }
 
-  processIncomingMessage(type, data) {
+  processIncomingMessage(type: string, data: unknown) {
     const expectcallback = "onMsg" + type;
     if (this[expectcallback])
       return this[expectcallback].apply(this, [data]);
@@ -466,21 +483,21 @@ export class ToddCompBase {
   }
   // If no minimum is set but an absolute size is given, set the minimum to it. This implements taking a height as minheight, needed to prevent components from suddenly shrinking
   setMinToAbs(sizeprop) {
-    if (!sizeprop.servermin && $todd.IsFixedSize(sizeprop.serverset))
+    if (!sizeprop.servermin && isFixedSize(sizeprop.serverset))
       sizeprop.servermin = sizeprop.serverset;
   }
   calculateDimension(horizontal) {
     //beginWidth|Height
     const prop = this.dim(horizontal);
     if (!this.isDimensionDirty(horizontal)) {
-      if ($todd.IsDebugTypeEnabled("dimensions"))
+      if (isDebugTypeEnabled("dimensions"))
         console.log(this.getDebugName() + (horizontal ? ": CW:" : ": CH:") + " not dirty, skipping recalculation. min: " + prop.min + ", calc: " + prop.calc + " (current set: " + prop.set + ")");
 
       return;
     }
 
     const children = this.getVisibleChildren();
-    if ($todd.IsDebugTypeEnabled("dimensions")) {
+    if (isDebugTypeEnabled("dimensions")) {
       console.group(this.getDebugName() + (horizontal ? ": CW:" : ": CH:") + " recalculating. " + (children.length ? "(" + children.length + " children) " : ""), this.node);
     }
     if (children.includes(null))
@@ -497,27 +514,27 @@ export class ToddCompBase {
     else
       this.calculateDimHeight();
 
-    if ($todd.IsDebugTypeEnabled("dimensions"))
+    if (isDebugTypeEnabled("dimensions"))
       console.log(this.getDebugName() + (horizontal ? ": CW: " : ": CH: ") + " min:" + prop.min + " calc:" + prop.calc);
 
     //apply minimums from XML
     if (prop.servermin) {
-      const calcmin = $todd.CalcAbsSize(prop.servermin, horizontal, this.isinline);
+      const calcmin = calcAbsSize(prop.servermin, horizontal, this.isinline);
       if (calcmin > prop.min) {
         prop.min = calcmin;
-        if ($todd.IsDebugTypeEnabled("dimensions"))
+        if (isDebugTypeEnabled("dimensions"))
           console.log(this.getDebugName() + (horizontal ? ": CW: " : ": CH: ") + " server pulls up minimum to " + prop.min);
       }
     }
 
     //fixup calculated using XML and min
     if (prop.new_set) {
-      if ($todd.IsDebugTypeEnabled("dimensions"))
+      if (isDebugTypeEnabled("dimensions"))
         console.log(this.getDebugName() + (horizontal ? ": CW: " : ": CH: ") + " (user-set) setting calc of " + prop.calc + ' to ' + prop.new_set);
       prop.calc = prop.new_set;
-    } else if ($todd.IsFixedSize(prop.serverset)) {
-      const newsize = $todd.CalcAbsSize(prop.serverset, horizontal, this.isinline);
-      if ($todd.IsDebugTypeEnabled("dimensions"))
+    } else if (isFixedSize(prop.serverset)) {
+      const newsize = calcAbsSize(prop.serverset, horizontal, this.isinline);
+      if (isDebugTypeEnabled("dimensions"))
         console.log(this.getDebugName() + (horizontal ? ": CW: " : ": CH: ") + " (screen-set) setting calc of " + prop.calc + ' to ' + newsize);
       prop.calc = newsize;
     }
@@ -530,7 +547,7 @@ export class ToddCompBase {
     else
       this.fixupCalculatedHeights();
 
-    if ($todd.IsDebugTypeEnabled("dimensions")) {
+    if (isDebugTypeEnabled("dimensions")) {
       console.groupEnd();
       console.log(this.getDebugName() + (horizontal ? ": CW: " : ": CH: ") + " final min: " + prop.min + ' calc:' + prop.calc);
     }
@@ -540,7 +557,7 @@ export class ToddCompBase {
   }
   applyDimension(horizontal) {
     const dim = this.dim(horizontal);
-    if ($todd.IsDebugTypeEnabled("dimensions"))
+    if (isDebugTypeEnabled("dimensions"))
       console.group(this.getDebugName() + (horizontal ? ": AW: " : ": AH: ") + " applying " + dim.set + " (min=" + dim.min + ", calc=" + dim.calc + ")", this.node);
 
     if (horizontal)
@@ -552,7 +569,7 @@ export class ToddCompBase {
       comp.applyDimension(horizontal);
     this.updateNodeSizeData(); //FIXME make this debugging only
 
-    if ($todd.IsDebugTypeEnabled("dimensions")) {
+    if (isDebugTypeEnabled("dimensions")) {
       console.groupEnd();
     }
   }
@@ -595,11 +612,11 @@ export class ToddCompBase {
       applySetWidth does not need to raise this.width.set to this.width.min, we will have done that
       */
   applySetWidth() {
-    if ($todd.IsDebugTypeEnabled("dimensions"))
+    if (isDebugTypeEnabled("dimensions"))
       console.log(this.getDebugName() + " does not implement applySetWidth");
   }
   applySetHeight() {
-    if ($todd.IsDebugTypeEnabled("dimensions"))
+    if (isDebugTypeEnabled("dimensions"))
       console.log(this.getDebugName() + " does not implement applySetHeight");
   }
 
@@ -736,7 +753,7 @@ export class ToddCompBase {
   }
 }
 
-export function distributeSizes(available, sizeobjs, horizontal, leftoverobj, options) {
+export function distributeSizes(available: number, sizeobjs: SizeObj[], horizontal: boolean, leftoverobj: number, options: { intolerant?: boolean } = {}) {
   const intolerant = dompack.debugflags.col || options?.intolerant;
 
   if (!(available >= 0)) //guard against negative or non-number availables
@@ -747,12 +764,12 @@ export function distributeSizes(available, sizeobjs, horizontal, leftoverobj, op
     available = 100; // just give some
   }
 
-  const logdistribute = $todd.IsDebugTypeEnabled("distribute");
+  const logdistribute = isDebugTypeEnabled("distribute");
   if (logdistribute)
     console.log("DistributeSizes over " + available + "px, horizontal=" + horizontal + " leftoverobj=" + leftoverobj + ", sizeobjs=" + sizeobjs.length, sizeobjs);
 
   let total_prop = 0, total_pixels = 0, added_size = 0;
-  const tempsizes = [];//Temporay store for calculated sizes
+  const tempsizes: SizeObj[] = [];//Temporay store for calculated sizes
   sizeobjs.forEach(function (sizeobj, idx) {
     tempsizes[idx] = { set: 0, min: 0, pref: 0, prop: 0 };
 
@@ -765,9 +782,9 @@ export function distributeSizes(available, sizeobjs, horizontal, leftoverobj, op
       setsize = sizeobj.new_set;
       is_fixedsize = true;
     } else {
-      if (!sizeobj.serverset || $todd.IsFixedSize(sizeobj.serverset)) {
+      if (!sizeobj.serverset || isFixedSize(sizeobj.serverset)) {
         is_fixedsize = true;
-        setsize = $todd.CalcAbsSize(sizeobj.serverset, horizontal, sizeobj.isinline);
+        setsize = calcAbsSize(sizeobj.serverset, horizontal, sizeobj.isinline);
       }
       if (logdistribute)
         console.log("Child " + idx + " xmlsize=" + sizeobj.serverset + ", is_fixedsize=" + is_fixedsize + ", setsize=" + setsize);

@@ -1,53 +1,110 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
 import Keyboard from 'dompack/extra/keyboard';
 
 import "./codeedit.scss";
+import { ComponentBaseUpdate, ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
 
 // ---------------------------------------------------------------------------
 //
 // Codeedit
 //
 
-export default class ObjCodeEdit extends ComponentBase {
-  // ---------------------------------------------------------------------------
-  //
-  // Constructor
-  //
+interface Marker {
+  line: number;
+  type: string; //TODO what are the valid types?
+  color: string;
+}
 
-  constructor(parentcomp, data) {
+type Action = {
+  action: "gotoline";
+  linenum: number;
+} | {
+  action: "gototopline";
+  linenum: number;
+};
+
+interface CodeEditAttributes extends ComponentStandardAttributes {
+  "readonly": boolean;
+  "required": boolean;
+  "value": string;
+  "hint": string;
+  "actions": Action[];
+  markers: Marker[];
+}
+
+type CodeEditUpdate = {
+  type: "value";
+  value: string;
+} | {
+  type: "enabled";
+  value: boolean;
+} | {
+  type: "required";
+  value: boolean;
+} | {
+  type: "actions";
+  value: Action[];
+} | {
+  type: "markers";
+  value: Marker[];
+} | ComponentBaseUpdate;
+
+export default class ObjCodeEdit extends ComponentBase {
+  componenttype = "codeedit";
+
+  linenumberdiv: HTMLDivElement;
+  textarea: HTMLTextAreaElement;
+  isactive = false;
+  markerholderdiv: HTMLDivElement;
+  markerscrolldiv: HTMLDivElement;
+
+  donelinenumbers = 0;
+  pendinggotoline = 0;
+  pendinggotoline_attop = false;
+  synctimer: NodeJS.Timeout | null = null;
+
+  markers: Marker[] = [];
+
+  linenumberswidth = 36;
+  node: HTMLElement;
+  linenumberbg: HTMLElement;
+
+  constructor(parentcomp: ToddCompBase, data: CodeEditAttributes) {
     super(parentcomp, data);
 
-    this.componenttype = "codeedit";
+    this.node =
+      <t-codeedit data-name={this.name} style={{ position: "relative" }}>
+        {this.linenumberbg = <div className="gutter-background" />}
+        {this.markerholderdiv =
+          <div className="marker-container">
+            {this.markerscrolldiv = <div className="marker-scroller" />}
+          </div>
+        }
+        {this.linenumberdiv = <div className="gutter-content"
+          unselectable="on"
+          on={{ click: (event: MouseEvent) => this.gotGutterClick(event) }}
+        />
+        }
+        {this.textarea = <textarea wrap="off"
+          spellcheck="false"
+          style={{ marginLeft: this.linenumberswidth + 2 }}
+          on={{
+            scroll: () => this.gotScrollEvent(),
+            input: () => this.gotInput()
+          }}
+        />
+        }
+      </t-codeedit>;
 
-    this.linenumberholder = null;
-    this.linenumberdiv = null;
-    this.linenumberpre = null;
-    this.textarea = null;
-    this.enabled = null;
-    this.isactive = false;
-    this.markerholderdiv = null;
-    this.markerscrolldiv = null;
+    new Keyboard(this.textarea, {}, { dontpropagate: ['Enter'] });
 
-    this.donelinenumbers = 0;
-    this.pendinggotoline = 0;
-    this.pendinggotoline_attop = false;
-    this.synctimer = null;
-
-    this.markers = [];
-
-    this.linenumberswidth = 36;
-
-    this.buildNode();
     this.textarea.value = data.value;
     this.markers = data.markers;
 
     this.syncLineNumbers();
-    this.syncScroll();
+    this.syncScroll(false);
 
     this.syncMarkers();
 
@@ -61,34 +118,6 @@ export default class ObjCodeEdit extends ComponentBase {
   //
   // Helper stuff
   //
-
-  buildNode() {
-    this.node =
-      <t-codeedit data-name={this.name} style={{ position: "relative" }}>
-        {this.linenumberbg = <div className="gutter-background" />}
-        {this.markerholderdiv =
-          <div className="marker-container">
-            {this.markerscrolldiv = <div className="marker-scroller" />}
-          </div>
-        }
-        {this.linenumberdiv = <div className="gutter-content"
-          unselectable="on"
-          on={{ click: event => this.gotGutterClick(event) }}
-        />
-        }
-        {this.textarea = <textarea wrap="off"
-          spellcheck="false"
-          style={{ marginLeft: this.linenumberswidth + 2 }}
-          on={{
-            scroll: event => this.gotScrollEvent(event),
-            input: event => this.gotInput(event)
-          }}
-        />
-        }
-      </t-codeedit>;
-
-    new Keyboard(this.textarea, {}, { dontpropagate: ['Enter'] });
-  }
 
   syncLineNumbers() {
     // ADDME: calculating number of lines basedon scrollheight/lineheight might be faster?
@@ -132,12 +161,12 @@ export default class ObjCodeEdit extends ComponentBase {
     });
   }
 
-  setSelection(startpos, limitpos) {
+  setSelection(startpos: number, limitpos: number) {
     this.textarea.selectionStart = startpos;
     this.textarea.selectionEnd = limitpos;
   }
 
-  gotoLine(line, attop) {
+  gotoLine(line: number, attop: boolean) {
     if (!this.isactive) {
       this.pendinggotoline = line;
       this.pendinggotoline_attop = attop;
@@ -149,7 +178,7 @@ export default class ObjCodeEdit extends ComponentBase {
     try {
       this.setSelection(selectpos, selectpos);
     } catch (ex) {
-      console.error("Caught exception while setting selection. Exception: " + ex.name + " Message: " + ex.message);
+      console.error("Caught exception while setting selection.", ex);
     }
 
     const lineheight = this.linenumberdiv.scrollHeight / this.donelinenumbers;
@@ -181,7 +210,7 @@ export default class ObjCodeEdit extends ComponentBase {
     scrollmonitor.setScrollPosition(this.textarea, 0, scrolltop);
   }
 
-  gotInput(ev) {
+  gotInput() {
     this.setDirty();
   }
 
@@ -189,7 +218,7 @@ export default class ObjCodeEdit extends ComponentBase {
     this.syncScroll(false);
   }
 
-  syncScroll(immediate) {
+  syncScroll(immediate: boolean) {
     const scrollTop = this.textarea.scrollTop;
     //console.log("Scrollpos in scroll event: "+scrollTop);
 
@@ -207,7 +236,7 @@ export default class ObjCodeEdit extends ComponentBase {
     this.syncLineNumbers();
   }
 
-  setEnabled(enabled) {
+  setEnabled(enabled: boolean) {
     if (this.enabled == enabled)
       return;
 
@@ -215,18 +244,18 @@ export default class ObjCodeEdit extends ComponentBase {
     this.enabled = enabled;
   }
 
-  gotGutterClick(event) {
+  gotGutterClick(event: MouseEvent) {
     // Get click y relative to target node
     let y = event.clientY;
-    let element = event.target;
-    let nextoffsetparent = element;
+    let element: HTMLElement | null = event.target as HTMLElement;
+    let nextoffsetparent: HTMLElement | null = element;
     while (nextoffsetparent) {
       if (element == nextoffsetparent) {
         y += element.scrollTop - element.offsetTop;
-        nextoffsetparent = element.offsetParent;
+        nextoffsetparent = element.offsetParent as HTMLElement | null;
       } else
-        y += element.scrollTop;
-      element = element.parentNode;
+        y += element!.scrollTop;
+      element = element!.parentNode as HTMLElement | null;
     }
 
     const lineheight = this.linenumberdiv.scrollHeight / this.donelinenumbers;
@@ -239,16 +268,13 @@ export default class ObjCodeEdit extends ComponentBase {
   // Helper functions
   //
 
-  executeActions(actions) {
+  executeActions(actions: Action[]) {
     for (let i = 0; i < actions.length; ++i) {
       switch (actions[i].action) {
         case 'gotoline':
           {
             const line = actions[i].linenum - 1;
-            if (this.node)
-              this.gotoLine(line);
-            else
-              this.preselectline = line;
+            this.gotoLine(line, false);
           } break;
         case 'gototopline':
           {
@@ -285,8 +311,7 @@ export default class ObjCodeEdit extends ComponentBase {
         height: this.height.set + 'px'
       });
 
-    if (!this.isactive) //we'll save up the first gotoline until we get into view
-    {
+    if (!this.isactive) { //we'll save up the first gotoline until we get into view
       this.isactive = true;
       this.gotoLine(this.pendinggotoline, this.pendinggotoline_attop);
     }
@@ -311,7 +336,7 @@ export default class ObjCodeEdit extends ComponentBase {
   // Callbacks & updates
   //
 
-  applyUpdate(data, response) {
+  applyUpdate(data: CodeEditUpdate) {
     switch (data.type) {
       case 'value':
         this.textarea.value = data.value;
@@ -327,9 +352,12 @@ export default class ObjCodeEdit extends ComponentBase {
         this.markers = data.value;
         this.syncMarkers();
         return;
+      case 'required':
+        //TODO implement this. but we currently have no visual indication of requiredness for codeedits (similar to RTEs)
+        return;
     }
 
-    super.applyUpdate(data, response);
+    super.applyUpdate(data);
   }
 
   // codeedit is always submitted for line, col, selection and topline updates
