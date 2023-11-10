@@ -1,9 +1,7 @@
-/* eslint-disable */
-// @ts-nocheck -- needs porting!
-
 import * as dompack from '@webhare/dompack';
 import * as whintegration from '@mod-system/js/wh/integration';
 import type { ApplicationBase } from './application';
+import { debugFlags } from '@webhare/env';
 
 require("../common.lang.json");
 
@@ -76,7 +74,7 @@ export const settings =
 
 export const applicationstack: ApplicationBase[] = [];
 export const applications: ApplicationBase[] = [];
-export const resourcebase = new URL(whintegration.config.obj.toddroot, location.href).toString();
+export const resourcebase = new URL(whintegration.config.obj.toddroot as string, location.href).toString();
 export const customactions = {};
 
 export function getActiveApplication() {
@@ -98,7 +96,7 @@ export const textsize = {
   }
 };
 
-export function UpToGridsize(size, gridsize) {
+export function UpToGridsize(size: number, gridsize?: number) {
   if (!gridsize || gridsize <= 1)
     return size;
 
@@ -183,7 +181,7 @@ export function calculateTextSize(text: string, { width = 0, fontSize = "" } = {
 
 type ReadSizeResult = { type: 1 | 2 | 3 | 4 | 5; size: number };
 
-export function ReadSize(sizeval: string): ReadSizeResult {
+export function ReadSize(sizeval: string): ReadSizeResult | null {
   if (!sizeval)
     return null;
   if (sizeval.substr(sizeval.length - 2) == 'gr')
@@ -198,18 +196,18 @@ export function ReadSize(sizeval: string): ReadSizeResult {
     return { type: 4, size: 1 };
   return null;
 }
-export function IsAbsoluteParsedSize(size) {
-  return size && size.type != 1;
+export function IsAbsoluteParsedSize(size: ReadSizeResult | null): boolean {
+  return size?.type != 1;
 }
 
 // Return the set width/height, or the xml width/height, for a component's size object
-export function ReadSetWidth(sizeobj) {
+export function ReadSetWidth(sizeobj: SizeObj) {
   return ReadSetSize(sizeobj, true);
 }
-export function ReadSetHeight(sizeobj) {
+export function ReadSetHeight(sizeobj: SizeObj) {
   return ReadSetSize(sizeobj, false);
 }
-export function ReadSetSize(sizeobj, horizontal) {
+export function ReadSetSize(sizeobj: SizeObj, horizontal: boolean) {
   let size = sizeobj.new_set;
   if (size === null) {
     const xml = ReadSize(sizeobj.xml_set);
@@ -227,24 +225,23 @@ export function CalcAbsHeight(size: number | string | ReadSizeResult) {
   return calcAbsSize(size, false);
 }
 //Calculate the absolute height for an inline element (where 2gr = 51)
-export function CalcAbsInlineHeight(size) {
+export function CalcAbsInlineHeight(size: string) {
   return calcAbsSize(size, false, true);
 }
-export function calcAbsSize(size: number | string | ReadSizeResult, horizontal: boolean, inline) {
+export function calcAbsSize(size: number | string | ReadSizeResult | null, horizontal: boolean, inline?: boolean) {
   if (!size)
     return 0;
 
   if (typeof (size) == "number")
     return size;
 
-  if (typeof (size) == "string") // XML size specification
-  {
-    if (size.substr(size.length - 2) == 'px')
+  if (typeof (size) == "string") { // XML size specification
+    if (size.endsWith('px'))
       return parseInt(size, 10);
-    if (size.substr(size.length - 2) == 'gr') {
+    if (size.endsWith('gr')) {
       if (horizontal) {
         console.error("'gr' units not supported horizontally");
-        if (dompack.debugflags.col)
+        if (debugFlags.col)
           throw new Error("'gr' units not supported horizontally");
       }
 
@@ -261,8 +258,7 @@ export function calcAbsSize(size: number | string | ReadSizeResult, horizontal: 
     return parseInt(size, 10);
   }
 
-  if (typeof (size) == "object") // Internal size record (as returned by ReadSize)
-  {
+  if (typeof (size) == "object") { // Internal size record (as returned by ReadSize)
     if (size.type == 2)
       return size.size;
     if (size.type == 3) {
@@ -272,8 +268,8 @@ export function calcAbsSize(size: number | string | ReadSizeResult, horizontal: 
     }
     if (size.type == 4)
       return settings.spacerwidth;
-    if (size.type == 5) //'gr'
-      return parseInt(size, 10) * gridlineHeight - (inline ? gridlineTotalMargin : 0);
+    if (size.type == 5) //'gr' FIXME prune. the code here contained a fatal bug so this if() was never followed in practice.
+      return size.size * gridlineHeight - (inline ? gridlineTotalMargin : 0);
   }
 
   return 0;
@@ -292,18 +288,27 @@ export const IsFixedSize = isFixedSize;
 export interface SizeObj {
   serverset: string;
   calc: number;
+  /** min width as set by xml */
+  xml_min: number;
+  /** width as set by xml (absolute or proportional size) */
+  xml_set: string;
+  xml_set_parsed: ReadSizeResult | null;
+  /** The unparsed versions. deprecate xml_min,xml_set,xml_min_parsed! */
+  servermin: string;
+  /** Whether 'calc' should be recalculated */
+  dirty: boolean;
   min: number;
-  new_set?: number;
-  isinline: boolean;
-  pref: number;
-  prop: number;
+  new_set: number | null;
+  isinline?: boolean;
+  pref?: number;
+  prop?: number;
   set: number;
 }
 
-function readXMLSize(min, set, iswidth, inline): SizeObj {
+function readXMLSize(min: string, set: string, iswidth: boolean, inline: boolean): SizeObj {
   // Initialize width settings (ADDME switch all code to use xml_set_parsed?)
   return {
-    xml_min: iswidth ? CalcAbsWidth(min) : inline ? CalcAbsInlineHeight(min) : CalcAbsHeight(min), // min width as set by xml
+    xml_min: iswidth ? CalcAbsWidth(min) : inline ? CalcAbsInlineHeight(min) : CalcAbsHeight(min),
     xml_set: set, // width as set by xml (absolute or proportional size)
     xml_set_parsed: ReadSize(set),
     servermin: min, //The unparsed versions. deprecate xml_min,xml_set,xml_min_parsed!
@@ -316,15 +321,24 @@ function readXMLSize(min, set, iswidth, inline): SizeObj {
   };
 }
 
+export interface XMLWidthAttributes {
+  minwidth: string;
+  width: string;
+}
+export interface XMLHeightAttributes {
+  minheight: string;
+  height: string;
+}
+
 //ADDME why can't we receive widths already in the proper format as much as possible?
-export function ReadXMLWidths(xmlnode) //xmlnode may be null to init a default width object
-{
+export function ReadXMLWidths(xmlnode: XMLWidthAttributes): SizeObj { //xmlnode may be null to init a default width object
   return readXMLSize(xmlnode && xmlnode.minwidth ? xmlnode.minwidth : ''
     , xmlnode && xmlnode.width ? xmlnode.width : ''
     , true
+    , false
   );
 }
-export function ReadXMLHeights(xmlnode, inline) {
+export function ReadXMLHeights(xmlnode: XMLHeightAttributes, inline: boolean): SizeObj {
   return readXMLSize(xmlnode && xmlnode.minheight ? xmlnode.minheight : ''
     , xmlnode && xmlnode.height ? xmlnode.height : ''
     , false
@@ -360,14 +374,14 @@ export const desktop =
  * Some experimental and implementation test functions
  */
 
-export function componentsToMessages(components) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- This API is hard to make meaningfully typesafe. We should reconsider the entire approach - why not let frontend apps directly instantiate the needed components ?
+export function componentsToMessages(components: Record<string, any>) {
   /* ADDME: updateScreen is currently an attempt at a 'prettier' API for screen management but we should probably merge with processMessages eventually (perhaps todd controller should change its format)
    */
-  const messages = [];
+  const messages: unknown[] = [];
   Object.keys(components).forEach(name => {
     const obj = components[name];
-    if (!obj.messages || Object.keys(obj).length > 1) //not only sending messages
-    {
+    if (!obj.messages || Object.keys(obj).length > 1) { //not only sending messages
       const compmsg = {
         ...obj,
         instr: "component",
@@ -385,7 +399,8 @@ export function componentsToMessages(components) {
     }
 
     if (obj.messages)
-      obj.messages.forEach(msg => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- see functionlevel comment
+      obj.messages.forEach((msg: any) => {
         const copymsg = {
           ...msg,
           msg: 'message',
@@ -420,9 +435,11 @@ export function DebugTypedLog(target: DebugTarget, ...args: unknown[]) {
 function checkLogTypes() {
   // Check for specific debug log types (see DebugTypedLog)
   if (document.location.hash) {
-    const hash = document.location.hash.substr(1);
+    const hash = document.location.hash.substring(1);
     enabledlogtypes.clear();
-    hash.split(",").forEach(type => enabledlogtypes.add(type));
+    for (const tok of hash.split(","))
+      if (debugTargets.includes(tok as DebugTarget))
+        enabledlogtypes.add(tok as DebugTarget);
   }
 
   if (enabledlogtypes.has('all'))
@@ -436,14 +453,14 @@ function checkLogTypes() {
    by (all?) browser (yet?). This functions rewrites them to rgba() notation.
    [1] https://drafts.csswg.org/css-color/#hex-notation
    https://caniuse.com/#search=rgba - IE11 still fails */
-export function fixupColor(color) {
-  if (color.match(/\#[0-9a-z]{8}$/)) {
+export function fixupColor(color: string) {
+  if (color.match(/#[0-9a-z]{8}$/)) {
     return "rgba(" + parseInt(color.substr(1, 2), 16) + ","
       + parseInt(color.substr(3, 2), 16) + ","
       + parseInt(color.substr(5, 2), 16) + ","
       + (parseInt(color.substr(7, 2), 16) / 255) + ")";
   }
-  if (color.match(/\#[0-9a-z]{4}$/)) {
+  if (color.match(/#[0-9a-z]{4}$/)) {
     return "rgba(" + parseInt(color.substr(1, 1) + color.substr(1, 1), 16) + ","
       + parseInt(color.substr(2, 1) + color.substr(2, 1), 16) + ","
       + parseInt(color.substr(3, 1) + color.substr(3, 1), 16) + ","
@@ -453,22 +470,20 @@ export function fixupColor(color) {
 }
 
 
-/** @short
-    @param flags The flags which must be checked against (useually gathered from selected options/rows)
+/** @param flags - The flags which must be checked against (useually gathered from selected options/rows)
                  For example:
-                 [{ selectable := true,  hasurl := false }
-                 ,{ selectable := false, hasurl := false }
+                 [\{ selectable := true,  hasurl := false \}
+                 ,\{ selectable := false, hasurl := false \}
                  ]
-    @param checkflags Array of string's with the name of flags which must match to enable
+    @param checkflags - Array of string's with the name of flags which must match to enable
                       A flag starting with '!' means that to match the flag must NOT TRUE (meaning FALSE) in each object in the 'flags' array.
                       Otherwise it's a match if the flag is TRUE in all objects in the flags array.
-    @param min minimum amount of items in the flags list
-    @param max maximum amount of items in the flags list
-    @param selectionmatch ("all", "any")
-    @return whether the action should be enabled (all checkflags match each item in flags)
+    @param max - maximum amount of items in the flags list
+    @param min - minimum amount of items in the flags list
+    @param selectionmatch - ("all", "any")
+    @returns whether the action should be enabled (all checkflags match each item in flags)
 */
-export function checkEnabledFlags(flags, checkflags, min, max, selectionmatch) //FIXME rename and move out of Screen... compbase?
-{
+export function checkEnabledFlags(flags: Array<Record<string, boolean>>, checkflags: string[], min: number, max: number, selectionmatch: "all" | "any") { //FIXME rename and move out of Screen... compbase?
   // This code should be synchronized with checkEnabledFlags in tollium/include/internal/support.whlib
   DebugTypedLog("actionenabler", "- - Checking checkflags [" + checkflags.join(", ") + "], " + flags.length + " in [" + min + "," + (max >= 0 ? max + "]" : "->") + " (" + selectionmatch + ")");
 
