@@ -10,7 +10,7 @@ import DownloadManager from '@mod-system/js/compat/download';
 
 import * as toddupload from '@mod-tollium/web/ui/js/upload';
 import ImgeditDialogController from '@mod-tollium/web/ui/js/dialogs/imgeditcontroller';
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 require("@mod-tollium/web/ui/common.lang.json");
 require("@mod-tollium/web/ui/components/imageeditor/imageeditor.lang.json");
 

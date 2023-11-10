@@ -2,6 +2,7 @@
 // @ts-nocheck -- needs porting!
 
 import * as dompack from 'dompack';
+import * as whintegration from '@mod-system/js/wh/integration';
 import type { ApplicationBase } from './application';
 
 require("../common.lang.json");
@@ -24,13 +25,7 @@ require("../common.lang.json");
    - all (show all messages)
 */
 
-let enabledlogtypes = [];
-
-const $todd: {
-  applications: ApplicationBase[];
-} = {
-  applications: []
-};
+const enabledlogtypes = new Set<string>;
 
 export const gridlineTopMargin = 2; // pixels to add to the top of a grid line
 export const gridlineBottomMargin = 3; // pixels to add to the bottom of a grid line
@@ -39,15 +34,7 @@ export const gridlineHeight = 28; //grid vertical size (28 pixels) including mar
 export const gridlineInnerHeight = gridlineHeight - gridlineTotalMargin;
 export const gridlineSnapMax = 8; //never add more than this amount of pixels to snap. an attempt to prevent inlineblocks from wildly generating empty space. this is mostly manually tuning and maybe we shouldn't do it
 
-//workaround not having fully switched to export yet:
-$todd.gridlineTopMargin = gridlineTopMargin;
-$todd.gridlineBottomMargin = gridlineBottomMargin;
-$todd.gridlineTotalMargin = gridlineTotalMargin;
-$todd.gridlineHeight = gridlineHeight;
-$todd.gridlineInnerHeight = gridlineInnerHeight;
-$todd.gridlineSnapMax = gridlineSnapMax;
-
-$todd.settings =
+export const settings =
 {
   tab_stacked_vpadding_inactive: 1, // border-bottom: 1px (only for inactive!)
   textedit_defaultwidth: 150,
@@ -85,22 +72,21 @@ $todd.settings =
 
 };
 
+export const applicationstack: ApplicationBase[] = [];
+export const applications: ApplicationBase[] = [];
+export const resourcebase = new URL(whintegration.config.obj.toddroot, location.href).toString();
+export const customactions = {};
 
-$todd.applications = [];
-$todd.applicationstack = [] as ApplicationBase[];
-$todd.resourcebase = "";
-$todd.customactions = {};
-
-$todd.getActiveApplication = function () {
-  return $todd.applicationstack.at(-1);
-};
+export function getActiveApplication() {
+  return applicationstack.at(-1);
+}
 
 
 /****************************************************************************************************************************
  * Layout
  */
 
-$todd.textsize = {
+export const textsize = {
   cache: {},
   node: null,
   styles: {
@@ -111,7 +97,7 @@ $todd.textsize = {
   }
 };
 
-$todd.UpToGridsize = function (size, gridsize) {
+export function UpToGridsize(size, gridsize) {
   if (!gridsize || gridsize <= 1)
     return size;
 
@@ -119,21 +105,22 @@ $todd.UpToGridsize = function (size, gridsize) {
   if (remainder !== 0)
     size += gridsize - remainder;
   return size;
-};
+}
 
 
 
-$todd.ResetCachedTextSizes = function () {
-  $todd.textsize.cache = {};
-};
+export function ResetCachedTextSizes() {
+  textsize.cache = {};
+}
 
-$todd.GetCalculateTextStyles = function () {
-  return Object.keys($todd.textsize.styles);
-};
+export function GetCalculateTextStyles() {
+  return Object.keys(textsize.styles);
+}
 
-$todd.CalculateSize = function (node) {
-  if (!$todd.calcsizenode) {
-    $todd.calcsizenode = dompack.create("div", {
+let calcsizenode: HTMLDivElement | undefined;
+export function CalculateSize(node) {
+  if (!calcsizenode) {
+    calcsizenode = dompack.create("div", {
       style: {
         "backgroundColor": "#ffffff",
         color: "#000000",
@@ -142,20 +129,20 @@ $todd.CalculateSize = function (node) {
         width: '1px' //Encourage content collapsing (shrink-wrap)
       }
     });
-    dompack.qS('#todd-measurements').appendChild($todd.calcsizenode);
+    dompack.qS('#todd-measurements').appendChild(calcsizenode);
   }
-  $todd.calcsizenode.appendChild(node);
+  calcsizenode.appendChild(node);
   const size = node.getBoundingClientRect();
   node.remove();
   return { x: Math.ceil(size.width), y: Math.ceil(size.height) };
-};
+}
 
 // text: string with text to calculate size for
 // width: maximum width in pixels for wrapping text, or 0 for no wrapping
 // styles: getStyle-compatible object with font/text settings
-$todd.CalculateTextSize = function (text, width, styles, ishtml) {
-  if (!$todd.textsize.node) {
-    $todd.textsize.node = dompack.create("div", {
+export function CalculateTextSize(text, width, styles, ishtml) {
+  if (!textsize.node) {
+    textsize.node = dompack.create("div", {
       style: {
         "backgroundColor": "#ffffff",
         color: "#000000",
@@ -163,7 +150,7 @@ $todd.CalculateTextSize = function (text, width, styles, ishtml) {
         visibility: "hidden" // Comment this out for debugging
       }
     });
-    dompack.qS('#todd-measurements').appendChild($todd.textsize.node);
+    dompack.qS('#todd-measurements').appendChild(textsize.node);
   }
 
   if (typeof (text) != "string")
@@ -172,14 +159,14 @@ $todd.CalculateTextSize = function (text, width, styles, ishtml) {
     width = 0;
 
   // Apply only the sanctioned styles
-  let applystyles = $todd.textsize.styles;
+  let applystyles = textsize.styles;
   if (typeof (styles) == "object") {
     // merge modifies the first argument, so clone it first
     applystyles = {
       ...applystyles
     };
     // take the subset of styles we seem to care about
-    $todd.GetCalculateTextStyles().forEach(subsetstyle => {
+    GetCalculateTextStyles().forEach(subsetstyle => {
       if (subsetstyle in styles)
         applystyles[subsetstyle] = styles[subsetstyle];
     });
@@ -187,35 +174,37 @@ $todd.CalculateTextSize = function (text, width, styles, ishtml) {
 
   // Check if we have calculated this before
   const key = encodeURIComponent(text) + "\t" + width + "\t" + JSON.stringify(applystyles) + "\t" + (ishtml ? 1 : 0);
-  let size = $todd.textsize.cache[key];
+  let size = textsize.cache[key];
   if (size)
     return size;
 
   // Set node width if specified
   if (width) {
-    $todd.textsize.node.style.width = width + 'px';
-    $todd.textsize.node.style.whiteSpace = "normal";
+    textsize.node.style.width = width + 'px';
+    textsize.node.style.whiteSpace = "normal";
   } else {
-    $todd.textsize.node.style.width = "auto";
-    $todd.textsize.node.style.whiteSpace = "nowrap";
+    textsize.node.style.width = "auto";
+    textsize.node.style.whiteSpace = "nowrap";
   }
 
-  dompack.setStyles($todd.textsize.node, applystyles);
+  dompack.setStyles(textsize.node, applystyles);
 
   // Calculate and cache text size
-  $todd.textsize.node[ishtml ? "innerHTML" : "textContent"] = text;
-  const rect = $todd.textsize.node.getBoundingClientRect();
+  textsize.node[ishtml ? "innerHTML" : "textContent"] = text;
+  const rect = textsize.node.getBoundingClientRect();
   // Rounding up here to avoid returning rounded-down values which would result in elements too small to contain the given text
   // (getBoundingClientRect should return frational values, and not return rounded values)
   size = {
     x: Math.ceil(rect.width),
     y: Math.ceil(rect.height)
   };
-  $todd.textsize.cache[key] = size;
+  textsize.cache[key] = size;
   return size;
-};
+}
 
-$todd.ReadSize = function (sizeval) {
+type ReadSizeResult = { type: 1 | 2 | 3 | 4 | 5; size: number };
+
+export function ReadSize(sizeval: string): ReadSizeResult {
   if (!sizeval)
     return null;
   if (sizeval.substr(sizeval.length - 2) == 'gr')
@@ -229,38 +218,40 @@ $todd.ReadSize = function (sizeval) {
   if (sizeval == 'sp')
     return { type: 4, size: 1 };
   return null;
-};
-$todd.IsAbsoluteParsedSize = function (size) {
+}
+export function IsAbsoluteParsedSize(size) {
   return size && size.type != 1;
-};
+}
 
 // Return the set width/height, or the xml width/height, for a component's size object
-$todd.ReadSetWidth = function (sizeobj) {
-  return $todd.ReadSetSize(sizeobj, true);
-};
-$todd.ReadSetHeight = function (sizeobj) {
-  return $todd.ReadSetSize(sizeobj, false);
-};
-$todd.ReadSetSize = function (sizeobj, horizontal) {
+export function ReadSetWidth(sizeobj) {
+  return ReadSetSize(sizeobj, true);
+}
+export function ReadSetHeight(sizeobj) {
+  return ReadSetSize(sizeobj, false);
+}
+export function ReadSetSize(sizeobj, horizontal) {
   let size = sizeobj.new_set;
   if (size === null) {
-    const xml = $todd.ReadSize(sizeobj.xml_set);
-    size = $todd.IsFixedSize(sizeobj.xml_set) ? $todd.CalcAbsSize(xml, horizontal) : 0;
+    const xml = ReadSize(sizeobj.xml_set);
+    size = IsFixedSize(sizeobj.xml_set) ? CalcAbsSize(xml, horizontal) : 0;
   }
   return size;
-};
-$todd.CalcAbsWidth = function (size) {
-  return $todd.CalcAbsSize(size, true);
-};
+}
+export function calcAbsWidth(size: number | string | ReadSizeResult) {
+  return calcAbsSize(size, true);
+}
+export const CalcAbsWidth = calcAbsWidth;
+
 //Calculate the absolute height for a block element (where 2gr = 56)
-$todd.CalcAbsHeight = function (size) {
-  return $todd.CalcAbsSize(size, false);
-};
+export function CalcAbsHeight(size: number | string | ReadSizeResult) {
+  return calcAbsSize(size, false);
+}
 //Calculate the absolute height for an inline element (where 2gr = 51)
-$todd.CalcAbsInlineHeight = function (size) {
-  return $todd.CalcAbsSize(size, false, true);
-};
-$todd.CalcAbsSize = function (size, horizontal, inline) {
+export function CalcAbsInlineHeight(size) {
+  return calcAbsSize(size, false, true);
+}
+export function calcAbsSize(size: number | string | ReadSizeResult, horizontal: boolean, inline) {
   if (!size)
     return 0;
 
@@ -278,16 +269,16 @@ $todd.CalcAbsSize = function (size, horizontal, inline) {
           throw new Error("'gr' units not supported horizontally");
       }
 
-      return parseInt(size, 10) * $todd.gridlineHeight - (inline ? $todd.gridlineTotalMargin : 0);
+      return parseInt(size, 10) * gridlineHeight - (inline ? gridlineTotalMargin : 0);
     }
     if (size.substr(size.length - 1) == 'x') {
       if (horizontal)
-        return parseInt(size, 10) * $todd.desktop.x_width;
+        return parseInt(size, 10) * desktop.x_width;
       // Round to grid size
-      return $todd.UpToGridsize(parseInt(size, 10) * $todd.desktop.x_height);
+      return UpToGridsize(parseInt(size, 10) * desktop.x_height);
     }
     if (size == 'sp')
-      return $todd.settings.spacerwidth;
+      return settings.spacerwidth;
     return parseInt(size, 10);
   }
 
@@ -297,32 +288,45 @@ $todd.CalcAbsSize = function (size, horizontal, inline) {
       return size.size;
     if (size.type == 3) {
       if (horizontal)
-        return size.size * $todd.desktop.x_width;
-      return $todd.UpToGridsize(size.size * $todd.desktop.x_height);
+        return size.size * desktop.x_width;
+      return UpToGridsize(size.size * desktop.x_height);
     }
     if (size.type == 4)
-      return $todd.settings.spacerwidth;
+      return settings.spacerwidth;
     if (size.type == 5) //'gr'
-      return parseInt(size, 10) * $todd.gridlineHeight - (inline ? $todd.gridlineTotalMargin : 0);
+      return parseInt(size, 10) * gridlineHeight - (inline ? gridlineTotalMargin : 0);
   }
 
   return 0;
-};
+}
+export const CalcAbsSize = calcAbsSize;
 
-$todd.IsFixedSize = function (size) {
+export function isFixedSize(size: string) {
   return size && (size.substr(size.length - 1) == 'x' //matches both 'px' and 'x' :)
     || size.substr(size.length - 2) == 'gr'
     || size == 'sp'
     || ((String(parseInt(size))) == size) // matches numbers in strings
   );
-};
+}
+export const IsFixedSize = isFixedSize;
 
-function readXMLSize(min, set, iswidth, inline) {
+export interface SizeObj {
+  serverset: string;
+  calc: number;
+  min: number;
+  new_set?: number;
+  isinline: boolean;
+  pref: number;
+  prop: number;
+  set: number;
+}
+
+function readXMLSize(min, set, iswidth, inline): SizeObj {
   // Initialize width settings (ADDME switch all code to use xml_set_parsed?)
   return {
-    xml_min: iswidth ? $todd.CalcAbsWidth(min) : inline ? $todd.CalcAbsInlineHeight(min) : $todd.CalcAbsHeight(min), // min width as set by xml
+    xml_min: iswidth ? CalcAbsWidth(min) : inline ? CalcAbsInlineHeight(min) : CalcAbsHeight(min), // min width as set by xml
     xml_set: set, // width as set by xml (absolute or proportional size)
-    xml_set_parsed: $todd.ReadSize(set),
+    xml_set_parsed: ReadSize(set),
     servermin: min, //The unparsed versions. deprecate xml_min,xml_set,xml_min_parsed!
     serverset: set,
     dirty: true, // calc should be recalculated
@@ -334,20 +338,20 @@ function readXMLSize(min, set, iswidth, inline) {
 }
 
 //ADDME why can't we receive widths already in the proper format as much as possible?
-$todd.ReadXMLWidths = function (xmlnode) //xmlnode may be null to init a default width object
+export function ReadXMLWidths(xmlnode) //xmlnode may be null to init a default width object
 {
   return readXMLSize(xmlnode && xmlnode.minwidth ? xmlnode.minwidth : ''
     , xmlnode && xmlnode.width ? xmlnode.width : ''
     , true
   );
-};
-$todd.ReadXMLHeights = function (xmlnode, inline) {
+}
+export function ReadXMLHeights(xmlnode, inline) {
   return readXMLSize(xmlnode && xmlnode.minheight ? xmlnode.minheight : ''
     , xmlnode && xmlnode.height ? xmlnode.height : ''
     , false
     , inline
   );
-};
+}
 
 
 /****************************************************************************************************************************
@@ -355,7 +359,7 @@ $todd.ReadXMLHeights = function (xmlnode, inline) {
  */
 
 // Desktop properties, will be calculated after initialization (and on resizing/zooming)
-$todd.desktop =
+export const desktop =
 {
   node: null,
   // Dimensions
@@ -377,7 +381,7 @@ $todd.desktop =
  * Some experimental and implementation test functions
  */
 
-$todd.componentsToMessages = function (components) {
+export function componentsToMessages(components) {
   /* ADDME: updateScreen is currently an attempt at a 'prettier' API for screen management but we should probably merge with processMessages eventually (perhaps todd controller should change its format)
    */
   const messages = [];
@@ -414,13 +418,14 @@ $todd.componentsToMessages = function (components) {
   });
 
   return messages;
-};
+}
 
-$todd.IsDebugTypeEnabled = function (type) {
-  return enabledlogtypes.includes('all') || enabledlogtypes.includes(type);
-};
+export function isDebugTypeEnabled(type: string) {
+  return enabledlogtypes.has('all') || enabledlogtypes.has(type);
+}
+export const IsDebugTypeEnabled = isDebugTypeEnabled;
 
-$todd.DebugTypedLog = function (target) {
+export function DebugTypedLog(target) {
   let type;
   if (typeof (target) == "string") {
     target = target.split(":");
@@ -433,26 +438,27 @@ $todd.DebugTypedLog = function (target) {
     target = "log";
 
   // Check if the requested type should be shown
-  if (!$todd.IsDebugTypeEnabled(type))
+  if (!IsDebugTypeEnabled(type))
     return;
 
   // Strip first element (type) from arguments
   const args = Array.prototype.slice.call(arguments);
   args.splice(0, 1);
   console[target].apply(console, args);
-};
+}
 
 function checkLogTypes() {
   // Check for specific debug log types (see DebugTypedLog)
   if (document.location.hash) {
     const hash = document.location.hash.substr(1);
-    enabledlogtypes = hash.split(",");
+    enabledlogtypes.clear();
+    hash.split(",").forEach(type => enabledlogtypes.add(type));
   }
 
-  if (enabledlogtypes.includes('all'))
+  if (enabledlogtypes.has('all'))
     console.warn("Showing all typed debug messages");
-  else if (enabledlogtypes.length) {
-    console.warn("Showing typed debug messages with types " + enabledlogtypes.join(", "));
+  else if (enabledlogtypes.size) {
+    console.warn("Showing typed debug messages with types " + [...enabledlogtypes.values()].join(", "));
   }
 }
 
@@ -460,7 +466,7 @@ function checkLogTypes() {
    by (all?) browser (yet?). This functions rewrites them to rgba() notation.
    [1] https://drafts.csswg.org/css-color/#hex-notation
    https://caniuse.com/#search=rgba - IE11 still fails */
-$todd.fixupColor = function (color) {
+export function fixupColor(color) {
   if (color.match(/\#[0-9a-z]{8}$/)) {
     return "rgba(" + parseInt(color.substr(1, 2), 16) + ","
       + parseInt(color.substr(3, 2), 16) + ","
@@ -474,7 +480,7 @@ $todd.fixupColor = function (color) {
       + (parseInt(color.substr(4, 1) + color.substr(4, 1), 16) / 255) + ")";
   }
   return color;
-};
+}
 
 
 /** @short
@@ -491,14 +497,14 @@ $todd.fixupColor = function (color) {
     @param selectionmatch ("all", "any")
     @return whether the action should be enabled (all checkflags match each item in flags)
 */
-$todd.checkEnabledFlags = function (flags, checkflags, min, max, selectionmatch) //FIXME rename and move out of Screen... compbase?
+export function checkEnabledFlags(flags, checkflags, min, max, selectionmatch) //FIXME rename and move out of Screen... compbase?
 {
   // This code should be synchronized with checkEnabledFlags in tollium/include/internal/support.whlib
-  $todd.DebugTypedLog("actionenabler", "- - Checking checkflags [" + checkflags.join(", ") + "], " + flags.length + " in [" + min + "," + (max >= 0 ? max + "]" : "->") + " (" + selectionmatch + ")");
+  DebugTypedLog("actionenabler", "- - Checking checkflags [" + checkflags.join(", ") + "], " + flags.length + " in [" + min + "," + (max >= 0 ? max + "]" : "->") + " (" + selectionmatch + ")");
 
   // Check correct number of selected items
   if (flags.length < min || (max >= 0 && flags.length > max)) {
-    $todd.DebugTypedLog("actionenabler", "- - Wrong number of selected items (" + flags.length + "), action should be disabled");
+    DebugTypedLog("actionenabler", "- - Wrong number of selected items (" + flags.length + "), action should be disabled");
     return false;
   }
 
@@ -508,14 +514,14 @@ $todd.checkEnabledFlags = function (flags, checkflags, min, max, selectionmatch)
   // don't have to be checked, so i is initialized with the length of the
   // selected flags.
   if (checkflags.length == 0 || (checkflags.length == 1 && checkflags[0] == '')) {
-    $todd.DebugTypedLog("actionenabler", "- - No checkflags, action should be enabled");
+    DebugTypedLog("actionenabler", "- - No checkflags, action should be enabled");
     return true;
   }
   let i = 0;
   let any = false;
   for (; i < flags.length; ++i) {
     if (!flags[i]) {
-      $todd.DebugTypedLog("actionenabler", "- - Flag " + i + " undefined, continue to next flag");
+      DebugTypedLog("actionenabler", "- - Flag " + i + " undefined, continue to next flag");
       break;
     }
     let j = 0;
@@ -526,9 +532,9 @@ $todd.checkEnabledFlags = function (flags, checkflags, min, max, selectionmatch)
         checkflag = checkflag.slice(1);
         checkvalue = false;
       }
-      $todd.DebugTypedLog("actionenabler", "- - Checkflag '" + checkflag + "': " + flags[i][checkflag] + "=" + checkvalue + "?");
+      DebugTypedLog("actionenabler", "- - Checkflag '" + checkflag + "': " + flags[i][checkflag] + "=" + checkvalue + "?");
       if (flags[i][checkflag] != checkvalue) {
-        $todd.DebugTypedLog("actionenabler", "- - Checkflag '" + checkflag + "' not enabled for selected item " + i);
+        DebugTypedLog("actionenabler", "- - Checkflag '" + checkflag + "' not enabled for selected item " + i);
         break;
       }
     }
@@ -545,14 +551,13 @@ $todd.checkEnabledFlags = function (flags, checkflags, min, max, selectionmatch)
   // If selectionmatch = "all", i should point beyond the end of the flags list (all items are checked and all passed)
   // If selectionmatch = "any", any should be true
   const enabled = (selectionmatch == "all" && i >= flags.length) || (selectionmatch == "any" && any);
-  $todd.DebugTypedLog("actionenabler", "- - Action should be " + (enabled ? "enabled" : "disabled"));
+  DebugTypedLog("actionenabler", "- - Action should be " + (enabled ? "enabled" : "disabled"));
   return enabled;
-};
+}
 
-export default $todd;
 if (typeof window !== "undefined") {
-  window.__todd = $todd; //test framework currently requires it. FIX THAT
+  window.__todd = { applicationstack };
 
   checkLogTypes();
-  window.addEventListener?.("hashchange", checkLogTypes);
+  window.addEventListener("hashchange", checkLogTypes);
 }

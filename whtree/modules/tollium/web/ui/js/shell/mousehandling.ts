@@ -6,7 +6,7 @@
 
 import * as dompack from 'dompack';
 import * as domfocus from 'dompack/browserfix/focus';
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 import "./mousehandling.scss";
 
 function onClick(event) {

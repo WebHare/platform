@@ -10,7 +10,7 @@ import { getShortcutEvent } from '@mod-tollium/js/internal/keyboard';
 import KeyboardHandler from 'dompack/extra/keyboard';
 import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 //require("../common.lang.json");
 //require("../components/imageeditor/imageeditor.lang.json");
 import * as domfocus from 'dompack/browserfix/focus';

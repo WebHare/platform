@@ -5,7 +5,7 @@ import * as dompack from 'dompack';
 import * as browser from 'dompack/extra/browser';
 import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 import { Lock, flagUIBusy } from '@webhare/dompack';
 import { getTid } from "@mod-tollium/js/gettid";
 import * as focusZones from '../components/focuszones';

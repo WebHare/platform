@@ -3,7 +3,7 @@
 
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 
 /****************************************************************************************************************************
  *                                                                                                                          *
@@ -63,4 +63,3 @@ export default class ObjSpacer extends ComponentBase {
   }
 
 }
-

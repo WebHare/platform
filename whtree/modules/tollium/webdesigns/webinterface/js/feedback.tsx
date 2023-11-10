@@ -6,7 +6,7 @@ import * as feedback from "@mod-publisher/js/feedback";
 import getTid from "@mod-tollium/js/gettid";
 import { createImage } from "@mod-tollium/js/icons";
 import { runSimpleScreen } from "@mod-tollium/web/ui/js/dialogs/simplescreen";
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 
 export default class TolliumFeedbackAPI {
   constructor() {

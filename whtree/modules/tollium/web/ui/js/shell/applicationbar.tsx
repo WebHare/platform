@@ -2,7 +2,7 @@
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
 import * as dompack from 'dompack';
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 import Keyboard from 'dompack/extra/keyboard';
 import * as domscroll from 'dompack/browserfix/scroll';
 const menu = require('@mod-tollium/web/ui/components/basecontrols/menu');

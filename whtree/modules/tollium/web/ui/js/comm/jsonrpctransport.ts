@@ -1,7 +1,7 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 import TransportBase from "./transportbase";
 import * as service from "./toddservice.rpc.json";
 

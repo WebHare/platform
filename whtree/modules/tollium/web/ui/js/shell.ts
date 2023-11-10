@@ -33,7 +33,7 @@ const EventServerConnection = require('@mod-system/js/net/eventserver');
 import { setupWHCheck } from './shell/whcheck';
 import { setupMouseHandling } from "./shell/mousehandling";
 
-import $todd from './support';
+import * as $todd from './support';
 import { ApplicationBase, BackendApplication, FrontendEmbeddedApplication, registerJSApp } from './application';
 import ApplicationBar from './shell/applicationbar';
 import "./apps/dashboard";
@@ -84,7 +84,6 @@ class IndyShell extends TolliumShell {
 
     this.frontendids = [];
 
-    $todd.resourcebase = new URL(whintegration.config.obj.toddroot, location.href).toString();
     this.eventsconnection = new EventServerConnection({ url: "/wh_events/" });
     this.eventsconnection.on("data", event => this.onBroadcastData(event));
     dompack.onDomReady(() => this.onDomReady());

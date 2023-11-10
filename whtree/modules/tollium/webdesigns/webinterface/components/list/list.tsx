@@ -8,7 +8,7 @@ import { Base, Email, TreeWrapper, CheckboxWrapper, LinkWrapper, URL, Text } fro
 import * as scrollmonitor from '@mod-tollium/js/internal/scrollmonitor';
 import ListView from '@mod-tollium/web/ui/components/listview/listview';
 import { getScrollbarWidth } from '@mod-tollium/web/ui/components/listview/listview';
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 const toddImages = require("@mod-tollium/js/icons");
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 import "./list.scss";

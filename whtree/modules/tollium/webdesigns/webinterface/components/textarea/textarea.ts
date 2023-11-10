@@ -7,7 +7,7 @@ import * as toddtools from '@mod-tollium/webdesigns/webinterface/components/base
 
 import { InputTextLengthCounter } from "@mod-tollium/web/ui/components/basecontrols/counter";
 import Keyboard from 'dompack/extra/keyboard';
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 import './textarea.scss';
 
 /****************************************************************************************************************************

@@ -1,7 +1,7 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 import * as dompack from 'dompack';
 import { getTid } from "@mod-tollium/js/gettid";
 import "../../common.lang.json";

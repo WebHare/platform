@@ -6,7 +6,6 @@ const JSONRPC = require('@mod-system/js/net/jsonrpc');
 import { getTid } from "@mod-tollium/js/gettid";
 import { encodeString } from "@webhare/std";
 import { getIndyShell } from '@mod-tollium/web/ui/js/shell';
-import $todd from "@mod-tollium/web/ui/js/support";
 
 let checkservice;
 let checkcall = null;

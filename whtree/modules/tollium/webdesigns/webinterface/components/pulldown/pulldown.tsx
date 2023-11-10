@@ -4,7 +4,7 @@
 import * as dompack from 'dompack';
 import * as browser from "dompack/extra/browser";
 import HTMLComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/html';
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 
 export default class ObjPulldown extends HTMLComponentBase {
   /****************************************************************************************************************************

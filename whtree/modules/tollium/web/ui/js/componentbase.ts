@@ -3,7 +3,7 @@
 
 import * as dompack from 'dompack';
 import * as domfocus from 'dompack/browserfix/focus';
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 import { isLive } from "@webhare/env";
 import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 

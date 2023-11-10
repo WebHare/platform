@@ -3,7 +3,7 @@
 
 import * as dompack from 'dompack';
 import * as domfocus from "dompack/browserfix/focus";
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 
 export function getBorderWidth(borders) {
   return (borders && borders.left ? $todd.settings.border_left : 0) + (borders && borders.right ? $todd.settings.border_right : 0);

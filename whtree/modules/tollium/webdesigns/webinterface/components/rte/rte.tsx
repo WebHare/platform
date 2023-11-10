@@ -7,7 +7,7 @@ import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/
 import { Counter } from "@mod-tollium/web/ui/components/basecontrols/counter";
 import { getUTF8Length } from "@mod-system/js/internal/utf8";
 
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 import * as rteapi from '@mod-tollium/web/ui/components/richeditor';
 
 import getTid from "@mod-tollium/js/gettid";

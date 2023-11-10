@@ -7,7 +7,7 @@ import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 import { FrontendEmbeddedApplication, registerJSApp } from "../application";
 import "../../common.lang.json";
 
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 import { getIndyShell } from '../shell';
 const getTid = require("@mod-tollium/js/gettid").getTid;
