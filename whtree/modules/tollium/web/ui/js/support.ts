@@ -1,7 +1,7 @@
 /* eslint-disable */
 // @ts-nocheck -- needs porting!
 
-import * as dompack from 'dompack';
+import * as dompack from '@webhare/dompack';
 import * as whintegration from '@mod-system/js/wh/integration';
 import type { ApplicationBase } from './application';
 
@@ -89,8 +89,7 @@ export function getActiveApplication() {
  */
 
 export const textsize = {
-  cache: {},
-  node: null,
+  cache: {} as Record<string, { x: number; y: number }>,
   styles: {
     "font-size": "",
     "font-style": "",
@@ -115,12 +114,8 @@ export function ResetCachedTextSizes() {
   textsize.cache = {};
 }
 
-export function GetCalculateTextStyles() {
-  return Object.keys(textsize.styles);
-}
-
 let calcsizenode: HTMLDivElement | undefined;
-export function CalculateSize(node) {
+export function CalculateSize(node: HTMLElement) {
   if (!calcsizenode) {
     calcsizenode = dompack.create("div", {
       style: {
@@ -131,7 +126,7 @@ export function CalculateSize(node) {
         width: '1px' //Encourage content collapsing (shrink-wrap)
       }
     });
-    dompack.qS('#todd-measurements').appendChild(calcsizenode);
+    dompack.qR('#todd-measurements').appendChild(calcsizenode);
   }
   calcsizenode.appendChild(node);
   const size = node.getBoundingClientRect();
@@ -139,12 +134,15 @@ export function CalculateSize(node) {
   return { x: Math.ceil(size.width), y: Math.ceil(size.height) };
 }
 
-// text: string with text to calculate size for
-// width: maximum width in pixels for wrapping text, or 0 for no wrapping
-// styles: getStyle-compatible object with font/text settings
-export function CalculateTextSize(text, width, styles, ishtml) {
-  if (!textsize.node) {
-    textsize.node = dompack.create("div", {
+/** @param text - string with text to calculate size for
+ * @param width - maximum width in pixels for wrapping text, or 0 for no wrapping
+ * @param fontSize - override font size
+ *
+*/
+let textsizenode: HTMLDivElement | undefined;
+export function calculateTextSize(text: string, { width = 0, fontSize = "" } = {}) {
+  if (!textsizenode) {
+    textsizenode = dompack.create("div", {
       style: {
         "backgroundColor": "#ffffff",
         color: "#000000",
@@ -152,48 +150,27 @@ export function CalculateTextSize(text, width, styles, ishtml) {
         visibility: "hidden" // Comment this out for debugging
       }
     });
-    dompack.qS('#todd-measurements').appendChild(textsize.node);
+    dompack.qR('#todd-measurements').appendChild(textsizenode);
   }
 
+  //apparently people are doing this? fix the callers!
   if (typeof (text) != "string")
-    text = "";
+    throw new Error("Shouldn't pass non-strings to calculateTextSize");
   if (typeof (width) != "number")
-    width = 0;
-
-  // Apply only the sanctioned styles
-  let applystyles = textsize.styles;
-  if (typeof (styles) == "object") {
-    // merge modifies the first argument, so clone it first
-    applystyles = {
-      ...applystyles
-    };
-    // take the subset of styles we seem to care about
-    GetCalculateTextStyles().forEach(subsetstyle => {
-      if (subsetstyle in styles)
-        applystyles[subsetstyle] = styles[subsetstyle];
-    });
-  }
+    throw new Error("Shouldn't pass non-numbers to calculateTextSize");
 
   // Check if we have calculated this before
-  const key = encodeURIComponent(text) + "\t" + width + "\t" + JSON.stringify(applystyles) + "\t" + (ishtml ? 1 : 0);
+  const key = encodeURIComponent(text) + "\t" + width + "\t" + fontSize;
   let size = textsize.cache[key];
   if (size)
     return size;
 
-  // Set node width if specified
-  if (width) {
-    textsize.node.style.width = width + 'px';
-    textsize.node.style.whiteSpace = "normal";
-  } else {
-    textsize.node.style.width = "auto";
-    textsize.node.style.whiteSpace = "nowrap";
-  }
+  textsizenode.style.fontSize = fontSize;
+  textsizenode.style.width = width ? width + 'px' : "auto";
+  textsizenode.style.whiteSpace = width ? "normal" : "nowrap";
+  textsizenode.textContent = text;
 
-  dompack.setStyles(textsize.node, applystyles);
-
-  // Calculate and cache text size
-  textsize.node[ishtml ? "innerHTML" : "textContent"] = text;
-  const rect = textsize.node.getBoundingClientRect();
+  const rect = textsizenode.getBoundingClientRect();
   // Rounding up here to avoid returning rounded-down values which would result in elements too small to contain the given text
   // (getBoundingClientRect should return frational values, and not return rounded values)
   size = {

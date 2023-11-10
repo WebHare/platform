@@ -264,9 +264,9 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
 
     this.prefixsuffixsize = 0;
     if (this.prefix)
-      this.prefixsuffixsize += $todd.CalculateTextSize(this.prefix).x + prefix_suffix_margin;
+      this.prefixsuffixsize += $todd.calculateTextSize(this.prefix).x + prefix_suffix_margin;
     if (this.suffix)
-      this.prefixsuffixsize += $todd.CalculateTextSize(this.suffix).x + prefix_suffix_margin;
+      this.prefixsuffixsize += $todd.calculateTextSize(this.suffix).x + prefix_suffix_margin;
 
     let othercontent = 0;
     this.buttons.forEach(button => {
