@@ -19,8 +19,8 @@ export default class ObjCodeEdit extends ComponentBase {
   // Constructor
   //
 
-  constructor(parentcomp, data, response, replacingcomp) {
-    super(parentcomp, data, response, replacingcomp);
+  constructor(parentcomp, data) {
+    super(parentcomp, data);
 
     this.componenttype = "codeedit";
 

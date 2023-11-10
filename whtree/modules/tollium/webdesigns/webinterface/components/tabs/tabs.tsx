@@ -26,8 +26,8 @@ export default class ObjTabs extends ComponentBase {
   * Initialization
   */
 
-  constructor(parentcomp, data, replacingcomp) {
-    super(parentcomp, data, replacingcomp);
+  constructor(parentcomp, data) {
+    super(parentcomp, data);
     this.componenttype = "tabs";
     this.pendingselect = null;
 
@@ -73,19 +73,6 @@ export default class ObjTabs extends ComponentBase {
   destroy() {
     this.owner.tabcontrols = this.owner.tabcontrols.filter(tab => tab != this); //erase
     super.destroy();
-  }
-
-  getComponentState() {
-    const state = super.getComponentState();
-    state.push(this.navscroll ? { navleft: this.navscroll.left } : {});
-    return state;
-  }
-
-  setComponentState(state) {
-    const mystate = state.pop();
-    if (this.tabtype == "regular" && mystate.navleft)
-      this.nodes.nav.style.left = mystate.navleft + 'px';
-    super.setComponentState(state);
   }
 
   checkVisibleTabs() {

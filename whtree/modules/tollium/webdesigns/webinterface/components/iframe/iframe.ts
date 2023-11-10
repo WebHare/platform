@@ -9,8 +9,8 @@ import { createImage } from "@mod-tollium/js/icons";
 import "./iframe.scss";
 
 export default class ObjIFrame extends ComponentBase {
-  constructor(parentcomp, data, replacingcomp) {
-    super(parentcomp, data, replacingcomp);
+  constructor(parentcomp, data) {
+    super(parentcomp, data);
     this.componenttype = "iframe";
     this.addcomps = [];
     this.loaded = false;

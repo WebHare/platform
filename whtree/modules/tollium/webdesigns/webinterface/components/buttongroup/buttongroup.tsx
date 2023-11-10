@@ -20,8 +20,8 @@ export default class ObjButtonGroup extends ComponentBase {
   * Initialization
   */
 
-  constructor(parentcomp, data, replacingcomp) {
-    super(parentcomp, data, replacingcomp);
+  constructor(parentcomp, data) {
+    super(parentcomp, data);
 
     this.componenttype = "buttongroup";
     this.layout = data.layout;

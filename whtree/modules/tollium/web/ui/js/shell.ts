@@ -230,9 +230,9 @@ class IndyShell extends TolliumShell {
     return unloaded_components;
   }
 
-  createComponent(type, parentcomp, data, replacingcomp) {
+  createComponent(type, parentcomp, data) {
     if (todd_components[type])
-      return new todd_components[type](parentcomp, data, replacingcomp);
+      return new todd_components[type](parentcomp, data);
 
     console.error('Unrecognized component type \'' + type + '\'');
     return null;

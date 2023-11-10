@@ -18,8 +18,8 @@ export default class ObjSlider extends ComponentBase {
    * Initialization
    */
 
-  constructor(parentcomp, data, replacingcomp) {
-    super(parentcomp, data, replacingcomp);
+  constructor(parentcomp, data) {
+    super(parentcomp, data);
     this.componenttype = "slider";
     this.min = data.min;
     this.max = data.max;

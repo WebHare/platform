@@ -24,8 +24,8 @@ export default class ObjInlineBlock extends ComponentBase {
   * Initialization
   */
 
-  constructor(parentcomp, data, replacingcomp) {
-    super(parentcomp, data, replacingcomp);
+  constructor(parentcomp, data) {
+    super(parentcomp, data);
 
     this.componenttype = "inlineblock";
     this.borders = {};
@@ -43,7 +43,7 @@ export default class ObjInlineBlock extends ComponentBase {
       data.lines.forEach((srcline, i) => {
         srcline.target = this.name + "#line$" + i;
         srcline.destroywithparent = true;
-        const line = new ObjPanelLine(this, srcline, null, {
+        const line = new ObjPanelLine(this, srcline, {
           removetopmargin: i == 0,
           removebottommargin: i == data.lines.length - 1
         });

@@ -6,8 +6,8 @@ import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/
 import * as $todd from "@mod-tollium/web/ui/js/support";
 
 export default class ObjHr extends ComponentBase {
-  constructor(parentcomp, data, replacingcomp) {
-    super(parentcomp, data, replacingcomp);
+  constructor(parentcomp, data) {
+    super(parentcomp, data);
     this.componenttype = "hr";
     this.node = <t-hr data-name={this.name} propTodd={this} />;
   }

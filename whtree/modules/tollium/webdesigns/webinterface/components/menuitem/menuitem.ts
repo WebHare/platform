@@ -19,8 +19,8 @@ export default class ObjMenuItem extends ComponentBase {
    * Initialization
    */
 
-  constructor(parentcomp, data, replacingcomp) {
-    super(parentcomp, data, replacingcomp);
+  constructor(parentcomp, data) {
+    super(parentcomp, data);
 
     this.componenttype = "menuitem";
 

@@ -10,8 +10,8 @@ export default class ObjCheckbox extends ComponentBase { // --------------------
   // Initialization
   //
 
-  constructor(parentcomp, data, replacingcomp) {
-    super(parentcomp, data, replacingcomp);
+  constructor(parentcomp, data) {
+    super(parentcomp, data);
 
     this.componenttype = "checkbox";
     this.flags = data.flags || [];
@@ -141,4 +141,3 @@ export default class ObjCheckbox extends ComponentBase { // --------------------
     super.applyUpdate(data);
   }
 }
-

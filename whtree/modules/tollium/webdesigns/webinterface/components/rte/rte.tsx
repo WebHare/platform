@@ -34,8 +34,8 @@ require("@mod-tollium/web/ui/components/richeditor/richeditor.lang.json"); //TOD
 export default class ObjRTE extends ComponentBase {
   callbacks = new Map<number, (result: unknown) => void>;
 
-  constructor(parentcomp, data, replacingcomp) {
-    super(parentcomp, data, replacingcomp);
+  constructor(parentcomp, data) {
+    super(parentcomp, data);
     this.componenttype = "rte";
     this.rte = null;
     this.rteoptions = null;

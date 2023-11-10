@@ -15,8 +15,8 @@ const intra_button_padding = 5; //pixels between textedit buttons
 const prefix_suffix_margin = 5; //pixels between prefix/suffix and input
 
 export class ObjAutoSuggestableBase extends ComponentBase {
-  constructor(parentcomp, data, replacingcomp) {
-    super(parentcomp, data, replacingcomp);
+  constructor(parentcomp, data) {
+    super(parentcomp, data);
     this._autosuggest = data.autosuggest;
   }
 
@@ -62,8 +62,8 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
   // Initialization
   //
 
-  constructor(parentcomp, data: ComponentStandardAttributes & Record<string, unknown>, replacingcomp) {
-    super(parentcomp, data, replacingcomp);
+  constructor(parentcomp, data: ComponentStandardAttributes & Record<string, unknown>) {
+    super(parentcomp, data);
     this.componenttype = "textedit";
     this.lastreportedvalue = '';
     this.reportchange_cb = null;

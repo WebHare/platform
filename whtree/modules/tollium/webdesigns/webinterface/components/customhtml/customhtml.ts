@@ -12,8 +12,8 @@ import * as $todd from "@mod-tollium/web/ui/js/support";
  ****************************************************************************************************************************/
 
 export default class ObjCustomHTML extends ComponentBase {
-  constructor(parentcomp, data, replacingcomp) {
-    super(parentcomp, data, replacingcomp);
+  constructor(parentcomp, data) {
+    super(parentcomp, data);
     this.componenttype = "custom";
     this.selectionflags = [];
 

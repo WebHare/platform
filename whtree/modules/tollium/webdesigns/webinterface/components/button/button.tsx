@@ -17,8 +17,8 @@ import './button.scss';
 const toolbarbutton = { width: 24, height: 24 };
 
 export default class ObjButton extends ActionableBase {
-  constructor(parentcomp, data, replacingcomp) {
-    super(parentcomp, data, replacingcomp);
+  constructor(parentcomp, data) {
+    super(parentcomp, data);
     this.componenttype = "button";
     this.iconsize = 0;
     this.menuopen = false;

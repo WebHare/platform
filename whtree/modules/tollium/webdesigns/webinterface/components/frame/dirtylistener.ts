@@ -40,8 +40,8 @@ export default class DirtyListener extends ComponentBase {
    * Initialization
    */
 
-  constructor(parentcomp: ToddCompBase, data: DirtyListenerAttributes, replacingcomp: DirtyListener | null) {
-    super(parentcomp, data, replacingcomp);
+  constructor(parentcomp: ToddCompBase, data: DirtyListenerAttributes) {
+    super(parentcomp, data);
 
     this.componenttype = "dirtylistener";
 

@@ -28,7 +28,7 @@ export interface ComponentStandardAttributes { //see ComponentBase::GetStandardA
 /* ToddCompClass is a component-type-map constructable class. These will always a have a parent.
 TODO except for 'frame' but frame shouldn't be in the component map, it's too exceptional */
 export type ToddCompClass<T extends ToddCompBase> = {
-  new(parentcomp: ToddCompBase, data: ComponentStandardAttributes, replacingcomp: T | null): T;
+  new(parentcomp: ToddCompBase, data: ComponentStandardAttributes): T;
 };
 
 /****************************************************************************************************************************
@@ -52,10 +52,9 @@ export class ToddCompBase {
      InitFromXML, InitFromData and FinishSetup used to be)
      @param parent The parent component (null for frame)
      @param data The component initialization data
-     @param replacingcomp The old component, if this is a new version of an existing component (for tollium components only)
      @return If this is the first initialize (true), or an update (false)
   */
-  constructor(parentcomp: ToddCompBase | null, data: ComponentStandardAttributes, replacingcomp: ToddCompBase | null) {
+  constructor(parentcomp: ToddCompBase | null, data: ComponentStandardAttributes) {
     // The parent component
     // (This is what parent used to be, but MooTools uses this.parent to call ancestor functions within updated functions)
     this.parentcomp = null; // old 'parent'
@@ -266,18 +265,6 @@ export class ToddCompBase {
         this.listeningtoactions.push(actionlist[i]);
       }
   }
-
-
-  // Get the client-side component state (scrolling position, etc.)
-  // Call parent getComponentState, push your state and return it
-  getComponentState() {
-    return [];
-  }
-
-  // Apply a previously saved component state (after a component has been replaced, the old component state is applied to
-  // the new component)
-  // Pop your state and call parent setComponentState
-  setComponentState(state) { }
 
   applyDirtyListener(dirtylistener) {
     this.dirtylistener = dirtylistener;
@@ -909,8 +896,8 @@ export function distributeSizes(available, sizeobjs, horizontal, leftoverobj, op
 }
 
 export class ActionableComponent extends ToddCompBase {
-  constructor(parentcomp, data, replacingcomp) {
-    super(parentcomp, data, replacingcomp);
+  constructor(parentcomp, data) {
+    super(parentcomp, data);
   }
   afterConstructor(data) {
     this.setEnabled(data.enabled);
