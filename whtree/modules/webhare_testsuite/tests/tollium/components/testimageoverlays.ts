@@ -88,7 +88,7 @@ test.registerTests(
       test.clickToddButton('selection');
       await test.wait('ui');
 
-      //FIXME why aren't server side changes triggering onSelecT? looks like an oversight?
+      //FIXME why aren't server side changes triggering onSelect? looks like an oversight?
       test.eq("1", test.compByName("onchangeoverlayscount").textContent);
 
       test.sendMouseGesture([
