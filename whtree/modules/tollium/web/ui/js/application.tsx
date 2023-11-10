@@ -326,7 +326,10 @@ export class ApplicationBase {
           $todd.applicationstack[$todd.applicationstack.length - 2].activateApp();
       }
 
-      $todd.applicationstack = $todd.applicationstack.filter(app => app != this);
+      const apppos = $todd.applicationstack.indexOf(this);
+      if (apppos >= 0)
+        $todd.applicationstack.splice(apppos, 1);
+
       this.shell.onApplicationStackChange();
     }
   }
@@ -372,7 +375,10 @@ export class ApplicationBase {
       }
 
       //move us to the end
-      $todd.applicationstack = $todd.applicationstack.filter(app => app != this);
+      const apppos = $todd.applicationstack.indexOf(this);
+      if (apppos >= 0)
+        $todd.applicationstack.splice(apppos, 1);
+
       $todd.applicationstack.push(this);
 
       //if the previous app desired to be on the top, move it there. this keeps the dashboard from activating when closing one of multiple open apps
@@ -405,7 +411,10 @@ export class ApplicationBase {
     this.setOnAppBar(false); //first leave the appbar, so 'reopen last app' in setVisible doesn't target us
     this.setVisible(false); //also removes us from $todd.applications
 
-    $todd.applications = $todd.applications.filter(app => app != this);
+    const apppos = $todd.applications.indexOf(this);
+    if (apppos >= 0)
+      $todd.applications.splice(apppos, 1);
+
     return this.resetApp().finally(() => {
       this.destroy(); //FIXME dispose comm channels etc?
       this.shell.onApplicationEnded(this);
