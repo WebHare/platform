@@ -24,8 +24,10 @@ require("../common.lang.json");
    - ui (generic UI stuff, eg focus handling)
    - all (show all messages)
 */
+export const debugTargets = ["distribute", "actionenabler", "rpc", "communication", "messages", "ui", "dimensions", "all"] as const;
+export type DebugTarget = typeof debugTargets[number];
 
-const enabledlogtypes = new Set<string>;
+const enabledlogtypes = new Set<DebugTarget>;
 
 export const gridlineTopMargin = 2; // pixels to add to the top of a grid line
 export const gridlineBottomMargin = 3; // pixels to add to the bottom of a grid line
@@ -420,31 +422,22 @@ export function componentsToMessages(components) {
   return messages;
 }
 
-export function isDebugTypeEnabled(type: string) {
-  return enabledlogtypes.has('all') || enabledlogtypes.has(type);
+export function isDebugTypeEnabled(target: DebugTarget) {
+  if (target === "all" || !debugTargets.includes(target))
+    throw new Error(`Invalid debug type: ${target}`);
+
+  return enabledlogtypes.has('all') || enabledlogtypes.has(target);
 }
 export const IsDebugTypeEnabled = isDebugTypeEnabled;
 
-export function DebugTypedLog(target) {
-  let type;
-  if (typeof (target) == "string") {
-    target = target.split(":");
-    type = target[0];
-    if (target.length > 1)
-      target = target[1];
-  }
-
-  if (typeof (target) != "string" || !(["log", "info", "warn", "error"].includes(target)))
-    target = "log";
-
+/** @param target - Debug target. (Used to accept a colon separated list but that's no longer used anywhere) */
+export function DebugTypedLog(target: DebugTarget, ...args: unknown[]) {
   // Check if the requested type should be shown
-  if (!IsDebugTypeEnabled(type))
+  if (!IsDebugTypeEnabled(target))
     return;
 
   // Strip first element (type) from arguments
-  const args = Array.prototype.slice.call(arguments);
-  args.splice(0, 1);
-  console[target].apply(console, args);
+  console.log(`[${target}]`, ...args);
 }
 
 function checkLogTypes() {

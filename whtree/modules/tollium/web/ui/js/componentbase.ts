@@ -738,16 +738,14 @@ export class ToddCompBase {
   getDebugName() {
     return this.componenttype + " " + (this.parentcomp ? this.parentcomp.name + "->" : "") + (this.name || '<no name>');
   }
-  debugLog(type) {
-    const args = Array.prototype.slice.call(arguments);
-
+  debugLog(type: $todd.DebugTarget, ...args: unknown[]) {
     //prefix first argument with item name, if possible
-    if (args.length >= 2 && typeof args[1] == 'string') {
-      args[1] = this.getDebugName() + ": " + args[1];
+    if (args.length >= 1 && typeof args[0] == 'string') {
+      args[0] = this.getDebugName() + ": " + args[0];
     } else {
-      args.splice(1, 0, this.getDebugName() + ": " + args[1]);
+      args = [this.getDebugName(), ...args];
     }
-    $todd.DebugTypedLog.apply(null, args);
+    $todd.DebugTypedLog(type, args);
   }
 }
 
