@@ -34,10 +34,10 @@ test.registerTests(
       await test.load(test.getCompTestPage('datetime', { title: '' }));
       await test.wait("ui");
 
-      test.assert(test.compByName("thecomponent$*").getBoundingClientRect().bottom <= test.compByName("componentpanel").getBoundingClientRect().bottom, "datetime should not exceed componentpanel");
+      test.assert(test.compByName("thecomponent").getBoundingClientRect().bottom <= test.compByName("componentpanel").getBoundingClientRect().bottom, "datetime should not exceed componentpanel");
 
       // test onselect call after user change
-      setDate(test.compByName("thecomponent$*"), "13-01-2017");
+      setDate(test.compByName("thecomponent"), "13-01-2017");
       await test.wait("ui");
       test.eq(1, parseInt(test.compByName("onselectcount").textContent));
 
@@ -48,12 +48,12 @@ test.registerTests(
       test.eq(1, parseInt(test.compByName("onselectcount").textContent));
 
       // test onselect call after another user change
-      setDate(test.compByName("thecomponent$*"), "14-01-2017");
+      setDate(test.compByName("thecomponent"), "14-01-2017");
       await test.wait("ui");
       test.eq(2, parseInt(test.compByName("onselectcount").textContent));
 
       // test onselect call after clicking reset
-      const comp = test.compByName("thecomponent$*");
+      const comp = test.compByName("thecomponent");
       test.click(comp.querySelector('.tollium__datetime__reset'));
       await test.wait("ui");
 
@@ -82,8 +82,8 @@ test.registerTests(
 
       const picker = test.qS('.tollium__datetime__picker');
       test.assert(picker);
-      test.assert(picker.getBoundingClientRect().bottom <= test.compByName("thecomponent$*").getBoundingClientRect().top,
-        `datepicker must be above component. datepicker bottom ${picker.getBoundingClientRect().bottom} comp top ${test.compByName("thecomponent$*").getBoundingClientRect().top}`);
+      test.assert(picker.getBoundingClientRect().bottom <= test.compByName("thecomponent").getBoundingClientRect().top,
+        `datepicker must be above component. datepicker bottom ${picker.getBoundingClientRect().bottom} comp top ${test.compByName("thecomponent").getBoundingClientRect().top}`);
     },
 
     "suggestion test",

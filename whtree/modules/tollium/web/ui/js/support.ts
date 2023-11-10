@@ -87,7 +87,7 @@ $todd.settings =
 
 
 $todd.applications = [];
-$todd.applicationstack = [];
+$todd.applicationstack = [] as ApplicationBase[];
 $todd.resourcebase = "";
 $todd.customactions = {};
 

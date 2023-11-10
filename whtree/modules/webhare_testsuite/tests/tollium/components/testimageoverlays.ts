@@ -15,15 +15,15 @@ test.registerTests(
       test: async function () {
         test.eq('0', test.compByName('onchangeoverlayscount').textContent);
         test.sendMouseGesture([
-          { el: test.compByName("thecomponent$*"), x: 50, y: 50, down: 0 },
-          { el: test.compByName("thecomponent$*"), x: 70, y: 90, up: 0, delay: 50 }
+          { el: test.compByName("thecomponent"), x: 50, y: 50, down: 0 },
+          { el: test.compByName("thecomponent"), x: 70, y: 90, up: 0, delay: 50 }
         ]);
         await test.wait('pointer');
-        test.click(test.compByName('oncreateoverlay$*')); //enable new overlays
+        test.click(test.compByName('oncreateoverlay')); //enable new overlays
         await test.wait('ui');
         test.eq('0', test.compByName('onchangeoverlayscount').textContent, 'should still have no changes');
         test.sendMouseGesture([
-          { el: test.compByName("thecomponent$*"), x: 70, y: 70, down: 0 },
+          { el: test.compByName("thecomponent"), x: 70, y: 70, down: 0 },
           { relx: 50, rely: 60, up: 0, delay: 50 }
         ]);
         await test.wait('pointer');
@@ -41,7 +41,7 @@ test.registerTests(
 
         //oncreate should reject overlays less than 10 pixels high
         test.sendMouseGesture([
-          { el: test.compByName("thecomponent$*"), x: 270, y: 70, down: 0 },
+          { el: test.compByName("thecomponent"), x: 270, y: 70, down: 0 },
           { relx: 50, rely: 4, up: 0, delay: 50 }
         ]);
 
@@ -70,11 +70,11 @@ test.registerTests(
     {
       name: "Add overlay",
       test: async function () {
-        test.click(test.compByName('oncreateoverlay$*')); //enable new overlays
+        test.click(test.compByName('oncreateoverlay')); //enable new overlays
         await test.wait('ui');
         test.sendMouseGesture([
-          { el: test.compByName("thecomponent$*"), x: 90, y: 50, down: 0 },
-          { el: test.compByName("thecomponent$*"), x: 110, y: 90, up: 0, delay: 1500 }
+          { el: test.compByName("thecomponent"), x: 90, y: 50, down: 0 },
+          { el: test.compByName("thecomponent"), x: 110, y: 90, up: 0, delay: 1500 }
         ]);
         await test.wait('pointer');
         await test.wait('ui');

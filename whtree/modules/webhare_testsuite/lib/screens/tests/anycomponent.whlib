@@ -47,7 +47,7 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
     ELSE IF(namespace="test")
       namespace:="http://www.webhare.net/xmlns/webhare_testsuite/testcomponents";
 
-    this->comp := namespace != "" ? this->CreateCustomComponent(namespace, component, [ namebase := "thecomponent" ]) : this->CreateTolliumComponent(component, [ namebase := "thecomponent" ]);
+    this->comp := namespace != "" ? this->CreateCustomComponent(namespace, component, [ name := "thecomponent" ]) : this->CreateTolliumComponent(component, [ name := "thecomponent" ]);
     this->comp->title := "<title:" || component || (type!="" ? "-" || type : "") || ">";
 
     IF(CellExists(data,'settings'))
@@ -527,7 +527,7 @@ PUBLIC OBJECTTYPE AnyComponent EXTEND TolliumScreenBase
         }
         CASE "checkbox", "optional-handler"
         {
-          OBJECT comp := this->CreateTolliumComponent("checkbox", [ namebase := prop.membername ]);
+          OBJECT comp := this->CreateTolliumComponent("checkbox", [ name := prop.membername ]);
           INSERT CELL comp := comp INTO prop;
           comp->title := prop.membername;
           comp->onchange := PTR this->OnPropChange(prop);

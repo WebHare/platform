@@ -206,6 +206,7 @@ PUBLIC STATIC OBJECTTYPE RunTests
                          , timeout := ParseXSInt(testnode->GetAttribute("timeout")) ?? default_test_timeout
                          , validationconfig := validationconfig
                          , env := RECORD[]
+                         , compatibility := testnode->GetAttribute("compatibility")
                          ]);
 
           FOREVERY(OBJECT env FROM testnode->GetElements("env"))

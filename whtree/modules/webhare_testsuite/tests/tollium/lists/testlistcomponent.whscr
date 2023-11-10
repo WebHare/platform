@@ -251,7 +251,7 @@ ASYNC MACRO TestListRegressions()
   browser->comp->Invalidate();
 
   // Should be a row sent to interface
-  RECORD listinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE target LIKE "*:thecomponent$*";
+  RECORD listinstr := SELECT * FROM GetTestController()->GrabInstructions() WHERE target LIKE "*:thecomponent";
   TestEQ(TRUE, RecordExists(listinstr), "Should have new rows sent to list");
   TestEQ(1, LENGTH(listinstr.rows));
 

@@ -1,20 +1,16 @@
 {
-  "name": "@webhare/test",
+  "name": "@webhare/test-frontend",
   "version": "1.0.0",
   "description": "",
-  "main": "src/test.ts",
+  "main": "src/test-frontend.ts",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "WebHare bv",
   "license": "MIT",
-  "browser": {
-    "src/testrunner": "./src/testrunner-browser.ts",
-    "src/testsupport": "./src/testsupport-browser.ts"
-  },
   "typedocOptions": {
     "entryPoints": [
-      "./src/test.ts"
+      "./src/test-frontend.ts"
     ]
   }
 }

@@ -1,9 +1,11 @@
 /*
 To test for the backend (faster!):
-wh runtest system.nodejs.test_std_api
+wh runtest system.nodejs.test_std_backend
 
 In the browser:
 wh runtest system.nodejs.test_std_frontend
+
+This test also verifies that the base @ewbhare/test lib is compatible with frontend and backend
 */
 
 import * as test from "@webhare/test";
@@ -439,7 +441,28 @@ async function testPromises() {
   await test.throws(/Threw at 2/, shouldthrow);
 }
 
-const testlist = [
+function testBigInt() {
+  //This test requires compatibility=es2020. WebHare defaults to "es2016", "safari14" which triggers: 'Big integer literals are not available in the configured target environment'
+  test.throws(/BigInt/, () => std.stringify({ a: { b: 42n } }, { stable: true }));
+  test.eq(JSON.stringify({ a: { b: "42" } }), std.stringify({ a: { b: 42n } }, {
+    stable: true,
+    replacer: (k, v) => typeof v === "bigint" ? v.toString() : v
+  }));
+  test.eq(JSON.stringify({ a: { b: "42" } }, null, 2), std.stringify({ a: { b: 42n } }, {
+    stable: true,
+    replacer: (k, v) => typeof v === "bigint" ? v.toString() : v,
+    space: 2
+  }));
+}
+
+function testUUIDFallback() {
+  //@ts-ignore - we explicitly want to break stuff so we can verify generateRandomId works without crypto.randomUUID (which is only available in secure contexts)
+  crypto.randomUUID = undefined;
+  test.eq(uuid4regex, std.generateRandomId("uuidv4", 16));
+}
+
+
+test.run([
   "@webhare/env",
   testEnv,
   "Money",
@@ -451,7 +474,11 @@ const testlist = [
   "Collections",
   testCollections,
   "Promises",
-  testPromises
-];
-
-export default testlist;
+  testPromises,
+  "BigInt",
+  testBigInt,
+  ...(typeof navigator !== "undefined" ? [
+    "UUID fallback",
+    testUUIDFallback  //can't run on nodejs
+  ] : [])
+]);

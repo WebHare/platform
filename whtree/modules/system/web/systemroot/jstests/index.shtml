@@ -9,25 +9,26 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
 LOADLIB "mod::system/lib/webserver.whlib";
 
+LOADLIB "mod::publisher/lib/publisher.whlib";
 LOADLIB "mod::publisher/lib/siteapi.whlib";
 LOADLIB "mod::publisher/lib/internal/webdesign/designfilesapi2.whlib";
 LOADLIB "mod::system/lib/testfw/runtest.whlib";
 LOADLIB "mod::system/lib/internal/services.whlib";
 
 
-RECORD FUNCTION GetHeadersForAdhocBundle(STRING entrypoint)
+RECORD FUNCTION GetHeadersForAdhocBundle(STRING entrypoint, STRING setcompatibility)
 {
   RECORD requestedbundle := MakeEmptyBundle();
   requestedbundle.basedependency := entrypoint;
   requestedbundle.adhoc := TRUE;
   requestedbundle.bundleconfig.languages := STRING[];
+  IF(setcompatibility != "")
+    requestedbundle.bundleconfig.compatibility := setcompatibility;
 
   STRING designhash := GetHashForBundle(requestedbundle);
   RECORD packinginfo := GetPackingInfo(requestedbundle).value;
 
-  STRING bundlebaseurl := `/.ap/${designhash}/`;
-
-  STRING headers := `<link rel="stylesheet" href="${EncodeValue(bundlebaseurl)}ap.css"><script src="${EncodeValue(bundlebaseurl)}ap.js"></script>\n`;
+  STRING headers := GetAssetpackIntegrationCode(designhash);
   STRING errors;
 
   IF (packinginfo.haserrors)
@@ -92,10 +93,10 @@ IF(urlbase LIKE "*/!/*")
       OBJECT testwitty := LoadWittyLibrary("mod::system/lib/internal/jstests/launchpage.witty","HTML-NI");
       IF(Length(suburltoks) <= 2)
       {
-        RECORD headers := GetHeadersForAdhocBundle(affectedtest.testscript.scriptpath);
+        RECORD headers := GetHeadersForAdhocBundle(affectedtest.testscript.scriptpath, affectedtest.compatibility);
         IF (headers.haserrors)
         {
-          RECORD indicator := GetHeadersForAdhocBundle("mod::webhare_testsuite/js/testbundlecompilefailed.es");
+          RECORD indicator := GetHeadersForAdhocBundle("mod::webhare_testsuite/js/testbundlecompilefailed.es", "");
           headers.headers := indicator.headers || headers.headers;
 
           IF (indicator.haserrors)
@@ -172,7 +173,7 @@ IF (testlisturl = "")
 
 OBJECT testrunwitty := LoadWittyLibrary("mod::system/lib/internal/jstests/launchpage.witty","HTML");
 
-RECORD headers := GetHeadersForAdhocBundle("mod::system/web/systemroot/jstests/testsuite.tsx");
+RECORD headers := GetHeadersForAdhocBundle("mod::system/web/systemroot/jstests/testsuite.tsx", "");
 IF (headers.haserrors)
   THROW NEW Exception(`Could not compile adhoc bundle for testsuite.tsx: ${UCTruncate(headers.errors, 500)}`);
 

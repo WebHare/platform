@@ -578,7 +578,7 @@ export async function selectFrame(name) {
   return callbacks.setFrame(name, "select");
 }
 
-export async function load(page) {
+export async function load(page: string): Promise<void> {
   if (typeof page != "string") {
     console.error(`test.load expects a string, got`, page);
     throw new Error(`test.load exects a string`);

@@ -5,6 +5,8 @@
 import * as dompack from 'dompack';
 import * as test from "@mod-system/js/wh/testframework";
 import { escapeRegExp } from '@webhare/std';
+import { ApplicationBase } from '@mod-tollium/web/ui/js/application';
+import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
 function isStringOrRegexpMatch(intext, pattern) {
   if (typeof pattern == 'string')
@@ -15,11 +17,12 @@ function isStringOrRegexpMatch(intext, pattern) {
 }
 
 class AppProxy {
+  app: ApplicationBase;
   /** @deprecated Use test.getWin() / test.getDoc() / test.qS(A) */
   get win() {
     return test.getWin();
   }
-  constructor(toddapp) {
+  constructor(toddapp: ApplicationBase) {
     this.app = toddapp;
   }
   getNumOpenScreens() {
@@ -31,6 +34,8 @@ class AppProxy {
     return new ScreenProxy(this, idx);
   }
   getActiveScreen() {
+    if (!this.app.screenstack.length)
+      throw new Error("No screens open");
     return new ScreenProxy(this, this.app.screenstack.length - 1);
   }
   isBusy() {
@@ -39,6 +44,8 @@ class AppProxy {
 }
 
 class ScreenProxy {
+  win: Frame;
+
   constructor(appproxy, idx) {
     this.appproxy = appproxy;
     this.idx = idx;

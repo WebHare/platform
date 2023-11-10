@@ -81,6 +81,7 @@
               </xs:element>
             </xs:sequence>
             <xs:attribute name="file" use="required" />
+            <xs:attribute name="compatibility" />
             <xs:attributeGroup ref="TestShared" />
           </xs:complexType>
         </xs:element>

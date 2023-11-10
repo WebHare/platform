@@ -30,6 +30,8 @@ const default_mousestate =
   dndstate: null
 };
 
+export const toElement = Symbol("pointer.toElement");
+
 const mousestate = { ...default_mousestate };
 const browserPlatform = getPlatform();
 
@@ -526,6 +528,9 @@ export function sendMouseGesture(gestureparts) {
   for (let i = 0; i < gestureparts.length; ++i) {
     at += gestureparts[i].delay || 0;
     gestureparts[i].at = at;
+
+    if (gestureparts[i].el?.[toElement])
+      gestureparts[i].el = gestureparts[i].el[toElement]();
   }
 
   // Resolve this promise when the last gesture has been processed
