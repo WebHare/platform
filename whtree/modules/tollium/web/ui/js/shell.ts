@@ -13,6 +13,9 @@ import LinkEndPoint from './comm/linkendpoint';
 import TransportManager from './comm/transportmanager';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 
+//We need to configure window extensions for the debuginterface
+import type { } from "@mod-tollium/js/internal/debuginterface";
+
 const todd_components = getComponents();
 
 // for tests: this is the shortest test that's sufficient to open the Logoff window
@@ -792,12 +795,11 @@ var PlaceholderApp = class {
   }
 };
 
-//The API we'll export to external applictions
-window.$tollium =
-{
-  version: 1,
+//The API we'll export to external applications and debuggers
+window.$tollium = {
   registerJSApp: registerJSApp,
-  componentsToMessages: $todd.componentsToMessages
+  componentsToMessages: $todd.componentsToMessages,
+  getActiveApplication: $todd.getActiveApplication
 };
 
 export function getIndyShell() {

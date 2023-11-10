@@ -549,8 +549,6 @@ export function checkEnabledFlags(flags, checkflags, min, max, selectionmatch) /
 }
 
 if (typeof window !== "undefined") {
-  window.__todd = { applicationstack };
-
   checkLogTypes();
   window.addEventListener("hashchange", checkLogTypes);
 }
