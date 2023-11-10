@@ -1,7 +1,5 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-import $todd from "@mod-tollium/web/ui/js/support";
+import { ToddCompBase } from '@mod-tollium/js/internal/debuginterface';
+import { ComponentStandardAttributes } from '@mod-tollium/web/ui/js/componentbase';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 
 /****************************************************************************************************************************
@@ -10,8 +8,28 @@ import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/
  *                                                                                                                          *
  ****************************************************************************************************************************/
 
+interface DirtyListenerAttributes extends ComponentStandardAttributes {
+  checkcomponents: string[];
+  dirtycomponents: string[];
+  manualdirty: boolean;
+  makeappdirty: boolean;
+}
+
+type DirtyListenerUpdate = {
+  type: "checkcomponents";
+  checkcomponents: string[];
+} | {
+  type: "dirtycomponents";
+  dirtycomponents: string[];
+  manualdirty: boolean;
+} | {
+  type: "makeappdirty";
+  makeappdirty: boolean;
+};
 
 export default class DirtyListener extends ComponentBase {
+  manualdirty: boolean;
+  checkcomponents = new Map<string, boolean>;
 
   // The dirty listener is dirty if it's manually set to dirty or any of its components is dirty
   get dirty() {
@@ -22,7 +40,7 @@ export default class DirtyListener extends ComponentBase {
    * Initialization
    */
 
-  constructor(parentcomp, data, replacingcomp) {
+  constructor(parentcomp: ToddCompBase, data: DirtyListenerAttributes, replacingcomp: DirtyListener | null) {
     super(parentcomp, data, replacingcomp);
 
     this.componenttype = "dirtylistener";
@@ -46,11 +64,11 @@ export default class DirtyListener extends ComponentBase {
     super.destroy();
   }
 
-  setComponents(components) {
+  setComponents(components: string[]) {
     const keepcomponents = [];
     for (const key of this.checkcomponents.keys()) {
       if (!(components.includes(key))) {
-        var comp = this.owner.getComponent(key);
+        const comp = this.owner.getComponent(key);
         if (comp)
           comp.applyDirtyListener(null);
         this.checkcomponents.delete(key);
@@ -59,7 +77,7 @@ export default class DirtyListener extends ComponentBase {
     }
     for (const key of components) {
       if (!(keepcomponents.includes(key))) {
-        var comp = this.owner.getComponent(key);
+        const comp = this.owner.getComponent(key);
         if (comp)
           comp.applyDirtyListener(this);
         this.checkcomponents.set(key, false);
@@ -76,7 +94,7 @@ export default class DirtyListener extends ComponentBase {
   }
 
   /** @returns True if this call made the component transition from clean to dirty */
-  setDirtyComponent(comp) {
+  setDirtyComponent(comp: ToddCompBase) {
     if (this.checkcomponents.get(comp.name) === true)
       return false; //already dirty
 
@@ -95,7 +113,7 @@ export default class DirtyListener extends ComponentBase {
   * Communications
   */
 
-  applyUpdate(data) {
+  applyUpdate(data: DirtyListenerUpdate) {
     switch (data.type) {
       case "checkcomponents":
         this.setComponents(data.checkcomponents);

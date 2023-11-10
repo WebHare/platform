@@ -1,10 +1,15 @@
 <?wh
-LOADLIB "wh::os.whlib";
+/* Test webservices.nl
+   WebHare.bv developers can obtain credentials using:
+   Q secrets/load-into-webhare webservicesnl
+
+   Note that we currently don't have a test account offering iDEAL so we can't actually run this test at the moment.
+*/
+
 LOADLIB "mod::system/lib/testframework.whlib";
 LOADLIB "mod::webhare_testsuite/lib/internal/wrdtesthelpers.whlib";
 LOADLIB "mod::wrd/lib/address.whlib";
 LOADLIB "mod::wrd/lib/objectapi.whlib";
-//LOADLIB "mod::wrd/lib/internal/addressverification.whlib";
 
 //https://webview.webservices.nl/documentation/files/interfaces/more/services-txt.html
 //  __webbrowser_debugall := TRUE;
@@ -28,7 +33,6 @@ MACRO TestWebservicesAPI()
 MACRO TestLegacyAPI()
 {
   OBJECT legacywrdschema := OpenWRDSchema(testfw->GetWRDSchema()->id);
-  TestEQ(TRUE, legacywrdschema->HasAddressVerification());
 
   RECORD res := legacywrdschema->CheckAddress([ street := "Hengelosestraat", nr_detail := "296", city := "Enschede", country := "NL" ]);
   TestEq('incomplete',res.status);

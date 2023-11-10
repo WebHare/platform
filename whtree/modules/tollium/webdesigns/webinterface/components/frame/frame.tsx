@@ -17,6 +17,8 @@ import * as domfocus from 'dompack/browserfix/focus';
 import * as focuszones from '@mod-tollium/web/ui/components/focuszones';
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
+import { ApplicationBase } from '@mod-tollium/web/ui/js/application';
+import { getIndyShell } from '@mod-tollium/web/ui/js/shell';
 
 
 // Give each frame a unique identifier
@@ -50,8 +52,9 @@ const screen_minheight = 20;
 export default class Frame extends ComponentBase {
   node: HTMLElement;
   screenname: string;
+  hostapp: ApplicationBase;
 
-  constructor(hostapp, data) {
+  constructor(hostapp: ApplicationBase, data) {
     /* NOTE:
        initialize() will NEVER receive a true, original response when a window is constructed anymore (see createNewScreen)
        instead, it will receive a dummy initialization and its first message will contain the actual initialization data
@@ -77,7 +80,7 @@ export default class Frame extends ComponentBase {
     this.headerheight = 0;
 
     //the app hosting the screen (the one we will communicate with - we're on its screenmap)
-    this.hostapp = null;
+    this.hostapp = hostapp;
     //the app displaying the screen (the one owning our canvas - we're on its screenstack, if visible)
     this.displayapp = null;
 
@@ -96,7 +99,6 @@ export default class Frame extends ComponentBase {
 
 
 
-    this.hostapp = hostapp;
     this.frameid = ++framecounter;
 
     // Component relation initialization
@@ -733,7 +735,7 @@ export default class Frame extends ComponentBase {
             case 'notifications':
               {
                 // Request native notification permission
-                $todd.towl.checkNativeNotificationPermission();
+                getIndyShell().towl.checkNativeNotificationPermission();
                 return;
               }
           }

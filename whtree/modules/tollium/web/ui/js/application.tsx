@@ -17,6 +17,8 @@ import LinkEndPoint from './comm/linkendpoint';
 import DocPanel from "./application/docpanel";
 import "./application/appcanvas.scss";
 import * as toddImages from "@mod-tollium/js/icons";
+import DirtyListener from '@mod-tollium/webdesigns/webinterface/components/frame/dirtylistener';
+import IndyShell, { getIndyShell, handleApplicationErrors } from './shell';
 
 require("../common.lang.json");
 
@@ -63,7 +65,12 @@ export class ApplicationBase {
     screenstack.at(-1) is the currently active and only enabled screen */
   screenstack: Frame[] = [];
 
-  constructor(shell, appname, apptarget, parentapp, options) {
+  dirtylisteners = new Array<DirtyListener>;
+
+  /** The shell starting us */
+  shell: IndyShell; //(as if there would be more than one in a JS instace?)
+
+  constructor(shell: IndyShell, appname, apptarget, parentapp, options) {
     this.container = null;
     /// Name of  app
     this.appname = '';
@@ -73,7 +80,7 @@ export class ApplicationBase {
     this.apptarget = {};
     /// Parent application
     this.parentapp = null;
-    this.shell = null;
+    this.shell = shell;
     this.tabmodifier = '';
 
     /// User config
@@ -108,7 +115,6 @@ export class ApplicationBase {
     this._apploaddeferred = dompack.createDeferred();
     this._apploadlock = dompack.flagUIBusy();
 
-    this.shell = shell;
     if (options) {
       this.container = options.container;
       options.container = null;
@@ -326,7 +332,10 @@ export class ApplicationBase {
           $todd.applicationstack[$todd.applicationstack.length - 2].activateApp();
       }
 
-      $todd.applicationstack = $todd.applicationstack.filter(app => app != this);
+      const apppos = $todd.applicationstack.indexOf(this);
+      if (apppos >= 0)
+        $todd.applicationstack.splice(apppos, 1);
+
       this.shell.onApplicationStackChange();
     }
   }
@@ -355,6 +364,39 @@ export class ApplicationBase {
     return this.createNewScreenObject(name, 'frame', $todd.componentsToMessages(messages));
   }
 
+  //////////////////////////////////////////////////////////////////////////////
+  //
+  // Dirt tracking
+  // The application is dirty if any of its dirty listeners is dirty
+  get dirty() {
+    return this.dirtylisteners.some(listener => listener.dirty);
+  }
+
+  registerDirtyListener(listener: DirtyListener) {
+    const idx = this.dirtylisteners.indexOf(listener);
+    if (idx < 0) {
+      this.dirtylisteners.push(listener);
+      this.checkDirtyState();
+    }
+  }
+
+  unregisterDirtyListener(listener: DirtyListener) {
+    const idx = this.dirtylisteners.indexOf(listener);
+    if (idx >= 0) {
+      this.dirtylisteners.splice(idx, 1);
+      this.checkDirtyState();
+    }
+  }
+
+  checkDirtyState() {
+    // Update the dirty indicator on the app tab and app tabs bar overflow menu
+    this._fireUpdateAppEvent();
+    // Add or remove the beforeunload listener
+    this.shell.checkDirtyState();
+  }
+
+
+
   // ---------------------------------------------------------------------------
   //
   // Application state
@@ -372,7 +414,10 @@ export class ApplicationBase {
       }
 
       //move us to the end
-      $todd.applicationstack = $todd.applicationstack.filter(app => app != this);
+      const apppos = $todd.applicationstack.indexOf(this);
+      if (apppos >= 0)
+        $todd.applicationstack.splice(apppos, 1);
+
       $todd.applicationstack.push(this);
 
       //if the previous app desired to be on the top, move it there. this keeps the dashboard from activating when closing one of multiple open apps
@@ -405,7 +450,10 @@ export class ApplicationBase {
     this.setOnAppBar(false); //first leave the appbar, so 'reopen last app' in setVisible doesn't target us
     this.setVisible(false); //also removes us from $todd.applications
 
-    $todd.applications = $todd.applications.filter(app => app != this);
+    const apppos = $todd.applications.indexOf(this);
+    if (apppos >= 0)
+      $todd.applications.splice(apppos, 1);
+
     return this.resetApp().finally(() => {
       this.destroy(); //FIXME dispose comm channels etc?
       this.shell.onApplicationEnded(this);
@@ -481,7 +529,7 @@ export class ApplicationBase {
 
   _onMsgGetNotificationPermissionState() {
     // This function is called in a context the state may change, so let towl check too
-    $todd.towl.updateForCurrentNotificationPermission();
+    getIndyShell().towl.updateForCurrentNotificationPermission();
 
     return window.Notification
       ? Notification.permission
@@ -623,7 +671,6 @@ export class BackendApplication extends ApplicationBase {
 
     this.closebusylock = null;
 
-    this.dirtylisteners = [];
   }
 
   applyAppInit(node) {
@@ -955,7 +1002,7 @@ export class BackendApplication extends ApplicationBase {
       return;
     }
 
-    $todd.handleApplicationErrors(this, metamessage);
+    handleApplicationErrors(this, metamessage);
   }
 
   /****************************************************************************************************************************
@@ -1059,7 +1106,7 @@ export class BackendApplication extends ApplicationBase {
     if (data.status != 'ok') {
       this.setAppTitle('Application');
       this._fireUpdateAppEvent();
-      $todd.handleApplicationErrors(this, data);
+      handleApplicationErrors(this, data);
       this._resolveAppLoad();
       return;
     }
@@ -1084,35 +1131,6 @@ export class BackendApplication extends ApplicationBase {
     console.log(data);
     alert("Unable to contact the application server."); //FIXME what to tell a user, really?
   }
-
-  // The application is dirty if any of its dirty listeners is dirty
-  get dirty() {
-    return this.dirtylisteners.some(listener => listener.dirty);
-  }
-
-  registerDirtyListener(listener) {
-    const idx = this.dirtylisteners.indexOf(listener);
-    if (idx < 0) {
-      this.dirtylisteners.push(listener);
-      this.checkDirtyState();
-    }
-  }
-
-  unregisterDirtyListener(listener) {
-    const idx = this.dirtylisteners.indexOf(listener);
-    if (idx >= 0) {
-      this.dirtylisteners.splice(idx, 1);
-      this.checkDirtyState();
-    }
-  }
-
-  checkDirtyState() {
-    // Update the dirty indicator on the app tab and app tabs bar overflow menu
-    this._fireUpdateAppEvent();
-    // Add or remove the beforeunload listener
-    this.shell.checkDirtyState();
-  }
-
 
   /****************************************************************************************************************************
    * Other stuff

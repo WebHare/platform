@@ -1,6 +1,8 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
+//TODO Only after all components pass TS validation, we can allow TS validation here
+
 import action from './action/action';
 import button from './button/button';
 import buttongroup from './buttongroup/buttongroup';
@@ -34,7 +36,9 @@ import textarea from './textarea/textarea';
 import textedit from './textedit/textedit';
 import toolbar from './toolbar/toolbar';
 
-export function getComponents() {
+import { ToddCompBase, ToddCompClass } from '@mod-tollium/web/ui/js/componentbase';
+
+export function getComponents(): Record<string, ToddCompClass<ToddCompBase>> {
   return {
     action,
     button,

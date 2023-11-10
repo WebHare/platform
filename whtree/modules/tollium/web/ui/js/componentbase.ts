@@ -5,6 +5,7 @@ import * as dompack from 'dompack';
 import * as domfocus from 'dompack/browserfix/focus';
 import $todd from "@mod-tollium/web/ui/js/support";
 import { isLive } from "@webhare/env";
+import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 
 // Mutators should be defined first, so they can be used inside the ObjLayout Class!
 
@@ -24,6 +25,12 @@ export interface ComponentStandardAttributes { //see ComponentBase::GetStandardA
   defaultbutton?: string;
 }
 
+/* ToddCompClass is a component-type-map constructable class. These will always a have a parent.
+TODO except for 'frame' but frame shouldn't be in the component map, it's too exceptional */
+export type ToddCompClass<T extends ToddCompBase> = {
+  new(parentcomp: ToddCompBase, data: ComponentStandardAttributes, replacingcomp: T | null): T;
+};
+
 /****************************************************************************************************************************
  *                                                                                                                          *
  *  COMPONENT BASE                                                                                                          *
@@ -33,7 +40,8 @@ export class ToddCompBase {
   action = '';
   name = '';
   componenttype = 'component';
-  title: string;
+  title = "";
+  owner: Frame;
 
   /****************************************************************************************************************************
   * Initialization
@@ -47,7 +55,7 @@ export class ToddCompBase {
      @param replacingcomp The old component, if this is a new version of an existing component (for tollium components only)
      @return If this is the first initialize (true), or an update (false)
   */
-  constructor(parentcomp, data: ComponentStandardAttributes, replacingcomp) {
+  constructor(parentcomp: ToddCompBase | null, data: ComponentStandardAttributes, replacingcomp: ToddCompBase | null) {
     // The parent component
     // (This is what parent used to be, but MooTools uses this.parent to call ancestor functions within updated functions)
     this.parentcomp = null; // old 'parent'
@@ -57,7 +65,7 @@ export class ToddCompBase {
 
     // The component window's frame component
     // (This is what windowroot used to be)
-    this.owner = null; // old 'windowroot'
+    this.owner = parentcomp ? parentcomp.owner : this as unknown as Frame;
 
     // Whether to destroy this component when its parent is destroyed
     this.destroywithparent = false;
@@ -105,7 +113,6 @@ export class ToddCompBase {
 
     this.title = data.title;
     this.parentcomp = parentcomp;
-    this.owner = parentcomp ? parentcomp.owner : this;
     this.destroywithparent = parentcomp && data.destroywithparent || false;
 
     if (parentcomp)
@@ -300,9 +307,7 @@ export class ToddCompBase {
   }
 
   //Queue an outgoing message
-  queueMessage(type, data, synchronous, callback) {
-    if (callback)
-      throw new Error("Convert callback using code to asyncMessage");
+  queueMessage(type, data, synchronous = false) {
     this.asyncMessage(type, data, { modal: synchronous });
   }
 
@@ -939,3 +944,6 @@ export class ActionableComponent extends ToddCompBase {
     this.onActionUpdated();
   }
 }
+
+//sanity checks:
+ToddCompBase satisfies ToddCompClass<ToddCompBase>;

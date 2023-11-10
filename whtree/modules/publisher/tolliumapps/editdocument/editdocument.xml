@@ -96,8 +96,9 @@
     <body name="body" spacers="none">
       <statuspanel name="draftbar" visible="false">
         <line>
+          <!-- give a lot of space to the draft text but still keep a spacer next to the links or their text may stick -->
           <text name="draftmode" width="1pr" onclicklink="ondraftmodeclick" title="" wordwrap="true" />
-          <spacer width="1pr" />
+          <spacer width="3x" />
           <text name="draftbar_canceldraft" action="canceldraft" title="" valuetid=".canceldraftmenu" visible="false" />
           <text name="draftbar_cancelrequest" action="cancelrequest" title="" valuetid=".cancelrequestmenu" visible="false" />
         </line>

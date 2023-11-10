@@ -5,6 +5,7 @@
 const JSONRPC = require('@mod-system/js/net/jsonrpc');
 import { getTid } from "@mod-tollium/js/gettid";
 import { encodeString } from "@webhare/std";
+import { getIndyShell } from '@mod-tollium/web/ui/js/shell';
 import $todd from "@mod-tollium/web/ui/js/support";
 
 let checkservice;
@@ -40,9 +41,9 @@ function onCheckResponse(success, response) {
         applicationmessage: message,
         persistent: true
       };
-      $todd.towl.showNotification(notification);
+      getIndyShell().towl.showNotification(notification);
     } else {
-      $todd.towl.hideNotification("system:checks");
+      getIndyShell().towl.hideNotification("system:checks");
     }
   }
 }

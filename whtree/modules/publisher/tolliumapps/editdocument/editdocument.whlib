@@ -578,13 +578,13 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
       }
 
       this->draftmode->htmlvalue := EncodeHTML(basetext);
-      this->draftbar_canceldraft->visible := this->frame->flags.canrevertdraft;
-      this->draftbar_cancelrequest->visible := FALSE;
+      ^draftbar_canceldraft->visible := this->frame->flags.canrevertdraft;
+      ^draftbar_cancelrequest->visible := FALSE;
 
-      this->draftbar->visible := TRUE;
+      ^draftbar->visible := TRUE;
     }
     ELSE
-      this->draftbar->visible := FALSE;
+      ^draftbar->visible := FALSE;
 
     STRING savemode := this->GetSaveMode();
     IF (savemode = "versioned-locked")
@@ -594,10 +594,10 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
       this->frame->flags.canpublish := FALSE;
 
       STRING basetext := this->readonly ? this->GetTid(".request-for-approval-readonly") : this->GetTid(".request-for-approval");
-      this->draftbar->visible := TRUE;
-      this->draftmode->htmlvalue := EncodeHTML(basetext);
-      this->draftbar_canceldraft->visible := FALSE;
-      this->draftbar_cancelrequest->visible := this->frame->flags.cancancelrequest;
+      ^draftbar->visible := TRUE;
+      ^draftmode->htmlvalue := EncodeHTML(basetext);
+      ^draftbar_canceldraft->visible := FALSE;
+      ^draftbar_cancelrequest->visible := this->frame->flags.cancancelrequest;
     }
     ELSE IF (savemode = "versioned-locked-editlive")
     {
@@ -605,11 +605,11 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
       this->frame->flags.canedit := NOT this->readonly;
       this->frame->flags.canpublish := FALSE;
 
-      this->draftbar->visible := TRUE;
+      ^draftbar->visible := TRUE;
       STRING basetext := this->readonly ? this->GetTid(".request-for-approval-editlive-readonly") : this->GetTid(".request-for-approval-editlive");
-      this->draftmode->htmlvalue := EncodeHTML(basetext);
-      this->draftbar_canceldraft->visible := FALSE;
-      this->draftbar_cancelrequest->visible := FALSE;
+      ^draftmode->htmlvalue := EncodeHTML(basetext);
+      ^draftbar_canceldraft->visible := FALSE;
+      ^draftbar_cancelrequest->visible := FALSE;
     }
     ELSE
     {
@@ -627,10 +627,10 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
           }
           CASE "justdenied"
           {
-            this->draftbar->visible := TRUE;
-            this->draftmode->htmlvalue := EncodeHTML(GetTid("publisher:versioning.editingjustdeniedversioneddraft"));
-            this->draftbar_canceldraft->visible := FALSE;
-            this->draftbar_cancelrequest->visible := FALSE;
+            ^draftbar->visible := TRUE;
+            ^draftmode->htmlvalue := EncodeHTML(GetTid("publisher:versioning.editingjustdeniedversioneddraft"));
+            ^draftbar_canceldraft->visible := FALSE;
+            ^draftbar_cancelrequest->visible := FALSE;
           }
           DEFAULT
           {
@@ -1204,7 +1204,7 @@ PUBLIC OBJECTTYPE EditDocumentApp EXTEND TolliumScreenBase
   MACRO DoHidedraftbar()
   {
     this->showdraftbar := FALSE;
-    this->draftbar->visible := FALSE;
+    ^draftbar->visible := FALSE;
   }
 
   MACRO DoOpenInPublisher()

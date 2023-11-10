@@ -7,15 +7,13 @@
  *                                                                                                                          *
  ****************************************************************************************************************************/
 
-let todd_components = {};
-
 import { getComponents } from '@mod-tollium/webdesigns/webinterface/components';
 import TolliumFeedbackAPI from '@mod-tollium/webdesigns/webinterface/js/feedback';
 import LinkEndPoint from './comm/linkendpoint';
 import TransportManager from './comm/transportmanager';
 import { runSimpleScreen } from '@mod-tollium/web/ui/js/dialogs/simplescreen';
 
-todd_components = getComponents();
+const todd_components = getComponents();
 
 // for tests: this is the shortest test that's sufficient to open the Logoff window
 // todd_components = { button: require("@mod-tollium/webdesigns/webinterface/components/button/button.es").default
@@ -36,7 +34,7 @@ import { setupWHCheck } from './shell/whcheck';
 import { setupMouseHandling } from "./shell/mousehandling";
 
 import $todd from './support';
-import { BackendApplication, FrontendEmbeddedApplication, registerJSApp } from './application';
+import { ApplicationBase, BackendApplication, FrontendEmbeddedApplication, registerJSApp } from './application';
 import ApplicationBar from './shell/applicationbar';
 import "./apps/dashboard";
 import "./apps/login";
@@ -111,7 +109,7 @@ class IndyShell extends TolliumShell {
     if (!document.body) //early termination of load, eg wrdauth of whconnect redirect
       return;
 
-    $todd.towl = new TowlNotifications(this);
+    this.towl = new TowlNotifications(this);
 
     this.continueLaunch();
   }
@@ -148,7 +146,7 @@ class IndyShell extends TolliumShell {
     if (appname == '__jsapp_hack__') //FIXME proper way to start JS frontend apps
       return this.startFrontendApplication('TestJSApp', parentapp, { src: '/tollium_todd.res/webhare_testsuite/tollium/jsapp.js' });
 
-    $todd.towl.hideNotification("tollium:shell.frontendclose");
+    this.towl.hideNotification("tollium:shell.frontendclose");
 
     const webvars = [], params = new URL(location.href).searchParams;
     for (const key of params.keys())
@@ -355,7 +353,7 @@ class IndyShell extends TolliumShell {
         description: getTid("tollium:shell.webhareupdated_description")
       };
 
-      $todd.towl.showNotification(notification);
+      this.towl.showNotification(notification);
     }
     this.startuplock.release();
   }
@@ -445,7 +443,7 @@ class IndyShell extends TolliumShell {
     this.eventsconnection.setGroups(settings.eventgroups);
     this.broadcaststart = Date.parse(settings.now);
     this.eventsconnection.start();
-    $todd.towl.setNotificationLocation(settings.notificationslocation);
+    this.towl.setNotificationLocation(settings.notificationslocation);
 
     dompack.dispatchCustomEvent(window, 'tollium:settingschange', { bubbles: true, cancelable: false });
     if (document.getElementById('openinfo')) {
@@ -558,12 +556,12 @@ class IndyShell extends TolliumShell {
           if (event.detail.applicationmessage)
             notification.applicationmessage = event.detail.applicationmessage;
 
-          $todd.towl.showNotification(notification);
+          this.towl.showNotification(notification);
           return;
         }
       case "tollium:towl.hideevent":
         {
-          $todd.towl.hideNotification(event.detail.id);
+          this.towl.hideNotification(event.detail.id);
           return;
         }
     }
@@ -603,7 +601,7 @@ class IndyShell extends TolliumShell {
         persistent: true
       };
 
-      $todd.towl.showNotification(notification);
+      this.towl.showNotification(notification);
     }
 
     this.checkVersion();
@@ -623,7 +621,7 @@ class IndyShell extends TolliumShell {
         persistent: true
       };
 
-      $todd.towl.showNotification(notification);
+      this.towl.showNotification(notification);
       this.offlinenotification = true;
     }
   }
@@ -632,7 +630,7 @@ class IndyShell extends TolliumShell {
     //    console.warn(this.offlinenotification ? "Online again" : "Online");
 
     if (this.offlinenotification)
-      $todd.towl.hideNotification("tollium:shell.offline");
+      this.towl.hideNotification("tollium:shell.offline");
 
     this.offlinenotification = false;
   }
@@ -650,7 +648,7 @@ class IndyShell extends TolliumShell {
 }
 
 
-$todd.handleApplicationErrors = async function (app, data) {
+export async function handleApplicationErrors(app: ApplicationBase, data) {
   const $shell = getIndyShell();
   if (data.error) { //An error code from StartApp
     switch (data.error) {
@@ -706,7 +704,7 @@ $todd.handleApplicationErrors = async function (app, data) {
   }
 
   app.requireComponentTypes(['panel', 'button', 'action', 'textarea'], reportApplicationError.bind(null, app, data, messages, trace));
-};
+}
 
 //TODO souldn't this be *inside* the app objects instead of the shell ? these crashes dont' exist without Apps
 function reportApplicationError(app, data, messages, trace) {
