@@ -131,9 +131,8 @@ export default class ObjTextArea extends ComponentBase {
 
   calculateDimWidth() {
     this.width.min = $todd.desktop.x_width * 2;
-    this.width.calc = $todd.ReadSetWidth(this.width);
-    if (!$todd.IsAbsoluteParsedSize(this.width.calc))
-      this.width.calc = 30 * $todd.desktop.x_width; //if textarea is stuck at its 1pr default, then take 30x just like textedit would
+    // If textarea has no absolute width (eg. stuck at its 1pr default), then take 30x just like textedit would
+    this.width.calc = $todd.ReadSetWidth(this.width) || 30 * $todd.desktop.x_width;
     this.debugLog("dimensions", "calc=" + this.width.calc + ", min=" + this.width.min);
   }
 

@@ -196,9 +196,6 @@ export function ReadSize(sizeval: string): ReadSizeResult | null {
     return { type: 4, size: 1 };
   return null;
 }
-export function IsAbsoluteParsedSize(size: ReadSizeResult | null): boolean {
-  return size?.type != 1;
-}
 
 // Return the set width/height, or the xml width/height, for a component's size object
 export function ReadSetWidth(sizeobj: SizeObj) {
