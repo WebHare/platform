@@ -30,8 +30,43 @@ export default class ObjButton extends ActionableBase {
     this.pressed = data.ispressed || false;
     this.ismenubutton = data.ismenubutton;
 
-    // Build our DOM
-    this.buildNode();
+    // Build the DOM node(s) for this component
+    this.node = dompack.create("t-button", {
+      on: {
+        click: evt => this.onClick(evt),
+        mousedown: evt => this.onMouseDown(evt),
+        mouseup: evt => this.cancelActiveState(evt),
+        mouseleave: evt => this.cancelActiveState(evt),
+        "wh:menu-open": evt => this.onMenuState(true, evt),
+        "wh:menu-close": evt => this.onMenuState(false, evt)
+      },
+      dataset: { name: this.name, toddDefaultButton: "" },
+      title: this.hint || '',
+      className: { ismenubutton: this.ismenubutton },
+      tabIndex: 0
+    });
+    this.node.propTodd = this;
+
+    if (this.isToolbarButton()) {
+      this.iconnode = icons.createImage(this.icon, toolbarbutton.width, toolbarbutton.height, 'w', { className: "button__img" });
+      this.node.appendChild(this.iconnode);
+      this.textnode = <span>{this.title}</span>;
+      this.node.appendChild(this.textnode);
+    } else {
+      if (this.icon) {
+        this.node.classList.add("icon");
+        this.iconsize = 16; //ADDME: Adjust according to button size?
+        this.iconnode = icons.createImage(this.icon, this.iconsize, this.iconsize, 'b', { className: "button__img" });
+        this.node.title = this.title;
+
+        this.node.appendChild(this.iconnode);
+      } else {
+        this.textnode = <span>{this.title}</span>;
+        this.node.appendChild(this.textnode);
+      }
+    }
+    this.node.classList.toggle("pressed", this.pressed);
+
     this.setMenu(data.menu);
 
     new Keyboard(this.node, {
@@ -85,45 +120,6 @@ export default class ObjButton extends ActionableBase {
   isToolbarButton() {
     return this.parentcomp && this.parentcomp.componenttype == 'toolbar';
   }
-  // Build the DOM node(s) for this component
-  buildNode() {
-    this.node = dompack.create("t-button", {
-      on: {
-        click: evt => this.onClick(evt),
-        mousedown: evt => this.onMouseDown(evt),
-        mouseup: evt => this.cancelActiveState(evt),
-        mouseleave: evt => this.cancelActiveState(evt),
-        "wh:menu-open": evt => this.onMenuState(true, evt),
-        "wh:menu-close": evt => this.onMenuState(false, evt)
-      },
-      dataset: { name: this.name, toddDefaultButton: "" },
-      title: this.hint || '',
-      className: { ismenubutton: this.ismenubutton },
-      tabIndex: 0
-    });
-    this.node.propTodd = this;
-
-    if (this.isToolbarButton()) {
-      this.iconnode = icons.createImage(this.icon, toolbarbutton.width, toolbarbutton.height, 'w', { className: "button__img" });
-      this.node.appendChild(this.iconnode);
-      this.textnode = <span>{this.title}</span>;
-      this.node.appendChild(this.textnode);
-    } else {
-      if (this.icon) {
-        this.node.classList.add("icon");
-        this.iconsize = 16; //ADDME: Adjust according to button size?
-        this.iconnode = icons.createImage(this.icon, this.iconsize, this.iconsize, 'b', { className: "button__img" });
-        this.node.title = this.title;
-
-        this.node.appendChild(this.iconnode);
-      } else {
-        this.textnode = <span>{this.title}</span>;
-        this.node.appendChild(this.textnode);
-      }
-    }
-    this.node.classList.toggle("pressed", this.pressed);
-  }
-
 
   /****************************************************************************************************************************
   * Dimensions

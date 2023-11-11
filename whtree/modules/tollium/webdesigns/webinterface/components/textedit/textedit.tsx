@@ -98,7 +98,53 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
       });
 
     // Build our DOM
-    this.buildNode();
+    this.node = dompack.create("t-textedit", { dataset: { name: this.name } });
+    this.node.propTodd = this;
+
+    if (this.hint)
+      this.node.title = this.hint;
+
+    if (this.prefix)
+      this.node.appendChild(<span class="t-textedit__prefix">{this.prefix}</span>);
+
+    this.inputnode = dompack.create("input", {
+      value: this.getValue(),
+      type: this.type,
+      placeholder: this.placeholder.split("\n").join(", "),
+      autocapitalize: "off",
+      autocomplete: this.autocomplete.length ? this.autocomplete : "off",
+      ariaLabel: this.title
+    });
+
+    // LastPass support, needs name="login/user/uname..." to detect as login field
+    if (this.autocomplete.includes("username"))
+      this.inputnode.name = "username";
+    else if (this.autocomplete.includes("current-password"))
+      this.inputnode.name = "password";
+
+    if (this.hiderequiredifdisabled)
+      this.node.classList.add("textedit--hiderequiredifdisabled");
+
+    this.node.appendChild(this.inputnode);
+
+    // minlength must not be greater then maxlength (https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#htmlattrdefminlength)
+    if (this.maxlength > 0) {
+      this.inputnode.maxLength = this.maxlength;
+      if (this.minlength > 0 && this.lengthmeasure == "characters" && this.minlength < this.maxlength)
+        this.inputnode.minLength = this.minlength;
+    } else if (this.minlength > 0 && this.lengthmeasure == "characters")
+      this.inputnode.minLength = this.minlength;
+
+    if (this.showcounter) {
+      const style = this.buttons.length ? `right: ${(4 + this.buttons.length * (16 + intra_button_padding))}px;` : null;
+      this.counter = new InputTextLengthCounter(this.node, { 'lengthmeasure': this.lengthmeasure, style, required: this.required });
+    }
+
+    for (const button of this.buttons)
+      this.node.appendChild(button.getNode());
+
+    if (this.suffix)
+      this.node.appendChild(<span class="t-textedit__suffix">{this.suffix}</span>);
 
     this.inputnode.addEventListener("blur", evt => this._gotBlur(evt));
     this.inputnode.addEventListener("input", evt => this.onAnyChange(evt));
@@ -193,61 +239,6 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
     this.inputnode.readOnly = !this.enabled;
   }
 
-  // ---------------------------------------------------------------------------
-  //
-  // DOM
-  //
-
-  // Build the DOM node(s) for this component
-  buildNode() {
-    this.node = dompack.create("t-textedit", { dataset: { name: this.name } });
-    this.node.propTodd = this;
-
-    if (this.hint)
-      this.node.title = this.hint;
-
-    if (this.prefix)
-      this.node.appendChild(<span class="t-textedit__prefix">{this.prefix}</span>);
-
-    this.inputnode = dompack.create("input", {
-      value: this.getValue(),
-      type: this.type,
-      placeholder: this.placeholder.split("\n").join(", "),
-      autocapitalize: "off",
-      autocomplete: this.autocomplete.length ? this.autocomplete : "off",
-      ariaLabel: this.title
-    });
-
-    // LastPass support, needs name="login/user/uname..." to detect as login field
-    if (this.autocomplete.includes("username"))
-      this.inputnode.name = "username";
-    else if (this.autocomplete.includes("current-password"))
-      this.inputnode.name = "password";
-
-    if (this.hiderequiredifdisabled)
-      this.node.classList.add("textedit--hiderequiredifdisabled");
-
-    this.node.appendChild(this.inputnode);
-
-    // minlength must not be greater then maxlength (https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input#htmlattrdefminlength)
-    if (this.maxlength > 0) {
-      this.inputnode.maxLength = this.maxlength;
-      if (this.minlength > 0 && this.lengthmeasure == "characters" && this.minlength < this.maxlength)
-        this.inputnode.minLength = this.minlength;
-    } else if (this.minlength > 0 && this.lengthmeasure == "characters")
-      this.inputnode.minLength = this.minlength;
-
-    if (this.showcounter) {
-      const style = this.buttons.length ? `right: ${(4 + this.buttons.length * (16 + intra_button_padding))}px;` : null;
-      this.counter = new InputTextLengthCounter(this.node, { 'lengthmeasure': this.lengthmeasure, style, required: this.required });
-    }
-
-    for (const button of this.buttons)
-      this.node.appendChild(button.getNode());
-
-    if (this.suffix)
-      this.node.appendChild(<span class="t-textedit__suffix">{this.suffix}</span>);
-  }
 
   // ---------------------------------------------------------------------------
   //
