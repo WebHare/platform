@@ -1,0 +1,81 @@
+@mixin dompack-overlays
+{
+  position:   absolute;
+
+  &--enabled
+  {
+    cursor: move;
+  }
+
+    &__dragger--nw
+  , &__dragger--sw
+  , &__dragger--ne
+  , &__dragger--se
+  {
+    display: none;
+  }
+
+    &--enabled &__dragger--nw
+  , &--enabled &__dragger--sw
+  , &--enabled &__dragger--ne
+  , &--enabled &__dragger--se
+  {
+    display: block;
+  }
+  &--selected
+  {
+    z-index: 1;
+  }
+  &__dragger--nw
+  {
+    cursor: nw-resize;
+    position: absolute;
+    left: 0;
+    top:  0;
+  }
+  &__dragger--sw
+  {
+    cursor: sw-resize;
+    position: absolute;
+    left: 0;
+    bottom:  0;
+  }
+  &__dragger--ne
+  {
+    cursor: ne-resize;
+    position: absolute;
+    right: 0;
+    top:  0;
+  }
+  &__dragger--se
+  {
+    cursor: se-resize;
+    position: absolute;
+    right: 0;
+    bottom: 0;
+  }
+}
+
+@mixin dompack-overlays-example-styling
+{
+  box-shadow: 0 0 3px rgba(0,0,0,0.25);
+  border:     1px solid rgba(255, 255, 255, 0.8);
+
+  &:focus
+  {
+    outline: 0;
+    border:  1px solid rgba(255, 255, 255, 0.8);
+  }
+
+  &--selected
+  {
+    background-color: rgba(0, 0, 0, 0.3);
+  }
+
+  &__dragger
+  {
+    width: 8px;
+    height: 8px;
+    background-color: rgba(255, 128, 0, 0.5);
+  }
+}

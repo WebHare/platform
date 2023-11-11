@@ -232,3 +232,19 @@
 [component empty]
   <p>empty</p>
 [/component]
+
+[component overlays]
+  <div class="withoverlays" style="position: relative; width: 500px; height: 500px; background-color: #EFE;">
+  </div>
+  <div>
+    Selection: <span id="selection"></span><br/>
+    Changes:
+    <ul>
+      <li>selection-server: <span id="selectionchanges">0</span></li>
+      <li>selection-user: <span id="selectionchangesuser">0</span></li>
+      <li>area-server: <span id="areachanges">0</span></li>
+      <li>area-user: <span id="areachangesuser">0</span></li>
+      <li>created: <span id="created">0</span></li>
+    </ul>
+  </div>
+[/component]

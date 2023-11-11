@@ -118,3 +118,25 @@ html
   background: white;
   padding: 20px;
 }
+
+//////////////////////////////////
+/// Overlays
+/// 
+
+@import "@webhare/dompack-overlays/styles/mixins.scss";
+
+.myoverlay
+{
+  @include dompack-overlays;
+  @include dompack-overlays-example-styling;
+}
+
+.overlaytitle
+{
+  color: #FFFFFF;
+  padding: 5px;
+  text-shadow: 1px 1px rgba(0, 0, 0, 0.75);
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+}
