@@ -1,6 +1,3 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 import * as dompack from 'dompack';
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 import AutoSuggest from "dompack/components/autosuggest";
@@ -9,13 +6,25 @@ import './textedit.scss';
 import { InputTextLengthCounter } from "@mod-tollium/web/ui/components/basecontrols/counter";
 import * as toddtools from '@mod-tollium/webdesigns/webinterface/components/base/tools';
 import * as $todd from "@mod-tollium/web/ui/js/support";
-import { ComponentStandardAttributes } from '@mod-tollium/web/ui/js/componentbase';
+import { ComponentStandardAttributes, ToddCompBase } from '@mod-tollium/web/ui/js/componentbase';
+import ObjButton from '../button/button';
 
 const intra_button_padding = 5; //pixels between textedit buttons
 const prefix_suffix_margin = 5; //pixels between prefix/suffix and input
 
+interface AutoSuggestableAttributes extends ComponentStandardAttributes {
+  autosuggest: {
+    type: string;
+    minlength: number;
+    vals: string[];
+  };
+}
+
 export class ObjAutoSuggestableBase extends ComponentBase {
-  constructor(parentcomp, data) {
+  _autosuggest: AutoSuggestableAttributes['autosuggest'];
+  _resolveresult?: (vals: string[]) => void;
+
+  constructor(parentcomp: ToddCompBase | null, data: AutoSuggestableAttributes) {
     super(parentcomp, data);
     this._autosuggest = data.autosuggest;
   }
@@ -23,7 +32,7 @@ export class ObjAutoSuggestableBase extends ComponentBase {
   // ---------------------------------------------------------------------------
   // Lookup support
   //
-  async lookup(word) {
+  async lookup(word: string) {
     if (this._autosuggest.type == 'static') {
       //startswith matches go in the top half, other matches in the bottom half
       const toplist = [], bottomlist = [];
@@ -44,11 +53,11 @@ export class ObjAutoSuggestableBase extends ComponentBase {
     return lookupdefer.promise;
   }
 
-  onMsgLookupResult(result) {
-    this._resolveresult(result.vals);
+  onMsgLookupResult(result: { vals: string[] }) {
+    this._resolveresult!(result.vals);
   }
 
-  setupAutosuggest(node) {
+  setupAutosuggest(node: HTMLInputElement) {
     if (!this._autosuggest)
       return null;
 
@@ -56,24 +65,55 @@ export class ObjAutoSuggestableBase extends ComponentBase {
   }
 }
 
+interface TextEditAttributes extends AutoSuggestableAttributes {
+  password: boolean;
+  hiderequiredifdisabled: boolean;
+  required: boolean;
+  minlength: number;
+  maxlength: number;
+  lengthmeasure: "bytes" | "characters";
+  showcounter: boolean;
+  value: string;
+  hint: string;
+  unmasked_events: string[];
+  placeholder: string;
+  autocomplete: string[];
+  validationchecks: string[];
+  prefix: string;
+  suffix: string;
+  buttons: string[];
+}
+
 export default class ObjTextEdit extends ObjAutoSuggestableBase {
   // ---------------------------------------------------------------------------
   //
   // Initialization
   //
+  componenttype = "textedit";
+  lastreportedvalue = '';
+  reportchange_cb: NodeJS.Timeout | null = null;
+  minlength = -1;
+  maxlength = -1;
+  lengthmeasure: "bytes" | "characters" = "bytes";
+  type = '';
+  value = '';
+  inputnode: HTMLInputElement;
+  placeholder = '';
+  buttons: ObjButton[] = [];
+  validationchecks: string[] = [];
+  prefix = '';
+  suffix = '';
+  autocomplete: string[] = [];
+  showcounter = false;
+  hiderequiredifdisabled = false;
+  counter?: InputTextLengthCounter;
+  required = false;
+  _autosuggester: AutoSuggest | null = null;
+  prefixsuffixsize = 0;
+  node: HTMLElement;
 
-  constructor(parentcomp, data: ComponentStandardAttributes & Record<string, unknown>) {
+  constructor(parentcomp: ToddCompBase, data: TextEditAttributes) {
     super(parentcomp, data);
-    this.componenttype = "textedit";
-    this.lastreportedvalue = '';
-    this.reportchange_cb = null;
-    this.minlength = -1;
-    this.maxlength = -1;
-    this.lengthmeasure = false;
-    this.type = '';
-    this.inputnode = null;
-    this.placeholder = '';
-    this.buttons = [];
     this.setValue(data.value);
     this.placeholder = data.placeholder || "";
     this.showcounter = data.showcounter === true;
@@ -146,8 +186,8 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
     if (this.suffix)
       this.node.appendChild(<span class="t-textedit__suffix">{this.suffix}</span>);
 
-    this.inputnode.addEventListener("blur", evt => this._gotBlur(evt));
-    this.inputnode.addEventListener("input", evt => this.onAnyChange(evt));
+    this.inputnode.addEventListener("blur", () => this._gotBlur());
+    this.inputnode.addEventListener("input", () => this.onAnyChange());
 
     this.setRequired(data.required);
     this.setEnabled(data.enabled);
@@ -158,7 +198,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
   // Component management
   //
 
-  readdComponent(comp) {
+  readdComponent(comp: typeof this.buttons[number]) {
     // Replace the offending component
     //if(!comp.parentsplititem)
     if (comp.parentcomp != this)
@@ -209,8 +249,8 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
     return this.inputnode ? this.inputnode.value : this.value;
   }
 
-  setValue(value) {
-    if (value != this.value) {
+  setValue(value: string) {
+    if (value !== this.value) {
       this.value = value;
       if (this.inputnode)
         this.inputnode.value = this.value;
@@ -220,7 +260,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
     this.lastreportedvalue = value;
   }
 
-  setRequired(value) {
+  setRequired(value: boolean) {
     if (value != this.required) {
       this.required = value;
       this.node.classList.toggle("required", this.required);
@@ -230,7 +270,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
     }
   }
 
-  setEnabled(value) {
+  setEnabled(value: boolean) {
     if (value == this.enabled)
       return;
 
@@ -333,7 +373,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
     return true;
   }
 
-  _fixupValue(inval) {
+  _fixupValue(inval: string) {
     if (this.validationchecks.includes('url') || this.validationchecks.includes('url-plus-relative')) {
       //detect email address. absolutely no slashes or colons allowed, but we do have something like .*@.* ?
       if (!inval.match(/[/:]/) && inval.match(/^.*@.*$/))

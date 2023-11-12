@@ -9,6 +9,13 @@ import { isLive } from "@webhare/env";
 import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
 import DirtyListener from '@mod-tollium/webdesigns/webinterface/components/frame/dirtylistener';
 
+// Allow components to set propTodd as a backwards pointer to their code
+declare global {
+  interface HTMLElement {
+    propTodd?: ToddCompBase;
+  }
+}
+
 // Mutators should be defined first, so they can be used inside the ObjLayout Class!
 
 let urlgencounter = 0;
@@ -261,9 +268,9 @@ export class ToddCompBase {
     this[sizeproperty].calc = calc + (addspace || 0);
     this[sizeproperty].min = min + (addspace || 0);
   }
-  checkEnabled() {
+  checkEnabled(): void {
   }
-  getVisibleChildren() {
+  getVisibleChildren(): ToddCompBase[] {
     return [];
   }
 
