@@ -8,6 +8,7 @@ class WebhareDeps < Formula
   version "1"
   sha256 "6d888e48bcda88870b318feee151d42ace8054fb5cd9a10df56786348cc61628"
 
+  depends_on "libtool"
   depends_on "autoconf"
   depends_on "automake"
   depends_on "ccache"

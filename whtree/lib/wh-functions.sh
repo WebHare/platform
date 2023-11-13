@@ -599,6 +599,10 @@ verify_webhare_version()
 
 setup_buildsystem()
 {
+  if [ -z "$WEBHARE_IN_DOCKER" ]; then # Not a docker build, configure for local building
+    setup_builddir
+  fi
+
   if [ "$WEBHARE_PLATFORM" == "darwin" ]; then   # Set up darwin. Make sure homebrew and packages are available
     if ! which brew >/dev/null 2>&1 ; then
       echo "On macOS we rely on Homebrew (http://brew.sh) and some additional packages being installed. Please install it"
@@ -608,9 +612,13 @@ setup_buildsystem()
     if [ -z "$NOBREW" ]; then
       # Only (re)install homebrew if webhare.rb changed
       DEPSFILE="$WEBHARE_CHECKEDOUT_TO/addons/darwin/webhare-deps.rb"
-      CHECKFILE="$WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install"
+
+      # Remove from old location (remove at Date.now >= 2024-02-13)
+      [ -f "$WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install" ] && rm "$WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install"
+
+      # Store the checkfile in 'whbuild' so discarding that directory (which you should do when changing platforms) resets the brew state too
+      CHECKFILE="$WEBHARE_BUILDDIR/last-brew-install"
       if [ "$DEPSFILE" -nt "$CHECKFILE" ]; then
-        mkdir -p "$WEBHARE_CHECKEDOUT_TO/.checkoutstate"
         echo -n "Brew: "
         if ! brew reinstall --formula "$DEPSFILE" ; then exit ; fi
         echo "$TODAY" > "$CHECKFILE"
@@ -672,8 +680,6 @@ setup_buildsystem()
   fi
 
   if [ -z "$WEBHARE_IN_DOCKER" ]; then # Not a docker build, configure for local building
-    setup_builddir
-
     # Additional dependencies
     if ! /bin/bash $WEBHARE_CHECKEDOUT_TO/addons/docker-build/setup-pdfbox.sh ; then
       echo "setup-pdfbox failed"
