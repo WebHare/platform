@@ -129,7 +129,7 @@
           </line>
         </page>
         <page isfinish="true" oninit="initfinishpage" spacers="bottom">
-          <textedit name="link" width="1pr" enabled="false" />
+          <url name="link" width="1pr" />
           <text name="maillink" title="" />
         </page>
       </wizard>

@@ -8,8 +8,8 @@ const TagEdit = require('@mod-tollium/web/ui/components/tagedit/tagedit');
 import * as $todd from "@mod-tollium/web/ui/js/support";
 
 export default class ObjTagEdit extends ObjAutoSuggestableBase {
-  constructor(parentcomp, data, replacingcomp) {
-    super(parentcomp, data, replacingcomp);
+  constructor(parentcomp, data) {
+    super(parentcomp, data);
 
     this.componenttype = "tagedit";
     this.components = [];

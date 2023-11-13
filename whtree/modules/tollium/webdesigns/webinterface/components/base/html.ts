@@ -6,8 +6,8 @@ import ComponentBase from './compbase';
 
 /* Basic HTML5 component wrapper */
 export default class HTMLCompBase extends ComponentBase {
-  constructor(parentcomp, data, replacingcomp) {
-    super(parentcomp, data, replacingcomp);
+  constructor(parentcomp, data) {
+    super(parentcomp, data);
     this.lastvalue = null;
   }
   getValue() {

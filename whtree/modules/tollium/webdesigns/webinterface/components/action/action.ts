@@ -21,8 +21,8 @@ require("@mod-tollium/web/ui/components/imageeditor/imageeditor.lang.json");
  ****************************************************************************************************************************/
 
 export default class ObjAction extends ActionForwardBase {
-  constructor(parentcomp, data, replacingcomp) {
-    super(parentcomp, data, replacingcomp);
+  constructor(parentcomp, data) {
+    super(parentcomp, data);
     this.componenttype = "action";
     this.lastenabled = null;
     this.pendingdownloads = [];

@@ -30,8 +30,8 @@ export default class ObjList extends ComponentBase {
   componenttype = "list";
   list: ListView;
 
-  constructor(parentcomp, data, replacingcomp) {
-    super(parentcomp, data, replacingcomp);
+  constructor(parentcomp, data) {
+    super(parentcomp, data);
 
     this.componenttype = "list";
 

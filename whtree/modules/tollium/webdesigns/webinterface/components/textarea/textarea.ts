@@ -21,8 +21,8 @@ export default class ObjTextArea extends ComponentBase {
   * Initialization
   */
 
-  constructor(parentcomp, data, replacingcomp) {
-    super(parentcomp, data, replacingcomp);
+  constructor(parentcomp, data) {
+    super(parentcomp, data);
     this.componenttype = "textarea";
     this.setValue(data.value);
     this.placeholder = data.placeholder || "";

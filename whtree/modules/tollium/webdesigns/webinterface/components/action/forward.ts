@@ -5,8 +5,8 @@ import * as dompack from 'dompack';
 import ActionForwardBase from './actionforwardbase';
 
 export default class ObjForward extends ActionForwardBase {
-  constructor(parentcomp, data, replacingcomp) {
-    super(parentcomp, data, replacingcomp);
+  constructor(parentcomp, data) {
+    super(parentcomp, data);
     this.componenttype = "forward";
     this.action = data.action;
     this.setInterestingActions([this.action]);

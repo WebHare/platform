@@ -261,11 +261,8 @@ export default class Frame extends ComponentBase {
       return existingcomp;
     }
 
-    let componentstate = null;
     if (existingcomp) {
       this.debugLog("messages", "addComponent: Recreating '" + name + "' (" + existingcomp.componenttype + ") for parent '" + parentcomp.name + "'");
-      componentstate = existingcomp.getComponentState();
-      this.debugLog("messages", 'addComponent: Saving state of existing component'); //FIXME This approach appears a bit ugly to me... can't we just pass the old component to the new component's constructor ? or is setComponentState used for more than just this?
 
       // Add '(replaced)' to component name. Need to unregister first, because that needs the original name.
       this.unregisterComponent(existingcomp, false);
@@ -279,10 +276,8 @@ export default class Frame extends ComponentBase {
       this.debugLog("messages", "Adding new component '" + name + "' (" + newcomp.type + ") to parent '" + parentcomp.name + "'", newcomp);
 
     //console.log('addComponent: Constructing ' + xmlcomp.xml.base.type + ' ' + name + ' for parent ' + parentcomp.name);
-    const createdcomp = $shell.createComponent(newcomp.type, parentcomp, newcomp, existingcomp);
+    const createdcomp = $shell.createComponent(newcomp.type, parentcomp, newcomp);
     createdcomp.afterConstructor(newcomp);
-    if (componentstate)
-      createdcomp.setComponentState(componentstate);
 
     return createdcomp;
   }

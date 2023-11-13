@@ -87,8 +87,8 @@ export default class ObjPanel extends ComponentBase {
   * Initialization
   */
 
-  constructor(parentcomp, data, replacingcomp) {
-    super(parentcomp, data, replacingcomp);
+  constructor(parentcomp, data) {
+    super(parentcomp, data);
 
     this.componenttype = "panel";
     this.isbodypanel = false;
@@ -137,7 +137,7 @@ export default class ObjPanel extends ComponentBase {
       data.lines.forEach(function (srcline, i) {
         srcline.target = this.name + "#line$" + i;
         srcline.destroywithparent = true;
-        const line = new ObjPanelLine(this, srcline, null);
+        const line = new ObjPanelLine(this, srcline);
         this.lines.push(line);
 
         if (line.title) {
@@ -440,8 +440,8 @@ export default class ObjPanel extends ComponentBase {
 
 export class ObjPanelLine extends ComponentBase //needed by inlineblock
 {
-  constructor(parentcomp, line, replacingcomp, options) {
-    super(parentcomp, line, replacingcomp);
+  constructor(parentcomp, line, options) {
+    super(parentcomp, line);
 
     this.options = { ...options }; //configuration from inlinepanel;
     this.componenttype = "panel.line";
