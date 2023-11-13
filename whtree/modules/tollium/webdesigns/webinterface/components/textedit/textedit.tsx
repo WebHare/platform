@@ -73,7 +73,7 @@ interface TextEditAttributes extends AutoSuggestableAttributes {
   maxlength: number;
   lengthmeasure: "bytes" | "characters";
   showcounter: boolean;
-  value: string;
+  value?: string;
   hint: string;
   unmasked_events: string[];
   placeholder: string;
@@ -114,7 +114,7 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
 
   constructor(parentcomp: ToddCompBase, data: TextEditAttributes) {
     super(parentcomp, data);
-    this.setValue(data.value);
+    this.setValue(data.value || "");
     this.placeholder = data.placeholder || "";
     this.showcounter = data.showcounter === true;
     this.lengthmeasure = data.lengthmeasure;
