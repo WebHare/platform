@@ -4,7 +4,7 @@
 import * as dompack from 'dompack';
 import * as menu from '@mod-tollium/web/ui/components/basecontrols/menu';
 import { dtapStage } from "@webhare/env";
-import $todd from '@mod-tollium/web/ui/js/support';
+import * as $todd from '@mod-tollium/web/ui/js/support';
 
 let magicmenuactive;
 let clicks = [];

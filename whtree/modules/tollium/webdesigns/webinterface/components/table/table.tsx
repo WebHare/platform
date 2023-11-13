@@ -7,7 +7,7 @@ import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/
 import * as movable from 'dompack/browserfix/movable';
 import * as toddupload from '@mod-tollium/web/ui/js/upload';
 
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 
 import { hasNativeEventMultiSelectKey } from 'dompack/extra/keyboard';
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';

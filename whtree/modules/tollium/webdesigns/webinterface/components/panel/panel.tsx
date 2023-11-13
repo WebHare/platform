@@ -9,7 +9,7 @@ import * as toddtools from '@mod-tollium/webdesigns/webinterface/components/base
 import * as dragdrop from '@mod-tollium/web/ui/js/dragdrop';
 import "./panel.scss";
 
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 require("@mod-tollium/js/icons");
 
 /* Tollium inline layouting

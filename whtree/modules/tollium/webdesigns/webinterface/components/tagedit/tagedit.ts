@@ -5,7 +5,7 @@ import * as dompack from 'dompack';
 import { ObjAutoSuggestableBase } from '../textedit/textedit';
 
 const TagEdit = require('@mod-tollium/web/ui/components/tagedit/tagedit');
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 
 export default class ObjTagEdit extends ObjAutoSuggestableBase {
   constructor(parentcomp, data, replacingcomp) {
@@ -158,4 +158,3 @@ export default class ObjTagEdit extends ObjAutoSuggestableBase {
     this.setDirty();
   }
 }
-

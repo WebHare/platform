@@ -3,15 +3,8 @@
 
 /*! LOAD: wh.util.jstests, tollium:ui/js/components.js !*/
 import * as test from '@mod-tollium/js/testframework';
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 import { distributeSizes } from '@mod-tollium/web/ui/js/componentbase';
-
-
-$todd.DebugTypedLog = function () {
-  const args = Array.prototype.slice.call(arguments);
-  args.splice(0, 1);
-  console.log.apply(console, args);
-};
 
 test.registerTests(
   [

@@ -7,6 +7,7 @@ import * as test from "@mod-system/js/wh/testframework";
 import { escapeRegExp } from '@webhare/std';
 import { ApplicationBase } from '@mod-tollium/web/ui/js/application';
 import Frame from '@mod-tollium/webdesigns/webinterface/components/frame/frame';
+import type { } from "@mod-tollium/js/internal/debuginterface";
 
 function isStringOrRegexpMatch(intext, pattern) {
   if (typeof pattern == 'string')
@@ -195,7 +196,10 @@ function $screen(win) {
 window.$screen = $screen;
 
 function getCurrentApp() {
-  return new AppProxy(test.getWin().__todd.applicationstack.at(-1));
+  const app = test.getWin().$tollium?.getActiveApplication();
+  if (!app)
+    throw new Error("No active tollium application");
+  return new AppProxy(app);
 }
 function getCurrentScreen() {
   return getCurrentApp().getActiveScreen();

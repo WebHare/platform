@@ -6,7 +6,7 @@ import * as dompack from 'dompack';
 import * as whintegration from '@mod-system/js/wh/integration';
 import FindAsYouType from '@mod-system/js/internal/findasyoutype';
 import { getShortcutEvent } from '@mod-tollium/js/internal/keyboard';
-import $todd from '../support';
+import * as $todd from '../support';
 const getTid = require("@mod-tollium/js/gettid").getTid;
 const focuszones = require('../../components/focuszones');
 const toddImages = require("@mod-tollium/js/icons");

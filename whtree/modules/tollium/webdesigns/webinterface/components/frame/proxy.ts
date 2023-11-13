@@ -1,7 +1,7 @@
 /* eslint-disable */
 /// @ts-nocheck -- Bulk rename to enable TypeScript validation
 
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 import ComponentBase from '@mod-tollium/webdesigns/webinterface/components/base/compbase';
 
 /****************************************************************************************************************************
@@ -104,4 +104,3 @@ export default class Proxy extends ComponentBase {
     super.applyUpdate(data);
   }
 }
-

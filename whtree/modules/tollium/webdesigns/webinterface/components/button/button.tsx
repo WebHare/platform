@@ -4,7 +4,7 @@
 import * as dompack from 'dompack';
 import ActionableBase from '@mod-tollium/webdesigns/webinterface/components/base/actionable';
 import * as icons from '@mod-tollium/js/icons';
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 import Keyboard from 'dompack/extra/keyboard';
 import './button.scss';
 
@@ -134,9 +134,9 @@ export default class ObjButton extends ActionableBase {
       const text = this.title;
       let arrow_space = 0;
       if (this.menuname && this.title) // need extra 5 pixels + size of \u25bc char for dropdown symbol (with 70% size)
-        arrow_space = 5 + $todd.CalculateTextSize("\u25bc", 0, { "font-size": "70%" }).x;
+        arrow_space = 5 + $todd.calculateTextSize("\u25bc", { fontSize: "70%" }).x;
 
-      const contentwidth = Math.max(65, $todd.CalculateTextSize(text, 0, { "font-size": 11 }).x + arrow_space) + 8;/* toolbar button text is 11px plus 2*4px padding */
+      const contentwidth = Math.max(65, $todd.calculateTextSize(text, { fontSize: "11px" }).x + arrow_space) + 8;/* toolbar button text is 11px plus 2*4px padding */
       this.width.min = contentwidth;
       this.width.calc = contentwidth;
       // we can handle the width from CSS, since the toolbar takes up the whole width of the screen
@@ -149,7 +149,7 @@ export default class ObjButton extends ActionableBase {
       let contentwidth = 0;
 
       if (!this.icon) // for buttons of type 'icon' we hide the title
-        contentwidth += $todd.CalculateTextSize(this.title).x;
+        contentwidth += $todd.calculateTextSize(this.title).x;
 
       //console.log("Width", contentwidth, "for title", this.title, " + (skinsettings.xpad)", this.skinsettings.xpad);
 

@@ -8,7 +8,7 @@ import './textedit.scss';
 
 import { InputTextLengthCounter } from "@mod-tollium/web/ui/components/basecontrols/counter";
 import * as toddtools from '@mod-tollium/webdesigns/webinterface/components/base/tools';
-import $todd from "@mod-tollium/web/ui/js/support";
+import * as $todd from "@mod-tollium/web/ui/js/support";
 import { ComponentStandardAttributes } from '@mod-tollium/web/ui/js/componentbase';
 
 const intra_button_padding = 5; //pixels between textedit buttons
@@ -264,9 +264,9 @@ export default class ObjTextEdit extends ObjAutoSuggestableBase {
 
     this.prefixsuffixsize = 0;
     if (this.prefix)
-      this.prefixsuffixsize += $todd.CalculateTextSize(this.prefix).x + prefix_suffix_margin;
+      this.prefixsuffixsize += $todd.calculateTextSize(this.prefix).x + prefix_suffix_margin;
     if (this.suffix)
-      this.prefixsuffixsize += $todd.CalculateTextSize(this.suffix).x + prefix_suffix_margin;
+      this.prefixsuffixsize += $todd.calculateTextSize(this.suffix).x + prefix_suffix_margin;
 
     let othercontent = 0;
     this.buttons.forEach(button => {
