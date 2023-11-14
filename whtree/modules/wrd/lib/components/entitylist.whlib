@@ -151,7 +151,6 @@ PUBLIC STATIC OBJECTTYPE EntityListBase EXTEND TolliumFragmentBase
       ^entities->selectcontextmenu := definition.selectcontextmenu;
     IF(ObjectExists(definition.newcontextmenu))
       ^entities->newcontextmenu := definition.newcontextmenu;
-    ^entities->debugactions := [[ type := "wrd:entity", cellname := "rowkey" ]];
     ^entities->onselect := definition.onselect;
     ^entities->onfocusin := definition.onfocusin;
     ^entities->empty := definition.empty;

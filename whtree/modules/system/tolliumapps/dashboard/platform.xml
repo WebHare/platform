@@ -44,7 +44,8 @@
                 rowiconname="rowicon"
                 selectcontextmenu="contextmenu"
                 selectmode="multiple"
-                sortcolumn="message">
+                sortcolumn="message"
+                rowkeydebugtype="wrd:entity">
             <column name="since" type="datetime" width="18x" storeutc="true" />
             <column name="stopped" type="datetime" width="18x" storeutc="true" />
             <column name="message" type="text" width="2pr" />

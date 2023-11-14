@@ -42,13 +42,13 @@
       <forward name="delete" action="entities->delete" tid="~delete" />
     </actions>
     <contents>
-      <listedit name="entities" ongetchildren="dogetchildren" onrowedit="dorowedit" rowkeytype="integer" />
+      <listedit name="entities" ongetchildren="dogetchildren" onrowedit="dorowedit" rowkeytype="integer" rowkeydebugtype="wrd:entity" />
     </contents>
   </fragment>
 
   <fragment name="entitylist" gid=".entitylist" lib="components/entitylist.whlib">
     <contents>
-      <list name="entities" ongetchildren="dogetchildren" rowkeytype="integer"  />
+      <list name="entities" ongetchildren="dogetchildren" rowkeytype="integer" rowkeydebugtype="wrd:entity" />
     </contents>
   </fragment>
 

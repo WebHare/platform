@@ -124,6 +124,8 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
 
   PUBLIC PROPERTY selectableflags(this->list->selectableflags, this->list->selectableflags);
 
+  PUBLIC PROPERTY rowkeydebugtype(this->list->rowkeydebugtype, this->list->rowkeydebugtype);
+
   /** Give access to the list component embedded in this component.
       This makes it possible to for example use listedit->embeddedlist->GetIcon().
   */
@@ -168,6 +170,7 @@ PUBLIC OBJECTTYPE ArrayListEditBase EXTEND TolliumFragmentBase
     this->showbuttons := description.showbuttons;
 
     this->list->borders := description.borders;
+    this->list->rowkeydebugtype := description.rowkeydebugtype;
     this->list->columnheaders := description.columnheaders;
     this->list->styles := description.styles;
     this->list->empty := description.empty;
