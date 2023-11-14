@@ -29,7 +29,7 @@ export async function captureJSPage(obj: number, usecontent?: number): Promise<W
 
   const contentObject = usecontent && usecontent != obj ? await whfs.openFile(usecontent) : target.targetObject;
 
-  const renderer: WebHareWHFSRouter = await resourcetools.loadJSFunction(target.renderer) as WebHareWHFSRouter;
+  const renderer: WebHareWHFSRouter = await resourcetools.loadJSFunction<WebHareWHFSRouter>(target.renderer);
   const whfsreq = await buildSiteRequest(req, target.targetObject, { contentObject });
   const response = await renderer(whfsreq);
   return response.asWebResponseInfo();

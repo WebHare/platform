@@ -11,7 +11,7 @@ export { broadcast, subscribe, BackendEvent, BackendEventSubscription } from "./
 export { log, logNotice, logError, logDebug, readLogLines } from "./logging";
 export { ResourceDescriptor } from "./descriptor";
 export { lockMutex, type Mutex } from "./mutex";
-export { TaskRequest, TaskResponse, scheduleTask, scheduleTimedTask } from "./tasks";
+export { TaskFunction, TaskRequest, TaskResponse, scheduleTask, scheduleTimedTask } from "./tasks";
 export { readRegistryKey } from "./registry";
 export { type RichDocument } from "./richdocument";
 export { WebHareBlob } from "./webhareblob";

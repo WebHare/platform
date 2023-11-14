@@ -59,7 +59,7 @@ class SiteRequest {
     if (!publicationsettings.siteresponsefactory)
       return wrapHSWebdesign<T>(this);
 
-    const factory = await resourcetools.loadJSFunction(publicationsettings.siteresponsefactory) as WebDesignFunction<T>;
+    const factory = await resourcetools.loadJSFunction<WebDesignFunction<T>>(publicationsettings.siteresponsefactory);
     //FIXME - we need to fill in some more data based on the site profile
     const settings = new SiteResponseSettings;
     settings.assetpack = publicationsettings.assetpack;
@@ -71,7 +71,7 @@ class SiteRequest {
     for (const plugin of publicationsettings.plugins) //apply plugins
       if (plugin.composerhook) {
         const plugindata = buildPluginData(plugin.datas);
-        (await resourcetools.loadJSFunction(plugin.composerhook) as ComposerHookFunction)(plugindata, composer);
+        (await resourcetools.loadJSFunction<ComposerHookFunction>(plugin.composerhook))(plugindata, composer);
       }
 
     return composer;

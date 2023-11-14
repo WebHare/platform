@@ -9,6 +9,7 @@ import type { ClusterTestLink } from "@mod-webhare_testsuite/js/demoservice";
 import runBackendService from "@mod-system/js/internal/webhareservice";
 import { createVM, HSVMObject } from "@webhare/harescript";
 import { CallableVMWrapper } from "@webhare/harescript/src/machinewrapper";
+import { loadJSFunction } from "@mod-system/js/internal/resourcetools";
 
 function ensureProperPath(inpath: string) {
   test.eq(/^\/.+\/$/, inpath, `Path should start and end with a slash: ${inpath}`);
@@ -20,6 +21,9 @@ async function testServices() {
 
   //Verify potentially higher level invoke APIs work
   test.eq(45, await services.callHareScript("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib#Add", [22, 23]));
+
+  //@ts-expect-error Verify invoking LoadJSFunction without a type signature is a TS error
+  await loadJSFunction("@webhare/services#log");
 
   await test.throws(/NOSUCHFUNCTION.*not found/, services.callHareScript("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib#NoSuchFunction", []));
   await test.throws(/Custom.*Try to kill the bridge/, services.callHareScript("wh::system.whlib#ABORT", ["Try to kill the bridge through abort"]));

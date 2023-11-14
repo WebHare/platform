@@ -27,6 +27,7 @@ interface TaskResponseFailedTemporarily {
 
 export type TaskResponse = TaskResponseFinished | TaskResponseCancelled | TaskResponseFailed | TaskResponseFailedTemporarily;
 
+export type TaskFunction = (req: TaskRequest<unknown>) => Promise<TaskResponse>;
 
 export class TaskRequest<TaskDataType, TaskResultType = unknown> {
   readonly taskdata: TaskDataType;

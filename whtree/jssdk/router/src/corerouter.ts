@@ -80,8 +80,7 @@ export async function coreWebHareRouter(request: WebRequest): Promise<WebRespons
     return await routeThroughHSWebserver(request);
 
   //Invoke the render function. TODO seperate VM/ShadowRealm etc
-
-  const renderer: WebHareWHFSRouter = await resourcetools.loadJSFunction(target.renderer) as WebHareWHFSRouter;
+  const renderer: WebHareWHFSRouter = await resourcetools.loadJSFunction<WebHareWHFSRouter>(target.renderer);
   const whfsreq = await buildSiteRequest(request, target.targetObject);
   return await renderer(whfsreq);
 }

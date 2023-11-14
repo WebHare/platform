@@ -1,4 +1,4 @@
-import { TaskRequest, TaskResponse, WebHareBlob, broadcast } from "@webhare/services";
+import { TaskFunction, TaskRequest, TaskResponse, WebHareBlob, broadcast } from "@webhare/services";
 import { loadJSFunction } from "../resourcetools";
 import { System_Managedtasks, PlatformDB } from "@mod-system/js/internal/generated/whdb/platform";
 import { commitWork, db, isWorkOpen, rollbackWork, uploadBlob } from "@webhare/whdb";
@@ -48,7 +48,7 @@ export async function executeManagedTask(taskinfo: TaskInfo, debug: boolean) {
   process.exit = code => { throw new Error("Task attempted to abort with error code " + code); };
 
   try {
-    const target = await loadJSFunction(taskinfo.taskrunner);
+    const target = await loadJSFunction<TaskFunction>(taskinfo.taskrunner);
     const req = new TaskRequest<unknown>(taskinfo.dbid, taskinfo.data);
     const taskresponse = await target(req) as TaskResponse;
 

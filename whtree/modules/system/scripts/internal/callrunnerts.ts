@@ -16,8 +16,10 @@ interface InvokeResponse {
 
 type CallRunnerLinkType = IPCLinkType<InvokeResponse, InvokeTask>;
 
+export type InvokeFunction = (...args: unknown[]) => unknown;
+
 async function runInvoke(task: InvokeTask): Promise<unknown> {
-  return await (await resourcetools.loadJSFunction(task.func))(...task.args);
+  return await (await resourcetools.loadJSFunction<InvokeFunction>(task.func))(...task.args);
 }
 
 function connectIPC(name: string) {
