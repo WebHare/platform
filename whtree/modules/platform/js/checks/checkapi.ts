@@ -1,0 +1,48 @@
+import { loadJSFunction } from "@mod-system/js/internal/resourcetools";
+import { KeysToSnakeCase, toSnakeCase } from "@webhare/hscompat";
+import { ModDefYML, getAllModuleYAMLs } from '@webhare/services/src/moduledefparser';
+import { resolveResource } from "@webhare/services/src/resources";
+
+type CheckScopes = "gdpr" | "policy";
+
+export interface CheckResult {
+  /** Check type, a modulescoped:name */
+  type: string;
+  /** Check specific metadata */
+  metadata: object | null;
+  /** Textual message */
+  messageText: string;
+  /** Message text */
+  messageTid?: {
+    tid: string;
+    params: string[];
+  };
+  jumpTo: object | null;
+  scopes: CheckScopes[];
+}
+
+export type CheckFunction = () => CheckResult[] | Promise<CheckResult[]>;
+
+type HS_CheckResult = KeysToSnakeCase<CheckResult>;
+
+export async function runIntervalChecks(): Promise<HS_CheckResult[]> {
+  //Gather modules
+  const checks: ModDefYML["selfChecks"] = [];
+  for (const modyml of await getAllModuleYAMLs())
+    for (const check of modyml.selfChecks || [])
+      checks.push({ checker: resolveResource(modyml.baseResourcePath, check.checker) });
+
+  const results: Array<Promise<CheckResult[]>> = checks.map(check =>
+    loadJSFunction<CheckFunction>(check.checker).then(func => func()).catch(error => [
+      {
+        type: "platform:checkfailed",
+        metadata: { check: check.checker },
+        messageText: `Checker ${check.checker} failed: ${error.message}`,
+        jumpTo: null,
+        scopes: []
+      }
+    ]
+    ));
+
+  return (await Promise.all(results)).flat().map(toSnakeCase<CheckResult>);
+}

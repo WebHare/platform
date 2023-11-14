@@ -1,5 +1,5 @@
-import { backendConfig, resolveResource } from "@webhare/services";
-import { ModDefYML, parseModuleDefYML } from '@webhare/services/src/moduledefparser';
+import { resolveResource } from "@webhare/services";
+import { getAllModuleYAMLs } from '@webhare/services/src/moduledefparser';
 import { ServiceDefinition, Stage } from './smtypes';
 
 const earlywebserver = process.env.WEBHARE_WEBSERVER == "node";
@@ -55,19 +55,6 @@ const defaultServices: Record<string, ServiceDefinition> = {
     run: "always"
   }
 };
-
-//We don't dare to rely (yet) on an extract parser, so we'll just read the YAMLs directly
-export async function getAllModuleYAMLs(): Promise<ModDefYML[]> { //not promising to stay sync
-  const defs: ModDefYML[] = [];
-  for (const module of Object.keys(backendConfig.module)) {
-    try {
-      defs.push(await parseModuleDefYML(module));
-    } catch (ignore) {
-      continue; //guess open failure. TODO or syntax failure, but what we're gonna do about it here?
-    }
-  }
-  return defs;
-}
 
 export async function gatherManagedServices(): Promise<Record<string, ServiceDefinition>> {
   const services: Record<string, ServiceDefinition> = {};

@@ -1,4 +1,4 @@
-import { toFSPath } from "./services";
+import { backendConfig, toFSPath } from "./services";
 import YAML from "yaml";
 import type { ModuleDefinition } from "@mod-platform/generated/schema/moduledefinition";
 import { readFile } from "fs/promises";
@@ -19,4 +19,17 @@ export async function parseModuleDefYML(module: string): Promise<ModDefYML> {
     module,
     baseResourcePath: moduledefresource
   };
+}
+
+/** Get all YMLs without going through the config/extract generator */
+export async function getAllModuleYAMLs(): Promise<ModDefYML[]> { //not promising to stay sync
+  const defs: ModDefYML[] = [];
+  for (const module of Object.keys(backendConfig.module)) {
+    try {
+      defs.push(await parseModuleDefYML(module));
+    } catch (ignore) {
+      continue; //guess open failure. TODO or syntax failure, but what we're gonna do about it here?
+    }
+  }
+  return defs;
 }
