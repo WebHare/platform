@@ -3,10 +3,9 @@
 
    Other @webhare/ libs should avoid depending on HSCompat
 */
-
 import * as test from "@webhare/test";
 import { Money } from "@webhare/std";
-import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime, omitHareScriptDefaultValues } from "@webhare/hscompat";
+import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime, omitHareScriptDefaultValues, KeysToSnakeCase, KeysToCamelCase, toSnakeCase, toCamelCase } from "@webhare/hscompat";
 import { compare } from "@webhare/hscompat/algorithms";
 import { localizeDate } from "@webhare/hscompat/datetime";
 import { getTypedArray, IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
@@ -453,6 +452,17 @@ function testOmitHareScriptDefaultValues() {
   test.eq([], omitHareScriptDefaultValues([] as Array<{ a?: 0 }>, ["a"]));
 }
 
+function testCaseChanging() {
+  test.typeAssert<test.Equals<{ message_text: string }, KeysToSnakeCase<{ messageText: string }>>>();
+  test.typeAssert<test.Equals<{ _a_b_c: string }, KeysToSnakeCase<{ ABC: string }>>>();
+  test.typeAssert<test.Equals<{ messageText: string }, KeysToCamelCase<{ message_text: string }>>>();
+
+  test.eq({ message_text: "test" }, toSnakeCase({ messageText: "test" }));
+  test.eq([{ message_text: "abc" }, { message_text: "test" }], toSnakeCase([{ messageText: "abc" }, { messageText: "test" }]));
+  test.eq({ messageText: "test" }, toCamelCase({ message_text: "test" }));
+  test.eq([{}, { messageText: "test" }], toCamelCase([{}, { message_text: "test" }]));
+}
+
 test.run([
   testStrings,
   testCompare,
@@ -461,4 +471,5 @@ test.run([
   testHSON,
   testLocalizeDate,
   testOmitHareScriptDefaultValues,
+  testCaseChanging
 ]);
