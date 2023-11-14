@@ -24,7 +24,7 @@ import runBackendService from '@mod-system/js/internal/webhareservice';
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
 import { LoggableRecord } from "@webhare/services/src/logmessages";
 import bridge from '@mod-system/js/internal/whmanager/bridge';
-import { getAllServices } from './gatherservices';
+import { getAllServices, getSpawnSettings } from './gatherservices';
 import { defaultShutDownStage, ServiceDefinition, Stage, shouldRestartService } from './smtypes';
 
 program.name("servicemanager")
@@ -44,7 +44,7 @@ const MaxStartupDelay = 60000;
 const MaxLineLength = 512;
 const isSecondaryManager: boolean = program.opts().secondary;
 const verbose = program.opts().verbose || debugFlags.startup;
-const ServiceManagerId = process.env.WEBHARE_SERVICEMANAGERID || generateRandomId("base64url");
+const serviceManagerId = process.env.WEBHARE_SERVICEMANAGERID || generateRandomId("base64url");
 
 const setProcessTitles = os.platform() === "linux";
 const setTerminalTitles = os.platform() === "darwin";
@@ -138,27 +138,17 @@ class ProcessManager {
   }
 
   start() {
-    const cmd = this.service.cmd[0].includes('/') ? this.service.cmd[0] : `${backendConfig.installationroot}bin/${this.service.cmd[0]}`;
-    const args = this.service.cmd.slice(1);
+    const spawnsettings = getSpawnSettings(serviceManagerId, this.service);
 
     this.started = Date.now();
     this.startDelayTimer = null;
     if (verbose)
-      this.log(`Starting service with command: ${cmd} ${args.join(" ")}`, { cmd, args });
+      this.log(`Starting service with command: ${spawnsettings.cmd} ${spawnsettings.args.join(" ")}`, spawnsettings);
 
-    this.process = child_process.spawn(cmd, args, {
+    this.process = child_process.spawn(spawnsettings.cmd, spawnsettings.args, {
       stdio: ['ignore', 'pipe', 'pipe'],  //no STDIN, we catch the reset
       detached: true, //separate process group so a terminal CTRL+C doesn't get sent to our subs (And we get to properly shut them down)
-      env: {
-        ...process.env,
-        ///Unique ID to find children
-        WEBHARE_SERVICEMANAGERID: ServiceManagerId,
-        //Prevent manual compiles for processes started through us (We'll manage whcompile)
-        WEBHARE_NOMANUALCOMPILE: "1",
-        //For backwards compatibility, don't leak these. Maybe we should set them and inherit them everywhere, but it currently breaks starting other node-based services (Eg chatplane)
-        NODE_PATH: "",
-        NODE_OPTIONS: ""
-      }
+      env: spawnsettings.env
     });
 
     this.process.stdout!.on('data', data => this.processOutput("stdout", data));
@@ -348,6 +338,7 @@ class ServiceManagerClient {
   getWebHareState() {
     return {
       stage: stagetitles[currentstage],
+      serviceManagerId,
       availableServices: [...expectedServices.entries()].map(([name, service]) => ({
         name,
         isRunning: processes.get(name)?.running ?? false,
@@ -361,8 +352,6 @@ class ServiceManagerClient {
       return { errorMessage: `No such service '${service}'` };
     if (processes.get(service))
       return { errorMessage: `Service '${service}' is already running` };
-    if (serviceinfo.run !== "on-demand")
-      return { errorMessage: `Service '${service}' is not on-demand` };
 
     new ProcessManager(service, serviceinfo);
     return { ok: true };
@@ -371,8 +360,6 @@ class ServiceManagerClient {
     const process = processes.get(service);
     if (!process)
       return { errorMessage: `Service '${service}' is not running` };
-    if (process.service.run !== "on-demand") //TODO also stop non on-demand services, or should that be enable/disable and not start/stop ? (for ondemand those would be two different things)
-      return { errorMessage: `Service '${service}' is not on-demand` };
 
     process.stop();
     return { ok: true };

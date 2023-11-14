@@ -1,4 +1,4 @@
-import { resolveResource } from "@webhare/services";
+import { backendConfig, resolveResource } from "@webhare/services";
 import { getAllModuleYAMLs } from '@webhare/services/src/moduledefparser';
 import { ServiceDefinition, Stage } from './smtypes';
 
@@ -55,6 +55,24 @@ const defaultServices: Record<string, ServiceDefinition> = {
     run: "always"
   }
 };
+
+export function getSpawnSettings(serviceManagerId: string, service: ServiceDefinition) {
+  const cmd = service.cmd[0].includes('/') ? service.cmd[0] : `${backendConfig.installationroot}bin/${service.cmd[0]}`;
+  const args = service.cmd.slice(1);
+
+  return {
+    cmd, args, env: {
+      ...process.env,
+      ///Unique ID to find children  - get from root servicemanager?
+      WEBHARE_SERVICEMANAGERID: serviceManagerId,
+      //Prevent manual compiles for processes started through us (We'll manage whcompile)
+      WEBHARE_NOMANUALCOMPILE: "1",
+      //For backwards compatibility, don't leak these. Maybe we should set them and inherit them everywhere, but it currently breaks starting other node-based services (Eg chatplane)
+      NODE_PATH: "",
+      NODE_OPTIONS: ""
+    }
+  };
+}
 
 export async function gatherManagedServices(): Promise<Record<string, ServiceDefinition>> {
   const services: Record<string, ServiceDefinition> = {};
