@@ -1,18 +1,10 @@
-import { ServiceManagerClient } from '@mod-platform/js/bootstrap/servicemanager/main';
-import { openBackendService } from '@webhare/services';
+import { connectSM } from '@mod-platform/js/bootstrap/servicemanager/smclient';
 import { program } from 'commander'; //https://www.npmjs.com/package/commander
 
 //short: Control the WebHare service manager
 
 program.name("service")
   .description('Control the WebHare service manager');
-
-const servicename = "platform:servicemanager";
-
-async function connectSM() {
-  const smservice = await openBackendService<ServiceManagerClient>(servicename, [], { timeout: 5000 });
-  return smservice;
-}
 
 program.command("list")
   .description("List all services")
