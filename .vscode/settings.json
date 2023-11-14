@@ -1,0 +1,20 @@
+{
+  "[json]": {
+    "editor.formatOnSave": true
+  },
+  "[jsonc]": {
+    "editor.formatOnSave": true
+  },
+  "[typescript]": {
+    "editor.formatOnSave": true
+  },
+  //Handles .tsx extension
+  "[typescriptreact]": {
+    "editor.formatOnSave": true
+  },
+  //YAML settings (see https://github.com/redhat-developer/vscode-yaml#extension-settings)
+  "yaml.schemas": {
+    //Specify schemas for our YML files
+    "./whtree/modules/platform/data/schemas/moduledefinition.schema.yml": "moduledefinition.yml"
+  }
+}
