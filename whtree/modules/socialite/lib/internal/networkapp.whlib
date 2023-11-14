@@ -2,18 +2,11 @@
 LOADLIB "wh::dbase/transaction.whlib";
 LOADLIB "wh::datetime.whlib";
 LOADLIB "mod::socialite/lib/database.whlib";
-LOADLIB "mod::socialite/lib/networkapi/facebookv2.whlib";
 LOADLIB "mod::socialite/lib/networkapi/facebookv3.whlib";
-LOADLIB "mod::socialite/lib/networkapi/twitter.whlib";
 LOADLIB "mod::socialite/lib/networkapi/linkedin_v2.whlib";
-LOADLIB "mod::socialite/lib/networkapi/yammer.whlib";
-LOADLIB "mod::socialite/lib/networkapi/foursquare.whlib";
 LOADLIB "mod::socialite/lib/networkapi/youtube.whlib";
 LOADLIB "mod::socialite/lib/networkapi/vimeo.whlib";
-LOADLIB "mod::socialite/lib/networkapi/google.whlib";
 LOADLIB "mod::socialite/lib/networkapi/instagram.whlib";
-LOADLIB "mod::socialite/lib/networkapi/pinterest.whlib";
-LOADLIB "mod::socialite/lib/networkapi/moneybird.whlib";
 
 LOADLIB "mod::socialite/lib/internal/support.whlib";
 
@@ -80,26 +73,6 @@ PUBLIC OBJECTTYPE OAuthNetworkApp EXTEND AccessTokenNetworkApp
   }
 >;
 
-PUBLIC OBJECTTYPE TwitterNetworkApp EXTEND OAuthNetworkApp
-<
-  MACRO NEW(RECORD apprec)
-  : OAuthNetworkApp(apprec)
-  {
-    EXTEND THIS BY TwitterConnection;
-    this->SetupAccessTokenApp();
-  }
->;
-
-PUBLIC OBJECTTYPE FacebookV2NetworkApp EXTEND AccessTokenNetworkApp
-<
-  MACRO NEW(RECORD apprec)
-  : AccessTokenNetworkApp(apprec)
-  {
-    EXTEND THIS BY FacebookV2Connection;
-    this->SetupAccessTokenApp();
-  }
->;
-
 PUBLIC OBJECTTYPE FacebookV3NetworkApp EXTEND AccessTokenNetworkApp
 <
   MACRO NEW(RECORD apprec)
@@ -120,26 +93,6 @@ PUBLIC OBJECTTYPE LinkedInV2NetworkApp EXTEND AccessTokenNetworkApp
   }
 >;
 
-PUBLIC OBJECTTYPE YammerNetworkApp EXTEND AccessTokenNetworkApp
-<
-  MACRO NEW(RECORD apprec)
-  : AccessTokenNetworkApp(apprec)
-  {
-    EXTEND THIS BY YammerConnection;
-    this->SetupAccessTokenApp();
-  }
->;
-
-PUBLIC OBJECTTYPE FourSquareNetworkApp EXTEND AccessTokenNetworkApp
-<
-  MACRO NEW(RECORD apprec)
-  : AccessTokenNetworkApp(apprec)
-  {
-    EXTEND THIS BY FourSquareConnection;
-    this->SetupAccessTokenApp();
-  }
->;
-
 PUBLIC OBJECTTYPE YoutubeNetworkApp EXTEND AccessTokenNetworkApp
 <
   STRING developerkey;
@@ -152,17 +105,6 @@ PUBLIC OBJECTTYPE YoutubeNetworkApp EXTEND AccessTokenNetworkApp
     this->SetupAccessTokenApp();
   }
 >;
-
-/*PUBLIC OBJECTTYPE LastfmNetworkApp EXTEND AccessTokenNetworkApp
-<
-  MACRO NEW(RECORD apprec)
-  : AccessTokenNetworkApp(apprec)
-  {
-    EXTEND THIS BY LastFMConnection;
-    this->SetupAccessTokenApp();
-  }
->;
-*/
 
 PUBLIC OBJECTTYPE VimeoNetworkApp EXTEND AccessTokenNetworkApp
 <
@@ -183,34 +125,3 @@ PUBLIC OBJECTTYPE InstagramNetworkApp EXTEND AccessTokenNetworkApp
     this->SetupAccessTokenApp();
   }
 >;
-
-PUBLIC OBJECTTYPE PinterestNetworkApp EXTEND AccessTokenNetworkApp
-<
-  MACRO NEW(RECORD apprec)
-  : AccessTokenNetworkApp(apprec)
-  {
-    EXTEND THIS BY PinterestConnection;
-    this->SetupAccessTokenApp();
-  }
->;
-
-PUBLIC OBJECTTYPE GoogleNetworkApp EXTEND AccessTokenNetworkApp
-<
-  MACRO NEW(RECORD apprec)
-  : AccessTokenNetworkApp(apprec)
-  {
-    EXTEND THIS BY GoogleConnection;
-    this->SetupAccessTokenApp();
-  }
->;
-
-PUBLIC OBJECTTYPE MoneybirdNetworkApp EXTEND AccessTokenNetworkApp
-<
-  MACRO NEW(RECORD apprec)
-  : AccessTokenNetworkApp(apprec)
-  {
-    EXTEND THIS BY MoneybirdConnection;
-    this->SetupAccessTokenApp();
-  }
->;
-

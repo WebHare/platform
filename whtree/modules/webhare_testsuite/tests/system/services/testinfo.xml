@@ -7,7 +7,6 @@
   <test script="test_mailchimp.whscr" tags="external" ifenvironset="TESTSECRET_MAILCHIMP_APIKEY" />
   <test script="test_taxservices.whscr" tags="external" />
   <test script="test_geoip.whscr" tags="external" ifenvironset="TESTSECRET_GEOIP2_LICENSEKEY" />
-  <test script="test_twitter.whscr" tags="external" ifenvironset="TESTSECRET_TWITTER_CLIENTID TESTSECRET_TWITTER_CLIENTSECRET" />
   <test script="test_printer.whscr" />
   <test script="test_analytics.whscr" />
   <test script="test_antivirus.whscr" />
