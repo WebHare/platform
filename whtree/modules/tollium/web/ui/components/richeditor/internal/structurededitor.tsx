@@ -13,7 +13,7 @@ import ParsedStructure from "./parsedstructure";
 import Range from './dom/range';
 import * as tableeditor from "./tableeditor";
 import * as domlevel from "./domlevel";
-import EditorBase from './editorbase';
+import EditorBase, { TextFormattingState } from './editorbase';
 import PasteCleanup from './pastecleanup';
 
 //debug flags
@@ -101,8 +101,9 @@ export default class StructuredEditor extends EditorBase {
 
   _onStyleSwitch(event, style) {
     const findcontainertag = ["P", "H1", "H2", "H3", "H4", "H5", "H6", "UL", "OL", "CODE"][style]; //0 = normal, 1to6 = headings, 7/8 = lists, 9 = code
-    const currentstyle = this.getSelectionState().blockstyle;
-    const availablestyles = this.getAvailableBlockStyles().filter(fstyle => fstyle.def.containertag.toUpperCase() == findcontainertag);
+    const selstate = this.getSelectionState();
+    const currentstyle = selstate.blockstyle;
+    const availablestyles = this.getAvailableBlockStyles(selstate).filter(fstyle => fstyle.def.containertag.toUpperCase() == findcontainertag);
     const currentindex = currentstyle ? availablestyles.findIndex(checkstyle => checkstyle.classname == currentstyle.classname) : -1;
     if (availablestyles.length == 0)
       return;
@@ -117,8 +118,9 @@ export default class StructuredEditor extends EditorBase {
     super.reprocessAfterExternalSet();
   }
 
-  getAvailableBlockStyles(selstate) {
-    return this.structure.blockstyles.filter(style => !style.istable);
+  getAvailableBlockStyles(selstate?: TextFormattingState) {
+    const stylelist = selstate?.tablestyle?.allowstyles.length ? selstate.tablestyle?.allowstyles : this.structure.blockstyles;
+    return stylelist.filter(style => !style.istable);
   }
   getAvailableCellStyles(selstate) {
     return this.structure.cellstyles;

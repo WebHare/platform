@@ -162,7 +162,7 @@ test.registerTests(
         const rte = win.rte.getEditor();
 
         // The 'table' style should not be available as a selectable style
-        const styles = rte.getAvailableBlockStyles();
+        const styles = rte.getAvailableBlockStyles(rte.getSelectionState());
         test.eq(0, styles.filter(style => style.istable).length);
       }
     },
