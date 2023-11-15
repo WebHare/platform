@@ -8,7 +8,7 @@ import { IncomingWebRequest } from "@webhare/router/src/request";
 
 export async function captureJSDesign(obj: number) {
   //Create a SiteRequest so we have context for a SiteResponse
-  const targetdoc = await whfs.openFile(obj);
+  const targetdoc = await whfs.openFileOrFolder(obj);
   const req = new IncomingWebRequest(targetdoc.link || "https://www.example.net/");
   const sitereq = await buildSiteRequest(req, targetdoc);
 

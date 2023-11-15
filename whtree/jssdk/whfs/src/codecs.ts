@@ -40,7 +40,7 @@ interface TypeCodec {
 function assertValidString(value: unknown) {
   if (typeof value !== "string")
     throw new Error(`Incorrect type. Wanted string, got '${typeof value}'`);
-  if (value.length >= 4096) //TODO byte length not UTF16 length for HS compatibility
+  if (Buffer.byteLength(value) >= 4096)
     throw new Error(`String too long (${value.length})`);
   return value;
 }
@@ -191,7 +191,7 @@ export const codecs: { [key: string]: TypeCodec } = {
         throw new Error(`Incorrect type. Wanted a plain object but got a '${Object.getPrototypeOf(value).constructor.name}'`);
 
       const ashson = encodeHSON(value as IPCMarshallableData);
-      if (ashson.length > 4096)
+      if (Buffer.byteLength(ashson) > 4096)
         throw new Error(`Overlong records not yet implemtened (${ashson.length})`);
 
       return { setting: ashson };
