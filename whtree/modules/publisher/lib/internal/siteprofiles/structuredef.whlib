@@ -259,7 +259,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
       @cell(integer) blockstyles.toclevel Level in toc
       @cell(boolean) blockstyles.hidden
       @cell(string array) blockstyles.importfrom Single-node selectors, used to determine which style to match when importing non-structured html
-      @cell blocktypes Blobk types (unused)
       @cell defaultblockstyle Name of default block type
       @cell(string) contentareawidth Content area width
       @cell(record array) cellstyles Table cell styles
@@ -1390,7 +1389,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
     OBJECT embeddedobjects := PickFirst(xmlnode->ListChildren(whconstant_xmlns_publisher, "widgets"));
 
     RECORD structure := [ blockstyles := DEFAULT RECORD ARRAY
-                        , blocktypes := DEFAULT RECORD ARRAY
                         , defaultblockstyle := ToUppercase(blockstylenode->GetAttribute("defaultstyle"))
                         , contentareawidth := xmlnode->GetAttribute("contentareawidth")
                         , cellstyles := RECORD[ [ tag := "", title := "" ] ]

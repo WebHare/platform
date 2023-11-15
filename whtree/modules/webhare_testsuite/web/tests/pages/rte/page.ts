@@ -156,12 +156,6 @@ function getStructure(type) {
         containertag: 'CODE'
       }
     ],
-    blocktypes: [
-      {
-        namespaceuri: "urn:blockns",
-        type: "blockie"
-      }
-    ],
     defaultblockstyle: "NORMAL",
     cellstyles: [
       { tag: "", title: "Normal cell" },
