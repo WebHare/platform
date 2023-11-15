@@ -1,4 +1,4 @@
-import { updateGeneratedFiles } from '@mod-system/js/internal/generation/generator';
+import { buildGeneratorContext, updateGeneratedFiles } from '@mod-system/js/internal/generation/generator';
 import { loadlib } from '@webhare/harescript/src/contextvm';
 import { scheduleTimedTask } from '@webhare/services/src/tasks';
 import { beginWork, commitWork } from '@webhare/whdb';
@@ -27,6 +27,7 @@ export async function applyConfiguration({ modules, subsystems, verbose, source,
   const start = Date.now();
   logDebug("platform:configuration", { type: "apply", modules, subsystems, source });
   try {
+    const generateContext = await buildGeneratorContext(null, verbose || false);
     if (subsystems?.includes('wrd')) {
       //Update WRD schemas (TODO limit ourselves based on module mask)
       if (verbose)
@@ -39,7 +40,7 @@ export async function applyConfiguration({ modules, subsystems, verbose, source,
       await scheduleTimedTask("wrd:scanforissues");
       await commitWork();
 
-      await updateGeneratedFiles(["wrd"], { verbose, nodb: false, dryRun: false });
+      await updateGeneratedFiles(["wrd"], { verbose, nodb: false, dryRun: false, generateContext });
     }
 
     logDebug("platform:configuration", { type: "done", at: Date.now() - start });
