@@ -54,6 +54,14 @@ test.registerTests(
 
     "Test table top header",
     async function () {
+      //Verify that H1 is available
+      const driver = new rtetest.RTEDriver('structured');
+      const rtenode = test.compByName('structured');
+      driver.setSelection(driver.qS("td p"));
+      const styleoptions = [...test.qR<HTMLOptionElement>(rtenode, '.wh-rtd__toolbarstyle').options].map(opt => opt.textContent);
+      test.assert(styleoptions.includes("Heading 1"));
+
+      //Switch table type
       await openPropsOnFirstTable();
 
       test.eq('mytable', test.getCurrentScreen().qSA("select")[0].value);
@@ -88,6 +96,11 @@ test.registerTests(
       test.eq("col", nodes[0].scope);
       test.eq("col", nodes[1].scope);
       test.eq("", nodes[2].scope);
+
+      //Verify that H1 is no longer available
+      driver.setSelection(driver.qS("td p"));
+      const styleoptions2 = [...test.qR<HTMLOptionElement>(rtenode, '.wh-rtd__toolbarstyle').options].map(opt => opt.textContent);
+      test.assert(!styleoptions2.includes("Heading 1"));
 
       // See if properties are properly re-read
       await openPropsOnFirstTable({ toclick: 'caption' });
