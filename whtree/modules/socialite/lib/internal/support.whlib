@@ -19,8 +19,8 @@ PUBLIC OBJECTTYPE SocialiteException EXTEND Exception
 
 // networks
 PUBLIC RECORD ARRAY socialnetworks :=
-  [ [ tag := "FACEBOOKV2 (removed)"
-    , title := "Facebook v2"
+  [ [ tag := "FACEBOOKV2"
+    , title := "Facebook v2 (removed)"
     , setup := ["PUBKEY","PVTKEY","CALLBACKHOST"]
     ]
   , [ tag := "FACEBOOKV3"
