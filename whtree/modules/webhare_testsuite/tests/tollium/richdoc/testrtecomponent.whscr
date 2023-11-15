@@ -267,7 +267,6 @@ MACRO TestStructuredBlocksRTE()
 {
   OBJECT scr := GetTestController()->LoadScreen("mod::webhare_testsuite/screens/tests/richdoc.xml#autotest2");
   RECORD whrte := scr->testrte->GetWHRTEStructure();
-//  TestEq(3, Length(whrte.blocktypes));
 
   scr->testrte->value := blocksdoc;
   OBJECT doc := MakeXMLDocumentFromHTML(scr->testrte->value.htmltext);
