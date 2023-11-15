@@ -53,7 +53,7 @@ export interface ExternalStructureDef {
   contentareawidth: string | null;
 }
 
-export default class ParsedStructure {
+export class ParsedStructure {
   blockstyles: BlockStyle[] = [];
   cellstyles: CellStyle[] = [];
   defaultorderedliststyle: BlockStyle | null = null;
@@ -176,3 +176,5 @@ export default class ParsedStructure {
     return this.defaulttablestyle;
   }
 }
+
+export default ParsedStructure;

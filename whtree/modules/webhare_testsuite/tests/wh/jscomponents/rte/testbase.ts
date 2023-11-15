@@ -374,7 +374,7 @@ test.registerTests(
       test: function (doc, win) {
         const rte = win.rte.getEditor();
 
-        const stdavailable = ["img", "b", "i", "u", "strike", "sub", "sup", "ol", "ul"];
+        const stdavailable = ["img", "b", "i", "u", "strike", "sub", "sup", "ol", "ul", "object-video", "object-insert"];
 
         // available is excluding the stdavailable stuff, not specifying means nothing (same for active)
         const tests =
