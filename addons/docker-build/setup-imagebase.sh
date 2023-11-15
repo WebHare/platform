@@ -25,14 +25,18 @@ useradd --system --uid 20002 --user-group opensearch
 useradd --system --uid 20003 --user-group postgres
 
 apt-get update
-apt-get install -y software-properties-common curl
+apt-get install -y software-properties-common curl gnupg ca-certificates
 add-apt-repository universe
 
 # From https://github.com/moby/buildkit/blob/master/frontend/dockerfile/docs/experimental.md#example-cache-apt-packages
 rm -f /etc/apt/apt.conf.d/docker-clean
 echo 'Binary::apt::APT::Keep-Downloaded-Packages "true";' > /etc/apt/apt.conf.d/keep-cache
 
-( curl -sL https://deb.nodesource.com/setup_20.x | bash - )
+# nodesource key & repository
+mkdir -p /etc/apt/keyrings
+curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_20.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list
+
 apt-key adv --recv-keys --keyserver hkp://keyserver.ubuntu.com:80 7FCC7D46ACCC4CF8 #Postgres key
 add-apt-repository 'deb http://apt.postgresql.org/pub/repos/apt/ focal-pgdg main'
 ( curl -sL https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add )
