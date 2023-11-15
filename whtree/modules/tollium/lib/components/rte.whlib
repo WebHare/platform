@@ -64,25 +64,6 @@ STRING FUNCTION GetStyleForSelector(STRING indata, STRING selector)
   RETURN TrimWhitespace(NormalizeWhitespace(Substring(indata, startstyle + 1, endstyle - startstyle - 2)));
 }
 
-RECORD FUNCTION LoadToolbarStyling(BLOB cssfile, RECORD structure)
-{
-  //Quick, dirty and ugly CSS parser. With emphasis on the first, second and fourth words
-  STRING indata := BlobToSTring(cssfile,-1);
-  FOREVERY(RECORD style FROM structure.blockstyles)
-  {
-    STRING basestyle := GetStyleForSelector(indata, ".wh-rtd " || style.containertag || "." || ToLowercase(style.tag))
-                        ?? GetStyleForSelector(indata, ".-wh-rtd " || style.containertag || "." || ToLowercase(style.tag));
-    STRING toolbarstyle := GetStyleForSelector(indata, ".wh-rtd-toolbar ." || ToLowercase(style.tag))
-                           ?? GetStyleForSelector(indata, ".-wh-rtd-toolbar ." || ToLowercase(style.tag));
-
-    // Rewriting always correctly adds ';' to styles.
-    style.toolbarcss := basestyle || "padding:0;margin:0;" || toolbarstyle;
-
-    structure.blockstyles[#style] := style;
-  }
-  RETURN structure;
-}
-
 RECORD FUNCTION GetCacheableCSSFile(STRING path, BLOB data)
 {
   OBJECT css := MakeCSSStyleSheet(data);
@@ -972,10 +953,6 @@ PUBLIC OBJECTTYPE RTEBase EXTEND TolliumComponentBase
   MACRO LoadRTDTypeInfo(RECORD rtdtypeinfo)
   {
     // FIXME: should we test for this or can rtdtypeinfo (if not retrieved using GetRTDSettingsFromType) exist without "rtdtype" cell ?
-
-    IF(Length(this->finalcssblob)>0)
-      rtdtypeinfo.structure := LoadToolbarStyling(this->finalcssblob, rtdtypeinfo.structure);
-
     this->editable->rtdtype := rtdtypeinfo;
     this->ExtUpdatedComponent();
   }
