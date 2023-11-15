@@ -14,3 +14,6 @@ backendServices:
     clientFactory: js/demoservice.ts#openDemoService
   controlleddemoservice:
     controllerFactory: js/demoservice.ts#createDemoMain
+
+selfChecks:
+  - checker: tests/system/modules/data/checker.ts#runTestsuiteCheck

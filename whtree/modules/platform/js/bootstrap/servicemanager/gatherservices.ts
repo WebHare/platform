@@ -1,5 +1,5 @@
 import { backendConfig, resolveResource } from "@webhare/services";
-import { ModDefYML, parseModuleDefYML } from '@webhare/services/src/moduledefparser';
+import { getAllModuleYAMLs } from '@webhare/services/src/moduledefparser';
 import { ServiceDefinition, Stage } from './smtypes';
 
 const earlywebserver = process.env.WEBHARE_WEBSERVER == "node";
@@ -56,17 +56,22 @@ const defaultServices: Record<string, ServiceDefinition> = {
   }
 };
 
-//We don't dare to rely (yet) on an extract parser, so we'll just read the YAMLs directly
-export async function getAllModuleYAMLs(): Promise<ModDefYML[]> { //not promising to stay sync
-  const defs: ModDefYML[] = [];
-  for (const module of Object.keys(backendConfig.module)) {
-    try {
-      defs.push(await parseModuleDefYML(module));
-    } catch (ignore) {
-      continue; //guess open failure. TODO or syntax failure, but what we're gonna do about it here?
+export function getSpawnSettings(serviceManagerId: string, service: ServiceDefinition) {
+  const cmd = service.cmd[0].includes('/') ? service.cmd[0] : `${backendConfig.installationroot}bin/${service.cmd[0]}`;
+  const args = service.cmd.slice(1);
+
+  return {
+    cmd, args, env: {
+      ...process.env,
+      ///Unique ID to find children  - get from root servicemanager?
+      WEBHARE_SERVICEMANAGERID: serviceManagerId,
+      //Prevent manual compiles for processes started through us (We'll manage whcompile)
+      WEBHARE_NOMANUALCOMPILE: "1",
+      //For backwards compatibility, don't leak these. Maybe we should set them and inherit them everywhere, but it currently breaks starting other node-based services (Eg chatplane)
+      NODE_PATH: "",
+      NODE_OPTIONS: ""
     }
-  }
-  return defs;
+  };
 }
 
 export async function gatherManagedServices(): Promise<Record<string, ServiceDefinition>> {

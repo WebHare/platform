@@ -350,7 +350,7 @@ export class RestAPI {
       try {
         // Load the authorizer outside of the code context, so the loaded library won't inherit the context of the first caller
         const authorizationfunction = endpoint.authorization;
-        const authorizer = (await loadJSFunction(authorizationfunction)) as RestAuthorizationFunction;
+        const authorizer = await loadJSFunction<RestAuthorizationFunction>(authorizationfunction);
 
         authresult = await authcontext.run(async () => {
           // Run the authorizer first
@@ -386,7 +386,7 @@ export class RestAPI {
         const handler = endpoint.handler;
 
         // FIXME should we cache the resolved handler or will that break auto reloading?
-        const resthandler = (await loadJSFunction(handler)) as RestImplementationFunction;
+        const resthandler = await loadJSFunction<RestImplementationFunction>(handler);
 
         // Need to await here, otherwise handlercontext.close will run immediately
         return await handlercontext.run(async () => {

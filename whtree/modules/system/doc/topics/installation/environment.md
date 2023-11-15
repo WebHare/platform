@@ -113,6 +113,9 @@ with your modulename and a double colon (`:`) and documented in your moduledefin
 
 See also [profiling](https://www.webhare.dev/reference/internals/profiling) for profiling flags
 
+### WEBHARE_DEBUG_SERVICE
+Signals a started service process that it's being invoked by `wh service debug`
+
 ### WEBHARE_DEBUGCHROME
 Set to 1 to enable the debugflag for the Chrome headless runner
 

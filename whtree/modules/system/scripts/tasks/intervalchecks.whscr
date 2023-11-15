@@ -4,9 +4,11 @@ LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/checks.whlib";
 LOADLIB "mod::system/lib/internal/checks/checker.whlib";
 LOADLIB "mod::tollium/lib/gettid.whlib";
+LOADLIB "wh::javascript.whlib";
+
+OBJECT tscheckspromise := ImportJS("@mod-platform/js/checks/checkapi.ts")->RunIntervalChecks();
 
 OpenPrimary();
-
 RECORD ARRAY checks := RunChecks();
 
 //Modernize the format
@@ -22,4 +24,5 @@ RECORD ARRAY checkresults :=
        , scopes := checktypes
     FROM checks;
 
-UpdateCheckStatus("system:intervalchecks", checkresults);
+
+UpdateCheckStatus("system:intervalchecks", checkresults CONCAT RECORD ARRAY(WaitForPromise(tscheckspromise)));

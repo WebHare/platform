@@ -5,7 +5,7 @@ import { WebHareRouter, createWebResponse } from "@webhare/router/src/router";
 
 class JSRouter {
   async routerCall(routerfunc: string, req: WebRequestInfo, localbaseurl: string): Promise<WebResponseInfo> {
-    const router = await loadJSFunction(routerfunc) as WebHareRouter;
+    const router = await loadJSFunction<WebHareRouter>(routerfunc);
     let webreq;
     try {
       webreq = newForwardedWebRequest(await newWebRequestFromInfo(req), localbaseurl.substring(1));

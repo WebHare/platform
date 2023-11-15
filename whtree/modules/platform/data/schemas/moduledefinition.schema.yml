@@ -19,8 +19,11 @@ properties:
     description: Additional services
     $ref: "#/definitions/backendServices"
   assetPacks:
-    description: JavaScript/assaet bundles
+    description: JavaScript/asset bundles
     $ref: "#/definitions/assetPacks"
+  selfChecks:
+    description: Setup automatisch selfchecks
+    $ref: "#/definitions/selfChecks"
 patternProperties:
   "^x-[a-zA-Z0-9][-a-zA-Z0-9]*$": # allow custom properties afer x- (but no x-- and no funny chars)
     type: object
@@ -163,3 +166,16 @@ definitions:
 
         required:
           - entryPoint
+
+  selfChecks:
+    description: Add checks to run as part of the automatic checks
+    type: array
+    items:
+      type: object
+      additionalProperties: false
+      properties:
+        checker:
+          description: Path to function to execute
+          type: string
+      required:
+        - checker

@@ -1,5 +1,6 @@
 import { systemConfigSchema } from "@mod-system/js/internal/generated/wrd/webhare";
-import { callHareScript } from "@webhare/services";
+import { loadlib } from "@webhare/harescript";
+import { callHareScript, scheduleTimedTask } from "@webhare/services";
 import * as test from "@webhare/test";
 import * as whdb from "@webhare/whdb";
 
@@ -7,10 +8,10 @@ function byDateId(lhs: { wrdCreationDate: Date | null; wrdId: number }, rhs: { w
   return (lhs.wrdCreationDate!.getTime() - rhs.wrdCreationDate!.getTime()) || (lhs.wrdId - rhs.wrdId);
 }
 
-async function listTestChecks() {
+async function listTestChecks(type: string) {
   const rows = await systemConfigSchema.selectFrom("serverCheck").historyMode("all").select(
     ["type", "wrdId", "wrdCreationDate", "wrdModificationDate", "messageText", "messageTid", "metadata", "wrdLimitDate", "snoozedUntil"]).
-    where("checkTask", "=", "webhare_testsuite:checks").execute();
+    where("checkTask", "=", type).execute();
 
   const history = await systemConfigSchema.selectFrom("serverCheckHistory").
     select(["comment", "wrdLeftEntity", "messageText", "messageTid", "snoozedUntil", "event", "wrdCreationDate", "wrdId"]).
@@ -26,7 +27,7 @@ async function testCheckAPI() {
   //Cleanup curent checks
   await whdb.beginWork();
 
-  for (const row of await listTestChecks())
+  for (const row of await listTestChecks("webhare_testsuite:checks"))
     await systemConfigSchema.delete("serverCheck", row.wrdId);
 
   await whdb.commitWork();
@@ -42,7 +43,7 @@ async function testCheckAPI() {
     ]
   ], { openPrimary: true });
 
-  const checks1 = await listTestChecks();
+  const checks1 = await listTestChecks("webhare_testsuite:checks");
   test.eqProps([
     { type: "webhare_testsuite:check0", metadata: null, messageText: "Test #0 failed", history: [{ event: "start", messageText: "Test #0 failed" }], wrdLimitDate: null },
     { type: "webhare_testsuite:check1", metadata: null, messageText: "Test #1 failed", history: [{ event: "start", messageText: "Test #1 failed" }], wrdLimitDate: null },
@@ -61,7 +62,7 @@ async function testCheckAPI() {
     ]
   ], { openPrimary: true });
 
-  const checks2 = await listTestChecks();
+  const checks2 = await listTestChecks("webhare_testsuite:checks");
   test.eqProps([
     {
       type: "webhare_testsuite:check0", metadata: null, messageText: "Test #0 failed", history:
@@ -91,7 +92,7 @@ async function testCheckAPI() {
     ]
   ], { openPrimary: true });
 
-  const checks3 = await listTestChecks();
+  const checks3 = await listTestChecks("webhare_testsuite:checks");
   test.eqProps([
     { type: "webhare_testsuite:check0", metadata: null, messageText: "Test #0 failed" },
     {
@@ -118,7 +119,7 @@ async function testCheckAPI() {
     ]
   ], { openPrimary: true });
 
-  const checks4 = await listTestChecks();
+  const checks4 = await listTestChecks("webhare_testsuite:checks");
   test.eqProps([
     {
       type: "webhare_testsuite:check0", metadata: null, messageText: "Test #0 refailed", history:
@@ -141,7 +142,7 @@ async function testCheckAPI() {
     { comment: "Stop bothering us" }
   ], { openPrimary: true, autoCommit: true });
 
-  const checks5 = await listTestChecks();
+  const checks5 = await listTestChecks("webhare_testsuite:checks");
   test.eqProps([
     {
       type: "webhare_testsuite:check0", metadata: null, messageText: "Test #0 refailed", history:
@@ -156,7 +157,37 @@ async function testCheckAPI() {
 
   //cancel snooze
   await callHareScript("mod::system/lib/checks.whlib#UnsnoozeIssue", [checks4[0].wrdId], { openPrimary: true, autoCommit: true });
-  test.eqProps(checks4, await listTestChecks(), ["wrdModificationDate"]);
+  test.eqProps(checks4, await listTestChecks("webhare_testsuite:checks"), ["wrdModificationDate"]);
 }
 
-test.run([testCheckAPI]);
+async function listTestSuiteIntervalIssues() {
+  return (await listTestChecks("system:intervalchecks")).filter(_ => _.type.startsWith("webhare_testsuite:") && !_.wrdLimitDate);
+}
+
+async function testTheChecks() {
+  //Cleanup curent checks and schedule the interval checks
+  await whdb.beginWork();
+  await loadlib("mod::system/lib/configure.whlib").writeRegistryKey("webhare_testsuite.tests.response", "checker.ts test");
+  for (const row of await listTestSuiteIntervalIssues())
+    await systemConfigSchema.delete("serverCheck", row.wrdId);
+
+  await scheduleTimedTask("system:intervalchecks");
+  await whdb.commitWork();
+
+  console.log('Waiting for testissue to appear');
+  await test.wait(async () => (await listTestSuiteIntervalIssues()).length > 0);
+
+  //clear the test error
+  await whdb.beginWork();
+  await loadlib("mod::system/lib/configure.whlib").writeRegistryKey("webhare_testsuite.tests.response", "");
+  await scheduleTimedTask("system:intervalchecks");
+  await whdb.commitWork();
+
+  console.log('Waiting for testissue to disappear');
+  await test.wait(async () => (await listTestSuiteIntervalIssues()).length == 0);
+}
+
+test.run([
+  testCheckAPI,
+  testTheChecks
+]);

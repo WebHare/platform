@@ -23,7 +23,7 @@ ASYNC MACRO TestCallAsync()
   TestRejectedLike("*Cannot find library*", Do("whlibx", 0));
   TestRejectedLike("*Cannot find module*", Do("es", 0));
   TestRejectedLike("*Function 'CALLASYNCTESTNOTFOUND' was not found*", Do("whlib", -1));
-  TestRejectedLike("*Imported symbol mod::webhare_testsuite/tests/system/tasks/asynctask.ts#callAsyncTestNotFound is not a function, but a undefined*", Do("ts", -1));
+  TestRejectedLike("*Library*does not export*", Do("ts", -1));
 
   TestRejectedLike("*terminated without giving a response", Do("whlib", 1));
   TestRejectedLike("js-error", Do("whlib", 2));

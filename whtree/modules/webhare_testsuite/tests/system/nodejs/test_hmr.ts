@@ -8,6 +8,8 @@ import { toFSPath, backendConfig } from "@webhare/services";
 import { storeDiskFile } from "@webhare/system-tools";
 import { deleteTestModule, installTestModule } from "@mod-webhare_testsuite/js/config/testhelpers";
 
+type HMRTestFunction = () => number;
+
 async function testFileEdits() {
 
   // make sure the bridge is ready to receive events
@@ -140,9 +142,9 @@ export function func3() { return Number(file.trim()); }
   test.assert(!Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest/js/file.ts")));
   test.assert(!Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest2/js/file2.ts")));
 
-  test.eq(1, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest/js/file.ts#func"))());
-  test.eq(1, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest2/js/file2.ts#func2"))());
-  test.eq(1, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest2/js/file3.ts#func3"))());
+  test.eq(1, (await resourcetools.loadJSFunction<HMRTestFunction>("mod::webhare_testsuite_hmrtest/js/file.ts#func"))());
+  test.eq(1, (await resourcetools.loadJSFunction<HMRTestFunction>("mod::webhare_testsuite_hmrtest2/js/file2.ts#func2"))());
+  test.eq(1, (await resourcetools.loadJSFunction<HMRTestFunction>("mod::webhare_testsuite_hmrtest2/js/file3.ts#func3"))());
   const orgpath = backendConfig.module["webhare_testsuite_hmrtest"].root;
   test.eq(hmrtestresult.path + '/', orgpath); //not sure if ImportModule should be returning without slash, but not modifying any APIs right now if we don't have to
   test.eq(hmrtestresult2.path + '/', backendConfig.module["webhare_testsuite_hmrtest2"].root);
@@ -177,9 +179,9 @@ export function func3() { return Number(file.trim()); }
 
   test.eq(hmrtestresult_reupload.path + '/', backendConfig.module["webhare_testsuite_hmrtest"].root, "Path in config object should have been updated");
   test.assert(orgpath !== backendConfig.module["webhare_testsuite_hmrtest"].root, `new path ${backendConfig.module["webhare_testsuite_hmrtest"].root} should differ from old path ${orgpath}`);
-  test.eq(2, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest/js/file.ts#func"))());
-  test.eq(2, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest2/js/file2.ts#func2"))(), "Recursive invalidation of modules should work, resolve cache and realpath cache should also be cleared");
-  test.eq(2, (await resourcetools.loadJSFunction("mod::webhare_testsuite_hmrtest2/js/file3.ts#func3"))(), "Invalidation by loaded resources should work");
+  test.eq(2, (await resourcetools.loadJSFunction<HMRTestFunction>("mod::webhare_testsuite_hmrtest/js/file.ts#func"))());
+  test.eq(2, (await resourcetools.loadJSFunction<HMRTestFunction>("mod::webhare_testsuite_hmrtest2/js/file2.ts#func2"))(), "Recursive invalidation of modules should work, resolve cache and realpath cache should also be cleared");
+  test.eq(2, (await resourcetools.loadJSFunction<HMRTestFunction>("mod::webhare_testsuite_hmrtest2/js/file3.ts#func3"))(), "Invalidation by loaded resources should work");
 
   test.assert(Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest/js/file.ts")));
   test.assert(Object.hasOwn(require.cache, toFSPath("mod::webhare_testsuite_hmrtest2/js/file2.ts")));
