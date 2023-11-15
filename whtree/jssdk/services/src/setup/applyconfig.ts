@@ -3,7 +3,7 @@ import { loadlib } from '@webhare/harescript/src/contextvm';
 import { scheduleTimedTask } from '@webhare/services/src/tasks';
 import { beginWork, commitWork } from '@webhare/whdb';
 import { logDebug } from "@webhare/services/src/logging";
-import { lockMutex } from "./mutex";
+import { lockMutex } from "../mutex";
 
 export const ConfigurableSubsystems = {
   wrd: { title: "WRD", description: "Apply wrdschema definitions and regenerate the TS definitions" }
