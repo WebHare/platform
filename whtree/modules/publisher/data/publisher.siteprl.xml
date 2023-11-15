@@ -531,7 +531,7 @@
     <boolean name="show_linkstatus" />
   </contenttype>
 
-  <contenttype namespace="http://www.webhare.net/xmlns/publisher/seosettings" cloneoncopy="false">
+  <contenttype namespace="http://www.webhare.net/xmlns/publisher/seosettings" cloneoncopy="true">
     <boolean name="noindex" />
     <boolean name="nofollow" />
     <boolean name="noarchive" />
