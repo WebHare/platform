@@ -802,7 +802,7 @@ PUBLIC OBJECTTYPE XSDElement EXTEND XSDType  // FIXME: is XSDElement an XSDType?
   // {identity constraint definitions}
   PUBLIC OBJECT ARRAY identity_constraint_definitions;
 
-  //, ??? substitution group affiliation
+  PUBLIC OBJECT substitution_group_affiliation;
   //, ??? disallowed substitutions
   //, ??? substitution group exclusions
   //, BOOLEAN abstract
@@ -822,6 +822,7 @@ PUBLIC OBJECTTYPE XSDElement EXTEND XSDType  // FIXME: is XSDElement an XSDType?
     this->type_definition := xsdparser->ResolveObject(this, this->type_definition);
     FOREVERY (OBJECT o FROM this->identity_constraint_definitions)
       this->identity_constraint_definitions[#o] := xsdparser->ResolveObject(this, o);
+    this->substitution_group_affiliation := xsdparser->ResolveObject(this, this->substitution_group_affiliation);
   }
 >;
 
