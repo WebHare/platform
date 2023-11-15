@@ -329,6 +329,8 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
                     , textstyles :=        DEFAULT STRING ARRAY
                     , tabledefaultblockstyle := ""
                     , tableresizing :=     DEFAULT STRING ARRAY
+                    , allowstyles :=       DEFAULT STRING ARRAY
+                    , allowwidgets :=      TRUE
                     , isbuiltin :=         FALSE
                     , split :=             FALSE
                     , toclevel :=          0
@@ -375,6 +377,8 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
         style.type := "table";
         style.containertag := "table";
         style.tabledefaultblockstyle := styleblock->GetAttribute("defaultstyle");
+        style.allowstyles := ParseXSList(styleblock->GetAttribute("allowstyles"));
+        style.allowwidgets := styleblock->HasAttribute("allowwidgets") ? ParseXSBoolean(styleblock->GetAttribute("allowwidgets")) : TRUE;
 
         STRING ARRAY resizing := Tokenize(styleblock->GetAttribute("resizing"), " ");
         IF ("all" IN resizing OR NOT styleblock->HasAttribute("resizing"))
@@ -1641,4 +1645,3 @@ PUBLIC RECORD FUNCTION GetRTDSettingsForApplyTester(OBJECT applytester)
 
   RETURN retval;
 }
-
