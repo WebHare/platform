@@ -92,7 +92,6 @@ function getStructure(type) {
         title: "Kop 1",
         textstyles: ["i", "u", ...alllinks],
         //ADDME textclasses, objects
-        toolbarcss: "font:bold 16px Verdana; color:#000000;",
         containertag: "H1",
         nextblockstyle: "HEADING2"
       },
@@ -101,7 +100,6 @@ function getStructure(type) {
         title: "Kop 2",
         textstyles: ["i", "u", ...alllinks],
         //ADDME textclasses, objects
-        toolbarcss: "font:bold 14px Verdana; color:#000000;",
         containertag: "H2",
         nextblockstyle: "NORMAL"
       },
@@ -110,7 +108,6 @@ function getStructure(type) {
         title: "Kop 2B",
         textstyles: ["b", "i", ...alllinks],
         //ADDME textclasses, objects
-        toolbarcss: "font:bold 14px Verdana; color:#000000;",
         containertag: "H2",
         nextblockstyle: "NORMAL"
       },
