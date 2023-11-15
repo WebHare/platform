@@ -4,6 +4,8 @@
 import * as dompack from 'dompack';
 import { qS } from 'dompack';
 import * as rteapi from '@mod-tollium/web/ui/components/richeditor';
+import { ExternalStructureDef } from '@mod-tollium/web/ui/components/richeditor/internal/parsedstructure';
+import StructuredEditor from '@mod-tollium/web/ui/components/richeditor/internal/structurededitor';
 const richdebug = require('@mod-tollium/web/ui/components/richeditor/internal/richdebug');
 require('./page.css');
 require('./menu.scss');
@@ -77,9 +79,10 @@ window.showrendered = function () {
 };
 
 function getStructure(type) {
+  const params = new URL(location.href).searchParams;
   const alltextstyles = ["i", "u", "b", "sub", "sup", "a-href", "strike", "img"];
   const alllinks = type === "structured-all-links" ? ["a-href"] : [];
-  const structure = {
+  const structure: ExternalStructureDef = {
     blockstyles: [
       {
         tag: "CONTENTTAB", /* put this before p.normal to test scoring */
@@ -142,11 +145,15 @@ function getStructure(type) {
         containertag: 'UL'
       },
       {
+        type: 'table',
         tag: 'TABLE',
         title: 'Tabel',
         containertag: 'TABLE',
         tabledefaultblockstyle: "MYSTYLE",
-        type: 'table'
+        ...(params.get("limittablestyles") ? {
+          allowstyles: ["NORMAL", "MYSTYLE"],
+          allowwidgets: false
+        } : {})
         //, tableresizing: ["table","columns"] // Defaults to ["all"]
       },
       {
@@ -165,7 +172,6 @@ function getStructure(type) {
     contentareawidth: type == 'structured-contentarea' ? "450px" : null
   };
 
-  const params = new URL(location.href).searchParams;
   if (params.get("notablestyle"))
     structure.blockstyles = structure.blockstyles.filter(_ => _.type != "table");
 
