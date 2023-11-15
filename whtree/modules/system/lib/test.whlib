@@ -58,11 +58,15 @@ ASYNC MACRO TT_Escape()
   AWAIT ExpectScreenChange(-1, PTR TTEscape);
 }
 
+/** @private don't appear in symbol searches
+*/
 PUBLIC RECORD test :=
   [ assert := PTR TestAssert
   , run := PTR TT_Run
   ];
 
+/** @private  don't appear in symbol searches, don't conflict with the other tt
+*/
 PUBLIC RECORD tt :=
   [ launchscreen := PTR TT_LaunchScreen
   , comp := PTR TT_Comp
