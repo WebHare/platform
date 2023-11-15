@@ -42,9 +42,6 @@
         <requireright right="fullaccess" />
       </accesscheck>
     </application>
-    <application name="linkbuilder" screen="/screens/linkbuilder.xml#main" tid="linkbuilder.apptitle">
-      <accesscheck />
-    </application>
   </portal>
 
   <backend>
@@ -56,12 +53,6 @@
              cachecontrol="public, max-age=600"
              priority="after"
              redirecttodir="var:se/" />
-
-    <!-- Facebook callback page for the JS SDK auth -->
-    <webrule path="allroots:/tollium_todd.res/socialite/callbacks/fbchannel.html"
-             match="exact"
-             expires="31536000"
-             priority="after" />
   </backend>
 
   <rights>

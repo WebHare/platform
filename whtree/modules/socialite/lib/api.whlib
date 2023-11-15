@@ -34,38 +34,18 @@ PUBLIC OBJECT FUNCTION OpenPreparedSocialiteConnection(RECORD apprec)
   OBJECT app;
   SWITCH(ToUpperCase(apprec.type))
   {
-    CASE 'FACEBOOKV2'
-    {
-      app := NEW FacebookV2NetworkApp(apprec);
-    }
     CASE 'FACEBOOKV3'
     {
       app := NEW FacebookV3NetworkApp(apprec);
-    }
-    CASE 'TWITTER'
-    {
-      app := NEW TwitterNetworkApp(apprec);
     }
     CASE 'LINKEDINV2'
     {
       app := NEW LinkedInV2NetworkApp(apprec);
     }
-    CASE 'YAMMER'
-    {
-      app := NEW YammerNetworkApp(apprec);
-    }
-    CASE 'FOURSQUARE'
-    {
-      app := NEW FourSquareNetworkApp(apprec);
-    }
     CASE 'YOUTUBE'
     {
       app := NEW YOUTUBENetworkApp(apprec);
     }
-    /*CASE 'LASTFM'
-    {
-      app := NEW LastFMNetworkApp(apprec);
-    }*/
     CASE 'VIMEO'
     {
       app := NEW VimeoNetworkApp(apprec);
@@ -73,18 +53,6 @@ PUBLIC OBJECT FUNCTION OpenPreparedSocialiteConnection(RECORD apprec)
     CASE 'INSTAGRAM'
     {
       app := NEW InstagramNetworkApp(apprec);
-    }
-    CASE 'PINTEREST'
-    {
-      app := NEW PinterestNetworkApp(apprec);
-    }
-    CASE 'GOOGLE'
-    {
-      app := NEW GoogleNetworkApp(apprec);
-    }
-   CASE 'MONEYBIRD'
-    {
-      app := NEW MoneybirdNetworkApp(apprec);
     }
     DEFAULT
     {

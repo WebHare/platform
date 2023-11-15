@@ -466,6 +466,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
 
   PUBLIC PROPERTY acceptdrops(pvt_acceptdrops, SetAcceptDrops);
 
+  PUBLIC STRING rowkeydebugtype;
 
   /** Action called when a row is opened
   */
@@ -588,6 +589,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
     this->oniconclick := def.oniconclick;
     this->onsortorderchange := def.onsortorderchange;
     this->pvt_acceptdrops := def.acceptdrops;
+    this->rowkeydebugtype := def.rowkeydebugtype;
 
     this->selectevent := def.selectevent;
     this->columnselectmode := def.columnselectmode;
@@ -2237,6 +2239,14 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
     }
   }
 
+  RECORD ARRAY FUNCTION GetDebugActions()
+  {
+    RECORD ARRAY actions;
+    IF(this->rowkeydebugtype != "")
+      INSERT [[ type := "wrd:entity", cellname := "rowkey" ]] INTO actions AT END;
+    RETURN actions CONCAT this->debugactions;
+  }
+
   MACRO ExecuteMagicAction(STRING type, RECORD row)
   {
     IF(NOT this->contexts->controller->IsTrustedToDebug())
@@ -2247,13 +2257,15 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
       Reflect(row);
       RETURN;
     }
+
     IF(type LIKE "debugaction:*")
     {
       INTEGER actionid := ToInteger(Substring(type,12),-1);
-      IF(actionid < 0 OR actionid >= Length(this->debugactions))
+      RECORD ARRAY actions := this->GetDebugActions();
+      IF(actionid < 0 OR actionid >= Length(actions))
         RETURN;
 
-      ExecuteDebugAction(this->owner, this->debugactions[actionid], GetCell(row, this->debugactions[actionid].cellname));
+      ExecuteDebugAction(this->owner, actions[actionid], GetCell(row, actions[actionid].cellname));
     }
   }
 
@@ -2411,7 +2423,7 @@ PUBLIC OBJECTTYPE TolliumList EXTEND TolliumComponentBase
                          , highlightidx      := this->highlightname != "" ? 4 : -1
                          , syncselect        := this->selectevent = "synchronous"
                          , sortcolumn        := this->pvt_sortcolumn
-                         , debugactions      := this->debugactions
+                         , debugactions      := this->GetDebugActions()
                          , class             := this->class
                          , icons             := this->icons
                          ];

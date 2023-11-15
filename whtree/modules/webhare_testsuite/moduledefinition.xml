@@ -273,10 +273,7 @@
       <string name="docroot" />
       <string name="runoncetest" />
     </node>
-    <node name="apis">
-      <record name="twitter_testclient" />
-      <record name="twitter_testauth" />
-    </node>
+    <obsoletenode name="apis" />
     <node name="registrytests">
       <obsoletekey name="removekey" />
       <obsoletenode name="removenode" />

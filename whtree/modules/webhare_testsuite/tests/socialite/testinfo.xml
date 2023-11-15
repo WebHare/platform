@@ -1,6 +1,5 @@
 <group xmlns="http://www.webhare.net/xmlns/system/testinfo">
   <test script="test_embedvideo.whscr" tags="external" />
-  <test script="test_twitter_text.whscr" />
   <test script="test_plugins.whscr" />
   <test script="test_feeds.whscr" tags="external" />
   <test script="test_seotab.whscr" />

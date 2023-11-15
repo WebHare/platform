@@ -2,7 +2,6 @@
 *.args
 .checkoutstate
 .wh.dev.connectinfo
-.vscode
 *.swp
 .DS_Store
 /build
@@ -44,3 +43,7 @@ coverage.tar.gz
 /whtree/var
 /whtree/whdata
 /vendor/.*.lock
+
+# We ignore .vscode as c_cpp_properties.json, launch.json and tasks.json aren't standardized (yet) accross developers
+/.vscode/*
+!/.vscode/settings.json
