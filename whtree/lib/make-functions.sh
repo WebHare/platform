@@ -71,5 +71,5 @@ setup_builddir()
   fi
 }
 
-export -f die
+export -f die setup_builddir
 export WEBHARE_NODE_BINARY WEBHARE_PLATFORM
