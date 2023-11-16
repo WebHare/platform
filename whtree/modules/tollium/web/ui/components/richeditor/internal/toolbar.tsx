@@ -189,22 +189,19 @@ class StyleButtonBase extends ToolbarButtonBase {
   }
 
   updateStructure(selstate) {
-    dompack.empty(this.select);
     this.optionlist = [];
 
     const styles = this.getAvailableStyles(selstate);
-
     for (let i = 0; i < styles.length; ++i) {
       const bs = styles[i];
       const title = bs.def.title ? bs.def.title : bs.tag;
       const opt = <option class="wh-rtd__toolbaroption" value={bs.tag}>{title}</option>;
-      //ADDME toolbarcss? but 'style: { cssText: bs.def.toolbarcss' is CSP risky
 
       opt.blockstyle = bs;
       this.optionlist.push(opt);
-      this.select.appendChild(opt);
     }
 
+    this.select.replaceChildren(...this.optionlist);
   }
 
   updateState(selstate) {

@@ -24,7 +24,7 @@ import * as support from "./support";
 import * as compatupload from '@mod-system/js/compat/upload';
 import * as icons from '@mod-tollium/js/icons';
 import Range from './dom/range';
-import type ParsedStructure from "./parsedstructure";
+import type { ParsedStructure, BlockStyle } from "./parsedstructure";
 import { encodeString } from "@webhare/std";
 
 let editableFix;
@@ -318,6 +318,7 @@ export function getDefaultToolbarLayout() {
 export default class EditorBase {
   structure: ParsedStructure | undefined;
   blockroots: string[];
+  lastselectionstate = new TextFormattingState;
 
   constructor(container, options) {
     options =
@@ -526,8 +527,6 @@ export default class EditorBase {
     // Listen to focus and focusout/focusin (focusin is needed on IE11, focus runs after the element gets focus
     // (rob: my guess is that happens when the old focused element disappears, but not sure)
     this._registerFrameEventListeners();
-
-    this.lastselectionstate = new TextFormattingState();
 
     this.language = options && options.language || 'en';
     this.SetBreakupNodes(options && options.breakupnodes);
@@ -2267,7 +2266,7 @@ export default class EditorBase {
     //    if(this.options.log)
     //      console.log("Iterate parents");
     //    var anchornode = sel.Node();
-    for (let curnode = anchornode; curnode && curnode != this.bodydiv; curnode = curnode.parentNode) {
+    for (let curnode: HTMLElement = anchornode; curnode && curnode != this.bodydiv; curnode = curnode.parentNode) {
       switch (curnode.nodeName.toUpperCase()) {
         case 'B': case 'STRONG': /* FIXME shouldn't generate STRONGs! */
         case 'I': case 'EM': /* FIXME shouldn't generate EMs! */
@@ -2300,6 +2299,7 @@ export default class EditorBase {
 
         case 'TABLE':
           formatting.tables.push(curnode);
+          formatting.tablestyle = this.structure?.lookupTableStyle(curnode as HTMLTableElement) || null;
           break;
       }
       if (curnode.getAttribute && curnode.getAttribute('align'))
@@ -2385,6 +2385,7 @@ export default class EditorBase {
     const allow_td_actions = startblock == limitblock && tdparent;
     const tableeditor = allow_td_actions && tablesupport.getEditorForNode(tdparent.closest("table"));
     const tableactionstate = tableeditor && tableeditor.getActionState(tdparent);
+    const allowwidgets = !formatting.tablestyle || formatting.tablestyle?.allowwidgets;
 
     formatting.actionstate =
     {
@@ -2407,6 +2408,12 @@ export default class EditorBase {
       "action-properties":
       {
         available: formatting.propstarget
+      },
+      "object-insert": {
+        available: allowwidgets
+      },
+      "object-video": {
+        available: allowwidgets
       },
       "b":
       {
@@ -3246,26 +3253,25 @@ export default class EditorBase {
   }
 }
 
-class TextFormattingState {
-  constructor() {
-    this.hyperlink = false;
-    this.bulletedlist = false;
-    this.numberedlist = false;
-    this.alignleft = false;
-    this.aligncenter = false;
-    this.alignright = false;
-    this.alignjustified = false;
-    this.haveselection = false;
+export class TextFormattingState {
+  hyperlink = false;
+  bulletedlist = false;
+  numberedlist = false;
+  alignleft = false;
+  aligncenter = false;
+  alignright = false;
+  alignjustified = false;
+  haveselection = false;
 
-    this.textstyles = [];
-    this.propstarget = null;
+  textstyles = [];
+  propstarget = null;
 
-    this.actionstate = {};
-    this.actionparent = null; // nearest ol/ul/td/th
+  actionstate = {};
+  actionparent = null; // nearest ol/ul/td/th
 
-    this.tables = [];
-    this.blockstyle = null;
-  }
+  tables: HTMLTableElement[] = [];
+  tablestyle: BlockStyle | null = null;
+  blockstyle: BlockStyle | null = null;
 
   hasTextStyle(nodeName) {
     return this.getTextStyleByNodeName(nodeName) != null;

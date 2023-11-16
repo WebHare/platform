@@ -103,6 +103,36 @@ test.registerTests(
       rte.setReadonly(true);
       rte.setValue(tabletext);
       rte.setReadonly(false);
+    },
+
+    'Tableeditor limit styling - verify initial setting',
+    async function () {
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured-contentarea&fill=tables');
+      rte = test.getWin().rte.getEditor();
+
+      const cells = rte.getBody().querySelectorAll('tr:first-child th');
+      const driver = new rtetest.RTEDriver;
+      driver.setSelection(cells[2].firstChild, 0, cells[2].firstChild, 1);
+
+      const styleoptions = [...test.qR<HTMLOptionElement>('.wh-rtd__toolbarstyle').options].map(opt => opt.textContent);
+      test.assert(styleoptions.includes("Kop 1"));
+      test.assert(!test.qR(".wh-rtd-button[data-button='object-insert']").matches(".disabled"));
+      test.assert(!test.qR(".wh-rtd-button[data-button='object-video']").matches(".disabled"));
+    },
+
+    'Tableeditor limit styling - now limited',
+    async function () {
+      await test.load('/.webhare_testsuite/tests/pages/rte/?editor=structured-contentarea&fill=tables&limittablestyles=1');
+      rte = test.getWin().rte.getEditor();
+
+      const cells = rte.getBody().querySelectorAll('tr:first-child th');
+      const driver = new rtetest.RTEDriver;
+      driver.setSelection(cells[2].firstChild, 0, cells[2].firstChild, 1);
+
+      const styleoptions = [...test.qR<HTMLOptionElement>('.wh-rtd__toolbarstyle').options].map(opt => opt.textContent);
+      test.assert(!styleoptions.includes("Kop 1"));
+      test.assert(test.qR(".wh-rtd-button[data-button='object-insert']").matches(".disabled"));
+      test.assert(test.qR(".wh-rtd-button[data-button='object-video']").matches(".disabled"));
     }
 
   ]);
