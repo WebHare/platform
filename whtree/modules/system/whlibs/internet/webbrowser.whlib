@@ -5,6 +5,8 @@
 
 LOADLIB "wh::crypto.whlib";
 LOADLIB "wh::datetime.whlib";
+LOADLIB "wh::javascript.whlib";
+LOADLIB "wh::internet/fetch.whlib";
 LOADLIB "wh::internet/http.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::internet/urls.whlib";
@@ -533,6 +535,24 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
     RETURN tryhosts;
   }
 
+  RECORD FUNCTION __GetAuthorizationFor(STRING url)
+  {
+    STRING authurlspace := Left(url,SearchLastSubstring(url,'/')+1);
+    STRING urlwithoutparams := Tokenize(url, "?")[0];
+
+    RETURN SELECT *
+             FROM this->pvt_authuris
+            WHERE authurlspace LIKE urlspace || '*' OR urlwithoutparams = urlspace
+         ORDER BY Length(urlspace) DESC;
+  }
+
+  RECORD FUNCTION PackHeaders(RECORD ARRAY headers)
+  {
+    //TODO merge dupe headers
+    RECORD packed := RepackRecord(SELECT name := field, value FROM headers);
+    RETURN packed;
+  }
+
   /** GET or POST a page, transparently handling redirects (301, 303, 307)
       @param method HTTP method  to use (eg 'GET', 'POST')
       @param url URL to request
@@ -546,6 +566,91 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
   */
   OBJECT FUNCTION* GetPage(STRING method, STRING url, RECORD ARRAY headers, BLOB request_body, RECORD options, BOOLEAN isasync)
   {
+    IF(IsWasm())
+    {
+      //TCP/IP won't be supported in the WASM engine. We'll simulate browser->GetPage as best as we can. We're not aiming for a 100% perfect replacement, just support the most often used patterns
+      IF(isasync)
+        THROW NEW Exception(`The async Webbrowser API is not supported in the WASM engine - you should use wh::internet/fetch.whlib as a cross-engine alternative`);
+
+      RECORD reqopts := CELL[ method := ToLowercase(method)
+                            , headers := this->PackHeaders(headers)
+                            ];
+      IF(Length(request_body) > 0)
+      {
+        IF(reqopts.method IN ["get","head"])
+          THROW NEW Exception(`GET/HEAD requests with a body are not supported in the WASM engine. Your service probably supports a POST alternative API too`);
+
+        INSERT CELL body := request_body INTO reqopts;
+      }
+
+      BOOLEAN retry_for_login;
+      WHILE(TRUE)
+      {
+        RECORD unpacked := UnpackURL(url);
+        BOOLEAN forcedauth;
+        STRING requesturl := url;
+
+        IF(unpacked.user != "" OR unpacked.password != "") //fetch doesn't accetpt user/pass in URLs
+        {
+          forcedauth := TRUE;
+          INSERT CELL authorization := `Basic ${EncodeBase64(`${unpacked.user}:${unpacked.password}`)}` INTO reqopts.headers;
+          unpacked.user := "";
+          unpacked.password := "";
+          requesturl := RepackURL(unpacked);
+        }
+
+        IF(NOT forcedauth)
+        {
+          RECORD auth := this->__GetAuthorizationFor(url);
+          IF(RecordExists(auth))
+          {
+            IF(auth.username = "__header")
+              INSERT CELL authorization := auth.password INTO reqopts.headers;
+            ELSE
+              INSERT CELL authorization := `Basic ${EncodeBase64(`${auth.username}:${auth.password}`)}` INTO reqopts.headers;
+          }
+        }
+
+        OBJECT fetchresp := FetchSync(requesturl, reqopts, [ debug := this->debug OR __webbrowser_debugall ]);
+        IF(NOT fetchresp->ok AND fetchresp->status = 401 AND NOT forcedauth AND NOT retry_for_login AND this->pvt_authhandler != DEFAULT FUNCTION PTR) //Login required and not attempted
+        {
+          RECORD basicauth := DecodeHTTPAuthenticationHeader(fetchresp->headers->Get("www-authenticate"),FALSE);
+          IF(CellExists(basicauth,"realm"))
+          {
+            RECORD authdata := this->pvt_authhandler(RecordExists(basicauth) ? basicauth.realm : "", url);
+            IF(RecordExists(authdata))
+            {
+              STRING authurlspace := Left(url,SearchLastSubstring(url,'/')+1);
+              INSERT
+                  [ username :=       authdata.username
+                  , password :=       authdata.password
+                  , urlspace :=       authurlspace
+                  , realm :=          basicauth.realm
+                  , isproxy :=        FALSE
+                  ] INTO this->pvt_authuris AT END;
+              retry_for_login := TRUE;
+              CONTINUE;
+            }
+          }
+        }
+
+        BLOB content := fetchresp->asBlob();
+        this->pvt_lastrequest :=
+          CELL[ protocol := ""
+              , code := fetchresp->status
+              , message :=  fetchresp->statustext
+              , headers := (SELECT field := COLUMN "key", value FROM fetchresp->headers->Entries())
+              , content
+              , content_length := Length(content)
+              , keepalive := TRUE
+              , sendfailed := FALSE
+              , receivefailed := FALSE
+              ];
+
+        RETURN fetchresp->ok;
+      }
+    } //IF IsWasm
+
     IF (this->running)
       THROW NEW Exception("Concurrent requests are not allowed");
 
@@ -578,16 +683,11 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
 
         RECORD unpacked := UnpackURL(url);
         STRING authurlspace := Left(url,SearchLastSubstring(url,'/')+1);
-        STRING urlwithoutparams := Tokenize(url, "?")[0];
 
         /* Do we have an authentication for this uri ? (get closest match) */
         RECORD auth;
         IF(unpacked.password = "")
-        {
-          auth := SELECT * FROM this->pvt_authuris
-                   WHERE authurlspace LIKE urlspace || '*' OR urlwithoutparams = urlspace
-                ORDER BY Length(urlspace) DESC;
-        }
+          auth := this->__GetAuthorizationFor(url);
 
         //FIXME Proxy auth should be matched to the PROXYSERVER, not to the url space
         RECORD proxyauth;
@@ -1765,6 +1865,9 @@ PUBLIC STATIC OBJECTTYPE WebBrowser
   */
   PUBLIC RECORD FUNCTION OpenWebSocket(STRING url, RECORD ARRAY headers)
   {
+    IF(IsWasm())
+      THROW NEW Exception(`Websocket connections are not supported in the WASM engine.`);
+
     IF (url LIKE "ws:*" OR url LIKE "wss:*")
       url := "http" || SubString(url, 2);
 
