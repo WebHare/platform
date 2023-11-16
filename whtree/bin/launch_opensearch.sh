@@ -72,17 +72,24 @@ if [ -z "$WEBHARE_IN_DOCKER" ]; then
     exit 1
   fi
 
-  CURRENT_OPENSEARCHVERSION="$($CHPST "$OPENSEARCHBINARY" --version)"
-  CHECKOUTSTATE="$WEBHARE_CHECKEDOUT_TO/.checkoutstate"
+  setup_builddir
 
-  LAST_OPENSEARCHVERSION="$(cat "$CHECKOUTSTATE"/lastopensearchversion 2>/dev/null || true)"
+  CURRENT_OPENSEARCHVERSION="$($CHPST "$OPENSEARCHBINARY" --version)"
+
+  # Remove from old location (remove at Date.now >= 2024-02-13)
+  [ -f "$WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install" ] && rm "$WEBHARE_CHECKEDOUT_TO/.checkoutstate/last-brew-install"
+  rmdir "$WEBHARE_CHECKEDOUT_TO/.checkoutstate" 2>/dev/null || true # try to cleanup the dir now
+
+  # Store the checkfile in 'whbuild' so discarding that directory (which you should do when changing platforms) resets the brew state too
+  CHECKFILE="$WEBHARE_BUILDDIR/lastopensearchversion"
+
+  LAST_OPENSEARCHVERSION="$(cat "$CHECKFILE"/ 2>/dev/null || true)"
   if [ "$CURRENT_OPENSEARCHVERSION" != "$LAST_OPENSEARCHVERSION" ]; then
     # Reinstall our plugins when Opensearch is updated
     "$OPENSEARCHBINARY-plugin" remove analysis-icu 2>/dev/null || true
     "$OPENSEARCHBINARY-plugin" install analysis-icu
 
-    mkdir -p "$CHECKOUTSTATE"
-    echo "$CURRENT_OPENSEARCHVERSION" > "$CHECKOUTSTATE"/lastopensearchversion
+    echo "$CURRENT_OPENSEARCHVERSION" > "$CHECKFILE"
   fi
 fi
 

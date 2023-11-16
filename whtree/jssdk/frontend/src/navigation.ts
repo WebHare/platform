@@ -63,9 +63,9 @@ export function navigateTo(navigation: string | NavigateInstruction) {
     case "postmessage":
       {
         if (!navigation.target || navigation.target === "parent")
-          parent.postMessage(navigation.message, "*");
+          window.parent.postMessage(navigation.message, "*");
         else if (navigation.target === "opener") {
-          opener.postMessage(navigation.message, "*");
+          window.opener.postMessage(navigation.message, "*");
           window.close();
         } else
           throw Error("Unknown postmessage target '" + navigation.target + "' received");

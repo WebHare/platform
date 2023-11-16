@@ -584,7 +584,7 @@ export async function load(page: string): Promise<void> {
     throw new Error(`test.load exects a string`);
   }
 
-  const topwhdebug = new URL(top.location.href).searchParams.get("wh-debug");
+  const topwhdebug = new URL(window.top.location.href).searchParams.get("wh-debug");
   if (topwhdebug !== null) { //something is set... should override loaded urls unless the load explicitly sets wh-debug. allows passing eg ?wh-debug=apr
     const gotourl = new URL(page);
     if (gotourl.searchParams.get("wh-debug") === null) {
