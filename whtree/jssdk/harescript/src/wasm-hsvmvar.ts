@@ -274,6 +274,10 @@ export class HSVMVar {
     const newid = this.vm.wasmmodule._HSVM_RecordCreate(this.vm.hsvm, this.id, columnid);
     return new HSVMVar(this.vm, newid);
   }
+  recordExists() {
+    this.checkType(VariableType.Record);
+    return this.vm.wasmmodule._HSVM_RecordExists(this.vm.hsvm, this.id);
+  }
   objectExists() {
     this.checkType(VariableType.Object);
     return this.vm.wasmmodule._HSVM_ObjectExists(this.vm.hsvm, this.id);

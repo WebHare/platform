@@ -22,7 +22,8 @@ import { checkPromiseErrorsHandled } from "@webhare/js-api-tools";
 import { uploadBlobToConnection } from './blobs';
 import { ensureScopedResource } from '@webhare/services/src/codecontexts';
 import { WHDBPgClient } from './connection';
-import { getCodeContextHSVM } from '@webhare/harescript/src/contextvm';
+import { HareScriptVM, getActiveVMs } from '@webhare/harescript/src/wasm-hsvm';
+import { HSVMHeapVar } from '@webhare/harescript/src/wasm-hsvmvar';
 
 export { isSameUploadedBlob } from "./blobs";
 
@@ -44,6 +45,43 @@ interface FinishHandler {
   onRollback?: () => unknown | Promise<unknown>;
 }
 
+class HandlerList implements Disposable {
+  handlerlist = new Array<{
+    vm: HareScriptVM;
+    handlers: HSVMHeapVar;
+  }>();
+
+  async setup() {
+    for (const vm of getActiveVMs()) {  //someone allocated a VM.. run any handlers there too
+      const handlers = vm.allocateVariable();
+      await vm.callWithHSVMVars("wh::internal/transbase.whlib#__PopPrimaryFinishHandlers", [], undefined, handlers);
+      if (handlers.recordExists())
+        this.handlerlist.push({ vm, handlers });
+      else
+        handlers[Symbol.dispose]();
+    }
+  }
+
+  async invoke(stage: "onBeforeCommit" | "onCommit" | "onRollback") {
+    for (const handler of this.handlerlist)
+      await handler.vm.loadlib("wh::internal/transbase.whlib").__InvokeFinishHandlers(handler.handlers, stage);
+  }
+
+  [Symbol.dispose]() {
+    for (const handler of this.handlerlist)
+      handler.handlers[Symbol.dispose]();
+    this.handlerlist = [];
+  }
+}
+
+/* Gather and invoke finish handlers. These work on the current code context and are designed to invoke the handlers in the right order
+   even when callback handlers open new work during their execution */
+async function gatherCurrentHandlers(): Promise<HandlerList> {
+  const handlerlist = new HandlerList();
+  await handlerlist.setup();
+  return handlerlist;
+}
+
 class Work {
   conn;
   open;
@@ -56,16 +94,11 @@ class Work {
     this.open = true;
   }
 
-  async _invokeFinishHandlers(handler: "onBeforeCommit" | "onCommit" | "onRollback") {
+  private async invokeFinishHandlers(handlers: HandlerList, stage: "onBeforeCommit" | "onCommit" | "onRollback") {
     //invoke all finishedhandlers in 'parallel' and wait for them to finish
-    await Promise.all(Array.from(this.finishhandlers.values()).map(h => h[handler]?.()));
-
-    const vm = getCodeContextHSVM();
-    if (vm) { //someone allocated a VM.. run any handlers there too
-      const primary = await (await vm).loadlib("mod::system/lib/database.whlib").getPrimary();
-      if (primary)
-        await primary.__InvokeFinishHandlers(handler);
-    }
+    await Promise.all(Array.from(this.finishhandlers.values()).map(h => h[stage]?.()));
+    //serialize HSVM handlers, we don't expect them to deal with overlapping calls
+    await handlers.invoke(stage);
   }
 
   async nextVals(field: string, howMany: number): Promise<number[]> {
@@ -104,8 +137,10 @@ class Work {
     if (!this.conn.pgclient)
       throw new Error(`Connection was already closed`);
 
+    using handlers = await gatherCurrentHandlers();
+
     try {
-      await this._invokeFinishHandlers("onBeforeCommit");
+      await this.invokeFinishHandlers(handlers, "onBeforeCommit");
     } catch (e) {
       try {
         await this.rollback();
@@ -121,7 +156,7 @@ class Work {
       await sql`COMMIT`.execute(this.conn._db);
       this.commituniqueevents.forEach(event => broadcast(event));
       this.commitdataevents.forEach(event => broadcast(event.name, event.data));
-      await this._invokeFinishHandlers("onCommit");
+      await this.invokeFinishHandlers(handlers, "onCommit");
     } finally {
       //TODO if (pre)commit fails we should
       lock.release();
@@ -136,10 +171,11 @@ class Work {
       throw new Error(`Connection was already closed`);
 
     this.open = false;
+    using handlers = await gatherCurrentHandlers();
     const lock = this.conn.reftracker.getLock("query lock: ROLLBACK");
     try {
       await sql`ROLLBACK`.execute(this.conn._db);
-      await this._invokeFinishHandlers("onRollback");
+      await this.invokeFinishHandlers(handlers, "onRollback");
     } finally {
       lock.release();
       this.conn.openwork = undefined;

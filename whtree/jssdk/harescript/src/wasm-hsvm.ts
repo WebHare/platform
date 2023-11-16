@@ -14,9 +14,10 @@ import { Mutex } from "@webhare/services";
 import { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { debugFlags } from "@webhare/env";
 import bridge, { BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
-import { rootstorage, runOutsideCodeContext } from "@webhare/services/src/codecontexts";
+import { ensureScopedResource, getScopedResource, rootstorage, runOutsideCodeContext } from "@webhare/services/src/codecontexts";
 import { type HSVM_HSVMSource } from "./machinewrapper";
 import { encodeIPCException } from "@mod-system/js/internal/whmanager/ipc";
+import { isTruthy } from "@mod-system/js/internal/util/algorithms";
 
 
 export interface StartupOptions {
@@ -53,6 +54,9 @@ export type MessageList = Array<{
 const enginePool = new Array<WASMModule>;
 
 export type JSBlobTag = { pg: string } | null;
+
+const hsvmlistsymbol = Symbol("HSVMList");
+type HSVMList = Set<WeakRef<HareScriptVM>>;
 
 // function addHareScriptTrace(trace: TraceElement[], err: Error) {
 //   const stacklines = err.stack?.split("\n") || [];
@@ -269,7 +273,11 @@ export class HareScriptVM implements HSVM_HSVMSource {
       console.log(`[${this.currentgroup}] Load script: ${script}`);
       console.trace();
     }
+
     await this.loadScript(script);
+    const myweakref = new WeakRef(this);
+    const vmlist = ensureScopedResource<HSVMList>(hsvmlistsymbol, () => new Set<WeakRef<HareScriptVM>>());
+    vmlist.add(myweakref);
 
     let exception: unknown | null = null;
     try {
@@ -283,6 +291,8 @@ export class HareScriptVM implements HSVM_HSVMSource {
       //When the script is done, we clean up
       if (this.onScriptDone)
         await this.onScriptDone(exception instanceof Error ? exception : null);
+
+      vmlist.delete(myweakref); //remove from active list, prevent any more incoming calls from eg commitWork handlers
 
       try {
         //TODO Might want to already release some resources when the main script is done ?
@@ -676,6 +686,11 @@ async function createHarescriptModule() {
 export async function allocateHSVM(options?: StartupOptions): Promise<HareScriptVM> {
   const hsvmModule = enginePool.pop() || createHarescriptModule();
   return new HareScriptVM(await hsvmModule, options || {});
+}
+
+export function getActiveVMs(): HareScriptVM[] {
+  const vmlist = getScopedResource<HSVMList>(hsvmlistsymbol);
+  return vmlist ? [...vmlist].map(_ => _.deref()).filter(isTruthy) : [];
 }
 
 //Only for CI tests:

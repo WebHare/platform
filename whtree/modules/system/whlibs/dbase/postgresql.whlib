@@ -1126,10 +1126,7 @@ STRING FUNCTION MapAction(STRING indata)
 
 
 STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
-< /** Whether this looks like an autotransaction to the outside world (underlying transaction is always auto)
-  */
-  BOOLEAN pvt_isauto;
-
+<
   /// Whether error delay is enabled
   BOOLEAN pvt_delayerrors;
 
@@ -1166,12 +1163,11 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
   /// Pid of PostgreSQL backend client
   PUBLIC PROPERTY backendpid(pvt_backendpid, -);
 
-  MACRO NEW(RECORD transresult, BOOLEAN auto, BOOLEAN isprimary, OBJECT blobhandler)
+  MACRO NEW(RECORD transresult, BOOLEAN isprimary, OBJECT blobhandler)
   {
     this->RegisterTransaction(transresult.id);
     this->pvt_backendpid := transresult.pid;
     this->pvt_isprimary := isprimary;
-    this->pvt_isauto := auto;
     this->pvt_transactionisolationlevel := "read committed";
     this->pvt_blobhandler := blobhandler;
 
@@ -1179,17 +1175,9 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
 
     this->SetAllowErrorDelay(NOT IsDebugTagEnabled("pg-noerrordelay"));
 
-    IF(this->pvt_isauto)
+    IF(__PGSQL_GETWORKOPEN(this->id)) //work=open means we got a marshalled transaction. ADDME prevent closure on our side of such a trans/work
     {
-      IF(__PGSQL_GETWORKOPEN(this->id)) //work=open means we got a marshalled transaction. ADDME prevent closure on our side of such a trans/work
-      {
-        this->pvt_numworks := 1;
-      }
-    }
-    ELSE IF (NOT __PGSQL_GETWORKOPEN(this->id))
-    {
-      // non-auto transaction: automatically open work
-      this->BeginWork();
+      this->pvt_numworks := 1;
     }
   }
 
@@ -1215,7 +1203,7 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
 
   UPDATE PUBLIC BOOLEAN FUNCTION HasWorkSupport()
   {
-    RETURN this->pvt_isauto;
+    RETURN TRUE;
   }
 
   UPDATE PUBLIC BOOLEAN FUNCTION IsWorkOpen()
@@ -1240,32 +1228,12 @@ STATIC OBJECTTYPE WHPostgreSQLTransaction EXTEND LockingTransactionBase
 
   UPDATE PUBLIC MACRO Rollback()
   {
-    IF(this->pvt_isauto)
-      THROW NEW Exception("Rollback cannot be used on auto transactions, use RollbackWork");
-    LockingTransactionBase::Rollback();
-  }
-
-  UPDATE PUBLIC MACRO __CallCommitHandlers(BOOLEAN iscommit)
-  {
-    // Change to auto transaction. Close work if open.
-    this->pvt_isauto := TRUE;
-    LockingTransactionBase::__CallCommitHandlers(iscommit);
+    THROW NEW Exception("Rollback cannot be used on auto transactions, use RollbackWork");
   }
 
   UPDATE PUBLIC RECORD ARRAY FUNCTION Commit()
   {
-    IF(this->pvt_isauto)
-      THROW NEW Exception("Commit cannot be used on auto transactions, use CommitWork");
-
-    TRY
-    {
-      RECORD ARRAY result := this->CommitWork();
-      RETURN result;
-    }
-    FINALLY
-    {
-      this->Close();
-    }
+    THROW NEW Exception("Commit cannot be used on auto transactions, use CommitWork");
   }
 
   UPDATE PUBLIC MACRO Close()
@@ -1899,7 +1867,7 @@ PUBLIC OBJECT FUNCTION __StartWHPostgreSQLTransaction(RECORD transinfo DEFAULTST
   IF(NOT RecordExists(transresult))
     RETURN DEFAULT OBJECT;
 
-  OBJECT trans := NEW WHPostgreSQLTransaction(transresult, transinfo.auto, transinfo.isprimary, transinfo.blobhandler);
+  OBJECT trans := NEW WHPostgreSQLTransaction(transresult, transinfo.isprimary, transinfo.blobhandler);
 
   IF (IsDebugTagEnabled("pg-auto_explain"))
   {
