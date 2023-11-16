@@ -83,6 +83,14 @@ async function testCalls() {
   //verify promises
   test.eq(15, await vm.loadlib("wh::promise.whlib").createSleepPromise(15));
   await test.throws(/We're async throwing it/, vm.loadlib("mod::webhare_testsuite/tests/system/nodejs/wasm/testwasmlib.whlib").ThrowItAsync());
+
+  //test whether we can keep values boxed
+  const rawvm = vm._getHSVM();
+  using param = rawvm.allocateVariable();
+  using retval = rawvm.allocateVariable();
+  param.setString("wh::util/algorithms.whlib#GetSortedSet");
+  test.eq(true, await rawvm.callWithHSVMVars("wh::system.whlib#MakeFunctionPtr", [param], undefined, retval));
+  test.eq([1, 2, 3], await vm.loadlib("wh::system.whlib").CallAnyPtrVA(retval, [[3, 1, 2]]));
 }
 
 async function testMutex() { //test the shutdown behavior of WASM HSVM mutexes

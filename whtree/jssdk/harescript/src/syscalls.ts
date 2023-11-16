@@ -4,7 +4,6 @@ import * as services from '@webhare/services';
 import { defaultDateTime, formatISO8601Date, localizeDate, maxDateTimeTotalMsecs } from "@webhare/hscompat/datetime";
 import { callExportNowrap, describe } from "@mod-system/js/internal/util/jssupport";
 import { VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
-import { IPCEncodedException, parseIPCException } from "@mod-system/js/internal/whmanager/ipc";
 import { HareScriptVM } from "./wasm-hsvm";
 
 /* Syscalls are simple APIs for HareScript to reach into JS-native functionality that would otherwise be supplied by
@@ -136,18 +135,4 @@ export function getActionQueue(hsvm: HareScriptVM) {
     ///Function calls the JS code wants the HSVM to execute
     functionrequests
   };
-}
-
-export function resolvedFunctionRequest(hsvm: HareScriptVM, { id, ismacro, resolved, rejected }: { id: number; ismacro: boolean; resolved?: unknown; rejected?: IPCEncodedException }) {
-  // console.log("resolvedFunctionRequest", id, ismacro, resolved, rejected);
-  const req = hsvm.pendingFunctionRequests.findIndex(_ => _.id == id);
-  if (req == -1) //already resolved
-    return;
-
-  if (rejected)
-    hsvm.pendingFunctionRequests[req].reject(parseIPCException({ __exception: rejected }));
-  else
-    hsvm.pendingFunctionRequests[req].resolve(ismacro ? undefined : resolved);
-
-  hsvm.pendingFunctionRequests.splice(req, 1);
 }

@@ -217,6 +217,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
     functionref: string;
     params: HSVMVar[];
     object: HSVMHeapVar | null;
+    retvalStore: HSVMHeapVar | undefined;
     sent: boolean;
   }>;
 
@@ -551,12 +552,12 @@ export class HareScriptVM implements HSVM_HSVMSource {
   /** @param functionref - Function to call
       @param isfunction - Whether to call a function or macro
    */
-  async callWithHSVMVars(functionref: string, params: HSVMVar[], objectid?: HSVM_VariableId): Promise<unknown> {
+  async callWithHSVMVars(functionref: string, params: HSVMVar[], objectid?: HSVM_VariableId, retvalStore?: HSVMHeapVar): Promise<unknown> {
     //FIXME check if we really want to bother with HSMVars as currently its just a lot of extra cloning
     const defer = createDeferred<unknown | undefined>();
     const id = ++this.syscallPromiseIdCounter;
     const object = objectid ? this.allocateVariableCopy(objectid) : null;
-    this.pendingFunctionRequests.push({ id, resolve: defer.resolve, reject: defer.reject, functionref, params: params.map(p => this.allocateVariableCopy(p.id)), object, sent: false });
+    this.pendingFunctionRequests.push({ id, resolve: defer.resolve, reject: defer.reject, functionref, retvalStore, params: params.map(p => this.allocateVariableCopy(p.id)), object, sent: false });
 
     // console.log("Queued outgoing call", this.pendingFunctionRequests.at(-1));
     this.injectEvent("system:wasm-promises", null);
