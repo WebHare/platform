@@ -561,65 +561,6 @@ export class HareScriptVM implements HSVM_HSVMSource {
     // console.log("Queued outgoing call", this.pendingFunctionRequests.at(-1));
     this.injectEvent("system:wasm-promises", null);
     return defer.promise;
-
-    /* TODO do we need to keep the direct-invoke approach ?
-    const parts = functionref.split("#");
-    if (!object && parts.length !== 2)
-      throw new Error(`Illegal function reference ${JSON.stringify(functionref)}`);
-
-    const callfuncptr: HSVMHeapVar = this.allocateVariable();
-    try {
-      this.wasmmodule._HSVM_OpenFunctionCall(this.hsvm, params.length);
-      for (const [idx, param] of params.entries())
-        this.wasmmodule._HSVM_CopyFrom(this.hsvm, this.wasmmodule._HSVM_CallParam(this.hsvm, idx), param.id);
-
-      let retvalid, wasfunction;
-      if (object) {
-        const colid = this.getColumnId(functionref);
-        const transitionLock = debugFlags.async && this.startTransition(true, functionref);
-        retvalid = await this.wasmmodule._HSVM_CallObjectMethod(this.hsvm, object, colid, 0, /*allow macro=* /1);
-        transitionLock?.close();
-        //HSVM_CallObjectMethod simply returns an uninitialized value when dealing with a macro
-        wasfunction = retvalid !== 0 && this.wasmmodule._HSVM_GetType(this.hsvm, retvalid) !== VariableType.Uninitialized;
-      } else {
-        //HSVM_CAllFucnctionPtr returns FALSE for a MACRO so inspect the actual returntype
-        await this.makeFunctionPtr(callfuncptr.id, parts[0], parts[1]);
-        const returntypecolumn = this.getColumnId("returntype");
-        const returntypecell = this.wasmmodule._HSVM_RecordGetRef(this.hsvm, callfuncptr.id, returntypecolumn);
-        const returntype = this.wasmmodule._HSVM_IntegerGet(this.hsvm, returntypecell);
-        wasfunction = ![0, 2].includes(returntype);
-        const transitionLock = debugFlags.async && this.startTransition(true, functionref);
-        retvalid = await this.wasmmodule._HSVM_CallFunctionPtr(this.hsvm, callfuncptr.id, /*allow macro=* /1);
-        transitionLock?.close();
-      }
-
-      if (!retvalid) {
-        const throwvar = new HSVMVar(this, this.wasmmodule._HSVM_GetThrowVar(this.hsvm));
-        if (throwvar.objectExists()) {
-          const what = (await throwvar.getMember("what")).getString();
-          const trace = (await throwvar.getMember("pvt_trace")).getJSValue() as TraceElement[];
-
-          //clear the exception
-          this.wasmmodule._HSVM_CleanupException(this.hsvm);
-
-          //build a combined exception
-          const err = new Error(what);
-          addHareScriptTrace(trace, err);
-          throw err;
-        }
-        this.wasmmodule._HSVM_CloseFunctionCall(this.hsvm);
-        this.throwVMErrors();
-      }
-
-      const retval = wasfunction ? this.allocateVariable() : undefined;
-      if (retval)
-        this.wasmmodule._HSVM_CopyFrom(this.hsvm, retval.id, retvalid);
-      this.wasmmodule._HSVM_CloseFunctionCall(this.hsvm);
-      return wasfunction ? retval : undefined;
-    } finally {
-      callfuncptr.dispose();
-    }
-    */
   }
 
   parseMessageList(): MessageList {
