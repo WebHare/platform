@@ -651,6 +651,7 @@
     <text tid="testnotification-desc"><ifparam p="1" value="">It works!<else/><param p="1"/></ifparam></text>
   </textgroup>
   <textgroup gid="shell">   <!-- shell -->
+    <text tid="appdirty">This application contains unsaved changes</text>
     <text tid="editfavorites">Manage</text>
     <text tid="frontendclose">Application sessions have expired</text>
     <text tid="frontendclose_description">The connection between your browser and WebHare was broken. The impacted applications have been closed.</text>

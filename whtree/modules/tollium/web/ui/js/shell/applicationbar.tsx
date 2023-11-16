@@ -7,6 +7,7 @@ import Keyboard from 'dompack/extra/keyboard';
 import * as domscroll from 'dompack/browserfix/scroll';
 const menu = require('@mod-tollium/web/ui/components/basecontrols/menu');
 const toddImages = require("@mod-tollium/js/icons");
+import { getTid } from "@mod-tollium/js/gettid";
 import { ToddImage } from "../components/jsx";
 
 
@@ -36,6 +37,7 @@ class ApplicationTab {
           className="t-apptab__icon" />}
         {this.close = <span className="t-apptab__close" />}
         {this.title = <span title={app.title} className="t-apptab__title">{app.title}</span>}
+        <span className="t-apptab__dirty" title={getTid("tollium:shell.appdirty")} />
       </div>;
 
     this.root[appbarsymbol] = {
