@@ -11,7 +11,7 @@ import { getSchemaData, SchemaData } from "./db";
 import { debugFlags } from "@webhare/env";
 import { getDefaultJoinRecord, runSimpleWRDQuery } from "./queries";
 import { omit } from "@webhare/std";
-import { EnrichmentResult, executeEnrichment } from "@mod-system/js/internal/util/algorithms";
+import { EnrichmentResult, executeEnrichment, isTruthy } from "@mod-system/js/internal/util/algorithms";
 
 const getWRDSchemaType = Symbol("getWRDSchemaType"); //'private' but accessible by friend WRDType
 
@@ -323,7 +323,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     const vals = await runSimpleWRDQuery(
       this,
       { __joinId: "wrdId", data: recordizeEnrichOutputMap(enrichMapping) },
-      isLeftOuterJoin ? [] : [{ field: "wrdId", condition: "=", value: ids }],
+      isLeftOuterJoin ? [] : [{ field: "wrdId", condition: "in", value: ids.filter(isTruthy) }],
       { mode: "now" },
       null) as Array<{ __joinId: Id; data: MapEnrichRecordOutputMap<S[T], RecordizeEnrichOutputMap<S[T], Mapping>> }>;
 

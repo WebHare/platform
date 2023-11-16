@@ -361,7 +361,7 @@ STATIC OBJECTTYPE XSDParserFrameWork
       OBJECT newnode := this->TryLookupNode(toresolve->target_namespace, toresolve->name, toresolve->lookuptype);
       IF (NOT ObjectExists(newnode))
       {
-        THROW NEW Exception("Node " || GetXSDNodePrettyName(toresolve) || " (type: " || toresolve->type || ") has not been defined");
+        THROW NEW Exception(`Node ${GetXSDNodePrettyName(toresolve)} (type: ${toresolve->type}, lookuptype: ${toresolve->lookuptype}) has not been defined`);
       }
       toresolve := newnode;
     }
@@ -1223,12 +1223,18 @@ OBJECT FUNCTION ParseXSDElement(OBJECT xsdparser, OBJECT node, RECORD schema_dat
     }
     ELSE IF (node->HasAttribute("substitutionGroup"))
     {
-      THROW NEW Exception("FIXME: substitutionGroup not implemented yet");
+      THROW NEW Exception("FIXME: no yet implemented using substitutionGroup as source for element type");
     }
     ELSE
     {
       element->type_definition := xsdparser->ParserLookupNode(xsdnamespace, "anyType", "DATATYPE");
     }
+  }
+
+  IF (node->HasAttribute("substitutionGroup"))
+  {
+    STRING elementname := CleanWhitespace(node->GetAttribute("substitutionGroup"));
+    element->substitution_group_affiliation := xsdparser->ParserLookupNodeFromQName(elementname, node, "ELEMENT");
   }
 
   WHILE (ObjectExists(child))
