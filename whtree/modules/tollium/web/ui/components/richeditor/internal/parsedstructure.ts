@@ -1,6 +1,6 @@
 export interface BlockStyle {
   classname: string;
-  /** @deprecated Shouldn't offer the unparsed definition, that'd be a interface leak around the parser and leads to duplication of data in the props here. Either parser minimal or fully */
+  /** @deprecated Shouldn't offer the unparsed definition, that'd be a interface leak around the parser and leads to duplication of data in the props here. Either parse minimal or fully */
   def: ExternalBlockStyle;
   tag: string;
   istable: boolean;
