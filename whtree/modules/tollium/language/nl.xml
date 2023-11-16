@@ -631,6 +631,7 @@
     <text tid="testnotification-desc"><ifparam p="1" value="">Het werkt!<else/><param p="1"/></ifparam></text>
   </textgroup>
   <textgroup gid="shell">   <!-- shell -->
+    <text tid="appdirty">Deze applicatie bevat niet opgeslagen wijzigingen</text>
     <text tid="editfavorites">Beheren</text>
     <text tid="frontendclose">Applicatiesessies zijn verlopen</text>
     <text tid="frontendclose_description">De verbinding tussen uw browser en WebHare is verbroken. De betreffende applicaties in WebHare zijn gesloten.</text>

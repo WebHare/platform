@@ -165,7 +165,7 @@ RECORD FUNCTION ParseHandler(RECORD element, OBJECT handler, STRING modulename, 
   RECORD ARRAY errors, warnings;
   RECORD elrec := [ name := element.name
                   , namespace := element.namespaceuri
-                  , icon := handler->GetAttribute("tolliumicon") ?? handler->GetAttribute("ocon")
+                  , icon := handler->GetAttribute("tolliumicon") ?? handler->GetAttribute("icon")
                   , title := ParseXMLTidPtr(resourcename, "", handler, "title")
                   , description := ParseXMLTidPtr(resourcename, "" , handler, "description")
                   , editextension := ""
