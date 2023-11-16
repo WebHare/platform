@@ -130,7 +130,12 @@ async function generateFiles(files: FileToUpdate[], context: GenerateContext, op
   }
 }
 
-export async function updateGeneratedFiles(targets: Array<(GeneratorType | "all")>, options: { dryRun?: boolean; verbose?: boolean; nodb?: boolean } = {}) {
+export async function updateGeneratedFiles(targets: Array<(GeneratorType | "all")>, options: {
+  dryRun?: boolean;
+  verbose?: boolean;
+  nodb?: boolean;
+  generateContext?: GenerateContext;
+} = {}) {
   if (targets.includes('all') || targets.includes('config')) {
     if (options?.verbose)
       console.time("Updating WebHare config files");
@@ -146,7 +151,7 @@ export async function updateGeneratedFiles(targets: Array<(GeneratorType | "all"
   if (targets.filter(_ => _ !== 'config').length === 0) //only config was requested
     return;
 
-  const context = await buildGeneratorContext(null, options?.verbose || false);
+  const context = options.generateContext || await buildGeneratorContext(null, options?.verbose || false);
 
   //TODO we might need to be above buildGenerateContext in the future to provide moduledefinition schemas for runtime validation?
   const schemas = fixFilePaths(await listAllSchemas());

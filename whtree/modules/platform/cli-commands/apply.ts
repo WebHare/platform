@@ -1,4 +1,4 @@
-import { ConfigurableSubsystem, ConfigurableSubsystems, applyConfiguration } from '@webhare/services/src/setup';
+import { ConfigurableSubsystem, ConfigurableSubsystems, applyConfiguration } from '@webhare/services/src/setup/applyconfig';
 import { program } from 'commander';
 
 async function main() {
