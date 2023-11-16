@@ -37,7 +37,7 @@
         //flag accidentally referring to 'name' etc globals
         "no-restricted-globals": [
             "error",
-            //the following keywords are blocked without the 'window.' prefix. let's block any props that are likely to class with variable names
+            //the following keywords are blocked without the 'window.' prefix. let's block any props that are likely to clash with variable names
             "back",
             "close",
             "closed",
