@@ -58,6 +58,10 @@ STATIC OBJECTTYPE FetchResponse
   {
     RETURN BlobToString(this->fetchresult.body);
   }
+  PUBLIC ASYNC FUNCTION AsBlob()
+  {
+    RETURN this->fetchresult.body;
+  }
 >;
 
 STATIC OBJECTTYPE SyncFetchResponse
@@ -81,6 +85,10 @@ STATIC OBJECTTYPE SyncFetchResponse
   PUBLIC VARIANT FUNCTION Text()
   {
     RETURN WaitForPromise(this->asyncresponse->Text());
+  }
+  PUBLIC VARIANT FUNCTION AsBlob()
+  {
+    RETURN WaitForPromise(this->asyncresponse->AsBlob());
   }
 >;
 
