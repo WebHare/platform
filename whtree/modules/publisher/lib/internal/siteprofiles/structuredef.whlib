@@ -254,13 +254,11 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
       @cell(string array) blockstyles.textstyles Allowed text styles, subset of [ "b", "i", "u", "a-href", "strike", "sub", "sup", "img" ]
       @cell(string) blockstyles.tabledefaultblockstyle Default blockstyle in table cells (for table styles)
       @cell(string array) blockstyles.tableresizing Allowed table resizing operations, [ "all", "rows", "columns", "table" ]
-      @cell(string) blockstyles.toolbarcss Toolbar CSS
       @cell(boolean) blockstyles.isbuiltin Whether this is a builtin style
       @cell(boolean) blockstyles.split
       @cell(integer) blockstyles.toclevel Level in toc
       @cell(boolean) blockstyles.hidden
       @cell(string array) blockstyles.importfrom Single-node selectors, used to determine which style to match when importing non-structured html
-      @cell blocktypes Blobk types (unused)
       @cell defaultblockstyle Name of default block type
       @cell(string) contentareawidth Content area width
       @cell(record array) cellstyles Table cell styles
@@ -331,7 +329,8 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
                     , textstyles :=        DEFAULT STRING ARRAY
                     , tabledefaultblockstyle := ""
                     , tableresizing :=     DEFAULT STRING ARRAY
-                    , toolbarcss :=        ""
+                    , allowstyles :=       DEFAULT STRING ARRAY
+                    , allowwidgets :=      TRUE
                     , isbuiltin :=         FALSE
                     , split :=             FALSE
                     , toclevel :=          0
@@ -378,6 +377,8 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
         style.type := "table";
         style.containertag := "table";
         style.tabledefaultblockstyle := styleblock->GetAttribute("defaultstyle");
+        style.allowstyles := ParseXSList(styleblock->GetAttribute("allowstyles"));
+        style.allowwidgets := styleblock->HasAttribute("allowwidgets") ? ParseXSBoolean(styleblock->GetAttribute("allowwidgets")) : TRUE;
 
         STRING ARRAY resizing := Tokenize(styleblock->GetAttribute("resizing"), " ");
         IF ("all" IN resizing OR NOT styleblock->HasAttribute("resizing"))
@@ -1392,7 +1393,6 @@ PUBLIC STATIC OBJECTTYPE RichDocumentStructure
     OBJECT embeddedobjects := PickFirst(xmlnode->ListChildren(whconstant_xmlns_publisher, "widgets"));
 
     RECORD structure := [ blockstyles := DEFAULT RECORD ARRAY
-                        , blocktypes := DEFAULT RECORD ARRAY
                         , defaultblockstyle := ToUppercase(blockstylenode->GetAttribute("defaultstyle"))
                         , contentareawidth := xmlnode->GetAttribute("contentareawidth")
                         , cellstyles := RECORD[ [ tag := "", title := "" ] ]
@@ -1645,4 +1645,3 @@ PUBLIC RECORD FUNCTION GetRTDSettingsForApplyTester(OBJECT applytester)
 
   RETURN retval;
 }
-
