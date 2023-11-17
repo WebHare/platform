@@ -1,4 +1,5 @@
 <?wh
+LOADLIB "wh::files.whlib";
 LOADLIB "wh::internet/fetch.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -27,6 +28,13 @@ MACRO TestFetch()
   TestEq(`{"x":42}`, responsejson.body);
 
   TestRejectedLike("The operation was aborted due to timeout", Fetch(GetPrimaryWebHareInterfaceURL() || ".webhare_testsuite/tests/consilio/timeout.shtml", CELL[], [ debug := TRUE, timeout := 1000 ]));
+
+  response := FetchSync(GetPrimaryWebHareInterfaceURL() || "tollium_todd.res/webhare_testsuite/tests/getrequestdata.shtml",
+     [ method := "POST"
+     , headers := [ accept := "application/json", "content-type" := "application/json" ]
+     , body := EncodeJSON([x:=42])], [debug:=true]);
+
+  TestEq(`{"x":42}`, DecodeJSONBlob(response->AsBlob()).body);
 }
 
 RunTestFramework([ PTR TestFetch ]);

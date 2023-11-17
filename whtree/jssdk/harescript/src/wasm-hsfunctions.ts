@@ -1007,6 +1007,11 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
     id_set.setString(buf);
   });
 
+  wasmmodule.registerExternalFunction("GETCLIENTREMOTEIP::S:", (vm, id_set) => {
+    //TODO throw a real NotAShtmlContextException or invoke ThrowNoShtmlException
+    throw new Error("The current script is not running in the context of a dynamic page request (SHTML file)");
+  });
+
   wasmmodule.registerExternalFunction("__SYSTEM_GETPROCESSINFO::R:", (vm, id_set) => {
     id_set.setJSValue({ clientname: "emscripten", pid: process.pid, processcode: 0 }); //TODO do we need proper clientname/processcode?
   });
