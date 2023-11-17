@@ -94,7 +94,6 @@ PACKAGES="automake
     lftp
     libcurl4-openssl-dev
     libmaxminddb-dev
-    libgit2-dev
     libicu-dev
     libjpeg-turbo8
     libjpeg-turbo8-dev

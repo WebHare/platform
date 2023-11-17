@@ -89,7 +89,6 @@ PACKAGES="certbot
     lftp
     libcurl4
     libmaxminddb0
-    libgit2-28
     libicu66
     libjpeg-turbo8
     libpdfbox2-java

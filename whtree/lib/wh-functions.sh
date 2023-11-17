@@ -631,7 +631,7 @@ setup_buildsystem()
     fi
 
   elif [ "$WEBHARE_PLATFORM" == "linux" ] && [ -f /etc/redhat-release ] && ! grep CentOS /etc/redhat-release ; then
-    REQUIREPACKAGES="openssl-devel pixman-devel git freetype-devel GeoIP-devel libtiff-devel giflib-devel libjpeg-turbo-devel libpng-devel libtiff-devel pixman-devel openssl-devel libicu-devel libxml2-devel valgrind-devel libgit2-devel libmaxminddb-devel libpq-devel"
+    REQUIREPACKAGES="openssl-devel pixman-devel git freetype-devel GeoIP-devel libtiff-devel giflib-devel libjpeg-turbo-devel libpng-devel libtiff-devel pixman-devel openssl-devel libicu-devel libxml2-devel valgrind-devel libmaxminddb-devel libpq-devel"
     if ! which ccache > /dev/null 2>&1 ; then
       REQUIREPACKAGES="$REQUIREPACKAGES ccache"
     fi
