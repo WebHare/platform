@@ -300,6 +300,9 @@ async function runBackendServiceTest_HS() {
   test.eq({ arg1: 41, arg2: 43 }, await serverinstance.PING(41, 43));
   test.eq({ arg1: 41, arg2: 43 }, await serverinstance.ASYNCPING(41, 43));
 
+  //test undefined
+  test.eq({ arg1: null, arg2: [0, null, null, 2, { a: 3, c: null }] }, await serverinstance.PING(undefined, [0, undefined, null, 2, { a: 3, b: undefined, c: null }]));
+
   serverinstance.close();
   test.eq(0, await getActiveMessagePortCount(), "And the reference should be cleaned after close");
 
