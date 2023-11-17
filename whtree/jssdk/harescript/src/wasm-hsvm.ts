@@ -14,9 +14,10 @@ import { Mutex } from "@webhare/services";
 import { CommonLibraries, CommonLibraryType } from "./commonlibs";
 import { debugFlags } from "@webhare/env";
 import bridge, { BridgeEvent } from "@mod-system/js/internal/whmanager/bridge";
-import { rootstorage, runOutsideCodeContext } from "@webhare/services/src/codecontexts";
+import { ensureScopedResource, getScopedResource, rootstorage, runOutsideCodeContext } from "@webhare/services/src/codecontexts";
 import { type HSVM_HSVMSource } from "./machinewrapper";
 import { encodeIPCException } from "@mod-system/js/internal/whmanager/ipc";
+import { isTruthy } from "@mod-system/js/internal/util/algorithms";
 
 
 export interface StartupOptions {
@@ -53,6 +54,9 @@ export type MessageList = Array<{
 const enginePool = new Array<WASMModule>;
 
 export type JSBlobTag = { pg: string } | null;
+
+const hsvmlistsymbol = Symbol("HSVMList");
+type HSVMList = Set<WeakRef<HareScriptVM>>;
 
 // function addHareScriptTrace(trace: TraceElement[], err: Error) {
 //   const stacklines = err.stack?.split("\n") || [];
@@ -217,6 +221,7 @@ export class HareScriptVM implements HSVM_HSVMSource {
     functionref: string;
     params: HSVMVar[];
     object: HSVMHeapVar | null;
+    retvalStore: HSVMHeapVar | undefined;
     sent: boolean;
   }>;
 
@@ -268,7 +273,11 @@ export class HareScriptVM implements HSVM_HSVMSource {
       console.log(`[${this.currentgroup}] Load script: ${script}`);
       console.trace();
     }
+
     await this.loadScript(script);
+    const myweakref = new WeakRef(this);
+    const vmlist = ensureScopedResource<HSVMList>(hsvmlistsymbol, () => new Set<WeakRef<HareScriptVM>>());
+    vmlist.add(myweakref);
 
     let exception: unknown | null = null;
     try {
@@ -282,6 +291,8 @@ export class HareScriptVM implements HSVM_HSVMSource {
       //When the script is done, we clean up
       if (this.onScriptDone)
         await this.onScriptDone(exception instanceof Error ? exception : null);
+
+      vmlist.delete(myweakref); //remove from active list, prevent any more incoming calls from eg commitWork handlers
 
       try {
         //TODO Might want to already release some resources when the main script is done ?
@@ -551,75 +562,16 @@ export class HareScriptVM implements HSVM_HSVMSource {
   /** @param functionref - Function to call
       @param isfunction - Whether to call a function or macro
    */
-  async callWithHSVMVars(functionref: string, params: HSVMVar[], objectid?: HSVM_VariableId): Promise<unknown> {
+  async callWithHSVMVars(functionref: string, params: HSVMVar[], objectid?: HSVM_VariableId, retvalStore?: HSVMHeapVar): Promise<unknown> {
     //FIXME check if we really want to bother with HSMVars as currently its just a lot of extra cloning
     const defer = createDeferred<unknown | undefined>();
     const id = ++this.syscallPromiseIdCounter;
     const object = objectid ? this.allocateVariableCopy(objectid) : null;
-    this.pendingFunctionRequests.push({ id, resolve: defer.resolve, reject: defer.reject, functionref, params: params.map(p => this.allocateVariableCopy(p.id)), object, sent: false });
+    this.pendingFunctionRequests.push({ id, resolve: defer.resolve, reject: defer.reject, functionref, retvalStore, params: params.map(p => this.allocateVariableCopy(p.id)), object, sent: false });
 
     // console.log("Queued outgoing call", this.pendingFunctionRequests.at(-1));
     this.injectEvent("system:wasm-promises", null);
     return defer.promise;
-
-    /* TODO do we need to keep the direct-invoke approach ?
-    const parts = functionref.split("#");
-    if (!object && parts.length !== 2)
-      throw new Error(`Illegal function reference ${JSON.stringify(functionref)}`);
-
-    const callfuncptr: HSVMHeapVar = this.allocateVariable();
-    try {
-      this.wasmmodule._HSVM_OpenFunctionCall(this.hsvm, params.length);
-      for (const [idx, param] of params.entries())
-        this.wasmmodule._HSVM_CopyFrom(this.hsvm, this.wasmmodule._HSVM_CallParam(this.hsvm, idx), param.id);
-
-      let retvalid, wasfunction;
-      if (object) {
-        const colid = this.getColumnId(functionref);
-        const transitionLock = debugFlags.async && this.startTransition(true, functionref);
-        retvalid = await this.wasmmodule._HSVM_CallObjectMethod(this.hsvm, object, colid, 0, /*allow macro=* /1);
-        transitionLock?.close();
-        //HSVM_CallObjectMethod simply returns an uninitialized value when dealing with a macro
-        wasfunction = retvalid !== 0 && this.wasmmodule._HSVM_GetType(this.hsvm, retvalid) !== VariableType.Uninitialized;
-      } else {
-        //HSVM_CAllFucnctionPtr returns FALSE for a MACRO so inspect the actual returntype
-        await this.makeFunctionPtr(callfuncptr.id, parts[0], parts[1]);
-        const returntypecolumn = this.getColumnId("returntype");
-        const returntypecell = this.wasmmodule._HSVM_RecordGetRef(this.hsvm, callfuncptr.id, returntypecolumn);
-        const returntype = this.wasmmodule._HSVM_IntegerGet(this.hsvm, returntypecell);
-        wasfunction = ![0, 2].includes(returntype);
-        const transitionLock = debugFlags.async && this.startTransition(true, functionref);
-        retvalid = await this.wasmmodule._HSVM_CallFunctionPtr(this.hsvm, callfuncptr.id, /*allow macro=* /1);
-        transitionLock?.close();
-      }
-
-      if (!retvalid) {
-        const throwvar = new HSVMVar(this, this.wasmmodule._HSVM_GetThrowVar(this.hsvm));
-        if (throwvar.objectExists()) {
-          const what = (await throwvar.getMember("what")).getString();
-          const trace = (await throwvar.getMember("pvt_trace")).getJSValue() as TraceElement[];
-
-          //clear the exception
-          this.wasmmodule._HSVM_CleanupException(this.hsvm);
-
-          //build a combined exception
-          const err = new Error(what);
-          addHareScriptTrace(trace, err);
-          throw err;
-        }
-        this.wasmmodule._HSVM_CloseFunctionCall(this.hsvm);
-        this.throwVMErrors();
-      }
-
-      const retval = wasfunction ? this.allocateVariable() : undefined;
-      if (retval)
-        this.wasmmodule._HSVM_CopyFrom(this.hsvm, retval.id, retvalid);
-      this.wasmmodule._HSVM_CloseFunctionCall(this.hsvm);
-      return wasfunction ? retval : undefined;
-    } finally {
-      callfuncptr.dispose();
-    }
-    */
   }
 
   parseMessageList(): MessageList {
@@ -734,6 +686,11 @@ async function createHarescriptModule() {
 export async function allocateHSVM(options?: StartupOptions): Promise<HareScriptVM> {
   const hsvmModule = enginePool.pop() || createHarescriptModule();
   return new HareScriptVM(await hsvmModule, options || {});
+}
+
+export function getActiveVMs(): HareScriptVM[] {
+  const vmlist = getScopedResource<HSVMList>(hsvmlistsymbol);
+  return vmlist ? [...vmlist].map(_ => _.deref()).filter(isTruthy) : [];
 }
 
 //Only for CI tests:

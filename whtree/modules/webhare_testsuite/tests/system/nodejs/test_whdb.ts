@@ -5,7 +5,7 @@ import { defaultDateTime, maxDateTime } from "@webhare/hscompat";
 import { db, beginWork, commitWork, rollbackWork, onFinishWork, broadcastOnCommit, isWorkOpen, uploadBlob, query, nextVal, nextVals, isSameUploadedBlob } from "@webhare/whdb";
 import type { WebHareTestsuiteDB } from "wh:db/webhare_testsuite";
 import * as contexttests from "./data/context-tests";
-import { loadlib } from "@webhare/harescript";
+import { createVM, loadlib } from "@webhare/harescript";
 import { getCodeContextHSVM } from "@webhare/harescript/src/contextvm";
 import { CodeContext } from "@webhare/services/src/codecontexts";
 import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
@@ -151,26 +151,49 @@ async function testHSWorkSync() {
 }
 
 async function testHSCommitHandlers() {
+  //We set up two VMs. One using the simple loadlib (getCodeContextHSVM) and one using a manually managed VM to ensure whdb manages ALL vms in the current codecontext
   const invoketarget = loadlib("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib");
   const primary = await loadlib("mod::system/lib/database.whlib").getPrimary();
+
+  const manualvm = await createVM();
+  //Manual VMs don't auto-open a transaction
+  await manualvm.loadlib("mod::system/lib/database.whlib").openPrimary();
+
+  const invoketarget_manualvm = manualvm.loadlib("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib");
+  const primary_manualvm = await manualvm.loadlib("mod::system/lib/database.whlib").getPrimary();
+
   test.assert(primary);
+  test.assert(primary_manualvm);
+
   await beginWork();
+
   await invoketarget.SetGobalOnCommit({ x: 121 });
+  await invoketarget_manualvm.SetGobalOnCommit({ x: 232 });
 
   test.eq(null, await invoketarget.getGlobal());
+  test.eq(null, await invoketarget_manualvm.getGlobal());
   await commitWork();
+
   test.eq(false, await primary.isWorkOpen());
+  test.eq(false, await primary_manualvm.isWorkOpen());
   test.eq({ x: 121, iscommit: true }, await invoketarget.getGlobal());
+  test.eq({ x: 232, iscommit: true }, await invoketarget_manualvm.getGlobal());
 
   await invoketarget.setGlobal({ x: 222 });
+  await invoketarget_manualvm.setGlobal({ x: 333 });
+
   await beginWork();
   await commitWork();
   test.eq({ x: 222 }, await invoketarget.getGlobal(), "Verifies the handler was cleared");
+  test.eq({ x: 333 }, await invoketarget_manualvm.getGlobal(), "Verifies the handler was cleared");
 
   await beginWork();
   await invoketarget.SetGobalOnCommit({ x: 343 });
+  await invoketarget_manualvm.SetGobalOnCommit({ x: 545 });
   await rollbackWork();
+
   test.eq({ x: 343, iscommit: false }, await invoketarget.getGlobal(), "Verify rollback works too");
+  test.eq({ x: 545, iscommit: false }, await invoketarget_manualvm.getGlobal(), "Verify rollback works too");
 }
 
 async function testCodeContexts() {

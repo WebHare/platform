@@ -8,6 +8,7 @@ LOADLIB "wh::internal/callbacks.whlib";
 
 //This API in baselibs.cpp invokes Module.emSyscall and acts as a (slow) generic bridge to javascript.
 RECORD FUNCTION __EM_SYSCALL(STRING call, VARIANT data) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
+MACRO __EM_SYSCALL_RESOLVE(INTEGER requestid, INTEGER mode, VARIANT param) __ATTRIBUTES__(EXECUTESHARESCRIPT, EXTERNAL);
 
 RECORD ARRAY pendingpromises;
 
@@ -51,11 +52,11 @@ MACRO RunFunctionRequest(RECORD request)
 
     BOOLEAN ismacro := __INTERNAL_DEBUGFUNCTIONPTRTORECORD(target).returntype IN [0,2];
     VARIANT result := CallAnyPtrVA(target, request.params);
-    __EM_SYSCALL("resolvedFunctionRequest", CELL[request.id, ismacro, resolved := result ]);
+    __EM_SYSCALL_RESOLVE(request.id, ismacro ? 1 : 2, result);
   }
   CATCH(OBJECT e)
   {
-    __EM_SYSCALL("resolvedFunctionRequest", CELL[request.id, rejected := e->EncodeForIPC() ]);
+    __EM_SYSCALL_RESOLVE(request.id, -1, e->EncodeForIPC());
   }
 }
 

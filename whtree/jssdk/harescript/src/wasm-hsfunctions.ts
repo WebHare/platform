@@ -12,7 +12,7 @@ import { defaultDateTime, localToUTC, utcToLocal } from "@webhare/hscompat/datet
 import { __getBlobDatabaseId } from "@webhare/whdb/src/blobs";
 import * as crypto from "node:crypto";
 import * as os from "node:os";
-import { IPCEndPoint, IPCMessagePacket, IPCPort, createIPCEndPointPair, decodeTransferredIPCEndPoint } from "@mod-system/js/internal/whmanager/ipc";
+import { IPCEncodedException, IPCEndPoint, IPCMessagePacket, IPCPort, createIPCEndPointPair, decodeTransferredIPCEndPoint, parseIPCException } from "@mod-system/js/internal/whmanager/ipc";
 import { isValidName } from "@webhare/whfs/src/support";
 import { AsyncWorker } from "@mod-system/js/internal/worker";
 import { Crc32 } from "@mod-system/js/internal/util/crc32";
@@ -485,6 +485,34 @@ export function registerBaseFunctions(wasmmodule: WASMModule) {
       promiseid: 0
     });
   });
+  wasmmodule.registerExternalMacro("__EM_SYSCALL_RESOLVE:::IIV", (vm, var_requestid, var_mode, var_param) => {
+    const requestid = var_requestid.getInteger();
+    const reqidx = vm.pendingFunctionRequests.findIndex(_ => _.id == requestid);
+    if (reqidx == -1) //already resolved
+      return;
+
+    const req = vm.pendingFunctionRequests.splice(reqidx, 1)[0];
+    const mode = var_mode.getInteger();
+    if (mode === 1) { //resolves a macro
+      //when receiving a store, we return a boolean whether or not we were a function
+      req.resolve(req.retvalStore ? false : undefined);
+      return;
+    }
+
+    if (mode === 2) { //resolves a function
+      if (req.retvalStore) {
+        req.retvalStore.copyFrom(var_param);
+        req.resolve(true); //it was a function!
+      } else
+        req.resolve(var_param.getJSValue());
+
+      return;
+    }
+
+    //we be rejecting!
+    req.reject(parseIPCException({ __exception: var_param.getJSValue() as IPCEncodedException }));
+  });
+
   wasmmodule.registerExternalFunction("__ICU_GETTIMEZONEIDS::SA:", (vm, id_set) => {
     //@ts-ignore -- MDN says it is supported everywhere we need it to be
     const list = Intl.supportedValuesOf('timeZone');
