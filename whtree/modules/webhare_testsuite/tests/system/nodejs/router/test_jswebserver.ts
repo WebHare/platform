@@ -4,11 +4,7 @@ import * as services from "@webhare/services";
 import { Configuration } from "@mod-system/js/internal/webserver/webconfig";
 import * as webserver from "@mod-system/js/internal/webserver/webserver";
 import * as net from "node:net";
-
-//https://fetch.spec.whatwg.org/#dom-headers-getsetcookie
-interface HeadersWithSetSookie extends Headers {
-  getSetCookie(): string[];
-}
+import * as undici from "undici";
 
 interface GetRequestDataResponse {
   method: string;
@@ -70,35 +66,50 @@ async function testOurWebserver() {
   const markdowndocurl = new URL(markdowndoc.link);
   const testorigin = markdowndocurl.protocol + "//127.0.0.1:" + (markdowndocurl.protocol === "https:" ? port_https : port_http);
 
-  //We need to match the protocol of the testorigin. CI publishes the testsit on http, but development servers often use https
-  if (markdowndocurl.protocol === "https:") //we'll be connecting to a selfsigned cert, so we need to disable validation. can't do it at the fetch() itself (no agent support)
-    process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
+  //CI publishes the testsite on http, but development servers often use https with a self-signed cert
+  const insecureagent = new undici.Agent({
+    connect: {
+      rejectUnauthorized: false
+    }
+  });
 
-  const response = await (await fetch(testorigin + markdowndocurl.pathname, { headers: { host: markdowndocurl.host } })).text();
+  const response = await (await undici.request(testorigin + markdowndocurl.pathname, {
+    headers: { host: markdowndocurl.host },
+    dispatcher: insecureagent
+  })).body.text();
   test.eqMatch(/<html.*>.*<h2.*>Markdown file<\/h2>/, response);
 
   const testsuiteresources = testorigin + "/tollium_todd.res/webhare_testsuite/tests/";
-  let fetcher = await fetch(testsuiteresources + "getrequestdata.shtml", { redirect: "manual", headers: { host: markdowndocurl.host, accept: "application/json" } });
-  test.eq(200, fetcher.status);
-  test.eq("application/json", fetcher.headers.get("content-type"));
-  let grd = await fetcher.json() as GetRequestDataResponse;
+  let fetcher = await undici.request(testsuiteresources + "getrequestdata.shtml", {
+    headers: { host: markdowndocurl.host, accept: "application/json" },
+    dispatcher: insecureagent
+  });
+
+  test.eq(200, fetcher.statusCode);
+  test.eq("application/json", fetcher.headers["content-type"]);
+  let grd = await fetcher.body.json() as GetRequestDataResponse;
   test.eq("GET", grd.method);
 
-  grd = await (await fetch(testsuiteresources + "getrequestdata.shtml", {
+  grd = await (await undici.request(testsuiteresources + "getrequestdata.shtml", {
     headers: {
       host: markdowndocurl.host,
       accept: "application/json",
       "content-type": "application/x-www-form-urlencoded"
     },
     body: "a=1&b=2",
-    method: "POST"
-  })).json() as GetRequestDataResponse;
+    method: "POST",
+    dispatcher: insecureagent
+  })).body.json() as GetRequestDataResponse;
   test.eq("POST", grd.method);
 
   //Verify cookie processing
-  fetcher = await fetch(testsuiteresources + "cookies.shtml?type=setcookie3", { headers: { host: markdowndocurl.host, accept: "application/json" } });
-  test.eq(7, (fetcher.headers as HeadersWithSetSookie).getSetCookie().length);
-  test.eq("sc3-test2=val2-overwrite;Path=/;HttpOnly", (fetcher.headers as HeadersWithSetSookie).getSetCookie()[1]);
+  fetcher = await undici.request(testsuiteresources + "cookies.shtml?type=setcookie3", {
+    headers: { host: markdowndocurl.host, accept: "application/json" },
+    dispatcher: insecureagent
+  });
+  const setcookie: string[] = (fetcher.headers["set-cookie"] as string)?.split?.(',') ?? [];
+  test.eq(7, setcookie.length);
+  test.eq("sc3-test2=val2-overwrite;Path=/;HttpOnly", setcookie[1].trim());
 
   //TODO without explicitly closing the servers we linger for 4 seconds if we did a request ... but not sure why. and now ws.close isn't enough either so we're missing something...
   console.log("jswebserver test done");

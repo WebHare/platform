@@ -107,7 +107,7 @@ class WebServer {
     const { targeturl, fetchmethod, headers } = getHSWebserverTarget(webreq);
 
     //FIXME deal with upstream connect errors
-    const destreq = http.request(targeturl, { headers: Object.fromEntries(headers.entries()), method: fetchmethod });
+    const destreq = http.request(targeturl, { headers, method: fetchmethod });
     destreq.end();
     destreq.on('upgrade', (res, nextsocket, upgradeHead) => {
       //We need to return the headers, or at minimum: sec-websocket-accept

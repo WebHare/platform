@@ -5,6 +5,7 @@ import { WebHareWHFSRouter, WebRequest, WebResponse } from "./router";
 import { getApplyTesterForObject } from "@webhare/whfs/src/applytester";
 import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { buildSiteRequest } from "./siterequest";
+import * as undici from "undici";
 
 export async function lookupPublishedTarget(url: string) {
   //we'll use the HS version for now. rebuilding lookup is complex and we should really port the tests too before we attempt it...
@@ -30,10 +31,11 @@ export async function lookupPublishedTarget(url: string) {
 export function getHSWebserverTarget(request: WebRequest) {
   const trustedlocalport = getFullConfigFile().baseport + 3; //3 = whconstant_webserver_hstrustedportoffset
   const trustedip = process.env["WEBHARE_SECUREPORT_BINDIP"] || "127.0.0.1"; //TODO we should probably name this WEBHARE_PROXYPORT_BINDIP ? not much secure about this port..
-  const headers = request.headers;
-  headers.set("X-Forwarded-For", "1.2.3.4"); //FIXME use real remote IP, should be in 'request'
-  headers.set("X-Forwarded-Proto", request.url.protocol.split(':')[0]); //without ':'
-  headers.set("Host", request.url.host);
+  //Convert Request headers to Undici compatible heaers, filter out the dangeorus ones
+  const headers = Object.fromEntries([...request.headers.entries()].filter(([header,]) => !["host", "x-forwarded-for", "x-forwarded-proto"].includes(header)));
+  headers["x-forwarded-for"] = "1.2.3.4"; //FIXME use real remote IP, should be in 'request'
+  headers["x-forwarded-proto"] = request.url.protocol.split(':')[0]; //without ':'
+  headers["host"] = request.url.host;
   const targeturl = `http://${trustedip}:${trustedlocalport}${request.url.pathname}${request.url.search}`;
   const fetchmethod = request.method.toUpperCase();
   return { targeturl, fetchmethod, headers };
@@ -43,24 +45,27 @@ async function routeThroughHSWebserver(request: WebRequest): Promise<WebResponse
   //FIXME abortsignal / timeout
   const { targeturl, fetchmethod, headers } = getHSWebserverTarget(request);
 
-  const fetchoptions: RequestInit = {
-    redirect: "manual",
+  const fetchoptions: Parameters<typeof undici.request>[1] = {
     headers,
-    method: fetchmethod
+    method: fetchmethod as undici.Dispatcher.HttpMethod
   };
+
   if (!["GET", "HEAD"].includes(fetchmethod))
     fetchoptions.body = await request.text();
 
-  const result = await fetch(targeturl, fetchoptions);
-  const body = await result.arrayBuffer(); //TODO even better if we can stream blobs
+  //We can't fetch() as undici fetch will block Host: (and Cookie) headers
+  const result = await undici.request(targeturl, fetchoptions);
+  const body = await result.body.arrayBuffer(); //TODO even better if we can stream blobs
 
   //Rebuild headers to get rid of the dangerous ones
-  const newheaders = new Headers(result.headers);
-  for (const header of result.headers.keys())
-    if (['content-length', 'date', 'content-encoding'].includes(header) || header.startsWith('transfer-'))
-      newheaders.delete(header);
+  const newheaders = new Headers;
+  for (const [header, value] of Object.entries(result.headers))
+    if (value) {
+      if (!['content-length', 'date', 'content-encoding'].includes(header) && !header.startsWith('transfer-'))
+        newheaders.set(header, Array.isArray(value) ? value.join(", ") : value);
+    }
 
-  const resp = new WebResponse(result.status, newheaders);
+  const resp = new WebResponse(result.statusCode, newheaders);
   resp.setBody(body);
   return resp;
 }
