@@ -34,6 +34,20 @@ async function testVarMemory() {
   blobvar.setBlob(WebHareBlob.from("a blob!"));
   test.eq("a blob!", await blobvar.getBlob().text());
 
+  const scratchvar = vm.allocateVariable();
+  scratchvar.setJSValue(undefined);
+  test.eq(VariableType.Record, scratchvar.getType());
+  test.eq(false, scratchvar.recordExists());
+
+  scratchvar.setJSValue([0, undefined, null, 3]);
+  test.eq(VariableType.VariantArray, scratchvar.getType());
+  test.eq(VariableType.Record, scratchvar.arrayGetRef(1)?.getType());
+
+  scratchvar.setJSValue({ a: "xyz", b: undefined });
+  test.eq(VariableType.Record, scratchvar.getType());
+  test.assert(scratchvar.getCell("a"));
+  test.assert(scratchvar.getCell("b") === null);
+
   /* Test empty blobs. Currently I'm assuming we will be needing type retention so getBlob should always be returning an object.
      It might be a better API to only have get(Boxing)JSValue do such trickery and have getFloat/getBlob return 'proper' JS values (ie numbers and null) */
 

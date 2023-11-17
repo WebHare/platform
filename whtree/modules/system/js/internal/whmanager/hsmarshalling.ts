@@ -402,6 +402,8 @@ export function determineType(value: unknown): VariableType {
       }
       return VariableType.Float;
     }
+    case "undefined": //treat as 'null'
+      return VariableType.Record;
     default: {
       throw new Error(`Cannot send variable of type ${JSON.stringify(typeof value)}`);
     }
@@ -473,7 +475,7 @@ function writeMarshalDataInternal(value: unknown, writer: LinearBufferWriter, co
       writer.writeU32(msecs);
     } break;
     case VariableType.Record: {
-      if (value === null)
+      if (!value)
         writer.writeS32(-1);
       else {
         if (path.includes(value as object))

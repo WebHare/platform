@@ -260,7 +260,7 @@ export class HSVMVar {
       retval.push(this.arrayGetRef(i)!);
     return retval;
   }
-  getCell(name: string) {
+  getCell(name: string): HSVMVar | null {
     this.checkType(VariableType.Record);
 
     const columnid = this.vm.getColumnId(name.toString());
@@ -274,13 +274,13 @@ export class HSVMVar {
     const newid = this.vm.wasmmodule._HSVM_RecordCreate(this.vm.hsvm, this.id, columnid);
     return new HSVMVar(this.vm, newid);
   }
-  recordExists() {
+  recordExists(): boolean {
     this.checkType(VariableType.Record);
-    return this.vm.wasmmodule._HSVM_RecordExists(this.vm.hsvm, this.id);
+    return this.vm.wasmmodule._HSVM_RecordExists(this.vm.hsvm, this.id) !== 0;
   }
-  objectExists() {
+  objectExists(): boolean {
     this.checkType(VariableType.Object);
-    return this.vm.wasmmodule._HSVM_ObjectExists(this.vm.hsvm, this.id);
+    return this.vm.wasmmodule._HSVM_ObjectExists(this.vm.hsvm, this.id) !== 0;
   }
   memberExists(name: string): boolean {
     this.checkType(VariableType.Object);
@@ -322,11 +322,7 @@ export class HSVMVar {
     return new HSVMVar(this.vm, this.vm.wasmmodule._HSVM_ObjectMemberRef(this.vm.hsvm, this.id, columnid, /*skipaccess=*/1));
   }
 
-
-  setJSValue(value: unknown) {
-    this.setJSValueInternal(value, VariableType.Variant);
-  }
-  private setJSValueInternal(value: unknown, forcetype: VariableType): void {
+  setJSValue(value: unknown, forcetype: VariableType = VariableType.Variant): void {
     if (value instanceof HSVMVar) {
       if (forcetype !== VariableType.Variant && forcetype !== value.getType())
         throw new Error(`Cannot use a ${VariableType[value.getType()]} here, a ${VariableType[forcetype]} is required`);
@@ -395,7 +391,8 @@ export class HSVMVar {
           this.vm.wasmmodule._HSVM_RecordSetEmpty(this.vm.hsvm, this.id);
           this.type = VariableType.Record;
           for (const [key, propval] of Object.entries(recval)) {
-            this.ensureCell(key).setJSValue(propval);
+            if (propval !== undefined)
+              this.ensureCell(key).setJSValue(propval);
           }
         }
         return;
@@ -405,7 +402,7 @@ export class HSVMVar {
       const itemtype = type !== VariableType.VariantArray ? type & ~VariableType.Array : VariableType.Variant;
       this.setDefault(type);
       for (const item of value as unknown[]) {
-        this.arrayAppend().setJSValueInternal(item, itemtype);
+        this.arrayAppend().setJSValue(item, itemtype);
       }
       return;
     }

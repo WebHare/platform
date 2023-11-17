@@ -2,6 +2,7 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::util/localization.whlib";
 
 LOADLIB "mod::system/lib/configure.whlib";
@@ -12,7 +13,13 @@ LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/internal/dbase/parser.whlib";
 LOADLIB "mod::system/lib/internal/modules/migrations.whlib";
 
-
+BOOLEAN FUNCTION IsValidTimeZone(STRING tz)
+{
+  IF(IsWasm())
+    RETURN ImportJS("./validatehelpers.ts")->IsValidTimeZone(tz);
+  ELSE
+    RETURN GetCanonicalTimeZoneID(tz) != "";
+}
 BOOLEAN FUNCTION CaptureOtherTids(STRING modulename, OBJECT moduledeffile)
 {
   GetModuleDashboardInfo(modulename, moduledeffile);
@@ -87,7 +94,7 @@ PUBLIC STATIC OBJECTTYPE ModuleDefinitionValidator EXTEND ModuleDefParser
 
     FOREVERY(RECORD task FROM md.tasks)
     {
-      IF(task.runtz NOT IN ["","maintenance"] AND GetCanonicalTimeZoneID(task.runtz) = "")
+      IF(task.runtz NOT IN ["","maintenance"] AND NOT IsValidTimeZone(task.runtz))
         this->AddErrorForLine(task.line, `Invalid timezone '${task.runtz}'`);
 
       IF(task.runat != "")

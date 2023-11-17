@@ -322,6 +322,11 @@ async function testHSON() {
 
   //Explicit invalid syntax
   test.throws(/At.*: Expected HSON type before '\[' token/, () => decodeHSON("hson:[]"));
+
+  //Undefined values
+  test.eq("hson:*", encodeHSON(undefined!));
+  test.eq("hson:va[0,*,*,3]", encodeHSON([0, undefined!, null, 3]));
+  test.eq(`hson:va[0,*,*,3,{"a":4,"c":*}]`, encodeHSON([0, undefined!, null, 3, { a: 4, b: undefined!, c: null }]));
 }
 
 async function testLocalizeDate() {
