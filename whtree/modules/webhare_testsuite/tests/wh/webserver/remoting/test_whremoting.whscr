@@ -2,6 +2,7 @@
 
 LOADLIB "wh::datetime.whlib";
 LOADLIB "wh::files.whlib";
+LOADLIB "wh::javascript.whlib";
 LOADLIB "wh::internet/webbrowser.whlib";
 
 LOADLIB "mod::system/lib/testframework.whlib";
@@ -42,9 +43,15 @@ RECORD FUNCTION AuthHandler(STRING realm, STRING url)
 
 MACRO TestLogin(BOOLEAN whsock)
 {
+  IF(whsock AND IsWASM())
+  {
+    Print(`WASM: no support for whsock remoting\n`);
+    RETURN;
+  }
+
   RECORD port := testfw->GetLocalhostWebinterface();
 
-  STRING serverurlwa := 'http://'||EncodeURL(testfw->GetUserLogin("sysop"))|| ":" || EncodeURL(testfw->GetUserPassword("sysop"))||'@localhost:'||port.portnumber||'/wh_services.whsock/webhare_testsuite/test/';
+  STRING serverurlwa := 'http://'||EncodeURL(testfw->GetUserLogin("sysop"))|| ":" || EncodeURL(testfw->GetUserPassword("sysop"))||'@localhost:'||port.portnumber||'/wh_services'|| (whsock?".whsock":"")||'/webhare_testsuite/test/';
   STRING serverurl := port.baseurl || 'wh_services' || (whsock?".whsock":"") || '/webhare_testsuite/test/';
 
   RECORD res;
@@ -66,6 +73,12 @@ MACRO TestLogin(BOOLEAN whsock)
 
 MACRO TestWHRemoting(BOOLEAN whsock)
 {
+  IF(whsock AND IsWASM())
+  {
+    Print(`WASM: no support for whsock remoting\n`);
+    RETURN;
+  }
+
   RECORD port := testfw->GetLocalhostWebinterface();
   STRING baseurl := "http://" || EncodeURL(testfw->GetUserLogin("sysop"))
                                     || ":" || EncodeURL(testfw->GetUserPassword("sysop"))

@@ -367,7 +367,7 @@ STATIC OBJECTTYPE WSConnector EXTEND ConnectorBase
 
   PUBLIC BOOLEAN FUNCTION HasRemoted()
   {
-    RETURN this->transport->remoter->HasClientRemoted();
+    RETURN ObjectExists(this->transport) AND ObjectExists(this->transport->remoter) AND this->transport->remoter->HasClientRemoted();
   }
 
   PUBLIC MACRO Close()

@@ -1,9 +1,16 @@
 <?wh
 
 LOADLIB "wh::internet/tcpip.whlib";
+LOADLIB "wh::javascript.whlib";
 
 PUBLIC INTEGER FUNCTION GetAvailableServerPort()
 {
+  IF(IsWasm())
+  {
+    //TODO Safer implementation, but this is probably a lot less racy than some of our other tests...
+    RETURN Random(30000,50000);
+  }
+
   // Test if this socket can be listened on
   INTEGER socket := CreateTCPSocket();
   IF(NOT BindSocket(socket, "127.0.0.1", 0))

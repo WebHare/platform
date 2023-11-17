@@ -12,6 +12,7 @@ LOADLIB "wh::promise.whlib";
 LOADLIB "wh::filetypes/archiving.whlib";
 LOADLIB "wh::internal/wasm.whlib";
 LOADLIB "wh::graphics/canvas.whlib";
+LOADLIB "wh::internet/fetch.whlib";
 LOADLIB "wh::internet/tcpip.whlib";
 LOADLIB "wh::util/comparisons.whlib";
 LOADLIB "wh::internal/debug.whlib";
@@ -711,6 +712,7 @@ STATIC OBJECTTYPE TestFramework
                      , portid := portid
                      , webservers := webservers
                      , connecthost := connecthost
+                     , protocol := options.secure_keyfile != "" ? "https" : "http"
                      ];
 
     /* We only return webserverid + baseurl if virtualhosts was not set.. to prevent code from blindly following through
@@ -737,11 +739,8 @@ STATIC OBJECTTYPE TestFramework
     //check for success immediately
     IF(retval.portnumber != 0)
     {
-      INTEGER tcpconn := CreateTCPSocket();
-      BOOLEAN success := ConnectSocket(tcpconn, retval.connecthost, retval.portnumber);
-      CloseSocket(tcpconn);
-      IF(NOT success)
-        THROW NEW Exception("Failed to actually connect to testinterface port at " || retval.connecthost || " port " || retval.portnumber);
+      TRY FetchSync(`${retval.protocol}://${retval.connecthost}:${retval.portnumber}/`, DEFAULT RECORD, [debug:=true, reject_unauthorized := FALSE ]);
+      CATCH(OBJECT e) THROW NEW Exception("Failed to actually connect to testinterface port at " || retval.connecthost || " port " || retval.portnumber || ": " || e->what);
     }
 
     RETURN retval;

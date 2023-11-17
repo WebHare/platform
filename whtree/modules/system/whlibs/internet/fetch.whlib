@@ -32,6 +32,10 @@ STATIC OBJECTTYPE FetchResponseHeaders
   {
     RETURN SELECT AS STRING value FROM this->headers WHERE ToUppercase(name) = ToUppercase(headername);
   }
+  PUBLIC RECORD ARRAY FUNCTION Entries()
+  {
+    RETURN SELECT "key" := name, value FROM this->headers;
+  }
 >;
 
 STATIC OBJECTTYPE FetchResponse
@@ -41,6 +45,7 @@ STATIC OBJECTTYPE FetchResponse
 
   PUBLIC PROPERTY status(fetchresult.status, -);
   PUBLIC PROPERTY statustext(fetchresult.statustext, -);
+  PUBLIC PROPERTY status_text(fetchresult.statustext, -); //snakecase alias
   // A boolean indicating whether the response was successful (status in the range 200 – 299) or not.
   PUBLIC PROPERTY ok(fetchresult.ok, -);
   PUBLIC PROPERTY headers(__headers, -);
@@ -75,6 +80,7 @@ STATIC OBJECTTYPE SyncFetchResponse
 
   PUBLIC PROPERTY status(asyncresponse->status, -);
   PUBLIC PROPERTY statustext(asyncresponse->statustext, -);
+  PUBLIC PROPERTY status_text(asyncresponse->statustext, -); //snakecase alias
   PUBLIC PROPERTY ok(asyncresponse->ok, -);
   PUBLIC PROPERTY headers(asyncresponse->headers, -);
 
@@ -137,6 +143,7 @@ PUBLIC ASYNC FUNCTION Fetch(STRING uri, RECORD options DEFAULTSTO DEFAULT RECORD
   pooloptions := ValidateOptions(
       [ timeout :=  -1 //fetch would use (abort) signal
       , debug :=    FALSE //debug from pool to console
+      , reject_unauthorized := FALSE
       ], pooloptions);
 
   IF(CellExists(options,'body'))

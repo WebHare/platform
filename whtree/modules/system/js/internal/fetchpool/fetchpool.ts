@@ -1,4 +1,7 @@
 import { WebHareBlob } from "@webhare/services/src/webhareblob";
+import { Agent, RequestInit as undiciRequestInit } from 'undici';
+
+let insecureagent: Agent | undefined;
 
 interface IncomingRequestInit extends Omit<RequestInit, "body"> {
   body?: WebHareBlob;
@@ -7,7 +10,10 @@ interface IncomingRequestInit extends Omit<RequestInit, "body"> {
 export interface FetchPoolOptions {
   timeout?: number;
   debug?: boolean;
+  ///if false, sets undici's connect.rejectUnauthorized to false to allow
+  rejectUnauthorized?: boolean;
 }
+
 
 export class Fetcher {
   async goFetch(url: string, options: IncomingRequestInit, pooloptions: FetchPoolOptions) {
@@ -23,6 +29,20 @@ export class Fetcher {
         ...options,
         body: options.body ? await options.body.arrayBuffer() : null
       };
+
+      if (pooloptions.rejectUnauthorized === false
+        //@ts-ignore Perhaps we should allow camel/snake conversion on backendservices so HS can transmit a camelcase prop
+        || pooloptions.reject_unauthorized === false
+      ) {
+        if (!insecureagent)
+          insecureagent = new Agent({
+            connect: {
+              rejectUnauthorized: false
+            }
+          });
+
+        (transmitoptions as undiciRequestInit).dispatcher = insecureagent;
+      }
 
       const response = await fetch(url, transmitoptions);
       const retval = {
