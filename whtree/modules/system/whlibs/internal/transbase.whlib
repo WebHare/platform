@@ -55,7 +55,7 @@ PUBLIC BOOLEAN FUNCTION IsDatabaseWritable()
 }
 
 //Callback for whdb.ts to get the any finish handlers in one call
-PUBLIC RECORD FUNCTION __PopPrimaryFinishHandlers(BOOLEAn iscommit)
+PUBLIC RECORD FUNCTION __PopPrimaryFinishHandlers(BOOLEAN iscommit)
 {
   OBJECT prim := GetPrimaryWebhareTransactionObject();
   RETURN ObjectExists(prim) ? prim->__PopFinishHandlers(iscommit) : DEFAULT RECORD;
