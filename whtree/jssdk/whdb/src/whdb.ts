@@ -51,10 +51,14 @@ class HandlerList implements Disposable {
     handlers: HSVMHeapVar;
   }>();
 
-  async setup() {
+  async setup(iscommit: boolean) {
     for (const vm of getActiveVMs()) {  //someone allocated a VM.. run any handlers there too
       const handlers = vm.allocateVariable();
-      await vm.callWithHSVMVars("wh::internal/transbase.whlib#__PopPrimaryFinishHandlers", [], undefined, handlers);
+      using commitparam = vm.allocateVariable();
+      commitparam.setBoolean(iscommit);
+
+      //This also invokes precommit handlers for that VM
+      await vm.callWithHSVMVars("wh::internal/transbase.whlib#__PopPrimaryFinishHandlers", [commitparam], undefined, handlers);
       if (handlers.recordExists())
         this.handlerlist.push({ vm, handlers });
       else
@@ -62,9 +66,9 @@ class HandlerList implements Disposable {
     }
   }
 
-  async invoke(stage: "onBeforeCommit" | "onCommit" | "onRollback") {
+  async invoke(stage: "onCommit" | "onRollback") {
     for (const handler of this.handlerlist)
-      await handler.vm.loadlib("wh::internal/transbase.whlib").__InvokeFinishHandlers(handler.handlers, stage);
+      await handler.vm.loadlib("wh::internal/transbase.whlib").__CallCommitHandlers(handler.handlers, stage);
   }
 
   [Symbol.dispose]() {
@@ -72,14 +76,6 @@ class HandlerList implements Disposable {
       handler.handlers[Symbol.dispose]();
     this.handlerlist = [];
   }
-}
-
-/* Gather and invoke finish handlers. These work on the current code context and are designed to invoke the handlers in the right order
-   even when callback handlers open new work during their execution */
-async function gatherCurrentHandlers(): Promise<HandlerList> {
-  const handlerlist = new HandlerList();
-  await handlerlist.setup();
-  return handlerlist;
 }
 
 class Work {
@@ -94,7 +90,20 @@ class Work {
     this.open = true;
   }
 
-  private async invokeFinishHandlers(handlers: HandlerList, stage: "onBeforeCommit" | "onCommit" | "onRollback") {
+  /* Gather and invoke finish handlers. These work on the current code context and are designed to invoke the handlers in the right order
+     even when callback handlers open new work during their execution. Runs any precommit handlers immediately */
+  private async prepareFinish(commit: boolean): Promise<HandlerList> {
+    if (commit)
+      await Promise.all(Array.from(this.finishhandlers.values()).map(h => h.onBeforeCommit?.()));
+
+    /* Note that we don't need to store JS finishhandlers, as JS stores this per work. For HS this is 'global' (primary tranasction object) state which
+       is why we need to copy the HS commithandler state at commit time (as commithandlers may start new work) */
+    const handlerlist = new HandlerList();
+    await handlerlist.setup(commit);
+    return handlerlist;
+  }
+
+  private async invokeFinishHandlers(handlers: HandlerList, stage: "onCommit" | "onRollback") {
     //invoke all finishedhandlers in 'parallel' and wait for them to finish
     await Promise.all(Array.from(this.finishhandlers.values()).map(h => h[stage]?.()));
     //serialize HSVM handlers, we don't expect them to deal with overlapping calls
@@ -137,10 +146,11 @@ class Work {
     if (!this.conn.pgclient)
       throw new Error(`Connection was already closed`);
 
-    using handlers = await gatherCurrentHandlers();
+    let handlers;
 
+    //FIXME support readonly mode (if it stays?). HareScript solved it at this level, but perhaps we can move the problem to PG or the user we connect with ?
     try {
-      await this.invokeFinishHandlers(handlers, "onBeforeCommit");
+      handlers = await this.prepareFinish(true);
     } catch (e) {
       try {
         await this.rollback();
@@ -171,7 +181,7 @@ class Work {
       throw new Error(`Connection was already closed`);
 
     this.open = false;
-    using handlers = await gatherCurrentHandlers();
+    using handlers = await this.prepareFinish(false);
     const lock = this.conn.reftracker.getLock("query lock: ROLLBACK");
     try {
       await sql`ROLLBACK`.execute(this.conn._db);

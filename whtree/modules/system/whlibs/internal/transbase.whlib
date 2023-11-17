@@ -55,29 +55,21 @@ PUBLIC BOOLEAN FUNCTION IsDatabaseWritable()
 }
 
 //Callback for whdb.ts to get the any finish handlers in one call
-PUBLIC RECORD FUNCTION __PopPrimaryFinishHandlers()
+PUBLIC RECORD FUNCTION __PopPrimaryFinishHandlers(BOOLEAn iscommit)
 {
   OBJECT prim := GetPrimaryWebhareTransactionObject();
-  RETURN ObjectExists(prim) ? prim->__PopFinishHandlers() : DEFAULT RECORD;
+  RETURN ObjectExists(prim) ? prim->__PopFinishHandlers(iscommit) : DEFAULT RECORD;
 }
 
-/** Calls all precommit handlers before a commit or rollback.
-    @param iscommitattempt TRUE for commits, FALSE for rollbacks
+/** Calls all commit handlers after a commit or rollback
+    @param stage onCommit or onRollback
 */
-PUBLIC MACRO __CallPrecommitHandlers(RECORD handlers, BOOLEAN iscommitattempt)
+PUBLIC MACRO __CallCommitHandlers(RECORD handlers, STRING stage)
 {
-  RECORD ARRAY objhandlers := handlers.objhandlers;
-  FOREVERY (RECORD rec FROM objhandlers)
-    IF (iscommitattempt)
-      rec.obj->OnPreCommit(handlers.transaction);
-}
+  BOOLEAN iscommit := stage = "onCommit"; //we've left 'stage' as a boolean to leave room for an "onCommitBroadcasts" stage
+  IF(stage NOT IN ["onCommit","onRollback"])
+   THROW NEW Exception(`Unexpected commit stage '${stage}'`);
 
-/** Calls all commit handlers after a commit or rollback. Call this function after every
-    commit or rollback!
-    @param iscommit TRUE for commit, FALSE for rollback
-*/
-PUBLIC MACRO __CallCommitHandlers(RECORD handlers, BOOLEAN iscommit)
-{
   OBJECT firstexception;
 
   // Do scheduled broadcasts as soon as possible
@@ -121,31 +113,6 @@ PUBLIC MACRO __CallCommitHandlers(RECORD handlers, BOOLEAN iscommit)
   IF (ObjectExists(firstexception))
     THROW firstexception;
 }
-
-/// Invoked by WASM PG provider
-PUBLIC MACRO __InvokeFinishHandlers(RECORD handlers, STRING stage) // stage: "onBeforeCommit" | "onCommit" | "onRollback"
-{
-  SWITCH(stage)
-  {
-    CASE "onBeforeCommit"
-    {
-      __CallPrecommitHandlers(handlers, TRUE);
-    }
-    CASE "onCommit"
-    {
-      __CallCommitHandlers(handlers, TRUE);
-    }
-    CASE "onRollback"
-    {
-      __CallCommitHandlers(handlers, FALSE);
-    }
-    DEFAULT
-    {
-      THROW NEW Exception(`Unexpected __InvokeFinishHandlers: ${stage}`);
-    }
-  }
-}
-
 
 STATIC OBJECTTYPE TableColumn
 <
@@ -782,8 +749,13 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
   }
 
   /// Describes all current finish handlers and pops their state. Used to ensure proper nesting of commit/rollback handlers when new work is opened during handlers
-  PUBLIC RECORD FUNCTION __PopFinishHandlers()
+  PUBLIC RECORD FUNCTION __PopFinishHandlers(BOOLEAN iscommit)
   {
+    //First run precommit handlers. We allow those to add more post-commit actions (eg broadcasts and (publication) queue manager transmissions which may be triggered by eg. WHFS updates)
+    IF(iscommit)
+      FOREVERY (RECORD rec FROM this->pvt_commithandlerobjects)
+        rec.obj->OnPreCommit(this);
+
     RECORD ARRAY handlers := this->pvt_commithandlers;
     RECORD ARRAY objhandlers := this->pvt_commithandlerobjects;
     RECORD ARRAY commitevents := this->pvt_commitevents;
@@ -806,12 +778,12 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     IF (this->pvt_numworks > 1)
       THROW NEW Exception("Cannot commit work: inside a nesting level, we still need " || (this->pvt_numworks-1) || " PopWork calls");
 
-    RECORD handlers := this->__PopFinishHandlers();
     BOOLEAN isreadonlyerror := this->pvt_isprimary AND NOT IsDatabaseWritable();
+    RECORD handlers;
 
     TRY
     {
-      __CallPreCommitHandlers(handlers, NOT isreadonlyerror);
+      handlers := this->__PopFinishHandlers(NOT isreadonlyerror);
     }
     CATCH (OBJECT e)
     {
@@ -832,7 +804,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     BOOLEAN have_errors := isreadonlyerror OR Length(errors) != 0;
     TRY
     {
-      __CallCommitHandlers(handlers, NOT have_errors);
+      __CallCommitHandlers(handlers, have_errors ? "onRollback" : "onCommit");
     }
     FINALLY
     {
@@ -853,16 +825,16 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     IF (this->pvt_numworks > 1)
       THROW NEW Exception("Cannot rollback work: inside a nesting level, we still need " || (this->pvt_numworks-1) || " PopWork calls");
 
-    RECORD handlers := this->__PopFinishHandlers();
+    RECORD handlers;
     TRY
-      __CallPreCommitHandlers(handlers, FALSE);
+      handlers := this->__PopFinishHandlers(FALSE);
     FINALLY
     {
       this->DoRollbackWork();
       this->pvt_numworks := 0;
       this->ReleaseAllLocks();
 
-      __CallCommitHandlers(handlers, FALSE);
+      __CallCommitHandlers(handlers, "onRollback");
     }
   }
 
@@ -929,7 +901,6 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
   */
   PUBLIC RECORD ARRAY FUNCTION Commit()
   {
-    __CallCommitHandlers(this->__PopFinishHandlers(), TRUE);
     THROW NEW Exception("Commit not supported by this transaction of type " || GetObjectTypeName(this));
   }
 
@@ -947,12 +918,11 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
   */
   PUBLIC MACRO Close()
   {
-    RECORD handlers := this->__PopFinishHandlers();
-    __CallPrecommitHandlers(handlers, FALSE);
+    RECORD handlers := this->__PopFinishHandlers(FALSE);
     this->UnregisterTransaction();
     this->ReleaseAllLocks();
 
-    __CallCommitHandlers(handlers, FALSE);
+    __CallCommitHandlers(handlers, "onRollback");
   }
 
   /** @short Register a commit event, which is broadcasted if the transaction succesfully commits
@@ -972,7 +942,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     INSERT INTO this->pvt_commitevents(name, data) VALUES(eventname, eventdata) AT END;
 
     IF(NOT this->IsWorkOpen())
-      __CallCommitHandlers(this->__PopFinishHandlers(), TRUE);
+      __CallCommitHandlers(this->__PopFinishHandlers(TRUE), "onCommit");
   }
 
   /** Registers a commit handler, which is called when the transaction
@@ -997,7 +967,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
     INSERT [ tag := coalesce_tag, handler := handler ] INTO this->pvt_commithandlers AT END;
 
     IF(NOT this->IsWorkOpen())
-      __CallCommitHandlers(this->__PopFinishHandlers(), TRUE);
+      __CallCommitHandlers(this->__PopFinishHandlers(TRUE), "onCommit");
   }
 
 
@@ -1030,7 +1000,7 @@ PUBLIC STATIC OBJECTTYPE BuiltinTransactionBase
 
     INSERT [ "0" := tag, obj := obj ] INTO this->pvt_commithandlerobjects AT -pos-1;
     IF(NOT this->IsWorkOpen())
-      __CallCommitHandlers(this->__PopFinishHandlers(), TRUE);
+      __CallCommitHandlers(this->__PopFinishHandlers(TRUE), "onCommit");
   }
 
 
