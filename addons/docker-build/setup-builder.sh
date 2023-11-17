@@ -137,6 +137,13 @@ cd /tmp
 curl http://ftp.gnu.org/gnu/automake/automake-1.16.5.tar.gz | tar zxf -
 cd automake-1.16.5/
 ./configure
+make -j install
+
+# update make too
+cd /tmp
+curl  https://ftp.gnu.org/gnu/make/make-4.4.1.tar.gz | tar zx
+cd make-4.4.1
+./configure
 make install
 
 #install emscripten

@@ -10,12 +10,13 @@
 #
 # Check whether 'make' itself is recent enough:
 #
-NEED_MAKE_VERSION=3.81
+NEED_MAKE_VERSION=4.3
 ifneq ($(firstword $(sort $(MAKE_VERSION) $(NEED_MAKE_VERSION))),$(NEED_MAKE_VERSION))
   $(error This makefile requires version $(NEED_MAKE_VERSION), you have $(MAKE_VERSION)))
 endif
 
-MAKEFLAGS=--warn-undefined-variables --output-sync=target
+#MAKEFLAGS+=--warn-undefined-variables # too much noise with 4.3
+MAKEFLAGS+=--output-sync=target
 
 ################################################
 #
@@ -77,12 +78,6 @@ vpath %.c $(SRCDIR)
 vpath %.h $(SRCDIR)
 vpath %.S $(SRCDIR)
 vpath %.pc $(PKGCONFIGPATHS)
-
-ifeq ($(NOTEST),1)
-	BuildAndTest = build.$1
-else
-	BuildAndTest = success.$1
-endif
 
 export WEBHARE_PLATFORM
 export PREFIX
@@ -678,7 +673,7 @@ ALL_TESTFILES+=bin/$(RUNTEST)
 #
 # HARESCRIPT
 #
-harescript-all: $(call BuildAndTest,harescript)
+harescript-all: success.harescript
 
 harescript-clean:
 	rm -rf -- harescript $(harescript_DEPLOYABLES)
@@ -698,7 +693,7 @@ success.harescriptvm harescript-testvm: bin/vmtest build.harescriptvm
 
 ALL_TESTFILES+=bin/vmtest
 
-lib/libblex_hsvm$(DLL_SUFFIX): $(call BuildAndTest,blex) $(LIBHSVM_NATIVE_SOURCEOBJS)
+lib/libblex_hsvm$(DLL_SUFFIX): success.blex $(LIBHSVM_NATIVE_SOURCEOBJS)
 	$(call LinkShared,$(LIBHSVM_NATIVE_SOURCEOBJS),$@,blex_base $(BLEX_HSVM_LIBS))
 
 lib/libblex_hscompiler$(DLL_SUFFIX): $(LIBHSCOMPILER_OBJS) lib/libblex_hsvm$(DLL_SUFFIX)
@@ -735,7 +730,7 @@ clean-icu-provider:
 #
 # DRAWLIB
 #
-drawlib-all: $(call BuildAndTest,drawlib)
+drawlib-all: success.drawlib
 
 drawlib-clean:
 	rm -rf -- drawlib $(drawlib_DEPLOYABLES)
@@ -749,7 +744,7 @@ ifeq ($(DRAWLIBTEST),)
 	> success.drawlib
 endif
 
-lib/libblex_draw$(DLL_SUFFIX): $(call BuildAndTest,blex) $(DRAWLIB_OBJS)
+lib/libblex_draw$(DLL_SUFFIX): success.blex $(DRAWLIB_OBJS)
 	$(call LinkShared,$(DRAWLIB_OBJS),$@,$(DRAWLIB_STATIC_LIBS) $(DRAWLIB_BASE_LIBS)  $(BLEX_LIBS) )
 
 bin/$(RUNDRAWLIBTEST): $(DRAWLIBTEST_OBJS) lib/libblex_draw$(DLL_SUFFIX)
@@ -765,7 +760,7 @@ coffee:
 #
 # PARSERS
 #
-parsers-all: $(call BuildAndTest,parsers)
+parsers-all: success.parsers
 
 parsers-clean:
 	rm -rf -- parsers $(parsers_DEPLOYABLES)
@@ -785,7 +780,7 @@ parsers_baselib_OBJFILES = $(call Src2ObjFiles, $(parsers_baselib_CPPFILES))
 parsers_office_escher_CPPFILES = $(call GetSrcFiles,parsers/office_escher/*.cpp)
 parsers_office_escher_OBJFILES = $(call Src2ObjFiles, $(parsers_office_escher_CPPFILES))
 
-$(PARSERS_baselib): $(parsers_baselib_OBJFILES) $(call BuildAndTest,drawlib) build.harescript
+$(PARSERS_baselib): $(parsers_baselib_OBJFILES) success.drawlib build.harescript
 	$(call LinkShared,$(parsers_baselib_OBJFILES),$@,$(DRAWLIB_LIBS) $(HS_LIBS))
 
 $(PARSERS_escherlib): $(parsers_office_escher_OBJFILES) $(PARSERS_baselib)
@@ -800,7 +795,7 @@ $(foreach mod,$(PARSERS_MODULES),$(eval $(call HsModTarget,$(mod),,parsers)))
 #
 # AP
 #
-ap-all: parsers-all $(call BuildAndTest,ap)
+ap-all: parsers-all success.ap
 
 ap-clean:
 	rm -rf -- ap $(ap_DEPLOYABLES)
@@ -817,7 +812,7 @@ ap_libwebhare_OBJFILES = $(call Src2ObjFiles, $(ap_libwebhare_CPPFILES))
 HSM_SYSTEM_GEOIP_OBJS = $(HSM_SYSTEM_GEOIP_CPP_OBJS)
 HSM_SYSTEM_GEOIP_CPP_OBJS = ap/addons/system_geoip/geoipdriver.native-obj
 
-$(AP_libwebhare): $(ap_libwebhare_OBJFILES) $(call BuildAndTest,harescript)
+$(AP_libwebhare): $(ap_libwebhare_OBJFILES) success.harescript
 	$(call LinkShared,$(ap_libwebhare_OBJFILES),$@,$(HS_LIBS) $(BLEX_LIBS))
 
 lib/hsm_system_geoip$(DLL_SUFFIX): $(HSM_SYSTEM_GEOIP_OBJS) $(AP_libwebhare)
@@ -844,14 +839,9 @@ $(foreach mod,$(AP_DEPLOYABLES_UTILS),$(eval $(call ApUtilTarget,$(mod))))
 # Note that wasm targets are easier as we don't bother with dynamic linking.
 # Make 4.4 allows to define grouped targets (lib/harescript.js lib/harescript.wasm &: ...) but ubuntu 20.4 is still on 4.3
 # We use build.harescript-wasm as a barrier to ensure these targets waiting for the build
-build.harescript-wasm: $(LIBHSVM_WASM_SOURCEOBJS) $(call BuildAndTest,wasm-blex) $(SRCDIR)/harescript/vm/wasm-suspending-functions.txt $(SRCDIR)/harescript/vm/fix-emcc-output.js
+lib/harescript.js lib/harescript.wasm &: $(LIBHSVM_WASM_SOURCEOBJS) success.wasm-blex $(SRCDIR)/harescript/vm/wasm-suspending-functions.txt $(SRCDIR)/harescript/vm/fix-emcc-output.js
 	$(call LinkWASMImportable,$(LIBHSVM_WASM_SOURCEOBJS),lib/harescript.js,$(PREFIX)/lib/)
 	> build.harescript-wasm
-
-lib/harescript.js: build.harescript-wasm
-lib/harescript.wasm: build.harescript-wasm
-$(PREFIX)/lib/harescript.js: build.harescript-wasm
-$(PREFIX)/lib/harescript.wasm: build.harescript-wasm
 
 lib/harescript-interface.ts: harescript/vm/hsvm_dllinterface.wasm-obj harescript/vm/wasm-harescript.wasm-obj $(SRCDIR)/harescript/vm/generate-wasm-interface.js $(SRCDIR)/harescript/vm/wasm-suspending-functions.txt
 	$(HIDE)echo "- Generating lib/harescript-interface.ts"
@@ -869,7 +859,7 @@ success.wasm: build.wasm
 wasm-clean:
 	rm -f $(wasm_DEPLOYABLES_WHAP) $(WASM_ALL_OBJS)
 
-wasm: lib/harescript.js lib/harescript.wasm $(call BuildAndTest,wasm)
+wasm: lib/harescript.js lib/harescript.wasm success.wasm
 
 #################################################
 ##
@@ -880,7 +870,7 @@ uninstall:
 	-rm -f -- $(addprefix $(PREFIX)/,$(ALL_DEPLOYABLES))
 
 # Lists all test targets. This causes the 'install' phase to be blocked by any subproject (or wasm, which is a testtarget but not one of the SUBPROJECTS)
-ALLBUILDANDTEST=$(foreach file,$(SUBPROJECTS),$(call BuildAndTest,${file})) $(call BuildAndTest,wasm)
+ALLBUILDANDTEST=$(foreach file,$(SUBPROJECTS),success.${file}) success.wasm
 
 define InstallOurDeployable
 $(PREFIX)/$(1): $(1) | $(ALLBUILDANDTEST)
@@ -929,12 +919,12 @@ sandwich:
 # install also cleans up old targets. we didn't really use to care, but it can put people on the wrong track ("appserver is crashing! no, it was removed")
 # we invoke 'wasm' (a PHONY) explicitly to ensure it's always rechecked as the toplevel make cannot check the wasm's sub-make dependencies
 install: $(ALLINSTALLDIRS) postinstall | \
-         $(call BuildAndTest,blex) \
-         $(call BuildAndTest,harescript) \
-         $(call BuildAndTest,drawlib) \
+         success.blex \
+         success.harescript \
+         success.drawlib \
          $(addprefix $(PREFIX)/,$(WHAP_INSTALLABLES)) \
-         $(call BuildAndTest,ap) \
-         $(call BuildAndTest,wasm)
+         success.ap \
+         success.wasm
 	${HIDE}rm $(PREFIX)/bin/{appserver,backup,consilio,dbserver,dumpcomplexfslog,dumprawtable} 2>/dev/null || true #cleanup old bins
 	${HIDE}rm $(PREFIX)/lib/{hsm_parser_office_excel,hsm_parser_office_powerpoint}.* 2>/dev/null || true #cleanup old bins
 

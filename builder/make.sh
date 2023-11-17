@@ -7,10 +7,13 @@ source "$WEBHARE_CHECKEDOUT_TO/whtree/lib/make-functions.sh"
 estimate_buildj
 
 if [ "$WEBHARE_PLATFORM" == "linux" ]; then
+  MAKE=/usr/local/bin/make #ensure we get make 4.4.1
   read -r _ TOTALMEM _ <<< "$(cat /proc/meminfo| grep ^MemTotal)"
   # With too little memory the buildtoolchains will randomly segfault, and defaults for Docker/podman can be smaller than that
   # 3994744 as this is what I got using: podman machine set -m 4096
   [ "$TOTALMEM" -lt 3994744 ] && die "You need at least 4GB of memory to build WebHare ($TOTALMEM < 3994744)"
+else
+  MAKE=gmake
 fi
 
 setup_builddir
@@ -39,7 +42,7 @@ export SRCDIR="$WEBHARE_CHECKEDOUT_TO"
 export WEBHARE_PLATFORM
 
 retval=0
-make -rj$WHBUILD_NUMPROC -f $WEBHARE_CHECKEDOUT_TO/builder/base_makefile "$@" || retval=$?
+"$MAKE" -rj$WHBUILD_NUMPROC -f $WEBHARE_CHECKEDOUT_TO/builder/base_makefile "$@" || retval=$?
 
 if [ "$retval" != "0" ]; then
   echo ""
