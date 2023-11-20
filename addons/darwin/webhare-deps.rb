@@ -16,7 +16,6 @@ class WebhareDeps < Formula
   depends_on "fswatch"
   depends_on "giflib"
   depends_on "icu4c"
-  depends_on "libgit2"
   depends_on "libmaxminddb"
   depends_on "libpng"
   depends_on "libtiff"
