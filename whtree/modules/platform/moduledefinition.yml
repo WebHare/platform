@@ -19,6 +19,8 @@ backendServices:
     clientFactory: "mod::system/js/internal/fetchpool/fetchpool.ts#getFetcher"
   jsonapicaller:
     clientFactory: "mod::system/js/internal/jsonrpccaller.ts#getJSONApiCaller"
+  configuration:
+    controllerFactory: js/configure/configservice.ts#createConfigManager
 
 selfChecks:
   - checker: js/checks/servicechecks.ts#checkMissingServices
