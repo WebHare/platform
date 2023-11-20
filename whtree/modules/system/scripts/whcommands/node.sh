@@ -1,16 +1,6 @@
 #!/bin/bash
 # short: Execute node with our typescript compiler plugin loaded
 
-# Parse options (we used to have --validate)
-while true; do
-  if [[ $1 =~ ^- ]]; then
-    echo "Illegal option '$1'"
-    exit 1
-  else
-    break
-  fi
-done
-
 if [ -z "$WEBHARE_DATAROOT" ]; then
   echo WEBHARE_DATAROOT not set, cannot invoke node
   exit 1
