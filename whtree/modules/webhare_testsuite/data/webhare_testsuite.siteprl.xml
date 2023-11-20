@@ -196,8 +196,26 @@
                       contenttype="http://www.webhare.net/xmlns/webhare_testsuite/webdesign/emptydocumentfile" />
   </apply>
 
-  <!-- generic test types -->
-  <contenttype namespace="http://www.webhare.net/xmlns/webhare_testsuite/generictesttype">
+  <!-- generic test types
+       scopedtype="global.genericTestType" would trigger
+       scopedtypes CANNOT HAVE UNDERSCORES to fix ambiguity
+       - A global name of "webhare_testsuite:global.genericTestType" (this might appear instead of namespace URLs)
+       - A namespace of "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type"
+       - This import: `import { globalTypes } from "wh:whfs/webhare_testsuite"`
+       - To get: `const mydata = globalTypes.genericTestType.get(fileId)`
+
+        Long term we may want 'global/types.yml'
+        genericTestType:
+          namespace: (optional for backwards compatibility)
+          members:
+            str:
+              type: string
+             empty_str:
+              type: string
+        customPage:
+          members:...
+  -->
+  <contenttype scopedtype="global.genericTestType"> <!-- x-webhare-scopedtype:webhare_testsuite.global.generic_test_type -->
     <string name="str" />
     <string name="empty_str" />
     <integer name="int" />

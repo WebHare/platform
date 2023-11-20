@@ -597,7 +597,7 @@ MACRO TestSiteProfiles()
   res := ValidateSingleFile("mod::system/test.siteprl.xml", [ overridedata := incorrect_filetype_members ]);
   //DumpValue(res.errors);
   TestEq([[ line := 3, message := 'Content type http://www.webhare.net/xmlns/webhare_testsuite/validatetest is not defined in this file' ]
-         ,[ line := 5, message := 'A type cannot define <members> unless it uses namespace= instead of typedef=' ]
+         ,[ line := 5, message := 'A type cannot define <members> if it still uses typedef=' ]
          ,[ line := 7, message := 'kind= cannot be used with typedef=, you need to switch to namespace=' ]
          ], SELECT line, message FROM res.errors ORDER BY line,message)  ;
 

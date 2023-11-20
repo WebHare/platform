@@ -248,28 +248,45 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     this->ParseFileFolderTypes("filetype", PTR this->ReadFileType);
   }
 
+  RECORD FUNCTION ParseScopedType(OBJECT node)
+  {
+    RECORD retval := [ scopedtype := "", namespace := "" ];
+    IF(node->HasAttribute("scopedtype"))
+    {
+      IF(node->HasAttribute("namespace") OR node->HasAttribute("typedef"))
+        THROW NEW Exception(`Conflicting namespace definition. Do not combine scopedtype= with namespace=/typedef=`);
+
+      retval.scopedtype := this->module || ":" || node->GetAttribute("scopedtype");
+      retval.namespace := ScopedTypeToNameSpace(retval.scopedtype, FALSE);
+    }
+    ELSE
+    {
+      BOOLEAN uses_namespace := node->HasAttribute("namespace");
+      retval.namespace := uses_namespace ? node->GetAttribute("namespace") : node->GetAttribute("typedef"); //typedef is the 'old' name before we merged contenttype with filetype
+      IF(retval.namespace = "")
+        THROW NEW Exception(`No namespace set on <${node->localname}>`);
+    }
+    RETURN retval;
+  }
+
   PUBLIC MACRO ParseFileFolderTypes(STRING whichtype, FUNCTION PTR parser)
   {
     FOREVERY(OBJECT ftype FROM this->siteprof->xmldoc->documentelement->ListChildren(whconstant_xmlns_publisher, whichtype))
     {
       TRY
       {
-        BOOLEAN uses_namespace := ftype->HasAttribute("namespace");
-        STRING ns := uses_namespace ? ftype->GetAttribute("namespace") : ftype->GetAttribute("typedef"); //typedef is the 'old' name before we merged contenttype with filetype
-        IF(ns = "")
-            this->AddError(ftype, `No namespace set on <${ftype->localname}>`);
-
-        RECORD insertpos := RecordLowerBound(this->contenttypes, [namespace:=ns], ["NAMESPACE"]);
+        RECORD scopedtypeinfo := this->ParseScopedType(ftype);
+        RECORD insertpos := RecordLowerBound(this->contenttypes, [namespace:=scopedtypeinfo.namespace], ["NAMESPACE"]);
         IF(NOT insertpos.found)
-          THROW NEW Exception(`Content type ${ns} is not defined in this file`);
+          THROW NEW Exception(`Content type ${scopedtypeinfo.namespace} is not defined in this file`);
 
         OBJECT membersnode := PickFirst(ftype->ListChildren(whconstant_xmlns_publisher, "members"));
-        IF(ObjectExists(membersnode) AND NOT uses_namespace)
-          this->AddError(ftype, `A type cannot define <members> unless it uses namespace= instead of typedef=`);
+        IF(ObjectExists(membersnode) AND ftype->HasAttribute("typedef"))
+          this->AddError(ftype, `A type cannot define <members> if it still uses typedef=`);
 
         RECORD ctype := this->contenttypes[insertpos.position];
         IF(RecordExists(ctype.foldertype) OR RecordExists(ctype.filetype))
-          this->AddError(ftype, `Content type ${ns} is already setup as a file or folder type`);
+          this->AddError(ftype, `Content type ${scopedtypeinfo.namespace} is already setup as a file or folder type`);
 
         ctype := parser(ctype, ftype);
         this->contenttypes[insertpos.position] := ctype;
@@ -400,7 +417,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
     RETURN MakeAbsoluteResourcePath(this->filename, node->GetAttribute(attrname));
   }
 
-  PUBLIC MACRO  ReadContentTypes()
+  PUBLIC MACRO ReadContentTypes()
   {
     // All xml elements that contain contenttype definitions
     RECORD ARRAY contenttypeelements :=
@@ -420,7 +437,7 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
 
     FOREVERY(OBJECT ctype FROM contenttypes)
     {
-      IF(NOT ctype->HasAttribute("namespace"))
+      IF(NOT ctype->HasAttribute("namespace") AND NOT ctype->HasAttribute("scopedtype")) //if neither is set this is an old-style filetype definition (typedef=) which is separate from its contenttype
         CONTINUE;
 
       TRY
@@ -497,23 +514,21 @@ STATIC OBJECTTYPE SiteprofileCompilationContext
   {
     // Type of the contenttype is the localname (ignore the namespace)
     STRING nodename := ctype->localname ?? ctype->nodename;
-    // Namespace filled in?
-    STRING ns := ctype->GetAttribute("namespace");
-    IF (ns = "")
-      THROW NEW Exception("No namespace specified for " || nodename);
 
+    RECORD scopedtypeinfo := this->ParseScopedType(ctype);
     BOOLEAN set_cloneoncopy := nodename != "contenttype" OR (ctype->HasAttribute("cloneoncopy") = FALSE OR ParseXSBoolean(ctype->GetAttribute("cloneoncopy")));
     INTEGER typedefid;
 
     OBJECT membersnode := ctype->GetChildElementsByTagNameNS(whconstant_xmlns_publisher, "members")->Item(0);
-    RECORD newmembers := this->ReadCTMembers(membersnode ?? ctype, ns);
+    RECORD newmembers := this->ReadCTMembers(membersnode ?? ctype, scopedtypeinfo.namespace);
 
     RECORD typeinfo := nodename="rtdtype" ? ParseSiteprofXMLStructure(this, ctype) : MakeBasicTypeInfo(nodename);
     typeinfo.id := typedefid;
-    typeinfo.namespace := ns;
+    typeinfo.scopedtype := scopedtypeinfo.scopedtype;
+    typeinfo.namespace := scopedtypeinfo.namespace;
     typeinfo.siteprofile := this->filename;
     typeinfo.line := ctype->linenum;
-    typeinfo.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ctype, "title") ?? ":" || ns;
+    typeinfo.title := ParseXMLTIDPtr(this->filename, this->toplevelgid, ctype, "title") ?? ":" || scopedtypeinfo.namespace;
     typeinfo.tolliumicon := ctype->GetAttribute("tolliumicon") ?? ctype->GetAttribute("icon"); //TODO once everyone is 4.30, deprecate tolliumicon= and move everyone back to simple icon=
     typeinfo.groupmemberships := newmembers.groupmemberships;
     typeinfo.cloneoncopy := set_cloneoncopy;
@@ -1514,5 +1529,3 @@ PUBLIC OBJECT FUNCTION PrepareCompile()
   }
   RETURN parameters;
 }
-
-

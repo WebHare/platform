@@ -48,8 +48,11 @@ export interface FolderTypeInfo extends ContentTypeInfo {
 //WARNING we may need to make this API async in the future. It's not publicly exposed yet though so for now it's okay to be sync
 export function getType(type: string | number, kind?: "fileType" | "folderType"): CSPContentType | undefined {
   const types = getCachedSiteProfiles().contenttypes;
-  if (typeof type === "string")
-    return types.find(_ => _.namespace === type);
+  if (typeof type === "string") {
+    if (!type)
+      return undefined;
+    return types.find(_ => _.scopedtype === type || _.namespace === type);
+  }
 
   if (!type) {
     if (!kind)
