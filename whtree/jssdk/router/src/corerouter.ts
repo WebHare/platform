@@ -31,7 +31,7 @@ export async function lookupPublishedTarget(url: string) {
 export function getHSWebserverTarget(request: WebRequest) {
   const trustedlocalport = getFullConfigFile().baseport + 3; //3 = whconstant_webserver_hstrustedportoffset
   const trustedip = process.env["WEBHARE_SECUREPORT_BINDIP"] || "127.0.0.1"; //TODO we should probably name this WEBHARE_PROXYPORT_BINDIP ? not much secure about this port..
-  //Convert Request headers to Undici compatible heaers, filter out the dangeorus ones
+  //Convert Request headers to Undici compatible headers, filter out the dangeorus ones
   const headers = Object.fromEntries([...request.headers.entries()].filter(([header,]) => !["host", "x-forwarded-for", "x-forwarded-proto"].includes(header)));
   headers["x-forwarded-for"] = "1.2.3.4"; //FIXME use real remote IP, should be in 'request'
   headers["x-forwarded-proto"] = request.url.protocol.split(':')[0]; //without ':'
