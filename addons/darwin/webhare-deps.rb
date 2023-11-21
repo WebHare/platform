@@ -19,6 +19,7 @@ class WebhareDeps < Formula
   depends_on "libmaxminddb"
   depends_on "libpng"
   depends_on "libtiff"
+  depends_on "make"
   depends_on "node@20"
   depends_on "openssl"
   depends_on "pixman"

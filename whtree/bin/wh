@@ -48,6 +48,10 @@ if [ -z "$WEBHARE_DIR" ]; then
   [ "$WH_VERBOSE" == "1" ] && echo "WebHare installation dir: $WEBHARE_DIR"
 fi
 
+# Ensure 'wh' runs this wh so we don't accidentally rely on external PATHs/functions/aliasses - lock it to WEBHARE_DIR
+wh() { "${BASH_SOURCE%/*}/../bin/wh" "$@"; }
+export -f wh
+
 # Try to set WEBHARE_CHECKEDOUT_TO from WEBHARE_DIR where possible
 if [ -z "$WEBHARE_CHECKEDOUT_TO" ]; then
   if [ -f "$WEBHARE_DIR/../builder/base_makefile" ]; then
@@ -252,9 +256,16 @@ setup_for_console() #setup_for_console is invoked when we're starting a major su
 
 # Do we need to prepare whdata? Anything that does setup_for_console or things like make and finalize don't need it
 if [[ ! "$INSTR" =~ ^(console|mic|umic|exec|execbuilt|shell|make|finalize-webhare|prepare-whdata|fixbuild|builddocker|testdocker|deploydocker)$ ]]; then
-  if [ -z "$__WEBHARE_WHDATA_PREPARED" ] && ! is_webhare_running; then
-    export __WEBHARE_WHDATA_PREPARED=1 #Set before regeneration to prevent duplicate/looping invocations. It's easy for wh to refer back to itself during execution
-    "$WEBHARE_DIR/modules/platform/scripts/bootstrap/prepare-whdata.sh" --force || die "Cannot prepare whdata"
+  if [ -z "$__WEBHARE_WHDATA_PREPARED" ]; then
+    if [ ! -f "$WEBHARE_DIR/jssdk/ts-esbuild-runner/dist/resolveplugin.js" ]; then #this may trigger after a source checkout and attempting to just 'wh'
+      echo "It looks like WebHare isn't built yet. Try wh make install" 1>&2
+      exit 1
+    fi
+
+    if ! is_webhare_running; then
+      export __WEBHARE_WHDATA_PREPARED=1 #Set before regeneration to prevent duplicate/looping invocations. It's easy for wh to refer back to itself during execution
+      "$WEBHARE_DIR/modules/platform/scripts/bootstrap/prepare-whdata.sh" --force || die "Cannot prepare whdata"
+    fi
   fi
 fi
 

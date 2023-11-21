@@ -113,7 +113,7 @@ definitions:
             description: "Function to create a client for this service"
             type: string
           controllerFactory:
-            description: "Function to create a controller for this service which will create the clients"
+            description: "Function to create a controller for this service which will create the clients. Must satisfy ServiceControllerFactoryFunction"
             type: string
 
   connect:
@@ -175,7 +175,7 @@ definitions:
       additionalProperties: false
       properties:
         checker:
-          description: Path to function to execute
+          description: Path to function to execute. Must satify CheckFunction
           type: string
       required:
         - checker
