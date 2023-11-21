@@ -55,6 +55,7 @@ export interface CSPContentType {
   line: number;
   members: CSPMember[];
   namespace: string;
+  scopedtype: string;
   orphan: boolean;
   previewcomponent: string;
   siteprofile: string;

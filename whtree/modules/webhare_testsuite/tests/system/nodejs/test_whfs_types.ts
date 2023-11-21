@@ -44,6 +44,10 @@ async function testMockedTypes() {
   await test.throws(/No such type/, () => whfs.describeContentType("", { allowMissing: true, metaType: "fileType" }));
   test.eqProps({ title: ":#777777777777", namespace: "#777777777777", metaType: "fileType" }, await whfs.describeContentType(777777777777, { allowMissing: true, metaType: "fileType" }));
 
+  //verify scopedtypenames
+  const scopedtype = await whfs.describeContentType("webhare_testsuite:global.genericTestType");
+  test.eq("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", scopedtype.namespace);
+
   //TODO ensure that orphans return a mockedtype unless you explicitly open in orphan mode. But consider whether we really want to describe orphans as that will require describe to be async!
 }
 
@@ -54,9 +58,9 @@ async function testInstanceData() {
   const testfile: WHFSFile = await tmpfolder.createFile("testfile.txt");
   const fileids = [tmpfolder.id, testfile.id];
 
-  const testtype = whfs.openType("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype");
+  const testtype = whfs.openType("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
   test.eqProps({ int: 0, yesNo: false }, await testtype.get(testfile.id));
-  await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 0);
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 0);
 
   //Test basic get/set
   await testtype.set(testfile.id, {
@@ -64,14 +68,14 @@ async function testInstanceData() {
     yesNo: true
   });
   test.eqProps({ int: 15, yesNo: true }, await testtype.get(testfile.id));
-  await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 2);
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 2);
 
   await testtype.set(testfile.id, {
     int: 20,
     yesNo: false
   });
   test.eqProps({ int: 20, yesNo: false }, await testtype.get(testfile.id));
-  await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 1);
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 1);
 
   //Test the rest of the primitive types
   await testtype.set(testfile.id, {
@@ -85,12 +89,12 @@ async function testInstanceData() {
     myWhfsRefArray: fileids
   });
 
-  await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 10);
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 10);
 
   await testtype.set(testfile.id, {
     strArray: ["a", "b", "c"]
   });
-  await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 13);
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 13);
 
   test.eqProps({
     int: 20,
@@ -105,12 +109,15 @@ async function testInstanceData() {
     myWhfsRefArray: fileids
   }, await testtype.get(testfile.id));
 
+  const typeThroughShortName = await whfs.openType("webhare_testsuite:global.genericTestType");
+  test.eq(await testtype.get(testfile.id), await typeThroughShortName.get(testfile.id));
+
   //Test files
   const goldfish = await ResourceDescriptor.fromResource("mod::system/web/tests/goudvis.png");
   await testtype.set(testfile.id, {
     blub: goldfish
   });
-  await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 14);
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 14);
 
   const returnedGoldfish = (await testtype.get(testfile.id)).blub as ResourceDescriptor;
   test.eq("aO16Z_3lvnP2CfebK-8DUPpm-1Va6ppSF0RtPPctxUY", returnedGoldfish.hash);
@@ -122,15 +129,15 @@ async function testInstanceData() {
     rich: inRichdoc
   });
 
-  await verifyNumSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype", 15);
+  await verifyNumSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type", 15);
 
   const returnedRichdoc = (await testtype.get(testfile.id)).rich as RichDocument;
   test.eq(inRichdocHTML, await returnedRichdoc.__getRawHTML());
 
-  // await dumpSettings(testfile.id, "http://www.webhare.net/xmlns/webhare_testsuite/generictesttype");
+  // await dumpSettings(testfile.id, "x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
 
   //Does HareScript agree with us ?
-  const hs_generictype = await loadlib("mod::system/lib/whfs.whlib").openWHFSType("http://www.webhare.net/xmlns/webhare_testsuite/generictesttype");
+  const hs_generictype = await loadlib("mod::system/lib/whfs.whlib").openWHFSType("x-webhare-scopedtype:webhare_testsuite.global.generic_test_type");
   const val = await hs_generictype.getInstanceData(testfile.id);
   test.eq(Money.fromNumber(2.5), val.price);
   test.eq({ price: Money.fromNumber(2.5) }, { price: val.price });

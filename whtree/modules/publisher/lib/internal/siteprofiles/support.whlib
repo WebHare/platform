@@ -1,5 +1,39 @@
 <?wh
+LOADLIB "wh::regex.whlib";
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
+
+STRING FUNCTION SnakeIt(STRING match, STRING ARRAY params, INTEGER pos, STRING input)
+{
+  RETURN "_" || ToLowercase(match);
+}
+PUBLIC STRING FUNCTION ToSnakeCase(STRING camelcasetext)
+{
+  RETURN NEW RegEx("[A-Z]","g")->ReplaceCallback(camelcasetext, PTR SnakeIt);
+}
+
+///Convert scopedtype to classic namespace. Throws if invalid format (unless allowclassicnamespace is set).
+PUBLIC STRING FUNCTION ScopedTypeToNamespace(STRING scopedtype, BOOLEAN isreference)
+{
+  IF(isreference) //we're a referring
+  {
+    IF(scopedtype LIKE "x-webhare-scopedtype:*" OR scopedtype LIKE "http://*" OR scopedtype LIKE "https://*")
+      RETURN scopedtype; //saves us the trouble of remapping;
+    IF(scopedtype LIKE "x-namespace:*")
+      RETURN Substring(scopedtype, 12);
+  }
+
+  //This is a heuristic which we expected to work in the field.. you can escape
+  //The regex must match ScopedType in siteprofile.xsd (without the module prefix)
+  RECORD ARRAY split := NEW RegEx("^([a-z][a-z0-9_]+):([a-z][a-z0-9_]+)\.([a-z][a-zA-Z0-9]+)")->Exec(scopedtype);
+  IF(Length(split) != 4)
+  {
+    IF(isreference)
+      RETURN scopedtype;
+    THROW NEW Exception(`Invalid scoped type "${scopedtype}"`);
+  }
+  RETURN `x-webhare-scopedtype:${split[1].value}.${split[2].value}.${ToSnakeCase(split[3].value)}`;
+}
+
 
 PUBLIC RECORD FUNCTION CombinePartialNodes(RECORD ARRAY nodes)
 {
@@ -95,6 +129,7 @@ PUBLIC RECORD FUNCTION MakeBasicTypeInfo(STRING type)
 {
   RETURN [ id := 0
          , namespace := ""
+         , scopedtype := ""
          , type := type
          , siteprofile :=        ""
          , line := 0

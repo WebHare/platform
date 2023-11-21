@@ -9,6 +9,7 @@ LOADLIB "wh::util/comparisons.whlib";
 
 LOADLIB "mod::publisher/lib/internal/forms/conditions.whlib";
 LOADLIB "mod::publisher/lib/internal/rtd/support.whlib";
+LOADLIB "mod::publisher/lib/internal/siteprofiles/support.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/resources.whlib";
@@ -1923,6 +1924,8 @@ PUBLIC OBJECT FUNCTION OpenWHFSType(STRING getnamespace, RECORD options DEFAULTS
   }
 
   CheckWHFSCache();
+
+  getnamespace := ScopedTypeToNamespace(getnamespace, TRUE);
 
   RECORD entry := SELECT * FROM whfscache_loadedwhfstypes WHERE namespace = getnamespace;
   IF(RecordExists(entry))
