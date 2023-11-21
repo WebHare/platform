@@ -7,47 +7,47 @@ LOADLIB "mod::system/lib/webserver/management.whlib";
 
 PUBLIC RECORD FUNCTION BootApp(RECORD app, RECORD invoke)
 {
-      RECORD firstmessage := HookableStartTolliumApp(app, invoke);
-    IF(RecordExists(firstmessage))
-      RETURN firstmessage;
+  RECORD firstmessage := HookableStartTolliumApp(app, invoke);
+  IF(RecordExists(firstmessage))
+    RETURN firstmessage;
 
-    STRING engine := app.engine ?? (IsDebugTagEnabled("tollium:usewasm") ? "wasm" : "native");
-    STRING appstarterport := engine = "native" ? "tollium:appstarter" : "tollium:wasm-appstarter";
+  STRING engine := app.engine ?? (IsDebugTagEnabled("tollium:usewasm") ? "wasm" : "native");
+  STRING appstarterport := engine = "native" ? "tollium:appstarter" : "tollium:wasm-appstarter";
 
-    OBJECT link := ConnectToManagedPort(appstarterport, "webserver");
-    IF (NOT ObjectExists(link) AND engine = "wasm")
+  OBJECT link := ConnectToManagedPort(appstarterport, "webserver");
+  IF (NOT ObjectExists(link) AND engine = "wasm")
+  {
+    //Explicitly autostart the wasm starter (we're not using OpenWebhareService so this doesn't happen automatically)
+    OBJECT smservice := WaitForPromise(OpenWebhareService("platform:servicemanager", [ timeout := 5000, notondemand := TRUE ]));
+    RECORD result := WaitForPromise(smservice->StartService("platform:tollium-wasm-runner"));
+    IF(CellExists(result,'errormessage'))
+      THROW NEW Exception(`No application starter present: ${result.errormessage}`);
+
+    DATETIME deadline := AddTimeToDate(15000,GetCurrentDatetime()); //give it 15 seconds to start
+    WHILE(GetCurrentDatetime() < deadline AND NOT ObjectExists(link))
     {
-      //Explicitly autostart the wasm starter (we're not using OpenWebhareService so this doesn't happen automatically)
-      OBJECT smservice := WaitForPromise(OpenWebhareService("platform:servicemanager", [ timeout := 5000, notondemand := TRUE ]));
-      RECORD result := WaitForPromise(smservice->StartService("platform:tollium-wasm-runner"));
-      IF(CellExists(result,'errormessage'))
-        THROW NEW Exception(`No application starter present: ${result.errormessage}`);
-
-      DATETIME deadline := AddTimeToDate(15000,GetCurrentDatetime()); //give it 15 seconds to start
-      WHILE(GetCurrentDatetime() < deadline AND NOT ObjectExists(link))
-      {
-        Sleep(100);
-        link := ConnectToManagedPort(appstarterport, "webserver");
-      }
+      Sleep(100);
+      link := ConnectToManagedPort(appstarterport, "webserver");
     }
+  }
 
-    IF (NOT ObjectExists(link))
-      THROW NEW Exception(`No application starter present (unable to connect to ${appstarterport})`);
+  IF (NOT ObjectExists(link))
+    THROW NEW Exception(`No application starter present (unable to connect to ${appstarterport})`);
 
-    //Request the appstarter to create an app hosting the final application
-    link->autothrow := TRUE;
+  //Request the appstarter to create an app hosting the final application
+  link->autothrow := TRUE;
 
-    RECORD rec := link->DoRequest([ task := "startapp"
-                                  , invoke := invoke
-                                  ]);
-    IF (rec.status != "ok")
-    {
-      THROW NEW Exception("Application starter failed");
-    }
+  RECORD rec := link->DoRequest([ task := "startapp"
+                                , invoke := invoke
+                                ]);
+  IF (rec.status != "ok")
+  {
+    THROW NEW Exception("Application starter failed");
+  }
 
-    IF(IsDebugTagEnabled("tollium:logtransport"))
-      LogDebug("todd-comm" , "Prepping initial response", anytostring(rec.msg,'tree'));
+  IF(IsDebugTagEnabled("tollium:logtransport"))
+    LogDebug("todd-comm" , "Prepping initial response", anytostring(rec.msg,'tree'));
 
-    RETURN rec.msg;
+  RETURN rec.msg;
 
 }
