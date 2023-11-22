@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { toFSPath } from "./resources";
 import { DOMParser } from '@xmldom/xmldom';
+import { elements } from "@mod-system/js/internal/generation/xmlhelpers";
 
 export interface ParseError {
   resource: string;
@@ -16,13 +17,6 @@ export interface LogFile {
 export interface ModuleDefinition {
   logs: Record<string, LogFile>;
   errors: ParseError[];
-}
-
-function elements<T extends Element>(collection: HTMLCollectionOf<T>): T[] {
-  const items: T[] = [];
-  for (let i = 0; i < collection.length; ++i)
-    items.push(collection[i]);
-  return items;
 }
 
 function parseLogs(resource: string, logging: Element) {
