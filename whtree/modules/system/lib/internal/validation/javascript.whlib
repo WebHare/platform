@@ -278,9 +278,11 @@ BOOLEAN FUNCTION ShouldDiscard(STRING modulename, STRING resourcename)
 
      To avoid having every module install/upgrade their @types/node when encountering this we'll simply ignore any errors
      coming from the jssdk or builtin modules.
+
+     Note that we get full paths in resourcename for files in jssdk but mod:: paths for files in eg mod::System
   */
   IF(modulename != "platform" AND (resourcename LIKE MergePath(GetInstallationRoot(), "jssdk") || "/*"
-                                   OR resourcename LIKE MergePath(GetInstallationRoot(), "modules") || "/*"))
+                                   OR GetWebHareResourceDiskPath(resourcename) LIKE MergePath(GetInstallationRoot(), "modules") || "/*"))
     RETURN TRUE;
 
   RETURN FALSE;
