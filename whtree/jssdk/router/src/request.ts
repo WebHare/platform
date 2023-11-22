@@ -20,6 +20,8 @@ export interface WebRequest {
   readonly url: URL;
   ///Request headers
   readonly headers: Headers;
+  ///Client webserver ID
+  readonly clientWebServer: number;
 
   ///Request body as text
   text(): Promise<string>;
@@ -36,9 +38,10 @@ export class IncomingWebRequest implements WebRequest {
   readonly method: HTTPMethod;
   readonly url: URL;
   readonly headers: Headers;
+  readonly clientWebServer: number;
   private readonly __body: string;
 
-  constructor(url: string, options?: { method?: HTTPMethod; headers?: Headers | Record<string, string>; body?: string }) {
+  constructor(url: string, options?: { method?: HTTPMethod; headers?: Headers | Record<string, string>; body?: string; clientWebServer?: number }) {
     this.url = new URL(url);
     if (options && "method" in options) {
       if (!validmethods.includes(options.method as string))
@@ -49,6 +52,7 @@ export class IncomingWebRequest implements WebRequest {
       this.method = HTTPMethod.GET;
     }
 
+    this.clientWebServer = options?.clientWebServer || 0;
     this.method = options?.method || HTTPMethod.GET;
     this.headers = options?.headers ? (options.headers instanceof Headers ? options.headers : new Headers(options.headers)) : new Headers;
     this.__body = options?.body || "";
@@ -84,6 +88,7 @@ class ForwardedWebRequest implements WebRequest {
   get method() { return this.original.method; }
   get url() { return this.original.url; }
   get headers() { return this.original.headers; }
+  get clientWebServer() { return this.original.clientWebServer; } //FIXME is this corrrect or should it be updated for the new URL ?
   async text() { return this.original.text(); }
   async json() { return this.original.json(); }
 }

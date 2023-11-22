@@ -7,9 +7,13 @@ import { getFullConfigFile } from "@mod-system/js/internal/configuration";
 import { buildSiteRequest } from "./siterequest";
 import * as undici from "undici";
 
-export async function lookupPublishedTarget(url: string) {
+export async function lookupPublishedTarget(url: string, { clientWebServer = 0 } = {}) {
   //we'll use the HS version for now. rebuilding lookup is complex and we should really port the tests too before we attempt it...
-  const lookupresult = await callHareScript("mod::publisher/lib/publisher.whlib#LookupPublisherURL", [url], { openPrimary: true }) as { file: number }; //TODO also send the clientwebserver id
+  const opts: unknown[] = [url];
+  if (clientWebServer)
+    opts.push({ clientwebserver: clientWebServer });
+
+  const lookupresult = await callHareScript("mod::publisher/lib/publisher.whlib#LookupPublisherURL", opts, { openPrimary: true }) as { file: number };
   if (!lookupresult.file)
     return null;
 
@@ -58,10 +62,11 @@ async function routeThroughHSWebserver(request: WebRequest): Promise<WebResponse
   const body = await result.body.arrayBuffer(); //TODO even better if we can stream blobs
 
   //Rebuild headers to get rid of the dangerous ones
+  //undici doesn't decompress itself so don't drop a returned content-encoding header!
   const newheaders = new Headers;
   for (const [header, value] of Object.entries(result.headers))
     if (value) {
-      if (!['content-length', 'date', 'content-encoding'].includes(header) && !header.startsWith('transfer-'))
+      if (!['content-length', 'date'].includes(header) && !header.startsWith('transfer-'))
         newheaders.set(header, Array.isArray(value) ? value.join(", ") : value);
     }
 
@@ -74,7 +79,7 @@ async function routeThroughHSWebserver(request: WebRequest): Promise<WebResponse
         dragging in a lot of dependencies here in the end, and may @webhare/router should only be for apps that implement routes, not execute them */
 
 export async function coreWebHareRouter(request: WebRequest): Promise<WebResponse> {
-  const target = await lookupPublishedTarget(request.url.toString()); //"Kijkt in database. Haalt file info en publisher info op"
+  const target = await lookupPublishedTarget(request.url.toString(), { clientWebServer: request.clientWebServer }); //"Kijkt in database. Haalt file info en publisher info op"
   /* TODO we have to disable this to be able to resolve <backend> webrules.
           ideally we would only forward to the HS Websever if we hit a SHTML
   if (!target) //FIXME avoid new Error - it forces a stacktrace to be generated
