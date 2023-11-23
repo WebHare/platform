@@ -955,6 +955,7 @@ PUBLIC STATIC OBJECTTYPE FormBase
   */
   PUBLIC OBJECT FUNCTION AppendFormField(OBJECT parent, STRING type, STRING name, RECORD options DEFAULTSTO DEFAULT RECORD)
   {
+    //FIXME 'ishidden' is a bit of a hack. it both hides the field (why not use 'hidden') AND marks the field for storage in the results (by participating in 'isstatic OR ishidden'. why is it named 'ishidden' then)
     options := ValidateOptions([ match := DEFAULT RECORD
                                , valuetype := ""
                                , ishidden := FALSE

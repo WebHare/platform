@@ -30,7 +30,7 @@ PUBLIC MACRO BuildForm()
 
 PUBLIC MACRO FillInForm()
 {
-  INTEGER numexportfields := 17;
+  INTEGER numexportfields := 18;
 
   //Ensure the form is up
   OBJECT formfile := OpenTestsuiteSite()->OpenByPath("webtools/form");
@@ -241,7 +241,7 @@ PUBLIC MACRO FillInForm()
   IF(testfw->debug)
     Print("Download link: " || firstuploadlink || "\n");
 
-  TestEq(1, Length(witty.pages));
+  TestEq(2, Length(witty.pages));
   TestEq(TRUE, witty.pages[0].anysubmitted);
   TestEq(3, Length(witty.pages[0].groups));
   Testeq("", witty.pages[0].title);
@@ -259,6 +259,12 @@ PUBLIC MACRO FillInForm()
   TestEq(FALSE, witty.pages[0].groups[2].fields[1].hidetitle);
   TestEq("CheckboxOpt2", witty.pages[0].groups[2].fields[3].title);
   TestEq(TRUE, witty.pages[0].groups[2].fields[3].hidetitle);
+
+  TestEq("", witty.pages[1].groups[0].title);
+  TestEq(TRUE, witty.pages[1].groups[0].hidetitle);
+  TestEq("Hidden Textedit", witty.pages[1].groups[0].fields[0].title);
+  TestEq("Hidden Value", witty.pages[1].groups[0].fields[0].text);
+  TestEq(TRUE, witty.pages[1].groups[0].fields[0].issubmitted);
 
   TestEq(TRUE, IsAbsoluteUrl(firstuploadlink,FALSE), "Must be absolute: " || firstuploadlink);
   TestEq(TRUE, testfw->browser->GotoWebPage(firstuploadlink));
