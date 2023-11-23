@@ -11,9 +11,14 @@ LOADLIB "mod::publisher/lib/webtools/formcomponents/textedit.whlib";
 
 PUBLIC OBJECTTYPE TestSuiteHandler EXTEND FormHandlerBase
 <
+  OBJECT hiddenfieldobj;
+
   MACRO NEW()
   {
     INSERT CELL testsuitehandlerproof := "TSHANDLERPROOF-41" INTO this->form->formdataset;
+
+    this->hiddenfieldobj := this->form->AppendFormField(DEFAULT OBJECT, "textedit", "addhiddentextedit", [ ishidden := TRUE ]);
+    this->hiddenfieldobj->title := "Hidden Textedit";
   }
   UPDATE PUBLIC MACRO PrepareForFrontend()
   {
@@ -21,6 +26,8 @@ PUBLIC OBJECTTYPE TestSuiteHandler EXTEND FormHandlerBase
       FOREVERY(RECORD field FROM this->form->ListFields())
         IF(field.obj->title="Email" AND field.obj->value="")
           field.obj->value := "test@beta.webhare.net";
+
+    this->hiddenfieldobj->value := "Hidden Value";
   }
   UPDATE PUBLIC MACRO ValidateForm(OBJECT work)
   {
