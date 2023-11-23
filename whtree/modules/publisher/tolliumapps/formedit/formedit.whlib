@@ -833,7 +833,11 @@ PUBLIC STATIC OBJECTTYPE Editor EXTEND TolliumScreenBase
     FOREVERY (RECORD field FROM fields)
     {
       { //scope the action on the field itself
-        STRING sourcetitle := this->curform->DescribeField(field.guid, [ languagecode := this->uselanguage, __listfields := fields ]).pathtitle;
+        RECORD fielddef := this->curform->DescribeField(field.guid, [ languagecode := this->uselanguage, __listfields := fields ]);
+        IF(NOT RecordExists(fielddef)) //the field isn't stored in the form, so we can't reference it
+          CONTINUE;
+
+        STRING sourcetitle := fielddef.pathtitle;
         RECORD ARRAY sourceoptions;
         IF("options" IN field.supportedvalues)
           sourceoptions := field.obj->GetOptions();
