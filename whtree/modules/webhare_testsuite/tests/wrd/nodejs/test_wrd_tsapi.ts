@@ -218,6 +218,7 @@ async function testNewAPI() {
 
   const firstperson = await schema.insert("wrdPerson", { wrdFirstName: "first", wrdLastName: "lastname", whuserUnit: unit_id, testJson: { mixedCase: [1, "yes!"] }, testJsonRequired: { mixedCase: [1, "yes!"] } });
   const secondperson = await schema.insert("wrdPerson", { wrdFirstName: "second", wrdLastName: "lastname2", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] } });
+  const deletedperson = await schema.insert("wrdPerson", { wrdFirstName: "deleted", wrdLastName: "lastname3", whuserUnit: unit_id, testRecord: testrecorddata as TestRecordDataInterface, testJsonRequired: { mixedCase: [1, "yes!"] }, wrdLimitDate: new Date() });
 
   await whdb.commitWork();
 
@@ -233,12 +234,50 @@ async function testNewAPI() {
 
   test.eq([{ wrdFirstName: "first", lastname: "lastname", id: firstperson, testJson: { mixedCase: [1, "yes!"] }, testJsonRequired: { mixedCase: [1, "yes!"] } }], selectres);
 
-  test.eq([{ wrdFirstName: "first", lastname: "lastname", id: firstperson, x1: 5 }, { wrdFirstName: "first", lastname: "lastname", id: firstperson, x1: 15 }],
+  //Test enrich and history modes
+  test.eq([
+    { wrdFirstName: "first", lastname: "lastname", id: firstperson, x1: 5 },
+    { wrdFirstName: "first", lastname: "lastname", id: firstperson, x1: 15 },
+  ],
     await schema.enrich(
-      "wrdPerson",
-      [{ id: selectres[0].id, x1: 5 }, { id: selectres[0].id, x1: 15 }],
+      "wrdPerson", [
+      { id: selectres[0].id, x1: 5 },
+      { id: selectres[0].id, x1: 15 },
+      { id: deletedperson, x1: 25 }
+    ],
       "id",
-      { wrdFirstName: "wrdFirstName", lastname: "wrdLastName" }));
+      { wrdFirstName: "wrdFirstName", lastname: "wrdLastName" },
+      { historyMode: "now" }));
+
+  test.eq([
+    { wrdFirstName: "first", lastname: "lastname", id: firstperson, x1: 5 },
+    { wrdFirstName: "first", lastname: "lastname", id: firstperson, x1: 15 },
+    { wrdFirstName: "", lastname: "", id: deletedperson, x1: 25 }
+  ],
+    await schema.enrich(
+      "wrdPerson", [
+      { id: selectres[0].id, x1: 5 },
+      { id: selectres[0].id, x1: 15 },
+      { id: deletedperson, x1: 25 }
+    ],
+      "id",
+      { wrdFirstName: "wrdFirstName", lastname: "wrdLastName" },
+      { rightOuterJoin: true }));
+
+  test.eq([
+    { wrdFirstName: "first", lastname: "lastname", id: firstperson, x1: 5 },
+    { wrdFirstName: "first", lastname: "lastname", id: firstperson, x1: 15 },
+    { wrdFirstName: "deleted", lastname: "lastname3", id: deletedperson, x1: 25 }
+  ],
+    await schema.enrich(
+      "wrdPerson", [
+      { id: selectres[0].id, x1: 5 },
+      { id: selectres[0].id, x1: 15 },
+      { id: deletedperson, x1: 25 }
+    ],
+      "id",
+      { wrdFirstName: "wrdFirstName", lastname: "wrdLastName" },
+      { historyMode: "all" }));
 
   test.eq({ wrdFirstName: "first", lastname: "lastname" }, await schema.getFields("wrdPerson", selectres[0].id, { wrdFirstName: "wrdFirstName", lastname: "wrdLastName" }));
 
