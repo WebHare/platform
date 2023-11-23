@@ -9,6 +9,7 @@ LOADLIB "wh::util/semver.whlib";
 
 LOADLIB "mod::system/lib/database.whlib";
 LOADLIB "mod::system/lib/internal/registry.whlib" EXPORT ReadRegistryNode, DeleteRegistryKey, ReadRegistryKey, DeleteRegistryNode, WriteRegistryKey, GetRegistryKeyEventMasks, ReadRegistryKeysByMask;
+LOADLIB "mod::system/lib/internal/services.whlib";
 LOADLIB "mod::system/lib/internal/modules/defreader.whlib";
 LOADLIB "mod::system/lib/internal/whcore_interface.whlib" EXPORT GetModuleInstallationRoot;
 LOADLIB "mod::system/lib/internal/whconfig.whlib" EXPORT GetDTAPStage, IsNodeApplicableToThisWebHare, IsRestoredWebHare;
@@ -239,4 +240,18 @@ PUBLIC BOOLEAN FUNCTION IsModuleVersionMatch(STRING modulename, STRING semverran
     RETURN FALSE;
 
   RETURN VersionSatisfiesRange(modinfo.version, semverrange);
+}
+
+/** Ensure changes to WebHare's configuration are applied */
+PUBLIC MACRO ApplyWebHareConfiguration(RECORD options DEFAULTSTO DEFAULT RECORD)
+{
+  OBJECT service := WaitForPromise(OpenWebHareService("platform:configuration"));
+  TRY
+  {
+    service->applyConfiguration(options);
+  }
+  FINALLY
+  {
+    service->CloseService();
+  }
 }

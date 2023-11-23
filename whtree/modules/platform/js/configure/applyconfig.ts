@@ -1,11 +1,18 @@
 import { buildGeneratorContext, updateGeneratedFiles } from '@mod-system/js/internal/generation/generator';
+import { GeneratorType } from '@mod-system/js/internal/generation/shared';
 import { loadlib } from '@webhare/harescript';
 import { beginWork, commitWork } from '@webhare/whdb';
-import { backendConfig, lockMutex, logDebug, scheduleTimedTask } from "@webhare/services";
+import { backendConfig, lockMutex, logDebug, openBackendService, scheduleTimedTask } from "@webhare/services";
+import { AssetPackControlClient } from '@mod-publisher/scripts/internal/assetpackcontrol';
 
-export const ConfigurableSubsystems = {
-  registry: { title: "Registry", desription: "Initialize registry keys defined in module definitions" },
-  wrd: { title: "WRD", description: "Apply wrdschema definitions and regenerate the TS definitions" }
+export const ConfigurableSubsystems: Record<string, {
+  title: string;
+  description: string;
+  generate?: readonly GeneratorType[];
+}> = {
+  assetpacks: { title: "Assetpacks", description: "Update active assetpacks", generate: ["extract"] },
+  registry: { title: "Registry", description: "Initialize registry keys defined in module definitions" },
+  wrd: { title: "WRD", description: "Apply wrdschema definitions and regenerate the TS definitions", generate: ["wrd"] }
 } as const;
 
 export type ConfigurableSubsystem = keyof typeof ConfigurableSubsystems;
@@ -25,7 +32,19 @@ export async function applyConfiguration(options: ApplyConfigurationOptions = {}
   const start = Date.now();
   logDebug("platform:configuration", { type: "apply", modules: options.modules, subsystems: options.subsystems, source: options.source });
   try {
+    //Which config files to update
+    const togenerate = new Set<GeneratorType>(["config"]);
+    for (const [subsystem, settings] of Object.entries(ConfigurableSubsystems))
+      if (options.subsystems?.includes(subsystem) && settings.generate)
+        settings.generate.forEach(_ => togenerate.add(_));
+
     const generateContext = await buildGeneratorContext(null, options.verbose || false);
+    await updateGeneratedFiles([...togenerate], { verbose: options.verbose, nodb: false, dryRun: false, generateContext });
+
+    if (options.subsystems?.includes('assetpacks')) {
+      const assetpackcontroller = await openBackendService<AssetPackControlClient>("publisher:assetpackcontrol");
+      await assetpackcontroller.reload();
+    }
 
     if (options.subsystems?.includes('registry')) {
       /* Initialize missing registry keys. This should be done before eg. WRD so that wrd upgrade scripts can read the registry

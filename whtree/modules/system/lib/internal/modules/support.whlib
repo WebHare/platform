@@ -252,5 +252,7 @@ PUBLIC RECORD FUNCTION SetupWebDesign(STRING template, STRING module, STRING des
   IF(RecordExists(srcdesign))
     InstantiateTemplateFolder(GetWebHareResourceDiskPath(srcdesign.designroot), designresourcebase, data);
 
+  ApplyWebHareConfiguration([ subsystems := ["assetpacks"]]);
+
   RETURN data;
 }
