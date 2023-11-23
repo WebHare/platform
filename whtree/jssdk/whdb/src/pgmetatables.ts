@@ -11,7 +11,7 @@ export type Generated<T> = T extends ColumnType<infer S, infer I, infer U>
 
 export type Int8 = ColumnType<string, string | number | bigint, string | number | bigint>;
 
-//Would require postgres-interval package but also postgres-client to atctually implement Intervals.
+//Would require postgres-interval package but also postgres-client to actually implement Intervals.
 export type Interval = ColumnType<never, never, never>;
 
 export type Numeric = ColumnType<string, string | number, string | number>;
