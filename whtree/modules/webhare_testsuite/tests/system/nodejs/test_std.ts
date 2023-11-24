@@ -32,7 +32,7 @@ function testRoundingCall(base: number, mode: std.MoneyRoundingMode, expect: num
 }
 
 function testEqMoney(expect: string, actual: Money) {
-  test.eq(expect, actual.toString());
+  test.eq(new Money(expect), actual); //test.eq understands Money explicitly
 }
 
 function testMoney() {
@@ -40,12 +40,19 @@ function testMoney() {
   test.eq('"0"', JSON.stringify(new Money));
   test.eq('"0"', JSON.stringify(new Money('-0')));
   test.eq('"0"', JSON.stringify(new Money('0')));
+  test.eq(new Money("15.5"), new Money("15.50"));
   test.eq('"15.5"', JSON.stringify(new Money("15.50")));
   test.eq('"0.5"', JSON.stringify(new Money(".50")));
   test.eq('"1000000000"', JSON.stringify(new Money("1000000000")));
   test.eq('"-1000000000"', JSON.stringify(new Money("-1000000000")));
   test.eq('"1000000000"', JSON.stringify(Money.fromNumber(1_000_000_000)));
   test.eq('"-1000000000"', JSON.stringify(Money.fromNumber(-1_000_000_000)));
+
+  test.eq("-3.33", JSON.parse(std.stringify(new Money("-3.33"))));
+  test.eq({ "$stdType": "Money", "money": "-3.33" }, JSON.parse(std.stringify(new Money("-3.33"), { typed: true })));
+  testEqMoney("-3.33", std.parseTyped(std.stringify(new Money("-3.33"), { typed: true })));
+  test.eq({ deep: new Money("-3.34"), deeper: { array: [new Money("-3.35")] } }, std.parseTyped(std.stringify({ deep: new Money("-3.34"), deeper: { array: [new Money("-3.35")] } }, { typed: true })));
+
   ///@ts-ignore -- we do not allow number casts as mixing number and Money may cause loss of precision/floating point decimal noise. verify runtime checks are in place
   test.throws(/Money cannot be constructed out of a value of type number/, () => new Money(0));
   ///@ts-ignore -- another throw check
@@ -247,6 +254,11 @@ function testDateTime() {
   test.eq(new Date("1926-11-09T12:34:56Z"), std.addDuration(globalstamp, "P3600D"));
   test.eq(new Date("1916-12-31T12:34:56.789Z"), std.addDuration(globalstamp, "PT0.789S"));
 
+  const testdate = std.addDuration(globalstamp, "PT0.123S");
+  test.eq("1916-12-31T12:34:56.123Z", JSON.parse(std.stringify(testdate)));
+  test.eq({ "$stdType": "Date", "date": "1916-12-31T12:34:56.123Z" }, JSON.parse(std.stringify(testdate, { typed: true })));
+  test.eq(testdate, std.parseTyped(std.stringify(testdate, { typed: true })));
+
   //convertWaitPeriodToDate
   test.eq(-864000 * 1000 * 10000000, std.convertWaitPeriodToDate(0).getTime(), "minimum date");
   test.eq(864000 * 1000 * 10000000, std.convertWaitPeriodToDate(Infinity).getTime(), "maximum date");
@@ -351,6 +363,10 @@ async function testStrings() {
   test.eq(`{"a":"<\\/script>"}`, std.stringify({ a: "</script>" }, { target: "script" }));
   test.eq(`{&quot;a&quot;:&quot;&lt;\\/script&gt;&quot;}`, std.stringify({ a: "</script>" }, { target: "attribute" }));
 
+  test.eq({ "$stdType": "NotARealObject" }, JSON.parse(std.stringify({ "$stdType": "NotARealObject" })));
+  test.throws(/Unrecognized type/, () => std.parseTyped(std.stringify({ "$stdType": "NotARealObject" })));
+  test.throws(/already embedded '\$stdType'/, () => std.parseTyped(std.stringify({ "$stdType": "NotARealObject" }, { typed: true })));
+
   test.eq("ab", std.slugify("\x1Fab"));
   test.eq("a-b", std.slugify("a\u00A0b"));
   test.eq("uber-12-strassen", std.slugify(".Über '12' _Straßen_.?"));
@@ -453,6 +469,10 @@ function testBigInt() {
     replacer: (k, v) => typeof v === "bigint" ? v.toString() : v,
     space: 2
   }));
+
+  test.eq({ "$stdType": "BigInt", "bigint": "43" }, JSON.parse(std.stringify(43n, { typed: true })));
+  test.eq(43n, std.parseTyped(std.stringify(43n, { typed: true })));
+  test.eq({ deep: 44n, deeper: [45n] }, std.parseTyped(std.stringify({ deep: 44n, deeper: [45n] }, { typed: true })));
 }
 
 function testUUIDFallback() {
