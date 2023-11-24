@@ -178,7 +178,7 @@ PUBLIC STATIC OBJECTTYPE ModulesPanel EXTEND DashboardPanelBase
                 , configscreen
                 , isconfigurable := configscreen != ""
                 , configicon     := (configscreen != "") ? 5 : 0
-                , canmanage      := isinstalled AND packagingupgrade
+                , candelete      := NOT isbuiltin AND NOT isdeleted
                 , canseeversions := isinstalled OR isdeleted
               FROM overview;
   }

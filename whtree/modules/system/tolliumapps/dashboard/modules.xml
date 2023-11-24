@@ -4,7 +4,7 @@
     <actions>
       <uploadaction name="uploadmodule" onupload="douploadmodule" tid="~upload" />
       <action name="deletemodule" onexecute="dodeletemodule" tid="~delete">
-        <enableon source="modules" min="1" max="1" checkflags="canmanage" />
+        <enableon source="modules" min="1" max="1" checkflags="candelete" />
       </action>
       <action name="versions" onexecute="doversions">
         <enableon source="modules" min="1" max="1" checkflags="canseeversions" />
@@ -58,7 +58,7 @@
           <list name="modules"
                 height="1pr"
                 borders="right"
-                flags="canmanage canseeversions isavailable isconfigurable havewebsite"
+                flags="candelete canseeversions isavailable isconfigurable havewebsite"
                 icons="tollium:files/text_plain
                        tollium:objects/webhare
                        tollium:tollium/tollium
