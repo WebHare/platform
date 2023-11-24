@@ -1,3 +1,5 @@
+import { Money } from "./money";
+
 /** Encode string for use in a regexp
  * @param text - Text to encode
  * @returns Encoded for safe use in a RegExp
@@ -124,15 +126,10 @@ export interface StringifyOptions {
   replacer?: JSONReplacerArgument;
   space?: string | number;
   stable?: boolean;
+  ///Encode with types (preserve Money, Date, BigInt). Needs std.parseTyped
+  typed?: boolean;
   ///What to target: string (like JSON.stringify), script (escapes '/') or attribute (escapes '/' and applies attribute encoding)
   target?: "string" | "script" | "attribute";
-}
-
-function stableReplacer(this: unknown, key: unknown, value: unknown) {
-  if (value && typeof value === "object" && !Array.isArray(value))
-    return Object.fromEntries(Object.entries(value).sort((lhs, rhs) => lhs < rhs ? -1 : lhs === rhs ? 0 : 1));
-
-  return value;
 }
 
 /** Improved JSON encoder
@@ -140,8 +137,24 @@ function stableReplacer(this: unknown, key: unknown, value: unknown) {
  * @param options - Encoding options
 */
 export function stringify(arg: unknown, options?: StringifyOptions) {
-  const usereplacer: JSONReplacerArgument = options?.stable ? (function (this: unknown, key: string, value: unknown) {
-    return stableReplacer.call(this, key, options?.replacer ? options.replacer.call(this, key, value) : value);
+  const usereplacer: JSONReplacerArgument = options?.stable || options?.typed ? (function (this: unknown, key: string, value: unknown) {
+    if (options.typed) {
+      const origvalue = (this as Record<string, unknown>)[key]; //We can't use 'value' as .toJSON() will already have been invoked
+
+      if (origvalue instanceof Money)
+        value = { "$stdType": "Money", money: origvalue.value };
+      else if (origvalue instanceof Date)
+        value = { "$stdType": "Date", date: origvalue.toISOString() };
+      else if (typeof origvalue === "object" && (origvalue as { "$stdType": string })?.["$stdType"])
+        throw new Error(`Cannot encode objects with already embedded '$stdType's`);
+      else if (typeof origvalue === "bigint")
+        value = { "$stdType": "BigInt", bigint: origvalue.toString() };
+    }
+    if (options.stable && value && typeof value === "object" && !Array.isArray(value))
+      value = Object.fromEntries(Object.entries(value).sort((lhs, rhs) => lhs < rhs ? -1 : lhs === rhs ? 0 : 1));
+    if (options.replacer)
+      value = options.replacer.call(this, key, value);
+    return value;
   }) : options?.replacer ?? undefined;
 
   let result = JSON.stringify(arg, usereplacer, options?.space);
@@ -156,6 +169,23 @@ export function stringify(arg: unknown, options?: StringifyOptions) {
 /** @deprecated Use the more generic stringify instead in 5.4 (and consider your target!) */
 export function stableStringify(arg: unknown, replacer?: JSONReplacerArgument, space?: string | number) {
   return stringify(arg, { replacer, space, stable: true });
+}
+/** Decode JSON with types (Generated using stringify with typed:true ) */
+export function parseTyped(input: string) {
+  return JSON.parse(input, (key, value) => {
+    switch (value?.["$stdType"]) {
+      case "Money":
+        return new Money(value.money);
+      case "Date":
+        return new Date(value.date);
+      case "BigInt":
+        return BigInt(value.bigint as string);
+      case undefined:
+        return value;
+      default:
+        throw new Error(`Unrecognized type '${value["$stdType"]}'`);
+    }
+  });
 }
 
 /** Generate a slug from a (suggested) (file)name
