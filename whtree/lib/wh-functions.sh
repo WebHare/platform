@@ -47,8 +47,9 @@ getbaseversioninfo()
 wh_runjs()
 {
   local ARGS RETVAL
-
   ARGS=("$@")
+
+  getwhparameters
 
   # is the 'jsprofile' flag set ?
   if [[ $WEBHARE_DEBUG =~ ((^|[,])jsprofile([,]|$))+ ]] ; then
@@ -91,8 +92,6 @@ loadshellconfig()
   if [ -n "$LOADEDSHELLCONFIG" ]; then
     return;
   fi
-
-  getwhparameters
 
   # Ignore WEBHARE_NODE_OPTIONS when running getshellconfig.ts (NODE_OPTIONS is still honored) so we're not eg. inspecting the wrong process
   SHELLCONFIG="$(WEBHARE_NODE_OPTIONS= wh_runjs "$WEBHARE_DIR/modules/platform/js/bootstrap/getshellconfig.ts")"
@@ -728,4 +727,5 @@ load_postgres_settings()
   export PSROOT RUNAS PGVERSION PSBIN
 }
 
-export -f setup_buildsystem getbaseversioninfo wh_runjs exec_wh_runjs wh_runwhscr exec_wh_runwhscr
+# we need to export getwhparameters because wh_runjs can't find it if externally invoked
+export -f setup_buildsystem getbaseversioninfo wh_runjs exec_wh_runjs wh_runwhscr exec_wh_runwhscr getwhparameters
