@@ -129,7 +129,7 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
   type: WRDType<S, T>,
   selects: O,
   wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>,
-  historymode: HistoryModeData,
+  historyMode: HistoryModeData,
   limit: number | null,
 ) {
   if (limit !== null && limit <= 0)
@@ -152,17 +152,17 @@ export async function runSimpleWRDQuery<S extends SchemaTypeDefinition, T extend
     .where("wrd.entities.type", "=", sql`any(${typerec.childTypeIds})`);
 
   // process the history mode
-  switch (historymode?.mode) {
+  switch (historyMode?.mode) {
     case undefined:
     case "now": {
       const now = new Date;
       query = query.where("creationdate", "<=", now).where("limitdate", ">", now);
     } break;
     case "range": {
-      query = query.where("creationdate", "<=", historymode.when_limit).where("limitdate", ">", historymode.when_start);
+      query = query.where("creationdate", "<=", historyMode.when_limit).where("limitdate", ">", historyMode.when_start);
     } break;
     case "at": {
-      query = query.where("creationdate", "<=", historymode.when).where("limitdate", ">", historymode.when);
+      query = query.where("creationdate", "<=", historyMode.when).where("limitdate", ">", historyMode.when);
     } break;
     case "all": {
       query = query.where("creationdate", "!=", maxDateTime);

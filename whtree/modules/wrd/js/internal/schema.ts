@@ -238,7 +238,10 @@ export class WRDSchema<S extends SchemaTypeDefinition = AnySchemaTypeDefinition>
     data: DataRow[],
     field: EnrichKey,
     mapping: Mapping,
-    options: { rightOuterJoin?: RightOuterJoin } = {}
+    options: {
+      rightOuterJoin?: RightOuterJoin;
+      historyMode?: SimpleHistoryModes | HistoryModeData;
+    } = {}
   ): WRDEnrichResult<S, T, EnrichKey, DataRow, Mapping, RightOuterJoin> {
     return checkPromiseErrorsHandled(this.getType(type).enrich(data, field, mapping, options));
   }
@@ -311,7 +314,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
       const list = await runSimpleWRDQuery(this, "wrdId", [{ field, condition: "=", value, options } as FilterOverride], options?.historyMode ?? { mode: "now" }, 1);
       return list.length ? list[0] as number : null;
     }
-    const res = await (await this._getType()).search(tagToHS(field), value, { ...(options || {}), historymode: options?.historyMode?.mode ?? "now", jsmode: true }) as number;
+    const res = await (await this._getType()).search(tagToHS(field), value, { ...(options || {}), ...translateHistoryModeToHS(options?.historyMode ?? { mode: "now" }), jsmode: true }) as number;
     return res || null;
   }
 
@@ -319,12 +322,13 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     enrichMapping: Mapping,
     ids: Id[],
     isLeftOuterJoin: boolean,
-    matchCase: boolean): Promise<Map<Id, MapEnrichRecordOutputMap<S[T], RecordizeEnrichOutputMap<S[T], Mapping>>>> {
+    matchCase: boolean, //FIXME unused and thus untested...
+    historyMode: HistoryModeData): Promise<Map<Id, MapEnrichRecordOutputMap<S[T], RecordizeEnrichOutputMap<S[T], Mapping>>>> {
     const vals = await runSimpleWRDQuery(
       this,
       { __joinId: "wrdId", data: recordizeEnrichOutputMap(enrichMapping) },
       isLeftOuterJoin ? [] : [{ field: "wrdId", condition: "in", value: ids.filter(isTruthy) }],
-      { mode: "now" },
+      historyMode,
       null) as Array<{ __joinId: Id; data: MapEnrichRecordOutputMap<S[T], RecordizeEnrichOutputMap<S[T], Mapping>> }>;
 
     return new Map(vals.map(row => [row.__joinId, row.data]));
@@ -339,7 +343,10 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     data: DataRow[],
     field: EnrichKey,
     mapping: Mapping,
-    options: { rightOuterJoin?: RightOuterJoin } = {}
+    options: {
+      rightOuterJoin?: RightOuterJoin;
+      historyMode?: SimpleHistoryModes | HistoryModeData;
+    } = {}
   ): WRDEnrichResult<
     S,
     T,
@@ -353,6 +360,8 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     type RightOuterJoinType = true extends RightOuterJoin ?
       never :
       MapEnrichRecordOutputMapWithDefaults<S[T], RecordizeEnrichOutputMap<S[T], Mapping>>;
+
+    const historyMode = toHistoryData(options.historyMode ?? "now");
 
     if (debugFlags["wrd:usewasmvm"] && debugFlags["wrd:usejsengine"]) {
       const rightOuterJoin = (options.rightOuterJoin ?
@@ -371,7 +380,7 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
           data,
           field,
           {},
-          (ids, isLeftOuterJoin, matchCase) => this.getBulkFields(mapping, ids, isLeftOuterJoin, matchCase),
+          (ids, isLeftOuterJoin, matchCase) => this.getBulkFields(mapping, ids, isLeftOuterJoin, matchCase, historyMode),
           null,
           rightOuterJoin,
         );
@@ -383,11 +392,15 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
     const lookupkeys = new Set(data.map(row => row[field]));
     //HS wants an array to look up, so convert the uniquefied keys to {__js_enricon: lookup key }
     const lookuparray = [...lookupkeys.values()].map(key => ({ __js_enrichon: key }));
-    const result = await (await this._getType()).enrich(lookuparray, "__js_enrichon", outputmapToHS(outputmap), { ...options, jsmode: true }) as Array<{ __js_enrichon?: DataRow[EnrichKey] } & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], Mapping>>>;
+    const result = await (await this._getType()).enrich(lookuparray, "__js_enrichon", outputmapToHS(outputmap), { ...options, jsmode: true, ...translateHistoryModeToHS(historyMode) }) as Array<{ __js_enrichon?: DataRow[EnrichKey] } & MapRecordOutputMap<S[T], RecordizeOutputMap<S[T], Mapping>>>;
     const resultlookup = new Map(result.map(row => [row.__js_enrichon, row]));
     const resultrows: Array<Record<string, unknown>> = [];
     for (const row of data) {
-      const remergedrow = { ...resultlookup.get(row[field]), ...row };
+      const enrichment = resultlookup.get(row[field]);
+      if (!enrichment) //unmatched
+        continue;
+
+      const remergedrow = { ...enrichment, ...row };
       delete remergedrow.__js_enrichon;
       resultrows.push(remergedrow);
     }
@@ -449,13 +462,14 @@ export class WRDType<S extends SchemaTypeDefinition, T extends keyof S & string>
   }
 }
 
+export type SimpleHistoryModes = "now" | "all";
 export type HistoryModeData = { mode: "now" | "all" | "__getfields" } | { mode: "at"; when: Date } | { mode: "range"; when_start: Date; when_limit: Date } | null;
 type GetOptionsIfExists<T, D> = T extends { options: unknown } ? T["options"] : D;
 type HSWRDQuery = {
   outputcolumn?: string;
   outputcolumns?: object;
   filters?: object[];
-  historymode?: "now" | "all" | "__getfields" | "at" | "range";
+  historyMode?: "now" | "all" | "__getfields" | "at" | "range";
   when?: Date;
   when_start?: Date;
   when_limit?: Date;
@@ -466,32 +480,40 @@ type HSWRDQuery = {
 type QueryReturnArrayType<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> = O extends RecordOutputMap<S[T]> ? Array<MapRecordOutputMap<S[T], O>> : never;
 type QueryReturnRowType<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> = O extends RecordOutputMap<S[T]> ? MapRecordOutputMap<S[T], O> : never;
 
+function toHistoryData(mode: SimpleHistoryModes | HistoryModeData): HistoryModeData {
+  return typeof mode === "string" ? { mode } : mode;
+}
+
+function translateHistoryModeToHS(mode: HistoryModeData) {
+  return mode ? { historyMode: mode.mode, ...omit(mode, ["mode"]) } : null;
+}
+
 /* The query object. We are initially created by selectFrom() with an O === null - select() then recreates us with a set O
 */
 export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends keyof S & string, O extends RecordOutputMap<S[T]> | null> {
   private type: WRDType<S, T>;
   private selects: O;
   private wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>;
-  private historymode: HistoryModeData;
+  private _historyMode: HistoryModeData;
   private _limit: number | null;
 
-  constructor(type: WRDType<S, T>, selects: O, wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>, historymode: HistoryModeData, limit: number | null) {
+  constructor(type: WRDType<S, T>, selects: O, wheres: Array<{ field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown }>, historyMode: HistoryModeData, limit: number | null) {
     this.type = type;
     this.selects = selects;
     this.wheres = wheres;
-    this.historymode = historymode;
+    this._historyMode = historyMode;
     this._limit = limit;
   }
 
   select<M extends OutputMap<S[T]>>(mapping: M): WRDSingleQueryBuilder<S, T, CombineRecordOutputMaps<S[T], O, RecordizeOutputMap<S[T], M>>> {
     const recordmapping = recordizeOutputMap<S[T], typeof mapping>(mapping);
-    return new WRDSingleQueryBuilder(this.type, combineRecordOutputMaps(this.selects, recordmapping), this.wheres, this.historymode, this._limit);
+    return new WRDSingleQueryBuilder(this.type, combineRecordOutputMaps(this.selects, recordmapping), this.wheres, this._historyMode, this._limit);
   }
 
   where<F extends keyof S[T] & string, Condition extends GetCVPairs<S[T][F]>["condition"] & AllowedFilterConditions>(field: F, condition: Condition, value: (GetCVPairs<S[T][F]> & { condition: Condition })["value"], options?: GetOptionsIfExists<GetCVPairs<S[T][F]> & { condition: Condition }, undefined>): WRDSingleQueryBuilder<S, T, O> {
     // Need to cast the filter because the options member isn't accepted otherwise
     type FilterOverride = { field: keyof S[T] & string; condition: AllowedFilterConditions; value: unknown };
-    return new WRDSingleQueryBuilder(this.type, this.selects, [...this.wheres, { field, condition, value, options } as FilterOverride], this.historymode, this._limit);
+    return new WRDSingleQueryBuilder(this.type, this.selects, [...this.wheres, { field, condition, value, options } as FilterOverride], this._historyMode, this._limit);
   }
 
   $call<TO extends RecordOutputMap<S[T]> | null>(cb: (b: WRDSingleQueryBuilder<S, T, O>) => WRDSingleQueryBuilder<S, T, TO>): WRDSingleQueryBuilder<S, T, TO> {
@@ -529,16 +551,14 @@ export class WRDSingleQueryBuilder<S extends SchemaTypeDefinition, T extends key
       throw new Error(`A select is required`);
 
     if (debugFlags["wrd:usewasmvm"] && debugFlags["wrd:usejsengine"])
-      return runSimpleWRDQuery(this.type, this.selects || {}, this.wheres, this.historymode, this._limit) as unknown as Promise<QueryReturnArrayType<S, T, O>>;
+      return runSimpleWRDQuery(this.type, this.selects || {}, this.wheres, this._historyMode, this._limit) as unknown as Promise<QueryReturnArrayType<S, T, O>>;
 
     const type = await this.type._getType();
-    let query: HSWRDQuery = { jsmode: true };
+    const query: HSWRDQuery = { jsmode: true, ...translateHistoryModeToHS(this._historyMode) };
     if (typeof this.selects === "string")
       query.outputcolumn = tagToHS(this.selects);
     else
       query.outputcolumns = outputmapToHS(this.selects);
-    if (this.historymode)
-      query = { ...query, historymode: this.historymode.mode, ...omit(this.historymode, ["mode"]) };
     if (this.wheres.length)
       query.filters = this.wheres.map(({ field, condition, value }) => ({ field: tagToHS(field), matchtype: condition.toUpperCase(), value }));
     if (this._limit !== null)

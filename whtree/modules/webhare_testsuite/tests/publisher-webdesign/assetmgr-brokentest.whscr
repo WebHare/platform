@@ -124,7 +124,6 @@ MACRO TestCrashJson()
 
   OBJECT assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
   extracted := ExtractBundleOutputTag(testfw->browser->document);
-  WaitForPromise(assetpackcontrol->RecompileBundle(extracted.outputtag)); //don't want to wait for fswatch to pick it up
   WaitForPromise(assetpackcontrol->WaitForCompile(extracted.outputtag, FALSE));
   RECORD status := WaitForPromise(assetpackcontrol->GetBundleStatus(extracted.outputtag));
 
@@ -150,6 +149,7 @@ MACRO TestRecompileAfterModuleReplace()
   SetupWebDesign("publisher:blank", mytempmodulename, "TestDesign", [ aftercompiletask := "webhare_testsuite:aftercompile"] );
   AddImportViaMod(2);
   RecompileSiteProfiles(); //makes sure the XML/siteprl changes are picked up synchronously
+  ApplyWebHareConfiguration([ subsystems := ["assetpacks"]]);
 
   OBJECT assetpackcontrol := WaitForPromise(OpenWebHareService("publisher:assetpackcontrol"));
   WaitForPromise(assetpackcontrol->RecompileBundle(extracted.outputtag)); //don't want to wait for fswatch to pick it up

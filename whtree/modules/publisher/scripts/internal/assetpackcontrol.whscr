@@ -1341,25 +1341,7 @@ STATIC OBJECTTYPE AssetPackController
 
   RECORD FUNCTION GetBundleRecheck(STRING outputtag) //used to look for a bundle we're convinced should exists
   {
-    RECORD bundle := SELECT * FROM this->bundles WHERE bundles.outputtag = VAR outputtag;
-    IF(NOT RecordExists(bundle))
-    {
-      /* Trying to fix
-         Exception EXCEPTION: Requested bundle webhare_testsuite_temp:testdesign is not in the bundle list.
-         infrequently hitting publisher-webdesign.moduledesigntest test
-
-         Are we racing against a module offering bundles? Try to load the bundles
-
-         FIXME it would be so much better if you could ensure these changes were applied for me.
-               (ie explicitly ApplyWebHareConfiguration("assetpacks") in SetupWebDesign after modifying the modXml
-                to add a webdesign/assetpack, which would then wait for assetpackcontrol to be in sync
-       */
-      UpdateGeneratedFiles(["config","extracts"]);
-      this->ScanModulesForBundles();
-      this->LoadBundles();
-      bundle := SELECT * FROM this->bundles WHERE bundles.outputtag = VAR outputtag;
-    }
-    RETURN bundle;
+    RETURN SELECT * FROM this->bundles WHERE bundles.outputtag = VAR outputtag;
   }
 
   /** Returns a promise that is resolved when the first compile for a bundle has finished (with a timeout of 2 minutes)
@@ -1653,7 +1635,11 @@ OBJECTTYPE AssetPackControl
   {
     controller->UpdateSourceMapType(outputtag, fullsourcemap);
     controller->RecompileBundleByoutputtag(outputtag, FALSE);
+  }
 
+  PUBLIC MACRO Reload()
+  {
+    controller->Setup();
   }
 >;
 
