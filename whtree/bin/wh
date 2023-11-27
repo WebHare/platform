@@ -37,27 +37,11 @@ OPTIONS=("$@")
 # Print ASAP to give accurate measurements
 [ "$INSTR" == "console" ] && [ -n "$DEBUGSTARTUP" ] && logWithTime "Preparing for console"
 
-# We must have $WEBHARE_DIR, pointing to the 'whtree'.
-if [ -z "$WEBHARE_DIR" ]; then
-  if [ -n "$WEBHARE_CHECKEDOUT_TO" ]; then
-    export WEBHARE_DIR="${WEBHARE_CHECKEDOUT_TO%/}/whtree"
-  else
-    export WEBHARE_DIR=`cd ${BASH_SOURCE%/*}/..; pwd`
-  fi
-
-  [ "$WH_VERBOSE" == "1" ] && echo "WebHare installation dir: $WEBHARE_DIR"
-fi
+[ "$WH_VERBOSE" == "1" ] && echo "WebHare installation dir: $WEBHARE_DIR"
 
 # Ensure 'wh' runs this wh so we don't accidentally rely on external PATHs/functions/aliasses - lock it to WEBHARE_DIR
 wh() { "${BASH_SOURCE%/*}/../bin/wh" "$@"; }
 export -f wh
-
-# Try to set WEBHARE_CHECKEDOUT_TO from WEBHARE_DIR where possible
-if [ -z "$WEBHARE_CHECKEDOUT_TO" ]; then
-  if [ -f "$WEBHARE_DIR/../builder/base_makefile" ]; then
-    export WEBHARE_CHECKEDOUT_TO="`cd ${WEBHARE_DIR}/..; pwd`"
-  fi
-fi
 
 # If we haven't found WEBHARE_DATAROOT that way, discover it
 if [ -z "$WEBHARE_DATAROOT" ] ; then

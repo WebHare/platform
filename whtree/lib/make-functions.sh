@@ -18,6 +18,22 @@ if [ -z "$WEBHARE_NODE_BINARY" ]; then
   [ -n "$WEBHARE_NODE_BINARY" ] || WEBHARE_NODE_BINARY="node"
 fi
 
+# We must have $WEBHARE_DIR, pointing to the 'whtree'.
+if [ -z "$WEBHARE_DIR" ]; then
+  if [ -n "$WEBHARE_CHECKEDOUT_TO" ]; then
+    export WEBHARE_DIR="${WEBHARE_CHECKEDOUT_TO%/}/whtree"
+  else
+    export WEBHARE_DIR="$(cd ${BASH_SOURCE%/*}/..; pwd)"
+  fi
+fi
+# Try to set WEBHARE_CHECKEDOUT_TO from WEBHARE_DIR where possible
+if [ -z "$WEBHARE_CHECKEDOUT_TO" ]; then
+  if [ -f "$WEBHARE_DIR/../builder/base_makefile" ]; then
+    export WEBHARE_CHECKEDOUT_TO="$(cd ${WEBHARE_DIR}/..; pwd)"
+  fi
+fi
+
+
 die()
 {
   echo "$@" 1>&2
@@ -55,6 +71,7 @@ setup_builddir()
   fi
 
   if [ -z "$WHBUILD_BUILDROOT" ]; then
+    [ -n "$WEBHARE_CHECKEDOUT_TO" ] || die WEBHARE_CHECKEDOUT_TO not set
     WHBUILD_BUILDROOT="`cd $WEBHARE_CHECKEDOUT_TO; cd ..; echo $PWD/whbuild`"
   fi
   if [ -z "$WEBHARE_BUILDDIR" ]; then
