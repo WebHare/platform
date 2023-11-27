@@ -3847,6 +3847,20 @@ PUBLIC VARIANT FUNCTION __WrapJSONArray(VARIANT value)
   RETURN NEW JSONArray();
 }
 
+PUBLIC VARIANT FUNCTION __DecodeJSONStdType(VARIANT value)
+{
+  // in wrapobjects mode, value is a RECORD ARRAY with entries
+  IF (TypeID(value) = TypeID(RECORD ARRAY))
+    value := RepackRecord(value);
+  SWITCH (value."$stdType")
+  {
+    CASE "Date" { RETURN MakeDateFromText(value.date); }
+    CASE "Money" { RETURN ToMoney(value."money", 0m); }
+    CASE "BigInt" { RETURN ToInteger64(value.bigint, 0i64); }
+    DEFAULT { THROW NEW Exception(`Unsupported $stdType ${EncodeJSON(value."$stdType")}`); }
+  }
+}
+
 PUBLIC STRING FUNCTION __JSONPrintObject(OBJECT obj)
 {
   IF (MemberExists(obj, "TOJSON"))
