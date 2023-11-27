@@ -1191,7 +1191,8 @@ OBJECT FUNCTION ParseXSDElement(OBJECT xsdparser, OBJECT node, RECORD schema_dat
   OBJECT element := NEW XSDElement(xsdparser, namespace, name, node, schema_data.xsd_filename);
   particle->term := element;
 
-  element->nillable :=GetBooleanAttribute(node, "nillable", FALSE);
+  element->nillable := GetBooleanAttribute(node, "nillable", FALSE);
+  element->abstract := GetBooleanAttribute(node, "abstract", FALSE);
 
   OBJECT child := GetFirstChildElement(node);
 

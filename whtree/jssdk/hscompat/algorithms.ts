@@ -210,3 +210,39 @@ export function omitHareScriptDefaultValues<T extends object, K extends keyof T>
       res[key] = keyvalue;
   return res as Omit<T, K> & PartialNoNull<T, K>;
 }
+
+export function lowerBound(searchin: readonly ComparableType[], searchfor: ComparableType): { found: boolean; position: number } {
+  return binarySearchImpl(searchin, searchfor, false);
+}
+
+export function upperBound(searchin: readonly ComparableType[], searchfor: ComparableType): number {
+  return binarySearchImpl(searchin, searchfor, true).position;
+}
+
+function binarySearchImpl(searchin: readonly ComparableType[], searchfor: ComparableType, upper_bound: boolean): { found: boolean; position: number } {
+  let first = 0;
+  let len = searchin.length;
+  let found = false;
+
+  const cmpbound = upper_bound ? 1 : 0;
+  let unsorted_cmp = 0; // if this is non-0 and cmp is this value, we have an unsorted list
+  while (len > 0) {
+    const half = Math.floor(len / 2);
+    const middle = first + half;
+    const cmp = compare(searchin[middle], searchfor);
+    if (cmp == 0) {
+      found = true;
+      unsorted_cmp = upper_bound ? -1 : 1;
+    } else if (cmp == unsorted_cmp)
+      throw new Error(`The provided array was not properly sorted!`);
+
+    if (cmp < cmpbound) {
+      first = middle + 1;
+      len -= half;
+      --len;
+    } else {
+      len = half;
+    }
+  }
+  return { found, position: first };
+}

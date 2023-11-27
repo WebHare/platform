@@ -14,14 +14,19 @@ MACRO OnClone(OBJECT obj)
 
 OBJECTTYPE tx < >;
 
-MACRO TestJSONEnDeCode(STRING encoded, VARIANT toencode, RECORD translations)
+MACRO TestJSONEnDeCode(STRING encoded, VARIANT toencode, RECORD translations, RECORD options DEFAULTSTO DEFAULT RECORD)
 {
-  STRING encval := EncodeJSON(toencode, translations);
-  TestEq(encoded, encval);
-  TestEq(toencode, DecodeJSON(encval, translations));
+  options := ValidateOptions(
+      [ encode := DEFAULT RECORD
+      , decode := DEFAULT RECORD
+      ], options);
 
-  TestEQ(encoded, BlobTostring(EncodeJSONBlob(toencode, translations)));
-  TEstEQ(toencode, DecodeJSONBlob(StringToBlob(encval), translations));
+  STRING encval := EncodeJSON(toencode, translations, options.encode);
+  TestEq(encoded, encval);
+  TestEq(toencode, DecodeJSON(encval, translations, options.decode));
+
+  TestEQ(encoded, BlobTostring(EncodeJSONBlob(toencode, translations, options.encode)));
+  TEstEQ(toencode, DecodeJSONBlob(StringToBlob(encval), translations, options.decode));
 }
 
 PUBLIC INTEGER FUNCTION __INTERNAL_GETOBJECTID(OBJECT obj) __ATTRIBUTES__(EXTERNAL); // Don't use in user code!
@@ -413,6 +418,16 @@ MACRO TestJSONFormatting()
   TestEQ(StringToBlob(expect), EncodeJSONBlob(rec, DEFAULT RECORD, [ formatted := TRUE ]));
 }
 
+MACRO TestSTDType()
+{
+  RECORD typed_options := [ encode := [ typed := TRUE ], decode := [ typed := TRUE ] ];
+  TestJSONEnDeCode(`{"$stdType":"Money","money":"0"}`, 0m, DEFAULT RECORD, typed_options);
+  TestJSONEnDeCode(`{"$stdType":"Date","date":"2020-01-01T00:00:00.000Z"}`, MakeDate(2020, 1, 1), DEFAULT RECORD, typed_options);
+  TestEQ(`{\n  "$stdType": "Money",\n  "money": "0"\n}\n`, EncodeJSON(0m, DEFAULT RECORD, [ typed := TRUE, formatted := TRUE ]));
+  TestEQ(`{\n  "$stdType": "Date",\n  "date": "2020-01-01T00:00:00.000Z"\n}\n`, EncodeJSON(MakeDate(2020, 1, 1), DEFAULT RECORD, [ typed := TRUE, formatted := TRUE ]));
+  TestEQ(6i64, DecodeJSON(`{\n  "$stdType": "BigInt",\n  "bigint": "6"\n}`, DEFAULT RECORD, [ typed := TRUE ]));
+}
+
 __system_jsonobjectclonehook := PTR OnClone;
 
 TestJSON();
@@ -420,3 +435,4 @@ TestWrappedJSONEncodeDecode();
 TestJSONObject();
 TestJSONArray();
 TestJSONFormatting();
+TestSTDType();

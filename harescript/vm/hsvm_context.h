@@ -551,6 +551,7 @@ class ColumnNameCache
         ColumnNameId col_timeout;
         ColumnNameId col_total_running;
         ColumnNameId col_type;
+        ColumnNameId col_typed;
         ColumnNameId col_typeinfo;
         ColumnNameId col_typeinfonr1;
         ColumnNameId col_typeinfonr2;
@@ -563,6 +564,7 @@ class ColumnNameCache
         ColumnNameId col_write;
         ColumnNameId col_year;
         ColumnNameId col_yearofweek;
+        ColumnNameId col__dollarstdtype;
 };
 
 struct ObjectTypeDefinition

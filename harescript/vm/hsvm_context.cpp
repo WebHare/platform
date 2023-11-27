@@ -4374,6 +4374,7 @@ ColumnNameCache::ColumnNameCache(ColumnNames::LocalMapper &columnnamemapper)
         col_timeout = columnnamemapper.GetMapping("TIMEOUT");
         col_total_running = columnnamemapper.GetMapping("TOTAL_RUNNING");
         col_type = columnnamemapper.GetMapping("TYPE");
+        col_typed = columnnamemapper.GetMapping("TYPED");
         col_typeinfo = columnnamemapper.GetMapping("TYPEINFO");
         col_typeinfonr = columnnamemapper.GetMapping("TYPEINFONR");
         col_typeinfonr1 = columnnamemapper.GetMapping("TYPEINFONR1");
@@ -4386,6 +4387,7 @@ ColumnNameCache::ColumnNameCache(ColumnNames::LocalMapper &columnnamemapper)
         col_write = columnnamemapper.GetMapping("WRITE");
         col_year = columnnamemapper.GetMapping("YEAR");
         col_yearofweek = columnnamemapper.GetMapping("YEAROFWEEK");
+        col__dollarstdtype = columnnamemapper.GetMapping("$STDTYPE");
 }
 
 void RegisterHandleKeeper(VirtualMachine *vm, IdMapStorageRapporter *rapporter)

@@ -60,11 +60,12 @@ class JSONParser
     private:
         struct Level
         {
-                Level(HSVM_VariableId _var, ParseState _restorestate) : var(_var), lastarrayelt(0), restorestate(_restorestate), arrayelttype(0) {}
+                Level(HSVM_VariableId _var, ParseState _restorestate) : var(_var), lastarrayelt(0), restorestate(_restorestate), arrayelttype(0), hasstdtype(false) {}
                 HSVM_VariableId var;
                 HSVM_VariableId lastarrayelt;
                 ParseState restorestate;
                 HSVM_VariableType arrayelttype;
+                bool hasstdtype;
         };
 
         HSVM *vm;
@@ -116,14 +117,18 @@ class JSONParser
         /// Whether we parse into JSONArray and JSONObject
         bool wrapobjects;
 
+        /// If true, decode "$stdType" records
+        bool typed;
+
         bool HandleToken(std::string const &token, TokenType tokentype);
         bool ParseSimpleValue(HSVM_VariableId target, std::string const &token, TokenType tokentype);
         bool ParseHSONTypedValue(HSVM_VariableId target, std::string const &token, TokenType tokentype);
         bool WrapObject(HSVM_VariableId var);
         bool WrapArray(HSVM_VariableId var);
+        bool DecodeSTDType(HSVM_VariableId var);
 
     public:
-        JSONParser(HSVM *_vm, bool _hson, bool _allowcomments, bool _alltostring, bool _wrapobjects, HSVM_VariableId _translations);
+        JSONParser(HSVM *_vm, bool _hson, bool _allowcomments, bool _alltostring, bool _wrapobjects, bool _typed, HSVM_VariableId _translations);
 
         bool HandleByte(uint8_t byte);
         bool Finish(HSVM_VariableId target);
@@ -166,7 +171,7 @@ std::ostream & operator <<(std::ostream &out, JSONParser::ParseState parsestate)
 }
 
 
-JSONParser::JSONParser(HSVM *_vm, bool _hson, bool _allowcomments, bool _alltostring, bool _wrapobjects, HSVM_VariableId _translations)
+JSONParser::JSONParser(HSVM *_vm, bool _hson, bool _allowcomments, bool _alltostring, bool _wrapobjects, bool _typed, HSVM_VariableId _translations)
 : vm(_vm)
 , state(TS_Default)
 , comment_after_numberprefix(false)
@@ -181,6 +186,7 @@ JSONParser::JSONParser(HSVM *_vm, bool _hson, bool _allowcomments, bool _alltost
 , allowcomments(_allowcomments)
 , alltostring(_alltostring)
 , wrapobjects(_wrapobjects)
+, typed(_typed)
 {
         root = HSVM_AllocateVariable(vm);
         if (_translations)
@@ -593,7 +599,9 @@ bool JSONParser::HandleToken(std::string const &token, TokenType tokentype)
                     // End of object (this handles empty objects and extra ',' after last member)
                     if (tokentype == JTT_SpecialToken && token[0] == '}')
                     {
-                            if (wrapobjects)
+                            if (typed && levels.back().hasstdtype)
+                                DecodeSTDType(levels.back().var);
+                            else if (wrapobjects)
                                 WrapObject(levels.back().var);
 
                             parsestate = levels.back().restorestate;
@@ -609,6 +617,8 @@ bool JSONParser::HandleToken(std::string const &token, TokenType tokentype)
                     }
                     lastname = token;
                     parsestate = PS_ObjectWantColon;
+                    if (typed && lastname == "$stdType")
+                        levels.back().hasstdtype = true;
                     return true;
             }
         case PS_ObjectWantColon:
@@ -636,7 +646,9 @@ bool JSONParser::HandleToken(std::string const &token, TokenType tokentype)
                     }
                     else
                     {
-                            if (wrapobjects)
+                            if (typed && levels.back().hasstdtype)
+                                DecodeSTDType(levels.back().var);
+                            else if (wrapobjects)
                                 WrapObject(levels.back().var);
 
                             parsestate = levels.back().restorestate;
@@ -1367,6 +1379,19 @@ bool JSONParser::WrapArray(HSVM_VariableId var)
         return retval && !HSVM_TestMustAbort(vm);
 }
 
+bool JSONParser::DecodeSTDType(HSVM_VariableId var)
+{
+        HSVM_OpenFunctionCall(vm, 1);
+        HSVM_CopyFrom(vm, HSVM_CallParam(vm, 0), var);
+        const HSVM_VariableType args[1] = { 0x01 };
+        VarId retval = HSVM_CallFunction(vm, "wh::system.whlib", "__DecodeJSONStdType", 0x01, 1, args);
+        if (retval && !HSVM_TestMustAbort(vm))
+            HSVM_CopyFrom(vm, var, retval);
+        HSVM_CloseFunctionCall(vm);
+
+        return retval && !HSVM_TestMustAbort(vm);
+}
+
 std::string JSONParser::GetErrorMessage() const
 {
         if (!errormessage.empty())
@@ -1399,23 +1424,27 @@ class JSONEncoder
     private:
         void PushNr(int64_t nr, int decimals, Blex::PodVector< char > *dest);
         void Indent(Blex::PodVector< char > *dest);
+        void StartStdType(Blex::PodVector< char > &dest, std::string_view const &stdtype, std::string_view const &propname);
+        void FinishStdType(Blex::PodVector< char > &dest);
 
         HSVM *vm;
         HSVM_VariableId translations;
         bool formatted;
+        bool typed;
         unsigned indent;
 
     public:
         void Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool make_blob, bool hson);
         void Close();
 
-        JSONEncoder(HSVM *vm, HSVM_VariableId id_translations, bool formatted);
+        JSONEncoder(HSVM *vm, HSVM_VariableId id_translations, bool formatted, bool typed);
 };
 
-JSONEncoder::JSONEncoder(HSVM *vm, HSVM_VariableId id_translations, bool _formatted)
+JSONEncoder::JSONEncoder(HSVM *vm, HSVM_VariableId id_translations, bool _formatted, bool _typed)
 : vm(vm)
 , translations(0)
 , formatted(_formatted)
+, typed(_typed)
 , indent(0)
 {
         if (id_translations && HSVM_RecordExists(vm, id_translations))
@@ -1530,6 +1559,35 @@ void JSONEncoder::Indent(Blex::PodVector< char > *dest)
         }
 }
 
+void JSONEncoder::StartStdType(Blex::PodVector< char > &dest, std::string_view const &stdtype, std::string_view const &propname)
+{
+        using namespace std::literals::string_view_literals;
+        dest.push_back('{');
+        indent += 2;
+        Indent(&dest);
+        auto str_stdtype = "\"$stdType\":"sv;
+        std::copy(str_stdtype.begin(), str_stdtype.end(), std::back_inserter(dest));
+        if (formatted)
+            dest.push_back(' ');
+        dest.push_back('"');
+        std::copy(stdtype.begin(), stdtype.end(), std::back_inserter(dest));
+        dest.push_back('"');
+        dest.push_back(',');
+        Indent(&dest);
+        dest.push_back('"');
+        std::copy(propname.begin(), propname.end(), std::back_inserter(dest));
+        dest.push_back('"');
+        dest.push_back(':');
+        if (formatted)
+            dest.push_back(' ');
+}
+
+void JSONEncoder::FinishStdType(Blex::PodVector< char > &dest)
+{
+        indent -= 2;
+        Indent(&dest);
+        dest.push_back('}');
+}
 
 void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool make_blob, bool hson)
 {
@@ -1790,6 +1848,12 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
                                     const char *str_m = "m ";
                                     dest.insert(dest.end(), str_m, str_m + 2);
                             }
+                            else if (typed)
+                            {
+                                    using namespace std::literals::string_view_literals;
+                                    StartStdType(dest, "Money"sv, "money"sv);
+                                    dest.push_back('"');
+                            }
 
                             int64_t signed_val = HSVM_MoneyGet(vm, to_encode);
                             uint64_t unsigned_val;
@@ -1819,6 +1883,11 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
                                     dest.push_back('.');
                                     std::copy(firstdecimal, limit, std::back_inserter(dest));
                             }
+                            if (!hson && typed)
+                            {
+                                    dest.push_back('"');
+                                    FinishStdType(dest);
+                            }
                     } break;
                 case HSVM_VAR_Float:
                     {
@@ -1838,6 +1907,11 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
                     {
                             if(hson)
                                     dest.push_back('d');
+                            else if (typed)
+                            {
+                                    using namespace std::literals::string_view_literals;
+                                    StartStdType(dest, "Date"sv, "date"sv);
+                            }
                             dest.push_back('"');
 
                             int daysvalue, msecsvalue;
@@ -1895,6 +1969,11 @@ void JSONEncoder::Encode(HSVM_VariableId id_set, HSVM_VariableId source, bool ma
                                             dest.push_back('Z');
                             }
                             dest.push_back('"');
+                            if (typed)
+                            {
+                                    FinishStdType(dest);
+                            }
+
                     } break;
 
                 case HSVM_VAR_Object:
@@ -2084,7 +2163,7 @@ struct JSONContextData
 
         struct Parser : public HareScript::OutputObject
         {
-                Parser(HSVM *_vm, bool _hson, bool _allowcomments, bool _alltostring, bool _wrapobjects, HSVM_VariableId translations) : OutputObject(_vm, "JSON parser"), jsonparser(_vm, _hson, _allowcomments, _alltostring, _wrapobjects, translations) {}
+                Parser(HSVM *_vm, bool _hson, bool _allowcomments, bool _alltostring, bool _wrapobjects, bool _typed, HSVM_VariableId translations) : OutputObject(_vm, "JSON parser"), jsonparser(_vm, _hson, _allowcomments, _alltostring, _wrapobjects, _typed, translations) {}
 
                 JSONParser jsonparser;
 
@@ -2118,6 +2197,7 @@ struct DecoderOptions
         bool allowcomments;
         bool alltostring;
         bool wrapobjects;
+        bool typed;
 };
 
 bool ParseDecoderOptions(VirtualMachine *vm, HSVM_VariableId opts, DecoderOptions *options)
@@ -2151,6 +2231,14 @@ bool ParseDecoderOptions(VirtualMachine *vm, HSVM_VariableId opts, DecoderOption
                                 continue;
                         }
                 }
+                else if (static_cast< ColumnNameId >(colid) == vm->cn_cache.col_typed)
+                {
+                        if (HSVM_GetType(*vm, var) == HSVM_VAR_Boolean)
+                        {
+                                options->typed = HSVM_BooleanGet(*vm, var);
+                                continue;
+                        }
+                }
                 else
                 {
                         char colname[HSVM_MaxColumnName];
@@ -2171,6 +2259,7 @@ bool ParseDecoderOptions(VirtualMachine *vm, HSVM_VariableId opts, DecoderOption
 struct EncoderOptions
 {
         bool formatted;
+        bool typed;
 };
 
 bool ParseEncoderOptions(VirtualMachine *vm, HSVM_VariableId opts, EncoderOptions *options)
@@ -2185,6 +2274,14 @@ bool ParseEncoderOptions(VirtualMachine *vm, HSVM_VariableId opts, EncoderOption
                         if (HSVM_GetType(*vm, var) == HSVM_VAR_Boolean)
                         {
                                 options->formatted = HSVM_BooleanGet(*vm, var);
+                                continue;
+                        }
+                }
+                else if (static_cast< ColumnNameId >(colid) == vm->cn_cache.col_typed)
+                {
+                        if (HSVM_GetType(*vm, var) == HSVM_VAR_Boolean)
+                        {
+                                options->typed = HSVM_BooleanGet(*vm, var);
                                 continue;
                         }
                 }
@@ -2216,7 +2313,7 @@ void JSONDecoderAllocate(HSVM_VariableId id_set, VirtualMachine *vm)
         if (!ParseDecoderOptions(vm, HSVM_Arg(1), &decoderopts))
             return;
 
-        JSONContextData::ParserPtr parser(new JSONContextData::Parser(*vm, is_hson, !is_hson && decoderopts.allowcomments, !is_hson && decoderopts.alltostring, !is_hson && decoderopts.wrapobjects, HSVM_Arg(2)));
+        JSONContextData::ParserPtr parser(new JSONContextData::Parser(*vm, is_hson, !is_hson && decoderopts.allowcomments, !is_hson && decoderopts.alltostring, !is_hson && decoderopts.wrapobjects, !is_hson && decoderopts.typed, HSVM_Arg(2)));
         context->parsers[parser->GetId()] = parser;
 
         HSVM_IntegerSet(*vm, id_set, parser->GetId());
@@ -2271,7 +2368,7 @@ void JSONDecoderQuick(HSVM_VariableId id_set, VirtualMachine *vm)
         if (!ParseDecoderOptions(vm, HSVM_Arg(2), &decoderopts))
             return;
 
-        JSONParser jsonparser(*vm, is_hson, !is_hson && decoderopts.allowcomments, !is_hson && decoderopts.alltostring, !is_hson && decoderopts.wrapobjects, HSVM_Arg(3));
+        JSONParser jsonparser(*vm, is_hson, !is_hson && decoderopts.allowcomments, !is_hson && decoderopts.alltostring, !is_hson && decoderopts.wrapobjects, !is_hson && decoderopts.typed, HSVM_Arg(3));
         for (std::string::iterator it = data.begin(); it != data.end(); ++it)
             if (!jsonparser.HandleByte(static_cast< uint8_t >(*it)))
                 break;
@@ -2279,9 +2376,9 @@ void JSONDecoderQuick(HSVM_VariableId id_set, VirtualMachine *vm)
         jsonparser.Finish(id_set);
 }
 
-HSVM_PUBLIC void JHSONEncode(HSVM *vm, HSVM_VariableId input, HSVM_VariableId output, bool is_hson)
+HSVM_PUBLIC void JHSONEncode(HSVM *vm, HSVM_VariableId input, HSVM_VariableId output, bool is_hson, bool is_typed)
 {
-        JSONEncoder encoder(vm, 0, false);
+        JSONEncoder encoder(vm, 0, false, is_typed);
         encoder.Encode(output, input, false, is_hson);
         encoder.Close();
 }
@@ -2292,7 +2389,7 @@ void JSONEncodeToString(HSVM_VariableId id_set, VirtualMachine *vm)
         if (!ParseEncoderOptions(vm, HSVM_Arg(3), &encoderopts))
             return;
 
-        JSONEncoder encoder(*vm, HSVM_Arg(2), encoderopts.formatted);
+        JSONEncoder encoder(*vm, HSVM_Arg(2), encoderopts.formatted, encoderopts.typed);
 
         bool is_hson = HSVM_BooleanGet(*vm, HSVM_Arg(1));
         encoder.Encode(id_set, HSVM_Arg(0), false, is_hson);
@@ -2305,7 +2402,7 @@ void JSONEncodeToBlob(HSVM_VariableId id_set, VirtualMachine *vm)
         if (!ParseEncoderOptions(vm, HSVM_Arg(3), &encoderopts))
             return;
 
-        JSONEncoder encoder(*vm, HSVM_Arg(2), encoderopts.formatted);
+        JSONEncoder encoder(*vm, HSVM_Arg(2), encoderopts.formatted, encoderopts.typed);
 
         bool is_hson = HSVM_BooleanGet(*vm, HSVM_Arg(1));
         encoder.Encode(id_set, HSVM_Arg(0), true, is_hson);
