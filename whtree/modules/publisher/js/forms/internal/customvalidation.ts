@@ -5,26 +5,6 @@ import * as dompack from 'dompack';
 import { getTid } from "@mod-tollium/js/gettid";
 import "./form.lang.json";
 
-//show HTML5-style validity errors
-export function reportValidity(node) {
-  if (node.reportValidity) //not present on all browsers, clicking a submit is a workaround
-  {
-    node.reportValidity();
-    return true;
-  }
-  const form = node.closest('form');
-  if (!form)
-    return false;
-
-  const submitbutton = form.querySelector("button[type=submit], input[type=submit]");
-  if (!submitbutton)
-    return false;
-
-  submitbutton.click();
-  return true;
-}
-
-
 function setupServerErrorClear(field) {
   const group = field.closest('.wh-form__fieldgroup') || field;
   field.propWhCleanupFunction = () => {
@@ -83,8 +63,8 @@ export function setFieldError(field: HTMLElement, error: string, options?) {
       error = error.textContent || getTid("publisher:site.forms.commonerrors.default"); //we don't want to suddenly change from 'we had an error' to 'no error'
 
     field.setCustomValidity(error || "");
-    if (!options.reportimmediately || reportValidity(field))
-      return;
+    if (options?.reportimmediately)
+      field.reportValidity?.(); //report
   }
 }
 

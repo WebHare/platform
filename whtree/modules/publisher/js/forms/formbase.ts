@@ -9,16 +9,12 @@ import { executeSubmitInstruction } from '@mod-system/js/wh/integration';
 import './internal/requiredstyles.css';
 import { getTid } from "@mod-tollium/js/gettid";
 import "./internal/form.lang.json";
-import { reportValidity, setFieldError, setupValidator } from './internal/customvalidation';
+import { setFieldError, setupValidator } from './internal/customvalidation';
 import * as compatupload from '@mod-system/js/compat/upload';
 import * as pxl from '@mod-consilio/js/pxl';
 
 const submitselector = 'input[type=submit],input[type=image],button[type=submit],button:not([type])';
 
-function isNodeCollection(node) {
-  // IE11 returns an HTMLCollection for checkbox/radio groups, so check for that instead of RadioNodeList (which is undefined in IE11)
-  return (node instanceof HTMLCollection || (typeof RadioNodeList != "undefined" && node instanceof RadioNodeList));
-}
 function getErrorFields(validationresult) {
   return validationresult.failed.map(field => field.name || field.dataset.whFormName || field.dataset.whFormGroupFor || "?")
     .sort()
@@ -94,6 +90,7 @@ function handleValidateAfterEvent(event) {
 
 export default class FormBase {
   readonly node: HTMLFormElement;
+  readonly elements: HTMLFormControlsCollection;
 
   constructor(formnode: HTMLFormElement) {
     this.node = formnode;
@@ -898,7 +895,7 @@ export default class FormBase {
       return null;
     }
 
-    if (isNodeCollection(matchfield)) {
+    if (matchfield instanceof RadioNodeList) {
       let currentvalue = null;
 
       for (const field of matchfield)
@@ -1465,7 +1462,7 @@ export default class FormBase {
           dompack.focus(tofocus, { preventScroll: true });
 
         if (!this._dovalidation)
-          reportValidity(tofocus);
+          tofocus.reportValidity?.();
 
         this.scrollIntoView(result.firstfailed);
       }
