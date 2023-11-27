@@ -1,6 +1,14 @@
 import * as domtree from './tree';
 import * as domevents from './events';
 
+export type TakeFocusEvent = CustomEvent<{ options?: FocusOptions }>;
+
+declare global {
+  interface GlobalEventHandlersEventMap {
+    "dompack:takefocus": TakeFocusEvent;
+  }
+}
+
 type RegistrationHandler<E extends Element = HTMLElement> = (node: E, index?: number) => void;
 type ComponentRegistration<E extends Element = HTMLElement> =
   {

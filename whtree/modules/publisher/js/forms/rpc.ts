@@ -342,11 +342,9 @@ export default class RPCFormBase extends FormBase {
   onSubmitException(e) {
   }
 
-  async validateSingleFormField(field) {
-    if (field.type == "email") //TODO perhaps move this to webharefields.es ?
-    {
-      if (focus.getCurrentlyFocusedElement() == field) //TODO clearing suggestion on change should probably be generalized
-      {
+  async validateSingleFormField(field: HTMLElement): Promise<boolean> {
+    if (field.type == "email") { //TODO perhaps move this to webharefields.es ?
+      if (focus.getCurrentlyFocusedElement() == field) { //TODO clearing suggestion on change should probably be generalized
         if (field.propWhValidationSuggestion) {
           field.propWhValidationSuggestion = null;
         }

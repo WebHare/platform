@@ -17,5 +17,9 @@ export {
   Rect
 } from './src/tree';
 export { create, jsxcreate, jsxfragment } from './src/create';
-export { focus, register, registerMissed, scrollIntoView } from './src/components';
-export { debugflags } from './src/debug';
+export { focus, register, registerMissed, scrollIntoView, TakeFocusEvent } from './src/components';
+
+import { debugFlags } from "@webhare/env";
+
+/** @deprecated You should use debugFlags from \@webhare/env */
+export const debugflags = debugFlags;

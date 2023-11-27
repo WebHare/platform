@@ -21,20 +21,14 @@ interface FormBase {
   _reportFieldValidity: (arg0: HTMLElement) => void;
 }
 
-//FIXME share with formbase
-interface InputWithValidationSuggestion extends HTMLInputElement {
-  propWhValidationSuggestion: HTMLElement | null;
-  propWhValidationError: string | null;
-}
-
-function acceptEmailSuggestion(evt: Event, form: FormBase, field: InputWithValidationSuggestion, suggestion: string) {
+function acceptEmailSuggestion(evt: Event, form: FormBase, field: HTMLInputElement, suggestion: string) {
   dompack.stop(evt);
   field.value = suggestion;
   field.propWhValidationSuggestion = null;
   form._reportFieldValidity(field);
 }
 
-export async function validateField(form: FormBase, field: InputWithValidationSuggestion) {
+export async function validateField(form: FormBase, field: HTMLInputElement) {
   const checkvalue: string = field.value;
   if (!checkvalue || !mayValidateField(field))
     return true; //not a problem
