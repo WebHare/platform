@@ -6,7 +6,7 @@
 import * as test from "@webhare/test";
 import { Money } from "@webhare/std";
 import { isLike, isNotLike, recordLowerBound, recordUpperBound, encodeHSON, decodeHSON, makeDateFromParts, defaultDateTime, maxDateTime, omitHareScriptDefaultValues, KeysToSnakeCase, KeysToCamelCase, toSnakeCase, toCamelCase } from "@webhare/hscompat";
-import { compare } from "@webhare/hscompat/algorithms";
+import { compare, lowerBound, upperBound } from "@webhare/hscompat/algorithms";
 import { localizeDate } from "@webhare/hscompat/datetime";
 import { getTypedArray, IPCMarshallableData, VariableType } from "@mod-system/js/internal/whmanager/hsmarshalling";
 import { WebHareBlob } from "@webhare/services";
@@ -191,6 +191,22 @@ async function testRecordUpperBound() {
 
   // should work with type-erased searchrecord
   test.eq(4, recordUpperBound(list, { a: 3 } as any, ["a"]));
+}
+
+function testLowerBound() {
+  test.eq({ found: true, position: 2 }, lowerBound([0, 1, 2, 3, 4], 2));
+  test.eq({ found: false, position: 2 }, lowerBound([0, 1, 2, 3, 4], 1.5));
+  test.eq({ found: true, position: 0 }, lowerBound([null, 2], null));
+  test.eq({ found: false, position: 1 }, lowerBound([null, 2], 1));
+  test.eq({ found: true, position: 1 }, lowerBound([null, 2], 2));
+}
+
+function testUpperBound() {
+  test.eq(3, upperBound([0, 1, 2, 3, 4], 2));
+  test.eq(2, upperBound([0, 1, 2, 3, 4], 1.5));
+  test.eq(1, upperBound([null, 2], null));
+  test.eq(1, upperBound([null, 2], 1));
+  test.eq(2, upperBound([null, 2], 2));
 }
 
 function testHSONEnDeCode(encoded: string, toencode: IPCMarshallableData) {
@@ -473,6 +489,8 @@ test.run([
   testCompare,
   testRecordLowerBound,
   testRecordUpperBound,
+  testLowerBound,
+  testUpperBound,
   testHSON,
   testLocalizeDate,
   testOmitHareScriptDefaultValues,
