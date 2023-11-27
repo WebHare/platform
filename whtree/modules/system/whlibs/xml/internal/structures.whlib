@@ -805,7 +805,7 @@ PUBLIC OBJECTTYPE XSDElement EXTEND XSDType  // FIXME: is XSDElement an XSDType?
   PUBLIC OBJECT substitution_group_affiliation;
   //, ??? disallowed substitutions
   //, ??? substitution group exclusions
-  //, BOOLEAN abstract
+  PUBLIC BOOLEAN abstract;
 
   // ---------------------------------------------------------------------------
   //
