@@ -18,6 +18,7 @@ function ensureProperPath(inpath: string) {
 
 async function testServices() {
   test.assert(services.backendConfig);
+  test.assert(await services.isWebHareRunning()); //But it's hard to test it returning "false" for the test framework
 
   //Verify potentially higher level invoke APIs work
   test.eq(45, await services.callHareScript("mod::webhare_testsuite/tests/system/nodejs/data/invoketarget.whlib#Add", [22, 23]));
