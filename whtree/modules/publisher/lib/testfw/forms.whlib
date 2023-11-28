@@ -28,14 +28,14 @@ STATIC OBJECTTYPE FormsapiFormTester
                                ], options);
 
     STRING formservice := ResolveToAbsoluteURL(this->baseurl, "/wh_services/publisher/forms");
-    RECORD formdata := [ fields := fields
+    RECORD formdata := [ vals := (SELECT name := ToLowercase(name), value FROM UnpackRecord(fields))
                        , target := this->node->GetAttribute("data-wh-form-target")
                        , url := UnpackURL(this->baseurl).urlpath
                        ];
 
     IF(RecordExists(options.extrasubmit))
       INSERT CELL extrasubmit := options.extrasubmit INTO formdata;
-    RECORD result := this->browser->CallJSONRPC(formservice,"CallFormService","Submit",formdata);
+    RECORD result := this->browser->CallJSONRPC(formservice,"FormSubmit",formdata);
     RETURN result;
   }
 >;

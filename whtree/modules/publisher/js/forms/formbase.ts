@@ -21,6 +21,8 @@ declare global {
     propWhFormSavedRequired?: boolean;
     propWhFormSavedEnabled?: boolean;
     propWhFormSavedHidden?: boolean;
+    //TODO And how does this differ from propWhFormSavedRequired?
+    propWhFormInitialRequired?: boolean;
     propWhFormCurrentEnabled?: boolean;
     propWhFormCurrentRequired?: boolean;
     propWhFormCurrentVisible?: boolean;
@@ -38,11 +40,23 @@ declare global {
     propWhFormNativeError?: boolean;
     whUseFormGetValue?: boolean;
   }
+
+  interface GlobalEventHandlersEventMap {
+    "wh:form-enable": CustomEvent<{ enabled: boolean }>;
+    "wh:form-require": CustomEvent<{ enabled: boolean }>;
+  }
 }
 
 type ExtraData = unknown;
 
-type FormResultValue = Record<string, unknown>;
+export type FormResultValue = Record<string, unknown>;
+
+export interface FormSubmitResult {
+  success: boolean;
+  result: unknown;
+  errors: Array<{ name: string; message: string; metadata: unknown }>;
+  warnings: Array<{ name: string; message: string; metadata: unknown }>;
+}
 
 type RichValues = Array<{ field: string; value: string }>;
 
@@ -175,7 +189,7 @@ export default class FormBase {
   readonly elements: HTMLFormControlsCollection;
   private _formsessionid = pxl.generateId();
   private _firstinteraction: number | undefined;
-  private _submitstart: number | undefined;
+  protected _submitstart: number | undefined;
   private validationqueue = new Array<ValidationQueueElement>;
   private _submitter: HTMLElement | null = null;
   private _submittimeout: NodeJS.Timeout | undefined;
@@ -195,10 +209,10 @@ export default class FormBase {
     //Implement page navigation
     this.node.addEventListener("click", evt => this._checkClick(evt));
     this.node.addEventListener("dompack:takefocus", evt => this._onTakeFocus(evt), true);
-    this.node.addEventListener("input", evt => this._onInputChange(evt), true);
-    this.node.addEventListener("change", evt => this._onInputChange(evt), true);
+    this.node.addEventListener("input", evt => this._onInputChange(), true);
+    this.node.addEventListener("change", evt => this._onInputChange(), true);
     this.node.addEventListener('submit', evt => this._submit(evt, null));
-    this.node.addEventListener('wh:form-dosubmit', evt => this._doSubmit(evt, null));
+    this.node.addEventListener('wh:form-dosubmit', evt => { throw new Error(`wh:form-dosubmit is no longer supported`); });
     this.node.addEventListener("wh:form-setfielderror", evt => this._doSetFieldError(evt));
     this.node.addEventListener("mousedown", doDelayValidation);
     this.node.addEventListener("focusout", handleFocusOutEvent, true);
@@ -225,7 +239,7 @@ export default class FormBase {
     return this.node.closest<HTMLElement>('[lang]')?.lang ?? 'en';
   }
 
-  sendFormEvent(eventtype: string, vars: pxl.PxlEventData) {
+  sendFormEvent(eventtype: string, vars?: pxl.PxlEventData) {
     const now = Date.now();
     const isfirst = !this._firstinteraction;
     this._firstinteraction ||= now;
@@ -244,14 +258,12 @@ export default class FormBase {
     if (isfirst)
       pxl.sendPxlEvent("publisher:formstarted", vars, { node: this.node });
 
-    if (eventtype === null)
-      return; //we were only invoked for the implicit formstarted event
-
-    pxl.sendPxlEvent(eventtype, {
-      ...vars,
-      dn_formmeta_time: now - this._firstinteraction,
-      dn_formmeta_pagenum: pagestate.curpage + 1
-    }, { node: this.node });
+    if (eventtype) //if not set, we were only invoked for the implicit formstarted event
+      pxl.sendPxlEvent(eventtype, {
+        ...vars,
+        dn_formmeta_time: now - this._firstinteraction,
+        dn_formmeta_pagenum: pagestate.curpage + 1
+      }, { node: this.node });
   }
 
   _rewriteEnableOn() { //ADDME move this to webhare server
@@ -481,7 +493,7 @@ export default class FormBase {
     await this._submit(null, extradata);
   }
 
-  async _submit(evt, extradata: ExtraData) {
+  async _submit(evt: SubmitEvent | null, extradata: ExtraData) {
     if (this.node.classList.contains('wh-form--submitting')) //already submitting
       return;
 
@@ -503,7 +515,7 @@ export default class FormBase {
 
     try {
       if (!dompack.dispatchCustomEvent(this.node, 'wh:form-beforesubmit', { bubbles: true, cancelable: true })) //allow parsley to hook into us
-        return; //we expect parsley to invoke _doSubmit through wh:form-dosubmit
+        return;
 
       await this._doSubmit(evt, extradata);
     } finally {
@@ -528,7 +540,7 @@ export default class FormBase {
         field.propWhCleanupFunction();
   }
 
-  async _doSubmit(evt, extradata: ExtraData) {
+  async _doSubmit(evt: SubmitEvent | null, extradata: ExtraData) {
     if (evt)
       evt.preventDefault();
 
@@ -573,8 +585,9 @@ export default class FormBase {
   }
 
   //default submission function. eg. RPC will override this
-  async submit(extradata?: ExtraData) {
+  async submit(extradata?: ExtraData): Promise<{ result: unknown }> {
     this.node.submit();
+    return { result: null };
   }
 
   _onTakeFocus(evt: TakeFocusEvent) {
@@ -730,12 +743,12 @@ export default class FormBase {
     await this._updateConditions(false);
   }
 
-  _onInputChange(evt) {
-    this.sendFormEvent(null); //only trigger implicit _firstinteraction event
+  _onInputChange() {
+    this.sendFormEvent(''); //only trigger implicit _firstinteraction event
     this._updateConditions(false);
   }
 
-  async _updateConditions(isinit) {
+  async _updateConditions(isinit: boolean) {
     // Check pages visibility
     const hiddenPages = [];
     const mergeNodes = [];
@@ -1181,12 +1194,14 @@ export default class FormBase {
 
   /* Override this to overwrite the setting of individual fields. In contrast
      to getFieldValue, this function will also be invoked for radio and checkboxes */
-  setFieldValue(fieldnode: dompack.FillableFormElement, value) {
+  setFieldValue(fieldnode: HTMLElement, value: unknown) {
     if (fieldnode.hasAttribute('data-wh-form-name')) {
       if (!dompack.dispatchCustomEvent(fieldnode, 'wh:form-setvalue', { bubbles: true, cancelable: true, detail: { value } }))
         return;
       // Event is not cancelled, set node value directly
     }
+
+    //TODO we should also understand value sets toward fields with custom value support (those which dompack.changeValue can't understand)
     if (fieldnode.matches('input[type=radio], input[type=checkbox]')) {
       dompack.changeValue(fieldnode, Boolean(value));
       return;
