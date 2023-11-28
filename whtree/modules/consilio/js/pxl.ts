@@ -59,7 +59,7 @@ function pxlFailed(errormessage, ...params) {
   return null;
 }
 
-export function makePxlURL(baseurl, eventname, data, options) {
+export function makePxlURL(baseurl, eventname, data?, options?) {
   options = { ...globalOptions, ...options };
 
   if (typeof eventname != "string")
@@ -142,7 +142,7 @@ export function makePxlURL(baseurl, eventname, data, options) {
   return url;
 }
 
-export function getPxlId(options) {
+export function getPxlId(options?) {
   options = { ...globalOptions, ...options };
 
   //Chrome's cookie block setting throws when acessing window.localStorage, so check for it in a safer way
@@ -203,7 +203,7 @@ function getPxlSessionId(options) {
     @param options
     @cell options.node Node responsible for generating this event (if not set, 'window' is assumed). Used for the event handlers
 */
-export function sendPxlEvent(event, data, options) {
+export function sendPxlEvent(event: string, data?, options?) {
   options = { ...globalOptions, ...options };
 
   if (!dompack.dispatchCustomEvent(options.node || window, "consilio:pxl", { bubbles: true, cancelable: true, defaulthandler: pingPxlEvent, detail: { event, data, options, isaltsample } })) {

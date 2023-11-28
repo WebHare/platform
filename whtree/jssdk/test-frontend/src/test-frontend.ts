@@ -23,5 +23,6 @@ export {
   waitForElement,
   qS,
   qSA,
-  qR
+  qR,
+  invoke
 } from "@mod-system/js/wh/testframework";

@@ -11,6 +11,7 @@ LOADLIB "wh::util/algorithms.whlib";
 
 LOADLIB "mod::system/lib/internal/webhareconstants.whlib";
 LOADLIB "mod::system/lib/testfw/runtest.whlib";
+LOADLIB "mod::system/lib/internal/whconfig.whlib";
 LOADLIB "mod::system/lib/internal/cluster/logwriter.whlib";
 
 
@@ -64,6 +65,9 @@ PUBLIC RECORD FUNCTION RPC_JSTestLog(STRING reportid, RECORD ARRAY lines)
 
 PUBLIC VARIANT FUNCTION RPC_Invoke(STRING libfunc, VARIANT ARRAY params)
 {
+  IF(GetDtapStage() != "development")
+    THROW NEW Exception(`RPC_Invoke is only available on servers in development mode`);
+
   INTEGER ARRAY intypes;
   FOREVERY(VARIANT param FROM params)
     INSERT TypeID(param) INTO intypes AT END;
