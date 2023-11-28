@@ -1,9 +1,4 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
-/* @import: import '@mod-publisher/js/forms';
-*/
-import * as dompack from 'dompack';
+import * as dompack from '@webhare/dompack';
 import './internal/requiredstyles.css';
 import * as merge from './internal/merge';
 import FormBase from './formbase';
@@ -17,13 +12,6 @@ const handlers: Record<string, FormHandlerFactory> = {
   "publisher:form": form => new FormBase(form),
   "publisher:rpc": form => new RPCFormBase(form)
 };
-let didregister;
-let formoptions = null;
-const defaultsettings = {
-  pxl: true,
-  validate: true,
-  warnslow: 5000 //after how many msecs to warn a form is slow
-};
 
 export const registerMergeFormatter = merge.registerFormatter;
 
@@ -32,30 +20,19 @@ export function registerHandler(handlername: string, handler: FormHandlerFactory
     console.error(`Duplicate registerHandler for handler '${handlername}'`);
     return; //this _MAY_ be caused by somehow duplicate loading of libs... seen that once and ignoring+continue would indeed be the safer solution
   }
+
   handlers[handlername] = handler;
-  if (didregister) //then we need to catch up registrations
-    for (const form of dompack.qSA('form[data-wh-form-handler]')) {
-      if (form.dataset.whFormHandler == handlername) {
-        const newform = handler(form);
-        if (formoptions)
-          newform._setupFormHandler(formoptions);
-      }
-    }
+  for (const form of dompack.qSA<HTMLFormElement>(`form[data-wh-form-handler="${CSS.escape(handlername)}"]`))
+    handler(form);
 }
 
-export function setup(options) {
-  formoptions = { ...defaultsettings, ...options };
-  for (const form of dompack.qSA('form[data-wh-form-handler]'))
-    if (form.propWhFormhandler)
-      form.propWhFormhandler._setupFormHandler(formoptions);
+// Noone has ever setup anything other than the defaulst pxl: true, validate: true, warnslow:5000. Dropping this configuration to simplify form handling
+export function setup(options: unknown) {
 }
 
-dompack.register("form[data-wh-form-handler]", function (form) {
-  //ADDME allow late registration of handlers, delay/block form submission until we have the handler
-  didregister = true;
-  if (handlers[form.dataset.whFormHandler] && !form.propWhFormhandler) {
-    const formobj = handlers[form.dataset.whFormHandler](form);
-    if (formoptions)
-      formobj._setupFormHandler(formoptions);
+dompack.register<HTMLFormElement>("form[data-wh-form-handler]", function (form) {
+  //TODO disable forms which have a data-wh-form-handler we haven't seen yet in case we receive async registrations
+  if (handlers[form.dataset.whFormHandler!] && !form.propWhFormhandler) {
+    handlers[form.dataset.whFormHandler!](form);
   }
 });

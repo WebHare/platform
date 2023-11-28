@@ -201,6 +201,10 @@ export default class FormBase {
     this.node.addEventListener('wh:form-dosubmit', evt => this._doSubmit(evt, null));
     this.node.addEventListener("wh:form-setfielderror", evt => this._doSetFieldError(evt));
     this.node.addEventListener("mousedown", doDelayValidation);
+    this.node.addEventListener("focusout", handleFocusOutEvent, true);
+    this.node.addEventListener("input", handleValidateAfterEvent, true);
+    this.node.addEventListener("change", handleValidateAfterEvent, true);
+    this.node.noValidate = true;
 
     this._rewriteEnableOn();
     this._updateConditions(true); //Update required etc handlers
@@ -222,9 +226,6 @@ export default class FormBase {
   }
 
   sendFormEvent(eventtype: string, vars: pxl.PxlEventData) {
-    if (!this._formhandling || !this._formhandling.pxl)
-      return;
-
     const now = Date.now();
     const isfirst = !this._firstinteraction;
     this._firstinteraction ||= now;
@@ -253,8 +254,7 @@ export default class FormBase {
     }, { node: this.node });
   }
 
-  _rewriteEnableOn() //ADDME move this to webhare server
-  {
+  _rewriteEnableOn() { //ADDME move this to webhare server
     // This is the initialization, check the enable components for all elements within the form
     for (const control of dompack.qSA(this.node, "*[data-wh-form-enable]"))
       for (const element of control.dataset.whFormEnable!.split(" ")) {
@@ -297,24 +297,6 @@ export default class FormBase {
           continue;
         this.setFieldValue(field.node, allvalues[allvalues.length - 1]); //last value wins
       }
-    }
-  }
-
-  /** Setup how the form will handle validation and events. This is invoked
-      after the form is setup and handled separately from any options passed
-      to the constructor.. because there may be a race between form construction
-      and forms.setup being invoked */
-  _setupFormHandler(formhandling) {
-    if (this._formhandling)
-      throw new Error("Form handling can only be setup once");
-
-    this._formhandling = { ...formhandling };
-    this._dovalidation = formhandling.validate;
-    if (this._dovalidation) {
-      this.node.addEventListener("focusout", handleFocusOutEvent, true);
-      this.node.addEventListener("input", handleValidateAfterEvent, true);
-      this.node.addEventListener("change", handleValidateAfterEvent, true);
-      this.node.noValidate = true;
     }
   }
 
@@ -473,9 +455,6 @@ export default class FormBase {
 
   _doSetFieldError(evt) {
     //FIXME properly handle multiple fields in this group reporting errors
-    if (!this._dovalidation)
-      return;
-
     dompack.stop(evt);
 
     //if we're already in error mode, always update reporting
@@ -555,9 +534,7 @@ export default class FormBase {
 
     const lock = dompack.flagUIBusy({ modal: true, component: this.node });
     this._submitstart = Date.now();
-    if (this._formhandling && this._formhandling.warnslow)
-      this._submittimeout = setTimeout(() => this._submitHasTimedOut(), this._formhandling.warnslow);
-
+    this._submittimeout = setTimeout(() => this._submitHasTimedOut(), 5000);
     this.node.classList.add('wh-form--submitting');
 
     try {
@@ -1447,10 +1424,10 @@ export default class FormBase {
     field.propWhFormNativeError = false;
     if (!alreadyfailed && field.checkValidity && !field.hasAttribute("data-wh-form-skipnativevalidation")) {
       const validitystatus = field.checkValidity();
-      if (this._dovalidation) { //we're handling validation UI ourselves
-        //we need a separate prop for our errors, as we shouldn't clear explicit errors
-        field.propWhValidationError = validitystatus ? '' : this._getErrorForValidity(field, field.validity);
-      }
+
+      //we need a separate prop for our errors, as we shouldn't clear explicit errors
+      field.propWhValidationError = validitystatus ? '' : this._getErrorForValidity(field, field.validity);
+
       if (!validitystatus) {
         field.propWhFormNativeError = true;
         alreadyfailed = true;
@@ -1460,7 +1437,7 @@ export default class FormBase {
     if (!alreadyfailed && !(await this.validateSingleFormField(field)))
       alreadyfailed = true;
 
-    if (!alreadyfailed && field.whFormsApiChecker && this._dovalidation)
+    if (!alreadyfailed && field.whFormsApiChecker)
       await field.whFormsApiChecker();
 
     return this._reportFieldValidity(field);
@@ -1552,9 +1529,6 @@ export default class FormBase {
         const tofocus = domfocus.canFocusTo(result.firstfailed) ? result.firstfailed : domfocus.getFocusableComponents(result.firstfailed)[0];
         if (tofocus)
           dompack.focus(tofocus, { preventScroll: true });
-
-        if (!this._dovalidation)
-          tofocus.reportValidity?.();
 
         this.scrollIntoView(result.firstfailed);
       }
