@@ -7,13 +7,14 @@ import * as webharefields from './internal/webharefields';
 import * as merge from './internal/merge';
 import { executeSubmitInstruction } from '@mod-system/js/wh/integration';
 import './internal/requiredstyles.css';
-import { getTid } from "@mod-tollium/js/gettid";
 import "./internal/form.lang.json";
 import { setFieldError, setupValidator } from './internal/customvalidation';
 import * as compatupload from '@mod-system/js/compat/upload';
 import * as pxl from '@mod-consilio/js/pxl';
 import { DeferredPromise, createDeferred } from '@webhare/std';
 import { debugFlags } from '@webhare/env';
+import { getErrorForValidity, supportsValidity } from '@webhare/forms/src/domsupport';
+import { TakeFocusEvent } from 'dompack';
 
 declare global {
   interface HTMLElement {
@@ -342,7 +343,7 @@ export default class FormBase {
    * .wh-form__error             - The error message container
    * .wh-form_suggestion         - The suggestion message container
    */
-  _updateFieldGroupMessageState(field, type, getError) {
+  _updateFieldGroupMessageState(field: HTMLElement, type: "error" | "suggestion", getError: (field: HTMLElement) => string | HTMLElement) {
     /*
     ADDME: ability to show multiple messages in case both the toplevel and a subfield have an error/suggestion.
            Example: a checkboxgroup in which too many options are selected AND the required textfield of a selected option is empty.
@@ -358,7 +359,7 @@ export default class FormBase {
            - have the progressive enchancement code add an attribute to the native form element
              with the ID of the (group)element.
     */
-    const fieldgroup = field.closest(".wh-form__fieldgroup");
+    const fieldgroup = field.closest<HTMLElement>(".wh-form__fieldgroup");
     //console.log("_updateFieldGroupMessageState", field, fieldgroup);
     if (!fieldgroup)
       return null;
@@ -366,7 +367,7 @@ export default class FormBase {
     // Within the group this field belongs to we lookup the first node we can find which is marked as having the
     // type of message we want ("error" or "suggestion").
     // First we'll see if the fieldgroup wants to report something, otherwise whe'll look for the first node which has a message.
-    const field_with_message = fieldgroup.classList.contains("wh-form__field--" + type) ? fieldgroup : fieldgroup.querySelector(".wh-form__field--" + type);
+    const field_with_message = fieldgroup.classList.contains("wh-form__field--" + type) ? fieldgroup : fieldgroup.querySelector<HTMLElement>(".wh-form__field--" + type);
 
 
     // Now mark the whole .wh-form__fieldgroup as having an error/suggestion
@@ -477,11 +478,11 @@ export default class FormBase {
   }
 
   _updateFieldGroupErrorState(field: HTMLElement) {
-    this._updateFieldGroupMessageState(field, 'error', failedfield => failedfield.propWhSetFieldError || failedfield.propWhValidationError);
+    this._updateFieldGroupMessageState(field, 'error', failedfield => failedfield.propWhSetFieldError || failedfield.propWhValidationError || '');
   }
 
   _updateFieldGroupSuggestionState(field: HTMLElement) {
-    this._updateFieldGroupMessageState(field, 'suggestion', failedfield => failedfield.propWhValidationSuggestion);
+    this._updateFieldGroupMessageState(field, 'suggestion', failedfield => failedfield.propWhValidationSuggestion || '');
   }
 
   _doSetFieldError(evt) {
@@ -883,8 +884,7 @@ export default class FormBase {
           // Give the formgroup a chance to handle it
           if (dompack.dispatchCustomEvent(node, "wh:form-require", { bubbles: true, cancelable: true, detail: { required: node_required } })) {
             // Not cancelled, so run our default handler
-            if (node.matches("input,select,textarea")) //For true html5 inputs we'll use the native attributes. formstatelisteners: we use data attributes
-            {
+            if (node.matches("input,select,textarea")) { //For true html5 inputs we'll use the native attributes. formstatelisteners: we use data attributes
               if (node.type != 'checkbox') //don't set required on checkboxes, that doesn't do what you want
                 node.required = node_required;
             } else if (node_required)
@@ -1426,42 +1426,6 @@ export default class FormBase {
     setFieldError(field, error, options);
   }
 
-  _getErrorForValidity(field: HTMLElement, validity: ValidityStateFlags) {
-    if (validity.customError && field.validationMessage)
-      return field.validationMessage;
-
-    if (validity.valueMissing)
-      return getTid("publisher:site.forms.commonerrors.required");
-    if (validity.rangeOverflow) {
-      const max = field.type === 'date' ? webharefields.reformatDate(field.max) : field.max;
-      return getTid("publisher:site.forms.commonerrors.max", max);
-    }
-    if (validity.rangeUnderflow) {
-      const min = field.type === 'date' ? webharefields.reformatDate(field.min) : field.min;
-      return getTid("publisher:site.forms.commonerrors.min", min);
-    }
-    if (validity.badInput)
-      return getTid("publisher:site.forms.commonerrors.default");
-    if (validity.tooShort)
-      return getTid("publisher:site.forms.commonerrors.minlength", field.minLength);
-    if (validity.tooLong)
-      return getTid("publisher:site.forms.commonerrors.maxlength", field.maxLength);
-    if (validity.stepMismatch)
-      if (!field.step || parseInt(field.step) == 1)
-        return getTid("publisher:site.forms.commonerrors.step1mismatch");
-      else
-        return getTid("publisher:site.forms.commonerrors.stepmismatch", field.step);
-    if (validity.typeMismatch)
-      if (["email", "url", "number"].includes(field.type))
-        return getTid("publisher:site.forms.commonerrors." + field.type);
-
-    for (const key of ["badInput", "customError", "patternMismatch", "rangeOverflow", "rangeUnderflow", "stepMismatch", "typeMismatch", "valueMissing"] as const)
-      if (validity[key])
-        return key;
-
-    return '?';
-  }
-
   async validateSingleFormField(field: HTMLElement): Promise<boolean> {
     return true;
   }
@@ -1471,11 +1435,11 @@ export default class FormBase {
 
     //browser checks go first, any additional checks are always additive (just disable browserchecks you don't want to apply)
     field.propWhFormNativeError = false;
-    if (!alreadyfailed && field.checkValidity && !field.hasAttribute("data-wh-form-skipnativevalidation")) {
+    if (!alreadyfailed && supportsValidity(field) && !field.hasAttribute("data-wh-form-skipnativevalidation")) {
       const validitystatus = field.checkValidity();
 
       //we need a separate prop for our errors, as we shouldn't clear explicit errors
-      field.propWhValidationError = validitystatus ? '' : this._getErrorForValidity(field, field.validity);
+      field.propWhValidationError = validitystatus ? '' : getErrorForValidity(field);
 
       if (!validitystatus) {
         field.propWhFormNativeError = true;
