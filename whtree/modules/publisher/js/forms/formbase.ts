@@ -51,9 +51,17 @@ type ExtraData = unknown;
 
 export type FormResultValue = Record<string, unknown>;
 
+export interface FormSubmitEmbeddedResult {
+  //form webtool Submit result. can add anything and is mixed with our properties
+  [key: string]: unknown;
+  //webtool submit additions:
+  submittype?: string;
+}
+
 export interface FormSubmitResult {
   success: boolean;
-  result: unknown;
+  //TODO a next form iteration should not mix all these additional props into the form user's 'result'
+  result: FormSubmitEmbeddedResult;
   errors: Array<{ name: string; message: string; metadata: unknown }>;
   warnings: Array<{ name: string; message: string; metadata: unknown }>;
 }
@@ -593,9 +601,9 @@ export default class FormBase {
   }
 
   //default submission function. eg. RPC will override this
-  async submit(extradata?: ExtraData): Promise<{ result: unknown }> {
+  async submit(extradata?: ExtraData): Promise<{ result?: FormSubmitEmbeddedResult }> {
     this.node.submit();
-    return { result: null };
+    return {};
   }
 
   _onTakeFocus(evt: TakeFocusEvent) {

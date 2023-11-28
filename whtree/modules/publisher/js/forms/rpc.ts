@@ -4,7 +4,7 @@
 import * as dompack from '@webhare/dompack';
 import * as focus from 'dompack/browserfix/focus';
 import * as merge from './internal/merge';
-import FormBase, { FormResultValue } from './formbase';
+import FormBase, { FormResultValue, FormSubmitEmbeddedResult } from './formbase';
 import publisherFormService from "@webhare/forms/src/formservice";
 import * as whintegration from '@mod-system/js/wh/integration';
 import * as emailvalidation from './internal/emailvalidation';
@@ -177,7 +177,7 @@ export default class RPCFormBase extends FormBase {
     }
   }
 
-  async submit(extradata?: object): Promise<{ result: unknown }> {
+  async submit(extradata?: object): Promise<{ result?: FormSubmitEmbeddedResult }> {
     //ADDME timeout and free the form after some time
     if (this.__formhandler.submitting) //throwing is the safest solution... having the caller register a second resolve is too dangerous
       throw new Error("The form is already being submitted");
@@ -254,7 +254,7 @@ export default class RPCFormBase extends FormBase {
           dompack.focus(failednode);
           didfirstfocus = true;
         }
-        FormBase.setFieldError(failednode, error.message, { reportimmediately: true, serverside: true, metadata: error.metadata });
+        this.setFieldError(failednode, error.message, { reportimmediately: true, serverside: true, metadata: error.metadata });
       }
 
       if (result.success) {
