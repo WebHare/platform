@@ -13,7 +13,7 @@ import * as compatupload from '@mod-system/js/compat/upload';
 import * as pxl from '@mod-consilio/js/pxl';
 import { DeferredPromise, createDeferred } from '@webhare/std';
 import { debugFlags } from '@webhare/env';
-import { getErrorForValidity, supportsValidity } from '@webhare/forms/src/domsupport';
+import { getErrorForValidity, isFormControl, isRadioOrCheckbox, supportsValidity } from '@webhare/forms/src/domsupport';
 import { TakeFocusEvent } from 'dompack';
 
 declare global {
@@ -30,6 +30,7 @@ declare global {
     //TODO It's suspicious that both propWhFormCurrent... and propWhNodeCurrent... exist
     propWhNodeCurrentEnabled?: boolean;
     propWhNodeCurrentRequired?: boolean;
+    propWhNodeCurrentHidden?: boolean;
     propWhFormlineCurrentVisible?: boolean;
     propWhValidationSuggestion?: HTMLElement | null;
     propWhValidationError?: string | null;
@@ -49,6 +50,16 @@ declare global {
 }
 
 type ExtraData = unknown;
+
+type FormControlDescription = {
+  name: string;
+  multi: false;
+  node: HTMLElement;
+} | {
+  name: string;
+  multi: true;
+  nodes: HTMLInputElement[];
+};
 
 export type FormResultValue = Record<string, unknown>;
 
@@ -315,10 +326,10 @@ export default class FormBase {
       if (field.multi && field.nodes[0].type == 'checkbox') {
         for (const node of field.nodes) {
           const shouldbechecked = allvalues.includes(node.value);
-          if (shouldbechecked != field.checked)
+          if (shouldbechecked != node.checked) //NOTE: used to read 'field.checked' which doesn't exist so this if() would always evaluate to true
             this.setFieldValue(node, shouldbechecked);
         }
-      } else if (field.multi && field.nodes[0].type == 'radio') {
+      } else if (field.multi) { //implies radio
         const tocheck = field.nodes.filter(_ => _.value == allvalues[allvalues.length - 1])[0];
         if (tocheck && !tocheck.checked)
           this.setFieldValue(tocheck, true);
@@ -865,7 +876,7 @@ export default class FormBase {
           // Give the formgroup a chance to handle it
           if (dompack.dispatchCustomEvent(node, "wh:form-enable", { bubbles: true, cancelable: true, detail: { enabled: node_enabled } })) {
             // Not cancelled, so run our default handler
-            if (node.matches("input,select,textarea")) //For true html5 inputs we'll use the native attributes. formstatelisteners: we use data attributes
+            if (isFormControl(node)) //For true html5 inputs we'll use the native attributes. formstatelisteners: we use data attributes
               node.disabled = !node_enabled;
             else if (node_enabled)
               node.removeAttribute("data-wh-form-disabled");
@@ -884,7 +895,7 @@ export default class FormBase {
           // Give the formgroup a chance to handle it
           if (dompack.dispatchCustomEvent(node, "wh:form-require", { bubbles: true, cancelable: true, detail: { required: node_required } })) {
             // Not cancelled, so run our default handler
-            if (node.matches("input,select,textarea")) { //For true html5 inputs we'll use the native attributes. formstatelisteners: we use data attributes
+            if (isFormControl(node)) { //For true html5 inputs we'll use the native attributes. formstatelisteners: we use data attributes
               if (node.type != 'checkbox') //don't set required on checkboxes, that doesn't do what you want
                 node.required = node_required;
             } else if (node_required)
@@ -1247,14 +1258,8 @@ export default class FormBase {
     skipfield?: HTMLElement;
     onlysettable?: boolean;
     startnode?: HTMLElement;
-  }) {
-    const foundfields = new Array<{
-      name: string;
-      multi: boolean;
-      node?: HTMLElement;
-      nodes?: HTMLElement[];
-    }>;
-
+  }): FormControlDescription[] {
+    const foundfields = new Array<FormControlDescription>;
     const skiparraymembers = options && options.skiparraymembers;
 
     for (const field of this._getFieldsToValidate(options?.startnode)) {
@@ -1272,11 +1277,13 @@ export default class FormBase {
         continue;
 
       let addto = foundfields.find(_ => _.name == name);
-      if ((field as HTMLInputElement).type == 'radio' || (field as HTMLInputElement).type == 'checkbox') //expect multiple inputs with this name?
-      {
+      if (isRadioOrCheckbox(field)) { //expect multiple inputs with this name?
         if (!addto) {
           addto = { name: name, multi: true, nodes: [] };
           foundfields.push(addto);
+        } else if (!addto.multi) {
+          console.error(`[fhv] Encountered duplicate field '${name}'`, field);
+          continue;
         }
         addto.nodes.push(field);
       } else {
@@ -1299,7 +1306,7 @@ export default class FormBase {
 
   /** getValue from a field as returned by _queryAllFields (supporting both multilevel and plain fields)
       @returns promise */
-  _getQueryiedFieldValue(field) {
+  _getQueryiedFieldValue(field: FormControlDescription) {
     if (!field.multi)
       return this.getFieldValue(field.node);
 
