@@ -1410,6 +1410,15 @@ export default class FormBase {
     return vals.length ? vals[0] : null;
   }
 
+  /** @deprecated Just import setupValidator from \@mod-publisher/js/forms */
+  static setupValidator(node: HTMLElement, checker: (node: HTMLElement) => Promise<void> | void) {
+    setupValidator(node, checker);
+  }
+
+  /** @deprecated Just import setFieldError from \@mod-publisher/js/forms */
+  static setFieldError(field: HTMLElement, error: string, options?: FieldErrorOptions) {
+    setFieldError(field, error, options);
+  }
   setFieldError(field: HTMLElement, error: string, options?: FieldErrorOptions) {
     setFieldError(field, error, options);
   }
@@ -1586,6 +1595,3 @@ export default class FormBase {
 
 window.addEventListener("mouseup", releasePendingValidations, true);
 window.addEventListener("focusin", handleFocusInEvent, true);
-
-FormBase.setFieldError = setFieldError;
-FormBase.setupValidator = setupValidator;
