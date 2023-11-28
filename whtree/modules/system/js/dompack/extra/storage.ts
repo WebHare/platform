@@ -17,7 +17,7 @@ export function isIsolated() {
 
 // Report whether browser storage APIs are unavailable. They might not be in eg Chrome incognito 'Block third-party cookies'
 let _available: boolean;
-export function available(): boolean {
+export function isStorageAvailable(): boolean {
   if (isolated)
     return true;
 

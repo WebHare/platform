@@ -104,7 +104,7 @@ test.run([
     test.eq("true", vars.get("db_boel"));
 
     // Test invalid event names
-    //@ts-ignore -- we really want to pass just one parameter here
+    //@ts-expect-error -- we really want to pass just one parameter here
     test.throws(/Invalid event/, () => pxl.makePxlURL("https://example.org"));
     test.throws(/Invalid event/, () => pxl.makePxlURL("https://example.org", ""));
     test.throws(/Invalid event/, () => pxl.makePxlURL("https://example.org", "test event"));
@@ -112,14 +112,21 @@ test.run([
     test.throws(/Invalid event/, () => pxl.makePxlURL("https://example.org", "êvent"));
 
     // Test invalid data field names
+    //@ts-expect-error -- plus runtime should catch it
     test.throws(/Invalid data/, () => pxl.makePxlURL("https://example.org", "event", { ds: "test" }));
+    //@ts-expect-error -- plus runtime should catch it
     test.throws(/Invalid data/, () => pxl.makePxlURL("https://example.org", "event", { "1": "test" }));
+    //@ts-expect-error -- plus runtime should catch it
     test.throws(/Invalid data/, () => pxl.makePxlURL("https://example.org", "event", { "a:b": "test" }));
 
     // Test invalid data field values
+    //@ts-expect-error -- plus runtime should catch it
     test.throws(/Invalid value/, () => pxl.makePxlURL("https://example.org", "event", { ds_1: 42 }));
+    //@ts-expect-error -- plus runtime should catch it
     test.throws(/Invalid value/, () => pxl.makePxlURL("https://example.org", "event", { ds_1: true }));
+    //@ts-expect-error -- plus runtime should catch it
     test.throws(/Invalid value/, () => pxl.makePxlURL("https://example.org", "event", { ds_1: { b: "test" } }));
+    //@ts-expect-error -- plus runtime should catch it
     test.throws(/Invalid value/, () => pxl.makePxlURL("https://example.org", "event", { ds_1: new Date() }));
 
     // Test max url length (access log stores 600 bytes of request url)
