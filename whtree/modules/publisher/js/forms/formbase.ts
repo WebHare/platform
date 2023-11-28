@@ -1498,23 +1498,23 @@ export default class FormBase {
         const result = await this._executeQueuedValidation(item.limitset, item.options);
         item.defer.resolve(result);
       } catch (error) {
-        item.defer.reject(error);
+        item.defer.reject(error as Error);
       }
       this.validationqueue.shift(); //remove the top item
     }
   }
 
-  async _executeQueuedValidation(limitset?: LimitSet, options?: ValidationOptions) {
+  async _executeQueuedValidation(limitset?: LimitSet, options?: ValidationOptions): Promise<ValidationResult> {
     const original = limitset;
     if (!limitset)  //validate entire form if unspecified what to validate
       limitset = this._getFieldsToValidate();
 
-    let tovalidate = new Set;
+    const tovalidate = new Set<HTMLElement>;
     for (const node of Array.isArray(limitset) ? limitset : [limitset]) {
       /* If you're explicitly validating a radio/checkbox, we need to validate its group (but not recurse down) as that's where radiogroup.es and checkboxgroup.es attach their validations
          If you're targeting a group, we'll end up validating both the radio/checkbox (directly attached here) and any eg. embedded textedits  */
       if (node.matches(`input[type=radio],input[type=checkbox]`)) {
-        const group = node.closest(".wh-form__fieldgroup");
+        const group = node.closest<HTMLElement>(".wh-form__fieldgroup");
         if (group)
           tovalidate.add(group);
         continue;
@@ -1530,23 +1530,23 @@ export default class FormBase {
     tovalidate = Array.from(tovalidate); //we need an array now for further processing
        but that breaks on some old mootools integrations, see https://gitlab.webhare.com/webharebv/codekloppers/-/issues/677#note_146801
        wokaround: */
-    tovalidate = [...tovalidate]; //we need an array now for further processing
+    let tovalidatelist = [...tovalidate]; //we need an array now for further processing
 
     if (options && options.iffailedbefore)
-      tovalidate = tovalidate.filter(node => hasEverFailed(node));
+      tovalidatelist = tovalidatelist.filter(node => hasEverFailed(node));
 
     if (debugFlags.fhv)
-      console.log("[fhv] Validation of %o expanded to %d elements: %o", original, tovalidate.length, [...tovalidate]);
+      console.log("[fhv] Validation of %o expanded to %d elements: %o", original, tovalidatelist.length, [...tovalidatelist]);
 
     const lock = dompack.flagUIBusy();
     try {
-      if (!tovalidate.length)
+      if (!tovalidatelist.length)
         return { valid: true, failed: [], firstfailed: null };
 
-      const validationresults = await Promise.all(tovalidate.map(fld => this._validateSingleFieldOurselves(fld)));
+      const validationresults = await Promise.all(tovalidatelist.map(fld => this._validateSingleFieldOurselves(fld)));
       //remove the elements from validate for which the promise failed
-      const failed = tovalidate.filter((fld, idx) => !validationresults[idx]);
-      const result = {
+      const failed = tovalidatelist.filter((fld, idx) => !validationresults[idx]);
+      const result: ValidationResult = {
         valid: failed.length == 0,
         failed: failed,
         firstfailed: null
@@ -1563,7 +1563,7 @@ export default class FormBase {
       }
 
       if (debugFlags.fhv)
-        console.log(`[fhv] Validation of ${tovalidate.size} fields done, ${result.failed.length} failed`, result);
+        console.log(`[fhv] Validation of ${tovalidatelist.length} fields done, ${result.failed.length} failed`, result);
 
       return result;
     } finally {
