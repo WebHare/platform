@@ -13,7 +13,7 @@ import * as compatupload from '@mod-system/js/compat/upload';
 import * as pxl from '@mod-consilio/js/pxl';
 import { DeferredPromise, createDeferred } from '@webhare/std';
 import { debugFlags } from '@webhare/env';
-import { getErrorForValidity, isFormControl, isRadioOrCheckbox, supportsValidity } from '@webhare/forms/src/domsupport';
+import { FormControlElement, getErrorForValidity, isFormControl, isRadioOrCheckbox, supportsValidity } from '@webhare/forms/src/domsupport';
 import { TakeFocusEvent } from 'dompack';
 
 declare global {
@@ -41,6 +41,7 @@ declare global {
     whFormsApiChecker?: () => Promise<void> | void;
     propWhFormNativeError?: boolean;
     whUseFormGetValue?: boolean;
+    __didPlaceholderWarning?: boolean;
   }
 
   interface GlobalEventHandlersEventMap {
@@ -50,6 +51,13 @@ declare global {
 }
 
 type ExtraData = unknown;
+
+type ConstrainedRadioNodeList = RadioNodeList & NodeListOf<HTMLInputElement>;
+
+// Constrains the RadioNodeList type to only return HTMLInputElements. reduces number of casts we need
+function isRadioNodeList(el: RadioNodeList | Element): el is ConstrainedRadioNodeList {
+  return el instanceof RadioNodeList;
+}
 
 type FormControlDescription = {
   name: string;
@@ -221,6 +229,7 @@ function handleValidateAfterEvent(event: Event) {
 
 export default class FormBase {
   readonly node: HTMLFormElement;
+  /** @deprecated Use node.elements if you want a true HTMLFormControlsCollection, use getElementByName since WH5.4+ for properly typed elements */
   readonly elements: HTMLFormControlsCollection;
   private _formsessionid = pxl.generateId();
   private _firstinteraction: number | undefined;
@@ -271,6 +280,11 @@ export default class FormBase {
     return node.propWhFormhandler || null;
   }
 
+  ///like namedItem but improves on the types returned. does *not* lookup by data-wh-form-name!
+  getElementByName(name: string): FormControlElement | ConstrainedRadioNodeList | null {
+    return this.node.elements.namedItem(name) as FormControlElement | ConstrainedRadioNodeList | null;
+  }
+
   /** Get language for this form */
   getLangCode() {
     return this.node.closest<HTMLElement>('[lang]')?.lang ?? 'en';
@@ -316,7 +330,7 @@ export default class FormBase {
     // This is the initialization, check the enable components for all elements within the form
     for (const control of dompack.qSA<EnablingComponent>(this.node, "*[data-wh-form-enable]"))
       for (const element of control.dataset.whFormEnable!.split(" ")) {
-        const target = this.node.elements.namedItem(element);
+        const target = this.getElementByName(element);
         if (target && target instanceof HTMLElement) {
           const name = (control instanceof HTMLOptionElement ? control.closest<HTMLSelectElement>("select") : control)?.name;
           if (!name) //duplicated node?
@@ -944,10 +958,9 @@ export default class FormBase {
         option.hidden = option_hidden;
 
         // If this option was the selected option, but is now disabled (but not the placeholder), reset the select's value
-        const selectnode = option.closest("select");
-        if (option.selected && (!option_enabled || option_hidden) && option.dataset.whPlaceholder === undefined) {
-          if (selectnode.options[0].dataset.whPlaceholder !== undefined) //we have a placeholder...
-          {
+        const selectnode = option.closest<HTMLSelectElement>("select");
+        if (selectnode && option.selected && (!option_enabled || option_hidden) && option.dataset.whPlaceholder === undefined) {
+          if (selectnode.options[0].dataset.whPlaceholder !== undefined) { //we have a placeholder...
             selectnode.selectedIndex = 0;
           } else {
             selectnode.selectedIndex = -1;
@@ -1009,13 +1022,13 @@ export default class FormBase {
     if (this.node.hasAttribute("data-wh-form-var-" + fieldname))
       return this.node.getAttribute("data-wh-form-var-" + fieldname);
 
-    const matchfield = this.elements.namedItem(fieldname);
+    const matchfield = this.getElementByName(fieldname);
     if (!matchfield) {
       console.error(`No match for conditional required field '${fieldname}'`);
       return null;
     }
 
-    if (matchfield instanceof RadioNodeList) {
+    if (isRadioNodeList(matchfield)) {
       let currentvalue = null;
 
       for (const field of matchfield)
@@ -1035,10 +1048,10 @@ export default class FormBase {
     }
 
     if (matchfield.type == "checkbox")
-      return matchfield.checked ? [matchfield.value] : null;
+      return (matchfield as HTMLInputElement).checked ? [matchfield.value] : null;
 
     if (matchfield.type == "radio")
-      return matchfield.checked ? matchfield.value : null;
+      return (matchfield as HTMLInputElement).checked ? matchfield.value : null;
 
     return matchfield.value;
   }
@@ -1062,7 +1075,7 @@ export default class FormBase {
       return currentvalue;
 
     // Look for an extrafield match
-    const matchfield = this.elements.namedItem(fields[0]);
+    const matchfield = this.getElementByName(fields[0]);
     if (!matchfield) {
       console.error(`No match for conditional required field '${conditionfield}'`);
       return null;
@@ -1390,7 +1403,7 @@ export default class FormBase {
 
   //get the option lines associated with a specific radio/checkbox group
   getOptions(name: string) {
-    let nodes = this.node.elements.namedItem(name);
+    let nodes = this.getElementByName(name);
     if (!nodes)
       return [];
     if (nodes.length === undefined)
@@ -1420,7 +1433,7 @@ export default class FormBase {
 
   /** get the fieldgroup for an element */
   getFieldGroup(name: string) {
-    let node = this.node.elements.namedItem(name);
+    let node = this.getElementByName(name);
     if (!node)
       return null;
 

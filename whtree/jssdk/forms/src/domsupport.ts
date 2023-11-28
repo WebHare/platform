@@ -3,11 +3,13 @@
 import { reformatDate } from "@mod-publisher/js/forms/internal/webharefields";
 import { getTid } from "@mod-tollium/js/gettid";
 
+export type FormControlElement = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
+
 export function isRadioOrCheckbox(field: HTMLElement): field is HTMLInputElement {
   return field instanceof HTMLInputElement && ["radio", "checkbox"].includes(field.type);
 }
 
-export function isFormControl(field: HTMLElement): field is HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement {
+export function isFormControl(field: HTMLElement): field is FormControlElement {
   return field instanceof HTMLInputElement || field instanceof HTMLSelectElement || field instanceof HTMLTextAreaElement;
 }
 
