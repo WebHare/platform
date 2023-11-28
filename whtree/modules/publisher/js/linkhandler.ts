@@ -1,13 +1,15 @@
-/* eslint-disable */
-/// @ts-nocheck -- Bulk rename to enable TypeScript validation
-
 /* See https://code.webhare.com/publisher/utilities/linkhandler/
 */
 
-let linkopenoptions = null;
+interface LinkOpenOptions {
+  internalhosts?: string[];
+  extensions?: string[];
+}
 
-function onLinkClick(event) {
-  const link = event.target.closest('a');
+const linkopenoptions: LinkOpenOptions = {};
+
+function onLinkClick(event: MouseEvent) {
+  const link = (event.target as HTMLElement)?.closest?.('a');
   if (!link || link.download)
     return;
 
@@ -18,7 +20,7 @@ function onLinkClick(event) {
     return;
 
   const destdomain = (new URL(link.href)).host.toLowerCase();
-  if (!linkopenoptions.internalhosts.includes(destdomain)) {
+  if (!linkopenoptions?.internalhosts?.includes(destdomain)) {
     link.target = "_blank";
     return;
   }
@@ -32,13 +34,15 @@ function onLinkClick(event) {
   }
 }
 
-export function openLinksInNewWindow(options) {
-  if (!openLinksInNewWindow.attached) {
-    openLinksInNewWindow.attached = true;
+let isattached = false;
+
+export function openLinksInNewWindow(options?: LinkOpenOptions) {
+  if (!isattached) {
+    isattached = true;
     //IE11 fails sometimes (mostly, when navigating to the page but never when using F5, the back/forward page cache must be involved) to actually attach this element
     window.addEventListener("click", onLinkClick);
   }
-  linkopenoptions = { ...options };
+  Object.assign(linkopenoptions, options);
 
   if (!linkopenoptions.internalhosts) {
     const ourdomain = (new URL(location.href)).host.toLowerCase();
